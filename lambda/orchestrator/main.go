@@ -120,11 +120,12 @@ func authenticate(apiKey string) bool {
 
 func handleExec(ctx context.Context, req Request) (Response, error) {
 	// Validate required fields
-	if req.Repo == "" {
-		return Response{}, fmt.Errorf("repo required")
-	}
 	if req.Command == "" {
 		return Response{}, fmt.Errorf("command required")
+	}
+	// Repo is only required when git cloning is enabled
+	if !req.SkipGit && req.Repo == "" {
+		return Response{}, fmt.Errorf("repo required (unless --skip-git is used)")
 	}
 
 	// Generate execution ID if not provided
@@ -150,12 +151,15 @@ func handleExec(ctx context.Context, req Request) (Response, error) {
 		timeoutSeconds = 1800 // 30 minutes default
 	}
 
-	// Construct the shell command that will:
-	// 1. Setup git credentials (if provided)
-	// 2. Clone the repository
-	// 3. Change to the repo directory
-	// 4. Execute the user's command
-	shellCommand := buildShellCommand(req.Repo, branch, req.Command, githubToken, gitlabToken, sshPrivateKey)
+	// Construct the shell command
+	var shellCommand string
+	if req.SkipGit {
+		// Skip git cloning and run command directly
+		shellCommand = buildDirectCommand(req.Command)
+	} else {
+		// Standard flow: setup git credentials, clone repo, execute command
+		shellCommand = buildShellCommand(req.Repo, branch, req.Command, githubToken, gitlabToken, sshPrivateKey)
+	}
 
 	// Build environment variables for the container
 	// Include user-provided environment variables
@@ -185,8 +189,15 @@ func handleExec(ctx context.Context, req Request) (Response, error) {
 		},
 		Tags: []ecsTypes.Tag{
 			{Key: aws.String("ExecutionID"), Value: aws.String(execID)},
-			{Key: aws.String("Repo"), Value: aws.String(req.Repo)},
 		},
+	}
+	
+	// Add Repo tag if provided (not required when skip-git is enabled)
+	if req.Repo != "" {
+		runTaskInput.Tags = append(runTaskInput.Tags, ecsTypes.Tag{
+			Key:   aws.String("Repo"),
+			Value: aws.String(req.Repo),
+		})
 	}
 
 	// Override container with our command and environment
@@ -306,6 +317,48 @@ func shellEscape(s string) string {
 	// Replace single quotes with '\'' (end quote, escaped quote, start quote)
 	// This allows us to safely wrap the string in single quotes
 	return "'" + strings.ReplaceAll(s, "'", "'\\''") + "'"
+}
+
+// buildDirectCommand constructs a simple shell script that:
+// 1. Executes the user's command directly (without git cloning)
+//
+// This is used when --skip-git flag is enabled
+func buildDirectCommand(userCommand string) string {
+	escapedCommand := shellEscape(userCommand)
+	
+	script := `set -e
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "mycli Remote Execution (No Git)"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+echo "→ Mode: Direct command execution (git cloning skipped)"
+echo ""
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "Executing command..."
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+`
+	
+	// Execute user command
+	script += fmt.Sprintf("eval %s\n", escapedCommand)
+	
+	// Capture exit code
+	script += `
+EXIT_CODE=$?
+echo ""
+if [ $EXIT_CODE -eq 0 ]; then
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo "✓ Command completed successfully"
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+else
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo "✗ Command failed with exit code: $EXIT_CODE"
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+fi
+exit $EXIT_CODE
+`
+	
+	return script
 }
 
 // buildShellCommand constructs a shell script that:
