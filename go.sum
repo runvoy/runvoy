@@ -16,8 +16,6 @@ github.com/aws/aws-sdk-go-v2/internal/ini v1.7.1 h1:uR9lXYjdPX0xY+NhvaJ4dD8rpSRz
 github.com/aws/aws-sdk-go-v2/internal/ini v1.7.1/go.mod h1:6fQQgfuGmw8Al/3M2IgIllycxV7ZW7WCdVSqfBeUiCY=
 github.com/aws/aws-sdk-go-v2/internal/v4a v1.4.11 h1:bKgSxk1TW//00PGQqYmrq83c+2myGidEclp+t9pPqVI=
 github.com/aws/aws-sdk-go-v2/internal/v4a v1.4.11/go.mod h1:vrPYCQ6rFHL8jzQA8ppu3gWX18zxjLIDGTeqDxkBmSI=
-github.com/aws/aws-sdk-go-v2/service/apigateway v1.35.9 h1:9izRfGPf77V364SWt2NjmR/3VI7AgRAFZaDJHAtD9pI=
-github.com/aws/aws-sdk-go-v2/service/apigateway v1.35.9/go.mod h1:/a0evDW8qp3FPS7HxI+dG2u0K/9sdr3NBI1tiP5ViiU=
 github.com/aws/aws-sdk-go-v2/service/cloudformation v1.42.0 h1:Eub6qmSRH5ahS1zhVLa1i1qT3raC9Sxrn2kgtG19J3I=
 github.com/aws/aws-sdk-go-v2/service/cloudformation v1.42.0/go.mod h1:ehWDbgXo5Zy6eLjP+xX+Vf8wXaSyLGeRf6KlvoVAaXk=
 github.com/aws/aws-sdk-go-v2/service/ecs v1.65.4 h1:7iBiBkI9o0dpLzhXBA52zHPO1p5ulswKPE5i09fu99o=
@@ -30,8 +28,6 @@ github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.13.11 h1:GpMf3z2K
 github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.13.11/go.mod h1:6MZP3ZI4QQsgUCFTwMZA2V0sEriNQ8k2hmoHF3qjimQ=
 github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.19.11 h1:weapBOuuFIBEQ9OX/NVW3tFQCvSutyjZYk/ga5jDLPo=
 github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.19.11/go.mod h1:3C1gN4FmIVLwYSh8etngUS+f1viY6nLCDVtZmrFbDy0=
-github.com/aws/aws-sdk-go-v2/service/lambda v1.79.0 h1:VwFFT9OroV+HDsl39ZOpVMz5UKsBp7z6AkuocPVal3o=
-github.com/aws/aws-sdk-go-v2/service/lambda v1.79.0/go.mod h1:iPEivsdTSWfNjDdrerAdgPQ5lnzk3lod1s21V60oWVc=
 github.com/aws/aws-sdk-go-v2/service/s3 v1.88.7 h1:Wer3W0GuaedWT7dv/PiWNZGSQFSTcBY2rZpbiUp5xcA=
 github.com/aws/aws-sdk-go-v2/service/s3 v1.88.7/go.mod h1:UHKgcRSx8PVtvsc1Poxb/Co3PD3wL7P+f49P0+cWtuY=
 github.com/aws/aws-sdk-go-v2/service/sso v1.18.4 h1:2UVO4N/polvKeP+yCA8TLEmidEKxmNTeVpsZnj/bbgA=

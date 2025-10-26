@@ -1,0 +1,41 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'mycli - S3 Bucket for Lambda Code (Stack 1 - Provisioning)'
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: mycli
+    Description: Name prefix for resources
+
+Resources:
+  # S3 bucket for Lambda code storage
+  LambdaCodeBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub '${ProjectName}-lambda-code-${AWS::AccountId}-${AWS::Region}'
+      # Enable versioning for Lambda code history
+      VersioningConfiguration:
+        Status: Enabled
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      Tags:
+        - Key: Project
+          Value: mycli
+        - Key: Purpose
+          Value: Lambda Code Storage
+        - Key: ManagedBy
+          Value: CloudFormation
+
+Outputs:
+  BucketName:
+    Description: S3 bucket name for Lambda code
+    Value: !Ref LambdaCodeBucket
+    Export:
+      Name: !Sub '${ProjectName}-lambda-code-bucket'
+
+  BucketArn:
+    Description: S3 bucket ARN
+    Value: !GetAtt LambdaCodeBucket.Arn

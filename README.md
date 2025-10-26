@@ -25,12 +25,19 @@ go build -o mycli
 mycli init
 ```
 
-This creates:
+This creates two CloudFormation stacks:
+
+**Stack 1 - Lambda Bucket:**
+- S3 bucket for Lambda code storage (versioned)
+
+**Stack 2 - Main Infrastructure:**
 - ECS Fargate cluster for running tasks
 - Lambda orchestrator with API Gateway
 - VPC with public subnets
 - CloudWatch Logs for execution output
 - Optionally configures Git credentials for private repos
+
+Both stacks remain permanent until you run `mycli destroy`.
 
 ### 3. Execute Commands
 
@@ -96,7 +103,7 @@ mycli logs -f <task-arn>
    - Executes your command
 4. Lambda starts ECS Fargate task with chosen Docker image
 5. Container runs the script, logs output to CloudWatch
-6. You monitor via: mycli status / mycli logs
+6. You monitor via: mycli status <task-arn> / mycli logs <task-arn>
 ```
 
 ## Configuration
@@ -165,11 +172,14 @@ Note: Use the task ARN from the `mycli exec` output
 Manually configure CLI (for existing infrastructure)
 
 ### `mycli destroy`
-Delete all infrastructure
+Delete all infrastructure (both CloudFormation stacks)
 
 Options:
-- `--stack-name` - Stack to delete (default: "mycli")
+- `--stack-name` - Stack name to delete (default: "mycli")
 - `--force` - Skip confirmation
+- `--keep-config` - Keep local config file
+
+Deletes the main stack, empties and deletes the S3 bucket, and removes the Lambda bucket stack.
 
 ## Use Cases
 
