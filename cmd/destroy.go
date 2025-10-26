@@ -145,14 +145,14 @@ func runDestroy(cmd *cobra.Command, args []string) error {
 
 	// 3. Delete Lambda bucket stack
 	bucketStackName := fmt.Sprintf("%s-lambda-bucket", destroyStackName)
-	
+
 	fmt.Println("→ Deleting Lambda bucket stack...")
 
 	// First, get the bucket name from stack outputs
 	bucketResp, err := cfnClient.DescribeStacks(ctx, &cloudformation.DescribeStacksInput{
 		StackName: &bucketStackName,
 	})
-	
+
 	var bucketName string
 	if err != nil {
 		if strings.Contains(err.Error(), "does not exist") {
@@ -432,15 +432,4 @@ func emptyS3Bucket(ctx context.Context, s3Client *s3.Client, bucketName string) 
 	}
 
 	return nil
-}
-
-// parseStackOutputs is a helper function to convert stack outputs to a map
-func parseStackOutputs(outputs []cloudformation.types.Output) map[string]string {
-	result := make(map[string]string)
-	for _, output := range outputs {
-		if output.OutputKey != nil && output.OutputValue != nil {
-			result[*output.OutputKey] = *output.OutputValue
-		}
-	}
-	return result
 }
