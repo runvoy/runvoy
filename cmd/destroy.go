@@ -15,6 +15,8 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation"
 	"github.com/aws/aws-sdk-go-v2/service/ecs"
 	ecsTypes "github.com/aws/aws-sdk-go-v2/service/ecs/types"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
+	s3Types "github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/spf13/cobra"
 )
 
@@ -28,8 +30,10 @@ var (
 var destroyCmd = &cobra.Command{
 	Use:   "destroy",
 	Short: "Destroy mycli infrastructure and clean up AWS resources",
-	Long: `Destroys the CloudFormation stack and all associated resources:
-- Deletes the CloudFormation stack (Lambda, API Gateway, ECS, VPC, etc.)
+	Long: `Destroys both CloudFormation stacks and all associated resources:
+- Deletes the main CloudFormation stack (Lambda, API Gateway, ECS, VPC, etc.)
+- Empties and deletes the S3 bucket for Lambda code
+- Deletes the Lambda bucket CloudFormation stack
 - Cleans up ECS task definitions
 - Optionally removes local configuration
 
@@ -101,10 +105,10 @@ func runDestroy(cmd *cobra.Command, args []string) error {
 		fmt.Printf("  Warning: Failed to delete task definitions: %v\n", err)
 	}
 
-	// 2. Delete CloudFormation stack
+	// 2. Delete main CloudFormation stack
 	cfnClient := cloudformation.NewFromConfig(cfg)
 
-	fmt.Println("→ Deleting CloudFormation stack...")
+	fmt.Println("→ Deleting main CloudFormation stack...")
 
 	// Check if stack exists
 	_, err = cfnClient.DescribeStacks(ctx, &cloudformation.DescribeStacksInput{
@@ -112,7 +116,7 @@ func runDestroy(cmd *cobra.Command, args []string) error {
 	})
 	if err != nil {
 		if strings.Contains(err.Error(), "does not exist") {
-			fmt.Println("  Stack does not exist (already deleted)")
+			fmt.Println("  Main stack does not exist (already deleted)")
 		} else {
 			return fmt.Errorf("failed to describe stack: %w", err)
 		}
@@ -136,10 +140,67 @@ func runDestroy(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("stack deletion failed: %w", err)
 		}
 
-		fmt.Println("✓ Stack deleted successfully")
+		fmt.Println("✓ Main stack deleted successfully")
 	}
 
-	// 3. Remove local config
+	// 3. Delete Lambda bucket stack
+	bucketStackName := fmt.Sprintf("%s-lambda-bucket", destroyStackName)
+	
+	fmt.Println("→ Deleting Lambda bucket stack...")
+
+	// First, get the bucket name from stack outputs
+	bucketResp, err := cfnClient.DescribeStacks(ctx, &cloudformation.DescribeStacksInput{
+		StackName: &bucketStackName,
+	})
+	
+	var bucketName string
+	if err != nil {
+		if strings.Contains(err.Error(), "does not exist") {
+			fmt.Println("  Lambda bucket stack does not exist (already deleted)")
+		} else {
+			fmt.Printf("  Warning: Failed to describe bucket stack: %v\n", err)
+		}
+	} else {
+		// Get bucket name from outputs
+		if len(bucketResp.Stacks) > 0 {
+			outputs := parseStackOutputs(bucketResp.Stacks[0].Outputs)
+			bucketName = outputs["BucketName"]
+		}
+
+		// Empty the S3 bucket before deleting the stack
+		if bucketName != "" {
+			fmt.Println("  Emptying S3 bucket...")
+			s3Client := s3.NewFromConfig(cfg)
+			if err := emptyS3Bucket(ctx, s3Client, bucketName); err != nil {
+				fmt.Printf("  Warning: Failed to empty bucket: %v\n", err)
+			} else {
+				fmt.Println("  ✓ S3 bucket emptied")
+			}
+		}
+
+		// Delete bucket stack
+		_, err = cfnClient.DeleteStack(ctx, &cloudformation.DeleteStackInput{
+			StackName: &bucketStackName,
+		})
+		if err != nil {
+			fmt.Printf("  Warning: Failed to delete bucket stack: %v\n", err)
+		} else {
+			fmt.Println("  Waiting for bucket stack deletion...")
+
+			// Wait for bucket stack deletion
+			bucketWaiter := cloudformation.NewStackDeleteCompleteWaiter(cfnClient)
+			err = bucketWaiter.Wait(ctx, &cloudformation.DescribeStacksInput{
+				StackName: &bucketStackName,
+			}, 5*time.Minute)
+			if err != nil {
+				fmt.Printf("  Warning: Bucket stack deletion timed out or failed: %v\n", err)
+			} else {
+				fmt.Println("✓ Lambda bucket stack deleted successfully")
+			}
+		}
+	}
+
+	// 4. Remove local config
 	if !keepConfig {
 		fmt.Println("→ Removing local configuration...")
 		configPath, err := getConfigPath()
@@ -320,4 +381,66 @@ func deleteTaskDefinitions(ctx context.Context, ecsClient *ecs.Client, stackName
 	}
 
 	return nil
+}
+
+// emptyS3Bucket empties all objects and versions from an S3 bucket
+func emptyS3Bucket(ctx context.Context, s3Client *s3.Client, bucketName string) error {
+	// List and delete all object versions
+	paginator := s3.NewListObjectVersionsPaginator(s3Client, &s3.ListObjectVersionsInput{
+		Bucket: &bucketName,
+	})
+
+	for paginator.HasMorePages() {
+		page, err := paginator.NextPage(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to list object versions: %w", err)
+		}
+
+		// Delete objects in batches
+		if len(page.Versions) > 0 || len(page.DeleteMarkers) > 0 {
+			var objectsToDelete []s3Types.ObjectIdentifier
+
+			// Add versions
+			for _, version := range page.Versions {
+				objectsToDelete = append(objectsToDelete, s3Types.ObjectIdentifier{
+					Key:       version.Key,
+					VersionId: version.VersionId,
+				})
+			}
+
+			// Add delete markers
+			for _, marker := range page.DeleteMarkers {
+				objectsToDelete = append(objectsToDelete, s3Types.ObjectIdentifier{
+					Key:       marker.Key,
+					VersionId: marker.VersionId,
+				})
+			}
+
+			if len(objectsToDelete) > 0 {
+				_, err = s3Client.DeleteObjects(ctx, &s3.DeleteObjectsInput{
+					Bucket: &bucketName,
+					Delete: &s3Types.Delete{
+						Objects: objectsToDelete,
+						Quiet:   aws.Bool(true),
+					},
+				})
+				if err != nil {
+					return fmt.Errorf("failed to delete objects: %w", err)
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
+// parseStackOutputs is a helper function to convert stack outputs to a map
+func parseStackOutputs(outputs []cloudformation.types.Output) map[string]string {
+	result := make(map[string]string)
+	for _, output := range outputs {
+		if output.OutputKey != nil && output.OutputValue != nil {
+			result[*output.OutputKey] = *output.OutputValue
+		}
+	}
+	return result
 }

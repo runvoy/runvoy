@@ -140,11 +140,11 @@ func runInit(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to build Lambda: %w", err)
 	}
 
-	// 5. Create temporary bucket stack for Lambda code
+	// 5. Create bucket stack for Lambda code (Stack 1)
 	cfnClient := cloudformation.NewFromConfig(cfg)
-	bucketStackName := fmt.Sprintf("%s-bootstrap", initStackName)
+	bucketStackName := fmt.Sprintf("%s-lambda-bucket", initStackName)
 
-	fmt.Println("→ Creating temporary S3 bucket for Lambda code...")
+	fmt.Println("→ Creating S3 bucket stack for Lambda code (Stack 1)...")
 
 	// Read bucket template
 	cwd, err := os.Getwd()
@@ -171,7 +171,7 @@ func runInit(cmd *cobra.Command, args []string) error {
 		},
 		Tags: []types.Tag{
 			{Key: strPtr("Project"), Value: strPtr("mycli")},
-			{Key: strPtr("Lifecycle"), Value: strPtr("Temporary")},
+			{Key: strPtr("Stack"), Value: strPtr("Lambda-Bucket")},
 		},
 	})
 	if err != nil {
@@ -189,7 +189,7 @@ func runInit(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("bucket stack creation failed: %w", err)
 	}
 
-	fmt.Println("✓ Bucket stack created")
+	fmt.Println("✓ Lambda bucket stack created")
 
 	// Get bucket name from stack outputs
 	bucketResp, err := cfnClient.DescribeStacks(ctx, &cloudformation.DescribeStacksInput{
@@ -221,8 +221,8 @@ func runInit(cmd *cobra.Command, args []string) error {
 
 	fmt.Println("✓ Lambda code uploaded")
 
-	// 7. Create main CloudFormation stack
-	fmt.Println("→ Creating main CloudFormation stack...")
+	// 7. Create main CloudFormation stack (Stack 2)
+	fmt.Println("→ Creating main CloudFormation stack (Stack 2)...")
 
 	cfnParams := []types.Parameter{
 		{
@@ -293,22 +293,7 @@ func runInit(cmd *cobra.Command, args []string) error {
 
 	fmt.Println("✓ Main stack created successfully")
 
-	// 8. Delete temporary bucket stack
-	fmt.Println("→ Cleaning up temporary bucket stack...")
-	
-	_, err = cfnClient.DeleteStack(ctx, &cloudformation.DeleteStackInput{
-		StackName: &bucketStackName,
-	})
-	if err != nil {
-		// Non-fatal - warn but continue
-		fmt.Printf("  ⚠️  Warning: Failed to delete bucket stack: %v\n", err)
-		fmt.Println("  You may need to delete it manually later")
-	} else {
-		// Don't wait for deletion to complete - it can happen in the background
-		fmt.Println("✓ Bucket stack deletion initiated (will complete in background)")
-	}
-
-	// 9. Get stack outputs
+	// 8. Get stack outputs
 	resp, err := cfnClient.DescribeStacks(ctx, &cloudformation.DescribeStacksInput{
 		StackName: &initStackName,
 	})
@@ -321,7 +306,7 @@ func runInit(cmd *cobra.Command, args []string) error {
 
 	apiEndpoint := outputs["APIEndpoint"]
 
-	// 10. Save to config file
+	// 9. Save to config file
 	fmt.Println("→ Saving configuration...")
 	cliConfig := &internalConfig.Config{
 		APIEndpoint: apiEndpoint,
@@ -332,7 +317,7 @@ func runInit(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to save config: %w", err)
 	}
 
-	// 11. Success!
+	// 10. Success!
 	fmt.Println("\n✅ Setup complete!")
 	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 	fmt.Println("Configuration saved to ~/.mycli/config.yaml")

@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'mycli - Temporary S3 Bucket for Lambda Code (Bootstrap Stack)'
+Description: 'mycli - S3 Bucket for Lambda Code (Stack 1 - Provisioning)'
 
 Parameters:
   ProjectName:
@@ -8,17 +8,14 @@ Parameters:
     Description: Name prefix for resources
 
 Resources:
-  # Temporary S3 bucket for Lambda bootstrap code
+  # S3 bucket for Lambda code storage
   LambdaCodeBucket:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: !Sub '${ProjectName}-lambda-bootstrap-${AWS::AccountId}-${AWS::Region}'
-      # Short lifecycle - bucket will be deleted after main stack is created
-      LifecycleConfiguration:
-        Rules:
-          - Id: DeleteOldVersions
-            Status: Enabled
-            ExpirationInDays: 1
+      BucketName: !Sub '${ProjectName}-lambda-code-${AWS::AccountId}-${AWS::Region}'
+      # Enable versioning for Lambda code history
+      VersioningConfiguration:
+        Status: Enabled
       PublicAccessBlockConfiguration:
         BlockPublicAcls: true
         BlockPublicPolicy: true
@@ -28,9 +25,9 @@ Resources:
         - Key: Project
           Value: mycli
         - Key: Purpose
-          Value: Lambda Bootstrap
-        - Key: Lifecycle
-          Value: Temporary
+          Value: Lambda Code Storage
+        - Key: ManagedBy
+          Value: CloudFormation
 
 Outputs:
   BucketName:

@@ -238,31 +238,33 @@ When a task definition family already exists, the Lambda checks if it uses the s
 
 mycli uses a two-stack CloudFormation approach to properly manage Lambda function provisioning:
 
-1. **Bootstrap Stack** (`cloudformation-bucket.yaml`) - Temporary
-   - Creates S3 bucket for Lambda code upload
-   - Automatically deleted after main stack creation
-   - Named: `{stack-name}-bootstrap`
+1. **Lambda Bucket Stack** (`cloudformation-bucket.yaml`) - Stack 1
+   - Creates S3 bucket for Lambda code storage
+   - Kept permanent throughout application lifecycle
+   - Named: `{stack-name}-lambda-bucket`
 
-2. **Main Stack** (`cloudformation.yaml`) - Permanent
-   - All core infrastructure resources
-   - Lambda function references S3 bucket for initial code
+2. **Main Infrastructure Stack** (`cloudformation.yaml`) - Stack 2
+   - All core infrastructure resources (ECS, VPC, API Gateway, etc.)
+   - Lambda function references S3 bucket from Stack 1
    - Named: `{stack-name}` (default: "mycli")
 
 **Why Two Stacks?**
 
 CloudFormation Lambda functions require actual code at creation time. By splitting into two stacks:
-- ✅ Fully declarative infrastructure (no manual Lambda updates needed)
-- ✅ Clean separation between bootstrap and permanent resources
-- ✅ Bucket automatically cleaned up after deployment
+- ✅ Fully declarative infrastructure (no manual Lambda code updates needed)
+- ✅ Clean separation of concerns: code storage vs infrastructure
+- ✅ Both stacks remain throughout application lifecycle
+- ✅ S3 bucket versioning enables Lambda code history tracking
 - ✅ No placeholder code workarounds
 
-**Bootstrap Stack Resources** (`deploy/cloudformation-bucket.yaml`):
-- **S3 Bucket** - Temporary storage for Lambda code
-  - Name: `{project-name}-lambda-bootstrap-{account-id}-{region}`
-  - Lifecycle: 1-day expiration (auto-cleanup)
+**Lambda Bucket Stack Resources** (`deploy/cloudformation-bucket.yaml`):
+- **S3 Bucket** - Persistent storage for Lambda code
+  - Name: `{project-name}-lambda-code-{account-id}-{region}`
+  - Versioning: Enabled for code history
   - Access: Private, blocked public access
+  - Lifecycle: Permanent (deleted only via `mycli destroy`)
 
-**Main Stack Resources** (`deploy/cloudformation.yaml`):
+**Main Infrastructure Stack Resources** (`deploy/cloudformation.yaml`):
 - **VPC** - 10.0.0.0/16 with DNS support
 - **Internet Gateway** - For public subnet internet access
 - **Public Subnets (2)** - Multi-AZ for high availability
@@ -474,13 +476,12 @@ mycli exec --branch=prod "terraform apply"  # prod environment
 4. Hashes key with bcrypt (cost 10)
 5. Prompts for Git credentials (optional, interactive)
 6. Builds Lambda function (Go cross-compile for linux/arm64)
-7. Creates temporary bootstrap CloudFormation stack with S3 bucket (~1 minute)
+7. Creates Lambda bucket CloudFormation stack (Stack 1) with S3 bucket (~1 minute)
 8. Uploads Lambda code to S3 bucket
-9. Creates main CloudFormation stack with all resources, Lambda references S3 (~5 minutes)
+9. Creates main infrastructure CloudFormation stack (Stack 2) with all resources (~5 minutes)
 10. Waits for main stack creation
-11. Deletes bootstrap stack (happens in background, non-blocking)
-12. Saves config to ~/.mycli/config.yaml
-13. Displays API key (shown once, also saved to config)
+11. Saves config to ~/.mycli/config.yaml
+12. Displays API key (shown once, also saved to config)
 
 **Flags:**
 - `--stack-name string` - CloudFormation stack name (default: "mycli")
@@ -527,16 +528,14 @@ Type 'yes' to confirm: yes
 
 → Generating API key...
 → Building Lambda function...
-→ Creating temporary S3 bucket for Lambda code...
+→ Creating S3 bucket stack for Lambda code (Stack 1)...
   Waiting for bucket stack creation...
-✓ Bucket stack created
+✓ Lambda bucket stack created
 → Uploading Lambda code to S3...
 ✓ Lambda code uploaded
-→ Creating main CloudFormation stack...
+→ Creating main CloudFormation stack (Stack 2)...
   Waiting for stack creation (this may take a few minutes)...
 ✓ Main stack created successfully
-→ Cleaning up temporary bucket stack...
-✓ Bucket stack deletion initiated (will complete in background)
 → Saving configuration...
 
 ✅ Setup complete!
@@ -716,7 +715,7 @@ $ mycli logs -f arn:aws:ecs:us-east-1:123456789:task/mycli-cluster/abc123def456
 
 ### `mycli destroy`
 
-**Purpose:** Clean up all infrastructure
+**Purpose:** Clean up all infrastructure (both stacks)
 
 **Flags:**
 - `--stack-name string` - Stack to delete (default: "mycli")
@@ -729,18 +728,24 @@ $ mycli logs -f arn:aws:ecs:us-east-1:123456789:task/mycli-cluster/abc123def456
 2. Deletes all ECS task definitions with mycli prefix (both active and inactive, dynamically created)
    - First deregisters all ACTIVE task definitions
    - Then deletes all INACTIVE task definitions (including newly deregistered ones)
-3. Deletes CloudFormation stack (cascades to all resources including Lambda, API Gateway, ECS, VPC, etc.)
-4. Waits for deletion to complete
-5. Removes local config file (unless --keep-config)
+3. Deletes main CloudFormation stack (cascades to Lambda, API Gateway, ECS, VPC, etc.)
+4. Waits for main stack deletion to complete
+5. Empties S3 bucket (deletes all objects and versions)
+6. Deletes Lambda bucket CloudFormation stack
+7. Waits for bucket stack deletion to complete
+8. Removes local config file (unless --keep-config)
 
 **Example:**
 ```bash
 $ mycli destroy
-⚠️  This will delete all mycli infrastructure in your AWS account.
-   Stack: mycli
-   Region: us-east-1
+⚠️  WARNING: This will destroy the CloudFormation stack 'mycli' and all resources.
+   This action cannot be undone.
 
-Continue? [y/N]: y
+Type 'yes' to confirm: yes
+
+Destroying mycli infrastructure...
+   Region: us-east-1
+   Stack: mycli
 
 → Deleting ECS task definitions...
   Collecting task definitions...
@@ -751,9 +756,14 @@ Continue? [y/N]: y
   Deleting inactive task definitions...
   Deleted: arn:aws:ecs:us-east-1:123456789:task-definition/mycli-task:1
 ✓ Deleted 3 task definitions
-→ Deleting CloudFormation stack...
-  Waiting for stack deletion...
-✓ Stack deleted successfully
+→ Deleting main CloudFormation stack...
+  Waiting for stack deletion (this may take a few minutes)...
+✓ Main stack deleted successfully
+→ Deleting Lambda bucket stack...
+  Emptying S3 bucket...
+  ✓ S3 bucket emptied
+  Waiting for bucket stack deletion...
+✓ Lambda bucket stack deleted successfully
 → Removing local configuration...
 ✓ Config removed
 
@@ -1269,10 +1279,9 @@ This will:
 - Generate API key
 - Prompt for Git credentials (optional)
 - Build Lambda function
-- Create temporary S3 bucket stack (~1 min)
+- Create Lambda bucket stack (Stack 1) (~1 min)
 - Upload Lambda code to S3
-- Create main CloudFormation stack (~5 min)
-- Delete temporary bucket stack (background)
+- Create main infrastructure stack (Stack 2) (~5 min)
 - Save config to ~/.mycli/config.yaml
 
 **3. Verify deployment:**
@@ -1707,12 +1716,12 @@ mycli/
 
 ## Appendix: AWS Resource Summary
 
-**Bootstrap Stack (Temporary - deleted after deployment):**
+**Lambda Bucket Stack (Stack 1 - Permanent):**
 | Resource Type | Name/ID | Purpose |
 |--------------|---------|---------|
-| S3 Bucket | mycli-lambda-bootstrap-{account}-{region} | Lambda code storage (temporary) |
+| S3 Bucket | mycli-lambda-code-{account}-{region} | Lambda code storage (versioned) |
 
-**Main Stack (Permanent):**
+**Main Infrastructure Stack (Stack 2 - Permanent):**
 | Resource Type | Name/ID | Purpose |
 |--------------|---------|---------|
 | VPC | mycli-vpc | Network isolation |
@@ -1729,8 +1738,7 @@ mycli/
 | Lambda Permission | AllowAPIGatewayInvoke | API Gateway invoke permission |
 | API Gateway Deployment | prod | API deployment to prod stage |
 
-**Total Permanent Resources:** ~18 (all managed by CloudFormation)
-**Total Bootstrap Resources:** 1 (deleted after deployment)
+**Total Resources:** ~19 across 2 CloudFormation stacks (all permanent, all managed by CloudFormation)
 
 ---
 
