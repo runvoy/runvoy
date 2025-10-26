@@ -15,10 +15,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation"
 	"github.com/aws/aws-sdk-go-v2/service/ecs"
 	ecsTypes "github.com/aws/aws-sdk-go-v2/service/ecs/types"
-	"github.com/aws/aws-sdk-go-v2/service/lambda"
-	"github.com/aws/aws-sdk-go-v2/service/s3"
-	s3Types "github.com/aws/aws-sdk-go-v2/service/s3/types"
-	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"github.com/spf13/cobra"
 )
 
@@ -33,8 +29,8 @@ var destroyCmd = &cobra.Command{
 	Use:   "destroy",
 	Short: "Destroy mycli infrastructure and clean up AWS resources",
 	Long: `Destroys the CloudFormation stack and all associated resources:
-- Empties and deletes the S3 bucket
 - Deletes the CloudFormation stack (Lambda, API Gateway, ECS, VPC, etc.)
+- Cleans up ECS task definitions
 - Optionally removes local configuration
 
 This is useful for cleaning up during development or completely removing mycli.`,
@@ -98,50 +94,14 @@ func runDestroy(cmd *cobra.Command, args []string) error {
 	fmt.Printf("   Region: %s\n", destroyRegion)
 	fmt.Printf("   Stack: %s\n\n", destroyStackName)
 
-	// Get AWS account ID for bucket name
-	stsClient := sts.NewFromConfig(cfg)
-	identity, err := stsClient.GetCallerIdentity(ctx, &sts.GetCallerIdentityInput{})
-	if err != nil {
-		return fmt.Errorf("failed to get AWS identity: %w", err)
-	}
-	accountID := *identity.Account
-	bucketName := fmt.Sprintf("mycli-code-%s", accountID)
-
-	// 1. Empty S3 bucket (required before CloudFormation can delete it)
-	fmt.Println("→ Emptying S3 bucket...")
-	if err := emptyBucket(ctx, cfg, bucketName, destroyRegion); err != nil {
-		fmt.Printf("  Warning: Failed to empty bucket: %v\n", err)
-		fmt.Println("  Continuing with stack deletion...")
-	} else {
-		fmt.Println("✓ Bucket emptied")
-	}
-
-	// 2. Delete ECS task definitions (created dynamically by Lambda)
+	// 1. Delete ECS task definitions (created dynamically by Lambda)
 	fmt.Println("→ Deleting ECS task definitions...")
 	ecsClient := ecs.NewFromConfig(cfg)
 	if err := deleteTaskDefinitions(ctx, ecsClient, destroyStackName); err != nil {
 		fmt.Printf("  Warning: Failed to delete task definitions: %v\n", err)
 	}
 
-	// 3. Delete Lambda function (created outside CloudFormation)
-	fmt.Println("→ Deleting Lambda function...")
-	lambdaClient := lambda.NewFromConfig(cfg)
-	functionName := fmt.Sprintf("%s-orchestrator", destroyStackName)
-
-	_, err = lambdaClient.DeleteFunction(ctx, &lambda.DeleteFunctionInput{
-		FunctionName: &functionName,
-	})
-	if err != nil {
-		if !strings.Contains(err.Error(), "ResourceNotFoundException") {
-			fmt.Printf("  Warning: Failed to delete Lambda: %v\n", err)
-		} else {
-			fmt.Println("  (Lambda function not found)")
-		}
-	} else {
-		fmt.Println("✓ Lambda function deleted")
-	}
-
-	// 4. Delete CloudFormation stack
+	// 2. Delete CloudFormation stack
 	cfnClient := cloudformation.NewFromConfig(cfg)
 
 	fmt.Println("→ Deleting CloudFormation stack...")
@@ -179,7 +139,7 @@ func runDestroy(cmd *cobra.Command, args []string) error {
 		fmt.Println("✓ Stack deleted successfully")
 	}
 
-	// 5. Remove local config
+	// 3. Remove local config
 	if !keepConfig {
 		fmt.Println("→ Removing local configuration...")
 		configPath, err := getConfigPath()
@@ -196,66 +156,6 @@ func runDestroy(cmd *cobra.Command, args []string) error {
 
 	fmt.Println("\n✅ Destruction complete!")
 	fmt.Println("   All AWS resources have been removed.")
-
-	return nil
-}
-
-func emptyBucket(ctx context.Context, cfg aws.Config, bucketName, region string) error {
-	s3Client := s3.NewFromConfig(cfg, func(o *s3.Options) {
-		o.Region = region
-		o.UsePathStyle = false
-	})
-
-	// Check if bucket exists
-	_, err := s3Client.HeadBucket(ctx, &s3.HeadBucketInput{
-		Bucket: &bucketName,
-	})
-	if err != nil {
-		// Bucket doesn't exist, nothing to empty
-		return nil
-	}
-
-	// List all objects
-	paginator := s3.NewListObjectsV2Paginator(s3Client, &s3.ListObjectsV2Input{
-		Bucket: &bucketName,
-	})
-
-	objectsDeleted := 0
-	for paginator.HasMorePages() {
-		page, err := paginator.NextPage(ctx)
-		if err != nil {
-			return fmt.Errorf("failed to list objects: %w", err)
-		}
-
-		if len(page.Contents) == 0 {
-			continue
-		}
-
-		// Delete objects in batch
-		var objectIds []s3Types.ObjectIdentifier
-		for _, obj := range page.Contents {
-			objectIds = append(objectIds, s3Types.ObjectIdentifier{
-				Key: obj.Key,
-			})
-		}
-
-		_, err = s3Client.DeleteObjects(ctx, &s3.DeleteObjectsInput{
-			Bucket: &bucketName,
-			Delete: &s3Types.Delete{
-				Objects: objectIds,
-				Quiet:   aws.Bool(true),
-			},
-		})
-		if err != nil {
-			return fmt.Errorf("failed to delete objects: %w", err)
-		}
-
-		objectsDeleted += len(objectIds)
-	}
-
-	if objectsDeleted > 0 {
-		fmt.Printf("  Deleted %d objects from bucket\n", objectsDeleted)
-	}
 
 	return nil
 }

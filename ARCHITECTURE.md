@@ -691,14 +691,12 @@ $ mycli logs -f arn:aws:ecs:us-east-1:123456789:task/mycli-cluster/abc123def456
 
 **What it does:**
 1. Confirms with user (unless --force)
-2. Empties S3 bucket (required before CloudFormation deletion)
-3. Deletes all ECS task definitions with mycli prefix (both active and inactive, dynamically created)
+2. Deletes all ECS task definitions with mycli prefix (both active and inactive, dynamically created)
    - First deregisters all ACTIVE task definitions
    - Then deletes all INACTIVE task definitions (including newly deregistered ones)
-4. Deletes Lambda function (created outside CloudFormation)
-5. Deletes CloudFormation stack (cascades to all resources)
-6. Waits for deletion to complete
-7. Removes local config file (unless --keep-config)
+3. Deletes CloudFormation stack (cascades to all resources including Lambda, API Gateway, ECS, VPC, etc.)
+4. Waits for deletion to complete
+5. Removes local config file (unless --keep-config)
 
 **Example:**
 ```bash
@@ -709,8 +707,6 @@ $ mycli destroy
 
 Continue? [y/N]: y
 
-→ Emptying S3 bucket...
-✓ Bucket emptied
 → Deleting ECS task definitions...
   Collecting task definitions...
   Found 3 active and 2 inactive mycli task definitions across 5 families
@@ -720,8 +716,6 @@ Continue? [y/N]: y
   Deleting inactive task definitions...
   Deleted: arn:aws:ecs:us-east-1:123456789:task-definition/mycli-task:1
 ✓ Deleted 3 task definitions
-→ Deleting Lambda function...
-✓ Lambda function deleted
 → Deleting CloudFormation stack...
   Waiting for stack deletion...
 ✓ Stack deleted successfully
