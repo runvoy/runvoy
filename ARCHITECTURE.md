@@ -1234,6 +1234,7 @@ rm ~/.mycli/config.yaml  # Optional
 - ✅ Public Git repositories (GitHub, GitLab, Bitbucket)
 - ✅ Private repos with token/SSH authentication
 - ✅ Any Docker image from Docker Hub, ECR, or private registries
+- ✅ Custom image per execution via `--image` flag or `.mycli.yaml`
 - ✅ Commands up to ~30 minutes (configurable)
 - ✅ Environment variable passing
 - ✅ Exit code propagation
@@ -1251,7 +1252,6 @@ rm ~/.mycli/config.yaml  # Optional
 | No Git submodules | Clone with `--recurse-submodules` in script |
 | Working directory is repo root | `cd subdirectory && command` in script |
 | Logs require task ARN (not execution ID) | Task ARN is provided in exec output, copy/paste it |
-| Custom image per execution not fully supported | Image specified in task definition, override not supported by ECS API (future enhancement: dynamic task definition registration) |
 
 ### Design Trade-offs
 

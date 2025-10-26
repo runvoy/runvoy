@@ -33,9 +33,6 @@ func handleExec(ctx context.Context, cfg *Config, req Request) (Response, error)
 		branch = "main"
 	}
 
-	// Note: Custom images per execution are not fully supported at runtime via overrides
-	_ = req.Image
-
 	timeoutSeconds := req.TimeoutSeconds
 	if timeoutSeconds == 0 {
 		timeoutSeconds = 1800 // 30 minutes default (currently unused in ECS call)
@@ -97,6 +94,11 @@ func handleExec(ctx context.Context, cfg *Config, req Request) (Response, error)
 		Environment: envVars,
 		// Override the command to run our shell script
 		Command: []string{"/bin/sh", "-c", shellCommand},
+	}
+
+	// Override the image if specified
+	if req.Image != "" {
+		containerOverride.Image = aws.String(req.Image)
 	}
 
 	runTaskInput.Overrides = &ecsTypes.TaskOverride{
