@@ -5,7 +5,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -172,11 +171,11 @@ func getOrCreateTaskDefinition(ctx context.Context, cfg *Config, image string) (
 		TaskDefinition: aws.String(cfg.TaskDef),
 	})
 	if err != nil {
-		return \"\", fmt.Errorf(\"failed to describe base task definition: %v\", err)
+		return "", fmt.Errorf("failed to describe base task definition: %v", err)
 	}
 
 	baseDef := baseTaskDef.TaskDefinition
-	
+
 	// Create a new container definition with the custom image
 	containerDef := baseDef.ContainerDefinitions[0]
 	containerDef.Image = aws.String(image)
@@ -193,7 +192,7 @@ func getOrCreateTaskDefinition(ctx context.Context, cfg *Config, image string) (
 		ContainerDefinitions:    []ecsTypes.ContainerDefinition{containerDef},
 	})
 	if err != nil {
-		return \"\", fmt.Errorf(\"failed to register task definition: %v\", err)
+		return "", fmt.Errorf("failed to register task definition: %v", err)
 	}
 
 	return *registerResp.TaskDefinition.TaskDefinitionArn, nil

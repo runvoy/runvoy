@@ -246,6 +246,7 @@ Resources:
                   - 'ecs:DescribeTasks'
                   - 'ecs:DescribeTaskDefinition'
                   - 'ecs:RegisterTaskDefinition'
+                  - 'ecs:DeregisterTaskDefinition'
                   - 'ecs:ListTasks'
                   - 'ecs:TagResource'
                 Resource: '*'

@@ -5,4 +5,5 @@ build:
     go build -o mycli
 
 deploy:
+    ./scripts/update-cloudformation.sh
     ./scripts/update-lambda.sh
