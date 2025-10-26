@@ -9,6 +9,16 @@ import (
     "github.com/aws/aws-lambda-go/lambda"
 )
 
+var cfg *Config
+
+func init() {
+	var err error
+	cfg, err = InitConfig()
+	if err != nil {
+		panic(fmt.Sprintf("failed to initialize config: %v", err))
+	}
+}
+
 func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
 	// Parse request body
 	var req Request
@@ -22,7 +32,7 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
         apiKey = request.Headers["X-Api-Key"] // Try capitalized version
     }
 
-    if !authenticate(apiKey) {
+    if !authenticate(cfg, apiKey) {
 		return errorResponse(401, "unauthorized")
 	}
 
@@ -32,11 +42,11 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 
     switch req.Action {
     case "exec":
-        resp, err = handleExec(ctx, req)
+        resp, err = handleExec(ctx, cfg, req)
     case "status":
-        resp, err = handleStatus(ctx, req)
+        resp, err = handleStatus(ctx, cfg, req)
     case "logs":
-        resp, err = handleLogs(ctx, req)
+        resp, err = handleLogs(ctx, cfg, req)
     default:
         return errorResponse(400, "invalid action")
     }

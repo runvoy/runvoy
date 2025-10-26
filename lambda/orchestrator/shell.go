@@ -63,7 +63,7 @@ exit $EXIT_CODE
 //
 // NOTE: This is a pragmatic bash solution for MVP.
 // Future: Consider more robust solutions (Go binary, Python script, etc.)
-func buildShellCommand(repo, branch, userCommand, githubToken, gitlabToken, sshKey string) string {
+func buildShellCommand(cfg *Config, repo, branch, userCommand string) string {
     script := `set -e
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "mycli Remote Execution"
@@ -88,24 +88,24 @@ fi
 `
 
 	// Setup git credentials (with proper shell escaping for security)
-	if githubToken != "" {
-		escapedToken := shellEscape(githubToken)
+	if cfg.GitHubToken != "" {
+		escapedToken := shellEscape(cfg.GitHubToken)
         script += fmt.Sprintf(`
 echo "→ Configuring GitHub authentication..."
 git config --global credential.helper store
 echo "https://%s:x-oauth-basic@github.com" > ~/.git-credentials
 chmod 600 ~/.git-credentials
 `, escapedToken)
-	} else if gitlabToken != "" {
-		escapedToken := shellEscape(gitlabToken)
+	} else if cfg.GitLabToken != "" {
+		escapedToken := shellEscape(cfg.GitLabToken)
         script += fmt.Sprintf(`
 echo "→ Configuring GitLab authentication..."
 git config --global credential.helper store
 echo "https://oauth2:%s@gitlab.com" > ~/.git-credentials
 chmod 600 ~/.git-credentials
 `, escapedToken)
-	} else if sshKey != "" {
-		escapedKey := shellEscape(sshKey)
+	} else if cfg.SSHPrivateKey != "" {
+		escapedKey := shellEscape(cfg.SSHPrivateKey)
         script += fmt.Sprintf(`
 echo "→ Configuring SSH authentication..."
 mkdir -p ~/.ssh

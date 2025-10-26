@@ -2,9 +2,9 @@ package main
 
 import "golang.org/x/crypto/bcrypt"
 
-func authenticate(apiKey string) bool {
-	if apiKey == "" || apiKeyHash == "" {
+func authenticate(cfg *Config, apiKey string) bool {
+	if apiKey == "" || cfg.APIKeyHash == "" {
 		return false
 	}
-	return bcrypt.CompareHashAndPassword([]byte(apiKeyHash), []byte(apiKey)) == nil
+	return bcrypt.CompareHashAndPassword([]byte(cfg.APIKeyHash), []byte(apiKey)) == nil
 }

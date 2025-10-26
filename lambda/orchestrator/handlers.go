@@ -11,7 +11,7 @@ import (
 	ecsTypes "github.com/aws/aws-sdk-go-v2/service/ecs/types"
 )
 
-func handleExec(ctx context.Context, req Request) (Response, error) {
+func handleExec(ctx context.Context, cfg *Config, req Request) (Response, error) {
 	// Validate required fields
 	if req.Command == "" {
 		return Response{}, fmt.Errorf("command required")
@@ -49,7 +49,7 @@ func handleExec(ctx context.Context, req Request) (Response, error) {
 		shellCommand = buildDirectCommand(req.Command)
 	} else {
 		// Standard flow: setup git credentials, clone repo, execute command
-		shellCommand = buildShellCommand(req.Repo, branch, req.Command, githubToken, gitlabToken, sshPrivateKey)
+		shellCommand = buildShellCommand(cfg, req.Repo, branch, req.Command)
 	}
 
 	// Build environment variables for the container
@@ -68,13 +68,13 @@ func handleExec(ctx context.Context, req Request) (Response, error) {
 
 	// Run Fargate task
 	runTaskInput := &ecs.RunTaskInput{
-		Cluster:        &ecsCluster,
-		TaskDefinition: &taskDef,
+		Cluster:        &cfg.ECSCluster,
+		TaskDefinition: &cfg.TaskDef,
 		LaunchType:     ecsTypes.LaunchTypeFargate,
 		NetworkConfiguration: &ecsTypes.NetworkConfiguration{
 			AwsvpcConfiguration: &ecsTypes.AwsVpcConfiguration{
-				Subnets:        []string{subnet1, subnet2},
-				SecurityGroups: []string{securityGroup},
+				Subnets:        []string{cfg.Subnet1, cfg.Subnet2},
+				SecurityGroups: []string{cfg.SecurityGroup},
 				AssignPublicIp: ecsTypes.AssignPublicIpEnabled,
 			},
 		},
@@ -103,7 +103,7 @@ func handleExec(ctx context.Context, req Request) (Response, error) {
 		ContainerOverrides: []ecsTypes.ContainerOverride{containerOverride},
 	}
 
-	runTaskResp, err := ecsClient.RunTask(ctx, runTaskInput)
+	runTaskResp, err := cfg.ECSClient.RunTask(ctx, runTaskInput)
 	if err != nil {
 		return Response{}, fmt.Errorf("failed to run task: %v", err)
 	}
@@ -128,13 +128,13 @@ func handleExec(ctx context.Context, req Request) (Response, error) {
 	}, nil
 }
 
-func handleStatus(ctx context.Context, req Request) (Response, error) {
+func handleStatus(ctx context.Context, cfg *Config, req Request) (Response, error) {
 	if req.TaskArn == "" {
 		return Response{}, fmt.Errorf("task_arn required")
 	}
 
-	describeResp, err := ecsClient.DescribeTasks(ctx, &ecs.DescribeTasksInput{
-		Cluster: &ecsCluster,
+	describeResp, err := cfg.ECSClient.DescribeTasks(ctx, &ecs.DescribeTasksInput{
+		Cluster: &cfg.ECSCluster,
 		Tasks:   []string{req.TaskArn},
 	})
 	if err != nil {
@@ -158,7 +158,7 @@ func handleStatus(ctx context.Context, req Request) (Response, error) {
 	}, nil
 }
 
-func handleLogs(ctx context.Context, req Request) (Response, error) {
+func handleLogs(ctx context.Context, cfg *Config, req Request) (Response, error) {
 	if req.ExecutionID == "" {
 		return Response{}, fmt.Errorf("execution_id required")
 	}
@@ -169,8 +169,8 @@ func handleLogs(ctx context.Context, req Request) (Response, error) {
 
 	streamPrefix := "task/"
 
-	filterResp, err := logsClient.FilterLogEvents(ctx, &cloudwatchlogs.FilterLogEventsInput{
-		LogGroupName:        &logGroup,
+	filterResp, err := cfg.LogsClient.FilterLogEvents(ctx, &cloudwatchlogs.FilterLogEventsInput{
+		LogGroupName:        &cfg.LogGroup,
 		LogStreamNamePrefix: &streamPrefix,
 		Limit:               aws.Int32(1000),
 	})
