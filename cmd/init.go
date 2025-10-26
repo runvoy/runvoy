@@ -2,10 +2,12 @@ package cmd
 
 import (
 	"archive/zip"
+	"bufio"
 	"bytes"
 	"context"
 	"crypto/rand"
 	_ "embed"
+	"encoding/base64"
 	"encoding/hex"
 	"fmt"
 	"io"
@@ -24,8 +26,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation/types"
 	"github.com/aws/aws-sdk-go-v2/service/lambda"
 	lambdaTypes "github.com/aws/aws-sdk-go-v2/service/lambda/types"
-	"github.com/aws/aws-sdk-go-v2/service/s3"
-	s3Types "github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"github.com/spf13/cobra"
 	"golang.org/x/crypto/bcrypt"
@@ -45,6 +45,7 @@ var initCmd = &cobra.Command{
 	Long: `Deploys the complete mycli infrastructure to your AWS account:
 - Creates CloudFormation stack with all required resources
 - Generates and stores a secure API key
+- Optionally configures Git credentials for private repositories
 - Configures the CLI automatically
 
 This is a one-time setup command.`,
@@ -54,13 +55,13 @@ This is a one-time setup command.`,
 func init() {
 	rootCmd.AddCommand(initCmd)
 	initCmd.Flags().StringVar(&initStackName, "stack-name", "mycli", "CloudFormation stack name")
-	initCmd.Flags().StringVar(&initRegion, "region", "", "AWS region (default: us-east-2)")
+	initCmd.Flags().StringVar(&initRegion, "region", "", "AWS region (default: from AWS config or us-east-2)")
 }
 
 func runInit(cmd *cobra.Command, args []string) error {
 	ctx := context.Background()
 
-	fmt.Println("Initializing mycli infrastructure...")
+	fmt.Println("🚀 Initializing mycli infrastructure...")
 	fmt.Printf("   Stack name: %s\n", initStackName)
 
 	// Load AWS config
@@ -77,7 +78,7 @@ func runInit(cmd *cobra.Command, args []string) error {
 		if cfg.Region != "" {
 			initRegion = cfg.Region
 		} else {
-			initRegion = "us-east-2" // Default to us-east-2 (cheap, no S3 quirks)
+			initRegion = "us-east-2" // Default region
 		}
 	}
 
@@ -108,57 +109,60 @@ func runInit(cmd *cobra.Command, args []string) error {
 	}
 	apiKeyHash := string(hash)
 
-	// 3. Build Lambda function
-	fmt.Println("→ Building Lambda function...")
+	// 3. Configure Git credentials (optional)
+	fmt.Println("\n→ Git Credential Configuration")
+	fmt.Println("  For private repositories, you can configure Git authentication.")
+	fmt.Println("  This is optional - you can skip this and only use public repos.")
+	
+	githubToken, gitlabToken, sshPrivateKey, err := promptGitCredentials()
+	if err != nil {
+		return fmt.Errorf("failed to configure Git credentials: %w", err)
+	}
+
+	// 4. Build Lambda function
+	fmt.Println("\n→ Building Lambda function...")
 	lambdaZip, err := buildLambda()
 	if err != nil {
 		return fmt.Errorf("failed to build Lambda: %w", err)
-	}
-
-	// 4. Create S3 bucket for code storage
-	bucketName := fmt.Sprintf("mycli-code-%s", accountID)
-	fmt.Println("→ Creating S3 bucket...")
-	s3Client := s3.NewFromConfig(cfg)
-
-	createBucketInput := &s3.CreateBucketInput{
-		Bucket: &bucketName,
-	}
-
-	// us-east-1 doesn't need (and doesn't accept) LocationConstraint
-	if initRegion != "us-east-1" {
-		createBucketInput.CreateBucketConfiguration = &s3Types.CreateBucketConfiguration{
-			LocationConstraint: s3Types.BucketLocationConstraint(initRegion),
-		}
-	}
-
-	_, err = s3Client.CreateBucket(ctx, createBucketInput)
-	if err != nil {
-		// Ignore error if bucket already exists
-		if !strings.Contains(err.Error(), "BucketAlreadyOwnedByYou") &&
-			!strings.Contains(err.Error(), "BucketAlreadyExists") {
-			return fmt.Errorf("failed to create bucket: %w", err)
-		}
-		fmt.Println("  (bucket already exists)")
 	}
 
 	// 5. Create CloudFormation stack
 	cfnClient := cloudformation.NewFromConfig(cfg)
 
 	fmt.Println("→ Creating CloudFormation stack...")
+	
+	cfnParams := []types.Parameter{
+		{
+			ParameterKey:   aws.String("APIKeyHash"),
+			ParameterValue: aws.String(apiKeyHash),
+		},
+	}
+
+	// Add Git credentials as parameters if provided
+	if githubToken != "" {
+		cfnParams = append(cfnParams, types.Parameter{
+			ParameterKey:   aws.String("GitHubToken"),
+			ParameterValue: aws.String(githubToken),
+		})
+	}
+	if gitlabToken != "" {
+		cfnParams = append(cfnParams, types.Parameter{
+			ParameterKey:   aws.String("GitLabToken"),
+			ParameterValue: aws.String(gitlabToken),
+		})
+	}
+	if sshPrivateKey != "" {
+		cfnParams = append(cfnParams, types.Parameter{
+			ParameterKey:   aws.String("SSHPrivateKey"),
+			ParameterValue: aws.String(sshPrivateKey),
+		})
+	}
+
 	_, err = cfnClient.CreateStack(ctx, &cloudformation.CreateStackInput{
 		StackName:    &initStackName,
 		TemplateBody: &cfnTemplate,
 		Capabilities: []types.Capability{types.CapabilityCapabilityNamedIam},
-		Parameters: []types.Parameter{
-			{
-				ParameterKey:   aws.String("APIKeyHash"),
-				ParameterValue: aws.String(apiKeyHash),
-			},
-			{
-				ParameterKey:   aws.String("CodeBucketName"),
-				ParameterValue: aws.String(bucketName),
-			},
-		},
+		Parameters:   cfnParams,
 		Tags: []types.Tag{
 			{Key: strPtr("Project"), Value: strPtr("mycli")},
 		},
@@ -192,13 +196,34 @@ func runInit(cmd *cobra.Command, args []string) error {
 	outputs := parseStackOutputs(stack.Outputs)
 
 	apiEndpoint := outputs["APIEndpoint"]
-	codeBucket := outputs["CodeBucket"]
 	lambdaRoleArn := outputs["LambdaExecutionRoleArn"]
 
 	// 7. Create Lambda function with direct zip upload
 	fmt.Println("→ Creating Lambda function...")
 	lambdaClient := lambda.NewFromConfig(cfg)
 	functionName := fmt.Sprintf("%s-orchestrator", initStackName)
+
+	// Build Lambda environment variables
+	lambdaEnv := map[string]string{
+		"API_KEY_HASH":    apiKeyHash,
+		"ECS_CLUSTER":     outputs["ECSClusterName"],
+		"TASK_DEFINITION": outputs["TaskDefinitionArn"],
+		"SUBNET_1":        outputs["Subnet1"],
+		"SUBNET_2":        outputs["Subnet2"],
+		"SECURITY_GROUP":  outputs["FargateSecurityGroup"],
+		"LOG_GROUP":       outputs["LogGroup"],
+	}
+
+	// Add Git credentials to Lambda environment if provided
+	if githubToken != "" {
+		lambdaEnv["GITHUB_TOKEN"] = githubToken
+	}
+	if gitlabToken != "" {
+		lambdaEnv["GITLAB_TOKEN"] = gitlabToken
+	}
+	if sshPrivateKey != "" {
+		lambdaEnv["SSH_PRIVATE_KEY"] = sshPrivateKey
+	}
 
 	_, err = lambdaClient.CreateFunction(ctx, &lambda.CreateFunctionInput{
 		FunctionName: &functionName,
@@ -211,16 +236,7 @@ func runInit(cmd *cobra.Command, args []string) error {
 		Timeout:       aws.Int32(60),
 		Architectures: []lambdaTypes.Architecture{lambdaTypes.ArchitectureArm64},
 		Environment: &lambdaTypes.Environment{
-			Variables: map[string]string{
-				"API_KEY_HASH":    apiKeyHash,
-				"CODE_BUCKET":     bucketName,
-				"ECS_CLUSTER":     outputs["ECSClusterName"],
-				"TASK_DEFINITION": outputs["TaskDefinitionArn"],
-				"SUBNET_1":        outputs["Subnet1"],
-				"SUBNET_2":        outputs["Subnet2"],
-				"SECURITY_GROUP":  outputs["FargateSecurityGroup"],
-				"LOG_GROUP":       outputs["LogGroup"],
-			},
+			Variables: lambdaEnv,
 		},
 	})
 	if err != nil {
@@ -291,7 +307,6 @@ func runInit(cmd *cobra.Command, args []string) error {
 	cliConfig := &internalConfig.Config{
 		APIEndpoint: apiEndpoint,
 		APIKey:      apiKey,
-		CodeBucket:  codeBucket,
 		Region:      initRegion,
 	}
 	if err := internalConfig.Save(cliConfig); err != nil {
@@ -303,14 +318,89 @@ func runInit(cmd *cobra.Command, args []string) error {
 	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 	fmt.Println("Configuration saved to ~/.mycli/config.yaml")
 	fmt.Printf("  API Endpoint: %s\n", apiEndpoint)
-	fmt.Printf("  Code Bucket:  %s\n", codeBucket)
 	fmt.Printf("  Region:       %s\n", initRegion)
+	if githubToken != "" {
+		fmt.Println("  GitHub Auth:  ✓ Configured")
+	}
+	if gitlabToken != "" {
+		fmt.Println("  GitLab Auth:  ✓ Configured")
+	}
+	if sshPrivateKey != "" {
+		fmt.Println("  SSH Key:      ✓ Configured")
+	}
 	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 	fmt.Printf("\n🔑 Your API key: %s\n", apiKey)
 	fmt.Println("   (Also saved to config file)")
-	fmt.Println("\nTest it with: mycli exec \"echo hello\"")
+	fmt.Println("\nNext steps:")
+	fmt.Println("  1. Build and push the executor Docker image (see docker/README.md)")
+	fmt.Println("  2. Test it: mycli exec --repo=https://github.com/user/repo \"echo hello\"")
 
 	return nil
+}
+
+func promptGitCredentials() (githubToken, gitlabToken, sshPrivateKey string, err error) {
+	reader := bufio.NewReader(os.Stdin)
+
+	fmt.Print("\nConfigure Git credentials? [y/N]: ")
+	response, _ := reader.ReadString('\n')
+	response = strings.TrimSpace(strings.ToLower(response))
+
+	if response != "y" && response != "yes" {
+		fmt.Println("  Skipping Git credential configuration")
+		return "", "", "", nil
+	}
+
+	fmt.Println("\nChoose authentication method:")
+	fmt.Println("  1) GitHub Personal Access Token (recommended)")
+	fmt.Println("  2) GitLab Personal Access Token")
+	fmt.Println("  3) SSH Private Key (for any Git provider)")
+	fmt.Println("  4) Skip")
+	fmt.Print("\nSelection [1-4]: ")
+	
+	selection, _ := reader.ReadString('\n')
+	selection = strings.TrimSpace(selection)
+
+	switch selection {
+	case "1":
+		fmt.Print("Enter GitHub token (ghp_...): ")
+		token, _ := reader.ReadString('\n')
+		githubToken = strings.TrimSpace(token)
+		if githubToken != "" {
+			fmt.Println("  ✓ GitHub token configured")
+		}
+	case "2":
+		fmt.Print("Enter GitLab token: ")
+		token, _ := reader.ReadString('\n')
+		gitlabToken = strings.TrimSpace(token)
+		if gitlabToken != "" {
+			fmt.Println("  ✓ GitLab token configured")
+		}
+	case "3":
+		fmt.Print("Enter path to SSH private key: ")
+		path, _ := reader.ReadString('\n')
+		path = strings.TrimSpace(path)
+		
+		// Expand ~ to home directory
+		if strings.HasPrefix(path, "~/") {
+			home, _ := os.UserHomeDir()
+			path = filepath.Join(home, path[2:])
+		}
+		
+		keyData, err := os.ReadFile(path)
+		if err != nil {
+			return "", "", "", fmt.Errorf("failed to read SSH key: %w", err)
+		}
+		
+		// Base64 encode for safe storage in environment variable
+		sshPrivateKey = base64.StdEncoding.EncodeToString(keyData)
+		fmt.Println("  ✓ SSH key configured")
+	case "4", "":
+		fmt.Println("  Skipping Git credential configuration")
+	default:
+		fmt.Println("  Invalid selection, skipping")
+	}
+
+	return githubToken, gitlabToken, sshPrivateKey, nil
 }
 
 func buildLambda() ([]byte, error) {

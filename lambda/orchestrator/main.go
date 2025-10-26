@@ -17,11 +17,28 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+type ExecutionRequest struct {
+	ExecutionID    string            `json:"execution_id"`
+	Repo           string            `json:"repo"`
+	Branch         string            `json:"branch,omitempty"`
+	Command        string            `json:"command"`
+	Image          string            `json:"image,omitempty"`
+	Env            map[string]string `json:"env,omitempty"`
+	TimeoutSeconds int               `json:"timeout_seconds,omitempty"`
+}
+
 type Request struct {
-	Action      string `json:"action"`
-	Command     string `json:"command,omitempty"`
-	TaskArn     string `json:"task_arn,omitempty"`
-	ExecutionID string `json:"execution_id,omitempty"`
+	Action      string            `json:"action"`
+	TaskArn     string            `json:"task_arn,omitempty"`
+	ExecutionID string            `json:"execution_id,omitempty"`
+	
+	// Execution parameters (for "exec" action)
+	Repo           string            `json:"repo,omitempty"`
+	Branch         string            `json:"branch,omitempty"`
+	Command        string            `json:"command,omitempty"`
+	Image          string            `json:"image,omitempty"`
+	Env            map[string]string `json:"env,omitempty"`
+	TimeoutSeconds int               `json:"timeout_seconds,omitempty"`
 }
 
 type Response struct {
@@ -30,6 +47,7 @@ type Response struct {
 	Status        string `json:"status,omitempty"`
 	DesiredStatus string `json:"desired_status,omitempty"`
 	CreatedAt     string `json:"created_at,omitempty"`
+	LogStream     string `json:"log_stream,omitempty"`
 	Logs          string `json:"logs,omitempty"`
 	Error         string `json:"error,omitempty"`
 }
@@ -40,7 +58,9 @@ var (
 	logsClient *cloudwatchlogs.Client
 
 	apiKeyHash    string
-	codeBucket    string
+	githubToken   string
+	gitlabToken   string
+	sshPrivateKey string
 	ecsCluster    string
 	taskDef       string
 	subnet1       string
@@ -60,7 +80,9 @@ func init() {
 	logsClient = cloudwatchlogs.NewFromConfig(cfg)
 
 	apiKeyHash = os.Getenv("API_KEY_HASH")
-	codeBucket = os.Getenv("CODE_BUCKET")
+	githubToken = os.Getenv("GITHUB_TOKEN")
+	gitlabToken = os.Getenv("GITLAB_TOKEN")
+	sshPrivateKey = os.Getenv("SSH_PRIVATE_KEY")
 	ecsCluster = os.Getenv("ECS_CLUSTER")
 	taskDef = os.Getenv("TASK_DEFINITION")
 	subnet1 = os.Getenv("SUBNET_1")
@@ -125,15 +147,77 @@ func authenticate(apiKey string) bool {
 }
 
 func handleExec(ctx context.Context, req Request) (Response, error) {
+	// Validate required fields
+	if req.Repo == "" {
+		return Response{}, fmt.Errorf("repo required")
+	}
 	if req.Command == "" {
 		return Response{}, fmt.Errorf("command required")
 	}
 
-	// Generate execution ID
-	execID := time.Now().UTC().Format("20060102-150405-") + fmt.Sprintf("%06d", time.Now().Nanosecond()/1000)
+	// Generate execution ID if not provided
+	execID := req.ExecutionID
+	if execID == "" {
+		execID = generateExecutionID()
+	}
 
-	// Run Fargate task with command and execution ID as environment variables
-	runTaskResp, err := ecsClient.RunTask(ctx, &ecs.RunTaskInput{
+	// Set defaults
+	branch := req.Branch
+	if branch == "" {
+		branch = "main"
+	}
+
+	image := req.Image
+	if image == "" {
+		// Use default mycli executor image
+		// For MVP, we'll use a custom image that we'll build
+		image = "public.ecr.aws/mycli/executor:latest"
+	}
+
+	timeoutSeconds := req.TimeoutSeconds
+	if timeoutSeconds == 0 {
+		timeoutSeconds = 1800 // 30 minutes default
+	}
+
+	// Build environment variables for the container
+	envVars := []ecsTypes.KeyValuePair{
+		{Name: aws.String("EXECUTION_ID"), Value: aws.String(execID)},
+		{Name: aws.String("REPO_URL"), Value: aws.String(req.Repo)},
+		{Name: aws.String("REPO_BRANCH"), Value: aws.String(branch)},
+		{Name: aws.String("USER_COMMAND"), Value: aws.String(req.Command)},
+		{Name: aws.String("TIMEOUT_SECONDS"), Value: aws.String(fmt.Sprintf("%d", timeoutSeconds))},
+	}
+
+	// Add Git credentials if available
+	if githubToken != "" {
+		envVars = append(envVars, ecsTypes.KeyValuePair{
+			Name:  aws.String("GITHUB_TOKEN"),
+			Value: aws.String(githubToken),
+		})
+	}
+	if gitlabToken != "" {
+		envVars = append(envVars, ecsTypes.KeyValuePair{
+			Name:  aws.String("GITLAB_TOKEN"),
+			Value: aws.String(gitlabToken),
+		})
+	}
+	if sshPrivateKey != "" {
+		envVars = append(envVars, ecsTypes.KeyValuePair{
+			Name:  aws.String("SSH_PRIVATE_KEY"),
+			Value: aws.String(sshPrivateKey),
+		})
+	}
+
+	// Add user-provided environment variables
+	for key, value := range req.Env {
+		envVars = append(envVars, ecsTypes.KeyValuePair{
+			Name:  aws.String(key),
+			Value: aws.String(value),
+		})
+	}
+
+	// Run Fargate task
+	runTaskInput := &ecs.RunTaskInput{
 		Cluster:        &ecsCluster,
 		TaskDefinition: &taskDef,
 		LaunchType:     ecsTypes.LaunchTypeFargate,
@@ -144,28 +228,28 @@ func handleExec(ctx context.Context, req Request) (Response, error) {
 				AssignPublicIp: ecsTypes.AssignPublicIpEnabled,
 			},
 		},
-		Overrides: &ecsTypes.TaskOverride{
-			ContainerOverrides: []ecsTypes.ContainerOverride{
-				{
-					Name: aws.String("executor"),
-					Environment: []ecsTypes.KeyValuePair{
-						{
-							Name:  aws.String("EXEC_ID"),
-							Value: aws.String(execID),
-						},
-						{
-							Name:  aws.String("COMMAND"),
-							Value: aws.String(req.Command),
-						},
-						{
-							Name:  aws.String("CODE_BUCKET"),
-							Value: aws.String(codeBucket),
-						},
-					},
-				},
-			},
+		Tags: []ecsTypes.Tag{
+			{Key: aws.String("ExecutionID"), Value: aws.String(execID)},
+			{Key: aws.String("Repo"), Value: aws.String(req.Repo)},
 		},
-	})
+	}
+
+	// Override container image and environment if needed
+	containerOverride := ecsTypes.ContainerOverride{
+		Name:        aws.String("executor"),
+		Environment: envVars,
+	}
+
+	// Only override image if it's not the default task definition image
+	if image != "" {
+		containerOverride.Image = aws.String(image)
+	}
+
+	runTaskInput.Overrides = &ecsTypes.TaskOverride{
+		ContainerOverrides: []ecsTypes.ContainerOverride{containerOverride},
+	}
+
+	runTaskResp, err := ecsClient.RunTask(ctx, runTaskInput)
 	if err != nil {
 		return Response{}, fmt.Errorf("failed to run task: %v", err)
 	}
@@ -174,11 +258,19 @@ func handleExec(ctx context.Context, req Request) (Response, error) {
 		return Response{}, fmt.Errorf("no task created")
 	}
 
-	taskArn := *runTaskResp.Tasks[0].TaskArn
+	task := runTaskResp.Tasks[0]
+	taskArn := *task.TaskArn
+
+	// Generate log stream name (ECS uses task ID)
+	taskID := taskArn[len(taskArn)-36:] // Last 36 chars (UUID)
+	logStream := fmt.Sprintf("task/%s", taskID)
 
 	return Response{
 		ExecutionID: execID,
 		TaskArn:     taskArn,
+		Status:      "starting",
+		LogStream:   logStream,
+		CreatedAt:   time.Now().UTC().Format(time.RFC3339),
 	}, nil
 }
 
@@ -206,7 +298,7 @@ func handleStatus(ctx context.Context, req Request) (Response, error) {
 	}
 
 	return Response{
-		Status:        *task.LastStatus,
+		Status:        aws.ToString(task.LastStatus),
 		DesiredStatus: aws.ToString(task.DesiredStatus),
 		CreatedAt:     createdAt,
 	}, nil
@@ -217,35 +309,41 @@ func handleLogs(ctx context.Context, req Request) (Response, error) {
 		return Response{}, fmt.Errorf("execution_id required")
 	}
 
-	streamPrefix := fmt.Sprintf("task/%s", req.ExecutionID)
-
+	// Try to find log streams for this execution
+	// ECS creates log streams with format: task/<task-id>
+	// We stored execution ID as a tag, but for simplicity, we'll search by prefix
+	
+	streamPrefix := "task/"
+	
 	filterResp, err := logsClient.FilterLogEvents(ctx, &cloudwatchlogs.FilterLogEventsInput{
 		LogGroupName:        &logGroup,
 		LogStreamNamePrefix: &streamPrefix,
-		Limit:               aws.Int32(100),
+		Limit:               aws.Int32(1000),
 	})
 	if err != nil {
 		return Response{}, fmt.Errorf("failed to get logs: %v", err)
 	}
 
-	var logs []string
+	var logs string
 	for _, event := range filterResp.Events {
 		if event.Message != nil {
-			logs = append(logs, *event.Message)
+			logs += *event.Message + "\n"
 		}
 	}
 
-	logsOutput := ""
-	if len(logs) > 0 {
-		logsOutput = logs[0]
-		for i := 1; i < len(logs); i++ {
-			logsOutput += "\n" + logs[i]
-		}
+	if logs == "" {
+		logs = "No logs available yet. The task may still be starting."
 	}
 
 	return Response{
-		Logs: logsOutput,
+		Logs: logs,
 	}, nil
+}
+
+func generateExecutionID() string {
+	return fmt.Sprintf("exec_%s_%06d", 
+		time.Now().UTC().Format("20060102_150405"),
+		time.Now().Nanosecond()/1000)
 }
 
 func errorResponse(statusCode int, message string) (events.APIGatewayProxyResponse, error) {

@@ -28,8 +28,13 @@ func NewClient(endpoint, apiKey string) *Client {
 
 // Request types
 type ExecRequest struct {
-	Action  string `json:"action"`
-	Command string `json:"command"`
+	Action         string            `json:"action"`
+	Repo           string            `json:"repo"`
+	Branch         string            `json:"branch,omitempty"`
+	Command        string            `json:"command"`
+	Image          string            `json:"image,omitempty"`
+	Env            map[string]string `json:"env,omitempty"`
+	TimeoutSeconds int               `json:"timeout_seconds,omitempty"`
 }
 
 type StatusRequest struct {
@@ -46,6 +51,9 @@ type LogsRequest struct {
 type ExecResponse struct {
 	ExecutionID string `json:"execution_id"`
 	TaskArn     string `json:"task_arn"`
+	Status      string `json:"status"`
+	LogStream   string `json:"log_stream,omitempty"`
+	CreatedAt   string `json:"created_at,omitempty"`
 	Error       string `json:"error,omitempty"`
 }
 
@@ -61,11 +69,8 @@ type LogsResponse struct {
 	Error string `json:"error,omitempty"`
 }
 
-func (c *Client) Exec(ctx context.Context, command string) (*ExecResponse, error) {
-	req := ExecRequest{
-		Action:  "exec",
-		Command: command,
-	}
+func (c *Client) Exec(ctx context.Context, req ExecRequest) (*ExecResponse, error) {
+	req.Action = "exec"
 
 	var resp ExecResponse
 	if err := c.doRequest(ctx, req, &resp); err != nil {
