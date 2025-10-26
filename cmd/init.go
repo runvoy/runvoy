@@ -6,7 +6,6 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
-	_ "embed"
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
@@ -30,9 +29,6 @@ import (
 	"github.com/spf13/cobra"
 	"golang.org/x/crypto/bcrypt"
 )
-
-//go:embed ../deploy/cloudformation.yaml
-var cfnTemplate string
 
 var (
 	initStackName string
@@ -187,9 +183,21 @@ func runInit(cmd *cobra.Command, args []string) error {
 		})
 	}
 
+	// Read CloudFormation template
+	cwd, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("failed to get current directory: %w", err)
+	}
+	templatePath := filepath.Join(cwd, "deploy", "cloudformation.yaml")
+	templateBody, err := os.ReadFile(templatePath)
+	if err != nil {
+		return fmt.Errorf("failed to read CloudFormation template: %w", err)
+	}
+	templateStr := string(templateBody)
+
 	_, err = cfnClient.CreateStack(ctx, &cloudformation.CreateStackInput{
 		StackName:    &initStackName,
-		TemplateBody: &cfnTemplate,
+		TemplateBody: &templateStr,
 		Capabilities: []types.Capability{types.CapabilityCapabilityNamedIam},
 		Parameters:   cfnParams,
 		Tags: []types.Tag{
