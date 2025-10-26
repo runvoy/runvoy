@@ -2,7 +2,8 @@ package git
 
 import (
 	"fmt"
-	"os/exec"
+	"os"
+	"path/filepath"
 	"strings"
 )
 
@@ -13,20 +14,27 @@ func DetectRemoteURL() (string, error) {
 
 // DetectRemoteURLFromDir attempts to detect the Git remote URL from the specified directory
 func DetectRemoteURLFromDir(dir string) (string, error) {
-	cmd := exec.Command("git", "remote", "get-url", "origin")
-	cmd.Dir = dir
-	
-	output, err := cmd.Output()
+	configPath := filepath.Join(dir, ".git", "config")
+	content, err := os.ReadFile(configPath)
 	if err != nil {
 		return "", fmt.Errorf("not a git repository or no remote 'origin' configured")
 	}
 
-	url := strings.TrimSpace(string(output))
-	if url == "" {
-		return "", fmt.Errorf("git remote 'origin' is empty")
+	lines := strings.Split(string(content), "\n")
+	for i, line := range lines {
+		if strings.HasPrefix(line, "[remote \"origin\"]") {
+			for _, subLine := range lines[i+1:] {
+				if strings.HasPrefix(subLine, "\turl =") {
+					return strings.TrimSpace(strings.TrimPrefix(subLine, "\turl =")), nil
+				}
+				if strings.HasPrefix(subLine, "[") {
+					break
+				}
+			}
+		}
 	}
 
-	return url, nil
+	return "", fmt.Errorf("git remote 'origin' is empty")
 }
 
 // DetectCurrentBranch attempts to detect the current Git branch
@@ -36,20 +44,18 @@ func DetectCurrentBranch() (string, error) {
 
 // DetectCurrentBranchFromDir attempts to detect the current Git branch from the specified directory
 func DetectCurrentBranchFromDir(dir string) (string, error) {
-	cmd := exec.Command("git", "rev-parse", "--abbrev-ref", "HEAD")
-	cmd.Dir = dir
-	
-	output, err := cmd.Output()
+	headPath := filepath.Join(dir, ".git", "HEAD")
+	content, err := os.ReadFile(headPath)
 	if err != nil {
 		return "", fmt.Errorf("failed to detect current branch")
 	}
 
-	branch := strings.TrimSpace(string(output))
-	if branch == "" || branch == "HEAD" {
-		return "", fmt.Errorf("not on a named branch (detached HEAD?)")
+	head := strings.TrimSpace(string(content))
+	if strings.HasPrefix(head, "ref: refs/heads/") {
+		return strings.TrimPrefix(head, "ref: refs/heads/"), nil
 	}
 
-	return branch, nil
+	return "", fmt.Errorf("not on a named branch (detached HEAD?)")
 }
 
 // IsGitRepository checks if the current directory is a Git repository
@@ -59,11 +65,13 @@ func IsGitRepository() bool {
 
 // IsGitRepositoryAt checks if the specified directory is a Git repository
 func IsGitRepositoryAt(dir string) bool {
-	cmd := exec.Command("git", "rev-parse", "--git-dir")
-	cmd.Dir = dir
-	
-	err := cmd.Run()
-	return err == nil
+	gitDir := filepath.Join(dir, ".git")
+	info, err := os.Stat(gitDir)
+	if err != nil {
+		return false
+	}
+
+	return info.IsDir()
 }
 
 // GetRepositoryInfo returns both the remote URL and current branch
