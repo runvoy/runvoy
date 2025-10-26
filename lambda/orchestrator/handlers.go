@@ -2,7 +2,10 @@ package main
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -63,10 +66,21 @@ func handleExec(ctx context.Context, cfg *Config, req Request) (Response, error)
 		})
 	}
 
+	// Determine which task definition to use
+	taskDefArn := cfg.TaskDef
+	if req.Image != "" {
+		// Register a new task definition with the custom image
+		var err error
+		taskDefArn, err = getOrCreateTaskDefinition(ctx, cfg, req.Image)
+		if err != nil {
+			return Response{}, fmt.Errorf("failed to get/create task definition: %v", err)
+		}
+	}
+
 	// Run Fargate task
 	runTaskInput := &ecs.RunTaskInput{
 		Cluster:        &cfg.ECSCluster,
-		TaskDefinition: &cfg.TaskDef,
+		TaskDefinition: &taskDefArn,
 		LaunchType:     ecsTypes.LaunchTypeFargate,
 		NetworkConfiguration: &ecsTypes.NetworkConfiguration{
 			AwsvpcConfiguration: &ecsTypes.AwsVpcConfiguration{
@@ -94,11 +108,6 @@ func handleExec(ctx context.Context, cfg *Config, req Request) (Response, error)
 		Environment: envVars,
 		// Override the command to run our shell script
 		Command: []string{"/bin/sh", "-c", shellCommand},
-	}
-
-	// Override the image if specified
-	if req.Image != "" {
-		containerOverride.Image = aws.String(req.Image)
 	}
 
 	runTaskInput.Overrides = &ecsTypes.TaskOverride{
@@ -136,6 +145,58 @@ func handleExec(ctx context.Context, cfg *Config, req Request) (Response, error)
 		LogStream:   logStream,
 		CreatedAt:   time.Now().UTC().Format(time.RFC3339),
 	}, nil
+}
+
+// getOrCreateTaskDefinition gets or creates a task definition for the specified image
+// It uses a hash of the image name to create a unique family name
+// If a task definition with this family already exists, it reuses it
+func getOrCreateTaskDefinition(ctx context.Context, cfg *Config, image string) (string, error) {
+	// Create a stable family name based on the image
+	// Use a hash to keep the name short and valid (alphanumeric + hyphens only)
+	hash := sha256.Sum256([]byte(image))
+	imageHash := hex.EncodeToString(hash[:])[:16] // Use first 16 chars of hash
+	family := fmt.Sprintf("mycli-task-%s", imageHash)
+
+	// Check if this task definition family already exists
+	describeResp, err := cfg.ECSClient.DescribeTaskDefinition(ctx, &ecs.DescribeTaskDefinitionInput{
+		TaskDefinition: aws.String(family),
+	})
+	if err == nil && describeResp.TaskDefinition != nil {
+		// Task definition exists, return its ARN
+		return *describeResp.TaskDefinition.TaskDefinitionArn, nil
+	}
+
+	// Task definition doesn't exist, we need to create it
+	// First, describe the base task definition to get its configuration
+	baseTaskDef, err := cfg.ECSClient.DescribeTaskDefinition(ctx, &ecs.DescribeTaskDefinitionInput{
+		TaskDefinition: aws.String(cfg.TaskDef),
+	})
+	if err != nil {
+		return \"\", fmt.Errorf(\"failed to describe base task definition: %v\", err)
+	}
+
+	baseDef := baseTaskDef.TaskDefinition
+	
+	// Create a new container definition with the custom image
+	containerDef := baseDef.ContainerDefinitions[0]
+	containerDef.Image = aws.String(image)
+
+	// Register the new task definition
+	registerResp, err := cfg.ECSClient.RegisterTaskDefinition(ctx, &ecs.RegisterTaskDefinitionInput{
+		Family:                  aws.String(family),
+		NetworkMode:             baseDef.NetworkMode,
+		RequiresCompatibilities: baseDef.RequiresCompatibilities,
+		Cpu:                     baseDef.Cpu,
+		Memory:                  baseDef.Memory,
+		ExecutionRoleArn:        baseDef.ExecutionRoleArn,
+		TaskRoleArn:             baseDef.TaskRoleArn,
+		ContainerDefinitions:    []ecsTypes.ContainerDefinition{containerDef},
+	})
+	if err != nil {
+		return \"\", fmt.Errorf(\"failed to register task definition: %v\", err)
+	}
+
+	return *registerResp.TaskDefinition.TaskDefinitionArn, nil
 }
 
 func handleStatus(ctx context.Context, cfg *Config, req Request) (Response, error) {

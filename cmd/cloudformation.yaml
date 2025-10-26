@@ -244,6 +244,8 @@ Resources:
                 Action:
                   - 'ecs:RunTask'
                   - 'ecs:DescribeTasks'
+                  - 'ecs:DescribeTaskDefinition'
+                  - 'ecs:RegisterTaskDefinition'
                   - 'ecs:ListTasks'
                   - 'ecs:TagResource'
                 Resource: '*'
