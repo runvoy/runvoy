@@ -245,6 +245,7 @@ Resources:
                   - 'ecs:RunTask'
                   - 'ecs:DescribeTasks'
                   - 'ecs:ListTasks'
+                  - 'ecs:TagResource'
                 Resource: '*'
               - Effect: Allow
                 Action:
