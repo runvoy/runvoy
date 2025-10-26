@@ -31,7 +31,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-//go:embed cloudformation.yaml
+//go:embed ../deploy/cloudformation.yaml
 var cfnTemplate string
 
 var (
