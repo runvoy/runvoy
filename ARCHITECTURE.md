@@ -234,7 +234,7 @@ When a task definition family already exists, the Lambda checks if it uses the s
 
 ### 4. CloudFormation Infrastructure
 
-**Template:** `cmd/cloudformation.yaml`
+**Template:** `deploy/cloudformation.yaml`
 
 **Resources Created:**
 - **VPC** - 10.0.0.0/16 with DNS support
@@ -1543,12 +1543,12 @@ is not authorized to perform: ecs:TagResource
 ```
 
 Solutions:
-1. **FIXED** - Update CloudFormation template to add `ecs:TagResource` permission (cmd/cloudformation.yaml:248)
+1. **FIXED** - Update CloudFormation template to add `ecs:TagResource` permission (deploy/cloudformation.yaml:248)
 2. Update stack:
    ```bash
    aws cloudformation update-stack \
      --stack-name mycli \
-     --template-body file://cmd/cloudformation.yaml \
+     --template-body file://deploy/cloudformation.yaml \
      --capabilities CAPABILITY_NAMED_IAM \
      --parameters \
        ParameterKey=APIKeyHash,UsePreviousValue=true \
@@ -1623,7 +1623,8 @@ mycli/
 │   ├── exec.go                # Execute commands (cmd/exec.go:65)
 │   ├── status.go              # Check execution status
 │   ├── logs.go                # View execution logs
-│   ├── destroy.go             # Cleanup infrastructure
+│   └── destroy.go             # Cleanup infrastructure
+├── deploy/
 │   └── cloudformation.yaml    # Infrastructure template
 ├── internal/
 │   ├── config/                # Global config management
