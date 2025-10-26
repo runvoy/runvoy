@@ -37,6 +37,7 @@ var cfnTemplate string
 var (
 	initStackName string
 	initRegion    string
+	forceInit     bool
 )
 
 var initCmd = &cobra.Command{
@@ -56,6 +57,7 @@ func init() {
 	rootCmd.AddCommand(initCmd)
 	initCmd.Flags().StringVar(&initStackName, "stack-name", "mycli", "CloudFormation stack name")
 	initCmd.Flags().StringVar(&initRegion, "region", "", "AWS region (default: from AWS config or us-east-2)")
+	initCmd.Flags().BoolVar(&forceInit, "force", false, "Skip confirmation prompt")
 }
 
 func runInit(cmd *cobra.Command, args []string) error {
@@ -85,6 +87,33 @@ func runInit(cmd *cobra.Command, args []string) error {
 	// Ensure cfg uses the selected region
 	cfg.Region = initRegion
 	fmt.Printf("   Region: %s\n\n", initRegion)
+
+	// Confirmation prompt
+	if !forceInit {
+		fmt.Println("⚠️  This will create AWS infrastructure in your account:")
+		fmt.Printf("   Stack Name: %s\n", initStackName)
+		fmt.Printf("   Region:     %s\n", initRegion)
+		fmt.Println("\nResources to be created:")
+		fmt.Println("   - VPC with subnets and internet gateway")
+		fmt.Println("   - ECS Fargate cluster and task definitions")
+		fmt.Println("   - Lambda function and API Gateway")
+		fmt.Println("   - CloudWatch log groups")
+		fmt.Println("   - IAM roles and security groups")
+		fmt.Print("\nType 'yes' to confirm: ")
+
+		reader := bufio.NewReader(os.Stdin)
+		response, err := reader.ReadString('\n')
+		if err != nil {
+			return fmt.Errorf("failed to read input: %w", err)
+		}
+
+		response = strings.TrimSpace(strings.ToLower(response))
+		if response != "yes" {
+			fmt.Println("Initialization cancelled.")
+			return nil
+		}
+		fmt.Println()
+	}
 
 	// Get AWS account ID
 	stsClient := sts.NewFromConfig(cfg)

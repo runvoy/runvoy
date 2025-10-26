@@ -440,20 +440,22 @@ mycli exec --branch=prod "terraform apply"  # prod environment
 
 **What it does:**
 1. Loads AWS config (region from flag or AWS config or default us-east-2)
-2. Generates API key: `sk_live_{64_hex_chars}`
-3. Hashes key with bcrypt (cost 10)
-4. Prompts for Git credentials (optional, interactive)
-5. Builds Lambda function (Go cross-compile for linux/arm64)
-6. Creates CloudFormation stack with all resources
-7. Waits for stack creation (~5 minutes)
-8. Creates Lambda function with built zip
-9. Configures API Gateway integration and deployment
-10. Saves config to ~/.mycli/config.yaml
-11. Displays API key (shown once, also saved to config)
+2. Shows confirmation prompt with region and resources to be created (unless --force)
+3. Generates API key: `sk_live_{64_hex_chars}`
+4. Hashes key with bcrypt (cost 10)
+5. Prompts for Git credentials (optional, interactive)
+6. Builds Lambda function (Go cross-compile for linux/arm64)
+7. Creates CloudFormation stack with all resources
+8. Waits for stack creation (~5 minutes)
+9. Creates Lambda function with built zip
+10. Configures API Gateway integration and deployment
+11. Saves config to ~/.mycli/config.yaml
+12. Displays API key (shown once, also saved to config)
 
 **Flags:**
 - `--stack-name string` - CloudFormation stack name (default: "mycli")
 - `--region string` - AWS region (default: from AWS config or us-east-2)
+- `--force` - Skip confirmation prompt
 
 **Git Credential Setup (interactive):**
 ```
@@ -479,6 +481,19 @@ Enter GitHub token (ghp_...): ghp_xxxxx
 🚀 Initializing mycli infrastructure...
    Stack name: mycli
    Region: us-east-1
+
+⚠️  This will create AWS infrastructure in your account:
+   Stack Name: mycli
+   Region:     us-east-1
+
+Resources to be created:
+   - VPC with subnets and internet gateway
+   - ECS Fargate cluster and task definitions
+   - Lambda function and API Gateway
+   - CloudWatch log groups
+   - IAM roles and security groups
+
+Type 'yes' to confirm: yes
 
 → Generating API key...
 → Building Lambda function...
@@ -673,7 +688,9 @@ $ mycli logs -f arn:aws:ecs:us-east-1:123456789:task/mycli-cluster/abc123def456
 
 **Flags:**
 - `--stack-name string` - Stack to delete (default: "mycli")
+- `--region string` - AWS region (default: from config or AWS profile)
 - `--force` - Skip confirmation prompt
+- `--keep-config` - Keep local config file after destruction
 
 **What it does:**
 1. Confirms with user (unless --force)
