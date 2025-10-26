@@ -41,7 +41,7 @@ func runConfigure(cmd *cobra.Command, args []string) error {
 	if manualAPIKey != "" {
 		fmt.Println("Manual configuration not fully implemented yet.")
 		fmt.Println("Please use: mycli init")
-		return fmt.Errorf("manual configuration requires --api-endpoint and --code-bucket flags (not yet implemented)")
+		return fmt.Errorf("manual configuration requires --api-endpoint flag (not yet implemented)")
 	}
 	
 	fmt.Printf("→ Looking for CloudFormation stack '%s'...\n", stackName)
@@ -93,7 +93,6 @@ func runConfigure(cmd *cobra.Command, args []string) error {
 	cliConfig := &internalConfig.Config{
 		APIEndpoint: apiEndpoint,
 		APIKey:      apiKey,
-		CodeBucket:  codeBucket,
 		Region:      cfg.Region,
 	}
 	if err := internalConfig.Save(cliConfig); err != nil {

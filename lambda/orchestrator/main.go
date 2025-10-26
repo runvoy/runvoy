@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/aws/aws-lambda-go/events"
@@ -167,12 +168,11 @@ func handleExec(ctx context.Context, req Request) (Response, error) {
 		branch = "main"
 	}
 
-	image := req.Image
-	if image == "" {
-		// Use a generic base image with git installed
-		// Users are encouraged to specify their own image (terraform, python, etc.)
-		image = "ubuntu:22.04"
-	}
+	// Note: Custom images per execution are not supported in this implementation
+	// due to ECS API limitations (can't override image in task definition at runtime)
+	// For custom images, users need to update the task definition
+	// Future enhancement: Dynamically register task definitions per image
+	_ = req.Image // Acknowledged but not used yet
 
 	timeoutSeconds := req.TimeoutSeconds
 	if timeoutSeconds == 0 {
@@ -218,10 +218,11 @@ func handleExec(ctx context.Context, req Request) (Response, error) {
 		},
 	}
 
-	// Override container with our command, image, and environment
+	// Override container with our command and environment
+	// Note: ECS task override doesn't support changing the image at runtime
+	// Image must be specified when starting the task via TaskDefinition parameter
 	containerOverride := ecsTypes.ContainerOverride{
 		Name:        aws.String("executor"),
-		Image:       aws.String(image),
 		Environment: envVars,
 		// Override the command to run our shell script
 		Command: []string{"/bin/sh", "-c", shellCommand},
@@ -328,6 +329,14 @@ func generateExecutionID() string {
 		time.Now().Nanosecond()/1000)
 }
 
+// shellEscape escapes a string for safe use in a shell command
+// This prevents injection attacks when embedding variables in shell scripts
+func shellEscape(s string) string {
+	// Replace single quotes with '\'' (end quote, escaped quote, start quote)
+	// This allows us to safely wrap the string in single quotes
+	return "'" + strings.ReplaceAll(s, "'", "'\\''") + "'"
+}
+
 // buildShellCommand constructs a shell script that:
 // 1. Installs git if not present (for generic images)
 // 2. Configures git credentials
@@ -360,43 +369,50 @@ if ! command -v git &> /dev/null; then
 fi
 `
 
-	// Setup git credentials
+	// Setup git credentials (with proper shell escaping for security)
 	if githubToken != "" {
+		escapedToken := shellEscape(githubToken)
 		script += fmt.Sprintf(`
 echo "→ Configuring GitHub authentication..."
 git config --global credential.helper store
 echo "https://%s:x-oauth-basic@github.com" > ~/.git-credentials
 chmod 600 ~/.git-credentials
-`, githubToken)
+`, escapedToken)
 	} else if gitlabToken != "" {
+		escapedToken := shellEscape(gitlabToken)
 		script += fmt.Sprintf(`
 echo "→ Configuring GitLab authentication..."
 git config --global credential.helper store
 echo "https://oauth2:%s@gitlab.com" > ~/.git-credentials
 chmod 600 ~/.git-credentials
-`, gitlabToken)
+`, escapedToken)
 	} else if sshKey != "" {
+		escapedKey := shellEscape(sshKey)
 		script += fmt.Sprintf(`
 echo "→ Configuring SSH authentication..."
 mkdir -p ~/.ssh
-echo "%s" | base64 -d > ~/.ssh/id_rsa
+echo %s | base64 -d > ~/.ssh/id_rsa
 chmod 600 ~/.ssh/id_rsa
 ssh-keyscan github.com >> ~/.ssh/known_hosts 2>/dev/null
 ssh-keyscan gitlab.com >> ~/.ssh/known_hosts 2>/dev/null
 ssh-keyscan bitbucket.org >> ~/.ssh/known_hosts 2>/dev/null
-`, sshKey)
+`, escapedKey)
 	}
 
-	// Clone repository
+	// Clone repository (with proper shell escaping for security)
+	escapedRepo := shellEscape(repo)
+	escapedBranch := shellEscape(branch)
+	escapedCommand := shellEscape(userCommand)
+	
 	script += fmt.Sprintf(`
 echo "→ Repository: %s"
 echo "→ Branch: %s"
 echo "→ Cloning repository..."
-git clone --depth 1 --branch "%s" "%s" /workspace/repo || {
+git clone --depth 1 --branch %s %s /workspace/repo || {
   echo "ERROR: Failed to clone repository"
   echo "Please verify:"
   echo "  - Repository URL is correct"
-  echo "  - Branch '%s' exists"
+  echo "  - Branch exists"
   echo "  - Git credentials are configured (for private repos)"
   exit 1
 }
@@ -404,13 +420,14 @@ cd /workspace/repo
 echo "✓ Repository cloned"
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "Executing command: %s"
+echo "Executing command..."
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
-`, repo, branch, branch, repo, branch, userCommand)
+`, escapedRepo, escapedBranch, escapedBranch, escapedRepo)
 
-	// Execute user command
-	script += userCommand + "\n"
+	// Execute user command (already escaped above, now we need to use eval)
+	// Using eval to properly handle the escaped command
+	script += fmt.Sprintf("eval %s\n", escapedCommand)
 
 	// Capture exit code and cleanup
 	script += `
