@@ -3,6 +3,10 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"time"
+
+	"mycli/internal/api"
+	internalConfig "mycli/internal/config"
 
 	"github.com/spf13/cobra"
 )
@@ -14,50 +18,74 @@ var (
 var logsCmd = &cobra.Command{
 	Use:   "logs <execution-id>",
 	Short: "View logs from an execution",
-	Args:  cobra.ExactArgs(1),
-	RunE:  runLogs,
+	Long: `View CloudWatch logs from a running or completed execution.
+Provide the execution ID returned by the exec command.`,
+	Args: cobra.ExactArgs(1),
+	RunE: runLogs,
 }
 
 func init() {
 	rootCmd.AddCommand(logsCmd)
-	logsCmd.Flags().BoolVarP(&follow, "follow", "f", false, "Follow log output")
+	logsCmd.Flags().BoolVarP(&follow, "follow", "f", false, "Follow log output (poll for new logs)")
 }
 
 func runLogs(cmd *cobra.Command, args []string) error {
 	ctx := context.Background()
 	executionID := args[0]
-	_ = ctx // Will be used when API calls are implemented
 
-	// TODO: Load config
-	// cfg, err := config.Load()
-	
-	// TODO: Get logs URL from API or directly from S3
-	// apiClient := api.NewClient(cfg.APIEndpoint, cfg.APIKey)
-	// execution, err := apiClient.GetStatus(ctx, executionID)
-	// if err != nil {
-	//     return err
-	// }
-	
-	// TODO: Download and display logs from S3
-	// logsURL := execution.LogsURL
-	// logs, err := downloadLogs(ctx, logsURL)
-	// if err != nil {
-	//     return err
-	// }
-	// fmt.Print(logs)
-	
-	// If --follow, keep polling for new logs
-	// if follow {
-	//     // Poll S3 or CloudWatch for new log lines
-	// }
-	
-	// Placeholder
-	fmt.Printf("Logs for execution: %s\n", executionID)
-	fmt.Println("---")
-	fmt.Println("Initializing Terraform...")
-	fmt.Println("Terraform v1.6.0")
-	fmt.Println("Running apply...")
-	fmt.Println("Apply complete! Resources: 3 added, 0 changed, 0 destroyed.")
-	
+	// Load config
+	cfg, err := internalConfig.Load()
+	if err != nil {
+		return fmt.Errorf("not configured. Run 'mycli init' first: %w", err)
+	}
+
+	apiClient := api.NewClient(cfg.APIEndpoint, cfg.APIKey)
+
+	if follow {
+		// Poll for logs every 2 seconds
+		fmt.Printf("Following logs for execution: %s\n", executionID)
+		fmt.Println("(Press Ctrl+C to stop)")
+		fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+
+		lastLogs := ""
+		for {
+			logs, err := apiClient.GetLogs(ctx, executionID)
+			if err != nil {
+				return fmt.Errorf("failed to get logs: %w", err)
+			}
+
+			// Only print new logs
+			if logs.Logs != lastLogs {
+				if lastLogs == "" {
+					// First time, print all logs
+					fmt.Print(logs.Logs)
+				} else {
+					// Print only the new part
+					newPart := logs.Logs[len(lastLogs):]
+					fmt.Print(newPart)
+				}
+				lastLogs = logs.Logs
+			}
+
+			time.Sleep(2 * time.Second)
+		}
+	} else {
+		// Get logs once
+		logs, err := apiClient.GetLogs(ctx, executionID)
+		if err != nil {
+			return fmt.Errorf("failed to get logs: %w", err)
+		}
+
+		if logs.Logs == "" {
+			fmt.Printf("No logs available yet for execution: %s\n", executionID)
+			fmt.Println("(Logs may take a few seconds to appear)")
+			fmt.Printf("\nTry: mycli logs -f %s\n", executionID)
+		} else {
+			fmt.Printf("Logs for execution: %s\n", executionID)
+			fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+			fmt.Print(logs.Logs)
+		}
+	}
+
 	return nil
 }

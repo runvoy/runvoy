@@ -4,6 +4,12 @@ import (
 	"context"
 	"fmt"
 
+	"mycli/internal/api"
+	internalConfig "mycli/internal/config"
+	"mycli/internal/uploader"
+
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/spf13/cobra"
 )
 
@@ -34,61 +40,49 @@ func init() {
 func runExec(cmd *cobra.Command, args []string) error {
 	ctx := context.Background()
 	command := args[0]
-	_ = ctx     // Will be used when API calls are implemented
-	_ = command // Will be used when API calls are implemented
 
+	// Load config
+	cfg, err := internalConfig.Load()
+	if err != nil {
+		return fmt.Errorf("not configured. Run 'mycli init' first: %w", err)
+	}
+
+	// Load AWS config
+	awsCfg, err := config.LoadDefaultConfig(ctx, config.WithRegion(cfg.Region))
+	if err != nil {
+		return fmt.Errorf("failed to load AWS config: %w", err)
+	}
+
+	// Generate execution ID
+	executionID := uploader.GenerateExecutionID()
+	fmt.Printf("Execution ID: %s\n", executionID)
+
+	// Upload code to S3
 	fmt.Println("→ Uploading code...")
-	
-	// TODO: Load config
-	// cfg, err := config.Load()
-	// if err != nil {
-	//     return fmt.Errorf("not configured. Run 'mycli configure' first: %w", err)
-	// }
-	
-	// TODO: Create tarball of working directory
-	// tarballPath, err := createTarball(workingDir)
-	// if err != nil {
-	//     return err
-	// }
-	// defer os.Remove(tarballPath)
-	
-	// TODO: Generate execution ID
-	// executionID := generateExecutionID()
-	
-	// TODO: Upload to S3
-	// s3Path := fmt.Sprintf("s3://%s/executions/%s/code.tar.gz", cfg.CodeBucket, executionID)
-	// if err := uploadToS3(ctx, tarballPath, s3Path); err != nil {
-	//     return err
-	// }
-	
+	s3Client := s3.NewFromConfig(awsCfg)
+	uploader := uploader.New(s3Client, cfg.CodeBucket)
+
+	if err := uploader.UploadDirectory(ctx, workingDir, executionID); err != nil {
+		return fmt.Errorf("failed to upload code: %w", err)
+	}
 	fmt.Println("✓ Code uploaded")
+
+	// Call API to start execution
 	fmt.Println("→ Starting execution...")
-	
-	// TODO: Parse env vars
-	// envMap := parseEnvVars(envVars)
-	
-	// TODO: Call API to start execution
-	// req := &api.ExecutionRequest{
-	//     Command:      command,
-	//     Image:        image,
-	//     CodeS3Path:   s3Path,
-	//     Env:          envMap,
-	//     TimeoutSeconds: timeout,
-	// }
-	// resp, err := apiClient.CreateExecution(ctx, req)
-	// if err != nil {
-	//     return err
-	// }
-	
-	// TODO: Show execution info
-	executionID := "exec_abc123" // Placeholder
-	fmt.Printf("✓ Execution started: %s\n", executionID)
-	fmt.Println("→ Running command...")
-	
-	// TODO: Stream logs or poll for completion
-	// For MVP, just show how to check status
-	fmt.Printf("\nRun 'mycli status %s' to check status\n", executionID)
-	fmt.Printf("Run 'mycli logs %s' to view logs\n", executionID)
-	
+	apiClient := api.NewClient(cfg.APIEndpoint, cfg.APIKey)
+
+	resp, err := apiClient.Exec(ctx, command)
+	if err != nil {
+		return fmt.Errorf("failed to start execution: %w", err)
+	}
+
+	fmt.Printf("✓ Execution started\n")
+	fmt.Printf("  Task ARN: %s\n", resp.TaskArn)
+	fmt.Printf("  Execution ID: %s\n", resp.ExecutionID)
+	fmt.Println()
+	fmt.Println("Monitor execution:")
+	fmt.Printf("  mycli status %s\n", resp.TaskArn)
+	fmt.Printf("  mycli logs %s\n", resp.ExecutionID)
+
 	return nil
 }

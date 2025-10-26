@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/aws/aws-lambda-go/events"
@@ -15,7 +14,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs"
 	"github.com/aws/aws-sdk-go-v2/service/ecs"
 	ecsTypes "github.com/aws/aws-sdk-go-v2/service/ecs/types"
-	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -38,7 +36,6 @@ type Response struct {
 
 var (
 	cfg        aws.Config
-	s3Client   *s3.Client
 	ecsClient  *ecs.Client
 	logsClient *cloudwatchlogs.Client
 
@@ -59,7 +56,6 @@ func init() {
 		panic(fmt.Sprintf("failed to load AWS config: %v", err))
 	}
 
-	s3Client = s3.NewFromConfig(cfg)
 	ecsClient = ecs.NewFromConfig(cfg)
 	logsClient = cloudwatchlogs.NewFromConfig(cfg)
 
@@ -136,17 +132,7 @@ func handleExec(ctx context.Context, req Request) (Response, error) {
 	// Generate execution ID
 	execID := time.Now().UTC().Format("20060102-150405-") + fmt.Sprintf("%06d", time.Now().Nanosecond()/1000)
 
-	// Store command in S3
-	_, err := s3Client.PutObject(ctx, &s3.PutObjectInput{
-		Bucket: &codeBucket,
-		Key:    aws.String(fmt.Sprintf("commands/%s", execID)),
-		Body:   strings.NewReader(req.Command),
-	})
-	if err != nil {
-		return Response{}, fmt.Errorf("failed to store command: %v", err)
-	}
-
-	// Run Fargate task
+	// Run Fargate task with command and execution ID as environment variables
 	runTaskResp, err := ecsClient.RunTask(ctx, &ecs.RunTaskInput{
 		Cluster:        &ecsCluster,
 		TaskDefinition: &taskDef,
@@ -162,10 +148,19 @@ func handleExec(ctx context.Context, req Request) (Response, error) {
 			ContainerOverrides: []ecsTypes.ContainerOverride{
 				{
 					Name: aws.String("executor"),
-					Command: []string{
-						"/bin/sh",
-						"-c",
-						fmt.Sprintf("aws s3 cp s3://%s/commands/%s /tmp/cmd && sh /tmp/cmd", codeBucket, execID),
+					Environment: []ecsTypes.KeyValuePair{
+						{
+							Name:  aws.String("EXEC_ID"),
+							Value: aws.String(execID),
+						},
+						{
+							Name:  aws.String("COMMAND"),
+							Value: aws.String(req.Command),
+						},
+						{
+							Name:  aws.String("CODE_BUCKET"),
+							Value: aws.String(codeBucket),
+						},
 					},
 				},
 			},
