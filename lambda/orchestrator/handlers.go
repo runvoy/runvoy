@@ -163,25 +163,68 @@ func handleLogs(ctx context.Context, cfg *Config, req Request) (Response, error)
 		return Response{}, fmt.Errorf("execution_id required")
 	}
 
-	// Try to find log streams for this execution
-	// ECS creates log streams with format: task/<task-id>
-	// We stored execution ID as a tag, but for simplicity, we'll search by prefix
+	// Find the task with this ExecutionID tag
+	listTasksResp, err := cfg.ECSClient.ListTasks(ctx, &ecs.ListTasksInput{
+		Cluster: &cfg.ECSCluster,
+	})
+	if err != nil {
+		return Response{}, fmt.Errorf("failed to list tasks: %v", err)
+	}
 
-	streamPrefix := "task/"
+	if len(listTasksResp.TaskArns) == 0 {
+		return Response{Logs: "No logs available yet. The task may still be starting."}, nil
+	}
 
+	// Describe all tasks to find the one with matching ExecutionID tag
+	describeResp, err := cfg.ECSClient.DescribeTasks(ctx, &ecs.DescribeTasksInput{
+		Cluster: &cfg.ECSCluster,
+		Tasks:   listTasksResp.TaskArns,
+		Include: []ecsTypes.TaskField{ecsTypes.TaskFieldTags},
+	})
+	if err != nil {
+		return Response{}, fmt.Errorf("failed to describe tasks: %v", err)
+	}
+
+	// Find the task with matching ExecutionID tag
+	var targetTaskArn string
+	for _, task := range describeResp.Tasks {
+		for _, tag := range task.Tags {
+			if aws.ToString(tag.Key) == "ExecutionID" && aws.ToString(tag.Value) == req.ExecutionID {
+				targetTaskArn = *task.TaskArn
+				break
+			}
+		}
+		if targetTaskArn != "" {
+			break
+		}
+	}
+
+	if targetTaskArn == "" {
+		return Response{Logs: "No logs available yet. The task may still be starting."}, nil
+	}
+
+	// Extract task ID from ARN (last 36 characters - UUID format)
+	taskID := targetTaskArn[len(targetTaskArn)-36:]
+	logStreamName := fmt.Sprintf("task/%s", taskID)
+
+	// Get logs from the specific log stream
 	filterResp, err := cfg.LogsClient.FilterLogEvents(ctx, &cloudwatchlogs.FilterLogEventsInput{
-		LogGroupName:        &cfg.LogGroup,
-		LogStreamNamePrefix: &streamPrefix,
-		Limit:               aws.Int32(1000),
+		LogGroupName:   &cfg.LogGroup,
+		LogStreamNames: []string{logStreamName},
+		Limit:          aws.Int32(1000),
 	})
 	if err != nil {
 		return Response{}, fmt.Errorf("failed to get logs: %v", err)
 	}
 
+	// Format logs with timestamps
 	var logs string
 	for _, event := range filterResp.Events {
-		if event.Message != nil {
-			logs += *event.Message + "\n"
+		if event.Message != nil && event.Timestamp != nil {
+			// Convert Unix milliseconds to time.Time
+			timestamp := time.UnixMilli(*event.Timestamp).UTC()
+			// Format as: 2025-10-26 14:32:10 UTC | message
+			logs += fmt.Sprintf("%s | %s\n", timestamp.Format("2006-01-02 15:04:05 UTC"), *event.Message)
 		}
 	}
 
