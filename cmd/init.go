@@ -113,7 +113,7 @@ func runInit(cmd *cobra.Command, args []string) error {
 	fmt.Println("\n→ Git Credential Configuration")
 	fmt.Println("  For private repositories, you can configure Git authentication.")
 	fmt.Println("  This is optional - you can skip this and only use public repos.")
-	
+
 	githubToken, gitlabToken, sshPrivateKey, err := promptGitCredentials()
 	if err != nil {
 		return fmt.Errorf("failed to configure Git credentials: %w", err)
@@ -130,7 +130,7 @@ func runInit(cmd *cobra.Command, args []string) error {
 	cfnClient := cloudformation.NewFromConfig(cfg)
 
 	fmt.Println("→ Creating CloudFormation stack...")
-	
+
 	cfnParams := []types.Parameter{
 		{
 			ParameterKey:   aws.String("APIKeyHash"),
@@ -356,7 +356,7 @@ func promptGitCredentials() (githubToken, gitlabToken, sshPrivateKey string, err
 	fmt.Println("  3) SSH Private Key (for any Git provider)")
 	fmt.Println("  4) Skip")
 	fmt.Print("\nSelection [1-4]: ")
-	
+
 	selection, _ := reader.ReadString('\n')
 	selection = strings.TrimSpace(selection)
 
@@ -379,18 +379,18 @@ func promptGitCredentials() (githubToken, gitlabToken, sshPrivateKey string, err
 		fmt.Print("Enter path to SSH private key: ")
 		path, _ := reader.ReadString('\n')
 		path = strings.TrimSpace(path)
-		
+
 		// Expand ~ to home directory
 		if strings.HasPrefix(path, "~/") {
 			home, _ := os.UserHomeDir()
 			path = filepath.Join(home, path[2:])
 		}
-		
+
 		keyData, err := os.ReadFile(path)
 		if err != nil {
 			return "", "", "", fmt.Errorf("failed to read SSH key: %w", err)
 		}
-		
+
 		// Base64 encode for safe storage in environment variable
 		sshPrivateKey = base64.StdEncoding.EncodeToString(keyData)
 		fmt.Println("  ✓ SSH key configured")
@@ -417,7 +417,7 @@ func buildLambda() ([]byte, error) {
 	}
 
 	// Build the Go binary
-	buildCmd := exec.Command("go", "build", "-tags", "lambda.norpc", "-o", "bootstrap", "main.go")
+	buildCmd := exec.Command("go", "build", "-tags", "lambda.norpc", "-o", "bootstrap")
 	buildCmd.Dir = lambdaDir
 	buildCmd.Env = append(os.Environ(),
 		"GOOS=linux",
