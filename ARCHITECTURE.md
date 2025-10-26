@@ -121,6 +121,7 @@ A CLI tool that provides isolated, repeatable execution environments for command
 - API key authentication using bcrypt
 - Request validation
 - Shell command construction (git setup + clone + user command)
+- Dynamic task definition registration (when custom image specified)
 - ECS task orchestration with command override
 - Task metadata management
 
@@ -170,8 +171,11 @@ Users can specify **any** Docker image:
 
 **How it works:**
 1. Lambda constructs a shell script with git setup + clone + user command
-2. ECS task override sets: `Command: ["/bin/sh", "-c", "<constructed_script>"]`
-3. Container executes the script which:
+2. If a custom image is specified via `--image` flag:
+   - Lambda dynamically registers a new task definition with that image (or reuses existing one)
+   - Task definition family name: `mycli-task-{hash-of-image}` for uniqueness
+3. ECS task runs with the appropriate task definition
+4. Container executes the shell script which:
    - Installs git if needed (apt-get, apk, or yum)
    - Configures credentials
    - Clones repo to `/workspace/repo`
@@ -233,8 +237,13 @@ Users can specify **any** Docker image:
      * cd /workspace/repo
      * Execute user command
      * Cleanup credentials
+   - If custom image specified (`lambda/orchestrator/handlers.go:getOrCreateTaskDefinition()`):
+     * Creates hash-based family name: `mycli-task-{hash}`
+     * Checks if task definition already exists (reuse if found)
+     * If not exists, registers new task definition with custom image
+     * Uses base task definition as template (CPU, memory, roles, etc.)
    - Starts ECS Fargate task with:
-     * Image: hashicorp/terraform:1.6 (from request)
+     * Task Definition: Custom or base task definition
      * Command: ["/bin/sh", "-c", "<script>"]
      * Environment: User-provided env vars
      * Tags: ExecutionID, Repo
@@ -837,6 +846,8 @@ Permissions:
   - AWSLambdaBasicExecutionRole (managed policy)
   - ecs:RunTask
   - ecs:DescribeTasks
+  - ecs:DescribeTaskDefinition
+  - ecs:RegisterTaskDefinition
   - ecs:ListTasks
   - ecs:TagResource
   - iam:PassRole (for TaskExecutionRole and TaskRole)
@@ -1305,10 +1316,10 @@ rm ~/.mycli/config.yaml  # Optional
 
 ### Medium-term (3-6 months)
 
-**Dynamic Task Definition Registration**
-- Register task definition per image on-the-fly
-- True custom image support per execution
-- Cache task definitions to avoid duplicates
+**~~Dynamic Task Definition Registration~~ ✓ IMPLEMENTED**
+- ✓ Register task definition per image on-the-fly
+- ✓ True custom image support per execution
+- ✓ Cache task definitions to avoid duplicates (checks if family exists before registering)
 
 **S3 Artifact Storage**
 - Optional S3 bucket for command outputs
