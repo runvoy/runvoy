@@ -73,10 +73,9 @@ func runConfigure(cmd *cobra.Command, args []string) error {
 	outputs := parseStackOutputs(stack.Stacks[0].Outputs)
 	
 	apiEndpoint := outputs["APIEndpoint"]
-	codeBucket := outputs["CodeBucket"]
 	
-	if apiEndpoint == "" || codeBucket == "" {
-		return fmt.Errorf("stack outputs incomplete - APIEndpoint or CodeBucket missing")
+	if apiEndpoint == "" {
+		return fmt.Errorf("stack outputs incomplete - APIEndpoint missing")
 	}
 	
 	// Note: We can't get the API key from stack (it's not stored there)
