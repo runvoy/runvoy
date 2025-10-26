@@ -16,42 +16,13 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/ecs"
 	ecsTypes "github.com/aws/aws-sdk-go-v2/service/ecs/types"
 	"golang.org/x/crypto/bcrypt"
+
+	sharedAPI "mycli/pkg/api"
 )
 
-type ExecutionRequest struct {
-	ExecutionID    string            `json:"execution_id"`
-	Repo           string            `json:"repo"`
-	Branch         string            `json:"branch,omitempty"`
-	Command        string            `json:"command"`
-	Image          string            `json:"image,omitempty"`
-	Env            map[string]string `json:"env,omitempty"`
-	TimeoutSeconds int               `json:"timeout_seconds,omitempty"`
-}
-
-type Request struct {
-	Action      string            `json:"action"`
-	TaskArn     string            `json:"task_arn,omitempty"`
-	ExecutionID string            `json:"execution_id,omitempty"`
-	
-	// Execution parameters (for "exec" action)
-	Repo           string            `json:"repo,omitempty"`
-	Branch         string            `json:"branch,omitempty"`
-	Command        string            `json:"command,omitempty"`
-	Image          string            `json:"image,omitempty"`
-	Env            map[string]string `json:"env,omitempty"`
-	TimeoutSeconds int               `json:"timeout_seconds,omitempty"`
-}
-
-type Response struct {
-	ExecutionID   string `json:"execution_id,omitempty"`
-	TaskArn       string `json:"task_arn,omitempty"`
-	Status        string `json:"status,omitempty"`
-	DesiredStatus string `json:"desired_status,omitempty"`
-	CreatedAt     string `json:"created_at,omitempty"`
-	LogStream     string `json:"log_stream,omitempty"`
-	Logs          string `json:"logs,omitempty"`
-	Error         string `json:"error,omitempty"`
-}
+// Type aliases for shared API types
+type Request = sharedAPI.Request
+type Response = sharedAPI.Response
 
 var (
 	cfg        aws.Config

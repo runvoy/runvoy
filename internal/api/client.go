@@ -8,6 +8,8 @@ import (
 	"io"
 	"net/http"
 	"time"
+
+	sharedAPI "mycli/pkg/api"
 )
 
 type Client struct {
@@ -26,48 +28,13 @@ func NewClient(endpoint, apiKey string) *Client {
 	}
 }
 
-// Request types
-type ExecRequest struct {
-	Action         string            `json:"action"`
-	Repo           string            `json:"repo"`
-	Branch         string            `json:"branch,omitempty"`
-	Command        string            `json:"command"`
-	Image          string            `json:"image,omitempty"`
-	Env            map[string]string `json:"env,omitempty"`
-	TimeoutSeconds int               `json:"timeout_seconds,omitempty"`
-}
-
-type StatusRequest struct {
-	Action  string `json:"action"`
-	TaskArn string `json:"task_arn"`
-}
-
-type LogsRequest struct {
-	Action      string `json:"action"`
-	ExecutionID string `json:"execution_id"`
-}
-
-// Response types
-type ExecResponse struct {
-	ExecutionID string `json:"execution_id"`
-	TaskArn     string `json:"task_arn"`
-	Status      string `json:"status"`
-	LogStream   string `json:"log_stream,omitempty"`
-	CreatedAt   string `json:"created_at,omitempty"`
-	Error       string `json:"error,omitempty"`
-}
-
-type StatusResponse struct {
-	Status        string `json:"status"`
-	DesiredStatus string `json:"desired_status"`
-	CreatedAt     string `json:"created_at"`
-	Error         string `json:"error,omitempty"`
-}
-
-type LogsResponse struct {
-	Logs  string `json:"logs"`
-	Error string `json:"error,omitempty"`
-}
+// Type aliases for convenience - expose shared types
+type ExecRequest = sharedAPI.ExecRequest
+type StatusRequest = sharedAPI.StatusRequest
+type LogsRequest = sharedAPI.LogsRequest
+type ExecResponse = sharedAPI.ExecResponse
+type StatusResponse = sharedAPI.StatusResponse
+type LogsResponse = sharedAPI.LogsResponse
 
 func (c *Client) Exec(ctx context.Context, req ExecRequest) (*ExecResponse, error) {
 	req.Action = "exec"
