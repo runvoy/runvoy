@@ -132,7 +132,7 @@ A CLI tool that provides isolated, repeatable execution environments for command
 - `handlers.go` - `handleExec()`, `handleStatus()`, `handleLogs()`
 - `shell.go` - `buildShellCommand()`, `buildDirectCommand()`, `shellEscape()`
 - `response.go` - `errorResponse()` helper
-- `util.go` - `generateExecutionID()`
+- `util.go` - `generateExecutionID()` - UUID v4 generation using crypto/rand
 - `types.go` - Shared API type aliases (`Request`, `Response`)
 
 **Why Go?**
@@ -140,6 +140,18 @@ A CLI tool that provides isolated, repeatable execution environments for command
 - Small binary size (~10 MB)
 - Strong typing for safety
 - Excellent AWS SDK support
+
+**Execution ID Generation:**
+
+The system uses UUID v4 (RFC 4122) for execution IDs:
+- **Format:** Standard UUID `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx` (e.g., `550e8400-e29b-41d4-a716-446655440000`)
+- **Implementation:** Self-implemented using `crypto/rand` from Go standard library (no external dependencies)
+- **Why UUID v4?**
+  - Collision-resistant: 128-bit random values (5.3×10³⁶ possible combinations)
+  - Unpredictable: Cryptographically secure random generation
+  - Time-independent: No clock synchronization issues
+  - Industry standard: RFC 4122 compliant, universally recognized format
+  - No external dependencies: ~15 lines of code using only standard library
 
 ### 2. CLI Application
 
@@ -514,7 +526,7 @@ $ mycli exec "terraform apply"
 ✓ Execution started
 
 Execution Details:
-  Execution ID: exec_20250126_143210_123456
+  Execution ID: 550e8400-e29b-41d4-a716-446655440000
   Task ARN:     arn:aws:ecs:us-east-1:123456789:task/mycli-cluster/abc123def456
   Log Stream:   task/executor/abc123def456
 
@@ -681,7 +693,7 @@ All actions use POST to `/execute` endpoint with `action` field in request body.
 **Response:**
 ```json
 {
-  "execution_id": "exec_20250126_143210_123456",
+  "execution_id": "550e8400-e29b-41d4-a716-446655440000",
   "task_arn": "arn:aws:ecs:us-east-1:123456789:task/mycli-cluster/abc123",
   "status": "starting",
   "log_stream": "task/abc123",

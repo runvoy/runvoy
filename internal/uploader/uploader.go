@@ -5,12 +5,12 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"crypto/rand"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 )
@@ -27,9 +27,22 @@ func New(s3Client *s3.Client, bucket string) *Uploader {
 	}
 }
 
-// GenerateExecutionID creates a unique execution ID
+// GenerateExecutionID creates a UUID v4 for execution tracking
+// Uses crypto/rand from standard library - no external dependencies
 func GenerateExecutionID() string {
-	return time.Now().UTC().Format("20060102-150405-") + fmt.Sprintf("%06d", time.Now().Nanosecond()/1000)
+	b := make([]byte, 16)
+	_, err := rand.Read(b)
+	if err != nil {
+		// crypto/rand.Read should never fail on supported platforms
+		panic(fmt.Sprintf("failed to generate UUID: %v", err))
+	}
+
+	// Set version (4) and variant bits per RFC 4122
+	b[6] = (b[6] & 0x0f) | 0x40 // Version 4
+	b[8] = (b[8] & 0x3f) | 0x80 // Variant is 10
+
+	return fmt.Sprintf("%x-%x-%x-%x-%x",
+		b[0:4], b[4:6], b[6:8], b[8:10], b[10:16])
 }
 
 // UploadDirectory creates a tarball of the directory and uploads it to S3
