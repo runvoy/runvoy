@@ -22,8 +22,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation"
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation/types"
-	"github.com/aws/aws-sdk-go-v2/service/lambda"
-	lambdaTypes "github.com/aws/aws-sdk-go-v2/service/lambda/types"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/spf13/cobra"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -141,12 +140,99 @@ func runInit(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to build Lambda: %w", err)
 	}
 
-	// 5. Create CloudFormation stack
+	// 5. Create temporary bucket stack for Lambda code
 	cfnClient := cloudformation.NewFromConfig(cfg)
+	bucketStackName := fmt.Sprintf("%s-bootstrap", initStackName)
 
-	fmt.Println("→ Creating CloudFormation stack...")
+	fmt.Println("→ Creating temporary S3 bucket for Lambda code...")
+
+	// Read bucket template
+	cwd, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("failed to get current directory: %w", err)
+	}
+	
+	bucketTemplatePath := filepath.Join(cwd, "deploy", "cloudformation-bucket.yaml")
+	bucketTemplateBody, err := os.ReadFile(bucketTemplatePath)
+	if err != nil {
+		return fmt.Errorf("failed to read bucket CloudFormation template: %w", err)
+	}
+	bucketTemplateStr := string(bucketTemplateBody)
+
+	// Create bucket stack
+	_, err = cfnClient.CreateStack(ctx, &cloudformation.CreateStackInput{
+		StackName:    &bucketStackName,
+		TemplateBody: &bucketTemplateStr,
+		Parameters: []types.Parameter{
+			{
+				ParameterKey:   aws.String("ProjectName"),
+				ParameterValue: aws.String(initStackName),
+			},
+		},
+		Tags: []types.Tag{
+			{Key: strPtr("Project"), Value: strPtr("mycli")},
+			{Key: strPtr("Lifecycle"), Value: strPtr("Temporary")},
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("failed to create bucket stack: %w", err)
+	}
+
+	fmt.Println("  Waiting for bucket stack creation...")
+
+	// Wait for bucket stack creation
+	bucketWaiter := cloudformation.NewStackCreateCompleteWaiter(cfnClient)
+	err = bucketWaiter.Wait(ctx, &cloudformation.DescribeStacksInput{
+		StackName: &bucketStackName,
+	}, 5*time.Minute)
+	if err != nil {
+		return fmt.Errorf("bucket stack creation failed: %w", err)
+	}
+
+	fmt.Println("✓ Bucket stack created")
+
+	// Get bucket name from stack outputs
+	bucketResp, err := cfnClient.DescribeStacks(ctx, &cloudformation.DescribeStacksInput{
+		StackName: &bucketStackName,
+	})
+	if err != nil || len(bucketResp.Stacks) == 0 {
+		return fmt.Errorf("failed to describe bucket stack: %w", err)
+	}
+
+	bucketOutputs := parseStackOutputs(bucketResp.Stacks[0].Outputs)
+	bucketName := bucketOutputs["BucketName"]
+	if bucketName == "" {
+		return fmt.Errorf("bucket name not found in stack outputs")
+	}
+
+	// 6. Upload Lambda code to S3
+	fmt.Println("→ Uploading Lambda code to S3...")
+	s3Client := s3.NewFromConfig(cfg)
+
+	lambdaKey := "bootstrap.zip"
+	_, err = s3Client.PutObject(ctx, &s3.PutObjectInput{
+		Bucket: &bucketName,
+		Key:    &lambdaKey,
+		Body:   bytes.NewReader(lambdaZip),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to upload Lambda code to S3: %w", err)
+	}
+
+	fmt.Println("✓ Lambda code uploaded")
+
+	// 7. Create main CloudFormation stack
+	fmt.Println("→ Creating main CloudFormation stack...")
 
 	cfnParams := []types.Parameter{
+		{
+			ParameterKey:   aws.String("LambdaCodeBucket"),
+			ParameterValue: aws.String(bucketName),
+		},
+		{
+			ParameterKey:   aws.String("LambdaCodeKey"),
+			ParameterValue: aws.String(lambdaKey),
+		},
 		{
 			ParameterKey:   aws.String("APIKeyHash"),
 			ParameterValue: aws.String(apiKeyHash),
@@ -173,11 +259,7 @@ func runInit(cmd *cobra.Command, args []string) error {
 		})
 	}
 
-	// Read CloudFormation template
-	cwd, err := os.Getwd()
-	if err != nil {
-		return fmt.Errorf("failed to get current directory: %w", err)
-	}
+	// Read main CloudFormation template
 	templatePath := filepath.Join(cwd, "deploy", "cloudformation.yaml")
 	templateBody, err := os.ReadFile(templatePath)
 	if err != nil {
@@ -209,9 +291,24 @@ func runInit(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("stack creation failed: %w", err)
 	}
 
-	fmt.Println("✓ Stack created successfully")
+	fmt.Println("✓ Main stack created successfully")
 
-	// 6. Get stack outputs
+	// 8. Delete temporary bucket stack
+	fmt.Println("→ Cleaning up temporary bucket stack...")
+	
+	_, err = cfnClient.DeleteStack(ctx, &cloudformation.DeleteStackInput{
+		StackName: &bucketStackName,
+	})
+	if err != nil {
+		// Non-fatal - warn but continue
+		fmt.Printf("  ⚠️  Warning: Failed to delete bucket stack: %v\n", err)
+		fmt.Println("  You may need to delete it manually later")
+	} else {
+		// Don't wait for deletion to complete - it can happen in the background
+		fmt.Println("✓ Bucket stack deletion initiated (will complete in background)")
+	}
+
+	// 9. Get stack outputs
 	resp, err := cfnClient.DescribeStacks(ctx, &cloudformation.DescribeStacksInput{
 		StackName: &initStackName,
 	})
@@ -223,33 +320,8 @@ func runInit(cmd *cobra.Command, args []string) error {
 	outputs := parseStackOutputs(stack.Outputs)
 
 	apiEndpoint := outputs["APIEndpoint"]
-	functionName := outputs["LambdaFunctionName"]
 
-	// 7. Update Lambda function code
-	fmt.Println("→ Updating Lambda function code...")
-	lambdaClient := lambda.NewFromConfig(cfg)
-
-	_, err = lambdaClient.UpdateFunctionCode(ctx, &lambda.UpdateFunctionCodeInput{
-		FunctionName:  &functionName,
-		ZipFile:       lambdaZip,
-		Architectures: []lambdaTypes.Architecture{lambdaTypes.ArchitectureArm64},
-	})
-	if err != nil {
-		return fmt.Errorf("failed to update Lambda function code: %w", err)
-	}
-
-	// Wait for update to complete
-	updateWaiter := lambda.NewFunctionUpdatedV2Waiter(lambdaClient)
-	err = updateWaiter.Wait(ctx, &lambda.GetFunctionInput{
-		FunctionName: &functionName,
-	}, 2*time.Minute)
-	if err != nil {
-		return fmt.Errorf("Lambda code update failed: %w", err)
-	}
-
-	fmt.Println("✓ Lambda function code updated")
-
-	// 8. Save to config file
+	// 10. Save to config file
 	fmt.Println("→ Saving configuration...")
 	cliConfig := &internalConfig.Config{
 		APIEndpoint: apiEndpoint,
@@ -260,7 +332,7 @@ func runInit(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to save config: %w", err)
 	}
 
-	// 9. Success!
+	// 11. Success!
 	fmt.Println("\n✅ Setup complete!")
 	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 	fmt.Println("Configuration saved to ~/.mycli/config.yaml")

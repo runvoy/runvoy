@@ -1,0 +1,44 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'mycli - Temporary S3 Bucket for Lambda Code (Bootstrap Stack)'
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: mycli
+    Description: Name prefix for resources
+
+Resources:
+  # Temporary S3 bucket for Lambda bootstrap code
+  LambdaCodeBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub '${ProjectName}-lambda-bootstrap-${AWS::AccountId}-${AWS::Region}'
+      # Short lifecycle - bucket will be deleted after main stack is created
+      LifecycleConfiguration:
+        Rules:
+          - Id: DeleteOldVersions
+            Status: Enabled
+            ExpirationInDays: 1
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      Tags:
+        - Key: Project
+          Value: mycli
+        - Key: Purpose
+          Value: Lambda Bootstrap
+        - Key: Lifecycle
+          Value: Temporary
+
+Outputs:
+  BucketName:
+    Description: S3 bucket name for Lambda code
+    Value: !Ref LambdaCodeBucket
+    Export:
+      Name: !Sub '${ProjectName}-lambda-code-bucket'
+
+  BucketArn:
+    Description: S3 bucket ARN
+    Value: !GetAtt LambdaCodeBucket.Arn

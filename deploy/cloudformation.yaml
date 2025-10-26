@@ -7,6 +7,15 @@ Parameters:
     Default: mycli
     Description: Name prefix for all resources
 
+  LambdaCodeBucket:
+    Type: String
+    Description: S3 bucket name containing Lambda deployment package
+
+  LambdaCodeKey:
+    Type: String
+    Default: bootstrap.zip
+    Description: S3 key for Lambda deployment package
+
   APIKeyHash:
     Type: String
     NoEcho: true
@@ -281,7 +290,7 @@ Resources:
       ParentId: !GetAtt RestAPI.RootResourceId
       PathPart: execute
 
-  # Lambda Function (created with placeholder code, updated by init command)
+  # Lambda Function (code loaded from S3 bucket)
   LambdaFunction:
     Type: AWS::Lambda::Function
     Properties:
@@ -290,11 +299,8 @@ Resources:
       Role: !GetAtt LambdaExecutionRole.Arn
       Handler: bootstrap
       Code:
-        ZipFile: |
-          #!/bin/sh
-          # Placeholder bootstrap - will be replaced by mycli init command
-          echo '{"statusCode": 503, "body": "{\"error\": \"Lambda function code not yet uploaded. Run mycli init to complete setup.\"}"}'
-          exit 0
+        S3Bucket: !Ref LambdaCodeBucket
+        S3Key: !Ref LambdaCodeKey
       Timeout: 60
       Architectures:
         - arm64

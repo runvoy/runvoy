@@ -234,9 +234,35 @@ When a task definition family already exists, the Lambda checks if it uses the s
 
 ### 4. CloudFormation Infrastructure
 
-**Template:** `deploy/cloudformation.yaml`
+**Two-Stack Deployment Strategy:**
 
-**Resources Created:**
+mycli uses a two-stack CloudFormation approach to properly manage Lambda function provisioning:
+
+1. **Bootstrap Stack** (`cloudformation-bucket.yaml`) - Temporary
+   - Creates S3 bucket for Lambda code upload
+   - Automatically deleted after main stack creation
+   - Named: `{stack-name}-bootstrap`
+
+2. **Main Stack** (`cloudformation.yaml`) - Permanent
+   - All core infrastructure resources
+   - Lambda function references S3 bucket for initial code
+   - Named: `{stack-name}` (default: "mycli")
+
+**Why Two Stacks?**
+
+CloudFormation Lambda functions require actual code at creation time. By splitting into two stacks:
+- ✅ Fully declarative infrastructure (no manual Lambda updates needed)
+- ✅ Clean separation between bootstrap and permanent resources
+- ✅ Bucket automatically cleaned up after deployment
+- ✅ No placeholder code workarounds
+
+**Bootstrap Stack Resources** (`deploy/cloudformation-bucket.yaml`):
+- **S3 Bucket** - Temporary storage for Lambda code
+  - Name: `{project-name}-lambda-bootstrap-{account-id}-{region}`
+  - Lifecycle: 1-day expiration (auto-cleanup)
+  - Access: Private, blocked public access
+
+**Main Stack Resources** (`deploy/cloudformation.yaml`):
 - **VPC** - 10.0.0.0/16 with DNS support
 - **Internet Gateway** - For public subnet internet access
 - **Public Subnets (2)** - Multi-AZ for high availability
@@ -249,10 +275,12 @@ When a task definition family already exists, the Lambda checks if it uses the s
   - Task Execution Role - Pull images, write logs
   - Task Role - Runtime permissions (minimal by default, user-configurable)
   - Lambda Execution Role - Start tasks, read logs, update function config
-- **Lambda Function** - Created with placeholder code, updated by init command
+- **Lambda Function** - Code loaded from S3 bucket (from bootstrap stack)
 - **API Gateway** - REST API with /execute resource, POST method, Lambda integration, and prod deployment
 
-**Parameters:**
+**Main Stack Parameters:**
+- `LambdaCodeBucket` - S3 bucket name containing Lambda code (from bootstrap stack)
+- `LambdaCodeKey` - S3 key for Lambda deployment package (default: bootstrap.zip)
 - `APIKeyHash` - Bcrypt hash of API key (NoEcho)
 - `GitHubToken` - GitHub PAT (NoEcho, optional)
 - `GitLabToken` - GitLab PAT (NoEcho, optional)
@@ -446,11 +474,13 @@ mycli exec --branch=prod "terraform apply"  # prod environment
 4. Hashes key with bcrypt (cost 10)
 5. Prompts for Git credentials (optional, interactive)
 6. Builds Lambda function (Go cross-compile for linux/arm64)
-7. Creates CloudFormation stack with all resources (including Lambda with placeholder code and API Gateway)
-8. Waits for stack creation (~5 minutes)
-9. Updates Lambda function code with built zip
-10. Saves config to ~/.mycli/config.yaml
-11. Displays API key (shown once, also saved to config)
+7. Creates temporary bootstrap CloudFormation stack with S3 bucket (~1 minute)
+8. Uploads Lambda code to S3 bucket
+9. Creates main CloudFormation stack with all resources, Lambda references S3 (~5 minutes)
+10. Waits for main stack creation
+11. Deletes bootstrap stack (happens in background, non-blocking)
+12. Saves config to ~/.mycli/config.yaml
+13. Displays API key (shown once, also saved to config)
 
 **Flags:**
 - `--stack-name string` - CloudFormation stack name (default: "mycli")
@@ -497,11 +527,16 @@ Type 'yes' to confirm: yes
 
 → Generating API key...
 → Building Lambda function...
-→ Creating CloudFormation stack...
+→ Creating temporary S3 bucket for Lambda code...
+  Waiting for bucket stack creation...
+✓ Bucket stack created
+→ Uploading Lambda code to S3...
+✓ Lambda code uploaded
+→ Creating main CloudFormation stack...
   Waiting for stack creation (this may take a few minutes)...
-✓ Stack created successfully
-→ Updating Lambda function code...
-✓ Lambda function code updated
+✓ Main stack created successfully
+→ Cleaning up temporary bucket stack...
+✓ Bucket stack deletion initiated (will complete in background)
 → Saving configuration...
 
 ✅ Setup complete!
@@ -1234,9 +1269,10 @@ This will:
 - Generate API key
 - Prompt for Git credentials (optional)
 - Build Lambda function
-- Create CloudFormation stack (~5 min)
-- Create Lambda function
-- Configure API Gateway
+- Create temporary S3 bucket stack (~1 min)
+- Upload Lambda code to S3
+- Create main CloudFormation stack (~5 min)
+- Delete temporary bucket stack (background)
 - Save config to ~/.mycli/config.yaml
 
 **3. Verify deployment:**
@@ -1625,15 +1661,16 @@ curl -X POST \
 ```
 mycli/
 ├── cmd/
-│   ├── root.go                # Cobra root command
-│   ├── init.go                # Infrastructure deployment (cmd/init.go:61)
-│   ├── configure.go           # Manual configuration
-│   ├── exec.go                # Execute commands (cmd/exec.go:65)
-│   ├── status.go              # Check execution status
-│   ├── logs.go                # View execution logs
-│   └── destroy.go             # Cleanup infrastructure
+│   ├── root.go                      # Cobra root command
+│   ├── init.go                      # Infrastructure deployment (two-stack approach)
+│   ├── configure.go                 # Manual configuration
+│   ├── exec.go                      # Execute commands (cmd/exec.go:65)
+│   ├── status.go                    # Check execution status
+│   ├── logs.go                      # View execution logs
+│   └── destroy.go                   # Cleanup infrastructure
 ├── deploy/
-│   └── cloudformation.yaml    # Infrastructure template
+│   ├── cloudformation-bucket.yaml   # Temporary S3 bucket stack (bootstrap)
+│   └── cloudformation.yaml          # Main infrastructure template
 ├── internal/
 │   ├── config/                # Global config management
 │   │   └── config.go          # ~/.mycli/config.yaml
@@ -1670,6 +1707,12 @@ mycli/
 
 ## Appendix: AWS Resource Summary
 
+**Bootstrap Stack (Temporary - deleted after deployment):**
+| Resource Type | Name/ID | Purpose |
+|--------------|---------|---------|
+| S3 Bucket | mycli-lambda-bootstrap-{account}-{region} | Lambda code storage (temporary) |
+
+**Main Stack (Permanent):**
 | Resource Type | Name/ID | Purpose |
 |--------------|---------|---------|
 | VPC | mycli-vpc | Network isolation |
@@ -1686,7 +1729,8 @@ mycli/
 | Lambda Permission | AllowAPIGatewayInvoke | API Gateway invoke permission |
 | API Gateway Deployment | prod | API deployment to prod stage |
 
-**Total Resources:** ~18 (all managed by CloudFormation)
+**Total Permanent Resources:** ~18 (all managed by CloudFormation)
+**Total Bootstrap Resources:** 1 (deleted after deployment)
 
 ---
 

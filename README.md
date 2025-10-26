@@ -26,11 +26,14 @@ mycli init
 ```
 
 This creates:
+- Temporary S3 bucket for Lambda code (deleted after setup)
 - ECS Fargate cluster for running tasks
 - Lambda orchestrator with API Gateway
 - VPC with public subnets
 - CloudWatch Logs for execution output
 - Optionally configures Git credentials for private repos
+
+The deployment uses a two-stack CloudFormation approach for clean Lambda provisioning.
 
 ### 3. Execute Commands
 
@@ -96,7 +99,7 @@ mycli logs -f <task-arn>
    - Executes your command
 4. Lambda starts ECS Fargate task with chosen Docker image
 5. Container runs the script, logs output to CloudWatch
-6. You monitor via: mycli status / mycli logs
+6. You monitor via: mycli status <task-arn> / mycli logs <task-arn>
 ```
 
 ## Configuration
