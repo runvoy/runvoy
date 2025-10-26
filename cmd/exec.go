@@ -19,6 +19,7 @@ var (
 	image      string
 	envVars    []string
 	timeout    int
+	skipGit    bool
 )
 
 var execCmd = &cobra.Command{
@@ -58,6 +59,7 @@ func init() {
 	execCmd.Flags().StringVar(&image, "image", "", "Docker image to use (overrides .mycli.yaml)")
 	execCmd.Flags().StringArrayVar(&envVars, "env", []string{}, "Environment variables KEY=VALUE (merges with .mycli.yaml)")
 	execCmd.Flags().IntVar(&timeout, "timeout", 0, "Timeout in seconds (overrides .mycli.yaml)")
+	execCmd.Flags().BoolVar(&skipGit, "skip-git", false, "Skip git cloning and run command directly in container")
 }
 
 func runExec(cmd *cobra.Command, args []string) error {
@@ -90,16 +92,23 @@ func runExec(cmd *cobra.Command, args []string) error {
 	execConfig.Merge(repo, branch, image, cliEnv, timeout)
 
 	// Validate final config
-	if err := execConfig.Validate(); err != nil {
-		return fmt.Errorf("invalid configuration: %w", err)
+	// When skip-git is enabled, repo is not required
+	if !skipGit {
+		if err := execConfig.Validate(); err != nil {
+			return fmt.Errorf("invalid configuration: %w", err)
+		}
 	}
 
 	// Show what we're executing
-	fmt.Println("→ Repository:", execConfig.Repo)
-	if execConfig.Branch != "" {
-		fmt.Println("→ Branch:", execConfig.Branch)
+	if skipGit {
+		fmt.Println("→ Mode: No git cloning (running command directly)")
 	} else {
-		fmt.Println("→ Branch: main (default)")
+		fmt.Println("→ Repository:", execConfig.Repo)
+		if execConfig.Branch != "" {
+			fmt.Println("→ Branch:", execConfig.Branch)
+		} else {
+			fmt.Println("→ Branch: main (default)")
+		}
 	}
 	if execConfig.Image != "" {
 		fmt.Println("→ Image:", execConfig.Image)
@@ -121,6 +130,7 @@ func runExec(cmd *cobra.Command, args []string) error {
 		Image:          execConfig.Image,
 		Env:            execConfig.Env,
 		TimeoutSeconds: execConfig.TimeoutSeconds,
+		SkipGit:        skipGit,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to start execution: %w", err)

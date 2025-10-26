@@ -9,6 +9,7 @@ type ExecRequest struct {
 	Image          string            `json:"image,omitempty"`
 	Env            map[string]string `json:"env,omitempty"`
 	TimeoutSeconds int               `json:"timeout_seconds,omitempty"`
+	SkipGit        bool              `json:"skip_git,omitempty"`
 }
 
 type StatusRequest struct {
@@ -34,6 +35,7 @@ type Request struct {
 	Image          string            `json:"image,omitempty"`
 	Env            map[string]string `json:"env,omitempty"`
 	TimeoutSeconds int               `json:"timeout_seconds,omitempty"`
+	SkipGit        bool              `json:"skip_git,omitempty"`
 }
 
 // Response types
