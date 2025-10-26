@@ -1,0 +1,75 @@
+# mycli Project Configuration Example
+# This file should be placed in your project root directory
+# Commit this file to version control (it contains no secrets)
+
+# Git repository URL (required if not using --repo flag)
+# Supports HTTPS and SSH URLs
+repo: https://github.com/mycompany/infrastructure
+
+# Git branch to checkout (optional, default: main)
+branch: main
+
+# Docker image to use for execution (optional)
+# Specify any Docker image with the tools you need
+# Examples:
+#   - hashicorp/terraform:1.6
+#   - python:3.11
+#   - node:18
+#   - alpine:latest
+# Default: ubuntu:22.04 (if not specified)
+image: hashicorp/terraform:1.6
+
+# Environment variables for the execution (optional)
+# These will be available to your commands
+env:
+  TF_VAR_environment: production
+  TF_VAR_region: us-east-1
+  AWS_REGION: us-east-1
+  ANSIBLE_HOST_KEY_CHECKING: "False"
+
+# Timeout in seconds (optional, default: 1800 = 30 minutes)
+# Maximum time the command can run before being terminated
+timeout: 3600
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Configuration Priority (highest to lowest):
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# 1. Command-line flags (--repo, --branch, --image, --env)
+# 2. .mycli.yaml (this file)
+# 3. Git remote URL (auto-detected)
+# 4. Error if no repo specified
+#
+# Examples:
+#   mycli exec "terraform plan"
+#   mycli exec --branch=dev "terraform plan"
+#   mycli exec --env TF_VAR_foo=bar "terraform apply"
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Use Cases
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+# Terraform Project:
+# repo: https://github.com/mycompany/aws-infrastructure
+# branch: main
+# image: hashicorp/terraform:1.6
+# env:
+#   TF_VAR_region: us-east-1
+#   TF_VAR_environment: production
+# timeout: 3600
+
+# Ansible Project:
+# repo: https://github.com/mycompany/ansible-playbooks
+# image: ansible/ansible:latest
+# env:
+#   ANSIBLE_HOST_KEY_CHECKING: "False"
+
+# Generic Script Repository:
+# repo: https://github.com/mycompany/scripts
+# branch: main
+
+# Multi-environment Pattern (use --branch flag):
+# repo: https://github.com/mycompany/infra
+# # Then run:
+# # mycli exec --branch=dev "terraform apply"
+# # mycli exec --branch=prod "terraform apply"

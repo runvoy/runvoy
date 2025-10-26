@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/aws/aws-lambda-go/events"
@@ -17,11 +18,28 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+type ExecutionRequest struct {
+	ExecutionID    string            `json:"execution_id"`
+	Repo           string            `json:"repo"`
+	Branch         string            `json:"branch,omitempty"`
+	Command        string            `json:"command"`
+	Image          string            `json:"image,omitempty"`
+	Env            map[string]string `json:"env,omitempty"`
+	TimeoutSeconds int               `json:"timeout_seconds,omitempty"`
+}
+
 type Request struct {
-	Action      string `json:"action"`
-	Command     string `json:"command,omitempty"`
-	TaskArn     string `json:"task_arn,omitempty"`
-	ExecutionID string `json:"execution_id,omitempty"`
+	Action      string            `json:"action"`
+	TaskArn     string            `json:"task_arn,omitempty"`
+	ExecutionID string            `json:"execution_id,omitempty"`
+	
+	// Execution parameters (for "exec" action)
+	Repo           string            `json:"repo,omitempty"`
+	Branch         string            `json:"branch,omitempty"`
+	Command        string            `json:"command,omitempty"`
+	Image          string            `json:"image,omitempty"`
+	Env            map[string]string `json:"env,omitempty"`
+	TimeoutSeconds int               `json:"timeout_seconds,omitempty"`
 }
 
 type Response struct {
@@ -30,6 +48,7 @@ type Response struct {
 	Status        string `json:"status,omitempty"`
 	DesiredStatus string `json:"desired_status,omitempty"`
 	CreatedAt     string `json:"created_at,omitempty"`
+	LogStream     string `json:"log_stream,omitempty"`
 	Logs          string `json:"logs,omitempty"`
 	Error         string `json:"error,omitempty"`
 }
@@ -40,7 +59,9 @@ var (
 	logsClient *cloudwatchlogs.Client
 
 	apiKeyHash    string
-	codeBucket    string
+	githubToken   string
+	gitlabToken   string
+	sshPrivateKey string
 	ecsCluster    string
 	taskDef       string
 	subnet1       string
@@ -60,7 +81,9 @@ func init() {
 	logsClient = cloudwatchlogs.NewFromConfig(cfg)
 
 	apiKeyHash = os.Getenv("API_KEY_HASH")
-	codeBucket = os.Getenv("CODE_BUCKET")
+	githubToken = os.Getenv("GITHUB_TOKEN")
+	gitlabToken = os.Getenv("GITLAB_TOKEN")
+	sshPrivateKey = os.Getenv("SSH_PRIVATE_KEY")
 	ecsCluster = os.Getenv("ECS_CLUSTER")
 	taskDef = os.Getenv("TASK_DEFINITION")
 	subnet1 = os.Getenv("SUBNET_1")
@@ -125,15 +148,60 @@ func authenticate(apiKey string) bool {
 }
 
 func handleExec(ctx context.Context, req Request) (Response, error) {
+	// Validate required fields
+	if req.Repo == "" {
+		return Response{}, fmt.Errorf("repo required")
+	}
 	if req.Command == "" {
 		return Response{}, fmt.Errorf("command required")
 	}
 
-	// Generate execution ID
-	execID := time.Now().UTC().Format("20060102-150405-") + fmt.Sprintf("%06d", time.Now().Nanosecond()/1000)
+	// Generate execution ID if not provided
+	execID := req.ExecutionID
+	if execID == "" {
+		execID = generateExecutionID()
+	}
 
-	// Run Fargate task with command and execution ID as environment variables
-	runTaskResp, err := ecsClient.RunTask(ctx, &ecs.RunTaskInput{
+	// Set defaults
+	branch := req.Branch
+	if branch == "" {
+		branch = "main"
+	}
+
+	// Note: Custom images per execution are not supported in this implementation
+	// due to ECS API limitations (can't override image in task definition at runtime)
+	// For custom images, users need to update the task definition
+	// Future enhancement: Dynamically register task definitions per image
+	_ = req.Image // Acknowledged but not used yet
+
+	timeoutSeconds := req.TimeoutSeconds
+	if timeoutSeconds == 0 {
+		timeoutSeconds = 1800 // 30 minutes default
+	}
+
+	// Construct the shell command that will:
+	// 1. Setup git credentials (if provided)
+	// 2. Clone the repository
+	// 3. Change to the repo directory
+	// 4. Execute the user's command
+	shellCommand := buildShellCommand(req.Repo, branch, req.Command, githubToken, gitlabToken, sshPrivateKey)
+
+	// Build environment variables for the container
+	// Include user-provided environment variables
+	envVars := []ecsTypes.KeyValuePair{
+		{Name: aws.String("EXECUTION_ID"), Value: aws.String(execID)},
+	}
+
+	// Add user-provided environment variables
+	for key, value := range req.Env {
+		envVars = append(envVars, ecsTypes.KeyValuePair{
+			Name:  aws.String(key),
+			Value: aws.String(value),
+		})
+	}
+
+	// Run Fargate task
+	runTaskInput := &ecs.RunTaskInput{
 		Cluster:        &ecsCluster,
 		TaskDefinition: &taskDef,
 		LaunchType:     ecsTypes.LaunchTypeFargate,
@@ -144,28 +212,27 @@ func handleExec(ctx context.Context, req Request) (Response, error) {
 				AssignPublicIp: ecsTypes.AssignPublicIpEnabled,
 			},
 		},
-		Overrides: &ecsTypes.TaskOverride{
-			ContainerOverrides: []ecsTypes.ContainerOverride{
-				{
-					Name: aws.String("executor"),
-					Environment: []ecsTypes.KeyValuePair{
-						{
-							Name:  aws.String("EXEC_ID"),
-							Value: aws.String(execID),
-						},
-						{
-							Name:  aws.String("COMMAND"),
-							Value: aws.String(req.Command),
-						},
-						{
-							Name:  aws.String("CODE_BUCKET"),
-							Value: aws.String(codeBucket),
-						},
-					},
-				},
-			},
+		Tags: []ecsTypes.Tag{
+			{Key: aws.String("ExecutionID"), Value: aws.String(execID)},
+			{Key: aws.String("Repo"), Value: aws.String(req.Repo)},
 		},
-	})
+	}
+
+	// Override container with our command and environment
+	// Note: ECS task override doesn't support changing the image at runtime
+	// Image must be specified when starting the task via TaskDefinition parameter
+	containerOverride := ecsTypes.ContainerOverride{
+		Name:        aws.String("executor"),
+		Environment: envVars,
+		// Override the command to run our shell script
+		Command: []string{"/bin/sh", "-c", shellCommand},
+	}
+
+	runTaskInput.Overrides = &ecsTypes.TaskOverride{
+		ContainerOverrides: []ecsTypes.ContainerOverride{containerOverride},
+	}
+
+	runTaskResp, err := ecsClient.RunTask(ctx, runTaskInput)
 	if err != nil {
 		return Response{}, fmt.Errorf("failed to run task: %v", err)
 	}
@@ -174,11 +241,19 @@ func handleExec(ctx context.Context, req Request) (Response, error) {
 		return Response{}, fmt.Errorf("no task created")
 	}
 
-	taskArn := *runTaskResp.Tasks[0].TaskArn
+	task := runTaskResp.Tasks[0]
+	taskArn := *task.TaskArn
+
+	// Generate log stream name (ECS uses task ID)
+	taskID := taskArn[len(taskArn)-36:] // Last 36 chars (UUID)
+	logStream := fmt.Sprintf("task/%s", taskID)
 
 	return Response{
 		ExecutionID: execID,
 		TaskArn:     taskArn,
+		Status:      "starting",
+		LogStream:   logStream,
+		CreatedAt:   time.Now().UTC().Format(time.RFC3339),
 	}, nil
 }
 
@@ -206,7 +281,7 @@ func handleStatus(ctx context.Context, req Request) (Response, error) {
 	}
 
 	return Response{
-		Status:        *task.LastStatus,
+		Status:        aws.ToString(task.LastStatus),
 		DesiredStatus: aws.ToString(task.DesiredStatus),
 		CreatedAt:     createdAt,
 	}, nil
@@ -217,35 +292,161 @@ func handleLogs(ctx context.Context, req Request) (Response, error) {
 		return Response{}, fmt.Errorf("execution_id required")
 	}
 
-	streamPrefix := fmt.Sprintf("task/%s", req.ExecutionID)
-
+	// Try to find log streams for this execution
+	// ECS creates log streams with format: task/<task-id>
+	// We stored execution ID as a tag, but for simplicity, we'll search by prefix
+	
+	streamPrefix := "task/"
+	
 	filterResp, err := logsClient.FilterLogEvents(ctx, &cloudwatchlogs.FilterLogEventsInput{
 		LogGroupName:        &logGroup,
 		LogStreamNamePrefix: &streamPrefix,
-		Limit:               aws.Int32(100),
+		Limit:               aws.Int32(1000),
 	})
 	if err != nil {
 		return Response{}, fmt.Errorf("failed to get logs: %v", err)
 	}
 
-	var logs []string
+	var logs string
 	for _, event := range filterResp.Events {
 		if event.Message != nil {
-			logs = append(logs, *event.Message)
+			logs += *event.Message + "\n"
 		}
 	}
 
-	logsOutput := ""
-	if len(logs) > 0 {
-		logsOutput = logs[0]
-		for i := 1; i < len(logs); i++ {
-			logsOutput += "\n" + logs[i]
-		}
+	if logs == "" {
+		logs = "No logs available yet. The task may still be starting."
 	}
 
 	return Response{
-		Logs: logsOutput,
+		Logs: logs,
 	}, nil
+}
+
+func generateExecutionID() string {
+	return fmt.Sprintf("exec_%s_%06d", 
+		time.Now().UTC().Format("20060102_150405"),
+		time.Now().Nanosecond()/1000)
+}
+
+// shellEscape escapes a string for safe use in a shell command
+// This prevents injection attacks when embedding variables in shell scripts
+func shellEscape(s string) string {
+	// Replace single quotes with '\'' (end quote, escaped quote, start quote)
+	// This allows us to safely wrap the string in single quotes
+	return "'" + strings.ReplaceAll(s, "'", "'\\''") + "'"
+}
+
+// buildShellCommand constructs a shell script that:
+// 1. Installs git if not present (for generic images)
+// 2. Configures git credentials
+// 3. Clones the repository
+// 4. Executes the user's command
+//
+// NOTE: This is a pragmatic bash solution for MVP.
+// Future: Consider more robust solutions (Go binary, Python script, etc.)
+func buildShellCommand(repo, branch, userCommand, githubToken, gitlabToken, sshKey string) string {
+	script := `set -e
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "mycli Remote Execution"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+`
+
+	// Install git if not present (for minimal images like alpine, ubuntu)
+	script += `
+if ! command -v git &> /dev/null; then
+  echo "→ Installing git..."
+  if command -v apk &> /dev/null; then
+    apk add --no-cache git openssh-client
+  elif command -v apt-get &> /dev/null; then
+    apt-get update && apt-get install -y git openssh-client
+  elif command -v yum &> /dev/null; then
+    yum install -y git openssh-clients
+  else
+    echo "ERROR: Cannot install git - unsupported package manager"
+    exit 1
+  fi
+fi
+`
+
+	// Setup git credentials (with proper shell escaping for security)
+	if githubToken != "" {
+		escapedToken := shellEscape(githubToken)
+		script += fmt.Sprintf(`
+echo "→ Configuring GitHub authentication..."
+git config --global credential.helper store
+echo "https://%s:x-oauth-basic@github.com" > ~/.git-credentials
+chmod 600 ~/.git-credentials
+`, escapedToken)
+	} else if gitlabToken != "" {
+		escapedToken := shellEscape(gitlabToken)
+		script += fmt.Sprintf(`
+echo "→ Configuring GitLab authentication..."
+git config --global credential.helper store
+echo "https://oauth2:%s@gitlab.com" > ~/.git-credentials
+chmod 600 ~/.git-credentials
+`, escapedToken)
+	} else if sshKey != "" {
+		escapedKey := shellEscape(sshKey)
+		script += fmt.Sprintf(`
+echo "→ Configuring SSH authentication..."
+mkdir -p ~/.ssh
+echo %s | base64 -d > ~/.ssh/id_rsa
+chmod 600 ~/.ssh/id_rsa
+ssh-keyscan github.com >> ~/.ssh/known_hosts 2>/dev/null
+ssh-keyscan gitlab.com >> ~/.ssh/known_hosts 2>/dev/null
+ssh-keyscan bitbucket.org >> ~/.ssh/known_hosts 2>/dev/null
+`, escapedKey)
+	}
+
+	// Clone repository (with proper shell escaping for security)
+	escapedRepo := shellEscape(repo)
+	escapedBranch := shellEscape(branch)
+	escapedCommand := shellEscape(userCommand)
+	
+	script += fmt.Sprintf(`
+echo "→ Repository: %s"
+echo "→ Branch: %s"
+echo "→ Cloning repository..."
+git clone --depth 1 --branch %s %s /workspace/repo || {
+  echo "ERROR: Failed to clone repository"
+  echo "Please verify:"
+  echo "  - Repository URL is correct"
+  echo "  - Branch exists"
+  echo "  - Git credentials are configured (for private repos)"
+  exit 1
+}
+cd /workspace/repo
+echo "✓ Repository cloned"
+echo ""
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "Executing command..."
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+`, escapedRepo, escapedBranch, escapedBranch, escapedRepo)
+
+	// Execute user command (already escaped above, now we need to use eval)
+	// Using eval to properly handle the escaped command
+	script += fmt.Sprintf("eval %s\n", escapedCommand)
+
+	// Capture exit code and cleanup
+	script += `
+EXIT_CODE=$?
+echo ""
+if [ $EXIT_CODE -eq 0 ]; then
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo "✓ Command completed successfully"
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+else
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo "✗ Command failed with exit code: $EXIT_CODE"
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+fi
+rm -f ~/.git-credentials ~/.ssh/id_rsa
+exit $EXIT_CODE
+`
+
+	return script
 }
 
 func errorResponse(statusCode int, message string) (events.APIGatewayProxyResponse, error) {

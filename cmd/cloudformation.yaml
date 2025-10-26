@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'mycli - Remote Command Execution Infrastructure'
+Description: 'mycli - Git-based Remote Command Execution Infrastructure'
 
 Parameters:
   ProjectName:
@@ -12,22 +12,36 @@ Parameters:
     NoEcho: true
     Description: Bcrypt hash of the API key
 
-  CodeBucketName:
+  GitHubToken:
     Type: String
-    Description: Name of the S3 bucket for code storage (created outside CFN)
+    NoEcho: true
+    Default: ''
+    Description: GitHub Personal Access Token (optional, for private repos)
+
+  GitLabToken:
+    Type: String
+    NoEcho: true
+    Default: ''
+    Description: GitLab Personal Access Token (optional, for private repos)
+
+  SSHPrivateKey:
+    Type: String
+    NoEcho: true
+    Default: ''
+    Description: Base64-encoded SSH private key (optional, for private repos)
+
+  DefaultImage:
+    Type: String
+    Default: 'public.ecr.aws/docker/library/ubuntu:22.04'
+    Description: Default Docker image (generic base image, users should specify task-specific images)
+
+Conditions:
+  HasGitHubToken: !Not [!Equals [!Ref GitHubToken, '']]
+  HasGitLabToken: !Not [!Equals [!Ref GitLabToken, '']]
+  HasSSHKey: !Not [!Equals [!Ref SSHPrivateKey, '']]
 
 Resources:
-  # ECS Service Linked Role (one-time account-level resource)
-  ECSServiceLinkedRole:
-    Type: AWS::IAM::ServiceLinkedRole
-    Properties:
-      AWSServiceName: ecs.amazonaws.com
-      Description: Service-linked role for Amazon ECS
-
-  # Note: S3 bucket is created outside CloudFormation by init command
-  # This allows for better region handling and avoids circular dependencies
-
-  # CloudWatch Log Group
+  # CloudWatch Log Group for execution logs
   ExecutionLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
@@ -120,6 +134,7 @@ Resources:
       SecurityGroupEgress:
         - IpProtocol: -1
           CidrIp: 0.0.0.0/0
+          Description: Allow all outbound traffic (needed for Git clone, AWS API, etc.)
       Tags:
         - Key: Name
           Value: !Sub '${ProjectName}-fargate-sg'
@@ -135,6 +150,7 @@ Resources:
       DefaultCapacityProviderStrategy:
         - CapacityProvider: FARGATE_SPOT
           Weight: 1
+          Base: 0
 
   # ECS Task Definition
   TaskDefinition:
@@ -150,8 +166,14 @@ Resources:
       TaskRoleArn: !GetAtt TaskRole.Arn
       ContainerDefinitions:
         - Name: executor
-          Image: public.ecr.aws/docker/library/alpine:latest
+          Image: !Ref DefaultImage
           Essential: true
+          # Command is overridden at runtime by Lambda
+          # Lambda constructs a shell script that clones git repo and runs user command
+          Command:
+            - '/bin/sh'
+            - '-c'
+            - 'echo "This task definition is a template. Command will be overridden at runtime."'
           LogConfiguration:
             LogDriver: awslogs
             Options:
@@ -174,7 +196,7 @@ Resources:
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
 
-  # IAM Role for Task (runtime permissions)
+  # IAM Role for Task (runtime permissions for user commands)
   TaskRole:
     Type: AWS::IAM::Role
     Properties:
@@ -187,14 +209,6 @@ Resources:
               Service: ecs-tasks.amazonaws.com
             Action: 'sts:AssumeRole'
       Policies:
-        - PolicyName: S3Access
-          PolicyDocument:
-            Version: '2012-10-17'
-            Statement:
-              - Effect: Allow
-                Action:
-                  - 's3:GetObject'
-                Resource: !Sub 'arn:aws:s3:::${CodeBucketName}/*'
         - PolicyName: CloudWatchLogs
           PolicyDocument:
             Version: '2012-10-17'
@@ -204,6 +218,8 @@ Resources:
                   - 'logs:CreateLogStream'
                   - 'logs:PutLogEvents'
                 Resource: !GetAtt ExecutionLogGroup.Arn
+        # TODO: Add more granular permissions based on user needs
+        # For MVP, users can add AdministratorAccess or custom policies manually
 
   # Lambda Execution Role
   LambdaExecutionRole:
@@ -226,13 +242,9 @@ Resources:
             Statement:
               - Effect: Allow
                 Action:
-                  - 's3:PutObject'
-                  - 's3:GetObject'
-                Resource: !Sub 'arn:aws:s3:::${CodeBucketName}/*'
-              - Effect: Allow
-                Action:
                   - 'ecs:RunTask'
                   - 'ecs:DescribeTasks'
+                  - 'ecs:ListTasks'
                 Resource: '*'
               - Effect: Allow
                 Action:
@@ -244,17 +256,15 @@ Resources:
                 Action:
                   - 'logs:GetLogEvents'
                   - 'logs:FilterLogEvents'
+                  - 'logs:DescribeLogStreams'
                 Resource: !GetAtt ExecutionLogGroup.Arn
-
-  # Note: Lambda function is created outside CloudFormation by init command
-  # This allows for direct zip upload without S3 dependency
 
   # API Gateway
   RestAPI:
     Type: AWS::ApiGateway::RestApi
     Properties:
       Name: !Sub '${ProjectName}-api'
-      Description: mycli Remote Command Execution API
+      Description: mycli Git-based Remote Command Execution API
       EndpointConfiguration:
         Types:
           - REGIONAL
@@ -268,7 +278,7 @@ Resources:
       PathPart: execute
 
   # Note: API Gateway Method and Integration are configured after Lambda creation
-  # This is done programmatically in init command
+  # This is done programmatically in the init command
 
 Outputs:
   APIEndpoint:
@@ -276,12 +286,6 @@ Outputs:
     Value: !Sub 'https://${RestAPI}.execute-api.${AWS::Region}.amazonaws.com/prod/execute'
     Export:
       Name: !Sub '${ProjectName}-api-endpoint'
-
-  CodeBucket:
-    Description: S3 bucket for command code
-    Value: !Ref CodeBucketName
-    Export:
-      Name: !Sub '${ProjectName}-code-bucket'
 
   ECSClusterName:
     Description: ECS Cluster name
@@ -322,3 +326,9 @@ Outputs:
   APIResourceId:
     Description: API Gateway Resource ID for /execute
     Value: !Ref APIResource
+
+  VPCId:
+    Description: VPC ID
+    Value: !Ref VPC
+    Export:
+      Name: !Sub '${ProjectName}-vpc-id'

@@ -41,7 +41,7 @@ func runConfigure(cmd *cobra.Command, args []string) error {
 	if manualAPIKey != "" {
 		fmt.Println("Manual configuration not fully implemented yet.")
 		fmt.Println("Please use: mycli init")
-		return fmt.Errorf("manual configuration requires --api-endpoint and --code-bucket flags (not yet implemented)")
+		return fmt.Errorf("manual configuration requires --api-endpoint flag (not yet implemented)")
 	}
 	
 	fmt.Printf("→ Looking for CloudFormation stack '%s'...\n", stackName)
@@ -73,10 +73,9 @@ func runConfigure(cmd *cobra.Command, args []string) error {
 	outputs := parseStackOutputs(stack.Stacks[0].Outputs)
 	
 	apiEndpoint := outputs["APIEndpoint"]
-	codeBucket := outputs["CodeBucket"]
 	
-	if apiEndpoint == "" || codeBucket == "" {
-		return fmt.Errorf("stack outputs incomplete - APIEndpoint or CodeBucket missing")
+	if apiEndpoint == "" {
+		return fmt.Errorf("stack outputs incomplete - APIEndpoint missing")
 	}
 	
 	// Note: We can't get the API key from stack (it's not stored there)
@@ -94,7 +93,6 @@ func runConfigure(cmd *cobra.Command, args []string) error {
 	cliConfig := &internalConfig.Config{
 		APIEndpoint: apiEndpoint,
 		APIKey:      apiKey,
-		CodeBucket:  codeBucket,
 		Region:      cfg.Region,
 	}
 	if err := internalConfig.Save(cliConfig); err != nil {

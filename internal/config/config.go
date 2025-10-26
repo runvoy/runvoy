@@ -11,7 +11,6 @@ import (
 type Config struct {
 	APIEndpoint string `yaml:"api_endpoint"`
 	APIKey      string `yaml:"api_key"`
-	CodeBucket  string `yaml:"code_bucket"`
 	Region      string `yaml:"region"`
 }
 
