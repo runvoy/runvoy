@@ -281,8 +281,67 @@ Resources:
       ParentId: !GetAtt RestAPI.RootResourceId
       PathPart: execute
 
-  # Note: API Gateway Method and Integration are configured after Lambda creation
-  # This is done programmatically in the init command
+  # Lambda Function (created with placeholder code, updated by init command)
+  LambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub '${ProjectName}-orchestrator'
+      Runtime: provided.al2023
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Handler: bootstrap
+      Code:
+        ZipFile: |
+          #!/bin/sh
+          # Placeholder bootstrap - will be replaced by mycli init command
+          echo '{"statusCode": 503, "body": "{\"error\": \"Lambda function code not yet uploaded. Run mycli init to complete setup.\"}"}'
+          exit 0
+      Timeout: 60
+      Architectures:
+        - arm64
+      Environment:
+        Variables:
+          API_KEY_HASH: !Ref APIKeyHash
+          ECS_CLUSTER: !Ref ECSCluster
+          TASK_DEFINITION: !Ref TaskDefinition
+          SUBNET_1: !Ref PublicSubnet1
+          SUBNET_2: !Ref PublicSubnet2
+          SECURITY_GROUP: !Ref FargateSecurityGroup
+          LOG_GROUP: !Ref ExecutionLogGroup
+          GITHUB_TOKEN: !If [HasGitHubToken, !Ref GitHubToken, !Ref 'AWS::NoValue']
+          GITLAB_TOKEN: !If [HasGitLabToken, !Ref GitLabToken, !Ref 'AWS::NoValue']
+          SSH_PRIVATE_KEY: !If [HasSSHKey, !Ref SSHPrivateKey, !Ref 'AWS::NoValue']
+
+  # API Gateway Method
+  APIGatewayMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestAPI
+      ResourceId: !Ref APIResource
+      HttpMethod: POST
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunction.Arn}/invocations'
+
+  # Lambda Permission for API Gateway
+  LambdaInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref LambdaFunction
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestAPI}/*/*'
+
+  # API Gateway Deployment
+  APIGatewayDeployment:
+    Type: AWS::ApiGateway::Deployment
+    DependsOn:
+      - APIGatewayMethod
+    Properties:
+      RestApiId: !Ref RestAPI
+      StageName: prod
+      Description: !Sub 'Deployment for ${ProjectName} API'
 
 Outputs:
   APIEndpoint:
@@ -310,6 +369,12 @@ Outputs:
   LambdaExecutionRoleArn:
     Description: Lambda execution role ARN
     Value: !GetAtt LambdaExecutionRole.Arn
+
+  LambdaFunctionName:
+    Description: Lambda function name
+    Value: !Ref LambdaFunction
+    Export:
+      Name: !Sub '${ProjectName}-lambda-function'
 
   Subnet1:
     Description: Public Subnet 1

@@ -249,7 +249,8 @@ When a task definition family already exists, the Lambda checks if it uses the s
   - Task Execution Role - Pull images, write logs
   - Task Role - Runtime permissions (minimal by default, user-configurable)
   - Lambda Execution Role - Start tasks, read logs, update function config
-- **API Gateway** - REST API with /execute resource (configured post-stack by init command)
+- **Lambda Function** - Created with placeholder code, updated by init command
+- **API Gateway** - REST API with /execute resource, POST method, Lambda integration, and prod deployment
 
 **Parameters:**
 - `APIKeyHash` - Bcrypt hash of API key (NoEcho)
@@ -445,12 +446,11 @@ mycli exec --branch=prod "terraform apply"  # prod environment
 4. Hashes key with bcrypt (cost 10)
 5. Prompts for Git credentials (optional, interactive)
 6. Builds Lambda function (Go cross-compile for linux/arm64)
-7. Creates CloudFormation stack with all resources
+7. Creates CloudFormation stack with all resources (including Lambda with placeholder code and API Gateway)
 8. Waits for stack creation (~5 minutes)
-9. Creates Lambda function with built zip
-10. Configures API Gateway integration and deployment
-11. Saves config to ~/.mycli/config.yaml
-12. Displays API key (shown once, also saved to config)
+9. Updates Lambda function code with built zip
+10. Saves config to ~/.mycli/config.yaml
+11. Displays API key (shown once, also saved to config)
 
 **Flags:**
 - `--stack-name string` - CloudFormation stack name (default: "mycli")
@@ -500,10 +500,8 @@ Type 'yes' to confirm: yes
 → Creating CloudFormation stack...
   Waiting for stack creation (this may take a few minutes)...
 ✓ Stack created successfully
-→ Creating Lambda function...
-✓ Lambda function created
-→ Configuring API Gateway...
-✓ API Gateway configured
+→ Updating Lambda function code...
+✓ Lambda function code updated
 → Saving configuration...
 
 ✅ Setup complete!
@@ -518,8 +516,7 @@ Configuration saved to ~/.mycli/config.yaml
    (Also saved to config file)
 
 Next steps:
-  1. Build and push the executor Docker image (see docker/README.md)
-  2. Test it: mycli exec --repo=https://github.com/user/repo "echo hello"
+  1. Test it: mycli exec --repo=https://github.com/user/repo "echo hello"
 ```
 
 ### `mycli exec [flags] "command"`
@@ -1690,9 +1687,12 @@ mycli/
 | Log Group | /aws/mycli/mycli | Execution logs |
 | IAM Roles | mycli-lambda-role, mycli-task-execution-role, mycli-task-role | Permissions |
 | Lambda Function | mycli-orchestrator | API request handler |
-| API Gateway | mycli-api | REST API endpoint |
+| API Gateway REST API | mycli-api | REST API endpoint |
+| API Gateway Method | POST /execute | API method configuration |
+| Lambda Permission | AllowAPIGatewayInvoke | API Gateway invoke permission |
+| API Gateway Deployment | prod | API deployment to prod stage |
 
-**Total Resources:** ~15 (all managed by CloudFormation)
+**Total Resources:** ~18 (all managed by CloudFormation)
 
 ---
 
