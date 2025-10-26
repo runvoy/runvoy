@@ -33,7 +33,7 @@ Parameters:
   DefaultImage:
     Type: String
     Default: 'public.ecr.aws/docker/library/ubuntu:22.04'
-    Description: Default Docker image (generic base image, users should specify task-specific images)
+    Description: Default Docker image (generic base image, users can specify task-specific images)
 
 Conditions:
   HasGitHubToken: !Not [!Equals [!Ref GitHubToken, '']]

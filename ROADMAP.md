@@ -13,7 +13,7 @@ Working features:
 
 ## Known Issues
 
-- [ ] exec ignores Docker image, always uses ubuntu:22.04
+- [x] exec ignores Docker image, always uses ubuntu:22.04 (now configurable)
 - [ ] Logs require full task ARN (verbose to copy/paste)
 - [ ] Log stream name format includes container name (implementation detail exposed)
 - [ ] No execution history tracking

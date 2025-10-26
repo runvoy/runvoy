@@ -2,23 +2,30 @@ package main
 
 import (
 	"crypto/rand"
+	"encoding/hex"
 	"fmt"
+	"time"
 )
 
-// generateExecutionID creates a UUID v4 for execution tracking
+// generateExecutionID creates a short ID for execution tracking
+// Format: {timestamp_hex}{random_hex} (12 characters)
 // Uses crypto/rand from standard library - no external dependencies
+// TODO: Make entropy level configurable via init command (future enhancement)
 func generateExecutionID() string {
-	b := make([]byte, 16)
-	_, err := rand.Read(b)
+	// Get timestamp in hex (8 characters for ~100 years)
+	timestamp := fmt.Sprintf("%08x", time.Now().Unix())
+
+	// Generate 2 random bytes (4 hex characters)
+	// Provides ~65k combinations per second (adequate for most use cases)
+	randomBytes := make([]byte, 2)
+	_, err := rand.Read(randomBytes)
 	if err != nil {
 		// crypto/rand.Read should never fail on supported platforms
-		panic(fmt.Sprintf("failed to generate UUID: %v", err))
+		panic(fmt.Sprintf("failed to generate execution ID: %v", err))
 	}
 
-	// Set version (4) and variant bits per RFC 4122
-	b[6] = (b[6] & 0x0f) | 0x40 // Version 4
-	b[8] = (b[8] & 0x3f) | 0x80 // Variant is 10
+	randomHex := hex.EncodeToString(randomBytes)
 
-	return fmt.Sprintf("%x-%x-%x-%x-%x",
-		b[0:4], b[4:6], b[6:8], b[8:10], b[10:16])
+	// Combine timestamp + random for a total of 12 characters
+	return timestamp + randomHex
 }

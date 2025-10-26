@@ -132,7 +132,7 @@ A CLI tool that provides isolated, repeatable execution environments for command
 - `handlers.go` - `handleExec()`, `handleStatus()`, `handleLogs()`
 - `shell.go` - `buildShellCommand()`, `buildDirectCommand()`, `shellEscape()`
 - `response.go` - `errorResponse()` helper
-- `util.go` - `generateExecutionID()` - UUID v4 generation using crypto/rand
+- `util.go` - `generateExecutionID()` - Short ID generation using timestamp + crypto/rand
 - `types.go` - Shared API type aliases (`Request`, `Response`)
 
 **Why Go?**
@@ -143,15 +143,18 @@ A CLI tool that provides isolated, repeatable execution environments for command
 
 **Execution ID Generation:**
 
-The system uses UUID v4 (RFC 4122) for execution IDs:
-- **Format:** Standard UUID `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx` (e.g., `550e8400-e29b-41d4-a716-446655440000`)
+The system uses short, timestamp-based IDs for execution tracking:
+- **Format:** `{timestamp_hex}{random_hex}` (12 characters, e.g., `67a1a8f4a3b5`)
+- **Structure:** 8-character Unix timestamp (hex) + 4-character random suffix (hex)
 - **Implementation:** Self-implemented using `crypto/rand` from Go standard library (no external dependencies)
-- **Why UUID v4?**
-  - Collision-resistant: 128-bit random values (5.3×10³⁶ possible combinations)
+- **Why this format?**
+  - Short and URL-friendly: 12 chars vs 36 chars for UUID (66% shorter)
+  - Collision-resistant: 2 random bytes provide ~65k combinations per second
+  - Time-ordered: Timestamp prefix enables efficient date-based queries in future
   - Unpredictable: Cryptographically secure random generation
-  - Time-independent: No clock synchronization issues
-  - Industry standard: RFC 4122 compliant, universally recognized format
   - No external dependencies: ~15 lines of code using only standard library
+  - Database-ready: Can delegate uniqueness to DynamoDB primary key when needed
+- **Future Enhancement:** Entropy level will be configurable via `mycli init` command
 
 ### 2. CLI Application
 
@@ -565,7 +568,7 @@ $ mycli exec "terraform apply"
 ✓ Execution started
 
 Execution Details:
-  Execution ID: 550e8400-e29b-41d4-a716-446655440000
+  Execution ID: 67a1a8f4a3b5
   Task ARN:     arn:aws:ecs:us-east-1:123456789:task/mycli-cluster/abc123def456
   Log Stream:   task/executor/abc123def456
 
@@ -732,7 +735,7 @@ All actions use POST to `/execute` endpoint with `action` field in request body.
 **Response:**
 ```json
 {
-  "execution_id": "550e8400-e29b-41d4-a716-446655440000",
+  "execution_id": "67a1a8f4a3b5",
   "task_arn": "arn:aws:ecs:us-east-1:123456789:task/mycli-cluster/abc123",
   "status": "starting",
   "log_stream": "task/abc123",
