@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -147,25 +148,69 @@ func handleExec(ctx context.Context, cfg *Config, req Request) (Response, error)
 }
 
 // getOrCreateTaskDefinition gets or creates a task definition for the specified image
-// It uses a hash of the image name to create a unique family name
-// If a task definition with this family already exists, it reuses it
+// It uses a sanitized version of the image name to create a human-readable family name
+// If a task definition with this family already exists and has the same image, it reuses it
+// If a name collision occurs (same sanitized name, different image), it falls back to hash-based naming
 func getOrCreateTaskDefinition(ctx context.Context, cfg *Config, image string) (string, error) {
-	// Create a stable family name based on the image
-	// Use a hash to keep the name short and valid (alphanumeric + hyphens only)
-	hash := sha256.Sum256([]byte(image))
-	imageHash := hex.EncodeToString(hash[:])[:16] // Use first 16 chars of hash
-	family := fmt.Sprintf("mycli-task-%s", imageHash)
+	// Sanitize the image name for use in task definition family name
+	// Replace invalid characters with hyphens and convert to lowercase
+	sanitized := strings.NewReplacer(
+		":", "-", // alpine:latest → alpine-latest
+		"/", "-", // hashicorp/terraform → hashicorp-terraform
+		".", "-", // ubuntu:22.04 → ubuntu-22-04
+		"@", "-", // sha256 digest references
+		"_", "-", // underscores to hyphens for consistency
+	).Replace(image)
+
+	sanitized = strings.ToLower(sanitized)
+
+	// Truncate if too long (ECS family name limit is 255 chars, leave room for prefix)
+	if len(sanitized) > 50 {
+		sanitized = sanitized[:50]
+	}
+
+	// Trim trailing hyphens that might result from sanitization
+	sanitized = strings.TrimRight(sanitized, "-")
+
+	family := fmt.Sprintf("mycli-task-%s", sanitized)
 
 	// Check if this task definition family already exists
 	describeResp, err := cfg.ECSClient.DescribeTaskDefinition(ctx, &ecs.DescribeTaskDefinitionInput{
 		TaskDefinition: aws.String(family),
 	})
+
 	if err == nil && describeResp.TaskDefinition != nil {
-		// Task definition exists, return its ARN
-		return *describeResp.TaskDefinition.TaskDefinitionArn, nil
+		// Task definition exists - verify it has the correct image
+		existingImage := aws.ToString(describeResp.TaskDefinition.ContainerDefinitions[0].Image)
+
+		if existingImage == image {
+			// Perfect match! Reuse the existing task definition
+			fmt.Printf("[INFO] Reusing existing task definition %s for image %s\n", family, image)
+			return *describeResp.TaskDefinition.TaskDefinitionArn, nil
+		}
+
+		// Name collision detected: same sanitized name but different image
+		// Fall back to hash-based naming for uniqueness
+		fmt.Printf("[WARN] Task definition %s exists but with different image (%s vs %s), using hash-based name\n",
+			family, existingImage, image)
+
+		hash := sha256.Sum256([]byte(image))
+		shortHash := hex.EncodeToString(hash[:])[:8]
+		family = fmt.Sprintf("mycli-task-%s-%s", sanitized, shortHash)
+
+		// Check if the hash-based family exists (it should, but verify)
+		describeHashResp, hashErr := cfg.ECSClient.DescribeTaskDefinition(ctx, &ecs.DescribeTaskDefinitionInput{
+			TaskDefinition: aws.String(family),
+		})
+		if hashErr == nil && describeHashResp.TaskDefinition != nil {
+			fmt.Printf("[INFO] Reusing existing hash-based task definition %s\n", family)
+			return *describeHashResp.TaskDefinition.TaskDefinitionArn, nil
+		}
 	}
 
 	// Task definition doesn't exist, we need to create it
+	fmt.Printf("[INFO] Creating new task definition %s for image %s\n", family, image)
+
 	// First, describe the base task definition to get its configuration
 	baseTaskDef, err := cfg.ECSClient.DescribeTaskDefinition(ctx, &ecs.DescribeTaskDefinitionInput{
 		TaskDefinition: aws.String(cfg.TaskDef),
@@ -195,6 +240,7 @@ func getOrCreateTaskDefinition(ctx context.Context, cfg *Config, image string) (
 		return "", fmt.Errorf("failed to register task definition: %v", err)
 	}
 
+	fmt.Printf("[INFO] Successfully registered task definition %s\n", family)
 	return *registerResp.TaskDefinition.TaskDefinitionArn, nil
 }
 

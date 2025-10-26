@@ -185,7 +185,9 @@ Users can specify **any** Docker image:
 1. Lambda constructs a shell script with git setup + clone + user command
 2. If a custom image is specified via `--image` flag:
    - Lambda dynamically registers a new task definition with that image (or reuses existing one)
-   - Task definition family name: `mycli-task-{hash-of-image}` for uniqueness
+   - Task definition family name: Human-readable based on image name (e.g., `mycli-task-alpine-latest`, `mycli-task-terraform-1-6`)
+   - Collision detection: If a task definition with that name exists but uses a different image, falls back to hash-based naming
+   - Perfect caching: Same image always reuses the same task definition
 3. ECS task runs with the appropriate task definition
 4. Container executes the shell script which:
    - Installs git if needed (apt-get, apk, or yum)
@@ -193,6 +195,39 @@ Users can specify **any** Docker image:
    - Clones repo to `/workspace/repo`
    - Runs user's command in that directory
    - Exits with the command's exit code
+
+**Task Definition Naming Strategy:**
+
+The Lambda orchestrator creates human-readable task definition family names for easy identification and caching:
+
+**Naming Examples:**
+- `alpine:latest` → `mycli-task-alpine-latest`
+- `ubuntu:22.04` → `mycli-task-ubuntu-22-04`
+- `hashicorp/terraform:1.6` → `mycli-task-hashicorp-terraform-1-6`
+- `python:3.11-slim` → `mycli-task-python-3-11-slim`
+
+**Sanitization Rules:**
+- Replace `:`, `/`, `.`, `@`, `_` with `-`
+- Convert to lowercase
+- Truncate to 50 characters (ECS family name limit is 255)
+- Trim trailing hyphens
+
+**Collision Detection:**
+
+When a task definition family already exists, the Lambda checks if it uses the same image:
+1. **Match found**: Reuses existing task definition (perfect caching!)
+2. **Collision detected**: Different image, same sanitized name
+   - Falls back to hash-based naming: `mycli-task-{sanitized}-{8-char-hash}`
+   - Example: If both `alpine:latest` and `alpine/latest` exist
+   - First gets: `mycli-task-alpine-latest`
+   - Second gets: `mycli-task-alpine-latest-a1b2c3d4`
+
+**Benefits:**
+- ✅ Easy to identify which images have cached task definitions
+- ✅ Simple to search/filter in AWS Console: "mycli-task-terraform*"
+- ✅ Perfect caching: same image always reuses same definition
+- ✅ Helps with debugging and cost analysis
+- ✅ No unnecessary task definition proliferation
 
 ### 4. CloudFormation Infrastructure
 
@@ -250,8 +285,12 @@ Users can specify **any** Docker image:
      * Execute user command
      * Cleanup credentials
    - If custom image specified (`lambda/orchestrator/handlers.go:getOrCreateTaskDefinition()`):
-     * Creates hash-based family name: `mycli-task-{hash}`
-     * Checks if task definition already exists (reuse if found)
+     * Creates human-readable family name by sanitizing image: `mycli-task-{sanitized-image}`
+       - Example: `alpine:latest` → `mycli-task-alpine-latest`
+       - Example: `hashicorp/terraform:1.6` → `mycli-task-hashicorp-terraform-1-6`
+     * Checks if task definition already exists with this family name
+     * If exists, verifies the image matches (perfect caching)
+     * If collision detected (same name, different image), falls back to: `mycli-task-{sanitized-image}-{hash}`
      * If not exists, registers new task definition with custom image
      * Uses base task definition as template (CPU, memory, roles, etc.)
    - Starts ECS Fargate task with:
@@ -1332,6 +1371,8 @@ rm ~/.mycli/config.yaml  # Optional
 - ✓ Register task definition per image on-the-fly
 - ✓ True custom image support per execution
 - ✓ Cache task definitions to avoid duplicates (checks if family exists before registering)
+- ✓ Human-readable task definition names based on image name
+- ✓ Collision detection for edge cases (same sanitized name, different image)
 
 **S3 Artifact Storage**
 - Optional S3 bucket for command outputs
