@@ -1,0 +1,324 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'mycli - Remote Command Execution Infrastructure'
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: mycli
+    Description: Name prefix for all resources
+
+  APIKeyHash:
+    Type: String
+    NoEcho: true
+    Description: Bcrypt hash of the API key
+
+  CodeBucketName:
+    Type: String
+    Description: Name of the S3 bucket for code storage (created outside CFN)
+
+Resources:
+  # ECS Service Linked Role (one-time account-level resource)
+  ECSServiceLinkedRole:
+    Type: AWS::IAM::ServiceLinkedRole
+    Properties:
+      AWSServiceName: ecs.amazonaws.com
+      Description: Service-linked role for Amazon ECS
+
+  # Note: S3 bucket is created outside CloudFormation by init command
+  # This allows for better region handling and avoids circular dependencies
+
+  # CloudWatch Log Group
+  ExecutionLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/mycli/${ProjectName}'
+      RetentionInDays: 7
+
+  # VPC for Fargate tasks
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-vpc'
+
+  # Internet Gateway
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-igw'
+
+  AttachGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref VPC
+      InternetGatewayId: !Ref InternetGateway
+
+  # Public Subnets (2 for HA)
+  PublicSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.1.0/24
+      AvailabilityZone: !Select [0, !GetAZs '']
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-public-1'
+
+  PublicSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.2.0/24
+      AvailabilityZone: !Select [1, !GetAZs '']
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-public-2'
+
+  # Route Table
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-public-rt'
+
+  PublicRoute:
+    Type: AWS::EC2::Route
+    DependsOn: AttachGateway
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  SubnetRouteTableAssociation1:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet1
+      RouteTableId: !Ref PublicRouteTable
+
+  SubnetRouteTableAssociation2:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet2
+      RouteTableId: !Ref PublicRouteTable
+
+  # Security Group for Fargate tasks
+  FargateSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for Fargate tasks
+      VpcId: !Ref VPC
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-fargate-sg'
+
+  # ECS Cluster
+  ECSCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: !Sub '${ProjectName}-cluster'
+      CapacityProviders:
+        - FARGATE
+        - FARGATE_SPOT
+      DefaultCapacityProviderStrategy:
+        - CapacityProvider: FARGATE_SPOT
+          Weight: 1
+
+  # ECS Task Definition
+  TaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Sub '${ProjectName}-task'
+      NetworkMode: awsvpc
+      RequiresCompatibilities:
+        - FARGATE
+      Cpu: '256'
+      Memory: '512'
+      ExecutionRoleArn: !GetAtt TaskExecutionRole.Arn
+      TaskRoleArn: !GetAtt TaskRole.Arn
+      ContainerDefinitions:
+        - Name: executor
+          Image: public.ecr.aws/docker/library/alpine:latest
+          Essential: true
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref ExecutionLogGroup
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: task
+
+  # IAM Role for Task Execution (pulling images, writing logs)
+  TaskExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${ProjectName}-task-execution-role'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+
+  # IAM Role for Task (runtime permissions)
+  TaskRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${ProjectName}-task-role'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: 'sts:AssumeRole'
+      Policies:
+        - PolicyName: S3Access
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 's3:GetObject'
+                Resource: !Sub 'arn:aws:s3:::${CodeBucketName}/*'
+        - PolicyName: CloudWatchLogs
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'logs:CreateLogStream'
+                  - 'logs:PutLogEvents'
+                Resource: !GetAtt ExecutionLogGroup.Arn
+
+  # Lambda Execution Role
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${ProjectName}-lambda-role'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: OrchestratorPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 's3:PutObject'
+                  - 's3:GetObject'
+                Resource: !Sub 'arn:aws:s3:::${CodeBucketName}/*'
+              - Effect: Allow
+                Action:
+                  - 'ecs:RunTask'
+                  - 'ecs:DescribeTasks'
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - 'iam:PassRole'
+                Resource:
+                  - !GetAtt TaskExecutionRole.Arn
+                  - !GetAtt TaskRole.Arn
+              - Effect: Allow
+                Action:
+                  - 'logs:GetLogEvents'
+                  - 'logs:FilterLogEvents'
+                Resource: !GetAtt ExecutionLogGroup.Arn
+
+  # Note: Lambda function is created outside CloudFormation by init command
+  # This allows for direct zip upload without S3 dependency
+
+  # API Gateway
+  RestAPI:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name: !Sub '${ProjectName}-api'
+      Description: mycli Remote Command Execution API
+      EndpointConfiguration:
+        Types:
+          - REGIONAL
+
+  # API Gateway Resource
+  APIResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref RestAPI
+      ParentId: !GetAtt RestAPI.RootResourceId
+      PathPart: execute
+
+  # Note: API Gateway Method and Integration are configured after Lambda creation
+  # This is done programmatically in init command
+
+Outputs:
+  APIEndpoint:
+    Description: API Gateway endpoint URL
+    Value: !Sub 'https://${RestAPI}.execute-api.${AWS::Region}.amazonaws.com/prod/execute'
+    Export:
+      Name: !Sub '${ProjectName}-api-endpoint'
+
+  CodeBucket:
+    Description: S3 bucket for command code
+    Value: !Ref CodeBucketName
+    Export:
+      Name: !Sub '${ProjectName}-code-bucket'
+
+  ECSClusterName:
+    Description: ECS Cluster name
+    Value: !Ref ECSCluster
+    Export:
+      Name: !Sub '${ProjectName}-cluster'
+
+  TaskDefinitionArn:
+    Description: ECS Task Definition ARN
+    Value: !Ref TaskDefinition
+
+  LogGroup:
+    Description: CloudWatch Log Group
+    Value: !Ref ExecutionLogGroup
+    Export:
+      Name: !Sub '${ProjectName}-log-group'
+
+  LambdaExecutionRoleArn:
+    Description: Lambda execution role ARN
+    Value: !GetAtt LambdaExecutionRole.Arn
+
+  Subnet1:
+    Description: Public Subnet 1
+    Value: !Ref PublicSubnet1
+
+  Subnet2:
+    Description: Public Subnet 2
+    Value: !Ref PublicSubnet2
+
+  FargateSecurityGroup:
+    Description: Fargate Security Group
+    Value: !Ref FargateSecurityGroup
+
+  RestAPIId:
+    Description: API Gateway REST API ID
+    Value: !Ref RestAPI
+
+  APIResourceId:
+    Description: API Gateway Resource ID for /execute
+    Value: !Ref APIResource
