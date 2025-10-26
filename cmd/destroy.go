@@ -13,6 +13,8 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation"
+	"github.com/aws/aws-sdk-go-v2/service/ecs"
+	ecsTypes "github.com/aws/aws-sdk-go-v2/service/ecs/types"
 	"github.com/aws/aws-sdk-go-v2/service/lambda"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	s3Types "github.com/aws/aws-sdk-go-v2/service/s3/types"
@@ -114,7 +116,14 @@ func runDestroy(cmd *cobra.Command, args []string) error {
 		fmt.Println("✓ Bucket emptied")
 	}
 
-	// 2. Delete Lambda function (created outside CloudFormation)
+	// 2. Delete ECS task definitions (created dynamically by Lambda)
+	fmt.Println("→ Deleting ECS task definitions...")
+	ecsClient := ecs.NewFromConfig(cfg)
+	if err := deleteTaskDefinitions(ctx, ecsClient, destroyStackName); err != nil {
+		fmt.Printf("  Warning: Failed to delete task definitions: %v\n", err)
+	}
+
+	// 3. Delete Lambda function (created outside CloudFormation)
 	fmt.Println("→ Deleting Lambda function...")
 	lambdaClient := lambda.NewFromConfig(cfg)
 	functionName := fmt.Sprintf("%s-orchestrator", destroyStackName)
@@ -132,7 +141,7 @@ func runDestroy(cmd *cobra.Command, args []string) error {
 		fmt.Println("✓ Lambda function deleted")
 	}
 
-	// 3. Delete CloudFormation stack
+	// 4. Delete CloudFormation stack
 	cfnClient := cloudformation.NewFromConfig(cfg)
 
 	fmt.Println("→ Deleting CloudFormation stack...")
@@ -170,7 +179,7 @@ func runDestroy(cmd *cobra.Command, args []string) error {
 		fmt.Println("✓ Stack deleted successfully")
 	}
 
-	// 4. Remove local config
+	// 5. Remove local config
 	if !keepConfig {
 		fmt.Println("→ Removing local configuration...")
 		configPath, err := getConfigPath()
@@ -257,4 +266,151 @@ func getConfigPath() (string, error) {
 		return "", err
 	}
 	return fmt.Sprintf("%s/.mycli/config.yaml", home), nil
+}
+
+// deleteTaskDefinitions lists and deletes all ECS task definitions with the mycli prefix
+func deleteTaskDefinitions(ctx context.Context, ecsClient *ecs.Client, stackName string) error {
+	// Collect all mycli task definitions directly from ListTaskDefinitions
+	// We don't use ListTaskDefinitionFamilies because it only lists ACTIVE families
+	// and we need to delete both ACTIVE and INACTIVE task definitions
+	fmt.Println("  Collecting task definitions...")
+
+	// Deregister all revisions of each family (both active and inactive)
+	deletedCount := 0
+
+	// Build a map of all task definitions to avoid listing all of them multiple times
+	// This is more efficient when we have multiple families
+	type statusType string
+	const (
+		statusActive   statusType = "ACTIVE"
+		statusInactive statusType = "INACTIVE"
+	)
+
+	taskDefsByFamily := make(map[string]map[statusType][]string)
+
+	// Collect all mycli task definitions once (both active and inactive)
+	fmt.Println("  Collecting task definitions...")
+
+	// Collect active task definitions
+	activePaginator := ecs.NewListTaskDefinitionsPaginator(ecsClient, &ecs.ListTaskDefinitionsInput{
+		Status: ecsTypes.TaskDefinitionStatusActive,
+	})
+	activeCount := 0
+	for activePaginator.HasMorePages() {
+		page, err := activePaginator.NextPage(ctx)
+		if err != nil {
+			fmt.Printf("  Warning: Failed to list active task definitions: %v\n", err)
+			break
+		}
+		for _, arn := range page.TaskDefinitionArns {
+			// Extract family name from ARN: arn:aws:ecs:region:account:task-definition/family:revision
+			// Check for mycli prefix (case-insensitive)
+			lowerArn := strings.ToLower(arn)
+			if strings.Contains(lowerArn, ":task-definition/mycli") {
+				// Split on :task-definition/ instead of /task-definition/
+				parts := strings.Split(arn, ":task-definition/")
+				if len(parts) == 2 {
+					family := strings.Split(parts[1], ":")[0]
+					if taskDefsByFamily[family] == nil {
+						taskDefsByFamily[family] = make(map[statusType][]string)
+					}
+					taskDefsByFamily[family][statusActive] = append(taskDefsByFamily[family][statusActive], arn)
+					activeCount++
+				}
+			}
+		}
+	}
+
+	// Collect inactive task definitions
+	inactivePaginator := ecs.NewListTaskDefinitionsPaginator(ecsClient, &ecs.ListTaskDefinitionsInput{
+		Status: ecsTypes.TaskDefinitionStatusInactive,
+	})
+	inactiveCount := 0
+	for inactivePaginator.HasMorePages() {
+		page, err := inactivePaginator.NextPage(ctx)
+		if err != nil {
+			fmt.Printf("  Warning: Failed to list inactive task definitions: %v\n", err)
+			break
+		}
+		for _, arn := range page.TaskDefinitionArns {
+			// Extract family name from ARN - check for mycli prefix (case-insensitive)
+			lowerArn := strings.ToLower(arn)
+			if strings.Contains(lowerArn, ":task-definition/mycli") {
+				// Split on :task-definition/ instead of /task-definition/
+				parts := strings.Split(arn, ":task-definition/")
+				if len(parts) == 2 {
+					family := strings.Split(parts[1], ":")[0]
+					if taskDefsByFamily[family] == nil {
+						taskDefsByFamily[family] = make(map[statusType][]string)
+					}
+					taskDefsByFamily[family][statusInactive] = append(taskDefsByFamily[family][statusInactive], arn)
+					inactiveCount++
+				}
+			}
+		}
+	}
+
+	fmt.Printf("  Found %d active and %d inactive mycli task definitions across %d families\n",
+		activeCount, inactiveCount, len(taskDefsByFamily))
+
+	if len(taskDefsByFamily) == 0 {
+		fmt.Println("  (No task definitions found with mycli prefix)")
+		return nil
+	}
+
+	// Collect all task definitions to delete
+	var allTaskDefs []string
+	for _, families := range taskDefsByFamily {
+		allTaskDefs = append(allTaskDefs, families[statusActive]...)
+		allTaskDefs = append(allTaskDefs, families[statusInactive]...)
+	}
+
+	// Delete all task definitions (both active and inactive)
+	// Note: AWS now supports DeleteTaskDefinitions API for INACTIVE task definitions
+	for _, taskDefArn := range allTaskDefs {
+		// Try delete first (works for INACTIVE)
+		result, err := ecsClient.DeleteTaskDefinitions(ctx, &ecs.DeleteTaskDefinitionsInput{
+			TaskDefinitions: []string{taskDefArn},
+		})
+		if err != nil {
+			// If delete fails, try deregister for ACTIVE
+			_, deregErr := ecsClient.DeregisterTaskDefinition(ctx, &ecs.DeregisterTaskDefinitionInput{
+				TaskDefinition: aws.String(taskDefArn),
+			})
+			if deregErr != nil {
+				fmt.Printf("  Warning: Failed to delete/deregister %s: %v\n", taskDefArn, deregErr)
+			} else {
+				fmt.Printf("  Deregistered: %s\n", taskDefArn)
+				deletedCount++
+			}
+		} else {
+			// TaskDefinitions contains successfully deleted task definitions
+			if len(result.TaskDefinitions) > 0 {
+				fmt.Printf("  Deleted: %s\n", taskDefArn)
+				deletedCount++
+			}
+			// Failures contains any failures
+			if len(result.Failures) > 0 {
+				for _, failure := range result.Failures {
+					reason := "unknown error"
+					if failure.Reason != nil {
+						reason = *failure.Reason
+					}
+					arn := "unknown"
+					if failure.Arn != nil {
+						arn = *failure.Arn
+					}
+					fmt.Printf("  Warning: Failed to delete %s: %s\n", arn, reason)
+				}
+			}
+		}
+	}
+
+	if deletedCount > 0 {
+		fmt.Printf("✓ Deleted %d task definitions\n", deletedCount)
+	} else {
+		fmt.Println("✓ Task definitions cleaned up")
+	}
+
+	return nil
 }

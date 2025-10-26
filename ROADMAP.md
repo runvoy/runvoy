@@ -14,6 +14,7 @@ Working features:
 ## Known Issues
 
 - [x] exec ignores Docker image, always uses ubuntu:22.04 (now configurable)
+- [ ] When running destroy it doesn't delete inactive task definitions
 - [ ] Logs require full task ARN (verbose to copy/paste)
 - [ ] Log stream name format includes container name (implementation detail exposed)
 - [ ] No execution history tracking

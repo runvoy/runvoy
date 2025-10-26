@@ -677,10 +677,14 @@ $ mycli logs -f arn:aws:ecs:us-east-1:123456789:task/mycli-cluster/abc123def456
 
 **What it does:**
 1. Confirms with user (unless --force)
-2. Deletes Lambda function
-3. Deletes CloudFormation stack (cascades to all resources)
-4. Waits for deletion to complete
-5. Preserves local config file (user can delete manually)
+2. Empties S3 bucket (required before CloudFormation deletion)
+3. Deletes all ECS task definitions with mycli prefix (both active and inactive, dynamically created)
+   - Uses DeleteTaskDefinitions API for INACTIVE task definitions
+   - Falls back to DeregisterTaskDefinition for ACTIVE task definitions
+4. Deletes Lambda function (created outside CloudFormation)
+5. Deletes CloudFormation stack (cascades to all resources)
+6. Waits for deletion to complete
+7. Removes local config file (unless --keep-config)
 
 **Example:**
 ```bash
@@ -691,13 +695,21 @@ $ mycli destroy
 
 Continue? [y/N]: y
 
+→ Emptying S3 bucket...
+✓ Bucket emptied
+→ Deleting ECS task definitions...
+  Found 5 task definition families to delete
+✓ Deleted 5 task definitions
 → Deleting Lambda function...
+✓ Lambda function deleted
 → Deleting CloudFormation stack...
   Waiting for stack deletion...
-✓ Infrastructure destroyed
+✓ Stack deleted successfully
+→ Removing local configuration...
+✓ Config removed
 
-Local config (~/.mycli/config.yaml) preserved.
-Run 'rm ~/.mycli/config.yaml' to remove it.
+✅ Destruction complete!
+   All AWS resources have been removed.
 ```
 
 ---
