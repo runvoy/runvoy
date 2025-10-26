@@ -10,8 +10,13 @@ repo: https://github.com/mycompany/infrastructure
 branch: main
 
 # Docker image to use for execution (optional)
-# Default: mycli executor image with common tools
-# You can specify any Docker image with the tools you need
+# Specify any Docker image with the tools you need
+# Examples:
+#   - hashicorp/terraform:1.6
+#   - python:3.11
+#   - node:18
+#   - alpine:latest
+# Default: ubuntu:22.04 (if not specified)
 image: hashicorp/terraform:1.6
 
 # Environment variables for the execution (optional)

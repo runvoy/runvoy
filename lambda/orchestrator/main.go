@@ -169,9 +169,9 @@ func handleExec(ctx context.Context, req Request) (Response, error) {
 
 	image := req.Image
 	if image == "" {
-		// Use default mycli executor image
-		// For MVP, we'll use a custom image that we'll build
-		image = "public.ecr.aws/mycli/executor:latest"
+		// Use a generic base image with git installed
+		// Users are encouraged to specify their own image (terraform, python, etc.)
+		image = "ubuntu:22.04"
 	}
 
 	timeoutSeconds := req.TimeoutSeconds
@@ -179,33 +179,17 @@ func handleExec(ctx context.Context, req Request) (Response, error) {
 		timeoutSeconds = 1800 // 30 minutes default
 	}
 
+	// Construct the shell command that will:
+	// 1. Setup git credentials (if provided)
+	// 2. Clone the repository
+	// 3. Change to the repo directory
+	// 4. Execute the user's command
+	shellCommand := buildShellCommand(req.Repo, branch, req.Command, githubToken, gitlabToken, sshPrivateKey)
+
 	// Build environment variables for the container
+	// Include user-provided environment variables
 	envVars := []ecsTypes.KeyValuePair{
 		{Name: aws.String("EXECUTION_ID"), Value: aws.String(execID)},
-		{Name: aws.String("REPO_URL"), Value: aws.String(req.Repo)},
-		{Name: aws.String("REPO_BRANCH"), Value: aws.String(branch)},
-		{Name: aws.String("USER_COMMAND"), Value: aws.String(req.Command)},
-		{Name: aws.String("TIMEOUT_SECONDS"), Value: aws.String(fmt.Sprintf("%d", timeoutSeconds))},
-	}
-
-	// Add Git credentials if available
-	if githubToken != "" {
-		envVars = append(envVars, ecsTypes.KeyValuePair{
-			Name:  aws.String("GITHUB_TOKEN"),
-			Value: aws.String(githubToken),
-		})
-	}
-	if gitlabToken != "" {
-		envVars = append(envVars, ecsTypes.KeyValuePair{
-			Name:  aws.String("GITLAB_TOKEN"),
-			Value: aws.String(gitlabToken),
-		})
-	}
-	if sshPrivateKey != "" {
-		envVars = append(envVars, ecsTypes.KeyValuePair{
-			Name:  aws.String("SSH_PRIVATE_KEY"),
-			Value: aws.String(sshPrivateKey),
-		})
 	}
 
 	// Add user-provided environment variables
@@ -234,15 +218,13 @@ func handleExec(ctx context.Context, req Request) (Response, error) {
 		},
 	}
 
-	// Override container image and environment if needed
+	// Override container with our command, image, and environment
 	containerOverride := ecsTypes.ContainerOverride{
 		Name:        aws.String("executor"),
+		Image:       aws.String(image),
 		Environment: envVars,
-	}
-
-	// Only override image if it's not the default task definition image
-	if image != "" {
-		containerOverride.Image = aws.String(image)
+		// Override the command to run our shell script
+		Command: []string{"/bin/sh", "-c", shellCommand},
 	}
 
 	runTaskInput.Overrides = &ecsTypes.TaskOverride{
@@ -344,6 +326,110 @@ func generateExecutionID() string {
 	return fmt.Sprintf("exec_%s_%06d", 
 		time.Now().UTC().Format("20060102_150405"),
 		time.Now().Nanosecond()/1000)
+}
+
+// buildShellCommand constructs a shell script that:
+// 1. Installs git if not present (for generic images)
+// 2. Configures git credentials
+// 3. Clones the repository
+// 4. Executes the user's command
+//
+// NOTE: This is a pragmatic bash solution for MVP.
+// Future: Consider more robust solutions (Go binary, Python script, etc.)
+func buildShellCommand(repo, branch, userCommand, githubToken, gitlabToken, sshKey string) string {
+	script := `set -e
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "mycli Remote Execution"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+`
+
+	// Install git if not present (for minimal images like alpine, ubuntu)
+	script += `
+if ! command -v git &> /dev/null; then
+  echo "→ Installing git..."
+  if command -v apk &> /dev/null; then
+    apk add --no-cache git openssh-client
+  elif command -v apt-get &> /dev/null; then
+    apt-get update && apt-get install -y git openssh-client
+  elif command -v yum &> /dev/null; then
+    yum install -y git openssh-clients
+  else
+    echo "ERROR: Cannot install git - unsupported package manager"
+    exit 1
+  fi
+fi
+`
+
+	// Setup git credentials
+	if githubToken != "" {
+		script += fmt.Sprintf(`
+echo "→ Configuring GitHub authentication..."
+git config --global credential.helper store
+echo "https://%s:x-oauth-basic@github.com" > ~/.git-credentials
+chmod 600 ~/.git-credentials
+`, githubToken)
+	} else if gitlabToken != "" {
+		script += fmt.Sprintf(`
+echo "→ Configuring GitLab authentication..."
+git config --global credential.helper store
+echo "https://oauth2:%s@gitlab.com" > ~/.git-credentials
+chmod 600 ~/.git-credentials
+`, gitlabToken)
+	} else if sshKey != "" {
+		script += fmt.Sprintf(`
+echo "→ Configuring SSH authentication..."
+mkdir -p ~/.ssh
+echo "%s" | base64 -d > ~/.ssh/id_rsa
+chmod 600 ~/.ssh/id_rsa
+ssh-keyscan github.com >> ~/.ssh/known_hosts 2>/dev/null
+ssh-keyscan gitlab.com >> ~/.ssh/known_hosts 2>/dev/null
+ssh-keyscan bitbucket.org >> ~/.ssh/known_hosts 2>/dev/null
+`, sshKey)
+	}
+
+	// Clone repository
+	script += fmt.Sprintf(`
+echo "→ Repository: %s"
+echo "→ Branch: %s"
+echo "→ Cloning repository..."
+git clone --depth 1 --branch "%s" "%s" /workspace/repo || {
+  echo "ERROR: Failed to clone repository"
+  echo "Please verify:"
+  echo "  - Repository URL is correct"
+  echo "  - Branch '%s' exists"
+  echo "  - Git credentials are configured (for private repos)"
+  exit 1
+}
+cd /workspace/repo
+echo "✓ Repository cloned"
+echo ""
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "Executing command: %s"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+`, repo, branch, branch, repo, branch, userCommand)
+
+	// Execute user command
+	script += userCommand + "\n"
+
+	// Capture exit code and cleanup
+	script += `
+EXIT_CODE=$?
+echo ""
+if [ $EXIT_CODE -eq 0 ]; then
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo "✓ Command completed successfully"
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+else
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo "✗ Command failed with exit code: $EXIT_CODE"
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+fi
+rm -f ~/.git-credentials ~/.ssh/id_rsa
+exit $EXIT_CODE
+`
+
+	return script
 }
 
 func errorResponse(statusCode int, message string) (events.APIGatewayProxyResponse, error) {

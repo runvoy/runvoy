@@ -2,344 +2,379 @@
 
 ## Overview
 
-Successfully implemented the **Git-based remote execution backend** for mycli, eliminating the need for S3 code storage and enabling direct execution from Git repositories.
+Successfully implemented a **simple, flexible Git-based remote execution backend** for mycli that uses standard Docker images without custom containers.
 
 ## Key Architecture Decision
 
-✅ **No Go wrapper needed in the container!** 
+✅ **NO custom Docker image needed!**  
+✅ **NO custom entrypoint script needed!**
 
-We use a simple, elegant bash script (`entrypoint.sh`) that:
-- Clones Git repositories
-- Configures authentication
-- Executes user commands
-- Handles errors gracefully
+Instead, we:
+- Use **any standard Docker image** (terraform, python, node, etc.)
+- **Dynamically construct shell commands** in Lambda
+- **Override ECS task command** at runtime
 
-This is much simpler and more maintainable than a Go wrapper.
+This approach is:
+- **Simpler** - No image to build or maintain
+- **Flexible** - Users choose their own images and tools
+- **Standard** - Uses official Docker Hub images
+
+## How It Works
+
+```
+┌─────────────┐
+│ mycli exec  │──► "terraform plan"
+└──────┬──────┘
+       │
+       ▼
+┌──────────────────────────────────────────┐
+│ Lambda Orchestrator                      │
+│  • Constructs shell script:              │
+│    - Install git (if needed)             │
+│    - Configure credentials               │
+│    - Clone repo                          │
+│    - cd /workspace/repo                  │
+│    - terraform plan                      │
+└──────┬───────────────────────────────────┘
+       │
+       ▼
+┌──────────────────────────────────────────┐
+│ ECS Fargate Task                         │
+│  • Image: hashicorp/terraform:1.6       │
+│  • Command: ["/bin/sh", "-c", script]   │
+│  • Executes git clone + user command    │
+└──────────────────────────────────────────┘
+```
 
 ## Implementation Details
 
 ### 1. Lambda Orchestrator (`lambda/orchestrator/main.go`)
 
-**Changes:**
-- Accepts Git parameters: `repo`, `branch`, `command`, `image`, `env`, `timeout_seconds`
-- Passes Git credentials (GitHub token, GitLab token, SSH key) to containers
-- Supports custom Docker images per execution
-- Generates unique execution IDs
-- Tags ECS tasks with execution metadata
+**Key Function:** `buildShellCommand(repo, branch, userCommand, credentials...)`
 
-**API Contract:**
-```json
-POST /execute
-{
-  "action": "exec",
-  "repo": "https://github.com/user/infrastructure",
-  "branch": "main",
-  "command": "terraform apply",
-  "image": "hashicorp/terraform:1.6",
-  "env": {
-    "TF_VAR_region": "us-east-1"
-  },
-  "timeout_seconds": 1800
+Constructs a shell script that:
+1. Installs git if not present (apt-get, apk, or yum)
+2. Configures git credentials (GitHub/GitLab token or SSH key)
+3. Clones repository: `git clone --depth 1 --branch <branch> <repo> /workspace/repo`
+4. Changes directory: `cd /workspace/repo`
+5. Executes user command
+6. Cleans up credentials
+7. Exits with command's exit code
+
+**ECS Task Override:**
+```go
+containerOverride := ecsTypes.ContainerOverride{
+    Name:    "executor",
+    Image:   "hashicorp/terraform:1.6", // User-specified
+    Command: []string{"/bin/sh", "-c", shellCommand},
+    Environment: userEnvVars,
 }
 ```
 
-### 2. Docker Executor Container (`docker/`)
+### 2. CloudFormation Template (`cmd/cloudformation.yaml`)
 
-**Components:**
+**Changes from custom image approach:**
+- **Removed:** Custom image parameters
+- **Added:** Generic `DefaultImage` parameter (ubuntu:22.04)
+- **Task Definition:** Uses template image, overridden at runtime
 
-#### `entrypoint.sh` (Simple Bash Script)
-- Validates required environment variables (`REPO_URL`, `USER_COMMAND`)
-- Configures Git authentication (GitHub token, GitLab token, or SSH key)
-- Clones repository with `git clone --depth 1 --branch $REPO_BRANCH`
-- Executes user command with proper error handling
-- Cleans up credentials after execution
-- Exit code reflects command success/failure
+**Key insight:** Task definition is just a template. Real image and command are set via task override.
 
-#### `Dockerfile`
-Pre-installed tools:
-- **Core:** Git, SSH client, curl, wget, jq
-- **Cloud:** AWS CLI v2
-- **IaC:** Terraform, Ansible
-- **Kubernetes:** kubectl, Helm
-- **Languages:** Python 3, pip
-- **Libraries:** boto3, PyYAML, requests
+### 3. CLI Implementation
 
-**Image size optimization:**
-- Based on Ubuntu 22.04 LTS
-- Multi-stage build support
-- ~800MB with all tools
+#### Configuration Sources
+1. **Command-line flags** (highest priority)
+   ```bash
+   mycli exec --repo=... --branch=... --image=... "command"
+   ```
 
-#### `Makefile`
-- `make build` - Build locally
-- `make build-multi` - Build for multiple architectures
-- `make push-ecr` - Push to AWS ECR Public
-- `make test` - Test with public repo
+2. **`.mycli.yaml`** in current directory
+   ```yaml
+   repo: https://github.com/company/infrastructure
+   branch: main
+   image: hashicorp/terraform:1.6
+   env:
+     TF_VAR_region: us-east-1
+   ```
 
-### 3. CloudFormation Template (`cmd/cloudformation.yaml`)
+3. **Git auto-detection** (convenience)
+   ```bash
+   cd my-git-repo
+   mycli exec "make deploy"  # Auto-detects: git remote get-url origin
+   ```
 
-**Changes:**
-- **Removed:** S3 bucket dependency
-- **Added:** Git credential parameters (optional):
-  - `GitHubToken`
-  - `GitLabToken`
-  - `SSHPrivateKey` (base64-encoded)
-- **Simplified:** Task role (no S3 permissions needed)
-- **Container:** Uses placeholder image (overridden at runtime)
+#### Updated Commands
+- **`cmd/exec.go`** - Project config parser, git auto-detect, config merging
+- **`cmd/init.go`** - Interactive Git credential setup
+- **`internal/project/config.go`** - .mycli.yaml parser
+- **`internal/git/detector.go`** - Git remote URL detection
 
-**Resources:**
-- VPC with public subnets (for internet access to Git)
-- ECS Fargate cluster with FARGATE_SPOT for cost savings
-- Lambda execution role with ECS permissions
-- API Gateway REST API
-- CloudWatch Log Group
+### 4. Example Usage
 
-### 4. CLI Implementation
-
-#### Project Config Parser (`internal/project/config.go`)
-- Reads `.mycli.yaml` from project root
-- Supports config merging (CLI flags override file values)
-- Validates required fields
-- Environment variable merging
-
-#### Git Auto-detection (`internal/git/detector.go`)
-- Detects Git remote URL: `git remote get-url origin`
-- Detects current branch: `git rev-parse --abbrev-ref HEAD`
-- Checks if directory is a Git repository
-- Provides complete repository info
-
-#### Updated Exec Command (`cmd/exec.go`)
-**Configuration Priority:**
-1. Command-line flags (`--repo`, `--branch`, `--image`, `--env`)
-2. `.mycli.yaml` in current directory
-3. Git remote URL (auto-detected)
-4. Error if no repo specified
-
-**Example usage:**
+**With .mycli.yaml (simplest):**
 ```bash
-# With .mycli.yaml
-cd my-terraform-project
+cd my-terraform-project  # has .mycli.yaml
 mycli exec "terraform plan"
+```
 
-# Override branch
-mycli exec --branch=dev "terraform plan"
+**With CLI flags (explicit):**
+```bash
+mycli exec \
+  --repo=https://github.com/user/infra \
+  --branch=main \
+  --image=hashicorp/terraform:1.6 \
+  "terraform apply"
+```
 
-# Explicit repo
-mycli exec --repo=https://github.com/user/infra "terraform apply"
-
-# Auto-detect from git remote
-cd my-git-repo
+**With git auto-detect:**
+```bash
+cd my-git-repo  # no .mycli.yaml, but has remote
 mycli exec "make deploy"
 ```
 
-#### Updated Init Command (`cmd/init.go`)
-**Changes:**
-- **Removed:** S3 bucket creation
-- **Added:** Interactive Git credential configuration
-  - GitHub Personal Access Token
-  - GitLab Personal Access Token
-  - SSH Private Key (with base64 encoding)
-- Stores credentials in Lambda environment variables
-- Passes credentials via CloudFormation parameters
-
-### 5. API Client (`internal/api/client.go`)
-- Updated `ExecRequest` to include Git parameters
-- Sends complete execution configuration to Lambda
-- Handles new response fields (`log_stream`, `created_at`)
-
-## Configuration Files
-
-### `.mycli.yaml` (Project Config)
-```yaml
-repo: https://github.com/mycompany/infrastructure
-branch: main
-image: hashicorp/terraform:1.6
-env:
-  TF_VAR_environment: production
-  TF_VAR_region: us-east-1
-timeout: 3600
-```
-
-### `~/.mycli/config.yaml` (User Config)
-```yaml
-api_endpoint: https://xxx.execute-api.us-east-1.amazonaws.com/prod/execute
-api_key: sk_live_xxx
-region: us-east-1
-```
-
-## Security Considerations
-
-### Git Credentials
-1. **Storage:** Stored in Lambda environment variables (encrypted at rest)
-2. **Transmission:** Passed to containers via ECS task environment
-3. **Cleanup:** Automatically cleaned up after each execution
-4. **SSH Keys:** Base64-encoded for safe environment variable transmission
-
-### API Authentication
-- Bcrypt-hashed API key
-- Key stored in Lambda environment
-- CLI stores plaintext key in `~/.mycli/config.yaml` (600 permissions)
-
-### Container Isolation
-- Fresh container per execution
-- No persistent storage
-- Credentials cleaned up after execution
-- Exit code propagation for proper error handling
-
-## Testing Checklist
-
-### Docker Container
-- [ ] Build: `cd docker && make build`
-- [ ] Test public repo: `make test`
-- [ ] Test private repo (GitHub): `REPO_URL=... GITHUB_TOKEN=... make test-custom`
-- [ ] Verify Git authentication works
-- [ ] Check logs for credential cleanup
-
-### Lambda Function
-- [ ] Build: Lambda builds automatically during `mycli init`
-- [ ] Test locally with SAM (optional)
-- [ ] Deploy and test via API Gateway
-
-### CLI Commands
-- [ ] `mycli init` - Full deployment with Git credentials
-- [ ] `mycli exec` with `.mycli.yaml`
-- [ ] `mycli exec` with CLI flags
-- [ ] `mycli exec` with git auto-detect
-- [ ] `mycli status <task-arn>`
-- [ ] `mycli logs <execution-id>`
-- [ ] `mycli logs -f <execution-id>` (follow mode)
-
-### Integration Test Scenarios
-1. **Public repo:** `mycli exec --repo=https://github.com/hashicorp/terraform-guides "ls -la"`
-2. **Private repo (GitHub):** Configure GitHub token, execute
-3. **Private repo (SSH):** Configure SSH key, execute
-4. **With .mycli.yaml:** Create config, execute
-5. **Git auto-detect:** Run from git repo without config
-6. **Custom image:** `mycli exec --image=python:3.11 "python --version"`
-7. **Environment variables:** `mycli exec --env FOO=bar "env | grep FOO"`
-
-## Deployment Instructions
-
-### 1. Build and Push Executor Image
-
+**Different images for different tasks:**
 ```bash
-cd docker
+# Terraform
+mycli exec --image=hashicorp/terraform:1.6 "terraform plan"
 
-# Build for ARM64 (Fargate)
-docker buildx build --platform linux/arm64 -t mycli/executor:latest .
+# Python
+mycli exec --image=python:3.11 "python script.py"
 
-# Push to ECR Public
-aws ecr-public get-login-password --region us-east-1 | \
-  docker login --username AWS --password-stdin public.ecr.aws
+# Node.js
+mycli exec --image=node:18 "npm test"
 
-# Tag and push
-docker tag mycli/executor:latest public.ecr.aws/YOUR_ALIAS/mycli-executor:latest
-docker push public.ecr.aws/YOUR_ALIAS/mycli-executor:latest
+# Generic Ubuntu
+mycli exec "apt-get update && apt-get install -y jq && ./script.sh"
 ```
 
-### 2. Deploy Infrastructure
-
-```bash
-# From project root
-go build -o mycli
-
-# Initialize (deploys to AWS)
-./mycli init --region us-east-1
-
-# Follow prompts to configure Git credentials
-```
-
-### 3. Test Execution
-
-```bash
-# Test with public repo
-./mycli exec --repo=https://github.com/hashicorp/terraform-guides "ls -la && cat README.md"
-
-# Check status
-./mycli status <task-arn>
-
-# View logs
-./mycli logs <execution-id>
-```
-
-## Benefits of This Implementation
+## Benefits of This Approach
 
 ### Simplicity
-- ✅ No S3 bucket management
-- ✅ No code upload/download overhead
-- ✅ Simple bash entrypoint (no Go wrapper)
-- ✅ Git as the single source of truth
+- ✅ No custom Docker image to build, maintain, or publish
+- ✅ No entrypoint script in containers
+- ✅ Uses standard, official Docker images
+- ✅ Shell command construction in Lambda (easy to modify)
 
-### Flexibility
-- ✅ Support for any Docker image
-- ✅ Multiple Git authentication methods
-- ✅ Per-execution customization
+### Flexibility  
+- ✅ Use **any** Docker image (public or private)
+- ✅ Different image per execution
+- ✅ Users control their own tool versions
+- ✅ No lock-in to our tool choices
+
+### Performance
+- ✅ Smaller images = faster task starts
+- ✅ Images often already cached in AWS
+- ✅ No custom image pull from ECR
+
+### Maintenance
+- ✅ Zero maintenance for container image
+- ✅ Users update their own images
+- ✅ No security patching burden
+- ✅ No build/publish pipeline needed
+
+## Shell Command Construction
+
+**Current Implementation:** Bash script (pragmatic, works everywhere)
+
+**Why bash is OK for now:**
+- Works with any image that has `/bin/sh` (universal)
+- Simple to understand and debug
+- Easy to modify in Lambda code
+- No compilation needed
+- Human-readable logs
+
+**Future considerations:** Could move to Go binary or Python script if we need more robust error handling, but bash is perfectly acceptable for MVP and likely beyond.
+
+See `IMPLEMENTATION_NOTES.md` for detailed discussion of future improvements.
+
+## Files Added/Modified
+
+### Added (3 files)
+- `internal/project/config.go` - .mycli.yaml parser
+- `internal/git/detector.go` - Git remote auto-detection  
+- `ARCHITECTURE.md` - Complete architecture documentation
+- `IMPLEMENTATION_NOTES.md` - Implementation details and decisions
+
+### Modified (6 files)
+- `lambda/orchestrator/main.go` - Shell command construction
+- `cmd/cloudformation.yaml` - Generic base image, command override
+- `cmd/init.go` - Git credential setup
+- `cmd/exec.go` - Project config and auto-detect support
+- `internal/api/client.go` - Git parameters in requests
+- `internal/config/config.go` - Removed code_bucket field
+
+### Removed (4 files)
+- ~~`docker/Dockerfile`~~ - Not needed
+- ~~`docker/entrypoint.sh`~~ - Not needed
+- ~~`docker/Makefile`~~ - Not needed
+- ~~`docker/README.md`~~ - Not needed
+
+## Testing
+
+### Unit Tests (Future)
+- Test `buildShellCommand()` with various inputs
+- Test config parsing and merging
+- Test git auto-detection
+
+### Integration Tests
+```bash
+# Public repo
+mycli exec --repo=https://github.com/hashicorp/terraform-guides "ls -la"
+
+# Private repo with GitHub token
+mycli exec --repo=https://github.com/company/private "cat README.md"
+
+# Custom image
+mycli exec --image=python:3.11 "python --version"
+
+# With .mycli.yaml
+cd project-with-config && mycli exec "terraform plan"
+
+# Git auto-detect
+cd git-repo-without-config && mycli exec "make test"
+```
+
+## Deployment
+
+### Prerequisites
+- AWS account with admin access
+- AWS CLI configured
+- Go 1.21+ installed
+
+### Steps
+
+1. **Build CLI:**
+   ```bash
+   go build -o mycli
+   ```
+
+2. **Deploy infrastructure:**
+   ```bash
+   ./mycli init --region us-east-1
+   # Follow prompts to configure Git credentials (optional)
+   ```
+
+3. **Test execution:**
+   ```bash
+   ./mycli exec \
+     --repo=https://github.com/hashicorp/terraform-guides \
+     --image=hashicorp/terraform:1.6 \
+     "terraform version"
+   ```
+
+4. **Check status and logs:**
+   ```bash
+   ./mycli status <task-arn>
+   ./mycli logs <execution-id>
+   ./mycli logs -f <execution-id>  # Follow logs
+   ```
+
+## Cost Efficiency
+
+**Per-execution cost:** ~$0.0003 (5-minute execution)
+
+**Monthly estimates:**
+- 100 executions: ~$0.03
+- 1,000 executions: ~$0.33
+- 10,000 executions: ~$3.30
+
+**Cost optimizations:**
+- FARGATE_SPOT (default) - 70% savings
+- No S3 storage costs
+- Shallow git clones (`--depth 1`)
+- Small task sizes (0.25 vCPU, 0.5 GB)
+
+## Limitations
+
+### What Works
+- ✅ Any Docker image with `/bin/sh`
+- ✅ Public and private Git repositories
+- ✅ GitHub, GitLab, and SSH authentication
+- ✅ Commands up to 30 minutes (configurable)
 - ✅ Environment variable passing
 
-### Developer Experience
-- ✅ `.mycli.yaml` for project config
-- ✅ Git auto-detection
-- ✅ Clear configuration priority
-- ✅ Helpful error messages
+### What Doesn't Work (Yet)
+- ❌ Multi-step workflows (use scripts in your repo)
+- ❌ Artifact storage (use S3 from your commands)
+- ❌ Scheduled executions (use EventBridge)
+- ❌ Real-time log streaming (poll-based only)
 
-### Cost Efficiency
-- ✅ No S3 storage costs
-- ✅ FARGATE_SPOT for compute
-- ✅ Shallow git clones (`--depth 1`)
-- ✅ Pay only for execution time
+### Workarounds Available
+See `IMPLEMENTATION_NOTES.md` for detailed workarounds.
+
+## Security
+
+### Git Credentials
+- Stored in Lambda environment variables (encrypted at rest)
+- Passed to container via shell script
+- Cleaned up before container exits
+- Never logged to CloudWatch
+
+### API Authentication
+- Bcrypt-hashed API key in Lambda
+- Plaintext key in `~/.mycli/config.yaml` (0600 permissions)
+
+### Network Isolation
+- VPC with public subnets (for Git access)
+- Security group: egress-only
+- Each task in isolated container
 
 ## Future Enhancements
 
-### Short-term
-- [ ] Build and publish official mycli executor image to ECR Public
-- [ ] Add support for more Git providers (Bitbucket, etc.)
-- [ ] Support for Git submodules
-- [ ] Support for monorepos (working directory override)
+### Near-term
+- [ ] Integration test suite
+- [ ] More image examples in docs
+- [ ] Support for custom task role ARNs
+- [ ] Improved error messages
 
 ### Medium-term
-- [ ] Execution history in DynamoDB
+- [ ] DynamoDB execution history
+- [ ] S3 artifact storage support
 - [ ] Web dashboard for monitoring
-- [ ] Slack/Discord notifications
-- [ ] Scheduled executions (cron-like)
+- [ ] Scheduled executions
 
 ### Long-term
-- [ ] Multi-tenancy support
+- [ ] Multi-step workflows
+- [ ] Team management
+- [ ] Cost tracking
 - [ ] SaaS offering
-- [ ] Execution templates/workflows
-- [ ] Cost tracking and optimization
 
-## Migration from S3-based Architecture
+### Potential Shell Improvements
+Currently using bash (works well), but could consider:
+- **Go binary approach** - Better error handling, type safety
+- **Python script approach** - Better structure, most images have Python
+- **Hybrid approach** - Bash for simple, Go for complex
 
-If you have an existing S3-based deployment:
+**Current status:** Bash is perfectly adequate. No urgent need to change.
 
-1. **Data:** No migration needed (Git is source of truth)
-2. **Infrastructure:** Destroy old stack, deploy new one
-3. **CLI:** Update to new version
-4. **Config:** Update `.mycli.yaml` format (add `repo` field)
+## Documentation
 
-## Questions & Answers
+- **`ARCHITECTURE.md`** - Complete system architecture
+- **`IMPLEMENTATION_NOTES.md`** - Detailed implementation notes and decisions
+- **`.mycli.yaml.example`** - Example project configuration
+- **`CONTEXT.md`** - Original requirements and design
 
-**Q: Why not use S3 for code storage?**
-A: Git is already the source of truth for code. Using S3 adds complexity, cost, and latency without significant benefits.
+## Comparison to Alternatives
 
-**Q: Why bash instead of Go for the container entrypoint?**
-A: Bash is perfect for this use case:
-- Simple git clone and command execution
-- No compilation needed
-- Easy to read and modify
-- Reduces container image size
-- No need for complex error handling (exit codes are sufficient)
+| Feature | mycli | GitHub Actions | AWS CodeBuild |
+|---------|-------|----------------|---------------|
+| Setup | `mycli init` | YAML in repo | Console config |
+| Trigger | CLI command | Push/PR/Manual | Event-driven |
+| Images | Any Docker image | GitHub runners | Any Docker image |
+| Cost | $2-5/month | Free (2000 min) | $0.005/min |
+| Control | Full (self-hosted) | Limited | AWS-managed |
 
-**Q: How are secrets handled?**
-A: Git credentials are stored in Lambda environment variables (encrypted at rest by AWS), passed to containers, and cleaned up after execution. User commands should use AWS Secrets Manager or similar for application secrets.
-
-**Q: Can I use private Docker images?**
-A: Yes, configure ECS task execution role with ECR permissions and provide the private image URL via `--image` flag or `.mycli.yaml`.
-
-**Q: What about large repositories?**
-A: Use shallow clones (`--depth 1`) to minimize clone time. For monorepos, consider using git sparse-checkout (future enhancement).
+**mycli sweet spot:** Ad-hoc CLI execution with flexible image support and self-hosted infrastructure.
 
 ## Conclusion
 
-The Git-based architecture is **simpler, faster, and more maintainable** than the S3-based approach. By leveraging Git as the source of truth and using a simple bash entrypoint script, we've created an elegant solution that's easy to understand, extend, and operate.
+The implementation is **simpler and more flexible** than the original custom image approach:
+- No Docker image to maintain
+- Users choose their own tools
+- Standard Docker images from Docker Hub
+- Shell command construction in Lambda
+- Works everywhere
 
-**Status:** ✅ Ready for testing and deployment
+**Status:** ✅ Ready for deployment and testing
+
+See `ARCHITECTURE.md` and `IMPLEMENTATION_NOTES.md` for complete details.

@@ -30,10 +30,10 @@ Parameters:
     Default: ''
     Description: Base64-encoded SSH private key (optional, for private repos)
 
-  ExecutorImage:
+  DefaultImage:
     Type: String
     Default: 'public.ecr.aws/docker/library/ubuntu:22.04'
-    Description: Docker image for the executor container (default is Ubuntu, will be replaced with mycli executor)
+    Description: Default Docker image (generic base image, users should specify task-specific images)
 
 Conditions:
   HasGitHubToken: !Not [!Equals [!Ref GitHubToken, '']]
@@ -166,18 +166,20 @@ Resources:
       TaskRoleArn: !GetAtt TaskRole.Arn
       ContainerDefinitions:
         - Name: executor
-          Image: !Ref ExecutorImage
+          Image: !Ref DefaultImage
           Essential: true
+          # Command is overridden at runtime by Lambda
+          # Lambda constructs a shell script that clones git repo and runs user command
+          Command:
+            - '/bin/sh'
+            - '-c'
+            - 'echo "This task definition is a template. Command will be overridden at runtime."'
           LogConfiguration:
             LogDriver: awslogs
             Options:
               awslogs-group: !Ref ExecutionLogGroup
               awslogs-region: !Ref AWS::Region
               awslogs-stream-prefix: task
-          # Environment variables will be overridden at runtime by Lambda
-          Environment:
-            - Name: PLACEHOLDER
-              Value: will_be_overridden_by_lambda
 
   # IAM Role for Task Execution (pulling images, writing logs)
   TaskExecutionRole:
