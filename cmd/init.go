@@ -20,12 +20,10 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
-	"github.com/aws/aws-sdk-go-v2/service/apigateway"
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation"
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation/types"
 	"github.com/aws/aws-sdk-go-v2/service/lambda"
 	lambdaTypes "github.com/aws/aws-sdk-go-v2/service/lambda/types"
-	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"github.com/spf13/cobra"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -110,14 +108,6 @@ func runInit(cmd *cobra.Command, args []string) error {
 		}
 		fmt.Println()
 	}
-
-	// Get AWS account ID
-	stsClient := sts.NewFromConfig(cfg)
-	identity, err := stsClient.GetCallerIdentity(ctx, &sts.GetCallerIdentityInput{})
-	if err != nil {
-		return fmt.Errorf("failed to get AWS identity: %w", err)
-	}
-	accountID := *identity.Account
 
 	// 1. Generate API key
 	fmt.Println("→ Generating API key...")
@@ -233,113 +223,33 @@ func runInit(cmd *cobra.Command, args []string) error {
 	outputs := parseStackOutputs(stack.Outputs)
 
 	apiEndpoint := outputs["APIEndpoint"]
-	lambdaRoleArn := outputs["LambdaExecutionRoleArn"]
+	functionName := outputs["LambdaFunctionName"]
 
-	// 7. Create Lambda function with direct zip upload
-	fmt.Println("→ Creating Lambda function...")
+	// 7. Update Lambda function code
+	fmt.Println("→ Updating Lambda function code...")
 	lambdaClient := lambda.NewFromConfig(cfg)
-	functionName := fmt.Sprintf("%s-orchestrator", initStackName)
 
-	// Build Lambda environment variables
-	lambdaEnv := map[string]string{
-		"API_KEY_HASH":    apiKeyHash,
-		"ECS_CLUSTER":     outputs["ECSClusterName"],
-		"TASK_DEFINITION": outputs["TaskDefinitionArn"],
-		"SUBNET_1":        outputs["Subnet1"],
-		"SUBNET_2":        outputs["Subnet2"],
-		"SECURITY_GROUP":  outputs["FargateSecurityGroup"],
-		"LOG_GROUP":       outputs["LogGroup"],
-	}
-
-	// Add Git credentials to Lambda environment if provided
-	if githubToken != "" {
-		lambdaEnv["GITHUB_TOKEN"] = githubToken
-	}
-	if gitlabToken != "" {
-		lambdaEnv["GITLAB_TOKEN"] = gitlabToken
-	}
-	if sshPrivateKey != "" {
-		lambdaEnv["SSH_PRIVATE_KEY"] = sshPrivateKey
-	}
-
-	_, err = lambdaClient.CreateFunction(ctx, &lambda.CreateFunctionInput{
-		FunctionName: &functionName,
-		Runtime:      lambdaTypes.RuntimeProvidedal2023,
-		Role:         &lambdaRoleArn,
-		Handler:      aws.String("bootstrap"),
-		Code: &lambdaTypes.FunctionCode{
-			ZipFile: lambdaZip,
-		},
-		Timeout:       aws.Int32(60),
+	_, err = lambdaClient.UpdateFunctionCode(ctx, &lambda.UpdateFunctionCodeInput{
+		FunctionName:  &functionName,
+		ZipFile:       lambdaZip,
 		Architectures: []lambdaTypes.Architecture{lambdaTypes.ArchitectureArm64},
-		Environment: &lambdaTypes.Environment{
-			Variables: lambdaEnv,
-		},
 	})
 	if err != nil {
-		return fmt.Errorf("failed to create Lambda function: %w", err)
+		return fmt.Errorf("failed to update Lambda function code: %w", err)
 	}
 
-	fmt.Println("✓ Lambda function created")
-
-	// 8. Configure API Gateway integration
-	fmt.Println("→ Configuring API Gateway...")
-	restAPIId := outputs["RestAPIId"]
-	resourceId := outputs["APIResourceId"]
-	lambdaArn := fmt.Sprintf("arn:aws:lambda:%s:%s:function:%s", initRegion, accountID, functionName)
-
-	apigwClient := apigateway.NewFromConfig(cfg)
-
-	// Create API Gateway method
-	_, err = apigwClient.PutMethod(ctx, &apigateway.PutMethodInput{
-		RestApiId:         &restAPIId,
-		ResourceId:        &resourceId,
-		HttpMethod:        aws.String("POST"),
-		AuthorizationType: aws.String("NONE"),
-	})
-	if err != nil {
-		return fmt.Errorf("failed to create API Gateway method: %w", err)
-	}
-
-	// Create Lambda integration
-	integrationUri := fmt.Sprintf("arn:aws:apigateway:%s:lambda:path/2015-03-31/functions/%s/invocations", initRegion, lambdaArn)
-	_, err = apigwClient.PutIntegration(ctx, &apigateway.PutIntegrationInput{
-		RestApiId:             &restAPIId,
-		ResourceId:            &resourceId,
-		HttpMethod:            aws.String("POST"),
-		Type:                  "AWS_PROXY",
-		IntegrationHttpMethod: aws.String("POST"),
-		Uri:                   &integrationUri,
-	})
-	if err != nil {
-		return fmt.Errorf("failed to create API Gateway integration: %w", err)
-	}
-
-	// Add Lambda permission for API Gateway
-	sourceArn := fmt.Sprintf("arn:aws:execute-api:%s:%s:%s/*/*", initRegion, accountID, restAPIId)
-	_, err = lambdaClient.AddPermission(ctx, &lambda.AddPermissionInput{
+	// Wait for update to complete
+	updateWaiter := lambda.NewFunctionUpdatedV2Waiter(lambdaClient)
+	err = updateWaiter.Wait(ctx, &lambda.GetFunctionInput{
 		FunctionName: &functionName,
-		StatementId:  aws.String("AllowAPIGatewayInvoke"),
-		Action:       aws.String("lambda:InvokeFunction"),
-		Principal:    aws.String("apigateway.amazonaws.com"),
-		SourceArn:    &sourceArn,
-	})
+	}, 2*time.Minute)
 	if err != nil {
-		return fmt.Errorf("failed to add Lambda permission: %w", err)
+		return fmt.Errorf("Lambda code update failed: %w", err)
 	}
 
-	// Deploy API
-	_, err = apigwClient.CreateDeployment(ctx, &apigateway.CreateDeploymentInput{
-		RestApiId: &restAPIId,
-		StageName: aws.String("prod"),
-	})
-	if err != nil {
-		return fmt.Errorf("failed to deploy API Gateway: %w", err)
-	}
+	fmt.Println("✓ Lambda function code updated")
 
-	fmt.Println("✓ API Gateway configured")
-
-	// 9. Save to config file
+	// 8. Save to config file
 	fmt.Println("→ Saving configuration...")
 	cliConfig := &internalConfig.Config{
 		APIEndpoint: apiEndpoint,
@@ -350,7 +260,7 @@ func runInit(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to save config: %w", err)
 	}
 
-	// 10. Success!
+	// 9. Success!
 	fmt.Println("\n✅ Setup complete!")
 	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 	fmt.Println("Configuration saved to ~/.mycli/config.yaml")
@@ -369,8 +279,7 @@ func runInit(cmd *cobra.Command, args []string) error {
 	fmt.Printf("\n🔑 Your API key: %s\n", apiKey)
 	fmt.Println("   (Also saved to config file)")
 	fmt.Println("\nNext steps:")
-	fmt.Println("  1. Build and push the executor Docker image (see docker/README.md)")
-	fmt.Println("  2. Test it: mycli exec --repo=https://github.com/user/repo \"echo hello\"")
+	fmt.Println("  1. Test it: mycli exec --repo=https://github.com/user/repo \"echo hello\"")
 
 	return nil
 }
