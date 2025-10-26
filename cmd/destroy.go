@@ -358,36 +358,43 @@ func deleteTaskDefinitions(ctx context.Context, ecsClient *ecs.Client, stackName
 		return nil
 	}
 
-	// Collect all task definitions to delete
-	var allTaskDefs []string
+	// First, deregister all ACTIVE task definitions
+	fmt.Println("  Deregistering active task definitions...")
 	for _, families := range taskDefsByFamily {
-		allTaskDefs = append(allTaskDefs, families[statusActive]...)
-		allTaskDefs = append(allTaskDefs, families[statusInactive]...)
-	}
-
-	// Delete all task definitions (both active and inactive)
-	// Note: AWS now supports DeleteTaskDefinitions API for INACTIVE task definitions
-	for _, taskDefArn := range allTaskDefs {
-		// Try delete first (works for INACTIVE)
-		result, err := ecsClient.DeleteTaskDefinitions(ctx, &ecs.DeleteTaskDefinitionsInput{
-			TaskDefinitions: []string{taskDefArn},
-		})
-		if err != nil {
-			// If delete fails, try deregister for ACTIVE
-			_, deregErr := ecsClient.DeregisterTaskDefinition(ctx, &ecs.DeregisterTaskDefinitionInput{
+		for _, taskDefArn := range families[statusActive] {
+			_, err := ecsClient.DeregisterTaskDefinition(ctx, &ecs.DeregisterTaskDefinitionInput{
 				TaskDefinition: aws.String(taskDefArn),
 			})
-			if deregErr != nil {
-				fmt.Printf("  Warning: Failed to delete/deregister %s: %v\n", taskDefArn, deregErr)
+			if err != nil {
+				fmt.Printf("  Warning: Failed to deregister %s: %v\n", taskDefArn, err)
 			} else {
 				fmt.Printf("  Deregistered: %s\n", taskDefArn)
 				deletedCount++
 			}
+		}
+	}
+
+	// Then, delete all INACTIVE task definitions (now including those we just deregistered)
+	fmt.Println("  Deleting inactive task definitions...")
+	var inactiveTaskDefs []string
+	for _, families := range taskDefsByFamily {
+		inactiveTaskDefs = append(inactiveTaskDefs, families[statusInactive]...)
+	}
+
+	// Delete all inactive task definitions
+	if len(inactiveTaskDefs) > 0 {
+		result, err := ecsClient.DeleteTaskDefinitions(ctx, &ecs.DeleteTaskDefinitionsInput{
+			TaskDefinitions: inactiveTaskDefs,
+		})
+		if err != nil {
+			fmt.Printf("  Warning: Failed to delete task definitions: %v\n", err)
 		} else {
 			// TaskDefinitions contains successfully deleted task definitions
 			if len(result.TaskDefinitions) > 0 {
-				fmt.Printf("  Deleted: %s\n", taskDefArn)
-				deletedCount++
+				for _, taskDef := range result.TaskDefinitions {
+					fmt.Printf("  Deleted: %s\n", *taskDef.TaskDefinitionArn)
+					deletedCount++
+				}
 			}
 			// Failures contains any failures
 			if len(result.Failures) > 0 {
