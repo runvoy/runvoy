@@ -1551,6 +1551,9 @@ mycli/
 ├── pkg/
 │   └── api/
 │       └── types.go           # Shared API types (Request/Response)
+├── scripts/
+│   ├── README.md              # Development scripts documentation
+│   └── update-lambda.sh       # Lambda update helper
 ├── main.go                    # CLI entry point
 ├── go.mod                     # Go dependencies
 ├── go.sum                     # Dependency checksums
