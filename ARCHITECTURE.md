@@ -546,38 +546,45 @@ Possible statuses:
 - `-f, --follow` - Stream logs in real-time (polls every 2 seconds)
 
 **What it does:**
-1. Sends API request with action="logs"
-2. Lambda queries CloudWatch Logs FilterLogEvents API
-3. Returns log events from task log stream
+1. Sends API request with action="logs" and execution ID
+2. Lambda queries ECS to find the task with matching ExecutionID tag
+3. Extracts the task ID from the task ARN to construct the log stream name
+4. Queries CloudWatch Logs FilterLogEvents API for the specific log stream
+5. Returns log events with timestamps in format: `YYYY-MM-DD HH:MM:SS UTC | message`
 
 **Output:**
 ```bash
 $ mycli logs exec_20250126_143210_123456
 
+Logs for execution: exec_20250126_143210_123456
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-mycli Remote Execution
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-→ Configuring GitHub authentication...
-→ Repository: https://github.com/user/infra
-→ Branch: main
-→ Cloning repository...
-✓ Repository cloned
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Executing command...
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-[terraform output here...]
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-✓ Command completed successfully
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2025-10-26 14:32:10 UTC | ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2025-10-26 14:32:10 UTC | mycli Remote Execution
+2025-10-26 14:32:10 UTC | ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2025-10-26 14:32:11 UTC | → Configuring GitHub authentication...
+2025-10-26 14:32:11 UTC | → Repository: https://github.com/user/infra
+2025-10-26 14:32:11 UTC | → Branch: main
+2025-10-26 14:32:11 UTC | → Cloning repository...
+2025-10-26 14:32:15 UTC | ✓ Repository cloned
+2025-10-26 14:32:15 UTC | 
+2025-10-26 14:32:15 UTC | ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2025-10-26 14:32:15 UTC | Executing command...
+2025-10-26 14:32:15 UTC | ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2025-10-26 14:32:15 UTC | 
+2025-10-26 14:32:16 UTC | [terraform output here...]
+2025-10-26 14:35:42 UTC | 
+2025-10-26 14:35:42 UTC | ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2025-10-26 14:35:42 UTC | ✓ Command completed successfully
+2025-10-26 14:35:42 UTC | ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
+
+**Timestamp Format:** Each log line is prefixed with a timestamp showing when the event occurred in UTC timezone.
 
 Follow mode:
 ```bash
 $ mycli logs -f exec_20250126_143210_123456
 # Streams logs in real-time until task completes
+# Each line includes timestamp for accurate event tracking
 ```
 
 ### `mycli configure`
@@ -710,9 +717,16 @@ All actions use POST to `/execute` endpoint with `action` field in request body.
 **Response:**
 ```json
 {
-  "logs": "[log output here...]"
+  "logs": "2025-10-26 14:32:10 UTC | mycli Remote Execution\n2025-10-26 14:32:11 UTC | → Cloning repository...\n..."
 }
 ```
+
+**Implementation Details:**
+- Lambda uses the ExecutionID to find the specific ECS task by querying task tags
+- Extracts the task ID from the task ARN to construct the log stream name (format: `task/{task-id}`)
+- Queries CloudWatch Logs for the specific log stream only
+- Each log line includes a timestamp prefix: `YYYY-MM-DD HH:MM:SS UTC | message`
+- Returns up to 1000 log events (sorted chronologically)
 
 ### Error Responses
 
