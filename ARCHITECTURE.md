@@ -506,13 +506,13 @@ $ mycli exec "terraform apply"
 
 Execution Details:
   Execution ID: exec_20250126_143210_123456
-  Task ARN:     arn:aws:ecs:us-east-1:123456789:task/mycli-cluster/abc123
-  Log Stream:   task/abc123
+  Task ARN:     arn:aws:ecs:us-east-1:123456789:task/mycli-cluster/abc123def456
+  Log Stream:   task/executor/abc123def456
 
 Monitor execution:
-  mycli status arn:aws:ecs:us-east-1:123456789:task/mycli-cluster/abc123
-  mycli logs exec_20250126_143210_123456
-  mycli logs -f exec_20250126_143210_123456  # Follow logs in real-time
+  mycli status arn:aws:ecs:us-east-1:123456789:task/mycli-cluster/abc123def456
+  mycli logs arn:aws:ecs:us-east-1:123456789:task/mycli-cluster/abc123def456
+  mycli logs -f arn:aws:ecs:us-east-1:123456789:task/mycli-cluster/abc123def456  # Follow logs in real-time
 ```
 
 ### `mycli status <task-arn>`
@@ -538,7 +538,7 @@ Possible statuses:
 - `DEPROVISIONING` - Task shutting down
 - `STOPPED` - Task completed (check logs for exit code)
 
-### `mycli logs <execution-id>`
+### `mycli logs <task-arn>`
 
 **Purpose:** View execution logs
 
@@ -546,17 +546,19 @@ Possible statuses:
 - `-f, --follow` - Stream logs in real-time (polls every 2 seconds)
 
 **What it does:**
-1. Sends API request with action="logs" and execution ID
-2. Lambda queries ECS to find the task with matching ExecutionID tag
-3. Extracts the task ID from the task ARN to construct the log stream name
-4. Queries CloudWatch Logs FilterLogEvents API for the specific log stream
+1. Sends API request with action="logs" and task ARN
+2. Lambda extracts task ID from the ARN
+3. Constructs log stream name: `task/executor/{task-id}`
+4. Queries CloudWatch Logs for the specific log stream
 5. Returns log events with timestamps in format: `YYYY-MM-DD HH:MM:SS UTC | message`
+
+**Design Note:** Uses task ARN directly instead of execution ID for simplicity. This avoids the need to list all ECS tasks and search through tags, or maintain a DynamoDB table for ExecutionID → TaskARN mapping. The task ARN is provided in the output of `mycli exec` command.
 
 **Output:**
 ```bash
-$ mycli logs exec_20250126_143210_123456
+$ mycli logs arn:aws:ecs:us-east-1:123456789:task/mycli-cluster/abc123def456
 
-Logs for execution: exec_20250126_143210_123456
+Logs for task: arn:aws:ecs:us-east-1:123456789:task/mycli-cluster/abc123def456
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 2025-10-26 14:32:10 UTC | ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 2025-10-26 14:32:10 UTC | mycli Remote Execution
@@ -566,13 +568,13 @@ Logs for execution: exec_20250126_143210_123456
 2025-10-26 14:32:11 UTC | → Branch: main
 2025-10-26 14:32:11 UTC | → Cloning repository...
 2025-10-26 14:32:15 UTC | ✓ Repository cloned
-2025-10-26 14:32:15 UTC | 
+2025-10-26 14:32:15 UTC |
 2025-10-26 14:32:15 UTC | ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 2025-10-26 14:32:15 UTC | Executing command...
 2025-10-26 14:32:15 UTC | ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-2025-10-26 14:32:15 UTC | 
+2025-10-26 14:32:15 UTC |
 2025-10-26 14:32:16 UTC | [terraform output here...]
-2025-10-26 14:35:42 UTC | 
+2025-10-26 14:35:42 UTC |
 2025-10-26 14:35:42 UTC | ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 2025-10-26 14:35:42 UTC | ✓ Command completed successfully
 2025-10-26 14:35:42 UTC | ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -582,7 +584,7 @@ Logs for execution: exec_20250126_143210_123456
 
 Follow mode:
 ```bash
-$ mycli logs -f exec_20250126_143210_123456
+$ mycli logs -f arn:aws:ecs:us-east-1:123456789:task/mycli-cluster/abc123def456
 # Streams logs in real-time until task completes
 # Each line includes timestamp for accurate event tracking
 ```
@@ -710,7 +712,7 @@ All actions use POST to `/execute` endpoint with `action` field in request body.
 ```json
 {
   "action": "logs",
-  "execution_id": "exec_20250126_143210_123456"
+  "task_arn": "arn:aws:ecs:us-east-1:123456789:task/mycli-cluster/abc123def456"
 }
 ```
 
@@ -722,11 +724,18 @@ All actions use POST to `/execute` endpoint with `action` field in request body.
 ```
 
 **Implementation Details:**
-- Lambda uses the ExecutionID to find the specific ECS task by querying task tags
-- Extracts the task ID from the task ARN to construct the log stream name (format: `task/{task-id}`)
-- Queries CloudWatch Logs for the specific log stream only
+- Accepts task ARN directly (no ExecutionID lookup needed)
+- Extracts the task ID from the task ARN (last 36 characters)
+- Constructs log stream name: `task/executor/{task-id}` (includes container name)
+- Checks if log stream exists first using DescribeLogStreams
+- Queries CloudWatch Logs FilterLogEvents for the specific log stream
 - Each log line includes a timestamp prefix: `YYYY-MM-DD HH:MM:SS UTC | message`
 - Returns up to 1000 log events (sorted chronologically)
+
+**Design Decision:** Using task ARN instead of execution ID simplifies implementation. Alternative approaches would require either:
+1. Listing all ECS tasks and searching through tags (inefficient at scale)
+2. Maintaining a DynamoDB table for ExecutionID → TaskARN mapping (additional infrastructure)
+For MVP simplicity, we use the task ARN directly, which is already provided in the `exec` command output.
 
 ### Error Responses
 
@@ -1241,6 +1250,7 @@ rm ~/.mycli/config.yaml  # Optional
 | No scheduled executions | Use EventBridge to invoke API |
 | No Git submodules | Clone with `--recurse-submodules` in script |
 | Working directory is repo root | `cd subdirectory && command` in script |
+| Logs require task ARN (not execution ID) | Task ARN is provided in exec output, copy/paste it |
 | Custom image per execution not fully supported | Image specified in task definition, override not supported by ECS API (future enhancement: dynamic task definition registration) |
 
 ### Design Trade-offs
@@ -1253,6 +1263,7 @@ rm ~/.mycli/config.yaml  # Optional
 | No S3 for code | Simpler, cheaper | Can't store artifacts |
 | Shallow git clone | Faster, less data transfer | No git history |
 | No DynamoDB | Simpler, cheaper | No queryable execution history |
+| Logs use task ARN directly | Simple, no tag lookup needed | Longer ARN to copy vs short execution ID |
 
 ### Not Supported (Yet)
 

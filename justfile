@@ -3,3 +3,6 @@ smoke-test: build
 
 build:
     go build -o mycli
+
+deploy:
+    ./scripts/update-lambda.sh

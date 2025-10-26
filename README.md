@@ -78,11 +78,11 @@ mycli exec --skip-git --image=alpine:latest "echo hello world"
 # Check status
 mycli status <task-arn>
 
-# View logs
-mycli logs <execution-id>
+# View logs (use the task ARN from exec output)
+mycli logs <task-arn>
 
 # Follow logs in real-time
-mycli logs -f <execution-id>
+mycli logs -f <task-arn>
 ```
 
 ## How It Works
@@ -153,11 +153,13 @@ Flags:
 ### `mycli status <task-arn>`
 Check execution status
 
-### `mycli logs <execution-id>`
+### `mycli logs <task-arn>`
 View execution logs
 
 Flags:
 - `-f, --follow` - Stream logs in real-time
+
+Note: Use the task ARN from the `mycli exec` output
 
 ### `mycli configure`
 Manually configure CLI (for existing infrastructure)

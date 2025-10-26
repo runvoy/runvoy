@@ -19,7 +19,8 @@ type StatusRequest struct {
 
 type LogsRequest struct {
 	Action      string `json:"action"`
-	ExecutionID string `json:"execution_id"`
+	ExecutionID string `json:"execution_id,omitempty"`
+	TaskArn     string `json:"task_arn,omitempty"`
 }
 
 // Unified request type for Lambda handler (can represent any action)

@@ -87,6 +87,24 @@ func (c *Client) GetLogs(ctx context.Context, executionID string) (*LogsResponse
 	return &resp, nil
 }
 
+func (c *Client) GetLogsByTaskArn(ctx context.Context, taskArn string) (*LogsResponse, error) {
+	req := LogsRequest{
+		Action:  "logs",
+		TaskArn: taskArn,
+	}
+
+	var resp LogsResponse
+	if err := c.doRequest(ctx, req, &resp); err != nil {
+		return nil, err
+	}
+
+	if resp.Error != "" {
+		return nil, fmt.Errorf("API error: %s", resp.Error)
+	}
+
+	return &resp, nil
+}
+
 func (c *Client) doRequest(ctx context.Context, reqBody interface{}, respBody interface{}) error {
 	jsonData, err := json.Marshal(reqBody)
 	if err != nil {

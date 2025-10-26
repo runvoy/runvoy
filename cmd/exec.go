@@ -146,8 +146,8 @@ func runExec(cmd *cobra.Command, args []string) error {
 	fmt.Println()
 	fmt.Println("Monitor execution:")
 	fmt.Printf("  mycli status %s\n", resp.TaskArn)
-	fmt.Printf("  mycli logs %s\n", resp.ExecutionID)
-	fmt.Printf("  mycli logs -f %s  # Follow logs in real-time\n", resp.ExecutionID)
+	fmt.Printf("  mycli logs %s\n", resp.TaskArn)
+	fmt.Printf("  mycli logs -f %s  # Follow logs in real-time\n", resp.TaskArn)
 
 	return nil
 }
