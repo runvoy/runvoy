@@ -1,0 +1,65 @@
+package api
+
+import (
+	"time"
+)
+
+// Request/Response types for the API
+
+// ExecutionRequest represents a request to execute a command
+type ExecutionRequest struct {
+	Command string            `json:"command"`
+	Lock    string            `json:"lock,omitempty"`
+	Image   string            `json:"image,omitempty"`
+	Env     map[string]string `json:"env,omitempty"`
+	Timeout int               `json:"timeout,omitempty"`
+}
+
+// ExecutionResponse represents the response to an execution request
+type ExecutionResponse struct {
+	ExecutionID string `json:"execution_id"`
+	TaskARN     string `json:"task_arn"`
+	LogURL      string `json:"log_url"`
+	Status      string `json:"status"`
+}
+
+// ErrorResponse represents an error response
+type ErrorResponse struct {
+	Error   string `json:"error"`
+	Code    string `json:"code,omitempty"`
+	Details string `json:"details,omitempty"`
+}
+
+// User represents a user in the system
+type User struct {
+	Email     string    `json:"email"`
+	APIKey    string    `json:"api_key,omitempty"`
+	CreatedAt time.Time `json:"created_at"`
+	Revoked   bool      `json:"revoked"`
+	LastUsed  time.Time `json:"last_used,omitempty"`
+}
+
+// Execution represents an execution record
+type Execution struct {
+	ExecutionID     string    `json:"execution_id"`
+	UserEmail       string    `json:"user_email"`
+	Command         string    `json:"command"`
+	LockName        string    `json:"lock_name,omitempty"`
+	TaskARN         string    `json:"task_arn"`
+	StartedAt       time.Time `json:"started_at"`
+	CompletedAt     *time.Time `json:"completed_at,omitempty"`
+	Status          string    `json:"status"`
+	ExitCode        int       `json:"exit_code,omitempty"`
+	DurationSeconds int       `json:"duration_seconds,omitempty"`
+	LogStreamName   string    `json:"log_stream_name,omitempty"`
+	CostUSD         float64   `json:"cost_usd,omitempty"`
+}
+
+// Lock represents a lock record
+type Lock struct {
+	LockName    string    `json:"lock_name"`
+	ExecutionID string    `json:"execution_id"`
+	UserEmail   string    `json:"user_email"`
+	AcquiredAt  time.Time `json:"acquired_at"`
+	TTL         int64     `json:"ttl"`
+}

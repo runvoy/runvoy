@@ -71,6 +71,71 @@ runvoy is a centralized execution platform that allows teams to run infrastructu
 └─────────────────┘
 ```
 
+## Code Structure
+
+### Project Organization
+
+The codebase is organized to support both Lambda deployment and local development/testing:
+
+```
+/workspace/
+├── cmd/                          # Application entry points
+│   ├── runvoy/                   # CLI client
+│   │   ├── main.go
+│   │   └── cmd/                  # CLI commands
+│   └── backend/                  # Backend service entry point
+│       ├── main.go
+│       └── aws/                  # AWS service implementations
+├── internal/                     # Private application code
+│   ├── api/                      # API types and contracts
+│   ├── config/                   # Configuration management
+│   ├── constants/                # Application constants
+│   ├── handlers/                 # HTTP request handlers (framework-agnostic)
+│   ├── services/                 # Business logic services
+│   └── utils/                    # Utility functions
+├── local/                        # Local development tools
+│   ├── main.go                   # Local server entry point
+│   └── mocks/                    # Mock implementations for testing
+├── tests/                        # Integration and E2E tests
+└── scripts/                      # Build and deployment scripts
+```
+
+### Key Design Principles
+
+**Separation of Concerns:**
+- **`internal/services/`**: Pure business logic (no HTTP, no AWS dependencies)
+- **`internal/handlers/`**: HTTP request/response handling (framework-agnostic)
+- **`cmd/backend/`**: Backend service entry point and AWS integrations
+- **`local/`**: Local development server with mock dependencies
+
+**Testability:**
+- Business logic in `internal/services/` can be unit tested without AWS
+- Local server in `local/` allows integration testing with mocks
+- Easy to swap implementations (real AWS vs mocks)
+
+**Dependency Injection:**
+- Services accept interfaces, not concrete types
+- Easy to swap implementations for different environments
+
+### Local Development
+
+The local development server (`local/main.go`) provides:
+- Mock implementations of all AWS services
+- Same business logic as production Lambda
+- Fast feedback loop for development
+- No AWS costs during development
+
+```bash
+# Run local development server
+just run-local
+
+# Test the API
+curl -X POST http://localhost:8080/executions \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: test-key" \
+  -d '{"command": "echo hello world"}'
+```
+
 ## Components
 
 ### 1. CLI (Go)
