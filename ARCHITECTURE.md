@@ -188,7 +188,7 @@ def handler(event, context):
 Partition Key: api_key_hash (string)
 
 Attributes:
-- api_key_hash: bcrypt hash of the API key
+- api_key_hash: SHA256 hash of the API key (used for lookup)
 - user_email: string
 - created_at: timestamp
 - revoked: boolean
@@ -425,7 +425,7 @@ GET /api/logs/{execution_id}
    }
 
 3. Lambda validates API key
-   - Query DynamoDB: api_key_hash = hash(sk_live_abc123...)
+   - Query DynamoDB: api_key_hash = SHA256(sk_live_abc123...)
    - Check revoked = false
    - Update last_used timestamp
    - Get user_email
@@ -553,7 +553,7 @@ On completion:
 ### Secrets Management
 
 **What's stored where**:
-- API keys: DynamoDB (bcrypt hashed)
+- API keys: DynamoDB (SHA256 hashed for lookup)
 - JWT signing secret: Lambda environment variable (or Secrets Manager)
 - AWS credentials: Never stored (IAM roles everywhere)
 
@@ -615,12 +615,44 @@ Company "Acme Corp" → AWS Account 123456789
 1. **Admin deploys infrastructure**:
    ```bash
    $ aws configure  # Uses admin AWS credentials
-   $ mycli init --company acme
-   ✓ CloudFormation stack created
-   ✓ Infrastructure deployed
+   $ mycli init --stack-name mycli --region us-east-2
+   → Generating API key...
+   → Building Lambda function...
+   → Creating S3 bucket stack for Lambda code (Stack 1)...
+   ✓ Lambda bucket stack created
+   → Uploading Lambda code to S3...
+   ✓ Lambda code uploaded
+   → Creating main CloudFormation stack (Stack 2)...
+   ✓ Main stack created successfully
+   → Configuring API key...
+   ✓ API key configured
+   → Saving configuration...
+   ✓ Setup complete!
+   
+   🔑 Your API key: sk_live_abc123...
    ```
 
-2. **Admin generates API keys**:
+   **What `mycli init` does**:
+   - Generates a random API key (sk_live_...)
+   - Computes SHA256 hash of the API key
+   - Builds the Lambda orchestrator binary (Go → ARM64 Linux)
+   - Creates a temporary S3 bucket stack via CloudFormation (for Lambda code)
+   - Uploads the Lambda ZIP to S3
+   - Creates the main CloudFormation stack with all infrastructure:
+     - VPC, subnets, internet gateway, security groups
+     - ECS Fargate cluster and task definitions
+     - Lambda function (loaded from S3)
+     - API Gateway (REST API)
+     - DynamoDB tables (API Keys, Executions, Locks)
+     - IAM roles (Lambda execution, ECS task, ECS task execution)
+     - CloudWatch log groups
+   - Inserts the generated API key into DynamoDB (SHA256 hashed)
+   - Saves the configuration to `~/.mycli/config.yaml`
+   
+   **Note**: Git credentials (GitHub/GitLab tokens, SSH keys) are NOT currently supported.
+   The Lambda orchestrator does not implement git cloning yet. This is a planned feature.
+
+2. **Admin generates API keys for other users**:
    ```bash
    $ mycli admin add-user alice@acme.com
    ✓ API key: sk_live_abc123...
