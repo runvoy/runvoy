@@ -63,10 +63,6 @@ When adding **new features**: Update
 - "Examples" in README.md if user-visible
 - "Future Enhancements" (remove if now implemented)
 
-When fixing **bugs**: Update
-- "Troubleshooting" section if common issue
-- Remove from "Limitations" if limitation removed
-
 ## Code Quality Standards
 
 ### File Organization
