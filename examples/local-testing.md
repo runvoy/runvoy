@@ -117,8 +117,8 @@ func TestExecutionService_StartExecution(t *testing.T) {
 cmd/
 ├── runvoy/        # CLI client
 │   └── cmd/       # CLI commands
-└── lambda/        # Lambda function
-    ├── main.go    # Lambda entry point
+└── backend/       # Backend service
+    ├── main.go    # Backend entry point
     └── aws/       # AWS service implementations
 
 internal/
@@ -134,6 +134,6 @@ local/             # Local development
 
 This structure makes it easy to:
 - Test business logic in isolation
-- Run the same code locally and in Lambda
+- Run the same code locally and in the backend service
 - Maintain consistency between environments
 - Add new features without breaking existing functionality

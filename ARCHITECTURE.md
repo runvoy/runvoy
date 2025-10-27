@@ -83,7 +83,7 @@ The codebase is organized to support both Lambda deployment and local developmen
 │   ├── runvoy/                   # CLI client
 │   │   ├── main.go
 │   │   └── cmd/                  # CLI commands
-│   └── lambda/                   # Lambda function entry point
+│   └── backend/                  # Backend service entry point
 │       ├── main.go
 │       └── aws/                  # AWS service implementations
 ├── internal/                     # Private application code
@@ -105,7 +105,7 @@ The codebase is organized to support both Lambda deployment and local developmen
 **Separation of Concerns:**
 - **`internal/services/`**: Pure business logic (no HTTP, no AWS dependencies)
 - **`internal/handlers/`**: HTTP request/response handling (framework-agnostic)
-- **`cmd/lambda/`**: Lambda-specific entry point and AWS integrations
+- **`cmd/backend/`**: Backend service entry point and AWS integrations
 - **`local/`**: Local development server with mock dependencies
 
 **Testability:**

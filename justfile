@@ -1,17 +1,17 @@
 bucket := 'runvoy-releases'
 
 # Build all binaries
-build: build-cli build-lambda build-local
+build: build-cli build-backend build-local
 
 # Build CLI client
 [working-directory: 'cmd/runvoy']
 build-cli:
     go build -o ../../bin/runvoy
 
-# Build Lambda function
-[working-directory: 'cmd/lambda']
-build-lambda:
-    GOARCH=arm64 GOOS=linux go build -o ../../bin/lambda
+# Build backend service (Lambda function)
+[working-directory: 'cmd/backend']
+build-backend:
+    GOARCH=arm64 GOOS=linux go build -o ../../bin/backend
 
 # Build local development server
 [working-directory: 'local']
@@ -46,8 +46,8 @@ create-lambda-bucket:
         --stack-name runvoy-releases-bucket \
         --template-file infra/runvoy-bucket.yaml
 
-[working-directory: 'cmd/lambda']
-update-lambda:
+[working-directory: 'cmd/backend']
+update-backend:
     rm -f function.zip bootstrap
     GOARCH=arm64 GOOS=linux go build -o bootstrap
     zip function.zip bootstrap
