@@ -40,3 +40,4 @@ Outputs:
   BucketArn:
     Description: S3 bucket ARN
     Value: !GetAtt LambdaCodeBucket.Arn
+

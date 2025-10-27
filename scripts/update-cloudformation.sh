@@ -47,7 +47,7 @@ fi
 echo "→ Updating stack with new template..."
 aws cloudformation update-stack \
     --stack-name "$STACK_NAME" \
-    --template-body "file://$PROJECT_ROOT/deploy/cloudformation-backend.yaml" \
+    --template-body "file://$PROJECT_ROOT/internal/assets/aws/cloudformation-backend.yaml" \
     --capabilities CAPABILITY_NAMED_IAM \
     --parameters "$CURRENT_PARAMS" \
     --region "$REGION" \

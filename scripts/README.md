@@ -36,7 +36,7 @@ Quick CloudFormation stack update helper for development. Updates the CloudForma
 ### When to use
 
 Use this script when you've modified:
-- `deploy/cloudformation-backend.yaml` - IAM permissions, resource definitions, etc.
+- `internal/assets/aws/cloudformation-backend.yaml` - IAM permissions, resource definitions, etc.
 - When you need to add/remove permissions for Lambda or task roles
 - When updating CloudFormation infrastructure parameters
 

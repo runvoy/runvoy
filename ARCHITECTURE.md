@@ -127,6 +127,56 @@ Each provider implementation handles cloud-specific operations:
 - `mycli logs <exec-id>` - View execution logs
 - `mycli list` - Show recent executions
 - `mycli locks list` - Show active locks
+- `mycli version` - Show version and embedded assets information
+
+**Embedded Assets Architecture**:
+
+The CLI is designed to be distributed as a self-contained binary with no external dependencies. CloudFormation templates are embedded at build time using Go's `embed` package.
+
+**Structure** (`internal/assets/`):
+- `templates.go` - Provides access to embedded CloudFormation templates via `GetCloudFormation*Template()` functions
+- `aws/` - AWS CloudFormation templates (organized by cloud provider for future multi-cloud support)
+  - `cloudformation-backend.yaml` - Main infrastructure template
+  - `cloudformation-lambda-bucket.yaml` - Lambda code bucket template
+- `README.md` - Documentation on embedded assets and multi-cloud organization
+
+**How It Works**:
+1. CloudFormation templates are maintained in `internal/assets/aws/` (organized by cloud provider)
+2. At build time, `//go:embed aws/*.yaml` directive embeds the templates into the binary
+3. The AWS provider calls `assets.GetCloudFormation*Template()` instead of reading from disk
+4. No file system access required at runtime - binary is fully self-contained
+5. Multi-cloud ready: Templates organized by provider (aws/, gcp/, azure/, etc.)
+
+**Keeping Templates in Sync**:
+When updating CloudFormation templates:
+```bash
+# Edit template directly in assets directory
+vim internal/assets/aws/cloudformation-backend.yaml
+
+# Rebuild to embed changes
+go build
+```
+
+**Debugging Embedded Templates**:
+```bash
+# View embedded templates
+mycli version --show-templates
+
+# View specific template
+mycli version --show-templates --template=backend
+mycli version --show-templates --template=bucket
+
+# Verify templates in binary
+strings mycli | grep "AWSTemplateFormatVersion"
+```
+
+**Benefits**:
+- ✅ Single binary distribution (no external template files needed)
+- ✅ Version consistency (templates guaranteed to match CLI version)
+- ✅ Simplified deployment (no asset management required)
+- ✅ Reduced errors (no missing or mismatched template files)
+
+**Note**: Templates are edited directly in `internal/assets/aws/` and embedded at build time. The `update-cloudformation.sh` script reads from this directory to update deployed CloudFormation stacks.
 
 **Configuration**:
 ```yaml
@@ -695,7 +745,7 @@ Company "Acme Corp" → AWS Account 123456789
    - `deleteStack()` deletes a CloudFormation stack and waits for completion (up to 15 minutes)
    - `emptyBucket()` uses ListObjectVersions to delete all versions of all objects
    - `getBucketNameFromStack()` retrieves the bucket name from stack outputs, or constructs it if the stack is already deleted
-   - Bucket name format: `{stackname}-lambda-code-{accountId}-{region}` (`deploy/cloudformation-lambda-bucket.yaml:15`)
+   - Bucket name format: `{stackname}-lambda-code-{accountId}-{region}` (`internal/assets/aws/cloudformation-lambda-bucket.yaml:16`)
    
    **Note**: The destroy process requires confirmation by typing "delete" unless `--force` is used.
 

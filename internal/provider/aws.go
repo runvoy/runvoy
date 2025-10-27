@@ -9,6 +9,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"mycli/internal/assets"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -330,18 +331,11 @@ func (p *AWSProvider) buildFunction() ([]byte, error) {
 func (p *AWSProvider) createBucketStack(ctx context.Context, stackName string, projectName string) (string, error) {
 	cfnClient := cloudformation.NewFromConfig(p.cfg)
 
-	// Read bucket template
-	cwd, err := os.Getwd()
+	// Get embedded bucket template
+	bucketTemplateStr, err := assets.GetCloudFormationLambdaBucketTemplate()
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to load bucket template: %w", err)
 	}
-
-	bucketTemplatePath := filepath.Join(cwd, "deploy", "cloudformation-lambda-bucket.yaml")
-	bucketTemplateBody, err := os.ReadFile(bucketTemplatePath)
-	if err != nil {
-		return "", err
-	}
-	bucketTemplateStr := string(bucketTemplateBody)
 
 	// Create bucket stack
 	fmt.Println("   Starting CloudFormation stack creation...")
@@ -419,18 +413,11 @@ func (p *AWSProvider) createMainStack(ctx context.Context, stackName string, buc
 		},
 	}
 
-	// Read main CloudFormation template
-	cwd, err := os.Getwd()
+	// Get embedded main CloudFormation template
+	templateStr, err := assets.GetCloudFormationBackendTemplate()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to load backend template: %w", err)
 	}
-
-	templatePath := filepath.Join(cwd, "deploy", "cloudformation-backend.yaml")
-	templateBody, err := os.ReadFile(templatePath)
-	if err != nil {
-		return err
-	}
-	templateStr := string(templateBody)
 
 	fmt.Println("   Starting CloudFormation stack creation...")
 	_, err = cfnClient.CreateStack(ctx, &cloudformation.CreateStackInput{
