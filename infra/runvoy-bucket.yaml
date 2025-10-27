@@ -1,0 +1,68 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'runvoy - releases bucket (public-read)'
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: runvoy
+    Description: Name prefix for resources
+
+Resources:
+  # S3 bucket for releases (public-read)
+  ReleasesBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub '${ProjectName}-releases'
+      # Enable versioning for release history
+      VersioningConfiguration:
+        Status: Enabled
+      # Enable public access for releases
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: false
+        BlockPublicPolicy: false
+        IgnorePublicAcls: false
+        RestrictPublicBuckets: false
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-releases'
+        - Key: Application
+          Value: !Ref ProjectName
+        - Key: ManagedBy
+          Value: 'cloudformation'
+        - Key: Owner
+          Value: 'runvoy devs'
+
+  # Bucket policy to allow public read access to objects
+  ReleasesBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref ReleasesBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: PublicReadGetObject
+            Effect: Allow
+            Principal: '*'
+            Action:
+              - s3:GetObject
+            Resource: !Sub 'arn:aws:s3:::${ReleasesBucket}/*'
+
+Outputs:
+  BucketName:
+    Description: S3 bucket name for releases
+    Value: !Ref ReleasesBucket
+    Export:
+      Name: !Sub '${ProjectName}-releases'
+
+  BucketArn:
+    Description: S3 bucket ARN
+    Value: !GetAtt ReleasesBucket.Arn
+
+  BucketURL:
+    Description: Public URL for releases (s3://)
+    Value: !Sub 's3://${ReleasesBucket}/'
+
+  BucketHTTPSURL:
+    Description: Public HTTPS URL for releases (https://)
+    Value: !Sub 'https://${ReleasesBucket}.s3.${AWS::Region}.amazonaws.com/'
+

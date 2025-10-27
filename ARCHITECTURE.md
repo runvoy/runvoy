@@ -138,6 +138,7 @@ The CLI is designed to be distributed as a self-contained binary with no externa
 - `aws/` - AWS CloudFormation templates (organized by cloud provider for future multi-cloud support)
   - `cloudformation-backend.yaml` - Main infrastructure template
   - `cloudformation-lambda-bucket.yaml` - Lambda code bucket template
+  - `cloudformation-orchestrator-releases.yaml` - Orchestrator releases bucket template (public-read)
 - `README.md` - Documentation on embedded assets and multi-cloud organization
 
 **How It Works**:
@@ -378,7 +379,62 @@ Attributes:
 Note: Lock is automatically released when execution completes
 ```
 
-### 6. ECS Fargate
+### 6. S3 Buckets
+
+**Resource Tagging**: All S3 buckets are tagged with Name, Application, and ManagedBy tags for easy identification and cost tracking.
+
+#### Lambda Code Bucket
+
+**Purpose**: Stores Lambda function deployment packages
+
+**Configuration**:
+- **Bucket Name**: `{ProjectName}-lambda-code-{AWS::AccountId}-{AWS::Region}`
+- **Access**: Private (no public access)
+- **Versioning**: Enabled for deployment history
+- **Lifecycle**: No lifecycle rules (keeps all versions)
+
+**Use Case**: Lambda orchestrator code is uploaded to this bucket during `runvoy init` and used to deploy the Lambda function.
+
+**CloudFormation Template**: `cloudformation-lambda-bucket.yaml`
+
+#### Code Bucket
+
+**Purpose**: Optional storage for user code uploads
+
+**Configuration**:
+- **Bucket Name**: `{ProjectName}-code-{AWS::AccountId}-{AWS::Region}`
+- **Access**: Private (no public access)
+- **Versioning**: Not enabled
+- **Lifecycle**: Automatic deletion after 7 days
+
+**Use Case**: For future use when users need to upload code or artifacts for execution.
+
+**CloudFormation Template**: Defined in `cloudformation-backend.yaml`
+
+#### Orchestrator Releases Bucket
+
+**Purpose**: Public bucket for hosting backend orchestrator releases and artifacts
+
+**Configuration**:
+- **Bucket Name**: `{ProjectName}-orchestrator-releases-{AWS::AccountId}-{AWS::Region}`
+- **Access**: Public read access (bucket policy allows public GET)
+- **Versioning**: Enabled for release history
+- **Lifecycle**: Old non-current versions expire after 90 days
+
+**Use Case**: Distribution point for orchestrator releases, binaries, and other artifacts that need public access.
+
+**CloudFormation Template**: `cloudformation-orchestrator-releases.yaml`
+
+**Public Access**:
+- Bucket policy allows `s3:GetObject` for everyone (`*`)
+- Objects are publicly readable via HTTPS URL
+- Bucket itself is public with appropriate access controls
+
+**URLs**:
+- S3 URL: `s3://{bucket-name}/`
+- HTTPS URL: `https://{bucket-name}.s3.{region}.amazonaws.com/`
+
+### 7. ECS Fargate
 
 **Resource Tagging**: ECS cluster, task definitions, and IAM roles are tagged with Name, Application, and ManagedBy tags for easy identification and cost tracking.
 
@@ -460,7 +516,7 @@ exit $EXIT_CODE
 - `runvoy/executor:node` - Node.js + common tools
 - Custom images via `--image` flag
 
-### 7. CloudWatch Logs
+### 8. CloudWatch Logs
 
 **Log Group**: `/runvoy/executions`
 
@@ -474,7 +530,7 @@ exit $EXIT_CODE
 - Integrated with AWS ecosystem
 - No additional storage setup
 
-### 8. Web UI (Log Viewer)
+### 9. Web UI (Log Viewer)
 
 **Hosting**: S3 static website + CloudFront (optional)
 
