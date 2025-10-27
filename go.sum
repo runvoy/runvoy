@@ -20,8 +20,6 @@ github.com/aws/aws-sdk-go-v2/service/cloudformation v1.42.0 h1:Eub6qmSRH5ahS1zhV
 github.com/aws/aws-sdk-go-v2/service/cloudformation v1.42.0/go.mod h1:ehWDbgXo5Zy6eLjP+xX+Vf8wXaSyLGeRf6KlvoVAaXk=
 github.com/aws/aws-sdk-go-v2/service/dynamodb v1.52.2 h1:v63QYOleHhBT1SctUsl4RXH+yjYuxQzpGxFRfjCmXBc=
 github.com/aws/aws-sdk-go-v2/service/dynamodb v1.52.2/go.mod h1:OU+zHNgIjScCe8j2GAZ7uEWVMH3UupqAp2c2gpyckEE=
-github.com/aws/aws-sdk-go-v2/service/ecs v1.65.4 h1:7iBiBkI9o0dpLzhXBA52zHPO1p5ulswKPE5i09fu99o=
-github.com/aws/aws-sdk-go-v2/service/ecs v1.65.4/go.mod h1:E9n0AAMdcWJ66TGaYOb9SeDDQKG8dYuftwJSt+v6cHg=
 github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.13.2 h1:xtuxji5CS0JknaXoACOunXOYOQzgfTvGAc9s2QdCJA4=
 github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.13.2/go.mod h1:zxwi0DIR0rcRcgdbl7E2MSOvxDyyXGBlScvBkARFaLQ=
 github.com/aws/aws-sdk-go-v2/service/internal/checksum v1.9.2 h1:DGFpGybmutVsCuF6vSuLZ25Vh55E3VmsnJmFfjeBx4M=
@@ -61,8 +59,6 @@ github.com/spf13/cobra v1.8.0/go.mod h1:WXLWApfZ71AjXPya3WOlMsY9yMs7YeiHhFVlvLyh
 github.com/spf13/pflag v1.0.5 h1:iy+VFUOCP1a+8yFto/drg2CJ5u0yRoB7fZw3DKv/JXA=
 github.com/spf13/pflag v1.0.5/go.mod h1:McXfInJRrz4CZXVZOBLb0bTZqETkiAhM9Iw0y3An2Bg=
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
-golang.org/x/crypto v0.17.0 h1:r8bRNjWL3GshPW3gkd+RpvzWrZAwPS49OmTGZ/uhM4k=
-golang.org/x/crypto v0.17.0/go.mod h1:gCAAfMLgwOJRpTjQ2zCCt2OcSfYMTeZVSRtQlPC7Nq4=
 gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405 h1:yhCVgyC4o1eVCa2tZl7eS0r+SDo693bJlVdllGtEeKM=
 gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=
 gopkg.in/yaml.v2 v2.2.8 h1:obN1ZagJSUGI0Ek/LBmuj4SNLPfIny3KsKFopxRdj10=
