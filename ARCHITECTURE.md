@@ -100,16 +100,7 @@ api_key: sk_live_abc123...
 
 **Purpose**: HTTP entry point for CLI requests
 
-**Authentication**: 
-- API key validation via custom Lambda authorizer
-- Header: `X-API-Key: sk_live_...`
-
-**Endpoints**:
-- `POST /executions` - Create new execution
-- `GET /executions/{id}` - Get execution status
-- `GET /executions/{id}/logs` - Stream logs (for web UI)
-- `GET /executions` - List executions (with filters)
-- `GET /locks` - List active locks
+just a necessary evil required to proxy requests to the orchestrator lambda
 
 ### 3. Lambda Orchestrator (Go)
 
