@@ -16,28 +16,11 @@ Parameters:
     Default: bootstrap.zip
     Description: S3 key for Lambda deployment package
 
-  APIKeyHash:
+  JWTSecret:
     Type: String
     NoEcho: true
-    Description: Bcrypt hash of the API key
-
-  GitHubToken:
-    Type: String
-    NoEcho: true
+    Description: Secret for signing JWT tokens for log viewer access
     Default: ''
-    Description: GitHub Personal Access Token (optional, for private repos)
-
-  GitLabToken:
-    Type: String
-    NoEcho: true
-    Default: ''
-    Description: GitLab Personal Access Token (optional, for private repos)
-
-  SSHPrivateKey:
-    Type: String
-    NoEcho: true
-    Default: ''
-    Description: Base64-encoded SSH private key (optional, for private repos)
 
   DefaultImage:
     Type: String
@@ -45,11 +28,113 @@ Parameters:
     Description: Default Docker image (generic base image, users can specify task-specific images)
 
 Conditions:
-  HasGitHubToken: !Not [!Equals [!Ref GitHubToken, '']]
-  HasGitLabToken: !Not [!Equals [!Ref GitLabToken, '']]
-  HasSSHKey: !Not [!Equals [!Ref SSHPrivateKey, '']]
+  HasJWTSecret: !Not [!Equals [!Ref JWTSecret, '']]
 
 Resources:
+  # DynamoDB Table for API Keys
+  APIKeysTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub '${ProjectName}-api-keys'
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: api_key_hash
+          AttributeType: S
+        - AttributeName: user_email
+          AttributeType: S
+      KeySchema:
+        - AttributeName: api_key_hash
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: user_email-index
+          KeySchema:
+            - AttributeName: user_email
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-api-keys'
+
+  # DynamoDB Table for Executions
+  ExecutionsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub '${ProjectName}-executions'
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: execution_id
+          AttributeType: S
+        - AttributeName: started_at
+          AttributeType: S
+        - AttributeName: user_email
+          AttributeType: S
+        - AttributeName: status
+          AttributeType: S
+      KeySchema:
+        - AttributeName: execution_id
+          KeyType: HASH
+        - AttributeName: started_at
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: user_email-started_at
+          KeySchema:
+            - AttributeName: user_email
+              KeyType: HASH
+            - AttributeName: started_at
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+        - IndexName: status-started_at
+          KeySchema:
+            - AttributeName: status
+              KeyType: HASH
+            - AttributeName: started_at
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-executions'
+
+  # DynamoDB Table for Locks
+  LocksTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub '${ProjectName}-locks'
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: lock_name
+          AttributeType: S
+      KeySchema:
+        - AttributeName: lock_name
+          KeyType: HASH
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-locks'
+
+  # S3 Bucket for code uploads (optional)
+  CodeBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub '${ProjectName}-code-${AWS::AccountId}-${AWS::Region}'
+      LifecycleConfiguration:
+        Rules:
+          - Id: DeleteAfter7Days
+            Status: Enabled
+            ExpirationInDays: 7
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-code-bucket'
+
   # CloudWatch Log Group for execution logs
   ExecutionLogGroup:
     Type: AWS::Logs::LogGroup
@@ -271,24 +356,44 @@ Resources:
                   - 'logs:FilterLogEvents'
                   - 'logs:DescribeLogStreams'
                 Resource: !GetAtt ExecutionLogGroup.Arn
+              - Effect: Allow
+                Action:
+                  - 'dynamodb:GetItem'
+                  - 'dynamodb:PutItem'
+                  - 'dynamodb:UpdateItem'
+                  - 'dynamodb:DeleteItem'
+                  - 'dynamodb:Query'
+                  - 'dynamodb:Scan'
+                Resource:
+                  - !GetAtt APIKeysTable.Arn
+                  - !GetAtt ExecutionsTable.Arn
+                  - !GetAtt LocksTable.Arn
+                  - !Sub '${APIKeysTable.Arn}/index/*'
+                  - !Sub '${ExecutionsTable.Arn}/index/*'
+              - Effect: Allow
+                Action:
+                  - 's3:GetObject'
+                  - 's3:PutObject'
+                Resource:
+                  - !Sub '${CodeBucket.Arn}/*'
 
   # API Gateway
   RestAPI:
     Type: AWS::ApiGateway::RestApi
     Properties:
       Name: !Sub '${ProjectName}-api'
-      Description: mycli Git-based Remote Command Execution API
+      Description: mycli Centralized Command Execution API
       EndpointConfiguration:
         Types:
           - REGIONAL
 
-  # API Gateway Resource
-  APIResource:
+  # API Gateway Resource: /{proxy+} (catch-all)
+  ProxyResource:
     Type: AWS::ApiGateway::Resource
     Properties:
       RestApiId: !Ref RestAPI
       ParentId: !GetAtt RestAPI.RootResourceId
-      PathPart: execute
+      PathPart: '{proxy+}'
 
   # Lambda Function (code loaded from S3 bucket)
   LambdaFunction:
@@ -306,24 +411,26 @@ Resources:
         - arm64
       Environment:
         Variables:
-          API_KEY_HASH: !Ref APIKeyHash
+          API_KEYS_TABLE: !Ref APIKeysTable
+          EXECUTIONS_TABLE: !Ref ExecutionsTable
+          LOCKS_TABLE: !Ref LocksTable
           ECS_CLUSTER: !Ref ECSCluster
           TASK_DEFINITION: !Ref TaskDefinition
           SUBNET_1: !Ref PublicSubnet1
           SUBNET_2: !Ref PublicSubnet2
           SECURITY_GROUP: !Ref FargateSecurityGroup
           LOG_GROUP: !Ref ExecutionLogGroup
-          GITHUB_TOKEN: !If [HasGitHubToken, !Ref GitHubToken, !Ref 'AWS::NoValue']
-          GITLAB_TOKEN: !If [HasGitLabToken, !Ref GitLabToken, !Ref 'AWS::NoValue']
-          SSH_PRIVATE_KEY: !If [HasSSHKey, !Ref SSHPrivateKey, !Ref 'AWS::NoValue']
+          CODE_BUCKET: !Ref CodeBucket
+          JWT_SECRET: !If [HasJWTSecret, !Ref JWTSecret, !Ref 'AWS::NoValue']
+          WEB_UI_URL: ''
 
-  # API Gateway Method
-  APIGatewayMethod:
+  # ANY /{proxy+} - Catch-all method that routes everything to Lambda
+  ProxyMethod:
     Type: AWS::ApiGateway::Method
     Properties:
       RestApiId: !Ref RestAPI
-      ResourceId: !Ref APIResource
-      HttpMethod: POST
+      ResourceId: !Ref ProxyResource
+      HttpMethod: ANY
       AuthorizationType: NONE
       Integration:
         Type: AWS_PROXY
@@ -343,7 +450,7 @@ Resources:
   APIGatewayDeployment:
     Type: AWS::ApiGateway::Deployment
     DependsOn:
-      - APIGatewayMethod
+      - ProxyMethod
     Properties:
       RestApiId: !Ref RestAPI
       StageName: prod
@@ -352,9 +459,33 @@ Resources:
 Outputs:
   APIEndpoint:
     Description: API Gateway endpoint URL
-    Value: !Sub 'https://${RestAPI}.execute-api.${AWS::Region}.amazonaws.com/prod/execute'
+    Value: !Sub 'https://${RestAPI}.execute-api.${AWS::Region}.amazonaws.com/prod'
     Export:
       Name: !Sub '${ProjectName}-api-endpoint'
+
+  APIKeysTableName:
+    Description: DynamoDB API Keys Table name
+    Value: !Ref APIKeysTable
+    Export:
+      Name: !Sub '${ProjectName}-api-keys-table'
+
+  ExecutionsTableName:
+    Description: DynamoDB Executions Table name
+    Value: !Ref ExecutionsTable
+    Export:
+      Name: !Sub '${ProjectName}-executions-table'
+
+  LocksTableName:
+    Description: DynamoDB Locks Table name
+    Value: !Ref LocksTable
+    Export:
+      Name: !Sub '${ProjectName}-locks-table'
+
+  CodeBucketName:
+    Description: S3 Code Bucket name
+    Value: !Ref CodeBucket
+    Export:
+      Name: !Sub '${ProjectName}-code-bucket'
 
   ECSClusterName:
     Description: ECS Cluster name
@@ -372,38 +503,18 @@ Outputs:
     Export:
       Name: !Sub '${ProjectName}-log-group'
 
-  LambdaExecutionRoleArn:
-    Description: Lambda execution role ARN
-    Value: !GetAtt LambdaExecutionRole.Arn
-
   LambdaFunctionName:
     Description: Lambda function name
     Value: !Ref LambdaFunction
     Export:
       Name: !Sub '${ProjectName}-lambda-function'
 
-  Subnet1:
-    Description: Public Subnet 1
-    Value: !Ref PublicSubnet1
-
-  Subnet2:
-    Description: Public Subnet 2
-    Value: !Ref PublicSubnet2
-
-  FargateSecurityGroup:
-    Description: Fargate Security Group
-    Value: !Ref FargateSecurityGroup
-
-  RestAPIId:
-    Description: API Gateway REST API ID
-    Value: !Ref RestAPI
-
-  APIResourceId:
-    Description: API Gateway Resource ID for /execute
-    Value: !Ref APIResource
-
   VPCId:
     Description: VPC ID
     Value: !Ref VPC
     Export:
       Name: !Sub '${ProjectName}-vpc-id'
+
+  RestAPIId:
+    Description: API Gateway REST API ID
+    Value: !Ref RestAPI

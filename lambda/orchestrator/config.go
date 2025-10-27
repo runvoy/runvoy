@@ -7,6 +7,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/ecs"
 	"github.com/ilyakaznacheev/cleanenv"
 )
@@ -14,15 +15,22 @@ import (
 // Config holds all configuration for the Lambda function
 type Config struct {
 	// AWS SDK configuration
-	AWSConfig  aws.Config
-	ECSClient  *ecs.Client
-	LogsClient *cloudwatchlogs.Client
+	AWSConfig   aws.Config
+	ECSClient   *ecs.Client
+	LogsClient  *cloudwatchlogs.Client
+	DynamoDBClient *dynamodb.Client
 
-	// Environment variables from Lambda
-	APIKeyHash    string `env:"API_KEY_HASH" env-description:"Bcrypt hash of API key"`
-	GitHubToken   string `env:"GITHUB_TOKEN" env-description:"GitHub personal access token"`
-	GitLabToken   string `env:"GITLAB_TOKEN" env-description:"GitLab personal access token"`
-	SSHPrivateKey string `env:"SSH_PRIVATE_KEY" env-description:"Base64-encoded SSH private key"`
+	// DynamoDB tables
+	APIKeysTable    string `env:"API_KEYS_TABLE" env-description:"DynamoDB table for API keys" env-required:"true"`
+	ExecutionsTable string `env:"EXECUTIONS_TABLE" env-description:"DynamoDB table for executions" env-required:"true"`
+	LocksTable      string `env:"LOCKS_TABLE" env-description:"DynamoDB table for locks" env-required:"true"`
+
+	// S3 configuration
+	CodeBucket string `env:"CODE_BUCKET" env-description:"S3 bucket for code uploads" env-required:"true"`
+
+	// JWT configuration
+	JWTSecret string `env:"JWT_SECRET" env-description:"Secret for signing JWT tokens"`
+	WebUIURL  string `env:"WEB_UI_URL" env-description:"Base URL for web UI"`
 
 	// ECS configuration
 	ECSCluster    string `env:"ECS_CLUSTER" env-description:"ECS cluster name" env-required:"true"`
@@ -52,6 +60,7 @@ func InitConfig() (*Config, error) {
 	// Initialize AWS clients
 	cfg.ECSClient = ecs.NewFromConfig(awsConfig)
 	cfg.LogsClient = cloudwatchlogs.NewFromConfig(awsConfig)
+	cfg.DynamoDBClient = dynamodb.NewFromConfig(awsConfig)
 
 	return cfg, nil
 }

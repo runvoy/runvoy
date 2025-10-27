@@ -29,3 +29,19 @@ func generateExecutionID() string {
 	// Combine timestamp + random for a total of 12 characters
 	return timestamp + randomHex
 }
+
+// extractTaskID extracts the task ID from an ECS task ARN
+// ARN format: arn:aws:ecs:region:account:task/cluster-name/task-id
+func extractTaskID(taskArn string) string {
+	lastSlash := -1
+	for i := len(taskArn) - 1; i >= 0; i-- {
+		if taskArn[i] == '/' {
+			lastSlash = i
+			break
+		}
+	}
+	if lastSlash == -1 {
+		return taskArn
+	}
+	return taskArn[lastSlash+1:]
+}
