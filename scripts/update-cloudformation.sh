@@ -22,7 +22,7 @@ if [ -z "$REGION" ]; then
 fi
 
 # Allow override via arguments
-STACK_NAME="${1:-mycli}"
+STACK_NAME="${1:-mycli-backend}"
 
 echo "📤 Updating CloudFormation stack: $STACK_NAME (region: $REGION)"
 

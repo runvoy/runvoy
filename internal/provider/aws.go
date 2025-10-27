@@ -498,9 +498,6 @@ func strPtr(s string) *string {
 	return &s
 }
 
-// Helper methods for destroy operation
-
-// maxWaitForContext calculates the maximum wait time based on context deadline
 func maxWaitForContext(ctx context.Context) time.Duration {
 	if deadline, ok := ctx.Deadline(); ok {
 		remaining := time.Until(deadline)

@@ -168,7 +168,6 @@ Provides a direct HTTPS endpoint for the Lambda function, eliminating the need f
 - `LOCKS_TABLE` - DynamoDB table name
 - `ECS_CLUSTER` - ECS cluster name
 - `ECS_TASK_DEFINITION` - Task definition ARN
-- `CODE_BUCKET` - S3 bucket for code uploads
 - `JWT_SECRET` - Secret for signing log viewer tokens
 - `WEB_UI_URL` - Base URL for log viewer
 
@@ -341,15 +340,7 @@ echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] Command: $COMMAND"
 mkdir -p /workspace
 cd /workspace
 
-# If code was uploaded to S3, download it
-if [ -n "$CODE_S3_PATH" ]; then
-    echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] Downloading code from S3..."
-    aws s3 cp "$CODE_S3_PATH" code.tar.gz
-    tar -xzf code.tar.gz
-    rm code.tar.gz
-fi
-
-# Execute the command
+# Execute the command (shell script prepared by Lambda)
 echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] Running command..."
 eval "$COMMAND"
 EXIT_CODE=$?
@@ -390,26 +381,7 @@ exit $EXIT_CODE
 - Integrated with AWS ecosystem
 - No additional storage setup
 
-### 7. S3 Bucket
-
-**Purpose**: Store uploaded code (if using upload-based workflow)
-
-**Structure**:
-```
-mycli-code-{account-id}/
-  executions/
-    exec_abc123/
-      code.tar.gz
-    exec_def456/
-      code.tar.gz
-```
-
-**Lifecycle**:
-- Delete objects after 7 days (executions are temporary)
-
-**Note**: For git-based workflow, this may not be needed (code cloned directly in container)
-
-### 8. Web UI (Log Viewer)
+### 7. Web UI (Log Viewer)
 
 **Hosting**: S3 static website + CloudFront (optional)
 

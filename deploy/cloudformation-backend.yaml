@@ -116,25 +116,6 @@ Resources:
         - Key: Name
           Value: !Sub '${ProjectName}-locks'
 
-  # S3 Bucket for code uploads (optional)
-  CodeBucket:
-    Type: AWS::S3::Bucket
-    Properties:
-      BucketName: !Sub '${ProjectName}-code-${AWS::AccountId}-${AWS::Region}'
-      LifecycleConfiguration:
-        Rules:
-          - Id: DeleteAfter7Days
-            Status: Enabled
-            ExpirationInDays: 7
-      PublicAccessBlockConfiguration:
-        BlockPublicAcls: true
-        BlockPublicPolicy: true
-        IgnorePublicAcls: true
-        RestrictPublicBuckets: true
-      Tags:
-        - Key: Name
-          Value: !Sub '${ProjectName}-code-bucket'
-
   # CloudWatch Log Group for ECS task execution logs
   ExecutionLogGroup:
     Type: AWS::Logs::LogGroup
@@ -377,12 +358,6 @@ Resources:
                   - !GetAtt LocksTable.Arn
                   - !Sub '${APIKeysTable.Arn}/index/*'
                   - !Sub '${ExecutionsTable.Arn}/index/*'
-              - Effect: Allow
-                Action:
-                  - 's3:GetObject'
-                  - 's3:PutObject'
-                Resource:
-                  - !Sub '${CodeBucket.Arn}/*'
 
   # Lambda Function (code loaded from S3 bucket)
   LambdaFunction:
@@ -410,7 +385,6 @@ Resources:
           SUBNET_2: !Ref PublicSubnet2
           SECURITY_GROUP: !Ref FargateSecurityGroup
           LOG_GROUP: !Ref ExecutionLogGroup
-          CODE_BUCKET: !Ref CodeBucket
           JWT_SECRET: !If [HasJWTSecret, !Ref JWTSecret, !Ref 'AWS::NoValue']
           WEB_UI_URL: ''
 
@@ -454,12 +428,6 @@ Outputs:
     Value: !Ref LocksTable
     Export:
       Name: !Sub '${ProjectName}-locks-table'
-
-  CodeBucketName:
-    Description: S3 Code Bucket name
-    Value: !Ref CodeBucket
-    Export:
-      Name: !Sub '${ProjectName}-code-bucket'
 
   ECSClusterName:
     Description: ECS Cluster name
