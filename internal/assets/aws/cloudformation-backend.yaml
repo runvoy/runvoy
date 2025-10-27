@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'Git-based Remote Command Execution Infrastructure (backend)'
+Description: 'runvoy - Remote Task Execution Platform (backend)'
 
 Parameters:
   ProjectName:
