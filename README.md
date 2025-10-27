@@ -1,10 +1,10 @@
-# mycli
+# runvoy
 
 Remote command execution in isolated, ephemeral containers. Run any command in your own AWS infrastructure without local dependency conflicts.
 
 ## Features
 
-- **One-command setup** - Deploy complete infrastructure with `mycli init`
+- **One-command setup** - Deploy complete infrastructure with `runvoy init`
 - **Git-integrated** - Automatically clones your repository before execution
 - **Flexible images** - Use any Docker image (terraform, python, node, etc.)
 - **Self-hosted** - Runs in your AWS account, you control everything
@@ -16,13 +16,13 @@ Remote command execution in isolated, ephemeral containers. Run any command in y
 ### 1. Install
 
 ```bash
-go build -o mycli
+go build -o runvoy
 ```
 
 ### 2. Initialize Infrastructure
 
 ```bash
-mycli init
+runvoy init
 ```
 
 This creates two CloudFormation stacks:
@@ -37,13 +37,13 @@ This creates two CloudFormation stacks:
 - CloudWatch Logs for execution output
 - Optionally configures Git credentials for private repos
 
-Both stacks remain permanent until you run `mycli destroy`.
+Both stacks remain permanent until you run `runvoy destroy`.
 
 ### 3. Execute Commands
 
 **With a project configuration file:**
 
-Create `.mycli.yaml` in your project directory:
+Create `.runvoy.yaml` in your project directory:
 ```yaml
 repo: https://github.com/mycompany/infrastructure
 branch: main
@@ -54,13 +54,13 @@ env:
 
 Then run:
 ```bash
-mycli exec "terraform plan"
+runvoy exec "terraform plan"
 ```
 
 **Without configuration (explicit flags):**
 
 ```bash
-mycli exec \
+runvoy exec \
   --repo=https://github.com/user/infra \
   --image=hashicorp/terraform:1.6 \
   "terraform apply"
@@ -70,32 +70,32 @@ mycli exec \
 
 ```bash
 cd my-git-repo  # has git remote
-mycli exec "make deploy"
+runvoy exec "make deploy"
 ```
 
 **Run without Git cloning:**
 
 ```bash
-mycli exec --skip-git --image=alpine:latest "echo hello world"
+runvoy exec --skip-git --image=alpine:latest "echo hello world"
 ```
 
 ### 4. Monitor Execution
 
 ```bash
 # Check status
-mycli status <task-arn>
+runvoy status <task-arn>
 
 # View logs (use the task ARN from exec output)
-mycli logs <task-arn>
+runvoy logs <task-arn>
 
 # Follow logs in real-time
-mycli logs -f <task-arn>
+runvoy logs -f <task-arn>
 ```
 
 ## How It Works
 
 ```
-1. You run: mycli exec "terraform plan"
+1. You run: runvoy exec "terraform plan"
 2. CLI calls your Lambda function via Function URL
 3. Lambda constructs a shell script that:
    - Installs git (if needed)
@@ -103,21 +103,21 @@ mycli logs -f <task-arn>
    - Executes your command
 4. Lambda starts ECS Fargate task with chosen Docker image
 5. Container runs the script, logs output to CloudWatch
-6. You monitor via: mycli status <task-arn> / mycli logs <task-arn>
+6. You monitor via: runvoy status <task-arn> / runvoy logs <task-arn>
 ```
 
 ## Configuration
 
-### Global Config (~/.mycli/config.yaml)
+### Global Config (~/.runvoy/config.yaml)
 
-Created automatically by `mycli init`:
+Created automatically by `runvoy init`:
 ```yaml
 api_endpoint: https://....execute-api.us-east-1.amazonaws.com/prod/execute
 api_key: sk_live_...
 region: us-east-1
 ```
 
-### Project Config (.mycli.yaml)
+### Project Config (.runvoy.yaml)
 
 Optional file in your project directory:
 ```yaml
@@ -133,20 +133,20 @@ timeout: 3600
 ### Configuration Priority
 
 1. **Command-line flags** (highest priority)
-2. **.mycli.yaml** in current directory
+2. **.runvoy.yaml** in current directory
 3. **Git remote auto-detection**
 4. **Error** if no repo specified
 
 ## Commands
 
-### `mycli init`
+### `runvoy init`
 Deploy infrastructure to your AWS account
 
 Options:
-- `--stack-name` - CloudFormation stack name (default: "mycli-backend")
+- `--stack-name` - CloudFormation stack name (default: "runvoy-backend")
 - `--region` - AWS region (default: from AWS config or us-east-2)
 
-### `mycli exec [flags] "command"`
+### `runvoy exec [flags] "command"`
 Execute a command remotely
 
 Flags:
@@ -157,21 +157,21 @@ Flags:
 - `--timeout` - Timeout in seconds (default: 1800)
 - `--skip-git` - Skip git cloning, run command directly
 
-### `mycli status <task-arn>`
+### `runvoy status <task-arn>`
 Check execution status
 
-### `mycli logs <task-arn>`
+### `runvoy logs <task-arn>`
 View execution logs
 
 Flags:
 - `-f, --follow` - Stream logs in real-time
 
-Note: Use the task ARN from the `mycli exec` output
+Note: Use the task ARN from the `runvoy exec` output
 
-### `mycli configure`
+### `runvoy configure`
 Manually configure CLI (for existing infrastructure)
 
-### `mycli destroy`
+### `runvoy destroy`
 Delete all infrastructure (both CloudFormation stacks)
 
 Options:
@@ -195,24 +195,24 @@ Deletes the main stack, empties and deletes the S3 bucket, and removes the Lambd
 
 **Terraform workflow:**
 ```bash
-mycli exec "terraform init && terraform plan"
-mycli exec "terraform apply -auto-approve"
+runvoy exec "terraform init && terraform plan"
+runvoy exec "terraform apply -auto-approve"
 ```
 
 **Python script:**
 ```bash
-mycli exec --image=python:3.11 "python script.py"
+runvoy exec --image=python:3.11 "python script.py"
 ```
 
 **Multi-environment:**
 ```bash
-mycli exec --branch=dev "terraform plan"
-mycli exec --branch=prod "terraform apply"
+runvoy exec --branch=dev "terraform plan"
+runvoy exec --branch=prod "terraform apply"
 ```
 
 **Custom environment variables:**
 ```bash
-mycli exec --env TF_VAR_region=us-west-2 --env ENV=staging "terraform apply"
+runvoy exec --env TF_VAR_region=us-west-2 --env ENV=staging "terraform apply"
 ```
 
 ## Cost
@@ -249,20 +249,20 @@ Very low cost for typical usage:
 
 ```bash
 # Build CLI
-go build -o mycli
+go build -o runvoy
 
 # Build Lambda locally (optional, init does this automatically)
 cd backend/orchestrator
 GOOS=linux GOARCH=arm64 go build -tags lambda.norpc -o bootstrap main.go
 
 # Deploy infrastructure
-./mycli init --region us-east-1
+./runvoy init --region us-east-1
 
 # Test
-./mycli exec --repo=https://github.com/hashicorp/terraform-guides "ls -la"
+./runvoy exec --repo=https://github.com/hashicorp/terraform-guides "ls -la"
 
 # Cleanup
-./mycli destroy
+./runvoy destroy
 ```
 
 ## Architecture

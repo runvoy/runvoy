@@ -6,8 +6,9 @@ import (
 	"os"
 	"strings"
 
-	internalConfig "mycli/internal/config"
-	"mycli/internal/provider"
+	internalConfig "runvoy/internal/config"
+	"runvoy/internal/constants"
+	"runvoy/internal/provider"
 
 	"github.com/spf13/cobra"
 )
@@ -20,15 +21,15 @@ var (
 
 var destroyCmd = &cobra.Command{
 	Use:   "destroy",
-	Short: "Destroy mycli infrastructure from your cloud account",
-	Long: `Removes all mycli infrastructure from your cloud account:
+	Short: fmt.Sprintf("Destroy %s infrastructure from your cloud account", constants.ProjectName),
+	Long: fmt.Sprintf(`Removes all %s infrastructure from your cloud account:
 - Deletes the main CloudFormation stack (Lambda, VPC, ECS, DynamoDB, etc.)
 - Empties the S3 bucket containing Lambda code
 - Deletes the S3 bucket stack
 
 The stack name is automatically determined from your configuration file.
 
-WARNING: This will permanently delete all infrastructure. This action cannot be undone.`,
+WARNING: This will permanently delete all infrastructure. This action cannot be undone.`, constants.ProjectName),
 	RunE: runDestroy,
 }
 
@@ -43,7 +44,7 @@ func runDestroy(cmd *cobra.Command, args []string) error {
 	// Load existing configuration to get stack name
 	config, err := internalConfig.Load()
 	if err != nil {
-		return fmt.Errorf("failed to load configuration: %v. Run 'mycli init' first, or specify --region", err)
+		return fmt.Errorf("failed to load configuration: %v. Run '%s init' first, or specify --region", err, constants.ProjectName)
 	}
 
 	region := destroyRegion
@@ -54,7 +55,7 @@ func runDestroy(cmd *cobra.Command, args []string) error {
 		region = "us-east-2"
 	}
 
-	fmt.Println("🗑️  Destroying mycli infrastructure...")
+	fmt.Printf("🗑️  Destroying %s infrastructure...\n", constants.ProjectName)
 	fmt.Println("   Provider:      aws")
 	fmt.Printf("   Stack prefix:  %s\n", config.StackPrefix)
 	fmt.Printf("   Region:        %s\n\n", region)
@@ -107,7 +108,7 @@ func runDestroy(cmd *cobra.Command, args []string) error {
 
 // showDestroyConfirmation prompts the user for confirmation
 func showDestroyConfirmation() error {
-	fmt.Println("⚠️  WARNING: This will permanently delete all mycli infrastructure:")
+	fmt.Printf("⚠️  WARNING: This will permanently delete all %s infrastructure:\n", constants.ProjectName)
 	fmt.Println("   This action cannot be undone!")
 	fmt.Print("   Type 'delete' to confirm: ")
 
@@ -146,15 +147,15 @@ func getConfigPath() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return fmt.Sprintf("%s/.mycli/config.yaml", home), nil
+	return fmt.Sprintf("%s/%s/%s", home, constants.ConfigDirName, "config.yaml"), nil
 }
 
 // displayDestroySuccessMessage shows the success message
 func displayDestroySuccessMessage() {
 	fmt.Println("\n✅ Destruction complete!")
 	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-	fmt.Println("All mycli infrastructure has been removed from your cloud account.")
+	fmt.Printf("All %s infrastructure has been removed from your cloud account.\n", constants.ProjectName)
 	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 	fmt.Println("\nTo deploy again, run:")
-	fmt.Println("  mycli init")
+	fmt.Printf("  %s init\n", constants.ProjectName)
 }

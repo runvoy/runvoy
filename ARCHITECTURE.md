@@ -1,8 +1,8 @@
-# mycli Architecture
+# runvoy Architecture
 
 ## Overview
 
-mycli is a centralized execution platform that allows teams to run infrastructure commands without sharing AWS credentials. An AWS admin deploys mycli once to the company's AWS account, then issues API keys to team members who can execute commands safely with full audit trails.
+runvoy is a centralized execution platform that allows teams to run infrastructure commands without sharing AWS credentials. An AWS admin deploys runvoy once to the company's AWS account, then issues API keys to team members who can execute commands safely with full audit trails.
 
 ## Design Principles
 
@@ -101,13 +101,13 @@ type Provider interface {
 **Provider Selection**:
 ```bash
 # Use AWS (default)
-mycli init --provider aws
+runvoy init --provider aws
 
 # Future: Use GCP
-mycli init --provider gcp
+runvoy init --provider gcp
 
 # Future: Use Azure
-mycli init --provider azure
+runvoy init --provider azure
 ```
 
 Each provider implementation handles cloud-specific operations:
@@ -116,18 +116,18 @@ Each provider implementation handles cloud-specific operations:
 - Azure (planned): ARM templates, Cosmos DB, Blob Storage, Azure Functions, Container Instances
 
 **Key Commands**:
-- `mycli init` - Deploy infrastructure (admin only, requires AWS credentials)
-- `mycli destroy` - Remove all infrastructure (deletes CloudFormation stacks, S3 bucket)
-- `mycli admin add-user <email>` - Generate API key for new user
-- `mycli admin revoke-user <email>` - Disable user's API key
-- `mycli admin list-users` - Show all users and their status
-- `mycli configure` - Set up CLI with API key
-- `mycli exec "command"` - Execute command remotely
-- `mycli status <exec-id>` - Check execution status
-- `mycli logs <exec-id>` - View execution logs
-- `mycli list` - Show recent executions
-- `mycli locks list` - Show active locks
-- `mycli version` - Show version and embedded assets information
+- `runvoy init` - Deploy infrastructure (admin only, requires AWS credentials)
+- `runvoy destroy` - Remove all infrastructure (deletes CloudFormation stacks, S3 bucket)
+- `runvoy admin add-user <email>` - Generate API key for new user
+- `runvoy admin revoke-user <email>` - Disable user's API key
+- `runvoy admin list-users` - Show all users and their status
+- `runvoy configure` - Set up CLI with API key
+- `runvoy exec "command"` - Execute command remotely
+- `runvoy status <exec-id>` - Check execution status
+- `runvoy logs <exec-id>` - View execution logs
+- `runvoy list` - Show recent executions
+- `runvoy locks list` - Show active locks
+- `runvoy version` - Show version and embedded assets information
 
 **Embedded Assets Architecture**:
 
@@ -160,14 +160,14 @@ go build
 **Debugging Embedded Templates**:
 ```bash
 # View embedded templates
-mycli version --show-templates
+runvoy version --show-templates
 
 # View specific template
-mycli version --show-templates --template=backend
-mycli version --show-templates --template=bucket
+runvoy version --show-templates --template=backend
+runvoy version --show-templates --template=bucket
 
 # Verify templates in binary
-strings mycli | grep "AWSTemplateFormatVersion"
+strings runvoy | grep "AWSTemplateFormatVersion"
 ```
 
 **Benefits**:
@@ -180,12 +180,12 @@ strings mycli | grep "AWSTemplateFormatVersion"
 
 **Configuration**:
 ```yaml
-# ~/.mycli/config.yaml
-api_endpoint: https://api.mycli.company.com
+# ~/.runvoy/config.yaml
+api_endpoint: https://api.runvoy.company.com
 api_key: sk_live_abc123...
 region: us-east-2
-stack_name: mycli-backend
-bucket_stack_name: mycli-backend-lambda-bucket
+stack_name: runvoy-backend
+bucket_stack_name: runvoy-backend-lambda-bucket
 # Note: No AWS credentials stored
 ```
 
@@ -205,7 +205,7 @@ Provides a direct HTTPS endpoint for the Lambda function, eliminating the need f
 
 **Purpose**: Isolated VPC and networking for ECS Fargate tasks
 
-The CloudFormation template creates a dedicated VPC for mycli to ensure isolation from other AWS resources and avoid network conflicts with existing infrastructure.
+The CloudFormation template creates a dedicated VPC for runvoy to ensure isolation from other AWS resources and avoid network conflicts with existing infrastructure.
 
 **VPC Configuration**:
 - **CIDR Block**: `172.20.0.0/16` (instead of the common `10.0.0.0/16` to avoid conflicts)
@@ -214,7 +214,7 @@ The CloudFormation template creates a dedicated VPC for mycli to ensure isolatio
 - **Internet Gateway**: Attached for outbound internet access
 - **Resource Tagging**: All resources are tagged with the following tags for easy identification and cost tracking:
   - **Name**: `{ProjectName}-{resource-type}` - Human-readable resource name
-  - **Application**: `mycli` - Identifies the application
+  - **Application**: `runvoy` - Identifies the application
   - **ManagedBy**: `cloudformation` - Infrastructure management tool
 
 **Subnets** (2 public subnets for high availability):
@@ -234,7 +234,7 @@ The CloudFormation template creates a dedicated VPC for mycli to ensure isolatio
 - `10.0.0.0/16` is the most commonly used private network range
 - Choosing `172.20.0.0/16` reduces likelihood of conflicts with existing infrastructure
 - `/16` provides plenty of IP space (65,534 addresses) for future expansion
-- If conflicts still occur, this will be made configurable via `mycli init --vpc-cidr`
+- If conflicts still occur, this will be made configurable via `runvoy init --vpc-cidr`
 
 **Note**: All subnets are public (not private with NAT) for simplicity and cost optimization in the MVP. ECS tasks get public IPs and can access internet directly via Internet Gateway. No NAT Gateway costs.
 
@@ -384,7 +384,7 @@ Note: Lock is automatically released when execution completes
 
 **Task Definition**:
 ```yaml
-Family: mycli-executor
+Family: runvoy-executor
 LaunchType: FARGATE
 CPU: 256 (0.25 vCPU) - configurable
 Memory: 512 (0.5 GB) - configurable
@@ -403,7 +403,7 @@ TaskRole: (for actual AWS operations)
   - Future: Configurable per-user/group
 
 Container:
-  Image: public.ecr.aws/mycli/executor:latest
+  Image: public.ecr.aws/runvoy/executor:latest
   Command: ["/entrypoint.sh"]
   Environment:
     - EXECUTION_ID: (from Lambda)
@@ -414,7 +414,7 @@ Container:
   LogConfiguration:
     LogDriver: awslogs
     Options:
-      awslogs-group: /mycli/executions
+      awslogs-group: /runvoy/executions
       awslogs-region: us-east-1
       awslogs-stream-prefix: exec
 ```
@@ -445,7 +445,7 @@ echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] Command completed with exit code: $EXIT_C
 if [ -n "$LOCK_NAME" ]; then
     # Call Lambda to release lock
     aws lambda invoke \
-        --function-name mycli-release-lock \
+        --function-name runvoy-release-lock \
         --payload "{\"lock_name\":\"$LOCK_NAME\",\"execution_id\":\"$EXECUTION_ID\"}" \
         /tmp/response.json
 fi
@@ -454,15 +454,15 @@ exit $EXIT_CODE
 ```
 
 **Default Images** (Future):
-- `mycli/executor:terraform` - Terraform + AWS CLI
-- `mycli/executor:ansible` - Ansible + AWS CLI
-- `mycli/executor:python` - Python 3.11 + common tools
-- `mycli/executor:node` - Node.js + common tools
+- `runvoy/executor:terraform` - Terraform + AWS CLI
+- `runvoy/executor:ansible` - Ansible + AWS CLI
+- `runvoy/executor:python` - Python 3.11 + common tools
+- `runvoy/executor:node` - Node.js + common tools
 - Custom images via `--image` flag
 
 ### 7. CloudWatch Logs
 
-**Log Group**: `/mycli/executions`
+**Log Group**: `/runvoy/executions`
 
 **Log Streams**: One per execution
 - Format: `exec/{execution_id}/{task_id}`
@@ -493,7 +493,7 @@ exit $EXIT_CODE
 
 **Authentication**: JWT token in URL
 ```
-https://mycli.company.com/{execution_id}?token=eyJ...
+https://runvoy.company.com/{execution_id}?token=eyJ...
 
 Token payload:
 {
@@ -525,7 +525,7 @@ GET /api/logs/{execution_id}
 
 ```
 1. User runs command
-   $ mycli exec "terraform apply" --lock infra-prod
+   $ runvoy exec "terraform apply" --lock infra-prod
 
 2. CLI sends request to Lambda Function URL
    POST /executions
@@ -555,7 +555,7 @@ GET /api/logs/{execution_id}
    - Example: exec_20251026143210_a1b2c3
 
 6. Lambda starts ECS task
-   - Task definition: mycli-executor
+   - Task definition: runvoy-executor
    - Override command: ["/entrypoint.sh"]
    - Environment variables:
      * EXECUTION_ID=exec_abc123
@@ -577,19 +577,19 @@ GET /api/logs/{execution_id}
    {
      "execution_id": "exec_abc123",
      "task_arn": "arn:aws:ecs:...",
-     "log_url": "https://mycli.company.com/exec_abc123?token=...",
+     "log_url": "https://runvoy.company.com/exec_abc123?token=...",
      "status": "starting"
    }
 
 10. CLI displays to user
     ✓ Execution started: exec_abc123
-    🔗 View logs: https://mycli.company.com/exec_abc123?token=...
+    🔗 View logs: https://runvoy.company.com/exec_abc123?token=...
     → Running...
 
 11. ECS task starts
     - Container pulls image
     - Entrypoint script runs
-    - Logs to CloudWatch: /mycli/executions/exec/exec_abc123/{task-id}
+    - Logs to CloudWatch: /runvoy/executions/exec/exec_abc123/{task-id}
 
 12. User opens log viewer URL
     - Static HTML page loads from S3
@@ -711,9 +711,9 @@ This satisfies compliance requirements:
 All resources in the CloudFormation stack are tagged with consistent tags for easy identification, cost tracking, and resource management:
 
 - **Name**: `{ProjectName}-{resource-type}` - Human-readable resource identifier for easy identification in AWS Console
-  - Examples: `mycli-api-keys`, `mycli-vpc`, `mycli-orchestrator`
+  - Examples: `runvoy-api-keys`, `runvoy-vpc`, `runvoy-orchestrator`
   
-- **Application**: `mycli` - Identifies all resources belonging to the mycli application
+- **Application**: `runvoy` - Identifies all resources belonging to the runvoy application
   - Enables filtering and cost allocation by application in AWS Cost Explorer
   
 - **ManagedBy**: `cloudformation` - Infrastructure management tool
@@ -732,14 +732,14 @@ All the following resource types receive these tags:
 ### Benefits
 
 **Cost Management**:
-- Use AWS Cost Explorer to filter costs by `Application = mycli`
-- Track spending for the entire mycli deployment in one view
+- Use AWS Cost Explorer to filter costs by `Application = runvoy`
+- Track spending for the entire runvoy deployment in one view
 - Enable cost allocation tags for detailed reporting
 
 **Resource Management**:
-- Easily identify all mycli resources in AWS Console using the `Application` tag
+- Easily identify all runvoy resources in AWS Console using the `Application` tag
 - Filter resources across all AWS services using the tag filter
-- Quickly distinguish mycli resources from other infrastructure
+- Quickly distinguish runvoy resources from other infrastructure
 
 **Governance & Compliance**:
 - Use AWS Tag Policies to enforce consistent tagging
@@ -749,11 +749,11 @@ All the following resource types receive these tags:
 ### Example Usage
 
 ```bash
-# Find all mycli resources using AWS CLI
-aws resourcegroupstaggingapi get-resources --tag-filters Key=Application,Values=mycli
+# Find all runvoy resources using AWS CLI
+aws resourcegroupstaggingapi get-resources --tag-filters Key=Application,Values=runvoy
 
 # Filter costs in AWS Cost Explorer
-# Use tag filter: Application = mycli
+# Use tag filter: Application = runvoy
 
 # Check resource management
 aws resourcegroupstaggingapi get-resources \
@@ -764,10 +764,10 @@ aws resourcegroupstaggingapi get-resources \
 
 ### Single Tenant per Company
 
-Each company gets one mycli deployment:
+Each company gets one runvoy deployment:
 ```
 Company "Acme Corp" → AWS Account 123456789
-  └─ mycli CloudFormation stack
+  └─ runvoy CloudFormation stack
      ├─ Lambda Function URL: https://xxx.lambda-url.region.on.aws/
      ├─ Lambda orchestrator
      ├─ DynamoDB tables
@@ -785,7 +785,7 @@ Company "Acme Corp" → AWS Account 123456789
 1. **Admin deploys infrastructure**:
    ```bash
    $ aws configure  # Uses admin AWS credentials
-   $ mycli init --provider aws --stack-name mycli-backend --region us-east-2
+   $ runvoy init --provider aws --stack-name runvoy-backend --region us-east-2
    → Generating API key...
    → Building Lambda function...
    → Creating S3 bucket stack for Lambda code (Stack 1)...
@@ -802,7 +802,7 @@ Company "Acme Corp" → AWS Account 123456789
    🔑 Your API key: sk_live_abc123...
    ```
 
-   **What `mycli init` does**:
+   **What `runvoy init` does**:
    - Generates a random API key (sk_live_...)
    - Computes SHA256 hash of the API key
    - Builds the Lambda orchestrator binary (Go → ARM64 Linux)
@@ -817,15 +817,15 @@ Company "Acme Corp" → AWS Account 123456789
      - IAM roles (Lambda execution, ECS task, ECS task execution)
      - CloudWatch log groups
    - Inserts the generated API key into DynamoDB (SHA256 hashed)
-   - Saves the configuration to `~/.mycli/config.yaml` (includes API endpoint, API key, region, main stack name, and bucket stack name)
+   - Saves the configuration to `~/.runvoy/config.yaml` (includes API endpoint, API key, region, main stack name, and bucket stack name)
 
    **Note**: Git credentials (GitHub/GitLab tokens, SSH keys) are NOT currently supported.
    The Lambda orchestrator does not implement git cloning yet. This is a planned feature.
 
-   **What `mycli destroy` does** (`cmd/destroy.go`, `internal/provider/aws.go`):
+   **What `runvoy destroy` does** (`cmd/destroy.go`, `internal/provider/aws.go`):
    ```bash
-   $ mycli destroy --region us-east-2
-   🗑️  Destroying mycli infrastructure...
+   $ runvoy destroy --region us-east-2
+   🗑️  Destroying runvoy infrastructure...
    
    → Deleting main CloudFormation stack...
    → Emptying S3 bucket...
@@ -837,7 +837,7 @@ Company "Acme Corp" → AWS Account 123456789
    1. Deletes the main CloudFormation stack (Lambda, API Gateway, DynamoDB, ECS, VPC, etc.)
    2. Empties the S3 bucket by deleting all object versions and delete markers
    3. Deletes the Lambda bucket CloudFormation stack
-   4. Removes the local configuration file (`~/.mycli/config.yaml`) unless `--keep-config` is used
+   4. Removes the local configuration file (`~/.runvoy/config.yaml`) unless `--keep-config` is used
    
    Implementation (`internal/provider/aws.go:129-188`):
    - `DestroyInfrastructure()` orchestrates the entire teardown process
@@ -850,22 +850,22 @@ Company "Acme Corp" → AWS Account 123456789
 
 2. **Admin generates API keys for other users**:
    ```bash
-   $ mycli admin add-user alice@acme.com
+   $ runvoy admin add-user alice@acme.com
    ✓ API key: sk_live_abc123...
      Share this with alice@acme.com
    ```
 
 3. **Users configure CLI**:
    ```bash
-   $ mycli configure
-   API Endpoint: https://api.mycli.acme.internal
+   $ runvoy configure
+   API Endpoint: https://api.runvoy.acme.internal
    API Key: sk_live_abc123...
    ✓ Configuration saved
    ```
 
 4. **Users execute commands**:
    ```bash
-   $ mycli exec "terraform apply"
+   $ runvoy exec "terraform apply"
    ✓ Running in Acme's AWS account
    ```
 
@@ -874,16 +874,16 @@ Company "Acme Corp" → AWS Account 123456789
 Companies can deploy multiple instances:
 ```bash
 # Production instance
-$ mycli init --company acme --environment prod
+$ runvoy init --company acme --environment prod
 
 # Staging instance (separate AWS account or separate stack)
-$ mycli init --company acme --environment staging
+$ runvoy init --company acme --environment staging
 
 # Users configure for different environments
-$ mycli configure --profile acme-prod
-$ mycli configure --profile acme-staging
+$ runvoy configure --profile acme-prod
+$ runvoy configure --profile acme-staging
 
-$ mycli exec "terraform apply" --profile acme-prod
+$ runvoy exec "terraform apply" --profile acme-prod
 ```
 
 ## Scalability
@@ -955,8 +955,8 @@ $ mycli exec "terraform apply" --profile acme-prod
 ### Logs
 
 **CloudWatch Log Groups**:
-- `/aws/lambda/mycli-orchestrator` - Lambda logs
-- `/mycli/executions` - Execution output logs
+- `/aws/lambda/runvoy-orchestrator` - Lambda logs
+- `/runvoy/executions` - Execution output logs
 
 **Log Retention**:
 - Lambda logs: 30 days
@@ -1080,14 +1080,14 @@ $ mycli exec "terraform apply" --profile acme-prod
 
 | Solution | Setup | Cost (50 users) | Pros | Cons |
 |----------|-------|-----------------|------|------|
-| **mycli** | 5 min | $46/mo | Self-hosted, full control, audit trails | Requires AWS knowledge |
+| **runvoy** | 5 min | $46/mo | Self-hosted, full control, audit trails | Requires AWS knowledge |
 | **Terraform Cloud** | 10 min | $1000/mo | Terraform-specific features | Expensive, vendor lock-in |
 | **Jenkins** | 2 hours | $100/mo | Very flexible | Complex, requires maintenance |
 | **GitHub Actions** | 5 min | $200/mo | Integrated with git | Git-based only, no ad-hoc |
 | **AWS CodeBuild** | 30 min | $50/mo | Native AWS | Complex setup, build-focused |
 | **Shared credentials** | 1 min | $0 | Simple | Insecure, no audit, conflicts |
 
-mycli wins on: simplicity, cost, audit trails, and general-purpose execution.
+runvoy wins on: simplicity, cost, audit trails, and general-purpose execution.
 
 ---
 

@@ -2,7 +2,8 @@ package cmd
 
 import (
 	"fmt"
-	"mycli/internal/assets"
+	"runvoy/internal/assets"
+	"runvoy/internal/constants"
 
 	"github.com/spf13/cobra"
 )
@@ -15,9 +16,9 @@ var (
 var versionCmd = &cobra.Command{
 	Use:   "version",
 	Short: "Show version information and embedded assets",
-	Long: `Display version information for mycli.
+	Long: fmt.Sprintf(`Display version information for %s.
 	
-Use --show-templates to view embedded CloudFormation templates for debugging.`,
+Use --show-templates to view embedded CloudFormation templates for debugging.`, constants.ProjectName),
 	RunE: runVersion,
 }
 
@@ -29,7 +30,7 @@ func init() {
 
 func runVersion(cmd *cobra.Command, args []string) error {
 	// Show basic version info
-	fmt.Println("mycli version: dev (embedded assets enabled)")
+	fmt.Printf("%s version: dev (embedded assets enabled)\n", constants.ProjectName)
 	fmt.Println("Built with embedded CloudFormation templates")
 
 	if !showTemplates {
@@ -67,4 +68,3 @@ func runVersion(cmd *cobra.Command, args []string) error {
 	fmt.Println("\n✅ All templates loaded successfully from embedded assets")
 	return nil
 }
-

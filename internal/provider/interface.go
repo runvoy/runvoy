@@ -4,7 +4,7 @@ import (
 	"context"
 	"io"
 
-	internalConfig "mycli/internal/config"
+	internalConfig "runvoy/internal/config"
 )
 
 // Provider defines the interface for cloud provider implementations

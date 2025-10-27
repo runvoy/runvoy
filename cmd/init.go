@@ -6,8 +6,9 @@ import (
 	"os"
 	"strings"
 
-	internalConfig "mycli/internal/config"
-	"mycli/internal/provider"
+	internalConfig "runvoy/internal/config"
+	"runvoy/internal/constants"
+	"runvoy/internal/provider"
 
 	"github.com/spf13/cobra"
 )
@@ -20,20 +21,20 @@ var (
 
 var initCmd = &cobra.Command{
 	Use:   "init",
-	Short: "Initialize mycli infrastructure in your cloud account",
-	Long: `Deploys the complete mycli infrastructure to your cloud account:
+	Short: fmt.Sprintf("Initialize %s infrastructure in your cloud account", constants.ProjectName),
+	Long: fmt.Sprintf(`Deploys the complete %s infrastructure to your cloud account:
 - Creates infrastructure stack with all required resources
 - Generates and stores a secure API key
 - Optionally configures Git credentials for private repositories
 - Configures the CLI automatically
 
-This is a one-time setup command. Supports multiple cloud providers via the --provider flag.`,
+This is a one-time setup command. Supports multiple cloud providers via the --provider flag.`, constants.ProjectName),
 	RunE: runInit,
 }
 
 func init() {
 	rootCmd.AddCommand(initCmd)
-	initCmd.Flags().StringVar(&initStackPrefix, "stack-prefix", "mycli", "CloudFormation stack name prefix (provider creates all necessary stacks)")
+	initCmd.Flags().StringVar(&initStackPrefix, "stack-prefix", constants.ProjectName, "CloudFormation stack name prefix (provider creates all necessary stacks)")
 	initCmd.Flags().StringVar(&initRegion, "region", "us-east-2", "Cloud provider region")
 	initCmd.Flags().BoolVar(&forceInit, "force", false, "Skip confirmation prompt")
 }
@@ -47,7 +48,7 @@ func getProvider() (provider.Provider, error) {
 }
 
 func runInit(cmd *cobra.Command, args []string) error {
-	fmt.Println("🚀 Initializing mycli infrastructure...")
+	fmt.Printf("🚀 Initializing %s infrastructure...\n", constants.ProjectName)
 	fmt.Println("   Provider: aws")
 	fmt.Printf("   Stack prefix: %s\n", initStackPrefix)
 	fmt.Printf("   Region: %s\n\n", initRegion)
@@ -134,12 +135,12 @@ func saveConfiguration(outputs *provider.InfrastructureOutput) error {
 func displaySuccessMessage(outputs *provider.InfrastructureOutput) {
 	fmt.Println("\n✅ Setup complete!")
 	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-	fmt.Println("Configuration saved to ~/.mycli/config.yaml")
+	fmt.Printf("Configuration saved to ~/%s/%s\n", constants.ConfigDirName, "config.yaml")
 	fmt.Printf("  API Endpoint: %s\n", outputs.APIEndpoint)
 	fmt.Printf("  Region:       %s\n", outputs.Region)
 	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 	fmt.Printf("\n🔑 Your API key: %s\n", outputs.APIKey)
 	fmt.Println("   (Also saved to config file)")
 	fmt.Println("\nNext steps:")
-	fmt.Println("  1. Test it: mycli exec --repo=https://github.com/user/repo \"echo hello\"")
+	fmt.Printf("  1. Test it: %s exec --repo=https://github.com/user/repo \"echo hello\"\n", constants.ProjectName)
 }

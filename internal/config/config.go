@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runvoy/internal/constants"
 
 	"gopkg.in/yaml.v3"
 )
@@ -20,7 +21,7 @@ func configPath() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(home, ".mycli", "config.yaml"), nil
+	return filepath.Join(home, constants.ConfigDirName, constants.ConfigFileName), nil
 }
 
 func Load() (*Config, error) {
@@ -31,7 +32,7 @@ func Load() (*Config, error) {
 
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return nil, fmt.Errorf("config not found. Run 'mycli configure' first")
+		return nil, fmt.Errorf("config not found. Run '%s configure' first", constants.ProjectName)
 	}
 
 	var cfg Config

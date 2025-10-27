@@ -6,11 +6,11 @@ set -e
 
 echo "🔨 Updating CloudFormation stack..."
 
-# Get stack name and region from mycli config
-CONFIG_FILE="$HOME/.mycli/config.yaml"
+# Get stack name and region from runvoy config
+CONFIG_FILE="$HOME/.runvoy/config.yaml"
 if [ ! -f "$CONFIG_FILE" ]; then
     echo "❌ Config file not found at $CONFIG_FILE"
-    echo "   Run 'mycli init' first or manually specify stack name and region"
+    echo "   Run 'runvoy init' first or manually specify stack name and region"
     exit 1
 fi
 
@@ -22,7 +22,7 @@ if [ -z "$REGION" ]; then
 fi
 
 # Allow override via arguments
-STACK_NAME="${1:-mycli-backend}"
+STACK_NAME="${1:-runvoy-backend}"
 
 echo "📤 Updating CloudFormation stack: $STACK_NAME (region: $REGION)"
 
@@ -67,6 +67,6 @@ fi
 echo "✅ Stack update complete!"
 echo ""
 echo "Usage tips:"
-echo "  • Default stack name: mycli"
+echo "  • Default stack name: runvoy-backend"
 echo "  • Custom stack: $0 my-custom-stack"
 echo "  • Check status: aws cloudformation describe-stacks --stack-name $STACK_NAME --region $REGION"

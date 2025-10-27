@@ -7,6 +7,8 @@ import (
 	"strconv"
 	"time"
 
+	"runvoy/internal/constants"
+
 	"github.com/spf13/cobra"
 )
 
@@ -14,10 +16,10 @@ var timeout string
 var timeoutCancel context.CancelFunc
 
 var rootCmd = &cobra.Command{
-	Use:   "mycli",
+	Use:   constants.ProjectName,
 	Short: "Remote execution environment for your commands",
-	Long: `mycli provides isolated, repeatable execution environments for your commands.
-Run commands remotely without the hassle of local execution, credential sharing, or race conditions.`,
+	Long: fmt.Sprintf(`%s provides isolated, repeatable execution environments for your commands.
+Run commands remotely without the hassle of local execution, credential sharing, or race conditions.`, constants.ProjectName),
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		if timeout == "0" {
 			fmt.Println("→ Timeout is 0, disabling timeout")

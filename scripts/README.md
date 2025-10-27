@@ -1,6 +1,6 @@
 # Development Scripts
 
-This directory contains helper scripts for developing mycli.
+This directory contains helper scripts for developing runvoy.
 
 ## update-lambda.sh
 
@@ -13,7 +13,7 @@ Quick CloudFormation stack update helper for development. Updates the CloudForma
 ### Usage
 
 ```bash
-# Update with default stack name (mycli)
+# Update with default stack name (runvoy)
 ./scripts/update-cloudformation.sh
 
 # Update with custom stack name
@@ -23,7 +23,7 @@ Quick CloudFormation stack update helper for development. Updates the CloudForma
 ### Prerequisites
 
 - AWS CLI installed and configured
-- mycli already initialized (`mycli init` completed)
+- runvoy already initialized (`runvoy init` completed)
 - Appropriate AWS permissions to update CloudFormation stacks
 
 ### What it does
@@ -43,19 +43,19 @@ Use this script when you've modified:
 ### Notes
 
 - This is a **development helper** - use proper CI/CD for production
-- The script reads region from `~/.mycli/config.yaml`
-- Stack name defaults to `mycli` but can be overridden
+- The script reads region from `~/.runvoy/config.yaml`
+- Stack name defaults to `runvoy-backend` but can be overridden
 - Preserves existing stack parameters (API keys, Git credentials, etc.)
-- Much faster than full `mycli destroy && mycli init` cycle
+- Much faster than full `runvoy destroy && runvoy init` cycle
 
 ### Troubleshooting
 
 **Error: Config file not found**
-- Run `mycli init` first to create the config file
+- Run `runvoy init` first to create the config file
 
 **Error: Stack not found**
 - Verify the stack name matches your CloudFormation stack
-- Check that the stack exists: `aws cloudformation describe-stacks --stack-name mycli --region <region>`
+- Check that the stack exists: `aws cloudformation describe-stacks --stack-name runvoy --region <region>`
 
 **Error: Access denied**
 - Ensure your AWS credentials have `cloudformation:UpdateStack` and related permissions
@@ -71,7 +71,7 @@ Quick Lambda function update helper for development. Updates the Lambda orchestr
 ### Usage
 
 ```bash
-# Update with default stack name (mycli)
+# Update with default stack name (runvoy)
 ./scripts/update-lambda.sh
 
 # Update with custom stack name
@@ -81,7 +81,7 @@ Quick Lambda function update helper for development. Updates the Lambda orchestr
 ### Prerequisites
 
 - AWS CLI installed and configured
-- mycli already initialized (`mycli init` completed)
+- runvoy already initialized (`runvoy init` completed)
 - Appropriate AWS permissions to update Lambda functions
 
 ### What it does
@@ -95,18 +95,18 @@ Quick Lambda function update helper for development. Updates the Lambda orchestr
 ### Notes
 
 - This is a **development helper** - use proper CI/CD for production
-- The script reads region from `~/.mycli/config.yaml`
-- Stack name defaults to `mycli` but can be overridden
-- Much faster than full `mycli destroy && mycli init` cycle
+- The script reads region from `~/.runvoy/config.yaml`
+- Stack name defaults to `runvoy` but can be overridden
+- Much faster than full `runvoy destroy && runvoy init` cycle
 
 ### Troubleshooting
 
 **Error: Config file not found**
-- Run `mycli init` first to create the config file
+- Run `runvoy init` first to create the config file
 
 **Error: Function not found**
 - Verify the stack name matches your CloudFormation stack
-- Check that the Lambda function exists: `aws lambda get-function --function-name mycli-orchestrator --region <region>`
+- Check that the Lambda function exists: `aws lambda get-function --function-name runvoy-orchestrator --region <region>`
 
 **Error: Access denied**
 - Ensure your AWS credentials have `lambda:UpdateFunctionCode` permission
