@@ -6,7 +6,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
-	"encoding/base64"
+	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
 	"io"
@@ -22,9 +22,11 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation"
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation/types"
+	cfnTypes "github.com/aws/aws-sdk-go-v2/service/cloudformation/types"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
+	dynamodbTypes "github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/spf13/cobra"
-	"golang.org/x/crypto/bcrypt"
 )
 
 var (
@@ -116,24 +118,12 @@ func runInit(cmd *cobra.Command, args []string) error {
 	}
 	apiKey := fmt.Sprintf("sk_live_%s", hex.EncodeToString(randomBytes))
 
-	// 2. Hash with bcrypt
-	hash, err := bcrypt.GenerateFromPassword([]byte(apiKey), bcrypt.DefaultCost)
-	if err != nil {
-		return fmt.Errorf("failed to hash key: %w", err)
-	}
-	apiKeyHash := string(hash)
+	// 2. Hash with SHA256 for DynamoDB lookup
+	// The Lambda uses SHA256 hash as the partition key
+	hash := sha256.Sum256([]byte(apiKey))
+	apiKeyHash := hex.EncodeToString(hash[:])
 
-	// 3. Configure Git credentials (optional)
-	fmt.Println("\n→ Git Credential Configuration")
-	fmt.Println("  For private repositories, you can configure Git authentication.")
-	fmt.Println("  This is optional - you can skip this and only use public repos.")
-
-	githubToken, gitlabToken, sshPrivateKey, err := promptGitCredentials()
-	if err != nil {
-		return fmt.Errorf("failed to configure Git credentials: %w", err)
-	}
-
-	// 4. Build Lambda function
+	// 3. Build Lambda function
 	fmt.Println("\n→ Building Lambda function...")
 	lambdaZip, err := buildLambda()
 	if err != nil {
@@ -163,13 +153,13 @@ func runInit(cmd *cobra.Command, args []string) error {
 	_, err = cfnClient.CreateStack(ctx, &cloudformation.CreateStackInput{
 		StackName:    &bucketStackName,
 		TemplateBody: &bucketTemplateStr,
-		Parameters: []types.Parameter{
+		Parameters: []cfnTypes.Parameter{
 			{
 				ParameterKey:   aws.String("ProjectName"),
 				ParameterValue: aws.String(initStackName),
 			},
 		},
-		Tags: []types.Tag{
+		Tags: []cfnTypes.Tag{
 			{Key: strPtr("Project"), Value: strPtr("mycli")},
 			{Key: strPtr("Stack"), Value: strPtr("Lambda-Bucket")},
 		},
@@ -224,7 +214,7 @@ func runInit(cmd *cobra.Command, args []string) error {
 	// 7. Create main CloudFormation stack (Stack 2)
 	fmt.Println("→ Creating main CloudFormation stack (Stack 2)...")
 
-	cfnParams := []types.Parameter{
+	cfnParams := []cfnTypes.Parameter{
 		{
 			ParameterKey:   aws.String("LambdaCodeBucket"),
 			ParameterValue: aws.String(bucketName),
@@ -233,30 +223,6 @@ func runInit(cmd *cobra.Command, args []string) error {
 			ParameterKey:   aws.String("LambdaCodeKey"),
 			ParameterValue: aws.String(lambdaKey),
 		},
-		{
-			ParameterKey:   aws.String("APIKeyHash"),
-			ParameterValue: aws.String(apiKeyHash),
-		},
-	}
-
-	// Add Git credentials as parameters if provided
-	if githubToken != "" {
-		cfnParams = append(cfnParams, types.Parameter{
-			ParameterKey:   aws.String("GitHubToken"),
-			ParameterValue: aws.String(githubToken),
-		})
-	}
-	if gitlabToken != "" {
-		cfnParams = append(cfnParams, types.Parameter{
-			ParameterKey:   aws.String("GitLabToken"),
-			ParameterValue: aws.String(gitlabToken),
-		})
-	}
-	if sshPrivateKey != "" {
-		cfnParams = append(cfnParams, types.Parameter{
-			ParameterKey:   aws.String("SSHPrivateKey"),
-			ParameterValue: aws.String(sshPrivateKey),
-		})
 	}
 
 	// Read main CloudFormation template
@@ -270,9 +236,9 @@ func runInit(cmd *cobra.Command, args []string) error {
 	_, err = cfnClient.CreateStack(ctx, &cloudformation.CreateStackInput{
 		StackName:    &initStackName,
 		TemplateBody: &templateStr,
-		Capabilities: []types.Capability{types.CapabilityCapabilityNamedIam},
+		Capabilities: []cfnTypes.Capability{cfnTypes.CapabilityCapabilityNamedIam},
 		Parameters:   cfnParams,
-		Tags: []types.Tag{
+		Tags: []cfnTypes.Tag{
 			{Key: strPtr("Project"), Value: strPtr("mycli")},
 		},
 	})
@@ -293,20 +259,48 @@ func runInit(cmd *cobra.Command, args []string) error {
 
 	fmt.Println("✓ Main stack created successfully")
 
-	// 8. Get stack outputs
+	// 8. Insert API key into DynamoDB
+	fmt.Println("→ Configuring API key...")
+	
+	// Get API keys table name from stack outputs
 	resp, err := cfnClient.DescribeStacks(ctx, &cloudformation.DescribeStacksInput{
 		StackName: &initStackName,
 	})
 	if err != nil || len(resp.Stacks) == 0 {
 		return fmt.Errorf("failed to describe stack: %w", err)
 	}
+	
+	outputs := parseStackOutputs(resp.Stacks[0].Outputs)
+	apiKeysTableName := outputs["APIKeysTableName"]
+	if apiKeysTableName == "" {
+		return fmt.Errorf("API keys table name not found in stack outputs")
+	}
+	
+	// Create DynamoDB client
+	dynamoDBClient := dynamodb.NewFromConfig(cfg)
+	
+	// Insert the API key into DynamoDB
+	now := time.Now().UTC().Format(time.RFC3339)
+	_, err = dynamoDBClient.PutItem(ctx, &dynamodb.PutItemInput{
+		TableName: aws.String(apiKeysTableName),
+		Item: map[string]dynamodbTypes.AttributeValue{
+			"api_key_hash": &dynamodbTypes.AttributeValueMemberS{Value: apiKeyHash},
+			"user_email":  &dynamodbTypes.AttributeValueMemberS{Value: "admin@mycli.local"},
+			"created_at":  &dynamodbTypes.AttributeValueMemberS{Value: now},
+			"revoked":     &dynamodbTypes.AttributeValueMemberBOOL{Value: false},
+			"last_used":   &dynamodbTypes.AttributeValueMemberS{Value: now},
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("failed to insert API key into DynamoDB: %w", err)
+	}
+	
+	fmt.Println("✓ API key configured")
 
-	stack := resp.Stacks[0]
-	outputs := parseStackOutputs(stack.Outputs)
-
+	// 9. Get API endpoint from outputs
 	apiEndpoint := outputs["APIEndpoint"]
 
-	// 9. Save to config file
+	// 10. Save to config file
 	fmt.Println("→ Saving configuration...")
 	cliConfig := &internalConfig.Config{
 		APIEndpoint: apiEndpoint,
@@ -317,21 +311,12 @@ func runInit(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to save config: %w", err)
 	}
 
-	// 10. Success!
+	// 11. Success!
 	fmt.Println("\n✅ Setup complete!")
 	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 	fmt.Println("Configuration saved to ~/.mycli/config.yaml")
 	fmt.Printf("  API Endpoint: %s\n", apiEndpoint)
 	fmt.Printf("  Region:       %s\n", initRegion)
-	if githubToken != "" {
-		fmt.Println("  GitHub Auth:  ✓ Configured")
-	}
-	if gitlabToken != "" {
-		fmt.Println("  GitLab Auth:  ✓ Configured")
-	}
-	if sshPrivateKey != "" {
-		fmt.Println("  SSH Key:      ✓ Configured")
-	}
 	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 	fmt.Printf("\n🔑 Your API key: %s\n", apiKey)
 	fmt.Println("   (Also saved to config file)")
@@ -341,70 +326,11 @@ func runInit(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func promptGitCredentials() (githubToken, gitlabToken, sshPrivateKey string, err error) {
-	reader := bufio.NewReader(os.Stdin)
-
-	fmt.Print("\nConfigure Git credentials? [y/N]: ")
-	response, _ := reader.ReadString('\n')
-	response = strings.TrimSpace(strings.ToLower(response))
-
-	if response != "y" && response != "yes" {
-		fmt.Println("  Skipping Git credential configuration")
-		return "", "", "", nil
-	}
-
-	fmt.Println("\nChoose authentication method:")
-	fmt.Println("  1) GitHub Personal Access Token (recommended)")
-	fmt.Println("  2) GitLab Personal Access Token")
-	fmt.Println("  3) SSH Private Key (for any Git provider)")
-	fmt.Println("  4) Skip")
-	fmt.Print("\nSelection [1-4]: ")
-
-	selection, _ := reader.ReadString('\n')
-	selection = strings.TrimSpace(selection)
-
-	switch selection {
-	case "1":
-		fmt.Print("Enter GitHub token (ghp_...): ")
-		token, _ := reader.ReadString('\n')
-		githubToken = strings.TrimSpace(token)
-		if githubToken != "" {
-			fmt.Println("  ✓ GitHub token configured")
-		}
-	case "2":
-		fmt.Print("Enter GitLab token: ")
-		token, _ := reader.ReadString('\n')
-		gitlabToken = strings.TrimSpace(token)
-		if gitlabToken != "" {
-			fmt.Println("  ✓ GitLab token configured")
-		}
-	case "3":
-		fmt.Print("Enter path to SSH private key: ")
-		path, _ := reader.ReadString('\n')
-		path = strings.TrimSpace(path)
-
-		// Expand ~ to home directory
-		if strings.HasPrefix(path, "~/") {
-			home, _ := os.UserHomeDir()
-			path = filepath.Join(home, path[2:])
-		}
-
-		keyData, err := os.ReadFile(path)
-		if err != nil {
-			return "", "", "", fmt.Errorf("failed to read SSH key: %w", err)
-		}
-
-		// Base64 encode for safe storage in environment variable
-		sshPrivateKey = base64.StdEncoding.EncodeToString(keyData)
-		fmt.Println("  ✓ SSH key configured")
-	case "4", "":
-		fmt.Println("  Skipping Git credential configuration")
-	default:
-		fmt.Println("  Invalid selection, skipping")
-	}
-
-	return githubToken, gitlabToken, sshPrivateKey, nil
-}
+// promptGitCredentials is currently disabled as Git authentication is not yet implemented in the Lambda
+// TODO: Re-enable when Git cloning functionality is added to the Lambda orchestrator
+// func promptGitCredentials() (githubToken, gitlabToken, sshPrivateKey string, err error) {
+// 	return "", "", "", nil
+// }
 
 func buildLambda() ([]byte, error) {
 	// Find project root
