@@ -14,6 +14,7 @@ import (
 
 var timeout string
 var timeoutCancel context.CancelFunc
+var verbose bool
 
 var rootCmd = &cobra.Command{
 	Use:   constants.ProjectName,
@@ -37,7 +38,10 @@ Run commands remotely without the hassle of local execution, credential sharing,
 		timeoutCancel = cancel // Store for cleanup in Execute()
 		cmd.SetContext(ctx)
 
-		fmt.Println("→ Timeout duration:", timeoutDuration)
+		if verbose {
+			fmt.Println("→ Timeout duration:", timeoutDuration)
+		}
+
 		return nil
 	},
 }
@@ -57,6 +61,7 @@ func Execute() {
 func init() {
 	// Global flags can be added here if needed
 	rootCmd.PersistentFlags().StringVar(&timeout, "timeout", "10m", "Timeout for command execution (e.g., 10m, 30s, 1h)")
+	rootCmd.PersistentFlags().BoolVar(&verbose, "verbose", false, "Verbose output")
 }
 
 // parseTimeout parses timeout string to time.Duration
