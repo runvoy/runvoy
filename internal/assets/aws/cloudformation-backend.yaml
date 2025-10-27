@@ -55,6 +55,10 @@ Resources:
       Tags:
         - Key: Name
           Value: !Sub '${ProjectName}-api-keys'
+        - Key: Application
+          Value: 'mycli'
+        - Key: ManagedBy
+          Value: 'cloudformation'
 
   # DynamoDB Table for Executions
   ExecutionsTable:
@@ -96,6 +100,10 @@ Resources:
       Tags:
         - Key: Name
           Value: !Sub '${ProjectName}-executions'
+        - Key: Application
+          Value: 'mycli'
+        - Key: ManagedBy
+          Value: 'cloudformation'
 
   # DynamoDB Table for Locks
   LocksTable:
@@ -115,6 +123,10 @@ Resources:
       Tags:
         - Key: Name
           Value: !Sub '${ProjectName}-locks'
+        - Key: Application
+          Value: 'mycli'
+        - Key: ManagedBy
+          Value: 'cloudformation'
 
   # S3 Bucket for code uploads (optional)
   CodeBucket:
@@ -134,6 +146,10 @@ Resources:
       Tags:
         - Key: Name
           Value: !Sub '${ProjectName}-code-bucket'
+        - Key: Application
+          Value: 'mycli'
+        - Key: ManagedBy
+          Value: 'cloudformation'
 
   # CloudWatch Log Group for ECS task execution logs
   ExecutionLogGroup:
@@ -141,6 +157,13 @@ Resources:
     Properties:
       LogGroupName: !Sub '/aws/ecs/${ProjectName}/task-execution'
       RetentionInDays: 7
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-execution-logs'
+        - Key: Application
+          Value: 'mycli'
+        - Key: ManagedBy
+          Value: 'cloudformation'
 
   # CloudWatch Log Group for Lambda orchestrator
   LambdaLogGroup:
@@ -148,17 +171,28 @@ Resources:
     Properties:
       LogGroupName: !Sub '/aws/lambda/${ProjectName}-orchestrator'
       RetentionInDays: 7
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-lambda-logs'
+        - Key: Application
+          Value: 'mycli'
+        - Key: ManagedBy
+          Value: 'cloudformation'
 
   # VPC for Fargate tasks
   VPC:
     Type: AWS::EC2::VPC
     Properties:
-      CidrBlock: 10.0.0.0/16
+      CidrBlock: 172.20.0.0/16
       EnableDnsHostnames: true
       EnableDnsSupport: true
       Tags:
         - Key: Name
           Value: !Sub '${ProjectName}-vpc'
+        - Key: Application
+          Value: 'mycli'
+        - Key: ManagedBy
+          Value: 'cloudformation'
 
   # Internet Gateway
   InternetGateway:
@@ -167,6 +201,10 @@ Resources:
       Tags:
         - Key: Name
           Value: !Sub '${ProjectName}-igw'
+        - Key: Application
+          Value: 'mycli'
+        - Key: ManagedBy
+          Value: 'cloudformation'
 
   AttachGateway:
     Type: AWS::EC2::VPCGatewayAttachment
@@ -179,23 +217,31 @@ Resources:
     Type: AWS::EC2::Subnet
     Properties:
       VpcId: !Ref VPC
-      CidrBlock: 10.0.1.0/24
+      CidrBlock: 172.20.1.0/24
       AvailabilityZone: !Select [0, !GetAZs '']
       MapPublicIpOnLaunch: true
       Tags:
         - Key: Name
           Value: !Sub '${ProjectName}-public-1'
+        - Key: Application
+          Value: 'mycli'
+        - Key: ManagedBy
+          Value: 'cloudformation'
 
   PublicSubnet2:
     Type: AWS::EC2::Subnet
     Properties:
       VpcId: !Ref VPC
-      CidrBlock: 10.0.2.0/24
+      CidrBlock: 172.20.2.0/24
       AvailabilityZone: !Select [1, !GetAZs '']
       MapPublicIpOnLaunch: true
       Tags:
         - Key: Name
           Value: !Sub '${ProjectName}-public-2'
+        - Key: Application
+          Value: 'mycli'
+        - Key: ManagedBy
+          Value: 'cloudformation'
 
   # Route Table
   PublicRouteTable:
@@ -205,6 +251,10 @@ Resources:
       Tags:
         - Key: Name
           Value: !Sub '${ProjectName}-public-rt'
+        - Key: Application
+          Value: 'mycli'
+        - Key: ManagedBy
+          Value: 'cloudformation'
 
   PublicRoute:
     Type: AWS::EC2::Route
@@ -230,15 +280,19 @@ Resources:
   FargateSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: Security group for Fargate tasks
+      GroupDescription: !Sub 'Security group for ${ProjectName} Fargate tasks'
       VpcId: !Ref VPC
       SecurityGroupEgress:
         - IpProtocol: -1
           CidrIp: 0.0.0.0/0
-          Description: Allow all outbound traffic (needed for Git clone, AWS API, etc.)
+          Description: !Sub 'Allow all outbound traffic (needed for Git clone, AWS API, etc.) for ${ProjectName} tasks'
       Tags:
         - Key: Name
           Value: !Sub '${ProjectName}-fargate-sg'
+        - Key: Application
+          Value: 'mycli'
+        - Key: ManagedBy
+          Value: 'cloudformation'
 
   # ECS Cluster
   ECSCluster:
@@ -252,6 +306,13 @@ Resources:
         - CapacityProvider: FARGATE_SPOT
           Weight: 1
           Base: 0
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-cluster'
+        - Key: Application
+          Value: 'mycli'
+        - Key: ManagedBy
+          Value: 'cloudformation'
 
   # ECS Task Definition
   TaskDefinition:
@@ -265,6 +326,13 @@ Resources:
       Memory: '512'
       ExecutionRoleArn: !GetAtt TaskExecutionRole.Arn
       TaskRoleArn: !GetAtt TaskRole.Arn
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-task'
+        - Key: Application
+          Value: 'mycli'
+        - Key: ManagedBy
+          Value: 'cloudformation'
       ContainerDefinitions:
         - Name: executor
           Image: !Ref DefaultImage
@@ -287,6 +355,13 @@ Resources:
     Type: AWS::IAM::Role
     Properties:
       RoleName: !Sub '${ProjectName}-task-execution-role'
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-task-execution-role'
+        - Key: Application
+          Value: 'mycli'
+        - Key: ManagedBy
+          Value: 'cloudformation'
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
         Statement:
@@ -302,6 +377,13 @@ Resources:
     Type: AWS::IAM::Role
     Properties:
       RoleName: !Sub '${ProjectName}-task-role'
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-task-role'
+        - Key: Application
+          Value: 'mycli'
+        - Key: ManagedBy
+          Value: 'cloudformation'
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
         Statement:
@@ -327,6 +409,13 @@ Resources:
     Type: AWS::IAM::Role
     Properties:
       RoleName: !Sub '${ProjectName}-lambda-role'
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-lambda-role'
+        - Key: Application
+          Value: 'mycli'
+        - Key: ManagedBy
+          Value: 'cloudformation'
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
         Statement:
@@ -399,6 +488,13 @@ Resources:
       Timeout: 60
       Architectures:
         - arm64
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-orchestrator'
+        - Key: Application
+          Value: 'mycli'
+        - Key: ManagedBy
+          Value: 'cloudformation'
       Environment:
         Variables:
           API_KEYS_TABLE: !Ref APIKeysTable

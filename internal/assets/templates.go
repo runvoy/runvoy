@@ -25,6 +25,11 @@ func GetCloudFormationBackendTemplate() (string, error) {
 
 // GetCloudFormationLambdaBucketTemplate returns the Lambda bucket CloudFormation template.
 // This template creates the S3 bucket used to store the Lambda deployment package.
+//
+// NOTE: Currently, managing Lambda deployment with a single stack appears
+// not feasible. This template creates the S3 bucket for Lambda code storage
+// and handles its deletion. Ideally, Lambda deployment should be manageable
+// fully within a single stack.
 func GetCloudFormationLambdaBucketTemplate() (string, error) {
 	data, err := awsFiles.ReadFile("aws/cloudformation-lambda-bucket.yaml")
 	if err != nil {

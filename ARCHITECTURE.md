@@ -201,9 +201,48 @@ Provides a direct HTTPS endpoint for the Lambda function, eliminating the need f
 - Direct Lambda invocation
 - Reduced latency (one less hop)
 
-### 3. Lambda Orchestrator (Go)
+### 3. Network Infrastructure
+
+**Purpose**: Isolated VPC and networking for ECS Fargate tasks
+
+The CloudFormation template creates a dedicated VPC for mycli to ensure isolation from other AWS resources and avoid network conflicts with existing infrastructure.
+
+**VPC Configuration**:
+- **CIDR Block**: `172.20.0.0/16` (instead of the common `10.0.0.0/16` to avoid conflicts)
+- **DNS Support**: Enabled for hostname resolution
+- **DNS Hostnames**: Enabled for public IP hostnames
+- **Internet Gateway**: Attached for outbound internet access
+- **Resource Tagging**: All resources are tagged with the following tags for easy identification and cost tracking:
+  - **Name**: `{ProjectName}-{resource-type}` - Human-readable resource name
+  - **Application**: `mycli` - Identifies the application
+  - **ManagedBy**: `cloudformation` - Infrastructure management tool
+
+**Subnets** (2 public subnets for high availability):
+- `172.20.1.0/24` - Public subnet in AZ 1
+- `172.20.2.0/24` - Public subnet in AZ 2
+- **Purpose**: Allow ECS tasks to access internet for git clone, AWS API calls, package downloads
+
+**Security Group**:
+- **Fargate Security Group**: Allows all outbound traffic (`0.0.0.0/0`)
+- **Rationale**: Tasks need internet access for:
+  - Git operations (clone repository)
+  - AWS API calls (Terraform, AWS CLI operations)
+  - Package downloads (apt, pip, npm, etc.)
+  - Docker image pulls
+
+**Why `172.20.0.0/16`?**:
+- `10.0.0.0/16` is the most commonly used private network range
+- Choosing `172.20.0.0/16` reduces likelihood of conflicts with existing infrastructure
+- `/16` provides plenty of IP space (65,534 addresses) for future expansion
+- If conflicts still occur, this will be made configurable via `mycli init --vpc-cidr`
+
+**Note**: All subnets are public (not private with NAT) for simplicity and cost optimization in the MVP. ECS tasks get public IPs and can access internet directly via Internet Gateway. No NAT Gateway costs.
+
+### 4. Lambda Orchestrator (Go)
 
 **Purpose**: Validate requests and orchestrate ECS task execution
+
+**Resource Tagging**: Lambda function, execution role, and CloudWatch log groups are tagged with Name, Application, and ManagedBy tags for easy identification and cost tracking.
 
 **Responsibilities**:
 1. **Validate API Key**: Check against DynamoDB, ensure not revoked
@@ -279,7 +318,9 @@ def handler(event, context):
     }
 ```
 
-### 4. DynamoDB Tables
+### 5. DynamoDB Tables
+
+**Resource Tagging**: All DynamoDB tables are tagged with Name, Application, and ManagedBy tags for easy identification and cost tracking.
 
 #### API Keys Table
 ```
@@ -337,7 +378,9 @@ Attributes:
 Note: Lock is automatically released when execution completes
 ```
 
-### 5. ECS Fargate
+### 6. ECS Fargate
+
+**Resource Tagging**: ECS cluster, task definitions, and IAM roles are tagged with Name, Application, and ManagedBy tags for easy identification and cost tracking.
 
 **Task Definition**:
 ```yaml
@@ -417,7 +460,7 @@ exit $EXIT_CODE
 - `mycli/executor:node` - Node.js + common tools
 - Custom images via `--image` flag
 
-### 6. CloudWatch Logs
+### 7. CloudWatch Logs
 
 **Log Group**: `/mycli/executions`
 
@@ -431,7 +474,7 @@ exit $EXIT_CODE
 - Integrated with AWS ecosystem
 - No additional storage setup
 
-### 7. Web UI (Log Viewer)
+### 8. Web UI (Log Viewer)
 
 **Hosting**: S3 static website + CloudFront (optional)
 
@@ -660,6 +703,62 @@ This satisfies compliance requirements:
 - SOC 2: Access logging
 - HIPAA: Audit trails
 - PCI DSS: User activity tracking
+
+## Resource Tagging Strategy
+
+### Tagging Standard
+
+All resources in the CloudFormation stack are tagged with consistent tags for easy identification, cost tracking, and resource management:
+
+- **Name**: `{ProjectName}-{resource-type}` - Human-readable resource identifier for easy identification in AWS Console
+  - Examples: `mycli-api-keys`, `mycli-vpc`, `mycli-orchestrator`
+  
+- **Application**: `mycli` - Identifies all resources belonging to the mycli application
+  - Enables filtering and cost allocation by application in AWS Cost Explorer
+  
+- **ManagedBy**: `cloudformation` - Infrastructure management tool
+  - Indicates resources are managed by CloudFormation/Infrastructure as Code
+  - Helps distinguish between manually created and IaC-managed resources
+
+### Tagged Resources
+
+All the following resource types receive these tags:
+- **Compute**: ECS Cluster, Task Definitions, Lambda Functions
+- **Storage**: DynamoDB Tables, S3 Buckets
+- **Networking**: VPC, Subnets, Route Tables, Internet Gateway, Security Groups
+- **IAM**: Task Execution Role, Task Role, Lambda Execution Role
+- **Monitoring**: CloudWatch Log Groups
+
+### Benefits
+
+**Cost Management**:
+- Use AWS Cost Explorer to filter costs by `Application = mycli`
+- Track spending for the entire mycli deployment in one view
+- Enable cost allocation tags for detailed reporting
+
+**Resource Management**:
+- Easily identify all mycli resources in AWS Console using the `Application` tag
+- Filter resources across all AWS services using the tag filter
+- Quickly distinguish mycli resources from other infrastructure
+
+**Governance & Compliance**:
+- Use AWS Tag Policies to enforce consistent tagging
+- Audit compliance with organizational tagging standards
+- Track resource ownership and management tooling
+
+### Example Usage
+
+```bash
+# Find all mycli resources using AWS CLI
+aws resourcegroupstaggingapi get-resources --tag-filters Key=Application,Values=mycli
+
+# Filter costs in AWS Cost Explorer
+# Use tag filter: Application = mycli
+
+# Check resource management
+aws resourcegroupstaggingapi get-resources \
+  --tag-filters Key=ManagedBy,Values=cloudformation
+```
 
 ## Deployment Model
 
