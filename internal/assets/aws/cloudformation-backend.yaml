@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'runvoy - Git-based Remote Command Execution Infrastructure (backend)'
+Description: 'Git-based Remote Command Execution Infrastructure (backend)'
 
 Parameters:
   ProjectName:
@@ -56,7 +56,7 @@ Resources:
         - Key: Name
           Value: !Sub '${ProjectName}-api-keys'
         - Key: Application
-          Value: 'runvoy'
+          Value: !Ref ProjectName
         - Key: ManagedBy
           Value: 'cloudformation'
 
@@ -101,7 +101,7 @@ Resources:
         - Key: Name
           Value: !Sub '${ProjectName}-executions'
         - Key: Application
-          Value: 'runvoy'
+          Value: !Ref ProjectName
         - Key: ManagedBy
           Value: 'cloudformation'
 
@@ -124,7 +124,7 @@ Resources:
         - Key: Name
           Value: !Sub '${ProjectName}-locks'
         - Key: Application
-          Value: 'runvoy'
+          Value: !Ref ProjectName
         - Key: ManagedBy
           Value: 'cloudformation'
 
@@ -147,7 +147,7 @@ Resources:
         - Key: Name
           Value: !Sub '${ProjectName}-code-bucket'
         - Key: Application
-          Value: 'runvoy'
+          Value: !Ref ProjectName
         - Key: ManagedBy
           Value: 'cloudformation'
 
@@ -161,7 +161,7 @@ Resources:
         - Key: Name
           Value: !Sub '${ProjectName}-execution-logs'
         - Key: Application
-          Value: 'runvoy'
+          Value: !Ref ProjectName
         - Key: ManagedBy
           Value: 'cloudformation'
 
@@ -175,7 +175,7 @@ Resources:
         - Key: Name
           Value: !Sub '${ProjectName}-lambda-logs'
         - Key: Application
-          Value: 'runvoy'
+          Value: !Ref ProjectName
         - Key: ManagedBy
           Value: 'cloudformation'
 
@@ -190,7 +190,7 @@ Resources:
         - Key: Name
           Value: !Sub '${ProjectName}-vpc'
         - Key: Application
-          Value: 'runvoy'
+          Value: !Ref ProjectName
         - Key: ManagedBy
           Value: 'cloudformation'
 
@@ -202,7 +202,7 @@ Resources:
         - Key: Name
           Value: !Sub '${ProjectName}-igw'
         - Key: Application
-          Value: 'runvoy'
+          Value: !Ref ProjectName
         - Key: ManagedBy
           Value: 'cloudformation'
 
@@ -224,7 +224,7 @@ Resources:
         - Key: Name
           Value: !Sub '${ProjectName}-public-1'
         - Key: Application
-          Value: 'runvoy'
+          Value: !Ref ProjectName
         - Key: ManagedBy
           Value: 'cloudformation'
 
@@ -239,7 +239,7 @@ Resources:
         - Key: Name
           Value: !Sub '${ProjectName}-public-2'
         - Key: Application
-          Value: 'runvoy'
+          Value: !Ref ProjectName
         - Key: ManagedBy
           Value: 'cloudformation'
 
@@ -252,7 +252,7 @@ Resources:
         - Key: Name
           Value: !Sub '${ProjectName}-public-rt'
         - Key: Application
-          Value: 'runvoy'
+          Value: !Ref ProjectName
         - Key: ManagedBy
           Value: 'cloudformation'
 
@@ -290,7 +290,7 @@ Resources:
         - Key: Name
           Value: !Sub '${ProjectName}-fargate-sg'
         - Key: Application
-          Value: 'runvoy'
+          Value: !Ref ProjectName
         - Key: ManagedBy
           Value: 'cloudformation'
 
@@ -310,7 +310,7 @@ Resources:
         - Key: Name
           Value: !Sub '${ProjectName}-cluster'
         - Key: Application
-          Value: 'runvoy'
+          Value: !Ref ProjectName
         - Key: ManagedBy
           Value: 'cloudformation'
 
@@ -330,7 +330,7 @@ Resources:
         - Key: Name
           Value: !Sub '${ProjectName}-task'
         - Key: Application
-          Value: 'runvoy'
+          Value: !Ref ProjectName
         - Key: ManagedBy
           Value: 'cloudformation'
       ContainerDefinitions:
@@ -359,7 +359,7 @@ Resources:
         - Key: Name
           Value: !Sub '${ProjectName}-task-execution-role'
         - Key: Application
-          Value: 'runvoy'
+          Value: !Ref ProjectName
         - Key: ManagedBy
           Value: 'cloudformation'
       AssumeRolePolicyDocument:
@@ -381,7 +381,7 @@ Resources:
         - Key: Name
           Value: !Sub '${ProjectName}-task-role'
         - Key: Application
-          Value: 'runvoy'
+          Value: !Ref ProjectName
         - Key: ManagedBy
           Value: 'cloudformation'
       AssumeRolePolicyDocument:
@@ -413,7 +413,7 @@ Resources:
         - Key: Name
           Value: !Sub '${ProjectName}-lambda-role'
         - Key: Application
-          Value: 'runvoy'
+          Value: !Ref ProjectName
         - Key: ManagedBy
           Value: 'cloudformation'
       AssumeRolePolicyDocument:
@@ -492,7 +492,7 @@ Resources:
         - Key: Name
           Value: !Sub '${ProjectName}-orchestrator'
         - Key: Application
-          Value: 'runvoy'
+          Value: !Ref ProjectName
         - Key: ManagedBy
           Value: 'cloudformation'
       Environment:

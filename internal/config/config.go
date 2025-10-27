@@ -2,9 +2,9 @@ package config
 
 import (
 	"fmt"
-	"runvoy/internal/constants"
 	"os"
 	"path/filepath"
+	"runvoy/internal/constants"
 
 	"gopkg.in/yaml.v3"
 )
@@ -32,7 +32,7 @@ func Load() (*Config, error) {
 
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return nil, fmt.Errorf("config not found. Run 'runvoy configure' first")
+		return nil, fmt.Errorf("config not found. Run '%s configure' first", constants.ProjectName)
 	}
 
 	var cfg Config

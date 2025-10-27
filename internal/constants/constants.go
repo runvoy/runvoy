@@ -18,4 +18,3 @@ func ConfigDirPath(homeDir string) string {
 func ConfigFilePath(homeDir string) string {
 	return ConfigDirPath(homeDir) + "/" + ConfigFileName
 }
-

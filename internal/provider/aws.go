@@ -9,10 +9,11 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
-	"runvoy/internal/assets"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runvoy/internal/assets"
+	"runvoy/internal/constants"
 	"strings"
 	"time"
 
@@ -85,7 +86,7 @@ func (p *AWSProvider) InitializeInfrastructure(ctx context.Context, cfg *Config)
 
 	// 3. Create bucket stack for Lambda code
 	fmt.Printf("→ Creating S3 bucket stack '%s'...\n", bucketStackName)
-	bucketName, err := p.createBucketStack(ctx, bucketStackName, mainStackName)
+	bucketName, err := p.createBucketStack(ctx, bucketStackName, cfg.StackPrefix)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create bucket stack: %w", err)
 	}
@@ -100,7 +101,7 @@ func (p *AWSProvider) InitializeInfrastructure(ctx context.Context, cfg *Config)
 
 	// 5. Create main CloudFormation stack
 	fmt.Printf("→ Creating main CloudFormation stack '%s' (this may take 5-10 minutes)...\n", mainStackName)
-	if err := p.createMainStack(ctx, mainStackName, bucketName); err != nil {
+	if err := p.createMainStack(ctx, mainStackName, bucketName, cfg.StackPrefix); err != nil {
 		return nil, fmt.Errorf("failed to create main stack: %w", err)
 	}
 	fmt.Printf("✓ Main stack '%s' created successfully\n", mainStackName)
@@ -349,7 +350,7 @@ func (p *AWSProvider) createBucketStack(ctx context.Context, stackName string, p
 			},
 		},
 		Tags: []cfnTypes.Tag{
-			{Key: strPtr("Project"), Value: strPtr("runvoy")},
+			{Key: strPtr("Project"), Value: strPtr(constants.ProjectName)},
 			{Key: strPtr("Stack"), Value: strPtr("Lambda-Bucket")},
 		},
 	})
@@ -398,7 +399,7 @@ func (p *AWSProvider) uploadLambdaCode(ctx context.Context, bucketName string, l
 	return err
 }
 
-func (p *AWSProvider) createMainStack(ctx context.Context, stackName string, bucketName string) error {
+func (p *AWSProvider) createMainStack(ctx context.Context, stackName string, bucketName string, projectName string) error {
 	cfnClient := cloudformation.NewFromConfig(p.cfg)
 
 	lambdaKey := "bootstrap.zip"
@@ -410,6 +411,10 @@ func (p *AWSProvider) createMainStack(ctx context.Context, stackName string, buc
 		{
 			ParameterKey:   aws.String("LambdaCodeKey"),
 			ParameterValue: aws.String(lambdaKey),
+		},
+		{
+			ParameterKey:   aws.String("ProjectName"),
+			ParameterValue: aws.String(projectName),
 		},
 	}
 
@@ -426,7 +431,7 @@ func (p *AWSProvider) createMainStack(ctx context.Context, stackName string, buc
 		Capabilities: []cfnTypes.Capability{cfnTypes.CapabilityCapabilityNamedIam},
 		Parameters:   cfnParams,
 		Tags: []cfnTypes.Tag{
-			{Key: strPtr("Project"), Value: strPtr("runvoy")},
+			{Key: strPtr("Project"), Value: strPtr(constants.ProjectName)},
 		},
 	})
 	if err != nil {
@@ -462,7 +467,7 @@ func (p *AWSProvider) insertAPIKey(ctx context.Context, tableName, apiKey, apiKe
 		TableName: aws.String(tableName),
 		Item: map[string]dynamodbTypes.AttributeValue{
 			"api_key_hash": &dynamodbTypes.AttributeValueMemberS{Value: apiKeyHash},
-			"user_email":   &dynamodbTypes.AttributeValueMemberS{Value: "admin@runvoy.local"},
+			"user_email":   &dynamodbTypes.AttributeValueMemberS{Value: fmt.Sprintf("admin@%s.local", constants.ProjectName)},
 			"created_at":   &dynamodbTypes.AttributeValueMemberS{Value: now},
 			"revoked":      &dynamodbTypes.AttributeValueMemberBOOL{Value: false},
 			"last_used":    &dynamodbTypes.AttributeValueMemberS{Value: now},
