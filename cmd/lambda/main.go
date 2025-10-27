@@ -10,7 +10,7 @@ import (
 
 	"runvoy/internal/handlers"
 	"runvoy/internal/services"
-	"runvoy/lambda/aws"
+	"runvoy/cmd/lambda/aws"
 )
 
 var h *handlers.Handlers

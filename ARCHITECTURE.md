@@ -84,7 +84,8 @@ The codebase is organized to support both Lambda deployment and local developmen
 │   │   ├── main.go
 │   │   └── cmd/                  # CLI commands
 │   └── lambda/                   # Lambda function entry point
-│       └── main.go
+│       ├── main.go
+│       └── aws/                  # AWS service implementations
 ├── internal/                     # Private application code
 │   ├── api/                      # API types and contracts
 │   ├── config/                   # Configuration management
@@ -92,9 +93,6 @@ The codebase is organized to support both Lambda deployment and local developmen
 │   ├── handlers/                 # HTTP request handlers (framework-agnostic)
 │   ├── services/                 # Business logic services
 │   └── utils/                    # Utility functions
-├── lambda/                       # Lambda-specific code
-│   ├── main.go                   # Lambda entry point
-│   └── aws/                      # AWS service implementations
 ├── local/                        # Local development tools
 │   ├── main.go                   # Local server entry point
 │   └── mocks/                    # Mock implementations for testing
@@ -107,7 +105,7 @@ The codebase is organized to support both Lambda deployment and local developmen
 **Separation of Concerns:**
 - **`internal/services/`**: Pure business logic (no HTTP, no AWS dependencies)
 - **`internal/handlers/`**: HTTP request/response handling (framework-agnostic)
-- **`lambda/`**: Lambda-specific entry point and AWS integrations
+- **`cmd/lambda/`**: Lambda-specific entry point and AWS integrations
 - **`local/`**: Local development server with mock dependencies
 
 **Testability:**

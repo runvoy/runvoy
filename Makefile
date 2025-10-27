@@ -21,7 +21,7 @@ build: build-lambda build-cli build-local
 build-lambda:
 	@echo "Building Lambda function..."
 	@mkdir -p bin
-	@cd lambda && go build -o ../bin/lambda main.go
+	@cd cmd/lambda && go build -o ../../bin/lambda main.go
 
 # Build CLI client
 build-cli:

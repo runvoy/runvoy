@@ -114,22 +114,22 @@ func TestExecutionService_StartExecution(t *testing.T) {
 ## File Organization Benefits
 
 ```
+cmd/
+├── runvoy/        # CLI client
+│   └── cmd/       # CLI commands
+└── lambda/        # Lambda function
+    ├── main.go    # Lambda entry point
+    └── aws/       # AWS service implementations
+
 internal/
 ├── api/           # API contracts (shared between client and server)
 ├── services/      # Business logic (testable, framework-agnostic)
 ├── handlers/      # HTTP handling (reusable)
 └── config/        # Configuration management
 
-lambda/            # Lambda-specific code
-├── main.go        # Lambda entry point
-└── aws/           # AWS service implementations
-
 local/             # Local development
 ├── main.go        # Local server entry point
 └── mocks/         # Mock implementations
-
-cmd/runvoy/        # CLI client
-└── cmd/           # CLI commands
 ```
 
 This structure makes it easy to:
