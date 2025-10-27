@@ -1,8 +1,8 @@
 bucket := 'runvoy-releases'
 
-[working-directory: 'cmd/cli']
+[working-directory: 'cmd/runvoy']
 build-cli:
-    go build -o runvoy
+    go build -o ../../dist/runvoy
 
 create-lambda-bucket:
     aws cloudformation deploy \

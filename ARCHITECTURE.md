@@ -785,7 +785,7 @@ Company "Acme Corp" → AWS Account 123456789
      Share this with alice@acme.com
    ```
 
-3. **Users configure CLI** (`cmd/cli/cmd/configure.go`, `internal/config/config.go`):
+3. **Users configure CLI** (`cmd/runvoy/cmd/configure.go`, `internal/config/config.go`):
    ```bash
    $ runvoy configure
    → Configuring runvoy CLI...
