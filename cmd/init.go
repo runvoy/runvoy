@@ -22,6 +22,8 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation"
 	cfnTypes "github.com/aws/aws-sdk-go-v2/service/cloudformation/types"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
+	dynamodbTypes "github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/spf13/cobra"
 )
@@ -220,10 +222,6 @@ func runInit(cmd *cobra.Command, args []string) error {
 			ParameterKey:   aws.String("LambdaCodeKey"),
 			ParameterValue: aws.String(lambdaKey),
 		},
-		{
-			ParameterKey:   aws.String("InitialAPIKeyHash"),
-			ParameterValue: aws.String(apiKeyHash),
-		},
 	}
 
 	// Read main CloudFormation template
@@ -259,9 +257,11 @@ func runInit(cmd *cobra.Command, args []string) error {
 	}
 
 	fmt.Println("✓ Main stack created successfully")
-	fmt.Println("  (API key automatically configured via CloudFormation)")
 
-	// 8. Get stack outputs
+	// 8. Insert API key into DynamoDB
+	fmt.Println("→ Configuring API key...")
+	
+	// Get API keys table name from stack outputs
 	resp, err := cfnClient.DescribeStacks(ctx, &cloudformation.DescribeStacksInput{
 		StackName: &initStackName,
 	})
@@ -270,9 +270,36 @@ func runInit(cmd *cobra.Command, args []string) error {
 	}
 	
 	outputs := parseStackOutputs(resp.Stacks[0].Outputs)
+	apiKeysTableName := outputs["APIKeysTableName"]
+	if apiKeysTableName == "" {
+		return fmt.Errorf("API keys table name not found in stack outputs")
+	}
+	
+	// Create DynamoDB client
+	dynamoDBClient := dynamodb.NewFromConfig(cfg)
+	
+	// Insert the API key into DynamoDB
+	now := time.Now().UTC().Format(time.RFC3339)
+	_, err = dynamoDBClient.PutItem(ctx, &dynamodb.PutItemInput{
+		TableName: aws.String(apiKeysTableName),
+		Item: map[string]dynamodbTypes.AttributeValue{
+			"api_key_hash": &dynamodbTypes.AttributeValueMemberS{Value: apiKeyHash},
+			"user_email":  &dynamodbTypes.AttributeValueMemberS{Value: "admin@mycli.local"},
+			"created_at":  &dynamodbTypes.AttributeValueMemberS{Value: now},
+			"revoked":     &dynamodbTypes.AttributeValueMemberBOOL{Value: false},
+			"last_used":   &dynamodbTypes.AttributeValueMemberS{Value: now},
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("failed to insert API key into DynamoDB: %w", err)
+	}
+	
+	fmt.Println("✓ API key configured")
+
+	// 9. Get API endpoint from outputs
 	apiEndpoint := outputs["APIEndpoint"]
 
-	// 9. Save to config file
+	// 10. Save to config file
 	fmt.Println("→ Saving configuration...")
 	cliConfig := &internalConfig.Config{
 		APIEndpoint: apiEndpoint,
@@ -283,7 +310,7 @@ func runInit(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to save config: %w", err)
 	}
 
-	// 10. Success!
+	// 11. Success!
 	fmt.Println("\n✅ Setup complete!")
 	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 	fmt.Println("Configuration saved to ~/.mycli/config.yaml")

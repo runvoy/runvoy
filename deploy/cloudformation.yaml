@@ -27,15 +27,8 @@ Parameters:
     Default: 'public.ecr.aws/docker/library/ubuntu:22.04'
     Description: Default Docker image (generic base image, users can specify task-specific images)
 
-  InitialAPIKeyHash:
-    Type: String
-    NoEcho: true
-    Description: SHA256 hash of the initial API key for admin user
-    Default: ''
-
 Conditions:
   HasJWTSecret: !Not [!Equals [!Ref JWTSecret, '']]
-  HasInitialAPIKey: !Not [!Equals [!Ref InitialAPIKeyHash, '']]
 
 Resources:
   # DynamoDB Table for API Keys
@@ -122,118 +115,6 @@ Resources:
       Tags:
         - Key: Name
           Value: !Sub '${ProjectName}-locks'
-
-  # IAM Role for Custom Resource Lambda (Initial API Key Setup)
-  InitAPIKeyLambdaRole:
-    Type: AWS::IAM::Role
-    Properties:
-      RoleName: !Sub '${ProjectName}-init-apikey-lambda-role'
-      AssumeRolePolicyDocument:
-        Version: '2012-10-17'
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service: lambda.amazonaws.com
-            Action: 'sts:AssumeRole'
-      ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
-      Policies:
-        - PolicyName: DynamoDBAccess
-          PolicyDocument:
-            Version: '2012-10-17'
-            Statement:
-              - Effect: Allow
-                Action:
-                  - 'dynamodb:PutItem'
-                  - 'dynamodb:DeleteItem'
-                  - 'dynamodb:GetItem'
-                Resource: !GetAtt APIKeysTable.Arn
-
-  # Lambda Function for Custom Resource (Initial API Key Setup)
-  InitAPIKeyLambdaFunction:
-    Type: AWS::Lambda::Function
-    Properties:
-      FunctionName: !Sub '${ProjectName}-init-apikey-handler'
-      Runtime: python3.11
-      Handler: index.handler
-      Role: !GetAtt InitAPIKeyLambdaRole.Arn
-      Timeout: 60
-      Code:
-        ZipFile: |
-          import json
-          import boto3
-          import cfnresponse
-          from datetime import datetime
-          
-          dynamodb = boto3.client('dynamodb')
-          
-          def handler(event, context):
-              print(f"Event: {json.dumps(event)}")
-              
-              request_type = event['RequestType']
-              properties = event['ResourceProperties']
-              table_name = properties.get('TableName')
-              api_key_hash = properties.get('APIKeyHash')
-              user_email = properties.get('UserEmail', 'admin@mycli.local')
-              
-              response_data = {}
-              physical_resource_id = f"InitAPIKey-{api_key_hash[:16]}" if api_key_hash else "InitAPIKey-None"
-              
-              try:
-                  if request_type == 'Create':
-                      if api_key_hash:
-                          now = datetime.utcnow().isoformat() + 'Z'
-                          dynamodb.put_item(
-                              TableName=table_name,
-                              Item={
-                                  'api_key_hash': {'S': api_key_hash},
-                                  'user_email': {'S': user_email},
-                                  'created_at': {'S': now},
-                                  'revoked': {'BOOL': False},
-                                  'last_used': {'S': now}
-                              }
-                          )
-                          print(f"Successfully created API key record in {table_name}")
-                          response_data['Message'] = 'API key record created'
-                      else:
-                          print("No API key hash provided, skipping creation")
-                          response_data['Message'] = 'No API key to create'
-                  
-                  elif request_type == 'Update':
-                      # For updates, we don't change the API key
-                      print("Update requested - no action taken")
-                      response_data['Message'] = 'Update completed (no-op)'
-                  
-                  elif request_type == 'Delete':
-                      if api_key_hash:
-                          dynamodb.delete_item(
-                              TableName=table_name,
-                              Key={
-                                  'api_key_hash': {'S': api_key_hash}
-                              }
-                          )
-                          print(f"Successfully deleted API key record from {table_name}")
-                          response_data['Message'] = 'API key record deleted'
-                      else:
-                          print("No API key hash provided, skipping deletion")
-                          response_data['Message'] = 'No API key to delete'
-                  
-                  cfnresponse.send(event, context, cfnresponse.SUCCESS, response_data, physical_resource_id)
-              
-              except Exception as e:
-                  print(f"Error: {str(e)}")
-                  cfnresponse.send(event, context, cfnresponse.FAILED, {'Message': str(e)}, physical_resource_id)
-
-  # Custom Resource to Initialize API Key
-  InitialAPIKeyRecord:
-    Type: Custom::InitAPIKey
-    Condition: HasInitialAPIKey
-    DependsOn: APIKeysTable
-    Properties:
-      ServiceToken: !GetAtt InitAPIKeyLambdaFunction.Arn
-      TableName: !Ref APIKeysTable
-      APIKeyHash: !Ref InitialAPIKeyHash
-      UserEmail: 'admin@mycli.local'
 
   # S3 Bucket for code uploads (optional)
   CodeBucket:

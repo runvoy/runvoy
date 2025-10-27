@@ -248,61 +248,7 @@ Attributes:
 Note: Lock is automatically released when execution completes
 ```
 
-### 5. CloudFormation Custom Resource (API Key Setup)
-
-**Purpose**: Manages the initial API key insertion into DynamoDB as part of infrastructure deployment
-
-**Implementation**:
-- Python 3.11 Lambda function embedded in CloudFormation template (inline code)
-- Triggered during stack CREATE, UPDATE, and DELETE operations
-- Uses CloudFormation Custom Resource protocol via `cfnresponse` module
-
-**Operations**:
-- **CREATE**: Inserts initial API key record into DynamoDB with:
-  - `api_key_hash`: SHA256 hash (partition key)
-  - `user_email`: admin@mycli.local
-  - `created_at`: Current timestamp
-  - `revoked`: false
-  - `last_used`: Current timestamp
-- **UPDATE**: No-op (API keys are immutable)
-- **DELETE**: Removes API key record from DynamoDB
-
-**IAM Permissions**:
-- `dynamodb:PutItem` - Insert API key on stack creation
-- `dynamodb:GetItem` - Verify API key exists
-- `dynamodb:DeleteItem` - Remove API key on stack deletion
-- `logs:CreateLogGroup`, `logs:CreateLogStream`, `logs:PutLogEvents` - CloudWatch logging
-
-**Benefits**:
-- ✅ **Infrastructure as Code** - API key lifecycle managed by CloudFormation
-- ✅ **Idempotent** - Safe to re-run stack operations
-- ✅ **Automatic Cleanup** - API key removed when stack is deleted
-- ✅ **No SDK Code** - CLI doesn't need DynamoDB permissions for init
-
-**CloudFormation Parameters**:
-```yaml
-Parameters:
-  InitialAPIKeyHash:
-    Type: String
-    NoEcho: true  # Hidden in console/CLI output
-    Description: SHA256 hash of the initial API key
-    Default: ''   # Optional - can deploy without API key
-
-Conditions:
-  HasInitialAPIKey: !Not [!Equals [!Ref InitialAPIKeyHash, '']]
-
-Resources:
-  InitialAPIKeyRecord:
-    Type: Custom::InitAPIKey
-    Condition: HasInitialAPIKey  # Only created if hash provided
-    Properties:
-      ServiceToken: !GetAtt InitAPIKeyLambdaFunction.Arn
-      TableName: !Ref APIKeysTable
-      APIKeyHash: !Ref InitialAPIKeyHash
-      UserEmail: 'admin@mycli.local'
-```
-
-### 6. ECS Fargate
+### 5. ECS Fargate
 
 **Task Definition**:
 ```yaml
@@ -707,15 +653,10 @@ Company "Acme Corp" → AWS Account 123456789
      - Lambda function (loaded from S3)
      - API Gateway (REST API)
      - DynamoDB tables (API Keys, Executions, Locks)
-     - IAM roles (Lambda execution, ECS task, ECS task execution, custom resource Lambda)
+     - IAM roles (Lambda execution, ECS task, ECS task execution)
      - CloudWatch log groups
-     - **Custom Resource Lambda**: Inserts the initial API key into DynamoDB
-   - CloudFormation Custom Resource automatically inserts the API key hash into DynamoDB
+   - Inserts the generated API key into DynamoDB (SHA256 hashed)
    - Saves the configuration to `~/.mycli/config.yaml`
-   
-   **Infrastructure as Code**: The API key insertion is handled entirely by CloudFormation using a 
-   Custom Resource backed by a Python Lambda function. This ensures the API key lifecycle is managed 
-   properly - when the stack is deleted, the API key is automatically removed from DynamoDB.
    
    **Note**: Git credentials (GitHub/GitLab tokens, SSH keys) are NOT currently supported.
    The Lambda orchestrator does not implement git cloning yet. This is a planned feature.
