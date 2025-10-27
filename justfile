@@ -22,11 +22,24 @@ build-local:
 run-local: build-local
     ./bin/local
 
-# Run tests
+# Run all tests
 test:
     go test ./...
 
-# Run local integration tests
+# Run unit tests only
+test-unit:
+    go test ./tests/unit/...
+
+# Run integration tests only
+test-integration:
+    go test ./tests/integration/...
+
+# Run tests with coverage
+test-coverage:
+    go test -coverprofile=coverage.out ./...
+    go tool cover -html=coverage.out -o coverage.html
+
+# Run local integration tests (legacy)
 test-local: build-local
     ./scripts/test-local.sh
 
