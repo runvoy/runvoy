@@ -111,7 +111,7 @@ api_key: sk_live_abc123...
 - `GET /executions` - List executions (with filters)
 - `GET /locks` - List active locks
 
-### 3. Lambda Orchestrator (Python or Go)
+### 3. Lambda Orchestrator (Go)
 
 **Purpose**: Validate requests and orchestrate ECS task execution
 
