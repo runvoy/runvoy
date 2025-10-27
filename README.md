@@ -250,7 +250,7 @@ Very low cost for typical usage:
 go build -o mycli
 
 # Build Lambda locally (optional, init does this automatically)
-cd lambda/orchestrator
+cd backend/orchestrator
 GOOS=linux GOARCH=arm64 go build -tags lambda.norpc -o bootstrap main.go
 
 # Deploy infrastructure

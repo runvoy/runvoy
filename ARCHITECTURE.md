@@ -77,6 +77,44 @@ mycli is a centralized execution platform that allows teams to run infrastructur
 
 **Purpose**: User-facing interface for executing commands and managing the platform
 
+**Architecture**: The CLI is built with a modular provider architecture to support multiple cloud providers. The `init` command uses a provider abstraction layer that allows for easy extension to additional cloud platforms (AWS, GCP, Azure, etc.).
+
+**Provider Architecture**:
+- `internal/provider/` - Provider abstraction layer
+  - `interface.go` - Defines the `Provider` interface with methods for infrastructure lifecycle management
+  - `types.go` - Shared types (`InfrastructureOutput`, `Config`, `ValidationError`)
+  - `aws.go` - AWS-specific implementation (CloudFormation, DynamoDB, S3, Lambda)
+  - Factory pattern for provider registration and selection
+  
+**Provider Interface**:
+```go
+type Provider interface {
+    InitializeInfrastructure(ctx, cfg) (*InfrastructureOutput, error)
+    UpdateInfrastructure(ctx, cfg) error
+    DestroyInfrastructure(ctx, cfg) error
+    GetEndpoint(ctx, cfg) (string, error)
+    ValidateConfig(cfg) error
+    GetName() string
+}
+```
+
+**Provider Selection**:
+```bash
+# Use AWS (default)
+mycli init --provider aws
+
+# Future: Use GCP
+mycli init --provider gcp
+
+# Future: Use Azure
+mycli init --provider azure
+```
+
+Each provider implementation handles cloud-specific operations:
+- AWS: CloudFormation stacks, DynamoDB, S3, Lambda, ECS Fargate
+- GCP (planned): Deployment Manager, Firestore, Cloud Storage, Cloud Functions, Cloud Run
+- Azure (planned): ARM templates, Cosmos DB, Blob Storage, Azure Functions, Container Instances
+
 **Key Commands**:
 - `mycli init` - Deploy infrastructure (admin only, requires AWS credentials)
 - `mycli admin add-user <email>` - Generate API key for new user
@@ -138,12 +176,12 @@ def handler(event, context):
     user = validate_api_key(api_key)
     if not user:
         return {'statusCode': 401, 'body': 'Invalid API key'}
-    
+
     # 2. Parse request
     body = json.loads(event['body'])
     command = body['command']
     lock_name = body.get('lock')
-    
+
     # 3. Acquire lock if requested
     if lock_name:
         acquired = try_acquire_lock(lock_name, user['email'])
@@ -153,17 +191,17 @@ def handler(event, context):
                 'statusCode': 409,
                 'body': f'Lock held by {holder["email"]} since {holder["started"]}'
             }
-    
+
     # 4. Generate execution ID
     execution_id = generate_execution_id()
-    
+
     # 5. Start ECS task
     task_arn = start_ecs_task(
         command=command,
         execution_id=execution_id,
         user_email=user['email']
     )
-    
+
     # 6. Record execution
     record_execution(
         execution_id=execution_id,
@@ -172,11 +210,11 @@ def handler(event, context):
         task_arn=task_arn,
         lock_name=lock_name
     )
-    
+
     # 7. Generate log viewer token
     token = generate_log_token(execution_id)
     log_url = f"{WEB_UI_URL}/{execution_id}?token={token}"
-    
+
     return {
         'statusCode': 200,
         'body': json.dumps({
@@ -276,7 +314,7 @@ Container:
     - COMMAND: (user's command)
     - USER_EMAIL: (for audit)
     - LOCK_NAME: (if applicable)
-  
+
   LogConfiguration:
     LogDriver: awslogs
     Options:
@@ -401,7 +439,7 @@ Token payload:
 GET /api/logs/{execution_id}
   Headers: Authorization: Bearer {token}
   Query: ?since={timestamp} (for polling new logs)
-  
+
   Response:
   {
     "execution_id": "exec_abc123",
@@ -517,7 +555,7 @@ Request with lock:
 Lambda tries to acquire:
   DynamoDB PutItem with condition expression:
     attribute_not_exists(lock_name)
-  
+
   Item: {
     lock_name: "infra-prod",
     execution_id: "exec_abc123",
@@ -531,7 +569,7 @@ Success → Continue with execution
 Failure (ConditionalCheckFailedException):
   Query lock to see who holds it:
     GetItem(lock_name="infra-prod")
-  
+
   Return 409 Conflict:
     {
       "error": "Lock held",
@@ -544,7 +582,7 @@ Failure (ConditionalCheckFailedException):
 
 On completion:
   DeleteItem(lock_name="infra-prod")
-  
+
   Or rely on TTL to auto-expire if task crashes
 ```
 
@@ -622,7 +660,7 @@ Company "Acme Corp" → AWS Account 123456789
 1. **Admin deploys infrastructure**:
    ```bash
    $ aws configure  # Uses admin AWS credentials
-   $ mycli init --stack-name mycli --region us-east-2
+   $ mycli init --provider aws --stack-name mycli --region us-east-2
    → Generating API key...
    → Building Lambda function...
    → Creating S3 bucket stack for Lambda code (Stack 1)...
@@ -635,7 +673,7 @@ Company "Acme Corp" → AWS Account 123456789
    ✓ API key configured
    → Saving configuration...
    ✓ Setup complete!
-   
+
    🔑 Your API key: sk_live_abc123...
    ```
 
@@ -655,7 +693,7 @@ Company "Acme Corp" → AWS Account 123456789
      - CloudWatch log groups
    - Inserts the generated API key into DynamoDB (SHA256 hashed)
    - Saves the configuration to `~/.mycli/config.yaml`
-   
+
    **Note**: Git credentials (GitHub/GitLab tokens, SSH keys) are NOT currently supported.
    The Lambda orchestrator does not implement git cloning yet. This is a planned feature.
 
@@ -703,7 +741,7 @@ $ mycli exec "terraform apply" --profile acme-prod
 
 - **Concurrency**: Fargate scales automatically (up to AWS service limits)
 - **Cost**: Pay-per-execution (no idle costs except DynamoDB and small Lambda)
-- **Limits**: 
+- **Limits**:
   - Lambda Function URL: 1000 RPS per URL (default)
   - Lambda: 1,000 concurrent executions (default)
   - Fargate: 1,000 tasks per cluster (default, can increase)

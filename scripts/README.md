@@ -86,7 +86,7 @@ Quick Lambda function update helper for development. Updates the Lambda orchestr
 
 ### What it does
 
-1. Builds the Lambda function from `lambda/orchestrator/`
+1. Builds the Lambda function from `backend/orchestrator/`
 2. Creates a deployment zip package
 3. Updates the Lambda function code in AWS
 4. Waits for the update to complete

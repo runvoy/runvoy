@@ -33,7 +33,7 @@
 ### Code References Format
 When referencing code in ARCHITECTURE.md, use this format:
 - `(cmd/exec.go:65)` for specific functions
-- `(lambda/orchestrator/main.go:372)` for implementation details
+- `(backend/orchestrator/main.go:372)` for implementation details
 
 ### Documentation Sections to Check
 
@@ -69,7 +69,7 @@ When adding **new features**: Update
 - CLI commands in `cmd/` directory
 - Shared types in `pkg/api/`
 - Internal packages in `internal/`
-- Lambda code in `lambda/orchestrator/`
+- Backend code in `backend/`
 
 ### Error Handling
 - Always return descriptive errors

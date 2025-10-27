@@ -7,7 +7,7 @@ set -e
 echo "🔨 Building Lambda function..."
 
 # Navigate to lambda directory
-cd "$(dirname "$0")/../lambda/orchestrator"
+cd "$(dirname "$0")/../backend/orchestrator"
 
 # Build the Go binary for Lambda (ARM64)
 GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -tags lambda.norpc -o bootstrap .
