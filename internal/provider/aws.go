@@ -336,7 +336,7 @@ func (p *AWSProvider) createBucketStack(ctx context.Context, stackName string, p
 		return "", err
 	}
 
-	bucketTemplatePath := filepath.Join(cwd, "deploy", "cloudformation-bucket.yaml")
+	bucketTemplatePath := filepath.Join(cwd, "deploy", "cloudformation-lambda-bucket.yaml")
 	bucketTemplateBody, err := os.ReadFile(bucketTemplatePath)
 	if err != nil {
 		return "", err

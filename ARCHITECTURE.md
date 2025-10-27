@@ -723,7 +723,7 @@ Company "Acme Corp" → AWS Account 123456789
    - `deleteStack()` deletes a CloudFormation stack and waits for completion (up to 15 minutes)
    - `emptyBucket()` uses ListObjectVersions to delete all versions of all objects
    - `getBucketNameFromStack()` retrieves the bucket name from stack outputs, or constructs it if the stack is already deleted
-   - Bucket name format: `{stackname}-lambda-code-{accountId}-{region}` (`deploy/cloudformation-bucket.yaml:15`)
+   - Bucket name format: `{stackname}-lambda-code-{accountId}-{region}` (`deploy/cloudformation-lambda-bucket.yaml:15`)
    
    **Note**: The destroy process requires confirmation by typing "delete" unless `--force` is used.
 
