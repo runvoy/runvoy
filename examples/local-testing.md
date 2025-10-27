@@ -8,10 +8,10 @@ This guide shows how to run and test your Lambda-based Go application locally us
 
 ```bash
 # Build all components
-make build
+just build
 
 # Run local development server
-make run-local
+just run-local
 ```
 
 The local server will start on `http://localhost:8080` with mock implementations of all AWS services.
@@ -33,7 +33,7 @@ curl -X POST http://localhost:8080/executions \
 
 ```bash
 # Run local integration tests
-make test-local
+just test-local
 ```
 
 ## Development Workflow
@@ -45,8 +45,8 @@ When you modify code in `internal/services/`, you can test it immediately:
 ```bash
 # Make your changes to internal/services/execution.go
 # Then rebuild and test
-make build-local
-make run-local
+just build-local
+just run-local
 ```
 
 ### 2. Testing with Real AWS Services

@@ -127,7 +127,7 @@ The local development server (`local/main.go`) provides:
 
 ```bash
 # Run local development server
-make run-local
+just run-local
 
 # Test the API
 curl -X POST http://localhost:8080/executions \
