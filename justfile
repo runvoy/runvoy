@@ -15,7 +15,7 @@ update-lambda:
     GOARCH=arm64 GOOS=linux go build -o bootstrap
     zip function.zip bootstrap
     aws s3 cp function.zip s3://{{bucket}}/bootstrap.zip
-    aws lambda update-function-code --function-name runvoy-orchestrator --zip-file fileb://function.zip
+    aws lambda update-function-code --function-name runvoy-orchestrator --zip-file fileb://function.zip > /dev/null
     aws lambda wait function-updated --function-name runvoy-orchestrator
 
 smoke-test: build-cli
@@ -29,3 +29,4 @@ init:
 
 destroy:
     aws cloudformation delete-stack --stack-name runvoy-backend
+    aws cloudformation wait stack-delete-complete --stack-name runvoy-backend
