@@ -14,9 +14,9 @@ var timeout string
 var timeoutCancel context.CancelFunc
 
 var rootCmd = &cobra.Command{
-	Use:   "mycli",
+	Use:   "runvoy",
 	Short: "Remote execution environment for your commands",
-	Long: `mycli provides isolated, repeatable execution environments for your commands.
+	Long: `runvoy provides isolated, repeatable execution environments for your commands.
 Run commands remotely without the hassle of local execution, credential sharing, or race conditions.`,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		if timeout == "0" {

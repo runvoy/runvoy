@@ -6,8 +6,8 @@ import (
 	"os"
 	"strings"
 
-	internalConfig "mycli/internal/config"
-	"mycli/internal/provider"
+	internalConfig "runvoy/internal/config"
+	"runvoy/internal/provider"
 
 	"github.com/spf13/cobra"
 )
@@ -33,7 +33,7 @@ This is a one-time setup command. Supports multiple cloud providers via the --pr
 
 func init() {
 	rootCmd.AddCommand(initCmd)
-	initCmd.Flags().StringVar(&initStackPrefix, "stack-prefix", "mycli", "CloudFormation stack name prefix (provider creates all necessary stacks)")
+	initCmd.Flags().StringVar(&initStackPrefix, "stack-prefix", "runvoy", "CloudFormation stack name prefix (provider creates all necessary stacks)")
 	initCmd.Flags().StringVar(&initRegion, "region", "us-east-2", "Cloud provider region")
 	initCmd.Flags().BoolVar(&forceInit, "force", false, "Skip confirmation prompt")
 }
@@ -47,7 +47,7 @@ func getProvider() (provider.Provider, error) {
 }
 
 func runInit(cmd *cobra.Command, args []string) error {
-	fmt.Println("🚀 Initializing mycli infrastructure...")
+	fmt.Println("🚀 Initializing runvoy infrastructure...")
 	fmt.Println("   Provider: aws")
 	fmt.Printf("   Stack prefix: %s\n", initStackPrefix)
 	fmt.Printf("   Region: %s\n\n", initRegion)
@@ -134,12 +134,12 @@ func saveConfiguration(outputs *provider.InfrastructureOutput) error {
 func displaySuccessMessage(outputs *provider.InfrastructureOutput) {
 	fmt.Println("\n✅ Setup complete!")
 	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-	fmt.Println("Configuration saved to ~/.mycli/config.yaml")
+	fmt.Printf("Configuration saved to ~/.runvoy/config.yaml\n")
 	fmt.Printf("  API Endpoint: %s\n", outputs.APIEndpoint)
 	fmt.Printf("  Region:       %s\n", outputs.Region)
 	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 	fmt.Printf("\n🔑 Your API key: %s\n", outputs.APIKey)
 	fmt.Println("   (Also saved to config file)")
 	fmt.Println("\nNext steps:")
-	fmt.Println("  1. Test it: mycli exec --repo=https://github.com/user/repo \"echo hello\"")
+	fmt.Println("  1. Test it: runvoy exec --repo=https://github.com/user/repo \"echo hello\"")
 }

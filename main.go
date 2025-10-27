@@ -1,6 +1,6 @@
 package main
 
-import "mycli/cmd"
+import "runvoy/cmd"
 
 func main() {
 	cmd.Execute()

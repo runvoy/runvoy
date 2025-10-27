@@ -9,7 +9,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
-	"mycli/internal/assets"
+	"runvoy/internal/assets"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -349,7 +349,7 @@ func (p *AWSProvider) createBucketStack(ctx context.Context, stackName string, p
 			},
 		},
 		Tags: []cfnTypes.Tag{
-			{Key: strPtr("Project"), Value: strPtr("mycli")},
+			{Key: strPtr("Project"), Value: strPtr("runvoy")},
 			{Key: strPtr("Stack"), Value: strPtr("Lambda-Bucket")},
 		},
 	})
@@ -426,7 +426,7 @@ func (p *AWSProvider) createMainStack(ctx context.Context, stackName string, buc
 		Capabilities: []cfnTypes.Capability{cfnTypes.CapabilityCapabilityNamedIam},
 		Parameters:   cfnParams,
 		Tags: []cfnTypes.Tag{
-			{Key: strPtr("Project"), Value: strPtr("mycli")},
+			{Key: strPtr("Project"), Value: strPtr("runvoy")},
 		},
 	})
 	if err != nil {
@@ -462,7 +462,7 @@ func (p *AWSProvider) insertAPIKey(ctx context.Context, tableName, apiKey, apiKe
 		TableName: aws.String(tableName),
 		Item: map[string]dynamodbTypes.AttributeValue{
 			"api_key_hash": &dynamodbTypes.AttributeValueMemberS{Value: apiKeyHash},
-			"user_email":   &dynamodbTypes.AttributeValueMemberS{Value: "admin@mycli.local"},
+			"user_email":   &dynamodbTypes.AttributeValueMemberS{Value: "admin@runvoy.local"},
 			"created_at":   &dynamodbTypes.AttributeValueMemberS{Value: now},
 			"revoked":      &dynamodbTypes.AttributeValueMemberBOOL{Value: false},
 			"last_used":    &dynamodbTypes.AttributeValueMemberS{Value: now},

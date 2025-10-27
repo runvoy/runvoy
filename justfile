@@ -1,8 +1,8 @@
 smoke-test: build
-    ./mycli exec --skip-git "echo 'Hello, World! $(date -u +"%Y-%m-%d %H:%M:%S")'"
+    ./runvoy exec --skip-git "echo 'Hello, World! $(date -u +"%Y-%m-%d %H:%M:%S")'"
 
 build:
-    go build -o mycli
+    go build -o runvoy
 
 deploy:
     ./scripts/update-lambda.sh

@@ -1,4 +1,4 @@
-module mycli
+module runvoy
 
 go 1.23
 
@@ -7,7 +7,6 @@ require (
 	github.com/aws/aws-sdk-go-v2/config v1.26.0
 	github.com/aws/aws-sdk-go-v2/service/cloudformation v1.42.0
 	github.com/aws/aws-sdk-go-v2/service/dynamodb v1.52.2
-	github.com/aws/aws-sdk-go-v2/service/ecs v1.65.4
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.88.7
 	github.com/aws/aws-sdk-go-v2/service/sts v1.26.4
 	github.com/spf13/cobra v1.8.0

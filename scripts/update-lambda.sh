@@ -17,11 +17,11 @@ echo "📦 Creating deployment package..."
 zip -q function.zip bootstrap
 rm bootstrap
 
-# Get stack name and region from mycli config
-CONFIG_FILE="$HOME/.mycli/config.yaml"
+# Get stack name and region from runvoy config
+CONFIG_FILE="$HOME/.runvoy/config.yaml"
 if [ ! -f "$CONFIG_FILE" ]; then
     echo "❌ Config file not found at $CONFIG_FILE"
-    echo "   Run 'mycli init' first or manually specify stack name and region"
+    echo "   Run 'runvoy init' first or manually specify stack name and region"
     exit 1
 fi
 
@@ -33,7 +33,7 @@ if [ -z "$REGION" ]; then
 fi
 
 # Allow override via arguments
-STACK_NAME="${1:-mycli}"
+STACK_NAME="${1:-runvoy}"
 FUNCTION_NAME="${STACK_NAME}-orchestrator"
 
 echo "📤 Updating Lambda function: $FUNCTION_NAME (region: $REGION)"
@@ -58,6 +58,6 @@ rm function.zip
 echo "✅ Lambda function updated successfully!"
 echo ""
 echo "Usage tips:"
-echo "  • Default stack name: mycli"
+echo "  • Default stack name: runvoy"
 echo "  • Custom stack: $0 my-custom-stack"
-echo "  • Test changes: mycli exec --repo=<repo> \"<command>\""
+echo "  • Test changes: runvoy exec --repo=<repo> \"<command>\""

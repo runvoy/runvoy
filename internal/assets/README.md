@@ -44,8 +44,8 @@ The templates are embedded at compile time, so changes require a rebuild.
 
 To verify templates are embedded, build and check the binary:
 ```bash
-go build -o mycli
-strings mycli | grep "AWSTemplateFormatVersion"
+go build -o runvoy
+strings runvoy | grep "AWSTemplateFormatVersion"
 ```
 
 You should see the CloudFormation templates embedded in the binary output.

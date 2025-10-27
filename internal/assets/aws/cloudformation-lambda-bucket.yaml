@@ -1,11 +1,11 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'mycli - Git-based Remote Command Execution Infrastructure (lambda code bucket)'
+Description: 'runvoy - Git-based Remote Command Execution Infrastructure (lambda code bucket)'
 # NOTE: currently it seems impossible to manage Lambda deployment with a single stack. This template is used to create the S3 bucket for Lambda code storage and orchestrate its deletion. Ideally we should be able to manage the Lambda deployment with a single stack.
 
 Parameters:
   ProjectName:
     Type: String
-    Default: mycli
+    Default: runvoy
     Description: Name prefix for resources
 
 Resources:
@@ -24,7 +24,7 @@ Resources:
         RestrictPublicBuckets: true
       Tags:
         - Key: Project
-          Value: mycli
+          Value: runvoy
         - Key: Purpose
           Value: Lambda Code Storage
         - Key: ManagedBy
