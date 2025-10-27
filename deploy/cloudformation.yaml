@@ -377,24 +377,6 @@ Resources:
                 Resource:
                   - !Sub '${CodeBucket.Arn}/*'
 
-  # API Gateway
-  RestAPI:
-    Type: AWS::ApiGateway::RestApi
-    Properties:
-      Name: !Sub '${ProjectName}-api'
-      Description: mycli Centralized Command Execution API
-      EndpointConfiguration:
-        Types:
-          - REGIONAL
-
-  # API Gateway Resource: /{proxy+} (catch-all)
-  ProxyResource:
-    Type: AWS::ApiGateway::Resource
-    Properties:
-      RestApiId: !Ref RestAPI
-      ParentId: !GetAtt RestAPI.RootResourceId
-      PathPart: '{proxy+}'
-
   # Lambda Function (code loaded from S3 bucket)
   LambdaFunction:
     Type: AWS::Lambda::Function
@@ -424,42 +406,26 @@ Resources:
           JWT_SECRET: !If [HasJWTSecret, !Ref JWTSecret, !Ref 'AWS::NoValue']
           WEB_UI_URL: ''
 
-  # ANY /{proxy+} - Catch-all method that routes everything to Lambda
-  ProxyMethod:
-    Type: AWS::ApiGateway::Method
-    Properties:
-      RestApiId: !Ref RestAPI
-      ResourceId: !Ref ProxyResource
-      HttpMethod: ANY
-      AuthorizationType: NONE
-      Integration:
-        Type: AWS_PROXY
-        IntegrationHttpMethod: POST
-        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunction.Arn}/invocations'
-
-  # Lambda Permission for API Gateway
-  LambdaInvokePermission:
-    Type: AWS::Lambda::Permission
+  # Lambda Function URL
+  LambdaFunctionUrl:
+    Type: AWS::Lambda::Url
     Properties:
       FunctionName: !Ref LambdaFunction
-      Action: lambda:InvokeFunction
-      Principal: apigateway.amazonaws.com
-      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestAPI}/*/*'
-
-  # API Gateway Deployment
-  APIGatewayDeployment:
-    Type: AWS::ApiGateway::Deployment
-    DependsOn:
-      - ProxyMethod
-    Properties:
-      RestApiId: !Ref RestAPI
-      StageName: prod
-      Description: !Sub 'Deployment for ${ProjectName} API'
+      AuthType: NONE
+      Cors:
+        AllowCredentials: false
+        AllowOrigins:
+          - '*'
+        AllowMethods:
+          - '*'
+        AllowHeaders:
+          - '*'
+        MaxAge: 0
 
 Outputs:
   APIEndpoint:
-    Description: API Gateway endpoint URL
-    Value: !Sub 'https://${RestAPI}.execute-api.${AWS::Region}.amazonaws.com/prod'
+    Description: Lambda Function URL endpoint
+    Value: !GetAtt LambdaFunctionUrl.FunctionUrl
     Export:
       Name: !Sub '${ProjectName}-api-endpoint'
 
@@ -514,7 +480,3 @@ Outputs:
     Value: !Ref VPC
     Export:
       Name: !Sub '${ProjectName}-vpc-id'
-
-  RestAPIId:
-    Description: API Gateway REST API ID
-    Value: !Ref RestAPI

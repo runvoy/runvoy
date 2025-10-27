@@ -1,12 +1,12 @@
 package main
 
 import (
-    "context"
-    "encoding/json"
-    "fmt"
+	"context"
+	"encoding/json"
+	"fmt"
 
-    "github.com/aws/aws-lambda-go/events"
-    "github.com/aws/aws-lambda-go/lambda"
+	"github.com/aws/aws-lambda-go/events"
+	"github.com/aws/aws-lambda-go/lambda"
 )
 
 var cfg *Config
@@ -20,25 +20,20 @@ func init() {
 }
 
 func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
-    // Authenticate
-    apiKey := request.Headers["x-api-key"]
-    if apiKey == "" {
-        apiKey = request.Headers["X-Api-Key"] // Try capitalized version
-    }
+	// Authenticate
+	apiKey := request.Headers["x-api-key"]
+	if apiKey == "" {
+		apiKey = request.Headers["X-Api-Key"] // Try capitalized version
+	}
 
 	user, err := authenticate(ctx, cfg, apiKey)
-    if err != nil {
+	if err != nil {
 		return errorResponse(401, fmt.Sprintf("unauthorized: %v", err))
 	}
 
 	// Route based on HTTP method and path
 	method := request.HTTPMethod
 	path := request.Path
-
-	// Remove /prod prefix if present (API Gateway stage)
-	if len(path) > 5 && path[:5] == "/prod" {
-		path = path[5:]
-	}
 
 	fmt.Printf("[DEBUG] Routing: %s %s\n", method, path)
 

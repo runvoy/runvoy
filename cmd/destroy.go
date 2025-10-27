@@ -31,7 +31,7 @@ var destroyCmd = &cobra.Command{
 	Use:   "destroy",
 	Short: "Destroy mycli infrastructure and clean up AWS resources",
 	Long: `Destroys both CloudFormation stacks and all associated resources:
-- Deletes the main CloudFormation stack (Lambda, API Gateway, ECS, VPC, etc.)
+- Deletes the main CloudFormation stack (Lambda Function URL, ECS, VPC, etc.)
 - Empties and deletes the S3 bucket for Lambda code
 - Deletes the Lambda bucket CloudFormation stack
 - Cleans up ECS task definitions

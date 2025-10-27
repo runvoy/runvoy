@@ -32,7 +32,7 @@ This creates two CloudFormation stacks:
 
 **Stack 2 - Main Infrastructure:**
 - ECS Fargate cluster for running tasks
-- Lambda orchestrator with API Gateway
+- Lambda orchestrator with Function URL
 - VPC with public subnets
 - CloudWatch Logs for execution output
 - Optionally configures Git credentials for private repos
@@ -96,7 +96,7 @@ mycli logs -f <task-arn>
 
 ```
 1. You run: mycli exec "terraform plan"
-2. CLI calls your Lambda function via API Gateway
+2. CLI calls your Lambda function via Function URL
 3. Lambda constructs a shell script that:
    - Installs git (if needed)
    - Clones your repository
@@ -220,7 +220,7 @@ Very low cost for typical usage:
 **Per execution** (5 min, 0.25 vCPU, 0.5 GB):
 - Fargate SPOT: ~$0.0003
 - Lambda: ~$0.0000002
-- API Gateway: ~$0.0000035
+- Lambda Function URL: ~$0.000001
 - **Total: ~$0.00033 per execution**
 
 **Monthly estimates:**
