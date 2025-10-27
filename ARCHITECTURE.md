@@ -77,118 +77,24 @@ runvoy is a centralized execution platform that allows teams to run infrastructu
 
 **Purpose**: User-facing interface for executing commands and managing the platform
 
-**Architecture**: The CLI is built with a modular provider architecture to support multiple cloud providers. The `init` command uses a provider abstraction layer that allows for easy extension to additional cloud platforms (AWS, GCP, Azure, etc.).
-
-**Provider Architecture**:
-- `internal/provider/` - Provider abstraction layer
-  - `interface.go` - Defines the `Provider` interface with methods for infrastructure lifecycle management
-  - `types.go` - Shared types (`InfrastructureOutput`, `Config`, `ValidationError`)
-  - `aws.go` - AWS-specific implementation (CloudFormation, DynamoDB, S3, Lambda)
-  - Factory pattern for provider registration and selection
-  
-**Provider Interface**:
-```go
-type Provider interface {
-    InitializeInfrastructure(ctx, cfg) (*InfrastructureOutput, error)
-    UpdateInfrastructure(ctx, cfg) error
-    DestroyInfrastructure(ctx, cfg) error
-    GetEndpoint(ctx, cfg) (string, error)
-    ValidateConfig(cfg) error
-    GetName() string
-}
-```
-
-**Provider Selection**:
-```bash
-# Use AWS (default)
-runvoy init --provider aws
-
-# Future: Use GCP
-runvoy init --provider gcp
-
-# Future: Use Azure
-runvoy init --provider azure
-```
-
-Each provider implementation handles cloud-specific operations:
-- AWS: CloudFormation stacks, DynamoDB, S3, Lambda, ECS Fargate
-- GCP (planned): Deployment Manager, Firestore, Cloud Storage, Cloud Functions, Cloud Run
-- Azure (planned): ARM templates, Cosmos DB, Blob Storage, Azure Functions, Container Instances
+**Architecture**: We have two binaries, `runvoy` which is the CLI client which is interacting with the endpoint, `runvoy-init` is an admin cli to help setup/tear down the infrastructure.
 
 **Key Commands**:
-- `runvoy init` - Deploy infrastructure (admin only, requires AWS credentials)
-- `runvoy destroy` - Remove all infrastructure (deletes CloudFormation stacks, S3 bucket)
-- `runvoy admin add-user <email>` - Generate API key for new user
-- `runvoy admin revoke-user <email>` - Disable user's API key
-- `runvoy admin list-users` - Show all users and their status
-- `runvoy configure` - Set up CLI with API key
-- `runvoy exec "command"` - Execute command remotely
+
+admin commands:
+- `runvoy-admin setup` - Deploy infrastructure (admin only, requires AWS credentials)
+- `runvoy-admin teardown` - Remove all infrastructure (deletes CloudFormation stacks, S3 bucket)
+
+client commands:
+- `runvoy add-user <email>` - Generate API key for new user
+- `runvoy revoke-user <email>` - Disable user's API key
+- `runvoy list-users` - Show all users and their status
 - `runvoy status <exec-id>` - Check execution status
-- `runvoy logs <exec-id>` - View execution logs
-- `runvoy list` - Show recent executions
-- `runvoy locks list` - Show active locks
-- `runvoy version` - Show version and embedded assets information
+- `runvoy exec "command"` - Execute command remotely
 
 **Embedded Assets Architecture**:
 
-The CLI is designed to be distributed as a self-contained binary with no external dependencies. CloudFormation templates are embedded at build time using Go's `embed` package.
-
-**Structure** (`internal/assets/`):
-- `templates.go` - Provides access to embedded CloudFormation templates via `GetCloudFormation*Template()` functions
-- `aws/` - AWS CloudFormation templates (organized by cloud provider for future multi-cloud support)
-  - `cloudformation-backend.yaml` - Main infrastructure template
-  - `cloudformation-lambda-bucket.yaml` - Lambda code bucket template
-  - `cloudformation-orchestrator-releases.yaml` - Orchestrator releases bucket template (public-read)
-- `README.md` - Documentation on embedded assets and multi-cloud organization
-
-**How It Works**:
-1. CloudFormation templates are maintained in `internal/assets/aws/` (organized by cloud provider)
-2. At build time, `//go:embed aws/*.yaml` directive embeds the templates into the binary
-3. The AWS provider calls `assets.GetCloudFormation*Template()` instead of reading from disk
-4. No file system access required at runtime - binary is fully self-contained
-5. Multi-cloud ready: Templates organized by provider (aws/, gcp/, azure/, etc.)
-
-**Keeping Templates in Sync**:
-When updating CloudFormation templates:
-```bash
-# Edit template directly in assets directory
-vim internal/assets/aws/cloudformation-backend.yaml
-
-# Rebuild to embed changes
-go build
-```
-
-**Debugging Embedded Templates**:
-```bash
-# View embedded templates
-runvoy version --show-templates
-
-# View specific template
-runvoy version --show-templates --template=backend
-runvoy version --show-templates --template=bucket
-
-# Verify templates in binary
-strings runvoy | grep "AWSTemplateFormatVersion"
-```
-
-**Benefits**:
-- ✅ Single binary distribution (no external template files needed)
-- ✅ Version consistency (templates guaranteed to match CLI version)
-- ✅ Simplified deployment (no asset management required)
-- ✅ Reduced errors (no missing or mismatched template files)
-
-**Note**: Templates are edited directly in `internal/assets/aws/` and embedded at build time. The `update-cloudformation.sh` script reads from this directory to update deployed CloudFormation stacks.
-
-**Configuration**:
-```yaml
-# ~/.runvoy/config.yaml
-api_endpoint: https://api.runvoy.company.com
-api_key: sk_live_abc123...
-region: us-east-2
-stack_name: runvoy-backend
-bucket_stack_name: runvoy-backend-lambda-bucket
-# Note: No AWS credentials stored
-```
+The admin CLI is designed to be distributed as a self-contained binary with no external dependencies. CloudFormation templates are embedded at build time using Go's `embed` package.
 
 ### 2. Lambda Function URL
 
@@ -383,34 +289,6 @@ Note: Lock is automatically released when execution completes
 
 **Resource Tagging**: All S3 buckets are tagged with Name, Application, and ManagedBy tags for easy identification and cost tracking.
 
-#### Lambda Code Bucket
-
-**Purpose**: Stores Lambda function deployment packages
-
-**Configuration**:
-- **Bucket Name**: `{ProjectName}-lambda-code-{AWS::AccountId}-{AWS::Region}`
-- **Access**: Private (no public access)
-- **Versioning**: Enabled for deployment history
-- **Lifecycle**: No lifecycle rules (keeps all versions)
-
-**Use Case**: Lambda orchestrator code is uploaded to this bucket during `runvoy init` and used to deploy the Lambda function.
-
-**CloudFormation Template**: `cloudformation-lambda-bucket.yaml`
-
-#### Code Bucket
-
-**Purpose**: Optional storage for user code uploads
-
-**Configuration**:
-- **Bucket Name**: `{ProjectName}-code-{AWS::AccountId}-{AWS::Region}`
-- **Access**: Private (no public access)
-- **Versioning**: Not enabled
-- **Lifecycle**: Automatic deletion after 7 days
-
-**Use Case**: For future use when users need to upload code or artifacts for execution.
-
-**CloudFormation Template**: Defined in `cloudformation-backend.yaml`
-
 #### Orchestrator Releases Bucket
 
 **Purpose**: Public bucket for hosting backend orchestrator releases and artifacts
@@ -423,16 +301,12 @@ Note: Lock is automatically released when execution completes
 
 **Use Case**: Distribution point for orchestrator releases, binaries, and other artifacts that need public access.
 
-**CloudFormation Template**: `cloudformation-orchestrator-releases.yaml`
+**CloudFormation Template**: `infra/runvoy-bucket.yaml`
 
 **Public Access**:
 - Bucket policy allows `s3:GetObject` for everyone (`*`)
 - Objects are publicly readable via HTTPS URL
 - Bucket itself is public with appropriate access controls
-
-**URLs**:
-- S3 URL: `s3://{bucket-name}/`
-- HTTPS URL: `https://{bucket-name}.s3.{region}.amazonaws.com/`
 
 ### 7. ECS Fargate
 
@@ -911,13 +785,30 @@ Company "Acme Corp" → AWS Account 123456789
      Share this with alice@acme.com
    ```
 
-3. **Users configure CLI**:
+3. **Users configure CLI** (`cmd/cli/cmd/configure.go`, `internal/config/config.go`):
    ```bash
    $ runvoy configure
-   API Endpoint: https://api.runvoy.acme.internal
-   API Key: sk_live_abc123...
-   ✓ Configuration saved
+   → Configuring runvoy CLI...
+   Enter API endpoint URL: https://xyz123.lambda-url.us-east-1.on.aws/
+   Enter API key: sk_live_abc123...
+   Enter AWS region (leave empty to skip): us-east-1
+   ✓ Configuration saved to ~/.runvoy/config.yaml
+   → Configuration complete!
    ```
+   
+   **What `runvoy configure` does**:
+   - Prompts user for API endpoint URL (Lambda Function URL)
+   - Prompts user for API key (masked input)
+   - Prompts user for AWS region (optional, defaults to us-east-1)
+   - Creates `~/.runvoy/` directory if it doesn't exist
+   - Saves configuration to `~/.runvoy/config.yaml` in YAML format
+   - Preserves existing values if config file already exists
+   
+   **Configuration package** (`internal/config`):
+   - `Config` struct defines the configuration structure
+   - `Load()` function loads configuration from `~/.runvoy/config.yaml`
+   - `Save()` function saves configuration with proper permissions (0600)
+   - `GetConfigPath()` returns the full path to the config file
 
 4. **Users execute commands**:
    ```bash
