@@ -19,7 +19,8 @@ update-lambda:
     aws lambda wait function-updated --function-name runvoy-orchestrator
 
 init:
-    aws cloudformation deploy --stack-name runvoy-backend \
+    aws cloudformation deploy \
+        --stack-name runvoy-backend \
         --template-file infra/cloudformation-backend.yaml \
         --parameter-overrides LambdaCodeBucket={{bucket}} JWTSecret=$(openssl rand -hex 32) \
         --capabilities CAPABILITY_NAMED_IAM
