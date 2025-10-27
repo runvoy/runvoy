@@ -117,6 +117,7 @@ Each provider implementation handles cloud-specific operations:
 
 **Key Commands**:
 - `mycli init` - Deploy infrastructure (admin only, requires AWS credentials)
+- `mycli destroy` - Remove all infrastructure (deletes CloudFormation stacks, S3 bucket)
 - `mycli admin add-user <email>` - Generate API key for new user
 - `mycli admin revoke-user <email>` - Disable user's API key
 - `mycli admin list-users` - Show all users and their status
@@ -132,6 +133,9 @@ Each provider implementation handles cloud-specific operations:
 # ~/.mycli/config.yaml
 api_endpoint: https://api.mycli.company.com
 api_key: sk_live_abc123...
+region: us-east-2
+stack_name: mycli-backend
+bucket_stack_name: mycli-backend-lambda-bucket
 # Note: No AWS credentials stored
 ```
 
@@ -660,7 +664,7 @@ Company "Acme Corp" → AWS Account 123456789
 1. **Admin deploys infrastructure**:
    ```bash
    $ aws configure  # Uses admin AWS credentials
-   $ mycli init --provider aws --stack-name mycli --region us-east-2
+   $ mycli init --provider aws --stack-name mycli-backend --region us-east-2
    → Generating API key...
    → Building Lambda function...
    → Creating S3 bucket stack for Lambda code (Stack 1)...
@@ -692,10 +696,36 @@ Company "Acme Corp" → AWS Account 123456789
      - IAM roles (Lambda execution, ECS task, ECS task execution)
      - CloudWatch log groups
    - Inserts the generated API key into DynamoDB (SHA256 hashed)
-   - Saves the configuration to `~/.mycli/config.yaml`
+   - Saves the configuration to `~/.mycli/config.yaml` (includes API endpoint, API key, region, main stack name, and bucket stack name)
 
    **Note**: Git credentials (GitHub/GitLab tokens, SSH keys) are NOT currently supported.
    The Lambda orchestrator does not implement git cloning yet. This is a planned feature.
+
+   **What `mycli destroy` does** (`cmd/destroy.go`, `internal/provider/aws.go`):
+   ```bash
+   $ mycli destroy --region us-east-2
+   🗑️  Destroying mycli infrastructure...
+   
+   → Deleting main CloudFormation stack...
+   → Emptying S3 bucket...
+   → Deleting bucket stack...
+   ✓ Destruction complete!
+   ```
+   
+   Steps:
+   1. Deletes the main CloudFormation stack (Lambda, API Gateway, DynamoDB, ECS, VPC, etc.)
+   2. Empties the S3 bucket by deleting all object versions and delete markers
+   3. Deletes the Lambda bucket CloudFormation stack
+   4. Removes the local configuration file (`~/.mycli/config.yaml`) unless `--keep-config` is used
+   
+   Implementation (`internal/provider/aws.go:129-188`):
+   - `DestroyInfrastructure()` orchestrates the entire teardown process
+   - `deleteStack()` deletes a CloudFormation stack and waits for completion (up to 15 minutes)
+   - `emptyBucket()` uses ListObjectVersions to delete all versions of all objects
+   - `getBucketNameFromStack()` retrieves the bucket name from stack outputs, or constructs it if the stack is already deleted
+   - Bucket name format: `{stackname}-lambda-code-{accountId}-{region}` (`deploy/cloudformation-bucket.yaml:15`)
+   
+   **Note**: The destroy process requires confirmation by typing "delete" unless `--force` is used.
 
 2. **Admin generates API keys for other users**:
    ```bash

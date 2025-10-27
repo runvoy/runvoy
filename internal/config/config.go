@@ -12,6 +12,7 @@ type Config struct {
 	APIEndpoint string `yaml:"api_endpoint"`
 	APIKey      string `yaml:"api_key"`
 	Region      string `yaml:"region"`
+	StackPrefix string `yaml:"stack_prefix"`
 }
 
 func configPath() (string, error) {

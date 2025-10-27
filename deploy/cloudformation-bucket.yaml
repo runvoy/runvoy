@@ -1,5 +1,6 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'mycli - S3 Bucket for Lambda Code (Stack 1 - Provisioning)'
+Description: 'mycli - Git-based Remote Command Execution Infrastructure (lambda code bucket)'
+# NOTE: currently it seems impossible to manage Lambda deployment with a single stack. This template is used to create the S3 bucket for Lambda code storage and orchestrate its deletion. Ideally we should be able to manage the Lambda deployment with a single stack.
 
 Parameters:
   ProjectName:

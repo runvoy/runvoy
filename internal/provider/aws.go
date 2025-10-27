@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -21,7 +22,12 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	dynamodbTypes "github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	s3Types "github.com/aws/aws-sdk-go-v2/service/s3/types"
+	"github.com/aws/aws-sdk-go-v2/service/sts"
 )
+
+const defaultMaxWaitTime = 15 * time.Minute
+const defaultMinWaitTime = 10 * time.Second
 
 // AWSProvider implements Provider for AWS
 type AWSProvider struct {
@@ -35,6 +41,13 @@ func NewAWSProvider() (Provider, error) {
 
 // InitializeInfrastructure deploys the AWS infrastructure
 func (p *AWSProvider) InitializeInfrastructure(ctx context.Context, cfg *Config) (*InfrastructureOutput, error) {
+	if cfg.StackPrefix == "" {
+		return nil, fmt.Errorf("stack prefix is required")
+	}
+	// Derive stack names from the prefix (implementation detail)
+	mainStackName := getMainStackName(cfg.StackPrefix)
+	bucketStackName := getBucketStackName(cfg.StackPrefix)
+
 	fmt.Println("→ Loading AWS configuration...")
 	// Load AWS config
 	cfgOpts := []func(*config.LoadOptions) error{}
@@ -63,16 +76,15 @@ func (p *AWSProvider) InitializeInfrastructure(ctx context.Context, cfg *Config)
 
 	// 2. Build Lambda function
 	fmt.Println("→ Building Lambda function...")
-	lambdaZip, err := p.buildLambda()
+	lambdaZip, err := p.buildFunction()
 	if err != nil {
 		return nil, fmt.Errorf("failed to build Lambda: %w", err)
 	}
 	fmt.Printf("✓ Lambda function built (size: %.1f KB)\n", float64(len(lambdaZip))/1024)
 
 	// 3. Create bucket stack for Lambda code
-	fmt.Printf("→ Creating S3 bucket stack '%s'...\n", fmt.Sprintf("%s-lambda-bucket", cfg.StackName))
-	bucketStackName := fmt.Sprintf("%s-lambda-bucket", cfg.StackName)
-	bucketName, err := p.createBucketStack(ctx, bucketStackName, cfg)
+	fmt.Printf("→ Creating S3 bucket stack '%s'...\n", bucketStackName)
+	bucketName, err := p.createBucketStack(ctx, bucketStackName, mainStackName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create bucket stack: %w", err)
 	}
@@ -86,15 +98,15 @@ func (p *AWSProvider) InitializeInfrastructure(ctx context.Context, cfg *Config)
 	fmt.Println("✓ Lambda code uploaded to S3")
 
 	// 5. Create main CloudFormation stack
-	fmt.Printf("→ Creating main CloudFormation stack '%s' (this may take 5-10 minutes)...\n", cfg.StackName)
-	if err := p.createMainStack(ctx, cfg, bucketName); err != nil {
+	fmt.Printf("→ Creating main CloudFormation stack '%s' (this may take 5-10 minutes)...\n", mainStackName)
+	if err := p.createMainStack(ctx, mainStackName, bucketName); err != nil {
 		return nil, fmt.Errorf("failed to create main stack: %w", err)
 	}
-	fmt.Printf("✓ Main stack '%s' created successfully\n", cfg.StackName)
+	fmt.Printf("✓ Main stack '%s' created successfully\n", mainStackName)
 
 	// 6. Get outputs from main stack
 	fmt.Println("→ Retrieving stack outputs...")
-	outputs, err := p.getStackOutputs(ctx, cfg.StackName)
+	outputs, err := p.getStackOutputs(ctx, mainStackName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get stack outputs: %w", err)
 	}
@@ -115,7 +127,7 @@ func (p *AWSProvider) InitializeInfrastructure(ctx context.Context, cfg *Config)
 		APIEndpoint:  outputs["APIEndpoint"],
 		APIKey:       apiKey,
 		Region:       cfg.Region,
-		StackName:    cfg.StackName,
+		StackPrefix:  cfg.StackPrefix, // Return the prefix, not the individual stack names
 		APIKeysTable: apiKeysTable,
 		CreatedAt:    time.Now(),
 	}, nil
@@ -127,12 +139,76 @@ func (p *AWSProvider) UpdateInfrastructure(ctx context.Context, cfg *Config) err
 }
 
 func (p *AWSProvider) DestroyInfrastructure(ctx context.Context, cfg *Config) error {
-	// TODO: Implement destroy logic
-	return fmt.Errorf("destroy not yet implemented")
+	// Load AWS config
+	cfgOpts := []func(*config.LoadOptions) error{}
+	if cfg.Region != "" {
+		cfgOpts = append(cfgOpts, config.WithRegion(cfg.Region))
+	}
+
+	awsCfg, err := config.LoadDefaultConfig(ctx, cfgOpts...)
+	if err != nil {
+		return fmt.Errorf("failed to load AWS config: %w", err)
+	}
+
+	if cfg.Region == "" {
+		return fmt.Errorf("region is required")
+	}
+	p.cfg = awsCfg
+
+	var (
+		cfnClient       *cloudformation.Client = cloudformation.NewFromConfig(p.cfg)
+		s3Client        *s3.Client             = s3.NewFromConfig(p.cfg)
+		mainStackName   string                 = getMainStackName(cfg.StackPrefix)
+		bucketStackName string                 = getBucketStackName(cfg.StackPrefix)
+	)
+
+	// 1. Delete main stack first
+	fmt.Println("→ Deleting main CloudFormation stack...")
+	if err := p.deleteStack(ctx, cfnClient, mainStackName); err != nil {
+		return fmt.Errorf("failed to delete main stack: %w", err)
+	}
+	fmt.Printf("✓ Main stack '%s' deleted\n", mainStackName)
+
+	// 2. Empty the S3 bucket
+	fmt.Println("→ Emptying S3 bucket...")
+	bucketName, err := p.getBucketNameFromStack(ctx, cfnClient, bucketStackName)
+	if err != nil {
+		// Bucket stack might not exist anymore, try to construct bucket name
+		// Bucket name format: {StackName}-lambda-code-{AccountId}-{Region}
+		accountId, _ := p.getAccountID(ctx)
+		cfgLower := strings.ToLower(strings.TrimSuffix(bucketStackName, "-lambda-bucket"))
+		bucketName = fmt.Sprintf("%s-lambda-code-%s-%s", cfgLower, accountId, cfg.Region)
+		fmt.Printf("  Attempting to find bucket with constructed name: %s\n", bucketName)
+	} else {
+		fmt.Printf("  Found bucket: %s\n", bucketName)
+	}
+
+	if err := p.emptyBucket(ctx, s3Client, bucketName); err != nil {
+		// Log warning but continue - bucket might be empty or not exist
+		fmt.Printf("⚠️  Warning: failed to empty bucket: %v\n", err)
+	} else {
+		fmt.Println("✓ S3 bucket emptied")
+	}
+
+	// 3. Delete bucket stack
+	fmt.Println("→ Deleting bucket stack...")
+	if err := p.deleteStack(ctx, cfnClient, bucketStackName); err != nil {
+		// Log warning but continue - stack might not exist
+		fmt.Printf("⚠️  Warning: failed to delete bucket stack: %v\n", err)
+	} else {
+		fmt.Printf("✓ Bucket stack '%s' deleted\n", bucketStackName)
+	}
+
+	return nil
 }
 
 func (p *AWSProvider) GetEndpoint(ctx context.Context, cfg *Config) (string, error) {
-	outputs, err := p.getStackOutputs(ctx, cfg.StackName)
+	if cfg.StackPrefix == "" {
+		return "", fmt.Errorf("stack prefix is required")
+	}
+	// Use the main stack name (derived from prefix) to get outputs
+	mainStackName := getMainStackName(cfg.StackPrefix)
+	outputs, err := p.getStackOutputs(ctx, mainStackName)
 	if err != nil {
 		return "", err
 	}
@@ -140,8 +216,8 @@ func (p *AWSProvider) GetEndpoint(ctx context.Context, cfg *Config) (string, err
 }
 
 func (p *AWSProvider) ValidateConfig(cfg *Config) error {
-	if cfg.StackName == "" {
-		return &ValidationError{Message: "stack name is required", Field: "stack_name"}
+	if cfg.StackPrefix == "" {
+		return &ValidationError{Message: "stack prefix is required", Field: "stack_prefix"}
 	}
 	if cfg.Region == "" {
 		return &ValidationError{Message: "region is required", Field: "region"}
@@ -151,6 +227,16 @@ func (p *AWSProvider) ValidateConfig(cfg *Config) error {
 
 func (p *AWSProvider) GetName() string {
 	return "aws"
+}
+
+// Helper functions for stack naming
+
+func getMainStackName(prefix string) string {
+	return fmt.Sprintf("%s-backend", prefix)
+}
+
+func getBucketStackName(prefix string) string {
+	return fmt.Sprintf("%s-lambda-bucket", prefix)
 }
 
 // Helper methods
@@ -169,7 +255,7 @@ func (p *AWSProvider) generateAPIKey() (string, string, error) {
 	return apiKey, apiKeyHash, nil
 }
 
-func (p *AWSProvider) buildLambda() ([]byte, error) {
+func (p *AWSProvider) buildFunction() ([]byte, error) {
 	// Find project root
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -241,7 +327,7 @@ func (p *AWSProvider) buildLambda() ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func (p *AWSProvider) createBucketStack(ctx context.Context, stackName string, cfg *Config) (string, error) {
+func (p *AWSProvider) createBucketStack(ctx context.Context, stackName string, projectName string) (string, error) {
 	cfnClient := cloudformation.NewFromConfig(p.cfg)
 
 	// Read bucket template
@@ -265,7 +351,7 @@ func (p *AWSProvider) createBucketStack(ctx context.Context, stackName string, c
 		Parameters: []cfnTypes.Parameter{
 			{
 				ParameterKey:   aws.String("ProjectName"),
-				ParameterValue: aws.String(cfg.StackName),
+				ParameterValue: aws.String(projectName),
 			},
 		},
 		Tags: []cfnTypes.Tag{
@@ -280,9 +366,10 @@ func (p *AWSProvider) createBucketStack(ctx context.Context, stackName string, c
 	// Wait for stack creation
 	fmt.Println("   Waiting for stack to become ready (this may take a minute)...")
 	bucketWaiter := cloudformation.NewStackCreateCompleteWaiter(cfnClient)
+
 	err = bucketWaiter.Wait(ctx, &cloudformation.DescribeStacksInput{
 		StackName: &stackName,
-	}, 5*time.Minute)
+	}, maxWaitForContext(ctx))
 	if err != nil {
 		return "", err
 	}
@@ -317,7 +404,7 @@ func (p *AWSProvider) uploadLambdaCode(ctx context.Context, bucketName string, l
 	return err
 }
 
-func (p *AWSProvider) createMainStack(ctx context.Context, cfg *Config, bucketName string) error {
+func (p *AWSProvider) createMainStack(ctx context.Context, stackName string, bucketName string) error {
 	cfnClient := cloudformation.NewFromConfig(p.cfg)
 
 	lambdaKey := "bootstrap.zip"
@@ -338,7 +425,7 @@ func (p *AWSProvider) createMainStack(ctx context.Context, cfg *Config, bucketNa
 		return err
 	}
 
-	templatePath := filepath.Join(cwd, "deploy", "cloudformation.yaml")
+	templatePath := filepath.Join(cwd, "deploy", "cloudformation-backend.yaml")
 	templateBody, err := os.ReadFile(templatePath)
 	if err != nil {
 		return err
@@ -347,7 +434,7 @@ func (p *AWSProvider) createMainStack(ctx context.Context, cfg *Config, bucketNa
 
 	fmt.Println("   Starting CloudFormation stack creation...")
 	_, err = cfnClient.CreateStack(ctx, &cloudformation.CreateStackInput{
-		StackName:    &cfg.StackName,
+		StackName:    &stackName,
 		TemplateBody: &templateStr,
 		Capabilities: []cfnTypes.Capability{cfnTypes.CapabilityCapabilityNamedIam},
 		Parameters:   cfnParams,
@@ -361,11 +448,11 @@ func (p *AWSProvider) createMainStack(ctx context.Context, cfg *Config, bucketNa
 
 	// Wait for stack creation
 	fmt.Println("   Waiting for stack to become ready...")
-	fmt.Println("   Progress: Creating Lambda function, API Gateway, and DynamoDB table...")
 	waiter := cloudformation.NewStackCreateCompleteWaiter(cfnClient)
+
 	err = waiter.Wait(ctx, &cloudformation.DescribeStacksInput{
-		StackName: &cfg.StackName,
-	}, 10*time.Minute)
+		StackName: &stackName,
+	}, maxWaitForContext(ctx))
 	return err
 }
 
@@ -409,4 +496,128 @@ func parseStackOutputs(outputs []cfnTypes.Output) map[string]string {
 
 func strPtr(s string) *string {
 	return &s
+}
+
+// Helper methods for destroy operation
+
+// maxWaitForContext calculates the maximum wait time based on context deadline
+func maxWaitForContext(ctx context.Context) time.Duration {
+	if deadline, ok := ctx.Deadline(); ok {
+		remaining := time.Until(deadline)
+		// Use 10 seconds less than context deadline to avoid timeout
+		maxwait := remaining - defaultMinWaitTime
+		return maxwait
+	}
+
+	return defaultMaxWaitTime
+}
+
+func (p *AWSProvider) deleteStack(ctx context.Context, cfnClient *cloudformation.Client, stackName string) error {
+	// Delete the stack
+	_, err := cfnClient.DeleteStack(ctx, &cloudformation.DeleteStackInput{
+		StackName: &stackName,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to initiate stack deletion: %w", err)
+	}
+
+	// Wait for stack deletion to complete
+	fmt.Printf("   Waiting for stack '%s' to be deleted (this may take several minutes)...\n", stackName)
+
+	// Calculate maxwait based on context deadline
+	maxwait := maxWaitForContext(ctx)
+
+	waiter := cloudformation.NewStackDeleteCompleteWaiter(cfnClient)
+	err = waiter.Wait(ctx, &cloudformation.DescribeStacksInput{
+		StackName: &stackName,
+	}, maxwait)
+	if err != nil {
+		return fmt.Errorf("failed to wait for stack deletion: %w", err)
+	}
+
+	return nil
+}
+
+func (p *AWSProvider) getBucketNameFromStack(ctx context.Context, cfnClient *cloudformation.Client, stackName string) (string, error) {
+	resp, err := cfnClient.DescribeStacks(ctx, &cloudformation.DescribeStacksInput{
+		StackName: &stackName,
+	})
+	if err != nil {
+		return "", err
+	}
+
+	if len(resp.Stacks) == 0 {
+		return "", fmt.Errorf("stack not found")
+	}
+
+	outputs := parseStackOutputs(resp.Stacks[0].Outputs)
+	bucketName := outputs["BucketName"]
+	if bucketName == "" {
+		return "", fmt.Errorf("bucket name not found in stack outputs")
+	}
+
+	return bucketName, nil
+}
+
+func (p *AWSProvider) emptyBucket(ctx context.Context, s3Client *s3.Client, bucketName string) error {
+	// List all objects including versions
+	paginator := s3.NewListObjectVersionsPaginator(s3Client, &s3.ListObjectVersionsInput{
+		Bucket: &bucketName,
+	})
+
+	for paginator.HasMorePages() {
+		page, err := paginator.NextPage(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to list bucket objects: %w", err)
+		}
+
+		// Delete all versions
+		var objectsToDelete []s3Types.ObjectIdentifier
+		for _, version := range page.Versions {
+			if version.Key != nil {
+				objectsToDelete = append(objectsToDelete, s3Types.ObjectIdentifier{
+					Key:       version.Key,
+					VersionId: version.VersionId,
+				})
+			}
+		}
+
+		// Delete all delete markers
+		for _, marker := range page.DeleteMarkers {
+			if marker.Key != nil {
+				objectsToDelete = append(objectsToDelete, s3Types.ObjectIdentifier{
+					Key:       marker.Key,
+					VersionId: marker.VersionId,
+				})
+			}
+		}
+
+		// Delete objects in batches
+		if len(objectsToDelete) > 0 {
+			_, err := s3Client.DeleteObjects(ctx, &s3.DeleteObjectsInput{
+				Bucket: &bucketName,
+				Delete: &s3Types.Delete{
+					Objects: objectsToDelete,
+				},
+			})
+			if err != nil {
+				return fmt.Errorf("failed to delete objects: %w", err)
+			}
+		}
+	}
+
+	return nil
+}
+
+func (p *AWSProvider) getAccountID(ctx context.Context) (string, error) {
+	// Use STS to get account ID
+	stsClient := sts.NewFromConfig(p.cfg)
+	result, err := stsClient.GetCallerIdentity(ctx, &sts.GetCallerIdentityInput{})
+	if err != nil {
+		return "", err
+	}
+	if result.Account == nil {
+		return "", fmt.Errorf("account ID not found")
+	}
+	return *result.Account, nil
 }

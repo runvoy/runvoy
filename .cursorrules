@@ -122,7 +122,7 @@ Use conventional commits format:
 6. Update `.mycli.yaml` example if project-level config
 
 ### Modifying IAM Permissions
-1. Update `deploy/cloudformation.yaml`
+1. Update `deploy/cloudformation-backend.yaml`
 2. Update ARCHITECTURE.md IAM Roles section
 3. Document why permission is needed
 4. Add to Troubleshooting if was fixing an issue

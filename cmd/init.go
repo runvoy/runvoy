@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"bufio"
-	"context"
 	"fmt"
 	"os"
 	"strings"
@@ -14,9 +13,9 @@ import (
 )
 
 var (
-	initStackName string
-	initRegion    string
-	forceInit     bool
+	initStackPrefix string
+	initRegion      string
+	forceInit       bool
 )
 
 var initCmd = &cobra.Command{
@@ -34,7 +33,7 @@ This is a one-time setup command. Supports multiple cloud providers via the --pr
 
 func init() {
 	rootCmd.AddCommand(initCmd)
-	initCmd.Flags().StringVar(&initStackName, "stack-name", "mycli", "CloudFormation stack name")
+	initCmd.Flags().StringVar(&initStackPrefix, "stack-prefix", "mycli", "CloudFormation stack name prefix (provider creates all necessary stacks)")
 	initCmd.Flags().StringVar(&initRegion, "region", "us-east-2", "Cloud provider region")
 	initCmd.Flags().BoolVar(&forceInit, "force", false, "Skip confirmation prompt")
 }
@@ -48,11 +47,9 @@ func getProvider() (provider.Provider, error) {
 }
 
 func runInit(cmd *cobra.Command, args []string) error {
-	ctx := context.Background()
-
 	fmt.Println("🚀 Initializing mycli infrastructure...")
-	fmt.Println("   Provider:   aws")
-	fmt.Printf("   Stack name: %s\n", initStackName)
+	fmt.Println("   Provider: aws")
+	fmt.Printf("   Stack prefix: %s\n", initStackPrefix)
 	fmt.Printf("   Region: %s\n\n", initRegion)
 
 	p, err := getProvider()
@@ -61,10 +58,11 @@ func runInit(cmd *cobra.Command, args []string) error {
 	}
 
 	// Create provider configuration
+	// The provider will be responsible for creating all necessary stacks
 	cfg := &provider.Config{
-		StackName: initStackName,
-		Region:    initRegion,
-		Force:     forceInit,
+		StackPrefix: initStackPrefix,
+		Region:      initRegion,
+		Force:       forceInit,
 	}
 
 	// Validate configuration
@@ -74,19 +72,19 @@ func runInit(cmd *cobra.Command, args []string) error {
 
 	// Confirmation prompt
 	if !forceInit {
-		if err := showInitConfirmation("aws", initStackName, initRegion); err != nil {
+		if err := showInitConfirmation(); err != nil {
 			return err
 		}
 	}
 
 	// Initialize infrastructure
-	outputs, err := p.InitializeInfrastructure(ctx, cfg)
+	outputs, err := p.InitializeInfrastructure(cmd.Context(), cfg)
 	if err != nil {
 		return fmt.Errorf("failed to initialize infrastructure: %w", err)
 	}
 
 	// Save configuration
-	if err := saveConfiguration(outputs, initRegion); err != nil {
+	if err := saveConfiguration(outputs); err != nil {
 		return fmt.Errorf("failed to save configuration: %w", err)
 	}
 
@@ -97,12 +95,9 @@ func runInit(cmd *cobra.Command, args []string) error {
 }
 
 // showInitConfirmation prompts the user for confirmation
-func showInitConfirmation(providerName, stackName, region string) error {
-	fmt.Println("⚠️  This will create cloud infrastructure in your account:")
-	fmt.Printf("   Provider:   %s\n", providerName)
-	fmt.Printf("   Stack Name: %s\n", stackName)
-	fmt.Printf("   Region:     %s\n", region)
-	fmt.Print("\nType 'yes' to confirm: ")
+func showInitConfirmation() error {
+	fmt.Println("⚠️  This will create cloud infrastructure in your account")
+	fmt.Print("   Type 'yes' to confirm: ")
 
 	reader := bufio.NewReader(os.Stdin)
 	response, err := reader.ReadString('\n')
@@ -120,12 +115,13 @@ func showInitConfirmation(providerName, stackName, region string) error {
 }
 
 // saveConfiguration saves the configuration to disk
-func saveConfiguration(outputs *provider.InfrastructureOutput, region string) error {
+func saveConfiguration(outputs *provider.InfrastructureOutput) error {
 	fmt.Println("→ Saving configuration to disk...")
 	cliConfig := &internalConfig.Config{
 		APIEndpoint: outputs.APIEndpoint,
 		APIKey:      outputs.APIKey,
-		Region:      region,
+		Region:      outputs.Region,
+		StackPrefix: outputs.StackPrefix,
 	}
 	if err := internalConfig.Save(cliConfig); err != nil {
 		return err

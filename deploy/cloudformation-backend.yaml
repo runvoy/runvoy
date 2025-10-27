@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'mycli - Git-based Remote Command Execution Infrastructure'
+Description: 'mycli - Git-based Remote Command Execution Infrastructure (backend)'
 
 Parameters:
   ProjectName:
@@ -135,11 +135,18 @@ Resources:
         - Key: Name
           Value: !Sub '${ProjectName}-code-bucket'
 
-  # CloudWatch Log Group for execution logs
+  # CloudWatch Log Group for ECS task execution logs
   ExecutionLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
-      LogGroupName: !Sub '/aws/mycli/${ProjectName}'
+      LogGroupName: !Sub '/aws/ecs/${ProjectName}/task-execution'
+      RetentionInDays: 7
+
+  # CloudWatch Log Group for Lambda orchestrator
+  LambdaLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${ProjectName}-orchestrator'
       RetentionInDays: 7
 
   # VPC for Fargate tasks
@@ -380,6 +387,7 @@ Resources:
   # Lambda Function (code loaded from S3 bucket)
   LambdaFunction:
     Type: AWS::Lambda::Function
+    DependsOn: LambdaLogGroup
     Properties:
       FunctionName: !Sub '${ProjectName}-orchestrator'
       Runtime: provided.al2023
@@ -464,10 +472,16 @@ Outputs:
     Value: !Ref TaskDefinition
 
   LogGroup:
-    Description: CloudWatch Log Group
+    Description: CloudWatch Log Group for executions
     Value: !Ref ExecutionLogGroup
     Export:
       Name: !Sub '${ProjectName}-log-group'
+
+  LambdaLogGroup:
+    Description: CloudWatch Log Group for Lambda orchestrator
+    Value: !Ref LambdaLogGroup
+    Export:
+      Name: !Sub '${ProjectName}-lambda-log-group'
 
   LambdaFunctionName:
     Description: Lambda function name

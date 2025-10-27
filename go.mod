@@ -7,7 +7,9 @@ require (
 	github.com/aws/aws-sdk-go-v2/config v1.26.0
 	github.com/aws/aws-sdk-go-v2/service/cloudformation v1.42.0
 	github.com/aws/aws-sdk-go-v2/service/dynamodb v1.52.2
+	github.com/aws/aws-sdk-go-v2/service/ecs v1.65.4
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.88.7
+	github.com/aws/aws-sdk-go-v2/service/sts v1.26.4
 	github.com/spf13/cobra v1.8.0
 	gopkg.in/yaml.v3 v3.0.1
 )
@@ -27,7 +29,6 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.19.11 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sso v1.18.4 // indirect
 	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.21.4 // indirect
-	github.com/aws/aws-sdk-go-v2/service/sts v1.26.4 // indirect
 	github.com/aws/smithy-go v1.23.1 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect

@@ -9,16 +9,16 @@ type InfrastructureOutput struct {
 	APIEndpoint  string
 	APIKey       string
 	Region       string
-	StackName    string
+	StackPrefix  string // Stack prefix that identifies the deployment (implementation detail: provider may create multiple stacks)
 	APIKeysTable string
 	CreatedAt    time.Time
 }
 
 // Config holds provider configuration
 type Config struct {
-	StackName string
-	Region    string
-	Force     bool
+	StackPrefix string // Stack prefix to operate on (provider-specific)
+	Region      string
+	Force       bool
 }
 
 // ValidationError represents a validation error

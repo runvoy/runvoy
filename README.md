@@ -143,7 +143,7 @@ timeout: 3600
 Deploy infrastructure to your AWS account
 
 Options:
-- `--stack-name` - CloudFormation stack name (default: "mycli")
+- `--stack-name` - CloudFormation stack name (default: "mycli-backend")
 - `--region` - AWS region (default: from AWS config or us-east-2)
 
 ### `mycli exec [flags] "command"`
@@ -175,9 +175,11 @@ Manually configure CLI (for existing infrastructure)
 Delete all infrastructure (both CloudFormation stacks)
 
 Options:
-- `--stack-name` - Stack name to delete (default: "mycli")
+- `--region` - AWS region (defaults to configured value)
 - `--force` - Skip confirmation
 - `--keep-config` - Keep local config file
+
+The stack name is automatically determined from your configuration.
 
 Deletes the main stack, empties and deletes the S3 bucket, and removes the Lambda bucket stack.
 
