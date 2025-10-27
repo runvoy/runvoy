@@ -1,1746 +1,877 @@
-# mycli - System Architecture & Implementation
+# mycli Architecture
 
-Complete technical documentation for the mycli remote command execution platform.
+## Overview
 
-## Table of Contents
+mycli is a centralized execution platform that allows teams to run infrastructure commands without sharing AWS credentials. An AWS admin deploys mycli once to the company's AWS account, then issues API keys to team members who can execute commands safely with full audit trails.
 
-1. [Overview & Design Philosophy](#overview--design-philosophy)
-2. [Architecture](#architecture)
-3. [Key Components](#key-components)
-4. [Execution Flow](#execution-flow)
-5. [Configuration System](#configuration-system)
-6. [CLI Commands Reference](#cli-commands-reference)
-7. [API Contract](#api-contract)
-8. [Security Model](#security-model)
-9. [Shell Command Construction](#shell-command-construction)
-10. [Cost Analysis](#cost-analysis)
-11. [Deployment & Testing](#deployment--testing)
-12. [Limitations & Trade-offs](#limitations--trade-offs)
-13. [Future Enhancements](#future-enhancements)
-14. [Troubleshooting](#troubleshooting)
+## Design Principles
 
----
+1. **Centralized Execution, Distributed Access**: One deployment per company, multiple users with API keys
+2. **No Credential Sharing**: Team members never see AWS credentials
+3. **Complete Audit Trail**: Every execution logged with user identification
+4. **Safe Stateful Operations**: Automatic locking prevents concurrent operations on shared resources
+5. **Self-Service**: Team members don't wait for admins to run commands
+6. **Extensible Authorization**: Architecture supports fine-grained permissions (to be added later)
 
-## Overview & Design Philosophy
-
-### Project Vision
-
-A CLI tool that provides isolated, repeatable execution environments for commands. Solves the problem of running infrastructure-as-code tools (Terraform, Ansible, etc.) and other CLI applications without local execution issues like race conditions, credential sharing, or dependency conflicts.
-
-**Key principle:** General purpose remote execution, not tool-specific. Users can run any command in a containerized environment.
-
-### Design Decisions
-
-**Simplicity over custom solutions:**
-- ✅ Use standard Docker images (no custom containers to maintain)
-- ✅ Dynamic shell command construction (no custom entrypoints)
-- ✅ Git as source of truth (no S3 code storage)
-- ✅ Direct ECS/CloudWatch API usage (no DynamoDB for MVP)
-
-**Target Use Cases:**
-- Infrastructure as Code execution (Terraform, Ansible, Pulumi)
-- CI/CD workflows
-- Scripts requiring AWS credentials
-- Any command needing isolation and audit trails
-
----
-
-## Architecture
-
-### System Diagram
+## System Architecture
 
 ```
-┌─────────────┐
-│  CLI User   │ mycli exec "terraform plan"
-└──────┬──────┘
-       │ HTTPS + API Key
-       ▼
-┌──────────────────┐
-│  API Gateway     │ REST API endpoint
-│  /execute        │
-└──────┬───────────┘
-       │
-       ▼
-┌─────────────────────────────────────────────────────┐
-│  Lambda Orchestrator (Go)                           │
-│  - Validates API key (bcrypt)                       │
-│  - Constructs shell script:                         │
-│    * Install git (if needed)                        │
-│    * Configure git credentials                      │
-│    * Clone repository                               │
-│    * Execute user command                           │
-│  - Starts ECS Fargate task with command override   │
-└──────┬──────────────────────────────────────────────┘
-       │
-       ▼
-┌──────────────────────────────────────────────────────┐
-│  ECS Fargate Task                                    │
-│  - Uses any Docker image (terraform, python, etc.)  │
-│  - Executes constructed shell command                │
-│  - Logs output to CloudWatch                        │
-│  - Exits with command's exit code                   │
-└──────────────────────────────────────────────────────┘
-       │
-       ▼
-┌──────────────────┐
-│  CloudWatch Logs │
-│  Execution logs  │
-└──────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│                         AWS Account                              │
+│                                                                  │
+│  ┌──────────────┐                                               │
+│  │ API Gateway  │◄─────── HTTPS with X-API-Key header          │
+│  └──────┬───────┘                                               │
+│         │                                                        │
+│  ┌──────▼───────────┐                                          │
+│  │ Lambda           │                                           │
+│  │ (Orchestrator)   │                                           │
+│  │                  │                                           │
+│  │ - Validate API   │         ┌──────────────┐                │
+│  │   key            │────────►│ DynamoDB     │                │
+│  │ - Check lock     │         │ - API Keys   │                │
+│  │ - Start ECS task │         │ - Locks      │                │
+│  │ - Record exec    │         │ - Executions │                │
+│  └──────┬───────────┘         └──────────────┘                │
+│         │                                                        │
+│  ┌──────▼───────────┐                                          │
+│  │ ECS Fargate      │                                           │
+│  │                  │                                           │
+│  │ Container:       │         ┌──────────────┐                │
+│  │ - Clone git repo │────────►│ S3 Bucket    │                │
+│  │   (optional)     │         │ - Code       │                │
+│  │ - Run command    │         │   uploads    │                │
+│  │ - Stream logs    │         └──────────────┘                │
+│  │                  │                                           │
+│  │ Task Role:       │                                           │
+│  │ - AWS perms for  │         ┌──────────────┐                │
+│  │   actual work    │────────►│ CloudWatch   │                │
+│  └──────────────────┘         │ Logs         │                │
+│                                └──────────────┘                │
+│                                                                  │
+│  ┌──────────────────────────────────────────┐                 │
+│  │ Web UI (S3 + CloudFront)                 │                 │
+│  │ - Static site for viewing logs           │                 │
+│  │ - Token-based access (no login)          │                 │
+│  │ - Real-time log streaming                │                 │
+│  └──────────────────────────────────────────┘                 │
+└─────────────────────────────────────────────────────────────────┘
+
+┌─────────────────┐
+│ Users           │
+│                 │
+│ - CLI with API  │
+│   key (no AWS   │
+│   credentials)  │
+│                 │
+│ - Web browser   │
+│   for viewing   │
+│   logs          │
+└─────────────────┘
 ```
 
-### AWS Services Used
+## Components
 
-**Compute & Orchestration:**
-- **API Gateway** - REST API endpoint for CLI requests
-- **Lambda** - Orchestrator (validates, constructs commands, starts tasks)
-- **ECS Fargate** - Serverless containers for command execution
+### 1. CLI (Go)
 
-**Storage:**
-- **CloudWatch Logs** - Execution output (stdout/stderr)
-- No S3 needed - Git is source of truth
+**Purpose**: User-facing interface for executing commands and managing the platform
 
-**Networking:**
-- **VPC** - Isolated network for Fargate tasks
-- **Public Subnets** - For Git repository access (no NAT Gateway cost)
-- **Security Groups** - Egress-only (no inbound traffic)
+**Key Commands**:
+- `mycli init` - Deploy infrastructure (admin only, requires AWS credentials)
+- `mycli admin add-user <email>` - Generate API key for new user
+- `mycli admin revoke-user <email>` - Disable user's API key
+- `mycli admin list-users` - Show all users and their status
+- `mycli configure` - Set up CLI with API key
+- `mycli exec "command"` - Execute command remotely
+- `mycli status <exec-id>` - Check execution status
+- `mycli logs <exec-id>` - View execution logs
+- `mycli list` - Show recent executions
+- `mycli locks list` - Show active locks
 
-**Authentication:**
-- **Lambda Environment Variables** - API key hash and Git credentials (encrypted at rest)
-
----
-
-## Key Components
-
-### 1. Lambda Orchestrator
-
-**Location:** `lambda/orchestrator/`
-**Language:** Go
-**Runtime:** Custom runtime (provided.al2023, ARM64)
-
-**Responsibilities:**
-- API key authentication using bcrypt
-- Request validation
-- Shell command construction (git setup + clone + user command)
-- Dynamic task definition registration (when custom image specified)
-- ECS task orchestration with command override
-- Task metadata management
-
-**Key Files & Functions:**
-- `main.go` - `handler()` entry point and routing
-- `config.go` - AWS SDK clients and environment variable loading
-- `auth.go` - `authenticate()` API key verification
-- `handlers.go` - `handleExec()`, `handleStatus()`, `handleLogs()`
-- `shell.go` - `buildShellCommand()`, `buildDirectCommand()`, `shellEscape()`
-- `response.go` - `errorResponse()` helper
-- `util.go` - `generateExecutionID()` - Short ID generation using timestamp + crypto/rand
-- `types.go` - Shared API type aliases (`Request`, `Response`)
-
-**Why Go?**
-- Fast cold starts (~100ms)
-- Small binary size (~10 MB)
-- Strong typing for safety
-- Excellent AWS SDK support
-
-**Execution ID Generation:**
-
-The system uses short, timestamp-based IDs for execution tracking:
-- **Format:** `{timestamp_hex}{random_hex}` (12 characters, e.g., `67a1a8f4a3b5`)
-- **Structure:** 8-character Unix timestamp (hex) + 4-character random suffix (hex)
-- **Implementation:** Self-implemented using `crypto/rand` from Go standard library (no external dependencies)
-- **Why this format?**
-  - Short and URL-friendly: 12 chars vs 36 chars for UUID (66% shorter)
-  - Collision-resistant: 2 random bytes provide ~65k combinations per second
-  - Time-ordered: Timestamp prefix enables efficient date-based queries in future
-  - Unpredictable: Cryptographically secure random generation
-  - No external dependencies: ~15 lines of code using only standard library
-  - Database-ready: Can delegate uniqueness to DynamoDB primary key when needed
-- **Future Enhancement:** Entropy level will be configurable via `mycli init` command
-
-### 2. CLI Application
-
-**Language:** Go
-**Framework:** Cobra (command structure)
-
-**Key Files:**
-- `cmd/init.go` - Infrastructure deployment, builds Lambda, configures Git credentials (cmd/init.go:61)
-- `cmd/exec.go` - Command execution with config priority resolution (cmd/exec.go:65)
-- `cmd/status.go` - Task status checking
-- `cmd/logs.go` - Log viewing with follow mode
-- `cmd/configure.go` - Manual configuration
-- `cmd/destroy.go` - Infrastructure cleanup
-- `internal/config/config.go` - Global config management (~/.mycli/config.yaml)
-- `internal/project/config.go` - Project config parser (.mycli.yaml)
-- `internal/git/detector.go` - Git remote URL auto-detection
-- `internal/api/client.go` - API Gateway HTTP client
-
-### 3. Container Execution Model
-
-**NO custom Docker image required!**
-
-Users can specify **any** Docker image:
-- `hashicorp/terraform:1.6` - For Terraform
-- `python:3.11` - For Python scripts
-- `node:18` - For Node.js
-- `ubuntu:22.04` - Generic fallback
-- Any public or private Docker image
-
-**How it works:**
-1. Lambda constructs a shell script with git setup + clone + user command
-2. If a custom image is specified via `--image` flag:
-   - Lambda dynamically registers a new task definition with that image (or reuses existing one)
-   - Task definition family name: Human-readable based on image name (e.g., `mycli-task-alpine-latest`, `mycli-task-terraform-1-6`)
-   - Collision detection: If a task definition with that name exists but uses a different image, falls back to hash-based naming
-   - Perfect caching: Same image always reuses the same task definition
-3. ECS task runs with the appropriate task definition
-4. Container executes the shell script which:
-   - Installs git if needed (apt-get, apk, or yum)
-   - Configures credentials
-   - Clones repo to `/workspace/repo`
-   - Runs user's command in that directory
-   - Exits with the command's exit code
-
-**Task Definition Naming Strategy:**
-
-The Lambda orchestrator creates human-readable task definition family names for easy identification and caching:
-
-**Naming Examples:**
-- `alpine:latest` → `mycli-task-alpine-latest`
-- `ubuntu:22.04` → `mycli-task-ubuntu-22-04`
-- `hashicorp/terraform:1.6` → `mycli-task-hashicorp-terraform-1-6`
-- `python:3.11-slim` → `mycli-task-python-3-11-slim`
-
-**Sanitization Rules:**
-- Replace `:`, `/`, `.`, `@`, `_` with `-`
-- Convert to lowercase
-- Truncate to 50 characters (ECS family name limit is 255)
-- Trim trailing hyphens
-
-**Collision Detection:**
-
-When a task definition family already exists, the Lambda checks if it uses the same image:
-1. **Match found**: Reuses existing task definition (perfect caching!)
-2. **Collision detected**: Different image, same sanitized name
-   - Falls back to hash-based naming: `mycli-task-{sanitized}-{8-char-hash}`
-   - Example: If both `alpine:latest` and `alpine/latest` exist
-   - First gets: `mycli-task-alpine-latest`
-   - Second gets: `mycli-task-alpine-latest-a1b2c3d4`
-
-**Benefits:**
-- ✅ Easy to identify which images have cached task definitions
-- ✅ Simple to search/filter in AWS Console: "mycli-task-terraform*"
-- ✅ Perfect caching: same image always reuses same definition
-- ✅ Helps with debugging and cost analysis
-- ✅ No unnecessary task definition proliferation
-
-### 4. CloudFormation Infrastructure
-
-**Two-Stack Deployment Strategy:**
-
-mycli uses a two-stack CloudFormation approach to properly manage Lambda function provisioning:
-
-1. **Lambda Bucket Stack** (`cloudformation-bucket.yaml`) - Stack 1
-   - Creates S3 bucket for Lambda code storage
-   - Kept permanent throughout application lifecycle
-   - Named: `{stack-name}-lambda-bucket`
-
-2. **Main Infrastructure Stack** (`cloudformation.yaml`) - Stack 2
-   - All core infrastructure resources (ECS, VPC, API Gateway, etc.)
-   - Lambda function references S3 bucket from Stack 1
-   - Named: `{stack-name}` (default: "mycli")
-
-**Why Two Stacks?**
-
-CloudFormation Lambda functions require actual code at creation time. By splitting into two stacks:
-- ✅ Fully declarative infrastructure (no manual Lambda code updates needed)
-- ✅ Clean separation of concerns: code storage vs infrastructure
-- ✅ Both stacks remain throughout application lifecycle
-- ✅ S3 bucket versioning enables Lambda code history tracking
-- ✅ No placeholder code workarounds
-
-**Lambda Bucket Stack Resources** (`deploy/cloudformation-bucket.yaml`):
-- **S3 Bucket** - Persistent storage for Lambda code
-  - Name: `{project-name}-lambda-code-{account-id}-{region}`
-  - Versioning: Enabled for code history
-  - Access: Private, blocked public access
-  - Lifecycle: Permanent (deleted only via `mycli destroy`)
-
-**Main Infrastructure Stack Resources** (`deploy/cloudformation.yaml`):
-- **VPC** - 10.0.0.0/16 with DNS support
-- **Internet Gateway** - For public subnet internet access
-- **Public Subnets (2)** - Multi-AZ for high availability
-- **Route Table** - Routes traffic to internet gateway
-- **Security Group** - Egress-only for Fargate tasks
-- **ECS Cluster** - Fargate capacity provider (FARGATE_SPOT default)
-- **Task Definition** - Template task (image/command overridden at runtime)
-- **CloudWatch Log Group** - /aws/mycli/{ProjectName}, 7-day retention
-- **IAM Roles:**
-  - Task Execution Role - Pull images, write logs
-  - Task Role - Runtime permissions (minimal by default, user-configurable)
-  - Lambda Execution Role - Start tasks, read logs, update function config
-- **Lambda Function** - Code loaded from S3 bucket (from bootstrap stack)
-- **API Gateway** - REST API with /execute resource, POST method, Lambda integration, and prod deployment
-
-**Main Stack Parameters:**
-- `LambdaCodeBucket` - S3 bucket name containing Lambda code (from bootstrap stack)
-- `LambdaCodeKey` - S3 key for Lambda deployment package (default: bootstrap.zip)
-- `APIKeyHash` - Bcrypt hash of API key (NoEcho)
-- `GitHubToken` - GitHub PAT (NoEcho, optional)
-- `GitLabToken` - GitLab PAT (NoEcho, optional)
-- `SSHPrivateKey` - Base64-encoded SSH key (NoEcho, optional)
-- `DefaultImage` - Template image (default: ubuntu:22.04)
-
----
-
-## Execution Flow
-
-### Standard Git-based Execution
-
-```
-1. User runs: mycli exec --repo=https://github.com/user/infra "terraform apply"
-
-2. CLI (cmd/exec.go:65):
-   - Loads global config from ~/.mycli/config.yaml
-   - Builds execution config (flags > .mycli.yaml > git auto-detect)
-   - Validates configuration
-   - Sends POST request to API Gateway
-
-3. API Gateway:
-   - Routes to Lambda function
-   - Passes request body and headers
-
-4. Lambda (`lambda/orchestrator/main.go`):
-   - Authenticates API key via bcrypt
-   - Validates request (repo, command required)
-   - Constructs shell script (`lambda/orchestrator/shell.go`):
-     * Install git if not present
-     * Configure GitHub/GitLab/SSH credentials
-     * Clone repo: git clone --depth 1 --branch main <repo> /workspace/repo
-     * cd /workspace/repo
-     * Execute user command
-     * Cleanup credentials
-   - If custom image specified (`lambda/orchestrator/handlers.go:getOrCreateTaskDefinition()`):
-     * Creates human-readable family name by sanitizing image: `mycli-task-{sanitized-image}`
-       - Example: `alpine:latest` → `mycli-task-alpine-latest`
-       - Example: `hashicorp/terraform:1.6` → `mycli-task-hashicorp-terraform-1-6`
-     * Checks if task definition already exists with this family name
-     * If exists, verifies the image matches (perfect caching)
-     * If collision detected (same name, different image), falls back to: `mycli-task-{sanitized-image}-{hash}`
-     * If not exists, registers new task definition with custom image
-     * Uses base task definition as template (CPU, memory, roles, etc.)
-   - Starts ECS Fargate task with:
-     * Task Definition: Custom or base task definition
-     * Command: ["/bin/sh", "-c", "<script>"]
-     * Environment: User-provided env vars
-     * Tags: ExecutionID, Repo
-   - Returns task ARN and execution ID
-
-5. Fargate Task:
-   - Downloads specified Docker image
-   - Executes shell script
-   - Logs all output to CloudWatch
-   - Exits with command's exit code
-
-6. User monitors:
-   - mycli status <task-arn> - Check task status
-   - mycli logs <execution-id> - View logs
-   - mycli logs -f <execution-id> - Follow logs
-```
-
-### Direct Execution (--skip-git mode)
-
-```
-1. User runs: mycli exec --skip-git --image=alpine:latest "echo hello"
-
-2. Lambda (`lambda/orchestrator/main.go`):
-   - Skips git credential setup
-   - Constructs simpler script (`lambda/orchestrator/shell.go`):
-     * Echo execution header
-     * Execute user command directly
-     * Report exit code
-   - Starts ECS task without git cloning
-
-3. Fargate Task:
-   - Runs command in container root directory
-   - No repository cloning
-   - Faster startup
-```
-
----
-
-## Configuration System
-
-### Three-Level Priority System
-
-When executing `mycli exec "command"`, configuration is resolved in this order:
-
-1. **Command-line flags** (highest priority)
-   - `--repo`, `--branch`, `--image`, `--env`, `--timeout`, `--skip-git`
-
-2. **`.mycli.yaml`** in current directory
-   - Project-specific settings
-   - Should be committed to version control
-
-3. **Git remote auto-detection** (convenience)
-   - Runs: `git remote get-url origin`
-   - Detects current branch
-
-4. **Error** if no repo specified (unless --skip-git)
-
-### Global Configuration
-
-**Location:** `~/.mycli/config.yaml`
-**Permissions:** 0600 (read/write for owner only)
-**Created by:** `mycli init` command
-
-**Format:**
+**Configuration**:
 ```yaml
-api_endpoint: https://abc123.execute-api.us-east-1.amazonaws.com/prod/execute
-api_key: sk_live_a1b2c3d4e5f6...
-region: us-east-1
+# ~/.mycli/config.yaml
+api_endpoint: https://api.mycli.company.com
+api_key: sk_live_abc123...
+# Note: No AWS credentials stored
 ```
 
-**Purpose:** User-level mycli configuration (API credentials, endpoint)
+### 2. API Gateway
 
-### Project Configuration
+**Purpose**: HTTP entry point for CLI requests
 
-**Location:** `.mycli.yaml` in project directory
-**Permissions:** Standard file (should be committed to git)
-**Created by:** User (manually or via future `mycli init-project` command)
+**Authentication**: 
+- API key validation via custom Lambda authorizer
+- Header: `X-API-Key: sk_live_...`
 
-**Format:**
+**Endpoints**:
+- `POST /executions` - Create new execution
+- `GET /executions/{id}` - Get execution status
+- `GET /executions/{id}/logs` - Stream logs (for web UI)
+- `GET /executions` - List executions (with filters)
+- `GET /locks` - List active locks
+
+### 3. Lambda Orchestrator (Python or Go)
+
+**Purpose**: Validate requests and orchestrate ECS task execution
+
+**Responsibilities**:
+1. **Validate API Key**: Check against DynamoDB, ensure not revoked
+2. **Check Lock**: Acquire lock if requested, fail if held by another execution
+3. **Start ECS Task**: Launch Fargate task with user's command
+4. **Record Execution**: Store metadata in DynamoDB
+5. **Return Response**: Execution ID, task ARN, log viewer URL
+
+**Environment Variables**:
+- `API_KEYS_TABLE` - DynamoDB table name
+- `EXECUTIONS_TABLE` - DynamoDB table name
+- `LOCKS_TABLE` - DynamoDB table name
+- `ECS_CLUSTER` - ECS cluster name
+- `ECS_TASK_DEFINITION` - Task definition ARN
+- `CODE_BUCKET` - S3 bucket for code uploads
+- `JWT_SECRET` - Secret for signing log viewer tokens
+- `WEB_UI_URL` - Base URL for log viewer
+
+**Flow**:
+```python
+def handler(event, context):
+    # 1. Validate API key
+    api_key = event['headers']['X-API-Key']
+    user = validate_api_key(api_key)
+    if not user:
+        return {'statusCode': 401, 'body': 'Invalid API key'}
+    
+    # 2. Parse request
+    body = json.loads(event['body'])
+    command = body['command']
+    lock_name = body.get('lock')
+    
+    # 3. Acquire lock if requested
+    if lock_name:
+        acquired = try_acquire_lock(lock_name, user['email'])
+        if not acquired:
+            holder = get_lock_holder(lock_name)
+            return {
+                'statusCode': 409,
+                'body': f'Lock held by {holder["email"]} since {holder["started"]}'
+            }
+    
+    # 4. Generate execution ID
+    execution_id = generate_execution_id()
+    
+    # 5. Start ECS task
+    task_arn = start_ecs_task(
+        command=command,
+        execution_id=execution_id,
+        user_email=user['email']
+    )
+    
+    # 6. Record execution
+    record_execution(
+        execution_id=execution_id,
+        user_email=user['email'],
+        command=command,
+        task_arn=task_arn,
+        lock_name=lock_name
+    )
+    
+    # 7. Generate log viewer token
+    token = generate_log_token(execution_id)
+    log_url = f"{WEB_UI_URL}/{execution_id}?token={token}"
+    
+    return {
+        'statusCode': 200,
+        'body': json.dumps({
+            'execution_id': execution_id,
+            'task_arn': task_arn,
+            'log_url': log_url,
+            'status': 'starting'
+        })
+    }
+```
+
+### 4. DynamoDB Tables
+
+#### API Keys Table
+```
+Partition Key: api_key_hash (string)
+
+Attributes:
+- api_key_hash: bcrypt hash of the API key
+- user_email: string
+- created_at: timestamp
+- revoked: boolean
+- last_used: timestamp (updated on each request)
+
+Future attributes (not implemented yet):
+- execution_role_arn: IAM role for this user's executions
+- allowed_commands: list of command patterns
+- allowed_images: list of allowed Docker images
+- allowed_locks: list of lock patterns
+- groups: list of group names
+```
+
+#### Executions Table
+```
+Partition Key: execution_id (string)
+Sort Key: started_at (timestamp) - for time-based queries
+
+Attributes:
+- execution_id: string (exec_abc123)
+- user_email: string (who ran it)
+- command: string (what was executed)
+- lock_name: string (if locked)
+- task_arn: string (ECS task identifier)
+- started_at: timestamp
+- completed_at: timestamp
+- status: string (starting, running, completed, failed)
+- exit_code: number
+- duration_seconds: number
+- log_stream_name: string
+- cost_usd: number (calculated)
+
+GSI: user_email-started_at (for per-user queries)
+GSI: status-started_at (for filtering by status)
+```
+
+#### Locks Table
+```
+Partition Key: lock_name (string)
+
+Attributes:
+- lock_name: string
+- execution_id: string (who holds it)
+- user_email: string
+- acquired_at: timestamp
+- ttl: number (auto-expire after execution timeout)
+
+Note: Lock is automatically released when execution completes
+```
+
+### 5. ECS Fargate
+
+**Task Definition**:
 ```yaml
-# Repository to clone (required if not using --repo flag)
-repo: https://github.com/mycompany/infrastructure
+Family: mycli-executor
+LaunchType: FARGATE
+CPU: 256 (0.25 vCPU) - configurable
+Memory: 512 (0.5 GB) - configurable
+NetworkMode: awsvpc
 
-# Branch to checkout (optional, default: main)
-branch: main
+ExecutionRole: (for pulling images, writing logs)
+  - ecr:GetAuthorizationToken
+  - ecr:BatchCheckLayerAvailability
+  - ecr:GetDownloadUrlForLayer
+  - ecr:BatchGetImage
+  - logs:CreateLogStream
+  - logs:PutLogEvents
 
-# Docker image to use (optional, default: ubuntu:22.04)
-image: hashicorp/terraform:1.6
+TaskRole: (for actual AWS operations)
+  - Initially: AdministratorAccess (MVP)
+  - Future: Configurable per-user/group
 
-# Environment variables (optional)
-env:
-  TF_VAR_environment: production
-  TF_VAR_region: us-east-1
-  AWS_REGION: us-east-1
-
-# Timeout in seconds (optional, default: 1800)
-timeout: 3600
+Container:
+  Image: public.ecr.aws/mycli/executor:latest
+  Command: ["/entrypoint.sh"]
+  Environment:
+    - EXECUTION_ID: (from Lambda)
+    - COMMAND: (user's command)
+    - USER_EMAIL: (for audit)
+    - LOCK_NAME: (if applicable)
+  
+  LogConfiguration:
+    LogDriver: awslogs
+    Options:
+      awslogs-group: /mycli/executions
+      awslogs-region: us-east-1
+      awslogs-stream-prefix: exec
 ```
 
-**Examples:**
-
-Terraform project:
-```yaml
-repo: https://github.com/company/aws-infrastructure
-image: hashicorp/terraform:1.6
-env:
-  TF_VAR_region: us-east-1
-  TF_VAR_environment: production
-timeout: 3600
-```
-
-Ansible project:
-```yaml
-repo: https://github.com/company/ansible-playbooks
-image: ansible/ansible:latest
-env:
-  ANSIBLE_HOST_KEY_CHECKING: "False"
-```
-
-Multi-environment pattern:
-```yaml
-# .mycli.yaml - base config
-repo: https://github.com/company/infra
-# Use --branch flag for different environments
-```
-
-Usage:
+**Container Entrypoint**:
 ```bash
-mycli exec --branch=dev "terraform apply"   # dev environment
-mycli exec --branch=prod "terraform apply"  # prod environment
+#!/bin/bash
+set -e
+
+# Log execution start
+echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] Execution started"
+echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] User: $USER_EMAIL"
+echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] Command: $COMMAND"
+
+# Set up working directory
+mkdir -p /workspace
+cd /workspace
+
+# If code was uploaded to S3, download it
+if [ -n "$CODE_S3_PATH" ]; then
+    echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] Downloading code from S3..."
+    aws s3 cp "$CODE_S3_PATH" code.tar.gz
+    tar -xzf code.tar.gz
+    rm code.tar.gz
+fi
+
+# Execute the command
+echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] Running command..."
+eval "$COMMAND"
+EXIT_CODE=$?
+
+# Log completion
+echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] Command completed with exit code: $EXIT_CODE"
+
+# Release lock (Lambda will also handle this via task state change)
+if [ -n "$LOCK_NAME" ]; then
+    # Call Lambda to release lock
+    aws lambda invoke \
+        --function-name mycli-release-lock \
+        --payload "{\"lock_name\":\"$LOCK_NAME\",\"execution_id\":\"$EXECUTION_ID\"}" \
+        /tmp/response.json
+fi
+
+exit $EXIT_CODE
 ```
 
----
+**Default Images** (Future):
+- `mycli/executor:terraform` - Terraform + AWS CLI
+- `mycli/executor:ansible` - Ansible + AWS CLI
+- `mycli/executor:python` - Python 3.11 + common tools
+- `mycli/executor:node` - Node.js + common tools
+- Custom images via `--image` flag
 
-## CLI Commands Reference
+### 6. CloudWatch Logs
 
-### `mycli init`
+**Log Group**: `/mycli/executions`
 
-**Purpose:** One-command infrastructure setup
+**Log Streams**: One per execution
+- Format: `exec/{execution_id}/{task_id}`
+- Retention: 7 days (configurable)
 
-**What it does:**
-1. Loads AWS config (region from flag or AWS config or default us-east-2)
-2. Shows confirmation prompt with region and resources to be created (unless --force)
-3. Generates API key: `sk_live_{64_hex_chars}`
-4. Hashes key with bcrypt (cost 10)
-5. Prompts for Git credentials (optional, interactive)
-6. Builds Lambda function (Go cross-compile for linux/arm64)
-7. Creates Lambda bucket CloudFormation stack (Stack 1) with S3 bucket (~1 minute)
-8. Uploads Lambda code to S3 bucket
-9. Creates main infrastructure CloudFormation stack (Stack 2) with all resources (~5 minutes)
-10. Waits for main stack creation
-11. Saves config to ~/.mycli/config.yaml
-12. Displays API key (shown once, also saved to config)
+**Benefits**:
+- Centralized logging
+- Searchable
+- Integrated with AWS ecosystem
+- No additional storage setup
 
-**Flags:**
-- `--stack-name string` - CloudFormation stack name (default: "mycli")
-- `--region string` - AWS region (default: from AWS config or us-east-2)
-- `--force` - Skip confirmation prompt
+### 7. S3 Bucket
 
-**Git Credential Setup (interactive):**
+**Purpose**: Store uploaded code (if using upload-based workflow)
+
+**Structure**:
 ```
-→ Git Credential Configuration
-  For private repositories, you can configure Git authentication.
-  This is optional - you can skip this and only use public repos.
-
-Configure Git credentials? [y/N]: y
-
-Choose authentication method:
-  1) GitHub Personal Access Token (recommended)
-  2) GitLab Personal Access Token
-  3) SSH Private Key (for any Git provider)
-  4) Skip
-
-Selection [1-4]: 1
-Enter GitHub token (ghp_...): ghp_xxxxx
-  ✓ GitHub token configured
+mycli-code-{account-id}/
+  executions/
+    exec_abc123/
+      code.tar.gz
+    exec_def456/
+      code.tar.gz
 ```
 
-**Output:**
+**Lifecycle**:
+- Delete objects after 7 days (executions are temporary)
+
+**Note**: For git-based workflow, this may not be needed (code cloned directly in container)
+
+### 8. Web UI (Log Viewer)
+
+**Hosting**: S3 static website + CloudFront (optional)
+
+**Tech Stack**: Single HTML file with embedded JavaScript
+- No framework needed (keep it simple)
+- Vanilla JS + minimal CSS
+- Mobile-responsive
+
+**Features**:
+- Real-time log streaming (polling)
+- ANSI color support
+- Line number linking
+- Search/filter
+- Copy to clipboard
+- Download logs
+
+**Authentication**: JWT token in URL
 ```
-🚀 Initializing mycli infrastructure...
-   Stack name: mycli
-   Region: us-east-1
+https://mycli.company.com/{execution_id}?token=eyJ...
 
-⚠️  This will create AWS infrastructure in your account:
-   Stack Name: mycli
-   Region:     us-east-1
-
-Resources to be created:
-   - VPC with subnets and internet gateway
-   - ECS Fargate cluster and task definitions
-   - Lambda function and API Gateway
-   - CloudWatch log groups
-   - IAM roles and security groups
-
-Type 'yes' to confirm: yes
-
-→ Generating API key...
-→ Building Lambda function...
-→ Creating S3 bucket stack for Lambda code (Stack 1)...
-  Waiting for bucket stack creation...
-✓ Lambda bucket stack created
-→ Uploading Lambda code to S3...
-✓ Lambda code uploaded
-→ Creating main CloudFormation stack (Stack 2)...
-  Waiting for stack creation (this may take a few minutes)...
-✓ Main stack created successfully
-→ Saving configuration...
-
-✅ Setup complete!
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Configuration saved to ~/.mycli/config.yaml
-  API Endpoint: https://abc123.execute-api.us-east-1.amazonaws.com/prod/execute
-  Region:       us-east-1
-  GitHub Auth:  ✓ Configured
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-🔑 Your API key: sk_live_a1b2c3d4e5f6...
-   (Also saved to config file)
-
-Next steps:
-  1. Test it: mycli exec --repo=https://github.com/user/repo "echo hello"
-```
-
-### `mycli exec [flags] "command"`
-
-**Purpose:** Execute command remotely
-
-**Flags:**
-- `--repo string` - Git repository URL (overrides .mycli.yaml and git remote)
-- `--branch string` - Git branch to checkout (overrides .mycli.yaml)
-- `--image string` - Docker image to use (overrides .mycli.yaml)
-- `--env stringArray` - Environment variables KEY=VALUE (merges with .mycli.yaml, repeatable)
-- `--timeout int` - Timeout in seconds (overrides .mycli.yaml)
-- `--skip-git` - Skip git cloning and run command directly in container
-
-**Configuration Priority:** CLI flags > .mycli.yaml > Git auto-detect > Error
-
-**Examples:**
-
-With .mycli.yaml (simplest):
-```bash
-cd my-terraform-project  # has .mycli.yaml
-mycli exec "terraform plan"
-# Uses repo, branch, image from .mycli.yaml
-```
-
-Override specific settings:
-```bash
-mycli exec --branch=dev "terraform plan"
-mycli exec --env TF_VAR_region=us-west-2 "terraform apply"
-```
-
-Without .mycli.yaml (explicit):
-```bash
-mycli exec --repo=https://github.com/user/infra "terraform apply"
-mycli exec --repo=https://github.com/user/infra --branch=dev "terraform plan"
-```
-
-Auto-detect from git remote:
-```bash
-cd my-git-repo  # no .mycli.yaml, but has git remote
-mycli exec "make deploy"
-# Automatically uses: git remote get-url origin
-```
-
-Skip git cloning:
-```bash
-mycli exec --skip-git --image=alpine:latest "echo hello world"
-# No repository cloning, runs command directly
-```
-
-**Output:**
-```bash
-$ mycli exec "terraform apply"
-→ Loaded configuration from .mycli.yaml
-→ Repository: https://github.com/user/infra
-→ Branch: main
-→ Image: hashicorp/terraform:1.6
-→ Command: terraform apply
-
-→ Starting execution...
-✓ Execution started
-
-Execution Details:
-  Execution ID: 67a1a8f4a3b5
-  Task ARN:     arn:aws:ecs:us-east-1:123456789:task/mycli-cluster/abc123def456
-  Log Stream:   task/executor/abc123def456
-
-Monitor execution:
-  mycli status arn:aws:ecs:us-east-1:123456789:task/mycli-cluster/abc123def456
-  mycli logs arn:aws:ecs:us-east-1:123456789:task/mycli-cluster/abc123def456
-  mycli logs -f arn:aws:ecs:us-east-1:123456789:task/mycli-cluster/abc123def456  # Follow logs in real-time
-```
-
-### `mycli status <task-arn>`
-
-**Purpose:** Check execution status
-
-**What it does:**
-1. Sends API request with action="status"
-2. Lambda queries ECS DescribeTasks API
-3. Returns task status, desired status, timestamps
-
-**Output:**
-```
-Status:         RUNNING
-Desired Status: RUNNING
-Created At:     2025-01-26T14:32:10Z
-```
-
-Possible statuses:
-- `PROVISIONING` - Container being provisioned
-- `PENDING` - Waiting for resources
-- `RUNNING` - Command executing
-- `DEPROVISIONING` - Task shutting down
-- `STOPPED` - Task completed (check logs for exit code)
-
-### `mycli logs <task-arn>`
-
-**Purpose:** View execution logs
-
-**Flags:**
-- `-f, --follow` - Stream logs in real-time (polls every 2 seconds)
-
-**What it does:**
-1. Sends API request with action="logs" and task ARN
-2. Lambda extracts task ID from the ARN
-3. Constructs log stream name: `task/executor/{task-id}`
-4. Queries CloudWatch Logs for the specific log stream
-5. Returns log events with timestamps in format: `YYYY-MM-DD HH:MM:SS UTC | message`
-
-**Design Note:** Uses task ARN directly instead of execution ID for simplicity. This avoids the need to list all ECS tasks and search through tags, or maintain a DynamoDB table for ExecutionID → TaskARN mapping. The task ARN is provided in the output of `mycli exec` command.
-
-**Output:**
-```bash
-$ mycli logs arn:aws:ecs:us-east-1:123456789:task/mycli-cluster/abc123def456
-
-Logs for task: arn:aws:ecs:us-east-1:123456789:task/mycli-cluster/abc123def456
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-2025-10-26 14:32:10 UTC | ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-2025-10-26 14:32:10 UTC | mycli Remote Execution
-2025-10-26 14:32:10 UTC | ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-2025-10-26 14:32:11 UTC | → Configuring GitHub authentication...
-2025-10-26 14:32:11 UTC | → Repository: https://github.com/user/infra
-2025-10-26 14:32:11 UTC | → Branch: main
-2025-10-26 14:32:11 UTC | → Cloning repository...
-2025-10-26 14:32:15 UTC | ✓ Repository cloned
-2025-10-26 14:32:15 UTC |
-2025-10-26 14:32:15 UTC | ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-2025-10-26 14:32:15 UTC | Executing command...
-2025-10-26 14:32:15 UTC | ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-2025-10-26 14:32:15 UTC |
-2025-10-26 14:32:16 UTC | [terraform output here...]
-2025-10-26 14:35:42 UTC |
-2025-10-26 14:35:42 UTC | ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-2025-10-26 14:35:42 UTC | ✓ Command completed successfully
-2025-10-26 14:35:42 UTC | ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-```
-
-**Timestamp Format:** Each log line is prefixed with a timestamp showing when the event occurred in UTC timezone.
-
-Follow mode:
-```bash
-$ mycli logs -f arn:aws:ecs:us-east-1:123456789:task/mycli-cluster/abc123def456
-# Streams logs in real-time until task completes
-# Each line includes timestamp for accurate event tracking
-```
-
-### `mycli configure`
-
-**Purpose:** Manual configuration or reconfiguration
-
-**What it does:**
-1. Discovers existing CloudFormation stack
-2. Extracts outputs (API endpoint, region)
-3. Prompts for API key (not in stack outputs)
-4. Saves to ~/.mycli/config.yaml
-
-**Use cases:**
-- Lost config file
-- Multiple environments
-- Deployed infrastructure manually
-
-### `mycli destroy`
-
-**Purpose:** Clean up all infrastructure (both stacks)
-
-**Flags:**
-- `--stack-name string` - Stack to delete (default: "mycli")
-- `--region string` - AWS region (default: from config or AWS profile)
-- `--force` - Skip confirmation prompt
-- `--keep-config` - Keep local config file after destruction
-
-**What it does:**
-1. Confirms with user (unless --force)
-2. Deletes all ECS task definitions with mycli prefix (both active and inactive, dynamically created)
-   - First deregisters all ACTIVE task definitions
-   - Then deletes all INACTIVE task definitions (including newly deregistered ones)
-3. Deletes main CloudFormation stack (cascades to Lambda, API Gateway, ECS, VPC, etc.)
-4. Waits for main stack deletion to complete
-5. Empties S3 bucket (deletes all objects and versions)
-6. Deletes Lambda bucket CloudFormation stack
-7. Waits for bucket stack deletion to complete
-8. Removes local config file (unless --keep-config)
-
-**Example:**
-```bash
-$ mycli destroy
-⚠️  WARNING: This will destroy the CloudFormation stack 'mycli' and all resources.
-   This action cannot be undone.
-
-Type 'yes' to confirm: yes
-
-Destroying mycli infrastructure...
-   Region: us-east-1
-   Stack: mycli
-
-→ Deleting ECS task definitions...
-  Collecting task definitions...
-  Found 3 active and 2 inactive mycli task definitions across 5 families
-  Deregistering active task definitions...
-  Deregistered: arn:aws:ecs:us-east-1:123456789:task-definition/mycli-task:3
-  Deregistered: arn:aws:ecs:us-east-1:123456789:task-definition/mycli-task:2
-  Deleting inactive task definitions...
-  Deleted: arn:aws:ecs:us-east-1:123456789:task-definition/mycli-task:1
-✓ Deleted 3 task definitions
-→ Deleting main CloudFormation stack...
-  Waiting for stack deletion (this may take a few minutes)...
-✓ Main stack deleted successfully
-→ Deleting Lambda bucket stack...
-  Emptying S3 bucket...
-  ✓ S3 bucket emptied
-  Waiting for bucket stack deletion...
-✓ Lambda bucket stack deleted successfully
-→ Removing local configuration...
-✓ Config removed
-
-✅ Destruction complete!
-   All AWS resources have been removed.
-```
-
----
-
-## API Contract
-
-### Unified API Design
-
-All actions use POST to `/execute` endpoint with `action` field in request body.
-
-### Authentication
-
-**Header:** `X-API-Key: sk_live_...`
-**Validation:** Bcrypt comparison in Lambda (`lambda/orchestrator/auth.go`)
-
-### POST /execute - Exec Action
-
-**Request:**
-```json
+Token payload:
 {
-  "action": "exec",
-  "repo": "https://github.com/user/infrastructure",
-  "branch": "main",
-  "command": "terraform apply -auto-approve",
-  "image": "hashicorp/terraform:1.6",
-  "env": {
-    "TF_VAR_region": "us-east-1",
-    "AWS_REGION": "us-east-1"
-  },
-  "timeout_seconds": 1800,
-  "skip_git": false
+  "execution_id": "exec_abc123",
+  "exp": 1730000000,  // 48 hours from creation
+  "aud": "web-viewer"
 }
 ```
 
-**Response:**
-```json
-{
-  "execution_id": "67a1a8f4a3b5",
-  "task_arn": "arn:aws:ecs:us-east-1:123456789:task/mycli-cluster/abc123",
-  "status": "starting",
-  "log_stream": "task/abc123",
-  "created_at": "2025-01-26T14:32:10Z"
-}
+**API Endpoints** (separate from main API):
+```
+GET /api/logs/{execution_id}
+  Headers: Authorization: Bearer {token}
+  Query: ?since={timestamp} (for polling new logs)
+  
+  Response:
+  {
+    "execution_id": "exec_abc123",
+    "status": "running",
+    "logs": "...",
+    "last_timestamp": "2025-10-26T14:42:45Z",
+    "completed": false
+  }
 ```
 
-**Validation:**
-- `command` required
-- `repo` required unless `skip_git` is true
-- `branch` defaults to "main"
-- `timeout_seconds` defaults to 1800
-- `env` optional, merged with task environment
+## Data Flow
 
-### POST /execute - Status Action
+### Execution Flow (Detailed)
 
-**Request:**
-```json
-{
-  "action": "status",
-  "task_arn": "arn:aws:ecs:us-east-1:123456789:task/mycli-cluster/abc123"
-}
+```
+1. User runs command
+   $ mycli exec "terraform apply" --lock infra-prod
+
+2. CLI sends request to API Gateway
+   POST /executions
+   Headers: X-API-Key: sk_live_abc123...
+   Body: {
+     "command": "terraform apply",
+     "lock": "infra-prod",
+     "image": "hashicorp/terraform:1.6",
+     "env": {"TF_VAR_region": "us-east-1"},
+     "timeout": 1800
+   }
+
+3. Lambda validates API key
+   - Query DynamoDB: api_key_hash = hash(sk_live_abc123...)
+   - Check revoked = false
+   - Update last_used timestamp
+   - Get user_email
+
+4. Lambda attempts to acquire lock
+   - Try to write to Locks table with condition:
+     attribute_not_exists(lock_name)
+   - If fails, query who holds it and return 409
+   - If succeeds, continue
+
+5. Lambda generates execution ID
+   - Format: exec_{timestamp}_{random}
+   - Example: exec_20251026143210_a1b2c3
+
+6. Lambda starts ECS task
+   - Task definition: mycli-executor
+   - Override command: ["/entrypoint.sh"]
+   - Environment variables:
+     * EXECUTION_ID=exec_abc123
+     * COMMAND=terraform apply
+     * USER_EMAIL=alice@acme.com
+     * LOCK_NAME=infra-prod
+   - Network: Public subnet with NAT (or private with VPC endpoints)
+
+7. Lambda records execution in DynamoDB
+   - execution_id, user_email, command, task_arn
+   - started_at, status=starting, lock_name
+
+8. Lambda generates log viewer token
+   - JWT signed with secret
+   - Expires in 48 hours
+   - Contains execution_id
+
+9. Lambda returns response
+   {
+     "execution_id": "exec_abc123",
+     "task_arn": "arn:aws:ecs:...",
+     "log_url": "https://mycli.company.com/exec_abc123?token=...",
+     "status": "starting"
+   }
+
+10. CLI displays to user
+    ✓ Execution started: exec_abc123
+    🔗 View logs: https://mycli.company.com/exec_abc123?token=...
+    → Running...
+
+11. ECS task starts
+    - Container pulls image
+    - Entrypoint script runs
+    - Logs to CloudWatch: /mycli/executions/exec/exec_abc123/{task-id}
+
+12. User opens log viewer URL
+    - Static HTML page loads from S3
+    - JavaScript extracts execution_id and token from URL
+    - Polls API: GET /api/logs/exec_abc123?token=...
+    - Displays logs with ANSI colors
+    - Polls every 2 seconds while status != completed
+
+13. Task completes
+    - Exit code captured
+    - CloudWatch receives final logs
+    - Task state change event triggers Lambda (optional)
+
+14. Lambda updates execution record
+    - status=completed/failed
+    - completed_at, exit_code, duration_seconds
+    - Releases lock (deletes from Locks table)
+
+15. User sees completion in web UI
+    ✓ Completed in 10m 35s
+    Exit code: 0
+    [Logs with final output]
 ```
 
-**Response:**
-```json
-{
-  "status": "RUNNING",
-  "desired_status": "RUNNING",
-  "created_at": "2025-01-26T14:32:10Z"
-}
+### Lock Acquisition Flow
+
 ```
+Request with lock:
+  POST /executions
+  Body: {"command": "...", "lock": "infra-prod"}
 
-### POST /execute - Logs Action
+Lambda tries to acquire:
+  DynamoDB PutItem with condition expression:
+    attribute_not_exists(lock_name)
+  
+  Item: {
+    lock_name: "infra-prod",
+    execution_id: "exec_abc123",
+    user_email: "alice@acme.com",
+    acquired_at: "2025-10-26T14:32:10Z",
+    ttl: 1730000000  // Auto-expire after timeout
+  }
 
-**Request:**
-```json
-{
-  "action": "logs",
-  "task_arn": "arn:aws:ecs:us-east-1:123456789:task/mycli-cluster/abc123def456"
-}
+Success → Continue with execution
+
+Failure (ConditionalCheckFailedException):
+  Query lock to see who holds it:
+    GetItem(lock_name="infra-prod")
+  
+  Return 409 Conflict:
+    {
+      "error": "Lock held",
+      "lock_name": "infra-prod",
+      "held_by": "alice@acme.com",
+      "since": "2025-10-26T14:32:10Z",
+      "execution_id": "exec_abc123",
+      "log_url": "https://..."
+    }
+
+On completion:
+  DeleteItem(lock_name="infra-prod")
+  
+  Or rely on TTL to auto-expire if task crashes
 ```
-
-**Response:**
-```json
-{
-  "logs": "2025-10-26 14:32:10 UTC | mycli Remote Execution\n2025-10-26 14:32:11 UTC | → Cloning repository...\n..."
-}
-```
-
-**Implementation Details:**
-- Accepts task ARN directly (no ExecutionID lookup needed)
-- Extracts the task ID from the task ARN (last 36 characters)
-- Constructs log stream name: `task/executor/{task-id}` (includes container name)
-- Checks if log stream exists first using DescribeLogStreams
-- Queries CloudWatch Logs FilterLogEvents for the specific log stream
-- Each log line includes a timestamp prefix: `YYYY-MM-DD HH:MM:SS UTC | message`
-- Returns up to 1000 log events (sorted chronologically)
-
-**Design Decision:** Using task ARN instead of execution ID simplifies implementation. Alternative approaches would require either:
-1. Listing all ECS tasks and searching through tags (inefficient at scale)
-2. Maintaining a DynamoDB table for ExecutionID → TaskARN mapping (additional infrastructure)
-For MVP simplicity, we use the task ARN directly, which is already provided in the `exec` command output.
-
-### Error Responses
-
-**401 Unauthorized:**
-```json
-{
-  "error": "unauthorized"
-}
-```
-
-**400 Bad Request:**
-```json
-{
-  "error": "invalid request: repo required"
-}
-```
-
-**500 Internal Server Error:**
-```json
-{
-  "error": "failed to run task: [error details]"
-}
-```
-
----
 
 ## Security Model
 
-### API Authentication
+### Authentication Layers
 
-**Key Format:** `sk_live_{64_hex_chars}`
-**Generation:** 32 random bytes, hex-encoded, prefixed (cmd/init.go:99)
-**Storage:**
-- Lambda: bcrypt hash (cost 10) in environment variable `API_KEY_HASH`
-- CLI: plaintext in ~/.mycli/config.yaml (permissions 0600)
+1. **CLI to API Gateway**: API key in header (`X-API-Key`)
+2. **API to Lambda**: AWS IAM (API Gateway invokes Lambda)
+3. **Web UI to Log API**: JWT token in URL/header
+4. **ECS Task to AWS**: IAM Task Role
 
-**Validation Flow:**
-1. CLI sends API key in `X-API-Key` header
-2. Lambda reads hash from environment
-3. bcrypt.CompareHashAndPassword(hash, key)
-4. Returns 401 if invalid
+### Secrets Management
 
-### Git Credentials
+**What's stored where**:
+- API keys: DynamoDB (bcrypt hashed)
+- JWT signing secret: Lambda environment variable (or Secrets Manager)
+- AWS credentials: Never stored (IAM roles everywhere)
 
-**Supported Methods:**
+**User never sees**:
+- AWS access keys
+- AWS secret keys
+- Other users' API keys (only their own)
 
-1. **GitHub Personal Access Token**
-   - Scope: `repo` (full control of private repositories)
-   - Format: `ghp_xxxxxxxxxxxx`
-   - Storage: Lambda environment variable `GITHUB_TOKEN`
-   - Usage: `https://{token}:x-oauth-basic@github.com`
+### Network Security
 
-2. **GitLab Personal Access Token**
-   - Scope: `read_repository`, `write_repository`
-   - Storage: Lambda environment variable `GITLAB_TOKEN`
-   - Usage: `https://oauth2:{token}@gitlab.com`
+**ECS Tasks**:
+- Run in VPC
+- Option 1: Public subnet with NAT gateway (internet access)
+- Option 2: Private subnet with VPC endpoints (no internet)
+- Security group: Egress only (no ingress needed)
 
-3. **SSH Private Key**
-   - Base64-encoded for environment variable storage
-   - Storage: Lambda environment variable `SSH_PRIVATE_KEY`
-   - Usage: Decoded to ~/.ssh/id_rsa in container
-
-**Security Properties:**
-- Encrypted at rest by AWS (Lambda environment variables)
-- Never logged to CloudWatch
-- Never exposed in API responses or CloudFormation outputs
-- Written to container filesystem with 0600 permissions
-- Deleted before container exits (`lambda/orchestrator/shell.go`)
-- Transmitted only to container via shell script
-
-**Rotation:**
-1. Update CloudFormation stack parameters
-2. Or update Lambda environment variables directly
-3. No CLI changes needed
-
-### Network Isolation
-
-**VPC Configuration:**
-- CIDR: 10.0.0.0/16
-- Public subnets: 10.0.1.0/24, 10.0.2.0/24 (multi-AZ)
-- Internet Gateway for Git repository access
-- No NAT Gateway (cost optimization)
-
-**Security Group:**
-- Egress: All traffic allowed (0.0.0.0/0) - needed for Git clone, package downloads
-- Ingress: None - tasks don't accept inbound connections
-
-**Container Isolation:**
-- Each task runs in isolated Fargate container
-- No shared filesystem or network
-- Ephemeral - destroyed after execution
-- Public IP assigned (for internet access) but no inbound traffic allowed
-
-### IAM Roles
-
-**Lambda Execution Role (mycli-lambda-role):**
-```yaml
-Permissions:
-  - AWSLambdaBasicExecutionRole (managed policy)
-  - ecs:RunTask
-  - ecs:DescribeTasks
-  - ecs:DescribeTaskDefinition
-  - ecs:RegisterTaskDefinition
-  - ecs:ListTasks
-  - ecs:TagResource
-  - iam:PassRole (for TaskExecutionRole and TaskRole)
-  - logs:GetLogEvents
-  - logs:FilterLogEvents
-  - logs:DescribeLogStreams
-```
-
-**ECS Task Execution Role (mycli-task-execution-role):**
-```yaml
-Permissions:
-  - AmazonECSTaskExecutionRolePolicy (managed policy)
-    - ecr:GetAuthorizationToken
-    - ecr:BatchCheckLayerAvailability
-    - ecr:GetDownloadUrlForLayer
-    - ecr:BatchGetImage
-    - logs:CreateLogStream
-    - logs:PutLogEvents
-```
-
-**ECS Task Role (mycli-task-role):**
-```yaml
-Permissions:
-  - logs:CreateLogStream
-  - logs:PutLogEvents (to execution log group)
-
-# Users can attach additional policies for AWS operations
-# Example: AdministratorAccess for Terraform
-# Production: Use least-privilege policies
-```
+**API Gateway**:
+- Public endpoint (HTTPS only)
+- API key validation before reaching Lambda
+- Rate limiting (configurable)
 
 ### Audit Trail
 
-**What's Logged:**
-- All command executions (stdout/stderr) to CloudWatch
-- Task start/stop events
-- API Gateway access logs (can be enabled)
-- Lambda invocation logs
+Every execution records:
+- Who (`user_email`)
+- What (`command`)
+- When (`started_at`, `completed_at`)
+- Where (`task_arn`, `log_stream_name`)
+- Result (`exit_code`, `status`)
+- Cost (`cost_usd`)
 
-**What's NOT Logged:**
-- API keys (only hashed values)
-- Git credentials (only presence indicated)
-- Environment variable values (keys logged, not values)
+This satisfies compliance requirements:
+- SOC 2: Access logging
+- HIPAA: Audit trails
+- PCI DSS: User activity tracking
 
-**Retention:**
-- CloudWatch Logs: 7 days default (configurable in CloudFormation)
-- Can archive to S3 for long-term retention
+## Deployment Model
 
----
+### Single Tenant per Company
 
-## Shell Command Construction
+Each company gets one mycli deployment:
+```
+Company "Acme Corp" → AWS Account 123456789
+  └─ mycli CloudFormation stack
+     ├─ API Gateway: https://api.mycli.acme.internal
+     ├─ Lambda orchestrator
+     ├─ DynamoDB tables
+     ├─ ECS cluster
+     └─ S3 bucket
 
-### Design Decision: Bash Script Approach
-
-**Current Implementation:** Dynamic bash script construction in Lambda (`lambda/orchestrator/shell.go`)
-
-**Why Bash?**
-- ✅ Works with any image that has `/bin/sh` (universal)
-- ✅ Simple to understand and debug
-- ✅ No compilation or build step
-- ✅ Easy to modify in Lambda code
-- ✅ Human-readable in CloudWatch logs
-- ✅ No binary injection complexity
-
-**Security:** Proper shell escaping via `shellEscape()` function (`lambda/orchestrator/shell.go`)
-- Single quotes wrap all user input
-- Embedded single quotes escaped as `'\''`
-- Prevents command injection
-
-### Standard Git-based Script
-
-**Generated by:** `buildShellCommand()` (`lambda/orchestrator/shell.go`)
-
-**Script Structure:**
-```bash
-#!/bin/sh
-set -e  # Exit on error
-
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "mycli Remote Execution"
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-
-# 1. Install git if not present
-if ! command -v git &> /dev/null; then
-  echo "→ Installing git..."
-  if command -v apk &> /dev/null; then
-    apk add --no-cache git openssh-client
-  elif command -v apt-get &> /dev/null; then
-    apt-get update && apt-get install -y git openssh-client
-  elif command -v yum &> /dev/null; then
-    yum install -y git openssh-clients
-  else
-    echo "ERROR: Cannot install git - unsupported package manager"
-    exit 1
-  fi
-fi
-
-# 2. Configure git credentials (GitHub example)
-echo "→ Configuring GitHub authentication..."
-git config --global credential.helper store
-echo "https://'<token>':x-oauth-basic@github.com" > ~/.git-credentials
-chmod 600 ~/.git-credentials
-
-# 3. Clone repository
-echo "→ Repository: <repo>"
-echo "→ Branch: <branch>"
-echo "→ Cloning repository..."
-git clone --depth 1 --branch '<branch>' '<repo>' /workspace/repo || {
-  echo "ERROR: Failed to clone repository"
-  exit 1
-}
-cd /workspace/repo
-echo "✓ Repository cloned"
-
-echo ""
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "Executing command..."
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo ""
-
-# 4. Execute user command (with proper escaping)
-eval '<user-command>'
-
-# 5. Capture exit code and cleanup
-EXIT_CODE=$?
-echo ""
-if [ $EXIT_CODE -eq 0 ]; then
-  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-  echo "✓ Command completed successfully"
-  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-else
-  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-  echo "✗ Command failed with exit code: $EXIT_CODE"
-  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-fi
-rm -f ~/.git-credentials ~/.ssh/id_rsa
-exit $EXIT_CODE
+  Users:
+  ├─ alice@acme.com → API key sk_live_abc...
+  ├─ bob@acme.com → API key sk_live_def...
+  └─ carol@acme.com → API key sk_live_ghi...
 ```
 
-### Direct Execution Script (--skip-git)
+### Deployment Steps
 
-**Generated by:** `buildDirectCommand()` (`lambda/orchestrator/shell.go`)
-
-**Script Structure:**
-```bash
-set -e
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "mycli Remote Execution (No Git)"
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo ""
-echo "→ Mode: Direct command execution (git cloning skipped)"
-echo ""
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "Executing command..."
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo ""
-
-eval '<user-command>'
-
-EXIT_CODE=$?
-echo ""
-if [ $EXIT_CODE -eq 0 ]; then
-  echo "✓ Command completed successfully"
-else
-  echo "✗ Command failed with exit code: $EXIT_CODE"
-fi
-exit $EXIT_CODE
-```
-
-### Credential Configuration Variants
-
-**GitHub Token:**
-```bash
-git config --global credential.helper store
-echo "https://'$TOKEN':x-oauth-basic@github.com" > ~/.git-credentials
-chmod 600 ~/.git-credentials
-```
-
-**GitLab Token:**
-```bash
-git config --global credential.helper store
-echo "https://oauth2:'$TOKEN'@gitlab.com" > ~/.git-credentials
-chmod 600 ~/.git-credentials
-```
-
-**SSH Key:**
-```bash
-mkdir -p ~/.ssh
-echo '$SSH_PRIVATE_KEY' | base64 -d > ~/.ssh/id_rsa
-chmod 600 ~/.ssh/id_rsa
-ssh-keyscan github.com >> ~/.ssh/known_hosts 2>/dev/null
-ssh-keyscan gitlab.com >> ~/.ssh/known_hosts 2>/dev/null
-```
-
-### Future Considerations
-
-**Current approach is adequate for MVP**, but potential improvements:
-
-**Option 1: Compiled Go Binary**
-- Small Go binary injected into container
-- Better error handling and type safety
-- Faster (no git installation)
-- More complex (need multi-arch compilation)
-
-**Option 2: Python Script**
-- Better structure than bash
-- Most images have Python
-- Not as universal as bash
-
-**Recommendation:** Stick with bash unless we encounter serious limitations.
-
----
-
-## Cost Analysis
-
-### Per-Execution Cost Breakdown
-
-**Assumptions:**
-- 5-minute execution
-- 0.25 vCPU, 0.5 GB memory
-- FARGATE_SPOT pricing (us-east-1)
-- Shallow git clone (~10 MB transfer)
-
-**Costs:**
-
-**Fargate SPOT:**
-- vCPU: $0.01242124 per vCPU-hour
-- Memory: $0.00136308 per GB-hour
-- Duration: 5 min = 0.0833 hours
-- Compute: (0.25 × $0.01242124 + 0.5 × $0.00136308) × 0.0833 = **$0.000315**
-
-**Lambda:**
-- Invocation: $0.0000002
-- Duration: ~100ms, 128MB
-- Negligible cost: **~$0.0000002**
-
-**API Gateway:**
-- Request: $0.0000035
-
-**Data Transfer:**
-- Git clone: ~10 MB × $0.09/GB = **$0.00001**
-
-**Total per execution: ~$0.00033**
-
-### Monthly Cost Estimates
-
-| Executions | Compute | Fixed Costs | Total    |
-|-----------|---------|-------------|----------|
-| 100       | $0.03   | $0.00       | ~$0.03   |
-| 1,000     | $0.33   | $0.00       | ~$0.33   |
-| 10,000    | $3.30   | $0.00       | ~$3.30   |
-
-**Fixed Costs:**
-- CloudWatch Logs: $0.50/GB stored (minimal for 7-day retention)
-- API Gateway: No fixed cost (pay per request)
-- Lambda: No fixed cost (pay per invocation)
-- ECS Cluster: No cost (Fargate is serverless)
-
-### Cost Optimization Tips
-
-1. **Use FARGATE_SPOT (default)** - 70% savings over Fargate on-demand
-2. **Right-size tasks** - 0.25 vCPU adequate for most commands
-3. **Short log retention** - 7 days default (adjust based on needs)
-4. **Shallow clones** - `--depth 1` minimizes data transfer
-5. **ARM64 architecture** - 20% cheaper than x86_64 (Lambda only, not ECS images)
-6. **Public subnets** - No NAT Gateway costs ($0.045/hour saved)
-
-### Cost Comparison
-
-| Service         | mycli  | GitHub Actions | AWS CodeBuild |
-|----------------|--------|----------------|---------------|
-| Per execution  | $0.0003| Free*          | $0.025        |
-| 1000/month     | $0.33  | Free*          | $25           |
-| Infrastructure | $0     | $0             | $0            |
-| Control        | Full   | Limited        | AWS-managed   |
-
-*GitHub Actions: 2000 minutes/month free for private repos
-
----
-
-## Deployment & Testing
-
-### Prerequisites
-
-- AWS account with admin access
-- AWS CLI configured (`aws configure`)
-- Go 1.21+ installed
-- Git installed
-
-### Initial Deployment
-
-**1. Build CLI:**
-```bash
-cd /path/to/mycli
-go build -o mycli
-```
-
-**2. Deploy infrastructure:**
-```bash
-./mycli init --region us-east-1
-```
-
-This will:
-- Generate API key
-- Prompt for Git credentials (optional)
-- Build Lambda function
-- Create Lambda bucket stack (Stack 1) (~1 min)
-- Upload Lambda code to S3
-- Create main infrastructure stack (Stack 2) (~5 min)
-- Save config to ~/.mycli/config.yaml
-
-**3. Verify deployment:**
-```bash
-# Check config
-cat ~/.mycli/config.yaml
-
-# Check CloudFormation stack
-aws cloudformation describe-stacks --stack-name mycli --region us-east-1
-
-# Check Lambda function
-aws lambda get-function --function-name mycli-orchestrator --region us-east-1
-```
-
-### Testing
-
-**Test 1: Public repository**
-```bash
-mycli exec \
-  --repo=https://github.com/hashicorp/terraform-guides \
-  --image=hashicorp/terraform:1.6 \
-  "ls -la"
-```
-
-**Test 2: Command execution**
-```bash
-mycli exec \
-  --skip-git \
-  --image=alpine:latest \
-  "echo 'Hello from mycli!'"
-```
-
-**Test 3: With .mycli.yaml**
-```bash
-# Create test config
-cat > .mycli.yaml << EOF
-repo: https://github.com/hashicorp/terraform-guides
-image: hashicorp/terraform:1.6
-EOF
-
-# Execute
-mycli exec "terraform version"
-```
-
-**Test 4: Status and logs**
-```bash
-# Start execution
-mycli exec --skip-git --image=alpine:latest "sleep 30 && echo done"
-
-# Get task ARN from output, then:
-mycli status <task-arn>
-mycli logs <execution-id>
-mycli logs -f <execution-id>  # Follow
-```
-
-**Test 5: Private repository (if Git credentials configured)**
-```bash
-mycli exec \
-  --repo=https://github.com/your-company/private-repo \
-  "ls -la"
-```
-
-### Integration Testing
-
-**Error scenarios to test:**
-- Invalid repository URL → Check error message
-- Non-existent branch → Check git clone failure
-- Command failure (exit code != 0) → Verify exit code propagated
-- Missing Git credentials for private repo → Check auth failure
-- Invalid API key → Verify 401 response
-- Invalid Docker image → Check ECS task failure
-
-### Cleanup
-
-```bash
-./mycli destroy
-rm ~/.mycli/config.yaml  # Optional
-```
-
----
-
-## Limitations & Trade-offs
-
-### What Works
-
-- ✅ Public Git repositories (GitHub, GitLab, Bitbucket)
-- ✅ Private repos with token/SSH authentication
-- ✅ Any Docker image from Docker Hub, ECR, or private registries
-- ✅ Custom image per execution via `--image` flag or `.mycli.yaml`
-- ✅ Commands up to ~30 minutes (configurable)
-- ✅ Environment variable passing
-- ✅ Exit code propagation
-- ✅ Multi-line commands and scripts
-- ✅ Concurrent executions (limited by AWS quotas)
-
-### Current Limitations
-
-| Limitation | Workaround |
-|-----------|------------|
-| No artifact storage | Use S3 from your commands: `aws s3 cp output.txt s3://bucket/` |
-| No multi-step workflows | Create script in repo: `./run.sh` |
-| No real-time log streaming | Use `mycli logs -f` (polls every 2s) |
-| No scheduled executions | Use EventBridge to invoke API |
-| No Git submodules | Clone with `--recurse-submodules` in script |
-| Working directory is repo root | `cd subdirectory && command` in script |
-| Logs require task ARN (not execution ID) | Task ARN is provided in exec output, copy/paste it |
-
-### Design Trade-offs
-
-| Decision | Pro | Con |
-|----------|-----|-----|
-| No custom Docker image | Simple, flexible, no maintenance | May need to install git at runtime |
-| Bash script construction | Universal, easy to debug | Less robust than compiled code |
-| Public subnets | Cheaper (no NAT Gateway) | Tasks have public IPs |
-| No S3 for code | Simpler, cheaper | Can't store artifacts |
-| Shallow git clone | Faster, less data transfer | No git history |
-| No DynamoDB | Simpler, cheaper | No queryable execution history |
-| Logs use task ARN directly | Simple, no tag lookup needed | Longer ARN to copy vs short execution ID |
-
-### Not Supported (Yet)
-
-- ❌ Repositories > 1 GB (shallow clone helps but large repos still slow)
-- ❌ Execution history queries (no DynamoDB table)
-- ❌ Scheduled/cron executions
-- ❌ Multi-step workflows with dependencies
-- ❌ Artifact storage and retrieval
-- ❌ Custom task role per execution
-- ❌ VPC endpoint for private ECR (uses public ECR/Docker Hub)
-
----
-
-## Future Enhancements
-
-### Near-term (1-2 months)
-
-**Execution History & Metadata**
-- Add DynamoDB table for execution records
-- Store: execution ID, repo, command, status, duration, cost, tags
-- Benefits: Queryable history, audit trail, cost analysis
-- `mycli list` - Show recent executions
-- `mycli list --repo=...` - Filter by repository
-
-**API Keys Management**
-- Multiple API keys per deployment
-- Key rotation without redeployment
-- Scoped permissions (read-only vs execute)
-- Per-key rate limiting
-
-**Enhanced Error Handling**
-- Detailed error messages from Lambda
-- Retry logic for transient failures
-- Better git clone error diagnostics
-
-**Custom Task Roles**
-- `--task-role-arn` flag for per-execution IAM role
-- Least-privilege execution
-
-### Medium-term (3-6 months)
-
-**~~Dynamic Task Definition Registration~~ ✓ IMPLEMENTED**
-- ✓ Register task definition per image on-the-fly
-- ✓ True custom image support per execution
-- ✓ Cache task definitions to avoid duplicates (checks if family exists before registering)
-- ✓ Human-readable task definition names based on image name
-- ✓ Collision detection for edge cases (same sanitized name, different image)
-
-**S3 Artifact Storage**
-- Optional S3 bucket for command outputs
-- `mycli artifacts <execution-id>` - Download outputs
-- Auto-upload files from /workspace/artifacts
-
-**Web Dashboard**
-- CloudFront + S3 static site
-- View execution history
-- Real-time log streaming (WebSocket)
-- Cost tracking graphs
-
-**Scheduled Executions**
-- EventBridge integration
-- Cron syntax: `mycli schedule "0 0 * * *" "terraform plan"`
-- Manage scheduled tasks
-
-### Long-term (6-12 months)
-
-**Multi-step Workflows**
-- YAML-based workflow definitions
-- Dependencies between steps
-- Conditional execution
-- Parallel steps
-
-**Team Management**
-- User accounts and authentication
-- Team workspaces
-- Shared execution history
-- Access control
-
-**SaaS Offering**
-- Hosted infrastructure (we manage AWS)
-- User signup and billing
-- Usage metering
-- Multi-tenancy
-
-**Multi-cloud Support**
-- Google Cloud Run backend
-- Azure Container Instances
-- Unified CLI for all clouds
-
-### Shell Command Improvements
-
-**Current: Bash (adequate for MVP)**
-
-**Potential upgrades:**
-1. **Go binary approach** - Compile orchestrator.go, inject into container
-   - Pros: Better error handling, type safety, no git install needed
-   - Cons: Multi-arch compilation, larger payload, more complex
-
-2. **Python script approach** - Self-contained Python orchestrator
-   - Pros: Better than bash, most images have Python
-   - Cons: Not as universal
-
-3. **Hybrid approach** - Bash for simple, Go for complex
-
-**Recommendation:** Revisit if we encounter serious bash limitations.
-
----
-
-## Troubleshooting
-
-### Common Issues
-
-**Issue: "Failed to clone repository"**
-
-Symptoms:
-```
-ERROR: Failed to clone repository
-Please verify:
-  - Repository URL is correct
-  - Branch exists
-  - Git credentials are configured (for private repos)
-```
-
-Solutions:
-1. Verify repository URL: `git ls-remote <repo-url>`
-2. Check branch exists: `git ls-remote --heads <repo-url> <branch>`
-3. For private repos, ensure Git credentials configured during `mycli init`
-4. Test credentials locally: `git clone <repo-url>`
-5. Check Lambda environment variables have GITHUB_TOKEN or SSH_PRIVATE_KEY
-
-**Issue: "Command not found"**
-
-Symptoms:
-```
-/bin/sh: terraform: not found
-```
-
-Solutions:
-1. Use image with tool pre-installed: `--image=hashicorp/terraform:1.6`
-2. Or install in command: `mycli exec "apk add terraform && terraform plan"`
-3. Check image documentation for available tools
-
-**Issue: Task takes too long to start**
-
-Symptoms:
-- Task shows PROVISIONING for 2-3 minutes
-- Eventually times out
-
-Solutions:
-1. Large Docker images take time to pull (~1 min per GB)
-2. Use smaller base images: `alpine` instead of `ubuntu`
-3. Use image tags to get cached images: `python:3.11` not `python:latest`
-4. First execution always slower (image not cached)
-
-**Issue: "No logs available"**
-
-Symptoms:
-```
-mycli logs <execution-id>
-No logs available yet. The task may still be starting.
-```
-
-Solutions:
-1. Logs take 5-10 seconds to appear in CloudWatch
-2. Wait and retry: `mycli logs <execution-id>`
-3. Or use follow mode: `mycli logs -f <execution-id>`
-4. Check task started: `mycli status <task-arn>`
-5. If task STOPPED immediately, check task definition for errors
-
-**Issue: "API key authentication fails"**
-
-Symptoms:
-```
-Error: unauthorized
-```
-
-Solutions:
-1. Check ~/.mycli/config.yaml has correct API key
-2. Verify Lambda environment variable API_KEY_HASH is set:
+1. **Admin deploys infrastructure**:
    ```bash
-   aws lambda get-function-configuration \
-     --function-name mycli-orchestrator \
-     --query 'Environment.Variables.API_KEY_HASH'
-   ```
-3. Re-run `mycli init` to regenerate key and hash
-4. Ensure API key in header: `X-API-Key: sk_live_...`
-
-**Issue: "User is not authorized to perform: ecs:TagResource"**
-
-Symptoms:
-```
-AccessDeniedException: User: arn:aws:sts::...:assumed-role/mycli-lambda-role/mycli-orchestrator
-is not authorized to perform: ecs:TagResource
-```
-
-Solutions:
-1. **FIXED** - Update CloudFormation template to add `ecs:TagResource` permission (deploy/cloudformation.yaml:248)
-2. Update stack:
-   ```bash
-   aws cloudformation update-stack \
-     --stack-name mycli \
-     --template-body file://deploy/cloudformation.yaml \
-     --capabilities CAPABILITY_NAMED_IAM \
-     --parameters \
-       ParameterKey=APIKeyHash,UsePreviousValue=true \
-       ParameterKey=GitHubToken,UsePreviousValue=true \
-       ParameterKey=GitLabToken,UsePreviousValue=true \
-       ParameterKey=SSHPrivateKey,UsePreviousValue=true
+   $ aws configure  # Uses admin AWS credentials
+   $ mycli init --company acme
+   ✓ CloudFormation stack created
+   ✓ Infrastructure deployed
    ```
 
-**Issue: Stack creation fails**
-
-Symptoms:
-```
-CloudFormation stack creation failed
-```
-
-Solutions:
-1. Check CloudFormation events:
+2. **Admin generates API keys**:
    ```bash
-   aws cloudformation describe-stack-events --stack-name mycli
-   ```
-2. Common causes:
-   - IAM permission issues (need admin access)
-   - Resource limits (VPC limit, EIP limit)
-   - Region not supported
-3. Delete failed stack and retry:
-   ```bash
-   aws cloudformation delete-stack --stack-name mycli
-   # Wait for deletion, then:
-   mycli init
+   $ mycli admin add-user alice@acme.com
+   ✓ API key: sk_live_abc123...
+     Share this with alice@acme.com
    ```
 
-### Debugging Tips
+3. **Users configure CLI**:
+   ```bash
+   $ mycli configure
+   API Endpoint: https://api.mycli.acme.internal
+   API Key: sk_live_abc123...
+   ✓ Configuration saved
+   ```
 
-**View Lambda logs:**
+4. **Users execute commands**:
+   ```bash
+   $ mycli exec "terraform apply"
+   ✓ Running in Acme's AWS account
+   ```
+
+### Multi-Environment (Optional)
+
+Companies can deploy multiple instances:
 ```bash
-aws logs tail /aws/lambda/mycli-orchestrator --follow
+# Production instance
+$ mycli init --company acme --environment prod
+
+# Staging instance (separate AWS account or separate stack)
+$ mycli init --company acme --environment staging
+
+# Users configure for different environments
+$ mycli configure --profile acme-prod
+$ mycli configure --profile acme-staging
+
+$ mycli exec "terraform apply" --profile acme-prod
 ```
 
-**Check ECS task details:**
-```bash
-aws ecs describe-tasks \
-  --cluster mycli-cluster \
-  --tasks <task-id>
-```
+## Scalability
 
-**View CloudWatch logs directly:**
-```bash
-aws logs filter-log-events \
-  --log-group-name /aws/mycli/mycli \
-  --log-stream-name-prefix task/
-```
+### Current Design (MVP)
 
-**Test API Gateway directly:**
-```bash
-curl -X POST \
-  -H "X-API-Key: $API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"action":"exec","repo":"https://github.com/user/repo","command":"echo test","skip_git":true}' \
-  $API_ENDPOINT
-```
+- **Concurrency**: Fargate scales automatically (up to AWS service limits)
+- **Cost**: Pay-per-execution (no idle costs except DynamoDB and small Lambda)
+- **Limits**: 
+  - API Gateway: 10,000 requests/second (default)
+  - Lambda: 1,000 concurrent executions (default)
+  - Fargate: 1,000 tasks per cluster (default, can increase)
+  - DynamoDB: On-demand scaling (no hard limit)
+
+### Bottlenecks & Solutions
+
+**If many users execute simultaneously**:
+- Problem: DynamoDB hot partitions (lock table)
+- Solution: Use consistent hashing for lock names, or shard lock table
+
+**If log viewer gets popular**:
+- Problem: S3 request rate limits
+- Solution: Add CloudFront CDN in front of S3
+
+**If executions are very long**:
+- Problem: ECS task limit (1000 concurrent)
+- Solution: Request limit increase from AWS, or queue executions
+
+**If audit table grows large**:
+- Problem: DynamoDB scan operations slow
+- Solution: Use GSIs for common queries, archive old data to S3
+
+## Monitoring & Observability
+
+### Metrics to Track
+
+**Operational**:
+- Executions per hour
+- Success rate (completed vs failed)
+- Average execution duration
+- Lock contention (failed lock acquisitions)
+- API key usage per user
+
+**Performance**:
+- Lambda cold start time
+- API Gateway latency
+- ECS task start time
+- Log fetch latency
+
+**Cost** (future):
+- Fargate compute cost
+- CloudWatch Logs cost
+- S3 storage cost
+- Total cost per execution
+- Cost per user
+
+### Alerts
+
+**Critical**:
+- Lambda execution errors > 5% in 5 minutes
+- ECS task failure rate > 10% in 5 minutes
+- API Gateway 5xx errors > 1% in 5 minutes
+
+**Warning**:
+- High lock contention (many 409 responses)
+- Unusual execution duration (>2x average)
+- DynamoDB throttling
+
+### Logs
+
+**CloudWatch Log Groups**:
+- `/aws/lambda/mycli-orchestrator` - Lambda logs
+- `/mycli/executions` - Execution output logs
+- `/aws/apigateway/mycli` - API Gateway access logs
+
+**Log Retention**:
+- Lambda logs: 30 days
+- Execution logs: 7 days (configurable)
+- API Gateway logs: 7 days
+
+## Future Architecture Enhancements
+
+### Phase 1: Role-Based Authorization
+- Multiple IAM roles (read-only, admin, custom)
+- Assign role per user/group
+- Lambda selects appropriate role for ECS task
+
+### Phase 2: Advanced Permissions
+- Command filtering (allow/deny patterns)
+- Image restrictions (approved images only)
+- Lock-based restrictions (prod access only for some users)
+
+### Phase 3: Multi-Region
+- Deploy to multiple regions
+- Users specify region with `--region` flag
+- Reduces latency for global teams
+
+### Phase 4: SaaS Mode
+- Anthropic hosts the infrastructure
+- Companies sign up, get isolated environments
+- Billing per execution or per user
+- No AWS account needed
+
+### Phase 5: Advanced Features
+- Approval workflows (require approval before execution)
+- Scheduled executions (cron-like)
+- Execution templates/runbooks
+- Integration with CI/CD (GitHub Actions, GitLab CI)
+- Multi-cloud support (GCP, Azure)
+
+## Technology Choices
+
+### Why Go for CLI?
+- Single binary distribution (no dependencies)
+- Cross-platform (Linux, macOS, Windows)
+- Fast execution
+- Great AWS SDK support
+- Cobra for CLI framework
+
+### Why Python for Lambda?
+- Fast development
+- Excellent AWS SDK (boto3)
+- Easy to read and maintain
+- Could switch to Go later for performance
+
+### Why DynamoDB?
+- Serverless (no management)
+- Scales automatically
+- Perfect for key-value lookups
+- Atomic operations for locking
+- Pay-per-request pricing
+
+### Why Fargate?
+- Serverless compute (no EC2 management)
+- Scales automatically
+- Isolated environments
+- Pay-per-second pricing
+- Easy to use different images
+
+### Why CloudWatch Logs?
+- Native AWS integration
+- No additional setup
+- Searchable
+- Long-term retention
+- Integrates with other AWS services
+
+## Cost Estimation
+
+### Small Team (10 users, 50 executions/day)
+
+**Monthly costs**:
+- Fargate: 50 exec/day × 10 min avg × 0.25 vCPU × $0.04048/vCPU-hour
+  - = 50 × (10/60) × 0.25 × 0.04048 × 30 = **$0.25**
+- Lambda: 50 exec/day × 1 sec × 128MB × 30 days
+  - = Nearly free (within free tier)
+- DynamoDB: Minimal reads/writes
+  - = **$0.50** (on-demand)
+- CloudWatch Logs: 50 exec × 5MB × 30 days × $0.50/GB
+  - = **$3.75**
+- S3: Negligible
+- API Gateway: 1,500 requests/month
+  - = **$0.005**
+
+**Total: ~$5/month**
+
+### Medium Team (50 users, 500 executions/day)
+
+**Monthly costs**:
+- Fargate: **$2.50**
+- Lambda: **$0.10**
+- DynamoDB: **$5.00**
+- CloudWatch Logs: **$37.50**
+- S3: **$1.00**
+- API Gateway: **$0.05**
+
+**Total: ~$46/month**
+
+### Large Team (200 users, 2000 executions/day)
+
+**Monthly costs**:
+- Fargate: **$10.00**
+- Lambda: **$0.40**
+- DynamoDB: **$20.00**
+- CloudWatch Logs: **$150.00**
+- S3: **$5.00**
+- API Gateway: **$0.20**
+
+**Total: ~$186/month**
+
+**Note**: CloudWatch Logs dominates cost at scale. Consider:
+- Shorter retention period (3 days instead of 7)
+- Archive to S3 after 1 day (cheaper storage)
+- Stream to external log service
+
+## Comparison to Alternatives
+
+| Solution | Setup | Cost (50 users) | Pros | Cons |
+|----------|-------|-----------------|------|------|
+| **mycli** | 5 min | $46/mo | Self-hosted, full control, audit trails | Requires AWS knowledge |
+| **Terraform Cloud** | 10 min | $1000/mo | Terraform-specific features | Expensive, vendor lock-in |
+| **Jenkins** | 2 hours | $100/mo | Very flexible | Complex, requires maintenance |
+| **GitHub Actions** | 5 min | $200/mo | Integrated with git | Git-based only, no ad-hoc |
+| **AWS CodeBuild** | 30 min | $50/mo | Native AWS | Complex setup, build-focused |
+| **Shared credentials** | 1 min | $0 | Simple | Insecure, no audit, conflicts |
+
+mycli wins on: simplicity, cost, audit trails, and general-purpose execution.
 
 ---
 
-## Appendix: Project Structure
-
-```
-mycli/
-├── cmd/
-│   ├── root.go                      # Cobra root command
-│   ├── init.go                      # Infrastructure deployment (two-stack approach)
-│   ├── configure.go                 # Manual configuration
-│   ├── exec.go                      # Execute commands (cmd/exec.go:65)
-│   ├── status.go                    # Check execution status
-│   ├── logs.go                      # View execution logs
-│   └── destroy.go                   # Cleanup infrastructure
-├── deploy/
-│   ├── cloudformation-bucket.yaml   # Temporary S3 bucket stack (bootstrap)
-│   └── cloudformation.yaml          # Main infrastructure template
-├── internal/
-│   ├── config/                # Global config management
-│   │   └── config.go          # ~/.mycli/config.yaml
-│   ├── project/               # Project config management
-│   │   └── config.go          # .mycli.yaml parser
-│   ├── git/                   # Git utilities
-│   │   └── detector.go        # Remote URL auto-detection
-│   └── api/                   # API client
-│       └── client.go          # HTTP client for API Gateway
-├── lambda/
-│   └── orchestrator/
-│       ├── main.go            # Lambda handler entry
-│       ├── config.go          # AWS clients and env vars
-│       ├── auth.go            # API key auth
-│       ├── handlers.go        # exec/status/logs handlers
-│       ├── shell.go           # shell command builders
-│       ├── response.go        # response helpers
-│       ├── util.go            # misc utilities
-│       └── types.go           # shared types aliases
-├── pkg/
-│   └── api/
-│       └── types.go           # Shared API types (Request/Response)
-├── scripts/
-│   ├── README.md              # Development scripts documentation
-│   └── update-lambda.sh       # Lambda update helper
-├── main.go                    # CLI entry point
-├── go.mod                     # Go dependencies
-├── go.sum                     # Dependency checksums
-├── README.md                  # User documentation
-└── ARCHITECTURE.md            # This file (technical documentation)
-```
-
----
-
-## Appendix: AWS Resource Summary
-
-**Lambda Bucket Stack (Stack 1 - Permanent):**
-| Resource Type | Name/ID | Purpose |
-|--------------|---------|---------|
-| S3 Bucket | mycli-lambda-code-{account}-{region} | Lambda code storage (versioned) |
-
-**Main Infrastructure Stack (Stack 2 - Permanent):**
-| Resource Type | Name/ID | Purpose |
-|--------------|---------|---------|
-| VPC | mycli-vpc | Network isolation |
-| Subnets | mycli-public-1, mycli-public-2 | Multi-AZ public subnets |
-| Internet Gateway | mycli-igw | Internet access |
-| Security Group | mycli-fargate-sg | Egress-only for tasks |
-| ECS Cluster | mycli-cluster | Fargate task orchestration |
-| Task Definition | mycli-task | Task template |
-| Log Group | /aws/mycli/mycli | Execution logs |
-| IAM Roles | mycli-lambda-role, mycli-task-execution-role, mycli-task-role | Permissions |
-| Lambda Function | mycli-orchestrator | API request handler |
-| API Gateway REST API | mycli-api | REST API endpoint |
-| API Gateway Method | POST /execute | API method configuration |
-| Lambda Permission | AllowAPIGatewayInvoke | API Gateway invoke permission |
-| API Gateway Deployment | prod | API deployment to prod stage |
-
-**Total Resources:** ~19 across 2 CloudFormation stacks (all permanent, all managed by CloudFormation)
-
----
-
-**Last Updated:** 2025-01-26
-**Version:** 1.0 (Working MVP)
+This architecture balances simplicity (for MVP) with extensibility (for future features). The core design supports authorization, multi-tenancy, and advanced features without major refactoring.
