@@ -18,9 +18,6 @@ update-lambda:
     aws lambda update-function-code --function-name runvoy-orchestrator --zip-file fileb://function.zip > /dev/null
     aws lambda wait function-updated --function-name runvoy-orchestrator
 
-smoke-test: build-cli
-    ./runvoy exec --skip-git "echo 'Hello, World! $(date -u +"%Y-%m-%d %H:%M:%S")'"
-
 init:
     aws cloudformation deploy --stack-name runvoy-backend \
         --template-file infra/cloudformation-backend.yaml \
