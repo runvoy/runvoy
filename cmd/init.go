@@ -140,7 +140,7 @@ func runInit(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("failed to get current directory: %w", err)
 	}
-	
+
 	bucketTemplatePath := filepath.Join(cwd, "deploy", "cloudformation-bucket.yaml")
 	bucketTemplateBody, err := os.ReadFile(bucketTemplatePath)
 	if err != nil {
@@ -260,7 +260,7 @@ func runInit(cmd *cobra.Command, args []string) error {
 
 	// 8. Insert API key into DynamoDB
 	fmt.Println("→ Configuring API key...")
-	
+
 	// Get API keys table name from stack outputs
 	resp, err := cfnClient.DescribeStacks(ctx, &cloudformation.DescribeStacksInput{
 		StackName: &initStackName,
@@ -268,32 +268,32 @@ func runInit(cmd *cobra.Command, args []string) error {
 	if err != nil || len(resp.Stacks) == 0 {
 		return fmt.Errorf("failed to describe stack: %w", err)
 	}
-	
+
 	outputs := parseStackOutputs(resp.Stacks[0].Outputs)
 	apiKeysTableName := outputs["APIKeysTableName"]
 	if apiKeysTableName == "" {
 		return fmt.Errorf("API keys table name not found in stack outputs")
 	}
-	
+
 	// Create DynamoDB client
 	dynamoDBClient := dynamodb.NewFromConfig(cfg)
-	
+
 	// Insert the API key into DynamoDB
 	now := time.Now().UTC().Format(time.RFC3339)
 	_, err = dynamoDBClient.PutItem(ctx, &dynamodb.PutItemInput{
 		TableName: aws.String(apiKeysTableName),
 		Item: map[string]dynamodbTypes.AttributeValue{
 			"api_key_hash": &dynamodbTypes.AttributeValueMemberS{Value: apiKeyHash},
-			"user_email":  &dynamodbTypes.AttributeValueMemberS{Value: "admin@mycli.local"},
-			"created_at":  &dynamodbTypes.AttributeValueMemberS{Value: now},
-			"revoked":     &dynamodbTypes.AttributeValueMemberBOOL{Value: false},
-			"last_used":   &dynamodbTypes.AttributeValueMemberS{Value: now},
+			"user_email":   &dynamodbTypes.AttributeValueMemberS{Value: "admin@mycli.local"},
+			"created_at":   &dynamodbTypes.AttributeValueMemberS{Value: now},
+			"revoked":      &dynamodbTypes.AttributeValueMemberBOOL{Value: false},
+			"last_used":    &dynamodbTypes.AttributeValueMemberS{Value: now},
 		},
 	})
 	if err != nil {
 		return fmt.Errorf("failed to insert API key into DynamoDB: %w", err)
 	}
-	
+
 	fmt.Println("✓ API key configured")
 
 	// 9. Get API endpoint from outputs

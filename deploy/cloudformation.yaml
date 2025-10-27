@@ -410,17 +410,8 @@ Resources:
   LambdaFunctionUrl:
     Type: AWS::Lambda::Url
     Properties:
-      FunctionName: !Ref LambdaFunction
+      TargetFunctionArn: !GetAtt LambdaFunction.Arn
       AuthType: NONE
-      Cors:
-        AllowCredentials: false
-        AllowOrigins:
-          - '*'
-        AllowMethods:
-          - '*'
-        AllowHeaders:
-          - '*'
-        MaxAge: 0
 
 Outputs:
   APIEndpoint:
