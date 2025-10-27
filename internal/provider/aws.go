@@ -258,21 +258,59 @@ func (p *AWSProvider) generateAPIKey() (string, string, error) {
 }
 
 func (p *AWSProvider) buildFunction() ([]byte, error) {
-	// Find project root
-	cwd, err := os.Getwd()
+	// Create temporary directory for building
+	tmpDir, err := os.MkdirTemp("", "lambda-build-*")
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create temp dir: %w", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	// Extract embedded Lambda source to temp directory
+	lambdaFS := assets.GetLambdaSourceFS()
+	entries, err := lambdaFS.ReadDir("lambda/orchestrator")
+	if err != nil {
+		return nil, fmt.Errorf("failed to read embedded lambda source: %w", err)
 	}
 
-	// Navigate to backend/orchestrator directory
-	lambdaDir := filepath.Join(cwd, "backend", "orchestrator")
-	if _, err := os.Stat(lambdaDir); os.IsNotExist(err) {
-		return nil, fmt.Errorf("orchestrator directory not found: %s", lambdaDir)
+	// Copy all .go files from embedded FS to temp directory
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".go") {
+			continue
+		}
+
+		srcPath := filepath.Join("lambda", "orchestrator", entry.Name())
+		content, err := lambdaFS.ReadFile(srcPath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read %s: %w", srcPath, err)
+		}
+
+		dstPath := filepath.Join(tmpDir, entry.Name())
+		if err := os.WriteFile(dstPath, content, 0644); err != nil {
+			return nil, fmt.Errorf("failed to write %s: %w", dstPath, err)
+		}
+	}
+
+	// Create go.mod file
+	goModContent := `module orchestrator
+
+go 1.25.3
+
+require github.com/aws/aws-lambda-go v1.47.0
+`
+	if err := os.WriteFile(filepath.Join(tmpDir, "go.mod"), []byte(goModContent), 0644); err != nil {
+		return nil, fmt.Errorf("failed to write go.mod: %w", err)
+	}
+
+	// Run go mod download to fetch dependencies
+	modDownloadCmd := exec.Command("go", "mod", "download")
+	modDownloadCmd.Dir = tmpDir
+	if output, err := modDownloadCmd.CombinedOutput(); err != nil {
+		return nil, fmt.Errorf("go mod download failed: %w\n%s", err, string(output))
 	}
 
 	// Build the Go binary
 	buildCmd := exec.Command("go", "build", "-o", "bootstrap")
-	buildCmd.Dir = lambdaDir
+	buildCmd.Dir = tmpDir
 	buildCmd.Env = append(os.Environ(),
 		"GOOS=linux",
 		"GOARCH=arm64",
@@ -289,7 +327,7 @@ func (p *AWSProvider) buildFunction() ([]byte, error) {
 	zipWriter := zip.NewWriter(&buf)
 
 	// Add bootstrap file
-	bootstrapPath := filepath.Join(lambdaDir, "bootstrap")
+	bootstrapPath := filepath.Join(tmpDir, "bootstrap")
 	bootstrapFile, err := os.Open(bootstrapPath)
 	if err != nil {
 		return nil, err
@@ -322,9 +360,6 @@ func (p *AWSProvider) buildFunction() ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	// Clean up
-	os.Remove(bootstrapPath)
 
 	return buf.Bytes(), nil
 }
