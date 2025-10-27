@@ -413,6 +413,15 @@ Resources:
       TargetFunctionArn: !GetAtt LambdaFunction.Arn
       AuthType: NONE
 
+  # Public access permission for Function URL
+  LambdaFunctionUrlPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt LambdaFunction.Arn
+      Principal: '*'
+      Action: lambda:InvokeFunctionUrl
+      FunctionUrlAuthType: NONE
+
 Outputs:
   APIEndpoint:
     Description: Lambda Function URL endpoint
