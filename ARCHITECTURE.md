@@ -20,7 +20,8 @@ mycli is a centralized execution platform that allows teams to run infrastructur
 │                         AWS Account                              │
 │                                                                  │
 │  ┌──────────────┐                                               │
-│  │ API Gateway  │◄─────── HTTPS with X-API-Key header          │
+│  │ Lambda       │◄─────── HTTPS Function URL with X-API-Key    │
+│  │ Function URL │     header                                  │
 │  └──────┬───────┘                                               │
 │         │                                                        │
 │  ┌──────▼───────────┐                                          │
@@ -96,11 +97,17 @@ api_key: sk_live_abc123...
 # Note: No AWS credentials stored
 ```
 
-### 2. API Gateway
+### 2. Lambda Function URL
 
 **Purpose**: HTTP entry point for CLI requests
 
-just a necessary evil required to proxy requests to the orchestrator lambda
+Provides a direct HTTPS endpoint for the Lambda function, eliminating the need for API Gateway and simplifying the architecture.
+
+**Benefits over API Gateway**:
+- Simpler setup (no API Gateway resources needed)
+- Lower cost ($0.60 vs $3.50 per million requests)
+- Direct Lambda invocation
+- Reduced latency (one less hop)
 
 ### 3. Lambda Orchestrator (Go)
 
@@ -413,7 +420,7 @@ GET /api/logs/{execution_id}
 1. User runs command
    $ mycli exec "terraform apply" --lock infra-prod
 
-2. CLI sends request to API Gateway
+2. CLI sends request to Lambda Function URL
    POST /executions
    Headers: X-API-Key: sk_live_abc123...
    Body: {
@@ -545,8 +552,8 @@ On completion:
 
 ### Authentication Layers
 
-1. **CLI to API Gateway**: API key in header (`X-API-Key`)
-2. **API to Lambda**: AWS IAM (API Gateway invokes Lambda)
+1. **CLI to Lambda Function URL**: API key in header (`X-API-Key`)
+2. **Lambda execution**: AWS IAM role (Lambda invokes Lambda directly)
 3. **Web UI to Log API**: JWT token in URL/header
 4. **ECS Task to AWS**: IAM Task Role
 
@@ -570,10 +577,10 @@ On completion:
 - Option 2: Private subnet with VPC endpoints (no internet)
 - Security group: Egress only (no ingress needed)
 
-**API Gateway**:
+**Lambda Function URL**:
 - Public endpoint (HTTPS only)
-- API key validation before reaching Lambda
-- Rate limiting (configurable)
+- API key validation in Lambda handler
+- CORS configured for web access
 
 ### Audit Trail
 
@@ -598,7 +605,7 @@ Each company gets one mycli deployment:
 ```
 Company "Acme Corp" → AWS Account 123456789
   └─ mycli CloudFormation stack
-     ├─ API Gateway: https://api.mycli.acme.internal
+     ├─ Lambda Function URL: https://xxx.lambda-url.region.on.aws/
      ├─ Lambda orchestrator
      ├─ DynamoDB tables
      ├─ ECS cluster
@@ -642,7 +649,7 @@ Company "Acme Corp" → AWS Account 123456789
      - VPC, subnets, internet gateway, security groups
      - ECS Fargate cluster and task definitions
      - Lambda function (loaded from S3)
-     - API Gateway (REST API)
+     - Lambda Function URL
      - DynamoDB tables (API Keys, Executions, Locks)
      - IAM roles (Lambda execution, ECS task, ECS task execution)
      - CloudWatch log groups
@@ -697,7 +704,7 @@ $ mycli exec "terraform apply" --profile acme-prod
 - **Concurrency**: Fargate scales automatically (up to AWS service limits)
 - **Cost**: Pay-per-execution (no idle costs except DynamoDB and small Lambda)
 - **Limits**: 
-  - API Gateway: 10,000 requests/second (default)
+  - Lambda Function URL: 1000 RPS per URL (default)
   - Lambda: 1,000 concurrent executions (default)
   - Fargate: 1,000 tasks per cluster (default, can increase)
   - DynamoDB: On-demand scaling (no hard limit)
@@ -733,7 +740,7 @@ $ mycli exec "terraform apply" --profile acme-prod
 
 **Performance**:
 - Lambda cold start time
-- API Gateway latency
+- Lambda Function URL latency
 - ECS task start time
 - Log fetch latency
 
@@ -749,7 +756,7 @@ $ mycli exec "terraform apply" --profile acme-prod
 **Critical**:
 - Lambda execution errors > 5% in 5 minutes
 - ECS task failure rate > 10% in 5 minutes
-- API Gateway 5xx errors > 1% in 5 minutes
+- Lambda Function URL 5xx errors > 1% in 5 minutes
 
 **Warning**:
 - High lock contention (many 409 responses)
@@ -761,12 +768,10 @@ $ mycli exec "terraform apply" --profile acme-prod
 **CloudWatch Log Groups**:
 - `/aws/lambda/mycli-orchestrator` - Lambda logs
 - `/mycli/executions` - Execution output logs
-- `/aws/apigateway/mycli` - API Gateway access logs
 
 **Log Retention**:
 - Lambda logs: 30 days
 - Execution logs: 7 days (configurable)
-- API Gateway logs: 7 days
 
 ## Future Architecture Enhancements
 
@@ -848,8 +853,8 @@ $ mycli exec "terraform apply" --profile acme-prod
 - CloudWatch Logs: 50 exec × 5MB × 30 days × $0.50/GB
   - = **$3.75**
 - S3: Negligible
-- API Gateway: 1,500 requests/month
-  - = **$0.005**
+- Lambda Function URL: 1,500 requests/month
+  - = **$0.001**
 
 **Total: ~$5/month**
 
@@ -861,7 +866,7 @@ $ mycli exec "terraform apply" --profile acme-prod
 - DynamoDB: **$5.00**
 - CloudWatch Logs: **$37.50**
 - S3: **$1.00**
-- API Gateway: **$0.05**
+- Lambda Function URL: **$0.01**
 
 **Total: ~$46/month**
 
@@ -873,7 +878,7 @@ $ mycli exec "terraform apply" --profile acme-prod
 - DynamoDB: **$20.00**
 - CloudWatch Logs: **$150.00**
 - S3: **$5.00**
-- API Gateway: **$0.20**
+- Lambda Function URL: **$0.05**
 
 **Total: ~$186/month**
 

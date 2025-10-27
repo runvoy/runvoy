@@ -14,7 +14,7 @@ Pivoted from git-based single-user architecture to multi-user centralized execut
   - **LocksTable**: Manages distributed locks (partition key: `lock_name`, TTL enabled)
   - **CodeBucket**: S3 bucket for code uploads (7-day lifecycle)
 - ✅ Updated Lambda environment variables (removed git tokens, added DynamoDB table names)
-- ✅ Simplified API Gateway to single `/{proxy+}` catch-all route (routing in Lambda)
+- ✅ Replaced API Gateway with Lambda Function URLs (simpler, cheaper)
 - ✅ Added DynamoDB permissions to Lambda IAM role
 - ✅ Updated outputs to export new resource names
 
@@ -74,9 +74,9 @@ Pivoted from git-based single-user architecture to multi-user centralized execut
 
 ### Before (Git-based)
 ```
-User → CLI → API Gateway → Lambda → ECS (git clone + exec)
-                                    ↓
-                            CloudWatch Logs
+User → CLI → Lambda Function URL → Lambda → ECS (git clone + exec)
+                                                  ↓
+                                          CloudWatch Logs
 ```
 - Single API key (bcrypt hash)
 - Git cloning required
@@ -85,11 +85,11 @@ User → CLI → API Gateway → Lambda → ECS (git clone + exec)
 
 ### After (DynamoDB-based)
 ```
-User → CLI → API Gateway → Lambda → DynamoDB (keys, executions, locks)
-              (API key)              ↓
-                                   ECS (direct exec)
-                                    ↓
-                            CloudWatch Logs
+User → CLI → Lambda Function URL → Lambda → DynamoDB (keys, executions, locks)
+              (API key)                      ↓
+                                           ECS (direct exec)
+                                            ↓
+                                    CloudWatch Logs
 ```
 - Multiple users with individual API keys
 - Direct command execution
@@ -173,8 +173,8 @@ User → CLI → API Gateway → Lambda → DynamoDB (keys, executions, locks)
 
 ## Notes
 
-- API Gateway now uses catch-all `/{proxy+}` route for flexibility
-- All routing logic moved to Lambda (easier to iterate)
+- API Gateway replaced with Lambda Function URLs (lower cost, simpler architecture)
+- All routing logic in Lambda (easier to iterate)
 - Git cloning removed from core architecture (can be added back later if needed)
 - JWT tokens for web UI not yet implemented (placeholder in code)
 - Lock TTL ensures automatic cleanup if tasks crash

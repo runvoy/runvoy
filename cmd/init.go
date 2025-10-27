@@ -90,7 +90,7 @@ func runInit(cmd *cobra.Command, args []string) error {
 		fmt.Println("\nResources to be created:")
 		fmt.Println("   - VPC with subnets and internet gateway")
 		fmt.Println("   - ECS Fargate cluster and task definitions")
-		fmt.Println("   - Lambda function and API Gateway")
+		fmt.Println("   - Lambda function with Function URL")
 		fmt.Println("   - CloudWatch log groups")
 		fmt.Println("   - IAM roles and security groups")
 		fmt.Print("\nType 'yes' to confirm: ")
