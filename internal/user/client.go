@@ -4,29 +4,35 @@ import (
 	"fmt"
 	"log/slog"
 
+	"runvoy/internal/api"
+	"runvoy/internal/client"
 	"runvoy/internal/config"
 )
 
-// Client provides a high-level interface for user operations
-type Client struct {
-	service *Service
+// UserClient provides user management operations
+type UserClient struct {
+	client *client.Client
 }
 
-// NewClient creates a new user client
-func NewClient(cfg *config.Config, logger *slog.Logger) *Client {
-	return &Client{
-		service: NewService(cfg, logger),
+// New creates a new user client
+func New(cfg *config.Config, logger *slog.Logger) *UserClient {
+	return &UserClient{
+		client: client.New(cfg, logger),
 	}
 }
 
 // CreateUser creates a new user and returns a formatted response
-func (c *Client) CreateUser(email string) error {
-	req := CreateUserRequest{
-		Email: email,
+func (u *UserClient) CreateUser(email string) error {
+	req := client.Request{
+		Method: "POST",
+		Path:   "users/create",
+		Body: api.CreateUserRequest{
+			Email: email,
+		},
 	}
 
-	resp, err := c.service.CreateUser(req)
-	if err != nil {
+	var resp api.CreateUserResponse
+	if err := u.client.DoJSON(req, &resp); err != nil {
 		return fmt.Errorf("❌ %w", err)
 	}
 

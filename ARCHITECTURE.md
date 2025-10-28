@@ -307,43 +307,55 @@ api_key: "your-api-key-here"
 
 Configuration is loaded on-demand for each command execution and requires authentication for all operations.
 
-### User Management Package
+### Generic HTTP Client Architecture
 
-The CLI uses a dedicated `internal/user` package for all user-related operations, providing a clean separation of concerns and reusable business logic.
+The CLI uses a generic HTTP client abstraction (`internal/client`) that can be reused across all commands, providing a simple and consistent way to make API requests.
 
 #### Package Structure
 
-- **`internal/user/service.go`**: Core service layer with HTTP client logic
-- **`internal/user/client.go`**: High-level client interface for CLI commands
+- **`internal/client/client.go`**: Generic HTTP client for all API operations
+- **`internal/user/client.go`**: User-specific operations using the generic client
 
-#### Service Layer (`internal/user/service.go`)
+#### Generic Client (`internal/client/client.go`)
 
-The service layer handles the low-level HTTP communication with the backend API:
+The generic client provides a simple abstraction for all API operations:
 
-- **`Service`**: Contains configuration and logger instances
-- **`CreateUser()`**: Makes HTTP POST request to `/api/v1/users/create`
-- **Error Handling**: Parses API error responses and converts to Go errors
-- **Response Parsing**: Handles successful responses and extracts user data
+- **`Client`**: Contains configuration and logger instances
+- **`Do()`**: Makes raw HTTP requests and returns response data
+- **`DoJSON()`**: Makes requests and automatically unmarshals JSON responses
+- **Error Handling**: Standardized error parsing for all API responses
+- **Logging**: Consistent request/response logging across all commands
 
-#### Client Layer (`internal/user/client.go`)
+#### Command-Specific Clients
 
-The client layer provides a high-level interface for CLI commands:
+Each command type has its own client that uses the generic client:
 
-- **`Client`**: Wraps the service with CLI-specific functionality
-- **`CreateUser()`**: Provides formatted output and user-friendly error messages
-- **Display Logic**: Handles success/error message formatting for terminal output
+- **`internal/user/client.go`**: User management operations (create, revoke, etc.)
+- **Future clients**: `internal/exec/client.go`, `internal/logs/client.go`, etc.
+
+**Benefits:**
+- **Consistency**: All commands use the same HTTP client logic
+- **Simplicity**: New commands only need to define their specific operations
+- **Maintainability**: HTTP client logic is centralized and reusable
+- **Testability**: Generic client can be easily mocked for testing
 
 #### User Management Commands
 
 ##### Create User (`users create <email>`)
 
-The refactored command now uses the user package:
+The command uses the generic HTTP client through the user client:
 
 **Implementation:**
 - Located in `cmd/runvoy/cmd/addUser.go`
-- Uses `user.NewClient()` to create a user client
+- Uses `user.New()` to create a user client
 - Calls `userClient.CreateUser(email)` for the actual operation
-- Significantly simplified from 80+ lines to ~15 lines
+- Simplified from 80+ lines to ~15 lines
+
+**How it works:**
+1. Command loads configuration
+2. Creates user client with generic HTTP client
+3. User client uses `client.DoJSON()` to make API request
+4. Generic client handles all HTTP details (headers, error parsing, etc.)
 
 **Error Handling:**
 - 400 Bad Request: Invalid email format or missing email
@@ -351,8 +363,22 @@ The refactored command now uses the user package:
 - 409 Conflict: User already exists
 - 500 Internal Server Error: Server errors
 
-**Benefits of Refactoring:**
-- **Reusability**: User logic can be easily reused by other commands
-- **Testability**: Service layer can be unit tested independently
-- **Maintainability**: Business logic separated from CLI presentation
-- **Consistency**: All user operations use the same underlying service
+**Adding New Commands:**
+To add new commands (exec, logs, etc.), simply:
+1. Create `internal/{command}/client.go`
+2. Use `client.New()` to create generic client
+3. Define command-specific methods using `client.DoJSON()`
+4. Add Cobra command that uses the client
+
+**Example for future exec command:**
+```go
+// internal/exec/client.go
+func (e *ExecClient) RunCommand(cmd string) error {
+    req := client.Request{
+        Method: "POST",
+        Path:   "exec/run",
+        Body:   api.ExecutionRequest{Command: cmd},
+    }
+    return e.client.DoJSON(req, &result)
+}
+```

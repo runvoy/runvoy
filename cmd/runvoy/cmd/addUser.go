@@ -42,6 +42,6 @@ func runCreateUser(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	// Create user client and create user
-	userClient := user.NewClient(cfg, slog.Default())
+	userClient := user.New(cfg, slog.Default())
 	return userClient.CreateUser(email)
 }
