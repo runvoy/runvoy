@@ -46,6 +46,10 @@ func Initialize(ctx context.Context, provider constants.BackendProvider, cfg *co
 
 // initializeAWSBackend sets up AWS-specific dependencies
 func initializeAWSBackend(ctx context.Context, cfg *config.Env) (database.UserRepository, error) {
+	if cfg.APIKeysTable == "" {
+		return nil, fmt.Errorf("APIKeysTable cannot be empty")
+	}
+
 	awsCfg, err := awsconfig.LoadDefaultConfig(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load AWS configuration: %w", err)
