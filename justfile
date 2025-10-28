@@ -26,22 +26,10 @@ run-local: build-local
 test:
     go test ./...
 
-# Run unit tests only
-test-unit:
-    go test ./tests/unit/...
-
-# Run integration tests only
-test-integration:
-    go test ./tests/integration/...
-
 # Run tests with coverage
 test-coverage:
     go test -coverprofile=coverage.out ./...
     go tool cover -html=coverage.out -o coverage.html
-
-# Run local integration tests (legacy)
-test-local: build-local
-    ./scripts/test-local.sh
 
 # Clean build artifacts
 clean:
@@ -53,12 +41,13 @@ dev-setup:
     go mod tidy
     go mod download
 
-# Infrastructure commands
+# Create lambda bucket
 create-lambda-bucket:
     aws cloudformation deploy \
         --stack-name runvoy-releases-bucket \
         --template-file infra/runvoy-bucket.yaml
 
+# Update backend service (Lambda function)
 [working-directory: 'cmd/backend']
 update-backend:
     rm -f function.zip bootstrap
@@ -68,13 +57,15 @@ update-backend:
     aws lambda update-function-code --function-name runvoy-orchestrator --zip-file fileb://function.zip > /dev/null
     aws lambda wait function-updated --function-name runvoy-orchestrator
 
-init:
+# Deploy backend service (Lambda function)
+deploy-backend:
     aws cloudformation deploy \
         --stack-name runvoy-backend \
         --template-file infra/cloudformation-backend.yaml \
         --parameter-overrides LambdaCodeBucket={{bucket}} JWTSecret=$(openssl rand -hex 32) \
         --capabilities CAPABILITY_NAMED_IAM
 
-destroy:
+# Destroy backend service (Lambda function)
+destroy-backend:
     aws cloudformation delete-stack --stack-name runvoy-backend
     aws cloudformation wait stack-delete-complete --stack-name runvoy-backend

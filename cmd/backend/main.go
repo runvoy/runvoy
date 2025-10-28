@@ -3,14 +3,13 @@ package main
 import (
 	"context"
 	"log"
-	"os"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
 
+	"runvoy/cmd/backend/aws"
 	"runvoy/internal/handlers"
 	"runvoy/internal/services"
-	"runvoy/cmd/lambda/aws"
 )
 
 var h *handlers.Handlers

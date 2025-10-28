@@ -96,8 +96,6 @@ The codebase is organized to support both Lambda deployment and local developmen
 ├── local/                        # Local development tools
 │   ├── main.go                   # Local server entry point
 │   └── mocks/                    # Mock implementations for testing
-├── tests/                        # Integration and E2E tests
-└── scripts/                      # Build and deployment scripts
 ```
 
 ### Key Design Principles
