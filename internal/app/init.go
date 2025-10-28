@@ -21,8 +21,8 @@ import (
 // Supported cloud providers:
 //   - "aws": Uses DynamoDB for storage
 //   - "gcp": (future) E.g. using Google Cloud Run and Firestore for storage
-func Initialize(ctx context.Context, provider constants.BackendProvider, cfg *config.Env) (*Service, error) {
-	slog.Debug("Initializing service", "provider", provider)
+func Initialize(ctx context.Context, provider constants.BackendProvider, cfg *config.Env, logger *slog.Logger) (*Service, error) {
+	logger.Debug("Initializing service", "provider", provider)
 
 	var (
 		userRepo database.UserRepository
@@ -31,7 +31,7 @@ func Initialize(ctx context.Context, provider constants.BackendProvider, cfg *co
 
 	switch provider {
 	case constants.AWS:
-		userRepo, err = initializeAWSBackend(ctx, cfg)
+		userRepo, err = initializeAWSBackend(ctx, cfg, logger)
 		if err != nil {
 			return nil, fmt.Errorf("failed to initialize AWS: %w", err)
 		}
@@ -39,13 +39,13 @@ func Initialize(ctx context.Context, provider constants.BackendProvider, cfg *co
 		return nil, fmt.Errorf("unknown backend provider: %s (supported: %s)", provider, constants.AWS)
 	}
 
-	slog.Debug("Service initialized successfully", "provider", provider)
+	logger.Debug("Service initialized successfully", "provider", provider)
 
-	return NewService(userRepo), nil
+	return NewService(userRepo, logger), nil
 }
 
 // initializeAWSBackend sets up AWS-specific dependencies
-func initializeAWSBackend(ctx context.Context, cfg *config.Env) (database.UserRepository, error) {
+func initializeAWSBackend(ctx context.Context, cfg *config.Env, logger *slog.Logger) (database.UserRepository, error) {
 	if cfg.APIKeysTable == "" {
 		return nil, fmt.Errorf("APIKeysTable cannot be empty")
 	}
@@ -56,7 +56,7 @@ func initializeAWSBackend(ctx context.Context, cfg *config.Env) (database.UserRe
 	}
 
 	dynamoClient := dynamodb.NewFromConfig(awsCfg)
-	slog.Debug("Using DynamoDB", "table", cfg.APIKeysTable)
+	logger.Debug("Using DynamoDB", "table", cfg.APIKeysTable)
 
-	return dynamorepo.NewUserRepository(dynamoClient, cfg.APIKeysTable), nil
+	return dynamorepo.NewUserRepository(dynamoClient, cfg.APIKeysTable, logger), nil
 }

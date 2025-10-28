@@ -60,8 +60,11 @@ func setContentTypeJSON(next http.Handler) http.Handler {
 // authenticateRequest middleware authenticates requests
 func (r *Router) authenticateRequest(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		// Use logger with request ID if available
-		logger := GetLoggerFromContext(req.Context())
+		// Use service logger with request ID if available
+		logger := r.svc.Logger
+		if requestID := GetRequestID(req.Context()); requestID != "" {
+			logger = logger.With("requestID", requestID)
+		}
 		
 		apiKey := req.Header.Get("X-API-Key")
 		logger.Debug("Authenticating request") // removed logging of apiKey (security)
@@ -115,8 +118,11 @@ func (r *Router) WithContext(ctx context.Context, svc *app.Service) context.Cont
 
 // handleCreateUser handles POST /api/v1/users to create a new user with an API key
 func (r *Router) handleCreateUser(w http.ResponseWriter, req *http.Request) {
-	// Use logger with request ID if available
-	logger := GetLoggerFromContext(req.Context())
+	// Use service logger with request ID if available
+	logger := r.svc.Logger
+	if requestID := GetRequestID(req.Context()); requestID != "" {
+		logger = logger.With("requestID", requestID)
+	}
 	
 	var createReq app.CreateUserRequest
 

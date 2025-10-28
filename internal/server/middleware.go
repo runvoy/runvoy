@@ -44,11 +44,3 @@ func GetRequestID(ctx context.Context) string {
 	}
 	return ""
 }
-
-// GetLoggerFromContext extracts a logger with request ID from the context, or returns the default logger
-func GetLoggerFromContext(ctx context.Context) *slog.Logger {
-	if logger, ok := ctx.Value("logger").(*slog.Logger); ok {
-		return logger
-	}
-	return slog.Default()
-}

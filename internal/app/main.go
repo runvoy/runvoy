@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/mail"
 	"time"
 
@@ -16,14 +17,16 @@ import (
 
 type Service struct {
 	userRepo database.UserRepository
+	Logger   *slog.Logger
 }
 
 // NewService creates a new service instance.
 // If userRepo is nil, user-related operations will not be available.
 // This allows the service to work without database dependencies for simple operations.
-func NewService(userRepo database.UserRepository) *Service {
+func NewService(userRepo database.UserRepository, logger *slog.Logger) *Service {
 	return &Service{
 		userRepo: userRepo,
+		Logger:   logger,
 	}
 }
 
