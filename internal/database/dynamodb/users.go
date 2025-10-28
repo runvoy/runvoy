@@ -19,13 +19,15 @@ import (
 type UserRepository struct {
 	client    *dynamodb.Client
 	tableName string
+	logger    *slog.Logger
 }
 
 // NewUserRepository creates a new DynamoDB-backed user repository.
-func NewUserRepository(client *dynamodb.Client, tableName string) *UserRepository {
+func NewUserRepository(client *dynamodb.Client, tableName string, logger *slog.Logger) *UserRepository {
 	return &UserRepository{
 		client:    client,
 		tableName: tableName,
+		logger:    logger,
 	}
 }
 
@@ -74,7 +76,7 @@ func (r *UserRepository) CreateUser(ctx context.Context, user *api.User, apiKeyH
 
 // GetUserByEmail retrieves a user by their email using the GSI.
 func (r *UserRepository) GetUserByEmail(ctx context.Context, email string) (*api.User, error) {
-	slog.Debug("Querying user by email", "email", email)
+	r.logger.Debug("Querying user by email", "email", email)
 
 	result, err := r.client.Query(ctx, &dynamodb.QueryInput{
 		TableName:              aws.String(r.tableName),

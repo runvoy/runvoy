@@ -48,10 +48,37 @@ The router uses a middleware stack for cross-cutting concerns:
 The request ID middleware automatically:
 - Extracts the AWS Lambda request ID from the Lambda context when available
 - Adds the request ID to the request context for use by handlers
-- Creates a logger instance with the request ID for structured logging
 - Falls back gracefully when not running in Lambda environment
 
-This ensures all log messages include the Lambda request ID for easy tracing and debugging.
+## Logging Architecture
+
+The application uses a unified logging approach with structured logging via `log/slog`:
+
+### Logger Initialization
+- Logger is initialized once at application startup in `internal/logger/logger.go`
+- Configuration supports both development (human-readable) and production (JSON) formats
+- Log level is configurable via `RUNVOY_LOG_LEVEL` environment variable
+
+### Service-Level Logging
+- Each `Service` instance contains its own logger instance (`Service.Logger`)
+- This eliminates the need for context-based logger extraction
+- All service methods can directly access `s.Logger` for consistent logging
+
+### Request-Scoped Logging
+- Router handlers create request-scoped loggers by combining the service logger with request ID
+- Pattern: `logger := r.svc.Logger.With("requestID", requestID)`
+- This ensures all log messages within a request include the Lambda request ID for tracing
+
+### Database Layer Logging
+- Database repositories receive the service logger during initialization
+- This maintains consistent logging across all application layers
+- Database operations are logged with the same structured format
+
+### Benefits
+- **Consistency**: All logging uses the same logger instance and format
+- **Simplicity**: No need for `GetLoggerFromContext()` or global logger access
+- **Traceability**: Request ID is automatically included in all request-scoped logs
+- **Maintainability**: Clear separation between service-level and request-scoped logging
 
 ## System Architecture
 

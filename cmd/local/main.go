@@ -21,7 +21,7 @@ func main() {
 	log := logger.Initialize(constants.Development, cfg.LogLevel)
 	ctx, cancel := context.WithTimeout(context.Background(), cfg.InitTimeout)
 	defer cancel()
-	svc, err := app.Initialize(ctx, constants.AWS, cfg)
+	svc, err := app.Initialize(ctx, constants.AWS, cfg, log)
 	if err != nil {
 		log.Error("Failed to initialize service", "error", err)
 		os.Exit(1)

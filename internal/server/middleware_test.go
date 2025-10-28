@@ -88,25 +88,3 @@ func TestGetRequestID(t *testing.T) {
 		})
 	}
 }
-
-func TestGetLoggerFromContext(t *testing.T) {
-	// Test with default logger
-	t.Run("default logger", func(t *testing.T) {
-		ctx := context.Background()
-		logger := GetLoggerFromContext(ctx)
-		if logger == nil {
-			t.Error("Expected logger to be non-nil")
-		}
-	})
-
-	// Test with logger in context
-	t.Run("logger in context", func(t *testing.T) {
-		ctx := context.Background()
-		// This would normally be set by the middleware
-		// We can't easily test the actual logger creation without more complex setup
-		logger := GetLoggerFromContext(ctx)
-		if logger == nil {
-			t.Error("Expected logger to be non-nil")
-		}
-	})
-}
