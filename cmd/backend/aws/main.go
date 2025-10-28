@@ -1,14 +1,15 @@
 package main
 
 import (
-	"runvoy/internal/app"
-	"runvoy/internal/lambdaapi"
+	"context"
 
 	"github.com/aws/aws-lambda-go/lambda"
+	"runvoy/internal/app"
+	"runvoy/internal/lambdaapi"
 )
 
 func main() {
-	svc := app.NewService()
+	svc := app.MustInitialize(context.Background(), "aws")
 	handler := lambdaapi.NewHandler(svc)
 	lambda.Start(handler.HandleRequest)
 }

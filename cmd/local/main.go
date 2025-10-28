@@ -15,11 +15,13 @@ import (
 )
 
 func main() {
-	// Create service and router
-	svc := app.NewService()
+	// Initialize service for AWS
+	svc := app.MustInitialize(context.Background(), "aws")
+
+	// Create router
 	router := server.NewRouter(svc)
 
-	// Create HTTP server
+	// Configure HTTP server
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
