@@ -41,9 +41,10 @@ func NewRouter(svc *app.Service) *Router {
 		r.Get("/health", router.handleHealth)
 
 		// authenticated routes
-		r.Use(router.authenticateRequest)
-		r.Post("/users/create", router.handleCreateUser)
-		r.Post("/users/revoke", router.handleRevokeUser)
+		r.With(router.authenticateRequest).Route("/users", func(r chi.Router) {
+			r.Post("/create", router.handleCreateUser)
+			r.Post("/revoke", router.handleRevokeUser)
+		})
 	})
 	return router
 }
