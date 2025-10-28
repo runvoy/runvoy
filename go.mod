@@ -10,6 +10,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/config v1.28.7
 	github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue v1.15.24
 	github.com/aws/aws-sdk-go-v2/service/dynamodb v1.39.1
+	github.com/caarlos0/env/v11 v11.3.1
 	github.com/go-chi/chi/v5 v5.2.3
 	github.com/spf13/cobra v1.8.0
 	golang.org/x/term v0.36.0

@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"runvoy/internal/app"
+	"runvoy/internal/config"
 	"runvoy/internal/constants"
 	"runvoy/internal/lambdaapi"
 
@@ -11,7 +12,11 @@ import (
 )
 
 func main() {
-	svc := app.MustInitialize(context.Background(), constants.AWS)
+	// Load environment configuration
+	cfg := config.MustLoadEnv()
+
+	// Initialize service
+	svc := app.MustInitialize(context.Background(), constants.AWS, cfg)
 	handler := lambdaapi.NewHandler(svc)
 	lambda.Start(handler.HandleRequest)
 }
