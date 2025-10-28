@@ -17,8 +17,8 @@ type Env struct {
 	// This is required when running with AWS backend and cannot be empty.
 	APIKeysTable string `env:"RUNVOY_API_KEYS_TABLE,notEmpty" envRequired:"true"`
 
-	// LambdaInitTimeout is the timeout for the Lambda function initialization.
-	LambdaInitTimeout time.Duration `env:"RUNVOY_LAMBDA_INIT_TIMEOUT" envDefault:"10s"`
+	// InitTimeout is the timeout for the environment initialization.
+	InitTimeout time.Duration `env:"RUNVOY_INIT_TIMEOUT" envDefault:"10s"`
 }
 
 // LoadEnv loads and validates environment variables into an Env struct.
@@ -27,11 +27,6 @@ func LoadEnv() (*Env, error) {
 	cfg := &Env{}
 	if err := env.Parse(cfg); err != nil {
 		return nil, fmt.Errorf("failed to parse environment variables: %w", err)
-	}
-
-	// Validate that APIKeysTable is not empty
-	if cfg.APIKeysTable == "" {
-		return nil, fmt.Errorf("APIKeysTable (RUNVOY_API_KEYS_TABLE) cannot be empty")
 	}
 
 	return cfg, nil

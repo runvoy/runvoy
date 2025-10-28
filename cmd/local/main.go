@@ -18,7 +18,10 @@ import (
 
 func main() {
 	cfg := config.MustLoadEnv()
-	svc, err := app.Initialize(context.Background(), constants.AWS, cfg)
+	ctx, cancel := context.WithTimeout(context.Background(), cfg.InitTimeout)
+	defer cancel()
+
+	svc, err := app.Initialize(ctx, constants.AWS, cfg)
 	if err != nil {
 		log.Fatalf("Failed to initialize service: %v", err)
 	}
@@ -49,7 +52,7 @@ func main() {
 	log.Println("→ Shutting down server...")
 
 	// Graceful shutdown with timeout
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel = context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	if err := srv.Shutdown(ctx); err != nil {

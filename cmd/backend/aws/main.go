@@ -14,7 +14,7 @@ import (
 
 func main() {
 	cfg := config.MustLoadEnv()
-	ctx, cancel := context.WithTimeout(context.Background(), cfg.LambdaInitTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), cfg.InitTimeout)
 	defer cancel()
 
 	svc, err := app.Initialize(ctx, constants.AWS, cfg)
