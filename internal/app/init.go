@@ -2,13 +2,16 @@ package app
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"os"
 
-	"github.com/aws/aws-sdk-go-v2/config"
-	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
+	"runvoy/internal/constants"
 	"runvoy/internal/database"
 	dynamorepo "runvoy/internal/database/dynamodb"
+
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 )
 
 // MustInitialize creates a new Service configured for the specified cloud provider.
@@ -21,29 +24,24 @@ import (
 //   - "local": (future) Uses in-memory or local file storage
 //
 // Environment variables required per cloud:
-//   AWS:
-//     - API_KEYS_TABLE: DynamoDB table name for API keys
-//     - AWS credentials via standard AWS SDK environment variables
+//
+//	AWS:
+//	  - API_KEYS_TABLE: DynamoDB table name for API keys
+//	  - AWS credentials via standard AWS SDK environment variables
 //
 // Example:
 //
 //	svc := app.MustInitialize(context.Background(), "aws")
-func MustInitialize(ctx context.Context, cloud string) *Service {
-	log.Printf("→ Initializing service for cloud provider: %s", cloud)
+func MustInitialize(ctx context.Context, provider constants.BackendProvider) *Service {
+	log.Printf("→ Initializing service for cloud provider: %s", provider)
 
 	var userRepo database.UserRepository
 
-	switch cloud {
-	case "aws":
+	switch provider {
+	case constants.AWS:
 		userRepo = mustInitializeAWS(ctx)
-	case "gcp":
-		log.Fatal("GCP support not yet implemented")
-	case "azure":
-		log.Fatal("Azure support not yet implemented")
-	case "local":
-		log.Fatal("Local storage support not yet implemented")
 	default:
-		log.Fatalf("Unknown cloud provider: %s (supported: aws, gcp, azure, local)", cloud)
+		panic(fmt.Sprintf("Unknown backend provider: %s (supported: aws)", provider))
 	}
 
 	log.Println("→ Service initialized successfully")

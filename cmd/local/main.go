@@ -11,12 +11,13 @@ import (
 	"time"
 
 	"runvoy/internal/app"
+	"runvoy/internal/constants"
 	"runvoy/internal/server"
 )
 
 func main() {
 	// Initialize service for AWS
-	svc := app.MustInitialize(context.Background(), "aws")
+	svc := app.MustInitialize(context.Background(), constants.AWS)
 
 	// Create router
 	router := server.NewRouter(svc)

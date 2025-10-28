@@ -18,3 +18,9 @@ func ConfigDirPath(homeDir string) string {
 func ConfigFilePath(homeDir string) string {
 	return ConfigDirPath(homeDir) + "/" + ConfigFileName
 }
+
+type BackendProvider string
+
+const (
+	AWS BackendProvider = "aws"
+)
