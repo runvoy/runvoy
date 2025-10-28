@@ -10,13 +10,35 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"runvoy/internal/app"
+	dynamorepo "runvoy/internal/database/dynamodb"
 	"runvoy/internal/server"
 )
 
 func main() {
+	// Optional: Initialize DynamoDB if credentials are available
+	var userRepo *dynamorepo.UserRepository
+	apiKeysTableName := os.Getenv("API_KEYS_TABLE")
+
+	if apiKeysTableName != "" {
+		// Try to load AWS configuration (will fail gracefully if not configured)
+		cfg, err := config.LoadDefaultConfig(context.Background())
+		if err != nil {
+			log.Printf("WARNING: Could not load AWS config: %v", err)
+			log.Println("→ Running without DynamoDB (user operations disabled)")
+		} else {
+			dynamoClient := dynamodb.NewFromConfig(cfg)
+			userRepo = dynamorepo.NewUserRepository(dynamoClient, apiKeysTableName)
+			log.Println("→ DynamoDB user repository initialized")
+		}
+	} else {
+		log.Println("→ API_KEYS_TABLE not set, running without user operations")
+	}
+
 	// Create service and router
-	svc := app.NewService()
+	svc := app.NewService(userRepo)
 	router := server.NewRouter(svc)
 
 	// Create HTTP server
