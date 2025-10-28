@@ -92,7 +92,7 @@ update-backend: build-backend
     aws lambda wait function-updated --function-name runvoy-orchestrator
 
 smoke-test-backend-health:
-    curl -X GET https://h4wgz3vui4wsri6bp65yzbynv40vqhqt.lambda-url.us-east-2.on.aws/api/v1/greet/$(date +%s)
+    curl -X GET https://h4wgz3vui4wsri6bp65yzbynv40vqhqt.lambda-url.us-east-2.on.aws/api/v1/health
 
 # Run local development server with hot reloading
 local-dev-server:
@@ -100,5 +100,6 @@ local-dev-server:
 
 smoke-test-local-user:
     curl -sS -X POST "http://localhost:56212/api/v1/users" \
+        -H "X-API-Key: p_75LzCL7MRdVRe6JsP-m4u-UXR7NAPU" \
         -H "Content-Type: application/json" \
         -d '{"email":"alice@example.com"}' | jq .

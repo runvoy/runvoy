@@ -27,14 +27,6 @@ func NewService(userRepo database.UserRepository) *Service {
 	}
 }
 
-func (s *Service) Greet(name string) string {
-	if name == "" {
-		return "Hello, world!"
-	}
-
-	return name
-}
-
 // CreateUserRequest represents the request to create a new user.
 type CreateUserRequest struct {
 	Email  string `json:"email"`

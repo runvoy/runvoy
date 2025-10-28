@@ -12,6 +12,13 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
+type contextKey string
+
+const (
+	userContextKey    contextKey = "user"
+	serviceContextKey contextKey = "service"
+)
+
 type Router struct {
 	router *chi.Mux
 	svc    *app.Service
@@ -28,10 +35,12 @@ func NewRouter(svc *app.Service) *Router {
 	// Add middleware to set Content-Type header for all routes
 	r.Use(setContentTypeJSON)
 
+	// Add middleware to authenticate requests
+	r.Use(router.authenticateRequest)
+
 	// Set up routes
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Get("/health", router.handleHealth)
-		r.Get("/greet/{name}", router.handleGreet)
 		r.Post("/users", router.handleCreateUser)
 	})
 
@@ -46,22 +55,38 @@ func setContentTypeJSON(next http.Handler) http.Handler {
 	})
 }
 
+// authenticateRequest middleware authenticates requests
+func (r *Router) authenticateRequest(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		apiKey := req.Header.Get("X-API-Key")
+		slog.Debug("Authenticating request") // removed logging of apiKey (security)
+
+		if apiKey == "" {
+			slog.Debug("Unauthorized request", "error", "API key is required")
+			writeErrorResponse(w, http.StatusUnauthorized, "Unauthorized", "API key is required")
+			return
+		}
+
+		user, err := r.svc.AuthenticateUser(req.Context(), apiKey)
+		if err != nil {
+			slog.Debug("Unauthorized request", "error", "Invalid API key")
+			writeErrorResponse(w, http.StatusUnauthorized, "Unauthorized", "Invalid API key")
+			return
+		}
+
+		slog.Debug("Authenticated user", "user", user)
+
+		// Add authenticated user to request context
+		ctx := context.WithValue(req.Context(), userContextKey, user)
+		next.ServeHTTP(w, req.WithContext(ctx))
+	})
+}
+
 // handleHealth returns a simple health check response
 func (r *Router) handleHealth(w http.ResponseWriter, req *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]string{
 		"status": "ok",
-	})
-}
-
-// handleGreet handles greeting messages
-func (r *Router) handleGreet(w http.ResponseWriter, req *http.Request) {
-	name := chi.URLParam(req, "name")
-	message := r.svc.Greet(name)
-
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{
-		"message": message,
 	})
 }
 
@@ -82,7 +107,7 @@ func (r *Router) Handler() http.Handler {
 
 // WithContext adds the service to the request context
 func (r *Router) WithContext(ctx context.Context, svc *app.Service) context.Context {
-	return context.WithValue(ctx, "service", svc)
+	return context.WithValue(ctx, serviceContextKey, svc)
 }
 
 // handleCreateUser handles POST /api/v1/users to create a new user with an API key

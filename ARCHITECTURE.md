@@ -31,7 +31,7 @@ All routes are defined in `internal/server/router.go`:
 
 ```text
 GET  /api/v1/health     - Health check endpoint
-GET  /api/v1/greet/{name} - Example greeting endpoint
+POST /api/v1/users      - Create a new user with an API key
 ```
 
 Both Lambda and local HTTP server use identical routing logic, ensuring development/production parity.
