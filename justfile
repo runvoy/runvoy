@@ -14,9 +14,9 @@ build-backend:
     GOARCH=arm64 GOOS=linux go build -o ../../../dist/bootstrap
 
 # Build local development server
-[working-directory: 'local']
+[working-directory: 'cmd/local']
 build-local:
-    go build -o ../bin/local
+    go build -o ../../bin/local
 
 # Run local development server
 run-local: build-local
@@ -57,3 +57,6 @@ update-backend: build-backend
         --s3-bucket runvoy-releases \
         --s3-key bootstrap.zip > /dev/null
     aws lambda wait function-updated --function-name runvoy-orchestrator
+
+smoke-test-backend:
+    curl -X GET https://h4wgz3vui4wsri6bp65yzbynv40vqhqt.lambda-url.us-east-2.on.aws/api/v1/greet/$(date +%s)

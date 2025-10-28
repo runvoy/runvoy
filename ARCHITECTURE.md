@@ -13,9 +13,32 @@ runvoy is a centralized execution platform that allows teams to run infrastructu
 5. **Self-Service**: Team members don't wait for admins to run commands
 6. **Extensible Authorization**: Architecture supports fine-grained permissions (to be added later)
 
+## Router Architecture
+
+The application uses **chi** (github.com/go-chi/chi/v5) as the HTTP router for both Lambda and local HTTP server implementations. This provides a consistent routing API across deployment models.
+
+### Components
+
+- **`internal/server/router.go`**: Shared chi-based router configuration with all API routes
+- **`internal/lambdaapi/adapter.go`**: Adapter to convert between Lambda events and standard http.Handler
+- **`internal/lambdaapi/handler.go`**: Lambda handler that uses the chi router via adapter
+- **`cmd/local/main.go`**: Local HTTP server implementation using the same router
+- **`cmd/backend/aws/main.go`**: Lambda entry point that uses the chi-based handler
+
+### Route Structure
+
+All routes are defined in `internal/server/router.go`:
+
+```text
+GET  /api/v1/health     - Health check endpoint
+GET  /api/v1/greet/{name} - Example greeting endpoint
+```
+
+Both Lambda and local HTTP server use identical routing logic, ensuring development/production parity.
+
 ## System Architecture
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────────┐
 │                         AWS Account                              │
 │                                                                  │

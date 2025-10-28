@@ -2,27 +2,23 @@ package lambdaapi
 
 import (
 	"context"
-	"fmt"
-	"net/http"
 	"runvoy/internal/app"
+	"runvoy/internal/server"
 
 	"github.com/aws/aws-lambda-go/events"
 )
 
 type LambdaHandler struct {
-	svc *app.Service
+	adapter func(context.Context, events.LambdaFunctionURLRequest) (events.LambdaFunctionURLResponse, error)
 }
 
 func NewHandler(svc *app.Service) *LambdaHandler {
-	return &LambdaHandler{svc: svc}
+	router := server.NewRouter(svc)
+	adapter := ChiRouterToLambdaAdapter(router.ChiMux())
+	return &LambdaHandler{adapter: adapter}
 }
 
 func (h *LambdaHandler) HandleRequest(
 	ctx context.Context, req events.LambdaFunctionURLRequest) (events.LambdaFunctionURLResponse, error) {
-	message := h.svc.Greet(req.RawPath)
-
-	return events.LambdaFunctionURLResponse{
-		StatusCode: http.StatusNotImplemented,
-		Body:       fmt.Sprintf(`{"error": "Not implemented (%s)"}`, message),
-	}, nil
+	return h.adapter(ctx, req)
 }
