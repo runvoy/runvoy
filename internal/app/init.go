@@ -56,7 +56,7 @@ func initializeAWSBackend(ctx context.Context, cfg *config.Env, logger *slog.Log
 	}
 
 	dynamoClient := dynamodb.NewFromConfig(awsCfg)
-	logger.Debug("Using DynamoDB", "table", cfg.APIKeysTable)
+	logger.Debug("Using DynamoDB backend", "table", cfg.APIKeysTable)
 
 	return dynamorepo.NewUserRepository(dynamoClient, cfg.APIKeysTable, logger), nil
 }
