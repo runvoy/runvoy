@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 	"net/http"
+	"time"
 
 	"github.com/aws/aws-lambda-go/lambdacontext"
 )
@@ -43,4 +44,83 @@ func GetRequestID(ctx context.Context) string {
 		return requestID
 	}
 	return ""
+}
+
+// setContentTypeJSON middleware sets Content-Type to application/json for all responses
+func setContentTypeJSON(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		next.ServeHTTP(w, req)
+	})
+}
+
+// authenticateRequest middleware authenticates requests
+func (r *Router) authenticateRequest(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		// Use service logger with request ID if available
+		logger := r.svc.Logger
+		if requestID := GetRequestID(req.Context()); requestID != "" {
+			logger = logger.With("requestID", requestID)
+		}
+
+		apiKey := req.Header.Get("X-API-Key")
+		logger.Debug("authenticating request") // removed logging of apiKey (security)
+
+		if apiKey == "" {
+			writeErrorResponse(w, http.StatusUnauthorized, "Unauthorized", "API key is required")
+			return
+		}
+
+		user, err := r.svc.AuthenticateUser(req.Context(), apiKey)
+		if err != nil {
+			writeErrorResponse(w, http.StatusUnauthorized, "Unauthorized", "Invalid API key")
+			return
+		}
+
+		logger.Info("user authenticated successfully", "user", user)
+
+		// Add authenticated user to request context
+		ctx := context.WithValue(req.Context(), userContextKey, user)
+		next.ServeHTTP(w, req.WithContext(ctx))
+	})
+}
+
+// requestLoggingMiddleware logs incoming requests and their responses
+func (r *Router) requestLoggingMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		// Use service logger with request ID if available
+		logger := r.svc.Logger
+		if requestID := GetRequestID(req.Context()); requestID != "" {
+			logger = logger.With("requestID", requestID)
+		}
+
+		start := time.Now()
+
+		// Wrap the response writer to capture status code
+		wrapped := &responseWriter{
+			ResponseWriter: w,
+			statusCode:     http.StatusOK, // default status code
+		}
+
+		// Log incoming request
+		logger.Info("Incoming request",
+			"method", req.Method,
+			"path", req.URL.Path,
+			"remoteAddr", req.RemoteAddr,
+		)
+
+		// Call the next handler
+		next.ServeHTTP(wrapped, req)
+
+		// Calculate duration
+		duration := time.Since(start)
+
+		// Log response
+		logger.Info("Request completed",
+			"method", req.Method,
+			"path", req.URL.Path,
+			"status", wrapped.statusCode,
+			"duration", duration,
+		)
+	})
 }
