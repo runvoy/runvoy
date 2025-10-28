@@ -153,7 +153,7 @@ func (r *Router) requestLoggingMiddleware(next http.Handler) http.Handler {
 }
 
 // handleHealth returns a simple health check response
-func (r *Router) handleHealth(w http.ResponseWriter, req *http.Request) {
+func (r *Router) handleHealth(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]string{
 		"status": "ok",
