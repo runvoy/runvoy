@@ -62,14 +62,12 @@ func (r *Router) authenticateRequest(next http.Handler) http.Handler {
 		slog.Debug("Authenticating request") // removed logging of apiKey (security)
 
 		if apiKey == "" {
-			slog.Debug("Unauthorized request", "error", "API key is required")
 			writeErrorResponse(w, http.StatusUnauthorized, "Unauthorized", "API key is required")
 			return
 		}
 
 		user, err := r.svc.AuthenticateUser(req.Context(), apiKey)
 		if err != nil {
-			slog.Debug("Unauthorized request", "error", "Invalid API key")
 			writeErrorResponse(w, http.StatusUnauthorized, "Unauthorized", "Invalid API key")
 			return
 		}
