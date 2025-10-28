@@ -130,7 +130,7 @@ func (r *Router) requestLoggingMiddleware(next http.Handler) http.Handler {
 		}
 
 		// Log incoming request
-		logger.Debug("Incoming request",
+		logger.Info("Incoming request",
 			"method", req.Method,
 			"path", req.URL.Path,
 			"remoteAddr", req.RemoteAddr,
@@ -143,7 +143,7 @@ func (r *Router) requestLoggingMiddleware(next http.Handler) http.Handler {
 		duration := time.Since(start)
 
 		// Log response
-		logger.Debug("Request completed",
+		logger.Info("Request completed",
 			"method", req.Method,
 			"path", req.URL.Path,
 			"status", wrapped.statusCode,
