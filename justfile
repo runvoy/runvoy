@@ -47,6 +47,12 @@ create-lambda-bucket:
         --stack-name runvoy-releases-bucket \
         --template-file infra/runvoy-bucket.yaml
 
+update-backend-infra:
+    aws cloudformation deploy \
+        --stack-name runvoy-backend \
+        --template-file infra/cloudformation-backend.yaml \
+        --capabilities CAPABILITY_NAMED_IAM
+
 # Update backend service (Lambda function)
 [working-directory: 'dist']
 update-backend: build-backend
@@ -63,4 +69,4 @@ smoke-test-backend:
 
 # Run local development server with hot reloading
 local-dev-server:
-    reflex -r '\.go$' -s -- sh -c 'AWS_PROFILE=api-l3x-in API_KEYS_TABLE=runvoy-api-keys-table go run ./cmd/local'
+    reflex -r '\.go$' -s -- sh -c 'AWS_PROFILE=api-l3x-in RUNVOY_API_KEYS_TABLE= go run ./cmd/local'

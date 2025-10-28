@@ -497,18 +497,18 @@ Resources:
           Value: 'cloudformation'
       Environment:
         Variables:
-          API_KEYS_TABLE: !Ref APIKeysTable
-          EXECUTIONS_TABLE: !Ref ExecutionsTable
-          LOCKS_TABLE: !Ref LocksTable
-          ECS_CLUSTER: !Ref ECSCluster
-          TASK_DEFINITION: !Ref TaskDefinition
-          SUBNET_1: !Ref PublicSubnet1
-          SUBNET_2: !Ref PublicSubnet2
-          SECURITY_GROUP: !Ref FargateSecurityGroup
-          LOG_GROUP: !Ref ExecutionLogGroup
-          CODE_BUCKET: !Ref CodeBucket
-          JWT_SECRET: !If [HasJWTSecret, !Ref JWTSecret, !Ref 'AWS::NoValue']
-          WEB_UI_URL: ''
+          RUNVOY_API_KEYS_TABLE: !Ref APIKeysTable
+          RUNVOY_EXECUTIONS_TABLE: !Ref ExecutionsTable
+          RUNVOY_LOCKS_TABLE: !Ref LocksTable
+          RUNVOY_ECS_CLUSTER: !Ref ECSCluster
+          RUNVOY_TASK_DEFINITION: !Ref TaskDefinition
+          RUNVOY_SUBNET_1: !Ref PublicSubnet1
+          RUNVOY_SUBNET_2: !Ref PublicSubnet2
+          RUNVOY_SECURITY_GROUP: !Ref FargateSecurityGroup
+          RUNVOY_LOG_GROUP: !Ref ExecutionLogGroup
+          RUNVOY_CODE_BUCKET: !Ref CodeBucket
+          RUNVOY_JWT_SECRET: !If [HasJWTSecret, !Ref JWTSecret, !Ref 'AWS::NoValue']
+          RUNVOY_WEB_UI_URL: ''
 
   # Lambda Function URL
   LambdaFunctionUrl:
