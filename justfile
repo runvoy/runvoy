@@ -102,8 +102,14 @@ local-dev-server:
         go run ./cmd/local'
 
 # Smoke test local user creation
-smoke-test-local-user:
-    curl -sS -X POST "http://localhost:56212/api/v1/users" \
+smoke-test-local-create-user:
+    curl -sS -X POST "http://localhost:56212/api/v1/users/create" \
+        -H "X-API-Key: {{api_key}}" \
+        -H "Content-Type: application/json" \
+        -d '{"email":"alice@example.com"}' | jq .
+
+smoke-test-local-revoke-user:
+    curl -sS -X POST "http://localhost:56212/api/v1/users/revoke" \
         -H "X-API-Key: {{api_key}}" \
         -H "Content-Type: application/json" \
         -d '{"email":"alice@example.com"}' | jq .
@@ -111,4 +117,4 @@ smoke-test-local-user:
 smoke-test-backend-health:
     curl -sS \
         -H "X-API-Key: {{api_key}}" \
-        -X GET https://h4wgz3vui4wsri6bp65yzbynv40vqhqt.lambda-url.us-east-2.on.aws/api/v1/health
+        -X GET https://h4wgz3vui4wsri6bp65yzbynv40vqhqt.lambda-url.us-east-2.on.aws/api/v1/health | jq .

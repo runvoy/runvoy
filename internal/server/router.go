@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"time"
 
 	"runvoy/internal/api"
 	"runvoy/internal/app"
@@ -31,19 +32,19 @@ func NewRouter(svc *app.Service) *Router {
 		svc:    svc,
 	}
 
-	// Add middleware to set Content-Type header for all routes
 	r.Use(setContentTypeJSON)
-
-	// Add middleware to extract and add request ID to context for logging
 	r.Use(requestIDMiddleware)
-
-	// Add middleware to authenticate requests
+	r.Use(router.requestLoggingMiddleware)
 	r.Use(router.authenticateRequest)
 
 	// Set up routes
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Get("/health", router.handleHealth)
-		r.Post("/users", router.handleCreateUser)
+
+		r.Route("/users", func(r chi.Router) {
+			r.Post("/create", router.handleCreateUser)
+			r.Post("/revoke", router.handleRevokeUser)
+		})
 	})
 
 	return router
@@ -65,7 +66,7 @@ func (r *Router) authenticateRequest(next http.Handler) http.Handler {
 		if requestID := GetRequestID(req.Context()); requestID != "" {
 			logger = logger.With("requestID", requestID)
 		}
-		
+
 		apiKey := req.Header.Get("X-API-Key")
 		logger.Debug("Authenticating request") // removed logging of apiKey (security)
 
@@ -85,6 +86,69 @@ func (r *Router) authenticateRequest(next http.Handler) http.Handler {
 		// Add authenticated user to request context
 		ctx := context.WithValue(req.Context(), userContextKey, user)
 		next.ServeHTTP(w, req.WithContext(ctx))
+	})
+}
+
+// responseWriter is a wrapper around http.ResponseWriter to capture status code
+type responseWriter struct {
+	http.ResponseWriter
+	statusCode int
+	written    bool
+}
+
+func (rw *responseWriter) WriteHeader(code int) {
+	if !rw.written {
+		rw.statusCode = code
+		rw.written = true
+		rw.ResponseWriter.WriteHeader(code)
+	}
+}
+
+func (rw *responseWriter) Write(b []byte) (int, error) {
+	if !rw.written {
+		rw.statusCode = http.StatusOK
+		rw.written = true
+	}
+	return rw.ResponseWriter.Write(b)
+}
+
+// requestLoggingMiddleware logs incoming requests and their responses
+func (r *Router) requestLoggingMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		// Use service logger with request ID if available
+		logger := r.svc.Logger
+		if requestID := GetRequestID(req.Context()); requestID != "" {
+			logger = logger.With("requestID", requestID)
+		}
+
+		start := time.Now()
+
+		// Wrap the response writer to capture status code
+		wrapped := &responseWriter{
+			ResponseWriter: w,
+			statusCode:     http.StatusOK, // default status code
+		}
+
+		// Log incoming request
+		logger.Debug("Incoming request",
+			"method", req.Method,
+			"path", req.URL.Path,
+			"remoteAddr", req.RemoteAddr,
+		)
+
+		// Call the next handler
+		next.ServeHTTP(wrapped, req)
+
+		// Calculate duration
+		duration := time.Since(start)
+
+		// Log response
+		logger.Debug("Request completed",
+			"method", req.Method,
+			"path", req.URL.Path,
+			"status", wrapped.statusCode,
+			"duration", duration,
+		)
 	})
 }
 
@@ -123,7 +187,7 @@ func (r *Router) handleCreateUser(w http.ResponseWriter, req *http.Request) {
 	if requestID := GetRequestID(req.Context()); requestID != "" {
 		logger = logger.With("requestID", requestID)
 	}
-	
+
 	var createReq app.CreateUserRequest
 
 	// Decode JSON request body
@@ -154,6 +218,46 @@ func (r *Router) handleCreateUser(w http.ResponseWriter, req *http.Request) {
 	// Return successful response with the created user and API key
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(resp)
+}
+
+// handleRevokeUser handles POST /api/v1/users/revoke to revoke a user's API key
+func (r *Router) handleRevokeUser(w http.ResponseWriter, req *http.Request) {
+	// Use service logger with request ID if available
+	logger := r.svc.Logger
+	if requestID := GetRequestID(req.Context()); requestID != "" {
+		logger = logger.With("requestID", requestID)
+	}
+
+	var revokeReq app.RevokeUserRequest
+
+	// Decode JSON request body
+	if err := json.NewDecoder(req.Body).Decode(&revokeReq); err != nil {
+		writeErrorResponse(w, http.StatusBadRequest, "Invalid request body", err.Error())
+		return
+	}
+
+	// Call service to revoke user
+	if err := r.svc.RevokeUser(req.Context(), revokeReq.Email); err != nil {
+		// Determine appropriate status code based on error
+		statusCode := http.StatusInternalServerError
+		if err.Error() == "email is required" {
+			statusCode = http.StatusBadRequest
+		}
+		if err.Error() == "user not found" {
+			statusCode = http.StatusNotFound
+		}
+
+		logger.Debug("Failed to revoke user", "error", err)
+		writeErrorResponse(w, statusCode, "Failed to revoke user", err.Error())
+		return
+	}
+
+	// Return successful response
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{
+		"message": "User API key revoked successfully",
+		"email":   revokeReq.Email,
+	})
 }
 
 // writeErrorResponse is a helper to write consistent error responses

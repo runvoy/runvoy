@@ -42,6 +42,11 @@ type CreateUserResponse struct {
 	APIKey string    `json:"api_key"` // The plain API key (only returned once!)
 }
 
+// RevokeUserRequest represents the request to revoke a user's API key.
+type RevokeUserRequest struct {
+	Email string `json:"email"`
+}
+
 // CreateUser creates a new user with an API key.
 // If no API key is provided in the request, one will be generated.
 // The API key is only returned in the response and should be stored by the client.
@@ -125,6 +130,34 @@ func (s *Service) AuthenticateUser(ctx context.Context, apiKey string) (*api.Use
 	}
 
 	return user, nil
+}
+
+// RevokeUser marks a user's API key as revoked.
+// Returns an error if the user does not exist or revocation fails.
+func (s *Service) RevokeUser(ctx context.Context, email string) error {
+	if s.userRepo == nil {
+		return errors.New("user repository not configured")
+	}
+
+	if email == "" {
+		return errors.New("email is required")
+	}
+
+	// Check if user exists
+	user, err := s.userRepo.GetUserByEmail(ctx, email)
+	if err != nil {
+		return fmt.Errorf("failed to check existing user: %w", err)
+	}
+	if user == nil {
+		return errors.New("user not found")
+	}
+
+	// Revoke the user
+	if err := s.userRepo.RevokeUser(ctx, email); err != nil {
+		return fmt.Errorf("failed to revoke user: %w", err)
+	}
+
+	return nil
 }
 
 // generateAPIKey creates a cryptographically secure random API key.

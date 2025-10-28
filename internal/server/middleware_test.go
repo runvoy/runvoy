@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -63,9 +64,9 @@ func TestRequestIDMiddleware(t *testing.T) {
 
 func TestGetRequestID(t *testing.T) {
 	tests := []struct {
-		name      string
-		ctx       context.Context
-		expected  string
+		name     string
+		ctx      context.Context
+		expected string
 	}{
 		{
 			name:     "empty context",
@@ -87,4 +88,72 @@ func TestGetRequestID(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestResponseWriter(t *testing.T) {
+	t.Run("captures status code from WriteHeader", func(t *testing.T) {
+		rr := httptest.NewRecorder()
+		rw := &responseWriter{
+			ResponseWriter: rr,
+			statusCode:     http.StatusOK,
+		}
+
+		rw.WriteHeader(http.StatusNotFound)
+		if rw.statusCode != http.StatusNotFound {
+			t.Errorf("Expected status code %d, got %d", http.StatusNotFound, rw.statusCode)
+		}
+	})
+
+	t.Run("captures status code from Write", func(t *testing.T) {
+		rr := httptest.NewRecorder()
+		rw := &responseWriter{
+			ResponseWriter: rr,
+			statusCode:     http.StatusOK,
+		}
+
+		rw.Write([]byte("test"))
+		if rw.statusCode != http.StatusOK {
+			t.Errorf("Expected status code %d, got %d", http.StatusOK, rw.statusCode)
+		}
+		if rw.written != true {
+			t.Error("Expected written flag to be true")
+		}
+	})
+
+	t.Run("WriteHeader only sets status once", func(t *testing.T) {
+		rr := httptest.NewRecorder()
+		rw := &responseWriter{
+			ResponseWriter: rr,
+			statusCode:     http.StatusOK,
+		}
+
+		rw.WriteHeader(http.StatusBadRequest)
+		rw.WriteHeader(http.StatusInternalServerError)
+		if rw.statusCode != http.StatusBadRequest {
+			t.Errorf("Expected status code %d, got %d", http.StatusBadRequest, rw.statusCode)
+		}
+	})
+
+	t.Run("writes to underlying ResponseWriter", func(t *testing.T) {
+		rr := httptest.NewRecorder()
+		rw := &responseWriter{
+			ResponseWriter: rr,
+			statusCode:     http.StatusOK,
+		}
+
+		testData := []byte("test data")
+		n, err := rw.Write(testData)
+		if err != nil {
+			t.Errorf("Unexpected error: %v", err)
+		}
+		if n != len(testData) {
+			t.Errorf("Expected to write %d bytes, wrote %d", len(testData), n)
+		}
+
+		// Verify data was written to underlying recorder
+		body, _ := io.ReadAll(rr.Body)
+		if string(body) != "test data" {
+			t.Errorf("Expected body 'test data', got '%s'", string(body))
+		}
+	})
 }

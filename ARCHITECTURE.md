@@ -31,11 +31,98 @@ The application uses **chi** (github.com/go-chi/chi/v5) as the HTTP router for b
 All routes are defined in `internal/server/router.go`:
 
 ```text
-GET  /api/v1/health     - Health check endpoint
-POST /api/v1/users      - Create a new user with an API key
+GET  /api/v1/health      - Health check endpoint
+POST /api/v1/users/create - Create a new user with an API key
+POST /api/v1/users/revoke - Revoke a user's API key
 ```
 
 Both Lambda and local HTTP server use identical routing logic, ensuring development/production parity.
+
+### Lambda Event Adapter
+
+The Lambda adapter (`internal/lambdaapi/adapter.go`) converts AWS Lambda Function URL events into standard `http.Request` objects that work with the chi router. This enables the same router and middleware to work in both local and AWS Lambda environments.
+
+**Key Adaptations:**
+
+1. **Request ID Extraction**: The Lambda request ID from `req.RequestContext.RequestID` is extracted and stored in the Lambda context using `lambdacontext.NewContext()`. This allows the request ID middleware to access it later.
+
+2. **Remote Address**: The client source IP is extracted from `req.RequestContext.HTTP.SourceIP` and set as `httpReq.RemoteAddr`, ensuring the logging middleware can access the client's IP address in Lambda executions just like in local HTTP servers.
+
+3. **Event to HTTP Request Conversion**:
+   - URL construction from domain name, path, and query parameters
+   - Base64 body decoding when needed
+   - Header and query parameter copying
+   - HTTP method mapping
+
+The adapter ensures that all middleware (logging, request ID extraction, authentication) work identically in both environments without any conditional logic in the router or middleware code.
+
+### User Management API
+
+The system provides endpoints for creating and managing users:
+
+#### Create User (`POST /api/v1/users/create`)
+
+Creates a new user with an API key. The API key is only returned in the response and should be stored securely by the client.
+
+**Request:**
+```json
+{
+  "email": "user@example.com",
+  "api_key": "optional_custom_key"  // Optional, generated if omitted
+}
+```
+
+**Response (201 Created):**
+```json
+{
+  "user": {
+    "email": "user@example.com",
+    "created_at": "2024-01-01T00:00:00Z",
+    "revoked": false
+  },
+  "api_key": "abc123..."  // Only returned once!
+}
+```
+
+**Error Responses:**
+- 400 Bad Request: Invalid email format or missing email
+- 409 Conflict: User already exists
+- 500 Internal Server Error: Database or service errors
+
+Implementation:
+- Email validation using Go's `mail.ParseAddress`
+- API key generation using crypto/rand if not provided
+- API keys are hashed with SHA-256 before storage
+- Database enforces uniqueness via ConditionalExpression
+
+#### Revoke User (`POST /api/v1/users/revoke`)
+
+Revokes a user's API key, preventing further authentication. The user record is preserved for audit trails.
+
+**Request:**
+```json
+{
+  "email": "user@example.com"
+}
+```
+
+**Response (200 OK):**
+```json
+{
+  "message": "User API key revoked successfully",
+  "email": "user@example.com"
+}
+```
+
+**Error Responses:**
+- 400 Bad Request: Missing email
+- 404 Not Found: User not found
+- 500 Internal Server Error: Database or service errors
+
+Implementation:
+- Checks for user existence before revocation
+- Updates the `revoked` field in DynamoDB
+- Revoked users cannot authenticate (checked in `AuthenticateUser`)
 
 ### Middleware Stack
 
@@ -44,6 +131,7 @@ The router uses a middleware stack for cross-cutting concerns:
 1. **Content-Type Middleware**: Sets `Content-Type: application/json` for all responses
 2. **Request ID Middleware**: Extracts AWS Lambda request ID and adds it to logging context
 3. **Authentication Middleware**: Validates API keys and adds user context
+4. **Request Logging Middleware**: Logs incoming requests and their responses with method, path, status code, and duration
 
 The request ID middleware automatically:
 - Extracts the AWS Lambda request ID from the Lambda context when available
@@ -68,6 +156,14 @@ The application uses a unified logging approach with structured logging via `log
 - Router handlers create request-scoped loggers by combining the service logger with request ID
 - Pattern: `logger := r.svc.Logger.With("requestID", requestID)`
 - This ensures all log messages within a request include the Lambda request ID for tracing
+
+### Request Logging Middleware
+- **Automatic Request Logging**: The request logging middleware automatically logs all incoming requests
+- Logs include: HTTP method, path, remote address, status code, and request duration
+- Both incoming requests and completed responses are logged for complete request lifecycle visibility
+- Implementation: `internal/server/router.go` lines 115-153
+- The middleware uses a response writer wrapper to capture response status codes and measure execution time
+- Remote address is automatically available in both local and Lambda executions via the Lambda adapter
 
 ### Database Layer Logging
 - Database repositories receive the service logger during initialization

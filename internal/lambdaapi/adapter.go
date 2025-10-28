@@ -20,9 +20,14 @@ func ChiRouterToLambdaAdapter(router *chi.Mux) func(context.Context, events.Lamb
 		ctx = lambdacontext.NewContext(ctx, &lambdacontext.LambdaContext{
 			AwsRequestID: req.RequestContext.RequestID,
 		})
-		
+
 		// Create HTTP request from Lambda event
 		httpReq := lambdaRequestToHTTPRequest(ctx, req)
+
+		// Set the remote address from Lambda event
+		if httpReq != nil {
+			httpReq.RemoteAddr = req.RequestContext.HTTP.SourceIP
+		}
 
 		// Create response writer
 		var buf bytes.Buffer

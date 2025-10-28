@@ -110,6 +110,8 @@ func (r *UserRepository) GetUserByEmail(ctx context.Context, email string) (*api
 
 // GetUserByAPIKeyHash retrieves a user by their hashed API key (primary key).
 func (r *UserRepository) GetUserByAPIKeyHash(ctx context.Context, apiKeyHash string) (*api.User, error) {
+	r.logger.Debug("Querying user by API key hash", "apiKeyHash", apiKeyHash)
+
 	result, err := r.client.GetItem(ctx, &dynamodb.GetItemInput{
 		TableName: aws.String(r.tableName),
 		Key: map[string]types.AttributeValue{
