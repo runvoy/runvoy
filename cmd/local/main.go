@@ -25,6 +25,7 @@ func main() {
 
 	// Create router
 	router := server.NewRouter(svc)
+	port := os.Getenv("RUNVOY_DEV_SERVER_PORT")
 
 	// Configure HTTP server
 	port := cfg.Port
@@ -39,7 +40,7 @@ func main() {
 
 	// Start server in a goroutine
 	go func() {
-		log.Printf("→ Starting local server on :%s", port)
+		log.Printf("→ Starting local server on :%s (Ctrl+C to stop)", port)
 		log.Printf("→ Health check: http://localhost:%s/api/v1/health", port)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("Failed to start server: %v", err)

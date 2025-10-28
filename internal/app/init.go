@@ -14,14 +14,12 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 )
 
-// MustInitialize creates a new Service configured for the specified cloud provider.
+// MustInitialize creates a new Service configured for the specified backend provider.
 // It panics if initialization fails, making it suitable for application startup.
 //
 // Supported cloud providers:
 //   - "aws": Uses DynamoDB for storage
 //   - "gcp": (future) Uses Firestore for storage
-//   - "azure": (future) Uses CosmosDB for storage
-//   - "local": (future) Uses in-memory or local file storage
 //
 // Environment variables required per cloud:
 //
@@ -42,7 +40,7 @@ func MustInitialize(ctx context.Context, provider constants.BackendProvider, cfg
 	case constants.AWS:
 		userRepo = mustInitializeAWS(ctx, cfg)
 	default:
-		panic(fmt.Sprintf("Unknown backend provider: %s (supported: aws)", provider))
+		panic(fmt.Sprintf("Unknown backend provider: %s (supported: %s)", provider, constants.AWS))
 	}
 
 	log.Println("→ Service initialized successfully")
@@ -54,7 +52,7 @@ func mustInitializeAWS(ctx context.Context, cfg *config.Env) database.UserReposi
 	// Load AWS configuration from environment
 	awsCfg, err := awsconfig.LoadDefaultConfig(ctx)
 	if err != nil {
-		log.Fatalf("Failed to load AWS configuration: %v", err)
+		panic(fmt.Sprintf("Failed to load AWS configuration: %v", err))
 	}
 
 	// Get required table name from configuration
@@ -62,28 +60,8 @@ func mustInitializeAWS(ctx context.Context, cfg *config.Env) database.UserReposi
 		log.Fatal("API_KEYS_TABLE environment variable is required for AWS")
 	}
 
-	// Create DynamoDB client
 	dynamoClient := dynamodb.NewFromConfig(awsCfg)
 
 	log.Printf("→ Connected to DynamoDB table: %s", cfg.APIKeysTable)
 	return dynamorepo.NewUserRepository(dynamoClient, cfg.APIKeysTable)
 }
-
-// Future implementations would follow the same pattern:
-//
-// func mustInitializeGCP(ctx context.Context) database.UserRepository {
-//     // Load GCP configuration
-//     // Create Firestore client
-//     // Return GCP-specific UserRepository implementation
-// }
-//
-// func mustInitializeAzure(ctx context.Context) database.UserRepository {
-//     // Load Azure configuration
-//     // Create CosmosDB client
-//     // Return Azure-specific UserRepository implementation
-// }
-//
-// func mustInitializeLocal(ctx context.Context) database.UserRepository {
-//     // Create in-memory or file-based storage
-//     // Return local UserRepository implementation
-// }
