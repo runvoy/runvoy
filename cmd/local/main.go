@@ -11,22 +11,23 @@ import (
 	"time"
 
 	"runvoy/internal/app"
+	"runvoy/internal/config"
 	"runvoy/internal/constants"
 	"runvoy/internal/server"
 )
 
 func main() {
+	// Load environment configuration
+	cfg := config.MustLoadEnv()
+
 	// Initialize service for AWS
-	svc := app.MustInitialize(context.Background(), constants.AWS)
+	svc := app.MustInitialize(context.Background(), constants.AWS, cfg)
 
 	// Create router
 	router := server.NewRouter(svc)
 
 	// Configure HTTP server
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8080"
-	}
+	port := cfg.Port
 
 	srv := &http.Server{
 		Addr:         fmt.Sprintf(":%s", port),

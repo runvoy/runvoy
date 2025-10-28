@@ -4,13 +4,13 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"os"
 
+	"runvoy/internal/config"
 	"runvoy/internal/constants"
 	"runvoy/internal/database"
 	dynamorepo "runvoy/internal/database/dynamodb"
 
-	"github.com/aws/aws-sdk-go-v2/config"
+	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 )
 
@@ -31,15 +31,16 @@ import (
 //
 // Example:
 //
-//	svc := app.MustInitialize(context.Background(), "aws")
-func MustInitialize(ctx context.Context, provider constants.BackendProvider) *Service {
+//	cfg := config.MustLoadEnv()
+//	svc := app.MustInitialize(context.Background(), "aws", cfg)
+func MustInitialize(ctx context.Context, provider constants.BackendProvider, cfg *config.Env) *Service {
 	log.Printf("→ Initializing service for cloud provider: %s", provider)
 
 	var userRepo database.UserRepository
 
 	switch provider {
 	case constants.AWS:
-		userRepo = mustInitializeAWS(ctx)
+		userRepo = mustInitializeAWS(ctx, cfg)
 	default:
 		panic(fmt.Sprintf("Unknown backend provider: %s (supported: aws)", provider))
 	}
@@ -49,24 +50,23 @@ func MustInitialize(ctx context.Context, provider constants.BackendProvider) *Se
 }
 
 // mustInitializeAWS sets up AWS-specific dependencies
-func mustInitializeAWS(ctx context.Context) database.UserRepository {
+func mustInitializeAWS(ctx context.Context, cfg *config.Env) database.UserRepository {
 	// Load AWS configuration from environment
-	awsCfg, err := config.LoadDefaultConfig(ctx)
+	awsCfg, err := awsconfig.LoadDefaultConfig(ctx)
 	if err != nil {
 		log.Fatalf("Failed to load AWS configuration: %v", err)
 	}
 
-	// Get required table name from environment
-	apiKeysTable := os.Getenv("API_KEYS_TABLE")
-	if apiKeysTable == "" {
+	// Get required table name from configuration
+	if cfg.APIKeysTable == "" {
 		log.Fatal("API_KEYS_TABLE environment variable is required for AWS")
 	}
 
 	// Create DynamoDB client
 	dynamoClient := dynamodb.NewFromConfig(awsCfg)
 
-	log.Printf("→ Connected to DynamoDB table: %s", apiKeysTable)
-	return dynamorepo.NewUserRepository(dynamoClient, apiKeysTable)
+	log.Printf("→ Connected to DynamoDB table: %s", cfg.APIKeysTable)
+	return dynamorepo.NewUserRepository(dynamoClient, cfg.APIKeysTable)
 }
 
 // Future implementations would follow the same pattern:
