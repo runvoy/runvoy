@@ -142,14 +142,6 @@ just check
 just pre-commit-all
 ```
 
-### CI/CD Pipeline
-
-**GitHub Actions** workflow (`.github/workflows/ci.yml`) runs on every push and PR:
-
-1. **Lint Job**: Runs golangci-lint, gofmt, and goimports checks
-2. **Test Job**: Runs tests with race detection and coverage reporting
-3. **Build Job**: Builds all binaries (CLI, backend, local) after successful lint/test
-
 ### Agent Integration
 
 AI agents can automatically:
