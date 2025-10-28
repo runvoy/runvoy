@@ -4,7 +4,7 @@ Remote command execution in isolated, ephemeral containers. Run any command in y
 
 ## Features
 
-- **One-command setup** - Deploy complete infrastructure with `runvoy init`
+- **One-command setup** - Deploy complete infrastructure with `runvoy-init`
 - **Git-integrated** - Automatically clones your repository before execution
 - **Flexible images** - Use any Docker image (terraform, python, node, etc.)
 - **Self-hosted** - Runs in your AWS account, you control everything

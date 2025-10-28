@@ -9,9 +9,9 @@ build-cli:
     go build -o ../../bin/runvoy
 
 # Build backend service (Lambda function)
-[working-directory: 'cmd/backend']
+[working-directory: 'cmd/backend/aws']
 build-backend:
-    GOARCH=arm64 GOOS=linux go build -o ../../bin/backend
+    GOARCH=arm64 GOOS=linux go build -o ../../../dist/bootstrap
 
 # Build local development server
 [working-directory: 'local']
@@ -48,24 +48,12 @@ create-lambda-bucket:
         --template-file infra/runvoy-bucket.yaml
 
 # Update backend service (Lambda function)
-[working-directory: 'cmd/backend']
-update-backend:
-    rm -f function.zip bootstrap
-    GOARCH=arm64 GOOS=linux go build -o bootstrap
-    zip function.zip bootstrap
-    aws s3 cp function.zip s3://{{bucket}}/bootstrap.zip
-    aws lambda update-function-code --function-name runvoy-orchestrator --zip-file fileb://function.zip > /dev/null
+[working-directory: 'dist']
+update-backend: build-backend
+    zip bootstrap.zip bootstrap
+    aws s3 cp bootstrap.zip s3://{{bucket}}/bootstrap.zip
+    aws lambda update-function-code \
+        --function-name runvoy-orchestrator \
+        --s3-bucket runvoy-releases \
+        --s3-key bootstrap.zip > /dev/null
     aws lambda wait function-updated --function-name runvoy-orchestrator
-
-# Deploy backend service (Lambda function)
-deploy-backend:
-    aws cloudformation deploy \
-        --stack-name runvoy-backend \
-        --template-file infra/cloudformation-backend.yaml \
-        --parameter-overrides LambdaCodeBucket={{bucket}} JWTSecret=$(openssl rand -hex 32) \
-        --capabilities CAPABILITY_NAMED_IAM
-
-# Destroy backend service (Lambda function)
-destroy-backend:
-    aws cloudformation delete-stack --stack-name runvoy-backend
-    aws cloudformation wait stack-delete-complete --stack-name runvoy-backend
