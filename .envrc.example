@@ -1,0 +1,7 @@
+export RUNVOY_DEV_SERVER_PORT=56212
+export RUNVOY_API_KEYS_TABLE=runvoy-api-keys
+export RUNVOY_LOG_LEVEL=DEBUG
+export RUNVOY_INIT_TIMEOUT=10s
+export RUNVOY_ADMIN_API_KEY=p_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+export RUNVOY_LAMBDA_URL=https://xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.lambda-url.us-east-2.on.aws
+export RUNVOY_RELEASES_BUCKET=runvoy-releases
