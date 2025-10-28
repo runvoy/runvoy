@@ -188,7 +188,7 @@ func (r *Router) handleCreateUser(w http.ResponseWriter, req *http.Request) {
 		logger = logger.With("requestID", requestID)
 	}
 
-	var createReq app.CreateUserRequest
+	var createReq api.CreateUserRequest
 
 	// Decode JSON request body
 	if err := json.NewDecoder(req.Body).Decode(&createReq); err != nil {
@@ -228,7 +228,7 @@ func (r *Router) handleRevokeUser(w http.ResponseWriter, req *http.Request) {
 		logger = logger.With("requestID", requestID)
 	}
 
-	var revokeReq app.RevokeUserRequest
+	var revokeReq api.RevokeUserRequest
 
 	// Decode JSON request body
 	if err := json.NewDecoder(req.Body).Decode(&revokeReq); err != nil {

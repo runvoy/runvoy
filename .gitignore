@@ -30,3 +30,5 @@ coverage.html
 go.work
 go.work.sum
 .envrc
+aws
+local

@@ -114,7 +114,7 @@ smoke-test-local-create-user:
     curl -sS -X POST "http://localhost:56212/api/v1/users/create" \
         -H "X-API-Key: ${RUNVOY_ADMIN_API_KEY}" \
         -H "Content-Type: application/json" \
-        -d '{"email":"alice@example.com"}' | jq .
+        -d '{"email":"bob@example.com"}' | jq .
 
 smoke-test-local-revoke-user:
     #!/usr/bin/env bash
@@ -125,7 +125,7 @@ smoke-test-local-revoke-user:
     curl -sS -X POST "http://localhost:56212/api/v1/users/revoke" \
         -H "X-API-Key: ${RUNVOY_ADMIN_API_KEY}" \
         -H "Content-Type: application/json" \
-        -d '{"email":"alice@example.com"}' | jq .
+        -d '{"email":"bob@example.com"}' | jq .
 
 smoke-test-backend-health:
     curl -sS \

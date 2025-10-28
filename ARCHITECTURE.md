@@ -291,4 +291,61 @@ AI agents can automatically:
 - Use pre-commit hooks to ensure quality before commits
 
 This setup ensures consistent code quality across all contributors and automated systems.
+
+## CLI Client Architecture
+
+The CLI client (`cmd/runvoy`) provides command-line access to the runvoy platform.
+
+### Configuration
+
+The CLI stores configuration in `~/.runvoy/config.yaml`:
+
+```yaml
+api_endpoint: "https://your-function-url.lambda-url.us-east-1.on.aws"
+api_key: "your-api-key-here"
 ```
+
+Configuration is loaded on-demand for each command execution and requires authentication for all operations.
+
+### HTTP Client
+
+The CLI implements a simple HTTP client that communicates with the backend API:
+
+#### Configuration Loading
+
+- Configuration is loaded from `~/.runvoy/config.yaml` using `internal/config/config.go`
+- Contains API endpoint URL and API key for authentication
+- All API requests include the `X-API-Key` header for authentication
+
+#### User Management Client
+
+##### Create User (`admin add-user <email>`)
+
+Sends a POST request to `/api/v1/users/create` with:
+
+**Headers:**
+- `Content-Type: application/json`
+- `X-API-Key: <configured-api-key>`
+
+**Body:**
+
+```json
+{
+  "email": "user@example.com"
+}
+```
+
+The client displays the response including the generated API key with a warning that it's only shown once.
+
+**Error Handling:**
+- 400 Bad Request: Invalid email format or missing email
+- 401 Unauthorized: Invalid API key
+- 409 Conflict: User already exists
+- 500 Internal Server Error: Server errors
+
+Implementation details:
+
+- Located in `cmd/runvoy/cmd/addUser.go`
+- Uses standard `net/http` client
+- Provides user-friendly error messages
+- Parses and displays success responses

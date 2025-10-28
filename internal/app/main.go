@@ -30,27 +30,10 @@ func NewService(userRepo database.UserRepository, logger *slog.Logger) *Service 
 	}
 }
 
-// CreateUserRequest represents the request to create a new user.
-type CreateUserRequest struct {
-	Email  string `json:"email"`
-	APIKey string `json:"api_key,omitempty"` // Optional: if not provided, one will be generated
-}
-
-// CreateUserResponse represents the response after creating a user.
-type CreateUserResponse struct {
-	User   *api.User `json:"user"`
-	APIKey string    `json:"api_key"` // The plain API key (only returned once!)
-}
-
-// RevokeUserRequest represents the request to revoke a user's API key.
-type RevokeUserRequest struct {
-	Email string `json:"email"`
-}
-
 // CreateUser creates a new user with an API key.
 // If no API key is provided in the request, one will be generated.
 // The API key is only returned in the response and should be stored by the client.
-func (s *Service) CreateUser(ctx context.Context, req CreateUserRequest) (*CreateUserResponse, error) {
+func (s *Service) CreateUser(ctx context.Context, req api.CreateUserRequest) (*api.CreateUserResponse, error) {
 	if s.userRepo == nil {
 		return nil, errors.New("user repository not configured")
 	}
@@ -97,7 +80,7 @@ func (s *Service) CreateUser(ctx context.Context, req CreateUserRequest) (*Creat
 		return nil, fmt.Errorf("failed to create user: %w", err)
 	}
 
-	return &CreateUserResponse{
+	return &api.CreateUserResponse{
 		User:   user,
 		APIKey: apiKey, // Return plain API key (only time it's available!)
 	}, nil

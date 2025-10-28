@@ -34,6 +34,13 @@ runvoy uses a serverless architecture built on AWS Lambda, ECS Fargate, and Dyna
 
 For detailed architecture information, see [ARCHITECTURE.md](ARCHITECTURE.md).
 
+## Usage
+
+```bash
+runvoy create-user --email alice@example.com
+runvoy revoke-user --email alice@example.com
+```
+
 ## Quick Start
 
 ### Prerequisites

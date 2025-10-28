@@ -63,3 +63,20 @@ type Lock struct {
 	AcquiredAt  time.Time `json:"acquired_at"`
 	TTL         int64     `json:"ttl"`
 }
+
+// CreateUserRequest represents the request to create a new user
+type CreateUserRequest struct {
+	Email  string `json:"email"`
+	APIKey string `json:"api_key,omitempty"` // Optional: if not provided, one will be generated
+}
+
+// CreateUserResponse represents the response after creating a user
+type CreateUserResponse struct {
+	User   *User  `json:"user"`
+	APIKey string `json:"api_key"` // The plain API key (only returned once!)
+}
+
+// RevokeUserRequest represents the request to revoke a user's API key
+type RevokeUserRequest struct {
+	Email string `json:"email"`
+}
