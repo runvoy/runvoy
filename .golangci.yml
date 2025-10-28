@@ -1,3 +1,4 @@
+version: "2"
 run:
   timeout: 5m
   modules-download-mode: readonly
@@ -23,10 +24,14 @@ linters-settings:
     min-occurrences: 2
   gocognit:
     min-complexity: 20
-  gomnd:
-    settings:
-      mnd:
-        checks: argument,case,condition,operation,return,assign
+  mnd:
+    checks:
+      - argument
+      - case
+      - condition
+      - operation
+      - return
+      - assign
   govet:
     check-shadowing: true
     settings:
@@ -47,24 +52,19 @@ linters-settings:
 linters:
   enable:
     - bodyclose
-    - deadcode
-    - depguard
+    - copyloopvar
     - dogsled
     - dupl
     - errcheck
-    - exportloopref
     - exhaustive
     - funlen
     - gochecknoinits
     - goconst
     - gocritic
     - gocyclo
-    - gofmt
-    - goimports
-    - gomnd
+    - mnd
     - goprintffuncname
     - gosec
-    - gosimple
     - govet
     - ineffassign
     - lll
@@ -74,27 +74,26 @@ linters:
     - nolintlint
     - revive
     - staticcheck
-    - structcheck
-    - stylecheck
-    - typecheck
     - unconvert
     - unparam
     - unused
-    - varcheck
     - whitespace
+  enable-formatters:
+    - gofmt
+    - goimports
 
 issues:
   exclude-rules:
     - path: _test\.go
       linters:
-        - gomnd
+        - mnd
         - goconst
         - funlen
         - gocyclo
     - path: cmd/
       linters:
-        - gomnd
-    - text: "Error return value of .((os\.)?std(out|err)\..*|.*Close|.*Flush|os\.Remove(All)?|.*printf?|os\.(Un)?Setenv). is not checked"
+        - mnd
+    - text: "Error return value of .((os\\.)?std(out|err)\\..*|.*Close|.*Flush|os\\.Remove(All)?|.*printf?|os\\.(Un)?Setenv). is not checked"
       linters:
         - errcheck
   exclude-use-default: false

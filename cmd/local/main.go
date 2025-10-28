@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
 	"net/http"
 	"os"
 	"os/signal"
@@ -13,18 +12,21 @@ import (
 	"runvoy/internal/app"
 	"runvoy/internal/config"
 	"runvoy/internal/constants"
+	"runvoy/internal/logger"
 	"runvoy/internal/server"
 )
 
 func main() {
 	cfg := config.MustLoadEnv()
+	log := logger.Initialize(constants.Development, cfg.LogLevel)
 	ctx, cancel := context.WithTimeout(context.Background(), cfg.InitTimeout)
 	defer cancel()
-
 	svc, err := app.Initialize(ctx, constants.AWS, cfg)
 	if err != nil {
-		log.Fatalf("Failed to initialize service: %v", err)
+		log.Error("Failed to initialize service", "error", err)
+		os.Exit(1)
 	}
+
 	router := server.NewRouter(svc)
 
 	srv := &http.Server{
@@ -37,10 +39,11 @@ func main() {
 
 	// Start server in a goroutine
 	go func() {
-		log.Printf("→ Starting local server on :%s (Ctrl+C to stop)", cfg.Port)
-		log.Printf("→ Health check: http://localhost:%s/api/v1/health", cfg.Port)
+		log.Info("Starting local server", "port", cfg.Port)
+		log.Info("Health check available", "url", fmt.Sprintf("http://localhost:%s/api/v1/health", cfg.Port))
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("Failed to start server: %v", err)
+			log.Error("Failed to start server", "error", err)
+			os.Exit(1)
 		}
 	}()
 
@@ -49,16 +52,16 @@ func main() {
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 
-	log.Println("→ Shutting down server...")
+	log.Info("Shutting down server...")
 
 	// Graceful shutdown with timeout
 	ctx, cancel = context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	if err := srv.Shutdown(ctx); err != nil {
-		log.Printf("Server shutdown error: %v", err)
+		log.Error("Server shutdown error", "error", err)
 		os.Exit(1)
 	}
 
-	log.Println("→ Server stopped")
+	log.Info("Server stopped")
 }

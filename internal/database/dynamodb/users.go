@@ -5,11 +5,12 @@ import (
 	"errors"
 	"time"
 
+	"runvoy/internal/api"
+
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
-	"runvoy/internal/api"
 )
 
 // UserRepository implements the database.UserRepository interface using DynamoDB.
@@ -79,7 +80,6 @@ func (r *UserRepository) GetUserByEmail(ctx context.Context, email string) (*api
 			":email": &types.AttributeValueMemberS{Value: email},
 		},
 	})
-
 	if err != nil {
 		return nil, err
 	}

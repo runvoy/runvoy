@@ -3,11 +3,13 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"os"
 	"strconv"
 	"time"
 
 	"runvoy/internal/constants"
+	"runvoy/internal/logger"
 
 	"github.com/spf13/cobra"
 )
@@ -22,8 +24,15 @@ var rootCmd = &cobra.Command{
 	Long: fmt.Sprintf(`%s provides isolated, repeatable execution environments for your commands.
 Run commands remotely without the hassle of local execution, credential sharing, or race conditions.`, constants.ProjectName),
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		// Initialize logger based on verbose flag
+		logLevel := slog.LevelInfo
+		if verbose {
+			logLevel = slog.LevelDebug
+		}
+		logger.Initialize(logger.EnvDevelopment, logLevel)
+
 		if timeout == "0" {
-			fmt.Println("→ Timeout is 0, disabling timeout")
+			slog.Debug("Timeout disabled")
 			return nil
 		}
 
@@ -38,9 +47,7 @@ Run commands remotely without the hassle of local execution, credential sharing,
 		timeoutCancel = cancel // Store for cleanup in Execute()
 		cmd.SetContext(ctx)
 
-		if verbose {
-			fmt.Println("→ Timeout duration:", timeoutDuration)
-		}
+		slog.Debug("Timeout configured", "duration", timeoutDuration)
 
 		return nil
 	},

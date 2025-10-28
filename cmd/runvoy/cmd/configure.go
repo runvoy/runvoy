@@ -3,6 +3,7 @@ package cmd
 import (
 	"bufio"
 	"fmt"
+	"log/slog"
 	"os"
 	"strings"
 
@@ -32,9 +33,11 @@ func runConfigure(cmd *cobra.Command, args []string) {
 	configExists := err == nil
 	if configExists {
 		fmt.Printf("✓ Found existing configuration\n")
+		slog.Debug("Loaded existing configuration")
 	} else {
 		// Create a new config if it doesn't exist
 		existingConfig = &config.Config{}
+		slog.Debug("Creating new configuration")
 	}
 
 	// Prompt for API endpoint
@@ -86,6 +89,7 @@ func runConfigure(cmd *cobra.Command, args []string) {
 
 	// Save configuration
 	if err := config.Save(cfg); err != nil {
+		slog.Error("Failed to save configuration", "error", err)
 		fmt.Fprintf(os.Stderr, "Error saving configuration: %v\n", err)
 		os.Exit(1)
 	}
@@ -93,10 +97,12 @@ func runConfigure(cmd *cobra.Command, args []string) {
 	// Get config path for display
 	configPath, err := config.GetConfigPath()
 	if err != nil {
+		slog.Error("Failed to get config path", "error", err)
 		fmt.Fprintf(os.Stderr, "Error getting config path: %v\n", err)
 		os.Exit(1)
 	}
 
+	slog.Info("Configuration saved successfully", "path", configPath)
 	fmt.Printf("\n✓ Configuration saved to %s\n", configPath)
 	fmt.Println("→ Configuration complete!")
 }

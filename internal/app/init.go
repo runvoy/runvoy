@@ -3,7 +3,7 @@ package app
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 
 	"runvoy/internal/config"
 	"runvoy/internal/constants"
@@ -22,7 +22,7 @@ import (
 //   - "aws": Uses DynamoDB for storage
 //   - "gcp": (future) E.g. using Google Cloud Run and Firestore for storage
 func Initialize(ctx context.Context, provider constants.BackendProvider, cfg *config.Env) (*Service, error) {
-	log.Printf("→ Initializing service for backend provider: %s", provider)
+	slog.Info("Initializing service", "provider", provider)
 
 	var (
 		userRepo database.UserRepository
@@ -39,7 +39,7 @@ func Initialize(ctx context.Context, provider constants.BackendProvider, cfg *co
 		return nil, fmt.Errorf("unknown backend provider: %s (supported: %s)", provider, constants.AWS)
 	}
 
-	log.Printf("→ Service initialized successfully for backend provider: %s", provider)
+	slog.Info("Service initialized successfully", "provider", provider)
 
 	return NewService(userRepo), nil
 }
@@ -56,7 +56,7 @@ func initializeAWSBackend(ctx context.Context, cfg *config.Env) (database.UserRe
 	}
 
 	dynamoClient := dynamodb.NewFromConfig(awsCfg)
-	log.Printf("→ Pointing to DynamoDB table: %s", cfg.APIKeysTable)
+	slog.Info("Connected to DynamoDB", "table", cfg.APIKeysTable)
 
 	return dynamorepo.NewUserRepository(dynamoClient, cfg.APIKeysTable), nil
 }

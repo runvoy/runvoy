@@ -24,3 +24,11 @@ type BackendProvider string
 const (
 	AWS BackendProvider = "AWS"
 )
+
+type Environment string
+
+// Environment types for logger configuration
+const (
+	Development Environment = "development"
+	Production  Environment = "production"
+)

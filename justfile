@@ -91,9 +91,14 @@ update-backend: build-backend
         --s3-key bootstrap.zip > /dev/null
     aws lambda wait function-updated --function-name runvoy-orchestrator
 
-smoke-test-backend:
+smoke-test-backend-health:
     curl -X GET https://h4wgz3vui4wsri6bp65yzbynv40vqhqt.lambda-url.us-east-2.on.aws/api/v1/greet/$(date +%s)
 
 # Run local development server with hot reloading
 local-dev-server:
-    reflex -r '\.go$' -s -- sh -c 'AWS_PROFILE=api-l3x-in RUNVOY_API_KEYS_TABLE=runvoy-api-keys-table go run ./cmd/local'
+    reflex -r '\.go$' -s -- sh -c 'AWS_PROFILE=api-l3x-in RUNVOY_LOG_LEVEL=DEBUG RUNVOY_API_KEYS_TABLE=runvoy-api-keys-table go run ./cmd/local'
+
+smoke-test-local-user:
+    curl -sS -X POST "http://localhost:56212/api/v1/users" \
+        -H "Content-Type: application/json" \
+        -d '{"email":"alice@example.com"}' | jq .

@@ -2,6 +2,8 @@ package config
 
 import (
 	"fmt"
+	"log/slog"
+	"os"
 	"time"
 
 	"github.com/caarlos0/env/v11"
@@ -19,6 +21,9 @@ type Env struct {
 
 	// InitTimeout is the timeout for the environment initialization.
 	InitTimeout time.Duration `env:"RUNVOY_INIT_TIMEOUT" envDefault:"10s"`
+
+	// LogLevel is the log level for the logger.
+	LogLevel slog.Level `env:"RUNVOY_LOG_LEVEL" envDefault:"INFO"`
 }
 
 // LoadEnv loads and validates environment variables into an Env struct.
@@ -32,12 +37,13 @@ func LoadEnv() (*Env, error) {
 	return cfg, nil
 }
 
-// MustLoadEnv loads environment variables and panics if there's an error.
+// MustLoadEnv loads environment variables and exits if there's an error.
 // This is suitable for application startup where configuration errors should be fatal.
 func MustLoadEnv() *Env {
 	cfg, err := LoadEnv()
 	if err != nil {
-		panic(fmt.Sprintf("failed to load environment configuration: %v", err))
+		slog.Error("Failed to load environment configuration", "error", err)
+		os.Exit(1)
 	}
 	return cfg
 }
