@@ -1,4 +1,31 @@
+# Build artifacts
 *.zip
 runvoy
 bootstrap
 dist/
+bin/
+coverage.out
+coverage.html
+
+# Environment and secrets
+.env
+.env.local
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Go
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+go.work
+go.work.sum

@@ -1,5 +1,8 @@
-bucket := 'runvoy-releases'
-api_key := 'p_75LzCL7MRdVRe6JsP-m4u-UXR7NAPU'
+# Environment variables that can be overridden:
+# RUNVOY_RELEASES_BUCKET - S3 bucket for releases (default: runvoy-releases)
+# RUNVOY_ADMIN_API_KEY - Admin API key for testing (required for smoke tests)
+# RUNVOY_LAMBDA_URL - Lambda function URL for backend testing
+bucket := env_var_or_default('RUNVOY_RELEASES_BUCKET', 'runvoy-releases')
 
 # Build all binaries
 build: build-cli build-backend build-local
@@ -101,20 +104,39 @@ local-dev-server:
             RUNVOY_API_KEYS_TABLE=runvoy-api-keys \
         go run ./cmd/local'
 
-# Smoke test local user creation
+# Smoke test local user creation (requires RUNVOY_ADMIN_API_KEY env var)
 smoke-test-local-create-user:
+    #!/usr/bin/env bash
+    if [ -z "$RUNVOY_ADMIN_API_KEY" ]; then \
+        echo "Error: RUNVOY_ADMIN_API_KEY environment variable is required"; \
+        exit 1; \
+    fi
     curl -sS -X POST "http://localhost:56212/api/v1/users/create" \
-        -H "X-API-Key: {{api_key}}" \
+        -H "X-API-Key: $RUNVOY_ADMIN_API_KEY" \
         -H "Content-Type: application/json" \
         -d '{"email":"alice@example.com"}' | jq .
 
 smoke-test-local-revoke-user:
+    #!/usr/bin/env bash
+    if [ -z "$RUNVOY_ADMIN_API_KEY" ]; then \
+        echo "Error: RUNVOY_ADMIN_API_KEY environment variable is required"; \
+        exit 1; \
+    fi
     curl -sS -X POST "http://localhost:56212/api/v1/users/revoke" \
-        -H "X-API-Key: {{api_key}}" \
+        -H "X-API-Key: $RUNVOY_ADMIN_API_KEY" \
         -H "Content-Type: application/json" \
         -d '{"email":"alice@example.com"}' | jq .
 
 smoke-test-backend-health:
+    #!/usr/bin/env bash
+    if [ -z "$RUNVOY_ADMIN_API_KEY" ]; then \
+        echo "Error: RUNVOY_ADMIN_API_KEY environment variable is required"; \
+        exit 1; \
+    fi
+    if [ -z "$RUNVOY_LAMBDA_URL" ]; then \
+        echo "Error: RUNVOY_LAMBDA_URL environment variable is required"; \
+        exit 1; \
+    fi
     curl -sS \
-        -H "X-API-Key: {{api_key}}" \
-        -X GET https://h4wgz3vui4wsri6bp65yzbynv40vqhqt.lambda-url.us-east-2.on.aws/api/v1/health | jq .
+        -H "X-API-Key: $RUNVOY_ADMIN_API_KEY" \
+        -X GET "$RUNVOY_LAMBDA_URL/api/v1/health" | jq .
