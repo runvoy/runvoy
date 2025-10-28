@@ -60,3 +60,7 @@ update-backend: build-backend
 
 smoke-test-backend:
     curl -X GET https://h4wgz3vui4wsri6bp65yzbynv40vqhqt.lambda-url.us-east-2.on.aws/api/v1/greet/$(date +%s)
+
+# Run local development server with hot reloading
+local-dev-server:
+    reflex -r '\.go$' -s -- sh -c 'go run ./cmd/local'
