@@ -76,12 +76,12 @@ pre-commit-all:
 create-lambda-bucket:
     aws cloudformation deploy \
         --stack-name runvoy-releases-bucket \
-        --template-file infra/runvoy-bucket.yaml
+        --template-file deployments/runvoy-bucket.yaml
 
 update-backend-infra:
     aws cloudformation deploy \
         --stack-name runvoy-backend \
-        --template-file infra/cloudformation-backend.yaml \
+        --template-file deployments/cloudformation-backend.yaml \
         --capabilities CAPABILITY_NAMED_IAM
 
 # Update backend service (Lambda function)

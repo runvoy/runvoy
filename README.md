@@ -83,7 +83,7 @@ For more commands, see the `justfile` or run `just --list`.
 ```
 cmd/          - Entry points (CLI client, Lambda backend, local server)
 internal/     - Application code (API, business logic, database, middleware)
-infra/        - CloudFormation templates for AWS infrastructure
+deployments/  - CloudFormation templates for AWS infrastructure
 ```
 
 ## Contributing
