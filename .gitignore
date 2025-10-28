@@ -1,6 +1,5 @@
 # Build artifacts
 *.zip
-runvoy
 bootstrap
 dist/
 bin/
