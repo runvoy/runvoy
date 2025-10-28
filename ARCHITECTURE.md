@@ -20,6 +20,7 @@ The application uses **chi** (github.com/go-chi/chi/v5) as the HTTP router for b
 ### Components
 
 - **`internal/server/router.go`**: Shared chi-based router configuration with all API routes
+- **`internal/server/middleware.go`**: Middleware for request ID extraction and logging context
 - **`internal/lambdaapi/adapter.go`**: Adapter to convert between Lambda events and standard http.Handler
 - **`internal/lambdaapi/handler.go`**: Lambda handler that uses the chi router via adapter
 - **`cmd/local/main.go`**: Local HTTP server implementation using the same router
@@ -35,6 +36,22 @@ POST /api/v1/users      - Create a new user with an API key
 ```
 
 Both Lambda and local HTTP server use identical routing logic, ensuring development/production parity.
+
+### Middleware Stack
+
+The router uses a middleware stack for cross-cutting concerns:
+
+1. **Content-Type Middleware**: Sets `Content-Type: application/json` for all responses
+2. **Request ID Middleware**: Extracts AWS Lambda request ID and adds it to logging context
+3. **Authentication Middleware**: Validates API keys and adds user context
+
+The request ID middleware automatically:
+- Extracts the AWS Lambda request ID from the Lambda context when available
+- Adds the request ID to the request context for use by handlers
+- Creates a logger instance with the request ID for structured logging
+- Falls back gracefully when not running in Lambda environment
+
+This ensures all log messages include the Lambda request ID for easy tracing and debugging.
 
 ## System Architecture
 
