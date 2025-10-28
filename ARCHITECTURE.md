@@ -92,4 +92,71 @@ Both Lambda and local HTTP server use identical routing logic, ensuring developm
 │   for viewing   │
 │   logs          │
 └─────────────────┘
+
+## Development Tools
+
+### Code Quality and Linting
+
+The project uses **golangci-lint** for comprehensive Go code analysis with the following configuration:
+
+- **Configuration**: `.golangci.yml` with reasonable defaults for production Go code
+- **Enabled Linters**: 30+ linters including staticcheck, govet, gosec, gocritic, and more
+- **Exclusions**: Test files and command packages have relaxed rules for complexity and magic numbers
+- **Timeout**: 5-minute timeout for large codebases
+
+### Pre-commit Hooks
+
+**Pre-commit** hooks ensure code quality before commits:
+
+- **Configuration**: `.pre-commit-config.yaml`
+- **Hooks**: 
+  - golangci-lint for Go code analysis
+  - gofmt for code formatting
+  - goimports for import organization
+  - Standard file checks (trailing whitespace, YAML validation, etc.)
+
+### Development Commands
+
+The `justfile` provides convenient development commands:
+
+```bash
+# Setup development environment
+just dev-setup
+
+# Install pre-commit hooks
+just install-hooks
+
+# Lint all code
+just lint
+
+# Lint and auto-fix issues
+just lint-fix
+
+# Format code
+just fmt
+
+# Run all checks (lint + test)
+just check
+
+# Run pre-commit on all files
+just pre-commit-all
+```
+
+### CI/CD Pipeline
+
+**GitHub Actions** workflow (`.github/workflows/ci.yml`) runs on every push and PR:
+
+1. **Lint Job**: Runs golangci-lint, gofmt, and goimports checks
+2. **Test Job**: Runs tests with race detection and coverage reporting
+3. **Build Job**: Builds all binaries (CLI, backend, local) after successful lint/test
+
+### Agent Integration
+
+AI agents can automatically:
+- Run `just lint-fix` to fix auto-fixable issues
+- Run `just fmt` to format code
+- Run `just check` to validate changes
+- Use pre-commit hooks to ensure quality before commits
+
+This setup ensures consistent code quality across all contributors and automated systems.
 ```

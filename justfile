@@ -40,6 +40,33 @@ clean:
 dev-setup:
     go mod tidy
     go mod download
+    go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+    go install golang.org/x/tools/cmd/goimports@latest
+    pip install pre-commit
+
+# Lint all Go code
+lint:
+    golangci-lint run
+
+# Lint and fix Go code
+lint-fix:
+    golangci-lint run --fix
+
+# Format Go code
+fmt:
+    go fmt ./...
+    goimports -w .
+
+# Run all checks (lint + test)
+check: lint test
+
+# Install pre-commit hooks
+install-hooks:
+    pre-commit install
+
+# Run pre-commit on all files
+pre-commit-all:
+    pre-commit run --all-files
 
 # Create lambda bucket
 create-lambda-bucket:

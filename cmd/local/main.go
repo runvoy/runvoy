@@ -25,7 +25,6 @@ func main() {
 
 	// Create router
 	router := server.NewRouter(svc)
-	port := os.Getenv("RUNVOY_DEV_SERVER_PORT")
 
 	// Configure HTTP server
 	port := cfg.Port
