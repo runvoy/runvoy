@@ -1,4 +1,5 @@
 bucket := 'runvoy-releases'
+api_key := 'p_75LzCL7MRdVRe6JsP-m4u-UXR7NAPU'
 
 # Build all binaries
 build: build-cli build-backend build-local
@@ -91,15 +92,23 @@ update-backend: build-backend
         --s3-key bootstrap.zip > /dev/null
     aws lambda wait function-updated --function-name runvoy-orchestrator
 
-smoke-test-backend-health:
-    curl -X GET https://h4wgz3vui4wsri6bp65yzbynv40vqhqt.lambda-url.us-east-2.on.aws/api/v1/health
-
 # Run local development server with hot reloading
 local-dev-server:
-    reflex -r '\.go$' -s -- sh -c 'AWS_REGION=us-east-2 AWS_PROFILE=api-l3x-in RUNVOY_LOG_LEVEL=DEBUG RUNVOY_API_KEYS_TABLE=runvoy-api-keys go run ./cmd/local'
+    reflex -r '\.go$' -s -- sh \
+        -c 'AWS_REGION=us-east-2 \
+            AWS_PROFILE=api-l3x-in \
+            RUNVOY_LOG_LEVEL=DEBUG \
+            RUNVOY_API_KEYS_TABLE=runvoy-api-keys \
+        go run ./cmd/local'
 
+# Smoke test local user creation
 smoke-test-local-user:
     curl -sS -X POST "http://localhost:56212/api/v1/users" \
-        -H "X-API-Key: p_75LzCL7MRdVRe6JsP-m4u-UXR7NAPU" \
+        -H "X-API-Key: {{api_key}}" \
         -H "Content-Type: application/json" \
         -d '{"email":"alice@example.com"}' | jq .
+
+smoke-test-backend-health:
+    curl -sS \
+        -H "X-API-Key: {{api_key}}" \
+        -X GET https://h4wgz3vui4wsri6bp65yzbynv40vqhqt.lambda-url.us-east-2.on.aws/api/v1/health
