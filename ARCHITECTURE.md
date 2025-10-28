@@ -307,35 +307,55 @@ api_key: "your-api-key-here"
 
 Configuration is loaded on-demand for each command execution and requires authentication for all operations.
 
-### HTTP Client
+### Generic HTTP Client Architecture
 
-The CLI implements a simple HTTP client that communicates with the backend API:
+The CLI uses a generic HTTP client abstraction (`internal/client`) that can be reused across all commands, providing a simple and consistent way to make API requests.
 
-#### Configuration Loading
+#### Package Structure
 
-- Configuration is loaded from `~/.runvoy/config.yaml` using `internal/config/config.go`
-- Contains API endpoint URL and API key for authentication
-- All API requests include the `X-API-Key` header for authentication
+- **`internal/client/client.go`**: Generic HTTP client for all API operations
+- **`internal/user/client.go`**: User-specific operations using the generic client
 
-#### User Management Client
+#### Generic Client (`internal/client/client.go`)
 
-##### Create User (`admin add-user <email>`)
+The generic client provides a simple abstraction for all API operations:
 
-Sends a POST request to `/api/v1/users/create` with:
+- **`Client`**: Contains configuration and logger instances
+- **`Do()`**: Makes raw HTTP requests and returns response data
+- **`DoJSON()`**: Makes requests and automatically unmarshals JSON responses
+- **Error Handling**: Standardized error parsing for all API responses
+- **Logging**: Consistent request/response logging across all commands
 
-**Headers:**
-- `Content-Type: application/json`
-- `X-API-Key: <configured-api-key>`
+#### Command-Specific Clients
 
-**Body:**
+Each command type has its own client that uses the generic client:
 
-```json
-{
-  "email": "user@example.com"
-}
-```
+- **`internal/user/client.go`**: User management operations (create, revoke, etc.)
+- **Future clients**: `internal/exec/client.go`, `internal/logs/client.go`, etc.
 
-The client displays the response including the generated API key with a warning that it's only shown once.
+**Benefits:**
+- **Consistency**: All commands use the same HTTP client logic
+- **Simplicity**: New commands only need to define their specific operations
+- **Maintainability**: HTTP client logic is centralized and reusable
+- **Testability**: Generic client can be easily mocked for testing
+
+#### User Management Commands
+
+##### Create User (`users create <email>`)
+
+The command uses the generic HTTP client through the user client:
+
+**Implementation:**
+- Located in `cmd/runvoy/cmd/addUser.go`
+- Uses `user.New()` to create a user client
+- Calls `userClient.CreateUser(email)` for the actual operation
+- Simplified from 80+ lines to ~15 lines
+
+**How it works:**
+1. Command loads configuration
+2. Creates user client with generic HTTP client
+3. User client uses `client.DoJSON()` to make API request
+4. Generic client handles all HTTP details (headers, error parsing, etc.)
 
 **Error Handling:**
 - 400 Bad Request: Invalid email format or missing email
@@ -343,9 +363,22 @@ The client displays the response including the generated API key with a warning 
 - 409 Conflict: User already exists
 - 500 Internal Server Error: Server errors
 
-Implementation details:
+**Adding New Commands:**
+To add new commands (exec, logs, etc.), simply:
+1. Create `internal/{command}/client.go`
+2. Use `client.New()` to create generic client
+3. Define command-specific methods using `client.DoJSON()`
+4. Add Cobra command that uses the client
 
-- Located in `cmd/runvoy/cmd/addUser.go`
-- Uses standard `net/http` client
-- Provides user-friendly error messages
-- Parses and displays success responses
+**Example for future exec command:**
+```go
+// internal/exec/client.go
+func (e *ExecClient) RunCommand(cmd string) error {
+    req := client.Request{
+        Method: "POST",
+        Path:   "exec/run",
+        Body:   api.ExecutionRequest{Command: cmd},
+    }
+    return e.client.DoJSON(req, &result)
+}
+```

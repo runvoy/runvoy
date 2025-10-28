@@ -24,7 +24,7 @@ func requestIDMiddleware(next http.Handler) http.Handler {
 
 		// Add request ID to the request context
 		ctx := context.WithValue(req.Context(), requestIDContextKey, requestID)
-		
+
 		// Update the logger to include request ID in all subsequent log messages for this request
 		if requestID != "" {
 			// Create a logger with request ID for this request
