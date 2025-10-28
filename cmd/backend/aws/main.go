@@ -12,6 +12,6 @@ import (
 
 func main() {
 	svc := app.MustInitialize(context.Background(), constants.AWS)
-	handler := lambdaapi.NewHandler(context.Background(), svc)
+	handler := lambdaapi.NewHandler(svc)
 	lambda.Start(handler.HandleRequest)
 }
