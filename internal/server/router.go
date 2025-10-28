@@ -68,7 +68,7 @@ func (r *Router) authenticateRequest(next http.Handler) http.Handler {
 		}
 
 		apiKey := req.Header.Get("X-API-Key")
-		logger.Debug("Authenticating request") // removed logging of apiKey (security)
+		logger.Debug("authenticating request") // removed logging of apiKey (security)
 
 		if apiKey == "" {
 			writeErrorResponse(w, http.StatusUnauthorized, "Unauthorized", "API key is required")
@@ -81,7 +81,7 @@ func (r *Router) authenticateRequest(next http.Handler) http.Handler {
 			return
 		}
 
-		logger.Debug("Authenticated user", "user", user)
+		logger.Info("user authenticated successfully", "user", user)
 
 		// Add authenticated user to request context
 		ctx := context.WithValue(req.Context(), userContextKey, user)
