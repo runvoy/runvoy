@@ -39,7 +39,7 @@ func main() {
 
 	// Start server in a goroutine
 	go func() {
-		log.Info("Starting local server", "port", cfg.Port)
+		log.Info("Starting local server", "port", cfg.Port, "version", constants.Version, "log_level", cfg.LogLevel)
 		log.Info("Health check available", "url", fmt.Sprintf("http://localhost:%s/api/v1/health", cfg.Port))
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Error("Failed to start server", "error", err)

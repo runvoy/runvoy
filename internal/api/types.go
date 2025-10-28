@@ -80,3 +80,9 @@ type CreateUserResponse struct {
 type RevokeUserRequest struct {
 	Email string `json:"email"`
 }
+
+// HealthResponse represents the response to a health check request
+type HealthResponse struct {
+	Status  string `json:"status"`
+	Version string `json:"version"`
+}

@@ -22,7 +22,11 @@ import (
 //   - "aws": Uses DynamoDB for storage
 //   - "gcp": (future) E.g. using Google Cloud Run and Firestore for storage
 func Initialize(ctx context.Context, provider constants.BackendProvider, cfg *config.Env, logger *slog.Logger) (*Service, error) {
-	logger.Debug("Initializing service", "provider", provider)
+	logger.Debug("initializing "+constants.ProjectName,
+		"provider", provider,
+		"version", constants.Version,
+		"init_timeout", cfg.InitTimeout,
+	)
 
 	var (
 		userRepo database.UserRepository
@@ -39,7 +43,7 @@ func Initialize(ctx context.Context, provider constants.BackendProvider, cfg *co
 		return nil, fmt.Errorf("unknown backend provider: %s (supported: %s)", provider, constants.AWS)
 	}
 
-	logger.Debug("Service initialized successfully", "provider", provider)
+	logger.Debug(constants.ProjectName+" initialized successfully", "provider", provider)
 
 	return NewService(userRepo, logger), nil
 }

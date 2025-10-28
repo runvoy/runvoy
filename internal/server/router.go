@@ -7,6 +7,7 @@ import (
 
 	"runvoy/internal/api"
 	"runvoy/internal/app"
+	"runvoy/internal/constants"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -75,7 +76,8 @@ func (rw *responseWriter) Write(b []byte) (int, error) {
 func (r *Router) handleHealth(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]string{
-		"status": "ok",
+		"status":  "ok",
+		"version": constants.Version,
 	})
 }
 

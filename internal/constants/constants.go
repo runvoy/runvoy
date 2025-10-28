@@ -1,5 +1,7 @@
 package constants
 
+var Version string = "0.0.0-development" // Updated by CI/CD pipeline at build time
+
 // ProjectName is the name of the CLI tool and application
 const ProjectName = "runvoy"
 
