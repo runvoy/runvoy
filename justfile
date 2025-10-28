@@ -107,36 +107,27 @@ local-dev-server:
 # Smoke test local user creation (requires RUNVOY_ADMIN_API_KEY env var)
 smoke-test-local-create-user:
     #!/usr/bin/env bash
-    if [ -z "$RUNVOY_ADMIN_API_KEY" ]; then \
+    if [ -z "${RUNVOY_ADMIN_API_KEY}" ]; then \
         echo "Error: RUNVOY_ADMIN_API_KEY environment variable is required"; \
         exit 1; \
     fi
     curl -sS -X POST "http://localhost:56212/api/v1/users/create" \
-        -H "X-API-Key: $RUNVOY_ADMIN_API_KEY" \
+        -H "X-API-Key: ${RUNVOY_ADMIN_API_KEY}" \
         -H "Content-Type: application/json" \
         -d '{"email":"alice@example.com"}' | jq .
 
 smoke-test-local-revoke-user:
     #!/usr/bin/env bash
-    if [ -z "$RUNVOY_ADMIN_API_KEY" ]; then \
+    if [ -z "${RUNVOY_ADMIN_API_KEY}" ]; then \
         echo "Error: RUNVOY_ADMIN_API_KEY environment variable is required"; \
         exit 1; \
     fi
     curl -sS -X POST "http://localhost:56212/api/v1/users/revoke" \
-        -H "X-API-Key: $RUNVOY_ADMIN_API_KEY" \
+        -H "X-API-Key: ${RUNVOY_ADMIN_API_KEY}" \
         -H "Content-Type: application/json" \
         -d '{"email":"alice@example.com"}' | jq .
 
 smoke-test-backend-health:
-    #!/usr/bin/env bash
-    if [ -z "$RUNVOY_ADMIN_API_KEY" ]; then \
-        echo "Error: RUNVOY_ADMIN_API_KEY environment variable is required"; \
-        exit 1; \
-    fi
-    if [ -z "$RUNVOY_LAMBDA_URL" ]; then \
-        echo "Error: RUNVOY_LAMBDA_URL environment variable is required"; \
-        exit 1; \
-    fi
     curl -sS \
-        -H "X-API-Key: $RUNVOY_ADMIN_API_KEY" \
-        -X GET "$RUNVOY_LAMBDA_URL/api/v1/health" | jq .
+        -H "X-API-Key: ${RUNVOY_ADMIN_API_KEY}" \
+        -X GET "${RUNVOY_LAMBDA_URL}/api/v1/health" | jq .
