@@ -35,18 +35,16 @@ func NewRouter(svc *app.Service) *Router {
 	r.Use(setContentTypeJSON)
 	r.Use(requestIDMiddleware)
 	r.Use(router.requestLoggingMiddleware)
-	r.Use(router.authenticateRequest)
 
-	// Set up routes
 	r.Route("/api/v1", func(r chi.Router) {
+		// public routes
 		r.Get("/health", router.handleHealth)
 
-		r.Route("/users", func(r chi.Router) {
-			r.Post("/create", router.handleCreateUser)
-			r.Post("/revoke", router.handleRevokeUser)
-		})
+		// authenticated routes
+		r.Use(router.authenticateRequest)
+		r.Post("/users/create", router.handleCreateUser)
+		r.Post("/users/revoke", router.handleRevokeUser)
 	})
-
 	return router
 }
 
