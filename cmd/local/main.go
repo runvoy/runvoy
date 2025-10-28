@@ -17,20 +17,18 @@ import (
 )
 
 func main() {
-	// Load environment configuration
 	cfg := config.MustLoadEnv()
+	ctx, cancel := context.WithTimeout(context.Background(), cfg.InitTimeout)
+	defer cancel()
 
-	// Initialize service for AWS
-	svc := app.MustInitialize(context.Background(), constants.AWS, cfg)
-
-	// Create router
+	svc, err := app.Initialize(ctx, constants.AWS, cfg)
+	if err != nil {
+		log.Fatalf("Failed to initialize service: %v", err)
+	}
 	router := server.NewRouter(svc)
 
-	// Configure HTTP server
-	port := cfg.Port
-
 	srv := &http.Server{
-		Addr:         fmt.Sprintf(":%s", port),
+		Addr:         fmt.Sprintf(":%s", cfg.Port),
 		Handler:      router.Handler(),
 		ReadTimeout:  15 * time.Second,
 		WriteTimeout: 15 * time.Second,
@@ -39,8 +37,8 @@ func main() {
 
 	// Start server in a goroutine
 	go func() {
-		log.Printf("→ Starting local server on :%s (Ctrl+C to stop)", port)
-		log.Printf("→ Health check: http://localhost:%s/api/v1/health", port)
+		log.Printf("→ Starting local server on :%s (Ctrl+C to stop)", cfg.Port)
+		log.Printf("→ Health check: http://localhost:%s/api/v1/health", cfg.Port)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("Failed to start server: %v", err)
 		}
@@ -54,7 +52,7 @@ func main() {
 	log.Println("→ Shutting down server...")
 
 	// Graceful shutdown with timeout
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel = context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	if err := srv.Shutdown(ctx); err != nil {

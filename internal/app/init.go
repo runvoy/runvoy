@@ -14,54 +14,49 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 )
 
-// MustInitialize creates a new Service configured for the specified backend provider.
-// It panics if initialization fails, making it suitable for application startup.
+// Initialize creates a new Service configured for the specified backend provider.
+// It returns an error if the context is cancelled, timed out, or if an unknown provider is specified.
+// Callers should handle errors and potentially panic if initialization fails during startup.
 //
 // Supported cloud providers:
 //   - "aws": Uses DynamoDB for storage
-//   - "gcp": (future) Uses Firestore for storage
-//
-// Environment variables required per cloud:
-//
-//	AWS:
-//	  - API_KEYS_TABLE: DynamoDB table name for API keys
-//	  - AWS credentials via standard AWS SDK environment variables
-//
-// Example:
-//
-//	cfg := config.MustLoadEnv()
-//	svc := app.MustInitialize(context.Background(), "aws", cfg)
-func MustInitialize(ctx context.Context, provider constants.BackendProvider, cfg *config.Env) *Service {
-	log.Printf("→ Initializing service for cloud provider: %s", provider)
+//   - "gcp": (future) E.g. using Google Cloud Run and Firestore for storage
+func Initialize(ctx context.Context, provider constants.BackendProvider, cfg *config.Env) (*Service, error) {
+	log.Printf("→ Initializing service for backend provider: %s", provider)
 
-	var userRepo database.UserRepository
+	var (
+		userRepo database.UserRepository
+		err      error
+	)
 
 	switch provider {
 	case constants.AWS:
-		userRepo = mustInitializeAWS(ctx, cfg)
+		userRepo, err = initializeAWSBackend(ctx, cfg)
+		if err != nil {
+			return nil, fmt.Errorf("failed to initialize AWS: %w", err)
+		}
 	default:
-		panic(fmt.Sprintf("Unknown backend provider: %s (supported: %s)", provider, constants.AWS))
+		return nil, fmt.Errorf("unknown backend provider: %s (supported: %s)", provider, constants.AWS)
 	}
 
-	log.Println("→ Service initialized successfully")
-	return NewService(userRepo)
+	log.Printf("→ Service initialized successfully for backend provider: %s", provider)
+
+	return NewService(userRepo), nil
 }
 
-// mustInitializeAWS sets up AWS-specific dependencies
-func mustInitializeAWS(ctx context.Context, cfg *config.Env) database.UserRepository {
-	// Load AWS configuration from environment
-	awsCfg, err := awsconfig.LoadDefaultConfig(ctx)
-	if err != nil {
-		panic(fmt.Sprintf("Failed to load AWS configuration: %v", err))
+// initializeAWSBackend sets up AWS-specific dependencies
+func initializeAWSBackend(ctx context.Context, cfg *config.Env) (database.UserRepository, error) {
+	if cfg.APIKeysTable == "" {
+		return nil, fmt.Errorf("APIKeysTable cannot be empty")
 	}
 
-	// Get required table name from configuration
-	if cfg.APIKeysTable == "" {
-		log.Fatal("API_KEYS_TABLE environment variable is required for AWS")
+	awsCfg, err := awsconfig.LoadDefaultConfig(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load AWS configuration: %w", err)
 	}
 
 	dynamoClient := dynamodb.NewFromConfig(awsCfg)
+	log.Printf("→ Pointing to DynamoDB table: %s", cfg.APIKeysTable)
 
-	log.Printf("→ Connected to DynamoDB table: %s", cfg.APIKeysTable)
-	return dynamorepo.NewUserRepository(dynamoClient, cfg.APIKeysTable)
+	return dynamorepo.NewUserRepository(dynamoClient, cfg.APIKeysTable), nil
 }

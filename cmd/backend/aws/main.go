@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 
 	"runvoy/internal/app"
 	"runvoy/internal/config"
@@ -12,11 +13,15 @@ import (
 )
 
 func main() {
-	// Load environment configuration
 	cfg := config.MustLoadEnv()
+	ctx, cancel := context.WithTimeout(context.Background(), cfg.InitTimeout)
+	defer cancel()
 
-	// Initialize service
-	svc := app.MustInitialize(context.Background(), constants.AWS, cfg)
+	svc, err := app.Initialize(ctx, constants.AWS, cfg)
+	if err != nil {
+		panic(fmt.Sprintf("Failed to initialize service: %v", err))
+	}
+
 	handler := lambdaapi.NewHandler(svc)
 	lambda.Start(handler.HandleRequest)
 }

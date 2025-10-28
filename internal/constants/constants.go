@@ -9,9 +9,6 @@ const ConfigDirName = ".runvoy"
 // ConfigFileName is the name of the configuration file
 const ConfigFileName = "config.yaml"
 
-// Default port for the local development server
-const DevServerPort = "56212"
-
 // ConfigPath returns the full path to the configuration directory
 func ConfigDirPath(homeDir string) string {
 	return homeDir + "/" + ConfigDirName
@@ -25,5 +22,5 @@ func ConfigFilePath(homeDir string) string {
 type BackendProvider string
 
 const (
-	AWS BackendProvider = "aws"
+	AWS BackendProvider = "AWS"
 )
