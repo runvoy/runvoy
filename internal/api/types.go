@@ -41,18 +41,18 @@ type User struct {
 
 // Execution represents an execution record
 type Execution struct {
-	ExecutionID     string    `json:"execution_id"`
-	UserEmail       string    `json:"user_email"`
-	Command         string    `json:"command"`
-	LockName        string    `json:"lock_name,omitempty"`
-	TaskARN         string    `json:"task_arn"`
-	StartedAt       time.Time `json:"started_at"`
+	ExecutionID     string     `json:"execution_id"`
+	UserEmail       string     `json:"user_email"`
+	Command         string     `json:"command"`
+	LockName        string     `json:"lock_name,omitempty"`
+	TaskARN         string     `json:"task_arn"`
+	StartedAt       time.Time  `json:"started_at"`
 	CompletedAt     *time.Time `json:"completed_at,omitempty"`
-	Status          string    `json:"status"`
-	ExitCode        int       `json:"exit_code,omitempty"`
-	DurationSeconds int       `json:"duration_seconds,omitempty"`
-	LogStreamName   string    `json:"log_stream_name,omitempty"`
-	CostUSD         float64   `json:"cost_usd,omitempty"`
+	Status          string     `json:"status"`
+	ExitCode        int        `json:"exit_code,omitempty"`
+	DurationSeconds int        `json:"duration_seconds,omitempty"`
+	LogStreamName   string     `json:"log_stream_name,omitempty"`
+	CostUSD         float64    `json:"cost_usd,omitempty"`
 }
 
 // Lock represents a lock record

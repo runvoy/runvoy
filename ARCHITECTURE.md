@@ -307,35 +307,43 @@ api_key: "your-api-key-here"
 
 Configuration is loaded on-demand for each command execution and requires authentication for all operations.
 
-### HTTP Client
+### User Management Package
 
-The CLI implements a simple HTTP client that communicates with the backend API:
+The CLI uses a dedicated `internal/user` package for all user-related operations, providing a clean separation of concerns and reusable business logic.
 
-#### Configuration Loading
+#### Package Structure
 
-- Configuration is loaded from `~/.runvoy/config.yaml` using `internal/config/config.go`
-- Contains API endpoint URL and API key for authentication
-- All API requests include the `X-API-Key` header for authentication
+- **`internal/user/service.go`**: Core service layer with HTTP client logic
+- **`internal/user/client.go`**: High-level client interface for CLI commands
 
-#### User Management Client
+#### Service Layer (`internal/user/service.go`)
 
-##### Create User (`admin add-user <email>`)
+The service layer handles the low-level HTTP communication with the backend API:
 
-Sends a POST request to `/api/v1/users/create` with:
+- **`Service`**: Contains configuration and logger instances
+- **`CreateUser()`**: Makes HTTP POST request to `/api/v1/users/create`
+- **Error Handling**: Parses API error responses and converts to Go errors
+- **Response Parsing**: Handles successful responses and extracts user data
 
-**Headers:**
-- `Content-Type: application/json`
-- `X-API-Key: <configured-api-key>`
+#### Client Layer (`internal/user/client.go`)
 
-**Body:**
+The client layer provides a high-level interface for CLI commands:
 
-```json
-{
-  "email": "user@example.com"
-}
-```
+- **`Client`**: Wraps the service with CLI-specific functionality
+- **`CreateUser()`**: Provides formatted output and user-friendly error messages
+- **Display Logic**: Handles success/error message formatting for terminal output
 
-The client displays the response including the generated API key with a warning that it's only shown once.
+#### User Management Commands
+
+##### Create User (`users create <email>`)
+
+The refactored command now uses the user package:
+
+**Implementation:**
+- Located in `cmd/runvoy/cmd/addUser.go`
+- Uses `user.NewClient()` to create a user client
+- Calls `userClient.CreateUser(email)` for the actual operation
+- Significantly simplified from 80+ lines to ~15 lines
 
 **Error Handling:**
 - 400 Bad Request: Invalid email format or missing email
@@ -343,9 +351,8 @@ The client displays the response including the generated API key with a warning 
 - 409 Conflict: User already exists
 - 500 Internal Server Error: Server errors
 
-Implementation details:
-
-- Located in `cmd/runvoy/cmd/addUser.go`
-- Uses standard `net/http` client
-- Provides user-friendly error messages
-- Parses and displays success responses
+**Benefits of Refactoring:**
+- **Reusability**: User logic can be easily reused by other commands
+- **Testability**: Service layer can be unit tested independently
+- **Maintainability**: Business logic separated from CLI presentation
+- **Consistency**: All user operations use the same underlying service
