@@ -25,6 +25,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	log.Info("Starting Lambda handler")
+	log.Debug("Starting Lambda handler")
 	lambda.Start(lambdaapi.NewHandler(svc).HandleRequest)
 }

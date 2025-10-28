@@ -96,7 +96,7 @@ smoke-test-backend-health:
 
 # Run local development server with hot reloading
 local-dev-server:
-    reflex -r '\.go$' -s -- sh -c 'AWS_PROFILE=api-l3x-in RUNVOY_LOG_LEVEL=DEBUG RUNVOY_API_KEYS_TABLE=runvoy-api-keys-table go run ./cmd/local'
+    reflex -r '\.go$' -s -- sh -c 'AWS_REGION=us-east-2 AWS_PROFILE=api-l3x-in RUNVOY_LOG_LEVEL=DEBUG RUNVOY_API_KEYS_TABLE=runvoy-api-keys go run ./cmd/local'
 
 smoke-test-local-user:
     curl -sS -X POST "http://localhost:56212/api/v1/users" \

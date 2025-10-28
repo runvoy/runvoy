@@ -29,7 +29,7 @@ Run commands remotely without the hassle of local execution, credential sharing,
 		if verbose {
 			logLevel = slog.LevelDebug
 		}
-		logger.Initialize(logger.EnvDevelopment, logLevel)
+		logger.Initialize(constants.Development, logLevel)
 
 		if timeout == "0" {
 			slog.Debug("Timeout disabled")

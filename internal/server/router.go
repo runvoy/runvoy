@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"log/slog"
 	"net/http"
 
 	"runvoy/internal/api"
@@ -100,14 +101,15 @@ func (r *Router) handleCreateUser(w http.ResponseWriter, req *http.Request) {
 		// Determine appropriate status code based on error
 		statusCode := http.StatusInternalServerError
 		if err.Error() == "email is required" ||
-		   err.Error() == "user with this email already exists" ||
-		   containsString(err.Error(), "invalid email address") {
+			err.Error() == "user with this email already exists" ||
+			containsString(err.Error(), "invalid email address") {
 			statusCode = http.StatusBadRequest
 		}
 		if err.Error() == "user with this email already exists" {
 			statusCode = http.StatusConflict
 		}
 
+		slog.Debug("Failed to create user", "error", err)
 		writeErrorResponse(w, statusCode, "Failed to create user", err.Error())
 		return
 	}

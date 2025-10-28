@@ -3,6 +3,8 @@ package dynamodb
 import (
 	"context"
 	"errors"
+	"fmt"
+	"log/slog"
 	"time"
 
 	"runvoy/internal/api"
@@ -72,6 +74,8 @@ func (r *UserRepository) CreateUser(ctx context.Context, user *api.User, apiKeyH
 
 // GetUserByEmail retrieves a user by their email using the GSI.
 func (r *UserRepository) GetUserByEmail(ctx context.Context, email string) (*api.User, error) {
+	slog.Debug("Querying user by email", "email", email)
+
 	result, err := r.client.Query(ctx, &dynamodb.QueryInput{
 		TableName:              aws.String(r.tableName),
 		IndexName:              aws.String("user_email-index"),
@@ -81,7 +85,7 @@ func (r *UserRepository) GetUserByEmail(ctx context.Context, email string) (*api
 		},
 	})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to query user by email: %w", err)
 	}
 
 	if len(result.Items) == 0 {

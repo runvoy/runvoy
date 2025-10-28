@@ -22,7 +22,7 @@ import (
 //   - "aws": Uses DynamoDB for storage
 //   - "gcp": (future) E.g. using Google Cloud Run and Firestore for storage
 func Initialize(ctx context.Context, provider constants.BackendProvider, cfg *config.Env) (*Service, error) {
-	slog.Info("Initializing service", "provider", provider)
+	slog.Debug("Initializing service", "provider", provider)
 
 	var (
 		userRepo database.UserRepository
@@ -39,7 +39,7 @@ func Initialize(ctx context.Context, provider constants.BackendProvider, cfg *co
 		return nil, fmt.Errorf("unknown backend provider: %s (supported: %s)", provider, constants.AWS)
 	}
 
-	slog.Info("Service initialized successfully", "provider", provider)
+	slog.Debug("Service initialized successfully", "provider", provider)
 
 	return NewService(userRepo), nil
 }
@@ -56,7 +56,7 @@ func initializeAWSBackend(ctx context.Context, cfg *config.Env) (database.UserRe
 	}
 
 	dynamoClient := dynamodb.NewFromConfig(awsCfg)
-	slog.Info("Connected to DynamoDB", "table", cfg.APIKeysTable)
+	slog.Debug("Using DynamoDB", "table", cfg.APIKeysTable)
 
 	return dynamorepo.NewUserRepository(dynamoClient, cfg.APIKeysTable), nil
 }
