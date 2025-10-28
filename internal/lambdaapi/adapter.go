@@ -8,12 +8,19 @@ import (
 	"strings"
 
 	"github.com/aws/aws-lambda-go/events"
+	"github.com/aws/aws-lambda-go/lambdacontext"
 	"github.com/go-chi/chi/v5"
 )
 
 // ChiRouterToLambdaAdapter adapts a chi router to work with Lambda Function URL events
 func ChiRouterToLambdaAdapter(router *chi.Mux) func(context.Context, events.LambdaFunctionURLRequest) (events.LambdaFunctionURLResponse, error) {
 	return func(ctx context.Context, req events.LambdaFunctionURLRequest) (events.LambdaFunctionURLResponse, error) {
+		// Ensure Lambda context is available in the request context
+		// This is important for the request ID middleware to work properly
+		ctx = lambdacontext.NewContext(ctx, &lambdacontext.LambdaContext{
+			AwsRequestID: req.RequestContext.RequestID,
+		})
+		
 		// Create HTTP request from Lambda event
 		httpReq := lambdaRequestToHTTPRequest(ctx, req)
 

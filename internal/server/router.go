@@ -3,7 +3,6 @@ package server
 import (
 	"context"
 	"encoding/json"
-	"log/slog"
 	"net/http"
 
 	"runvoy/internal/api"
@@ -35,6 +34,9 @@ func NewRouter(svc *app.Service) *Router {
 	// Add middleware to set Content-Type header for all routes
 	r.Use(setContentTypeJSON)
 
+	// Add middleware to extract and add request ID to context for logging
+	r.Use(requestIDMiddleware)
+
 	// Add middleware to authenticate requests
 	r.Use(router.authenticateRequest)
 
@@ -58,8 +60,11 @@ func setContentTypeJSON(next http.Handler) http.Handler {
 // authenticateRequest middleware authenticates requests
 func (r *Router) authenticateRequest(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		// Use logger with request ID if available
+		logger := GetLoggerFromContext(req.Context())
+		
 		apiKey := req.Header.Get("X-API-Key")
-		slog.Debug("Authenticating request") // removed logging of apiKey (security)
+		logger.Debug("Authenticating request") // removed logging of apiKey (security)
 
 		if apiKey == "" {
 			writeErrorResponse(w, http.StatusUnauthorized, "Unauthorized", "API key is required")
@@ -72,7 +77,7 @@ func (r *Router) authenticateRequest(next http.Handler) http.Handler {
 			return
 		}
 
-		slog.Debug("Authenticated user", "user", user)
+		logger.Debug("Authenticated user", "user", user)
 
 		// Add authenticated user to request context
 		ctx := context.WithValue(req.Context(), userContextKey, user)
@@ -110,6 +115,9 @@ func (r *Router) WithContext(ctx context.Context, svc *app.Service) context.Cont
 
 // handleCreateUser handles POST /api/v1/users to create a new user with an API key
 func (r *Router) handleCreateUser(w http.ResponseWriter, req *http.Request) {
+	// Use logger with request ID if available
+	logger := GetLoggerFromContext(req.Context())
+	
 	var createReq app.CreateUserRequest
 
 	// Decode JSON request body
@@ -132,7 +140,7 @@ func (r *Router) handleCreateUser(w http.ResponseWriter, req *http.Request) {
 			statusCode = http.StatusConflict
 		}
 
-		slog.Debug("Failed to create user", "error", err)
+		logger.Debug("Failed to create user", "error", err)
 		writeErrorResponse(w, statusCode, "Failed to create user", err.Error())
 		return
 	}
