@@ -15,11 +15,8 @@ import (
 )
 
 func main() {
-	// Initialize service (DynamoDB is optional for local development)
-	svc, err := app.Initialize(context.Background(), nil)
-	if err != nil {
-		log.Fatalf("Failed to initialize service: %v", err)
-	}
+	// Initialize service for AWS
+	svc := app.MustInitialize(context.Background(), "aws")
 
 	// Create router
 	router := server.NewRouter(svc)

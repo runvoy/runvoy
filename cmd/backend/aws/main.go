@@ -9,13 +9,7 @@ import (
 )
 
 func main() {
-	// Initialize service with DynamoDB support
-	// MustInitialize will panic on fatal errors during cold start
-	svc := app.MustInitialize(context.Background(), &app.InitConfig{
-		EnableDynamoDB: true,
-	})
-
-	// Create Lambda handler and start
+	svc := app.MustInitialize(context.Background(), "aws")
 	handler := lambdaapi.NewHandler(svc)
 	lambda.Start(handler.HandleRequest)
 }
