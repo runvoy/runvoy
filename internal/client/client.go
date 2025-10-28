@@ -89,6 +89,8 @@ func (c *Client) Do(req Request) (*Response, error) {
 		return nil, fmt.Errorf("failed to read response: %w", err)
 	}
 
+	c.logger.Debug("Response", "status", resp.StatusCode, "body", string(body))
+
 	return &Response{
 		StatusCode: resp.StatusCode,
 		Body:       body,
