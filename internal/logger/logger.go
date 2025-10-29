@@ -26,6 +26,6 @@ func Initialize(env constants.Environment, level slog.Level) *slog.Logger {
 	logger := slog.New(handler)
 	slog.SetDefault(logger)
 
-	slog.Debug("Logger initialized", "env", env, "level", level)
+	slog.Debug("logger initialized", "env", env, "level", level)
 	return logger
 }

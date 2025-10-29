@@ -18,6 +18,7 @@ import (
 var timeout string
 var timeoutCancel context.CancelFunc
 var verbose bool
+var debug bool
 
 var rootCmd = &cobra.Command{
 	Use:   constants.ProjectName,
@@ -28,13 +29,18 @@ Run commands remotely without the hassle of local execution, credential sharing,
 		// Initialize logger based on verbose flag
 		logLevel := slog.LevelInfo
 		if verbose {
+			output.Header(output.Bold(constants.ProjectName) + " " + constants.Version)
+			output.Info("verbose output enabled")
+		}
+		if debug {
 			logLevel = slog.LevelDebug
-			output.Info(output.Bold(constants.ProjectName) + " " + constants.Version + " - verbose output enabled")
 		}
 		logger.Initialize(constants.Development, logLevel)
 
 		if timeout == "0" {
-			slog.Debug("Timeout disabled")
+			if verbose {
+				output.Info("timeout disabled")
+			}
 			return nil
 		}
 
@@ -49,8 +55,9 @@ Run commands remotely without the hassle of local execution, credential sharing,
 		timeoutCancel = cancel // Store for cleanup in Execute()
 		cmd.SetContext(ctx)
 
-		slog.Debug("timeout configured", "duration", timeoutDuration)
-
+		if verbose {
+			output.Info("timeout: %s", timeoutDuration)
+		}
 		return nil
 	},
 }
@@ -71,6 +78,7 @@ func init() {
 	// Global flags can be added here if needed
 	rootCmd.PersistentFlags().StringVar(&timeout, "timeout", "10m", "Timeout for command execution (e.g., 10m, 30s, 1h)")
 	rootCmd.PersistentFlags().BoolVar(&verbose, "verbose", false, "Verbose output")
+	rootCmd.PersistentFlags().BoolVar(&debug, "debug", false, "Enable debugging logs")
 }
 
 // parseTimeout parses timeout string to time.Duration
