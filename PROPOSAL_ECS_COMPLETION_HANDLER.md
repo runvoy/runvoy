@@ -162,12 +162,14 @@ We need to:
 // Pseudo-code for completion handler
 func HandleTaskCompletion(event ECSTaskStateChangeEvent) error {
     // 1. Extract execution ID from task ARN
-    executionID := extractExecutionID(event.Detail.TaskArn)
+    // Task ARN format: arn:aws:ecs:region:account:task/cluster/EXECUTION_ID
+    // Execution ID is the last segment (same logic as orchestrator)
+    executionID := extractExecutionIDFromTaskArn(event.Detail.TaskArn)
     
     // 2. Get execution from DynamoDB (need started_at for composite key)
     execution := getExecution(executionID)
     if execution == nil {
-        log.Warn("execution not found", "executionID", executionID)
+        log.Warn("execution not found", "executionID", executionID, "taskArn", event.Detail.TaskArn)
         return nil // Don't fail for orphaned tasks
     }
     
@@ -190,6 +192,13 @@ func HandleTaskCompletion(event ECSTaskStateChangeEvent) error {
     execution.CostUSD = cost
     
     return updateExecution(execution)
+}
+
+// Helper function to extract execution ID from task ARN
+func extractExecutionIDFromTaskArn(taskArn string) string {
+    // Example: arn:aws:ecs:us-east-1:123456789012:task/runvoy-cluster/abc123def456
+    parts := strings.Split(taskArn, "/")
+    return parts[len(parts)-1] // Returns: abc123def456
 }
 ```
 
@@ -276,10 +285,7 @@ type executionItem struct {
 }
 ```
 
-**Recommendation:** Add `TaskARN` field for traceability
-```go
-TaskARN string `dynamodbav:"task_arn,omitempty"`
-```
+**No schema changes needed!** The execution ID can be extracted directly from the task ARN in the EventBridge event (it's the last segment of the ARN), so we don't need to store the task ARN separately.
 
 ## CloudFormation Changes
 
@@ -400,22 +406,7 @@ internal/
 
 ### Orchestrator Changes
 
-**Store Task ARN** in execution record:
-
-```go
-// internal/app/main.go - RunCommand method
-execution := &api.Execution{
-    ExecutionID:     executionID,
-    UserEmail:       userEmail,
-    Command:         req.Command,
-    LockName:        req.Lock,
-    StartedAt:       startedAt,
-    Status:          "RUNNING",
-    RequestID:       requestID,
-    ComputePlatform: string(s.Provider),
-    TaskARN:         taskARN,  // NEW: Store task ARN
-}
-```
+**No changes needed!** The execution ID is already derived from the task ARN (last segment), and the EventBridge event includes the full task ARN. The completion handler can extract the execution ID from the event's task ARN using the same logic as the orchestrator.
 
 ## Benefits
 
@@ -467,8 +458,8 @@ execution := &api.Execution{
 ### Phase 1: Implementation
 1. Create completion handler Lambda code
 2. Add EventBridge rule to CloudFormation
-3. Update orchestrator to store task ARN
-4. Add `task_arn` field to DynamoDB schema (migration)
+3. Add completion handler Lambda to CloudFormation
+4. Deploy and configure EventBridge → Lambda integration
 
 ### Phase 2: Testing
 1. Deploy to dev/staging environment
