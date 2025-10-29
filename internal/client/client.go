@@ -12,6 +12,7 @@ import (
 
 	"runvoy/internal/api"
 	"runvoy/internal/config"
+	"runvoy/internal/constants"
 )
 
 // Client provides a generic HTTP client for API operations
@@ -43,7 +44,6 @@ type Response struct {
 
 // Do makes an HTTP request to the API
 func (c *Client) Do(ctx context.Context, req Request) (*Response, error) {
-	// Create request body
 	var bodyReader io.Reader
 	if req.Body != nil {
 		jsonData, err := json.Marshal(req.Body)
@@ -53,23 +53,19 @@ func (c *Client) Do(ctx context.Context, req Request) (*Response, error) {
 		bodyReader = bytes.NewBuffer(jsonData)
 	}
 
-	// Create URL
 	url, err := url.JoinPath(c.config.APIEndpoint, req.Path)
 	if err != nil {
 		return nil, fmt.Errorf("invalid API endpoint: %w", err)
 	}
 
-	// Create HTTP request
 	httpReq, err := http.NewRequestWithContext(ctx, req.Method, url, bodyReader)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
-	// Set headers
-	httpReq.Header.Set("Content-Type", "application/json")
-	httpReq.Header.Set("X-API-Key", c.config.APIKey)
+	httpReq.Header.Set(constants.ContentTypeHeader, "application/json")
+	httpReq.Header.Set(constants.ApiKeyHeader, c.config.APIKey)
 
-	// Log request
 	if req.Body != nil {
 		bodyBytes, _ := json.Marshal(req.Body)
 		c.logger.Debug("Making API request", "method", req.Method, "url", url, "body", string(bodyBytes))
@@ -77,7 +73,6 @@ func (c *Client) Do(ctx context.Context, req Request) (*Response, error) {
 		c.logger.Debug("Making API request", "method", req.Method, "url", url)
 	}
 
-	// Make request
 	httpClient := &http.Client{}
 	resp, err := httpClient.Do(httpReq)
 	if err != nil {
@@ -85,7 +80,6 @@ func (c *Client) Do(ctx context.Context, req Request) (*Response, error) {
 	}
 	defer resp.Body.Close()
 
-	// Read response body
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read response: %w", err)
@@ -106,7 +100,6 @@ func (c *Client) DoJSON(ctx context.Context, req Request, result interface{}) er
 		return err
 	}
 
-	// Check for error responses
 	if resp.StatusCode >= 400 {
 		var errorResp api.ErrorResponse
 		if err := json.Unmarshal(resp.Body, &errorResp); err != nil {
@@ -115,7 +108,6 @@ func (c *Client) DoJSON(ctx context.Context, req Request, result interface{}) er
 		return fmt.Errorf("%s: %s", errorResp.Error, errorResp.Details)
 	}
 
-	// Unmarshal successful response
 	if err := json.Unmarshal(resp.Body, result); err != nil {
 		c.logger.Debug("Response body", "body", string(resp.Body))
 		return fmt.Errorf("failed to parse response: %w", err)
@@ -135,6 +127,7 @@ func (c *Client) CreateUser(ctx context.Context, req api.CreateUserRequest) (*ap
 	if err != nil {
 		return nil, err
 	}
+
 	return &resp, nil
 }
 
@@ -149,6 +142,7 @@ func (c *Client) RevokeUser(ctx context.Context, req api.RevokeUserRequest) (*ap
 	if err != nil {
 		return nil, err
 	}
+
 	return &resp, nil
 }
 
@@ -162,5 +156,6 @@ func (c *Client) GetHealth(ctx context.Context) (*api.HealthResponse, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	return &resp, nil
 }

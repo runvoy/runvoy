@@ -14,6 +14,7 @@ func (r *Router) handleCreateUser(w http.ResponseWriter, req *http.Request) {
 
 	if err := json.NewDecoder(req.Body).Decode(&createReq); err != nil {
 		writeErrorResponse(w, http.StatusBadRequest, "invalid request body", err.Error())
+
 		return
 	}
 
@@ -33,10 +34,10 @@ func (r *Router) handleCreateUser(w http.ResponseWriter, req *http.Request) {
 
 		logger.Debug("failed to create user", "error", err)
 		writeErrorResponse(w, statusCode, "failed to create user", err.Error())
+
 		return
 	}
 
-	// Return successful response with the created user and API key
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(resp)
 }
@@ -48,6 +49,7 @@ func (r *Router) handleRevokeUser(w http.ResponseWriter, req *http.Request) {
 
 	if err := json.NewDecoder(req.Body).Decode(&revokeReq); err != nil {
 		writeErrorResponse(w, http.StatusBadRequest, "Invalid request body", err.Error())
+
 		return
 	}
 
@@ -64,6 +66,7 @@ func (r *Router) handleRevokeUser(w http.ResponseWriter, req *http.Request) {
 
 		logger.Debug("failed to revoke user", "error", err)
 		writeErrorResponse(w, statusCode, "failed to revoke user", err.Error())
+
 		return
 	}
 

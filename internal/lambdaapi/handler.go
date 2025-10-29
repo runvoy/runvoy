@@ -15,10 +15,12 @@ type LambdaHandler struct {
 func NewHandler(svc *app.Service) *LambdaHandler {
 	router := server.NewRouter(svc)
 	adapter := ChiRouterToLambdaAdapter(router.ChiMux())
+
 	return &LambdaHandler{adapter: adapter}
 }
 
 func (h *LambdaHandler) HandleRequest(
 	ctx context.Context, req events.LambdaFunctionURLRequest) (events.LambdaFunctionURLResponse, error) {
+
 	return h.adapter(ctx, req)
 }

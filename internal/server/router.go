@@ -11,17 +11,17 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
+type Router struct {
+	router *chi.Mux
+	svc    *app.Service
+}
+
 type contextKey string
 
 const (
 	userContextKey    contextKey = "user"
 	serviceContextKey contextKey = "service"
 )
-
-type Router struct {
-	router *chi.Mux
-	svc    *app.Service
-}
 
 // NewRouter creates a new chi router with routes configured
 func NewRouter(svc *app.Service) *Router {
@@ -31,7 +31,7 @@ func NewRouter(svc *app.Service) *Router {
 		svc:    svc,
 	}
 
-	r.Use(setContentTypeJSON)
+	r.Use(setContentTypeJSONMiddleware)
 	r.Use(requestIDMiddleware)
 	r.Use(router.requestLoggingMiddleware)
 
@@ -40,7 +40,7 @@ func NewRouter(svc *app.Service) *Router {
 		r.Get("/health", router.handleHealth)
 
 		// authenticated routes
-		r.With(router.authenticateRequest).Route("/users", func(r chi.Router) {
+		r.With(router.authenticateRequestMiddleware).Route("/users", func(r chi.Router) {
 			r.Post("/create", router.handleCreateUser)
 			r.Post("/revoke", router.handleRevokeUser)
 		})
@@ -69,6 +69,7 @@ func (rw *responseWriter) Write(b []byte) (int, error) {
 		rw.statusCode = http.StatusOK
 		rw.written = true
 	}
+
 	return rw.ResponseWriter.Write(b)
 }
 
@@ -113,5 +114,6 @@ func findSubstring(s, substr string) bool {
 			return true
 		}
 	}
+
 	return false
 }

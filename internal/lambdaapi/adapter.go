@@ -21,15 +21,11 @@ func ChiRouterToLambdaAdapter(router *chi.Mux) func(context.Context, events.Lamb
 			AwsRequestID: req.RequestContext.RequestID,
 		})
 
-		// Create HTTP request from Lambda event
 		httpReq := lambdaRequestToHTTPRequest(ctx, req)
-
-		// Set the remote address from Lambda event
 		if httpReq != nil {
 			httpReq.RemoteAddr = req.RequestContext.HTTP.SourceIP
 		}
 
-		// Create response writer
 		var buf bytes.Buffer
 		responseWriter := &lambdaResponseWriter{
 			buffer: &buf,
@@ -37,10 +33,8 @@ func ChiRouterToLambdaAdapter(router *chi.Mux) func(context.Context, events.Lamb
 			status: http.StatusOK,
 		}
 
-		// Serve the request using chi router
 		router.ServeHTTP(responseWriter, httpReq)
 
-		// Build Lambda response from HTTP response
 		return httpResponseToLambdaResponse(responseWriter), nil
 	}
 }
@@ -58,7 +52,6 @@ func lambdaRequestToHTTPRequest(ctx context.Context, req events.LambdaFunctionUR
 	}
 
 	body := req.Body
-	// Check if the body is base64 encoded
 	if req.IsBase64Encoded {
 		decoded, err := base64.StdEncoding.DecodeString(body)
 		if err == nil {
@@ -68,18 +61,15 @@ func lambdaRequestToHTTPRequest(ctx context.Context, req events.LambdaFunctionUR
 
 	httpReq, _ := http.NewRequestWithContext(ctx, req.RequestContext.HTTP.Method, url, strings.NewReader(body))
 
-	// Copy headers
 	for key, value := range req.Headers {
 		httpReq.Header.Set(key, value)
 	}
 
-	// Copy query parameters
 	httpReq.URL.RawQuery = req.RawQueryString
 
 	return httpReq
 }
 
-// lambdaResponseWriter is a response writer for chi that captures the response
 type lambdaResponseWriter struct {
 	buffer *bytes.Buffer
 	header http.Header
@@ -100,10 +90,8 @@ func (w *lambdaResponseWriter) WriteHeader(statusCode int) {
 
 // httpResponseToLambdaResponse converts an http response to a Lambda response
 func httpResponseToLambdaResponse(w *lambdaResponseWriter) events.LambdaFunctionURLResponse {
-	// Convert header map to proper format (lowercase keys for Lambda)
 	headers := make(map[string]string)
 	for key, values := range w.header {
-		// Join multiple values with comma
 		if len(values) > 0 {
 			headers[strings.ToLower(key)] = strings.Join(values, ",")
 		}

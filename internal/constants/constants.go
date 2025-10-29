@@ -12,15 +12,15 @@ const ProjectName = "runvoy"
 // ConfigDirName is the name of the configuration directory in the user's home directory
 const ConfigDirName = ".runvoy"
 
-// ConfigFileName is the name of the configuration file
+// ConfigFileName is the name of the global configuration file
 const ConfigFileName = "config.yaml"
 
-// ConfigPath returns the full path to the configuration directory
+// ConfigPath returns the full path to the global configuration directory
 func ConfigDirPath(homeDir string) string {
 	return homeDir + "/" + ConfigDirName
 }
 
-// ConfigFilePath returns the full path to the configuration file
+// ConfigFilePath returns the full path to the global configuration file
 func ConfigFilePath(homeDir string) string {
 	return ConfigDirPath(homeDir) + "/" + ConfigFileName
 }
@@ -29,6 +29,7 @@ type BackendProvider string
 
 const (
 	AWS BackendProvider = "AWS"
+	// Example: GCP BackendProvider = "GCP"
 )
 
 type Environment string
@@ -39,3 +40,6 @@ const (
 	Production  Environment = "production"
 	CLI         Environment = "cli"
 )
+
+const ApiKeyHeader = "X-API-Key"
+const ContentTypeHeader = "Content-Type"

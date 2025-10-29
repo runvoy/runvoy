@@ -38,7 +38,6 @@ func (s *Service) CreateUser(ctx context.Context, req api.CreateUserRequest) (*a
 		return nil, errors.New("user repository not configured")
 	}
 
-	// Validate email
 	if req.Email == "" {
 		return nil, errors.New("email is required")
 	}
@@ -47,7 +46,6 @@ func (s *Service) CreateUser(ctx context.Context, req api.CreateUserRequest) (*a
 		return nil, fmt.Errorf("invalid email address: %w", err)
 	}
 
-	// Check if user already exists
 	existingUser, err := s.userRepo.GetUserByEmail(ctx, req.Email)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check existing user: %w", err)
@@ -56,7 +54,6 @@ func (s *Service) CreateUser(ctx context.Context, req api.CreateUserRequest) (*a
 		return nil, errors.New("user with this email already exists")
 	}
 
-	// Generate or use provided API key
 	apiKey := req.APIKey
 	if apiKey == "" {
 		apiKey, err = generateAPIKey()
@@ -65,17 +62,14 @@ func (s *Service) CreateUser(ctx context.Context, req api.CreateUserRequest) (*a
 		}
 	}
 
-	// Hash the API key for storage
 	apiKeyHash := hashAPIKey(apiKey)
 
-	// Create user object
 	user := &api.User{
 		Email:     req.Email,
 		CreatedAt: time.Now().UTC(),
 		Revoked:   false,
 	}
 
-	// Store in database
 	if err := s.userRepo.CreateUser(ctx, user, apiKeyHash); err != nil {
 		return nil, fmt.Errorf("failed to create user: %w", err)
 	}
@@ -126,7 +120,6 @@ func (s *Service) RevokeUser(ctx context.Context, email string) error {
 		return errors.New("email is required")
 	}
 
-	// Check if user exists
 	user, err := s.userRepo.GetUserByEmail(ctx, email)
 	if err != nil {
 		return fmt.Errorf("failed to check existing user: %w", err)
@@ -135,7 +128,6 @@ func (s *Service) RevokeUser(ctx context.Context, email string) error {
 		return errors.New("user not found")
 	}
 
-	// Revoke the user
 	if err := s.userRepo.RevokeUser(ctx, email); err != nil {
 		return fmt.Errorf("failed to revoke user: %w", err)
 	}
@@ -146,19 +138,18 @@ func (s *Service) RevokeUser(ctx context.Context, email string) error {
 // generateAPIKey creates a cryptographically secure random API key.
 // The key is base64-encoded and approximately 32 characters long.
 func generateAPIKey() (string, error) {
-	// Generate 24 random bytes (will be ~32 chars when base64 encoded)
 	b := make([]byte, 24)
 	if _, err := rand.Read(b); err != nil {
 		return "", err
 	}
 
-	// Encode to base64 URL-safe format (no padding)
 	return base64.URLEncoding.WithPadding(base64.NoPadding).EncodeToString(b), nil
 }
 
 // hashAPIKey creates a SHA-256 hash of the API key for secure storage.
-// We never store plain API keys in the database.
+// NOTICE: we never store plain API keys in the database.
 func hashAPIKey(apiKey string) string {
 	hash := sha256.Sum256([]byte(apiKey))
+
 	return base64.StdEncoding.EncodeToString(hash[:])
 }

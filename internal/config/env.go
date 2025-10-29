@@ -16,13 +16,13 @@ type Env struct {
 	Port string `env:"RUNVOY_DEV_SERVER_PORT" envDefault:"56212"`
 
 	// APIKeysTable is the DynamoDB table name for API keys (AWS only).
-	// This is required when running with AWS backend and cannot be empty.
+	// NOTICE: this is required when running with AWS backend and cannot be empty.
 	APIKeysTable string `env:"RUNVOY_API_KEYS_TABLE,notEmpty" envRequired:"true"`
 
-	// InitTimeout is the timeout for the environment initialization.
+	// InitTimeout is the timeout for the environment initialization. Defaults to 10 seconds.
 	InitTimeout time.Duration `env:"RUNVOY_INIT_TIMEOUT" envDefault:"10s"`
 
-	// LogLevel is the log level for the logger.
+	// LogLevel is the log level for the logger. Defaults to "INFO".
 	LogLevel slog.Level `env:"RUNVOY_LOG_LEVEL" envDefault:"INFO"`
 }
 
@@ -38,12 +38,14 @@ func LoadEnv() (*Env, error) {
 }
 
 // MustLoadEnv loads environment variables and exits if there's an error.
-// This is suitable for application startup where configuration errors should be fatal.
+// NOTICE: this is suitable for application startup where configuration errors should be fatal.
 func MustLoadEnv() *Env {
 	cfg, err := LoadEnv()
 	if err != nil {
-		slog.Error("Failed to load environment configuration", "error", err)
+		slog.Error("failed to load environment configuration", "error", err)
+
 		os.Exit(1)
 	}
+
 	return cfg
 }

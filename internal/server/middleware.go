@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"time"
 
+	"runvoy/internal/constants"
+
 	"github.com/aws/aws-lambda-go/lambdacontext"
 )
 
@@ -43,21 +45,21 @@ func GetRequestID(ctx context.Context) string {
 	return ""
 }
 
-// setContentTypeJSON middleware sets Content-Type to application/json for all responses
-func setContentTypeJSON(next http.Handler) http.Handler {
+// setContentTypeJSONMiddleware sets Content-Type to application/json for all responses
+func setContentTypeJSONMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set(constants.ContentTypeHeader, "application/json")
 		next.ServeHTTP(w, req)
 	})
 }
 
-// authenticateRequest middleware authenticates requests
-// Add authenticated user to request context
-// Use service logger with request ID if available
-func (r *Router) authenticateRequest(next http.Handler) http.Handler {
+// authenticateRequestMiddleware authenticates requests
+// NOTICE: adds authenticated user to request context
+// NOTICE: uses service logger with request ID if available
+func (r *Router) authenticateRequestMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		logger := getLoggerWithRequestID(r, req.Context())
-		apiKey := req.Header.Get("X-API-Key")
+		apiKey := req.Header.Get(constants.ApiKeyHeader)
 		logger.Debug("authenticating request")
 
 		if apiKey == "" {
