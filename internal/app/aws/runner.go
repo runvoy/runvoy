@@ -39,9 +39,9 @@ func NewExecutor(ecsClient *ecs.Client, cfg *Config, logger *slog.Logger) *Execu
 	return &Executor{ecsClient: ecsClient, cfg: cfg, logger: logger}
 }
 
-// StartTask triggers an ECS Fargate task and returns the task ARN.
-// The executionID is used to correlate the task with execution records via the startedBy field.
-func (e *Executor) StartTask(ctx context.Context, executionID string, userEmail string, req api.ExecutionRequest) (string, error) {
+// StartTask triggers an ECS Fargate task and returns both the task ARN and execution ID.
+// The execution ID is derived from the task ARN (task ID portion) and used for correlation.
+func (e *Executor) StartTask(ctx context.Context, userEmail string, req api.ExecutionRequest) (taskARN string, executionID string, err error) {
 	if e.ecsClient == nil {
 		return "", apperrors.ErrInternalError("ECS cli endpoint not configured", nil)
 	}
@@ -70,7 +70,6 @@ func (e *Executor) StartTask(ctx context.Context, executionID string, userEmail 
 		Cluster:        awsstd.String(e.cfg.ECSCluster),
 		TaskDefinition: awsstd.String(e.cfg.TaskDefinition),
 		LaunchType:     ecstypes.LaunchTypeFargate,
-		StartedBy:      awsstd.String(executionID), // Use executionID for event correlation
 		Overrides: &ecstypes.TaskOverride{ContainerOverrides: []ecstypes.ContainerOverride{{
 			Name:        awsstd.String("executor"),
 			Command:     containerCommand,
@@ -86,14 +85,19 @@ func (e *Executor) StartTask(ctx context.Context, executionID string, userEmail 
 
 	runTaskOutput, err := e.ecsClient.RunTask(ctx, runTaskInput)
 	if err != nil {
-		return "", apperrors.ErrInternalError("failed to start ECS task", err)
+		return "", "", apperrors.ErrInternalError("failed to start ECS task", err)
 	}
 	if len(runTaskOutput.Tasks) == 0 {
-		return "", apperrors.ErrInternalError("no tasks were started", nil)
+		return "", "", apperrors.ErrInternalError("no tasks were started", nil)
 	}
 
 	task := runTaskOutput.Tasks[0]
-	taskARN := awsstd.ToString(task.TaskArn)
+	taskARN = awsstd.ToString(task.TaskArn)
+	
+	// Extract execution ID from task ARN (task ID is the last segment)
+	// Format: arn:aws:ecs:region:account:task/cluster-name/task-id
+	executionIDParts := strings.Split(taskARN, "/")
+	executionID = executionIDParts[len(executionIDParts)-1]
 
 	e.logger.Debug("task started", "taskARN", taskARN, "executionID", executionID)
 
@@ -106,5 +110,5 @@ func (e *Executor) StartTask(ctx context.Context, executionID string, userEmail 
 		e.logger.Warn("failed to add ExecutionID tag to task", "error", tagErr, "taskARN", taskARN, "executionID", executionID)
 	}
 
-	return taskARN, nil
+	return taskARN, executionID, nil
 }

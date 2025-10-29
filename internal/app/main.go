@@ -19,9 +19,9 @@ import (
 // Executor abstracts provider-specific command execution (e.g., AWS ECS, GCP, etc.).
 type Executor interface {
 	// StartTask triggers an execution on the underlying platform and returns
-	// a provider-specific task ARN. The executionID is pre-generated and passed in
-	// to enable event correlation (e.g., via ECS startedBy field).
-	StartTask(ctx context.Context, executionID string, userEmail string, req api.ExecutionRequest) (taskARN string, err error)
+	// both the task ARN and execution ID. The execution ID is derived from the
+	// task identifier (e.g., ECS task ID from task ARN) and used for correlation.
+	StartTask(ctx context.Context, userEmail string, req api.ExecutionRequest) (taskARN string, executionID string, err error)
 }
 
 type Service struct {
@@ -192,13 +192,8 @@ func (s *Service) RunCommand(ctx context.Context, userEmail string, req api.Exec
 		return nil, apperrors.ErrBadRequest("command is required", nil)
 	}
 
-	// Generate execution ID before starting the task so we can use it for event correlation
-	executionID, err := generateExecutionID()
-	if err != nil {
-		return nil, apperrors.ErrInternalError("failed to generate execution ID", err)
-	}
-
-	taskARN, err := s.executor.StartTask(ctx, executionID, userEmail, req)
+	// Start the task and get the task ARN and execution ID (derived from task ARN)
+	taskARN, executionID, err := s.executor.StartTask(ctx, userEmail, req)
 	if err != nil {
 		return nil, err
 	}

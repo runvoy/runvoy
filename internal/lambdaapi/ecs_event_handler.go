@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"log/slog"
+	"strings"
 	"time"
 
 	"runvoy/internal/app"
@@ -15,11 +16,10 @@ import (
 // ECSTaskStateChangeEvent represents the ECS Task State Change event structure
 type ECSTaskStateChangeEvent struct {
 	Detail struct {
-		LastStatus     string `json:"lastStatus"`
-		StartedBy      string `json:"startedBy"`
-		StoppedAt      string `json:"stoppedAt"` // ECS sends this as a string timestamp
-		StoppedReason  string `json:"stoppedReason,omitempty"`
-		Containers     []struct {
+		LastStatus    string `json:"lastStatus"`
+		StoppedAt     string `json:"stoppedAt"` // ECS sends this as a string timestamp
+		StoppedReason string `json:"stoppedReason,omitempty"`
+		Containers    []struct {
 			ExitCode *int   `json:"exitCode,omitempty"`
 			Name     string `json:"name"`
 		} `json:"containers"`
@@ -68,14 +68,20 @@ func (h *ECSEventHandler) HandleEventBridgeEvent(ctx context.Context, event even
 		return nil
 	}
 
-	// Extract execution ID from startedBy field
-	executionID := taskEvent.Detail.StartedBy
-	if executionID == "" {
-		h.logger.Warn("ECS task event missing startedBy field, cannot correlate with execution",
-			"taskArn", taskEvent.Detail.TaskArn,
-		)
+	// Extract execution ID from task ARN (task ID is the last segment)
+	// Format: arn:aws:ecs:region:account:task/cluster-name/task-id
+	taskARN := taskEvent.Detail.TaskArn
+	if taskARN == "" {
+		h.logger.Warn("ECS task event missing taskArn, cannot correlate with execution")
 		return nil
 	}
+
+	taskIDParts := strings.Split(taskARN, "/")
+	if len(taskIDParts) == 0 {
+		h.logger.Warn("invalid task ARN format, cannot extract execution ID", "taskArn", taskARN)
+		return nil
+	}
+	executionID := taskIDParts[len(taskIDParts)-1]
 
 	h.logger.Info("processing ECS task completion event",
 		"executionID", executionID,
