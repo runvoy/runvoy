@@ -24,6 +24,30 @@ type Env struct {
 	// NOTICE: this is required when running with AWS backend and cannot be empty.
 	APIKeysTable string `env:"RUNVOY_API_KEYS_TABLE,notEmpty" envRequired:"true"`
 
+	// ExecutionsTable is the DynamoDB table name for execution records (AWS only).
+	ExecutionsTable string `env:"RUNVOY_EXECUTIONS_TABLE,notEmpty" envRequired:"true"`
+
+	// ECSCluster is the ECS cluster name where tasks will run (AWS only).
+	ECSCluster string `env:"RUNVOY_ECS_CLUSTER,notEmpty" envRequired:"true"`
+
+	// TaskDefinition is the ECS task definition ARN or family name (AWS only).
+	TaskDefinition string `env:"RUNVOY_TASK_DEFINITION,notEmpty" envRequired:"true"`
+
+	// Subnet1 is the first subnet ID for ECS tasks (AWS only).
+	Subnet1 string `env:"RUNVOY_SUBNET_1,notEmpty" envRequired:"true"`
+
+	// Subnet2 is the second subnet ID for ECS tasks (AWS only).
+	Subnet2 string `env:"RUNVOY_SUBNET_2,notEmpty" envRequired:"true"`
+
+	// SecurityGroup is the security group ID for ECS tasks (AWS only).
+	SecurityGroup string `env:"RUNVOY_SECURITY_GROUP,notEmpty" envRequired:"true"`
+
+	// LogGroup is the CloudWatch log group name for execution logs (AWS only).
+	LogGroup string `env:"RUNVOY_LOG_GROUP,notEmpty" envRequired:"true"`
+
+	// DefaultImage is the default Docker image to use if not specified in request.
+	DefaultImage string `env:"RUNVOY_DEFAULT_IMAGE" envDefault:"public.ecr.aws/docker/library/ubuntu:22.04"`
+
 	// InitTimeout is the timeout for the environment initialization. Defaults to 10 seconds.
 	InitTimeout time.Duration `env:"RUNVOY_INIT_TIMEOUT" envDefault:"10s"`
 

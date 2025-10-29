@@ -30,3 +30,15 @@ type UserRepository interface {
 	// Useful for audit trails.
 	RevokeUser(ctx context.Context, email string) error
 }
+
+// ExecutionRepository defines the interface for execution-related database operations.
+type ExecutionRepository interface {
+	// CreateExecution stores a new execution record in the database.
+	CreateExecution(ctx context.Context, execution *api.Execution) error
+
+	// GetExecution retrieves an execution by its execution ID.
+	GetExecution(ctx context.Context, executionID string) (*api.Execution, error)
+
+	// UpdateExecution updates an existing execution record.
+	UpdateExecution(ctx context.Context, execution *api.Execution) error
+}
