@@ -3,7 +3,6 @@ package dynamodb
 import (
 	"context"
 	stderrors "errors"
-	"fmt"
 	"log/slog"
 	"time"
 
@@ -124,8 +123,7 @@ func (r *UserRepository) GetUserByAPIKeyHash(ctx context.Context, apiKeyHash str
 
 	if err != nil {
 		r.logger.Debug("failed to get user by API key hash", "error", err)
-		// This is a database error (network failure, service unavailable, etc.)
-		// It should result in a 5xx status code, not 401
+
 		return nil, apperrors.ErrDatabaseError("failed to get user by API key hash", err)
 	}
 

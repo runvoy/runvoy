@@ -105,14 +105,14 @@ func (r *Router) authenticateRequestMiddleware(next http.Handler) http.Handler {
 			statusCode := apperrors.GetStatusCode(err)
 			errorCode := apperrors.GetErrorCode(err)
 			errorMsg := apperrors.GetErrorMessage(err)
-			
+
 			// Validate status code is in HTTP error range, otherwise default to 401
 			// This ensures server errors (500+) are properly returned
 			if statusCode < 400 || statusCode >= 600 {
 				// Fallback: shouldn't happen, but if error type is wrong, default to 401
 				statusCode = http.StatusUnauthorized
 			}
-			
+
 			// Use appropriate error message prefix based on status code
 			var messagePrefix string
 			if statusCode >= 500 {
@@ -120,7 +120,7 @@ func (r *Router) authenticateRequestMiddleware(next http.Handler) http.Handler {
 			} else {
 				messagePrefix = "Unauthorized"
 			}
-			
+
 			writeErrorResponseWithCode(w, statusCode, errorCode, messagePrefix, errorMsg)
 			return
 		}

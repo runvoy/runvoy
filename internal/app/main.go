@@ -47,7 +47,6 @@ func (s *Service) CreateUser(ctx context.Context, req api.CreateUserRequest) (*a
 
 	existingUser, err := s.userRepo.GetUserByEmail(ctx, req.Email)
 	if err != nil {
-		// Propagate database errors as-is (they already have proper status codes)
 		return nil, err
 	}
 	if existingUser != nil {
@@ -71,8 +70,7 @@ func (s *Service) CreateUser(ctx context.Context, req api.CreateUserRequest) (*a
 	}
 
 	if err := s.userRepo.CreateUser(ctx, user, apiKeyHash); err != nil {
-		// Propagate errors as-is (they already have proper status codes)
-		return nil, err
+		return nil, apperrors.ErrDatabaseError("failed to create user", err)
 	}
 
 	return &api.CreateUserResponse{
@@ -96,17 +94,13 @@ func (s *Service) AuthenticateUser(ctx context.Context, apiKey string) (*api.Use
 
 	user, err := s.userRepo.GetUserByAPIKeyHash(ctx, apiKeyHash)
 	if err != nil {
-		// If it's a database error, return it as-is (5xx status code)
-		// If it's any other error, propagate it
 		return nil, err
 	}
 
-	// User not found means invalid API key
 	if user == nil {
 		return nil, apperrors.ErrInvalidAPIKey(nil)
 	}
 
-	// User exists but is revoked
 	if user.Revoked {
 		return nil, apperrors.ErrAPIKeyRevoked(nil)
 	}
