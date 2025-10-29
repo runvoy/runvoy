@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"log/slog"
-	"runvoy/internal/api"
 	"runvoy/internal/client"
 	"runvoy/internal/config"
 	"runvoy/internal/constants"
@@ -24,19 +23,14 @@ var versionCmd = &cobra.Command{
 			return
 		}
 
-		var resp api.HealthResponse
-		req := client.Request{
-			Method: "GET",
-			Path:   "health",
-		}
-
 		client := client.New(cfg, slog.Default())
-		if err := client.DoJSON(cmd.Context(), req, &resp); err != nil {
+		health, err := client.GetHealth(cmd.Context())
+		if err != nil {
 			output.Error(err.Error())
 			return
 		}
 
-		output.KeyValue("Backend version", resp.Version)
+		output.KeyValue("Backend version", health.Version)
 	},
 }
 
