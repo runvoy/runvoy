@@ -27,13 +27,15 @@ func runRun(cmd *cobra.Command, args []string) {
 	output.Header("🚀 " + constants.ProjectName)
 
 	command := args[0]
-
-	output.Info("Running command: %s", command)
-
 	cfg, err := config.Load()
 	if err != nil {
 		output.Error("failed to load configuration: %v", err)
 		return
+	}
+
+	output.Info("Running command: %s", output.Bold(command))
+	if verbose {
+		output.Info("Endpoint: %s", output.Bold(cfg.APIEndpoint))
 	}
 
 	client := client.New(cfg, slog.Default())

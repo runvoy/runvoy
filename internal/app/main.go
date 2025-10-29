@@ -269,6 +269,8 @@ func (s *Service) RunCommand(ctx context.Context, userEmail string, req api.Exec
 	executionIDParts := strings.Split(taskARN, "/") // Format: arn:aws:ecs:region:account:task/cluster/task-id
 	executionID := executionIDParts[len(executionIDParts)-1]
 
+	s.Logger.Debug("task started", "taskARN", taskARN, "executionID", executionID)
+
 	// Add ExecutionID tag to the task for easier tracking
 	_, err = s.ecsClient.TagResource(ctx, &ecs.TagResourceInput{
 		ResourceArn: aws.String(taskARN),
