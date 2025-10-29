@@ -22,7 +22,7 @@ runvoy solves the challenge of giving team members access to run infrastructure 
 ## Features
 
 - **One-command setup** - Deploy complete backend infrastructure with `runvoy-init`? TODO: decide if this is needed, at the moment backend is deployed via a cloudformation template (see `just update-backend-infra`)
-- **Git-integrated** - Automatically clones your repository before execution
+- **Git-integrated** - Automatically clones your repository before execution: TODO: decide if this is needed, at the moment we don't have any built in cloning mechanism. Evaluate sidecar with shared /tmp storage pattern
 - **Flexible images** - Use any Docker image (terraform, python, node, etc.)
 - **API key authentication** - Secure access with encrypted credentials
 - **Execution isolation** - Commands run in ephemeral ECS Fargate containers
