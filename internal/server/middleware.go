@@ -113,7 +113,15 @@ func (r *Router) authenticateRequestMiddleware(next http.Handler) http.Handler {
 				statusCode = http.StatusUnauthorized
 			}
 			
-			writeErrorResponseWithCode(w, statusCode, errorCode, "Unauthorized", errorMsg)
+			// Use appropriate error message prefix based on status code
+			var messagePrefix string
+			if statusCode >= 500 {
+				messagePrefix = "Server error"
+			} else {
+				messagePrefix = "Unauthorized"
+			}
+			
+			writeErrorResponseWithCode(w, statusCode, errorCode, messagePrefix, errorMsg)
 			return
 		}
 
