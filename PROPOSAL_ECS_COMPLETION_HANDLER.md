@@ -1,4 +1,4 @@
-# Proposal: ECS Task Completion Event Handler
+# Proposal: Event Processor for ECS Task Completions
 
 ## Current State
 
@@ -23,19 +23,21 @@ We need to:
 
 ## Proposed Solution
 
-### Architecture: EventBridge + Dedicated Lambda
+### Architecture: EventBridge + Dedicated Event Processor Lambda
 
 **Recommended Approach:**
 - Use **Amazon EventBridge** to capture ECS Task State Change events natively (no polling)
-- Create a **dedicated Lambda function** (`completion-handler`) separate from the orchestrator
-- This Lambda processes completion events and updates DynamoDB
+- Create a **dedicated Lambda function** (`event-processor`) separate from the orchestrator
+- This Lambda processes async events and updates DynamoDB
+- **Designed for extensibility**: Can handle multiple event types (ECS completions, future events)
 
-**Why a dedicated Lambda?**
-- ✅ **Single Responsibility**: Orchestrator focuses on starting tasks; completion handler focuses on finalizing them
+**Why a dedicated event processor Lambda?**
+- ✅ **Single Responsibility**: Orchestrator handles sync API requests; event processor handles async events
 - ✅ **Independent Scaling**: Each Lambda scales based on its workload
 - ✅ **Easier Testing**: Separate concerns are easier to test and debug
 - ✅ **Cleaner Code**: No mixing of synchronous API requests with async event processing
 - ✅ **Different Configurations**: Different timeout, memory, and retry settings for each function
+- ✅ **Extensible**: Easy to add new event types without changing the orchestrator
 
 ### Event Flow Diagram
 
@@ -78,10 +80,10 @@ We need to:
 │         ▼                                                        │
 │  ┌──────────────────┐                                          │
 │  │ Lambda           │                                           │
-│  │ (Completion      │         ┌──────────────┐                │
-│  │  Handler)        │────────►│ DynamoDB     │                │
+│  │ (Event           │         ┌──────────────┐                │
+│  │  Processor)      │────────►│ DynamoDB     │                │
 │  │                  │         │ - Update     │                │
-│  │ - Parse event    │         │   execution  │                │
+│  │ - Route event    │         │   execution  │                │
 │  │ - Calculate cost │         │   (COMPLETE) │                │
 │  │ - Update record  │         └──────────────┘                │
 │  └──────────────────┘                                          │
@@ -110,18 +112,18 @@ We need to:
 - Only when they reach `STOPPED` status (completed, failed, or terminated)
 - Provides full task details including exit codes, stop reason, timestamps
 
-### 2. Completion Handler Lambda
+### 2. Event Processor Lambda
 
 **Responsibilities:**
-1. Extract execution ID from task ARN (last segment)
-2. Retrieve task details from event payload
-3. Determine final status:
-   - `SUCCEEDED`: exit code = 0
-   - `FAILED`: exit code ≠ 0
-   - `STOPPED`: manually stopped or other reasons
-4. Calculate duration (stopped_at - started_at)
-5. Calculate cost based on Fargate pricing
-6. Update DynamoDB execution record
+1. **Route events** by type (currently only ECS task completion, extensible for future events)
+2. **For ECS Task Completions:**
+   - Extract execution ID from task ARN (last segment)
+   - Retrieve task details from event payload
+   - Determine final status (SUCCEEDED, FAILED, STOPPED)
+   - Calculate duration (stopped_at - started_at)
+   - Calculate cost based on Fargate pricing
+   - Update DynamoDB execution record
+3. **Future event types** can be added with minimal changes
 
 **Input (EventBridge Event):**
 ```json
@@ -158,8 +160,29 @@ We need to:
 
 **Processing Logic:**
 ```go
-// Pseudo-code for completion handler
-func HandleTaskCompletion(event ECSTaskStateChangeEvent) error {
+// Pseudo-code for event processor
+func HandleEvent(ctx context.Context, event interface{}) error {
+    // Route by event type
+    switch evt := event.(type) {
+    case events.CloudWatchEvent:
+        return handleCloudWatchEvent(ctx, evt)
+    default:
+        return fmt.Errorf("unknown event type: %T", event)
+    }
+}
+
+func handleCloudWatchEvent(ctx context.Context, event events.CloudWatchEvent) error {
+    // Route by detail-type
+    switch event.DetailType {
+    case "ECS Task State Change":
+        return handleECSTaskCompletion(ctx, event)
+    default:
+        log.Info("ignoring event type", "detailType", event.DetailType)
+        return nil
+    }
+}
+
+func handleECSTaskCompletion(ctx context.Context, event events.CloudWatchEvent) error {
     // 1. Extract execution ID from task ARN
     // Task ARN format: arn:aws:ecs:region:account:task/cluster/EXECUTION_ID
     // Execution ID is the last segment (same logic as orchestrator)
@@ -309,25 +332,43 @@ TaskCompletionEventRule:
         lastStatus:
           - STOPPED
     Targets:
-      - Arn: !GetAtt CompletionHandlerFunction.Arn
-        Id: CompletionHandlerTarget
+      - Arn: !GetAtt EventProcessorFunction.Arn
+        Id: EventProcessorTarget
 ```
 
-### 2. Add Completion Handler Lambda
+### 2. Add Event Processor CloudWatch Log Group
 
 ```yaml
-# Lambda Function for handling task completions
-CompletionHandlerFunction:
-  Type: AWS::Lambda::Function
-  DependsOn: CompletionHandlerLogGroup
+# CloudWatch Log Group for Event Processor Lambda
+EventProcessorLogGroup:
+  Type: AWS::Logs::LogGroup
   Properties:
-    FunctionName: !Sub '${ProjectName}-completion-handler'
+    LogGroupName: !Sub '/aws/lambda/${ProjectName}-event-processor'
+    RetentionInDays: 7
+    Tags:
+      - Key: Name
+        Value: !Sub '${ProjectName}-event-processor-logs'
+      - Key: Application
+        Value: !Ref ProjectName
+      - Key: ManagedBy
+        Value: 'cloudformation'
+```
+
+### 3. Add Event Processor Lambda
+
+```yaml
+# Lambda Function for processing async events (ECS completions, etc.)
+EventProcessorFunction:
+  Type: AWS::Lambda::Function
+  DependsOn: EventProcessorLogGroup
+  Properties:
+    FunctionName: !Sub '${ProjectName}-event-processor'
     Runtime: provided.al2023
-    Role: !GetAtt CompletionHandlerRole.Arn
-    Handler: bootstrap-completion
+    Role: !GetAtt EventProcessorRole.Arn
+    Handler: bootstrap-event-processor
     Code:
       S3Bucket: !Ref LambdaCodeBucket
-      S3Key: completion-handler.zip
+      S3Key: event-processor.zip
     Timeout: 30
     Architectures:
       - arm64
@@ -337,13 +378,13 @@ CompletionHandlerFunction:
         RUNVOY_ECS_CLUSTER: !Ref ECSCluster
 ```
 
-### 3. Add IAM Role for Completion Handler
+### 4. Add IAM Role for Event Processor
 
 ```yaml
-CompletionHandlerRole:
+EventProcessorRole:
   Type: AWS::IAM::Role
   Properties:
-    RoleName: !Sub '${ProjectName}-completion-handler-role'
+    RoleName: !Sub '${ProjectName}-event-processor-role'
     AssumeRolePolicyDocument:
       Version: '2012-10-17'
       Statement:
@@ -354,7 +395,7 @@ CompletionHandlerRole:
     ManagedPolicyArns:
       - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
     Policies:
-      - PolicyName: CompletionHandlerPolicy
+      - PolicyName: EventProcessorPolicy
         PolicyDocument:
           Version: '2012-10-17'
           Statement:
@@ -372,13 +413,13 @@ CompletionHandlerRole:
               Resource: '*'
 ```
 
-### 4. Add EventBridge Permission
+### 5. Add EventBridge Permission
 
 ```yaml
-CompletionHandlerEventPermission:
+EventProcessorEventPermission:
   Type: AWS::Lambda::Permission
   Properties:
-    FunctionName: !Ref CompletionHandlerFunction
+    FunctionName: !Ref EventProcessorFunction
     Action: lambda:InvokeFunction
     Principal: events.amazonaws.com
     SourceArn: !GetAtt TaskCompletionEventRule.Arn
@@ -391,45 +432,73 @@ CompletionHandlerEventPermission:
 ```text
 cmd/backend/aws/
   ├── main.go                    # Existing orchestrator
-  └── completion-handler/
-      └── main.go                # New completion handler
+  └── event-processor/
+      └── main.go                # New event processor
 
 internal/
-  ├── completion/
-  │   ├── handler.go            # Main event processing logic
+  ├── events/
+  │   ├── processor.go          # Main event routing logic
+  │   ├── ecs_completion.go     # ECS task completion handler
   │   ├── cost.go               # Cost calculation
-  │   └── types.go              # ECS event types
+  │   └── types.go              # Event types
   └── database/dynamodb/
       └── executions.go         # Update with new methods if needed
 ```
 
 ### Orchestrator Changes
 
-**No changes needed!** The execution ID is already derived from the task ARN (last segment), and the EventBridge event includes the full task ARN. The completion handler can extract the execution ID from the event's task ARN using the same logic as the orchestrator.
+**No changes needed!** The execution ID is already derived from the task ARN (last segment), and the EventBridge event includes the full task ARN. The event processor can extract the execution ID from the event's task ARN using the same logic as the orchestrator.
+
+### Event Processor Architecture
+
+The event processor is designed as a **generic async event handler** that can be extended for multiple event types:
+
+```go
+// Main handler entry point
+func HandleEvent(ctx context.Context, event events.CloudWatchEvent) error {
+    switch event.DetailType {
+    case "ECS Task State Change":
+        return handleECSTaskCompletion(ctx, event)
+    // Future event types can be added here:
+    // case "Another Event Type":
+    //     return handleAnotherEventType(ctx, event)
+    default:
+        log.Info("ignoring unhandled event type", "detailType", event.DetailType)
+        return nil
+    }
+}
+```
+
+This makes it easy to add new event types without creating new Lambda functions.
 
 ## Benefits
 
 ### 1. **Event-Driven (No Polling)**
 - ✅ No continuous polling of ECS API
 - ✅ Near real-time updates (typically < 1 second after task stops)
-- ✅ Cost-efficient (only pay for Lambda invocations on completions)
+- ✅ Cost-efficient (only pay for Lambda invocations on events)
 
 ### 2. **Separation of Concerns**
-- ✅ Orchestrator focuses on starting tasks
-- ✅ Completion handler focuses on finalizing records
+- ✅ Orchestrator focuses on sync API requests
+- ✅ Event processor focuses on async event handling
 - ✅ Each Lambda optimized for its specific task
 
-### 3. **Reliable**
+### 3. **Extensible Architecture**
+- ✅ Single event processor can handle multiple event types
+- ✅ Easy to add new event handlers without new infrastructure
+- ✅ Follows the same pattern as orchestrator (dedicated to its domain)
+
+### 4. **Reliable**
 - ✅ EventBridge guarantees at-least-once delivery
 - ✅ Lambda automatic retries on failures
 - ✅ DLQ for failed events (can be added)
 
-### 4. **Scalable**
+### 5. **Scalable**
 - ✅ Handles any number of concurrent task completions
 - ✅ No bottlenecks or rate limits
 - ✅ Lambda concurrency handles burst traffic
 
-### 5. **Auditable**
+### 6. **Auditable**
 - ✅ Full execution history in DynamoDB
 - ✅ Cost tracking per execution
 - ✅ Complete lifecycle visibility
@@ -450,14 +519,15 @@ internal/
 ### Error Scenarios
 - Handle missing execution records (orphaned tasks)
 - Handle malformed events
+- Handle unknown event types (log and skip)
 - Handle DynamoDB update failures (with retries)
 
 ## Rollout Plan
 
 ### Phase 1: Implementation
-1. Create completion handler Lambda code
+1. Create event processor Lambda code
 2. Add EventBridge rule to CloudFormation
-3. Add completion handler Lambda to CloudFormation
+3. Add event processor Lambda to CloudFormation
 4. Deploy and configure EventBridge → Lambda integration
 
 ### Phase 2: Testing
@@ -468,22 +538,22 @@ internal/
 ### Phase 3: Production
 1. Deploy to production
 2. Monitor CloudWatch logs for both Lambdas
-3. Set up alarms for completion handler failures
+3. Set up alarms for event processor failures
 
 ## Monitoring & Alerts
 
 ### CloudWatch Metrics
-- **Completion Handler Invocations**: Should match task completions
-- **Completion Handler Errors**: Alert if > 1% error rate
+- **Event Processor Invocations**: Should match event volume
+- **Event Processor Errors**: Alert if > 1% error rate
 - **DynamoDB UpdateItem Latency**: Monitor update performance
 - **Execution Records in RUNNING State**: Alert if any > 1 hour old
 
 ### CloudWatch Alarms
 ```yaml
-CompletionHandlerErrorAlarm:
+EventProcessorErrorAlarm:
   Type: AWS::CloudWatch::Alarm
   Properties:
-    AlarmName: !Sub '${ProjectName}-completion-handler-errors'
+    AlarmName: !Sub '${ProjectName}-event-processor-errors'
     MetricName: Errors
     Namespace: AWS/Lambda
     Statistic: Sum
@@ -493,7 +563,7 @@ CompletionHandlerErrorAlarm:
     ComparisonOperator: GreaterThanThreshold
     Dimensions:
       - Name: FunctionName
-        Value: !Ref CompletionHandlerFunction
+        Value: !Ref EventProcessorFunction
 ```
 
 ## Cost Impact
@@ -505,7 +575,7 @@ CompletionHandlerErrorAlarm:
 - After: $1.00 per million events
 - **Expected**: ~$0 (well within free tier for most workloads)
 
-**Lambda (Completion Handler):**
+**Lambda (Event Processor):**
 - Invocations: $0.20 per 1M requests
 - Duration: $0.0000133 per GB-second (ARM64)
 - **Example**: 1000 tasks/month, 100ms each = ~$0.01/month
@@ -538,14 +608,16 @@ CompletionHandlerErrorAlarm:
 
 ## Conclusion
 
-**Recommendation: Implement EventBridge + Dedicated Lambda**
+**Recommendation: Implement EventBridge + Dedicated Event Processor Lambda**
 
 This approach provides:
 - ✅ Native AWS integration (no polling)
-- ✅ Clean separation of concerns
+- ✅ Clean separation of concerns (sync API vs async events)
+- ✅ Extensible architecture (single Lambda for multiple event types)
 - ✅ Reliable, scalable, and cost-effective
 - ✅ Easy to test and maintain
 - ✅ Production-ready with minimal changes
+- ✅ Future-proof for additional event types
 
 The implementation is straightforward, follows AWS best practices, and aligns with the existing architecture's design principles.
 
@@ -553,7 +625,7 @@ The implementation is straightforward, follows AWS best practices, and aligns wi
 
 1. Review and approve this proposal
 2. Create implementation plan with tasks
-3. Implement completion handler Lambda
+3. Implement event processor Lambda
 4. Update CloudFormation template
 5. Add comprehensive tests
 6. Deploy to staging
