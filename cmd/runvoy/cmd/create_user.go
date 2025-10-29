@@ -43,17 +43,11 @@ func runCreateUser(cmd *cobra.Command, args []string) {
 
 	output.Info("Creating user with email %s...", email)
 
-	var resp api.CreateUserResponse
-	req := client.Request{
-		Method: "POST",
-		Path:   "users/create",
-		Body: api.CreateUserRequest{
-			Email: email,
-		},
-	}
-
 	client := client.New(cfg, slog.Default())
-	if err := client.DoJSON(cmd.Context(), req, &resp); err != nil {
+	resp, err := client.CreateUser(cmd.Context(), api.CreateUserRequest{
+		Email: email,
+	})
+	if err != nil {
 		output.Error(err.Error())
 		return
 	}
