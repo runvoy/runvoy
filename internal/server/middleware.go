@@ -100,20 +100,14 @@ func (r *Router) authenticateRequestMiddleware(next http.Handler) http.Handler {
 
 		user, err := r.svc.AuthenticateUser(req.Context(), apiKey)
 		if err != nil {
-			// Use the error's status code from the error handling system
-			// Database errors will be 503, invalid/revoked keys will be 401
 			statusCode := apperrors.GetStatusCode(err)
 			errorCode := apperrors.GetErrorCode(err)
 			errorMsg := apperrors.GetErrorMessage(err)
 
-			// Validate status code is in HTTP error range, otherwise default to 401
-			// This ensures server errors (500+) are properly returned
 			if statusCode < 400 || statusCode >= 600 {
-				// Fallback: shouldn't happen, but if error type is wrong, default to 401
 				statusCode = http.StatusUnauthorized
 			}
 
-			// Use appropriate error message prefix based on status code
 			var messagePrefix string
 			if statusCode >= 500 {
 				messagePrefix = "Server error"
