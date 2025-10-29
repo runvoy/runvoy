@@ -15,10 +15,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var timeout string
-var timeoutCancel context.CancelFunc
-var verbose bool
-var debug bool
+var (
+	debug         bool
+	timeout       string
+	timeoutCancel context.CancelFunc
+	verbose       bool
+)
 
 var rootCmd = &cobra.Command{
 	Use:   constants.ProjectName,
