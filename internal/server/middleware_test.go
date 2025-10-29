@@ -3,9 +3,12 @@ package server
 import (
 	"context"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"runvoy/internal/app"
 
 	"github.com/aws/aws-lambda-go/lambdacontext"
 )
@@ -24,7 +27,10 @@ func TestRequestIDMiddleware(t *testing.T) {
 		req := httptest.NewRequest("GET", "/test", nil)
 		rr := httptest.NewRecorder()
 
-		middleware := requestIDMiddleware(handler)
+		// Create a Router with a test service for the middleware
+		svc := app.NewService(nil, slog.Default())
+		router := &Router{svc: svc}
+		middleware := router.requestIDMiddleware(handler)
 		middleware.ServeHTTP(rr, req)
 
 		if rr.Code != http.StatusOK {
@@ -53,7 +59,10 @@ func TestRequestIDMiddleware(t *testing.T) {
 		ctx := lambdacontext.NewContext(req.Context(), lc)
 		req = req.WithContext(ctx)
 
-		middleware := requestIDMiddleware(lambdaHandler)
+		// Create a Router with a test service for the middleware
+		svc := app.NewService(nil, slog.Default())
+		router := &Router{svc: svc}
+		middleware := router.requestIDMiddleware(lambdaHandler)
 		middleware.ServeHTTP(rr, req)
 
 		if rr.Code != http.StatusOK {

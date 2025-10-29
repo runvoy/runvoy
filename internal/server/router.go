@@ -32,7 +32,7 @@ func NewRouter(svc *app.Service) *Router {
 	}
 
 	r.Use(setContentTypeJSONMiddleware)
-	r.Use(requestIDMiddleware)
+	r.Use(router.requestIDMiddleware)
 	r.Use(router.requestLoggingMiddleware)
 
 	r.Route("/api/v1", func(r chi.Router) {

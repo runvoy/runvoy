@@ -18,7 +18,8 @@ const (
 
 // requestIDMiddleware extracts the Lambda request ID from the context and adds it to the request context
 // This middleware should be added early in the middleware chain to ensure request ID is available for logging
-func requestIDMiddleware(next http.Handler) http.Handler {
+// Sets up a request-scoped logger in context that includes the request ID if available
+func (r *Router) requestIDMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		requestID := ""
 		if lc, ok := lambdacontext.FromContext(req.Context()); ok {
@@ -27,10 +28,11 @@ func requestIDMiddleware(next http.Handler) http.Handler {
 
 		ctx := context.WithValue(req.Context(), requestIDContextKey, requestID)
 
+		logger := r.svc.Logger
 		if requestID != "" {
-			logger := slog.With("requestID", requestID)
-			ctx = context.WithValue(ctx, loggerContextKey, logger)
+			logger = logger.With(string(requestIDContextKey), requestID)
 		}
+		ctx = context.WithValue(ctx, loggerContextKey, logger)
 
 		next.ServeHTTP(w, req.WithContext(ctx))
 	})
@@ -54,11 +56,10 @@ func setContentTypeJSONMiddleware(next http.Handler) http.Handler {
 }
 
 // authenticateRequestMiddleware authenticates requests
-// NOTICE: adds authenticated user to request context
-// NOTICE: uses service logger with request ID if available
+// Adds authenticated user to request context
 func (r *Router) authenticateRequestMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		logger := getLoggerWithRequestID(r, req.Context())
+		logger := r.GetLoggerFromContext(req.Context())
 		apiKey := req.Header.Get(constants.ApiKeyHeader)
 		logger.Debug("authenticating request")
 
@@ -81,11 +82,15 @@ func (r *Router) authenticateRequestMiddleware(next http.Handler) http.Handler {
 }
 
 // requestLoggingMiddleware logs incoming requests and their responses
-// Uses service logger with request ID if available
+// Uses logger from context (includes request ID if available)
 func (r *Router) requestLoggingMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		logger := getLoggerWithRequestID(r, req.Context())
+		logger := r.GetLoggerFromContext(req.Context())
 		start := time.Now()
+		deadlineString := ""
+		if deadline, ok := req.Context().Deadline(); ok {
+			deadlineString = deadline.Format(time.RFC3339)
+		}
 
 		// Wrap the response writer to capture status code
 		wrapped := &responseWriter{
@@ -97,6 +102,7 @@ func (r *Router) requestLoggingMiddleware(next http.Handler) http.Handler {
 			"method", req.Method,
 			"path", req.URL.Path,
 			"remoteAddr", req.RemoteAddr,
+			"deadline", deadlineString,
 		)
 
 		next.ServeHTTP(wrapped, req)
@@ -111,13 +117,12 @@ func (r *Router) requestLoggingMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-// getLoggerWithRequestID returns a logger with the request ID if available
-// falls back to the service logger if no request ID is available
-func getLoggerWithRequestID(r *Router, ctx context.Context) *slog.Logger {
-	logger := r.svc.Logger
-	if requestID := GetRequestID(ctx); requestID != "" {
-		logger = logger.With(string(requestIDContextKey), requestID)
+// GetLoggerFromContext extracts the logger from request context
+// Returns the request-scoped logger (with request ID if available) or falls back to service logger
+func (r *Router) GetLoggerFromContext(ctx context.Context) *slog.Logger {
+	if logger, ok := ctx.Value(loggerContextKey).(*slog.Logger); ok && logger != nil {
+		return logger
 	}
 
-	return logger
+	return r.svc.Logger
 }

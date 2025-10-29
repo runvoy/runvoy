@@ -9,7 +9,7 @@ import (
 
 // handleCreateUser handles POST /api/v1/users to create a new user with an API key
 func (r *Router) handleCreateUser(w http.ResponseWriter, req *http.Request) {
-	logger := getLoggerWithRequestID(r, req.Context())
+	logger := r.GetLoggerFromContext(req.Context())
 	var createReq api.CreateUserRequest
 
 	if err := json.NewDecoder(req.Body).Decode(&createReq); err != nil {
@@ -44,7 +44,7 @@ func (r *Router) handleCreateUser(w http.ResponseWriter, req *http.Request) {
 
 // handleRevokeUser handles POST /api/v1/users/revoke to revoke a user's API key
 func (r *Router) handleRevokeUser(w http.ResponseWriter, req *http.Request) {
-	logger := getLoggerWithRequestID(r, req.Context())
+	logger := r.GetLoggerFromContext(req.Context())
 	var revokeReq api.RevokeUserRequest
 
 	if err := json.NewDecoder(req.Body).Decode(&revokeReq); err != nil {
