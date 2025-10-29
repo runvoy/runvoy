@@ -13,6 +13,21 @@ runvoy is a centralized execution platform that allows teams to run infrastructu
 5. **Self-Service**: Team members don't wait for admins to run commands
 6. **Extensible Authorization**: Architecture supports fine-grained permissions (to be added later)
 
+## Execution Provider Abstraction
+
+To support multiple cloud platforms, the service layer now depends on an execution provider interface:
+
+```text
+internal/app.Service → uses Executor interface (provider-agnostic)
+internal/app/aws     → AWS-specific Executor implementation (ECS Fargate)
+```
+
+- The `Executor` interface abstracts starting a command execution.
+- The AWS implementation resides in `internal/app/aws` and encapsulates all ECS- and AWS-specific logic and types.
+- `internal/app/init.go` wires the chosen provider by constructing the appropriate `Executor` and passing it into `Service`.
+
+This change removes direct AWS SDK coupling from `internal/app` and makes adding providers (e.g., GCP) straightforward.
+
 ## Router Architecture
 
 The application uses **chi** (github.com/go-chi/chi/v5) as the HTTP router for both Lambda and local HTTP server implementations. This provides a consistent routing API across deployment models.
