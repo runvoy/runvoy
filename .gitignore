@@ -31,3 +31,4 @@ go.work.sum
 .envrc
 aws
 local
+./runvoy

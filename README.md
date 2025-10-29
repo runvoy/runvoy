@@ -21,7 +21,7 @@ runvoy solves the challenge of giving team members access to run infrastructure 
 
 ## Features
 
-- **One-command setup** - Deploy complete infrastructure with `runvoy-init`
+- **One-command setup** - Deploy complete backend infrastructure with `runvoy-init`? TODO: decide if this is needed, at the moment backend is deployed via a cloudformation template (see `just update-backend-infra`)
 - **Git-integrated** - Automatically clones your repository before execution
 - **Flexible images** - Use any Docker image (terraform, python, node, etc.)
 - **API key authentication** - Secure access with encrypted credentials
@@ -140,6 +140,7 @@ For more commands, see the `justfile` or run `just --list`.
 ## Project Structure
 
 ```
+bin/          - Built binaries (temporary storage)
 cmd/          - Entry points (CLI client, Lambda backend, local server)
 internal/     - Application code (API, business logic, database, middleware)
 deployments/  - CloudFormation templates for AWS infrastructure
