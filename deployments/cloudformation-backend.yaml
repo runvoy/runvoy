@@ -496,6 +496,118 @@ Resources:
       Action: lambda:InvokeFunctionUrl
       FunctionUrlAuthType: NONE
 
+  # CloudWatch Log Group for Event Processor Lambda
+  EventProcessorLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${ProjectName}-event-processor'
+      RetentionInDays: 7
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-event-processor-logs'
+        - Key: Application
+          Value: !Ref ProjectName
+        - Key: ManagedBy
+          Value: 'cloudformation'
+
+  # Event Processor Lambda Function
+  EventProcessorFunction:
+    Type: AWS::Lambda::Function
+    DependsOn: EventProcessorLogGroup
+    Properties:
+      FunctionName: !Sub '${ProjectName}-event-processor'
+      Runtime: provided.al2023
+      Role: !GetAtt EventProcessorRole.Arn
+      Handler: bootstrap-event-processor
+      Code:
+        S3Bucket: !Ref LambdaCodeBucket
+        S3Key: event-processor.zip
+      Timeout: 30
+      Architectures:
+        - arm64
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-event-processor'
+        - Key: Application
+          Value: !Ref ProjectName
+        - Key: ManagedBy
+          Value: 'cloudformation'
+      Environment:
+        Variables:
+          RUNVOY_EXECUTIONS_TABLE: !Ref ExecutionsTable
+          RUNVOY_ECS_CLUSTER: !Ref ECSCluster
+          RUNVOY_LOG_LEVEL: !Ref 'AWS::NoValue'
+
+  # IAM Role for Event Processor Lambda
+  EventProcessorRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${ProjectName}-event-processor-role'
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-event-processor-role'
+        - Key: Application
+          Value: !Ref ProjectName
+        - Key: ManagedBy
+          Value: 'cloudformation'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: EventProcessorPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'dynamodb:GetItem'
+                  - 'dynamodb:UpdateItem'
+                  - 'dynamodb:Query'
+                  - 'dynamodb:Scan'
+                Resource:
+                  - !GetAtt ExecutionsTable.Arn
+                  - !Sub '${ExecutionsTable.Arn}/index/*'
+              - Effect: Allow
+                Action:
+                  - 'ecs:DescribeTasks'
+                Resource: '*'
+
+  # EventBridge Rule for ECS Task State Changes
+  TaskCompletionEventRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub '${ProjectName}-task-completion'
+      Description: 'Captures ECS task completion events for runvoy'
+      State: ENABLED
+      EventPattern:
+        source:
+          - aws.ecs
+        detail-type:
+          - ECS Task State Change
+        detail:
+          clusterArn:
+            - !GetAtt ECSCluster.Arn
+          lastStatus:
+            - STOPPED
+      Targets:
+        - Arn: !GetAtt EventProcessorFunction.Arn
+          Id: EventProcessorTarget
+
+  # Permission for EventBridge to invoke Event Processor Lambda
+  EventProcessorEventPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref EventProcessorFunction
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt TaskCompletionEventRule.Arn
+
 Outputs:
   APIEndpoint:
     Description: Lambda Function URL endpoint
@@ -554,4 +666,22 @@ Outputs:
     Value: !Ref VPC
     Export:
       Name: !Sub '${ProjectName}-vpc-id'
+
+  EventProcessorFunctionName:
+    Description: Event Processor Lambda function name
+    Value: !Ref EventProcessorFunction
+    Export:
+      Name: !Sub '${ProjectName}-event-processor-function'
+
+  EventProcessorLogGroup:
+    Description: CloudWatch Log Group for Event Processor Lambda
+    Value: !Ref EventProcessorLogGroup
+    Export:
+      Name: !Sub '${ProjectName}-event-processor-log-group'
+
+  TaskCompletionEventRuleName:
+    Description: EventBridge Rule for ECS task completions
+    Value: !Ref TaskCompletionEventRule
+    Export:
+      Name: !Sub '${ProjectName}-task-completion-rule'
 

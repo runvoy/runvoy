@@ -214,7 +214,7 @@ The application uses a unified logging approach with structured logging via `log
 │                                                                  │
 │  ┌──────────────┐                                               │
 │  │ Lambda       │◄─────── HTTPS Function URL with X-API-Key    │
-│  │ Function URL │     header                                  │
+│  │ Function URL │         header                                │
 │  └──────┬───────┘                                               │
 │         │                                                        │
 │  ┌──────▼───────────┐                                          │
@@ -226,11 +226,12 @@ The application uses a unified logging approach with structured logging via `log
 │  │ - Check lock     │         │ - API Keys   │                │
 │  │ - Start ECS task │         │ - Locks      │                │
 │  │ - Record exec    │         │ - Executions │                │
-│  └──────┬───────────┘         └──────────────┘                │
-│         │                                                        │
-│  ┌──────▼───────────┐                                          │
-│  │ ECS Fargate      │                                           │
-│  │                  │                                           │
+│  └──────┬───────────┘         └──────┬───────┘                │
+│         │                             ▲                          │
+│         │                             │                          │
+│  ┌──────▼───────────┐                │                          │
+│  │ ECS Fargate      │                │                          │
+│  │                  │                │                          │
 │  │ Container:       │         ┌──────────────┐                │
 │  │ - Clone git repo │────────►│ S3 Bucket    │                │
 │  │   (optional)     │         │ - Code       │                │
@@ -240,8 +241,29 @@ The application uses a unified logging approach with structured logging via `log
 │  │ Task Role:       │                                           │
 │  │ - AWS perms for  │         ┌──────────────┐                │
 │  │   actual work    │────────►│ CloudWatch   │                │
-│  └──────────────────┘         │ Logs         │                │
-│                                └──────────────┘                │
+│  └──────┬───────────┘         │ Logs         │                │
+│         │                      └──────────────┘                │
+│         │ Task stops                                            │
+│         │                                                        │
+│  ┌──────▼───────────┐                                          │
+│  │ EventBridge      │                                           │
+│  │ Rule             │                                           │
+│  │ - ECS Task State │                                           │
+│  │   Change         │                                           │
+│  │ - Filter STOPPED │                                           │
+│  └──────┬───────────┘                                          │
+│         │ Event                                                 │
+│         │                                                        │
+│  ┌──────▼───────────┐                                          │
+│  │ Lambda           │                                           │
+│  │ (Event           │                                           │
+│  │  Processor)      │                                           │
+│  │                  │                                           │
+│  │ - Route event    │────────────────────────────────────────┘│
+│  │ - Extract data   │                                           │
+│  │ - Calculate cost │                                           │
+│  │ - Update exec    │                                           │
+│  └──────────────────┘                                          │
 │                                                                  │
 │  ┌──────────────────────────────────────────┐                 │
 │  │ Web UI (S3 + CloudFront)                 │                 │
@@ -262,6 +284,108 @@ The application uses a unified logging approach with structured logging via `log
 │   for viewing   │
 │   logs          │
 └─────────────────┘
+
+## Event Processor Architecture
+
+The platform uses a dedicated **event processor Lambda** to handle asynchronous events from AWS services. This provides a clean separation between synchronous API requests (handled by the orchestrator) and asynchronous event processing.
+
+### Design Pattern
+
+- **Orchestrator Lambda**: Handles synchronous HTTP API requests
+- **Event Processor Lambda**: Handles asynchronous events from EventBridge
+- Both Lambdas are independent, scalable, and focused on their specific domain
+
+### Event Processing Flow
+
+1. **ECS Task Completion**: When an ECS Fargate task stops, AWS generates an "ECS Task State Change" event
+2. **EventBridge Filtering**: EventBridge rule captures STOPPED tasks from the runvoy cluster only
+3. **Lambda Invocation**: EventBridge invokes the event processor Lambda with the task details
+4. **Event Routing**: The processor routes events by type (extensible for future event types)
+5. **Data Extraction**: 
+   - Execution ID extracted from task ARN (last segment)
+   - Exit code from container details
+   - Timestamps for start/stop times
+6. **Cost Calculation**: Fargate cost computed based on vCPU, memory, and duration
+7. **DynamoDB Update**: Execution record updated with:
+   - Final status (SUCCEEDED, FAILED, STOPPED)
+   - Exit code
+   - Completion timestamp
+   - Duration in seconds
+   - Computed cost in USD
+
+### Event Types
+
+Currently handles:
+- **ECS Task State Change**: Updates execution records when tasks complete
+
+Designed to be extended for future event types:
+- CloudWatch Alarms
+- S3 events
+- Custom application events
+
+### Implementation
+
+**Entry Point**: `cmd/backend/aws/event-processor/main.go`
+- Initializes event processor
+- Starts Lambda handler
+
+**Event Routing**: `internal/events/processor.go`
+- Routes events by `detail-type`
+- Ignores unknown event types (log and continue)
+- Extensible switch statement for new handlers
+
+**ECS Handler**: `internal/events/ecs_completion.go`
+- Parses ECS task events
+- Extracts execution ID from task ARN
+- Determines final status from exit code and stop reason
+- Calculates duration and cost
+- Updates DynamoDB execution record
+
+**Cost Calculator**: `internal/events/cost.go`
+- Fargate ARM64 pricing (us-east-1)
+- vCPU: $0.04048/hour
+- Memory: $0.004445/GB/hour
+- Accurate per-second billing
+
+### Status Determination Logic
+
+```go
+switch stopCode {
+case "UserInitiated":
+    status = "STOPPED"    // Manual termination
+case "EssentialContainerExited":
+    if exitCode == 0:
+        status = "SUCCEEDED"
+    else:
+        status = "FAILED"
+case "TaskFailedToStart":
+    status = "FAILED"
+}
+```
+
+### Error Handling
+
+- **Orphaned Tasks**: Tasks without execution records are logged and skipped (no failure)
+- **Parse Errors**: Malformed events are logged and returned as errors
+- **Database Errors**: Failed updates are logged and returned as errors (Lambda retries)
+- **Unknown Events**: Unhandled event types are logged and ignored
+
+### Benefits
+
+- ✅ **Event-Driven**: No polling, near real-time updates (< 1 second)
+- ✅ **Cost-Efficient**: Only pay for Lambda invocations on events
+- ✅ **Scalable**: Handles any event volume automatically
+- ✅ **Extensible**: Easy to add new event handlers without infrastructure changes
+- ✅ **Reliable**: EventBridge guarantees at-least-once delivery
+- ✅ **Separation of Concerns**: Sync API vs async events
+
+### CloudFormation Resources
+
+- **`EventProcessorFunction`**: Lambda function for event processing
+- **`EventProcessorRole`**: IAM role with DynamoDB and ECS permissions
+- **`EventProcessorLogGroup`**: CloudWatch Logs for event processor
+- **`TaskCompletionEventRule`**: EventBridge rule filtering ECS task completions
+- **`EventProcessorEventPermission`**: Permission for EventBridge to invoke Lambda
 
 ## Error Handling System
 
