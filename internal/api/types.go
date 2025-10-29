@@ -81,6 +81,12 @@ type RevokeUserRequest struct {
 	Email string `json:"email"`
 }
 
+// RevokeUserResponse represents the response after revoking a user
+type RevokeUserResponse struct {
+	Message string `json:"message"`
+	Email   string `json:"email"`
+}
+
 // HealthResponse represents the response to a health check request
 type HealthResponse struct {
 	Status  string `json:"status"`

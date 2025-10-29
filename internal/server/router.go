@@ -75,9 +75,9 @@ func (rw *responseWriter) Write(b []byte) (int, error) {
 // handleHealth returns a simple health check response
 func (r *Router) handleHealth(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{
-		"status":  "ok",
-		"version": *constants.GetVersion(),
+	json.NewEncoder(w).Encode(api.HealthResponse{
+		Status:  "ok",
+		Version: *constants.GetVersion(),
 	})
 }
 
@@ -175,9 +175,9 @@ func (r *Router) handleRevokeUser(w http.ResponseWriter, req *http.Request) {
 
 	// Return successful response
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{
-		"message": "User API key revoked successfully",
-		"email":   revokeReq.Email,
+	json.NewEncoder(w).Encode(api.RevokeUserResponse{
+		Message: "User API key revoked successfully",
+		Email:   revokeReq.Email,
 	})
 }
 
