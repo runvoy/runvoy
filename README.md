@@ -53,6 +53,21 @@ runvoy users create <email>
 runvoy users revoke <email>
 ```
 
+**Command Execution:**
+```bash
+runvoy run <command>
+
+runvoy run "echo hello world $(date)"
+# Example output:
+# 🚀 runvoy
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# → Running command: echo hello world Wed 29 Oct 2025 14:18:06 AST
+# ✓ Command execution started successfully
+#   Execution ID: 72f57686926e4becb89116b0ac72caec
+#   Log URL: /api/v1/executions/72f57686926e4becb89116b0ac72caec/logs/notimplemented
+#   Status: RUNNING
+```
+
 **Configuration:**
 ```bash
 # Configure CLI with API key and endpoint URL

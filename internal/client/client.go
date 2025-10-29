@@ -161,3 +161,16 @@ func (c *Client) GetHealth(ctx context.Context) (*api.HealthResponse, error) {
 
 	return &resp, nil
 }
+
+func (c *Client) RunCommand(ctx context.Context, req api.ExecutionRequest) (*api.ExecutionResponse, error) {
+	var resp api.ExecutionResponse
+	err := c.DoJSON(ctx, Request{
+		Method: "POST",
+		Path:   "/api/v1/run",
+		Body:   req,
+	}, &resp)
+	if err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}

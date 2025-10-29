@@ -41,5 +41,4 @@ func runRevokeUser(cmd *cobra.Command, args []string) {
 
 func init() {
 	usersCmd.AddCommand(revokeUserCmd)
-	rootCmd.AddCommand(usersCmd)
 }
