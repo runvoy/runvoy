@@ -12,6 +12,7 @@ import (
 
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
+	"github.com/aws/aws-sdk-go-v2/service/ecs"
 )
 
 // Initialize creates a new Service configured for the specified backend provider.
@@ -29,13 +30,16 @@ func Initialize(ctx context.Context, provider constants.BackendProvider, cfg *co
 	)
 
 	var (
-		userRepo database.UserRepository
-		err      error
+		userRepo      database.UserRepository
+		executionRepo database.ExecutionRepository
+		ecsClient     *ecs.Client
+		svcCfg        *ServiceConfig
+		err           error
 	)
 
 	switch provider {
 	case constants.AWS:
-		userRepo, err = initializeAWSBackend(ctx, cfg, logger)
+		userRepo, executionRepo, ecsClient, svcCfg, err = initializeAWSBackend(ctx, cfg, logger)
 		if err != nil {
 			return nil, fmt.Errorf("failed to initialize AWS: %w", err)
 		}
@@ -45,22 +49,47 @@ func Initialize(ctx context.Context, provider constants.BackendProvider, cfg *co
 
 	logger.Debug(constants.ProjectName+" initialized successfully", "provider", provider)
 
-	return NewService(userRepo, logger), nil
+	return NewService(userRepo, executionRepo, ecsClient, svcCfg, logger), nil
 }
 
 // initializeAWSBackend sets up AWS-specific dependencies
-func initializeAWSBackend(ctx context.Context, cfg *config.Env, logger *slog.Logger) (database.UserRepository, error) {
+func initializeAWSBackend(ctx context.Context, cfg *config.Env, logger *slog.Logger) (database.UserRepository, database.ExecutionRepository, *ecs.Client, *ServiceConfig, error) {
 	if cfg.APIKeysTable == "" {
-		return nil, fmt.Errorf("APIKeysTable cannot be empty")
+		return nil, nil, nil, nil, fmt.Errorf("APIKeysTable cannot be empty")
+	}
+
+	if cfg.ExecutionsTable == "" {
+		return nil, nil, nil, nil, fmt.Errorf("ExecutionsTable cannot be empty")
+	}
+
+	if cfg.ECSCluster == "" {
+		return nil, nil, nil, nil, fmt.Errorf("ECSCluster cannot be empty")
 	}
 
 	awsCfg, err := awsconfig.LoadDefaultConfig(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to load AWS configuration: %w", err)
+		return nil, nil, nil, nil, fmt.Errorf("failed to load AWS configuration: %w", err)
 	}
 
 	dynamoClient := dynamodb.NewFromConfig(awsCfg)
-	logger.Debug("using DynamoDB backend", "table", cfg.APIKeysTable)
+	ecsClientInstance := ecs.NewFromConfig(awsCfg)
 
-	return dynamorepo.NewUserRepository(dynamoClient, cfg.APIKeysTable, logger), nil
+	logger.Debug("using DynamoDB backend", "apiKeysTable", cfg.APIKeysTable, "executionsTable", cfg.ExecutionsTable)
+
+	userRepo := dynamorepo.NewUserRepository(dynamoClient, cfg.APIKeysTable, logger)
+	executionRepo := dynamorepo.NewExecutionRepository(dynamoClient, cfg.ExecutionsTable, logger)
+
+	svcCfg := &ServiceConfig{
+		ECSCluster:     cfg.ECSCluster,
+		TaskDefinition: cfg.TaskDefinition,
+		Subnet1:        cfg.Subnet1,
+		Subnet2:        cfg.Subnet2,
+		SecurityGroup:  cfg.SecurityGroup,
+		LogGroup:       cfg.LogGroup,
+		DefaultImage:   cfg.DefaultImage,
+		// TaskRoleARN and TaskExecRoleARN would come from CloudFormation outputs
+		// For now, we'll leave them empty and they'll be read from the existing task definition
+	}
+
+	return userRepo, executionRepo, ecsClientInstance, svcCfg, nil
 }
