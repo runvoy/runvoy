@@ -141,7 +141,7 @@ func (r *Router) requestLoggingMiddleware(next http.Handler) http.Handler {
 			"method", req.Method,
 			"path", req.URL.Path,
 			"status", wrapped.statusCode,
-			"duration", duration,
+			"duration", duration.String(),
 		)
 	})
 }
