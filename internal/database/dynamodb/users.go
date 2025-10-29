@@ -2,12 +2,13 @@ package dynamodb
 
 import (
 	"context"
-	"errors"
+	stderrors "errors"
 	"fmt"
 	"log/slog"
 	"time"
 
 	"runvoy/internal/api"
+	apperrors "runvoy/internal/errors"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
@@ -65,10 +66,10 @@ func (r *UserRepository) CreateUser(ctx context.Context, user *api.User, apiKeyH
 
 	if err != nil {
 		var ccf *types.ConditionalCheckFailedException
-		if errors.As(err, &ccf) {
-			return errors.New("user with this API key already exists")
+		if stderrors.As(err, &ccf) {
+			return apperrors.ErrConflict("user with this API key already exists", nil)
 		}
-		return err
+		return apperrors.ErrDatabaseError("failed to create user", err)
 	}
 
 	return nil
@@ -87,7 +88,7 @@ func (r *UserRepository) GetUserByEmail(ctx context.Context, email string) (*api
 		},
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to query user by email: %w", err)
+		return nil, apperrors.ErrDatabaseError("failed to query user by email", err)
 	}
 
 	if len(result.Items) == 0 {
@@ -123,8 +124,9 @@ func (r *UserRepository) GetUserByAPIKeyHash(ctx context.Context, apiKeyHash str
 
 	if err != nil {
 		r.logger.Debug("failed to get user by API key hash", "error", err)
-
-		return nil, err
+		// This is a database error (network failure, service unavailable, etc.)
+		// It should result in a 5xx status code, not 401
+		return nil, apperrors.ErrDatabaseError("failed to get user by API key hash", err)
 	}
 
 	if result.Item == nil {
@@ -154,7 +156,7 @@ func (r *UserRepository) UpdateLastUsed(ctx context.Context, email string) error
 		return err
 	}
 	if user == nil {
-		return errors.New("user not found")
+		return stderrors.New("user not found")
 	}
 
 	// We need the api_key_hash to update, but we don't have it from the query
@@ -164,7 +166,7 @@ func (r *UserRepository) UpdateLastUsed(ctx context.Context, email string) error
 
 	// Alternative approach: use GSI to find the item, then update by hash
 	// For simplicity, this implementation assumes we have the hash during auth
-	return errors.New("UpdateLastUsed requires refactoring to store hash during auth")
+	return stderrors.New("UpdateLastUsed requires refactoring to store hash during auth")
 }
 
 // RevokeUser marks a user's API key as revoked.
@@ -180,11 +182,11 @@ func (r *UserRepository) RevokeUser(ctx context.Context, email string) error {
 	})
 
 	if err != nil {
-		return err
+		return apperrors.ErrDatabaseError("failed to query user by email for revocation", err)
 	}
 
 	if len(result.Items) == 0 {
-		return errors.New("user not found")
+		return apperrors.ErrNotFound("user not found", nil)
 	}
 
 	// Extract the api_key_hash to use as the primary key for update
@@ -207,5 +209,9 @@ func (r *UserRepository) RevokeUser(ctx context.Context, email string) error {
 		},
 	})
 
-	return err
+	if err != nil {
+		return apperrors.ErrDatabaseError("failed to revoke user", err)
+	}
+
+	return nil
 }

@@ -87,13 +87,14 @@ Creates a new user with an API key. The API key is only returned in the response
 **Error Responses:**
 - 400 Bad Request: Invalid email format or missing email
 - 409 Conflict: User already exists
-- 500 Internal Server Error: Database or service errors
+- 503 Service Unavailable: Database errors (transient failures)
 
 Implementation:
 - Email validation using Go's `mail.ParseAddress`
 - API key generation using crypto/rand if not provided
 - API keys are hashed with SHA-256 before storage
 - Database enforces uniqueness via ConditionalExpression
+- Database errors return 503 (Service Unavailable) rather than 500, indicating transient failures
 
 #### Revoke User (`POST /api/v1/users/revoke`)
 
@@ -117,12 +118,13 @@ Revokes a user's API key, preventing further authentication. The user record is 
 **Error Responses:**
 - 400 Bad Request: Missing email
 - 404 Not Found: User not found
-- 500 Internal Server Error: Database or service errors
+- 503 Service Unavailable: Database errors (transient failures)
 
 Implementation:
 - Checks for user existence before revocation
 - Updates the `revoked` field in DynamoDB
 - Revoked users cannot authenticate (checked in `AuthenticateUser`)
+- Database errors return 503 (Service Unavailable) rather than 500, indicating transient failures
 
 ### Middleware Stack
 
@@ -132,6 +134,12 @@ The router uses a middleware stack for cross-cutting concerns:
 2. **Request ID Middleware**: Extracts AWS Lambda request ID and adds it to logging context
 3. **Authentication Middleware**: Validates API keys and adds user context
 4. **Request Logging Middleware**: Logs incoming requests and their responses with method, path, status code, and duration
+
+**Authentication Middleware Error Handling:**
+- Invalid API key → 401 Unauthorized (INVALID_API_KEY)
+- Revoked API key → 401 Unauthorized (API_KEY_REVOKED)
+- Database failures during authentication → 503 Service Unavailable (DATABASE_ERROR)
+- This ensures database errors are properly distinguished from authentication failures
 
 The request ID middleware automatically:
 - Extracts the AWS Lambda request ID from the Lambda context when available
@@ -232,6 +240,74 @@ The application uses a unified logging approach with structured logging via `log
 │   for viewing   │
 │   logs          │
 └─────────────────┘
+
+## Error Handling System
+
+The application uses a structured error handling system (`internal/errors`) that distinguishes between client errors (4xx) and server errors (5xx), ensuring proper HTTP status codes are returned.
+
+### Error Types
+
+**Client Errors (4xx):**
+- `ErrUnauthorized` (401): General unauthorized access
+- `ErrInvalidAPIKey` (401): Invalid API key provided
+- `ErrAPIKeyRevoked` (401): API key has been revoked
+- `ErrNotFound` (404): Resource not found
+- `ErrConflict` (409): Resource conflict (e.g., user already exists)
+- `ErrBadRequest` (400): Invalid request parameters
+
+**Server Errors (5xx):**
+- `ErrInternalError` (500): Internal server errors
+- `ErrDatabaseError` (503): Database/transient service failures
+
+### Error Structure
+
+All errors are wrapped in `AppError` which includes:
+- `Code`: Programmatic error code (e.g., `INVALID_API_KEY`, `DATABASE_ERROR`)
+- `Message`: User-friendly error message
+- `StatusCode`: HTTP status code to return
+- `Cause`: Underlying error (for error wrapping)
+
+### Error Propagation
+
+**Database Layer (`internal/database/dynamodb`):**
+- DynamoDB errors are wrapped as `ErrDatabaseError` (503 Service Unavailable)
+- Conditional check failures (e.g., user already exists) become `ErrConflict` (409)
+- User not found scenarios return `nil` user (not an error)
+
+**Service Layer (`internal/app`):**
+- Validates input and returns appropriate client errors (400, 401, 404, 409)
+- Propagates database errors as-is (preserving 503 status codes)
+- Maps business logic failures to appropriate error types
+
+**HTTP Layer (`internal/server`):**
+- Extracts status codes from errors using `GetStatusCode()`
+- Extracts error codes using `GetErrorCode()`
+- Returns structured error responses with codes in JSON
+
+### Key Distinction: Database Errors vs Authentication Failures
+
+**Critical Behavior:**
+- Database errors during authentication (e.g., DynamoDB unavailable) → **503 Service Unavailable**
+- Invalid or revoked API keys → **401 Unauthorized**
+- This prevents database failures from being misinterpreted as authentication failures
+
+**Example Flow:**
+1. User provides API key
+2. Database query fails (network timeout) → Returns 503 Service Unavailable
+3. User provides invalid API key → Database query succeeds but user not found → Returns 401 Unauthorized
+
+### Error Response Format
+
+All error responses follow this JSON structure:
+```json
+{
+  "error": "Error message",
+  "code": "ERROR_CODE",
+  "details": "Detailed error information"
+}
+```
+
+The `code` field is optional and provides programmatic error codes for clients.
 
 ## Development Tools
 

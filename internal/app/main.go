@@ -5,14 +5,13 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
-	"errors"
-	"fmt"
 	"log/slog"
 	"net/mail"
 	"time"
 
 	"runvoy/internal/api"
 	"runvoy/internal/database"
+	apperrors "runvoy/internal/errors"
 )
 
 type Service struct {
@@ -35,30 +34,31 @@ func NewService(userRepo database.UserRepository, logger *slog.Logger) *Service 
 // The API key is only returned in the response and should be stored by the client.
 func (s *Service) CreateUser(ctx context.Context, req api.CreateUserRequest) (*api.CreateUserResponse, error) {
 	if s.userRepo == nil {
-		return nil, errors.New("user repository not configured")
+		return nil, apperrors.ErrInternalError("user repository not configured", nil)
 	}
 
 	if req.Email == "" {
-		return nil, errors.New("email is required")
+		return nil, apperrors.ErrBadRequest("email is required", nil)
 	}
 
 	if _, err := mail.ParseAddress(req.Email); err != nil {
-		return nil, fmt.Errorf("invalid email address: %w", err)
+		return nil, apperrors.ErrBadRequest("invalid email address", err)
 	}
 
 	existingUser, err := s.userRepo.GetUserByEmail(ctx, req.Email)
 	if err != nil {
-		return nil, fmt.Errorf("failed to check existing user: %w", err)
+		// Propagate database errors as-is (they already have proper status codes)
+		return nil, err
 	}
 	if existingUser != nil {
-		return nil, errors.New("user with this email already exists")
+		return nil, apperrors.ErrConflict("user with this email already exists", nil)
 	}
 
 	apiKey := req.APIKey
 	if apiKey == "" {
 		apiKey, err = generateAPIKey()
 		if err != nil {
-			return nil, fmt.Errorf("failed to generate API key: %w", err)
+			return nil, apperrors.ErrInternalError("failed to generate API key", err)
 		}
 	}
 
@@ -71,7 +71,8 @@ func (s *Service) CreateUser(ctx context.Context, req api.CreateUserRequest) (*a
 	}
 
 	if err := s.userRepo.CreateUser(ctx, user, apiKeyHash); err != nil {
-		return nil, fmt.Errorf("failed to create user: %w", err)
+		// Propagate errors as-is (they already have proper status codes)
+		return nil, err
 	}
 
 	return &api.CreateUserResponse{
@@ -81,29 +82,33 @@ func (s *Service) CreateUser(ctx context.Context, req api.CreateUserRequest) (*a
 }
 
 // AuthenticateUser verifies an API key and returns the associated user.
-// Returns nil if the API key is invalid or the user is revoked.
+// Returns appropriate errors for invalid API keys, revoked keys, or server errors.
 func (s *Service) AuthenticateUser(ctx context.Context, apiKey string) (*api.User, error) {
 	if s.userRepo == nil {
-		return nil, errors.New("user repository not configured")
+		return nil, apperrors.ErrInternalError("user repository not configured", nil)
 	}
 
 	if apiKey == "" {
-		return nil, errors.New("API key is required")
+		return nil, apperrors.ErrBadRequest("API key is required", nil)
 	}
 
 	apiKeyHash := hashAPIKey(apiKey)
 
 	user, err := s.userRepo.GetUserByAPIKeyHash(ctx, apiKeyHash)
 	if err != nil {
-		return nil, fmt.Errorf("failed to authenticate: %w", err)
+		// If it's a database error, return it as-is (5xx status code)
+		// If it's any other error, propagate it
+		return nil, err
 	}
 
+	// User not found means invalid API key
 	if user == nil {
-		return nil, errors.New("invalid API key")
+		return nil, apperrors.ErrInvalidAPIKey(nil)
 	}
 
+	// User exists but is revoked
 	if user.Revoked {
-		return nil, errors.New("API key has been revoked")
+		return nil, apperrors.ErrAPIKeyRevoked(nil)
 	}
 
 	return user, nil
@@ -113,23 +118,25 @@ func (s *Service) AuthenticateUser(ctx context.Context, apiKey string) (*api.Use
 // Returns an error if the user does not exist or revocation fails.
 func (s *Service) RevokeUser(ctx context.Context, email string) error {
 	if s.userRepo == nil {
-		return errors.New("user repository not configured")
+		return apperrors.ErrInternalError("user repository not configured", nil)
 	}
 
 	if email == "" {
-		return errors.New("email is required")
+		return apperrors.ErrBadRequest("email is required", nil)
 	}
 
 	user, err := s.userRepo.GetUserByEmail(ctx, email)
 	if err != nil {
-		return fmt.Errorf("failed to check existing user: %w", err)
+		// Propagate database errors as-is
+		return err
 	}
 	if user == nil {
-		return errors.New("user not found")
+		return apperrors.ErrNotFound("user not found", nil)
 	}
 
 	if err := s.userRepo.RevokeUser(ctx, email); err != nil {
-		return fmt.Errorf("failed to revoke user: %w", err)
+		// Propagate errors as-is (they already have proper status codes)
+		return err
 	}
 
 	return nil
