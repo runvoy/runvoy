@@ -87,7 +87,7 @@ func (c *Client) Do(ctx context.Context, req Request) (*Response, error) {
 		return nil, fmt.Errorf("failed to read response: %w", err)
 	}
 
-	c.logger.Debug("Response", "status", resp.StatusCode, "body", string(body))
+	c.logger.Debug("response", "status", resp.StatusCode, "body", string(body))
 
 	return &Response{
 		StatusCode: resp.StatusCode,
@@ -111,7 +111,7 @@ func (c *Client) DoJSON(ctx context.Context, req Request, result interface{}) er
 	}
 
 	if err := json.Unmarshal(resp.Body, result); err != nil {
-		c.logger.Debug("Response body", "body", string(resp.Body))
+		c.logger.Debug("response body", "body", string(resp.Body))
 		return fmt.Errorf("failed to parse response: %w", err)
 	}
 
