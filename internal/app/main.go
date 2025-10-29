@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"runvoy/internal/api"
+	"runvoy/internal/constants"
 	"runvoy/internal/database"
 	apperrors "runvoy/internal/errors"
 
@@ -28,6 +29,7 @@ type Service struct {
 	executionRepo database.ExecutionRepository
 	executor      Executor
 	Logger        *slog.Logger
+	Provider      constants.BackendProvider
 }
 
 // NOTE: provider-specific configuration has been moved to subpackages (e.g., app/aws).
@@ -35,12 +37,13 @@ type Service struct {
 // NewService creates a new service instance.
 // If userRepo is nil, user-related operations will not be available.
 // This allows the service to work without database dependencies for simple operations.
-func NewService(userRepo database.UserRepository, executionRepo database.ExecutionRepository, executor Executor, logger *slog.Logger) *Service {
+func NewService(userRepo database.UserRepository, executionRepo database.ExecutionRepository, executor Executor, logger *slog.Logger, provider constants.BackendProvider) *Service {
 	return &Service{
 		userRepo:      userRepo,
 		executionRepo: executionRepo,
 		executor:      executor,
 		Logger:        logger,
+		Provider:      provider,
 	}
 }
 
@@ -64,6 +67,7 @@ func (s *Service) CreateUser(ctx context.Context, req api.CreateUserRequest) (*a
 	if err != nil {
 		return nil, err
 	}
+
 	if existingUser != nil {
 		return nil, apperrors.ErrConflict("user with this email already exists", nil)
 	}
@@ -184,6 +188,10 @@ func (s *Service) RunCommand(ctx context.Context, userEmail string, req api.Exec
 		return nil, err
 	}
 
+	if taskARN != "" {
+		s.Logger.Info("provider task started", "executionID", executionID, "taskARN", taskARN)
+	}
+
 	// Create execution record
 	startedAt := time.Now().UTC()
 	requestID := ""
@@ -191,14 +199,14 @@ func (s *Service) RunCommand(ctx context.Context, userEmail string, req api.Exec
 		requestID = lc.AwsRequestID
 	}
 	execution := &api.Execution{
-		ExecutionID: executionID,
-		UserEmail:   userEmail,
-		Command:     req.Command,
-		LockName:    req.Lock,
-		StartedAt:   startedAt,
-		Status:      "RUNNING",
-		TaskARN:     taskARN,
-		RequestID:   requestID,
+		ExecutionID:     executionID,
+		UserEmail:       userEmail,
+		Command:         req.Command,
+		LockName:        req.Lock,
+		StartedAt:       startedAt,
+		Status:          "RUNNING",
+		RequestID:       requestID,
+		ComputePlatform: string(s.Provider),
 	}
 
 	if requestID == "" {

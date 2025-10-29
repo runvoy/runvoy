@@ -34,37 +34,37 @@ func NewExecutionRepository(client *dynamodb.Client, tableName string, logger *s
 // executionItem represents the structure stored in DynamoDB.
 // This keeps the database schema separate from the API types.
 type executionItem struct {
-	ExecutionID   string     `dynamodbav:"execution_id"`
-	StartedAt     time.Time  `dynamodbav:"started_at"`
-	UserEmail     string     `dynamodbav:"user_email"`
-	Command       string     `dynamodbav:"command"`
-	LockName      string     `dynamodbav:"lock_name,omitempty"`
-	TaskARN       string     `dynamodbav:"task_arn"`
-	Status        string     `dynamodbav:"status"`
-	CompletedAt   *time.Time `dynamodbav:"completed_at,omitempty"`
-	ExitCode      int        `dynamodbav:"exit_code,omitempty"`
-	DurationSecs  int        `dynamodbav:"duration_seconds,omitempty"`
-	LogStreamName string     `dynamodbav:"log_stream_name,omitempty"`
-	CostUSD       float64    `dynamodbav:"cost_usd,omitempty"`
-	RequestID     string     `dynamodbav:"request_id,omitempty"`
+	ExecutionID     string     `dynamodbav:"execution_id"`
+	StartedAt       time.Time  `dynamodbav:"started_at"`
+	UserEmail       string     `dynamodbav:"user_email"`
+	Command         string     `dynamodbav:"command"`
+	LockName        string     `dynamodbav:"lock_name,omitempty"`
+	Status          string     `dynamodbav:"status"`
+	CompletedAt     *time.Time `dynamodbav:"completed_at,omitempty"`
+	ExitCode        int        `dynamodbav:"exit_code,omitempty"`
+	DurationSecs    int        `dynamodbav:"duration_seconds,omitempty"`
+	LogStreamName   string     `dynamodbav:"log_stream_name,omitempty"`
+	CostUSD         float64    `dynamodbav:"cost_usd,omitempty"`
+	RequestID       string     `dynamodbav:"request_id,omitempty"`
+	ComputePlatform string     `dynamodbav:"compute_platform,omitempty"`
 }
 
 // toExecutionItem converts an api.Execution to an executionItem.
 func toExecutionItem(e *api.Execution) *executionItem {
 	return &executionItem{
-		ExecutionID:   e.ExecutionID,
-		StartedAt:     e.StartedAt,
-		UserEmail:     e.UserEmail,
-		Command:       e.Command,
-		LockName:      e.LockName,
-		TaskARN:       e.TaskARN,
-		Status:        e.Status,
-		CompletedAt:   e.CompletedAt,
-		ExitCode:      e.ExitCode,
-		DurationSecs:  e.DurationSeconds,
-		LogStreamName: e.LogStreamName,
-		CostUSD:       e.CostUSD,
-		RequestID:     e.RequestID,
+		ExecutionID:     e.ExecutionID,
+		StartedAt:       e.StartedAt,
+		UserEmail:       e.UserEmail,
+		Command:         e.Command,
+		LockName:        e.LockName,
+		Status:          e.Status,
+		CompletedAt:     e.CompletedAt,
+		ExitCode:        e.ExitCode,
+		DurationSecs:    e.DurationSeconds,
+		LogStreamName:   e.LogStreamName,
+		CostUSD:         e.CostUSD,
+		RequestID:       e.RequestID,
+		ComputePlatform: e.ComputePlatform,
 	}
 }
 
@@ -76,13 +76,13 @@ func (e *executionItem) toAPIExecution() *api.Execution {
 		UserEmail:       e.UserEmail,
 		Command:         e.Command,
 		LockName:        e.LockName,
-		TaskARN:         e.TaskARN,
 		Status:          e.Status,
 		CompletedAt:     e.CompletedAt,
 		ExitCode:        e.ExitCode,
 		DurationSeconds: e.DurationSecs,
 		LogStreamName:   e.LogStreamName,
 		CostUSD:         e.CostUSD,
+		ComputePlatform: e.ComputePlatform,
 	}
 }
 
@@ -151,11 +151,6 @@ func (r *ExecutionRepository) UpdateExecution(ctx context.Context, execution *ap
 	}
 	exprAttrValues := map[string]types.AttributeValue{
 		":status": &types.AttributeValueMemberS{Value: execution.Status},
-	}
-
-	if execution.TaskARN != "" {
-		updateExpr += ", task_arn = :task_arn"
-		exprAttrValues[":task_arn"] = &types.AttributeValueMemberS{Value: execution.TaskARN}
 	}
 
 	if execution.CompletedAt != nil {

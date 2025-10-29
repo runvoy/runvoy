@@ -44,7 +44,6 @@ type Execution struct {
 	UserEmail       string     `json:"user_email"`
 	Command         string     `json:"command"`
 	LockName        string     `json:"lock_name,omitempty"`
-	TaskARN         string     `json:"task_arn"`
 	StartedAt       time.Time  `json:"started_at"`
 	CompletedAt     *time.Time `json:"completed_at,omitempty"`
 	Status          string     `json:"status"`
@@ -53,6 +52,7 @@ type Execution struct {
 	LogStreamName   string     `json:"log_stream_name,omitempty"`
 	CostUSD         float64    `json:"cost_usd,omitempty"`
 	RequestID       string     `json:"request_id,omitempty"`
+	ComputePlatform string     `json:"cloud,omitempty"`
 }
 
 // Lock represents a lock record

@@ -161,12 +161,12 @@ The request ID middleware automatically:
 - Adds the request ID to the request context for use by handlers
 - Falls back gracefully when not running in Lambda environment
 
-### Execution Records: Task ARN and Request ID
+### Execution Records: Compute Platform, and Request ID
 
 - The service includes the request ID (when available) in execution records created in `internal/app.Service.RunCommand()`.
 - The `request_id` is persisted in DynamoDB via the `internal/database/dynamodb` repository.
 - If a request ID is not present (e.g., non-Lambda environments), the service logs a warning and stores the execution without a `request_id`.
-- The service now also persists the ECS `task_arn` at creation time; the executor returns both `executionID` and `taskARN` which are stored immediately.
+- The `compute_platform` field in execution records is derived from the configured backend provider at initialization time (e.g., `AWS`) rather than being hardcoded in the service logic.
 
 ## Logging Architecture
 

@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"runvoy/internal/app"
+	"runvoy/internal/constants"
 
 	"github.com/aws/aws-lambda-go/lambdacontext"
 )
@@ -28,7 +29,7 @@ func TestRequestIDMiddleware(t *testing.T) {
 		rr := httptest.NewRecorder()
 
 		// Create a Router with a test service for the middleware
-		svc := app.NewService(nil, nil, nil, slog.Default())
+		svc := app.NewService(nil, nil, nil, slog.Default(), constants.AWS)
 		router := &Router{svc: svc}
 		middleware := router.requestIDMiddleware(handler)
 		middleware.ServeHTTP(rr, req)
@@ -60,7 +61,7 @@ func TestRequestIDMiddleware(t *testing.T) {
 		req = req.WithContext(ctx)
 
 		// Create a Router with a test service for the middleware
-		svc := app.NewService(nil, nil, nil, slog.Default())
+		svc := app.NewService(nil, nil, nil, slog.Default(), constants.AWS)
 		router := &Router{svc: svc}
 		middleware := router.requestIDMiddleware(lambdaHandler)
 		middleware.ServeHTTP(rr, req)
