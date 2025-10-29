@@ -107,7 +107,7 @@ func (c *Client) DoJSON(ctx context.Context, req Request, result interface{}) er
 		if err := json.Unmarshal(resp.Body, &errorResp); err != nil {
 			return fmt.Errorf("request failed with status %d: %s", resp.StatusCode, string(resp.Body))
 		}
-		return fmt.Errorf("%s: %s", errorResp.Error, errorResp.Details)
+		return fmt.Errorf("[%d] %s: %s", resp.StatusCode, errorResp.Error, errorResp.Details)
 	}
 
 	if err := json.Unmarshal(resp.Body, result); err != nil {
