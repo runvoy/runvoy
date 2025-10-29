@@ -76,13 +76,13 @@ func (e *executionItem) toAPIExecution() *api.Execution {
 		UserEmail:       e.UserEmail,
 		Command:         e.Command,
 		LockName:        e.LockName,
-		TaskARN:         e.TaskARN,
 		Status:          e.Status,
 		CompletedAt:     e.CompletedAt,
 		ExitCode:        e.ExitCode,
 		DurationSeconds: e.DurationSecs,
 		LogStreamName:   e.LogStreamName,
 		CostUSD:         e.CostUSD,
+		RequestID:       e.RequestID,
 	}
 }
 
@@ -163,12 +163,14 @@ func (r *ExecutionRepository) UpdateExecution(ctx context.Context, execution *ap
 		exprAttrValues[":completed_at"] = &types.AttributeValueMemberS{Value: execution.CompletedAt.Format(time.RFC3339)}
 	}
 
-	if execution.ExitCode != 0 {
+	// Always update exit_code if execution has been completed (even if 0 for success)
+	if execution.CompletedAt != nil {
 		updateExpr += ", exit_code = :exit_code"
 		exprAttrValues[":exit_code"] = &types.AttributeValueMemberN{Value: fmt.Sprintf("%d", execution.ExitCode)}
 	}
 
-	if execution.DurationSeconds > 0 {
+	// Update duration if completion time is set
+	if execution.CompletedAt != nil && execution.DurationSeconds > 0 {
 		updateExpr += ", duration_seconds = :duration_seconds"
 		exprAttrValues[":duration_seconds"] = &types.AttributeValueMemberN{Value: fmt.Sprintf("%d", execution.DurationSeconds)}
 	}

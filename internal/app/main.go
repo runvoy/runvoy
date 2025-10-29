@@ -19,8 +19,9 @@ import (
 // Executor abstracts provider-specific command execution (e.g., AWS ECS, GCP, etc.).
 type Executor interface {
 	// StartTask triggers an execution on the underlying platform and returns
-	// a provider-specific task ARN and a stable executionID.
-	StartTask(ctx context.Context, userEmail string, req api.ExecutionRequest) (executionID string, taskARN string, err error)
+	// a provider-specific task ARN. The executionID is pre-generated and passed in
+	// to enable event correlation (e.g., via ECS startedBy field).
+	StartTask(ctx context.Context, executionID string, userEmail string, req api.ExecutionRequest) (taskARN string, err error)
 }
 
 type Service struct {
@@ -170,6 +171,17 @@ func hashAPIKey(apiKey string) string {
 	return base64.StdEncoding.EncodeToString(hash[:])
 }
 
+// generateExecutionID creates a cryptographically secure random execution ID.
+// The ID is base64-encoded and approximately 16 characters long.
+func generateExecutionID() (string, error) {
+	b := make([]byte, 12)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+
+	return base64.URLEncoding.WithPadding(base64.NoPadding).EncodeToString(b), nil
+}
+
 // RunCommand starts a provider-specific task and records the execution.
 func (s *Service) RunCommand(ctx context.Context, userEmail string, req api.ExecutionRequest) (*api.ExecutionResponse, error) {
 	if s.executionRepo == nil {
@@ -179,7 +191,14 @@ func (s *Service) RunCommand(ctx context.Context, userEmail string, req api.Exec
 	if req.Command == "" {
 		return nil, apperrors.ErrBadRequest("command is required", nil)
 	}
-	executionID, taskARN, err := s.executor.StartTask(ctx, userEmail, req)
+
+	// Generate execution ID before starting the task so we can use it for event correlation
+	executionID, err := generateExecutionID()
+	if err != nil {
+		return nil, apperrors.ErrInternalError("failed to generate execution ID", err)
+	}
+
+	taskARN, err := s.executor.StartTask(ctx, executionID, userEmail, req)
 	if err != nil {
 		return nil, err
 	}
@@ -223,4 +242,34 @@ func (s *Service) RunCommand(ctx context.Context, userEmail string, req api.Exec
 		LogURL:      logURL,
 		Status:      "RUNNING",
 	}, nil
+}
+
+// GetExecution retrieves an execution by its execution ID.
+func (s *Service) GetExecution(ctx context.Context, executionID string) (*api.Execution, error) {
+	if s.executionRepo == nil {
+		return nil, apperrors.ErrInternalError("execution repository not configured", nil)
+	}
+
+	if executionID == "" {
+		return nil, apperrors.ErrBadRequest("execution ID is required", nil)
+	}
+
+	return s.executionRepo.GetExecution(ctx, executionID)
+}
+
+// UpdateExecution updates an existing execution record.
+func (s *Service) UpdateExecution(ctx context.Context, execution *api.Execution) error {
+	if s.executionRepo == nil {
+		return apperrors.ErrInternalError("execution repository not configured", nil)
+	}
+
+	if execution == nil {
+		return apperrors.ErrBadRequest("execution is required", nil)
+	}
+
+	if execution.ExecutionID == "" {
+		return apperrors.ErrBadRequest("execution ID is required", nil)
+	}
+
+	return s.executionRepo.UpdateExecution(ctx, execution)
 }

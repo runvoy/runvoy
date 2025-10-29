@@ -480,6 +480,118 @@ Resources:
           RUNVOY_JWT_SECRET: !If [HasJWTSecret, !Ref JWTSecret, !Ref 'AWS::NoValue']
           RUNVOY_WEB_UI_URL: ''
 
+  # CloudWatch Log Group for ECS event handler Lambda
+  ECSEventHandlerLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${ProjectName}-ecs-event-handler'
+      RetentionInDays: 7
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-ecs-event-handler-logs'
+        - Key: Application
+          Value: !Ref ProjectName
+        - Key: ManagedBy
+          Value: 'cloudformation'
+
+  # Lambda Function for ECS Task State Change events
+  ECSEventHandlerLambdaFunction:
+    Type: AWS::Lambda::Function
+    DependsOn: ECSEventHandlerLogGroup
+    Properties:
+      FunctionName: !Sub '${ProjectName}-ecs-event-handler'
+      Runtime: provided.al2023
+      Role: !GetAtt ECSEventHandlerLambdaRole.Arn
+      Handler: bootstrap
+      Code:
+        S3Bucket: !Ref LambdaCodeBucket
+        S3Key: !Ref LambdaCodeKey
+      Timeout: 30
+      Architectures:
+        - arm64
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-ecs-event-handler'
+        - Key: Application
+          Value: !Ref ProjectName
+        - Key: ManagedBy
+          Value: 'cloudformation'
+      Environment:
+        Variables:
+          RUNVOY_EXECUTIONS_TABLE: !Ref ExecutionsTable
+
+  # IAM Role for ECS Event Handler Lambda
+  ECSEventHandlerLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${ProjectName}-ecs-event-handler-role'
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-ecs-event-handler-role'
+        - Key: Application
+          Value: !Ref ProjectName
+        - Key: ManagedBy
+          Value: 'cloudformation'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: ExecutionUpdatePolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'dynamodb:GetItem'
+                  - 'dynamodb:Scan'
+                  - 'dynamodb:UpdateItem'
+                Resource:
+                  - !GetAtt ExecutionsTable.Arn
+                  - !Sub '${ExecutionsTable.Arn}/index/*'
+
+  # EventBridge Rule for ECS Task State Change events
+  ECSTaskStateChangeRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub '${ProjectName}-ecs-task-stopped'
+      Description: 'Triggers when ECS tasks in the cluster stop'
+      EventPattern:
+        source:
+          - aws.ecs
+        detail-type:
+          - ECS Task State Change
+        detail:
+          lastStatus:
+            - STOPPED
+          clusterArn:
+            - !Sub 'arn:aws:ecs:${AWS::Region}:${AWS::AccountId}:cluster/${ECSCluster}'
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt ECSEventHandlerLambdaFunction.Arn
+          Id: '1'
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-ecs-task-stopped-rule'
+        - Key: Application
+          Value: !Ref ProjectName
+        - Key: ManagedBy
+          Value: 'cloudformation'
+
+  # Permission for EventBridge to invoke ECS Event Handler Lambda
+  ECSEventHandlerLambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt ECSEventHandlerLambdaFunction.Arn
+      Principal: events.amazonaws.com
+      Action: lambda:InvokeFunction
+      SourceArn: !GetAtt ECSTaskStateChangeRule.Arn
+
   # Lambda Function URL
   LambdaFunctionUrl:
     Type: AWS::Lambda::Url

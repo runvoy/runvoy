@@ -166,7 +166,41 @@ The request ID middleware automatically:
 - The service includes the request ID (when available) in execution records created in `internal/app.Service.RunCommand()`.
 - The `request_id` is persisted in DynamoDB via the `internal/database/dynamodb` repository.
 - If a request ID is not present (e.g., non-Lambda environments), the service logs a warning and stores the execution without a `request_id`.
-- The service now also persists the ECS `task_arn` at creation time; the executor returns both `executionID` and `taskARN` which are stored immediately.
+- Execution IDs are now generated before starting the ECS task using `generateExecutionID()` to enable event correlation via the ECS `startedBy` field.
+
+### Event-Driven Execution Completion
+
+Execution completion is handled automatically via an event-driven architecture using AWS EventBridge and Lambda:
+
+**Flow:**
+1. When starting an ECS task, the execution ID is generated first and passed to `executor.StartTask()`.
+2. The executor sets the ECS `startedBy` field to the execution ID when calling `RunTask`, enabling event correlation.
+3. When the ECS task stops, ECS automatically emits a Task State Change event to EventBridge.
+4. An EventBridge rule (`ECSTaskStateChangeRule`) filters for `lastStatus: STOPPED` events from the runvoy cluster.
+5. The rule invokes the ECS Event Handler Lambda function (`runvoy-ecs-event-handler`).
+6. The Lambda handler (`internal/lambdaapi/ecs_event_handler.go`) processes the event:
+   - Extracts the `executionID` from the event's `startedBy` field
+   - Retrieves the execution record from DynamoDB
+   - Determines status (`completed` or `failed`) based on container exit code
+   - Calculates duration from `StartedAt` and `StoppedAt`
+   - Updates the execution record with `status`, `exit_code`, `completed_at`, and `duration_seconds`
+
+**Components:**
+- **EventBridge Rule**: `runvoy-ecs-task-stopped` filters ECS Task State Change events for stopped tasks
+- **Lambda Handler**: `runvoy-ecs-event-handler` processes completion events and updates DynamoDB
+- **Handler Entry Point**: `cmd/backend/aws/ecs_event_handler.go` (separate Lambda binary)
+
+**Benefits:**
+- Fully event-driven: No polling or manual status checks required
+- Automatic: Executions are marked as completed/failed automatically
+- Reliable: EventBridge provides retries and delivery guarantees
+- Scalable: Handles concurrent task completions without blocking
+- Maintainable: Separation of concerns - completion logic is isolated from orchestrator
+
+**Error Handling:**
+- If an execution record is not found for a `startedBy` value, the handler logs a warning and continues (prevents errors from orphaned tasks)
+- Database errors are logged and can be retried by EventBridge
+- Invalid events are logged and ignored
 
 ## Logging Architecture
 
@@ -226,11 +260,11 @@ The application uses a unified logging approach with structured logging via `log
 │  │ - Check lock     │         │ - API Keys   │                │
 │  │ - Start ECS task │         │ - Locks      │                │
 │  │ - Record exec    │         │ - Executions │                │
-│  └──────┬───────────┘         └──────────────┘                │
-│         │                                                        │
-│  ┌──────▼───────────┐                                          │
-│  │ ECS Fargate      │                                           │
-│  │                  │                                           │
+│  └──────┬───────────┘         └──────▲───────┘                │
+│         │                              │                        │
+│  ┌──────▼───────────┐                  │                        │
+│  │ ECS Fargate      │                  │                        │
+│  │                  │                  │                        │
 │  │ Container:       │         ┌──────────────┐                │
 │  │ - Clone git repo │────────►│ S3 Bucket    │                │
 │  │   (optional)     │         │ - Code       │                │
@@ -241,7 +275,27 @@ The application uses a unified logging approach with structured logging via `log
 │  │ - AWS perms for  │         ┌──────────────┐                │
 │  │   actual work    │────────►│ CloudWatch   │                │
 │  └──────────────────┘         │ Logs         │                │
-│                                └──────────────┘                │
+│         │                      └──────────────┘                │
+│         │                                                        │
+│         │ Task completes → ECS emits event                      │
+│         │                                                        │
+│  ┌──────▼───────────┐                                          │
+│  │ EventBridge      │                                           │
+│  │ Rule             │                                           │
+│  │ (ECS Task STOPPED│                                           │
+│  │  events)         │                                           │
+│  └──────┬───────────┘                                           │
+│         │                                                        │
+│  ┌──────▼───────────┐                                          │
+│  │ Lambda           │                                           │
+│  │ (ECS Event       │                                           │
+│  │  Handler)        │                                           │
+│  │                  │                                           │
+│  │ - Extract exec ID│                                           │
+│  │   from startedBy │                                           │
+│  │ - Update exec    │                                           │
+│  │   status/exit    │                                           │
+│  └──────────────────┘                                           │
 │                                                                  │
 │  ┌──────────────────────────────────────────┐                 │
 │  │ Web UI (S3 + CloudFront)                 │                 │
