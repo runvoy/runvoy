@@ -8,6 +8,7 @@ import (
 	"runvoy/internal/client"
 	"runvoy/internal/config"
 	"runvoy/internal/constants"
+	"runvoy/internal/output"
 
 	"github.com/spf13/cobra"
 )
@@ -35,12 +36,12 @@ func init() {
 func runCreateUser(_ *cobra.Command, args []string) {
 	cfg, err := config.Load()
 	if err != nil {
-		slog.Error("failed to load configuration", "error", err)
+		output.Error("failed to load configuration: %v", err)
 		return
 	}
 	email := args[0]
 
-	fmt.Printf("→ Creating user with email %s...\n", email)
+	output.Info("Creating user with email %s...", email)
 
 	var resp api.CreateUserResponse
 	req := client.Request{
@@ -53,12 +54,13 @@ func runCreateUser(_ *cobra.Command, args []string) {
 
 	client := client.New(cfg, slog.Default())
 	if err := client.DoJSON(req, &resp); err != nil {
-		fmt.Printf("❌ %s\n", err)
+		output.Error(err.Error())
 		return
 	}
 
-	fmt.Printf("✅ User created successfully\n")
-	fmt.Printf("    → Email: %s\n", resp.User.Email)
-	fmt.Printf("    → API Key: %s\n\n", resp.APIKey)
-	fmt.Println("\n🔑  IMPORTANT: Save this API key now. It will not be shown again!")
+	output.Success("User created successfully")
+	output.KeyValue("Email", resp.User.Email)
+	output.KeyValue("API Key", resp.APIKey)
+	output.Blank()
+	output.Warning("IMPORTANT: Save this API key now. It will not be shown again!")
 }

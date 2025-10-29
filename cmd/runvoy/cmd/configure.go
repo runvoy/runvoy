@@ -2,12 +2,12 @@ package cmd
 
 import (
 	"bufio"
-	"fmt"
-	"log/slog"
 	"os"
 	"strings"
 
 	"runvoy/internal/config"
+	"runvoy/internal/constants"
+	"runvoy/internal/output"
 
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
@@ -26,27 +26,27 @@ func init() {
 }
 
 func runConfigure(cmd *cobra.Command, args []string) {
-	fmt.Println("→ Configuring runvoy CLI...")
+	output.Header("🚀 " + constants.ProjectName)
+	output.Subheader("Configure " + constants.ProjectName)
 
 	// Check if config already exists
 	existingConfig, err := config.Load()
 	configExists := err == nil
 	if configExists {
-		fmt.Printf("✓ Found existing configuration\n")
-		slog.Debug("Loaded existing configuration")
+		output.Success("Found existing configuration")
 	} else {
 		// Create a new config if it doesn't exist
 		existingConfig = &config.Config{}
-		slog.Debug("Creating new configuration")
+		output.Info("Creating new configuration")
 	}
 
 	// Prompt for API endpoint
 	reader := bufio.NewReader(os.Stdin)
 
-	fmt.Print("\nEnter API endpoint URL: ")
+	output.Prompt("Enter API endpoint URL")
 	endpoint, err := reader.ReadString('\n')
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error reading input: %v\n", err)
+		output.Error("Error reading input: %v", err)
 		os.Exit(1)
 	}
 	endpoint = strings.TrimSpace(endpoint)
@@ -54,29 +54,29 @@ func runConfigure(cmd *cobra.Command, args []string) {
 	if endpoint == "" {
 		if configExists && existingConfig.APIEndpoint != "" {
 			endpoint = existingConfig.APIEndpoint
-			fmt.Printf("→ Using existing endpoint: %s\n", endpoint)
+			output.Info("Using existing endpoint: %s", endpoint)
 		} else {
-			fmt.Fprintf(os.Stderr, "Error: API endpoint is required\n")
+			output.Error("API endpoint is required")
 			os.Exit(1)
 		}
 	}
 
 	// Prompt for API key with masking
-	fmt.Print("Enter API key: ")
+	output.Prompt("Enter API key")
 	bytePassword, err := term.ReadPassword(int(os.Stdin.Fd()))
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error reading input: %v\n", err)
+		output.Error("Error reading input: %v", err)
 		os.Exit(1)
 	}
-	fmt.Println() // Add newline after masked input
+	output.Blank() // Add newline after masked input
 	apiKey := strings.TrimSpace(string(bytePassword))
 
 	if apiKey == "" {
 		if configExists && existingConfig.APIKey != "" {
 			apiKey = existingConfig.APIKey
-			fmt.Printf("→ Using existing API key\n")
+			output.Info("Using existing API key")
 		} else {
-			fmt.Fprintf(os.Stderr, "Error: API key is required\n")
+			output.Error("API key is required")
 			os.Exit(1)
 		}
 	}
@@ -89,20 +89,18 @@ func runConfigure(cmd *cobra.Command, args []string) {
 
 	// Save configuration
 	if err := config.Save(cfg); err != nil {
-		slog.Error("Failed to save configuration", "error", err)
-		fmt.Fprintf(os.Stderr, "Error saving configuration: %v\n", err)
+		output.Error("Failed to save configuration: %v", err)
 		os.Exit(1)
 	}
 
 	// Get config path for display
 	configPath, err := config.GetConfigPath()
 	if err != nil {
-		slog.Error("Failed to get config path", "error", err)
-		fmt.Fprintf(os.Stderr, "Error getting config path: %v\n", err)
+		output.Error("Failed to get config path: %v", err)
 		os.Exit(1)
 	}
 
-	slog.Info("Configuration saved successfully", "path", configPath)
-	fmt.Printf("\n✓ Configuration saved to %s\n", configPath)
-	fmt.Println("→ Configuration complete!")
+	output.Success("Configuration saved successfully")
+	output.KeyValue("Configuration path", configPath)
+	output.Info("Configuration complete!")
 }

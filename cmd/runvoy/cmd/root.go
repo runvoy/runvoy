@@ -47,7 +47,7 @@ Run commands remotely without the hassle of local execution, credential sharing,
 		timeoutCancel = cancel // Store for cleanup in Execute()
 		cmd.SetContext(ctx)
 
-		slog.Debug("Timeout configured", "duration", timeoutDuration)
+		slog.Debug("timeout configured", "duration", timeoutDuration)
 
 		return nil
 	},

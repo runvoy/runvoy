@@ -1,4 +1,4 @@
-# mycli Project Configuration Example
+# runvoy Project Configuration Example
 # This file should be placed in your project root directory
 # Commit this file to version control (it contains no secrets)
 
@@ -35,14 +35,14 @@ timeout: 3600
 # Configuration Priority (highest to lowest):
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # 1. Command-line flags (--repo, --branch, --image, --env)
-# 2. .mycli.yaml (this file)
+# 2. .runvoy.yaml (this file)
 # 3. Git remote URL (auto-detected)
 # 4. Error if no repo specified
 #
 # Examples:
-#   mycli exec "terraform plan"
-#   mycli exec --branch=dev "terraform plan"
-#   mycli exec --env TF_VAR_foo=bar "terraform apply"
+#   runvoy exec "terraform plan"
+#   runvoy exec --branch=dev "terraform plan"
+#   runvoy exec --env TF_VAR_foo=bar "terraform apply"
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -71,5 +71,5 @@ timeout: 3600
 # Multi-environment Pattern (use --branch flag):
 # repo: https://github.com/mycompany/infra
 # # Then run:
-# # mycli exec --branch=dev "terraform apply"
-# # mycli exec --branch=prod "terraform apply"
+# # runvoy exec --branch=dev "terraform apply"
+# # runvoy exec --branch=prod "terraform apply"

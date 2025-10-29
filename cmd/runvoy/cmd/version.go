@@ -1,12 +1,12 @@
 package cmd
 
 import (
-	"fmt"
 	"log/slog"
 	"runvoy/internal/api"
 	"runvoy/internal/client"
 	"runvoy/internal/config"
 	"runvoy/internal/constants"
+	"runvoy/internal/output"
 
 	"github.com/spf13/cobra"
 )
@@ -15,8 +15,8 @@ var versionCmd = &cobra.Command{
 	Use:   "version",
 	Short: "Show the version of the CLI",
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("🚀 " + constants.ProjectName)
-		fmt.Printf(" → CLI version: %s\n", constants.Version)
+		output.Header("🚀 " + constants.ProjectName)
+		output.KeyValue("CLI version", constants.Version)
 
 		cfg, err := config.Load()
 		if err != nil {
@@ -32,11 +32,11 @@ var versionCmd = &cobra.Command{
 
 		client := client.New(cfg, slog.Default())
 		if err := client.DoJSON(req, &resp); err != nil {
-			fmt.Printf("❌ %s\n", err)
+			output.Error(err.Error())
 			return
 		}
 
-		fmt.Printf(" → Backend version: %s\n", resp.Version)
+		output.KeyValue("Backend version", resp.Version)
 	},
 }
 
