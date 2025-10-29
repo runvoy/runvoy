@@ -1,16 +1,13 @@
 package cmd
 
 import (
-	"bufio"
 	"os"
-	"strings"
 
 	"runvoy/internal/config"
 	"runvoy/internal/constants"
 	"runvoy/internal/output"
 
 	"github.com/spf13/cobra"
-	"golang.org/x/term"
 )
 
 var configureCmd = &cobra.Command{
@@ -40,16 +37,7 @@ func runConfigure(cmd *cobra.Command, args []string) {
 		output.Info("Creating new configuration")
 	}
 
-	// Prompt for API endpoint
-	reader := bufio.NewReader(os.Stdin)
-
-	output.Prompt("Enter API endpoint URL")
-	endpoint, err := reader.ReadString('\n')
-	if err != nil {
-		output.Error("Error reading input: %v", err)
-		os.Exit(1)
-	}
-	endpoint = strings.TrimSpace(endpoint)
+	endpoint := output.Prompt("Enter API endpoint URL")
 
 	if endpoint == "" {
 		if configExists && existingConfig.APIEndpoint != "" {
@@ -61,15 +49,7 @@ func runConfigure(cmd *cobra.Command, args []string) {
 		}
 	}
 
-	// Prompt for API key with masking
-	output.Prompt("Enter API key")
-	bytePassword, err := term.ReadPassword(int(os.Stdin.Fd()))
-	if err != nil {
-		output.Error("Error reading input: %v", err)
-		os.Exit(1)
-	}
-	output.Blank() // Add newline after masked input
-	apiKey := strings.TrimSpace(string(bytePassword))
+	apiKey := output.Prompt("Enter API key")
 
 	if apiKey == "" {
 		if configExists && existingConfig.APIKey != "" {
