@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 
+	"runvoy/internal/api"
 	"runvoy/internal/config"
 )
 
@@ -107,10 +108,7 @@ func (c *Client) DoJSON(ctx context.Context, req Request, result interface{}) er
 
 	// Check for error responses
 	if resp.StatusCode >= 400 {
-		var errorResp struct {
-			Error   string `json:"error"`
-			Details string `json:"details"`
-		}
+		var errorResp api.ErrorResponse
 		if err := json.Unmarshal(resp.Body, &errorResp); err != nil {
 			return fmt.Errorf("request failed with status %d: %s", resp.StatusCode, string(resp.Body))
 		}
@@ -124,4 +122,45 @@ func (c *Client) DoJSON(ctx context.Context, req Request, result interface{}) er
 	}
 
 	return nil
+}
+
+// CreateUser creates a new user using the API
+func (c *Client) CreateUser(ctx context.Context, req api.CreateUserRequest) (*api.CreateUserResponse, error) {
+	var resp api.CreateUserResponse
+	err := c.DoJSON(ctx, Request{
+		Method: "POST",
+		Path:   "/api/v1/users/create",
+		Body:   req,
+	}, &resp)
+	if err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
+// RevokeUser revokes a user's API key
+func (c *Client) RevokeUser(ctx context.Context, req api.RevokeUserRequest) (*api.RevokeUserResponse, error) {
+	var resp api.RevokeUserResponse
+	err := c.DoJSON(ctx, Request{
+		Method: "POST",
+		Path:   "/api/v1/users/revoke",
+		Body:   req,
+	}, &resp)
+	if err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
+// GetHealth checks the API health status
+func (c *Client) GetHealth(ctx context.Context) (*api.HealthResponse, error) {
+	var resp api.HealthResponse
+	err := c.DoJSON(ctx, Request{
+		Method: "GET",
+		Path:   "/api/v1/health",
+	}, &resp)
+	if err != nil {
+		return nil, err
+	}
+	return &resp, nil
 }
