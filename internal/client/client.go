@@ -68,10 +68,12 @@ func (c *Client) Do(ctx context.Context, req Request) (*Response, error) {
 
 	if req.Body != nil {
 		bodyBytes, _ := json.Marshal(req.Body)
-		c.logger.Debug("Making API request", "method", req.Method, "url", url, "body", string(bodyBytes))
+		c.logger.Debug("making API request", "method", req.Method, "url", url, "body", string(bodyBytes))
 	} else {
-		c.logger.Debug("Making API request", "method", req.Method, "url", url)
+		c.logger.Debug("making API request", "method", req.Method, "url", url)
 	}
+
+	c.logger.Debug("request headers", "headers", httpReq.Header)
 
 	httpClient := &http.Client{}
 	resp, err := httpClient.Do(httpReq)

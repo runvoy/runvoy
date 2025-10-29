@@ -47,6 +47,35 @@ func GetRequestID(ctx context.Context) string {
 	return ""
 }
 
+// requestTimeoutMiddleware creates a context with timeout for each request.
+// The timeout starts when the request is received, ensuring each request has
+// a fair timeout regardless of connection reuse.
+func (r *Router) requestTimeoutMiddleware(timeout time.Duration) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			ctx, cancel := context.WithTimeout(req.Context(), timeout)
+			defer cancel()
+
+			req = req.WithContext(ctx)
+
+			next.ServeHTTP(w, req)
+
+			if ctx.Err() == context.DeadlineExceeded {
+				logger := r.GetLoggerFromContext(req.Context())
+				logger.Warn("request timeout exceeded",
+					"method", req.Method,
+					"path", req.URL.Path,
+					"timeout", timeout,
+				)
+
+				// Note: Response may have already been written by handler
+				// The context cancellation will have already propagated to
+				// any operations (like DynamoDB calls) that were using the context
+			}
+		})
+	}
+}
+
 // setContentTypeJSONMiddleware sets Content-Type to application/json for all responses
 func setContentTypeJSONMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {

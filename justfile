@@ -139,3 +139,10 @@ smoke-test-backend-health:
     curl -sS \
         -H "X-API-Key: ${RUNVOY_ADMIN_API_KEY}" \
         -X GET "${RUNVOY_LAMBDA_URL}/api/v1/health" | jq .
+
+smoke-test-backend-users-create:
+    curl -sS \
+        -H "X-API-Key: ${RUNVOY_ADMIN_API_KEY}" \
+        -X POST "${RUNVOY_LAMBDA_URL}/api/v1/users/create" \
+        -H "Content-Type: application/json" \
+        -d '{"email":"bob@example.com"}' | jq .

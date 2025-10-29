@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"time"
 
 	"runvoy/internal/api"
 	"runvoy/internal/app"
@@ -23,14 +24,20 @@ const (
 	serviceContextKey contextKey = "service"
 )
 
-// NewRouter creates a new chi router with routes configured
-func NewRouter(svc *app.Service) *Router {
+// NewRouter creates a new chi router with routes configured.
+// If requestTimeout is > 0, adds a per-request timeout middleware.
+// If requestTimeout is 0, no timeout middleware is added, allowing the
+// environment (e.g., Lambda with its own timeout) to handle timeouts.
+func NewRouter(svc *app.Service, requestTimeout time.Duration) *Router {
 	r := chi.NewRouter()
 	router := &Router{
 		router: r,
 		svc:    svc,
 	}
 
+	if requestTimeout > 0 {
+		r.Use(router.requestTimeoutMiddleware(requestTimeout))
+	}
 	r.Use(setContentTypeJSONMiddleware)
 	r.Use(router.requestIDMiddleware)
 	r.Use(router.requestLoggingMiddleware)

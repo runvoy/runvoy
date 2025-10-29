@@ -15,6 +15,11 @@ type Env struct {
 	// Port is the HTTP server port. Defaults to "56212".
 	Port string `env:"RUNVOY_DEV_SERVER_PORT" envDefault:"56212"`
 
+	// RequestTimeout is the timeout for the request.
+	// Defaults to 0, which means no timeout middleware is added, allowing the
+	// environment (e.g., Lambda with its own timeout) to handle timeouts.
+	RequestTimeout time.Duration `env:"RUNVOY_REQUEST_TIMEOUT" envDefault:"0"`
+
 	// APIKeysTable is the DynamoDB table name for API keys (AWS only).
 	// NOTICE: this is required when running with AWS backend and cannot be empty.
 	APIKeysTable string `env:"RUNVOY_API_KEYS_TABLE,notEmpty" envRequired:"true"`
