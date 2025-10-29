@@ -22,7 +22,7 @@ internal/app.Service → uses Executor interface (provider-agnostic)
 internal/app/aws     → AWS-specific Executor implementation (ECS Fargate)
 ```
 
-- The `Executor` interface abstracts starting a command execution.
+- The `Executor` interface abstracts starting a command execution and returns both a stable execution ID and provider task ARN.
 - The AWS implementation resides in `internal/app/aws` and encapsulates all ECS- and AWS-specific logic and types.
 - `internal/app/init.go` wires the chosen provider by constructing the appropriate `Executor` and passing it into `Service`.
 
@@ -160,6 +160,13 @@ The request ID middleware automatically:
 - Extracts the AWS Lambda request ID from the Lambda context when available
 - Adds the request ID to the request context for use by handlers
 - Falls back gracefully when not running in Lambda environment
+
+### Execution Records: Task ARN and Request ID
+
+- The service includes the request ID (when available) in execution records created in `internal/app.Service.RunCommand()`.
+- The `request_id` is persisted in DynamoDB via the `internal/database/dynamodb` repository.
+- If a request ID is not present (e.g., non-Lambda environments), the service logs a warning and stores the execution without a `request_id`.
+- The service now also persists the ECS `task_arn` at creation time; the executor returns both `executionID` and `taskARN` which are stored immediately.
 
 ## Logging Architecture
 

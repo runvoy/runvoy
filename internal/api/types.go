@@ -52,6 +52,7 @@ type Execution struct {
 	DurationSeconds int        `json:"duration_seconds,omitempty"`
 	LogStreamName   string     `json:"log_stream_name,omitempty"`
 	CostUSD         float64    `json:"cost_usd,omitempty"`
+	RequestID       string     `json:"request_id,omitempty"`
 }
 
 // Lock represents a lock record

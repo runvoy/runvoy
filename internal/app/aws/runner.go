@@ -9,6 +9,7 @@ import (
 	"runvoy/internal/api"
 	apperrors "runvoy/internal/errors"
 
+	"github.com/aws/aws-lambda-go/lambdacontext"
 	awsstd "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ecs"
 	ecstypes "github.com/aws/aws-sdk-go-v2/service/ecs/types"
@@ -39,9 +40,9 @@ func NewExecutor(ecsClient *ecs.Client, cfg *Config, logger *slog.Logger) *Execu
 }
 
 // StartTask triggers an ECS Fargate task and returns identifiers.
-func (e *Executor) StartTask(ctx context.Context, userEmail string, req api.ExecutionRequest) (string, error) {
+func (e *Executor) StartTask(ctx context.Context, userEmail string, req api.ExecutionRequest) (string, string, error) {
 	if e.ecsClient == nil {
-		return "", apperrors.ErrInternalError("ECS cli endpoint not configured", nil)
+		return "", "", apperrors.ErrInternalError("ECS cli endpoint not configured", nil)
 	}
 
 	// Note: Image override is not supported via task overrides; use task definition image.
@@ -57,7 +58,12 @@ func (e *Executor) StartTask(ctx context.Context, userEmail string, req api.Exec
 		envVars = append(envVars, ecstypes.KeyValuePair{Name: awsstd.String(key), Value: awsstd.String(value)})
 	}
 
-	containerCommand := []string{"/bin/sh", "-c", fmt.Sprintf("echo 'Execution starting'; %s", req.Command)}
+	// TODO: find a better way to get the request ID, or better, to ensure it's always available in the context
+	requestID := ""
+	if lc, ok := lambdacontext.FromContext(ctx); ok {
+		requestID = lc.AwsRequestID
+	}
+	containerCommand := []string{"/bin/sh", "-c", fmt.Sprintf("echo 'Execution for requestID %s starting'; %s", requestID, req.Command)}
 
 	runTaskInput := &ecs.RunTaskInput{
 		Cluster:        awsstd.String(e.cfg.ECSCluster),
@@ -78,10 +84,10 @@ func (e *Executor) StartTask(ctx context.Context, userEmail string, req api.Exec
 
 	runTaskOutput, err := e.ecsClient.RunTask(ctx, runTaskInput)
 	if err != nil {
-		return "", apperrors.ErrInternalError("failed to start ECS task", err)
+		return "", "", apperrors.ErrInternalError("failed to start ECS task", err)
 	}
 	if len(runTaskOutput.Tasks) == 0 {
-		return "", apperrors.ErrInternalError("no tasks were started", nil)
+		return "", "", apperrors.ErrInternalError("no tasks were started", nil)
 	}
 
 	task := runTaskOutput.Tasks[0]
@@ -100,5 +106,5 @@ func (e *Executor) StartTask(ctx context.Context, userEmail string, req api.Exec
 		e.logger.Warn("failed to add ExecutionID tag to task", "error", tagErr, "taskARN", taskARN, "executionID", executionID)
 	}
 
-	return executionID, nil
+	return executionID, taskARN, nil
 }

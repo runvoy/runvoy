@@ -46,6 +46,7 @@ type executionItem struct {
 	DurationSecs  int        `dynamodbav:"duration_seconds,omitempty"`
 	LogStreamName string     `dynamodbav:"log_stream_name,omitempty"`
 	CostUSD       float64    `dynamodbav:"cost_usd,omitempty"`
+	RequestID     string     `dynamodbav:"request_id,omitempty"`
 }
 
 // toExecutionItem converts an api.Execution to an executionItem.
@@ -63,6 +64,7 @@ func toExecutionItem(e *api.Execution) *executionItem {
 		DurationSecs:  e.DurationSeconds,
 		LogStreamName: e.LogStreamName,
 		CostUSD:       e.CostUSD,
+		RequestID:     e.RequestID,
 	}
 }
 
@@ -98,6 +100,8 @@ func (r *ExecutionRepository) CreateExecution(ctx context.Context, execution *ap
 		Item:      av,
 	})
 
+	r.logger.Debug("execution stored successfully", "executionID", execution.ExecutionID)
+
 	if err != nil {
 		return apperrors.ErrDatabaseError("failed to create execution", err)
 	}
@@ -112,7 +116,7 @@ func (r *ExecutionRepository) GetExecution(ctx context.Context, executionID stri
 	// For MVP, we'll use a simplified approach where we query by execution_id
 	// But DynamoDB requires both keys, so we need to scan or use a GSI
 	// Since execution_id should be unique, we'll scan with a filter (not ideal but works for MVP)
-	
+
 	result, err := r.client.Scan(ctx, &dynamodb.ScanInput{
 		TableName:        aws.String(r.tableName),
 		FilterExpression: aws.String("execution_id = :execution_id"),

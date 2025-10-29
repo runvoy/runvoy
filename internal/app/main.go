@@ -12,13 +12,15 @@ import (
 	"runvoy/internal/api"
 	"runvoy/internal/database"
 	apperrors "runvoy/internal/errors"
+
+	"github.com/aws/aws-lambda-go/lambdacontext"
 )
 
 // Executor abstracts provider-specific command execution (e.g., AWS ECS, GCP, etc.).
 type Executor interface {
 	// StartTask triggers an execution on the underlying platform and returns
-	// a provider-specific task ARN/ID and a stable executionID.
-	StartTask(ctx context.Context, userEmail string, req api.ExecutionRequest) (executionID string, err error)
+	// a provider-specific task ARN and a stable executionID.
+	StartTask(ctx context.Context, userEmail string, req api.ExecutionRequest) (executionID string, taskARN string, err error)
 }
 
 type Service struct {
@@ -177,13 +179,17 @@ func (s *Service) RunCommand(ctx context.Context, userEmail string, req api.Exec
 	if req.Command == "" {
 		return nil, apperrors.ErrBadRequest("command is required", nil)
 	}
-	executionID, err := s.executor.StartTask(ctx, userEmail, req)
+	executionID, taskARN, err := s.executor.StartTask(ctx, userEmail, req)
 	if err != nil {
 		return nil, err
 	}
 
 	// Create execution record
 	startedAt := time.Now().UTC()
+	requestID := ""
+	if lc, ok := lambdacontext.FromContext(ctx); ok {
+		requestID = lc.AwsRequestID
+	}
 	execution := &api.Execution{
 		ExecutionID: executionID,
 		UserEmail:   userEmail,
@@ -191,6 +197,14 @@ func (s *Service) RunCommand(ctx context.Context, userEmail string, req api.Exec
 		LockName:    req.Lock,
 		StartedAt:   startedAt,
 		Status:      "RUNNING",
+		TaskARN:     taskARN,
+		RequestID:   requestID,
+	}
+
+	if requestID == "" {
+		s.Logger.Warn("request ID not available; storing execution without request ID",
+			"executionID", executionID,
+		)
 	}
 
 	if err := s.executionRepo.CreateExecution(ctx, execution); err != nil {
