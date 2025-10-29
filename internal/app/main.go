@@ -5,51 +5,39 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
-	"fmt"
 	"log/slog"
 	"net/mail"
-	"strings"
 	"time"
 
 	"runvoy/internal/api"
 	"runvoy/internal/database"
 	apperrors "runvoy/internal/errors"
-
-	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/service/ecs"
-	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 )
+
+// Executor abstracts provider-specific command execution (e.g., AWS ECS, GCP, etc.).
+type Executor interface {
+	// StartTask triggers an execution on the underlying platform and returns
+	// a provider-specific task ARN/ID and a stable executionID.
+	StartTask(ctx context.Context, userEmail string, req api.ExecutionRequest) (executionID string, err error)
+}
 
 type Service struct {
 	userRepo      database.UserRepository
 	executionRepo database.ExecutionRepository
-	ecsClient     *ecs.Client
-	cfg           *ServiceConfig
+	executor      Executor
 	Logger        *slog.Logger
 }
 
-// ServiceConfig holds configuration for the service
-type ServiceConfig struct {
-	ECSCluster      string
-	TaskDefinition  string
-	Subnet1         string
-	Subnet2         string
-	SecurityGroup   string
-	LogGroup        string
-	DefaultImage    string
-	TaskRoleARN     string
-	TaskExecRoleARN string
-}
+// NOTE: provider-specific configuration has been moved to subpackages (e.g., app/aws).
 
 // NewService creates a new service instance.
 // If userRepo is nil, user-related operations will not be available.
 // This allows the service to work without database dependencies for simple operations.
-func NewService(userRepo database.UserRepository, executionRepo database.ExecutionRepository, ecsClient *ecs.Client, cfg *ServiceConfig, logger *slog.Logger) *Service {
+func NewService(userRepo database.UserRepository, executionRepo database.ExecutionRepository, executor Executor, logger *slog.Logger) *Service {
 	return &Service{
 		userRepo:      userRepo,
 		executionRepo: executionRepo,
-		ecsClient:     ecsClient,
-		cfg:           cfg,
+		executor:      executor,
 		Logger:        logger,
 	}
 }
@@ -180,114 +168,18 @@ func hashAPIKey(apiKey string) string {
 	return base64.StdEncoding.EncodeToString(hash[:])
 }
 
-// RunCommand starts an ECS Fargate task and records the execution.
+// RunCommand starts a provider-specific task and records the execution.
 func (s *Service) RunCommand(ctx context.Context, userEmail string, req api.ExecutionRequest) (*api.ExecutionResponse, error) {
 	if s.executionRepo == nil {
 		return nil, apperrors.ErrInternalError("execution repository not configured", nil)
 	}
 
-	if s.ecsClient == nil {
-		return nil, apperrors.ErrInternalError("ECS client not configured", nil)
-	}
-
 	if req.Command == "" {
 		return nil, apperrors.ErrBadRequest("command is required", nil)
 	}
-
-	// Note: Image override is not supported via task overrides
-	// ECS container overrides don't support image changes
-	// If a custom image is needed, a new task definition revision must be registered
-	// For MVP, we use the image from the base task definition
-	if req.Image != "" && req.Image != s.cfg.DefaultImage {
-		s.Logger.Debug("custom image requested but not supported via overrides, using task definition image",
-			"requested", req.Image, "using", s.cfg.DefaultImage)
-	}
-
-	envVars := []types.KeyValuePair{
-		{
-			Name:  aws.String("RUNVOY_COMMAND"),
-			Value: aws.String(req.Command),
-		},
-	}
-	for key, value := range req.Env {
-		envVars = append(envVars, types.KeyValuePair{
-			Name:  aws.String(key),
-			Value: aws.String(value),
-		})
-	}
-
-	containerCommand := []string{
-		"/bin/sh",
-		"-c",
-		fmt.Sprintf("echo 'Execution starting'; %s", req.Command),
-	}
-
-	runTaskInput := &ecs.RunTaskInput{
-		Cluster:        aws.String(s.cfg.ECSCluster),
-		TaskDefinition: aws.String(s.cfg.TaskDefinition),
-		LaunchType:     types.LaunchTypeFargate,
-		Overrides: &types.TaskOverride{
-			ContainerOverrides: []types.ContainerOverride{
-				{
-					Name:        aws.String("executor"),
-					Command:     containerCommand,
-					Environment: envVars,
-				},
-			},
-		},
-		NetworkConfiguration: &types.NetworkConfiguration{
-			AwsvpcConfiguration: &types.AwsVpcConfiguration{
-				Subnets: []string{
-					s.cfg.Subnet1,
-					s.cfg.Subnet2,
-				},
-				SecurityGroups: []string{
-					s.cfg.SecurityGroup,
-				},
-				AssignPublicIp: types.AssignPublicIpEnabled,
-			},
-		},
-		Tags: []types.Tag{
-			{
-				Key:   aws.String("UserEmail"),
-				Value: aws.String(userEmail),
-			},
-		},
-	}
-
-	runTaskOutput, err := s.ecsClient.RunTask(ctx, runTaskInput)
+	executionID, err := s.executor.StartTask(ctx, userEmail, req)
 	if err != nil {
-		return nil, apperrors.ErrInternalError("failed to start ECS task", err)
-	}
-
-	if len(runTaskOutput.Tasks) == 0 {
-		return nil, apperrors.ErrInternalError("no tasks were started", nil)
-	}
-
-	task := runTaskOutput.Tasks[0]
-	taskARN := aws.ToString(task.TaskArn)
-	executionIDParts := strings.Split(taskARN, "/") // Format: arn:aws:ecs:region:account:task/cluster/task-id
-	executionID := executionIDParts[len(executionIDParts)-1]
-
-	s.Logger.Debug("task started", "taskARN", taskARN, "executionID", executionID)
-
-	// Add ExecutionID tag to the task for easier tracking
-	_, err = s.ecsClient.TagResource(ctx, &ecs.TagResourceInput{
-		ResourceArn: aws.String(taskARN),
-		Tags: []types.Tag{
-			{
-				Key:   aws.String("ExecutionID"),
-				Value: aws.String(executionID),
-			},
-		},
-	})
-	if err != nil {
-		// Log warning but continue - tag failure shouldn't block execution
-		s.Logger.Warn("failed to add ExecutionID tag to task",
-			"error", err,
-			"taskARN", taskARN,
-			"executionID", executionID,
-		)
+		return nil, err
 	}
 
 	// Create execution record
@@ -297,7 +189,6 @@ func (s *Service) RunCommand(ctx context.Context, userEmail string, req api.Exec
 		UserEmail:   userEmail,
 		Command:     req.Command,
 		LockName:    req.Lock,
-		TaskARN:     taskARN,
 		StartedAt:   startedAt,
 		Status:      "RUNNING",
 	}
@@ -306,14 +197,12 @@ func (s *Service) RunCommand(ctx context.Context, userEmail string, req api.Exec
 		s.Logger.Error("failed to create execution record, but task started",
 			"error", err,
 			"executionID", executionID,
-			"taskARN", taskARN,
 		)
 		// Continue even if recording fails - the task is already running
 	}
 
-	// Build log URL
-	// TODO: Implement log URL (simplified - in production this might need JWT or other auth)
-	logURL := fmt.Sprintf("/api/v1/executions/%s/logs/notimplemented", executionID)
+	// Build log URL (simplified - in production this might need JWT or other auth)
+	logURL := "/api/v1/executions/" + executionID + "/logs/notimplemented"
 
 	return &api.ExecutionResponse{
 		ExecutionID: executionID,
