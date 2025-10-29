@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/mail"
+	"strings"
 	"time"
 
 	"runvoy/internal/api"
@@ -29,15 +30,15 @@ type Service struct {
 
 // ServiceConfig holds configuration for the service
 type ServiceConfig struct {
-	ECSCluster       string
-	TaskDefinition   string
-	Subnet1          string
-	Subnet2          string
-	SecurityGroup    string
-	LogGroup         string
-	DefaultImage     string
-	TaskRoleARN      string
-	TaskExecRoleARN  string
+	ECSCluster      string
+	TaskDefinition  string
+	Subnet1         string
+	Subnet2         string
+	SecurityGroup   string
+	LogGroup        string
+	DefaultImage    string
+	TaskRoleARN     string
+	TaskExecRoleARN string
 }
 
 // NewService creates a new service instance.
@@ -193,13 +194,6 @@ func (s *Service) RunCommand(ctx context.Context, userEmail string, req api.Exec
 		return nil, apperrors.ErrBadRequest("command is required", nil)
 	}
 
-	// Generate execution ID
-	executionIDBytes := make([]byte, 16)
-	if _, err := rand.Read(executionIDBytes); err != nil {
-		return nil, apperrors.ErrInternalError("failed to generate execution ID", err)
-	}
-	executionID := fmt.Sprintf("exec_%x", executionIDBytes)
-
 	// Note: Image override is not supported via task overrides
 	// ECS container overrides don't support image changes
 	// If a custom image is needed, a new task definition revision must be registered
@@ -209,12 +203,7 @@ func (s *Service) RunCommand(ctx context.Context, userEmail string, req api.Exec
 			"requested", req.Image, "using", s.cfg.DefaultImage)
 	}
 
-	// Build environment variables for the container
 	envVars := []types.KeyValuePair{
-		{
-			Name:  aws.String("RUNVOY_EXECUTION_ID"),
-			Value: aws.String(executionID),
-		},
 		{
 			Name:  aws.String("RUNVOY_COMMAND"),
 			Value: aws.String(req.Command),
@@ -227,16 +216,12 @@ func (s *Service) RunCommand(ctx context.Context, userEmail string, req api.Exec
 		})
 	}
 
-	// Build the command that will run in the container
-	// This command will clone the repo (if needed) and run the user's command
 	containerCommand := []string{
 		"/bin/sh",
 		"-c",
-		fmt.Sprintf("echo 'Execution %s starting'; %s", executionID, req.Command),
+		fmt.Sprintf("echo 'Execution starting'; %s", req.Command),
 	}
 
-	// Run the ECS task with overrides
-	// Use the existing task definition and override container command and environment at runtime
 	runTaskInput := &ecs.RunTaskInput{
 		Cluster:        aws.String(s.cfg.ECSCluster),
 		TaskDefinition: aws.String(s.cfg.TaskDefinition),
@@ -244,8 +229,8 @@ func (s *Service) RunCommand(ctx context.Context, userEmail string, req api.Exec
 		Overrides: &types.TaskOverride{
 			ContainerOverrides: []types.ContainerOverride{
 				{
-					Name:  aws.String("executor"),
-					Command: containerCommand,
+					Name:        aws.String("executor"),
+					Command:     containerCommand,
 					Environment: envVars,
 				},
 			},
@@ -264,10 +249,6 @@ func (s *Service) RunCommand(ctx context.Context, userEmail string, req api.Exec
 		},
 		Tags: []types.Tag{
 			{
-				Key:   aws.String("ExecutionID"),
-				Value: aws.String(executionID),
-			},
-			{
 				Key:   aws.String("UserEmail"),
 				Value: aws.String(userEmail),
 			},
@@ -283,36 +264,57 @@ func (s *Service) RunCommand(ctx context.Context, userEmail string, req api.Exec
 		return nil, apperrors.ErrInternalError("no tasks were started", nil)
 	}
 
-	taskARN := aws.ToString(runTaskOutput.Tasks[0].TaskArn)
+	task := runTaskOutput.Tasks[0]
+	taskARN := aws.ToString(task.TaskArn)
+	executionIDParts := strings.Split(taskARN, "/") // Format: arn:aws:ecs:region:account:task/cluster/task-id
+	executionID := executionIDParts[len(executionIDParts)-1]
 
-	// Extract log stream name from task ARN if available
-	// Format: arn:aws:ecs:region:account:task/cluster/task-id
-	logStreamName := fmt.Sprintf("execution/%s", executionID)
+	// Add ExecutionID tag to the task for easier tracking
+	_, err = s.ecsClient.TagResource(ctx, &ecs.TagResourceInput{
+		ResourceArn: aws.String(taskARN),
+		Tags: []types.Tag{
+			{
+				Key:   aws.String("ExecutionID"),
+				Value: aws.String(executionID),
+			},
+		},
+	})
+	if err != nil {
+		// Log warning but continue - tag failure shouldn't block execution
+		s.Logger.Warn("failed to add ExecutionID tag to task",
+			"error", err,
+			"taskARN", taskARN,
+			"executionID", executionID,
+		)
+	}
 
 	// Create execution record
 	startedAt := time.Now().UTC()
 	execution := &api.Execution{
-		ExecutionID:     executionID,
-		UserEmail:       userEmail,
-		Command:         req.Command,
-		LockName:        req.Lock,
-		TaskARN:         taskARN,
-		StartedAt:       startedAt,
-		Status:          "RUNNING",
-		LogStreamName:   logStreamName,
+		ExecutionID: executionID,
+		UserEmail:   userEmail,
+		Command:     req.Command,
+		LockName:    req.Lock,
+		TaskARN:     taskARN,
+		StartedAt:   startedAt,
+		Status:      "RUNNING",
 	}
 
 	if err := s.executionRepo.CreateExecution(ctx, execution); err != nil {
-		s.Logger.Warn("failed to create execution record, but task started", "error", err, "executionID", executionID, "taskARN", taskARN)
+		s.Logger.Error("failed to create execution record, but task started",
+			"error", err,
+			"executionID", executionID,
+			"taskARN", taskARN,
+		)
 		// Continue even if recording fails - the task is already running
 	}
 
-	// Build log URL (simplified - in production this might need JWT or other auth)
-	logURL := fmt.Sprintf("/api/v1/executions/%s/logs", executionID)
+	// Build log URL
+	// TODO: Implement log URL (simplified - in production this might need JWT or other auth)
+	logURL := fmt.Sprintf("/api/v1/executions/%s/logs/notimplemented", executionID)
 
 	return &api.ExecutionResponse{
 		ExecutionID: executionID,
-		TaskARN:     taskARN,
 		LogURL:      logURL,
 		Status:      "RUNNING",
 	}, nil

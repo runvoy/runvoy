@@ -152,4 +152,4 @@ smoke-test-local-run-command:
         -H "X-API-Key: ${RUNVOY_ADMIN_API_KEY}" \
         -X POST "http://localhost:56212/api/v1/run" \
         -H "Content-Type: application/json" \
-        -d "{\"command\":\"echo Hello, World! $(date +%s) \"}" | jq .
+        -d "{\"command\":\"echo Hello, World! $(date +'%Y-%m-%d-%H-%M')\"}" | jq .

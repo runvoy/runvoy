@@ -18,7 +18,6 @@ type ExecutionRequest struct {
 // ExecutionResponse represents the response to an execution request
 type ExecutionResponse struct {
 	ExecutionID string `json:"execution_id"`
-	TaskARN     string `json:"task_arn"`
 	LogURL      string `json:"log_url"`
 	Status      string `json:"status"`
 }

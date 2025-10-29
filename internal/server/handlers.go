@@ -3,7 +3,7 @@ package server
 import (
 	"encoding/json"
 	"net/http"
-	
+
 	"runvoy/internal/api"
 	"runvoy/internal/constants"
 	apperrors "runvoy/internal/errors"
@@ -27,7 +27,7 @@ func (r *Router) handleCreateUser(w http.ResponseWriter, req *http.Request) {
 		errorMsg := apperrors.GetErrorMessage(err)
 
 		logger.Debug("failed to create user", "error", err, "statusCode", statusCode, "errorCode", errorCode)
-		
+
 		writeErrorResponseWithCode(w, statusCode, errorCode, "failed to create user", errorMsg)
 
 		return
@@ -54,7 +54,7 @@ func (r *Router) handleRevokeUser(w http.ResponseWriter, req *http.Request) {
 		errorMsg := apperrors.GetErrorMessage(err)
 
 		logger.Debug("failed to revoke user", "error", err, "statusCode", statusCode, "errorCode", errorCode)
-		
+
 		writeErrorResponseWithCode(w, statusCode, errorCode, "failed to revoke user", errorMsg)
 
 		return
