@@ -109,6 +109,19 @@ func writeErrorResponse(w http.ResponseWriter, statusCode int, message string, d
 	})
 }
 
+// writeErrorResponseWithCode is a helper to write error responses with error codes
+func writeErrorResponseWithCode(w http.ResponseWriter, statusCode int, code, message string, details string) {
+	w.WriteHeader(statusCode)
+	resp := api.ErrorResponse{
+		Error:   message,
+		Details: details,
+	}
+	if code != "" {
+		resp.Code = code
+	}
+	json.NewEncoder(w).Encode(resp)
+}
+
 // containsString checks if a string contains a substring
 func containsString(s, substr string) bool {
 	return len(s) >= len(substr) && (s == substr || len(s) > len(substr) && findSubstring(s, substr))

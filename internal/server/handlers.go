@@ -3,8 +3,10 @@ package server
 import (
 	"encoding/json"
 	"net/http"
+	
 	"runvoy/internal/api"
 	"runvoy/internal/constants"
+	apperrors "runvoy/internal/errors"
 )
 
 // handleCreateUser handles POST /api/v1/users to create a new user with an API key
@@ -20,20 +22,13 @@ func (r *Router) handleCreateUser(w http.ResponseWriter, req *http.Request) {
 
 	resp, err := r.svc.CreateUser(req.Context(), createReq)
 	if err != nil {
-		statusCode := http.StatusInternalServerError
+		statusCode := apperrors.GetStatusCode(err)
+		errorCode := apperrors.GetErrorCode(err)
+		errorMsg := apperrors.GetErrorMessage(err)
 
-		if err.Error() == "email is required" ||
-			err.Error() == "user with this email already exists" ||
-			containsString(err.Error(), "invalid email address") {
-			statusCode = http.StatusBadRequest
-		}
-
-		if err.Error() == "user with this email already exists" {
-			statusCode = http.StatusConflict
-		}
-
-		logger.Debug("failed to create user", "error", err)
-		writeErrorResponse(w, statusCode, "failed to create user", err.Error())
+		logger.Debug("failed to create user", "error", err, "statusCode", statusCode, "errorCode", errorCode)
+		
+		writeErrorResponseWithCode(w, statusCode, errorCode, "failed to create user", errorMsg)
 
 		return
 	}
@@ -54,18 +49,13 @@ func (r *Router) handleRevokeUser(w http.ResponseWriter, req *http.Request) {
 	}
 
 	if err := r.svc.RevokeUser(req.Context(), revokeReq.Email); err != nil {
-		statusCode := http.StatusInternalServerError
+		statusCode := apperrors.GetStatusCode(err)
+		errorCode := apperrors.GetErrorCode(err)
+		errorMsg := apperrors.GetErrorMessage(err)
 
-		if err.Error() == "email is required" {
-			statusCode = http.StatusBadRequest
-		}
-
-		if err.Error() == "user not found" {
-			statusCode = http.StatusNotFound
-		}
-
-		logger.Debug("failed to revoke user", "error", err)
-		writeErrorResponse(w, statusCode, "failed to revoke user", err.Error())
+		logger.Debug("failed to revoke user", "error", err, "statusCode", statusCode, "errorCode", errorCode)
+		
+		writeErrorResponseWithCode(w, statusCode, errorCode, "failed to revoke user", errorMsg)
 
 		return
 	}

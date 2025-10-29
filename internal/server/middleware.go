@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"runvoy/internal/constants"
+	apperrors "runvoy/internal/errors"
 
 	"github.com/aws/aws-lambda-go/lambdacontext"
 )
@@ -99,7 +100,20 @@ func (r *Router) authenticateRequestMiddleware(next http.Handler) http.Handler {
 
 		user, err := r.svc.AuthenticateUser(req.Context(), apiKey)
 		if err != nil {
-			writeErrorResponse(w, http.StatusUnauthorized, "Unauthorized", "Invalid API key")
+			// Use the error's status code from the error handling system
+			// Database errors will be 503, invalid/revoked keys will be 401
+			statusCode := apperrors.GetStatusCode(err)
+			errorCode := apperrors.GetErrorCode(err)
+			errorMsg := apperrors.GetErrorMessage(err)
+			
+			// Validate status code is in HTTP error range, otherwise default to 401
+			// This ensures server errors (500+) are properly returned
+			if statusCode < 400 || statusCode >= 600 {
+				// Fallback: shouldn't happen, but if error type is wrong, default to 401
+				statusCode = http.StatusUnauthorized
+			}
+			
+			writeErrorResponseWithCode(w, statusCode, errorCode, "Unauthorized", errorMsg)
 			return
 		}
 
