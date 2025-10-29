@@ -77,7 +77,7 @@ func (r *Router) handleHealth(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]string{
 		"status":  "ok",
-		"version": constants.Version,
+		"version": *constants.GetVersion(),
 	})
 }
 

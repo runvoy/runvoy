@@ -11,21 +11,21 @@ build: build-cli build-backend build-local
 [working-directory: 'cmd/runvoy']
 build-cli:
     go build \
-        -ldflags "-X=runvoy/internal/constants.Version=$(cat ../../VERSION | tr -d '\n')-$(date +%Y%m%d)-$(git rev-parse --short HEAD)" \
+        -ldflags "-X=runvoy/internal/constants.version=$(cat ../../VERSION | tr -d '\n')-$(date +%Y%m%d)-$(git rev-parse --short HEAD)" \
         -o ../../bin/runvoy
 
 # Build backend service (Lambda function)
 [working-directory: 'cmd/backend/aws']
 build-backend:
     GOARCH=arm64 GOOS=linux go build \
-        -ldflags "-X=runvoy/internal/constants.Version=$(cat ../../../VERSION | tr -d '\n')-$(date +%Y%m%d)-$(git rev-parse --short HEAD)" \
+        -ldflags "-X=runvoy/internal/constants.version=$(cat ../../../VERSION | tr -d '\n')-$(date +%Y%m%d)-$(git rev-parse --short HEAD)" \
         -o ../../../dist/bootstrap
 
 # Build local development server
 [working-directory: 'cmd/local']
 build-local:
     go build \
-        -ldflags "-X=runvoy/internal/constants.Version=$(cat ../../VERSION | tr -d '\n')-$(date +%Y%m%d)-$(git rev-parse --short HEAD)" \
+        -ldflags "-X=runvoy/internal/constants.version=$(cat ../../VERSION | tr -d '\n')-$(date +%Y%m%d)-$(git rev-parse --short HEAD)" \
         -o ../../bin/local
 
 # Run local development server
@@ -109,7 +109,7 @@ local-dev-server:
             RUNVOY_LOG_LEVEL=DEBUG \
             RUNVOY_API_KEYS_TABLE=runvoy-api-keys \
         go run \
-            -ldflags "-X=runvoy/internal/constants.Version=$(cat VERSION | tr -d '\n')-$(date +%Y%m%d)-$(git rev-parse --short HEAD)" \
+            -ldflags "-X=runvoy/internal/constants.version=$(cat VERSION | tr -d '\n')-$(date +%Y%m%d)-$(git rev-parse --short HEAD)" \
             ./cmd/local'
 
 # Smoke test local user creation (requires RUNVOY_ADMIN_API_KEY env var)

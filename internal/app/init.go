@@ -24,7 +24,7 @@ import (
 func Initialize(ctx context.Context, provider constants.BackendProvider, cfg *config.Env, logger *slog.Logger) (*Service, error) {
 	logger.Debug("initializing "+constants.ProjectName,
 		"provider", provider,
-		"version", constants.Version,
+		"version", *constants.GetVersion(),
 		"init_timeout", cfg.InitTimeout,
 	)
 

@@ -31,7 +31,7 @@ Run commands remotely without the hassle of local execution, credential sharing,
 		// Initialize logger based on verbose flag
 		logLevel := slog.LevelInfo
 		if verbose {
-			output.Header(output.Bold(constants.ProjectName) + " " + constants.Version)
+			output.Header(output.Bold(constants.ProjectName) + " " + *constants.GetVersion())
 			output.Info("verbose output enabled")
 		}
 		if debug {
