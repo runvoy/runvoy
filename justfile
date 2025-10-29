@@ -146,3 +146,10 @@ smoke-test-backend-users-create:
         -X POST "${RUNVOY_LAMBDA_URL}/api/v1/users/create" \
         -H "Content-Type: application/json" \
         -d '{"email":"bob@example.com"}' | jq .
+
+smoke-test-local-run-command:
+    curl -sS \
+        -H "X-API-Key: ${RUNVOY_ADMIN_API_KEY}" \
+        -X POST "http://localhost:56212/api/v1/run" \
+        -H "Content-Type: application/json" \
+        -d "{\"command\":\"echo Hello, World! $(date +%s) \"}" | jq .
