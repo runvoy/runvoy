@@ -10,6 +10,7 @@ import (
 
 	"runvoy/internal/constants"
 	"runvoy/internal/logger"
+	"runvoy/internal/output"
 
 	"github.com/spf13/cobra"
 )
@@ -28,6 +29,7 @@ Run commands remotely without the hassle of local execution, credential sharing,
 		logLevel := slog.LevelInfo
 		if verbose {
 			logLevel = slog.LevelDebug
+			output.Info(constants.ProjectName + " " + constants.Version + " - Verbose output enabled")
 		}
 		logger.Initialize(constants.Development, logLevel)
 

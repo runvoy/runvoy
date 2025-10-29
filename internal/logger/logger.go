@@ -17,10 +17,10 @@ func Initialize(env constants.Environment, level slog.Level) *slog.Logger {
 	}
 
 	if env == constants.Production {
-		handler = slog.NewJSONHandler(os.Stdout, opts)
+		handler = slog.NewJSONHandler(os.Stderr, opts)
 	} else {
 		// Human-readable format for development
-		handler = slog.NewTextHandler(os.Stdout, opts)
+		handler = slog.NewTextHandler(os.Stderr, opts)
 	}
 
 	logger := slog.New(handler)

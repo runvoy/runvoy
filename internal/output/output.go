@@ -49,13 +49,13 @@ func Info(format string, a ...interface{}) {
 // Warning prints a warning message with a warning symbol
 // Example: ⚠ Lock already held by alice@acme.com
 func Warning(format string, a ...interface{}) {
-	fmt.Fprintf(Stderr, yellow.Sprint("⚠")+" "+format+"\n", a...)
+	fmt.Fprintf(Stdout, yellow.Sprint("⚠")+" "+format+"\n", a...)
 }
 
 // Error prints an error message with an X symbol
 // Example: ✗ Failed to create stack: permission denied
 func Error(format string, a ...interface{}) {
-	fmt.Fprintf(Stderr, red.Sprint("✗")+" "+format+"\n", a...)
+	fmt.Fprintf(Stdout, red.Sprint("✗")+" "+format+"\n", a...)
 }
 
 // Fatal prints an error message and exits with code 1
