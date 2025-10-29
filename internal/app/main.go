@@ -16,16 +16,16 @@ import (
 
 // Executor abstracts provider-specific command execution (e.g., AWS ECS, GCP, etc.).
 type Executor interface {
-    // StartTask triggers an execution on the underlying platform and returns
-    // a provider-specific task ARN/ID and a stable executionID.
-    StartTask(ctx context.Context, userEmail string, req api.ExecutionRequest) (taskARN string, executionID string, err error)
+	// StartTask triggers an execution on the underlying platform and returns
+	// a provider-specific task ARN/ID and a stable executionID.
+	StartTask(ctx context.Context, userEmail string, req api.ExecutionRequest) (executionID string, err error)
 }
 
 type Service struct {
-    userRepo      database.UserRepository
-    executionRepo database.ExecutionRepository
-    executor      Executor
-    Logger        *slog.Logger
+	userRepo      database.UserRepository
+	executionRepo database.ExecutionRepository
+	executor      Executor
+	Logger        *slog.Logger
 }
 
 // NOTE: provider-specific configuration has been moved to subpackages (e.g., app/aws).
@@ -34,12 +34,12 @@ type Service struct {
 // If userRepo is nil, user-related operations will not be available.
 // This allows the service to work without database dependencies for simple operations.
 func NewService(userRepo database.UserRepository, executionRepo database.ExecutionRepository, executor Executor, logger *slog.Logger) *Service {
-    return &Service{
-        userRepo:      userRepo,
-        executionRepo: executionRepo,
-        executor:      executor,
-        Logger:        logger,
-    }
+	return &Service{
+		userRepo:      userRepo,
+		executionRepo: executionRepo,
+		executor:      executor,
+		Logger:        logger,
+	}
 }
 
 // CreateUser creates a new user with an API key.
@@ -177,10 +177,10 @@ func (s *Service) RunCommand(ctx context.Context, userEmail string, req api.Exec
 	if req.Command == "" {
 		return nil, apperrors.ErrBadRequest("command is required", nil)
 	}
-    taskARN, executionID, err := s.executor.StartTask(ctx, userEmail, req)
-    if err != nil {
-        return nil, err
-    }
+	executionID, err := s.executor.StartTask(ctx, userEmail, req)
+	if err != nil {
+		return nil, err
+	}
 
 	// Create execution record
 	startedAt := time.Now().UTC()
@@ -189,7 +189,6 @@ func (s *Service) RunCommand(ctx context.Context, userEmail string, req api.Exec
 		UserEmail:   userEmail,
 		Command:     req.Command,
 		LockName:    req.Lock,
-		TaskARN:     taskARN,
 		StartedAt:   startedAt,
 		Status:      "RUNNING",
 	}
@@ -198,13 +197,12 @@ func (s *Service) RunCommand(ctx context.Context, userEmail string, req api.Exec
 		s.Logger.Error("failed to create execution record, but task started",
 			"error", err,
 			"executionID", executionID,
-			"taskARN", taskARN,
 		)
 		// Continue even if recording fails - the task is already running
 	}
 
-    // Build log URL (simplified - in production this might need JWT or other auth)
-    logURL := "/api/v1/executions/" + executionID + "/logs/notimplemented"
+	// Build log URL (simplified - in production this might need JWT or other auth)
+	logURL := "/api/v1/executions/" + executionID + "/logs/notimplemented"
 
 	return &api.ExecutionResponse{
 		ExecutionID: executionID,
