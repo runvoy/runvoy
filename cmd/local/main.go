@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -35,6 +36,12 @@ func main() {
 		ReadTimeout:  15 * time.Second,
 		WriteTimeout: 15 * time.Second,
 		IdleTimeout:  60 * time.Second,
+		ConnContext: func(ctx context.Context, c net.Conn) context.Context {
+			ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
+			defer cancel()
+
+			return ctx
+		},
 	}
 
 	go func() {
