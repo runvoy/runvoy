@@ -42,13 +42,13 @@ func (e *AppError) Is(target error) bool {
 // Predefined error codes
 const (
 	// Client error codes
-	ErrCodeInvalidRequest     = "INVALID_REQUEST"
-	ErrCodeUnauthorized       = "UNAUTHORIZED"
-	ErrCodeNotFound           = "NOT_FOUND"
-	ErrCodeConflict           = "CONFLICT"
-	ErrCodeInvalidAPIKey      = "INVALID_API_KEY"
-	ErrCodeAPIKeyRevoked      = "API_KEY_REVOKED"
-	
+	ErrCodeInvalidRequest = "INVALID_REQUEST"
+	ErrCodeUnauthorized   = "UNAUTHORIZED"
+	ErrCodeNotFound       = "NOT_FOUND"
+	ErrCodeConflict       = "CONFLICT"
+	ErrCodeInvalidAPIKey  = "INVALID_API_KEY"
+	ErrCodeAPIKeyRevoked  = "API_KEY_REVOKED"
+
 	// Server error codes
 	ErrCodeInternalError      = "INTERNAL_ERROR"
 	ErrCodeDatabaseError      = "DATABASE_ERROR"
