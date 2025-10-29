@@ -127,7 +127,7 @@ func (r *Router) requestLoggingMiddleware(next http.Handler) http.Handler {
 			statusCode:     http.StatusOK, // default status code
 		}
 
-		logger.Info("Incoming request",
+		logger.Info("processing incoming client request",
 			"method", req.Method,
 			"path", req.URL.Path,
 			"remoteAddr", req.RemoteAddr,
@@ -137,7 +137,7 @@ func (r *Router) requestLoggingMiddleware(next http.Handler) http.Handler {
 		next.ServeHTTP(wrapped, req)
 		duration := time.Since(start)
 
-		logger.Info("Request completed",
+		logger.Info("sent response to client",
 			"method", req.Method,
 			"path", req.URL.Path,
 			"status", wrapped.statusCode,
