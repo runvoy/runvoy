@@ -8,6 +8,7 @@ import (
 
 	"runvoy/internal/api"
 	apperrors "runvoy/internal/errors"
+	"runvoy/internal/logger"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
@@ -88,6 +89,9 @@ func (e *executionItem) toAPIExecution() *api.Execution {
 
 // CreateExecution stores a new execution record in DynamoDB.
 func (r *ExecutionRepository) CreateExecution(ctx context.Context, execution *api.Execution) error {
+
+	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
+
 	item := toExecutionItem(execution)
 
 	av, err := attributevalue.MarshalMap(item)
@@ -100,7 +104,7 @@ func (r *ExecutionRepository) CreateExecution(ctx context.Context, execution *ap
 		Item:      av,
 	})
 
-	r.logger.Debug("execution stored successfully", "executionID", execution.ExecutionID)
+	reqLogger.Debug("execution stored successfully", "executionID", execution.ExecutionID)
 
 	if err != nil {
 		return apperrors.ErrDatabaseError("failed to create execution", err)

@@ -13,6 +13,7 @@ import (
 	"runvoy/internal/constants"
 	"runvoy/internal/database"
 	apperrors "runvoy/internal/errors"
+	"runvoy/internal/logger"
 
 	"github.com/aws/aws-lambda-go/lambdacontext"
 )
@@ -188,8 +189,10 @@ func (s *Service) RunCommand(ctx context.Context, userEmail string, req api.Exec
 		return nil, err
 	}
 
+	reqLogger := logger.DeriveRequestLogger(ctx, s.Logger)
+
 	if taskARN != "" {
-		s.Logger.Info("provider task started", "executionID", executionID, "taskARN", taskARN)
+		reqLogger.Info("provider task started", "executionID", executionID, "taskARN", taskARN)
 	}
 
 	// Create execution record
@@ -210,13 +213,13 @@ func (s *Service) RunCommand(ctx context.Context, userEmail string, req api.Exec
 	}
 
 	if requestID == "" {
-		s.Logger.Warn("request ID not available; storing execution without request ID",
+		reqLogger.Warn("request ID not available; storing execution without request ID",
 			"executionID", executionID,
 		)
 	}
 
 	if err := s.executionRepo.CreateExecution(ctx, execution); err != nil {
-		s.Logger.Error("failed to create execution record, but task started",
+		reqLogger.Error("failed to create execution record, but task started",
 			"error", err,
 			"executionID", executionID,
 		)

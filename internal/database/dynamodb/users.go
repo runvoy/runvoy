@@ -8,6 +8,7 @@ import (
 
 	"runvoy/internal/api"
 	apperrors "runvoy/internal/errors"
+	"runvoy/internal/logger"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
@@ -76,7 +77,10 @@ func (r *UserRepository) CreateUser(ctx context.Context, user *api.User, apiKeyH
 
 // GetUserByEmail retrieves a user by their email using the GSI.
 func (r *UserRepository) GetUserByEmail(ctx context.Context, email string) (*api.User, error) {
-	r.logger.Debug("querying user by email", "email", email)
+
+	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
+
+	reqLogger.Debug("querying user by email", "email", email)
 
 	result, err := r.client.Query(ctx, &dynamodb.QueryInput{
 		TableName:              aws.String(r.tableName),
@@ -91,7 +95,7 @@ func (r *UserRepository) GetUserByEmail(ctx context.Context, email string) (*api
 	}
 
 	if len(result.Items) == 0 {
-		r.logger.Debug("user not found", "email", email)
+		reqLogger.Debug("user not found", "email", email)
 
 		return nil, nil
 	}
@@ -112,7 +116,10 @@ func (r *UserRepository) GetUserByEmail(ctx context.Context, email string) (*api
 
 // GetUserByAPIKeyHash retrieves a user by their hashed API key (primary key).
 func (r *UserRepository) GetUserByAPIKeyHash(ctx context.Context, apiKeyHash string) (*api.User, error) {
-	r.logger.Debug("querying user by API key hash", "apiKeyHash", apiKeyHash)
+
+	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
+
+	reqLogger.Debug("querying user by API key hash", "apiKeyHash", apiKeyHash)
 
 	result, err := r.client.GetItem(ctx, &dynamodb.GetItemInput{
 		TableName: aws.String(r.tableName),
@@ -122,13 +129,13 @@ func (r *UserRepository) GetUserByAPIKeyHash(ctx context.Context, apiKeyHash str
 	})
 
 	if err != nil {
-		r.logger.Debug("failed to get user by API key hash", "error", err)
+		reqLogger.Debug("failed to get user by API key hash", "error", err)
 
 		return nil, apperrors.ErrDatabaseError("failed to get user by API key hash", err)
 	}
 
 	if result.Item == nil {
-		r.logger.Debug("user not found", "apiKeyHash", apiKeyHash)
+		reqLogger.Debug("user not found", "apiKeyHash", apiKeyHash)
 
 		return nil, nil
 	}

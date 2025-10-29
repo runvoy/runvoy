@@ -179,13 +179,13 @@ The application uses a unified logging approach with structured logging via `log
 
 ### Service-Level Logging
 - Each `Service` instance contains its own logger instance (`Service.Logger`)
-- This eliminates the need for context-based logger extraction
-- All service methods can directly access `s.Logger` for consistent logging
+- Service methods that receive a `context.Context` derive a request-scoped logger using the Lambda request ID when available: `reqLogger := s.Logger.With("requestID", AwsRequestID)`
+- This keeps logs consistent with router/handler logs and ensures traceability across layers
 
 ### Request-Scoped Logging
-- Router handlers create request-scoped loggers by combining the service logger with request ID
-- Pattern: `logger := r.svc.Logger.With("requestID", requestID)`
-- This ensures all log messages within a request include the Lambda request ID for tracing
+- A helper `logger.DeriveRequestLogger(ctx, base)` builds a request-scoped logger from context
+- Currently extracts AWS Lambda request ID; future providers can be added centrally
+- Router/handlers, services, and repositories use this helper to keep logs consistently tagged
 
 ### Request Logging Middleware
 - **Automatic Request Logging**: The request logging middleware automatically logs all incoming requests
@@ -196,9 +196,9 @@ The application uses a unified logging approach with structured logging via `log
 - Remote address is automatically available in both local and Lambda executions via the Lambda adapter
 
 ### Database Layer Logging
-- Database repositories receive the service logger during initialization
-- This maintains consistent logging across all application layers
-- Database operations are logged with the same structured format
+- Database repositories receive the base service logger during initialization
+- Repository methods derive a request-scoped logger from the call context (when a Lambda request ID is present) so their logs include `requestID`
+- This maintains consistent, end-to-end traceability for a request across middleware, handlers, services, and repositories
 
 ### Benefits
 - **Consistency**: All logging uses the same logger instance and format

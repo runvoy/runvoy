@@ -8,6 +8,7 @@ import (
 
 	"runvoy/internal/api"
 	apperrors "runvoy/internal/errors"
+	"runvoy/internal/logger"
 
 	"github.com/aws/aws-lambda-go/lambdacontext"
 	awsstd "github.com/aws/aws-sdk-go-v2/aws"
@@ -45,9 +46,11 @@ func (e *Executor) StartTask(ctx context.Context, userEmail string, req api.Exec
 		return "", "", apperrors.ErrInternalError("ECS cli endpoint not configured", nil)
 	}
 
+	reqLogger := logger.DeriveRequestLogger(ctx, e.logger)
+
 	// Note: Image override is not supported via task overrides; use task definition image.
 	if req.Image != "" && req.Image != e.cfg.DefaultImage {
-		e.logger.Debug("custom image requested but not supported via overrides, using task definition image",
+		reqLogger.Debug("custom image requested but not supported via overrides, using task definition image",
 			"requested", req.Image, "using", e.cfg.DefaultImage)
 	}
 
@@ -95,7 +98,7 @@ func (e *Executor) StartTask(ctx context.Context, userEmail string, req api.Exec
 	executionIDParts := strings.Split(taskARN, "/")
 	executionID := executionIDParts[len(executionIDParts)-1]
 
-	e.logger.Debug("task started", "taskARN", taskARN, "executionID", executionID)
+	reqLogger.Debug("task started", "taskARN", taskARN, "executionID", executionID)
 
 	// Add ExecutionID tag to the task for easier tracking (best-effort)
 	_, tagErr := e.ecsClient.TagResource(ctx, &ecs.TagResourceInput{
@@ -103,7 +106,7 @@ func (e *Executor) StartTask(ctx context.Context, userEmail string, req api.Exec
 		Tags:        []ecstypes.Tag{{Key: awsstd.String("ExecutionID"), Value: awsstd.String(executionID)}},
 	})
 	if tagErr != nil {
-		e.logger.Warn("failed to add ExecutionID tag to task", "error", tagErr, "taskARN", taskARN, "executionID", executionID)
+		reqLogger.Warn("failed to add ExecutionID tag to task", "error", tagErr, "taskARN", taskARN, "executionID", executionID)
 	}
 
 	return executionID, taskARN, nil
