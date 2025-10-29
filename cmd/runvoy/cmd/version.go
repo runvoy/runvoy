@@ -31,7 +31,7 @@ var versionCmd = &cobra.Command{
 		}
 
 		client := client.New(cfg, slog.Default())
-		if err := client.DoJSON(req, &resp); err != nil {
+		if err := client.DoJSON(cmd.Context(), req, &resp); err != nil {
 			output.Error(err.Error())
 			return
 		}

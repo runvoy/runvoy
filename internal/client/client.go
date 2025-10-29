@@ -2,6 +2,7 @@ package client
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -40,7 +41,7 @@ type Response struct {
 }
 
 // Do makes an HTTP request to the API
-func (c *Client) Do(req Request) (*Response, error) {
+func (c *Client) Do(ctx context.Context, req Request) (*Response, error) {
 	// Create request body
 	var bodyReader io.Reader
 	if req.Body != nil {
@@ -58,7 +59,7 @@ func (c *Client) Do(req Request) (*Response, error) {
 	}
 
 	// Create HTTP request
-	httpReq, err := http.NewRequest(req.Method, url, bodyReader)
+	httpReq, err := http.NewRequestWithContext(ctx, req.Method, url, bodyReader)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -98,8 +99,8 @@ func (c *Client) Do(req Request) (*Response, error) {
 }
 
 // DoJSON makes a request and unmarshals the response into the provided interface
-func (c *Client) DoJSON(req Request, result interface{}) error {
-	resp, err := c.Do(req)
+func (c *Client) DoJSON(ctx context.Context, req Request, result interface{}) error {
+	resp, err := c.Do(ctx, req)
 	if err != nil {
 		return err
 	}

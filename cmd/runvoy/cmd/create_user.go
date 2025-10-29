@@ -33,7 +33,7 @@ func init() {
 	rootCmd.AddCommand(usersCmd)
 }
 
-func runCreateUser(_ *cobra.Command, args []string) {
+func runCreateUser(cmd *cobra.Command, args []string) {
 	cfg, err := config.Load()
 	if err != nil {
 		output.Error("failed to load configuration: %v", err)
@@ -53,7 +53,7 @@ func runCreateUser(_ *cobra.Command, args []string) {
 	}
 
 	client := client.New(cfg, slog.Default())
-	if err := client.DoJSON(req, &resp); err != nil {
+	if err := client.DoJSON(cmd.Context(), req, &resp); err != nil {
 		output.Error(err.Error())
 		return
 	}

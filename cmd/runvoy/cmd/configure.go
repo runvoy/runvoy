@@ -1,8 +1,6 @@
 package cmd
 
 import (
-	"os"
-
 	"runvoy/internal/config"
 	"runvoy/internal/constants"
 	"runvoy/internal/output"
@@ -44,8 +42,7 @@ func runConfigure(cmd *cobra.Command, args []string) {
 			endpoint = existingConfig.APIEndpoint
 			output.Info("Using existing endpoint: %s", endpoint)
 		} else {
-			output.Error("API endpoint is required")
-			os.Exit(1)
+			output.Fatal("API endpoint is required")
 		}
 	}
 
@@ -56,8 +53,7 @@ func runConfigure(cmd *cobra.Command, args []string) {
 			apiKey = existingConfig.APIKey
 			output.Info("Using existing API key")
 		} else {
-			output.Error("API key is required")
-			os.Exit(1)
+			output.Fatal("API key is required")
 		}
 	}
 
@@ -69,15 +65,13 @@ func runConfigure(cmd *cobra.Command, args []string) {
 
 	// Save configuration
 	if err := config.Save(cfg); err != nil {
-		output.Error("Failed to save configuration: %v", err)
-		os.Exit(1)
+		output.Fatal("Failed to save configuration: %v", err)
 	}
 
 	// Get config path for display
 	configPath, err := config.GetConfigPath()
 	if err != nil {
-		output.Error("Failed to get config path: %v", err)
-		os.Exit(1)
+		output.Fatal("Failed to get config path: %v", err)
 	}
 
 	output.Success("Configuration saved successfully")
