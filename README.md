@@ -36,9 +36,40 @@ For detailed architecture information, see [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## Usage
 
+### Commands
+
+**User Management:**
 ```bash
-runvoy create-user --email alice@example.com
-runvoy revoke-user --email alice@example.com
+# Create a new user (returns API key - save it immediately!)
+runvoy users create <email>
+
+# Revoke a user's API key
+runvoy users revoke <email>
+```
+
+**Configuration:**
+```bash
+# Configure CLI with API key and endpoint URL
+runvoy configure
+```
+
+**Other:**
+```bash
+# Show CLI and backend versions
+runvoy version
+```
+
+### Global Flags
+
+All commands support the following global flags:
+
+- `--timeout <duration>` - Timeout for command execution (default: `10m`, e.g., `30s`, `1h`, `600`)
+- `--verbose` - Enable verbose output
+- `--debug` - Enable debugging logs
+
+Example:
+```bash
+runvoy --verbose --timeout 5m users create alice@example.com
 ```
 
 ## Quick Start
