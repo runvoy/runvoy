@@ -67,7 +67,7 @@ func (r *Router) handleRevokeUser(w http.ResponseWriter, req *http.Request) {
 	})
 }
 
-// handleRunCommand handles POST /api/v1/run to execute a command in an ECS Fargate container
+// handleRunCommand handles POST /api/v1/run to execute a command in an ephemeral container
 func (r *Router) handleRunCommand(w http.ResponseWriter, req *http.Request) {
 	logger := r.GetLoggerFromContext(req.Context())
 
