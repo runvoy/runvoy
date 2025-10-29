@@ -47,8 +47,7 @@ Run commands remotely without the hassle of local execution, credential sharing,
 			return nil
 		}
 
-		// Parse timeout value and create context
-		// This runs after flags are parsed but before the command runs
+		// NOTICE: this runs after flags are parsed but before the command runs
 		timeoutDuration, err := parseTimeout(timeout)
 		if err != nil {
 			return fmt.Errorf("error parsing timeout: %w", err)
@@ -61,6 +60,7 @@ Run commands remotely without the hassle of local execution, credential sharing,
 		if verbose {
 			output.Info("timeout: %s", timeoutDuration)
 		}
+
 		return nil
 	},
 }
