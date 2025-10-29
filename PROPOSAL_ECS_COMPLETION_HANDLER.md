@@ -19,7 +19,6 @@ We need to:
    - **Completion time** (`completed_at`)
    - **Duration** (calculated from `started_at` and `completed_at`)
    - **Computed cost** (based on Fargate pricing)
-   - **Task ARN** (for reference)
    - Any other relevant metadata
 
 ## Proposed Solution
