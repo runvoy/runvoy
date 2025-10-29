@@ -19,13 +19,13 @@ import (
 // Callers should handle errors and potentially panic if initialization fails during startup.
 //
 // Supported cloud providers:
-//   - "aws": Uses DynamoDB for storage
+//   - "aws": Uses DynamoDB for storage, Fargate for execution
 //   - "gcp": (future) E.g. using Google Cloud Run and Firestore for storage
 func Initialize(ctx context.Context, provider constants.BackendProvider, cfg *config.Env, logger *slog.Logger) (*Service, error) {
 	logger.Debug("initializing "+constants.ProjectName,
 		"provider", provider,
 		"version", *constants.GetVersion(),
-		"init_timeout", cfg.InitTimeout,
+		"init_timeout_seconds", int(cfg.InitTimeout.Seconds()),
 	)
 
 	var (
