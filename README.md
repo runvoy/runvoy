@@ -6,6 +6,8 @@ Think of `kubectl run` but for any command, without the need for a Kubernetes cl
 
 Think of sharing execution logs like with Github Actions, but without the need for a CI/CD pipeline nor a 3rd party service.
 
+Think of the locking benefits of Terraform Cloud, but without the need for a Terraform Cloud account.
+
 ## Overview
 
 runvoy solves the challenge of giving team members access to run infrastructure commands (terraform, CDK, kubectl, etc.) without distributing AWS credentials. Deploy once, secure forever.
