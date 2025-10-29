@@ -11,27 +11,23 @@ import (
 
 const (
 	requestIDContextKey contextKey = "requestID"
+	loggerContextKey    contextKey = "logger"
 )
 
 // requestIDMiddleware extracts the Lambda request ID from the context and adds it to the request context
 // This middleware should be added early in the middleware chain to ensure request ID is available for logging
 func requestIDMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		// Extract Lambda request ID from the context if available
 		requestID := ""
 		if lc, ok := lambdacontext.FromContext(req.Context()); ok {
 			requestID = lc.AwsRequestID
 		}
 
-		// Add request ID to the request context
 		ctx := context.WithValue(req.Context(), requestIDContextKey, requestID)
 
-		// Update the logger to include request ID in all subsequent log messages for this request
 		if requestID != "" {
-			// Create a logger with request ID for this request
 			logger := slog.With("requestID", requestID)
-			// Store the logger in context for use by handlers
-			ctx = context.WithValue(ctx, "logger", logger)
+			ctx = context.WithValue(ctx, loggerContextKey, logger)
 		}
 
 		next.ServeHTTP(w, req.WithContext(ctx))
@@ -43,6 +39,7 @@ func GetRequestID(ctx context.Context) string {
 	if requestID, ok := ctx.Value(requestIDContextKey).(string); ok {
 		return requestID
 	}
+
 	return ""
 }
 
@@ -55,16 +52,13 @@ func setContentTypeJSON(next http.Handler) http.Handler {
 }
 
 // authenticateRequest middleware authenticates requests
+// Add authenticated user to request context
+// Use service logger with request ID if available
 func (r *Router) authenticateRequest(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		// Use service logger with request ID if available
-		logger := r.svc.Logger
-		if requestID := GetRequestID(req.Context()); requestID != "" {
-			logger = logger.With("requestID", requestID)
-		}
-
+		logger := getLoggerWithRequestID(r, req.Context())
 		apiKey := req.Header.Get("X-API-Key")
-		logger.Debug("authenticating request") // removed logging of apiKey (security)
+		logger.Debug("authenticating request")
 
 		if apiKey == "" {
 			writeErrorResponse(w, http.StatusUnauthorized, "Unauthorized", "API key is required")
@@ -79,21 +73,16 @@ func (r *Router) authenticateRequest(next http.Handler) http.Handler {
 
 		logger.Info("user authenticated successfully", "user", user)
 
-		// Add authenticated user to request context
 		ctx := context.WithValue(req.Context(), userContextKey, user)
 		next.ServeHTTP(w, req.WithContext(ctx))
 	})
 }
 
 // requestLoggingMiddleware logs incoming requests and their responses
+// Uses service logger with request ID if available
 func (r *Router) requestLoggingMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		// Use service logger with request ID if available
-		logger := r.svc.Logger
-		if requestID := GetRequestID(req.Context()); requestID != "" {
-			logger = logger.With("requestID", requestID)
-		}
-
+		logger := getLoggerWithRequestID(r, req.Context())
 		start := time.Now()
 
 		// Wrap the response writer to capture status code
@@ -102,20 +91,15 @@ func (r *Router) requestLoggingMiddleware(next http.Handler) http.Handler {
 			statusCode:     http.StatusOK, // default status code
 		}
 
-		// Log incoming request
 		logger.Info("Incoming request",
 			"method", req.Method,
 			"path", req.URL.Path,
 			"remoteAddr", req.RemoteAddr,
 		)
 
-		// Call the next handler
 		next.ServeHTTP(wrapped, req)
-
-		// Calculate duration
 		duration := time.Since(start)
 
-		// Log response
 		logger.Info("Request completed",
 			"method", req.Method,
 			"path", req.URL.Path,
@@ -123,4 +107,15 @@ func (r *Router) requestLoggingMiddleware(next http.Handler) http.Handler {
 			"duration", duration,
 		)
 	})
+}
+
+// getLoggerWithRequestID returns a logger with the request ID if available
+// falls back to the service logger if no request ID is available
+func getLoggerWithRequestID(r *Router, ctx context.Context) *slog.Logger {
+	logger := r.svc.Logger
+	if requestID := GetRequestID(ctx); requestID != "" {
+		logger = logger.With(string(requestIDContextKey), requestID)
+	}
+
+	return logger
 }

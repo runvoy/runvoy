@@ -7,7 +7,6 @@ import (
 
 	"runvoy/internal/api"
 	"runvoy/internal/app"
-	"runvoy/internal/constants"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -46,6 +45,7 @@ func NewRouter(svc *app.Service) *Router {
 			r.Post("/revoke", router.handleRevokeUser)
 		})
 	})
+
 	return router
 }
 
@@ -72,15 +72,6 @@ func (rw *responseWriter) Write(b []byte) (int, error) {
 	return rw.ResponseWriter.Write(b)
 }
 
-// handleHealth returns a simple health check response
-func (r *Router) handleHealth(w http.ResponseWriter, _ *http.Request) {
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(api.HealthResponse{
-		Status:  "ok",
-		Version: *constants.GetVersion(),
-	})
-}
-
 // ServeHTTP implements http.Handler for use with chi router
 func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	r.router.ServeHTTP(w, req)
@@ -99,86 +90,6 @@ func (r *Router) Handler() http.Handler {
 // WithContext adds the service to the request context
 func (r *Router) WithContext(ctx context.Context, svc *app.Service) context.Context {
 	return context.WithValue(ctx, serviceContextKey, svc)
-}
-
-// handleCreateUser handles POST /api/v1/users to create a new user with an API key
-func (r *Router) handleCreateUser(w http.ResponseWriter, req *http.Request) {
-	// Use service logger with request ID if available
-	logger := r.svc.Logger
-	if requestID := GetRequestID(req.Context()); requestID != "" {
-		logger = logger.With("requestID", requestID)
-	}
-
-	var createReq api.CreateUserRequest
-
-	// Decode JSON request body
-	if err := json.NewDecoder(req.Body).Decode(&createReq); err != nil {
-		writeErrorResponse(w, http.StatusBadRequest, "Invalid request body", err.Error())
-		return
-	}
-
-	// Call service to create user
-	resp, err := r.svc.CreateUser(req.Context(), createReq)
-	if err != nil {
-		// Determine appropriate status code based on error
-		statusCode := http.StatusInternalServerError
-		if err.Error() == "email is required" ||
-			err.Error() == "user with this email already exists" ||
-			containsString(err.Error(), "invalid email address") {
-			statusCode = http.StatusBadRequest
-		}
-		if err.Error() == "user with this email already exists" {
-			statusCode = http.StatusConflict
-		}
-
-		logger.Debug("Failed to create user", "error", err)
-		writeErrorResponse(w, statusCode, "Failed to create user", err.Error())
-		return
-	}
-
-	// Return successful response with the created user and API key
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(resp)
-}
-
-// handleRevokeUser handles POST /api/v1/users/revoke to revoke a user's API key
-func (r *Router) handleRevokeUser(w http.ResponseWriter, req *http.Request) {
-	// Use service logger with request ID if available
-	logger := r.svc.Logger
-	if requestID := GetRequestID(req.Context()); requestID != "" {
-		logger = logger.With("requestID", requestID)
-	}
-
-	var revokeReq api.RevokeUserRequest
-
-	// Decode JSON request body
-	if err := json.NewDecoder(req.Body).Decode(&revokeReq); err != nil {
-		writeErrorResponse(w, http.StatusBadRequest, "Invalid request body", err.Error())
-		return
-	}
-
-	// Call service to revoke user
-	if err := r.svc.RevokeUser(req.Context(), revokeReq.Email); err != nil {
-		// Determine appropriate status code based on error
-		statusCode := http.StatusInternalServerError
-		if err.Error() == "email is required" {
-			statusCode = http.StatusBadRequest
-		}
-		if err.Error() == "user not found" {
-			statusCode = http.StatusNotFound
-		}
-
-		logger.Debug("Failed to revoke user", "error", err)
-		writeErrorResponse(w, statusCode, "Failed to revoke user", err.Error())
-		return
-	}
-
-	// Return successful response
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(api.RevokeUserResponse{
-		Message: "User API key revoked successfully",
-		Email:   revokeReq.Email,
-	})
 }
 
 // writeErrorResponse is a helper to write consistent error responses
