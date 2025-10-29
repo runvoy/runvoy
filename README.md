@@ -1,6 +1,6 @@
 # runvoy
 
-A centralized execution platform that enables teams to run infrastructure commands remotely without sharing AWS credentials. An AWS admin deploys runvoy once to the company's AWS account and issues API keys to team members for secure, audited command execution.
+A centralized execution platform that enables teams to run infrastructure commands remotely without sharing (AWS) credentials. An AWS admin deploys runvoy once to the company's AWS account and issues API keys to team members for secure, audited command execution.
 
 Think of the flexibility of invoking `kubectl run` without the need for a Kubernetes cluster (or any other _always-running_ cluster, for that matter).
 
