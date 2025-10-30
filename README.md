@@ -8,6 +8,8 @@ Think of running commands in an ephemeral environment and sharing execution logs
 
 Think of the locking benefits of Terraform Cloud, but without the need for a Terraform Cloud account.
 
+![runvoy demo](runvoy-demo.gif)
+
 ## Overview
 
 runvoy solves the challenge of giving team members access to run infrastructure commands (terraform, CDK, kubectl, etc.) without distributing AWS credentials. Deploy once, secure forever.
