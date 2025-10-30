@@ -127,6 +127,51 @@ update-backend-infra:
         --stack-name runvoy-backend \
         --template-file deployments/cloudformation-backend.yaml \
         --capabilities CAPABILITY_NAMED_IAM
+    aws cloudformation wait stack-create-complete \
+        --stack-name runvoy-backend
+    just seed-admin-user
+
+# Seed initial admin user into DynamoDB (idempotent)
+# Requires:
+#   - RUNVOY_ADMIN_EMAIL: admin email to associate with the API key
+#   - ~/.runvoy/config.yaml containing api_key
+seed-admin-user:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [ -z "${RUNVOY_ADMIN_EMAIL:-}" ]; then \
+        echo "Error: RUNVOY_ADMIN_EMAIL environment variable is required"; \
+        exit 1; \
+    fi
+    CONFIG_FILE="$HOME/.runvoy/config.yaml"
+    if [ ! -f "$CONFIG_FILE" ]; then \
+        echo "Error: config file not found at $CONFIG_FILE"; \
+        exit 1; \
+    fi
+    API_KEY=$(grep -E "^api_key:" "$CONFIG_FILE" | head -n1 | awk -F ':' '{print $2}' | tr -d ' "\t')
+    if [ -z "$API_KEY" ]; then \
+        echo "Error: api_key not found in $CONFIG_FILE"; \
+        exit 1; \
+    fi
+    API_KEY_HASH=$(printf "%s" "$API_KEY" | openssl dgst -sha256 -binary | base64)
+    CREATED_AT=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+    TABLE_NAME=$(aws cloudformation describe-stacks --stack-name runvoy-backend --query "Stacks[0].Outputs[?OutputKey=='APIKeysTableName'].OutputValue" --output text)
+    if [ -z "$TABLE_NAME" ] || [ "$TABLE_NAME" = "None" ]; then \
+        echo "Error: failed to resolve API keys table name from CloudFormation outputs"; \
+        exit 1; \
+    fi
+    echo "Seeding admin user $RUNVOY_ADMIN_EMAIL into table $TABLE_NAME (idempotent)..."
+    set +e
+    aws dynamodb put-item \
+        --table-name "$TABLE_NAME" \
+        --item "{\"api_key_hash\":{\"S\":\"$API_KEY_HASH\"},\"user_email\":{\"S\":\"$RUNVOY_ADMIN_EMAIL\"},\"created_at\":{\"S\":\"$CREATED_AT\"},\"revoked\":{\"BOOL\":false}}" \
+        --condition-expression "attribute_not_exists(api_key_hash)" >/dev/null 2>&1
+    STATUS=$?
+    set -e
+    if [ $STATUS -eq 0 ]; then \
+        echo "Admin user created."; \
+    else \
+        echo "Admin user already exists or condition failed; continuing."; \
+    fi
 
 # Run local development server with hot reloading
 local-dev-server:

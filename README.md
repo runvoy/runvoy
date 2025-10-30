@@ -115,91 +115,20 @@ Deploy the backend infrastructure using CloudFormation:
 # (Specific deployment instructions depend on your CloudFormation setup)
 ```
 
+### Admin bootstrap (automated)
+
+After `just update-backend-infra`, the pipeline seeds an admin user into the API keys table:
+- Reads `api_key` from `~/.runvoy/config.yaml`
+- Hashes with SHA-256 and base64 (same as the service)
+- Inserts `{ api_key_hash, user_email, created_at, revoked=false }` into the `${ProjectName}-api-keys` table
+
+Requirements:
+- Set `RUNVOY_ADMIN_EMAIL` to the desired admin email before running `just update-backend-infra`.
+- Ensure `~/.runvoy/config.yaml` exists and contains `api_key`.
+
+The operation is idempotent (conditional put); if the admin already exists, it’s skipped.
+
 ### CLI Installation
 
 1. Clone the repository:
-```bash
-git clone https://github.com/yourusername/runvoy.git
-cd runvoy
 ```
-
-2. Build the CLI:
-```bash
-go build -o runvoy ./cmd/runvoy
-```
-
-3. Configure the CLI:
-```bash
-./runvoy configure
-# Enter your API endpoint and API key when prompted
-```
-
-### Development
-
-The project uses `just` for development automation. Common commands:
-
-```bash
-# Install development tools
-just dev-setup
-
-# Build all binaries
-just build
-
-# Run local HTTP server (development mode)
-just run-local
-
-# Run tests
-just test
-
-# Run linter
-just lint
-
-# Run all checks (lint + test)
-just check
-
-# Format code
-just fmt
-
-# Install pre-commit hooks
-just install-hooks
-```
-
-For all available commands, run `just --list`.
-
-## Project Structure
-
-```
-bin/                     - Built binaries (temporary storage)
-cmd/
-  ├── runvoy/            - CLI client (Cobra-based)
-  ├── local/             - Local HTTP server for development
-  └── backend/aws/
-      ├── orchestrator/  - Lambda for synchronous API requests
-      └── event_processor/ - Lambda for asynchronous ECS events
-internal/
-  ├── app/               - Service layer (business logic)
-  │   └── aws/           - AWS-specific runner (ECS Fargate)
-  ├── api/               - API request/response types
-  ├── server/            - HTTP router, handlers, middleware (chi-based)
-  ├── lambdaapi/         - Lambda Function URL event adapter
-  ├── events/            - Event processor (ECS completion handler)
-  ├── database/          - Repository interfaces and DynamoDB implementation
-  ├── client/            - Generic HTTP client for CLI
-  ├── config/            - Configuration (CLI YAML + environment variables)
-  ├── logger/            - Structured logging (slog)
-  ├── errors/            - Custom error types with HTTP status codes
-  ├── constants/         - Project constants
-  └── output/            - CLI output formatting
-deployments/             - CloudFormation templates (if available)
-```
-
-## Contributing
-
-1. Install pre-commit hooks: `just install-hooks`
-2. Make your changes
-3. Run checks: `just check`
-4. Submit a pull request
-
-## License
-
-[Add your license here]

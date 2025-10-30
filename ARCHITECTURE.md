@@ -593,6 +593,7 @@ Future enhancements may include streaming/tailing and server-side filtering.
 - ✅ **Logging** - Request-scoped logging with AWS request ID
 - ✅ **Local Development** - HTTP server for testing without AWS
 - ✅ **Provider Abstraction** - Runner interface for multi-cloud support
+- ✅ **Automated Admin Seeding** - Infra update step seeds an admin user into DynamoDB using the SHA-256 + base64 hash of the API key from the global CLI config (idempotent via conditional write). Requires `RUNVOY_ADMIN_EMAIL` to be set during deployment.
 
 ## CLI Client Architecture
 

@@ -9,26 +9,8 @@ Parameters:
 
   LambdaCodeBucket:
     Type: String
+    Default: runvoy-releases
     Description: S3 bucket name containing Lambda deployment package
-
-  LambdaCodeKey:
-    Type: String
-    Default: bootstrap.zip
-    Description: S3 key for Lambda deployment package
-
-  JWTSecret:
-    Type: String
-    NoEcho: true
-    Description: Secret for signing JWT tokens for log viewer access
-    Default: ''
-
-  DefaultImage:
-    Type: String
-    Default: 'public.ecr.aws/docker/library/ubuntu:22.04'
-    Description: Default Docker image (generic base image, users can specify task-specific images)
-
-Conditions:
-  HasJWTSecret: !Not [!Equals [!Ref JWTSecret, '']]
 
 Resources:
   # DynamoDB Table for API Keys
@@ -312,7 +294,7 @@ Resources:
           Value: 'cloudformation'
       ContainerDefinitions:
         - Name: runner
-          Image: !Ref DefaultImage
+          Image: 'public.ecr.aws/docker/library/ubuntu:22.04'
           Essential: true
           # Command is overridden at runtime by Lambda
           # Lambda constructs a shell script that clones git repo and runs user command
@@ -455,7 +437,7 @@ Resources:
       Handler: bootstrap
       Code:
         S3Bucket: !Ref LambdaCodeBucket
-        S3Key: !Ref LambdaCodeKey
+        S3Key: bootstrap.zip
       Timeout: 60
       Architectures:
         - arm64
@@ -477,8 +459,6 @@ Resources:
           RUNVOY_SUBNET_2: !Ref PublicSubnet2
           RUNVOY_SECURITY_GROUP: !Ref FargateSecurityGroup
           RUNVOY_LOG_GROUP: !Ref RunnerLogGroup
-          RUNVOY_JWT_SECRET: !If [HasJWTSecret, !Ref JWTSecret, !Ref 'AWS::NoValue']
-          RUNVOY_WEB_UI_URL: ''
 
   # Lambda Function URL
   LambdaFunctionUrl:
