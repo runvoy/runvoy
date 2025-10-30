@@ -10,9 +10,9 @@ import (
 
 var configureCmd = &cobra.Command{
 	Use:   "configure",
-	Short: "Configure CLI with API key and endpoint URL",
-	Long: `Configure the CLI with your API key and endpoint URL.
-This creates or updates the configuration file at ~/.runvoy/config.yaml`,
+	Short: "Configure local environment with API key and endpoint URL",
+	Long: `Configure the local environment with your API key and endpoint URL.
+This creates or updates the configuration file at ` + output.Bold("~/.runvoy/config.yaml"),
 	Run: runConfigure,
 }
 
