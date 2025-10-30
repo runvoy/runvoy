@@ -23,6 +23,7 @@ func init() {
 func runConfigure(_ *cobra.Command, _ []string) {
 	existingConfig, err := config.Load()
 	configExists := err == nil
+
 	if configExists {
 		output.Success("Found existing configuration")
 	} else {
@@ -31,7 +32,6 @@ func runConfigure(_ *cobra.Command, _ []string) {
 	}
 
 	endpoint := output.Prompt("Enter API endpoint URL")
-
 	if endpoint == "" {
 		if configExists && existingConfig.APIEndpoint != "" {
 			endpoint = existingConfig.APIEndpoint
@@ -42,7 +42,6 @@ func runConfigure(_ *cobra.Command, _ []string) {
 	}
 
 	apiKey := output.Prompt("Enter API key")
-
 	if apiKey == "" {
 		if configExists && existingConfig.APIKey != "" {
 			apiKey = existingConfig.APIKey
