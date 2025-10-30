@@ -111,7 +111,7 @@ func determineStatusAndExitCode(event ECSTaskStateChangeEvent) (status string, e
 		return status, exitCode
 	}
 
-	// Get exit code from the first container (executor container)
+    // Get exit code from the first container (runner container)
 	if len(event.Containers) > 0 && event.Containers[0].ExitCode != nil {
 		exitCode = *event.Containers[0].ExitCode
 		if exitCode == 0 {

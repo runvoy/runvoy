@@ -9,8 +9,8 @@ import (
 	"net/mail"
 	"time"
 
-	"runvoy/internal/api"
-	appaws "runvoy/internal/app/aws"
+    "runvoy/internal/api"
+    appaws "runvoy/internal/app/aws"
 	"runvoy/internal/constants"
 	"runvoy/internal/database"
 	apperrors "runvoy/internal/errors"
@@ -19,8 +19,8 @@ import (
 	"github.com/aws/aws-lambda-go/lambdacontext"
 )
 
-// Executor abstracts provider-specific command execution (e.g., AWS ECS, GCP, etc.).
-type Executor interface {
+// Runner abstracts provider-specific command execution (e.g., AWS ECS, GCP, etc.).
+type Runner interface {
 	// StartTask triggers an execution on the underlying platform and returns
 	// a provider-specific task ARN and a stable executionID.
 	StartTask(ctx context.Context, userEmail string, req api.ExecutionRequest) (executionID string, taskARN string, err error)
@@ -30,7 +30,7 @@ type Executor interface {
 type Service struct {
 	userRepo      database.UserRepository
 	executionRepo database.ExecutionRepository
-	executor      Executor
+    runner        Runner
 	Logger        *slog.Logger
 	Provider      constants.BackendProvider
 }
@@ -40,11 +40,11 @@ type Service struct {
 // NewService creates a new service instance.
 // If userRepo is nil, user-related operations will not be available.
 // This allows the service to work without database dependencies for simple operations.
-func NewService(userRepo database.UserRepository, executionRepo database.ExecutionRepository, executor Executor, logger *slog.Logger, provider constants.BackendProvider) *Service {
+func NewService(userRepo database.UserRepository, executionRepo database.ExecutionRepository, runner Runner, logger *slog.Logger, provider constants.BackendProvider) *Service {
 	return &Service{
 		userRepo:      userRepo,
 		executionRepo: executionRepo,
-		executor:      executor,
+        runner:        runner,
 		Logger:        logger,
 		Provider:      provider,
 	}
@@ -186,7 +186,7 @@ func (s *Service) RunCommand(ctx context.Context, userEmail string, req api.Exec
 	if req.Command == "" {
 		return nil, apperrors.ErrBadRequest("command is required", nil)
 	}
-	executionID, taskARN, err := s.executor.StartTask(ctx, userEmail, req)
+    executionID, taskARN, err := s.runner.StartTask(ctx, userEmail, req)
 	if err != nil {
 		return nil, err
 	}
@@ -252,11 +252,11 @@ func (s *Service) GetLogsByExecutionID(ctx context.Context, executionID string) 
 	}
 }
 
-// getAWSLogsByExecutionID delegates to the AWS implementation using the executor config
+// getAWSLogsByExecutionID delegates to the AWS implementation using the runner config
 func (s *Service) getAWSLogsByExecutionID(ctx context.Context, executionID string) ([]api.LogEvent, error) {
-	execImpl, ok := s.executor.(*appaws.Executor)
+    execImpl, ok := s.runner.(*appaws.Runner)
 	if !ok {
-		return nil, apperrors.ErrInternalError("aws executor not configured", nil)
+        return nil, apperrors.ErrInternalError("aws runner not configured", nil)
 	}
 	return execImpl.FetchLogsByExecutionID(ctx, executionID)
 }

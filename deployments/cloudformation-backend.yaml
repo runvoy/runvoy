@@ -311,7 +311,7 @@ Resources:
         - Key: ManagedBy
           Value: 'cloudformation'
       ContainerDefinitions:
-        - Name: executor
+        - Name: runner
           Image: !Ref DefaultImage
           Essential: true
           # Command is overridden at runtime by Lambda

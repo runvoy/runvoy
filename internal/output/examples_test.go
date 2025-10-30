@@ -198,7 +198,7 @@ func ExampleErrors() {
 
 	// Detailed error with context
 	output.Error("Failed to start ECS task")
-	output.KeyValue("Task definition", "runvoy-executor")
+    output.KeyValue("Task definition", "runvoy-runner")
 	output.KeyValue("Cluster", "runvoy-cluster")
 	output.KeyValue("Error", "InvalidParameterException: Container.image must not be blank")
 	output.Blank()

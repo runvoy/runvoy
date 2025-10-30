@@ -178,7 +178,7 @@ cmd/
       └── event_processor/ - Lambda for asynchronous ECS events
 internal/
   ├── app/               - Service layer (business logic)
-  │   └── aws/           - AWS-specific executor (ECS Fargate)
+  │   └── aws/           - AWS-specific runner (ECS Fargate)
   ├── api/               - API request/response types
   ├── server/            - HTTP router, handlers, middleware (chi-based)
   ├── lambdaapi/         - Lambda Function URL event adapter
