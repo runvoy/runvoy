@@ -244,5 +244,5 @@ destroy-backend-infra:
 # TODO run agg into a github action and store it as asset so to avoid
 # having to commit the gif to the repository
 record-demo:
-    asciinema rec runvoy-demo.cast
+    asciinema --overwrite rec runvoy-demo.cast
     agg --theme monokai runvoy-demo.cast runvoy-demo.gif
