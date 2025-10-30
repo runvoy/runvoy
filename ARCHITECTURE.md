@@ -168,6 +168,13 @@ The request ID middleware automatically:
 - If a request ID is not present (e.g., non-Lambda environments), the service logs a warning and stores the execution without a `request_id`.
 - The `compute_platform` field in execution records is derived from the configured backend provider at initialization time (e.g., `AWS`) rather than being hardcoded in the service logic.
 
+### Execution ID Uniqueness and Write Semantics
+
+- Execution records are written with a conditional create to ensure no overwrite occurs for an existing execution item.
+- DynamoDB `PutItem` uses a `ConditionExpression` preventing creation when a record with the same composite key (`execution_id`, `started_at`) already exists.
+- On conditional failure, the API surfaces a 409 Conflict (via `ErrConflict`).
+- Note: The system creates a single record per `execution_id`. If future designs require multiple items per `execution_id`, a separate uniqueness guard pattern would be needed.
+
 ## Logging Architecture
 
 The application uses a unified logging approach with structured logging via `log/slog`:

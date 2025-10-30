@@ -2,6 +2,7 @@ package dynamodb
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"time"
@@ -99,16 +100,26 @@ func (r *ExecutionRepository) CreateExecution(ctx context.Context, execution *ap
 		return apperrors.ErrDatabaseError("failed to marshal execution", err)
 	}
 
+	// Ensure uniqueness: only create if this PK does not already exist
 	_, err = r.client.PutItem(ctx, &dynamodb.PutItemInput{
 		TableName: aws.String(r.tableName),
 		Item:      av,
+		// This condition prevents overwriting an existing item with the same
+		// composite key (execution_id, started_at). If an item exists, DynamoDB
+		// returns a ConditionalCheckFailedException, which we map to a conflict.
+		ConditionExpression: aws.String("attribute_not_exists(execution_id) AND attribute_not_exists(started_at)"),
 	})
 
-	reqLogger.Debug("execution stored successfully", "executionID", execution.ExecutionID)
-
 	if err != nil {
+		// If the condition failed, surface a conflict indicating duplicate execution ID
+		var ccfe *types.ConditionalCheckFailedException
+		if errors.As(err, &ccfe) {
+			return apperrors.ErrConflict("execution already exists", err)
+		}
 		return apperrors.ErrDatabaseError("failed to create execution", err)
 	}
+
+	reqLogger.Debug("execution stored successfully", "executionID", execution.ExecutionID)
 
 	return nil
 }
