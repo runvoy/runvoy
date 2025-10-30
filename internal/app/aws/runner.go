@@ -26,6 +26,7 @@ type Config struct {
 	Subnet2         string
 	SecurityGroup   string
 	LogGroup        string
+    LogStreamPrefix string
 	DefaultImage    string
 	TaskRoleARN     string
 	TaskExecRoleARN string

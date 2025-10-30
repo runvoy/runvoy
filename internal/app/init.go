@@ -88,6 +88,7 @@ func initializeAWSBackend(ctx context.Context, cfg *config.OrchestratorEnv, logg
 		Subnet2:        cfg.Subnet2,
 		SecurityGroup:  cfg.SecurityGroup,
 		LogGroup:       cfg.LogGroup,
+		LogStreamPrefix: cfg.LogStreamPrefix,
 		DefaultImage:   cfg.DefaultImage,
 		// TaskRoleARN and TaskExecRoleARN would come from CloudFormation outputs
 		// For now, we'll leave them empty and they'll be read from the existing task definition

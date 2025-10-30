@@ -30,30 +30,27 @@ func FetchLogsByExecutionID(ctx context.Context, cfg *Config, executionID string
     }
     cwl := cloudwatchlogs.NewFromConfig(awsCfg)
 
-    // Candidate stream names
-    candidates := []string{
-        fmt.Sprintf("ecs/executor/%s", executionID),
-        fmt.Sprintf("executor/%s", executionID),
-    }
-
     foundStreams := make(map[string]struct{})
-    for _, name := range candidates {
-        foundStreams[name] = struct{}{}
-    }
 
-    // Best-effort: scan a recent page of log streams and pick ones containing the task ID
-    listOut, _ := cwl.DescribeLogStreams(ctx, &cloudwatchlogs.DescribeLogStreamsInput{
-        LogGroupName: &cfg.LogGroup,
-        OrderBy:      "LastEventTime",
-        Descending:   boolPtr(true),
-        Limit:        int32Ptr(50),
-    })
-    for _, ls := range listOut.LogStreams {
-        if ls.LogStreamName == nil {
-            continue
-        }
-        if strings.Contains(*ls.LogStreamName, executionID) {
-            foundStreams[*ls.LogStreamName] = struct{}{}
+    // Prefer configured prefix if present
+    if cfg.LogStreamPrefix != "" {
+        stream := fmt.Sprintf("%s/%s", strings.TrimRight(cfg.LogStreamPrefix, "/"), executionID)
+        foundStreams[stream] = struct{}{}
+    } else {
+        // Fallback: best-effort discovery for recent streams containing the task ID
+        listOut, _ := cwl.DescribeLogStreams(ctx, &cloudwatchlogs.DescribeLogStreamsInput{
+            LogGroupName: &cfg.LogGroup,
+            OrderBy:      "LastEventTime",
+            Descending:   boolPtr(true),
+            Limit:        int32Ptr(50),
+        })
+        for _, ls := range listOut.LogStreams {
+            if ls.LogStreamName == nil {
+                continue
+            }
+            if strings.Contains(*ls.LogStreamName, executionID) {
+                foundStreams[*ls.LogStreamName] = struct{}{}
+            }
         }
     }
 
