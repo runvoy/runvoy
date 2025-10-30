@@ -161,7 +161,7 @@ The router uses a middleware stack for cross-cutting concerns:
 - This ensures database errors are properly distinguished from authentication failures
 
 **Post-Authentication Behavior:**
-- On successful authentication, the system updates the user's `last_used` timestamp in the API keys table (best-effort; failures are logged and do not affect the request).
+- On successful authentication, the system asynchronously updates the user's `last_used` timestamp in the API keys table (best-effort; failures are logged and do not affect the request).
 
 The request ID middleware automatically:
 - Extracts the AWS Lambda request ID from the Lambda context when available

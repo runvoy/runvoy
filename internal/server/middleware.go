@@ -121,10 +121,19 @@ func (r *Router) authenticateRequestMiddleware(next http.Handler) http.Handler {
 
 		logger.Info("user authenticated successfully", "user", user)
 
-		// Best-effort update of API key last used timestamp
-		if err := r.svc.UpdateUserLastUsed(req.Context(), user.Email); err != nil {
-			logger.Error("failed to update user's last_used timestamp", "error", err, "email", user.Email)
-		}
+		go func(email string) {
+			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+			defer cancel()
+
+			logger.Debug("updating user's last_used timestamp", "email", email)
+
+			if err := r.svc.UpdateUserLastUsed(ctx, email); err != nil {
+				logger.Error("failed to update user's last_used timestamp",
+					"error", err, "email", email)
+			}
+
+			logger.Debug("user's last_used timestamp updated successfully", "email", email)
+		}(user.Email)
 
 		ctx := context.WithValue(req.Context(), userContextKey, user)
 		next.ServeHTTP(w, req.WithContext(ctx))
