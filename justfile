@@ -184,3 +184,9 @@ smoke-test-backend-run-command:
         -X POST "${RUNVOY_LAMBDA_URL}/api/v1/run" \
         -H "Content-Type: application/json" \
         -d "{\"command\":\"echo Hello, World! $(date +'%Y-%m-%d-%H-%M')\"}" | jq .
+
+destroy-backend-infra:
+    aws cloudformation delete-stack \
+        --stack-name runvoy-backend
+    aws cloudformation wait stack-delete-complete \
+        --stack-name runvoy-backend
