@@ -3,6 +3,7 @@ package cmd
 import (
     "context"
     "log/slog"
+    "strconv"
     "strings"
     "runvoy/internal/client"
     "runvoy/internal/output"
@@ -23,7 +24,9 @@ var logsCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.AddCommand(logsCmd)
+    rootCmd.AddCommand(logsCmd)
+    // --follow flag to enable tailing
+    logsCmd.Flags().BoolP("follow", "f", false, "Follow log output and continue streaming")
 }
 
 func logsRun(cmd *cobra.Command, args []string) {
@@ -67,12 +70,16 @@ func logsRun(cmd *cobra.Command, args []string) {
         }
     }
 
-    // 2) Tail logs: fetch every 5s and print only new lines
-    output.Blank()
-    output.Info("Streaming logs (press Ctrl+C to stop)...")
+    // Decide follow vs single-shot behavior
+    follow, _ := cmd.Flags().GetBool("follow")
 
-    // Track seen events using "timestamp|message" keys to avoid duplicates
-    seen := make(map[string]struct{})
+    output.Blank()
+    if follow {
+        output.Info("Streaming logs (press Ctrl+C to stop)...")
+    }
+
+    // Track highest seen line number to avoid duplicates when following
+    maxSeenLine := 0
     var lastPrinted time.Time
 
     printNew := func(ctx context.Context) (int, error) {
@@ -82,21 +89,65 @@ func logsRun(cmd *cobra.Command, args []string) {
         }
         printed := 0
         for _, ev := range resp.Events {
-            ts := time.Unix(ev.Timestamp/1000, 0).UTC()
-            key := ts.Format(time.RFC3339Nano) + "|" + ev.Message
-            if _, ok := seen[key]; ok {
+            if ev.Line <= maxSeenLine {
                 continue
             }
-            seen[key] = struct{}{}
+            ts := time.Unix(ev.Timestamp/1000, 0).UTC()
             lastPrinted = ts
-            output.Printf("%s  %s\n", ts.Format(time.DateTime), ev.Message)
+            output.Printf("[%d] %s  %s\n", ev.Line, ts.Format(time.DateTime), ev.Message)
+            if ev.Line > maxSeenLine {
+                maxSeenLine = ev.Line
+            }
             printed++
         }
         return printed, nil
     }
 
-    // Initial dump (in case the task already started and has logs)
-    _, _ = printNew(cmd.Context())
+    // Initial fetch
+    firstPrinted, firstErr := printNew(cmd.Context())
+    if firstErr != nil && !follow {
+        // If logs not ready yet (e.g., 404), keep waiting a bit to provide a better UX
+        // but only for the non-follow case so user gets the complete set then exits
+        for i := 0; i < 5; i++ { // up to ~10s
+            select {
+            case <-cmd.Context().Done():
+                output.Warning("Canceled while waiting for logs")
+                return
+            case <-time.After(2 * time.Second):
+            }
+            if _, err := printNew(cmd.Context()); err == nil {
+                firstErr = nil
+                break
+            }
+        }
+    }
+    if firstErr != nil {
+        output.Warning("failed to fetch logs: %v", firstErr)
+    }
+
+    // If not following, print a table of everything and exit
+    if !follow {
+        // Re-fetch for a full dataset to render as a table
+        resp, err := cl.GetLogs(cmd.Context(), executionID)
+        if err != nil {
+            output.Error("failed to get logs: %v", err)
+            return
+        }
+        rows := make([][]string, 0, len(resp.Events))
+        for _, ev := range resp.Events {
+            ts := time.Unix(ev.Timestamp/1000, 0).UTC().Format(time.DateTime)
+            rows = append(rows, []string{
+                // Columns: Line, Timestamp, Message
+                strconv.Itoa(ev.Line),
+                ts,
+                ev.Message,
+            })
+        }
+        output.Table([]string{"Line", "Timestamp (UTC)", "Message"}, rows)
+        output.Blank()
+        output.Success("Logs retrieved successfully")
+        return
+    }
 
     // Loop until status is terminal and no new logs arrive
     isTerminal := func(s string) bool {
