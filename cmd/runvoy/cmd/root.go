@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"time"
 
+	"runvoy/internal/config"
 	"runvoy/internal/constants"
 	"runvoy/internal/logger"
 	"runvoy/internal/output"
@@ -37,7 +38,7 @@ Run commands remotely without the hassle of local execution, credential sharing,
 		if debug {
 			logLevel = slog.LevelDebug
 		}
-		logger.Initialize(constants.CLI, logLevel)
+		logger := logger.Initialize(constants.CLI, logLevel)
 
 		if timeout == "0" {
 			if verbose {
@@ -59,6 +60,15 @@ Run commands remotely without the hassle of local execution, credential sharing,
 
 		if verbose {
 			output.Info("timeout: %s", timeoutDuration)
+		}
+
+		cfg, err := config.Load()
+		if err != nil {
+			logger.Error("error loading configuration", "error", err)
+			return nil
+		}
+		if verbose {
+			logger.Info("API endpoint", "endpoint", cfg.APIEndpoint)
 		}
 
 		return nil

@@ -38,9 +38,6 @@ func logsRun(cmd *cobra.Command, args []string) {
 	}
 
 	output.Info("Getting logs for execution: %s", output.Bold(executionID))
-	if verbose {
-		output.Info("Endpoint: %s", output.Bold(cfg.APIEndpoint))
-	}
 
 	client := client.New(cfg, slog.Default())
 	resp, err := client.GetLogs(cmd.Context(), executionID)

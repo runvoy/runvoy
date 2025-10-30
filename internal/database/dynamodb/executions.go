@@ -180,10 +180,8 @@ func (r *ExecutionRepository) UpdateExecution(ctx context.Context, execution *ap
 		exprAttrValues[":completed_at"] = &types.AttributeValueMemberS{Value: completedAtStr.Value}
 	}
 
-	if execution.ExitCode != 0 {
-		updateExpr += ", exit_code = :exit_code"
-		exprAttrValues[":exit_code"] = &types.AttributeValueMemberN{Value: fmt.Sprintf("%d", execution.ExitCode)}
-	}
+	updateExpr += ", exit_code = :exit_code"
+	exprAttrValues[":exit_code"] = &types.AttributeValueMemberN{Value: fmt.Sprintf("%d", execution.ExitCode)}
 
 	if execution.DurationSeconds > 0 {
 		updateExpr += ", duration_seconds = :duration_seconds"
