@@ -3,7 +3,6 @@ package cmd
 import (
 	"log/slog"
 	"runvoy/internal/client"
-	"runvoy/internal/config"
 	"runvoy/internal/constants"
 	"runvoy/internal/output"
 	"time"
@@ -31,7 +30,7 @@ func init() {
 
 func logsRun(cmd *cobra.Command, args []string) {
 	executionID := args[0]
-	cfg, err := config.Load()
+	cfg, err := getConfigFromContext(cmd)
 	if err != nil {
 		output.Error("failed to load configuration: %v", err)
 		return

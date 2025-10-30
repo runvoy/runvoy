@@ -3,7 +3,6 @@ package cmd
 
 import (
 	"runvoy/internal/config"
-	"runvoy/internal/constants"
 	"runvoy/internal/output"
 
 	"github.com/spf13/cobra"
@@ -22,16 +21,11 @@ func init() {
 }
 
 func runConfigure(_ *cobra.Command, _ []string) {
-	output.Header("🚀 " + constants.ProjectName)
-	output.Subheader("Configure " + constants.ProjectName)
-
-	// Check if config already exists
 	existingConfig, err := config.Load()
 	configExists := err == nil
 	if configExists {
 		output.Success("Found existing configuration")
 	} else {
-		// Create a new config if it doesn't exist
 		existingConfig = &config.Config{}
 		output.Info("Creating new configuration")
 	}
@@ -58,18 +52,15 @@ func runConfigure(_ *cobra.Command, _ []string) {
 		}
 	}
 
-	// Create config structure
 	cfg := &config.Config{
 		APIEndpoint: endpoint,
 		APIKey:      apiKey,
 	}
 
-	// Save configuration
 	if err := config.Save(cfg); err != nil {
 		output.Fatal("Failed to save configuration: %v", err)
 	}
 
-	// Get config path for display
 	configPath, err := config.GetConfigPath()
 	if err != nil {
 		output.Fatal("Failed to get config path: %v", err)

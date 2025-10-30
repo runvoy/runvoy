@@ -614,7 +614,9 @@ api_endpoint: "https://your-function-url.lambda-url.us-east-1.on.aws"
 api_key: "your-api-key-here"
 ```
 
-Configuration is loaded on-demand for each command execution and requires authentication for all operations.
+Configuration is loaded once in the root command's `PersistentPreRunE` hook and stored in the command context. All commands retrieve the config from the context using the `getConfigFromContext()` helper function. This ensures config is only loaded once per command invocation and provides a consistent way to access configuration across all commands.
+
+The config is stored in the context with the key `constants.ConfigCtxKey` (of type `constants.ConfigCtxKeyType` to avoid collision with other context keys).
 
 ### Generic HTTP Client Architecture
 

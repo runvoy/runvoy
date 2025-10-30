@@ -4,7 +4,6 @@ import (
 	"log/slog"
 	"runvoy/internal/api"
 	"runvoy/internal/client"
-	"runvoy/internal/config"
 	"runvoy/internal/output"
 
 	"github.com/spf13/cobra"
@@ -18,7 +17,7 @@ var revokeUserCmd = &cobra.Command{
 }
 
 func runRevokeUser(cmd *cobra.Command, args []string) {
-	cfg, err := config.Load()
+	cfg, err := getConfigFromContext(cmd)
 	if err != nil {
 		output.Error("failed to load configuration: %v", err)
 		return

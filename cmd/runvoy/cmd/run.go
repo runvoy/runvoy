@@ -4,7 +4,6 @@ import (
 	"log/slog"
 	"runvoy/internal/api"
 	"runvoy/internal/client"
-	"runvoy/internal/config"
 	"runvoy/internal/constants"
 	"runvoy/internal/output"
 
@@ -27,7 +26,7 @@ func runRun(cmd *cobra.Command, args []string) {
 	output.Header("🚀 " + constants.ProjectName)
 
 	command := args[0]
-	cfg, err := config.Load()
+	cfg, err := getConfigFromContext(cmd)
 	if err != nil {
 		output.Error("failed to load configuration: %v", err)
 		return

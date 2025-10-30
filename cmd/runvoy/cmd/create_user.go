@@ -6,7 +6,6 @@ import (
 
 	"runvoy/internal/api"
 	"runvoy/internal/client"
-	"runvoy/internal/config"
 	"runvoy/internal/constants"
 	"runvoy/internal/output"
 
@@ -34,7 +33,7 @@ func init() {
 }
 
 func runCreateUser(cmd *cobra.Command, args []string) {
-	cfg, err := config.Load()
+	cfg, err := getConfigFromContext(cmd)
 	if err != nil {
 		output.Error("failed to load configuration: %v", err)
 		return

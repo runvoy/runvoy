@@ -3,7 +3,6 @@ package cmd
 import (
 	"log/slog"
 	"runvoy/internal/client"
-	"runvoy/internal/config"
 	"runvoy/internal/constants"
 	"runvoy/internal/output"
 
@@ -17,7 +16,7 @@ var versionCmd = &cobra.Command{
 		output.Header("🚀 " + constants.ProjectName)
 		output.KeyValue("CLI version", *constants.GetVersion())
 
-		cfg, err := config.Load()
+		cfg, err := getConfigFromContext(cmd)
 		if err != nil {
 			slog.Error("failed to load configuration", "error", err)
 			return

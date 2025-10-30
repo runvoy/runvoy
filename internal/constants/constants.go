@@ -52,6 +52,12 @@ const ApiKeyHeader = "X-API-Key"
 // ContentTypeHeader is the HTTP Content-Type header name.
 const ContentTypeHeader = "Content-Type"
 
+// ConfigCtxKeyType is the type for the config context key
+type ConfigCtxKeyType string
+
+// ConfigCtxKey is the key used to store config in context
+const ConfigCtxKey ConfigCtxKeyType = "config"
+
 // Service represents a runvoy service component.
 type Service string
 

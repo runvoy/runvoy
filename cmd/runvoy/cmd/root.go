@@ -29,6 +29,8 @@ var rootCmd = &cobra.Command{
 	Long: fmt.Sprintf(`%s provides isolated, repeatable execution environments for your commands.
 Run commands remotely without the hassle of local execution, credential sharing, or race conditions.`, constants.ProjectName),
 	PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
+		printHeader(cmd)
+
 		if verbose {
 			output.Header(output.Bold(constants.ProjectName) + " " + *constants.GetVersion())
 			output.Info("verbose output enabled")
@@ -64,11 +66,20 @@ Run commands remotely without the hassle of local execution, credential sharing,
 
 		cfg, err := config.Load()
 		if err != nil {
-			logger.Error("error loading configuration", "error", err)
+			logger.Warn("failed to load configuration", "error", err)
 			return nil
 		}
+
+		configPath, err := config.GetConfigPath()
+		if err != nil {
+			logger.Warn("failed to get config path", "error", err)
+			return nil
+		}
+
+		cmd.SetContext(context.WithValue(cmd.Context(), constants.ConfigCtxKey, cfg))
 		if verbose {
-			logger.Info("API endpoint", "endpoint", cfg.APIEndpoint)
+			output.Info("Loaded configuration from %s", output.Bold(configPath))
+			output.Info("API endpoint: %s", output.Bold(cfg.APIEndpoint))
 		}
 
 		return nil
@@ -114,4 +125,17 @@ func parseTimeout(timeoutStr string) (time.Duration, error) {
 	}
 
 	return time.Duration(seconds) * time.Second, nil
+}
+
+func printHeader(cmd *cobra.Command) {
+	output.Header(output.Bold("🚀 " + constants.ProjectName + " " + cmd.CalledAs()))
+}
+
+// getConfigFromContext retrieves the config from the command context
+func getConfigFromContext(cmd *cobra.Command) (*config.Config, error) {
+	cfg, ok := cmd.Context().Value(constants.ConfigCtxKey).(*config.Config)
+	if !ok || cfg == nil {
+		return nil, fmt.Errorf("config not found in context")
+	}
+	return cfg, nil
 }
