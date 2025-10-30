@@ -104,11 +104,11 @@ func determineStatusAndExitCode(event ECSTaskStateChangeEvent) (status string, e
 	case "UserInitiated":
 		status = "STOPPED"
 		exitCode = 130 // Standard exit code for SIGINT/manual termination
-		return
+		return status, exitCode
 	case "TaskFailedToStart":
 		status = "FAILED"
 		exitCode = 1
-		return
+		return status, exitCode
 	}
 
 	// Get exit code from the first container (executor container)
@@ -119,7 +119,7 @@ func determineStatusAndExitCode(event ECSTaskStateChangeEvent) (status string, e
 		} else {
 			status = "FAILED"
 		}
-		return
+		return status, exitCode
 	}
 
 	// If we reach here, we don't have a clear exit code
@@ -131,7 +131,7 @@ func determineStatusAndExitCode(event ECSTaskStateChangeEvent) (status string, e
 		exitCode = 1
 	}
 
-	return
+	return status, exitCode
 }
 
 // ECSCompletionHandler is a factory function that returns a handler for ECS completion events

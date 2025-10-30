@@ -92,7 +92,6 @@ func (e *executionItem) toAPIExecution() *api.Execution {
 
 // CreateExecution stores a new execution record in DynamoDB.
 func (r *ExecutionRepository) CreateExecution(ctx context.Context, execution *api.Execution) error {
-
 	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
 
 	item := toExecutionItem(execution)

@@ -26,6 +26,5 @@ func NewHandler(svc *app.Service, requestTimeout time.Duration) *LambdaHandler {
 // HandleRequest processes an incoming Lambda function URL request.
 func (h *LambdaHandler) HandleRequest(
 	ctx context.Context, req events.LambdaFunctionURLRequest) (events.LambdaFunctionURLResponse, error) {
-
 	return h.adapter(ctx, req)
 }

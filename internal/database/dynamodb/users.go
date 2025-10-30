@@ -77,7 +77,6 @@ func (r *UserRepository) CreateUser(ctx context.Context, user *api.User, apiKeyH
 
 // GetUserByEmail retrieves a user by their email using the GSI.
 func (r *UserRepository) GetUserByEmail(ctx context.Context, email string) (*api.User, error) {
-
 	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
 
 	reqLogger.Debug("querying user by email", "email", email)
@@ -116,7 +115,6 @@ func (r *UserRepository) GetUserByEmail(ctx context.Context, email string) (*api
 
 // GetUserByAPIKeyHash retrieves a user by their hashed API key (primary key).
 func (r *UserRepository) GetUserByAPIKeyHash(ctx context.Context, apiKeyHash string) (*api.User, error) {
-
 	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
 
 	reqLogger.Debug("querying user by API key hash", "apiKeyHash", apiKeyHash)
