@@ -160,12 +160,19 @@ func (r *Router) handleGetExecutionStatus(w http.ResponseWriter, req *http.Reque
 		errorCode := apperrors.GetErrorCode(err)
 		errorMsg := apperrors.GetErrorMessage(err)
 
-		logger.Debug("failed to get execution status", "error", err, "statusCode", statusCode, "errorCode", errorCode)
+		logger.Debug("failed to get execution status",
+			"executionID", executionID,
+			"error", err,
+			"statusCode", statusCode,
+			"errorCode", errorCode)
 
-		writeErrorResponseWithCode(w, statusCode, errorCode, "failed to get execution status", errorMsg)
+		writeErrorResponseWithCode(
+			w, statusCode, errorCode,
+			"failed to get execution status for executionID "+executionID,
+			errorMsg,
+		)
 		return
 	}
-
 	w.WriteHeader(http.StatusOK)
 	_ = json.NewEncoder(w).Encode(resp)
 }

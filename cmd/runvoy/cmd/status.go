@@ -31,7 +31,7 @@ func statusRun(cmd *cobra.Command, args []string) {
 	client := client.New(cfg, slog.Default())
 	status, err := client.GetExecutionStatus(cmd.Context(), executionID)
 	if err != nil {
-		output.Error("failed to get status: %v", err)
+		output.Error(err.Error())
 		return
 	}
 
