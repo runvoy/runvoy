@@ -31,28 +31,28 @@ type Config struct {
 	TaskExecRoleARN string
 }
 
-// Executor implements app.Executor for AWS ECS Fargate.
-type Executor struct {
+// Runner implements app.Runner for AWS ECS Fargate.
+type Runner struct {
 	ecsClient *ecs.Client
 	cfg       *Config
 	logger    *slog.Logger
 }
 
-// NewExecutor creates a new AWS ECS executor with the provided configuration.
-func NewExecutor(ecsClient *ecs.Client, cfg *Config, logger *slog.Logger) *Executor {
-	return &Executor{ecsClient: ecsClient, cfg: cfg, logger: logger}
+// NewRunner creates a new AWS ECS runner with the provided configuration.
+func NewRunner(ecsClient *ecs.Client, cfg *Config, logger *slog.Logger) *Runner {
+    return &Runner{ecsClient: ecsClient, cfg: cfg, logger: logger}
 }
 
 // StartTask triggers an ECS Fargate task and returns identifiers.
-func (e *Executor) StartTask(ctx context.Context, userEmail string, req api.ExecutionRequest) (string, string, error) {
-	if e.ecsClient == nil {
+func (e *Runner) StartTask(ctx context.Context, userEmail string, req api.ExecutionRequest) (string, string, error) {
+    if e.ecsClient == nil {
 		return "", "", apperrors.ErrInternalError("ECS cli endpoint not configured", nil)
 	}
 
 	reqLogger := logger.DeriveRequestLogger(ctx, e.logger)
 
 	// Note: Image override is not supported via task overrides; use task definition image.
-	if req.Image != "" && req.Image != e.cfg.DefaultImage {
+    if req.Image != "" && req.Image != e.cfg.DefaultImage {
 		reqLogger.Debug("custom image requested but not supported via overrides, using task definition image",
 			"requested", req.Image, "using", e.cfg.DefaultImage)
 	}
@@ -76,7 +76,7 @@ func (e *Executor) StartTask(ctx context.Context, userEmail string, req api.Exec
 		TaskDefinition: awsstd.String(e.cfg.TaskDefinition),
 		LaunchType:     ecstypes.LaunchTypeFargate,
 		Overrides: &ecstypes.TaskOverride{ContainerOverrides: []ecstypes.ContainerOverride{{
-			Name:        awsstd.String("executor"),
+            Name:        awsstd.String("runner"),
 			Command:     containerCommand,
 			Environment: envVars,
 		}}},

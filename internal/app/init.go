@@ -32,16 +32,16 @@ func Initialize(ctx context.Context, provider constants.BackendProvider, cfg *co
 		"init_timeout_seconds", int(cfg.InitTimeout.Seconds()),
 	)
 
-	var (
-		userRepo      database.UserRepository
-		executionRepo database.ExecutionRepository
-		executor      Executor
-		err           error
-	)
+    var (
+        userRepo      database.UserRepository
+        executionRepo database.ExecutionRepository
+        runner        Runner
+        err           error
+    )
 
-	switch provider {
+    switch provider {
 	case constants.AWS:
-		userRepo, executionRepo, executor, err = initializeAWSBackend(ctx, cfg, logger)
+        userRepo, executionRepo, runner, err = initializeAWSBackend(ctx, cfg, logger)
 		if err != nil {
 			return nil, fmt.Errorf("failed to initialize AWS: %w", err)
 		}
@@ -51,11 +51,11 @@ func Initialize(ctx context.Context, provider constants.BackendProvider, cfg *co
 
 	logger.Debug(constants.ProjectName+" initialized successfully", "provider", provider)
 
-	return NewService(userRepo, executionRepo, executor, logger, provider), nil
+    return NewService(userRepo, executionRepo, runner, logger, provider), nil
 }
 
 // initializeAWSBackend sets up AWS-specific dependencies
-func initializeAWSBackend(ctx context.Context, cfg *config.OrchestratorEnv, logger *slog.Logger) (database.UserRepository, database.ExecutionRepository, Executor, error) {
+func initializeAWSBackend(ctx context.Context, cfg *config.OrchestratorEnv, logger *slog.Logger) (database.UserRepository, database.ExecutionRepository, Runner, error) {
 	if cfg.APIKeysTable == "" {
 		return nil, nil, nil, fmt.Errorf("APIKeysTable cannot be empty")
 	}
@@ -92,6 +92,6 @@ func initializeAWSBackend(ctx context.Context, cfg *config.OrchestratorEnv, logg
 		// TaskRoleARN and TaskExecRoleARN would come from CloudFormation outputs
 		// For now, we'll leave them empty and they'll be read from the existing task definition
 	}
-	executor := appaws.NewExecutor(ecsClientInstance, awsExecCfg, logger)
-	return userRepo, executionRepo, executor, nil
+    runner := appaws.NewRunner(ecsClientInstance, awsExecCfg, logger)
+    return userRepo, executionRepo, runner, nil
 }

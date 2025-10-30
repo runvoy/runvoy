@@ -18,13 +18,13 @@ runvoy is a centralized execution platform that allows teams to run infrastructu
 To support multiple cloud platforms, the service layer now depends on an execution provider interface:
 
 ```text
-internal/app.Service → uses Executor interface (provider-agnostic)
-internal/app/aws     → AWS-specific Executor implementation (ECS Fargate)
+internal/app.Service → uses Runner interface (provider-agnostic)
+internal/app/aws     → AWS-specific Runner implementation (ECS Fargate)
 ```
 
-- The `Executor` interface abstracts starting a command execution and returns both a stable execution ID and provider task ARN.
+- The `Runner` interface abstracts starting a command execution and returns both a stable execution ID and provider task ARN.
 - The AWS implementation resides in `internal/app/aws` and encapsulates all ECS- and AWS-specific logic and types.
-- `internal/app/init.go` wires the chosen provider by constructing the appropriate `Executor` and passing it into `Service`.
+- `internal/app/init.go` wires the chosen provider by constructing the appropriate `Runner` and passing it into `Service`.
 
 This change removes direct AWS SDK coupling from `internal/app` and makes adding providers (e.g., GCP) straightforward.
 
@@ -568,7 +568,7 @@ This setup ensures consistent code quality across all contributors and automated
 - ✅ **Error Handling** - Structured errors with proper HTTP status codes
 - ✅ **Logging** - Request-scoped logging with AWS request ID
 - ✅ **Local Development** - HTTP server for testing without AWS
-- ✅ **Provider Abstraction** - Executor interface for multi-cloud support
+- ✅ **Provider Abstraction** - Runner interface for multi-cloud support
 
 ## CLI Client Architecture
 
