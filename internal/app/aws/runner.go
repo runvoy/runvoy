@@ -70,17 +70,18 @@ func (e *Runner) StartTask(ctx context.Context, userEmail string, req api.Execut
 		envVars = append(envVars, ecstypes.KeyValuePair{Name: awsstd.String(key), Value: awsstd.String(value)})
 	}
 
-	// TODO: find a better way to get the request ID, or better, to ensure it's always available in the context
 	requestID := ""
-	containerCommand := []string{"/bin/sh", "-c",
-		fmt.Sprintf("echo '%s Runner execution started'; %s",
-			constants.ProjectName, req.Command)}
 	if lc, ok := lambdacontext.FromContext(ctx); ok {
 		requestID = lc.AwsRequestID
-		containerCommand = []string{"/bin/sh", "-c",
-			fmt.Sprintf("echo '%s Runner execution started by requestID %s'; %s",
-				constants.ProjectName, requestID, req.Command)}
 	}
+
+	containerCommand := []string{"/bin/sh", "-c"}
+	actualCommands := []string{
+		fmt.Sprintf("printf '### %s runner execution started by requestID %s\\n'", constants.ProjectName, requestID),
+		fmt.Sprintf("printf '### %s command => %s\\n'", constants.ProjectName, req.Command),
+		req.Command,
+	}
+	containerCommand = append(containerCommand, strings.Join(actualCommands, " && "))
 
 	runTaskInput := &ecs.RunTaskInput{
 		Cluster:        awsstd.String(e.cfg.ECSCluster),
