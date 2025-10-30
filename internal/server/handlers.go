@@ -5,10 +5,13 @@ package server
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 
 	"runvoy/internal/api"
 	"runvoy/internal/constants"
 	apperrors "runvoy/internal/errors"
+
+	"github.com/go-chi/chi/v5"
 )
 
 // handleCreateUser handles POST /api/v1/users to create a new user with an API key
@@ -99,6 +102,40 @@ func (r *Router) handleRunCommand(w http.ResponseWriter, req *http.Request) {
 
 	w.WriteHeader(http.StatusAccepted)
 	_ = json.NewEncoder(w).Encode(resp)
+}
+
+// handleGetExecutionLogs handles GET /api/v1/executions/{executionID}/logs to fetch logs for an execution
+func (r *Router) handleGetExecutionLogs(w http.ResponseWriter, req *http.Request) {
+    logger := r.GetLoggerFromContext(req.Context())
+
+    // must be authenticated already by middleware
+    user, ok := req.Context().Value(userContextKey).(*api.User)
+    if !ok || user == nil {
+        writeErrorResponse(w, http.StatusUnauthorized, "Unauthorized", "user not found in context")
+        return
+    }
+
+    executionID := strings.TrimSpace(chi.URLParam(req, "executionID"))
+    if executionID == "" {
+        writeErrorResponse(w, http.StatusBadRequest, "invalid execution id", "executionID is required")
+        return
+    }
+
+    resp, err := r.svc.GetLogsByExecutionID(req.Context(), executionID)
+    if err != nil {
+        statusCode := apperrors.GetStatusCode(err)
+        errorCode := apperrors.GetErrorCode(err)
+        errorMsg := apperrors.GetErrorMessage(err)
+
+        logger.Debug("failed to get execution logs", "error", err, "statusCode", statusCode, "errorCode", errorCode)
+
+        writeErrorResponseWithCode(w, statusCode, errorCode, "failed to get execution logs", errorMsg)
+
+        return
+    }
+
+    w.WriteHeader(http.StatusOK)
+    _ = json.NewEncoder(w).Encode(resp)
 }
 
 // handleHealth returns a simple health check response

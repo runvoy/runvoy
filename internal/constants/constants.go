@@ -61,3 +61,7 @@ const (
 	// EventProcessorService is the event processing service.
 	EventProcessorService Service = "event-processor"
 )
+
+// ExecutorContainerName is the ECS container name used for task execution.
+// Must match the container override name passed in the ECS RunTask call.
+const ExecutorContainerName = "executor"

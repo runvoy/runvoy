@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"runvoy/internal/api"
+    appaws "runvoy/internal/app/aws"
 	"runvoy/internal/constants"
 	"runvoy/internal/database"
 	apperrors "runvoy/internal/errors"
@@ -235,4 +236,31 @@ func (s *Service) RunCommand(ctx context.Context, userEmail string, req api.Exec
 		LogURL:      logURL,
 		Status:      "RUNNING",
 	}, nil
+}
+
+// GetLogsByExecutionID returns aggregated Cloud logs for a given execution
+func (s *Service) GetLogsByExecutionID(ctx context.Context, executionID string) (*api.LogsResponse, error) {
+    if executionID == "" {
+        return nil, apperrors.ErrBadRequest("executionID is required", nil)
+    }
+
+    switch s.Provider {
+    case constants.AWS:
+        events, err := s.getAWSLogsByExecutionID(ctx, executionID)
+        if err != nil {
+            return nil, err
+        }
+        return &api.LogsResponse{ExecutionID: executionID, Events: events}, nil
+    default:
+        return nil, apperrors.ErrInternalError("logs not supported for this provider", nil)
+    }
+}
+
+// getAWSLogsByExecutionID delegates to the AWS implementation using the executor config
+func (s *Service) getAWSLogsByExecutionID(ctx context.Context, executionID string) ([]api.LogEvent, error) {
+    execImpl, ok := s.executor.(*appaws.Executor)
+    if !ok {
+        return nil, apperrors.ErrInternalError("aws executor not configured", nil)
+    }
+    return appaws.FetchLogsByExecutionID(ctx, execImpl.cfg, executionID)
 }
