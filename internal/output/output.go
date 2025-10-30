@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"regexp"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/fatih/color"
 )
@@ -28,12 +30,20 @@ var (
 
 	// Disable colors if not TTY or NO_COLOR is set
 	noColor = os.Getenv("NO_COLOR") != "" || !isTerminal(os.Stdout)
+	// Matches ANSI escape sequences used for colors/styles
+	ansiRegexp = regexp.MustCompile(`\x1b\[[0-9;]*m`)
 )
 
 func init() {
 	if noColor {
 		color.NoColor = true
 	}
+}
+
+// visibleWidth returns the number of visible characters, ignoring ANSI escape codes
+func visibleWidth(s string) int {
+	clean := ansiRegexp.ReplaceAllString(s, "")
+	return utf8.RuneCountInString(clean)
 }
 
 // Success prints a success message with a checkmark
@@ -209,19 +219,29 @@ func Table(headers []string, rows [][]string) {
 	// Calculate column widths
 	widths := make([]int, len(headers))
 	for i, h := range headers {
-		widths[i] = len(h)
+		widths[i] = visibleWidth(h)
 	}
 	for _, row := range rows {
 		for i, cell := range row {
-			if i < len(widths) && len(cell) > widths[i] {
-				widths[i] = len(cell)
+			if i < len(widths) {
+				w := visibleWidth(cell)
+				if w > widths[i] {
+					widths[i] = w
+				}
 			}
 		}
 	}
 
 	// Print headers
 	for i, h := range headers {
-		_, _ = fmt.Fprintf(Stdout, "%-*s  ", widths[i], bold.Sprint(h))
+		header := bold.Sprint(h)
+		pad := widths[i] - visibleWidth(h)
+		if pad < 0 {
+			pad = 0
+		}
+		_, _ = fmt.Fprint(Stdout, header)
+		_, _ = fmt.Fprint(Stdout, strings.Repeat(" ", pad))
+		_, _ = fmt.Fprint(Stdout, "  ")
 	}
 	_, _ = fmt.Fprintln(Stdout)
 
@@ -235,7 +255,13 @@ func Table(headers []string, rows [][]string) {
 	for _, row := range rows {
 		for i, cell := range row {
 			if i < len(widths) {
-				_, _ = fmt.Fprintf(Stdout, "%-*s  ", widths[i], cell)
+				pad := widths[i] - visibleWidth(cell)
+				if pad < 0 {
+					pad = 0
+				}
+				_, _ = fmt.Fprint(Stdout, cell)
+				_, _ = fmt.Fprint(Stdout, strings.Repeat(" ", pad))
+				_, _ = fmt.Fprint(Stdout, "  ")
 			}
 		}
 		_, _ = fmt.Fprintln(Stdout)

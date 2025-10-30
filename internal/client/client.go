@@ -179,3 +179,16 @@ func (c *Client) RunCommand(ctx context.Context, req api.ExecutionRequest) (*api
 	}
 	return &resp, nil
 }
+
+// GetLogs gets the logs for an execution
+func (c *Client) GetLogs(ctx context.Context, executionID string) (*api.LogsResponse, error) {
+	var resp api.LogsResponse
+	err := c.DoJSON(ctx, Request{
+		Method: "GET",
+		Path:   fmt.Sprintf("/api/v1/executions/%s/logs", executionID),
+	}, &resp)
+	if err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
