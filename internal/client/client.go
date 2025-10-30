@@ -192,3 +192,16 @@ func (c *Client) GetLogs(ctx context.Context, executionID string) (*api.LogsResp
 	}
 	return &resp, nil
 }
+
+// GetExecutionStatus gets the status of an execution
+func (c *Client) GetExecutionStatus(ctx context.Context, executionID string) (*api.ExecutionStatusResponse, error) {
+	var resp api.ExecutionStatusResponse
+	err := c.DoJSON(ctx, Request{
+		Method: "GET",
+		Path:   fmt.Sprintf("/api/v1/executions/%s/status", executionID),
+	}, &resp)
+	if err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
