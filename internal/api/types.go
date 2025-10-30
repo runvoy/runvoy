@@ -24,6 +24,15 @@ type ExecutionResponse struct {
 	Status      string `json:"status"`
 }
 
+// ExecutionStatusResponse represents the current status of an execution
+type ExecutionStatusResponse struct {
+    ExecutionID string     `json:"execution_id"`
+    Status      string     `json:"status"`
+    ExitCode    int        `json:"exit_code,omitempty"`
+    StartedAt   time.Time  `json:"started_at"`
+    CompletedAt *time.Time `json:"completed_at,omitempty"`
+}
+
 // ErrorResponse represents an error response
 type ErrorResponse struct {
 	Error   string `json:"error"`

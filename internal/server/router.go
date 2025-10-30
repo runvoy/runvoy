@@ -55,6 +55,8 @@ func NewRouter(svc *app.Service, requestTimeout time.Duration) *Router {
 		r.With(router.authenticateRequestMiddleware).Post("/run", router.handleRunCommand)
 		// logs endpoints
 		r.With(router.authenticateRequestMiddleware).Get("/executions/{executionID}/logs", router.handleGetExecutionLogs)
+		// execution status endpoint
+		r.With(router.authenticateRequestMiddleware).Get("/executions/{executionID}/status", router.handleGetExecutionStatus)
 	})
 
 	return router

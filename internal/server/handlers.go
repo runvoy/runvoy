@@ -138,6 +138,38 @@ func (r *Router) handleGetExecutionLogs(w http.ResponseWriter, req *http.Request
     _ = json.NewEncoder(w).Encode(resp)
 }
 
+// handleGetExecutionStatus handles GET /api/v1/executions/{executionID}/status to fetch execution status
+func (r *Router) handleGetExecutionStatus(w http.ResponseWriter, req *http.Request) {
+    logger := r.GetLoggerFromContext(req.Context())
+
+    user, ok := req.Context().Value(userContextKey).(*api.User)
+    if !ok || user == nil {
+        writeErrorResponse(w, http.StatusUnauthorized, "Unauthorized", "user not found in context")
+        return
+    }
+
+    executionID := strings.TrimSpace(chi.URLParam(req, "executionID"))
+    if executionID == "" {
+        writeErrorResponse(w, http.StatusBadRequest, "invalid execution id", "executionID is required")
+        return
+    }
+
+    resp, err := r.svc.GetExecutionStatus(req.Context(), executionID)
+    if err != nil {
+        statusCode := apperrors.GetStatusCode(err)
+        errorCode := apperrors.GetErrorCode(err)
+        errorMsg := apperrors.GetErrorMessage(err)
+
+        logger.Debug("failed to get execution status", "error", err, "statusCode", statusCode, "errorCode", errorCode)
+
+        writeErrorResponseWithCode(w, statusCode, errorCode, "failed to get execution status", errorMsg)
+        return
+    }
+
+    w.WriteHeader(http.StatusOK)
+    _ = json.NewEncoder(w).Encode(resp)
+}
+
 // handleHealth returns a simple health check response
 func (r *Router) handleHealth(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(http.StatusOK)
