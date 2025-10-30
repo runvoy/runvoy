@@ -128,15 +128,15 @@ Resources:
         - Key: ManagedBy
           Value: 'cloudformation'
 
-  # CloudWatch Log Group for ECS task execution logs
-  ExecutionLogGroup:
+  # CloudWatch Log Group for ECS task runner logs
+  RunnerLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
-      LogGroupName: !Sub '/aws/ecs/${ProjectName}/task-execution'
+      LogGroupName: !Sub '/aws/ecs/${ProjectName}/runner'
       RetentionInDays: 7
       Tags:
         - Key: Name
-          Value: !Sub '${ProjectName}-execution-logs'
+          Value: !Sub '${ProjectName}-runner-logs'
         - Key: Application
           Value: !Ref ProjectName
         - Key: ManagedBy
@@ -323,7 +323,7 @@ Resources:
           LogConfiguration:
             LogDriver: awslogs
             Options:
-              awslogs-group: !Ref ExecutionLogGroup
+              awslogs-group: !Ref RunnerLogGroup
               awslogs-region: !Ref AWS::Region
               awslogs-stream-prefix: task
 
@@ -377,7 +377,7 @@ Resources:
                 Action:
                   - 'logs:CreateLogStream'
                   - 'logs:PutLogEvents'
-                Resource: !GetAtt ExecutionLogGroup.Arn
+                Resource: !GetAtt RunnerLogGroup.Arn
         # TODO: Add more granular permissions based on user needs
         # For MVP, users can add AdministratorAccess or custom policies manually
 
@@ -428,7 +428,7 @@ Resources:
                   - 'logs:GetLogEvents'
                   - 'logs:FilterLogEvents'
                   - 'logs:DescribeLogStreams'
-                Resource: !GetAtt ExecutionLogGroup.Arn
+                Resource: !GetAtt RunnerLogGroup.Arn
               - Effect: Allow
                 Action:
                   - 'dynamodb:GetItem'
@@ -476,7 +476,7 @@ Resources:
           RUNVOY_SUBNET_1: !Ref PublicSubnet1
           RUNVOY_SUBNET_2: !Ref PublicSubnet2
           RUNVOY_SECURITY_GROUP: !Ref FargateSecurityGroup
-          RUNVOY_LOG_GROUP: !Ref ExecutionLogGroup
+          RUNVOY_LOG_GROUP: !Ref RunnerLogGroup
           RUNVOY_JWT_SECRET: !If [HasJWTSecret, !Ref JWTSecret, !Ref 'AWS::NoValue']
           RUNVOY_WEB_UI_URL: ''
 
@@ -644,8 +644,8 @@ Outputs:
     Value: !Ref TaskDefinition
 
   LogGroup:
-    Description: CloudWatch Log Group for executions
-    Value: !Ref ExecutionLogGroup
+    Description: CloudWatch Log Group for runner tasks
+    Value: !Ref RunnerLogGroup
     Export:
       Name: !Sub '${ProjectName}-log-group'
 
