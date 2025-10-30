@@ -262,3 +262,29 @@ func (s *Service) getAWSLogsByExecutionID(ctx context.Context, executionID strin
 	}
 	return execImpl.FetchLogsByExecutionID(ctx, executionID)
 }
+
+// GetExecutionStatus returns the current status and metadata for a given execution ID
+func (s *Service) GetExecutionStatus(ctx context.Context, executionID string) (*api.ExecutionStatusResponse, error) {
+    if s.executionRepo == nil {
+        return nil, apperrors.ErrInternalError("execution repository not configured", nil)
+    }
+    if executionID == "" {
+        return nil, apperrors.ErrBadRequest("executionID is required", nil)
+    }
+
+    execution, err := s.executionRepo.GetExecution(ctx, executionID)
+    if err != nil {
+        return nil, err
+    }
+    if execution == nil {
+        return nil, apperrors.ErrNotFound("execution not found", nil)
+    }
+
+    return &api.ExecutionStatusResponse{
+        ExecutionID: execution.ExecutionID,
+        Status:      execution.Status,
+        ExitCode:    execution.ExitCode,
+        StartedAt:   execution.StartedAt,
+        CompletedAt: execution.CompletedAt,
+    }, nil
+}
