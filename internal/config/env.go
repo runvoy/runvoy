@@ -53,9 +53,6 @@ type OrchestratorEnv struct {
 	// Required by orchestrator lambda, validated at runtime in app.Initialize.
 	LogGroup string `env:"RUNVOY_LOG_GROUP,notEmpty"`
 
-    // LogStreamPrefix is the CloudWatch log stream prefix for task logs (AWS only), e.g. "ecs/executor".
-    // Optional; when set, the server reads logs from "<prefix>/<executionID>" without discovery.
-    LogStreamPrefix string `env:"RUNVOY_LOG_STREAM_PREFIX"`
 
 	// DefaultImage is the default Docker image to use if not specified in request.
 	DefaultImage string `env:"RUNVOY_DEFAULT_IMAGE" envDefault:"public.ecr.aws/docker/library/ubuntu:22.04"`

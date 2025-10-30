@@ -531,8 +531,7 @@ The service exposes a simple logs endpoint that aggregates CloudWatch Logs event
 
 - Auth required via `X-API-Key`
 - Returns all available events across discovered streams containing the task ID
-- Uses configured stream prefix when available: `RUNVOY_LOG_STREAM_PREFIX + "/" + {taskId}`
-- Falls back to best-effort discovery of recent streams containing the task ID if no prefix configured
+- Reads from deterministic stream: `task/<container-name>/<executionID>` (container: `executor`)
 - Response is sorted by timestamp ascending
 
 Example response:
@@ -551,7 +550,6 @@ Environment variables:
 
 ```text
 RUNVOY_LOG_GROUP           # required (e.g. /aws/ecs/runvoy)
-RUNVOY_LOG_STREAM_PREFIX   # optional (e.g. ecs/executor)
 ```
 
 Future enhancements may include streaming/tailing and server-side filtering.

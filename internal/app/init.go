@@ -81,14 +81,13 @@ func initializeAWSBackend(ctx context.Context, cfg *config.OrchestratorEnv, logg
 	userRepo := dynamorepo.NewUserRepository(dynamoClient, cfg.APIKeysTable, logger)
 	executionRepo := dynamorepo.NewExecutionRepository(dynamoClient, cfg.ExecutionsTable, logger)
 
-	awsExecCfg := &appaws.Config{
+    awsExecCfg := &appaws.Config{
 		ECSCluster:     cfg.ECSCluster,
 		TaskDefinition: cfg.TaskDefinition,
 		Subnet1:        cfg.Subnet1,
 		Subnet2:        cfg.Subnet2,
 		SecurityGroup:  cfg.SecurityGroup,
 		LogGroup:       cfg.LogGroup,
-		LogStreamPrefix: cfg.LogStreamPrefix,
 		DefaultImage:   cfg.DefaultImage,
 		// TaskRoleARN and TaskExecRoleARN would come from CloudFormation outputs
 		// For now, we'll leave them empty and they'll be read from the existing task definition
