@@ -205,3 +205,15 @@ func (c *Client) GetExecutionStatus(ctx context.Context, executionID string) (*a
 	}
 	return &resp, nil
 }
+
+func (c *Client) KillExecution(ctx context.Context, executionID string) (*api.KillExecutionResponse, error) {
+	var resp api.KillExecutionResponse
+	err := c.DoJSON(ctx, Request{
+		Method: "POST",
+		Path:   fmt.Sprintf("/api/v1/executions/%s/kill", executionID),
+	}, &resp)
+	if err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}

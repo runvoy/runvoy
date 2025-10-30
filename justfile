@@ -230,6 +230,11 @@ smoke-test-backend-run-command:
         -H "Content-Type: application/json" \
         -d "{\"command\":\"echo Hello, World! $(date +'%Y-%m-%d-%H-%M')\"}" | jq .
 
+smoke-test-local-kill-execution:
+    curl -sS -X POST "http://localhost:56212/api/v1/executions/dc9015d4f54b4cf69fe0c77c51b5c1fa/kill" \
+        -H "X-API-Key: ${RUNVOY_ADMIN_API_KEY}" \
+        -H "Content-Type: application/json" | jq .
+
 destroy-backend-infra:
     aws cloudformation delete-stack \
         --stack-name runvoy-backend
