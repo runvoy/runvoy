@@ -159,7 +159,16 @@ func (r *ExecutionRepository) UpdateExecution(ctx context.Context, execution *ap
 
 	if execution.CompletedAt != nil {
 		updateExpr += ", completed_at = :completed_at"
-		exprAttrValues[":completed_at"] = &types.AttributeValueMemberS{Value: execution.CompletedAt.Format(time.RFC3339Nano)}
+		// Use DynamoDB's marshaler to ensure the timestamp format matches exactly what DynamoDB expects
+		completedAtAV, err := attributevalue.Marshal(*execution.CompletedAt)
+		if err != nil {
+			return apperrors.ErrDatabaseError("failed to marshal completed_at", err)
+		}
+		completedAtStr, ok := completedAtAV.(*types.AttributeValueMemberS)
+		if !ok {
+			return apperrors.ErrDatabaseError("completed_at is not a string attribute", nil)
+		}
+		exprAttrValues[":completed_at"] = &types.AttributeValueMemberS{Value: completedAtStr.Value}
 	}
 
 	if execution.ExitCode != 0 {
@@ -184,11 +193,21 @@ func (r *ExecutionRepository) UpdateExecution(ctx context.Context, execution *ap
 
 	// Note: DynamoDB requires both execution_id (hash) and started_at (range) keys
 	// We ensure execution.StartedAt is set when creating, so it should be available here
-	_, err := r.client.UpdateItem(ctx, &dynamodb.UpdateItemInput{
+	// Use DynamoDB's marshaler to ensure the timestamp format matches exactly what was stored
+	startedAtAV, err := attributevalue.Marshal(execution.StartedAt)
+	if err != nil {
+		return apperrors.ErrDatabaseError("failed to marshal started_at", err)
+	}
+	startedAtStr, ok := startedAtAV.(*types.AttributeValueMemberS)
+	if !ok {
+		return apperrors.ErrDatabaseError("started_at is not a string attribute", nil)
+	}
+
+	_, err = r.client.UpdateItem(ctx, &dynamodb.UpdateItemInput{
 		TableName: aws.String(r.tableName),
 		Key: map[string]types.AttributeValue{
 			"execution_id": &types.AttributeValueMemberS{Value: execution.ExecutionID},
-			"started_at":   &types.AttributeValueMemberS{Value: execution.StartedAt.Format(time.RFC3339Nano)},
+			"started_at":   &types.AttributeValueMemberS{Value: startedAtStr.Value},
 		},
 		UpdateExpression:          aws.String(updateExpr),
 		ExpressionAttributeNames:  exprAttrNames,
