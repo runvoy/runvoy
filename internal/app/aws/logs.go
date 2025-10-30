@@ -32,8 +32,8 @@ func FetchLogsByExecutionID(ctx context.Context, cfg *Config, executionID string
 	cwl := cloudwatchlogs.NewFromConfig(awsCfg)
 
 	foundStreams := make(map[string]struct{})
-	// Deterministic stream from ECS awslogs default pattern: task/<container-name>/<executionID>
-	stream := fmt.Sprintf("task/%s/%s", constants.ExecutorContainerName, executionID)
+    // Deterministic stream from ECS awslogs default pattern: task/<container-name>/<executionID>
+    stream := fmt.Sprintf("task/%s/%s", constants.RunnerContainerName, executionID)
 	foundStreams[stream] = struct{}{}
 
 	if len(foundStreams) == 0 {

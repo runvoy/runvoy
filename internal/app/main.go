@@ -9,8 +9,8 @@ import (
 	"net/mail"
 	"time"
 
-	"runvoy/internal/api"
-	appaws "runvoy/internal/app/aws"
+    "runvoy/internal/api"
+    appaws "runvoy/internal/app/aws"
 	"runvoy/internal/constants"
 	"runvoy/internal/database"
 	apperrors "runvoy/internal/errors"
@@ -252,11 +252,11 @@ func (s *Service) GetLogsByExecutionID(ctx context.Context, executionID string) 
 	}
 }
 
-// getAWSLogsByExecutionID delegates to the AWS implementation using the executor config
+// getAWSLogsByExecutionID delegates to the AWS implementation using the runner config
 func (s *Service) getAWSLogsByExecutionID(ctx context.Context, executionID string) ([]api.LogEvent, error) {
-	execImpl, ok := s.executor.(*appaws.Executor)
+    execImpl, ok := s.runner.(*appaws.Runner)
 	if !ok {
-		return nil, apperrors.ErrInternalError("aws executor not configured", nil)
+        return nil, apperrors.ErrInternalError("aws runner not configured", nil)
 	}
 	return execImpl.FetchLogsByExecutionID(ctx, executionID)
 }
