@@ -12,14 +12,14 @@ Think of the locking benefits of Terraform Cloud, but without the need for a Ter
 
 ## Overview
 
-runvoy solves the challenge of giving team members access to run infrastructure commands (terraform, CDK, kubectl, etc.) without distributing AWS credentials. Deploy once, secure forever.
+runvoy solves the challenge of giving team members access to run infrastructure commands (terraform, CDK, kubectl, etc.) without distributing admin credentials. Deploy once, secure forever.
 
 **Key Benefits:**
 - **No credential sharing**: Team members never see AWS credentials
 - **Complete audit trail**: Every execution logged with user identification
 - **Safe stateful operations**: Automatic locking prevents concurrent conflicts
 - **Self-service**: Team members don't wait for admins to run commands
-- **Self-hosted**: Runs in your AWS account, you control everything
+- **Self-hosted**: The backend runs in your AWS account, you control everything
 
 ## Features
 
