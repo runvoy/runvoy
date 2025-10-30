@@ -526,9 +526,9 @@ This setup ensures consistent code quality across all contributors and automated
 
 ## Current Limitations and Future Enhancements
 
-### Log Viewing Endpoint
+### Log Viewing and Tailing
 
-The service exposes a simple logs endpoint that aggregates CloudWatch Logs events for a given execution ID (ECS task ID):
+The service exposes a logs endpoint that aggregates CloudWatch Logs events for a given execution ID (ECS task ID). The CLI implements client-side tailing behavior on top of this endpoint:
 
 - Auth required via `X-API-Key`
 - Returns all available events across discovered streams containing the task ID
@@ -558,7 +558,13 @@ Environment variables:
 RUNVOY_LOG_GROUP           # required (e.g. /aws/ecs/runvoy)
 ```
 
-Future enhancements may include streaming/tailing and server-side filtering.
+Client behavior (CLI `runvoy logs <executionID>`):
+
+- Waits until the execution moves out of pending/queued/starting using the status API, showing a spinner
+- Streams logs, polling every 5 seconds and printing only new lines
+- Stops tailing when the execution reaches a terminal status (COMPLETED/SUCCEEDED/FAILED/etc.) and prints the final status badge
+
+Future enhancements may include server-side filtering and pagination.
 
 2. **Lock Enforcement** - Lock names are stored in execution records but not actively enforced. Future implementation:
    - Acquire locks before starting tasks
