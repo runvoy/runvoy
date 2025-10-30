@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"strings"
 
+	"runvoy/internal/constants"
 	"runvoy/internal/database"
 	"runvoy/internal/logger"
 
@@ -111,15 +112,21 @@ func determineStatusAndExitCode(event ECSTaskStateChangeEvent) (status string, e
 		return status, exitCode
 	}
 
-    // Get exit code from the first container (runner container)
-	if len(event.Containers) > 0 && event.Containers[0].ExitCode != nil {
-		exitCode = *event.Containers[0].ExitCode
-		if exitCode == 0 {
-			status = "SUCCEEDED"
-		} else {
-			status = "FAILED"
+	// Find the main runner container by name and get its exit code
+	for _, container := range event.Containers {
+		if container.Name == constants.RunnerContainerName {
+			if container.ExitCode != nil {
+				exitCode = *container.ExitCode
+				if exitCode == 0 {
+					status = "SUCCEEDED"
+				} else {
+					status = "FAILED"
+				}
+				return status, exitCode
+			}
+			// Runner container found but no exit code available
+			break
 		}
-		return status, exitCode
 	}
 
 	// If we reach here, we don't have a clear exit code
