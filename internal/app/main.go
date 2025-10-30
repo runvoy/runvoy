@@ -135,6 +135,18 @@ func (s *Service) AuthenticateUser(ctx context.Context, apiKey string) (*api.Use
 	return user, nil
 }
 
+// UpdateUserLastUsed updates the user's last_used timestamp after successful authentication.
+// This is a best-effort operation; callers may choose to log failures without failing the request.
+func (s *Service) UpdateUserLastUsed(ctx context.Context, email string) error {
+	if s.userRepo == nil {
+		return apperrors.ErrInternalError("user repository not configured", nil)
+	}
+	if email == "" {
+		return apperrors.ErrBadRequest("email is required", nil)
+	}
+	return s.userRepo.UpdateLastUsed(ctx, email)
+}
+
 // RevokeUser marks a user's API key as revoked.
 // Returns an error if the user does not exist or revocation fails.
 func (s *Service) RevokeUser(ctx context.Context, email string) error {

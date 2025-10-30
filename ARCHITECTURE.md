@@ -160,6 +160,9 @@ The router uses a middleware stack for cross-cutting concerns:
 - Database failures during authentication → 503 Service Unavailable (DATABASE_ERROR)
 - This ensures database errors are properly distinguished from authentication failures
 
+**Post-Authentication Behavior:**
+- On successful authentication, the system updates the user's `last_used` timestamp in the API keys table (best-effort; failures are logged and do not affect the request).
+
 The request ID middleware automatically:
 - Extracts the AWS Lambda request ID from the Lambda context when available
 - Adds the request ID to the request context for use by handlers

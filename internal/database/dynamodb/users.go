@@ -153,23 +153,50 @@ func (r *UserRepository) GetUserByAPIKeyHash(ctx context.Context, apiKeyHash str
 
 // UpdateLastUsed updates the last_used timestamp for a user.
 func (r *UserRepository) UpdateLastUsed(ctx context.Context, email string) error {
-	// First, query to get the api_key_hash for this email
-	user, err := r.GetUserByEmail(ctx, email)
+	// Query the GSI by email to obtain the api_key_hash (table PK)
+	result, err := r.client.Query(ctx, &dynamodb.QueryInput{
+		TableName:              aws.String(r.tableName),
+		IndexName:              aws.String("user_email-index"),
+		KeyConditionExpression: aws.String("user_email = :email"),
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":email": &types.AttributeValueMemberS{Value: email},
+		},
+		Limit: aws.Int32(1),
+	})
 	if err != nil {
-		return err
-	}
-	if user == nil {
-		return stderrors.New("user not found")
+		return apperrors.ErrDatabaseError("failed to query user by email for last_used update", err)
 	}
 
-	// We need the api_key_hash to update, but we don't have it from the query
-	// In practice, we'd store it during authentication
-	// For now, we'll need to modify the signature or add a method that takes the hash
-	// This is a limitation that shows we might want to query by email and update
+	if len(result.Items) == 0 {
+		return apperrors.ErrNotFound("user not found", nil)
+	}
 
-	// Alternative approach: use GSI to find the item, then update by hash
-	// For simplicity, this implementation assumes we have the hash during auth
-	return stderrors.New("UpdateLastUsed requires refactoring to store hash during auth")
+	// Extract api_key_hash from the first (and only) item for this email
+	var apiKeyHash string
+	if v, ok := result.Items[0]["api_key_hash"]; ok {
+		if s, ok := v.(*types.AttributeValueMemberS); ok {
+			apiKeyHash = s.Value
+		}
+	}
+	if apiKeyHash == "" {
+		return apperrors.ErrDatabaseError("user record missing api_key_hash attribute", nil)
+	}
+
+	now := time.Now().UTC()
+
+	_, err = r.client.UpdateItem(ctx, &dynamodb.UpdateItemInput{
+		TableName: aws.String(r.tableName),
+		Key: map[string]types.AttributeValue{
+			"api_key_hash": &types.AttributeValueMemberS{Value: apiKeyHash},
+		},
+		UpdateExpression:          aws.String("SET last_used = :now"),
+		ExpressionAttributeValues: map[string]types.AttributeValue{":now": &types.AttributeValueMemberS{Value: now.Format(time.RFC3339Nano)}},
+	})
+	if err != nil {
+		return apperrors.ErrDatabaseError("failed to update last_used", err)
+	}
+
+	return nil
 }
 
 // RevokeUser marks a user's API key as revoked.

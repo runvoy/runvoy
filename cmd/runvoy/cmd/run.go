@@ -30,9 +30,6 @@ func runRun(cmd *cobra.Command, args []string) {
 	}
 
 	output.Info("Running command: %s", output.Bold(command))
-	if verbose {
-		output.Info("Endpoint: %s", output.Bold(cfg.APIEndpoint))
-	}
 
 	client := client.New(cfg, slog.Default())
 	resp, err := client.RunCommand(cmd.Context(), api.ExecutionRequest{Command: command})
