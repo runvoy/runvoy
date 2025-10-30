@@ -243,7 +243,7 @@ func (s *Service) GetLogsByExecutionID(ctx context.Context, executionID string) 
 	switch s.Provider {
 	case constants.AWS:
 		events, err := s.getAWSLogsByExecutionID(ctx, executionID)
-		s.Logger.Info("GetLogsByExecutionID", "executionID", executionID, "events", events)
+		s.Logger.Debug("fetched log events", "executionID", executionID, "events", events)
 		if err != nil {
 			return nil, err
 		}
