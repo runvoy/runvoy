@@ -521,6 +521,55 @@ AI agents can automatically:
 
 This setup ensures consistent code quality across all contributors and automated systems.
 
+## Current Limitations and Future Enhancements
+
+### Not Yet Implemented
+
+1. **Log Viewing Endpoints** - The `/api/v1/executions/{id}/logs` endpoint returns a placeholder. Future implementation could:
+   - Stream logs from CloudWatch Logs
+   - Support real-time log tailing
+   - Provide log filtering and searching
+
+2. **Lock Enforcement** - Lock names are stored in execution records but not actively enforced. Future implementation:
+   - Acquire locks before starting tasks
+   - Release locks on completion
+   - Prevent concurrent executions with the same lock
+
+3. **Custom Container Images** - The `image` field in execution requests is accepted but not currently used. Future implementation:
+   - Support custom Docker images via task definition overrides
+   - Allow per-execution image specification
+   - Validate image availability before task start
+
+4. **Comprehensive Test Coverage** - Current test coverage is limited. Areas needing tests:
+   - Event processor logic (cost calculation, status determination)
+   - DynamoDB repository operations
+   - API request/response handling
+   - End-to-end integration tests
+
+5. **Web UI** - Mentioned in architecture diagrams but not implemented. Potential features:
+   - View execution history
+   - Real-time log streaming
+   - User management interface
+   - Cost analytics dashboard
+
+6. **Request ID in Non-Lambda Environments** - Request ID extraction currently only works in Lambda. Enhancement needed for local server:
+   - Generate request IDs in middleware
+   - Use X-Request-ID header if present
+   - Consistent request tracking across environments
+
+### Implemented and Working
+
+- ✅ **Event Processor Lambda** - Fully implemented with ECS task completion tracking
+- ✅ **Cost Tracking** - Fargate cost calculation per execution
+- ✅ **API Key Authentication** - SHA-256 hashed keys with last-used tracking
+- ✅ **User Management** - Create and revoke users via CLI
+- ✅ **Command Execution** - Remote command execution via ECS Fargate
+- ✅ **Execution Records** - Complete tracking with status, duration, and cost
+- ✅ **Error Handling** - Structured errors with proper HTTP status codes
+- ✅ **Logging** - Request-scoped logging with AWS request ID
+- ✅ **Local Development** - HTTP server for testing without AWS
+- ✅ **Provider Abstraction** - Executor interface for multi-cloud support
+
 ## CLI Client Architecture
 
 The CLI client (`cmd/runvoy`) provides command-line access to the runvoy platform.
@@ -593,21 +642,56 @@ The command uses the generic HTTP client through the user client:
 - 500 Internal Server Error: Server errors
 
 **Adding New Commands:**
-To add new commands (exec, logs, etc.), simply:
+To add new commands (logs, etc.), simply:
 1. Create `internal/{command}/client.go`
 2. Use `client.New()` to create generic client
 3. Define command-specific methods using `client.DoJSON()`
 4. Add Cobra command that uses the client
 
-**Example for future exec command:**
+**Example for future logs command:**
 ```go
-// internal/exec/client.go
-func (e *ExecClient) RunCommand(cmd string) error {
+// internal/logs/client.go
+func (l *LogsClient) GetLogs(executionID string) (*api.LogsResponse, error) {
     req := client.Request{
-        Method: "POST",
-        Path:   "exec/run",
-        Body:   api.ExecutionRequest{Command: cmd},
+        Method: "GET",
+        Path:   fmt.Sprintf("executions/%s/logs", executionID),
     }
-    return e.client.DoJSON(req, &result)
+    var result api.LogsResponse
+    return &result, l.client.DoJSON(req, &result)
 }
 ```
+
+## Command Execution (`runvoy run`)
+
+The `run` command executes commands remotely via the orchestrator Lambda.
+
+**Implementation:** `cmd/runvoy/cmd/run.go`
+
+**Request Flow:**
+1. User runs: `runvoy run "echo hello world"`
+2. CLI sends POST request to `/api/v1/run` with:
+   ```json
+   {
+     "command": "echo hello world",
+     "lock": "optional_lock_name",
+     "image": "ubuntu:22.04",
+     "env": {"VAR": "value"},
+     "timeout": 300
+   }
+   ```
+3. Orchestrator Lambda:
+   - Validates API key
+   - Creates execution record in DynamoDB (status: RUNNING)
+   - Starts ECS Fargate task with the command
+   - Returns execution ID
+
+**Response (202 Accepted):**
+```json
+{
+  "execution_id": "abc123...",
+  "log_url": "/api/v1/executions/abc123/logs/notimplemented",
+  "status": "RUNNING"
+}
+```
+
+**Note:** Log viewing endpoints are not yet implemented. Execution completion is tracked automatically by the event processor Lambda.

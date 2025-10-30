@@ -21,21 +21,25 @@ runvoy solves the challenge of giving team members access to run infrastructure 
 
 ## Features
 
-- **One-command setup** - Deploy complete backend infrastructure with `runvoy-init`? TODO: decide if this is needed, at the moment backend is deployed via a cloudformation template (see `just update-backend-infra`)
-- **Git-integrated** - Automatically clones your repository before execution: TODO: decide if this is needed, at the moment we don't have any built in cloning mechanism. Evaluate sidecar with shared /tmp storage pattern
-- **Flexible images** - Use any Docker image (terraform, python, node, etc.)
-- **API key authentication** - Secure access with encrypted credentials
-- **Execution isolation** - Commands run in ephemeral ECS Fargate containers
+- **CloudFormation deployment** - Deploy complete backend infrastructure with CloudFormation templates
+- **Flexible container images** - Use any Docker image (terraform, python, node, etc.)
+- **API key authentication** - Secure access with hashed API keys (SHA-256)
+- **Execution isolation** - Commands run in ephemeral ECS Fargate (ARM64) containers
 - **CloudWatch integration** - Full execution logs and audit trails
 - **Multi-user support** - Centralized execution for entire teams
+- **Event-driven architecture** - Automatic execution tracking via EventBridge
+- **Cost tracking** - Real-time Fargate cost calculation per execution
+- **Execution locking** - Prevent concurrent operations on shared resources (e.g., Terraform state)
 
 ## Architecture
 
-runvoy uses a serverless architecture built on AWS Lambda, ECS Fargate, and DynamoDB:
+runvoy uses a serverless event-driven architecture built on AWS Lambda, ECS Fargate, DynamoDB, and EventBridge:
 
-- **Lambda Function URL**: HTTPS endpoint for API requests
-- **DynamoDB**: Stores API keys (hashed), users, locks, and execution records
-- **ECS Fargate**: Runs commands in isolated, ephemeral containers
+- **Orchestrator Lambda**: HTTPS endpoint (Function URL) for synchronous API requests
+- **Event Processor Lambda**: Asynchronous event handler for ECS task completions
+- **DynamoDB**: Stores API keys (hashed), execution records with status and costs
+- **ECS Fargate**: Runs commands in isolated, ephemeral ARM64 containers
+- **EventBridge**: Captures ECS task state changes for completion tracking
 - **CloudWatch**: Logs all executions for audit and debugging
 
 For detailed architecture information, see [ARCHITECTURE.md](ARCHITECTURE.md).
@@ -55,17 +59,19 @@ runvoy users revoke <email>
 
 **Command Execution:**
 ```bash
-runvoy run <command>
+runvoy run "<command>"
 
-runvoy run "echo hello world $(date)"
-# Example output:
+# Example
+runvoy run "echo hello world"
+# Output:
 # 🚀 runvoy
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# → Running command: echo hello world Wed 29 Oct 2025 14:18:06 AST
+# → Running command: echo hello world
 # ✓ Command execution started successfully
 #   Execution ID: 72f57686926e4becb89116b0ac72caec
-#   Log URL: /api/v1/executions/72f57686926e4becb89116b0ac72caec/logs/notimplemented
 #   Status: RUNNING
+#
+# Note: Log viewing endpoint is not yet implemented
 ```
 
 **Configuration:**
@@ -97,10 +103,19 @@ runvoy --verbose --timeout 5m users create alice@example.com
 
 ### Prerequisites
 - AWS account with appropriate permissions
-- Go 1.24 or later (for development)
+- Go 1.23 or later (for development)
 - AWS CLI configured
+- [just](https://github.com/casey/just) command runner (optional, for development)
 
-### Installation
+### Backend Deployment
+
+Deploy the backend infrastructure using CloudFormation:
+```bash
+# See deployments/ directory for CloudFormation templates
+# (Specific deployment instructions depend on your CloudFormation setup)
+```
+
+### CLI Installation
 
 1. Clone the repository:
 ```bash
@@ -108,42 +123,74 @@ git clone https://github.com/yourusername/runvoy.git
 cd runvoy
 ```
 
-2. Install development dependencies:
+2. Build the CLI:
 ```bash
-just dev-setup
+go build -o runvoy ./cmd/runvoy
 ```
 
-3. Build the binaries:
+3. Configure the CLI:
 ```bash
-just build
+./runvoy configure
+# Enter your API endpoint and API key when prompted
 ```
 
 ### Development
 
-Run the local development server:
+The project uses `just` for development automation. Common commands:
+
 ```bash
+# Install development tools
+just dev-setup
+
+# Build all binaries
+just build
+
+# Run local HTTP server (development mode)
 just run-local
-```
 
-Run tests:
-```bash
+# Run tests
 just test
-```
 
-Run all checks (lint + test):
-```bash
+# Run linter
+just lint
+
+# Run all checks (lint + test)
 just check
+
+# Format code
+just fmt
+
+# Install pre-commit hooks
+just install-hooks
 ```
 
-For more commands, see the `justfile` or run `just --list`.
+For all available commands, run `just --list`.
 
 ## Project Structure
 
 ```
-bin/          - Built binaries (temporary storage)
-cmd/          - Entry points (CLI client, Lambda backend, local server)
-internal/     - Application code (API, business logic, database, middleware)
-deployments/  - CloudFormation templates for AWS infrastructure
+bin/                     - Built binaries (temporary storage)
+cmd/
+  ├── runvoy/            - CLI client (Cobra-based)
+  ├── local/             - Local HTTP server for development
+  └── backend/aws/
+      ├── orchestrator/  - Lambda for synchronous API requests
+      └── event_processor/ - Lambda for asynchronous ECS events
+internal/
+  ├── app/               - Service layer (business logic)
+  │   └── aws/           - AWS-specific executor (ECS Fargate)
+  ├── api/               - API request/response types
+  ├── server/            - HTTP router, handlers, middleware (chi-based)
+  ├── lambdaapi/         - Lambda Function URL event adapter
+  ├── events/            - Event processor (ECS completion handler)
+  ├── database/          - Repository interfaces and DynamoDB implementation
+  ├── client/            - Generic HTTP client for CLI
+  ├── config/            - Configuration (CLI YAML + environment variables)
+  ├── logger/            - Structured logging (slog)
+  ├── errors/            - Custom error types with HTTP status codes
+  ├── constants/         - Project constants
+  └── output/            - CLI output formatting
+deployments/             - CloudFormation templates (if available)
 ```
 
 ## Contributing
