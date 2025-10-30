@@ -81,7 +81,7 @@ func initializeAWSBackend(ctx context.Context, cfg *config.OrchestratorEnv, logg
 	userRepo := dynamorepo.NewUserRepository(dynamoClient, cfg.APIKeysTable, logger)
 	executionRepo := dynamorepo.NewExecutionRepository(dynamoClient, cfg.ExecutionsTable, logger)
 
-	awsExecCfg := &appaws.Config{
+    awsExecCfg := &appaws.Config{
 		ECSCluster:     cfg.ECSCluster,
 		TaskDefinition: cfg.TaskDefinition,
 		Subnet1:        cfg.Subnet1,

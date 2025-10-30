@@ -57,6 +57,18 @@ type Execution struct {
 	ComputePlatform string     `json:"cloud,omitempty"`
 }
 
+// LogEvent represents a single log event line
+type LogEvent struct {
+    Timestamp int64  `json:"timestamp"`
+    Message   string `json:"message"`
+}
+
+// LogsResponse contains all log events for an execution
+type LogsResponse struct {
+    ExecutionID string     `json:"execution_id"`
+    Events      []LogEvent `json:"events"`
+}
+
 // Lock represents a lock record
 type Lock struct {
 	LockName    string    `json:"lock_name"`

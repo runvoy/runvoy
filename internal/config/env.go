@@ -53,6 +53,7 @@ type OrchestratorEnv struct {
 	// Required by orchestrator lambda, validated at runtime in app.Initialize.
 	LogGroup string `env:"RUNVOY_LOG_GROUP,notEmpty"`
 
+
 	// DefaultImage is the default Docker image to use if not specified in request.
 	DefaultImage string `env:"RUNVOY_DEFAULT_IMAGE" envDefault:"public.ecr.aws/docker/library/ubuntu:22.04"`
 

@@ -162,6 +162,10 @@ smoke-test-local-revoke-user:
         -H "Content-Type: application/json" \
         -d '{"email":"bob@example.com"}' | jq .
 
+smoke-test-local-get-logs:
+    curl -sS -X GET "http://localhost:56212/api/v1/executions/c174a0aacab045c9945a1fb354362aa6/logs" \
+        -H "X-API-Key: ${RUNVOY_ADMIN_API_KEY}" | jq .
+
 smoke-test-backend-health:
     curl -sS \
         -H "X-API-Key: ${RUNVOY_ADMIN_API_KEY}" \

@@ -46,9 +46,11 @@ The application uses **chi** (github.com/go-chi/chi/v5) as the HTTP router for b
 All routes are defined in `internal/server/router.go`:
 
 ```text
-GET  /api/v1/health      - Health check endpoint
-POST /api/v1/users/create - Create a new user with an API key
-POST /api/v1/users/revoke - Revoke a user's API key
+GET  /api/v1/health                         - Health check
+POST /api/v1/users/create                   - Create a new user with an API key
+POST /api/v1/users/revoke                   - Revoke a user's API key
+POST /api/v1/run                            - Start an execution
+GET  /api/v1/executions/{id}/logs           - Fetch execution logs (CloudWatch)
 ```
 
 Both Lambda and local HTTP server use identical routing logic, ensuring development/production parity.
@@ -523,12 +525,34 @@ This setup ensures consistent code quality across all contributors and automated
 
 ## Current Limitations and Future Enhancements
 
-### Not Yet Implemented
+### Log Viewing Endpoint
 
-1. **Log Viewing Endpoints** - The `/api/v1/executions/{id}/logs` endpoint returns a placeholder. Future implementation could:
-   - Stream logs from CloudWatch Logs
-   - Support real-time log tailing
-   - Provide log filtering and searching
+The service exposes a simple logs endpoint that aggregates CloudWatch Logs events for a given execution ID (ECS task ID):
+
+- Auth required via `X-API-Key`
+- Returns all available events across discovered streams containing the task ID
+- Reads from deterministic stream: `task/<container-name>/<executionID>` (container: `executor`)
+- Response is sorted by timestamp ascending
+
+Example response:
+
+```json
+{
+  "execution_id": "abc123",
+  "events": [
+    {"timestamp": 1730250000000, "message": "Execution starting"},
+    {"timestamp": 1730250005000, "message": "..."}
+  ]
+}
+```
+
+Environment variables:
+
+```text
+RUNVOY_LOG_GROUP           # required (e.g. /aws/ecs/runvoy)
+```
+
+Future enhancements may include streaming/tailing and server-side filtering.
 
 2. **Lock Enforcement** - Lock names are stored in execution records but not actively enforced. Future implementation:
    - Acquire locks before starting tasks
