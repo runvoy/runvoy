@@ -33,6 +33,12 @@ type ExecutionStatusResponse struct {
     CompletedAt *time.Time `json:"completed_at,omitempty"`
 }
 
+// KillExecutionResponse represents the response after killing an execution
+type KillExecutionResponse struct {
+    ExecutionID string `json:"execution_id"`
+    Message     string `json:"message"`
+}
+
 // ErrorResponse represents an error response
 type ErrorResponse struct {
 	Error   string `json:"error"`

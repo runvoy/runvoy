@@ -398,6 +398,7 @@ Resources:
                   - 'ecs:DeregisterTaskDefinition'
                   - 'ecs:ListTasks'
                   - 'ecs:TagResource'
+                  - 'ecs:StopTask'
                 Resource: '*'
               - Effect: Allow
                 Action:

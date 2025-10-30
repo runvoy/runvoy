@@ -170,6 +170,41 @@ func (r *Router) handleGetExecutionStatus(w http.ResponseWriter, req *http.Reque
     _ = json.NewEncoder(w).Encode(resp)
 }
 
+// handleKillExecution handles POST /api/v1/executions/{executionID}/kill to terminate a running execution
+func (r *Router) handleKillExecution(w http.ResponseWriter, req *http.Request) {
+    logger := r.GetLoggerFromContext(req.Context())
+
+    user, ok := req.Context().Value(userContextKey).(*api.User)
+    if !ok || user == nil {
+        writeErrorResponse(w, http.StatusUnauthorized, "Unauthorized", "user not found in context")
+        return
+    }
+
+    executionID := strings.TrimSpace(chi.URLParam(req, "executionID"))
+    if executionID == "" {
+        writeErrorResponse(w, http.StatusBadRequest, "invalid execution id", "executionID is required")
+        return
+    }
+
+    err := r.svc.KillExecution(req.Context(), executionID)
+    if err != nil {
+        statusCode := apperrors.GetStatusCode(err)
+        errorCode := apperrors.GetErrorCode(err)
+        errorMsg := apperrors.GetErrorMessage(err)
+
+        logger.Debug("failed to kill execution", "error", err, "statusCode", statusCode, "errorCode", errorCode)
+
+        writeErrorResponseWithCode(w, statusCode, errorCode, "failed to kill execution", errorMsg)
+        return
+    }
+
+    w.WriteHeader(http.StatusOK)
+    _ = json.NewEncoder(w).Encode(api.KillExecutionResponse{
+        ExecutionID: executionID,
+        Message:     "Execution termination initiated",
+    })
+}
+
 // handleHealth returns a simple health check response
 func (r *Router) handleHealth(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(http.StatusOK)

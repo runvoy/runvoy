@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
+	"fmt"
 	"log/slog"
 	"net/mail"
 	"time"
@@ -24,6 +25,9 @@ type Runner interface {
 	// StartTask triggers an execution on the underlying platform and returns
 	// a provider-specific task ARN and a stable executionID.
 	StartTask(ctx context.Context, userEmail string, req api.ExecutionRequest) (executionID string, taskARN string, err error)
+	// KillTask terminates a running task identified by executionID.
+	// Returns an error if the task is already terminated or cannot be terminated.
+	KillTask(ctx context.Context, executionID string) error
 }
 
 // Service provides the core business logic for command execution and user management.
@@ -287,4 +291,46 @@ func (s *Service) GetExecutionStatus(ctx context.Context, executionID string) (*
         StartedAt:   execution.StartedAt,
         CompletedAt: execution.CompletedAt,
     }, nil
+}
+
+// KillExecution terminates a running execution identified by executionID.
+// It verifies the execution exists in the database and checks task status before termination.
+// Returns an error if the execution is not found, already terminated, or termination fails.
+func (s *Service) KillExecution(ctx context.Context, executionID string) error {
+	if s.executionRepo == nil {
+		return apperrors.ErrInternalError("execution repository not configured", nil)
+	}
+	if executionID == "" {
+		return apperrors.ErrBadRequest("executionID is required", nil)
+	}
+
+	reqLogger := logger.DeriveRequestLogger(ctx, s.Logger)
+
+	// First, verify the execution exists in the database
+	execution, err := s.executionRepo.GetExecution(ctx, executionID)
+	if err != nil {
+		return err
+	}
+	if execution == nil {
+		return apperrors.ErrNotFound("execution not found", nil)
+	}
+
+	reqLogger.Debug("execution found", "executionID", executionID, "status", execution.Status)
+
+	// Check if execution is already in a terminal state
+	terminalStatuses := []string{"SUCCEEDED", "FAILED", "STOPPED"}
+	for _, status := range terminalStatuses {
+		if execution.Status == status {
+			return apperrors.ErrBadRequest("execution is already terminated", fmt.Errorf("execution status: %s", execution.Status))
+		}
+	}
+
+	// Delegate to the runner to kill the task
+	if err := s.runner.KillTask(ctx, executionID); err != nil {
+		return err
+	}
+
+	reqLogger.Info("execution termination initiated", "executionID", executionID)
+
+	return nil
 }

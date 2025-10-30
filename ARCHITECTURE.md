@@ -52,6 +52,7 @@ POST /api/v1/users/revoke                   - Revoke a user's API key
 POST /api/v1/run                            - Start an execution
 GET  /api/v1/executions/{id}/logs           - Fetch execution logs (CloudWatch)
 GET  /api/v1/executions/{id}/status         - Get execution status (RUNNING/SUCCEEDED/FAILED/STOPPED)
+POST /api/v1/executions/{id}/kill          - Terminate a running execution
 ```
 
 Both Lambda and local HTTP server use identical routing logic, ensuring development/production parity.
@@ -735,3 +736,48 @@ The `run` command executes commands remotely via the orchestrator Lambda.
 ```
 
 **Note:** Log viewing endpoints are not yet implemented. Execution completion is tracked automatically by the event processor Lambda.
+
+## Execution Termination (`POST /api/v1/executions/{id}/kill`)
+
+The kill endpoint allows users to terminate running executions. This endpoint provides safe termination by validating that executions exist in the database and checking task status before termination.
+
+**Implementation:** `internal/server/handlers.go` → `handleKillExecution`
+
+**Request Flow:**
+1. User sends POST request to `/api/v1/executions/{executionID}/kill`
+2. Orchestrator Lambda:
+   - Validates API key
+   - Verifies execution exists in the database (returns 404 if not found)
+   - Checks execution status (returns 400 if already terminated)
+   - Checks ECS task status (only terminates RUNNING or ACTIVATING tasks)
+   - Sends StopTask API call to ECS
+   - Returns success response
+
+**Response (200 OK):**
+```json
+{
+  "execution_id": "abc123...",
+  "message": "Execution termination initiated"
+}
+```
+
+**Error Responses:**
+- 400 Bad Request: Execution is already terminated or task cannot be terminated in current state
+- 404 Not Found: Execution not found in database or task not found in ECS
+- 500 Internal Server Error: AWS API errors or other server errors
+
+**Safety Features:**
+- Only terminates executions that exist in the execution table
+- Avoids killing tasks that are already terminated (STOPPED, STOPPING, DEACTIVATING)
+- Only terminates tasks in RUNNING or ACTIVATING states
+- Verifies task status via ECS DescribeTasks before termination
+
+**Implementation Details:**
+- Service layer (`internal/app/main.go`): `KillExecution` validates execution exists and checks status
+- AWS Runner (`internal/app/aws/runner.go`): `KillTask` finds task via ListTasks, checks status, and calls StopTask
+- Requires `ecs:StopTask` and `ecs:ListTasks` IAM permissions (added to CloudFormation template)
+
+**Post-Termination:**
+- The event processor Lambda will automatically detect the task termination
+- Execution status will be updated to STOPPED with exit code 130 (SIGINT)
+- Completion timestamp and duration will be calculated automatically
