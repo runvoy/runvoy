@@ -8,6 +8,7 @@ import (
     "strings"
 
     "runvoy/internal/api"
+    "runvoy/internal/constants"
     apperrors "runvoy/internal/errors"
 
     awsconfig "github.com/aws/aws-sdk-go-v2/config"
@@ -32,8 +33,7 @@ func FetchLogsByExecutionID(ctx context.Context, cfg *Config, executionID string
 
     foundStreams := make(map[string]struct{})
     // Deterministic stream from ECS awslogs default pattern: task/<container-name>/<executionID>
-    const containerName = "executor"
-    stream := fmt.Sprintf("task/%s/%s", containerName, executionID)
+    stream := fmt.Sprintf("task/%s/%s", constants.ExecutorContainerName, executionID)
     foundStreams[stream] = struct{}{}
 
     if len(foundStreams) == 0 {

@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"runvoy/internal/api"
+	"runvoy/internal/constants"
 	apperrors "runvoy/internal/errors"
 	"runvoy/internal/logger"
 
@@ -71,12 +72,12 @@ func (e *Executor) StartTask(ctx context.Context, userEmail string, req api.Exec
 	}
 	containerCommand := []string{"/bin/sh", "-c", fmt.Sprintf("echo 'Execution for requestID %s starting'; %s", requestID, req.Command)}
 
-	runTaskInput := &ecs.RunTaskInput{
+    runTaskInput := &ecs.RunTaskInput{
 		Cluster:        awsstd.String(e.cfg.ECSCluster),
 		TaskDefinition: awsstd.String(e.cfg.TaskDefinition),
 		LaunchType:     ecstypes.LaunchTypeFargate,
 		Overrides: &ecstypes.TaskOverride{ContainerOverrides: []ecstypes.ContainerOverride{{
-			Name:        awsstd.String("executor"),
+			Name:        awsstd.String(constants.ExecutorContainerName),
 			Command:     containerCommand,
 			Environment: envVars,
 		}}},
