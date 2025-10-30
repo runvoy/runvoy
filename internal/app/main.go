@@ -243,10 +243,11 @@ func (s *Service) GetLogsByExecutionID(ctx context.Context, executionID string) 
 	switch s.Provider {
 	case constants.AWS:
 		events, err := s.getAWSLogsByExecutionID(ctx, executionID)
-		s.Logger.Debug("fetched log events", "executionID", executionID, "events", events)
 		if err != nil {
 			return nil, err
 		}
+		reqLogger := logger.DeriveRequestLogger(ctx, s.Logger)
+		reqLogger.Debug("fetched log events", "executionID", executionID, "events", events)
 		return &api.LogsResponse{ExecutionID: executionID, Events: events}, nil
 	default:
 		return nil, apperrors.ErrInternalError("logs not supported for this provider", nil)
