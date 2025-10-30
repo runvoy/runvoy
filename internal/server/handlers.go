@@ -76,8 +76,11 @@ func (r *Router) handleRevokeUser(w http.ResponseWriter, req *http.Request) {
 func (r *Router) handleRunCommand(w http.ResponseWriter, req *http.Request) {
 	logger := r.GetLoggerFromContext(req.Context())
 
-	// User is authenticated by middleware
-	user := req.Context().Value(userContextKey).(*api.User)
+	user, ok := req.Context().Value(userContextKey).(*api.User)
+	if !ok || user == nil {
+		writeErrorResponse(w, http.StatusUnauthorized, "Unauthorized", "user not found in context")
+		return
+	}
 
 	var execReq api.ExecutionRequest
 	if err := json.NewDecoder(req.Body).Decode(&execReq); err != nil {
