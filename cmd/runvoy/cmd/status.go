@@ -38,9 +38,11 @@ func statusRun(cmd *cobra.Command, args []string) {
 	output.KeyValue("Execution ID", status.ExecutionID)
 	output.KeyValue("Status", status.Status)
 	output.KeyValue("Started At", status.StartedAt.Format(time.DateTime))
-	output.KeyValue("Exit Code", fmt.Sprintf("%d", status.ExitCode))
 	if status.CompletedAt != nil {
 		output.KeyValue("Completed At", status.CompletedAt.Format(time.DateTime))
+	}
+	if status.ExitCode != nil {
+		output.KeyValue("Exit Code", fmt.Sprintf("%d", *status.ExitCode))
 	}
 	output.Blank()
 	output.Success("Status retrieved successfully")

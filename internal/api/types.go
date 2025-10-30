@@ -26,17 +26,17 @@ type ExecutionResponse struct {
 
 // ExecutionStatusResponse represents the current status of an execution
 type ExecutionStatusResponse struct {
-    ExecutionID string     `json:"execution_id"`
-    Status      string     `json:"status"`
-    ExitCode    int        `json:"exit_code,omitempty"`
-    StartedAt   time.Time  `json:"started_at"`
-    CompletedAt *time.Time `json:"completed_at,omitempty"`
+	ExecutionID string     `json:"execution_id"`
+	Status      string     `json:"status"`
+	StartedAt   time.Time  `json:"started_at"`
+	ExitCode    *int       `json:"exit_code,omitempty"`
+	CompletedAt *time.Time `json:"completed_at,omitempty"`
 }
 
 // KillExecutionResponse represents the response after killing an execution
 type KillExecutionResponse struct {
-    ExecutionID string `json:"execution_id"`
-    Message     string `json:"message"`
+	ExecutionID string `json:"execution_id"`
+	Message     string `json:"message"`
 }
 
 // ErrorResponse represents an error response
@@ -74,15 +74,15 @@ type Execution struct {
 
 // LogEvent represents a single log event line
 type LogEvent struct {
-    Line      int    `json:"line"`
-    Timestamp int64  `json:"timestamp"`
-    Message   string `json:"message"`
+	Line      int    `json:"line"`
+	Timestamp int64  `json:"timestamp"`
+	Message   string `json:"message"`
 }
 
 // LogsResponse contains all log events for an execution
 type LogsResponse struct {
-    ExecutionID string     `json:"execution_id"`
-    Events      []LogEvent `json:"events"`
+	ExecutionID string     `json:"execution_id"`
+	Events      []LogEvent `json:"events"`
 }
 
 // Lock represents a lock record
