@@ -17,24 +17,23 @@ import (
 func (p *Processor) handleECSTaskCompletion(ctx context.Context, event events.CloudWatchEvent) error {
 	reqLogger := logger.DeriveRequestLogger(ctx, p.logger)
 
-	// Parse the event detail
 	var taskEvent ECSTaskStateChangeEvent
 	if err := json.Unmarshal(event.Detail, &taskEvent); err != nil {
 		reqLogger.Error("failed to parse ECS task event", "error", err)
 		return fmt.Errorf("failed to parse ECS task event: %w", err)
 	}
 
-	// Extract execution ID from task ARN (last segment)
 	executionID := extractExecutionIDFromTaskArn(taskEvent.TaskArn)
-	reqLogger = reqLogger.With("executionID", executionID, "taskArn", taskEvent.TaskArn)
 
-	reqLogger.Debug("processing ECS task completion",
-		"lastStatus", taskEvent.LastStatus,
-		"stopCode", taskEvent.StopCode,
-		"stoppedReason", taskEvent.StoppedReason,
-	)
+	reqLogger.Debug("processing ECS task completion", "execution", map[string]string{
+		"executionID":   executionID,
+		"startedAt":     taskEvent.StartedAt,
+		"stopCode":      taskEvent.StopCode,
+		"stoppedAt":     taskEvent.StoppedAt,
+		"stoppedReason": taskEvent.StoppedReason,
+		"taskArn":       taskEvent.TaskArn,
+	})
 
-	// Get the existing execution record
 	execution, err := p.executionRepo.GetExecution(ctx, executionID)
 	if err != nil {
 		reqLogger.Error("failed to get execution", "error", err)
@@ -45,14 +44,13 @@ func (p *Processor) handleECSTaskCompletion(ctx context.Context, event events.Cl
 		reqLogger.Warn("execution not found for task (orphaned task?)",
 			"clusterArn", taskEvent.ClusterArn,
 		)
-		// Don't fail for orphaned tasks - they might have been started manually
+
+		// Don't fail for orphaned tasks - they might have been started manually?
+		// TODO: figure out what to do with orphaned tasks or if we should fail the Lambda
 		return nil
 	}
 
-	// Determine final status and exit code
 	status, exitCode := determineStatusAndExitCode(taskEvent)
-
-	// Parse timestamps
 	startedAt, err := ParseTime(taskEvent.StartedAt)
 	if err != nil {
 		reqLogger.Error("failed to parse startedAt timestamp", "error", err, "startedAt", taskEvent.StartedAt)
@@ -65,17 +63,13 @@ func (p *Processor) handleECSTaskCompletion(ctx context.Context, event events.Cl
 		return fmt.Errorf("failed to parse stoppedAt: %w", err)
 	}
 
-	// Calculate duration
 	durationSeconds := int(stoppedAt.Sub(startedAt).Seconds())
-
-	// Calculate cost
 	cost, err := CalculateFargateCost(taskEvent.CPU, taskEvent.Memory, durationSeconds)
 	if err != nil {
 		reqLogger.Warn("failed to calculate cost", "error", err)
-		cost = 0.0 // Continue with zero cost rather than failing
+		cost = 0.0 // Continue with zero cost rather than failing? TODO: figure out what to do with failed cost calculations
 	}
 
-	// Update execution record
 	execution.Status = status
 	execution.ExitCode = exitCode
 	execution.CompletedAt = &stoppedAt
@@ -87,12 +81,7 @@ func (p *Processor) handleECSTaskCompletion(ctx context.Context, event events.Cl
 		return fmt.Errorf("failed to update execution: %w", err)
 	}
 
-	reqLogger.Info("execution updated successfully",
-		"status", status,
-		"exitCode", exitCode,
-		"durationSeconds", durationSeconds,
-		"costUSD", fmt.Sprintf("%.6f", cost),
-	)
+	reqLogger.Info("execution updated successfully", "execution", execution)
 
 	return nil
 }

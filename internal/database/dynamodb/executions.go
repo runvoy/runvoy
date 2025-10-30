@@ -126,23 +126,20 @@ func (r *ExecutionRepository) CreateExecution(ctx context.Context, execution *ap
 
 // GetExecution retrieves an execution by its execution ID.
 func (r *ExecutionRepository) GetExecution(ctx context.Context, executionID string) (*api.Execution, error) {
-	// Note: We need both execution_id (hash) and started_at (range) to get an item
-	// For now, we'll scan or query - this is a limitation we may need to address
-	// For MVP, we'll use a simplified approach where we query by execution_id
-	// But DynamoDB requires both keys, so we need to scan or use a GSI
-	// Since execution_id should be unique, we'll scan with a filter (not ideal but works for MVP)
-
-	result, err := r.client.Scan(ctx, &dynamodb.ScanInput{
-		TableName:        aws.String(r.tableName),
-		FilterExpression: aws.String("execution_id = :execution_id"),
+	// Use Query on the table's PK/SK: execution_id (HASH), started_at (RANGE)
+	// Get the latest item for this execution_id (there should be only one)
+	result, err := r.client.Query(ctx, &dynamodb.QueryInput{
+		TableName:              aws.String(r.tableName),
+		KeyConditionExpression: aws.String("execution_id = :execution_id"),
 		ExpressionAttributeValues: map[string]types.AttributeValue{
 			":execution_id": &types.AttributeValueMemberS{Value: executionID},
 		},
-		Limit: aws.Int32(1),
+		ScanIndexForward: aws.Bool(false), // sort descending by started_at
+		Limit:            aws.Int32(1),
 	})
 
 	if err != nil {
-		return nil, apperrors.ErrDatabaseError("failed to get execution", err)
+		return nil, apperrors.ErrDatabaseError("failed to query execution", err)
 	}
 
 	if len(result.Items) == 0 {
