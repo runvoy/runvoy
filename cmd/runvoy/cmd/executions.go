@@ -11,7 +11,7 @@ import (
 )
 
 var executionsCmd = &cobra.Command{
-    Use:   "executions",
+    Use:   "list",
     Short: "List executions",
     Long:  "List all executions present in the runvoy backend",
     Run:   executionsRun,

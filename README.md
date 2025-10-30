@@ -113,7 +113,7 @@ runvoy configure
 
 **List Executions:**
 ```bash
-runvoy executions
+runvoy list
 
 # Prints a table similar to logs:
 # Execution ID  Status     Command        Started (UTC)        Completed (UTC)   Duration  Cloud
