@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"log/slog"
 	"runvoy/internal/client"
-	"runvoy/internal/constants"
 	"runvoy/internal/output"
 	"time"
 
@@ -22,8 +21,6 @@ func init() {
 }
 
 func statusRun(cmd *cobra.Command, args []string) {
-	output.Header("🚀 " + constants.ProjectName)
-
 	executionID := args[0]
 	cfg, err := getConfigFromContext(cmd)
 	if err != nil {

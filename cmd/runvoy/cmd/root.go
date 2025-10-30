@@ -32,8 +32,8 @@ Run commands remotely without the hassle of local execution, credential sharing,
 		printHeader(cmd)
 
 		if verbose {
-			output.Header(output.Bold(constants.ProjectName) + " " + *constants.GetVersion())
-			output.Info("verbose output enabled")
+			output.Info("CLI build: " + output.Bold(*constants.GetVersion()))
+			output.Info("Verbose output enabled")
 		}
 
 		logLevel := slog.LevelInfo
@@ -44,7 +44,7 @@ Run commands remotely without the hassle of local execution, credential sharing,
 
 		if timeout == "0" {
 			if verbose {
-				output.Info("timeout disabled")
+				output.Info("Timeout disabled")
 			}
 
 			return nil
@@ -61,7 +61,7 @@ Run commands remotely without the hassle of local execution, credential sharing,
 		cmd.SetContext(ctx)
 
 		if verbose {
-			output.Info("timeout: %s", timeoutDuration)
+			output.Info("Timeout: %s", timeoutDuration)
 		}
 
 		cfg, err := config.Load()

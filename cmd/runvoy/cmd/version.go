@@ -13,7 +13,6 @@ var versionCmd = &cobra.Command{
 	Use:   "version",
 	Short: "Show the version of the CLI",
 	Run: func(cmd *cobra.Command, _ []string) {
-		output.Header("🚀 " + constants.ProjectName)
 		output.KeyValue("CLI version", *constants.GetVersion())
 
 		cfg, err := getConfigFromContext(cmd)

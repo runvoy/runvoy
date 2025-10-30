@@ -4,7 +4,6 @@ import (
 	"log/slog"
 	"runvoy/internal/api"
 	"runvoy/internal/client"
-	"runvoy/internal/constants"
 	"runvoy/internal/output"
 
 	"github.com/spf13/cobra"
@@ -23,8 +22,6 @@ func init() {
 }
 
 func runRun(cmd *cobra.Command, args []string) {
-	output.Header("🚀 " + constants.ProjectName)
-
 	command := args[0]
 	cfg, err := getConfigFromContext(cmd)
 	if err != nil {

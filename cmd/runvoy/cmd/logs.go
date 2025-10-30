@@ -3,7 +3,6 @@ package cmd
 import (
 	"log/slog"
 	"runvoy/internal/client"
-	"runvoy/internal/constants"
 	"runvoy/internal/output"
 	"time"
 
@@ -15,9 +14,6 @@ var logsCmd = &cobra.Command{
 	Short: "Get logs for an execution",
 	Long:  `Get logs for an execution`,
 	Run:   logsRun,
-	PreRun: func(cmd *cobra.Command, _ []string) {
-		output.Header("🚀 " + constants.ProjectName + " " + cmd.Use)
-	},
 	PostRun: func(cmd *cobra.Command, _ []string) {
 		output.Blank()
 	},
