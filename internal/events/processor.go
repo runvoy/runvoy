@@ -23,7 +23,7 @@ type Processor struct {
 }
 
 // NewProcessor creates a new event processor with AWS backend
-func NewProcessor(ctx context.Context, cfg *config.Env, log *slog.Logger) (*Processor, error) {
+func NewProcessor(ctx context.Context, cfg *config.EventProcessorEnv, log *slog.Logger) (*Processor, error) {
 	if cfg.ExecutionsTable == "" {
 		return nil, fmt.Errorf("ExecutionsTable cannot be empty")
 	}

@@ -43,3 +43,10 @@ const (
 
 const ApiKeyHeader = "X-API-Key"
 const ContentTypeHeader = "Content-Type"
+
+type Service string
+
+const (
+	OrchestratorService   Service = "orchestrator"
+	EventProcessorService Service = "event-processor"
+)

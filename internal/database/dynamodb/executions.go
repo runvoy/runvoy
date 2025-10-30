@@ -159,7 +159,7 @@ func (r *ExecutionRepository) UpdateExecution(ctx context.Context, execution *ap
 
 	if execution.CompletedAt != nil {
 		updateExpr += ", completed_at = :completed_at"
-		exprAttrValues[":completed_at"] = &types.AttributeValueMemberS{Value: execution.CompletedAt.Format(time.RFC3339)}
+		exprAttrValues[":completed_at"] = &types.AttributeValueMemberS{Value: execution.CompletedAt.Format(time.RFC3339Nano)}
 	}
 
 	if execution.ExitCode != 0 {
@@ -188,7 +188,7 @@ func (r *ExecutionRepository) UpdateExecution(ctx context.Context, execution *ap
 		TableName: aws.String(r.tableName),
 		Key: map[string]types.AttributeValue{
 			"execution_id": &types.AttributeValueMemberS{Value: execution.ExecutionID},
-			"started_at":   &types.AttributeValueMemberS{Value: execution.StartedAt.Format(time.RFC3339)},
+			"started_at":   &types.AttributeValueMemberS{Value: execution.StartedAt.Format(time.RFC3339Nano)},
 		},
 		UpdateExpression:          aws.String(updateExpr),
 		ExpressionAttributeNames:  exprAttrNames,

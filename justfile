@@ -46,7 +46,7 @@ build-event-processor:
         -o ../../../../dist/bootstrap
 
 [working-directory: 'dist']
-build-event-processor-zip:
+build-event-processor-zip: build-event-processor
     rm -f event-processor.zip
     zip event-processor.zip bootstrap
 
@@ -57,7 +57,7 @@ deploy-event-processor: build-event-processor-zip
         --function-name runvoy-event-processor \
         --s3-bucket {{bucket}} \
         --s3-key event-processor.zip > /dev/null
-    aws lambda wait function-updated --function-name runvoy-orchestrator
+    aws lambda wait function-updated --function-name runvoy-event-processor
 
 # Build local development server
 [working-directory: 'cmd/local']
