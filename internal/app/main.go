@@ -9,8 +9,8 @@ import (
 	"net/mail"
 	"time"
 
-    "runvoy/internal/api"
-    appaws "runvoy/internal/app/aws"
+	"runvoy/internal/api"
+	appaws "runvoy/internal/app/aws"
 	"runvoy/internal/constants"
 	"runvoy/internal/database"
 	apperrors "runvoy/internal/errors"
@@ -30,7 +30,7 @@ type Runner interface {
 type Service struct {
 	userRepo      database.UserRepository
 	executionRepo database.ExecutionRepository
-    runner        Runner
+	runner        Runner
 	Logger        *slog.Logger
 	Provider      constants.BackendProvider
 }
@@ -44,7 +44,7 @@ func NewService(userRepo database.UserRepository, executionRepo database.Executi
 	return &Service{
 		userRepo:      userRepo,
 		executionRepo: executionRepo,
-        runner:        runner,
+		runner:        runner,
 		Logger:        logger,
 		Provider:      provider,
 	}
@@ -186,7 +186,7 @@ func (s *Service) RunCommand(ctx context.Context, userEmail string, req api.Exec
 	if req.Command == "" {
 		return nil, apperrors.ErrBadRequest("command is required", nil)
 	}
-    executionID, taskARN, err := s.runner.StartTask(ctx, userEmail, req)
+	executionID, taskARN, err := s.runner.StartTask(ctx, userEmail, req)
 	if err != nil {
 		return nil, err
 	}
@@ -243,6 +243,7 @@ func (s *Service) GetLogsByExecutionID(ctx context.Context, executionID string) 
 	switch s.Provider {
 	case constants.AWS:
 		events, err := s.getAWSLogsByExecutionID(ctx, executionID)
+		s.Logger.Info("GetLogsByExecutionID", "executionID", executionID, "events", events)
 		if err != nil {
 			return nil, err
 		}
@@ -254,9 +255,9 @@ func (s *Service) GetLogsByExecutionID(ctx context.Context, executionID string) 
 
 // getAWSLogsByExecutionID delegates to the AWS implementation using the runner config
 func (s *Service) getAWSLogsByExecutionID(ctx context.Context, executionID string) ([]api.LogEvent, error) {
-    execImpl, ok := s.runner.(*appaws.Runner)
+	execImpl, ok := s.runner.(*appaws.Runner)
 	if !ok {
-        return nil, apperrors.ErrInternalError("aws runner not configured", nil)
+		return nil, apperrors.ErrInternalError("aws runner not configured", nil)
 	}
 	return execImpl.FetchLogsByExecutionID(ctx, executionID)
 }
