@@ -53,6 +53,8 @@ func NewRouter(svc *app.Service, requestTimeout time.Duration) *Router {
 			r.Post("/revoke", router.handleRevokeUser)
 		})
 		r.With(router.authenticateRequestMiddleware).Post("/run", router.handleRunCommand)
+		// list executions endpoint
+		r.With(router.authenticateRequestMiddleware).Get("/executions", router.handleListExecutions)
 		// logs endpoints
 		r.With(router.authenticateRequestMiddleware).Get("/executions/{executionID}/logs", router.handleGetExecutionLogs)
 		// execution status endpoint

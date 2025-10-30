@@ -43,4 +43,8 @@ type ExecutionRepository interface {
 
 	// UpdateExecution updates an existing execution record.
 	UpdateExecution(ctx context.Context, execution *api.Execution) error
+
+    // ListExecutions returns all executions currently present in the database.
+    // Implementations may choose an efficient retrieval strategy; order is newest first.
+    ListExecutions(ctx context.Context) ([]*api.Execution, error)
 }

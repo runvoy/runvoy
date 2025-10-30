@@ -227,3 +227,36 @@ func (r *ExecutionRepository) UpdateExecution(ctx context.Context, execution *ap
 
 	return nil
 }
+
+// ListExecutions scans the executions table and returns all execution records.
+// Results are sorted by StartedAt descending in-memory to provide a reasonable default ordering.
+func (r *ExecutionRepository) ListExecutions(ctx context.Context) ([]*api.Execution, error) {
+    // For basic implementation, perform a Scan. In production, prefer GSI/queries.
+    out, err := r.client.Scan(ctx, &dynamodb.ScanInput{
+        TableName: aws.String(r.tableName),
+    })
+    if err != nil {
+        return nil, apperrors.ErrDatabaseError("failed to scan executions", err)
+    }
+
+    executions := make([]*api.Execution, 0, len(out.Items))
+    for _, it := range out.Items {
+        var item executionItem
+        if err := attributevalue.UnmarshalMap(it, &item); err != nil {
+            return nil, apperrors.ErrDatabaseError("failed to unmarshal execution", err)
+        }
+        executions = append(executions, item.toAPIExecution())
+    }
+
+    // Sort newest first
+    // Avoid importing slices.SortFunc for portability across Go versions in this repo.
+    for i := 0; i < len(executions); i++ {
+        for j := i + 1; j < len(executions); j++ {
+            if executions[j].StartedAt.After(executions[i].StartedAt) {
+                executions[i], executions[j] = executions[j], executions[i]
+            }
+        }
+    }
+
+    return executions, nil
+}

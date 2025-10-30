@@ -50,9 +50,10 @@ GET  /api/v1/health                         - Health check
 POST /api/v1/users/create                   - Create a new user with an API key
 POST /api/v1/users/revoke                   - Revoke a user's API key
 POST /api/v1/run                            - Start an execution
+GET  /api/v1/executions                     - List all executions (new)
 GET  /api/v1/executions/{id}/logs           - Fetch execution logs (CloudWatch)
 GET  /api/v1/executions/{id}/status         - Get execution status (RUNNING/SUCCEEDED/FAILED/STOPPED)
-POST /api/v1/executions/{id}/kill          - Terminate a running execution
+POST /api/v1/executions/{id}/kill           - Terminate a running execution
 ```
 
 Both Lambda and local HTTP server use identical routing logic, ensuring development/production parity.
