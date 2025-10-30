@@ -73,12 +73,12 @@ func (e *Runner) StartTask(ctx context.Context, userEmail string, req api.Execut
 	// TODO: find a better way to get the request ID, or better, to ensure it's always available in the context
 	requestID := ""
 	containerCommand := []string{"/bin/sh", "-c",
-		fmt.Sprintf("echo \"%s Runner execution started at $(date -u)\"; %s",
+		fmt.Sprintf("echo '%s Runner execution started'; %s",
 			constants.ProjectName, req.Command)}
 	if lc, ok := lambdacontext.FromContext(ctx); ok {
 		requestID = lc.AwsRequestID
 		containerCommand = []string{"/bin/sh", "-c",
-			fmt.Sprintf("echo \"%s Runner execution started at $(date -u) by requestID %s\"; %s",
+			fmt.Sprintf("echo '%s Runner execution started by requestID %s'; %s",
 				constants.ProjectName, requestID, req.Command)}
 	}
 

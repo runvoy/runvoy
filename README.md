@@ -71,7 +71,43 @@ runvoy run "echo hello world"
 #   Execution ID: 72f57686926e4becb89116b0ac72caec
 #   Status: RUNNING
 #
-# Note: Log viewing endpoint is not yet implemented
+# Run 'runvoy logs <executionID>' to view logs
+```
+
+**Log Viewing:**
+```bash
+runvoy logs <executionID>
+
+Example:
+```bash
+runvoy logs 72f57686926e4becb89116b0ac72caec
+```
+
+Output:
+```bash
+🚀 runvoy
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+→ Getting logs for execution: 72f57686926e4becb89116b0ac72caec
+
+Timestamp (UTC)      Message
+───────────────────  ───────────────────────────────────────────────────────
+2025-10-30 13:32:48  Runvoy Runner execution started by requestID 1234567890
+2025-10-30 13:32:48  terraform plan
+2025-10-30 13:32:49  Refreshing Terraform state in-memory prior to plan...
+2025-10-30 13:32:49  The refreshed state will be used to calculate this plan, but will not be persisted to local or remote state storage.
+2025-10-30 13:32:50  ------------------------------------------------------------------------
+2025-10-30 13:32:50  An execution plan has been generated and is shown below.
+2025-10-30 13:32:50  Resource actions are indicated with the following symbols:
+2025-10-30 13:32:50    + create
+2025-10-30 13:32:50  Terraform will perform the following actions:
+2025-10-30 13:32:50    + aws_s3_bucket.example
+2025-10-30 13:32:50        id:                      <computed>
+2025-10-30 13:32:50        bucket:                  "runvoy-example-bucket"
+2025-10-30 13:32:50        acl:                     "private"
+2025-10-30 13:32:50        ...
+2025-10-30 13:32:51  Plan: 1 to add, 0 to change, 0 to destroy.
+
+✓ Logs retrieved successfully
 ```
 
 **Configuration:**
