@@ -12,7 +12,7 @@ import (
 )
 
 var statusCmd = &cobra.Command{
-	Use:   "status",
+	Use:   "status <execution-id>",
 	Short: "Get the status of a command execution",
 	Run:   statusRun, Args: cobra.ExactArgs(1),
 }

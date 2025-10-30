@@ -12,7 +12,7 @@ import (
 )
 
 var runCmd = &cobra.Command{
-	Use:   "run",
+	Use:   "run <command>",
 	Short: "Run a command",
 	Long:  `Run a command in a remote environment`,
 	Run:   runRun,

@@ -12,7 +12,7 @@ import (
 )
 
 var logsCmd = &cobra.Command{
-	Use:   "logs",
+	Use:   "logs <execution-id>",
 	Short: "Get logs for an execution",
 	Long:  `Get logs for an execution`,
 	Run:   logsRun,
