@@ -16,7 +16,13 @@ var logsCmd = &cobra.Command{
 	Short: "Get logs for an execution",
 	Long:  `Get logs for an execution`,
 	Run:   logsRun,
-	Args:  cobra.ExactArgs(1),
+	PreRun: func(cmd *cobra.Command, _ []string) {
+		output.Header("🚀 " + constants.ProjectName + " " + cmd.Use)
+	},
+	PostRun: func(cmd *cobra.Command, _ []string) {
+		output.Blank()
+	},
+	Args: cobra.ExactArgs(1),
 }
 
 func init() {
@@ -24,8 +30,6 @@ func init() {
 }
 
 func logsRun(cmd *cobra.Command, args []string) {
-	output.Header("🚀 " + constants.ProjectName)
-
 	executionID := args[0]
 	cfg, err := config.Load()
 	if err != nil {
