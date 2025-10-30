@@ -41,24 +41,24 @@ type Runner struct {
 
 // NewRunner creates a new AWS ECS runner with the provided configuration.
 func NewRunner(ecsClient *ecs.Client, cfg *Config, logger *slog.Logger) *Runner {
-    return &Runner{ecsClient: ecsClient, cfg: cfg, logger: logger}
+	return &Runner{ecsClient: ecsClient, cfg: cfg, logger: logger}
 }
 
 // FetchLogsByExecutionID returns CloudWatch log events for the given execution ID.
 func (e *Runner) FetchLogsByExecutionID(ctx context.Context, executionID string) ([]api.LogEvent, error) {
-    return FetchLogsByExecutionID(ctx, e.cfg, executionID)
+	return FetchLogsByExecutionID(ctx, e.cfg, executionID)
 }
 
 // StartTask triggers an ECS Fargate task and returns identifiers.
 func (e *Runner) StartTask(ctx context.Context, userEmail string, req api.ExecutionRequest) (string, string, error) {
-    if e.ecsClient == nil {
+	if e.ecsClient == nil {
 		return "", "", apperrors.ErrInternalError("ECS cli endpoint not configured", nil)
 	}
 
 	reqLogger := logger.DeriveRequestLogger(ctx, e.logger)
 
 	// Note: Image override is not supported via task overrides; use task definition image.
-    if req.Image != "" && req.Image != e.cfg.DefaultImage {
+	if req.Image != "" && req.Image != e.cfg.DefaultImage {
 		reqLogger.Debug("custom image requested but not supported via overrides, using task definition image",
 			"requested", req.Image, "using", e.cfg.DefaultImage)
 	}
@@ -72,17 +72,22 @@ func (e *Runner) StartTask(ctx context.Context, userEmail string, req api.Execut
 
 	// TODO: find a better way to get the request ID, or better, to ensure it's always available in the context
 	requestID := ""
-    if lc, ok := lambdacontext.FromContext(ctx); ok {
+	containerCommand := []string{"/bin/sh", "-c",
+		fmt.Sprintf("echo \"%s Runner execution started at $(date -u)\"; %s",
+			constants.ProjectName, req.Command)}
+	if lc, ok := lambdacontext.FromContext(ctx); ok {
 		requestID = lc.AwsRequestID
+		containerCommand = []string{"/bin/sh", "-c",
+			fmt.Sprintf("echo \"%s Runner execution started at $(date -u) by requestID %s\"; %s",
+				constants.ProjectName, requestID, req.Command)}
 	}
-	containerCommand := []string{"/bin/sh", "-c", fmt.Sprintf("echo 'Execution for requestID %s starting'; %s", requestID, req.Command)}
 
 	runTaskInput := &ecs.RunTaskInput{
 		Cluster:        awsstd.String(e.cfg.ECSCluster),
 		TaskDefinition: awsstd.String(e.cfg.TaskDefinition),
 		LaunchType:     ecstypes.LaunchTypeFargate,
-        Overrides: &ecstypes.TaskOverride{ContainerOverrides: []ecstypes.ContainerOverride{{
-            Name:        awsstd.String(constants.RunnerContainerName),
+		Overrides: &ecstypes.TaskOverride{ContainerOverrides: []ecstypes.ContainerOverride{{
+			Name:        awsstd.String(constants.RunnerContainerName),
 			Command:     containerCommand,
 			Environment: envVars,
 		}}},

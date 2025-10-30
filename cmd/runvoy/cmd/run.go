@@ -47,6 +47,5 @@ func runRun(cmd *cobra.Command, args []string) {
 
 	output.Success("Command execution started successfully")
 	output.KeyValue("Execution ID", resp.ExecutionID)
-	output.KeyValue("Log URL", resp.LogURL)
 	output.KeyValue("Status", resp.Status)
 }
