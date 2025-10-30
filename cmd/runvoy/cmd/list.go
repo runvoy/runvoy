@@ -10,6 +10,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const maxCommandLength = 40
+
 var executionsCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List executions",
@@ -53,8 +55,8 @@ func executionsRun(cmd *cobra.Command, _ []string) {
 		}
 
 		command := ""
-		if len(e.Command) > 40 {
-			command = e.Command[:40] + "..."
+		if len(e.Command) > maxCommandLength {
+			command = e.Command[:maxCommandLength] + "..."
 		} else {
 			command = e.Command
 		}
@@ -67,13 +69,20 @@ func executionsRun(cmd *cobra.Command, _ []string) {
 			started,
 			completed,
 			duration,
-			e.ComputePlatform,
 		})
 	}
 
 	output.Blank()
 	output.Table(
-		[]string{"Execution ID", "Status", "Command", "User", "Started (UTC)", "Completed (UTC)", "Duration"},
+		[]string{
+			"Execution ID",
+			"Status",
+			"Command",
+			"User",
+			"Started (UTC)",
+			"Completed (UTC)",
+			"Duration",
+		},
 		rows,
 	)
 	output.Blank()

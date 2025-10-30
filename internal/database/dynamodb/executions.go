@@ -7,9 +7,11 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"slices"
 	"time"
 
 	"runvoy/internal/api"
+	"runvoy/internal/constants"
 	apperrors "runvoy/internal/errors"
 	"runvoy/internal/logger"
 
@@ -127,8 +129,6 @@ func (r *ExecutionRepository) CreateExecution(ctx context.Context, execution *ap
 
 // GetExecution retrieves an execution by its execution ID.
 func (r *ExecutionRepository) GetExecution(ctx context.Context, executionID string) (*api.Execution, error) {
-	// Use Query on the table's PK/SK: execution_id (HASH), started_at (RANGE)
-	// Get the latest item for this execution_id (there should be only one)
 	result, err := r.client.Query(ctx, &dynamodb.QueryInput{
 		TableName:              aws.String(r.tableName),
 		KeyConditionExpression: aws.String("execution_id = :execution_id"),
@@ -231,32 +231,45 @@ func (r *ExecutionRepository) UpdateExecution(ctx context.Context, execution *ap
 // ListExecutions scans the executions table and returns all execution records.
 // Results are sorted by StartedAt descending in-memory to provide a reasonable default ordering.
 func (r *ExecutionRepository) ListExecutions(ctx context.Context) ([]*api.Execution, error) {
-    // For basic implementation, perform a Scan. In production, prefer GSI/queries.
-    out, err := r.client.Scan(ctx, &dynamodb.ScanInput{
-        TableName: aws.String(r.tableName),
-    })
-    if err != nil {
-        return nil, apperrors.ErrDatabaseError("failed to scan executions", err)
-    }
+	statuses := append([]constants.ExecutionStatus{constants.ExecutionRunning}, constants.TerminalExecutionStatuses()...)
 
-    executions := make([]*api.Execution, 0, len(out.Items))
-    for _, it := range out.Items {
-        var item executionItem
-        if err := attributevalue.UnmarshalMap(it, &item); err != nil {
-            return nil, apperrors.ErrDatabaseError("failed to unmarshal execution", err)
-        }
-        executions = append(executions, item.toAPIExecution())
-    }
+	executions := make([]*api.Execution, 0, 64)
 
-    // Sort newest first
-    // Avoid importing slices.SortFunc for portability across Go versions in this repo.
-    for i := 0; i < len(executions); i++ {
-        for j := i + 1; j < len(executions); j++ {
-            if executions[j].StartedAt.After(executions[i].StartedAt) {
-                executions[i], executions[j] = executions[j], executions[i]
-            }
-        }
-    }
+	for _, st := range statuses {
+		out, err := r.client.Query(ctx, &dynamodb.QueryInput{
+			TableName:              aws.String(r.tableName),
+			IndexName:              aws.String("status-started_at"),
+			KeyConditionExpression: aws.String("#status = :status"),
+			ExpressionAttributeNames: map[string]string{
+				"#status": "status",
+			},
+			ExpressionAttributeValues: map[string]types.AttributeValue{
+				":status": &types.AttributeValueMemberS{Value: string(st)},
+			},
+			ScanIndexForward: aws.Bool(false), // newest first per status
+		})
+		if err != nil {
+			return nil, apperrors.ErrDatabaseError("failed to query executions by status", err)
+		}
 
-    return executions, nil
+		for _, it := range out.Items {
+			var item executionItem
+			if err := attributevalue.UnmarshalMap(it, &item); err != nil {
+				return nil, apperrors.ErrDatabaseError("failed to unmarshal execution", err)
+			}
+			executions = append(executions, item.toAPIExecution())
+		}
+	}
+
+	slices.SortFunc(executions, func(a, b *api.Execution) int {
+		if a.StartedAt.Equal(b.StartedAt) {
+			return 0
+		}
+		if a.StartedAt.After(b.StartedAt) {
+			return -1
+		}
+		return 1
+	})
+
+	return executions, nil
 }
