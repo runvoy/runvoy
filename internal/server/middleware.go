@@ -87,6 +87,7 @@ func setContentTypeJSONMiddleware(next http.Handler) http.Handler {
 
 // authenticateRequestMiddleware authenticates requests
 // Adds authenticated user to request context
+// Updates user's last_used timestamp asynchronously after successful authentication
 func (r *Router) authenticateRequestMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		logger := r.GetLoggerFromContext(req.Context())
