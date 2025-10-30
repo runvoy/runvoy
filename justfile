@@ -5,7 +5,10 @@
 bucket := env_var_or_default('RUNVOY_RELEASES_BUCKET', 'runvoy-releases')
 
 # Build all binaries
-build: build-cli build-backend build-local
+build: build-cli build-local build-orchestrator build-event-processor
+
+# Deploy all binaries
+deploy: deploy-orchestrator deploy-event-processor
 
 # Build CLI client
 [working-directory: 'cmd/runvoy']
@@ -14,12 +17,47 @@ build-cli:
         -ldflags "-X=runvoy/internal/constants.version=$(cat ../../VERSION | tr -d '\n')-$(date +%Y%m%d)-$(git rev-parse --short HEAD)" \
         -o ../../bin/runvoy
 
-# Build backend service (Lambda function)
-[working-directory: 'cmd/backend/aws']
-build-backend:
+# Build orchestrator backend service (Lambda function)
+[working-directory: 'cmd/backend/aws/orchestrator']
+build-orchestrator:
     GOARCH=arm64 GOOS=linux go build \
-        -ldflags "-X=runvoy/internal/constants.version=$(cat ../../../VERSION | tr -d '\n')-$(date +%Y%m%d)-$(git rev-parse --short HEAD)" \
-        -o ../../../dist/bootstrap
+        -ldflags "-X=runvoy/internal/constants.version=$(cat ../../../../VERSION | tr -d '\n')-$(date +%Y%m%d)-$(git rev-parse --short HEAD)" \
+        -o ../../../../dist/bootstrap
+
+[working-directory: 'dist']
+build-orchestrator-zip: build-orchestrator
+    rm -f bootstrap.zip
+    zip bootstrap.zip bootstrap
+
+[working-directory: 'dist']
+deploy-orchestrator: build-orchestrator-zip
+    aws s3 cp bootstrap.zip s3://{{bucket}}/bootstrap.zip
+    aws lambda update-function-code \
+        --function-name runvoy-orchestrator \
+        --s3-bucket {{bucket}} \
+        --s3-key bootstrap.zip > /dev/null
+    aws lambda wait function-updated --function-name runvoy-orchestrator
+
+# Build event processor backend service (Lambda function)
+[working-directory: 'cmd/backend/aws/event_processor']
+build-event-processor:
+    GOARCH=arm64 GOOS=linux go build \
+        -ldflags "-X=runvoy/internal/constants.version=$(cat ../../../../VERSION | tr -d '\n')-$(date +%Y%m%d)-$(git rev-parse --short HEAD)" \
+        -o ../../../../dist/bootstrap
+
+[working-directory: 'dist']
+build-event-processor-zip:
+    rm -f event-processor.zip
+    zip event-processor.zip bootstrap
+
+[working-directory: 'dist']
+deploy-event-processor: build-event-processor-zip
+    aws s3 cp event-processor.zip s3://{{bucket}}/event-processor.zip
+    aws lambda update-function-code \
+        --function-name runvoy-event-processor \
+        --s3-bucket {{bucket}} \
+        --s3-key event-processor.zip > /dev/null
+    aws lambda wait function-updated --function-name runvoy-orchestrator
 
 # Build local development server
 [working-directory: 'cmd/local']
@@ -89,17 +127,6 @@ update-backend-infra:
         --stack-name runvoy-backend \
         --template-file deployments/cloudformation-backend.yaml \
         --capabilities CAPABILITY_NAMED_IAM
-
-# Update backend service (Lambda function)
-[working-directory: 'dist']
-update-backend: build-backend
-    zip bootstrap.zip bootstrap
-    aws s3 cp bootstrap.zip s3://{{bucket}}/bootstrap.zip
-    aws lambda update-function-code \
-        --function-name runvoy-orchestrator \
-        --s3-bucket runvoy-releases \
-        --s3-key bootstrap.zip > /dev/null
-    aws lambda wait function-updated --function-name runvoy-orchestrator
 
 # Run local development server with hot reloading
 local-dev-server:
