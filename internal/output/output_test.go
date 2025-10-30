@@ -223,7 +223,7 @@ func TestProgressBar(t *testing.T) {
 	}
 }
 
-func TestSpinner(t *testing.T) {
+func TestSpinner(_ *testing.T) {
 	// This is a basic test - spinner behavior depends on terminal
 	spinner := NewSpinner("Loading")
 	spinner.Start()

@@ -1,3 +1,5 @@
+// Package lambdaapi provides adapters for AWS Lambda integration.
+// It converts between Lambda events and standard HTTP requests/responses.
 package lambdaapi
 
 import (
@@ -43,12 +45,12 @@ func ChiRouterToLambdaAdapter(router *chi.Mux) func(context.Context, events.Lamb
 func lambdaRequestToHTTPRequest(ctx context.Context, req events.LambdaFunctionURLRequest) *http.Request {
 	url := "https://" + req.RequestContext.DomainName
 	if req.RawPath != "" {
-		url = url + req.RawPath
+		url += req.RawPath
 	} else {
-		url = url + "/"
+		url += "/"
 	}
 	if req.RawQueryString != "" {
-		url = url + "?" + req.RawQueryString
+		url += "?" + req.RawQueryString
 	}
 
 	body := req.Body

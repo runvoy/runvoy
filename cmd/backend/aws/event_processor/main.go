@@ -1,3 +1,5 @@
+// Package main implements the AWS Lambda event processor for runvoy.
+// It processes CloudWatch events related to ECS task completions.
 package main
 
 import (

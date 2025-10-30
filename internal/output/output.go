@@ -1,3 +1,5 @@
+// Package output provides formatted terminal output utilities.
+// It includes colors, spinners, progress bars, and other CLI display helpers.
 package output
 
 import (
@@ -18,10 +20,10 @@ var (
 	cyan   = color.New(color.FgCyan)
 	gray   = color.New(color.FgHiBlack)
 	bold   = color.New(color.Bold)
-	blue   = color.New(color.FgBlue)
 
-	// Output writers (can be overridden for testing)
+	// Stdout is the output writer for normal output (can be overridden for testing).
 	Stdout io.Writer = os.Stdout
+	// Stderr is the output writer for error output (can be overridden for testing).
 	Stderr io.Writer = os.Stderr
 
 	// Disable colors if not TTY or NO_COLOR is set
@@ -37,25 +39,25 @@ func init() {
 // Success prints a success message with a checkmark
 // Example: ✓ Stack created successfully
 func Success(format string, a ...interface{}) {
-	fmt.Fprintf(Stdout, green.Sprint("✓")+" "+format+"\n", a...)
+	_, _ = fmt.Fprintf(Stdout, green.Sprint("✓")+" "+format+"\n", a...)
 }
 
 // Info prints an informational message with an arrow
 // Example: → Creating CloudFormation stack...
 func Info(format string, a ...interface{}) {
-	fmt.Fprintf(Stdout, cyan.Sprint("→")+" "+format+"\n", a...)
+	_, _ = fmt.Fprintf(Stdout, cyan.Sprint("→")+" "+format+"\n", a...)
 }
 
 // Warning prints a warning message with a warning symbol
 // Example: ⚠ Lock already held by alice@acme.com
 func Warning(format string, a ...interface{}) {
-	fmt.Fprintf(Stdout, yellow.Sprint("⚠")+" "+format+"\n", a...)
+	_, _ = fmt.Fprintf(Stdout, yellow.Sprint("⚠")+" "+format+"\n", a...)
 }
 
 // Error prints an error message with an X symbol
 // Example: ✗ Failed to create stack: permission denied
 func Error(format string, a ...interface{}) {
-	fmt.Fprintf(Stdout, red.Sprint("✗")+" "+format+"\n", a...)
+	_, _ = fmt.Fprintf(Stdout, red.Sprint("✗")+" "+format+"\n", a...)
 }
 
 // Fatal prints an error message and exits with code 1
@@ -67,22 +69,22 @@ func Fatal(format string, a ...interface{}) {
 // Step prints a step in a multi-step process
 // Example: [1/3] Waiting for stack creation
 func Step(step int, total int, message string) {
-	gray.Fprintf(Stdout, "[%d/%d] ", step, total)
-	fmt.Fprintln(Stdout, message)
+	_, _ = gray.Fprintf(Stdout, "[%d/%d] ", step, total)
+	_, _ = fmt.Fprintln(Stdout, message)
 }
 
 // StepSuccess prints a successful step completion
 // Example: [1/3] ✓ Stack created
 func StepSuccess(step int, total int, message string) {
-	gray.Fprintf(Stdout, "[%d/%d] ", step, total)
-	fmt.Fprintf(Stdout, "%s %s\n", green.Sprint("✓"), message)
+	_, _ = gray.Fprintf(Stdout, "[%d/%d] ", step, total)
+	_, _ = fmt.Fprintf(Stdout, "%s %s\n", green.Sprint("✓"), message)
 }
 
 // StepError prints a failed step
 // Example: [2/3] ✗ Failed to generate API key
 func StepError(step int, total int, message string) {
-	gray.Fprintf(Stdout, "[%d/%d] ", step, total)
-	fmt.Fprintf(Stdout, "%s %s\n", red.Sprint("✗"), message)
+	_, _ = gray.Fprintf(Stdout, "[%d/%d] ", step, total)
+	_, _ = fmt.Fprintf(Stdout, "%s %s\n", red.Sprint("✗"), message)
 }
 
 // Header prints a section header with a separator line
@@ -90,9 +92,9 @@ func StepError(step int, total int, message string) {
 // 🚀 Initializing runvoy infrastructure
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 func Header(text string) {
-	fmt.Fprintln(Stdout)
-	fmt.Fprintln(Stdout, bold.Sprint(text))
-	fmt.Fprintln(Stdout, gray.Sprint(strings.Repeat("━", 50)))
+	_, _ = fmt.Fprintln(Stdout)
+	_, _ = fmt.Fprintln(Stdout, bold.Sprint(text))
+	_, _ = fmt.Fprintln(Stdout, gray.Sprint(strings.Repeat("━", 50)))
 }
 
 // Subheader prints a smaller section header
@@ -100,36 +102,36 @@ func Header(text string) {
 // Configuration Details
 // ────────────────────
 func Subheader(text string) {
-	fmt.Fprintln(Stdout)
-	fmt.Fprintln(Stdout, cyan.Sprint(text))
-	fmt.Fprintln(Stdout, gray.Sprint(strings.Repeat("─", len(text))))
+	_, _ = fmt.Fprintln(Stdout)
+	_, _ = fmt.Fprintln(Stdout, cyan.Sprint(text))
+	_, _ = fmt.Fprintln(Stdout, gray.Sprint(strings.Repeat("─", len(text))))
 }
 
 // KeyValue prints a key-value pair with indentation
 // Example:   Stack name: runvoy
 func KeyValue(key, value string) {
-	fmt.Fprintf(Stdout, "  %s: %s\n", gray.Sprint(key), value)
+	_, _ = fmt.Fprintf(Stdout, "  %s: %s\n", gray.Sprint(key), value)
 }
 
 // KeyValueBold prints a key-value pair with bold value
 // Example:   API Key: sk_live_abc123...
 func KeyValueBold(key, value string) {
-	fmt.Fprintf(Stdout, "  %s: %s\n", gray.Sprint(key), bold.Sprint(value))
+	_, _ = fmt.Fprintf(Stdout, "  %s: %s\n", gray.Sprint(key), bold.Sprint(value))
 }
 
 // Blank prints a blank line
 func Blank() {
-	fmt.Fprintln(Stdout)
+	_, _ = fmt.Fprintln(Stdout)
 }
 
 // Println prints a plain line without any formatting
 func Println(a ...interface{}) {
-	fmt.Fprintln(Stdout, a...)
+	_, _ = fmt.Fprintln(Stdout, a...)
 }
 
 // Printf prints a formatted plain line
 func Printf(format string, a ...interface{}) {
-	fmt.Fprintf(Stdout, format, a...)
+	_, _ = fmt.Fprintf(Stdout, format, a...)
 }
 
 // Bold prints text in bold
@@ -177,12 +179,12 @@ func Box(text string) {
 	}
 
 	// Top border
-	fmt.Fprintln(Stdout, gray.Sprint("╭─"+strings.Repeat("─", maxLen+2)+"─╮"))
+	_, _ = fmt.Fprintln(Stdout, gray.Sprint("╭─"+strings.Repeat("─", maxLen+2)+"─╮"))
 
 	// Content
 	for _, line := range lines {
 		padding := strings.Repeat(" ", maxLen-len(line))
-		fmt.Fprintf(Stdout, "%s  %s%s  %s\n",
+		_, _ = fmt.Fprintf(Stdout, "%s  %s%s  %s\n",
 			gray.Sprint("│"),
 			line,
 			padding,
@@ -190,7 +192,7 @@ func Box(text string) {
 	}
 
 	// Bottom border
-	fmt.Fprintln(Stdout, gray.Sprint("╰─"+strings.Repeat("─", maxLen+2)+"─╯"))
+	_, _ = fmt.Fprintln(Stdout, gray.Sprint("╰─"+strings.Repeat("─", maxLen+2)+"─╯"))
 }
 
 // Table prints a simple table with headers
@@ -219,24 +221,24 @@ func Table(headers []string, rows [][]string) {
 
 	// Print headers
 	for i, h := range headers {
-		fmt.Fprintf(Stdout, "%-*s  ", widths[i], bold.Sprint(h))
+		_, _ = fmt.Fprintf(Stdout, "%-*s  ", widths[i], bold.Sprint(h))
 	}
-	fmt.Fprintln(Stdout)
+	_, _ = fmt.Fprintln(Stdout)
 
 	// Print separator
 	for i := range headers {
-		fmt.Fprintf(Stdout, "%s  ", gray.Sprint(strings.Repeat("─", widths[i])))
+		_, _ = fmt.Fprintf(Stdout, "%s  ", gray.Sprint(strings.Repeat("─", widths[i])))
 	}
-	fmt.Fprintln(Stdout)
+	_, _ = fmt.Fprintln(Stdout)
 
 	// Print rows
 	for _, row := range rows {
 		for i, cell := range row {
 			if i < len(widths) {
-				fmt.Fprintf(Stdout, "%-*s  ", widths[i], cell)
+				_, _ = fmt.Fprintf(Stdout, "%-*s  ", widths[i], cell)
 			}
 		}
-		fmt.Fprintln(Stdout)
+		_, _ = fmt.Fprintln(Stdout)
 	}
 }
 
@@ -247,7 +249,7 @@ func Table(headers []string, rows [][]string) {
 //   - Item three
 func List(items []string) {
 	for _, item := range items {
-		fmt.Fprintf(Stdout, "  %s %s\n", cyan.Sprint("•"), item)
+		_, _ = fmt.Fprintf(Stdout, "  %s %s\n", cyan.Sprint("•"), item)
 	}
 }
 
@@ -258,7 +260,7 @@ func List(items []string) {
 //  3. Third step
 func NumberedList(items []string) {
 	for i, item := range items {
-		fmt.Fprintf(Stdout, "  %s %s\n", gray.Sprintf("%d.", i+1), item)
+		_, _ = fmt.Fprintf(Stdout, "  %s %s\n", gray.Sprintf("%d.", i+1), item)
 	}
 }
 
@@ -299,7 +301,7 @@ func (s *Spinner) Start() {
 				return
 			case <-ticker.C:
 				frame := s.frames[s.frame%len(s.frames)]
-				fmt.Fprintf(Stdout, "\r%s %s", cyan.Sprint(frame), s.message)
+				_, _ = fmt.Fprintf(Stdout, "\r%s %s", cyan.Sprint(frame), s.message)
 				s.frame++
 			}
 		}
@@ -312,7 +314,7 @@ func (s *Spinner) Stop() {
 		return
 	}
 	s.done <- true
-	fmt.Fprint(Stdout, "\r"+strings.Repeat(" ", len(s.message)+10)+"\r")
+	_, _ = fmt.Fprint(Stdout, "\r"+strings.Repeat(" ", len(s.message)+10)+"\r")
 }
 
 // Success stops the spinner and prints a success message
@@ -350,10 +352,10 @@ func (p *ProgressBar) Update(current int) {
 	if noColor || !isTerminal(os.Stdout) {
 		// Simple percentage output for non-TTY
 		if current%10 == 0 || current == p.total {
-			fmt.Fprintf(Stdout, "\r%s... %d%%", p.message, (current*100)/p.total)
+			_, _ = fmt.Fprintf(Stdout, "\r%s... %d%%", p.message, (current*100)/p.total)
 		}
 		if current == p.total {
-			fmt.Fprintln(Stdout)
+			_, _ = fmt.Fprintln(Stdout)
 		}
 		return
 	}
@@ -364,13 +366,13 @@ func (p *ProgressBar) Update(current int) {
 
 	bar := strings.Repeat("█", filled) + strings.Repeat("░", p.width-filled)
 
-	fmt.Fprintf(Stdout, "\r%s %s %3.0f%%",
+	_, _ = fmt.Fprintf(Stdout, "\r%s %s %3.0f%%",
 		p.message,
 		cyan.Sprint(bar),
 		percent*100)
 
 	if current == p.total {
-		fmt.Fprintln(Stdout)
+		_, _ = fmt.Fprintln(Stdout)
 	}
 }
 
@@ -387,10 +389,10 @@ func (p *ProgressBar) Complete() {
 // Confirm prompts the user for yes/no confirmation
 // Returns true if user confirms (y/Y), false otherwise
 func Confirm(prompt string) bool {
-	fmt.Fprintf(Stdout, "%s [y/N]: ", yellow.Sprint("?")+" "+prompt)
+	_, _ = fmt.Fprintf(Stdout, "%s [y/N]: ", yellow.Sprint("?")+" "+prompt)
 
 	var response string
-	fmt.Scanln(&response)
+	_, _ = fmt.Scanln(&response)
 
 	response = strings.ToLower(strings.TrimSpace(response))
 	return response == "y" || response == "yes"
@@ -398,10 +400,10 @@ func Confirm(prompt string) bool {
 
 // Prompt prompts the user for input
 func Prompt(prompt string) string {
-	fmt.Fprintf(Stdout, "%s: ", cyan.Sprint("?")+" "+prompt)
+	_, _ = fmt.Fprintf(Stdout, "%s: ", cyan.Sprint("?")+" "+prompt)
 
 	var response string
-	fmt.Scanln(&response)
+	_, _ = fmt.Scanln(&response)
 
 	return strings.TrimSpace(response)
 }
@@ -421,10 +423,10 @@ func PromptRequired(prompt string) string {
 // Note: This is a simple implementation. For production, consider using
 // golang.org/x/term for proper terminal handling
 func PromptSecret(prompt string) string {
-	fmt.Fprintf(Stdout, "%s: ", cyan.Sprint("?")+" "+prompt)
+	_, _ = fmt.Fprintf(Stdout, "%s: ", cyan.Sprint("?")+" "+prompt)
 
 	var response string
-	fmt.Scanln(&response)
+	_, _ = fmt.Scanln(&response)
 
 	return strings.TrimSpace(response)
 }

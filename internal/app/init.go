@@ -1,3 +1,5 @@
+// Package app provides the core application logic for runvoy.
+// It initializes and manages the service layer.
 package app
 
 import (

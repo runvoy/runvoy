@@ -9,6 +9,7 @@ import (
 	"github.com/aws/aws-lambda-go/events"
 )
 
+// LambdaHandler handles AWS Lambda requests for the runvoy API.
 type LambdaHandler struct {
 	adapter func(context.Context, events.LambdaFunctionURLRequest) (events.LambdaFunctionURLResponse, error)
 }
@@ -22,6 +23,7 @@ func NewHandler(svc *app.Service, requestTimeout time.Duration) *LambdaHandler {
 	return &LambdaHandler{adapter: adapter}
 }
 
+// HandleRequest processes an incoming Lambda function URL request.
 func (h *LambdaHandler) HandleRequest(
 	ctx context.Context, req events.LambdaFunctionURLRequest) (events.LambdaFunctionURLResponse, error) {
 

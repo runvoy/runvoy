@@ -1,3 +1,5 @@
+// Package errors provides error types and handling for runvoy.
+// It includes custom error types with HTTP status codes and error codes.
 package errors
 
 import (

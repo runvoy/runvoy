@@ -1,3 +1,5 @@
+// Package main implements the local development server for runvoy.
+// It runs the orchestrator service locally for testing and development.
 package main
 
 import (
