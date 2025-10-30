@@ -111,6 +111,16 @@ runvoy logs -f <executionID>
 runvoy configure
 ```
 
+**List Executions:**
+```bash
+runvoy executions
+
+# Prints a table similar to logs:
+# Execution ID  Status     Command        Started (UTC)        Completed (UTC)   Duration  Cloud
+# abc123        RUNNING    terraform plan 2025-10-30 13:32:48                   
+# def456        SUCCEEDED  echo hello     2025-10-29 09:10:00  2025-10-29 09:10:05 5s      AWS
+```
+
 **Other:**
 ```bash
 # Show CLI and backend versions

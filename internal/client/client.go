@@ -217,3 +217,16 @@ func (c *Client) KillExecution(ctx context.Context, executionID string) (*api.Ki
 	}
 	return &resp, nil
 }
+
+// ListExecutions fetches all executions
+func (c *Client) ListExecutions(ctx context.Context) ([]api.Execution, error) {
+    var resp []api.Execution
+    err := c.DoJSON(ctx, Request{
+        Method: "GET",
+        Path:   "/api/v1/executions",
+    }, &resp)
+    if err != nil {
+        return nil, err
+    }
+    return resp, nil
+}
