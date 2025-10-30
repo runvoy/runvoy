@@ -39,6 +39,7 @@ func NewRouter(svc *app.Service, requestTimeout time.Duration) *Router {
 	if requestTimeout > 0 {
 		r.Use(router.requestTimeoutMiddleware(requestTimeout))
 	}
+	r.Use(corsMiddleware)
 	r.Use(setContentTypeJSONMiddleware)
 	r.Use(router.requestIDMiddleware)
 	r.Use(router.requestLoggingMiddleware)
