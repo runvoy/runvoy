@@ -43,5 +43,6 @@ func statusRun(cmd *cobra.Command, args []string) {
 	output.KeyValue("Started At", status.StartedAt.Format(time.DateTime))
 	output.KeyValue("Completed At", status.CompletedAt.Format(time.DateTime))
 
+	output.Blank()
 	output.Success("Status retrieved successfully")
 }
