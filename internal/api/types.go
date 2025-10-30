@@ -74,6 +74,7 @@ type Execution struct {
 
 // LogEvent represents a single log event line
 type LogEvent struct {
+    Line      int    `json:"line"`
     Timestamp int64  `json:"timestamp"`
     Message   string `json:"message"`
 }

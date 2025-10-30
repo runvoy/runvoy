@@ -74,29 +74,35 @@ runvoy run "echo hello world"
 # Run 'runvoy logs <executionID>' to view logs
 ```
 
-**Log Viewing (tail):**
+**Log Viewing:**
 ```bash
 runvoy logs <executionID>
 
 # Example
 runvoy logs 72f57686926e4becb89116b0ac72caec
 
-# Behavior
+# Default behavior
 # - Waits until the execution starts (spinner)
-# - Streams logs, polling every 5s, only printing new lines
-# - Exits when the execution reaches a terminal status and prints the final status
+# - Prints all available logs once with a Line column, then exits
 
 # Sample output
 🚀 runvoy
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 → Getting logs for execution: 72f57686926e4becb89116b0ac72caec
 ⠋ Waiting for execution to start...
-2025-10-30 13:32:48  Runvoy Runner execution started by requestID 1234567890
-2025-10-30 13:32:48  terraform plan
-2025-10-30 13:32:49  Refreshing Terraform state in-memory prior to plan...
+
+Line  Timestamp (UTC)      Message
+────  ───────────────────  ───────────────────────────────────────────────────────
+1     2025-10-30 13:32:48  Runvoy Runner execution started by requestID 1234567890
+2     2025-10-30 13:32:48  terraform plan
+3     2025-10-30 13:32:49  Refreshing Terraform state in-memory prior to plan...
 ...
-✓ Execution finished: ● completed
-  Last Log: 2025-10-30 13:33:12
+✓ Logs retrieved successfully
+
+# Follow mode
+runvoy logs -f <executionID>
+# - Same as above but continues streaming new lines every 5s until completion
+# - Prints lines in the format: "[<line>] <timestamp>  <message>"
 ```
 
 **Configuration:**
