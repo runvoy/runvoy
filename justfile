@@ -8,7 +8,7 @@ bucket := env_var_or_default('RUNVOY_RELEASES_BUCKET', 'runvoy-releases')
 build: build-cli build-local build-orchestrator build-event-processor
 
 # Deploy all binaries
-deploy: deploy-orchestrator deploy-event-processor
+deploy: deploy-orchestrator deploy-event-processor deploy-webviewer
 
 # Build CLI client
 [working-directory: 'cmd/runvoy']
@@ -58,6 +58,13 @@ deploy-event-processor: build-event-processor-zip
         --s3-bucket {{bucket}} \
         --s3-key event-processor.zip > /dev/null
     aws lambda wait function-updated --function-name runvoy-event-processor
+
+# Deploy webviewer HTML to S3 (public-read)
+deploy-webviewer:
+    aws s3 cp cmd/webviewer/index.html \
+        s3://{{bucket}}/webviewer.html \
+        --content-type text/html \
+        --acl public-read
 
 # Build local development server
 [working-directory: 'cmd/local']

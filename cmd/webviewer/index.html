@@ -94,12 +94,20 @@
 
     <div class="controls">
         <input
+            type="text"
+            id="endpoint-input"
+            class="api-key-input"
+            placeholder="Enter endpoint URL"
+            style="max-width: 300px;"
+        >
+        <input
             type="password"
             id="api-key-input"
             class="api-key-input"
             placeholder="Enter API key (p_75LzCL...)"
+            style="max-width: 300px;"
         >
-        <button onclick="saveApiKey()">Save API Key</button>
+        <button onclick="saveCredentials()">Save</button>
         <button id="play-pause-btn" onclick="togglePolling()">Pause</button>
         <button onclick="downloadLogs()">Download</button>
         <button onclick="clearLogs()">Clear</button>
@@ -109,7 +117,7 @@
 
     <script>
         // Configuration
-        const API_ENDPOINT = 'https://zsbytrdog7wdvpbvtsktxohf4e0qwiav.lambda-url.us-east-2.on.aws'; // From CloudFormation output
+        let API_ENDPOINT = null; // Loaded from localStorage
         const POLL_INTERVAL = 5000; // 5 seconds
 
         // State
@@ -134,8 +142,13 @@
                 return;
             }
 
-            // Load API key from localStorage
+            // Load credentials from localStorage
+            API_ENDPOINT = localStorage.getItem('runvoy_endpoint');
             apiKey = localStorage.getItem('runvoy_api_key');
+
+            if (API_ENDPOINT) {
+                document.getElementById('endpoint-input').value = API_ENDPOINT;
+            }
             if (apiKey) {
                 document.getElementById('api-key-input').value = '••••••••';
             }
@@ -145,27 +158,45 @@
             updatePlayPauseButton();
 
             // Start fetching logs and status
-            if (apiKey) {
+            if (API_ENDPOINT && apiKey) {
                 fetchStatus();
                 fetchLogs();
                 startPolling();
             } else {
-                appendLog('[INFO] Please enter your API key to view logs\n');
+                appendLog('[INFO] Please enter endpoint URL and API key to view logs\n');
             }
         }
 
-        function saveApiKey() {
-            const input = document.getElementById('api-key-input');
-            const key = input.value;
+        function saveCredentials() {
+            const endpointInput = document.getElementById('endpoint-input');
+            const keyInput = document.getElementById('api-key-input');
+            const endpoint = endpointInput.value.trim();
+            const key = keyInput.value;
+
+            if (!endpoint) {
+                alert('Please enter an endpoint URL');
+                return;
+            }
 
             if (!key || key === '••••••••') {
                 alert('Please enter a valid API key');
                 return;
             }
 
+            // Validate URL format
+            try {
+                new URL(endpoint);
+            } catch (e) {
+                alert('Please enter a valid URL');
+                return;
+            }
+
+            API_ENDPOINT = endpoint;
             apiKey = key;
+            localStorage.setItem('runvoy_endpoint', endpoint);
             localStorage.setItem('runvoy_api_key', key);
-            input.value = '••••••••';
+            endpointInput.value = endpoint;
+            keyInput.value = '••••••••';
 
             // Start fetching
             fetchStatus();
@@ -174,7 +205,7 @@
         }
 
         async function fetchStatus() {
-            if (!apiKey) return;
+            if (!apiKey || !API_ENDPOINT) return;
 
             try {
                 const url = `${API_ENDPOINT}/api/v1/executions/${executionId}/status`;
@@ -222,7 +253,7 @@
                 }
             } catch (error) {
                 console.error('Failed to fetch status:', error);
-                
+
                 if (error.message.includes('Invalid API key') || error.message.includes('Unauthorized')) {
                     stopPolling();
                     localStorage.removeItem('runvoy_api_key');
@@ -233,7 +264,7 @@
         }
 
         async function fetchLogs() {
-            if (!apiKey) return;
+            if (!apiKey || !API_ENDPOINT) return;
 
             try {
                 const url = `${API_ENDPOINT}/api/v1/executions/${executionId}/logs`;
@@ -261,11 +292,11 @@
                 // Append new log events (only those after lastLineNumber)
                 if (data.events && Array.isArray(data.events)) {
                     const newEvents = data.events.filter(event => event.line > lastLineNumber);
-                    
+
                     if (newEvents.length > 0) {
                         // Sort by line number to ensure correct order
                         newEvents.sort((a, b) => a.line - b.line);
-                        
+
                         for (const event of newEvents) {
                             appendLog(event.message);
                             lastLineNumber = Math.max(lastLineNumber, event.line);
@@ -274,7 +305,7 @@
                 }
             } catch (error) {
                 console.error('Failed to fetch logs:', error);
-                
+
                 // Only show error if it's not a 404 (which means logs don't exist yet)
                 if (!error.message.includes('404')) {
                     appendLog(`\n[ERROR] Failed to fetch logs: ${error.message}\n`);
