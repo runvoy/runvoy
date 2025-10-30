@@ -30,45 +30,56 @@ func FetchLogsByExecutionID(ctx context.Context, cfg *Config, executionID string
 		return nil, apperrors.ErrInternalError("failed to load AWS configuration", err)
 	}
 	cwl := cloudwatchlogs.NewFromConfig(awsCfg)
-
-	foundStreams := make(map[string]struct{})
-	// Deterministic stream from ECS awslogs default pattern: task/<container-name>/<executionID>
 	stream := fmt.Sprintf("task/%s/%s", constants.RunnerContainerName, executionID)
-	foundStreams[stream] = struct{}{}
 
-	if len(foundStreams) == 0 {
-		return []api.LogEvent{}, nil
+	lsOut, err := cwl.DescribeLogStreams(ctx, &cloudwatchlogs.DescribeLogStreamsInput{
+		LogGroupName:        aws.String(cfg.LogGroup),
+		LogStreamNamePrefix: aws.String(stream),
+		Limit:               aws.Int32(50),
+	})
+	if err != nil {
+		return nil, apperrors.ErrInternalError("failed to describe log streams", err)
+	}
+
+	streamExists := false
+	for _, s := range lsOut.LogStreams {
+		if aws.ToString(s.LogStreamName) == stream {
+			streamExists = true
+			break
+		}
+	}
+	if !streamExists {
+		return nil, apperrors.ErrNotFound(fmt.Sprintf("log stream '%s' does not exist yet", stream), nil)
 	}
 
 	var events []api.LogEvent
-	for stream := range foundStreams {
-		var nextToken *string
-		for {
-			out, err := cwl.GetLogEvents(ctx, &cloudwatchlogs.GetLogEventsInput{
-				LogGroupName:  &cfg.LogGroup,
-				LogStreamName: &stream,
-				NextToken:     nextToken,
-				StartFromHead: aws.Bool(true),
-				Limit:         aws.Int32(10000),
-			})
-			if err != nil {
-				var rte *cwltypes.ResourceNotFoundException
-				if errors.As(err, &rte) {
-					break
-				}
-				return nil, apperrors.ErrInternalError("failed to get log events", err)
-			}
-			for _, e := range out.Events {
-				events = append(events, api.LogEvent{
-					Timestamp: aws.ToInt64(e.Timestamp),
-					Message:   aws.ToString(e.Message),
-				})
-			}
-			if out.NextForwardToken == nil || (nextToken != nil && *out.NextForwardToken == *nextToken) {
+	var nextToken *string
+	for {
+		out, err := cwl.GetLogEvents(ctx, &cloudwatchlogs.GetLogEventsInput{
+			LogGroupName:  &cfg.LogGroup,
+			LogStreamName: &stream,
+			NextToken:     nextToken,
+			StartFromHead: aws.Bool(true),
+			Limit:         aws.Int32(10000),
+		})
+
+		if err != nil {
+			var rte *cwltypes.ResourceNotFoundException
+			if errors.As(err, &rte) {
 				break
 			}
-			nextToken = out.NextForwardToken
+			return nil, apperrors.ErrInternalError("failed to get log events", err)
 		}
+		for _, e := range out.Events {
+			events = append(events, api.LogEvent{
+				Timestamp: aws.ToInt64(e.Timestamp),
+				Message:   aws.ToString(e.Message),
+			})
+		}
+		if out.NextForwardToken == nil || (nextToken != nil && *out.NextForwardToken == *nextToken) {
+			break
+		}
+		nextToken = out.NextForwardToken
 	}
 
 	sort.SliceStable(events, func(i, j int) bool { return events[i].Timestamp < events[j].Timestamp })

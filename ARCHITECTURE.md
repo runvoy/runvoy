@@ -534,6 +534,11 @@ The service exposes a simple logs endpoint that aggregates CloudWatch Logs event
 - Reads from deterministic stream: `task/<container-name>/<executionID>` (container: `executor`)
 - Response is sorted by timestamp ascending
 
+Error behavior:
+
+- 500 Internal Server Error when the configured CloudWatch Logs group does not exist (or other AWS errors)
+- 404 Not Found when the expected log stream for the execution ID does not exist yet (clients may retry later)
+
 Example response:
 
 ```json

@@ -54,5 +54,6 @@ func logsRun(cmd *cobra.Command, args []string) {
 		})
 	}
 	output.Table([]string{"Timestamp (UTC)", "Message"}, rows)
+	output.Blank()
 	output.Success("Logs retrieved successfully")
 }
