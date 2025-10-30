@@ -76,11 +76,8 @@ func (r *Router) handleRevokeUser(w http.ResponseWriter, req *http.Request) {
 func (r *Router) handleRunCommand(w http.ResponseWriter, req *http.Request) {
 	logger := r.GetLoggerFromContext(req.Context())
 
-	user, ok := req.Context().Value(userContextKey).(*api.User)
-	if !ok || user == nil {
-		writeErrorResponse(w, http.StatusUnauthorized, "Unauthorized", "user not found in context")
-		return
-	}
+	// User is authenticated by middleware
+	user := req.Context().Value(userContextKey).(*api.User)
 
 	var execReq api.ExecutionRequest
 	if err := json.NewDecoder(req.Body).Decode(&execReq); err != nil {
@@ -108,13 +105,6 @@ func (r *Router) handleRunCommand(w http.ResponseWriter, req *http.Request) {
 func (r *Router) handleGetExecutionLogs(w http.ResponseWriter, req *http.Request) {
 	logger := r.GetLoggerFromContext(req.Context())
 
-	// must be authenticated already by middleware
-	user, ok := req.Context().Value(userContextKey).(*api.User)
-	if !ok || user == nil {
-		writeErrorResponse(w, http.StatusUnauthorized, "Unauthorized", "user not found in context")
-		return
-	}
-
 	executionID := strings.TrimSpace(chi.URLParam(req, "executionID"))
 	if executionID == "" {
 		writeErrorResponse(w, http.StatusBadRequest, "invalid execution id", "executionID is required")
@@ -141,12 +131,6 @@ func (r *Router) handleGetExecutionLogs(w http.ResponseWriter, req *http.Request
 // handleGetExecutionStatus handles GET /api/v1/executions/{executionID}/status to fetch execution status
 func (r *Router) handleGetExecutionStatus(w http.ResponseWriter, req *http.Request) {
 	logger := r.GetLoggerFromContext(req.Context())
-
-	user, ok := req.Context().Value(userContextKey).(*api.User)
-	if !ok || user == nil {
-		writeErrorResponse(w, http.StatusUnauthorized, "Unauthorized", "user not found in context")
-		return
-	}
 
 	executionID := strings.TrimSpace(chi.URLParam(req, "executionID"))
 	if executionID == "" {
@@ -180,12 +164,6 @@ func (r *Router) handleGetExecutionStatus(w http.ResponseWriter, req *http.Reque
 // handleKillExecution handles POST /api/v1/executions/{executionID}/kill to terminate a running execution
 func (r *Router) handleKillExecution(w http.ResponseWriter, req *http.Request) {
 	logger := r.GetLoggerFromContext(req.Context())
-
-	user, ok := req.Context().Value(userContextKey).(*api.User)
-	if !ok || user == nil {
-		writeErrorResponse(w, http.StatusUnauthorized, "Unauthorized", "user not found in context")
-		return
-	}
 
 	executionID := strings.TrimSpace(chi.URLParam(req, "executionID"))
 	if executionID == "" {
