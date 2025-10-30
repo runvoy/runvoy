@@ -74,5 +74,3 @@ func FetchLogsByExecutionID(ctx context.Context, cfg *Config, executionID string
 	sort.SliceStable(events, func(i, j int) bool { return events[i].Timestamp < events[j].Timestamp })
 	return events, nil
 }
-
-// local pointer helpers removed in favor of aws helpers
