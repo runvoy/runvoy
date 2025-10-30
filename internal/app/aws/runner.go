@@ -44,6 +44,11 @@ func NewExecutor(ecsClient *ecs.Client, cfg *Config, logger *slog.Logger) *Execu
 	return &Executor{ecsClient: ecsClient, cfg: cfg, logger: logger}
 }
 
+// FetchLogsByExecutionID returns CloudWatch log events for the given execution ID.
+func (e *Executor) FetchLogsByExecutionID(ctx context.Context, executionID string) ([]api.LogEvent, error) {
+	return FetchLogsByExecutionID(ctx, e.cfg, executionID)
+}
+
 // StartTask triggers an ECS Fargate task and returns identifiers.
 func (e *Executor) StartTask(ctx context.Context, userEmail string, req api.ExecutionRequest) (string, string, error) {
 	if e.ecsClient == nil {
@@ -72,7 +77,7 @@ func (e *Executor) StartTask(ctx context.Context, userEmail string, req api.Exec
 	}
 	containerCommand := []string{"/bin/sh", "-c", fmt.Sprintf("echo 'Execution for requestID %s starting'; %s", requestID, req.Command)}
 
-    runTaskInput := &ecs.RunTaskInput{
+	runTaskInput := &ecs.RunTaskInput{
 		Cluster:        awsstd.String(e.cfg.ECSCluster),
 		TaskDefinition: awsstd.String(e.cfg.TaskDefinition),
 		LaunchType:     ecstypes.LaunchTypeFargate,
