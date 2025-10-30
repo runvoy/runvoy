@@ -374,6 +374,22 @@ case "TaskFailedToStart":
 }
 ```
 
+### Execution Status Types
+
+Runvoy defines two distinct status type systems:
+
+1. **ExecutionStatus** (`constants.ExecutionStatus`): Business-level execution status used throughout the API
+   - `RUNNING`: Command is currently executing
+   - `SUCCEEDED`: Command completed successfully (exit code 0)
+   - `FAILED`: Command failed with an error (non-zero exit code)
+   - `STOPPED`: Command was manually terminated by user
+
+2. **EcsStatus** (`constants.EcsStatus`): AWS ECS task lifecycle status returned by ECS API
+   - `PROVISIONING`, `PENDING`, `ACTIVATING`, `RUNNING`, `DEACTIVATING`, `STOPPING`, `DEPROVISIONING`, `STOPPED`
+   - These are used internally for ECS task management and should not be confused with execution status
+
+Execution status values are defined as typed constants in `internal/constants/constants.go` to ensure consistency across the codebase and as part of the API contract. This prevents typos and makes the valid status values explicit to developers.
+
 ### Error Handling
 
 - **Orphaned Tasks**: Tasks without execution records are logged and skipped (no failure)
@@ -776,6 +792,7 @@ The kill endpoint allows users to terminate running executions. This endpoint pr
 - Service layer (`internal/app/main.go`): `KillExecution` validates execution exists and checks status
 - AWS Runner (`internal/app/aws/runner.go`): `KillTask` finds task via ListTasks, checks status, and calls StopTask
 - ECS task lifecycle statuses (`LastStatus`) are represented by `constants.EcsStatus` typed constants (e.g., `EcsStatusRunning`, `EcsStatusStopped`) to avoid string literals across the codebase
+- Execution status values are represented by `constants.ExecutionStatus` typed constants (e.g., `ExecutionRunning`, `ExecutionSucceeded`, `ExecutionFailed`, `ExecutionStopped`) as part of the API contract
 - Requires `ecs:StopTask` and `ecs:ListTasks` IAM permissions (added to CloudFormation template)
 
 **Post-Termination:**

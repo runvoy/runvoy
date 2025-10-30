@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/mail"
+	"slices"
 	"time"
 
 	"runvoy/internal/api"
@@ -213,7 +214,7 @@ func (s *Service) RunCommand(ctx context.Context, userEmail string, req api.Exec
 		Command:         req.Command,
 		LockName:        req.Lock,
 		StartedAt:       startedAt,
-		Status:          "RUNNING",
+		Status:          string(constants.ExecutionRunning),
 		RequestID:       requestID,
 		ComputePlatform: string(s.Provider),
 	}
@@ -234,7 +235,7 @@ func (s *Service) RunCommand(ctx context.Context, userEmail string, req api.Exec
 
 	return &api.ExecutionResponse{
 		ExecutionID: executionID,
-		Status:      "RUNNING",
+		Status:      string(constants.ExecutionRunning),
 	}, nil
 }
 
@@ -325,11 +326,11 @@ func (s *Service) KillExecution(ctx context.Context, executionID string) error {
 	reqLogger.Debug("execution found", "executionID", executionID, "status", execution.Status)
 
 	// Check if execution is already in a terminal state
-	terminalStatuses := []string{"SUCCEEDED", "FAILED", "STOPPED"}
-	for _, status := range terminalStatuses {
-		if execution.Status == status {
-			return apperrors.ErrBadRequest("execution is already terminated", fmt.Errorf("execution status: %s", execution.Status))
-		}
+	terminalStatuses := constants.TerminalExecutionStatuses()
+	if slices.ContainsFunc(terminalStatuses, func(status constants.ExecutionStatus) bool {
+		return execution.Status == string(status)
+	}) {
+		return apperrors.ErrBadRequest("execution is already terminated", fmt.Errorf("execution status: %s", execution.Status))
 	}
 
 	// Delegate to the runner to kill the task

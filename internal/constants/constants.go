@@ -87,3 +87,28 @@ const (
 	EcsStatusDeprovisioning EcsStatus = "DEPROVISIONING"
 	EcsStatusStopped        EcsStatus = "STOPPED"
 )
+
+// ExecutionStatus represents the business-level status of a command execution.
+// This is distinct from EcsStatus, which reflects the AWS ECS task lifecycle.
+// Execution statuses are used throughout the API and stored in the database.
+type ExecutionStatus string
+
+const (
+	// ExecutionRunning indicates the command is currently executing
+	ExecutionRunning ExecutionStatus = "RUNNING"
+	// ExecutionSucceeded indicates the command completed successfully
+	ExecutionSucceeded ExecutionStatus = "SUCCEEDED"
+	// ExecutionFailed indicates the command failed with an error
+	ExecutionFailed ExecutionStatus = "FAILED"
+	// ExecutionStopped indicates the command was manually terminated
+	ExecutionStopped ExecutionStatus = "STOPPED"
+)
+
+// TerminalExecutionStatuses returns all statuses that represent completed executions
+func TerminalExecutionStatuses() []ExecutionStatus {
+	return []ExecutionStatus{
+		ExecutionSucceeded,
+		ExecutionFailed,
+		ExecutionStopped,
+	}
+}

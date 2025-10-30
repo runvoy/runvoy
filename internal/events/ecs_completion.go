@@ -97,17 +97,17 @@ func extractExecutionIDFromTaskArn(taskArn string) string {
 // determineStatusAndExitCode determines the final status and exit code from the task event
 func determineStatusAndExitCode(event ECSTaskStateChangeEvent) (status string, exitCode int) {
 	// Default values
-	status = "FAILED"
+	status = string(constants.ExecutionFailed)
 	exitCode = 1
 
 	// Check stop code first
 	switch event.StopCode {
 	case "UserInitiated":
-		status = "STOPPED"
+		status = string(constants.ExecutionStopped)
 		exitCode = 130 // Standard exit code for SIGINT/manual termination
 		return status, exitCode
 	case "TaskFailedToStart":
-		status = "FAILED"
+		status = string(constants.ExecutionFailed)
 		exitCode = 1
 		return status, exitCode
 	}
@@ -118,9 +118,9 @@ func determineStatusAndExitCode(event ECSTaskStateChangeEvent) (status string, e
 			if container.ExitCode != nil {
 				exitCode = *container.ExitCode
 				if exitCode == 0 {
-					status = "SUCCEEDED"
+					status = string(constants.ExecutionSucceeded)
 				} else {
-					status = "FAILED"
+					status = string(constants.ExecutionFailed)
 				}
 				return status, exitCode
 			}
@@ -134,7 +134,7 @@ func determineStatusAndExitCode(event ECSTaskStateChangeEvent) (status string, e
 	if event.StopCode == "EssentialContainerExited" {
 		// Container exited but we don't have the exit code
 		// Assume failure since we should have the exit code for success
-		status = "FAILED"
+		status = string(constants.ExecutionFailed)
 		exitCode = 1
 	}
 
