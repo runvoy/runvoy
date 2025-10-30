@@ -27,7 +27,7 @@ var rootCmd = &cobra.Command{
 	Short: "Remote execution environment for your commands",
 	Long: fmt.Sprintf(`%s provides isolated, repeatable execution environments for your commands.
 Run commands remotely without the hassle of local execution, credential sharing, or race conditions.`, constants.ProjectName),
-	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+	PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
 		if verbose {
 			output.Header(output.Bold(constants.ProjectName) + " " + *constants.GetVersion())
 			output.Info("verbose output enabled")
@@ -65,6 +65,7 @@ Run commands remotely without the hassle of local execution, credential sharing,
 	},
 }
 
+// Execute runs the root command and handles cleanup of timeout context.
 func Execute() {
 	err := rootCmd.Execute()
 	if timeoutCancel != nil {

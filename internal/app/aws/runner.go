@@ -1,3 +1,5 @@
+// Package aws provides AWS-specific implementations for runvoy.
+// It handles ECS task execution and AWS service integration.
 package aws
 
 import (
@@ -36,6 +38,7 @@ type Executor struct {
 	logger    *slog.Logger
 }
 
+// NewExecutor creates a new AWS ECS executor with the provided configuration.
 func NewExecutor(ecsClient *ecs.Client, cfg *Config, logger *slog.Logger) *Executor {
 	return &Executor{ecsClient: ecsClient, cfg: cfg, logger: logger}
 }

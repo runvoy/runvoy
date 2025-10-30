@@ -73,6 +73,7 @@ func loadOrchestratorEnv() (*OrchestratorEnv, error) {
 	return cfg, nil
 }
 
+// EventProcessorEnv contains environment configuration for the event processor.
 type EventProcessorEnv struct {
 	// ExecutionsTable is the DynamoDB table name for execution records (AWS only).
 	// Required by event processor lambda.

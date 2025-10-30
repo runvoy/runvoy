@@ -1,3 +1,5 @@
+// Package main implements the AWS Lambda orchestrator for runvoy.
+// It handles API requests and orchestrates ECS task executions.
 package main
 
 import (

@@ -1,3 +1,5 @@
+// Package client provides HTTP client functionality for the runvoy API.
+// It handles authentication, request/response serialization, and error handling.
 package client
 
 import (
@@ -80,7 +82,9 @@ func (c *Client) Do(ctx context.Context, req Request) (*Response, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to make request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -162,6 +166,7 @@ func (c *Client) GetHealth(ctx context.Context) (*api.HealthResponse, error) {
 	return &resp, nil
 }
 
+// RunCommand executes a command remotely via the runvoy API.
 func (c *Client) RunCommand(ctx context.Context, req api.ExecutionRequest) (*api.ExecutionResponse, error) {
 	var resp api.ExecutionResponse
 	err := c.DoJSON(ctx, Request{

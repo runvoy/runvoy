@@ -25,6 +25,7 @@ type Executor interface {
 	StartTask(ctx context.Context, userEmail string, req api.ExecutionRequest) (executionID string, taskARN string, err error)
 }
 
+// Service provides the core business logic for command execution and user management.
 type Service struct {
 	userRepo      database.UserRepository
 	executionRepo database.ExecutionRepository

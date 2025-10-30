@@ -1,7 +1,10 @@
+// Package constants defines global constants used throughout runvoy.
+// It includes version information, paths, and configuration keys.
 package constants
 
-var version string = "0.0.0-development" // Updated by CI/CD pipeline at build time
+var version = "0.0.0-development" // Updated by CI/CD pipeline at build time
 
+// GetVersion returns the current version of runvoy.
 func GetVersion() *string {
 	return &version
 }
@@ -15,7 +18,7 @@ const ConfigDirName = ".runvoy"
 // ConfigFileName is the name of the global configuration file
 const ConfigFileName = "config.yaml"
 
-// ConfigPath returns the full path to the global configuration directory
+// ConfigDirPath returns the full path to the global configuration directory.
 func ConfigDirPath(homeDir string) string {
 	return homeDir + "/" + ConfigDirName
 }
@@ -25,13 +28,16 @@ func ConfigFilePath(homeDir string) string {
 	return ConfigDirPath(homeDir) + "/" + ConfigFileName
 }
 
+// BackendProvider represents the backend infrastructure provider.
 type BackendProvider string
 
 const (
+	// AWS is the Amazon Web Services backend provider.
 	AWS BackendProvider = "AWS"
 	// Example: GCP BackendProvider = "GCP"
 )
 
+// Environment represents the execution environment (e.g., CLI, Lambda).
 type Environment string
 
 // Environment types for logger configuration
@@ -42,11 +48,16 @@ const (
 )
 
 const ApiKeyHeader = "X-API-Key"
+
+// ContentTypeHeader is the HTTP Content-Type header name.
 const ContentTypeHeader = "Content-Type"
 
+// Service represents a runvoy service component.
 type Service string
 
 const (
-	OrchestratorService   Service = "orchestrator"
+	// OrchestratorService is the main orchestrator service.
+	OrchestratorService Service = "orchestrator"
+	// EventProcessorService is the event processing service.
 	EventProcessorService Service = "event-processor"
 )

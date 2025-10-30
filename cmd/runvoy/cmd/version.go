@@ -13,7 +13,7 @@ import (
 var versionCmd = &cobra.Command{
 	Use:   "version",
 	Short: "Show the version of the CLI",
-	Run: func(cmd *cobra.Command, args []string) {
+	Run: func(cmd *cobra.Command, _ []string) {
 		output.Header("🚀 " + constants.ProjectName)
 		output.KeyValue("CLI version", *constants.GetVersion())
 

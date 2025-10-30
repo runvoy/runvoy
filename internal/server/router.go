@@ -12,6 +12,7 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
+// Router wraps a chi router with service dependencies for handling API requests.
 type Router struct {
 	router *chi.Mux
 	svc    *app.Service
@@ -104,7 +105,7 @@ func (r *Router) WithContext(ctx context.Context, svc *app.Service) context.Cont
 // writeErrorResponse is a helper to write consistent error responses
 func writeErrorResponse(w http.ResponseWriter, statusCode int, message string, details string) {
 	w.WriteHeader(statusCode)
-	json.NewEncoder(w).Encode(api.ErrorResponse{
+	_ = json.NewEncoder(w).Encode(api.ErrorResponse{
 		Error:   message,
 		Details: details,
 	})
@@ -120,21 +121,5 @@ func writeErrorResponseWithCode(w http.ResponseWriter, statusCode int, code, mes
 	if code != "" {
 		resp.Code = code
 	}
-	json.NewEncoder(w).Encode(resp)
-}
-
-// containsString checks if a string contains a substring
-func containsString(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || len(s) > len(substr) && findSubstring(s, substr))
-}
-
-// findSubstring is a simple substring finder
-func findSubstring(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-
-	return false
+	_ = json.NewEncoder(w).Encode(resp)
 }

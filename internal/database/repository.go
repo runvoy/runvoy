@@ -1,3 +1,5 @@
+// Package database defines repository interfaces for data persistence.
+// It provides abstractions for user and execution storage.
 package database
 
 import (

@@ -1,3 +1,5 @@
+// Package config manages configuration for the runvoy CLI and services.
+// It handles reading and writing configuration files and environment variables.
 package config
 
 import (

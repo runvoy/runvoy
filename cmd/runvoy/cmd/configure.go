@@ -1,3 +1,4 @@
+// Package cmd implements the CLI commands for the runvoy tool.
 package cmd
 
 import (
@@ -20,7 +21,7 @@ func init() {
 	rootCmd.AddCommand(configureCmd)
 }
 
-func runConfigure(cmd *cobra.Command, args []string) {
+func runConfigure(_ *cobra.Command, _ []string) {
 	output.Header("🚀 " + constants.ProjectName)
 	output.Subheader("Configure " + constants.ProjectName)
 

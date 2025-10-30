@@ -1,3 +1,5 @@
+// Package server implements the HTTP server and handlers for runvoy.
+// It provides REST API endpoints for user management and command execution.
 package server
 
 import (
@@ -34,7 +36,7 @@ func (r *Router) handleCreateUser(w http.ResponseWriter, req *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(resp)
+	_ = json.NewEncoder(w).Encode(resp)
 }
 
 // handleRevokeUser handles POST /api/v1/users/revoke to revoke a user's API key
@@ -61,7 +63,7 @@ func (r *Router) handleRevokeUser(w http.ResponseWriter, req *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(api.RevokeUserResponse{
+	_ = json.NewEncoder(w).Encode(api.RevokeUserResponse{
 		Message: "user API key revoked successfully",
 		Email:   revokeReq.Email,
 	})
@@ -96,13 +98,13 @@ func (r *Router) handleRunCommand(w http.ResponseWriter, req *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusAccepted)
-	json.NewEncoder(w).Encode(resp)
+	_ = json.NewEncoder(w).Encode(resp)
 }
 
 // handleHealth returns a simple health check response
 func (r *Router) handleHealth(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(api.HealthResponse{
+	_ = json.NewEncoder(w).Encode(api.HealthResponse{
 		Status:  "ok",
 		Version: *constants.GetVersion(),
 	})

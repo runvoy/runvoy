@@ -1,3 +1,5 @@
+// Package events handles AWS event processing for runvoy.
+// It processes CloudWatch events and calculates execution costs.
 package events
 
 import (

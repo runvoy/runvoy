@@ -121,7 +121,7 @@ func TestResponseWriter(t *testing.T) {
 			statusCode:     http.StatusOK,
 		}
 
-		rw.Write([]byte("test"))
+		_, _ = rw.Write([]byte("test"))
 		if rw.statusCode != http.StatusOK {
 			t.Errorf("Expected status code %d, got %d", http.StatusOK, rw.statusCode)
 		}
