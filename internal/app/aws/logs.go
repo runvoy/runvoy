@@ -1,0 +1,102 @@
+package aws
+
+import (
+    "context"
+    "errors"
+    "fmt"
+    "sort"
+    "strings"
+
+    "runvoy/internal/api"
+    apperrors "runvoy/internal/errors"
+
+    awsconfig "github.com/aws/aws-sdk-go-v2/config"
+    "github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs"
+    cwltypes "github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs/types"
+)
+
+// FetchLogsByExecutionID queries CloudWatch Logs for events associated with the ECS task ID
+func FetchLogsByExecutionID(ctx context.Context, cfg *Config, executionID string) ([]api.LogEvent, error) {
+    if cfg == nil || cfg.LogGroup == "" {
+        return nil, apperrors.ErrInternalError("CloudWatch Logs group not configured", nil)
+    }
+    if executionID == "" {
+        return nil, apperrors.ErrBadRequest("executionID is required", nil)
+    }
+
+    awsCfg, err := awsconfig.LoadDefaultConfig(ctx)
+    if err != nil {
+        return nil, apperrors.ErrInternalError("failed to load AWS configuration", err)
+    }
+    cwl := cloudwatchlogs.NewFromConfig(awsCfg)
+
+    // Candidate stream names
+    candidates := []string{
+        fmt.Sprintf("ecs/executor/%s", executionID),
+        fmt.Sprintf("executor/%s", executionID),
+    }
+
+    foundStreams := make(map[string]struct{})
+    for _, name := range candidates {
+        foundStreams[name] = struct{}{}
+    }
+
+    // Best-effort: scan a recent page of log streams and pick ones containing the task ID
+    listOut, _ := cwl.DescribeLogStreams(ctx, &cloudwatchlogs.DescribeLogStreamsInput{
+        LogGroupName: &cfg.LogGroup,
+        OrderBy:      "LastEventTime",
+        Descending:   boolPtr(true),
+        Limit:        int32Ptr(50),
+    })
+    for _, ls := range listOut.LogStreams {
+        if ls.LogStreamName == nil {
+            continue
+        }
+        if strings.Contains(*ls.LogStreamName, executionID) {
+            foundStreams[*ls.LogStreamName] = struct{}{}
+        }
+    }
+
+    if len(foundStreams) == 0 {
+        return []api.LogEvent{}, nil
+    }
+
+    var events []api.LogEvent
+    for stream := range foundStreams {
+        var nextToken *string
+        for {
+            out, err := cwl.GetLogEvents(ctx, &cloudwatchlogs.GetLogEventsInput{
+                LogGroupName:  &cfg.LogGroup,
+                LogStreamName: &stream,
+                NextToken:     nextToken,
+                StartFromHead: boolPtr(true),
+                Limit:         int32Ptr(10000),
+            })
+            if err != nil {
+                var rte *cwltypes.ResourceNotFoundException
+                if errors.As(err, &rte) {
+                    break
+                }
+                return nil, apperrors.ErrInternalError("failed to get log events", err)
+            }
+            for _, e := range out.Events {
+                events = append(events, api.LogEvent{
+                    Timestamp: ptrInt64(e.Timestamp),
+                    Message:   ptrString(e.Message),
+                })
+            }
+            if out.NextForwardToken == nil || (nextToken != nil && *out.NextForwardToken == *nextToken) {
+                break
+            }
+            nextToken = out.NextForwardToken
+        }
+    }
+
+    sort.SliceStable(events, func(i, j int) bool { return events[i].Timestamp < events[j].Timestamp })
+    return events, nil
+}
+
+func boolPtr(v bool) *bool { return &v }
+func int32Ptr(v int32) *int32 { return &v }
+func ptrString(p *string) string { if p == nil { return "" }; return *p }
+func ptrInt64(p *int64) int64 { if p == nil { return 0 }; return *p }
