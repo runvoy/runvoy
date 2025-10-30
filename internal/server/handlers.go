@@ -106,103 +106,107 @@ func (r *Router) handleRunCommand(w http.ResponseWriter, req *http.Request) {
 
 // handleGetExecutionLogs handles GET /api/v1/executions/{executionID}/logs to fetch logs for an execution
 func (r *Router) handleGetExecutionLogs(w http.ResponseWriter, req *http.Request) {
-    logger := r.GetLoggerFromContext(req.Context())
+	logger := r.GetLoggerFromContext(req.Context())
 
-    // must be authenticated already by middleware
-    user, ok := req.Context().Value(userContextKey).(*api.User)
-    if !ok || user == nil {
-        writeErrorResponse(w, http.StatusUnauthorized, "Unauthorized", "user not found in context")
-        return
-    }
+	// must be authenticated already by middleware
+	user, ok := req.Context().Value(userContextKey).(*api.User)
+	if !ok || user == nil {
+		writeErrorResponse(w, http.StatusUnauthorized, "Unauthorized", "user not found in context")
+		return
+	}
 
-    executionID := strings.TrimSpace(chi.URLParam(req, "executionID"))
-    if executionID == "" {
-        writeErrorResponse(w, http.StatusBadRequest, "invalid execution id", "executionID is required")
-        return
-    }
+	executionID := strings.TrimSpace(chi.URLParam(req, "executionID"))
+	if executionID == "" {
+		writeErrorResponse(w, http.StatusBadRequest, "invalid execution id", "executionID is required")
+		return
+	}
 
-    resp, err := r.svc.GetLogsByExecutionID(req.Context(), executionID)
-    if err != nil {
-        statusCode := apperrors.GetStatusCode(err)
-        errorCode := apperrors.GetErrorCode(err)
-        errorMsg := apperrors.GetErrorMessage(err)
+	resp, err := r.svc.GetLogsByExecutionID(req.Context(), executionID)
+	if err != nil {
+		statusCode := apperrors.GetStatusCode(err)
+		errorCode := apperrors.GetErrorCode(err)
+		errorMsg := apperrors.GetErrorMessage(err)
 
-        logger.Debug("failed to get execution logs", "error", err, "statusCode", statusCode, "errorCode", errorCode)
+		logger.Debug("failed to get execution logs", "error", err, "statusCode", statusCode, "errorCode", errorCode)
 
-        writeErrorResponseWithCode(w, statusCode, errorCode, "failed to get execution logs", errorMsg)
+		writeErrorResponseWithCode(w, statusCode, errorCode, "failed to get execution logs", errorMsg)
 
-        return
-    }
+		return
+	}
 
-    w.WriteHeader(http.StatusOK)
-    _ = json.NewEncoder(w).Encode(resp)
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(resp)
 }
 
 // handleGetExecutionStatus handles GET /api/v1/executions/{executionID}/status to fetch execution status
 func (r *Router) handleGetExecutionStatus(w http.ResponseWriter, req *http.Request) {
-    logger := r.GetLoggerFromContext(req.Context())
+	logger := r.GetLoggerFromContext(req.Context())
 
-    user, ok := req.Context().Value(userContextKey).(*api.User)
-    if !ok || user == nil {
-        writeErrorResponse(w, http.StatusUnauthorized, "Unauthorized", "user not found in context")
-        return
-    }
+	user, ok := req.Context().Value(userContextKey).(*api.User)
+	if !ok || user == nil {
+		writeErrorResponse(w, http.StatusUnauthorized, "Unauthorized", "user not found in context")
+		return
+	}
 
-    executionID := strings.TrimSpace(chi.URLParam(req, "executionID"))
-    if executionID == "" {
-        writeErrorResponse(w, http.StatusBadRequest, "invalid execution id", "executionID is required")
-        return
-    }
+	executionID := strings.TrimSpace(chi.URLParam(req, "executionID"))
+	if executionID == "" {
+		writeErrorResponse(w, http.StatusBadRequest, "invalid execution id", "executionID is required")
+		return
+	}
 
-    resp, err := r.svc.GetExecutionStatus(req.Context(), executionID)
-    if err != nil {
-        statusCode := apperrors.GetStatusCode(err)
-        errorCode := apperrors.GetErrorCode(err)
-        errorMsg := apperrors.GetErrorMessage(err)
+	resp, err := r.svc.GetExecutionStatus(req.Context(), executionID)
+	if err != nil {
+		statusCode := apperrors.GetStatusCode(err)
+		errorCode := apperrors.GetErrorCode(err)
+		errorMsg := apperrors.GetErrorMessage(err)
 
-        logger.Debug("failed to get execution status", "error", err, "statusCode", statusCode, "errorCode", errorCode)
+		logger.Debug("failed to get execution status", "error", err, "statusCode", statusCode, "errorCode", errorCode)
 
-        writeErrorResponseWithCode(w, statusCode, errorCode, "failed to get execution status", errorMsg)
-        return
-    }
+		writeErrorResponseWithCode(w, statusCode, errorCode, "failed to get execution status", errorMsg)
+		return
+	}
 
-    w.WriteHeader(http.StatusOK)
-    _ = json.NewEncoder(w).Encode(resp)
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(resp)
 }
 
 // handleKillExecution handles POST /api/v1/executions/{executionID}/kill to terminate a running execution
 func (r *Router) handleKillExecution(w http.ResponseWriter, req *http.Request) {
-    logger := r.GetLoggerFromContext(req.Context())
+	logger := r.GetLoggerFromContext(req.Context())
 
-    user, ok := req.Context().Value(userContextKey).(*api.User)
-    if !ok || user == nil {
-        writeErrorResponse(w, http.StatusUnauthorized, "Unauthorized", "user not found in context")
-        return
-    }
+	user, ok := req.Context().Value(userContextKey).(*api.User)
+	if !ok || user == nil {
+		writeErrorResponse(w, http.StatusUnauthorized, "Unauthorized", "user not found in context")
+		return
+	}
 
-    executionID := strings.TrimSpace(chi.URLParam(req, "executionID"))
-    if executionID == "" {
-        writeErrorResponse(w, http.StatusBadRequest, "invalid execution id", "executionID is required")
-        return
-    }
+	executionID := strings.TrimSpace(chi.URLParam(req, "executionID"))
+	if executionID == "" {
+		writeErrorResponse(w, http.StatusBadRequest, "invalid execution id", "executionID is required")
+		return
+	}
 
-    err := r.svc.KillExecution(req.Context(), executionID)
-    if err != nil {
-        statusCode := apperrors.GetStatusCode(err)
-        errorCode := apperrors.GetErrorCode(err)
-        errorMsg := apperrors.GetErrorMessage(err)
+	err := r.svc.KillExecution(req.Context(), executionID)
+	if err != nil {
+		statusCode := apperrors.GetStatusCode(err)
+		errorCode := apperrors.GetErrorCode(err)
+		errorMsg := apperrors.GetErrorMessage(err)
 
-        logger.Debug("failed to kill execution", "error", err, "statusCode", statusCode, "errorCode", errorCode)
+		logger.Debug("failed to kill execution",
+			"executionID", executionID,
+			"error", err,
+			"statusCode", statusCode,
+			"errorCode", errorCode)
 
-        writeErrorResponseWithCode(w, statusCode, errorCode, "failed to kill execution", errorMsg)
-        return
-    }
+		writeErrorResponseWithCode(w, statusCode, errorCode, "failed to kill execution", errorMsg)
+		return
+	}
 
-    w.WriteHeader(http.StatusOK)
-    _ = json.NewEncoder(w).Encode(api.KillExecutionResponse{
-        ExecutionID: executionID,
-        Message:     "Execution termination initiated",
-    })
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(api.KillExecutionResponse{
+		ExecutionID: executionID,
+		Message:     "Execution termination initiated",
+	})
 }
 
 // handleHealth returns a simple health check response

@@ -71,3 +71,19 @@ const (
 // RunnerContainerName is the ECS container name used for task execution.
 // Must match the container override name passed in the ECS RunTask call.
 const RunnerContainerName = "runner"
+
+// EcsStatus represents the AWS ECS Task LastStatus lifecycle values.
+// These are string statuses returned by ECS DescribeTasks for Task.LastStatus.
+type EcsStatus string
+
+const (
+	// ECS task lifecycle statuses
+	EcsStatusProvisioning   EcsStatus = "PROVISIONING"
+	EcsStatusPending        EcsStatus = "PENDING"
+	EcsStatusActivating     EcsStatus = "ACTIVATING"
+	EcsStatusRunning        EcsStatus = "RUNNING"
+	EcsStatusDeactivating   EcsStatus = "DEACTIVATING"
+	EcsStatusStopping       EcsStatus = "STOPPING"
+	EcsStatusDeprovisioning EcsStatus = "DEPROVISIONING"
+	EcsStatusStopped        EcsStatus = "STOPPED"
+)

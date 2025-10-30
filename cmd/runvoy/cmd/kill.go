@@ -31,7 +31,7 @@ func killRun(cmd *cobra.Command, args []string) {
 	client := client.New(cfg, slog.Default())
 	resp, err := client.KillExecution(cmd.Context(), executionID)
 	if err != nil {
-		output.Error("failed to kill execution: %v", err)
+		output.Error(err.Error())
 		return
 	}
 

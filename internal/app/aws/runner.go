@@ -6,17 +6,18 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"slices"
 	"strings"
 
 	"runvoy/internal/api"
 	"runvoy/internal/constants"
-	apperrors "runvoy/internal/errors"
+	appErrors "runvoy/internal/errors"
 	"runvoy/internal/logger"
 
 	"github.com/aws/aws-lambda-go/lambdacontext"
-	awsstd "github.com/aws/aws-sdk-go-v2/aws"
+	awsStd "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ecs"
-	ecstypes "github.com/aws/aws-sdk-go-v2/service/ecs/types"
+	ecsTypes "github.com/aws/aws-sdk-go-v2/service/ecs/types"
 )
 
 // Config holds AWS-specific execution configuration.
@@ -52,7 +53,7 @@ func (e *Runner) FetchLogsByExecutionID(ctx context.Context, executionID string)
 // StartTask triggers an ECS Fargate task and returns identifiers.
 func (e *Runner) StartTask(ctx context.Context, userEmail string, req api.ExecutionRequest) (string, string, error) {
 	if e.ecsClient == nil {
-		return "", "", apperrors.ErrInternalError("ECS cli endpoint not configured", nil)
+		return "", "", appErrors.ErrInternalError("ECS cli endpoint not configured", nil)
 	}
 
 	reqLogger := logger.DeriveRequestLogger(ctx, e.logger)
@@ -63,11 +64,11 @@ func (e *Runner) StartTask(ctx context.Context, userEmail string, req api.Execut
 			"requested", req.Image, "using", e.cfg.DefaultImage)
 	}
 
-	envVars := []ecstypes.KeyValuePair{
-		{Name: awsstd.String("RUNVOY_COMMAND"), Value: awsstd.String(req.Command)},
+	envVars := []ecsTypes.KeyValuePair{
+		{Name: awsStd.String("RUNVOY_COMMAND"), Value: awsStd.String(req.Command)},
 	}
 	for key, value := range req.Env {
-		envVars = append(envVars, ecstypes.KeyValuePair{Name: awsstd.String(key), Value: awsstd.String(value)})
+		envVars = append(envVars, ecsTypes.KeyValuePair{Name: awsStd.String(key), Value: awsStd.String(value)})
 	}
 
 	requestID := ""
@@ -84,32 +85,32 @@ func (e *Runner) StartTask(ctx context.Context, userEmail string, req api.Execut
 	containerCommand = append(containerCommand, strings.Join(actualCommands, " && "))
 
 	runTaskInput := &ecs.RunTaskInput{
-		Cluster:        awsstd.String(e.cfg.ECSCluster),
-		TaskDefinition: awsstd.String(e.cfg.TaskDefinition),
-		LaunchType:     ecstypes.LaunchTypeFargate,
-		Overrides: &ecstypes.TaskOverride{ContainerOverrides: []ecstypes.ContainerOverride{{
-			Name:        awsstd.String(constants.RunnerContainerName),
+		Cluster:        awsStd.String(e.cfg.ECSCluster),
+		TaskDefinition: awsStd.String(e.cfg.TaskDefinition),
+		LaunchType:     ecsTypes.LaunchTypeFargate,
+		Overrides: &ecsTypes.TaskOverride{ContainerOverrides: []ecsTypes.ContainerOverride{{
+			Name:        awsStd.String(constants.RunnerContainerName),
 			Command:     containerCommand,
 			Environment: envVars,
 		}}},
-		NetworkConfiguration: &ecstypes.NetworkConfiguration{AwsvpcConfiguration: &ecstypes.AwsVpcConfiguration{
+		NetworkConfiguration: &ecsTypes.NetworkConfiguration{AwsvpcConfiguration: &ecsTypes.AwsVpcConfiguration{
 			Subnets:        []string{e.cfg.Subnet1, e.cfg.Subnet2},
 			SecurityGroups: []string{e.cfg.SecurityGroup},
-			AssignPublicIp: ecstypes.AssignPublicIpEnabled,
+			AssignPublicIp: ecsTypes.AssignPublicIpEnabled,
 		}},
-		Tags: []ecstypes.Tag{{Key: awsstd.String("UserEmail"), Value: awsstd.String(userEmail)}},
+		Tags: []ecsTypes.Tag{{Key: awsStd.String("UserEmail"), Value: awsStd.String(userEmail)}},
 	}
 
 	runTaskOutput, err := e.ecsClient.RunTask(ctx, runTaskInput)
 	if err != nil {
-		return "", "", apperrors.ErrInternalError("failed to start ECS task", err)
+		return "", "", appErrors.ErrInternalError("failed to start ECS task", err)
 	}
 	if len(runTaskOutput.Tasks) == 0 {
-		return "", "", apperrors.ErrInternalError("no tasks were started", nil)
+		return "", "", appErrors.ErrInternalError("no tasks were started", nil)
 	}
 
 	task := runTaskOutput.Tasks[0]
-	taskARN := awsstd.ToString(task.TaskArn)
+	taskARN := awsStd.ToString(task.TaskArn)
 	executionIDParts := strings.Split(taskARN, "/")
 	executionID := executionIDParts[len(executionIDParts)-1]
 
@@ -117,8 +118,8 @@ func (e *Runner) StartTask(ctx context.Context, userEmail string, req api.Execut
 
 	// Add ExecutionID tag to the task for easier tracking (best-effort)
 	_, tagErr := e.ecsClient.TagResource(ctx, &ecs.TagResourceInput{
-		ResourceArn: awsstd.String(taskARN),
-		Tags:        []ecstypes.Tag{{Key: awsstd.String("ExecutionID"), Value: awsstd.String(executionID)}},
+		ResourceArn: awsStd.String(taskARN),
+		Tags:        []ecsTypes.Tag{{Key: awsStd.String("ExecutionID"), Value: awsStd.String(executionID)}},
 	})
 	if tagErr != nil {
 		reqLogger.Warn("failed to add ExecutionID tag to task", "error", tagErr, "taskARN", taskARN, "executionID", executionID)
@@ -132,7 +133,7 @@ func (e *Runner) StartTask(ctx context.Context, userEmail string, req api.Execut
 // Returns an error if the task is already terminated or not found.
 func (e *Runner) KillTask(ctx context.Context, executionID string) error {
 	if e.ecsClient == nil {
-		return apperrors.ErrInternalError("ECS client not configured", nil)
+		return appErrors.ErrInternalError("ECS client not configured", nil)
 	}
 
 	reqLogger := logger.DeriveRequestLogger(ctx, e.logger)
@@ -142,12 +143,12 @@ func (e *Runner) KillTask(ctx context.Context, executionID string) error {
 	// For ECS, we can use DescribeTasks with just the task ID (execution ID) if we know the cluster
 	// However, AWS ECS requires the full task ARN. Let's use ListTasks to find it first.
 	listOutput, err := e.ecsClient.ListTasks(ctx, &ecs.ListTasksInput{
-		Cluster:       awsstd.String(e.cfg.ECSCluster),
-		DesiredStatus: ecstypes.DesiredStatusRunning,
+		Cluster:       awsStd.String(e.cfg.ECSCluster),
+		DesiredStatus: ecsTypes.DesiredStatusRunning,
 	})
 	if err != nil {
 		reqLogger.Debug("failed to list tasks", "error", err, "executionID", executionID)
-		return apperrors.ErrInternalError("failed to list tasks", err)
+		return appErrors.ErrInternalError("failed to list tasks", err)
 	}
 
 	// Find the task ARN that matches our execution ID
@@ -163,8 +164,8 @@ func (e *Runner) KillTask(ctx context.Context, executionID string) error {
 	// If not found in running tasks, check stopped tasks
 	if taskARN == "" {
 		listStoppedOutput, err := e.ecsClient.ListTasks(ctx, &ecs.ListTasksInput{
-			Cluster:       awsstd.String(e.cfg.ECSCluster),
-			DesiredStatus: ecstypes.DesiredStatusStopped,
+			Cluster:       awsStd.String(e.cfg.ECSCluster),
+			DesiredStatus: ecsTypes.DesiredStatusStopped,
 		})
 		if err == nil {
 			for _, arn := range listStoppedOutput.TaskArns {
@@ -179,63 +180,56 @@ func (e *Runner) KillTask(ctx context.Context, executionID string) error {
 
 	if taskARN == "" {
 		reqLogger.Warn("task not found", "executionID", executionID)
-		return apperrors.ErrNotFound("task not found", nil)
+		return appErrors.ErrNotFound("task not found", nil)
 	}
 
 	// Describe the task to check its current status
 	describeOutput, err := e.ecsClient.DescribeTasks(ctx, &ecs.DescribeTasksInput{
-		Cluster: awsstd.String(e.cfg.ECSCluster),
+		Cluster: awsStd.String(e.cfg.ECSCluster),
 		Tasks:   []string{taskARN},
 	})
 	if err != nil {
 		reqLogger.Debug("failed to describe task", "error", err, "executionID", executionID, "taskARN", taskARN)
-		return apperrors.ErrInternalError("failed to describe task", err)
+		return appErrors.ErrInternalError("failed to describe task", err)
 	}
 
 	if len(describeOutput.Tasks) == 0 {
 		reqLogger.Warn("task not found", "executionID", executionID, "taskARN", taskARN)
-		return apperrors.ErrNotFound("task not found", nil)
+		return appErrors.ErrNotFound("task not found", nil)
 	}
 
 	task := describeOutput.Tasks[0]
-	currentStatus := awsstd.ToString(task.LastStatus)
+	currentStatus := awsStd.ToString(task.LastStatus)
 
 	reqLogger.Debug("task status check", "executionID", executionID, "status", currentStatus)
 
-	// Check if task is already terminated
-	terminatedStatuses := []string{"STOPPED", "STOPPING", "DEACTIVATING"}
+	terminatedStatuses := []string{
+		string(constants.EcsStatusStopped),
+		string(constants.EcsStatusStopping),
+		string(constants.EcsStatusDeactivating),
+	}
 	for _, status := range terminatedStatuses {
 		if currentStatus == status {
-			return apperrors.ErrBadRequest("task is already terminated or terminating", fmt.Errorf("task status: %s", currentStatus))
+			return appErrors.ErrBadRequest("task is already terminated or terminating", fmt.Errorf("task status: %s", currentStatus))
 		}
 	}
 
-	// Only stop tasks that are RUNNING or ACTIVATING
-	runnableStatuses := []string{"RUNNING", "ACTIVATING"}
-	isRunnable := false
-	for _, status := range runnableStatuses {
-		if currentStatus == status {
-			isRunnable = true
-			break
-		}
+	taskRunnableStatuses := []string{string(constants.EcsStatusRunning), string(constants.EcsStatusActivating)}
+	if !slices.Contains(taskRunnableStatuses, string(constants.EcsStatus(currentStatus))) {
+		return appErrors.ErrBadRequest("task cannot be terminated in current state", fmt.Errorf("task status: %s, expected: %s", currentStatus, strings.Join(taskRunnableStatuses, ", ")))
 	}
 
-	if !isRunnable {
-		return apperrors.ErrBadRequest("task cannot be terminated in current state", fmt.Errorf("task status: %s", currentStatus))
-	}
-
-	// Stop the task
 	stopOutput, err := e.ecsClient.StopTask(ctx, &ecs.StopTaskInput{
-		Cluster: awsstd.String(e.cfg.ECSCluster),
-		Task:    awsstd.String(taskARN),
-		Reason:  awsstd.String("Terminated by user via kill endpoint"),
+		Cluster: awsStd.String(e.cfg.ECSCluster),
+		Task:    awsStd.String(taskARN),
+		Reason:  awsStd.String("Terminated by user via kill endpoint"),
 	})
 	if err != nil {
 		reqLogger.Error("failed to stop task", "error", err, "executionID", executionID, "taskARN", taskARN)
-		return apperrors.ErrInternalError("failed to stop task", err)
+		return appErrors.ErrInternalError("failed to stop task", err)
 	}
 
-	reqLogger.Info("task termination initiated", "executionID", executionID, "taskARN", awsstd.ToString(stopOutput.Task.TaskArn), "previousStatus", currentStatus)
+	reqLogger.Info("task termination initiated", "executionID", executionID, "taskARN", awsStd.ToString(stopOutput.Task.TaskArn), "previousStatus", currentStatus)
 
 	return nil
 }

@@ -775,6 +775,7 @@ The kill endpoint allows users to terminate running executions. This endpoint pr
 **Implementation Details:**
 - Service layer (`internal/app/main.go`): `KillExecution` validates execution exists and checks status
 - AWS Runner (`internal/app/aws/runner.go`): `KillTask` finds task via ListTasks, checks status, and calls StopTask
+- ECS task lifecycle statuses (`LastStatus`) are represented by `constants.EcsStatus` typed constants (e.g., `EcsStatusRunning`, `EcsStatusStopped`) to avoid string literals across the codebase
 - Requires `ecs:StopTask` and `ecs:ListTasks` IAM permissions (added to CloudFormation template)
 
 **Post-Termination:**
