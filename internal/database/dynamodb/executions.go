@@ -228,11 +228,11 @@ func (r *ExecutionRepository) UpdateExecution(ctx context.Context, execution *ap
 	return nil
 }
 
-// ListExecutions scans the executions table and returns all execution records.
+// ListExecutions queries the executions table's status-started_at GSI to return all execution records.
 // Results are sorted by StartedAt descending in-memory to provide a reasonable default ordering.
 func (r *ExecutionRepository) ListExecutions(ctx context.Context) ([]*api.Execution, error) {
-	statuses := append([]constants.ExecutionStatus{constants.ExecutionRunning}, constants.TerminalExecutionStatuses()...)
-
+	statuses := append([]constants.ExecutionStatus{constants.ExecutionRunning},
+		constants.TerminalExecutionStatuses()...)
 	executions := make([]*api.Execution, 0, 64)
 
 	for _, st := range statuses {
