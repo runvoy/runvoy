@@ -70,18 +70,22 @@ func FetchLogsByExecutionID(ctx context.Context, cfg *Config, executionID string
 			}
 			return nil, apperrors.ErrInternalError("failed to get log events", err)
 		}
-		for _, e := range out.Events {
-			events = append(events, api.LogEvent{
-				Timestamp: aws.ToInt64(e.Timestamp),
-				Message:   aws.ToString(e.Message),
-			})
-		}
+        for _, e := range out.Events {
+            events = append(events, api.LogEvent{
+                Timestamp: aws.ToInt64(e.Timestamp),
+                Message:   aws.ToString(e.Message),
+            })
+        }
 		if out.NextForwardToken == nil || (nextToken != nil && *out.NextForwardToken == *nextToken) {
 			break
 		}
 		nextToken = out.NextForwardToken
 	}
 
-	sort.SliceStable(events, func(i, j int) bool { return events[i].Timestamp < events[j].Timestamp })
-	return events, nil
+    sort.SliceStable(events, func(i, j int) bool { return events[i].Timestamp < events[j].Timestamp })
+    // Assign serial line numbers starting at 1
+    for i := range events {
+        events[i].Line = i + 1
+    }
+    return events, nil
 }

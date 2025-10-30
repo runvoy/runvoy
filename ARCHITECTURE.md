@@ -528,7 +528,7 @@ This setup ensures consistent code quality across all contributors and automated
 
 ### Log Viewing and Tailing
 
-The service exposes a logs endpoint that aggregates CloudWatch Logs events for a given execution ID (ECS task ID). The CLI implements client-side tailing behavior on top of this endpoint:
+The service exposes a logs endpoint that aggregates CloudWatch Logs events for a given execution ID (ECS task ID). The response now includes a monotonically increasing `line` number for each event. The CLI implements client-side tailing behavior on top of this endpoint:
 
 - Auth required via `X-API-Key`
 - Returns all available events across discovered streams containing the task ID
@@ -561,7 +561,8 @@ RUNVOY_LOG_GROUP           # required (e.g. /aws/ecs/runvoy)
 Client behavior (CLI `runvoy logs <executionID>`):
 
 - Waits until the execution moves out of pending/queued/starting using the status API, showing a spinner
-- Streams logs, polling every 5 seconds and printing only new lines
+- By default (no flags), fetches and prints all logs once with a `Line` column and exits
+- With `--follow` (`-f`), streams logs, polling every 5 seconds and printing only new lines (based on `line`)
 - Stops tailing when the execution reaches a terminal status (COMPLETED/SUCCEEDED/FAILED/etc.) and prints the final status badge
 
 Future enhancements may include server-side filtering and pagination.
