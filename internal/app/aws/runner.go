@@ -65,10 +65,10 @@ func buildMainContainerCommand(req api.ExecutionRequest, requestID string, hasGi
 	if len(req.Env) > 0 {
 		commands = append(commands, `printf '### runvoy: Creating .env file from user environment variables\n'`)
 
-		// Extract USER_ENV_* variables and write to .env file
+		// Extract RUNVOY_* variables and write to .env file
 		createEnvFileScript := `
-env | grep '^USER_ENV_' | while IFS='=' read -r key value; do
-  actual_key="${key#USER_ENV_}"
+env | grep '^RUNVOY_' | while IFS='=' read -r key value; do
+  actual_key="${key#RUNVOY_}"
   echo "${actual_key}=${value}" >> .env
 done
 if [ -f .env ]; then
@@ -141,7 +141,7 @@ func (e *Runner) StartTask(ctx context.Context, userEmail string, req api.Execut
 	// Build environment variables for main container
 	// User env vars are passed with two formats:
 	// 1. Direct: KEY=value (for direct access in shell)
-	// 2. Prefixed: USER_ENV_KEY=value (for .env file creation)
+	// 2. Prefixed: RUNVOY_KEY=value (for .env file creation)
 	envVars := []ecsTypes.KeyValuePair{
 		{Name: awsStd.String("RUNVOY_COMMAND"), Value: awsStd.String(req.Command)},
 	}
@@ -153,7 +153,7 @@ func (e *Runner) StartTask(ctx context.Context, userEmail string, req api.Execut
 		})
 		// Add prefixed env var (for .env file creation)
 		envVars = append(envVars, ecsTypes.KeyValuePair{
-			Name:  awsStd.String("USER_ENV_" + key),
+			Name:  awsStd.String("RUNVOY_" + key),
 			Value: awsStd.String(value),
 		})
 	}
