@@ -52,11 +52,32 @@ func (e *Runner) FetchLogsByExecutionID(ctx context.Context, executionID string)
 }
 
 // buildMainContainerCommand constructs the shell command for the main runner container.
-// It adds logging statements and optionally changes to the git repo working directory.
+// It creates .env file from user environment variables, adds logging statements,
+// and optionally changes to the git repo working directory.
 func buildMainContainerCommand(req api.ExecutionRequest, requestID string, hasGitRepo bool) []string {
 	commands := []string{
 		fmt.Sprintf("printf '### %s runner execution started by requestID %s\\n'",
 			constants.ProjectName, requestID),
+	}
+
+	// Create .env file from user environment variables (if any)
+	// This works for both git and non-git flows
+	if len(req.Env) > 0 {
+		commands = append(commands, `printf '### runvoy: Creating .env file from user environment variables\n'`)
+
+		// Extract USER_ENV_* variables and write to .env file
+		createEnvFileScript := `
+env | grep '^USER_ENV_' | while IFS='=' read -r key value; do
+  actual_key="${key#USER_ENV_}"
+  echo "${actual_key}=${value}" >> .env
+done
+if [ -f .env ]; then
+  printf '### runvoy: .env file created with %d variables\n' "$(wc -l < .env)"
+else
+  printf '### runvoy: No .env file created\n'
+fi
+`
+		commands = append(commands, strings.TrimSpace(createEnvFileScript))
 	}
 
 	// If git repo is specified, change to the cloned directory
@@ -69,6 +90,12 @@ func buildMainContainerCommand(req api.ExecutionRequest, requestID string, hasGi
 			fmt.Sprintf("cd %s", workDir),
 			fmt.Sprintf("printf '### %s working directory: %s\\n'", constants.ProjectName, workDir),
 		)
+
+		// If .env was created in the previous step, it's in the initial directory
+		// For git repos, we also want .env in the repo directory
+		if len(req.Env) > 0 {
+			commands = append(commands, `if [ -f ../.env ]; then cp ../.env .env; fi`)
+		}
 	}
 
 	commands = append(commands,
@@ -112,12 +139,21 @@ func (e *Runner) StartTask(ctx context.Context, userEmail string, req api.Execut
 	requestID := server.GetRequestID(ctx)
 
 	// Build environment variables for main container
+	// User env vars are passed with two formats:
+	// 1. Direct: KEY=value (for direct access in shell)
+	// 2. Prefixed: USER_ENV_KEY=value (for .env file creation)
 	envVars := []ecsTypes.KeyValuePair{
 		{Name: awsStd.String("RUNVOY_COMMAND"), Value: awsStd.String(req.Command)},
 	}
 	for key, value := range req.Env {
+		// Add direct env var (for container environment)
 		envVars = append(envVars, ecsTypes.KeyValuePair{
 			Name:  awsStd.String(key),
+			Value: awsStd.String(value),
+		})
+		// Add prefixed env var (for .env file creation)
+		envVars = append(envVars, ecsTypes.KeyValuePair{
+			Name:  awsStd.String("USER_ENV_" + key),
 			Value: awsStd.String(value),
 		})
 	}
@@ -138,31 +174,18 @@ func (e *Runner) StartTask(ctx context.Context, userEmail string, req api.Execut
 			gitRef = "main"
 		}
 
-		// Build sidecar environment variables
-		sidecarEnvVars := []ecsTypes.KeyValuePair{
-			{Name: awsStd.String("GIT_REPO"), Value: awsStd.String(req.GitRepo)},
-			{Name: awsStd.String("GIT_REF"), Value: awsStd.String(gitRef)},
-			{Name: awsStd.String("SHARED_VOLUME_PATH"), Value: awsStd.String(constants.SharedVolumePath)},
-		}
-
-		// Pass user environment variables to sidecar with USER_ENV_ prefix
-		// These will be written to .env files by the sidecar
-		for key, value := range req.Env {
-			sidecarEnvVars = append(sidecarEnvVars, ecsTypes.KeyValuePair{
-				Name:  awsStd.String("USER_ENV_" + key),
-				Value: awsStd.String(value),
-			})
-		}
-
 		containerOverrides = append(containerOverrides, ecsTypes.ContainerOverride{
-			Name:        awsStd.String(constants.GitClonerContainerName),
-			Environment: sidecarEnvVars,
+			Name: awsStd.String(constants.GitClonerContainerName),
+			Environment: []ecsTypes.KeyValuePair{
+				{Name: awsStd.String("GIT_REPO"), Value: awsStd.String(req.GitRepo)},
+				{Name: awsStd.String("GIT_REF"), Value: awsStd.String(gitRef)},
+				{Name: awsStd.String("SHARED_VOLUME_PATH"), Value: awsStd.String(constants.SharedVolumePath)},
+			},
 		})
 
 		reqLogger.Debug("configured git-cloner sidecar",
 			"gitRepo", req.GitRepo,
-			"gitRef", gitRef,
-			"userEnvCount", len(req.Env))
+			"gitRef", gitRef)
 	}
 
 	// Build task tags
