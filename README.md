@@ -84,7 +84,7 @@ runvoy logs 72f57686926e4becb89116b0ac72caec
 
 # Default behavior
 # - Waits until the execution starts (spinner)
-# - Prints all available logs once with a Line column, then exits
+# - Prints all available logs once, then exits
 
 # Sample output
 🚀 runvoy
@@ -99,11 +99,7 @@ Line  Timestamp (UTC)      Message
 3     2025-10-30 13:32:49  Refreshing Terraform state in-memory prior to plan...
 ...
 ✓ Logs retrieved successfully
-
-# Follow mode
-runvoy logs -f <executionID>
-# - Same as above but continues streaming new lines every 5s until completion
-# - Prints lines in the format: "[<line>] <timestamp>  <message>"
+→ View logs in web viewer: https://runvoy-releases.s3.us-east-2.amazonaws.com/webviewer.html?execution_id=72f57686926e4becb89116b0ac72caec
 ```
 
 **Web Viewer:**
