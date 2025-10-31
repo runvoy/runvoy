@@ -33,8 +33,35 @@
         }
 
         .log-line {
+            display: flex;
             white-space: pre-wrap;
             word-wrap: break-word;
+            gap: 1rem;
+        }
+
+        .log-line:hover {
+            background-color: rgba(128, 128, 128, 0.1);
+        }
+
+        .log-meta {
+            flex-shrink: 0;
+            font-family: 'Monaco', 'Courier New', monospace;
+            font-size: 0.75rem;
+            color: #888;
+            user-select: text;
+            white-space: nowrap;
+            text-align: right;
+            min-width: 80px;
+        }
+
+        .log-line-number {
+            color: #77abe7;
+            font-weight: 600;
+        }
+
+        .log-content {
+            flex: 1;
+            min-width: 0;
         }
 
         .status {
@@ -84,6 +111,13 @@
             gap: 0.5rem;
         }
 
+        .execution-title-row {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
         @media (min-width: 768px) {
             .execution-header {
                 flex-direction: row;
@@ -128,10 +162,13 @@
     <main class="container">
         <header class="execution-header">
             <div>
-                <h2>Execution: <span id="exec-id">Loading...</span></h2>
+                <h1>Runvoy logs viewer</h1>
+                <div class="execution-title-row">
+                    <h2>Execution: <span id="exec-id">Loading...</span></h2>
+                    <span class="status" id="status">-</span>
+                </div>
                 <small>Started: <span id="started-at">-</span></small>
             </div>
-            <div class="status" id="status">-</div>
         </header>
 
         <section>
@@ -151,6 +188,7 @@
                     <button id="play-pause-btn" onclick="togglePolling()">Pause</button>
                     <button onclick="downloadLogs()">Download</button>
                     <button onclick="clearLogs()">Clear</button>
+                    <button id="metadata-toggle-btn" onclick="toggleMetadata()">Hide Metadata</button>
                 </div>
             </div>
         </section>
@@ -172,6 +210,7 @@
         let pollingInterval = null;
         let isCompleted = false;
         let isPaused = false;
+        let showMetadata = true; // Whether to show line numbers and timestamps
 
         // Initialize
         document.addEventListener('DOMContentLoaded', init);
@@ -343,7 +382,7 @@
                         newEvents.sort((a, b) => a.line - b.line);
 
                         for (const event of newEvents) {
-                            appendLog(event.message);
+                            appendLog(event.message, event.line, event.timestamp);
                             lastLineNumber = Math.max(lastLineNumber, event.line);
                         }
                     }
@@ -364,10 +403,24 @@
             }
         }
 
-        function appendLog(text) {
+        function appendLog(text, lineNumber, timestamp) {
             const container = document.getElementById('log-container');
             const parsed = parseAnsi(text);
-            container.innerHTML += parsed;
+            
+            // Format metadata
+            let metaHtml = '';
+            if (showMetadata && lineNumber !== undefined) {
+                // Format timestamp from milliseconds to readable date
+                let timeStr = '';
+                if (timestamp !== undefined && timestamp > 0) {
+                    const date = new Date(timestamp);
+                    // Format as YYYY-MM-DD HH:MM:SS
+                    timeStr = date.toISOString().replace('T', ' ').substring(0, 19) + 'Z';
+                }
+                metaHtml = `<span class="log-meta"><span class="log-line-number">${lineNumber}</span>${timeStr ? ' ' + timeStr : ''}</span>`;
+            }
+            
+            container.innerHTML += `<div class="log-line">${metaHtml}<span class="log-content">${parsed}</span></div>`;
 
             // Auto-scroll to bottom
             container.scrollTop = container.scrollHeight;
@@ -393,7 +446,7 @@
                 return color ? `<span class="ansi-${color}">` : '';
             });
 
-            return `<div class="log-line">${result}</div>`;
+            return result;
         }
 
         function updateStatus(status) {
@@ -454,6 +507,25 @@
                     btn.textContent = 'Pause';
                     btn.disabled = false;
                 }
+            }
+        }
+
+        function toggleMetadata() {
+            showMetadata = !showMetadata;
+            const btn = document.getElementById('metadata-toggle-btn');
+            if (btn) {
+                btn.textContent = showMetadata ? 'Hide Metadata' : 'Show Metadata';
+            }
+            // Re-render all logs with new metadata setting
+            const container = document.getElementById('log-container');
+            const allLogs = container.querySelectorAll('.log-line');
+            const logs = Array.from(allLogs);
+            container.innerHTML = '';
+            lastLineNumber = 0;
+            
+            // Fetch logs again with new display setting
+            if (API_ENDPOINT && apiKey) {
+                fetchLogs();
             }
         }
 
