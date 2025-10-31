@@ -229,12 +229,12 @@ smoke-test-backend-health:
         -X GET "${RUNVOY_LAMBDA_URL}/api/v1/health" | jq .
 
 # Smoke test backend user creation
-smoke-test-backend-users-create:
+smoke-test-backend-users-create email:
     curl -sS \
         -H "X-API-Key: ${RUNVOY_ADMIN_API_KEY}" \
         -X POST "${RUNVOY_LAMBDA_URL}/api/v1/users/create" \
         -H "Content-Type: application/json" \
-        -d '{"email":"bob@example.com"}' | jq .
+        -d '{"email":"{{email}}"}' | jq .
 
 # Smoke test backend command execution
 smoke-test-backend-run-command command:
