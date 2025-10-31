@@ -195,6 +195,27 @@ Requirements:
 
 The operation is idempotent (conditional put); if the admin already exists, it’s skipped.
 
+### Development with `just`
+
+The repository ships with a `justfile` to streamline common build, deploy, and QA flows. The default recipe (`just runvoy`) rebuilds the CLI before running any arguments you pass through, so you can quickly exercise commands locally:
+
+```bash
+# equivalent to: go build ./cmd/runvoy && ./bin/runvoy logs <id>
+just runvoy logs <execution-id>
+```
+
+Key targets, grouped by workflow:
+
+- **Build & run**: `just build` (all binaries), `just build-cli`, `just build-local`, `just run-local` (local HTTP server with freshly built binary)
+- **Deploy artifacts**: `just deploy` (all), `just deploy-orchestrator`, `just deploy-event-processor`, `just deploy-webviewer`
+- **Quality gates**: `just test`, `just test-coverage`, `just lint`, `just lint-fix`, `just fmt`, `just check`, `just clean`
+- **Environment setup**: `just dev-setup`, `just install-hooks`, `just pre-commit-all`
+- **Infrastructure helpers**: `just create-lambda-bucket`, `just update-backend-infra`, `just destroy-backend-infra`
+- **Operational tooling**: `just seed-admin-user`, `just local-dev-server` (hot reloading), smoke tests such as `just smoke-test-local-create-user`, `just smoke-test-backend-run-command`
+- **Miscellaneous**: `just record-demo` (captures CLI demo as cast and GIF)
+
+All commands honor the environment variables described in the `justfile`; AWS credentials and profiles must already be configured in your shell.
+
 ### CLI Installation
 
 1. Clone the repository:

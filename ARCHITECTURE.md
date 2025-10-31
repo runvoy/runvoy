@@ -609,40 +609,19 @@ The project uses **golangci-lint** for comprehensive Go code analysis with the f
 
 ### Development Commands
 
-The `justfile` provides convenient development commands:
+The `justfile` codifies the common build, deploy, and validation flows. Highlights:
 
-```bash
-# Setup development environment
-just dev-setup
-
-# Install pre-commit hooks
-just install-hooks
-
-# Lint all code
-just lint
-
-# Lint and auto-fix issues
-just lint-fix
-
-# Format code
-just fmt
-
-# Run all checks (lint + test)
-just check
-
-# Run pre-commit on all files
-just pre-commit-all
-```
+- **CLI passthrough**: `just runvoy <args…>` rebuilds `cmd/runvoy` with version metadata and executes it, making it easy to test commands while always running a fresh binary.
+- **Build outputs**: `just build` fans out to `just build-cli`, `just build-local`, `just build-orchestrator`, and `just build-event-processor`, ensuring all deployable binaries are rebuilt with consistent linker flags. Individual targets can be invoked when iterating on a single component.
+- **Packaging & deploy**: `just build-orchestrator-zip` and `just build-event-processor-zip` stage Lambda-ready artifacts; `just deploy`, `just deploy-orchestrator`, `just deploy-event-processor`, and `just deploy-webviewer` push those artifacts (and the web viewer) to the release bucket and update Lambda code.
+- **Local iteration**: `just run-local` launches the local HTTP server; `just local-dev-server` wraps it with `reflex` for hot reload. Smoke tests (`just smoke-test-*`) exercise the API (local or Lambda URL) once the server is running.
+- **Quality gates**: `just test`, `just test-coverage`, `just lint`, `just lint-fix`, `just fmt`, `just check`, and `just clean` provide the standard Go QA loop.
+- **Environment & infra helpers**: `just dev-setup`, `just install-hooks`, `just pre-commit-all` prepare developer machines, while `just create-lambda-bucket`, `just update-backend-infra`, `just seed-admin-user`, and `just destroy-backend-infra` manage AWS prerequisites.
+- **DX utilities**: `just record-demo` regenerates the terminal cast/GIF assets.
 
 ### Agent Integration
 
-AI agents can automatically:
-- Run `just lint-fix` to fix auto-fixable issues
-- Run `just fmt` to format code
-- Run `just check` to validate changes
-- Use pre-commit hooks to ensure quality before commits
-
-This setup ensures consistent code quality across all contributors and automated systems.
+Automation-friendly targets remain the same: agents should prefer `just lint-fix`, `just fmt`, `just check`, and the smoke tests where appropriate. These commands ensure consistent code quality across contributors and automated systems.
 
 ## Current Limitations and Future Enhancements
 
