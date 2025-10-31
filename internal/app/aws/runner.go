@@ -13,7 +13,6 @@ import (
 	"runvoy/internal/constants"
 	appErrors "runvoy/internal/errors"
 	"runvoy/internal/logger"
-	"runvoy/internal/server"
 
 	awsStd "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ecs"
@@ -136,7 +135,7 @@ func (e *Runner) StartTask(ctx context.Context, userEmail string, req api.Execut
 	}
 
 	// Extract request ID from context (set by middleware)
-	requestID := server.GetRequestID(ctx)
+	requestID := logger.GetRequestID(ctx)
 
 	// Build environment variables for main container
 	// User env vars are passed with two formats:

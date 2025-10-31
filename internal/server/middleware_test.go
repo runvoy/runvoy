@@ -10,6 +10,7 @@ import (
 
 	"runvoy/internal/app"
 	"runvoy/internal/constants"
+	"runvoy/internal/logger"
 
 	"github.com/aws/aws-lambda-go/lambdacontext"
 )
@@ -17,7 +18,7 @@ import (
 func TestRequestIDMiddleware(t *testing.T) {
 	// Create a test handler that checks for request ID in context
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		requestID := GetRequestID(r.Context())
+		requestID := logger.GetRequestID(r.Context())
 		// Request ID should be set (empty string if no Lambda context)
 		_ = requestID // Just verify it doesn't panic
 		w.WriteHeader(http.StatusOK)
@@ -43,7 +44,7 @@ func TestRequestIDMiddleware(t *testing.T) {
 	t.Run("with lambda context", func(t *testing.T) {
 		// Create a handler that specifically checks for the expected request ID
 		lambdaHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			requestID := GetRequestID(r.Context())
+			requestID := logger.GetRequestID(r.Context())
 			if requestID != "test-request-id-123" {
 				t.Errorf("Expected request ID 'test-request-id-123', got '%s'", requestID)
 			}
@@ -85,14 +86,14 @@ func TestGetRequestID(t *testing.T) {
 		},
 		{
 			name:     "context with request ID",
-			ctx:      context.WithValue(context.Background(), requestIDContextKey, "test-id"),
+			ctx:      context.WithValue(context.Background(), logger.RequestIDContextKey(), "test-id"),
 			expected: "test-id",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := GetRequestID(tt.ctx)
+			result := logger.GetRequestID(tt.ctx)
 			if result != tt.expected {
 				t.Errorf("GetRequestID() = %v, want %v", result, tt.expected)
 			}

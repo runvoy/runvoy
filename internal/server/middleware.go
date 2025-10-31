@@ -8,13 +8,13 @@ import (
 
 	"runvoy/internal/constants"
 	apperrors "runvoy/internal/errors"
+	"runvoy/internal/logger"
 
 	"github.com/aws/aws-lambda-go/lambdacontext"
 )
 
 const (
-	requestIDContextKey contextKey = "requestID"
-	loggerContextKey    contextKey = "logger"
+	loggerContextKey contextKey = "logger"
 )
 
 // requestIDMiddleware extracts the Lambda request ID from the context and adds it to the request context
@@ -27,25 +27,16 @@ func (r *Router) requestIDMiddleware(next http.Handler) http.Handler {
 			requestID = lc.AwsRequestID
 		}
 
-		ctx := context.WithValue(req.Context(), requestIDContextKey, requestID)
+		ctx := context.WithValue(req.Context(), logger.RequestIDContextKey(), requestID)
 
-		logger := r.svc.Logger
+		log := r.svc.Logger
 		if requestID != "" {
-			logger = logger.With(string(requestIDContextKey), requestID)
+			log = log.With(string(logger.RequestIDContextKey()), requestID)
 		}
-		ctx = context.WithValue(ctx, loggerContextKey, logger)
+		ctx = context.WithValue(ctx, loggerContextKey, log)
 
 		next.ServeHTTP(w, req.WithContext(ctx))
 	})
-}
-
-// GetRequestID extracts the request ID from the context
-func GetRequestID(ctx context.Context) string {
-	if requestID, ok := ctx.Value(requestIDContextKey).(string); ok {
-		return requestID
-	}
-
-	return ""
 }
 
 // requestTimeoutMiddleware creates a context with timeout for each request.
