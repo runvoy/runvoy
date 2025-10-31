@@ -1,11 +1,13 @@
 package cmd
 
 import (
+	"fmt"
 	"log/slog"
 	"runvoy/internal/api"
 	"runvoy/internal/client"
 	"runvoy/internal/constants"
 	"runvoy/internal/output"
+	"strings"
 
 	"github.com/spf13/cobra"
 )
@@ -14,8 +16,12 @@ var runCmd = &cobra.Command{
 	Use:   "run <command>",
 	Short: "Run a command",
 	Long:  `Run a command in a remote environment`,
-	Run:   runRun,
-	Args:  cobra.ExactArgs(1),
+	Example: fmt.Sprintf(`  - %s run echo hello world
+  - %s run terraform plan
+  - %s run ansible-playbook site.yml
+`, constants.ProjectName, constants.ProjectName, constants.ProjectName),
+	Run:  runRun,
+	Args: cobra.MinimumNArgs(1),
 }
 
 func init() {
@@ -23,7 +29,7 @@ func init() {
 }
 
 func runRun(cmd *cobra.Command, args []string) {
-	command := args[0]
+	command := strings.Join(args, " ")
 	cfg, err := getConfigFromContext(cmd)
 	if err != nil {
 		output.Errorf("failed to load configuration: %v", err)

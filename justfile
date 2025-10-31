@@ -4,6 +4,11 @@
 # RUNVOY_LAMBDA_URL - Lambda function URL for backend testing
 bucket := env_var_or_default('RUNVOY_RELEASES_BUCKET', 'runvoy-releases')
 
+# Build the CLI binary and run it with the given arguments
+[default]
+runvoy *ARGS: build-cli
+    ./bin/runvoy {{ARGS}}
+
 # Build all binaries
 build: build-cli build-local build-orchestrator build-event-processor
 
