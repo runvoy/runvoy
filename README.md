@@ -191,10 +191,26 @@ runvoy --verbose --timeout 5m users create alice@example.com
 ## Quick Start
 
 ### Prerequisites
+
 - AWS account with appropriate permissions
 - Go 1.23 or later (for development)
 - AWS CLI configured
 - [just](https://github.com/casey/just) command runner (optional, for development)
+- AWS CloudFormation (for backend deployment only)
+
+### Deploy the backend infrastructure (one time only)
+
+```bash
+just create-backend-infra deploy
+```
+
+### Install the CLI
+
+```bash
+just build-cli
+export PATH=$PATH:$(pwd)/bin
+runvoy configure
+```
 
 ### Environment Configuration
 
