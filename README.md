@@ -1,12 +1,12 @@
 # runvoy
 
-A centralized execution platform that enables teams to run infrastructure commands remotely without sharing (AWS) credentials. An AWS admin deploys runvoy once to the company's AWS account and issues API keys to team members for secure, audited command execution.
+A centralized execution platform to run commands remotely without sharing credentials. An AWS admin deploys runvoy once to a company's AWS account, then issues API keys to team members for secure, audited command execution.
+
+Think of Terraform Cloud without the need for a Terraform Cloud account (and monthly bill...).
 
 Think of the flexibility of invoking `kubectl run` without the need for a Kubernetes cluster (or any other _always-running_ cluster, for that matter). Runvoy lets your team come up with a set of shared runbooks which can be executed by all the team members without the need for ssh nor of an AWS account.
 
 Think of running commands in an ephemeral environment and sharing execution logs like with Github Actions, but without the need for a CI/CD pipeline nor a 3rd party service.
-
-Think of the locking benefits of Terraform Cloud, but without the need for a Terraform Cloud account.
 
 ![runvoy demo](runvoy-demo.gif)
 
