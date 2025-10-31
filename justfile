@@ -199,7 +199,7 @@ local-dev-server:
             RUNVOY_LOG_LEVEL=DEBUG \
             RUNVOY_API_KEYS_TABLE=runvoy-api-keys \
         go run \
-            -ldflags "-X=runvoy/internal/constants.version=$(cat VERSION | tr -d '\n')-$(date +%Y%m%d)-$(git rev-parse --short HEAD)" \
+            -ldflags "{{build_flags}}{{version}}-{{build_date}}-{{git_short_hash}}" \
             ./cmd/local'
 
 # Smoke test local user creation (requires RUNVOY_ADMIN_API_KEY env var)
@@ -225,8 +225,8 @@ smoke-test-local-revoke-user:
         -H "Content-Type: application/json" \
         -d '{"email":"bob@example.com"}' | jq .
 
-smoke-test-local-get-logs:
-    curl -sS -X GET "http://localhost:56212/api/v1/executions/d9918eb148504b609496015102a6ea25/logs" \
+smoke-test-local-get-logs execution_id:
+    curl -sS -X GET "http://localhost:56212/api/v1/executions/{execution_id}/logs" \
         -H "X-API-Key: ${RUNVOY_ADMIN_API_KEY}" | jq .
 
 smoke-test-backend-health:
@@ -248,11 +248,14 @@ smoke-test-backend-run-command:
         -H "Content-Type: application/json" \
         -d "{\"command\":\"echo Hello, World! $(date +'%Y-%m-%d-%H-%M')\"}" | jq .
 
-smoke-test-local-kill-execution:
-    curl -sS -X POST "http://localhost:56212/api/v1/executions/dc9015d4f54b4cf69fe0c77c51b5c1fa/kill" \
+# Smoke test local execution killing
+smoke-test-local-kill-execution execution_id:
+    curl -sS \
+        -X POST "http://localhost:${RUNVOY_DEV_SERVER_PORT}/api/v1/executions/{{execution_id}}/kill" \
         -H "X-API-Key: ${RUNVOY_ADMIN_API_KEY}" \
         -H "Content-Type: application/json" | jq .
 
+# Destroy backend infrastructure via cloudformation
 destroy-backend-infra:
     aws cloudformation delete-stack \
         --stack-name runvoy-backend
