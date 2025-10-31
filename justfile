@@ -1,8 +1,12 @@
-# Environment variables that can be overridden:
-# RUNVOY_RELEASES_BUCKET - S3 bucket for releases (default: runvoy-releases)
-# RUNVOY_ADMIN_API_KEY - Admin API key for testing (required for smoke tests)
-# RUNVOY_LAMBDA_URL - Lambda function URL for backend testing
+set dotenv-load
 bucket := env_var_or_default('RUNVOY_RELEASES_BUCKET', 'runvoy-releases')
+version := shell('cat VERSION | tr -d "\n"')
+git_short_hash := shell('git rev-parse --short HEAD')
+build_date := shell('date +%Y%m%d')
+build_flags := "-X=runvoy/internal/constants.version="
+
+# Aliases
+alias r := runvoy
 
 # Build the CLI binary and run it with the given arguments
 [default]
@@ -19,15 +23,29 @@ deploy: deploy-orchestrator deploy-event-processor deploy-webviewer
 [working-directory: 'cmd/runvoy']
 build-cli:
     go build \
-        -ldflags "-X=runvoy/internal/constants.version=$(cat ../../VERSION | tr -d '\n')-$(date +%Y%m%d)-$(git rev-parse --short HEAD)" \
+        -ldflags "{{build_flags}}{{version}}-{{build_date}}-{{git_short_hash}}" \
         -o ../../bin/runvoy
 
 # Build orchestrator backend service (Lambda function)
 [working-directory: 'cmd/backend/aws/orchestrator']
 build-orchestrator:
     GOARCH=arm64 GOOS=linux go build \
-        -ldflags "-X=runvoy/internal/constants.version=$(cat ../../../../VERSION | tr -d '\n')-$(date +%Y%m%d)-$(git rev-parse --short HEAD)" \
+        -ldflags "{{build_flags}}{{version}}-{{build_date}}-{{git_short_hash}}" \
         -o ../../../../dist/bootstrap
+
+# Build event processor backend service (Lambda function)
+[working-directory: 'cmd/backend/aws/event_processor']
+build-event-processor:
+    GOARCH=arm64 GOOS=linux go build \
+        -ldflags "{{build_flags}}{{version}}-{{build_date}}-{{git_short_hash}}" \
+        -o ../../../../dist/bootstrap
+
+# Build local development server
+[working-directory: 'cmd/local']
+build-local:
+    go build \
+        -ldflags "{{build_flags}}{{version}}-{{build_date}}-{{git_short_hash}}" \
+        -o ../../bin/local
 
 [working-directory: 'dist']
 build-orchestrator-zip: build-orchestrator
@@ -42,13 +60,6 @@ deploy-orchestrator: build-orchestrator-zip
         --s3-bucket {{bucket}} \
         --s3-key bootstrap.zip > /dev/null
     aws lambda wait function-updated --function-name runvoy-orchestrator
-
-# Build event processor backend service (Lambda function)
-[working-directory: 'cmd/backend/aws/event_processor']
-build-event-processor:
-    GOARCH=arm64 GOOS=linux go build \
-        -ldflags "-X=runvoy/internal/constants.version=$(cat ../../../../VERSION | tr -d '\n')-$(date +%Y%m%d)-$(git rev-parse --short HEAD)" \
-        -o ../../../../dist/bootstrap
 
 [working-directory: 'dist']
 build-event-processor-zip: build-event-processor
@@ -69,13 +80,6 @@ deploy-webviewer:
     aws s3 cp cmd/webviewer/index.html \
         s3://{{bucket}}/webviewer.html \
         --content-type text/html
-
-# Build local development server
-[working-directory: 'cmd/local']
-build-local:
-    go build \
-        -ldflags "-X=runvoy/internal/constants.version=$(cat ../../VERSION | tr -d '\n')-$(date +%Y%m%d)-$(git rev-parse --short HEAD)" \
-        -o ../../bin/local
 
 # Run local development server
 run-local: build-local
