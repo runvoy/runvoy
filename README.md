@@ -1,6 +1,6 @@
 # runvoy
 
-A centralized execution platform to run commands remotely without sharing credentials. An AWS admin deploys runvoy once to a company's AWS account, then issues API keys to team members for secure, audited command execution.
+Centralized execution platform to run commands remotely without sharing credentials. An AWS admin deploys runvoy once to a company's AWS account, then issues API keys to team members for secure, audited command execution.
 
 Think of Terraform Cloud without the need for a Terraform Cloud account (and monthly bill...).
 
