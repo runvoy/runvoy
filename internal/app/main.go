@@ -2,9 +2,6 @@ package app
 
 import (
 	"context"
-	"crypto/rand"
-	"crypto/sha256"
-	"encoding/base64"
 	"fmt"
 	"log/slog"
 	"net/mail"
@@ -13,6 +10,7 @@ import (
 
 	"runvoy/internal/api"
 	appaws "runvoy/internal/app/aws"
+	"runvoy/internal/auth"
 	"runvoy/internal/constants"
 	"runvoy/internal/database"
 	apperrors "runvoy/internal/errors"
@@ -90,13 +88,13 @@ func (s *Service) CreateUser(ctx context.Context, req api.CreateUserRequest) (*a
 
 	apiKey := req.APIKey
 	if apiKey == "" {
-		apiKey, err = generateAPIKey()
+		apiKey, err = auth.GenerateAPIKey()
 		if err != nil {
 			return nil, apperrors.ErrInternalError("failed to generate API key", err)
 		}
 	}
 
-	apiKeyHash := hashAPIKey(apiKey)
+	apiKeyHash := auth.HashAPIKey(apiKey)
 
 	user := &api.User{
 		Email:     req.Email,
@@ -125,7 +123,7 @@ func (s *Service) AuthenticateUser(ctx context.Context, apiKey string) (*api.Use
 		return nil, apperrors.ErrBadRequest("API key is required", nil)
 	}
 
-	apiKeyHash := hashAPIKey(apiKey)
+	apiKeyHash := auth.HashAPIKey(apiKey)
 
 	user, err := s.userRepo.GetUserByAPIKeyHash(ctx, apiKeyHash)
 	if err != nil {
@@ -181,25 +179,6 @@ func (s *Service) RevokeUser(ctx context.Context, email string) error {
 	}
 
 	return nil
-}
-
-// generateAPIKey creates a cryptographically secure random API key.
-// The key is base64-encoded and approximately 32 characters long.
-func generateAPIKey() (string, error) {
-	b := make([]byte, 24)
-	if _, err := rand.Read(b); err != nil {
-		return "", err
-	}
-
-	return base64.URLEncoding.WithPadding(base64.NoPadding).EncodeToString(b), nil
-}
-
-// hashAPIKey creates a SHA-256 hash of the API key for secure storage.
-// NOTICE: we never store plain API keys in the database.
-func hashAPIKey(apiKey string) string {
-	hash := sha256.Sum256([]byte(apiKey))
-
-	return base64.StdEncoding.EncodeToString(hash[:])
 }
 
 // RunCommand starts a provider-specific task and records the execution.

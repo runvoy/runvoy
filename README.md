@@ -192,11 +192,9 @@ runvoy --verbose --timeout 5m users create alice@example.com
 
 ### Prerequisites
 
-- AWS account with appropriate permissions
-- Go 1.23 or later (for development)
-- AWS CLI configured
-- [just](https://github.com/casey/just) command runner (optional, for development)
-- AWS CloudFormation (for backend deployment only)
+- Go 1.23 or later
+- [just](https://github.com/casey/just) command runner
+- AWS CloudFormation and AWS profile configured with admin credentials (or check `infra/cloudformation-backend.yaml` for the required permissions)
 
 ### Deploy the backend infrastructure (one time only)
 
@@ -224,21 +222,15 @@ Edit `.env` with your actual values. The `justfile` uses `dotenv-required`, so a
 
 See `.env.example` for all available environment variables and their descriptions.
 
-### Backend Deployment
-
-Deploy the backend infrastructure using CloudFormation:
-```bash
-# See deployments/ directory for CloudFormation templates
-# (Specific deployment instructions depend on your CloudFormation setup)
-```
+Ref: <https://github.com/runvoy/runvoy/issues/45>
 
 ### Admin bootstrap (automated)
 
 After `just update-backend-infra`, the pipeline seeds an admin user into the API keys table:
+
 - Reads `api_key` from `~/.runvoy/config.yaml`
 - Hashes with SHA-256 and base64 (same as the service)
 - Inserts `{ api_key_hash, user_email, created_at, revoked=false }` into the `${ProjectName}-api-keys` table
-
 Requirements:
 - Set `RUNVOY_ADMIN_EMAIL` to the desired admin email before running `just update-backend-infra`.
 - Ensure `~/.runvoy/config.yaml` exists and contains `api_key`.

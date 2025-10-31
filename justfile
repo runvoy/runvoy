@@ -150,11 +150,11 @@ create-backend-infra:
         --stack-name ${RUNVOY_CLOUDFORMATION_BACKEND_STACK} \
         --template-file deployments/cloudformation-backend.yaml \
         --capabilities CAPABILITY_NAMED_IAM
-    just seed-admin-user
+    just seed-admin-user ${RUNVOY_ADMIN_EMAIL} ${RUNVOY_CLOUDFORMATION_BACKEND_STACK}
 
 # Seed initial admin user into DynamoDB (idempotent)
-seed-admin-user:
-    go run scripts/seed-admin-user/main.go
+seed-admin-user admin-email stack-name:
+    go run scripts/seed-admin-user/main.go {{admin-email}} {{stack-name}}
 
 # Run local development server with hot reloading
 local-dev-server:
