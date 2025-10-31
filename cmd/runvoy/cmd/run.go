@@ -26,6 +26,9 @@ var runCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(runCmd)
+	runCmd.Flags().StringP("git-repo", "g", "", "Git repository URL")
+	runCmd.Flags().StringP("git-ref", "r", "", "Git reference")
+	runCmd.Flags().StringP("git-path", "p", "", "Git path")
 }
 
 func runRun(cmd *cobra.Command, args []string) {
@@ -37,9 +40,23 @@ func runRun(cmd *cobra.Command, args []string) {
 	}
 
 	output.Infof("Running command: %s", output.Bold(command))
+	if gitRepo := cmd.Flag("git-repo").Value.String(); gitRepo != "" {
+		output.Infof("Git repository: %s", output.Bold(gitRepo))
+	}
+	if gitRef := cmd.Flag("git-ref").Value.String(); gitRef != "" {
+		output.Infof("Git reference: %s", output.Bold(gitRef))
+	}
+	if gitPath := cmd.Flag("git-path").Value.String(); gitPath != "" {
+		output.Infof("Git path: %s", output.Bold(gitPath))
+	}
 
 	client := client.New(cfg, slog.Default())
-	resp, err := client.RunCommand(cmd.Context(), api.ExecutionRequest{Command: command})
+	resp, err := client.RunCommand(cmd.Context(), api.ExecutionRequest{
+		Command: command,
+		GitRepo: cmd.Flag("git-repo").Value.String(),
+		GitRef:  cmd.Flag("git-ref").Value.String(),
+		GitPath: cmd.Flag("git-path").Value.String(),
+	})
 	if err != nil {
 		output.Errorf("failed to run command: %v", err)
 		return
