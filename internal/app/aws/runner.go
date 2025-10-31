@@ -138,14 +138,31 @@ func (e *Runner) StartTask(ctx context.Context, userEmail string, req api.Execut
 			gitRef = "main"
 		}
 
+		// Build sidecar environment variables
+		sidecarEnvVars := []ecsTypes.KeyValuePair{
+			{Name: awsStd.String("GIT_REPO"), Value: awsStd.String(req.GitRepo)},
+			{Name: awsStd.String("GIT_REF"), Value: awsStd.String(gitRef)},
+			{Name: awsStd.String("SHARED_VOLUME_PATH"), Value: awsStd.String(constants.SharedVolumePath)},
+		}
+
+		// Pass user environment variables to sidecar with USER_ENV_ prefix
+		// These will be written to .env files by the sidecar
+		for key, value := range req.Env {
+			sidecarEnvVars = append(sidecarEnvVars, ecsTypes.KeyValuePair{
+				Name:  awsStd.String("USER_ENV_" + key),
+				Value: awsStd.String(value),
+			})
+		}
+
 		containerOverrides = append(containerOverrides, ecsTypes.ContainerOverride{
-			Name: awsStd.String(constants.GitClonerContainerName),
-			Environment: []ecsTypes.KeyValuePair{
-				{Name: awsStd.String("GIT_REPO"), Value: awsStd.String(req.GitRepo)},
-				{Name: awsStd.String("GIT_REF"), Value: awsStd.String(gitRef)},
-				{Name: awsStd.String("SHARED_VOLUME_PATH"), Value: awsStd.String(constants.SharedVolumePath)},
-			},
+			Name:        awsStd.String(constants.GitClonerContainerName),
+			Environment: sidecarEnvVars,
 		})
+
+		reqLogger.Debug("configured git-cloner sidecar",
+			"gitRepo", req.GitRepo,
+			"gitRef", gitRef,
+			"userEnvCount", len(req.Env))
 	}
 
 	// Build task tags

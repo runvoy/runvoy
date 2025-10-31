@@ -81,6 +81,9 @@ const GitClonerContainerName = "git-cloner"
 const SharedVolumeName = "workspace"
 
 // SharedVolumePath is the mount path for the shared volume in both containers.
+// The git-cloner sidecar writes .env files to both:
+//   - /workspace/.env (workspace root)
+//   - /workspace/repo/.env (cloned repo root)
 const SharedVolumePath = "/workspace"
 
 // EcsStatus represents the AWS ECS Task LastStatus lifecycle values.

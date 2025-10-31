@@ -348,10 +348,38 @@ Resources:
               fi
               GIT_REF=${GIT_REF:-main}
               CLONE_PATH=${SHARED_VOLUME_PATH}/repo
+
+              # Clone git repository
               echo "### runvoy git-cloner: Cloning ${GIT_REPO} (ref: ${GIT_REF})"
               git clone --depth 1 --branch "${GIT_REF}" "${GIT_REPO}" "${CLONE_PATH}"
               echo "### runvoy git-cloner: Clone completed successfully"
               ls -la "${CLONE_PATH}"
+
+              # Write user environment variables to .env files
+              echo "### runvoy git-cloner: Creating .env files from user environment variables"
+              ENV_FILE_WORKSPACE="${SHARED_VOLUME_PATH}/.env"
+              ENV_FILE_REPO="${CLONE_PATH}/.env"
+
+              # Iterate over all environment variables starting with USER_ENV_ prefix
+              # and write them to .env files without the prefix
+              env | grep '^USER_ENV_' | while IFS='=' read -r key value; do
+                # Remove USER_ENV_ prefix from key
+                actual_key="${key#USER_ENV_}"
+                # Write to both .env files
+                echo "${actual_key}=${value}" >> "${ENV_FILE_WORKSPACE}"
+                echo "${actual_key}=${value}" >> "${ENV_FILE_REPO}"
+              done
+
+              if [ -f "${ENV_FILE_REPO}" ]; then
+                echo "### runvoy git-cloner: .env file created with $(wc -l < "${ENV_FILE_REPO}") variables"
+                echo "### runvoy git-cloner: .env file locations:"
+                echo "###   - ${ENV_FILE_WORKSPACE}"
+                echo "###   - ${ENV_FILE_REPO}"
+              else
+                echo "### runvoy git-cloner: No user environment variables provided, .env files not created"
+              fi
+
+              echo "### runvoy git-cloner: Sidecar setup completed successfully"
           Environment:
             - Name: GIT_REPO
               Value: ""  # Overridden at runtime via container override
