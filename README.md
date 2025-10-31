@@ -70,10 +70,9 @@ runvoy run "echo hello world"
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # → Running command: echo hello world
 # ✓ Command execution started successfully
-#   Execution ID: 72f57686926e4becb89116b0ac72caec
+#   Execution ID: 61fb9138466c4212b1e0d763a7f4dfe2
 #   Status: RUNNING
-#
-# Run 'runvoy logs <executionID>' to view logs
+# → View logs in web viewer: https://runvoy-releases.s3.us-east-2.amazonaws.com/webviewer.html?execution_id=61fb9138466c4212b1e0d763a7f4dfe2
 ```
 
 **Log Viewing:**
