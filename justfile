@@ -63,8 +63,7 @@ deploy-event-processor: build-event-processor-zip
 deploy-webviewer:
     aws s3 cp cmd/webviewer/index.html \
         s3://{{bucket}}/webviewer.html \
-        --content-type text/html \
-        --acl public-read
+        --content-type text/html
 
 # Build local development server
 [working-directory: 'cmd/local']

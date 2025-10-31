@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log/slog"
 	"runvoy/internal/client"
+	"runvoy/internal/constants"
 	"runvoy/internal/output"
 	"time"
 
@@ -54,4 +55,6 @@ func logsRun(cmd *cobra.Command, args []string) {
 	output.Table([]string{"Line", "Timestamp (UTC)", "Message"}, rows)
 	output.Blank()
 	output.Success("Logs retrieved successfully")
+	output.Info("View logs in web viewer: %s?execution_id=%s",
+		constants.WebviewerURL, output.Cyan(executionID))
 }
