@@ -16,10 +16,8 @@ var versionCmd = &cobra.Command{
 		output.KeyValue("CLI version", *constants.GetVersion())
 
 		cfg, err := getConfigFromContext(cmd)
-  TODO load logger from ctx
 		if err != nil {
-			slog.Error("failed to load configuration", "error", err)
-			return
+			output.Fatalf("failed to load configuration: %v", err)
 		}
 
 		client := client.New(cfg, slog.Default())
