@@ -1,12 +1,17 @@
+# Settings
 set dotenv-required
-version := shell('cat VERSION | tr -d "\n"')
-git_short_hash := shell('git rev-parse --short HEAD')
-build_date := shell('date +%Y%m%d')
-build_flags := "-X=runvoy/internal/constants.version="
+
+# Variables
+version := `cat VERSION | tr -d "\n"`
+git_short_hash := `git rev-parse --short HEAD`
+build_date := `date +%Y%m%d`
+build_flags_x := "-X=runvoy/internal/constants.version="
+build_flags := build_flags_x + version + "-" + build_date + "-" + git_short_hash
 
 # Aliases
 alias r := runvoy
 
+## Commands
 # Build the CLI binary and run it with the given arguments
 [default]
 runvoy *ARGS: build-cli
@@ -22,28 +27,28 @@ deploy: deploy-orchestrator deploy-event-processor deploy-webviewer
 [working-directory: 'cmd/runvoy']
 build-cli:
     go build \
-        -ldflags "{{build_flags}}{{version}}-{{build_date}}-{{git_short_hash}}" \
+        -ldflags {{build_flags}} \
         -o ../../bin/runvoy
 
 # Build orchestrator backend service (Lambda function)
 [working-directory: 'cmd/backend/aws/orchestrator']
 build-orchestrator:
     GOARCH=arm64 GOOS=linux go build \
-        -ldflags "{{build_flags}}{{version}}-{{build_date}}-{{git_short_hash}}" \
+        -ldflags {{build_flags}} \
         -o ../../../../dist/bootstrap
 
 # Build event processor backend service (Lambda function)
 [working-directory: 'cmd/backend/aws/event_processor']
 build-event-processor:
     GOARCH=arm64 GOOS=linux go build \
-        -ldflags "{{build_flags}}{{version}}-{{build_date}}-{{git_short_hash}}" \
+        -ldflags {{build_flags}} \
         -o ../../../../dist/bootstrap
 
 # Build local development server
 [working-directory: 'cmd/local']
 build-local:
     go build \
-        -ldflags "{{build_flags}}{{version}}-{{build_date}}-{{git_short_hash}}" \
+        -ldflags {{build_flags}} \
         -o ../../bin/local
 
 # Build orchestrator zip file
@@ -148,57 +153,12 @@ create-backend-infra:
     just seed-admin-user
 
 # Seed initial admin user into DynamoDB (idempotent)
-# Requires:
-#   - RUNVOY_ADMIN_EMAIL: admin email to associate with the API key
-#   - ~/.runvoy/config.yaml containing api_key
 seed-admin-user:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    if [ -z "${RUNVOY_ADMIN_EMAIL:-}" ]; then \
-        echo "Error: RUNVOY_ADMIN_EMAIL environment variable is required"; \
-        exit 1; \
-    fi
-    CONFIG_FILE="$HOME/.runvoy/config.yaml"
-    if [ ! -f "$CONFIG_FILE" ]; then \
-        echo "Error: config file not found at $CONFIG_FILE"; \
-        exit 1; \
-    fi
-    API_KEY=$(grep -E "^api_key:" "$CONFIG_FILE" | head -n1 | awk -F ':' '{print $2}' | tr -d ' "\t')
-    if [ -z "$API_KEY" ]; then \
-        echo "Error: api_key not found in $CONFIG_FILE"; \
-        exit 1; \
-    fi
-    API_KEY_HASH=$(printf "%s" "$API_KEY" | openssl dgst -sha256 -binary | base64)
-    CREATED_AT=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-    TABLE_NAME=$(aws cloudformation describe-stacks --stack-name runvoy-backend --query "Stacks[0].Outputs[?OutputKey=='APIKeysTableName'].OutputValue" --output text)
-    if [ -z "$TABLE_NAME" ] || [ "$TABLE_NAME" = "None" ]; then \
-        echo "Error: failed to resolve API keys table name from CloudFormation outputs"; \
-        exit 1; \
-    fi
-    echo "Seeding admin user $RUNVOY_ADMIN_EMAIL into table $TABLE_NAME (idempotent)..."
-    set +e
-    aws dynamodb put-item \
-        --table-name "$TABLE_NAME" \
-        --item "{\"api_key_hash\":{\"S\":\"$API_KEY_HASH\"},\"user_email\":{\"S\":\"$RUNVOY_ADMIN_EMAIL\"},\"created_at\":{\"S\":\"$CREATED_AT\"},\"revoked\":{\"BOOL\":false}}" \
-        --condition-expression "attribute_not_exists(api_key_hash)" >/dev/null 2>&1
-    STATUS=$?
-    set -e
-    if [ $STATUS -eq 0 ]; then \
-        echo "Admin user created."; \
-    else \
-        echo "Admin user already exists or condition failed; continuing."; \
-    fi
+    go run scripts/seed-admin-user/main.go
 
 # Run local development server with hot reloading
 local-dev-server:
-    reflex -r '\.go$' -s -- sh \
-        -c 'AWS_REGION=us-east-2 \
-            AWS_PROFILE=api-l3x-in \
-            RUNVOY_LOG_LEVEL=DEBUG \
-            RUNVOY_API_KEYS_TABLE=runvoy-api-keys \
-        go run \
-            -ldflags "{{build_flags}}{{version}}-{{build_date}}-{{git_short_hash}}" \
-            ./cmd/local'
+    reflex -r '\.go$' -s -- go run -ldflags {{build_flags}} ./cmd/local
 
 # Smoke test local user creation
 smoke-test-local-create-user email:
@@ -253,7 +213,7 @@ smoke-test-local-kill-execution execution_id:
 # Update README.md with latest CLI help output
 # This ensures the README stays in sync with CLI commands
 update-readme-help: build-cli
-    go run scripts/update-readme-help.go ./bin/runvoy
+    go run scripts/update-readme-help/main.go ./bin/runvoy
 
 # TODO run agg into a github action and store it as asset so to avoid
 # having to commit the gif to the repository
