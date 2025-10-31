@@ -42,8 +42,6 @@ func runRun(cmd *cobra.Command, args []string) {
 	output.Success("Command execution started successfully")
 	output.KeyValue("Execution ID", resp.ExecutionID)
 	output.KeyValue("Status", resp.Status)
-	output.Info("Run 'runvoy logs %s' to view logs", output.Cyan(resp.ExecutionID))
 	output.Info("View logs in web viewer: %s?execution_id=%s",
-		output.Cyan(constants.WebviewerURL),
-		output.Cyan(resp.ExecutionID))
+		constants.WebviewerURL, output.Cyan(resp.ExecutionID))
 }
