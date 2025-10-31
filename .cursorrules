@@ -29,3 +29,29 @@
 2. Update code references if line numbers changed significantly
 3. Update README.md if user-facing behavior changed
 4. Keep both docs consistent and in sync
+
+### CLI Command Documentation Automation
+
+**CRITICAL: When adding, removing, or modifying CLI commands:**
+
+1. **README.md uses Cobra's built-in help** - The README directs users to use `runvoy --help` to discover all available commands. DO NOT manually list commands in the README.
+
+2. **Keep examples current** - If you add/remove/modify commands:
+   - Update the "Common Commands Examples" section in README.md if the command is commonly used
+   - Ensure examples still work with the new command structure
+   - Test that `runvoy --help` accurately reflects the changes
+
+3. **Verify help output** - After CLI changes:
+   - Run `just build-cli` to rebuild the CLI
+   - Run `./bin/runvoy --help` to verify the help output is correct
+   - Run `./bin/runvoy [command] --help` for modified commands to verify details
+
+4. **Update command examples** - If command syntax, flags, or behavior changes:
+   - Update the relevant examples in README.md's "Common Commands Examples" section
+   - Ensure examples match the actual CLI behavior
+
+5. **Test documentation** - Before committing:
+   - Verify all README examples work with the current CLI
+   - Ensure `runvoy --help` shows all commands correctly
+
+**Note:** The README no longer contains a manual list of commands. Users are directed to use `runvoy --help` for the authoritative, up-to-date command list. This ensures the documentation stays in sync automatically with the CLI implementation.

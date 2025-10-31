@@ -262,6 +262,12 @@ destroy-backend-infra:
     aws cloudformation wait stack-delete-complete \
         --stack-name runvoy-backend
 
+# Verify CLI help output (useful when updating CLI commands)
+# Prints the help output to verify it matches expectations
+verify-cli-help:
+    build-cli
+    ./bin/runvoy --help
+
 # TODO run agg into a github action and store it as asset so to avoid
 # having to commit the gif to the repository
 record-demo:

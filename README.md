@@ -48,16 +48,27 @@ For detailed architecture information, see [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## Usage
 
-### Commands
+### Discovering Commands
 
-**User Management:**
+To see all available commands and their descriptions, use Cobra's built-in help:
+
 ```bash
-# Create a new user (returns API key - save it immediately!)
-runvoy users create <email>
-
-# Revoke a user's API key
-runvoy users revoke <email>
+runvoy --help
 ```
+
+This will display all available commands. For more details about a specific command, use:
+
+```bash
+runvoy [command] --help
+```
+
+For example, to see all user management commands:
+
+```bash
+runvoy users --help
+```
+
+### Common Commands Examples
 
 **Command Execution:**
 ```bash
@@ -130,28 +141,6 @@ The web viewer is a minimal, single-page application that provides:
 4. Settings are saved in browser's localStorage for future use
 
 The web viewer is hosted on AWS S3 and requires no installation - just open the URL in any modern browser.
-
-**Configuration:**
-```bash
-# Configure CLI with API key and endpoint URL
-runvoy configure
-```
-
-**List Executions:**
-```bash
-runvoy list
-
-# Prints a table similar to logs:
-# Execution ID  Status     Command        Started (UTC)        Completed (UTC)   Duration  Cloud
-# abc123        RUNNING    terraform plan 2025-10-30 13:32:48                   
-# def456        SUCCEEDED  echo hello     2025-10-29 09:10:00  2025-10-29 09:10:05 5s      AWS
-```
-
-**Other:**
-```bash
-# Show CLI and backend versions
-runvoy version
-```
 
 ### Global Flags
 
