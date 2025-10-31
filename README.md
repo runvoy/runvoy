@@ -102,14 +102,14 @@ runvoy users --help
 
 **Command Execution:**
 ```bash
-runvoy run "<command>"
+runvoy run <command...>
 
 # Example
-runvoy run "echo hello world"
+runvoy run --git-repo https://github.com/mycompany/myproject.git npm run tests
 # Output:
 # 🚀 runvoy
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# → Running command: echo hello world
+# → Running command: npm run tests
 # ✓ Command execution started successfully
 #   Execution ID: 61fb9138466c4212b1e0d763a7f4dfe2
 #   Status: RUNNING
