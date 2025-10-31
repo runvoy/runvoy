@@ -17,8 +17,7 @@ var versionCmd = &cobra.Command{
 
 		cfg, err := getConfigFromContext(cmd)
 		if err != nil {
-			slog.Error("failed to load configuration", "error", err)
-			return
+			output.Fatalf("failed to load configuration: %v", err)
 		}
 
 		client := client.New(cfg, slog.Default())
