@@ -24,14 +24,14 @@ func statusRun(cmd *cobra.Command, args []string) {
 	executionID := args[0]
 	cfg, err := getConfigFromContext(cmd)
 	if err != nil {
-		output.Error("failed to load configuration: %v", err)
+		output.Errorf("failed to load configuration: %v", err)
 		return
 	}
 
 	client := client.New(cfg, slog.Default())
 	status, err := client.GetExecutionStatus(cmd.Context(), executionID)
 	if err != nil {
-		output.Error(err.Error())
+		output.Errorf(err.Error())
 		return
 	}
 
@@ -45,5 +45,5 @@ func statusRun(cmd *cobra.Command, args []string) {
 		output.KeyValue("Exit Code", fmt.Sprintf("%d", *status.ExitCode))
 	}
 	output.Blank()
-	output.Success("Status retrieved successfully")
+	output.Successf("Status retrieved successfully")
 }

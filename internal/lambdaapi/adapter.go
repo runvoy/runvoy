@@ -15,7 +15,8 @@ import (
 )
 
 // ChiRouterToLambdaAdapter adapts a chi router to work with Lambda Function URL events
-func ChiRouterToLambdaAdapter(router *chi.Mux) func(context.Context, events.LambdaFunctionURLRequest) (events.LambdaFunctionURLResponse, error) {
+func ChiRouterToLambdaAdapter(
+	router *chi.Mux) func(context.Context, events.LambdaFunctionURLRequest) (events.LambdaFunctionURLResponse, error) {
 	return func(ctx context.Context, req events.LambdaFunctionURLRequest) (events.LambdaFunctionURLResponse, error) {
 		// Ensure Lambda context is available in the request context
 		// This is important for the request ID middleware to work properly

@@ -25,7 +25,10 @@ import (
 type Runner interface {
 	// StartTask triggers an execution on the underlying platform and returns
 	// a provider-specific task ARN and a stable executionID.
-	StartTask(ctx context.Context, userEmail string, req api.ExecutionRequest) (executionID string, taskARN string, err error)
+	StartTask(
+		ctx context.Context,
+		userEmail string,
+		req api.ExecutionRequest) (executionID string, taskARN string, err error)
 	// KillTask terminates a running task identified by executionID.
 	// Returns an error if the task is already terminated or cannot be terminated.
 	KillTask(ctx context.Context, executionID string) error
@@ -45,7 +48,12 @@ type Service struct {
 // NewService creates a new service instance.
 // If userRepo is nil, user-related operations will not be available.
 // This allows the service to work without database dependencies for simple operations.
-func NewService(userRepo database.UserRepository, executionRepo database.ExecutionRepository, runner Runner, logger *slog.Logger, provider constants.BackendProvider) *Service {
+func NewService(
+	userRepo database.UserRepository,
+	executionRepo database.ExecutionRepository,
+	runner Runner,
+	logger *slog.Logger,
+	provider constants.BackendProvider) *Service {
 	return &Service{
 		userRepo:      userRepo,
 		executionRepo: executionRepo,
@@ -195,7 +203,10 @@ func hashAPIKey(apiKey string) string {
 }
 
 // RunCommand starts a provider-specific task and records the execution.
-func (s *Service) RunCommand(ctx context.Context, userEmail string, req api.ExecutionRequest) (*api.ExecutionResponse, error) {
+func (s *Service) RunCommand(
+	ctx context.Context,
+	userEmail string,
+	req api.ExecutionRequest) (*api.ExecutionResponse, error) {
 	if s.executionRepo == nil {
 		return nil, apperrors.ErrInternalError("execution repository not configured", nil)
 	}
@@ -342,7 +353,9 @@ func (s *Service) KillExecution(ctx context.Context, executionID string) error {
 	if slices.ContainsFunc(terminalStatuses, func(status constants.ExecutionStatus) bool {
 		return execution.Status == string(status)
 	}) {
-		return apperrors.ErrBadRequest("execution is already terminated", fmt.Errorf("execution status: %s", execution.Status))
+		return apperrors.ErrBadRequest(
+			"execution is already terminated",
+			fmt.Errorf("execution status: %s", execution.Status))
 	}
 
 	// Delegate to the runner to kill the task

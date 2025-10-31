@@ -25,7 +25,11 @@ import (
 // Supported cloud providers:
 //   - "aws": Uses DynamoDB for storage, Fargate for execution
 //   - "gcp": (future) E.g. using Google Cloud Run and Firestore for storage
-func Initialize(ctx context.Context, provider constants.BackendProvider, cfg *config.OrchestratorEnv, logger *slog.Logger) (*Service, error) {
+func Initialize(
+	ctx context.Context,
+	provider constants.BackendProvider,
+	cfg *config.OrchestratorEnv,
+	logger *slog.Logger) (*Service, error) {
 	logger.Debug("initializing "+constants.ProjectName,
 		"provider", provider,
 		"version", *constants.GetVersion(),
@@ -55,7 +59,10 @@ func Initialize(ctx context.Context, provider constants.BackendProvider, cfg *co
 }
 
 // initializeAWSBackend sets up AWS-specific dependencies
-func initializeAWSBackend(ctx context.Context, cfg *config.OrchestratorEnv, logger *slog.Logger) (database.UserRepository, database.ExecutionRepository, Runner, error) {
+func initializeAWSBackend(
+	ctx context.Context,
+	cfg *config.OrchestratorEnv,
+	logger *slog.Logger) (database.UserRepository, database.ExecutionRepository, Runner, error) {
 	if cfg.APIKeysTable == "" {
 		return nil, nil, nil, fmt.Errorf("APIKeysTable cannot be empty")
 	}

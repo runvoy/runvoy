@@ -19,22 +19,22 @@ var revokeUserCmd = &cobra.Command{
 func runRevokeUser(cmd *cobra.Command, args []string) {
 	cfg, err := getConfigFromContext(cmd)
 	if err != nil {
-		output.Error("failed to load configuration: %v", err)
+		output.Errorf("failed to load configuration: %v", err)
 		return
 	}
 	email := args[0]
-	output.Info("Revoking user with email %s...", email)
+	output.Infof("Revoking user with email %s...", email)
 
 	client := client.New(cfg, slog.Default())
 	resp, err := client.RevokeUser(cmd.Context(), api.RevokeUserRequest{
 		Email: email,
 	})
 	if err != nil {
-		output.Error(err.Error())
+		output.Errorf(err.Error())
 		return
 	}
 
-	output.Success("User revoked successfully")
+	output.Successf("User revoked successfully")
 	output.KeyValue("Email", resp.Email)
 }
 
