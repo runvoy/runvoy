@@ -46,33 +46,33 @@ func visibleWidth(s string) int {
 	return utf8.RuneCountInString(clean)
 }
 
-// Success prints a success message with a checkmark
+// Successf prints a success message with a checkmark
 // Example: ✓ Stack created successfully
-func Success(format string, a ...interface{}) {
+func Successf(format string, a ...interface{}) {
 	_, _ = fmt.Fprintf(Stdout, green.Sprint("✓")+" "+format+"\n", a...)
 }
 
-// Info prints an informational message with an arrow
+// Infof prints an informational message with an arrow
 // Example: → Creating CloudFormation stack...
-func Info(format string, a ...interface{}) {
+func Infof(format string, a ...interface{}) {
 	_, _ = fmt.Fprintf(Stdout, cyan.Sprint("→")+" "+format+"\n", a...)
 }
 
-// Warning prints a warning message with a warning symbol
+// Warningf prints a warning message with a warning symbol
 // Example: ⚠ Lock already held by alice@acme.com
-func Warning(format string, a ...interface{}) {
+func Warningf(format string, a ...interface{}) {
 	_, _ = fmt.Fprintf(Stdout, yellow.Sprint("⚠")+" "+format+"\n", a...)
 }
 
-// Error prints an error message with an X symbol
+// Errorf prints an error message with an X symbol
 // Example: ✗ Failed to create stack: permission denied
-func Error(format string, a ...interface{}) {
+func Errorf(format string, a ...interface{}) {
 	_, _ = fmt.Fprintf(Stdout, red.Sprint("✗")+" "+format+"\n", a...)
 }
 
-// Fatal prints an error message and exits with code 1
-func Fatal(format string, a ...interface{}) {
-	Error(format, a...)
+// Fatalf prints an error message and exits with code 1
+func Fatalf(format string, a ...interface{}) {
+	Errorf(format, a...)
 	os.Exit(1)
 }
 
@@ -312,7 +312,7 @@ func NewSpinner(message string) *Spinner {
 func (s *Spinner) Start() {
 	if noColor || !isTerminal(os.Stdout) {
 		// If not a TTY, just print the message once
-		Info(s.message)
+		Infof(s.message)
 		return
 	}
 
@@ -346,13 +346,13 @@ func (s *Spinner) Stop() {
 // Success stops the spinner and prints a success message
 func (s *Spinner) Success(message string) {
 	s.Stop()
-	Success(message)
+	Successf(message)
 }
 
 // Error stops the spinner and prints an error message
 func (s *Spinner) Error(message string) {
 	s.Stop()
-	Error(message)
+	Errorf(message)
 }
 
 // ProgressBar represents a simple text progress bar
@@ -441,7 +441,7 @@ func PromptRequired(prompt string) string {
 		if response != "" {
 			return response
 		}
-		Warning("This field is required")
+		Warningf("This field is required")
 	}
 }
 

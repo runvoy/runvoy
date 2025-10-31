@@ -26,6 +26,7 @@ func main() {
 
 	svc, err := app.Initialize(ctx, constants.AWS, cfg, log)
 	if err != nil {
+		cancel()
 		log.Error("failed to initialize service", "error", err)
 		os.Exit(1)
 	}
@@ -66,6 +67,7 @@ func main() {
 	defer cancel()
 
 	if err := srv.Shutdown(ctx); err != nil {
+		cancel()
 		log.Error("server shutdown error", "error", err)
 		os.Exit(1)
 	}

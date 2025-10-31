@@ -27,13 +27,14 @@ var rootCmd = &cobra.Command{
 	Use:   constants.ProjectName,
 	Short: "Remote execution environment for your commands",
 	Long: fmt.Sprintf(`%s provides isolated, repeatable execution environments for your commands.
-Run commands remotely without the hassle of local execution, credential sharing, or race conditions.`, constants.ProjectName),
+Run commands remotely without the hassle of local execution, credential sharing, or race conditions.`,
+		constants.ProjectName),
 	PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
 		printHeader(cmd)
 
 		if verbose {
-			output.Info("CLI build: " + output.Bold(*constants.GetVersion()))
-			output.Info("Verbose output enabled")
+			output.Infof("CLI build: " + output.Bold(*constants.GetVersion()))
+			output.Infof("Verbose output enabled")
 		}
 
 		logLevel := slog.LevelInfo
@@ -44,7 +45,7 @@ Run commands remotely without the hassle of local execution, credential sharing,
 
 		if timeout == "0" {
 			if verbose {
-				output.Info("Timeout disabled")
+				output.Infof("Timeout disabled")
 			}
 
 			return nil
@@ -61,7 +62,7 @@ Run commands remotely without the hassle of local execution, credential sharing,
 		cmd.SetContext(ctx)
 
 		if verbose {
-			output.Info("Timeout: %s", timeoutDuration)
+			output.Infof("Timeout: %s", timeoutDuration)
 		}
 
 		cfg, err := config.Load()
@@ -78,8 +79,8 @@ Run commands remotely without the hassle of local execution, credential sharing,
 
 		cmd.SetContext(context.WithValue(cmd.Context(), constants.ConfigCtxKey, cfg))
 		if verbose {
-			output.Info("Loaded configuration from %s", output.Bold(configPath))
-			output.Info("API endpoint: %s", output.Bold(cfg.APIEndpoint))
+			output.Infof("Loaded configuration from %s", output.Bold(configPath))
+			output.Infof("API endpoint: %s", output.Bold(cfg.APIEndpoint))
 		}
 
 		return nil
@@ -121,7 +122,10 @@ func parseTimeout(timeoutStr string) (time.Duration, error) {
 	// If duration parsing fails, try parsing as seconds (integer)
 	seconds, err := strconv.Atoi(timeoutStr)
 	if err != nil {
-		return 0, fmt.Errorf("invalid timeout format: %s (use duration like '10m' or '30s', or seconds like '600')", timeoutStr)
+		errMsg := fmt.Sprintf(
+			"invalid timeout format: %s (use duration like '10m' or '30s', or seconds like '600')",
+			timeoutStr)
+		return 0, fmt.Errorf(errMsg)
 	}
 
 	return time.Duration(seconds) * time.Second, nil

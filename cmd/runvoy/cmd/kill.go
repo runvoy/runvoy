@@ -24,18 +24,18 @@ func killRun(cmd *cobra.Command, args []string) {
 	executionID := args[0]
 	cfg, err := getConfigFromContext(cmd)
 	if err != nil {
-		output.Error("failed to load configuration: %v", err)
+		output.Errorf("failed to load configuration: %v", err)
 		return
 	}
 
 	client := client.New(cfg, slog.Default())
 	resp, err := client.KillExecution(cmd.Context(), executionID)
 	if err != nil {
-		output.Error(err.Error())
+		output.Errorf(err.Error())
 		return
 	}
 
-	output.Success("Execution killed successfully")
+	output.Successf("Execution killed successfully")
 	output.KeyValue("Execution ID", resp.ExecutionID)
 	output.KeyValue("Message", resp.Message)
 }

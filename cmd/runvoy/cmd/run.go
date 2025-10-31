@@ -26,22 +26,22 @@ func runRun(cmd *cobra.Command, args []string) {
 	command := args[0]
 	cfg, err := getConfigFromContext(cmd)
 	if err != nil {
-		output.Error("failed to load configuration: %v", err)
+		output.Errorf("failed to load configuration: %v", err)
 		return
 	}
 
-	output.Info("Running command: %s", output.Bold(command))
+	output.Infof("Running command: %s", output.Bold(command))
 
 	client := client.New(cfg, slog.Default())
 	resp, err := client.RunCommand(cmd.Context(), api.ExecutionRequest{Command: command})
 	if err != nil {
-		output.Error("failed to run command: %v", err)
+		output.Errorf("failed to run command: %v", err)
 		return
 	}
 
-	output.Success("Command execution started successfully")
+	output.Successf("Command execution started successfully")
 	output.KeyValue("Execution ID", resp.ExecutionID)
 	output.KeyValue("Status", resp.Status)
-	output.Info("View logs in web viewer: %s?execution_id=%s",
+	output.Infof("View logs in web viewer: %s?execution_id=%s",
 		constants.WebviewerURL, output.Cyan(resp.ExecutionID))
 }
