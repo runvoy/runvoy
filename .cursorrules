@@ -36,7 +36,7 @@
 
 1. **README.md is automatically updated** - The README contains a section between `<!-- CLI_HELP_START -->` and `<!-- CLI_HELP_END -->` markers that is automatically populated with the latest CLI help output.
 
-2. **Automatic updates via pre-commit hook** - A pre-commit hook (`scripts/update-readme-help.sh`) automatically updates the README when CLI commands change. The hook runs when:
+2. **Automatic updates via pre-commit hook** - A pre-commit hook (`scripts/update-readme-help.go`) automatically updates the README when CLI commands change. The hook runs when:
    - Files in `cmd/runvoy/` are modified
    - The update script itself is modified
    - `README.md` is modified
@@ -47,7 +47,7 @@
    ```
    Or run directly:
    ```bash
-   ./scripts/update-readme-help.sh
+   go run scripts/update-readme-help.go
    ```
 
 4. **Keep examples current** - If you add/remove/modify commands:
