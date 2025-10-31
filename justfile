@@ -1,4 +1,4 @@
-set dotenv-load
+set dotenv-required
 bucket := env_var_or_default('RUNVOY_RELEASES_BUCKET', 'runvoy-releases')
 version := shell('cat VERSION | tr -d "\n"')
 git_short_hash := shell('git rev-parse --short HEAD')

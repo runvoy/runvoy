@@ -619,6 +619,16 @@ The `justfile` codifies the common build, deploy, and validation flows. Highligh
 - **Environment & infra helpers**: `just dev-setup`, `just install-hooks`, `just pre-commit-all` prepare developer machines, while `just create-lambda-bucket`, `just update-backend-infra`, `just seed-admin-user`, and `just destroy-backend-infra` manage AWS prerequisites.
 - **DX utilities**: `just record-demo` regenerates the terminal cast/GIF assets.
 
+**Environment Configuration:**
+
+The `justfile` uses `set dotenv-required`, which means all `just` commands require a `.env` file to be present in the repository root. Developers should:
+
+1. Copy `.env.example` to `.env`: `cp .env.example .env`
+2. Edit `.env` with their actual environment variable values
+3. Ensure `.env` is not committed to version control (already in `.gitignore`)
+
+If `.env` is missing, `just` commands will fail with an error, ensuring developers configure their environment before running commands.
+
 ### Agent Integration
 
 Automation-friendly targets remain the same: agents should prefer `just lint-fix`, `just fmt`, `just check`, and the smoke tests where appropriate. These commands ensure consistent code quality across contributors and automated systems.
