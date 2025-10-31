@@ -13,6 +13,25 @@ runvoy is a centralized execution platform that allows teams to run infrastructu
 5. **Self-Service**: Team members don't wait for admins to run commands
 6. **Extensible Authorization**: Architecture supports fine-grained permissions (to be added later)
 
+## Folder Structure
+
+```text
+runvoy/
+├── bin/
+├── cmd/
+├── dist/
+├── infra/
+├── internal/
+├── scripts/
+```
+
+- `bin/`: built binaries for the runvoy application (temporary storage for building artifacts during development).
+- `cmd/`: main entry points for the various application (CLI, local dev server, lambdas, etc.)
+- `dist/`: built binaries for the runvoy application.
+- `infra/`: infrastructure as code for the runvoy application (CloudFormation templates, etc.).
+- `internal/`: core logic of the runvoy application (business logic, API, database, etc.)
+- `scripts/`: scripts for the runvoy application development and deployment
+
 ## Execution Provider Abstraction
 
 To support multiple cloud platforms, the service layer now depends on an execution provider interface:
