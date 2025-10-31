@@ -154,7 +154,7 @@ create-backend-infra:
 
 # Seed initial admin user into DynamoDB (idempotent)
 seed-admin-user:
-    go run scripts/seed-admin-user.go
+    go run scripts/seed-admin-user/main.go
 
 # Run local development server with hot reloading
 local-dev-server:
@@ -213,7 +213,7 @@ smoke-test-local-kill-execution execution_id:
 # Update README.md with latest CLI help output
 # This ensures the README stays in sync with CLI commands
 update-readme-help: build-cli
-    go run scripts/update-readme-help.go ./bin/runvoy
+    go run scripts/update-readme-help/main.go ./bin/runvoy
 
 # TODO run agg into a github action and store it as asset so to avoid
 # having to commit the gif to the repository
