@@ -253,7 +253,7 @@ smoke-test-local-kill-execution execution_id:
 # Update README.md with latest CLI help output
 # This ensures the README stays in sync with CLI commands
 update-readme-help:
-    ./scripts/update-readme-help.sh
+    go run scripts/update-readme-help.go
 
 # TODO run agg into a github action and store it as asset so to avoid
 # having to commit the gif to the repository
