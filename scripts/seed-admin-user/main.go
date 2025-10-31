@@ -1,3 +1,5 @@
+// TODO: this is a temporary script to seed the admin user into the database.
+// Most probably overkill and needs some cleanup but not urgent for now, it does the job.
 package main
 
 import (

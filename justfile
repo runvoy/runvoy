@@ -2,11 +2,11 @@
 set dotenv-required
 
 # Variables
-version := `cat VERSION | tr -d "\n"`
-git_short_hash := `git rev-parse --short HEAD`
-build_date := `date +%Y%m%d`
-build_flags_x := "-X=runvoy/internal/constants.version="
-build_flags := build_flags_x + version + "-" + build_date + "-" + git_short_hash
+version := trim(read('VERSION'))
+git_short_hash := trim(`git rev-parse --short HEAD`)
+build_date := datetime_utc('%Y%m%d')
+build_flags_x := '-X=runvoy/internal/constants.version='
+build_flags := build_flags_x + version + '-' + build_date + '-' + git_short_hash
 
 # Aliases
 alias r := runvoy
