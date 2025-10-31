@@ -165,7 +165,7 @@ func (h *colorHandler) appendAttr(buf *strings.Builder, a slog.Attr) {
 
 // appendValue formats a Value and appends it to the buffer
 func (h *colorHandler) appendValue(buf *strings.Builder, v slog.Value, key string) {
-	switch v.Kind() {
+	switch v.Kind() { //nolint: exhaustive
 	case slog.KindString:
 		// Special coloring for error and status fields
 		val := v.String()

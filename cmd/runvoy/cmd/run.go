@@ -21,8 +21,11 @@ var runCmd = &cobra.Command{
 
   # With Git repository cloning
   - %s run --git-repo https://github.com/mycompany/myproject.git npm run test
-  - %s run --git-repo https://github.com/ansible/ansible-examples.git --git-ref main --git-path ansible-examples/playbooks/hello_world ansible-playbook site.yml
-`, constants.ProjectName, constants.ProjectName, constants.ProjectName, constants.ProjectName),
+
+  - %s run --git-repo https://github.com/ansible/ansible-examples.git \
+               --git-ref main \
+               --git-path ansible-examples/playbooks/hello_world \
+               ansible-playbook site.yml`, constants.ProjectName, constants.ProjectName, constants.ProjectName, constants.ProjectName),
 	Run:  runRun,
 	Args: cobra.MinimumNArgs(1),
 }
