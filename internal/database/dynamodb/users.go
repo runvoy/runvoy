@@ -44,6 +44,8 @@ type userItem struct {
 
 // CreateUser stores a new user with their hashed API key in DynamoDB.
 func (r *UserRepository) CreateUser(ctx context.Context, user *api.User, apiKeyHash string) error {
+	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
+
 	// Create the item to store
 	item := userItem{
 		APIKeyHash: apiKeyHash,
@@ -56,6 +58,15 @@ func (r *UserRepository) CreateUser(ctx context.Context, user *api.User, apiKeyH
 	if err != nil {
 		return err
 	}
+
+	// Log before calling DynamoDB PutItem
+	logArgs := []any{
+		"operation", "DynamoDB.PutItem",
+		"table", r.tableName,
+		"userEmail", user.Email,
+	}
+	logArgs = append(logArgs, logger.GetDeadlineInfo(ctx)...)
+	reqLogger.Debug("calling external service", logArgs...)
 
 	// Use ConditionExpression to ensure we don't overwrite existing users
 	_, err = r.client.PutItem(ctx, &dynamodb.PutItemInput{
@@ -79,7 +90,15 @@ func (r *UserRepository) CreateUser(ctx context.Context, user *api.User, apiKeyH
 func (r *UserRepository) GetUserByEmail(ctx context.Context, email string) (*api.User, error) {
 	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
 
-	reqLogger.Debug("querying user by email", "email", email)
+	// Log before calling DynamoDB Query
+	logArgs := []any{
+		"operation", "DynamoDB.Query",
+		"table", r.tableName,
+		"index", "user_email-index",
+		"email", email,
+	}
+	logArgs = append(logArgs, logger.GetDeadlineInfo(ctx)...)
+	reqLogger.Debug("calling external service", logArgs...)
 
 	result, err := r.client.Query(ctx, &dynamodb.QueryInput{
 		TableName:              aws.String(r.tableName),
@@ -117,7 +136,14 @@ func (r *UserRepository) GetUserByEmail(ctx context.Context, email string) (*api
 func (r *UserRepository) GetUserByAPIKeyHash(ctx context.Context, apiKeyHash string) (*api.User, error) {
 	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
 
-	reqLogger.Debug("querying user by API key hash", "apiKeyHash", apiKeyHash)
+	// Log before calling DynamoDB GetItem
+	logArgs := []any{
+		"operation", "DynamoDB.GetItem",
+		"table", r.tableName,
+		"apiKeyHash", apiKeyHash,
+	}
+	logArgs = append(logArgs, logger.GetDeadlineInfo(ctx)...)
+	reqLogger.Debug("calling external service", logArgs...)
 
 	result, err := r.client.GetItem(ctx, &dynamodb.GetItemInput{
 		TableName: aws.String(r.tableName),
@@ -153,6 +179,19 @@ func (r *UserRepository) GetUserByAPIKeyHash(ctx context.Context, apiKeyHash str
 
 // UpdateLastUsed updates the last_used timestamp for a user.
 func (r *UserRepository) UpdateLastUsed(ctx context.Context, email string) error {
+	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
+
+	// Log before calling DynamoDB Query
+	queryLogArgs := []any{
+		"operation", "DynamoDB.Query",
+		"table", r.tableName,
+		"index", "user_email-index",
+		"email", email,
+		"purpose", "last_used_update",
+	}
+	queryLogArgs = append(queryLogArgs, logger.GetDeadlineInfo(ctx)...)
+	reqLogger.Debug("calling external service", queryLogArgs...)
+
 	// Query the GSI by email to obtain the api_key_hash (table PK)
 	result, err := r.client.Query(ctx, &dynamodb.QueryInput{
 		TableName:              aws.String(r.tableName),
@@ -184,6 +223,16 @@ func (r *UserRepository) UpdateLastUsed(ctx context.Context, email string) error
 
 	now := time.Now().UTC()
 
+	// Log before calling DynamoDB UpdateItem
+	updateLogArgs := []any{
+		"operation", "DynamoDB.UpdateItem",
+		"table", r.tableName,
+		"email", email,
+		"apiKeyHash", apiKeyHash,
+	}
+	updateLogArgs = append(updateLogArgs, logger.GetDeadlineInfo(ctx)...)
+	reqLogger.Debug("calling external service", updateLogArgs...)
+
 	_, err = r.client.UpdateItem(ctx, &dynamodb.UpdateItemInput{
 		TableName: aws.String(r.tableName),
 		Key: map[string]types.AttributeValue{
@@ -203,6 +252,19 @@ func (r *UserRepository) UpdateLastUsed(ctx context.Context, email string) error
 
 // RevokeUser marks a user's API key as revoked.
 func (r *UserRepository) RevokeUser(ctx context.Context, email string) error {
+	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
+
+	// Log before calling DynamoDB Query
+	queryLogArgs := []any{
+		"operation", "DynamoDB.Query",
+		"table", r.tableName,
+		"index", "user_email-index",
+		"email", email,
+		"purpose", "revoke_user",
+	}
+	queryLogArgs = append(queryLogArgs, logger.GetDeadlineInfo(ctx)...)
+	reqLogger.Debug("calling external service", queryLogArgs...)
+
 	// Query to find the api_key_hash for this email
 	result, err := r.client.Query(ctx, &dynamodb.QueryInput{
 		TableName:              aws.String(r.tableName),
@@ -228,6 +290,17 @@ func (r *UserRepository) RevokeUser(ctx context.Context, email string) error {
 			apiKeyHash = s.Value
 		}
 	}
+
+	// Log before calling DynamoDB UpdateItem
+	updateLogArgs := []any{
+		"operation", "DynamoDB.UpdateItem",
+		"table", r.tableName,
+		"email", email,
+		"apiKeyHash", apiKeyHash,
+		"action", "revoke",
+	}
+	updateLogArgs = append(updateLogArgs, logger.GetDeadlineInfo(ctx)...)
+	reqLogger.Debug("calling external service", updateLogArgs...)
 
 	// Update the item to mark as revoked
 	_, err = r.client.UpdateItem(ctx, &dynamodb.UpdateItemInput{

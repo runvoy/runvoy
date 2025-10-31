@@ -15,6 +15,7 @@ import (
 	"runvoy/internal/api"
 	"runvoy/internal/config"
 	"runvoy/internal/constants"
+	"runvoy/internal/logger"
 )
 
 // Client provides a generic HTTP client for API operations
@@ -68,14 +69,20 @@ func (c *Client) Do(ctx context.Context, req Request) (*Response, error) {
 	httpReq.Header.Set(constants.ContentTypeHeader, "application/json")
 	httpReq.Header.Set(constants.ApiKeyHeader, c.config.APIKey)
 
+	// Log before making HTTP request with deadline info
+	logArgs := []any{
+		"operation", "HTTP.Request",
+		"method", req.Method,
+		"url", url,
+	}
 	if req.Body != nil {
 		bodyBytes, _ := json.Marshal(req.Body)
-		c.logger.Debug("making API request", "method", req.Method, "url", url, "body", string(bodyBytes))
+		logArgs = append(logArgs, "hasBody", true, "bodySize", len(bodyBytes))
 	} else {
-		c.logger.Debug("making API request", "method", req.Method, "url", url)
+		logArgs = append(logArgs, "hasBody", false)
 	}
-
-	c.logger.Debug("request headers", "headers", httpReq.Header)
+	logArgs = append(logArgs, logger.GetDeadlineInfo(ctx)...)
+	c.logger.Debug("calling external service", logArgs...)
 
 	httpClient := &http.Client{}
 	resp, err := httpClient.Do(httpReq)
@@ -91,7 +98,12 @@ func (c *Client) Do(ctx context.Context, req Request) (*Response, error) {
 		return nil, fmt.Errorf("failed to read response: %w", err)
 	}
 
-	c.logger.Debug("response", "status", resp.StatusCode, "body", string(body))
+	// Log response summary
+	c.logger.Debug("received HTTP response",
+		"status", resp.StatusCode,
+		"bodySize", len(body),
+		"method", req.Method,
+		"url", url)
 
 	return &Response{
 		StatusCode: resp.StatusCode,

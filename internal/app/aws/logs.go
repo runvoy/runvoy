@@ -4,11 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"sort"
 
 	"runvoy/internal/api"
 	"runvoy/internal/constants"
 	apperrors "runvoy/internal/errors"
+	"runvoy/internal/logger"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
@@ -32,6 +34,18 @@ func FetchLogsByExecutionID(ctx context.Context, cfg *Config, executionID string
 	cwl := cloudwatchlogs.NewFromConfig(awsCfg)
 	stream := fmt.Sprintf("task/%s/%s", constants.RunnerContainerName, executionID)
 
+	reqLogger := logger.DeriveRequestLogger(ctx, slog.Default())
+
+	// Log before calling CloudWatch Logs DescribeLogStreams
+	describeLogArgs := []any{
+		"operation", "CloudWatchLogs.DescribeLogStreams",
+		"logGroup", cfg.LogGroup,
+		"streamPrefix", stream,
+		"executionID", executionID,
+	}
+	describeLogArgs = append(describeLogArgs, logger.GetDeadlineInfo(ctx)...)
+	reqLogger.Debug("calling external service", describeLogArgs...)
+
 	lsOut, err := cwl.DescribeLogStreams(ctx, &cloudwatchlogs.DescribeLogStreamsInput{
 		LogGroupName:        aws.String(cfg.LogGroup),
 		LogStreamNamePrefix: aws.String(stream),
@@ -54,7 +68,22 @@ func FetchLogsByExecutionID(ctx context.Context, cfg *Config, executionID string
 
 	var events []api.LogEvent
 	var nextToken *string
+	pageCount := 0
 	for {
+		pageCount++
+
+		// Log before calling CloudWatch Logs GetLogEvents
+		getLogArgs := []any{
+			"operation", "CloudWatchLogs.GetLogEvents",
+			"logGroup", cfg.LogGroup,
+			"logStream", stream,
+			"executionID", executionID,
+			"pageNumber", pageCount,
+			"hasNextToken", nextToken != nil,
+		}
+		getLogArgs = append(getLogArgs, logger.GetDeadlineInfo(ctx)...)
+		reqLogger.Debug("calling external service", getLogArgs...)
+
 		out, err := cwl.GetLogEvents(ctx, &cloudwatchlogs.GetLogEventsInput{
 			LogGroupName:  &cfg.LogGroup,
 			LogStreamName: &stream,

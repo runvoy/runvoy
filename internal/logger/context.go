@@ -5,6 +5,7 @@ package logger
 import (
 	"context"
 	"log/slog"
+	"time"
 
 	"github.com/aws/aws-lambda-go/lambdacontext"
 )
@@ -48,4 +49,19 @@ func DeriveRequestLogger(ctx context.Context, base *slog.Logger) *slog.Logger {
 	}
 
 	return base
+}
+
+// GetDeadlineInfo returns logging attributes for context deadline information.
+// Returns the absolute deadline time and remaining duration if set, or "none" if no deadline.
+func GetDeadlineInfo(ctx context.Context) []any {
+	deadline, ok := ctx.Deadline()
+	if !ok {
+		return []any{"deadline", "none", "deadline_remaining", "none"}
+	}
+
+	remaining := time.Until(deadline)
+	return []any{
+		"deadline", deadline.Format(time.RFC3339),
+		"deadline_remaining", remaining.String(),
+	}
 }
