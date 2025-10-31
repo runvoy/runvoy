@@ -189,7 +189,7 @@ func (r *UserRepository) UpdateLastUsed(ctx context.Context, email string) error
 		Key: map[string]types.AttributeValue{
 			"api_key_hash": &types.AttributeValueMemberS{Value: apiKeyHash},
 		},
-		UpdateExpression:          aws.String("SET last_used = :now"),
+		UpdateExpression: aws.String("SET last_used = :now"),
 		ExpressionAttributeValues: map[string]types.AttributeValue{
 			":now": &types.AttributeValueMemberS{
 				Value: now.Format(time.RFC3339Nano)}},

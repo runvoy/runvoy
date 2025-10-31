@@ -36,16 +36,16 @@ func Initialize(
 		"init_timeout_seconds", int(cfg.InitTimeout.Seconds()),
 	)
 
-    var (
-        userRepo      database.UserRepository
-        executionRepo database.ExecutionRepository
-        runner        Runner
-        err           error
-    )
+	var (
+		userRepo      database.UserRepository
+		executionRepo database.ExecutionRepository
+		runner        Runner
+		err           error
+	)
 
-    switch provider {
+	switch provider {
 	case constants.AWS:
-        userRepo, executionRepo, runner, err = initializeAWSBackend(ctx, cfg, logger)
+		userRepo, executionRepo, runner, err = initializeAWSBackend(ctx, cfg, logger)
 		if err != nil {
 			return nil, fmt.Errorf("failed to initialize AWS: %w", err)
 		}
@@ -55,7 +55,7 @@ func Initialize(
 
 	logger.Debug(constants.ProjectName+" initialized successfully", "provider", provider)
 
-    return NewService(userRepo, executionRepo, runner, logger, provider), nil
+	return NewService(userRepo, executionRepo, runner, logger, provider), nil
 }
 
 // initializeAWSBackend sets up AWS-specific dependencies
@@ -88,7 +88,7 @@ func initializeAWSBackend(
 	userRepo := dynamorepo.NewUserRepository(dynamoClient, cfg.APIKeysTable, logger)
 	executionRepo := dynamorepo.NewExecutionRepository(dynamoClient, cfg.ExecutionsTable, logger)
 
-    awsExecCfg := &appaws.Config{
+	awsExecCfg := &appaws.Config{
 		ECSCluster:            cfg.ECSCluster,
 		TaskDefinition:        cfg.TaskDefinition,
 		TaskDefinitionWithGit: cfg.TaskDefinitionWithGit,
@@ -100,6 +100,6 @@ func initializeAWSBackend(
 		// TaskRoleARN and TaskExecRoleARN would come from CloudFormation outputs
 		// For now, we'll leave them empty and they'll be read from the existing task definition
 	}
-    runner := appaws.NewRunner(ecsClientInstance, awsExecCfg, logger)
-    return userRepo, executionRepo, runner, nil
+	runner := appaws.NewRunner(ecsClientInstance, awsExecCfg, logger)
+	return userRepo, executionRepo, runner, nil
 }

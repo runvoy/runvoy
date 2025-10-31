@@ -21,16 +21,16 @@ import (
 
 // Config holds AWS-specific execution configuration.
 type Config struct {
-	ECSCluster             string
-	TaskDefinition         string
-	TaskDefinitionWithGit  string // Task definition with git-cloner sidecar
-	Subnet1                string
-	Subnet2                string
-	SecurityGroup          string
-	LogGroup               string
-	DefaultImage           string
-	TaskRoleARN            string
-	TaskExecRoleARN        string
+	ECSCluster            string
+	TaskDefinition        string
+	TaskDefinitionWithGit string // Task definition with git-cloner sidecar
+	Subnet1               string
+	Subnet2               string
+	SecurityGroup         string
+	LogGroup              string
+	DefaultImage          string
+	TaskRoleARN           string
+	TaskExecRoleARN       string
 }
 
 // Runner implements app.Runner for AWS ECS Fargate.

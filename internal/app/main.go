@@ -371,12 +371,12 @@ func (s *Service) KillExecution(ctx context.Context, executionID string) error {
 // ListExecutions returns all executions currently present in the database.
 // Fields with no values are omitted in JSON due to omitempty tags on api.Execution.
 func (s *Service) ListExecutions(ctx context.Context) ([]*api.Execution, error) {
-    if s.executionRepo == nil {
-        return nil, apperrors.ErrInternalError("execution repository not configured", nil)
-    }
-    executions, err := s.executionRepo.ListExecutions(ctx)
-    if err != nil {
-        return nil, err
-    }
-    return executions, nil
+	if s.executionRepo == nil {
+		return nil, apperrors.ErrInternalError("execution repository not configured", nil)
+	}
+	executions, err := s.executionRepo.ListExecutions(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return executions, nil
 }

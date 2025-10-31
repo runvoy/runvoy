@@ -47,11 +47,13 @@ build-local:
         -ldflags "{{build_flags}}{{version}}-{{build_date}}-{{git_short_hash}}" \
         -o ../../bin/local
 
+# Build orchestrator zip file
 [working-directory: 'dist']
 build-orchestrator-zip: build-orchestrator
     rm -f bootstrap.zip
     zip bootstrap.zip bootstrap
 
+# Deploy orchestrator lambda function
 [working-directory: 'dist']
 deploy-orchestrator: build-orchestrator-zip
     aws s3 cp bootstrap.zip s3://{{bucket}}/bootstrap.zip
@@ -61,11 +63,13 @@ deploy-orchestrator: build-orchestrator-zip
         --s3-key bootstrap.zip > /dev/null
     aws lambda wait function-updated --function-name runvoy-orchestrator
 
+# Build event processor zip file
 [working-directory: 'dist']
 build-event-processor-zip: build-event-processor
     rm -f event-processor.zip
     zip event-processor.zip bootstrap
 
+# Deploy event processor lambda function
 [working-directory: 'dist']
 deploy-event-processor: build-event-processor-zip
     aws s3 cp event-processor.zip s3://{{bucket}}/event-processor.zip
@@ -75,7 +79,7 @@ deploy-event-processor: build-event-processor-zip
         --s3-key event-processor.zip > /dev/null
     aws lambda wait function-updated --function-name runvoy-event-processor
 
-# Deploy webviewer HTML to S3 (public-read)
+# Deploy webviewer HTML to S3
 deploy-webviewer:
     aws s3 cp cmd/webviewer/index.html \
         s3://{{bucket}}/webviewer.html \
@@ -103,9 +107,8 @@ clean:
 dev-setup:
     go mod tidy
     go mod download
-    go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
     go install golang.org/x/tools/cmd/goimports@latest
-    pip install pre-commit
+    pip install pre-commit # TODO: add to requirements.txt?
 
 # Lint all Go code
 lint:

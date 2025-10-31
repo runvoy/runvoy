@@ -199,22 +199,22 @@ func (r *Router) handleKillExecution(w http.ResponseWriter, req *http.Request) {
 
 // handleListExecutions handles GET /api/v1/executions to list all executions
 func (r *Router) handleListExecutions(w http.ResponseWriter, req *http.Request) {
-    logger := r.GetLoggerFromContext(req.Context())
+	logger := r.GetLoggerFromContext(req.Context())
 
-    executions, err := r.svc.ListExecutions(req.Context())
-    if err != nil {
-        statusCode := apperrors.GetStatusCode(err)
-        errorCode := apperrors.GetErrorCode(err)
-        errorMsg := apperrors.GetErrorMessage(err)
+	executions, err := r.svc.ListExecutions(req.Context())
+	if err != nil {
+		statusCode := apperrors.GetStatusCode(err)
+		errorCode := apperrors.GetErrorCode(err)
+		errorMsg := apperrors.GetErrorMessage(err)
 
-        logger.Debug("failed to list executions", "error", err, "statusCode", statusCode, "errorCode", errorCode)
+		logger.Debug("failed to list executions", "error", err, "statusCode", statusCode, "errorCode", errorCode)
 
-        writeErrorResponseWithCode(w, statusCode, errorCode, "failed to list executions", errorMsg)
-        return
-    }
+		writeErrorResponseWithCode(w, statusCode, errorCode, "failed to list executions", errorMsg)
+		return
+	}
 
-    w.WriteHeader(http.StatusOK)
-    _ = json.NewEncoder(w).Encode(executions)
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(executions)
 }
 
 // handleHealth returns a simple health check response
