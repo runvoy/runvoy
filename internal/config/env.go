@@ -37,6 +37,10 @@ type OrchestratorEnv struct {
 	// Required by orchestrator lambda, validated at runtime in app.Initialize.
 	TaskDefinition string `env:"RUNVOY_TASK_DEFINITION,notEmpty"`
 
+	// TaskDefinitionWithGit is the ECS task definition with git-cloner sidecar (AWS only).
+	// Optional - if not set, git repo cloning will not be available.
+	TaskDefinitionWithGit string `env:"RUNVOY_TASK_DEFINITION_WITH_GIT"`
+
 	// Subnet1 is the first subnet ID for ECS tasks (AWS only).
 	// Required by orchestrator lambda, validated at runtime in app.Initialize.
 	Subnet1 string `env:"RUNVOY_SUBNET_1,notEmpty"`
