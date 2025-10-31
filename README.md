@@ -48,16 +48,58 @@ For detailed architecture information, see [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## Usage
 
-### Commands
+<!-- CLI_HELP_START -->
+### Available Commands
 
-**User Management:**
+To see all available commands and their descriptions:
+
 ```bash
-# Create a new user (returns API key - save it immediately!)
-runvoy users create <email>
-
-# Revoke a user's API key
-runvoy users revoke <email>
+runvoy --help
 ```
+
+```bash
+runvoy provides isolated, repeatable execution environments for your commands.
+Run commands remotely without the hassle of local execution, credential sharing, or race conditions.
+
+Usage:
+  runvoy [command]
+
+Available Commands:
+  completion  Generate the autocompletion script for the specified shell
+  configure   Configure local environment with API key and endpoint URL
+  help        Help about any command
+  kill        Kill a running command execution
+  list        List executions
+  logs        Get logs for an execution
+  run         Run a command
+  status      Get the status of a command execution
+  users       User management commands
+  version     Show the version of the CLI
+
+Flags:
+      --debug            Enable debugging logs
+  -h, --help             help for runvoy
+      --timeout string   Timeout for command execution (e.g., 10m, 30s, 1h) (default "10m")
+      --verbose          Verbose output
+
+Use "runvoy [command] --help" for more information about a command.
+```
+
+For more details about a specific command, use:
+
+```bash
+runvoy [command] --help
+```
+
+For example, to see all user management commands:
+
+```bash
+runvoy users --help
+```
+
+<!-- CLI_HELP_END -->
+
+### Common Commands Examples
 
 **Command Execution:**
 ```bash
@@ -130,28 +172,6 @@ The web viewer is a minimal, single-page application that provides:
 4. Settings are saved in browser's localStorage for future use
 
 The web viewer is hosted on AWS S3 and requires no installation - just open the URL in any modern browser.
-
-**Configuration:**
-```bash
-# Configure CLI with API key and endpoint URL
-runvoy configure
-```
-
-**List Executions:**
-```bash
-runvoy list
-
-# Prints a table similar to logs:
-# Execution ID  Status     Command        Started (UTC)        Completed (UTC)   Duration  Cloud
-# abc123        RUNNING    terraform plan 2025-10-30 13:32:48                   
-# def456        SUCCEEDED  echo hello     2025-10-29 09:10:00  2025-10-29 09:10:05 5s      AWS
-```
-
-**Other:**
-```bash
-# Show CLI and backend versions
-runvoy version
-```
 
 ### Global Flags
 

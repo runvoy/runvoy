@@ -250,6 +250,11 @@ smoke-test-local-kill-execution execution_id:
         -X POST "http://localhost:${RUNVOY_DEV_SERVER_PORT}/api/v1/executions/{{execution_id}}/kill" \
         -H "X-API-Key: ${RUNVOY_ADMIN_API_KEY}" | jq .
 
+# Update README.md with latest CLI help output
+# This ensures the README stays in sync with CLI commands
+update-readme-help:
+    ./scripts/update-readme-help.sh
+
 # TODO run agg into a github action and store it as asset so to avoid
 # having to commit the gif to the repository
 record-demo:
