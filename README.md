@@ -20,7 +20,7 @@ runvoy solves the challenge of giving team members access to run infrastructure 
 - **Safe stateful operations**: Automatic locking prevents concurrent conflicts
 - **Self-service**: Team members don't wait for admins to run commands
 - **Self-hosted**: The backend runs in your AWS account, you control everything
-
+- **Serverless**: No always-running servers, just pay for the compute your commands comsume
 ## Features
 
 - **CloudFormation deployment** - Deploy complete backend infrastructure with CloudFormation templates
