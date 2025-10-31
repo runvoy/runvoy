@@ -41,8 +41,8 @@ repos:
 
       - id: update-readme-help
         name: update-readme-help
-        entry: ./scripts/update-readme-help.sh
+        entry: just update-readme-help
         language: system
-        files: ^(cmd/runvoy/|scripts/update-readme-help\.sh|README\.md)$
+        files: ^(cmd/runvoy/|scripts/|README\.md)$
         pass_filenames: false
         always_run: false
