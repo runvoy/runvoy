@@ -237,7 +237,11 @@ func (e *Runner) StartTask(ctx context.Context, userEmail string, req api.Execut
 		Tags:        []ecsTypes.Tag{{Key: awsStd.String("ExecutionID"), Value: awsStd.String(executionID)}},
 	})
 	if tagErr != nil {
-		reqLogger.Warn("failed to add ExecutionID tag to task", "error", tagErr, "taskARN", taskARN, "executionID", executionID)
+		reqLogger.Warn(
+			"failed to add ExecutionID tag to task",
+			"error", tagErr,
+			"taskARN", taskARN,
+			"executionID", executionID)
 	}
 
 	return executionID, taskARN, nil
@@ -325,13 +329,23 @@ func (e *Runner) KillTask(ctx context.Context, executionID string) error {
 	}
 	for _, status := range terminatedStatuses {
 		if currentStatus == status {
-			return appErrors.ErrBadRequest("task is already terminated or terminating", fmt.Errorf("task status: %s", currentStatus))
+			return appErrors.ErrBadRequest(
+				"task is already terminated or terminating",
+				fmt.Errorf("task status: %s", currentStatus))
 		}
 	}
 
-	taskRunnableStatuses := []string{string(constants.EcsStatusRunning), string(constants.EcsStatusActivating)}
+	taskRunnableStatuses := []string{
+		string(constants.EcsStatusRunning),
+		string(constants.EcsStatusActivating),
+	}
 	if !slices.Contains(taskRunnableStatuses, string(constants.EcsStatus(currentStatus))) {
-		return appErrors.ErrBadRequest("task cannot be terminated in current state", fmt.Errorf("task status: %s, expected: %s", currentStatus, strings.Join(taskRunnableStatuses, ", ")))
+		return appErrors.ErrBadRequest(
+			"task cannot be terminated in current state",
+			fmt.Errorf(
+				"task status: %s, expected: %s",
+				currentStatus,
+				strings.Join(taskRunnableStatuses, ", ")))
 	}
 
 	stopOutput, err := e.ecsClient.StopTask(ctx, &ecs.StopTaskInput{
@@ -344,7 +358,11 @@ func (e *Runner) KillTask(ctx context.Context, executionID string) error {
 		return appErrors.ErrInternalError("failed to stop task", err)
 	}
 
-	reqLogger.Info("task termination initiated", "executionID", executionID, "taskARN", awsStd.ToString(stopOutput.Task.TaskArn), "previousStatus", currentStatus)
+	reqLogger.Info(
+		"task termination initiated",
+		"executionID", executionID,
+		"taskARN", awsStd.ToString(stopOutput.Task.TaskArn),
+		"previousStatus", currentStatus)
 
 	return nil
 }

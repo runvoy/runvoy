@@ -16,7 +16,7 @@ func TestSuccess(t *testing.T) {
 	buf := &bytes.Buffer{}
 	Stdout = buf
 
-	Success("operation completed")
+	Successf("operation completed")
 
 	output := buf.String()
 	if !strings.Contains(output, "operation completed") {
@@ -33,7 +33,7 @@ func TestError(t *testing.T) {
 	buf := &bytes.Buffer{}
 	Stderr = buf
 
-	Error("something went wrong")
+	Errorf("something went wrong")
 
 	output := buf.String()
 	if !strings.Contains(output, "something went wrong") {
@@ -326,7 +326,7 @@ func BenchmarkSuccess(b *testing.B) {
 	defer func() { Stdout = oldStdout }()
 
 	for i := 0; i < b.N; i++ {
-		Success("benchmark test")
+		Successf("benchmark test")
 	}
 }
 

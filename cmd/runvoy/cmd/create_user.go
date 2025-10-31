@@ -35,25 +35,25 @@ func init() {
 func runCreateUser(cmd *cobra.Command, args []string) {
 	cfg, err := getConfigFromContext(cmd)
 	if err != nil {
-		output.Error("failed to load configuration: %v", err)
+		output.Errorf("failed to load configuration: %v", err)
 		return
 	}
 	email := args[0]
 
-	output.Info("Creating user with email %s...", email)
+	output.Infof("Creating user with email %s...", email)
 
 	client := client.New(cfg, slog.Default())
 	resp, err := client.CreateUser(cmd.Context(), api.CreateUserRequest{
 		Email: email,
 	})
 	if err != nil {
-		output.Error(err.Error())
+		output.Errorf(err.Error())
 		return
 	}
 
-	output.Success("User created successfully")
+	output.Successf("User created successfully")
 	output.KeyValue("Email", resp.User.Email)
 	output.KeyValue("API Key", resp.APIKey)
 	output.Blank()
-	output.Warning("IMPORTANT: Save this API key now. It will not be shown again!")
+	output.Warningf("IMPORTANT: Save this API key now. It will not be shown again!")
 }

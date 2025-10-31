@@ -23,6 +23,7 @@ func main() {
 
 	svc, err := app.Initialize(ctx, constants.AWS, cfg, log)
 	if err != nil {
+		cancel()
 		log.Error("failed to initialize service", "error", err)
 		os.Exit(1)
 	}

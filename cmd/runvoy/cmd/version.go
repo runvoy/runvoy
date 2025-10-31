@@ -24,7 +24,7 @@ var versionCmd = &cobra.Command{
 		client := client.New(cfg, slog.Default())
 		health, err := client.GetHealth(cmd.Context())
 		if err != nil {
-			output.Error(err.Error())
+			output.Errorf(err.Error())
 			return
 		}
 

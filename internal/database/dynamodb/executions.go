@@ -185,7 +185,8 @@ func (r *ExecutionRepository) UpdateExecution(ctx context.Context, execution *ap
 
 	if execution.DurationSeconds > 0 {
 		updateExpr += ", duration_seconds = :duration_seconds"
-		exprAttrValues[":duration_seconds"] = &types.AttributeValueMemberN{Value: fmt.Sprintf("%d", execution.DurationSeconds)}
+		exprAttrValues[":duration_seconds"] = &types.AttributeValueMemberN{
+			Value: fmt.Sprintf("%d", execution.DurationSeconds)}
 	}
 
 	if execution.LogStreamName != "" {

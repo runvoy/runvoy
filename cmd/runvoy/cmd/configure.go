@@ -25,19 +25,19 @@ func runConfigure(_ *cobra.Command, _ []string) {
 	configExists := err == nil
 
 	if configExists {
-		output.Success("Found existing configuration")
+		output.Successf("Found existing configuration")
 	} else {
 		existingConfig = &config.Config{}
-		output.Info("Creating new configuration")
+		output.Infof("Creating new configuration")
 	}
 
 	endpoint := output.Prompt("Enter API endpoint URL")
 	if endpoint == "" {
 		if configExists && existingConfig.APIEndpoint != "" {
 			endpoint = existingConfig.APIEndpoint
-			output.Info("Using existing endpoint: %s", endpoint)
+			output.Infof("Using existing endpoint: %s", endpoint)
 		} else {
-			output.Fatal("API endpoint is required")
+			output.Fatalf("API endpoint is required")
 		}
 	}
 
@@ -45,9 +45,9 @@ func runConfigure(_ *cobra.Command, _ []string) {
 	if apiKey == "" {
 		if configExists && existingConfig.APIKey != "" {
 			apiKey = existingConfig.APIKey
-			output.Info("Using existing API key")
+			output.Infof("Using existing API key")
 		} else {
-			output.Fatal("API key is required")
+			output.Fatalf("API key is required")
 		}
 	}
 
@@ -57,15 +57,15 @@ func runConfigure(_ *cobra.Command, _ []string) {
 	}
 
 	if err := config.Save(cfg); err != nil {
-		output.Fatal("Failed to save configuration: %v", err)
+		output.Fatalf("Failed to save configuration: %v", err)
 	}
 
 	configPath, err := config.GetConfigPath()
 	if err != nil {
-		output.Fatal("Failed to get config path: %v", err)
+		output.Fatalf("Failed to get config path: %v", err)
 	}
 
-	output.Success("Configuration saved successfully")
+	output.Successf("Configuration saved successfully")
 	output.KeyValue("Configuration path", configPath)
-	output.Info("Configuration complete!")
+	output.Infof("Configuration complete!")
 }

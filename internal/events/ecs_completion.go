@@ -142,7 +142,9 @@ func determineStatusAndExitCode(event ECSTaskStateChangeEvent) (status string, e
 }
 
 // ECSCompletionHandler is a factory function that returns a handler for ECS completion events
-func ECSCompletionHandler(executionRepo database.ExecutionRepository, log *slog.Logger) func(context.Context, events.CloudWatchEvent) error {
+func ECSCompletionHandler(
+	executionRepo database.ExecutionRepository,
+	log *slog.Logger) func(context.Context, events.CloudWatchEvent) error {
 	return func(ctx context.Context, event events.CloudWatchEvent) error {
 		p := &Processor{
 			executionRepo: executionRepo,

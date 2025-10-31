@@ -29,16 +29,16 @@ func init() {
 func executionsRun(cmd *cobra.Command, _ []string) {
 	cfg, err := getConfigFromContext(cmd)
 	if err != nil {
-		output.Error("failed to load configuration: %v", err)
+		output.Errorf("failed to load configuration: %v", err)
 		return
 	}
 
-	output.Info("Listing executions…")
+	output.Infof("Listing executions…")
 
 	client := client.New(cfg, slog.Default())
 	execs, err := client.ListExecutions(cmd.Context())
 	if err != nil {
-		output.Error("failed to list executions: %v", err)
+		output.Errorf("failed to list executions: %v", err)
 		return
 	}
 
@@ -86,5 +86,5 @@ func executionsRun(cmd *cobra.Command, _ []string) {
 		rows,
 	)
 	output.Blank()
-	output.Success("Executions listed successfully")
+	output.Successf("Executions listed successfully")
 }

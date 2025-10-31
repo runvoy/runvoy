@@ -8,10 +8,10 @@ import (
 
 // ExampleBasicMessages demonstrates basic output functions
 func ExampleBasicMessages() {
-	output.Success("Operation completed successfully")
-	output.Info("Processing request...")
-	output.Warning("This action cannot be undone")
-	output.Error("Failed to connect to API")
+	output.Successf("Operation completed successfully")
+	output.Infof("Processing request...")
+	output.Warningf("This action cannot be undone")
+	output.Errorf("Failed to connect to API")
 }
 
 // ExampleSteps demonstrates multi-step process output
@@ -34,7 +34,7 @@ func ExampleSteps() {
 	output.StepSuccess(3, 3, "Configuration saved")
 
 	output.Blank()
-	output.Success("Setup complete!")
+	output.Successf("Setup complete!")
 }
 
 // ExampleConfiguration demonstrates configuration output
@@ -46,28 +46,28 @@ func ExampleConfiguration() {
 	output.Blank()
 
 	output.Printf("🔑 Your API key: %s\n", output.Bold("sk_live_abc123def456..."))
-	output.Info("API key saved to ~/.runvoy/config.yaml")
+	output.Infof("API key saved to ~/.runvoy/config.yaml")
 	output.Blank()
 
-	output.Info("Test it with: runvoy exec \"echo hello\"")
+	output.Infof("Test it with: runvoy exec \"echo hello\"")
 }
 
 // ExampleExecution demonstrates execution output
 func ExampleExecution() {
-	output.Info("Uploading code...")
+	output.Infof("Uploading code...")
 	time.Sleep(100 * time.Millisecond)
-	output.Success("Code uploaded (1.2 MB)")
+	output.Successf("Code uploaded (1.2 MB)")
 
-	output.Info("Starting execution...")
+	output.Infof("Starting execution...")
 	time.Sleep(100 * time.Millisecond)
-	output.Success("Execution started: exec_abc123")
+	output.Successf("Execution started: exec_abc123")
 
 	output.Blank()
 	output.Printf("🔗 View logs: %s\n", output.Cyan("https://runvoy.company.com/exec_abc123?token=..."))
 	output.Blank()
 
-	output.Info("Run 'runvoy status exec_abc123' to check status")
-	output.Info("Run 'runvoy logs exec_abc123' to view logs")
+	output.Infof("Run 'runvoy status exec_abc123' to check status")
+	output.Infof("Run 'runvoy logs exec_abc123' to view logs")
 }
 
 // ExampleTable demonstrates table output
@@ -125,7 +125,7 @@ func ExampleSpinner() {
 
 // ExampleProgressBar demonstrates progress bar
 func ExampleProgressBar() {
-	output.Info("Uploading code...")
+	output.Infof("Uploading code...")
 
 	progress := output.NewProgressBar(100, "Uploading")
 	for i := 0; i <= 100; i++ {
@@ -133,7 +133,7 @@ func ExampleProgressBar() {
 		time.Sleep(20 * time.Millisecond)
 	}
 
-	output.Success("Upload complete!")
+	output.Successf("Upload complete!")
 }
 
 // ExampleStatusOutput demonstrates status command output
@@ -148,32 +148,32 @@ func ExampleStatusOutput() {
 	output.KeyValue("Duration", output.Duration(125*time.Second))
 
 	output.Blank()
-	output.Info("Logs: runvoy logs exec_abc123")
+	output.Infof("Logs: runvoy logs exec_abc123")
 }
 
 // ExampleLockConflict demonstrates lock conflict output
 func ExampleLockConflict() {
-	output.Error("Lock already held")
+	output.Errorf("Lock already held")
 	output.KeyValue("Lock name", "infra-prod")
 	output.KeyValue("Held by", "alice@acme.com")
 	output.KeyValue("Since", "2025-10-26 14:32:10")
 	output.KeyValue("Execution", "exec_abc123")
 	output.Blank()
-	output.Info("View their logs: runvoy logs exec_abc123")
-	output.Info("Wait for completion or contact alice@acme.com")
+	output.Infof("View their logs: runvoy logs exec_abc123")
+	output.Infof("Wait for completion or contact alice@acme.com")
 }
 
 // ExampleConfirmation demonstrates user confirmation
 func ExampleConfirmation() {
-	output.Warning("This will delete all runvoy infrastructure")
+	output.Warningf("This will delete all runvoy infrastructure")
 	output.KeyValue("Stack", "runvoy")
 	output.KeyValue("Region", "us-east-1")
 	output.Blank()
 
 	if output.Confirm("Continue?") {
-		output.Info("Proceeding with deletion...")
+		output.Infof("Proceeding with deletion...")
 	} else {
-		output.Info("Cancelled")
+		output.Infof("Cancelled")
 	}
 }
 
@@ -182,28 +182,28 @@ func ExamplePrompt() {
 	output.Header("Configure runvoy")
 
 	// _ := output.PromptRequired("Enter API key")
-	output.Success("API key saved")
+	output.Successf("API key saved")
 
 	if output.Confirm("Set as default profile?") {
-		output.Info("Set as default")
+		output.Infof("Set as default")
 	}
 }
 
 // ExampleErrors demonstrates error handling output
 func ExampleErrors() {
 	// Simple error
-	output.Error("Failed to create execution: permission denied")
+	output.Errorf("Failed to create execution: permission denied")
 
 	output.Blank()
 
 	// Detailed error with context
-	output.Error("Failed to start ECS task")
+	output.Errorf("Failed to start ECS task")
     output.KeyValue("Task definition", "runvoy-runner")
 	output.KeyValue("Cluster", "runvoy-cluster")
 	output.KeyValue("Error", "InvalidParameterException: Container.image must not be blank")
 	output.Blank()
-	output.Info("Check your CloudFormation stack outputs")
-	output.Info("Run 'aws cloudformation describe-stacks --stack-name runvoy'")
+	output.Infof("Check your CloudFormation stack outputs")
+	output.Infof("Run 'aws cloudformation describe-stacks --stack-name runvoy'")
 }
 
 // ExampleFormattingHelpers demonstrates text formatting
@@ -237,14 +237,14 @@ func ExampleCompleteInitFlow() {
 	spinner.Success("CloudFormation stack created")
 
 	// Step 2: Generate API key
-	output.Info("Generating API key...")
+	output.Infof("Generating API key...")
 	time.Sleep(500 * time.Millisecond)
-	output.Success("API key generated")
+	output.Successf("API key generated")
 
 	// Step 3: Save config
-	output.Info("Saving configuration...")
+	output.Infof("Saving configuration...")
 	time.Sleep(500 * time.Millisecond)
-	output.Success("Configuration saved to ~/.runvoy/config.yaml")
+	output.Successf("Configuration saved to ~/.runvoy/config.yaml")
 
 	output.Blank()
 	output.Header("✅ Setup complete!")
@@ -258,31 +258,31 @@ func ExampleCompleteInitFlow() {
 	output.KeyValueBold("Important", "Save this key - it won't be shown again")
 
 	output.Blank()
-	output.Info("Test it with: runvoy exec \"echo hello\"")
+	output.Infof("Test it with: runvoy exec \"echo hello\"")
 }
 
 // ExampleCompleteExecFlow demonstrates a complete exec command flow
 func ExampleCompleteExecFlow() {
 	command := "terraform apply -auto-approve"
 
-	output.Info("Preparing to execute: %s", output.Bold(command))
+	output.Infof("Preparing to execute: %s", output.Bold(command))
 	output.Blank()
 
 	// Upload
-	output.Info("Creating code archive...")
+	output.Infof("Creating code archive...")
 	progress := output.NewProgressBar(100, "Archiving")
 	for i := 0; i <= 100; i += 10 {
 		progress.Update(i)
 		time.Sleep(50 * time.Millisecond)
 	}
 
-	output.Info("Uploading to S3...")
+	output.Infof("Uploading to S3...")
 	progress = output.NewProgressBar(100, "Uploading")
 	for i := 0; i <= 100; i += 5 {
 		progress.Update(i)
 		time.Sleep(30 * time.Millisecond)
 	}
-	output.Success("Code uploaded (%s)", output.Bytes(1234567))
+	output.Successf("Code uploaded (%s)", output.Bytes(1234567))
 
 	// Start execution
 	spinner := output.NewSpinner("Starting execution")

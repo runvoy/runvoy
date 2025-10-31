@@ -30,16 +30,16 @@ func logsRun(cmd *cobra.Command, args []string) {
 	executionID := args[0]
 	cfg, err := getConfigFromContext(cmd)
 	if err != nil {
-		output.Error("failed to load configuration: %v", err)
+		output.Errorf("failed to load configuration: %v", err)
 		return
 	}
 
-	output.Info("Getting logs for execution: %s", output.Bold(executionID))
+	output.Infof("Getting logs for execution: %s", output.Bold(executionID))
 
 	client := client.New(cfg, slog.Default())
 	resp, err := client.GetLogs(cmd.Context(), executionID)
 	if err != nil {
-		output.Error("failed to get logs: %v", err)
+		output.Errorf("failed to get logs: %v", err)
 		return
 	}
 
@@ -54,7 +54,7 @@ func logsRun(cmd *cobra.Command, args []string) {
 	}
 	output.Table([]string{"Line", "Timestamp (UTC)", "Message"}, rows)
 	output.Blank()
-	output.Success("Logs retrieved successfully")
-	output.Info("View logs in web viewer: %s?execution_id=%s",
+	output.Successf("Logs retrieved successfully")
+	output.Infof("View logs in web viewer: %s?execution_id=%s",
 		constants.WebviewerURL, output.Cyan(executionID))
 }
