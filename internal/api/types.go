@@ -15,6 +15,11 @@ type ExecutionRequest struct {
 	Image   string            `json:"image,omitempty"`
 	Env     map[string]string `json:"env,omitempty"`
 	Timeout int               `json:"timeout,omitempty"`
+
+	// Git repository configuration (optional sidecar pattern)
+	GitRepo string `json:"git_repo,omitempty"` // Git repository URL (e.g., "https://github.com/user/repo.git")
+	GitRef  string `json:"git_ref,omitempty"`  // Git branch, tag, or commit SHA (default: "main")
+	GitPath string `json:"git_path,omitempty"` // Working directory within the cloned repo (default: ".")
 }
 
 // ExecutionResponse represents the response to an execution request

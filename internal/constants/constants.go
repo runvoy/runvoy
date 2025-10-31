@@ -72,6 +72,19 @@ const (
 // Must match the container override name passed in the ECS RunTask call.
 const RunnerContainerName = "runner"
 
+// GitClonerContainerName is the sidecar container name for git repository cloning.
+// This container runs before the main runner container and clones the specified git repo.
+const GitClonerContainerName = "git-cloner"
+
+// SharedVolumeName is the name of the shared volume between containers.
+// Used for sharing the cloned git repository from sidecar to main container.
+const SharedVolumeName = "workspace"
+
+// SharedVolumePath is the mount path for the shared volume in both containers.
+// When git repository is specified, the git-cloner sidecar clones to /workspace/repo
+// and the main runner container creates .env file from user environment variables.
+const SharedVolumePath = "/workspace"
+
 // EcsStatus represents the AWS ECS Task LastStatus lifecycle values.
 // These are string statuses returned by ECS DescribeTasks for Task.LastStatus.
 type EcsStatus string
