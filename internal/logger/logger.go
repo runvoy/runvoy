@@ -18,7 +18,8 @@ func Initialize(env constants.Environment, level slog.Level) *slog.Logger {
 	if env == constants.Production {
 		handler = slog.NewJSONHandler(os.Stderr, opts)
 	} else {
-		handler = slog.NewTextHandler(os.Stderr, opts)
+		// Use colored handler for local/development environments
+		handler = NewColorHandler(os.Stderr, opts)
 	}
 
 	logger := slog.New(handler)
