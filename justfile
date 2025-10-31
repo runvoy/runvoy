@@ -139,13 +139,12 @@ create-lambda-bucket:
         --stack-name runvoy-releases-bucket \
         --template-file deployments/runvoy-bucket.yaml
 
-update-backend-infra:
+# Create/update backend infrastructure via cloudformation
+create-backend-infra:
     aws cloudformation deploy \
-        --stack-name runvoy-backend \
+        --stack-name ${RUNVOY_CLOUDFORMATION_BACKEND_STACK} \
         --template-file deployments/cloudformation-backend.yaml \
         --capabilities CAPABILITY_NAMED_IAM
-    aws cloudformation wait stack-create-complete \
-        --stack-name runvoy-backend
     just seed-admin-user
 
 # Seed initial admin user into DynamoDB (idempotent)
