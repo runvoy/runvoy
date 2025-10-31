@@ -215,6 +215,18 @@ func (e *Runner) StartTask(ctx context.Context, userEmail string, req api.Execut
 		Tags: tags,
 	}
 
+	// Log before calling ECS RunTask
+	logArgs := []any{
+		"operation", "ECS.RunTask",
+		"cluster", e.cfg.ECSCluster,
+		"taskDefinition", taskDefinition,
+		"containerCount", len(containerOverrides),
+		"userEmail", userEmail,
+		"hasGitRepo", hasGitRepo,
+	}
+	logArgs = append(logArgs, logger.GetDeadlineInfo(ctx)...)
+	reqLogger.Debug("calling external service", logArgs...)
+
 	runTaskOutput, err := e.ecsClient.RunTask(ctx, runTaskInput)
 	if err != nil {
 		return "", "", appErrors.ErrInternalError("failed to start ECS task", err)
@@ -231,6 +243,14 @@ func (e *Runner) StartTask(ctx context.Context, userEmail string, req api.Execut
 	reqLogger.Debug("task started", "taskARN", taskARN, "executionID", executionID)
 
 	// Add ExecutionID tag to the task for easier tracking (best-effort)
+	tagLogArgs := []any{
+		"operation", "ECS.TagResource",
+		"taskARN", taskARN,
+		"executionID", executionID,
+	}
+	tagLogArgs = append(tagLogArgs, logger.GetDeadlineInfo(ctx)...)
+	reqLogger.Debug("calling external service", tagLogArgs...)
+
 	_, tagErr := e.ecsClient.TagResource(ctx, &ecs.TagResourceInput{
 		ResourceArn: awsStd.String(taskARN),
 		Tags:        []ecsTypes.Tag{{Key: awsStd.String("ExecutionID"), Value: awsStd.String(executionID)}},
@@ -260,6 +280,15 @@ func (e *Runner) KillTask(ctx context.Context, executionID string) error {
 	// We can use ListTasks to find the task ARN, or construct it from the execution ID
 	// For ECS, we can use DescribeTasks with just the task ID (execution ID) if we know the cluster
 	// However, AWS ECS requires the full task ARN. Let's use ListTasks to find it first.
+	listLogArgs := []any{
+		"operation", "ECS.ListTasks",
+		"cluster", e.cfg.ECSCluster,
+		"desiredStatus", "RUNNING",
+		"executionID", executionID,
+	}
+	listLogArgs = append(listLogArgs, logger.GetDeadlineInfo(ctx)...)
+	reqLogger.Debug("calling external service", listLogArgs...)
+
 	listOutput, err := e.ecsClient.ListTasks(ctx, &ecs.ListTasksInput{
 		Cluster:       awsStd.String(e.cfg.ECSCluster),
 		DesiredStatus: ecsTypes.DesiredStatusRunning,
@@ -281,6 +310,15 @@ func (e *Runner) KillTask(ctx context.Context, executionID string) error {
 
 	// If not found in running tasks, check stopped tasks
 	if taskARN == "" {
+		listStoppedLogArgs := []any{
+			"operation", "ECS.ListTasks",
+			"cluster", e.cfg.ECSCluster,
+			"desiredStatus", "STOPPED",
+			"executionID", executionID,
+		}
+		listStoppedLogArgs = append(listStoppedLogArgs, logger.GetDeadlineInfo(ctx)...)
+		reqLogger.Debug("calling external service", listStoppedLogArgs...)
+
 		listStoppedOutput, err := e.ecsClient.ListTasks(ctx, &ecs.ListTasksInput{
 			Cluster:       awsStd.String(e.cfg.ECSCluster),
 			DesiredStatus: ecsTypes.DesiredStatusStopped,
@@ -302,6 +340,15 @@ func (e *Runner) KillTask(ctx context.Context, executionID string) error {
 	}
 
 	// Describe the task to check its current status
+	describeLogArgs := []any{
+		"operation", "ECS.DescribeTasks",
+		"cluster", e.cfg.ECSCluster,
+		"taskARN", taskARN,
+		"executionID", executionID,
+	}
+	describeLogArgs = append(describeLogArgs, logger.GetDeadlineInfo(ctx)...)
+	reqLogger.Debug("calling external service", describeLogArgs...)
+
 	describeOutput, err := e.ecsClient.DescribeTasks(ctx, &ecs.DescribeTasksInput{
 		Cluster: awsStd.String(e.cfg.ECSCluster),
 		Tasks:   []string{taskARN},
@@ -346,6 +393,16 @@ func (e *Runner) KillTask(ctx context.Context, executionID string) error {
 				currentStatus,
 				strings.Join(taskRunnableStatuses, ", ")))
 	}
+
+	stopLogArgs := []any{
+		"operation", "ECS.StopTask",
+		"cluster", e.cfg.ECSCluster,
+		"taskARN", taskARN,
+		"executionID", executionID,
+		"currentStatus", currentStatus,
+	}
+	stopLogArgs = append(stopLogArgs, logger.GetDeadlineInfo(ctx)...)
+	reqLogger.Debug("calling external service", stopLogArgs...)
 
 	stopOutput, err := e.ecsClient.StopTask(ctx, &ecs.StopTaskInput{
 		Cluster: awsStd.String(e.cfg.ECSCluster),

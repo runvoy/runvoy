@@ -103,6 +103,17 @@ func (r *ExecutionRepository) CreateExecution(ctx context.Context, execution *ap
 		return apperrors.ErrDatabaseError("failed to marshal execution", err)
 	}
 
+	// Log before calling DynamoDB PutItem
+	logArgs := []any{
+		"operation", "DynamoDB.PutItem",
+		"table", r.tableName,
+		"executionID", execution.ExecutionID,
+		"userEmail", execution.UserEmail,
+		"status", execution.Status,
+	}
+	logArgs = append(logArgs, logger.GetDeadlineInfo(ctx)...)
+	reqLogger.Debug("calling external service", logArgs...)
+
 	// Ensure uniqueness: only create if this PK does not already exist
 	_, err = r.client.PutItem(ctx, &dynamodb.PutItemInput{
 		TableName: aws.String(r.tableName),
@@ -129,6 +140,17 @@ func (r *ExecutionRepository) CreateExecution(ctx context.Context, execution *ap
 
 // GetExecution retrieves an execution by its execution ID.
 func (r *ExecutionRepository) GetExecution(ctx context.Context, executionID string) (*api.Execution, error) {
+	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
+
+	// Log before calling DynamoDB Query
+	logArgs := []any{
+		"operation", "DynamoDB.Query",
+		"table", r.tableName,
+		"executionID", executionID,
+	}
+	logArgs = append(logArgs, logger.GetDeadlineInfo(ctx)...)
+	reqLogger.Debug("calling external service", logArgs...)
+
 	result, err := r.client.Query(ctx, &dynamodb.QueryInput{
 		TableName:              aws.String(r.tableName),
 		KeyConditionExpression: aws.String("execution_id = :execution_id"),
@@ -157,6 +179,8 @@ func (r *ExecutionRepository) GetExecution(ctx context.Context, executionID stri
 
 // UpdateExecution updates an existing execution record.
 func (r *ExecutionRepository) UpdateExecution(ctx context.Context, execution *api.Execution) error {
+	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
+
 	// Build update expression dynamically based on what fields are set
 	updateExpr := "SET #status = :status"
 	exprAttrNames := map[string]string{
@@ -211,6 +235,17 @@ func (r *ExecutionRepository) UpdateExecution(ctx context.Context, execution *ap
 		return apperrors.ErrDatabaseError("started_at is not a string attribute", nil)
 	}
 
+	// Log before calling DynamoDB UpdateItem
+	updateLogArgs := []any{
+		"operation", "DynamoDB.UpdateItem",
+		"table", r.tableName,
+		"executionID", execution.ExecutionID,
+		"status", execution.Status,
+		"updateExpression", updateExpr,
+	}
+	updateLogArgs = append(updateLogArgs, logger.GetDeadlineInfo(ctx)...)
+	reqLogger.Debug("calling external service", updateLogArgs...)
+
 	_, err = r.client.UpdateItem(ctx, &dynamodb.UpdateItemInput{
 		TableName: aws.String(r.tableName),
 		Key: map[string]types.AttributeValue{
@@ -232,11 +267,23 @@ func (r *ExecutionRepository) UpdateExecution(ctx context.Context, execution *ap
 // ListExecutions queries the executions table's status-started_at GSI to return all execution records.
 // Results are sorted by StartedAt descending in-memory to provide a reasonable default ordering.
 func (r *ExecutionRepository) ListExecutions(ctx context.Context) ([]*api.Execution, error) {
+	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
+
 	statuses := append([]constants.ExecutionStatus{constants.ExecutionRunning},
 		constants.TerminalExecutionStatuses()...)
 	executions := make([]*api.Execution, 0, 64)
 
 	for _, st := range statuses {
+		// Log before calling DynamoDB Query for each status
+		queryLogArgs := []any{
+			"operation", "DynamoDB.Query",
+			"table", r.tableName,
+			"index", "status-started_at",
+			"status", string(st),
+		}
+		queryLogArgs = append(queryLogArgs, logger.GetDeadlineInfo(ctx)...)
+		reqLogger.Debug("calling external service", queryLogArgs...)
+
 		out, err := r.client.Query(ctx, &dynamodb.QueryInput{
 			TableName:              aws.String(r.tableName),
 			IndexName:              aws.String("status-started_at"),
