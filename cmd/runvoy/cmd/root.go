@@ -25,10 +25,7 @@ var (
 
 var rootCmd = &cobra.Command{
 	Use:   constants.ProjectName,
-	Short: "Remote execution environment for your commands",
-	Long: fmt.Sprintf(`%s provides isolated, repeatable execution environments for your commands.
-Run commands remotely without the hassle of local execution, credential sharing, or race conditions.`,
-		constants.ProjectName),
+	Short: constants.ProjectName + " - isolated, repeatable execution environments for your commands",
 	PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
 		printHeader(cmd)
 

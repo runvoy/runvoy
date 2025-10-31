@@ -58,8 +58,7 @@ runvoy --help
 ```
 
 ```bash
-runvoy provides isolated, repeatable execution environments for your commands.
-Run commands remotely without the hassle of local execution, credential sharing, or race conditions.
+runvoy - isolated, repeatable execution environments for your commands
 
 Usage:
   runvoy [command]
