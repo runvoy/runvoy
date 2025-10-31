@@ -48,15 +48,44 @@ For detailed architecture information, see [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## Usage
 
-### Discovering Commands
+<!-- CLI_HELP_START -->
+### Available Commands
 
-To see all available commands and their descriptions, use Cobra's built-in help:
+To see all available commands and their descriptions:
 
 ```bash
 runvoy --help
 ```
 
-This will display all available commands. For more details about a specific command, use:
+```bash
+runvoy provides isolated, repeatable execution environments for your commands.
+Run commands remotely without the hassle of local execution, credential sharing, or race conditions.
+
+Usage:
+  runvoy [command]
+
+Available Commands:
+  completion  Generate the autocompletion script for the specified shell
+  configure   Configure local environment with API key and endpoint URL
+  help        Help about any command
+  kill        Kill a running command execution
+  list        List executions
+  logs        Get logs for an execution
+  run         Run a command
+  status      Get the status of a command execution
+  users       User management commands
+  version     Show the version of the CLI
+
+Flags:
+      --debug            Enable debugging logs
+  -h, --help             help for runvoy
+      --timeout string   Timeout for command execution (e.g., 10m, 30s, 1h) (default "10m")
+      --verbose          Verbose output
+
+Use "runvoy [command] --help" for more information about a command.
+```
+
+For more details about a specific command, use:
 
 ```bash
 runvoy [command] --help
@@ -67,6 +96,8 @@ For example, to see all user management commands:
 ```bash
 runvoy users --help
 ```
+
+<!-- CLI_HELP_END -->
 
 ### Common Commands Examples
 

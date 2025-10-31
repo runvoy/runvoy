@@ -38,3 +38,11 @@ repos:
         args: [-w]
         types: [go]
         files: \.go$
+
+      - id: update-readme-help
+        name: update-readme-help
+        entry: ./scripts/update-readme-help.sh
+        language: system
+        files: ^(cmd/runvoy/|scripts/update-readme-help\.sh|README\.md)$
+        pass_filenames: false
+        always_run: false

@@ -34,24 +34,31 @@
 
 **CRITICAL: When adding, removing, or modifying CLI commands:**
 
-1. **README.md uses Cobra's built-in help** - The README directs users to use `runvoy --help` to discover all available commands. DO NOT manually list commands in the README.
+1. **README.md is automatically updated** - The README contains a section between `<!-- CLI_HELP_START -->` and `<!-- CLI_HELP_END -->` markers that is automatically populated with the latest CLI help output.
 
-2. **Keep examples current** - If you add/remove/modify commands:
+2. **Automatic updates via pre-commit hook** - A pre-commit hook (`scripts/update-readme-help.sh`) automatically updates the README when CLI commands change. The hook runs when:
+   - Files in `cmd/runvoy/` are modified
+   - The update script itself is modified
+   - `README.md` is modified
+
+3. **Manual update** - To manually update the README with latest CLI help:
+   ```bash
+   just update-readme-help
+   ```
+   Or run directly:
+   ```bash
+   ./scripts/update-readme-help.sh
+   ```
+
+4. **Keep examples current** - If you add/remove/modify commands:
+   - The help output in README is automatically updated via the hook
    - Update the "Common Commands Examples" section in README.md if the command is commonly used
    - Ensure examples still work with the new command structure
-   - Test that `runvoy --help` accurately reflects the changes
 
-3. **Verify help output** - After CLI changes:
-   - Run `just build-cli` to rebuild the CLI
-   - Run `./bin/runvoy --help` to verify the help output is correct
-   - Run `./bin/runvoy [command] --help` for modified commands to verify details
+5. **How it works**:
+   - The script builds the CLI (`just build-cli`)
+   - Captures `./bin/runvoy --help` output
+   - Injects it into the README between the marker comments
+   - The pre-commit hook ensures this happens automatically before commits
 
-4. **Update command examples** - If command syntax, flags, or behavior changes:
-   - Update the relevant examples in README.md's "Common Commands Examples" section
-   - Ensure examples match the actual CLI behavior
-
-5. **Test documentation** - Before committing:
-   - Verify all README examples work with the current CLI
-   - Ensure `runvoy --help` shows all commands correctly
-
-**Note:** The README no longer contains a manual list of commands. Users are directed to use `runvoy --help` for the authoritative, up-to-date command list. This ensures the documentation stays in sync automatically with the CLI implementation.
+**Note:** The README section between `<!-- CLI_HELP_START -->` and `<!-- CLI_HELP_END -->` is automatically generated. DO NOT edit it manually - run `just update-readme-help` to regenerate it.
