@@ -281,10 +281,13 @@ The application uses a unified logging approach with structured logging via `log
 │  └──────────────────┘                                          │
 │                                                                  │
 │  ┌──────────────────────────────────────────┐                 │
-│  │ Web UI (S3 + CloudFront)                 │                 │
-│  │ - Static site for viewing logs           │                 │
-│  │ - Token-based access (no login)          │                 │
-│  │ - Real-time log streaming                │                 │
+│  │ Web Viewer (S3-hosted)                   │                 │
+│  │ - Single HTML file with embedded JS/CSS  │                 │
+│  │ - Real-time log streaming (5s polling)   │                 │
+│  │ - ANSI color support for terminal output │                 │
+│  │ - Status tracking and metadata display   │                 │
+│  │ - LocalStorage-based authentication      │                 │
+│  │ - Pico.css styling framework             │                 │
 │  └──────────────────────────────────────────┘                 │
 └─────────────────────────────────────────────────────────────────┘
 
@@ -417,6 +420,102 @@ Execution status values are defined as typed constants in `internal/constants/co
 - **`EventProcessorLogGroup`**: CloudWatch Logs for event processor
 - **`TaskCompletionEventRule`**: EventBridge rule filtering ECS task completions
 - **`EventProcessorEventPermission`**: Permission for EventBridge to invoke Lambda
+
+## Web Viewer Architecture
+
+The platform includes a minimal web-based log viewer for visualizing execution logs in a browser. This provides an alternative to the CLI for teams who prefer a graphical interface.
+
+### Implementation
+
+**Location**: `cmd/webviewer/index.html`
+**Deployment**: Hosted on AWS S3 at `https://runvoy-releases.s3.us-east-2.amazonaws.com/webviewer.html`
+**Architecture**: Single-page application (SPA) - standalone HTML file with embedded CSS and JavaScript
+
+### Technology Stack
+
+- **Frontend**: Vanilla JavaScript + HTML5
+- **Styling**: Pico.css v2 (CSS framework) - adopted in commit d04515b for improved UI and responsiveness
+- **State Management**: Client-side (localStorage + JavaScript variables)
+- **Polling**: 5-second intervals for logs and status updates
+- **API Integration**: Fetch API for RESTful API calls
+
+### Core Features
+
+1. **Real-time Log Streaming**
+   - Polls API every 5 seconds for new logs
+   - Auto-scrolls to bottom on new logs
+   - Handles rate limiting and backpressure
+
+2. **ANSI Color Support**
+   - Parses and displays colored terminal output
+   - Maintains terminal formatting in the browser
+
+3. **Status Tracking**
+   - Displays execution status (RUNNING, SUCCEEDED, FAILED, STOPPED)
+   - Shows execution metadata (ID, start time, exit codes)
+   - Updates in real-time as execution progresses
+
+4. **Interactive Controls**
+   - Pause/Resume polling
+   - Download logs as text file
+   - Clear display
+   - Toggle metadata (line numbers and timestamps)
+
+5. **Authentication**
+   - API endpoint URL configuration
+   - API key authentication (stored in localStorage)
+   - First-time setup wizard
+   - Persistent credentials across sessions
+
+### API Endpoints Used
+
+The web viewer interacts with two API endpoints:
+
+- `GET /api/v1/executions/{id}/status` - Fetch execution status and metadata
+- `GET /api/v1/executions/{id}/logs` - Fetch execution logs
+
+Both endpoints require authentication via `X-API-Key` header.
+
+### Access Pattern
+
+Users access the web viewer via URL with execution ID as query parameter:
+
+```
+https://runvoy-releases.s3.us-east-2.amazonaws.com/webviewer.html?execution_id={executionID}
+```
+
+The CLI automatically provides this link when running commands (see `cmd/runvoy/cmd/logs.go:58-59`).
+
+### Configuration
+
+The web viewer URL is defined as a constant in `internal/constants/constants.go:118`:
+
+```go
+const WebviewerURL = "https://runvoy-releases.s3.us-east-2.amazonaws.com/webviewer.html"
+```
+
+### Browser Requirements
+
+- Modern browser with Fetch API support
+- JavaScript enabled
+- localStorage support (for persistent configuration)
+
+### Recent Improvements
+
+**Commit d04515b (October 30, 2025)**: Refactored to adopt Pico.css framework
+- Replaced custom dark theme with Pico.css
+- Added responsive grid layouts for controls
+- Improved mobile/tablet support
+- Maintained all existing functionality
+
+### Benefits
+
+- ✅ **No Installation Required**: Runs in any modern browser
+- ✅ **Real-time Updates**: Automatic log streaming without manual refresh
+- ✅ **User-Friendly**: Visual interface for non-CLI users
+- ✅ **Portable**: Single HTML file, easy to deploy anywhere
+- ✅ **Responsive**: Works on mobile, tablet, and desktop
+- ✅ **Stateless**: No backend server needed, communicates directly with API
 
 ## Error Handling System
 
@@ -603,14 +702,9 @@ Future enhancements may include server-side filtering and pagination.
    - DynamoDB repository operations
    - API request/response handling
    - End-to-end integration tests
+   - Web viewer functionality and API integration
 
-5. **Web UI** - Mentioned in architecture diagrams but not implemented. Potential features:
-   - View execution history
-   - Real-time log streaming
-   - User management interface
-   - Cost analytics dashboard
-
-6. **Request ID in Non-Lambda Environments** - Request ID extraction currently only works in Lambda. Enhancement needed for local server:
+5. **Request ID in Non-Lambda Environments** - Request ID extraction currently only works in Lambda. Enhancement needed for local server:
    - Generate request IDs in middleware
    - Use X-Request-ID header if present
    - Consistent request tracking across environments
@@ -628,6 +722,7 @@ Future enhancements may include server-side filtering and pagination.
 - ✅ **Local Development** - HTTP server for testing without AWS
 - ✅ **Provider Abstraction** - Runner interface for multi-cloud support
 - ✅ **Automated Admin Seeding** - Infra update step seeds an admin user into DynamoDB using the SHA-256 + base64 hash of the API key from the global CLI config (idempotent via conditional write). Requires `RUNVOY_ADMIN_EMAIL` to be set during deployment.
+- ✅ **Web Viewer** - Browser-based log viewer with real-time streaming, ANSI color support, and responsive UI (Pico.css)
 
 ## CLI Client Architecture
 

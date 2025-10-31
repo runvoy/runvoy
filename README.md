@@ -107,6 +107,35 @@ runvoy logs -f <executionID>
 # - Prints lines in the format: "[<line>] <timestamp>  <message>"
 ```
 
+**Web Viewer:**
+
+In addition to the CLI, you can view logs in a browser using the web viewer. The CLI automatically provides a web viewer link when you run a command:
+
+```bash
+runvoy run "echo hello world"
+# Output includes:
+# View logs in web viewer: https://runvoy-releases.s3.us-east-2.amazonaws.com/webviewer.html?execution_id=72f57686926e4becb89116b0ac72caec
+```
+
+The web viewer is a minimal, single-page application that provides:
+- **Real-time log streaming** - Automatically polls for new logs every 5 seconds
+- **ANSI color support** - Displays colored terminal output
+- **Status tracking** - Shows execution status (RUNNING, SUCCEEDED, FAILED, STOPPED)
+- **Execution metadata** - Displays execution ID, start time, and exit codes
+- **Interactive controls**:
+  - Pause/Resume polling
+  - Download logs as text file
+  - Clear display
+  - Toggle metadata (line numbers and timestamps)
+
+**Setup (first-time only):**
+1. Open the web viewer URL in your browser
+2. Enter your API endpoint URL (same as in `~/.runvoy/config.yaml`)
+3. Enter your API key (same as in `~/.runvoy/config.yaml`)
+4. Settings are saved in browser's localStorage for future use
+
+The web viewer is hosted on AWS S3 and requires no installation - just open the URL in any modern browser.
+
 **Configuration:**
 ```bash
 # Configure CLI with API key and endpoint URL
