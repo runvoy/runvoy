@@ -26,10 +26,10 @@ const (
 
 // colorHandler is a slog.Handler that formats log records with ANSI colors
 type colorHandler struct {
-	opts            *slog.HandlerOptions
-	writer          io.Writer
+	opts              *slog.HandlerOptions
+	writer            io.Writer
 	preformattedAttrs []byte
-	groups          []string
+	groups            []string
 }
 
 // NewColorHandler creates a new color handler that formats logs with colors
@@ -86,7 +86,8 @@ func (h *colorHandler) Handle(ctx context.Context, r slog.Record) error {
 
 	// Format attributes from the record
 	if r.NumAttrs() > 0 {
-		needSpace := len(h.preformattedAttrs) > 0
+		// Always need space before attributes (after message or preformatted attrs)
+		needSpace := true
 		r.Attrs(func(a slog.Attr) bool {
 			if needSpace {
 				buf.WriteByte(' ')
