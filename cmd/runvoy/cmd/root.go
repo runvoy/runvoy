@@ -25,7 +25,10 @@ var (
 
 var rootCmd = &cobra.Command{
 	Use:   constants.ProjectName,
-	Short: constants.ProjectName + " - isolated, repeatable execution environments for your commands",
+	Short: constants.ProjectName,
+	Long: fmt.Sprintf(`%s - %s
+Isolated, repeatable execution environments for your commands`,
+		constants.ProjectName, *constants.GetVersion()),
 	PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
 		printHeader(cmd)
 
