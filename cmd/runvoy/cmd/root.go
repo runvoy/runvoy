@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -125,7 +126,7 @@ func parseTimeout(timeoutStr string) (time.Duration, error) {
 		errMsg := fmt.Sprintf(
 			"invalid timeout format: %s (use duration like '10m' or '30s', or seconds like '600')",
 			timeoutStr)
-		return 0, fmt.Errorf(errMsg)
+		return 0, errors.New(errMsg)
 	}
 
 	return time.Duration(seconds) * time.Second, nil

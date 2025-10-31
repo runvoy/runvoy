@@ -169,11 +169,12 @@ func (h *colorHandler) appendValue(buf *strings.Builder, v slog.Value, key strin
 	case slog.KindString:
 		// Special coloring for error and status fields
 		val := v.String()
-		if key == "error" {
+		switch key {
+		case "error":
 			buf.WriteString(colorRed)
 			buf.WriteString(val)
 			buf.WriteString(colorReset)
-		} else if key == "status" {
+		case "status":
 			statusColor := colorCyan
 			if strings.Contains(val, "SUCCEEDED") {
 				statusColor = colorGreen
@@ -183,7 +184,7 @@ func (h *colorHandler) appendValue(buf *strings.Builder, v slog.Value, key strin
 			buf.WriteString(statusColor)
 			buf.WriteString(val)
 			buf.WriteString(colorReset)
-		} else {
+		default:
 			buf.WriteString(val)
 		}
 	case slog.KindInt64:
