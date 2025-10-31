@@ -15,7 +15,7 @@ alias r := runvoy
 # Build the CLI binary and run it with the given arguments
 [default]
 runvoy *ARGS: build-cli
-    ./bin/runvoy {{ARGS}}
+    ./bin/runvoy --verbose {{ARGS}}
 
 # Build all binaries
 build: build-cli build-local build-orchestrator build-event-processor
