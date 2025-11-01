@@ -39,6 +39,21 @@ type UserRepository interface {
 	// RevokeUser marks a user's API key as revoked without deleting the record.
 	// Useful for audit trails.
 	RevokeUser(ctx context.Context, email string) error
+
+	// Pending API key operations
+
+	// CreatePendingAPIKey stores a pending API key with a secret token.
+	CreatePendingAPIKey(ctx context.Context, pending *api.PendingAPIKey) error
+
+	// GetPendingAPIKey retrieves a pending API key by its secret token.
+	// Returns nil if the token doesn't exist or has expired.
+	GetPendingAPIKey(ctx context.Context, secretToken string) (*api.PendingAPIKey, error)
+
+	// MarkAsViewed atomically marks a pending key as viewed with the IP address.
+	MarkAsViewed(ctx context.Context, secretToken string, ipAddress string) error
+
+	// DeletePendingAPIKey removes a pending API key from the database.
+	DeletePendingAPIKey(ctx context.Context, secretToken string) error
 }
 
 // ExecutionRepository defines the interface for execution-related database operations.
@@ -55,20 +70,4 @@ type ExecutionRepository interface {
 	// ListExecutions returns all executions currently present in the database.
 	// Implementations may choose an efficient retrieval strategy; order is newest first.
 	ListExecutions(ctx context.Context) ([]*api.Execution, error)
-}
-
-// PendingAPIKeyRepository defines the interface for pending API key operations.
-type PendingAPIKeyRepository interface {
-	// CreatePendingAPIKey stores a pending API key with a secret token.
-	CreatePendingAPIKey(ctx context.Context, pending *api.PendingAPIKey) error
-
-	// GetPendingAPIKey retrieves a pending API key by its secret token.
-	// Returns nil if the token doesn't exist or has expired.
-	GetPendingAPIKey(ctx context.Context, secretToken string) (*api.PendingAPIKey, error)
-
-	// MarkAsViewed atomically marks a pending key as viewed with the IP address.
-	MarkAsViewed(ctx context.Context, secretToken string, ipAddress string) error
-
-	// DeletePendingAPIKey removes a pending API key from the database.
-	DeletePendingAPIKey(ctx context.Context, secretToken string) error
 }

@@ -38,7 +38,6 @@ type Runner interface {
 type Service struct {
 	userRepo      database.UserRepository
 	executionRepo database.ExecutionRepository
-	pendingRepo   database.PendingAPIKeyRepository
 	runner        Runner
 	Logger        *slog.Logger
 	Provider      constants.BackendProvider
@@ -52,14 +51,12 @@ type Service struct {
 func NewService(
 	userRepo database.UserRepository,
 	executionRepo database.ExecutionRepository,
-	pendingRepo database.PendingAPIKeyRepository,
 	runner Runner,
 	logger *slog.Logger,
 	provider constants.BackendProvider) *Service {
 	return &Service{
 		userRepo:      userRepo,
 		executionRepo: executionRepo,
-		pendingRepo:   pendingRepo,
 		runner:        runner,
 		Logger:        logger,
 		Provider:      provider,
@@ -71,10 +68,6 @@ func NewService(
 func (s *Service) CreateUser(ctx context.Context, req api.CreateUserRequest, createdByEmail string) (*api.CreateUserResponse, error) {
 	if s.userRepo == nil {
 		return nil, apperrors.ErrInternalError("user repository not configured", nil)
-	}
-
-	if s.pendingRepo == nil {
-		return nil, apperrors.ErrInternalError("pending repository not configured", nil)
 	}
 
 	if req.Email == "" {
@@ -139,7 +132,7 @@ func (s *Service) CreateUser(ctx context.Context, req api.CreateUserRequest, cre
 		Viewed:      false,
 	}
 
-	if err := s.pendingRepo.CreatePendingAPIKey(ctx, pending); err != nil {
+	if err := s.userRepo.CreatePendingAPIKey(ctx, pending); err != nil {
 		// Clean up user if pending creation fails
 		_ = s.userRepo.RevokeUser(ctx, req.Email)
 		return nil, apperrors.ErrDatabaseError("failed to create pending API key", err)
@@ -153,16 +146,12 @@ func (s *Service) CreateUser(ctx context.Context, req api.CreateUserRequest, cre
 
 // ClaimAPIKey retrieves and claims a pending API key by its secret token.
 func (s *Service) ClaimAPIKey(ctx context.Context, secretToken string, ipAddress string) (*api.ClaimAPIKeyResponse, error) {
-	if s.pendingRepo == nil {
-		return nil, apperrors.ErrInternalError("pending repository not configured", nil)
-	}
-
 	if s.userRepo == nil {
 		return nil, apperrors.ErrInternalError("user repository not configured", nil)
 	}
 
 	// Retrieve pending key
-	pending, err := s.pendingRepo.GetPendingAPIKey(ctx, secretToken)
+	pending, err := s.userRepo.GetPendingAPIKey(ctx, secretToken)
 	if err != nil {
 		return nil, apperrors.ErrDatabaseError("failed to retrieve pending key", err)
 	}
@@ -183,7 +172,7 @@ func (s *Service) ClaimAPIKey(ctx context.Context, secretToken string, ipAddress
 	}
 
 	// Mark as viewed atomically
-	if err := s.pendingRepo.MarkAsViewed(ctx, secretToken, ipAddress); err != nil {
+	if err := s.userRepo.MarkAsViewed(ctx, secretToken, ipAddress); err != nil {
 		return nil, err
 	}
 
