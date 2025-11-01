@@ -28,7 +28,7 @@ import (
 func Initialize(
 	ctx context.Context,
 	provider constants.BackendProvider,
-	cfg *config.OrchestratorEnv,
+	cfg *config.Config,
 	logger *slog.Logger) (*Service, error) {
 	logger.Debug("initializing "+constants.ProjectName,
 		"provider", provider,
@@ -61,7 +61,7 @@ func Initialize(
 // initializeAWSBackend sets up AWS-specific dependencies
 func initializeAWSBackend(
 	ctx context.Context,
-	cfg *config.OrchestratorEnv,
+	cfg *config.Config,
 	logger *slog.Logger) (database.UserRepository, database.ExecutionRepository, Runner, error) {
 	if cfg.APIKeysTable == "" {
 		return nil, nil, nil, fmt.Errorf("APIKeysTable cannot be empty")

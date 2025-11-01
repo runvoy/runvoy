@@ -16,8 +16,8 @@ import (
 )
 
 func main() {
-	cfg := config.MustLoadOrchestratorEnv()
-	log := logger.Initialize(constants.Production, cfg.LogLevel)
+	cfg := config.MustLoadOrchestrator()
+	log := logger.Initialize(constants.Production, cfg.GetLogLevel())
 	ctx, cancel := context.WithTimeout(context.Background(), cfg.InitTimeout)
 	defer cancel()
 
