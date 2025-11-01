@@ -33,7 +33,6 @@ runvoy solves the challenge of giving team members access to run infrastructure 
 - **CloudWatch integration** - Full execution logs and audit trails
 - **Multi-user support** - Centralized execution for entire teams
 - **Event-driven architecture** - Automatic execution tracking via EventBridge
-- **Cost tracking** - Real-time Fargate cost calculation per execution
 - **Execution locking** - Prevent concurrent operations on shared resources (e.g., Terraform state)
 
 ## Quick Start
@@ -189,7 +188,7 @@ runvoy uses a serverless event-driven architecture built on AWS Lambda, ECS Farg
 
 - **Orchestrator Lambda**: HTTPS endpoint (Function URL) for synchronous API requests
 - **Event Processor Lambda**: Asynchronous event handler for ECS task completions
-- **DynamoDB**: Stores API keys (hashed), execution records with status and costs
+- **DynamoDB**: Stores API keys (hashed), execution records with status
 - **ECS Fargate**: Runs commands in isolated, ephemeral ARM64 containers
 - **EventBridge**: Captures ECS task state changes for completion tracking
 - **CloudWatch**: Logs all executions for audit and debugging

@@ -88,17 +88,11 @@ func (p *Processor) handleECSTaskCompletion(ctx context.Context, event events.Cl
 		)
 		durationSeconds = 0
 	}
-	cost, err := CalculateFargateCost(taskEvent.CPU, taskEvent.Memory, durationSeconds)
-	if err != nil {
-		reqLogger.Warn("failed to calculate cost", "error", err)
-		cost = 0.0 // Continue with zero cost rather than failing? TODO: figure out what to do with failed cost calculations
-	}
 
 	execution.Status = status
 	execution.ExitCode = exitCode
 	execution.CompletedAt = &stoppedAt
 	execution.DurationSeconds = durationSeconds
-	execution.CostUSD = cost
 
 	if err := p.executionRepo.UpdateExecution(ctx, execution); err != nil {
 		reqLogger.Error("failed to update execution", "error", err)

@@ -16,7 +16,7 @@ This document outlines the planned improvements and future direction for the run
 - [ ] Increase test coverage to minimum 70%
   - [ ] Add unit tests for `internal/app` (service layer)
   - [ ] Add unit tests for `internal/database/dynamodb` (repository)
-  - [ ] Add unit tests for `internal/events` (event processing, cost calculation)
+  - [ ] Add unit tests for `internal/events` (event processing)
   - [ ] Add unit tests for `internal/auth` (API key validation)
   - [ ] Add unit tests for `internal/app/aws` (ECS runner)
 - [ ] Add integration tests for API endpoints
@@ -212,7 +212,7 @@ This document outlines the planned improvements and future direction for the run
 **Acceptance Criteria:**
 - Users can deploy to GCP/Azure with minimal changes
 - Provider-specific features are documented
-- Cost tracking works across all providers
+- Cost tracking can be implemented when cost calculation feature is added
 
 ---
 
@@ -224,6 +224,10 @@ This document outlines the planned improvements and future direction for the run
 - [ ] Add execution dependencies and workflows
 - [ ] Support parallel execution limits
 - [ ] Add execution templates/presets
+- [ ] Implement execution cost calculation and tracking
+  - Calculate Fargate cost per execution based on vCPU, memory, and duration
+  - Support multi-cloud cost calculation (AWS, GCP, Azure)
+  - Store cost data in execution records
 - [ ] Implement cost budgets and alerts
 - [ ] Add execution analytics and insights
 - [ ] Support execution retries with backoff
@@ -233,6 +237,7 @@ This document outlines the planned improvements and future direction for the run
 **Acceptance Criteria:**
 - Users can schedule recurring executions
 - Complex workflows are supported
+- Execution costs are tracked and visible
 - Costs are predictable and controllable
 - Failed executions can retry automatically
 
@@ -283,7 +288,6 @@ This document outlines the planned improvements and future direction for the run
 
 ### Immediate (Include in next sprint)
 - [ ] Fix orphaned tasks handling (see `internal/events/ecs_completion.go:50`)
-- [ ] Fix failed cost calculations (see `internal/events/ecs_completion.go:71`)
 - [ ] Make webviewer URL configurable (see `internal/constants/constants.go:130`)
 - [ ] Replace temporary admin seeding script with permanent solution
 - [ ] Add error handling for DynamoDB conditional check failures
