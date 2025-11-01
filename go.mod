@@ -12,7 +12,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/cloudformation v1.68.2
 	github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs v1.58.5
 	github.com/aws/aws-sdk-go-v2/service/dynamodb v1.39.1
-	github.com/aws/aws-sdk-go-v2/service/ecs v1.66.0
+	github.com/aws/aws-sdk-go-v2/service/ecs v1.67.0
 	github.com/aws/aws-sdk-go-v2/service/lambda v1.81.0
 	github.com/caarlos0/env/v11 v11.3.1
 	github.com/fatih/color v1.18.0
