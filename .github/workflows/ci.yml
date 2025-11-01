@@ -16,10 +16,10 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version: ${{ matrix.go-version }}
           cache: true
@@ -45,7 +45,7 @@ jobs:
         run: go tool cover -html=coverage.out -o coverage.html
 
       - name: Archive coverage results
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: coverage-report-${{ matrix.go-version }}
           path: |
@@ -59,10 +59,10 @@ jobs:
 
   #   steps:
   #     - name: Checkout code
-  #       uses: actions/checkout@v4
+  #       uses: actions/checkout@v5
 
   #     - name: Set up Go
-  #       uses: actions/setup-go@v5
+  #       uses: actions/setup-go@v6
   #       with:
   #         go-version: '1.25.x'
   #         cache: true
@@ -79,10 +79,10 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version: latest
           cache: true
@@ -101,7 +101,7 @@ jobs:
           output: 'trivy-results.sarif'
 
       - name: Upload Trivy results to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: 'trivy-results.sarif'
         continue-on-error: true
@@ -118,10 +118,10 @@ jobs:
 
   #   steps:
   #     - name: Checkout code
-  #       uses: actions/checkout@v4
+  #       uses: actions/checkout@v5
 
   #     - name: Set up Go
-  #       uses: actions/setup-go@v5
+  #       uses: actions/setup-go@v6
   #       with:
   #         go-version: '1.25.x'
   #         cache: true
@@ -137,7 +137,7 @@ jobs:
   #         just build
 
   #     # - name: Upload build artifacts
-  #     #   uses: actions/upload-artifact@v4
+  #     #   uses: actions/upload-artifact@v5
   #     #   with:
   #     #     name: runvoy-${{ matrix.os }}-${{ matrix.arch }}
   #     #     path: bin/runvoy-${{ matrix.os }}-${{ matrix.arch }}
