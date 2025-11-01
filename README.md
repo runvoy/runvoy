@@ -40,7 +40,7 @@ runvoy solves the challenge of giving team members access to run infrastructure 
 
 ### Prerequisites
 
-- Go 1.23 or later
+- Go 1.25 or later
 - [just](https://github.com/casey/just) command runner
 - AWS CloudFormation and AWS profile configured with admin credentials (or check `infra/cloudformation-backend.yaml` for the required permissions)
 
@@ -74,7 +74,7 @@ runvoy configure # can be skipped if you are the admin user, the init process wi
 
 ### Prerequisites for Development
 
-- Go 1.23 or later
+- Go 1.25 or later
 - [just](https://github.com/casey/just) command runner
 - AWS credentials configured in your shell environment
 - `.env` file in the repository root (see [Environment Configuration](#environment-configuration))

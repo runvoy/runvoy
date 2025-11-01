@@ -6,13 +6,13 @@
 ### Primary Documentation Files
 
 - **README.md** - User-facing documentation (installation, usage, examples)
-- **ARCHITECTURE.md** - Technical documentation (system design, implementation details)
+- **docs/ARCHITECTURE.md** - Technical documentation (system design, implementation details)
 
 ### Documentation Update Policy
 
 **CRITICAL**: don't jump into full blown implementations, keep changes small and easy to review
 
-**CRITICAL: When making ANY code changes, you MUST update ARCHITECTURE.md if:**
+**CRITICAL: When making ANY code changes, you MUST update docs/ARCHITECTURE.md if:**
 
 - Adding/removing commands or features
 - Changing API contracts or data structures
@@ -25,7 +25,7 @@
 
 **After implementing changes:**
 
-1. Update ARCHITECTURE.md with new behavior
+1. Update docs/ARCHITECTURE.md with new behavior
 2. Update code references if line numbers changed significantly
 3. Update README.md if user-facing behavior changed
 4. Keep both docs consistent and in sync
