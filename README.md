@@ -15,13 +15,14 @@ Think of running commands in an ephemeral environment and sharing execution logs
 runvoy solves the challenge of giving team members access to run infrastructure commands (terraform, CDK, kubectl, etc.) without distributing admin credentials. Deploy once, secure forever.
 
 **Key Benefits:**
+
 - **No credential sharing**: Team members never see AWS credentials
 - **Complete audit trail**: Every execution logged with user identification
 - **Safe stateful operations**: Automatic locking prevents concurrent conflicts
 - **Self-service**: Team members don't wait for admins to run commands
 - **Self-hosted**: The backend runs in your AWS account, you control everything
 - **Serverless**: No always-running servers, just pay for the compute your commands comsume
-- **Full control**: No black magic. You can tune all the parameters, the resources are provisioned via CloudFormation
+- **Full control**: No black magic. You can tune all the parameters, the resources are provisioned in your AWS account via CloudFormation
 
 ## Features
 

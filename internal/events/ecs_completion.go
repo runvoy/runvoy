@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
+	"time"
 
 	"runvoy/internal/constants"
 	"runvoy/internal/database"
@@ -53,10 +54,23 @@ func (p *Processor) handleECSTaskCompletion(ctx context.Context, event events.Cl
 	}
 
 	status, exitCode := determineStatusAndExitCode(taskEvent)
-	startedAt, err := ParseTime(taskEvent.StartedAt)
-	if err != nil {
-		reqLogger.Error("failed to parse startedAt timestamp", "error", err, "startedAt", taskEvent.StartedAt)
-		return fmt.Errorf("failed to parse startedAt: %w", err)
+
+	// Handle startedAt: if empty in event, fall back to execution's StartedAt
+	// This can happen when a container fails before starting (e.g., sidecar git puller fails)
+	var startedAt time.Time
+	if taskEvent.StartedAt != "" {
+		var err error
+		startedAt, err = ParseTime(taskEvent.StartedAt)
+		if err != nil {
+			reqLogger.Error("failed to parse startedAt timestamp", "error", err, "startedAt", taskEvent.StartedAt)
+			return fmt.Errorf("failed to parse startedAt: %w", err)
+		}
+	} else {
+		// Use execution's StartedAt as fallback when task event doesn't have it
+		reqLogger.Warn("startedAt missing from task event, using execution's StartedAt",
+			"executionStartedAt", execution.StartedAt.Format(time.RFC3339),
+		)
+		startedAt = execution.StartedAt
 	}
 
 	stoppedAt, err := ParseTime(taskEvent.StoppedAt)
@@ -66,6 +80,14 @@ func (p *Processor) handleECSTaskCompletion(ctx context.Context, event events.Cl
 	}
 
 	durationSeconds := int(stoppedAt.Sub(startedAt).Seconds())
+	if durationSeconds < 0 {
+		// If duration is negative (shouldn't happen, but handle gracefully), set to 0
+		reqLogger.Warn("calculated negative duration, setting to 0",
+			"startedAt", startedAt.Format(time.RFC3339),
+			"stoppedAt", stoppedAt.Format(time.RFC3339),
+		)
+		durationSeconds = 0
+	}
 	cost, err := CalculateFargateCost(taskEvent.CPU, taskEvent.Memory, durationSeconds)
 	if err != nil {
 		reqLogger.Warn("failed to calculate cost", "error", err)

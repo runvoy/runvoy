@@ -375,7 +375,8 @@ Designed to be extended for future event types:
 - Parses ECS task events
 - Extracts execution ID from task ARN
 - Determines final status from exit code and stop reason
-- Calculates duration and cost
+- Handles missing `startedAt` timestamps: When ECS task events have an empty `startedAt` field (e.g., when containers fail before starting, such as sidecar git puller failures), falls back to the execution's `StartedAt` timestamp that was set at creation time
+- Calculates duration and cost (with safeguards for negative durations)
 - Updates DynamoDB execution record
 
 **Cost Calculator**: `internal/events/cost.go`
