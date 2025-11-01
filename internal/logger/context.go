@@ -70,3 +70,18 @@ func GetDeadlineInfo(ctx context.Context) []any {
 		"deadline_remaining", remaining.String(),
 	}
 }
+
+// SliceToMap converts a slice of alternating key-value pairs to a map[string]any.
+// It expects the slice to have an even number of elements with string keys.
+// Non-string keys are skipped.
+func SliceToMap(args []any) map[string]any {
+	argsMap := make(map[string]any)
+	for i := 0; i < len(args); i += 2 {
+		if i+1 < len(args) {
+			if key, ok := args[i].(string); ok {
+				argsMap[key] = args[i+1]
+			}
+		}
+	}
+	return argsMap
+}

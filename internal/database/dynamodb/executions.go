@@ -112,7 +112,7 @@ func (r *ExecutionRepository) CreateExecution(ctx context.Context, execution *ap
 		"status", execution.Status,
 	}
 	logArgs = append(logArgs, logger.GetDeadlineInfo(ctx)...)
-	reqLogger.Debug("calling external service", logArgs...)
+	reqLogger.Debug("calling external service", "args", logger.SliceToMap(logArgs))
 
 	// Ensure uniqueness: only create if this PK does not already exist
 	_, err = r.client.PutItem(ctx, &dynamodb.PutItemInput{
@@ -149,7 +149,7 @@ func (r *ExecutionRepository) GetExecution(ctx context.Context, executionID stri
 		"executionID", executionID,
 	}
 	logArgs = append(logArgs, logger.GetDeadlineInfo(ctx)...)
-	reqLogger.Debug("calling external service", logArgs...)
+	reqLogger.Debug("calling external service", "args", logger.SliceToMap(logArgs))
 
 	result, err := r.client.Query(ctx, &dynamodb.QueryInput{
 		TableName:              aws.String(r.tableName),
@@ -244,7 +244,7 @@ func (r *ExecutionRepository) UpdateExecution(ctx context.Context, execution *ap
 		"updateExpression", updateExpr,
 	}
 	updateLogArgs = append(updateLogArgs, logger.GetDeadlineInfo(ctx)...)
-	reqLogger.Debug("calling external service", updateLogArgs...)
+	reqLogger.Debug("calling external service", "args", logger.SliceToMap(updateLogArgs))
 
 	_, err = r.client.UpdateItem(ctx, &dynamodb.UpdateItemInput{
 		TableName: aws.String(r.tableName),
@@ -282,7 +282,7 @@ func (r *ExecutionRepository) ListExecutions(ctx context.Context) ([]*api.Execut
 			"status", string(st),
 		}
 		queryLogArgs = append(queryLogArgs, logger.GetDeadlineInfo(ctx)...)
-		reqLogger.Debug("calling external service", queryLogArgs...)
+		reqLogger.Debug("calling external service", "args", logger.SliceToMap(queryLogArgs))
 
 		out, err := r.client.Query(ctx, &dynamodb.QueryInput{
 			TableName:              aws.String(r.tableName),
