@@ -120,7 +120,7 @@ Creates a new user with an API key and returns a secure one-time claim URL.
     "created_at": "2024-01-01T00:00:00Z",
     "revoked": false
   },
-  "claim_url": "https://api.example.com/claim/abc-123-def-456"  // One-time URL
+  "claim_token": "abc-123-def-456"  // One-time token (client constructs URL as {endpoint}/claim/{token})
 }
 ```
 
@@ -146,10 +146,16 @@ Retrieves a pending API key via a one-time claim URL. This is a public endpoint 
 - GET request to `/claim/{token}` where `token` is the secret token from the claim URL
 
 **Response (200 OK):**
-- HTML page displaying the API key with copy-to-clipboard functionality
-- Shows user email, API key, and instructions for configuration
+- JSON response containing the API key:
+  ```json
+  {
+    "api_key": "p_75LzCL...",
+    "user_email": "alice@example.com",
+    "message": "API key claimed successfully"
+  }
+  ```
 
-**Error Responses (HTML pages):**
+**Error Responses (JSON):**
 - 404 Not Found: Invalid or expired token
 - 409 Conflict: Token already claimed
 
@@ -158,8 +164,7 @@ Implementation:
 - Checks that token has not been viewed before
 - Atomically marks token as viewed with IP address and timestamp
 - Removes TTL from user record in `api-keys` table (makes user permanent)
-- Serves HTML with copy-to-clipboard JavaScript
-- Includes beforeunload warning to prevent accidental navigation
+- Returns JSON response with the API key
 
 #### Secure API Key Distribution Flow
 
@@ -167,12 +172,13 @@ Implementation:
 2. System generates API key and secret token
 3. User record created with 15-minute TTL in `api-keys` table
 4. Pending claim record created in `pending-api-keys` table
-5. Claim URL returned to admin
-6. Admin shares URL via Slack, email, etc. (URL is safe - doesn't contain the key)
-7. User visits URL
-8. System validates token, marks as viewed, removes user TTL
-9. User receives API key on HTML page
-10. Second visit shows "already claimed" message
+5. Claim token returned to admin in JSON response
+6. Admin shares claim token with user (e.g., via Slack, email, etc.)
+7. User constructs claim URL: `{endpoint}/claim/{token}`
+8. User calls endpoint (typically via CLI client)
+9. System validates token, marks as viewed, removes user TTL
+10. User receives API key in JSON response
+11. Second visit shows "already claimed" error
 
 **Security Features:**
 - Secret tokens are cryptographically random (base64url encoded, 32 chars)
@@ -1013,25 +1019,6 @@ Stores execution records for all command runs.
 - `cloud` (String, optional) - Compute platform (AWS, etc.)
 
 **Code Reference:** `internal/database/dynamodb/executions.go`
-
-### Locks Table (`{project-name}-locks`)
-
-Stores lock records for preventing concurrent operations.
-
-**Primary Key:**
-- `lock_name` (String) - Name of the lock
-
-**Attributes:**
-- `lock_name` (String) - Primary key, lock identifier
-- `execution_id` (String) - Execution ID holding the lock
-- `user_email` (String) - Email of the user holding the lock
-- `acquired_at` (String) - ISO 8601 timestamp when lock was acquired
-- `ttl` (Number) - Unix timestamp for automatic lock expiration
-
-**TTL:**
-- Enabled on `ttl` attribute for automatic lock cleanup
-
-**Code Reference:** See CloudFormation template for schema (not yet implemented in code)
 
 ### Pending API Keys Table (`{project-name}-pending-api-keys`)
 

@@ -54,13 +54,14 @@ func runCreateUser(cmd *cobra.Command, args []string) {
 	output.Successf("User created successfully")
 	output.KeyValue("Email", resp.User.Email)
 
-	if resp.ClaimURL != "" {
+	if resp.ClaimToken != "" {
 		output.Blank()
-		output.Infof("Share this one-time link with the user:")
-		output.KeyValue("Claim URL", resp.ClaimURL)
+		output.Infof("Share this claim token with the user:")
+		output.KeyValue("Claim Token", resp.ClaimToken)
 		output.Blank()
-		output.Warningf("⏱  Link expires in 15 minutes")
+		output.Warningf("⏱  Token expires in 15 minutes")
 		output.Warningf("👁  Can only be viewed once")
+		output.Infof("The user should claim their API key using: {endpoint}/claim/{token}")
 	} else if resp.APIKey != "" {
 		// Fallback for backwards compatibility
 		output.KeyValue("API Key", resp.APIKey)

@@ -66,9 +66,9 @@ func NewService(
 	}
 }
 
-// CreateUser creates a new user with an API key and returns a claim URL.
+// CreateUser creates a new user with an API key and returns a claim token.
 // If no API key is provided in the request, one will be generated.
-func (s *Service) CreateUser(ctx context.Context, req api.CreateUserRequest, baseURL string, createdByEmail string) (*api.CreateUserResponse, error) {
+func (s *Service) CreateUser(ctx context.Context, req api.CreateUserRequest, createdByEmail string) (*api.CreateUserResponse, error) {
 	if s.userRepo == nil {
 		return nil, apperrors.ErrInternalError("user repository not configured", nil)
 	}
@@ -110,7 +110,7 @@ func (s *Service) CreateUser(ctx context.Context, req api.CreateUserRequest, bas
 		Revoked:   false,
 	}
 
-	// Generate secret token for claim URL
+	// Generate secret token for claim
 	secretToken, err := auth.GenerateSecretToken()
 	if err != nil {
 		return nil, apperrors.ErrInternalError("failed to generate secret token", err)
@@ -145,12 +145,9 @@ func (s *Service) CreateUser(ctx context.Context, req api.CreateUserRequest, bas
 		return nil, apperrors.ErrDatabaseError("failed to create pending API key", err)
 	}
 
-	// Build claim URL
-	claimURL := fmt.Sprintf("%s%s/%s", baseURL, constants.ClaimEndpointPath, secretToken)
-
 	return &api.CreateUserResponse{
-		User:     user,
-		ClaimURL: claimURL,
+		User:       user,
+		ClaimToken: secretToken,
 	}, nil
 }
 

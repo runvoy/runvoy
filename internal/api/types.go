@@ -107,9 +107,9 @@ type CreateUserRequest struct {
 
 // CreateUserResponse represents the response after creating a user
 type CreateUserResponse struct {
-	User     *User  `json:"user"`
-	APIKey   string `json:"api_key,omitempty"`     // Deprecated: use ClaimURL instead
-	ClaimURL string `json:"claim_url,omitempty"`   // One-time URL to claim the API key
+	User       *User  `json:"user"`
+	APIKey     string `json:"api_key,omitempty"`      // Deprecated: use ClaimToken instead
+	ClaimToken string `json:"claim_token,omitempty"` // One-time token to claim the API key (client constructs URL)
 }
 
 // PendingAPIKey represents a pending API key awaiting claim
