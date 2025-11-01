@@ -50,7 +50,7 @@ Ensure AWS credentials are configured in your shell, e.g:
 ```bash
 export AWS_PROFILE=your-profile
 export AWS_REGION=us-east-2
-``
+```
 
 then run:
 
