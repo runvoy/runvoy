@@ -153,6 +153,7 @@ create-backend-infra:
         --stack-name {{stack_name}} \
         --template-file deployments/cloudformation-backend.yaml \
         --capabilities CAPABILITY_NAMED_IAM
+    just create-config-file {{stack_name}}
     just seed-admin-user {{admin_email}} {{stack_name}}
 
 # Destroy backend infrastructure via cloudformation
@@ -169,6 +170,10 @@ init: create-backend-infra deploy
 destroy-lambda-bucket:
     aws s3 rm s3://{{bucket}} --recursive
     aws s3 rb s3://{{bucket}}
+
+# Create/update config file with API endpoint from CloudFormation stack
+create-config-file stack_name:
+    go run scripts/create-config-file/main.go {{stack_name}}
 
 # Seed initial admin user into DynamoDB (idempotent)
 seed-admin-user email stack_name:
