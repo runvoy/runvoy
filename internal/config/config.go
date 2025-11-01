@@ -104,7 +104,8 @@ func LoadCLI() (*Config, error) {
 }
 
 // LoadOrchestrator loads configuration for the orchestrator service.
-// Loads from environment variables with validation.
+// Loads from environment variables. Validation of required AWS fields
+// happens in app.Initialize() when the backend is actually initialized.
 func LoadOrchestrator() (*Config, error) {
 	v := viper.New()
 	setDefaults(v)
@@ -119,16 +120,12 @@ func LoadOrchestrator() (*Config, error) {
 		return nil, fmt.Errorf("error unmarshaling orchestrator config: %w", err)
 	}
 
-	// Validate required fields for orchestrator
-	if err := validateOrchestrator(&cfg); err != nil {
-		return nil, err
-	}
-
 	return &cfg, nil
 }
 
 // LoadEventProcessor loads configuration for the event processor service.
-// Loads from environment variables with validation.
+// Loads from environment variables. Validation of required AWS fields
+// happens in events.NewProcessor() when the processor is actually initialized.
 func LoadEventProcessor() (*Config, error) {
 	v := viper.New()
 	setDefaults(v)
@@ -141,11 +138,6 @@ func LoadEventProcessor() (*Config, error) {
 	var cfg Config
 	if err := v.Unmarshal(&cfg); err != nil {
 		return nil, fmt.Errorf("error unmarshaling event processor config: %w", err)
-	}
-
-	// Validate required fields for event processor
-	if err := validateEventProcessor(&cfg); err != nil {
-		return nil, err
 	}
 
 	return &cfg, nil
@@ -285,38 +277,3 @@ func bindEnvVars(v *viper.Viper) {
 	}
 }
 
-func validateOrchestrator(cfg *Config) error {
-	required := map[string]string{
-		"APIKeysTable":     cfg.APIKeysTable,
-		"ExecutionsTable":  cfg.ExecutionsTable,
-		"ECSCluster":       cfg.ECSCluster,
-		"TaskDefinition":   cfg.TaskDefinition,
-		"Subnet1":          cfg.Subnet1,
-		"Subnet2":          cfg.Subnet2,
-		"SecurityGroup":    cfg.SecurityGroup,
-		"LogGroup":         cfg.LogGroup,
-	}
-
-	for field, value := range required {
-		if value == "" {
-			return fmt.Errorf("%s cannot be empty for orchestrator", field)
-		}
-	}
-
-	return nil
-}
-
-func validateEventProcessor(cfg *Config) error {
-	required := map[string]string{
-		"ExecutionsTable": cfg.ExecutionsTable,
-		"ECSCluster":      cfg.ECSCluster,
-	}
-
-	for field, value := range required {
-		if value == "" {
-			return fmt.Errorf("%s cannot be empty for event processor", field)
-		}
-	}
-
-	return nil
-}
