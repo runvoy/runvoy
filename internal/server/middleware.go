@@ -8,7 +8,7 @@ import (
 
 	"runvoy/internal/constants"
 	apperrors "runvoy/internal/errors"
-	"runvoy/internal/logger"
+	loggerPkg "runvoy/internal/logger"
 
 	"github.com/aws/aws-lambda-go/lambdacontext"
 )
@@ -27,11 +27,11 @@ func (r *Router) requestIDMiddleware(next http.Handler) http.Handler {
 			requestID = lc.AwsRequestID
 		}
 
-		ctx := context.WithValue(req.Context(), logger.RequestIDContextKey(), requestID)
+		ctx := context.WithValue(req.Context(), loggerPkg.RequestIDContextKey(), requestID)
 
 		log := r.svc.Logger
 		if requestID != "" {
-			log = log.With(string(logger.RequestIDContextKey()), requestID)
+			log = log.With(string(loggerPkg.RequestIDContextKey()), requestID)
 		}
 		ctx = context.WithValue(ctx, loggerContextKey, log)
 
@@ -137,9 +137,19 @@ func (r *Router) authenticateRequestMiddleware(next http.Handler) http.Handler {
 
 		logger.Info("user authenticated successfully", "user", user)
 
-		go func(email string) {
+		// Update last_used timestamp asynchronously
+		// Copy context values (like requestID) to a new background context since the
+		// request context will be canceled when the request completes
+		requestID := loggerPkg.GetRequestID(req.Context())
+		go func(email string, reqID string) {
+			// Create a new context with timeout, preserving the requestID for observability
 			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 			defer cancel()
+
+			// Add requestID back to the context for logging correlation
+			if reqID != "" {
+				ctx = context.WithValue(ctx, loggerPkg.RequestIDContextKey(), reqID)
+			}
 
 			logger.Debug("updating user's last_used timestamp", "email", email)
 
@@ -149,7 +159,7 @@ func (r *Router) authenticateRequestMiddleware(next http.Handler) http.Handler {
 			}
 
 			logger.Debug("user's last_used timestamp updated successfully", "email", email)
-		}(user.Email)
+		}(user.Email, requestID)
 
 		ctx := context.WithValue(req.Context(), userContextKey, user)
 		next.ServeHTTP(w, req.WithContext(ctx))
