@@ -160,18 +160,6 @@ just create-backend-infra
 just destroy-backend-infra
 ```
 
-**Smoke testing:**
-
-```bash
-# Test local API health
-just smoke-test-local-create-user alice@example.com
-just smoke-test-local-revoke-user alice@example.com
-
-# Test backend API
-just smoke-test-backend-health
-just smoke-test-backend-run-command "echo hello"
-```
-
 **Other useful commands:**
 
 ```bash
@@ -373,7 +361,7 @@ Key targets, grouped by workflow:
 - **Quality gates**: `just test`, `just test-coverage`, `just lint`, `just lint-fix`, `just fmt`, `just check`, `just clean`
 - **Environment setup**: `just dev-setup`, `just install-hooks`, `just pre-commit-all`
 - **Infrastructure helpers**: `just create-lambda-bucket`, `just update-backend-infra`, `just destroy-backend-infra`
-- **Operational tooling**: `just seed-admin-user`, `just local-dev-server` (hot reloading), smoke tests such as `just smoke-test-local-create-user`, `just smoke-test-backend-run-command`
+- **Operational tooling**: `just seed-admin-user`, `just local-dev-server` (hot reloading)
 - **Miscellaneous**: `just record-demo` (captures CLI demo as cast and GIF)
 
 All commands honor the environment variables described in the `justfile`; AWS credentials and profiles must already be configured in your shell.

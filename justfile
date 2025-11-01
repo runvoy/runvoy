@@ -186,56 +186,6 @@ seed-admin-user email stack_name:
 local-dev-server:
     reflex -r '\.go$' -s -- go run -ldflags {{build_flags}} ./cmd/local
 
-# Smoke test local user creation
-smoke-test-local-create-user email:
-    curl -sS \
-        -X POST "http://localhost:${RUNVOY_DEV_SERVER_PORT}/api/v1/users/create" \
-        -H "X-API-Key: ${RUNVOY_ADMIN_API_KEY}" \
-        -H "Content-Type: application/json" \
-        -d '{"email":"{{email}}"}' | jq .
-
-# Smoke test local user revocation
-smoke-test-local-revoke-user email:
-    curl -sS \
-        -X POST "http://localhost:${RUNVOY_DEV_SERVER_PORT}/api/v1/users/revoke" \
-        -H "X-API-Key: ${RUNVOY_ADMIN_API_KEY}" \
-        -H "Content-Type: application/json" \
-        -d '{"email":"{{email}}"}' | jq .
-
-# Smoke test local execution logs
-smoke-test-local-get-logs execution_id:
-    curl -sS \
-        -X GET "http://localhost:${RUNVOY_DEV_SERVER_PORT}/api/v1/executions/{{execution_id}}/logs" \
-        -H "X-API-Key: ${RUNVOY_ADMIN_API_KEY}" | jq .
-
-# Smoke test backend health
-smoke-test-backend-health:
-    curl -sS \
-        -H "X-API-Key: ${RUNVOY_ADMIN_API_KEY}" \
-        -X GET "${RUNVOY_LAMBDA_URL}/api/v1/health" | jq .
-
-# Smoke test backend user creation
-smoke-test-backend-users-create email:
-    curl -sS \
-        -H "X-API-Key: ${RUNVOY_ADMIN_API_KEY}" \
-        -X POST "${RUNVOY_LAMBDA_URL}/api/v1/users/create" \
-        -H "Content-Type: application/json" \
-        -d '{"email":"{{email}}"}' | jq .
-
-# Smoke test backend command execution
-smoke-test-backend-run-command command:
-    curl -sS \
-        -H "X-API-Key: ${RUNVOY_ADMIN_API_KEY}" \
-        -X POST "${RUNVOY_LAMBDA_URL}/api/v1/run" \
-        -H "Content-Type: application/json" \
-        -d "{\"command\":\"{{command}}\"}" | jq .
-
-# Smoke test local execution killing
-smoke-test-local-kill-execution execution_id:
-    curl -sS \
-        -X POST "http://localhost:${RUNVOY_DEV_SERVER_PORT}/api/v1/executions/{{execution_id}}/kill" \
-        -H "X-API-Key: ${RUNVOY_ADMIN_API_KEY}" | jq .
-
 # Update README.md with latest CLI help output
 # This ensures the README stays in sync with CLI commands
 update-readme-help: build-cli
