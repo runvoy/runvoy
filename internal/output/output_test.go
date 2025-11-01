@@ -25,13 +25,13 @@ func TestSuccess(t *testing.T) {
 }
 
 func TestError(t *testing.T) {
-	// Save original stderr
-	oldStderr := Stderr
-	defer func() { Stderr = oldStderr }()
+	// Save original stdout (Errorf writes to Stdout, not Stderr)
+	oldStdout := Stdout
+	defer func() { Stdout = oldStdout }()
 
 	// Capture output
 	buf := &bytes.Buffer{}
-	Stderr = buf
+	Stdout = buf
 
 	Errorf("something went wrong")
 

@@ -39,6 +39,14 @@ repos:
         types: [go]
         files: \.go$
 
+      - id: govulncheck
+        name: govulncheck
+        entry: bash -c 'command -v govulncheck >/dev/null 2>&1 || go install golang.org/x/vuln/cmd/govulncheck@latest && govulncheck ./...'
+        language: system
+        types: [go]
+        pass_filenames: false
+        always_run: false
+
       - id: update-readme-help
         name: update-readme-help
         entry: just update-readme-help
