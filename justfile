@@ -238,6 +238,10 @@ smoke-test-local-kill-execution execution_id:
 update-readme-help: build-cli
     go run scripts/update-readme-help/main.go ./bin/runvoy
 
+# Sync Lambda environment variables to local .env file for development
+local-dev-sync:
+    go run scripts/sync-env-vars/main.go
+
 # TODO run agg into a github action and store it as asset so to avoid
 # having to commit the gif to the repository
 record-demo:

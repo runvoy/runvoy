@@ -66,6 +66,126 @@ export PATH=$PATH:$(pwd)/bin
 runvoy configure
 ```
 
+## Development
+
+### Prerequisites for Development
+
+- Go 1.23 or later
+- [just](https://github.com/casey/just) command runner
+- AWS credentials configured in your shell environment
+- `.env` file in the repository root (see [Environment Configuration](#environment-configuration))
+
+### Environment Setup
+
+First-time setup for new developers:
+
+```bash
+# Install dependencies and development tools
+just dev-setup
+
+# Install pre-commit hooks
+just install-hooks
+
+# Sync Lambda environment variables to local .env file
+just local-dev-sync
+```
+
+### Local Development Workflow
+
+**Run the local development server:**
+
+```bash
+# Build and run local server (rebuilds on each restart)
+just run-local
+
+# Run local server with hot reloading (rebuilds automatically on file changes)
+just local-dev-server
+```
+
+**Sync environment variables from AWS:**
+
+```bash
+# Fetch current environment variables from runvoy-orchestrator Lambda and save to .env
+just local-dev-sync
+```
+
+**Run tests and quality checks:**
+
+```bash
+# Run all tests
+just test
+
+# Run tests with coverage report
+just test-coverage
+
+# Lint code
+just lint
+
+# Format code
+just fmt
+
+# Run both lint and tests
+just check
+```
+
+**Build and deploy:**
+
+```bash
+# Build all binaries (CLI, orchestrator, event processor, local server)
+just build
+
+# Deploy all services to AWS
+just deploy
+
+# Or deploy individual services
+just deploy-orchestrator
+just deploy-event-processor
+just deploy-webviewer
+```
+
+**Infrastructure management:**
+
+```bash
+# Initialize complete backend infrastructure
+just init
+
+# Create/update backend infrastructure
+just create-backend-infra
+
+# Destroy backend infrastructure
+just destroy-backend-infra
+```
+
+**Smoke testing:**
+
+```bash
+# Test local API health
+just smoke-test-local-create-user alice@example.com
+just smoke-test-local-revoke-user alice@example.com
+
+# Test backend API
+just smoke-test-backend-health
+just smoke-test-backend-run-command "echo hello"
+```
+
+**Other useful commands:**
+
+```bash
+# Seed admin user in AWS DynamoDB
+just seed-admin-user admin@example.com runvoy-backend
+
+# Update README with latest CLI help output
+just update-readme-help
+
+# Clean build artifacts
+just clean
+
+# Run pre-commit hooks on all files
+just pre-commit-all
+```
+
+For more information about the development workflow, see [Development with `just`](#development-with-just).
+
 ## Architecture
 
 runvoy uses a serverless event-driven architecture built on AWS Lambda, ECS Fargate, DynamoDB, and EventBridge:

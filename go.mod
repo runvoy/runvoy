@@ -13,6 +13,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs v1.58.5
 	github.com/aws/aws-sdk-go-v2/service/dynamodb v1.39.1
 	github.com/aws/aws-sdk-go-v2/service/ecs v1.66.0
+	github.com/aws/aws-sdk-go-v2/service/lambda v1.81.0
 	github.com/caarlos0/env/v11 v11.3.1
 	github.com/fatih/color v1.18.0
 	github.com/go-chi/chi/v5 v5.2.3
