@@ -136,8 +136,8 @@ func (r *Router) authenticateRequestMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
-		logger.Info("user authenticated successfully", "authentication", map[string]interface{}{
-			"user": user,
+		logger.Info("user authenticated successfully", "authentication", map[string]string{
+			"email": user.Email,
 		})
 
 		// Update last_used timestamp asynchronously
@@ -152,22 +152,26 @@ func (r *Router) authenticateRequestMiddleware(next http.Handler) http.Handler {
 				ctx = context.WithValue(ctx, loggerPkg.RequestIDContextKey(), reqID)
 			}
 
-			logger.Debug("updating user's last_used timestamp (async)", "user", map[string]interface{}{
-				"email": email,
+			logger.Debug("updating user's last_used timestamp (async)", "user", map[string]any{
+				"email":              email,
+				"previous_last_used": user.LastUsed.Format(time.RFC3339),
 			})
 
-			if err := r.svc.UpdateUserLastUsed(ctx, email); err != nil {
-				logger.Error("failed to update user's last_used timestamp", "error", map[string]interface{}{
+			newLastUsed, err := r.svc.UpdateUserLastUsed(ctx, email)
+			if err != nil {
+				logger.Error("failed to update user's last_used timestamp", "error", map[string]any{
 					"error": err,
-					"user": map[string]interface{}{
+					"user": map[string]any{
 						"email": email,
 					},
 				})
+			} else {
+				logger.Debug("user's last_used timestamp updated successfully", "user", map[string]any{
+					"email":              email,
+					"last_used":          newLastUsed.Format(time.RFC3339),
+					"previous_last_used": user.LastUsed.Format(time.RFC3339),
+				})
 			}
-
-			logger.Debug("user's last_used timestamp updated successfully", "user", map[string]interface{}{
-				"email": email,
-			})
 		}(user.Email, requestID)
 
 		ctx := context.WithValue(req.Context(), userContextKey, user)

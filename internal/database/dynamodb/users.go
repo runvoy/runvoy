@@ -178,7 +178,7 @@ func (r *UserRepository) GetUserByAPIKeyHash(ctx context.Context, apiKeyHash str
 }
 
 // UpdateLastUsed updates the last_used timestamp for a user.
-func (r *UserRepository) UpdateLastUsed(ctx context.Context, email string) error {
+func (r *UserRepository) UpdateLastUsed(ctx context.Context, email string) (*time.Time, error) {
 	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
 
 	// Log before calling DynamoDB Query
@@ -203,11 +203,11 @@ func (r *UserRepository) UpdateLastUsed(ctx context.Context, email string) error
 		Limit: aws.Int32(1),
 	})
 	if err != nil {
-		return apperrors.ErrDatabaseError("failed to query user by email for last_used update", err)
+		return nil, apperrors.ErrDatabaseError("failed to query user by email for last_used update", err)
 	}
 
 	if len(result.Items) == 0 {
-		return apperrors.ErrNotFound("user not found", nil)
+		return nil, apperrors.ErrNotFound("user not found", nil)
 	}
 
 	// Extract api_key_hash from the first (and only) item for this email
@@ -218,7 +218,7 @@ func (r *UserRepository) UpdateLastUsed(ctx context.Context, email string) error
 		}
 	}
 	if apiKeyHash == "" {
-		return apperrors.ErrDatabaseError("user record missing api_key_hash attribute", nil)
+		return nil, apperrors.ErrDatabaseError("user record missing api_key_hash attribute", nil)
 	}
 
 	now := time.Now().UTC()
@@ -244,10 +244,10 @@ func (r *UserRepository) UpdateLastUsed(ctx context.Context, email string) error
 				Value: now.Format(time.RFC3339Nano)}},
 	})
 	if err != nil {
-		return apperrors.ErrDatabaseError("failed to update last_used", err)
+		return nil, apperrors.ErrDatabaseError("failed to update last_used", err)
 	}
 
-	return nil
+	return &now, nil
 }
 
 // RevokeUser marks a user's API key as revoked.

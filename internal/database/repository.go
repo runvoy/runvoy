@@ -4,6 +4,7 @@ package database
 
 import (
 	"context"
+	"time"
 
 	"runvoy/internal/api"
 )
@@ -26,7 +27,7 @@ type UserRepository interface {
 
 	// UpdateLastUsed updates the last_used timestamp for a user.
 	// Called after successful API key authentication.
-	UpdateLastUsed(ctx context.Context, email string) error
+	UpdateLastUsed(ctx context.Context, email string) (*time.Time, error)
 
 	// RevokeUser marks a user's API key as revoked without deleting the record.
 	// Useful for audit trails.
