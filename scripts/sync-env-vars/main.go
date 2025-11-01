@@ -37,7 +37,6 @@ func main() {
 
 	lambdaClient := lambda.NewFromConfig(awsCfg)
 
-	// Get the Lambda function configuration
 	functionConfig, err := lambdaClient.GetFunctionConfiguration(ctx, &lambda.GetFunctionConfigurationInput{
 		FunctionName: aws.String(functionName),
 	})
@@ -45,7 +44,6 @@ func main() {
 		log.Fatalf("error: failed to get Lambda function configuration: %v", err)
 	}
 
-	// Extract environment variables from Lambda
 	lambdaVars := make(map[string]string)
 	if functionConfig.Environment != nil && functionConfig.Environment.Variables != nil {
 		for k, v := range functionConfig.Environment.Variables {
@@ -57,7 +55,6 @@ func main() {
 		log.Fatalf("error: no environment variables found for Lambda function %s", functionName)
 	}
 
-	// Read existing .env file and merge with Lambda values
 	totalCount := len(lambdaVars)
 	envContent, updatedCount, newCount, err := mergeEnvFile(envFile, lambdaVars)
 	if err != nil {
@@ -81,7 +78,6 @@ func mergeEnvFile(filePath string, lambdaVars map[string]string) (string, int, i
 	updatedCount := 0
 	newCount := 0
 
-	// Read existing file if it exists
 	file, err := os.Open(filePath)
 	if err == nil {
 		defer file.Close()
@@ -90,7 +86,6 @@ func mergeEnvFile(filePath string, lambdaVars map[string]string) (string, int, i
 			line := scanner.Text()
 			lines = append(lines, line)
 
-			// Check if this line is a key-value pair
 			matches := envLineRegex.FindStringSubmatch(line)
 			if len(matches) == 3 {
 				key := matches[1]
@@ -104,20 +99,17 @@ func mergeEnvFile(filePath string, lambdaVars map[string]string) (string, int, i
 		return "", 0, 0, fmt.Errorf("error opening .env file: %w", err)
 	}
 
-	// Process each line: update existing key-value pairs, preserve comments/blanks
 	var result strings.Builder
 	for i, line := range lines {
 		matches := envLineRegex.FindStringSubmatch(line)
 		if len(matches) == 3 {
 			key := matches[1]
 			if newValue, exists := lambdaVars[key]; exists {
-				// Update this line with the new value from Lambda
 				formattedValue := formatEnvValue(newValue)
 				result.WriteString(fmt.Sprintf("%s=%s\n", key, formattedValue))
 				updatedCount++
 				delete(lambdaVars, key) // Remove from lambdaVars to track remaining new vars
 			} else {
-				// Keep existing line as-is
 				result.WriteString(line + "\n")
 			}
 		} else {
@@ -133,14 +125,12 @@ func mergeEnvFile(filePath string, lambdaVars map[string]string) (string, int, i
 
 	// Append any new variables from Lambda that weren't in the existing file
 	if len(lambdaVars) > 0 {
-		// Sort keys for consistent output
 		keys := make([]string, 0, len(lambdaVars))
 		for k := range lambdaVars {
 			keys = append(keys, k)
 		}
 		sort.Strings(keys)
 
-		// Only add separator if there was existing content
 		if len(lines) > 0 {
 			result.WriteString("# Synced from Lambda function\n")
 		}
@@ -159,7 +149,7 @@ func mergeEnvFile(filePath string, lambdaVars map[string]string) (string, int, i
 // Handles values that contain spaces, quotes, or special characters.
 func formatEnvValue(value string) string {
 	// If value contains quotes, spaces, or starts with #, wrap in quotes
-	if strings.Contains(value, "\"") || strings.Contains(value, " ") || 
+	if strings.Contains(value, "\"") || strings.Contains(value, " ") ||
 		strings.Contains(value, "#") || strings.Contains(value, "\n") ||
 		strings.Contains(value, "\t") || strings.HasPrefix(value, "'") {
 		// Escape quotes in the value
