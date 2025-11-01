@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"slices"
 	"strings"
+	"time"
 
 	"runvoy/internal/api"
 	"runvoy/internal/constants"
@@ -106,9 +107,9 @@ fi
 }
 
 // StartTask triggers an ECS Fargate task and returns identifiers.
-func (e *Runner) StartTask(ctx context.Context, userEmail string, req api.ExecutionRequest) (string, string, error) {
+func (e *Runner) StartTask(ctx context.Context, userEmail string, req api.ExecutionRequest) (string, string, *time.Time, error) {
 	if e.ecsClient == nil {
-		return "", "", appErrors.ErrInternalError("ECS cli endpoint not configured", nil)
+		return "", "", nil, appErrors.ErrInternalError("ECS cli endpoint not configured", nil)
 	}
 
 	reqLogger := logger.DeriveRequestLogger(ctx, e.logger)
@@ -125,7 +126,7 @@ func (e *Runner) StartTask(ctx context.Context, userEmail string, req api.Execut
 
 	if hasGitRepo {
 		if e.cfg.TaskDefinitionWithGit == "" {
-			return "", "", appErrors.ErrInternalError("git repository requested but git-enabled task definition not configured", nil)
+			return "", "", nil, appErrors.ErrInternalError("git repository requested but git-enabled task definition not configured", nil)
 		}
 		taskDefinition = e.cfg.TaskDefinitionWithGit
 		reqLogger.Debug("using git-enabled task definition",
@@ -229,24 +230,29 @@ func (e *Runner) StartTask(ctx context.Context, userEmail string, req api.Execut
 
 	runTaskOutput, err := e.ecsClient.RunTask(ctx, runTaskInput)
 	if err != nil {
-		return "", "", appErrors.ErrInternalError("failed to start ECS task", err)
+		return "", "", nil, appErrors.ErrInternalError("failed to start ECS task", err)
 	}
 	if len(runTaskOutput.Tasks) == 0 {
-		return "", "", appErrors.ErrInternalError("no tasks were started", nil)
+		return "", "", nil, appErrors.ErrInternalError("no tasks were started", nil)
 	}
 
 	task := runTaskOutput.Tasks[0]
 	taskARN := awsStd.ToString(task.TaskArn)
 	executionIDParts := strings.Split(taskARN, "/")
 	executionID := executionIDParts[len(executionIDParts)-1]
+	createdAt := task.CreatedAt
 
-	reqLogger.Debug("task started", "taskARN", taskARN, "executionID", executionID)
+	reqLogger.Debug("task started", "task", map[string]string{
+		"taskARN":     taskARN,
+		"executionID": executionID,
+	})
 
 	// Add ExecutionID tag to the task for easier tracking (best-effort)
 	tagLogArgs := []any{
 		"operation", "ECS.TagResource",
 		"taskARN", taskARN,
 		"executionID", executionID,
+		"createdAt", createdAt,
 	}
 	tagLogArgs = append(tagLogArgs, logger.GetDeadlineInfo(ctx)...)
 	reqLogger.Debug("calling external service", "args", logger.SliceToMap(tagLogArgs))
@@ -263,7 +269,7 @@ func (e *Runner) StartTask(ctx context.Context, userEmail string, req api.Execut
 			"executionID", executionID)
 	}
 
-	return executionID, taskARN, nil
+	return executionID, taskARN, createdAt, nil
 }
 
 // KillTask terminates an ECS task identified by executionID.

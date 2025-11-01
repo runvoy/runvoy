@@ -150,7 +150,7 @@ func (r *Router) authenticateRequestMiddleware(next http.Handler) http.Handler {
 				ctx = context.WithValue(ctx, loggerPkg.RequestIDContextKey(), reqID)
 			}
 
-			logger.Debug("updating user's last_used timestamp", "email", email)
+			logger.Debug("updating user's last_used timestamp (async)", "email", email)
 
 			if err := r.svc.UpdateUserLastUsed(ctx, email); err != nil {
 				logger.Error("failed to update user's last_used timestamp",

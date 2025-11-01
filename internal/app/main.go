@@ -22,11 +22,12 @@ import (
 // Runner abstracts provider-specific command execution (e.g., AWS ECS, GCP, etc.).
 type Runner interface {
 	// StartTask triggers an execution on the underlying platform and returns
-	// a provider-specific task ARN and a stable executionID.
+	// a provider-specific task ARN, a stable executionID, and the task creation timestamp.
+	// The createdAt timestamp comes from the provider (e.g., ECS CreatedAt) when available.
 	StartTask(
 		ctx context.Context,
 		userEmail string,
-		req api.ExecutionRequest) (executionID string, taskARN string, err error)
+		req api.ExecutionRequest) (executionID string, taskARN string, createdAt *time.Time, err error)
 	// KillTask terminates a running task identified by executionID.
 	// Returns an error if the task is already terminated or cannot be terminated.
 	KillTask(ctx context.Context, executionID string) error
@@ -193,7 +194,7 @@ func (s *Service) RunCommand(
 	if req.Command == "" {
 		return nil, apperrors.ErrBadRequest("command is required", nil)
 	}
-	executionID, taskARN, err := s.runner.StartTask(ctx, userEmail, req)
+	executionID, taskARN, createdAt, err := s.runner.StartTask(ctx, userEmail, req)
 	if err != nil {
 		return nil, err
 	}
@@ -201,11 +202,16 @@ func (s *Service) RunCommand(
 	reqLogger := logger.DeriveRequestLogger(ctx, s.Logger)
 
 	if taskARN != "" {
-		reqLogger.Info("provider task started", "executionID", executionID, "taskARN", taskARN)
+		reqLogger.Info("provider task started", "task", map[string]string{
+			"executionID": executionID,
+			"taskARN":     taskARN,
+		})
 	}
 
-	// Create execution record
 	startedAt := time.Now().UTC()
+	if createdAt != nil {
+		startedAt = createdAt.UTC()
+	}
 	requestID := ""
 	if lc, ok := lambdacontext.FromContext(ctx); ok {
 		requestID = lc.AwsRequestID
