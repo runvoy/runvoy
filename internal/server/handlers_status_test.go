@@ -18,7 +18,7 @@ func TestGetExecutionStatus_Unauthorized(t *testing.T) {
 	_ = rlogger.Initialize(constants.Development, slog.LevelInfo)
 
 	// Build a minimal service with nil repos; we won't reach the handler due to auth
-	svc := app.NewService(nil, nil, nil, slog.Default(), constants.AWS)
+	svc := app.NewService(nil, nil, nil, nil, slog.Default(), constants.AWS)
 	router := NewRouter(svc, 2*time.Second)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/executions/exec-123/status", nil)

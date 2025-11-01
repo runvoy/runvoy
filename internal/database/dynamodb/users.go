@@ -40,10 +40,17 @@ type userItem struct {
 	CreatedAt  time.Time `dynamodbav:"created_at"`
 	LastUsed   time.Time `dynamodbav:"last_used,omitempty"`
 	Revoked    bool      `dynamodbav:"revoked"`
+	ExpiresAt  int64     `dynamodbav:"expires_at,omitempty"` // Unix timestamp for TTL
 }
 
 // CreateUser stores a new user with their hashed API key in DynamoDB.
 func (r *UserRepository) CreateUser(ctx context.Context, user *api.User, apiKeyHash string) error {
+	return r.CreateUserWithExpiration(ctx, user, apiKeyHash, 0)
+}
+
+// CreateUserWithExpiration stores a new user with their hashed API key and optional TTL in DynamoDB.
+// If expiresAtUnix is 0, no TTL is set. If expiresAtUnix is > 0, it sets the expires_at field for automatic deletion.
+func (r *UserRepository) CreateUserWithExpiration(ctx context.Context, user *api.User, apiKeyHash string, expiresAtUnix int64) error {
 	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
 
 	// Create the item to store
@@ -52,6 +59,11 @@ func (r *UserRepository) CreateUser(ctx context.Context, user *api.User, apiKeyH
 		UserEmail:  user.Email,
 		CreatedAt:  user.CreatedAt,
 		Revoked:    false,
+	}
+
+	// Only set ExpiresAt if provided
+	if expiresAtUnix > 0 {
+		item.ExpiresAt = expiresAtUnix
 	}
 
 	av, err := attributevalue.MarshalMap(item)
@@ -316,6 +328,72 @@ func (r *UserRepository) RevokeUser(ctx context.Context, email string) error {
 
 	if err != nil {
 		return apperrors.ErrDatabaseError("failed to revoke user", err)
+	}
+
+	return nil
+}
+
+// RemoveExpiration removes the expires_at field from a user record, making them permanent.
+func (r *UserRepository) RemoveExpiration(ctx context.Context, email string) error {
+	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
+
+	// First, get the user's api_key_hash
+	queryLogArgs := []any{
+		"operation", "DynamoDB.Query",
+		"table", r.tableName,
+		"index", "user_email-index",
+		"email", email,
+		"purpose", "remove_expiration",
+	}
+	queryLogArgs = append(queryLogArgs, logger.GetDeadlineInfo(ctx)...)
+	reqLogger.Debug("calling external service", "context", logger.SliceToMap(queryLogArgs))
+
+	result, err := r.client.Query(ctx, &dynamodb.QueryInput{
+		TableName:              aws.String(r.tableName),
+		IndexName:              aws.String("user_email-index"),
+		KeyConditionExpression: aws.String("user_email = :email"),
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":email": &types.AttributeValueMemberS{Value: email},
+		},
+		Limit: aws.Int32(1),
+	})
+	if err != nil {
+		return apperrors.ErrDatabaseError("failed to query user by email for expiration removal", err)
+	}
+
+	if len(result.Items) == 0 {
+		return apperrors.ErrNotFound("user not found", nil)
+	}
+
+	var apiKeyHash string
+	if v, ok := result.Items[0]["api_key_hash"]; ok {
+		if s, ok := v.(*types.AttributeValueMemberS); ok {
+			apiKeyHash = s.Value
+		}
+	}
+
+	// Log before calling DynamoDB UpdateItem
+	updateLogArgs := []any{
+		"operation", "DynamoDB.UpdateItem",
+		"table", r.tableName,
+		"email", email,
+		"apiKeyHash", apiKeyHash,
+		"action", "remove_expiration",
+	}
+	updateLogArgs = append(updateLogArgs, logger.GetDeadlineInfo(ctx)...)
+	reqLogger.Debug("calling external service", "context", logger.SliceToMap(updateLogArgs))
+
+	// Remove the expires_at attribute
+	_, err = r.client.UpdateItem(ctx, &dynamodb.UpdateItemInput{
+		TableName: aws.String(r.tableName),
+		Key: map[string]types.AttributeValue{
+			"api_key_hash": &types.AttributeValueMemberS{Value: apiKeyHash},
+		},
+		UpdateExpression: aws.String("REMOVE expires_at"),
+	})
+
+	if err != nil {
+		return apperrors.ErrDatabaseError("failed to remove expiration", err)
 	}
 
 	return nil

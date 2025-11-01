@@ -13,6 +13,7 @@ import (
 	"runvoy/internal/auth"
 	"runvoy/internal/constants"
 	"runvoy/internal/database"
+	dynamorepo "runvoy/internal/database/dynamodb"
 	apperrors "runvoy/internal/errors"
 	"runvoy/internal/logger"
 
@@ -37,6 +38,7 @@ type Runner interface {
 type Service struct {
 	userRepo      database.UserRepository
 	executionRepo database.ExecutionRepository
+	pendingRepo   database.PendingAPIKeyRepository
 	runner        Runner
 	Logger        *slog.Logger
 	Provider      constants.BackendProvider
@@ -50,24 +52,29 @@ type Service struct {
 func NewService(
 	userRepo database.UserRepository,
 	executionRepo database.ExecutionRepository,
+	pendingRepo database.PendingAPIKeyRepository,
 	runner Runner,
 	logger *slog.Logger,
 	provider constants.BackendProvider) *Service {
 	return &Service{
 		userRepo:      userRepo,
 		executionRepo: executionRepo,
+		pendingRepo:   pendingRepo,
 		runner:        runner,
 		Logger:        logger,
 		Provider:      provider,
 	}
 }
 
-// CreateUser creates a new user with an API key.
+// CreateUser creates a new user with an API key and returns a claim URL.
 // If no API key is provided in the request, one will be generated.
-// The API key is only returned in the response and should be stored by the client.
-func (s *Service) CreateUser(ctx context.Context, req api.CreateUserRequest) (*api.CreateUserResponse, error) {
+func (s *Service) CreateUser(ctx context.Context, req api.CreateUserRequest, baseURL string, createdByEmail string) (*api.CreateUserResponse, error) {
 	if s.userRepo == nil {
 		return nil, apperrors.ErrInternalError("user repository not configured", nil)
+	}
+
+	if s.pendingRepo == nil {
+		return nil, apperrors.ErrInternalError("pending repository not configured", nil)
 	}
 
 	if req.Email == "" {
@@ -103,13 +110,102 @@ func (s *Service) CreateUser(ctx context.Context, req api.CreateUserRequest) (*a
 		Revoked:   false,
 	}
 
-	if err := s.userRepo.CreateUser(ctx, user, apiKeyHash); err != nil {
+	// Generate secret token for claim URL
+	secretToken, err := auth.GenerateSecretToken()
+	if err != nil {
+		return nil, apperrors.ErrInternalError("failed to generate secret token", err)
+	}
+
+	// Calculate expiration (15 minutes from now)
+	expiresAt := time.Now().Add(constants.ClaimURLExpirationMinutes * time.Minute).Unix()
+
+	// Create user with TTL - will auto-delete if not claimed
+	userRepoDynamo, ok := s.userRepo.(*dynamorepo.UserRepository)
+	if !ok {
+		return nil, apperrors.ErrInternalError("user repository type assertion failed", nil)
+	}
+	if err := userRepoDynamo.CreateUserWithExpiration(ctx, user, apiKeyHash, expiresAt); err != nil {
 		return nil, apperrors.ErrDatabaseError("failed to create user", err)
 	}
 
+	// Create pending claim record
+	pending := &api.PendingAPIKey{
+		SecretToken: secretToken,
+		APIKey:      apiKey,
+		UserEmail:   req.Email,
+		CreatedBy:   createdByEmail,
+		CreatedAt:   time.Now().UTC(),
+		ExpiresAt:   expiresAt,
+		Viewed:      false,
+	}
+
+	if err := s.pendingRepo.CreatePendingAPIKey(ctx, pending); err != nil {
+		// Clean up user if pending creation fails
+		_ = s.userRepo.RevokeUser(ctx, req.Email)
+		return nil, apperrors.ErrDatabaseError("failed to create pending API key", err)
+	}
+
+	// Build claim URL
+	claimURL := fmt.Sprintf("%s%s/%s", baseURL, constants.ClaimEndpointPath, secretToken)
+
 	return &api.CreateUserResponse{
-		User:   user,
-		APIKey: apiKey, // Return plain API key (only time it's available!)
+		User:     user,
+		ClaimURL: claimURL,
+	}, nil
+}
+
+// ClaimAPIKey retrieves and claims a pending API key by its secret token.
+func (s *Service) ClaimAPIKey(ctx context.Context, secretToken string, ipAddress string) (*api.ClaimAPIKeyResponse, error) {
+	if s.pendingRepo == nil {
+		return nil, apperrors.ErrInternalError("pending repository not configured", nil)
+	}
+
+	if s.userRepo == nil {
+		return nil, apperrors.ErrInternalError("user repository not configured", nil)
+	}
+
+	// Retrieve pending key
+	pending, err := s.pendingRepo.GetPendingAPIKey(ctx, secretToken)
+	if err != nil {
+		return nil, apperrors.ErrDatabaseError("failed to retrieve pending key", err)
+	}
+
+	if pending == nil {
+		return nil, apperrors.ErrNotFound("invalid or expired token", nil)
+	}
+
+	// Check if already viewed
+	if pending.Viewed {
+		return nil, apperrors.ErrConflict("key has already been claimed", nil)
+	}
+
+	// Check if expired
+	now := time.Now().Unix()
+	if pending.ExpiresAt < now {
+		return nil, apperrors.ErrNotFound("token has expired", nil)
+	}
+
+	// Mark as viewed atomically
+	if err := s.pendingRepo.MarkAsViewed(ctx, secretToken, ipAddress); err != nil {
+		return nil, err
+	}
+
+	// Remove expiration from user record (make user permanent)
+	userRepoDynamo, ok := s.userRepo.(*dynamorepo.UserRepository)
+	if !ok {
+		// If we can't remove expiration, log error but don't fail the claim
+		s.Logger.Error("failed to assert user repository type", "action", "remove_expiration")
+	} else {
+		if err := userRepoDynamo.RemoveExpiration(ctx, pending.UserEmail); err != nil {
+			// Log error but don't fail the claim - user already exists and can authenticate
+			s.Logger.Error("failed to remove expiration from user record", "error", err, "email", pending.UserEmail)
+		}
+	}
+
+	return &api.ClaimAPIKeyResponse{
+		APIKey:    pending.APIKey,
+		UserEmail: pending.UserEmail,
+		Message:   "API key claimed successfully",
 	}, nil
 }
 

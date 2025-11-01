@@ -63,6 +63,9 @@ func NewRouter(svc *app.Service, requestTimeout time.Duration) *Router {
 			router.handleKillExecution)
 	})
 
+	// Public claim route (not under /api/v1 to avoid auth requirement)
+	r.Get("/claim/{token}", router.handleClaimAPIKey)
+
 	return router
 }
 

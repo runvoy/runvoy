@@ -130,6 +130,12 @@ func TerminalExecutionStatuses() []ExecutionStatus {
 // TODO: Make this configurable in the future.
 const WebviewerURL = "https://runvoy-releases.s3.us-east-2.amazonaws.com/webviewer.html"
 
+// ClaimURLExpirationMinutes is the number of minutes after which a claim URL expires
+const ClaimURLExpirationMinutes = 15
+
+// ClaimEndpointPath is the HTTP path for claiming API keys
+const ClaimEndpointPath = "/claim"
+
 type StartTimeCtxKeyType string
 
 // StartTimeCtxKey is the key used to store the start time in context
