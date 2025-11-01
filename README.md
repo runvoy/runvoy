@@ -35,6 +35,28 @@ runvoy solves the challenge of giving team members access to run infrastructure 
 - **Cost tracking** - Real-time Fargate cost calculation per execution
 - **Execution locking** - Prevent concurrent operations on shared resources (e.g., Terraform state)
 
+## Quick Start
+
+### Prerequisites
+
+- Go 1.23 or later
+- [just](https://github.com/casey/just) command runner
+- AWS CloudFormation and AWS profile configured with admin credentials (or check `infra/cloudformation-backend.yaml` for the required permissions)
+
+### Deploy the backend infrastructure (one time only)
+
+```bash
+just create-backend-infra deploy
+```
+
+### Install the CLI
+
+```bash
+just build-cli
+export PATH=$PATH:$(pwd)/bin
+runvoy configure
+```
+
 ## Architecture
 
 runvoy uses a serverless event-driven architecture built on AWS Lambda, ECS Fargate, DynamoDB, and EventBridge:
@@ -186,28 +208,6 @@ All commands support the following global flags:
 Example:
 ```bash
 runvoy --verbose --timeout 5m users create alice@example.com
-```
-
-## Quick Start
-
-### Prerequisites
-
-- Go 1.23 or later
-- [just](https://github.com/casey/just) command runner
-- AWS CloudFormation and AWS profile configured with admin credentials (or check `infra/cloudformation-backend.yaml` for the required permissions)
-
-### Deploy the backend infrastructure (one time only)
-
-```bash
-just create-backend-infra deploy
-```
-
-### Install the CLI
-
-```bash
-just build-cli
-export PATH=$PATH:$(pwd)/bin
-runvoy configure
 ```
 
 ### Environment Configuration
