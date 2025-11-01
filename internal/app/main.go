@@ -200,18 +200,19 @@ func (s *Service) RunCommand(
 	}
 
 	reqLogger := logger.DeriveRequestLogger(ctx, s.Logger)
+	startedAt := time.Now().UTC()
+	if createdAt != nil {
+		startedAt = createdAt.UTC()
+	}
 
 	if taskARN != "" {
 		reqLogger.Info("provider task started", "task", map[string]string{
 			"executionID": executionID,
 			"taskARN":     taskARN,
+			"startedAt":   startedAt.Format(time.RFC3339),
 		})
 	}
 
-	startedAt := time.Now().UTC()
-	if createdAt != nil {
-		startedAt = createdAt.UTC()
-	}
 	requestID := ""
 	if lc, ok := lambdacontext.FromContext(ctx); ok {
 		requestID = lc.AwsRequestID

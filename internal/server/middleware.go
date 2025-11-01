@@ -55,11 +55,11 @@ func (r *Router) requestTimeoutMiddleware(timeout time.Duration) func(http.Handl
 
 			if ctx.Err() == context.DeadlineExceeded {
 				logger := r.GetLoggerFromContext(req.Context())
-				logger.Warn("request timeout exceeded",
-					"method", req.Method,
-					"path", req.URL.Path,
-					"timeout", timeout,
-				)
+				logger.Warn("request timeout exceeded", "request", map[string]interface{}{
+					"method":  req.Method,
+					"path":    req.URL.Path,
+					"timeout": timeout,
+				})
 
 				// Note: Response may have already been written by handler
 				// The context cancellation will have already propagated to
@@ -136,7 +136,9 @@ func (r *Router) authenticateRequestMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
-		logger.Info("user authenticated successfully", "user", user)
+		logger.Info("user authenticated successfully", "authentication", map[string]interface{}{
+			"user": user,
+		})
 
 		// Update last_used timestamp asynchronously
 		// Copy context values (like requestID) to a new background context since the
@@ -150,14 +152,22 @@ func (r *Router) authenticateRequestMiddleware(next http.Handler) http.Handler {
 				ctx = context.WithValue(ctx, loggerPkg.RequestIDContextKey(), reqID)
 			}
 
-			logger.Debug("updating user's last_used timestamp (async)", "email", email)
+			logger.Debug("updating user's last_used timestamp (async)", "user", map[string]interface{}{
+				"email": email,
+			})
 
 			if err := r.svc.UpdateUserLastUsed(ctx, email); err != nil {
-				logger.Error("failed to update user's last_used timestamp",
-					"error", err, "email", email)
+				logger.Error("failed to update user's last_used timestamp", "error", map[string]interface{}{
+					"error": err,
+					"user": map[string]interface{}{
+						"email": email,
+					},
+				})
 			}
 
-			logger.Debug("user's last_used timestamp updated successfully", "email", email)
+			logger.Debug("user's last_used timestamp updated successfully", "user", map[string]interface{}{
+				"email": email,
+			})
 		}(user.Email, requestID)
 
 		ctx := context.WithValue(req.Context(), userContextKey, user)
@@ -182,22 +192,22 @@ func (r *Router) requestLoggingMiddleware(next http.Handler) http.Handler {
 			statusCode:     http.StatusOK, // default status code
 		}
 
-		logger.Info("processing incoming client request",
-			"method", req.Method,
-			"path", req.URL.Path,
-			"remoteAddr", req.RemoteAddr,
-			"deadline", deadlineString,
-		)
+		logger.Info("processing incoming client request", "request", map[string]string{
+			"method":     req.Method,
+			"path":       req.URL.Path,
+			"remoteAddr": req.RemoteAddr,
+			"deadline":   deadlineString,
+		})
 
 		next.ServeHTTP(wrapped, req)
 		duration := time.Since(start)
 
-		logger.Info("sent response to client",
-			"method", req.Method,
-			"path", req.URL.Path,
-			"status", wrapped.statusCode,
-			"duration", duration.String(),
-		)
+		logger.Info("sent response to client", "response", map[string]interface{}{
+			"method":   req.Method,
+			"path":     req.URL.Path,
+			"status":   wrapped.statusCode,
+			"duration": duration.String(),
+		})
 	})
 }
 

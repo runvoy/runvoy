@@ -44,7 +44,7 @@ func FetchLogsByExecutionID(ctx context.Context, cfg *Config, executionID string
 		"executionID", executionID,
 	}
 	describeLogArgs = append(describeLogArgs, logger.GetDeadlineInfo(ctx)...)
-	reqLogger.Debug("calling external service", "args", logger.SliceToMap(describeLogArgs))
+	reqLogger.Debug("calling external service", "context", logger.SliceToMap(describeLogArgs))
 
 	lsOut, err := cwl.DescribeLogStreams(ctx, &cloudwatchlogs.DescribeLogStreamsInput{
 		LogGroupName:        aws.String(cfg.LogGroup),
@@ -82,7 +82,7 @@ func FetchLogsByExecutionID(ctx context.Context, cfg *Config, executionID string
 			"hasNextToken", nextToken != nil,
 		}
 		getLogArgs = append(getLogArgs, logger.GetDeadlineInfo(ctx)...)
-		reqLogger.Debug("calling external service", "args", logger.SliceToMap(getLogArgs))
+		reqLogger.Debug("calling external service", "context", logger.SliceToMap(getLogArgs))
 
 		out, err := cwl.GetLogEvents(ctx, &cloudwatchlogs.GetLogEventsInput{
 			LogGroupName:  &cfg.LogGroup,
