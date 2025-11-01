@@ -34,7 +34,7 @@ type ExecutionStatusResponse struct {
 	ExecutionID string     `json:"execution_id"`
 	Status      string     `json:"status"`
 	StartedAt   time.Time  `json:"started_at"`
-	ExitCode    *int       `json:"exit_code,omitempty"`
+	ExitCode    *int       `json:"exit_code"`
 	CompletedAt *time.Time `json:"completed_at,omitempty"`
 }
 
@@ -69,7 +69,7 @@ type Execution struct {
 	StartedAt       time.Time  `json:"started_at"`
 	CompletedAt     *time.Time `json:"completed_at,omitempty"`
 	Status          string     `json:"status"`
-	ExitCode        int        `json:"exit_code,omitempty"`
+	ExitCode        int        `json:"exit_code"`
 	DurationSeconds int        `json:"duration_seconds,omitempty"`
 	LogStreamName   string     `json:"log_stream_name,omitempty"`
 	CostUSD         float64    `json:"cost_usd,omitempty"`
