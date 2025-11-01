@@ -14,7 +14,8 @@ import (
 )
 
 const (
-	loggerContextKey contextKey = "logger"
+	loggerContextKey      contextKey = "logger"
+	lastUsedUpdateTimeout            = 5 * time.Second
 )
 
 // requestIDMiddleware extracts the Lambda request ID from the context and adds it to the request context
@@ -142,11 +143,9 @@ func (r *Router) authenticateRequestMiddleware(next http.Handler) http.Handler {
 		// request context will be canceled when the request completes
 		requestID := loggerPkg.GetRequestID(req.Context())
 		go func(email string, reqID string) {
-			// Create a new context with timeout, preserving the requestID for observability
-			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+			ctx, cancel := context.WithTimeout(context.Background(), lastUsedUpdateTimeout)
 			defer cancel()
 
-			// Add requestID back to the context for logging correlation
 			if reqID != "" {
 				ctx = context.WithValue(ctx, loggerPkg.RequestIDContextKey(), reqID)
 			}
