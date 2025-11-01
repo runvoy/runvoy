@@ -1,0 +1,144 @@
+name: CI
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        go-version: ['1.23.x', '1.24.x']
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go-version }}
+          cache: true
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Verify dependencies
+        run: go mod verify
+
+      - name: Run tests
+        run: go test -v -race -coverprofile=coverage.out ./...
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          file: ./coverage.out
+          flags: unittests
+          name: codecov-umbrella
+        continue-on-error: true
+
+      - name: Generate coverage report
+        run: go tool cover -html=coverage.out -o coverage.html
+
+      - name: Archive coverage results
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report-${{ matrix.go-version }}
+          path: |
+            coverage.out
+            coverage.html
+          retention-days: 30
+
+  # lint:
+  #   name: Lint
+  #   runs-on: ubuntu-latest
+
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@v4
+
+  #     - name: Set up Go
+  #       uses: actions/setup-go@v5
+  #       with:
+  #         go-version: '1.25.x'
+  #         cache: true
+
+  #     - name: Run golangci-lint
+  #       uses: golangci/golangci-lint-action@v4
+  #       with:
+  #         version: v2.6.0
+  #         args: --timeout=5m
+
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: latest
+          cache: true
+
+      - name: Run govulncheck
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          govulncheck ./...
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+
+      - name: Upload Trivy results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: 'trivy-results.sarif'
+        continue-on-error: true
+
+  # TODO: we want to build only the CLI in a matrix
+  # The backend is arm64 linux so no need for the rest
+  # build:
+  #   name: Build
+  #   runs-on: ubuntu-latest
+  #   strategy:
+  #     matrix:
+  #       os: [linux, darwin]
+  #       arch: [amd64, arm64]
+
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@v4
+
+  #     - name: Set up Go
+  #       uses: actions/setup-go@v5
+  #       with:
+  #         go-version: '1.25.x'
+  #         cache: true
+
+  #     - name: Add just
+  #       uses: extractions/setup-just@v3
+
+  #     - name: Build all artifacts
+  #       env:
+  #         GOOS: ${{ matrix.os }}
+  #         GOARCH: ${{ matrix.arch }}
+  #       run: |
+  #         just build
+
+  #     # - name: Upload build artifacts
+  #     #   uses: actions/upload-artifact@v4
+  #     #   with:
+  #     #     name: runvoy-${{ matrix.os }}-${{ matrix.arch }}
+  #     #     path: bin/runvoy-${{ matrix.os }}-${{ matrix.arch }}
+  #     #     retention-days: 7
