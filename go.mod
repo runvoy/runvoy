@@ -10,7 +10,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/config v1.28.7
 	github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue v1.15.24
 	github.com/aws/aws-sdk-go-v2/service/cloudformation v1.68.2
-	github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs v1.58.5
+	github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs v1.58.6
 	github.com/aws/aws-sdk-go-v2/service/dynamodb v1.39.1
 	github.com/aws/aws-sdk-go-v2/service/ecs v1.67.0
 	github.com/aws/aws-sdk-go-v2/service/lambda v1.81.0
