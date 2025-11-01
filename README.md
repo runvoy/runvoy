@@ -81,7 +81,6 @@ runvoy configure # can be skipped if you are the admin user, the init process wi
 - Go 1.25 or later
 - [just](https://github.com/casey/just) command runner
 - AWS credentials configured in your shell environment
-- `.env` file in the repository root (see [Environment Configuration](#environment-configuration))
 
 ### Environment Setup
 
@@ -337,17 +336,7 @@ runvoy --verbose --timeout 5m users create alice@example.com
 
 ### Environment Configuration
 
-The project requires a `.env` file in the repository root for development. Create it from the example:
-
-```bash
-cp .env.example .env
-```
-
-Edit `.env` with your actual values. The `justfile` uses `dotenv-required`, so all `just` commands will fail if `.env` is missing.
-
-See `.env.example` for all available environment variables and their descriptions.
-
-Ref: <https://github.com/runvoy/runvoy/issues/45>
+The `.env` file is automatically created when you run `just init` or `just local-dev-sync`. The `local-dev-sync` command syncs environment variables from the runvoy-orchestrator Lambda function to your local `.env` file for development.
 
 ### Development with `just`
 
@@ -369,8 +358,6 @@ Key targets, grouped by workflow:
 - **Miscellaneous**: `just record-demo` (captures CLI demo as cast and GIF)
 
 All commands honor the environment variables described in the `justfile`; AWS credentials and profiles must already be configured in your shell.
-
-**Note:** The `justfile` requires a `.env` file to be present (see [Environment Configuration](#environment-configuration)). All `just` commands will fail if `.env` is missing.
 
 ### CLI Installation
 

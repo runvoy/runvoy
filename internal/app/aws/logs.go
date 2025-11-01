@@ -5,31 +5,32 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"slices"
 	"sort"
 
 	"runvoy/internal/api"
 	"runvoy/internal/constants"
-	apperrors "runvoy/internal/errors"
+	appErrors "runvoy/internal/errors"
 	"runvoy/internal/logger"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	awsconfig "github.com/aws/aws-sdk-go-v2/config"
+	awsConfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs"
-	cwltypes "github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs/types"
+	cwlTypes "github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs/types"
 )
 
 // FetchLogsByExecutionID queries CloudWatch Logs for events associated with the ECS task ID
 func FetchLogsByExecutionID(ctx context.Context, cfg *Config, executionID string) ([]api.LogEvent, error) {
 	if cfg == nil || cfg.LogGroup == "" {
-		return nil, apperrors.ErrInternalError("CloudWatch Logs group not configured", nil)
+		return nil, appErrors.ErrInternalError("CloudWatch Logs group not configured", nil)
 	}
 	if executionID == "" {
-		return nil, apperrors.ErrBadRequest("executionID is required", nil)
+		return nil, appErrors.ErrBadRequest("executionID is required", nil)
 	}
 
-	awsCfg, err := awsconfig.LoadDefaultConfig(ctx)
+	awsCfg, err := awsConfig.LoadDefaultConfig(ctx)
 	if err != nil {
-		return nil, apperrors.ErrInternalError("failed to load AWS configuration", err)
+		return nil, appErrors.ErrInternalError("failed to load AWS configuration", err)
 	}
 	cwl := cloudwatchlogs.NewFromConfig(awsCfg)
 	stream := fmt.Sprintf("task/%s/%s", constants.RunnerContainerName, executionID)
@@ -52,18 +53,13 @@ func FetchLogsByExecutionID(ctx context.Context, cfg *Config, executionID string
 		Limit:               aws.Int32(50),
 	})
 	if err != nil {
-		return nil, apperrors.ErrInternalError("failed to describe log streams", err)
+		return nil, appErrors.ErrInternalError("failed to describe log streams", err)
 	}
 
-	streamExists := false
-	for _, s := range lsOut.LogStreams {
-		if aws.ToString(s.LogStreamName) == stream {
-			streamExists = true
-			break
-		}
-	}
-	if !streamExists {
-		return nil, apperrors.ErrNotFound(fmt.Sprintf("log stream '%s' does not exist yet", stream), nil)
+	if !slices.ContainsFunc(lsOut.LogStreams, func(s cwlTypes.LogStream) bool {
+		return aws.ToString(s.LogStreamName) == stream
+	}) {
+		return nil, appErrors.ErrNotFound(fmt.Sprintf("log stream '%s' does not exist yet", stream), nil)
 	}
 
 	var events []api.LogEvent
@@ -72,7 +68,6 @@ func FetchLogsByExecutionID(ctx context.Context, cfg *Config, executionID string
 	for {
 		pageCount++
 
-		// Log before calling CloudWatch Logs GetLogEvents
 		getLogArgs := []any{
 			"operation", "CloudWatchLogs.GetLogEvents",
 			"logGroup", cfg.LogGroup,
@@ -93,11 +88,11 @@ func FetchLogsByExecutionID(ctx context.Context, cfg *Config, executionID string
 		})
 
 		if err != nil {
-			var rte *cwltypes.ResourceNotFoundException
+			var rte *cwlTypes.ResourceNotFoundException
 			if errors.As(err, &rte) {
 				break
 			}
-			return nil, apperrors.ErrInternalError("failed to get log events", err)
+			return nil, appErrors.ErrInternalError("failed to get log events", err)
 		}
 		for _, e := range out.Events {
 			events = append(events, api.LogEvent{
