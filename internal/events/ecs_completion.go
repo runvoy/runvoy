@@ -26,7 +26,7 @@ func (p *Processor) handleECSTaskCompletion(ctx context.Context, event events.Cl
 
 	executionID := extractExecutionIDFromTaskArn(taskEvent.TaskArn)
 
-	reqLogger.Debug("processing ECS task completion", "execution", map[string]string{
+	reqLogger.Info("processing ECS task completion", "execution", map[string]string{
 		"executionID":   executionID,
 		"startedAt":     taskEvent.StartedAt,
 		"stopCode":      taskEvent.StopCode,
@@ -42,7 +42,7 @@ func (p *Processor) handleECSTaskCompletion(ctx context.Context, event events.Cl
 	}
 
 	if execution == nil {
-		reqLogger.Warn("execution not found for task (orphaned task?)",
+		reqLogger.Error("execution not found for task (orphaned task?)",
 			"clusterArn", taskEvent.ClusterArn,
 		)
 
