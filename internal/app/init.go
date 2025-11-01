@@ -53,7 +53,7 @@ func Initialize(
 		return nil, fmt.Errorf("unknown backend provider: %s (supported: %s)", provider, constants.AWS)
 	}
 
-	logger.Debug(constants.ProjectName+" initialized successfully", "provider", provider)
+	logger.Debug(constants.ProjectName+" orchestrator initialized successfully", "provider", provider)
 
 	return NewService(userRepo, executionRepo, runner, logger, provider), nil
 }

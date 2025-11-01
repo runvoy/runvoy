@@ -24,7 +24,10 @@ runvoy *ARGS: build-cli
 build: build-cli build-local build-orchestrator build-event-processor
 
 # Deploy all binaries
-deploy: deploy-orchestrator deploy-event-processor deploy-webviewer
+deploy: deploy-backend deploy-webviewer
+
+# Deploy backend binaries
+deploy-backend: deploy-orchestrator deploy-event-processor
 
 # Build CLI client
 [working-directory: 'cmd/runvoy']
