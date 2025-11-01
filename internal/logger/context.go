@@ -41,7 +41,12 @@ func DeriveRequestLogger(ctx context.Context, base *slog.Logger) *slog.Logger {
 		return slog.Default()
 	}
 
-	// AWS Lambda request ID
+	// Try to get requestID from context value first (used in HTTP server)
+	if requestID := GetRequestID(ctx); requestID != "" {
+		return base.With("requestID", requestID)
+	}
+
+	// Fall back to AWS Lambda request ID (used in Lambda functions)
 	if lc, ok := lambdacontext.FromContext(ctx); ok {
 		if lc.AwsRequestID != "" {
 			return base.With("requestID", lc.AwsRequestID)
