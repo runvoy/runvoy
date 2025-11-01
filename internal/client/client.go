@@ -242,3 +242,16 @@ func (c *Client) ListExecutions(ctx context.Context) ([]api.Execution, error) {
 	}
 	return resp, nil
 }
+
+// ClaimAPIKey claims a user's API key
+func (c *Client) ClaimAPIKey(ctx context.Context, token string) (*api.ClaimAPIKeyResponse, error) {
+	var resp api.ClaimAPIKeyResponse
+	err := c.DoJSON(ctx, Request{
+		Method: "GET",
+		Path:   fmt.Sprintf("/api/v1/claim/%s", token),
+	}, &resp)
+	if err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}

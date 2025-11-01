@@ -108,21 +108,20 @@ type CreateUserRequest struct {
 // CreateUserResponse represents the response after creating a user
 type CreateUserResponse struct {
 	User       *User  `json:"user"`
-	APIKey     string `json:"api_key,omitempty"`      // Deprecated: use ClaimToken instead
-	ClaimToken string `json:"claim_token,omitempty"` // One-time token to claim the API key (client constructs URL)
+	ClaimToken string `json:"claim_token"`
 }
 
 // PendingAPIKey represents a pending API key awaiting claim
 type PendingAPIKey struct {
-	SecretToken string     `json:"secret_token"`
-	APIKey      string     `json:"api_key"`
-	UserEmail   string     `json:"user_email"`
-	CreatedBy   string     `json:"created_by"`
-	CreatedAt   time.Time  `json:"created_at"`
-	ExpiresAt   int64      `json:"expires_at"` // Unix timestamp for TTL
-	Viewed      bool       `json:"viewed"`
-	ViewedAt    *time.Time `json:"viewed_at,omitempty"`
-	ViewedFromIP string    `json:"viewed_from_ip,omitempty"`
+	SecretToken  string     `json:"secret_token"`
+	APIKey       string     `json:"api_key"`
+	UserEmail    string     `json:"user_email"`
+	CreatedBy    string     `json:"created_by"`
+	CreatedAt    time.Time  `json:"created_at"`
+	ExpiresAt    int64      `json:"expires_at"` // Unix timestamp for TTL
+	Viewed       bool       `json:"viewed"`
+	ViewedAt     *time.Time `json:"viewed_at,omitempty"`
+	ViewedFromIP string     `json:"viewed_from_ip,omitempty"`
 }
 
 // ClaimAPIKeyResponse represents the response when claiming an API key
