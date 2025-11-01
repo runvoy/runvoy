@@ -152,6 +152,18 @@ create-backend-infra:
         --capabilities CAPABILITY_NAMED_IAM
     just seed-admin-user ${RUNVOY_ADMIN_EMAIL} ${RUNVOY_CLOUDFORMATION_BACKEND_STACK}
 
+# Destroy backend infrastructure via cloudformation
+destroy-backend-infra:
+    aws cloudformation delete-stack \
+        --stack-name ${RUNVOY_CLOUDFORMATION_BACKEND_STACK}
+    aws cloudformation wait stack-delete-complete \
+        --stack-name ${RUNVOY_CLOUDFORMATION_BACKEND_STACK}
+
+# Destroy lambda bucket
+destroy-lambda-bucket:
+    aws s3 rm s3://${RUNVOY_RELEASES_BUCKET} --recursive
+    aws s3 rb s3://${RUNVOY_RELEASES_BUCKET}
+
 # Seed initial admin user into DynamoDB (idempotent)
 seed-admin-user admin-email stack-name:
     go run scripts/seed-admin-user/main.go {{admin-email}} {{stack-name}}

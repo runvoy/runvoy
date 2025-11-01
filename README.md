@@ -224,19 +224,6 @@ See `.env.example` for all available environment variables and their description
 
 Ref: <https://github.com/runvoy/runvoy/issues/45>
 
-### Admin bootstrap (automated)
-
-After `just update-backend-infra`, the pipeline seeds an admin user into the API keys table:
-
-- Reads `api_key` from `~/.runvoy/config.yaml`
-- Hashes with SHA-256 and base64 (same as the service)
-- Inserts `{ api_key_hash, user_email, created_at, revoked=false }` into the `${ProjectName}-api-keys` table
-Requirements:
-- Set `RUNVOY_ADMIN_EMAIL` to the desired admin email before running `just update-backend-infra`.
-- Ensure `~/.runvoy/config.yaml` exists and contains `api_key`.
-
-The operation is idempotent (conditional put); if the admin already exists, it’s skipped.
-
 ### Development with `just`
 
 The repository ships with a `justfile` to streamline common build, deploy, and QA flows. The default recipe (`just runvoy`) rebuilds the CLI before running any arguments you pass through, so you can quickly exercise commands locally:
