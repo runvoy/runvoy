@@ -40,6 +40,12 @@ runvoy solves the challenge of giving team members access to run infrastructure 
 
 ### Prerequisites
 
+#### CLI user
+
+- Go 1.25 or later
+
+#### Admin user
+
 - Go 1.25 or later
 - [just](https://github.com/casey/just) command runner
 - AWS CloudFormation and AWS profile configured with admin credentials (or check `infra/cloudformation-backend.yaml` for the required permissions)
@@ -64,8 +70,7 @@ just init
 ### Install the CLI
 
 ```bash
-just build-cli
-export PATH=$PATH:$(pwd)/bin
+go install cmd/runvoy
 
 runvoy configure # can be skipped if you are the admin user, the init process will create a config file with the admin API key and endpoint already set
 ```
