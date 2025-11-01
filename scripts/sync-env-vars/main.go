@@ -1,10 +1,12 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"log"
 	"os"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -19,6 +21,11 @@ const (
 	envFile      = ".env"
 )
 
+var (
+	// envLineRegex matches a key-value pair in .env format: KEY=VALUE or KEY="VALUE"
+	envLineRegex = regexp.MustCompile(`^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$`)
+)
+
 func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -29,7 +36,7 @@ func main() {
 	}
 
 	lambdaClient := lambda.NewFromConfig(awsCfg)
-	
+
 	// Get the Lambda function configuration
 	functionConfig, err := lambdaClient.GetFunctionConfiguration(ctx, &lambda.GetFunctionConfigurationInput{
 		FunctionName: aws.String(functionName),
@@ -38,47 +45,128 @@ func main() {
 		log.Fatalf("error: failed to get Lambda function configuration: %v", err)
 	}
 
-	// Extract environment variables
-	envVars := make(map[string]string)
+	// Extract environment variables from Lambda
+	lambdaVars := make(map[string]string)
 	if functionConfig.Environment != nil && functionConfig.Environment.Variables != nil {
 		for k, v := range functionConfig.Environment.Variables {
-			envVars[k] = v
+			lambdaVars[k] = v
 		}
 	}
 
-	if len(envVars) == 0 {
+	if len(lambdaVars) == 0 {
 		log.Fatalf("error: no environment variables found for Lambda function %s", functionName)
 	}
 
-	// Write to .env file
-	envContent := buildEnvFile(envVars)
+	// Read existing .env file and merge with Lambda values
+	totalCount := len(lambdaVars)
+	envContent, updatedCount, newCount, err := mergeEnvFile(envFile, lambdaVars)
+	if err != nil {
+		log.Fatalf("error: failed to merge .env file: %v", err)
+	}
+
+	// Write merged content back to .env file
 	if err := os.WriteFile(envFile, []byte(envContent), 0644); err != nil {
 		log.Fatalf("error: failed to write .env file: %v", err)
 	}
 
-	log.Printf("successfully synced %d environment variables from %s to .env", len(envVars), functionName)
+	log.Printf("successfully synced %d environment variables from %s to .env (%d updated, %d new)", totalCount, functionName, updatedCount, newCount)
 }
 
-// buildEnvFile creates the content for the .env file with sorted keys for consistency
-func buildEnvFile(envVars map[string]string) string {
-	var sb strings.Builder
-	
-	// Sort keys for consistent output
-	keys := make([]string, 0, len(envVars))
-	for k := range envVars {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
+// mergeEnvFile reads the existing .env file (if it exists) and merges it with Lambda values.
+// It preserves comments, blank lines, and formatting while updating existing values and adding new ones.
+// Returns: merged content, count of updated vars, count of new vars, error
+func mergeEnvFile(filePath string, lambdaVars map[string]string) (string, int, int, error) {
+	var lines []string
+	var existingKeys = make(map[string]bool)
+	updatedCount := 0
+	newCount := 0
 
-	// Write each key-value pair
-	for _, key := range keys {
-		value := envVars[key]
-		// Escape quotes in values if needed
-		if strings.Contains(value, "\"") || strings.Contains(value, " ") || strings.Contains(value, "#") {
-			value = fmt.Sprintf("\"%s\"", value)
+	// Read existing file if it exists
+	file, err := os.Open(filePath)
+	if err == nil {
+		defer file.Close()
+		scanner := bufio.NewScanner(file)
+		for scanner.Scan() {
+			line := scanner.Text()
+			lines = append(lines, line)
+
+			// Check if this line is a key-value pair
+			matches := envLineRegex.FindStringSubmatch(line)
+			if len(matches) == 3 {
+				key := matches[1]
+				existingKeys[key] = true
+			}
 		}
-		sb.WriteString(fmt.Sprintf("%s=%s\n", key, value))
+		if err := scanner.Err(); err != nil {
+			return "", 0, 0, fmt.Errorf("error reading .env file: %w", err)
+		}
+	} else if !os.IsNotExist(err) {
+		return "", 0, 0, fmt.Errorf("error opening .env file: %w", err)
 	}
 
-	return sb.String()
+	// Process each line: update existing key-value pairs, preserve comments/blanks
+	var result strings.Builder
+	for i, line := range lines {
+		matches := envLineRegex.FindStringSubmatch(line)
+		if len(matches) == 3 {
+			key := matches[1]
+			if newValue, exists := lambdaVars[key]; exists {
+				// Update this line with the new value from Lambda
+				formattedValue := formatEnvValue(newValue)
+				result.WriteString(fmt.Sprintf("%s=%s\n", key, formattedValue))
+				updatedCount++
+				delete(lambdaVars, key) // Remove from lambdaVars to track remaining new vars
+			} else {
+				// Keep existing line as-is
+				result.WriteString(line + "\n")
+			}
+		} else {
+			// Preserve comments, blank lines, and malformed lines
+			result.WriteString(line + "\n")
+		}
+
+		// Add a blank line before appending new vars if this is the last line
+		if i == len(lines)-1 && len(lambdaVars) > 0 {
+			result.WriteString("\n")
+		}
+	}
+
+	// Append any new variables from Lambda that weren't in the existing file
+	if len(lambdaVars) > 0 {
+		// Sort keys for consistent output
+		keys := make([]string, 0, len(lambdaVars))
+		for k := range lambdaVars {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+
+		// Only add separator if there was existing content
+		if len(lines) > 0 {
+			result.WriteString("# Synced from Lambda function\n")
+		}
+
+		for _, key := range keys {
+			formattedValue := formatEnvValue(lambdaVars[key])
+			result.WriteString(fmt.Sprintf("%s=%s\n", key, formattedValue))
+			newCount++
+		}
+	}
+
+	return result.String(), updatedCount, newCount, nil
+}
+
+// formatEnvValue formats a value for .env file output, adding quotes if necessary.
+// Handles values that contain spaces, quotes, or special characters.
+func formatEnvValue(value string) string {
+	// If value contains quotes, spaces, or starts with #, wrap in quotes
+	if strings.Contains(value, "\"") || strings.Contains(value, " ") || 
+		strings.Contains(value, "#") || strings.Contains(value, "\n") ||
+		strings.Contains(value, "\t") || strings.HasPrefix(value, "'") {
+		// Escape quotes in the value
+		escaped := strings.ReplaceAll(value, "\"", "\\\"")
+		escaped = strings.ReplaceAll(escaped, "\n", "\\n")
+		escaped = strings.ReplaceAll(escaped, "\t", "\\t")
+		return fmt.Sprintf("\"%s\"", escaped)
+	}
+	return value
 }
