@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"slices"
 	"sort"
 
 	"runvoy/internal/api"
@@ -55,14 +56,9 @@ func FetchLogsByExecutionID(ctx context.Context, cfg *Config, executionID string
 		return nil, apperrors.ErrInternalError("failed to describe log streams", err)
 	}
 
-	streamExists := false
-	for _, s := range lsOut.LogStreams {
-		if aws.ToString(s.LogStreamName) == stream {
-			streamExists = true
-			break
-		}
-	}
-	if !streamExists {
+	if !slices.ContainsFunc(lsOut.LogStreams, func(s cwltypes.LogStream) bool {
+		return aws.ToString(s.LogStreamName) == stream
+	}) {
 		return nil, apperrors.ErrNotFound(fmt.Sprintf("log stream '%s' does not exist yet", stream), nil)
 	}
 
