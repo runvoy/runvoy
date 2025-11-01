@@ -45,8 +45,17 @@ runvoy solves the challenge of giving team members access to run infrastructure 
 
 ### Deploy the backend infrastructure (one time only)
 
+Ensure AWS credentials are configured in your shell, e.g:
+
 ```bash
-just create-backend-infra deploy
+export AWS_PROFILE=your-profile
+export AWS_REGION=us-east-2
+``
+
+then run:
+
+```bash
+just init
 ```
 
 ### Install the CLI

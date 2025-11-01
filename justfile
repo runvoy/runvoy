@@ -2,6 +2,9 @@
 set dotenv-required
 
 # Variables
+bucket := env('RUNVOY_RELEASES_BUCKET', 'runvoy-releases')
+stack_name := env('RUNVOY_CLOUDFORMATION_BACKEND_STACK', 'runvoy-backend')
+admin_email := env('RUNVOY_ADMIN_EMAIL', 'admin@example.com')
 version := trim(read('VERSION'))
 git_short_hash := trim(`git rev-parse --short HEAD`)
 build_date := datetime_utc('%Y%m%d')
@@ -60,10 +63,10 @@ build-orchestrator-zip: build-orchestrator
 # Deploy orchestrator lambda function
 [working-directory: 'dist']
 deploy-orchestrator: build-orchestrator-zip
-    aws s3 cp bootstrap.zip s3://${RUNVOY_RELEASES_BUCKET}/bootstrap.zip
+    aws s3 cp bootstrap.zip s3://{{bucket}}/bootstrap.zip
     aws lambda update-function-code \
         --function-name runvoy-orchestrator \
-        --s3-bucket ${RUNVOY_RELEASES_BUCKET} \
+        --s3-bucket {{bucket}} \
         --s3-key bootstrap.zip > /dev/null
     aws lambda wait function-updated --function-name runvoy-orchestrator
 
@@ -76,17 +79,17 @@ build-event-processor-zip: build-event-processor
 # Deploy event processor lambda function
 [working-directory: 'dist']
 deploy-event-processor: build-event-processor-zip
-    aws s3 cp event-processor.zip s3://${RUNVOY_RELEASES_BUCKET}/event-processor.zip
+    aws s3 cp event-processor.zip s3://{{bucket}}/event-processor.zip
     aws lambda update-function-code \
         --function-name runvoy-event-processor \
-        --s3-bucket ${RUNVOY_RELEASES_BUCKET} \
+        --s3-bucket {{bucket}} \
         --s3-key event-processor.zip > /dev/null
     aws lambda wait function-updated --function-name runvoy-event-processor
 
 # Deploy webviewer HTML to S3
 deploy-webviewer:
     aws s3 cp cmd/webviewer/index.html \
-        s3://${RUNVOY_RELEASES_BUCKET}/webviewer.html \
+        s3://{{bucket}}/webviewer.html \
         --content-type text/html
 
 # Run local development server
@@ -147,26 +150,29 @@ create-lambda-bucket:
 # Create/update backend infrastructure via cloudformation
 create-backend-infra:
     aws cloudformation deploy \
-        --stack-name ${RUNVOY_CLOUDFORMATION_BACKEND_STACK} \
+        --stack-name {{stack_name}} \
         --template-file deployments/cloudformation-backend.yaml \
         --capabilities CAPABILITY_NAMED_IAM
-    just seed-admin-user ${RUNVOY_ADMIN_EMAIL} ${RUNVOY_CLOUDFORMATION_BACKEND_STACK}
+    just seed-admin-user {{admin_email}} {{stack_name}}
 
 # Destroy backend infrastructure via cloudformation
 destroy-backend-infra:
     aws cloudformation delete-stack \
-        --stack-name ${RUNVOY_CLOUDFORMATION_BACKEND_STACK}
+        --stack-name {{stack_name}}
     aws cloudformation wait stack-delete-complete \
-        --stack-name ${RUNVOY_CLOUDFORMATION_BACKEND_STACK}
+        --stack-name {{stack_name}}
+
+# Initialize backend infrastructure and seed admin user
+init: create-backend-infra deploy
 
 # Destroy lambda bucket
 destroy-lambda-bucket:
-    aws s3 rm s3://${RUNVOY_RELEASES_BUCKET} --recursive
-    aws s3 rb s3://${RUNVOY_RELEASES_BUCKET}
+    aws s3 rm s3://{{bucket}} --recursive
+    aws s3 rb s3://{{bucket}}
 
 # Seed initial admin user into DynamoDB (idempotent)
-seed-admin-user admin-email stack-name:
-    go run scripts/seed-admin-user/main.go {{admin-email}} {{stack-name}}
+seed-admin-user email stack_name:
+    go run scripts/seed-admin-user/main.go {{email}} {{stack_name}}
 
 # Run local development server with hot reloading
 local-dev-server:
