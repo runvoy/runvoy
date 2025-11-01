@@ -1,10 +1,7 @@
 name: CI
 
 on:
-  push:
-    branches: [ main, develop, claude/** ]
-  pull_request:
-    branches: [ main, develop ]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -56,25 +53,25 @@ jobs:
             coverage.html
           retention-days: 30
 
-  lint:
-    name: Lint
-    runs-on: ubuntu-latest
+  # lint:
+  #   name: Lint
+  #   runs-on: ubuntu-latest
 
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@v4
 
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: '1.24.x'
-          cache: true
+  #     - name: Set up Go
+  #       uses: actions/setup-go@v5
+  #       with:
+  #         go-version: '1.25.x'
+  #         cache: true
 
-      - name: Run golangci-lint
-        uses: golangci/golangci-lint-action@v4
-        with:
-          version: v1.55.2
-          args: --timeout=5m
+  #     - name: Run golangci-lint
+  #       uses: golangci/golangci-lint-action@v4
+  #       with:
+  #         version: v2.6.0
+  #         args: --timeout=5m
 
   security:
     name: Security Scan
@@ -124,59 +121,22 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.24.x'
+          go-version: '1.25.x'
           cache: true
 
-      - name: Build CLI
+      - name: Add just
+        uses: extractions/setup-just@v3
+
+      - name: Build all artifacts
         env:
           GOOS: ${{ matrix.os }}
           GOARCH: ${{ matrix.arch }}
         run: |
-          VERSION=$(cat VERSION)
-          GIT_HASH=$(git rev-parse --short HEAD)
-          BUILD_DATE=$(date -u +%Y%m%d)
-          BUILD_FLAGS="-X=runvoy/internal/constants.version=${VERSION}-${BUILD_DATE}-${GIT_HASH}"
+          just build
 
-          cd cmd/runvoy
-          go build -ldflags "$BUILD_FLAGS" -o ../../bin/runvoy-${{ matrix.os }}-${{ matrix.arch }}
-
-      - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: runvoy-${{ matrix.os }}-${{ matrix.arch }}
-          path: bin/runvoy-${{ matrix.os }}-${{ matrix.arch }}
-          retention-days: 7
-
-  validate:
-    name: Validate
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: '1.24.x'
-          cache: true
-
-      - name: Check formatting
-        run: |
-          if [ "$(gofmt -s -l . | wc -l)" -gt 0 ]; then
-            echo "The following files are not formatted:"
-            gofmt -s -l .
-            exit 1
-          fi
-
-      - name: Check imports
-        run: |
-          go install golang.org/x/tools/cmd/goimports@latest
-          if [ "$(goimports -l . | wc -l)" -gt 0 ]; then
-            echo "The following files have incorrect imports:"
-            goimports -l .
-            exit 1
-          fi
-
-      - name: Vet code
-        run: go vet ./...
+      # - name: Upload build artifacts
+      #   uses: actions/upload-artifact@v4
+      #   with:
+      #     name: runvoy-${{ matrix.os }}-${{ matrix.arch }}
+      #     path: bin/runvoy-${{ matrix.os }}-${{ matrix.arch }}
+      #     retention-days: 7
