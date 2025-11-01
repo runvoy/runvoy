@@ -201,7 +201,7 @@ runvoy uses a serverless event-driven architecture built on AWS Lambda, ECS Farg
 - **EventBridge**: Captures ECS task state changes for completion tracking
 - **CloudWatch**: Logs all executions for audit and debugging
 
-For detailed architecture information, see [ARCHITECTURE.md](ARCHITECTURE.md).
+For detailed architecture information, see [ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## Usage
 
