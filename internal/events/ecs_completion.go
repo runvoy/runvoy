@@ -26,14 +26,15 @@ func (p *Processor) handleECSTaskCompletion(ctx context.Context, event events.Cl
 
 	executionID := extractExecutionIDFromTaskArn(taskEvent.TaskArn)
 
-	reqLogger.Info("processing ECS task completion", "execution", map[string]string{
-		"executionID":   executionID,
-		"startedAt":     taskEvent.StartedAt,
-		"stopCode":      taskEvent.StopCode,
-		"stoppedAt":     taskEvent.StoppedAt,
-		"stoppedReason": taskEvent.StoppedReason,
-		"taskArn":       taskEvent.TaskArn,
-	})
+	reqLogger.Info("pattern matched, processing ECS task completion",
+		"execution", map[string]string{
+			"executionID":   executionID,
+			"startedAt":     taskEvent.StartedAt,
+			"stopCode":      taskEvent.StopCode,
+			"stoppedAt":     taskEvent.StoppedAt,
+			"stoppedReason": taskEvent.StoppedReason,
+			"taskArn":       taskEvent.TaskArn,
+		})
 
 	execution, err := p.executionRepo.GetExecution(ctx, executionID)
 	if err != nil {

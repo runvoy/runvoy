@@ -59,7 +59,6 @@ func (p *Processor) HandleEvent(ctx context.Context, event events.CloudWatchEven
 	// Route by detail type
 	switch event.DetailType {
 	case "ECS Task State Change":
-		reqLogger.Info("event pattern matched, processing ECS task completion")
 		return p.handleECSTaskCompletion(ctx, event)
 	default:
 		// Log and ignore unknown event types (don't fail)
