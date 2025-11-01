@@ -45,7 +45,7 @@ jobs:
         run: go tool cover -html=coverage.out -o coverage.html
 
       - name: Archive coverage results
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: coverage-report-${{ matrix.go-version }}
           path: |
@@ -137,7 +137,7 @@ jobs:
   #         just build
 
   #     # - name: Upload build artifacts
-  #     #   uses: actions/upload-artifact@v4
+  #     #   uses: actions/upload-artifact@v5
   #     #   with:
   #     #     name: runvoy-${{ matrix.os }}-${{ matrix.arch }}
   #     #     path: bin/runvoy-${{ matrix.os }}-${{ matrix.arch }}
