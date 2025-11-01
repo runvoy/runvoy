@@ -129,3 +129,8 @@ func TerminalExecutionStatuses() []ExecutionStatus {
 // WebviewerURL is the URL of the webviewer HTML file.
 // TODO: Make this configurable in the future.
 const WebviewerURL = "https://runvoy-releases.s3.us-east-2.amazonaws.com/webviewer.html"
+
+type StartTimeCtxKeyType string
+
+// StartTimeCtxKey is the key used to store the start time in context
+const StartTimeCtxKey StartTimeCtxKeyType = "startTime"

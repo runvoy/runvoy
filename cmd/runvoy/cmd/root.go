@@ -31,6 +31,8 @@ var rootCmd = &cobra.Command{
 Isolated, repeatable execution environments for your commands`,
 		constants.ProjectName, *constants.GetVersion()),
 	PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
+		startTime := time.Now().UTC()
+		cmd.SetContext(context.WithValue(cmd.Context(), constants.StartTimeCtxKey, startTime))
 		printHeader(cmd)
 
 		if verbose {
@@ -58,7 +60,7 @@ Isolated, repeatable execution environments for your commands`,
 			return fmt.Errorf("error parsing timeout: %w", err)
 		}
 
-		ctx, cancel := context.WithTimeout(context.Background(), timeoutDuration)
+		ctx, cancel := context.WithTimeout(cmd.Context(), timeoutDuration)
 		timeoutCancel = cancel // Store for cleanup in Execute()
 		cmd.SetContext(ctx)
 
@@ -85,6 +87,17 @@ Isolated, repeatable execution environments for your commands`,
 		}
 
 		return nil
+	},
+	PersistentPostRun: func(cmd *cobra.Command, _ []string) {
+		if verbose {
+			startTime := getStartTimeFromContext(cmd)
+			if !startTime.IsZero() {
+				output.Infof("Time elapsed: %s", output.Bold(time.Since(startTime).String()))
+			}
+		}
+		if timeoutCancel != nil {
+			timeoutCancel()
+		}
 	},
 }
 
@@ -143,4 +156,12 @@ func getConfigFromContext(cmd *cobra.Command) (*config.Config, error) {
 		return nil, fmt.Errorf("config not found in context")
 	}
 	return cfg, nil
+}
+
+func getStartTimeFromContext(cmd *cobra.Command) time.Time {
+	startTime, ok := cmd.Context().Value(constants.StartTimeCtxKey).(time.Time)
+	if !ok {
+		return time.Time{}
+	}
+	return startTime
 }
