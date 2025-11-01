@@ -45,6 +45,8 @@ runvoy solves the challenge of giving team members access to run infrastructure 
 
 ### Deploy the backend infrastructure (one time only)
 
+This will bootstrap the backend infrastructure and seed the admin user, that is, normal users don't need to do this.
+
 Ensure AWS credentials are configured in your shell, e.g:
 
 ```bash
@@ -63,7 +65,8 @@ just init
 ```bash
 just build-cli
 export PATH=$PATH:$(pwd)/bin
-runvoy configure
+
+runvoy configure # can be skipped if you are the admin user, the init process will create a config file with the admin API key and endpoint already set
 ```
 
 ## Development
