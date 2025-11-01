@@ -242,6 +242,10 @@ update-readme-help: build-cli
 local-dev-sync:
     go run scripts/sync-env-vars/main.go
 
+# Upgrade all dependencies
+upgrade-dependencies:
+    go get -u all
+
 # TODO run agg into a github action and store it as asset so to avoid
 # having to commit the gif to the repository
 record-demo:
