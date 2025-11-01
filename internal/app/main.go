@@ -206,7 +206,7 @@ func (s *Service) RunCommand(
 	}
 
 	if taskARN != "" {
-		reqLogger.Info("provider task started", "task", map[string]string{
+		reqLogger.Info("task started", "task", map[string]string{
 			"executionID": executionID,
 			"taskARN":     taskARN,
 			"startedAt":   startedAt.Format(time.RFC3339),
