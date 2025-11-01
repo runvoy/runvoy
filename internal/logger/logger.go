@@ -19,7 +19,6 @@ func flattenMapAttr(prefix string, value any) string {
 
 	switch v := value.(type) {
 	case map[string]any:
-		// Sort keys for consistent output
 		keys := make([]string, 0, len(v))
 		for k := range v {
 			keys = append(keys, k)
@@ -28,28 +27,22 @@ func flattenMapAttr(prefix string, value any) string {
 
 		for _, key := range keys {
 			val := v[key]
-			// Build the full key path
 			fullKey := key
 			if prefix != "" {
 				fullKey = prefix + "." + key
 			}
 
-			// Handle nested maps recursively
 			if nestedMap, ok := val.(map[string]any); ok {
-				// Recursively flatten with the full key path as new prefix
 				nested := flattenMapAttr(fullKey, nestedMap)
 				parts = append(parts, nested)
 			} else if nestedMap, ok := val.(map[string]string); ok {
-				// Recursively flatten with the full key path as new prefix
 				nested := flattenMapAttr(fullKey, nestedMap)
 				parts = append(parts, nested)
 			} else {
-				// Leaf value - format as key=value
 				parts = append(parts, fmt.Sprintf("%s=%v", fullKey, val))
 			}
 		}
 	case map[string]string:
-		// Sort keys for consistent output
 		keys := make([]string, 0, len(v))
 		for k := range v {
 			keys = append(keys, k)
@@ -64,7 +57,6 @@ func flattenMapAttr(prefix string, value any) string {
 			parts = append(parts, fmt.Sprintf("%s=%v", fullKey, v[key]))
 		}
 	default:
-		// Not a map, return as-is
 		return fmt.Sprintf("%v", value)
 	}
 
@@ -73,7 +65,6 @@ func flattenMapAttr(prefix string, value any) string {
 
 // replaceAttrForDev transforms attributes for better readability in dev environment
 func replaceAttrForDev(groups []string, a slog.Attr) slog.Attr {
-	// Flatten map attributes for better readability
 	switch v := a.Value.Any().(type) {
 	case map[string]any, map[string]string:
 		flattened := flattenMapAttr(a.Key, v)
