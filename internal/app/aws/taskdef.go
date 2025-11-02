@@ -54,6 +54,37 @@ func ExtractImageFromTaskDefFamily(familyName string) string {
 	return imagePart
 }
 
+// GetTaskDefinitionForImage looks up an existing task definition for the given Docker image.
+// Returns an error if the task definition doesn't exist (does not auto-register).
+func GetTaskDefinitionForImage(
+	ctx context.Context,
+	ecsClient *ecs.Client,
+	image string,
+	logger *slog.Logger,
+) (string, error) {
+	family := TaskDefinitionFamilyName(image)
+
+	// Check if task definition already exists for this family
+	listOutput, err := ecsClient.ListTaskDefinitions(ctx, &ecs.ListTaskDefinitionsInput{
+		FamilyPrefix: awsStd.String(family),
+		Status:       ecsTypes.TaskDefinitionStatusActive,
+		MaxResults:   awsStd.Int32(1),
+	})
+	if err != nil {
+		return "", fmt.Errorf("failed to list task definitions: %w", err)
+	}
+
+	// If a task definition exists, return the latest one
+	if len(listOutput.TaskDefinitionArns) > 0 {
+		latestARN := listOutput.TaskDefinitionArns[len(listOutput.TaskDefinitionArns)-1]
+		logger.Debug("task definition found", "family", family, "arn", latestARN)
+		return latestARN, nil
+	}
+
+	// Task definition doesn't exist - return error
+	return "", fmt.Errorf("task definition for image %q not found (family: %s). Image must be registered via /api/v1/images/register", image, family)
+}
+
 // RegisterTaskDefinitionForImage registers a new ECS task definition for the given Docker image.
 // The task definition uses the same structure as before (sidecar + runner), but with the specified runner image.
 func RegisterTaskDefinitionForImage(

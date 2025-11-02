@@ -766,9 +766,11 @@ Future enhancements may include server-side filtering and pagination.
 
 3. **Custom Container Images** - ✅ **IMPLEMENTED** - The `image` field in execution requests is now supported:
    - Custom Docker images are supported via dynamic task definition registration
-   - Images must be registered via `/api/v1/images/register` before use (or are auto-registered on first use)
-   - Task definitions are created on-demand via ECS API
+   - Images must be registered via `/api/v1/images/register` before use
+   - The default image (from `RUNVOY_DEFAULT_IMAGE`) is automatically registered at service initialization
+   - Task definitions are created via ECS API when images are registered
    - Images are managed via `/api/v1/images` endpoints (admin-only)
+   - Executions with unregistered images will fail with a clear error message
 
 4. **Comprehensive Test Coverage** - Current test coverage is limited. Areas needing tests:
    - Event processor logic (status determination)
@@ -991,7 +993,9 @@ The platform uses dynamically managed ECS Fargate task definitions with a sideca
 
 **Dynamic Registration:**
 - Task definitions are registered via the ECS API when images are added through the `/api/v1/images/register` endpoint
-- When an execution requests an image, the system automatically registers a task definition if one doesn't exist
+- The default image (configured via `RUNVOY_DEFAULT_IMAGE`) is automatically registered at service initialization
+- When an execution requests an image, the system looks up the existing task definition
+- If an image is not registered, the execution will fail with an error directing the admin to register it first
 - Task definitions are reused across executions using the same image
 - The ECS task definition API is the source of truth - no caching, queries happen on-demand
 

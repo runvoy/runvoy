@@ -144,14 +144,13 @@ func (e *Runner) StartTask(ctx context.Context, userEmail string, req api.Execut
 		imageToUse = req.Image
 	}
 
-	// Get or register task definition for the requested image
-	taskDefFamily := TaskDefinitionFamilyName(imageToUse)
-	taskDefARN, err := RegisterTaskDefinitionForImage(ctx, e.ecsClient, e.cfg, imageToUse, reqLogger)
+	// Get task definition for the requested image (must be registered via API)
+	taskDefARN, err := GetTaskDefinitionForImage(ctx, e.ecsClient, imageToUse, reqLogger)
 	if err != nil {
-		return "", "", nil, appErrors.ErrInternalError("failed to get task definition for image", err)
+		return "", "", nil, appErrors.ErrBadRequest("image not registered", err)
 	}
 
-	reqLogger.Debug("using task definition for image", "image", imageToUse, "taskDef", taskDefARN, "family", taskDefFamily)
+	reqLogger.Debug("using task definition for image", "image", imageToUse, "taskDef", taskDefARN)
 
 	hasGitRepo := req.GitRepo != ""
 	requestID := logger.GetRequestID(ctx)
