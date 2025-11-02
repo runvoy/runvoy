@@ -473,6 +473,8 @@ Resources:
           RUNVOY_SUBNET_2: !Ref PublicSubnet2
           RUNVOY_SECURITY_GROUP: !Ref FargateSecurityGroup
           RUNVOY_LOG_GROUP: !Ref RunnerLogGroup
+          RUNVOY_TASK_EXEC_ROLE_ARN: !GetAtt TaskExecutionRole.Arn
+          RUNVOY_TASK_ROLE_ARN: !GetAtt TaskRole.Arn
 
   # Lambda Function URL
   LambdaFunctionUrl:

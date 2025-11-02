@@ -209,6 +209,11 @@ func RegisterTaskDefinitionForImageWithDefault(
 		}
 	}
 
+	// Validate that we have the required execution role (required for Fargate with awslogs)
+	if taskExecRoleARN == "" {
+		return "", fmt.Errorf("task execution role ARN is required but not found in config or existing task definitions")
+	}
+
 	// If marking as default, first unmark any existing default images to enforce single default
 	if isDefault || (cfg.DefaultImage != "" && image == cfg.DefaultImage) {
 		if err := unmarkExistingDefaultImages(ctx, ecsClient, logger); err != nil {
@@ -247,7 +252,6 @@ func RegisterTaskDefinitionForImageWithDefault(
 		Cpu:             awsStd.String("256"),
 		Memory:          awsStd.String("512"),
 		ExecutionRoleArn: awsStd.String(taskExecRoleARN),
-		TaskRoleArn:     awsStd.String(taskRoleARN),
 		EphemeralStorage: &ecsTypes.EphemeralStorage{
 			SizeInGiB: 21,
 		},
@@ -315,6 +319,11 @@ func RegisterTaskDefinitionForImageWithDefault(
 				},
 			},
 		},
+	}
+
+	// Task role is optional - only set if provided
+	if taskRoleARN != "" {
+		registerInput.TaskRoleArn = awsStd.String(taskRoleARN)
 	}
 
 	registerOutput, err := ecsClient.RegisterTaskDefinition(ctx, registerInput)

@@ -37,6 +37,8 @@ type Config struct {
 	SecurityGroup       string        `mapstructure:"security_group"`
 	LogGroup            string        `mapstructure:"log_group"`
 	DefaultImage        string        `mapstructure:"default_image"`
+	TaskExecRoleARN     string        `mapstructure:"task_exec_role_arn"`
+	TaskRoleARN         string        `mapstructure:"task_role_arn"`
 	InitTimeout         time.Duration `mapstructure:"init_timeout"`
 	LogLevel            string        `mapstructure:"log_level"`
 }
@@ -271,6 +273,8 @@ func bindEnvVars(v *viper.Viper) {
 		"SECURITY_GROUP",
 		"LOG_GROUP",
 		"DEFAULT_IMAGE",
+		"TASK_EXEC_ROLE_ARN",
+		"TASK_ROLE_ARN",
 		"INIT_TIMEOUT",
 		"LOG_LEVEL",
 	}

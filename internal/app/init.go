@@ -93,16 +93,15 @@ func initializeAWSBackend(
 	executionRepo := dynamorepo.NewExecutionRepository(dynamoClient, cfg.ExecutionsTable, logger)
 
 	awsExecCfg := &appaws.Config{
-		ECSCluster:    cfg.ECSCluster,
-		Subnet1:       cfg.Subnet1,
-		Subnet2:       cfg.Subnet2,
-		SecurityGroup: cfg.SecurityGroup,
-		LogGroup:      cfg.LogGroup,
-		DefaultImage:  cfg.DefaultImage,
-		Region:        awsCfg.Region,
-		// TaskRoleARN and TaskExecRoleARN will be read from an existing task definition
-		// or should be provided via environment variables if available
-		// If not available, task definition registration will try to get them from existing definitions
+		ECSCluster:      cfg.ECSCluster,
+		Subnet1:         cfg.Subnet1,
+		Subnet2:         cfg.Subnet2,
+		SecurityGroup:   cfg.SecurityGroup,
+		LogGroup:        cfg.LogGroup,
+		DefaultImage:    cfg.DefaultImage,
+		TaskExecRoleARN: cfg.TaskExecRoleARN,
+		TaskRoleARN:     cfg.TaskRoleARN,
+		Region:          awsCfg.Region,
 	}
 	runner := appaws.NewRunner(ecsClientInstance, awsExecCfg, logger)
 
