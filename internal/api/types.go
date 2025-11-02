@@ -149,7 +149,8 @@ type HealthResponse struct {
 
 // RegisterImageRequest represents the request to register a new Docker image
 type RegisterImageRequest struct {
-	Image string `json:"image"` // Docker image name (e.g., "hashicorp/terraform:1.6")
+	Image     string `json:"image"`                // Docker image name (e.g., "hashicorp/terraform:1.6")
+	IsDefault *bool  `json:"is_default,omitempty"` // Optional: if true, set this image as default. If false or not provided, behavior depends on whether a default exists (first image becomes default if none exists)
 }
 
 // RegisterImageResponse represents the response after registering an image

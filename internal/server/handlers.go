@@ -276,7 +276,7 @@ func (r *Router) handleRegisterImage(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	resp, err := r.svc.RegisterImage(req.Context(), registerReq.Image)
+	resp, err := r.svc.RegisterImage(req.Context(), registerReq.Image, registerReq.IsDefault)
 	if err != nil {
 		statusCode := apperrors.GetStatusCode(err)
 		errorCode := apperrors.GetErrorCode(err)

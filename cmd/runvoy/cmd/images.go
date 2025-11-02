@@ -16,11 +16,17 @@ var imagesCmd = &cobra.Command{
 	Short: "Images management commands",
 }
 
+var (
+	registerImageIsDefault bool
+)
+
 var registerImageCmd = &cobra.Command{
 	Use:   "register <image>",
 	Short: "Register a new image",
 	Example: fmt.Sprintf(`  - %s images register alpine:latest
-  - %s images register ecr-public.us-east-1.amazonaws.com/docker/library/ubuntu:22.04`,
+  - %s images register ecr-public.us-east-1.amazonaws.com/docker/library/ubuntu:22.04
+  - %s images register ubuntu:22.04 --is-default`,
+		constants.ProjectName,
 		constants.ProjectName,
 		constants.ProjectName,
 	),
@@ -43,6 +49,7 @@ var unregisterImageCmd = &cobra.Command{
 }
 
 func init() {
+	registerImageCmd.Flags().BoolVar(&registerImageIsDefault, "is-default", false, "Set this image as the default image")
 	imagesCmd.AddCommand(registerImageCmd)
 	imagesCmd.AddCommand(listImagesCmd)
 	imagesCmd.AddCommand(unregisterImageCmd)
@@ -58,7 +65,11 @@ func registerImageRun(cmd *cobra.Command, args []string) {
 	}
 
 	client := client.New(cfg, slog.Default())
-	resp, err := client.RegisterImage(cmd.Context(), image)
+	var isDefault *bool
+	if cmd.Flags().Changed("is-default") {
+		isDefault = &registerImageIsDefault
+	}
+	resp, err := client.RegisterImage(cmd.Context(), image, isDefault)
 	if err != nil {
 		output.Errorf("failed to register image: %v", err)
 		return

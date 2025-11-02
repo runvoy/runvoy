@@ -31,7 +31,8 @@ type Runner interface {
 	// Returns an error if the task is already terminated or cannot be terminated.
 	KillTask(ctx context.Context, executionID string) error
 	// RegisterImage registers a Docker image as a task definition in the execution platform.
-	RegisterImage(ctx context.Context, image string) error
+	// isDefault: if true, explicitly set as default; if nil or false, becomes default only if no default exists (first image behavior)
+	RegisterImage(ctx context.Context, image string, isDefault *bool) error
 	// ListImages lists all registered Docker images.
 	ListImages(ctx context.Context) ([]api.ImageInfo, error)
 	// RemoveImage removes a Docker image and deregisters its task definitions.
@@ -448,12 +449,12 @@ func (s *Service) ListExecutions(ctx context.Context) ([]*api.Execution, error) 
 }
 
 // RegisterImage registers a Docker image and creates the corresponding task definition.
-func (s *Service) RegisterImage(ctx context.Context, image string) (*api.RegisterImageResponse, error) {
+func (s *Service) RegisterImage(ctx context.Context, image string, isDefault *bool) (*api.RegisterImageResponse, error) {
 	if image == "" {
 		return nil, apperrors.ErrBadRequest("image is required", nil)
 	}
 
-	if err := s.runner.RegisterImage(ctx, image); err != nil {
+	if err := s.runner.RegisterImage(ctx, image, isDefault); err != nil {
 		return nil, apperrors.ErrInternalError("failed to register image", err)
 	}
 

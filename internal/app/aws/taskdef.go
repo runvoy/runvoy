@@ -85,6 +85,37 @@ func listTaskDefinitionsByPrefix(ctx context.Context, ecsClient *ecs.Client, pre
 	return taskDefArns, nil
 }
 
+// hasExistingDefaultImage checks if any task definition has the runvoy.default tag set.
+func hasExistingDefaultImage(
+	ctx context.Context,
+	ecsClient *ecs.Client,
+	logger *slog.Logger,
+) (bool, error) {
+	familyPrefix := constants.TaskDefinitionFamilyPrefix + "-"
+	taskDefArns, err := listTaskDefinitionsByPrefix(ctx, ecsClient, familyPrefix)
+	if err != nil {
+		return false, err
+	}
+
+	for _, taskDefARN := range taskDefArns {
+		tagsOutput, err := ecsClient.ListTagsForResource(ctx, &ecs.ListTagsForResourceInput{
+			ResourceArn: awsStd.String(taskDefARN),
+		})
+		if err != nil {
+			logger.Debug("failed to list tags for task definition", "arn", taskDefARN, "error", err)
+			continue
+		}
+
+		for _, tag := range tagsOutput.Tags {
+			if tag.Key != nil && *tag.Key == "runvoy.default" && tag.Value != nil && *tag.Value == "true" {
+				return true, nil
+			}
+		}
+	}
+
+	return false, nil
+}
+
 // unmarkExistingDefaultImages removes the runvoy.default tag from all existing task definitions
 // that have it. This ensures only one image can be marked as default at a time.
 func unmarkExistingDefaultImages(

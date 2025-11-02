@@ -256,12 +256,12 @@ func (c *Client) ClaimAPIKey(ctx context.Context, token string) (*api.ClaimAPIKe
 	return &resp, nil
 }
 
-func (c *Client) RegisterImage(ctx context.Context, image string) (*api.RegisterImageResponse, error) {
+func (c *Client) RegisterImage(ctx context.Context, image string, isDefault *bool) (*api.RegisterImageResponse, error) {
 	var resp api.RegisterImageResponse
 	err := c.DoJSON(ctx, Request{
 		Method: "POST",
 		Path:   "/api/v1/images/register",
-		Body:   api.RegisterImageRequest{Image: image},
+		Body:   api.RegisterImageRequest{Image: image, IsDefault: isDefault},
 	}, &resp)
 	if err != nil {
 		return nil, err

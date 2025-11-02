@@ -292,22 +292,44 @@ func (e *Runner) StartTask(ctx context.Context, userEmail string, req api.Execut
 }
 
 // RegisterImage registers a Docker image and creates the corresponding task definition.
-func (e *Runner) RegisterImage(ctx context.Context, image string) error {
+// isDefault: if true, explicitly set as default; if nil or false, becomes default only if no default exists (first image behavior)
+func (e *Runner) RegisterImage(ctx context.Context, image string, isDefault *bool) error {
 	if e.ecsClient == nil {
 		return fmt.Errorf("ECS client not configured")
 	}
 
 	reqLogger := logger.DeriveRequestLogger(ctx, e.logger)
 
-	// Check if this should be marked as default (matches config default image)
-	isDefault := e.cfg.DefaultImage != "" && image == e.cfg.DefaultImage
-
 	region := e.cfg.Region
 	if region == "" {
 		return fmt.Errorf("AWS region not configured")
 	}
 
-	_, err := RegisterTaskDefinitionForImageWithDefault(ctx, e.ecsClient, e.cfg, image, isDefault, region, reqLogger)
+	// Determine if this image should be marked as default:
+	// 1. If isDefault is explicitly true, set as default
+	// 2. If image matches cfg.DefaultImage, set as default
+	// 3. If isDefault is nil (not provided) and no default exists, make this the first default
+	shouldBeDefault := false
+	if isDefault != nil && *isDefault {
+		// Explicitly requested to be default
+		shouldBeDefault = true
+	} else if e.cfg.DefaultImage != "" && image == e.cfg.DefaultImage {
+		// Matches config default image
+		shouldBeDefault = true
+	} else if isDefault == nil {
+		// isDefault not provided - check if any default exists; if not, make this one the default (first image behavior)
+		hasDefault, err := hasExistingDefaultImage(ctx, e.ecsClient, reqLogger)
+		if err != nil {
+			reqLogger.Warn("failed to check for existing default image, proceeding", "error", err)
+			// Continue without setting as default if we can't check
+		} else if !hasDefault {
+			// No default exists, make this one the default (first image becomes default)
+			shouldBeDefault = true
+		}
+	}
+	// If isDefault is explicitly false, don't set as default (even if no default exists)
+
+	_, err := RegisterTaskDefinitionForImageWithDefault(ctx, e.ecsClient, e.cfg, image, shouldBeDefault, region, reqLogger)
 	if err != nil {
 		return fmt.Errorf("failed to register task definition: %w", err)
 	}
