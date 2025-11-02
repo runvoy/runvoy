@@ -318,22 +318,15 @@ func (r *Router) handleListImages(w http.ResponseWriter, req *http.Request) {
 func (r *Router) handleRemoveImage(w http.ResponseWriter, req *http.Request) {
 	logger := r.GetLoggerFromContext(req.Context())
 
-	// Extract the image path from Chi's wildcard parameter
-	// The catch-all route (*) matches everything after /images/
-	imagePath := strings.TrimSpace(chi.URLParam(req, "*"))
-	
-	// Remove leading slash if present (Chi may include it)
-	imagePath = strings.TrimPrefix(imagePath, "/")
+	imagePath := strings.TrimPrefix(strings.TrimSpace(chi.URLParam(req, "*")), "/")
 
 	if imagePath == "" {
 		writeErrorResponse(w, http.StatusBadRequest, "invalid image", "image parameter is required")
 		return
 	}
 
-	// URL decode the image name
 	image, decodeErr := url.PathUnescape(imagePath)
 	if decodeErr != nil {
-		// If decoding fails, use the original value
 		image = imagePath
 	}
 	image = strings.TrimSpace(image)
