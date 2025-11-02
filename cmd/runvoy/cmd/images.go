@@ -49,7 +49,8 @@ var unregisterImageCmd = &cobra.Command{
 }
 
 func init() {
-	registerImageCmd.Flags().BoolVar(&registerImageIsDefault, "set-default", false, "Set this image as the default image")
+	registerImageCmd.Flags().BoolVar(&registerImageIsDefault,
+		"set-default", false, "Set this image as the default image")
 	imagesCmd.AddCommand(registerImageCmd)
 	imagesCmd.AddCommand(listImagesCmd)
 	imagesCmd.AddCommand(unregisterImageCmd)
