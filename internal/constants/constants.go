@@ -74,7 +74,7 @@ const RunnerContainerName = "runner"
 
 // SidecarContainerName is the sidecar container name for auxiliary tasks.
 // This container runs before the main runner container and handles tasks like
-// git repository cloning, .env file generation, etc.
+// .env file generation from user environment variables, git repository cloning, etc.
 const SidecarContainerName = "sidecar"
 
 // SharedVolumeName is the name of the shared volume between containers.
@@ -82,8 +82,8 @@ const SidecarContainerName = "sidecar"
 const SharedVolumeName = "workspace"
 
 // SharedVolumePath is the mount path for the shared volume in both containers.
-// When git repository is specified, the sidecar clones to /workspace/repo
-// and the main runner container creates .env file from user environment variables.
+// When git repository is specified, the sidecar clones to /workspace/repo.
+// The sidecar also creates .env file from user environment variables (prefixed with RUNVOY_USER_).
 const SharedVolumePath = "/workspace"
 
 // EcsStatus represents the AWS ECS Task LastStatus lifecycle values.

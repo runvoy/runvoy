@@ -331,33 +331,7 @@ Resources:
           Command:
             - '/bin/sh'
             - '-c'
-            - |
-              set -e
-
-              # If no GIT_REPO is specified, just exit successfully
-              if [ -z "$GIT_REPO" ]; then
-                echo "### runvoy sidecar: No git repository specified, exiting"
-                exit 0
-              fi
-
-              # Git repository cloning logic
-              apk add --no-cache git
-              GIT_REF=${GIT_REF:-main}
-              CLONE_PATH=${SHARED_VOLUME_PATH}/repo
-
-              # Clone git repository
-              echo "### runvoy sidecar: Cloning ${GIT_REPO} (ref: ${GIT_REF})"
-              git clone --depth 1 --branch "${GIT_REF}" "${GIT_REPO}" "${CLONE_PATH}"
-              echo "### runvoy sidecar: Clone completed successfully"
-              ls -la "${CLONE_PATH}"
-              echo "### runvoy sidecar: Sidecar completed successfully"
-          Environment:
-            - Name: GIT_REPO
-              Value: ""  # Overridden at runtime via container override
-            - Name: GIT_REF
-              Value: "main"  # Overridden at runtime via container override
-            - Name: SHARED_VOLUME_PATH
-              Value: "/workspace"
+            - 'echo "This task definition is a template. Command will be overridden at runtime."'
           MountPoints:
             - ContainerPath: /workspace
               SourceVolume: workspace
