@@ -1,8 +1,10 @@
 package cmd
 
 import (
+	"fmt"
 	"log/slog"
 	"runvoy/internal/client"
+	"runvoy/internal/constants"
 	"runvoy/internal/output"
 	"strconv"
 
@@ -17,8 +19,13 @@ var imagesCmd = &cobra.Command{
 var registerImageCmd = &cobra.Command{
 	Use:   "register <image>",
 	Short: "Register a new image",
-	Run:   registerImageRun,
-	Args:  cobra.ExactArgs(1),
+	Example: fmt.Sprintf(`  - %s images register alpine:latest
+  - %s images register ecr-public.us-east-1.amazonaws.com/docker/library/ubuntu:22.04`,
+		constants.ProjectName,
+		constants.ProjectName,
+	),
+	Run:  registerImageRun,
+	Args: cobra.ExactArgs(1),
 }
 
 var listImagesCmd = &cobra.Command{
@@ -28,10 +35,11 @@ var listImagesCmd = &cobra.Command{
 }
 
 var unregisterImageCmd = &cobra.Command{
-	Use:   "unregister <image>",
-	Short: "Unregister an image",
-	Run:   unregisterImageRun,
-	Args:  cobra.ExactArgs(1),
+	Use:     "unregister <image>",
+	Short:   "Unregister an image",
+	Example: fmt.Sprintf(`  - %s images unregister alpine:latest`, constants.ProjectName),
+	Run:     unregisterImageRun,
+	Args:    cobra.ExactArgs(1),
 }
 
 func init() {
