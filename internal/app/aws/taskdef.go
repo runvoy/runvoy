@@ -214,12 +214,69 @@ func RegisterTaskDefinitionForImage(
 		return fmt.Errorf("failed to list task definitions: %w", err)
 	}
 
+	var existingTaskDefARN string
 	if len(listOutput.TaskDefinitionArns) > 0 {
-		latestARN := listOutput.TaskDefinitionArns[len(listOutput.TaskDefinitionArns)-1]
-		logger.Debug("task definition already exists", "family", family, "arn", latestARN)
+		existingTaskDefARN = listOutput.TaskDefinitionArns[len(listOutput.TaskDefinitionArns)-1]
+		logger.Debug("task definition already exists", "family", family, "arn", existingTaskDefARN)
+	}
+
+	// Handle default marking/unmarking BEFORE creating or updating task definition
+	// This ensures we unmark all existing defaults before setting a new one
+	shouldSetAsDefault := isDefault || (cfg.DefaultImage != "" && image == cfg.DefaultImage)
+	if shouldSetAsDefault {
+		if err := unmarkExistingDefaultImages(ctx, ecsClient, logger); err != nil {
+			logger.Warn("failed to unmark existing default images, proceeding anyway", "error", err)
+		}
+	} else {
+		// If this image should NOT be default, make sure it's not marked as default
+		if existingTaskDefARN != "" {
+			// Remove default tag from existing task definition if it exists
+			_, err := ecsClient.UntagResource(ctx, &ecs.UntagResourceInput{
+				ResourceArn: awsStd.String(existingTaskDefARN),
+				TagKeys:     []string{constants.TaskDefinitionIsDefaultTagKey},
+			})
+			if err != nil {
+				logger.Debug("failed to remove default tag from existing task definition (may not have had it)", "arn", existingTaskDefARN, "error", err)
+			} else {
+				logger.Info("removed default tag from existing task definition", "arn", existingTaskDefARN)
+			}
+		}
+	}
+
+	// If task definition already exists, just update its tags and return
+	if existingTaskDefARN != "" {
+		tags := []ecsTypes.Tag{
+			{
+				Key:   awsStd.String(constants.TaskDefinitionDockerImageTagKey),
+				Value: awsStd.String(image),
+			},
+			{
+				Key:   awsStd.String("Application"),
+				Value: awsStd.String("runvoy"),
+			},
+		}
+
+		if shouldSetAsDefault {
+			tags = append(tags, ecsTypes.Tag{
+				Key:   awsStd.String(constants.TaskDefinitionIsDefaultTagKey),
+				Value: awsStd.String("true"),
+			})
+		}
+
+		_, tagErr := ecsClient.TagResource(ctx, &ecs.TagResourceInput{
+			ResourceArn: awsStd.String(existingTaskDefARN),
+			Tags:        tags,
+		})
+		if tagErr != nil {
+			logger.Warn("failed to tag existing task definition", "arn", existingTaskDefARN, "error", tagErr)
+			return fmt.Errorf("failed to update tags on existing task definition: %w", tagErr)
+		}
+
+		logger.Info("updated tags on existing task definition", "family", family, "arn", existingTaskDefARN, "image", image, "isDefault", shouldSetAsDefault)
 		return nil
 	}
 
+	// Task definition doesn't exist, create it
 	taskExecRoleARN := cfg.TaskExecRoleARN
 	taskRoleARN := cfg.TaskRoleARN
 
@@ -246,12 +303,6 @@ func RegisterTaskDefinitionForImage(
 		return fmt.Errorf("task execution role ARN is required but not found in config or existing task definitions")
 	}
 
-	if isDefault || (cfg.DefaultImage != "" && image == cfg.DefaultImage) {
-		if err := unmarkExistingDefaultImages(ctx, ecsClient, logger); err != nil {
-			logger.Warn("failed to unmark existing default images, proceeding anyway", "error", err)
-		}
-	}
-
 	tags := []ecsTypes.Tag{
 		{
 			Key:   awsStd.String(constants.TaskDefinitionDockerImageTagKey),
@@ -263,7 +314,7 @@ func RegisterTaskDefinitionForImage(
 		},
 	}
 
-	if isDefault || (cfg.DefaultImage != "" && image == cfg.DefaultImage) {
+	if shouldSetAsDefault {
 		tags = append(tags, ecsTypes.Tag{
 			Key:   awsStd.String(constants.TaskDefinitionIsDefaultTagKey),
 			Value: awsStd.String("true"),
