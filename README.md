@@ -25,6 +25,8 @@ runvoy solves the challenge of giving team members access to run infrastructure 
 - **Serverless**: No always-running servers, just pay for the compute your commands comsume
 - **Full control**: No black magic. You can tune all the parameters, the resources are provisioned in your AWS account via CloudFormation
 
+**Project Status:** v0.1.0 - Production-ready architecture, focused development on test coverage. See [PROJECT_ASSESSMENT_2025_11_02.md](docs/PROJECT_ASSESSMENT_2025_11_02.md) for detailed project status.
+
 ## Features
 
 - **CloudFormation deployment** - Deploy complete backend infrastructure with CloudFormation templates
@@ -423,6 +425,35 @@ Key targets, grouped by workflow:
 - **Miscellaneous**: `just record-demo` (captures CLI demo as cast and GIF)
 
 All commands honor the environment variables described in the `justfile`; AWS credentials and profiles must already be configured in your shell.
+
+## Documentation
+
+### Core Documentation
+
+- **[README.md](README.md)** - This file - Quick start and usage guide
+- **[ARCHITECTURE.md](docs/ARCHITECTURE.md)** - Detailed system architecture and design
+- **[ROADMAP.md](docs/ROADMAP.md)** - Project roadmap and future plans
+- **[CHANGELOG.md](CHANGELOG.md)** - Version history and release notes
+
+### Contributing & Community
+
+- **[CONTRIBUTING.md](CONTRIBUTING.md)** - How to contribute to runvoy
+- **[SECURITY.md](SECURITY.md)** - Security policy and vulnerability reporting
+- **[PROJECT_ASSESSMENT_2025_11_02.md](docs/PROJECT_ASSESSMENT_2025_11_02.md)** - Latest project health assessment
+
+### Testing Documentation
+
+- **[TESTING_STRATEGY.md](docs/TESTING_STRATEGY.md)** - Comprehensive testing strategy
+- **[TESTING_QUICKSTART.md](docs/TESTING_QUICKSTART.md)** - Quick start guide for testing
+- **[TESTING_EXAMPLES.md](docs/TESTING_EXAMPLES.md)** - Testing patterns and examples
+- **[TESTING_SUMMARY.md](docs/TESTING_SUMMARY.md)** - Current testing status
+
+### Additional Resources
+
+- **[PROJECT_ANALYSIS.md](docs/PROJECT_ANALYSIS.md)** - Detailed project analysis
+- **[COVERAGE_REGRESSION_PREVENTION.md](docs/COVERAGE_REGRESSION_PREVENTION.md)** - Test coverage guidelines
+
+## Installation
 
 ### CLI Installation
 
