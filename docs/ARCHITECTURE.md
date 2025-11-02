@@ -330,16 +330,16 @@ The application uses a unified logging approach with structured logging via `log
 │  │ - Start ECS task │         │ - Locks      │                │
 │  │ - Record exec    │         │ - Executions │                │
 │  └──────┬───────────┘         └──────┬───────┘                │
-│         │                             ▲                          │
-│         │                             │                          │
-│  ┌──────▼───────────┐                │                          │
-│  │ ECS Fargate      │                │                          │
-│  │                  │                │                          │
-│  │ Containers:      │         ┌──────────────┐                │
-│  │ - Sidecar: git   │────────►│ S3 Bucket    │                │
-│  │   clone/setup    │         │ - Code       │                │
-│  │ - Runner: exec   │         │   uploads    │                │
-│  │ - Stream logs    │         └──────────────┘                │
+│         │
+│         │
+│  ┌──────▼───────────┐
+│  │ ECS Fargate      │
+│  │                  │
+│  │ Containers:      │
+│  │ - Sidecar: git   │
+│  │   clone/setup    │
+│  │ - Runner: exec   │
+│  │ - Stream logs    │
 │  │                  │                                           │
 │  │ Task Role:       │                                           │
 │  │ - AWS perms for  │         ┌──────────────┐                │
@@ -406,7 +406,7 @@ The platform uses a dedicated **event processor Lambda** to handle asynchronous 
 2. **EventBridge Filtering**: EventBridge rule captures STOPPED tasks from the runvoy cluster only
 3. **Lambda Invocation**: EventBridge invokes the event processor Lambda with the task details
 4. **Event Routing**: The processor routes events by type (extensible for future event types)
-5. **Data Extraction**: 
+5. **Data Extraction**:
    - Execution ID extracted from task ARN (last segment)
    - Exit code from container details
    - Timestamps for start/stop times
@@ -681,7 +681,7 @@ The project uses **golangci-lint** for comprehensive Go code analysis with the f
 **Pre-commit** hooks ensure code quality before commits:
 
 - **Configuration**: `.pre-commit-config.yaml`
-- **Hooks**: 
+- **Hooks**:
   - golangci-lint for Go code analysis
   - gofmt for code formatting
   - goimports for import organization
@@ -986,7 +986,7 @@ The platform uses a single ECS Fargate task definition with a sidecar pattern:
   - If no git repo specified, exits successfully (exit 0)
   - Logs prefixed with "### runvoy sidecar:"
   - Future extensibility: can handle .env file generation, credential fetching, etc.
-  
+
 - **Main Container ("runner")**: Executes user commands
   - Essential: `true` (task fails if this container fails)
   - Image: Ubuntu 22.04 (full-featured environment)
