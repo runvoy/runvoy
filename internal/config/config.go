@@ -234,7 +234,7 @@ func (c *Config) GetLogLevel() slog.Level {
 func setDefaults(v *viper.Viper) {
 	v.SetDefault("port", "56212")
 	v.SetDefault("request_timeout", 0)
-	v.SetDefault("default_image", "public.ecr.aws/docker/library/ubuntu:22.04")
+	v.SetDefault("default_image", "alpine:latest")
 	v.SetDefault("init_timeout", "10s")
 	v.SetDefault("log_level", "INFO")
 }

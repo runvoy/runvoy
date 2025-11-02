@@ -326,30 +326,45 @@ func (e *Runner) ListImages(ctx context.Context) ([]api.ImageInfo, error) {
 
 	reqLogger := logger.DeriveRequestLogger(ctx, e.logger)
 
-	// List all task definitions with our prefix
-	// AWS ECS FamilyPrefix requires the full prefix including the dash: "runvoy-image-" to match "runvoy-image-xxx"
-	familyPrefix := constants.TaskDefinitionFamilyPrefix + "-"
-	// Note: We don't filter by Status here because we want to show all registered images.
-	// Task definitions remain ACTIVE until explicitly deregistered.
-	listOutput, err := e.ecsClient.ListTaskDefinitions(ctx, &ecs.ListTaskDefinitionsInput{
-		FamilyPrefix: awsStd.String(familyPrefix),
-		MaxResults:   awsStd.Int32(100),
+	reqLogger.Debug("calling external service", "context", map[string]string{
+		"operation": "ECS.ListTaskDefinitions",
+		"status":    "active",
+		"paginated": "true",
 	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to list task definitions: %w", err)
-	}
 
-	reqLogger.Debug("listed task definitions", "prefix", familyPrefix, "count", len(listOutput.TaskDefinitionArns))
-	
-	// Log all ARNs for debugging
-	for i, arn := range listOutput.TaskDefinitionArns {
-		reqLogger.Debug("found task definition", "index", i, "arn", arn)
+	nextToken := ""
+	var listOutput *ecs.ListTaskDefinitionsOutput
+	var taskDefArns = []string{}
+	var err error
+	for {
+		listOutput, err = e.ecsClient.ListTaskDefinitions(ctx, &ecs.ListTaskDefinitionsInput{
+			Status:    ecsTypes.TaskDefinitionStatusActive,
+			NextToken: awsStd.String(nextToken),
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to list task definitions: %w", err)
+		}
+
+		// taskDefARN format example:
+		// arn:aws:ecs:us-east-2:123456789012:task-definition/runvoy-image-alpine-latest:1
+		for _, taskDefARN := range listOutput.TaskDefinitionArns {
+			parts := strings.Split(taskDefARN, "/")
+			if len(parts) > 0 &&
+				strings.HasPrefix(parts[len(parts)-1], constants.TaskDefinitionFamilyPrefix+"-") {
+				taskDefArns = append(taskDefArns, taskDefARN)
+			}
+		}
+
+		if listOutput.NextToken == nil {
+			break
+		}
+		nextToken = *listOutput.NextToken
 	}
 
 	result := make([]api.ImageInfo, 0)
 	seenImages := make(map[string]bool)
 
-	for _, taskDefARN := range listOutput.TaskDefinitionArns {
+	for _, taskDefARN := range taskDefArns {
 		descOutput, err := e.ecsClient.DescribeTaskDefinition(ctx, &ecs.DescribeTaskDefinitionInput{
 			TaskDefinition: awsStd.String(taskDefARN),
 		})
@@ -370,20 +385,25 @@ func (e *Runner) ListImages(ctx context.Context) ([]api.ImageInfo, error) {
 		}
 		for _, container := range descOutput.TaskDefinition.ContainerDefinitions {
 			if container.Name != nil {
-				reqLogger.Debug("checking container", "family", familyName, "container_name", *container.Name, "runner_container_name", constants.RunnerContainerName)
 				if *container.Name == constants.RunnerContainerName && container.Image != nil {
 					image = *container.Image
-					reqLogger.Debug("found runner container image", "family", familyName, "image", image)
+					reqLogger.Debug("found runner container image", "container", map[string]string{
+						"family":         familyName,
+						"container_name": *container.Name,
+						"image":          *container.Image,
+					})
 					break
 				}
 			}
 		}
 
 		if image == "" {
-			reqLogger.Debug("no runner container found in task definition", "family", familyName, "container_count", len(descOutput.TaskDefinition.ContainerDefinitions))
+			reqLogger.Debug("no runner container found in task definition", "container", map[string]string{
+				"family":          familyName,
+				"container_count": fmt.Sprintf("%d", len(descOutput.TaskDefinition.ContainerDefinitions)),
+			})
 		}
 
-		// Get tags from the task definition resource (tags are on the resource, not the definition object)
 		isDefault := false
 		tagsOutput, err := e.ecsClient.ListTagsForResource(ctx, &ecs.ListTagsForResourceInput{
 			ResourceArn: awsStd.String(taskDefARN),
@@ -401,7 +421,6 @@ func (e *Runner) ListImages(ctx context.Context) ([]api.ImageInfo, error) {
 			}
 		}
 
-		// Check if this matches the default image from config
 		if !isDefault && image != "" && image == e.cfg.DefaultImage {
 			isDefault = true
 		}
