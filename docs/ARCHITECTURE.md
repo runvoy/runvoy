@@ -994,8 +994,8 @@ The platform uses dynamically managed ECS Fargate task definitions with a sideca
 - **Docker image storage**: The actual Docker image is stored in the task definition container definition (runner container's `Image` field)
   - This is the source of truth - the exact image name used at runtime
   - Images are extracted from container definitions when listing (reliable, no lossy reconstruction)
-  - Task definitions are also tagged with `runvoy.image=<full-image-name>` for metadata, though container definitions are primary
-- **Default image marking**: The default image is marked with tag `runvoy.default=true` on the task definition resource
+  - Task definitions are also tagged with `DockerImage=<full-image-name>` for metadata, though container definitions are primary
+- **Default image marking**: The default image is marked with tag `IsDefault=true` on the task definition resource
   - Default image is also determined by comparing with `RUNVOY_DEFAULT_IMAGE` environment variable
   - When listing images, the `is_default` field indicates which image is the default
   - **Single default enforcement**: Only one image can be marked as default at a time

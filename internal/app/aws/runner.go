@@ -407,7 +407,7 @@ func (e *Runner) ListImages(ctx context.Context) ([]api.ImageInfo, error) {
 			for _, tag := range tagsOutput.Tags {
 				if tag.Key != nil && tag.Value != nil {
 					switch *tag.Key {
-					case "runvoy.default":
+					case constants.TaskDefinitionIsDefaultTagKey:
 						if *tag.Value == "true" {
 							isDefault = true
 						}
@@ -428,7 +428,7 @@ func (e *Runner) ListImages(ctx context.Context) ([]api.ImageInfo, error) {
 				Image:              image,
 				TaskDefinitionARN:  taskDefARN,
 				TaskDefinitionName: family,
-				IsDefault:          isDefault,
+				IsDefault:          awsStd.Bool(isDefault),
 			})
 		}
 	}

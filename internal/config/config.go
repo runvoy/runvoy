@@ -261,22 +261,22 @@ func loadConfigFile(v *viper.Viper) error {
 func bindEnvVars(v *viper.Viper) {
 	// Bind all environment variables explicitly
 	envVars := []string{
-		"DEV_SERVER_PORT", // maps to port
-		"REQUEST_TIMEOUT",
 		"API_KEYS_TABLE",
-		"EXECUTIONS_TABLE",
-		"PENDING_API_KEYS_TABLE",
+		"DEFAULT_IMAGE",
+		"DEV_SERVER_PORT",
 		"ECS_CLUSTER",
-		"TASK_DEFINITION",
+		"EXECUTIONS_TABLE",
+		"INIT_TIMEOUT",
+		"LOG_GROUP",
+		"LOG_LEVEL",
+		"PENDING_API_KEYS_TABLE",
+		"REQUEST_TIMEOUT",
+		"SECURITY_GROUP",
 		"SUBNET_1",
 		"SUBNET_2",
-		"SECURITY_GROUP",
-		"LOG_GROUP",
-		"DEFAULT_IMAGE",
+		"TASK_DEFINITION",
 		"TASK_EXEC_ROLE_ARN",
 		"TASK_ROLE_ARN",
-		"INIT_TIMEOUT",
-		"LOG_LEVEL",
 	}
 
 	for _, envVar := range envVars {

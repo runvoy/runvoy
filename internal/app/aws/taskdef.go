@@ -85,7 +85,7 @@ func listTaskDefinitionsByPrefix(ctx context.Context, ecsClient *ecs.Client, pre
 	return taskDefArns, nil
 }
 
-// hasExistingDefaultImage checks if any task definition has the runvoy.default tag set.
+// hasExistingDefaultImage checks if any task definition has the runvoy.IsDefault tag set.
 func hasExistingDefaultImage(
 	ctx context.Context,
 	ecsClient *ecs.Client,
@@ -107,7 +107,7 @@ func hasExistingDefaultImage(
 		}
 
 		for _, tag := range tagsOutput.Tags {
-			if tag.Key != nil && *tag.Key == "runvoy.default" && tag.Value != nil && *tag.Value == "true" {
+			if tag.Key != nil && *tag.Key == constants.TaskDefinitionIsDefaultTagKey && tag.Value != nil && *tag.Value == "true" {
 				return true, nil
 			}
 		}
@@ -116,7 +116,7 @@ func hasExistingDefaultImage(
 	return false, nil
 }
 
-// unmarkExistingDefaultImages removes the runvoy.default tag from all existing task definitions
+// unmarkExistingDefaultImages removes the runvoy.IsDefault tag from all existing task definitions
 // that have it. This ensures only one image can be marked as default at a time.
 func unmarkExistingDefaultImages(
 	ctx context.Context,
@@ -140,7 +140,7 @@ func unmarkExistingDefaultImages(
 
 		hasDefaultTag := false
 		for _, tag := range tagsOutput.Tags {
-			if tag.Key != nil && *tag.Key == "runvoy.default" && tag.Value != nil && *tag.Value == "true" {
+			if tag.Key != nil && *tag.Key == constants.TaskDefinitionIsDefaultTagKey && tag.Value != nil && *tag.Value == "true" {
 				hasDefaultTag = true
 				break
 			}
@@ -149,7 +149,7 @@ func unmarkExistingDefaultImages(
 		if hasDefaultTag {
 			_, err := ecsClient.UntagResource(ctx, &ecs.UntagResourceInput{
 				ResourceArn: awsStd.String(taskDefARN),
-				TagKeys:     []string{"runvoy.default"},
+				TagKeys:     []string{constants.TaskDefinitionIsDefaultTagKey},
 			})
 			if err != nil {
 				logger.Warn("failed to remove default tag from task definition", "arn", taskDefARN, "error", err)
@@ -254,7 +254,7 @@ func RegisterTaskDefinitionForImage(
 
 	tags := []ecsTypes.Tag{
 		{
-			Key:   awsStd.String("runvoy.image"),
+			Key:   awsStd.String(constants.TaskDefinitionDockerImageTagKey),
 			Value: awsStd.String(image),
 		},
 		{
@@ -265,7 +265,7 @@ func RegisterTaskDefinitionForImage(
 
 	if isDefault || (cfg.DefaultImage != "" && image == cfg.DefaultImage) {
 		tags = append(tags, ecsTypes.Tag{
-			Key:   awsStd.String("runvoy.default"),
+			Key:   awsStd.String(constants.TaskDefinitionIsDefaultTagKey),
 			Value: awsStd.String("true"),
 		})
 	}

@@ -99,7 +99,7 @@ func listImagesRun(cmd *cobra.Command, args []string) {
 	for _, image := range resp.Images {
 		rows = append(rows, []string{
 			image.Image,
-			strconv.FormatBool(image.IsDefault),
+			strconv.FormatBool(*image.IsDefault),
 		})
 	}
 
