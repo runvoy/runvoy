@@ -36,7 +36,6 @@ type Config struct {
 	Subnet2             string        `mapstructure:"subnet_2"`
 	SecurityGroup       string        `mapstructure:"security_group"`
 	LogGroup            string        `mapstructure:"log_group"`
-	DefaultImage        string        `mapstructure:"default_image"`
 	TaskExecRoleARN     string        `mapstructure:"task_exec_role_arn"`
 	TaskRoleARN         string        `mapstructure:"task_role_arn"`
 	InitTimeout         time.Duration `mapstructure:"init_timeout"`
@@ -234,7 +233,6 @@ func (c *Config) GetLogLevel() slog.Level {
 func setDefaults(v *viper.Viper) {
 	v.SetDefault("port", "56212")
 	v.SetDefault("request_timeout", 0)
-	v.SetDefault("default_image", "alpine:latest")
 	v.SetDefault("init_timeout", "10s")
 	v.SetDefault("log_level", "INFO")
 }
@@ -262,7 +260,6 @@ func bindEnvVars(v *viper.Viper) {
 	// Bind all environment variables explicitly
 	envVars := []string{
 		"API_KEYS_TABLE",
-		"DEFAULT_IMAGE",
 		"DEV_SERVER_PORT",
 		"ECS_CLUSTER",
 		"EXECUTIONS_TABLE",

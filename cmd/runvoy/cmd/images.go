@@ -25,7 +25,7 @@ var registerImageCmd = &cobra.Command{
 	Short: "Register a new image",
 	Example: fmt.Sprintf(`  - %s images register alpine:latest
   - %s images register ecr-public.us-east-1.amazonaws.com/docker/library/ubuntu:22.04
-  - %s images register ubuntu:22.04 --is-default`,
+  - %s images register ubuntu:22.04 --set-default`,
 		constants.ProjectName,
 		constants.ProjectName,
 		constants.ProjectName,

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -28,7 +29,6 @@ type Config struct {
 	Subnet2         string
 	SecurityGroup   string
 	LogGroup        string
-	DefaultImage    string
 	TaskRoleARN     string
 	TaskExecRoleARN string
 	Region          string
@@ -139,9 +139,18 @@ func (e *Runner) StartTask(ctx context.Context, userEmail string, req api.Execut
 
 	reqLogger := logger.DeriveRequestLogger(ctx, e.logger)
 
-	imageToUse := e.cfg.DefaultImage
-	if req.Image != "" {
-		imageToUse = req.Image
+	imageToUse := req.Image
+	if imageToUse == "" {
+		// No image specified, look up the default image from ECS tags
+		defaultImage, err := GetDefaultImage(ctx, e.ecsClient, reqLogger)
+		if err != nil {
+			return "", nil, appErrors.ErrInternalError("failed to query default image", err)
+		}
+		if defaultImage == "" {
+			return "", nil, appErrors.ErrBadRequest("no image specified and no default image configured", nil)
+		}
+		imageToUse = defaultImage
+		reqLogger.Debug("using default image", "image", imageToUse)
 	}
 
 	taskDefARN, err := GetTaskDefinitionForImage(ctx, e.ecsClient, imageToUse, reqLogger)
@@ -307,14 +316,10 @@ func (e *Runner) RegisterImage(ctx context.Context, image string, isDefault *boo
 
 	// Determine if this image should be marked as default:
 	// 1. If isDefault is explicitly true, set as default
-	// 2. If image matches cfg.DefaultImage, set as default
-	// 3. If isDefault is nil (not provided) and no default exists, make this the first default
+	// 2. If isDefault is nil (not provided) and no default exists, make this the first default
 	shouldBeDefault := false
 	if isDefault != nil && *isDefault {
 		// Explicitly requested to be default
-		shouldBeDefault = true
-	} else if e.cfg.DefaultImage != "" && image == e.cfg.DefaultImage {
-		// Matches config default image
 		shouldBeDefault = true
 	} else if isDefault == nil {
 		// isDefault not provided - check if any default exists; if not, make this one the default (first image behavior)
@@ -382,11 +387,6 @@ func (e *Runner) ListImages(ctx context.Context) ([]api.ImageInfo, error) {
 			if container.Name != nil {
 				if *container.Name == constants.RunnerContainerName && container.Image != nil {
 					image = *container.Image
-					reqLogger.Debug("found runner container image", "container", map[string]string{
-						"family":         familyName,
-						"container_name": *container.Name,
-						"image":          *container.Image,
-					})
 					break
 				}
 			}
@@ -416,10 +416,6 @@ func (e *Runner) ListImages(ctx context.Context) ([]api.ImageInfo, error) {
 			}
 		}
 
-		if !isDefault && image != "" && image == e.cfg.DefaultImage {
-			isDefault = true
-		}
-
 		if image != "" && !seenImages[image] {
 			seenImages[image] = true
 			family := awsStd.ToString(descOutput.TaskDefinition.Family)
@@ -431,6 +427,15 @@ func (e *Runner) ListImages(ctx context.Context) ([]api.ImageInfo, error) {
 				IsDefault:          awsStd.Bool(isDefault),
 			})
 		}
+	}
+
+	for _, imageInfo := range result {
+		reqLogger.Debug("found runner container image", "context", map[string]string{
+			"family":         imageInfo.TaskDefinitionName,
+			"container_name": constants.RunnerContainerName,
+			"image":          imageInfo.Image,
+			"isDefault":      strconv.FormatBool(awsStd.ToBool(imageInfo.IsDefault)),
+		})
 	}
 
 	return result, nil

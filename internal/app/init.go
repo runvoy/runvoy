@@ -98,7 +98,6 @@ func initializeAWSBackend(
 		Subnet2:         cfg.Subnet2,
 		SecurityGroup:   cfg.SecurityGroup,
 		LogGroup:        cfg.LogGroup,
-		DefaultImage:    cfg.DefaultImage,
 		TaskExecRoleARN: cfg.TaskExecRoleARN,
 		TaskRoleARN:     cfg.TaskRoleARN,
 		Region:          awsCfg.Region,

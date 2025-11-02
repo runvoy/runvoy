@@ -996,7 +996,6 @@ The platform uses dynamically managed ECS Fargate task definitions with a sideca
   - Images are extracted from container definitions when listing (reliable, no lossy reconstruction)
   - Task definitions are also tagged with `DockerImage=<full-image-name>` for metadata, though container definitions are primary
 - **Default image marking**: The default image is marked with tag `IsDefault=true` on the task definition resource
-  - Default image is also determined by comparing with `RUNVOY_DEFAULT_IMAGE` environment variable
   - When listing images, the `is_default` field indicates which image is the default
   - **Single default enforcement**: Only one image can be marked as default at a time
     - When registering a new image as default, any existing default tags are automatically removed
