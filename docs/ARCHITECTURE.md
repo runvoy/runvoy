@@ -987,9 +987,17 @@ The platform uses dynamically managed ECS Fargate task definitions with a sideca
 
 ### Task Definition Management
 
-**Task Definition Naming:** Task definitions follow the naming pattern `runvoy-image-{sanitized-image-name}`
-- Example: Image `hashicorp/terraform:1.6` creates task definition family `runvoy-image-hashicorp-terraform-1-6`
-- Image names are sanitized to comply with ECS task definition family name requirements (alphanumeric, hyphens, underscores only)
+**Task Definition Naming and Storage:**
+- Task definitions follow the naming pattern `runvoy-image-{sanitized-image-name}`
+  - Example: Image `hashicorp/terraform:1.6` creates task definition family `runvoy-image-hashicorp-terraform-1-6`
+  - Image names are sanitized to comply with ECS task definition family name requirements (alphanumeric, hyphens, underscores only)
+- **Docker image storage**: The actual Docker image is stored in the task definition container definition (runner container's `Image` field)
+  - This is the source of truth - the exact image name used at runtime
+  - Images are extracted from container definitions when listing (reliable, no lossy reconstruction)
+  - Task definitions are also tagged with `runvoy.image=<full-image-name>` for metadata, though container definitions are primary
+- **Default image marking**: The default image is marked with tag `runvoy.default=true` on the task definition resource
+  - Default image is also determined by comparing with `RUNVOY_DEFAULT_IMAGE` environment variable
+  - When listing images, the `is_default` field indicates which image is the default
 
 **Dynamic Registration:**
 - Task definitions are registered via the ECS API when images are added through the `/api/v1/images/register` endpoint

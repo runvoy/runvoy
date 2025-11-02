@@ -300,7 +300,10 @@ func (e *Runner) RegisterImage(ctx context.Context, image string) (string, strin
 
 	reqLogger := logger.DeriveRequestLogger(ctx, e.logger)
 
-	taskDefARN, err := RegisterTaskDefinitionForImage(ctx, e.ecsClient, e.cfg, image, reqLogger)
+	// Check if this should be marked as default (matches config default image)
+	isDefault := e.cfg.DefaultImage != "" && image == e.cfg.DefaultImage
+
+	taskDefARN, err := RegisterTaskDefinitionForImageWithDefault(ctx, e.ecsClient, e.cfg, image, isDefault, reqLogger)
 	if err != nil {
 		return "", "", fmt.Errorf("failed to register task definition: %w", err)
 	}
@@ -317,18 +320,76 @@ func (e *Runner) ListImages(ctx context.Context) ([]api.ImageInfo, error) {
 
 	reqLogger := logger.DeriveRequestLogger(ctx, e.logger)
 
-	images, err := ListRegisteredImages(ctx, e.ecsClient, reqLogger)
+	// List all task definitions with our prefix
+	listOutput, err := e.ecsClient.ListTaskDefinitions(ctx, &ecs.ListTaskDefinitionsInput{
+		FamilyPrefix: awsStd.String(constants.TaskDefinitionFamilyPrefix),
+		Status:       ecsTypes.TaskDefinitionStatusActive,
+		MaxResults:   awsStd.Int32(100),
+	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to list images: %w", err)
+		return nil, fmt.Errorf("failed to list task definitions: %w", err)
 	}
 
-	result := make([]api.ImageInfo, 0, len(images))
-	for _, img := range images {
-		family := TaskDefinitionFamilyName(img)
-		result = append(result, api.ImageInfo{
-			Image:              img,
-			TaskDefinitionName: family,
+	result := make([]api.ImageInfo, 0)
+	seenImages := make(map[string]bool)
+
+	for _, taskDefARN := range listOutput.TaskDefinitionArns {
+		// Describe the task definition to get container definitions
+		descOutput, err := e.ecsClient.DescribeTaskDefinition(ctx, &ecs.DescribeTaskDefinitionInput{
+			TaskDefinition: awsStd.String(taskDefARN),
 		})
+		if err != nil {
+			reqLogger.Warn("failed to describe task definition", "arn", taskDefARN, "error", err)
+			continue
+		}
+
+		if descOutput.TaskDefinition == nil {
+			continue
+		}
+
+		// Extract image from container definition (runner container)
+		image := ""
+		for _, container := range descOutput.TaskDefinition.ContainerDefinitions {
+			if container.Name != nil && *container.Name == constants.RunnerContainerName && container.Image != nil {
+				image = *container.Image
+				break
+			}
+		}
+
+		// Get tags from the task definition resource (tags are on the resource, not the definition object)
+		isDefault := false
+		tagsOutput, err := e.ecsClient.ListTagsForResource(ctx, &ecs.ListTagsForResourceInput{
+			ResourceArn: awsStd.String(taskDefARN),
+		})
+		if err == nil && tagsOutput != nil {
+			for _, tag := range tagsOutput.Tags {
+				if tag.Key != nil && tag.Value != nil {
+					switch *tag.Key {
+					case "runvoy.default":
+						if *tag.Value == "true" {
+							isDefault = true
+						}
+					}
+				}
+			}
+		}
+
+		// Check if this matches the default image from config
+		if !isDefault && image != "" && image == e.cfg.DefaultImage {
+			isDefault = true
+		}
+
+		if image != "" && !seenImages[image] {
+			seenImages[image] = true
+			family := awsStd.ToString(descOutput.TaskDefinition.Family)
+			taskDefARN := awsStd.ToString(descOutput.TaskDefinition.TaskDefinitionArn)
+			result = append(result, api.ImageInfo{
+				Image:              image,
+				TaskDefinitionARN:  taskDefARN,
+				TaskDefinitionName: family,
+				IsDefault:          isDefault,
+			})
+		}
 	}
 
 	return result, nil

@@ -393,6 +393,7 @@ Resources:
                   - 'ecs:DeregisterTaskDefinition'
                   - 'ecs:ListTaskDefinitions'
                   - 'ecs:ListTasks'
+                  - 'ecs:ListTagsForResource'
                   - 'ecs:TagResource'
                   - 'ecs:StopTask'
                 Resource: '*'

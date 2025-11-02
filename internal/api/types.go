@@ -176,6 +176,7 @@ type ImageInfo struct {
 	Image              string `json:"image"`
 	TaskDefinitionARN  string `json:"task_definition_arn,omitempty"`
 	TaskDefinitionName string `json:"task_definition_name,omitempty"`
+	IsDefault          bool   `json:"is_default,omitempty"` // True if this is the default image
 }
 
 // ListImagesResponse represents the response containing all registered images

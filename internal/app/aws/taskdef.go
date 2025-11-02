@@ -87,11 +87,25 @@ func GetTaskDefinitionForImage(
 
 // RegisterTaskDefinitionForImage registers a new ECS task definition for the given Docker image.
 // The task definition uses the same structure as before (sidecar + runner), but with the specified runner image.
+// The Docker image is stored in a task definition tag for reliable retrieval.
+// If isDefault is true, the image will be tagged as the default image.
 func RegisterTaskDefinitionForImage(
 	ctx context.Context,
 	ecsClient *ecs.Client,
 	cfg *Config,
 	image string,
+	logger *slog.Logger,
+) (string, error) {
+	return RegisterTaskDefinitionForImageWithDefault(ctx, ecsClient, cfg, image, false, logger)
+}
+
+// RegisterTaskDefinitionForImageWithDefault registers a task definition with explicit default flag.
+func RegisterTaskDefinitionForImageWithDefault(
+	ctx context.Context,
+	ecsClient *ecs.Client,
+	cfg *Config,
+	image string,
+	isDefault bool,
 	logger *slog.Logger,
 ) (string, error) {
 	family := TaskDefinitionFamilyName(image)
@@ -139,6 +153,27 @@ func RegisterTaskDefinitionForImage(
 	}
 
 	// Register new task definition
+	// Build tags for the task definition
+	// Store the actual Docker image in a tag for reliable retrieval
+	tags := []ecsTypes.Tag{
+		{
+			Key:   awsStd.String("runvoy.image"),
+			Value: awsStd.String(image),
+		},
+		{
+			Key:   awsStd.String("Application"),
+			Value: awsStd.String("runvoy"),
+		},
+	}
+
+	// Mark as default if explicitly requested or if it matches the config default
+	if isDefault || (cfg.DefaultImage != "" && image == cfg.DefaultImage) {
+		tags = append(tags, ecsTypes.Tag{
+			Key:   awsStd.String("runvoy.default"),
+			Value: awsStd.String("true"),
+		})
+	}
+
 	registerInput := &ecs.RegisterTaskDefinitionInput{
 		Family:      awsStd.String(family),
 		NetworkMode: ecsTypes.NetworkModeAwsvpc,
@@ -224,11 +259,26 @@ func RegisterTaskDefinitionForImage(
 	}
 
 	taskDefARN := awsStd.ToString(registerOutput.TaskDefinition.TaskDefinitionArn)
+
+	// Tag the task definition resource with image and default information
+	// Tags are applied to the resource ARN, not included in RegisterTaskDefinitionInput
+	if len(tags) > 0 {
+		_, tagErr := ecsClient.TagResource(ctx, &ecs.TagResourceInput{
+			ResourceArn: awsStd.String(taskDefARN),
+			Tags:        tags,
+		})
+		if tagErr != nil {
+			// Log warning but don't fail - tags are metadata, task definition is registered
+			logger.Warn("failed to tag task definition (task definition registered successfully)", "arn", taskDefARN, "error", tagErr)
+		}
+	}
+
 	logger.Info("registered task definition", "family", family, "arn", taskDefARN, "image", image)
 	return taskDefARN, nil
 }
 
 // ListRegisteredImages lists all registered Docker images by querying ECS task definitions.
+// Images are extracted from task definition tags or container definitions.
 func ListRegisteredImages(
 	ctx context.Context,
 	ecsClient *ecs.Client,
@@ -246,16 +296,28 @@ func ListRegisteredImages(
 
 	images := make(map[string]bool)
 	for _, taskDefARN := range listOutput.TaskDefinitionArns {
-		// Extract family name from ARN: arn:aws:ecs:region:account:task-definition/family:revision
-		parts := strings.Split(taskDefARN, "/")
-		if len(parts) < 2 {
+		// Describe the task definition to get container definitions
+		descOutput, err := ecsClient.DescribeTaskDefinition(ctx, &ecs.DescribeTaskDefinitionInput{
+			TaskDefinition: awsStd.String(taskDefARN),
+		})
+		if err != nil {
+			logger.Warn("failed to describe task definition", "arn", taskDefARN, "error", err)
 			continue
 		}
-		familyWithRev := parts[len(parts)-1]
-		family := strings.Split(familyWithRev, ":")[0]
 
-		// Extract image name from family
-		image := ExtractImageFromTaskDefFamily(family)
+		if descOutput.TaskDefinition == nil {
+			continue
+		}
+
+		// Extract image from container definition (runner container) - this is the source of truth
+		image := ""
+		for _, container := range descOutput.TaskDefinition.ContainerDefinitions {
+			if container.Name != nil && *container.Name == constants.RunnerContainerName && container.Image != nil {
+				image = *container.Image
+				break
+			}
+		}
+
 		if image != "" {
 			images[image] = true
 		}
