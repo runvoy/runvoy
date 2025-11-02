@@ -59,7 +59,7 @@ func buildSidecarContainerCommand(hasGitRepo bool) []string {
 	commands = append(commands,
 		"if env | grep -q '^RUNVOY_USER_'; then",
 		fmt.Sprintf("  echo '### %s sidecar: Creating .env file from user environment variables'", constants.ProjectName),
-		"  ENV_FILE_PATH=\"${SHARED_VOLUME_PATH}/.env\"",
+		"  ENV_FILE_PATH=\"${RUNVOY_SHARED_VOLUME_PATH}/.env\"",
 		"  env | grep '^RUNVOY_USER_' | while IFS='=' read -r key value; do",
 		"    actual_key=\"${key#RUNVOY_USER_}\"",
 		"    echo \"${actual_key}=${value}\" >> \"${ENV_FILE_PATH}\"",
@@ -79,12 +79,12 @@ func buildSidecarContainerCommand(hasGitRepo bool) []string {
 		commands = append(commands,
 			"apk add --no-cache git",
 			"GIT_REF=${GIT_REF:-main}",
-			"CLONE_PATH=${SHARED_VOLUME_PATH}/repo",
+			"CLONE_PATH=${RUNVOY_SHARED_VOLUME_PATH}/repo",
 			fmt.Sprintf("echo '### %s sidecar: Cloning ${GIT_REPO} (ref: ${GIT_REF})'", constants.ProjectName),
 			"git clone --depth 1 --branch \"${GIT_REF}\" \"${GIT_REPO}\" \"${CLONE_PATH}\"",
 			fmt.Sprintf("echo '### %s sidecar: Clone completed successfully'", constants.ProjectName),
-			"if [ -f \"${SHARED_VOLUME_PATH}/.env\" ]; then",
-			"  cp \"${SHARED_VOLUME_PATH}/.env\" \"${CLONE_PATH}/.env\"",
+			"if [ -f \"${RUNVOY_SHARED_VOLUME_PATH}/.env\" ]; then",
+			"  cp \"${RUNVOY_SHARED_VOLUME_PATH}/.env\" \"${CLONE_PATH}/.env\"",
 			fmt.Sprintf("  echo '### %s sidecar: .env file copied to repo directory'", constants.ProjectName),
 			"fi",
 			"ls -la \"${CLONE_PATH}\"",
@@ -158,10 +158,10 @@ func (e *Runner) StartTask(ctx context.Context, userEmail string, req api.Execut
 	}
 
 	sidecarEnv := []ecsTypes.KeyValuePair{
-		{Name: awsStd.String("SHARED_VOLUME_PATH"), Value: awsStd.String(constants.SharedVolumePath)},
+		{Name: awsStd.String("RUNVOY_SHARED_VOLUME_PATH"),
+			Value: awsStd.String(constants.SharedVolumePath)},
 	}
 
-	// Add user environment variables to sidecar for .env file creation
 	for key, value := range req.Env {
 		sidecarEnv = append(sidecarEnv, ecsTypes.KeyValuePair{
 			Name:  awsStd.String(key),
