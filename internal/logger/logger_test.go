@@ -1,0 +1,342 @@
+package logger
+
+import (
+	"bytes"
+	"context"
+	"log/slog"
+	"testing"
+	"time"
+
+	"runvoy/internal/constants"
+
+	"github.com/aws/aws-lambda-go/lambdacontext"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+func TestFlattenMapAttr(t *testing.T) {
+	tests := []struct {
+		name     string
+		prefix   string
+		value    any
+		expected string
+	}{
+		{
+			name:   "simple map[string]string",
+			prefix: "",
+			value: map[string]string{
+				"status":   "SUCCESS",
+				"deadline": "none",
+			},
+			expected: "deadline=none status=SUCCESS", // sorted alphabetically
+		},
+		{
+			name:   "simple map[string]any",
+			prefix: "",
+			value: map[string]any{
+				"count": 42,
+				"name":  "test",
+			},
+			expected: "count=42 name=test",
+		},
+		{
+			name:   "nested map",
+			prefix: "task",
+			value: map[string]any{
+				"id": "123",
+				"meta": map[string]string{
+					"owner": "admin",
+				},
+			},
+			expected: "task.id=123 task.meta.owner=admin",
+		},
+		{
+			name:     "non-map value",
+			prefix:   "",
+			value:    "simple string",
+			expected: "simple string",
+		},
+		{
+			name:     "number value",
+			prefix:   "",
+			value:    42,
+			expected: "42",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := flattenMapAttr(tt.prefix, tt.value)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestReplaceAttrForDev(t *testing.T) {
+	tests := []struct {
+		name     string
+		attr     slog.Attr
+		expected string // expected value after transformation
+	}{
+		{
+			name: "map[string]string gets flattened",
+			attr: slog.Any("task", map[string]string{
+				"id":     "123",
+				"status": "running",
+			}),
+			expected: "task.id=123 task.status=running",
+		},
+		{
+			name: "map[string]any gets flattened",
+			attr: slog.Any("data", map[string]any{
+				"count": 5,
+			}),
+			expected: "data.count=5",
+		},
+		{
+			name:     "string attr unchanged",
+			attr:     slog.String("message", "hello"),
+			expected: "hello",
+		},
+		{
+			name:     "int attr unchanged",
+			attr:     slog.Int("count", 42),
+			expected: "42",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := replaceAttrForDev(nil, tt.attr)
+
+			// For map types, check the flattened string value
+			if tt.name == "map[string]string gets flattened" || tt.name == "map[string]any gets flattened" {
+				assert.Equal(t, tt.expected, result.Value.String())
+			} else {
+				assert.Contains(t, result.Value.String(), tt.expected)
+			}
+		})
+	}
+}
+
+func TestInitialize(t *testing.T) {
+	tests := []struct {
+		name string
+		env  constants.Environment
+		level slog.Level
+	}{
+		{
+			name:  "production environment with info level",
+			env:   constants.Production,
+			level: slog.LevelInfo,
+		},
+		{
+			name:  "development environment with debug level",
+			env:   constants.Development,
+			level: slog.LevelDebug,
+		},
+		{
+			name:  "CLI environment with warn level",
+			env:   constants.CLI,
+			level: slog.LevelWarn,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			logger := Initialize(tt.env, tt.level)
+
+			assert.NotNil(t, logger, "Logger should not be nil")
+			assert.Equal(t, logger, slog.Default(), "Logger should be set as default")
+		})
+	}
+}
+
+func TestGetRequestID(t *testing.T) {
+	tests := []struct {
+		name     string
+		ctx      context.Context
+		expected string
+	}{
+		{
+			name:     "empty context",
+			ctx:      context.Background(),
+			expected: "",
+		},
+		{
+			name:     "context with request ID",
+			ctx:      context.WithValue(context.Background(), requestIDContextKey, "test-request-123"),
+			expected: "test-request-123",
+		},
+		{
+			name:     "context with wrong type",
+			ctx:      context.WithValue(context.Background(), requestIDContextKey, 12345),
+			expected: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := GetRequestID(tt.ctx)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestRequestIDContextKey(t *testing.T) {
+	key := RequestIDContextKey()
+	assert.Equal(t, requestIDContextKey, key)
+}
+
+func TestDeriveRequestLogger(t *testing.T) {
+	t.Run("nil base logger returns default", func(t *testing.T) {
+		logger := DeriveRequestLogger(context.Background(), nil)
+		assert.NotNil(t, logger)
+	})
+
+	t.Run("context with request ID", func(t *testing.T) {
+		buf := &bytes.Buffer{}
+		baseLogger := slog.New(slog.NewJSONHandler(buf, nil))
+		ctx := context.WithValue(context.Background(), requestIDContextKey, "req-123")
+
+		logger := DeriveRequestLogger(ctx, baseLogger)
+		logger.Info("test message")
+
+		output := buf.String()
+		assert.Contains(t, output, "req-123", "Output should contain request ID")
+		assert.Contains(t, output, "test message")
+	})
+
+	t.Run("context with AWS Lambda request ID", func(t *testing.T) {
+		buf := &bytes.Buffer{}
+		baseLogger := slog.New(slog.NewJSONHandler(buf, nil))
+
+		lc := &lambdacontext.LambdaContext{
+			AwsRequestID: "lambda-req-456",
+		}
+		ctx := lambdacontext.NewContext(context.Background(), lc)
+
+		logger := DeriveRequestLogger(ctx, baseLogger)
+		logger.Info("lambda test")
+
+		output := buf.String()
+		assert.Contains(t, output, "lambda-req-456", "Output should contain Lambda request ID")
+	})
+
+	t.Run("context without request ID", func(t *testing.T) {
+		buf := &bytes.Buffer{}
+		baseLogger := slog.New(slog.NewJSONHandler(buf, nil))
+
+		logger := DeriveRequestLogger(context.Background(), baseLogger)
+		assert.NotNil(t, logger)
+
+		logger.Info("no request id")
+		output := buf.String()
+		assert.Contains(t, output, "no request id")
+	})
+}
+
+func TestGetDeadlineInfo(t *testing.T) {
+	t.Run("context without deadline", func(t *testing.T) {
+		ctx := context.Background()
+		attrs := GetDeadlineInfo(ctx)
+
+		require.Len(t, attrs, 4)
+		assert.Equal(t, "deadline", attrs[0])
+		assert.Equal(t, "none", attrs[1])
+		assert.Equal(t, "deadline_remaining", attrs[2])
+		assert.Equal(t, "none", attrs[3])
+	})
+
+	t.Run("context with deadline", func(t *testing.T) {
+		deadline := time.Now().Add(5 * time.Minute)
+		ctx, cancel := context.WithDeadline(context.Background(), deadline)
+		defer cancel()
+
+		attrs := GetDeadlineInfo(ctx)
+
+		require.Len(t, attrs, 4)
+		assert.Equal(t, "deadline", attrs[0])
+		assert.Contains(t, attrs[1].(string), "T", "Should contain RFC3339 formatted time")
+		assert.Equal(t, "deadline_remaining", attrs[2])
+		assert.NotEqual(t, "none", attrs[3])
+	})
+}
+
+func TestSliceToMap(t *testing.T) {
+	tests := []struct {
+		name     string
+		args     []any
+		expected map[string]any
+	}{
+		{
+			name:     "empty slice",
+			args:     []any{},
+			expected: map[string]any{},
+		},
+		{
+			name: "valid key-value pairs",
+			args: []any{"key1", "value1", "key2", 42, "key3", true},
+			expected: map[string]any{
+				"key1": "value1",
+				"key2": 42,
+				"key3": true,
+			},
+		},
+		{
+			name: "odd number of elements",
+			args: []any{"key1", "value1", "key2"},
+			expected: map[string]any{
+				"key1": "value1",
+			},
+		},
+		{
+			name: "non-string keys are skipped",
+			args: []any{"key1", "value1", 123, "value2", "key3", "value3"},
+			expected: map[string]any{
+				"key1": "value1",
+				"key3": "value3",
+			},
+		},
+		{
+			name: "mixed types",
+			args: []any{
+				"string", "text",
+				"number", 123,
+				"bool", false,
+				"map", map[string]string{"nested": "value"},
+			},
+			expected: map[string]any{
+				"string": "text",
+				"number": 123,
+				"bool":   false,
+				"map":    map[string]string{"nested": "value"},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := SliceToMap(tt.args)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestSliceToMapEdgeCases(t *testing.T) {
+	t.Run("nil slice", func(t *testing.T) {
+		result := SliceToMap(nil)
+		assert.NotNil(t, result)
+		assert.Empty(t, result)
+	})
+
+	t.Run("single element", func(t *testing.T) {
+		result := SliceToMap([]any{"lonely"})
+		assert.Empty(t, result)
+	})
+
+	t.Run("all non-string keys", func(t *testing.T) {
+		result := SliceToMap([]any{1, "a", 2, "b", 3, "c"})
+		assert.Empty(t, result)
+	})
+}
