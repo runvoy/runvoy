@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"runvoy/internal/constants"
@@ -85,7 +86,7 @@ func listTaskDefinitionsByPrefix(ctx context.Context, ecsClient *ecs.Client, pre
 	return taskDefArns, nil
 }
 
-// hasExistingDefaultImage checks if any task definition has the runvoy.IsDefault tag set.
+// hasExistingDefaultImage checks if any task definition has the IsDefault tag set.
 func hasExistingDefaultImage(
 	ctx context.Context,
 	ecsClient *ecs.Client,
@@ -97,17 +98,26 @@ func hasExistingDefaultImage(
 		return false, err
 	}
 
+	logger.Debug("calling external service", "context", map[string]string{
+		"operation":    "ECS.ListTagsForResource",
+		"resourceArns": strings.Join(taskDefArns, ", "),
+	})
+
 	for _, taskDefARN := range taskDefArns {
 		tagsOutput, err := ecsClient.ListTagsForResource(ctx, &ecs.ListTagsForResourceInput{
 			ResourceArn: awsStd.String(taskDefARN),
 		})
 		if err != nil {
-			logger.Debug("failed to list tags for task definition", "arn", taskDefARN, "error", err)
+			logger.Debug("failed to list tags for task definition", "context", map[string]string{
+				"arn":   taskDefARN,
+				"error": err.Error(),
+			})
 			continue
 		}
 
 		for _, tag := range tagsOutput.Tags {
-			if tag.Key != nil && *tag.Key == constants.TaskDefinitionIsDefaultTagKey && tag.Value != nil && *tag.Value == "true" {
+			if tag.Key != nil && *tag.Key == constants.TaskDefinitionIsDefaultTagKey &&
+				tag.Value != nil && *tag.Value == "true" {
 				return true, nil
 			}
 		}
@@ -116,7 +126,7 @@ func hasExistingDefaultImage(
 	return false, nil
 }
 
-// unmarkExistingDefaultImages removes the runvoy.IsDefault tag from all existing task definitions
+// unmarkExistingDefaultImages removes the IsDefault tag from all existing task definitions
 // that have it. This ensures only one image can be marked as default at a time.
 func unmarkExistingDefaultImages(
 	ctx context.Context,
@@ -134,13 +144,17 @@ func unmarkExistingDefaultImages(
 			ResourceArn: awsStd.String(taskDefARN),
 		})
 		if err != nil {
-			logger.Warn("failed to list tags for task definition", "arn", taskDefARN, "error", err)
+			logger.Warn("failed to list tags for task definition", "context", map[string]string{
+				"arn":   taskDefARN,
+				"error": err.Error(),
+			})
 			continue
 		}
 
 		hasDefaultTag := false
 		for _, tag := range tagsOutput.Tags {
-			if tag.Key != nil && *tag.Key == constants.TaskDefinitionIsDefaultTagKey && tag.Value != nil && *tag.Value == "true" {
+			if tag.Key != nil && *tag.Key == constants.TaskDefinitionIsDefaultTagKey &&
+				tag.Value != nil && *tag.Value == "true" {
 				hasDefaultTag = true
 				break
 			}
@@ -152,7 +166,11 @@ func unmarkExistingDefaultImages(
 				TagKeys:     []string{constants.TaskDefinitionIsDefaultTagKey},
 			})
 			if err != nil {
-				logger.Warn("failed to remove default tag from task definition", "arn", taskDefARN, "error", err)
+				logger.Warn("failed to remove default tag from task definition", "context", map[string]string{
+					"arn":    taskDefARN,
+					"error":  err.Error(),
+					"tagKey": constants.TaskDefinitionIsDefaultTagKey,
+				})
 			} else {
 				logger.Info("removed default tag from existing task definition", "arn", taskDefARN)
 			}
@@ -183,11 +201,15 @@ func GetTaskDefinitionForImage(
 
 	if len(listOutput.TaskDefinitionArns) > 0 {
 		latestARN := listOutput.TaskDefinitionArns[len(listOutput.TaskDefinitionArns)-1]
-		logger.Debug("task definition found", "family", family, "arn", latestARN)
+		logger.Debug("task definition found", "context", map[string]string{
+			"family": family,
+			"arn":    latestARN,
+		})
 		return latestARN, nil
 	}
 
-	return "", fmt.Errorf("task definition for image %q not found (family: %s). Image must be registered via /api/v1/images/register", image, family)
+	return "", fmt.Errorf("task definition for image %q not found (family: %s). Image must be registered via /api/v1/images/register",
+		image, family)
 }
 
 // RegisterTaskDefinitionForImage registers a new ECS task definition for the given Docker image.
@@ -205,32 +227,26 @@ func RegisterTaskDefinitionForImage(
 ) error {
 	family := TaskDefinitionFamilyName(image)
 
-	listOutput, err := ecsClient.ListTaskDefinitions(ctx, &ecs.ListTaskDefinitionsInput{
-		FamilyPrefix: awsStd.String(family),
-		Status:       ecsTypes.TaskDefinitionStatusActive,
-		MaxResults:   awsStd.Int32(1),
-	})
+	taskDefArns, err := listTaskDefinitionsByPrefix(ctx, ecsClient, family)
 	if err != nil {
-		return fmt.Errorf("failed to list task definitions: %w", err)
+		return err
 	}
 
 	var existingTaskDefARN string
-	if len(listOutput.TaskDefinitionArns) > 0 {
-		existingTaskDefARN = listOutput.TaskDefinitionArns[len(listOutput.TaskDefinitionArns)-1]
-		logger.Debug("task definition already exists", "family", family, "arn", existingTaskDefARN)
+	if len(taskDefArns) > 0 {
+		existingTaskDefARN = taskDefArns[len(taskDefArns)-1]
+		logger.Debug("task definition already exists", "context", map[string]string{
+			"family": family,
+			"arn":    existingTaskDefARN,
+		})
 	}
 
-	// Handle default marking/unmarking BEFORE creating or updating task definition
-	// This ensures we unmark all existing defaults before setting a new one
-	shouldSetAsDefault := isDefault || (cfg.DefaultImage != "" && image == cfg.DefaultImage)
-	if shouldSetAsDefault {
+	if isDefault {
 		if err := unmarkExistingDefaultImages(ctx, ecsClient, logger); err != nil {
 			logger.Warn("failed to unmark existing default images, proceeding anyway", "error", err)
 		}
 	} else {
-		// If this image should NOT be default, make sure it's not marked as default
 		if existingTaskDefARN != "" {
-			// Remove default tag from existing task definition if it exists
 			_, err := ecsClient.UntagResource(ctx, &ecs.UntagResourceInput{
 				ResourceArn: awsStd.String(existingTaskDefARN),
 				TagKeys:     []string{constants.TaskDefinitionIsDefaultTagKey},
@@ -252,11 +268,11 @@ func RegisterTaskDefinitionForImage(
 			},
 			{
 				Key:   awsStd.String("Application"),
-				Value: awsStd.String("runvoy"),
+				Value: awsStd.String(constants.ProjectName),
 			},
 		}
 
-		if shouldSetAsDefault {
+		if isDefault {
 			tags = append(tags, ecsTypes.Tag{
 				Key:   awsStd.String(constants.TaskDefinitionIsDefaultTagKey),
 				Value: awsStd.String("true"),
@@ -268,11 +284,19 @@ func RegisterTaskDefinitionForImage(
 			Tags:        tags,
 		})
 		if tagErr != nil {
-			logger.Warn("failed to tag existing task definition", "arn", existingTaskDefARN, "error", tagErr)
+			logger.Warn("failed to tag existing task definition", "context", map[string]string{
+				"arn":   existingTaskDefARN,
+				"error": tagErr.Error(),
+			})
 			return fmt.Errorf("failed to update tags on existing task definition: %w", tagErr)
 		}
 
-		logger.Info("updated tags on existing task definition", "family", family, "arn", existingTaskDefARN, "image", image, "isDefault", shouldSetAsDefault)
+		logger.Info("updated tags on existing task definition", "context", map[string]string{
+			"family":    family,
+			"arn":       existingTaskDefARN,
+			"image":     image,
+			"isDefault": strconv.FormatBool(isDefault),
+		})
 		return nil
 	}
 
@@ -314,7 +338,7 @@ func RegisterTaskDefinitionForImage(
 		},
 	}
 
-	if shouldSetAsDefault {
+	if isDefault {
 		tags = append(tags, ecsTypes.Tag{
 			Key:   awsStd.String(constants.TaskDefinitionIsDefaultTagKey),
 			Value: awsStd.String("true"),
