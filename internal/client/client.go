@@ -281,7 +281,7 @@ func (c *Client) ListImages(ctx context.Context) (*api.ListImagesResponse, error
 	return &resp, nil
 }
 
-func (c *Client) RemoveImage(ctx context.Context, image string) (*api.RemoveImageResponse, error) {
+func (c *Client) UnregisterImage(ctx context.Context, image string) (*api.RemoveImageResponse, error) {
 	var resp api.RemoveImageResponse
 	err := c.DoJSON(ctx, Request{
 		Method: "DELETE",

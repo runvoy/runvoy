@@ -68,8 +68,8 @@ All routes are defined in `internal/server/router.go`:
 GET    /api/v1/health                   - Health check
 POST   /api/v1/users/create             - Create a new user with a claim URL (admin)
 POST   /api/v1/users/revoke             - Revoke a user's API key (admin)
-POST   /api/v1/images/register          - Register a new Docker image (admin)
 GET    /api/v1/images                   - List all registered Docker images (admin)
+POST   /api/v1/images/register          - Register a new Docker image (admin)
 DELETE /api/v1/images/{image}           - Remove a registered Docker image (admin)
 POST   /api/v1/run                      - Start an execution
 GET    /api/v1/executions               - List executions (queried via DynamoDB GSI)

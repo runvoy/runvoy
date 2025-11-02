@@ -1,12 +1,14 @@
 package server
 
 import (
+	"context"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
 
+	"runvoy/internal/api"
 	"runvoy/internal/app"
 	"runvoy/internal/constants"
 	rlogger "runvoy/internal/logger"
@@ -18,7 +20,15 @@ func TestGetExecutionStatus_Unauthorized(t *testing.T) {
 	_ = rlogger.Initialize(constants.Development, slog.LevelInfo)
 
 	// Build a minimal service with nil repos; we won't reach the handler due to auth
-	svc := app.NewService(nil, nil, nil, nil, slog.Default(), constants.AWS)
+	svc := app.NewService(nil, nil, &mockRunner{}, slog.Default(), constants.AWS)
+	svc.Runner = &mockRunner{}
+	svc.Runner.ListImages = func(ctx context.Context) ([]api.ImageInfo, error) {
+		return []api.ImageInfo{
+			{
+				Image: "alpine:latest",
+			}, nil,
+		}
+	}
 	router := NewRouter(svc, 2*time.Second)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/executions/exec-123/status", nil)

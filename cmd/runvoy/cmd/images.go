@@ -27,17 +27,17 @@ var listImagesCmd = &cobra.Command{
 	Run:   listImagesRun,
 }
 
-var removeImageCmd = &cobra.Command{
-	Use:   "remove <image>",
-	Short: "Remove an image",
-	Run:   removeImageRun,
+var unregisterImageCmd = &cobra.Command{
+	Use:   "unregister <image>",
+	Short: "Unregister an image",
+	Run:   unregisterImageRun,
 	Args:  cobra.ExactArgs(1),
 }
 
 func init() {
 	imagesCmd.AddCommand(registerImageCmd)
 	imagesCmd.AddCommand(listImagesCmd)
-	imagesCmd.AddCommand(removeImageCmd)
+	imagesCmd.AddCommand(unregisterImageCmd)
 	rootCmd.AddCommand(imagesCmd)
 }
 
@@ -96,7 +96,7 @@ func listImagesRun(cmd *cobra.Command, args []string) {
 	output.Successf("Images listed successfully")
 }
 
-func removeImageRun(cmd *cobra.Command, args []string) {
+func unregisterImageRun(cmd *cobra.Command, args []string) {
 	image := args[0]
 	cfg, err := getConfigFromContext(cmd)
 	if err != nil {
@@ -105,7 +105,7 @@ func removeImageRun(cmd *cobra.Command, args []string) {
 	}
 
 	client := client.New(cfg, slog.Default())
-	resp, err := client.RemoveImage(cmd.Context(), image)
+	resp, err := client.UnregisterImage(cmd.Context(), image)
 	if err != nil {
 		output.Errorf("failed to remove image: %v", err)
 		return
