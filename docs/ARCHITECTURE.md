@@ -906,8 +906,15 @@ The `run` command executes commands remotely via the orchestrator Lambda.
 3. Orchestrator Lambda:
    - Validates API key
    - Creates execution record in DynamoDB (status: RUNNING)
-   - Starts ECS Fargate task with the command
+   - Starts ECS Fargate task with the command and environment variables
    - Returns execution ID
+
+**Environment Variables:**
+- Environment variables from the `env` field in the request are passed to the Fargate task container in two formats:
+  1. **Direct format**: `KEY=value` - Available directly in the container's shell environment
+  2. **Prefixed format**: `RUNVOY_USER_KEY=value` - Used for creating a `.env` file (see implementation in `internal/app/aws/runner.go`)
+- The `.env` file is automatically created from `RUNVOY_USER_*` variables and is available in the working directory when the command executes
+- Environment variables are set via ECS container overrides (`ContainerOverrides.Environment`) and are available to all commands executed in the container
 
 **Response (202 Accepted):**
 ```json

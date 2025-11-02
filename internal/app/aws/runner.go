@@ -106,6 +106,15 @@ fi
 	return []string{"/bin/sh", "-c", strings.Join(commands, " && ")}
 }
 
+// getEnvVarKeys returns a slice of environment variable keys for logging purposes
+func getEnvVarKeys(env map[string]string) []string {
+	keys := make([]string, 0, len(env))
+	for key := range env {
+		keys = append(keys, key)
+	}
+	return keys
+}
+
 // StartTask triggers an ECS Fargate task and returns identifiers.
 func (e *Runner) StartTask(ctx context.Context, userEmail string, req api.ExecutionRequest) (string, string, *time.Time, error) {
 	if e.ecsClient == nil {
@@ -145,17 +154,22 @@ func (e *Runner) StartTask(ctx context.Context, userEmail string, req api.Execut
 	envVars := []ecsTypes.KeyValuePair{
 		{Name: awsStd.String("RUNVOY_COMMAND"), Value: awsStd.String(req.Command)},
 	}
-	for key, value := range req.Env {
-		// Add direct env var (for container environment)
-		envVars = append(envVars, ecsTypes.KeyValuePair{
-			Name:  awsStd.String(key),
-			Value: awsStd.String(value),
-		})
-		// Add prefixed env var (for .env file creation)
-		envVars = append(envVars, ecsTypes.KeyValuePair{
-			Name:  awsStd.String("RUNVOY_USER_" + key),
-			Value: awsStd.String(value),
-		})
+	if len(req.Env) > 0 {
+		reqLogger.Debug("adding environment variables to Fargate task",
+			"envVarCount", len(req.Env),
+			"envVarKeys", getEnvVarKeys(req.Env))
+		for key, value := range req.Env {
+			// Add direct env var (for container environment)
+			envVars = append(envVars, ecsTypes.KeyValuePair{
+				Name:  awsStd.String(key),
+				Value: awsStd.String(value),
+			})
+			// Add prefixed env var (for .env file creation)
+			envVars = append(envVars, ecsTypes.KeyValuePair{
+				Name:  awsStd.String("RUNVOY_USER_" + key),
+				Value: awsStd.String(value),
+			})
+		}
 	}
 
 	// Build container overrides
