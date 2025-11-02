@@ -207,8 +207,6 @@ func (r *Router) requestLoggingMiddleware(next http.Handler) http.Handler {
 		duration := time.Since(start)
 
 		logger.Info("sent response to client", "response", map[string]interface{}{
-			"method":   req.Method,
-			"path":     req.URL.Path,
 			"status":   wrapped.statusCode,
 			"duration": duration.String(),
 		})
