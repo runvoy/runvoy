@@ -199,18 +199,6 @@ func RegisterTaskDefinitionForImage(
 	ecsClient *ecs.Client,
 	cfg *Config,
 	image string,
-	region string,
-	logger *slog.Logger,
-) (string, error) {
-	return RegisterTaskDefinitionForImageWithDefault(ctx, ecsClient, cfg, image, false, region, logger)
-}
-
-// RegisterTaskDefinitionForImageWithDefault registers a task definition with explicit default flag.
-func RegisterTaskDefinitionForImageWithDefault(
-	ctx context.Context,
-	ecsClient *ecs.Client,
-	cfg *Config,
-	image string,
 	isDefault bool,
 	region string,
 	logger *slog.Logger,

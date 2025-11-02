@@ -329,7 +329,7 @@ func (e *Runner) RegisterImage(ctx context.Context, image string, isDefault *boo
 	}
 	// If isDefault is explicitly false, don't set as default (even if no default exists)
 
-	_, err := RegisterTaskDefinitionForImageWithDefault(ctx, e.ecsClient, e.cfg, image, shouldBeDefault, region, reqLogger)
+	_, err := RegisterTaskDefinitionForImage(ctx, e.ecsClient, e.cfg, image, shouldBeDefault, region, reqLogger)
 	if err != nil {
 		return fmt.Errorf("failed to register task definition: %w", err)
 	}
