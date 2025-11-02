@@ -313,23 +313,28 @@ func (r *Router) handleListImages(w http.ResponseWriter, req *http.Request) {
 }
 
 // handleRemoveImage handles DELETE /api/v1/images/{image} to remove a registered Docker image
-// The image parameter may contain slashes and colons (e.g., "hashicorp/terraform:1.6")
-// The image name should be URL-encoded when passed in the path
+// The image parameter may contain slashes and colons (e.g., "ecr-public.us-east-1.amazonaws.com/docker/library/ubuntu:22.04")
+// Uses catch-all route (*) to match paths with slashes
 func (r *Router) handleRemoveImage(w http.ResponseWriter, req *http.Request) {
 	logger := r.GetLoggerFromContext(req.Context())
 
-	// Get and URL decode the image parameter
-	imageParam := strings.TrimSpace(chi.URLParam(req, "image"))
-	if imageParam == "" {
+	// Extract the image path from Chi's wildcard parameter
+	// The catch-all route (*) matches everything after /images/
+	imagePath := strings.TrimSpace(chi.URLParam(req, "*"))
+	
+	// Remove leading slash if present (Chi may include it)
+	imagePath = strings.TrimPrefix(imagePath, "/")
+
+	if imagePath == "" {
 		writeErrorResponse(w, http.StatusBadRequest, "invalid image", "image parameter is required")
 		return
 	}
 
-	// URL decode the image name (chi may partially decode, but we want full control)
-	image, decodeErr := url.PathUnescape(imageParam)
+	// URL decode the image name
+	image, decodeErr := url.PathUnescape(imagePath)
 	if decodeErr != nil {
 		// If decoding fails, use the original value
-		image = imageParam
+		image = imagePath
 	}
 	image = strings.TrimSpace(image)
 	if image == "" {
