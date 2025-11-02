@@ -164,7 +164,12 @@
             <div>
                 <h1>Runvoy logs viewer</h1>
                 <div class="execution-title-row">
-                    <h2>Execution: <span id="exec-id">Loading...</span></h2>
+                    <h2>Execution: <input
+                        type="text"
+                        id="exec-id-input"
+                        placeholder="Enter execution ID"
+                        style="font-size: 1.5rem; font-weight: bold; border: 1px solid var(--pico-border-color); padding: 0.25rem 0.5rem; border-radius: var(--pico-border-radius); min-width: 200px;"
+                    ></h2>
                     <span class="status" id="status">-</span>
                 </div>
                 <small>Started: <span id="started-at">-</span></small>
@@ -215,16 +220,31 @@
         // Initialize
         document.addEventListener('DOMContentLoaded', init);
 
+        // Handle browser back/forward buttons
+        window.addEventListener('popstate', function(event) {
+            const urlParams = new URLSearchParams(window.location.search);
+            const newExecutionId = urlParams.get('execution_id') || urlParams.get('executionId');
+            const execIdInput = document.getElementById('exec-id-input');
+
+            if (newExecutionId && newExecutionId !== executionId) {
+                execIdInput.value = newExecutionId;
+                switchExecutionId(newExecutionId);
+            } else if (!newExecutionId && executionId) {
+                execIdInput.value = '';
+                executionId = null;
+                stopPolling();
+                document.getElementById('log-container').innerHTML = '';
+                lastLineNumber = 0;
+                isCompleted = false;
+                updateStatus(null);
+                updatePlayPauseButton();
+            }
+        });
+
         function init() {
             // Extract execution ID from URL query parameter
             const urlParams = new URLSearchParams(window.location.search);
             executionId = urlParams.get('execution_id') || urlParams.get('executionId');
-
-            if (!executionId) {
-                appendLog('[ERROR] Missing execution_id query parameter. Please provide ?execution_id=<id>\n');
-                document.getElementById('exec-id').textContent = 'Missing execution ID';
-                return;
-            }
 
             // Load credentials from localStorage
             API_ENDPOINT = localStorage.getItem('runvoy_endpoint');
@@ -237,17 +257,76 @@
                 document.getElementById('api-key-input').value = '••••••••';
             }
 
-            // Update UI
-            document.getElementById('exec-id').textContent = executionId;
+            // Update UI with execution ID
+            const execIdInput = document.getElementById('exec-id-input');
+            if (executionId) {
+                execIdInput.value = executionId;
+            } else {
+                execIdInput.placeholder = 'Enter execution ID';
+                appendLog('[INFO] Enter an execution ID above or provide ?execution_id=<id> in the URL\n');
+            }
+
+            // Add event listeners for execution ID changes
+            execIdInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    switchExecutionId(execIdInput.value.trim());
+                }
+            });
+            execIdInput.addEventListener('blur', function() {
+                const newId = execIdInput.value.trim();
+                if (newId && newId !== executionId) {
+                    switchExecutionId(newId);
+                }
+            });
+
             updatePlayPauseButton();
 
-            // Start fetching logs and status
+            // Start fetching logs and status if we have an execution ID and credentials
+            if (executionId && API_ENDPOINT && apiKey) {
+                fetchStatus();
+                fetchLogs();
+                startPolling();
+            } else if (executionId) {
+                appendLog('[INFO] Please enter endpoint URL and API key to view logs\n');
+            }
+        }
+
+        function switchExecutionId(newExecutionId) {
+            if (!newExecutionId || newExecutionId === executionId) {
+                return;
+            }
+
+            // Update execution ID
+            executionId = newExecutionId;
+
+            // Update URL query parameter
+            const urlParams = new URLSearchParams(window.location.search);
+            urlParams.set('execution_id', executionId);
+            const newUrl = window.location.pathname + '?' + urlParams.toString();
+            window.history.pushState({ executionId: executionId }, '', newUrl);
+
+            // Reset state
+            document.getElementById('log-container').innerHTML = '';
+            lastLineNumber = 0;
+            isCompleted = false;
+            isPaused = false;
+            document.getElementById('started-at').textContent = '-';
+            updateStatus(null);
+
+            // Update play/pause button
+            updatePlayPauseButton();
+
+            // Stop existing polling
+            stopPolling();
+
+            // Start fetching new execution's logs and status
             if (API_ENDPOINT && apiKey) {
+                appendLog(`[INFO] Switched to execution ID: ${executionId}\n`);
                 fetchStatus();
                 fetchLogs();
                 startPolling();
             } else {
-                appendLog('[INFO] Please enter endpoint URL and API key to view logs\n');
+                appendLog(`[INFO] Switched to execution ID: ${executionId}. Please enter endpoint URL and API key to view logs\n`);
             }
         }
 
@@ -406,7 +485,7 @@
         function appendLog(text, lineNumber, timestamp) {
             const container = document.getElementById('log-container');
             const parsed = parseAnsi(text);
-            
+
             // Format metadata
             let metaHtml = '';
             if (showMetadata && lineNumber !== undefined) {
@@ -419,7 +498,7 @@
                 }
                 metaHtml = `<span class="log-meta"><span class="log-line-number">${lineNumber}</span>${timeStr ? ' ' + timeStr : ''}</span>`;
             }
-            
+
             container.innerHTML += `<div class="log-line">${metaHtml}<span class="log-content">${parsed}</span></div>`;
 
             // Auto-scroll to bottom
@@ -522,7 +601,7 @@
             const logs = Array.from(allLogs);
             container.innerHTML = '';
             lastLineNumber = 0;
-            
+
             // Fetch logs again with new display setting
             if (API_ENDPOINT && apiKey) {
                 fetchLogs();
