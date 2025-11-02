@@ -16,22 +16,27 @@ import (
 	dynamorepo "runvoy/internal/database/dynamodb"
 	apperrors "runvoy/internal/errors"
 	"runvoy/internal/logger"
-
-	"github.com/aws/aws-lambda-go/lambdacontext"
 )
 
 // Runner abstracts provider-specific command execution (e.g., AWS ECS, GCP, etc.).
 type Runner interface {
 	// StartTask triggers an execution on the underlying platform and returns
-	// a provider-specific task ARN, a stable executionID, and the task creation timestamp.
+	// a stable executionID and the task creation timestamp.
 	// The createdAt timestamp comes from the provider (e.g., ECS CreatedAt) when available.
 	StartTask(
 		ctx context.Context,
 		userEmail string,
-		req api.ExecutionRequest) (executionID string, taskARN string, createdAt *time.Time, err error)
+		req api.ExecutionRequest) (executionID string, createdAt *time.Time, err error)
 	// KillTask terminates a running task identified by executionID.
 	// Returns an error if the task is already terminated or cannot be terminated.
 	KillTask(ctx context.Context, executionID string) error
+	// RegisterImage registers a Docker image as a task definition in the execution platform.
+	// isDefault: if true, explicitly set as default; if nil or false, becomes default only if no default exists (first image behavior)
+	RegisterImage(ctx context.Context, image string, isDefault *bool) error
+	// ListImages lists all registered Docker images.
+	ListImages(ctx context.Context) ([]api.ImageInfo, error)
+	// RemoveImage removes a Docker image and deregisters its task definitions.
+	RemoveImage(ctx context.Context, image string) error
 }
 
 // Service provides the core business logic for command execution and user management.
@@ -276,7 +281,7 @@ func (s *Service) RunCommand(
 	if req.Command == "" {
 		return nil, apperrors.ErrBadRequest("command is required", nil)
 	}
-	executionID, taskARN, createdAt, err := s.runner.StartTask(ctx, userEmail, req)
+	executionID, createdAt, err := s.runner.StartTask(ctx, userEmail, req)
 	if err != nil {
 		return nil, err
 	}
@@ -287,18 +292,12 @@ func (s *Service) RunCommand(
 		startedAt = createdAt.UTC()
 	}
 
-	if taskARN != "" {
-		reqLogger.Info("task started", "task", map[string]string{
-			"executionID": executionID,
-			"taskARN":     taskARN,
-			"startedAt":   startedAt.Format(time.RFC3339),
-		})
-	}
+	reqLogger.Info("task started", "task", map[string]string{
+		"executionID": executionID,
+		"startedAt":   startedAt.Format(time.RFC3339),
+	})
 
-	requestID := ""
-	if lc, ok := lambdacontext.FromContext(ctx); ok {
-		requestID = lc.AwsRequestID
-	}
+	requestID := logger.GetRequestID(ctx)
 	execution := &api.Execution{
 		ExecutionID:     executionID,
 		UserEmail:       userEmail,
@@ -447,4 +446,45 @@ func (s *Service) ListExecutions(ctx context.Context) ([]*api.Execution, error) 
 		return nil, err
 	}
 	return executions, nil
+}
+
+// RegisterImage registers a Docker image and creates the corresponding task definition.
+func (s *Service) RegisterImage(ctx context.Context, image string, isDefault *bool) (*api.RegisterImageResponse, error) {
+	if image == "" {
+		return nil, apperrors.ErrBadRequest("image is required", nil)
+	}
+
+	if err := s.runner.RegisterImage(ctx, image, isDefault); err != nil {
+		return nil, apperrors.ErrInternalError("failed to register image", err)
+	}
+
+	return &api.RegisterImageResponse{
+		Image:   image,
+		Message: "Image registered successfully",
+	}, nil
+}
+
+// ListImages returns all registered Docker images.
+func (s *Service) ListImages(ctx context.Context) (*api.ListImagesResponse, error) {
+	images, err := s.runner.ListImages(ctx)
+	if err != nil {
+		return nil, apperrors.ErrInternalError("failed to list images", err)
+	}
+
+	return &api.ListImagesResponse{
+		Images: images,
+	}, nil
+}
+
+// RemoveImage removes a Docker image and deregisters its task definitions.
+func (s *Service) RemoveImage(ctx context.Context, image string) error {
+	if image == "" {
+		return apperrors.ErrBadRequest("image is required", nil)
+	}
+
+	if err := s.runner.RemoveImage(ctx, image); err != nil {
+		return apperrors.ErrInternalError("failed to remove image", err)
+	}
+
+	return nil
 }

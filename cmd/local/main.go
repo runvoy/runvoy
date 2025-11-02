@@ -46,7 +46,7 @@ func main() {
 			"version", *constants.GetVersion(),
 			"log_level", cfg.LogLevel,
 		)
-		log.Info("health check available",
+		log.Debug("health check available",
 			"url", fmt.Sprintf("http://localhost:%s/api/v1/health", cfg.Port),
 		)
 

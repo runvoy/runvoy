@@ -36,7 +36,8 @@ type Config struct {
 	Subnet2             string        `mapstructure:"subnet_2"`
 	SecurityGroup       string        `mapstructure:"security_group"`
 	LogGroup            string        `mapstructure:"log_group"`
-	DefaultImage        string        `mapstructure:"default_image"`
+	TaskExecRoleARN     string        `mapstructure:"task_exec_role_arn"`
+	TaskRoleARN         string        `mapstructure:"task_role_arn"`
 	InitTimeout         time.Duration `mapstructure:"init_timeout"`
 	LogLevel            string        `mapstructure:"log_level"`
 }
@@ -232,7 +233,6 @@ func (c *Config) GetLogLevel() slog.Level {
 func setDefaults(v *viper.Viper) {
 	v.SetDefault("port", "56212")
 	v.SetDefault("request_timeout", 0)
-	v.SetDefault("default_image", "public.ecr.aws/docker/library/ubuntu:22.04")
 	v.SetDefault("init_timeout", "10s")
 	v.SetDefault("log_level", "INFO")
 }
@@ -259,20 +259,21 @@ func loadConfigFile(v *viper.Viper) error {
 func bindEnvVars(v *viper.Viper) {
 	// Bind all environment variables explicitly
 	envVars := []string{
-		"DEV_SERVER_PORT", // maps to port
-		"REQUEST_TIMEOUT",
 		"API_KEYS_TABLE",
-		"EXECUTIONS_TABLE",
-		"PENDING_API_KEYS_TABLE",
+		"DEV_SERVER_PORT",
 		"ECS_CLUSTER",
-		"TASK_DEFINITION",
+		"EXECUTIONS_TABLE",
+		"INIT_TIMEOUT",
+		"LOG_GROUP",
+		"LOG_LEVEL",
+		"PENDING_API_KEYS_TABLE",
+		"REQUEST_TIMEOUT",
+		"SECURITY_GROUP",
 		"SUBNET_1",
 		"SUBNET_2",
-		"SECURITY_GROUP",
-		"LOG_GROUP",
-		"DEFAULT_IMAGE",
-		"INIT_TIMEOUT",
-		"LOG_LEVEL",
+		"TASK_DEFINITION",
+		"TASK_EXEC_ROLE_ARN",
+		"TASK_ROLE_ARN",
 	}
 
 	for _, envVar := range envVars {
@@ -289,12 +290,12 @@ func bindEnvVars(v *viper.Viper) {
 
 // validateOrchestrator validates required fields for orchestrator service.
 // These match the old caarlos0/env notEmpty tags to maintain parity.
+// TaskDefinition is no longer required - task definitions are managed dynamically via API.
 func validateOrchestrator(cfg *Config) error {
 	required := map[string]string{
 		"APIKeysTable":    cfg.APIKeysTable,
 		"ExecutionsTable": cfg.ExecutionsTable,
 		"ECSCluster":      cfg.ECSCluster,
-		"TaskDefinition":  cfg.TaskDefinition,
 		"Subnet1":         cfg.Subnet1,
 		"Subnet2":         cfg.Subnet2,
 		"SecurityGroup":   cfg.SecurityGroup,

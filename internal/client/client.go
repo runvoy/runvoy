@@ -255,3 +255,40 @@ func (c *Client) ClaimAPIKey(ctx context.Context, token string) (*api.ClaimAPIKe
 	}
 	return &resp, nil
 }
+
+func (c *Client) RegisterImage(ctx context.Context, image string, isDefault *bool) (*api.RegisterImageResponse, error) {
+	var resp api.RegisterImageResponse
+	err := c.DoJSON(ctx, Request{
+		Method: "POST",
+		Path:   "/api/v1/images/register",
+		Body:   api.RegisterImageRequest{Image: image, IsDefault: isDefault},
+	}, &resp)
+	if err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
+func (c *Client) ListImages(ctx context.Context) (*api.ListImagesResponse, error) {
+	var resp api.ListImagesResponse
+	err := c.DoJSON(ctx, Request{
+		Method: "GET",
+		Path:   "/api/v1/images",
+	}, &resp)
+	if err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
+func (c *Client) UnregisterImage(ctx context.Context, image string) (*api.RemoveImageResponse, error) {
+	var resp api.RemoveImageResponse
+	err := c.DoJSON(ctx, Request{
+		Method: "DELETE",
+		Path:   fmt.Sprintf("/api/v1/images/%s", image),
+	}, &resp)
+	if err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}

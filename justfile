@@ -168,6 +168,19 @@ destroy-backend-infra:
 
 # Initialize backend infrastructure and seed admin user
 init: create-backend-infra deploy
+    @echo ""
+    @echo "==================================================================="
+    @echo "Backend infrastructure initialized successfully!"
+    @echo "==================================================================="
+    @echo ""
+    @echo "Next step: Register the default Docker image"
+    @echo ""
+    @echo "To register the default image, use the CLI:"
+    @echo "  runvoy images register public.ecr.aws/docker/library/ubuntu:22.04 --set-default"
+    @echo ""
+    @echo "You can also list all registered images:"
+    @echo "  runvoy images list"
+    @echo ""
 
 # Destroy lambda bucket
 destroy-lambda-bucket:

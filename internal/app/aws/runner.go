@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -28,9 +29,9 @@ type Config struct {
 	Subnet2         string
 	SecurityGroup   string
 	LogGroup        string
-	DefaultImage    string
 	TaskRoleARN     string
 	TaskExecRoleARN string
+	Region          string
 }
 
 // Runner implements app.Runner for AWS ECS Fargate.
@@ -103,22 +104,31 @@ func buildSidecarContainerCommand(hasGitRepo bool) []string {
 	return []string{"/bin/sh", "-c", strings.Join(commands, "\n")}
 }
 
+type gitRepoInfo struct {
+	RepoURL  *string
+	RepoRef  *string
+	RepoPath *string
+}
+
 // buildMainContainerCommand constructs the shell command for the main runner container.
 // It adds logging statements and optionally changes to the git repo working directory.
-func buildMainContainerCommand(req api.ExecutionRequest, requestID string, hasGitRepo bool) []string {
+func buildMainContainerCommand(req api.ExecutionRequest, requestID string, image string, repo *gitRepoInfo) []string {
 	commands := []string{
-		fmt.Sprintf("printf '### %s runner execution started by requestID %s\\n'",
+		fmt.Sprintf("printf '### %s runner execution started by requestID => %s\\n'",
 			constants.ProjectName, requestID),
+		fmt.Sprintf("printf '### Docker image => %s\\n'", image),
 	}
 
-	if hasGitRepo {
+	if repo != nil {
 		workDir := constants.SharedVolumePath + "/repo"
-		if req.GitPath != "" && req.GitPath != "." {
-			workDir = workDir + "/" + strings.TrimPrefix(req.GitPath, "/")
+		if *repo.RepoPath != "" && *repo.RepoPath != "." {
+			workDir = workDir + "/" + strings.TrimPrefix(*repo.RepoPath, "/")
 		}
 		commands = append(commands,
 			fmt.Sprintf("cd %s", workDir),
-			fmt.Sprintf("printf '### %s working directory: %s\\n'", constants.ProjectName, workDir),
+			fmt.Sprintf("printf '### Checked out repo => %s (ref: %s) (path: %s)\\n'",
+				*repo.RepoURL, *repo.RepoRef, *repo.RepoPath),
+			fmt.Sprintf("printf '### Working directory => %s\\n'", workDir),
 		)
 	}
 
@@ -131,19 +141,36 @@ func buildMainContainerCommand(req api.ExecutionRequest, requestID string, hasGi
 }
 
 // StartTask triggers an ECS Fargate task and returns identifiers.
-func (e *Runner) StartTask(ctx context.Context, userEmail string, req api.ExecutionRequest) (string, string, *time.Time, error) {
+func (e *Runner) StartTask(ctx context.Context, userEmail string, req api.ExecutionRequest) (string, *time.Time, error) {
 	if e.ecsClient == nil {
-		return "", "", nil, appErrors.ErrInternalError("ECS cli endpoint not configured", nil)
+		return "", nil, appErrors.ErrInternalError("ECS cli endpoint not configured", nil)
 	}
 
 	reqLogger := logger.DeriveRequestLogger(ctx, e.logger)
 
-	// Note: Image override is not supported yet
-	if req.Image != "" && req.Image != e.cfg.DefaultImage {
-		reqLogger.Debug("custom image requested but not supported via overrides, aborting",
-			"requested", req.Image)
-		return "", "", nil, appErrors.ErrBadRequest("custom image requested but not supported via overrides yet", nil)
+	imageToUse := req.Image
+	if imageToUse == "" {
+		// No image specified, look up the default image from ECS tags
+		defaultImage, err := GetDefaultImage(ctx, e.ecsClient, reqLogger)
+		if err != nil {
+			return "", nil, appErrors.ErrInternalError("failed to query default image", err)
+		}
+		if defaultImage == "" {
+			return "", nil, appErrors.ErrBadRequest("no image specified and no default image configured", nil)
+		}
+		imageToUse = defaultImage
+		reqLogger.Debug("using default image", "image", imageToUse)
 	}
+
+	taskDefARN, err := GetTaskDefinitionForImage(ctx, e.ecsClient, imageToUse, reqLogger)
+	if err != nil {
+		return "", nil, appErrors.ErrBadRequest("image not registered", err)
+	}
+
+	reqLogger.Debug("using task definition for image", "context", map[string]string{
+		"image": imageToUse,
+		"arn":   taskDefARN,
+	})
 
 	hasGitRepo := req.GitRepo != ""
 	requestID := logger.GetRequestID(ctx)
@@ -188,6 +215,14 @@ func (e *Runner) StartTask(ctx context.Context, userEmail string, req api.Execut
 		reqLogger.Debug("sidecar configured without git (will exit 0)")
 	}
 
+	var repo *gitRepoInfo
+	if hasGitRepo {
+		repo = &gitRepoInfo{
+			RepoURL:  awsStd.String(req.GitRepo),
+			RepoRef:  awsStd.String(req.GitRef),
+			RepoPath: awsStd.String(req.GitPath),
+		}
+	}
 	containerOverrides := []ecsTypes.ContainerOverride{
 		{
 			Name:        awsStd.String(constants.SidecarContainerName),
@@ -196,7 +231,7 @@ func (e *Runner) StartTask(ctx context.Context, userEmail string, req api.Execut
 		},
 		{
 			Name:        awsStd.String(constants.RunnerContainerName),
-			Command:     buildMainContainerCommand(req, requestID, hasGitRepo),
+			Command:     buildMainContainerCommand(req, requestID, imageToUse, repo),
 			Environment: envVars,
 		},
 	}
@@ -214,7 +249,7 @@ func (e *Runner) StartTask(ctx context.Context, userEmail string, req api.Execut
 
 	runTaskInput := &ecs.RunTaskInput{
 		Cluster:        awsStd.String(e.cfg.ECSCluster),
-		TaskDefinition: awsStd.String(e.cfg.TaskDefinition),
+		TaskDefinition: awsStd.String(taskDefARN),
 		LaunchType:     ecsTypes.LaunchTypeFargate,
 		Overrides: &ecsTypes.TaskOverride{
 			ContainerOverrides: containerOverrides,
@@ -232,7 +267,8 @@ func (e *Runner) StartTask(ctx context.Context, userEmail string, req api.Execut
 	logArgs := []any{
 		"operation", "ECS.RunTask",
 		"cluster", e.cfg.ECSCluster,
-		"taskDefinition", e.cfg.TaskDefinition,
+		"taskDefinition", taskDefARN,
+		"image", imageToUse,
 		"containerCount", len(containerOverrides),
 		"userEmail", userEmail,
 		"hasGitRepo", hasGitRepo,
@@ -242,10 +278,10 @@ func (e *Runner) StartTask(ctx context.Context, userEmail string, req api.Execut
 
 	runTaskOutput, err := e.ecsClient.RunTask(ctx, runTaskInput)
 	if err != nil {
-		return "", "", nil, appErrors.ErrInternalError("failed to start ECS task", err)
+		return "", nil, appErrors.ErrInternalError("failed to start ECS task", err)
 	}
 	if len(runTaskOutput.Tasks) == 0 {
-		return "", "", nil, appErrors.ErrInternalError("no tasks were started", nil)
+		return "", nil, appErrors.ErrInternalError("no tasks were started", nil)
 	}
 
 	task := runTaskOutput.Tasks[0]
@@ -281,7 +317,143 @@ func (e *Runner) StartTask(ctx context.Context, userEmail string, req api.Execut
 			"executionID", executionID)
 	}
 
-	return executionID, taskARN, createdAt, nil
+	return executionID, createdAt, nil
+}
+
+// RegisterImage registers a Docker image and creates the corresponding task definition.
+// isDefault: if true, explicitly set as default; if nil or false, becomes default only if no default exists (first image behavior)
+func (e *Runner) RegisterImage(ctx context.Context, image string, isDefault *bool) error {
+	if e.ecsClient == nil {
+		return fmt.Errorf("ECS client not configured")
+	}
+
+	reqLogger := logger.DeriveRequestLogger(ctx, e.logger)
+
+	region := e.cfg.Region
+	if region == "" {
+		return fmt.Errorf("AWS region not configured")
+	}
+
+	err := RegisterTaskDefinitionForImage(ctx, e.ecsClient, e.cfg, image, isDefault, region, reqLogger)
+	if err != nil {
+		return fmt.Errorf("failed to register task definition: %w", err)
+	}
+
+	return nil
+}
+
+// ListImages lists all registered Docker images.
+func (e *Runner) ListImages(ctx context.Context) ([]api.ImageInfo, error) {
+	if e.ecsClient == nil {
+		return nil, fmt.Errorf("ECS client not configured")
+	}
+
+	reqLogger := logger.DeriveRequestLogger(ctx, e.logger)
+
+	reqLogger.Debug("calling external service", "context", map[string]string{
+		"operation": "ECS.ListTaskDefinitions",
+		"status":    "active",
+		"paginated": "true",
+	})
+
+	taskDefArns, err := listTaskDefinitionsByPrefix(ctx, e.ecsClient, constants.TaskDefinitionFamilyPrefix+"-")
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]api.ImageInfo, 0)
+	seenImages := make(map[string]bool)
+
+	for _, taskDefARN := range taskDefArns {
+		descOutput, err := e.ecsClient.DescribeTaskDefinition(ctx, &ecs.DescribeTaskDefinitionInput{
+			TaskDefinition: awsStd.String(taskDefARN),
+		})
+		if err != nil {
+			reqLogger.Warn("failed to describe task definition", "arn", taskDefARN, "error", err)
+			continue
+		}
+
+		if descOutput.TaskDefinition == nil {
+			continue
+		}
+
+		// Extract image from container definition (runner container)
+		image := ""
+		familyName := ""
+		if descOutput.TaskDefinition.Family != nil {
+			familyName = *descOutput.TaskDefinition.Family
+		}
+		for _, container := range descOutput.TaskDefinition.ContainerDefinitions {
+			if container.Name != nil {
+				if *container.Name == constants.RunnerContainerName && container.Image != nil {
+					image = *container.Image
+					break
+				}
+			}
+		}
+
+		if image == "" {
+			reqLogger.Debug("no runner container found in task definition", "container", map[string]string{
+				"family":          familyName,
+				"container_count": fmt.Sprintf("%d", len(descOutput.TaskDefinition.ContainerDefinitions)),
+			})
+		}
+
+		isDefault := false
+		tagsOutput, err := e.ecsClient.ListTagsForResource(ctx, &ecs.ListTagsForResourceInput{
+			ResourceArn: awsStd.String(taskDefARN),
+		})
+		if err == nil && tagsOutput != nil {
+			for _, tag := range tagsOutput.Tags {
+				if tag.Key != nil && tag.Value != nil {
+					switch *tag.Key {
+					case constants.TaskDefinitionIsDefaultTagKey:
+						if *tag.Value == "true" {
+							isDefault = true
+						}
+					}
+				}
+			}
+		}
+
+		if image != "" && !seenImages[image] {
+			seenImages[image] = true
+			family := awsStd.ToString(descOutput.TaskDefinition.Family)
+			taskDefARN := awsStd.ToString(descOutput.TaskDefinition.TaskDefinitionArn)
+			result = append(result, api.ImageInfo{
+				Image:              image,
+				TaskDefinitionARN:  taskDefARN,
+				TaskDefinitionName: family,
+				IsDefault:          awsStd.Bool(isDefault),
+			})
+		}
+	}
+
+	for _, imageInfo := range result {
+		reqLogger.Debug("found runner container image", "context", map[string]string{
+			"family":         imageInfo.TaskDefinitionName,
+			"container_name": constants.RunnerContainerName,
+			"image":          imageInfo.Image,
+			"isDefault":      strconv.FormatBool(awsStd.ToBool(imageInfo.IsDefault)),
+		})
+	}
+
+	return result, nil
+}
+
+// RemoveImage removes a Docker image and deregisters its task definitions.
+func (e *Runner) RemoveImage(ctx context.Context, image string) error {
+	if e.ecsClient == nil {
+		return fmt.Errorf("ECS client not configured")
+	}
+
+	reqLogger := logger.DeriveRequestLogger(ctx, e.logger)
+
+	if err := DeregisterTaskDefinitionsForImage(ctx, e.ecsClient, image, reqLogger); err != nil {
+		return fmt.Errorf("failed to remove image: %w", err)
+	}
+
+	return nil
 }
 
 // KillTask terminates an ECS task identified by executionID.

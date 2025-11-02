@@ -137,6 +137,17 @@ const ClaimURLExpirationMinutes = 15
 // ClaimEndpointPath is the HTTP path for claiming API keys
 const ClaimEndpointPath = "/claim"
 
+// TaskDefinitionFamilyPrefix is the prefix for all runvoy task definition families
+// Task definitions are named: {ProjectName}-image-{sanitized-image-name}
+// e.g., "runvoy-image-hashicorp-terraform-1-6" for image "hashicorp/terraform:1.6"
+const TaskDefinitionFamilyPrefix = "runvoy-image"
+
+// TaskDefinitionIsDefaultTagKey is the ECS tag key used to mark a task definition as the default image
+const TaskDefinitionIsDefaultTagKey = "IsDefault"
+
+// TaskDefinitionDockerImageTagKey is the ECS tag key used to store the Docker image name for metadata
+const TaskDefinitionDockerImageTagKey = "DockerImage"
+
 type StartTimeCtxKeyType string
 
 // StartTimeCtxKey is the key used to store the start time in context

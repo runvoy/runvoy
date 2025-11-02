@@ -263,16 +263,18 @@ runvoy --help
 ```
 
 ```bash
-runvoy - 0.0.0-dev-20251031-3177856
+runvoy - 0.1.0-dev-20251102-9665193
 Isolated, repeatable execution environments for your commands
 
 Usage:
   runvoy [command]
 
 Available Commands:
+  claim       Claim a user's API key
   completion  Generate the autocompletion script for the specified shell
   configure   Configure local environment with API key and endpoint URL
   help        Help about any command
+  images      Images management commands
   kill        Kill a running command execution
   list        List executions
   logs        Get logs for an execution
