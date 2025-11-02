@@ -105,17 +105,5 @@ func initializeAWSBackend(
 	}
 	runner := appaws.NewRunner(ecsClientInstance, awsExecCfg, logger)
 
-	// Register the default image task definition at initialization time
-	if cfg.DefaultImage != "" {
-		logger.Info("registering default image task definition", "image", cfg.DefaultImage)
-		_, err := appaws.RegisterTaskDefinitionForImage(ctx, ecsClientInstance, awsExecCfg, cfg.DefaultImage, logger)
-		if err != nil {
-			// Log warning but don't fail initialization - image might already be registered
-			logger.Warn("failed to register default image task definition (may already exist)", "image", cfg.DefaultImage, "error", err)
-		} else {
-			logger.Info("default image task definition registered successfully", "image", cfg.DefaultImage)
-		}
-	}
-
 	return userRepo, executionRepo, runner, nil
 }
