@@ -301,46 +301,11 @@ Resources:
         - Key: ManagedBy
           Value: 'cloudformation'
 
-  # ECS Task Definition (single container, no git support)
+  # ECS Task Definition
   TaskDefinition:
     Type: AWS::ECS::TaskDefinition
     Properties:
       Family: !Sub '${ProjectName}-task'
-      NetworkMode: awsvpc
-      RequiresCompatibilities:
-        - FARGATE
-      Cpu: '256'
-      Memory: '512'
-      ExecutionRoleArn: !GetAtt TaskExecutionRole.Arn
-      TaskRoleArn: !GetAtt TaskRole.Arn
-      Tags:
-        - Key: Name
-          Value: !Sub '${ProjectName}-task'
-        - Key: Application
-          Value: !Ref ProjectName
-        - Key: ManagedBy
-          Value: 'cloudformation'
-      ContainerDefinitions:
-        - Name: runner
-          Image: 'public.ecr.aws/docker/library/ubuntu:22.04'
-          Essential: true
-          # Command is overridden at runtime by Lambda
-          Command:
-            - '/bin/sh'
-            - '-c'
-            - 'echo "This task definition is a template. Command will be overridden at runtime."'
-          LogConfiguration:
-            LogDriver: awslogs
-            Options:
-              awslogs-group: !Ref RunnerLogGroup
-              awslogs-region: !Ref AWS::Region
-              awslogs-stream-prefix: task
-
-  # ECS Task Definition with Git Sidecar (multi-container with shared volume)
-  TaskDefinitionWithGit:
-    Type: AWS::ECS::TaskDefinition
-    Properties:
-      Family: !Sub '${ProjectName}-task-with-git'
       NetworkMode: awsvpc
       RequiresCompatibilities:
         - FARGATE
@@ -354,35 +319,38 @@ Resources:
         - Name: workspace
       Tags:
         - Key: Name
-          Value: !Sub '${ProjectName}-task-with-git'
+          Value: !Sub '${ProjectName}-task'
         - Key: Application
           Value: !Ref ProjectName
         - Key: ManagedBy
           Value: 'cloudformation'
       ContainerDefinitions:
-        # Sidecar container for git cloning (runs first)
-        - Name: git-cloner
-          Image: 'public.ecr.aws/docker/library/alpine:3.18'
-          Essential: false  # Task continues even if sidecar completes
+        - Name: sidecar
+          Image: 'public.ecr.aws/docker/library/alpine:latest'
+          Essential: true
           Command:
             - '/bin/sh'
             - '-c'
             - |
               set -e
-              apk add --no-cache git
+
+              # If no GIT_REPO is specified, just exit successfully
               if [ -z "$GIT_REPO" ]; then
-                echo "ERROR: GIT_REPO environment variable is not set"
-                exit 1
+                echo "### runvoy sidecar: No git repository specified, exiting"
+                exit 0
               fi
+
+              # Git repository cloning logic
+              apk add --no-cache git
               GIT_REF=${GIT_REF:-main}
               CLONE_PATH=${SHARED_VOLUME_PATH}/repo
 
               # Clone git repository
-              echo "### runvoy git-cloner: Cloning ${GIT_REPO} (ref: ${GIT_REF})"
+              echo "### runvoy sidecar: Cloning ${GIT_REPO} (ref: ${GIT_REF})"
               git clone --depth 1 --branch "${GIT_REF}" "${GIT_REPO}" "${CLONE_PATH}"
-              echo "### runvoy git-cloner: Clone completed successfully"
+              echo "### runvoy sidecar: Clone completed successfully"
               ls -la "${CLONE_PATH}"
-              echo "### runvoy git-cloner: Sidecar completed successfully"
+              echo "### runvoy sidecar: Sidecar completed successfully"
           Environment:
             - Name: GIT_REPO
               Value: ""  # Overridden at runtime via container override
@@ -400,12 +368,12 @@ Resources:
               awslogs-region: !Ref AWS::Region
               awslogs-stream-prefix: task
 
-        # Main container (runs after git-cloner succeeds)
+        # Main container (runs after sidecar succeeds)
         - Name: runner
           Image: 'public.ecr.aws/docker/library/ubuntu:22.04'
           Essential: true
           DependsOn:
-            - ContainerName: git-cloner
+            - ContainerName: sidecar
               Condition: SUCCESS  # Wait for sidecar to complete successfully
           # Command is overridden at runtime by Lambda
           Command:
@@ -572,7 +540,6 @@ Resources:
           RUNVOY_PENDING_API_KEYS_TABLE: !Ref PendingAPIKeysTable
           RUNVOY_ECS_CLUSTER: !Ref ECSCluster
           RUNVOY_TASK_DEFINITION: !Ref TaskDefinition
-          RUNVOY_TASK_DEFINITION_WITH_GIT: !Ref TaskDefinitionWithGit
           RUNVOY_SUBNET_1: !Ref PublicSubnet1
           RUNVOY_SUBNET_2: !Ref PublicSubnet2
           RUNVOY_SECURITY_GROUP: !Ref FargateSecurityGroup
@@ -744,12 +711,8 @@ Outputs:
       Name: !Sub '${ProjectName}-cluster'
 
   TaskDefinitionArn:
-    Description: ECS Task Definition ARN (single container)
+    Description: ECS Task Definition ARN (with sidecar)
     Value: !Ref TaskDefinition
-
-  TaskDefinitionWithGitArn:
-    Description: ECS Task Definition ARN (with git sidecar)
-    Value: !Ref TaskDefinitionWithGit
 
   LogGroup:
     Description: CloudWatch Log Group for runner tasks

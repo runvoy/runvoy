@@ -25,21 +25,20 @@ type Config struct {
 	APIKey      string `mapstructure:"api_key" yaml:"api_key"`
 
 	// Orchestrator Service Configuration
-	Port                  string        `mapstructure:"port" validate:"omitempty"`
-	RequestTimeout        time.Duration `mapstructure:"request_timeout"`
-	APIKeysTable          string        `mapstructure:"api_keys_table"`
-	ExecutionsTable       string        `mapstructure:"executions_table"`
-	PendingAPIKeysTable   string        `mapstructure:"pending_api_keys_table"`
-	ECSCluster            string        `mapstructure:"ecs_cluster"`
-	TaskDefinition        string        `mapstructure:"task_definition"`
-	TaskDefinitionWithGit string        `mapstructure:"task_definition_with_git"`
-	Subnet1               string        `mapstructure:"subnet_1"`
-	Subnet2               string        `mapstructure:"subnet_2"`
-	SecurityGroup         string        `mapstructure:"security_group"`
-	LogGroup              string        `mapstructure:"log_group"`
-	DefaultImage          string        `mapstructure:"default_image"`
-	InitTimeout           time.Duration `mapstructure:"init_timeout"`
-	LogLevel              string        `mapstructure:"log_level"`
+	Port                string        `mapstructure:"port" validate:"omitempty"`
+	RequestTimeout      time.Duration `mapstructure:"request_timeout"`
+	APIKeysTable        string        `mapstructure:"api_keys_table"`
+	ExecutionsTable     string        `mapstructure:"executions_table"`
+	PendingAPIKeysTable string        `mapstructure:"pending_api_keys_table"`
+	ECSCluster          string        `mapstructure:"ecs_cluster"`
+	TaskDefinition      string        `mapstructure:"task_definition"`
+	Subnet1             string        `mapstructure:"subnet_1"`
+	Subnet2             string        `mapstructure:"subnet_2"`
+	SecurityGroup       string        `mapstructure:"security_group"`
+	LogGroup            string        `mapstructure:"log_group"`
+	DefaultImage        string        `mapstructure:"default_image"`
+	InitTimeout         time.Duration `mapstructure:"init_timeout"`
+	LogLevel            string        `mapstructure:"log_level"`
 }
 
 var validate *validator.Validate
@@ -267,7 +266,6 @@ func bindEnvVars(v *viper.Viper) {
 		"PENDING_API_KEYS_TABLE",
 		"ECS_CLUSTER",
 		"TASK_DEFINITION",
-		"TASK_DEFINITION_WITH_GIT",
 		"SUBNET_1",
 		"SUBNET_2",
 		"SECURITY_GROUP",

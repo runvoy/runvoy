@@ -330,16 +330,16 @@ The application uses a unified logging approach with structured logging via `log
 │  │ - Start ECS task │         │ - Locks      │                │
 │  │ - Record exec    │         │ - Executions │                │
 │  └──────┬───────────┘         └──────┬───────┘                │
-│         │                             ▲                          │
-│         │                             │                          │
-│  ┌──────▼───────────┐                │                          │
-│  │ ECS Fargate      │                │                          │
-│  │                  │                │                          │
-│  │ Container:       │         ┌──────────────┐                │
-│  │ - Clone git repo │────────►│ S3 Bucket    │                │
-│  │   (optional)     │         │ - Code       │                │
-│  │ - Run command    │         │   uploads    │                │
-│  │ - Stream logs    │         └──────────────┘                │
+│         │
+│         │
+│  ┌──────▼───────────┐
+│  │ ECS Fargate      │
+│  │                  │
+│  │ Containers:      │
+│  │ - Sidecar: git   │
+│  │   clone/setup    │
+│  │ - Runner: exec   │
+│  │ - Stream logs    │
 │  │                  │                                           │
 │  │ Task Role:       │                                           │
 │  │ - AWS perms for  │         ┌──────────────┐                │
@@ -406,7 +406,7 @@ The platform uses a dedicated **event processor Lambda** to handle asynchronous 
 2. **EventBridge Filtering**: EventBridge rule captures STOPPED tasks from the runvoy cluster only
 3. **Lambda Invocation**: EventBridge invokes the event processor Lambda with the task details
 4. **Event Routing**: The processor routes events by type (extensible for future event types)
-5. **Data Extraction**: 
+5. **Data Extraction**:
    - Execution ID extracted from task ARN (last segment)
    - Exit code from container details
    - Timestamps for start/stop times
@@ -681,7 +681,7 @@ The project uses **golangci-lint** for comprehensive Go code analysis with the f
 **Pre-commit** hooks ensure code quality before commits:
 
 - **Configuration**: `.pre-commit-config.yaml`
-- **Hooks**: 
+- **Hooks**:
   - golangci-lint for Go code analysis
   - gofmt for code formatting
   - goimports for import organization
@@ -906,7 +906,7 @@ The `run` command executes commands remotely via the orchestrator Lambda.
 3. Orchestrator Lambda:
    - Validates API key
    - Creates execution record in DynamoDB (status: RUNNING)
-   - Starts ECS Fargate task with the command
+   - Starts ECS Fargate task with the command and sidecar
    - Returns execution ID
 
 **Response (202 Accepted):**
@@ -918,7 +918,14 @@ The `run` command executes commands remotely via the orchestrator Lambda.
 }
 ```
 
-**Note:** Log viewing endpoints are not yet implemented. Execution completion is tracked automatically by the event processor Lambda.
+**sidecar Architecture:**
+- All tasks use a single ECS task definition with a sidecar container
+- The sidecar handles auxiliary tasks (git cloning, future .env generation, etc.)
+- If no git repository is specified, the sidecar simply exits successfully (exit 0)
+- This simplifies infrastructure by eliminating the need for multiple task definitions
+- The sidecar is named generically ("sidecar") for future extensibility
+
+**Note:** Execution completion is tracked automatically by the event processor Lambda.
 
 ## Execution Termination (`POST /api/v1/executions/{id}/kill`)
 
@@ -966,6 +973,39 @@ The kill endpoint allows users to terminate running executions. This endpoint pr
 - The event processor Lambda will automatically detect the task termination
 - Execution status will be updated to STOPPED with exit code 130 (SIGINT)
 - Completion timestamp and duration will be calculated automatically
+
+## ECS Task Architecture
+
+The platform uses a single ECS Fargate task definition with a sidecar pattern:
+
+**Task Definition:** `{project-name}-task`
+- **Sidecar Container ("sidecar")**: Handles auxiliary tasks before main execution
+  - Essential: `false` (task continues after sidecar completes)
+  - Image: Alpine Linux (lightweight, includes git)
+  - Conditionally clones git repository if `GIT_REPO` environment variable is set
+  - If no git repo specified, exits successfully (exit 0)
+  - Logs prefixed with "### runvoy sidecar:"
+  - Future extensibility: can handle .env file generation, credential fetching, etc.
+
+- **Main Container ("runner")**: Executes user commands
+  - Essential: `true` (task fails if this container fails)
+  - Image: Ubuntu 22.04 (full-featured environment)
+  - Depends on sidecar completing successfully
+  - Working directory: `/workspace` (or `/workspace/repo` if git used)
+  - Command overridden at runtime via Lambda
+  - Logs prefixed with "### runvoy:"
+
+**Shared Volume:**
+- Both containers mount `/workspace` volume
+- Sidecar clones git repo to `/workspace/repo` (if specified)
+- Main container accesses cloned repo and creates .env files
+
+**Benefits of sidecar Approach:**
+- ✅ Single task definition to maintain (reduced infrastructure complexity)
+- ✅ Simplified deployment and updates
+- ✅ Consistent execution model for all commands
+- ✅ Easy to extend with new sidecar functionality
+- ✅ Minimal overhead when sidecar not needed (quick exit 0)
 
 ## Database Schema
 
