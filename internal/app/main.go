@@ -16,8 +16,6 @@ import (
 	dynamorepo "runvoy/internal/database/dynamodb"
 	apperrors "runvoy/internal/errors"
 	"runvoy/internal/logger"
-
-	"github.com/aws/aws-lambda-go/lambdacontext"
 )
 
 // Runner abstracts provider-specific command execution (e.g., AWS ECS, GCP, etc.).
@@ -293,18 +291,12 @@ func (s *Service) RunCommand(
 		startedAt = createdAt.UTC()
 	}
 
-	if taskARN != "" {
-		reqLogger.Info("task started", "task", map[string]string{
-			"executionID": executionID,
-			"taskARN":     taskARN,
-			"startedAt":   startedAt.Format(time.RFC3339),
-		})
-	}
+	reqLogger.Info("task started", "task", map[string]string{
+		"executionID": executionID,
+		"startedAt":   startedAt.Format(time.RFC3339),
+	})
 
-	requestID := ""
-	if lc, ok := lambdacontext.FromContext(ctx); ok {
-		requestID = lc.AwsRequestID
-	}
+	requestID := logger.GetRequestID(ctx)
 	execution := &api.Execution{
 		ExecutionID:     executionID,
 		UserEmail:       userEmail,
