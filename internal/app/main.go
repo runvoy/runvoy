@@ -23,17 +23,17 @@ import (
 // Runner abstracts provider-specific command execution (e.g., AWS ECS, GCP, etc.).
 type Runner interface {
 	// StartTask triggers an execution on the underlying platform and returns
-	// a provider-specific task ARN, a stable executionID, and the task creation timestamp.
+	// a stable executionID and the task creation timestamp.
 	// The createdAt timestamp comes from the provider (e.g., ECS CreatedAt) when available.
 	StartTask(
 		ctx context.Context,
 		userEmail string,
-		req api.ExecutionRequest) (executionID string, taskARN string, createdAt *time.Time, err error)
+		req api.ExecutionRequest) (executionID string, createdAt *time.Time, err error)
 	// KillTask terminates a running task identified by executionID.
 	// Returns an error if the task is already terminated or cannot be terminated.
 	KillTask(ctx context.Context, executionID string) error
 	// RegisterImage registers a Docker image as a task definition in the execution platform.
-	RegisterImage(ctx context.Context, image string) (taskDefARN string, taskDefName string, err error)
+	RegisterImage(ctx context.Context, image string) error
 	// ListImages lists all registered Docker images.
 	ListImages(ctx context.Context) ([]api.ImageInfo, error)
 	// RemoveImage removes a Docker image and deregisters its task definitions.
@@ -282,7 +282,7 @@ func (s *Service) RunCommand(
 	if req.Command == "" {
 		return nil, apperrors.ErrBadRequest("command is required", nil)
 	}
-	executionID, taskARN, createdAt, err := s.runner.StartTask(ctx, userEmail, req)
+	executionID, createdAt, err := s.runner.StartTask(ctx, userEmail, req)
 	if err != nil {
 		return nil, err
 	}
@@ -461,8 +461,7 @@ func (s *Service) RegisterImage(ctx context.Context, image string) (*api.Registe
 		return nil, apperrors.ErrBadRequest("image is required", nil)
 	}
 
-	_, _, err := s.runner.RegisterImage(ctx, image)
-	if err != nil {
+	if err := s.runner.RegisterImage(ctx, image); err != nil {
 		return nil, apperrors.ErrInternalError("failed to register image", err)
 	}
 

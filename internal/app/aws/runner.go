@@ -132,23 +132,21 @@ func buildMainContainerCommand(req api.ExecutionRequest, requestID string, hasGi
 }
 
 // StartTask triggers an ECS Fargate task and returns identifiers.
-func (e *Runner) StartTask(ctx context.Context, userEmail string, req api.ExecutionRequest) (string, string, *time.Time, error) {
+func (e *Runner) StartTask(ctx context.Context, userEmail string, req api.ExecutionRequest) (string, *time.Time, error) {
 	if e.ecsClient == nil {
-		return "", "", nil, appErrors.ErrInternalError("ECS cli endpoint not configured", nil)
+		return "", nil, appErrors.ErrInternalError("ECS cli endpoint not configured", nil)
 	}
 
 	reqLogger := logger.DeriveRequestLogger(ctx, e.logger)
 
-	// Determine which image to use
 	imageToUse := e.cfg.DefaultImage
 	if req.Image != "" {
 		imageToUse = req.Image
 	}
 
-	// Get task definition for the requested image (must be registered via API)
 	taskDefARN, err := GetTaskDefinitionForImage(ctx, e.ecsClient, imageToUse, reqLogger)
 	if err != nil {
-		return "", "", nil, appErrors.ErrBadRequest("image not registered", err)
+		return "", nil, appErrors.ErrBadRequest("image not registered", err)
 	}
 
 	reqLogger.Debug("using task definition for image", "image", imageToUse, "taskDef", taskDefARN)
@@ -251,10 +249,10 @@ func (e *Runner) StartTask(ctx context.Context, userEmail string, req api.Execut
 
 	runTaskOutput, err := e.ecsClient.RunTask(ctx, runTaskInput)
 	if err != nil {
-		return "", "", nil, appErrors.ErrInternalError("failed to start ECS task", err)
+		return "", nil, appErrors.ErrInternalError("failed to start ECS task", err)
 	}
 	if len(runTaskOutput.Tasks) == 0 {
-		return "", "", nil, appErrors.ErrInternalError("no tasks were started", nil)
+		return "", nil, appErrors.ErrInternalError("no tasks were started", nil)
 	}
 
 	task := runTaskOutput.Tasks[0]
@@ -290,13 +288,13 @@ func (e *Runner) StartTask(ctx context.Context, userEmail string, req api.Execut
 			"executionID", executionID)
 	}
 
-	return executionID, taskARN, createdAt, nil
+	return executionID, createdAt, nil
 }
 
 // RegisterImage registers a Docker image and creates the corresponding task definition.
-func (e *Runner) RegisterImage(ctx context.Context, image string) (string, string, error) {
+func (e *Runner) RegisterImage(ctx context.Context, image string) error {
 	if e.ecsClient == nil {
-		return "", "", fmt.Errorf("ECS client not configured")
+		return fmt.Errorf("ECS client not configured")
 	}
 
 	reqLogger := logger.DeriveRequestLogger(ctx, e.logger)
@@ -306,16 +304,15 @@ func (e *Runner) RegisterImage(ctx context.Context, image string) (string, strin
 
 	region := e.cfg.Region
 	if region == "" {
-		return "", "", fmt.Errorf("AWS region not configured")
+		return fmt.Errorf("AWS region not configured")
 	}
 
-	taskDefARN, err := RegisterTaskDefinitionForImageWithDefault(ctx, e.ecsClient, e.cfg, image, isDefault, region, reqLogger)
+	_, err := RegisterTaskDefinitionForImageWithDefault(ctx, e.ecsClient, e.cfg, image, isDefault, region, reqLogger)
 	if err != nil {
-		return "", "", fmt.Errorf("failed to register task definition: %w", err)
+		return fmt.Errorf("failed to register task definition: %w", err)
 	}
 
-	family := TaskDefinitionFamilyName(image)
-	return taskDefARN, family, nil
+	return nil
 }
 
 // ListImages lists all registered Docker images.
