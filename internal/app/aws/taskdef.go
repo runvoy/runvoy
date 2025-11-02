@@ -360,27 +360,56 @@ func DeregisterTaskDefinitionsForImage(
 	logger *slog.Logger,
 ) error {
 	family := TaskDefinitionFamilyName(image)
+	nextToken := ""
 
-	listOutput, err := ecsClient.ListTaskDefinitions(ctx, &ecs.ListTaskDefinitionsInput{
-		FamilyPrefix: awsStd.String(family),
-		Status:       ecsTypes.TaskDefinitionStatusActive,
-		MaxResults:   awsStd.Int32(100),
+	logger.Debug("calling external service", "context", map[string]string{
+		"operation": "ECS.ListTaskDefinitions",
+		"family":    family,
+		"image":     image,
+		"status":    string(ecsTypes.TaskDefinitionStatusActive),
+		"paginated": "true",
 	})
-	if err != nil {
-		return fmt.Errorf("failed to list task definitions: %w", err)
-	}
 
-	for _, taskDefARN := range listOutput.TaskDefinitionArns {
-		_, err := ecsClient.DeregisterTaskDefinition(ctx, &ecs.DeregisterTaskDefinitionInput{
-			TaskDefinition: awsStd.String(taskDefARN),
+	for {
+		listOutput, err := ecsClient.ListTaskDefinitions(ctx, &ecs.ListTaskDefinitionsInput{
+			FamilyPrefix: awsStd.String(family),
+			Status:       ecsTypes.TaskDefinitionStatusActive,
+			MaxResults:   awsStd.Int32(100),
+			NextToken:    awsStd.String(nextToken),
 		})
 		if err != nil {
-			logger.Warn("failed to deregister task definition revision", "arn", taskDefARN, "error", err)
-		} else {
-			logger.Info("deregistered task definition revision", "arn", taskDefARN)
+			return fmt.Errorf("failed to list task definitions: %w", err)
 		}
+
+		for _, taskDefARN := range listOutput.TaskDefinitionArns {
+			_, err := ecsClient.DeregisterTaskDefinition(ctx, &ecs.DeregisterTaskDefinitionInput{
+				TaskDefinition: awsStd.String(taskDefARN),
+			})
+			if err != nil {
+				logger.Warn("failed to deregister task definition revision", "context", map[string]string{
+					"family": family,
+					"image":  image,
+					"arn":    taskDefARN,
+					"error":  err.Error(),
+				})
+			} else {
+				logger.Info("deregistered task definition revision", "context", map[string]string{
+					"family": family,
+					"image":  image,
+					"arn":    taskDefARN,
+				})
+			}
+		}
+
+		if listOutput.NextToken == nil {
+			break
+		}
+		nextToken = *listOutput.NextToken
 	}
 
-	logger.Info("deregistered all task definition revisions", "family", family, "image", image)
+	logger.Info("deregistered all task definition revisions", "context", map[string]string{
+		"family": family,
+		"image":  image,
+	})
 	return nil
 }
