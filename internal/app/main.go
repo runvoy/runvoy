@@ -36,11 +36,12 @@ type Runner interface {
 
 // Service provides the core business logic for command execution and user management.
 type Service struct {
-	userRepo      database.UserRepository
-	executionRepo database.ExecutionRepository
-	runner        Runner
-	Logger        *slog.Logger
-	Provider      constants.BackendProvider
+	userRepo        database.UserRepository
+	executionRepo   database.ExecutionRepository
+	taskDefRepo     database.TaskDefinitionRepository
+	runner          Runner
+	Logger          *slog.Logger
+	Provider        constants.BackendProvider
 }
 
 // NOTE: provider-specific configuration has been moved to subpackages (e.g., app/aws).
@@ -51,12 +52,14 @@ type Service struct {
 func NewService(
 	userRepo database.UserRepository,
 	executionRepo database.ExecutionRepository,
+	taskDefRepo database.TaskDefinitionRepository,
 	runner Runner,
 	logger *slog.Logger,
 	provider constants.BackendProvider) *Service {
 	return &Service{
 		userRepo:      userRepo,
 		executionRepo: executionRepo,
+		taskDefRepo:   taskDefRepo,
 		runner:        runner,
 		Logger:        logger,
 		Provider:      provider,
@@ -447,4 +450,64 @@ func (s *Service) ListExecutions(ctx context.Context) ([]*api.Execution, error) 
 		return nil, err
 	}
 	return executions, nil
+}
+
+// RegisterImage registers a new Docker image for use in task definitions.
+// It creates an ECS task definition with the specified image and stores it in the registry.
+func (s *Service) RegisterImage(ctx context.Context, req api.RegisterImageRequest, userEmail string) (*api.RegisterImageResponse, error) {
+	if s.taskDefRepo == nil {
+		return nil, apperrors.ErrInternalError("task definition repository not configured", nil)
+	}
+	if req.Image == "" {
+		return nil, apperrors.ErrBadRequest("image is required", nil)
+	}
+
+	reqLogger := logger.DeriveRequestLogger(ctx, s.Logger)
+
+	// For now, delegate to runner to handle registration
+	// The runner should handle creating the task definition
+	runnerWithRegistry, ok := s.runner.(interface {
+		RegisterTaskDefinition(ctx context.Context, image string, hasGit bool, userEmail string) (*api.TaskDefinition, error)
+	})
+	if !ok {
+		return nil, apperrors.ErrInternalError("runner does not support task definition registration", nil)
+	}
+
+	taskDef, err := runnerWithRegistry.RegisterTaskDefinition(ctx, req.Image, req.WithGit, userEmail)
+	if err != nil {
+		return nil, err
+	}
+
+	// Store in registry
+	now := time.Now().UTC()
+	registryEntry := &api.TaskDefinition{
+		TaskKey:           taskDef.TaskKey,
+		Image:             req.Image,
+		HasGit:            req.WithGit,
+		TaskDefinitionARN: taskDef.TaskDefinitionARN,
+		CreatedAt:         now,
+		CreatedBy:         userEmail,
+	}
+
+	if err := s.taskDefRepo.CreateTaskDefinition(ctx, registryEntry); err != nil {
+		// If it's a conflict, the task definition already exists - that's okay
+		if apperrors.GetErrorCode(err) == "CONFLICT" {
+			reqLogger.Debug("task definition already registered", "image", req.Image, "hasGit", req.WithGit)
+			// Fetch existing entry
+			existing, err := s.taskDefRepo.GetTaskDefinition(ctx, taskDef.TaskKey)
+			if err != nil {
+				return nil, err
+			}
+			registryEntry = existing
+		} else {
+			return nil, err
+		}
+	}
+
+	reqLogger.Info("image registered successfully", "image", req.Image, "hasGit", req.WithGit, "taskDefARN", registryEntry.TaskDefinitionARN)
+
+	return &api.RegisterImageResponse{
+		TaskDefinition: registryEntry,
+		Message:        "Image registered successfully",
+	}, nil
 }

@@ -146,3 +146,26 @@ type HealthResponse struct {
 	Status  string `json:"status"`
 	Version string `json:"version"`
 }
+
+// TaskDefinition represents a registered task definition in the registry
+type TaskDefinition struct {
+	TaskKey           string    `json:"task_key"`
+	Image             string    `json:"image"`
+	HasGit            bool      `json:"has_git"`
+	TaskDefinitionARN string    `json:"task_definition_arn"`
+	CreatedAt         time.Time `json:"created_at"`
+	LastUsed          time.Time `json:"last_used,omitempty"`
+	CreatedBy         string    `json:"created_by,omitempty"`
+}
+
+// RegisterImageRequest represents the request to register a new Docker image
+type RegisterImageRequest struct {
+	Image   string `json:"image"`   // Docker image name (e.g., "ubuntu:22.04")
+	WithGit bool   `json:"with_git"` // Whether to register with git sidecar support
+}
+
+// RegisterImageResponse represents the response after registering an image
+type RegisterImageResponse struct {
+	TaskDefinition *TaskDefinition `json:"task_definition"`
+	Message        string          `json:"message"`
+}

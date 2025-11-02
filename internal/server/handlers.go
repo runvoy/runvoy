@@ -278,3 +278,36 @@ func getClientIP(req *http.Request) string {
 	// Fall back to RemoteAddr
 	return req.RemoteAddr
 }
+
+// handleRegisterImage handles POST /api/v1/admin/images/register to register a new Docker image
+func (r *Router) handleRegisterImage(w http.ResponseWriter, req *http.Request) {
+	logger := r.GetLoggerFromContext(req.Context())
+	var registerReq api.RegisterImageRequest
+
+	if err := json.NewDecoder(req.Body).Decode(&registerReq); err != nil {
+		writeErrorResponse(w, http.StatusBadRequest, "invalid request body", err.Error())
+		return
+	}
+
+	// Extract user from context (set by authentication middleware)
+	user, ok := req.Context().Value(userContextKey).(*api.User)
+	if !ok || user == nil {
+		writeErrorResponse(w, http.StatusUnauthorized, "Unauthorized", "user not found in context")
+		return
+	}
+
+	resp, err := r.svc.RegisterImage(req.Context(), registerReq, user.Email)
+	if err != nil {
+		statusCode := apperrors.GetStatusCode(err)
+		errorCode := apperrors.GetErrorCode(err)
+		errorMsg := apperrors.GetErrorMessage(err)
+
+		logger.Debug("failed to register image", "error", err, "statusCode", statusCode, "errorCode", errorCode)
+
+		writeErrorResponseWithCode(w, statusCode, errorCode, "failed to register image", errorMsg)
+		return
+	}
+
+	w.WriteHeader(http.StatusCreated)
+	_ = json.NewEncoder(w).Encode(resp)
+}

@@ -29,7 +29,8 @@ type Config struct {
 	RequestTimeout        time.Duration `mapstructure:"request_timeout"`
 	APIKeysTable          string        `mapstructure:"api_keys_table"`
 	ExecutionsTable       string        `mapstructure:"executions_table"`
-	PendingAPIKeysTable   string        `mapstructure:"pending_api_keys_table"`
+	PendingAPIKeysTable string        `mapstructure:"pending_api_keys_table"`
+	TaskDefinitionsTable  string        `mapstructure:"task_definitions_table"`
 	ECSCluster            string        `mapstructure:"ecs_cluster"`
 	TaskDefinition        string        `mapstructure:"task_definition"`
 	TaskDefinitionWithGit string        `mapstructure:"task_definition_with_git"`
@@ -265,6 +266,7 @@ func bindEnvVars(v *viper.Viper) {
 		"API_KEYS_TABLE",
 		"EXECUTIONS_TABLE",
 		"PENDING_API_KEYS_TABLE",
+		"TASK_DEFINITIONS_TABLE",
 		"ECS_CLUSTER",
 		"TASK_DEFINITION",
 		"TASK_DEFINITION_WITH_GIT",

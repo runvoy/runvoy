@@ -138,6 +138,26 @@ Resources:
         - Key: ManagedBy
           Value: 'cloudformation'
 
+  # DynamoDB Table for Task Definition Registry
+  TaskDefinitionsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub '${ProjectName}-task-definitions'
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: task_key
+          AttributeType: S
+      KeySchema:
+        - AttributeName: task_key
+          KeyType: HASH
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-task-definitions'
+        - Key: Application
+          Value: !Ref ProjectName
+        - Key: ManagedBy
+          Value: 'cloudformation'
+
   # CloudWatch Log Group for ECS task runner logs
   RunnerLogGroup:
     Type: AWS::Logs::LogGroup
@@ -539,6 +559,7 @@ Resources:
                   - !GetAtt ExecutionsTable.Arn
                   - !GetAtt LocksTable.Arn
                   - !GetAtt PendingAPIKeysTable.Arn
+                  - !GetAtt TaskDefinitionsTable.Arn
                   - !Sub '${APIKeysTable.Arn}/index/*'
                   - !Sub '${ExecutionsTable.Arn}/index/*'
 
@@ -570,6 +591,7 @@ Resources:
           RUNVOY_EXECUTIONS_TABLE: !Ref ExecutionsTable
           RUNVOY_LOCKS_TABLE: !Ref LocksTable
           RUNVOY_PENDING_API_KEYS_TABLE: !Ref PendingAPIKeysTable
+          RUNVOY_TASK_DEFINITIONS_TABLE: !Ref TaskDefinitionsTable
           RUNVOY_ECS_CLUSTER: !Ref ECSCluster
           RUNVOY_TASK_DEFINITION: !Ref TaskDefinition
           RUNVOY_TASK_DEFINITION_WITH_GIT: !Ref TaskDefinitionWithGit
@@ -736,6 +758,12 @@ Outputs:
     Value: !Ref PendingAPIKeysTable
     Export:
       Name: !Sub '${ProjectName}-pending-api-keys-table'
+
+  TaskDefinitionsTableName:
+    Description: DynamoDB Task Definitions Registry Table name
+    Value: !Ref TaskDefinitionsTable
+    Export:
+      Name: !Sub '${ProjectName}-task-definitions-table'
 
   ECSClusterName:
     Description: ECS Cluster name

@@ -255,3 +255,17 @@ func (c *Client) ClaimAPIKey(ctx context.Context, token string) (*api.ClaimAPIKe
 	}
 	return &resp, nil
 }
+
+// RegisterImage registers a Docker image for use in task definitions
+func (c *Client) RegisterImage(ctx context.Context, req api.RegisterImageRequest) (*api.RegisterImageResponse, error) {
+	var resp api.RegisterImageResponse
+	err := c.DoJSON(ctx, Request{
+		Method: "POST",
+		Path:   "/api/v1/admin/images/register",
+		Body:   req,
+	}, &resp)
+	if err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}

@@ -71,3 +71,18 @@ type ExecutionRepository interface {
 	// Implementations may choose an efficient retrieval strategy; order is newest first.
 	ListExecutions(ctx context.Context) ([]*api.Execution, error)
 }
+
+// TaskDefinitionRepository defines the interface for task definition registry operations.
+type TaskDefinitionRepository interface {
+	// GetTaskDefinition retrieves a task definition by its key (hash of image + hasGit).
+	GetTaskDefinition(ctx context.Context, taskKey string) (*api.TaskDefinition, error)
+
+	// CreateTaskDefinition stores a new task definition registry entry.
+	CreateTaskDefinition(ctx context.Context, taskDef *api.TaskDefinition) error
+
+	// UpdateLastUsed updates the last_used timestamp for a task definition.
+	UpdateLastUsed(ctx context.Context, taskKey string) error
+
+	// ListTaskDefinitions returns all registered task definitions.
+	ListTaskDefinitions(ctx context.Context) ([]*api.TaskDefinition, error)
+}

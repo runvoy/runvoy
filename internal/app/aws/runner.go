@@ -4,6 +4,8 @@ package aws
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"log/slog"
 	"slices"
@@ -14,6 +16,7 @@ import (
 	"runvoy/internal/constants"
 	appErrors "runvoy/internal/errors"
 	"runvoy/internal/logger"
+	"runvoy/internal/database"
 
 	awsStd "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ecs"
@@ -36,19 +39,27 @@ type Config struct {
 
 // Runner implements app.Runner for AWS ECS Fargate.
 type Runner struct {
-	ecsClient *ecs.Client
-	cfg       *Config
-	logger    *slog.Logger
+	ecsClient   *ecs.Client
+	cfg         *Config
+	logger      *slog.Logger
+	taskDefRepo database.TaskDefinitionRepository
 }
 
 // NewRunner creates a new AWS ECS runner with the provided configuration.
-func NewRunner(ecsClient *ecs.Client, cfg *Config, logger *slog.Logger) *Runner {
-	return &Runner{ecsClient: ecsClient, cfg: cfg, logger: logger}
+func NewRunner(ecsClient *ecs.Client, cfg *Config, logger *slog.Logger, taskDefRepo database.TaskDefinitionRepository) *Runner {
+	return &Runner{ecsClient: ecsClient, cfg: cfg, logger: logger, taskDefRepo: taskDefRepo}
 }
 
 // FetchLogsByExecutionID returns CloudWatch log events for the given execution ID.
 func (e *Runner) FetchLogsByExecutionID(ctx context.Context, executionID string) ([]api.LogEvent, error) {
 	return FetchLogsByExecutionID(ctx, e.cfg, executionID)
+}
+
+// computeTaskKey computes a deterministic hash key for a task definition based on image and hasGit flag.
+func computeTaskKey(image string, hasGit bool) string {
+	key := fmt.Sprintf("%s:%v", image, hasGit)
+	hash := sha256.Sum256([]byte(key))
+	return hex.EncodeToString(hash[:])[:16] // Use first 16 chars for shorter keys
 }
 
 // buildMainContainerCommand constructs the shell command for the main runner container.
@@ -114,25 +125,32 @@ func (e *Runner) StartTask(ctx context.Context, userEmail string, req api.Execut
 
 	reqLogger := logger.DeriveRequestLogger(ctx, e.logger)
 
-	// Note: Image override is not supported via task overrides; use task definition image.
-	if req.Image != "" && req.Image != e.cfg.DefaultImage {
-		reqLogger.Debug("custom image requested but not supported via overrides, using task definition image",
-			"requested", req.Image, "using", e.cfg.DefaultImage)
+	// Determine which image to use
+	image := req.Image
+	if image == "" {
+		image = e.cfg.DefaultImage
 	}
 
-	// Determine if git repo is requested and select appropriate task definition
+	// Determine if git repo is requested
 	hasGitRepo := req.GitRepo != ""
-	taskDefinition := e.cfg.TaskDefinition
+
+	// Get or create task definition from registry
+	taskDefinition, err := e.GetOrCreateTaskDefinition(ctx, image, hasGitRepo, userEmail)
+	if err != nil {
+		return "", "", nil, err
+	}
 
 	if hasGitRepo {
-		if e.cfg.TaskDefinitionWithGit == "" {
-			return "", "", nil, appErrors.ErrInternalError("git repository requested but git-enabled task definition not configured", nil)
-		}
-		taskDefinition = e.cfg.TaskDefinitionWithGit
 		reqLogger.Debug("using git-enabled task definition",
 			"gitRepo", req.GitRepo,
 			"gitRef", req.GitRef,
-			"gitPath", req.GitPath)
+			"gitPath", req.GitPath,
+			"image", image,
+			"taskDefinition", taskDefinition)
+	} else {
+		reqLogger.Debug("using task definition",
+			"image", image,
+			"taskDefinition", taskDefinition)
 	}
 
 	// Extract request ID from context (set by middleware)
@@ -427,4 +445,182 @@ func (e *Runner) KillTask(ctx context.Context, executionID string) error {
 		"previousStatus", currentStatus)
 
 	return nil
+}
+
+// RegisterTaskDefinition creates a new ECS task definition for the specified image and returns task definition info.
+func (e *Runner) RegisterTaskDefinition(ctx context.Context, image string, hasGit bool, userEmail string) (*api.TaskDefinition, error) {
+	if e.ecsClient == nil {
+		return nil, appErrors.ErrInternalError("ECS client not configured", nil)
+	}
+
+	reqLogger := logger.DeriveRequestLogger(ctx, e.logger)
+
+	// Determine which base task definition to use
+	baseTaskDefARN := e.cfg.TaskDefinition
+	if hasGit {
+		if e.cfg.TaskDefinitionWithGit == "" {
+			return nil, appErrors.ErrInternalError("git-enabled task definition not configured", nil)
+		}
+		baseTaskDefARN = e.cfg.TaskDefinitionWithGit
+	}
+
+	// Describe the base task definition to clone it
+	describeLogArgs := []any{
+		"operation", "ECS.DescribeTaskDefinition",
+		"taskDefinition", baseTaskDefARN,
+		"image", image,
+		"hasGit", hasGit,
+	}
+	describeLogArgs = append(describeLogArgs, logger.GetDeadlineInfo(ctx)...)
+	reqLogger.Debug("calling external service", "context", logger.SliceToMap(describeLogArgs))
+
+	baseTaskDef, err := e.ecsClient.DescribeTaskDefinition(ctx, &ecs.DescribeTaskDefinitionInput{
+		TaskDefinition: awsStd.String(baseTaskDefARN),
+		Include: []ecsTypes.TaskDefinitionField{
+			ecsTypes.TaskDefinitionFieldTags,
+		},
+	})
+	if err != nil {
+		return nil, appErrors.ErrInternalError("failed to describe base task definition", err)
+	}
+
+	// Tags are returned separately in DescribeTaskDefinitionOutput, not in TaskDefinition
+	tags := baseTaskDef.Tags
+
+	// Clone the container definitions and update the runner image
+	containerDefs := make([]ecsTypes.ContainerDefinition, len(baseTaskDef.TaskDefinition.ContainerDefinitions))
+	for i, container := range baseTaskDef.TaskDefinition.ContainerDefinitions {
+		containerDefs[i] = container
+		// Update the runner container's image
+		if awsStd.ToString(container.Name) == constants.RunnerContainerName {
+			containerDefs[i].Image = awsStd.String(image)
+			reqLogger.Debug("updated runner container image", "oldImage", container.Image, "newImage", image)
+		}
+	}
+
+	// Create a unique family name for this task definition
+	taskKey := computeTaskKey(image, hasGit)
+	familyName := fmt.Sprintf("runvoy-task-%s", taskKey)
+	if hasGit {
+		familyName = fmt.Sprintf("runvoy-task-%s-withgit", taskKey)
+	}
+
+	// Build the register input
+	registerInput := &ecs.RegisterTaskDefinitionInput{
+		Family:                  awsStd.String(familyName),
+		NetworkMode:            baseTaskDef.TaskDefinition.NetworkMode,
+		RequiresCompatibilities: baseTaskDef.TaskDefinition.RequiresCompatibilities,
+		Cpu:                     baseTaskDef.TaskDefinition.Cpu,
+		Memory:                  baseTaskDef.TaskDefinition.Memory,
+		ExecutionRoleArn:       baseTaskDef.TaskDefinition.ExecutionRoleArn,
+		TaskRoleArn:            baseTaskDef.TaskDefinition.TaskRoleArn,
+		ContainerDefinitions:   containerDefs,
+	}
+
+	// Copy volumes if present (for git-enabled task definitions)
+	if baseTaskDef.TaskDefinition.Volumes != nil {
+		registerInput.Volumes = baseTaskDef.TaskDefinition.Volumes
+	}
+
+	// Copy ephemeral storage if present
+	if baseTaskDef.TaskDefinition.EphemeralStorage != nil {
+		registerInput.EphemeralStorage = baseTaskDef.TaskDefinition.EphemeralStorage
+	}
+
+	// Copy tags from base task definition (if present)
+	if tags != nil {
+		registerInput.Tags = append(registerInput.Tags, tags...)
+	}
+	// Add our own tags
+	registerInput.Tags = append(registerInput.Tags, ecsTypes.Tag{
+		Key:   awsStd.String("Image"),
+		Value: awsStd.String(image),
+	})
+	registerInput.Tags = append(registerInput.Tags, ecsTypes.Tag{
+		Key:   awsStd.String("RegisteredBy"),
+		Value: awsStd.String(userEmail),
+	})
+
+	// Register the new task definition
+	registerLogArgs := []any{
+		"operation", "ECS.RegisterTaskDefinition",
+		"family", familyName,
+		"image", image,
+		"hasGit", hasGit,
+	}
+	registerLogArgs = append(registerLogArgs, logger.GetDeadlineInfo(ctx)...)
+	reqLogger.Debug("calling external service", "context", logger.SliceToMap(registerLogArgs))
+
+	registerOutput, err := e.ecsClient.RegisterTaskDefinition(ctx, registerInput)
+	if err != nil {
+		return nil, appErrors.ErrInternalError("failed to register task definition", err)
+	}
+
+	taskDefARN := awsStd.ToString(registerOutput.TaskDefinition.TaskDefinitionArn)
+	reqLogger.Info("task definition registered successfully",
+		"taskDefARN", taskDefARN,
+		"image", image,
+		"hasGit", hasGit,
+		"family", familyName)
+
+	return &api.TaskDefinition{
+		TaskKey:           taskKey,
+		Image:             image,
+		HasGit:            hasGit,
+		TaskDefinitionARN: taskDefARN,
+		CreatedAt:         time.Now().UTC(),
+		CreatedBy:         userEmail,
+	}, nil
+}
+
+// GetOrCreateTaskDefinition retrieves a task definition from the registry, or creates it if it doesn't exist.
+func (e *Runner) GetOrCreateTaskDefinition(ctx context.Context, image string, hasGit bool, userEmail string) (string, error) {
+	if e.taskDefRepo == nil {
+		// Fallback to default task definitions if registry is not available
+		if hasGit {
+			return e.cfg.TaskDefinitionWithGit, nil
+		}
+		return e.cfg.TaskDefinition, nil
+	}
+
+	reqLogger := logger.DeriveRequestLogger(ctx, e.logger)
+
+	taskKey := computeTaskKey(image, hasGit)
+
+	// Try to get from registry
+	taskDef, err := e.taskDefRepo.GetTaskDefinition(ctx, taskKey)
+	if err != nil {
+		return "", appErrors.ErrDatabaseError("failed to lookup task definition", err)
+	}
+
+	if taskDef != nil {
+		// Update last used timestamp (best-effort, don't fail if it errors)
+		_ = e.taskDefRepo.UpdateLastUsed(ctx, taskKey)
+		reqLogger.Debug("found task definition in registry", "taskKey", taskKey, "taskDefARN", taskDef.TaskDefinitionARN)
+		return taskDef.TaskDefinitionARN, nil
+	}
+
+	// Not found in registry - register it on-demand (hybrid approach)
+	reqLogger.Info("task definition not found in registry, registering on-demand", "image", image, "hasGit", hasGit)
+
+	newTaskDef, err := e.RegisterTaskDefinition(ctx, image, hasGit, userEmail)
+	if err != nil {
+		return "", err
+	}
+
+	// Store in registry (best-effort, don't fail if it errors)
+	registryEntry := &api.TaskDefinition{
+		TaskKey:           newTaskDef.TaskKey,
+		Image:             image,
+		HasGit:            hasGit,
+		TaskDefinitionARN: newTaskDef.TaskDefinitionARN,
+		CreatedAt:         newTaskDef.CreatedAt,
+		CreatedBy:         userEmail,
+	}
+	if err := e.taskDefRepo.CreateTaskDefinition(ctx, registryEntry); err != nil {
+		// Log but don't fail - task definition is already registered in ECS
+		reqLogger.Warn("failed to store task definition in registry", "error", err, "taskDefARN", newTaskDef.TaskDefinitionARN)
+	}
+
+	return newTaskDef.TaskDefinitionARN, nil
 }
