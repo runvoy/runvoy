@@ -161,7 +161,7 @@ type RegisterImageResponse struct {
 
 // RemoveImageRequest represents the request to remove a Docker image
 type RemoveImageRequest struct {
-	Image string `json:"image"` // Docker image name (e.g., "hashicorp/terraform:1.6")
+	Image string `json:"image"`
 }
 
 // RemoveImageResponse represents the response after removing an image
