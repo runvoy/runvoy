@@ -44,6 +44,7 @@ func init() {
 	runCmd.Flags().StringP("git-repo", "g", "", "Git repository URL")
 	runCmd.Flags().StringP("git-ref", "r", "", "Git reference")
 	runCmd.Flags().StringP("git-path", "p", "", "Git path")
+	runCmd.Flags().StringP("image", "i", "", "Image to use")
 }
 
 func runRun(cmd *cobra.Command, args []string) {
@@ -87,6 +88,7 @@ func runRun(cmd *cobra.Command, args []string) {
 		GitRef:  cmd.Flag("git-ref").Value.String(),
 		GitPath: cmd.Flag("git-path").Value.String(),
 		Env:     envs,
+		Image:   cmd.Flag("image").Value.String(),
 	})
 	if err != nil {
 		output.Errorf("failed to run command: %v", err)
@@ -96,6 +98,9 @@ func runRun(cmd *cobra.Command, args []string) {
 	output.Successf("Command execution started successfully")
 	output.KeyValue("Execution ID", output.Cyan(resp.ExecutionID))
 	output.KeyValue("Status", resp.Status)
+	if image := cmd.Flag("image").Value.String(); image != "" {
+		output.KeyValue("Image", output.Cyan(image))
+	}
 	output.Infof("View logs in web viewer: %s?execution_id=%s",
 		constants.WebviewerURL, output.Cyan(resp.ExecutionID))
 }

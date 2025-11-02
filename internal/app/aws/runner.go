@@ -104,22 +104,31 @@ func buildSidecarContainerCommand(hasGitRepo bool) []string {
 	return []string{"/bin/sh", "-c", strings.Join(commands, "\n")}
 }
 
+type gitRepoInfo struct {
+	RepoURL  *string
+	RepoRef  *string
+	RepoPath *string
+}
+
 // buildMainContainerCommand constructs the shell command for the main runner container.
 // It adds logging statements and optionally changes to the git repo working directory.
-func buildMainContainerCommand(req api.ExecutionRequest, requestID string, hasGitRepo bool) []string {
+func buildMainContainerCommand(req api.ExecutionRequest, requestID string, image string, repo *gitRepoInfo) []string {
 	commands := []string{
-		fmt.Sprintf("printf '### %s runner execution started by requestID %s\\n'",
+		fmt.Sprintf("printf '### %s runner execution started by requestID => %s\\n'",
 			constants.ProjectName, requestID),
+		fmt.Sprintf("printf '### Docker image => %s\\n'", image),
 	}
 
-	if hasGitRepo {
+	if repo != nil {
 		workDir := constants.SharedVolumePath + "/repo"
-		if req.GitPath != "" && req.GitPath != "." {
-			workDir = workDir + "/" + strings.TrimPrefix(req.GitPath, "/")
+		if *repo.RepoPath != "" && *repo.RepoPath != "." {
+			workDir = workDir + "/" + strings.TrimPrefix(*repo.RepoPath, "/")
 		}
 		commands = append(commands,
 			fmt.Sprintf("cd %s", workDir),
-			fmt.Sprintf("printf '### %s working directory: %s\\n'", constants.ProjectName, workDir),
+			fmt.Sprintf("printf '### Checked out repo => %s (ref: %s) (path: %s)\\n'",
+				*repo.RepoURL, *repo.RepoRef, *repo.RepoPath),
+			fmt.Sprintf("printf '### Working directory => %s\\n'", workDir),
 		)
 	}
 
@@ -206,6 +215,14 @@ func (e *Runner) StartTask(ctx context.Context, userEmail string, req api.Execut
 		reqLogger.Debug("sidecar configured without git (will exit 0)")
 	}
 
+	var repo *gitRepoInfo
+	if hasGitRepo {
+		repo = &gitRepoInfo{
+			RepoURL:  awsStd.String(req.GitRepo),
+			RepoRef:  awsStd.String(req.GitRef),
+			RepoPath: awsStd.String(req.GitPath),
+		}
+	}
 	containerOverrides := []ecsTypes.ContainerOverride{
 		{
 			Name:        awsStd.String(constants.SidecarContainerName),
@@ -214,7 +231,7 @@ func (e *Runner) StartTask(ctx context.Context, userEmail string, req api.Execut
 		},
 		{
 			Name:        awsStd.String(constants.RunnerContainerName),
-			Command:     buildMainContainerCommand(req, requestID, hasGitRepo),
+			Command:     buildMainContainerCommand(req, requestID, imageToUse, repo),
 			Environment: envVars,
 		},
 	}
