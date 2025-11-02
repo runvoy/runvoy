@@ -301,69 +301,8 @@ Resources:
         - Key: ManagedBy
           Value: 'cloudformation'
 
-  # ECS Task Definition
-  TaskDefinition:
-    Type: AWS::ECS::TaskDefinition
-    Properties:
-      Family: !Sub '${ProjectName}-task'
-      NetworkMode: awsvpc
-      RequiresCompatibilities:
-        - FARGATE
-      Cpu: '256'
-      Memory: '512'
-      ExecutionRoleArn: !GetAtt TaskExecutionRole.Arn
-      TaskRoleArn: !GetAtt TaskRole.Arn
-      EphemeralStorage:
-        SizeInGiB: 21  # Default 20 GiB + 1 GiB for git repos (max 200 GiB)
-      Volumes:
-        - Name: workspace
-      Tags:
-        - Key: Name
-          Value: !Sub '${ProjectName}-task'
-        - Key: Application
-          Value: !Ref ProjectName
-        - Key: ManagedBy
-          Value: 'cloudformation'
-      ContainerDefinitions:
-        - Name: sidecar
-          Image: 'public.ecr.aws/docker/library/alpine:latest'
-          Essential: false
-          Command:
-            - '/bin/sh'
-            - '-c'
-            - 'echo "This task definition is a template. Command will be overridden at runtime."'
-          MountPoints:
-            - ContainerPath: /workspace
-              SourceVolume: workspace
-          LogConfiguration:
-            LogDriver: awslogs
-            Options:
-              awslogs-group: !Ref RunnerLogGroup
-              awslogs-region: !Ref AWS::Region
-              awslogs-stream-prefix: task
-
-        # Main container (runs after sidecar succeeds)
-        - Name: runner
-          Image: 'public.ecr.aws/docker/library/ubuntu:22.04'
-          Essential: true
-          DependsOn:
-            - ContainerName: sidecar
-              Condition: SUCCESS  # Wait for sidecar to complete successfully
-          # Command is overridden at runtime by Lambda
-          Command:
-            - '/bin/sh'
-            - '-c'
-            - 'echo "This task definition is a template. Command will be overridden at runtime."'
-          WorkingDirectory: /workspace/repo  # Default to cloned repo root
-          MountPoints:
-            - ContainerPath: /workspace
-              SourceVolume: workspace
-          LogConfiguration:
-            LogDriver: awslogs
-            Options:
-              awslogs-group: !Ref RunnerLogGroup
-              awslogs-region: !Ref AWS::Region
-              awslogs-stream-prefix: task
+  # ECS Task Definition is now managed dynamically via ECS API
+  # Task definitions are registered on-demand when images are added via the API
 
   # IAM Role for Task Execution (pulling images, writing logs)
   TaskExecutionRole:
@@ -452,6 +391,7 @@ Resources:
                   - 'ecs:DescribeTaskDefinition'
                   - 'ecs:RegisterTaskDefinition'
                   - 'ecs:DeregisterTaskDefinition'
+                  - 'ecs:ListTaskDefinitions'
                   - 'ecs:ListTasks'
                   - 'ecs:TagResource'
                   - 'ecs:StopTask'
@@ -513,7 +453,6 @@ Resources:
           RUNVOY_LOCKS_TABLE: !Ref LocksTable
           RUNVOY_PENDING_API_KEYS_TABLE: !Ref PendingAPIKeysTable
           RUNVOY_ECS_CLUSTER: !Ref ECSCluster
-          RUNVOY_TASK_DEFINITION: !Ref TaskDefinition
           RUNVOY_SUBNET_1: !Ref PublicSubnet1
           RUNVOY_SUBNET_2: !Ref PublicSubnet2
           RUNVOY_SECURITY_GROUP: !Ref FargateSecurityGroup
@@ -683,10 +622,6 @@ Outputs:
     Value: !Ref ECSCluster
     Export:
       Name: !Sub '${ProjectName}-cluster'
-
-  TaskDefinitionArn:
-    Description: ECS Task Definition ARN (with sidecar)
-    Value: !Ref TaskDefinition
 
   LogGroup:
     Description: CloudWatch Log Group for runner tasks

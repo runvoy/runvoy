@@ -5,6 +5,7 @@ package server
 import (
 	"encoding/json"
 	"net/http"
+	"net/url"
 	"strings"
 
 	"runvoy/internal/api"
@@ -263,6 +264,96 @@ func (r *Router) handleClaimAPIKey(w http.ResponseWriter, req *http.Request) {
 	// Return JSON response
 	w.WriteHeader(http.StatusOK)
 	_ = json.NewEncoder(w).Encode(claimResp)
+}
+
+// handleRegisterImage handles POST /api/v1/images/register to register a new Docker image
+func (r *Router) handleRegisterImage(w http.ResponseWriter, req *http.Request) {
+	logger := r.GetLoggerFromContext(req.Context())
+	var registerReq api.RegisterImageRequest
+
+	if err := json.NewDecoder(req.Body).Decode(&registerReq); err != nil {
+		writeErrorResponse(w, http.StatusBadRequest, "invalid request body", err.Error())
+		return
+	}
+
+	resp, err := r.svc.RegisterImage(req.Context(), registerReq.Image)
+	if err != nil {
+		statusCode := apperrors.GetStatusCode(err)
+		errorCode := apperrors.GetErrorCode(err)
+		errorMsg := apperrors.GetErrorMessage(err)
+
+		logger.Debug("failed to register image", "error", err, "statusCode", statusCode, "errorCode", errorCode)
+
+		writeErrorResponseWithCode(w, statusCode, errorCode, "failed to register image", errorMsg)
+		return
+	}
+
+	w.WriteHeader(http.StatusCreated)
+	_ = json.NewEncoder(w).Encode(resp)
+}
+
+// handleListImages handles GET /api/v1/images to list all registered Docker images
+func (r *Router) handleListImages(w http.ResponseWriter, req *http.Request) {
+	logger := r.GetLoggerFromContext(req.Context())
+
+	resp, err := r.svc.ListImages(req.Context())
+	if err != nil {
+		statusCode := apperrors.GetStatusCode(err)
+		errorCode := apperrors.GetErrorCode(err)
+		errorMsg := apperrors.GetErrorMessage(err)
+
+		logger.Debug("failed to list images", "error", err, "statusCode", statusCode, "errorCode", errorCode)
+
+		writeErrorResponseWithCode(w, statusCode, errorCode, "failed to list images", errorMsg)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(resp)
+}
+
+// handleRemoveImage handles DELETE /api/v1/images/{image} to remove a registered Docker image
+// The image parameter may contain slashes and colons (e.g., "hashicorp/terraform:1.6")
+// The image name should be URL-encoded when passed in the path
+func (r *Router) handleRemoveImage(w http.ResponseWriter, req *http.Request) {
+	logger := r.GetLoggerFromContext(req.Context())
+
+	// Get and URL decode the image parameter
+	imageParam := strings.TrimSpace(chi.URLParam(req, "image"))
+	if imageParam == "" {
+		writeErrorResponse(w, http.StatusBadRequest, "invalid image", "image parameter is required")
+		return
+	}
+
+	// URL decode the image name (chi may partially decode, but we want full control)
+	image, decodeErr := url.PathUnescape(imageParam)
+	if decodeErr != nil {
+		// If decoding fails, use the original value
+		image = imageParam
+	}
+	image = strings.TrimSpace(image)
+	if image == "" {
+		writeErrorResponse(w, http.StatusBadRequest, "invalid image", "image parameter is required")
+		return
+	}
+
+	err := r.svc.RemoveImage(req.Context(), image)
+	if err != nil {
+		statusCode := apperrors.GetStatusCode(err)
+		errorCode := apperrors.GetErrorCode(err)
+		errorMsg := apperrors.GetErrorMessage(err)
+
+		logger.Debug("failed to remove image", "error", err, "statusCode", statusCode, "errorCode", errorCode)
+
+		writeErrorResponseWithCode(w, statusCode, errorCode, "failed to remove image", errorMsg)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(api.RemoveImageResponse{
+		Image:   image,
+		Message: "Image removed successfully",
+	})
 }
 
 // getClientIP extracts the client IP address from request headers

@@ -289,12 +289,12 @@ func bindEnvVars(v *viper.Viper) {
 
 // validateOrchestrator validates required fields for orchestrator service.
 // These match the old caarlos0/env notEmpty tags to maintain parity.
+// TaskDefinition is no longer required - task definitions are managed dynamically via API.
 func validateOrchestrator(cfg *Config) error {
 	required := map[string]string{
 		"APIKeysTable":    cfg.APIKeysTable,
 		"ExecutionsTable": cfg.ExecutionsTable,
 		"ECSCluster":      cfg.ECSCluster,
-		"TaskDefinition":  cfg.TaskDefinition,
 		"Subnet1":         cfg.Subnet1,
 		"Subnet2":         cfg.Subnet2,
 		"SecurityGroup":   cfg.SecurityGroup,

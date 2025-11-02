@@ -32,6 +32,12 @@ type Runner interface {
 	// KillTask terminates a running task identified by executionID.
 	// Returns an error if the task is already terminated or cannot be terminated.
 	KillTask(ctx context.Context, executionID string) error
+	// RegisterImage registers a Docker image as a task definition in the execution platform.
+	RegisterImage(ctx context.Context, image string) (taskDefARN string, taskDefName string, err error)
+	// ListImages lists all registered Docker images.
+	ListImages(ctx context.Context) ([]api.ImageInfo, error)
+	// RemoveImage removes a Docker image and deregisters its task definitions.
+	RemoveImage(ctx context.Context, image string) error
 }
 
 // Service provides the core business logic for command execution and user management.
@@ -447,4 +453,48 @@ func (s *Service) ListExecutions(ctx context.Context) ([]*api.Execution, error) 
 		return nil, err
 	}
 	return executions, nil
+}
+
+// RegisterImage registers a Docker image and creates the corresponding task definition.
+func (s *Service) RegisterImage(ctx context.Context, image string) (*api.RegisterImageResponse, error) {
+	if image == "" {
+		return nil, apperrors.ErrBadRequest("image is required", nil)
+	}
+
+	taskDefARN, taskDefName, err := s.runner.RegisterImage(ctx, image)
+	if err != nil {
+		return nil, apperrors.ErrInternalError("failed to register image", err)
+	}
+
+	return &api.RegisterImageResponse{
+		Image:              image,
+		TaskDefinitionARN:  taskDefARN,
+		TaskDefinitionName: taskDefName,
+		Message:            "Image registered successfully",
+	}, nil
+}
+
+// ListImages returns all registered Docker images.
+func (s *Service) ListImages(ctx context.Context) (*api.ListImagesResponse, error) {
+	images, err := s.runner.ListImages(ctx)
+	if err != nil {
+		return nil, apperrors.ErrInternalError("failed to list images", err)
+	}
+
+	return &api.ListImagesResponse{
+		Images: images,
+	}, nil
+}
+
+// RemoveImage removes a Docker image and deregisters its task definitions.
+func (s *Service) RemoveImage(ctx context.Context, image string) error {
+	if image == "" {
+		return apperrors.ErrBadRequest("image is required", nil)
+	}
+
+	if err := s.runner.RemoveImage(ctx, image); err != nil {
+		return apperrors.ErrInternalError("failed to remove image", err)
+	}
+
+	return nil
 }

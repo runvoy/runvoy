@@ -138,12 +138,20 @@ func (e *Runner) StartTask(ctx context.Context, userEmail string, req api.Execut
 
 	reqLogger := logger.DeriveRequestLogger(ctx, e.logger)
 
-	// Note: Image override is not supported yet
-	if req.Image != "" && req.Image != e.cfg.DefaultImage {
-		reqLogger.Debug("custom image requested but not supported via overrides, aborting",
-			"requested", req.Image)
-		return "", "", nil, appErrors.ErrBadRequest("custom image requested but not supported via overrides yet", nil)
+	// Determine which image to use
+	imageToUse := e.cfg.DefaultImage
+	if req.Image != "" {
+		imageToUse = req.Image
 	}
+
+	// Get or register task definition for the requested image
+	taskDefFamily := TaskDefinitionFamilyName(imageToUse)
+	taskDefARN, err := RegisterTaskDefinitionForImage(ctx, e.ecsClient, e.cfg, imageToUse, reqLogger)
+	if err != nil {
+		return "", "", nil, appErrors.ErrInternalError("failed to get task definition for image", err)
+	}
+
+	reqLogger.Debug("using task definition for image", "image", imageToUse, "taskDef", taskDefARN, "family", taskDefFamily)
 
 	hasGitRepo := req.GitRepo != ""
 	requestID := logger.GetRequestID(ctx)
@@ -214,7 +222,7 @@ func (e *Runner) StartTask(ctx context.Context, userEmail string, req api.Execut
 
 	runTaskInput := &ecs.RunTaskInput{
 		Cluster:        awsStd.String(e.cfg.ECSCluster),
-		TaskDefinition: awsStd.String(e.cfg.TaskDefinition),
+		TaskDefinition: awsStd.String(taskDefARN),
 		LaunchType:     ecsTypes.LaunchTypeFargate,
 		Overrides: &ecsTypes.TaskOverride{
 			ContainerOverrides: containerOverrides,
@@ -232,7 +240,8 @@ func (e *Runner) StartTask(ctx context.Context, userEmail string, req api.Execut
 	logArgs := []any{
 		"operation", "ECS.RunTask",
 		"cluster", e.cfg.ECSCluster,
-		"taskDefinition", e.cfg.TaskDefinition,
+		"taskDefinition", taskDefARN,
+		"image", imageToUse,
 		"containerCount", len(containerOverrides),
 		"userEmail", userEmail,
 		"hasGitRepo", hasGitRepo,
@@ -282,6 +291,63 @@ func (e *Runner) StartTask(ctx context.Context, userEmail string, req api.Execut
 	}
 
 	return executionID, taskARN, createdAt, nil
+}
+
+// RegisterImage registers a Docker image and creates the corresponding task definition.
+func (e *Runner) RegisterImage(ctx context.Context, image string) (string, string, error) {
+	if e.ecsClient == nil {
+		return "", "", fmt.Errorf("ECS client not configured")
+	}
+
+	reqLogger := logger.DeriveRequestLogger(ctx, e.logger)
+
+	taskDefARN, err := RegisterTaskDefinitionForImage(ctx, e.ecsClient, e.cfg, image, reqLogger)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to register task definition: %w", err)
+	}
+
+	family := TaskDefinitionFamilyName(image)
+	return taskDefARN, family, nil
+}
+
+// ListImages lists all registered Docker images.
+func (e *Runner) ListImages(ctx context.Context) ([]api.ImageInfo, error) {
+	if e.ecsClient == nil {
+		return nil, fmt.Errorf("ECS client not configured")
+	}
+
+	reqLogger := logger.DeriveRequestLogger(ctx, e.logger)
+
+	images, err := ListRegisteredImages(ctx, e.ecsClient, reqLogger)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list images: %w", err)
+	}
+
+	result := make([]api.ImageInfo, 0, len(images))
+	for _, img := range images {
+		family := TaskDefinitionFamilyName(img)
+		result = append(result, api.ImageInfo{
+			Image:              img,
+			TaskDefinitionName: family,
+		})
+	}
+
+	return result, nil
+}
+
+// RemoveImage removes a Docker image and deregisters its task definitions.
+func (e *Runner) RemoveImage(ctx context.Context, image string) error {
+	if e.ecsClient == nil {
+		return fmt.Errorf("ECS client not configured")
+	}
+
+	reqLogger := logger.DeriveRequestLogger(ctx, e.logger)
+
+	if err := DeregisterTaskDefinitionsForImage(ctx, e.ecsClient, image, reqLogger); err != nil {
+		return fmt.Errorf("failed to remove image: %w", err)
+	}
+
+	return nil
 }
 
 // KillTask terminates an ECS task identified by executionID.

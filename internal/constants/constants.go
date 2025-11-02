@@ -137,6 +137,11 @@ const ClaimURLExpirationMinutes = 15
 // ClaimEndpointPath is the HTTP path for claiming API keys
 const ClaimEndpointPath = "/claim"
 
+// TaskDefinitionFamilyPrefix is the prefix for all runvoy task definition families
+// Task definitions are named: {ProjectName}-image-{sanitized-image-name}
+// e.g., "runvoy-image-hashicorp-terraform-1-6" for image "hashicorp/terraform:1.6"
+const TaskDefinitionFamilyPrefix = "runvoy-image"
+
 type StartTimeCtxKeyType string
 
 // StartTimeCtxKey is the key used to store the start time in context

@@ -54,6 +54,11 @@ func NewRouter(svc *app.Service, requestTimeout time.Duration) *Router {
 			r.Post("/create", router.handleCreateUser)
 			r.Post("/revoke", router.handleRevokeUser)
 		})
+		r.With(router.authenticateRequestMiddleware).Route("/images", func(r chi.Router) {
+			r.Post("/register", router.handleRegisterImage)
+			r.Get("/", router.handleListImages)
+			r.Delete("/{image:.*}", router.handleRemoveImage) // {image:.*} matches any path including slashes
+		})
 		r.With(router.authenticateRequestMiddleware).Post("/run", router.handleRunCommand)
 		r.With(router.authenticateRequestMiddleware).Get("/executions", router.handleListExecutions)
 		r.With(router.authenticateRequestMiddleware).Get("/executions/{executionID}/logs",

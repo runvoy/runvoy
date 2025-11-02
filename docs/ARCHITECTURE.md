@@ -68,6 +68,9 @@ All routes are defined in `internal/server/router.go`:
 GET  /api/v1/health                         - Health check
 POST /api/v1/users/create                   - Create a new user with a claim URL
 POST /api/v1/users/revoke                   - Revoke a user's API key
+POST /api/v1/images/register                - Register a new Docker image (admin)
+GET  /api/v1/images                         - List all registered Docker images (admin)
+DELETE /api/v1/images/{image}               - Remove a registered Docker image (admin)
 POST /api/v1/run                            - Start an execution
 GET  /api/v1/executions                     - List executions (queried via DynamoDB GSI)
 GET  /api/v1/executions/{id}/logs           - Fetch execution logs (CloudWatch)
@@ -761,10 +764,11 @@ Future enhancements may include server-side filtering and pagination.
    - Release locks on completion
    - Prevent concurrent executions with the same lock
 
-3. **Custom Container Images** - The `image` field in execution requests is accepted but not currently used. Future implementation:
-   - Support custom Docker images via task definition overrides
-   - Allow per-execution image specification
-   - Validate image availability before task start
+3. **Custom Container Images** - ✅ **IMPLEMENTED** - The `image` field in execution requests is now supported:
+   - Custom Docker images are supported via dynamic task definition registration
+   - Images must be registered via `/api/v1/images/register` before use (or are auto-registered on first use)
+   - Task definitions are created on-demand via ECS API
+   - Images are managed via `/api/v1/images` endpoints (admin-only)
 
 4. **Comprehensive Test Coverage** - Current test coverage is limited. Areas needing tests:
    - Event processor logic (status determination)
@@ -919,11 +923,11 @@ The `run` command executes commands remotely via the orchestrator Lambda.
 ```
 
 **sidecar Architecture:**
-- All tasks use a single ECS task definition with a sidecar container
+- Tasks use dynamically registered ECS task definitions (one per Docker image) with a sidecar container
 - The sidecar command is dynamically generated in `internal/app/aws/runner.go` via `buildSidecarContainerCommand()`
 - The sidecar handles auxiliary tasks (git cloning, .env file generation, etc.)
 - If no git repository is specified, the sidecar simply exits successfully (exit 0)
-- This simplifies infrastructure by eliminating the need for multiple task definitions
+- Task definitions are registered on-demand via ECS API when images are added
 - The sidecar is named generically ("sidecar") for future extensibility
 
 **Note:** Execution completion is tracked automatically by the event processor Lambda.
@@ -977,9 +981,23 @@ The kill endpoint allows users to terminate running executions. This endpoint pr
 
 ## ECS Task Architecture
 
-The platform uses a single ECS Fargate task definition with a sidecar pattern:
+The platform uses dynamically managed ECS Fargate task definitions with a sidecar pattern. Task definitions are registered on-demand via the API when images are added, eliminating the need for CloudFormation-managed task definitions.
 
-**Task Definition:** `{project-name}-task`
+### Task Definition Management
+
+**Task Definition Naming:** Task definitions follow the naming pattern `runvoy-image-{sanitized-image-name}`
+- Example: Image `hashicorp/terraform:1.6` creates task definition family `runvoy-image-hashicorp-terraform-1-6`
+- Image names are sanitized to comply with ECS task definition family name requirements (alphanumeric, hyphens, underscores only)
+
+**Dynamic Registration:**
+- Task definitions are registered via the ECS API when images are added through the `/api/v1/images/register` endpoint
+- When an execution requests an image, the system automatically registers a task definition if one doesn't exist
+- Task definitions are reused across executions using the same image
+- The ECS task definition API is the source of truth - no caching, queries happen on-demand
+
+**Task Definition Structure:**
+Each task definition follows a consistent structure:
+
 - **Sidecar Container ("sidecar")**: Handles auxiliary tasks before main execution
   - Essential: `false` (task continues after sidecar completes)
   - Image: Alpine Linux (lightweight, includes git)
@@ -993,7 +1011,7 @@ The platform uses a single ECS Fargate task definition with a sidecar pattern:
 
 - **Main Container ("runner")**: Executes user commands
   - Essential: `true` (task fails if this container fails)
-  - Image: Ubuntu 22.04 (full-featured environment)
+  - Image: Specified by user or defaults to `public.ecr.aws/docker/library/ubuntu:22.04`
   - Depends on sidecar completing successfully
   - Working directory: `/workspace` (or `/workspace/repo` if git used)
   - Command overridden at runtime via Lambda
@@ -1005,12 +1023,13 @@ The platform uses a single ECS Fargate task definition with a sidecar pattern:
 - Sidecar clones git repo to `/workspace/repo` (if specified) and copies `.env` to repo directory
 - Main container accesses cloned repo and reads `.env` files created by sidecar
 
-**Benefits of sidecar Approach:**
-- ✅ Single task definition to maintain (reduced infrastructure complexity)
-- ✅ Simplified deployment and updates
-- ✅ Consistent execution model for all commands
-- ✅ Easy to extend with new sidecar functionality
-- ✅ Minimal overhead when sidecar not needed (quick exit 0)
+**Benefits of Dynamic Task Definition Approach:**
+- ✅ Support for multiple Docker images without CloudFormation changes
+- ✅ Self-service image registration via API
+- ✅ No infrastructure drift - task definitions managed programmatically
+- ✅ Flexible - users can request any registered image
+- ✅ Consistent execution model across all images
+- ✅ Easy cleanup - task definitions can be deregistered via API
 
 ## Database Schema
 
@@ -1093,3 +1112,18 @@ Stores pending API key claims for secure distribution.
 - Pending keys are automatically deleted after 15 minutes
 
 **Code Reference:** `internal/database/dynamodb/pending_keys.go`
+
+## Task Definition Cleanup
+
+**Important:** Task definitions are now managed dynamically via the ECS API and are no longer managed by CloudFormation. When destroying the infrastructure stack, task definitions are **not automatically cleaned up** by CloudFormation.
+
+**Manual Cleanup Required:**
+Before destroying the CloudFormation stack, admins should:
+
+1. List all registered images: `GET /api/v1/images`
+2. Remove all registered images: `DELETE /api/v1/images/{image}` for each image
+3. Alternatively, manually deregister task definitions via AWS CLI or console
+
+Task definitions with family prefix `runvoy-image-*` should be deregistered to avoid orphaned resources.
+
+**Future Enhancement:** Automated cleanup could be added via a CloudFormation custom resource or destroy-time script. See GitHub issue for tracking.
