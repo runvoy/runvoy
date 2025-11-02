@@ -328,18 +328,10 @@ Resources:
         - Name: sidecar
           Image: 'public.ecr.aws/docker/library/alpine:latest'
           Essential: false
-          # Command is overridden at runtime by Lambda
           Command:
             - '/bin/sh'
             - '-c'
             - 'echo "This task definition is a template. Command will be overridden at runtime."'
-          Environment:
-            - Name: GIT_REPO
-              Value: ""  # Overridden at runtime via container override
-            - Name: GIT_REF
-              Value: "main"  # Overridden at runtime via container override
-            - Name: SHARED_VOLUME_PATH
-              Value: "/workspace"
           MountPoints:
             - ContainerPath: /workspace
               SourceVolume: workspace
