@@ -50,18 +50,12 @@ func NewProcessor(ctx context.Context, cfg *config.Config, log *slog.Logger) (*P
 func (p *Processor) HandleEvent(ctx context.Context, event events.CloudWatchEvent) error {
 	reqLogger := logger.DeriveRequestLogger(ctx, p.logger)
 
-	reqLogger.Debug("received event",
-		"source", event.Source,
-		"detailType", event.DetailType,
-		"region", event.Region,
-	)
+	reqLogger.Debug("received event", "event", event)
 
-	// Route by detail type
 	switch event.DetailType {
 	case "ECS Task State Change":
 		return p.handleECSTaskCompletion(ctx, event)
 	default:
-		// Log and ignore unknown event types (don't fail)
 		reqLogger.Info("ignoring unhandled event type",
 			"detailType", event.DetailType,
 			"source", event.Source,
