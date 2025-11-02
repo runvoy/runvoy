@@ -906,7 +906,7 @@ The `run` command executes commands remotely via the orchestrator Lambda.
 3. Orchestrator Lambda:
    - Validates API key
    - Creates execution record in DynamoDB (status: RUNNING)
-   - Starts ECS Fargate task with the command and persistent sidecar
+   - Starts ECS Fargate task with the command and sidecar
    - Returns execution ID
 
 **Response (202 Accepted):**
@@ -918,8 +918,8 @@ The `run` command executes commands remotely via the orchestrator Lambda.
 }
 ```
 
-**Persistent Sidecar Architecture:**
-- All tasks use a single ECS task definition with a persistent sidecar container
+**sidecar Architecture:**
+- All tasks use a single ECS task definition with a sidecar container
 - The sidecar handles auxiliary tasks (git cloning, future .env generation, etc.)
 - If no git repository is specified, the sidecar simply exits successfully (exit 0)
 - This simplifies infrastructure by eliminating the need for multiple task definitions
@@ -976,7 +976,7 @@ The kill endpoint allows users to terminate running executions. This endpoint pr
 
 ## ECS Task Architecture
 
-The platform uses a single ECS Fargate task definition with a persistent sidecar pattern:
+The platform uses a single ECS Fargate task definition with a sidecar pattern:
 
 **Task Definition:** `{project-name}-task`
 - **Sidecar Container ("sidecar")**: Handles auxiliary tasks before main execution
@@ -1000,7 +1000,7 @@ The platform uses a single ECS Fargate task definition with a persistent sidecar
 - Sidecar clones git repo to `/workspace/repo` (if specified)
 - Main container accesses cloned repo and creates .env files
 
-**Benefits of Persistent Sidecar Approach:**
+**Benefits of sidecar Approach:**
 - ✅ Single task definition to maintain (reduced infrastructure complexity)
 - ✅ Simplified deployment and updates
 - ✅ Consistent execution model for all commands
