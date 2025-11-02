@@ -325,10 +325,9 @@ Resources:
         - Key: ManagedBy
           Value: 'cloudformation'
       ContainerDefinitions:
-        # Sidecar container for auxiliary tasks (git cloning, .env generation, etc.)
         - Name: sidecar
-          Image: 'public.ecr.aws/docker/library/alpine:3.18'
-          Essential: false  # Task continues even if sidecar completes
+          Image: 'public.ecr.aws/docker/library/alpine:latest'
+          Essential: true
           Command:
             - '/bin/sh'
             - '-c'
