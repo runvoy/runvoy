@@ -63,8 +63,10 @@ func unmarkExistingDefaultImages(
 	logger *slog.Logger,
 ) error {
 	// List all task definitions with our prefix
+	// Note: FamilyPrefix must match the full prefix including the dash: "runvoy-image-"
+	familyPrefix := constants.TaskDefinitionFamilyPrefix + "-"
 	listOutput, err := ecsClient.ListTaskDefinitions(ctx, &ecs.ListTaskDefinitionsInput{
-		FamilyPrefix: awsStd.String(constants.TaskDefinitionFamilyPrefix),
+		FamilyPrefix: awsStd.String(familyPrefix),
 		Status:       ecsTypes.TaskDefinitionStatusActive,
 		MaxResults:   awsStd.Int32(100),
 	})
@@ -358,8 +360,10 @@ func ListRegisteredImages(
 	logger *slog.Logger,
 ) ([]string, error) {
 	// List all task definitions with our prefix
+	// Note: FamilyPrefix must match the full prefix including the dash: "runvoy-image-"
+	familyPrefix := constants.TaskDefinitionFamilyPrefix + "-"
 	listOutput, err := ecsClient.ListTaskDefinitions(ctx, &ecs.ListTaskDefinitionsInput{
-		FamilyPrefix: awsStd.String(constants.TaskDefinitionFamilyPrefix),
+		FamilyPrefix: awsStd.String(familyPrefix),
 		Status:       ecsTypes.TaskDefinitionStatusActive,
 		MaxResults:   awsStd.Int32(100), // Get up to 100 task definitions
 	})

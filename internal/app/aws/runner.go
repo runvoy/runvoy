@@ -327,8 +327,10 @@ func (e *Runner) ListImages(ctx context.Context) ([]api.ImageInfo, error) {
 	reqLogger := logger.DeriveRequestLogger(ctx, e.logger)
 
 	// List all task definitions with our prefix
+	// Note: FamilyPrefix must match the full prefix including the dash: "runvoy-image-"
+	familyPrefix := constants.TaskDefinitionFamilyPrefix + "-"
 	listOutput, err := e.ecsClient.ListTaskDefinitions(ctx, &ecs.ListTaskDefinitionsInput{
-		FamilyPrefix: awsStd.String(constants.TaskDefinitionFamilyPrefix),
+		FamilyPrefix: awsStd.String(familyPrefix),
 		Status:       ecsTypes.TaskDefinitionStatusActive,
 		MaxResults:   awsStd.Int32(100),
 	})
