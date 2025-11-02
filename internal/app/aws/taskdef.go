@@ -63,8 +63,8 @@ func unmarkExistingDefaultImages(
 	logger *slog.Logger,
 ) error {
 	// List all task definitions with our prefix
-	// Note: FamilyPrefix must match the full prefix including the dash: "runvoy-image-"
-	familyPrefix := constants.TaskDefinitionFamilyPrefix + "-"
+	// AWS ECS FamilyPrefix should match "runvoy-image" to "runvoy-image-xxx"
+	familyPrefix := constants.TaskDefinitionFamilyPrefix
 	listOutput, err := ecsClient.ListTaskDefinitions(ctx, &ecs.ListTaskDefinitionsInput{
 		FamilyPrefix: awsStd.String(familyPrefix),
 		Status:       ecsTypes.TaskDefinitionStatusActive,
@@ -350,62 +350,6 @@ func RegisterTaskDefinitionForImageWithDefault(
 
 	logger.Info("registered task definition", "family", family, "arn", taskDefARN, "image", image)
 	return taskDefARN, nil
-}
-
-// ListRegisteredImages lists all registered Docker images by querying ECS task definitions.
-// Images are extracted from task definition tags or container definitions.
-func ListRegisteredImages(
-	ctx context.Context,
-	ecsClient *ecs.Client,
-	logger *slog.Logger,
-) ([]string, error) {
-	// List all task definitions with our prefix
-	// Note: FamilyPrefix must match the full prefix including the dash: "runvoy-image-"
-	familyPrefix := constants.TaskDefinitionFamilyPrefix + "-"
-	listOutput, err := ecsClient.ListTaskDefinitions(ctx, &ecs.ListTaskDefinitionsInput{
-		FamilyPrefix: awsStd.String(familyPrefix),
-		Status:       ecsTypes.TaskDefinitionStatusActive,
-		MaxResults:   awsStd.Int32(100), // Get up to 100 task definitions
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to list task definitions: %w", err)
-	}
-
-	images := make(map[string]bool)
-	for _, taskDefARN := range listOutput.TaskDefinitionArns {
-		// Describe the task definition to get container definitions
-		descOutput, err := ecsClient.DescribeTaskDefinition(ctx, &ecs.DescribeTaskDefinitionInput{
-			TaskDefinition: awsStd.String(taskDefARN),
-		})
-		if err != nil {
-			logger.Warn("failed to describe task definition", "arn", taskDefARN, "error", err)
-			continue
-		}
-
-		if descOutput.TaskDefinition == nil {
-			continue
-		}
-
-		// Extract image from container definition (runner container) - this is the source of truth
-		image := ""
-		for _, container := range descOutput.TaskDefinition.ContainerDefinitions {
-			if container.Name != nil && *container.Name == constants.RunnerContainerName && container.Image != nil {
-				image = *container.Image
-				break
-			}
-		}
-
-		if image != "" {
-			images[image] = true
-		}
-	}
-
-	result := make([]string, 0, len(images))
-	for img := range images {
-		result = append(result, img)
-	}
-
-	return result, nil
 }
 
 // DeregisterTaskDefinitionsForImage deregisters all task definition revisions for a given image.
