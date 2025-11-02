@@ -289,7 +289,7 @@ func RegisterTaskDefinitionForImageWithDefault(
 					Options: map[string]string{
 						"awslogs-group":         cfg.LogGroup,
 						"awslogs-region":        region,
-						"awslogs-stream-prefix": "task",
+						"awslogs-stream-prefix": "sidecar",
 					},
 				},
 			},
