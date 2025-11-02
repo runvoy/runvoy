@@ -327,8 +327,8 @@ func (e *Runner) ListImages(ctx context.Context) ([]api.ImageInfo, error) {
 	reqLogger := logger.DeriveRequestLogger(ctx, e.logger)
 
 	// List all task definitions with our prefix
-	// Try without the trailing dash first - AWS ECS FamilyPrefix should match "runvoy-image" to "runvoy-image-xxx"
-	familyPrefix := constants.TaskDefinitionFamilyPrefix
+	// AWS ECS FamilyPrefix requires the full prefix including the dash: "runvoy-image-" to match "runvoy-image-xxx"
+	familyPrefix := constants.TaskDefinitionFamilyPrefix + "-"
 	listOutput, err := e.ecsClient.ListTaskDefinitions(ctx, &ecs.ListTaskDefinitionsInput{
 		FamilyPrefix: awsStd.String(familyPrefix),
 		Status:       ecsTypes.TaskDefinitionStatusActive,
@@ -339,6 +339,21 @@ func (e *Runner) ListImages(ctx context.Context) ([]api.ImageInfo, error) {
 	}
 
 	reqLogger.Debug("listed task definitions", "prefix", familyPrefix, "count", len(listOutput.TaskDefinitionArns))
+	
+	// If no results, try listing all task definitions (without Status filter) to debug
+	if len(listOutput.TaskDefinitionArns) == 0 {
+		allOutput, err := e.ecsClient.ListTaskDefinitions(ctx, &ecs.ListTaskDefinitionsInput{
+			FamilyPrefix: awsStd.String(familyPrefix),
+			MaxResults:   awsStd.Int32(100),
+		})
+		if err == nil {
+			reqLogger.Debug("listed all task definitions (any status)", "prefix", familyPrefix, "count", len(allOutput.TaskDefinitionArns))
+			if len(allOutput.TaskDefinitionArns) > 0 {
+				// Use all task definitions (including inactive ones) for now
+				listOutput = allOutput
+			}
+		}
+	}
 
 	result := make([]api.ImageInfo, 0)
 	seenImages := make(map[string]bool)

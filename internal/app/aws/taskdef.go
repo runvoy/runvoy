@@ -63,8 +63,8 @@ func unmarkExistingDefaultImages(
 	logger *slog.Logger,
 ) error {
 	// List all task definitions with our prefix
-	// AWS ECS FamilyPrefix should match "runvoy-image" to "runvoy-image-xxx"
-	familyPrefix := constants.TaskDefinitionFamilyPrefix
+	// AWS ECS FamilyPrefix requires the full prefix including the dash: "runvoy-image-" to match "runvoy-image-xxx"
+	familyPrefix := constants.TaskDefinitionFamilyPrefix + "-"
 	listOutput, err := ecsClient.ListTaskDefinitions(ctx, &ecs.ListTaskDefinitionsInput{
 		FamilyPrefix: awsStd.String(familyPrefix),
 		Status:       ecsTypes.TaskDefinitionStatusActive,
