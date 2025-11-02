@@ -998,6 +998,9 @@ The platform uses dynamically managed ECS Fargate task definitions with a sideca
 - **Default image marking**: The default image is marked with tag `runvoy.default=true` on the task definition resource
   - Default image is also determined by comparing with `RUNVOY_DEFAULT_IMAGE` environment variable
   - When listing images, the `is_default` field indicates which image is the default
+  - **Single default enforcement**: Only one image can be marked as default at a time
+    - When registering a new image as default, any existing default tags are automatically removed
+    - This prevents multiple images from being tagged as default simultaneously
 
 **Dynamic Registration:**
 - Task definitions are registered via the ECS API when images are added through the `/api/v1/images/register` endpoint

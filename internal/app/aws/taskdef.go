@@ -41,6 +41,7 @@ func TaskDefinitionFamilyName(image string) string {
 
 // ExtractImageFromTaskDefFamily extracts the Docker image name from a task definition family name.
 // Returns empty string if the family name doesn't match the expected format.
+// NOTE: This is approximate - images should be read from container definitions or tags, not family names.
 func ExtractImageFromTaskDefFamily(familyName string) string {
 	prefix := constants.TaskDefinitionFamilyPrefix + "-"
 	if !strings.HasPrefix(familyName, prefix) {
@@ -52,6 +53,60 @@ func ExtractImageFromTaskDefFamily(familyName string) string {
 	// Replace hyphens back to slashes/colons where it makes sense (heuristic)
 	// For now, just return the sanitized version
 	return imagePart
+}
+
+// unmarkExistingDefaultImages removes the runvoy.default tag from all existing task definitions
+// that have it. This ensures only one image can be marked as default at a time.
+func unmarkExistingDefaultImages(
+	ctx context.Context,
+	ecsClient *ecs.Client,
+	logger *slog.Logger,
+) error {
+	// List all task definitions with our prefix
+	listOutput, err := ecsClient.ListTaskDefinitions(ctx, &ecs.ListTaskDefinitionsInput{
+		FamilyPrefix: awsStd.String(constants.TaskDefinitionFamilyPrefix),
+		Status:       ecsTypes.TaskDefinitionStatusActive,
+		MaxResults:   awsStd.Int32(100),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to list task definitions: %w", err)
+	}
+
+	// Check each task definition for the default tag
+	for _, taskDefARN := range listOutput.TaskDefinitionArns {
+		tagsOutput, err := ecsClient.ListTagsForResource(ctx, &ecs.ListTagsForResourceInput{
+			ResourceArn: awsStd.String(taskDefARN),
+		})
+		if err != nil {
+			logger.Warn("failed to list tags for task definition", "arn", taskDefARN, "error", err)
+			continue
+		}
+
+		// Check if this task definition is marked as default
+		hasDefaultTag := false
+		for _, tag := range tagsOutput.Tags {
+			if tag.Key != nil && *tag.Key == "runvoy.default" && tag.Value != nil && *tag.Value == "true" {
+				hasDefaultTag = true
+				break
+			}
+		}
+
+		// Remove the default tag if present
+		if hasDefaultTag {
+			_, err := ecsClient.UntagResource(ctx, &ecs.UntagResourceInput{
+				ResourceArn: awsStd.String(taskDefARN),
+				TagKeys:     []string{"runvoy.default"},
+			})
+			if err != nil {
+				logger.Warn("failed to remove default tag from task definition", "arn", taskDefARN, "error", err)
+				// Continue with other task definitions
+			} else {
+				logger.Info("removed default tag from existing task definition", "arn", taskDefARN)
+			}
+		}
+	}
+
+	return nil
 }
 
 // GetTaskDefinitionForImage looks up an existing task definition for the given Docker image.
@@ -152,7 +207,14 @@ func RegisterTaskDefinitionForImageWithDefault(
 		}
 	}
 
-	// Register new task definition
+	// If marking as default, first unmark any existing default images to enforce single default
+	if isDefault || (cfg.DefaultImage != "" && image == cfg.DefaultImage) {
+		if err := unmarkExistingDefaultImages(ctx, ecsClient, logger); err != nil {
+			logger.Warn("failed to unmark existing default images, proceeding anyway", "error", err)
+			// Continue - we'll still mark this one as default
+		}
+	}
+
 	// Build tags for the task definition
 	// Store the actual Docker image in a tag for reliable retrieval
 	tags := []ecsTypes.Tag{

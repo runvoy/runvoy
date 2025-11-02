@@ -395,6 +395,7 @@ Resources:
                   - 'ecs:ListTasks'
                   - 'ecs:ListTagsForResource'
                   - 'ecs:TagResource'
+                  - 'ecs:UntagResource'
                   - 'ecs:StopTask'
                 Resource: '*'
               - Effect: Allow
