@@ -25,20 +25,20 @@ type Config struct {
 	APIKey      string `mapstructure:"api_key" yaml:"api_key"`
 
 	// Orchestrator Service Configuration
-	Port                  string        `mapstructure:"port" validate:"omitempty"`
-	RequestTimeout        time.Duration `mapstructure:"request_timeout"`
-	APIKeysTable          string        `mapstructure:"api_keys_table"`
-	ExecutionsTable       string        `mapstructure:"executions_table"`
-	PendingAPIKeysTable   string        `mapstructure:"pending_api_keys_table"`
-	ECSCluster            string        `mapstructure:"ecs_cluster"`
-	TaskDefinition string `mapstructure:"task_definition"`
-	Subnet1               string        `mapstructure:"subnet_1"`
-	Subnet2               string        `mapstructure:"subnet_2"`
-	SecurityGroup         string        `mapstructure:"security_group"`
-	LogGroup              string        `mapstructure:"log_group"`
-	DefaultImage          string        `mapstructure:"default_image"`
-	InitTimeout           time.Duration `mapstructure:"init_timeout"`
-	LogLevel              string        `mapstructure:"log_level"`
+	Port                string        `mapstructure:"port" validate:"omitempty"`
+	RequestTimeout      time.Duration `mapstructure:"request_timeout"`
+	APIKeysTable        string        `mapstructure:"api_keys_table"`
+	ExecutionsTable     string        `mapstructure:"executions_table"`
+	PendingAPIKeysTable string        `mapstructure:"pending_api_keys_table"`
+	ECSCluster          string        `mapstructure:"ecs_cluster"`
+	TaskDefinition      string        `mapstructure:"task_definition"`
+	Subnet1             string        `mapstructure:"subnet_1"`
+	Subnet2             string        `mapstructure:"subnet_2"`
+	SecurityGroup       string        `mapstructure:"security_group"`
+	LogGroup            string        `mapstructure:"log_group"`
+	DefaultImage        string        `mapstructure:"default_image"`
+	InitTimeout         time.Duration `mapstructure:"init_timeout"`
+	LogLevel            string        `mapstructure:"log_level"`
 }
 
 var validate *validator.Validate
@@ -294,7 +294,7 @@ func validateOrchestrator(cfg *Config) error {
 		"APIKeysTable":    cfg.APIKeysTable,
 		"ExecutionsTable": cfg.ExecutionsTable,
 		"ECSCluster":      cfg.ECSCluster,
-		"TaskDefinition": cfg.TaskDefinition,
+		"TaskDefinition":  cfg.TaskDefinition,
 		"Subnet1":         cfg.Subnet1,
 		"Subnet2":         cfg.Subnet2,
 		"SecurityGroup":   cfg.SecurityGroup,
