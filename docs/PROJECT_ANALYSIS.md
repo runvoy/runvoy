@@ -212,10 +212,6 @@ Enable Dependabot and govulncheck immediately (already done in this PR).
    - **Impact:** Potential Lambda failures
    - **Effort:** Low (1-2 days)
 
-2. **Failed Cost Calculations** (`internal/events/ecs_completion.go:71`)
-   - TODO about handling cost calculation failures
-   - **Impact:** Inaccurate cost tracking
-   - **Effort:** Low (1-2 days)
 
 3. **Hardcoded Webviewer URL** (`internal/constants/constants.go:130`)
    - TODO to make URL configurable

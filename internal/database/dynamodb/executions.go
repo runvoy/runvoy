@@ -50,7 +50,6 @@ type executionItem struct {
 	ExitCode        int        `dynamodbav:"exit_code,omitempty"`
 	DurationSecs    int        `dynamodbav:"duration_seconds,omitempty"`
 	LogStreamName   string     `dynamodbav:"log_stream_name,omitempty"`
-	CostUSD         float64    `dynamodbav:"cost_usd,omitempty"`
 	RequestID       string     `dynamodbav:"request_id,omitempty"`
 	ComputePlatform string     `dynamodbav:"compute_platform,omitempty"`
 }
@@ -68,7 +67,6 @@ func toExecutionItem(e *api.Execution) *executionItem {
 		ExitCode:        e.ExitCode,
 		DurationSecs:    e.DurationSeconds,
 		LogStreamName:   e.LogStreamName,
-		CostUSD:         e.CostUSD,
 		RequestID:       e.RequestID,
 		ComputePlatform: e.ComputePlatform,
 	}
@@ -87,7 +85,6 @@ func (e *executionItem) toAPIExecution() *api.Execution {
 		ExitCode:        e.ExitCode,
 		DurationSeconds: e.DurationSecs,
 		LogStreamName:   e.LogStreamName,
-		CostUSD:         e.CostUSD,
 		ComputePlatform: e.ComputePlatform,
 	}
 }
@@ -216,11 +213,6 @@ func (r *ExecutionRepository) UpdateExecution(ctx context.Context, execution *ap
 	if execution.LogStreamName != "" {
 		updateExpr += ", log_stream_name = :log_stream_name"
 		exprAttrValues[":log_stream_name"] = &types.AttributeValueMemberS{Value: execution.LogStreamName}
-	}
-
-	if execution.CostUSD > 0 {
-		updateExpr += ", cost_usd = :cost_usd"
-		exprAttrValues[":cost_usd"] = &types.AttributeValueMemberN{Value: fmt.Sprintf("%.2f", execution.CostUSD)}
 	}
 
 	// Note: DynamoDB requires both execution_id (hash) and started_at (range) keys

@@ -364,7 +364,6 @@ The application uses a unified logging approach with structured logging via `log
 │  │                  │                                           │
 │  │ - Route event    │────────────────────────────────────────┘│
 │  │ - Extract data   │                                           │
-│  │ - Calculate cost │                                           │
 │  │ - Update exec    │                                           │
 │  └──────────────────┘                                          │
 │                                                                  │
@@ -411,13 +410,11 @@ The platform uses a dedicated **event processor Lambda** to handle asynchronous 
    - Execution ID extracted from task ARN (last segment)
    - Exit code from container details
    - Timestamps for start/stop times
-6. **Cost Calculation**: Fargate cost computed based on vCPU, memory, and duration
-7. **DynamoDB Update**: Execution record updated with:
+6. **DynamoDB Update**: Execution record updated with:
    - Final status (SUCCEEDED, FAILED, STOPPED)
    - Exit code
    - Completion timestamp
    - Duration in seconds
-   - Computed cost in USD
 
 ### Event Types
 
@@ -445,14 +442,8 @@ Designed to be extended for future event types:
 - Extracts execution ID from task ARN
 - Determines final status from exit code and stop reason
 - Handles missing `startedAt` timestamps: When ECS task events have an empty `startedAt` field (e.g., when containers fail before starting, such as sidecar git puller failures), falls back to the execution's `StartedAt` timestamp that was set at creation time
-- Calculates duration and cost (with safeguards for negative durations)
+- Calculates duration (with safeguards for negative durations)
 - Updates DynamoDB execution record
-
-**Cost Calculator**: `internal/events/cost.go`
-- Fargate ARM64 pricing (us-east-1)
-- vCPU: $0.04048/hour
-- Memory: $0.004445/GB/hour
-- Accurate per-second billing
 
 ### Status Determination Logic
 
@@ -776,7 +767,7 @@ Future enhancements may include server-side filtering and pagination.
    - Validate image availability before task start
 
 4. **Comprehensive Test Coverage** - Current test coverage is limited. Areas needing tests:
-   - Event processor logic (cost calculation, status determination)
+   - Event processor logic (status determination)
    - DynamoDB repository operations
    - API request/response handling
    - End-to-end integration tests
@@ -790,11 +781,10 @@ Future enhancements may include server-side filtering and pagination.
 ### Implemented and Working
 
 - ✅ **Event Processor Lambda** - Fully implemented with ECS task completion tracking
-- ✅ **Cost Tracking** - Fargate cost calculation per execution
 - ✅ **API Key Authentication** - SHA-256 hashed keys with last-used tracking
 - ✅ **User Management** - Create and revoke users via CLI
 - ✅ **Command Execution** - Remote command execution via ECS Fargate
-- ✅ **Execution Records** - Complete tracking with status, duration, and cost
+- ✅ **Execution Records** - Complete tracking with status and duration
 - ✅ **Error Handling** - Structured errors with proper HTTP status codes
 - ✅ **Logging** - Request-scoped logging with AWS request ID
 - ✅ **Local Development** - HTTP server for testing without AWS

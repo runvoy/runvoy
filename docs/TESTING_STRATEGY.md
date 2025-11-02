@@ -51,7 +51,6 @@ Total Test Functions:  47
 
 3. **Event Processing** (`internal/events/`)
    - ECS task completion handling
-   - Cost calculation
    - Event routing
 
 4. **AWS Integration** (`internal/app/aws/`)
