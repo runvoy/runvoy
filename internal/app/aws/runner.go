@@ -105,14 +105,12 @@ func buildSidecarContainerCommand(hasGitRepo bool) []string {
 
 // buildMainContainerCommand constructs the shell command for the main runner container.
 // It adds logging statements and optionally changes to the git repo working directory.
-// Note: .env file creation is now handled by the sidecar container.
 func buildMainContainerCommand(req api.ExecutionRequest, requestID string, hasGitRepo bool) []string {
 	commands := []string{
 		fmt.Sprintf("printf '### %s runner execution started by requestID %s\\n'",
 			constants.ProjectName, requestID),
 	}
 
-	// If git repo is specified, change to the cloned directory
 	if hasGitRepo {
 		workDir := constants.SharedVolumePath + "/repo"
 		if req.GitPath != "" && req.GitPath != "." {
