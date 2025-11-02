@@ -49,7 +49,7 @@ var unregisterImageCmd = &cobra.Command{
 }
 
 func init() {
-	registerImageCmd.Flags().BoolVar(&registerImageIsDefault, "is-default", false, "Set this image as the default image")
+	registerImageCmd.Flags().BoolVar(&registerImageIsDefault, "set-default", false, "Set this image as the default image")
 	imagesCmd.AddCommand(registerImageCmd)
 	imagesCmd.AddCommand(listImagesCmd)
 	imagesCmd.AddCommand(unregisterImageCmd)
@@ -66,7 +66,7 @@ func registerImageRun(cmd *cobra.Command, args []string) {
 
 	client := client.New(cfg, slog.Default())
 	var isDefault *bool
-	if cmd.Flags().Changed("is-default") {
+	if cmd.Flags().Changed("set-default") {
 		isDefault = &registerImageIsDefault
 	}
 	resp, err := client.RegisterImage(cmd.Context(), image, isDefault)

@@ -158,7 +158,10 @@ func (e *Runner) StartTask(ctx context.Context, userEmail string, req api.Execut
 		return "", nil, appErrors.ErrBadRequest("image not registered", err)
 	}
 
-	reqLogger.Debug("using task definition for image", "image", imageToUse, "taskDef", taskDefARN)
+	reqLogger.Debug("using task definition for image", "context", map[string]string{
+		"image": imageToUse,
+		"arn":   taskDefARN,
+	})
 
 	hasGitRepo := req.GitRepo != ""
 	requestID := logger.GetRequestID(ctx)
@@ -314,27 +317,7 @@ func (e *Runner) RegisterImage(ctx context.Context, image string, isDefault *boo
 		return fmt.Errorf("AWS region not configured")
 	}
 
-	// Determine if this image should be marked as default:
-	// 1. If isDefault is explicitly true, set as default
-	// 2. If isDefault is nil (not provided) and no default exists, make this the first default
-	shouldBeDefault := false
-	if isDefault != nil && *isDefault {
-		// Explicitly requested to be default
-		shouldBeDefault = true
-	} else if isDefault == nil {
-		// isDefault not provided - check if any default exists; if not, make this one the default (first image behavior)
-		hasDefault, err := hasExistingDefaultImage(ctx, e.ecsClient, reqLogger)
-		if err != nil {
-			reqLogger.Warn("failed to check for existing default image, proceeding", "error", err)
-			// Continue without setting as default if we can't check
-		} else if !hasDefault {
-			// No default exists, make this one the default (first image becomes default)
-			shouldBeDefault = true
-		}
-	}
-	// If isDefault is explicitly false, don't set as default (even if no default exists)
-
-	err := RegisterTaskDefinitionForImage(ctx, e.ecsClient, e.cfg, image, shouldBeDefault, region, reqLogger)
+	err := RegisterTaskDefinitionForImage(ctx, e.ecsClient, e.cfg, image, isDefault, region, reqLogger)
 	if err != nil {
 		return fmt.Errorf("failed to register task definition: %w", err)
 	}

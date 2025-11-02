@@ -272,7 +272,7 @@ func RegisterTaskDefinitionForImage(
 	ecsClient *ecs.Client,
 	cfg *Config,
 	image string,
-	isDefault bool,
+	isDefault *bool,
 	region string,
 	logger *slog.Logger,
 ) error {
@@ -292,7 +292,7 @@ func RegisterTaskDefinitionForImage(
 		})
 	}
 
-	if isDefault {
+	if isDefault != nil && *isDefault {
 		if err := unmarkExistingDefaultImages(ctx, ecsClient, logger); err != nil {
 			logger.Warn("failed to unmark existing default images, proceeding anyway", "error", err)
 		}
@@ -323,7 +323,7 @@ func RegisterTaskDefinitionForImage(
 			},
 		}
 
-		if isDefault {
+		if isDefault != nil && *isDefault {
 			tags = append(tags, ecsTypes.Tag{
 				Key:   awsStd.String(constants.TaskDefinitionIsDefaultTagKey),
 				Value: awsStd.String("true"),
@@ -346,7 +346,7 @@ func RegisterTaskDefinitionForImage(
 			"family":    family,
 			"arn":       existingTaskDefARN,
 			"image":     image,
-			"isDefault": strconv.FormatBool(isDefault),
+			"isDefault": strconv.FormatBool(isDefault != nil && *isDefault),
 		})
 		return nil
 	}
@@ -389,7 +389,7 @@ func RegisterTaskDefinitionForImage(
 		},
 	}
 
-	if isDefault {
+	if isDefault != nil && *isDefault {
 		tags = append(tags, ecsTypes.Tag{
 			Key:   awsStd.String(constants.TaskDefinitionIsDefaultTagKey),
 			Value: awsStd.String("true"),

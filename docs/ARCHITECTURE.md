@@ -1003,7 +1003,7 @@ The platform uses dynamically managed ECS Fargate task definitions with a sideca
 
 **Dynamic Registration:**
 - Task definitions are registered via the ECS API when images are added through the `/api/v1/images/register` endpoint
-- The default image must be registered manually after deployment using `just init` or via the API
+- The default image must be registered manually after deployment using `just init` or via the API with the `--set-default` flag
 - When an execution requests an image, the system looks up the existing task definition
 - If an image is not registered, the execution will fail with an error directing the admin to register it first
 - Task definitions are reused across executions using the same image
