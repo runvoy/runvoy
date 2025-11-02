@@ -113,10 +113,11 @@ func (e *Runner) StartTask(ctx context.Context, userEmail string, req api.Execut
 
 	reqLogger := logger.DeriveRequestLogger(ctx, e.logger)
 
-	// Note: Image override is not supported via task overrides; use task definition image.
+	// Note: Image override is not supported yet
 	if req.Image != "" && req.Image != e.cfg.DefaultImage {
-		reqLogger.Debug("custom image requested but not supported via overrides, using task definition image",
-			"requested", req.Image, "using", e.cfg.DefaultImage)
+		reqLogger.Debug("custom image requested but not supported via overrides, aborting",
+			"requested", req.Image)
+		return "", "", nil, appErrors.ErrBadRequest("custom image requested but not supported via overrides yet", nil)
 	}
 
 	hasGitRepo := req.GitRepo != ""

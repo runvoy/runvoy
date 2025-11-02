@@ -3,10 +3,12 @@ package cmd
 import (
 	"fmt"
 	"log/slog"
+	"os"
 	"runvoy/internal/api"
 	"runvoy/internal/client"
 	"runvoy/internal/constants"
 	"runvoy/internal/output"
+	"sort"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -15,7 +17,10 @@ import (
 var runCmd = &cobra.Command{
 	Use:   "run <command>",
 	Short: "Run a command",
-	Long:  `Run a command in a remote environment with optional Git repository cloning`,
+	Long: `Run a command in a remote environment with optional Git repository cloning.
+
+User environment variables prefixed with RUNVOY_USER_ are saved to .env file
+in the command working directory.`,
 	Example: fmt.Sprintf(`  - %s run echo hello world
   - %s run terraform plan
 
@@ -25,7 +30,11 @@ var runCmd = &cobra.Command{
   - %s run --git-repo https://github.com/ansible/ansible-examples.git \
                --git-ref main \
                --git-path ansible-examples/playbooks/hello_world \
-               ansible-playbook site.yml`, constants.ProjectName, constants.ProjectName, constants.ProjectName, constants.ProjectName),
+               ansible-playbook site.yml
+
+  # With user environment variables
+  - RUNVOY_USER_MY_VAR=1234567890 %s run cat .env # Outputs => MY_VAR=1234567890
+`, constants.ProjectName, constants.ProjectName, constants.ProjectName, constants.ProjectName, constants.ProjectName),
 	Run:  runRun,
 	Args: cobra.MinimumNArgs(1),
 }
@@ -55,6 +64,21 @@ func runRun(cmd *cobra.Command, args []string) {
 	if gitPath := cmd.Flag("git-path").Value.String(); gitPath != "" {
 		output.Infof("Git path: %s", output.Bold(gitPath))
 	}
+	envs := make(map[string]string)
+	for _, env := range os.Environ() {
+		parts := strings.SplitN(env, "=", 2)
+		if len(parts) == 2 && strings.HasPrefix(parts[0], "RUNVOY_USER_") {
+			envs[strings.TrimPrefix(parts[0], "RUNVOY_USER_")] = parts[1]
+		}
+	}
+	var envKeys []string
+	for key := range envs {
+		envKeys = append(envKeys, key)
+	}
+	if len(envKeys) > 0 {
+		sort.Strings(envKeys)
+		output.Infof("Injecting user environment variables: %s", output.Bold(strings.Join(envKeys, ", ")))
+	}
 
 	client := client.New(cfg, slog.Default())
 	resp, err := client.RunCommand(cmd.Context(), api.ExecutionRequest{
@@ -62,6 +86,7 @@ func runRun(cmd *cobra.Command, args []string) {
 		GitRepo: cmd.Flag("git-repo").Value.String(),
 		GitRef:  cmd.Flag("git-ref").Value.String(),
 		GitPath: cmd.Flag("git-path").Value.String(),
+		Env:     envs,
 	})
 	if err != nil {
 		output.Errorf("failed to run command: %v", err)
