@@ -1,4 +1,5 @@
 # AI Coding Assistant Rules for runvoy
+
 # Used by: Cursor, Claude Code, and other AI assistants that respect .cursorrules
 
 ## Documentation Standards
@@ -42,10 +43,13 @@
    - `README.md` is modified
 
 3. **Manual update** - To manually update the README with latest CLI help:
+
    ```bash
    just update-readme-help
    ```
+
    Or run directly:
+
    ```bash
    go run scripts/update-readme-help.go
    ```
@@ -55,7 +59,11 @@
    - Update the "Common Commands Examples" section in README.md if the command is commonly used
    - Ensure examples still work with the new command structure
 
-5. **How it works**:
+5. **Don't over comment code, only comment when it's not obvious what the code is doing**
+   - By default add more details in e.g. the function signature and/or parameter descriptions, etc.
+   - The code should be self-explanatory, so only comment when it's not obvious what the code is doing.
+
+6. **How it works**:
    - The script builds the CLI (`just build-cli`)
    - Captures `./bin/runvoy --help` output
    - Injects it into the README between the marker comments

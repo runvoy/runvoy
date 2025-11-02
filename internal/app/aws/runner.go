@@ -329,33 +329,9 @@ func (e *Runner) ListImages(ctx context.Context) ([]api.ImageInfo, error) {
 		"paginated": "true",
 	})
 
-	nextToken := ""
-	var listOutput *ecs.ListTaskDefinitionsOutput
-	var taskDefArns = []string{}
-	var err error
-	for {
-		listOutput, err = e.ecsClient.ListTaskDefinitions(ctx, &ecs.ListTaskDefinitionsInput{
-			Status:    ecsTypes.TaskDefinitionStatusActive,
-			NextToken: awsStd.String(nextToken),
-		})
-		if err != nil {
-			return nil, fmt.Errorf("failed to list task definitions: %w", err)
-		}
-
-		// taskDefARN format example:
-		// arn:aws:ecs:us-east-2:123456789012:task-definition/runvoy-image-alpine-latest:1
-		for _, taskDefARN := range listOutput.TaskDefinitionArns {
-			parts := strings.Split(taskDefARN, "/")
-			if len(parts) > 0 &&
-				strings.HasPrefix(parts[len(parts)-1], constants.TaskDefinitionFamilyPrefix+"-") {
-				taskDefArns = append(taskDefArns, taskDefARN)
-			}
-		}
-
-		if listOutput.NextToken == nil {
-			break
-		}
-		nextToken = *listOutput.NextToken
+	taskDefArns, err := listTaskDefinitionsByPrefix(ctx, e.ecsClient, constants.TaskDefinitionFamilyPrefix+"-")
+	if err != nil {
+		return nil, err
 	}
 
 	result := make([]api.ImageInfo, 0)
