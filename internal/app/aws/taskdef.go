@@ -202,7 +202,7 @@ func RegisterTaskDefinitionForImage(
 	isDefault bool,
 	region string,
 	logger *slog.Logger,
-) (string, error) {
+) error {
 	family := TaskDefinitionFamilyName(image)
 
 	listOutput, err := ecsClient.ListTaskDefinitions(ctx, &ecs.ListTaskDefinitionsInput{
@@ -211,13 +211,13 @@ func RegisterTaskDefinitionForImage(
 		MaxResults:   awsStd.Int32(1),
 	})
 	if err != nil {
-		return "", fmt.Errorf("failed to list task definitions: %w", err)
+		return fmt.Errorf("failed to list task definitions: %w", err)
 	}
 
 	if len(listOutput.TaskDefinitionArns) > 0 {
 		latestARN := listOutput.TaskDefinitionArns[len(listOutput.TaskDefinitionArns)-1]
 		logger.Debug("task definition already exists", "family", family, "arn", latestARN)
-		return latestARN, nil
+		return nil
 	}
 
 	taskExecRoleARN := cfg.TaskExecRoleARN
@@ -243,7 +243,7 @@ func RegisterTaskDefinitionForImage(
 	}
 
 	if taskExecRoleARN == "" {
-		return "", fmt.Errorf("task execution role ARN is required but not found in config or existing task definitions")
+		return fmt.Errorf("task execution role ARN is required but not found in config or existing task definitions")
 	}
 
 	if isDefault || (cfg.DefaultImage != "" && image == cfg.DefaultImage) {
@@ -352,7 +352,7 @@ func RegisterTaskDefinitionForImage(
 
 	registerOutput, err := ecsClient.RegisterTaskDefinition(ctx, registerInput)
 	if err != nil {
-		return "", fmt.Errorf("failed to register task definition: %w", err)
+		return fmt.Errorf("failed to register task definition: %w", err)
 	}
 
 	taskDefARN := awsStd.ToString(registerOutput.TaskDefinition.TaskDefinitionArn)
@@ -368,7 +368,7 @@ func RegisterTaskDefinitionForImage(
 	}
 
 	logger.Info("registered task definition", "family", family, "arn", taskDefARN, "image", image)
-	return taskDefARN, nil
+	return nil
 }
 
 // DeregisterTaskDefinitionsForImage deregisters all task definition revisions for a given image.
