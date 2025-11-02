@@ -149,9 +149,10 @@ func RegisterTaskDefinitionForImage(
 	ecsClient *ecs.Client,
 	cfg *Config,
 	image string,
+	region string,
 	logger *slog.Logger,
 ) (string, error) {
-	return RegisterTaskDefinitionForImageWithDefault(ctx, ecsClient, cfg, image, false, logger)
+	return RegisterTaskDefinitionForImageWithDefault(ctx, ecsClient, cfg, image, false, region, logger)
 }
 
 // RegisterTaskDefinitionForImageWithDefault registers a task definition with explicit default flag.
@@ -161,6 +162,7 @@ func RegisterTaskDefinitionForImageWithDefault(
 	cfg *Config,
 	image string,
 	isDefault bool,
+	region string,
 	logger *slog.Logger,
 ) (string, error) {
 	family := TaskDefinitionFamilyName(image)
@@ -274,8 +276,8 @@ func RegisterTaskDefinitionForImageWithDefault(
 				LogConfiguration: &ecsTypes.LogConfiguration{
 					LogDriver: ecsTypes.LogDriverAwslogs,
 					Options: map[string]string{
-						"awslogs-group":  cfg.LogGroup,
-						"awslogs-region": "us-east-1", // TODO: get from AWS config
+						"awslogs-group":        cfg.LogGroup,
+						"awslogs-region":       region,
 						"awslogs-stream-prefix": "task",
 					},
 				},
@@ -306,8 +308,8 @@ func RegisterTaskDefinitionForImageWithDefault(
 				LogConfiguration: &ecsTypes.LogConfiguration{
 					LogDriver: ecsTypes.LogDriverAwslogs,
 					Options: map[string]string{
-						"awslogs-group":  cfg.LogGroup,
-						"awslogs-region": "us-east-1", // TODO: get from AWS config
+						"awslogs-group":        cfg.LogGroup,
+						"awslogs-region":       region,
 						"awslogs-stream-prefix": "task",
 					},
 				},

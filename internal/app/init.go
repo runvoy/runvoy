@@ -99,6 +99,7 @@ func initializeAWSBackend(
 		SecurityGroup: cfg.SecurityGroup,
 		LogGroup:      cfg.LogGroup,
 		DefaultImage:  cfg.DefaultImage,
+		Region:        awsCfg.Region,
 		// TaskRoleARN and TaskExecRoleARN will be read from an existing task definition
 		// or should be provided via environment variables if available
 		// If not available, task definition registration will try to get them from existing definitions

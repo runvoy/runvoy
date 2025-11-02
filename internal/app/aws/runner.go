@@ -31,6 +31,7 @@ type Config struct {
 	DefaultImage    string
 	TaskRoleARN     string
 	TaskExecRoleARN string
+	Region          string
 }
 
 // Runner implements app.Runner for AWS ECS Fargate.
@@ -303,7 +304,12 @@ func (e *Runner) RegisterImage(ctx context.Context, image string) (string, strin
 	// Check if this should be marked as default (matches config default image)
 	isDefault := e.cfg.DefaultImage != "" && image == e.cfg.DefaultImage
 
-	taskDefARN, err := RegisterTaskDefinitionForImageWithDefault(ctx, e.ecsClient, e.cfg, image, isDefault, reqLogger)
+	region := e.cfg.Region
+	if region == "" {
+		return "", "", fmt.Errorf("AWS region not configured")
+	}
+
+	taskDefARN, err := RegisterTaskDefinitionForImageWithDefault(ctx, e.ecsClient, e.cfg, image, isDefault, region, reqLogger)
 	if err != nil {
 		return "", "", fmt.Errorf("failed to register task definition: %w", err)
 	}
