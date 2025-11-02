@@ -71,6 +71,10 @@ func initializeAWSBackend(
 		return nil, nil, nil, fmt.Errorf("ExecutionsTable cannot be empty")
 	}
 
+	if cfg.PendingAPIKeysTable == "" {
+		return nil, nil, nil, fmt.Errorf("PendingAPIKeysTable cannot be empty")
+	}
+
 	if cfg.ECSCluster == "" {
 		return nil, nil, nil, fmt.Errorf("ECSCluster cannot be empty")
 	}
@@ -83,9 +87,9 @@ func initializeAWSBackend(
 	dynamoClient := dynamodb.NewFromConfig(awsCfg)
 	ecsClientInstance := ecs.NewFromConfig(awsCfg)
 
-	logger.Debug("using DynamoDB backend", "apiKeysTable", cfg.APIKeysTable, "executionsTable", cfg.ExecutionsTable)
+	logger.Debug("using DynamoDB backend", "apiKeysTable", cfg.APIKeysTable, "executionsTable", cfg.ExecutionsTable, "pendingAPIKeysTable", cfg.PendingAPIKeysTable)
 
-	userRepo := dynamorepo.NewUserRepository(dynamoClient, cfg.APIKeysTable, logger)
+	userRepo := dynamorepo.NewUserRepository(dynamoClient, cfg.APIKeysTable, cfg.PendingAPIKeysTable, logger)
 	executionRepo := dynamorepo.NewExecutionRepository(dynamoClient, cfg.ExecutionsTable, logger)
 
 	awsExecCfg := &appaws.Config{
