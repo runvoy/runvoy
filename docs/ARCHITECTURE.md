@@ -907,6 +907,8 @@ The `run` command executes commands remotely via the orchestrator Lambda.
    - Validates API key
    - Creates execution record in DynamoDB (status: RUNNING)
    - Starts ECS Fargate task with the command
+     - Injects each `env` entry into the runner container environment and mirrors it as `RUNVOY_USER_<KEY>` so the task can render a `.env` file automatically
+     - Propagates non-reserved environment variables to the git-cloner sidecar (when used) so private repositories can leverage the same credentials
    - Returns execution ID
 
 **Response (202 Accepted):**

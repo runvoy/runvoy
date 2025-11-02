@@ -106,6 +106,86 @@ fi
 	return []string{"/bin/sh", "-c", strings.Join(commands, " && ")}
 }
 
+// appendEnvIfMissing appends an environment variable if it hasn't been added yet.
+func appendEnvIfMissing(vars []ecsTypes.KeyValuePair, seen map[string]struct{}, name, value string) []ecsTypes.KeyValuePair {
+	if name == "" {
+		return vars
+	}
+
+	if _, exists := seen[name]; exists {
+		return vars
+	}
+
+	seen[name] = struct{}{}
+
+	return append(vars, ecsTypes.KeyValuePair{
+		Name:  awsStd.String(name),
+		Value: awsStd.String(value),
+	})
+}
+
+// buildRunnerEnvironment constructs the environment overrides for the runner container.
+func buildRunnerEnvironment(req api.ExecutionRequest, requestID string) []ecsTypes.KeyValuePair {
+	seen := make(map[string]struct{})
+	envVars := make([]ecsTypes.KeyValuePair, 0, 2+len(req.Env)*2)
+
+	envVars = appendEnvIfMissing(envVars, seen, "RUNVOY_COMMAND", req.Command)
+	if requestID != "" {
+		envVars = appendEnvIfMissing(envVars, seen, "RUNVOY_REQUEST_ID", requestID)
+	}
+
+	if len(req.Env) == 0 {
+		return envVars
+	}
+
+	keys := make([]string, 0, len(req.Env))
+	for key := range req.Env {
+		keys = append(keys, key)
+	}
+	slices.Sort(keys)
+
+	for _, key := range keys {
+		value := req.Env[key]
+		envVars = appendEnvIfMissing(envVars, seen, key, value)
+		envVars = appendEnvIfMissing(envVars, seen, "RUNVOY_USER_"+key, value)
+	}
+
+	return envVars
+}
+
+// buildGitClonerEnvironment constructs the environment overrides for the git-cloner sidecar.
+func buildGitClonerEnvironment(req api.ExecutionRequest, gitRef, requestID string) []ecsTypes.KeyValuePair {
+	seen := make(map[string]struct{})
+	envVars := make([]ecsTypes.KeyValuePair, 0, 4+len(req.Env))
+
+	envVars = appendEnvIfMissing(envVars, seen, "GIT_REPO", req.GitRepo)
+	envVars = appendEnvIfMissing(envVars, seen, "GIT_REF", gitRef)
+	envVars = appendEnvIfMissing(envVars, seen, "SHARED_VOLUME_PATH", constants.SharedVolumePath)
+	if requestID != "" {
+		envVars = appendEnvIfMissing(envVars, seen, "RUNVOY_REQUEST_ID", requestID)
+	}
+
+	if len(req.Env) == 0 {
+		return envVars
+	}
+
+	keys := make([]string, 0, len(req.Env))
+	for key := range req.Env {
+		keys = append(keys, key)
+	}
+	slices.Sort(keys)
+
+	for _, key := range keys {
+		if key == "GIT_REPO" || key == "GIT_REF" || key == "SHARED_VOLUME_PATH" {
+			continue
+		}
+
+		envVars = appendEnvIfMissing(envVars, seen, key, req.Env[key])
+	}
+
+	return envVars
+}
+
 // StartTask triggers an ECS Fargate task and returns identifiers.
 func (e *Runner) StartTask(ctx context.Context, userEmail string, req api.ExecutionRequest) (string, string, *time.Time, error) {
 	if e.ecsClient == nil {
@@ -142,21 +222,7 @@ func (e *Runner) StartTask(ctx context.Context, userEmail string, req api.Execut
 	// User env vars are passed with two formats:
 	// 1. Direct: KEY=value (for direct access in shell)
 	// 2. Prefixed: RUNVOY_USER_KEY=value (for .env file creation)
-	envVars := []ecsTypes.KeyValuePair{
-		{Name: awsStd.String("RUNVOY_COMMAND"), Value: awsStd.String(req.Command)},
-	}
-	for key, value := range req.Env {
-		// Add direct env var (for container environment)
-		envVars = append(envVars, ecsTypes.KeyValuePair{
-			Name:  awsStd.String(key),
-			Value: awsStd.String(value),
-		})
-		// Add prefixed env var (for .env file creation)
-		envVars = append(envVars, ecsTypes.KeyValuePair{
-			Name:  awsStd.String("RUNVOY_USER_" + key),
-			Value: awsStd.String(value),
-		})
-	}
+	envVars := buildRunnerEnvironment(req, requestID)
 
 	// Build container overrides
 	containerOverrides := []ecsTypes.ContainerOverride{
@@ -175,12 +241,8 @@ func (e *Runner) StartTask(ctx context.Context, userEmail string, req api.Execut
 		}
 
 		containerOverrides = append(containerOverrides, ecsTypes.ContainerOverride{
-			Name: awsStd.String(constants.GitClonerContainerName),
-			Environment: []ecsTypes.KeyValuePair{
-				{Name: awsStd.String("GIT_REPO"), Value: awsStd.String(req.GitRepo)},
-				{Name: awsStd.String("GIT_REF"), Value: awsStd.String(gitRef)},
-				{Name: awsStd.String("SHARED_VOLUME_PATH"), Value: awsStd.String(constants.SharedVolumePath)},
-			},
+			Name:        awsStd.String(constants.GitClonerContainerName),
+			Environment: buildGitClonerEnvironment(req, gitRef, requestID),
 		})
 
 		reqLogger.Debug("configured git-cloner sidecar",
