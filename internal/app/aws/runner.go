@@ -327,8 +327,8 @@ func (e *Runner) ListImages(ctx context.Context) ([]api.ImageInfo, error) {
 	reqLogger := logger.DeriveRequestLogger(ctx, e.logger)
 
 	// List all task definitions with our prefix
-	// Note: FamilyPrefix must match the full prefix including the dash: "runvoy-image-"
-	familyPrefix := constants.TaskDefinitionFamilyPrefix + "-"
+	// Try without the trailing dash first - AWS ECS FamilyPrefix should match "runvoy-image" to "runvoy-image-xxx"
+	familyPrefix := constants.TaskDefinitionFamilyPrefix
 	listOutput, err := e.ecsClient.ListTaskDefinitions(ctx, &ecs.ListTaskDefinitionsInput{
 		FamilyPrefix: awsStd.String(familyPrefix),
 		Status:       ecsTypes.TaskDefinitionStatusActive,
@@ -337,6 +337,8 @@ func (e *Runner) ListImages(ctx context.Context) ([]api.ImageInfo, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to list task definitions: %w", err)
 	}
+
+	reqLogger.Debug("listed task definitions", "prefix", familyPrefix, "count", len(listOutput.TaskDefinitionArns))
 
 	result := make([]api.ImageInfo, 0)
 	seenImages := make(map[string]bool)
@@ -357,11 +359,23 @@ func (e *Runner) ListImages(ctx context.Context) ([]api.ImageInfo, error) {
 
 		// Extract image from container definition (runner container)
 		image := ""
+		familyName := ""
+		if descOutput.TaskDefinition.Family != nil {
+			familyName = *descOutput.TaskDefinition.Family
+		}
 		for _, container := range descOutput.TaskDefinition.ContainerDefinitions {
-			if container.Name != nil && *container.Name == constants.RunnerContainerName && container.Image != nil {
-				image = *container.Image
-				break
+			if container.Name != nil {
+				reqLogger.Debug("checking container", "family", familyName, "container_name", *container.Name, "runner_container_name", constants.RunnerContainerName)
+				if *container.Name == constants.RunnerContainerName && container.Image != nil {
+					image = *container.Image
+					reqLogger.Debug("found runner container image", "family", familyName, "image", image)
+					break
+				}
 			}
+		}
+		
+		if image == "" {
+			reqLogger.Debug("no runner container found in task definition", "family", familyName, "container_count", len(descOutput.TaskDefinition.ContainerDefinitions))
 		}
 
 		// Get tags from the task definition resource (tags are on the resource, not the definition object)
