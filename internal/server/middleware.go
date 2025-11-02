@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 	"net/http"
+	"sync"
 	"time"
 
 	"runvoy/internal/constants"
@@ -140,17 +141,18 @@ func (r *Router) authenticateRequestMiddleware(next http.Handler) http.Handler {
 			"email": user.Email,
 		})
 
-		// Update last_used timestamp asynchronously
+		// Update last_used timestamp asynchronously, but wait for completion
+		// before returning to ensure it completes in Lambda environments.
 		// Copy context values (like requestID) to a new background context since the
-		// request context will be canceled when the request completes
+		// request context will be canceled when the request completes.
 		requestID := loggerPkg.GetRequestID(req.Context())
+		var wg sync.WaitGroup
+		wg.Add(1)
 		go func(email string, reqID string) {
+			defer wg.Done()
 			ctx, cancel := context.WithTimeout(context.Background(), lastUsedUpdateTimeout)
 			defer cancel()
-
-			if reqID != "" {
-				ctx = context.WithValue(ctx, loggerPkg.RequestIDContextKey(), reqID)
-			}
+			ctx = context.WithValue(ctx, loggerPkg.RequestIDContextKey(), reqID)
 
 			logger.Debug("updating user's last_used timestamp (async)", "user", map[string]any{
 				"email":              email,
@@ -176,6 +178,10 @@ func (r *Router) authenticateRequestMiddleware(next http.Handler) http.Handler {
 
 		ctx := context.WithValue(req.Context(), userContextKey, user)
 		next.ServeHTTP(w, req.WithContext(ctx))
+
+		// Wait for the background update to complete before returning.
+		// This ensures the update completes in Lambda before the handler returns.
+		wg.Wait()
 	})
 }
 
