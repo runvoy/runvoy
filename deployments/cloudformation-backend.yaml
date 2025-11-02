@@ -301,7 +301,7 @@ Resources:
         - Key: ManagedBy
           Value: 'cloudformation'
 
-  # ECS Task Definition (with persistent sidecar for git cloning and future tasks)
+  # ECS Task Definition
   TaskDefinition:
     Type: AWS::ECS::TaskDefinition
     Properties:
@@ -334,13 +334,13 @@ Resources:
             - '-c'
             - |
               set -e
-              
+
               # If no GIT_REPO is specified, just exit successfully
               if [ -z "$GIT_REPO" ]; then
                 echo "### runvoy sidecar: No git repository specified, exiting"
                 exit 0
               fi
-              
+
               # Git repository cloning logic
               apk add --no-cache git
               GIT_REF=${GIT_REF:-main}
