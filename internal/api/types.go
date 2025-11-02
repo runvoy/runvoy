@@ -154,10 +154,8 @@ type RegisterImageRequest struct {
 
 // RegisterImageResponse represents the response after registering an image
 type RegisterImageResponse struct {
-	Image              string `json:"image"`
-	TaskDefinitionARN  string `json:"task_definition_arn"`
-	TaskDefinitionName string `json:"task_definition_name"`
-	Message            string `json:"message"`
+	Image   string `json:"image"`
+	Message string `json:"message"`
 }
 
 // RemoveImageRequest represents the request to remove a Docker image

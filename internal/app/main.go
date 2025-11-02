@@ -461,16 +461,14 @@ func (s *Service) RegisterImage(ctx context.Context, image string) (*api.Registe
 		return nil, apperrors.ErrBadRequest("image is required", nil)
 	}
 
-	taskDefARN, taskDefName, err := s.runner.RegisterImage(ctx, image)
+	_, _, err := s.runner.RegisterImage(ctx, image)
 	if err != nil {
 		return nil, apperrors.ErrInternalError("failed to register image", err)
 	}
 
 	return &api.RegisterImageResponse{
-		Image:              image,
-		TaskDefinitionARN:  taskDefARN,
-		TaskDefinitionName: taskDefName,
-		Message:            "Image registered successfully",
+		Image:   image,
+		Message: "Image registered successfully",
 	}, nil
 }
 
