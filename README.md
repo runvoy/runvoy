@@ -82,16 +82,26 @@ If you deployed the backend infrastructure with `just init`, the admin API key a
 runvoy run "echo hello world"
 ```
 
+or
+
+```bash
+runvoy users create <email>
+```
+
+to create a new user account for a team member.
+
 #### For Non-Admin Users (Team Members)
 
 When an admin creates a user account for you, they will provide you with a **claim token**. To get started:
 
 1. **Install the CLI** (if not already installed):
+
    ```bash
    go install cmd/runvoy
    ```
 
 2. **Configure the endpoint** (first time only):
+
    ```bash
    runvoy configure
    # When prompted, enter your API endpoint URL (provided by your admin)
@@ -99,6 +109,7 @@ When an admin creates a user account for you, they will provide you with a **cla
    ```
 
 3. **Claim your API key** using the token provided by your admin:
+
    ```bash
    runvoy claim <your-claim-token>
    ```
@@ -109,11 +120,13 @@ When an admin creates a user account for you, they will provide you with a **cla
    - Automatically save it to your local configuration file (`~/.runvoy/config.yaml`)
 
 4. **You're ready to use runvoy!** Try running a command:
+
    ```bash
    runvoy run "echo hello world"
    ```
 
 **Important Notes:**
+
 - ⏱  Claim tokens expire after 15 minutes
 - 👁  Each token can only be used once
 - If your token expires or is already used, ask your admin to create a new user account for you
@@ -294,6 +307,7 @@ runvoy users --help
 ### Common Commands Examples
 
 **Command Execution:**
+
 ```bash
 runvoy run <command...>
 
@@ -310,6 +324,7 @@ runvoy run --git-repo https://github.com/mycompany/myproject.git npm run tests
 ```
 
 **Log Viewing:**
+
 ```bash
 runvoy logs <executionID>
 
@@ -347,6 +362,7 @@ runvoy run "echo hello world"
 ```
 
 The web viewer is a minimal, single-page application that provides:
+
 - **Real-time log streaming** - Automatically polls for new logs every 5 seconds
 - **ANSI color support** - Displays colored terminal output
 - **Status tracking** - Shows execution status (RUNNING, SUCCEEDED, FAILED, STOPPED)
@@ -358,6 +374,7 @@ The web viewer is a minimal, single-page application that provides:
   - Toggle metadata (line numbers and timestamps)
 
 **Setup (first-time only):**
+
 1. Open the web viewer URL in your browser
 2. Enter your API endpoint URL (same as in `~/.runvoy/config.yaml`)
 3. Enter your API key (same as in `~/.runvoy/config.yaml`)
@@ -374,6 +391,7 @@ All commands support the following global flags:
 - `--debug` - Enable debugging logs
 
 Example:
+
 ```bash
 runvoy --verbose --timeout 5m users create alice@example.com
 ```
@@ -406,4 +424,5 @@ All commands honor the environment variables described in the `justfile`; AWS cr
 ### CLI Installation
 
 1. Clone the repository:
+
 ```
