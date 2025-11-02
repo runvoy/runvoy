@@ -135,15 +135,15 @@ Implementation:
 - API keys are hashed with SHA-256 before storage in `api-keys` table
 - User record created with TTL of 15 minutes (will auto-delete if not claimed)
 - Secret token generated and stored in `pending-api-keys` table
-- Claim URL returned to admin for secure distribution
+- Claim token returned to admin for secure distribution (client constructs URL)
 - Database errors return 503 (Service Unavailable) rather than 500, indicating transient failures
 
-#### Claim API Key (`GET /claim/{token}`)
+#### Claim API Key (`GET /api/v1/claim/{token}`)
 
-Retrieves a pending API key via a one-time claim URL. This is a public endpoint that does not require authentication.
+Retrieves a pending API key via a one-time claim token. This is a public endpoint that does not require authentication.
 
 **Request:**
-- GET request to `/claim/{token}` where `token` is the secret token from the claim URL
+- GET request to `/api/v1/claim/{token}` where `token` is the secret token provided by the admin
 
 **Response (200 OK):**
 - JSON response containing the API key:
@@ -156,15 +156,28 @@ Retrieves a pending API key via a one-time claim URL. This is a public endpoint 
   ```
 
 **Error Responses (JSON):**
+- 400 Bad Request: Invalid token format
 - 404 Not Found: Invalid or expired token
 - 409 Conflict: Token already claimed
 
-Implementation:
+**Implementation:**
 - Validates token exists and has not expired (15 minute TTL)
 - Checks that token has not been viewed before
 - Atomically marks token as viewed with IP address and timestamp
 - Removes TTL from user record in `api-keys` table (makes user permanent)
 - Returns JSON response with the API key
+
+**CLI Usage:**
+Users can claim their API key using the CLI command:
+```bash
+runvoy claim <token>
+```
+
+This command:
+1. Calls the `/api/v1/claim/{token}` endpoint
+2. Receives the API key in the response
+3. Automatically saves it to `~/.runvoy/config.yaml`
+4. Allows the user to immediately start using runvoy commands
 
 #### Secure API Key Distribution Flow
 
@@ -174,11 +187,13 @@ Implementation:
 4. Pending claim record created in `pending-api-keys` table
 5. Claim token returned to admin in JSON response
 6. Admin shares claim token with user (e.g., via Slack, email, etc.)
-7. User constructs claim URL: `{endpoint}/claim/{token}`
-8. User calls endpoint (typically via CLI client)
+7. User runs `runvoy claim <token>` (user must have endpoint configured first with `runvoy configure`)
+8. CLI constructs claim URL: `{endpoint}/api/v1/claim/{token}`
 9. System validates token, marks as viewed, removes user TTL
 10. User receives API key in JSON response
-11. Second visit shows "already claimed" error
+11. CLI automatically saves API key to `~/.runvoy/config.yaml`
+12. User can immediately start using runvoy commands
+13. Second attempt to claim shows "already claimed" error
 
 **Security Features:**
 - Secret tokens are cryptographically random (base64url encoded, 32 chars)
