@@ -94,8 +94,7 @@ func initializeAWSBackend(
 
 	awsExecCfg := &appaws.Config{
 		ECSCluster:            cfg.ECSCluster,
-		TaskDefinition:        cfg.TaskDefinition,
-		TaskDefinitionWithGit: cfg.TaskDefinitionWithGit,
+		TaskDefinition: cfg.TaskDefinition,
 		Subnet1:               cfg.Subnet1,
 		Subnet2:               cfg.Subnet2,
 		SecurityGroup:         cfg.SecurityGroup,

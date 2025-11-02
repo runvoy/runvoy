@@ -31,8 +31,7 @@ type Config struct {
 	ExecutionsTable       string        `mapstructure:"executions_table"`
 	PendingAPIKeysTable   string        `mapstructure:"pending_api_keys_table"`
 	ECSCluster            string        `mapstructure:"ecs_cluster"`
-	TaskDefinition        string        `mapstructure:"task_definition"`
-	TaskDefinitionWithGit string        `mapstructure:"task_definition_with_git"`
+	TaskDefinition string `mapstructure:"task_definition"`
 	Subnet1               string        `mapstructure:"subnet_1"`
 	Subnet2               string        `mapstructure:"subnet_2"`
 	SecurityGroup         string        `mapstructure:"security_group"`
@@ -267,7 +266,6 @@ func bindEnvVars(v *viper.Viper) {
 		"PENDING_API_KEYS_TABLE",
 		"ECS_CLUSTER",
 		"TASK_DEFINITION",
-		"TASK_DEFINITION_WITH_GIT",
 		"SUBNET_1",
 		"SUBNET_2",
 		"SECURITY_GROUP",
@@ -296,7 +294,7 @@ func validateOrchestrator(cfg *Config) error {
 		"APIKeysTable":    cfg.APIKeysTable,
 		"ExecutionsTable": cfg.ExecutionsTable,
 		"ECSCluster":      cfg.ECSCluster,
-		"TaskDefinition":  cfg.TaskDefinition,
+		"TaskDefinition": cfg.TaskDefinition,
 		"Subnet1":         cfg.Subnet1,
 		"Subnet2":         cfg.Subnet2,
 		"SecurityGroup":   cfg.SecurityGroup,

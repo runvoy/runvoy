@@ -22,16 +22,15 @@ import (
 
 // Config holds AWS-specific execution configuration.
 type Config struct {
-	ECSCluster            string
-	TaskDefinition        string
-	TaskDefinitionWithGit string // Task definition with git-cloner sidecar
-	Subnet1               string
-	Subnet2               string
-	SecurityGroup         string
-	LogGroup              string
-	DefaultImage          string
-	TaskRoleARN           string
-	TaskExecRoleARN       string
+	ECSCluster      string
+	TaskDefinition  string
+	Subnet1         string
+	Subnet2         string
+	SecurityGroup   string
+	LogGroup        string
+	DefaultImage    string
+	TaskRoleARN     string
+	TaskExecRoleARN string
 }
 
 // Runner implements app.Runner for AWS ECS Fargate.
@@ -120,20 +119,8 @@ func (e *Runner) StartTask(ctx context.Context, userEmail string, req api.Execut
 			"requested", req.Image, "using", e.cfg.DefaultImage)
 	}
 
-	// Determine if git repo is requested and select appropriate task definition
+	// Check if git repo is requested
 	hasGitRepo := req.GitRepo != ""
-	taskDefinition := e.cfg.TaskDefinition
-
-	if hasGitRepo {
-		if e.cfg.TaskDefinitionWithGit == "" {
-			return "", "", nil, appErrors.ErrInternalError("git repository requested but git-enabled task definition not configured", nil)
-		}
-		taskDefinition = e.cfg.TaskDefinitionWithGit
-		reqLogger.Debug("using git-enabled task definition",
-			"gitRepo", req.GitRepo,
-			"gitRef", req.GitRef,
-			"gitPath", req.GitPath)
-	}
 
 	// Extract request ID from context (set by middleware)
 	requestID := logger.GetRequestID(ctx)
@@ -158,34 +145,43 @@ func (e *Runner) StartTask(ctx context.Context, userEmail string, req api.Execut
 		})
 	}
 
-	// Build container overrides
-	containerOverrides := []ecsTypes.ContainerOverride{
-		{
-			Name:        awsStd.String(constants.RunnerContainerName),
-			Command:     buildMainContainerCommand(req, requestID, hasGitRepo),
-			Environment: envVars,
-		},
+	// Build sidecar container overrides (always present)
+	// If git repo is specified, configure it for cloning; otherwise it will just exit 0
+	sidecarEnv := []ecsTypes.KeyValuePair{
+		{Name: awsStd.String("SHARED_VOLUME_PATH"), Value: awsStd.String(constants.SharedVolumePath)},
 	}
-
-	// If using git, add git-cloner sidecar container overrides
+	
 	if hasGitRepo {
 		gitRef := req.GitRef
 		if gitRef == "" {
 			gitRef = "main"
 		}
-
-		containerOverrides = append(containerOverrides, ecsTypes.ContainerOverride{
-			Name: awsStd.String(constants.GitClonerContainerName),
-			Environment: []ecsTypes.KeyValuePair{
-				{Name: awsStd.String("GIT_REPO"), Value: awsStd.String(req.GitRepo)},
-				{Name: awsStd.String("GIT_REF"), Value: awsStd.String(gitRef)},
-				{Name: awsStd.String("SHARED_VOLUME_PATH"), Value: awsStd.String(constants.SharedVolumePath)},
-			},
-		})
-
-		reqLogger.Debug("configured git-cloner sidecar",
+		sidecarEnv = append(sidecarEnv,
+			ecsTypes.KeyValuePair{Name: awsStd.String("GIT_REPO"), Value: awsStd.String(req.GitRepo)},
+			ecsTypes.KeyValuePair{Name: awsStd.String("GIT_REF"), Value: awsStd.String(gitRef)},
+		)
+		reqLogger.Debug("configured sidecar for git cloning",
 			"gitRepo", req.GitRepo,
 			"gitRef", gitRef)
+	} else {
+		// No git repo, sidecar will just exit 0
+		sidecarEnv = append(sidecarEnv,
+			ecsTypes.KeyValuePair{Name: awsStd.String("GIT_REPO"), Value: awsStd.String("")},
+		)
+		reqLogger.Debug("sidecar configured without git (will exit 0)")
+	}
+
+	// Build container overrides (sidecar + main runner)
+	containerOverrides := []ecsTypes.ContainerOverride{
+		{
+			Name:        awsStd.String(constants.SidecarContainerName),
+			Environment: sidecarEnv,
+		},
+		{
+			Name:        awsStd.String(constants.RunnerContainerName),
+			Command:     buildMainContainerCommand(req, requestID, hasGitRepo),
+			Environment: envVars,
+		},
 	}
 
 	// Build task tags
@@ -201,7 +197,7 @@ func (e *Runner) StartTask(ctx context.Context, userEmail string, req api.Execut
 
 	runTaskInput := &ecs.RunTaskInput{
 		Cluster:        awsStd.String(e.cfg.ECSCluster),
-		TaskDefinition: awsStd.String(taskDefinition),
+		TaskDefinition: awsStd.String(e.cfg.TaskDefinition),
 		LaunchType:     ecsTypes.LaunchTypeFargate,
 		Overrides: &ecsTypes.TaskOverride{
 			ContainerOverrides: containerOverrides,
@@ -220,7 +216,7 @@ func (e *Runner) StartTask(ctx context.Context, userEmail string, req api.Execut
 	logArgs := []any{
 		"operation", "ECS.RunTask",
 		"cluster", e.cfg.ECSCluster,
-		"taskDefinition", taskDefinition,
+		"taskDefinition", e.cfg.TaskDefinition,
 		"containerCount", len(containerOverrides),
 		"userEmail", userEmail,
 		"hasGitRepo", hasGitRepo,
