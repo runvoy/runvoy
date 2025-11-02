@@ -119,38 +119,26 @@ func (e *Runner) StartTask(ctx context.Context, userEmail string, req api.Execut
 			"requested", req.Image, "using", e.cfg.DefaultImage)
 	}
 
-	// Check if git repo is requested
 	hasGitRepo := req.GitRepo != ""
-
-	// Extract request ID from context (set by middleware)
 	requestID := logger.GetRequestID(ctx)
-
-	// Build environment variables for main container
-	// User env vars are passed with two formats:
-	// 1. Direct: KEY=value (for direct access in shell)
-	// 2. Prefixed: RUNVOY_USER_KEY=value (for .env file creation)
 	envVars := []ecsTypes.KeyValuePair{
 		{Name: awsStd.String("RUNVOY_COMMAND"), Value: awsStd.String(req.Command)},
 	}
 	for key, value := range req.Env {
-		// Add direct env var (for container environment)
 		envVars = append(envVars, ecsTypes.KeyValuePair{
 			Name:  awsStd.String(key),
 			Value: awsStd.String(value),
 		})
-		// Add prefixed env var (for .env file creation)
 		envVars = append(envVars, ecsTypes.KeyValuePair{
 			Name:  awsStd.String("RUNVOY_USER_" + key),
 			Value: awsStd.String(value),
 		})
 	}
 
-	// Build sidecar container overrides (always present)
-	// If git repo is specified, configure it for cloning; otherwise it will just exit 0
 	sidecarEnv := []ecsTypes.KeyValuePair{
 		{Name: awsStd.String("SHARED_VOLUME_PATH"), Value: awsStd.String(constants.SharedVolumePath)},
 	}
-	
+
 	if hasGitRepo {
 		gitRef := req.GitRef
 		if gitRef == "" {
@@ -164,14 +152,12 @@ func (e *Runner) StartTask(ctx context.Context, userEmail string, req api.Execut
 			"gitRepo", req.GitRepo,
 			"gitRef", gitRef)
 	} else {
-		// No git repo, sidecar will just exit 0
 		sidecarEnv = append(sidecarEnv,
 			ecsTypes.KeyValuePair{Name: awsStd.String("GIT_REPO"), Value: awsStd.String("")},
 		)
 		reqLogger.Debug("sidecar configured without git (will exit 0)")
 	}
 
-	// Build container overrides (sidecar + main runner)
 	containerOverrides := []ecsTypes.ContainerOverride{
 		{
 			Name:        awsStd.String(constants.SidecarContainerName),
@@ -212,7 +198,6 @@ func (e *Runner) StartTask(ctx context.Context, userEmail string, req api.Execut
 		Tags: tags,
 	}
 
-	// Log before calling ECS RunTask
 	logArgs := []any{
 		"operation", "ECS.RunTask",
 		"cluster", e.cfg.ECSCluster,
