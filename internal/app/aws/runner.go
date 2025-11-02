@@ -100,7 +100,7 @@ func buildSidecarContainerCommand(hasGitRepo bool) []string {
 		fmt.Sprintf("echo '### %s sidecar: Sidecar completed successfully'", constants.ProjectName),
 	)
 
-	return []string{"/bin/sh", "-c", strings.Join(commands, "; ")}
+	return []string{"/bin/sh", "-c", strings.Join(commands, "\n")}
 }
 
 // buildMainContainerCommand constructs the shell command for the main runner container.
