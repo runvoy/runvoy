@@ -70,13 +70,13 @@ POST   /api/v1/users/create                   - Create a new user with a claim U
 POST   /api/v1/users/revoke                   - Revoke a user's API key (admin)
 POST   /api/v1/images/register                - Register a new Docker image (admin)
 GET    /api/v1/images                         - List all registered Docker images (admin)
-DELETE /api/v1/images/{image}               - Remove a registered Docker image (admin)
+DELETE /api/v1/images/{image}                 - Remove a registered Docker image (admin)
 POST   /api/v1/run                            - Start an execution
 GET    /api/v1/executions                     - List executions (queried via DynamoDB GSI)
 GET    /api/v1/executions/{id}/logs           - Fetch execution logs (CloudWatch)
 GET    /api/v1/executions/{id}/status         - Get execution status (RUNNING/SUCCEEDED/FAILED/STOPPED)
 POST   /api/v1/executions/{id}/kill           - Terminate a running execution
-GET    /api/v1/claim/{token}                         - Claim a pending API key (public, no auth required)
+GET    /api/v1/claim/{token}                  - Claim a pending API key (public, no auth required)
 ```
 
 Both Lambda and local HTTP server use identical routing logic, ensuring development/production parity.
