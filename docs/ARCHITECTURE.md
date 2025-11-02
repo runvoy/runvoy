@@ -1025,7 +1025,7 @@ Each task definition follows a consistent structure:
 
 - **Main Container ("runner")**: Executes user commands
   - Essential: `true` (task fails if this container fails)
-  - Image: Specified by user or defaults to `public.ecr.aws/docker/library/ubuntu:22.04`
+  - Image: Specified by user
   - Depends on sidecar completing successfully
   - Working directory: `/workspace` (or `/workspace/repo` if git used)
   - Command overridden at runtime via Lambda
