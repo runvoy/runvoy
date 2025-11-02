@@ -327,7 +327,7 @@ Resources:
       ContainerDefinitions:
         - Name: sidecar
           Image: 'public.ecr.aws/docker/library/alpine:latest'
-          Essential: true
+          Essential: false
           Command:
             - '/bin/sh'
             - '-c'
