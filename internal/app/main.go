@@ -9,11 +9,9 @@ import (
 	"time"
 
 	"runvoy/internal/api"
-	appaws "runvoy/internal/app/aws"
 	"runvoy/internal/auth"
 	"runvoy/internal/constants"
 	"runvoy/internal/database"
-	dynamorepo "runvoy/internal/database/dynamodb"
 	apperrors "runvoy/internal/errors"
 	"runvoy/internal/logger"
 )
@@ -37,6 +35,9 @@ type Runner interface {
 	ListImages(ctx context.Context) ([]api.ImageInfo, error)
 	// RemoveImage removes a Docker image and deregisters its task definitions.
 	RemoveImage(ctx context.Context, image string) error
+	// FetchLogsByExecutionID retrieves logs for a specific execution.
+	// Returns empty slice if logs are not available or not supported by the provider.
+	FetchLogsByExecutionID(ctx context.Context, executionID string) ([]api.LogEvent, error)
 }
 
 // Service provides the core business logic for command execution and user management.
@@ -118,11 +119,7 @@ func (s *Service) CreateUser(ctx context.Context, req api.CreateUserRequest, cre
 	expiresAt := time.Now().Add(constants.ClaimURLExpirationMinutes * time.Minute).Unix()
 
 	// Create user with TTL - will auto-delete if not claimed
-	userRepoDynamo, ok := s.userRepo.(*dynamorepo.UserRepository)
-	if !ok {
-		return nil, apperrors.ErrInternalError("user repository type assertion failed", nil)
-	}
-	if err := userRepoDynamo.CreateUserWithExpiration(ctx, user, apiKeyHash, expiresAt); err != nil {
+	if err := s.userRepo.CreateUserWithExpiration(ctx, user, apiKeyHash, expiresAt); err != nil {
 		return nil, apperrors.ErrDatabaseError("failed to create user", err)
 	}
 
@@ -182,15 +179,9 @@ func (s *Service) ClaimAPIKey(ctx context.Context, secretToken string, ipAddress
 	}
 
 	// Remove expiration from user record (make user permanent)
-	userRepoDynamo, ok := s.userRepo.(*dynamorepo.UserRepository)
-	if !ok {
-		// If we can't remove expiration, log error but don't fail the claim
-		s.Logger.Error("failed to assert user repository type", "action", "remove_expiration")
-	} else {
-		if err := userRepoDynamo.RemoveExpiration(ctx, pending.UserEmail); err != nil {
-			// Log error but don't fail the claim - user already exists and can authenticate
-			s.Logger.Error("failed to remove expiration from user record", "error", err, "email", pending.UserEmail)
-		}
+	if err := s.userRepo.RemoveExpiration(ctx, pending.UserEmail); err != nil {
+		// Log error but don't fail the claim - user already exists and can authenticate
+		s.Logger.Error("failed to remove expiration from user record", "error", err, "email", pending.UserEmail)
 	}
 
 	return &api.ClaimAPIKeyResponse{
@@ -335,27 +326,14 @@ func (s *Service) GetLogsByExecutionID(ctx context.Context, executionID string) 
 		return nil, apperrors.ErrBadRequest("executionID is required", nil)
 	}
 
-	switch s.Provider {
-	case constants.AWS:
-		events, err := s.getAWSLogsByExecutionID(ctx, executionID)
-		if err != nil {
-			return nil, err
-		}
-		reqLogger := logger.DeriveRequestLogger(ctx, s.Logger)
-		reqLogger.Debug("fetched log events", "executionID", executionID, "events", events)
-		return &api.LogsResponse{ExecutionID: executionID, Events: events}, nil
-	default:
-		return nil, apperrors.ErrInternalError("logs not supported for this provider", nil)
+	events, err := s.runner.FetchLogsByExecutionID(ctx, executionID)
+	if err != nil {
+		return nil, err
 	}
-}
 
-// getAWSLogsByExecutionID delegates to the AWS implementation using the runner config
-func (s *Service) getAWSLogsByExecutionID(ctx context.Context, executionID string) ([]api.LogEvent, error) {
-	execImpl, ok := s.runner.(*appaws.Runner)
-	if !ok {
-		return nil, apperrors.ErrInternalError("aws runner not configured", nil)
-	}
-	return execImpl.FetchLogsByExecutionID(ctx, executionID)
+	reqLogger := logger.DeriveRequestLogger(ctx, s.Logger)
+	reqLogger.Debug("fetched log events", "executionID", executionID, "events", events)
+	return &api.LogsResponse{ExecutionID: executionID, Events: events}, nil
 }
 
 // GetExecutionStatus returns the current status and metadata for a given execution ID

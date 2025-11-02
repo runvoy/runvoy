@@ -41,6 +41,10 @@ func (m *mockRunner) RemoveImage(ctx context.Context, image string) error {
 	return nil
 }
 
+func (m *mockRunner) FetchLogsByExecutionID(ctx context.Context, executionID string) ([]api.LogEvent, error) {
+	return []api.LogEvent{}, nil
+}
+
 // Test that the status endpoint exists and requires authentication
 func TestGetExecutionStatus_Unauthorized(t *testing.T) {
 	// Initialize a basic logger
