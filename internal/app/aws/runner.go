@@ -369,12 +369,16 @@ func (e *Runner) ListImages(ctx context.Context) ([]api.ImageInfo, error) {
 			TaskDefinition: awsStd.String(taskDefARN),
 		})
 		if err != nil {
-			reqLogger.Warn("failed to describe task definition", "arn", taskDefARN, "error", err)
-			continue
+			reqLogger.Error("failed to describe task definition", "context", map[string]string{
+				"operation": "ECS.DescribeTaskDefinition",
+				"arn":       taskDefARN,
+				"error":     err.Error(),
+			})
+			return nil, appErrors.ErrInternalError("failed to describe task definition", err)
 		}
 
 		if descOutput.TaskDefinition == nil {
-			continue
+			return nil, appErrors.ErrInternalError("task definition not found", nil)
 		}
 
 		// Extract image from container definition (runner container)
@@ -525,7 +529,7 @@ func (e *Runner) KillTask(ctx context.Context, executionID string) error {
 	}
 
 	if taskARN == "" {
-		reqLogger.Warn("task not found", "executionID", executionID)
+		reqLogger.Error("task not found", "executionID", executionID)
 		return appErrors.ErrNotFound("task not found", nil)
 	}
 
@@ -544,12 +548,19 @@ func (e *Runner) KillTask(ctx context.Context, executionID string) error {
 		Tasks:   []string{taskARN},
 	})
 	if err != nil {
-		reqLogger.Debug("failed to describe task", "error", err, "executionID", executionID, "taskARN", taskARN)
+		reqLogger.Error("failed to describe task", "context", map[string]string{
+			"error":       err.Error(),
+			"executionID": executionID,
+			"taskARN":     taskARN,
+		})
 		return appErrors.ErrInternalError("failed to describe task", err)
 	}
 
 	if len(describeOutput.Tasks) == 0 {
-		reqLogger.Warn("task not found", "executionID", executionID, "taskARN", taskARN)
+		reqLogger.Error("task not found", "context", map[string]string{
+			"executionID": executionID,
+			"taskARN":     taskARN,
+		})
 		return appErrors.ErrNotFound("task not found", nil)
 	}
 

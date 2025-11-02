@@ -385,29 +385,34 @@ Resources:
             Version: '2012-10-17'
             Statement:
               # Task definition permissions (scoped to runvoy-image-* family prefix)
+              # Apparently it's not possible to scope those easily, we might have to
+              # find a way to restrict this permission though. TODO
               - Effect: Allow
                 Action:
                   - 'ecs:RegisterTaskDefinition'
-                # RegisterTaskDefinition cannot be scoped by resource ARN,
-                # but we control the family name via code (runvoy-image-*)
+                  - 'ecs:DescribeTaskDefinition'
+                  - 'ecs:DeregisterTaskDefinition'
+                  - 'ecs:ListTaskDefinitions'
                 Resource: '*'
+              # Tagging permissions for task definitions and tasks
               - Effect: Allow
                 Action:
-                  - 'ecs:DeregisterTaskDefinition'
-                  - 'ecs:DescribeTaskDefinition'
                   - 'ecs:ListTagsForResource'
                   - 'ecs:TagResource'
                   - 'ecs:UntagResource'
-                Resource: !Sub 'arn:aws:ecs:${AWS::Region}:${AWS::AccountId}:task-definition/runvoy-image-*'
-              - Effect: Allow
-                Action:
-                  - 'ecs:ListTaskDefinitions'
-                # ListTaskDefinitions cannot be scoped, but we filter by family prefix in code
-                Resource: '*'
-              # Task permissions (scoped to our cluster)
+                Resource:
+                  - !Sub 'arn:aws:ecs:${AWS::Region}:${AWS::AccountId}:task-definition/runvoy-image-*'
+                  - !Sub 'arn:aws:ecs:${AWS::Region}:${AWS::AccountId}:task/${ProjectName}-cluster/*'
+              # Task permissions
+              # RunTask requires permission on both task definitions and cluster
               - Effect: Allow
                 Action:
                   - 'ecs:RunTask'
+                Resource:
+                  - !Sub 'arn:aws:ecs:${AWS::Region}:${AWS::AccountId}:task-definition/runvoy-image-*'
+                  - !GetAtt ECSCluster.Arn
+              - Effect: Allow
+                Action:
                   - 'ecs:StopTask'
                   - 'ecs:DescribeTasks'
                   - 'ecs:ListTasks'

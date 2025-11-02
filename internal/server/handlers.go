@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 
 	"runvoy/internal/api"
@@ -102,7 +103,11 @@ func (r *Router) handleRunCommand(w http.ResponseWriter, req *http.Request) {
 		errorCode := apperrors.GetErrorCode(err)
 		errorMsg := apperrors.GetErrorMessage(err)
 
-		logger.Debug("failed to run command", "error", err, "statusCode", statusCode, "errorCode", errorCode)
+		logger.Error("failed to run command", "context", map[string]string{
+			"error":      err.Error(),
+			"statusCode": strconv.Itoa(statusCode),
+			"errorCode":  errorCode,
+		})
 
 		writeErrorResponseWithCode(w, statusCode, errorCode, "failed to run command", errorMsg)
 		return
