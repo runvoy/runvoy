@@ -34,6 +34,9 @@ Resources:
               KeyType: HASH
           Projection:
             ProjectionType: ALL
+      TimeToLiveSpecification:
+        AttributeName: expires_at
+        Enabled: true
       Tags:
         - Key: Name
           Value: !Sub '${ProjectName}-api-keys'
@@ -105,6 +108,31 @@ Resources:
       Tags:
         - Key: Name
           Value: !Sub '${ProjectName}-locks'
+        - Key: Application
+          Value: !Ref ProjectName
+        - Key: ManagedBy
+          Value: 'cloudformation'
+
+  # DynamoDB Table for Pending API Keys
+  PendingAPIKeysTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub '${ProjectName}-pending-api-keys'
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: secret_token
+          AttributeType: S
+      KeySchema:
+        - AttributeName: secret_token
+          KeyType: HASH
+      TimeToLiveSpecification:
+        AttributeName: expires_at
+        Enabled: true
+      SSESpecification:
+        SSEEnabled: true
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-pending-api-keys'
         - Key: Application
           Value: !Ref ProjectName
         - Key: ManagedBy
@@ -510,6 +538,7 @@ Resources:
                   - !GetAtt APIKeysTable.Arn
                   - !GetAtt ExecutionsTable.Arn
                   - !GetAtt LocksTable.Arn
+                  - !GetAtt PendingAPIKeysTable.Arn
                   - !Sub '${APIKeysTable.Arn}/index/*'
                   - !Sub '${ExecutionsTable.Arn}/index/*'
 
@@ -540,6 +569,7 @@ Resources:
           RUNVOY_API_KEYS_TABLE: !Ref APIKeysTable
           RUNVOY_EXECUTIONS_TABLE: !Ref ExecutionsTable
           RUNVOY_LOCKS_TABLE: !Ref LocksTable
+          RUNVOY_PENDING_API_KEYS_TABLE: !Ref PendingAPIKeysTable
           RUNVOY_ECS_CLUSTER: !Ref ECSCluster
           RUNVOY_TASK_DEFINITION: !Ref TaskDefinition
           RUNVOY_TASK_DEFINITION_WITH_GIT: !Ref TaskDefinitionWithGit
@@ -700,6 +730,12 @@ Outputs:
     Value: !Ref LocksTable
     Export:
       Name: !Sub '${ProjectName}-locks-table'
+
+  PendingAPIKeysTableName:
+    Description: DynamoDB Pending API Keys Table name
+    Value: !Ref PendingAPIKeysTable
+    Export:
+      Name: !Sub '${ProjectName}-pending-api-keys-table'
 
   ECSClusterName:
     Description: ECS Cluster name

@@ -70,9 +70,53 @@ just init
 
 ```bash
 go install cmd/runvoy
-
-runvoy configure # can be skipped if you are the admin user, the init process will create a config file with the admin API key and endpoint already set
 ```
+
+### User Onboarding
+
+#### For Admin Users
+
+If you deployed the backend infrastructure with `just init`, the admin API key and endpoint are automatically configured in `~/.runvoy/config.yaml`. You can start using runvoy immediately:
+
+```bash
+runvoy run "echo hello world"
+```
+
+#### For Non-Admin Users (Team Members)
+
+When an admin creates a user account for you, they will provide you with a **claim token**. To get started:
+
+1. **Install the CLI** (if not already installed):
+   ```bash
+   go install cmd/runvoy
+   ```
+
+2. **Configure the endpoint** (first time only):
+   ```bash
+   runvoy configure
+   # When prompted, enter your API endpoint URL (provided by your admin)
+   # Example: https://your-endpoint.example.com
+   ```
+
+3. **Claim your API key** using the token provided by your admin:
+   ```bash
+   runvoy claim <your-claim-token>
+   ```
+
+   This command will:
+   - Validate the token with the backend
+   - Retrieve your API key
+   - Automatically save it to your local configuration file (`~/.runvoy/config.yaml`)
+
+4. **You're ready to use runvoy!** Try running a command:
+   ```bash
+   runvoy run "echo hello world"
+   ```
+
+**Important Notes:**
+- ⏱  Claim tokens expire after 15 minutes
+- 👁  Each token can only be used once
+- If your token expires or is already used, ask your admin to create a new user account for you
 
 ## Development
 

@@ -66,13 +66,14 @@ All routes are defined in `internal/server/router.go`:
 
 ```text
 GET  /api/v1/health                         - Health check
-POST /api/v1/users/create                   - Create a new user with an API key
+POST /api/v1/users/create                   - Create a new user with a claim URL
 POST /api/v1/users/revoke                   - Revoke a user's API key
 POST /api/v1/run                            - Start an execution
 GET  /api/v1/executions                     - List executions (queried via DynamoDB GSI)
 GET  /api/v1/executions/{id}/logs           - Fetch execution logs (CloudWatch)
 GET  /api/v1/executions/{id}/status         - Get execution status (RUNNING/SUCCEEDED/FAILED/STOPPED)
 POST /api/v1/executions/{id}/kill           - Terminate a running execution
+GET  /claim/{token}                         - Claim a pending API key (public, no auth required)
 ```
 
 Both Lambda and local HTTP server use identical routing logic, ensuring development/production parity.
@@ -101,7 +102,7 @@ The system provides endpoints for creating and managing users:
 
 #### Create User (`POST /api/v1/users/create`)
 
-Creates a new user with an API key. The API key is only returned in the response and should be stored securely by the client.
+Creates a new user with an API key and returns a secure one-time claim URL.
 
 **Request:**
 ```json
@@ -119,7 +120,7 @@ Creates a new user with an API key. The API key is only returned in the response
     "created_at": "2024-01-01T00:00:00Z",
     "revoked": false
   },
-  "api_key": "abc123..."  // Only returned once!
+  "claim_token": "abc-123-def-456"  // One-time token (client constructs URL as {endpoint}/claim/{token})
 }
 ```
 
@@ -131,9 +132,77 @@ Creates a new user with an API key. The API key is only returned in the response
 Implementation:
 - Email validation using Go's `mail.ParseAddress`
 - API key generation using crypto/rand if not provided
-- API keys are hashed with SHA-256 before storage
-- Database enforces uniqueness via ConditionalExpression
+- API keys are hashed with SHA-256 before storage in `api-keys` table
+- User record created with TTL of 15 minutes (will auto-delete if not claimed)
+- Secret token generated and stored in `pending-api-keys` table
+- Claim token returned to admin for secure distribution (client constructs URL)
 - Database errors return 503 (Service Unavailable) rather than 500, indicating transient failures
+
+#### Claim API Key (`GET /api/v1/claim/{token}`)
+
+Retrieves a pending API key via a one-time claim token. This is a public endpoint that does not require authentication.
+
+**Request:**
+- GET request to `/api/v1/claim/{token}` where `token` is the secret token provided by the admin
+
+**Response (200 OK):**
+- JSON response containing the API key:
+  ```json
+  {
+    "api_key": "p_75LzCL...",
+    "user_email": "alice@example.com",
+    "message": "API key claimed successfully"
+  }
+  ```
+
+**Error Responses (JSON):**
+- 400 Bad Request: Invalid token format
+- 404 Not Found: Invalid or expired token
+- 409 Conflict: Token already claimed
+
+**Implementation:**
+- Validates token exists and has not expired (15 minute TTL)
+- Checks that token has not been viewed before
+- Atomically marks token as viewed with IP address and timestamp
+- Removes TTL from user record in `api-keys` table (makes user permanent)
+- Returns JSON response with the API key
+
+**CLI Usage:**
+Users can claim their API key using the CLI command:
+```bash
+runvoy claim <token>
+```
+
+This command:
+1. Calls the `/api/v1/claim/{token}` endpoint
+2. Receives the API key in the response
+3. Automatically saves it to `~/.runvoy/config.yaml`
+4. Allows the user to immediately start using runvoy commands
+
+#### Secure API Key Distribution Flow
+
+1. Admin runs `runvoy users create alice@example.com`
+2. System generates API key and secret token
+3. User record created with 15-minute TTL in `api-keys` table
+4. Pending claim record created in `pending-api-keys` table
+5. Claim token returned to admin in JSON response
+6. Admin shares claim token with user (e.g., via Slack, email, etc.)
+7. User runs `runvoy claim <token>` (user must have endpoint configured first with `runvoy configure`)
+8. CLI constructs claim URL: `{endpoint}/api/v1/claim/{token}`
+9. System validates token, marks as viewed, removes user TTL
+10. User receives API key in JSON response
+11. CLI automatically saves API key to `~/.runvoy/config.yaml`
+12. User can immediately start using runvoy commands
+13. Second attempt to claim shows "already claimed" error
+
+**Security Features:**
+- Secret tokens are cryptographically random (base64url encoded, 32 chars)
+- Single-use enforcement via atomic DynamoDB operations
+- Short expiration (15 minutes)
+- IP address logging for audit trail
+- HTTPS only (enforced by infrastructure)
+- No API keys in URLs, logs, or error messages
+- Unclaimed users automatically deleted via TTL
 
 #### Revoke User (`POST /api/v1/users/revoke`)
 
@@ -897,3 +966,85 @@ The kill endpoint allows users to terminate running executions. This endpoint pr
 - The event processor Lambda will automatically detect the task termination
 - Execution status will be updated to STOPPED with exit code 130 (SIGINT)
 - Completion timestamp and duration will be calculated automatically
+
+## Database Schema
+
+The platform uses DynamoDB tables for data persistence. All tables are defined in the CloudFormation template (`deployments/cloudformation-backend.yaml`).
+
+### API Keys Table (`{project-name}-api-keys`)
+
+Stores user records with hashed API keys.
+
+**Primary Key:**
+- `api_key_hash` (String) - Hash of the API key (SHA-256, base64 encoded)
+
+**Global Secondary Index:**
+- `user_email-index` - Lookup users by email
+
+**Attributes:**
+- `api_key_hash` (String) - Primary key, SHA-256 hash of the API key
+- `user_email` (String) - User's email address
+- `created_at` (String) - ISO 8601 timestamp when user was created
+- `last_used` (String, optional) - ISO 8601 timestamp of last authentication
+- `revoked` (Boolean) - Whether the API key has been revoked
+- `expires_at` (Number, optional) - Unix timestamp for TTL (unclaimed users)
+
+**TTL:**
+- Enabled on `expires_at` attribute
+- Unclaimed users are automatically deleted after 15 minutes
+- TTL is removed when user claims their API key
+
+**Code Reference:** `internal/database/dynamodb/users.go`
+
+### Executions Table (`{project-name}-executions`)
+
+Stores execution records for all command runs.
+
+**Primary Key:**
+- `execution_id` (String) - Unique execution identifier
+- `started_at` (String) - ISO 8601 timestamp (range key)
+
+**Global Secondary Indexes:**
+- `user_email-started_at` - Lookup executions by user
+- `status-started_at` - Lookup executions by status
+
+**Attributes:**
+- `execution_id` (String) - Primary key, unique execution identifier
+- `started_at` (String) - Range key, ISO 8601 timestamp
+- `user_email` (String) - Email of the user who ran the execution
+- `command` (String) - The command that was executed
+- `lock_name` (String, optional) - Lock name if specified
+- `completed_at` (String, optional) - ISO 8601 timestamp when execution completed
+- `status` (String) - Current status (RUNNING, SUCCEEDED, FAILED, STOPPED)
+- `exit_code` (Number) - Exit code from the command
+- `duration_seconds` (Number, optional) - Execution duration in seconds
+- `log_stream_name` (String, optional) - CloudWatch Logs stream name
+- `cost_usd` (Number, optional) - Estimated cost in USD
+- `request_id` (String, optional) - AWS Lambda request ID for tracing
+- `cloud` (String, optional) - Compute platform (AWS, etc.)
+
+**Code Reference:** `internal/database/dynamodb/executions.go`
+
+### Pending API Keys Table (`{project-name}-pending-api-keys`)
+
+Stores pending API key claims for secure distribution.
+
+**Primary Key:**
+- `secret_token` (String) - Cryptographically random token
+
+**Attributes:**
+- `secret_token` (String) - Primary key, base64url encoded secret token
+- `api_key` (String) - Plain API key (encrypted at rest via SSE)
+- `user_email` (String) - Email of the user this key belongs to
+- `created_by` (String) - Email of the admin who created the user
+- `created_at` (Number) - Unix timestamp when record was created
+- `expires_at` (Number) - Unix timestamp for TTL
+- `viewed` (Boolean) - Whether the key has been claimed
+- `viewed_at` (Number, optional) - Unix timestamp when claimed
+- `viewed_from_ip` (String, optional) - IP address of the user who claimed it
+
+**TTL:**
+- Enabled on `expires_at` attribute
+- Pending keys are automatically deleted after 15 minutes
+
+**Code Reference:** `internal/database/dynamodb/pending_keys.go`

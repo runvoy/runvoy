@@ -29,6 +29,7 @@ type Config struct {
 	RequestTimeout        time.Duration `mapstructure:"request_timeout"`
 	APIKeysTable          string        `mapstructure:"api_keys_table"`
 	ExecutionsTable       string        `mapstructure:"executions_table"`
+	PendingAPIKeysTable   string        `mapstructure:"pending_api_keys_table"`
 	ECSCluster            string        `mapstructure:"ecs_cluster"`
 	TaskDefinition        string        `mapstructure:"task_definition"`
 	TaskDefinitionWithGit string        `mapstructure:"task_definition_with_git"`
@@ -259,10 +260,11 @@ func loadConfigFile(v *viper.Viper) error {
 func bindEnvVars(v *viper.Viper) {
 	// Bind all environment variables explicitly
 	envVars := []string{
-		"DEV_SERVER_PORT",      // maps to port
+		"DEV_SERVER_PORT", // maps to port
 		"REQUEST_TIMEOUT",
 		"API_KEYS_TABLE",
 		"EXECUTIONS_TABLE",
+		"PENDING_API_KEYS_TABLE",
 		"ECS_CLUSTER",
 		"TASK_DEFINITION",
 		"TASK_DEFINITION_WITH_GIT",
@@ -291,14 +293,14 @@ func bindEnvVars(v *viper.Viper) {
 // These match the old caarlos0/env notEmpty tags to maintain parity.
 func validateOrchestrator(cfg *Config) error {
 	required := map[string]string{
-		"APIKeysTable":     cfg.APIKeysTable,
-		"ExecutionsTable":  cfg.ExecutionsTable,
-		"ECSCluster":       cfg.ECSCluster,
-		"TaskDefinition":   cfg.TaskDefinition,
-		"Subnet1":          cfg.Subnet1,
-		"Subnet2":          cfg.Subnet2,
-		"SecurityGroup":    cfg.SecurityGroup,
-		"LogGroup":         cfg.LogGroup,
+		"APIKeysTable":    cfg.APIKeysTable,
+		"ExecutionsTable": cfg.ExecutionsTable,
+		"ECSCluster":      cfg.ECSCluster,
+		"TaskDefinition":  cfg.TaskDefinition,
+		"Subnet1":         cfg.Subnet1,
+		"Subnet2":         cfg.Subnet2,
+		"SecurityGroup":   cfg.SecurityGroup,
+		"LogGroup":        cfg.LogGroup,
 	}
 
 	for field, value := range required {
@@ -326,4 +328,3 @@ func validateEventProcessor(cfg *Config) error {
 
 	return nil
 }
-

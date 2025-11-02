@@ -46,6 +46,7 @@ func NewRouter(svc *app.Service, requestTimeout time.Duration) *Router {
 
 	r.Route("/api/v1", func(r chi.Router) {
 		// public routes
+		r.Get("/claim/{token}", router.handleClaimAPIKey)
 		r.Get("/health", router.handleHealth)
 
 		// authenticated routes

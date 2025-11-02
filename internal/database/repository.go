@@ -17,6 +17,13 @@ type UserRepository interface {
 	// Returns an error if the user already exists or if the operation fails.
 	CreateUser(ctx context.Context, user *api.User, apiKeyHash string) error
 
+	// CreateUserWithExpiration stores a new user with their hashed API key and optional TTL.
+	// If expiresAtUnix is 0, no TTL is set. If expiresAtUnix is > 0, it sets expires_at for automatic deletion.
+	CreateUserWithExpiration(ctx context.Context, user *api.User, apiKeyHash string, expiresAtUnix int64) error
+
+	// RemoveExpiration removes the expires_at field from a user record, making them permanent.
+	RemoveExpiration(ctx context.Context, email string) error
+
 	// GetUserByEmail retrieves a user by their email address.
 	// Returns nil if the user doesn't exist.
 	GetUserByEmail(ctx context.Context, email string) (*api.User, error)
@@ -32,6 +39,21 @@ type UserRepository interface {
 	// RevokeUser marks a user's API key as revoked without deleting the record.
 	// Useful for audit trails.
 	RevokeUser(ctx context.Context, email string) error
+
+	// Pending API key operations
+
+	// CreatePendingAPIKey stores a pending API key with a secret token.
+	CreatePendingAPIKey(ctx context.Context, pending *api.PendingAPIKey) error
+
+	// GetPendingAPIKey retrieves a pending API key by its secret token.
+	// Returns nil if the token doesn't exist or has expired.
+	GetPendingAPIKey(ctx context.Context, secretToken string) (*api.PendingAPIKey, error)
+
+	// MarkAsViewed atomically marks a pending key as viewed with the IP address.
+	MarkAsViewed(ctx context.Context, secretToken string, ipAddress string) error
+
+	// DeletePendingAPIKey removes a pending API key from the database.
+	DeletePendingAPIKey(ctx context.Context, secretToken string) error
 }
 
 // ExecutionRepository defines the interface for execution-related database operations.

@@ -25,7 +25,14 @@ func (r *Router) handleCreateUser(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	resp, err := r.svc.CreateUser(req.Context(), createReq)
+	// Extract admin user from context
+	user, ok := req.Context().Value(userContextKey).(*api.User)
+	if !ok || user == nil {
+		writeErrorResponse(w, http.StatusUnauthorized, "Unauthorized", "user not found in context")
+		return
+	}
+
+	resp, err := r.svc.CreateUser(req.Context(), createReq, user.Email)
 	if err != nil {
 		statusCode := apperrors.GetStatusCode(err)
 		errorCode := apperrors.GetErrorCode(err)
@@ -224,4 +231,50 @@ func (r *Router) handleHealth(w http.ResponseWriter, _ *http.Request) {
 		Status:  "ok",
 		Version: *constants.GetVersion(),
 	})
+}
+
+// handleClaimAPIKey handles GET /claim/{token} to claim a pending API key
+func (r *Router) handleClaimAPIKey(w http.ResponseWriter, req *http.Request) {
+	logger := r.GetLoggerFromContext(req.Context())
+
+	// Extract token from URL path
+	secretToken := strings.TrimSpace(chi.URLParam(req, "token"))
+	if secretToken == "" {
+		writeErrorResponse(w, http.StatusBadRequest, "invalid token", "token is required")
+		return
+	}
+
+	// Get client IP address
+	ipAddress := getClientIP(req)
+
+	// Claim the API key
+	claimResp, err := r.svc.ClaimAPIKey(req.Context(), secretToken, ipAddress)
+	if err != nil {
+		statusCode := apperrors.GetStatusCode(err)
+		errorCode := apperrors.GetErrorCode(err)
+		errorMsg := apperrors.GetErrorMessage(err)
+
+		logger.Debug("failed to claim API key", "error", err, "statusCode", statusCode, "errorCode", errorCode)
+
+		writeErrorResponseWithCode(w, statusCode, errorCode, "failed to claim API key", errorMsg)
+		return
+	}
+
+	// Return JSON response
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(claimResp)
+}
+
+// getClientIP extracts the client IP address from request headers
+func getClientIP(req *http.Request) string {
+	// Check X-Forwarded-For header (used by proxies/load balancers)
+	xff := req.Header.Get("X-Forwarded-For")
+	if xff != "" {
+		// X-Forwarded-For can contain multiple IPs, take the first one
+		ips := strings.Split(xff, ",")
+		return strings.TrimSpace(ips[0])
+	}
+
+	// Fall back to RemoteAddr
+	return req.RemoteAddr
 }

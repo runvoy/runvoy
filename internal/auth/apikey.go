@@ -26,3 +26,13 @@ func HashAPIKey(apiKey string) string {
 	return base64.StdEncoding.EncodeToString(hash[:])
 }
 
+// GenerateSecretToken creates a cryptographically secure random secret token for claim URLs.
+// The token is base64-encoded and approximately 32 characters long.
+func GenerateSecretToken() (string, error) {
+	b := make([]byte, 24)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+
+	return base64.URLEncoding.WithPadding(base64.NoPadding).EncodeToString(b), nil
+}
