@@ -384,20 +384,34 @@ Resources:
           PolicyDocument:
             Version: '2012-10-17'
             Statement:
+              # Task definition permissions (scoped to runvoy-image-* family prefix)
               - Effect: Allow
                 Action:
-                  - 'ecs:RunTask'
-                  - 'ecs:DescribeTasks'
-                  - 'ecs:DescribeTaskDefinition'
                   - 'ecs:RegisterTaskDefinition'
+                # RegisterTaskDefinition cannot be scoped by resource ARN,
+                # but we control the family name via code (runvoy-image-*)
+                Resource: '*'
+              - Effect: Allow
+                Action:
                   - 'ecs:DeregisterTaskDefinition'
-                  - 'ecs:ListTaskDefinitions'
-                  - 'ecs:ListTasks'
+                  - 'ecs:DescribeTaskDefinition'
                   - 'ecs:ListTagsForResource'
                   - 'ecs:TagResource'
                   - 'ecs:UntagResource'
-                  - 'ecs:StopTask'
+                Resource: !Sub 'arn:aws:ecs:${AWS::Region}:${AWS::AccountId}:task-definition/runvoy-image-*'
+              - Effect: Allow
+                Action:
+                  - 'ecs:ListTaskDefinitions'
+                # ListTaskDefinitions cannot be scoped, but we filter by family prefix in code
                 Resource: '*'
+              # Task permissions (scoped to our cluster)
+              - Effect: Allow
+                Action:
+                  - 'ecs:RunTask'
+                  - 'ecs:StopTask'
+                  - 'ecs:DescribeTasks'
+                  - 'ecs:ListTasks'
+                Resource: !GetAtt ECSCluster.Arn
               - Effect: Allow
                 Action:
                   - 'iam:PassRole'
@@ -556,7 +570,8 @@ Resources:
               - Effect: Allow
                 Action:
                   - 'ecs:DescribeTasks'
-                Resource: '*'
+                # Event processor needs to describe tasks in our cluster to update execution status
+                Resource: !GetAtt ECSCluster.Arn
 
   # EventBridge Rule for ECS Task State Changes
   TaskCompletionEventRule:

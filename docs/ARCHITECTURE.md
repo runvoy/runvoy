@@ -1142,3 +1142,18 @@ Before destroying the CloudFormation stack, admins should:
 Task definitions with family prefix `runvoy-image-*` should be deregistered to avoid orphaned resources.
 
 **Future Enhancement:** Automated cleanup could be added via a CloudFormation custom resource or destroy-time script. See GitHub issue for tracking.
+
+## IAM Permissions Security
+
+The orchestrator Lambda has scoped IAM permissions for ECS resources:
+
+- **Task Definitions**: Permissions are scoped to `arn:aws:ecs:*:*:task-definition/runvoy-image-*`
+  - This restricts operations to only runvoy-managed task definitions
+  - `RegisterTaskDefinition` cannot be resource-scoped (AWS limitation), but we control family names via code
+  - `ListTaskDefinitions` cannot be resource-scoped (AWS limitation), but we filter results by family prefix
+
+- **Tasks**: Permissions are scoped to the runvoy cluster ARN
+  - All task operations (RunTask, StopTask, DescribeTasks, ListTasks) are limited to tasks in our cluster
+  - This prevents operations on tasks in other ECS clusters
+
+This ensures the Lambda can only manage runvoy resources and cannot affect other ECS resources in the account.
