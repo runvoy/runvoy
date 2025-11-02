@@ -350,7 +350,6 @@ func (e *Runner) ListImages(ctx context.Context) ([]api.ImageInfo, error) {
 	seenImages := make(map[string]bool)
 
 	for _, taskDefARN := range listOutput.TaskDefinitionArns {
-		// Describe the task definition to get container definitions
 		descOutput, err := e.ecsClient.DescribeTaskDefinition(ctx, &ecs.DescribeTaskDefinitionInput{
 			TaskDefinition: awsStd.String(taskDefARN),
 		})
@@ -379,7 +378,7 @@ func (e *Runner) ListImages(ctx context.Context) ([]api.ImageInfo, error) {
 				}
 			}
 		}
-		
+
 		if image == "" {
 			reqLogger.Debug("no runner container found in task definition", "family", familyName, "container_count", len(descOutput.TaskDefinition.ContainerDefinitions))
 		}
