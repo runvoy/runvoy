@@ -118,7 +118,7 @@ func LoadOrchestrator() (*Config, error) {
 	}
 
 	// Validate required fields (matches old caarlos0/env notEmpty tags)
-	if err := validateOrchestrator(&cfg); err != nil {
+	if err = validateOrchestrator(&cfg); err != nil {
 		return nil, err
 	}
 
