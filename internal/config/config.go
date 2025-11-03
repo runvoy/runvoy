@@ -181,7 +181,7 @@ func Save(config *Config) error {
 
 	configDir := constants.ConfigDirPath(currentUser.HomeDir)
 
-	if err := os.MkdirAll(configDir, constants.ConfigDirPermissions); err != nil {
+	if err = os.MkdirAll(configDir, constants.ConfigDirPermissions); err != nil {
 		return fmt.Errorf("error creating config directory: %w", err)
 	}
 
@@ -191,12 +191,12 @@ func Save(config *Config) error {
 	v.Set("api_endpoint", config.APIEndpoint)
 	v.Set("api_key", config.APIKey)
 
-	if err := v.WriteConfigAs(configFilePath); err != nil {
+	if err = v.WriteConfigAs(configFilePath); err != nil {
 		return fmt.Errorf("error writing config file: %w", err)
 	}
 
 	// Set proper permissions
-	if err := os.Chmod(configFilePath, constants.ConfigFilePermissions); err != nil {
+	if err = os.Chmod(configFilePath, constants.ConfigFilePermissions); err != nil {
 		return fmt.Errorf("error setting config file permissions: %w", err)
 	}
 
