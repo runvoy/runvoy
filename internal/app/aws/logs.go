@@ -51,7 +51,7 @@ func FetchLogsByExecutionID(ctx context.Context, cfg *Config, executionID string
 	lsOut, err := cwl.DescribeLogStreams(ctx, &cloudwatchlogs.DescribeLogStreamsInput{
 		LogGroupName:        aws.String(cfg.LogGroup),
 		LogStreamNamePrefix: aws.String(stream),
-		Limit:               aws.Int32(50),
+		Limit:               aws.Int32(constants.CloudWatchLogsDescribeLimit),
 	})
 	if err != nil {
 		return nil, appErrors.ErrInternalError("failed to describe log streams", err)
@@ -82,7 +82,7 @@ func FetchLogsByExecutionID(ctx context.Context, cfg *Config, executionID string
 			LogStreamName: &stream,
 			NextToken:     nextToken,
 			StartFromHead: aws.Bool(true),
-			Limit:         aws.Int32(10000),
+			Limit:         aws.Int32(constants.CloudWatchLogsEventsLimit),
 		})
 
 		if err != nil {

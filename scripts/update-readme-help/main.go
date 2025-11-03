@@ -9,7 +9,8 @@ import (
 	"os/exec"
 	"regexp"
 	"strings"
-	"time"
+
+	"runvoy/internal/constants"
 )
 
 const startMarker = "<!-- CLI_HELP_START -->"
@@ -17,7 +18,7 @@ const endMarker = "<!-- CLI_HELP_END -->"
 const readmePath = "README.md"
 
 func main() {
-	if len(os.Args) < 2 {
+	if len(os.Args) < constants.MinimumArgsUpdateReadmeHelp {
 		log.Fatalf("usage: %s <cli-binary-path>", os.Args[0])
 	}
 
@@ -41,7 +42,7 @@ func main() {
 }
 
 func captureHelpOutput(cliBinary string) (string, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), constants.LongScriptContextTimeout)
 	defer cancel()
 
 	cmd := exec.CommandContext(ctx, cliBinary, "--help")
@@ -92,7 +93,7 @@ func updateREADME(readmePath, helpSection string) error {
 	replacement := startMarker + "\n" + helpSection + "\n" + endMarker
 	newContent := pattern.ReplaceAllString(contentStr, replacement)
 
-	if err := os.WriteFile(readmePath, []byte(newContent), 0600); err != nil {
+	if err := os.WriteFile(readmePath, []byte(newContent), constants.ConfigFilePermissions); err != nil {
 		return fmt.Errorf("failed to write %s: %w", readmePath, err)
 	}
 

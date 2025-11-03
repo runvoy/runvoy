@@ -48,7 +48,7 @@ func logsRun(cmd *cobra.Command, args []string) {
 	for _, log := range resp.Events {
 		rows = append(rows, []string{
 			output.Bold(fmt.Sprintf("%d", log.Line)),
-			time.Unix(log.Timestamp/1000, 0).UTC().Format(time.DateTime),
+			time.Unix(log.Timestamp/constants.MillisecondsPerSecond, 0).UTC().Format(time.DateTime),
 			log.Message,
 		})
 	}

@@ -67,7 +67,7 @@ func runRun(cmd *cobra.Command, args []string) {
 	}
 	envs := make(map[string]string)
 	for _, env := range os.Environ() {
-		parts := strings.SplitN(env, "=", 2)
+		parts := strings.SplitN(env, "=", constants.EnvVarSplitLimit)
 		if len(parts) == 2 && strings.HasPrefix(parts[0], "RUNVOY_USER_") {
 			envs[strings.TrimPrefix(parts[0], "RUNVOY_USER_")] = parts[1]
 		}

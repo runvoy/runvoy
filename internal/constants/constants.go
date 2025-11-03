@@ -2,6 +2,8 @@
 // It includes version information, paths, and configuration keys.
 package constants
 
+import "time"
+
 var version = "0.0.0-development" // Updated by CI/CD pipeline at build time
 
 // GetVersion returns the current version of runvoy.
@@ -166,3 +168,124 @@ type StartTimeCtxKeyType string
 
 // StartTimeCtxKey is the key used to store the start time in context
 const StartTimeCtxKey StartTimeCtxKeyType = "startTime"
+
+// Time-related constants
+
+// ServerReadTimeout is the HTTP server read timeout
+const ServerReadTimeout = 15 * time.Second
+
+// ServerWriteTimeout is the HTTP server write timeout
+const ServerWriteTimeout = 15 * time.Second
+
+// ServerIdleTimeout is the HTTP server idle timeout
+const ServerIdleTimeout = 60 * time.Second
+
+// ServerShutdownTimeout is the timeout for graceful server shutdown
+const ServerShutdownTimeout = 5 * time.Second
+
+// DefaultContextTimeout is the default timeout for context operations
+const DefaultContextTimeout = 10 * time.Second
+
+// ScriptContextTimeout is the timeout for script context operations
+const ScriptContextTimeout = 10 * time.Second
+
+// LongScriptContextTimeout is the timeout for longer script context operations
+const LongScriptContextTimeout = 30 * time.Second
+
+// TestContextTimeout is the timeout for test contexts
+const TestContextTimeout = 5 * time.Second
+
+// SpinnerTickerInterval is the interval between spinner frame updates
+const SpinnerTickerInterval = 80 * time.Millisecond
+
+// HTTP status code constants
+
+// HTTPStatusBadRequest is the HTTP status code for bad requests (400)
+const HTTPStatusBadRequest = 400
+
+// HTTPStatusServerError is the HTTP status code for server errors (500)
+const HTTPStatusServerError = 500
+
+// File permission constants
+
+// ConfigDirPermissions is the file system permissions for config directory (0750)
+const ConfigDirPermissions = 0750
+
+// ConfigFilePermissions is the file system permissions for config file (0600)
+const ConfigFilePermissions = 0600
+
+// Byte size constants
+
+// APIKeyByteSize is the number of random bytes used to generate API keys
+const APIKeyByteSize = 24
+
+// SecretTokenByteSize is the number of random bytes used to generate secret tokens
+const SecretTokenByteSize = 24
+
+// RequestIDByteSize is the number of random bytes used to generate request IDs
+const RequestIDByteSize = 16
+
+// AWS/CloudWatch constants
+
+// CloudWatchLogsDescribeLimit is the limit for CloudWatch Logs DescribeLogStreams API
+const CloudWatchLogsDescribeLimit = int32(50)
+
+// CloudWatchLogsEventsLimit is the limit for CloudWatch Logs GetLogEvents API
+const CloudWatchLogsEventsLimit = int32(10000)
+
+// ECSTaskDefinitionMaxResults is the maximum number of results for ECS ListTaskDefinitions
+const ECSTaskDefinitionMaxResults = int32(100)
+
+// ECSEphemeralStorageSizeGiB is the ECS ephemeral storage size in GiB
+const ECSEphemeralStorageSizeGiB = 21
+
+// UI/Display constants
+
+// HeaderSeparatorLength is the length of the header separator line
+const HeaderSeparatorLength = 50
+
+// ProgressBarWidth is the default width for progress bars
+const ProgressBarWidth = 40
+
+// BoxBorderPadding is the padding used in box borders
+const BoxBorderPadding = 2
+
+// Conversion constants
+
+// MillisecondsPerSecond is the number of milliseconds in a second
+const MillisecondsPerSecond = 1000
+
+// PercentageMultiplier is the multiplier to convert fraction to percentage
+const PercentageMultiplier = 100
+
+// SecondsPerMinute is the number of seconds in a minute
+const SecondsPerMinute = 60
+
+// MinutesPerHour is the number of minutes in an hour
+const MinutesPerHour = 60
+
+// Slice/Array capacity constants
+
+// ExecutionsSliceInitialCapacity is the initial capacity for executions slices
+const ExecutionsSliceInitialCapacity = 64
+
+// String split constants
+
+// EnvVarSplitLimit is the limit for splitting environment variable strings (KEY=VALUE)
+const EnvVarSplitLimit = 2
+
+// Regex match count constants
+
+// RegexMatchCountEnvVar is the expected number of regex matches for environment variable parsing
+const RegexMatchCountEnvVar = 3
+
+// Argument validation constants
+
+// ExpectedArgsCreateConfigFile is the expected number of arguments for create-config-file script
+const ExpectedArgsCreateConfigFile = 2
+
+// ExpectedArgsSeedAdminUser is the expected number of arguments for seed-admin-user script
+const ExpectedArgsSeedAdminUser = 3
+
+// MinimumArgsUpdateReadmeHelp is the minimum number of arguments for update-readme-help script
+const MinimumArgsUpdateReadmeHelp = 2

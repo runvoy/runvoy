@@ -10,7 +10,8 @@ import (
 	"regexp"
 	"sort"
 	"strings"
-	"time"
+
+	"runvoy/internal/constants"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
@@ -28,7 +29,7 @@ var (
 )
 
 func main() {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), constants.ScriptContextTimeout)
 
 	awsCfg, err := awsconfig.LoadDefaultConfig(ctx)
 	cancel()
@@ -36,7 +37,7 @@ func main() {
 		log.Fatalf("error: failed to load AWS configuration: %v", err)
 	}
 
-	ctx2, cancel2 := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx2, cancel2 := context.WithTimeout(context.Background(), constants.ScriptContextTimeout)
 
 	lambdaClient := lambda.NewFromConfig(awsCfg)
 
@@ -66,7 +67,7 @@ func main() {
 	}
 
 	// Write merged content back to .env file
-	if err := os.WriteFile(envFile, []byte(envContent), 0600); err != nil {
+	if err := os.WriteFile(envFile, []byte(envContent), constants.ConfigFilePermissions); err != nil {
 		log.Fatalf("error: failed to write .env file: %v", err)
 	}
 
@@ -108,7 +109,7 @@ func mergeEnvFile(filePath string, lambdaVars map[string]string) (string, int, i
 	var result strings.Builder
 	for i, line := range lines {
 		matches := envLineRegex.FindStringSubmatch(line)
-		if len(matches) == 3 {
+		if len(matches) == constants.RegexMatchCountEnvVar {
 			key := matches[1]
 			if newValue, exists := lambdaVars[key]; exists {
 				formattedValue := formatEnvValue(newValue)

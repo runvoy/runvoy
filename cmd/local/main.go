@@ -9,7 +9,6 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 
 	"runvoy/internal/app"
 	"runvoy/internal/config"
@@ -34,9 +33,9 @@ func main() {
 	srv := &http.Server{
 		Addr:         fmt.Sprintf(":%s", cfg.Port),
 		Handler:      router.Handler(),
-		ReadTimeout:  15 * time.Second,
-		WriteTimeout: 15 * time.Second,
-		IdleTimeout:  60 * time.Second,
+		ReadTimeout:  constants.ServerReadTimeout,
+		WriteTimeout: constants.ServerWriteTimeout,
+		IdleTimeout:  constants.ServerIdleTimeout,
 	}
 
 	go func() {
@@ -63,7 +62,7 @@ func main() {
 
 	log.Info("shutting down server...")
 
-	ctx, cancel = context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel = context.WithTimeout(context.Background(), constants.ServerShutdownTimeout)
 
 	if err := srv.Shutdown(ctx); err != nil {
 		cancel()

@@ -5,12 +5,14 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
+
+	"runvoy/internal/constants"
 )
 
 // GenerateAPIKey creates a cryptographically secure random API key.
 // The key is base64-encoded and approximately 32 characters long.
 func GenerateAPIKey() (string, error) {
-	b := make([]byte, 24)
+	b := make([]byte, constants.APIKeyByteSize)
 	if _, err := rand.Read(b); err != nil {
 		return "", err
 	}
@@ -29,7 +31,7 @@ func HashAPIKey(apiKey string) string {
 // GenerateSecretToken creates a cryptographically secure random secret token for claim URLs.
 // The token is base64-encoded and approximately 32 characters long.
 func GenerateSecretToken() (string, error) {
-	b := make([]byte, 24)
+	b := make([]byte, constants.SecretTokenByteSize)
 	if _, err := rand.Read(b); err != nil {
 		return "", err
 	}
