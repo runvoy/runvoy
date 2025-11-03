@@ -71,12 +71,12 @@ func Load() (*Config, error) {
 	bindEnvVars(v)
 
 	var cfg Config
-	if err := v.Unmarshal(&cfg); err != nil {
+	if err = v.Unmarshal(&cfg); err != nil {
 		return nil, fmt.Errorf("error unmarshaling config: %w", err)
 	}
 
 	// Validate configuration
-	if err := validate.Struct(&cfg); err != nil {
+	if err = validate.Struct(&cfg); err != nil {
 		return nil, fmt.Errorf("config validation failed: %w", err)
 	}
 
