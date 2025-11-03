@@ -190,7 +190,7 @@ func (r *UserRepository) GetUserByAPIKeyHash(ctx context.Context, apiKeyHash str
 	}
 
 	var item userItem
-	if err := attributevalue.UnmarshalMap(result.Item, &item); err != nil {
+	if err = attributevalue.UnmarshalMap(result.Item, &item); err != nil {
 		return nil, err
 	}
 
