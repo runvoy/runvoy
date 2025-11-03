@@ -69,4 +69,15 @@
    - Injects it into the README between the marker comments
    - The pre-commit hook ensures this happens automatically before commits
 
+7. **Keep Git commit messages concise and descriptive**
+   - Use the present tense
+   - Keep it short and to the point
+   - Wrap the commit message at 72 characters
+   - Use the imperative mood
+   - Use the Git commit message format:
+     - feat: add new feature
+     - fix: fix bug
+     - chore: update documentation
+     - refactor: refactor code
+
 **Note:** The README section between `<!-- CLI_HELP_START -->` and `<!-- CLI_HELP_END -->` is automatically generated. DO NOT edit it manually - run `just update-readme-help` to regenerate it.
