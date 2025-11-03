@@ -4,6 +4,8 @@ import (
 	"log/slog"
 	"testing"
 
+	"runvoy/internal/constants"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -338,5 +340,50 @@ func TestGetConfigPath(t *testing.T) {
 			assert.Contains(t, path, ".runvoy")
 			assert.Contains(t, path, "config.yaml")
 		}
+	})
+}
+
+func TestConfig_GetWebviewerURL(t *testing.T) {
+	tests := []struct {
+		name          string
+		webviewerURL  string
+		expectedURL   string
+		description   string
+	}{
+		{
+			name:         "returns configured URL when set",
+			webviewerURL: "https://custom.example.com/webviewer.html",
+			expectedURL:  "https://custom.example.com/webviewer.html",
+			description:  "Should return the configured URL",
+		},
+		{
+			name:         "returns default URL when not set",
+			webviewerURL: "",
+			expectedURL:  constants.DefaultWebviewerURL,
+			description:  "Should return default URL when empty",
+		},
+		{
+			name:         "handles custom deployment URL",
+			webviewerURL: "https://my-company.s3.amazonaws.com/webviewer.html",
+			expectedURL:  "https://my-company.s3.amazonaws.com/webviewer.html",
+			description:  "Should support custom S3 deployments",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &Config{
+				WebviewerURL: tt.webviewerURL,
+			}
+			result := cfg.GetWebviewerURL()
+			assert.Equal(t, tt.expectedURL, result, tt.description)
+		})
+	}
+
+	t.Run("default URL is valid", func(t *testing.T) {
+		cfg := &Config{}
+		result := cfg.GetWebviewerURL()
+		assert.NotEmpty(t, result)
+		assert.Contains(t, result, "http", "Default URL should be a valid HTTP(S) URL")
 	})
 }

@@ -55,6 +55,7 @@ func logsRun(cmd *cobra.Command, args []string) {
 	output.Table([]string{"Line", "Timestamp (UTC)", "Message"}, rows)
 	output.Blank()
 	output.Successf("Logs retrieved successfully")
+	webviewerURL := cfg.GetWebviewerURL()
 	output.Infof("View logs in web viewer: %s?execution_id=%s",
-		constants.WebviewerURL, output.Cyan(executionID))
+		webviewerURL, output.Cyan(executionID))
 }

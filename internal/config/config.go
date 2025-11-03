@@ -21,8 +21,9 @@ import (
 // It supports loading from YAML files and environment variables.
 type Config struct {
 	// CLI Configuration
-	APIEndpoint string `mapstructure:"api_endpoint" yaml:"api_endpoint" validate:"omitempty,url"`
-	APIKey      string `mapstructure:"api_key" yaml:"api_key"`
+	APIEndpoint  string `mapstructure:"api_endpoint" yaml:"api_endpoint" validate:"omitempty,url"`
+	APIKey       string `mapstructure:"api_key" yaml:"api_key"`
+	WebviewerURL string `mapstructure:"webviewer_url" yaml:"webviewer_url" validate:"omitempty,url"`
 
 	// Orchestrator Service Configuration
 	Port                string        `mapstructure:"port" validate:"omitempty"`
@@ -194,6 +195,7 @@ func Save(config *Config) error {
 	v := viper.New()
 	v.Set("api_endpoint", config.APIEndpoint)
 	v.Set("api_key", config.APIKey)
+	v.Set("webviewer_url", config.WebviewerURL)
 
 	if err = v.WriteConfigAs(configFilePath); err != nil {
 		return fmt.Errorf("error writing config file: %w", err)
@@ -228,6 +230,15 @@ func (c *Config) GetLogLevel() slog.Level {
 	return level
 }
 
+// GetWebviewerURL returns the webviewer URL from configuration.
+// Returns the configured URL if set, otherwise returns the default URL.
+func (c *Config) GetWebviewerURL() string {
+	if c.WebviewerURL != "" {
+		return c.WebviewerURL
+	}
+	return constants.DefaultWebviewerURL
+}
+
 // Helper functions
 
 func setDefaults(v *viper.Viper) {
@@ -235,6 +246,7 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("request_timeout", 0)
 	v.SetDefault("init_timeout", "10s")
 	v.SetDefault("log_level", "INFO")
+	v.SetDefault("webviewer_url", constants.DefaultWebviewerURL)
 }
 
 func loadConfigFile(v *viper.Viper) error {
@@ -274,6 +286,7 @@ func bindEnvVars(v *viper.Viper) {
 		"TASK_DEFINITION",
 		"TASK_EXEC_ROLE_ARN",
 		"TASK_ROLE_ARN",
+		"WEBVIEWER_URL",
 	}
 
 	for _, envVar := range envVars {

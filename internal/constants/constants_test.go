@@ -163,8 +163,14 @@ func TestTerminalExecutionStatuses(t *testing.T) {
 }
 
 func TestWebviewerURL(t *testing.T) {
-	assert.NotEmpty(t, WebviewerURL)
-	assert.Contains(t, WebviewerURL, "http", "Webviewer URL should be an HTTP(S) URL")
+	t.Run("default URL is set", func(t *testing.T) {
+		assert.NotEmpty(t, DefaultWebviewerURL)
+		assert.Contains(t, DefaultWebviewerURL, "http", "Webviewer URL should be an HTTP(S) URL")
+	})
+
+	t.Run("WebviewerURL constant matches default (backward compatibility)", func(t *testing.T) {
+		assert.Equal(t, DefaultWebviewerURL, WebviewerURL, "WebviewerURL should equal DefaultWebviewerURL for backward compatibility")
+	})
 }
 
 func TestClaimURLExpirationMinutes(t *testing.T) {
