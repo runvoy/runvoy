@@ -410,19 +410,20 @@ func TestHandleRemoveImage_Success(t *testing.T) {
 	assert.Contains(t, resp.Body.String(), "Image removed successfully")
 }
 
-func TestHandleRemoveImage_InvalidJSON(t *testing.T) {
+func TestHandleRemoveImage_MissingImage(t *testing.T) {
 	_ = rlogger.Initialize(constants.Development, slog.LevelInfo)
 	svc := app.NewService(&testUserRepository{}, nil, &testRunner{}, slog.Default(), constants.AWS)
 	router := NewRouter(svc, 2*time.Second)
 
-	req := httptest.NewRequest(http.MethodDelete, "/api/v1/images/alpine:latest", bytes.NewReader([]byte("invalid json")))
+	// DELETE request without image path parameter
+	req := httptest.NewRequest(http.MethodDelete, "/api/v1/images/", nil)
 	req.Header.Set("X-API-Key", "test-api-key")
 
 	resp := httptest.NewRecorder()
 	router.ServeHTTP(resp, req)
 
 	assert.Equal(t, http.StatusBadRequest, resp.Code)
-	assert.Contains(t, resp.Body.String(), "invalid request body")
+	assert.Contains(t, resp.Body.String(), "image parameter is required")
 }
 
 func TestGetClientIP_XForwardedFor(t *testing.T) {

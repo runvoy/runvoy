@@ -369,6 +369,16 @@ func getClientIP(req *http.Request) string {
 		return strings.TrimSpace(ips[0])
 	}
 
-	// Fall back to RemoteAddr
-	return req.RemoteAddr
+	// Check X-Real-IP header (alternative proxy header)
+	xRealIP := req.Header.Get("X-Real-IP")
+	if xRealIP != "" {
+		return strings.TrimSpace(xRealIP)
+	}
+
+	// Fall back to RemoteAddr, stripping the port if present
+	ip := req.RemoteAddr
+	if colonIndex := strings.LastIndex(ip, ":"); colonIndex != -1 {
+		ip = ip[:colonIndex]
+	}
+	return ip
 }
