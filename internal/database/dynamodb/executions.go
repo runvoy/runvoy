@@ -164,7 +164,7 @@ func (r *ExecutionRepository) GetExecution(ctx context.Context, executionID stri
 	}
 
 	var item executionItem
-	if err := attributevalue.UnmarshalMap(result.Items[0], &item); err != nil {
+	if err = attributevalue.UnmarshalMap(result.Items[0], &item); err != nil {
 		return nil, apperrors.ErrDatabaseError("failed to unmarshal execution", err)
 	}
 
@@ -291,7 +291,7 @@ func (r *ExecutionRepository) ListExecutions(ctx context.Context) ([]*api.Execut
 
 		for _, it := range out.Items {
 			var item executionItem
-			if err := attributevalue.UnmarshalMap(it, &item); err != nil {
+			if err = attributevalue.UnmarshalMap(it, &item); err != nil {
 				return nil, apperrors.ErrDatabaseError("failed to unmarshal execution", err)
 			}
 			executions = append(executions, item.toAPIExecution())

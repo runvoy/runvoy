@@ -120,13 +120,13 @@ func (c *Client) DoJSON(ctx context.Context, req Request, result interface{}) er
 
 	if resp.StatusCode >= constants.HTTPStatusBadRequest {
 		var errorResp api.ErrorResponse
-		if err := json.Unmarshal(resp.Body, &errorResp); err != nil {
+		if err = json.Unmarshal(resp.Body, &errorResp); err != nil {
 			return fmt.Errorf("request failed with status %d: %s", resp.StatusCode, string(resp.Body))
 		}
 		return fmt.Errorf("[%d] %s: %s", resp.StatusCode, errorResp.Error, errorResp.Details)
 	}
 
-	if err := json.Unmarshal(resp.Body, result); err != nil {
+	if err = json.Unmarshal(resp.Body, result); err != nil {
 		c.logger.Debug("response body", "body", string(resp.Body))
 		return fmt.Errorf("failed to parse response: %w", err)
 	}

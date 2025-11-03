@@ -144,7 +144,7 @@ func (r *UserRepository) GetUserByEmail(ctx context.Context, email string) (*api
 	}
 
 	var item userItem
-	if err := attributevalue.UnmarshalMap(result.Items[0], &item); err != nil {
+	if err = attributevalue.UnmarshalMap(result.Items[0], &item); err != nil {
 		return nil, err
 	}
 
@@ -190,7 +190,7 @@ func (r *UserRepository) GetUserByAPIKeyHash(ctx context.Context, apiKeyHash str
 	}
 
 	var item userItem
-	if err := attributevalue.UnmarshalMap(result.Item, &item); err != nil {
+	if err = attributevalue.UnmarshalMap(result.Item, &item); err != nil {
 		return nil, err
 	}
 
@@ -468,7 +468,7 @@ func (r *UserRepository) GetPendingAPIKey(ctx context.Context, secretToken strin
 	}
 
 	var item pendingAPIKeyItem
-	if err := attributevalue.UnmarshalMap(result.Item, &item); err != nil {
+	if err = attributevalue.UnmarshalMap(result.Item, &item); err != nil {
 		return nil, apperrors.ErrInternalError("failed to unmarshal pending API key", err)
 	}
 
@@ -580,7 +580,7 @@ func (r *UserRepository) ListUsers(ctx context.Context) ([]*api.User, error) {
 	users := make([]*api.User, 0, len(result.Items))
 	for _, item := range result.Items {
 		var userItem userItem
-		if err := attributevalue.UnmarshalMap(item, &userItem); err != nil {
+		if err = attributevalue.UnmarshalMap(item, &userItem); err != nil {
 			reqLogger.Warn("failed to unmarshal user item", "error", err)
 			continue
 		}

@@ -441,7 +441,7 @@ func RegisterTaskDefinitionForImage(
 		})
 	}
 
-	if err := handleDefaultImageTagging(ctx, ecsClient, isDefault, existingTaskDefARN, logger); err != nil {
+	if err = handleDefaultImageTagging(ctx, ecsClient, isDefault, existingTaskDefARN, logger); err != nil {
 		return err
 	}
 
