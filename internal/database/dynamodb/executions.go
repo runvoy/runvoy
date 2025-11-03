@@ -164,7 +164,7 @@ func (r *ExecutionRepository) GetExecution(ctx context.Context, executionID stri
 	}
 
 	var item executionItem
-	if err := attributevalue.UnmarshalMap(result.Items[0], &item); err != nil {
+	if err = attributevalue.UnmarshalMap(result.Items[0], &item); err != nil {
 		return nil, apperrors.ErrDatabaseError("failed to unmarshal execution", err)
 	}
 
