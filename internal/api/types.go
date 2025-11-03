@@ -141,6 +141,11 @@ type RevokeUserResponse struct {
 	Email   string `json:"email"`
 }
 
+// ListUsersResponse represents the response containing all users
+type ListUsersResponse struct {
+	Users []*User `json:"users"`
+}
+
 // HealthResponse represents the response to a health check request
 type HealthResponse struct {
 	Status  string `json:"status"`

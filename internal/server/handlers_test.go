@@ -83,6 +83,23 @@ func (t *testUserRepository) DeletePendingAPIKey(ctx context.Context, secretToke
 	return nil
 }
 
+func (t *testUserRepository) ListUsers(ctx context.Context) ([]*api.User, error) {
+	return []*api.User{
+		{
+			Email:     "user1@example.com",
+			CreatedAt: time.Now().Add(-24 * time.Hour),
+			Revoked:   false,
+			LastUsed:  time.Now().Add(-1 * time.Hour),
+		},
+		{
+			Email:     "user2@example.com",
+			CreatedAt: time.Now().Add(-48 * time.Hour),
+			Revoked:   true,
+			LastUsed:  time.Time{},
+		},
+	}, nil
+}
+
 type testExecutionRepository struct {
 	listExecutionsFunc func() ([]*api.Execution, error)
 }
@@ -463,4 +480,75 @@ func TestGetClientIP_XForwardedForPrecedence(t *testing.T) {
 
 	// X-Forwarded-For should take precedence
 	assert.Equal(t, "192.168.1.1", ip)
+}
+
+func TestHandleListUsers_Success(t *testing.T) {
+	_ = rlogger.Initialize(constants.Development, slog.LevelInfo)
+
+	userRepo := &testUserRepository{}
+	svc := app.NewService(userRepo, nil, &testRunner{}, slog.Default(), constants.AWS)
+	router := NewRouter(svc, 2*time.Second)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/users/", nil)
+	req.Header.Set("X-API-Key", "test-api-key")
+
+	resp := httptest.NewRecorder()
+	router.ServeHTTP(resp, req)
+
+	assert.Equal(t, http.StatusOK, resp.Code)
+
+	var listResp api.ListUsersResponse
+	err := json.NewDecoder(resp.Body).Decode(&listResp)
+	assert.NoError(t, err)
+	assert.Len(t, listResp.Users, 2)
+	assert.Equal(t, "user1@example.com", listResp.Users[0].Email)
+	assert.Equal(t, false, listResp.Users[0].Revoked)
+	assert.Equal(t, "user2@example.com", listResp.Users[1].Email)
+	assert.Equal(t, true, listResp.Users[1].Revoked)
+}
+
+func TestHandleListUsers_Unauthorized(t *testing.T) {
+	_ = rlogger.Initialize(constants.Development, slog.LevelInfo)
+
+	userRepo := &testUserRepository{
+		authenticateUserFunc: func(apiKeyHash string) (*api.User, error) {
+			return nil, apperrors.ErrInvalidAPIKey(nil)
+		},
+	}
+	svc := app.NewService(userRepo, nil, &testRunner{}, slog.Default(), constants.AWS)
+	router := NewRouter(svc, 2*time.Second)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/users/", nil)
+	req.Header.Set("X-API-Key", "invalid-api-key")
+
+	resp := httptest.NewRecorder()
+	router.ServeHTTP(resp, req)
+
+	assert.Equal(t, http.StatusUnauthorized, resp.Code)
+
+	var errResp api.ErrorResponse
+	err := json.NewDecoder(resp.Body).Decode(&errResp)
+	assert.NoError(t, err)
+	assert.Equal(t, "Unauthorized", errResp.Error)
+}
+
+func TestHandleListUsers_RepositoryError(t *testing.T) {
+	_ = rlogger.Initialize(constants.Development, slog.LevelInfo)
+
+	userRepo := &testUserRepository{
+		authenticateUserFunc: func(apiKeyHash string) (*api.User, error) {
+			return nil, apperrors.ErrDatabaseError("database error", errors.New("connection failed"))
+		},
+	}
+	svc := app.NewService(userRepo, nil, &testRunner{}, slog.Default(), constants.AWS)
+	router := NewRouter(svc, 2*time.Second)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/users/", nil)
+	req.Header.Set("X-API-Key", "test-api-key")
+
+	resp := httptest.NewRecorder()
+	router.ServeHTTP(resp, req)
+
+	// Expect an error because authentication fails with database error (503 Service Unavailable)
+	assert.Equal(t, http.StatusServiceUnavailable, resp.Code)
 }

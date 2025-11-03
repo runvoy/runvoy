@@ -573,3 +573,42 @@ func (r *UserRepository) DeletePendingAPIKey(ctx context.Context, secretToken st
 
 	return nil
 }
+
+// ListUsers returns all users in the system (excluding API key hashes for security).
+func (r *UserRepository) ListUsers(ctx context.Context) ([]*api.User, error) {
+	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
+
+	// Log before calling DynamoDB Scan
+	logArgs := []any{
+		"operation", "DynamoDB.Scan",
+		"table", r.tableName,
+	}
+	logArgs = append(logArgs, logger.GetDeadlineInfo(ctx)...)
+	reqLogger.Debug("calling external service", "context", logger.SliceToMap(logArgs))
+
+	result, err := r.client.Scan(ctx, &dynamodb.ScanInput{
+		TableName: aws.String(r.tableName),
+	})
+	if err != nil {
+		return nil, apperrors.ErrDatabaseError("failed to list users", err)
+	}
+
+	users := make([]*api.User, 0, len(result.Items))
+	for _, item := range result.Items {
+		var userItem userItem
+		if err := attributevalue.UnmarshalMap(item, &userItem); err != nil {
+			reqLogger.Warn("failed to unmarshal user item", "error", err)
+			continue
+		}
+
+		users = append(users, &api.User{
+			Email:     userItem.UserEmail,
+			CreatedAt: userItem.CreatedAt,
+			Revoked:   userItem.Revoked,
+			LastUsed:  userItem.LastUsed,
+			// Note: APIKey and APIKeyHash are intentionally omitted for security
+		})
+	}
+
+	return users, nil
+}

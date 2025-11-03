@@ -51,6 +51,7 @@ func NewRouter(svc *app.Service, requestTimeout time.Duration) *Router {
 
 		// authenticated routes
 		r.With(router.authenticateRequestMiddleware).Route("/users", func(r chi.Router) {
+			r.Get("/", router.handleListUsers)
 			r.Post("/create", router.handleCreateUser)
 			r.Post("/revoke", router.handleRevokeUser)
 		})

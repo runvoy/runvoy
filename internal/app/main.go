@@ -260,6 +260,23 @@ func (s *Service) RevokeUser(ctx context.Context, email string) error {
 	return nil
 }
 
+// ListUsers returns all users in the system (excluding API key hashes for security).
+// Returns an error if the user repository is not configured or if the query fails.
+func (s *Service) ListUsers(ctx context.Context) (*api.ListUsersResponse, error) {
+	if s.userRepo == nil {
+		return nil, apperrors.ErrInternalError("user repository not configured", nil)
+	}
+
+	users, err := s.userRepo.ListUsers(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return &api.ListUsersResponse{
+		Users: users,
+	}, nil
+}
+
 // RunCommand starts a provider-specific task and records the execution.
 func (s *Service) RunCommand(
 	ctx context.Context,
