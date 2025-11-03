@@ -120,7 +120,7 @@ dev-setup:
     go install golang.org/x/tools/cmd/goimports@latest
 
 # Run CI pipeline, to be executed by GitHub Actions
-ci: dev-setup lint test
+ci-test: dev-setup test
 
 # Lint all Go code
 lint:
