@@ -63,22 +63,19 @@ func FetchLogsByExecutionID(ctx context.Context, cfg *Config, executionID string
 		return nil, appErrors.ErrNotFound(fmt.Sprintf("log stream '%s' does not exist yet", stream), nil)
 	}
 
+	reqLogger.Debug("calling external service", "context", map[string]string{
+		"operation":   "CloudWatchLogs.GetLogEvents",
+		"logGroup":    cfg.LogGroup,
+		"logStream":   stream,
+		"executionID": executionID,
+		"paginated":   "true",
+	})
+
 	var events []api.LogEvent
 	var nextToken *string
 	pageCount := 0
 	for {
 		pageCount++
-
-		getLogArgs := []any{
-			"operation", "CloudWatchLogs.GetLogEvents",
-			"logGroup", cfg.LogGroup,
-			"logStream", stream,
-			"executionID", executionID,
-			"pageNumber", pageCount,
-			"hasNextToken", nextToken != nil,
-		}
-		getLogArgs = append(getLogArgs, logger.GetDeadlineInfo(ctx)...)
-		reqLogger.Debug("calling external service", "context", logger.SliceToMap(getLogArgs))
 
 		out, err := cwl.GetLogEvents(ctx, &cloudwatchlogs.GetLogEventsInput{
 			LogGroupName:  &cfg.LogGroup,
