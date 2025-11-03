@@ -30,10 +30,10 @@ func Initialize(
 	provider constants.BackendProvider,
 	cfg *config.Config,
 	logger *slog.Logger) (*Service, error) {
-	logger.Debug("initializing "+constants.ProjectName,
+	logger.Debug(fmt.Sprintf("initializing %s service", constants.ProjectName),
 		"provider", provider,
 		"version", *constants.GetVersion(),
-		"init_timeout_seconds", int(cfg.InitTimeout.Seconds()),
+		"init_timeout", cfg.InitTimeout,
 	)
 
 	var (
@@ -53,7 +53,7 @@ func Initialize(
 		return nil, fmt.Errorf("unknown backend provider: %s (supported: %s)", provider, constants.AWS)
 	}
 
-	logger.Debug(constants.ProjectName+" orchestrator initialized successfully", "provider", provider)
+	logger.Debug(constants.ProjectName + " orchestrator initialized successfully")
 
 	return NewService(userRepo, executionRepo, runner, logger, provider), nil
 }
@@ -87,7 +87,11 @@ func initializeAWSBackend(
 	dynamoClient := dynamodb.NewFromConfig(awsCfg)
 	ecsClientInstance := ecs.NewFromConfig(awsCfg)
 
-	logger.Debug("using DynamoDB backend", "apiKeysTable", cfg.APIKeysTable, "executionsTable", cfg.ExecutionsTable, "pendingAPIKeysTable", cfg.PendingAPIKeysTable)
+	logger.Debug("DynamoDB backend configured", "context", map[string]string{
+		"apiKeysTable":        cfg.APIKeysTable,
+		"executionsTable":     cfg.ExecutionsTable,
+		"pendingAPIKeysTable": cfg.PendingAPIKeysTable,
+	})
 
 	userRepo := dynamorepo.NewUserRepository(dynamoClient, cfg.APIKeysTable, cfg.PendingAPIKeysTable, logger)
 	executionRepo := dynamorepo.NewExecutionRepository(dynamoClient, cfg.ExecutionsTable, logger)

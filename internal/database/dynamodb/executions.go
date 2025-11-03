@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"runvoy/internal/api"
-	"runvoy/internal/constants"
 	apperrors "runvoy/internal/errors"
 	"runvoy/internal/logger"
 
@@ -100,16 +99,13 @@ func (r *ExecutionRepository) CreateExecution(ctx context.Context, execution *ap
 		return apperrors.ErrDatabaseError("failed to marshal execution", err)
 	}
 
-	// Log before calling DynamoDB PutItem
-	logArgs := []any{
-		"operation", "DynamoDB.PutItem",
-		"table", r.tableName,
-		"executionID", execution.ExecutionID,
-		"userEmail", execution.UserEmail,
-		"status", execution.Status,
-	}
-	logArgs = append(logArgs, logger.GetDeadlineInfo(ctx)...)
-	reqLogger.Debug("calling external service", "context", logger.SliceToMap(logArgs))
+	reqLogger.Debug("calling external service", "context", map[string]string{
+		"operation":   "DynamoDB.PutItem",
+		"table":       r.tableName,
+		"executionID": execution.ExecutionID,
+		"userEmail":   execution.UserEmail,
+		"status":      execution.Status,
+	})
 
 	// Ensure uniqueness: only create if this PK does not already exist
 	_, err = r.client.PutItem(ctx, &dynamodb.PutItemInput{
@@ -256,40 +252,29 @@ func (r *ExecutionRepository) UpdateExecution(ctx context.Context, execution *ap
 	return nil
 }
 
-// ListExecutions queries the executions table's status-started_at GSI to return all execution records.
+// ListExecutions scans the executions table to return all execution records.
 // Results are sorted by StartedAt descending in-memory to provide a reasonable default ordering.
 func (r *ExecutionRepository) ListExecutions(ctx context.Context) ([]*api.Execution, error) {
 	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
-
-	statuses := append([]constants.ExecutionStatus{constants.ExecutionRunning},
-		constants.TerminalExecutionStatuses()...)
 	executions := make([]*api.Execution, 0, 64)
+	var lastKey map[string]types.AttributeValue
+	pageCount := 0
 
-	for _, st := range statuses {
-		// Log before calling DynamoDB Query for each status
-		queryLogArgs := []any{
-			"operation", "DynamoDB.Query",
-			"table", r.tableName,
-			"index", "status-started_at",
-			"status", string(st),
-		}
-		queryLogArgs = append(queryLogArgs, logger.GetDeadlineInfo(ctx)...)
-		reqLogger.Debug("calling external service", "context", logger.SliceToMap(queryLogArgs))
+	reqLogger.Debug("calling external service", "context", map[string]string{
+		"operation": "DynamoDB.Scan",
+		"table":     r.tableName,
+		"paginated": "true",
+	})
 
-		out, err := r.client.Query(ctx, &dynamodb.QueryInput{
-			TableName:              aws.String(r.tableName),
-			IndexName:              aws.String("status-started_at"),
-			KeyConditionExpression: aws.String("#status = :status"),
-			ExpressionAttributeNames: map[string]string{
-				"#status": "status",
-			},
-			ExpressionAttributeValues: map[string]types.AttributeValue{
-				":status": &types.AttributeValueMemberS{Value: string(st)},
-			},
-			ScanIndexForward: aws.Bool(false), // newest first per status
+	for {
+		pageCount++
+
+		out, err := r.client.Scan(ctx, &dynamodb.ScanInput{
+			TableName:         aws.String(r.tableName),
+			ExclusiveStartKey: lastKey,
 		})
 		if err != nil {
-			return nil, apperrors.ErrDatabaseError("failed to query executions by status", err)
+			return nil, apperrors.ErrDatabaseError("failed to scan executions", err)
 		}
 
 		for _, it := range out.Items {
@@ -299,8 +284,14 @@ func (r *ExecutionRepository) ListExecutions(ctx context.Context) ([]*api.Execut
 			}
 			executions = append(executions, item.toAPIExecution())
 		}
+
+		if len(out.LastEvaluatedKey) == 0 {
+			break
+		}
+		lastKey = out.LastEvaluatedKey
 	}
 
+	// Sort by StartedAt descending (newest first)
 	slices.SortFunc(executions, func(a, b *api.Execution) int {
 		if a.StartedAt.Equal(b.StartedAt) {
 			return 0

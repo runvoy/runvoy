@@ -137,9 +137,7 @@ func (r *Router) authenticateRequestMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
-		logger.Info("user authenticated successfully", "authentication", map[string]string{
-			"email": user.Email,
-		})
+		logger.Info("user authenticated successfully", "email", user.Email)
 
 		// Update last_used timestamp asynchronously, but wait for completion
 		// before returning to ensure it completes in Lambda environments.

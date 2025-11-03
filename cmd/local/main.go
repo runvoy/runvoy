@@ -45,6 +45,7 @@ func main() {
 			"port", cfg.Port,
 			"version", *constants.GetVersion(),
 			"log_level", cfg.LogLevel,
+			"request_timeout", cfg.RequestTimeout,
 		)
 		log.Debug("health check available",
 			"url", fmt.Sprintf("http://localhost:%s/api/v1/health", cfg.Port),
