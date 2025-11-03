@@ -1,19 +1,15 @@
-name: Run tests
+name: tests
 
 on:
-  workflow_dispatch:
-  push:
-    branches:
-      - main
+  pull_request:
 
 permissions:
   contents: read
 
 jobs:
-  test:
-    name: Test
+  tests:
+    name: tests
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
