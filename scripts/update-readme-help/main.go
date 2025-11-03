@@ -71,7 +71,7 @@ func generateHelpSection(helpOutput string) string {
 }
 
 func updateREADME(readmePath, helpSection string) error {
-	content, err := os.ReadFile(readmePath)
+	content, err := os.ReadFile(readmePath) //nolint:gosec // G304: README.md path is a constant
 	if err != nil {
 		return fmt.Errorf("failed to read %s: %w", readmePath, err)
 	}
@@ -92,7 +92,7 @@ func updateREADME(readmePath, helpSection string) error {
 	replacement := startMarker + "\n" + helpSection + "\n" + endMarker
 	newContent := pattern.ReplaceAllString(contentStr, replacement)
 
-	if err := os.WriteFile(readmePath, []byte(newContent), 0644); err != nil {
+	if err := os.WriteFile(readmePath, []byte(newContent), 0600); err != nil {
 		return fmt.Errorf("failed to write %s: %w", readmePath, err)
 	}
 

@@ -185,7 +185,7 @@ func Save(config *Config) error {
 
 	configDir := constants.ConfigDirPath(currentUser.HomeDir)
 
-	if err := os.MkdirAll(configDir, 0755); err != nil {
+	if err := os.MkdirAll(configDir, 0750); err != nil {
 		return fmt.Errorf("error creating config directory: %w", err)
 	}
 

@@ -22,11 +22,10 @@ func main() {
 	cfg := config.MustLoadOrchestrator()
 	log := logger.Initialize(constants.Development, cfg.GetLogLevel())
 	ctx, cancel := context.WithTimeout(context.Background(), cfg.InitTimeout)
-	defer cancel()
 
 	svc, err := app.Initialize(ctx, constants.AWS, cfg, log)
+	cancel()
 	if err != nil {
-		cancel()
 		log.Error("failed to initialize service", "error", err)
 		os.Exit(1)
 	}
@@ -65,13 +64,13 @@ func main() {
 	log.Info("shutting down server...")
 
 	ctx, cancel = context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
 
 	if err := srv.Shutdown(ctx); err != nil {
 		cancel()
 		log.Error("server shutdown error", "error", err)
 		os.Exit(1)
 	}
+	cancel()
 
 	log.Info("server shutdown complete")
 }

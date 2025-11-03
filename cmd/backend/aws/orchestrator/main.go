@@ -19,11 +19,10 @@ func main() {
 	cfg := config.MustLoadOrchestrator()
 	log := logger.Initialize(constants.Production, cfg.GetLogLevel())
 	ctx, cancel := context.WithTimeout(context.Background(), cfg.InitTimeout)
-	defer cancel()
 
 	svc, err := app.Initialize(ctx, constants.AWS, cfg, log)
+	cancel()
 	if err != nil {
-		cancel()
 		log.Error("failed to initialize service", "error", err)
 		os.Exit(1)
 	}

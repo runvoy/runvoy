@@ -410,11 +410,8 @@ func (e *Runner) ListImages(ctx context.Context) ([]api.ImageInfo, error) {
 		if err == nil && tagsOutput != nil {
 			for _, tag := range tagsOutput.Tags {
 				if tag.Key != nil && tag.Value != nil {
-					switch *tag.Key {
-					case constants.TaskDefinitionIsDefaultTagKey:
-						if *tag.Value == "true" {
-							isDefault = true
-						}
+					if *tag.Key == constants.TaskDefinitionIsDefaultTagKey && *tag.Value == constants.TaskDefinitionIsDefaultTagValue {
+						isDefault = true
 					}
 				}
 			}

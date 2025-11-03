@@ -97,7 +97,7 @@ func TestConstants(t *testing.T) {
 		assert.Equal(t, "runvoy", ProjectName)
 		assert.Equal(t, ".runvoy", ConfigDirName)
 		assert.Equal(t, "config.yaml", ConfigFileName)
-		assert.Equal(t, "X-API-Key", ApiKeyHeader)
+		assert.Equal(t, "X-API-Key", APIKeyHeader)
 		assert.Equal(t, "Content-Type", ContentTypeHeader)
 	})
 }
