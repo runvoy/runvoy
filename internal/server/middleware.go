@@ -25,12 +25,10 @@ const (
 func generateRequestID() string {
 	b := make([]byte, 16)
 	if _, err := rand.Read(b); err != nil {
-		// Fallback to a timestamp-based ID if crypto/rand fails
 		return hex.EncodeToString([]byte(time.Now().String()))
 	}
-	// Set version (4) and variant bits according to UUID v4 spec
-	b[6] = (b[6] & 0x0f) | 0x40 // Version 4
-	b[8] = (b[8] & 0x3f) | 0x80 // Variant 10
+	b[6] = (b[6] & 0x0f) | 0x40
+	b[8] = (b[8] & 0x3f) | 0x80
 	
 	return hex.EncodeToString(b[0:4]) + "-" +
 		hex.EncodeToString(b[4:6]) + "-" +
@@ -39,29 +37,23 @@ func generateRequestID() string {
 		hex.EncodeToString(b[10:16])
 }
 
-// requestIDMiddleware extracts the request ID from the context (if present) or generates a random one
-// This middleware should be added early in the middleware chain to ensure request ID is available for logging
-// Priority: 1) Existing request ID in context, 2) Lambda request ID, 3) Generated random UUID
-// Sets up a request-scoped logger in context that includes the request ID
+// requestIDMiddleware extracts the request ID from the context (if present) or generates a random one.
+// Priority: 1) Existing request ID in context, 2) Lambda request ID, 3) Generated random UUID.
 func (r *Router) requestIDMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		// First, check if request ID is already in the context
 		requestID := loggerPkg.GetRequestID(req.Context())
 		
-		// If not found, check Lambda context
 		if requestID == "" {
 			if lc, ok := lambdacontext.FromContext(req.Context()); ok && lc.AwsRequestID != "" {
 				requestID = lc.AwsRequestID
 			}
 		}
 		
-		// If still not found, generate a random UUID
 		if requestID == "" {
 			requestID = generateRequestID()
 		}
 
 		ctx := context.WithValue(req.Context(), loggerPkg.RequestIDContextKey(), requestID)
-
 		log := r.svc.Logger.With(string(loggerPkg.RequestIDContextKey()), requestID)
 		ctx = context.WithValue(ctx, loggerContextKey, log)
 
