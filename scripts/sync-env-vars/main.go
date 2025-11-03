@@ -31,7 +31,7 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 
 	awsCfg, err := awsconfig.LoadDefaultConfig(ctx)
-	cancel() // Cancel after AWS config loads
+	cancel()
 	if err != nil {
 		log.Fatalf("error: failed to load AWS configuration: %v", err)
 	}
