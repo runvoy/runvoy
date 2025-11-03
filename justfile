@@ -1,5 +1,5 @@
 # Settings
-set dotenv-required
+set dotenv-load
 
 # Variables
 bucket := env('RUNVOY_RELEASES_BUCKET', 'runvoy-releases')
@@ -118,7 +118,9 @@ dev-setup:
     go mod tidy
     go mod download
     go install golang.org/x/tools/cmd/goimports@latest
-    pip install pre-commit # TODO: add to requirements.txt?
+
+# Run CI pipeline, to be executed by GitHub Actions
+ci: dev-setup lint test
 
 # Lint all Go code
 lint:

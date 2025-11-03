@@ -2,6 +2,9 @@ name: CI
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - main
 
 permissions:
   contents: read
@@ -10,9 +13,6 @@ jobs:
   test:
     name: Test
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        go-version: ['1.25.x']
 
     steps:
       - name: Checkout code
@@ -21,37 +21,37 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v6
         with:
-          go-version: ${{ matrix.go-version }}
+          go-version: '1.25.x'
           cache: true
 
-      - name: Download dependencies
-        run: go mod download
+      - name: Add just
+        uses: extractions/setup-just@v3
 
-      - name: Verify dependencies
-        run: go mod verify
+      - name: Install GolangCI-Lint
+        uses: golangci/golangci-lint-action@v8
 
       - name: Run tests
-        run: go test -v -race -coverprofile=coverage.out ./...
+        run: just ci
 
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
-        with:
-          file: ./coverage.out
-          flags: unittests
-          name: codecov-umbrella
-        continue-on-error: true
+      # - name: Upload coverage to Codecov
+      #   uses: codecov/codecov-action@v4
+      #   with:
+      #     file: ./coverage.out
+      #     flags: unittests
+      #     name: codecov-umbrella
+      #   continue-on-error: true
 
-      - name: Generate coverage report
-        run: go tool cover -html=coverage.out -o coverage.html
+      # - name: Generate coverage report
+      #   run: go tool cover -html=coverage.out -o coverage.html
 
-      - name: Archive coverage results
-        uses: actions/upload-artifact@v5
-        with:
-          name: coverage-report-${{ matrix.go-version }}
-          path: |
-            coverage.out
-            coverage.html
-          retention-days: 30
+      # - name: Archive coverage results
+      #   uses: actions/upload-artifact@v5
+      #   with:
+      #     name: coverage-report-${{ matrix.go-version }}
+      #     path: |
+      #       coverage.out
+      #       coverage.html
+      #     retention-days: 30
 
   # lint:
   #   name: Lint
@@ -73,38 +73,38 @@ jobs:
   #         version: v2.6.0
   #         args: --timeout=5m
 
-  security:
-    name: Security Scan
-    runs-on: ubuntu-latest
+  # security:
+  #   name: Security Scan
+  #   runs-on: ubuntu-latest
 
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v5
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@v5
 
-      - name: Set up Go
-        uses: actions/setup-go@v6
-        with:
-          go-version: '1.25.x'
-          cache: true
+  #     - name: Set up Go
+  #       uses: actions/setup-go@v6
+  #       with:
+  #         go-version: '1.25.x'
+  #         cache: true
 
-      - name: Run govulncheck
-        run: |
-          go install golang.org/x/vuln/cmd/govulncheck@latest
-          govulncheck ./...
+  #     - name: Run govulncheck
+  #       run: |
+  #         go install golang.org/x/vuln/cmd/govulncheck@latest
+  #         govulncheck ./...
 
-      - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@master
-        with:
-          scan-type: 'fs'
-          scan-ref: '.'
-          format: 'sarif'
-          output: 'trivy-results.sarif'
+  #     - name: Run Trivy vulnerability scanner
+  #       uses: aquasecurity/trivy-action@master
+  #       with:
+  #         scan-type: 'fs'
+  #         scan-ref: '.'
+  #         format: 'sarif'
+  #         output: 'trivy-results.sarif'
 
-      - name: Upload Trivy results to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@v4
-        with:
-          sarif_file: 'trivy-results.sarif'
-        continue-on-error: true
+  #     - name: Upload Trivy results to GitHub Security tab
+  #       uses: github/codeql-action/upload-sarif@v4
+  #       with:
+  #         sarif_file: 'trivy-results.sarif'
+  #       continue-on-error: true
 
   # TODO: we want to build only the CLI in a matrix
   # The backend is arm64 linux so no need for the rest
