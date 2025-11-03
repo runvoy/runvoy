@@ -183,9 +183,14 @@ func TestGetRequestID(t *testing.T) {
 	}
 }
 
-func TestRequestIDContextKey(t *testing.T) {
-	key := RequestIDContextKey()
-	assert.Equal(t, requestIDContextKey, key)
+func TestWithRequestID(t *testing.T) {
+	ctx := context.Background()
+	requestID := "test-request-123"
+
+	ctx = WithRequestID(ctx, requestID)
+	retrieved := GetRequestID(ctx)
+
+	assert.Equal(t, requestID, retrieved)
 }
 
 func TestDeriveRequestLogger(t *testing.T) {

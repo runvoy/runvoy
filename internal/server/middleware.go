@@ -46,8 +46,8 @@ func (r *Router) requestIDMiddleware(next http.Handler) http.Handler {
 			requestID = generateRequestID()
 		}
 
-		ctx := context.WithValue(req.Context(), loggerPkg.RequestIDContextKey(), requestID)
-		log := r.svc.Logger.With(string(loggerPkg.RequestIDContextKey()), requestID)
+		ctx := loggerPkg.WithRequestID(req.Context(), requestID)
+		log := r.svc.Logger.With("requestID", requestID)
 		ctx = context.WithValue(ctx, loggerContextKey, log)
 
 		next.ServeHTTP(w, req.WithContext(ctx))
@@ -163,7 +163,7 @@ func (r *Router) authenticateRequestMiddleware(next http.Handler) http.Handler {
 			defer wg.Done()
 			ctx, cancel := context.WithTimeout(context.Background(), lastUsedUpdateTimeout)
 			defer cancel()
-			ctx = context.WithValue(ctx, loggerPkg.RequestIDContextKey(), reqID)
+			ctx = loggerPkg.WithRequestID(ctx, reqID)
 
 			logger.Debug("updating user's last_used timestamp (async)", "user", map[string]any{
 				"email":              email,
