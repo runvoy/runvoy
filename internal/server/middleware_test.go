@@ -86,7 +86,7 @@ func TestRequestIDMiddleware(t *testing.T) {
 		rr := httptest.NewRecorder()
 
 		// Add existing request ID to context
-		ctx := context.WithValue(req.Context(), logger.RequestIDContextKey(), "existing-request-id-456")
+		ctx := logger.WithRequestID(req.Context(), "existing-request-id-456")
 		req = req.WithContext(ctx)
 
 		svc := app.NewService(nil, nil, nil, slog.Default(), constants.AWS)
@@ -113,7 +113,7 @@ func TestRequestIDMiddleware(t *testing.T) {
 		rr := httptest.NewRecorder()
 
 		// Add both existing request ID and Lambda context
-		ctx := context.WithValue(req.Context(), logger.RequestIDContextKey(), "context-priority-id")
+		ctx := logger.WithRequestID(req.Context(), "context-priority-id")
 		lc := &lambdacontext.LambdaContext{
 			AwsRequestID: "lambda-request-id-should-be-ignored",
 		}
@@ -144,7 +144,7 @@ func TestGetRequestID(t *testing.T) {
 		},
 		{
 			name:     "context with request ID",
-			ctx:      context.WithValue(context.Background(), logger.RequestIDContextKey(), "test-id"),
+			ctx:      logger.WithRequestID(context.Background(), "test-id"),
 			expected: "test-id",
 		},
 	}

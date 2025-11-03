@@ -16,6 +16,12 @@ const (
 	requestIDContextKey contextKey = "requestID"
 )
 
+// WithRequestID returns a new context with the given request ID attached.
+// This should be used by server middleware to add request IDs to the context.
+func WithRequestID(ctx context.Context, requestID string) context.Context {
+	return context.WithValue(ctx, requestIDContextKey, requestID)
+}
+
 // GetRequestID extracts the request ID from the context.
 // The request ID is set by server middleware when available.
 func GetRequestID(ctx context.Context) string {
@@ -24,12 +30,6 @@ func GetRequestID(ctx context.Context) string {
 	}
 
 	return ""
-}
-
-// RequestIDContextKey returns the context key used for storing request IDs.
-// This allows other packages (like server) to set request IDs in context.
-func RequestIDContextKey() contextKey {
-	return requestIDContextKey
 }
 
 // DeriveRequestLogger returns a logger enriched with request-scoped fields
