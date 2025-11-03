@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -11,7 +10,7 @@ import (
 	"runvoy/internal/api"
 	"runvoy/internal/app"
 	"runvoy/internal/constants"
-	rlogger "runvoy/internal/logger"
+	"runvoy/internal/testutil"
 )
 
 // mockRunner implements the app.Runner interface for testing
@@ -47,11 +46,8 @@ func (m *mockRunner) FetchLogsByExecutionID(_ context.Context, _ string) ([]api.
 
 // Test that the status endpoint exists and requires authentication
 func TestGetExecutionStatus_Unauthorized(t *testing.T) {
-	// Initialize a basic logger
-	_ = rlogger.Initialize(constants.Development, slog.LevelInfo)
-
 	// Build a minimal service with nil repos; we won't reach the handler due to auth
-	svc := app.NewService(nil, nil, &mockRunner{}, slog.Default(), constants.AWS)
+	svc := app.NewService(nil, nil, &mockRunner{}, testutil.SilentLogger(), constants.AWS)
 	router := NewRouter(svc, 2*time.Second)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/executions/exec-123/status", http.NoBody)

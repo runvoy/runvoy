@@ -1,10 +1,10 @@
 package client
 
 import (
-	"log/slog"
 	"testing"
 
 	"runvoy/internal/config"
+	"runvoy/internal/testutil"
 )
 
 func TestNew(t *testing.T) {
@@ -12,7 +12,7 @@ func TestNew(t *testing.T) {
 		APIEndpoint: "https://example.com",
 		APIKey:      "test-key",
 	}
-	logger := slog.Default()
+	logger := testutil.SilentLogger()
 
 	client := New(cfg, logger)
 

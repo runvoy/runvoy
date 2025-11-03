@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -15,7 +14,7 @@ import (
 	"runvoy/internal/app"
 	"runvoy/internal/constants"
 	apperrors "runvoy/internal/errors"
-	rlogger "runvoy/internal/logger"
+	"runvoy/internal/testutil"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -194,8 +193,7 @@ func (t *testRunner) FetchLogsByExecutionID(_ context.Context, _ string) ([]api.
 }
 
 func TestHandleHealth(t *testing.T) {
-	_ = rlogger.Initialize(constants.Development, slog.LevelInfo)
-	svc := app.NewService(nil, nil, &testRunner{}, slog.Default(), constants.AWS)
+	svc := app.NewService(nil, nil, &testRunner{}, testutil.SilentLogger(), constants.AWS)
 	router := NewRouter(svc, 2*time.Second)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/health", http.NoBody)
@@ -209,13 +207,12 @@ func TestHandleHealth(t *testing.T) {
 }
 
 func TestHandleRunCommand_Success(t *testing.T) {
-	_ = rlogger.Initialize(constants.Development, slog.LevelInfo)
 
 	userRepo := &testUserRepository{}
 	execRepo := &testExecutionRepository{}
 	runner := &testRunner{}
 
-	svc := app.NewService(userRepo, execRepo, runner, slog.Default(), constants.AWS)
+	svc := app.NewService(userRepo, execRepo, runner, testutil.SilentLogger(), constants.AWS)
 	router := NewRouter(svc, 2*time.Second)
 
 	reqBody := api.ExecutionRequest{
@@ -239,8 +236,7 @@ func TestHandleRunCommand_Success(t *testing.T) {
 }
 
 func TestHandleRunCommand_InvalidJSON(t *testing.T) {
-	_ = rlogger.Initialize(constants.Development, slog.LevelInfo)
-	svc := app.NewService(&testUserRepository{}, nil, &testRunner{}, slog.Default(), constants.AWS)
+	svc := app.NewService(&testUserRepository{}, nil, &testRunner{}, testutil.SilentLogger(), constants.AWS)
 	router := NewRouter(svc, 2*time.Second)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/run", bytes.NewReader([]byte("invalid json")))
@@ -254,7 +250,6 @@ func TestHandleRunCommand_InvalidJSON(t *testing.T) {
 }
 
 func TestHandleRunCommand_Unauthorized(t *testing.T) {
-	_ = rlogger.Initialize(constants.Development, slog.LevelInfo)
 
 	userRepo := &testUserRepository{
 		authenticateUserFunc: func(_ string) (*api.User, error) {
@@ -262,7 +257,7 @@ func TestHandleRunCommand_Unauthorized(t *testing.T) {
 		},
 	}
 
-	svc := app.NewService(userRepo, nil, &testRunner{}, slog.Default(), constants.AWS)
+	svc := app.NewService(userRepo, nil, &testRunner{}, testutil.SilentLogger(), constants.AWS)
 	router := NewRouter(svc, 2*time.Second)
 
 	reqBody := api.ExecutionRequest{Command: "echo hello"}
@@ -278,7 +273,6 @@ func TestHandleRunCommand_Unauthorized(t *testing.T) {
 }
 
 func TestHandleListExecutions_Success(t *testing.T) {
-	_ = rlogger.Initialize(constants.Development, slog.LevelInfo)
 
 	now := time.Now()
 	execRepo := &testExecutionRepository{
@@ -295,7 +289,7 @@ func TestHandleListExecutions_Success(t *testing.T) {
 		},
 	}
 
-	svc := app.NewService(&testUserRepository{}, execRepo, &testRunner{}, slog.Default(), constants.AWS)
+	svc := app.NewService(&testUserRepository{}, execRepo, &testRunner{}, testutil.SilentLogger(), constants.AWS)
 	router := NewRouter(svc, 2*time.Second)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/executions", http.NoBody)
@@ -314,7 +308,6 @@ func TestHandleListExecutions_Success(t *testing.T) {
 }
 
 func TestHandleListExecutions_Empty(t *testing.T) {
-	_ = rlogger.Initialize(constants.Development, slog.LevelInfo)
 
 	execRepo := &testExecutionRepository{
 		listExecutionsFunc: func() ([]*api.Execution, error) {
@@ -322,7 +315,7 @@ func TestHandleListExecutions_Empty(t *testing.T) {
 		},
 	}
 
-	svc := app.NewService(&testUserRepository{}, execRepo, &testRunner{}, slog.Default(), constants.AWS)
+	svc := app.NewService(&testUserRepository{}, execRepo, &testRunner{}, testutil.SilentLogger(), constants.AWS)
 	router := NewRouter(svc, 2*time.Second)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/executions", http.NoBody)
@@ -336,7 +329,6 @@ func TestHandleListExecutions_Empty(t *testing.T) {
 }
 
 func TestHandleListExecutions_DatabaseError(t *testing.T) {
-	_ = rlogger.Initialize(constants.Development, slog.LevelInfo)
 
 	execRepo := &testExecutionRepository{
 		listExecutionsFunc: func() ([]*api.Execution, error) {
@@ -344,7 +336,7 @@ func TestHandleListExecutions_DatabaseError(t *testing.T) {
 		},
 	}
 
-	svc := app.NewService(&testUserRepository{}, execRepo, &testRunner{}, slog.Default(), constants.AWS)
+	svc := app.NewService(&testUserRepository{}, execRepo, &testRunner{}, testutil.SilentLogger(), constants.AWS)
 	router := NewRouter(svc, 2*time.Second)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/executions", http.NoBody)
@@ -358,8 +350,7 @@ func TestHandleListExecutions_DatabaseError(t *testing.T) {
 }
 
 func TestHandleRegisterImage_Success(t *testing.T) {
-	_ = rlogger.Initialize(constants.Development, slog.LevelInfo)
-	svc := app.NewService(&testUserRepository{}, nil, &testRunner{}, slog.Default(), constants.AWS)
+	svc := app.NewService(&testUserRepository{}, nil, &testRunner{}, testutil.SilentLogger(), constants.AWS)
 	router := NewRouter(svc, 2*time.Second)
 
 	reqBody := api.RegisterImageRequest{
@@ -379,8 +370,7 @@ func TestHandleRegisterImage_Success(t *testing.T) {
 }
 
 func TestHandleRegisterImage_InvalidJSON(t *testing.T) {
-	_ = rlogger.Initialize(constants.Development, slog.LevelInfo)
-	svc := app.NewService(&testUserRepository{}, nil, &testRunner{}, slog.Default(), constants.AWS)
+	svc := app.NewService(&testUserRepository{}, nil, &testRunner{}, testutil.SilentLogger(), constants.AWS)
 	router := NewRouter(svc, 2*time.Second)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/images/register", bytes.NewReader([]byte("invalid json")))
@@ -394,7 +384,6 @@ func TestHandleRegisterImage_InvalidJSON(t *testing.T) {
 }
 
 func TestHandleListImages_Success(t *testing.T) {
-	_ = rlogger.Initialize(constants.Development, slog.LevelInfo)
 
 	runner := &testRunner{
 		listImagesFunc: func() ([]api.ImageInfo, error) {
@@ -405,7 +394,7 @@ func TestHandleListImages_Success(t *testing.T) {
 		},
 	}
 
-	svc := app.NewService(&testUserRepository{}, nil, runner, slog.Default(), constants.AWS)
+	svc := app.NewService(&testUserRepository{}, nil, runner, testutil.SilentLogger(), constants.AWS)
 	router := NewRouter(svc, 2*time.Second)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/images", http.NoBody)
@@ -420,7 +409,6 @@ func TestHandleListImages_Success(t *testing.T) {
 }
 
 func TestHandleListImages_Empty(t *testing.T) {
-	_ = rlogger.Initialize(constants.Development, slog.LevelInfo)
 
 	runner := &testRunner{
 		listImagesFunc: func() ([]api.ImageInfo, error) {
@@ -428,7 +416,7 @@ func TestHandleListImages_Empty(t *testing.T) {
 		},
 	}
 
-	svc := app.NewService(&testUserRepository{}, nil, runner, slog.Default(), constants.AWS)
+	svc := app.NewService(&testUserRepository{}, nil, runner, testutil.SilentLogger(), constants.AWS)
 	router := NewRouter(svc, 2*time.Second)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/images", http.NoBody)
@@ -441,8 +429,7 @@ func TestHandleListImages_Empty(t *testing.T) {
 }
 
 func TestHandleRemoveImage_Success(t *testing.T) {
-	_ = rlogger.Initialize(constants.Development, slog.LevelInfo)
-	svc := app.NewService(&testUserRepository{}, nil, &testRunner{}, slog.Default(), constants.AWS)
+	svc := app.NewService(&testUserRepository{}, nil, &testRunner{}, testutil.SilentLogger(), constants.AWS)
 	router := NewRouter(svc, 2*time.Second)
 
 	reqBody := api.RemoveImageRequest{
@@ -461,8 +448,7 @@ func TestHandleRemoveImage_Success(t *testing.T) {
 }
 
 func TestHandleRemoveImage_MissingImage(t *testing.T) {
-	_ = rlogger.Initialize(constants.Development, slog.LevelInfo)
-	svc := app.NewService(&testUserRepository{}, nil, &testRunner{}, slog.Default(), constants.AWS)
+	svc := app.NewService(&testUserRepository{}, nil, &testRunner{}, testutil.SilentLogger(), constants.AWS)
 	router := NewRouter(svc, 2*time.Second)
 
 	// DELETE request without image path parameter
@@ -516,10 +502,9 @@ func TestGetClientIP_XForwardedForPrecedence(t *testing.T) {
 }
 
 func TestHandleListUsers_Success(t *testing.T) {
-	_ = rlogger.Initialize(constants.Development, slog.LevelInfo)
 
 	userRepo := &testUserRepository{}
-	svc := app.NewService(userRepo, nil, &testRunner{}, slog.Default(), constants.AWS)
+	svc := app.NewService(userRepo, nil, &testRunner{}, testutil.SilentLogger(), constants.AWS)
 	router := NewRouter(svc, 2*time.Second)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/users/", http.NoBody)
@@ -544,14 +529,13 @@ func TestHandleListUsers_Success(t *testing.T) {
 }
 
 func TestHandleListUsers_Unauthorized(t *testing.T) {
-	_ = rlogger.Initialize(constants.Development, slog.LevelInfo)
 
 	userRepo := &testUserRepository{
 		authenticateUserFunc: func(_ string) (*api.User, error) {
 			return nil, apperrors.ErrInvalidAPIKey(nil)
 		},
 	}
-	svc := app.NewService(userRepo, nil, &testRunner{}, slog.Default(), constants.AWS)
+	svc := app.NewService(userRepo, nil, &testRunner{}, testutil.SilentLogger(), constants.AWS)
 	router := NewRouter(svc, 2*time.Second)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/users/", http.NoBody)
@@ -569,14 +553,13 @@ func TestHandleListUsers_Unauthorized(t *testing.T) {
 }
 
 func TestHandleListUsers_RepositoryError(t *testing.T) {
-	_ = rlogger.Initialize(constants.Development, slog.LevelInfo)
 
 	userRepo := &testUserRepository{
 		authenticateUserFunc: func(_ string) (*api.User, error) {
 			return nil, apperrors.ErrDatabaseError("database error", errors.New("connection failed"))
 		},
 	}
-	svc := app.NewService(userRepo, nil, &testRunner{}, slog.Default(), constants.AWS)
+	svc := app.NewService(userRepo, nil, &testRunner{}, testutil.SilentLogger(), constants.AWS)
 	router := NewRouter(svc, 2*time.Second)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/users/", http.NoBody)
@@ -592,8 +575,7 @@ func TestHandleListUsers_RepositoryError(t *testing.T) {
 // TODO: Add TestHandleCreateUser_Success - requires complex mock setup for admin user and pending keys
 
 func TestHandleCreateUser_InvalidJSON(t *testing.T) {
-	_ = rlogger.Initialize(constants.Development, slog.LevelInfo)
-	svc := app.NewService(&testUserRepository{}, nil, &testRunner{}, slog.Default(), constants.AWS)
+	svc := app.NewService(&testUserRepository{}, nil, &testRunner{}, testutil.SilentLogger(), constants.AWS)
 	router := NewRouter(svc, 2*time.Second)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/users/create", bytes.NewReader([]byte("invalid json")))
@@ -607,7 +589,6 @@ func TestHandleCreateUser_InvalidJSON(t *testing.T) {
 }
 
 func TestHandleCreateUser_Unauthorized(t *testing.T) {
-	_ = rlogger.Initialize(constants.Development, slog.LevelInfo)
 
 	userRepo := &testUserRepository{
 		authenticateUserFunc: func(_ string) (*api.User, error) {
@@ -615,7 +596,7 @@ func TestHandleCreateUser_Unauthorized(t *testing.T) {
 		},
 	}
 
-	svc := app.NewService(userRepo, nil, &testRunner{}, slog.Default(), constants.AWS)
+	svc := app.NewService(userRepo, nil, &testRunner{}, testutil.SilentLogger(), constants.AWS)
 	router := NewRouter(svc, 2*time.Second)
 
 	reqBody := api.CreateUserRequest{Email: "newuser@example.com"}
@@ -631,10 +612,9 @@ func TestHandleCreateUser_Unauthorized(t *testing.T) {
 }
 
 func TestHandleRevokeUser_Success(t *testing.T) {
-	_ = rlogger.Initialize(constants.Development, slog.LevelInfo)
 
 	userRepo := &testUserRepository{}
-	svc := app.NewService(userRepo, nil, &testRunner{}, slog.Default(), constants.AWS)
+	svc := app.NewService(userRepo, nil, &testRunner{}, testutil.SilentLogger(), constants.AWS)
 	router := NewRouter(svc, 2*time.Second)
 
 	reqBody := api.RevokeUserRequest{
@@ -654,8 +634,7 @@ func TestHandleRevokeUser_Success(t *testing.T) {
 }
 
 func TestHandleRevokeUser_InvalidJSON(t *testing.T) {
-	_ = rlogger.Initialize(constants.Development, slog.LevelInfo)
-	svc := app.NewService(&testUserRepository{}, nil, &testRunner{}, slog.Default(), constants.AWS)
+	svc := app.NewService(&testUserRepository{}, nil, &testRunner{}, testutil.SilentLogger(), constants.AWS)
 	router := NewRouter(svc, 2*time.Second)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/users/revoke", bytes.NewReader([]byte("invalid json")))
@@ -669,9 +648,8 @@ func TestHandleRevokeUser_InvalidJSON(t *testing.T) {
 }
 
 func TestHandleGetExecutionLogs_Success(t *testing.T) {
-	_ = rlogger.Initialize(constants.Development, slog.LevelInfo)
 
-	svc := app.NewService(&testUserRepository{}, &testExecutionRepository{}, &testRunner{}, slog.Default(), constants.AWS)
+	svc := app.NewService(&testUserRepository{}, &testExecutionRepository{}, &testRunner{}, testutil.SilentLogger(), constants.AWS)
 	router := NewRouter(svc, 2*time.Second)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/executions/exec-123/logs", http.NoBody)
@@ -688,9 +666,8 @@ func TestHandleGetExecutionLogs_Success(t *testing.T) {
 }
 
 func TestHandleGetExecutionLogs_MissingExecutionID(t *testing.T) {
-	_ = rlogger.Initialize(constants.Development, slog.LevelInfo)
 
-	svc := app.NewService(&testUserRepository{}, &testExecutionRepository{}, &testRunner{}, slog.Default(), constants.AWS)
+	svc := app.NewService(&testUserRepository{}, &testExecutionRepository{}, &testRunner{}, testutil.SilentLogger(), constants.AWS)
 	router := NewRouter(svc, 2*time.Second)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/executions//logs", http.NoBody)
@@ -704,10 +681,9 @@ func TestHandleGetExecutionLogs_MissingExecutionID(t *testing.T) {
 }
 
 func TestHandleGetExecutionStatus_Success(t *testing.T) {
-	_ = rlogger.Initialize(constants.Development, slog.LevelInfo)
 
 	execRepo := &testExecutionRepository{}
-	svc := app.NewService(&testUserRepository{}, execRepo, &testRunner{}, slog.Default(), constants.AWS)
+	svc := app.NewService(&testUserRepository{}, execRepo, &testRunner{}, testutil.SilentLogger(), constants.AWS)
 	router := NewRouter(svc, 2*time.Second)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/executions/exec-123/status", http.NoBody)
@@ -724,9 +700,8 @@ func TestHandleGetExecutionStatus_Success(t *testing.T) {
 }
 
 func TestHandleGetExecutionStatus_MissingExecutionID(t *testing.T) {
-	_ = rlogger.Initialize(constants.Development, slog.LevelInfo)
 
-	svc := app.NewService(&testUserRepository{}, &testExecutionRepository{}, &testRunner{}, slog.Default(), constants.AWS)
+	svc := app.NewService(&testUserRepository{}, &testExecutionRepository{}, &testRunner{}, testutil.SilentLogger(), constants.AWS)
 	router := NewRouter(svc, 2*time.Second)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/executions//status", http.NoBody)
@@ -740,9 +715,8 @@ func TestHandleGetExecutionStatus_MissingExecutionID(t *testing.T) {
 }
 
 func TestHandleKillExecution_Success(t *testing.T) {
-	_ = rlogger.Initialize(constants.Development, slog.LevelInfo)
 
-	svc := app.NewService(&testUserRepository{}, &testExecutionRepository{}, &testRunner{}, slog.Default(), constants.AWS)
+	svc := app.NewService(&testUserRepository{}, &testExecutionRepository{}, &testRunner{}, testutil.SilentLogger(), constants.AWS)
 	router := NewRouter(svc, 2*time.Second)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/executions/exec-123/kill", http.NoBody)
@@ -761,9 +735,8 @@ func TestHandleKillExecution_Success(t *testing.T) {
 }
 
 func TestHandleKillExecution_MissingExecutionID(t *testing.T) {
-	_ = rlogger.Initialize(constants.Development, slog.LevelInfo)
 
-	svc := app.NewService(&testUserRepository{}, &testExecutionRepository{}, &testRunner{}, slog.Default(), constants.AWS)
+	svc := app.NewService(&testUserRepository{}, &testExecutionRepository{}, &testRunner{}, testutil.SilentLogger(), constants.AWS)
 	router := NewRouter(svc, 2*time.Second)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/executions//kill", http.NoBody)

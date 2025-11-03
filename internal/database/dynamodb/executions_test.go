@@ -3,11 +3,11 @@ package dynamodb
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"testing"
 	"time"
 
 	"runvoy/internal/api"
+	"runvoy/internal/testutil"
 
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/stretchr/testify/assert"
@@ -166,7 +166,7 @@ func TestRoundTripConversion(t *testing.T) {
 }
 
 func TestNewExecutionRepository(t *testing.T) {
-	logger := slog.Default()
+	logger := testutil.SilentLogger()
 	tableName := "test-table"
 
 	repo := NewExecutionRepository(nil, tableName, logger)
@@ -324,7 +324,7 @@ func BenchmarkToAPIExecution(b *testing.B) {
 func TestExecutionRepositoryNilClient(t *testing.T) {
 	// Test that repository can be created with nil client
 	// (actual DynamoDB operations would fail, but creation should not)
-	repo := NewExecutionRepository(nil, "test-table", slog.Default())
+	repo := NewExecutionRepository(nil, "test-table", testutil.SilentLogger())
 	assert.NotNil(t, repo)
 }
 
