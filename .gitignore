@@ -3,8 +3,6 @@
 bootstrap
 dist/
 bin/
-coverage.out
-coverage.html
 
 # Environment and secrets
 .env
@@ -26,6 +24,7 @@ coverage.html
 *.dylib
 *.test
 *.out
+!coverage.out
 go.work
 go.work.sum
 .envrc

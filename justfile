@@ -107,6 +107,7 @@ test:
 test-coverage:
     go test -coverprofile=coverage.out ./...
     go tool cover -html=coverage.out -o coverage.html
+    go tool cover -func=coverage.out | grep total | awk '{print $3}'
 
 # Clean build artifacts
 clean:
@@ -138,13 +139,14 @@ fmt:
 # Run all checks (lint + test)
 check: lint test
 
-# Install pre-commit hooks
-install-hooks:
-    pre-commit install
+# Install pre-commit hook
+install-hook:
+    printf "just update-readme-help check\n" > .git/hooks/pre-commit
+    chmod +x .git/hooks/pre-commit
 
-# Run pre-commit on all files
-pre-commit-all:
-    pre-commit run --all-files
+# pre-commit hook commands to run when the pre-commit hook is triggered
+pre-commit: check test-coverage
+    git add coverage.html coverage.out README.md
 
 # Create lambda bucket
 create-lambda-bucket:
@@ -205,6 +207,7 @@ local-dev-server:
 # This ensures the README stays in sync with CLI commands
 update-readme-help: build-cli
     go run scripts/update-readme-help/main.go ./bin/runvoy
+    git add README.md
 
 # Sync Lambda environment variables to local .env file for development
 local-dev-sync:

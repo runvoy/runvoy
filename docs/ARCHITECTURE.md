@@ -765,7 +765,7 @@ The `justfile` codifies the common build, deploy, and validation flows. Highligh
 - **Packaging & deploy**: `just build-orchestrator-zip` and `just build-event-processor-zip` stage Lambda-ready artifacts; `just deploy`, `just deploy-orchestrator`, `just deploy-event-processor`, and `just deploy-webviewer` push those artifacts (and the web viewer) to the release bucket and update Lambda code.
 - **Local iteration**: `just run-local` launches the local HTTP server; `just local-dev-server` wraps it with `reflex` for hot reload. You can use the CLI for full API testing once the server is running.
 - **Quality gates**: `just test`, `just test-coverage`, `just lint`, `just lint-fix`, `just fmt`, `just check`, and `just clean` provide the standard Go QA loop.
-- **Environment & infra helpers**: `just dev-setup`, `just install-hooks`, `just pre-commit-all` prepare developer machines, while `just create-lambda-bucket`, `just update-backend-infra`, `just seed-admin-user`, and `just destroy-backend-infra` manage AWS prerequisites.
+- **Environment & infra helpers**: `just dev-setup`, `just install-hook`, `just pre-commit-all` prepare developer machines, while `just create-lambda-bucket`, `just update-backend-infra`, `just seed-admin-user`, and `just destroy-backend-infra` manage AWS prerequisites.
 - **DX utilities**: `just record-demo` regenerates the terminal cast/GIF assets.
 
 **Environment Configuration:**

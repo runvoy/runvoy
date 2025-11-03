@@ -149,8 +149,8 @@ First-time setup for new developers:
 # Install dependencies and development tools
 just dev-setup
 
-# Install pre-commit hooks
-just install-hooks
+# Install pre-commit hook
+just install-hook
 
 # Sync Lambda environment variables to local .env file
 just local-dev-sync
@@ -233,9 +233,6 @@ just update-readme-help
 
 # Clean build artifacts
 just clean
-
-# Run pre-commit hooks on all files
-just pre-commit-all
 ```
 
 For more information about the development workflow, see [Development with `just`](#development-with-just).
@@ -265,7 +262,7 @@ runvoy --help
 ```
 
 ```bash
-runvoy - 0.1.0-20251102-e0a53bb
+runvoy - 0.1.0-20251103-2f5b313
 Isolated, repeatable execution environments for your commands
 
 Usage:
@@ -470,7 +467,7 @@ Key targets, grouped by workflow:
 - **Build & run**: `just build` (all binaries), `just build-cli`, `just build-local`, `just run-local` (local HTTP server with freshly built binary)
 - **Deploy artifacts**: `just deploy` (all), `just deploy-orchestrator`, `just deploy-event-processor`, `just deploy-webviewer`
 - **Quality gates**: `just test`, `just test-coverage`, `just lint`, `just lint-fix`, `just fmt`, `just check`, `just clean`
-- **Environment setup**: `just dev-setup`, `just install-hooks`, `just pre-commit-all`
+- **Environment setup**: `just dev-setup`, `just install-hook`
 - **Infrastructure helpers**: `just create-lambda-bucket`, `just update-backend-infra`, `just destroy-backend-infra`
 - **Operational tooling**: `just seed-admin-user`, `just local-dev-server` (hot reloading)
 - **Miscellaneous**: `just record-demo` (captures CLI demo as cast and GIF)
