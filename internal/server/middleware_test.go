@@ -16,20 +16,24 @@ import (
 )
 
 func TestRequestIDMiddleware(t *testing.T) {
-	// Create a test handler that checks for request ID in context
-	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		requestID := logger.GetRequestID(r.Context())
-		// Request ID should be set (empty string if no Lambda context)
-		_ = requestID // Just verify it doesn't panic
-		w.WriteHeader(http.StatusOK)
-	})
+	// Test without Lambda context - should generate a random UUID
+	t.Run("without lambda context generates random UUID", func(t *testing.T) {
+		handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			requestID := logger.GetRequestID(r.Context())
+			// Request ID should be a generated UUID (format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)
+			if requestID == "" {
+				t.Error("Expected a generated request ID, got empty string")
+			}
+			// Verify UUID format (36 characters with dashes)
+			if len(requestID) != 36 {
+				t.Errorf("Expected UUID format (36 chars), got length %d: %s", len(requestID), requestID)
+			}
+			w.WriteHeader(http.StatusOK)
+		})
 
-	// Test without Lambda context
-	t.Run("without lambda context", func(t *testing.T) {
 		req := httptest.NewRequest("GET", "/test", nil)
 		rr := httptest.NewRecorder()
 
-		// Create a Router with a test service for the middleware
 		svc := app.NewService(nil, nil, nil, slog.Default(), constants.AWS)
 		router := &Router{svc: svc}
 		middleware := router.requestIDMiddleware(handler)
@@ -40,9 +44,8 @@ func TestRequestIDMiddleware(t *testing.T) {
 		}
 	})
 
-	// Test with Lambda context
-	t.Run("with lambda context", func(t *testing.T) {
-		// Create a handler that specifically checks for the expected request ID
+	// Test with Lambda context - should use Lambda's request ID
+	t.Run("with lambda context uses lambda request ID", func(t *testing.T) {
 		lambdaHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			requestID := logger.GetRequestID(r.Context())
 			if requestID != "test-request-id-123" {
@@ -61,10 +64,67 @@ func TestRequestIDMiddleware(t *testing.T) {
 		ctx := lambdacontext.NewContext(req.Context(), lc)
 		req = req.WithContext(ctx)
 
-		// Create a Router with a test service for the middleware
 		svc := app.NewService(nil, nil, nil, slog.Default(), constants.AWS)
 		router := &Router{svc: svc}
 		middleware := router.requestIDMiddleware(lambdaHandler)
+		middleware.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusOK {
+			t.Errorf("Expected status 200, got %d", rr.Code)
+		}
+	})
+
+	// Test with existing request ID in context - should use the existing one
+	t.Run("with existing request ID in context uses existing ID", func(t *testing.T) {
+		handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			requestID := logger.GetRequestID(r.Context())
+			if requestID != "existing-request-id-456" {
+				t.Errorf("Expected request ID 'existing-request-id-456', got '%s'", requestID)
+			}
+			w.WriteHeader(http.StatusOK)
+		})
+
+		req := httptest.NewRequest("GET", "/test", nil)
+		rr := httptest.NewRecorder()
+
+		// Add existing request ID to context
+		ctx := context.WithValue(req.Context(), logger.RequestIDContextKey(), "existing-request-id-456")
+		req = req.WithContext(ctx)
+
+		svc := app.NewService(nil, nil, nil, slog.Default(), constants.AWS)
+		router := &Router{svc: svc}
+		middleware := router.requestIDMiddleware(handler)
+		middleware.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusOK {
+			t.Errorf("Expected status 200, got %d", rr.Code)
+		}
+	})
+
+	// Test priority: existing context ID should take precedence over Lambda ID
+	t.Run("existing context ID takes precedence over lambda ID", func(t *testing.T) {
+		handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			requestID := logger.GetRequestID(r.Context())
+			if requestID != "context-priority-id" {
+				t.Errorf("Expected request ID 'context-priority-id', got '%s'", requestID)
+			}
+			w.WriteHeader(http.StatusOK)
+		})
+
+		req := httptest.NewRequest("GET", "/test", nil)
+		rr := httptest.NewRecorder()
+
+		// Add both existing request ID and Lambda context
+		ctx := context.WithValue(req.Context(), logger.RequestIDContextKey(), "context-priority-id")
+		lc := &lambdacontext.LambdaContext{
+			AwsRequestID: "lambda-request-id-should-be-ignored",
+		}
+		ctx = lambdacontext.NewContext(ctx, lc)
+		req = req.WithContext(ctx)
+
+		svc := app.NewService(nil, nil, nil, slog.Default(), constants.AWS)
+		router := &Router{svc: svc}
+		middleware := router.requestIDMiddleware(handler)
 		middleware.ServeHTTP(rr, req)
 
 		if rr.Code != http.StatusOK {
