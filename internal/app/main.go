@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/mail"
 	"slices"
+	"strings"
 	"time"
 
 	"runvoy/internal/api"
@@ -262,6 +263,7 @@ func (s *Service) RevokeUser(ctx context.Context, email string) error {
 
 // ListUsers returns all users in the system (excluding API key hashes for security).
 // Returns an error if the user repository is not configured or if the query fails.
+// Sort by email ascending.
 func (s *Service) ListUsers(ctx context.Context) (*api.ListUsersResponse, error) {
 	if s.userRepo == nil {
 		return nil, apperrors.ErrInternalError("user repository not configured", nil)
@@ -271,6 +273,10 @@ func (s *Service) ListUsers(ctx context.Context) (*api.ListUsersResponse, error)
 	if err != nil {
 		return nil, err
 	}
+
+	slices.SortFunc(users, func(a, b *api.User) int {
+		return strings.Compare(a.Email, b.Email)
+	})
 
 	return &api.ListUsersResponse{
 		Users: users,

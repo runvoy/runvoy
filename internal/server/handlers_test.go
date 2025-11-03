@@ -86,16 +86,22 @@ func (t *testUserRepository) DeletePendingAPIKey(ctx context.Context, secretToke
 func (t *testUserRepository) ListUsers(ctx context.Context) ([]*api.User, error) {
 	return []*api.User{
 		{
-			Email:     "user1@example.com",
+			Email:     "charlie@example.com",
 			CreatedAt: time.Now().Add(-24 * time.Hour),
 			Revoked:   false,
 			LastUsed:  time.Now().Add(-1 * time.Hour),
 		},
 		{
-			Email:     "user2@example.com",
+			Email:     "alice@example.com",
 			CreatedAt: time.Now().Add(-48 * time.Hour),
 			Revoked:   true,
 			LastUsed:  time.Time{},
+		},
+		{
+			Email:     "bob@example.com",
+			CreatedAt: time.Now().Add(-36 * time.Hour),
+			Revoked:   false,
+			LastUsed:  time.Now().Add(-12 * time.Hour),
 		},
 	}, nil
 }
@@ -500,11 +506,14 @@ func TestHandleListUsers_Success(t *testing.T) {
 	var listResp api.ListUsersResponse
 	err := json.NewDecoder(resp.Body).Decode(&listResp)
 	assert.NoError(t, err)
-	assert.Len(t, listResp.Users, 2)
-	assert.Equal(t, "user1@example.com", listResp.Users[0].Email)
-	assert.Equal(t, false, listResp.Users[0].Revoked)
-	assert.Equal(t, "user2@example.com", listResp.Users[1].Email)
-	assert.Equal(t, true, listResp.Users[1].Revoked)
+	assert.Len(t, listResp.Users, 3)
+	// Verify users are sorted by email in ascending order
+	assert.Equal(t, "alice@example.com", listResp.Users[0].Email)
+	assert.Equal(t, true, listResp.Users[0].Revoked)
+	assert.Equal(t, "bob@example.com", listResp.Users[1].Email)
+	assert.Equal(t, false, listResp.Users[1].Revoked)
+	assert.Equal(t, "charlie@example.com", listResp.Users[2].Email)
+	assert.Equal(t, false, listResp.Users[2].Revoked)
 }
 
 func TestHandleListUsers_Unauthorized(t *testing.T) {
