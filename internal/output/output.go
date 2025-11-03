@@ -31,16 +31,16 @@ var (
 	Stderr io.Writer = os.Stderr
 
 	// Disable colors if not TTY or NO_COLOR is set
-	noColor = os.Getenv("NO_COLOR") != "" || !isTerminal(os.Stdout)
+	noColor = func() bool {
+		disable := os.Getenv("NO_COLOR") != "" || !isTerminal(os.Stdout)
+		if disable {
+			color.NoColor = true
+		}
+		return disable
+	}()
 	// Matches ANSI escape sequences used for colors/styles
 	ansiRegexp = regexp.MustCompile(`\x1b\[[0-9;]*m`)
 )
-
-func init() {
-	if noColor {
-		color.NoColor = true
-	}
-}
 
 // visibleWidth returns the number of visible characters, ignoring ANSI escape codes
 func visibleWidth(s string) int {

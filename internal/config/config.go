@@ -42,11 +42,7 @@ type Config struct {
 	LogLevel            string        `mapstructure:"log_level"`
 }
 
-var validate *validator.Validate
-
-func init() {
-	validate = validator.New()
-}
+var validate = validator.New()
 
 // Load loads the configuration using Viper.
 // For CLI: loads from ~/.runvoy/config.yaml
