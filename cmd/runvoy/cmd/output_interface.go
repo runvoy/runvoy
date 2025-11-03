@@ -13,6 +13,7 @@ type OutputInterface interface {
 	Bold(text string) string
 	Cyan(text string) string
 	KeyValue(key, value string)
+	Prompt(prompt string) string
 }
 
 // outputWrapper wraps the global output package functions to implement OutputInterface
@@ -57,4 +58,8 @@ func (o *outputWrapper) Cyan(text string) string {
 
 func (o *outputWrapper) KeyValue(key, value string) {
 	output.KeyValue(key, value)
+}
+
+func (o *outputWrapper) Prompt(prompt string) string {
+	return output.Prompt(prompt)
 }

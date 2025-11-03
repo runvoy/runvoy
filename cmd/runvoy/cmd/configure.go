@@ -2,6 +2,8 @@
 package cmd
 
 import (
+	"context"
+	"fmt"
 	"runvoy/internal/config"
 	"runvoy/internal/output"
 
@@ -21,33 +23,109 @@ func init() {
 }
 
 func runConfigure(_ *cobra.Command, _ []string) {
-	existingConfig, err := config.Load()
+	service := NewConfigureService(NewOutputWrapper(), NewConfigSaver(), config.Load, config.GetConfigPath)
+	if err := service.Configure(context.Background()); err != nil {
+		output.Errorf(err.Error())
+	}
+}
+
+// ConfigLoader defines an interface for loading configuration
+type ConfigLoader interface {
+	Load() (*config.Config, error)
+}
+
+// configLoaderWrapper wraps the global config.Load function
+type configLoaderWrapper struct{}
+
+func (c *configLoaderWrapper) Load() (*config.Config, error) {
+	return config.Load()
+}
+
+// NewConfigLoader creates a new ConfigLoader that uses the global config.Load function
+func NewConfigLoader() ConfigLoader {
+	return &configLoaderWrapper{}
+}
+
+// ConfigPathGetter defines an interface for getting config path
+type ConfigPathGetter interface {
+	GetConfigPath() (string, error)
+}
+
+// configPathGetterWrapper wraps the global config.GetConfigPath function
+type configPathGetterWrapper struct{}
+
+func (c *configPathGetterWrapper) GetConfigPath() (string, error) {
+	return config.GetConfigPath()
+}
+
+// NewConfigPathGetter creates a new ConfigPathGetter that uses the global config.GetConfigPath function
+func NewConfigPathGetter() ConfigPathGetter {
+	return &configPathGetterWrapper{}
+}
+
+// ConfigureService handles configuration logic
+type ConfigureService struct {
+	output        OutputInterface
+	configSaver   ConfigSaver
+	configLoader  ConfigLoader
+	configPathGetter ConfigPathGetter
+}
+
+// NewConfigureService creates a new ConfigureService with the provided dependencies
+func NewConfigureService(output OutputInterface, configSaver ConfigSaver, configLoader func() (*config.Config, error), configPathGetter func() (string, error)) *ConfigureService {
+	return &ConfigureService{
+		output: output,
+		configSaver: configSaver,
+		configLoader: &configLoaderFunc{load: configLoader},
+		configPathGetter: &configPathGetterFunc{getPath: configPathGetter},
+	}
+}
+
+type configLoaderFunc struct {
+	load func() (*config.Config, error)
+}
+
+func (c *configLoaderFunc) Load() (*config.Config, error) {
+	return c.load()
+}
+
+type configPathGetterFunc struct {
+	getPath func() (string, error)
+}
+
+func (c *configPathGetterFunc) GetConfigPath() (string, error) {
+	return c.getPath()
+}
+
+// Configure runs the interactive configuration flow
+func (s *ConfigureService) Configure(ctx context.Context) error {
+	existingConfig, err := s.configLoader.Load()
 	configExists := err == nil
 
 	if configExists {
-		output.Successf("Found existing configuration")
+		s.output.Successf("Found existing configuration")
 	} else {
 		existingConfig = &config.Config{}
-		output.Infof("Creating new configuration")
+		s.output.Infof("Creating new configuration")
 	}
 
-	endpoint := output.Prompt("Enter API endpoint URL")
+	endpoint := s.output.Prompt("Enter API endpoint URL")
 	if endpoint == "" {
 		if configExists && existingConfig.APIEndpoint != "" {
 			endpoint = existingConfig.APIEndpoint
-			output.Infof("Using existing endpoint: %s", endpoint)
+			s.output.Infof("Using existing endpoint: %s", endpoint)
 		} else {
-			output.Fatalf("API endpoint is required")
+			return fmt.Errorf("API endpoint is required")
 		}
 	}
 
-	apiKey := output.Prompt("Enter API key")
+	apiKey := s.output.Prompt("Enter API key")
 	if apiKey == "" {
 		if configExists && existingConfig.APIKey != "" {
 			apiKey = existingConfig.APIKey
-			output.Infof("Using existing API key")
+			s.output.Infof("Using existing API key")
 		} else {
-			output.Fatalf("API key is required")
+			return fmt.Errorf("API key is required")
 		}
 	}
 
@@ -56,16 +134,17 @@ func runConfigure(_ *cobra.Command, _ []string) {
 		APIKey:      apiKey,
 	}
 
-	if err = config.Save(cfg); err != nil {
-		output.Fatalf("Failed to save configuration: %v", err)
+	if err = s.configSaver.Save(cfg); err != nil {
+		return fmt.Errorf("Failed to save configuration: %w", err)
 	}
 
-	configPath, err := config.GetConfigPath()
+	configPath, err := s.configPathGetter.GetConfigPath()
 	if err != nil {
-		output.Fatalf("Failed to get config path: %v", err)
+		return fmt.Errorf("Failed to get config path: %w", err)
 	}
 
-	output.Successf("Configuration saved successfully")
-	output.KeyValue("Configuration path", configPath)
-	output.Infof("Configuration complete!")
+	s.output.Successf("Configuration saved successfully")
+	s.output.KeyValue("Configuration path", configPath)
+	s.output.Infof("Configuration complete!")
+	return nil
 }

@@ -1,8 +1,10 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
+	"runvoy/internal/api"
 	"runvoy/internal/client"
 	"runvoy/internal/output"
 	"time"
@@ -26,22 +28,65 @@ func init() {
 	rootCmd.AddCommand(executionsCmd)
 }
 
-func executionsRun(cmd *cobra.Command, _ []string) { //nolint:funlen
+func executionsRun(cmd *cobra.Command, _ []string) {
 	cfg, err := getConfigFromContext(cmd)
 	if err != nil {
 		output.Errorf("failed to load configuration: %v", err)
 		return
 	}
 
-	output.Infof("Listing executions…")
-
 	c := client.New(cfg, slog.Default())
-	execs, err := c.ListExecutions(cmd.Context())
+	service := NewListService(c, NewOutputWrapper())
+	if err := service.ListExecutions(cmd.Context()); err != nil {
+		output.Errorf(err.Error())
+	}
+}
+
+// ListService handles execution listing and formatting logic
+type ListService struct {
+	client client.Interface
+	output OutputInterface
+}
+
+// NewListService creates a new ListService with the provided dependencies
+func NewListService(client client.Interface, output OutputInterface) *ListService {
+	return &ListService{
+		client: client,
+		output: output,
+	}
+}
+
+// ListExecutions lists all executions and displays them in a table format
+func (s *ListService) ListExecutions(ctx context.Context) error {
+	s.output.Infof("Listing executions…")
+
+	execs, err := s.client.ListExecutions(ctx)
 	if err != nil {
-		output.Errorf("failed to list executions: %v", err)
-		return
+		return fmt.Errorf("failed to list executions: %w", err)
 	}
 
+	rows := s.formatExecutions(execs)
+
+	s.output.Blank()
+	s.output.Table(
+		[]string{
+			"Execution ID",
+			"Status",
+			"Command",
+			"User",
+			"Started (UTC)",
+			"Completed (UTC)",
+			"Duration",
+		},
+		rows,
+	)
+	s.output.Blank()
+	s.output.Successf("Executions listed successfully")
+	return nil
+}
+
+// formatExecutions formats execution data into table rows
+func (s *ListService) formatExecutions(execs []api.Execution) [][]string {
 	rows := make([][]string, 0, len(execs))
 	for i := range execs {
 		e := &execs[i]
@@ -63,7 +108,7 @@ func executionsRun(cmd *cobra.Command, _ []string) { //nolint:funlen
 		}
 
 		rows = append(rows, []string{
-			output.Bold(e.ExecutionID),
+			s.output.Bold(e.ExecutionID),
 			e.Status,
 			command,
 			e.UserEmail,
@@ -72,20 +117,5 @@ func executionsRun(cmd *cobra.Command, _ []string) { //nolint:funlen
 			duration,
 		})
 	}
-
-	output.Blank()
-	output.Table(
-		[]string{
-			"Execution ID",
-			"Status",
-			"Command",
-			"User",
-			"Started (UTC)",
-			"Completed (UTC)",
-			"Duration",
-		},
-		rows,
-	)
-	output.Blank()
-	output.Successf("Executions listed successfully")
+	return rows
 }

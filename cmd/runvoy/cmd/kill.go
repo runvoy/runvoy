@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"context"
+	"fmt"
 	"log/slog"
 	"runvoy/internal/client"
 	"runvoy/internal/output"
@@ -29,13 +31,35 @@ func killRun(cmd *cobra.Command, args []string) {
 	}
 
 	c := client.New(cfg, slog.Default())
-	resp, err := c.KillExecution(cmd.Context(), executionID)
-	if err != nil {
+	service := NewKillService(c, NewOutputWrapper())
+	if err := service.KillExecution(cmd.Context(), executionID); err != nil {
 		output.Errorf(err.Error())
-		return
+	}
+}
+
+// KillService handles execution killing logic
+type KillService struct {
+	client client.Interface
+	output OutputInterface
+}
+
+// NewKillService creates a new KillService with the provided dependencies
+func NewKillService(client client.Interface, output OutputInterface) *KillService {
+	return &KillService{
+		client: client,
+		output: output,
+	}
+}
+
+// KillExecution kills a running execution and displays the results
+func (s *KillService) KillExecution(ctx context.Context, executionID string) error {
+	resp, err := s.client.KillExecution(ctx, executionID)
+	if err != nil {
+		return fmt.Errorf("failed to kill execution: %w", err)
 	}
 
-	output.Successf("Execution killed successfully")
-	output.KeyValue("Execution ID", resp.ExecutionID)
-	output.KeyValue("Message", resp.Message)
+	s.output.Successf("Execution killed successfully")
+	s.output.KeyValue("Execution ID", resp.ExecutionID)
+	s.output.KeyValue("Message", resp.Message)
+	return nil
 }
