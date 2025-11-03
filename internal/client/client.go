@@ -164,6 +164,20 @@ func (c *Client) RevokeUser(ctx context.Context, req api.RevokeUserRequest) (*ap
 	return &resp, nil
 }
 
+// ListUsers lists all users
+func (c *Client) ListUsers(ctx context.Context) (*api.ListUsersResponse, error) {
+	var resp api.ListUsersResponse
+	err := c.DoJSON(ctx, Request{
+		Method: "GET",
+		Path:   "/api/v1/users/",
+	}, &resp)
+	if err != nil {
+		return nil, err
+	}
+
+	return &resp, nil
+}
+
 // GetHealth checks the API health status
 func (c *Client) GetHealth(ctx context.Context) (*api.HealthResponse, error) {
 	var resp api.HealthResponse
