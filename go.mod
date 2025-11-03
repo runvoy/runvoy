@@ -2,6 +2,8 @@ module runvoy
 
 go 1.25.0
 
+toolchain go1.24.5
+
 require (
 	github.com/akrylysov/algnhsa v1.1.0
 	github.com/aws/aws-lambda-go v1.50.0
