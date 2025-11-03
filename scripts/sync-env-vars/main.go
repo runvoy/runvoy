@@ -1,3 +1,4 @@
+// Package main provides a utility to synchronize environment variables between Lambda functions and local .env files.
 package main
 
 import (
@@ -80,7 +81,9 @@ func mergeEnvFile(filePath string, lambdaVars map[string]string) (string, int, i
 
 	file, err := os.Open(filePath)
 	if err == nil {
-		defer file.Close()
+		defer func() {
+			_ = file.Close()
+		}()
 		scanner := bufio.NewScanner(file)
 		for scanner.Scan() {
 			line := scanner.Text()

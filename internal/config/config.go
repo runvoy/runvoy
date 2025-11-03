@@ -279,11 +279,11 @@ func bindEnvVars(v *viper.Viper) {
 	for _, envVar := range envVars {
 		// Map DEV_SERVER_PORT to port
 		if envVar == "DEV_SERVER_PORT" {
-			v.BindEnv("port", "RUNVOY_DEV_SERVER_PORT")
+			_ = v.BindEnv("port", "RUNVOY_DEV_SERVER_PORT")
 		} else {
 			// Convert to lowercase to match mapstructure tags (keep underscores)
 			configKey := strings.ToLower(envVar)
-			v.BindEnv(configKey, "RUNVOY_"+envVar)
+			_ = v.BindEnv(configKey, "RUNVOY_"+envVar)
 		}
 	}
 }

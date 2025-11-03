@@ -9,7 +9,7 @@ import (
 )
 
 // AssertErrorType checks if the error is of a specific type using errors.Is.
-func AssertErrorType(t *testing.T, err error, target error, msgAndArgs ...interface{}) bool {
+func AssertErrorType(t *testing.T, err error, target error, _ ...interface{}) bool {
 	t.Helper()
 	if !stderrors.Is(err, target) {
 		return assert.Fail(t, "Error type mismatch", "Expected error type %T, got %T", target, err)
@@ -18,7 +18,7 @@ func AssertErrorType(t *testing.T, err error, target error, msgAndArgs ...interf
 }
 
 // AssertAppErrorCode checks if the error has a specific error code.
-func AssertAppErrorCode(t *testing.T, err error, expectedCode string, msgAndArgs ...interface{}) bool {
+func AssertAppErrorCode(t *testing.T, err error, expectedCode string, _ ...interface{}) bool {
 	t.Helper()
 	code := apperrors.GetErrorCode(err)
 	if code != expectedCode {
@@ -28,7 +28,7 @@ func AssertAppErrorCode(t *testing.T, err error, expectedCode string, msgAndArgs
 }
 
 // AssertAppErrorStatus checks if the error has a specific HTTP status code.
-func AssertAppErrorStatus(t *testing.T, err error, expectedStatus int, msgAndArgs ...interface{}) bool {
+func AssertAppErrorStatus(t *testing.T, err error, expectedStatus int, _ ...interface{}) bool {
 	t.Helper()
 	status := apperrors.GetStatusCode(err)
 	if status != expectedStatus {
