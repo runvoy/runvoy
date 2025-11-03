@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"runvoy/internal/client"
@@ -29,21 +30,43 @@ func statusRun(cmd *cobra.Command, args []string) {
 	}
 
 	c := client.New(cfg, slog.Default())
-	status, err := c.GetExecutionStatus(cmd.Context(), executionID)
-	if err != nil {
+	service := NewStatusService(c, NewOutputWrapper())
+	if err := service.DisplayStatus(cmd.Context(), executionID); err != nil {
 		output.Errorf(err.Error())
-		return
+	}
+}
+
+// StatusService handles status display logic
+type StatusService struct {
+	client client.Interface
+	output OutputInterface
+}
+
+// NewStatusService creates a new StatusService with the provided dependencies
+func NewStatusService(client client.Interface, output OutputInterface) *StatusService {
+	return &StatusService{
+		client: client,
+		output: output,
+	}
+}
+
+// DisplayStatus retrieves and displays the status of an execution
+func (s *StatusService) DisplayStatus(ctx context.Context, executionID string) error {
+	status, err := s.client.GetExecutionStatus(ctx, executionID)
+	if err != nil {
+		return fmt.Errorf("failed to get status: %w", err)
 	}
 
-	output.KeyValue("Execution ID", status.ExecutionID)
-	output.KeyValue("Status", status.Status)
-	output.KeyValue("Started At", status.StartedAt.Format(time.DateTime))
+	s.output.KeyValue("Execution ID", status.ExecutionID)
+	s.output.KeyValue("Status", status.Status)
+	s.output.KeyValue("Started At", status.StartedAt.Format(time.DateTime))
 	if status.CompletedAt != nil {
-		output.KeyValue("Completed At", status.CompletedAt.Format(time.DateTime))
+		s.output.KeyValue("Completed At", status.CompletedAt.Format(time.DateTime))
 	}
 	if status.ExitCode != nil {
-		output.KeyValue("Exit Code", fmt.Sprintf("%d", *status.ExitCode))
+		s.output.KeyValue("Exit Code", fmt.Sprintf("%d", *status.ExitCode))
 	}
-	output.Blank()
-	output.Successf("Status retrieved successfully")
+	s.output.Blank()
+	s.output.Successf("Status retrieved successfully")
+	return nil
 }

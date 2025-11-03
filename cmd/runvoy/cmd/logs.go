@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"runvoy/internal/client"
@@ -37,25 +38,46 @@ func logsRun(cmd *cobra.Command, args []string) {
 	output.Infof("Getting logs for execution: %s", output.Bold(executionID))
 
 	c := client.New(cfg, slog.Default())
-	resp, err := c.GetLogs(cmd.Context(), executionID)
+	service := NewLogsService(c, NewOutputWrapper())
+	if err := service.DisplayLogs(cmd.Context(), executionID, cfg.GetWebviewerURL()); err != nil {
+		output.Errorf(err.Error())
+	}
+}
+
+// LogsService handles log display logic
+type LogsService struct {
+	client client.Interface
+	output OutputInterface
+}
+
+// NewLogsService creates a new LogsService with the provided dependencies
+func NewLogsService(client client.Interface, output OutputInterface) *LogsService {
+	return &LogsService{
+		client: client,
+		output: output,
+	}
+}
+
+// DisplayLogs retrieves and displays logs for an execution
+func (s *LogsService) DisplayLogs(ctx context.Context, executionID string, webviewerURL string) error {
+	resp, err := s.client.GetLogs(ctx, executionID)
 	if err != nil {
-		output.Errorf("failed to get logs: %v", err)
-		return
+		return fmt.Errorf("failed to get logs: %w", err)
 	}
 
-	output.Blank()
+	s.output.Blank()
 	rows := [][]string{}
 	for _, log := range resp.Events {
 		rows = append(rows, []string{
-			output.Bold(fmt.Sprintf("%d", log.Line)),
+			s.output.Bold(fmt.Sprintf("%d", log.Line)),
 			time.Unix(log.Timestamp/constants.MillisecondsPerSecond, 0).UTC().Format(time.DateTime),
 			log.Message,
 		})
 	}
-	output.Table([]string{"Line", "Timestamp (UTC)", "Message"}, rows)
-	output.Blank()
-	output.Successf("Logs retrieved successfully")
-	webviewerURL := cfg.GetWebviewerURL()
-	output.Infof("View logs in web viewer: %s?execution_id=%s",
-		webviewerURL, output.Cyan(executionID))
+	s.output.Table([]string{"Line", "Timestamp (UTC)", "Message"}, rows)
+	s.output.Blank()
+	s.output.Successf("Logs retrieved successfully")
+	s.output.Infof("View logs in web viewer: %s?execution_id=%s",
+		webviewerURL, s.output.Cyan(executionID))
+	return nil
 }

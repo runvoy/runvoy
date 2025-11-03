@@ -913,6 +913,119 @@ Each command type has its own client that uses the generic client:
 - **Maintainability**: HTTP client logic is centralized and reusable
 - **Testability**: Generic client can be easily mocked for testing
 
+#### Client Interface for Testing
+
+The `internal/client/client.go` package defines an `Interface` type (`internal/client/interface.go`) that abstracts all client operations. This enables dependency injection and makes CLI commands fully testable with mocks:
+
+- **Location**: `internal/client/interface.go`
+- **Implementation**: The `Client` struct automatically implements `Interface` via compile-time check
+- **Benefits**: Commands can use `client.Interface` type instead of concrete `*client.Client` for dependency injection
+
+**Usage in Commands:**
+```go
+// In command handler
+var c client.Interface = client.New(cfg, slog.Default())
+
+// In service (for testing)
+type StatusService struct {
+    client client.Interface  // Can be mocked in tests
+    output OutputInterface
+}
+```
+
+#### CLI Command Testing Architecture
+
+CLI commands are now refactored to use a **service pattern** with dependency injection for testability. This separates business logic from cobra command handlers.
+
+**Design Pattern:**
+
+```12:50:cmd/runvoy/cmd/status.go
+func statusRun(cmd *cobra.Command, args []string) {
+	executionID := args[0]
+	cfg, err := getConfigFromContext(cmd)
+	if err != nil {
+		output.Errorf("failed to load configuration: %v", err)
+		return
+	}
+
+	c := client.New(cfg, slog.Default())
+	service := NewStatusService(c, NewOutputWrapper())
+	if err := service.DisplayStatus(cmd.Context(), executionID); err != nil {
+		output.Errorf(err.Error())
+	}
+}
+
+// StatusService handles status display logic
+type StatusService struct {
+	client client.Interface
+	output OutputInterface
+}
+
+// NewStatusService creates a new StatusService with the provided dependencies
+func NewStatusService(client client.Interface, output OutputInterface) *StatusService {
+	return &StatusService{
+		client: client,
+		output: output,
+	}
+}
+
+// DisplayStatus retrieves and displays the status of an execution
+func (s *StatusService) DisplayStatus(ctx context.Context, executionID string) error {
+	status, err := s.client.GetExecutionStatus(ctx, executionID)
+	if err != nil {
+		return fmt.Errorf("failed to get status: %w", err)
+	}
+```
+
+**Key Components:**
+
+1. **Output Interface** (`cmd/runvoy/cmd/output_interface.go`):
+   - Defines `OutputInterface` for all output operations
+   - Provides `outputWrapper` that implements the interface using global `output.*` functions
+   - Enables capturing and verifying output in tests
+
+2. **Service Pattern**:
+   - Each command has an associated service (e.g., `StatusService`, `LogsService`)
+   - Services contain business logic separated from cobra integration
+   - Services accept dependencies via constructor injection
+
+3. **Manual Mocking**:
+   - Tests use manual mocks that implement `client.Interface` and `OutputInterface`
+   - Mocks are simple structs with function fields for test-specific behavior
+   - No external mocking framework required
+
+**Testing Example:**
+
+```go
+func TestStatusService_DisplayStatus(t *testing.T) {
+    mockClient := &mockClientInterface{}
+    mockClient.getExecutionStatusFunc = func(ctx context.Context, executionID string) (*api.ExecutionStatusResponse, error) {
+        return &api.ExecutionStatusResponse{
+            ExecutionID: "exec-123",
+            Status:      "running",
+        }, nil
+    }
+    
+    mockOutput := &mockOutputInterface{}
+    service := NewStatusService(mockClient, mockOutput)
+    
+    err := service.DisplayStatus(context.Background(), "exec-123")
+    assert.NoError(t, err)
+    assert.True(t, len(mockOutput.calls) > 0)
+}
+```
+
+**Refactored Commands:**
+- ✅ `status.go` - Refactored with `StatusService` and full test coverage
+- ✅ `logs.go` - Refactored with `LogsService` and full test coverage
+- ⏳ Other commands follow same pattern when refactored
+
+**Benefits:**
+- **100% Backward Compatible**: CLI behavior unchanged, only internal structure refactored
+- **Testable**: Business logic can be tested with mocks without HTTP calls
+- **Maintainable**: Clear separation of concerns (cobra vs business logic)
+- **Extensible**: Easy to add new commands following the same pattern
+
 #### User Management Commands
 
 ##### Create User (`users create <email>`)
