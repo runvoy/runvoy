@@ -219,7 +219,7 @@ func buildUpdateExpression(
 		exprAttrValues[":log_stream_name"] = &types.AttributeValueMemberS{Value: execution.LogStreamName}
 	}
 
-	return updateExpr, exprNames, exprValues, nil
+	return updateExpr, exprNames, exprAttrValues, nil
 }
 
 // UpdateExecution updates an existing execution record.

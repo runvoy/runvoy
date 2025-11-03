@@ -2,12 +2,14 @@ package dynamodb
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"testing"
 	"time"
 
 	"runvoy/internal/api"
 
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -347,4 +349,149 @@ func TestCreateExecutionWithContext(t *testing.T) {
 		assert.Error(t, ctx.Err())
 		assert.Equal(t, context.Canceled, ctx.Err())
 	})
+}
+
+func TestBuildUpdateExpression(t *testing.T) {
+	now := time.Now()
+	completed := now.Add(5 * time.Minute)
+
+	tests := []struct {
+		name                 string
+		execution            *api.Execution
+		expectedUpdateExpr   string
+		expectedExprNames    map[string]string
+		expectedExprValueKeys []string
+		wantErr              bool
+	}{
+		{
+			name: "minimal execution with just status",
+			execution: &api.Execution{
+				ExecutionID: "exec-1",
+				Status:      "RUNNING",
+				ExitCode:    0,
+			},
+			expectedUpdateExpr: "SET #status = :status, exit_code = :exit_code",
+			expectedExprNames: map[string]string{
+				"#status": "status",
+			},
+			expectedExprValueKeys: []string{":status", ":exit_code"},
+			wantErr:              false,
+		},
+		{
+			name: "complete execution with all optional fields",
+			execution: &api.Execution{
+				ExecutionID:     "exec-2",
+				Status:          "SUCCEEDED",
+				CompletedAt:     &completed,
+				ExitCode:        0,
+				DurationSeconds: 300,
+				LogStreamName:   "ecs/task/123",
+			},
+			expectedUpdateExpr: "SET #status = :status, completed_at = :completed_at, exit_code = :exit_code, duration_seconds = :duration_seconds, log_stream_name = :log_stream_name",
+			expectedExprNames: map[string]string{
+				"#status": "status",
+			},
+			expectedExprValueKeys: []string{":status", ":completed_at", ":exit_code", ":duration_seconds", ":log_stream_name"},
+			wantErr:              false,
+		},
+		{
+			name: "execution with CompletedAt but no DurationSeconds",
+			execution: &api.Execution{
+				ExecutionID: "exec-3",
+				Status:      "FAILED",
+				CompletedAt: &completed,
+				ExitCode:    137,
+			},
+			expectedUpdateExpr: "SET #status = :status, completed_at = :completed_at, exit_code = :exit_code",
+			expectedExprNames: map[string]string{
+				"#status": "status",
+			},
+			expectedExprValueKeys: []string{":status", ":completed_at", ":exit_code"},
+			wantErr:              false,
+		},
+		{
+			name: "execution with DurationSeconds but no CompletedAt",
+			execution: &api.Execution{
+				ExecutionID:     "exec-4",
+				Status:          "SUCCEEDED",
+				ExitCode:        0,
+				DurationSeconds: 150,
+			},
+			expectedUpdateExpr: "SET #status = :status, exit_code = :exit_code, duration_seconds = :duration_seconds",
+			expectedExprNames: map[string]string{
+				"#status": "status",
+			},
+			expectedExprValueKeys: []string{":status", ":exit_code", ":duration_seconds"},
+			wantErr:              false,
+		},
+		{
+			name: "execution with LogStreamName only",
+			execution: &api.Execution{
+				ExecutionID:   "exec-5",
+				Status:        "RUNNING",
+				ExitCode:      0,
+				LogStreamName: "logs/stream-123",
+			},
+			expectedUpdateExpr: "SET #status = :status, exit_code = :exit_code, log_stream_name = :log_stream_name",
+			expectedExprNames: map[string]string{
+				"#status": "status",
+			},
+			expectedExprValueKeys: []string{":status", ":exit_code", ":log_stream_name"},
+			wantErr:              false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			updateExpr, exprNames, exprValues, err := buildUpdateExpression(tt.execution)
+
+			if tt.wantErr {
+				assert.Error(t, err)
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, tt.expectedUpdateExpr, updateExpr)
+			assert.Equal(t, tt.expectedExprNames, exprNames)
+
+			// Check that we got the expected number of attribute values
+			assert.Equal(t, len(tt.expectedExprValueKeys), len(exprValues))
+
+			// Check that all expected keys are present
+			for _, key := range tt.expectedExprValueKeys {
+				assert.Contains(t, exprValues, key)
+			}
+
+			// Verify specific attribute value types and values
+			statusVal, ok := exprValues[":status"]
+			require.True(t, ok)
+			assert.IsType(t, &types.AttributeValueMemberS{}, statusVal)
+			assert.Equal(t, tt.execution.Status, statusVal.(*types.AttributeValueMemberS).Value)
+
+			exitCodeVal, ok := exprValues[":exit_code"]
+			require.True(t, ok)
+			assert.IsType(t, &types.AttributeValueMemberN{}, exitCodeVal)
+			assert.Equal(t, fmt.Sprintf("%d", tt.execution.ExitCode), exitCodeVal.(*types.AttributeValueMemberN).Value)
+
+			if tt.execution.CompletedAt != nil {
+				completedAtVal, ok := exprValues[":completed_at"]
+				require.True(t, ok)
+				assert.IsType(t, &types.AttributeValueMemberS{}, completedAtVal)
+			}
+
+			if tt.execution.DurationSeconds > 0 {
+				durationVal, ok := exprValues[":duration_seconds"]
+				require.True(t, ok)
+				assert.IsType(t, &types.AttributeValueMemberN{}, durationVal)
+				assert.Equal(t, fmt.Sprintf("%d", tt.execution.DurationSeconds), durationVal.(*types.AttributeValueMemberN).Value)
+			}
+
+			if tt.execution.LogStreamName != "" {
+				logStreamVal, ok := exprValues[":log_stream_name"]
+				require.True(t, ok)
+				assert.IsType(t, &types.AttributeValueMemberS{}, logStreamVal)
+				assert.Equal(t, tt.execution.LogStreamName, logStreamVal.(*types.AttributeValueMemberS).Value)
+			}
+		})
+	}
 }
