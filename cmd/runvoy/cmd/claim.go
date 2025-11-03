@@ -40,7 +40,7 @@ func runClaim(cmd *cobra.Command, args []string) {
 	}
 
 	cfg.APIKey = resp.APIKey
-	if err := config.Save(cfg); err != nil {
+	if err = config.Save(cfg); err != nil {
 		output.Errorf("failed to save API key to config: %v", err)
 		output.Warningf("API Key => %s", output.Bold(resp.APIKey))
 		return
