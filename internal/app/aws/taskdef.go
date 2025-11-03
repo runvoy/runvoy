@@ -565,13 +565,13 @@ func DeregisterTaskDefinitionsForImage(
 					"error":  err.Error(),
 				})
 				return fmt.Errorf("failed to deregister task definition revision: %w", err)
-			} else {
-				logger.Info("deregistered task definition revision", "context", map[string]string{
-					"family": family,
-					"image":  image,
-					"arn":    taskDefARN,
-				})
 			}
+
+			logger.Info("deregistered task definition revision", "context", map[string]string{
+				"family": family,
+				"image":  image,
+				"arn":    taskDefARN,
+			})
 		}
 
 		if listOutput.NextToken == nil {
