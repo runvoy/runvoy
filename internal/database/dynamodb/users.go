@@ -580,7 +580,7 @@ func (r *UserRepository) ListUsers(ctx context.Context) ([]*api.User, error) {
 	users := make([]*api.User, 0, len(result.Items))
 	for _, item := range result.Items {
 		var userItem userItem
-		if err := attributevalue.UnmarshalMap(item, &userItem); err != nil {
+		if err = attributevalue.UnmarshalMap(item, &userItem); err != nil {
 			reqLogger.Warn("failed to unmarshal user item", "error", err)
 			continue
 		}
