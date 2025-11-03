@@ -2,12 +2,14 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
 	"os/exec"
 	"regexp"
 	"strings"
+	"time"
 )
 
 const startMarker = "<!-- CLI_HELP_START -->"
@@ -39,7 +41,10 @@ func main() {
 }
 
 func captureHelpOutput(cliBinary string) (string, error) {
-	cmd := exec.Command(cliBinary, "--help")
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, cliBinary, "--help")
 	output, err := cmd.CombinedOutput()
 	return strings.TrimSpace(string(output)), err
 }
