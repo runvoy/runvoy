@@ -65,18 +65,18 @@ func NewConfigPathGetter() ConfigPathGetter {
 
 // ConfigureService handles configuration logic
 type ConfigureService struct {
-	output        OutputInterface
-	configSaver   ConfigSaver
-	configLoader  ConfigLoader
+	output           OutputInterface
+	configSaver      ConfigSaver
+	configLoader     ConfigLoader
 	configPathGetter ConfigPathGetter
 }
 
 // NewConfigureService creates a new ConfigureService with the provided dependencies
 func NewConfigureService(output OutputInterface, configSaver ConfigSaver, configLoader func() (*config.Config, error), configPathGetter func() (string, error)) *ConfigureService {
 	return &ConfigureService{
-		output: output,
-		configSaver: configSaver,
-		configLoader: &configLoaderFunc{load: configLoader},
+		output:           output,
+		configSaver:      configSaver,
+		configLoader:     &configLoaderFunc{load: configLoader},
 		configPathGetter: &configPathGetterFunc{getPath: configPathGetter},
 	}
 }

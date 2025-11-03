@@ -49,8 +49,8 @@ func TestClaimService_ClaimAPIKey(t *testing.T) {
 	}{
 		{
 			name:  "successfully claims API key and saves to config",
-			token:  "valid-token-123",
-			cfg:    &config.Config{APIEndpoint: "https://api.example.com"},
+			token: "valid-token-123",
+			cfg:   &config.Config{APIEndpoint: "https://api.example.com"},
 			setupClient: func(m *mockClientInterfaceForClaim) {
 				m.claimAPIKeyFunc = func(ctx context.Context, token string) (*api.ClaimAPIKeyResponse, error) {
 					assert.Equal(t, "valid-token-123", token)
@@ -83,8 +83,8 @@ func TestClaimService_ClaimAPIKey(t *testing.T) {
 		},
 		{
 			name:  "handles invalid token",
-			token:  "invalid-token",
-			cfg:    &config.Config{APIEndpoint: "https://api.example.com"},
+			token: "invalid-token",
+			cfg:   &config.Config{APIEndpoint: "https://api.example.com"},
 			setupClient: func(m *mockClientInterfaceForClaim) {
 				m.claimAPIKeyFunc = func(ctx context.Context, token string) (*api.ClaimAPIKeyResponse, error) {
 					return nil, fmt.Errorf("invalid token")
@@ -105,8 +105,8 @@ func TestClaimService_ClaimAPIKey(t *testing.T) {
 		},
 		{
 			name:  "handles network error",
-			token:  "network-token",
-			cfg:    &config.Config{APIEndpoint: "https://api.example.com"},
+			token: "network-token",
+			cfg:   &config.Config{APIEndpoint: "https://api.example.com"},
 			setupClient: func(m *mockClientInterfaceForClaim) {
 				m.claimAPIKeyFunc = func(ctx context.Context, token string) (*api.ClaimAPIKeyResponse, error) {
 					return nil, fmt.Errorf("network error: connection refused")
@@ -125,8 +125,8 @@ func TestClaimService_ClaimAPIKey(t *testing.T) {
 		},
 		{
 			name:  "handles config save failure",
-			token:  "valid-token",
-			cfg:    &config.Config{APIEndpoint: "https://api.example.com"},
+			token: "valid-token",
+			cfg:   &config.Config{APIEndpoint: "https://api.example.com"},
 			setupClient: func(m *mockClientInterfaceForClaim) {
 				m.claimAPIKeyFunc = func(ctx context.Context, token string) (*api.ClaimAPIKeyResponse, error) {
 					return &api.ClaimAPIKeyResponse{
@@ -162,8 +162,8 @@ func TestClaimService_ClaimAPIKey(t *testing.T) {
 		},
 		{
 			name:  "displays warning with API key when save fails",
-			token:  "token-456",
-			cfg:    &config.Config{APIEndpoint: "https://api.example.com"},
+			token: "token-456",
+			cfg:   &config.Config{APIEndpoint: "https://api.example.com"},
 			setupClient: func(m *mockClientInterfaceForClaim) {
 				m.claimAPIKeyFunc = func(ctx context.Context, token string) (*api.ClaimAPIKeyResponse, error) {
 					return &api.ClaimAPIKeyResponse{
@@ -226,4 +226,3 @@ func TestClaimService_ClaimAPIKey(t *testing.T) {
 		})
 	}
 }
-

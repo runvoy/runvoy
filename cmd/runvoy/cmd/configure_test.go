@@ -38,13 +38,13 @@ func (m *mockConfigLoader) Load() (*config.Config, error) {
 
 func TestConfigureService_Configure(t *testing.T) {
 	tests := []struct {
-		name              string
-		setupPrompt       func(*mockOutputInterfaceWithPrompt)
-		setupLoader       func(*mockConfigLoader)
-		setupSaver        func(*mockConfigSaver)
-		setupPathGetter   func() (string, error)
-		wantErr           bool
-		verifyOutput      func(*testing.T, *mockOutputInterfaceWithPrompt)
+		name            string
+		setupPrompt     func(*mockOutputInterfaceWithPrompt)
+		setupLoader     func(*mockConfigLoader)
+		setupSaver      func(*mockConfigSaver)
+		setupPathGetter func() (string, error)
+		wantErr         bool
+		verifyOutput    func(*testing.T, *mockOutputInterfaceWithPrompt)
 	}{
 		{
 			name: "successfully creates new configuration",
@@ -278,4 +278,3 @@ func TestConfigureService_Configure(t *testing.T) {
 		})
 	}
 }
-

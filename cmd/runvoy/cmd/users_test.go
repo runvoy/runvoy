@@ -400,4 +400,3 @@ func TestUsersService_RevokeUser(t *testing.T) {
 		})
 	}
 }
-

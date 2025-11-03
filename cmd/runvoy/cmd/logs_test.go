@@ -26,12 +26,12 @@ func (m *mockClientInterfaceForLogs) GetLogs(ctx context.Context, executionID st
 
 func TestLogsService_DisplayLogs(t *testing.T) {
 	tests := []struct {
-		name          string
-		executionID   string
-		webviewerURL  string
-		setupMock     func(*mockClientInterfaceForLogs)
-		wantErr       bool
-		verifyOutput  func(*testing.T, *mockOutputInterface)
+		name         string
+		executionID  string
+		webviewerURL string
+		setupMock    func(*mockClientInterfaceForLogs)
+		wantErr      bool
+		verifyOutput func(*testing.T, *mockOutputInterface)
 	}{
 		{
 			name:         "successfully displays logs",

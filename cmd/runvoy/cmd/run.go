@@ -65,12 +65,12 @@ func runRun(cmd *cobra.Command, args []string) {
 	c := client.New(cfg, slog.Default())
 	service := NewRunService(c, NewOutputWrapper())
 	if err := service.ExecuteCommand(cmd.Context(), ExecuteCommandRequest{
-		Command: command,
-		GitRepo: gitRepo,
-		GitRef:  gitRef,
-		GitPath: gitPath,
-		Image:   image,
-		Env:     envs,
+		Command:      command,
+		GitRepo:      gitRepo,
+		GitRef:       gitRef,
+		GitPath:      gitPath,
+		Image:        image,
+		Env:          envs,
 		WebviewerURL: cfg.GetWebviewerURL(),
 	}); err != nil {
 		output.Errorf(err.Error())
@@ -96,13 +96,13 @@ func extractUserEnvVars(envVars []string) map[string]string {
 
 // ExecuteCommandRequest contains all parameters needed to execute a command
 type ExecuteCommandRequest struct {
-	Command        string
-	GitRepo        string
-	GitRef         string
-	GitPath        string
-	Image          string
-	Env            map[string]string
-	WebviewerURL   string
+	Command      string
+	GitRepo      string
+	GitRef       string
+	GitPath      string
+	Image        string
+	Env          map[string]string
+	WebviewerURL string
 }
 
 // RunService handles command execution logic
@@ -131,7 +131,7 @@ func (s *RunService) ExecuteCommand(ctx context.Context, req ExecuteCommandReque
 	if req.GitPath != "" {
 		s.output.Infof("Git path: %s", s.output.Bold(req.GitPath))
 	}
-	
+
 	var envKeys []string
 	for key := range req.Env {
 		envKeys = append(envKeys, key)

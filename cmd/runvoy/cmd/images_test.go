@@ -49,8 +49,8 @@ func TestImagesService_RegisterImage(t *testing.T) {
 		verifyOutput func(*testing.T, *mockOutputInterface)
 	}{
 		{
-			name:     "successfully registers image",
-			image:    "alpine:latest",
+			name:      "successfully registers image",
+			image:     "alpine:latest",
 			isDefault: nil,
 			setupMock: func(m *mockClientInterfaceForImages) {
 				m.registerImageFunc = func(ctx context.Context, image string, isDefault *bool) (*api.RegisterImageResponse, error) {
@@ -81,8 +81,8 @@ func TestImagesService_RegisterImage(t *testing.T) {
 			},
 		},
 		{
-			name:     "registers image as default",
-			image:    "ubuntu:22.04",
+			name:      "registers image as default",
+			image:     "ubuntu:22.04",
 			isDefault: func() *bool { b := true; return &b }(),
 			setupMock: func(m *mockClientInterfaceForImages) {
 				m.registerImageFunc = func(ctx context.Context, image string, isDefault *bool) (*api.RegisterImageResponse, error) {
@@ -109,8 +109,8 @@ func TestImagesService_RegisterImage(t *testing.T) {
 			},
 		},
 		{
-			name:     "handles client error",
-			image:    "invalid:image",
+			name:      "handles client error",
+			image:     "invalid:image",
 			isDefault: nil,
 			setupMock: func(m *mockClientInterfaceForImages) {
 				m.registerImageFunc = func(ctx context.Context, image string, isDefault *bool) (*api.RegisterImageResponse, error) {
@@ -354,4 +354,3 @@ func TestImagesService_UnregisterImage(t *testing.T) {
 		})
 	}
 }
-

@@ -345,10 +345,10 @@ func TestGetConfigPath(t *testing.T) {
 
 func TestConfig_GetWebviewerURL(t *testing.T) {
 	tests := []struct {
-		name          string
-		webviewerURL  string
-		expectedURL   string
-		description   string
+		name         string
+		webviewerURL string
+		expectedURL  string
+		description  string
 	}{
 		{
 			name:         "returns configured URL when set",

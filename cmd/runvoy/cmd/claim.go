@@ -59,16 +59,16 @@ func NewConfigSaver() ConfigSaver {
 
 // ClaimService handles API key claiming logic
 type ClaimService struct {
-	client     client.Interface
-	output     OutputInterface
+	client      client.Interface
+	output      OutputInterface
 	configSaver ConfigSaver
 }
 
 // NewClaimService creates a new ClaimService with the provided dependencies
 func NewClaimService(client client.Interface, output OutputInterface, configSaver ConfigSaver) *ClaimService {
 	return &ClaimService{
-		client:     client,
-		output:     output,
+		client:      client,
+		output:      output,
 		configSaver: configSaver,
 	}
 }

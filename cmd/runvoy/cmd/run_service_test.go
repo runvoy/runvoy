@@ -34,8 +34,8 @@ func TestRunService_ExecuteCommand(t *testing.T) {
 		{
 			name: "successfully executes simple command",
 			request: ExecuteCommandRequest{
-				Command:        "echo hello",
-				WebviewerURL:   "https://logs.example.com",
+				Command:      "echo hello",
+				WebviewerURL: "https://logs.example.com",
 			},
 			setupMock: func(m *mockClientInterfaceForRun) {
 				m.runCommandFunc = func(ctx context.Context, req api.ExecutionRequest) (*api.ExecutionResponse, error) {
@@ -64,10 +64,10 @@ func TestRunService_ExecuteCommand(t *testing.T) {
 		{
 			name: "displays git repository information",
 			request: ExecuteCommandRequest{
-				Command:        "npm test",
-				GitRepo:        "https://github.com/user/repo.git",
-				GitRef:         "main",
-				WebviewerURL:   "https://logs.example.com",
+				Command:      "npm test",
+				GitRepo:      "https://github.com/user/repo.git",
+				GitRef:       "main",
+				WebviewerURL: "https://logs.example.com",
 			},
 			setupMock: func(m *mockClientInterfaceForRun) {
 				m.runCommandFunc = func(ctx context.Context, req api.ExecutionRequest) (*api.ExecutionResponse, error) {
@@ -98,9 +98,9 @@ func TestRunService_ExecuteCommand(t *testing.T) {
 		{
 			name: "displays user environment variables",
 			request: ExecuteCommandRequest{
-				Command:        "echo test",
-				Env:            map[string]string{"API_KEY": "secret", "TOKEN": "abc123"},
-				WebviewerURL:   "https://logs.example.com",
+				Command:      "echo test",
+				Env:          map[string]string{"API_KEY": "secret", "TOKEN": "abc123"},
+				WebviewerURL: "https://logs.example.com",
 			},
 			setupMock: func(m *mockClientInterfaceForRun) {
 				m.runCommandFunc = func(ctx context.Context, req api.ExecutionRequest) (*api.ExecutionResponse, error) {
@@ -128,9 +128,9 @@ func TestRunService_ExecuteCommand(t *testing.T) {
 		{
 			name: "displays image when specified",
 			request: ExecuteCommandRequest{
-				Command:        "terraform plan",
-				Image:          "hashicorp/terraform:latest",
-				WebviewerURL:   "https://logs.example.com",
+				Command:      "terraform plan",
+				Image:        "hashicorp/terraform:latest",
+				WebviewerURL: "https://logs.example.com",
 			},
 			setupMock: func(m *mockClientInterfaceForRun) {
 				m.runCommandFunc = func(ctx context.Context, req api.ExecutionRequest) (*api.ExecutionResponse, error) {
@@ -157,8 +157,8 @@ func TestRunService_ExecuteCommand(t *testing.T) {
 		{
 			name: "handles client error",
 			request: ExecuteCommandRequest{
-				Command:        "echo test",
-				WebviewerURL:   "https://logs.example.com",
+				Command:      "echo test",
+				WebviewerURL: "https://logs.example.com",
 			},
 			setupMock: func(m *mockClientInterfaceForRun) {
 				m.runCommandFunc = func(ctx context.Context, req api.ExecutionRequest) (*api.ExecutionResponse, error) {
@@ -176,11 +176,11 @@ func TestRunService_ExecuteCommand(t *testing.T) {
 		{
 			name: "displays all git information when all provided",
 			request: ExecuteCommandRequest{
-				Command:        "npm test",
-				GitRepo:        "https://github.com/user/repo.git",
-				GitRef:         "feature-branch",
-				GitPath:        "subfolder",
-				WebviewerURL:   "https://logs.example.com",
+				Command:      "npm test",
+				GitRepo:      "https://github.com/user/repo.git",
+				GitRef:       "feature-branch",
+				GitPath:      "subfolder",
+				WebviewerURL: "https://logs.example.com",
 			},
 			setupMock: func(m *mockClientInterfaceForRun) {
 				m.runCommandFunc = func(ctx context.Context, req api.ExecutionRequest) (*api.ExecutionResponse, error) {
@@ -201,8 +201,8 @@ func TestRunService_ExecuteCommand(t *testing.T) {
 		{
 			name: "displays execution ID",
 			request: ExecuteCommandRequest{
-				Command:        "ls",
-				WebviewerURL:   "https://logs.example.com",
+				Command:      "ls",
+				WebviewerURL: "https://logs.example.com",
 			},
 			setupMock: func(m *mockClientInterfaceForRun) {
 				m.runCommandFunc = func(ctx context.Context, req api.ExecutionRequest) (*api.ExecutionResponse, error) {

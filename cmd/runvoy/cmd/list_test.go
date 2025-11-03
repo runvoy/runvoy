@@ -38,12 +38,12 @@ func TestListService_ListExecutions(t *testing.T) {
 					now := time.Now()
 					return []api.Execution{
 						{
-							ExecutionID: "exec-1",
-							Status:      "completed",
-							Command:     "echo hello",
-							UserEmail:   "user@example.com",
-							StartedAt:   now,
-							CompletedAt: func() *time.Time { t := now.Add(5 * time.Second); return &t }(),
+							ExecutionID:     "exec-1",
+							Status:          "completed",
+							Command:         "echo hello",
+							UserEmail:       "user@example.com",
+							StartedAt:       now,
+							CompletedAt:     func() *time.Time { t := now.Add(5 * time.Second); return &t }(),
 							DurationSeconds: 5,
 						},
 					}, nil
@@ -146,7 +146,7 @@ func TestListService_ListExecutions(t *testing.T) {
 					if call.method == "Table" && len(call.args) >= 2 {
 						rows := call.args[1].([][]string)
 						if len(rows) > 0 && len(rows[0]) > 2 {
-							command := rows[0][2] // Command column
+							command := rows[0][2]                                                                  // Command column
 							assert.LessOrEqual(t, len(command), maxCommandLength+3, "Command should be truncated") // +3 for "..."
 							assert.Contains(t, command, "...", "Long command should end with ...")
 						}
@@ -163,11 +163,11 @@ func TestListService_ListExecutions(t *testing.T) {
 					return []api.Execution{
 						{
 							ExecutionID:     "exec-completed",
-							Status:         "completed",
-							Command:        "test command",
-							UserEmail:      "user@example.com",
-							StartedAt:      started,
-							CompletedAt:    &completed,
+							Status:          "completed",
+							Command:         "test command",
+							UserEmail:       "user@example.com",
+							StartedAt:       started,
+							CompletedAt:     &completed,
 							DurationSeconds: 600,
 						},
 					}, nil
@@ -244,4 +244,3 @@ func TestListService_ListExecutions(t *testing.T) {
 		})
 	}
 }
-

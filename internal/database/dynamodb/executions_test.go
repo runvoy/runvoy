@@ -356,12 +356,12 @@ func TestBuildUpdateExpression(t *testing.T) {
 	completed := now.Add(5 * time.Minute)
 
 	tests := []struct {
-		name                 string
-		execution            *api.Execution
-		expectedUpdateExpr   string
-		expectedExprNames    map[string]string
+		name                  string
+		execution             *api.Execution
+		expectedUpdateExpr    string
+		expectedExprNames     map[string]string
 		expectedExprValueKeys []string
-		wantErr              bool
+		wantErr               bool
 	}{
 		{
 			name: "minimal execution with just status",
@@ -375,7 +375,7 @@ func TestBuildUpdateExpression(t *testing.T) {
 				"#status": "status",
 			},
 			expectedExprValueKeys: []string{":status", ":exit_code"},
-			wantErr:              false,
+			wantErr:               false,
 		},
 		{
 			name: "complete execution with all optional fields",
@@ -392,7 +392,7 @@ func TestBuildUpdateExpression(t *testing.T) {
 				"#status": "status",
 			},
 			expectedExprValueKeys: []string{":status", ":completed_at", ":exit_code", ":duration_seconds", ":log_stream_name"},
-			wantErr:              false,
+			wantErr:               false,
 		},
 		{
 			name: "execution with CompletedAt but no DurationSeconds",
@@ -407,7 +407,7 @@ func TestBuildUpdateExpression(t *testing.T) {
 				"#status": "status",
 			},
 			expectedExprValueKeys: []string{":status", ":completed_at", ":exit_code"},
-			wantErr:              false,
+			wantErr:               false,
 		},
 		{
 			name: "execution with DurationSeconds but no CompletedAt",
@@ -422,7 +422,7 @@ func TestBuildUpdateExpression(t *testing.T) {
 				"#status": "status",
 			},
 			expectedExprValueKeys: []string{":status", ":exit_code", ":duration_seconds"},
-			wantErr:              false,
+			wantErr:               false,
 		},
 		{
 			name: "execution with LogStreamName only",
@@ -437,7 +437,7 @@ func TestBuildUpdateExpression(t *testing.T) {
 				"#status": "status",
 			},
 			expectedExprValueKeys: []string{":status", ":exit_code", ":log_stream_name"},
-			wantErr:              false,
+			wantErr:               false,
 		},
 	}
 

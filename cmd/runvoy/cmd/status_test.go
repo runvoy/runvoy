@@ -104,10 +104,10 @@ func (m *mockOutputInterface) Prompt(prompt string) string {
 
 func TestStatusService_DisplayStatus(t *testing.T) {
 	tests := []struct {
-		name        string
-		executionID string
-		setupMock   func(*mockClientInterface)
-		wantErr     bool
+		name         string
+		executionID  string
+		setupMock    func(*mockClientInterface)
+		wantErr      bool
 		verifyOutput func(*testing.T, *mockOutputInterface)
 	}{
 		{
