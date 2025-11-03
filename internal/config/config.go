@@ -71,6 +71,7 @@ func Load() (*Config, error) {
 	bindEnvVars(v)
 
 	var cfg Config
+	var err error
 	if err = v.Unmarshal(&cfg); err != nil {
 		return nil, fmt.Errorf("error unmarshaling config: %w", err)
 	}
@@ -88,7 +89,8 @@ func Load() (*Config, error) {
 func LoadCLI() (*Config, error) {
 	v := viper.New()
 
-	if err := loadConfigFile(v); err != nil {
+	var err error
+	if err = loadConfigFile(v); err != nil {
 		return nil, err
 	}
 
@@ -113,7 +115,8 @@ func LoadOrchestrator() (*Config, error) {
 	bindEnvVars(v)
 
 	var cfg Config
-	if err := v.Unmarshal(&cfg); err != nil {
+	var err error
+	if err = v.Unmarshal(&cfg); err != nil {
 		return nil, fmt.Errorf("error unmarshaling orchestrator config: %w", err)
 	}
 
@@ -137,7 +140,8 @@ func LoadEventProcessor() (*Config, error) {
 	bindEnvVars(v)
 
 	var cfg Config
-	if err := v.Unmarshal(&cfg); err != nil {
+	var err error
+	if err = v.Unmarshal(&cfg); err != nil {
 		return nil, fmt.Errorf("error unmarshaling event processor config: %w", err)
 	}
 
