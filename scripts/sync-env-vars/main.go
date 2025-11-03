@@ -43,7 +43,7 @@ func main() {
 	functionConfig, err := lambdaClient.GetFunctionConfiguration(ctx2, &lambda.GetFunctionConfigurationInput{
 		FunctionName: aws.String(functionName),
 	})
-	cancel2() // Cancel after getting function config
+	cancel2()
 	if err != nil {
 		log.Fatalf("error: failed to get Lambda function configuration: %v", err)
 	}

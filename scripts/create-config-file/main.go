@@ -37,7 +37,7 @@ func main() {
 
 	cfnClient := cloudformation.NewFromConfig(awsCfg)
 	apiEndpoint, err := getAPIEndpointFromStack(ctx2, cfnClient, stackName)
-	cancel2() // Cancel after getting endpoint
+	cancel2()
 	if err != nil {
 		log.Fatalf("error: failed to resolve API endpoint from CloudFormation outputs: %v", err)
 	}

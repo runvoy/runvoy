@@ -66,7 +66,7 @@ func main() {
 
 	cfnClient := cloudformation.NewFromConfig(awsCfg)
 	tableName, err := getTableNameFromStack(ctx2, cfnClient, stackName)
-	cancel2() // Cancel after getting table name
+	cancel2()
 	if err != nil {
 		log.Fatalf("error: failed to resolve API keys table name from CloudFormation outputs: %v", err)
 	}
