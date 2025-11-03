@@ -56,7 +56,7 @@ func runConfigure(_ *cobra.Command, _ []string) {
 		APIKey:      apiKey,
 	}
 
-	if err := config.Save(cfg); err != nil {
+	if err = config.Save(cfg); err != nil {
 		output.Fatalf("Failed to save configuration: %v", err)
 	}
 

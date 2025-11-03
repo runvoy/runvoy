@@ -34,7 +34,7 @@ func main() {
 
 	helpSection := generateHelpSection(helpOutput)
 
-	if err := updateREADME(readmePath, helpSection); err != nil {
+	if err = updateREADME(readmePath, helpSection); err != nil {
 		log.Fatalf("error updating %s: %s", readmePath, err)
 	}
 
@@ -93,7 +93,7 @@ func updateREADME(readmePath, helpSection string) error {
 	replacement := startMarker + "\n" + helpSection + "\n" + endMarker
 	newContent := pattern.ReplaceAllString(contentStr, replacement)
 
-	if err := os.WriteFile(readmePath, []byte(newContent), constants.ConfigFilePermissions); err != nil {
+	if err = os.WriteFile(readmePath, []byte(newContent), constants.ConfigFilePermissions); err != nil {
 		return fmt.Errorf("failed to write %s: %w", readmePath, err)
 	}
 

@@ -54,7 +54,7 @@ func main() {
 		cfg.APIEndpoint = apiEndpoint
 	}
 
-	if err := config.Save(cfg); err != nil {
+	if err = config.Save(cfg); err != nil {
 		log.Fatalf("error: failed to save config file: %v", err)
 	}
 
