@@ -318,7 +318,7 @@ func TestSpinnerError(t *testing.T) {
 	}
 }
 
-func TestSpinnerStopWithoutStart(t *testing.T) {
+func TestSpinnerStopWithoutStart(_ *testing.T) {
 	// Save original stdout
 	oldStdout := Stdout
 	defer func() { Stdout = oldStdout }()

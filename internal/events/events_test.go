@@ -520,9 +520,10 @@ func TestParseTaskTimes_InvalidStoppedAt(t *testing.T) {
 		StoppedAt: "invalid-timestamp",
 	}
 
-	_, _, _, err := parseTaskTimes(taskEvent, startTime, reqLogger)
+	_, _, duration, err := parseTaskTimes(taskEvent, startTime, reqLogger)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to parse stoppedAt")
+	assert.Equal(t, 0, duration)
 }
 
 func TestParseTaskTimes_InvalidStartedAt(t *testing.T) {
@@ -536,9 +537,12 @@ func TestParseTaskTimes_InvalidStartedAt(t *testing.T) {
 		StoppedAt: stopTime.Format(time.RFC3339),
 	}
 
-	_, _, _, err := parseTaskTimes(taskEvent, time.Now(), reqLogger)
+	startedAt, stoppedAt, duration, err := parseTaskTimes(taskEvent, time.Now(), reqLogger)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to parse startedAt")
+	assert.True(t, startedAt.IsZero())
+	assert.True(t, stoppedAt.IsZero())
+	assert.Equal(t, 0, duration)
 }
 
 func TestParseTaskTimes_ValidParse(t *testing.T) {
