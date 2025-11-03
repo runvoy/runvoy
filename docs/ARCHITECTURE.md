@@ -66,6 +66,7 @@ All routes are defined in `internal/server/router.go`:
 
 ```text
 GET    /api/v1/health                   - Health check
+GET    /api/v1/users                    - List all users (admin)
 POST   /api/v1/users/create             - Create a new user with a claim URL (admin)
 POST   /api/v1/users/revoke             - Revoke a user's API key (admin)
 GET    /api/v1/images                   - List all registered Docker images (admin)
@@ -102,6 +103,48 @@ The adapter ensures that all middleware (logging, request ID extraction, authent
 ### User Management API
 
 The system provides endpoints for creating and managing users:
+
+#### List Users (`GET /api/v1/users`)
+
+Lists all users in the system with their basic information. This endpoint requires admin authentication.
+
+**Request:**
+- GET request to `/api/v1/users`
+- Requires authentication via `X-API-Key` header
+
+**Response (200 OK):**
+```json
+{
+  "users": [
+    {
+      "email": "user1@example.com",
+      "created_at": "2025-10-31T12:00:00Z",
+      "revoked": false,
+      "last_used": "2025-11-02T10:30:00Z"
+    },
+    {
+      "email": "user2@example.com",
+      "created_at": "2025-10-28T09:15:00Z",
+      "revoked": true,
+      "last_used": "2025-10-30T14:20:00Z"
+    }
+  ]
+}
+```
+
+**Error Responses:**
+- 401 Unauthorized: Invalid or revoked API key
+- 503 Service Unavailable: Database errors (transient failures)
+
+**Security:**
+- API key hashes are intentionally excluded from the response to protect sensitive authentication data
+- Only non-sensitive user information is returned: email, created_at, revoked status, and last_used timestamp
+- Requires valid admin API key for authentication
+
+**Implementation:**
+- Uses DynamoDB Scan operation to retrieve all users from the `api-keys` table
+- Filters out sensitive fields (api_key_hash) before returning response
+- Database errors return 503 (Service Unavailable) rather than 500, indicating transient failures
 
 #### Create User (`POST /api/v1/users/create`)
 
