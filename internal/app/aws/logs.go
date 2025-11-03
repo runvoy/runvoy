@@ -35,10 +35,8 @@ func FetchLogsByExecutionID(ctx context.Context, cfg *Config, executionID string
 	}
 	cwl := cloudwatchlogs.NewFromConfig(awsCfg)
 	stream := fmt.Sprintf("task/%s/%s", constants.RunnerContainerName, executionID)
-
 	reqLogger := logger.DeriveRequestLogger(ctx, slog.Default())
 
-	// Log before calling CloudWatch Logs DescribeLogStreams
 	describeLogArgs := []any{
 		"operation", "CloudWatchLogs.DescribeLogStreams",
 		"logGroup", cfg.LogGroup,
@@ -71,6 +69,25 @@ func FetchLogsByExecutionID(ctx context.Context, cfg *Config, executionID string
 		"paginated":   "true",
 	})
 
+	events, err := getAllLogEvents(ctx, cwl, cfg.LogGroup, stream)
+	if err != nil {
+		return nil, err
+	}
+	reqLogger.Debug("log events fetched successfully", "context", map[string]int{
+		"events_count": len(events),
+	})
+
+	sort.SliceStable(events, func(i, j int) bool { return events[i].Timestamp < events[j].Timestamp })
+	for i := range events {
+		events[i].Line = i + 1
+	}
+	return events, nil
+}
+
+// getAllLogEvents paginates through CloudWatch Logs GetLogEvents to collect all events
+// for the provided log group and stream. It returns the aggregated events or an error.
+func getAllLogEvents(ctx context.Context,
+	cwl *cloudwatchlogs.Client, logGroup string, stream string) ([]api.LogEvent, error) {
 	var events []api.LogEvent
 	var nextToken *string
 	pageCount := 0
@@ -78,7 +95,7 @@ func FetchLogsByExecutionID(ctx context.Context, cfg *Config, executionID string
 		pageCount++
 
 		out, err := cwl.GetLogEvents(ctx, &cloudwatchlogs.GetLogEventsInput{
-			LogGroupName:  &cfg.LogGroup,
+			LogGroupName:  &logGroup,
 			LogStreamName: &stream,
 			NextToken:     nextToken,
 			StartFromHead: aws.Bool(true),
@@ -102,15 +119,6 @@ func FetchLogsByExecutionID(ctx context.Context, cfg *Config, executionID string
 			break
 		}
 		nextToken = out.NextForwardToken
-	}
-
-	reqLogger.Debug("log events fetched successfully", "context", map[string]int{
-		"events_count": len(events),
-	})
-
-	sort.SliceStable(events, func(i, j int) bool { return events[i].Timestamp < events[j].Timestamp })
-	for i := range events {
-		events[i].Line = i + 1
 	}
 	return events, nil
 }

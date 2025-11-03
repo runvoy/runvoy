@@ -66,19 +66,19 @@ func buildSidecarContainerCommand(hasGitRepo bool) []string {
 		"    echo \"${actual_key}=${value}\" >> \"${ENV_FILE_PATH}\"",
 		"  done",
 		"  if [ -f \"${ENV_FILE_PATH}\" ]; then",
-        fmt.Sprintf(
-            "    echo '### %s sidecar: .env file created with' "+
-                "$(wc -l < \"${ENV_FILE_PATH}\") 'variables at' \"${ENV_FILE_PATH}\"",
-            constants.ProjectName,
-        ),
+		fmt.Sprintf(
+			"    echo '### %s sidecar: .env file created with' "+
+				"$(wc -l < \"${ENV_FILE_PATH}\") 'variables at' \"${ENV_FILE_PATH}\"",
+			constants.ProjectName,
+		),
 		"  else",
 		fmt.Sprintf("    echo '### %s sidecar: No .env file created'", constants.ProjectName),
 		"  fi",
 		"else",
-        fmt.Sprintf(
-            "  echo '### %s sidecar: No RUNVOY_USER_* variables found, skipping .env creation'",
-            constants.ProjectName,
-        ),
+		fmt.Sprintf(
+			"  echo '### %s sidecar: No RUNVOY_USER_* variables found, skipping .env creation'",
+			constants.ProjectName,
+		),
 		"fi",
 	)
 
@@ -148,16 +148,16 @@ func buildMainContainerCommand(req api.ExecutionRequest, requestID string, image
 }
 
 // StartTask triggers an ECS Fargate task and returns identifiers.
-func (e *Runner) StartTask(ctx context.Context, userEmail string, req api.ExecutionRequest) (string, *time.Time, error) {
+func (e *Runner) StartTask( //nolint: funlen
+	ctx context.Context, userEmail string, req api.ExecutionRequest) (string, *time.Time, error) {
 	if e.ecsClient == nil {
 		return "", nil, appErrors.ErrInternalError("ECS cli endpoint not configured", nil)
 	}
 
 	reqLogger := logger.DeriveRequestLogger(ctx, e.logger)
-
 	imageToUse := req.Image
+
 	if imageToUse == "" {
-		// No image specified, look up the default image from ECS tags
 		defaultImage, err := GetDefaultImage(ctx, e.ecsClient, reqLogger)
 		if err != nil {
 			return "", nil, appErrors.ErrInternalError("failed to query default image", err)
@@ -243,7 +243,6 @@ func (e *Runner) StartTask(ctx context.Context, userEmail string, req api.Execut
 		},
 	}
 
-	// Build task tags
 	tags := []ecsTypes.Tag{
 		{Key: awsStd.String("UserEmail"), Value: awsStd.String(userEmail)},
 	}
@@ -302,7 +301,6 @@ func (e *Runner) StartTask(ctx context.Context, userEmail string, req api.Execut
 		"executionID": executionID,
 	})
 
-	// Add ExecutionID tag to the task for easier tracking (best-effort)
 	tagLogArgs := []any{
 		"operation", "ECS.TagResource",
 		"taskARN", taskARN,
@@ -357,23 +355,30 @@ func (e *Runner) ListImages(ctx context.Context) ([]api.ImageInfo, error) {
 	}
 
 	reqLogger := logger.DeriveRequestLogger(ctx, e.logger)
-
 	reqLogger.Debug("calling external service", "context", map[string]string{
 		"operation": "ECS.ListTaskDefinitions",
 		"status":    "active",
 		"paginated": "true",
 	})
-
 	taskDefArns, err := listTaskDefinitionsByPrefix(ctx, e.ecsClient, constants.TaskDefinitionFamilyPrefix+"-")
 	if err != nil {
 		return nil, err
 	}
 
+	result, err := collectImageInfos(ctx, e.ecsClient, taskDefArns, reqLogger)
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+// collectImageInfos iterates described ECS task definitions and extracts unique runner image infos.
+func collectImageInfos(ctx context.Context, ecsClient *ecs.Client, taskDefArns []string, reqLogger *slog.Logger) ([]api.ImageInfo, error) { //nolint:cyclop
 	result := make([]api.ImageInfo, 0)
 	seenImages := make(map[string]bool)
 
 	for _, taskDefARN := range taskDefArns {
-		descOutput, err := e.ecsClient.DescribeTaskDefinition(ctx, &ecs.DescribeTaskDefinitionInput{
+		descOutput, err := ecsClient.DescribeTaskDefinition(ctx, &ecs.DescribeTaskDefinitionInput{
 			TaskDefinition: awsStd.String(taskDefARN),
 		})
 		if err != nil {
@@ -389,7 +394,6 @@ func (e *Runner) ListImages(ctx context.Context) ([]api.ImageInfo, error) {
 			return nil, appErrors.ErrInternalError("task definition not found", nil)
 		}
 
-		// Extract image from container definition (runner container)
 		image := ""
 		familyName := ""
 		if descOutput.TaskDefinition.Family != nil {
@@ -412,7 +416,7 @@ func (e *Runner) ListImages(ctx context.Context) ([]api.ImageInfo, error) {
 		}
 
 		isDefault := false
-		tagsOutput, err := e.ecsClient.ListTagsForResource(ctx, &ecs.ListTagsForResourceInput{
+		tagsOutput, err := ecsClient.ListTagsForResource(ctx, &ecs.ListTagsForResourceInput{
 			ResourceArn: awsStd.String(taskDefARN),
 		})
 		if err == nil && tagsOutput != nil {
