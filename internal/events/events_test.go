@@ -484,6 +484,88 @@ func TestECSCompletionHandler(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestParseTaskTimes_NegativeDuration(t *testing.T) {
+	logger := testutil.SilentLogger()
+	reqLogger := logger.With("test", "negative_duration")
+
+	// Create times where stopTime is before startTime (should result in 0 duration)
+	startTime := time.Now()
+	stopTime := startTime.Add(-5 * time.Minute) // 5 minutes before start
+
+	execution := &api.Execution{
+		StartedAt: startTime,
+	}
+
+	taskEvent := &ECSTaskStateChangeEvent{
+		StartedAt: startTime.Format(time.RFC3339),
+		StoppedAt: stopTime.Format(time.RFC3339),
+	}
+
+	parsedStart, parsedStop, duration, err := parseTaskTimes(taskEvent, execution.StartedAt, reqLogger)
+
+	assert.NoError(t, err)
+	assert.Equal(t, 0, duration, "Negative duration should be set to 0")
+	assert.False(t, parsedStart.IsZero())
+	assert.False(t, parsedStop.IsZero())
+}
+
+func TestParseTaskTimes_InvalidStoppedAt(t *testing.T) {
+	logger := testutil.SilentLogger()
+	reqLogger := logger.With("test", "invalid_stopped")
+
+	startTime := time.Now()
+
+	taskEvent := &ECSTaskStateChangeEvent{
+		StartedAt: startTime.Format(time.RFC3339),
+		StoppedAt: "invalid-timestamp",
+	}
+
+	_, _, duration, err := parseTaskTimes(taskEvent, startTime, reqLogger)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to parse stoppedAt")
+	assert.Equal(t, 0, duration)
+}
+
+func TestParseTaskTimes_InvalidStartedAt(t *testing.T) {
+	logger := testutil.SilentLogger()
+	reqLogger := logger.With("test", "invalid_started")
+
+	stopTime := time.Now()
+
+	taskEvent := &ECSTaskStateChangeEvent{
+		StartedAt: "invalid-timestamp",
+		StoppedAt: stopTime.Format(time.RFC3339),
+	}
+
+	startedAt, stoppedAt, duration, err := parseTaskTimes(taskEvent, time.Now(), reqLogger)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to parse startedAt")
+	assert.True(t, startedAt.IsZero())
+	assert.True(t, stoppedAt.IsZero())
+	assert.Equal(t, 0, duration)
+}
+
+func TestParseTaskTimes_ValidParse(t *testing.T) {
+	logger := testutil.SilentLogger()
+	reqLogger := logger.With("test", "valid_parse")
+
+	startTime := time.Now().Add(-5 * time.Minute)
+	stopTime := time.Now()
+
+	taskEvent := &ECSTaskStateChangeEvent{
+		StartedAt: startTime.Format(time.RFC3339),
+		StoppedAt: stopTime.Format(time.RFC3339),
+	}
+
+	parsedStart, parsedStop, duration, err := parseTaskTimes(taskEvent, time.Now(), reqLogger)
+
+	assert.NoError(t, err)
+	assert.WithinDuration(t, startTime, parsedStart, time.Second)
+	assert.WithinDuration(t, stopTime, parsedStop, time.Second)
+	assert.GreaterOrEqual(t, duration, 299) // At least 299 seconds (allowing for minor time drift)
+	assert.LessOrEqual(t, duration, 301)    // At most 301 seconds
+}
+
 // Helper function to create int pointers
 func intPtr(i int) *int {
 	return &i
