@@ -207,7 +207,6 @@ func TestHandleHealth(t *testing.T) {
 }
 
 func TestHandleRunCommand_Success(t *testing.T) {
-
 	userRepo := &testUserRepository{}
 	execRepo := &testExecutionRepository{}
 	runner := &testRunner{}
@@ -250,7 +249,6 @@ func TestHandleRunCommand_InvalidJSON(t *testing.T) {
 }
 
 func TestHandleRunCommand_Unauthorized(t *testing.T) {
-
 	userRepo := &testUserRepository{
 		authenticateUserFunc: func(_ string) (*api.User, error) {
 			return nil, apperrors.ErrInvalidAPIKey(nil)
@@ -273,7 +271,6 @@ func TestHandleRunCommand_Unauthorized(t *testing.T) {
 }
 
 func TestHandleListExecutions_Success(t *testing.T) {
-
 	now := time.Now()
 	execRepo := &testExecutionRepository{
 		listExecutionsFunc: func() ([]*api.Execution, error) {
@@ -308,7 +305,6 @@ func TestHandleListExecutions_Success(t *testing.T) {
 }
 
 func TestHandleListExecutions_Empty(t *testing.T) {
-
 	execRepo := &testExecutionRepository{
 		listExecutionsFunc: func() ([]*api.Execution, error) {
 			return []*api.Execution{}, nil
@@ -329,7 +325,6 @@ func TestHandleListExecutions_Empty(t *testing.T) {
 }
 
 func TestHandleListExecutions_DatabaseError(t *testing.T) {
-
 	execRepo := &testExecutionRepository{
 		listExecutionsFunc: func() ([]*api.Execution, error) {
 			return nil, errors.New("database connection failed")
@@ -384,7 +379,6 @@ func TestHandleRegisterImage_InvalidJSON(t *testing.T) {
 }
 
 func TestHandleListImages_Success(t *testing.T) {
-
 	runner := &testRunner{
 		listImagesFunc: func() ([]api.ImageInfo, error) {
 			return []api.ImageInfo{
@@ -409,7 +403,6 @@ func TestHandleListImages_Success(t *testing.T) {
 }
 
 func TestHandleListImages_Empty(t *testing.T) {
-
 	runner := &testRunner{
 		listImagesFunc: func() ([]api.ImageInfo, error) {
 			return []api.ImageInfo{}, nil
@@ -502,7 +495,6 @@ func TestGetClientIP_XForwardedForPrecedence(t *testing.T) {
 }
 
 func TestHandleListUsers_Success(t *testing.T) {
-
 	userRepo := &testUserRepository{}
 	svc := app.NewService(userRepo, nil, &testRunner{}, testutil.SilentLogger(), constants.AWS)
 	router := NewRouter(svc, 2*time.Second)
@@ -529,7 +521,6 @@ func TestHandleListUsers_Success(t *testing.T) {
 }
 
 func TestHandleListUsers_Unauthorized(t *testing.T) {
-
 	userRepo := &testUserRepository{
 		authenticateUserFunc: func(_ string) (*api.User, error) {
 			return nil, apperrors.ErrInvalidAPIKey(nil)
@@ -553,7 +544,6 @@ func TestHandleListUsers_Unauthorized(t *testing.T) {
 }
 
 func TestHandleListUsers_RepositoryError(t *testing.T) {
-
 	userRepo := &testUserRepository{
 		authenticateUserFunc: func(_ string) (*api.User, error) {
 			return nil, apperrors.ErrDatabaseError("database error", errors.New("connection failed"))
@@ -589,7 +579,6 @@ func TestHandleCreateUser_InvalidJSON(t *testing.T) {
 }
 
 func TestHandleCreateUser_Unauthorized(t *testing.T) {
-
 	userRepo := &testUserRepository{
 		authenticateUserFunc: func(_ string) (*api.User, error) {
 			return nil, apperrors.ErrInvalidAPIKey(nil)
@@ -612,7 +601,6 @@ func TestHandleCreateUser_Unauthorized(t *testing.T) {
 }
 
 func TestHandleRevokeUser_Success(t *testing.T) {
-
 	userRepo := &testUserRepository{}
 	svc := app.NewService(userRepo, nil, &testRunner{}, testutil.SilentLogger(), constants.AWS)
 	router := NewRouter(svc, 2*time.Second)
@@ -648,8 +636,13 @@ func TestHandleRevokeUser_InvalidJSON(t *testing.T) {
 }
 
 func TestHandleGetExecutionLogs_Success(t *testing.T) {
-
-	svc := app.NewService(&testUserRepository{}, &testExecutionRepository{}, &testRunner{}, testutil.SilentLogger(), constants.AWS)
+	svc := app.NewService(
+		&testUserRepository{},
+		&testExecutionRepository{},
+		&testRunner{},
+		testutil.SilentLogger(),
+		constants.AWS,
+	)
 	router := NewRouter(svc, 2*time.Second)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/executions/exec-123/logs", http.NoBody)
@@ -666,8 +659,13 @@ func TestHandleGetExecutionLogs_Success(t *testing.T) {
 }
 
 func TestHandleGetExecutionLogs_MissingExecutionID(t *testing.T) {
-
-	svc := app.NewService(&testUserRepository{}, &testExecutionRepository{}, &testRunner{}, testutil.SilentLogger(), constants.AWS)
+	svc := app.NewService(
+		&testUserRepository{},
+		&testExecutionRepository{},
+		&testRunner{},
+		testutil.SilentLogger(),
+		constants.AWS,
+	)
 	router := NewRouter(svc, 2*time.Second)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/executions//logs", http.NoBody)
@@ -681,7 +679,6 @@ func TestHandleGetExecutionLogs_MissingExecutionID(t *testing.T) {
 }
 
 func TestHandleGetExecutionStatus_Success(t *testing.T) {
-
 	execRepo := &testExecutionRepository{}
 	svc := app.NewService(&testUserRepository{}, execRepo, &testRunner{}, testutil.SilentLogger(), constants.AWS)
 	router := NewRouter(svc, 2*time.Second)
@@ -700,8 +697,13 @@ func TestHandleGetExecutionStatus_Success(t *testing.T) {
 }
 
 func TestHandleGetExecutionStatus_MissingExecutionID(t *testing.T) {
-
-	svc := app.NewService(&testUserRepository{}, &testExecutionRepository{}, &testRunner{}, testutil.SilentLogger(), constants.AWS)
+	svc := app.NewService(
+		&testUserRepository{},
+		&testExecutionRepository{},
+		&testRunner{},
+		testutil.SilentLogger(),
+		constants.AWS,
+	)
 	router := NewRouter(svc, 2*time.Second)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/executions//status", http.NoBody)
@@ -715,8 +717,13 @@ func TestHandleGetExecutionStatus_MissingExecutionID(t *testing.T) {
 }
 
 func TestHandleKillExecution_Success(t *testing.T) {
-
-	svc := app.NewService(&testUserRepository{}, &testExecutionRepository{}, &testRunner{}, testutil.SilentLogger(), constants.AWS)
+	svc := app.NewService(
+		&testUserRepository{},
+		&testExecutionRepository{},
+		&testRunner{},
+		testutil.SilentLogger(),
+		constants.AWS,
+	)
 	router := NewRouter(svc, 2*time.Second)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/executions/exec-123/kill", http.NoBody)
@@ -735,8 +742,13 @@ func TestHandleKillExecution_Success(t *testing.T) {
 }
 
 func TestHandleKillExecution_MissingExecutionID(t *testing.T) {
-
-	svc := app.NewService(&testUserRepository{}, &testExecutionRepository{}, &testRunner{}, testutil.SilentLogger(), constants.AWS)
+	svc := app.NewService(
+		&testUserRepository{},
+		&testExecutionRepository{},
+		&testRunner{},
+		testutil.SilentLogger(),
+		constants.AWS,
+	)
 	router := NewRouter(svc, 2*time.Second)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/executions//kill", http.NoBody)
