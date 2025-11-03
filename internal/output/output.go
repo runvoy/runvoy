@@ -342,7 +342,7 @@ func (s *Spinner) Stop() {
 		return
 	}
 	s.done <- true
-	_, _ = fmt.Fprint(Stdout, "\r"+strings.Repeat(" ", len(s.message)+10)+"\r")
+	_, _ = fmt.Fprint(Stdout, "\r"+strings.Repeat(" ", len(s.message)+10)+"\r") //nolint:mnd
 }
 
 // Success stops the spinner and prints a success message
