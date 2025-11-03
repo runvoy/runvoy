@@ -24,6 +24,7 @@ import (
 type testUserRepository struct {
 	authenticateUserFunc func(apiKeyHash string) (*api.User, error)
 	updateLastUsedFunc   func(email string) error
+	getUserByEmailFunc   func(email string) (*api.User, error)
 }
 
 func (t *testUserRepository) CreateUser(ctx context.Context, user *api.User, apiKeyHash string) error {
@@ -39,7 +40,13 @@ func (t *testUserRepository) RemoveExpiration(ctx context.Context, email string)
 }
 
 func (t *testUserRepository) GetUserByEmail(ctx context.Context, email string) (*api.User, error) {
-	return nil, nil
+	if t.getUserByEmailFunc != nil {
+		return t.getUserByEmailFunc(email)
+	}
+	return &api.User{
+		Email:   email,
+		Revoked: false,
+	}, nil
 }
 
 func (t *testUserRepository) GetUserByAPIKeyHash(ctx context.Context, apiKeyHash string) (*api.User, error) {
@@ -72,7 +79,14 @@ func (t *testUserRepository) CreatePendingAPIKey(ctx context.Context, pending *a
 }
 
 func (t *testUserRepository) GetPendingAPIKey(ctx context.Context, secretToken string) (*api.PendingAPIKey, error) {
-	return nil, nil
+	now := time.Now()
+	return &api.PendingAPIKey{
+		SecretToken: secretToken,
+		APIKey:      "test-api-key",
+		UserEmail:   "user@example.com",
+		CreatedBy:   "admin@example.com",
+		CreatedAt:   now,
+	}, nil
 }
 
 func (t *testUserRepository) MarkAsViewed(ctx context.Context, secretToken string, ipAddress string) error {
@@ -115,7 +129,14 @@ func (t *testExecutionRepository) CreateExecution(ctx context.Context, execution
 }
 
 func (t *testExecutionRepository) GetExecution(ctx context.Context, executionID string) (*api.Execution, error) {
-	return nil, nil
+	now := time.Now()
+	return &api.Execution{
+		ExecutionID: executionID,
+		UserEmail:   "user@example.com",
+		Command:     "echo hello",
+		Status:      string(constants.ExecutionRunning),
+		StartedAt:   now,
+	}, nil
 }
 
 func (t *testExecutionRepository) UpdateExecution(ctx context.Context, execution *api.Execution) error {
@@ -561,3 +582,193 @@ func TestHandleListUsers_RepositoryError(t *testing.T) {
 	// Expect an error because authentication fails with database error (503 Service Unavailable)
 	assert.Equal(t, http.StatusServiceUnavailable, resp.Code)
 }
+
+// TODO: Add TestHandleCreateUser_Success - requires complex mock setup for admin user and pending keys
+
+func TestHandleCreateUser_InvalidJSON(t *testing.T) {
+	_ = rlogger.Initialize(constants.Development, slog.LevelInfo)
+	svc := app.NewService(&testUserRepository{}, nil, &testRunner{}, slog.Default(), constants.AWS)
+	router := NewRouter(svc, 2*time.Second)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/users/create", bytes.NewReader([]byte("invalid json")))
+	req.Header.Set("X-API-Key", "test-api-key")
+
+	resp := httptest.NewRecorder()
+	router.ServeHTTP(resp, req)
+
+	assert.Equal(t, http.StatusBadRequest, resp.Code)
+	assert.Contains(t, resp.Body.String(), "invalid request body")
+}
+
+func TestHandleCreateUser_Unauthorized(t *testing.T) {
+	_ = rlogger.Initialize(constants.Development, slog.LevelInfo)
+
+	userRepo := &testUserRepository{
+		authenticateUserFunc: func(apiKeyHash string) (*api.User, error) {
+			return nil, apperrors.ErrInvalidAPIKey(nil)
+		},
+	}
+
+	svc := app.NewService(userRepo, nil, &testRunner{}, slog.Default(), constants.AWS)
+	router := NewRouter(svc, 2*time.Second)
+
+	reqBody := api.CreateUserRequest{Email: "newuser@example.com"}
+	body, _ := json.Marshal(reqBody)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/users/create", bytes.NewReader(body))
+	req.Header.Set("X-API-Key", "invalid-key")
+
+	resp := httptest.NewRecorder()
+	router.ServeHTTP(resp, req)
+
+	assert.Equal(t, http.StatusUnauthorized, resp.Code)
+}
+
+func TestHandleRevokeUser_Success(t *testing.T) {
+	_ = rlogger.Initialize(constants.Development, slog.LevelInfo)
+
+	userRepo := &testUserRepository{}
+	svc := app.NewService(userRepo, nil, &testRunner{}, slog.Default(), constants.AWS)
+	router := NewRouter(svc, 2*time.Second)
+
+	reqBody := api.RevokeUserRequest{
+		Email: "user@example.com",
+	}
+	body, _ := json.Marshal(reqBody)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/users/revoke", bytes.NewReader(body))
+	req.Header.Set("X-API-Key", "test-api-key")
+
+	resp := httptest.NewRecorder()
+	router.ServeHTTP(resp, req)
+
+	assert.Equal(t, http.StatusOK, resp.Code)
+	assert.Contains(t, resp.Body.String(), "user@example.com")
+	assert.Contains(t, resp.Body.String(), "revoked successfully")
+}
+
+func TestHandleRevokeUser_InvalidJSON(t *testing.T) {
+	_ = rlogger.Initialize(constants.Development, slog.LevelInfo)
+	svc := app.NewService(&testUserRepository{}, nil, &testRunner{}, slog.Default(), constants.AWS)
+	router := NewRouter(svc, 2*time.Second)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/users/revoke", bytes.NewReader([]byte("invalid json")))
+	req.Header.Set("X-API-Key", "test-api-key")
+
+	resp := httptest.NewRecorder()
+	router.ServeHTTP(resp, req)
+
+	assert.Equal(t, http.StatusBadRequest, resp.Code)
+	assert.Contains(t, resp.Body.String(), "Invalid request body")
+}
+
+func TestHandleGetExecutionLogs_Success(t *testing.T) {
+	_ = rlogger.Initialize(constants.Development, slog.LevelInfo)
+
+	svc := app.NewService(&testUserRepository{}, &testExecutionRepository{}, &testRunner{}, slog.Default(), constants.AWS)
+	router := NewRouter(svc, 2*time.Second)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/executions/exec-123/logs", nil)
+	req.Header.Set("X-API-Key", "test-api-key")
+
+	resp := httptest.NewRecorder()
+	router.ServeHTTP(resp, req)
+
+	assert.Equal(t, http.StatusOK, resp.Code)
+
+	var logsResp api.LogsResponse
+	err := json.NewDecoder(resp.Body).Decode(&logsResp)
+	assert.NoError(t, err)
+}
+
+func TestHandleGetExecutionLogs_MissingExecutionID(t *testing.T) {
+	_ = rlogger.Initialize(constants.Development, slog.LevelInfo)
+
+	svc := app.NewService(&testUserRepository{}, &testExecutionRepository{}, &testRunner{}, slog.Default(), constants.AWS)
+	router := NewRouter(svc, 2*time.Second)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/executions//logs", nil)
+	req.Header.Set("X-API-Key", "test-api-key")
+
+	resp := httptest.NewRecorder()
+	router.ServeHTTP(resp, req)
+
+	assert.Equal(t, http.StatusBadRequest, resp.Code)
+	assert.Contains(t, resp.Body.String(), "executionID is required")
+}
+
+func TestHandleGetExecutionStatus_Success(t *testing.T) {
+	_ = rlogger.Initialize(constants.Development, slog.LevelInfo)
+
+	execRepo := &testExecutionRepository{}
+	svc := app.NewService(&testUserRepository{}, execRepo, &testRunner{}, slog.Default(), constants.AWS)
+	router := NewRouter(svc, 2*time.Second)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/executions/exec-123/status", nil)
+	req.Header.Set("X-API-Key", "test-api-key")
+
+	resp := httptest.NewRecorder()
+	router.ServeHTTP(resp, req)
+
+	assert.Equal(t, http.StatusOK, resp.Code)
+
+	var statusResp api.ExecutionStatusResponse
+	err := json.NewDecoder(resp.Body).Decode(&statusResp)
+	assert.NoError(t, err)
+}
+
+func TestHandleGetExecutionStatus_MissingExecutionID(t *testing.T) {
+	_ = rlogger.Initialize(constants.Development, slog.LevelInfo)
+
+	svc := app.NewService(&testUserRepository{}, &testExecutionRepository{}, &testRunner{}, slog.Default(), constants.AWS)
+	router := NewRouter(svc, 2*time.Second)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/executions//status", nil)
+	req.Header.Set("X-API-Key", "test-api-key")
+
+	resp := httptest.NewRecorder()
+	router.ServeHTTP(resp, req)
+
+	assert.Equal(t, http.StatusBadRequest, resp.Code)
+	assert.Contains(t, resp.Body.String(), "executionID is required")
+}
+
+func TestHandleKillExecution_Success(t *testing.T) {
+	_ = rlogger.Initialize(constants.Development, slog.LevelInfo)
+
+	svc := app.NewService(&testUserRepository{}, &testExecutionRepository{}, &testRunner{}, slog.Default(), constants.AWS)
+	router := NewRouter(svc, 2*time.Second)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/executions/exec-123/kill", nil)
+	req.Header.Set("X-API-Key", "test-api-key")
+
+	resp := httptest.NewRecorder()
+	router.ServeHTTP(resp, req)
+
+	assert.Equal(t, http.StatusOK, resp.Code)
+
+	var killResp api.KillExecutionResponse
+	err := json.NewDecoder(resp.Body).Decode(&killResp)
+	assert.NoError(t, err)
+	assert.Equal(t, "exec-123", killResp.ExecutionID)
+	assert.Contains(t, killResp.Message, "termination initiated")
+}
+
+func TestHandleKillExecution_MissingExecutionID(t *testing.T) {
+	_ = rlogger.Initialize(constants.Development, slog.LevelInfo)
+
+	svc := app.NewService(&testUserRepository{}, &testExecutionRepository{}, &testRunner{}, slog.Default(), constants.AWS)
+	router := NewRouter(svc, 2*time.Second)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/executions//kill", nil)
+	req.Header.Set("X-API-Key", "test-api-key")
+
+	resp := httptest.NewRecorder()
+	router.ServeHTTP(resp, req)
+
+	assert.Equal(t, http.StatusBadRequest, resp.Code)
+	assert.Contains(t, resp.Body.String(), "executionID is required")
+}
+
+// TODO: Add tests for handleClaimAPIKey - currently has routing issues in test environment
+// The handler itself has logic at handlers.go:263 that needs test coverage

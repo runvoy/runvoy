@@ -35,13 +35,13 @@ func generateRequestID() string {
 func (r *Router) requestIDMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		requestID := loggerPkg.GetRequestID(req.Context())
-		
+
 		if requestID == "" {
 			if lc, ok := lambdacontext.FromContext(req.Context()); ok && lc.AwsRequestID != "" {
 				requestID = lc.AwsRequestID
 			}
 		}
-		
+
 		if requestID == "" {
 			requestID = generateRequestID()
 		}
