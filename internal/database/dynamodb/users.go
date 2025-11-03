@@ -144,7 +144,7 @@ func (r *UserRepository) GetUserByEmail(ctx context.Context, email string) (*api
 	}
 
 	var item userItem
-	if err := attributevalue.UnmarshalMap(result.Items[0], &item); err != nil {
+	if err = attributevalue.UnmarshalMap(result.Items[0], &item); err != nil {
 		return nil, err
 	}
 
