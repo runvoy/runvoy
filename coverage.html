@@ -97,7 +97,7 @@
 				
 				<option value="file20">runvoy/internal/app/main.go (58.6%)</option>
 				
-				<option value="file21">runvoy/internal/auth/apikey.go (50.0%)</option>
+				<option value="file21">runvoy/internal/auth/apikey.go (80.0%)</option>
 				
 				<option value="file22">runvoy/internal/client/client.go (0.9%)</option>
 				
@@ -111,7 +111,7 @@
 				
 				<option value="file27">runvoy/internal/errors/errors.go (100.0%)</option>
 				
-				<option value="file28">runvoy/internal/events/ecs_completion.go (81.4%)</option>
+				<option value="file28">runvoy/internal/events/ecs_completion.go (90.0%)</option>
 				
 				<option value="file29">runvoy/internal/events/processor.go (47.4%)</option>
 				
@@ -123,7 +123,7 @@
 				
 				<option value="file33">runvoy/internal/logger/logger.go (97.4%)</option>
 				
-				<option value="file34">runvoy/internal/output/output.go (64.5%)</option>
+				<option value="file34">runvoy/internal/output/output.go (74.7%)</option>
 				
 				<option value="file35">runvoy/internal/server/handlers.go (54.6%)</option>
 				
@@ -3921,13 +3921,13 @@ func HashAPIKey(apiKey string) string <span class="cov8" title="1">{
 
 // GenerateSecretToken creates a cryptographically secure random secret token for claim URLs.
 // The token is base64-encoded and approximately 32 characters long.
-func GenerateSecretToken() (string, error) <span class="cov0" title="0">{
+func GenerateSecretToken() (string, error) <span class="cov8" title="1">{
         b := make([]byte, constants.SecretTokenByteSize)
         if _, err := rand.Read(b); err != nil </span><span class="cov0" title="0">{
                 return "", err
         }</span>
 
-        <span class="cov0" title="0">return base64.URLEncoding.WithPadding(base64.NoPadding).EncodeToString(b), nil</span>
+        <span class="cov8" title="1">return base64.URLEncoding.WithPadding(base64.NoPadding).EncodeToString(b), nil</span>
 }
 </pre>
 		
@@ -5986,7 +5986,7 @@ func parseTaskTimes(
 ) (startedAt, stoppedAt time.Time, durationSeconds int, err error) <span class="cov8" title="1">{
         if taskEvent.StartedAt != "" </span><span class="cov8" title="1">{
                 startedAt, err = ParseTime(taskEvent.StartedAt)
-                if err != nil </span><span class="cov0" title="0">{
+                if err != nil </span><span class="cov8" title="1">{
                         reqLogger.Error("failed to parse startedAt timestamp", "error", err, "startedAt", taskEvent.StartedAt)
                         return time.Time{}, time.Time{}, 0, fmt.Errorf("failed to parse startedAt: %w", err)
                 }</span>
@@ -5998,13 +5998,13 @@ func parseTaskTimes(
         }</span>
 
         <span class="cov8" title="1">stoppedAt, err = ParseTime(taskEvent.StoppedAt)
-        if err != nil </span><span class="cov0" title="0">{
+        if err != nil </span><span class="cov8" title="1">{
                 reqLogger.Error("failed to parse stoppedAt timestamp", "error", err, "stoppedAt", taskEvent.StoppedAt)
                 return time.Time{}, time.Time{}, 0, fmt.Errorf("failed to parse stoppedAt: %w", err)
         }</span>
 
         <span class="cov8" title="1">durationSeconds = int(stoppedAt.Sub(startedAt).Seconds())
-        if durationSeconds &lt; 0 </span><span class="cov0" title="0">{
+        if durationSeconds &lt; 0 </span><span class="cov8" title="1">{
                 reqLogger.Warn("calculated negative duration, setting to 0",
                         "startedAt", startedAt.Format(time.RFC3339),
                         "stoppedAt", stoppedAt.Format(time.RFC3339),
@@ -6522,7 +6522,7 @@ func Infof(format string, a ...interface{}) <span class="cov8" title="1">{
 
 // Warningf prints a warning message with a warning symbol
 // Example: ⚠ Lock already held by alice@acme.com
-func Warningf(format string, a ...interface{}) <span class="cov0" title="0">{
+func Warningf(format string, a ...interface{}) <span class="cov8" title="1">{
         _, _ = fmt.Fprintf(Stdout, yellow.Sprint("⚠")+" "+format+"\n", a...)
 }</span>
 
@@ -6547,14 +6547,14 @@ func Step(step, total int, message string) <span class="cov8" title="1">{
 
 // StepSuccess prints a successful step completion
 // Example: [1/3] ✓ Stack created
-func StepSuccess(step, total int, message string) <span class="cov0" title="0">{
+func StepSuccess(step, total int, message string) <span class="cov8" title="1">{
         _, _ = gray.Fprintf(Stdout, "[%d/%d] ", step, total)
         _, _ = fmt.Fprintf(Stdout, "%s %s\n", green.Sprint("✓"), message)
 }</span>
 
 // StepError prints a failed step
 // Example: [2/3] ✗ Failed to generate API key
-func StepError(step, total int, message string) <span class="cov0" title="0">{
+func StepError(step, total int, message string) <span class="cov8" title="1">{
         _, _ = gray.Fprintf(Stdout, "[%d/%d] ", step, total)
         _, _ = fmt.Fprintf(Stdout, "%s %s\n", red.Sprint("✗"), message)
 }</span>
@@ -6587,22 +6587,22 @@ func KeyValue(key, value string) <span class="cov8" title="1">{
 
 // KeyValueBold prints a key-value pair with bold value
 // Example:   API Key: sk_live_abc123...
-func KeyValueBold(key, value string) <span class="cov0" title="0">{
+func KeyValueBold(key, value string) <span class="cov8" title="1">{
         _, _ = fmt.Fprintf(Stdout, "  %s: %s\n", gray.Sprint(key), bold.Sprint(value))
 }</span>
 
 // Blank prints a blank line
-func Blank() <span class="cov0" title="0">{
+func Blank() <span class="cov8" title="1">{
         _, _ = fmt.Fprintln(Stdout)
 }</span>
 
 // Println prints a plain line without any formatting
-func Println(a ...interface{}) <span class="cov0" title="0">{
+func Println(a ...interface{}) <span class="cov8" title="1">{
         _, _ = fmt.Fprintln(Stdout, a...)
 }</span>
 
 // Printf prints a formatted plain line
-func Printf(format string, a ...interface{}) <span class="cov0" title="0">{
+func Printf(format string, a ...interface{}) <span class="cov8" title="1">{
         _, _ = fmt.Fprintf(Stdout, format, a...)
 }</span>
 
@@ -6674,7 +6674,7 @@ func Box(text string) <span class="cov8" title="1">{
 // exec_abc123     completed   10m 35s
 // exec_def456     running     2m 15s
 func Table(headers []string, rows [][]string) <span class="cov8" title="1">{
-        if len(headers) == 0 </span><span class="cov0" title="0">{
+        if len(headers) == 0 </span><span class="cov8" title="1">{
                 return
         }</span>
 
@@ -6716,7 +6716,7 @@ func Table(headers []string, rows [][]string) <span class="cov8" title="1">{
         // Print rows
         for _, row := range rows </span><span class="cov8" title="1">{
                 for i, cell := range row </span><span class="cov8" title="1">{
-                        if i &gt;= len(widths) </span><span class="cov0" title="0">{
+                        if i &gt;= len(widths) </span><span class="cov8" title="1">{
                                 continue</span>
                         }
                         <span class="cov8" title="1">pad := widths[i] - visibleWidth(cell)
@@ -6807,13 +6807,13 @@ func (s *Spinner) Stop() <span class="cov8" title="1">{
 }
 
 // Success stops the spinner and prints a success message
-func (s *Spinner) Success(message string) <span class="cov0" title="0">{
+func (s *Spinner) Success(message string) <span class="cov8" title="1">{
         s.Stop()
         Successf(message)
 }</span>
 
 // Error stops the spinner and prints an error message
-func (s *Spinner) Error(message string) <span class="cov0" title="0">{
+func (s *Spinner) Error(message string) <span class="cov8" title="1">{
         s.Stop()
         Errorf(message)
 }</span>
@@ -6866,7 +6866,7 @@ func (p *ProgressBar) Update(current int) <span class="cov8" title="1">{
 }
 
 // Increment increments the progress bar by 1
-func (p *ProgressBar) Increment() <span class="cov0" title="0">{
+func (p *ProgressBar) Increment() <span class="cov8" title="1">{
         p.Update(p.current + 1)
 }</span>
 
@@ -6931,7 +6931,7 @@ func StatusBadge(status string) string <span class="cov8" title="1">{
                 return red.Sprint("● " + status)</span>
         case "pending", "queued":<span class="cov8" title="1">
                 return gray.Sprint("● " + status)</span>
-        default:<span class="cov0" title="0">
+        default:<span class="cov8" title="1">
                 return cyan.Sprint("● " + status)</span>
         }
 }

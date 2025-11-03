@@ -135,6 +135,43 @@ func BenchmarkGenerateAPIKey(b *testing.B) {
 	}
 }
 
+func TestGenerateSecretToken(t *testing.T) {
+	tests := []struct {
+		name string
+	}{
+		{name: "generates valid secret token"},
+		{name: "generates unique tokens on multiple calls"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			token, err := GenerateSecretToken()
+
+			require.NoError(t, err, "GenerateSecretToken should not return an error")
+			assert.NotEmpty(t, token, "Generated token should not be empty")
+
+			// Verify it's base64 URL encoded
+			_, err = base64.URLEncoding.WithPadding(base64.NoPadding).DecodeString(token)
+			assert.NoError(t, err, "Token should be valid base64 URL encoding")
+
+			// Verify minimum length (24 bytes encoded should be ~32 chars)
+			assert.GreaterOrEqual(t, len(token), 30, "Token should be at least 30 characters")
+
+			// Verify it doesn't contain invalid characters
+			assert.True(t, isValidBase64URL(token), "Token should only contain valid base64 URL characters")
+		})
+	}
+
+	t.Run("generates unique tokens", func(t *testing.T) {
+		token1, err1 := GenerateSecretToken()
+		token2, err2 := GenerateSecretToken()
+
+		require.NoError(t, err1)
+		require.NoError(t, err2)
+		assert.NotEqual(t, token1, token2, "Two consecutive secret tokens should be different")
+	})
+}
+
 // Benchmark for API key hashing
 func BenchmarkHashAPIKey(b *testing.B) {
 	apiKey := "test-key-for-benchmarking-12345"
@@ -142,5 +179,12 @@ func BenchmarkHashAPIKey(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		_ = HashAPIKey(apiKey)
+	}
+}
+
+// Benchmark for secret token generation
+func BenchmarkGenerateSecretToken(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		_, _ = GenerateSecretToken()
 	}
 }
