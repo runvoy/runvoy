@@ -338,7 +338,8 @@ func (r *Router) handleListImages(w http.ResponseWriter, req *http.Request) {
 }
 
 // handleRemoveImage handles DELETE /api/v1/images/{image} to remove a registered Docker image
-// The image parameter may contain slashes and colons (e.g., "ecr-public.us-east-1.amazonaws.com/docker/library/ubuntu:22.04")
+// The image parameter may contain slashes and colons (e.g.,
+// "ecr-public.us-east-1.amazonaws.com/docker/library/ubuntu:22.04")
 // Uses catch-all route (*) to match paths with slashes
 func (r *Router) handleRemoveImage(w http.ResponseWriter, req *http.Request) {
 	logger := r.GetLoggerFromContext(req.Context())

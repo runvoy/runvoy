@@ -109,9 +109,13 @@ func main() {
 
 	log.Println("admin user created in DynamoDB")
 
-	if err := config.Save(cfg); err != nil {
-		log.Fatalf("error: failed to save config file: %v. Please save the key manually or store it somewhere safe: %s", err, cfg.APIKey)
-	}
+    if err := config.Save(cfg); err != nil {
+        log.Fatalf(
+            "error: failed to save config file: %v. "+
+                "Please save the key manually or store it somewhere safe: %s",
+            err, cfg.APIKey,
+        )
+    }
 	log.Println("config file saved")
 }
 

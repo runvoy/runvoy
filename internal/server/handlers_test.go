@@ -155,7 +155,11 @@ type testRunner struct {
 	listImagesFunc func() ([]api.ImageInfo, error)
 }
 
-func (t *testRunner) StartTask(_ context.Context, userEmail string, req api.ExecutionRequest) (string, *time.Time, error) {
+func (t *testRunner) StartTask(
+    _ context.Context,
+    userEmail string,
+    req api.ExecutionRequest,
+) (string, *time.Time, error) {
 	if t.runCommandFunc != nil {
 		createdAt, err := t.runCommandFunc(userEmail, req)
 		if err != nil {

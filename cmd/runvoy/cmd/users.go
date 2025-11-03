@@ -162,7 +162,11 @@ func runCreateUser(cmd *cobra.Command, args []string) {
 	output.KeyValue("Email", resp.User.Email)
 	output.KeyValue("Claim Token", resp.ClaimToken)
 	output.Blank()
-	output.Infof("Share this command with the user => %s claim %s", output.Bold(constants.ProjectName), output.Bold(resp.ClaimToken))
+    output.Infof(
+        "Share this command with the user => %s claim %s",
+        output.Bold(constants.ProjectName),
+        output.Bold(resp.ClaimToken),
+    )
 	output.Blank()
 	output.Warningf("⏱  Token expires in 15 minutes")
 	output.Warningf("👁  Can only be viewed once")
