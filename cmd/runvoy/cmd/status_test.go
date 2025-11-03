@@ -96,6 +96,11 @@ func (m *mockOutputInterface) Cyan(text string) string {
 func (m *mockOutputInterface) KeyValue(key, value string) {
 	m.calls = append(m.calls, call{method: "KeyValue", args: []interface{}{key, value}})
 }
+func (m *mockOutputInterface) Prompt(prompt string) string {
+	m.calls = append(m.calls, call{method: "Prompt", args: []interface{}{prompt}})
+	// Return empty string by default - tests can override by checking calls
+	return ""
+}
 
 func TestStatusService_DisplayStatus(t *testing.T) {
 	tests := []struct {

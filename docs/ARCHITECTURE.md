@@ -935,7 +935,7 @@ type StatusService struct {
 
 #### CLI Command Testing Architecture
 
-CLI commands are now refactored to use a **service pattern** with dependency injection for testability. This separates business logic from cobra command handlers.
+All CLI commands have been refactored to use a **service pattern** with dependency injection for testability. This separates business logic from cobra command handlers.
 
 **Design Pattern:**
 
@@ -977,19 +977,57 @@ func (s *StatusService) DisplayStatus(ctx context.Context, executionID string) e
 	}
 ```
 
+**Refactored Commands:**
+
+All CLI commands follow the same service pattern:
+
+1. **ClaimCommand** (`claim.go`):
+   - `ClaimService` - Handles API key claiming logic
+   - Includes `ConfigSaver` interface for testable config saving
+   - Full test coverage with error scenarios
+
+2. **KillCommand** (`kill.go`):
+   - `KillService` - Handles execution termination logic
+   - Tests cover success, not found, and network error cases
+
+3. **ListCommand** (`list.go`):
+   - `ListService` - Handles execution listing and table formatting
+   - Tests cover empty lists, formatting, and error handling
+
+4. **ConfigureCommand** (`configure.go`):
+   - `ConfigureService` - Handles interactive configuration flow
+   - Includes `ConfigLoader` and `ConfigPathGetter` interfaces
+   - Supports mocking of prompts for testing
+   - Tests cover new config creation, updates, and error scenarios
+
+5. **UsersCommand** (`users.go`):
+   - `UsersService` - Handles user management (create, list, revoke)
+   - Includes `formatUsers` helper for table formatting
+   - Comprehensive tests for all subcommands
+
+6. **ImagesCommand** (`images.go`):
+   - `ImagesService` - Handles image management (register, list, unregister)
+   - Includes `formatImages` helper for table formatting
+   - Tests cover all image operations
+
 **Key Components:**
 
 1. **Output Interface** (`cmd/runvoy/cmd/output_interface.go`):
-   - Defines `OutputInterface` for all output operations
+   - Defines `OutputInterface` for all output operations including `Prompt()` for interactive commands
    - Provides `outputWrapper` that implements the interface using global `output.*` functions
    - Enables capturing and verifying output in tests
 
 2. **Service Pattern**:
-   - Each command has an associated service (e.g., `StatusService`, `LogsService`)
+   - Each command has an associated service (e.g., `StatusService`, `ClaimService`, `UsersService`)
    - Services contain business logic separated from cobra integration
    - Services accept dependencies via constructor injection
 
-3. **Manual Mocking**:
+3. **Configuration Interfaces**:
+   - `ConfigSaver` - Interface for saving configuration (used by `claim.go`)
+   - `ConfigLoader` - Interface for loading configuration (used by `configure.go`)
+   - `ConfigPathGetter` - Interface for getting config path (used by `configure.go`)
+
+4. **Manual Mocking**:
    - Tests use manual mocks that implement `client.Interface` and `OutputInterface`
    - Mocks are simple structs with function fields for test-specific behavior
    - No external mocking framework required
@@ -1018,7 +1056,14 @@ func TestStatusService_DisplayStatus(t *testing.T) {
 **Refactored Commands:**
 - ✅ `status.go` - Refactored with `StatusService` and full test coverage
 - ✅ `logs.go` - Refactored with `LogsService` and full test coverage
-- ⏳ Other commands follow same pattern when refactored
+- ✅ `claim.go` - Refactored with `ClaimService` and full test coverage
+- ✅ `kill.go` - Refactored with `KillService` and full test coverage
+- ✅ `list.go` - Refactored with `ListService` and full test coverage
+- ✅ `configure.go` - Refactored with `ConfigureService` and full test coverage
+- ✅ `users.go` - Refactored with `UsersService` and full test coverage
+- ✅ `images.go` - Refactored with `ImagesService` and full test coverage
+
+All commands now follow the same service pattern with dependency injection for testability.
 
 **Benefits:**
 - **100% Backward Compatible**: CLI behavior unchanged, only internal structure refactored
