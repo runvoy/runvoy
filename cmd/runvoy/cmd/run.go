@@ -65,13 +65,7 @@ func runRun(cmd *cobra.Command, args []string) {
 	if gitPath := cmd.Flag("git-path").Value.String(); gitPath != "" {
 		output.Infof("Git path: %s", output.Bold(gitPath))
 	}
-	envs := make(map[string]string)
-	for _, env := range os.Environ() {
-		parts := strings.SplitN(env, "=", constants.EnvVarSplitLimit)
-		if len(parts) == 2 && strings.HasPrefix(parts[0], "RUNVOY_USER_") {
-			envs[strings.TrimPrefix(parts[0], "RUNVOY_USER_")] = parts[1]
-		}
-	}
+	envs := extractUserEnvVars(os.Environ())
 	var envKeys []string
 	for key := range envs {
 		envKeys = append(envKeys, key)
@@ -104,4 +98,21 @@ func runRun(cmd *cobra.Command, args []string) {
 	webviewerURL := cfg.GetWebviewerURL()
 	output.Infof("View logs in web viewer: %s?execution_id=%s",
 		webviewerURL, output.Cyan(resp.ExecutionID))
+}
+
+func extractUserEnvVars(envVars []string) map[string]string {
+	envs := make(map[string]string)
+	for _, env := range envVars {
+		parts := strings.SplitN(env, "=", constants.EnvVarSplitLimit)
+		if len(parts) != 2 {
+			continue
+		}
+
+		key := parts[0]
+		if strings.HasPrefix(key, "RUNVOY_USER_") {
+			envs[strings.TrimPrefix(key, "RUNVOY_USER_")] = parts[1]
+		}
+	}
+
+	return envs
 }
