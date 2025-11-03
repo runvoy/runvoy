@@ -2,6 +2,8 @@ package server
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"log/slog"
 	"net/http"
 	"sync"
@@ -19,22 +21,33 @@ const (
 	lastUsedUpdateTimeout            = 5 * time.Second
 )
 
-// requestIDMiddleware extracts the Lambda request ID from the context and adds it to the request context
-// This middleware should be added early in the middleware chain to ensure request ID is available for logging
-// Sets up a request-scoped logger in context that includes the request ID if available
+// generateRequestID generates a random request ID using crypto/rand
+func generateRequestID() string {
+	b := make([]byte, 16)
+	if _, err := rand.Read(b); err != nil {
+		return hex.EncodeToString([]byte(time.Now().String()))
+	}
+	return hex.EncodeToString(b)
+}
+
+// requestIDMiddleware extracts the request ID from the context (if present) or generates a random one.
+// Priority: 1) Existing request ID in context, 2) Lambda request ID, 3) Generated random ID.
 func (r *Router) requestIDMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		requestID := ""
-		if lc, ok := lambdacontext.FromContext(req.Context()); ok {
-			requestID = lc.AwsRequestID
+		requestID := loggerPkg.GetRequestID(req.Context())
+		
+		if requestID == "" {
+			if lc, ok := lambdacontext.FromContext(req.Context()); ok && lc.AwsRequestID != "" {
+				requestID = lc.AwsRequestID
+			}
+		}
+		
+		if requestID == "" {
+			requestID = generateRequestID()
 		}
 
 		ctx := context.WithValue(req.Context(), loggerPkg.RequestIDContextKey(), requestID)
-
-		log := r.svc.Logger
-		if requestID != "" {
-			log = log.With(string(loggerPkg.RequestIDContextKey()), requestID)
-		}
+		log := r.svc.Logger.With(string(loggerPkg.RequestIDContextKey()), requestID)
 		ctx = context.WithValue(ctx, loggerContextKey, log)
 
 		next.ServeHTTP(w, req.WithContext(ctx))
