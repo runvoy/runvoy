@@ -155,6 +155,9 @@ const TaskDefinitionIsDefaultTagKey = "IsDefault"
 // TaskDefinitionDockerImageTagKey is the ECS tag key used to store the Docker image name for metadata
 const TaskDefinitionDockerImageTagKey = "DockerImage"
 
+// TaskDefinitionIsDefaultTagValue is the tag value used to mark a task definition as the default image
+const TaskDefinitionIsDefaultTagValue = "true"
+
 // StartTimeCtxKeyType is the type for start time context keys
 type StartTimeCtxKeyType string
 

@@ -120,7 +120,7 @@ func GetDefaultImage(
 		var dockerImage string
 		for _, tag := range tagsOutput.Tags {
 			if tag.Key != nil && tag.Value != nil {
-				if *tag.Key == constants.TaskDefinitionIsDefaultTagKey && *tag.Value == "true" {
+				if *tag.Key == constants.TaskDefinitionIsDefaultTagKey && *tag.Value == constants.TaskDefinitionIsDefaultTagValue {
 					isDefault = true
 				}
 				if *tag.Key == constants.TaskDefinitionDockerImageTagKey {
@@ -135,46 +135,6 @@ func GetDefaultImage(
 	}
 
 	return "", nil
-}
-
-// hasExistingDefaultImage checks if any task definition has the IsDefault tag set.
-func hasExistingDefaultImage(
-	ctx context.Context,
-	ecsClient *ecs.Client,
-	logger *slog.Logger,
-) (bool, error) {
-	familyPrefix := constants.TaskDefinitionFamilyPrefix + "-"
-	taskDefArns, err := listTaskDefinitionsByPrefix(ctx, ecsClient, familyPrefix)
-	if err != nil {
-		return false, err
-	}
-
-	logger.Debug("calling external service", "context", map[string]string{
-		"operation":    "ECS.ListTagsForResource",
-		"resourceArns": strings.Join(taskDefArns, ", "),
-	})
-
-	for _, taskDefARN := range taskDefArns {
-		tagsOutput, err := ecsClient.ListTagsForResource(ctx, &ecs.ListTagsForResourceInput{
-			ResourceArn: awsStd.String(taskDefARN),
-		})
-		if err != nil {
-			logger.Debug("failed to list tags for task definition", "context", map[string]string{
-				"arn":   taskDefARN,
-				"error": err.Error(),
-			})
-			continue
-		}
-
-		for _, tag := range tagsOutput.Tags {
-			if tag.Key != nil && *tag.Key == constants.TaskDefinitionIsDefaultTagKey &&
-				tag.Value != nil && *tag.Value == "true" {
-				return true, nil
-			}
-		}
-	}
-
-	return false, nil
 }
 
 // unmarkExistingDefaultImages removes the IsDefault tag from all existing task definitions
@@ -205,7 +165,7 @@ func unmarkExistingDefaultImages(
 		hasDefaultTag := false
 		for _, tag := range tagsOutput.Tags {
 			if tag.Key != nil && *tag.Key == constants.TaskDefinitionIsDefaultTagKey &&
-				tag.Value != nil && *tag.Value == "true" {
+				tag.Value != nil && *tag.Value == constants.TaskDefinitionIsDefaultTagValue {
 				hasDefaultTag = true
 				break
 			}
@@ -326,7 +286,7 @@ func RegisterTaskDefinitionForImage(
 		if isDefault != nil && *isDefault {
 			tags = append(tags, ecsTypes.Tag{
 				Key:   awsStd.String(constants.TaskDefinitionIsDefaultTagKey),
-				Value: awsStd.String("true"),
+				Value: awsStd.String(constants.TaskDefinitionIsDefaultTagValue),
 			})
 		}
 
@@ -392,7 +352,7 @@ func RegisterTaskDefinitionForImage(
 	if isDefault != nil && *isDefault {
 		tags = append(tags, ecsTypes.Tag{
 			Key:   awsStd.String(constants.TaskDefinitionIsDefaultTagKey),
-			Value: awsStd.String("true"),
+			Value: awsStd.String(constants.TaskDefinitionIsDefaultTagValue),
 		})
 	}
 
@@ -520,7 +480,7 @@ func DeregisterTaskDefinitionsForImage(
 			if err == nil && tagsOutput != nil {
 				for _, tag := range tagsOutput.Tags {
 					if tag.Key != nil && *tag.Key == constants.TaskDefinitionIsDefaultTagKey &&
-						tag.Value != nil && *tag.Value == "true" {
+						tag.Value != nil && *tag.Value == constants.TaskDefinitionIsDefaultTagValue {
 						wasDefault = true
 						break
 					}
@@ -637,7 +597,7 @@ func DeregisterTaskDefinitionsForImage(
 			tags := []ecsTypes.Tag{
 				{
 					Key:   awsStd.String(constants.TaskDefinitionIsDefaultTagKey),
-					Value: awsStd.String("true"),
+					Value: awsStd.String(constants.TaskDefinitionIsDefaultTagValue),
 				},
 				{
 					Key:   awsStd.String(constants.TaskDefinitionDockerImageTagKey),
