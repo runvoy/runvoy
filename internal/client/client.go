@@ -69,20 +69,20 @@ func (c *Client) Do(ctx context.Context, req Request) (*Response, error) {
 	httpReq.Header.Set(constants.ContentTypeHeader, "application/json")
 	httpReq.Header.Set(constants.APIKeyHeader, c.config.APIKey)
 
-	// Log before making HTTP request with deadline info
-	logArgs := []any{
-		"operation", "HTTP.Request",
-		"method", req.Method,
-		"url", url,
-	}
-	if req.Body != nil {
-		bodyBytes, _ := json.Marshal(req.Body)
-		logArgs = append(logArgs, "hasBody", true, "bodySize", len(bodyBytes))
-	} else {
-		logArgs = append(logArgs, "hasBody", false)
-	}
-	logArgs = append(logArgs, logger.GetDeadlineInfo(ctx)...)
-	c.logger.Debug("calling external service", logArgs...)
+    // Log before making HTTP request with standardized structure
+    httpDetails := map[string]any{
+        "operation": "HTTP.Request",
+        "method":    req.Method,
+        "url":       url,
+    }
+    if req.Body != nil {
+        bodyBytes, _ := json.Marshal(req.Body)
+        httpDetails["hasBody"] = true
+        httpDetails["bodySize"] = len(bodyBytes)
+    } else {
+        httpDetails["hasBody"] = false
+    }
+    c.logger.Debug("calling external service", logger.ContextAnd(ctx, "http", httpDetails)...)
 
 	httpClient := &http.Client{}
 	resp, err := httpClient.Do(httpReq)

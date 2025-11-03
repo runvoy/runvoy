@@ -71,6 +71,25 @@ func GetDeadlineInfo(ctx context.Context) []any {
 	}
 }
 
+// ContextMap returns a map containing context-related metadata suitable for logging.
+// Currently it includes deadline information (absolute deadline and remaining time).
+func ContextMap(ctx context.Context) map[string]any {
+    info := GetDeadlineInfo(ctx)
+    // info is ["deadline", v1, "deadline_remaining", v2]
+    return map[string]any{
+        "deadline":            info[1],
+        "deadline_remaining":  info[3],
+    }
+}
+
+// ContextAnd returns a variadic list of fields placing context metadata under the
+// "context" key, followed by the provided key/value. Intended usage:
+//   logger.Debug("msg", logger.ContextAnd(ctx, "serviceCall", details)...)
+// which produces a log with top-level keys: "context" and "serviceCall".
+func ContextAnd(ctx context.Context, key string, value any) []any {
+    return []any{"context", ContextMap(ctx), key, value}
+}
+
 // SliceToMap converts a slice of alternating key-value pairs to a map[string]any.
 // It expects the slice to have an even number of elements with string keys.
 // Non-string keys are skipped.
