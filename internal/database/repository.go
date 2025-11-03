@@ -54,6 +54,10 @@ type UserRepository interface {
 
 	// DeletePendingAPIKey removes a pending API key from the database.
 	DeletePendingAPIKey(ctx context.Context, secretToken string) error
+
+	// ListUsers returns all users in the system (excluding API key hashes for security).
+	// Used by admins to view all users and their basic information.
+	ListUsers(ctx context.Context) ([]*api.User, error)
 }
 
 // ExecutionRepository defines the interface for execution-related database operations.

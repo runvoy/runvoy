@@ -81,6 +81,26 @@ func (r *Router) handleRevokeUser(w http.ResponseWriter, req *http.Request) {
 	})
 }
 
+// handleListUsers handles GET /api/v1/users to list all users
+func (r *Router) handleListUsers(w http.ResponseWriter, req *http.Request) {
+	logger := r.GetLoggerFromContext(req.Context())
+
+	resp, err := r.svc.ListUsers(req.Context())
+	if err != nil {
+		statusCode := apperrors.GetStatusCode(err)
+		errorCode := apperrors.GetErrorCode(err)
+		errorMsg := apperrors.GetErrorMessage(err)
+
+		logger.Debug("failed to list users", "error", err, "statusCode", statusCode, "errorCode", errorCode)
+
+		writeErrorResponseWithCode(w, statusCode, errorCode, "failed to list users", errorMsg)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(resp)
+}
+
 // handleRunCommand handles POST /api/v1/run to execute a command in an ephemeral container
 func (r *Router) handleRunCommand(w http.ResponseWriter, req *http.Request) {
 	logger := r.GetLoggerFromContext(req.Context())

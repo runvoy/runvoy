@@ -102,6 +102,10 @@ func (m *mockUserRepository) DeletePendingAPIKey(ctx context.Context, secretToke
 	return nil
 }
 
+func (m *mockUserRepository) ListUsers(ctx context.Context) ([]*api.User, error) {
+	return []*api.User{}, nil
+}
+
 // mockExecutionRepository implements database.ExecutionRepository for testing
 type mockExecutionRepository struct {
 	createExecutionFunc func(ctx context.Context, execution *api.Execution) error

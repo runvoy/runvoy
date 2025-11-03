@@ -385,6 +385,50 @@ The web viewer is a minimal, single-page application that provides:
 
 The web viewer is hosted on AWS S3 and requires no installation - just open the URL in any modern browser.
 
+**User Management:**
+
+```bash
+# Create a new user
+runvoy users create <email>
+
+# Example
+runvoy users create alice@example.com
+# Output:
+# 🚀 runvoy
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# → Creating user with email alice@example.com...
+# ✓ User created successfully
+#   Email: alice@example.com
+#   Claim Token: abc123def456...
+#
+# ℹ Share this command with the user => runvoy claim abc123def456...
+#
+# ⏱  Token expires in 15 minutes
+# 👁  Can only be viewed once
+
+# List all users
+runvoy users list
+
+# Example output:
+# 🚀 runvoy
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# → Listing users…
+#
+# Email                  Status    Created (UTC)        Last Used (UTC)
+# ─────────────────────  ────────  ───────────────────  ───────────────────
+# admin@example.com      Active    2025-10-30 10:00:00  2025-11-02 14:30:00
+# alice@example.com      Active    2025-11-01 09:15:00  2025-11-02 12:45:00
+# bob@example.com        Revoked   2025-10-28 16:20:00  2025-10-29 08:10:00
+#
+# ✓ Users listed successfully
+
+# Revoke a user's API key
+runvoy users revoke <email>
+
+# Example
+runvoy users revoke bob@example.com
+```
+
 ### Global Flags
 
 All commands support the following global flags:
