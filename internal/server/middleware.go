@@ -21,24 +21,17 @@ const (
 	lastUsedUpdateTimeout            = 5 * time.Second
 )
 
-// generateRequestID generates a random UUID v4-like request ID
+// generateRequestID generates a random request ID using crypto/rand
 func generateRequestID() string {
 	b := make([]byte, 16)
 	if _, err := rand.Read(b); err != nil {
 		return hex.EncodeToString([]byte(time.Now().String()))
 	}
-	b[6] = (b[6] & 0x0f) | 0x40
-	b[8] = (b[8] & 0x3f) | 0x80
-	
-	return hex.EncodeToString(b[0:4]) + "-" +
-		hex.EncodeToString(b[4:6]) + "-" +
-		hex.EncodeToString(b[6:8]) + "-" +
-		hex.EncodeToString(b[8:10]) + "-" +
-		hex.EncodeToString(b[10:16])
+	return hex.EncodeToString(b)
 }
 
 // requestIDMiddleware extracts the request ID from the context (if present) or generates a random one.
-// Priority: 1) Existing request ID in context, 2) Lambda request ID, 3) Generated random UUID.
+// Priority: 1) Existing request ID in context, 2) Lambda request ID, 3) Generated random ID.
 func (r *Router) requestIDMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		requestID := loggerPkg.GetRequestID(req.Context())

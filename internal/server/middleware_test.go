@@ -16,17 +16,15 @@ import (
 )
 
 func TestRequestIDMiddleware(t *testing.T) {
-	// Test without Lambda context - should generate a random UUID
+	// Test without Lambda context - should generate a random ID
 	t.Run("without lambda context generates random UUID", func(t *testing.T) {
 		handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			requestID := logger.GetRequestID(r.Context())
-			// Request ID should be a generated UUID (format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)
 			if requestID == "" {
 				t.Error("Expected a generated request ID, got empty string")
 			}
-			// Verify UUID format (36 characters with dashes)
-			if len(requestID) != 36 {
-				t.Errorf("Expected UUID format (36 chars), got length %d: %s", len(requestID), requestID)
+			if len(requestID) != 32 {
+				t.Errorf("Expected hex ID format (32 chars), got length %d: %s", len(requestID), requestID)
 			}
 			w.WriteHeader(http.StatusOK)
 		})
