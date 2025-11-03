@@ -67,7 +67,7 @@ func main() {
 	}
 
 	// Write merged content back to .env file
-	if err := os.WriteFile(envFile, []byte(envContent), constants.ConfigFilePermissions); err != nil {
+	if err = os.WriteFile(envFile, []byte(envContent), constants.ConfigFilePermissions); err != nil {
 		log.Fatalf("error: failed to write .env file: %v", err)
 	}
 
@@ -90,7 +90,7 @@ func readExistingEnvFile(filePath string) ([]string, error) {
 		for scanner.Scan() {
 			lines = append(lines, scanner.Text())
 		}
-		if err := scanner.Err(); err != nil {
+		if err = scanner.Err(); err != nil {
 			return nil, fmt.Errorf("error reading .env file: %w", err)
 		}
 	} else if !os.IsNotExist(err) {

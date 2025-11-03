@@ -116,7 +116,7 @@ func main() {
 	dynamoClient := dynamodb.NewFromConfig(awsCfg)
 	seedAdminUser(context.Background(), dynamoClient, tableName, adminEmail, apiKeyHash)
 
-	if err := config.Save(cfg); err != nil {
+	if err = config.Save(cfg); err != nil {
 		log.Fatalf(
 			"error: failed to save config file: %v. "+
 				"Please save the key manually or store it somewhere safe: %s",
