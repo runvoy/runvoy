@@ -34,11 +34,11 @@ func (m *mockExecutionRepo) UpdateExecution(ctx context.Context, execution *api.
 	return nil
 }
 
-func (m *mockExecutionRepo) CreateExecution(ctx context.Context, execution *api.Execution) error {
+func (m *mockExecutionRepo) CreateExecution(_ context.Context, _ *api.Execution) error {
 	return nil
 }
 
-func (m *mockExecutionRepo) ListExecutions(ctx context.Context) ([]*api.Execution, error) {
+func (m *mockExecutionRepo) ListExecutions(_ context.Context) ([]*api.Execution, error) {
 	return nil, nil
 }
 
@@ -241,11 +241,11 @@ func TestHandleECSTaskCompletion_Success(t *testing.T) {
 
 	var updatedExecution *api.Execution
 	mockRepo := &mockExecutionRepo{
-		getExecutionFunc: func(ctx context.Context, executionID string) (*api.Execution, error) {
+		getExecutionFunc: func(_ context.Context, executionID string) (*api.Execution, error) {
 			assert.Equal(t, "test-exec-123", executionID)
 			return execution, nil
 		},
-		updateExecutionFunc: func(ctx context.Context, exec *api.Execution) error {
+		updateExecutionFunc: func(_ context.Context, exec *api.Execution) error {
 			updatedExecution = exec
 			return nil
 		},
@@ -290,7 +290,7 @@ func TestHandleECSTaskCompletion_OrphanedTask(t *testing.T) {
 	ctx := context.Background()
 
 	mockRepo := &mockExecutionRepo{
-		getExecutionFunc: func(ctx context.Context, executionID string) (*api.Execution, error) {
+		getExecutionFunc: func(_ context.Context, _ string) (*api.Execution, error) {
 			// Return nil to simulate orphaned task
 			return nil, nil
 		},
@@ -344,10 +344,10 @@ func TestHandleECSTaskCompletion_MissingStartedAt(t *testing.T) {
 
 	var updatedExecution *api.Execution
 	mockRepo := &mockExecutionRepo{
-		getExecutionFunc: func(ctx context.Context, executionID string) (*api.Execution, error) {
+		getExecutionFunc: func(_ context.Context, _ string) (*api.Execution, error) {
 			return execution, nil
 		},
-		updateExecutionFunc: func(ctx context.Context, exec *api.Execution) error {
+		updateExecutionFunc: func(_ context.Context, exec *api.Execution) error {
 			updatedExecution = exec
 			return nil
 		},
@@ -449,10 +449,10 @@ func TestECSCompletionHandler(t *testing.T) {
 	}
 
 	mockRepo := &mockExecutionRepo{
-		getExecutionFunc: func(ctx context.Context, executionID string) (*api.Execution, error) {
+		getExecutionFunc: func(_ context.Context, _ string) (*api.Execution, error) {
 			return execution, nil
 		},
-		updateExecutionFunc: func(ctx context.Context, exec *api.Execution) error {
+		updateExecutionFunc: func(_ context.Context, _ *api.Execution) error {
 			return nil
 		},
 	}

@@ -1,3 +1,5 @@
+// Package lambdaapi provides Lambda handler creation for AWS Lambda Function URLs,
+// integrating the application service with the HTTP router through algnhsa adapter.
 package lambdaapi
 
 import (

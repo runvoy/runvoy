@@ -48,8 +48,8 @@ const (
 	ErrCodeUnauthorized   = "UNAUTHORIZED"
 	ErrCodeNotFound       = "NOT_FOUND"
 	ErrCodeConflict       = "CONFLICT"
-	ErrCodeInvalidAPIKey  = "INVALID_API_KEY" // nolint:gosec
-	ErrCodeAPIKeyRevoked  = "API_KEY_REVOKED" // nolint:gosec
+	ErrCodeInvalidAPIKey  = "INVALID_API_KEY" //nolint:gosec
+	ErrCodeAPIKeyRevoked  = "API_KEY_REVOKED" //nolint:gosec
 
 	// Server error codes
 	ErrCodeInternalError      = "INTERNAL_ERROR"

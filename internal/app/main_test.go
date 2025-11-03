@@ -74,7 +74,7 @@ func TestAuthenticateUser(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			userRepo := &mockUserRepository{
-				getUserByAPIKeyHashFunc: func(ctx context.Context, apiKeyHash string) (*api.User, error) {
+				getUserByAPIKeyHashFunc: func(_ context.Context, _ string) (*api.User, error) {
 					return tt.mockUser, tt.mockErr
 				},
 			}
@@ -134,7 +134,7 @@ func TestUpdateUserLastUsed(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			userRepo := &mockUserRepository{
-				updateLastUsedFunc: func(ctx context.Context, email string) (*time.Time, error) {
+				updateLastUsedFunc: func(_ context.Context, _ string) (*time.Time, error) {
 					return tt.mockTime, tt.mockErr
 				},
 			}
@@ -215,10 +215,10 @@ func TestRevokeUser(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			userRepo := &mockUserRepository{
-				getUserByEmailFunc: func(ctx context.Context, email string) (*api.User, error) {
+				getUserByEmailFunc: func(_ context.Context, _ string) (*api.User, error) {
 					return tt.mockUser, tt.getUserErr
 				},
-				revokeUserFunc: func(ctx context.Context, email string) error {
+				revokeUserFunc: func(_ context.Context, _ string) error {
 					return tt.revokeErr
 				},
 			}

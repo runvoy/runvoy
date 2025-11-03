@@ -82,7 +82,7 @@ func registerImageRun(cmd *cobra.Command, args []string) {
 	}
 }
 
-func listImagesRun(cmd *cobra.Command, args []string) {
+func listImagesRun(cmd *cobra.Command, _ []string) {
 	cfg, err := getConfigFromContext(cmd)
 	if err != nil {
 		output.Errorf("failed to load configuration: %v", err)

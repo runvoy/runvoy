@@ -17,19 +17,19 @@ import (
 // mockRunner implements the app.Runner interface for testing
 type mockRunner struct{}
 
-func (m *mockRunner) StartTask(ctx context.Context, userEmail string, req api.ExecutionRequest) (string, *time.Time, error) {
+func (m *mockRunner) StartTask(_ context.Context, _ string, _ api.ExecutionRequest) (string, *time.Time, error) {
 	return "test-execution-id", nil, nil
 }
 
-func (m *mockRunner) KillTask(ctx context.Context, executionID string) error {
+func (m *mockRunner) KillTask(_ context.Context, _ string) error {
 	return nil
 }
 
-func (m *mockRunner) RegisterImage(ctx context.Context, image string, isDefault *bool) error {
+func (m *mockRunner) RegisterImage(_ context.Context, _ string, _ *bool) error {
 	return nil
 }
 
-func (m *mockRunner) ListImages(ctx context.Context) ([]api.ImageInfo, error) {
+func (m *mockRunner) ListImages(_ context.Context) ([]api.ImageInfo, error) {
 	return []api.ImageInfo{
 		{
 			Image: "alpine:latest",
@@ -37,11 +37,11 @@ func (m *mockRunner) ListImages(ctx context.Context) ([]api.ImageInfo, error) {
 	}, nil
 }
 
-func (m *mockRunner) RemoveImage(ctx context.Context, image string) error {
+func (m *mockRunner) RemoveImage(_ context.Context, _ string) error {
 	return nil
 }
 
-func (m *mockRunner) FetchLogsByExecutionID(ctx context.Context, executionID string) ([]api.LogEvent, error) {
+func (m *mockRunner) FetchLogsByExecutionID(_ context.Context, _ string) ([]api.LogEvent, error) {
 	return []api.LogEvent{}, nil
 }
 

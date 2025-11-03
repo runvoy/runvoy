@@ -16,7 +16,7 @@ var logsCmd = &cobra.Command{
 	Short: "Get logs for an execution",
 	Long:  `Get logs for an execution`,
 	Run:   logsRun,
-	PostRun: func(cmd *cobra.Command, _ []string) {
+	PostRun: func(_ *cobra.Command, _ []string) {
 		output.Blank()
 	},
 	Args: cobra.ExactArgs(1),

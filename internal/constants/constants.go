@@ -91,15 +91,22 @@ const SharedVolumePath = "/workspace"
 type EcsStatus string
 
 const (
-	// ECS task lifecycle statuses
-	EcsStatusProvisioning   EcsStatus = "PROVISIONING"
-	EcsStatusPending        EcsStatus = "PENDING"
-	EcsStatusActivating     EcsStatus = "ACTIVATING"
-	EcsStatusRunning        EcsStatus = "RUNNING"
-	EcsStatusDeactivating   EcsStatus = "DEACTIVATING"
-	EcsStatusStopping       EcsStatus = "STOPPING"
+	// EcsStatusProvisioning represents a task being provisioned
+	EcsStatusProvisioning EcsStatus = "PROVISIONING"
+	// EcsStatusPending represents a task pending activation
+	EcsStatusPending EcsStatus = "PENDING"
+	// EcsStatusActivating represents a task being activated
+	EcsStatusActivating EcsStatus = "ACTIVATING"
+	// EcsStatusRunning represents a task currently running
+	EcsStatusRunning EcsStatus = "RUNNING"
+	// EcsStatusDeactivating represents a task being deactivated
+	EcsStatusDeactivating EcsStatus = "DEACTIVATING"
+	// EcsStatusStopping represents a task being stopped
+	EcsStatusStopping EcsStatus = "STOPPING"
+	// EcsStatusDeprovisioning represents a task being deprovisioned
 	EcsStatusDeprovisioning EcsStatus = "DEPROVISIONING"
-	EcsStatusStopped        EcsStatus = "STOPPED"
+	// EcsStatusStopped represents a task that has stopped
+	EcsStatusStopped EcsStatus = "STOPPED"
 )
 
 // ExecutionStatus represents the business-level status of a command execution.
@@ -148,6 +155,7 @@ const TaskDefinitionIsDefaultTagKey = "IsDefault"
 // TaskDefinitionDockerImageTagKey is the ECS tag key used to store the Docker image name for metadata
 const TaskDefinitionDockerImageTagKey = "DockerImage"
 
+// StartTimeCtxKeyType is the type for start time context keys
 type StartTimeCtxKeyType string
 
 // StartTimeCtxKey is the key used to store the start time in context

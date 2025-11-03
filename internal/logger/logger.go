@@ -64,7 +64,7 @@ func flattenMapAttr(prefix string, value any) string {
 }
 
 // replaceAttrForDev transforms attributes for better readability in dev environment
-func replaceAttrForDev(groups []string, a slog.Attr) slog.Attr {
+func replaceAttrForDev(_ []string, a slog.Attr) slog.Attr {
 	switch v := a.Value.Any().(type) {
 	case map[string]any, map[string]string:
 		flattened := flattenMapAttr(a.Key, v)

@@ -39,7 +39,7 @@ func (t *testUserRepository) RemoveExpiration(_ context.Context, _ string) error
 	return nil
 }
 
-func (t *testUserRepository) GetUserByEmail(ctx context.Context, email string) (*api.User, error) {
+func (t *testUserRepository) GetUserByEmail(_ context.Context, email string) (*api.User, error) {
 	if t.getUserByEmailFunc != nil {
 		return t.getUserByEmailFunc(email)
 	}
@@ -49,7 +49,7 @@ func (t *testUserRepository) GetUserByEmail(ctx context.Context, email string) (
 	}, nil
 }
 
-func (t *testUserRepository) GetUserByAPIKeyHash(ctx context.Context, apiKeyHash string) (*api.User, error) {
+func (t *testUserRepository) GetUserByAPIKeyHash(_ context.Context, apiKeyHash string) (*api.User, error) {
 	if t.authenticateUserFunc != nil {
 		return t.authenticateUserFunc(apiKeyHash)
 	}
@@ -59,7 +59,7 @@ func (t *testUserRepository) GetUserByAPIKeyHash(ctx context.Context, apiKeyHash
 	}, nil
 }
 
-func (t *testUserRepository) UpdateLastUsed(ctx context.Context, email string) (*time.Time, error) {
+func (t *testUserRepository) UpdateLastUsed(_ context.Context, email string) (*time.Time, error) {
 	if t.updateLastUsedFunc != nil {
 		err := t.updateLastUsedFunc(email)
 		if err != nil {

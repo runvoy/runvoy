@@ -64,7 +64,7 @@ func TestRegisterImage(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			runner := &mockRunner{
-				registerImageFunc: func(ctx context.Context, image string, isDefault *bool) error {
+				registerImageFunc: func(_ context.Context, _ string, _ *bool) error {
 					return tt.runnerErr
 				},
 			}
@@ -123,7 +123,7 @@ func TestListImages(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			runner := &mockRunner{
-				listImagesFunc: func(ctx context.Context) ([]api.ImageInfo, error) {
+				listImagesFunc: func(_ context.Context) ([]api.ImageInfo, error) {
 					return tt.mockImages, tt.runnerErr
 				},
 			}
@@ -178,7 +178,7 @@ func TestRemoveImage(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			runner := &mockRunner{
-				removeImageFunc: func(ctx context.Context, image string) error {
+				removeImageFunc: func(_ context.Context, _ string) error {
 					return tt.runnerErr
 				},
 			}
