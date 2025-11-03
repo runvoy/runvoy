@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"os"
@@ -55,49 +56,25 @@ func runRun(cmd *cobra.Command, args []string) {
 		return
 	}
 
-	output.Infof("Running command: %s", output.Bold(command))
-	if gitRepo := cmd.Flag("git-repo").Value.String(); gitRepo != "" {
-		output.Infof("Git repository: %s", output.Bold(gitRepo))
-	}
-	if gitRef := cmd.Flag("git-ref").Value.String(); gitRef != "" {
-		output.Infof("Git reference: %s", output.Bold(gitRef))
-	}
-	if gitPath := cmd.Flag("git-path").Value.String(); gitPath != "" {
-		output.Infof("Git path: %s", output.Bold(gitPath))
-	}
 	envs := extractUserEnvVars(os.Environ())
-	var envKeys []string
-	for key := range envs {
-		envKeys = append(envKeys, key)
-	}
-	if len(envKeys) > 0 {
-		sort.Strings(envKeys)
-		output.Infof("Injecting user environment variables: %s", output.Bold(strings.Join(envKeys, ", ")))
-	}
+	gitRepo := cmd.Flag("git-repo").Value.String()
+	gitRef := cmd.Flag("git-ref").Value.String()
+	gitPath := cmd.Flag("git-path").Value.String()
+	image := cmd.Flag("image").Value.String()
 
 	c := client.New(cfg, slog.Default())
-	resp, err := c.RunCommand(cmd.Context(), api.ExecutionRequest{
+	service := NewRunService(c, NewOutputWrapper())
+	if err := service.ExecuteCommand(cmd.Context(), ExecuteCommandRequest{
 		Command: command,
-		GitRepo: cmd.Flag("git-repo").Value.String(),
-		GitRef:  cmd.Flag("git-ref").Value.String(),
-		GitPath: cmd.Flag("git-path").Value.String(),
+		GitRepo: gitRepo,
+		GitRef:  gitRef,
+		GitPath: gitPath,
+		Image:   image,
 		Env:     envs,
-		Image:   cmd.Flag("image").Value.String(),
-	})
-	if err != nil {
-		output.Errorf("failed to run command: %v", err)
-		return
+		WebviewerURL: cfg.GetWebviewerURL(),
+	}); err != nil {
+		output.Errorf(err.Error())
 	}
-
-	output.Successf("Command execution started successfully")
-	output.KeyValue("Execution ID", output.Cyan(resp.ExecutionID))
-	output.KeyValue("Status", resp.Status)
-	if image := cmd.Flag("image").Value.String(); image != "" {
-		output.KeyValue("Image", output.Cyan(image))
-	}
-	webviewerURL := cfg.GetWebviewerURL()
-	output.Infof("View logs in web viewer: %s?execution_id=%s",
-		webviewerURL, output.Cyan(resp.ExecutionID))
 }
 
 func extractUserEnvVars(envVars []string) map[string]string {
@@ -115,4 +92,74 @@ func extractUserEnvVars(envVars []string) map[string]string {
 	}
 
 	return envs
+}
+
+// ExecuteCommandRequest contains all parameters needed to execute a command
+type ExecuteCommandRequest struct {
+	Command        string
+	GitRepo        string
+	GitRef         string
+	GitPath        string
+	Image          string
+	Env            map[string]string
+	WebviewerURL   string
+}
+
+// RunService handles command execution logic
+type RunService struct {
+	client client.Interface
+	output OutputInterface
+}
+
+// NewRunService creates a new RunService with the provided dependencies
+func NewRunService(client client.Interface, output OutputInterface) *RunService {
+	return &RunService{
+		client: client,
+		output: output,
+	}
+}
+
+// ExecuteCommand executes a command remotely and displays the results
+func (s *RunService) ExecuteCommand(ctx context.Context, req ExecuteCommandRequest) error {
+	s.output.Infof("Running command: %s", s.output.Bold(req.Command))
+	if req.GitRepo != "" {
+		s.output.Infof("Git repository: %s", s.output.Bold(req.GitRepo))
+	}
+	if req.GitRef != "" {
+		s.output.Infof("Git reference: %s", s.output.Bold(req.GitRef))
+	}
+	if req.GitPath != "" {
+		s.output.Infof("Git path: %s", s.output.Bold(req.GitPath))
+	}
+	
+	var envKeys []string
+	for key := range req.Env {
+		envKeys = append(envKeys, key)
+	}
+	if len(envKeys) > 0 {
+		sort.Strings(envKeys)
+		s.output.Infof("Injecting user environment variables: %s", s.output.Bold(strings.Join(envKeys, ", ")))
+	}
+
+	resp, err := s.client.RunCommand(ctx, api.ExecutionRequest{
+		Command: req.Command,
+		GitRepo: req.GitRepo,
+		GitRef:  req.GitRef,
+		GitPath: req.GitPath,
+		Env:     req.Env,
+		Image:   req.Image,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to run command: %w", err)
+	}
+
+	s.output.Successf("Command execution started successfully")
+	s.output.KeyValue("Execution ID", s.output.Cyan(resp.ExecutionID))
+	s.output.KeyValue("Status", resp.Status)
+	if req.Image != "" {
+		s.output.KeyValue("Image", s.output.Cyan(req.Image))
+	}
+	s.output.Infof("View logs in web viewer: %s?execution_id=%s",
+		req.WebviewerURL, s.output.Cyan(resp.ExecutionID))
+	return nil
 }
