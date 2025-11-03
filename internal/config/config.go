@@ -142,7 +142,7 @@ func LoadEventProcessor() (*Config, error) {
 	}
 
 	// Validate required fields (matches old caarlos0/env notEmpty tags)
-	if err := validateEventProcessor(&cfg); err != nil {
+	if err = validateEventProcessor(&cfg); err != nil {
 		return nil, err
 	}
 
