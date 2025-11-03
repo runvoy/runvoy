@@ -3,12 +3,12 @@ package events
 import (
 	"context"
 	"encoding/json"
-	"log/slog"
 	"testing"
 	"time"
 
 	"runvoy/internal/api"
 	"runvoy/internal/constants"
+	"runvoy/internal/testutil"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/stretchr/testify/assert"
@@ -253,7 +253,7 @@ func TestHandleECSTaskCompletion_Success(t *testing.T) {
 
 	processor := &Processor{
 		executionRepo: mockRepo,
-		logger:        slog.Default(),
+		logger:        testutil.SilentLogger(),
 	}
 
 	taskEvent := ECSTaskStateChangeEvent{
@@ -298,7 +298,7 @@ func TestHandleECSTaskCompletion_OrphanedTask(t *testing.T) {
 
 	processor := &Processor{
 		executionRepo: mockRepo,
-		logger:        slog.Default(),
+		logger:        testutil.SilentLogger(),
 	}
 
 	exitCode := 0
@@ -355,7 +355,7 @@ func TestHandleECSTaskCompletion_MissingStartedAt(t *testing.T) {
 
 	processor := &Processor{
 		executionRepo: mockRepo,
-		logger:        slog.Default(),
+		logger:        testutil.SilentLogger(),
 	}
 
 	taskEvent := ECSTaskStateChangeEvent{
@@ -390,7 +390,7 @@ func TestHandleEvent_IgnoresUnknownEventType(t *testing.T) {
 
 	processor := &Processor{
 		executionRepo: &mockExecutionRepo{},
-		logger:        slog.Default(),
+		logger:        testutil.SilentLogger(),
 	}
 
 	event := events.CloudWatchEvent{
@@ -407,7 +407,7 @@ func TestHandleEventJSON(t *testing.T) {
 
 	processor := &Processor{
 		executionRepo: &mockExecutionRepo{},
-		logger:        slog.Default(),
+		logger:        testutil.SilentLogger(),
 	}
 
 	eventJSON := []byte(`{
@@ -424,7 +424,7 @@ func TestHandleEventJSON_InvalidJSON(t *testing.T) {
 
 	processor := &Processor{
 		executionRepo: &mockExecutionRepo{},
-		logger:        slog.Default(),
+		logger:        testutil.SilentLogger(),
 	}
 
 	eventJSON := []byte(`invalid json`)
@@ -457,7 +457,7 @@ func TestECSCompletionHandler(t *testing.T) {
 		},
 	}
 
-	handler := ECSCompletionHandler(mockRepo, slog.Default())
+	handler := ECSCompletionHandler(mockRepo, testutil.SilentLogger())
 
 	taskEvent := ECSTaskStateChangeEvent{
 		TaskArn:    "arn:aws:ecs:us-east-1:123456789012:task/cluster/test-exec-123",

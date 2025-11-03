@@ -2,11 +2,11 @@ package app
 
 import (
 	"context"
-	"log/slog"
 	"time"
 
 	"runvoy/internal/api"
 	"runvoy/internal/constants"
+	"runvoy/internal/testutil"
 )
 
 // mockUserRepository implements database.UserRepository for testing
@@ -209,6 +209,6 @@ func (m *mockRunner) FetchLogsByExecutionID(ctx context.Context, executionID str
 
 // newTestService creates a Service with mocks for testing
 func newTestService(userRepo *mockUserRepository, execRepo *mockExecutionRepository, runner *mockRunner) *Service {
-	logger := slog.Default()
+	logger := testutil.SilentLogger()
 	return NewService(userRepo, execRepo, runner, logger, constants.AWS)
 }
