@@ -80,7 +80,7 @@ This document outlines the planned improvements and future direction for the run
 - [ ] Add configuration validation on startup
 - [ ] Implement config struct with validation tags
 - [ ] Add environment-specific configs (dev/staging/prod)
-- [ ] Make webviewer URL configurable (remove hardcoded constant)
+- [x] Make webviewer URL configurable (remove hardcoded constant)
 - [ ] Add config hot-reloading for local development
 - [ ] Document all configuration options comprehensively
 
@@ -287,10 +287,10 @@ This document outlines the planned improvements and future direction for the run
 ## 📋 Technical Debt
 
 ### Immediate (Include in next sprint)
-- [ ] Fix orphaned tasks handling (see `internal/events/ecs_completion.go:50`)
-- [ ] Make webviewer URL configurable (see `internal/constants/constants.go:130`)
+- [ ] Fix orphaned tasks handling (see `internal/events/ecs_completion.go:88`)
+- [x] Make webviewer URL configurable (see `internal/constants/constants.go:144`)
 - [ ] Replace temporary admin seeding script with permanent solution
-- [ ] Add error handling for DynamoDB conditional check failures
+- [x] Add error handling for DynamoDB conditional check failures
 - [ ] Improve test helper functions for DynamoDB interactions
 
 ### Medium-term (Next 2-3 months)

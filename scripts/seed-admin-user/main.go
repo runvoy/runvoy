@@ -1,5 +1,7 @@
-// TODO: this is a temporary script to seed the admin user into the database.
-// Most probably overkill and needs some cleanup but not urgent for now, it does the job.
+// Package main provides a script to seed the initial admin user into the database.
+// This script is run during initial backend setup (via `just init`).
+// Future improvements: Consider integrating this into the CloudFormation deployment
+// process or creating a CLI command for admin user management.
 package main
 
 import (
