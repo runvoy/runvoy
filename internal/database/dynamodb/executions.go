@@ -171,11 +171,23 @@ func (r *ExecutionRepository) GetExecution(ctx context.Context, executionID stri
 	return item.toAPIExecution(), nil
 }
 
-// UpdateExecution updates an existing execution record.
-func (r *ExecutionRepository) UpdateExecution(ctx context.Context, execution *api.Execution) error {
-	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
+// marshallTimestamp marshals a timestamp to a DynamoDB attribute value string.
+func marshallTimestamp(t time.Time) (string, error) {
+	timestampAV, err := attributevalue.Marshal(t)
+	if err != nil {
+		return "", apperrors.ErrDatabaseError("failed to marshal timestamp", err)
+	}
+	timestampStr, ok := timestampAV.(*types.AttributeValueMemberS)
+	if !ok {
+		return "", apperrors.ErrDatabaseError("timestamp is not a string attribute", nil)
+	}
+	return timestampStr.Value, nil
+}
 
-	// Build update expression dynamically based on what fields are set
+// buildUpdateExpression builds a DynamoDB update expression for an execution.
+func buildUpdateExpression(
+	execution *api.Execution,
+) (string, map[string]string, map[string]types.AttributeValue, error) {
 	updateExpr := "SET #status = :status"
 	exprAttrNames := map[string]string{
 		"#status": "status",
@@ -186,16 +198,11 @@ func (r *ExecutionRepository) UpdateExecution(ctx context.Context, execution *ap
 
 	if execution.CompletedAt != nil {
 		updateExpr += ", completed_at = :completed_at"
-		// Use DynamoDB's marshaler to ensure the timestamp format matches exactly what DynamoDB expects
-		completedAtAV, err := attributevalue.Marshal(*execution.CompletedAt)
+		completedAtStr, err := marshallTimestamp(*execution.CompletedAt)
 		if err != nil {
-			return apperrors.ErrDatabaseError("failed to marshal completed_at", err)
+			return "", nil, nil, err
 		}
-		completedAtStr, ok := completedAtAV.(*types.AttributeValueMemberS)
-		if !ok {
-			return apperrors.ErrDatabaseError("completed_at is not a string attribute", nil)
-		}
-		exprAttrValues[":completed_at"] = &types.AttributeValueMemberS{Value: completedAtStr.Value}
+		exprAttrValues[":completed_at"] = &types.AttributeValueMemberS{Value: completedAtStr}
 	}
 
 	updateExpr += ", exit_code = :exit_code"
@@ -212,19 +219,23 @@ func (r *ExecutionRepository) UpdateExecution(ctx context.Context, execution *ap
 		exprAttrValues[":log_stream_name"] = &types.AttributeValueMemberS{Value: execution.LogStreamName}
 	}
 
-	// Note: DynamoDB requires both execution_id (hash) and started_at (range) keys
-	// We ensure execution.StartedAt is set when creating, so it should be available here
-	// Use DynamoDB's marshaler to ensure the timestamp format matches exactly what was stored
-	startedAtAV, err := attributevalue.Marshal(execution.StartedAt)
+	return updateExpr, exprAttrNames, exprAttrValues, nil
+}
+
+// UpdateExecution updates an existing execution record.
+func (r *ExecutionRepository) UpdateExecution(ctx context.Context, execution *api.Execution) error {
+	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
+
+	updateExpr, exprAttrNames, exprAttrValues, err := buildUpdateExpression(execution)
 	if err != nil {
-		return apperrors.ErrDatabaseError("failed to marshal started_at", err)
-	}
-	startedAtStr, ok := startedAtAV.(*types.AttributeValueMemberS)
-	if !ok {
-		return apperrors.ErrDatabaseError("started_at is not a string attribute", nil)
+		return err
 	}
 
-	// Log before calling DynamoDB UpdateItem
+	startedAtStr, err := marshallTimestamp(execution.StartedAt)
+	if err != nil {
+		return err
+	}
+
 	updateLogArgs := []any{
 		"operation", "DynamoDB.UpdateItem",
 		"table", r.tableName,
@@ -239,7 +250,7 @@ func (r *ExecutionRepository) UpdateExecution(ctx context.Context, execution *ap
 		TableName: aws.String(r.tableName),
 		Key: map[string]types.AttributeValue{
 			"execution_id": &types.AttributeValueMemberS{Value: execution.ExecutionID},
-			"started_at":   &types.AttributeValueMemberS{Value: startedAtStr.Value},
+			"started_at":   &types.AttributeValueMemberS{Value: startedAtStr},
 		},
 		UpdateExpression:          aws.String(updateExpr),
 		ExpressionAttributeNames:  exprAttrNames,
