@@ -81,21 +81,14 @@ linters:
   enable-formatters:
     - gofmt
     - goimports
-
-issues:
-  exclude-rules:
-    - path: _test\.go
-      linters:
-        - mnd
-        - goconst
-        - funlen
-        - gocyclo
-    - path: cmd/
-      linters:
-        - mnd
-    - text: "Error return value of .((os\\.)?std(out|err)\\..*|.*Close|.*Flush|os\\.Remove(All)?|.*printf?|os\\.(Un)?Setenv). is not checked"
-      linters:
-        - errcheck
-  exclude-use-default: false
-  max-issues-per-linter: 0
-  max-same-issues: 0
+  exclusions:
+    rules:
+      - path: '^cmd/runvoy/cmd'
+        linters:
+          - gochecknoinits
+      - path: '(.+)_test\.go'
+        linters:
+          - mnd
+          - goconst
+          - funlen
+          - gocyclo
