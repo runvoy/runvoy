@@ -11,6 +11,8 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"runvoy/internal/constants"
+
 	"github.com/fatih/color"
 )
 
@@ -104,7 +106,7 @@ func StepError(step int, total int, message string) {
 func Header(text string) {
 	_, _ = fmt.Fprintln(Stdout)
 	_, _ = fmt.Fprintln(Stdout, bold.Sprint(text))
-	_, _ = fmt.Fprintln(Stdout, gray.Sprint(strings.Repeat("━", 50)))
+	_, _ = fmt.Fprintln(Stdout, gray.Sprint(strings.Repeat("━", constants.HeaderSeparatorLength)))
 }
 
 // Subheader prints a smaller section header
@@ -189,7 +191,7 @@ func Box(text string) {
 	}
 
 	// Top border
-	_, _ = fmt.Fprintln(Stdout, gray.Sprint("╭─"+strings.Repeat("─", maxLen+2)+"─╮"))
+	_, _ = fmt.Fprintln(Stdout, gray.Sprint("╭─"+strings.Repeat("─", maxLen+constants.BoxBorderPadding)+"─╮"))
 
 	// Content
 	for _, line := range lines {
@@ -202,7 +204,7 @@ func Box(text string) {
 	}
 
 	// Bottom border
-	_, _ = fmt.Fprintln(Stdout, gray.Sprint("╰─"+strings.Repeat("─", maxLen+2)+"─╯"))
+	_, _ = fmt.Fprintln(Stdout, gray.Sprint("╰─"+strings.Repeat("─", maxLen+constants.BoxBorderPadding)+"─╯"))
 }
 
 // Table prints a simple table with headers
@@ -318,7 +320,7 @@ func (s *Spinner) Start() {
 
 	s.running = true
 	go func() {
-		ticker := time.NewTicker(80 * time.Millisecond)
+		ticker := time.NewTicker(constants.SpinnerTickerInterval)
 		defer ticker.Stop()
 
 		for {
@@ -340,7 +342,7 @@ func (s *Spinner) Stop() {
 		return
 	}
 	s.done <- true
-	_, _ = fmt.Fprint(Stdout, "\r"+strings.Repeat(" ", len(s.message)+10)+"\r")
+	_, _ = fmt.Fprint(Stdout, "\r"+strings.Repeat(" ", len(s.message)+10)+"\r") //nolint:mnd
 }
 
 // Success stops the spinner and prints a success message
@@ -368,7 +370,7 @@ func NewProgressBar(total int, message string) *ProgressBar {
 	return &ProgressBar{
 		total:   total,
 		current: 0,
-		width:   40,
+		width:   constants.ProgressBarWidth,
 		message: message,
 	}
 }
@@ -378,7 +380,7 @@ func (p *ProgressBar) Update(current int) {
 	if noColor || !isTerminal(os.Stdout) {
 		// Simple percentage output for non-TTY
 		if current%10 == 0 || current == p.total {
-			_, _ = fmt.Fprintf(Stdout, "\r%s... %d%%", p.message, (current*100)/p.total)
+			_, _ = fmt.Fprintf(Stdout, "\r%s... %d%%", p.message, (current*constants.PercentageMultiplier)/p.total)
 		}
 		if current == p.total {
 			_, _ = fmt.Fprintln(Stdout)
@@ -395,7 +397,7 @@ func (p *ProgressBar) Update(current int) {
 	_, _ = fmt.Fprintf(Stdout, "\r%s %s %3.0f%%",
 		p.message,
 		cyan.Sprint(bar),
-		percent*100)
+		percent*constants.PercentageMultiplier)
 
 	if current == p.total {
 		_, _ = fmt.Fprintln(Stdout)
@@ -480,11 +482,11 @@ func Duration(d time.Duration) string {
 	}
 	if d < time.Hour {
 		minutes := int(d.Minutes())
-		seconds := int(d.Seconds()) % 60
+		seconds := int(d.Seconds()) % constants.SecondsPerMinute
 		return fmt.Sprintf("%dm %ds", minutes, seconds)
 	}
 	hours := int(d.Hours())
-	minutes := int(d.Minutes()) % 60
+	minutes := int(d.Minutes()) % constants.MinutesPerHour
 	return fmt.Sprintf("%dh %dm", hours, minutes)
 }
 

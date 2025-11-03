@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"runvoy/internal/api"
+	"runvoy/internal/constants"
 )
 
 // UserBuilder provides a fluent interface for building test users.
@@ -130,7 +131,7 @@ func (b *ExecutionBuilder) Build() *api.Execution {
 // Note: The cancel function is intentionally not returned since test contexts
 // are expected to be short-lived and will be cleaned up when the test completes.
 func TestContext() context.Context {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), constants.TestContextTimeout)
 	_ = cancel // Silence unused warning - context will timeout automatically
 	return ctx
 }

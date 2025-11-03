@@ -23,7 +23,7 @@ const (
 
 // generateRequestID generates a random request ID using crypto/rand
 func generateRequestID() string {
-	b := make([]byte, 16)
+	b := make([]byte, constants.RequestIDByteSize)
 	if _, err := rand.Read(b); err != nil {
 		return hex.EncodeToString([]byte(time.Now().String()))
 	}
@@ -139,9 +139,9 @@ func (r *Router) authenticateRequestMiddleware(next http.Handler) http.Handler {
 				statusCode = http.StatusUnauthorized
 			}
 
-			var messagePrefix string
-			if statusCode >= 500 {
-				messagePrefix = "Server error"
+		var messagePrefix string
+		if statusCode >= constants.HTTPStatusServerError {
+			messagePrefix = "Server error"
 			} else {
 				messagePrefix = "Unauthorized"
 			}

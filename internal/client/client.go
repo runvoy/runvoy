@@ -118,7 +118,7 @@ func (c *Client) DoJSON(ctx context.Context, req Request, result interface{}) er
 		return err
 	}
 
-	if resp.StatusCode >= 400 {
+	if resp.StatusCode >= constants.HTTPStatusBadRequest {
 		var errorResp api.ErrorResponse
 		if err := json.Unmarshal(resp.Body, &errorResp); err != nil {
 			return fmt.Errorf("request failed with status %d: %s", resp.StatusCode, string(resp.Body))

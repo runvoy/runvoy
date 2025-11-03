@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"runvoy/internal/auth"
+	"runvoy/internal/constants"
 	"runvoy/internal/config"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -28,7 +29,7 @@ type userItem struct {
 }
 
 func main() {
-	if len(os.Args) != 3 {
+	if len(os.Args) != constants.ExpectedArgsSeedAdminUser {
 		log.Fatalf("error: usage: %s <admin-email> <stack-name>", os.Args[0])
 	}
 
@@ -54,7 +55,7 @@ func main() {
 	}
 
 	apiKeyHash := auth.HashAPIKey(apiKey)
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), constants.ScriptContextTimeout)
 
 	awsCfg, err := awsconfig.LoadDefaultConfig(ctx)
 	cancel()
@@ -62,7 +63,7 @@ func main() {
 		log.Fatalf("error: failed to load AWS configuration: %v", err)
 	}
 
-	ctx2, cancel2 := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx2, cancel2 := context.WithTimeout(context.Background(), constants.ScriptContextTimeout)
 
 	cfnClient := cloudformation.NewFromConfig(awsCfg)
 	tableName, err := getTableNameFromStack(ctx2, cfnClient, stackName)

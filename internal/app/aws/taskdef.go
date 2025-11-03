@@ -366,7 +366,7 @@ func RegisterTaskDefinitionForImage(
 		Memory:           awsStd.String("512"),
 		ExecutionRoleArn: awsStd.String(taskExecRoleARN),
 		EphemeralStorage: &ecsTypes.EphemeralStorage{
-			SizeInGiB: 21,
+			SizeInGiB: constants.ECSEphemeralStorageSizeGiB,
 		},
 		Volumes: []ecsTypes.Volume{
 			{
@@ -506,7 +506,7 @@ func DeregisterTaskDefinitionsForImage(
 		listOutput, err := ecsClient.ListTaskDefinitions(ctx, &ecs.ListTaskDefinitionsInput{
 			FamilyPrefix: awsStd.String(family),
 			Status:       ecsTypes.TaskDefinitionStatusActive,
-			MaxResults:   awsStd.Int32(100),
+			MaxResults:   awsStd.Int32(constants.ECSTaskDefinitionMaxResults),
 			NextToken:    awsStd.String(nextToken),
 		})
 		if err != nil {

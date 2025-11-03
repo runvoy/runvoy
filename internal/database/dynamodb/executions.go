@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"runvoy/internal/api"
+	"runvoy/internal/constants"
 	apperrors "runvoy/internal/errors"
 	"runvoy/internal/logger"
 
@@ -256,7 +257,7 @@ func (r *ExecutionRepository) UpdateExecution(ctx context.Context, execution *ap
 // Results are sorted by StartedAt descending in-memory to provide a reasonable default ordering.
 func (r *ExecutionRepository) ListExecutions(ctx context.Context) ([]*api.Execution, error) {
 	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
-	executions := make([]*api.Execution, 0, 64)
+	executions := make([]*api.Execution, 0, constants.ExecutionsSliceInitialCapacity)
 	var lastKey map[string]types.AttributeValue
 	pageCount := 0
 

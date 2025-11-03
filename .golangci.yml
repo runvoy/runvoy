@@ -92,3 +92,6 @@ linters:
           - goconst
           - funlen
           - gocyclo
+      - path: '^scripts/'
+        linters:
+          - mnd

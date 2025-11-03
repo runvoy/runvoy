@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"time"
 
+	"runvoy/internal/constants"
 	"runvoy/internal/config"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -16,7 +16,7 @@ import (
 )
 
 func main() {
-	if len(os.Args) != 2 {
+	if len(os.Args) != constants.ExpectedArgsCreateConfigFile {
 		log.Fatalf("error: usage: %s <stack-name>", os.Args[0])
 	}
 
@@ -25,7 +25,7 @@ func main() {
 		log.Fatalf("error: stack name is required")
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), constants.ScriptContextTimeout)
 
 	awsCfg, err := awsconfig.LoadDefaultConfig(ctx)
 	cancel()
@@ -33,7 +33,7 @@ func main() {
 		log.Fatalf("error: failed to load AWS configuration: %v", err)
 	}
 
-	ctx2, cancel2 := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx2, cancel2 := context.WithTimeout(context.Background(), constants.ScriptContextTimeout)
 
 	cfnClient := cloudformation.NewFromConfig(awsCfg)
 	apiEndpoint, err := getAPIEndpointFromStack(ctx2, cfnClient, stackName)
