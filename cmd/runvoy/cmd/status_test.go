@@ -17,7 +17,9 @@ type mockClientInterface struct {
 	getExecutionStatusFunc func(ctx context.Context, executionID string) (*api.ExecutionStatusResponse, error)
 }
 
-func (m *mockClientInterface) GetExecutionStatus(ctx context.Context, executionID string) (*api.ExecutionStatusResponse, error) {
+func (m *mockClientInterface) GetExecutionStatus(
+	ctx context.Context, executionID string,
+) (*api.ExecutionStatusResponse, error) {
 	if m.getExecutionStatusFunc != nil {
 		return m.getExecutionStatusFunc(ctx, executionID)
 	}
@@ -25,37 +27,37 @@ func (m *mockClientInterface) GetExecutionStatus(ctx context.Context, executionI
 }
 
 // Implement other Interface methods (not used in StatusService, but needed to satisfy interface)
-func (m *mockClientInterface) GetLogs(ctx context.Context, executionID string) (*api.LogsResponse, error) {
+func (m *mockClientInterface) GetLogs(_ context.Context, _ string) (*api.LogsResponse, error) {
 	return nil, fmt.Errorf("not implemented")
 }
-func (m *mockClientInterface) RunCommand(ctx context.Context, req api.ExecutionRequest) (*api.ExecutionResponse, error) {
+func (m *mockClientInterface) RunCommand(_ context.Context, _ *api.ExecutionRequest) (*api.ExecutionResponse, error) {
 	return nil, fmt.Errorf("not implemented")
 }
-func (m *mockClientInterface) KillExecution(ctx context.Context, executionID string) (*api.KillExecutionResponse, error) {
+func (m *mockClientInterface) KillExecution(_ context.Context, _ string) (*api.KillExecutionResponse, error) {
 	return nil, fmt.Errorf("not implemented")
 }
-func (m *mockClientInterface) ListExecutions(ctx context.Context) ([]api.Execution, error) {
+func (m *mockClientInterface) ListExecutions(_ context.Context) ([]api.Execution, error) {
 	return nil, fmt.Errorf("not implemented")
 }
-func (m *mockClientInterface) ClaimAPIKey(ctx context.Context, token string) (*api.ClaimAPIKeyResponse, error) {
+func (m *mockClientInterface) ClaimAPIKey(_ context.Context, _ string) (*api.ClaimAPIKeyResponse, error) {
 	return nil, fmt.Errorf("not implemented")
 }
-func (m *mockClientInterface) CreateUser(ctx context.Context, req api.CreateUserRequest) (*api.CreateUserResponse, error) {
+func (m *mockClientInterface) CreateUser(_ context.Context, _ api.CreateUserRequest) (*api.CreateUserResponse, error) {
 	return nil, fmt.Errorf("not implemented")
 }
-func (m *mockClientInterface) RevokeUser(ctx context.Context, req api.RevokeUserRequest) (*api.RevokeUserResponse, error) {
+func (m *mockClientInterface) RevokeUser(_ context.Context, _ api.RevokeUserRequest) (*api.RevokeUserResponse, error) {
 	return nil, fmt.Errorf("not implemented")
 }
-func (m *mockClientInterface) ListUsers(ctx context.Context) (*api.ListUsersResponse, error) {
+func (m *mockClientInterface) ListUsers(_ context.Context) (*api.ListUsersResponse, error) {
 	return nil, fmt.Errorf("not implemented")
 }
-func (m *mockClientInterface) RegisterImage(ctx context.Context, image string, isDefault *bool) (*api.RegisterImageResponse, error) {
+func (m *mockClientInterface) RegisterImage(_ context.Context, _ string, _ *bool) (*api.RegisterImageResponse, error) {
 	return nil, fmt.Errorf("not implemented")
 }
-func (m *mockClientInterface) ListImages(ctx context.Context) (*api.ListImagesResponse, error) {
+func (m *mockClientInterface) ListImages(_ context.Context) (*api.ListImagesResponse, error) {
 	return nil, fmt.Errorf("not implemented")
 }
-func (m *mockClientInterface) UnregisterImage(ctx context.Context, image string) (*api.RemoveImageResponse, error) {
+func (m *mockClientInterface) UnregisterImage(_ context.Context, _ string) (*api.RemoveImageResponse, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 
@@ -114,7 +116,7 @@ func TestStatusService_DisplayStatus(t *testing.T) {
 			name:        "successfully displays status",
 			executionID: "exec-123",
 			setupMock: func(m *mockClientInterface) {
-				m.getExecutionStatusFunc = func(ctx context.Context, executionID string) (*api.ExecutionStatusResponse, error) {
+				m.getExecutionStatusFunc = func(_ context.Context, _ string) (*api.ExecutionStatusResponse, error) {
 					now := time.Now()
 					return &api.ExecutionStatusResponse{
 						ExecutionID: "exec-123",
@@ -144,7 +146,7 @@ func TestStatusService_DisplayStatus(t *testing.T) {
 			name:        "displays completed status with exit code",
 			executionID: "exec-456",
 			setupMock: func(m *mockClientInterface) {
-				m.getExecutionStatusFunc = func(ctx context.Context, executionID string) (*api.ExecutionStatusResponse, error) {
+				m.getExecutionStatusFunc = func(_ context.Context, _ string) (*api.ExecutionStatusResponse, error) {
 					started := time.Now()
 					completed := started.Add(5 * time.Minute)
 					exitCode := 0
@@ -179,7 +181,7 @@ func TestStatusService_DisplayStatus(t *testing.T) {
 			name:        "handles client error",
 			executionID: "exec-789",
 			setupMock: func(m *mockClientInterface) {
-				m.getExecutionStatusFunc = func(ctx context.Context, executionID string) (*api.ExecutionStatusResponse, error) {
+				m.getExecutionStatusFunc = func(_ context.Context, _ string) (*api.ExecutionStatusResponse, error) {
 					return nil, fmt.Errorf("network error")
 				}
 			},

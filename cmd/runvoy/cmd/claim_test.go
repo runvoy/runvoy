@@ -52,7 +52,7 @@ func TestClaimService_ClaimAPIKey(t *testing.T) {
 			token: "valid-token-123",
 			cfg:   &config.Config{APIEndpoint: "https://api.example.com"},
 			setupClient: func(m *mockClientInterfaceForClaim) {
-				m.claimAPIKeyFunc = func(ctx context.Context, token string) (*api.ClaimAPIKeyResponse, error) {
+				m.claimAPIKeyFunc = func(_ context.Context, token string) (*api.ClaimAPIKeyResponse, error) {
 					assert.Equal(t, "valid-token-123", token)
 					return &api.ClaimAPIKeyResponse{
 						APIKey:    "sk_live_abc123",
@@ -86,11 +86,11 @@ func TestClaimService_ClaimAPIKey(t *testing.T) {
 			token: "invalid-token",
 			cfg:   &config.Config{APIEndpoint: "https://api.example.com"},
 			setupClient: func(m *mockClientInterfaceForClaim) {
-				m.claimAPIKeyFunc = func(ctx context.Context, token string) (*api.ClaimAPIKeyResponse, error) {
+				m.claimAPIKeyFunc = func(_ context.Context, _ string) (*api.ClaimAPIKeyResponse, error) {
 					return nil, fmt.Errorf("invalid token")
 				}
 			},
-			setupSaver: func(m *mockConfigSaver) {},
+			setupSaver: func(_ *mockConfigSaver) {},
 			wantErr:    true,
 			verifyOutput: func(t *testing.T, m *mockOutputInterface) {
 				// Should not have Successf call when there's an error
@@ -108,11 +108,11 @@ func TestClaimService_ClaimAPIKey(t *testing.T) {
 			token: "network-token",
 			cfg:   &config.Config{APIEndpoint: "https://api.example.com"},
 			setupClient: func(m *mockClientInterfaceForClaim) {
-				m.claimAPIKeyFunc = func(ctx context.Context, token string) (*api.ClaimAPIKeyResponse, error) {
+				m.claimAPIKeyFunc = func(_ context.Context, _ string) (*api.ClaimAPIKeyResponse, error) {
 					return nil, fmt.Errorf("network error: connection refused")
 				}
 			},
-			setupSaver: func(m *mockConfigSaver) {},
+			setupSaver: func(_ *mockConfigSaver) {},
 			wantErr:    true,
 			verifyOutput: func(t *testing.T, m *mockOutputInterface) {
 				// Service returns error, output.Errorf is called in runClaim handler
@@ -128,7 +128,7 @@ func TestClaimService_ClaimAPIKey(t *testing.T) {
 			token: "valid-token",
 			cfg:   &config.Config{APIEndpoint: "https://api.example.com"},
 			setupClient: func(m *mockClientInterfaceForClaim) {
-				m.claimAPIKeyFunc = func(ctx context.Context, token string) (*api.ClaimAPIKeyResponse, error) {
+				m.claimAPIKeyFunc = func(_ context.Context, _ string) (*api.ClaimAPIKeyResponse, error) {
 					return &api.ClaimAPIKeyResponse{
 						APIKey:    "sk_live_xyz789",
 						UserEmail: "user@example.com",
@@ -136,7 +136,7 @@ func TestClaimService_ClaimAPIKey(t *testing.T) {
 				}
 			},
 			setupSaver: func(m *mockConfigSaver) {
-				m.saveFunc = func(cfg *config.Config) error {
+				m.saveFunc = func(_ *config.Config) error {
 					return fmt.Errorf("failed to write config file: permission denied")
 				}
 			},
@@ -165,14 +165,14 @@ func TestClaimService_ClaimAPIKey(t *testing.T) {
 			token: "token-456",
 			cfg:   &config.Config{APIEndpoint: "https://api.example.com"},
 			setupClient: func(m *mockClientInterfaceForClaim) {
-				m.claimAPIKeyFunc = func(ctx context.Context, token string) (*api.ClaimAPIKeyResponse, error) {
+				m.claimAPIKeyFunc = func(_ context.Context, _ string) (*api.ClaimAPIKeyResponse, error) {
 					return &api.ClaimAPIKeyResponse{
 						APIKey: "sk_live_warning123",
 					}, nil
 				}
 			},
 			setupSaver: func(m *mockConfigSaver) {
-				m.saveFunc = func(cfg *config.Config) error {
+				m.saveFunc = func(_ *config.Config) error {
 					return fmt.Errorf("save error")
 				}
 			},

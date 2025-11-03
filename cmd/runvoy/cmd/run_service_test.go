@@ -13,10 +13,12 @@ import (
 // mockClientInterfaceForRun extends mockClientInterface with RunCommand
 type mockClientInterfaceForRun struct {
 	*mockClientInterface
-	runCommandFunc func(ctx context.Context, req api.ExecutionRequest) (*api.ExecutionResponse, error)
+	runCommandFunc func(ctx context.Context, req *api.ExecutionRequest) (*api.ExecutionResponse, error)
 }
 
-func (m *mockClientInterfaceForRun) RunCommand(ctx context.Context, req api.ExecutionRequest) (*api.ExecutionResponse, error) {
+func (m *mockClientInterfaceForRun) RunCommand(
+	ctx context.Context, req *api.ExecutionRequest,
+) (*api.ExecutionResponse, error) {
 	if m.runCommandFunc != nil {
 		return m.runCommandFunc(ctx, req)
 	}
@@ -38,7 +40,7 @@ func TestRunService_ExecuteCommand(t *testing.T) {
 				WebviewerURL: "https://logs.example.com",
 			},
 			setupMock: func(m *mockClientInterfaceForRun) {
-				m.runCommandFunc = func(ctx context.Context, req api.ExecutionRequest) (*api.ExecutionResponse, error) {
+				m.runCommandFunc = func(_ context.Context, _ *api.ExecutionRequest) (*api.ExecutionResponse, error) {
 					return &api.ExecutionResponse{
 						ExecutionID: "exec-123",
 						Status:      "pending",
@@ -70,7 +72,7 @@ func TestRunService_ExecuteCommand(t *testing.T) {
 				WebviewerURL: "https://logs.example.com",
 			},
 			setupMock: func(m *mockClientInterfaceForRun) {
-				m.runCommandFunc = func(ctx context.Context, req api.ExecutionRequest) (*api.ExecutionResponse, error) {
+				m.runCommandFunc = func(_ context.Context, req *api.ExecutionRequest) (*api.ExecutionResponse, error) {
 					assert.Equal(t, "https://github.com/user/repo.git", req.GitRepo)
 					assert.Equal(t, "main", req.GitRef)
 					return &api.ExecutionResponse{
@@ -103,7 +105,7 @@ func TestRunService_ExecuteCommand(t *testing.T) {
 				WebviewerURL: "https://logs.example.com",
 			},
 			setupMock: func(m *mockClientInterfaceForRun) {
-				m.runCommandFunc = func(ctx context.Context, req api.ExecutionRequest) (*api.ExecutionResponse, error) {
+				m.runCommandFunc = func(_ context.Context, req *api.ExecutionRequest) (*api.ExecutionResponse, error) {
 					assert.Equal(t, map[string]string{"API_KEY": "secret", "TOKEN": "abc123"}, req.Env)
 					return &api.ExecutionResponse{
 						ExecutionID: "exec-789",
@@ -133,7 +135,7 @@ func TestRunService_ExecuteCommand(t *testing.T) {
 				WebviewerURL: "https://logs.example.com",
 			},
 			setupMock: func(m *mockClientInterfaceForRun) {
-				m.runCommandFunc = func(ctx context.Context, req api.ExecutionRequest) (*api.ExecutionResponse, error) {
+				m.runCommandFunc = func(_ context.Context, req *api.ExecutionRequest) (*api.ExecutionResponse, error) {
 					assert.Equal(t, "hashicorp/terraform:latest", req.Image)
 					return &api.ExecutionResponse{
 						ExecutionID: "exec-abc",
@@ -161,7 +163,7 @@ func TestRunService_ExecuteCommand(t *testing.T) {
 				WebviewerURL: "https://logs.example.com",
 			},
 			setupMock: func(m *mockClientInterfaceForRun) {
-				m.runCommandFunc = func(ctx context.Context, req api.ExecutionRequest) (*api.ExecutionResponse, error) {
+				m.runCommandFunc = func(_ context.Context, _ *api.ExecutionRequest) (*api.ExecutionResponse, error) {
 					return nil, fmt.Errorf("network error")
 				}
 			},
@@ -183,7 +185,7 @@ func TestRunService_ExecuteCommand(t *testing.T) {
 				WebviewerURL: "https://logs.example.com",
 			},
 			setupMock: func(m *mockClientInterfaceForRun) {
-				m.runCommandFunc = func(ctx context.Context, req api.ExecutionRequest) (*api.ExecutionResponse, error) {
+				m.runCommandFunc = func(_ context.Context, req *api.ExecutionRequest) (*api.ExecutionResponse, error) {
 					assert.Equal(t, "https://github.com/user/repo.git", req.GitRepo)
 					assert.Equal(t, "feature-branch", req.GitRef)
 					assert.Equal(t, "subfolder", req.GitPath)
@@ -205,7 +207,7 @@ func TestRunService_ExecuteCommand(t *testing.T) {
 				WebviewerURL: "https://logs.example.com",
 			},
 			setupMock: func(m *mockClientInterfaceForRun) {
-				m.runCommandFunc = func(ctx context.Context, req api.ExecutionRequest) (*api.ExecutionResponse, error) {
+				m.runCommandFunc = func(_ context.Context, _ *api.ExecutionRequest) (*api.ExecutionResponse, error) {
 					return &api.ExecutionResponse{
 						ExecutionID: "exec-final",
 						Status:      "pending",
@@ -237,7 +239,7 @@ func TestRunService_ExecuteCommand(t *testing.T) {
 			mockOutput := &mockOutputInterface{}
 			service := NewRunService(mockClient, mockOutput)
 
-			err := service.ExecuteCommand(context.Background(), tt.request)
+			err := service.ExecuteCommand(context.Background(), &tt.request)
 
 			if tt.wantErr {
 				assert.Error(t, err)

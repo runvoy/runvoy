@@ -38,7 +38,7 @@ func TestLogsService_DisplayLogs(t *testing.T) {
 			executionID:  "exec-123",
 			webviewerURL: "https://logs.example.com",
 			setupMock: func(m *mockClientInterfaceForLogs) {
-				m.getLogsFunc = func(ctx context.Context, executionID string) (*api.LogsResponse, error) {
+				m.getLogsFunc = func(_ context.Context, _ string) (*api.LogsResponse, error) {
 					return &api.LogsResponse{
 						ExecutionID: "exec-123",
 						Events: []api.LogEvent{
@@ -70,7 +70,7 @@ func TestLogsService_DisplayLogs(t *testing.T) {
 			executionID:  "exec-456",
 			webviewerURL: "https://logs.example.com",
 			setupMock: func(m *mockClientInterfaceForLogs) {
-				m.getLogsFunc = func(ctx context.Context, executionID string) (*api.LogsResponse, error) {
+				m.getLogsFunc = func(_ context.Context, _ string) (*api.LogsResponse, error) {
 					return &api.LogsResponse{
 						ExecutionID: "exec-456",
 						Events:      []api.LogEvent{},
@@ -99,7 +99,7 @@ func TestLogsService_DisplayLogs(t *testing.T) {
 			executionID:  "exec-789",
 			webviewerURL: "https://logs.example.com",
 			setupMock: func(m *mockClientInterfaceForLogs) {
-				m.getLogsFunc = func(ctx context.Context, executionID string) (*api.LogsResponse, error) {
+				m.getLogsFunc = func(_ context.Context, _ string) (*api.LogsResponse, error) {
 					return nil, fmt.Errorf("network error")
 				}
 			},
@@ -116,7 +116,7 @@ func TestLogsService_DisplayLogs(t *testing.T) {
 			executionID:  "exec-abc",
 			webviewerURL: "https://custom-viewer.com",
 			setupMock: func(m *mockClientInterfaceForLogs) {
-				m.getLogsFunc = func(ctx context.Context, executionID string) (*api.LogsResponse, error) {
+				m.getLogsFunc = func(_ context.Context, _ string) (*api.LogsResponse, error) {
 					return &api.LogsResponse{
 						ExecutionID: "exec-abc",
 						Events:      []api.LogEvent{{Line: 1, Timestamp: 1000000, Message: "test"}},

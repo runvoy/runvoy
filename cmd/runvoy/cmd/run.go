@@ -64,7 +64,7 @@ func runRun(cmd *cobra.Command, args []string) {
 
 	c := client.New(cfg, slog.Default())
 	service := NewRunService(c, NewOutputWrapper())
-	if err := service.ExecuteCommand(cmd.Context(), ExecuteCommandRequest{
+	req := ExecuteCommandRequest{
 		Command:      command,
 		GitRepo:      gitRepo,
 		GitRef:       gitRef,
@@ -72,7 +72,8 @@ func runRun(cmd *cobra.Command, args []string) {
 		Image:        image,
 		Env:          envs,
 		WebviewerURL: cfg.GetWebviewerURL(),
-	}); err != nil {
+	}
+	if err = service.ExecuteCommand(cmd.Context(), &req); err != nil {
 		output.Errorf(err.Error())
 	}
 }
@@ -81,7 +82,7 @@ func extractUserEnvVars(envVars []string) map[string]string {
 	envs := make(map[string]string)
 	for _, env := range envVars {
 		parts := strings.SplitN(env, "=", constants.EnvVarSplitLimit)
-		if len(parts) != 2 {
+		if len(parts) != constants.EnvVarSplitLimit {
 			continue
 		}
 
@@ -112,15 +113,15 @@ type RunService struct {
 }
 
 // NewRunService creates a new RunService with the provided dependencies
-func NewRunService(client client.Interface, output OutputInterface) *RunService {
+func NewRunService(apiClient client.Interface, outputter OutputInterface) *RunService {
 	return &RunService{
-		client: client,
-		output: output,
+		client: apiClient,
+		output: outputter,
 	}
 }
 
 // ExecuteCommand executes a command remotely and displays the results
-func (s *RunService) ExecuteCommand(ctx context.Context, req ExecuteCommandRequest) error {
+func (s *RunService) ExecuteCommand(ctx context.Context, req *ExecuteCommandRequest) error {
 	s.output.Infof("Running command: %s", s.output.Bold(req.Command))
 	if req.GitRepo != "" {
 		s.output.Infof("Git repository: %s", s.output.Bold(req.GitRepo))
@@ -141,14 +142,15 @@ func (s *RunService) ExecuteCommand(ctx context.Context, req ExecuteCommandReque
 		s.output.Infof("Injecting user environment variables: %s", s.output.Bold(strings.Join(envKeys, ", ")))
 	}
 
-	resp, err := s.client.RunCommand(ctx, api.ExecutionRequest{
+	execReq := api.ExecutionRequest{
 		Command: req.Command,
 		GitRepo: req.GitRepo,
 		GitRef:  req.GitRef,
 		GitPath: req.GitPath,
 		Env:     req.Env,
 		Image:   req.Image,
-	})
+	}
+	resp, err := s.client.RunCommand(ctx, &execReq)
 	if err != nil {
 		return fmt.Errorf("failed to run command: %w", err)
 	}

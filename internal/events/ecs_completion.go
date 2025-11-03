@@ -53,7 +53,7 @@ func parseTaskTimes(
 }
 
 // handleECSTaskCompletion processes ECS Task State Change events
-func (p *Processor) handleECSTaskCompletion(ctx context.Context, event events.CloudWatchEvent) error {
+func (p *Processor) handleECSTaskCompletion(ctx context.Context, event *events.CloudWatchEvent) error {
 	reqLogger := logger.DeriveRequestLogger(ctx, p.logger)
 
 	var taskEvent ECSTaskStateChangeEvent
@@ -173,6 +173,6 @@ func ECSCompletionHandler(
 			executionRepo: executionRepo,
 			logger:        log,
 		}
-		return p.handleECSTaskCompletion(ctx, event)
+		return p.handleECSTaskCompletion(ctx, &event)
 	}
 }

@@ -11,7 +11,7 @@ import (
 type Interface interface {
 	GetLogs(ctx context.Context, executionID string) (*api.LogsResponse, error)
 	GetExecutionStatus(ctx context.Context, executionID string) (*api.ExecutionStatusResponse, error)
-	RunCommand(ctx context.Context, req api.ExecutionRequest) (*api.ExecutionResponse, error)
+	RunCommand(ctx context.Context, req *api.ExecutionRequest) (*api.ExecutionResponse, error)
 	KillExecution(ctx context.Context, executionID string) (*api.KillExecutionResponse, error)
 	ListExecutions(ctx context.Context) ([]api.Execution, error)
 	ClaimAPIKey(ctx context.Context, token string) (*api.ClaimAPIKeyResponse, error)

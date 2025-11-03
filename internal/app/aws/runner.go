@@ -630,8 +630,8 @@ func (e *Runner) KillTask(ctx context.Context, executionID string) error {
 	currentStatus := awsStd.ToString(task.LastStatus)
 	reqLogger.Debug("task status check", "executionID", executionID, "status", currentStatus)
 
-	if err = validateTaskStatusForKill(currentStatus); err != nil {
-		return err
+	if validateErr := validateTaskStatusForKill(currentStatus); validateErr != nil {
+		return validateErr
 	}
 
 	stopLogArgs := []any{

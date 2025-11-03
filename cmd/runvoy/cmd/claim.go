@@ -35,7 +35,7 @@ func runClaim(cmd *cobra.Command, args []string) {
 
 	c := client.New(cfg, slog.Default())
 	service := NewClaimService(c, NewOutputWrapper(), NewConfigSaver())
-	if err := service.ClaimAPIKey(cmd.Context(), token, cfg); err != nil {
+	if err = service.ClaimAPIKey(cmd.Context(), token, cfg); err != nil {
 		output.Errorf(err.Error())
 	}
 }
@@ -65,10 +65,10 @@ type ClaimService struct {
 }
 
 // NewClaimService creates a new ClaimService with the provided dependencies
-func NewClaimService(client client.Interface, output OutputInterface, configSaver ConfigSaver) *ClaimService {
+func NewClaimService(apiClient client.Interface, outputter OutputInterface, configSaver ConfigSaver) *ClaimService {
 	return &ClaimService{
-		client:      client,
-		output:      output,
+		client:      apiClient,
+		output:      outputter,
 		configSaver: configSaver,
 	}
 }

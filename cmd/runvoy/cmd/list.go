@@ -37,7 +37,7 @@ func executionsRun(cmd *cobra.Command, _ []string) {
 
 	c := client.New(cfg, slog.Default())
 	service := NewListService(c, NewOutputWrapper())
-	if err := service.ListExecutions(cmd.Context()); err != nil {
+	if err = service.ListExecutions(cmd.Context()); err != nil {
 		output.Errorf(err.Error())
 	}
 }
@@ -49,10 +49,10 @@ type ListService struct {
 }
 
 // NewListService creates a new ListService with the provided dependencies
-func NewListService(client client.Interface, output OutputInterface) *ListService {
+func NewListService(apiClient client.Interface, outputter OutputInterface) *ListService {
 	return &ListService{
-		client: client,
-		output: output,
+		client: apiClient,
+		output: outputter,
 	}
 }
 

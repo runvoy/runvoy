@@ -198,9 +198,9 @@ func buildUpdateExpression(
 
 	if execution.CompletedAt != nil {
 		updateExpr += ", completed_at = :completed_at"
-		completedAtStr, err := marshallTimestamp(*execution.CompletedAt)
-		if err != nil {
-			return "", nil, nil, err
+		completedAtStr, marshalErr := marshallTimestamp(*execution.CompletedAt)
+		if marshalErr != nil {
+			return "", nil, nil, marshalErr
 		}
 		exprAttrValues[":completed_at"] = &types.AttributeValueMemberS{Value: completedAtStr}
 	}

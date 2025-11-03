@@ -444,8 +444,8 @@ func RegisterTaskDefinitionForImage(
 		})
 	}
 
-	if err = handleDefaultImageTagging(ctx, ecsClient, isDefault, existingTaskDefARN, logger); err != nil {
-		return err
+	if tagErr := handleDefaultImageTagging(ctx, ecsClient, isDefault, existingTaskDefARN, logger); tagErr != nil {
+		return tagErr
 	}
 
 	if existingTaskDefARN != "" {
@@ -496,10 +496,10 @@ func checkIfImageIsDefault(ctx context.Context, ecsClient *ecs.Client, family st
 	}
 
 	for _, taskDefARN := range taskDefArns {
-		tagsOutput, err := ecsClient.ListTagsForResource(ctx, &ecs.ListTagsForResourceInput{
+		tagsOutput, listErr := ecsClient.ListTagsForResource(ctx, &ecs.ListTagsForResourceInput{
 			ResourceArn: awsStd.String(taskDefARN),
 		})
-		if err == nil && tagsOutput != nil {
+		if listErr == nil && tagsOutput != nil {
 			for _, tag := range tagsOutput.Tags {
 				if tag.Key != nil && *tag.Key == constants.TaskDefinitionIsDefaultTagKey &&
 					tag.Value != nil && *tag.Value == constants.TaskDefinitionIsDefaultTagValue {
@@ -536,17 +536,17 @@ func deregisterAllTaskDefRevisions(
 		}
 
 		for _, taskDefARN := range listOutput.TaskDefinitionArns {
-			_, err := ecsClient.DeregisterTaskDefinition(ctx, &ecs.DeregisterTaskDefinitionInput{
+			_, deregErr := ecsClient.DeregisterTaskDefinition(ctx, &ecs.DeregisterTaskDefinitionInput{
 				TaskDefinition: awsStd.String(taskDefARN),
 			})
-			if err != nil {
+			if deregErr != nil {
 				logger.Error("failed to deregister task definition revision", "context", map[string]string{
 					"family": family,
 					"image":  image,
 					"arn":    taskDefARN,
-					"error":  err.Error(),
+					"error":  deregErr.Error(),
 				})
-				return fmt.Errorf("failed to deregister task definition revision: %w", err)
+				return fmt.Errorf("failed to deregister task definition revision: %w", deregErr)
 			}
 
 			logger.Info("deregistered task definition revision", "context", map[string]string{
@@ -584,14 +584,14 @@ func markLastRemainingImageAsDefault(
 
 	remainingImages := make(map[string]string)
 	for _, taskDefARN := range remainingTaskDefs {
-		descOutput, err := ecsClient.DescribeTaskDefinition(ctx, &ecs.DescribeTaskDefinitionInput{
+		descOutput, descErr := ecsClient.DescribeTaskDefinition(ctx, &ecs.DescribeTaskDefinitionInput{
 			TaskDefinition: awsStd.String(taskDefARN),
 		})
-		if err != nil {
+		if descErr != nil {
 			logger.Error("failed to describe task definition", "context", map[string]string{
 				"family": family,
 				"arn":    taskDefARN,
-				"error":  err.Error(),
+				"error":  descErr.Error(),
 			})
 			continue
 		}

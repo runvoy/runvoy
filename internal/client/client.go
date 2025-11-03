@@ -193,7 +193,7 @@ func (c *Client) GetHealth(ctx context.Context) (*api.HealthResponse, error) {
 }
 
 // RunCommand executes a command remotely via the runvoy API.
-func (c *Client) RunCommand(ctx context.Context, req api.ExecutionRequest) (*api.ExecutionResponse, error) {
+func (c *Client) RunCommand(ctx context.Context, req *api.ExecutionRequest) (*api.ExecutionResponse, error) {
 	var resp api.ExecutionResponse
 	err := c.DoJSON(ctx, Request{
 		Method: "POST",

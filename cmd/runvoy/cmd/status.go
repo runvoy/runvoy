@@ -31,7 +31,7 @@ func statusRun(cmd *cobra.Command, args []string) {
 
 	c := client.New(cfg, slog.Default())
 	service := NewStatusService(c, NewOutputWrapper())
-	if err := service.DisplayStatus(cmd.Context(), executionID); err != nil {
+	if err = service.DisplayStatus(cmd.Context(), executionID); err != nil {
 		output.Errorf(err.Error())
 	}
 }
@@ -43,10 +43,10 @@ type StatusService struct {
 }
 
 // NewStatusService creates a new StatusService with the provided dependencies
-func NewStatusService(client client.Interface, output OutputInterface) *StatusService {
+func NewStatusService(apiClient client.Interface, outputter OutputInterface) *StatusService {
 	return &StatusService{
-		client: client,
-		output: output,
+		client: apiClient,
+		output: outputter,
 	}
 }
 

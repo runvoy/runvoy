@@ -34,7 +34,7 @@ func TestListService_ListExecutions(t *testing.T) {
 		{
 			name: "successfully lists executions",
 			setupMock: func(m *mockClientInterfaceForList) {
-				m.listExecutionsFunc = func(ctx context.Context) ([]api.Execution, error) {
+				m.listExecutionsFunc = func(_ context.Context) ([]api.Execution, error) {
 					now := time.Now()
 					return []api.Execution{
 						{
@@ -80,7 +80,7 @@ func TestListService_ListExecutions(t *testing.T) {
 		{
 			name: "handles empty execution list",
 			setupMock: func(m *mockClientInterfaceForList) {
-				m.listExecutionsFunc = func(ctx context.Context) ([]api.Execution, error) {
+				m.listExecutionsFunc = func(_ context.Context) ([]api.Execution, error) {
 					return []api.Execution{}, nil
 				}
 			},
@@ -103,7 +103,7 @@ func TestListService_ListExecutions(t *testing.T) {
 		{
 			name: "handles client error",
 			setupMock: func(m *mockClientInterfaceForList) {
-				m.listExecutionsFunc = func(ctx context.Context) ([]api.Execution, error) {
+				m.listExecutionsFunc = func(_ context.Context) ([]api.Execution, error) {
 					return nil, fmt.Errorf("network error")
 				}
 			},
@@ -127,7 +127,7 @@ func TestListService_ListExecutions(t *testing.T) {
 		{
 			name: "formats long commands correctly",
 			setupMock: func(m *mockClientInterfaceForList) {
-				m.listExecutionsFunc = func(ctx context.Context) ([]api.Execution, error) {
+				m.listExecutionsFunc = func(_ context.Context) ([]api.Execution, error) {
 					longCommand := "this is a very long command that exceeds the maximum command length limit and should be truncated"
 					return []api.Execution{
 						{
@@ -157,7 +157,7 @@ func TestListService_ListExecutions(t *testing.T) {
 		{
 			name: "formats executions with completed and duration",
 			setupMock: func(m *mockClientInterfaceForList) {
-				m.listExecutionsFunc = func(ctx context.Context) ([]api.Execution, error) {
+				m.listExecutionsFunc = func(_ context.Context) ([]api.Execution, error) {
 					started := time.Now().Add(-10 * time.Minute)
 					completed := time.Now()
 					return []api.Execution{
@@ -192,7 +192,7 @@ func TestListService_ListExecutions(t *testing.T) {
 		{
 			name: "formats executions without completed time",
 			setupMock: func(m *mockClientInterfaceForList) {
-				m.listExecutionsFunc = func(ctx context.Context) ([]api.Execution, error) {
+				m.listExecutionsFunc = func(_ context.Context) ([]api.Execution, error) {
 					return []api.Execution{
 						{
 							ExecutionID: "exec-running",

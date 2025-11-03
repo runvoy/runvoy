@@ -37,29 +37,8 @@ func FetchLogsByExecutionID(ctx context.Context, cfg *Config, executionID string
 	stream := fmt.Sprintf("task/%s/%s", constants.RunnerContainerName, executionID)
 	reqLogger := logger.DeriveRequestLogger(ctx, slog.Default())
 
-	describeLogArgs := []any{
-		"operation", "CloudWatchLogs.DescribeLogStreams",
-		"logGroup", cfg.LogGroup,
-		"streamPrefix", stream,
-		"executionID", executionID,
-	}
-	describeLogArgs = append(describeLogArgs, logger.GetDeadlineInfo(ctx)...)
-	reqLogger.Debug("calling external service", "context", logger.SliceToMap(describeLogArgs))
-
-	var lsOut *cloudwatchlogs.DescribeLogStreamsOutput
-	lsOut, err = cwl.DescribeLogStreams(ctx, &cloudwatchlogs.DescribeLogStreamsInput{
-		LogGroupName:        aws.String(cfg.LogGroup),
-		LogStreamNamePrefix: aws.String(stream),
-		Limit:               aws.Int32(constants.CloudWatchLogsDescribeLimit),
-	})
-	if err != nil {
-		return nil, appErrors.ErrInternalError("failed to describe log streams", err)
-	}
-
-	if !slices.ContainsFunc(lsOut.LogStreams, func(s cwlTypes.LogStream) bool {
-		return aws.ToString(s.LogStreamName) == stream
-	}) {
-		return nil, appErrors.ErrNotFound(fmt.Sprintf("log stream '%s' does not exist yet", stream), nil)
+	if verifyErr := verifyLogStreamExists(ctx, cwl, cfg.LogGroup, stream, executionID, reqLogger); verifyErr != nil {
+		return nil, verifyErr
 	}
 
 	reqLogger.Debug("calling external service", "context", map[string]string{
@@ -84,6 +63,40 @@ func FetchLogsByExecutionID(ctx context.Context, cfg *Config, executionID string
 		events[i].Line = i + 1
 	}
 	return events, nil
+}
+
+// verifyLogStreamExists checks if the log stream exists and returns an error if it doesn't
+func verifyLogStreamExists(
+	ctx context.Context,
+	cwl *cloudwatchlogs.Client,
+	logGroup, stream, executionID string,
+	reqLogger *slog.Logger,
+) error {
+	describeLogArgs := []any{
+		"operation", "CloudWatchLogs.DescribeLogStreams",
+		"logGroup", logGroup,
+		"streamPrefix", stream,
+		"executionID", executionID,
+	}
+	describeLogArgs = append(describeLogArgs, logger.GetDeadlineInfo(ctx)...)
+	reqLogger.Debug("calling external service", "context", logger.SliceToMap(describeLogArgs))
+
+	lsOut, err := cwl.DescribeLogStreams(ctx, &cloudwatchlogs.DescribeLogStreamsInput{
+		LogGroupName:        aws.String(logGroup),
+		LogStreamNamePrefix: aws.String(stream),
+		Limit:               aws.Int32(constants.CloudWatchLogsDescribeLimit),
+	})
+	if err != nil {
+		return appErrors.ErrInternalError("failed to describe log streams", err)
+	}
+
+	if !slices.ContainsFunc(lsOut.LogStreams, func(s cwlTypes.LogStream) bool {
+		return aws.ToString(s.LogStreamName) == stream
+	}) {
+		return appErrors.ErrNotFound(fmt.Sprintf("log stream '%s' does not exist yet", stream), nil)
+	}
+
+	return nil
 }
 
 // getAllLogEvents paginates through CloudWatch Logs GetLogEvents to collect all events

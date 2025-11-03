@@ -144,8 +144,8 @@ func (r *UserRepository) GetUserByEmail(ctx context.Context, email string) (*api
 	}
 
 	var item userItem
-	if err = attributevalue.UnmarshalMap(result.Items[0], &item); err != nil {
-		return nil, err
+	if unmarshalErr := attributevalue.UnmarshalMap(result.Items[0], &item); unmarshalErr != nil {
+		return nil, unmarshalErr
 	}
 
 	return &api.User{
@@ -190,8 +190,8 @@ func (r *UserRepository) GetUserByAPIKeyHash(ctx context.Context, apiKeyHash str
 	}
 
 	var item userItem
-	if err = attributevalue.UnmarshalMap(result.Item, &item); err != nil {
-		return nil, err
+	if unmarshalErr := attributevalue.UnmarshalMap(result.Item, &item); unmarshalErr != nil {
+		return nil, unmarshalErr
 	}
 
 	return &api.User{
@@ -234,8 +234,8 @@ func (r *UserRepository) queryAPIKeyHashByEmail(ctx context.Context, email, purp
 	}
 
 	var apiKeyHash string
-	if v, ok := result.Items[0]["api_key_hash"]; ok {
-		if s, ok := v.(*types.AttributeValueMemberS); ok {
+	if v, hasKey := result.Items[0]["api_key_hash"]; hasKey {
+		if s, isString := v.(*types.AttributeValueMemberS); isString {
 			apiKeyHash = s.Value
 		}
 	}
@@ -353,8 +353,8 @@ func (r *UserRepository) RemoveExpiration(ctx context.Context, email string) err
 	}
 
 	var apiKeyHash string
-	if v, ok := result.Items[0]["api_key_hash"]; ok {
-		if s, ok := v.(*types.AttributeValueMemberS); ok {
+	if v, hasKey := result.Items[0]["api_key_hash"]; hasKey {
+		if s, isString := v.(*types.AttributeValueMemberS); isString {
 			apiKeyHash = s.Value
 		}
 	}
@@ -579,17 +579,17 @@ func (r *UserRepository) ListUsers(ctx context.Context) ([]*api.User, error) {
 
 	users := make([]*api.User, 0, len(result.Items))
 	for _, item := range result.Items {
-		var userItem userItem
-		if err = attributevalue.UnmarshalMap(item, &userItem); err != nil {
+		var dbUserItem userItem
+		if err = attributevalue.UnmarshalMap(item, &dbUserItem); err != nil {
 			reqLogger.Warn("failed to unmarshal user item", "error", err)
 			continue
 		}
 
 		users = append(users, &api.User{
-			Email:     userItem.UserEmail,
-			CreatedAt: userItem.CreatedAt,
-			Revoked:   userItem.Revoked,
-			LastUsed:  userItem.LastUsed,
+			Email:     dbUserItem.UserEmail,
+			CreatedAt: dbUserItem.CreatedAt,
+			Revoked:   dbUserItem.Revoked,
+			LastUsed:  dbUserItem.LastUsed,
 			// Note: APIKey and APIKeyHash are intentionally omitted for security
 		})
 	}

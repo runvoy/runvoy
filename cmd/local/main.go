@@ -49,8 +49,8 @@ func main() {
 			"url", fmt.Sprintf("http://localhost:%s/api/v1/health", cfg.Port),
 		)
 
-		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Error("failed to start server", "error", err)
+		if serveErr := srv.ListenAndServe(); serveErr != nil && serveErr != http.ErrServerClosed {
+			log.Error("failed to start server", "error", serveErr)
 			os.Exit(1)
 		}
 	}()
@@ -64,9 +64,9 @@ func main() {
 
 	ctx, cancel = context.WithTimeout(context.Background(), constants.ServerShutdownTimeout)
 
-	if err := srv.Shutdown(ctx); err != nil {
+	if shutdownErr := srv.Shutdown(ctx); shutdownErr != nil {
 		cancel()
-		log.Error("server shutdown error", "error", err)
+		log.Error("server shutdown error", "error", shutdownErr)
 		os.Exit(1)
 	}
 	cancel()

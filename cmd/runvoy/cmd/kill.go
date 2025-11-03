@@ -32,7 +32,7 @@ func killRun(cmd *cobra.Command, args []string) {
 
 	c := client.New(cfg, slog.Default())
 	service := NewKillService(c, NewOutputWrapper())
-	if err := service.KillExecution(cmd.Context(), executionID); err != nil {
+	if err = service.KillExecution(cmd.Context(), executionID); err != nil {
 		output.Errorf(err.Error())
 	}
 }
@@ -44,10 +44,10 @@ type KillService struct {
 }
 
 // NewKillService creates a new KillService with the provided dependencies
-func NewKillService(client client.Interface, output OutputInterface) *KillService {
+func NewKillService(apiClient client.Interface, outputter OutputInterface) *KillService {
 	return &KillService{
-		client: client,
-		output: output,
+		client: apiClient,
+		output: outputter,
 	}
 }
 

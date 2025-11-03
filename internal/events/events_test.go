@@ -277,7 +277,7 @@ func TestHandleECSTaskCompletion_Success(t *testing.T) {
 		Detail:     detailJSON,
 	}
 
-	err := processor.handleECSTaskCompletion(ctx, event)
+	err := processor.handleECSTaskCompletion(ctx, &event)
 	assert.NoError(t, err)
 	assert.NotNil(t, updatedExecution)
 	assert.Equal(t, string(constants.ExecutionSucceeded), updatedExecution.Status)
@@ -324,7 +324,7 @@ func TestHandleECSTaskCompletion_OrphanedTask(t *testing.T) {
 	}
 
 	// Should not fail for orphaned tasks
-	err := processor.handleECSTaskCompletion(ctx, event)
+	err := processor.handleECSTaskCompletion(ctx, &event)
 	assert.NoError(t, err)
 }
 
@@ -379,7 +379,7 @@ func TestHandleECSTaskCompletion_MissingStartedAt(t *testing.T) {
 		Detail:     detailJSON,
 	}
 
-	err := processor.handleECSTaskCompletion(ctx, event)
+	err := processor.handleECSTaskCompletion(ctx, &event)
 	assert.NoError(t, err)
 	assert.NotNil(t, updatedExecution)
 	assert.Greater(t, updatedExecution.DurationSeconds, 0)
@@ -398,7 +398,7 @@ func TestHandleEvent_IgnoresUnknownEventType(t *testing.T) {
 		Source:     "custom.source",
 	}
 
-	err := processor.HandleEvent(ctx, event)
+	err := processor.HandleEvent(ctx, &event)
 	assert.NoError(t, err)
 }
 

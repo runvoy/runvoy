@@ -159,7 +159,7 @@ func (s *Service) CreateUser(
 
 	expiresAt := time.Now().Add(constants.ClaimURLExpirationMinutes * time.Minute).Unix()
 
-	if err := s.userRepo.CreateUserWithExpiration(ctx, user, apiKeyHash, expiresAt); err != nil {
+	if err = s.userRepo.CreateUserWithExpiration(ctx, user, apiKeyHash, expiresAt); err != nil {
 		return nil, apperrors.ErrDatabaseError("failed to create user", err)
 	}
 
@@ -207,14 +207,14 @@ func (s *Service) ClaimAPIKey(
 	}
 
 	// Mark as viewed atomically
-	if err := s.userRepo.MarkAsViewed(ctx, secretToken, ipAddress); err != nil {
-		return nil, err
+	if markErr := s.userRepo.MarkAsViewed(ctx, secretToken, ipAddress); markErr != nil {
+		return nil, markErr
 	}
 
 	// Remove expiration from user record (make user permanent)
-	if err := s.userRepo.RemoveExpiration(ctx, pending.UserEmail); err != nil {
+	if removeErr := s.userRepo.RemoveExpiration(ctx, pending.UserEmail); removeErr != nil {
 		// Log error but don't fail the claim - user already exists and can authenticate
-		s.Logger.Error("failed to remove expiration from user record", "error", err, "email", pending.UserEmail)
+		s.Logger.Error("failed to remove expiration from user record", "error", removeErr, "email", pending.UserEmail)
 	}
 
 	return &api.ClaimAPIKeyResponse{
@@ -285,9 +285,9 @@ func (s *Service) RevokeUser(ctx context.Context, email string) error {
 		return apperrors.ErrNotFound("user not found", nil)
 	}
 
-	if err := s.userRepo.RevokeUser(ctx, email); err != nil {
+	if revokeErr := s.userRepo.RevokeUser(ctx, email); revokeErr != nil {
 		// Propagate errors as-is (they already have proper status codes)
-		return err
+		return revokeErr
 	}
 
 	return nil
@@ -361,7 +361,7 @@ func (s *Service) RunCommand(
 		)
 	}
 
-	if err := s.executionRepo.CreateExecution(ctx, execution); err != nil {
+	if err = s.executionRepo.CreateExecution(ctx, execution); err != nil {
 		reqLogger.Error("failed to create execution record, but task started",
 			"error", err,
 			"executionID", executionID,
@@ -457,8 +457,8 @@ func (s *Service) KillExecution(ctx context.Context, executionID string) error {
 	}
 
 	// Delegate to the runner to kill the task
-	if err := s.runner.KillTask(ctx, executionID); err != nil {
-		return err
+	if killErr := s.runner.KillTask(ctx, executionID); killErr != nil {
+		return killErr
 	}
 
 	reqLogger.Info("execution termination initiated", "executionID", executionID)

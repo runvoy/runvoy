@@ -72,9 +72,14 @@ type ConfigureService struct {
 }
 
 // NewConfigureService creates a new ConfigureService with the provided dependencies
-func NewConfigureService(output OutputInterface, configSaver ConfigSaver, configLoader func() (*config.Config, error), configPathGetter func() (string, error)) *ConfigureService {
+func NewConfigureService(
+	outputter OutputInterface,
+	configSaver ConfigSaver,
+	configLoader func() (*config.Config, error),
+	configPathGetter func() (string, error),
+) *ConfigureService {
 	return &ConfigureService{
-		output:           output,
+		output:           outputter,
 		configSaver:      configSaver,
 		configLoader:     &configLoaderFunc{load: configLoader},
 		configPathGetter: &configPathGetterFunc{getPath: configPathGetter},
@@ -98,7 +103,7 @@ func (c *configPathGetterFunc) GetConfigPath() (string, error) {
 }
 
 // Configure runs the interactive configuration flow
-func (s *ConfigureService) Configure(ctx context.Context) error {
+func (s *ConfigureService) Configure(_ context.Context) error {
 	existingConfig, err := s.configLoader.Load()
 	configExists := err == nil
 
@@ -135,12 +140,12 @@ func (s *ConfigureService) Configure(ctx context.Context) error {
 	}
 
 	if err = s.configSaver.Save(cfg); err != nil {
-		return fmt.Errorf("Failed to save configuration: %w", err)
+		return fmt.Errorf("failed to save configuration: %w", err)
 	}
 
 	configPath, err := s.configPathGetter.GetConfigPath()
 	if err != nil {
-		return fmt.Errorf("Failed to get config path: %w", err)
+		return fmt.Errorf("failed to get config path: %w", err)
 	}
 
 	s.output.Successf("Configuration saved successfully")

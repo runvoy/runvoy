@@ -47,7 +47,7 @@ func NewProcessor(ctx context.Context, cfg *config.Config, log *slog.Logger) (*P
 
 // HandleEvent is the main entry point for Lambda event processing
 // It routes events based on their detail-type
-func (p *Processor) HandleEvent(ctx context.Context, event events.CloudWatchEvent) error {
+func (p *Processor) HandleEvent(ctx context.Context, event *events.CloudWatchEvent) error {
 	reqLogger := logger.DeriveRequestLogger(ctx, p.logger)
 
 	reqLogger.Debug("received event", "event", event)
@@ -70,5 +70,5 @@ func (p *Processor) HandleEventJSON(ctx context.Context, eventJSON []byte) error
 	if err := json.Unmarshal(eventJSON, &event); err != nil {
 		return fmt.Errorf("failed to unmarshal event: %w", err)
 	}
-	return p.HandleEvent(ctx, event)
+	return p.HandleEvent(ctx, &event)
 }

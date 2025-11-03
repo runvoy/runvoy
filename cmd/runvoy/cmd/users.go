@@ -38,7 +38,7 @@ func runListUsers(cmd *cobra.Command, _ []string) {
 
 	c := client.New(cfg, slog.Default())
 	service := NewUsersService(c, NewOutputWrapper())
-	if err := service.ListUsers(cmd.Context()); err != nil {
+	if err = service.ListUsers(cmd.Context()); err != nil {
 		output.Errorf(err.Error())
 	}
 }
@@ -60,7 +60,7 @@ func runRevokeUser(cmd *cobra.Command, args []string) {
 
 	c := client.New(cfg, slog.Default())
 	service := NewUsersService(c, NewOutputWrapper())
-	if err := service.RevokeUser(cmd.Context(), email); err != nil {
+	if err = service.RevokeUser(cmd.Context(), email); err != nil {
 		output.Errorf(err.Error())
 	}
 }
@@ -99,7 +99,7 @@ func runCreateUser(cmd *cobra.Command, args []string) {
 
 	c := client.New(cfg, slog.Default())
 	service := NewUsersService(c, NewOutputWrapper())
-	if err := service.CreateUser(cmd.Context(), email); err != nil {
+	if err = service.CreateUser(cmd.Context(), email); err != nil {
 		output.Errorf(err.Error())
 	}
 }
@@ -111,10 +111,10 @@ type UsersService struct {
 }
 
 // NewUsersService creates a new UsersService with the provided dependencies
-func NewUsersService(client client.Interface, output OutputInterface) *UsersService {
+func NewUsersService(apiClient client.Interface, outputter OutputInterface) *UsersService {
 	return &UsersService{
-		client: client,
-		output: output,
+		client: apiClient,
+		output: outputter,
 	}
 }
 

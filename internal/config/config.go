@@ -90,13 +90,12 @@ func Load() (*Config, error) {
 func LoadCLI() (*Config, error) {
 	v := viper.New()
 
-	var err error
-	if err = loadConfigFile(v); err != nil {
+	if err := loadConfigFile(v); err != nil {
 		return nil, err
 	}
 
 	var cfg Config
-	if err = v.Unmarshal(&cfg); err != nil {
+	if err := v.Unmarshal(&cfg); err != nil {
 		return nil, fmt.Errorf("error unmarshaling config: %w", err)
 	}
 
@@ -116,13 +115,12 @@ func LoadOrchestrator() (*Config, error) {
 	bindEnvVars(v)
 
 	var cfg Config
-	var err error
-	if err = v.Unmarshal(&cfg); err != nil {
+	if err := v.Unmarshal(&cfg); err != nil {
 		return nil, fmt.Errorf("error unmarshaling orchestrator config: %w", err)
 	}
 
 	// Validate required fields (matches old caarlos0/env notEmpty tags)
-	if err = validateOrchestrator(&cfg); err != nil {
+	if err := validateOrchestrator(&cfg); err != nil {
 		return nil, err
 	}
 
@@ -141,13 +139,12 @@ func LoadEventProcessor() (*Config, error) {
 	bindEnvVars(v)
 
 	var cfg Config
-	var err error
-	if err = v.Unmarshal(&cfg); err != nil {
+	if err := v.Unmarshal(&cfg); err != nil {
 		return nil, fmt.Errorf("error unmarshaling event processor config: %w", err)
 	}
 
 	// Validate required fields (matches old caarlos0/env notEmpty tags)
-	if err = validateEventProcessor(&cfg); err != nil {
+	if err := validateEventProcessor(&cfg); err != nil {
 		return nil, err
 	}
 
@@ -261,8 +258,8 @@ func loadConfigFile(v *viper.Viper) error {
 	v.SetConfigFile(configFile)
 	v.SetConfigType("yaml")
 
-	if err = v.ReadInConfig(); err != nil {
-		return err
+	if readErr := v.ReadInConfig(); readErr != nil {
+		return readErr
 	}
 
 	return nil

@@ -18,7 +18,9 @@ type mockClientInterfaceForImages struct {
 	unregisterImageFunc func(ctx context.Context, image string) (*api.RemoveImageResponse, error)
 }
 
-func (m *mockClientInterfaceForImages) RegisterImage(ctx context.Context, image string, isDefault *bool) (*api.RegisterImageResponse, error) {
+func (m *mockClientInterfaceForImages) RegisterImage(
+	ctx context.Context, image string, isDefault *bool,
+) (*api.RegisterImageResponse, error) {
 	if m.registerImageFunc != nil {
 		return m.registerImageFunc(ctx, image, isDefault)
 	}
@@ -32,7 +34,9 @@ func (m *mockClientInterfaceForImages) ListImages(ctx context.Context) (*api.Lis
 	return nil, fmt.Errorf("not implemented")
 }
 
-func (m *mockClientInterfaceForImages) UnregisterImage(ctx context.Context, image string) (*api.RemoveImageResponse, error) {
+func (m *mockClientInterfaceForImages) UnregisterImage(
+	ctx context.Context, image string,
+) (*api.RemoveImageResponse, error) {
 	if m.unregisterImageFunc != nil {
 		return m.unregisterImageFunc(ctx, image)
 	}
@@ -53,7 +57,7 @@ func TestImagesService_RegisterImage(t *testing.T) {
 			image:     "alpine:latest",
 			isDefault: nil,
 			setupMock: func(m *mockClientInterfaceForImages) {
-				m.registerImageFunc = func(ctx context.Context, image string, isDefault *bool) (*api.RegisterImageResponse, error) {
+				m.registerImageFunc = func(_ context.Context, image string, isDefault *bool) (*api.RegisterImageResponse, error) {
 					assert.Equal(t, "alpine:latest", image)
 					assert.Nil(t, isDefault)
 					return &api.RegisterImageResponse{
@@ -85,7 +89,7 @@ func TestImagesService_RegisterImage(t *testing.T) {
 			image:     "ubuntu:22.04",
 			isDefault: func() *bool { b := true; return &b }(),
 			setupMock: func(m *mockClientInterfaceForImages) {
-				m.registerImageFunc = func(ctx context.Context, image string, isDefault *bool) (*api.RegisterImageResponse, error) {
+				m.registerImageFunc = func(_ context.Context, image string, isDefault *bool) (*api.RegisterImageResponse, error) {
 					assert.Equal(t, "ubuntu:22.04", image)
 					assert.NotNil(t, isDefault)
 					assert.True(t, *isDefault)
@@ -113,7 +117,7 @@ func TestImagesService_RegisterImage(t *testing.T) {
 			image:     "invalid:image",
 			isDefault: nil,
 			setupMock: func(m *mockClientInterfaceForImages) {
-				m.registerImageFunc = func(ctx context.Context, image string, isDefault *bool) (*api.RegisterImageResponse, error) {
+				m.registerImageFunc = func(_ context.Context, _ string, _ *bool) (*api.RegisterImageResponse, error) {
 					return nil, fmt.Errorf("invalid image format")
 				}
 			},
@@ -165,7 +169,7 @@ func TestImagesService_ListImages(t *testing.T) {
 		{
 			name: "successfully lists images",
 			setupMock: func(m *mockClientInterfaceForImages) {
-				m.listImagesFunc = func(ctx context.Context) (*api.ListImagesResponse, error) {
+				m.listImagesFunc = func(_ context.Context) (*api.ListImagesResponse, error) {
 					isDefaultTrue := true
 					isDefaultFalse := false
 					return &api.ListImagesResponse{
@@ -205,7 +209,7 @@ func TestImagesService_ListImages(t *testing.T) {
 		{
 			name: "handles empty image list",
 			setupMock: func(m *mockClientInterfaceForImages) {
-				m.listImagesFunc = func(ctx context.Context) (*api.ListImagesResponse, error) {
+				m.listImagesFunc = func(_ context.Context) (*api.ListImagesResponse, error) {
 					return &api.ListImagesResponse{
 						Images: []api.ImageInfo{},
 					}, nil
@@ -229,7 +233,7 @@ func TestImagesService_ListImages(t *testing.T) {
 		{
 			name: "handles client error",
 			setupMock: func(m *mockClientInterfaceForImages) {
-				m.listImagesFunc = func(ctx context.Context) (*api.ListImagesResponse, error) {
+				m.listImagesFunc = func(_ context.Context) (*api.ListImagesResponse, error) {
 					return nil, fmt.Errorf("network error")
 				}
 			},
@@ -283,7 +287,7 @@ func TestImagesService_UnregisterImage(t *testing.T) {
 			name:  "successfully unregisters image",
 			image: "alpine:latest",
 			setupMock: func(m *mockClientInterfaceForImages) {
-				m.unregisterImageFunc = func(ctx context.Context, image string) (*api.RemoveImageResponse, error) {
+				m.unregisterImageFunc = func(_ context.Context, image string) (*api.RemoveImageResponse, error) {
 					assert.Equal(t, "alpine:latest", image)
 					return &api.RemoveImageResponse{
 						Image:   "alpine:latest",
@@ -313,7 +317,7 @@ func TestImagesService_UnregisterImage(t *testing.T) {
 			name:  "handles image not found error",
 			image: "nonexistent:latest",
 			setupMock: func(m *mockClientInterfaceForImages) {
-				m.unregisterImageFunc = func(ctx context.Context, image string) (*api.RemoveImageResponse, error) {
+				m.unregisterImageFunc = func(_ context.Context, _ string) (*api.RemoveImageResponse, error) {
 					return nil, fmt.Errorf("image not found")
 				}
 			},

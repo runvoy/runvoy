@@ -142,7 +142,7 @@ func TestConfigureService_Configure(t *testing.T) {
 		{
 			name: "uses existing values when prompt returns empty",
 			setupPrompt: func(m *mockOutputInterfaceWithPrompt) {
-				m.promptFunc = func(prompt string) string {
+				m.promptFunc = func(_ string) string {
 					return "" // User presses Enter without typing
 				}
 			},
@@ -181,7 +181,7 @@ func TestConfigureService_Configure(t *testing.T) {
 		{
 			name: "returns error when endpoint is required but not provided",
 			setupPrompt: func(m *mockOutputInterfaceWithPrompt) {
-				m.promptFunc = func(prompt string) string {
+				m.promptFunc = func(_ string) string {
 					return "" // Empty response
 				}
 			},
@@ -190,7 +190,7 @@ func TestConfigureService_Configure(t *testing.T) {
 					return nil, fmt.Errorf("config not found")
 				}
 			},
-			setupSaver: func(m *mockConfigSaver) {},
+			setupSaver: func(_ *mockConfigSaver) {},
 			setupPathGetter: func() (string, error) {
 				return "", nil
 			},
@@ -224,7 +224,7 @@ func TestConfigureService_Configure(t *testing.T) {
 				}
 			},
 			setupSaver: func(m *mockConfigSaver) {
-				m.saveFunc = func(cfg *config.Config) error {
+				m.saveFunc = func(_ *config.Config) error {
 					return fmt.Errorf("permission denied")
 				}
 			},

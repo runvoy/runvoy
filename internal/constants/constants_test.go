@@ -169,7 +169,8 @@ func TestWebviewerURL(t *testing.T) {
 	})
 
 	t.Run("WebviewerURL constant matches default (backward compatibility)", func(t *testing.T) {
-		assert.Equal(t, DefaultWebviewerURL, WebviewerURL, "WebviewerURL should equal DefaultWebviewerURL for backward compatibility")
+		assert.Equal(t, DefaultWebviewerURL, WebviewerURL,
+			"WebviewerURL should equal DefaultWebviewerURL for backward compatibility")
 	})
 }
 

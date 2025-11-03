@@ -19,7 +19,9 @@ type mockClientInterfaceForUsers struct {
 	revokeUserFunc func(ctx context.Context, req api.RevokeUserRequest) (*api.RevokeUserResponse, error)
 }
 
-func (m *mockClientInterfaceForUsers) CreateUser(ctx context.Context, req api.CreateUserRequest) (*api.CreateUserResponse, error) {
+func (m *mockClientInterfaceForUsers) CreateUser(
+	ctx context.Context, req api.CreateUserRequest,
+) (*api.CreateUserResponse, error) {
 	if m.createUserFunc != nil {
 		return m.createUserFunc(ctx, req)
 	}
@@ -33,7 +35,9 @@ func (m *mockClientInterfaceForUsers) ListUsers(ctx context.Context) (*api.ListU
 	return nil, fmt.Errorf("not implemented")
 }
 
-func (m *mockClientInterfaceForUsers) RevokeUser(ctx context.Context, req api.RevokeUserRequest) (*api.RevokeUserResponse, error) {
+func (m *mockClientInterfaceForUsers) RevokeUser(
+	ctx context.Context, req api.RevokeUserRequest,
+) (*api.RevokeUserResponse, error) {
 	if m.revokeUserFunc != nil {
 		return m.revokeUserFunc(ctx, req)
 	}
@@ -52,7 +56,7 @@ func TestUsersService_CreateUser(t *testing.T) {
 			name:  "successfully creates user",
 			email: "alice@example.com",
 			setupMock: func(m *mockClientInterfaceForUsers) {
-				m.createUserFunc = func(ctx context.Context, req api.CreateUserRequest) (*api.CreateUserResponse, error) {
+				m.createUserFunc = func(_ context.Context, req api.CreateUserRequest) (*api.CreateUserResponse, error) {
 					assert.Equal(t, "alice@example.com", req.Email)
 					return &api.CreateUserResponse{
 						User: &api.User{
@@ -95,7 +99,7 @@ func TestUsersService_CreateUser(t *testing.T) {
 			name:  "handles client error",
 			email: "error@example.com",
 			setupMock: func(m *mockClientInterfaceForUsers) {
-				m.createUserFunc = func(ctx context.Context, req api.CreateUserRequest) (*api.CreateUserResponse, error) {
+				m.createUserFunc = func(_ context.Context, _ api.CreateUserRequest) (*api.CreateUserResponse, error) {
 					return nil, fmt.Errorf("user already exists")
 				}
 			},
@@ -148,7 +152,7 @@ func TestUsersService_ListUsers(t *testing.T) {
 		{
 			name: "successfully lists users",
 			setupMock: func(m *mockClientInterfaceForUsers) {
-				m.listUsersFunc = func(ctx context.Context) (*api.ListUsersResponse, error) {
+				m.listUsersFunc = func(_ context.Context) (*api.ListUsersResponse, error) {
 					return &api.ListUsersResponse{
 						Users: []*api.User{
 							{
@@ -191,7 +195,7 @@ func TestUsersService_ListUsers(t *testing.T) {
 		{
 			name: "handles empty user list",
 			setupMock: func(m *mockClientInterfaceForUsers) {
-				m.listUsersFunc = func(ctx context.Context) (*api.ListUsersResponse, error) {
+				m.listUsersFunc = func(_ context.Context) (*api.ListUsersResponse, error) {
 					return &api.ListUsersResponse{
 						Users: []*api.User{},
 					}, nil
@@ -216,7 +220,7 @@ func TestUsersService_ListUsers(t *testing.T) {
 		{
 			name: "handles client error",
 			setupMock: func(m *mockClientInterfaceForUsers) {
-				m.listUsersFunc = func(ctx context.Context) (*api.ListUsersResponse, error) {
+				m.listUsersFunc = func(_ context.Context) (*api.ListUsersResponse, error) {
 					return nil, fmt.Errorf("network error")
 				}
 			},
@@ -234,7 +238,7 @@ func TestUsersService_ListUsers(t *testing.T) {
 		{
 			name: "formats users correctly with revoked status",
 			setupMock: func(m *mockClientInterfaceForUsers) {
-				m.listUsersFunc = func(ctx context.Context) (*api.ListUsersResponse, error) {
+				m.listUsersFunc = func(_ context.Context) (*api.ListUsersResponse, error) {
 					return &api.ListUsersResponse{
 						Users: []*api.User{
 							{
@@ -299,7 +303,7 @@ func TestUsersService_RevokeUser(t *testing.T) {
 			name:  "successfully revokes user",
 			email: "alice@example.com",
 			setupMock: func(m *mockClientInterfaceForUsers) {
-				m.revokeUserFunc = func(ctx context.Context, req api.RevokeUserRequest) (*api.RevokeUserResponse, error) {
+				m.revokeUserFunc = func(_ context.Context, req api.RevokeUserRequest) (*api.RevokeUserResponse, error) {
 					assert.Equal(t, "alice@example.com", req.Email)
 					return &api.RevokeUserResponse{
 						Email:   "alice@example.com",
@@ -334,7 +338,7 @@ func TestUsersService_RevokeUser(t *testing.T) {
 			name:  "handles user not found error",
 			email: "nonexistent@example.com",
 			setupMock: func(m *mockClientInterfaceForUsers) {
-				m.revokeUserFunc = func(ctx context.Context, req api.RevokeUserRequest) (*api.RevokeUserResponse, error) {
+				m.revokeUserFunc = func(_ context.Context, _ api.RevokeUserRequest) (*api.RevokeUserResponse, error) {
 					return nil, fmt.Errorf("user not found")
 				}
 			},
@@ -353,7 +357,7 @@ func TestUsersService_RevokeUser(t *testing.T) {
 			name:  "handles network error",
 			email: "error@example.com",
 			setupMock: func(m *mockClientInterfaceForUsers) {
-				m.revokeUserFunc = func(ctx context.Context, req api.RevokeUserRequest) (*api.RevokeUserResponse, error) {
+				m.revokeUserFunc = func(_ context.Context, _ api.RevokeUserRequest) (*api.RevokeUserResponse, error) {
 					return nil, fmt.Errorf("network error")
 				}
 			},

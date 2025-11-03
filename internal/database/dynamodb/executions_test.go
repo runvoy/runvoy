@@ -387,7 +387,8 @@ func TestBuildUpdateExpression(t *testing.T) {
 				DurationSeconds: 300,
 				LogStreamName:   "ecs/task/123",
 			},
-			expectedUpdateExpr: "SET #status = :status, completed_at = :completed_at, exit_code = :exit_code, duration_seconds = :duration_seconds, log_stream_name = :log_stream_name",
+			expectedUpdateExpr: "SET #status = :status, completed_at = :completed_at, " +
+				"exit_code = :exit_code, duration_seconds = :duration_seconds, log_stream_name = :log_stream_name",
 			expectedExprNames: map[string]string{
 				"#status": "status",
 			},
@@ -474,21 +475,21 @@ func TestBuildUpdateExpression(t *testing.T) {
 			assert.Equal(t, fmt.Sprintf("%d", tt.execution.ExitCode), exitCodeVal.(*types.AttributeValueMemberN).Value)
 
 			if tt.execution.CompletedAt != nil {
-				completedAtVal, ok := exprValues[":completed_at"]
-				require.True(t, ok)
+				completedAtVal, hasCompletedAt := exprValues[":completed_at"]
+				require.True(t, hasCompletedAt)
 				assert.IsType(t, &types.AttributeValueMemberS{}, completedAtVal)
 			}
 
 			if tt.execution.DurationSeconds > 0 {
-				durationVal, ok := exprValues[":duration_seconds"]
-				require.True(t, ok)
+				durationVal, hasDuration := exprValues[":duration_seconds"]
+				require.True(t, hasDuration)
 				assert.IsType(t, &types.AttributeValueMemberN{}, durationVal)
 				assert.Equal(t, fmt.Sprintf("%d", tt.execution.DurationSeconds), durationVal.(*types.AttributeValueMemberN).Value)
 			}
 
 			if tt.execution.LogStreamName != "" {
-				logStreamVal, ok := exprValues[":log_stream_name"]
-				require.True(t, ok)
+				logStreamVal, hasLogStream := exprValues[":log_stream_name"]
+				require.True(t, hasLogStream)
 				assert.IsType(t, &types.AttributeValueMemberS{}, logStreamVal)
 				assert.Equal(t, tt.execution.LogStreamName, logStreamVal.(*types.AttributeValueMemberS).Value)
 			}

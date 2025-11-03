@@ -16,7 +16,9 @@ type mockClientInterfaceForKill struct {
 	killExecutionFunc func(ctx context.Context, executionID string) (*api.KillExecutionResponse, error)
 }
 
-func (m *mockClientInterfaceForKill) KillExecution(ctx context.Context, executionID string) (*api.KillExecutionResponse, error) {
+func (m *mockClientInterfaceForKill) KillExecution(
+	ctx context.Context, executionID string,
+) (*api.KillExecutionResponse, error) {
 	if m.killExecutionFunc != nil {
 		return m.killExecutionFunc(ctx, executionID)
 	}
@@ -35,7 +37,7 @@ func TestKillService_KillExecution(t *testing.T) {
 			name:        "successfully kills execution",
 			executionID: "exec-123",
 			setupMock: func(m *mockClientInterfaceForKill) {
-				m.killExecutionFunc = func(ctx context.Context, executionID string) (*api.KillExecutionResponse, error) {
+				m.killExecutionFunc = func(_ context.Context, executionID string) (*api.KillExecutionResponse, error) {
 					assert.Equal(t, "exec-123", executionID)
 					return &api.KillExecutionResponse{
 						ExecutionID: "exec-123",
@@ -70,7 +72,7 @@ func TestKillService_KillExecution(t *testing.T) {
 			name:        "handles execution not found error",
 			executionID: "exec-nonexistent",
 			setupMock: func(m *mockClientInterfaceForKill) {
-				m.killExecutionFunc = func(ctx context.Context, executionID string) (*api.KillExecutionResponse, error) {
+				m.killExecutionFunc = func(_ context.Context, _ string) (*api.KillExecutionResponse, error) {
 					return nil, fmt.Errorf("execution not found")
 				}
 			},
@@ -86,7 +88,7 @@ func TestKillService_KillExecution(t *testing.T) {
 			name:        "handles network error",
 			executionID: "exec-456",
 			setupMock: func(m *mockClientInterfaceForKill) {
-				m.killExecutionFunc = func(ctx context.Context, executionID string) (*api.KillExecutionResponse, error) {
+				m.killExecutionFunc = func(_ context.Context, _ string) (*api.KillExecutionResponse, error) {
 					return nil, fmt.Errorf("network error: connection timeout")
 				}
 			},
@@ -100,7 +102,7 @@ func TestKillService_KillExecution(t *testing.T) {
 			name:        "handles already completed execution",
 			executionID: "exec-completed",
 			setupMock: func(m *mockClientInterfaceForKill) {
-				m.killExecutionFunc = func(ctx context.Context, executionID string) (*api.KillExecutionResponse, error) {
+				m.killExecutionFunc = func(_ context.Context, _ string) (*api.KillExecutionResponse, error) {
 					return nil, fmt.Errorf("execution already completed")
 				}
 			},
@@ -113,7 +115,7 @@ func TestKillService_KillExecution(t *testing.T) {
 			name:        "displays execution ID and message",
 			executionID: "exec-789",
 			setupMock: func(m *mockClientInterfaceForKill) {
-				m.killExecutionFunc = func(ctx context.Context, executionID string) (*api.KillExecutionResponse, error) {
+				m.killExecutionFunc = func(_ context.Context, _ string) (*api.KillExecutionResponse, error) {
 					return &api.KillExecutionResponse{
 						ExecutionID: "exec-789",
 						Message:     "Kill signal sent",

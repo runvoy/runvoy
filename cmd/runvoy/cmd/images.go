@@ -74,7 +74,7 @@ func registerImageRun(cmd *cobra.Command, args []string) {
 
 	c := client.New(cfg, slog.Default())
 	service := NewImagesService(c, NewOutputWrapper())
-	if err := service.RegisterImage(cmd.Context(), image, isDefault); err != nil {
+	if err = service.RegisterImage(cmd.Context(), image, isDefault); err != nil {
 		output.Errorf(err.Error())
 	}
 }
@@ -88,7 +88,7 @@ func listImagesRun(cmd *cobra.Command, _ []string) {
 
 	c := client.New(cfg, slog.Default())
 	service := NewImagesService(c, NewOutputWrapper())
-	if err := service.ListImages(cmd.Context()); err != nil {
+	if err = service.ListImages(cmd.Context()); err != nil {
 		output.Errorf(err.Error())
 	}
 }
@@ -103,7 +103,7 @@ func unregisterImageRun(cmd *cobra.Command, args []string) {
 
 	c := client.New(cfg, slog.Default())
 	service := NewImagesService(c, NewOutputWrapper())
-	if err := service.UnregisterImage(cmd.Context(), image); err != nil {
+	if err = service.UnregisterImage(cmd.Context(), image); err != nil {
 		output.Errorf(err.Error())
 	}
 }
@@ -115,10 +115,10 @@ type ImagesService struct {
 }
 
 // NewImagesService creates a new ImagesService with the provided dependencies
-func NewImagesService(client client.Interface, output OutputInterface) *ImagesService {
+func NewImagesService(apiClient client.Interface, outputter OutputInterface) *ImagesService {
 	return &ImagesService{
-		client: client,
-		output: output,
+		client: apiClient,
+		output: outputter,
 	}
 }
 

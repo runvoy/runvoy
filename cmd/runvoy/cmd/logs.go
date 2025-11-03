@@ -39,7 +39,7 @@ func logsRun(cmd *cobra.Command, args []string) {
 
 	c := client.New(cfg, slog.Default())
 	service := NewLogsService(c, NewOutputWrapper())
-	if err := service.DisplayLogs(cmd.Context(), executionID, cfg.GetWebviewerURL()); err != nil {
+	if err = service.DisplayLogs(cmd.Context(), executionID, cfg.GetWebviewerURL()); err != nil {
 		output.Errorf(err.Error())
 	}
 }
@@ -51,15 +51,15 @@ type LogsService struct {
 }
 
 // NewLogsService creates a new LogsService with the provided dependencies
-func NewLogsService(client client.Interface, output OutputInterface) *LogsService {
+func NewLogsService(apiClient client.Interface, outputter OutputInterface) *LogsService {
 	return &LogsService{
-		client: client,
-		output: output,
+		client: apiClient,
+		output: outputter,
 	}
 }
 
 // DisplayLogs retrieves and displays logs for an execution
-func (s *LogsService) DisplayLogs(ctx context.Context, executionID string, webviewerURL string) error {
+func (s *LogsService) DisplayLogs(ctx context.Context, executionID, webviewerURL string) error {
 	resp, err := s.client.GetLogs(ctx, executionID)
 	if err != nil {
 		return fmt.Errorf("failed to get logs: %w", err)
