@@ -19,16 +19,16 @@ runvoy is a centralized execution platform that allows teams to run infrastructu
 runvoy/
 ├── bin/
 ├── cmd/
-├── dist/
-├── infra/
+├── deployments/
+├── docs/
 ├── internal/
 ├── scripts/
 ```
 
 - `bin/`: built binaries for the runvoy application (temporary storage for building artifacts during development).
 - `cmd/`: main entry points for the various application (CLI, local dev server, lambdas, etc.)
-- `dist/`: built binaries for the runvoy application.
-- `infra/`: infrastructure as code for the runvoy application (CloudFormation templates, etc.).
+- `deployments/`: infrastructure as code for the runvoy application (CloudFormation templates, etc.).
+- `docs/`: project documentation (architecture, testing strategy, etc.).
 - `internal/`: core logic of the runvoy application (business logic, API, database, etc.)
 - `scripts/`: scripts for the runvoy application development and deployment
 
@@ -41,7 +41,7 @@ internal/app.Service → uses Runner interface (provider-agnostic)
 internal/app/aws     → AWS-specific Runner implementation (ECS Fargate)
 ```
 
-- The `Runner` interface abstracts starting a command execution and returns both a stable execution ID and provider task ARN.
+- The `Runner` interface abstracts starting a command execution and returns a stable execution ID and the task creation timestamp.
 - The AWS implementation resides in `internal/app/aws` and encapsulates all ECS- and AWS-specific logic and types.
 - `internal/app/init.go` wires the chosen provider by constructing the appropriate `Runner` and passing it into `Service`.
 
@@ -57,7 +57,7 @@ The application uses **chi** (github.com/go-chi/chi/v5) as the HTTP router for b
 - **`internal/server/middleware.go`**: Middleware for request ID extraction and logging context
 - **`internal/lambdaapi/handler.go`**: Lambda handler that uses algnhsa to adapt the chi router
 - **`cmd/local/main.go`**: Local HTTP server implementation using the same router
-- **`cmd/backend/aws/main.go`**: Lambda entry point that uses the chi-based handler
+- **`cmd/backend/aws/orchestrator/main.go`**: Lambda entry point for the orchestrator (uses the chi-based handler)
 
 ### Route Structure
 
