@@ -232,6 +232,7 @@ func (c *Client) GetExecutionStatus(ctx context.Context, executionID string) (*a
 	return &resp, nil
 }
 
+// KillExecution stops a running execution by its ID
 func (c *Client) KillExecution(ctx context.Context, executionID string) (*api.KillExecutionResponse, error) {
 	var resp api.KillExecutionResponse
 	err := c.DoJSON(ctx, Request{
@@ -270,6 +271,7 @@ func (c *Client) ClaimAPIKey(ctx context.Context, token string) (*api.ClaimAPIKe
 	return &resp, nil
 }
 
+// RegisterImage registers a new container image for execution, optionally marking it as the default
 func (c *Client) RegisterImage(ctx context.Context, image string, isDefault *bool) (*api.RegisterImageResponse, error) {
 	var resp api.RegisterImageResponse
 	err := c.DoJSON(ctx, Request{
@@ -283,6 +285,7 @@ func (c *Client) RegisterImage(ctx context.Context, image string, isDefault *boo
 	return &resp, nil
 }
 
+// ListImages retrieves all registered container images
 func (c *Client) ListImages(ctx context.Context) (*api.ListImagesResponse, error) {
 	var resp api.ListImagesResponse
 	err := c.DoJSON(ctx, Request{
@@ -295,6 +298,7 @@ func (c *Client) ListImages(ctx context.Context) (*api.ListImagesResponse, error
 	return &resp, nil
 }
 
+// UnregisterImage removes a container image from the registry
 func (c *Client) UnregisterImage(ctx context.Context, image string) (*api.RemoveImageResponse, error) {
 	var resp api.RemoveImageResponse
 	err := c.DoJSON(ctx, Request{

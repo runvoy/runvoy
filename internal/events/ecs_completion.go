@@ -1,3 +1,5 @@
+// Package events provides event processing functionality for AWS CloudWatch events,
+// particularly for handling ECS task state changes and execution completion notifications.
 package events
 
 import (

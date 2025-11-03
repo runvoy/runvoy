@@ -102,7 +102,7 @@ func (m *mockUserRepository) DeletePendingAPIKey(ctx context.Context, secretToke
 	return nil
 }
 
-func (m *mockUserRepository) ListUsers(ctx context.Context) ([]*api.User, error) {
+func (m *mockUserRepository) ListUsers(_ context.Context) ([]*api.User, error) {
 	return []*api.User{}, nil
 }
 

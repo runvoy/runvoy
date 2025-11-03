@@ -17,7 +17,7 @@ var executionsCmd = &cobra.Command{
 	Short: "List executions",
 	Long:  "List all executions present in the runvoy backend",
 	Run:   executionsRun,
-	PostRun: func(cmd *cobra.Command, _ []string) {
+	PostRun: func(_ *cobra.Command, _ []string) {
 		output.Blank()
 	},
 }

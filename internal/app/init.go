@@ -7,13 +7,13 @@ import (
 	"fmt"
 	"log/slog"
 
-	appaws "runvoy/internal/app/aws"
+	appAws "runvoy/internal/app/aws"
 	"runvoy/internal/config"
 	"runvoy/internal/constants"
 	"runvoy/internal/database"
-	dynamorepo "runvoy/internal/database/dynamodb"
+	dynamoRepo "runvoy/internal/database/dynamodb"
 
-	awsconfig "github.com/aws/aws-sdk-go-v2/config"
+	awsConfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/ecs"
 )
@@ -33,7 +33,7 @@ func Initialize(
 	logger.Debug(fmt.Sprintf("initializing %s service", constants.ProjectName),
 		"provider", provider,
 		"version", *constants.GetVersion(),
-		"init_timeout", cfg.InitTimeout,
+		"init_timeout_seconds", cfg.InitTimeout.Seconds(),
 	)
 
 	var (
@@ -79,7 +79,7 @@ func initializeAWSBackend(
 		return nil, nil, nil, fmt.Errorf("ECSCluster cannot be empty")
 	}
 
-	awsCfg, err := awsconfig.LoadDefaultConfig(ctx)
+	awsCfg, err := awsConfig.LoadDefaultConfig(ctx)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("failed to load AWS configuration: %w", err)
 	}
@@ -93,10 +93,10 @@ func initializeAWSBackend(
 		"pendingAPIKeysTable": cfg.PendingAPIKeysTable,
 	})
 
-	userRepo := dynamorepo.NewUserRepository(dynamoClient, cfg.APIKeysTable, cfg.PendingAPIKeysTable, logger)
-	executionRepo := dynamorepo.NewExecutionRepository(dynamoClient, cfg.ExecutionsTable, logger)
+	userRepo := dynamoRepo.NewUserRepository(dynamoClient, cfg.APIKeysTable, cfg.PendingAPIKeysTable, logger)
+	executionRepo := dynamoRepo.NewExecutionRepository(dynamoClient, cfg.ExecutionsTable, logger)
 
-	awsExecCfg := &appaws.Config{
+	awsExecCfg := &appAws.Config{
 		ECSCluster:      cfg.ECSCluster,
 		Subnet1:         cfg.Subnet1,
 		Subnet2:         cfg.Subnet2,
@@ -106,7 +106,7 @@ func initializeAWSBackend(
 		TaskRoleARN:     cfg.TaskRoleARN,
 		Region:          awsCfg.Region,
 	}
-	runner := appaws.NewRunner(ecsClientInstance, awsExecCfg, logger)
+	runner := appAws.NewRunner(ecsClientInstance, awsExecCfg, logger)
 
 	return userRepo, executionRepo, runner, nil
 }

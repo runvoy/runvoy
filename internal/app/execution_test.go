@@ -90,13 +90,13 @@ func TestRunCommand(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			runner := &mockRunner{
-				startTaskFunc: func(ctx context.Context, userEmail string, req api.ExecutionRequest) (string, *time.Time, error) {
+				startTaskFunc: func(_ context.Context, _ string, _ api.ExecutionRequest) (string, *time.Time, error) {
 					return tt.executionID, tt.createdAt, tt.startTaskErr
 				},
 			}
 
 			execRepo := &mockExecutionRepository{
-				createExecutionFunc: func(ctx context.Context, execution *api.Execution) error {
+				createExecutionFunc: func(_ context.Context, _ *api.Execution) error {
 					return tt.createExecErr
 				},
 			}
@@ -191,7 +191,7 @@ func TestGetExecutionStatus(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			execRepo := &mockExecutionRepository{
-				getExecutionFunc: func(ctx context.Context, executionID string) (*api.Execution, error) {
+				getExecutionFunc: func(_ context.Context, _ string) (*api.Execution, error) {
 					return tt.mockExecution, tt.getExecErr
 				},
 			}
@@ -271,7 +271,7 @@ func TestListExecutions(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			execRepo := &mockExecutionRepository{
-				listExecutionsFunc: func(ctx context.Context) ([]*api.Execution, error) {
+				listExecutionsFunc: func(_ context.Context) ([]*api.Execution, error) {
 					return tt.mockExecutions, tt.listErr
 				},
 			}
@@ -388,13 +388,13 @@ func TestKillExecution(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			execRepo := &mockExecutionRepository{
-				getExecutionFunc: func(ctx context.Context, executionID string) (*api.Execution, error) {
+				getExecutionFunc: func(_ context.Context, _ string) (*api.Execution, error) {
 					return tt.mockExecution, tt.getExecErr
 				},
 			}
 
 			runner := &mockRunner{
-				killTaskFunc: func(ctx context.Context, executionID string) error {
+				killTaskFunc: func(_ context.Context, _ string) error {
 					return tt.killTaskErr
 				},
 			}
@@ -465,7 +465,7 @@ func TestGetLogsByExecutionID(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			runner := &mockRunner{
-				fetchLogsByExecutionIDFunc: func(ctx context.Context, executionID string) ([]api.LogEvent, error) {
+				fetchLogsByExecutionIDFunc: func(_ context.Context, _ string) ([]api.LogEvent, error) {
 					return tt.mockEvents, tt.fetchLogsErr
 				},
 			}
