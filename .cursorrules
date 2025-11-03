@@ -30,6 +30,7 @@
 2. Update code references if line numbers changed significantly
 3. Update README.md if user-facing behavior changed
 4. Keep both docs consistent and in sync
+5. **CRITICAL** ensure all tests and lint checks are green (`just check`)
 
 ### CLI Command Documentation Automation
 
