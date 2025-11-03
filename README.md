@@ -6,7 +6,8 @@ Runvoy lets your team come up with a set of shared runbooks which can be execute
 
 Think of Terraform Cloud without the need for a Terraform Cloud account (and monthly bill...).
 
-Think of the flexibility of invoking `kubectl run` without the need for a Kubernetes cluster (or any other _always-running_ cluster, for that matter). 
+Think of the flexibility of invoking `kubectl run` without the need for a Kubernetes cluster (or any other _always-running_ cluster, for that matter).
+
 Think of running commands in an ephemeral environment and sharing execution logs like with Github Actions, but without the need for a CI/CD pipeline nor a 3rd party service.
 
 ![runvoy demo](runvoy-demo.gif)
