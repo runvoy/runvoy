@@ -55,21 +55,26 @@ func main() {
 
 	apiKeyHash := auth.HashAPIKey(apiKey)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
 
 	awsCfg, err := awsconfig.LoadDefaultConfig(ctx)
+	cancel() // Cancel after AWS config loads
 	if err != nil {
 		log.Fatalf("error: failed to load AWS configuration: %v", err)
 	}
 
+	ctx2, cancel2 := context.WithTimeout(context.Background(), 10*time.Second)
+
 	cfnClient := cloudformation.NewFromConfig(awsCfg)
-	tableName, err := getTableNameFromStack(ctx, cfnClient, stackName)
+	tableName, err := getTableNameFromStack(ctx2, cfnClient, stackName)
+	cancel2() // Cancel after getting table name
 	if err != nil {
 		log.Fatalf("error: failed to resolve API keys table name from CloudFormation outputs: %v", err)
 	}
 
+	ctx3 := context.Background()
+
 	dynamoClient := dynamodb.NewFromConfig(awsCfg)
-	existingUser, err := checkUserExists(ctx, dynamoClient, tableName, adminEmail)
+	existingUser, err := checkUserExists(ctx3, dynamoClient, tableName, adminEmail)
 	if err != nil {
 		log.Fatalf("error: failed to check if admin user exists: %v", err)
 	}
@@ -91,7 +96,7 @@ func main() {
 
 	log.Printf("seeding admin user %s into table %s...", adminEmail, tableName)
 
-	_, err = dynamoClient.PutItem(ctx, &dynamodb.PutItemInput{
+	_, err = dynamoClient.PutItem(ctx3, &dynamodb.PutItemInput{
 		TableName:           aws.String(tableName),
 		Item:                av,
 		ConditionExpression: aws.String("attribute_not_exists(api_key_hash)"),

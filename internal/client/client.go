@@ -67,7 +67,7 @@ func (c *Client) Do(ctx context.Context, req Request) (*Response, error) {
 	}
 
 	httpReq.Header.Set(constants.ContentTypeHeader, "application/json")
-	httpReq.Header.Set(constants.ApiKeyHeader, c.config.APIKey)
+	httpReq.Header.Set(constants.APIKeyHeader, c.config.APIKey)
 
 	// Log before making HTTP request with deadline info
 	logArgs := []any{

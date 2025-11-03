@@ -18,11 +18,10 @@ func main() {
 	cfg := config.MustLoadEventProcessor()
 	log := logger.Initialize(constants.Production, cfg.GetLogLevel())
 	ctx, cancel := context.WithTimeout(context.Background(), cfg.InitTimeout)
-	defer cancel()
 
 	processor, err := events.NewProcessor(ctx, cfg, log)
+	cancel()
 	if err != nil {
-		cancel()
 		log.Error("Failed to create event processor", "error", err)
 		os.Exit(1)
 	}

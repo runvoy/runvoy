@@ -47,7 +47,10 @@ const (
 	CLI         Environment = "cli"
 )
 
-const ApiKeyHeader = "X-API-Key"
+// APIKeyHeader is the HTTP header name for API key authentication
+//
+//nolint:gosec // G101: This is a header name constant, not a hardcoded credential
+const APIKeyHeader = "X-API-Key"
 
 // ContentTypeHeader is the HTTP Content-Type header name.
 const ContentTypeHeader = "Content-Type"

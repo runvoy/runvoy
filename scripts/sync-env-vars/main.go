@@ -29,18 +29,21 @@ var (
 
 func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
 
 	awsCfg, err := awsconfig.LoadDefaultConfig(ctx)
+	cancel() // Cancel after AWS config loads
 	if err != nil {
 		log.Fatalf("error: failed to load AWS configuration: %v", err)
 	}
 
+	ctx2, cancel2 := context.WithTimeout(context.Background(), 10*time.Second)
+
 	lambdaClient := lambda.NewFromConfig(awsCfg)
 
-	functionConfig, err := lambdaClient.GetFunctionConfiguration(ctx, &lambda.GetFunctionConfigurationInput{
+	functionConfig, err := lambdaClient.GetFunctionConfiguration(ctx2, &lambda.GetFunctionConfigurationInput{
 		FunctionName: aws.String(functionName),
 	})
+	cancel2() // Cancel after getting function config
 	if err != nil {
 		log.Fatalf("error: failed to get Lambda function configuration: %v", err)
 	}
@@ -63,7 +66,7 @@ func main() {
 	}
 
 	// Write merged content back to .env file
-	if err := os.WriteFile(envFile, []byte(envContent), 0644); err != nil {
+	if err := os.WriteFile(envFile, []byte(envContent), 0600); err != nil {
 		log.Fatalf("error: failed to write .env file: %v", err)
 	}
 
@@ -79,7 +82,7 @@ func mergeEnvFile(filePath string, lambdaVars map[string]string) (string, int, i
 	updatedCount := 0
 	newCount := 0
 
-	file, err := os.Open(filePath)
+	file, err := os.Open(filePath) //nolint:gosec // G304: File path from CLI arg is intentional
 	if err == nil {
 		defer func() {
 			_ = file.Close()

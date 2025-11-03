@@ -26,15 +26,18 @@ func main() {
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
 
 	awsCfg, err := awsconfig.LoadDefaultConfig(ctx)
+	cancel() // Cancel after AWS config loads
 	if err != nil {
 		log.Fatalf("error: failed to load AWS configuration: %v", err)
 	}
 
+	ctx2, cancel2 := context.WithTimeout(context.Background(), 10*time.Second)
+
 	cfnClient := cloudformation.NewFromConfig(awsCfg)
-	apiEndpoint, err := getAPIEndpointFromStack(ctx, cfnClient, stackName)
+	apiEndpoint, err := getAPIEndpointFromStack(ctx2, cfnClient, stackName)
+	cancel2() // Cancel after getting endpoint
 	if err != nil {
 		log.Fatalf("error: failed to resolve API endpoint from CloudFormation outputs: %v", err)
 	}

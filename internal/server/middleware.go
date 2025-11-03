@@ -121,7 +121,7 @@ func setContentTypeJSONMiddleware(next http.Handler) http.Handler {
 func (r *Router) authenticateRequestMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		logger := r.GetLoggerFromContext(req.Context())
-		apiKey := req.Header.Get(constants.ApiKeyHeader)
+		apiKey := req.Header.Get(constants.APIKeyHeader)
 		logger.Debug("authenticating request")
 
 		if apiKey == "" {
