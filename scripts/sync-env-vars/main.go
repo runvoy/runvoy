@@ -71,10 +71,10 @@ func main() {
 		log.Fatalf("error: failed to write .env file: %v", err)
 	}
 
-    log.Printf(
-        "successfully synced %d environment variables from %s to .env (%d updated, %d new)",
-        totalCount, functionName, updatedCount, newCount,
-    )
+	log.Printf(
+		"successfully synced %d environment variables from %s to .env (%d updated, %d new)",
+		totalCount, functionName, updatedCount, newCount,
+	)
 }
 
 // readExistingEnvFile reads the existing .env file and returns lines.
@@ -101,7 +101,7 @@ func readExistingEnvFile(filePath string) ([]string, error) {
 }
 
 // processExistingLines processes existing lines and updates with Lambda vars.
-func processExistingLines(lines []string, lambdaVars map[string]string) (strings.Builder, int) {
+func processExistingLines(lines []string, lambdaVars map[string]string) (content strings.Builder, updated int) {
 	var result strings.Builder
 	updatedCount := 0
 
@@ -158,7 +158,7 @@ func appendNewVars(result *strings.Builder, lambdaVars map[string]string, hasExi
 // mergeEnvFile reads the existing .env file (if it exists) and merges it with Lambda values.
 // It preserves comments, blank lines, and formatting while updating existing values and adding new ones.
 // Returns: merged content, count of updated vars, count of new vars, error
-func mergeEnvFile(filePath string, lambdaVars map[string]string) (string, int, int, error) {
+func mergeEnvFile(filePath string, lambdaVars map[string]string) (content string, updated, added int, err error) {
 	lines, err := readExistingEnvFile(filePath)
 	if err != nil {
 		return "", 0, 0, err
@@ -181,7 +181,7 @@ func formatEnvValue(value string) string {
 		escaped := strings.ReplaceAll(value, "\"", "\\\"")
 		escaped = strings.ReplaceAll(escaped, "\n", "\\n")
 		escaped = strings.ReplaceAll(escaped, "\t", "\\t")
-		return fmt.Sprintf("\"%s\"", escaped)
+		return fmt.Sprintf("%q", escaped)
 	}
 	return value
 }

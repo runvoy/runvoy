@@ -29,7 +29,7 @@ func TestRequestIDMiddleware(t *testing.T) {
 			w.WriteHeader(http.StatusOK)
 		})
 
-		req := httptest.NewRequest("GET", "/test", nil)
+		req := httptest.NewRequest("GET", "/test", http.NoBody)
 		rr := httptest.NewRecorder()
 
 		svc := app.NewService(nil, nil, nil, slog.Default(), constants.AWS)
@@ -52,7 +52,7 @@ func TestRequestIDMiddleware(t *testing.T) {
 			w.WriteHeader(http.StatusOK)
 		})
 
-		req := httptest.NewRequest("GET", "/test", nil)
+		req := httptest.NewRequest("GET", "/test", http.NoBody)
 		rr := httptest.NewRecorder()
 
 		// Add Lambda context with request ID
@@ -82,7 +82,7 @@ func TestRequestIDMiddleware(t *testing.T) {
 			w.WriteHeader(http.StatusOK)
 		})
 
-		req := httptest.NewRequest("GET", "/test", nil)
+		req := httptest.NewRequest("GET", "/test", http.NoBody)
 		rr := httptest.NewRecorder()
 
 		// Add existing request ID to context
@@ -109,7 +109,7 @@ func TestRequestIDMiddleware(t *testing.T) {
 			w.WriteHeader(http.StatusOK)
 		})
 
-		req := httptest.NewRequest("GET", "/test", nil)
+		req := httptest.NewRequest("GET", "/test", http.NoBody)
 		rr := httptest.NewRecorder()
 
 		// Add both existing request ID and Lambda context

@@ -29,11 +29,11 @@ type ExecutionRepository struct {
 }
 
 // NewExecutionRepository creates a new DynamoDB-backed execution repository.
-func NewExecutionRepository(client *dynamodb.Client, tableName string, logger *slog.Logger) *ExecutionRepository {
+func NewExecutionRepository(client *dynamodb.Client, tableName string, log *slog.Logger) *ExecutionRepository {
 	return &ExecutionRepository{
 		client:    client,
 		tableName: tableName,
-		logger:    logger,
+		logger:    log,
 	}
 }
 
@@ -187,9 +187,9 @@ func marshallTimestamp(t time.Time) (string, error) {
 // buildUpdateExpression builds a DynamoDB update expression for an execution.
 func buildUpdateExpression(
 	execution *api.Execution,
-) (string, map[string]string, map[string]types.AttributeValue, error) {
-	updateExpr := "SET #status = :status"
-	exprAttrNames := map[string]string{
+) (updateExpr string, exprNames map[string]string, exprValues map[string]types.AttributeValue, err error) {
+	updateExpr = "SET #status = :status"
+	exprNames = map[string]string{
 		"#status": "status",
 	}
 	exprAttrValues := map[string]types.AttributeValue{
@@ -219,7 +219,7 @@ func buildUpdateExpression(
 		exprAttrValues[":log_stream_name"] = &types.AttributeValueMemberS{Value: execution.LogStreamName}
 	}
 
-	return updateExpr, exprAttrNames, exprAttrValues, nil
+	return updateExpr, exprNames, exprValues, nil
 }
 
 // UpdateExecution updates an existing execution record.

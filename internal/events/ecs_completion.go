@@ -19,11 +19,9 @@ import (
 
 // parseTaskTimes parses and validates the task timestamps, calculating duration.
 func parseTaskTimes(
-	taskEvent ECSTaskStateChangeEvent, executionStartedAt time.Time, reqLogger *slog.Logger,
-) (time.Time, time.Time, int, error) {
-	var startedAt time.Time
+	taskEvent *ECSTaskStateChangeEvent, executionStartedAt time.Time, reqLogger *slog.Logger,
+) (startedAt, stoppedAt time.Time, durationSeconds int, err error) {
 	if taskEvent.StartedAt != "" {
-		var err error
 		startedAt, err = ParseTime(taskEvent.StartedAt)
 		if err != nil {
 			reqLogger.Error("failed to parse startedAt timestamp", "error", err, "startedAt", taskEvent.StartedAt)
@@ -36,13 +34,13 @@ func parseTaskTimes(
 		startedAt = executionStartedAt
 	}
 
-	stoppedAt, err := ParseTime(taskEvent.StoppedAt)
+	stoppedAt, err = ParseTime(taskEvent.StoppedAt)
 	if err != nil {
 		reqLogger.Error("failed to parse stoppedAt timestamp", "error", err, "stoppedAt", taskEvent.StoppedAt)
 		return time.Time{}, time.Time{}, 0, fmt.Errorf("failed to parse stoppedAt: %w", err)
 	}
 
-	durationSeconds := int(stoppedAt.Sub(startedAt).Seconds())
+	durationSeconds = int(stoppedAt.Sub(startedAt).Seconds())
 	if durationSeconds < 0 {
 		reqLogger.Warn("calculated negative duration, setting to 0",
 			"startedAt", startedAt.Format(time.RFC3339),
@@ -91,8 +89,8 @@ func (p *Processor) handleECSTaskCompletion(ctx context.Context, event events.Cl
 		return nil
 	}
 
-	status, exitCode := determineStatusAndExitCode(taskEvent)
-	_, stoppedAt, durationSeconds, err := parseTaskTimes(taskEvent, execution.StartedAt, reqLogger)
+	status, exitCode := determineStatusAndExitCode(&taskEvent)
+	_, stoppedAt, durationSeconds, err := parseTaskTimes(&taskEvent, execution.StartedAt, reqLogger)
 	if err != nil {
 		return err
 	}
@@ -120,7 +118,7 @@ func extractExecutionIDFromTaskArn(taskArn string) string {
 }
 
 // determineStatusAndExitCode determines the final status and exit code from the task event
-func determineStatusAndExitCode(event ECSTaskStateChangeEvent) (status string, exitCode int) {
+func determineStatusAndExitCode(event *ECSTaskStateChangeEvent) (status string, exitCode int) {
 	// Default values
 	status = string(constants.ExecutionFailed)
 	exitCode = 1

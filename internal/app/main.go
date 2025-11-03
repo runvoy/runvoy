@@ -25,13 +25,13 @@ type Runner interface {
 	StartTask(
 		ctx context.Context,
 		userEmail string,
-		req api.ExecutionRequest) (executionID string, createdAt *time.Time, err error)
+		req *api.ExecutionRequest) (executionID string, createdAt *time.Time, err error)
 	// KillTask terminates a running task identified by executionID.
 	// Returns an error if the task is already terminated or cannot be terminated.
 	KillTask(ctx context.Context, executionID string) error
-    // RegisterImage registers a Docker image as a task definition in the execution platform.
-    // isDefault: if true, explicitly set as default.
-    // If nil or false, becomes default only if no default exists (first image behavior).
+	// RegisterImage registers a Docker image as a task definition in the execution platform.
+	// isDefault: if true, explicitly set as default.
+	// If nil or false, becomes default only if no default exists (first image behavior).
 	RegisterImage(ctx context.Context, image string, isDefault *bool) error
 	// ListImages lists all registered Docker images.
 	ListImages(ctx context.Context) ([]api.ImageInfo, error)
@@ -60,13 +60,13 @@ func NewService(
 	userRepo database.UserRepository,
 	executionRepo database.ExecutionRepository,
 	runner Runner,
-	logger *slog.Logger,
+	log *slog.Logger,
 	provider constants.BackendProvider) *Service {
 	return &Service{
 		userRepo:      userRepo,
 		executionRepo: executionRepo,
 		runner:        runner,
-		Logger:        logger,
+		Logger:        log,
 		Provider:      provider,
 	}
 }
@@ -177,9 +177,9 @@ func (s *Service) CreateUser(
 
 // ClaimAPIKey retrieves and claims a pending API key by its secret token.
 func (s *Service) ClaimAPIKey(
-    ctx context.Context,
-    secretToken string,
-    ipAddress string,
+	ctx context.Context,
+	secretToken string,
+	ipAddress string,
 ) (*api.ClaimAPIKeyResponse, error) {
 	if s.userRepo == nil {
 		return nil, apperrors.ErrInternalError("user repository not configured", nil)
@@ -319,7 +319,7 @@ func (s *Service) ListUsers(ctx context.Context) (*api.ListUsersResponse, error)
 func (s *Service) RunCommand(
 	ctx context.Context,
 	userEmail string,
-	req api.ExecutionRequest) (*api.ExecutionResponse, error) {
+	req *api.ExecutionRequest) (*api.ExecutionResponse, error) {
 	if s.executionRepo == nil {
 		return nil, apperrors.ErrInternalError("execution repository not configured", nil)
 	}
@@ -481,9 +481,9 @@ func (s *Service) ListExecutions(ctx context.Context) ([]*api.Execution, error) 
 
 // RegisterImage registers a Docker image and creates the corresponding task definition.
 func (s *Service) RegisterImage(
-    ctx context.Context,
-    image string,
-    isDefault *bool,
+	ctx context.Context,
+	image string,
+	isDefault *bool,
 ) (*api.RegisterImageResponse, error) {
 	if image == "" {
 		return nil, apperrors.ErrBadRequest("image is required", nil)

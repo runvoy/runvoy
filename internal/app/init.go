@@ -19,7 +19,7 @@ import (
 )
 
 // Initialize creates a new Service configured for the specified backend provider.
-// It returns an error if the context is cancelled, timed out, or if an unknown provider is specified.
+// It returns an error if the context is canceled, timed out, or if an unknown provider is specified.
 // Callers should handle errors and potentially panic if initialization fails during startup.
 //
 // Supported cloud providers:

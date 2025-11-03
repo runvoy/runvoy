@@ -11,17 +11,17 @@ import (
 
 // mockUserRepository implements database.UserRepository for testing
 type mockUserRepository struct {
-	createUserFunc              func(ctx context.Context, user *api.User, apiKeyHash string) error
+	createUserFunc               func(ctx context.Context, user *api.User, apiKeyHash string) error
 	createUserWithExpirationFunc func(ctx context.Context, user *api.User, apiKeyHash string, expiresAtUnix int64) error
-	removeExpirationFunc        func(ctx context.Context, email string) error
-	getUserByEmailFunc          func(ctx context.Context, email string) (*api.User, error)
-	getUserByAPIKeyHashFunc     func(ctx context.Context, apiKeyHash string) (*api.User, error)
-	updateLastUsedFunc          func(ctx context.Context, email string) (*time.Time, error)
-	revokeUserFunc              func(ctx context.Context, email string) error
-	createPendingAPIKeyFunc     func(ctx context.Context, pending *api.PendingAPIKey) error
-	getPendingAPIKeyFunc        func(ctx context.Context, secretToken string) (*api.PendingAPIKey, error)
-	markAsViewedFunc            func(ctx context.Context, secretToken string, ipAddress string) error
-	deletePendingAPIKeyFunc     func(ctx context.Context, secretToken string) error
+	removeExpirationFunc         func(ctx context.Context, email string) error
+	getUserByEmailFunc           func(ctx context.Context, email string) (*api.User, error)
+	getUserByAPIKeyHashFunc      func(ctx context.Context, apiKeyHash string) (*api.User, error)
+	updateLastUsedFunc           func(ctx context.Context, email string) (*time.Time, error)
+	revokeUserFunc               func(ctx context.Context, email string) error
+	createPendingAPIKeyFunc      func(ctx context.Context, pending *api.PendingAPIKey) error
+	getPendingAPIKeyFunc         func(ctx context.Context, secretToken string) (*api.PendingAPIKey, error)
+	markAsViewedFunc             func(ctx context.Context, secretToken string, ipAddress string) error
+	deletePendingAPIKeyFunc      func(ctx context.Context, secretToken string) error
 }
 
 func (m *mockUserRepository) CreateUser(ctx context.Context, user *api.User, apiKeyHash string) error {
@@ -32,10 +32,10 @@ func (m *mockUserRepository) CreateUser(ctx context.Context, user *api.User, api
 }
 
 func (m *mockUserRepository) CreateUserWithExpiration(
-    ctx context.Context,
-    user *api.User,
-    apiKeyHash string,
-    expiresAtUnix int64,
+	ctx context.Context,
+	user *api.User,
+	apiKeyHash string,
+	expiresAtUnix int64,
 ) error {
 	if m.createUserWithExpirationFunc != nil {
 		return m.createUserWithExpirationFunc(ctx, user, apiKeyHash, expiresAtUnix)
@@ -93,7 +93,7 @@ func (m *mockUserRepository) GetPendingAPIKey(ctx context.Context, secretToken s
 	return nil, nil
 }
 
-func (m *mockUserRepository) MarkAsViewed(ctx context.Context, secretToken string, ipAddress string) error {
+func (m *mockUserRepository) MarkAsViewed(ctx context.Context, secretToken, ipAddress string) error {
 	if m.markAsViewedFunc != nil {
 		return m.markAsViewedFunc(ctx, secretToken, ipAddress)
 	}
@@ -149,22 +149,22 @@ func (m *mockExecutionRepository) ListExecutions(ctx context.Context) ([]*api.Ex
 
 // mockRunner implements Runner interface for testing
 type mockRunner struct {
-    startTaskFunc func(
-        ctx context.Context,
-        userEmail string,
-        req api.ExecutionRequest,
-    ) (string, *time.Time, error)
-	killTaskFunc                func(ctx context.Context, executionID string) error
-	registerImageFunc           func(ctx context.Context, image string, isDefault *bool) error
-	listImagesFunc              func(ctx context.Context) ([]api.ImageInfo, error)
-	removeImageFunc             func(ctx context.Context, image string) error
-	fetchLogsByExecutionIDFunc  func(ctx context.Context, executionID string) ([]api.LogEvent, error)
+	startTaskFunc func(
+		ctx context.Context,
+		userEmail string,
+		req *api.ExecutionRequest,
+	) (string, *time.Time, error)
+	killTaskFunc               func(ctx context.Context, executionID string) error
+	registerImageFunc          func(ctx context.Context, image string, isDefault *bool) error
+	listImagesFunc             func(ctx context.Context) ([]api.ImageInfo, error)
+	removeImageFunc            func(ctx context.Context, image string) error
+	fetchLogsByExecutionIDFunc func(ctx context.Context, executionID string) ([]api.LogEvent, error)
 }
 
 func (m *mockRunner) StartTask(
-    ctx context.Context,
-    userEmail string,
-    req api.ExecutionRequest,
+	ctx context.Context,
+	userEmail string,
+	req *api.ExecutionRequest,
 ) (string, *time.Time, error) {
 	if m.startTaskFunc != nil {
 		return m.startTaskFunc(ctx, userEmail, req)

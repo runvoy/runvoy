@@ -117,7 +117,7 @@ func (r *Router) handleRunCommand(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	resp, err := r.svc.RunCommand(req.Context(), user.Email, execReq)
+	resp, err := r.svc.RunCommand(req.Context(), user.Email, &execReq)
 	if err != nil {
 		statusCode := apperrors.GetStatusCode(err)
 		errorCode := apperrors.GetErrorCode(err)

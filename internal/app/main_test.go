@@ -39,8 +39,8 @@ func TestAuthenticateUser(t *testing.T) {
 			expectedErrCode: apperrors.ErrCodeInvalidAPIKey,
 		},
 		{
-			name:    "revoked API key",
-			apiKey:  "revoked-key",
+			name:   "revoked API key",
+			apiKey: "revoked-key",
 			mockUser: &api.User{
 				Email:     "user@example.com",
 				CreatedAt: time.Now(),
@@ -51,8 +51,8 @@ func TestAuthenticateUser(t *testing.T) {
 			expectedErrCode: apperrors.ErrCodeAPIKeyRevoked,
 		},
 		{
-			name:    "successful authentication",
-			apiKey:  "valid-key",
+			name:   "successful authentication",
+			apiKey: "valid-key",
 			mockUser: &api.User{
 				Email:     "user@example.com",
 				CreatedAt: time.Now(),

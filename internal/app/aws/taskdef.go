@@ -219,11 +219,9 @@ func GetTaskDefinitionForImage(
 		return latestARN, nil
 	}
 
-return "", fmt.Errorf(
-    "task definition for image %q not found (family: %s). "+
-        "Image must be registered via /api/v1/images/register",
-    image, family,
-)
+	return "", fmt.Errorf("task definition for image %q not found (family: %s). "+
+		"Image must be registered via /api/v1/images/register",
+		image, family)
 }
 
 // handleDefaultImageTagging handles updating default image tags when registering a new image.
@@ -282,7 +280,7 @@ func updateExistingTaskDefTags(
 // if they're not provided in config.
 func getRoleARNsFromExistingTaskDef(
 	ctx context.Context, ecsClient *ecs.Client, taskExecRoleARN, taskRoleARN string,
-) (string, string) {
+) (execRoleARN, roleARN string) {
 	if taskExecRoleARN == "" || taskRoleARN == "" {
 		allFamilies, err := ecsClient.ListTaskDefinitions(ctx, &ecs.ListTaskDefinitionsInput{
 			MaxResults: awsStd.Int32(1),
@@ -599,7 +597,8 @@ func markLastRemainingImageAsDefault(
 			continue
 		}
 
-		for _, container := range descOutput.TaskDefinition.ContainerDefinitions {
+		for i := range descOutput.TaskDefinition.ContainerDefinitions {
+			container := &descOutput.TaskDefinition.ContainerDefinitions[i]
 			if container.Name != nil && *container.Name == constants.RunnerContainerName && container.Image != nil {
 				remainingImages[*container.Image] = taskDefARN
 				break

@@ -65,12 +65,12 @@ func registerImageRun(cmd *cobra.Command, args []string) {
 		return
 	}
 
-	client := client.New(cfg, slog.Default())
+	c := client.New(cfg, slog.Default())
 	var isDefault *bool
 	if cmd.Flags().Changed("set-default") {
 		isDefault = &registerImageIsDefault
 	}
-	resp, err := client.RegisterImage(cmd.Context(), image, isDefault)
+	resp, err := c.RegisterImage(cmd.Context(), image, isDefault)
 	if err != nil {
 		output.Errorf("failed to register image: %v", err)
 		return
@@ -89,8 +89,8 @@ func listImagesRun(cmd *cobra.Command, _ []string) {
 		return
 	}
 
-	client := client.New(cfg, slog.Default())
-	resp, err := client.ListImages(cmd.Context())
+	c := client.New(cfg, slog.Default())
+	resp, err := c.ListImages(cmd.Context())
 	if err != nil {
 		output.Errorf("failed to list images: %v", err)
 		return
@@ -124,8 +124,8 @@ func unregisterImageRun(cmd *cobra.Command, args []string) {
 		return
 	}
 
-	client := client.New(cfg, slog.Default())
-	resp, err := client.UnregisterImage(cmd.Context(), image)
+	c := client.New(cfg, slog.Default())
+	resp, err := c.UnregisterImage(cmd.Context(), image)
 	if err != nil {
 		output.Errorf("failed to remove image: %v", err)
 		return

@@ -339,7 +339,7 @@ func TestCreateExecutionWithContext(t *testing.T) {
 		assert.True(t, time.Until(deadline) > 0)
 	})
 
-	t.Run("cancelled context", func(t *testing.T) {
+	t.Run("canceled context", func(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		cancel() // Cancel immediately
 

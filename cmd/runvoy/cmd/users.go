@@ -37,8 +37,8 @@ func runListUsers(cmd *cobra.Command, _ []string) {
 
 	output.Infof("Listing users…")
 
-	client := client.New(cfg, slog.Default())
-	resp, err := client.ListUsers(cmd.Context())
+	c := client.New(cfg, slog.Default())
+	resp, err := c.ListUsers(cmd.Context())
 	if err != nil {
 		output.Errorf("failed to list users: %v", err)
 		return
@@ -102,8 +102,8 @@ func runRevokeUser(cmd *cobra.Command, args []string) {
 	email := args[0]
 	output.Infof("Revoking user with email %s...", email)
 
-	client := client.New(cfg, slog.Default())
-	resp, err := client.RevokeUser(cmd.Context(), api.RevokeUserRequest{
+	c := client.New(cfg, slog.Default())
+	resp, err := c.RevokeUser(cmd.Context(), api.RevokeUserRequest{
 		Email: email,
 	})
 	if err != nil {
@@ -149,8 +149,8 @@ func runCreateUser(cmd *cobra.Command, args []string) {
 
 	output.Infof("Creating user with email %s...", email)
 
-	client := client.New(cfg, slog.Default())
-	resp, err := client.CreateUser(cmd.Context(), api.CreateUserRequest{
+	c := client.New(cfg, slog.Default())
+	resp, err := c.CreateUser(cmd.Context(), api.CreateUserRequest{
 		Email: email,
 	})
 	if err != nil {
@@ -162,11 +162,11 @@ func runCreateUser(cmd *cobra.Command, args []string) {
 	output.KeyValue("Email", resp.User.Email)
 	output.KeyValue("Claim Token", resp.ClaimToken)
 	output.Blank()
-    output.Infof(
-        "Share this command with the user => %s claim %s",
-        output.Bold(constants.ProjectName),
-        output.Bold(resp.ClaimToken),
-    )
+	output.Infof(
+		"Share this command with the user => %s claim %s",
+		output.Bold(constants.ProjectName),
+		output.Bold(resp.ClaimToken),
+	)
 	output.Blank()
 	output.Warningf("⏱  Token expires in 15 minutes")
 	output.Warningf("👁  Can only be viewed once")

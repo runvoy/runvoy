@@ -89,7 +89,7 @@ func (t *testUserRepository) GetPendingAPIKey(_ context.Context, secretToken str
 	}, nil
 }
 
-func (t *testUserRepository) MarkAsViewed(_ context.Context, _ string, _ string) error {
+func (t *testUserRepository) MarkAsViewed(_ context.Context, _, _ string) error {
 	return nil
 }
 
@@ -151,14 +151,14 @@ func (t *testExecutionRepository) ListExecutions(_ context.Context) ([]*api.Exec
 }
 
 type testRunner struct {
-	runCommandFunc func(userEmail string, req api.ExecutionRequest) (*time.Time, error)
+	runCommandFunc func(userEmail string, req *api.ExecutionRequest) (*time.Time, error)
 	listImagesFunc func() ([]api.ImageInfo, error)
 }
 
 func (t *testRunner) StartTask(
-    _ context.Context,
-    userEmail string,
-    req api.ExecutionRequest,
+	_ context.Context,
+	userEmail string,
+	req *api.ExecutionRequest,
 ) (string, *time.Time, error) {
 	if t.runCommandFunc != nil {
 		createdAt, err := t.runCommandFunc(userEmail, req)
@@ -198,7 +198,7 @@ func TestHandleHealth(t *testing.T) {
 	svc := app.NewService(nil, nil, &testRunner{}, slog.Default(), constants.AWS)
 	router := NewRouter(svc, 2*time.Second)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/health", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/health", http.NoBody)
 	resp := httptest.NewRecorder()
 
 	router.ServeHTTP(resp, req)
@@ -298,7 +298,7 @@ func TestHandleListExecutions_Success(t *testing.T) {
 	svc := app.NewService(&testUserRepository{}, execRepo, &testRunner{}, slog.Default(), constants.AWS)
 	router := NewRouter(svc, 2*time.Second)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/executions", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/executions", http.NoBody)
 	req.Header.Set("X-API-Key", "test-api-key")
 
 	resp := httptest.NewRecorder()
@@ -325,7 +325,7 @@ func TestHandleListExecutions_Empty(t *testing.T) {
 	svc := app.NewService(&testUserRepository{}, execRepo, &testRunner{}, slog.Default(), constants.AWS)
 	router := NewRouter(svc, 2*time.Second)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/executions", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/executions", http.NoBody)
 	req.Header.Set("X-API-Key", "test-api-key")
 
 	resp := httptest.NewRecorder()
@@ -347,7 +347,7 @@ func TestHandleListExecutions_DatabaseError(t *testing.T) {
 	svc := app.NewService(&testUserRepository{}, execRepo, &testRunner{}, slog.Default(), constants.AWS)
 	router := NewRouter(svc, 2*time.Second)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/executions", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/executions", http.NoBody)
 	req.Header.Set("X-API-Key", "test-api-key")
 
 	resp := httptest.NewRecorder()
@@ -408,7 +408,7 @@ func TestHandleListImages_Success(t *testing.T) {
 	svc := app.NewService(&testUserRepository{}, nil, runner, slog.Default(), constants.AWS)
 	router := NewRouter(svc, 2*time.Second)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/images", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/images", http.NoBody)
 	req.Header.Set("X-API-Key", "test-api-key")
 
 	resp := httptest.NewRecorder()
@@ -431,7 +431,7 @@ func TestHandleListImages_Empty(t *testing.T) {
 	svc := app.NewService(&testUserRepository{}, nil, runner, slog.Default(), constants.AWS)
 	router := NewRouter(svc, 2*time.Second)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/images", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/images", http.NoBody)
 	req.Header.Set("X-API-Key", "test-api-key")
 
 	resp := httptest.NewRecorder()
@@ -466,7 +466,7 @@ func TestHandleRemoveImage_MissingImage(t *testing.T) {
 	router := NewRouter(svc, 2*time.Second)
 
 	// DELETE request without image path parameter
-	req := httptest.NewRequest(http.MethodDelete, "/api/v1/images/", nil)
+	req := httptest.NewRequest(http.MethodDelete, "/api/v1/images/", http.NoBody)
 	req.Header.Set("X-API-Key", "test-api-key")
 
 	resp := httptest.NewRecorder()
@@ -477,7 +477,7 @@ func TestHandleRemoveImage_MissingImage(t *testing.T) {
 }
 
 func TestGetClientIP_XForwardedFor(t *testing.T) {
-	req := httptest.NewRequest(http.MethodGet, "/test", nil)
+	req := httptest.NewRequest(http.MethodGet, "/test", http.NoBody)
 	req.Header.Set("X-Forwarded-For", "192.168.1.1, 10.0.0.1")
 
 	ip := getClientIP(req)
@@ -486,7 +486,7 @@ func TestGetClientIP_XForwardedFor(t *testing.T) {
 }
 
 func TestGetClientIP_XRealIP(t *testing.T) {
-	req := httptest.NewRequest(http.MethodGet, "/test", nil)
+	req := httptest.NewRequest(http.MethodGet, "/test", http.NoBody)
 	req.Header.Set("X-Real-IP", "192.168.1.2")
 
 	ip := getClientIP(req)
@@ -495,7 +495,7 @@ func TestGetClientIP_XRealIP(t *testing.T) {
 }
 
 func TestGetClientIP_RemoteAddr(t *testing.T) {
-	req := httptest.NewRequest(http.MethodGet, "/test", nil)
+	req := httptest.NewRequest(http.MethodGet, "/test", http.NoBody)
 	req.RemoteAddr = "192.168.1.3:12345"
 
 	ip := getClientIP(req)
@@ -504,7 +504,7 @@ func TestGetClientIP_RemoteAddr(t *testing.T) {
 }
 
 func TestGetClientIP_XForwardedForPrecedence(t *testing.T) {
-	req := httptest.NewRequest(http.MethodGet, "/test", nil)
+	req := httptest.NewRequest(http.MethodGet, "/test", http.NoBody)
 	req.Header.Set("X-Forwarded-For", "192.168.1.1")
 	req.Header.Set("X-Real-IP", "192.168.1.2")
 	req.RemoteAddr = "192.168.1.3:12345"
@@ -522,7 +522,7 @@ func TestHandleListUsers_Success(t *testing.T) {
 	svc := app.NewService(userRepo, nil, &testRunner{}, slog.Default(), constants.AWS)
 	router := NewRouter(svc, 2*time.Second)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/users/", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/users/", http.NoBody)
 	req.Header.Set("X-API-Key", "test-api-key")
 
 	resp := httptest.NewRecorder()
@@ -554,7 +554,7 @@ func TestHandleListUsers_Unauthorized(t *testing.T) {
 	svc := app.NewService(userRepo, nil, &testRunner{}, slog.Default(), constants.AWS)
 	router := NewRouter(svc, 2*time.Second)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/users/", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/users/", http.NoBody)
 	req.Header.Set("X-API-Key", "invalid-api-key")
 
 	resp := httptest.NewRecorder()
@@ -579,7 +579,7 @@ func TestHandleListUsers_RepositoryError(t *testing.T) {
 	svc := app.NewService(userRepo, nil, &testRunner{}, slog.Default(), constants.AWS)
 	router := NewRouter(svc, 2*time.Second)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/users/", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/users/", http.NoBody)
 	req.Header.Set("X-API-Key", "test-api-key")
 
 	resp := httptest.NewRecorder()
@@ -674,7 +674,7 @@ func TestHandleGetExecutionLogs_Success(t *testing.T) {
 	svc := app.NewService(&testUserRepository{}, &testExecutionRepository{}, &testRunner{}, slog.Default(), constants.AWS)
 	router := NewRouter(svc, 2*time.Second)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/executions/exec-123/logs", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/executions/exec-123/logs", http.NoBody)
 	req.Header.Set("X-API-Key", "test-api-key")
 
 	resp := httptest.NewRecorder()
@@ -693,7 +693,7 @@ func TestHandleGetExecutionLogs_MissingExecutionID(t *testing.T) {
 	svc := app.NewService(&testUserRepository{}, &testExecutionRepository{}, &testRunner{}, slog.Default(), constants.AWS)
 	router := NewRouter(svc, 2*time.Second)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/executions//logs", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/executions//logs", http.NoBody)
 	req.Header.Set("X-API-Key", "test-api-key")
 
 	resp := httptest.NewRecorder()
@@ -710,7 +710,7 @@ func TestHandleGetExecutionStatus_Success(t *testing.T) {
 	svc := app.NewService(&testUserRepository{}, execRepo, &testRunner{}, slog.Default(), constants.AWS)
 	router := NewRouter(svc, 2*time.Second)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/executions/exec-123/status", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/executions/exec-123/status", http.NoBody)
 	req.Header.Set("X-API-Key", "test-api-key")
 
 	resp := httptest.NewRecorder()
@@ -729,7 +729,7 @@ func TestHandleGetExecutionStatus_MissingExecutionID(t *testing.T) {
 	svc := app.NewService(&testUserRepository{}, &testExecutionRepository{}, &testRunner{}, slog.Default(), constants.AWS)
 	router := NewRouter(svc, 2*time.Second)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/executions//status", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/executions//status", http.NoBody)
 	req.Header.Set("X-API-Key", "test-api-key")
 
 	resp := httptest.NewRecorder()
@@ -745,7 +745,7 @@ func TestHandleKillExecution_Success(t *testing.T) {
 	svc := app.NewService(&testUserRepository{}, &testExecutionRepository{}, &testRunner{}, slog.Default(), constants.AWS)
 	router := NewRouter(svc, 2*time.Second)
 
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/executions/exec-123/kill", nil)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/executions/exec-123/kill", http.NoBody)
 	req.Header.Set("X-API-Key", "test-api-key")
 
 	resp := httptest.NewRecorder()
@@ -766,7 +766,7 @@ func TestHandleKillExecution_MissingExecutionID(t *testing.T) {
 	svc := app.NewService(&testUserRepository{}, &testExecutionRepository{}, &testRunner{}, slog.Default(), constants.AWS)
 	router := NewRouter(svc, 2*time.Second)
 
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/executions//kill", nil)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/executions//kill", http.NoBody)
 	req.Header.Set("X-API-Key", "test-api-key")
 
 	resp := httptest.NewRecorder()

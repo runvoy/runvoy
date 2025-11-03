@@ -28,8 +28,8 @@ func killRun(cmd *cobra.Command, args []string) {
 		return
 	}
 
-	client := client.New(cfg, slog.Default())
-	resp, err := client.KillExecution(cmd.Context(), executionID)
+	c := client.New(cfg, slog.Default())
+	resp, err := c.KillExecution(cmd.Context(), executionID)
 	if err != nil {
 		output.Errorf(err.Error())
 		return

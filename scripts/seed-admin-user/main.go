@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"runvoy/internal/auth"
-	"runvoy/internal/constants"
 	"runvoy/internal/config"
+	"runvoy/internal/constants"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
@@ -28,13 +28,14 @@ type userItem struct {
 	Revoked    bool      `dynamodbav:"revoked"`
 }
 
-func setupAPIKeyAndConfig() (*config.Config, string, string) {
-	apiKey, err := auth.GenerateAPIKey()
+func setupAPIKeyAndConfig() (cfg *config.Config, apiKey, apiKeyHash string) {
+	var err error
+	apiKey, err = auth.GenerateAPIKey()
 	if err != nil {
 		log.Fatalf("error: failed to generate API key: %v", err)
 	}
 
-	cfg, err := config.Load()
+	cfg, err = config.Load()
 	if err != nil {
 		cfg = &config.Config{
 			APIKey:      apiKey,
@@ -44,7 +45,7 @@ func setupAPIKeyAndConfig() (*config.Config, string, string) {
 		cfg.APIKey = apiKey
 	}
 
-	apiKeyHash := auth.HashAPIKey(apiKey)
+	apiKeyHash = auth.HashAPIKey(apiKey)
 	return cfg, apiKey, apiKeyHash
 }
 

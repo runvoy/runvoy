@@ -25,10 +25,10 @@ type Client struct {
 }
 
 // New creates a new API client
-func New(cfg *config.Config, logger *slog.Logger) *Client {
+func New(cfg *config.Config, log *slog.Logger) *Client {
 	return &Client{
 		config: cfg,
-		logger: logger,
+		logger: log,
 	}
 }
 
@@ -56,12 +56,12 @@ func (c *Client) Do(ctx context.Context, req Request) (*Response, error) {
 		bodyReader = bytes.NewBuffer(jsonData)
 	}
 
-	url, err := url.JoinPath(c.config.APIEndpoint, req.Path)
+	apiURL, err := url.JoinPath(c.config.APIEndpoint, req.Path)
 	if err != nil {
 		return nil, fmt.Errorf("invalid API endpoint: %w", err)
 	}
 
-	httpReq, err := http.NewRequestWithContext(ctx, req.Method, url, bodyReader)
+	httpReq, err := http.NewRequestWithContext(ctx, req.Method, apiURL, bodyReader)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -73,7 +73,7 @@ func (c *Client) Do(ctx context.Context, req Request) (*Response, error) {
 	logArgs := []any{
 		"operation", "HTTP.Request",
 		"method", req.Method,
-		"url", url,
+		"url", apiURL,
 	}
 	if req.Body != nil {
 		bodyBytes, _ := json.Marshal(req.Body)
@@ -103,7 +103,7 @@ func (c *Client) Do(ctx context.Context, req Request) (*Response, error) {
 		"status", resp.StatusCode,
 		"bodySize", len(body),
 		"method", req.Method,
-		"url", url)
+		"url", apiURL)
 
 	return &Response{
 		StatusCode: resp.StatusCode,

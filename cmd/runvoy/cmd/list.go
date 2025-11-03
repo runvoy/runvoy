@@ -26,7 +26,7 @@ func init() {
 	rootCmd.AddCommand(executionsCmd)
 }
 
-func executionsRun(cmd *cobra.Command, _ []string) {
+func executionsRun(cmd *cobra.Command, _ []string) { //nolint:funlen
 	cfg, err := getConfigFromContext(cmd)
 	if err != nil {
 		output.Errorf("failed to load configuration: %v", err)
@@ -35,15 +35,16 @@ func executionsRun(cmd *cobra.Command, _ []string) {
 
 	output.Infof("Listing executions…")
 
-	client := client.New(cfg, slog.Default())
-	execs, err := client.ListExecutions(cmd.Context())
+	c := client.New(cfg, slog.Default())
+	execs, err := c.ListExecutions(cmd.Context())
 	if err != nil {
 		output.Errorf("failed to list executions: %v", err)
 		return
 	}
 
 	rows := make([][]string, 0, len(execs))
-	for _, e := range execs {
+	for i := range execs {
+		e := &execs[i]
 		started := e.StartedAt.UTC().Format(time.DateTime)
 		completed := ""
 		if e.CompletedAt != nil {

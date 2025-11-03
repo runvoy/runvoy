@@ -32,8 +32,8 @@ func runClaim(cmd *cobra.Command, args []string) {
 		return
 	}
 
-	client := client.New(cfg, slog.Default())
-	resp, err := client.ClaimAPIKey(cmd.Context(), token)
+	c := client.New(cfg, slog.Default())
+	resp, err := c.ClaimAPIKey(cmd.Context(), token)
 	if err != nil {
 		output.Errorf(err.Error())
 		return

@@ -42,8 +42,8 @@ type Runner struct {
 }
 
 // NewRunner creates a new AWS ECS runner with the provided configuration.
-func NewRunner(ecsClient *ecs.Client, cfg *Config, logger *slog.Logger) *Runner {
-	return &Runner{ecsClient: ecsClient, cfg: cfg, logger: logger}
+func NewRunner(ecsClient *ecs.Client, cfg *Config, log *slog.Logger) *Runner {
+	return &Runner{ecsClient: ecsClient, cfg: cfg, logger: log}
 }
 
 // FetchLogsByExecutionID returns CloudWatch log events for the given execution ID.
@@ -119,7 +119,7 @@ type gitRepoInfo struct {
 
 // buildMainContainerCommand constructs the shell command for the main runner container.
 // It adds logging statements and optionally changes to the git repo working directory.
-func buildMainContainerCommand(req api.ExecutionRequest, requestID string, image string, repo *gitRepoInfo) []string {
+func buildMainContainerCommand(req *api.ExecutionRequest, requestID, image string, repo *gitRepoInfo) []string {
 	commands := []string{
 		fmt.Sprintf("printf '### %s runner execution started by requestID => %s\\n'",
 			constants.ProjectName, requestID),
@@ -149,7 +149,7 @@ func buildMainContainerCommand(req api.ExecutionRequest, requestID string, image
 
 // StartTask triggers an ECS Fargate task and returns identifiers.
 func (e *Runner) StartTask( //nolint: funlen
-	ctx context.Context, userEmail string, req api.ExecutionRequest) (string, *time.Time, error) {
+	ctx context.Context, userEmail string, req *api.ExecutionRequest) (string, *time.Time, error) {
 	if e.ecsClient == nil {
 		return "", nil, appErrors.ErrInternalError("ECS cli endpoint not configured", nil)
 	}
@@ -396,7 +396,8 @@ func describeTaskDef(
 // extractImageFromTaskDef extracts the runner container image from a task definition.
 func extractImageFromTaskDef(taskDef *ecsTypes.TaskDefinition, reqLogger *slog.Logger) string {
 	familyName := awsStd.ToString(taskDef.Family)
-	for _, container := range taskDef.ContainerDefinitions {
+	for i := range taskDef.ContainerDefinitions {
+		container := &taskDef.ContainerDefinitions[i]
 		if container.Name != nil && *container.Name == constants.RunnerContainerName && container.Image != nil {
 			return *container.Image
 		}

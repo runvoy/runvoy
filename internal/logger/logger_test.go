@@ -121,8 +121,8 @@ func TestReplaceAttrForDev(t *testing.T) {
 
 func TestInitialize(t *testing.T) {
 	tests := []struct {
-		name string
-		env  constants.Environment
+		name  string
+		env   constants.Environment
 		level slog.Level
 	}{
 		{

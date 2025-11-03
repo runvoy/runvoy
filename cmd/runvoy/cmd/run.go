@@ -81,8 +81,8 @@ func runRun(cmd *cobra.Command, args []string) {
 		output.Infof("Injecting user environment variables: %s", output.Bold(strings.Join(envKeys, ", ")))
 	}
 
-	client := client.New(cfg, slog.Default())
-	resp, err := client.RunCommand(cmd.Context(), api.ExecutionRequest{
+	c := client.New(cfg, slog.Default())
+	resp, err := c.RunCommand(cmd.Context(), api.ExecutionRequest{
 		Command: command,
 		GitRepo: cmd.Flag("git-repo").Value.String(),
 		GitRef:  cmd.Flag("git-ref").Value.String(),

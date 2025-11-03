@@ -28,8 +28,8 @@ func statusRun(cmd *cobra.Command, args []string) {
 		return
 	}
 
-	client := client.New(cfg, slog.Default())
-	status, err := client.GetExecutionStatus(cmd.Context(), executionID)
+	c := client.New(cfg, slog.Default())
+	status, err := c.GetExecutionStatus(cmd.Context(), executionID)
 	if err != nil {
 		output.Errorf(err.Error())
 		return

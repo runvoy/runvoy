@@ -20,23 +20,23 @@ import (
 // UserRepository implements the database.UserRepository interface using DynamoDB.
 type UserRepository struct {
 	client           *dynamodb.Client
-	tableName       string
+	tableName        string
 	pendingTableName string
-	logger          *slog.Logger
+	logger           *slog.Logger
 }
 
 // NewUserRepository creates a new DynamoDB-backed user repository.
 func NewUserRepository(
-    client *dynamodb.Client,
-    tableName string,
-    pendingTableName string,
-    logger *slog.Logger,
+	client *dynamodb.Client,
+	tableName string,
+	pendingTableName string,
+	log *slog.Logger,
 ) *UserRepository {
 	return &UserRepository{
 		client:           client,
-		tableName:       tableName,
+		tableName:        tableName,
 		pendingTableName: pendingTableName,
-		logger:          logger,
+		logger:           log,
 	}
 }
 
@@ -59,10 +59,10 @@ func (r *UserRepository) CreateUser(ctx context.Context, user *api.User, apiKeyH
 // CreateUserWithExpiration stores a new user with their hashed API key and optional TTL in DynamoDB.
 // If expiresAtUnix is 0, no TTL is set. If expiresAtUnix is > 0, it sets the expires_at field for automatic deletion.
 func (r *UserRepository) CreateUserWithExpiration(
-    ctx context.Context,
-    user *api.User,
-    apiKeyHash string,
-    expiresAtUnix int64,
+	ctx context.Context,
+	user *api.User,
+	apiKeyHash string,
+	expiresAtUnix int64,
 ) error {
 	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
 
@@ -494,7 +494,7 @@ func (r *UserRepository) GetPendingAPIKey(ctx context.Context, secretToken strin
 }
 
 // MarkAsViewed atomically marks a pending key as viewed with the IP address.
-func (r *UserRepository) MarkAsViewed(ctx context.Context, secretToken string, ipAddress string) error {
+func (r *UserRepository) MarkAsViewed(ctx context.Context, secretToken, ipAddress string) error {
 	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
 
 	// Log before calling DynamoDB UpdateItem

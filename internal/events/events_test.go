@@ -85,24 +85,24 @@ func TestParseTime(t *testing.T) {
 
 func TestExtractExecutionIDFromTaskArn(t *testing.T) {
 	tests := []struct {
-		name        string
-		taskArn     string
-		expectedID  string
+		name       string
+		taskArn    string
+		expectedID string
 	}{
 		{
-			name:        "standard ECS task ARN",
-			taskArn:     "arn:aws:ecs:us-east-1:123456789012:task/my-cluster/abc123def456",
-			expectedID:  "abc123def456",
+			name:       "standard ECS task ARN",
+			taskArn:    "arn:aws:ecs:us-east-1:123456789012:task/my-cluster/abc123def456",
+			expectedID: "abc123def456",
 		},
 		{
-			name:        "task ARN with UUID",
-			taskArn:     "arn:aws:ecs:eu-west-1:999888777666:task/prod-cluster/550e8400-e29b-41d4-a716-446655440000",
-			expectedID:  "550e8400-e29b-41d4-a716-446655440000",
+			name:       "task ARN with UUID",
+			taskArn:    "arn:aws:ecs:eu-west-1:999888777666:task/prod-cluster/550e8400-e29b-41d4-a716-446655440000",
+			expectedID: "550e8400-e29b-41d4-a716-446655440000",
 		},
 		{
-			name:        "simple ID",
-			taskArn:     "exec-123",
-			expectedID:  "exec-123",
+			name:       "simple ID",
+			taskArn:    "exec-123",
+			expectedID: "exec-123",
 		},
 	}
 
@@ -218,7 +218,7 @@ func TestDetermineStatusAndExitCode(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			status, exitCode := determineStatusAndExitCode(tt.event)
+			status, exitCode := determineStatusAndExitCode(&tt.event)
 			assert.Equal(t, tt.expectedStatus, status)
 			assert.Equal(t, tt.expectedExit, exitCode)
 		})

@@ -36,8 +36,8 @@ func logsRun(cmd *cobra.Command, args []string) {
 
 	output.Infof("Getting logs for execution: %s", output.Bold(executionID))
 
-	client := client.New(cfg, slog.Default())
-	resp, err := client.GetLogs(cmd.Context(), executionID)
+	c := client.New(cfg, slog.Default())
+	resp, err := c.GetLogs(cmd.Context(), executionID)
 	if err != nil {
 		output.Errorf("failed to get logs: %v", err)
 		return

@@ -90,7 +90,7 @@ func TestRunCommand(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			runner := &mockRunner{
-				startTaskFunc: func(_ context.Context, _ string, _ api.ExecutionRequest) (string, *time.Time, error) {
+				startTaskFunc: func(_ context.Context, _ string, _ *api.ExecutionRequest) (string, *time.Time, error) {
 					return tt.executionID, tt.createdAt, tt.startTaskErr
 				},
 			}
@@ -102,7 +102,7 @@ func TestRunCommand(t *testing.T) {
 			}
 
 			svc := newTestService(nil, execRepo, runner)
-			resp, err := svc.RunCommand(ctx, tt.userEmail, tt.req)
+			resp, err := svc.RunCommand(ctx, tt.userEmail, &tt.req)
 
 			if tt.expectErr {
 				require.Error(t, err)

@@ -17,7 +17,7 @@ import (
 // mockRunner implements the app.Runner interface for testing
 type mockRunner struct{}
 
-func (m *mockRunner) StartTask(_ context.Context, _ string, _ api.ExecutionRequest) (string, *time.Time, error) {
+func (m *mockRunner) StartTask(_ context.Context, _ string, _ *api.ExecutionRequest) (string, *time.Time, error) {
 	return "test-execution-id", nil, nil
 }
 
@@ -54,7 +54,7 @@ func TestGetExecutionStatus_Unauthorized(t *testing.T) {
 	svc := app.NewService(nil, nil, &mockRunner{}, slog.Default(), constants.AWS)
 	router := NewRouter(svc, 2*time.Second)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/executions/exec-123/status", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/executions/exec-123/status", http.NoBody)
 	// No X-API-Key header set
 	resp := httptest.NewRecorder()
 

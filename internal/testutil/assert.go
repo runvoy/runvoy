@@ -4,12 +4,13 @@ import (
 	stderrors "errors"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	apperrors "runvoy/internal/errors"
+
+	"github.com/stretchr/testify/assert"
 )
 
 // AssertErrorType checks if the error is of a specific type using errors.Is.
-func AssertErrorType(t *testing.T, err error, target error, _ ...interface{}) bool {
+func AssertErrorType(t *testing.T, err, target error, _ ...interface{}) bool {
 	t.Helper()
 	if !stderrors.Is(err, target) {
 		return assert.Fail(t, "Error type mismatch", "Expected error type %T, got %T", target, err)

@@ -32,13 +32,12 @@ func flattenMapAttr(prefix string, value any) string {
 				fullKey = prefix + "." + key
 			}
 
-			if nestedMap, ok := val.(map[string]any); ok {
-				nested := flattenMapAttr(fullKey, nestedMap)
-				parts = append(parts, nested)
-			} else if nestedMap, ok := val.(map[string]string); ok {
-				nested := flattenMapAttr(fullKey, nestedMap)
-				parts = append(parts, nested)
-			} else {
+			switch nested := val.(type) {
+			case map[string]any:
+				parts = append(parts, flattenMapAttr(fullKey, nested))
+			case map[string]string:
+				parts = append(parts, flattenMapAttr(fullKey, nested))
+			default:
 				parts = append(parts, fmt.Sprintf("%s=%v", fullKey, val))
 			}
 		}

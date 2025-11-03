@@ -80,21 +80,21 @@ func Fatalf(format string, a ...interface{}) {
 
 // Step prints a step in a multi-step process
 // Example: [1/3] Waiting for stack creation
-func Step(step int, total int, message string) {
+func Step(step, total int, message string) {
 	_, _ = gray.Fprintf(Stdout, "[%d/%d] ", step, total)
 	_, _ = fmt.Fprintln(Stdout, message)
 }
 
 // StepSuccess prints a successful step completion
 // Example: [1/3] ✓ Stack created
-func StepSuccess(step int, total int, message string) {
+func StepSuccess(step, total int, message string) {
 	_, _ = gray.Fprintf(Stdout, "[%d/%d] ", step, total)
 	_, _ = fmt.Fprintf(Stdout, "%s %s\n", green.Sprint("✓"), message)
 }
 
 // StepError prints a failed step
 // Example: [2/3] ✗ Failed to generate API key
-func StepError(step int, total int, message string) {
+func StepError(step, total int, message string) {
 	_, _ = gray.Fprintf(Stdout, "[%d/%d] ", step, total)
 	_, _ = fmt.Fprintf(Stdout, "%s %s\n", red.Sprint("✗"), message)
 }
@@ -256,15 +256,16 @@ func Table(headers []string, rows [][]string) {
 	// Print rows
 	for _, row := range rows {
 		for i, cell := range row {
-			if i < len(widths) {
-				pad := widths[i] - visibleWidth(cell)
-				if pad < 0 {
-					pad = 0
-				}
-				_, _ = fmt.Fprint(Stdout, cell)
-				_, _ = fmt.Fprint(Stdout, strings.Repeat(" ", pad))
-				_, _ = fmt.Fprint(Stdout, "  ")
+			if i >= len(widths) {
+				continue
 			}
+			pad := widths[i] - visibleWidth(cell)
+			if pad < 0 {
+				pad = 0
+			}
+			_, _ = fmt.Fprint(Stdout, cell)
+			_, _ = fmt.Fprint(Stdout, strings.Repeat(" ", pad))
+			_, _ = fmt.Fprint(Stdout, "  ")
 		}
 		_, _ = fmt.Fprintln(Stdout)
 	}

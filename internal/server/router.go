@@ -118,7 +118,7 @@ func (r *Router) WithContext(ctx context.Context, svc *app.Service) context.Cont
 }
 
 // writeErrorResponse is a helper to write consistent error responses
-func writeErrorResponse(w http.ResponseWriter, statusCode int, message string, details string) {
+func writeErrorResponse(w http.ResponseWriter, statusCode int, message, details string) {
 	w.WriteHeader(statusCode)
 	_ = json.NewEncoder(w).Encode(api.ErrorResponse{
 		Error:   message,
@@ -127,7 +127,7 @@ func writeErrorResponse(w http.ResponseWriter, statusCode int, message string, d
 }
 
 // writeErrorResponseWithCode is a helper to write error responses with error codes
-func writeErrorResponseWithCode(w http.ResponseWriter, statusCode int, code, message string, details string) {
+func writeErrorResponseWithCode(w http.ResponseWriter, statusCode int, code, message, details string) {
 	w.WriteHeader(statusCode)
 	resp := api.ErrorResponse{
 		Error:   message,
