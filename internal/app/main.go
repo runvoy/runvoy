@@ -354,8 +354,6 @@ func (s *Service) GetLogsByExecutionID(ctx context.Context, executionID string) 
 		return nil, err
 	}
 
-	reqLogger := logger.DeriveRequestLogger(ctx, s.Logger)
-	reqLogger.Debug("fetched log events", "executionID", executionID, "events", events)
 	return &api.LogsResponse{ExecutionID: executionID, Events: events}, nil
 }
 

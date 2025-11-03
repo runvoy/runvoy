@@ -20,6 +20,7 @@ import (
 )
 
 // FetchLogsByExecutionID queries CloudWatch Logs for events associated with the ECS task ID
+// Returns an indexed slice of LogEvent sorted by timestamp.
 func FetchLogsByExecutionID(ctx context.Context, cfg *Config, executionID string) ([]api.LogEvent, error) {
 	if cfg == nil || cfg.LogGroup == "" {
 		return nil, appErrors.ErrInternalError("CloudWatch Logs group not configured", nil)
@@ -106,8 +107,11 @@ func FetchLogsByExecutionID(ctx context.Context, cfg *Config, executionID string
 		nextToken = out.NextForwardToken
 	}
 
+	reqLogger.Debug("log events fetched successfully", "context", map[string]int{
+		"events_count": len(events),
+	})
+
 	sort.SliceStable(events, func(i, j int) bool { return events[i].Timestamp < events[j].Timestamp })
-	// Assign serial line numbers starting at 1
 	for i := range events {
 		events[i].Line = i + 1
 	}
