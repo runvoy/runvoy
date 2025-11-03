@@ -105,6 +105,7 @@ func GetDefaultImage(
 	})
 
 	for _, taskDefARN := range taskDefArns {
+		var tagsOutput *ecs.ListTagsForResourceOutput
 		tagsOutput, err = ecsClient.ListTagsForResource(ctx, &ecs.ListTagsForResourceInput{
 			ResourceArn: awsStd.String(taskDefARN),
 		})
@@ -151,6 +152,7 @@ func unmarkExistingDefaultImages(
 	}
 
 	for _, taskDefARN := range taskDefArns {
+		var tagsOutput *ecs.ListTagsForResourceOutput
 		tagsOutput, err = ecsClient.ListTagsForResource(ctx, &ecs.ListTagsForResourceInput{
 			ResourceArn: awsStd.String(taskDefARN),
 		})
@@ -286,6 +288,7 @@ func getRoleARNsFromExistingTaskDef(
 			MaxResults: awsStd.Int32(1),
 		})
 		if err == nil && len(allFamilies.TaskDefinitionArns) > 0 {
+			var descOutput *ecs.DescribeTaskDefinitionOutput
 			descOutput, err = ecsClient.DescribeTaskDefinition(ctx, &ecs.DescribeTaskDefinitionInput{
 				TaskDefinition: awsStd.String(allFamilies.TaskDefinitionArns[len(allFamilies.TaskDefinitionArns)-1]),
 			})

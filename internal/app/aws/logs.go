@@ -46,6 +46,7 @@ func FetchLogsByExecutionID(ctx context.Context, cfg *Config, executionID string
 	describeLogArgs = append(describeLogArgs, logger.GetDeadlineInfo(ctx)...)
 	reqLogger.Debug("calling external service", "context", logger.SliceToMap(describeLogArgs))
 
+	var lsOut *cloudwatchlogs.DescribeLogStreamsOutput
 	lsOut, err = cwl.DescribeLogStreams(ctx, &cloudwatchlogs.DescribeLogStreamsInput{
 		LogGroupName:        aws.String(cfg.LogGroup),
 		LogStreamNamePrefix: aws.String(stream),
@@ -69,6 +70,7 @@ func FetchLogsByExecutionID(ctx context.Context, cfg *Config, executionID string
 		"paginated":   "true",
 	})
 
+	var events []api.LogEvent
 	events, err = getAllLogEvents(ctx, cwl, cfg.LogGroup, stream)
 	if err != nil {
 		return nil, err
