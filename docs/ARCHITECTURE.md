@@ -55,8 +55,7 @@ The application uses **chi** (github.com/go-chi/chi/v5) as the HTTP router for b
 
 - **`internal/server/router.go`**: Shared chi-based router configuration with all API routes
 - **`internal/server/middleware.go`**: Middleware for request ID extraction and logging context
-- **`internal/lambdaapi/adapter.go`**: Adapter to convert between Lambda events and standard http.Handler
-- **`internal/lambdaapi/handler.go`**: Lambda handler that uses the chi router via adapter
+- **`internal/lambdaapi/handler.go`**: Lambda handler that uses algnhsa to adapt the chi router
 - **`cmd/local/main.go`**: Local HTTP server implementation using the same router
 - **`cmd/backend/aws/orchestrator/main.go`**: Lambda entry point for the orchestrator (uses the chi-based handler)
 
@@ -84,21 +83,31 @@ Both Lambda and local HTTP server use identical routing logic, ensuring developm
 
 ### Lambda Event Adapter
 
-The Lambda adapter (`internal/lambdaapi/adapter.go`) converts AWS Lambda Function URL events into standard `http.Request` objects that work with the chi router. This enables the same router and middleware to work in both local and AWS Lambda environments.
+The platform uses **algnhsa** (`github.com/akrylysov/algnhsa`), a well-maintained open-source library that adapts standard Go `http.Handler` implementations (like chi routers) to work with AWS Lambda. This eliminates the need for custom adapter code and provides robust support for multiple Lambda event types.
 
-**Key Adaptations:**
+**Implementation:** `internal/lambdaapi/handler.go` creates the Lambda handler by wrapping the chi router with `algnhsa.New()`:
 
-1. **Request ID Extraction**: The Lambda request ID from `req.RequestContext.RequestID` is extracted and stored in the Lambda context using `lambdacontext.NewContext()`. This allows the request ID middleware to access it later.
+```go
+func NewHandler(svc *app.Service, requestTimeout time.Duration) lambda.Handler {
+    router := server.NewRouter(svc, requestTimeout)
+    return algnhsa.New(router.Handler(), nil)
+}
+```
 
-2. **Remote Address**: The client source IP is extracted from `req.RequestContext.HTTP.SourceIP` and set as `httpReq.RemoteAddr`, ensuring the logging middleware can access the client's IP address in Lambda executions just like in local HTTP servers.
+**Supported Event Types:**
+- Lambda Function URLs (current deployment model)
+- API Gateway v1 (REST API)
+- API Gateway v2 (HTTP API)
+- Application Load Balancer (ALB)
 
-3. **Event to HTTP Request Conversion**:
-   - URL construction from domain name, path, and query parameters
-   - Base64 body decoding when needed
-   - Header and query parameter copying
-   - HTTP method mapping
+**Benefits:**
+- ✅ **Zero custom adapter code**: The library handles all event type detection and conversion
+- ✅ **Battle-tested**: Actively maintained and widely used in production
+- ✅ **Automatic conversion**: Transforms Lambda events into standard `http.Request` and `http.ResponseWriter` objects
+- ✅ **Transparent to middleware**: All middleware (logging, request ID extraction, authentication) work identically in both Lambda and local environments
+- ✅ **Future-proof**: Easy migration between Lambda invocation models without code changes
 
-The adapter ensures that all middleware (logging, request ID extraction, authentication) work identically in both environments without any conditional logic in the router or middleware code.
+The adapter ensures that the same router and middleware work seamlessly in both local development (HTTP server) and production (Lambda) environments without any conditional logic.
 
 ### User Management API
 
