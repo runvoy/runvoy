@@ -202,22 +202,20 @@ func (r *UserRepository) GetUserByAPIKeyHash(ctx context.Context, apiKeyHash str
 	}, nil
 }
 
-// UpdateLastUsed updates the last_used timestamp for a user.
-func (r *UserRepository) UpdateLastUsed(ctx context.Context, email string) (*time.Time, error) {
+// queryAPIKeyHashByEmail queries for the api_key_hash by email.
+func (r *UserRepository) queryAPIKeyHashByEmail(ctx context.Context, email, purpose string) (string, error) {
 	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
 
-	// Log before calling DynamoDB Query
 	queryLogArgs := []any{
 		"operation", "DynamoDB.Query",
 		"table", r.tableName,
 		"index", "user_email-index",
 		"email", email,
-		"purpose", "last_used_update",
+		"purpose", purpose,
 	}
 	queryLogArgs = append(queryLogArgs, logger.GetDeadlineInfo(ctx)...)
 	reqLogger.Debug("calling external service", "context", logger.SliceToMap(queryLogArgs))
 
-	// Query the GSI by email to obtain the api_key_hash (table PK)
 	result, err := r.client.Query(ctx, &dynamodb.QueryInput{
 		TableName:              aws.String(r.tableName),
 		IndexName:              aws.String("user_email-index"),
@@ -228,14 +226,13 @@ func (r *UserRepository) UpdateLastUsed(ctx context.Context, email string) (*tim
 		Limit: aws.Int32(1),
 	})
 	if err != nil {
-		return nil, apperrors.ErrDatabaseError("failed to query user by email for last_used update", err)
+		return "", apperrors.ErrDatabaseError("failed to query user by email", err)
 	}
 
 	if len(result.Items) == 0 {
-		return nil, apperrors.ErrNotFound("user not found", nil)
+		return "", apperrors.ErrNotFound("user not found", nil)
 	}
 
-	// Extract api_key_hash from the first (and only) item for this email
 	var apiKeyHash string
 	if v, ok := result.Items[0]["api_key_hash"]; ok {
 		if s, ok := v.(*types.AttributeValueMemberS); ok {
@@ -243,12 +240,23 @@ func (r *UserRepository) UpdateLastUsed(ctx context.Context, email string) (*tim
 		}
 	}
 	if apiKeyHash == "" {
-		return nil, apperrors.ErrDatabaseError("user record missing api_key_hash attribute", nil)
+		return "", apperrors.ErrDatabaseError("user record missing api_key_hash attribute", nil)
+	}
+
+	return apiKeyHash, nil
+}
+
+// UpdateLastUsed updates the last_used timestamp for a user.
+func (r *UserRepository) UpdateLastUsed(ctx context.Context, email string) (*time.Time, error) {
+	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
+
+	apiKeyHash, err := r.queryAPIKeyHashByEmail(ctx, email, "last_used_update")
+	if err != nil {
+		return nil, err
 	}
 
 	now := time.Now().UTC()
 
-	// Log before calling DynamoDB UpdateItem
 	updateLogArgs := []any{
 		"operation", "DynamoDB.UpdateItem",
 		"table", r.tableName,
@@ -279,44 +287,11 @@ func (r *UserRepository) UpdateLastUsed(ctx context.Context, email string) (*tim
 func (r *UserRepository) RevokeUser(ctx context.Context, email string) error {
 	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
 
-	// Log before calling DynamoDB Query
-	queryLogArgs := []any{
-		"operation", "DynamoDB.Query",
-		"table", r.tableName,
-		"index", "user_email-index",
-		"email", email,
-		"purpose", "revoke_user",
-	}
-	queryLogArgs = append(queryLogArgs, logger.GetDeadlineInfo(ctx)...)
-	reqLogger.Debug("calling external service", "context", logger.SliceToMap(queryLogArgs))
-
-	// Query to find the api_key_hash for this email
-	result, err := r.client.Query(ctx, &dynamodb.QueryInput{
-		TableName:              aws.String(r.tableName),
-		IndexName:              aws.String("user_email-index"),
-		KeyConditionExpression: aws.String("user_email = :email"),
-		ExpressionAttributeValues: map[string]types.AttributeValue{
-			":email": &types.AttributeValueMemberS{Value: email},
-		},
-	})
-
+	apiKeyHash, err := r.queryAPIKeyHashByEmail(ctx, email, "revoke_user")
 	if err != nil {
-		return apperrors.ErrDatabaseError("failed to query user by email for revocation", err)
+		return err
 	}
 
-	if len(result.Items) == 0 {
-		return apperrors.ErrNotFound("user not found", nil)
-	}
-
-	// Extract the api_key_hash to use as the primary key for update
-	var apiKeyHash string
-	if v, ok := result.Items[0]["api_key_hash"]; ok {
-		if s, ok := v.(*types.AttributeValueMemberS); ok {
-			apiKeyHash = s.Value
-		}
-	}
-
-	// Log before calling DynamoDB UpdateItem
 	updateLogArgs := []any{
 		"operation", "DynamoDB.UpdateItem",
 		"table", r.tableName,
@@ -327,7 +302,6 @@ func (r *UserRepository) RevokeUser(ctx context.Context, email string) error {
 	updateLogArgs = append(updateLogArgs, logger.GetDeadlineInfo(ctx)...)
 	reqLogger.Debug("calling external service", "context", logger.SliceToMap(updateLogArgs))
 
-	// Update the item to mark as revoked
 	_, err = r.client.UpdateItem(ctx, &dynamodb.UpdateItemInput{
 		TableName: aws.String(r.tableName),
 		Key: map[string]types.AttributeValue{

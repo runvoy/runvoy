@@ -77,14 +77,9 @@ func main() {
     )
 }
 
-// mergeEnvFile reads the existing .env file (if it exists) and merges it with Lambda values.
-// It preserves comments, blank lines, and formatting while updating existing values and adding new ones.
-// Returns: merged content, count of updated vars, count of new vars, error
-func mergeEnvFile(filePath string, lambdaVars map[string]string) (string, int, int, error) {
+// readExistingEnvFile reads the existing .env file and returns lines.
+func readExistingEnvFile(filePath string) ([]string, error) {
 	var lines []string
-	var existingKeys = make(map[string]bool)
-	updatedCount := 0
-	newCount := 0
 
 	file, err := os.Open(filePath) //nolint:gosec // G304: File path from CLI arg is intentional
 	if err == nil {
@@ -93,23 +88,23 @@ func mergeEnvFile(filePath string, lambdaVars map[string]string) (string, int, i
 		}()
 		scanner := bufio.NewScanner(file)
 		for scanner.Scan() {
-			line := scanner.Text()
-			lines = append(lines, line)
-
-			matches := envLineRegex.FindStringSubmatch(line)
-			if len(matches) == 3 {
-				key := matches[1]
-				existingKeys[key] = true
-			}
+			lines = append(lines, scanner.Text())
 		}
 		if err := scanner.Err(); err != nil {
-			return "", 0, 0, fmt.Errorf("error reading .env file: %w", err)
+			return nil, fmt.Errorf("error reading .env file: %w", err)
 		}
 	} else if !os.IsNotExist(err) {
-		return "", 0, 0, fmt.Errorf("error opening .env file: %w", err)
+		return nil, fmt.Errorf("error opening .env file: %w", err)
 	}
 
+	return lines, nil
+}
+
+// processExistingLines processes existing lines and updates with Lambda vars.
+func processExistingLines(lines []string, lambdaVars map[string]string) (strings.Builder, int) {
 	var result strings.Builder
+	updatedCount := 0
+
 	for i, line := range lines {
 		matches := envLineRegex.FindStringSubmatch(line)
 		if len(matches) == constants.RegexMatchCountEnvVar {
@@ -118,39 +113,59 @@ func mergeEnvFile(filePath string, lambdaVars map[string]string) (string, int, i
 				formattedValue := formatEnvValue(newValue)
 				result.WriteString(fmt.Sprintf("%s=%s\n", key, formattedValue))
 				updatedCount++
-				delete(lambdaVars, key) // Remove from lambdaVars to track remaining new vars
+				delete(lambdaVars, key)
 			} else {
 				result.WriteString(line + "\n")
 			}
 		} else {
-			// Preserve comments, blank lines, and malformed lines
 			result.WriteString(line + "\n")
 		}
 
-		// Add a blank line before appending new vars if this is the last line
 		if i == len(lines)-1 && len(lambdaVars) > 0 {
 			result.WriteString("\n")
 		}
 	}
 
-	// Append any new variables from Lambda that weren't in the existing file
-	if len(lambdaVars) > 0 {
-		keys := make([]string, 0, len(lambdaVars))
-		for k := range lambdaVars {
-			keys = append(keys, k)
-		}
-		sort.Strings(keys)
+	return result, updatedCount
+}
 
-		if len(lines) > 0 {
-			result.WriteString("# Synced from Lambda function\n")
-		}
-
-		for _, key := range keys {
-			formattedValue := formatEnvValue(lambdaVars[key])
-			result.WriteString(fmt.Sprintf("%s=%s\n", key, formattedValue))
-			newCount++
-		}
+// appendNewVars appends new variables from Lambda that weren't in the existing file.
+func appendNewVars(result *strings.Builder, lambdaVars map[string]string, hasExistingLines bool) int {
+	if len(lambdaVars) == 0 {
+		return 0
 	}
+
+	keys := make([]string, 0, len(lambdaVars))
+	for k := range lambdaVars {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	if hasExistingLines {
+		result.WriteString("# Synced from Lambda function\n")
+	}
+
+	newCount := 0
+	for _, key := range keys {
+		formattedValue := formatEnvValue(lambdaVars[key])
+		fmt.Fprintf(result, "%s=%s\n", key, formattedValue)
+		newCount++
+	}
+
+	return newCount
+}
+
+// mergeEnvFile reads the existing .env file (if it exists) and merges it with Lambda values.
+// It preserves comments, blank lines, and formatting while updating existing values and adding new ones.
+// Returns: merged content, count of updated vars, count of new vars, error
+func mergeEnvFile(filePath string, lambdaVars map[string]string) (string, int, int, error) {
+	lines, err := readExistingEnvFile(filePath)
+	if err != nil {
+		return "", 0, 0, err
+	}
+
+	result, updatedCount := processExistingLines(lines, lambdaVars)
+	newCount := appendNewVars(&result, lambdaVars, len(lines) > 0)
 
 	return result.String(), updatedCount, newCount, nil
 }

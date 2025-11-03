@@ -71,36 +71,82 @@ func NewService(
 	}
 }
 
+// validateCreateUserRequest validates the email in the create user request.
+func (s *Service) validateCreateUserRequest(ctx context.Context, email string) error {
+	if email == "" {
+		return apperrors.ErrBadRequest("email is required", nil)
+	}
+
+	if _, err := mail.ParseAddress(email); err != nil {
+		return apperrors.ErrBadRequest("invalid email address", err)
+	}
+
+	existingUser, err := s.userRepo.GetUserByEmail(ctx, email)
+	if err != nil {
+		return err
+	}
+
+	if existingUser != nil {
+		return apperrors.ErrConflict("user with this email already exists", nil)
+	}
+
+	return nil
+}
+
+// generateOrUseAPIKey generates a new API key if none is provided.
+func generateOrUseAPIKey(providedKey string) (string, error) {
+	if providedKey != "" {
+		return providedKey, nil
+	}
+	apiKey, err := auth.GenerateAPIKey()
+	if err != nil {
+		return "", apperrors.ErrInternalError("failed to generate API key", err)
+	}
+	return apiKey, nil
+}
+
+// createPendingClaim creates a pending API key claim record.
+func (s *Service) createPendingClaim(
+	ctx context.Context, apiKey, email, createdByEmail string, expiresAt int64,
+) (string, error) {
+	secretToken, err := auth.GenerateSecretToken()
+	if err != nil {
+		return "", apperrors.ErrInternalError("failed to generate secret token", err)
+	}
+
+	pending := &api.PendingAPIKey{
+		SecretToken: secretToken,
+		APIKey:      apiKey,
+		UserEmail:   email,
+		CreatedBy:   createdByEmail,
+		CreatedAt:   time.Now().UTC(),
+		ExpiresAt:   expiresAt,
+		Viewed:      false,
+	}
+
+	if err := s.userRepo.CreatePendingAPIKey(ctx, pending); err != nil {
+		return "", apperrors.ErrDatabaseError("failed to create pending API key", err)
+	}
+
+	return secretToken, nil
+}
+
 // CreateUser creates a new user with an API key and returns a claim token.
 // If no API key is provided in the request, one will be generated.
-func (s *Service) CreateUser(ctx context.Context, req api.CreateUserRequest, createdByEmail string) (*api.CreateUserResponse, error) {
+func (s *Service) CreateUser(
+	ctx context.Context, req api.CreateUserRequest, createdByEmail string,
+) (*api.CreateUserResponse, error) {
 	if s.userRepo == nil {
 		return nil, apperrors.ErrInternalError("user repository not configured", nil)
 	}
 
-	if req.Email == "" {
-		return nil, apperrors.ErrBadRequest("email is required", nil)
-	}
-
-	if _, err := mail.ParseAddress(req.Email); err != nil {
-		return nil, apperrors.ErrBadRequest("invalid email address", err)
-	}
-
-	existingUser, err := s.userRepo.GetUserByEmail(ctx, req.Email)
-	if err != nil {
+	if err := s.validateCreateUserRequest(ctx, req.Email); err != nil {
 		return nil, err
 	}
 
-	if existingUser != nil {
-		return nil, apperrors.ErrConflict("user with this email already exists", nil)
-	}
-
-	apiKey := req.APIKey
-	if apiKey == "" {
-		apiKey, err = auth.GenerateAPIKey()
-		if err != nil {
-			return nil, apperrors.ErrInternalError("failed to generate API key", err)
-		}
+	apiKey, err := generateOrUseAPIKey(req.APIKey)
+	if err != nil {
+		return nil, err
 	}
 
 	apiKeyHash := auth.HashAPIKey(apiKey)
@@ -111,35 +157,16 @@ func (s *Service) CreateUser(ctx context.Context, req api.CreateUserRequest, cre
 		Revoked:   false,
 	}
 
-	// Generate secret token for claim
-	secretToken, err := auth.GenerateSecretToken()
-	if err != nil {
-		return nil, apperrors.ErrInternalError("failed to generate secret token", err)
-	}
-
-	// Calculate expiration (15 minutes from now)
 	expiresAt := time.Now().Add(constants.ClaimURLExpirationMinutes * time.Minute).Unix()
 
-	// Create user with TTL - will auto-delete if not claimed
 	if err := s.userRepo.CreateUserWithExpiration(ctx, user, apiKeyHash, expiresAt); err != nil {
 		return nil, apperrors.ErrDatabaseError("failed to create user", err)
 	}
 
-	// Create pending claim record
-	pending := &api.PendingAPIKey{
-		SecretToken: secretToken,
-		APIKey:      apiKey,
-		UserEmail:   req.Email,
-		CreatedBy:   createdByEmail,
-		CreatedAt:   time.Now().UTC(),
-		ExpiresAt:   expiresAt,
-		Viewed:      false,
-	}
-
-	if err := s.userRepo.CreatePendingAPIKey(ctx, pending); err != nil {
-		// Clean up user if pending creation fails
+	secretToken, err := s.createPendingClaim(ctx, apiKey, req.Email, createdByEmail, expiresAt)
+	if err != nil {
 		_ = s.userRepo.RevokeUser(ctx, req.Email)
-		return nil, apperrors.ErrDatabaseError("failed to create pending API key", err)
+		return nil, err
 	}
 
 	return &api.CreateUserResponse{

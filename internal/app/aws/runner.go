@@ -372,74 +372,87 @@ func (e *Runner) ListImages(ctx context.Context) ([]api.ImageInfo, error) {
 	return result, nil
 }
 
+// describeTaskDef describes a task definition and returns it.
+func describeTaskDef(
+	ctx context.Context, ecsClient *ecs.Client, taskDefARN string, reqLogger *slog.Logger,
+) (*ecsTypes.TaskDefinition, error) {
+	descOutput, err := ecsClient.DescribeTaskDefinition(ctx, &ecs.DescribeTaskDefinitionInput{
+		TaskDefinition: awsStd.String(taskDefARN),
+	})
+	if err != nil {
+		reqLogger.Error("failed to describe task definition", "context", map[string]string{
+			"operation": "ECS.DescribeTaskDefinition",
+			"arn":       taskDefARN,
+			"error":     err.Error(),
+		})
+		return nil, appErrors.ErrInternalError("failed to describe task definition", err)
+	}
+	if descOutput.TaskDefinition == nil {
+		return nil, appErrors.ErrInternalError("task definition not found", nil)
+	}
+	return descOutput.TaskDefinition, nil
+}
+
+// extractImageFromTaskDef extracts the runner container image from a task definition.
+func extractImageFromTaskDef(taskDef *ecsTypes.TaskDefinition, reqLogger *slog.Logger) string {
+	familyName := awsStd.ToString(taskDef.Family)
+	for _, container := range taskDef.ContainerDefinitions {
+		if container.Name != nil && *container.Name == constants.RunnerContainerName && container.Image != nil {
+			return *container.Image
+		}
+	}
+	reqLogger.Debug("no runner container found in task definition", "container", map[string]string{
+		"family":          familyName,
+		"container_count": fmt.Sprintf("%d", len(taskDef.ContainerDefinitions)),
+	})
+	return ""
+}
+
+// checkIsDefaultTaskDef checks if a task definition is marked as default.
+func checkIsDefaultTaskDef(ctx context.Context, ecsClient *ecs.Client, taskDefARN string) bool {
+	tagsOutput, err := ecsClient.ListTagsForResource(ctx, &ecs.ListTagsForResourceInput{
+		ResourceArn: awsStd.String(taskDefARN),
+	})
+	if err != nil || tagsOutput == nil {
+		return false
+	}
+	for _, tag := range tagsOutput.Tags {
+		if tag.Key != nil && tag.Value != nil &&
+			*tag.Key == constants.TaskDefinitionIsDefaultTagKey &&
+			*tag.Value == constants.TaskDefinitionIsDefaultTagValue {
+			return true
+		}
+	}
+	return false
+}
+
 // collectImageInfos iterates described ECS task definitions and extracts unique runner image infos.
-func collectImageInfos(ctx context.Context, ecsClient *ecs.Client, taskDefArns []string, reqLogger *slog.Logger) ([]api.ImageInfo, error) { //nolint:cyclop
+func collectImageInfos(
+	ctx context.Context, ecsClient *ecs.Client, taskDefArns []string, reqLogger *slog.Logger,
+) ([]api.ImageInfo, error) { //nolint:cyclop
 	result := make([]api.ImageInfo, 0)
 	seenImages := make(map[string]bool)
 
 	for _, taskDefARN := range taskDefArns {
-		descOutput, err := ecsClient.DescribeTaskDefinition(ctx, &ecs.DescribeTaskDefinitionInput{
-			TaskDefinition: awsStd.String(taskDefARN),
-		})
+		taskDef, err := describeTaskDef(ctx, ecsClient, taskDefARN, reqLogger)
 		if err != nil {
-			reqLogger.Error("failed to describe task definition", "context", map[string]string{
-				"operation": "ECS.DescribeTaskDefinition",
-				"arn":       taskDefARN,
-				"error":     err.Error(),
-			})
-			return nil, appErrors.ErrInternalError("failed to describe task definition", err)
+			return nil, err
 		}
 
-		if descOutput.TaskDefinition == nil {
-			return nil, appErrors.ErrInternalError("task definition not found", nil)
+		image := extractImageFromTaskDef(taskDef, reqLogger)
+		if image == "" || seenImages[image] {
+			continue
 		}
 
-		image := ""
-		familyName := ""
-		if descOutput.TaskDefinition.Family != nil {
-			familyName = *descOutput.TaskDefinition.Family
-		}
-		for _, container := range descOutput.TaskDefinition.ContainerDefinitions {
-			if container.Name != nil {
-				if *container.Name == constants.RunnerContainerName && container.Image != nil {
-					image = *container.Image
-					break
-				}
-			}
-		}
+		seenImages[image] = true
+		isDefault := checkIsDefaultTaskDef(ctx, ecsClient, taskDefARN)
 
-		if image == "" {
-			reqLogger.Debug("no runner container found in task definition", "container", map[string]string{
-				"family":          familyName,
-				"container_count": fmt.Sprintf("%d", len(descOutput.TaskDefinition.ContainerDefinitions)),
-			})
-		}
-
-		isDefault := false
-		tagsOutput, err := ecsClient.ListTagsForResource(ctx, &ecs.ListTagsForResourceInput{
-			ResourceArn: awsStd.String(taskDefARN),
+		result = append(result, api.ImageInfo{
+			Image:              image,
+			TaskDefinitionARN:  awsStd.ToString(taskDef.TaskDefinitionArn),
+			TaskDefinitionName: awsStd.ToString(taskDef.Family),
+			IsDefault:          awsStd.Bool(isDefault),
 		})
-		if err == nil && tagsOutput != nil {
-			for _, tag := range tagsOutput.Tags {
-				if tag.Key != nil && tag.Value != nil {
-					if *tag.Key == constants.TaskDefinitionIsDefaultTagKey && *tag.Value == constants.TaskDefinitionIsDefaultTagValue {
-						isDefault = true
-					}
-				}
-			}
-		}
-
-		if image != "" && !seenImages[image] {
-			seenImages[image] = true
-			family := awsStd.ToString(descOutput.TaskDefinition.Family)
-			taskDefARN := awsStd.ToString(descOutput.TaskDefinition.TaskDefinitionArn)
-			result = append(result, api.ImageInfo{
-				Image:              image,
-				TaskDefinitionARN:  taskDefARN,
-				TaskDefinitionName: family,
-				IsDefault:          awsStd.Bool(isDefault),
-			})
-		}
 	}
 
 	for _, imageInfo := range result {
@@ -469,20 +482,10 @@ func (e *Runner) RemoveImage(ctx context.Context, image string) error {
 	return nil
 }
 
-// KillTask terminates an ECS task identified by executionID.
-// It checks the task status before termination and only stops tasks that are RUNNING or ACTIVATING.
-// Returns an error if the task is already terminated or not found.
-func (e *Runner) KillTask(ctx context.Context, executionID string) error {
-	if e.ecsClient == nil {
-		return appErrors.ErrInternalError("ECS client not configured", nil)
-	}
-
-	reqLogger := logger.DeriveRequestLogger(ctx, e.logger)
-
-	// First, describe the task to check its current status
-	// We can use ListTasks to find the task ARN, or construct it from the execution ID
-	// For ECS, we can use DescribeTasks with just the task ID (execution ID) if we know the cluster
-	// However, AWS ECS requires the full task ARN. Let's use ListTasks to find it first.
+// findTaskARNByExecutionID finds the task ARN for a given execution ID by checking both running and stopped tasks.
+func (e *Runner) findTaskARNByExecutionID(
+	ctx context.Context, executionID string, reqLogger *slog.Logger,
+) (string, error) {
 	listLogArgs := []any{
 		"operation", "ECS.ListTasks",
 		"cluster", e.cfg.ECSCluster,
@@ -498,51 +501,99 @@ func (e *Runner) KillTask(ctx context.Context, executionID string) error {
 	})
 	if err != nil {
 		reqLogger.Debug("failed to list tasks", "error", err, "executionID", executionID)
-		return appErrors.ErrInternalError("failed to list tasks", err)
+		return "", appErrors.ErrInternalError("failed to list tasks", err)
 	}
 
-	// Find the task ARN that matches our execution ID
-	var taskARN string
-	for _, arn := range listOutput.TaskArns {
-		parts := strings.Split(arn, "/")
-		if len(parts) > 0 && parts[len(parts)-1] == executionID {
-			taskARN = arn
-			break
-		}
+	taskARN := extractTaskARNFromList(listOutput.TaskArns, executionID)
+	if taskARN != "" {
+		return taskARN, nil
 	}
 
 	// If not found in running tasks, check stopped tasks
-	if taskARN == "" {
-		listStoppedLogArgs := []any{
-			"operation", "ECS.ListTasks",
-			"cluster", e.cfg.ECSCluster,
-			"desiredStatus", "STOPPED",
-			"executionID", executionID,
-		}
-		listStoppedLogArgs = append(listStoppedLogArgs, logger.GetDeadlineInfo(ctx)...)
-		reqLogger.Debug("calling external service", "context", logger.SliceToMap(listStoppedLogArgs))
+	listStoppedLogArgs := []any{
+		"operation", "ECS.ListTasks",
+		"cluster", e.cfg.ECSCluster,
+		"desiredStatus", "STOPPED",
+		"executionID", executionID,
+	}
+	listStoppedLogArgs = append(listStoppedLogArgs, logger.GetDeadlineInfo(ctx)...)
+	reqLogger.Debug("calling external service", "context", logger.SliceToMap(listStoppedLogArgs))
 
-		listStoppedOutput, err := e.ecsClient.ListTasks(ctx, &ecs.ListTasksInput{
-			Cluster:       awsStd.String(e.cfg.ECSCluster),
-			DesiredStatus: ecsTypes.DesiredStatusStopped,
-		})
-		if err == nil {
-			for _, arn := range listStoppedOutput.TaskArns {
-				parts := strings.Split(arn, "/")
-				if len(parts) > 0 && parts[len(parts)-1] == executionID {
-					taskARN = arn
-					break
-				}
-			}
-		}
+	listStoppedOutput, err := e.ecsClient.ListTasks(ctx, &ecs.ListTasksInput{
+		Cluster:       awsStd.String(e.cfg.ECSCluster),
+		DesiredStatus: ecsTypes.DesiredStatusStopped,
+	})
+	if err == nil {
+		taskARN = extractTaskARNFromList(listStoppedOutput.TaskArns, executionID)
 	}
 
 	if taskARN == "" {
 		reqLogger.Error("task not found", "executionID", executionID)
-		return appErrors.ErrNotFound("task not found", nil)
+		return "", appErrors.ErrNotFound("task not found", nil)
 	}
 
-	// Describe the task to check its current status
+	return taskARN, nil
+}
+
+// extractTaskARNFromList finds the task ARN that matches the execution ID from a list of task ARNs.
+func extractTaskARNFromList(taskArns []string, executionID string) string {
+	for _, arn := range taskArns {
+		parts := strings.Split(arn, "/")
+		if len(parts) > 0 && parts[len(parts)-1] == executionID {
+			return arn
+		}
+	}
+	return ""
+}
+
+// validateTaskStatusForKill validates that a task is in a state that can be terminated.
+func validateTaskStatusForKill(currentStatus string) error {
+	terminatedStatuses := []string{
+		string(constants.EcsStatusStopped),
+		string(constants.EcsStatusStopping),
+		string(constants.EcsStatusDeactivating),
+	}
+	for _, status := range terminatedStatuses {
+		if currentStatus == status {
+			return appErrors.ErrBadRequest(
+				"task is already terminated or terminating",
+				fmt.Errorf("task status: %s", currentStatus))
+		}
+	}
+
+	taskRunnableStatuses := []string{
+		string(constants.EcsStatusRunning),
+		string(constants.EcsStatusActivating),
+	}
+	if !slices.Contains(taskRunnableStatuses, string(constants.EcsStatus(currentStatus))) {
+		return appErrors.ErrBadRequest(
+			"task cannot be terminated in current state",
+			fmt.Errorf(
+				"task status: %s, expected: %s",
+				currentStatus,
+				strings.Join(taskRunnableStatuses, ", ")))
+	}
+
+	return nil
+}
+
+// KillTask terminates an ECS task identified by executionID.
+// It checks the task status before termination and only stops tasks that are RUNNING or ACTIVATING.
+// Returns an error if the task is already terminated or not found.
+//
+//nolint:funlen // Complex AWS API orchestration
+func (e *Runner) KillTask(ctx context.Context, executionID string) error {
+	if e.ecsClient == nil {
+		return appErrors.ErrInternalError("ECS client not configured", nil)
+	}
+
+	reqLogger := logger.DeriveRequestLogger(ctx, e.logger)
+
+	taskARN, err := e.findTaskARNByExecutionID(ctx, executionID, reqLogger)
+	if err != nil {
+		return err
+	}
+
 	describeLogArgs := []any{
 		"operation", "ECS.DescribeTasks",
 		"cluster", e.cfg.ECSCluster,
@@ -575,33 +626,10 @@ func (e *Runner) KillTask(ctx context.Context, executionID string) error {
 
 	task := describeOutput.Tasks[0]
 	currentStatus := awsStd.ToString(task.LastStatus)
-
 	reqLogger.Debug("task status check", "executionID", executionID, "status", currentStatus)
 
-	terminatedStatuses := []string{
-		string(constants.EcsStatusStopped),
-		string(constants.EcsStatusStopping),
-		string(constants.EcsStatusDeactivating),
-	}
-	for _, status := range terminatedStatuses {
-		if currentStatus == status {
-			return appErrors.ErrBadRequest(
-				"task is already terminated or terminating",
-				fmt.Errorf("task status: %s", currentStatus))
-		}
-	}
-
-	taskRunnableStatuses := []string{
-		string(constants.EcsStatusRunning),
-		string(constants.EcsStatusActivating),
-	}
-	if !slices.Contains(taskRunnableStatuses, string(constants.EcsStatus(currentStatus))) {
-		return appErrors.ErrBadRequest(
-			"task cannot be terminated in current state",
-			fmt.Errorf(
-				"task status: %s, expected: %s",
-				currentStatus,
-				strings.Join(taskRunnableStatuses, ", ")))
+	if err := validateTaskStatusForKill(currentStatus); err != nil {
+		return err
 	}
 
 	stopLogArgs := []any{

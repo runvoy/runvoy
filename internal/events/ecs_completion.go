@@ -17,6 +17,43 @@ import (
 	"github.com/aws/aws-lambda-go/events"
 )
 
+// parseTaskTimes parses and validates the task timestamps, calculating duration.
+func parseTaskTimes(
+	taskEvent ECSTaskStateChangeEvent, executionStartedAt time.Time, reqLogger *slog.Logger,
+) (time.Time, time.Time, int, error) {
+	var startedAt time.Time
+	if taskEvent.StartedAt != "" {
+		var err error
+		startedAt, err = ParseTime(taskEvent.StartedAt)
+		if err != nil {
+			reqLogger.Error("failed to parse startedAt timestamp", "error", err, "startedAt", taskEvent.StartedAt)
+			return time.Time{}, time.Time{}, 0, fmt.Errorf("failed to parse startedAt: %w", err)
+		}
+	} else {
+		reqLogger.Warn("startedAt missing from task event, using execution's StartedAt",
+			"executionStartedAt", executionStartedAt.Format(time.RFC3339),
+		)
+		startedAt = executionStartedAt
+	}
+
+	stoppedAt, err := ParseTime(taskEvent.StoppedAt)
+	if err != nil {
+		reqLogger.Error("failed to parse stoppedAt timestamp", "error", err, "stoppedAt", taskEvent.StoppedAt)
+		return time.Time{}, time.Time{}, 0, fmt.Errorf("failed to parse stoppedAt: %w", err)
+	}
+
+	durationSeconds := int(stoppedAt.Sub(startedAt).Seconds())
+	if durationSeconds < 0 {
+		reqLogger.Warn("calculated negative duration, setting to 0",
+			"startedAt", startedAt.Format(time.RFC3339),
+			"stoppedAt", stoppedAt.Format(time.RFC3339),
+		)
+		durationSeconds = 0
+	}
+
+	return startedAt, stoppedAt, durationSeconds, nil
+}
+
 // handleECSTaskCompletion processes ECS Task State Change events
 func (p *Processor) handleECSTaskCompletion(ctx context.Context, event events.CloudWatchEvent) error {
 	reqLogger := logger.DeriveRequestLogger(ctx, p.logger)
@@ -49,46 +86,15 @@ func (p *Processor) handleECSTaskCompletion(ctx context.Context, event events.Cl
 		reqLogger.Error("execution not found for task (orphaned task?)",
 			"clusterArn", taskEvent.ClusterArn,
 		)
-
 		// Don't fail for orphaned tasks - they might have been started manually?
 		// TODO: figure out what to do with orphaned tasks or if we should fail the Lambda
 		return nil
 	}
 
 	status, exitCode := determineStatusAndExitCode(taskEvent)
-
-	// Handle startedAt: if empty in event, fall back to execution's StartedAt
-	// This can happen when a container fails before starting (e.g., sidecar git puller fails)
-	var startedAt time.Time
-	if taskEvent.StartedAt != "" {
-		var err error
-		startedAt, err = ParseTime(taskEvent.StartedAt)
-		if err != nil {
-			reqLogger.Error("failed to parse startedAt timestamp", "error", err, "startedAt", taskEvent.StartedAt)
-			return fmt.Errorf("failed to parse startedAt: %w", err)
-		}
-	} else {
-		// Use execution's StartedAt as fallback when task event doesn't have it
-		reqLogger.Warn("startedAt missing from task event, using execution's StartedAt",
-			"executionStartedAt", execution.StartedAt.Format(time.RFC3339),
-		)
-		startedAt = execution.StartedAt
-	}
-
-	stoppedAt, err := ParseTime(taskEvent.StoppedAt)
+	_, stoppedAt, durationSeconds, err := parseTaskTimes(taskEvent, execution.StartedAt, reqLogger)
 	if err != nil {
-		reqLogger.Error("failed to parse stoppedAt timestamp", "error", err, "stoppedAt", taskEvent.StoppedAt)
-		return fmt.Errorf("failed to parse stoppedAt: %w", err)
-	}
-
-	durationSeconds := int(stoppedAt.Sub(startedAt).Seconds())
-	if durationSeconds < 0 {
-		// If duration is negative (shouldn't happen, but handle gracefully), set to 0
-		reqLogger.Warn("calculated negative duration, setting to 0",
-			"startedAt", startedAt.Format(time.RFC3339),
-			"stoppedAt", stoppedAt.Format(time.RFC3339),
-		)
-		durationSeconds = 0
+		return err
 	}
 
 	execution.Status = status

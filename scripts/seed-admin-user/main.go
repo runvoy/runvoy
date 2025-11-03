@@ -28,17 +28,7 @@ type userItem struct {
 	Revoked    bool      `dynamodbav:"revoked"`
 }
 
-func main() {
-	if len(os.Args) != constants.ExpectedArgsSeedAdminUser {
-		log.Fatalf("error: usage: %s <admin-email> <stack-name>", os.Args[0])
-	}
-
-	adminEmail := os.Args[1]
-	stackName := os.Args[2]
-	if adminEmail == "" || stackName == "" {
-		log.Fatalf("error: admin email and stack name are required")
-	}
-
+func setupAPIKeyAndConfig() (*config.Config, string, string) {
 	apiKey, err := auth.GenerateAPIKey()
 	if err != nil {
 		log.Fatalf("error: failed to generate API key: %v", err)
@@ -55,27 +45,11 @@ func main() {
 	}
 
 	apiKeyHash := auth.HashAPIKey(apiKey)
-	ctx, cancel := context.WithTimeout(context.Background(), constants.ScriptContextTimeout)
+	return cfg, apiKey, apiKeyHash
+}
 
-	awsCfg, err := awsconfig.LoadDefaultConfig(ctx)
-	cancel()
-	if err != nil {
-		log.Fatalf("error: failed to load AWS configuration: %v", err)
-	}
-
-	ctx2, cancel2 := context.WithTimeout(context.Background(), constants.ScriptContextTimeout)
-
-	cfnClient := cloudformation.NewFromConfig(awsCfg)
-	tableName, err := getTableNameFromStack(ctx2, cfnClient, stackName)
-	cancel2()
-	if err != nil {
-		log.Fatalf("error: failed to resolve API keys table name from CloudFormation outputs: %v", err)
-	}
-
-	ctx3 := context.Background()
-
-	dynamoClient := dynamodb.NewFromConfig(awsCfg)
-	existingUser, err := checkUserExists(ctx3, dynamoClient, tableName, adminEmail)
+func seedAdminUser(ctx context.Context, dynamoClient *dynamodb.Client, tableName, adminEmail, apiKeyHash string) {
+	existingUser, err := checkUserExists(ctx, dynamoClient, tableName, adminEmail)
 	if err != nil {
 		log.Fatalf("error: failed to check if admin user exists: %v", err)
 	}
@@ -97,7 +71,7 @@ func main() {
 
 	log.Printf("seeding admin user %s into table %s...", adminEmail, tableName)
 
-	_, err = dynamoClient.PutItem(ctx3, &dynamodb.PutItemInput{
+	_, err = dynamoClient.PutItem(ctx, &dynamodb.PutItemInput{
 		TableName:           aws.String(tableName),
 		Item:                av,
 		ConditionExpression: aws.String("attribute_not_exists(api_key_hash)"),
@@ -108,14 +82,46 @@ func main() {
 	}
 
 	log.Println("admin user created in DynamoDB")
+}
 
-    if err := config.Save(cfg); err != nil {
-        log.Fatalf(
-            "error: failed to save config file: %v. "+
-                "Please save the key manually or store it somewhere safe: %s",
-            err, cfg.APIKey,
-        )
-    }
+func main() {
+	if len(os.Args) != constants.ExpectedArgsSeedAdminUser {
+		log.Fatalf("error: usage: %s <admin-email> <stack-name>", os.Args[0])
+	}
+
+	adminEmail := os.Args[1]
+	stackName := os.Args[2]
+	if adminEmail == "" || stackName == "" {
+		log.Fatalf("error: admin email and stack name are required")
+	}
+
+	cfg, _, apiKeyHash := setupAPIKeyAndConfig()
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.ScriptContextTimeout)
+	awsCfg, err := awsconfig.LoadDefaultConfig(ctx)
+	cancel()
+	if err != nil {
+		log.Fatalf("error: failed to load AWS configuration: %v", err)
+	}
+
+	ctx2, cancel2 := context.WithTimeout(context.Background(), constants.ScriptContextTimeout)
+	cfnClient := cloudformation.NewFromConfig(awsCfg)
+	tableName, err := getTableNameFromStack(ctx2, cfnClient, stackName)
+	cancel2()
+	if err != nil {
+		log.Fatalf("error: failed to resolve API keys table name from CloudFormation outputs: %v", err)
+	}
+
+	dynamoClient := dynamodb.NewFromConfig(awsCfg)
+	seedAdminUser(context.Background(), dynamoClient, tableName, adminEmail, apiKeyHash)
+
+	if err := config.Save(cfg); err != nil {
+		log.Fatalf(
+			"error: failed to save config file: %v. "+
+				"Please save the key manually or store it somewhere safe: %s",
+			err, cfg.APIKey,
+		)
+	}
 	log.Println("config file saved")
 }
 

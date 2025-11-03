@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"runvoy/internal/api"
 	"runvoy/internal/constants"
 	apperrors "runvoy/internal/errors"
 	loggerPkg "runvoy/internal/logger"
@@ -115,6 +116,58 @@ func setContentTypeJSONMiddleware(next http.Handler) http.Handler {
 	})
 }
 
+// handleAuthError handles authentication errors and writes appropriate responses.
+func handleAuthError(w http.ResponseWriter, err error) {
+	statusCode := apperrors.GetStatusCode(err)
+	errorCode := apperrors.GetErrorCode(err)
+	errorMsg := apperrors.GetErrorMessage(err)
+
+	if statusCode < 400 || statusCode >= 600 {
+		statusCode = http.StatusUnauthorized
+	}
+
+	messagePrefix := "Unauthorized"
+	if statusCode >= constants.HTTPStatusServerError {
+		messagePrefix = "Server error"
+	}
+
+	writeErrorResponseWithCode(w, statusCode, errorCode, messagePrefix, errorMsg)
+}
+
+// updateLastUsedAsync updates the user's last_used timestamp asynchronously.
+func (r *Router) updateLastUsedAsync(user *api.User, requestID string, logger *slog.Logger) *sync.WaitGroup {
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func(email string, reqID string) {
+		defer wg.Done()
+		ctx, cancel := context.WithTimeout(context.Background(), lastUsedUpdateTimeout)
+		defer cancel()
+		ctx = loggerPkg.WithRequestID(ctx, reqID)
+
+		logger.Debug("updating user's last_used timestamp (async)", "user", map[string]any{
+			"email":              email,
+			"previous_last_used": user.LastUsed.Format(time.RFC3339),
+		})
+
+		newLastUsed, err := r.svc.UpdateUserLastUsed(ctx, email)
+		if err != nil {
+			logger.Error("failed to update user's last_used timestamp", "error", map[string]any{
+				"error": err,
+				"user": map[string]any{
+					"email": email,
+				},
+			})
+		} else {
+			logger.Debug("user's last_used timestamp updated successfully", "user", map[string]any{
+				"email":              email,
+				"last_used":          newLastUsed.Format(time.RFC3339),
+				"previous_last_used": user.LastUsed.Format(time.RFC3339),
+			})
+		}
+	}(user.Email, requestID)
+	return &wg
+}
+
 // authenticateRequestMiddleware authenticates requests
 // Adds authenticated user to request context
 // Updates user's last_used timestamp asynchronously after successful authentication
@@ -131,67 +184,18 @@ func (r *Router) authenticateRequestMiddleware(next http.Handler) http.Handler {
 
 		user, err := r.svc.AuthenticateUser(req.Context(), apiKey)
 		if err != nil {
-			statusCode := apperrors.GetStatusCode(err)
-			errorCode := apperrors.GetErrorCode(err)
-			errorMsg := apperrors.GetErrorMessage(err)
-
-			if statusCode < 400 || statusCode >= 600 {
-				statusCode = http.StatusUnauthorized
-			}
-
-		var messagePrefix string
-		if statusCode >= constants.HTTPStatusServerError {
-			messagePrefix = "Server error"
-			} else {
-				messagePrefix = "Unauthorized"
-			}
-
-			writeErrorResponseWithCode(w, statusCode, errorCode, messagePrefix, errorMsg)
+			handleAuthError(w, err)
 			return
 		}
 
 		logger.Info("user authenticated successfully", "email", user.Email)
 
-		// Update last_used timestamp asynchronously, but wait for completion
-		// before returning to ensure it completes in Lambda environments.
-		// Copy context values (like requestID) to a new background context since the
-		// request context will be canceled when the request completes.
 		requestID := loggerPkg.GetRequestID(req.Context())
-		var wg sync.WaitGroup
-		wg.Add(1)
-		go func(email string, reqID string) {
-			defer wg.Done()
-			ctx, cancel := context.WithTimeout(context.Background(), lastUsedUpdateTimeout)
-			defer cancel()
-			ctx = loggerPkg.WithRequestID(ctx, reqID)
-
-			logger.Debug("updating user's last_used timestamp (async)", "user", map[string]any{
-				"email":              email,
-				"previous_last_used": user.LastUsed.Format(time.RFC3339),
-			})
-
-			newLastUsed, err := r.svc.UpdateUserLastUsed(ctx, email)
-			if err != nil {
-				logger.Error("failed to update user's last_used timestamp", "error", map[string]any{
-					"error": err,
-					"user": map[string]any{
-						"email": email,
-					},
-				})
-			} else {
-				logger.Debug("user's last_used timestamp updated successfully", "user", map[string]any{
-					"email":              email,
-					"last_used":          newLastUsed.Format(time.RFC3339),
-					"previous_last_used": user.LastUsed.Format(time.RFC3339),
-				})
-			}
-		}(user.Email, requestID)
+		wg := r.updateLastUsedAsync(user, requestID, logger)
 
 		ctx := context.WithValue(req.Context(), userContextKey, user)
 		next.ServeHTTP(w, req.WithContext(ctx))
 
-		// Wait for the background update to complete before returning.
-		// This ensures the update completes in Lambda before the handler returns.
 		wg.Wait()
 	})
 }
