@@ -282,7 +282,7 @@ func (e *Runner) StartTask( //nolint: funlen
 	logArgs = append(logArgs, logger.GetDeadlineInfo(ctx)...)
 	reqLogger.Debug("calling external service", "context", logger.SliceToMap(logArgs))
 
-	runTaskOutput, err := e.ecsClient.RunTask(ctx, runTaskInput)
+	runTaskOutput, err = e.ecsClient.RunTask(ctx, runTaskInput)
 	if err != nil {
 		return "", nil, appErrors.ErrInternalError("failed to start ECS task", err)
 	}
