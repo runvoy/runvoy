@@ -1,3 +1,4 @@
+// Package main provides a utility to create a configuration file for runvoy.
 package main
 
 import (

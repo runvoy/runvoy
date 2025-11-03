@@ -137,13 +137,13 @@ func TestNewClientError(t *testing.T) {
 
 	t.Run("panics with non-client status code", func(t *testing.T) {
 		assert.Panics(t, func() {
-			NewClientError(http.StatusInternalServerError, "CODE", "test", nil)
+			_ = NewClientError(http.StatusInternalServerError, "CODE", "test", nil)
 		})
 	})
 
 	t.Run("panics with status code below 400", func(t *testing.T) {
 		assert.Panics(t, func() {
-			NewClientError(http.StatusOK, "CODE", "test", nil)
+			_ = NewClientError(http.StatusOK, "CODE", "test", nil)
 		})
 	})
 }
@@ -158,13 +158,13 @@ func TestNewServerError(t *testing.T) {
 
 	t.Run("panics with non-server status code", func(t *testing.T) {
 		assert.Panics(t, func() {
-			NewServerError(http.StatusBadRequest, "CODE", "test", nil)
+			_ = NewServerError(http.StatusBadRequest, "CODE", "test", nil)
 		})
 	})
 
 	t.Run("panics with status code 600+", func(t *testing.T) {
 		assert.Panics(t, func() {
-			NewServerError(600, "CODE", "test", nil)
+			_ = NewServerError(600, "CODE", "test", nil)
 		})
 	})
 }

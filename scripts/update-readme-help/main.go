@@ -1,3 +1,4 @@
+// Package main provides a utility to update the README.md with the latest CLI help output.
 package main
 
 import (

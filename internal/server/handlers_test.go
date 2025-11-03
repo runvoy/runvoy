@@ -27,15 +27,15 @@ type testUserRepository struct {
 	getUserByEmailFunc   func(email string) (*api.User, error)
 }
 
-func (t *testUserRepository) CreateUser(ctx context.Context, user *api.User, apiKeyHash string) error {
+func (t *testUserRepository) CreateUser(_ context.Context, _ *api.User, _ string) error {
 	return nil
 }
 
-func (t *testUserRepository) CreateUserWithExpiration(ctx context.Context, user *api.User, apiKeyHash string, expiresAtUnix int64) error {
+func (t *testUserRepository) CreateUserWithExpiration(_ context.Context, _ *api.User, _ string, _ int64) error {
 	return nil
 }
 
-func (t *testUserRepository) RemoveExpiration(ctx context.Context, email string) error {
+func (t *testUserRepository) RemoveExpiration(_ context.Context, _ string) error {
 	return nil
 }
 
@@ -70,15 +70,15 @@ func (t *testUserRepository) UpdateLastUsed(ctx context.Context, email string) (
 	return &now, nil
 }
 
-func (t *testUserRepository) RevokeUser(ctx context.Context, email string) error {
+func (t *testUserRepository) RevokeUser(_ context.Context, _ string) error {
 	return nil
 }
 
-func (t *testUserRepository) CreatePendingAPIKey(ctx context.Context, pending *api.PendingAPIKey) error {
+func (t *testUserRepository) CreatePendingAPIKey(_ context.Context, _ *api.PendingAPIKey) error {
 	return nil
 }
 
-func (t *testUserRepository) GetPendingAPIKey(ctx context.Context, secretToken string) (*api.PendingAPIKey, error) {
+func (t *testUserRepository) GetPendingAPIKey(_ context.Context, secretToken string) (*api.PendingAPIKey, error) {
 	now := time.Now()
 	return &api.PendingAPIKey{
 		SecretToken: secretToken,
@@ -89,15 +89,15 @@ func (t *testUserRepository) GetPendingAPIKey(ctx context.Context, secretToken s
 	}, nil
 }
 
-func (t *testUserRepository) MarkAsViewed(ctx context.Context, secretToken string, ipAddress string) error {
+func (t *testUserRepository) MarkAsViewed(_ context.Context, _ string, _ string) error {
 	return nil
 }
 
-func (t *testUserRepository) DeletePendingAPIKey(ctx context.Context, secretToken string) error {
+func (t *testUserRepository) DeletePendingAPIKey(_ context.Context, _ string) error {
 	return nil
 }
 
-func (t *testUserRepository) ListUsers(ctx context.Context) ([]*api.User, error) {
+func (t *testUserRepository) ListUsers(_ context.Context) ([]*api.User, error) {
 	return []*api.User{
 		{
 			Email:     "charlie@example.com",
@@ -124,11 +124,11 @@ type testExecutionRepository struct {
 	listExecutionsFunc func() ([]*api.Execution, error)
 }
 
-func (t *testExecutionRepository) CreateExecution(ctx context.Context, execution *api.Execution) error {
+func (t *testExecutionRepository) CreateExecution(_ context.Context, _ *api.Execution) error {
 	return nil
 }
 
-func (t *testExecutionRepository) GetExecution(ctx context.Context, executionID string) (*api.Execution, error) {
+func (t *testExecutionRepository) GetExecution(_ context.Context, executionID string) (*api.Execution, error) {
 	now := time.Now()
 	return &api.Execution{
 		ExecutionID: executionID,
@@ -139,11 +139,11 @@ func (t *testExecutionRepository) GetExecution(ctx context.Context, executionID 
 	}, nil
 }
 
-func (t *testExecutionRepository) UpdateExecution(ctx context.Context, execution *api.Execution) error {
+func (t *testExecutionRepository) UpdateExecution(_ context.Context, _ *api.Execution) error {
 	return nil
 }
 
-func (t *testExecutionRepository) ListExecutions(ctx context.Context) ([]*api.Execution, error) {
+func (t *testExecutionRepository) ListExecutions(_ context.Context) ([]*api.Execution, error) {
 	if t.listExecutionsFunc != nil {
 		return t.listExecutionsFunc()
 	}
@@ -155,7 +155,7 @@ type testRunner struct {
 	listImagesFunc func() ([]api.ImageInfo, error)
 }
 
-func (t *testRunner) StartTask(ctx context.Context, userEmail string, req api.ExecutionRequest) (string, *time.Time, error) {
+func (t *testRunner) StartTask(_ context.Context, userEmail string, req api.ExecutionRequest) (string, *time.Time, error) {
 	if t.runCommandFunc != nil {
 		createdAt, err := t.runCommandFunc(userEmail, req)
 		if err != nil {
@@ -166,26 +166,26 @@ func (t *testRunner) StartTask(ctx context.Context, userEmail string, req api.Ex
 	return "exec-123", nil, nil
 }
 
-func (t *testRunner) KillTask(ctx context.Context, executionID string) error {
+func (t *testRunner) KillTask(_ context.Context, _ string) error {
 	return nil
 }
 
-func (t *testRunner) RegisterImage(ctx context.Context, image string, isDefault *bool) error {
+func (t *testRunner) RegisterImage(_ context.Context, _ string, _ *bool) error {
 	return nil
 }
 
-func (t *testRunner) ListImages(ctx context.Context) ([]api.ImageInfo, error) {
+func (t *testRunner) ListImages(_ context.Context) ([]api.ImageInfo, error) {
 	if t.listImagesFunc != nil {
 		return t.listImagesFunc()
 	}
 	return []api.ImageInfo{}, nil
 }
 
-func (t *testRunner) RemoveImage(ctx context.Context, image string) error {
+func (t *testRunner) RemoveImage(_ context.Context, _ string) error {
 	return nil
 }
 
-func (t *testRunner) FetchLogsByExecutionID(ctx context.Context, executionID string) ([]api.LogEvent, error) {
+func (t *testRunner) FetchLogsByExecutionID(_ context.Context, _ string) ([]api.LogEvent, error) {
 	return []api.LogEvent{}, nil
 }
 
@@ -228,7 +228,8 @@ func TestHandleRunCommand_Success(t *testing.T) {
 	assert.Equal(t, http.StatusAccepted, resp.Code)
 
 	var execResp api.ExecutionResponse
-	json.NewDecoder(resp.Body).Decode(&execResp)
+	err := json.NewDecoder(resp.Body).Decode(&execResp)
+	assert.NoError(t, err)
 	assert.NotEmpty(t, execResp.ExecutionID)
 	assert.Equal(t, string(constants.ExecutionRunning), execResp.Status)
 }
@@ -252,7 +253,7 @@ func TestHandleRunCommand_Unauthorized(t *testing.T) {
 	_ = rlogger.Initialize(constants.Development, slog.LevelInfo)
 
 	userRepo := &testUserRepository{
-		authenticateUserFunc: func(apiKeyHash string) (*api.User, error) {
+		authenticateUserFunc: func(_ string) (*api.User, error) {
 			return nil, apperrors.ErrInvalidAPIKey(nil)
 		},
 	}
@@ -302,7 +303,8 @@ func TestHandleListExecutions_Success(t *testing.T) {
 	assert.Equal(t, http.StatusOK, resp.Code)
 
 	var executions []*api.Execution
-	json.NewDecoder(resp.Body).Decode(&executions)
+	err := json.NewDecoder(resp.Body).Decode(&executions)
+	assert.NoError(t, err)
 	assert.Len(t, executions, 1)
 	assert.Equal(t, "exec-1", executions[0].ExecutionID)
 }
@@ -541,7 +543,7 @@ func TestHandleListUsers_Unauthorized(t *testing.T) {
 	_ = rlogger.Initialize(constants.Development, slog.LevelInfo)
 
 	userRepo := &testUserRepository{
-		authenticateUserFunc: func(apiKeyHash string) (*api.User, error) {
+		authenticateUserFunc: func(_ string) (*api.User, error) {
 			return nil, apperrors.ErrInvalidAPIKey(nil)
 		},
 	}
@@ -566,7 +568,7 @@ func TestHandleListUsers_RepositoryError(t *testing.T) {
 	_ = rlogger.Initialize(constants.Development, slog.LevelInfo)
 
 	userRepo := &testUserRepository{
-		authenticateUserFunc: func(apiKeyHash string) (*api.User, error) {
+		authenticateUserFunc: func(_ string) (*api.User, error) {
 			return nil, apperrors.ErrDatabaseError("database error", errors.New("connection failed"))
 		},
 	}
@@ -604,7 +606,7 @@ func TestHandleCreateUser_Unauthorized(t *testing.T) {
 	_ = rlogger.Initialize(constants.Development, slog.LevelInfo)
 
 	userRepo := &testUserRepository{
-		authenticateUserFunc: func(apiKeyHash string) (*api.User, error) {
+		authenticateUserFunc: func(_ string) (*api.User, error) {
 			return nil, apperrors.ErrInvalidAPIKey(nil)
 		},
 	}
