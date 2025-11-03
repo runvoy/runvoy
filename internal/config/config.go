@@ -245,7 +245,7 @@ func loadConfigFile(v *viper.Viper) error {
 	v.SetConfigFile(configFile)
 	v.SetConfigType("yaml")
 
-	if err := v.ReadInConfig(); err != nil {
+	if err = v.ReadInConfig(); err != nil {
 		return err
 	}
 
