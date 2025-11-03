@@ -29,8 +29,9 @@ type Runner interface {
 	// KillTask terminates a running task identified by executionID.
 	// Returns an error if the task is already terminated or cannot be terminated.
 	KillTask(ctx context.Context, executionID string) error
-	// RegisterImage registers a Docker image as a task definition in the execution platform.
-	// isDefault: if true, explicitly set as default; if nil or false, becomes default only if no default exists (first image behavior)
+    // RegisterImage registers a Docker image as a task definition in the execution platform.
+    // isDefault: if true, explicitly set as default.
+    // If nil or false, becomes default only if no default exists (first image behavior).
 	RegisterImage(ctx context.Context, image string, isDefault *bool) error
 	// ListImages lists all registered Docker images.
 	ListImages(ctx context.Context) ([]api.ImageInfo, error)
@@ -148,7 +149,11 @@ func (s *Service) CreateUser(ctx context.Context, req api.CreateUserRequest, cre
 }
 
 // ClaimAPIKey retrieves and claims a pending API key by its secret token.
-func (s *Service) ClaimAPIKey(ctx context.Context, secretToken string, ipAddress string) (*api.ClaimAPIKeyResponse, error) {
+func (s *Service) ClaimAPIKey(
+    ctx context.Context,
+    secretToken string,
+    ipAddress string,
+) (*api.ClaimAPIKeyResponse, error) {
 	if s.userRepo == nil {
 		return nil, apperrors.ErrInternalError("user repository not configured", nil)
 	}
@@ -448,7 +453,11 @@ func (s *Service) ListExecutions(ctx context.Context) ([]*api.Execution, error) 
 }
 
 // RegisterImage registers a Docker image and creates the corresponding task definition.
-func (s *Service) RegisterImage(ctx context.Context, image string, isDefault *bool) (*api.RegisterImageResponse, error) {
+func (s *Service) RegisterImage(
+    ctx context.Context,
+    image string,
+    isDefault *bool,
+) (*api.RegisterImageResponse, error) {
 	if image == "" {
 		return nil, apperrors.ErrBadRequest("image is required", nil)
 	}

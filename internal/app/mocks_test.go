@@ -31,7 +31,12 @@ func (m *mockUserRepository) CreateUser(ctx context.Context, user *api.User, api
 	return nil
 }
 
-func (m *mockUserRepository) CreateUserWithExpiration(ctx context.Context, user *api.User, apiKeyHash string, expiresAtUnix int64) error {
+func (m *mockUserRepository) CreateUserWithExpiration(
+    ctx context.Context,
+    user *api.User,
+    apiKeyHash string,
+    expiresAtUnix int64,
+) error {
 	if m.createUserWithExpirationFunc != nil {
 		return m.createUserWithExpirationFunc(ctx, user, apiKeyHash, expiresAtUnix)
 	}
@@ -144,7 +149,11 @@ func (m *mockExecutionRepository) ListExecutions(ctx context.Context) ([]*api.Ex
 
 // mockRunner implements Runner interface for testing
 type mockRunner struct {
-	startTaskFunc               func(ctx context.Context, userEmail string, req api.ExecutionRequest) (string, *time.Time, error)
+    startTaskFunc func(
+        ctx context.Context,
+        userEmail string,
+        req api.ExecutionRequest,
+    ) (string, *time.Time, error)
 	killTaskFunc                func(ctx context.Context, executionID string) error
 	registerImageFunc           func(ctx context.Context, image string, isDefault *bool) error
 	listImagesFunc              func(ctx context.Context) ([]api.ImageInfo, error)
@@ -152,7 +161,11 @@ type mockRunner struct {
 	fetchLogsByExecutionIDFunc  func(ctx context.Context, executionID string) ([]api.LogEvent, error)
 }
 
-func (m *mockRunner) StartTask(ctx context.Context, userEmail string, req api.ExecutionRequest) (string, *time.Time, error) {
+func (m *mockRunner) StartTask(
+    ctx context.Context,
+    userEmail string,
+    req api.ExecutionRequest,
+) (string, *time.Time, error) {
 	if m.startTaskFunc != nil {
 		return m.startTaskFunc(ctx, userEmail, req)
 	}

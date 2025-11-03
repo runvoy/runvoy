@@ -71,7 +71,10 @@ func main() {
 		log.Fatalf("error: failed to write .env file: %v", err)
 	}
 
-	log.Printf("successfully synced %d environment variables from %s to .env (%d updated, %d new)", totalCount, functionName, updatedCount, newCount)
+    log.Printf(
+        "successfully synced %d environment variables from %s to .env (%d updated, %d new)",
+        totalCount, functionName, updatedCount, newCount,
+    )
 }
 
 // mergeEnvFile reads the existing .env file (if it exists) and merges it with Lambda values.

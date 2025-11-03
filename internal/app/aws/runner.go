@@ -66,12 +66,19 @@ func buildSidecarContainerCommand(hasGitRepo bool) []string {
 		"    echo \"${actual_key}=${value}\" >> \"${ENV_FILE_PATH}\"",
 		"  done",
 		"  if [ -f \"${ENV_FILE_PATH}\" ]; then",
-		fmt.Sprintf("    echo '### %s sidecar: .env file created with' $(wc -l < \"${ENV_FILE_PATH}\") 'variables at' \"${ENV_FILE_PATH}\"", constants.ProjectName),
+        fmt.Sprintf(
+            "    echo '### %s sidecar: .env file created with' "+
+                "$(wc -l < \"${ENV_FILE_PATH}\") 'variables at' \"${ENV_FILE_PATH}\"",
+            constants.ProjectName,
+        ),
 		"  else",
 		fmt.Sprintf("    echo '### %s sidecar: No .env file created'", constants.ProjectName),
 		"  fi",
 		"else",
-		fmt.Sprintf("  echo '### %s sidecar: No RUNVOY_USER_* variables found, skipping .env creation'", constants.ProjectName),
+        fmt.Sprintf(
+            "  echo '### %s sidecar: No RUNVOY_USER_* variables found, skipping .env creation'",
+            constants.ProjectName,
+        ),
 		"fi",
 	)
 
@@ -321,7 +328,8 @@ func (e *Runner) StartTask(ctx context.Context, userEmail string, req api.Execut
 }
 
 // RegisterImage registers a Docker image and creates the corresponding task definition.
-// isDefault: if true, explicitly set as default; if nil or false, becomes default only if no default exists (first image behavior)
+// isDefault: if true, explicitly set as default.
+// If nil or false, becomes default only if no default exists (first image behavior).
 func (e *Runner) RegisterImage(ctx context.Context, image string, isDefault *bool) error {
 	if e.ecsClient == nil {
 		return fmt.Errorf("ECS client not configured")

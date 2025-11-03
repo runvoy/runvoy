@@ -26,7 +26,12 @@ type UserRepository struct {
 }
 
 // NewUserRepository creates a new DynamoDB-backed user repository.
-func NewUserRepository(client *dynamodb.Client, tableName string, pendingTableName string, logger *slog.Logger) *UserRepository {
+func NewUserRepository(
+    client *dynamodb.Client,
+    tableName string,
+    pendingTableName string,
+    logger *slog.Logger,
+) *UserRepository {
 	return &UserRepository{
 		client:           client,
 		tableName:       tableName,
@@ -53,7 +58,12 @@ func (r *UserRepository) CreateUser(ctx context.Context, user *api.User, apiKeyH
 
 // CreateUserWithExpiration stores a new user with their hashed API key and optional TTL in DynamoDB.
 // If expiresAtUnix is 0, no TTL is set. If expiresAtUnix is > 0, it sets the expires_at field for automatic deletion.
-func (r *UserRepository) CreateUserWithExpiration(ctx context.Context, user *api.User, apiKeyHash string, expiresAtUnix int64) error {
+func (r *UserRepository) CreateUserWithExpiration(
+    ctx context.Context,
+    user *api.User,
+    apiKeyHash string,
+    expiresAtUnix int64,
+) error {
 	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
 
 	// Create the item to store

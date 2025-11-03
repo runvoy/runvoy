@@ -219,8 +219,11 @@ func GetTaskDefinitionForImage(
 		return latestARN, nil
 	}
 
-	return "", fmt.Errorf("task definition for image %q not found (family: %s). Image must be registered via /api/v1/images/register",
-		image, family)
+return "", fmt.Errorf(
+    "task definition for image %q not found (family: %s). "+
+        "Image must be registered via /api/v1/images/register",
+    image, family,
+)
 }
 
 // RegisterTaskDefinitionForImage registers a new ECS task definition for the given Docker image.
@@ -262,9 +265,13 @@ func RegisterTaskDefinitionForImage(
 				ResourceArn: awsStd.String(existingTaskDefARN),
 				TagKeys:     []string{constants.TaskDefinitionIsDefaultTagKey},
 			})
-			if err != nil {
-				logger.Debug("failed to remove default tag from existing task definition (may not have had it)", "arn", existingTaskDefARN, "error", err)
-			} else {
+            if err != nil {
+                logger.Debug(
+                    "failed to remove default tag from existing task definition (may not have had it)",
+                    "arn", existingTaskDefARN,
+                    "error", err,
+                )
+            } else {
 				logger.Info("removed default tag from existing task definition", "arn", existingTaskDefARN)
 			}
 		}
@@ -448,9 +455,13 @@ func RegisterTaskDefinitionForImage(
 			ResourceArn: awsStd.String(taskDefARN),
 			Tags:        tags,
 		})
-		if tagErr != nil {
-			logger.Warn("failed to tag task definition (task definition registered successfully)", "arn", taskDefARN, "error", tagErr)
-		}
+        if tagErr != nil {
+            logger.Warn(
+                "failed to tag task definition (task definition registered successfully)",
+                "arn", taskDefARN,
+                "error", tagErr,
+            )
+        }
 	}
 
 	logger.Info("registered task definition", "family", family, "arn", taskDefARN, "image", image)
