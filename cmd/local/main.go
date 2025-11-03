@@ -70,7 +70,7 @@ func main() {
 		log.Error("server shutdown error", "error", err)
 		os.Exit(1)
 	}
-	cancel() // Clean shutdown completed
+	cancel()
 
 	log.Info("server shutdown complete")
 }
