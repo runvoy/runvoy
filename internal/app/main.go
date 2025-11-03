@@ -124,7 +124,7 @@ func (s *Service) createPendingClaim(
 		Viewed:      false,
 	}
 
-	if err := s.userRepo.CreatePendingAPIKey(ctx, pending); err != nil {
+	if err = s.userRepo.CreatePendingAPIKey(ctx, pending); err != nil {
 		return "", apperrors.ErrDatabaseError("failed to create pending API key", err)
 	}
 
