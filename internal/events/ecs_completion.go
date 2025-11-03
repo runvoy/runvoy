@@ -100,7 +100,7 @@ func (p *Processor) handleECSTaskCompletion(ctx context.Context, event events.Cl
 	execution.CompletedAt = &stoppedAt
 	execution.DurationSeconds = durationSeconds
 
-	if err := p.executionRepo.UpdateExecution(ctx, execution); err != nil {
+	if err = p.executionRepo.UpdateExecution(ctx, execution); err != nil {
 		reqLogger.Error("failed to update execution", "error", err)
 		return fmt.Errorf("failed to update execution: %w", err)
 	}
