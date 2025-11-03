@@ -214,7 +214,7 @@ func logsRun(cmd *cobra.Command, args []string) {
 
     c := client.New(cfg, slog.Default())
     service := NewLogsService(c, outputWrapper{})
-    if err := service.DisplayLogs(cmd.Context(), executionID, constants.WebviewerURL); err != nil {
+    if err := service.DisplayLogs(cmd.Context(), executionID, cfg.GetWebviewerURL()); err != nil {
         output.Errorf(err.Error())
     }
 }

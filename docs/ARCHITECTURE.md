@@ -623,11 +623,25 @@ The CLI automatically provides this link when running commands (see `cmd/runvoy/
 
 ### Configuration
 
-The web viewer URL is defined as a constant in `internal/constants/constants.go:118`:
+The web viewer URL is configurable and can be set via:
 
+1. **Environment Variable**: `RUNVOY_WEBVIEWER_URL`
+2. **Config File**: `webviewer_url` field in `~/.runvoy/config.yaml`
+
+If not configured, it defaults to `https://runvoy-releases.s3.us-east-2.amazonaws.com/webviewer.html`.
+
+**Default URL** is defined in `internal/constants/constants.go`:
 ```go
-const WebviewerURL = "https://runvoy-releases.s3.us-east-2.amazonaws.com/webviewer.html"
+const DefaultWebviewerURL = "https://runvoy-releases.s3.us-east-2.amazonaws.com/webviewer.html"
 ```
+
+**Usage in CLI commands** (see `cmd/runvoy/cmd/run.go` and `cmd/runvoy/cmd/logs.go`):
+```go
+webviewerURL := cfg.GetWebviewerURL()
+output.Infof("View logs in web viewer: %s?execution_id=%s", webviewerURL, executionID)
+```
+
+This allows users to deploy their own web viewer instance and configure the CLI to point to it.
 
 ### Browser Requirements
 

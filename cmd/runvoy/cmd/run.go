@@ -101,6 +101,7 @@ func runRun(cmd *cobra.Command, args []string) {
 	if image := cmd.Flag("image").Value.String(); image != "" {
 		output.KeyValue("Image", output.Cyan(image))
 	}
+	webviewerURL := cfg.GetWebviewerURL()
 	output.Infof("View logs in web viewer: %s?execution_id=%s",
-		constants.WebviewerURL, output.Cyan(resp.ExecutionID))
+		webviewerURL, output.Cyan(resp.ExecutionID))
 }

@@ -384,7 +384,15 @@ The web viewer is a minimal, single-page application that provides:
 3. Enter your API key (same as in `~/.runvoy/config.yaml`)
 4. Settings are saved in browser's localStorage for future use
 
-The web viewer is hosted on AWS S3 and requires no installation - just open the URL in any modern browser.
+The web viewer is hosted on AWS S3 by default, but you can configure a custom URL if you deploy your own instance (see Configuration below).
+
+**Configuration:**
+
+The web viewer URL can be customized via:
+- Environment variable: `RUNVOY_WEBVIEWER_URL`
+- Config file (`~/.runvoy/config.yaml`): `webviewer_url` field
+
+If not configured, it defaults to `https://runvoy-releases.s3.us-east-2.amazonaws.com/webviewer.html`.
 
 **User Management:**
 
