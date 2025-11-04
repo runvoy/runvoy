@@ -3,11 +3,13 @@
 package websocket
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
+	"slices"
 
 	"runvoy/internal/api"
 	"runvoy/internal/config"
@@ -107,7 +109,8 @@ func (lf *LogForwarder) decodeLogsEvent(
 }
 
 // forwardLogsToConnections forwards log events to all active WebSocket connections for an execution.
-func (lf *LogForwarder) forwardLogsToConnections(
+// The log events are sorted by timestamp before being forwarded to the connections.
+func (lf *LogForwarder) forwardLogsToConnections( //nolint:funlen
 	ctx context.Context,
 	executionID string,
 	logEvents []events.CloudwatchLogsLogEvent,
@@ -138,12 +141,16 @@ func (lf *LogForwarder) forwardLogsToConnections(
 		"count":        fmt.Sprintf("%d", len(connectionIDs)),
 	})
 
+	slices.SortFunc(logEvents, func(a, b events.CloudwatchLogsLogEvent) int {
+		return cmp.Compare(a.Timestamp, b.Timestamp)
+	})
+
 	errGroup, ctx := errgroup.WithContext(ctx)
 	errGroup.SetLimit(constants.MaxConcurrentSends)
 
-	for _, logEvent := range logEvents {
-		for _, connectionID := range connectionIDs {
-			errGroup.Go(func() error {
+	for _, connectionID := range connectionIDs {
+		errGroup.Go(func() error {
+			for _, logEvent := range logEvents {
 				if sendErr := lf.sendToConnection(ctx, connectionID, logEvent); sendErr != nil {
 					reqLogger.Error("failed to send log to connection", "context", map[string]string{
 						"error":         sendErr.Error(),
@@ -151,9 +158,9 @@ func (lf *LogForwarder) forwardLogsToConnections(
 						"execution_id":  executionID,
 					})
 				}
-				return nil
-			})
-		}
+			}
+			return nil
+		})
 	}
 
 	switch err := errGroup.Wait(); {

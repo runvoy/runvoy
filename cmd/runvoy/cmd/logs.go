@@ -2,13 +2,17 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
+	"net/http"
 	"os"
 	"os/signal"
+	"regexp"
 	"runvoy/internal/api"
 	"runvoy/internal/client"
 	"runvoy/internal/constants"
+	apperrors "runvoy/internal/errors"
 	"runvoy/internal/output"
 	"sort"
 	"sync"
@@ -32,6 +36,38 @@ var logsCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(logsCmd)
+}
+
+const (
+	minRegexMatches = 2 // Minimum number of regex matches expected: full match + capture group
+)
+
+// isNotFoundError checks if an error represents a 404 Not Found status.
+// It handles both AppError types and client error strings formatted as [404] ...
+func isNotFoundError(err error) bool {
+	// First check if it's an AppError with status code 404
+	if statusCode := apperrors.GetStatusCode(err); statusCode == http.StatusNotFound {
+		return true
+	}
+
+	// Check if it's an AppError with NOT_FOUND error code
+	var appErr *apperrors.AppError
+	if errors.As(err, &appErr) {
+		return appErr.Code == apperrors.ErrCodeNotFound || appErr.StatusCode == http.StatusNotFound
+	}
+
+	// Parse client error format: [404] error message
+	// The client formats errors as: "[%d] %s: %s"
+	errStr := err.Error()
+	re := regexp.MustCompile(`\[(\d+)\]`)
+	matches := re.FindStringSubmatch(errStr)
+	if len(matches) >= minRegexMatches {
+		if matches[1] == fmt.Sprintf("%d", http.StatusNotFound) {
+			return true
+		}
+	}
+
+	return false
 }
 
 func logsRun(cmd *cobra.Command, args []string) {
@@ -65,13 +101,123 @@ func NewLogsService(apiClient client.Interface, outputter OutputInterface) *Logs
 	}
 }
 
-// DisplayLogs retrieves static logs and then streams new logs via WebSocket in real-time
-func (s *LogsService) DisplayLogs( //nolint:funlen
-	ctx context.Context, executionID, webviewerURL string) error {
-	// Fetch static logs first
-	resp, err := s.client.GetLogs(ctx, executionID)
+// fetchLogsWithRetry fetches logs with retry logic for 404 errors (execution starting up)
+func (s *LogsService) fetchLogsWithRetry(ctx context.Context, executionID string) (*api.LogsResponse, error) {
+	const (
+		maxRetries = 2
+		retryDelay = 10 * time.Second
+	)
+
+	var resp *api.LogsResponse
+	var err error
+	for attempt := 0; attempt <= maxRetries; attempt++ {
+		resp, err = s.client.GetLogs(ctx, executionID)
+		if err == nil {
+			return resp, nil
+		}
+
+		// Check if it's a 404 error (log stream doesn't exist yet)
+		if isNotFoundError(err) {
+			if attempt < maxRetries {
+				s.output.Infof("Logs not available yet, waiting %d seconds... (attempt %d/%d)",
+					int(retryDelay.Seconds()), attempt+1, maxRetries+1)
+				time.Sleep(retryDelay)
+				continue
+			}
+		}
+
+		// For non-404 errors or final attempt, return error
+		return nil, fmt.Errorf("failed to get logs: %w", err)
+	}
+
+	return nil, fmt.Errorf("failed to get logs: %w", err)
+}
+
+// readWebSocketMessages reads messages from WebSocket and updates the log map
+func (s *LogsService) readWebSocketMessages(
+	conn *websocket.Conn,
+	logMap map[int64]api.LogEvent,
+	mu *sync.Mutex,
+	done <-chan struct{},
+) {
+	for {
+		select {
+		case <-done:
+			return
+		default:
+			var logEvent api.LogEvent
+			err := conn.ReadJSON(&logEvent)
+			if err != nil {
+				if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseNormalClosure) {
+					s.output.Warningf("WebSocket connection closed: %v", err)
+				}
+				return
+			}
+
+			mu.Lock()
+			if _, exists := logMap[logEvent.Timestamp]; !exists {
+				logMap[logEvent.Timestamp] = logEvent
+				s.printLogLine(len(logMap), logEvent)
+			}
+			mu.Unlock()
+		}
+	}
+}
+
+// streamLogsViaWebSocket connects to WebSocket and streams logs in real-time
+func (s *LogsService) streamLogsViaWebSocket(
+	websocketURL string,
+	logMap map[int64]api.LogEvent,
+	mu *sync.Mutex,
+) error {
+	s.output.Infof("Connecting to log stream...")
+	conn, httpResp, err := websocket.DefaultDialer.Dial(websocketURL, nil)
 	if err != nil {
-		return fmt.Errorf("failed to get logs: %w", err)
+		s.output.Warningf("Failed to connect to WebSocket: %v", err)
+		return err
+	}
+	defer func() {
+		_ = conn.Close()
+	}()
+	if httpResp != nil && httpResp.Body != nil {
+		defer func() {
+			_ = httpResp.Body.Close()
+		}()
+	}
+
+	s.output.Successf("Connected to log stream. Press Ctrl+C to exit.")
+	s.output.Blank()
+
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+
+	done := make(chan struct{})
+	var closeOnce sync.Once
+
+	go func() {
+		defer closeOnce.Do(func() { close(done) })
+		s.readWebSocketMessages(conn, logMap, mu, done)
+	}()
+
+	select {
+	case <-sigChan:
+		s.output.Blank()
+		s.output.Infof("Received interrupt signal, closing connection...")
+		closeOnce.Do(func() { close(done) })
+	case <-done:
+		s.output.Blank()
+		s.output.Infof("WebSocket connection closed")
+	}
+
+	return nil
+}
+
+// DisplayLogs retrieves static logs and then streams new logs via WebSocket in real-time
+func (s *LogsService) DisplayLogs(ctx context.Context, executionID, webviewerURL string) error {
+	// Fetch static logs with retry logic
+	resp, err := s.fetchLogsWithRetry(ctx, executionID)
+	if err != nil {
+		return err
 	}
 
 	logMap := make(map[int64]api.LogEvent)
@@ -89,63 +235,8 @@ func (s *LogsService) DisplayLogs( //nolint:funlen
 		return nil
 	}
 
-	s.output.Infof("Connecting to log stream...")
-	conn, _, err := websocket.DefaultDialer.Dial(resp.WebSocketURL, nil)
-	if err != nil {
-		s.output.Warningf("Failed to connect to WebSocket: %v", err)
-		s.printWebviewerURL(webviewerURL, executionID)
-		return nil
-	}
-	defer func() {
-		_ = conn.Close()
-	}()
-
-	s.output.Successf("Connected to log stream. Press Ctrl+C to exit.")
-	s.output.Blank()
-
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
-
-	done := make(chan struct{})
-
-	var closeOnce sync.Once
-
-	go func() {
-		defer closeOnce.Do(func() { close(done) })
-
-		for {
-			select {
-			case <-done:
-				return
-			default:
-				var logEvent api.LogEvent
-				err = conn.ReadJSON(&logEvent)
-				if err != nil {
-					if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseNormalClosure) {
-						s.output.Warningf("WebSocket connection closed: %v", err)
-					}
-					return
-				}
-
-				mu.Lock()
-				if _, exists := logMap[logEvent.Timestamp]; !exists {
-					logMap[logEvent.Timestamp] = logEvent
-					s.printLogLine(len(logMap), logEvent)
-				}
-				mu.Unlock()
-			}
-		}
-	}()
-
-	select {
-	case <-sigChan:
-		s.output.Blank()
-		s.output.Infof("Received interrupt signal, closing connection...")
-		closeOnce.Do(func() { close(done) })
-	case <-done:
-		s.output.Blank()
-		s.output.Infof("WebSocket connection closed")
-	}
+	// Stream logs via WebSocket
+	_ = s.streamLogsViaWebSocket(resp.WebSocketURL, logMap, &mu)
 
 	s.printWebviewerURL(webviewerURL, executionID)
 	return nil
