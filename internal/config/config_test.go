@@ -72,25 +72,27 @@ func TestValidateOrchestrator(t *testing.T) {
 		{
 			name: "valid orchestrator config",
 			cfg: &Config{
-				APIKeysTable:    "api-keys",
-				ExecutionsTable: "executions",
-				ECSCluster:      "cluster",
-				Subnet1:         "subnet-1",
-				Subnet2:         "subnet-2",
-				SecurityGroup:   "sg-123",
-				LogGroup:        "/aws/logs/app",
+				APIKeysTable:         "api-keys",
+				ExecutionsTable:      "executions",
+				ECSCluster:           "cluster",
+				Subnet1:              "subnet-1",
+				Subnet2:              "subnet-2",
+				SecurityGroup:        "sg-123",
+				LogGroup:             "/aws/logs/app",
+				WebSocketAPIEndpoint: "https://example.execute-api.us-east-1.amazonaws.com/production",
 			},
 			wantErr: false,
 		},
 		{
 			name: "missing APIKeysTable",
 			cfg: &Config{
-				ExecutionsTable: "executions",
-				ECSCluster:      "cluster",
-				Subnet1:         "subnet-1",
-				Subnet2:         "subnet-2",
-				SecurityGroup:   "sg-123",
-				LogGroup:        "/aws/logs/app",
+				ExecutionsTable:      "executions",
+				ECSCluster:           "cluster",
+				Subnet1:              "subnet-1",
+				Subnet2:              "subnet-2",
+				SecurityGroup:        "sg-123",
+				LogGroup:             "/aws/logs/app",
+				WebSocketAPIEndpoint: "https://example.execute-api.us-east-1.amazonaws.com/production",
 			},
 			wantErr: true,
 			errMsg:  "APIKeysTable cannot be empty",
@@ -98,12 +100,13 @@ func TestValidateOrchestrator(t *testing.T) {
 		{
 			name: "missing ExecutionsTable",
 			cfg: &Config{
-				APIKeysTable:  "api-keys",
-				ECSCluster:    "cluster",
-				Subnet1:       "subnet-1",
-				Subnet2:       "subnet-2",
-				SecurityGroup: "sg-123",
-				LogGroup:      "/aws/logs/app",
+				APIKeysTable:         "api-keys",
+				ECSCluster:           "cluster",
+				Subnet1:              "subnet-1",
+				Subnet2:              "subnet-2",
+				SecurityGroup:        "sg-123",
+				LogGroup:             "/aws/logs/app",
+				WebSocketAPIEndpoint: "https://example.execute-api.us-east-1.amazonaws.com/production",
 			},
 			wantErr: true,
 			errMsg:  "ExecutionsTable cannot be empty",
@@ -111,12 +114,13 @@ func TestValidateOrchestrator(t *testing.T) {
 		{
 			name: "missing ECSCluster",
 			cfg: &Config{
-				APIKeysTable:    "api-keys",
-				ExecutionsTable: "executions",
-				Subnet1:         "subnet-1",
-				Subnet2:         "subnet-2",
-				SecurityGroup:   "sg-123",
-				LogGroup:        "/aws/logs/app",
+				APIKeysTable:         "api-keys",
+				ExecutionsTable:      "executions",
+				Subnet1:              "subnet-1",
+				Subnet2:              "subnet-2",
+				SecurityGroup:        "sg-123",
+				LogGroup:             "/aws/logs/app",
+				WebSocketAPIEndpoint: "https://example.execute-api.us-east-1.amazonaws.com/production",
 			},
 			wantErr: true,
 			errMsg:  "ECSCluster cannot be empty",
@@ -124,12 +128,13 @@ func TestValidateOrchestrator(t *testing.T) {
 		{
 			name: "missing Subnet1",
 			cfg: &Config{
-				APIKeysTable:    "api-keys",
-				ExecutionsTable: "executions",
-				ECSCluster:      "cluster",
-				Subnet2:         "subnet-2",
-				SecurityGroup:   "sg-123",
-				LogGroup:        "/aws/logs/app",
+				APIKeysTable:         "api-keys",
+				ExecutionsTable:      "executions",
+				ECSCluster:           "cluster",
+				Subnet2:              "subnet-2",
+				SecurityGroup:        "sg-123",
+				LogGroup:             "/aws/logs/app",
+				WebSocketAPIEndpoint: "https://example.execute-api.us-east-1.amazonaws.com/production",
 			},
 			wantErr: true,
 			errMsg:  "Subnet1 cannot be empty",
@@ -137,12 +142,13 @@ func TestValidateOrchestrator(t *testing.T) {
 		{
 			name: "missing Subnet2",
 			cfg: &Config{
-				APIKeysTable:    "api-keys",
-				ExecutionsTable: "executions",
-				ECSCluster:      "cluster",
-				Subnet1:         "subnet-1",
-				SecurityGroup:   "sg-123",
-				LogGroup:        "/aws/logs/app",
+				APIKeysTable:         "api-keys",
+				ExecutionsTable:      "executions",
+				ECSCluster:           "cluster",
+				Subnet1:              "subnet-1",
+				SecurityGroup:        "sg-123",
+				LogGroup:             "/aws/logs/app",
+				WebSocketAPIEndpoint: "https://example.execute-api.us-east-1.amazonaws.com/production",
 			},
 			wantErr: true,
 			errMsg:  "Subnet2 cannot be empty",
@@ -150,12 +156,13 @@ func TestValidateOrchestrator(t *testing.T) {
 		{
 			name: "missing SecurityGroup",
 			cfg: &Config{
-				APIKeysTable:    "api-keys",
-				ExecutionsTable: "executions",
-				ECSCluster:      "cluster",
-				Subnet1:         "subnet-1",
-				Subnet2:         "subnet-2",
-				LogGroup:        "/aws/logs/app",
+				APIKeysTable:         "api-keys",
+				ExecutionsTable:      "executions",
+				ECSCluster:           "cluster",
+				Subnet1:              "subnet-1",
+				Subnet2:              "subnet-2",
+				LogGroup:             "/aws/logs/app",
+				WebSocketAPIEndpoint: "https://example.execute-api.us-east-1.amazonaws.com/production",
 			},
 			wantErr: true,
 			errMsg:  "SecurityGroup cannot be empty",
@@ -163,15 +170,30 @@ func TestValidateOrchestrator(t *testing.T) {
 		{
 			name: "missing LogGroup",
 			cfg: &Config{
+				APIKeysTable:         "api-keys",
+				ExecutionsTable:      "executions",
+				ECSCluster:           "cluster",
+				Subnet1:              "subnet-1",
+				Subnet2:              "subnet-2",
+				SecurityGroup:        "sg-123",
+				WebSocketAPIEndpoint: "https://example.execute-api.us-east-1.amazonaws.com/production",
+			},
+			wantErr: true,
+			errMsg:  "LogGroup cannot be empty",
+		},
+		{
+			name: "missing WebSocketAPIEndpoint",
+			cfg: &Config{
 				APIKeysTable:    "api-keys",
 				ExecutionsTable: "executions",
 				ECSCluster:      "cluster",
 				Subnet1:         "subnet-1",
 				Subnet2:         "subnet-2",
 				SecurityGroup:   "sg-123",
+				LogGroup:        "/aws/logs/app",
 			},
 			wantErr: true,
-			errMsg:  "LogGroup cannot be empty",
+			errMsg:  "WebSocketAPIEndpoint cannot be empty",
 		},
 	}
 
@@ -386,4 +408,50 @@ func TestConfig_GetWebviewerURL(t *testing.T) {
 		assert.NotEmpty(t, result)
 		assert.Contains(t, result, "http", "Default URL should be a valid HTTP(S) URL")
 	})
+}
+
+func TestNormalizeWebSocketEndpoint(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "strips https://",
+			input:    "https://example.execute-api.us-east-1.amazonaws.com/production",
+			expected: "example.execute-api.us-east-1.amazonaws.com/production",
+		},
+		{
+			name:     "strips http://",
+			input:    "http://example.execute-api.us-east-1.amazonaws.com/production",
+			expected: "example.execute-api.us-east-1.amazonaws.com/production",
+		},
+		{
+			name:     "strips wss://",
+			input:    "wss://example.execute-api.us-east-1.amazonaws.com/production",
+			expected: "example.execute-api.us-east-1.amazonaws.com/production",
+		},
+		{
+			name:     "strips ws://",
+			input:    "ws://example.execute-api.us-east-1.amazonaws.com/production",
+			expected: "example.execute-api.us-east-1.amazonaws.com/production",
+		},
+		{
+			name:     "handles already normalized",
+			input:    "example.execute-api.us-east-1.amazonaws.com/production",
+			expected: "example.execute-api.us-east-1.amazonaws.com/production",
+		},
+		{
+			name:     "handles with whitespace",
+			input:    "  https://example.execute-api.us-east-1.amazonaws.com/production  ",
+			expected: "example.execute-api.us-east-1.amazonaws.com/production",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := normalizeWebSocketEndpoint(tt.input)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
 }

@@ -55,7 +55,7 @@ func Initialize(
 
 	logger.Debug(constants.ProjectName + " orchestrator initialized successfully")
 
-	return NewService(userRepo, executionRepo, runner, logger, provider), nil
+	return NewService(userRepo, executionRepo, runner, logger, provider, cfg.WebSocketAPIEndpoint), nil
 }
 
 // initializeAWSBackend sets up AWS-specific dependencies

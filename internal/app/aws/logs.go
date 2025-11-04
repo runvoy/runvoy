@@ -20,7 +20,7 @@ import (
 )
 
 // FetchLogsByExecutionID queries CloudWatch Logs for events associated with the ECS task ID
-// Returns an indexed slice of LogEvent sorted by timestamp.
+// Returns a slice of LogEvent sorted by timestamp.
 func FetchLogsByExecutionID(ctx context.Context, cfg *Config, executionID string) ([]api.LogEvent, error) {
 	if cfg == nil || cfg.LogGroup == "" {
 		return nil, appErrors.ErrInternalError("CloudWatch Logs group not configured", nil)
@@ -34,7 +34,7 @@ func FetchLogsByExecutionID(ctx context.Context, cfg *Config, executionID string
 		return nil, appErrors.ErrInternalError("failed to load AWS configuration", err)
 	}
 	cwl := cloudwatchlogs.NewFromConfig(awsCfg)
-	stream := fmt.Sprintf("task/%s/%s", constants.RunnerContainerName, executionID)
+	stream := constants.BuildLogStreamName(executionID)
 	reqLogger := logger.DeriveRequestLogger(ctx, slog.Default())
 
 	if verifyErr := verifyLogStreamExists(ctx, cwl, cfg.LogGroup, stream, executionID, reqLogger); verifyErr != nil {
@@ -54,14 +54,12 @@ func FetchLogsByExecutionID(ctx context.Context, cfg *Config, executionID string
 	if err != nil {
 		return nil, err
 	}
-	reqLogger.Debug("log events fetched successfully", "context", map[string]int{
-		"events_count": len(events),
+	reqLogger.Debug("log events fetched successfully", "context", map[string]string{
+		"events_count": fmt.Sprintf("%d", len(events)),
 	})
 
+	// Sort events by timestamp (ascending order)
 	sort.SliceStable(events, func(i, j int) bool { return events[i].Timestamp < events[j].Timestamp })
-	for i := range events {
-		events[i].Line = i + 1
-	}
 	return events, nil
 }
 

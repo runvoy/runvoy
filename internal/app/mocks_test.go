@@ -210,5 +210,5 @@ func (m *mockRunner) FetchLogsByExecutionID(ctx context.Context, executionID str
 // newTestService creates a Service with mocks for testing
 func newTestService(userRepo *mockUserRepository, execRepo *mockExecutionRepository, runner *mockRunner) *Service {
 	logger := testutil.SilentLogger()
-	return NewService(userRepo, execRepo, runner, logger, constants.AWS)
+	return NewService(userRepo, execRepo, runner, logger, constants.AWS, "")
 }

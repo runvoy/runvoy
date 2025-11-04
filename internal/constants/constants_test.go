@@ -206,3 +206,106 @@ func TestContextKeys(t *testing.T) {
 		assert.Equal(t, StartTimeCtxKeyType("startTime"), StartTimeCtxKey)
 	})
 }
+
+func TestBuildLogStreamName(t *testing.T) {
+	tests := []struct {
+		name        string
+		executionID string
+		expected    string
+	}{
+		{
+			name:        "standard execution ID",
+			executionID: "abc123",
+			expected:    "task/runner/abc123",
+		},
+		{
+			name:        "UUID-like execution ID",
+			executionID: "550e8400-e29b-41d4-a716-446655440000",
+			expected:    "task/runner/550e8400-e29b-41d4-a716-446655440000",
+		},
+		{
+			name:        "empty execution ID",
+			executionID: "",
+			expected:    "task/runner/",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := BuildLogStreamName(tt.executionID)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestExtractExecutionIDFromLogStream(t *testing.T) {
+	tests := []struct {
+		name      string
+		logStream string
+		expected  string
+	}{
+		{
+			name:      "valid log stream",
+			logStream: "task/runner/abc123",
+			expected:  "abc123",
+		},
+		{
+			name:      "valid log stream with UUID",
+			logStream: "task/runner/550e8400-e29b-41d4-a716-446655440000",
+			expected:  "550e8400-e29b-41d4-a716-446655440000",
+		},
+		{
+			name:      "empty log stream",
+			logStream: "",
+			expected:  "",
+		},
+		{
+			name:      "invalid format - too few parts",
+			logStream: "task/runner",
+			expected:  "",
+		},
+		{
+			name:      "invalid format - too many parts",
+			logStream: "task/runner/abc123/extra",
+			expected:  "",
+		},
+		{
+			name:      "invalid format - wrong prefix",
+			logStream: "job/runner/abc123",
+			expected:  "",
+		},
+		{
+			name:      "invalid format - wrong container name",
+			logStream: "task/sidecar/abc123",
+			expected:  "",
+		},
+		{
+			name:      "empty execution ID in stream",
+			logStream: "task/runner/",
+			expected:  "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := ExtractExecutionIDFromLogStream(tt.logStream)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestBuildAndExtractRoundTrip(t *testing.T) {
+	t.Run("build and extract should be inverse operations", func(t *testing.T) {
+		executionIDs := []string{
+			"abc123",
+			"550e8400-e29b-41d4-a716-446655440000",
+			"test-exec-1",
+		}
+
+		for _, id := range executionIDs {
+			stream := BuildLogStreamName(id)
+			extracted := ExtractExecutionIDFromLogStream(stream)
+			assert.Equal(t, id, extracted, "Round trip should preserve execution ID: %s", id)
+		}
+	})
+}

@@ -25,22 +25,24 @@ type Config struct {
 	APIKey       string `mapstructure:"api_key" yaml:"api_key"`
 	WebviewerURL string `mapstructure:"webviewer_url" yaml:"webviewer_url" validate:"omitempty,url"`
 
-	// Orchestrator Service Configuration
-	Port                string        `mapstructure:"port" validate:"omitempty"`
-	RequestTimeout      time.Duration `mapstructure:"request_timeout"`
-	APIKeysTable        string        `mapstructure:"api_keys_table"`
-	ExecutionsTable     string        `mapstructure:"executions_table"`
-	PendingAPIKeysTable string        `mapstructure:"pending_api_keys_table"`
-	ECSCluster          string        `mapstructure:"ecs_cluster"`
-	TaskDefinition      string        `mapstructure:"task_definition"`
-	Subnet1             string        `mapstructure:"subnet_1"`
-	Subnet2             string        `mapstructure:"subnet_2"`
-	SecurityGroup       string        `mapstructure:"security_group"`
-	LogGroup            string        `mapstructure:"log_group"`
-	TaskExecRoleARN     string        `mapstructure:"task_exec_role_arn"`
-	TaskRoleARN         string        `mapstructure:"task_role_arn"`
-	InitTimeout         time.Duration `mapstructure:"init_timeout"`
-	LogLevel            string        `mapstructure:"log_level"`
+	// Backend Service Configuration
+	Port                      string        `mapstructure:"port" validate:"omitempty"`
+	RequestTimeout            time.Duration `mapstructure:"request_timeout"`
+	APIKeysTable              string        `mapstructure:"api_keys_table"`
+	ExecutionsTable           string        `mapstructure:"executions_table"`
+	PendingAPIKeysTable       string        `mapstructure:"pending_api_keys_table"`
+	ECSCluster                string        `mapstructure:"ecs_cluster"`
+	TaskDefinition            string        `mapstructure:"task_definition"`
+	Subnet1                   string        `mapstructure:"subnet_1"`
+	Subnet2                   string        `mapstructure:"subnet_2"`
+	SecurityGroup             string        `mapstructure:"security_group"`
+	LogGroup                  string        `mapstructure:"log_group"`
+	TaskExecRoleARN           string        `mapstructure:"task_exec_role_arn"`
+	TaskRoleARN               string        `mapstructure:"task_role_arn"`
+	WebSocketConnectionsTable string        `mapstructure:"websocket_connections_table"`
+	WebSocketAPIEndpoint      string        `mapstructure:"websocket_api_endpoint"`
+	InitTimeout               time.Duration `mapstructure:"init_timeout"`
+	LogLevel                  string        `mapstructure:"log_level"`
 }
 
 var validate = validator.New()
@@ -124,6 +126,9 @@ func LoadOrchestrator() (*Config, error) {
 		return nil, err
 	}
 
+	// Normalize WebSocket endpoint: strip protocol if present
+	cfg.WebSocketAPIEndpoint = normalizeWebSocketEndpoint(cfg.WebSocketAPIEndpoint)
+
 	return &cfg, nil
 }
 
@@ -168,6 +173,40 @@ func MustLoadEventProcessor() *Config {
 	cfg, err := LoadEventProcessor()
 	if err != nil {
 		slog.Error("failed to load event processor configuration", "error", err)
+		os.Exit(1)
+	}
+	return cfg
+}
+
+// LoadConnectionManager loads configuration for the connection manager service.
+// Loads from environment variables and validates required fields.
+func LoadConnectionManager() (*Config, error) {
+	v := viper.New()
+	setDefaults(v)
+
+	v.SetEnvPrefix("RUNVOY")
+	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+	v.AutomaticEnv()
+	bindEnvVars(v)
+
+	var cfg Config
+	if err := v.Unmarshal(&cfg); err != nil {
+		return nil, fmt.Errorf("error unmarshaling connection manager config: %w", err)
+	}
+
+	if err := validateConnectionManager(&cfg); err != nil {
+		return nil, err
+	}
+
+	return &cfg, nil
+}
+
+// MustLoadConnectionManager loads connection manager configuration and exits on error.
+// Suitable for application startup where configuration errors should be fatal.
+func MustLoadConnectionManager() *Config {
+	cfg, err := LoadConnectionManager()
+	if err != nil {
+		slog.Error("failed to load connection manager configuration", "error", err)
 		os.Exit(1)
 	}
 	return cfg
@@ -283,6 +322,8 @@ func bindEnvVars(v *viper.Viper) {
 		"TASK_DEFINITION",
 		"TASK_EXEC_ROLE_ARN",
 		"TASK_ROLE_ARN",
+		"WEBSOCKET_API_ENDPOINT",
+		"WEBSOCKET_CONNECTIONS_TABLE",
 		"WEBVIEWER_URL",
 	}
 
@@ -301,15 +342,17 @@ func bindEnvVars(v *viper.Viper) {
 // validateOrchestrator validates required fields for orchestrator service.
 // These match the old caarlos0/env notEmpty tags to maintain parity.
 // TaskDefinition is no longer required - task definitions are managed dynamically via API.
+// WebSocketConnectionsTable is only required by the WebSocket lambdas, not the orchestrator.
 func validateOrchestrator(cfg *Config) error {
 	required := map[string]string{
-		"APIKeysTable":    cfg.APIKeysTable,
-		"ExecutionsTable": cfg.ExecutionsTable,
-		"ECSCluster":      cfg.ECSCluster,
-		"Subnet1":         cfg.Subnet1,
-		"Subnet2":         cfg.Subnet2,
-		"SecurityGroup":   cfg.SecurityGroup,
-		"LogGroup":        cfg.LogGroup,
+		"APIKeysTable":         cfg.APIKeysTable,
+		"ExecutionsTable":      cfg.ExecutionsTable,
+		"ECSCluster":           cfg.ECSCluster,
+		"Subnet1":              cfg.Subnet1,
+		"Subnet2":              cfg.Subnet2,
+		"SecurityGroup":        cfg.SecurityGroup,
+		"LogGroup":             cfg.LogGroup,
+		"WebSocketAPIEndpoint": cfg.WebSocketAPIEndpoint,
 	}
 
 	for field, value := range required {
@@ -336,4 +379,80 @@ func validateEventProcessor(cfg *Config) error {
 	}
 
 	return nil
+}
+
+// LoadLogForwarder loads configuration for the log forwarder service.
+// Loads from environment variables and validates required fields.
+// The WebSocketAPIEndpoint is normalized and returned as a fully-formed https:// URL
+// ready for use with AWS API Gateway Management API.
+func LoadLogForwarder() (*Config, error) {
+	v := viper.New()
+	setDefaults(v)
+
+	v.SetEnvPrefix("RUNVOY")
+	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+	v.AutomaticEnv()
+	bindEnvVars(v)
+
+	var cfg Config
+	if err := v.Unmarshal(&cfg); err != nil {
+		return nil, fmt.Errorf("error unmarshaling log forwarder config: %w", err)
+	}
+
+	if err := validateLogForwarder(&cfg); err != nil {
+		return nil, err
+	}
+
+	cfg.WebSocketAPIEndpoint = "https://" + normalizeWebSocketEndpoint(cfg.WebSocketAPIEndpoint)
+
+	return &cfg, nil
+}
+
+// MustLoadLogForwarder loads log forwarder configuration and exits on error.
+// Suitable for application startup where configuration errors should be fatal.
+func MustLoadLogForwarder() *Config {
+	cfg, err := LoadLogForwarder()
+	if err != nil {
+		slog.Error("failed to load log forwarder configuration", "error", err)
+		os.Exit(1)
+	}
+	return cfg
+}
+
+// validateConnectionManager validates required fields for connection manager service.
+func validateConnectionManager(cfg *Config) error {
+	required := map[string]string{
+		"WebSocketConnectionsTable": cfg.WebSocketConnectionsTable,
+	}
+
+	for field, value := range required {
+		if value == "" {
+			return fmt.Errorf("%s cannot be empty", field)
+		}
+	}
+
+	return nil
+}
+
+// validateLogForwarder validates required fields for log forwarder service.
+func validateLogForwarder(cfg *Config) error {
+	if err := validate.Var(cfg.WebSocketConnectionsTable, "required"); err != nil {
+		return fmt.Errorf("WebSocketConnectionsTable cannot be empty")
+	}
+	if err := validate.Var(cfg.WebSocketAPIEndpoint, "required"); err != nil {
+		return fmt.Errorf("WebSocketAPIEndpoint cannot be empty")
+	}
+	return nil
+}
+
+// normalizeWebSocketEndpoint strips protocol prefixes from WebSocket endpoint URLs.
+// Accepts: https://example.com, http://example.com, wss://example.com, ws://example.com, example.com
+// Returns: example.com (without protocol)
+func normalizeWebSocketEndpoint(endpoint string) string {
+	endpoint = strings.TrimSpace(endpoint)
+	endpoint = strings.TrimPrefix(endpoint, "https://")
+	endpoint = strings.TrimPrefix(endpoint, "http://")
+	endpoint = strings.TrimPrefix(endpoint, "wss://")
+	endpoint = strings.TrimPrefix(endpoint, "ws://")
+	return endpoint
 }

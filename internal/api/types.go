@@ -76,17 +76,24 @@ type Execution struct {
 	ComputePlatform string     `json:"cloud,omitempty"`
 }
 
-// LogEvent represents a single log event line
+// LogEvent represents a single log event.
+// Events are ordered by timestamp. Clients should sort by timestamp
+// and compute line numbers as needed for display purposes.
 type LogEvent struct {
-	Line      int    `json:"line"`
-	Timestamp int64  `json:"timestamp"`
-	Message   string `json:"message"`
+	Timestamp int64  `json:"timestamp"` // Unix timestamp in milliseconds
+	Message   string `json:"message"`   // The actual log message text
 }
 
 // LogsResponse contains all log events for an execution
 type LogsResponse struct {
 	ExecutionID string     `json:"execution_id"`
 	Events      []LogEvent `json:"events"`
+}
+
+// LogStreamResponse provides the WebSocket URL for streaming logs
+type LogStreamResponse struct {
+	ExecutionID  string `json:"execution_id"`
+	WebSocketURL string `json:"websocket_url"` // Full WebSocket URL with execution_id parameter
 }
 
 // Lock represents a lock record
@@ -186,4 +193,12 @@ type ImageInfo struct {
 // ListImagesResponse represents the response containing all registered images
 type ListImagesResponse struct {
 	Images []ImageInfo `json:"images"`
+}
+
+// WebSocketConnection represents a WebSocket connection record
+type WebSocketConnection struct {
+	ConnectionID  string `json:"connection_id"`
+	ExecutionID   string `json:"execution_id"`
+	Functionality string `json:"functionality"`
+	ExpiresAt     int64  `json:"expires_at"`
 }

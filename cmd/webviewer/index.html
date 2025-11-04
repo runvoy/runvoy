@@ -190,7 +190,7 @@
                 >
                 <div class="controls-actions">
                     <button onclick="saveCredentials()">Save</button>
-                    <button id="play-pause-btn" onclick="togglePolling()">Pause</button>
+                    <button id="play-pause-btn" onclick="toggleConnection()">Connect</button>
                     <button onclick="downloadLogs()">Download</button>
                     <button onclick="clearLogs()">Clear</button>
                     <button id="metadata-toggle-btn" onclick="toggleMetadata()">Hide Metadata</button>
@@ -206,15 +206,14 @@
     <script>
         // Configuration
         let API_ENDPOINT = null; // Loaded from localStorage
-        const POLL_INTERVAL = 5000; // 5 seconds
 
         // State
         let executionId = null;
         let apiKey = null;
-        let lastLineNumber = 0; // Track last line number to only append new logs
-        let pollingInterval = null;
+        let logEvents = []; // Store all log events, sorted by timestamp
+        let websocket = null;
         let isCompleted = false;
-        let isPaused = false;
+        let isConnecting = false;
         let showMetadata = true; // Whether to show line numbers and timestamps
 
         // Initialize
@@ -232,9 +231,9 @@
             } else if (!newExecutionId && executionId) {
                 execIdInput.value = '';
                 executionId = null;
-                stopPolling();
+                closeWebSocket();
                 document.getElementById('log-container').innerHTML = '';
-                lastLineNumber = 0;
+                logEvents = [];
                 isCompleted = false;
                 updateStatus(null);
                 updatePlayPauseButton();
@@ -285,7 +284,7 @@
             if (executionId && API_ENDPOINT && apiKey) {
                 fetchStatus();
                 fetchLogs();
-                startPolling();
+                connectWebSocket();
             } else if (executionId) {
                 appendLog('[INFO] Please enter endpoint URL and API key to view logs\n');
             }
@@ -307,7 +306,7 @@
 
             // Reset state
             document.getElementById('log-container').innerHTML = '';
-            lastLineNumber = 0;
+            logEvents = [];
             isCompleted = false;
             isPaused = false;
             document.getElementById('started-at').textContent = '-';
@@ -316,15 +315,15 @@
             // Update play/pause button
             updatePlayPauseButton();
 
-            // Stop existing polling
-            stopPolling();
+            // Close existing WebSocket
+            closeWebSocket();
 
             // Start fetching new execution's logs and status
             if (API_ENDPOINT && apiKey) {
                 appendLog(`[INFO] Switched to execution ID: ${executionId}\n`);
                 fetchStatus();
                 fetchLogs();
-                startPolling();
+                connectWebSocket();
             } else {
                 appendLog(`[INFO] Switched to execution ID: ${executionId}. Please enter endpoint URL and API key to view logs\n`);
             }
@@ -364,7 +363,7 @@
             // Start fetching
             fetchStatus();
             fetchLogs();
-            startPolling();
+            connectWebSocket();
         }
 
         async function fetchStatus() {
@@ -406,7 +405,7 @@
                 const terminalStatuses = ['SUCCEEDED', 'FAILED', 'STOPPED'];
                 if (terminalStatuses.includes(data.status)) {
                     isCompleted = true;
-                    stopPolling();
+                    closeWebSocket();
                     updatePlayPauseButton();
                     if (data.exit_code !== null && data.exit_code !== undefined) {
                         appendLog(`\n[INFO] Execution ${data.status} with exit code ${data.exit_code}\n`);
@@ -418,11 +417,126 @@
                 console.error('Failed to fetch status:', error);
 
                 if (error.message.includes('Invalid API key') || error.message.includes('Unauthorized')) {
-                    stopPolling();
+                    closeWebSocket();
                     localStorage.removeItem('runvoy_api_key');
                     document.getElementById('api-key-input').value = '';
                     appendLog(`\n[ERROR] Invalid API key. Please enter a valid key.\n`);
                 }
+            }
+        }
+
+        async function connectWebSocket() {
+            if (!apiKey || !API_ENDPOINT || !executionId || isConnecting) return;
+
+            // Close existing connection
+            closeWebSocket();
+
+            isConnecting = true;
+
+            try {
+                // Fetch WebSocket URL from the API
+                const url = `${API_ENDPOINT}/api/v1/executions/${executionId}/logs/stream`;
+                const response = await fetch(url, {
+                    headers: {
+                        'X-API-Key': apiKey
+                    }
+                });
+
+                if (!response.ok) {
+                    if (response.status === 401) {
+                        const errorData = await response.json().catch(() => ({}));
+                        throw new Error(errorData.details || 'Invalid API key');
+                    }
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(errorData.details || `HTTP ${response.status}`);
+                }
+
+                const data = await response.json();
+                const wsURL = data.websocket_url;
+
+                if (!wsURL || wsURL === '') {
+                    appendLog(`[WARN] WebSocket URL not configured on server. Real-time streaming unavailable.\n`);
+                    appendLog(`[INFO] You can still view logs via the static endpoint.\n`);
+                    isConnecting = false;
+                    updatePlayPauseButton();
+                    return;
+                }
+
+                // Validate WebSocket URL format
+                if (!wsURL.startsWith('wss://') && !wsURL.startsWith('ws://')) {
+                    throw new Error(`Invalid WebSocket URL format: ${wsURL}. Must start with wss:// or ws://`);
+                }
+
+                appendLog(`[INFO] Connecting to WebSocket: ${wsURL}\n`);
+
+                // Establish WebSocket connection
+                websocket = new WebSocket(wsURL);
+
+                websocket.onopen = () => {
+                    appendLog(`[INFO] WebSocket connected. Listening for logs...\n`);
+                    isConnecting = false;
+                    updatePlayPauseButton();
+                };
+
+                websocket.onmessage = (event) => {
+                    try {
+                        const logEvent = JSON.parse(event.data);
+
+                        // Check if we already have this log (by timestamp)
+                        const existingIndex = logEvents.findIndex(e => e.timestamp === logEvent.timestamp);
+
+                        if (existingIndex === -1) {
+                            // New log event
+                            logEvents.push(logEvent);
+                            logEvents.sort((a, b) => a.timestamp - b.timestamp);
+                            renderLogs();
+                        }
+                    } catch (err) {
+                        console.error('Failed to parse WebSocket message:', err);
+                    }
+                };
+
+                websocket.onerror = (error) => {
+                    console.error('WebSocket error:', error);
+                    appendLog(`\n[ERROR] WebSocket connection error\n`);
+                    isConnecting = false;
+                    updatePlayPauseButton();
+                };
+
+                websocket.onclose = (event) => {
+                    appendLog(`\n[INFO] WebSocket disconnected (code: ${event.code})\n`);
+                    isConnecting = false;
+                    websocket = null;
+                    updatePlayPauseButton();
+
+                    // Attempt reconnection if not completed and not a clean close
+                    if (!isCompleted && event.code !== 1000) {
+                        appendLog(`[INFO] Attempting to reconnect in 5 seconds...\n`);
+                        setTimeout(() => {
+                            if (!isCompleted && executionId) {
+                                connectWebSocket();
+                            }
+                        }, 5000);
+                    }
+                };
+
+            } catch (error) {
+                console.error('Failed to connect to WebSocket:', error);
+                appendLog(`\n[ERROR] Failed to connect: ${error.message}\n`);
+                isConnecting = false;
+                updatePlayPauseButton();
+
+                if (error.message.includes('Invalid API key') || error.message.includes('Unauthorized')) {
+                    localStorage.removeItem('runvoy_api_key');
+                    document.getElementById('api-key-input').value = '';
+                }
+            }
+        }
+
+        function closeWebSocket() {
+            if (websocket) {
+                websocket.close(1000, 'Client closing connection');
+                websocket = null;
             }
         }
 
@@ -452,18 +566,23 @@
 
                 const data = await response.json();
 
-                // Append new log events (only those after lastLineNumber)
+                // Merge new events with existing events
                 if (data.events && Array.isArray(data.events)) {
-                    const newEvents = data.events.filter(event => event.line > lastLineNumber);
+                    // Create a set of existing timestamps for quick lookup
+                    const existingTimestamps = new Set(logEvents.map(e => e.timestamp));
+
+                    // Filter out events we already have
+                    const newEvents = data.events.filter(event => !existingTimestamps.has(event.timestamp));
 
                     if (newEvents.length > 0) {
-                        // Sort by line number to ensure correct order
-                        newEvents.sort((a, b) => a.line - b.line);
+                        // Add new events to our collection
+                        logEvents.push(...newEvents);
 
-                        for (const event of newEvents) {
-                            appendLog(event.message, event.line, event.timestamp);
-                            lastLineNumber = Math.max(lastLineNumber, event.line);
-                        }
+                        // Sort all events by timestamp
+                        logEvents.sort((a, b) => a.timestamp - b.timestamp);
+
+                        // Re-render all logs with computed line numbers
+                        renderLogs();
                     }
                 }
             } catch (error) {
@@ -475,14 +594,33 @@
                 }
 
                 if (error.message.includes('Invalid API key') || error.message.includes('Unauthorized')) {
-                    stopPolling();
+                    closeWebSocket();
                     localStorage.removeItem('runvoy_api_key');
                     document.getElementById('api-key-input').value = '';
                 }
             }
         }
 
-        function appendLog(text, lineNumber, timestamp) {
+        function renderLogs() {
+            const container = document.getElementById('log-container');
+            const wasAtBottom = container.scrollHeight - container.scrollTop <= container.clientHeight + 50;
+
+            // Clear container
+            container.innerHTML = '';
+
+            // Render all logs with computed line numbers
+            logEvents.forEach((event, index) => {
+                const lineNumber = index + 1; // 1-indexed line numbers
+                appendLogToDOM(event.message, lineNumber, event.timestamp);
+            });
+
+            // Auto-scroll to bottom if we were already at bottom
+            if (wasAtBottom) {
+                container.scrollTop = container.scrollHeight;
+            }
+        }
+
+        function appendLogToDOM(text, lineNumber, timestamp) {
             const container = document.getElementById('log-container');
             const parsed = parseAnsi(text);
 
@@ -500,8 +638,13 @@
             }
 
             container.innerHTML += `<div class="log-line">${metaHtml}<span class="log-content">${parsed}</span></div>`;
+        }
 
-            // Auto-scroll to bottom
+        function appendLog(text) {
+            // For system messages (INFO, ERROR) that don't have timestamps
+            const container = document.getElementById('log-container');
+            const parsed = parseAnsi(text);
+            container.innerHTML += `<div class="log-line"><span class="log-content">${parsed}</span></div>`;
             container.scrollTop = container.scrollHeight;
         }
 
@@ -536,39 +679,14 @@
             statusEl.className = `status ${statusClass}`;
         }
 
-        function startPolling() {
-            if (pollingInterval || isPaused) return;
-            pollingInterval = setInterval(() => {
-                if (!isCompleted && !isPaused) {
-                    fetchStatus();
-                    fetchLogs();
-                }
-            }, POLL_INTERVAL);
-            updatePlayPauseButton();
-        }
-
-        function stopPolling() {
-            if (pollingInterval) {
-                clearInterval(pollingInterval);
-                pollingInterval = null;
-            }
-            updatePlayPauseButton();
-        }
-
-        function togglePolling() {
-            if (isPaused) {
-                // Resume polling
-                isPaused = false;
-                if (!isCompleted) {
-                    startPolling();
-                    // Immediately fetch once when resuming
-                    fetchStatus();
-                    fetchLogs();
-                }
+        function toggleConnection() {
+            if (websocket && websocket.readyState === WebSocket.OPEN) {
+                // Close WebSocket connection
+                closeWebSocket();
+                appendLog('[INFO] Disconnected from WebSocket\n');
             } else {
-                // Pause polling
-                isPaused = true;
-                stopPolling();
+                // Reconnect WebSocket
+                connectWebSocket();
             }
             updatePlayPauseButton();
         }
@@ -579,11 +697,14 @@
                 if (isCompleted) {
                     btn.textContent = 'Completed';
                     btn.disabled = true;
-                } else if (isPaused) {
-                    btn.textContent = 'Resume';
+                } else if (isConnecting) {
+                    btn.textContent = 'Connecting...';
+                    btn.disabled = true;
+                } else if (websocket && websocket.readyState === WebSocket.OPEN) {
+                    btn.textContent = 'Disconnect';
                     btn.disabled = false;
                 } else {
-                    btn.textContent = 'Pause';
+                    btn.textContent = 'Connect';
                     btn.disabled = false;
                 }
             }
@@ -596,16 +717,7 @@
                 btn.textContent = showMetadata ? 'Hide Metadata' : 'Show Metadata';
             }
             // Re-render all logs with new metadata setting
-            const container = document.getElementById('log-container');
-            const allLogs = container.querySelectorAll('.log-line');
-            const logs = Array.from(allLogs);
-            container.innerHTML = '';
-            lastLineNumber = 0;
-
-            // Fetch logs again with new display setting
-            if (API_ENDPOINT && apiKey) {
-                fetchLogs();
-            }
+            renderLogs();
         }
 
         function downloadLogs() {
@@ -623,7 +735,7 @@
         function clearLogs() {
             if (confirm('Clear log display? (logs are still stored in CloudWatch)')) {
                 document.getElementById('log-container').innerHTML = '';
-                lastLineNumber = 0;
+                logEvents = [];
             }
         }
     </script>
