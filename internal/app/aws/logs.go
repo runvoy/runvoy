@@ -54,8 +54,8 @@ func FetchLogsByExecutionID(ctx context.Context, cfg *Config, executionID string
 	if err != nil {
 		return nil, err
 	}
-	reqLogger.Debug("log events fetched successfully", "context", map[string]int{
-		"events_count": len(events),
+	reqLogger.Debug("log events fetched successfully", "context", map[string]string{
+		"events_count": fmt.Sprintf("%d", len(events)),
 	})
 
 	sort.SliceStable(events, func(i, j int) bool { return events[i].Timestamp < events[j].Timestamp })
