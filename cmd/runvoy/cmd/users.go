@@ -20,9 +20,6 @@ var listUsersCmd = &cobra.Command{
 	Long:    `List all users in the system with their basic information`,
 	Example: fmt.Sprintf(`  - %s users list`, constants.ProjectName),
 	Run:     runListUsers,
-	PostRun: func(_ *cobra.Command, _ []string) {
-		output.Blank()
-	},
 }
 
 func init() {

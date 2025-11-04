@@ -28,10 +28,7 @@ var logsCmd = &cobra.Command{
 	Short: "Get logs for an execution",
 	Long:  `Get logs for an execution`,
 	Run:   logsRun,
-	PostRun: func(_ *cobra.Command, _ []string) {
-		output.Blank()
-	},
-	Args: cobra.ExactArgs(1),
+	Args:  cobra.ExactArgs(1),
 }
 
 func init() {
@@ -280,7 +277,6 @@ func (s *LogsService) printLogLine(lineNumber int, log api.LogEvent) {
 
 // printWebviewerURL prints the webviewer URL
 func (s *LogsService) printWebviewerURL(webviewerURL, executionID string) {
-	s.output.Blank()
 	s.output.Infof("View logs in web viewer: %s?execution_id=%s",
 		webviewerURL, s.output.Cyan(executionID))
 }
