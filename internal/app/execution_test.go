@@ -419,15 +419,15 @@ func TestGetLogsByExecutionID(t *testing.T) {
 	now := time.Now()
 
 	tests := []struct {
-		name             string
-		executionID      string
-		mockEvents       []api.LogEvent
-		executionStatus  string
-		fetchLogsErr     error
-		getExecutionErr  error
-		expectErr        bool
-		expectedError    string
-		shouldHaveWSURL  bool
+		name            string
+		executionID     string
+		mockEvents      []api.LogEvent
+		executionStatus string
+		fetchLogsErr    error
+		getExecutionErr error
+		expectErr       bool
+		expectedError   string
+		shouldHaveWSURL bool
 	}{
 		{
 			name:        "successful fetch with logs - running execution",
