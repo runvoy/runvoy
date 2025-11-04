@@ -461,8 +461,6 @@ func (s *Service) KillExecution(ctx context.Context, executionID string) error {
 		return killErr
 	}
 
-	reqLogger.Info("execution termination initiated", "executionID", executionID)
-
 	return nil
 }
 

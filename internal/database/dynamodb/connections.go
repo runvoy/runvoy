@@ -7,7 +7,7 @@ import (
 
 	"runvoy/internal/api"
 	"runvoy/internal/database"
-	apperrors "runvoy/internal/errors"
+	appErrors "runvoy/internal/errors"
 	"runvoy/internal/logger"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -66,14 +66,14 @@ func (r *ConnectionRepository) CreateConnection(
 
 	av, err := attributevalue.MarshalMap(item)
 	if err != nil {
-		return apperrors.ErrDatabaseError("failed to marshal connection item", err)
+		return appErrors.ErrDatabaseError("failed to marshal connection item", err)
 	}
 
 	logArgs := []any{
 		"operation", "DynamoDB.PutItem",
 		"table", r.tableName,
-		"connectionID", connection.ConnectionID,
-		"executionID", connection.ExecutionID,
+		"connection_id", connection.ConnectionID,
+		"execution_id", connection.ExecutionID,
 		"functionality", connection.Functionality,
 	}
 	logArgs = append(logArgs, logger.GetDeadlineInfo(ctx)...)
@@ -84,10 +84,14 @@ func (r *ConnectionRepository) CreateConnection(
 		Item:      av,
 	})
 	if err != nil {
-		return apperrors.ErrDatabaseError("failed to store connection", err)
+		return appErrors.ErrDatabaseError("failed to store connection", err)
 	}
 
-	reqLogger.Debug("connection stored successfully", "connectionID", connection.ConnectionID)
+	reqLogger.Info("connection stored successfully", "context", map[string]any{
+		"connection_id": connection.ConnectionID,
+		"execution_id":  connection.ExecutionID,
+		"functionality": connection.Functionality,
+	})
 	return nil
 }
 
@@ -101,13 +105,13 @@ func (r *ConnectionRepository) DeleteConnection(ctx context.Context, connectionI
 
 	keyAV, err := attributevalue.MarshalMap(key)
 	if err != nil {
-		return apperrors.ErrDatabaseError("failed to marshal connection key", err)
+		return appErrors.ErrDatabaseError("failed to marshal connection key", err)
 	}
 
 	logArgs := []any{
 		"operation", "DynamoDB.DeleteItem",
 		"table", r.tableName,
-		"connectionID", connectionID,
+		"connection_id", connectionID,
 	}
 	logArgs = append(logArgs, logger.GetDeadlineInfo(ctx)...)
 	reqLogger.Debug("calling external service", "context", logger.SliceToMap(logArgs))
@@ -117,10 +121,12 @@ func (r *ConnectionRepository) DeleteConnection(ctx context.Context, connectionI
 		Key:       keyAV,
 	})
 	if err != nil {
-		return apperrors.ErrDatabaseError("failed to delete connection", err)
+		return appErrors.ErrDatabaseError("failed to delete connection", err)
 	}
 
-	reqLogger.Debug("connection deleted successfully", "connectionID", connectionID)
+	reqLogger.Info("connection deleted successfully", "context", map[string]any{
+		"connection_id": connectionID,
+	})
 	return nil
 }
 
@@ -150,11 +156,13 @@ func (r *ConnectionRepository) GetConnectionsByExecutionID(
 		},
 	})
 	if err != nil {
-		return nil, apperrors.ErrDatabaseError("failed to query connections by execution ID", err)
+		return nil, appErrors.ErrDatabaseError("failed to query connections by execution ID", err)
 	}
 
 	if len(result.Items) == 0 {
-		reqLogger.Debug("no connections found for execution", "executionID", executionID)
+		reqLogger.Debug("no connections found for execution", "context", map[string]string{
+			"execution_id": executionID,
+		})
 		return []string{}, nil
 	}
 
@@ -167,10 +175,11 @@ func (r *ConnectionRepository) GetConnectionsByExecutionID(
 		connectionIDs = append(connectionIDs, connItem.ConnectionID)
 	}
 
-	reqLogger.Debug("connections retrieved successfully",
-		"executionID", executionID,
-		"count", len(connectionIDs),
-	)
+	reqLogger.Info("connections retrieved successfully", "context", map[string]any{
+		"execution_id":      executionID,
+		"connections_count": len(connectionIDs),
+		"connections":       connectionIDs,
+	})
 
 	return connectionIDs, nil
 }
