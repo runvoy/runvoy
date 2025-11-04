@@ -1,8 +1,8 @@
 # runvoy
 
-Serverless platform to easily run tasks on ephemeral containers without sharing credentials. An AWS admin deploys runvoy backend once, then issues API keys to team members for secure, audited command execution. User can then interact with the platform via the `runvoy` CLI.
+Run infrastructure commands without sharing credentials.
 
-With Runvoy the team can share and execute runbook procedures and execute them simply running a command, no need for complex workstation configurations, just `runvoy` and an API key.
+Deploy once, issue API keys, let your team execute Terraform, kubectl, and other tools safely from their terminals.
 
 Think of Terraform Cloud without the need for a Terraform Cloud account (and monthly bill...).
 
