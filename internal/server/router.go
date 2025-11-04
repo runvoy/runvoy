@@ -8,7 +8,6 @@ import (
 
 	"runvoy/internal/api"
 	"runvoy/internal/app"
-	"runvoy/internal/config"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -17,7 +16,6 @@ import (
 type Router struct {
 	router *chi.Mux
 	svc    *app.Service
-	cfg    *config.Config
 }
 
 type contextKey string
@@ -31,12 +29,11 @@ const (
 // If requestTimeout is > 0, adds a per-request timeout middleware.
 // If requestTimeout is 0, no timeout middleware is added, allowing the
 // environment (e.g., Lambda with its own timeout) to handle timeouts.
-func NewRouter(svc *app.Service, cfg *config.Config, requestTimeout time.Duration) *Router {
+func NewRouter(svc *app.Service, requestTimeout time.Duration) *Router {
 	r := chi.NewRouter()
 	router := &Router{
 		router: r,
 		svc:    svc,
-		cfg:    cfg,
 	}
 
 	if requestTimeout > 0 {
@@ -67,8 +64,6 @@ func NewRouter(svc *app.Service, cfg *config.Config, requestTimeout time.Duratio
 		r.With(router.authenticateRequestMiddleware).Get("/executions", router.handleListExecutions)
 		r.With(router.authenticateRequestMiddleware).Get("/executions/{executionID}/logs",
 			router.handleGetExecutionLogs)
-		r.With(router.authenticateRequestMiddleware).Get("/executions/{executionID}/logs/stream",
-			router.handleGetExecutionLogsStream)
 		r.With(router.authenticateRequestMiddleware).Get("/executions/{executionID}/status",
 			router.handleGetExecutionStatus)
 		r.With(router.authenticateRequestMiddleware).Post("/executions/{executionID}/kill",

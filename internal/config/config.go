@@ -41,8 +41,6 @@ type Config struct {
 	TaskRoleARN         string        `mapstructure:"task_role_arn"`
 	InitTimeout         time.Duration `mapstructure:"init_timeout"`
 	LogLevel            string        `mapstructure:"log_level"`
-	WebSocketAPIID      string        `mapstructure:"websocket_api_id"`
-	AWSRegion           string        `mapstructure:"aws_region"`
 }
 
 var validate = validator.New()
@@ -286,8 +284,6 @@ func bindEnvVars(v *viper.Viper) {
 		"TASK_EXEC_ROLE_ARN",
 		"TASK_ROLE_ARN",
 		"WEBVIEWER_URL",
-		"WEBSOCKET_API_ID",
-		"AWS_REGION",
 	}
 
 	for _, envVar := range envVars {

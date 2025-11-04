@@ -480,8 +480,6 @@ Resources:
           RUNVOY_LOG_GROUP: !Ref RunnerLogGroup
           RUNVOY_TASK_EXEC_ROLE_ARN: !GetAtt TaskExecutionRole.Arn
           RUNVOY_TASK_ROLE_ARN: !GetAtt TaskRole.Arn
-          RUNVOY_WEBSOCKET_API_ID: !Ref WebSocketApi
-          RUNVOY_AWS_REGION: !Ref AWS::Region
 
   # Lambda Function URL
   LambdaFunctionUrl:

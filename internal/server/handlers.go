@@ -4,7 +4,6 @@ package server
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -163,36 +162,6 @@ func (r *Router) handleGetExecutionLogs(w http.ResponseWriter, req *http.Request
 
 	w.WriteHeader(http.StatusOK)
 	_ = json.NewEncoder(w).Encode(resp)
-}
-
-// handleGetExecutionLogsStream handles GET /api/v1/executions/{executionID}/logs/stream
-// Returns HTTP 307 redirect to WebSocket API Gateway endpoint
-func (r *Router) handleGetExecutionLogsStream(w http.ResponseWriter, req *http.Request) {
-	logger := r.GetLoggerFromContext(req.Context())
-
-	executionID := strings.TrimSpace(chi.URLParam(req, "executionID"))
-	if executionID == "" {
-		writeErrorResponse(w, http.StatusBadRequest, "invalid execution id", "executionID is required")
-		return
-	}
-
-	if r.cfg == nil {
-		logger.Error("config not available")
-		writeErrorResponse(w, http.StatusInternalServerError, "Internal server error", "configuration not available")
-		return
-	}
-
-	if r.cfg.WebSocketAPIID == "" || r.cfg.AWSRegion == "" {
-		logger.Error("WebSocket API configuration missing", "websocketApiID", r.cfg.WebSocketAPIID, "awsRegion", r.cfg.AWSRegion)
-		writeErrorResponse(w, http.StatusInternalServerError, "Internal server error", "WebSocket API not configured")
-		return
-	}
-
-	websocketURL := fmt.Sprintf("wss://%s.execute-api.%s.amazonaws.com/production?execution_id=%s",
-		r.cfg.WebSocketAPIID, r.cfg.AWSRegion, executionID)
-
-	w.Header().Set("Location", websocketURL)
-	w.WriteHeader(http.StatusTemporaryRedirect)
 }
 
 // handleGetExecutionStatus handles GET /api/v1/executions/{executionID}/status to fetch execution status
