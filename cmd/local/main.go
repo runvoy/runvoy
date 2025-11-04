@@ -29,7 +29,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	router := server.NewRouter(svc, cfg.RequestTimeout)
+	router := server.NewRouter(svc, cfg, cfg.RequestTimeout)
 	srv := &http.Server{
 		Addr:         fmt.Sprintf(":%s", cfg.Port),
 		Handler:      router.Handler(),

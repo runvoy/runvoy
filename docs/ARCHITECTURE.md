@@ -74,6 +74,7 @@ DELETE /api/v1/images/{image}           - Remove a registered Docker image (admi
 POST   /api/v1/run                      - Start an execution
 GET    /api/v1/executions               - List executions (queried via DynamoDB GSI)
 GET    /api/v1/executions/{id}/logs     - Fetch execution logs (CloudWatch)
+GET    /api/v1/executions/{id}/logs/stream - Redirect to WebSocket endpoint for real-time log streaming
 GET    /api/v1/executions/{id}/status   - Get execution status (RUNNING/SUCCEEDED/FAILED/STOPPED)
 POST   /api/v1/executions/{id}/kill     - Terminate a running execution
 GET    /api/v1/claim/{token}            - Claim a pending API key (public, no auth required)
@@ -824,6 +825,94 @@ Client behavior (CLI `runvoy logs <executionID>`):
 - Stops tailing when the execution reaches a terminal status (COMPLETED/SUCCEEDED/FAILED/etc.) and prints the final status badge
 
 Future enhancements may include server-side filtering and pagination.
+
+### WebSocket Log Streaming
+
+runvoy supports near-real-time log streaming via API Gateway WebSockets. This provides low-latency log delivery compared to polling-based approaches.
+
+**Architecture:**
+
+1. **CloudWatch Logs Subscription Filter**: A subscription filter on the runner log group (`/aws/ecs/runvoy/runner`) forwards log events to the log forwarder Lambda
+2. **Log Forwarder Lambda**: Processes CloudWatch Logs events, extracts `execution_id` from log stream names, and forwards events to connected WebSocket clients
+3. **API Gateway WebSocket API**: Manages WebSocket connections with `$connect` and `$disconnect` routes
+4. **Connection Manager Lambda**: Handles WebSocket connection lifecycle (connect/disconnect) and stores active connections in DynamoDB
+5. **DynamoDB Connections Table**: Stores active WebSocket connections with `execution_id` index for efficient querying
+
+**Flow:**
+
+```
+CloudWatch Logs → Subscription Filter → Log Forwarder Lambda → API Gateway Management API → WebSocket Clients
+```
+
+**Connection Lifecycle:**
+
+1. Client requests `GET /api/v1/executions/{executionID}/logs/stream`
+2. Server returns HTTP 307 redirect to WebSocket endpoint: `wss://{api-id}.execute-api.{region}.amazonaws.com/production?execution_id={executionID}`
+3. Client connects to WebSocket API with `execution_id` query parameter
+4. Connection manager Lambda stores connection in DynamoDB with TTL (1 hour)
+5. Log forwarder Lambda queries connections by `execution_id` and forwards events as they arrive
+6. On disconnect, connection manager removes entry from DynamoDB
+7. TTL ensures stale connections are automatically cleaned up
+
+**Message Format:**
+
+WebSocket messages are JSON-encoded:
+
+```json
+{
+  "execution_id": "abc123",
+  "timestamp": 1234567890,
+  "message": "log message text",
+  "event_id": "unique-event-id",
+  "index": 1
+}
+```
+
+**Indexing and Duplicate Handling:**
+
+- Each connection tracks `last_log_index` to ensure sequential delivery
+- Log events are assigned monotonically increasing indices per connection
+- Duplicate events (identified by CloudWatch Logs `event_id`) are handled gracefully
+- Clients can track processed indices to detect gaps or handle reconnections
+
+**Failure Modes:**
+
+- **Stale Connections**: When API Gateway reports `GoneException`, the connection is automatically removed from DynamoDB
+- **Transient Failures**: Log forwarder implements retry with exponential backoff (max 3 attempts) for API Gateway post failures
+- **Missing Execution ID**: Log events without matching active connections are silently ignored
+- **Connection TTL**: Connections expire after 1 hour to prevent unbounded growth
+
+**Operational Limits:**
+
+- **Connection Count**: Limited by DynamoDB table capacity and API Gateway limits
+- **Message Size**: CloudWatch Logs subscription batches up to ~1 MB or ~10K events per batch
+- **Latency**: Typically a few seconds from log emission to client delivery
+- **Delivery**: At-least-once delivery model (duplicates possible, handled by event ID tracking)
+
+**Infrastructure:**
+
+- **DynamoDB Table**: `{ProjectName}-websocket-connections` with GSI on `execution_id`
+- **Lambda Functions**: 
+  - `{ProjectName}-websocket-connection-manager` (handles $connect/$disconnect)
+  - `{ProjectName}-websocket-log-forwarder` (processes CloudWatch Logs events)
+- **API Gateway**: WebSocket API with production stage
+- **Subscription Filter**: CloudWatch Logs subscription filter on runner log group
+
+**Configuration:**
+
+Environment variables for orchestrator Lambda:
+- `RUNVOY_WEBSOCKET_API_ID`: WebSocket API Gateway ID
+- `RUNVOY_AWS_REGION`: AWS region for constructing WebSocket URL
+
+Environment variables for log forwarder Lambda:
+- `RUNVOY_WEBSOCKET_CONNECTIONS_TABLE`: DynamoDB table name for connections
+- `RUNVOY_WEBSOCKET_API_ENDPOINT`: API Gateway Management API endpoint
+
+**Client Usage:**
+
+Clients can choose between:
+- **Polling**: `GET /api/v1/executions/{id}/logs` returns all available logs at request time
+- **Streaming**: `GET /api/v1/executions/{id}/logs/stream` redirects to WebSocket for real-time tailing
 
 2. **Lock Enforcement** - Lock names are stored in execution records but not actively enforced. Future implementation:
    - Acquire locks before starting tasks

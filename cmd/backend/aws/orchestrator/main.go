@@ -28,6 +28,6 @@ func main() {
 	}
 
 	log.Debug("starting Lambda handler")
-	handler := lambdaapi.NewHandler(svc, cfg.RequestTimeout)
+	handler := lambdaapi.NewHandler(svc, cfg, cfg.RequestTimeout)
 	lambda.Start(handler)
 }

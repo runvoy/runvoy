@@ -4,6 +4,7 @@ package lambdaapi
 
 import (
 	"runvoy/internal/app"
+	"runvoy/internal/config"
 	"runvoy/internal/server"
 	"time"
 
@@ -14,7 +15,7 @@ import (
 // NewHandler creates a new Lambda handler with the given service.
 // The request timeout is passed to the router to configure the timeout middleware.
 // It uses algnhsa to adapt the chi router to work with Lambda Function URLs.
-func NewHandler(svc *app.Service, requestTimeout time.Duration) lambda.Handler {
-	router := server.NewRouter(svc, requestTimeout)
+func NewHandler(svc *app.Service, cfg *config.Config, requestTimeout time.Duration) lambda.Handler {
+	router := server.NewRouter(svc, cfg, requestTimeout)
 	return algnhsa.New(router.Handler(), nil)
 }
