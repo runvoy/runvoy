@@ -216,6 +216,9 @@
         let isConnecting = false;
         let showMetadata = true; // Whether to show line numbers and timestamps
         let cachedWebSocketURL = null; // WebSocket URL from logs response
+        let logsRetryCount = 0; // Number of times we've retried fetching logs due to 404
+        const MAX_LOGS_RETRIES = 2; // Maximum number of retries for 404 errors
+        const LOGS_RETRY_DELAY = 10000; // 10 seconds in milliseconds
 
         // Initialize
         document.addEventListener('DOMContentLoaded', init);
@@ -235,6 +238,7 @@
                 closeWebSocket();
                 document.getElementById('log-container').innerHTML = '';
                 logEvents = [];
+                logsRetryCount = 0;
                 isCompleted = false;
                 updateStatus(null);
                 updatePlayPauseButton();
@@ -284,8 +288,7 @@
             // Start fetching logs and status if we have an execution ID and credentials
             if (executionId && API_ENDPOINT && apiKey) {
                 fetchStatus();
-                fetchLogs();
-                connectWebSocket();
+                fetchLogsAndConnect();
             } else if (executionId) {
                 appendLog('[INFO] Please enter endpoint URL and API key to view logs\n');
             }
@@ -309,6 +312,7 @@
             document.getElementById('log-container').innerHTML = '';
             logEvents = [];
             cachedWebSocketURL = null;
+            logsRetryCount = 0;
             isCompleted = false;
             isPaused = false;
             document.getElementById('started-at').textContent = '-';
@@ -324,8 +328,7 @@
             if (API_ENDPOINT && apiKey) {
                 appendLog(`[INFO] Switched to execution ID: ${executionId}\n`);
                 fetchStatus();
-                fetchLogs();
-                connectWebSocket();
+                fetchLogsAndConnect();
             } else {
                 appendLog(`[INFO] Switched to execution ID: ${executionId}. Please enter endpoint URL and API key to view logs\n`);
             }
@@ -364,8 +367,7 @@
 
             // Start fetching
             fetchStatus();
-            fetchLogs();
-            connectWebSocket();
+            fetchLogsAndConnect();
         }
 
         async function fetchStatus() {
@@ -525,6 +527,16 @@
             }
         }
 
+        // fetchLogsAndConnect fetches logs first, then connects to WebSocket if available
+        async function fetchLogsAndConnect() {
+            await fetchLogs();
+
+            // After fetching logs, connect to WebSocket if URL is available
+            if (cachedWebSocketURL && !websocket) {
+                connectWebSocket();
+            }
+        }
+
         async function fetchLogs() {
             if (!apiKey || !API_ENDPOINT) return;
 
@@ -543,11 +555,22 @@
                     }
                     if (response.status === 404) {
                         // Log stream doesn't exist yet, this is normal for new executions
+                        // Retry with backoff if we haven't exceeded max retries
+                        if (logsRetryCount < MAX_LOGS_RETRIES) {
+                            logsRetryCount++;
+                            appendLog(`[INFO] Logs not available yet, waiting ${LOGS_RETRY_DELAY / 1000} seconds... (attempt ${logsRetryCount}/${MAX_LOGS_RETRIES + 1})\n`);
+                            setTimeout(fetchLogsAndConnect, LOGS_RETRY_DELAY);
+                        } else {
+                            appendLog('[INFO] Logs not available yet. Execution may still be starting up.\n');
+                        }
                         return;
                     }
                     const errorData = await response.json().catch(() => ({}));
                     throw new Error(errorData.details || `HTTP ${response.status}`);
                 }
+
+                // Reset retry count on successful fetch
+                logsRetryCount = 0;
 
                 const data = await response.json();
 
@@ -726,6 +749,7 @@
             if (confirm('Clear log display? (logs are still stored in CloudWatch)')) {
                 document.getElementById('log-container').innerHTML = '';
                 logEvents = [];
+                logsRetryCount = 0;
             }
         }
     </script>
