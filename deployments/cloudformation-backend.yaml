@@ -470,16 +470,17 @@ Resources:
       Environment:
         Variables:
           RUNVOY_API_KEYS_TABLE: !Ref APIKeysTable
+          RUNVOY_ECS_CLUSTER: !Ref ECSCluster
           RUNVOY_EXECUTIONS_TABLE: !Ref ExecutionsTable
           RUNVOY_LOCKS_TABLE: !Ref LocksTable
+          RUNVOY_LOG_GROUP: !Ref RunnerLogGroup
           RUNVOY_PENDING_API_KEYS_TABLE: !Ref PendingAPIKeysTable
-          RUNVOY_ECS_CLUSTER: !Ref ECSCluster
+          RUNVOY_SECURITY_GROUP: !Ref FargateSecurityGroup
           RUNVOY_SUBNET_1: !Ref PublicSubnet1
           RUNVOY_SUBNET_2: !Ref PublicSubnet2
-          RUNVOY_SECURITY_GROUP: !Ref FargateSecurityGroup
-          RUNVOY_LOG_GROUP: !Ref RunnerLogGroup
           RUNVOY_TASK_EXEC_ROLE_ARN: !GetAtt TaskExecutionRole.Arn
           RUNVOY_TASK_ROLE_ARN: !GetAtt TaskRole.Arn
+          RUNVOY_WEBSOCKET_API_ENDPOINT: !Sub '${WebSocketApi.ApiId}.execute-api.${AWS::Region}.amazonaws.com/production'
 
   # Lambda Function URL
   LambdaFunctionUrl:
