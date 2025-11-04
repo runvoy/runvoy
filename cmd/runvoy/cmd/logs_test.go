@@ -24,6 +24,10 @@ func (m *mockClientInterfaceForLogs) GetLogs(ctx context.Context, executionID st
 	return nil, fmt.Errorf("not implemented")
 }
 
+func (m *mockClientInterfaceForLogs) GetLogStreamURL(_ context.Context, _ string) (*api.LogStreamResponse, error) {
+	return &api.LogStreamResponse{}, nil
+}
+
 func TestLogsService_DisplayLogs(t *testing.T) {
 	tests := []struct {
 		name         string
@@ -52,17 +56,18 @@ func TestLogsService_DisplayLogs(t *testing.T) {
 			verifyOutput: func(t *testing.T, m *mockOutputInterface) {
 				require.Greater(t, len(m.calls), 0)
 				hasTable := false
-				hasSuccess := false
+				hasWarning := false
 				for _, call := range m.calls {
 					if call.method == "Table" {
 						hasTable = true
 					}
-					if call.method == "Successf" {
-						hasSuccess = true
+					if call.method == "Warningf" {
+						hasWarning = true
 					}
 				}
 				assert.True(t, hasTable, "Expected Table call to display logs")
-				assert.True(t, hasSuccess, "Expected Successf call")
+				// Since WebSocket URL is empty in mock, we expect a warning instead of success
+				assert.True(t, hasWarning, "Expected Warningf call when WebSocket not configured")
 			},
 		},
 		{

@@ -10,6 +10,7 @@ import (
 // Interface defines the API client interface for dependency injection and testing
 type Interface interface {
 	GetLogs(ctx context.Context, executionID string) (*api.LogsResponse, error)
+	GetLogStreamURL(ctx context.Context, executionID string) (*api.LogStreamResponse, error)
 	GetExecutionStatus(ctx context.Context, executionID string) (*api.ExecutionStatusResponse, error)
 	RunCommand(ctx context.Context, req *api.ExecutionRequest) (*api.ExecutionResponse, error)
 	KillExecution(ctx context.Context, executionID string) (*api.KillExecutionResponse, error)

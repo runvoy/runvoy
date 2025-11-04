@@ -452,7 +452,6 @@
                 }
 
                 const data = await response.json();
-                console.log('WebSocket stream response:', data);
                 const wsURL = data.websocket_url;
 
                 if (!wsURL || wsURL === '') {

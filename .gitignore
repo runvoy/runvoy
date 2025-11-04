@@ -25,6 +25,7 @@ coverage.html
 *.dylib
 *.test
 *.out
+*.tmp
 go.work
 go.work.sum
 .envrc
