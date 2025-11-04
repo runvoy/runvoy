@@ -383,6 +383,8 @@ func validateEventProcessor(cfg *Config) error {
 
 // LoadLogForwarder loads configuration for the log forwarder service.
 // Loads from environment variables and validates required fields.
+// The WebSocketAPIEndpoint is normalized and returned as a fully-formed https:// URL
+// ready for use with AWS API Gateway Management API.
 func LoadLogForwarder() (*Config, error) {
 	v := viper.New()
 	setDefaults(v)
@@ -401,8 +403,7 @@ func LoadLogForwarder() (*Config, error) {
 		return nil, err
 	}
 
-	// Normalize WebSocket endpoint: strip protocol if present
-	cfg.WebSocketAPIEndpoint = normalizeWebSocketEndpoint(cfg.WebSocketAPIEndpoint)
+	cfg.WebSocketAPIEndpoint = "https://" + normalizeWebSocketEndpoint(cfg.WebSocketAPIEndpoint)
 
 	return &cfg, nil
 }
