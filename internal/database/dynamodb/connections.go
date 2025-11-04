@@ -160,9 +160,6 @@ func (r *ConnectionRepository) GetConnectionsByExecutionID(
 	}
 
 	if len(result.Items) == 0 {
-		reqLogger.Debug("no connections found for execution", "context", map[string]string{
-			"execution_id": executionID,
-		})
 		return []string{}, nil
 	}
 

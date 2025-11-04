@@ -4,10 +4,12 @@ package websocket
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"strings"
 
+	"runvoy/internal/api"
 	"runvoy/internal/config"
 	"runvoy/internal/constants"
 	"runvoy/internal/database"
@@ -148,14 +150,8 @@ func (lf *LogForwarder) forwardLogsToConnections(
 	})
 
 	for _, logEvent := range logEvents {
-		logMessage := logEvent.Message
-		if logMessage == "" {
-			continue
-		}
-
-		// Forward to all connected clients
 		for _, connectionID := range connectionIDs {
-			if sendErr := lf.sendToConnection(ctx, connectionID, logMessage); sendErr != nil {
+			if sendErr := lf.sendToConnection(ctx, connectionID, logEvent); sendErr != nil {
 				reqLogger.Error("failed to send log to connection", "context", map[string]string{
 					"error":         sendErr.Error(),
 					"connection_id": connectionID,
@@ -176,19 +172,28 @@ func (lf *LogForwarder) forwardLogsToConnections(
 }
 
 // sendToConnection sends a message to a WebSocket connection via API Gateway Management API.
-func (lf *LogForwarder) sendToConnection(ctx context.Context, connectionID, message string) error {
+func (lf *LogForwarder) sendToConnection(
+	ctx context.Context, connectionID string, logEvent events.CloudwatchLogsLogEvent) error {
 	reqLogger := logger.DeriveRequestLogger(ctx, lf.logger)
 
 	reqLogger.Debug("sending message to connection",
 		"context", map[string]string{
 			"connection_id":  connectionID,
-			"message_length": fmt.Sprintf("%d", len(message)),
+			"message_length": fmt.Sprintf("%d", len(logEvent.Message)),
 		},
 	)
 
-	_, err := lf.apiGwClient.PostToConnection(ctx, &apigatewaymanagementapi.PostToConnectionInput{
+	jsonEventData, err := json.Marshal(api.LogEvent{
+		Timestamp: logEvent.Timestamp,
+		Message:   logEvent.Message,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to marshal log event: %w", err)
+	}
+
+	_, err = lf.apiGwClient.PostToConnection(ctx, &apigatewaymanagementapi.PostToConnectionInput{
 		ConnectionId: &connectionID,
-		Data:         []byte(message),
+		Data:         jsonEventData,
 	})
 
 	if err != nil {
