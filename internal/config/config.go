@@ -436,17 +436,12 @@ func validateConnectionManager(cfg *Config) error {
 
 // validateLogForwarder validates required fields for log forwarder service.
 func validateLogForwarder(cfg *Config) error {
-	required := map[string]string{
-		"WebSocketConnectionsTable": cfg.WebSocketConnectionsTable,
-		"WebSocketApiEndpoint":      cfg.WebSocketAPIEndpoint,
+	if err := validate.Var(cfg.WebSocketConnectionsTable, "required"); err != nil {
+		return fmt.Errorf("WebSocketConnectionsTable cannot be empty")
 	}
-
-	for field, value := range required {
-		if value == "" {
-			return fmt.Errorf("%s cannot be empty", field)
-		}
+	if err := validate.Var(cfg.WebSocketAPIEndpoint, "required"); err != nil {
+		return fmt.Errorf("WebSocketAPIEndpoint cannot be empty")
 	}
-
 	return nil
 }
 

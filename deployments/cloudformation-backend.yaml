@@ -979,7 +979,7 @@ Outputs:
 
   WebSocketApiEndpoint:
     Description: WebSocket API Gateway endpoint URL
-    Value: !Sub 'wss://${WebSocketApi.ApiId}.execute-api.${AWS::Region}.amazonaws.com/production'
+    Value: !Sub '${WebSocketApi.ApiId}.execute-api.${AWS::Region}.amazonaws.com/production'
     Export:
       Name: !Sub '${ProjectName}-websocket-api-endpoint'
 

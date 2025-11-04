@@ -32,13 +32,6 @@ type LogForwarder struct {
 
 // NewLogForwarder creates a new log forwarder with AWS backend.
 func NewLogForwarder(ctx context.Context, cfg *config.Config, log *slog.Logger) (*LogForwarder, error) {
-	if cfg.WebSocketConnectionsTable == "" {
-		return nil, fmt.Errorf("WebSocketConnectionsTable cannot be empty")
-	}
-	if cfg.WebSocketAPIEndpoint == "" {
-		return nil, fmt.Errorf("WebSocketApiEndpoint cannot be empty")
-	}
-
 	awsCfg, err := awsConfig.LoadDefaultConfig(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load AWS configuration: %w", err)

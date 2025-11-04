@@ -29,10 +29,6 @@ type ConnectionManager struct {
 
 // NewConnectionManager creates a new connection manager with AWS backend.
 func NewConnectionManager(ctx context.Context, cfg *config.Config, log *slog.Logger) (*ConnectionManager, error) {
-	if cfg.WebSocketConnectionsTable == "" {
-		return nil, fmt.Errorf("WebSocketConnectionsTable cannot be empty")
-	}
-
 	awsCfg, err := awsConfig.LoadDefaultConfig(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load AWS configuration: %w", err)
