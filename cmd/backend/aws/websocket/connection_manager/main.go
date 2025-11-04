@@ -1,26 +1,31 @@
 // Package main implements the AWS Lambda connection manager for runvoy WebSocket API.
-// This is a placeholder implementation that will be completed in a future step.
+// It handles WebSocket connection lifecycle events ($connect and $disconnect).
 package main
 
 import (
 	"context"
-	"net/http"
+	"os"
 
-	"github.com/aws/aws-lambda-go/events"
+	"runvoy/internal/config"
+	"runvoy/internal/constants"
+	"runvoy/internal/logger"
+	"runvoy/internal/websocket"
+
 	"github.com/aws/aws-lambda-go/lambda"
 )
 
 func main() {
-	lambda.Start(handleRequest)
-}
+	cfg := config.MustLoadConnectionManager()
+	log := logger.Initialize(constants.Production, cfg.GetLogLevel())
+	ctx, cancel := context.WithTimeout(context.Background(), cfg.InitTimeout)
 
-//nolint:gocritic // Lambda handler signature requires this parameter type
-func handleRequest(
-	_ context.Context,
-	_ events.APIGatewayWebsocketProxyRequest,
-) (events.APIGatewayProxyResponse, error) {
-	return events.APIGatewayProxyResponse{
-		StatusCode: http.StatusOK,
-		Body:       "OK",
-	}, nil
+	manager, err := websocket.NewConnectionManager(ctx, cfg, log)
+	cancel()
+	if err != nil {
+		log.Error("Failed to create connection manager", "error", err)
+		os.Exit(1)
+	}
+
+	log.Debug("starting Lambda handler")
+	lambda.Start(manager.HandleRequest)
 }

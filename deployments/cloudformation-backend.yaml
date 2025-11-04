@@ -827,6 +827,9 @@ Resources:
   # WebSocket API $connect Route
   WebSocketConnectRoute:
     Type: AWS::ApiGatewayV2::Route
+    DependsOn:
+      - WebSocketApiStage
+      - WebSocketConnectIntegration
     Properties:
       ApiId: !Ref WebSocketApi
       RouteKey: '$connect'
@@ -835,6 +838,9 @@ Resources:
   # WebSocket API $connect Integration
   WebSocketConnectIntegration:
     Type: AWS::ApiGatewayV2::Integration
+    DependsOn:
+      - ConnectionManagerFunction
+      - ConnectionManagerApiPermission
     Properties:
       ApiId: !Ref WebSocketApi
       IntegrationType: AWS_PROXY
@@ -843,6 +849,9 @@ Resources:
   # WebSocket API $disconnect Route
   WebSocketDisconnectRoute:
     Type: AWS::ApiGatewayV2::Route
+    DependsOn:
+      - WebSocketApiStage
+      - WebSocketDisconnectIntegration
     Properties:
       ApiId: !Ref WebSocketApi
       RouteKey: '$disconnect'
@@ -851,6 +860,9 @@ Resources:
   # WebSocket API $disconnect Integration
   WebSocketDisconnectIntegration:
     Type: AWS::ApiGatewayV2::Integration
+    DependsOn:
+      - ConnectionManagerFunction
+      - ConnectionManagerApiPermission
     Properties:
       ApiId: !Ref WebSocketApi
       IntegrationType: AWS_PROXY

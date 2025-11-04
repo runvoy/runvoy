@@ -26,21 +26,22 @@ type Config struct {
 	WebviewerURL string `mapstructure:"webviewer_url" yaml:"webviewer_url" validate:"omitempty,url"`
 
 	// Orchestrator Service Configuration
-	Port                string        `mapstructure:"port" validate:"omitempty"`
-	RequestTimeout      time.Duration `mapstructure:"request_timeout"`
-	APIKeysTable        string        `mapstructure:"api_keys_table"`
-	ExecutionsTable     string        `mapstructure:"executions_table"`
-	PendingAPIKeysTable string        `mapstructure:"pending_api_keys_table"`
-	ECSCluster          string        `mapstructure:"ecs_cluster"`
-	TaskDefinition      string        `mapstructure:"task_definition"`
-	Subnet1             string        `mapstructure:"subnet_1"`
-	Subnet2             string        `mapstructure:"subnet_2"`
-	SecurityGroup       string        `mapstructure:"security_group"`
-	LogGroup            string        `mapstructure:"log_group"`
-	TaskExecRoleARN     string        `mapstructure:"task_exec_role_arn"`
-	TaskRoleARN         string        `mapstructure:"task_role_arn"`
-	InitTimeout         time.Duration `mapstructure:"init_timeout"`
-	LogLevel            string        `mapstructure:"log_level"`
+	Port                      string        `mapstructure:"port" validate:"omitempty"`
+	RequestTimeout            time.Duration `mapstructure:"request_timeout"`
+	APIKeysTable              string        `mapstructure:"api_keys_table"`
+	ExecutionsTable           string        `mapstructure:"executions_table"`
+	PendingAPIKeysTable       string        `mapstructure:"pending_api_keys_table"`
+	ECSCluster                string        `mapstructure:"ecs_cluster"`
+	TaskDefinition            string        `mapstructure:"task_definition"`
+	Subnet1                   string        `mapstructure:"subnet_1"`
+	Subnet2                   string        `mapstructure:"subnet_2"`
+	SecurityGroup             string        `mapstructure:"security_group"`
+	LogGroup                  string        `mapstructure:"log_group"`
+	TaskExecRoleARN           string        `mapstructure:"task_exec_role_arn"`
+	TaskRoleARN               string        `mapstructure:"task_role_arn"`
+	WebSocketConnectionsTable string        `mapstructure:"websocket_connections_table"`
+	InitTimeout               time.Duration `mapstructure:"init_timeout"`
+	LogLevel                  string        `mapstructure:"log_level"`
 }
 
 var validate = validator.New()
@@ -173,6 +174,40 @@ func MustLoadEventProcessor() *Config {
 	return cfg
 }
 
+// LoadConnectionManager loads configuration for the connection manager service.
+// Loads from environment variables and validates required fields.
+func LoadConnectionManager() (*Config, error) {
+	v := viper.New()
+	setDefaults(v)
+
+	v.SetEnvPrefix("RUNVOY")
+	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+	v.AutomaticEnv()
+	bindEnvVars(v)
+
+	var cfg Config
+	if err := v.Unmarshal(&cfg); err != nil {
+		return nil, fmt.Errorf("error unmarshaling connection manager config: %w", err)
+	}
+
+	if err := validateConnectionManager(&cfg); err != nil {
+		return nil, err
+	}
+
+	return &cfg, nil
+}
+
+// MustLoadConnectionManager loads connection manager configuration and exits on error.
+// Suitable for application startup where configuration errors should be fatal.
+func MustLoadConnectionManager() *Config {
+	cfg, err := LoadConnectionManager()
+	if err != nil {
+		slog.Error("failed to load connection manager configuration", "error", err)
+		os.Exit(1)
+	}
+	return cfg
+}
+
 // Save saves the configuration to the user's home directory.
 // Overwrites the existing config file if it exists.
 func Save(config *Config) error {
@@ -283,6 +318,7 @@ func bindEnvVars(v *viper.Viper) {
 		"TASK_DEFINITION",
 		"TASK_EXEC_ROLE_ARN",
 		"TASK_ROLE_ARN",
+		"WEBSOCKET_CONNECTIONS_TABLE",
 		"WEBVIEWER_URL",
 	}
 
@@ -327,6 +363,21 @@ func validateEventProcessor(cfg *Config) error {
 	required := map[string]string{
 		"ExecutionsTable": cfg.ExecutionsTable,
 		"ECSCluster":      cfg.ECSCluster,
+	}
+
+	for field, value := range required {
+		if value == "" {
+			return fmt.Errorf("%s cannot be empty", field)
+		}
+	}
+
+	return nil
+}
+
+// validateConnectionManager validates required fields for connection manager service.
+func validateConnectionManager(cfg *Config) error {
+	required := map[string]string{
+		"WebSocketConnectionsTable": cfg.WebSocketConnectionsTable,
 	}
 
 	for field, value := range required {

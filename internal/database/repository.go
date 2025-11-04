@@ -75,3 +75,17 @@ type ExecutionRepository interface {
 	// Implementations may choose an efficient retrieval strategy; order is newest first.
 	ListExecutions(ctx context.Context) ([]*api.Execution, error)
 }
+
+// ConnectionRepository defines the interface for WebSocket connection-related database operations.
+type ConnectionRepository interface {
+	// CreateConnection stores a new WebSocket connection record in the database.
+	// The connection record includes connection_id, execution_id, and expires_at for TTL.
+	CreateConnection(ctx context.Context, connectionID, executionID string, expiresAt int64) error
+
+	// DeleteConnection removes a WebSocket connection from the database by connection ID.
+	DeleteConnection(ctx context.Context, connectionID string) error
+
+	// GetConnectionsByExecutionID retrieves all active WebSocket connections for a given execution ID.
+	// Returns a list of connection IDs that are subscribed to the specified execution.
+	GetConnectionsByExecutionID(ctx context.Context, executionID string) ([]string, error)
+}

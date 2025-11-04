@@ -14,6 +14,10 @@ build_flags := build_flags_x + version + '-' + build_date + '-' + git_short_hash
 # Aliases
 alias r := runvoy
 
+# Temporary task for websocket testing
+websocket-test:
+    wscat -c wss://tspxf0azw6.execute-api.us-east-2.amazonaws.com/production/
+
 ## Commands
 # Build the CLI binary and run it with the given arguments
 [default]
