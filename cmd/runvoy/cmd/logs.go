@@ -11,6 +11,7 @@ import (
 	"runvoy/internal/constants"
 	"runvoy/internal/output"
 	"sort"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -68,10 +69,37 @@ func NewLogsService(apiClient client.Interface, outputter OutputInterface) *Logs
 // DisplayLogs retrieves static logs and then streams new logs via WebSocket in real-time
 func (s *LogsService) DisplayLogs( //nolint:funlen
 	ctx context.Context, executionID, webviewerURL string) error {
-	// Fetch static logs first
-	resp, err := s.client.GetLogs(ctx, executionID)
-	if err != nil {
-		return fmt.Errorf("failed to get logs: %w", err)
+	// Fetch static logs first with retry logic for 404 errors
+	var resp *api.LogsResponse
+	var err error
+	retryCount := 0
+	const maxRetries = 2
+
+	for {
+		resp, err = s.client.GetLogs(ctx, executionID)
+		if err == nil {
+			break
+		}
+
+		// Check if error is a 404
+		if !isNotFoundError(err) {
+			return fmt.Errorf("failed to get logs: %w", err)
+		}
+
+		// If we've exhausted retries, return the error
+		if retryCount >= maxRetries {
+			return fmt.Errorf("failed to get logs: %w", err)
+		}
+
+		// Wait 10 seconds before retry (first time wait 10s, second time wait 10s more)
+		waitDuration := 10 * time.Second
+		s.output.Infof("Execution not found yet, waiting %v before retry...", waitDuration)
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("context cancelled: %w", ctx.Err())
+		case <-time.After(waitDuration):
+			retryCount++
+		}
 	}
 
 	logMap := make(map[int64]api.LogEvent)
@@ -192,4 +220,13 @@ func (s *LogsService) printWebviewerURL(webviewerURL, executionID string) {
 	s.output.Blank()
 	s.output.Infof("View logs in web viewer: %s?execution_id=%s",
 		webviewerURL, s.output.Cyan(executionID))
+}
+
+// isNotFoundError checks if an error is a 404 Not Found error
+func isNotFoundError(err error) bool {
+	if err == nil {
+		return false
+	}
+	errStr := err.Error()
+	return strings.Contains(errStr, "[404]")
 }
