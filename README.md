@@ -1,6 +1,6 @@
-# runvoy
+# runvoy - serverless task manager
 
-Run infrastructure commands without sharing credentials.
+Run commands on remote ephemeral containers and let your colleagues do the same, without having to share admin credentials.
 
 Deploy once, issue API keys, let your team execute Terraform, kubectl, and other tools safely from their terminals.
 
@@ -35,7 +35,7 @@ runvoy solves the challenge of giving team members access to run infrastructure 
 - **CloudWatch integration** - Full execution logs and audit trails
 - **Multi-user support** - Centralized execution for entire teams
 - **Event-driven architecture** - Automatic execution tracking via EventBridge
-- **Execution locking** - Prevent concurrent operations on shared resources (e.g., Terraform state)
+- **Execution locking** - Prevent concurrent operations on shared resources (e.g., Terraform state) NOT IMPLEMENTED YET
 - **Unix-style output streams** - Separate logs (stderr) from data (stdout) for easy piping and scripting
 
 ## Quick Start
