@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 
+	"runvoy/internal/api"
 	"runvoy/internal/database"
 	apperrors "runvoy/internal/errors"
 	"runvoy/internal/logger"
@@ -36,25 +37,32 @@ func NewConnectionRepository(
 }
 
 // connectionItem represents the structure stored in DynamoDB.
+// This keeps the database schema separate from the API types.
 type connectionItem struct {
-	ConnectionID string `dynamodbav:"connection_id"`
-	ExecutionID  string `dynamodbav:"execution_id"`
-	ExpiresAt    int64  `dynamodbav:"expires_at"`
+	ConnectionID  string `dynamodbav:"connection_id"`
+	ExecutionID   string `dynamodbav:"execution_id"`
+	Functionality string `dynamodbav:"functionality"`
+	ExpiresAt     int64  `dynamodbav:"expires_at"`
+}
+
+// toConnectionItem converts an api.WebSocketConnection to a connectionItem.
+func toConnectionItem(conn *api.WebSocketConnection) *connectionItem {
+	return &connectionItem{
+		ConnectionID:  conn.ConnectionID,
+		ExecutionID:   conn.ExecutionID,
+		Functionality: conn.Functionality,
+		ExpiresAt:     conn.ExpiresAt,
+	}
 }
 
 // CreateConnection stores a new WebSocket connection record in DynamoDB.
 func (r *ConnectionRepository) CreateConnection(
 	ctx context.Context,
-	connectionID, executionID string,
-	expiresAt int64,
+	connection *api.WebSocketConnection,
 ) error {
 	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
 
-	item := connectionItem{
-		ConnectionID: connectionID,
-		ExecutionID:  executionID,
-		ExpiresAt:    expiresAt,
-	}
+	item := toConnectionItem(connection)
 
 	av, err := attributevalue.MarshalMap(item)
 	if err != nil {
@@ -64,8 +72,9 @@ func (r *ConnectionRepository) CreateConnection(
 	logArgs := []any{
 		"operation", "DynamoDB.PutItem",
 		"table", r.tableName,
-		"connectionID", connectionID,
-		"executionID", executionID,
+		"connectionID", connection.ConnectionID,
+		"executionID", connection.ExecutionID,
+		"functionality", connection.Functionality,
 	}
 	logArgs = append(logArgs, logger.GetDeadlineInfo(ctx)...)
 	reqLogger.Debug("calling external service", "context", logger.SliceToMap(logArgs))
@@ -78,7 +87,7 @@ func (r *ConnectionRepository) CreateConnection(
 		return apperrors.ErrDatabaseError("failed to store connection", err)
 	}
 
-	reqLogger.Debug("connection stored successfully", "connectionID", connectionID)
+	reqLogger.Debug("connection stored successfully", "connectionID", connection.ConnectionID)
 	return nil
 }
 

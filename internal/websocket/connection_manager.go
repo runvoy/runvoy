@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"time"
 
+	"runvoy/internal/api"
 	"runvoy/internal/config"
 	"runvoy/internal/database"
 	dynamoRepo "runvoy/internal/database/dynamodb"
@@ -22,6 +23,8 @@ import (
 const (
 	// ConnectionTTLHours is the time-to-live for connection records in DynamoDB (24 hours)
 	ConnectionTTLHours = 24
+	// FunctionalityLogStreaming identifies connections used for streaming execution logs
+	FunctionalityLogStreaming = "log_streaming"
 )
 
 // ConnectionManager handles WebSocket connection lifecycle events.
@@ -90,7 +93,7 @@ func (cm *ConnectionManager) handleConnect(
 	executionID := req.QueryStringParameters["execution_id"]
 
 	if executionID == "" {
-		reqLogger.Warn("missing execution_id in connection request")
+		reqLogger.Info("missing execution_id in connection request")
 		return events.APIGatewayProxyResponse{
 			StatusCode: http.StatusBadRequest,
 			Body:       "Missing execution_id query parameter",
@@ -99,13 +102,21 @@ func (cm *ConnectionManager) handleConnect(
 
 	expiresAt := time.Now().Add(ConnectionTTLHours * time.Hour).Unix()
 
-	reqLogger.Debug("storing connection",
-		"connectionID", connectionID,
-		"executionID", executionID,
-		"expiresAt", expiresAt,
-	)
+	connection := &api.WebSocketConnection{
+		ConnectionID:  connectionID,
+		ExecutionID:   executionID,
+		Functionality: FunctionalityLogStreaming,
+		ExpiresAt:     expiresAt,
+	}
 
-	err := cm.connRepo.CreateConnection(ctx, connectionID, executionID, expiresAt)
+	reqLogger.Debug("storing connection", "context", map[string]string{
+		"connectionID":  connection.ConnectionID,
+		"executionID":   connection.ExecutionID,
+		"functionality": connection.Functionality,
+		"expiresAt":     fmt.Sprintf("%d", connection.ExpiresAt),
+	})
+
+	err := cm.connRepo.CreateConnection(ctx, connection)
 	if err != nil {
 		reqLogger.Error("failed to store connection", "error", err)
 		return events.APIGatewayProxyResponse{

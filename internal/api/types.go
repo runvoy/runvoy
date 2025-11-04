@@ -187,3 +187,11 @@ type ImageInfo struct {
 type ListImagesResponse struct {
 	Images []ImageInfo `json:"images"`
 }
+
+// WebSocketConnection represents a WebSocket connection record
+type WebSocketConnection struct {
+	ConnectionID  string `json:"connection_id"`
+	ExecutionID   string `json:"execution_id"`
+	Functionality string `json:"functionality"`
+	ExpiresAt     int64  `json:"expires_at"`
+}
