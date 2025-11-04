@@ -1,6 +1,6 @@
 # runvoy - serverless task manager
 
-Run commands on remote ephemeral containers and let your colleagues do the same, without having to share admin credentials.
+Run commands on remote ephemeral containers and let your colleagues do the same, without having to share admin credentials nor use `ssh`.
 
 Deploy once, issue API keys, let your team execute Terraform, kubectl, and other tools safely from their terminals.
 
