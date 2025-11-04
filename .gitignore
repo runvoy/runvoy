@@ -31,3 +31,6 @@ go.work.sum
 .envrc
 local
 ./runvoy
+
+# Agents' development dirt
+cmd/runvoy/runvoy
