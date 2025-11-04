@@ -5,6 +5,7 @@ package websocket
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 
@@ -20,6 +21,7 @@ import (
 	awsConfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/apigatewaymanagementapi"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
+	"golang.org/x/sync/errgroup"
 )
 
 // LogForwarder handles CloudWatch Logs events and forwards them to WebSocket clients.
@@ -136,26 +138,36 @@ func (lf *LogForwarder) forwardLogsToConnections(
 		"count":        fmt.Sprintf("%d", len(connectionIDs)),
 	})
 
+	errGroup, ctx := errgroup.WithContext(ctx)
+	errGroup.SetLimit(constants.MaxConcurrentSends)
+
 	for _, logEvent := range logEvents {
 		for _, connectionID := range connectionIDs {
-			if sendErr := lf.sendToConnection(ctx, connectionID, logEvent); sendErr != nil {
-				reqLogger.Error("failed to send log to connection", "context", map[string]string{
-					"error":         sendErr.Error(),
-					"connection_id": connectionID,
-					"execution_id":  executionID,
-				})
-				// Continue with other connections even if one fails
-			}
+			errGroup.Go(func() error {
+				if sendErr := lf.sendToConnection(ctx, connectionID, logEvent); sendErr != nil {
+					reqLogger.Error("failed to send log to connection", "context", map[string]string{
+						"error":         sendErr.Error(),
+						"connection_id": connectionID,
+						"execution_id":  executionID,
+					})
+				}
+				return nil
+			})
 		}
 	}
 
-	reqLogger.Info("all log events forwarded to connections", "context", map[string]any{
-		"execution_id": executionID,
-		"events_count": len(logEvents),
-		"connections":  connectionIDs,
-	})
+	switch err := errGroup.Wait(); {
+	case err != nil:
+		return errors.New("error(s) occurred while forwarding log events to connections")
+	default:
+		reqLogger.Info("all log events forwarded to connections", "context", map[string]any{
+			"execution_id": executionID,
+			"events_count": len(logEvents),
+			"connections":  connectionIDs,
+		})
 
-	return nil
+		return nil
+	}
 }
 
 // sendToConnection sends a message to a WebSocket connection via API Gateway Management API.

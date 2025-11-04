@@ -346,3 +346,6 @@ func ExtractExecutionIDFromLogStream(logStream string) string {
 
 	return executionID
 }
+
+// MaxConcurrentSends is the maximum number of concurrent sends to WebSocket connections
+const MaxConcurrentSends = 10
