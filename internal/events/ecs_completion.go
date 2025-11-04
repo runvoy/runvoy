@@ -66,12 +66,12 @@ func (p *Processor) handleECSTaskCompletion(ctx context.Context, event *events.C
 
 	reqLogger.Info("pattern matched, processing ECS task completion",
 		"execution", map[string]string{
-			"execution_id":  executionID,
-			"started_at":    taskEvent.StartedAt,
-			"stop_code":     taskEvent.StopCode,
-			"stopped_at":    taskEvent.StoppedAt,
+			"execution_id":   executionID,
+			"started_at":     taskEvent.StartedAt,
+			"stop_code":      taskEvent.StopCode,
+			"stopped_at":     taskEvent.StoppedAt,
 			"stopped_reason": taskEvent.StoppedReason,
-			"task_arn":      taskEvent.TaskArn,
+			"task_arn":       taskEvent.TaskArn,
 		})
 
 	execution, err := p.executionRepo.GetExecution(ctx, executionID)

@@ -42,25 +42,11 @@ func FetchLogsByExecutionID(ctx context.Context, cfg *Config, executionID string
 	}
 
 	reqLogger.Debug("calling external service", "context", map[string]string{
-<<<<<<< HEAD
 		"operation":    "CloudWatchLogs.GetLogEvents",
 		"log_group":    cfg.LogGroup,
 		"log_stream":   stream,
 		"execution_id": executionID,
 		"paginated":    "true",
-||||||| parent of 3d5c5df (Refactor: Use snake_case for log field names)
-		"operation":   "CloudWatchLogs.GetLogEvents",
-		"logGroup":    cfg.LogGroup,
-		"logStream":   stream,
-		"executionID": executionID,
-		"paginated":   "true",
-=======
-		"operation":    "CloudWatchLogs.GetLogEvents",
-		"log_group":    cfg.LogGroup,
-		"log_stream":   stream,
-		"execution_id": executionID,
-		"paginated":    "true",
->>>>>>> 3d5c5df (Refactor: Use snake_case for log field names)
 	})
 
 	var events []api.LogEvent
