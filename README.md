@@ -240,14 +240,17 @@ For more information about the development workflow, see [Development with `just
 
 ## Architecture
 
-runvoy uses a serverless event-driven architecture built on AWS Lambda, ECS Fargate, DynamoDB, and EventBridge:
+runvoy uses a serverless event-driven architecture built on AWS resources:
 
 - **Orchestrator Lambda**: HTTPS endpoint (Function URL) for synchronous API requests
 - **Event Processor Lambda**: Asynchronous event handler for ECS task completions
-- **DynamoDB**: Stores API keys (hashed), execution records with status
-- **ECS Fargate**: Runs commands in isolated, ephemeral ARM64 containers
+- **WebSocket API**: API Gateway endpoint for WebSocket connections (HTTP) for streaming logs in real-time
+- **Log Forwarder Lambda**: Pushes logs to WebSocket connections for streaming in real-time
+- **Connection Manager Lambda**: Manages WebSocket connections for log streaming
+- **DynamoDB**: Stores API keys (hashed), execution records with status, etc.
+- **ECS Fargate**: Runs commands in isolated, ephemeral ARM64 containers (sidecar)
 - **EventBridge**: Captures ECS task state changes for completion tracking
-- **CloudWatch**: Logs all executions for audit and debugging
+- **CloudWatch**: Logs all executions for audit and debugging, forwards logs to WebSocket connections for streaming in real-time
 
 For detailed architecture information, see [ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
@@ -263,7 +266,7 @@ runvoy --help
 ```
 
 ```bash
-runvoy - 0.1.0-20251104-4f46d78
+runvoy - 0.1.0-20251104-227dcd4
 Isolated, repeatable execution environments for your commands
 
 Usage:
