@@ -87,8 +87,9 @@ type LogEvent struct {
 // LogsResponse contains all log events for an execution
 type LogsResponse struct {
 	ExecutionID  string     `json:"execution_id"`
+	Status       string     `json:"status"`                   // Current execution status (RUNNING, SUCCEEDED, FAILED, STOPPED)
 	Events       []LogEvent `json:"events"`
-	WebSocketURL string     `json:"websocket_url,omitempty"` // WebSocket URL for streaming logs (empty if not configured)
+	WebSocketURL string     `json:"websocket_url,omitempty"` // WebSocket URL for streaming logs (only provided if execution is RUNNING)
 }
 
 // Lock represents a lock record
