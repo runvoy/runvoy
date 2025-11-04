@@ -21,7 +21,7 @@ runvoy *ARGS: build-cli
     ./bin/runvoy --verbose {{ARGS}}
 
 # Build all binaries
-build: build-cli build-local build-orchestrator build-event-processor
+build: build-cli build-local build-orchestrator build-event-processor build-websocket-connection-manager build-websocket-log-forwarder
 
 # Deploy all binaries
 deploy: deploy-backend deploy-webviewer
@@ -88,6 +88,52 @@ deploy-event-processor: build-event-processor-zip
         --s3-bucket {{bucket}} \
         --s3-key event-processor.zip > /dev/null
     aws lambda wait function-updated --function-name runvoy-event-processor
+
+# Build WebSocket connection manager backend service (Lambda function)
+[working-directory: 'cmd/backend/aws/websocket/connection_manager']
+build-websocket-connection-manager:
+    GOARCH=arm64 GOOS=linux go build \
+        -ldflags {{build_flags}} \
+        -o ../../../../../dist/bootstrap
+
+# Build WebSocket connection manager zip file
+[working-directory: 'dist']
+build-websocket-connection-manager-zip: build-websocket-connection-manager
+    rm -f websocket-connection-manager.zip
+    zip websocket-connection-manager.zip bootstrap
+
+# Deploy WebSocket connection manager lambda function
+[working-directory: 'dist']
+deploy-websocket-connection-manager: build-websocket-connection-manager-zip
+    aws s3 cp websocket-connection-manager.zip s3://{{bucket}}/websocket-connection-manager.zip
+    aws lambda update-function-code \
+        --function-name runvoy-websocket-connection-manager \
+        --s3-bucket {{bucket}} \
+        --s3-key websocket-connection-manager.zip > /dev/null
+    aws lambda wait function-updated --function-name runvoy-websocket-connection-manager
+
+# Build WebSocket log forwarder backend service (Lambda function)
+[working-directory: 'cmd/backend/aws/websocket/log_forwarder']
+build-websocket-log-forwarder:
+    GOARCH=arm64 GOOS=linux go build \
+        -ldflags {{build_flags}} \
+        -o ../../../../../dist/bootstrap
+
+# Build WebSocket log forwarder zip file
+[working-directory: 'dist']
+build-websocket-log-forwarder-zip: build-websocket-log-forwarder
+    rm -f websocket-log-forwarder.zip
+    zip websocket-log-forwarder.zip bootstrap
+
+# Deploy WebSocket log forwarder lambda function
+[working-directory: 'dist']
+deploy-websocket-log-forwarder: build-websocket-log-forwarder-zip
+    aws s3 cp websocket-log-forwarder.zip s3://{{bucket}}/websocket-log-forwarder.zip
+    aws lambda update-function-code \
+        --function-name runvoy-websocket-log-forwarder \
+        --s3-bucket {{bucket}} \
+        --s3-key websocket-log-forwarder.zip > /dev/null
+    aws lambda wait function-updated --function-name runvoy-websocket-log-forwarder
 
 # Deploy webviewer HTML to S3
 deploy-webviewer:
