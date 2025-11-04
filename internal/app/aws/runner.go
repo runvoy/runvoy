@@ -213,8 +213,8 @@ func (e *Runner) StartTask( //nolint: funlen
 			ecsTypes.KeyValuePair{Name: awsStd.String("GIT_REF"), Value: awsStd.String(gitRef)},
 		)
 		reqLogger.Debug("configured sidecar for git cloning",
-			"gitRepo", req.GitRepo,
-			"gitRef", gitRef)
+			"git_repo", req.GitRepo,
+			"git_ref", gitRef)
 	} else {
 		sidecarEnv = append(sidecarEnv,
 			ecsTypes.KeyValuePair{Name: awsStd.String("GIT_REPO"), Value: awsStd.String("")},
@@ -275,9 +275,9 @@ func (e *Runner) StartTask( //nolint: funlen
 		"cluster", e.cfg.ECSCluster,
 		"taskDefinition", taskDefARN,
 		"image", imageToUse,
-		"containerCount", len(containerOverrides),
-		"userEmail", userEmail,
-		"hasGitRepo", hasGitRepo,
+		"container_count", len(containerOverrides),
+		"user_email", userEmail,
+		"has_git_repo", hasGitRepo,
 	}
 	logArgs = append(logArgs, logger.GetDeadlineInfo(ctx)...)
 	reqLogger.Debug("calling external service", "context", logger.SliceToMap(logArgs))
@@ -298,15 +298,15 @@ func (e *Runner) StartTask( //nolint: funlen
 	createdAt := task.CreatedAt
 
 	reqLogger.Debug("task started", "task", map[string]string{
-		"taskARN":     taskARN,
-		"executionID": executionID,
+		"task_arn":     taskARN,
+		"execution_id": executionID,
 	})
 
 	tagLogArgs := []any{
 		"operation", "ECS.TagResource",
-		"taskARN", taskARN,
-		"executionID", executionID,
-		"createdAt", createdAt,
+		"task_arn", taskARN,
+		"execution_id", executionID,
+		"created_at", createdAt,
 	}
 	tagLogArgs = append(tagLogArgs, logger.GetDeadlineInfo(ctx)...)
 	reqLogger.Debug("calling external service", "context", logger.SliceToMap(tagLogArgs))
@@ -319,8 +319,8 @@ func (e *Runner) StartTask( //nolint: funlen
 		reqLogger.Warn(
 			"failed to add ExecutionID tag to task",
 			"error", tagErr,
-			"taskARN", taskARN,
-			"executionID", executionID)
+			"task_arn", taskARN,
+			"execution_id", executionID)
 	}
 
 	return executionID, createdAt, nil
@@ -491,8 +491,8 @@ func (e *Runner) findTaskARNByExecutionID(
 	listLogArgs := []any{
 		"operation", "ECS.ListTasks",
 		"cluster", e.cfg.ECSCluster,
-		"desiredStatus", "RUNNING",
-		"executionID", executionID,
+		"desired_status", "RUNNING",
+		"execution_id", executionID,
 	}
 	listLogArgs = append(listLogArgs, logger.GetDeadlineInfo(ctx)...)
 	reqLogger.Debug("calling external service", "context", logger.SliceToMap(listLogArgs))
@@ -502,7 +502,7 @@ func (e *Runner) findTaskARNByExecutionID(
 		DesiredStatus: ecsTypes.DesiredStatusRunning,
 	})
 	if err != nil {
-		reqLogger.Debug("failed to list tasks", "error", err, "executionID", executionID)
+		reqLogger.Debug("failed to list tasks", "error", err, "execution_id", executionID)
 		return "", appErrors.ErrInternalError("failed to list tasks", err)
 	}
 
@@ -515,8 +515,8 @@ func (e *Runner) findTaskARNByExecutionID(
 	listStoppedLogArgs := []any{
 		"operation", "ECS.ListTasks",
 		"cluster", e.cfg.ECSCluster,
-		"desiredStatus", "STOPPED",
-		"executionID", executionID,
+		"desired_status", "STOPPED",
+		"execution_id", executionID,
 	}
 	listStoppedLogArgs = append(listStoppedLogArgs, logger.GetDeadlineInfo(ctx)...)
 	reqLogger.Debug("calling external service", "context", logger.SliceToMap(listStoppedLogArgs))
@@ -530,7 +530,7 @@ func (e *Runner) findTaskARNByExecutionID(
 	}
 
 	if taskARN == "" {
-		reqLogger.Error("task not found", "executionID", executionID)
+		reqLogger.Error("task not found", "execution_id", executionID)
 		return "", appErrors.ErrNotFound("task not found", nil)
 	}
 
@@ -599,8 +599,8 @@ func (e *Runner) KillTask(ctx context.Context, executionID string) error {
 	describeLogArgs := []any{
 		"operation", "ECS.DescribeTasks",
 		"cluster", e.cfg.ECSCluster,
-		"taskARN", taskARN,
-		"executionID", executionID,
+		"task_arn", taskARN,
+		"execution_id", executionID,
 	}
 	describeLogArgs = append(describeLogArgs, logger.GetDeadlineInfo(ctx)...)
 	reqLogger.Debug("calling external service", "context", logger.SliceToMap(describeLogArgs))
@@ -611,24 +611,24 @@ func (e *Runner) KillTask(ctx context.Context, executionID string) error {
 	})
 	if err != nil {
 		reqLogger.Error("failed to describe task", "context", map[string]string{
-			"error":       err.Error(),
-			"executionID": executionID,
-			"taskARN":     taskARN,
+			"error":        err.Error(),
+			"execution_id": executionID,
+			"task_arn":     taskARN,
 		})
 		return appErrors.ErrInternalError("failed to describe task", err)
 	}
 
 	if len(describeOutput.Tasks) == 0 {
 		reqLogger.Error("task not found", "context", map[string]string{
-			"executionID": executionID,
-			"taskARN":     taskARN,
+			"execution_id": executionID,
+			"task_arn":     taskARN,
 		})
 		return appErrors.ErrNotFound("task not found", nil)
 	}
 
 	task := describeOutput.Tasks[0]
 	currentStatus := awsStd.ToString(task.LastStatus)
-	reqLogger.Debug("task status check", "executionID", executionID, "status", currentStatus)
+	reqLogger.Debug("task status check", "execution_id", executionID, "status", currentStatus)
 
 	if validateErr := validateTaskStatusForKill(currentStatus); validateErr != nil {
 		return validateErr
@@ -637,9 +637,9 @@ func (e *Runner) KillTask(ctx context.Context, executionID string) error {
 	stopLogArgs := []any{
 		"operation", "ECS.StopTask",
 		"cluster", e.cfg.ECSCluster,
-		"taskARN", taskARN,
-		"executionID", executionID,
-		"currentStatus", currentStatus,
+		"task_arn", taskARN,
+		"execution_id", executionID,
+		"current_status", currentStatus,
 	}
 	stopLogArgs = append(stopLogArgs, logger.GetDeadlineInfo(ctx)...)
 	reqLogger.Debug("calling external service", "context", logger.SliceToMap(stopLogArgs))
@@ -650,15 +650,15 @@ func (e *Runner) KillTask(ctx context.Context, executionID string) error {
 		Reason:  awsStd.String("Terminated by user via kill endpoint"),
 	})
 	if err != nil {
-		reqLogger.Error("failed to stop task", "error", err, "executionID", executionID, "taskARN", taskARN)
+		reqLogger.Error("failed to stop task", "error", err, "execution_id", executionID, "task_arn", taskARN)
 		return appErrors.ErrInternalError("failed to stop task", err)
 	}
 
 	reqLogger.Info(
 		"task termination initiated",
-		"executionID", executionID,
-		"taskARN", awsStd.ToString(stopOutput.Task.TaskArn),
-		"previousStatus", currentStatus)
+		"execution_id", executionID,
+		"task_arn", awsStd.ToString(stopOutput.Task.TaskArn),
+		"previous_status", currentStatus)
 
 	return nil
 }

@@ -142,7 +142,7 @@ func (r *ConnectionRepository) GetConnectionsByExecutionID(
 		"operation", "DynamoDB.Query",
 		"table", r.tableName,
 		"index", "execution_id-index",
-		"executionID", executionID,
+		"execution_id", executionID,
 	}
 	logArgs = append(logArgs, logger.GetDeadlineInfo(ctx)...)
 	reqLogger.Debug("calling external service", "context", logger.SliceToMap(logArgs))

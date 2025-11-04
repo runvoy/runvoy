@@ -195,7 +195,7 @@ func (r *Router) handleGetExecutionStatus(w http.ResponseWriter, req *http.Reque
 		errorMsg := apperrors.GetErrorMessage(err)
 
 		logger.Debug("failed to get execution status",
-			"executionID", executionID,
+			"execution_id", executionID,
 			"error", err,
 			"statusCode", statusCode,
 			"errorCode", errorCode)
@@ -227,10 +227,11 @@ func (r *Router) handleKillExecution(w http.ResponseWriter, req *http.Request) {
 		errorCode := apperrors.GetErrorCode(err)
 		errorMsg := apperrors.GetErrorMessage(err)
 
-		logger.Error("failed to kill execution", "context", map[string]string{
-			"executionID": executionID,
-			"error":       err.Error(),
-		})
+		logger.Error("failed to kill execution",
+			"execution_id", executionID,
+			"error", err,
+			"status_code", statusCode,
+			"error_code", errorCode)
 
 		writeErrorResponseWithCode(w, statusCode, errorCode, "failed to kill execution", errorMsg)
 		return
