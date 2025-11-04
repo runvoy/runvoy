@@ -101,11 +101,11 @@ func (r *ExecutionRepository) CreateExecution(ctx context.Context, execution *ap
 	}
 
 	reqLogger.Debug("calling external service", "context", map[string]string{
-		"operation":   "DynamoDB.PutItem",
-		"table":       r.tableName,
-		"executionID": execution.ExecutionID,
-		"userEmail":   execution.UserEmail,
-		"status":      execution.Status,
+		"operation":    "DynamoDB.PutItem",
+		"table":        r.tableName,
+		"execution_id": execution.ExecutionID,
+		"user_email":   execution.UserEmail,
+		"status":       execution.Status,
 	})
 
 	// Ensure uniqueness: only create if this PK does not already exist
@@ -127,7 +127,7 @@ func (r *ExecutionRepository) CreateExecution(ctx context.Context, execution *ap
 		return apperrors.ErrDatabaseError("failed to create execution", err)
 	}
 
-	reqLogger.Debug("execution stored successfully", "executionID", execution.ExecutionID)
+	reqLogger.Debug("execution stored successfully", "execution_id", execution.ExecutionID)
 
 	return nil
 }
@@ -140,7 +140,7 @@ func (r *ExecutionRepository) GetExecution(ctx context.Context, executionID stri
 	logArgs := []any{
 		"operation", "DynamoDB.Query",
 		"table", r.tableName,
-		"executionID", executionID,
+		"execution_id", executionID,
 	}
 	logArgs = append(logArgs, logger.GetDeadlineInfo(ctx)...)
 	reqLogger.Debug("calling external service", "context", logger.SliceToMap(logArgs))
@@ -239,9 +239,9 @@ func (r *ExecutionRepository) UpdateExecution(ctx context.Context, execution *ap
 	updateLogArgs := []any{
 		"operation", "DynamoDB.UpdateItem",
 		"table", r.tableName,
-		"executionID", execution.ExecutionID,
+		"execution_id", execution.ExecutionID,
 		"status", execution.Status,
-		"updateExpression", updateExpr,
+		"update_expression", updateExpr,
 	}
 	updateLogArgs = append(updateLogArgs, logger.GetDeadlineInfo(ctx)...)
 	reqLogger.Debug("calling external service", "context", logger.SliceToMap(updateLogArgs))

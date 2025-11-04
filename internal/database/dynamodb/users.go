@@ -88,7 +88,7 @@ func (r *UserRepository) CreateUserWithExpiration(
 	logArgs := []any{
 		"operation", "DynamoDB.PutItem",
 		"table", r.tableName,
-		"userEmail", user.Email,
+		"user_email", user.Email,
 	}
 	logArgs = append(logArgs, logger.GetDeadlineInfo(ctx)...)
 	reqLogger.Debug("calling external service", "context", logger.SliceToMap(logArgs))
@@ -165,7 +165,7 @@ func (r *UserRepository) GetUserByAPIKeyHash(ctx context.Context, apiKeyHash str
 	logArgs := []any{
 		"operation", "DynamoDB.GetItem",
 		"table", r.tableName,
-		"apiKeyHash", apiKeyHash,
+		"api_key_hash", apiKeyHash,
 	}
 	logArgs = append(logArgs, logger.GetDeadlineInfo(ctx)...)
 	reqLogger.Debug("calling external service", "context", logger.SliceToMap(logArgs))
@@ -184,7 +184,7 @@ func (r *UserRepository) GetUserByAPIKeyHash(ctx context.Context, apiKeyHash str
 	}
 
 	if result.Item == nil {
-		reqLogger.Debug("user not found", "apiKeyHash", apiKeyHash)
+		reqLogger.Debug("user not found", "api_key_hash", apiKeyHash)
 
 		return nil, nil
 	}
@@ -261,7 +261,7 @@ func (r *UserRepository) UpdateLastUsed(ctx context.Context, email string) (*tim
 		"operation", "DynamoDB.UpdateItem",
 		"table", r.tableName,
 		"email", email,
-		"apiKeyHash", apiKeyHash,
+		"api_key_hash", apiKeyHash,
 	}
 	updateLogArgs = append(updateLogArgs, logger.GetDeadlineInfo(ctx)...)
 	reqLogger.Debug("calling external service", "context", logger.SliceToMap(updateLogArgs))
@@ -296,7 +296,7 @@ func (r *UserRepository) RevokeUser(ctx context.Context, email string) error {
 		"operation", "DynamoDB.UpdateItem",
 		"table", r.tableName,
 		"email", email,
-		"apiKeyHash", apiKeyHash,
+		"api_key_hash", apiKeyHash,
 		"action", "revoke",
 	}
 	updateLogArgs = append(updateLogArgs, logger.GetDeadlineInfo(ctx)...)
@@ -364,7 +364,7 @@ func (r *UserRepository) RemoveExpiration(ctx context.Context, email string) err
 		"operation", "DynamoDB.UpdateItem",
 		"table", r.tableName,
 		"email", email,
-		"apiKeyHash", apiKeyHash,
+		"api_key_hash", apiKeyHash,
 		"action", "remove_expiration",
 	}
 	updateLogArgs = append(updateLogArgs, logger.GetDeadlineInfo(ctx)...)
@@ -423,7 +423,7 @@ func (r *UserRepository) CreatePendingAPIKey(ctx context.Context, pending *api.P
 	logArgs := []any{
 		"operation", "DynamoDB.PutItem",
 		"table", r.pendingTableName,
-		"userEmail", pending.UserEmail,
+		"user_email", pending.UserEmail,
 	}
 	logArgs = append(logArgs, logger.GetDeadlineInfo(ctx)...)
 	reqLogger.Debug("calling external service", "context", logger.SliceToMap(logArgs))

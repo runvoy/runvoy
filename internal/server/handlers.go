@@ -40,7 +40,7 @@ func (r *Router) handleCreateUser(w http.ResponseWriter, req *http.Request) {
 		errorCode := apperrors.GetErrorCode(err)
 		errorMsg := apperrors.GetErrorMessage(err)
 
-		logger.Debug("failed to create user", "error", err, "statusCode", statusCode, "errorCode", errorCode)
+		logger.Debug("failed to create user", "error", err, "status_code", statusCode, "error_code", errorCode)
 
 		writeErrorResponseWithCode(w, statusCode, errorCode, "failed to create user", errorMsg)
 
@@ -67,7 +67,7 @@ func (r *Router) handleRevokeUser(w http.ResponseWriter, req *http.Request) {
 		errorCode := apperrors.GetErrorCode(err)
 		errorMsg := apperrors.GetErrorMessage(err)
 
-		logger.Debug("failed to revoke user", "error", err, "statusCode", statusCode, "errorCode", errorCode)
+		logger.Debug("failed to revoke user", "error", err, "status_code", statusCode, "error_code", errorCode)
 
 		writeErrorResponseWithCode(w, statusCode, errorCode, "failed to revoke user", errorMsg)
 
@@ -91,7 +91,7 @@ func (r *Router) handleListUsers(w http.ResponseWriter, req *http.Request) {
 		errorCode := apperrors.GetErrorCode(err)
 		errorMsg := apperrors.GetErrorMessage(err)
 
-		logger.Debug("failed to list users", "error", err, "statusCode", statusCode, "errorCode", errorCode)
+		logger.Debug("failed to list users", "error", err, "status_code", statusCode, "error_code", errorCode)
 
 		writeErrorResponseWithCode(w, statusCode, errorCode, "failed to list users", errorMsg)
 		return
@@ -124,9 +124,9 @@ func (r *Router) handleRunCommand(w http.ResponseWriter, req *http.Request) {
 		errorMsg := apperrors.GetErrorMessage(err)
 
 		logger.Error("failed to run command", "context", map[string]string{
-			"error":      err.Error(),
-			"statusCode": strconv.Itoa(statusCode),
-			"errorCode":  errorCode,
+			"error":       err.Error(),
+			"status_code": strconv.Itoa(statusCode),
+			"error_code":  errorCode,
 		})
 
 		writeErrorResponseWithCode(w, statusCode, errorCode, "failed to run command", errorMsg)
@@ -153,7 +153,7 @@ func (r *Router) handleGetExecutionLogs(w http.ResponseWriter, req *http.Request
 		errorCode := apperrors.GetErrorCode(err)
 		errorMsg := apperrors.GetErrorMessage(err)
 
-		logger.Debug("failed to get execution logs", "error", err, "statusCode", statusCode, "errorCode", errorCode)
+		logger.Debug("failed to get execution logs", "error", err, "status_code", statusCode, "error_code", errorCode)
 
 		writeErrorResponseWithCode(w, statusCode, errorCode, "failed to get execution logs", errorMsg)
 
@@ -195,10 +195,10 @@ func (r *Router) handleGetExecutionStatus(w http.ResponseWriter, req *http.Reque
 		errorMsg := apperrors.GetErrorMessage(err)
 
 		logger.Debug("failed to get execution status",
-			"executionID", executionID,
+			"execution_id", executionID,
 			"error", err,
-			"statusCode", statusCode,
-			"errorCode", errorCode)
+			"status_code", statusCode,
+			"error_code", errorCode)
 
 		writeErrorResponseWithCode(
 			w, statusCode, errorCode,
@@ -227,10 +227,11 @@ func (r *Router) handleKillExecution(w http.ResponseWriter, req *http.Request) {
 		errorCode := apperrors.GetErrorCode(err)
 		errorMsg := apperrors.GetErrorMessage(err)
 
-		logger.Error("failed to kill execution", "context", map[string]string{
-			"executionID": executionID,
-			"error":       err.Error(),
-		})
+		logger.Error("failed to kill execution",
+			"execution_id", executionID,
+			"error", err,
+			"status_code", statusCode,
+			"error_code", errorCode)
 
 		writeErrorResponseWithCode(w, statusCode, errorCode, "failed to kill execution", errorMsg)
 		return
@@ -253,7 +254,7 @@ func (r *Router) handleListExecutions(w http.ResponseWriter, req *http.Request) 
 		errorCode := apperrors.GetErrorCode(err)
 		errorMsg := apperrors.GetErrorMessage(err)
 
-		logger.Debug("failed to list executions", "error", err, "statusCode", statusCode, "errorCode", errorCode)
+		logger.Debug("failed to list executions", "error", err, "status_code", statusCode, "error_code", errorCode)
 
 		writeErrorResponseWithCode(w, statusCode, errorCode, "failed to list executions", errorMsg)
 		return
@@ -293,7 +294,7 @@ func (r *Router) handleClaimAPIKey(w http.ResponseWriter, req *http.Request) {
 		errorCode := apperrors.GetErrorCode(err)
 		errorMsg := apperrors.GetErrorMessage(err)
 
-		logger.Debug("failed to claim API key", "error", err, "statusCode", statusCode, "errorCode", errorCode)
+		logger.Debug("failed to claim API key", "error", err, "status_code", statusCode, "error_code", errorCode)
 
 		writeErrorResponseWithCode(w, statusCode, errorCode, "failed to claim API key", errorMsg)
 		return
@@ -320,7 +321,7 @@ func (r *Router) handleRegisterImage(w http.ResponseWriter, req *http.Request) {
 		errorCode := apperrors.GetErrorCode(err)
 		errorMsg := apperrors.GetErrorMessage(err)
 
-		logger.Debug("failed to register image", "error", err, "statusCode", statusCode, "errorCode", errorCode)
+		logger.Debug("failed to register image", "error", err, "status_code", statusCode, "error_code", errorCode)
 
 		writeErrorResponseWithCode(w, statusCode, errorCode, "failed to register image", errorMsg)
 		return
@@ -340,7 +341,7 @@ func (r *Router) handleListImages(w http.ResponseWriter, req *http.Request) {
 		errorCode := apperrors.GetErrorCode(err)
 		errorMsg := apperrors.GetErrorMessage(err)
 
-		logger.Debug("failed to list images", "error", err, "statusCode", statusCode, "errorCode", errorCode)
+		logger.Debug("failed to list images", "error", err, "status_code", statusCode, "error_code", errorCode)
 
 		writeErrorResponseWithCode(w, statusCode, errorCode, "failed to list images", errorMsg)
 		return
@@ -380,7 +381,7 @@ func (r *Router) handleRemoveImage(w http.ResponseWriter, req *http.Request) {
 		errorCode := apperrors.GetErrorCode(err)
 		errorMsg := apperrors.GetErrorMessage(err)
 
-		logger.Debug("failed to remove image", "error", err, "statusCode", statusCode, "errorCode", errorCode)
+		logger.Debug("failed to remove image", "error", err, "status_code", statusCode, "error_code", errorCode)
 
 		writeErrorResponseWithCode(w, statusCode, errorCode, "failed to remove image", errorMsg)
 		return

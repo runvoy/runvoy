@@ -24,27 +24,27 @@ func parseTaskTimes(
 	if taskEvent.StartedAt != "" {
 		startedAt, err = ParseTime(taskEvent.StartedAt)
 		if err != nil {
-			reqLogger.Error("failed to parse startedAt timestamp", "error", err, "startedAt", taskEvent.StartedAt)
+			reqLogger.Error("failed to parse startedAt timestamp", "error", err, "started_at", taskEvent.StartedAt)
 			return time.Time{}, time.Time{}, 0, fmt.Errorf("failed to parse startedAt: %w", err)
 		}
 	} else {
 		reqLogger.Warn("startedAt missing from task event, using execution's StartedAt",
-			"executionStartedAt", executionStartedAt.Format(time.RFC3339),
+			"execution_started_at", executionStartedAt.Format(time.RFC3339),
 		)
 		startedAt = executionStartedAt
 	}
 
 	stoppedAt, err = ParseTime(taskEvent.StoppedAt)
 	if err != nil {
-		reqLogger.Error("failed to parse stoppedAt timestamp", "error", err, "stoppedAt", taskEvent.StoppedAt)
+		reqLogger.Error("failed to parse stoppedAt timestamp", "error", err, "stopped_at", taskEvent.StoppedAt)
 		return time.Time{}, time.Time{}, 0, fmt.Errorf("failed to parse stoppedAt: %w", err)
 	}
 
 	durationSeconds = int(stoppedAt.Sub(startedAt).Seconds())
 	if durationSeconds < 0 {
 		reqLogger.Warn("calculated negative duration, setting to 0",
-			"startedAt", startedAt.Format(time.RFC3339),
-			"stoppedAt", stoppedAt.Format(time.RFC3339),
+			"started_at", startedAt.Format(time.RFC3339),
+			"stopped_at", stoppedAt.Format(time.RFC3339),
 		)
 		durationSeconds = 0
 	}
@@ -66,12 +66,12 @@ func (p *Processor) handleECSTaskCompletion(ctx context.Context, event *events.C
 
 	reqLogger.Info("pattern matched, processing ECS task completion",
 		"execution", map[string]string{
-			"executionID":   executionID,
-			"startedAt":     taskEvent.StartedAt,
-			"stopCode":      taskEvent.StopCode,
-			"stoppedAt":     taskEvent.StoppedAt,
-			"stoppedReason": taskEvent.StoppedReason,
-			"taskArn":       taskEvent.TaskArn,
+			"execution_id":   executionID,
+			"started_at":     taskEvent.StartedAt,
+			"stop_code":      taskEvent.StopCode,
+			"stopped_at":     taskEvent.StoppedAt,
+			"stopped_reason": taskEvent.StoppedReason,
+			"task_arn":       taskEvent.TaskArn,
 		})
 
 	execution, err := p.executionRepo.GetExecution(ctx, executionID)
@@ -82,7 +82,7 @@ func (p *Processor) handleECSTaskCompletion(ctx context.Context, event *events.C
 
 	if execution == nil {
 		reqLogger.Error("execution not found for task (orphaned task?)",
-			"clusterArn", taskEvent.ClusterArn,
+			"cluster_arn", taskEvent.ClusterArn,
 		)
 		// Don't fail for orphaned tasks - they might have been started manually?
 		// TODO: figure out what to do with orphaned tasks or if we should fail the Lambda

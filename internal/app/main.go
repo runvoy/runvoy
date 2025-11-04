@@ -470,7 +470,7 @@ func (s *Service) KillExecution(ctx context.Context, executionID string) error {
 		return apperrors.ErrNotFound("execution not found", nil)
 	}
 
-	reqLogger.Debug("execution found", "executionID", executionID, "status", execution.Status)
+	reqLogger.Debug("execution found", "execution_id", executionID, "status", execution.Status)
 
 	// Check if execution is already in a terminal state
 	terminalStatuses := constants.TerminalExecutionStatuses()

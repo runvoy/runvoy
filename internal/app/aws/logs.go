@@ -72,9 +72,9 @@ func verifyLogStreamExists(
 ) error {
 	describeLogArgs := []any{
 		"operation", "CloudWatchLogs.DescribeLogStreams",
-		"logGroup", logGroup,
-		"streamPrefix", stream,
-		"executionID", executionID,
+		"log_group", logGroup,
+		"stream_prefix", stream,
+		"execution_id", executionID,
 	}
 	describeLogArgs = append(describeLogArgs, logger.GetDeadlineInfo(ctx)...)
 	reqLogger.Debug("calling external service", "context", logger.SliceToMap(describeLogArgs))
