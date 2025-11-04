@@ -281,7 +281,8 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("port", "56212")
 	v.SetDefault("request_timeout", 0)
 	v.SetDefault("init_timeout", "10s")
-	v.SetDefault("log_level", "INFO")
+	// TODO: we set DEBUG for development, we should update this to use INFO
+	v.SetDefault("log_level", "DEBUG")
 	v.SetDefault("webviewer_url", constants.DefaultWebviewerURL)
 }
 
