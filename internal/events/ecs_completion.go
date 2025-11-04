@@ -82,7 +82,7 @@ func (p *Processor) handleECSTaskCompletion(ctx context.Context, event *events.C
 
 	if execution == nil {
 		reqLogger.Error("execution not found for task (orphaned task?)",
-			"clusterArn", taskEvent.ClusterArn,
+			"cluster_arn", taskEvent.ClusterArn,
 		)
 		// Don't fail for orphaned tasks - they might have been started manually?
 		// TODO: figure out what to do with orphaned tasks or if we should fail the Lambda

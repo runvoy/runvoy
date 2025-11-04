@@ -241,7 +241,7 @@ func (r *ExecutionRepository) UpdateExecution(ctx context.Context, execution *ap
 		"table", r.tableName,
 		"execution_id", execution.ExecutionID,
 		"status", execution.Status,
-		"updateExpression", updateExpr,
+		"update_expression", updateExpr,
 	}
 	updateLogArgs = append(updateLogArgs, logger.GetDeadlineInfo(ctx)...)
 	reqLogger.Debug("calling external service", "context", logger.SliceToMap(updateLogArgs))

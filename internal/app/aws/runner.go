@@ -273,7 +273,7 @@ func (e *Runner) StartTask( //nolint: funlen
 	logArgs := []any{
 		"operation", "ECS.RunTask",
 		"cluster", e.cfg.ECSCluster,
-		"taskDefinition", taskDefARN,
+		"task_definition", taskDefARN,
 		"image", imageToUse,
 		"container_count", len(containerOverrides),
 		"user_email", userEmail,
@@ -462,7 +462,7 @@ func collectImageInfos(
 			"family":         imageInfo.TaskDefinitionName,
 			"container_name": constants.RunnerContainerName,
 			"image":          imageInfo.Image,
-			"isDefault":      strconv.FormatBool(awsStd.ToBool(imageInfo.IsDefault)),
+			"is_default":     strconv.FormatBool(awsStd.ToBool(imageInfo.IsDefault)),
 		})
 	}
 

@@ -100,8 +100,8 @@ func GetDefaultImage(
 	}
 
 	logger.Debug("calling external service", "context", map[string]string{
-		"operation":    "ECS.ListTagsForResource",
-		"resourceArns": strings.Join(taskDefArns, ", "),
+		"operation":     "ECS.ListTagsForResource",
+		"resource_arns": strings.Join(taskDefArns, ", "),
 	})
 
 	for _, taskDefARN := range taskDefArns {
@@ -270,10 +270,10 @@ func updateExistingTaskDefTags(
 		return fmt.Errorf("failed to update tags on existing task definition: %w", tagErr)
 	}
 	logger.Info("updated tags on existing task definition", "context", map[string]string{
-		"family":    family,
-		"arn":       taskDefARN,
-		"image":     image,
-		"isDefault": strconv.FormatBool(isDefault != nil && *isDefault),
+		"family":     family,
+		"arn":        taskDefARN,
+		"image":      image,
+		"is_default": strconv.FormatBool(isDefault != nil && *isDefault),
 	})
 	return nil
 }
