@@ -219,23 +219,19 @@ func extractExecutionIDFromLogStream(logStream string) string {
 		return ""
 	}
 
-	// Split by "/" to get components
 	parts := strings.Split(logStream, "/")
 	if len(parts) != LogStreamPartsCount {
 		return ""
 	}
 
-	// Verify format: task/{container}/{execution_id}
 	if parts[0] != "task" {
 		return ""
 	}
 
-	// Verify container name matches expected container
 	if parts[1] != constants.RunnerContainerName {
 		return ""
 	}
 
-	// Return the execution_id (last part)
 	executionID := parts[2]
 	if executionID == "" {
 		return ""
