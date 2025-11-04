@@ -8,13 +8,13 @@ import (
 )
 
 func TestSuccess(t *testing.T) {
-	// Save original stdout
-	oldStdout := Stdout
-	defer func() { Stdout = oldStdout }()
+	// Save original stderr
+	oldStderr := Stderr
+	defer func() { Stderr = oldStderr }()
 
 	// Capture output
 	buf := &bytes.Buffer{}
-	Stdout = buf
+	Stderr = buf
 
 	Successf("operation completed")
 
@@ -25,13 +25,13 @@ func TestSuccess(t *testing.T) {
 }
 
 func TestError(t *testing.T) {
-	// Save original stdout (Errorf writes to Stdout, not Stderr)
-	oldStdout := Stdout
-	defer func() { Stdout = oldStdout }()
+	// Save original stderr
+	oldStderr := Stderr
+	defer func() { Stderr = oldStderr }()
 
 	// Capture output
 	buf := &bytes.Buffer{}
-	Stdout = buf
+	Stderr = buf
 
 	Errorf("something went wrong")
 
@@ -59,13 +59,13 @@ func TestKeyValue(t *testing.T) {
 }
 
 func TestStep(t *testing.T) {
-	// Save original stdout
-	oldStdout := Stdout
-	defer func() { Stdout = oldStdout }()
+	// Save original stderr
+	oldStderr := Stderr
+	defer func() { Stderr = oldStderr }()
 
 	// Capture output
 	buf := &bytes.Buffer{}
-	Stdout = buf
+	Stderr = buf
 
 	Step(1, 3, "first step")
 
@@ -205,13 +205,13 @@ func TestBytes(t *testing.T) {
 }
 
 func TestProgressBar(t *testing.T) {
-	// Save original stdout
-	oldStdout := Stdout
-	defer func() { Stdout = oldStdout }()
+	// Save original stderr
+	oldStderr := Stderr
+	defer func() { Stderr = oldStderr }()
 
 	// Capture output
 	buf := &bytes.Buffer{}
-	Stdout = buf
+	Stderr = buf
 
 	pb := NewProgressBar(10, "Testing")
 	pb.Update(5)
@@ -224,13 +224,13 @@ func TestProgressBar(t *testing.T) {
 }
 
 func TestProgressBarIncrement(t *testing.T) {
-	// Save original stdout
-	oldStdout := Stdout
-	defer func() { Stdout = oldStdout }()
+	// Save original stderr
+	oldStderr := Stderr
+	defer func() { Stderr = oldStderr }()
 
 	// Capture output
 	buf := &bytes.Buffer{}
-	Stdout = buf
+	Stderr = buf
 
 	pb := NewProgressBar(5, "Incrementing")
 
@@ -247,13 +247,13 @@ func TestProgressBarIncrement(t *testing.T) {
 }
 
 func TestProgressBarUpdateEdgeCases(t *testing.T) {
-	// Save original stdout
-	oldStdout := Stdout
-	defer func() { Stdout = oldStdout }()
+	// Save original stderr
+	oldStderr := Stderr
+	defer func() { Stderr = oldStderr }()
 
 	// Capture output
 	buf := &bytes.Buffer{}
-	Stdout = buf
+	Stderr = buf
 
 	pb := NewProgressBar(100, "Edge cases")
 
@@ -279,13 +279,13 @@ func TestSpinner(_ *testing.T) {
 }
 
 func TestSpinnerSuccess(t *testing.T) {
-	// Save original stdout
-	oldStdout := Stdout
-	defer func() { Stdout = oldStdout }()
+	// Save original stderr
+	oldStderr := Stderr
+	defer func() { Stderr = oldStderr }()
 
 	// Capture output
 	buf := &bytes.Buffer{}
-	Stdout = buf
+	Stderr = buf
 
 	spinner := NewSpinner("Processing")
 	spinner.Start()
@@ -299,13 +299,13 @@ func TestSpinnerSuccess(t *testing.T) {
 }
 
 func TestSpinnerError(t *testing.T) {
-	// Save original stdout
-	oldStdout := Stdout
-	defer func() { Stdout = oldStdout }()
+	// Save original stderr
+	oldStderr := Stderr
+	defer func() { Stderr = oldStderr }()
 
 	// Capture output
 	buf := &bytes.Buffer{}
-	Stdout = buf
+	Stderr = buf
 
 	spinner := NewSpinner("Processing")
 	spinner.Start()
@@ -334,13 +334,13 @@ func TestSpinnerStopWithoutStart(_ *testing.T) {
 }
 
 func TestBox(t *testing.T) {
-	// Save original stdout
-	oldStdout := Stdout
-	defer func() { Stdout = oldStdout }()
+	// Save original stderr
+	oldStderr := Stderr
+	defer func() { Stderr = oldStderr }()
 
 	// Capture output
 	buf := &bytes.Buffer{}
-	Stdout = buf
+	Stderr = buf
 
 	Box("Test message")
 
@@ -355,13 +355,13 @@ func TestBox(t *testing.T) {
 }
 
 func TestHeader(t *testing.T) {
-	// Save original stdout
-	oldStdout := Stdout
-	defer func() { Stdout = oldStdout }()
+	// Save original stderr
+	oldStderr := Stderr
+	defer func() { Stderr = oldStderr }()
 
 	// Capture output
 	buf := &bytes.Buffer{}
-	Stdout = buf
+	Stderr = buf
 
 	Header("Test Header")
 
@@ -376,13 +376,13 @@ func TestHeader(t *testing.T) {
 }
 
 func TestSubheader(t *testing.T) {
-	// Save original stdout
-	oldStdout := Stdout
-	defer func() { Stdout = oldStdout }()
+	// Save original stderr
+	oldStderr := Stderr
+	defer func() { Stderr = oldStderr }()
 
 	// Capture output
 	buf := &bytes.Buffer{}
-	Stdout = buf
+	Stderr = buf
 
 	Subheader("Test Subheader")
 
@@ -421,13 +421,13 @@ func TestColorFormatters(t *testing.T) {
 }
 
 func TestInfof(t *testing.T) {
-	// Save original stdout
-	oldStdout := Stdout
-	defer func() { Stdout = oldStdout }()
+	// Save original stderr
+	oldStderr := Stderr
+	defer func() { Stderr = oldStderr }()
 
 	// Capture output
 	buf := &bytes.Buffer{}
-	Stdout = buf
+	Stderr = buf
 
 	Infof("test info message %s", "arg")
 
@@ -438,13 +438,13 @@ func TestInfof(t *testing.T) {
 }
 
 func TestWarningf(t *testing.T) {
-	// Save original stdout
-	oldStdout := Stdout
-	defer func() { Stdout = oldStdout }()
+	// Save original stderr
+	oldStderr := Stderr
+	defer func() { Stderr = oldStderr }()
 
 	// Capture output
 	buf := &bytes.Buffer{}
-	Stdout = buf
+	Stderr = buf
 
 	Warningf("test warning %d", 123)
 
@@ -455,13 +455,13 @@ func TestWarningf(t *testing.T) {
 }
 
 func TestStepSuccess(t *testing.T) {
-	// Save original stdout
-	oldStdout := Stdout
-	defer func() { Stdout = oldStdout }()
+	// Save original stderr
+	oldStderr := Stderr
+	defer func() { Stderr = oldStderr }()
 
 	// Capture output
 	buf := &bytes.Buffer{}
-	Stdout = buf
+	Stderr = buf
 
 	StepSuccess(2, 5, "completed step")
 
@@ -472,13 +472,13 @@ func TestStepSuccess(t *testing.T) {
 }
 
 func TestStepError(t *testing.T) {
-	// Save original stdout
-	oldStdout := Stdout
-	defer func() { Stdout = oldStdout }()
+	// Save original stderr
+	oldStderr := Stderr
+	defer func() { Stderr = oldStderr }()
 
 	// Capture output
 	buf := &bytes.Buffer{}
-	Stdout = buf
+	Stderr = buf
 
 	StepError(3, 5, "failed step")
 
@@ -625,13 +625,13 @@ func TestStatusBadgeAllVariants(t *testing.T) {
 }
 
 func TestBoxMultiline(t *testing.T) {
-	// Save original stdout
-	oldStdout := Stdout
-	defer func() { Stdout = oldStdout }()
+	// Save original stderr
+	oldStderr := Stderr
+	defer func() { Stderr = oldStderr }()
 
 	// Capture output
 	buf := &bytes.Buffer{}
-	Stdout = buf
+	Stderr = buf
 
 	Box("Line 1\nLine 2\nLine 3")
 
@@ -649,9 +649,9 @@ func TestBoxMultiline(t *testing.T) {
 
 // Benchmark tests
 func BenchmarkSuccess(b *testing.B) {
-	oldStdout := Stdout
-	Stdout = &bytes.Buffer{}
-	defer func() { Stdout = oldStdout }()
+	oldStderr := Stderr
+	Stderr = &bytes.Buffer{}
+	defer func() { Stderr = oldStderr }()
 
 	for i := 0; i < b.N; i++ {
 		Successf("benchmark test")

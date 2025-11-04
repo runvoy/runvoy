@@ -48,28 +48,28 @@ func visibleWidth(s string) int {
 	return utf8.RuneCountInString(clean)
 }
 
-// Successf prints a success message with a checkmark
+// Successf prints a success message with a checkmark (to stderr)
 // Example: ✓ Stack created successfully
 func Successf(format string, a ...interface{}) {
-	_, _ = fmt.Fprintf(Stdout, green.Sprint("✓")+" "+format+"\n", a...)
+	_, _ = fmt.Fprintf(Stderr, green.Sprint("✓")+" "+format+"\n", a...)
 }
 
-// Infof prints an informational message with an arrow
+// Infof prints an informational message with an arrow (to stderr)
 // Example: → Creating CloudFormation stack...
 func Infof(format string, a ...interface{}) {
-	_, _ = fmt.Fprintf(Stdout, cyan.Sprint("→")+" "+format+"\n", a...)
+	_, _ = fmt.Fprintf(Stderr, cyan.Sprint("→")+" "+format+"\n", a...)
 }
 
-// Warningf prints a warning message with a warning symbol
+// Warningf prints a warning message with a warning symbol (to stderr)
 // Example: ⚠ Lock already held by alice@acme.com
 func Warningf(format string, a ...interface{}) {
-	_, _ = fmt.Fprintf(Stdout, yellow.Sprint("⚠")+" "+format+"\n", a...)
+	_, _ = fmt.Fprintf(Stderr, yellow.Sprint("⚠")+" "+format+"\n", a...)
 }
 
-// Errorf prints an error message with an X symbol
+// Errorf prints an error message with an X symbol (to stderr)
 // Example: ✗ Failed to create stack: permission denied
 func Errorf(format string, a ...interface{}) {
-	_, _ = fmt.Fprintf(Stdout, red.Sprint("✗")+" "+format+"\n", a...)
+	_, _ = fmt.Fprintf(Stderr, red.Sprint("✗")+" "+format+"\n", a...)
 }
 
 // Fatalf prints an error message and exits with code 1
@@ -78,45 +78,45 @@ func Fatalf(format string, a ...interface{}) {
 	os.Exit(1)
 }
 
-// Step prints a step in a multi-step process
+// Step prints a step in a multi-step process (to stderr)
 // Example: [1/3] Waiting for stack creation
 func Step(step, total int, message string) {
-	_, _ = gray.Fprintf(Stdout, "[%d/%d] ", step, total)
-	_, _ = fmt.Fprintln(Stdout, message)
+	_, _ = gray.Fprintf(Stderr, "[%d/%d] ", step, total)
+	_, _ = fmt.Fprintln(Stderr, message)
 }
 
-// StepSuccess prints a successful step completion
+// StepSuccess prints a successful step completion (to stderr)
 // Example: [1/3] ✓ Stack created
 func StepSuccess(step, total int, message string) {
-	_, _ = gray.Fprintf(Stdout, "[%d/%d] ", step, total)
-	_, _ = fmt.Fprintf(Stdout, "%s %s\n", green.Sprint("✓"), message)
+	_, _ = gray.Fprintf(Stderr, "[%d/%d] ", step, total)
+	_, _ = fmt.Fprintf(Stderr, "%s %s\n", green.Sprint("✓"), message)
 }
 
-// StepError prints a failed step
+// StepError prints a failed step (to stderr)
 // Example: [2/3] ✗ Failed to generate API key
 func StepError(step, total int, message string) {
-	_, _ = gray.Fprintf(Stdout, "[%d/%d] ", step, total)
-	_, _ = fmt.Fprintf(Stdout, "%s %s\n", red.Sprint("✗"), message)
+	_, _ = gray.Fprintf(Stderr, "[%d/%d] ", step, total)
+	_, _ = fmt.Fprintf(Stderr, "%s %s\n", red.Sprint("✗"), message)
 }
 
-// Header prints a section header with a separator line
+// Header prints a section header with a separator line (to stderr)
 // Example:
 // 🚀 Initializing runvoy infrastructure
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 func Header(text string) {
-	_, _ = fmt.Fprintln(Stdout)
-	_, _ = fmt.Fprintln(Stdout, bold.Sprint(text))
-	_, _ = fmt.Fprintln(Stdout, gray.Sprint(strings.Repeat("━", constants.HeaderSeparatorLength)))
+	_, _ = fmt.Fprintln(Stderr)
+	_, _ = fmt.Fprintln(Stderr, bold.Sprint(text))
+	_, _ = fmt.Fprintln(Stderr, gray.Sprint(strings.Repeat("━", constants.HeaderSeparatorLength)))
 }
 
-// Subheader prints a smaller section header
+// Subheader prints a smaller section header (to stderr)
 // Example:
 // Configuration Details
 // ────────────────────
 func Subheader(text string) {
-	_, _ = fmt.Fprintln(Stdout)
-	_, _ = fmt.Fprintln(Stdout, cyan.Sprint(text))
-	_, _ = fmt.Fprintln(Stdout, gray.Sprint(strings.Repeat("─", len(text))))
+	_, _ = fmt.Fprintln(Stderr)
+	_, _ = fmt.Fprintln(Stderr, cyan.Sprint(text))
+	_, _ = fmt.Fprintln(Stderr, gray.Sprint(strings.Repeat("─", len(text))))
 }
 
 // KeyValue prints a key-value pair with indentation
@@ -176,7 +176,7 @@ func Yellow(text string) string {
 	return yellow.Sprint(text)
 }
 
-// Box prints text in a rounded box
+// Box prints text in a rounded box (to stderr)
 // Example:
 // ╭─────────────────────────────╮
 // │  Configuration saved!       │
@@ -191,12 +191,12 @@ func Box(text string) {
 	}
 
 	// Top border
-	_, _ = fmt.Fprintln(Stdout, gray.Sprint("╭─"+strings.Repeat("─", maxLen+constants.BoxBorderPadding)+"─╮"))
+	_, _ = fmt.Fprintln(Stderr, gray.Sprint("╭─"+strings.Repeat("─", maxLen+constants.BoxBorderPadding)+"─╮"))
 
 	// Content
 	for _, line := range lines {
 		padding := strings.Repeat(" ", maxLen-len(line))
-		_, _ = fmt.Fprintf(Stdout, "%s  %s%s  %s\n",
+		_, _ = fmt.Fprintf(Stderr, "%s  %s%s  %s\n",
 			gray.Sprint("│"),
 			line,
 			padding,
@@ -204,7 +204,7 @@ func Box(text string) {
 	}
 
 	// Bottom border
-	_, _ = fmt.Fprintln(Stdout, gray.Sprint("╰─"+strings.Repeat("─", maxLen+constants.BoxBorderPadding)+"─╯"))
+	_, _ = fmt.Fprintln(Stderr, gray.Sprint("╰─"+strings.Repeat("─", maxLen+constants.BoxBorderPadding)+"─╯"))
 }
 
 // Table prints a simple table with headers
@@ -311,9 +311,9 @@ func NewSpinner(message string) *Spinner {
 	}
 }
 
-// Start starts the spinner animation
+// Start starts the spinner animation (to stderr)
 func (s *Spinner) Start() {
-	if noColor || !isTerminal(os.Stdout) {
+	if noColor || !isTerminal(os.Stderr) {
 		// If not a TTY, just print the message once
 		Infof(s.message)
 		return
@@ -330,7 +330,7 @@ func (s *Spinner) Start() {
 				return
 			case <-ticker.C:
 				frame := s.frames[s.frame%len(s.frames)]
-				_, _ = fmt.Fprintf(Stdout, "\r%s %s", cyan.Sprint(frame), s.message)
+				_, _ = fmt.Fprintf(Stderr, "\r%s %s", cyan.Sprint(frame), s.message)
 				s.frame++
 			}
 		}
@@ -343,7 +343,7 @@ func (s *Spinner) Stop() {
 		return
 	}
 	s.done <- true
-	_, _ = fmt.Fprint(Stdout, "\r"+strings.Repeat(" ", len(s.message)+10)+"\r") //nolint:mnd
+	_, _ = fmt.Fprint(Stderr, "\r"+strings.Repeat(" ", len(s.message)+10)+"\r") //nolint:mnd
 }
 
 // Success stops the spinner and prints a success message
@@ -376,15 +376,15 @@ func NewProgressBar(total int, message string) *ProgressBar {
 	}
 }
 
-// Update updates the progress bar to the given value
+// Update updates the progress bar to the given value (to stderr)
 func (p *ProgressBar) Update(current int) {
-	if noColor || !isTerminal(os.Stdout) {
+	if noColor || !isTerminal(os.Stderr) {
 		// Simple percentage output for non-TTY
 		if current%10 == 0 || current == p.total {
-			_, _ = fmt.Fprintf(Stdout, "\r%s... %d%%", p.message, (current*constants.PercentageMultiplier)/p.total)
+			_, _ = fmt.Fprintf(Stderr, "\r%s... %d%%", p.message, (current*constants.PercentageMultiplier)/p.total)
 		}
 		if current == p.total {
-			_, _ = fmt.Fprintln(Stdout)
+			_, _ = fmt.Fprintln(Stderr)
 		}
 		return
 	}
@@ -395,13 +395,13 @@ func (p *ProgressBar) Update(current int) {
 
 	bar := strings.Repeat("█", filled) + strings.Repeat("░", p.width-filled)
 
-	_, _ = fmt.Fprintf(Stdout, "\r%s %s %3.0f%%",
+	_, _ = fmt.Fprintf(Stderr, "\r%s %s %3.0f%%",
 		p.message,
 		cyan.Sprint(bar),
 		percent*constants.PercentageMultiplier)
 
 	if current == p.total {
-		_, _ = fmt.Fprintln(Stdout)
+		_, _ = fmt.Fprintln(Stderr)
 	}
 }
 
