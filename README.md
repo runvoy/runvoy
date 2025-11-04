@@ -263,7 +263,7 @@ runvoy --help
 ```
 
 ```bash
-runvoy - 0.1.0-20251104-935f54b
+runvoy - 0.1.0-20251104-530477d
 Isolated, repeatable execution environments for your commands
 
 Usage:
