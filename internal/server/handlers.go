@@ -227,11 +227,10 @@ func (r *Router) handleKillExecution(w http.ResponseWriter, req *http.Request) {
 		errorCode := apperrors.GetErrorCode(err)
 		errorMsg := apperrors.GetErrorMessage(err)
 
-		logger.Debug("failed to kill execution",
-			"executionID", executionID,
-			"error", err,
-			"statusCode", statusCode,
-			"errorCode", errorCode)
+		logger.Error("failed to kill execution", "context", map[string]string{
+			"executionID": executionID,
+			"error":       err.Error(),
+		})
 
 		writeErrorResponseWithCode(w, statusCode, errorCode, "failed to kill execution", errorMsg)
 		return

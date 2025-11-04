@@ -342,8 +342,8 @@ func (s *Service) RunCommand(
 	}
 
 	reqLogger.Info("task started", "task", map[string]string{
-		"executionID": executionID,
-		"startedAt":   startedAt.Format(time.RFC3339),
+		"execution_id": executionID,
+		"started_at":   startedAt.Format(time.RFC3339),
 	})
 
 	requestID := logger.GetRequestID(ctx)
@@ -360,14 +360,14 @@ func (s *Service) RunCommand(
 
 	if requestID == "" {
 		reqLogger.Warn("request ID not available; storing execution without request ID",
-			"executionID", executionID,
+			"execution_id", executionID,
 		)
 	}
 
 	if err = s.executionRepo.CreateExecution(ctx, execution); err != nil {
 		reqLogger.Error("failed to create execution record, but task started",
 			"error", err,
-			"executionID", executionID,
+			"execution_id", executionID,
 		)
 		// Continue even if recording fails - the task is already running
 	}

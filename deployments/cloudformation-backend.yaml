@@ -90,29 +90,6 @@ Resources:
         - Key: ManagedBy
           Value: 'cloudformation'
 
-  # DynamoDB Table for Locks
-  LocksTable:
-    Type: AWS::DynamoDB::Table
-    Properties:
-      TableName: !Sub '${ProjectName}-locks'
-      BillingMode: PAY_PER_REQUEST
-      AttributeDefinitions:
-        - AttributeName: lock_name
-          AttributeType: S
-      KeySchema:
-        - AttributeName: lock_name
-          KeyType: HASH
-      TimeToLiveSpecification:
-        AttributeName: ttl
-        Enabled: true
-      Tags:
-        - Key: Name
-          Value: !Sub '${ProjectName}-locks'
-        - Key: Application
-          Value: !Ref ProjectName
-        - Key: ManagedBy
-          Value: 'cloudformation'
-
   # DynamoDB Table for Pending API Keys
   PendingAPIKeysTable:
     Type: AWS::DynamoDB::Table
@@ -413,10 +390,13 @@ Resources:
                   - !GetAtt ECSCluster.Arn
               - Effect: Allow
                 Action:
+                  - 'ecs:ListTasks'
+                Resource: '*'
+              - Effect: Allow
+                Action:
                   - 'ecs:StopTask'
                   - 'ecs:DescribeTasks'
-                  - 'ecs:ListTasks'
-                Resource: !GetAtt ECSCluster.Arn
+                Resource: !Sub 'arn:aws:ecs:${AWS::Region}:${AWS::AccountId}:task/${ProjectName}-cluster/*'
               - Effect: Allow
                 Action:
                   - 'iam:PassRole'
@@ -440,7 +420,6 @@ Resources:
                 Resource:
                   - !GetAtt APIKeysTable.Arn
                   - !GetAtt ExecutionsTable.Arn
-                  - !GetAtt LocksTable.Arn
                   - !GetAtt PendingAPIKeysTable.Arn
                   - !Sub '${APIKeysTable.Arn}/index/*'
                   - !Sub '${ExecutionsTable.Arn}/index/*'
@@ -472,7 +451,6 @@ Resources:
           RUNVOY_API_KEYS_TABLE: !Ref APIKeysTable
           RUNVOY_ECS_CLUSTER: !Ref ECSCluster
           RUNVOY_EXECUTIONS_TABLE: !Ref ExecutionsTable
-          RUNVOY_LOCKS_TABLE: !Ref LocksTable
           RUNVOY_LOG_GROUP: !Ref RunnerLogGroup
           RUNVOY_PENDING_API_KEYS_TABLE: !Ref PendingAPIKeysTable
           RUNVOY_SECURITY_GROUP: !Ref FargateSecurityGroup
@@ -579,7 +557,7 @@ Resources:
                 Action:
                   - 'ecs:DescribeTasks'
                 # Event processor needs to describe tasks in our cluster to update execution status
-                Resource: !GetAtt ECSCluster.Arn
+                Resource: !Sub 'arn:aws:ecs:${AWS::Region}:${AWS::AccountId}:task/${ProjectName}-cluster/*'
 
   # EventBridge Rule for ECS Task State Changes
   TaskCompletionEventRule:
@@ -916,12 +894,6 @@ Outputs:
     Value: !Ref ExecutionsTable
     Export:
       Name: !Sub '${ProjectName}-executions-table'
-
-  LocksTableName:
-    Description: DynamoDB Locks Table name
-    Value: !Ref LocksTable
-    Export:
-      Name: !Sub '${ProjectName}-locks-table'
 
   PendingAPIKeysTableName:
     Description: DynamoDB Pending API Keys Table name
