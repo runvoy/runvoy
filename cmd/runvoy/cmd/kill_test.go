@@ -25,10 +25,6 @@ func (m *mockClientInterfaceForKill) KillExecution(
 	return nil, fmt.Errorf("not implemented")
 }
 
-func (m *mockClientInterfaceForKill) GetLogStreamURL(_ context.Context, _ string) (*api.LogStreamResponse, error) {
-	return &api.LogStreamResponse{}, nil
-}
-
 func TestKillService_KillExecution(t *testing.T) {
 	tests := []struct {
 		name         string

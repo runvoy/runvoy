@@ -24,10 +24,6 @@ func (m *mockClientInterfaceForList) ListExecutions(ctx context.Context) ([]api.
 	return nil, fmt.Errorf("not implemented")
 }
 
-func (m *mockClientInterfaceForList) GetLogStreamURL(_ context.Context, _ string) (*api.LogStreamResponse, error) {
-	return &api.LogStreamResponse{}, nil
-}
-
 func TestListService_ListExecutions(t *testing.T) {
 	tests := []struct {
 		name         string

@@ -44,10 +44,6 @@ func (m *mockClientInterfaceForUsers) RevokeUser(
 	return nil, fmt.Errorf("not implemented")
 }
 
-func (m *mockClientInterfaceForUsers) GetLogStreamURL(_ context.Context, _ string) (*api.LogStreamResponse, error) {
-	return &api.LogStreamResponse{}, nil
-}
-
 func TestUsersService_CreateUser(t *testing.T) {
 	tests := []struct {
 		name         string

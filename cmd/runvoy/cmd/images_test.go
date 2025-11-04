@@ -43,10 +43,6 @@ func (m *mockClientInterfaceForImages) UnregisterImage(
 	return nil, fmt.Errorf("not implemented")
 }
 
-func (m *mockClientInterfaceForImages) GetLogStreamURL(_ context.Context, _ string) (*api.LogStreamResponse, error) {
-	return &api.LogStreamResponse{}, nil
-}
-
 func TestImagesService_RegisterImage(t *testing.T) {
 	tests := []struct {
 		name         string

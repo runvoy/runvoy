@@ -83,22 +83,14 @@ func (s *LogsService) DisplayLogs( //nolint:funlen
 
 	s.displayLogEvents(logMap)
 
-	streamResp, err := s.client.GetLogStreamURL(ctx, executionID)
-	if err != nil {
-		s.output.Warningf("Failed to get WebSocket URL: %v", err)
-		s.printWebviewerURL(webviewerURL, executionID)
-		return nil
-	}
-
-	if streamResp.WebSocketURL == "" {
+	if resp.WebSocketURL == "" {
 		s.output.Warningf("WebSocket streaming not configured on server")
 		s.printWebviewerURL(webviewerURL, executionID)
 		return nil
 	}
 
-	// Connect to WebSocket
 	s.output.Infof("Connecting to log stream...")
-	conn, _, err := websocket.DefaultDialer.Dial(streamResp.WebSocketURL, nil)
+	conn, _, err := websocket.DefaultDialer.Dial(resp.WebSocketURL, nil)
 	if err != nil {
 		s.output.Warningf("Failed to connect to WebSocket: %v", err)
 		s.printWebviewerURL(webviewerURL, executionID)

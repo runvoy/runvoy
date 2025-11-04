@@ -24,10 +24,6 @@ func (m *mockClientInterfaceForLogs) GetLogs(ctx context.Context, executionID st
 	return nil, fmt.Errorf("not implemented")
 }
 
-func (m *mockClientInterfaceForLogs) GetLogStreamURL(_ context.Context, _ string) (*api.LogStreamResponse, error) {
-	return &api.LogStreamResponse{}, nil
-}
-
 func TestLogsService_DisplayLogs(t *testing.T) {
 	tests := []struct {
 		name         string

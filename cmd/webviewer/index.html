@@ -215,6 +215,7 @@
         let isCompleted = false;
         let isConnecting = false;
         let showMetadata = true; // Whether to show line numbers and timestamps
+        let cachedWebSocketURL = null; // WebSocket URL from logs response
 
         // Initialize
         document.addEventListener('DOMContentLoaded', init);
@@ -307,6 +308,7 @@
             // Reset state
             document.getElementById('log-container').innerHTML = '';
             logEvents = [];
+            cachedWebSocketURL = null;
             isCompleted = false;
             isPaused = false;
             document.getElementById('started-at').textContent = '-';
@@ -434,25 +436,8 @@
             isConnecting = true;
 
             try {
-                // Fetch WebSocket URL from the API
-                const url = `${API_ENDPOINT}/api/v1/executions/${executionId}/logs/stream`;
-                const response = await fetch(url, {
-                    headers: {
-                        'X-API-Key': apiKey
-                    }
-                });
-
-                if (!response.ok) {
-                    if (response.status === 401) {
-                        const errorData = await response.json().catch(() => ({}));
-                        throw new Error(errorData.details || 'Invalid API key');
-                    }
-                    const errorData = await response.json().catch(() => ({}));
-                    throw new Error(errorData.details || `HTTP ${response.status}`);
-                }
-
-                const data = await response.json();
-                const wsURL = data.websocket_url;
+                // Use WebSocket URL from cached logs response
+                const wsURL = cachedWebSocketURL;
 
                 if (!wsURL || wsURL === '') {
                     appendLog(`[WARN] WebSocket URL not configured on server. Real-time streaming unavailable.\n`);
@@ -565,6 +550,11 @@
                 }
 
                 const data = await response.json();
+
+                // Cache WebSocket URL from the logs response
+                if (data.websocket_url) {
+                    cachedWebSocketURL = data.websocket_url;
+                }
 
                 // Merge new events with existing events
                 if (data.events && Array.isArray(data.events)) {

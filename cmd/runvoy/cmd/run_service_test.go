@@ -25,10 +25,6 @@ func (m *mockClientInterfaceForRun) RunCommand(
 	return nil, fmt.Errorf("not implemented")
 }
 
-func (m *mockClientInterfaceForRun) GetLogStreamURL(_ context.Context, _ string) (*api.LogStreamResponse, error) {
-	return &api.LogStreamResponse{}, nil
-}
-
 func TestRunService_ExecuteCommand(t *testing.T) {
 	tests := []struct {
 		name         string

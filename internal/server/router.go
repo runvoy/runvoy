@@ -64,8 +64,6 @@ func NewRouter(svc *app.Service, requestTimeout time.Duration) *Router {
 		r.With(router.authenticateRequestMiddleware).Get("/executions", router.handleListExecutions)
 		r.With(router.authenticateRequestMiddleware).Get("/executions/{executionID}/logs",
 			router.handleGetExecutionLogs)
-		r.With(router.authenticateRequestMiddleware).Get("/executions/{executionID}/logs/stream",
-			router.handleGetExecutionLogStream)
 		r.With(router.authenticateRequestMiddleware).Get("/executions/{executionID}/status",
 			router.handleGetExecutionStatus)
 		r.With(router.authenticateRequestMiddleware).Post("/executions/{executionID}/kill",

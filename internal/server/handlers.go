@@ -164,20 +164,6 @@ func (r *Router) handleGetExecutionLogs(w http.ResponseWriter, req *http.Request
 	_ = json.NewEncoder(w).Encode(resp)
 }
 
-// handleGetExecutionLogStream handles GET /api/v1/executions/{executionID}/logs/stream to get WebSocket URL
-func (r *Router) handleGetExecutionLogStream(w http.ResponseWriter, req *http.Request) {
-	executionID := strings.TrimSpace(chi.URLParam(req, "executionID"))
-	if executionID == "" {
-		writeErrorResponse(w, http.StatusBadRequest, "invalid execution id", "executionID is required")
-		return
-	}
-
-	resp := r.svc.GetLogStreamURL(executionID)
-
-	w.WriteHeader(http.StatusOK)
-	_ = json.NewEncoder(w).Encode(resp)
-}
-
 // handleGetExecutionStatus handles GET /api/v1/executions/{executionID}/status to fetch execution status
 func (r *Router) handleGetExecutionStatus(w http.ResponseWriter, req *http.Request) {
 	logger := r.GetLoggerFromContext(req.Context())

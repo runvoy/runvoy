@@ -60,9 +60,6 @@ func (m *mockClientInterface) ListImages(_ context.Context) (*api.ListImagesResp
 func (m *mockClientInterface) UnregisterImage(_ context.Context, _ string) (*api.RemoveImageResponse, error) {
 	return nil, fmt.Errorf("not implemented")
 }
-func (m *mockClientInterface) GetLogStreamURL(_ context.Context, _ string) (*api.LogStreamResponse, error) {
-	return &api.LogStreamResponse{}, nil
-}
 
 // mockOutputInterface is a manual mock for testing
 type mockOutputInterface struct {

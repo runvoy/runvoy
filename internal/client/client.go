@@ -207,24 +207,12 @@ func (c *Client) RunCommand(ctx context.Context, req *api.ExecutionRequest) (*ap
 }
 
 // GetLogs gets the logs for an execution
+// The response includes a WebSocketURL field for streaming logs if WebSocket is configured
 func (c *Client) GetLogs(ctx context.Context, executionID string) (*api.LogsResponse, error) {
 	var resp api.LogsResponse
 	err := c.DoJSON(ctx, Request{
 		Method: "GET",
 		Path:   fmt.Sprintf("/api/v1/executions/%s/logs", executionID),
-	}, &resp)
-	if err != nil {
-		return nil, err
-	}
-	return &resp, nil
-}
-
-// GetLogStreamURL gets the WebSocket URL for streaming logs for an execution
-func (c *Client) GetLogStreamURL(ctx context.Context, executionID string) (*api.LogStreamResponse, error) {
-	var resp api.LogStreamResponse
-	err := c.DoJSON(ctx, Request{
-		Method: "GET",
-		Path:   fmt.Sprintf("/api/v1/executions/%s/logs/stream", executionID),
 	}, &resp)
 	if err != nil {
 		return nil, err

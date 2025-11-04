@@ -379,6 +379,8 @@ func (s *Service) RunCommand(
 }
 
 // GetLogsByExecutionID returns aggregated Cloud logs for a given execution
+// WebSocket endpoint is stored without protocol (normalized in config)
+// Always use wss:// for production WebSocket connections
 func (s *Service) GetLogsByExecutionID(ctx context.Context, executionID string) (*api.LogsResponse, error) {
 	if executionID == "" {
 		return nil, apperrors.ErrBadRequest("executionID is required", nil)
@@ -389,30 +391,17 @@ func (s *Service) GetLogsByExecutionID(ctx context.Context, executionID string) 
 		return nil, err
 	}
 
-	return &api.LogsResponse{ExecutionID: executionID, Events: events}, nil
-}
-
-// GetLogStreamURL returns the WebSocket URL for streaming logs for a given execution
-func (s *Service) GetLogStreamURL(executionID string) *api.LogStreamResponse {
-	// If no WebSocket URL configured, return empty
-	if s.websocketAPIBaseURL == "" {
-		return &api.LogStreamResponse{
-			ExecutionID:  executionID,
-			WebSocketURL: "",
-		}
+	var websocketURL string
+	if s.websocketAPIBaseURL != "" {
+		wsURL := "wss://" + s.websocketAPIBaseURL
+		websocketURL = fmt.Sprintf("%s?execution_id=%s", wsURL, executionID)
 	}
 
-	// WebSocket endpoint is stored without protocol (normalized in config)
-	// Always use wss:// for production WebSocket connections
-	wsURL := "wss://" + s.websocketAPIBaseURL
-
-	// Construct full WebSocket URL with execution_id query parameter
-	fullURL := fmt.Sprintf("%s?execution_id=%s", wsURL, executionID)
-
-	return &api.LogStreamResponse{
+	return &api.LogsResponse{
 		ExecutionID:  executionID,
-		WebSocketURL: fullURL,
-	}
+		Events:       events,
+		WebSocketURL: websocketURL,
+	}, nil
 }
 
 // GetExecutionStatus returns the current status and metadata for a given execution ID
