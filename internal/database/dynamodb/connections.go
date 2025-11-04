@@ -124,7 +124,7 @@ func (r *ConnectionRepository) DeleteConnection(ctx context.Context, connectionI
 		return appErrors.ErrDatabaseError("failed to delete connection", err)
 	}
 
-	reqLogger.Info("connection deleted successfully", "context", map[string]any{
+	reqLogger.Debug("connection deleted successfully", "context", map[string]any{
 		"connection_id": connectionID,
 	})
 	return nil
