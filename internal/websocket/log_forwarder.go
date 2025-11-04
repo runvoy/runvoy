@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
-	"strings"
 
 	"runvoy/internal/api"
 	"runvoy/internal/config"
@@ -21,12 +20,6 @@ import (
 	awsConfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/apigatewaymanagementapi"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
-)
-
-const (
-	// LogStreamPartsCount is the expected number of parts in a log stream name
-	// Format: task/{container}/{execution_id} = 3 parts
-	LogStreamPartsCount = 3
 )
 
 // LogForwarder handles CloudWatch Logs events and forwards them to WebSocket clients.
@@ -85,7 +78,7 @@ func (lf *LogForwarder) HandleLogs(ctx context.Context, event events.CloudwatchL
 		return err
 	}
 
-	executionID := extractExecutionIDFromLogStream(logsData.LogStream)
+	executionID := constants.ExtractExecutionIDFromLogStream(logsData.LogStream)
 	if executionID == "" {
 		reqLogger.Debug("could not extract execution_id from log stream, skipping",
 			"context", map[string]string{
@@ -213,33 +206,4 @@ func (lf *LogForwarder) sendToConnection(
 	})
 
 	return nil
-}
-
-// extractExecutionIDFromLogStream extracts the execution ID from a CloudWatch Logs stream name.
-// Expected format: task/{container}/{execution_id}
-// Returns empty string if the format is not recognized.
-func extractExecutionIDFromLogStream(logStream string) string {
-	if logStream == "" {
-		return ""
-	}
-
-	parts := strings.Split(logStream, "/")
-	if len(parts) != LogStreamPartsCount {
-		return ""
-	}
-
-	if parts[0] != "task" {
-		return ""
-	}
-
-	if parts[1] != constants.RunnerContainerName {
-		return ""
-	}
-
-	executionID := parts[2]
-	if executionID == "" {
-		return ""
-	}
-
-	return executionID
 }

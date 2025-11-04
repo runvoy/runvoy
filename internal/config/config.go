@@ -25,7 +25,7 @@ type Config struct {
 	APIKey       string `mapstructure:"api_key" yaml:"api_key"`
 	WebviewerURL string `mapstructure:"webviewer_url" yaml:"webviewer_url" validate:"omitempty,url"`
 
-	// Orchestrator Service Configuration
+	// Backend Service Configuration
 	Port                      string        `mapstructure:"port" validate:"omitempty"`
 	RequestTimeout            time.Duration `mapstructure:"request_timeout"`
 	APIKeysTable              string        `mapstructure:"api_keys_table"`

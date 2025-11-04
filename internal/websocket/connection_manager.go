@@ -11,6 +11,7 @@ import (
 
 	"runvoy/internal/api"
 	"runvoy/internal/config"
+	"runvoy/internal/constants"
 	"runvoy/internal/database"
 	dynamoRepo "runvoy/internal/database/dynamodb"
 	"runvoy/internal/logger"
@@ -18,13 +19,6 @@ import (
 	"github.com/aws/aws-lambda-go/events"
 	awsConfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
-)
-
-const (
-	// ConnectionTTLHours is the time-to-live for connection records in DynamoDB (24 hours)
-	ConnectionTTLHours = 24
-	// FunctionalityLogStreaming identifies connections used for streaming execution logs
-	FunctionalityLogStreaming = "log_streaming"
 )
 
 // ConnectionManager handles WebSocket connection lifecycle events.
@@ -100,12 +94,12 @@ func (cm *ConnectionManager) handleConnect(
 		}, nil
 	}
 
-	expiresAt := time.Now().Add(ConnectionTTLHours * time.Hour).Unix()
+	expiresAt := time.Now().Add(constants.ConnectionTTLHours * time.Hour).Unix()
 
 	connection := &api.WebSocketConnection{
 		ConnectionID:  connectionID,
 		ExecutionID:   executionID,
-		Functionality: FunctionalityLogStreaming,
+		Functionality: constants.FunctionalityLogStreaming,
 		ExpiresAt:     expiresAt,
 	}
 

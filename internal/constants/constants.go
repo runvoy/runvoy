@@ -2,7 +2,10 @@
 // It includes version information, paths, and configuration keys.
 package constants
 
-import "time"
+import (
+	"strings"
+	"time"
+)
 
 var version = "0.0.0-development" // Updated by CI/CD pipeline at build time
 
@@ -293,3 +296,53 @@ const ExpectedArgsSeedAdminUser = 3
 
 // MinimumArgsUpdateReadmeHelp is the minimum number of arguments for update-readme-help script
 const MinimumArgsUpdateReadmeHelp = 2
+
+//
+// WebSocket constants
+//
+
+// ConnectionTTLHours is the time-to-live for connection records in the database (24 hours)
+const ConnectionTTLHours = 24
+
+// FunctionalityLogStreaming identifies connections used for streaming execution logs
+const FunctionalityLogStreaming = "log_streaming"
+
+// LogStreamPartsCount is the expected number of parts in a log stream name
+// Format: task/{container}/{execution_id} = 3 parts
+const LogStreamPartsCount = 3
+
+// BuildLogStreamName constructs a CloudWatch Logs stream name for an execution.
+// Format: task/{container}/{execution_id}
+// Example: task/runner/abc123
+func BuildLogStreamName(executionID string) string {
+	return "task/" + RunnerContainerName + "/" + executionID
+}
+
+// ExtractExecutionIDFromLogStream extracts the execution ID from a CloudWatch Logs stream name.
+// Expected format: task/{container}/{execution_id}
+// Returns empty string if the format is not recognized.
+func ExtractExecutionIDFromLogStream(logStream string) string {
+	if logStream == "" {
+		return ""
+	}
+
+	parts := strings.Split(logStream, "/")
+	if len(parts) != LogStreamPartsCount {
+		return ""
+	}
+
+	if parts[0] != "task" {
+		return ""
+	}
+
+	if parts[1] != RunnerContainerName {
+		return ""
+	}
+
+	executionID := parts[2]
+	if executionID == "" {
+		return ""
+	}
+
+	return executionID
+}

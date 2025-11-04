@@ -34,7 +34,7 @@ func FetchLogsByExecutionID(ctx context.Context, cfg *Config, executionID string
 		return nil, appErrors.ErrInternalError("failed to load AWS configuration", err)
 	}
 	cwl := cloudwatchlogs.NewFromConfig(awsCfg)
-	stream := fmt.Sprintf("task/%s/%s", constants.RunnerContainerName, executionID)
+	stream := constants.BuildLogStreamName(executionID)
 	reqLogger := logger.DeriveRequestLogger(ctx, slog.Default())
 
 	if verifyErr := verifyLogStreamExists(ctx, cwl, cfg.LogGroup, stream, executionID, reqLogger); verifyErr != nil {
