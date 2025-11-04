@@ -27,7 +27,7 @@ build: build-cli build-local build-orchestrator build-event-processor build-webs
 deploy: deploy-backend deploy-webviewer
 
 # Deploy backend binaries
-deploy-backend: deploy-orchestrator deploy-event-processor
+deploy-backend: deploy-orchestrator deploy-event-processor deploy-websocket-connection-manager deploy-websocket-log-forwarder
 
 # Build CLI client
 [working-directory: 'cmd/runvoy']

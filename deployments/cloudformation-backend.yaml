@@ -799,7 +799,7 @@ Resources:
       Environment:
         Variables:
           RUNVOY_WEBSOCKET_CONNECTIONS_TABLE: !Ref WebSocketConnectionsTable
-          RUNVOY_WEBSOCKET_API_ENDPOINT: !Sub '${WebSocketApi.ApiId}.execute-api.${AWS::Region}.amazonaws.com/${WebSocketApiStage.StageName}'
+          RUNVOY_WEBSOCKET_API_ENDPOINT: !Sub '${WebSocketApi.ApiId}.execute-api.${AWS::Region}.amazonaws.com/production'
 
   # API Gateway WebSocket API
   WebSocketApi:
@@ -809,12 +809,9 @@ Resources:
       ProtocolType: WEBSOCKET
       RouteSelectionExpression: '$request.body.action'
       Tags:
-        - Key: Name
-          Value: !Sub '${ProjectName}-websocket-api'
-        - Key: Application
-          Value: !Ref ProjectName
-        - Key: ManagedBy
-          Value: 'cloudformation'
+        Name: !Sub '${ProjectName}-websocket-api'
+        Application: !Ref ProjectName
+        ManagedBy: 'cloudformation'
 
   # WebSocket API Stage
   WebSocketApiStage:
@@ -876,7 +873,7 @@ Resources:
       - LogForwarderSubscriptionPermission
     Properties:
       LogGroupName: !Ref RunnerLogGroup
-      FilterPattern: 'task/runner/*'
+      FilterPattern: ''
       DestinationArn: !GetAtt LogForwarderFunction.Arn
 
   # Permission for CloudWatch Logs to invoke Log Forwarder Lambda
@@ -886,7 +883,7 @@ Resources:
       FunctionName: !Ref LogForwarderFunction
       Action: lambda:InvokeFunction
       Principal: logs.amazonaws.com
-      SourceArn: !Sub '${RunnerLogGroup.Arn}:*'
+      SourceArn: !GetAtt RunnerLogGroup.Arn
 
 Outputs:
   APIEndpoint:
@@ -969,7 +966,7 @@ Outputs:
 
   WebSocketApiEndpoint:
     Description: WebSocket API Gateway endpoint URL
-    Value: !Sub 'wss://${WebSocketApi.ApiId}.execute-api.${AWS::Region}.amazonaws.com/${WebSocketApiStage.StageName}'
+    Value: !Sub 'wss://${WebSocketApi.ApiId}.execute-api.${AWS::Region}.amazonaws.com/production'
     Export:
       Name: !Sub '${ProjectName}-websocket-api-endpoint'
 
