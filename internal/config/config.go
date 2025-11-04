@@ -126,6 +126,9 @@ func LoadOrchestrator() (*Config, error) {
 		return nil, err
 	}
 
+	// Normalize WebSocket endpoint: strip protocol if present
+	cfg.WebSocketAPIEndpoint = normalizeWebSocketEndpoint(cfg.WebSocketAPIEndpoint)
+
 	return &cfg, nil
 }
 
@@ -339,15 +342,17 @@ func bindEnvVars(v *viper.Viper) {
 // validateOrchestrator validates required fields for orchestrator service.
 // These match the old caarlos0/env notEmpty tags to maintain parity.
 // TaskDefinition is no longer required - task definitions are managed dynamically via API.
+// WebSocketConnectionsTable is only required by the WebSocket lambdas, not the orchestrator.
 func validateOrchestrator(cfg *Config) error {
 	required := map[string]string{
-		"APIKeysTable":    cfg.APIKeysTable,
-		"ExecutionsTable": cfg.ExecutionsTable,
-		"ECSCluster":      cfg.ECSCluster,
-		"Subnet1":         cfg.Subnet1,
-		"Subnet2":         cfg.Subnet2,
-		"SecurityGroup":   cfg.SecurityGroup,
-		"LogGroup":        cfg.LogGroup,
+		"APIKeysTable":         cfg.APIKeysTable,
+		"ExecutionsTable":      cfg.ExecutionsTable,
+		"ECSCluster":           cfg.ECSCluster,
+		"Subnet1":              cfg.Subnet1,
+		"Subnet2":              cfg.Subnet2,
+		"SecurityGroup":        cfg.SecurityGroup,
+		"LogGroup":             cfg.LogGroup,
+		"WebSocketAPIEndpoint": cfg.WebSocketAPIEndpoint,
 	}
 
 	for field, value := range required {
@@ -396,10 +401,8 @@ func LoadLogForwarder() (*Config, error) {
 		return nil, err
 	}
 
-	if !strings.HasPrefix(cfg.WebSocketAPIEndpoint, "https://") &&
-		!strings.HasPrefix(cfg.WebSocketAPIEndpoint, "http://") {
-		cfg.WebSocketAPIEndpoint = "https://" + cfg.WebSocketAPIEndpoint
-	}
+	// Normalize WebSocket endpoint: strip protocol if present
+	cfg.WebSocketAPIEndpoint = normalizeWebSocketEndpoint(cfg.WebSocketAPIEndpoint)
 
 	return &cfg, nil
 }
@@ -444,4 +447,16 @@ func validateLogForwarder(cfg *Config) error {
 	}
 
 	return nil
+}
+
+// normalizeWebSocketEndpoint strips protocol prefixes from WebSocket endpoint URLs.
+// Accepts: https://example.com, http://example.com, wss://example.com, ws://example.com, example.com
+// Returns: example.com (without protocol)
+func normalizeWebSocketEndpoint(endpoint string) string {
+	endpoint = strings.TrimSpace(endpoint)
+	endpoint = strings.TrimPrefix(endpoint, "https://")
+	endpoint = strings.TrimPrefix(endpoint, "http://")
+	endpoint = strings.TrimPrefix(endpoint, "wss://")
+	endpoint = strings.TrimPrefix(endpoint, "ws://")
+	return endpoint
 }

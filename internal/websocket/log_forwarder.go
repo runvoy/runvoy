@@ -53,21 +53,25 @@ func NewLogForwarder(ctx context.Context, cfg *config.Config, log *slog.Logger) 
 
 	dynamoClient := dynamodb.NewFromConfig(awsCfg)
 	connRepo := dynamoRepo.NewConnectionRepository(dynamoClient, cfg.WebSocketConnectionsTable, log)
+
+	// API Gateway Management API expects https:// endpoint (not wss://)
+	// Config stores normalized endpoint without protocol
+	apiEndpoint := "https://" + cfg.WebSocketAPIEndpoint
 	apiGwClient := apigatewaymanagementapi.NewFromConfig(awsCfg, func(o *apigatewaymanagementapi.Options) {
-		o.BaseEndpoint = aws.String(cfg.WebSocketAPIEndpoint)
+		o.BaseEndpoint = aws.String(apiEndpoint)
 	})
 
 	log.Info("log forwarder initialized",
 		"context", map[string]string{
 			"table":        cfg.WebSocketConnectionsTable,
-			"api_endpoint": cfg.WebSocketAPIEndpoint,
+			"api_endpoint": apiEndpoint,
 		},
 	)
 
 	return &LogForwarder{
 		connRepo:      connRepo,
 		apiGwClient:   apiGwClient,
-		apiGwEndpoint: aws.String(cfg.WebSocketAPIEndpoint),
+		apiGwEndpoint: aws.String(apiEndpoint),
 		logger:        log,
 	}, nil
 }
@@ -138,7 +142,7 @@ func (lf *LogForwarder) forwardLogsToConnections(
 	}
 
 	if len(connectionIDs) == 0 {
-		reqLogger.Info("no active connections found for execution", "context", map[string]string{
+		reqLogger.Debug("no active connections found for execution", "context", map[string]string{
 			"execution_id": executionID,
 		})
 		return nil

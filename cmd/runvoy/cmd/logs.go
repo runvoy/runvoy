@@ -67,9 +67,10 @@ func (s *LogsService) DisplayLogs(ctx context.Context, executionID, webviewerURL
 
 	s.output.Blank()
 	rows := [][]string{}
-	for _, log := range resp.Events {
+	for i, log := range resp.Events {
+		lineNumber := i + 1 // Compute line number client-side (1-indexed)
 		rows = append(rows, []string{
-			s.output.Bold(fmt.Sprintf("%d", log.Line)),
+			s.output.Bold(fmt.Sprintf("%d", lineNumber)),
 			time.Unix(log.Timestamp/constants.MillisecondsPerSecond, 0).UTC().Format(time.DateTime),
 			log.Message,
 		})

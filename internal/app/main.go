@@ -44,11 +44,12 @@ type Runner interface {
 
 // Service provides the core business logic for command execution and user management.
 type Service struct {
-	userRepo      database.UserRepository
-	executionRepo database.ExecutionRepository
-	runner        Runner
-	Logger        *slog.Logger
-	Provider      constants.BackendProvider
+	userRepo            database.UserRepository
+	executionRepo       database.ExecutionRepository
+	runner              Runner
+	Logger              *slog.Logger
+	Provider            constants.BackendProvider
+	websocketAPIBaseURL string // Base WebSocket API URL (without wss:// prefix or path)
 }
 
 // NOTE: provider-specific configuration has been moved to subpackages (e.g., app/aws).
@@ -61,13 +62,15 @@ func NewService(
 	executionRepo database.ExecutionRepository,
 	runner Runner,
 	log *slog.Logger,
-	provider constants.BackendProvider) *Service {
+	provider constants.BackendProvider,
+	websocketAPIBaseURL string) *Service {
 	return &Service{
-		userRepo:      userRepo,
-		executionRepo: executionRepo,
-		runner:        runner,
-		Logger:        log,
-		Provider:      provider,
+		userRepo:            userRepo,
+		executionRepo:       executionRepo,
+		runner:              runner,
+		Logger:              log,
+		Provider:            provider,
+		websocketAPIBaseURL: websocketAPIBaseURL,
 	}
 }
 
@@ -387,6 +390,29 @@ func (s *Service) GetLogsByExecutionID(ctx context.Context, executionID string) 
 	}
 
 	return &api.LogsResponse{ExecutionID: executionID, Events: events}, nil
+}
+
+// GetLogStreamURL returns the WebSocket URL for streaming logs for a given execution
+func (s *Service) GetLogStreamURL(executionID string) *api.LogStreamResponse {
+	// If no WebSocket URL configured, return empty
+	if s.websocketAPIBaseURL == "" {
+		return &api.LogStreamResponse{
+			ExecutionID:  executionID,
+			WebSocketURL: "",
+		}
+	}
+
+	// WebSocket endpoint is stored without protocol (normalized in config)
+	// Always use wss:// for production WebSocket connections
+	wsURL := "wss://" + s.websocketAPIBaseURL
+
+	// Construct full WebSocket URL with execution_id query parameter
+	fullURL := fmt.Sprintf("%s?execution_id=%s", wsURL, executionID)
+
+	return &api.LogStreamResponse{
+		ExecutionID:  executionID,
+		WebSocketURL: fullURL,
+	}
 }
 
 // GetExecutionStatus returns the current status and metadata for a given execution ID

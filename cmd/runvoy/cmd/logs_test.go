@@ -42,8 +42,8 @@ func TestLogsService_DisplayLogs(t *testing.T) {
 					return &api.LogsResponse{
 						ExecutionID: "exec-123",
 						Events: []api.LogEvent{
-							{Line: 1, Timestamp: 1000000, Message: "Starting process"},
-							{Line: 2, Timestamp: 2000000, Message: "Process completed"},
+							{Timestamp: 1000000, Message: "Starting process"},
+							{Timestamp: 2000000, Message: "Process completed"},
 						},
 					}, nil
 				}
@@ -119,7 +119,7 @@ func TestLogsService_DisplayLogs(t *testing.T) {
 				m.getLogsFunc = func(_ context.Context, _ string) (*api.LogsResponse, error) {
 					return &api.LogsResponse{
 						ExecutionID: "exec-abc",
-						Events:      []api.LogEvent{{Line: 1, Timestamp: 1000000, Message: "test"}},
+						Events:      []api.LogEvent{{Timestamp: 1000000, Message: "test"}},
 					}, nil
 				}
 			},
