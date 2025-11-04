@@ -708,7 +708,7 @@ The platform includes a minimal web-based log viewer for visualizing execution l
 
 ### Implementation
 
-**Location**: `cmd/webviewer/index.html`
+**Location**: `cmd/webapp/dist/index.html`
 **Deployment**: Hosted on AWS S3 at `https://runvoy-releases.s3.us-east-2.amazonaws.com/webviewer.html`
 **Architecture**: Single-page application (SPA) - standalone HTML file with embedded CSS and JavaScript
 

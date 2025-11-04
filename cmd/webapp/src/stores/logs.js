@@ -1,0 +1,9 @@
+import { writable } from 'svelte/store';
+
+export const logEvents = writable([]);
+export const logsRetryCount = writable(0);
+export const showMetadata = writable(true);
+
+// Constants for retry logic
+export const MAX_LOGS_RETRIES = 2;
+export const LOGS_RETRY_DELAY = 10000; // 10 seconds in milliseconds
