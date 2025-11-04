@@ -65,10 +65,10 @@ func (cm *ConnectionManager) HandleRequest(
 ) (events.APIGatewayProxyResponse, error) {
 	reqLogger := logger.DeriveRequestLogger(ctx, cm.logger)
 
-	reqLogger.Debug("received WebSocket event",
-		"routeKey", req.RequestContext.RouteKey,
-		"connectionID", req.RequestContext.ConnectionID,
-	)
+	reqLogger.Debug("received WebSocket event", "context", map[string]string{
+		"route_key":     req.RequestContext.RouteKey,
+		"connection_id": req.RequestContext.ConnectionID,
+	})
 
 	switch req.RequestContext.RouteKey {
 	case "$connect":
@@ -110,10 +110,10 @@ func (cm *ConnectionManager) handleConnect(
 	}
 
 	reqLogger.Debug("storing connection", "context", map[string]string{
-		"connectionID":  connection.ConnectionID,
-		"executionID":   connection.ExecutionID,
+		"connection_id": connection.ConnectionID,
+		"execution_id":  connection.ExecutionID,
 		"functionality": connection.Functionality,
-		"expiresAt":     fmt.Sprintf("%d", connection.ExpiresAt),
+		"expires_at":    fmt.Sprintf("%d", connection.ExpiresAt),
 	})
 
 	err := cm.connRepo.CreateConnection(ctx, connection)
@@ -125,10 +125,12 @@ func (cm *ConnectionManager) handleConnect(
 		}, nil
 	}
 
-	reqLogger.Info("connection established",
-		"connectionID", connectionID,
-		"executionID", executionID,
-	)
+	reqLogger.Info("connection established", "context", map[string]string{
+		"connection_id": connection.ConnectionID,
+		"execution_id":  connection.ExecutionID,
+		"functionality": connection.Functionality,
+		"expires_at":    fmt.Sprintf("%d", connection.ExpiresAt),
+	})
 
 	return events.APIGatewayProxyResponse{
 		StatusCode: http.StatusOK,
@@ -144,7 +146,9 @@ func (cm *ConnectionManager) handleDisconnect(
 ) (events.APIGatewayProxyResponse, error) {
 	connectionID := req.RequestContext.ConnectionID
 
-	reqLogger.Debug("deleting connection", "connectionID", connectionID)
+	reqLogger.Debug("deleting connection", "context", map[string]string{
+		"connection_id": connectionID,
+	})
 
 	err := cm.connRepo.DeleteConnection(ctx, connectionID)
 	if err != nil {
@@ -155,7 +159,9 @@ func (cm *ConnectionManager) handleDisconnect(
 		}, nil
 	}
 
-	reqLogger.Info("connection disconnected", "connectionID", connectionID)
+	reqLogger.Info("connection disconnected", "context", map[string]string{
+		"connection_id": connectionID,
+	})
 
 	return events.APIGatewayProxyResponse{
 		StatusCode: http.StatusOK,
