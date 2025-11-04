@@ -263,7 +263,7 @@ runvoy --help
 ```
 
 ```bash
-runvoy - 0.1.0-20251104-47b4472
+runvoy - 0.1.0-20251104-b03e68c
 Isolated, repeatable execution environments for your commands
 
 Usage:
@@ -335,42 +335,56 @@ runvoy logs 72f57686926e4becb89116b0ac72caec
 
 # Default behavior
 # - Waits until the execution starts (spinner)
-# - Prints all available logs once, then exits
+# - Prints all available logs and start tailing logs in real-time
+# - Stops tailing when the execution reaches a terminal status (COMPLETED/SUCCEEDED/FAILED/etc.)
 
 # Sample output
-🚀 runvoy
+runvoy --verbose logs 2e1c58557c3f4ee1a81c0071fdd0b1e9
+```
+
+```text
+🚀 runvoy logs
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-→ Getting logs for execution: 72f57686926e4becb89116b0ac72caec
-⠋ Waiting for execution to start...
+→ CLI build: 0.1.0-20251104-b03e68c
+→ Verbose output enabled
+→ Timeout: 10m0s
+→ Loaded configuration from /Users/alex/.runvoy/config.yaml
+→ API endpoint: http://localhost:56212/
+→ Getting logs for execution: 2e1c58557c3f4ee1a81c0071fdd0b1e9
 
 Line  Timestamp (UTC)      Message
-────  ───────────────────  ───────────────────────────────────────────────────────
-1     2025-10-30 13:32:48  Runvoy Runner execution started by requestID 1234567890
-2     2025-10-30 13:32:48  terraform plan
-3     2025-10-30 13:32:49  Refreshing Terraform state in-memory prior to plan...
-...
-✓ Logs retrieved successfully
-→ View logs in web viewer: https://runvoy-releases.s3.us-east-2.amazonaws.com/webviewer.html?execution_id=72f57686926e4becb89116b0ac72caec
+────  ───────────────────  ────────────────────────────────────────────────────────────
+1     2025-11-04 18:18:04  ### runvoy command => while true; do date -u; sleep 30; done
+2     2025-11-04 18:18:04  Tue Nov  4 18:18:04 UTC 2025
+3     2025-11-04 18:18:34  Tue Nov  4 18:18:34 UTC 2025
+4     2025-11-04 18:19:04  Tue Nov  4 18:19:04 UTC 2025
+
+→ Connecting to log stream...
+✓ Connected to log stream. Press Ctrl+C to exit.
+
+5     2025-11-04 18:19:34  Tue Nov  4 18:19:34 UTC 2025
+6     2025-11-04 18:20:04  Tue Nov  4 18:20:04 UTC 2025
+7     2025-11-04 18:20:34  Tue Nov  4 18:20:34 UTC 2025
+8     2025-11-04 18:21:04  Tue Nov  4 18:21:04 UTC 2025
+9     2025-11-04 18:21:34  Tue Nov  4 18:21:34 UTC 2025
+... (continues to stream new logs in real-time)
+
+^C
+→ Received interrupt signal, closing connection...
+
+→ View logs in web viewer: http://localhost:56212/webviewer.html?execution_id=2e1c58557c3f4ee1a81c0071fdd0b1e9
 ```
 
 **Web Viewer:**
 
-In addition to the CLI, you can view logs in a browser using the web viewer. The CLI automatically provides a web viewer link when you run a command:
-
-```bash
-runvoy run "echo hello world"
-# Output includes:
-# View logs in web viewer: https://runvoy-releases.s3.us-east-2.amazonaws.com/webviewer.html?execution_id=72f57686926e4becb89116b0ac72caec
-```
-
 The web viewer is a minimal, single-page application that provides:
 
-- **Real-time log streaming** - Automatically polls for new logs every 5 seconds
+- **Real-time log streaming** - Automatically get updates from the websocket API in real-time
 - **ANSI color support** - Displays colored terminal output
 - **Status tracking** - Shows execution status (RUNNING, SUCCEEDED, FAILED, STOPPED)
 - **Execution metadata** - Displays execution ID, start time, and exit codes
 - **Interactive controls**:
-  - Pause/Resume polling
+  - Pause/Resume streaming
   - Download logs as text file
   - Clear display
   - Toggle metadata (line numbers and timestamps)
