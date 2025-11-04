@@ -36,6 +36,7 @@ runvoy solves the challenge of giving team members access to run infrastructure 
 - **Multi-user support** - Centralized execution for entire teams
 - **Event-driven architecture** - Automatic execution tracking via EventBridge
 - **Execution locking** - Prevent concurrent operations on shared resources (e.g., Terraform state)
+- **Unix-style output streams** - Separate logs (stderr) from data (stdout) for easy piping and scripting
 
 ## Quick Start
 
@@ -434,6 +435,45 @@ runvoy users revoke <email>
 # Example
 runvoy users revoke bob@example.com
 ```
+
+### Output Streams and Piping
+
+runvoy follows Unix conventions by separating informational messages from data output, making it easy to pipe commands and script automation workflows:
+
+- **stderr (standard error)**: Runtime messages, progress indicators, and logs
+  - Informational messages (→, ✓, ⚠, ✗)
+  - Progress spinners and status updates
+  - Headers and UI formatting
+
+- **stdout (standard output)**: Actual data from API responses
+  - Tables, lists, and structured data
+  - Raw output for piping to other tools
+
+**Examples:**
+
+```bash
+# Hide informational messages, show only data
+runvoy list 2>/dev/null
+
+# Hide data, show only logs/status messages
+runvoy list >/dev/null
+
+# Pipe data to another command (jq, grep, etc.)
+runvoy list 2>/dev/null | grep "RUNNING"
+
+# Redirect logs and data to separate files
+runvoy list 2>status.log >executions.txt
+
+# Pipe between runvoy commands
+runvoy command1 2>/dev/null | runvoy command2
+
+# Use in scripts with proper error handling
+if runvoy status $EXEC_ID 2>/dev/null | grep -q "SUCCEEDED"; then
+  echo "Execution succeeded"
+fi
+```
+
+This separation enables clean automation and integration with other Unix tools without mixing informational output with parseable data.
 
 ### Global Flags
 
