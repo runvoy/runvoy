@@ -559,9 +559,7 @@ Resources:
                 Action:
                   - 'dynamodb:GetItem'
                   - 'dynamodb:Query'
-                  - 'dynamodb:BatchWriteItem'
-                  - 'dynamodb:DeleteItem'
-                # Event processor needs to read and delete WebSocket connections for cleanup
+                # Event processor only reads WebSocket connections to check if there are any
                 Resource:
                   - !GetAtt WebSocketConnectionsTable.Arn
                   - !Sub '${WebSocketConnectionsTable.Arn}/index/*'
@@ -683,6 +681,7 @@ Resources:
                   - 'dynamodb:PutItem'
                   - 'dynamodb:GetItem'
                   - 'dynamodb:DeleteItem'
+                  - 'dynamodb:BatchWriteItem'
                   - 'dynamodb:Query'
                 Resource:
                   - !GetAtt WebSocketConnectionsTable.Arn
