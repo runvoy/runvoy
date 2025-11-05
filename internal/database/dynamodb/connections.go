@@ -190,7 +190,6 @@ func (r *ConnectionRepository) DeleteConnectionsByExecutionID(
 ) (int, error) {
 	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
 
-	// First, get all connection IDs for this execution
 	connectionIDs, err := r.GetConnectionsByExecutionID(ctx, executionID)
 	if err != nil {
 		return 0, fmt.Errorf("failed to get connections for execution: %w", err)
@@ -210,19 +209,17 @@ func (r *ConnectionRepository) DeleteConnectionsByExecutionID(
 	logArgs = append(logArgs, logger.GetDeadlineInfo(ctx)...)
 	reqLogger.Debug("calling external service", "context", logger.SliceToMap(logArgs))
 
-	// Build delete requests for all connections
 	deleteRequests, buildErr := r.buildDeleteRequests(connectionIDs)
 	if buildErr != nil {
 		return 0, buildErr
 	}
 
-	// Process deletions with batch writes
 	deletedCount, batchErr := r.executeBatchDeletes(ctx, deleteRequests)
 	if batchErr != nil {
 		return deletedCount, batchErr
 	}
 
-	reqLogger.Info("connections deleted successfully", "context", map[string]any{
+	reqLogger.Debug("connections deleted successfully", "context", map[string]any{
 		"execution_id":      executionID,
 		"connections_count": deletedCount,
 	})

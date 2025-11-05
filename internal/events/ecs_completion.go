@@ -138,9 +138,11 @@ func (p *Processor) cleanupWebSocketConnections(
 	}
 
 	if deletedCount > 0 {
-		reqLogger.Info("deleted WebSocket connections for terminal execution",
-			"execution_id", executionID,
-			"deleted_count", deletedCount,
+		reqLogger.Debug("deleted WebSocket connections for terminal execution", "context",
+			map[string]string{
+				"execution_id":  executionID,
+				"deleted_count": fmt.Sprintf("%d", deletedCount),
+			},
 		)
 	}
 }
