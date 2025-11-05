@@ -880,6 +880,7 @@ Resources:
       - LogForwarderSubscriptionPermission
     Properties:
       LogGroupName: !Ref RunnerLogGroup
+      FilterName: !Sub '${ProjectName}-log-forwarder-subscription'
       FilterPattern: ''
       DestinationArn: !GetAtt LogForwarderFunction.Arn
 
