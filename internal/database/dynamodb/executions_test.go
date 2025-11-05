@@ -291,8 +291,7 @@ func BenchmarkToExecutionItem(b *testing.B) {
 		ComputePlatform: "AWS",
 	}
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_ = toExecutionItem(exec)
 	}
 }
@@ -315,8 +314,7 @@ func BenchmarkToAPIExecution(b *testing.B) {
 		ComputePlatform: "AWS",
 	}
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_ = item.toAPIExecution()
 	}
 }

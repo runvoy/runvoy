@@ -50,30 +50,30 @@ func visibleWidth(s string) int {
 
 // Successf prints a success message with a checkmark (to stderr)
 // Example: ✓ Stack created successfully
-func Successf(format string, a ...interface{}) {
+func Successf(format string, a ...any) {
 	_, _ = fmt.Fprintf(Stderr, green.Sprint("✓")+" "+format+"\n", a...)
 }
 
 // Infof prints an informational message with an arrow (to stderr)
 // Example: → Creating CloudFormation stack...
-func Infof(format string, a ...interface{}) {
+func Infof(format string, a ...any) {
 	_, _ = fmt.Fprintf(Stderr, cyan.Sprint("→")+" "+format+"\n", a...)
 }
 
 // Warningf prints a warning message with a warning symbol (to stderr)
 // Example: ⚠ Lock already held by alice@acme.com
-func Warningf(format string, a ...interface{}) {
+func Warningf(format string, a ...any) {
 	_, _ = fmt.Fprintf(Stderr, yellow.Sprint("⚠")+" "+format+"\n", a...)
 }
 
 // Errorf prints an error message with an X symbol (to stderr)
 // Example: ✗ Failed to create stack: permission denied
-func Errorf(format string, a ...interface{}) {
+func Errorf(format string, a ...any) {
 	_, _ = fmt.Fprintf(Stderr, red.Sprint("✗")+" "+format+"\n", a...)
 }
 
 // Fatalf prints an error message and exits with code 1
-func Fatalf(format string, a ...interface{}) {
+func Fatalf(format string, a ...any) {
 	Errorf(format, a...)
 	os.Exit(1)
 }
@@ -137,12 +137,12 @@ func Blank() {
 }
 
 // Println prints a plain line without any formatting
-func Println(a ...interface{}) {
+func Println(a ...any) {
 	_, _ = fmt.Fprintln(Stdout, a...)
 }
 
 // Printf prints a formatted plain line
-func Printf(format string, a ...interface{}) {
+func Printf(format string, a ...any) {
 	_, _ = fmt.Fprintf(Stdout, format, a...)
 }
 
@@ -237,10 +237,7 @@ func Table(headers []string, rows [][]string) {
 	// Print headers
 	for i, h := range headers {
 		header := bold.Sprint(h)
-		pad := widths[i] - visibleWidth(h)
-		if pad < 0 {
-			pad = 0
-		}
+		pad := max(widths[i]-visibleWidth(h), 0)
 		_, _ = fmt.Fprint(Stdout, header)
 		_, _ = fmt.Fprint(Stdout, strings.Repeat(" ", pad))
 		_, _ = fmt.Fprint(Stdout, "  ")
@@ -259,10 +256,7 @@ func Table(headers []string, rows [][]string) {
 			if i >= len(widths) {
 				continue
 			}
-			pad := widths[i] - visibleWidth(cell)
-			if pad < 0 {
-				pad = 0
-			}
+			pad := max(widths[i]-visibleWidth(cell), 0)
 			_, _ = fmt.Fprint(Stdout, cell)
 			_, _ = fmt.Fprint(Stdout, strings.Repeat(" ", pad))
 			_, _ = fmt.Fprint(Stdout, "  ")

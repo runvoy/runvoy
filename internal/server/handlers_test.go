@@ -97,24 +97,26 @@ func (t *testUserRepository) DeletePendingAPIKey(_ context.Context, _ string) er
 }
 
 func (t *testUserRepository) ListUsers(_ context.Context) ([]*api.User, error) {
+	lastUsed1 := time.Now().Add(-1 * time.Hour)
+	lastUsed3 := time.Now().Add(-12 * time.Hour)
 	return []*api.User{
 		{
 			Email:     "charlie@example.com",
 			CreatedAt: time.Now().Add(-24 * time.Hour),
 			Revoked:   false,
-			LastUsed:  time.Now().Add(-1 * time.Hour),
+			LastUsed:  &lastUsed1,
 		},
 		{
 			Email:     "alice@example.com",
 			CreatedAt: time.Now().Add(-48 * time.Hour),
 			Revoked:   true,
-			LastUsed:  time.Time{},
+			LastUsed:  nil,
 		},
 		{
 			Email:     "bob@example.com",
 			CreatedAt: time.Now().Add(-36 * time.Hour),
 			Revoked:   false,
-			LastUsed:  time.Now().Add(-12 * time.Hour),
+			LastUsed:  &lastUsed3,
 		},
 	}, nil
 }

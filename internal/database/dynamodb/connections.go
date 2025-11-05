@@ -214,10 +214,7 @@ func (r *ConnectionRepository) executeBatchDeletes(
 	deletedCount := 0
 
 	for i := 0; i < len(deleteRequests); i += batchSize {
-		end := i + batchSize
-		if end > len(deleteRequests) {
-			end = len(deleteRequests)
-		}
+		end := min(i+batchSize, len(deleteRequests))
 
 		batchRequests := deleteRequests[i:end]
 

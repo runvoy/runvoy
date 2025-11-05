@@ -36,7 +36,7 @@ func New(cfg *config.Config, log *slog.Logger) *Client {
 type Request struct {
 	Method string
 	Path   string
-	Body   interface{}
+	Body   any
 }
 
 // Response represents an API response
@@ -112,7 +112,7 @@ func (c *Client) Do(ctx context.Context, req Request) (*Response, error) {
 }
 
 // DoJSON makes a request and unmarshals the response into the provided interface
-func (c *Client) DoJSON(ctx context.Context, req Request, result interface{}) error {
+func (c *Client) DoJSON(ctx context.Context, req Request, result any) error {
 	resp, err := c.Do(ctx, req)
 	if err != nil {
 		return err

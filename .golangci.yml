@@ -22,13 +22,14 @@ linters:
     - goconst
     - gocritic
     - gocyclo
-    - mnd
     - goprintffuncname
     - gosec
     - govet
     - ineffassign
     - lll
     - misspell
+    - mnd
+    - modernize
     - nakedret
     - noctx
     - nolintlint

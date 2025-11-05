@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"maps"
 	"os"
 	"regexp"
 	"sort"
@@ -51,9 +52,7 @@ func main() {
 
 	lambdaVars := make(map[string]string)
 	if functionConfig.Environment != nil && functionConfig.Environment.Variables != nil {
-		for k, v := range functionConfig.Environment.Variables {
-			lambdaVars[k] = v
-		}
+		maps.Copy(lambdaVars, functionConfig.Environment.Variables)
 	}
 
 	if len(lambdaVars) == 0 {

@@ -87,8 +87,8 @@ func extractUserEnvVars(envVars []string) map[string]string {
 		}
 
 		key := parts[0]
-		if strings.HasPrefix(key, "RUNVOY_USER_") {
-			envs[strings.TrimPrefix(key, "RUNVOY_USER_")] = parts[1]
+		if after, ok := strings.CutPrefix(key, "RUNVOY_USER_"); ok {
+			envs[after] = parts[1]
 		}
 	}
 

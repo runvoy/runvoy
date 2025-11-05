@@ -41,7 +41,7 @@ func (b *UserBuilder) WithCreatedAt(t time.Time) *UserBuilder {
 
 // WithLastUsed sets the user's last used time.
 func (b *UserBuilder) WithLastUsed(t time.Time) *UserBuilder {
-	b.user.LastUsed = t
+	b.user.LastUsed = &t
 	return b
 }
 
