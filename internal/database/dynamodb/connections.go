@@ -182,52 +182,6 @@ func (r *ConnectionRepository) GetConnectionsByExecutionID(
 	return connectionIDs, nil
 }
 
-// DeleteConnectionsByExecutionID removes all WebSocket connections for a given execution ID.
-// This is used to clean up connections when an execution reaches a terminal state (SUCCEEDED, FAILED, STOPPED).
-// Returns the number of connections deleted.
-func (r *ConnectionRepository) DeleteConnectionsByExecutionID(
-	ctx context.Context,
-	executionID string,
-) (int, error) {
-	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
-
-	connectionIDs, err := r.GetConnectionsByExecutionID(ctx, executionID)
-	if err != nil {
-		return 0, fmt.Errorf("failed to get connections for execution: %w", err)
-	}
-
-	if len(connectionIDs) == 0 {
-		reqLogger.Debug("no connections to delete", "execution_id", executionID)
-		return 0, nil
-	}
-
-	logArgs := []any{
-		"operation", "DynamoDB.BatchWriteItem",
-		"table", r.tableName,
-		"execution_id", executionID,
-		"connection_count", len(connectionIDs),
-	}
-	logArgs = append(logArgs, logger.GetDeadlineInfo(ctx)...)
-	reqLogger.Debug("calling external service", "context", logger.SliceToMap(logArgs))
-
-	deleteRequests, buildErr := r.buildDeleteRequests(connectionIDs)
-	if buildErr != nil {
-		return 0, buildErr
-	}
-
-	deletedCount, batchErr := r.executeBatchDeletes(ctx, deleteRequests)
-	if batchErr != nil {
-		return deletedCount, batchErr
-	}
-
-	reqLogger.Debug("connections deleted successfully", "context", map[string]any{
-		"execution_id":      executionID,
-		"connections_count": deletedCount,
-	})
-
-	return deletedCount, nil
-}
-
 // buildDeleteRequests creates WriteRequest objects for all connection IDs.
 func (r *ConnectionRepository) buildDeleteRequests(connectionIDs []string) ([]types.WriteRequest, error) {
 	deleteRequests := make([]types.WriteRequest, 0, len(connectionIDs))

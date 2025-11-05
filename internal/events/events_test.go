@@ -44,7 +44,6 @@ func (m *mockExecutionRepo) ListExecutions(_ context.Context) ([]*api.Execution,
 
 // Mock connection repository for testing
 type mockConnectionRepo struct {
-	deleteConnectionsByExecutionIDFunc func(ctx context.Context, executionID string) (int, error)
 }
 
 func (m *mockConnectionRepo) CreateConnection(_ context.Context, _ *api.WebSocketConnection) error {
@@ -57,13 +56,6 @@ func (m *mockConnectionRepo) DeleteConnections(_ context.Context, _ []string) (i
 
 func (m *mockConnectionRepo) GetConnectionsByExecutionID(_ context.Context, _ string) ([]string, error) {
 	return nil, nil
-}
-
-func (m *mockConnectionRepo) DeleteConnectionsByExecutionID(ctx context.Context, executionID string) (int, error) {
-	if m.deleteConnectionsByExecutionIDFunc != nil {
-		return m.deleteConnectionsByExecutionIDFunc(ctx, executionID)
-	}
-	return 0, nil
 }
 
 func TestParseTime(t *testing.T) {
