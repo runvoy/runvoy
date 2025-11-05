@@ -516,6 +516,8 @@ Resources:
         Variables:
           RUNVOY_EXECUTIONS_TABLE: !Ref ExecutionsTable
           RUNVOY_ECS_CLUSTER: !Ref ECSCluster
+          RUNVOY_WEBSOCKET_CONNECTIONS_TABLE: !Ref WebSocketConnectionsTable
+          RUNVOY_WEBSOCKET_MANAGER_FUNCTION_NAME: !Ref LogForwarderFunction
           RUNVOY_LOG_LEVEL: !Ref 'AWS::NoValue'
 
   # IAM Role for Event Processor Lambda
@@ -555,9 +557,24 @@ Resources:
                   - !Sub '${ExecutionsTable.Arn}/index/*'
               - Effect: Allow
                 Action:
+                  - 'dynamodb:GetItem'
+                  - 'dynamodb:Query'
+                  - 'dynamodb:BatchWriteItem'
+                  - 'dynamodb:DeleteItem'
+                # Event processor needs to read and delete WebSocket connections for cleanup
+                Resource:
+                  - !GetAtt WebSocketConnectionsTable.Arn
+                  - !Sub '${WebSocketConnectionsTable.Arn}/index/*'
+              - Effect: Allow
+                Action:
                   - 'ecs:DescribeTasks'
                 # Event processor needs to describe tasks in our cluster to update execution status
                 Resource: !Sub 'arn:aws:ecs:${AWS::Region}:${AWS::AccountId}:task/${ProjectName}-cluster/*'
+              - Effect: Allow
+                Action:
+                  - 'lambda:InvokeFunction'
+                # Event processor invokes websocket-log-forwarder to send disconnect messages
+                Resource: !GetAtt LogForwarderFunction.Arn
 
   # EventBridge Rule for ECS Task State Changes
   TaskCompletionEventRule:
