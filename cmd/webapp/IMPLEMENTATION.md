@@ -295,7 +295,7 @@ export default defineConfig({
 ### Phase 6.5: Bug Fixes ✅ COMPLETED
 - [x] Fix timestamp formatting in LogLine to match CLI (YYYY-MM-DD HH:MM:SSZ)
 - [x] Fix duplicate detection in websocket handler (check timestamp instead of line number)
-- [x] Improve scroll handling in LogViewer with proper tick() await
+- [x] Fix infinite loop in LogViewer afterUpdate (removed async tick() that caused recursive re-renders)
 - [x] Fix download logs formatting to use proper timestamp format
 
 ### Phase 7: Deployment
@@ -384,7 +384,7 @@ When validating the Svelte implementation against legacy:
 ### Fixed in Phase 6.5
 - ✅ Timestamp formatting now matches CLI format (YYYY-MM-DD HH:MM:SSZ)
 - ✅ Duplicate detection improved to use timestamp as primary key
-- ✅ Scroll behavior improved with proper async tick() handling
+- ✅ Fixed infinite loop in LogViewer (removed async tick() that caused page freeze)
 - ✅ Download logs now uses consistent timestamp format
 
 ### Testing Phase (Phase 6)
