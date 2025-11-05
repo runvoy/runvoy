@@ -57,7 +57,7 @@ func generateHelpSection(helpOutput string) string {
 	b.WriteString("```bash\n")
 	b.WriteString("runvoy --help\n")
 	b.WriteString("```\n\n")
-	b.WriteString("```bash\n")
+	b.WriteString("```text\n")
 	b.WriteString(helpOutput)
 	b.WriteString("\n```\n\n")
 	b.WriteString("For more details about a specific command, use:\n\n")

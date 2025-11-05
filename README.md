@@ -265,8 +265,8 @@ To see all available commands and their descriptions:
 runvoy --help
 ```
 
-```bash
-runvoy - 0.1.0-20251105-60956a7
+```text
+runvoy - 0.1.0-20251105-28543c5
 Isolated, repeatable execution environments for your commands
 
 Usage:
@@ -531,9 +531,3 @@ Key targets, grouped by workflow:
 - **Miscellaneous**: `just record-demo` (captures CLI demo as cast and GIF)
 
 All commands honor the environment variables described in the `justfile`; AWS credentials and profiles must already be configured in your shell.
-
-### CLI Installation
-
-1. Clone the repository:
-
-```bash
