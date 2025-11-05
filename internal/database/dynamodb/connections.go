@@ -232,7 +232,7 @@ func (r *ConnectionRepository) buildDeleteRequests(connectionIDs []string) ([]ty
 	deleteRequests := make([]types.WriteRequest, 0, len(connectionIDs))
 
 	for _, connID := range connectionIDs {
-		key := map[string]interface{}{
+		key := map[string]string{
 			"connection_id": connID,
 		}
 		keyAV, err := attributevalue.MarshalMap(key)
