@@ -65,7 +65,7 @@ Total Test Functions:  47
    - Kill endpoint
    - List executions endpoint
 
-6. **CLI Commands** (`cmd/runvoy/cmd/`)
+6. **CLI Commands** (`cmd/cli/cmd/`)
    - All command implementations
    - Configuration management
    - Output formatting integration

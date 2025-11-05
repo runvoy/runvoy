@@ -21,7 +21,13 @@ runvoy *ARGS: build-cli
     ./bin/runvoy --verbose {{ARGS}}
 
 # Build all binaries
-build: build-cli build-local build-orchestrator build-event-processor build-websocket-manager build-websocket-log-forwarder
+build: build-cli build-local build-backend build-frontend
+
+# Build backend binaries (Lambda functions)
+build-backend: build-orchestrator build-event-processor build-websocket-manager build-websocket-log-forwarder
+
+# Build frontend binary
+build-frontend: build-webapp
 
 # Deploy all binaries
 deploy: deploy-backend deploy-frontend
@@ -36,7 +42,7 @@ deploy-websocket: deploy-websocket-manager deploy-websocket-log-forwarder
 deploy-frontend: deploy-webapp
 
 # Build CLI client
-[working-directory: 'cmd/runvoy']
+[working-directory: 'cmd/cli']
 build-cli:
     go build \
         -ldflags {{build_flags}} \
@@ -141,12 +147,30 @@ deploy-websocket-log-forwarder: build-websocket-log-forwarder-zip
         --s3-key websocket-log-forwarder.zip > /dev/null
     aws lambda wait function-updated --function-name runvoy-websocket-log-forwarder
 
-# Deploy webapp HTML to S3
+# Deploy webapp to S3
 [working-directory: 'cmd/webapp']
 deploy-webapp: build-webapp
-    aws s3 cp dist/index.html \
-        s3://{{bucket}}/webviewer.html \
-        --content-type text/html
+    aws s3 sync dist/ \
+        s3://{{bucket}}/webapp/ \
+        --delete
+    aws s3 cp dist/ \
+        s3://{{bucket}}/webapp/ \
+        --recursive \
+        --exclude "*" \
+        --include "*.html" \
+        --content-type "text/html"
+    aws s3 cp dist/ \
+        s3://{{bucket}}/webapp/ \
+        --recursive \
+        --exclude "*" \
+        --include "*.css" \
+        --content-type "text/css"
+    aws s3 cp dist/ \
+        s3://{{bucket}}/webapp/ \
+        --recursive \
+        --exclude "*" \
+        --include "*.js" \
+        --content-type "application/javascript"
 
 # Run local development server
 run-local: build-local

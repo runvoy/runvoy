@@ -1,6 +1,6 @@
 # Runvoy Webviewer
 
-Web-based log viewer for runvoy executions, built with Svelte.
+Web-based log viewer for runvoy executions, built with SvelteKit.
 
 ## Development
 
@@ -11,7 +11,7 @@ npm install
 # Start dev server (with hot reload)
 npm run dev
 
-# Build for production (single HTML file)
+# Build for production (static files)
 npm run build
 
 # Preview production build
@@ -20,11 +20,13 @@ npm run preview
 
 ## Project Structure
 
-```
+```text
 cmd/webapp/
 ├── src/
-│   ├── App.svelte              # Root component
-│   ├── main.js                 # Entry point
+│   ├── app.html                # SvelteKit app template
+│   ├── routes/
+│   │   ├── +layout.js          # Layout configuration (prerender)
+│   │   └── +page.svelte        # Main page component
 │   ├── components/             # Svelte components
 │   ├── stores/                 # Svelte stores (state management)
 │   │   ├── config.js           # API endpoint, API key
@@ -33,23 +35,38 @@ cmd/webapp/
 │   │   └── websocket.js        # WebSocket connection
 │   ├── lib/                    # Utilities and helpers
 │   │   ├── api.js              # API client
+│   │   ├── websocket.js        # WebSocket connection logic
 │   │   └── ansi.js             # ANSI color parser
 │   └── styles/
 │       └── global.css          # Global styles (Pico CSS + custom)
+├── svelte.config.js            # SvelteKit configuration
+├── vite.config.js              # Vite configuration for SvelteKit
 ├── legacy-index.html           # Original single-file implementation
-├── IMPLEMENTATION.md           # Detailed migration docs
 └── README.md                   # This file
 ```
 
 ## Build Output
 
-The build process creates a single `dist/index.html` file with all CSS and JavaScript inlined. This can be served as a static file without any backend requirements.
+The build process creates a `dist/` directory containing:
 
-## Migration Status
+- `index.html` - Main HTML file
+- `_app/` - JavaScript and CSS assets
 
-See [IMPLEMENTATION.md](./IMPLEMENTATION.md) for detailed migration progress and technical documentation.
+The output is optimized for static file hosting (e.g., S3). All routes are prerendered at build time.
 
-**Current Status**: Phase 2 complete (infrastructure & core modules). Ready to build components.
+## Deployment
+
+The app is deployed to S3 using the `deploy-webapp` command in the justfile:
+
+- Files are synced to `s3://bucket/webapp/`
+- A copy of `index.html` is also available at `s3://bucket/webapp/index.html` for backward compatibility
+
+## Technology Stack
+
+- **SvelteKit** - Framework for building the application
+- **adapter-static** - Static site generation adapter
+- **Svelte 4** - UI framework
+- **Vite** - Build tool (via SvelteKit)
 
 ## Legacy Implementation
 

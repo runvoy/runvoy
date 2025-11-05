@@ -32,5 +32,12 @@ go.work.sum
 local
 ./runvoy
 
+# Svelte
+.svelte-kit
+node_modules
+dist
+*.log
+.vite
+
 # Agents' development dirt
 cmd/runvoy/runvoy

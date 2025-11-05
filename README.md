@@ -72,7 +72,7 @@ just init
 ### Install the CLI
 
 ```bash
-go install cmd/runvoy
+go install cmd/cli
 ```
 
 ### User Onboarding
@@ -100,7 +100,7 @@ When an admin creates a user account for you, they will provide you with a **cla
 1. **Install the CLI** (if not already installed):
 
    ```bash
-   go install cmd/runvoy
+   go install cmd/cli
    ```
 
 2. **Configure the endpoint** (first time only):
@@ -207,7 +207,7 @@ just deploy
 # Or deploy individual services
 just deploy-orchestrator
 just deploy-event-processor
-just deploy-webviewer
+just deploy-webapp
 ```
 
 **Infrastructure management:**
@@ -266,7 +266,7 @@ runvoy --help
 ```
 
 ```bash
-runvoy - 0.1.0-20251105-eaf8bac
+runvoy - 0.1.0-20251105-4b4c1bc
 Isolated, repeatable execution environments for your commands
 
 Usage:
@@ -325,7 +325,7 @@ runvoy run --git-repo https://github.com/mycompany/myproject.git npm run tests
 # ✓ Command execution started successfully
 #   Execution ID: 61fb9138466c4212b1e0d763a7f4dfe2
 #   Status: RUNNING
-# → View logs in web viewer: https://runvoy-releases.s3.us-east-2.amazonaws.com/webviewer.html?execution_id=61fb9138466c4212b1e0d763a7f4dfe2
+# → View logs in web viewer: https://runvoy-releases.s3.us-east-2.amazonaws.com/webapp/index.html?execution_id=61fb9138466c4212b1e0d763a7f4dfe2
 ```
 
 **Log Viewing:**
@@ -375,7 +375,7 @@ Line  Timestamp (UTC)      Message
 ^C
 → Received interrupt signal, closing connection...
 
-→ View logs in web viewer: http://localhost:56212/webviewer.html?execution_id=2e1c58557c3f4ee1a81c0071fdd0b1e9
+→ View logs in web viewer: http://localhost:56212/webapp/index.html?execution_id=2e1c58557c3f4ee1a81c0071fdd0b1e9
 ```
 
 **Web Viewer:**
@@ -403,12 +403,12 @@ The web viewer is hosted on AWS S3 by default, but you can configure a custom UR
 
 **Configuration:**
 
-The web viewer URL can be customized via:
+The web application URL can be customized via:
 
-- Environment variable: `RUNVOY_WEBVIEWER_URL`
-- Config file (`~/.runvoy/config.yaml`): `webviewer_url` field
+- Environment variable: `RUNVOY_WEB_URL`
+- Config file (`~/.runvoy/config.yaml`): `web_url` field
 
-If not configured, it defaults to `https://runvoy-releases.s3.us-east-2.amazonaws.com/webviewer.html`.
+If not configured, it defaults to `https://runvoy-releases.s3.us-east-2.amazonaws.com/webapp/index.html`.
 
 **User Management:**
 
@@ -516,7 +516,7 @@ The `.env` file is automatically created when you run `just init` or `just local
 The repository ships with a `justfile` to streamline common build, deploy, and QA flows. The default recipe (`just runvoy`) rebuilds the CLI before running any arguments you pass through, so you can quickly exercise commands locally:
 
 ```bash
-# equivalent to: go build ./cmd/runvoy && ./bin/runvoy logs <id>
+# equivalent to: go build ./cmd/cli && ./bin/runvoy logs <id>
 just runvoy logs <execution-id>
 ```
 

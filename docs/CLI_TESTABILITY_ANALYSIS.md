@@ -8,7 +8,7 @@
 
 ## Executive Summary
 
-The CLI commands in `cmd/runvoy/cmd/` currently have **zero test coverage**. Most commands are tightly coupled to external dependencies (HTTP client, file system, environment variables), making them difficult to test in their current form.
+The CLI commands in `cmd/cli/cmd/` currently have **zero test coverage**. Most commands are tightly coupled to external dependencies (HTTP client, file system, environment variables), making them difficult to test in their current form.
 
 **Quick Wins Available:**
 - ? `parseTimeout()` function can be tested immediately
@@ -72,13 +72,13 @@ for _, env := range os.Environ() {
 
 ### 1. Test `parseTimeout()` Function
 
-**Location:** `cmd/runvoy/cmd/root.go:125`
+**Location:** `cmd/cli/cmd/root.go:125`
 
 This is a pure function that can be tested immediately without any refactoring.
 
 **Test Cases:**
 ```go
-// cmd/runvoy/cmd/root_test.go
+// cmd/cli/cmd/root_test.go
 func TestParseTimeout(t *testing.T) {
     tests := []struct {
         name      string
@@ -180,7 +180,7 @@ func NewLogsService(client ClientInterface, output OutputInterface) *LogsService
     }
 }
 
-func (s *LogsService) DisplayLogs(ctx context.Context, executionID string, webviewerURL string) error {
+func (s *LogsService) DisplayLogs(ctx context.Context, executionID string, webURL string) error {
     resp, err := s.client.GetLogs(ctx, executionID)
     if err != nil {
         return fmt.Errorf("failed to get logs: %w", err)
@@ -199,7 +199,7 @@ func (s *LogsService) DisplayLogs(ctx context.Context, executionID string, webvi
     s.output.Blank()
     s.output.Successf("Logs retrieved successfully")
     s.output.Infof("View logs in web viewer: %s?execution_id=%s",
-        webviewerURL, s.output.Cyan(executionID))
+        webURL, s.output.Cyan(executionID))
     return nil
 }
 
@@ -214,7 +214,7 @@ func logsRun(cmd *cobra.Command, args []string) {
 
     c := client.New(cfg, slog.Default())
     service := NewLogsService(c, outputWrapper{})
-    if err := service.DisplayLogs(cmd.Context(), executionID, cfg.GetWebviewerURL()); err != nil {
+    if err := service.DisplayLogs(cmd.Context(), executionID, cfg.WebURL); err != nil {
         output.Errorf(err.Error())
     }
 }
@@ -441,7 +441,7 @@ func logsRun(cmd *cobra.Command, args []string) {
 
 1. **Create an interface** (or use the existing package with a wrapper):
 ```go
-// cmd/runvoy/cmd/output_interface.go
+// cmd/cli/cmd/output_interface.go
 type OutputInterface interface {
     Infof(format string, a ...interface{})
     Errorf(format string, a ...interface{})

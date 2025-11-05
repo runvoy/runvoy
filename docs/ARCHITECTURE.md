@@ -709,7 +709,7 @@ The platform includes a minimal web-based log viewer for visualizing execution l
 ### Implementation
 
 **Location**: `cmd/webapp/dist/index.html`
-**Deployment**: Hosted on AWS S3 at `https://runvoy-releases.s3.us-east-2.amazonaws.com/webviewer.html`
+**Deployment**: Hosted on AWS S3 at `https://runvoy-releases.s3.us-east-2.amazonaws.com/webapp/index.html`
 **Architecture**: Single-page application (SPA) - standalone HTML file with embedded CSS and JavaScript
 
 ### Technology Stack
@@ -770,29 +770,28 @@ All endpoints require authentication via `X-API-Key` header.
 Users access the web viewer via URL with execution ID as query parameter:
 
 ```
-https://runvoy-releases.s3.us-east-2.amazonaws.com/webviewer.html?execution_id={executionID}
+https://runvoy-releases.s3.us-east-2.amazonaws.com/webapp/index.html?execution_id={executionID}
 ```
 
-The CLI automatically provides this link when running commands (see `cmd/runvoy/cmd/logs.go:58-59`).
+The CLI automatically provides this link when running commands (see `cmd/cli/cmd/logs.go:58-59`).
 
 ### Configuration
 
-The web viewer URL is configurable and can be set via:
+The web application URL is configurable and can be set via:
 
-1. **Environment Variable**: `RUNVOY_WEBVIEWER_URL`
-2. **Config File**: `webviewer_url` field in `~/.runvoy/config.yaml`
+1. **Environment Variable**: `RUNVOY_WEB_URL`
+2. **Config File**: `web_url` field in `~/.runvoy/config.yaml`
 
-If not configured, it defaults to `https://runvoy-releases.s3.us-east-2.amazonaws.com/webviewer.html`.
+If not configured, it defaults to `https://runvoy-releases.s3.us-east-2.amazonaws.com/webapp/index.html`.
 
 **Default URL** is defined in `internal/constants/constants.go`:
 ```go
-const DefaultWebviewerURL = "https://runvoy-releases.s3.us-east-2.amazonaws.com/webviewer.html"
+const DefaultWebURL = "https://runvoy-releases.s3.us-east-2.amazonaws.com/webapp/index.html"
 ```
 
-**Usage in CLI commands** (see `cmd/runvoy/cmd/run.go` and `cmd/runvoy/cmd/logs.go`):
+**Usage in CLI commands** (see `cmd/cli/cmd/run.go` and `cmd/cli/cmd/logs.go`):
 ```go
-webviewerURL := cfg.GetWebviewerURL()
-output.Infof("View logs in web viewer: %s?execution_id=%s", webviewerURL, executionID)
+output.Infof("View logs in web viewer: %s?execution_id=%s", cfg.WebURL, executionID)
 ```
 
 This allows users to deploy their own web viewer instance and configure the CLI to point to it.
@@ -914,7 +913,7 @@ The project uses **golangci-lint** for comprehensive Go code analysis with the f
 
 The `justfile` codifies the common build, deploy, and validation flows. Highlights:
 
-- **CLI passthrough**: `just runvoy <args…>` rebuilds `cmd/runvoy` with version metadata and executes it, making it easy to test commands while always running a fresh binary.
+- **CLI passthrough**: `just runvoy <args…>` rebuilds `cmd/cli` with version metadata and executes it, making it easy to test commands while always running a fresh binary.
 - **Build outputs**: `just build` fans out to `just build-cli`, `just build-local`, `just build-orchestrator`, and `just build-event-processor`, ensuring all deployable binaries are rebuilt with consistent linker flags. Individual targets can be invoked when iterating on a single component.
 - **Packaging & deploy**: `just build-orchestrator-zip` and `just build-event-processor-zip` stage Lambda-ready artifacts; `just deploy`, `just deploy-orchestrator`, `just deploy-event-processor`, and `just deploy-webviewer` push those artifacts (and the web viewer) to the release bucket and update Lambda code.
 - **Local iteration**: `just run-local` launches the local HTTP server; `just local-dev-server` wraps it with `reflex` for hot reload. You can use the CLI for full API testing once the server is running.
@@ -1020,7 +1019,7 @@ Future enhancements may include server-side filtering and pagination.
 
 ## CLI Client Architecture
 
-The CLI client (`cmd/runvoy`) provides command-line access to the runvoy platform.
+The CLI client (`cmd/cli`) provides command-line access to the runvoy platform.
 
 ### Configuration
 
@@ -1093,7 +1092,7 @@ All CLI commands have been refactored to use a **service pattern** with dependen
 
 **Design Pattern:**
 
-```12:50:cmd/runvoy/cmd/status.go
+```12:50:cmd/cli/cmd/status.go
 func statusRun(cmd *cobra.Command, args []string) {
 	executionID := args[0]
 	cfg, err := getConfigFromContext(cmd)
@@ -1166,7 +1165,7 @@ All CLI commands follow the same service pattern:
 
 **Key Components:**
 
-1. **Output Interface** (`cmd/runvoy/cmd/output_interface.go`):
+1. **Output Interface** (`cmd/cli/cmd/output_interface.go`):
    - Defines `OutputInterface` for all output operations including `Prompt()` for interactive commands
    - Provides `outputWrapper` that implements the interface using global `output.*` functions
    - Enables capturing and verifying output in tests
@@ -1232,7 +1231,7 @@ All commands now follow the same service pattern with dependency injection for t
 The command uses the generic HTTP client through the user client:
 
 **Implementation:**
-- Located in `cmd/runvoy/cmd/addUser.go`
+- Located in `cmd/cli/cmd/addUser.go`
 - Uses `user.New()` to create a user client
 - Calls `userClient.CreateUser(email)` for the actual operation
 - Simplified from 80+ lines to ~15 lines
@@ -1273,7 +1272,7 @@ func (l *LogsClient) GetLogs(executionID string) (*api.LogsResponse, error) {
 
 The `run` command executes commands remotely via the orchestrator Lambda.
 
-**Implementation:** `cmd/runvoy/cmd/run.go`
+**Implementation:** `cmd/cli/cmd/run.go`
 
 **Request Flow:**
 1. User runs: `runvoy run "echo hello world"`

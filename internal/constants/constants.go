@@ -142,13 +142,13 @@ func TerminalExecutionStatuses() []ExecutionStatus {
 	}
 }
 
-// DefaultWebviewerURL is the default URL of the webviewer HTML file.
-// This can be overridden via configuration (RUNVOY_WEBVIEWER_URL env var or config file).
-const DefaultWebviewerURL = "https://runvoy-releases.s3.us-east-2.amazonaws.com/webviewer.html"
+// DefaultWebURL is the default URL of the web application HTML file.
+// This can be overridden via configuration (RUNVOY_WEB_URL env var or config file).
+const DefaultWebURL = "https://runvoy-releases.s3.us-east-2.amazonaws.com/webapp/index.html"
 
-// WebviewerURL is deprecated. Use config.Config.WebviewerURL or constants.DefaultWebviewerURL instead.
+// WebviewerURL is deprecated. Use config.Config.WebURL or constants.DefaultWebURL instead.
 // Kept for backward compatibility.
-const WebviewerURL = DefaultWebviewerURL
+const WebviewerURL = DefaultWebURL
 
 // ClaimURLExpirationMinutes is the number of minutes after which a claim URL expires
 const ClaimURLExpirationMinutes = 15

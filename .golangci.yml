@@ -87,7 +87,7 @@ linters:
       require-explanation: false
   exclusions:
     rules:
-      - path: '^cmd/runvoy/cmd'
+      - path: '^cmd/cli/cmd'
         linters:
           - gochecknoinits
       - path: '(.+)_test\.go'

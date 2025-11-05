@@ -21,9 +21,9 @@ import (
 // It supports loading from YAML files and environment variables.
 type Config struct {
 	// CLI Configuration
-	APIEndpoint  string `mapstructure:"api_endpoint" yaml:"api_endpoint" validate:"omitempty,url"`
-	APIKey       string `mapstructure:"api_key" yaml:"api_key"`
-	WebviewerURL string `mapstructure:"webviewer_url" yaml:"webviewer_url" validate:"omitempty,url"`
+	APIEndpoint string `mapstructure:"api_endpoint" yaml:"api_endpoint" validate:"omitempty,url"`
+	APIKey      string `mapstructure:"api_key" yaml:"api_key"`
+	WebURL      string `mapstructure:"web_url" yaml:"web_url" validate:"omitempty,url"`
 
 	// Backend Service Configuration
 	Port                         string        `mapstructure:"port" validate:"omitempty"`
@@ -232,7 +232,7 @@ func Save(config *Config) error {
 	v := viper.New()
 	v.Set("api_endpoint", config.APIEndpoint)
 	v.Set("api_key", config.APIKey)
-	v.Set("webviewer_url", config.WebviewerURL)
+	v.Set("web_url", config.WebURL)
 
 	if err = v.WriteConfigAs(configFilePath); err != nil {
 		return fmt.Errorf("error writing config file: %w", err)
@@ -267,15 +267,6 @@ func (c *Config) GetLogLevel() slog.Level {
 	return level
 }
 
-// GetWebviewerURL returns the webviewer URL from configuration.
-// Returns the configured URL if set, otherwise returns the default URL.
-func (c *Config) GetWebviewerURL() string {
-	if c.WebviewerURL != "" {
-		return c.WebviewerURL
-	}
-	return constants.DefaultWebviewerURL
-}
-
 // Helper functions
 
 func setDefaults(v *viper.Viper) {
@@ -284,7 +275,7 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("init_timeout", "10s")
 	// TODO: we set DEBUG for development, we should update this to use INFO
 	v.SetDefault("log_level", "DEBUG")
-	v.SetDefault("webviewer_url", constants.DefaultWebviewerURL)
+	v.SetDefault("web_url", constants.DefaultWebURL)
 }
 
 func loadConfigFile(v *viper.Viper) error {
@@ -327,7 +318,7 @@ func bindEnvVars(v *viper.Viper) {
 		"WEBSOCKET_API_ENDPOINT",
 		"WEBSOCKET_CONNECTIONS_TABLE",
 		"WEBSOCKET_MANAGER_FUNCTION_NAME",
-		"WEBVIEWER_URL",
+		"WEB_URL",
 	}
 
 	for _, envVar := range envVars {
