@@ -43,12 +43,12 @@ func NewWebSocketManager(ctx context.Context, cfg *config.Config, log *slog.Logg
 
 	dynamoClient := dynamodb.NewFromConfig(awsCfg)
 	connRepo := dynamoRepo.NewConnectionRepository(dynamoClient, cfg.WebSocketConnectionsTable, log)
-
 	apiGwClient := apigatewaymanagementapi.NewFromConfig(awsCfg, func(o *apigatewaymanagementapi.Options) {
 		o.BaseEndpoint = aws.String(cfg.WebSocketAPIEndpoint)
 	})
+	reqLogger := logger.DeriveRequestLogger(ctx, log)
 
-	log.Debug("websocket manager initialized",
+	reqLogger.Debug("websocket manager initialized",
 		"table", cfg.WebSocketConnectionsTable,
 		"api_endpoint", cfg.WebSocketAPIEndpoint,
 	)
@@ -57,7 +57,7 @@ func NewWebSocketManager(ctx context.Context, cfg *config.Config, log *slog.Logg
 		connRepo:      connRepo,
 		apiGwClient:   apiGwClient,
 		apiGwEndpoint: aws.String(cfg.WebSocketAPIEndpoint),
-		logger:        log,
+		logger:        reqLogger,
 	}, nil
 }
 
@@ -72,55 +72,18 @@ func (wm *WebSocketManager) HandleRequest(
 	ctx context.Context,
 	req events.APIGatewayWebsocketProxyRequest,
 ) (events.APIGatewayProxyResponse, error) {
-	reqLogger := logger.DeriveRequestLogger(ctx, wm.logger)
-
-	reqLogger.Debug("received WebSocket event", "context", map[string]string{
+	wm.logger.Debug("received WebSocket event", "context", map[string]string{
 		"route_key":     req.RequestContext.RouteKey,
 		"connection_id": req.RequestContext.ConnectionID,
 	})
 
 	switch req.RequestContext.RouteKey {
 	case "$connect":
-		return wm.handleConnect(ctx, req, reqLogger)
+		return wm.handleConnect(ctx, req)
 	case "$disconnect":
-		return wm.handleDisconnect(ctx, req, reqLogger)
+		return wm.handleDisconnect(ctx, req)
 	case "$disconnect-execution":
-		// Handle disconnect notification from event processor
-		// ConnectionID contains the executionID in this case
-		executionID := req.RequestContext.ConnectionID
-
-		// First send disconnect notifications to clients
-		err := wm.handleDisconnectNotification(ctx, executionID, reqLogger)
-		if err != nil {
-			return events.APIGatewayProxyResponse{
-				StatusCode: http.StatusInternalServerError,
-				Body:       fmt.Sprintf("Failed to notify disconnect: %v", err),
-			}, nil
-		}
-
-		// Then delete all connection records for this execution
-		deletedCount, err := wm.connRepo.DeleteConnectionsByExecutionID(ctx, executionID)
-		if err != nil {
-			reqLogger.Warn("failed to delete WebSocket connections", "context",
-				map[string]string{
-					"error":        err.Error(),
-					"execution_id": executionID,
-				},
-			)
-			// Don't fail the response - notifications were sent
-		} else if deletedCount > 0 {
-			reqLogger.Debug("deleted WebSocket connections for execution", "context",
-				map[string]string{
-					"execution_id":  executionID,
-					"deleted_count": fmt.Sprintf("%d", deletedCount),
-				},
-			)
-		}
-
-		return events.APIGatewayProxyResponse{
-			StatusCode: http.StatusOK,
-			Body:       "Disconnect notifications sent and connections cleaned up",
-		}, nil
+		return wm.handleDisconnectExecution(ctx, req)
 	default:
 		return events.APIGatewayProxyResponse{
 			StatusCode: http.StatusBadRequest,
@@ -133,13 +96,12 @@ func (wm *WebSocketManager) HandleRequest(
 func (wm *WebSocketManager) handleConnect(
 	ctx context.Context,
 	req events.APIGatewayWebsocketProxyRequest,
-	reqLogger *slog.Logger,
 ) (events.APIGatewayProxyResponse, error) {
 	connectionID := req.RequestContext.ConnectionID
 	executionID := req.QueryStringParameters["execution_id"]
 
 	if executionID == "" {
-		reqLogger.Info("missing execution_id in connection request")
+		wm.logger.Info("missing execution_id in connection request")
 		return events.APIGatewayProxyResponse{
 			StatusCode: http.StatusBadRequest,
 			Body:       "Missing execution_id query parameter",
@@ -155,7 +117,7 @@ func (wm *WebSocketManager) handleConnect(
 		ExpiresAt:     expiresAt,
 	}
 
-	reqLogger.Debug("storing connection", "context", map[string]string{
+	wm.logger.Debug("storing connection", "context", map[string]string{
 		"connection_id": connection.ConnectionID,
 		"execution_id":  connection.ExecutionID,
 		"functionality": connection.Functionality,
@@ -164,14 +126,14 @@ func (wm *WebSocketManager) handleConnect(
 
 	err := wm.connRepo.CreateConnection(ctx, connection)
 	if err != nil {
-		reqLogger.Error("failed to store connection", "error", err)
+		wm.logger.Error("failed to store connection", "error", err)
 		return events.APIGatewayProxyResponse{
 			StatusCode: http.StatusInternalServerError,
 			Body:       fmt.Sprintf("Failed to store connection: %v", err),
 		}, nil
 	}
 
-	reqLogger.Info("connection established", "context", map[string]string{
+	wm.logger.Info("connection established", "context", map[string]string{
 		"connection_id": connection.ConnectionID,
 		"execution_id":  connection.ExecutionID,
 		"functionality": connection.Functionality,
@@ -188,24 +150,23 @@ func (wm *WebSocketManager) handleConnect(
 func (wm *WebSocketManager) handleDisconnect(
 	ctx context.Context,
 	req events.APIGatewayWebsocketProxyRequest,
-	reqLogger *slog.Logger,
 ) (events.APIGatewayProxyResponse, error) {
 	connectionID := req.RequestContext.ConnectionID
 
-	reqLogger.Debug("deleting connection", "context", map[string]string{
+	wm.logger.Debug("deleting connection", "context", map[string]string{
 		"connection_id": connectionID,
 	})
 
 	err := wm.connRepo.DeleteConnection(ctx, connectionID)
 	if err != nil {
-		reqLogger.Error("failed to delete connection", "error", err)
+		wm.logger.Error("failed to delete connection", "error", err)
 		return events.APIGatewayProxyResponse{
 			StatusCode: http.StatusInternalServerError,
 			Body:       fmt.Sprintf("Failed to delete connection: %v", err),
 		}, nil
 	}
 
-	reqLogger.Info("connection disconnected", "context", map[string]string{
+	wm.logger.Info("connection disconnected", "context", map[string]string{
 		"connection_id": connectionID,
 	})
 
@@ -215,28 +176,70 @@ func (wm *WebSocketManager) handleDisconnect(
 	}, nil
 }
 
+//nolint:gocritic // Lambda event types are passed by value per AWS Lambda conventions
+func (wm *WebSocketManager) handleDisconnectExecution(
+	ctx context.Context,
+	req events.APIGatewayWebsocketProxyRequest,
+) (events.APIGatewayProxyResponse, error) {
+	// Handle disconnect notification from event processor
+	// ConnectionID contains the executionID in this case
+	executionID := req.RequestContext.ConnectionID
+
+	// First send disconnect notifications to clients
+	err := wm.handleDisconnectNotification(ctx, executionID)
+	if err != nil {
+		return events.APIGatewayProxyResponse{
+			StatusCode: http.StatusInternalServerError,
+			Body:       fmt.Sprintf("Failed to notify disconnect: %v", err),
+		}, nil
+	}
+
+	// Then delete all connection records for this execution
+	deletedCount, err := wm.connRepo.DeleteConnectionsByExecutionID(ctx, executionID)
+	if err != nil {
+		wm.logger.Warn("failed to delete WebSocket connections", "context",
+			map[string]string{
+				"error":        err.Error(),
+				"execution_id": executionID,
+			},
+		)
+		// Don't fail the response - notifications were sent
+	} else if deletedCount > 0 {
+		wm.logger.Debug("deleted WebSocket connections for execution", "context",
+			map[string]string{
+				"execution_id":  executionID,
+				"deleted_count": fmt.Sprintf("%d", deletedCount),
+			},
+		)
+	}
+
+	return events.APIGatewayProxyResponse{
+		StatusCode: http.StatusOK,
+		Body:       "Disconnect notifications sent and connections cleaned up",
+	}, nil
+}
+
 // handleDisconnectNotification sends disconnect messages to all connected clients for an execution.
 // This notifies clients that the execution has completed.
 func (wm *WebSocketManager) handleDisconnectNotification(
 	ctx context.Context,
 	executionID string,
-	reqLogger *slog.Logger,
 ) error {
-	reqLogger.Debug("handling disconnect notification for execution", "execution_id", executionID)
+	wm.logger.Debug("handling disconnect notification for execution", "execution_id", executionID)
 
 	// Get all connection IDs for this execution
 	connectionIDs, err := wm.connRepo.GetConnectionsByExecutionID(ctx, executionID)
 	if err != nil {
-		reqLogger.Error("failed to get connections for execution", "error", err, "execution_id", executionID)
+		wm.logger.Error("failed to get connections for execution", "error", err, "execution_id", executionID)
 		return fmt.Errorf("failed to get connections: %w", err)
 	}
 
 	if len(connectionIDs) == 0 {
-		reqLogger.Debug("no active connections to notify", "execution_id", executionID)
+		wm.logger.Debug("no active connections to notify", "execution_id", executionID)
 		return nil
 	}
 
-	reqLogger.Debug("sending disconnect notifications to connections",
+	wm.logger.Debug("sending disconnect notifications to connections",
 		"execution_id", executionID,
 		"connection_count", len(connectionIDs),
 	)
@@ -250,18 +253,22 @@ func (wm *WebSocketManager) handleDisconnectNotification(
 	for _, connectionID := range connectionIDs {
 		connID := connectionID // Capture for closure
 		errGroup.Go(func() error {
-			return wm.sendDisconnectToConnection(ctx, connID, disconnectMessage, reqLogger)
+			return wm.sendDisconnectToConnection(ctx, connID, disconnectMessage)
 		})
 	}
 
 	err = errGroup.Wait()
 	if err != nil {
-		reqLogger.Error("some disconnect notifications failed to send", "error", err, "execution_id", executionID)
-		// Don't fail the handler - best effort delivery
+		wm.logger.Error("some disconnect notifications failed to send", "context", map[string]string{
+			"error":        err.Error(),
+			"execution_id": executionID,
+		})
 	} else {
-		reqLogger.Info("all disconnect notifications sent successfully",
-			"execution_id", executionID,
-			"connection_count", len(connectionIDs),
+		wm.logger.Info("all disconnect notifications sent successfully",
+			"context", map[string]string{
+				"execution_id":     executionID,
+				"connection_count": fmt.Sprintf("%d", len(connectionIDs)),
+			},
 		)
 	}
 
@@ -273,9 +280,10 @@ func (wm *WebSocketManager) sendDisconnectToConnection(
 	ctx context.Context,
 	connectionID string,
 	message []byte,
-	reqLogger *slog.Logger,
 ) error {
-	reqLogger.Debug("sending disconnect notification to connection", "connection_id", connectionID)
+	wm.logger.Debug("sending disconnect notification to connection", "context", map[string]string{
+		"connection_id": connectionID,
+	})
 
 	_, err := wm.apiGwClient.PostToConnection(ctx, &apigatewaymanagementapi.PostToConnectionInput{
 		ConnectionId: aws.String(connectionID),
@@ -283,13 +291,17 @@ func (wm *WebSocketManager) sendDisconnectToConnection(
 	})
 
 	if err != nil {
-		reqLogger.Error("failed to send disconnect notification to connection",
-			"error", err,
-			"connection_id", connectionID,
+		wm.logger.Error("failed to send disconnect notification to connection",
+			"context", map[string]string{
+				"error":         err.Error(),
+				"connection_id": connectionID,
+			},
 		)
 		return fmt.Errorf("failed to send disconnect notification to connection %s: %w", connectionID, err)
 	}
 
-	reqLogger.Debug("disconnect notification sent to connection", "connection_id", connectionID)
+	wm.logger.Debug("disconnect notification sent to connection", "context", map[string]string{
+		"connection_id": connectionID,
+	})
 	return nil
 }
