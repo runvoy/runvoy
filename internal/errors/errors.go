@@ -126,6 +126,23 @@ func ErrDatabaseError(message string, cause error) *AppError {
 	return NewServerError(http.StatusServiceUnavailable, ErrCodeDatabaseError, message, cause)
 }
 
+// ErrInvalidInput creates an invalid input error (400).
+func ErrInvalidInput(message string) *AppError {
+	return ErrBadRequest(message, nil)
+}
+
+// ErrLockConflict creates a lock conflict error (409).
+// This occurs when trying to acquire a lock that is already held.
+func ErrLockConflict(message string) *AppError {
+	return ErrConflict(message, nil)
+}
+
+// ErrLockNotHeld creates a lock not held error (404).
+// This occurs when trying to release a lock that is not held by the specified execution.
+func ErrLockNotHeld(message string) *AppError {
+	return ErrNotFound(message, nil)
+}
+
 // GetStatusCode extracts the HTTP status code from an error.
 // Returns 500 if the error is not an AppError.
 func GetStatusCode(err error) int {

@@ -99,10 +99,12 @@ type LogsResponse struct {
 // Lock represents a lock record
 type Lock struct {
 	LockName    string    `json:"lock_name"`
-	ExecutionID string    `json:"execution_id"`
-	UserEmail   string    `json:"user_email"`
-	AcquiredAt  time.Time `json:"acquired_at"`
-	TTL         int64     `json:"ttl"`
+	LockID      string    `json:"lock_id"`           // Unique identifier for the lock instance
+	ExecutionID string    `json:"execution_id"`      // Execution holding the lock
+	UserEmail   string    `json:"user_email"`        // User who acquired the lock
+	AcquiredAt  time.Time `json:"acquired_at"`       // When the lock was acquired
+	ExpiresAt   time.Time `json:"expires_at"`        // When the lock will expire
+	Status      string    `json:"status,omitempty"`  // 'active', 'releasing', or 'released'
 }
 
 // CreateUserRequest represents the request to create a new user

@@ -88,3 +88,23 @@ type ConnectionRepository interface {
 	// Returns a list of connection IDs that are subscribed to the specified execution.
 	GetConnectionsByExecutionID(ctx context.Context, executionID string) ([]string, error)
 }
+
+// LockRepository defines the interface for execution lock-related database operations.
+type LockRepository interface {
+	// AcquireLock atomically acquires a lock for an execution.
+	// Returns the lock if acquired, or an error if the lock is already held.
+	// The lock will automatically expire after TTL seconds.
+	AcquireLock(ctx context.Context, lockName, executionID, userEmail string, ttl int64) (*api.Lock, error)
+
+	// ReleaseLock atomically releases a lock.
+	// Returns an error if the lock doesn't exist or is held by a different execution.
+	ReleaseLock(ctx context.Context, lockName, executionID string) error
+
+	// GetLock retrieves the current lock holder for a lock name.
+	// Returns nil if the lock doesn't exist or has expired.
+	GetLock(ctx context.Context, lockName string) (*api.Lock, error)
+
+	// RenewLock extends the TTL of an existing lock.
+	// Returns an error if the lock is not held by the specified execution.
+	RenewLock(ctx context.Context, lockName, executionID string, newTTL int64) (*api.Lock, error)
+}

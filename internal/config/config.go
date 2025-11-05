@@ -31,6 +31,7 @@ type Config struct {
 	APIKeysTable                 string        `mapstructure:"api_keys_table"`
 	ExecutionsTable              string        `mapstructure:"executions_table"`
 	PendingAPIKeysTable          string        `mapstructure:"pending_api_keys_table"`
+	LocksTable                   string        `mapstructure:"locks_table"`
 	ECSCluster                   string        `mapstructure:"ecs_cluster"`
 	TaskDefinition               string        `mapstructure:"task_definition"`
 	Subnet1                      string        `mapstructure:"subnet_1"`
@@ -314,6 +315,7 @@ func bindEnvVars(v *viper.Viper) {
 		"ECS_CLUSTER",
 		"EXECUTIONS_TABLE",
 		"INIT_TIMEOUT",
+		"LOCKS_TABLE",
 		"LOG_GROUP",
 		"LOG_LEVEL",
 		"PENDING_API_KEYS_TABLE",
