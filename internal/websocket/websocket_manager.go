@@ -64,6 +64,15 @@ func NewWebSocketManager(ctx context.Context, cfg *config.Config, log *slog.Logg
 	}, nil
 }
 
+// getClientIPFromWebSocketRequest extracts the client IP address from a WebSocket proxy request.
+// It checks the RequestContext.Identity.SourceIP field which contains the client's IP address.
+func getClientIPFromWebSocketRequest(req *events.APIGatewayWebsocketProxyRequest) string {
+	if req.RequestContext.Identity.SourceIP != "" {
+		return req.RequestContext.Identity.SourceIP
+	}
+	return ""
+}
+
 // HandleRequest is the main entry point for Lambda event processing.
 // It routes API Gateway WebSocket events based on their route key:
 // - $connect: stores WebSocket connection in DynamoDB
@@ -75,10 +84,18 @@ func (wm *WebSocketManager) HandleRequest(
 	ctx context.Context,
 	req events.APIGatewayWebsocketProxyRequest,
 ) (events.APIGatewayProxyResponse, error) {
-	wm.logger.Debug("received WebSocket event", "context", map[string]string{
-		"route_key":     req.RequestContext.RouteKey,
-		"connection_id": req.RequestContext.ConnectionID,
-	})
+	clientIP := getClientIPFromWebSocketRequest(&req)
+
+	logArgs := []any{
+		"route_key", req.RequestContext.RouteKey,
+	}
+	if req.RequestContext.ConnectionID != "" {
+		logArgs = append(logArgs, "connection_id", req.RequestContext.ConnectionID)
+	}
+	if clientIP != "" {
+		logArgs = append(logArgs, "client_ip", clientIP)
+	}
+	wm.logger.Debug("received WebSocket event", "context", logger.SliceToMap(logArgs))
 
 	switch req.RequestContext.RouteKey {
 	case "$connect":
@@ -123,12 +140,13 @@ func (wm *WebSocketManager) handleConnect(
 	}
 
 	expiresAt := time.Now().Add(constants.ConnectionTTLHours * time.Hour).Unix()
-
+	clientIP := getClientIPFromWebSocketRequest(&req)
 	connection := &api.WebSocketConnection{
 		ConnectionID:  connectionID,
 		ExecutionID:   executionID,
 		Functionality: constants.FunctionalityLogStreaming,
 		ExpiresAt:     expiresAt,
+		ClientIP:      clientIP,
 	}
 
 	wm.logger.Debug("storing connection", "context", map[string]string{
@@ -136,6 +154,7 @@ func (wm *WebSocketManager) handleConnect(
 		"execution_id":  connection.ExecutionID,
 		"functionality": connection.Functionality,
 		"expires_at":    fmt.Sprintf("%d", connection.ExpiresAt),
+		"client_ip":     clientIP,
 	})
 
 	err := wm.connRepo.CreateConnection(ctx, connection)
@@ -146,12 +165,12 @@ func (wm *WebSocketManager) handleConnect(
 			Body:       fmt.Sprintf("Failed to store connection: %v", err),
 		}, nil
 	}
-
 	wm.logger.Info("connection established", "context", map[string]string{
 		"connection_id": connection.ConnectionID,
 		"execution_id":  connection.ExecutionID,
 		"functionality": connection.Functionality,
 		"expires_at":    fmt.Sprintf("%d", connection.ExpiresAt),
+		"client_ip":     clientIP,
 	})
 
 	return events.APIGatewayProxyResponse{

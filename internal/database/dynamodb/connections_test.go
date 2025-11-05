@@ -131,6 +131,38 @@ func TestToConnectionItemEdgeCases(t *testing.T) {
 		assert.Equal(t, conn.ConnectionID, item.ConnectionID)
 		assert.Equal(t, int64(-1), item.ExpiresAt)
 	})
+
+	t.Run("connection with client IP", func(t *testing.T) {
+		conn := &api.WebSocketConnection{
+			ConnectionID:  "conn-123",
+			ExecutionID:   "exec-123",
+			Functionality: "log_streaming",
+			ExpiresAt:     time.Now().Unix(),
+			ClientIP:      "192.168.1.1",
+		}
+
+		item := toConnectionItem(conn)
+		assert.Equal(t, conn.ClientIP, item.ClientIP)
+	})
+
+	t.Run("connection without client IP", func(t *testing.T) {
+		conn := &api.WebSocketConnection{
+			ConnectionID:  "conn-123",
+			ExecutionID:   "exec-123",
+			Functionality: "log_streaming",
+			ExpiresAt:     time.Now().Unix(),
+			ClientIP:      "",
+		}
+
+		item := toConnectionItem(conn)
+		assert.Empty(t, item.ClientIP)
+
+		// Verify that empty ClientIP is omitted from DynamoDB marshaling
+		av, err := attributevalue.MarshalMap(item)
+		require.NoError(t, err)
+		_, hasClientIP := av["client_ip"]
+		assert.False(t, hasClientIP, "empty client_ip should be omitted from DynamoDB item")
+	})
 }
 
 func TestConnectionItemDynamoDBTags(t *testing.T) {
@@ -142,6 +174,7 @@ func TestConnectionItemDynamoDBTags(t *testing.T) {
 			ExecutionID:   "exec-456",
 			Functionality: "log_streaming",
 			ExpiresAt:     time.Now().Unix(),
+			ClientIP:      "192.168.1.1",
 		}
 
 		// If tags are correct, this should not panic
@@ -149,6 +182,22 @@ func TestConnectionItemDynamoDBTags(t *testing.T) {
 			_, err := attributevalue.MarshalMap(item)
 			require.NoError(t, err)
 		})
+	})
+
+	t.Run("verify omitempty for ClientIP", func(t *testing.T) {
+		// This test verifies that empty ClientIP is omitted
+		item := &connectionItem{
+			ConnectionID:  "test-123",
+			ExecutionID:   "exec-456",
+			Functionality: "log_streaming",
+			ExpiresAt:     time.Now().Unix(),
+			ClientIP:      "",
+		}
+
+		av, err := attributevalue.MarshalMap(item)
+		require.NoError(t, err)
+		_, hasClientIP := av["client_ip"]
+		assert.False(t, hasClientIP, "empty client_ip should be omitted")
 	})
 }
 

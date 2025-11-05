@@ -201,4 +201,5 @@ type WebSocketConnection struct {
 	ExecutionID   string `json:"execution_id"`
 	Functionality string `json:"functionality"`
 	ExpiresAt     int64  `json:"expires_at"`
+	ClientIP      string `json:"client_ip,omitempty"`
 }

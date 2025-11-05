@@ -43,6 +43,7 @@ type connectionItem struct {
 	ExecutionID   string `dynamodbav:"execution_id"`
 	Functionality string `dynamodbav:"functionality"`
 	ExpiresAt     int64  `dynamodbav:"expires_at"`
+	ClientIP      string `dynamodbav:"client_ip,omitempty"`
 }
 
 // toConnectionItem converts an api.WebSocketConnection to a connectionItem.
@@ -52,6 +53,7 @@ func toConnectionItem(conn *api.WebSocketConnection) *connectionItem {
 		ExecutionID:   conn.ExecutionID,
 		Functionality: conn.Functionality,
 		ExpiresAt:     conn.ExpiresAt,
+		ClientIP:      conn.ClientIP,
 	}
 }
 
