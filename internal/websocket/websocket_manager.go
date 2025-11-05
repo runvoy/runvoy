@@ -87,16 +87,39 @@ func (wm *WebSocketManager) HandleRequest(
 	case "$disconnect-execution":
 		// Handle disconnect notification from event processor
 		// ConnectionID contains the executionID in this case
-		err := wm.handleDisconnectNotification(ctx, req.RequestContext.ConnectionID, reqLogger)
+		executionID := req.RequestContext.ConnectionID
+
+		// First send disconnect notifications to clients
+		err := wm.handleDisconnectNotification(ctx, executionID, reqLogger)
 		if err != nil {
 			return events.APIGatewayProxyResponse{
 				StatusCode: http.StatusInternalServerError,
 				Body:       fmt.Sprintf("Failed to notify disconnect: %v", err),
 			}, nil
 		}
+
+		// Then delete all connection records for this execution
+		deletedCount, err := wm.connRepo.DeleteConnectionsByExecutionID(ctx, executionID)
+		if err != nil {
+			reqLogger.Warn("failed to delete WebSocket connections", "context",
+				map[string]string{
+					"error":        err.Error(),
+					"execution_id": executionID,
+				},
+			)
+			// Don't fail the response - notifications were sent
+		} else if deletedCount > 0 {
+			reqLogger.Debug("deleted WebSocket connections for execution", "context",
+				map[string]string{
+					"execution_id":  executionID,
+					"deleted_count": fmt.Sprintf("%d", deletedCount),
+				},
+			)
+		}
+
 		return events.APIGatewayProxyResponse{
 			StatusCode: http.StatusOK,
-			Body:       "Disconnect notifications sent",
+			Body:       "Disconnect notifications sent and connections cleaned up",
 		}, nil
 	default:
 		return events.APIGatewayProxyResponse{

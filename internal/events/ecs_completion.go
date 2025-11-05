@@ -110,16 +110,18 @@ func (p *Processor) handleECSTaskCompletion(ctx context.Context, event *events.C
 
 	reqLogger.Info("execution updated successfully", "execution", execution)
 
-	// Clean up WebSocket connections for terminal executions
-	p.notifyDisconnectAndCleanup(ctx, execution.Status, executionID, reqLogger)
+	// Notify WebSocket clients about the execution completion
+	p.notifyDisconnect(ctx, execution.Status, executionID, reqLogger)
 
 	return nil
 }
 
-// notifyDisconnectAndCleanup invokes the connection manager Lambda to notify connected clients
-// of the execution completion, then removes WebSocket connections.
-// This is best-effort and won't fail the handler if cleanup fails.
-func (p *Processor) notifyDisconnectAndCleanup(
+// notifyDisconnect invokes the websocket_manager Lambda to notify connected clients
+// of the execution completion and clean up their connections.
+// The websocket_manager Lambda is responsible for both sending disconnect messages
+// and deleting the connection records from DynamoDB.
+// This is best-effort and won't fail the handler if the invocation fails.
+func (p *Processor) notifyDisconnect(
 	ctx context.Context,
 	status string,
 	executionID string,
@@ -129,7 +131,7 @@ func (p *Processor) notifyDisconnectAndCleanup(
 		return
 	}
 
-	// First, invoke websocket_manager Lambda to notify connected clients
+	// Invoke websocket_manager Lambda to notify connected clients and cleanup
 	invokeErr := p.invokeWebSocketManager(ctx, executionID, reqLogger)
 	if invokeErr != nil {
 		reqLogger.Warn("failed to invoke websocket manager for disconnect notification",
@@ -140,28 +142,6 @@ func (p *Processor) notifyDisconnectAndCleanup(
 		reqLogger.Debug("invoked websocket manager for disconnect notification",
 			"context", map[string]string{
 				"execution_id": executionID,
-			},
-		)
-	}
-
-	// Then delete all connection records
-	deletedCount, err := p.connectionRepo.DeleteConnectionsByExecutionID(ctx, executionID)
-	if err != nil {
-		// Log warning but don't fail - connection cleanup is best-effort
-		reqLogger.Warn("failed to delete WebSocket connections", "context",
-			map[string]string{
-				"error":        err.Error(),
-				"execution_id": executionID,
-			},
-		)
-		return
-	}
-
-	if deletedCount > 0 {
-		reqLogger.Debug("deleted WebSocket connections for terminal execution", "context",
-			map[string]string{
-				"execution_id":  executionID,
-				"deleted_count": fmt.Sprintf("%d", deletedCount),
 			},
 		)
 	}
