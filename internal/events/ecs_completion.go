@@ -107,7 +107,49 @@ func (p *Processor) handleECSTaskCompletion(ctx context.Context, event *events.C
 
 	reqLogger.Info("execution updated successfully", "execution", execution)
 
+	// Clean up WebSocket connections for terminal executions
+	p.cleanupWebSocketConnections(ctx, execution.Status, executionID, reqLogger)
+
 	return nil
+}
+
+// cleanupWebSocketConnections removes WebSocket connections for terminal executions.
+// This is best-effort and won't fail the handler if cleanup fails.
+func (p *Processor) cleanupWebSocketConnections(
+	ctx context.Context,
+	status string,
+	executionID string,
+	reqLogger *slog.Logger,
+) {
+	if !isTerminalStatus(status) {
+		return
+	}
+
+	deletedCount, err := p.connectionRepo.DeleteConnectionsByExecutionID(ctx, executionID)
+	if err != nil {
+		// Log warning but don't fail - connection cleanup is best-effort
+		reqLogger.Warn("failed to delete WebSocket connections", "context",
+			map[string]string{
+				"error":        err.Error(),
+				"execution_id": executionID,
+			},
+		)
+		return
+	}
+
+	if deletedCount > 0 {
+		reqLogger.Info("deleted WebSocket connections for terminal execution",
+			"execution_id", executionID,
+			"deleted_count", deletedCount,
+		)
+	}
+}
+
+// isTerminalStatus checks if an execution status is a terminal state
+func isTerminalStatus(status string) bool {
+	return status == string(constants.ExecutionSucceeded) ||
+		status == string(constants.ExecutionFailed) ||
+		status == string(constants.ExecutionStopped)
 }
 
 // extractExecutionIDFromTaskArn extracts the execution ID from a task ARN
@@ -167,11 +209,13 @@ func determineStatusAndExitCode(event *ECSTaskStateChangeEvent) (status string, 
 // ECSCompletionHandler is a factory function that returns a handler for ECS completion events
 func ECSCompletionHandler(
 	executionRepo database.ExecutionRepository,
+	connectionRepo database.ConnectionRepository,
 	log *slog.Logger) func(context.Context, events.CloudWatchEvent) error {
 	return func(ctx context.Context, event events.CloudWatchEvent) error {
 		p := &Processor{
-			executionRepo: executionRepo,
-			logger:        log,
+			executionRepo:  executionRepo,
+			connectionRepo: connectionRepo,
+			logger:         log,
 		}
 		return p.handleECSTaskCompletion(ctx, &event)
 	}

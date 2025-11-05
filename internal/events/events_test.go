@@ -42,6 +42,30 @@ func (m *mockExecutionRepo) ListExecutions(_ context.Context) ([]*api.Execution,
 	return nil, nil
 }
 
+// Mock connection repository for testing
+type mockConnectionRepo struct {
+	deleteConnectionsByExecutionIDFunc func(ctx context.Context, executionID string) (int, error)
+}
+
+func (m *mockConnectionRepo) CreateConnection(_ context.Context, _ *api.WebSocketConnection) error {
+	return nil
+}
+
+func (m *mockConnectionRepo) DeleteConnection(_ context.Context, _ string) error {
+	return nil
+}
+
+func (m *mockConnectionRepo) GetConnectionsByExecutionID(_ context.Context, _ string) ([]string, error) {
+	return nil, nil
+}
+
+func (m *mockConnectionRepo) DeleteConnectionsByExecutionID(ctx context.Context, executionID string) (int, error) {
+	if m.deleteConnectionsByExecutionIDFunc != nil {
+		return m.deleteConnectionsByExecutionIDFunc(ctx, executionID)
+	}
+	return 0, nil
+}
+
 func TestParseTime(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -251,9 +275,12 @@ func TestHandleECSTaskCompletion_Success(t *testing.T) {
 		},
 	}
 
+	mockConnRepo := &mockConnectionRepo{}
+
 	processor := &Processor{
-		executionRepo: mockRepo,
-		logger:        testutil.SilentLogger(),
+		executionRepo:  mockRepo,
+		connectionRepo: mockConnRepo,
+		logger:         testutil.SilentLogger(),
 	}
 
 	taskEvent := ECSTaskStateChangeEvent{
@@ -296,9 +323,12 @@ func TestHandleECSTaskCompletion_OrphanedTask(t *testing.T) {
 		},
 	}
 
+	mockConnRepo := &mockConnectionRepo{}
+
 	processor := &Processor{
-		executionRepo: mockRepo,
-		logger:        testutil.SilentLogger(),
+		executionRepo:  mockRepo,
+		connectionRepo: mockConnRepo,
+		logger:         testutil.SilentLogger(),
 	}
 
 	exitCode := 0
@@ -353,9 +383,12 @@ func TestHandleECSTaskCompletion_MissingStartedAt(t *testing.T) {
 		},
 	}
 
+	mockConnRepo := &mockConnectionRepo{}
+
 	processor := &Processor{
-		executionRepo: mockRepo,
-		logger:        testutil.SilentLogger(),
+		executionRepo:  mockRepo,
+		connectionRepo: mockConnRepo,
+		logger:         testutil.SilentLogger(),
 	}
 
 	taskEvent := ECSTaskStateChangeEvent{
@@ -389,8 +422,9 @@ func TestHandleEvent_IgnoresUnknownEventType(t *testing.T) {
 	ctx := context.Background()
 
 	processor := &Processor{
-		executionRepo: &mockExecutionRepo{},
-		logger:        testutil.SilentLogger(),
+		executionRepo:  &mockExecutionRepo{},
+		connectionRepo: &mockConnectionRepo{},
+		logger:         testutil.SilentLogger(),
 	}
 
 	event := events.CloudWatchEvent{
@@ -406,8 +440,9 @@ func TestHandleEventJSON(t *testing.T) {
 	ctx := context.Background()
 
 	processor := &Processor{
-		executionRepo: &mockExecutionRepo{},
-		logger:        testutil.SilentLogger(),
+		executionRepo:  &mockExecutionRepo{},
+		connectionRepo: &mockConnectionRepo{},
+		logger:         testutil.SilentLogger(),
 	}
 
 	eventJSON := []byte(`{
@@ -423,8 +458,9 @@ func TestHandleEventJSON_InvalidJSON(t *testing.T) {
 	ctx := context.Background()
 
 	processor := &Processor{
-		executionRepo: &mockExecutionRepo{},
-		logger:        testutil.SilentLogger(),
+		executionRepo:  &mockExecutionRepo{},
+		connectionRepo: &mockConnectionRepo{},
+		logger:         testutil.SilentLogger(),
 	}
 
 	eventJSON := []byte(`invalid json`)
@@ -457,7 +493,8 @@ func TestECSCompletionHandler(t *testing.T) {
 		},
 	}
 
-	handler := ECSCompletionHandler(mockRepo, testutil.SilentLogger())
+	mockConnRepo := &mockConnectionRepo{}
+	handler := ECSCompletionHandler(mockRepo, mockConnRepo, testutil.SilentLogger())
 
 	taskEvent := ECSTaskStateChangeEvent{
 		TaskArn:    "arn:aws:ecs:us-east-1:123456789012:task/cluster/test-exec-123",

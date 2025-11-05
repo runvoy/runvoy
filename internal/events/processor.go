@@ -18,14 +18,18 @@ import (
 
 // Processor handles async events from EventBridge
 type Processor struct {
-	executionRepo database.ExecutionRepository
-	logger        *slog.Logger
+	executionRepo  database.ExecutionRepository
+	connectionRepo database.ConnectionRepository
+	logger         *slog.Logger
 }
 
 // NewProcessor creates a new event processor with AWS backend
 func NewProcessor(ctx context.Context, cfg *config.Config, log *slog.Logger) (*Processor, error) {
 	if cfg.ExecutionsTable == "" {
 		return nil, fmt.Errorf("ExecutionsTable cannot be empty")
+	}
+	if cfg.WebSocketConnectionsTable == "" {
+		return nil, fmt.Errorf("WebSocketConnectionsTable cannot be empty")
 	}
 
 	// Load AWS configuration
@@ -36,12 +40,17 @@ func NewProcessor(ctx context.Context, cfg *config.Config, log *slog.Logger) (*P
 
 	dynamoClient := dynamodb.NewFromConfig(awsCfg)
 	executionRepo := dynamorepo.NewExecutionRepository(dynamoClient, cfg.ExecutionsTable, log)
+	connectionRepo := dynamorepo.NewConnectionRepository(dynamoClient, cfg.WebSocketConnectionsTable, log)
 
-	log.Debug("event processor initialized", "executionsTable", cfg.ExecutionsTable)
+	log.Debug("event processor initialized",
+		"executionsTable", cfg.ExecutionsTable,
+		"webSocketConnectionsTable", cfg.WebSocketConnectionsTable,
+	)
 
 	return &Processor{
-		executionRepo: executionRepo,
-		logger:        log,
+		executionRepo:  executionRepo,
+		connectionRepo: connectionRepo,
+		logger:         log,
 	}, nil
 }
 
