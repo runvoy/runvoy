@@ -470,6 +470,7 @@ The platform uses a dedicated **event processor Lambda** to handle asynchronous 
    - Exit code
    - Completion timestamp
    - Duration in seconds
+7. **WebSocket Disconnect Notification**: When execution reaches a terminal status, the event processor invokes the WebSocket Manager Lambda to notify connected clients and clean up connections
 
 ### Event Types
 
@@ -499,6 +500,7 @@ Designed to be extended for future event types:
 - Handles missing `startedAt` timestamps: When ECS task events have an empty `startedAt` field (e.g., when containers fail before starting, such as sidecar git puller failures), falls back to the execution's `StartedAt` timestamp that was set at creation time
 - Calculates duration (with safeguards for negative durations)
 - Updates DynamoDB execution record
+- Signals WebSocket termination: When execution reaches a terminal status (SUCCEEDED, FAILED, STOPPED), invokes the WebSocket Manager Lambda via `notifyDisconnect()` to send disconnect notifications to all connected clients and clean up connection records
 
 ### Status Determination Logic
 
@@ -551,10 +553,154 @@ Execution status values are defined as typed constants in `internal/constants/co
 ### CloudFormation Resources
 
 - **`EventProcessorFunction`**: Lambda function for event processing
-- **`EventProcessorRole`**: IAM role with DynamoDB and ECS permissions
+- **`EventProcessorRole`**: IAM role with DynamoDB, ECS, and Lambda invocation permissions (for WebSocket Manager)
 - **`EventProcessorLogGroup`**: CloudWatch Logs for event processor
 - **`TaskCompletionEventRule`**: EventBridge rule filtering ECS task completions
 - **`EventProcessorEventPermission`**: Permission for EventBridge to invoke Lambda
+
+## WebSocket Architecture
+
+The platform uses WebSocket connections for real-time log streaming to clients (CLI and web viewer). The architecture consists of three main components: the WebSocket Manager Lambda, the Log Forwarder Lambda, and the API Gateway WebSocket API.
+
+### Design Pattern
+
+- **WebSocket Manager Lambda**: Handles WebSocket connection lifecycle events and execution completion notifications
+- **Log Forwarder Lambda**: Forwards CloudWatch Logs events to connected WebSocket clients
+- **API Gateway WebSocket API**: Provides WebSocket endpoints for client connections
+
+### Components
+
+#### WebSocket Manager Lambda
+
+**Purpose**: Manages WebSocket connection lifecycle and sends disconnect notifications when executions complete.
+
+**Entry Point**: `cmd/backend/aws/websocket/manager/main.go`
+- Initializes WebSocket manager
+- Starts Lambda handler (`HandleRequest`)
+
+**Implementation**: `internal/websocket/websocket_manager.go`
+- **`HandleRequest()`**: Main entry point that routes WebSocket events by route key
+
+**Route Keys Handled**:
+
+1. **`$connect`** (`handleConnect`):
+   - Stores WebSocket connection in DynamoDB with execution ID
+   - Sets TTL for connection record (24 hours by default)
+   - Returns success response
+
+2. **`$disconnect`** (`handleDisconnect`):
+   - Removes WebSocket connection from DynamoDB when client disconnects
+   - Cleans up connection record
+
+3. **`$disconnect-execution`** (`handleDisconnectExecution`):
+   - Invoked by event processor when execution reaches terminal status
+   - Sends disconnect notifications to all connected clients for an execution
+   - Deletes all connection records for the execution from DynamoDB
+   - Uses `handleDisconnectNotification()` to send messages concurrently to all connections
+
+**Connection Management**:
+- Connections stored in DynamoDB `{project-name}-websocket-connections` table
+- Each connection record includes: `connection_id`, `execution_id`, `functionality`, `expires_at`
+- Connections are queried by execution ID for log forwarding
+
+#### Log Forwarder Lambda
+
+**Purpose**: Forwards CloudWatch Logs events to connected WebSocket clients in real-time.
+
+**Entry Point**: `cmd/backend/aws/websocket/log_forwarder/main.go`
+- Initializes log forwarder
+- Starts Lambda handler (`Handle`)
+
+**Implementation**: `internal/websocket/log_forwarder.go`
+- **`Handle()`**: Processes CloudWatch Logs subscription filter events
+- **`forwardLogsToConnections()`**: Forwards log events to all connections for an execution
+- Logs are sorted by timestamp before forwarding
+- Uses concurrent sending with error group for performance
+
+**Flow**:
+1. CloudWatch Logs subscription filter captures log events from ECS tasks
+2. Log Forwarder Lambda receives CloudWatch Logs event
+3. Extracts execution ID from log stream name
+4. Queries DynamoDB for all connections for that execution ID
+5. Forwards log events to all connected clients via API Gateway Management API
+6. Logs are sent concurrently with rate limiting
+
+#### API Gateway WebSocket API
+
+**Configuration**: Defined in CloudFormation template (`deployments/cloudformation-backend.yaml`)
+
+**Routes**:
+- **`$connect`**: Routes to WebSocket Manager Lambda
+- **`$disconnect`**: Routes to WebSocket Manager Lambda
+- **`$disconnect-execution`**: Custom route invoked programmatically by event processor
+
+**Integration**:
+- Uses AWS_PROXY integration type
+- All routes integrate with WebSocket Manager Lambda
+- API Gateway Management API used for sending messages to connections
+
+### Execution Completion Flow
+
+When an execution reaches a terminal status (SUCCEEDED, FAILED, STOPPED):
+
+1. **Event Processor** (`internal/events/ecs_completion.go`):
+   - Updates execution record in DynamoDB with final status
+   - Calls `notifyDisconnect()` which invokes WebSocket Manager Lambda
+   - Passes execution ID as query parameter
+
+2. **WebSocket Manager Lambda** (`handleDisconnectExecution`):
+   - Receives `$disconnect-execution` route key event
+   - Queries DynamoDB for all connections for the execution ID
+   - Sends disconnect notification message to all connections: `{"type":"disconnect","reason":"execution_completed"}`
+   - Deletes all connection records from DynamoDB
+   - Uses concurrent sending for performance
+
+3. **Clients** (CLI or web viewer):
+   - Receive disconnect notification message
+   - Close WebSocket connection gracefully
+   - Stop polling/log streaming
+
+### Connection Lifecycle
+
+**Connection Establishment**:
+1. Client connects to WebSocket URL with `execution_id` query parameter
+2. API Gateway routes `$connect` event to WebSocket Manager Lambda
+3. Lambda stores connection record in DynamoDB
+4. Connection ready for log streaming
+
+**Log Streaming**:
+1. CloudWatch Logs subscription filter captures log events
+2. Log Forwarder Lambda forwards events to all connections for execution ID
+3. Clients receive log events in real-time via WebSocket
+
+**Connection Termination**:
+- **Manual disconnect**: Client closes connection → API Gateway routes `$disconnect` → Lambda removes connection record
+- **Execution completion**: Event processor invokes `$disconnect-execution` → Lambda notifies clients and deletes records
+
+### Error Handling
+
+- **Connection failures**: Failed sends are logged but don't fail the Lambda handler
+- **Missing connections**: If no connections exist for an execution, operations return successfully
+- **Concurrent sending**: Uses error group with rate limiting to prevent overwhelming API Gateway
+- **Best-effort notifications**: Disconnect notifications are best-effort; failures don't prevent execution completion
+
+### Benefits
+
+- ✅ **Real-time Streaming**: Logs appear instantly in clients without polling
+- ✅ **Efficient**: Only forwards logs when clients are connected
+- ✅ **Scalable**: Handles multiple concurrent connections per execution
+- ✅ **Clean Termination**: Clients are notified when executions complete
+- ✅ **Automatic Cleanup**: Connection records are cleaned up on execution completion
+
+### CloudFormation Resources
+
+- **`ConnectionManagerFunction`**: WebSocket Manager Lambda function
+- **`LogForwarderFunction`**: Log Forwarder Lambda function
+- **`WebSocketApi`**: API Gateway WebSocket API
+- **`WebSocketApiStage`**: WebSocket API stage
+- **`WebSocketConnectRoute`**: `$connect` route
+- **`WebSocketDisconnectRoute`**: `$disconnect` route
+- **`WebSocketConnectionsTable`**: DynamoDB table for connection records
 
 ## Web Viewer Architecture
 
@@ -577,9 +723,11 @@ The platform includes a minimal web-based log viewer for visualizing execution l
 ### Core Features
 
 1. **Real-time Log Streaming**
-   - Polls API every 5 seconds for new logs
+   - Connects to WebSocket API for real-time log streaming
+   - Also polls API every 5 seconds for new logs as fallback
    - Auto-scrolls to bottom on new logs
    - Handles rate limiting and backpressure
+   - Receives disconnect notifications when execution completes
 
 2. **ANSI Color Support**
    - Parses and displays colored terminal output
@@ -604,12 +752,18 @@ The platform includes a minimal web-based log viewer for visualizing execution l
 
 ### API Endpoints Used
 
-The web viewer interacts with two API endpoints:
+The web viewer interacts with multiple API endpoints:
 
+**REST API Endpoints**:
 - `GET /api/v1/executions/{id}/status` - Fetch execution status and metadata
-- `GET /api/v1/executions/{id}/logs` - Fetch execution logs
+- `GET /api/v1/executions/{id}/logs` - Fetch execution logs and WebSocket URL
 
-Both endpoints require authentication via `X-API-Key` header.
+**WebSocket API**:
+- Connects to WebSocket URL returned in logs response
+- Receives real-time log events via WebSocket
+- Receives disconnect notification when execution completes
+
+All endpoints require authentication via `X-API-Key` header.
 
 ### Access Pattern
 
