@@ -1,10 +1,20 @@
 package client
 
 import (
+	"context"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
+	"time"
 
+	"runvoy/internal/api"
 	"runvoy/internal/config"
 	"runvoy/internal/testutil"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestNew(t *testing.T) {
@@ -23,4 +33,715 @@ func TestNew(t *testing.T) {
 	if client.logger != logger {
 		t.Errorf("Expected logger to be %v, got %v", logger, client.logger)
 	}
+}
+
+func TestClient_Do(t *testing.T) {
+	tests := []struct {
+		name           string
+		setupServer    func() *httptest.Server
+		request        Request
+		wantErr        bool
+		wantStatusCode int
+		validateResp   func(t *testing.T, resp *Response)
+	}{
+		{
+			name: "successful GET request",
+			setupServer: func() *httptest.Server {
+				return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					assert.Equal(t, "GET", r.Method)
+					assert.Equal(t, "/api/v1/test", r.URL.Path)
+					assert.Equal(t, "application/json", r.Header.Get("Content-Type"))
+					assert.Equal(t, "test-api-key", r.Header.Get("X-API-Key"))
+					w.WriteHeader(http.StatusOK)
+					w.Write([]byte(`{"message": "success"}`))
+				}))
+			},
+			request: Request{
+				Method: "GET",
+				Path:   "/api/v1/test",
+			},
+			wantErr:        false,
+			wantStatusCode: http.StatusOK,
+			validateResp: func(t *testing.T, resp *Response) {
+				assert.Equal(t, http.StatusOK, resp.StatusCode)
+				assert.Contains(t, string(resp.Body), "success")
+			},
+		},
+		{
+			name: "successful POST request with body",
+			setupServer: func() *httptest.Server {
+				return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					assert.Equal(t, "POST", r.Method)
+					var body map[string]interface{}
+					json.NewDecoder(r.Body).Decode(&body)
+					assert.Equal(t, "test-value", body["test"])
+					w.WriteHeader(http.StatusCreated)
+					w.Write([]byte(`{"id": "123"}`))
+				}))
+			},
+			request: Request{
+				Method: "POST",
+				Path:   "/api/v1/test",
+				Body:   map[string]string{"test": "test-value"},
+			},
+			wantErr:        false,
+			wantStatusCode: http.StatusCreated,
+		},
+		{
+			name: "server error",
+			setupServer: func() *httptest.Server {
+				return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					w.WriteHeader(http.StatusInternalServerError)
+					w.Write([]byte(`{"error": "internal error"}`))
+				}))
+			},
+			request: Request{
+				Method: "GET",
+				Path:   "/api/v1/test",
+			},
+			wantErr:        false,
+			wantStatusCode: http.StatusInternalServerError,
+		},
+		{
+			name: "invalid JSON body",
+			setupServer: func() *httptest.Server {
+				return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					w.WriteHeader(http.StatusOK)
+				}))
+			},
+			request: Request{
+				Method: "POST",
+				Path:   "/api/v1/test",
+				Body:   make(chan int), // cannot be marshaled to JSON
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := tt.setupServer()
+			defer server.Close()
+
+			cfg := &config.Config{
+				APIEndpoint: server.URL,
+				APIKey:      "test-api-key",
+			}
+			client := New(cfg, testutil.SilentLogger())
+
+			resp, err := client.Do(context.Background(), tt.request)
+
+			if tt.wantErr {
+				require.Error(t, err)
+				assert.Nil(t, resp)
+			} else {
+				require.NoError(t, err)
+				require.NotNil(t, resp)
+				assert.Equal(t, tt.wantStatusCode, resp.StatusCode)
+				if tt.validateResp != nil {
+					tt.validateResp(t, resp)
+				}
+			}
+		})
+	}
+}
+
+func TestClient_DoJSON(t *testing.T) {
+	tests := []struct {
+		name        string
+		setupServer func() *httptest.Server
+		request     Request
+		result      interface{}
+		wantErr     bool
+		errContains  string
+	}{
+		{
+			name: "successful request with JSON response",
+			setupServer: func() *httptest.Server {
+				return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					w.WriteHeader(http.StatusOK)
+					w.Write([]byte(`{"execution_id": "test-123", "status": "RUNNING"}`))
+				}))
+			},
+			request: Request{
+				Method: "GET",
+				Path:   "/api/v1/executions/test-123",
+			},
+			result: &api.ExecutionStatusResponse{},
+			wantErr: false,
+		},
+		{
+			name: "HTTP error response with error JSON",
+			setupServer: func() *httptest.Server {
+				return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					w.WriteHeader(http.StatusNotFound)
+					w.Write([]byte(`{"error": "Not Found", "details": "Resource not found"}`))
+				}))
+			},
+			request: Request{
+				Method: "GET",
+				Path:   "/api/v1/executions/missing",
+			},
+			result:     &api.ExecutionStatusResponse{},
+			wantErr:    true,
+			errContains: "[404] Not Found: Resource not found",
+		},
+		{
+			name: "HTTP error response with invalid JSON",
+			setupServer: func() *httptest.Server {
+				return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					w.WriteHeader(http.StatusBadRequest)
+					w.Write([]byte(`not json`))
+				}))
+			},
+			request: Request{
+				Method: "GET",
+				Path:   "/api/v1/test",
+			},
+			result:      &api.ExecutionStatusResponse{},
+			wantErr:     true,
+			errContains: "request failed with status 400",
+		},
+		{
+			name: "invalid JSON in response body",
+			setupServer: func() *httptest.Server {
+				return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					w.WriteHeader(http.StatusOK)
+					w.Write([]byte(`not valid json`))
+				}))
+			},
+			request: Request{
+				Method: "GET",
+				Path:   "/api/v1/test",
+			},
+			result:      &api.ExecutionStatusResponse{},
+			wantErr:     true,
+			errContains: "failed to parse response",
+		},
+		{
+			name: "successful request with array response",
+			setupServer: func() *httptest.Server {
+				return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					w.WriteHeader(http.StatusOK)
+					w.Write([]byte(`[{"execution_id": "test-1"}, {"execution_id": "test-2"}]`))
+				}))
+			},
+			request: Request{
+				Method: "GET",
+				Path:   "/api/v1/executions",
+			},
+			result:  &[]api.Execution{},
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := tt.setupServer()
+			defer server.Close()
+
+			cfg := &config.Config{
+				APIEndpoint: server.URL,
+				APIKey:      "test-api-key",
+			}
+			client := New(cfg, testutil.SilentLogger())
+
+			err := client.DoJSON(context.Background(), tt.request, tt.result)
+
+			if tt.wantErr {
+				require.Error(t, err)
+				if tt.errContains != "" {
+					assert.Contains(t, err.Error(), tt.errContains)
+				}
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestClient_CreateUser(t *testing.T) {
+	t.Run("successful user creation", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			assert.Equal(t, "POST", r.Method)
+			assert.Equal(t, "/api/v1/users/create", r.URL.Path)
+
+			var req api.CreateUserRequest
+			json.NewDecoder(r.Body).Decode(&req)
+			assert.Equal(t, "user@example.com", req.Email)
+
+			w.WriteHeader(http.StatusOK)
+			json.NewEncoder(w).Encode(api.CreateUserResponse{
+				User: &api.User{
+					Email:     "user@example.com",
+					APIKey:    "test-key",
+					CreatedAt: time.Now().UTC(),
+				},
+				ClaimToken: "claim-token-123",
+			})
+		}))
+		defer server.Close()
+
+		cfg := &config.Config{
+			APIEndpoint: server.URL,
+			APIKey:      "test-api-key",
+		}
+		client := New(cfg, testutil.SilentLogger())
+
+		resp, err := client.CreateUser(context.Background(), api.CreateUserRequest{
+			Email: "user@example.com",
+		})
+
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+		assert.Equal(t, "user@example.com", resp.User.Email)
+		assert.Equal(t, "claim-token-123", resp.ClaimToken)
+	})
+
+	t.Run("error response", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusConflict)
+			json.NewEncoder(w).Encode(api.ErrorResponse{
+				Error:   "Conflict",
+				Details: "User already exists",
+			})
+		}))
+		defer server.Close()
+
+		cfg := &config.Config{
+			APIEndpoint: server.URL,
+			APIKey:      "test-api-key",
+		}
+		client := New(cfg, testutil.SilentLogger())
+
+		resp, err := client.CreateUser(context.Background(), api.CreateUserRequest{
+			Email: "user@example.com",
+		})
+
+		require.Error(t, err)
+		assert.Nil(t, resp)
+		assert.Contains(t, err.Error(), "Conflict")
+	})
+}
+
+func TestClient_RevokeUser(t *testing.T) {
+	t.Run("successful user revocation", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			assert.Equal(t, "POST", r.Method)
+			assert.Equal(t, "/api/v1/users/revoke", r.URL.Path)
+
+			var req api.RevokeUserRequest
+			json.NewDecoder(r.Body).Decode(&req)
+			assert.Equal(t, "user@example.com", req.Email)
+
+			w.WriteHeader(http.StatusOK)
+			json.NewEncoder(w).Encode(api.RevokeUserResponse{
+				Email:   "user@example.com",
+				Message: "User revoked successfully",
+			})
+		}))
+		defer server.Close()
+
+		cfg := &config.Config{
+			APIEndpoint: server.URL,
+			APIKey:      "test-api-key",
+		}
+		client := New(cfg, testutil.SilentLogger())
+
+		resp, err := client.RevokeUser(context.Background(), api.RevokeUserRequest{
+			Email: "user@example.com",
+		})
+
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+		assert.Equal(t, "user@example.com", resp.Email)
+		assert.Equal(t, "User revoked successfully", resp.Message)
+	})
+}
+
+func TestClient_ListUsers(t *testing.T) {
+	t.Run("successful list users", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			assert.Equal(t, "GET", r.Method)
+			assert.Equal(t, "/api/v1/users/", r.URL.Path)
+
+			w.WriteHeader(http.StatusOK)
+			json.NewEncoder(w).Encode(api.ListUsersResponse{
+				Users: []*api.User{
+					{Email: "user1@example.com"},
+					{Email: "user2@example.com"},
+				},
+			})
+		}))
+		defer server.Close()
+
+		cfg := &config.Config{
+			APIEndpoint: server.URL,
+			APIKey:      "test-api-key",
+		}
+		client := New(cfg, testutil.SilentLogger())
+
+		resp, err := client.ListUsers(context.Background())
+
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+		assert.Len(t, resp.Users, 2)
+		assert.Equal(t, "user1@example.com", resp.Users[0].Email)
+	})
+}
+
+func TestClient_GetHealth(t *testing.T) {
+	t.Run("successful health check", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			assert.Equal(t, "GET", r.Method)
+			assert.Equal(t, "/api/v1/health", r.URL.Path)
+
+			w.WriteHeader(http.StatusOK)
+			json.NewEncoder(w).Encode(api.HealthResponse{
+				Status:  "healthy",
+				Version: "1.0.0",
+			})
+		}))
+		defer server.Close()
+
+		cfg := &config.Config{
+			APIEndpoint: server.URL,
+			APIKey:      "test-api-key",
+		}
+		client := New(cfg, testutil.SilentLogger())
+
+		resp, err := client.GetHealth(context.Background())
+
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+		assert.Equal(t, "healthy", resp.Status)
+		assert.Equal(t, "1.0.0", resp.Version)
+	})
+}
+
+func TestClient_RunCommand(t *testing.T) {
+	t.Run("successful command execution", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			assert.Equal(t, "POST", r.Method)
+			assert.Equal(t, "/api/v1/run", r.URL.Path)
+
+			var req api.ExecutionRequest
+			json.NewDecoder(r.Body).Decode(&req)
+			assert.Equal(t, "echo hello", req.Command)
+
+			w.WriteHeader(http.StatusOK)
+			json.NewEncoder(w).Encode(api.ExecutionResponse{
+				ExecutionID: "exec-123",
+				LogURL:     "https://example.com/logs/exec-123",
+				Status:     "RUNNING",
+			})
+		}))
+		defer server.Close()
+
+		cfg := &config.Config{
+			APIEndpoint: server.URL,
+			APIKey:      "test-api-key",
+		}
+		client := New(cfg, testutil.SilentLogger())
+
+		resp, err := client.RunCommand(context.Background(), &api.ExecutionRequest{
+			Command: "echo hello",
+		})
+
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+		assert.Equal(t, "exec-123", resp.ExecutionID)
+		assert.Equal(t, "RUNNING", resp.Status)
+	})
+}
+
+func TestClient_GetLogs(t *testing.T) {
+	t.Run("successful log retrieval", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			assert.Equal(t, "GET", r.Method)
+			assert.Equal(t, "/api/v1/executions/exec-123/logs", r.URL.Path)
+
+			w.WriteHeader(http.StatusOK)
+			json.NewEncoder(w).Encode(api.LogsResponse{
+				ExecutionID: "exec-123",
+				Status:     "RUNNING",
+				Events: []api.LogEvent{
+					{Timestamp: 1000, Message: "log line 1"},
+					{Timestamp: 2000, Message: "log line 2"},
+				},
+			})
+		}))
+		defer server.Close()
+
+		cfg := &config.Config{
+			APIEndpoint: server.URL,
+			APIKey:      "test-api-key",
+		}
+		client := New(cfg, testutil.SilentLogger())
+
+		resp, err := client.GetLogs(context.Background(), "exec-123")
+
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+		assert.Equal(t, "exec-123", resp.ExecutionID)
+		assert.Len(t, resp.Events, 2)
+		assert.Equal(t, "log line 1", resp.Events[0].Message)
+	})
+}
+
+func TestClient_GetExecutionStatus(t *testing.T) {
+	t.Run("successful status retrieval", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			assert.Equal(t, "GET", r.Method)
+			assert.True(t, strings.HasPrefix(r.URL.Path, "/api/v1/executions/"))
+			assert.True(t, strings.HasSuffix(r.URL.Path, "/status"))
+
+			w.WriteHeader(http.StatusOK)
+			json.NewEncoder(w).Encode(api.ExecutionStatusResponse{
+				ExecutionID: "exec-123",
+				Status:     "SUCCEEDED",
+				ExitCode:   intPtr(0),
+			})
+		}))
+		defer server.Close()
+
+		cfg := &config.Config{
+			APIEndpoint: server.URL,
+			APIKey:      "test-api-key",
+		}
+		client := New(cfg, testutil.SilentLogger())
+
+		resp, err := client.GetExecutionStatus(context.Background(), "exec-123")
+
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+		assert.Equal(t, "exec-123", resp.ExecutionID)
+		assert.Equal(t, "SUCCEEDED", resp.Status)
+		assert.NotNil(t, resp.ExitCode)
+		assert.Equal(t, 0, *resp.ExitCode)
+	})
+}
+
+func TestClient_KillExecution(t *testing.T) {
+	t.Run("successful execution kill", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			assert.Equal(t, "POST", r.Method)
+			assert.True(t, strings.HasPrefix(r.URL.Path, "/api/v1/executions/"))
+			assert.True(t, strings.HasSuffix(r.URL.Path, "/kill"))
+
+			w.WriteHeader(http.StatusOK)
+			json.NewEncoder(w).Encode(api.KillExecutionResponse{
+				ExecutionID: "exec-123",
+				Message:    "Execution killed successfully",
+			})
+		}))
+		defer server.Close()
+
+		cfg := &config.Config{
+			APIEndpoint: server.URL,
+			APIKey:      "test-api-key",
+		}
+		client := New(cfg, testutil.SilentLogger())
+
+		resp, err := client.KillExecution(context.Background(), "exec-123")
+
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+		assert.Equal(t, "exec-123", resp.ExecutionID)
+		assert.Equal(t, "Execution killed successfully", resp.Message)
+	})
+}
+
+func TestClient_ListExecutions(t *testing.T) {
+	t.Run("successful list executions", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			assert.Equal(t, "GET", r.Method)
+			assert.Equal(t, "/api/v1/executions", r.URL.Path)
+
+			w.WriteHeader(http.StatusOK)
+			json.NewEncoder(w).Encode([]api.Execution{
+				{ExecutionID: "exec-1", Status: "SUCCEEDED"},
+				{ExecutionID: "exec-2", Status: "RUNNING"},
+			})
+		}))
+		defer server.Close()
+
+		cfg := &config.Config{
+			APIEndpoint: server.URL,
+			APIKey:      "test-api-key",
+		}
+		client := New(cfg, testutil.SilentLogger())
+
+		executions, err := client.ListExecutions(context.Background())
+
+		require.NoError(t, err)
+		require.NotNil(t, executions)
+		assert.Len(t, executions, 2)
+		assert.Equal(t, "exec-1", executions[0].ExecutionID)
+		assert.Equal(t, "exec-2", executions[1].ExecutionID)
+	})
+}
+
+func TestClient_ClaimAPIKey(t *testing.T) {
+	t.Run("successful API key claim", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			assert.Equal(t, "GET", r.Method)
+			assert.True(t, strings.HasPrefix(r.URL.Path, "/api/v1/claim/"))
+
+			w.WriteHeader(http.StatusOK)
+			json.NewEncoder(w).Encode(api.ClaimAPIKeyResponse{
+				APIKey:    "claimed-api-key",
+				UserEmail: "user@example.com",
+				Message:   "API key claimed successfully",
+			})
+		}))
+		defer server.Close()
+
+		cfg := &config.Config{
+			APIEndpoint: server.URL,
+			APIKey:      "test-api-key",
+		}
+		client := New(cfg, testutil.SilentLogger())
+
+		resp, err := client.ClaimAPIKey(context.Background(), "claim-token-123")
+
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+		assert.Equal(t, "claimed-api-key", resp.APIKey)
+		assert.Equal(t, "user@example.com", resp.UserEmail)
+	})
+}
+
+func TestClient_RegisterImage(t *testing.T) {
+	t.Run("successful image registration", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			assert.Equal(t, "POST", r.Method)
+			assert.Equal(t, "/api/v1/images/register", r.URL.Path)
+
+			var req api.RegisterImageRequest
+			json.NewDecoder(r.Body).Decode(&req)
+			assert.Equal(t, "ubuntu:22.04", req.Image)
+			assert.NotNil(t, req.IsDefault)
+			assert.True(t, *req.IsDefault)
+
+			w.WriteHeader(http.StatusOK)
+			json.NewEncoder(w).Encode(api.RegisterImageResponse{
+				Image:   "ubuntu:22.04",
+				Message: "Image registered successfully",
+			})
+		}))
+		defer server.Close()
+
+		cfg := &config.Config{
+			APIEndpoint: server.URL,
+			APIKey:      "test-api-key",
+		}
+		client := New(cfg, testutil.SilentLogger())
+
+		isDefault := true
+		resp, err := client.RegisterImage(context.Background(), "ubuntu:22.04", &isDefault)
+
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+		assert.Equal(t, "ubuntu:22.04", resp.Image)
+		assert.Equal(t, "Image registered successfully", resp.Message)
+	})
+
+	t.Run("register image without default flag", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			var req api.RegisterImageRequest
+			json.NewDecoder(r.Body).Decode(&req)
+			assert.Equal(t, "ubuntu:22.04", req.Image)
+			assert.Nil(t, req.IsDefault)
+
+			w.WriteHeader(http.StatusOK)
+			json.NewEncoder(w).Encode(api.RegisterImageResponse{
+				Image:   "ubuntu:22.04",
+				Message: "Image registered successfully",
+			})
+		}))
+		defer server.Close()
+
+		cfg := &config.Config{
+			APIEndpoint: server.URL,
+			APIKey:      "test-api-key",
+		}
+		client := New(cfg, testutil.SilentLogger())
+
+		resp, err := client.RegisterImage(context.Background(), "ubuntu:22.04", nil)
+
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+	})
+}
+
+func TestClient_ListImages(t *testing.T) {
+	t.Run("successful image list", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			assert.Equal(t, "GET", r.Method)
+			assert.Equal(t, "/api/v1/images", r.URL.Path)
+
+			w.WriteHeader(http.StatusOK)
+			json.NewEncoder(w).Encode(api.ListImagesResponse{
+				Images: []api.ImageInfo{
+					{Image: "ubuntu:22.04", IsDefault: boolPtr(true)},
+					{Image: "alpine:latest", IsDefault: boolPtr(false)},
+				},
+			})
+		}))
+		defer server.Close()
+
+		cfg := &config.Config{
+			APIEndpoint: server.URL,
+			APIKey:      "test-api-key",
+		}
+		client := New(cfg, testutil.SilentLogger())
+
+		resp, err := client.ListImages(context.Background())
+
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+		assert.Len(t, resp.Images, 2)
+		assert.Equal(t, "ubuntu:22.04", resp.Images[0].Image)
+		assert.True(t, *resp.Images[0].IsDefault)
+	})
+}
+
+func TestClient_UnregisterImage(t *testing.T) {
+	t.Run("successful image unregistration", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			assert.Equal(t, "DELETE", r.Method)
+			assert.True(t, strings.HasPrefix(r.URL.Path, "/api/v1/images/"))
+			assert.True(t, strings.Contains(r.URL.Path, "ubuntu:22.04"))
+
+			w.WriteHeader(http.StatusOK)
+			json.NewEncoder(w).Encode(api.RemoveImageResponse{
+				Image:   "ubuntu:22.04",
+				Message: "Image unregistered successfully",
+			})
+		}))
+		defer server.Close()
+
+		cfg := &config.Config{
+			APIEndpoint: server.URL,
+			APIKey:      "test-api-key",
+		}
+		client := New(cfg, testutil.SilentLogger())
+
+		resp, err := client.UnregisterImage(context.Background(), "ubuntu:22.04")
+
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+		assert.Equal(t, "ubuntu:22.04", resp.Image)
+		assert.Equal(t, "Image unregistered successfully", resp.Message)
+	})
+}
+
+// Helper functions
+func intPtr(i int) *int {
+	return &i
+}
+
+func boolPtr(b bool) *bool {
+	return &b
 }
