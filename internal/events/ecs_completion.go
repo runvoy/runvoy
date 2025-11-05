@@ -137,7 +137,9 @@ func (p *Processor) cleanupWebSocketConnections(
 		)
 	} else {
 		reqLogger.Debug("invoked websocket_manager for disconnect notification",
-			"execution_id", executionID,
+			"context", map[string]string{
+				"execution_id": executionID,
+			},
 		)
 	}
 
@@ -182,7 +184,7 @@ func (p *Processor) invokeWebSocketManager(
 		return nil
 	}
 
-	payload := map[string]interface{}{
+	payload := map[string]string{
 		"type":         "disconnect",
 		"execution_id": executionID,
 	}
@@ -191,6 +193,14 @@ func (p *Processor) invokeWebSocketManager(
 	if err != nil {
 		return fmt.Errorf("failed to marshal disconnect payload: %w", err)
 	}
+
+	reqLogger := logger.DeriveRequestLogger(ctx, p.logger)
+	reqLogger.Debug("invoking websocket_manager", "context",
+		map[string]any{
+			"function_name": p.websocketManager,
+			"payload":       payload,
+		},
+	)
 
 	invocation := &lambda.InvokeInput{
 		FunctionName:   aws.String(p.websocketManager),

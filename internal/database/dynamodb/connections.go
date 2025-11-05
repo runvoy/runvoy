@@ -87,7 +87,7 @@ func (r *ConnectionRepository) CreateConnection(
 		return appErrors.ErrDatabaseError("failed to store connection", err)
 	}
 
-	reqLogger.Info("connection stored successfully", "context", map[string]any{
+	reqLogger.Debug("connection stored successfully", "context", map[string]string{
 		"connection_id": connection.ConnectionID,
 		"execution_id":  connection.ExecutionID,
 		"functionality": connection.Functionality,
@@ -99,7 +99,7 @@ func (r *ConnectionRepository) CreateConnection(
 func (r *ConnectionRepository) DeleteConnection(ctx context.Context, connectionID string) error {
 	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
 
-	key := map[string]interface{}{
+	key := map[string]string{
 		"connection_id": connectionID,
 	}
 
@@ -124,7 +124,7 @@ func (r *ConnectionRepository) DeleteConnection(ctx context.Context, connectionI
 		return appErrors.ErrDatabaseError("failed to delete connection", err)
 	}
 
-	reqLogger.Debug("connection deleted successfully", "context", map[string]any{
+	reqLogger.Debug("connection deleted successfully", "context", map[string]string{
 		"connection_id": connectionID,
 	})
 	return nil
