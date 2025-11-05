@@ -63,10 +63,47 @@ func NewLogForwarder(ctx context.Context, cfg *config.Config, log *slog.Logger) 
 	}, nil
 }
 
-// HandleLogs is the main entry point for Lambda CloudWatch Logs event processing.
-func (lf *LogForwarder) HandleLogs(ctx context.Context, event events.CloudwatchLogsEvent) error {
+// Handle is the main entry point for Lambda event processing.
+// It routes events to either CloudWatch Logs handling or disconnect handling.
+func (lf *LogForwarder) Handle(ctx context.Context, rawEvent json.RawMessage) error {
 	reqLogger := logger.DeriveRequestLogger(ctx, lf.logger)
 
+	// Try to unmarshal as a disconnect message first
+	var disconnectMsg map[string]interface{}
+	if err := json.Unmarshal(rawEvent, &disconnectMsg); err == nil {
+		if msgType, ok := disconnectMsg["type"].(string); ok && msgType == "disconnect" {
+			executionID, execIDOk := disconnectMsg["execution_id"].(string)
+			if !execIDOk {
+				reqLogger.Error("disconnect message missing execution_id")
+				return fmt.Errorf("disconnect message missing execution_id")
+			}
+			return lf.handleDisconnect(ctx, executionID, reqLogger)
+		}
+	}
+
+	// Otherwise, handle as CloudWatch Logs event
+	var logsEvent events.CloudwatchLogsEvent
+	if err := json.Unmarshal(rawEvent, &logsEvent); err != nil {
+		reqLogger.Error("failed to unmarshal event", "error", err)
+		return fmt.Errorf("failed to unmarshal event: %w", err)
+	}
+
+	return lf.handleLogs(ctx, logsEvent, reqLogger)
+}
+
+// HandleLogs is the legacy entry point for CloudWatch Logs event processing.
+// Kept for backward compatibility, but new code should use Handle.
+func (lf *LogForwarder) HandleLogs(ctx context.Context, event events.CloudwatchLogsEvent) error {
+	reqLogger := logger.DeriveRequestLogger(ctx, lf.logger)
+	return lf.handleLogs(ctx, event, reqLogger)
+}
+
+// handleLogs processes CloudWatch Logs events and forwards them to connected clients.
+func (lf *LogForwarder) handleLogs(
+	ctx context.Context,
+	event events.CloudwatchLogsEvent,
+	reqLogger *slog.Logger,
+) error {
 	logsData, err := lf.decodeLogsEvent(event, reqLogger)
 	if err != nil {
 		return err
@@ -214,5 +251,84 @@ func (lf *LogForwarder) sendToConnection(
 		"connection_id": connectionID,
 	})
 
+	return nil
+}
+
+// handleDisconnect sends disconnect messages to all connected clients for an execution.
+// This notifies clients that the execution has completed.
+func (lf *LogForwarder) handleDisconnect(
+	ctx context.Context,
+	executionID string,
+	reqLogger *slog.Logger,
+) error {
+	reqLogger.Debug("handling disconnect for execution", "execution_id", executionID)
+
+	// Get all connection IDs for this execution
+	connectionIDs, err := lf.connRepo.GetConnectionsByExecutionID(ctx, executionID)
+	if err != nil {
+		reqLogger.Error("failed to get connections for execution", "error", err, "execution_id", executionID)
+		return fmt.Errorf("failed to get connections: %w", err)
+	}
+
+	if len(connectionIDs) == 0 {
+		reqLogger.Debug("no active connections to disconnect", "execution_id", executionID)
+		return nil
+	}
+
+	reqLogger.Debug("sending disconnect messages to connections",
+		"execution_id", executionID,
+		"connection_count", len(connectionIDs),
+	)
+
+	// Send disconnect message to all connections concurrently
+	errGroup, ctx := errgroup.WithContext(ctx)
+	errGroup.SetLimit(constants.MaxConcurrentSends)
+
+	disconnectMessage := []byte(`{"type":"disconnect","reason":"execution_completed"}`)
+
+	for _, connectionID := range connectionIDs {
+		connID := connectionID // Capture for closure
+		errGroup.Go(func() error {
+			return lf.sendDisconnectToConnection(ctx, connID, disconnectMessage, reqLogger)
+		})
+	}
+
+	err = errGroup.Wait()
+	if err != nil {
+		reqLogger.Error("some disconnect messages failed to send", "error", err, "execution_id", executionID)
+		// Don't fail the handler - best effort delivery
+	} else {
+		reqLogger.Info("all disconnect messages sent successfully",
+			"execution_id", executionID,
+			"connection_count", len(connectionIDs),
+		)
+	}
+
+	return nil
+}
+
+// sendDisconnectToConnection sends a disconnect message to a single WebSocket connection.
+func (lf *LogForwarder) sendDisconnectToConnection(
+	ctx context.Context,
+	connectionID string,
+	message []byte,
+	reqLogger *slog.Logger,
+) error {
+	reqLogger.Debug("sending disconnect to connection", "connection_id", connectionID)
+
+	_, err := lf.apiGwClient.PostToConnection(ctx, &apigatewaymanagementapi.PostToConnectionInput{
+		ConnectionId: aws.String(connectionID),
+		Data:         message,
+	})
+
+	if err != nil {
+		reqLogger.Error("failed to send disconnect to connection",
+			"error", err,
+			"connection_id", connectionID,
+		)
+		return fmt.Errorf("failed to send disconnect to connection %s: %w", connectionID, err)
+	}
+
+	reqLogger.Debug("disconnect sent to connection", "connection_id", connectionID)
 	return nil
 }

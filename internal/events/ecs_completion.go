@@ -15,6 +15,9 @@ import (
 	"runvoy/internal/logger"
 
 	"github.com/aws/aws-lambda-go/events"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/lambda"
+	"github.com/aws/aws-sdk-go-v2/service/lambda/types"
 )
 
 // parseTaskTimes parses and validates the task timestamps, calculating duration.
@@ -113,8 +116,8 @@ func (p *Processor) handleECSTaskCompletion(ctx context.Context, event *events.C
 	return nil
 }
 
-// cleanupWebSocketConnections removes WebSocket connections for terminal executions.
-// This is best-effort and won't fail the handler if cleanup fails.
+// cleanupWebSocketConnections sends disconnect notifications to and removes WebSocket connections
+// for terminal executions. This is best-effort and won't fail the handler if cleanup fails.
 func (p *Processor) cleanupWebSocketConnections(
 	ctx context.Context,
 	status string,
@@ -125,6 +128,20 @@ func (p *Processor) cleanupWebSocketConnections(
 		return
 	}
 
+	// First, invoke websocket_manager Lambda to notify connected clients
+	invokeErr := p.invokeWebSocketManager(ctx, executionID, reqLogger)
+	if invokeErr != nil {
+		reqLogger.Warn("failed to invoke websocket_manager for disconnect",
+			"error", invokeErr,
+			"execution_id", executionID,
+		)
+	} else {
+		reqLogger.Debug("invoked websocket_manager for disconnect notification",
+			"execution_id", executionID,
+		)
+	}
+
+	// Then delete all connection records
 	deletedCount, err := p.connectionRepo.DeleteConnectionsByExecutionID(ctx, executionID)
 	if err != nil {
 		// Log warning but don't fail - connection cleanup is best-effort
@@ -152,6 +169,41 @@ func isTerminalStatus(status string) bool {
 	return status == string(constants.ExecutionSucceeded) ||
 		status == string(constants.ExecutionFailed) ||
 		status == string(constants.ExecutionStopped)
+}
+
+// invokeWebSocketManager invokes the websocket_manager Lambda to send disconnect messages.
+func (p *Processor) invokeWebSocketManager(
+	ctx context.Context,
+	executionID string,
+	_ *slog.Logger,
+) error {
+	// Skip if lambdaClient is not initialized (e.g., in tests)
+	if p.lambdaClient == nil {
+		return nil
+	}
+
+	payload := map[string]interface{}{
+		"type":         "disconnect",
+		"execution_id": executionID,
+	}
+
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("failed to marshal disconnect payload: %w", err)
+	}
+
+	invocation := &lambda.InvokeInput{
+		FunctionName:   aws.String(p.websocketManager),
+		InvocationType: types.InvocationTypeEvent, // Async invocation
+		Payload:        payloadBytes,
+	}
+
+	_, err = p.lambdaClient.Invoke(ctx, invocation)
+	if err != nil {
+		return fmt.Errorf("failed to invoke websocket_manager: %w", err)
+	}
+
+	return nil
 }
 
 // extractExecutionIDFromTaskArn extracts the execution ID from a task ARN

@@ -88,9 +88,9 @@ func initializeAWSBackend(
 	ecsClientInstance := ecs.NewFromConfig(awsCfg)
 
 	logger.Debug("DynamoDB backend configured", "context", map[string]string{
-		"apiKeysTable":        cfg.APIKeysTable,
-		"executionsTable":     cfg.ExecutionsTable,
-		"pendingAPIKeysTable": cfg.PendingAPIKeysTable,
+		"api_keys_table":         cfg.APIKeysTable,
+		"executions_table":       cfg.ExecutionsTable,
+		"pending_api_keys_table": cfg.PendingAPIKeysTable,
 	})
 
 	userRepo := dynamoRepo.NewUserRepository(dynamoClient, cfg.APIKeysTable, cfg.PendingAPIKeysTable, logger)

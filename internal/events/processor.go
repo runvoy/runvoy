@@ -14,13 +14,16 @@ import (
 	"github.com/aws/aws-lambda-go/events"
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
+	"github.com/aws/aws-sdk-go-v2/service/lambda"
 )
 
 // Processor handles async events from EventBridge
 type Processor struct {
-	executionRepo  database.ExecutionRepository
-	connectionRepo database.ConnectionRepository
-	logger         *slog.Logger
+	executionRepo    database.ExecutionRepository
+	connectionRepo   database.ConnectionRepository
+	lambdaClient     *lambda.Client
+	websocketManager string // Lambda function name for websocket_manager
+	logger           *slog.Logger
 }
 
 // NewProcessor creates a new event processor with AWS backend
@@ -30,6 +33,9 @@ func NewProcessor(ctx context.Context, cfg *config.Config, log *slog.Logger) (*P
 	}
 	if cfg.WebSocketConnectionsTable == "" {
 		return nil, fmt.Errorf("WebSocketConnectionsTable cannot be empty")
+	}
+	if cfg.WebSocketManagerFunctionName == "" {
+		return nil, fmt.Errorf("WebSocketManagerFunctionName cannot be empty")
 	}
 
 	// Load AWS configuration
@@ -42,15 +48,22 @@ func NewProcessor(ctx context.Context, cfg *config.Config, log *slog.Logger) (*P
 	executionRepo := dynamorepo.NewExecutionRepository(dynamoClient, cfg.ExecutionsTable, log)
 	connectionRepo := dynamorepo.NewConnectionRepository(dynamoClient, cfg.WebSocketConnectionsTable, log)
 
+	lambdaClient := lambda.NewFromConfig(awsCfg)
+
 	log.Debug("event processor initialized",
-		"executionsTable", cfg.ExecutionsTable,
-		"webSocketConnectionsTable", cfg.WebSocketConnectionsTable,
+		"context", map[string]string{
+			"executions_table":                cfg.ExecutionsTable,
+			"web_socket_connections_table":    cfg.WebSocketConnectionsTable,
+			"websocket_manager_function_name": cfg.WebSocketManagerFunctionName,
+		},
 	)
 
 	return &Processor{
-		executionRepo:  executionRepo,
-		connectionRepo: connectionRepo,
-		logger:         log,
+		executionRepo:    executionRepo,
+		connectionRepo:   connectionRepo,
+		lambdaClient:     lambdaClient,
+		websocketManager: cfg.WebSocketManagerFunctionName,
+		logger:           log,
 	}, nil
 }
 
