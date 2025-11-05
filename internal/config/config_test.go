@@ -221,19 +221,19 @@ func TestValidateEventProcessor(t *testing.T) {
 		{
 			name: "valid event processor config",
 			cfg: &Config{
-				ExecutionsTable:               "executions",
-				ECSCluster:                    "cluster",
-				WebSocketConnectionsTable:     "connections",
-				ConnectionManagerFunctionName: "connection-manager",
+				ExecutionsTable:              "executions",
+				ECSCluster:                   "cluster",
+				WebSocketConnectionsTable:    "connections",
+				WebSocketManagerFunctionName: "websocket-manager",
 			},
 			wantErr: false,
 		},
 		{
 			name: "missing ExecutionsTable",
 			cfg: &Config{
-				ECSCluster:                    "cluster",
-				WebSocketConnectionsTable:     "connections",
-				ConnectionManagerFunctionName: "connection-manager",
+				ECSCluster:                   "cluster",
+				WebSocketConnectionsTable:    "connections",
+				WebSocketManagerFunctionName: "websocket-manager",
 			},
 			wantErr: true,
 			errMsg:  "ExecutionsTable cannot be empty",
@@ -241,9 +241,9 @@ func TestValidateEventProcessor(t *testing.T) {
 		{
 			name: "missing ECSCluster",
 			cfg: &Config{
-				ExecutionsTable:               "executions",
-				WebSocketConnectionsTable:     "connections",
-				ConnectionManagerFunctionName: "connection-manager",
+				ExecutionsTable:              "executions",
+				WebSocketConnectionsTable:    "connections",
+				WebSocketManagerFunctionName: "websocket-manager",
 			},
 			wantErr: true,
 			errMsg:  "ECSCluster cannot be empty",
@@ -251,22 +251,22 @@ func TestValidateEventProcessor(t *testing.T) {
 		{
 			name: "missing WebSocketConnectionsTable",
 			cfg: &Config{
-				ExecutionsTable:               "executions",
-				ECSCluster:                    "cluster",
-				ConnectionManagerFunctionName: "connection-manager",
+				ExecutionsTable:              "executions",
+				ECSCluster:                   "cluster",
+				WebSocketManagerFunctionName: "websocket-manager",
 			},
 			wantErr: true,
 			errMsg:  "WebSocketConnectionsTable cannot be empty",
 		},
 		{
-			name: "missing ConnectionManagerFunctionName",
+			name: "missing WebSocketManagerFunctionName",
 			cfg: &Config{
 				ExecutionsTable:           "executions",
 				ECSCluster:                "cluster",
 				WebSocketConnectionsTable: "connections",
 			},
 			wantErr: true,
-			errMsg:  "ConnectionManagerFunctionName cannot be empty",
+			errMsg:  "WebSocketManagerFunctionName cannot be empty",
 		},
 		{
 			name:    "all fields empty",

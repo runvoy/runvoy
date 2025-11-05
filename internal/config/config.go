@@ -26,24 +26,24 @@ type Config struct {
 	WebviewerURL string `mapstructure:"webviewer_url" yaml:"webviewer_url" validate:"omitempty,url"`
 
 	// Backend Service Configuration
-	Port                          string        `mapstructure:"port" validate:"omitempty"`
-	RequestTimeout                time.Duration `mapstructure:"request_timeout"`
-	APIKeysTable                  string        `mapstructure:"api_keys_table"`
-	ExecutionsTable               string        `mapstructure:"executions_table"`
-	PendingAPIKeysTable           string        `mapstructure:"pending_api_keys_table"`
-	ECSCluster                    string        `mapstructure:"ecs_cluster"`
-	TaskDefinition                string        `mapstructure:"task_definition"`
-	Subnet1                       string        `mapstructure:"subnet_1"`
-	Subnet2                       string        `mapstructure:"subnet_2"`
-	SecurityGroup                 string        `mapstructure:"security_group"`
-	LogGroup                      string        `mapstructure:"log_group"`
-	TaskExecRoleARN               string        `mapstructure:"task_exec_role_arn"`
-	TaskRoleARN                   string        `mapstructure:"task_role_arn"`
-	WebSocketConnectionsTable     string        `mapstructure:"websocket_connections_table"`
-	WebSocketAPIEndpoint          string        `mapstructure:"websocket_api_endpoint"`
-	ConnectionManagerFunctionName string        `mapstructure:"connection_manager_function_name"`
-	InitTimeout                   time.Duration `mapstructure:"init_timeout"`
-	LogLevel                      string        `mapstructure:"log_level"`
+	Port                         string        `mapstructure:"port" validate:"omitempty"`
+	RequestTimeout               time.Duration `mapstructure:"request_timeout"`
+	APIKeysTable                 string        `mapstructure:"api_keys_table"`
+	ExecutionsTable              string        `mapstructure:"executions_table"`
+	PendingAPIKeysTable          string        `mapstructure:"pending_api_keys_table"`
+	ECSCluster                   string        `mapstructure:"ecs_cluster"`
+	TaskDefinition               string        `mapstructure:"task_definition"`
+	Subnet1                      string        `mapstructure:"subnet_1"`
+	Subnet2                      string        `mapstructure:"subnet_2"`
+	SecurityGroup                string        `mapstructure:"security_group"`
+	LogGroup                     string        `mapstructure:"log_group"`
+	TaskExecRoleARN              string        `mapstructure:"task_exec_role_arn"`
+	TaskRoleARN                  string        `mapstructure:"task_role_arn"`
+	WebSocketConnectionsTable    string        `mapstructure:"websocket_connections_table"`
+	WebSocketAPIEndpoint         string        `mapstructure:"websocket_api_endpoint"`
+	WebSocketManagerFunctionName string        `mapstructure:"websocket_manager_function_name"`
+	InitTimeout                  time.Duration `mapstructure:"init_timeout"`
+	LogLevel                     string        `mapstructure:"log_level"`
 }
 
 var validate = validator.New()
@@ -310,7 +310,6 @@ func bindEnvVars(v *viper.Viper) {
 	// Bind all environment variables explicitly
 	envVars := []string{
 		"API_KEYS_TABLE",
-		"CONNECTION_MANAGER_FUNCTION_NAME",
 		"DEV_SERVER_PORT",
 		"ECS_CLUSTER",
 		"EXECUTIONS_TABLE",
@@ -327,6 +326,7 @@ func bindEnvVars(v *viper.Viper) {
 		"TASK_ROLE_ARN",
 		"WEBSOCKET_API_ENDPOINT",
 		"WEBSOCKET_CONNECTIONS_TABLE",
+		"WEBSOCKET_MANAGER_FUNCTION_NAME",
 		"WEBVIEWER_URL",
 	}
 
@@ -371,10 +371,10 @@ func validateOrchestrator(cfg *Config) error {
 // These match the old caarlos0/env notEmpty tags.
 func validateEventProcessor(cfg *Config) error {
 	required := map[string]string{
-		"ExecutionsTable":               cfg.ExecutionsTable,
-		"ECSCluster":                    cfg.ECSCluster,
-		"WebSocketConnectionsTable":     cfg.WebSocketConnectionsTable,
-		"ConnectionManagerFunctionName": cfg.ConnectionManagerFunctionName,
+		"ExecutionsTable":              cfg.ExecutionsTable,
+		"ECSCluster":                   cfg.ECSCluster,
+		"WebSocketConnectionsTable":    cfg.WebSocketConnectionsTable,
+		"WebSocketManagerFunctionName": cfg.WebSocketManagerFunctionName,
 	}
 
 	for field, value := range required {

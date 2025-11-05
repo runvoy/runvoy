@@ -517,7 +517,7 @@ Resources:
           RUNVOY_EXECUTIONS_TABLE: !Ref ExecutionsTable
           RUNVOY_ECS_CLUSTER: !Ref ECSCluster
           RUNVOY_WEBSOCKET_CONNECTIONS_TABLE: !Ref WebSocketConnectionsTable
-          RUNVOY_CONNECTION_MANAGER_FUNCTION_NAME: !Ref ConnectionManagerFunction
+          RUNVOY_WEBSOCKET_MANAGER_FUNCTION_NAME: !Ref ConnectionManagerFunction
           RUNVOY_LOG_LEVEL: !Ref 'AWS::NoValue'
 
   # IAM Role for Event Processor Lambda

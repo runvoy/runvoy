@@ -1,5 +1,6 @@
-// Package main implements the AWS Lambda connection manager for runvoy WebSocket API.
-// It handles WebSocket connection lifecycle events ($connect and $disconnect).
+// Package main implements the AWS Lambda WebSocket manager for runvoy WebSocket API.
+// It handles WebSocket connection lifecycle events ($connect and $disconnect)
+// and disconnect notifications from the event processor.
 package main
 
 import (
@@ -19,10 +20,10 @@ func main() {
 	log := logger.Initialize(constants.Production, cfg.GetLogLevel())
 	ctx, cancel := context.WithTimeout(context.Background(), cfg.InitTimeout)
 
-	manager, err := websocket.NewConnectionManager(ctx, cfg, log)
+	manager, err := websocket.NewWebSocketManager(ctx, cfg, log)
 	cancel()
 	if err != nil {
-		log.Error("Failed to create connection manager", "error", err)
+		log.Error("Failed to create WebSocket manager", "error", err)
 		os.Exit(1)
 	}
 

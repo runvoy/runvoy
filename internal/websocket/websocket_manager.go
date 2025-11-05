@@ -1,4 +1,4 @@
-// Package websocket provides WebSocket connection management for runvoy.
+// Package websocket provides WebSocket management for runvoy.
 // It handles connection lifecycle events and manages WebSocket connections in DynamoDB.
 package websocket
 
@@ -25,16 +25,18 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-// ConnectionManager handles WebSocket connection lifecycle events and disconnect notifications.
-type ConnectionManager struct {
+// WebSocketManager handles WebSocket connection lifecycle events and disconnect notifications.
+//
+//nolint:revive // exported type name is intentional for clarity
+type WebSocketManager struct {
 	connRepo      database.ConnectionRepository
 	apiGwClient   *apigatewaymanagementapi.Client
 	apiGwEndpoint *string
 	logger        *slog.Logger
 }
 
-// NewConnectionManager creates a new connection manager with AWS backend.
-func NewConnectionManager(ctx context.Context, cfg *config.Config, log *slog.Logger) (*ConnectionManager, error) {
+// NewWebSocketManager creates a new WebSocket manager with AWS backend.
+func NewWebSocketManager(ctx context.Context, cfg *config.Config, log *slog.Logger) (*WebSocketManager, error) {
 	awsCfg, err := awsConfig.LoadDefaultConfig(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load AWS configuration: %w", err)
@@ -47,12 +49,12 @@ func NewConnectionManager(ctx context.Context, cfg *config.Config, log *slog.Log
 		o.BaseEndpoint = aws.String(cfg.WebSocketAPIEndpoint)
 	})
 
-	log.Debug("connection manager initialized",
+	log.Debug("websocket manager initialized",
 		"table", cfg.WebSocketConnectionsTable,
 		"api_endpoint", cfg.WebSocketAPIEndpoint,
 	)
 
-	return &ConnectionManager{
+	return &WebSocketManager{
 		connRepo:      connRepo,
 		apiGwClient:   apiGwClient,
 		apiGwEndpoint: aws.String(cfg.WebSocketAPIEndpoint),
@@ -64,11 +66,11 @@ func NewConnectionManager(ctx context.Context, cfg *config.Config, log *slog.Log
 // It routes events based on their route key ($connect or $disconnect).
 //
 //nolint:gocritic // Lambda event types are passed by value per AWS Lambda conventions
-func (cm *ConnectionManager) HandleRequest(
+func (wm *WebSocketManager) HandleRequest(
 	ctx context.Context,
 	req events.APIGatewayWebsocketProxyRequest,
 ) (events.APIGatewayProxyResponse, error) {
-	reqLogger := logger.DeriveRequestLogger(ctx, cm.logger)
+	reqLogger := logger.DeriveRequestLogger(ctx, wm.logger)
 
 	reqLogger.Debug("received WebSocket event", "context", map[string]string{
 		"route_key":     req.RequestContext.RouteKey,
@@ -77,9 +79,9 @@ func (cm *ConnectionManager) HandleRequest(
 
 	switch req.RequestContext.RouteKey {
 	case "$connect":
-		return cm.handleConnect(ctx, req, reqLogger)
+		return wm.handleConnect(ctx, req, reqLogger)
 	case "$disconnect":
-		return cm.handleDisconnect(ctx, req, reqLogger)
+		return wm.handleDisconnect(ctx, req, reqLogger)
 	default:
 		return events.APIGatewayProxyResponse{
 			StatusCode: http.StatusBadRequest,
@@ -89,7 +91,7 @@ func (cm *ConnectionManager) HandleRequest(
 }
 
 //nolint:gocritic // Lambda event types are passed by value per AWS Lambda conventions
-func (cm *ConnectionManager) handleConnect(
+func (wm *WebSocketManager) handleConnect(
 	ctx context.Context,
 	req events.APIGatewayWebsocketProxyRequest,
 	reqLogger *slog.Logger,
@@ -121,7 +123,7 @@ func (cm *ConnectionManager) handleConnect(
 		"expires_at":    fmt.Sprintf("%d", connection.ExpiresAt),
 	})
 
-	err := cm.connRepo.CreateConnection(ctx, connection)
+	err := wm.connRepo.CreateConnection(ctx, connection)
 	if err != nil {
 		reqLogger.Error("failed to store connection", "error", err)
 		return events.APIGatewayProxyResponse{
@@ -144,7 +146,7 @@ func (cm *ConnectionManager) handleConnect(
 }
 
 //nolint:gocritic // Lambda event types are passed by value per AWS Lambda conventions
-func (cm *ConnectionManager) handleDisconnect(
+func (wm *WebSocketManager) handleDisconnect(
 	ctx context.Context,
 	req events.APIGatewayWebsocketProxyRequest,
 	reqLogger *slog.Logger,
@@ -155,7 +157,7 @@ func (cm *ConnectionManager) handleDisconnect(
 		"connection_id": connectionID,
 	})
 
-	err := cm.connRepo.DeleteConnection(ctx, connectionID)
+	err := wm.connRepo.DeleteConnection(ctx, connectionID)
 	if err != nil {
 		reqLogger.Error("failed to delete connection", "error", err)
 		return events.APIGatewayProxyResponse{
@@ -176,8 +178,8 @@ func (cm *ConnectionManager) handleDisconnect(
 
 // Handle is the entry point for Lambda event processing.
 // It routes events to either WebSocket request handling or disconnect notification handling.
-func (cm *ConnectionManager) Handle(ctx context.Context, rawEvent json.RawMessage) error {
-	reqLogger := logger.DeriveRequestLogger(ctx, cm.logger)
+func (wm *WebSocketManager) Handle(ctx context.Context, rawEvent json.RawMessage) error {
+	reqLogger := logger.DeriveRequestLogger(ctx, wm.logger)
 
 	// Try to unmarshal as a disconnect notification first
 	var disconnectMsg map[string]interface{}
@@ -188,7 +190,7 @@ func (cm *ConnectionManager) Handle(ctx context.Context, rawEvent json.RawMessag
 				reqLogger.Error("disconnect message missing execution_id")
 				return fmt.Errorf("disconnect message missing execution_id")
 			}
-			return cm.handleDisconnectNotification(ctx, executionID, reqLogger)
+			return wm.handleDisconnectNotification(ctx, executionID, reqLogger)
 		}
 	}
 
@@ -199,13 +201,13 @@ func (cm *ConnectionManager) Handle(ctx context.Context, rawEvent json.RawMessag
 		return fmt.Errorf("failed to unmarshal event: %w", err)
 	}
 
-	_, err := cm.HandleRequest(ctx, wsEvent)
+	_, err := wm.HandleRequest(ctx, wsEvent)
 	return err
 }
 
 // handleDisconnectNotification sends disconnect messages to all connected clients for an execution.
 // This notifies clients that the execution has completed.
-func (cm *ConnectionManager) handleDisconnectNotification(
+func (wm *WebSocketManager) handleDisconnectNotification(
 	ctx context.Context,
 	executionID string,
 	reqLogger *slog.Logger,
@@ -213,7 +215,7 @@ func (cm *ConnectionManager) handleDisconnectNotification(
 	reqLogger.Debug("handling disconnect notification for execution", "execution_id", executionID)
 
 	// Get all connection IDs for this execution
-	connectionIDs, err := cm.connRepo.GetConnectionsByExecutionID(ctx, executionID)
+	connectionIDs, err := wm.connRepo.GetConnectionsByExecutionID(ctx, executionID)
 	if err != nil {
 		reqLogger.Error("failed to get connections for execution", "error", err, "execution_id", executionID)
 		return fmt.Errorf("failed to get connections: %w", err)
@@ -238,7 +240,7 @@ func (cm *ConnectionManager) handleDisconnectNotification(
 	for _, connectionID := range connectionIDs {
 		connID := connectionID // Capture for closure
 		errGroup.Go(func() error {
-			return cm.sendDisconnectToConnection(ctx, connID, disconnectMessage, reqLogger)
+			return wm.sendDisconnectToConnection(ctx, connID, disconnectMessage, reqLogger)
 		})
 	}
 
@@ -257,7 +259,7 @@ func (cm *ConnectionManager) handleDisconnectNotification(
 }
 
 // sendDisconnectToConnection sends a disconnect message to a single WebSocket connection.
-func (cm *ConnectionManager) sendDisconnectToConnection(
+func (wm *WebSocketManager) sendDisconnectToConnection(
 	ctx context.Context,
 	connectionID string,
 	message []byte,
@@ -265,7 +267,7 @@ func (cm *ConnectionManager) sendDisconnectToConnection(
 ) error {
 	reqLogger.Debug("sending disconnect notification to connection", "connection_id", connectionID)
 
-	_, err := cm.apiGwClient.PostToConnection(ctx, &apigatewaymanagementapi.PostToConnectionInput{
+	_, err := wm.apiGwClient.PostToConnection(ctx, &apigatewaymanagementapi.PostToConnectionInput{
 		ConnectionId: aws.String(connectionID),
 		Data:         message,
 	})

@@ -19,11 +19,11 @@ import (
 
 // Processor handles async events from EventBridge
 type Processor struct {
-	executionRepo     database.ExecutionRepository
-	connectionRepo    database.ConnectionRepository
-	lambdaClient      *lambda.Client
-	connectionManager string // Lambda function name for connection_manager
-	logger            *slog.Logger
+	executionRepo    database.ExecutionRepository
+	connectionRepo   database.ConnectionRepository
+	lambdaClient     *lambda.Client
+	websocketManager string // Lambda function name for websocket_manager
+	logger           *slog.Logger
 }
 
 // NewProcessor creates a new event processor with AWS backend
@@ -34,8 +34,8 @@ func NewProcessor(ctx context.Context, cfg *config.Config, log *slog.Logger) (*P
 	if cfg.WebSocketConnectionsTable == "" {
 		return nil, fmt.Errorf("WebSocketConnectionsTable cannot be empty")
 	}
-	if cfg.ConnectionManagerFunctionName == "" {
-		return nil, fmt.Errorf("ConnectionManagerFunctionName cannot be empty")
+	if cfg.WebSocketManagerFunctionName == "" {
+		return nil, fmt.Errorf("WebSocketManagerFunctionName cannot be empty")
 	}
 
 	// Load AWS configuration
@@ -54,16 +54,16 @@ func NewProcessor(ctx context.Context, cfg *config.Config, log *slog.Logger) (*P
 		"context", map[string]string{
 			"executions_table":             cfg.ExecutionsTable,
 			"web_socket_connections_table": cfg.WebSocketConnectionsTable,
-			"connection_manager_function":  cfg.ConnectionManagerFunctionName,
+			"websocket_manager_function":   cfg.WebSocketManagerFunctionName,
 		},
 	)
 
 	return &Processor{
-		executionRepo:     executionRepo,
-		connectionRepo:    connectionRepo,
-		lambdaClient:      lambdaClient,
-		connectionManager: cfg.ConnectionManagerFunctionName,
-		logger:            log,
+		executionRepo:    executionRepo,
+		connectionRepo:   connectionRepo,
+		lambdaClient:     lambdaClient,
+		websocketManager: cfg.WebSocketManagerFunctionName,
+		logger:           log,
 	}, nil
 }
 

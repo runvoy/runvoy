@@ -129,15 +129,15 @@ func (p *Processor) notifyDisconnectAndCleanup(
 		return
 	}
 
-	// First, invoke connection_manager Lambda to notify connected clients
-	invokeErr := p.invokeConnectionManager(ctx, executionID, reqLogger)
+	// First, invoke websocket_manager Lambda to notify connected clients
+	invokeErr := p.invokeWebSocketManager(ctx, executionID, reqLogger)
 	if invokeErr != nil {
-		reqLogger.Warn("failed to invoke connection manager for disconnect notification",
+		reqLogger.Warn("failed to invoke websocket manager for disconnect notification",
 			"error", invokeErr,
 			"execution_id", executionID,
 		)
 	} else {
-		reqLogger.Debug("invoked connection manager for disconnect notification",
+		reqLogger.Debug("invoked websocket manager for disconnect notification",
 			"context", map[string]string{
 				"execution_id": executionID,
 			},
@@ -174,8 +174,8 @@ func isTerminalStatus(status string) bool {
 		status == string(constants.ExecutionStopped)
 }
 
-// invokeConnectionManager invokes the connection_manager Lambda to send disconnect notifications.
-func (p *Processor) invokeConnectionManager(
+// invokeWebSocketManager invokes the websocket_manager Lambda to send disconnect notifications.
+func (p *Processor) invokeWebSocketManager(
 	ctx context.Context,
 	executionID string,
 	_ *slog.Logger,
@@ -196,22 +196,22 @@ func (p *Processor) invokeConnectionManager(
 	}
 
 	reqLogger := logger.DeriveRequestLogger(ctx, p.logger)
-	reqLogger.Debug("invoking connection manager", "context",
+	reqLogger.Debug("invoking websocket manager", "context",
 		map[string]any{
-			"function_name": p.connectionManager,
+			"function_name": p.websocketManager,
 			"payload":       payload,
 		},
 	)
 
 	invocation := &lambda.InvokeInput{
-		FunctionName:   aws.String(p.connectionManager),
+		FunctionName:   aws.String(p.websocketManager),
 		InvocationType: types.InvocationTypeEvent, // Async invocation
 		Payload:        payloadBytes,
 	}
 
 	_, err = p.lambdaClient.Invoke(ctx, invocation)
 	if err != nil {
-		return fmt.Errorf("failed to invoke connection manager: %w", err)
+		return fmt.Errorf("failed to invoke websocket manager: %w", err)
 	}
 
 	return nil
