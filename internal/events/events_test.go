@@ -51,8 +51,8 @@ func (m *mockConnectionRepo) CreateConnection(_ context.Context, _ *api.WebSocke
 	return nil
 }
 
-func (m *mockConnectionRepo) DeleteConnection(_ context.Context, _ string) error {
-	return nil
+func (m *mockConnectionRepo) DeleteConnections(_ context.Context, _ []string) (int, error) {
+	return 0, nil
 }
 
 func (m *mockConnectionRepo) GetConnectionsByExecutionID(_ context.Context, _ string) ([]string, error) {

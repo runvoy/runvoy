@@ -167,8 +167,10 @@ func (p *Processor) invokeWebSocketManager(
 
 	event := events.APIGatewayWebsocketProxyRequest{
 		RequestContext: events.APIGatewayWebsocketProxyRequestContext{
-			RouteKey:     "$disconnect-execution",
-			ConnectionID: executionID, // Pass executionID as connectionId for routing
+			RouteKey: "$disconnect-execution",
+		},
+		QueryStringParameters: map[string]string{
+			"execution_id": executionID,
 		},
 		Body: "",
 	}
