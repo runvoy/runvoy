@@ -185,21 +185,26 @@ func (p *Processor) invokeWebSocketManager(
 		return nil
 	}
 
-	payload := map[string]string{
-		"type":         "disconnect",
-		"execution_id": executionID,
+	// Create an API Gateway WebSocket event with a custom route for disconnect-execution
+	// This reuses the same event format as API Gateway, keeping the interface simple
+	event := map[string]interface{}{
+		"requestContext": map[string]interface{}{
+			"routeKey":     "$disconnect-execution",
+			"connectionId": executionID, // Pass executionID as connectionId for routing
+		},
+		"body": "",
 	}
 
-	payloadBytes, err := json.Marshal(payload)
+	payloadBytes, err := json.Marshal(event)
 	if err != nil {
-		return fmt.Errorf("failed to marshal disconnect payload: %w", err)
+		return fmt.Errorf("failed to marshal disconnect event: %w", err)
 	}
 
 	reqLogger := logger.DeriveRequestLogger(ctx, p.logger)
 	reqLogger.Debug("invoking websocket manager", "context",
 		map[string]any{
 			"function_name": p.websocketManager,
-			"payload":       payload,
+			"execution_id":  executionID,
 		},
 	)
 

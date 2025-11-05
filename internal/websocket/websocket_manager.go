@@ -4,7 +4,6 @@ package websocket
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -63,8 +62,10 @@ func NewWebSocketManager(ctx context.Context, cfg *config.Config, log *slog.Logg
 }
 
 // HandleRequest is the main entry point for Lambda event processing.
-// It routes API Gateway WebSocket events based on their route key ($connect or $disconnect),
-// and also handles disconnect notifications from the event processor.
+// It routes API Gateway WebSocket events based on their route key:
+// - $connect: stores WebSocket connection in DynamoDB
+// - $disconnect: removes WebSocket connection from DynamoDB
+// - $disconnect-execution: sends disconnect notifications to all clients for an execution
 //
 //nolint:gocritic // Lambda event types are passed by value per AWS Lambda conventions
 func (wm *WebSocketManager) HandleRequest(
@@ -72,31 +73,6 @@ func (wm *WebSocketManager) HandleRequest(
 	req events.APIGatewayWebsocketProxyRequest,
 ) (events.APIGatewayProxyResponse, error) {
 	reqLogger := logger.DeriveRequestLogger(ctx, wm.logger)
-
-	// Check if this is a disconnect notification from the event processor
-	// (these are sent as Lambda invocations with custom JSON payload)
-	if req.RequestContext.RouteKey == "" && req.RequestContext.ConnectionID == "" {
-		// Try to parse as disconnect notification
-		var disconnectMsg map[string]interface{}
-		if unmarshalErr := json.Unmarshal([]byte(req.Body), &disconnectMsg); unmarshalErr == nil {
-			if msgType, ok := disconnectMsg["type"].(string); ok && msgType == "disconnect" {
-				executionID, execIDOk := disconnectMsg["execution_id"].(string)
-				if execIDOk {
-					notifyErr := wm.handleDisconnectNotification(ctx, executionID, reqLogger)
-					if notifyErr != nil {
-						return events.APIGatewayProxyResponse{
-							StatusCode: http.StatusInternalServerError,
-							Body:       fmt.Sprintf("Failed to handle disconnect: %v", notifyErr),
-						}, nil
-					}
-					return events.APIGatewayProxyResponse{
-						StatusCode: http.StatusOK,
-						Body:       "Disconnect notification sent",
-					}, nil
-				}
-			}
-		}
-	}
 
 	reqLogger.Debug("received WebSocket event", "context", map[string]string{
 		"route_key":     req.RequestContext.RouteKey,
@@ -108,6 +84,20 @@ func (wm *WebSocketManager) HandleRequest(
 		return wm.handleConnect(ctx, req, reqLogger)
 	case "$disconnect":
 		return wm.handleDisconnect(ctx, req, reqLogger)
+	case "$disconnect-execution":
+		// Handle disconnect notification from event processor
+		// ConnectionID contains the executionID in this case
+		err := wm.handleDisconnectNotification(ctx, req.RequestContext.ConnectionID, reqLogger)
+		if err != nil {
+			return events.APIGatewayProxyResponse{
+				StatusCode: http.StatusInternalServerError,
+				Body:       fmt.Sprintf("Failed to notify disconnect: %v", err),
+			}, nil
+		}
+		return events.APIGatewayProxyResponse{
+			StatusCode: http.StatusOK,
+			Body:       "Disconnect notifications sent",
+		}, nil
 	default:
 		return events.APIGatewayProxyResponse{
 			StatusCode: http.StatusBadRequest,
