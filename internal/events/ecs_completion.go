@@ -185,14 +185,12 @@ func (p *Processor) invokeWebSocketManager(
 		return nil
 	}
 
-	// Create an API Gateway WebSocket event with a custom route for disconnect-execution
-	// This reuses the same event format as API Gateway, keeping the interface simple
-	event := map[string]interface{}{
-		"requestContext": map[string]interface{}{
-			"routeKey":     "$disconnect-execution",
-			"connectionId": executionID, // Pass executionID as connectionId for routing
+	event := events.APIGatewayWebsocketProxyRequest{
+		RequestContext: events.APIGatewayWebsocketProxyRequestContext{
+			RouteKey:     "$disconnect-execution",
+			ConnectionID: executionID, // Pass executionID as connectionId for routing
 		},
-		"body": "",
+		Body: "",
 	}
 
 	payloadBytes, err := json.Marshal(event)
