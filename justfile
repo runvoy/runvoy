@@ -218,7 +218,7 @@ fmt:
     goimports -w .
 
 # Run all checks (lint + test)
-check: lint test
+check: lint test lint-webapp
 
 # Install pre-commit hook
 install-hook:
@@ -311,5 +311,11 @@ local-dev-webapp:
 
 # Build webapp
 [working-directory: 'cmd/webapp']
-build-webapp:
+build-webapp: lint-webapp
     npx vite build
+
+# Lint/prettify webapp
+[working-directory: 'cmd/webapp']
+lint-webapp:
+    npx prettier --check src/**/*.{js,svelte}
+    npx eslint src --ext .js,.svelte

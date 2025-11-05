@@ -59,7 +59,7 @@
             const response = await apiClient.getLogs($executionId);
             const eventsWithLines = (response.events || []).map((event, index) => ({
                 ...event,
-                line: index + 1,
+                line: index + 1
             }));
             logEvents.set(eventsWithLines);
             cachedWebSocketURL.set(response.websocket_url);
@@ -67,7 +67,7 @@
         } catch (error) {
             if (error.status === 404 && $logsRetryCount < MAX_LOG_RETRIES) {
                 errorMessage = `Execution not found, retrying... (${$logsRetryCount + 1}/${MAX_LOG_RETRIES})`;
-                logsRetryCount.update(n => n + 1);
+                logsRetryCount.update((n) => n + 1);
                 fetchLogsTimer = setTimeout(fetchLogs, LOG_RETRY_DELAY);
             } else {
                 errorMessage = error.details?.error || error.message || 'Failed to fetch logs';
@@ -76,7 +76,7 @@
         }
     }
 
-    $: apiClient = ($apiEndpoint && $apiKey) ? new APIClient($apiEndpoint, $apiKey) : null;
+    $: apiClient = $apiEndpoint && $apiKey ? new APIClient($apiEndpoint, $apiKey) : null;
 
     $: if (apiClient) {
         showWelcome = false;
@@ -126,12 +126,17 @@
                 <li>View logs and monitor execution status in real-time</li>
             </ol>
             <footer>
-                <small>Your credentials are stored locally in your browser and never sent to third parties.</small>
+                <small
+                    >Your credentials are stored locally in your browser and never sent to third
+                    parties.</small
+                >
             </footer>
         </article>
     {:else if !$executionId}
         <article>
-            <p>Enter an execution ID above or provide <code>?execution_id=&lt;id&gt;</code> in the URL</p>
+            <p>
+                Enter an execution ID above or provide <code>?execution_id=&lt;id&gt;</code> in the URL
+            </p>
         </article>
     {:else}
         <section>
@@ -197,4 +202,3 @@
         font-weight: bold;
     }
 </style>
-

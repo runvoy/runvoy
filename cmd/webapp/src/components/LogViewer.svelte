@@ -9,7 +9,8 @@
     function handleScroll() {
         if (!container) return;
         // A little tolerance for scroll position
-        const isScrolledToBottom = container.scrollHeight - container.clientHeight <= container.scrollTop + 5;
+        const isScrolledToBottom =
+            container.scrollHeight - container.clientHeight <= container.scrollTop + 5;
         autoScroll = isScrolledToBottom;
     }
 
@@ -25,8 +26,8 @@
     {#if $logEvents.length > 0}
         <pre><code>
             {#each $logEvents as event (event.line)}
-                <LogLine {event} />
-            {/each}
+                    <LogLine {event} />
+                {/each}
         </code></pre>
     {:else}
         <div class="placeholder">

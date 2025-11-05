@@ -61,9 +61,7 @@
     }
 </script>
 
-<button on:click={openModal} class="config-button">
-    ⚙️ Configure API
-</button>
+<button on:click={openModal} class="config-button"> ⚙️ Configure API </button>
 
 {#if showModal}
     <!-- svelte-ignore a11y-click-events-have-key-events -->

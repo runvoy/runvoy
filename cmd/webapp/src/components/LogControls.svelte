@@ -1,6 +1,5 @@
 <script>
     import { showMetadata, logEvents } from '../stores/logs.js';
-    import { websocketConnection } from '../stores/websocket.js';
     import { executionId } from '../stores/execution.js';
     import { disconnectWebSocket, connectWebSocket } from '../lib/websocket.js';
     import { cachedWebSocketURL } from '../stores/websocket.js';
@@ -9,7 +8,7 @@
     let isPaused = false;
 
     function toggleMetadata() {
-        showMetadata.update(v => !v);
+        showMetadata.update((v) => !v);
     }
 
     function clearLogs() {
@@ -17,7 +16,9 @@
     }
 
     function downloadLogs() {
-        const content = $logEvents.map(e => `[${formatTimestamp(e.timestamp)}] ${e.message}`).join('\n');
+        const content = $logEvents
+            .map((e) => `[${formatTimestamp(e.timestamp)}] ${e.message}`)
+            .join('\n');
         const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -45,9 +46,7 @@
     <button on:click={togglePause} class:secondary={!isPaused}>
         {isPaused ? '▶️ Resume' : '⏸️ Pause'}
     </button>
-    <button on:click={clearLogs} class="secondary">
-        🗑️ Clear
-    </button>
+    <button on:click={clearLogs} class="secondary"> 🗑️ Clear </button>
     <button on:click={downloadLogs} class="secondary" disabled={$logEvents.length === 0}>
         📥 Download
     </button>

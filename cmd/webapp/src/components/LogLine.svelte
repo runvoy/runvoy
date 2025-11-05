@@ -13,6 +13,7 @@
         <span class="line-number">{event.line}</span>
         <span class="timestamp">{formattedTimestamp}</span>
     {/if}
+    <!-- eslint-disable-next-line svelte/no-at-html-tags -->
     <span class="message">{@html ansiHtml}</span>
 </div>
 

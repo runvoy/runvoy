@@ -27,6 +27,7 @@
                 clearInterval(statusTimer);
             }
         } catch (error) {
+            // eslint-disable-next-line no-console
             console.error('Failed to fetch status:', error);
             // Stop polling on error to avoid spamming
             clearInterval(statusTimer);
@@ -106,9 +107,19 @@
         color: #fff;
     }
 
-    .status-badge.loading { background-color: #78909c; } /* Blue Grey */
-    .status-badge.running { background-color: #2196f3; } /* Blue */
-    .status-badge.succeeded { background-color: #4caf50; } /* Green */
-    .status-badge.failed { background-color: #f44336; } /* Red */
-    .status-badge.stopped { background-color: #ff9800; } /* Orange */
+    .status-badge.loading {
+        background-color: #78909c;
+    } /* Blue Grey */
+    .status-badge.running {
+        background-color: #2196f3;
+    } /* Blue */
+    .status-badge.succeeded {
+        background-color: #4caf50;
+    } /* Green */
+    .status-badge.failed {
+        background-color: #f44336;
+    } /* Red */
+    .status-badge.stopped {
+        background-color: #ff9800;
+    } /* Orange */
 </style>

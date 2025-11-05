@@ -10,7 +10,7 @@ function createLocalStorageStore(key, initialValue) {
 
     // Subscribe to changes and update localStorage
     if (typeof window !== 'undefined') {
-        store.subscribe(value => {
+        store.subscribe((value) => {
             if (value === null || value === undefined) {
                 localStorage.removeItem(key);
             } else {

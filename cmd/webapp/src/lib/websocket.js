@@ -18,6 +18,7 @@ export function connectWebSocket(url) {
     try {
         socket = new WebSocket(url);
     } catch (err) {
+        // eslint-disable-next-line no-console
         console.error('WebSocket connection error:', err);
         connectionError.set('Failed to create WebSocket connection. Invalid URL?');
         isConnecting.set(false);
@@ -27,6 +28,7 @@ export function connectWebSocket(url) {
     websocketConnection.set(socket);
 
     socket.onopen = () => {
+        // eslint-disable-next-line no-console
         console.log('WebSocket connected');
         isConnecting.set(false);
         connectionError.set(null);
@@ -35,9 +37,10 @@ export function connectWebSocket(url) {
     socket.onmessage = (event) => {
         try {
             const message = JSON.parse(event.data);
-            
+
             // Handle disconnect messages
             if (message.type === 'disconnect') {
+                // eslint-disable-next-line no-console
                 console.log('Received disconnect message:', message.reason || 'unknown reason');
                 // Close the connection gracefully
                 if (socket && socket.readyState === WebSocket.OPEN) {
@@ -45,37 +48,42 @@ export function connectWebSocket(url) {
                 }
                 return;
             }
-            
+
             // Handle log events (messages with a message property and timestamp)
             if (message.message && message.timestamp !== undefined) {
-                logEvents.update(events => {
+                logEvents.update((events) => {
                     // Avoid duplicates by checking timestamp (primary key)
-                    if (events.some(e => e.timestamp === message.timestamp)) {
+                    if (events.some((e) => e.timestamp === message.timestamp)) {
                         return events;
                     }
 
                     // Assign a new line number
-                    const nextLine = events.length > 0 ? Math.max(...events.map(e => e.line)) + 1 : 1;
+                    const nextLine =
+                        events.length > 0 ? Math.max(...events.map((e) => e.line)) + 1 : 1;
                     const eventWithLine = { ...message, line: nextLine };
 
                     return [...events, eventWithLine];
                 });
             }
         } catch (err) {
+            // eslint-disable-next-line no-console
             console.error('Error parsing WebSocket message:', err);
         }
     };
 
     socket.onerror = (error) => {
+        // eslint-disable-next-line no-console
         console.error('WebSocket error:', error);
         connectionError.set('WebSocket connection failed.');
         isConnecting.set(false);
     };
 
     socket.onclose = (event) => {
+        // eslint-disable-next-line no-console
         console.log('WebSocket disconnected:', event.reason);
         isConnecting.set(false);
-        if (event.code !== 1000) { // 1000 is normal closure
+        if (event.code !== 1000) {
+            // 1000 is normal closure
             connectionError.set(`Disconnected: ${event.reason || 'Connection lost'}`);
         }
         websocketConnection.set(null);

@@ -84,6 +84,9 @@ Isolated, repeatable execution environments for your commands`,
 		if verbose {
 			output.Infof("Loaded configuration from %s", output.Bold(configPath))
 			output.Infof("API endpoint: %s", output.Bold(cfg.APIEndpoint))
+			if cfg.WebURL != "" {
+				output.Infof("Web URL: %s", output.Bold(cfg.WebURL))
+			}
 		}
 
 		return nil

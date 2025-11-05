@@ -5,7 +5,8 @@
     $: statusText = (() => {
         if ($isCompleted) return 'Execution finished';
         if ($isConnecting) return 'Connecting...';
-        if ($websocketConnection && $websocketConnection.readyState === WebSocket.OPEN) return 'Connected';
+        if ($websocketConnection && $websocketConnection.readyState === WebSocket.OPEN)
+            return 'Connected';
         if (connectionError) return $connectionError;
         return 'Disconnected';
     })();
@@ -13,7 +14,8 @@
     $: statusClass = (() => {
         if ($isCompleted) return 'status-completed';
         if ($isConnecting) return 'status-connecting';
-        if ($websocketConnection && $websocketConnection.readyState === WebSocket.OPEN) return 'status-connected';
+        if ($websocketConnection && $websocketConnection.readyState === WebSocket.OPEN)
+            return 'status-connected';
         return 'status-disconnected';
     })();
 </script>
