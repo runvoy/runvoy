@@ -341,11 +341,6 @@ func (s *Service) RunCommand(
 		startedAt = createdAt.UTC()
 	}
 
-	reqLogger.Info("task started", "task", map[string]string{
-		"execution_id": executionID,
-		"started_at":   startedAt.Format(time.RFC3339),
-	})
-
 	requestID := logger.GetRequestID(ctx)
 	execution := &api.Execution{
 		ExecutionID:     executionID,

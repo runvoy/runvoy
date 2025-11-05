@@ -255,8 +255,9 @@ func (r *UserRepository) queryAPIKeyHashByEmail(ctx context.Context, email, purp
 // UpdateLastUsed updates the last_used timestamp for a user.
 func (r *UserRepository) UpdateLastUsed(ctx context.Context, email string) (*time.Time, error) {
 	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
+	purpose := "last_used_update"
 
-	apiKeyHash, err := r.queryAPIKeyHashByEmail(ctx, email, "last_used_update")
+	apiKeyHash, err := r.queryAPIKeyHashByEmail(ctx, email, purpose)
 	if err != nil {
 		return nil, err
 	}
@@ -267,7 +268,7 @@ func (r *UserRepository) UpdateLastUsed(ctx context.Context, email string) (*tim
 		"operation", "DynamoDB.UpdateItem",
 		"table", r.tableName,
 		"email", email,
-		"api_key_hash", apiKeyHash,
+		"purpose", purpose,
 	}
 	updateLogArgs = append(updateLogArgs, logger.GetDeadlineInfo(ctx)...)
 	reqLogger.Debug("calling external service", "context", logger.SliceToMap(updateLogArgs))

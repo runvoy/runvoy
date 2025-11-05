@@ -297,9 +297,10 @@ func (e *Runner) StartTask( //nolint: funlen
 	executionID := executionIDParts[len(executionIDParts)-1]
 	createdAt := task.CreatedAt
 
-	reqLogger.Debug("task started", "task", map[string]string{
+	reqLogger.Info("task started", "context", map[string]string{
 		"task_arn":     taskARN,
 		"execution_id": executionID,
+		"created_at":   createdAt.Format(time.RFC3339),
 	})
 
 	tagLogArgs := []any{

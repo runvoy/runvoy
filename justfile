@@ -188,7 +188,7 @@ test-coverage:
 
 # Clean build artifacts
 clean:
-    rm -rf bin/
+    rm -rf bin/ coverage.out coverage.html
     go clean
 
 # Development setup
