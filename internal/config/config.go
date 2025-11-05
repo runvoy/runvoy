@@ -428,6 +428,7 @@ func MustLoadLogForwarder() *Config {
 func validateConnectionManager(cfg *Config) error {
 	required := map[string]string{
 		"WebSocketConnectionsTable": cfg.WebSocketConnectionsTable,
+		"WebSocketAPIEndpoint":      cfg.WebSocketAPIEndpoint,
 	}
 
 	for field, value := range required {
@@ -435,6 +436,9 @@ func validateConnectionManager(cfg *Config) error {
 			return fmt.Errorf("%s cannot be empty", field)
 		}
 	}
+
+	// Normalize WebSocket endpoint: strip protocol if present, then add https://
+	cfg.WebSocketAPIEndpoint = "https://" + normalizeWebSocketEndpoint(cfg.WebSocketAPIEndpoint)
 
 	return nil
 }

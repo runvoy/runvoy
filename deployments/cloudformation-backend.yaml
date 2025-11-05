@@ -716,6 +716,7 @@ Resources:
       Environment:
         Variables:
           RUNVOY_WEBSOCKET_CONNECTIONS_TABLE: !Ref WebSocketConnectionsTable
+          RUNVOY_WEBSOCKET_API_ENDPOINT: !Sub '${WebSocketApi.ApiId}.execute-api.${AWS::Region}.amazonaws.com/production'
 
   # CloudWatch Log Group for Log Forwarder Lambda
   LogForwarderLogGroup:
