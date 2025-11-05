@@ -1,10 +1,10 @@
 <script>
     import { showMetadata } from '../stores/logs.js';
-    import { parseAnsi } from '../lib/ansi.js';
+    import { parseAnsi, formatTimestamp } from '../lib/ansi.js';
 
     export let event;
 
-    $: formattedTimestamp = new Date(event.timestamp).toISOString();
+    $: formattedTimestamp = formatTimestamp(event.timestamp);
     $: ansiHtml = parseAnsi(event.message);
 </script>
 

@@ -1,7 +1,7 @@
 <script>
     import { logEvents } from '../stores/logs.js';
     import LogLine from './LogLine.svelte';
-    import { afterUpdate } from 'svelte';
+    import { afterUpdate, tick } from 'svelte';
 
     let container;
     let autoScroll = true;
@@ -13,8 +13,10 @@
         autoScroll = isScrolledToBottom;
     }
 
-    afterUpdate(() => {
+    afterUpdate(async () => {
+        // Use tick to ensure DOM is fully updated before scrolling
         if (autoScroll && container) {
+            await tick();
             container.scrollTop = container.scrollHeight;
         }
     });

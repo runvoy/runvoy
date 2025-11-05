@@ -292,6 +292,12 @@ export default defineConfig({
 - [ ] Verify localStorage persistence
 - [ ] Test WebSocket reconnection
 
+### Phase 6.5: Bug Fixes ✅ COMPLETED
+- [x] Fix timestamp formatting in LogLine to match CLI (YYYY-MM-DD HH:MM:SSZ)
+- [x] Fix duplicate detection in websocket handler (check timestamp instead of line number)
+- [x] Improve scroll handling in LogViewer with proper tick() await
+- [x] Fix download logs formatting to use proper timestamp format
+
 ### Phase 7: Deployment
 - [ ] Update build instructions
 - [ ] Update deployment pipeline (if any)
@@ -350,27 +356,44 @@ When validating the Svelte implementation against legacy:
 
 ## Progress Summary
 
-**Last Updated**: 2025-01-04
+**Last Updated**: 2025-11-05
 
 ### Completed
 - ✅ Phase 1: Setup & Infrastructure
 - ✅ Phase 2: Core Modules
+- ✅ Phase 3: Components (MVP)
+- ✅ Phase 4: WebSocket Integration
+- ✅ Phase 5: Features & Polish
+- ✅ Phase 6.5: Bug Fixes
 
 ### Current Status
-- 🚧 Ready to start Phase 3: Components (MVP)
-- Dev server can be started with `just local-dev-webapp`
-- Minimal app shell loads and displays execution ID from URL
+- 🚧 Phase 6: Testing & Validation (IN PROGRESS)
+- Build is successful: 32.17 kB (11.53 kB gzipped)
+- All components implemented and integrated
+- Bug fixes applied to timestamp formatting, duplicate detection, and scroll handling
 
 ### Next Steps
-1. Build ExecutionSelector component
-2. Build ConnectionManager component
-3. Build LogViewer component
-4. Implement log fetching with retry logic
-5. Add WebSocket integration
+1. Test all features against legacy version
+2. Test in multiple browsers (Chrome, Firefox, Safari, Edge)
+3. Verify localStorage persistence across sessions
+4. Test WebSocket reconnection scenarios
+5. Verify ANSI color code rendering matches legacy
 
 ## Known Issues / TODOs
 
-- None yet (infrastructure complete, ready for component development)
+### Fixed in Phase 6.5
+- ✅ Timestamp formatting now matches CLI format (YYYY-MM-DD HH:MM:SSZ)
+- ✅ Duplicate detection improved to use timestamp as primary key
+- ✅ Scroll behavior improved with proper async tick() handling
+- ✅ Download logs now uses consistent timestamp format
+
+### Testing Phase (Phase 6)
+- [ ] Test all core features (see Testing Checklist below)
+- [ ] Verify ANSI color rendering in various browsers
+- [ ] Test localStorage persistence across page reloads
+- [ ] Test WebSocket reconnection after network interruption
+- [ ] Test 404 retry logic with proper timing
+- [ ] Verify execution status polling (5s intervals)
 
 ---
 

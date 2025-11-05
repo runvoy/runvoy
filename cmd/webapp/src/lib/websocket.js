@@ -35,18 +35,19 @@ export function connectWebSocket(url) {
     socket.onmessage = (event) => {
         try {
             const newEvent = JSON.parse(event.data);
-            // Assuming the event has a structure like { line, message, timestamp }
+            // Assuming the event has a structure like { message, timestamp }
             if (newEvent.message) {
                 logEvents.update(events => {
+                    // Avoid duplicates by checking timestamp (primary key)
+                    if (events.some(e => e.timestamp === newEvent.timestamp)) {
+                        return events;
+                    }
+
                     // Assign a new line number
                     const nextLine = events.length > 0 ? Math.max(...events.map(e => e.line)) + 1 : 1;
                     const eventWithLine = { ...newEvent, line: nextLine };
 
-                    // Avoid duplicates - defensive check
-                    if (!events.some(e => e.line === eventWithLine.line)) {
-                        return [...events, eventWithLine];
-                    }
-                    return events;
+                    return [...events, eventWithLine];
                 });
             }
         } catch (err) {

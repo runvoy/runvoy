@@ -4,6 +4,7 @@
     import { executionId } from '../stores/execution.js';
     import { disconnectWebSocket, connectWebSocket } from '../lib/websocket.js';
     import { cachedWebSocketURL } from '../stores/websocket.js';
+    import { formatTimestamp } from '../lib/ansi.js';
 
     let isPaused = false;
 
@@ -16,7 +17,7 @@
     }
 
     function downloadLogs() {
-        const content = $logEvents.map(e => `[${new Date(e.timestamp).toISOString()}] ${e.message}`).join('\n');
+        const content = $logEvents.map(e => `[${formatTimestamp(e.timestamp)}] ${e.message}`).join('\n');
         const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
