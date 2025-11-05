@@ -651,7 +651,7 @@ When an execution reaches a terminal status (SUCCEEDED, FAILED, STOPPED):
 2. **WebSocket Manager Lambda** (`handleDisconnectExecution`):
    - Receives `$disconnect-execution` route key event
    - Queries DynamoDB for all connections for the execution ID
-   - Sends disconnect notification message to all connections: `{"type":"disconnect","reason":"execution_completed"}`
+   - Sends disconnect notification message to all connections using `api.WebSocketMessage` type (format: `{"type":"disconnect","reason":"execution_completed"}`)
    - Deletes all connection records from DynamoDB
    - Uses concurrent sending for performance
 

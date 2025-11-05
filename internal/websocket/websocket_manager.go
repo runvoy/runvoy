@@ -4,6 +4,7 @@ package websocket
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -295,21 +296,23 @@ func (wm *WebSocketManager) handleDisconnectNotification(
 		return nil
 	}
 
-	wm.logger.Debug("sending disconnect notifications to connections", "context", map[string]any{
-		"execution_id":   executionID,
-		"connection_ids": wm.connectionIDs,
-	})
-
-	// Send disconnect message to all connections concurrently
 	errGroup, ctx := errgroup.WithContext(ctx)
 	errGroup.SetLimit(constants.MaxConcurrentSends)
 
-	disconnectMessage := []byte(`{"type":"disconnect","reason":"execution_completed"}`)
+	reason := api.WebSocketDisconnectReasonExecutionCompleted
+	disconnectMessage := api.WebSocketMessage{
+		Type:   api.WebSocketMessageTypeDisconnect,
+		Reason: &reason,
+	}
+	disconnectMessageBytes, err := json.Marshal(disconnectMessage)
+	if err != nil {
+		return fmt.Errorf("failed to marshal disconnect message: %w", err)
+	}
 
 	for _, connectionID := range wm.connectionIDs {
 		connID := connectionID // Capture for closure
 		errGroup.Go(func() error {
-			return wm.sendDisconnectToConnection(ctx, connID, disconnectMessage)
+			return wm.sendDisconnectToConnection(ctx, connID, disconnectMessageBytes)
 		})
 	}
 

@@ -34,18 +34,29 @@ export function connectWebSocket(url) {
 
     socket.onmessage = (event) => {
         try {
-            const newEvent = JSON.parse(event.data);
-            // Assuming the event has a structure like { message, timestamp }
-            if (newEvent.message) {
+            const message = JSON.parse(event.data);
+            
+            // Handle disconnect messages
+            if (message.type === 'disconnect') {
+                console.log('Received disconnect message:', message.reason || 'unknown reason');
+                // Close the connection gracefully
+                if (socket && socket.readyState === WebSocket.OPEN) {
+                    socket.close(1000, 'Execution completed');
+                }
+                return;
+            }
+            
+            // Handle log events (messages with a message property and timestamp)
+            if (message.message && message.timestamp !== undefined) {
                 logEvents.update(events => {
                     // Avoid duplicates by checking timestamp (primary key)
-                    if (events.some(e => e.timestamp === newEvent.timestamp)) {
+                    if (events.some(e => e.timestamp === message.timestamp)) {
                         return events;
                     }
 
                     // Assign a new line number
                     const nextLine = events.length > 0 ? Math.max(...events.map(e => e.line)) + 1 : 1;
-                    const eventWithLine = { ...newEvent, line: nextLine };
+                    const eventWithLine = { ...message, line: nextLine };
 
                     return [...events, eventWithLine];
                 });

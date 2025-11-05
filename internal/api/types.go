@@ -203,3 +203,29 @@ type WebSocketConnection struct {
 	ExpiresAt     int64  `json:"expires_at"`
 	ClientIP      string `json:"client_ip,omitempty"`
 }
+
+// WebSocketMessageType represents the type of WebSocket message
+type WebSocketMessageType string
+
+const (
+	// WebSocketMessageTypeLog represents a log event message
+	WebSocketMessageTypeLog WebSocketMessageType = "log"
+	// WebSocketMessageTypeDisconnect represents a disconnect notification message
+	WebSocketMessageTypeDisconnect WebSocketMessageType = "disconnect"
+)
+
+// WebSocketDisconnectReason represents the reason for a disconnect
+type WebSocketDisconnectReason string
+
+const (
+	// WebSocketDisconnectReasonExecutionCompleted indicates the execution has completed
+	WebSocketDisconnectReasonExecutionCompleted WebSocketDisconnectReason = "execution_completed"
+)
+
+// WebSocketMessage represents a WebSocket message sent to clients
+type WebSocketMessage struct {
+	Type      WebSocketMessageType       `json:"type"`
+	Reason    *WebSocketDisconnectReason `json:"reason,omitempty"`
+	Message   *string                    `json:"message,omitempty"`
+	Timestamp *int64                     `json:"timestamp,omitempty"`
+}

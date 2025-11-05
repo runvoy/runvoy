@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -142,13 +143,32 @@ func (s *LogsService) readWebSocketMessages(
 		case <-done:
 			return
 		default:
-			var logEvent api.LogEvent
-			err := conn.ReadJSON(&logEvent)
+			_, messageBytes, err := conn.ReadMessage()
 			if err != nil {
 				if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseNormalClosure) {
 					s.output.Warningf("WebSocket connection closed: %v", err)
 				}
 				return
+			}
+
+			var rawMessage map[string]any
+			if err = json.Unmarshal(messageBytes, &rawMessage); err != nil {
+				continue
+			}
+
+			if msgType, ok := rawMessage["type"].(string); ok && msgType == string(api.WebSocketMessageTypeDisconnect) {
+				s.output.Blank()
+				s.output.Infof("Execution completed. Closing connection...")
+				_ = conn.WriteMessage(
+					websocket.CloseMessage,
+					websocket.FormatCloseMessage(websocket.CloseNormalClosure, "Execution completed"),
+				)
+				return
+			}
+
+			var logEvent api.LogEvent
+			if err = json.Unmarshal(messageBytes, &logEvent); err != nil {
+				continue
 			}
 
 			mu.Lock()
