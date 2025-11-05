@@ -27,5 +27,5 @@ func main() {
 	}
 
 	log.Debug("starting Lambda handler")
-	lambda.Start(manager.HandleRequest)
+	lambda.Start(manager.Handle)
 }

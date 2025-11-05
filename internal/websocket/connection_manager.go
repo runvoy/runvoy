@@ -4,6 +4,7 @@ package websocket
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -17,14 +18,19 @@ import (
 	"runvoy/internal/logger"
 
 	"github.com/aws/aws-lambda-go/events"
+	"github.com/aws/aws-sdk-go-v2/aws"
 	awsConfig "github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/apigatewaymanagementapi"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
+	"golang.org/x/sync/errgroup"
 )
 
-// ConnectionManager handles WebSocket connection lifecycle events.
+// ConnectionManager handles WebSocket connection lifecycle events and disconnect notifications.
 type ConnectionManager struct {
-	connRepo database.ConnectionRepository
-	logger   *slog.Logger
+	connRepo      database.ConnectionRepository
+	apiGwClient   *apigatewaymanagementapi.Client
+	apiGwEndpoint *string
+	logger        *slog.Logger
 }
 
 // NewConnectionManager creates a new connection manager with AWS backend.
@@ -37,11 +43,20 @@ func NewConnectionManager(ctx context.Context, cfg *config.Config, log *slog.Log
 	dynamoClient := dynamodb.NewFromConfig(awsCfg)
 	connRepo := dynamoRepo.NewConnectionRepository(dynamoClient, cfg.WebSocketConnectionsTable, log)
 
-	log.Debug("connection manager initialized", "table", cfg.WebSocketConnectionsTable)
+	apiGwClient := apigatewaymanagementapi.NewFromConfig(awsCfg, func(o *apigatewaymanagementapi.Options) {
+		o.BaseEndpoint = aws.String(cfg.WebSocketAPIEndpoint)
+	})
+
+	log.Debug("connection manager initialized",
+		"table", cfg.WebSocketConnectionsTable,
+		"api_endpoint", cfg.WebSocketAPIEndpoint,
+	)
 
 	return &ConnectionManager{
-		connRepo: connRepo,
-		logger:   log,
+		connRepo:      connRepo,
+		apiGwClient:   apiGwClient,
+		apiGwEndpoint: aws.String(cfg.WebSocketAPIEndpoint),
+		logger:        log,
 	}, nil
 }
 
@@ -157,4 +172,112 @@ func (cm *ConnectionManager) handleDisconnect(
 		StatusCode: http.StatusOK,
 		Body:       "Disconnected",
 	}, nil
+}
+
+// Handle is the entry point for Lambda event processing.
+// It routes events to either WebSocket request handling or disconnect notification handling.
+func (cm *ConnectionManager) Handle(ctx context.Context, rawEvent json.RawMessage) error {
+	reqLogger := logger.DeriveRequestLogger(ctx, cm.logger)
+
+	// Try to unmarshal as a disconnect notification first
+	var disconnectMsg map[string]interface{}
+	if err := json.Unmarshal(rawEvent, &disconnectMsg); err == nil {
+		if msgType, ok := disconnectMsg["type"].(string); ok && msgType == "disconnect" {
+			executionID, execIDOk := disconnectMsg["execution_id"].(string)
+			if !execIDOk {
+				reqLogger.Error("disconnect message missing execution_id")
+				return fmt.Errorf("disconnect message missing execution_id")
+			}
+			return cm.handleDisconnectNotification(ctx, executionID, reqLogger)
+		}
+	}
+
+	// Otherwise handle as WebSocket request
+	var wsEvent events.APIGatewayWebsocketProxyRequest
+	if err := json.Unmarshal(rawEvent, &wsEvent); err != nil {
+		reqLogger.Error("failed to unmarshal event", "error", err)
+		return fmt.Errorf("failed to unmarshal event: %w", err)
+	}
+
+	_, err := cm.HandleRequest(ctx, wsEvent)
+	return err
+}
+
+// handleDisconnectNotification sends disconnect messages to all connected clients for an execution.
+// This notifies clients that the execution has completed.
+func (cm *ConnectionManager) handleDisconnectNotification(
+	ctx context.Context,
+	executionID string,
+	reqLogger *slog.Logger,
+) error {
+	reqLogger.Debug("handling disconnect notification for execution", "execution_id", executionID)
+
+	// Get all connection IDs for this execution
+	connectionIDs, err := cm.connRepo.GetConnectionsByExecutionID(ctx, executionID)
+	if err != nil {
+		reqLogger.Error("failed to get connections for execution", "error", err, "execution_id", executionID)
+		return fmt.Errorf("failed to get connections: %w", err)
+	}
+
+	if len(connectionIDs) == 0 {
+		reqLogger.Debug("no active connections to notify", "execution_id", executionID)
+		return nil
+	}
+
+	reqLogger.Debug("sending disconnect notifications to connections",
+		"execution_id", executionID,
+		"connection_count", len(connectionIDs),
+	)
+
+	// Send disconnect message to all connections concurrently
+	errGroup, ctx := errgroup.WithContext(ctx)
+	errGroup.SetLimit(constants.MaxConcurrentSends)
+
+	disconnectMessage := []byte(`{"type":"disconnect","reason":"execution_completed"}`)
+
+	for _, connectionID := range connectionIDs {
+		connID := connectionID // Capture for closure
+		errGroup.Go(func() error {
+			return cm.sendDisconnectToConnection(ctx, connID, disconnectMessage, reqLogger)
+		})
+	}
+
+	err = errGroup.Wait()
+	if err != nil {
+		reqLogger.Error("some disconnect notifications failed to send", "error", err, "execution_id", executionID)
+		// Don't fail the handler - best effort delivery
+	} else {
+		reqLogger.Info("all disconnect notifications sent successfully",
+			"execution_id", executionID,
+			"connection_count", len(connectionIDs),
+		)
+	}
+
+	return nil
+}
+
+// sendDisconnectToConnection sends a disconnect message to a single WebSocket connection.
+func (cm *ConnectionManager) sendDisconnectToConnection(
+	ctx context.Context,
+	connectionID string,
+	message []byte,
+	reqLogger *slog.Logger,
+) error {
+	reqLogger.Debug("sending disconnect notification to connection", "connection_id", connectionID)
+
+	_, err := cm.apiGwClient.PostToConnection(ctx, &apigatewaymanagementapi.PostToConnectionInput{
+		ConnectionId: aws.String(connectionID),
+		Data:         message,
+	})
+
+	if err != nil {
+		reqLogger.Error("failed to send disconnect notification to connection",
+			"error", err,
+			"connection_id", connectionID,
+		)
+		return fmt.Errorf("failed to send disconnect notification to connection %s: %w", connectionID, err)
+	}
+
+	reqLogger.Debug("disconnect notification sent to connection", "connection_id", connectionID)
+	return nil
 }

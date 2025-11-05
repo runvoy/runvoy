@@ -517,7 +517,7 @@ Resources:
           RUNVOY_EXECUTIONS_TABLE: !Ref ExecutionsTable
           RUNVOY_ECS_CLUSTER: !Ref ECSCluster
           RUNVOY_WEBSOCKET_CONNECTIONS_TABLE: !Ref WebSocketConnectionsTable
-          RUNVOY_WEBSOCKET_MANAGER_FUNCTION_NAME: !Ref LogForwarderFunction
+          RUNVOY_CONNECTION_MANAGER_FUNCTION_NAME: !Ref ConnectionManagerFunction
           RUNVOY_LOG_LEVEL: !Ref 'AWS::NoValue'
 
   # IAM Role for Event Processor Lambda
@@ -573,8 +573,8 @@ Resources:
               - Effect: Allow
                 Action:
                   - 'lambda:InvokeFunction'
-                # Event processor invokes websocket-log-forwarder to send disconnect messages
-                Resource: !GetAtt LogForwarderFunction.Arn
+                # Event processor invokes connection manager to send disconnect messages
+                Resource: !GetAtt ConnectionManagerFunction.Arn
 
   # EventBridge Rule for ECS Task State Changes
   TaskCompletionEventRule:

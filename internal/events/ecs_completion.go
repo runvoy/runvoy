@@ -111,14 +111,15 @@ func (p *Processor) handleECSTaskCompletion(ctx context.Context, event *events.C
 	reqLogger.Info("execution updated successfully", "execution", execution)
 
 	// Clean up WebSocket connections for terminal executions
-	p.cleanupWebSocketConnections(ctx, execution.Status, executionID, reqLogger)
+	p.notifyDisconnectAndCleanup(ctx, execution.Status, executionID, reqLogger)
 
 	return nil
 }
 
-// cleanupWebSocketConnections sends disconnect notifications to and removes WebSocket connections
-// for terminal executions. This is best-effort and won't fail the handler if cleanup fails.
-func (p *Processor) cleanupWebSocketConnections(
+// notifyDisconnectAndCleanup invokes the connection manager Lambda to notify connected clients
+// of the execution completion, then removes WebSocket connections.
+// This is best-effort and won't fail the handler if cleanup fails.
+func (p *Processor) notifyDisconnectAndCleanup(
 	ctx context.Context,
 	status string,
 	executionID string,
@@ -128,15 +129,15 @@ func (p *Processor) cleanupWebSocketConnections(
 		return
 	}
 
-	// First, invoke websocket_manager Lambda to notify connected clients
-	invokeErr := p.invokeWebSocketManager(ctx, executionID, reqLogger)
+	// First, invoke connection_manager Lambda to notify connected clients
+	invokeErr := p.invokeConnectionManager(ctx, executionID, reqLogger)
 	if invokeErr != nil {
-		reqLogger.Warn("failed to invoke websocket_manager for disconnect",
+		reqLogger.Warn("failed to invoke connection manager for disconnect notification",
 			"error", invokeErr,
 			"execution_id", executionID,
 		)
 	} else {
-		reqLogger.Debug("invoked websocket_manager for disconnect notification",
+		reqLogger.Debug("invoked connection manager for disconnect notification",
 			"context", map[string]string{
 				"execution_id": executionID,
 			},
@@ -173,8 +174,8 @@ func isTerminalStatus(status string) bool {
 		status == string(constants.ExecutionStopped)
 }
 
-// invokeWebSocketManager invokes the websocket_manager Lambda to send disconnect messages.
-func (p *Processor) invokeWebSocketManager(
+// invokeConnectionManager invokes the connection_manager Lambda to send disconnect notifications.
+func (p *Processor) invokeConnectionManager(
 	ctx context.Context,
 	executionID string,
 	_ *slog.Logger,
@@ -195,22 +196,22 @@ func (p *Processor) invokeWebSocketManager(
 	}
 
 	reqLogger := logger.DeriveRequestLogger(ctx, p.logger)
-	reqLogger.Debug("invoking websocket_manager", "context",
+	reqLogger.Debug("invoking connection manager", "context",
 		map[string]any{
-			"function_name": p.websocketManager,
+			"function_name": p.connectionManager,
 			"payload":       payload,
 		},
 	)
 
 	invocation := &lambda.InvokeInput{
-		FunctionName:   aws.String(p.websocketManager),
+		FunctionName:   aws.String(p.connectionManager),
 		InvocationType: types.InvocationTypeEvent, // Async invocation
 		Payload:        payloadBytes,
 	}
 
 	_, err = p.lambdaClient.Invoke(ctx, invocation)
 	if err != nil {
-		return fmt.Errorf("failed to invoke websocket_manager: %w", err)
+		return fmt.Errorf("failed to invoke connection manager: %w", err)
 	}
 
 	return nil
