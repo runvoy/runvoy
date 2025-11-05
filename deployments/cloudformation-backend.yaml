@@ -436,7 +436,7 @@ Resources:
       Code:
         S3Bucket: !Ref LambdaCodeBucket
         S3Key: bootstrap.zip
-      Timeout: 60
+      Timeout: 30
       Architectures:
         - arm64
       Tags:
@@ -502,7 +502,7 @@ Resources:
       Code:
         S3Bucket: !Ref LambdaCodeBucket
         S3Key: event-processor.zip
-      Timeout: 30
+      Timeout: 10
       Architectures:
         - arm64
       Tags:
@@ -642,11 +642,11 @@ Resources:
   ConnectionManagerLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
-      LogGroupName: !Sub '/aws/lambda/${ProjectName}-websocket-connection-manager'
+      LogGroupName: !Sub '/aws/lambda/${ProjectName}-websocket-manager'
       RetentionInDays: 7
       Tags:
         - Key: Name
-          Value: !Sub '${ProjectName}-websocket-connection-manager-logs'
+          Value: !Sub '${ProjectName}-websocket-manager-logs'
         - Key: Application
           Value: !Ref ProjectName
         - Key: ManagedBy
@@ -656,10 +656,10 @@ Resources:
   ConnectionManagerRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: !Sub '${ProjectName}-websocket-connection-manager-role'
+      RoleName: !Sub '${ProjectName}-websocket-manager-role'
       Tags:
         - Key: Name
-          Value: !Sub '${ProjectName}-websocket-connection-manager-role'
+          Value: !Sub '${ProjectName}-websocket-manager-role'
         - Key: Application
           Value: !Ref ProjectName
         - Key: ManagedBy
@@ -697,19 +697,19 @@ Resources:
     Type: AWS::Lambda::Function
     DependsOn: ConnectionManagerLogGroup
     Properties:
-      FunctionName: !Sub '${ProjectName}-websocket-connection-manager'
+      FunctionName: !Sub '${ProjectName}-websocket-manager'
       Runtime: provided.al2023
       Role: !GetAtt ConnectionManagerRole.Arn
       Handler: bootstrap
       Code:
         S3Bucket: !Ref LambdaCodeBucket
-        S3Key: websocket-connection-manager.zip
-      Timeout: 30
+        S3Key: websocket-manager.zip
+      Timeout: 10
       Architectures:
         - arm64
       Tags:
         - Key: Name
-          Value: !Sub '${ProjectName}-websocket-connection-manager'
+          Value: !Sub '${ProjectName}-websocket-manager'
         - Key: Application
           Value: !Ref ProjectName
         - Key: ManagedBy
@@ -782,7 +782,7 @@ Resources:
       Code:
         S3Bucket: !Ref LambdaCodeBucket
         S3Key: websocket-log-forwarder.zip
-      Timeout: 60
+      Timeout: 10
       Architectures:
         - arm64
       Tags:

@@ -62,8 +62,9 @@ func NewWebSocketManager(ctx context.Context, cfg *config.Config, log *slog.Logg
 	}, nil
 }
 
-// HandleRequest is the main entry point for Lambda WebSocket event processing.
-// It routes events based on their route key ($connect or $disconnect).
+// HandleRequest is the main entry point for Lambda event processing.
+// It routes API Gateway WebSocket events based on their route key ($connect or $disconnect),
+// and also handles disconnect notifications from the event processor.
 //
 //nolint:gocritic // Lambda event types are passed by value per AWS Lambda conventions
 func (wm *WebSocketManager) HandleRequest(
@@ -71,6 +72,31 @@ func (wm *WebSocketManager) HandleRequest(
 	req events.APIGatewayWebsocketProxyRequest,
 ) (events.APIGatewayProxyResponse, error) {
 	reqLogger := logger.DeriveRequestLogger(ctx, wm.logger)
+
+	// Check if this is a disconnect notification from the event processor
+	// (these are sent as Lambda invocations with custom JSON payload)
+	if req.RequestContext.RouteKey == "" && req.RequestContext.ConnectionID == "" {
+		// Try to parse as disconnect notification
+		var disconnectMsg map[string]interface{}
+		if unmarshalErr := json.Unmarshal([]byte(req.Body), &disconnectMsg); unmarshalErr == nil {
+			if msgType, ok := disconnectMsg["type"].(string); ok && msgType == "disconnect" {
+				executionID, execIDOk := disconnectMsg["execution_id"].(string)
+				if execIDOk {
+					notifyErr := wm.handleDisconnectNotification(ctx, executionID, reqLogger)
+					if notifyErr != nil {
+						return events.APIGatewayProxyResponse{
+							StatusCode: http.StatusInternalServerError,
+							Body:       fmt.Sprintf("Failed to handle disconnect: %v", notifyErr),
+						}, nil
+					}
+					return events.APIGatewayProxyResponse{
+						StatusCode: http.StatusOK,
+						Body:       "Disconnect notification sent",
+					}, nil
+				}
+			}
+		}
+	}
 
 	reqLogger.Debug("received WebSocket event", "context", map[string]string{
 		"route_key":     req.RequestContext.RouteKey,
@@ -174,35 +200,6 @@ func (wm *WebSocketManager) handleDisconnect(
 		StatusCode: http.StatusOK,
 		Body:       "Disconnected",
 	}, nil
-}
-
-// Handle is the entry point for Lambda event processing.
-// It routes events to either WebSocket request handling or disconnect notification handling.
-func (wm *WebSocketManager) Handle(ctx context.Context, rawEvent json.RawMessage) error {
-	reqLogger := logger.DeriveRequestLogger(ctx, wm.logger)
-
-	// Try to unmarshal as a disconnect notification first
-	var disconnectMsg map[string]interface{}
-	if err := json.Unmarshal(rawEvent, &disconnectMsg); err == nil {
-		if msgType, ok := disconnectMsg["type"].(string); ok && msgType == "disconnect" {
-			executionID, execIDOk := disconnectMsg["execution_id"].(string)
-			if !execIDOk {
-				reqLogger.Error("disconnect message missing execution_id")
-				return fmt.Errorf("disconnect message missing execution_id")
-			}
-			return wm.handleDisconnectNotification(ctx, executionID, reqLogger)
-		}
-	}
-
-	// Otherwise handle as WebSocket request
-	var wsEvent events.APIGatewayWebsocketProxyRequest
-	if err := json.Unmarshal(rawEvent, &wsEvent); err != nil {
-		reqLogger.Error("failed to unmarshal event", "error", err)
-		return fmt.Errorf("failed to unmarshal event: %w", err)
-	}
-
-	_, err := wm.HandleRequest(ctx, wsEvent)
-	return err
 }
 
 // handleDisconnectNotification sends disconnect messages to all connected clients for an execution.
