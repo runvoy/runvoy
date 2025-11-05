@@ -14,10 +14,6 @@ build_flags := build_flags_x + version + '-' + build_date + '-' + git_short_hash
 # Aliases
 alias r := runvoy
 
-# Temporary task for websocket testing
-websocket-test execution_id:
-    wscat -c "wss://tspxf0azw6.execute-api.us-east-2.amazonaws.com/production?execution_id={{execution_id}}"
-
 ## Commands
 # Build the CLI binary and run it with the given arguments
 [default]
@@ -28,13 +24,16 @@ runvoy *ARGS: build-cli
 build: build-cli build-local build-orchestrator build-event-processor build-websocket-manager build-websocket-log-forwarder
 
 # Deploy all binaries
-deploy: deploy-backend deploy-webviewer
+deploy: deploy-backend deploy-frontend
 
 # Deploy backend binaries
 deploy-backend: deploy-orchestrator deploy-event-processor deploy-websocket
 
 # Deploy websocket binaries
 deploy-websocket: deploy-websocket-manager deploy-websocket-log-forwarder
+
+# Deploy webapp
+deploy-frontend: deploy-webapp
 
 # Build CLI client
 [working-directory: 'cmd/runvoy']
@@ -142,9 +141,10 @@ deploy-websocket-log-forwarder: build-websocket-log-forwarder-zip
         --s3-key websocket-log-forwarder.zip > /dev/null
     aws lambda wait function-updated --function-name runvoy-websocket-log-forwarder
 
-# Deploy webviewer HTML to S3
-deploy-webviewer:
-    aws s3 cp cmd/webviewer/index.html \
+# Deploy webapp HTML to S3
+[working-directory: 'cmd/webapp']
+deploy-webapp: build-webapp
+    aws s3 cp dist/index.html \
         s3://{{bucket}}/webviewer.html \
         --content-type text/html
 
@@ -168,10 +168,14 @@ clean:
     go clean
 
 # Development setup
-dev-setup:
+dev-setup: dev-setup-webapp
     go mod tidy
     go mod download
     go install golang.org/x/tools/cmd/goimports@latest
+
+[working-directory: 'cmd/webapp']
+dev-setup-webapp:
+    npm install
 
 # Run CI pipeline, to be executed by GitHub Actions
 ci-test: dev-setup test
@@ -275,3 +279,13 @@ upgrade-dependencies:
 record-demo:
     asciinema rec --overwrite runvoy-demo.cast
     agg --theme monokai runvoy-demo.cast runvoy-demo.gif
+
+# Run local development webapp
+[working-directory: 'cmd/webapp']
+local-dev-webapp:
+    npx vite
+
+# Build webapp
+[working-directory: 'cmd/webapp']
+build-webapp:
+    npx vite build
