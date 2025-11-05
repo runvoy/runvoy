@@ -153,19 +153,20 @@ func TestUsersService_ListUsers(t *testing.T) {
 			name: "successfully lists users",
 			setupMock: func(m *mockClientInterfaceForUsers) {
 				m.listUsersFunc = func(_ context.Context) (*api.ListUsersResponse, error) {
+					now := time.Now()
 					return &api.ListUsersResponse{
 						Users: []*api.User{
 							{
 								Email:     "alice@example.com",
 								CreatedAt: time.Now(),
 								Revoked:   false,
-								LastUsed:  time.Now(),
+								LastUsed:  &now,
 							},
 							{
 								Email:     "bob@example.com",
 								CreatedAt: time.Now().Add(-24 * time.Hour),
 								Revoked:   true,
-								LastUsed:  time.Time{},
+								LastUsed:  nil,
 							},
 						},
 					}, nil
@@ -245,7 +246,7 @@ func TestUsersService_ListUsers(t *testing.T) {
 								Email:     "revoked@example.com",
 								CreatedAt: time.Now(),
 								Revoked:   true,
-								LastUsed:  time.Time{},
+								LastUsed:  nil,
 							},
 						},
 					}, nil

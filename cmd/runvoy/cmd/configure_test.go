@@ -17,7 +17,7 @@ type mockOutputInterfaceWithPrompt struct {
 }
 
 func (m *mockOutputInterfaceWithPrompt) Prompt(prompt string) string {
-	m.calls = append(m.calls, call{method: "Prompt", args: []interface{}{prompt}})
+	m.calls = append(m.calls, call{method: "Prompt", args: []any{prompt}})
 	if m.promptFunc != nil {
 		return m.promptFunc(prompt)
 	}

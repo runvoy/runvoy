@@ -436,7 +436,7 @@ Resources:
       Code:
         S3Bucket: !Ref LambdaCodeBucket
         S3Key: bootstrap.zip
-      Timeout: 60
+      Timeout: 30
       Architectures:
         - arm64
       Tags:
@@ -502,7 +502,7 @@ Resources:
       Code:
         S3Bucket: !Ref LambdaCodeBucket
         S3Key: event-processor.zip
-      Timeout: 30
+      Timeout: 10
       Architectures:
         - arm64
       Tags:
@@ -516,6 +516,8 @@ Resources:
         Variables:
           RUNVOY_EXECUTIONS_TABLE: !Ref ExecutionsTable
           RUNVOY_ECS_CLUSTER: !Ref ECSCluster
+          RUNVOY_WEBSOCKET_CONNECTIONS_TABLE: !Ref WebSocketConnectionsTable
+          RUNVOY_WEBSOCKET_MANAGER_FUNCTION_NAME: !Ref ConnectionManagerFunction
           RUNVOY_LOG_LEVEL: !Ref 'AWS::NoValue'
 
   # IAM Role for Event Processor Lambda
@@ -555,9 +557,22 @@ Resources:
                   - !Sub '${ExecutionsTable.Arn}/index/*'
               - Effect: Allow
                 Action:
+                  - 'dynamodb:GetItem'
+                  - 'dynamodb:Query'
+                # Event processor only reads WebSocket connections to check if there are any
+                Resource:
+                  - !GetAtt WebSocketConnectionsTable.Arn
+                  - !Sub '${WebSocketConnectionsTable.Arn}/index/*'
+              - Effect: Allow
+                Action:
                   - 'ecs:DescribeTasks'
                 # Event processor needs to describe tasks in our cluster to update execution status
                 Resource: !Sub 'arn:aws:ecs:${AWS::Region}:${AWS::AccountId}:task/${ProjectName}-cluster/*'
+              - Effect: Allow
+                Action:
+                  - 'lambda:InvokeFunction'
+                # Event processor invokes connection manager to send disconnect messages
+                Resource: !GetAtt ConnectionManagerFunction.Arn
 
   # EventBridge Rule for ECS Task State Changes
   TaskCompletionEventRule:
@@ -625,11 +640,11 @@ Resources:
   ConnectionManagerLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
-      LogGroupName: !Sub '/aws/lambda/${ProjectName}-websocket-connection-manager'
+      LogGroupName: !Sub '/aws/lambda/${ProjectName}-websocket-manager'
       RetentionInDays: 7
       Tags:
         - Key: Name
-          Value: !Sub '${ProjectName}-websocket-connection-manager-logs'
+          Value: !Sub '${ProjectName}-websocket-manager-logs'
         - Key: Application
           Value: !Ref ProjectName
         - Key: ManagedBy
@@ -639,10 +654,10 @@ Resources:
   ConnectionManagerRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: !Sub '${ProjectName}-websocket-connection-manager-role'
+      RoleName: !Sub '${ProjectName}-websocket-manager-role'
       Tags:
         - Key: Name
-          Value: !Sub '${ProjectName}-websocket-connection-manager-role'
+          Value: !Sub '${ProjectName}-websocket-manager-role'
         - Key: Application
           Value: !Ref ProjectName
         - Key: ManagedBy
@@ -666,6 +681,7 @@ Resources:
                   - 'dynamodb:PutItem'
                   - 'dynamodb:GetItem'
                   - 'dynamodb:DeleteItem'
+                  - 'dynamodb:BatchWriteItem'
                   - 'dynamodb:Query'
                 Resource:
                   - !GetAtt WebSocketConnectionsTable.Arn
@@ -680,19 +696,19 @@ Resources:
     Type: AWS::Lambda::Function
     DependsOn: ConnectionManagerLogGroup
     Properties:
-      FunctionName: !Sub '${ProjectName}-websocket-connection-manager'
+      FunctionName: !Sub '${ProjectName}-websocket-manager'
       Runtime: provided.al2023
       Role: !GetAtt ConnectionManagerRole.Arn
       Handler: bootstrap
       Code:
         S3Bucket: !Ref LambdaCodeBucket
-        S3Key: websocket-connection-manager.zip
-      Timeout: 30
+        S3Key: websocket-manager.zip
+      Timeout: 10
       Architectures:
         - arm64
       Tags:
         - Key: Name
-          Value: !Sub '${ProjectName}-websocket-connection-manager'
+          Value: !Sub '${ProjectName}-websocket-manager'
         - Key: Application
           Value: !Ref ProjectName
         - Key: ManagedBy
@@ -700,6 +716,7 @@ Resources:
       Environment:
         Variables:
           RUNVOY_WEBSOCKET_CONNECTIONS_TABLE: !Ref WebSocketConnectionsTable
+          RUNVOY_WEBSOCKET_API_ENDPOINT: !Sub '${WebSocketApi.ApiId}.execute-api.${AWS::Region}.amazonaws.com/production'
 
   # CloudWatch Log Group for Log Forwarder Lambda
   LogForwarderLogGroup:
@@ -765,7 +782,7 @@ Resources:
       Code:
         S3Bucket: !Ref LambdaCodeBucket
         S3Key: websocket-log-forwarder.zip
-      Timeout: 60
+      Timeout: 10
       Architectures:
         - arm64
       Tags:
@@ -864,6 +881,7 @@ Resources:
       - LogForwarderSubscriptionPermission
     Properties:
       LogGroupName: !Ref RunnerLogGroup
+      FilterName: !Sub '${ProjectName}-log-forwarder-subscription'
       FilterPattern: ''
       DestinationArn: !GetAtt LogForwarderFunction.Arn
 

@@ -53,11 +53,11 @@ type ErrorResponse struct {
 
 // User represents a user in the system
 type User struct {
-	Email     string    `json:"email"`
-	APIKey    string    `json:"api_key,omitempty"`
-	CreatedAt time.Time `json:"created_at"`
-	Revoked   bool      `json:"revoked"`
-	LastUsed  time.Time `json:"last_used,omitempty"`
+	Email     string     `json:"email"`
+	APIKey    string     `json:"api_key,omitempty"`
+	CreatedAt time.Time  `json:"created_at"`
+	Revoked   bool       `json:"revoked"`
+	LastUsed  *time.Time `json:"last_used,omitempty"`
 }
 
 // Execution represents an execution record

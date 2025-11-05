@@ -4,10 +4,10 @@ import "runvoy/internal/output"
 
 // OutputInterface defines the interface for output operations to enable dependency injection and testing
 type OutputInterface interface {
-	Infof(format string, a ...interface{})
-	Errorf(format string, a ...interface{})
-	Successf(format string, a ...interface{})
-	Warningf(format string, a ...interface{})
+	Infof(format string, a ...any)
+	Errorf(format string, a ...any)
+	Successf(format string, a ...any)
+	Warningf(format string, a ...any)
 	Table(headers []string, rows [][]string)
 	Blank()
 	Bold(text string) string
@@ -24,19 +24,19 @@ func NewOutputWrapper() OutputInterface {
 	return &outputWrapper{}
 }
 
-func (o *outputWrapper) Infof(format string, a ...interface{}) {
+func (o *outputWrapper) Infof(format string, a ...any) {
 	output.Infof(format, a...)
 }
 
-func (o *outputWrapper) Errorf(format string, a ...interface{}) {
+func (o *outputWrapper) Errorf(format string, a ...any) {
 	output.Errorf(format, a...)
 }
 
-func (o *outputWrapper) Successf(format string, a ...interface{}) {
+func (o *outputWrapper) Successf(format string, a ...any) {
 	output.Successf(format, a...)
 }
 
-func (o *outputWrapper) Warningf(format string, a ...interface{}) {
+func (o *outputWrapper) Warningf(format string, a ...any) {
 	output.Warningf(format, a...)
 }
 

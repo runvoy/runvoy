@@ -148,13 +148,16 @@ func (r *UserRepository) GetUserByEmail(ctx context.Context, email string) (*api
 		return nil, unmarshalErr
 	}
 
-	return &api.User{
+	user := &api.User{
 		Email:     item.UserEmail,
 		CreatedAt: item.CreatedAt,
 		Revoked:   item.Revoked,
-		LastUsed:  item.LastUsed,
 		// Note: APIKey is intentionally omitted for security
-	}, nil
+	}
+	if !item.LastUsed.IsZero() {
+		user.LastUsed = &item.LastUsed
+	}
+	return user, nil
 }
 
 // GetUserByAPIKeyHash retrieves a user by their hashed API key (primary key).
@@ -194,12 +197,15 @@ func (r *UserRepository) GetUserByAPIKeyHash(ctx context.Context, apiKeyHash str
 		return nil, unmarshalErr
 	}
 
-	return &api.User{
+	user := &api.User{
 		Email:     item.UserEmail,
 		CreatedAt: item.CreatedAt,
 		Revoked:   item.Revoked,
-		LastUsed:  item.LastUsed,
-	}, nil
+	}
+	if !item.LastUsed.IsZero() {
+		user.LastUsed = &item.LastUsed
+	}
+	return user, nil
 }
 
 // queryAPIKeyHashByEmail queries for the api_key_hash by email.
@@ -585,13 +591,16 @@ func (r *UserRepository) ListUsers(ctx context.Context) ([]*api.User, error) {
 			continue
 		}
 
-		users = append(users, &api.User{
+		user := &api.User{
 			Email:     dbUserItem.UserEmail,
 			CreatedAt: dbUserItem.CreatedAt,
 			Revoked:   dbUserItem.Revoked,
-			LastUsed:  dbUserItem.LastUsed,
 			// Note: APIKey and APIKeyHash are intentionally omitted for security
-		})
+		}
+		if !dbUserItem.LastUsed.IsZero() {
+			user.LastUsed = &dbUserItem.LastUsed
+		}
+		users = append(users, user)
 	}
 
 	return users, nil

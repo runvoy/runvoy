@@ -555,12 +555,10 @@ func validateTaskStatusForKill(currentStatus string) error {
 		string(constants.EcsStatusStopping),
 		string(constants.EcsStatusDeactivating),
 	}
-	for _, status := range terminatedStatuses {
-		if currentStatus == status {
-			return appErrors.ErrBadRequest(
-				"task is already terminated or terminating",
-				fmt.Errorf("task status: %s", currentStatus))
-		}
+	if slices.Contains(terminatedStatuses, currentStatus) {
+		return appErrors.ErrBadRequest(
+			"task is already terminated or terminating",
+			fmt.Errorf("task status: %s", currentStatus))
 	}
 
 	taskRunnableStatuses := []string{

@@ -70,7 +70,7 @@ func (r *Router) requestTimeoutMiddleware(timeout time.Duration) func(http.Handl
 
 			if ctx.Err() == context.DeadlineExceeded {
 				logger := r.GetLoggerFromContext(req.Context())
-				logger.Warn("request timeout exceeded", "request", map[string]interface{}{
+				logger.Warn("request timeout exceeded", "request", map[string]any{
 					"method":  req.Method,
 					"path":    req.URL.Path,
 					"timeout": timeout,
@@ -144,10 +144,13 @@ func (r *Router) updateLastUsedAsync(user *api.User, requestID string, logger *s
 		defer cancel()
 		ctx = loggerPkg.WithRequestID(ctx, reqID)
 
-		logger.Debug("updating user's last_used timestamp (async)", "user", map[string]any{
-			"email":              email,
-			"previous_last_used": user.LastUsed.Format(time.RFC3339),
-		})
+		userLogData := map[string]any{
+			"email": email,
+		}
+		if user.LastUsed != nil {
+			userLogData["previous_last_used"] = user.LastUsed.Format(time.RFC3339)
+		}
+		logger.Debug("updating user's last_used timestamp (async)", "user", userLogData)
 
 		newLastUsed, err := r.svc.UpdateUserLastUsed(ctx, email)
 		if err != nil {
@@ -158,11 +161,14 @@ func (r *Router) updateLastUsedAsync(user *api.User, requestID string, logger *s
 				},
 			})
 		} else {
-			logger.Debug("user's last_used timestamp updated successfully", "user", map[string]any{
-				"email":              email,
-				"last_used":          newLastUsed.Format(time.RFC3339),
-				"previous_last_used": user.LastUsed.Format(time.RFC3339),
-			})
+			successLogData := map[string]any{
+				"email":     email,
+				"last_used": newLastUsed.Format(time.RFC3339),
+			}
+			if user.LastUsed != nil {
+				successLogData["previous_last_used"] = user.LastUsed.Format(time.RFC3339)
+			}
+			logger.Debug("user's last_used timestamp updated successfully", "user", successLogData)
 		}
 	}(user.Email, requestID)
 	return &wg
@@ -227,7 +233,7 @@ func (r *Router) requestLoggingMiddleware(next http.Handler) http.Handler {
 		next.ServeHTTP(wrapped, req)
 		duration := time.Since(start)
 
-		logger.Info("sent response to client", "response", map[string]interface{}{
+		logger.Info("sent response to client", "response", map[string]any{
 			"status":   wrapped.statusCode,
 			"duration": duration.String(),
 		})

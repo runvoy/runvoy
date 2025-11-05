@@ -63,10 +63,19 @@ func NewLogForwarder(ctx context.Context, cfg *config.Config, log *slog.Logger) 
 	}, nil
 }
 
-// HandleLogs is the main entry point for Lambda CloudWatch Logs event processing.
-func (lf *LogForwarder) HandleLogs(ctx context.Context, event events.CloudwatchLogsEvent) error {
+// Handle is the main entry point for Lambda event processing.
+// It processes CloudWatch Logs subscription filter events.
+func (lf *LogForwarder) Handle(ctx context.Context, event events.CloudwatchLogsEvent) error {
 	reqLogger := logger.DeriveRequestLogger(ctx, lf.logger)
+	return lf.handleLogs(ctx, event, reqLogger)
+}
 
+// handleLogs processes CloudWatch Logs events and forwards them to connected clients.
+func (lf *LogForwarder) handleLogs(
+	ctx context.Context,
+	event events.CloudwatchLogsEvent,
+	reqLogger *slog.Logger,
+) error {
 	logsData, err := lf.decodeLogsEvent(event, reqLogger)
 	if err != nil {
 		return err

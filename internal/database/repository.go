@@ -81,8 +81,8 @@ type ConnectionRepository interface {
 	// CreateConnection stores a new WebSocket connection record in the database.
 	CreateConnection(ctx context.Context, connection *api.WebSocketConnection) error
 
-	// DeleteConnection removes a WebSocket connection from the database by connection ID.
-	DeleteConnection(ctx context.Context, connectionID string) error
+	// DeleteConnections removes WebSocket connections from the database.
+	DeleteConnections(ctx context.Context, connectionIDs []string) (int, error)
 
 	// GetConnectionsByExecutionID retrieves all active WebSocket connections for a given execution ID.
 	// Returns a list of connection IDs that are subscribed to the specified execution.

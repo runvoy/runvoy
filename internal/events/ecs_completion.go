@@ -15,6 +15,9 @@ import (
 	"runvoy/internal/logger"
 
 	"github.com/aws/aws-lambda-go/events"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/lambda"
+	"github.com/aws/aws-sdk-go-v2/service/lambda/types"
 )
 
 // parseTaskTimes parses and validates the task timestamps, calculating duration.
@@ -107,6 +110,95 @@ func (p *Processor) handleECSTaskCompletion(ctx context.Context, event *events.C
 
 	reqLogger.Info("execution updated successfully", "execution", execution)
 
+	// Notify WebSocket clients about the execution completion
+	p.notifyDisconnect(ctx, execution.Status, executionID, reqLogger)
+
+	return nil
+}
+
+// notifyDisconnect invokes the websocket_manager Lambda to notify connected clients
+// of the execution completion and clean up their connections.
+// The websocket_manager Lambda is responsible for both sending disconnect messages
+// and deleting the connection records from DynamoDB.
+// This is best-effort and won't fail the handler if the invocation fails.
+func (p *Processor) notifyDisconnect(
+	ctx context.Context,
+	status string,
+	executionID string,
+	reqLogger *slog.Logger,
+) {
+	if !isTerminalStatus(status) {
+		return
+	}
+
+	// Invoke websocket_manager Lambda to notify connected clients and cleanup
+	invokeErr := p.invokeWebSocketManager(ctx, executionID, reqLogger)
+	if invokeErr != nil {
+		reqLogger.Warn("failed to invoke websocket manager for disconnect notification",
+			"error", invokeErr,
+			"execution_id", executionID,
+		)
+	} else {
+		reqLogger.Debug("invoked websocket manager for disconnect notification",
+			"context", map[string]string{
+				"execution_id": executionID,
+			},
+		)
+	}
+}
+
+// isTerminalStatus checks if an execution status is a terminal state
+func isTerminalStatus(status string) bool {
+	return status == string(constants.ExecutionSucceeded) ||
+		status == string(constants.ExecutionFailed) ||
+		status == string(constants.ExecutionStopped)
+}
+
+// invokeWebSocketManager invokes the websocket_manager Lambda to send disconnect notifications.
+func (p *Processor) invokeWebSocketManager(
+	ctx context.Context,
+	executionID string,
+	_ *slog.Logger,
+) error {
+	// Skip if lambdaClient is not initialized (e.g., in tests)
+	if p.lambdaClient == nil {
+		return nil
+	}
+
+	event := events.APIGatewayWebsocketProxyRequest{
+		RequestContext: events.APIGatewayWebsocketProxyRequestContext{
+			RouteKey: "$disconnect-execution",
+		},
+		QueryStringParameters: map[string]string{
+			"execution_id": executionID,
+		},
+		Body: "",
+	}
+
+	payloadBytes, err := json.Marshal(event)
+	if err != nil {
+		return fmt.Errorf("failed to marshal disconnect event: %w", err)
+	}
+
+	reqLogger := logger.DeriveRequestLogger(ctx, p.logger)
+	reqLogger.Debug("invoking websocket manager", "context",
+		map[string]any{
+			"function_name": p.websocketManager,
+			"execution_id":  executionID,
+		},
+	)
+
+	invocation := &lambda.InvokeInput{
+		FunctionName:   aws.String(p.websocketManager),
+		InvocationType: types.InvocationTypeEvent, // Async invocation
+		Payload:        payloadBytes,
+	}
+
+	_, err = p.lambdaClient.Invoke(ctx, invocation)
+	if err != nil {
+		return fmt.Errorf("failed to invoke websocket manager: %w", err)
+	}
+
 	return nil
 }
 
@@ -167,11 +259,13 @@ func determineStatusAndExitCode(event *ECSTaskStateChangeEvent) (status string, 
 // ECSCompletionHandler is a factory function that returns a handler for ECS completion events
 func ECSCompletionHandler(
 	executionRepo database.ExecutionRepository,
+	connectionRepo database.ConnectionRepository,
 	log *slog.Logger) func(context.Context, events.CloudWatchEvent) error {
 	return func(ctx context.Context, event events.CloudWatchEvent) error {
 		p := &Processor{
-			executionRepo: executionRepo,
-			logger:        log,
+			executionRepo:  executionRepo,
+			connectionRepo: connectionRepo,
+			logger:         log,
 		}
 		return p.handleECSTaskCompletion(ctx, &event)
 	}

@@ -653,7 +653,7 @@ func BenchmarkSuccess(b *testing.B) {
 	Stderr = &bytes.Buffer{}
 	defer func() { Stderr = oldStderr }()
 
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		Successf("benchmark test")
 	}
 }
@@ -670,26 +670,26 @@ func BenchmarkTable(b *testing.B) {
 		{"g", "h", "i"},
 	}
 
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		Table(headers, rows)
 	}
 }
 
 func BenchmarkStatusBadge(b *testing.B) {
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		StatusBadge("completed")
 	}
 }
 
 func BenchmarkDuration(b *testing.B) {
 	d := 125 * time.Second
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		Duration(d)
 	}
 }
 
 func BenchmarkBytes(b *testing.B) {
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		Bytes(1234567)
 	}
 }

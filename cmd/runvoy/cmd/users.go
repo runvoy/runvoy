@@ -196,7 +196,7 @@ func (s *UsersService) formatUsers(users []*api.User) [][]string {
 		createdAt := u.CreatedAt.UTC().Format(time.DateTime)
 
 		lastUsed := "Never"
-		if !u.LastUsed.IsZero() {
+		if u.LastUsed != nil && !u.LastUsed.IsZero() {
 			lastUsed = u.LastUsed.UTC().Format(time.DateTime)
 		}
 

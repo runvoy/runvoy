@@ -14,7 +14,7 @@ import (
 	"runvoy/internal/constants"
 	apperrors "runvoy/internal/errors"
 	"runvoy/internal/output"
-	"sort"
+	"slices"
 	"sync"
 	"syscall"
 	"time"
@@ -246,9 +246,7 @@ func (s *LogsService) displayLogEvents(logMap map[int64]api.LogEvent) {
 	for ts := range logMap {
 		timestamps = append(timestamps, ts)
 	}
-	sort.Slice(timestamps, func(i, j int) bool {
-		return timestamps[i] < timestamps[j]
-	})
+	slices.Sort(timestamps)
 
 	s.output.Blank()
 	rows := [][]string{}

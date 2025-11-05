@@ -68,26 +68,26 @@ type mockOutputInterface struct {
 
 type call struct {
 	method string
-	args   []interface{}
+	args   []any
 }
 
-func (m *mockOutputInterface) Infof(format string, a ...interface{}) {
-	m.calls = append(m.calls, call{method: "Infof", args: []interface{}{format, a}})
+func (m *mockOutputInterface) Infof(format string, a ...any) {
+	m.calls = append(m.calls, call{method: "Infof", args: []any{format, a}})
 }
-func (m *mockOutputInterface) Errorf(format string, a ...interface{}) {
-	m.calls = append(m.calls, call{method: "Errorf", args: []interface{}{format, a}})
+func (m *mockOutputInterface) Errorf(format string, a ...any) {
+	m.calls = append(m.calls, call{method: "Errorf", args: []any{format, a}})
 }
-func (m *mockOutputInterface) Successf(format string, a ...interface{}) {
-	m.calls = append(m.calls, call{method: "Successf", args: []interface{}{format, a}})
+func (m *mockOutputInterface) Successf(format string, a ...any) {
+	m.calls = append(m.calls, call{method: "Successf", args: []any{format, a}})
 }
-func (m *mockOutputInterface) Warningf(format string, a ...interface{}) {
-	m.calls = append(m.calls, call{method: "Warningf", args: []interface{}{format, a}})
+func (m *mockOutputInterface) Warningf(format string, a ...any) {
+	m.calls = append(m.calls, call{method: "Warningf", args: []any{format, a}})
 }
 func (m *mockOutputInterface) Table(headers []string, rows [][]string) {
-	m.calls = append(m.calls, call{method: "Table", args: []interface{}{headers, rows}})
+	m.calls = append(m.calls, call{method: "Table", args: []any{headers, rows}})
 }
 func (m *mockOutputInterface) Blank() {
-	m.calls = append(m.calls, call{method: "Blank", args: []interface{}{}})
+	m.calls = append(m.calls, call{method: "Blank", args: []any{}})
 }
 func (m *mockOutputInterface) Bold(text string) string {
 	return text
@@ -96,10 +96,10 @@ func (m *mockOutputInterface) Cyan(text string) string {
 	return text
 }
 func (m *mockOutputInterface) KeyValue(key, value string) {
-	m.calls = append(m.calls, call{method: "KeyValue", args: []interface{}{key, value}})
+	m.calls = append(m.calls, call{method: "KeyValue", args: []any{key, value}})
 }
 func (m *mockOutputInterface) Prompt(prompt string) string {
-	m.calls = append(m.calls, call{method: "Prompt", args: []interface{}{prompt}})
+	m.calls = append(m.calls, call{method: "Prompt", args: []any{prompt}})
 	// Return empty string by default - tests can override by checking calls
 	return ""
 }

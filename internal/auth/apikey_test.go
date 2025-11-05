@@ -130,7 +130,7 @@ func computeExpectedHash(input string) string {
 
 // Benchmark for API key generation
 func BenchmarkGenerateAPIKey(b *testing.B) {
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_, _ = GenerateAPIKey()
 	}
 }
@@ -166,16 +166,15 @@ func TestGenerateSecretToken(t *testing.T) {
 // Benchmark for API key hashing
 func BenchmarkHashAPIKey(b *testing.B) {
 	apiKey := "test-key-for-benchmarking-12345"
-	b.ResetTimer()
 
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_ = HashAPIKey(apiKey)
 	}
 }
 
 // Benchmark for secret token generation
 func BenchmarkGenerateSecretToken(b *testing.B) {
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_, _ = GenerateSecretToken()
 	}
 }

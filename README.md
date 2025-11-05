@@ -243,11 +243,11 @@ For more information about the development workflow, see [Development with `just
 runvoy uses a serverless event-driven architecture built on AWS resources:
 
 - **Orchestrator Lambda**: HTTPS endpoint (Function URL) for synchronous API requests
-- **Event Processor Lambda**: Asynchronous event handler for ECS task completions
-- **WebSocket API**: API Gateway endpoint for WebSocket connections (HTTP) for streaming logs in real-time
+- **Event Processor Lambda**: Asynchronous event handler for ECS task completions and WebSocket disconnect notifications
+- **WebSocket API**: API Gateway endpoint for WebSocket connections for streaming logs in real-time
 - **Log Forwarder Lambda**: Pushes logs to WebSocket connections for streaming in real-time
-- **Connection Manager Lambda**: Manages WebSocket connections for log streaming
-- **DynamoDB**: Stores API keys (hashed), execution records with status, etc.
+- **WebSocket Manager Lambda**: Manages WebSocket connection lifecycle ($connect, $disconnect) and sends disconnect notifications when executions complete
+- **DynamoDB**: Stores API keys (hashed), execution records with status, and WebSocket connection records
 - **ECS Fargate**: Runs commands in isolated, ephemeral ARM64 containers (sidecar)
 - **EventBridge**: Captures ECS task state changes for completion tracking
 - **CloudWatch**: Logs all executions for audit and debugging, forwards logs to WebSocket connections for streaming in real-time
@@ -266,7 +266,7 @@ runvoy --help
 ```
 
 ```bash
-runvoy - 0.1.0-20251104-8e794ab
+runvoy - 0.1.0-20251105-47e6895
 Isolated, repeatable execution environments for your commands
 
 Usage:
@@ -404,6 +404,7 @@ The web viewer is hosted on AWS S3 by default, but you can configure a custom UR
 **Configuration:**
 
 The web viewer URL can be customized via:
+
 - Environment variable: `RUNVOY_WEBVIEWER_URL`
 - Config file (`~/.runvoy/config.yaml`): `webviewer_url` field
 
@@ -535,4 +536,4 @@ All commands honor the environment variables described in the `justfile`; AWS cr
 
 1. Clone the repository:
 
-```
+```bash

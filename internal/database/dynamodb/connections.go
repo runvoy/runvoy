@@ -87,7 +87,7 @@ func (r *ConnectionRepository) CreateConnection(
 		return appErrors.ErrDatabaseError("failed to store connection", err)
 	}
 
-	reqLogger.Info("connection stored successfully", "context", map[string]any{
+	reqLogger.Debug("connection stored successfully", "context", map[string]string{
 		"connection_id": connection.ConnectionID,
 		"execution_id":  connection.ExecutionID,
 		"functionality": connection.Functionality,
@@ -95,39 +95,40 @@ func (r *ConnectionRepository) CreateConnection(
 	return nil
 }
 
-// DeleteConnection removes a WebSocket connection from DynamoDB by connection ID.
-func (r *ConnectionRepository) DeleteConnection(ctx context.Context, connectionID string) error {
+// DeleteConnections removes WebSocket connections from DynamoDB by connection IDs using batch delete.
+func (r *ConnectionRepository) DeleteConnections(ctx context.Context, connectionIDs []string) (int, error) {
 	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
 
-	key := map[string]interface{}{
-		"connection_id": connectionID,
-	}
-
-	keyAV, err := attributevalue.MarshalMap(key)
-	if err != nil {
-		return appErrors.ErrDatabaseError("failed to marshal connection key", err)
+	if len(connectionIDs) == 0 {
+		reqLogger.Debug("no connections to delete")
+		return 0, nil
 	}
 
 	logArgs := []any{
-		"operation", "DynamoDB.DeleteItem",
+		"operation", "DynamoDB.BatchWriteItem",
 		"table", r.tableName,
-		"connection_id", connectionID,
+		"connection_count", len(connectionIDs),
+		"connection_ids", connectionIDs,
 	}
 	logArgs = append(logArgs, logger.GetDeadlineInfo(ctx)...)
 	reqLogger.Debug("calling external service", "context", logger.SliceToMap(logArgs))
 
-	_, err = r.client.DeleteItem(ctx, &dynamodb.DeleteItemInput{
-		TableName: aws.String(r.tableName),
-		Key:       keyAV,
-	})
-	if err != nil {
-		return appErrors.ErrDatabaseError("failed to delete connection", err)
+	deleteRequests, buildErr := r.buildDeleteRequests(connectionIDs)
+	if buildErr != nil {
+		return 0, buildErr
 	}
 
-	reqLogger.Debug("connection deleted successfully", "context", map[string]any{
-		"connection_id": connectionID,
+	deletedCount, batchErr := r.executeBatchDeletes(ctx, deleteRequests)
+	if batchErr != nil {
+		return deletedCount, batchErr
+	}
+
+	reqLogger.Debug("connections deleted successfully", "context", map[string]any{
+		"connections_count": deletedCount,
+		"connection_ids":    connectionIDs,
 	})
-	return nil
+
+	return deletedCount, nil
 }
 
 // GetConnectionsByExecutionID retrieves all active WebSocket connections for a given execution ID
@@ -179,4 +180,55 @@ func (r *ConnectionRepository) GetConnectionsByExecutionID(
 	})
 
 	return connectionIDs, nil
+}
+
+// buildDeleteRequests creates WriteRequest objects for all connection IDs.
+func (r *ConnectionRepository) buildDeleteRequests(connectionIDs []string) ([]types.WriteRequest, error) {
+	deleteRequests := make([]types.WriteRequest, 0, len(connectionIDs))
+
+	for _, connID := range connectionIDs {
+		key := map[string]string{
+			"connection_id": connID,
+		}
+		keyAV, err := attributevalue.MarshalMap(key)
+		if err != nil {
+			return nil, appErrors.ErrDatabaseError("failed to marshal connection key", err)
+		}
+
+		deleteRequests = append(deleteRequests, types.WriteRequest{
+			DeleteRequest: &types.DeleteRequest{
+				Key: keyAV,
+			},
+		})
+	}
+
+	return deleteRequests, nil
+}
+
+// executeBatchDeletes processes delete requests in batches respecting DynamoDB's 25-item limit.
+func (r *ConnectionRepository) executeBatchDeletes(
+	ctx context.Context,
+	deleteRequests []types.WriteRequest,
+) (int, error) {
+	const batchSize = 25
+	deletedCount := 0
+
+	for i := 0; i < len(deleteRequests); i += batchSize {
+		end := min(i+batchSize, len(deleteRequests))
+
+		batchRequests := deleteRequests[i:end]
+
+		_, err := r.client.BatchWriteItem(ctx, &dynamodb.BatchWriteItemInput{
+			RequestItems: map[string][]types.WriteRequest{
+				r.tableName: batchRequests,
+			},
+		})
+		if err != nil {
+			return deletedCount, appErrors.ErrDatabaseError("failed to delete connections batch", err)
+		}
+
+		deletedCount += len(batchRequests)
+	}
+
+	return deletedCount, nil
 }
