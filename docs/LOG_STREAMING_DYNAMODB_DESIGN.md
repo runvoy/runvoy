@@ -92,11 +92,9 @@ type LogRepository interface {
 - Enable WebSocket streaming
 
 #### For COMPLETED Executions (SUCCEEDED, FAILED, STOPPED)
-- **Opportunistic DynamoDB check**: Try DynamoDB first (faster if logs exist from RUNNING period)
-- **Verify completeness**: Check if all logs are present (prevents race condition data loss)
-- **CloudWatch fallback**: If DynamoDB incomplete, fetch from CloudWatch (guaranteed complete)
+- Read directly from CloudWatch Logs (no DynamoDB storage needed)
 - No WebSocket URL provided
-- Optimized for performance while ensuring no data loss
+- Simpler, faster, no storage overhead
 
 **Flow**:
 1. **Check execution status** from DynamoDB execution record
@@ -109,11 +107,9 @@ type LogRepository interface {
      - Store in DynamoDB using batch write
      - Return indexed logs with `last_index` + WebSocket URL
 3. **If execution is COMPLETED** (SUCCEEDED, FAILED, STOPPED):
-   - **Try DynamoDB first**: Check if logs exist from RUNNING period (fast path)
-   - **Verify completeness**: Ensure DynamoDB has all logs including final logs after completion
-   - **CloudWatch fallback**: If DynamoDB incomplete or missing, fetch from CloudWatch
-   - **Race condition protection**: Verification prevents missing logs from Log Forwarder processing delays
-   - Return indexed logs (no WebSocket URL provided)
+   - Fetch directly from CloudWatch Logs (no DynamoDB storage)
+   - Return logs with simple sequential indexes (for display only)
+   - No WebSocket URL provided
 
 **Pseudo-code**:
 ```go
@@ -192,82 +188,7 @@ func (s *Service) getLogsForCompletedExecution(
     executionID string,
     status string,
 ) (*api.LogsResponse, error) {
-    // Opportunistic: Try DynamoDB first (faster, already indexed)
-    // Logs might already be stored from when execution was RUNNING
-    maxIndex, err := s.logRepo.GetMaxIndex(ctx, executionID)
-    if err != nil {
-        // Log error but continue to CloudWatch fallback
-        s.logger.Debug("failed to check DynamoDB for completed execution", 
-            "execution_id", executionID, "error", err)
-    }
-    
-    if maxIndex > 0 {
-        // Logs exist in DynamoDB, but we need to verify completeness
-        // Race condition: Log Forwarder might still be processing final logs
-        // Solution: Verify we have all logs by checking execution completion time
-        indexedEvents, err := s.logRepo.GetLogsSinceIndex(ctx, executionID, 0)
-        if err == nil {
-            // Verify completeness: Check if DynamoDB has all logs including final logs
-            // Race condition: If execution completed recently, Log Forwarder might still be processing
-            execution, err := s.executionRepo.GetExecution(ctx, executionID)
-            if err == nil && execution.CompletedAt != nil {
-                completionTime := execution.CompletedAt.UnixMilli()
-                lastLogTime := getLastLogTimestamp(indexedEvents)
-                currentTime := time.Now().UnixMilli()
-                bufferTime := 30 * 1000 // 30 seconds in milliseconds
-                
-                // Check for race condition: execution completed recently
-                timeSinceCompletion := currentTime - completionTime
-                if timeSinceCompletion < bufferTime {
-                    // Execution completed recently: verify last log is close to completion
-                    timeDiff := completionTime - lastLogTime
-                    if timeDiff > bufferTime {
-                        // Last log is too old relative to completion - might be missing final logs
-                        s.logger.Debug("DynamoDB logs may be incomplete (race condition), using CloudWatch fallback",
-                            "execution_id", executionID,
-                            "last_log_time", lastLogTime,
-                            "completion_time", completionTime,
-                            "time_diff", timeDiff,
-                        )
-                        // Fall through to CloudWatch fallback
-                    } else {
-                        // Safe to use DynamoDB: last log is close to completion
-                        return &api.LogsResponse{
-                            ExecutionID:  executionID,
-                            Events:       indexedEvents,
-                            Status:       status,
-                            LastIndex:    maxIndex,
-                            WebSocketURL: "", // No streaming for completed executions
-                        }, nil
-                    }
-                } else {
-                    // Execution completed long ago: Log Forwarder has processed all logs
-                    return &api.LogsResponse{
-                        ExecutionID:  executionID,
-                        Events:       indexedEvents,
-                        Status:       status,
-                        LastIndex:    maxIndex,
-                        WebSocketURL: "", // No streaming for completed executions
-                    }, nil
-                }
-            } else {
-                // No completion time available, use DynamoDB (execution might be very old)
-                return &api.LogsResponse{
-                    ExecutionID:  executionID,
-                    Events:       indexedEvents,
-                    Status:       status,
-                    LastIndex:    maxIndex,
-                    WebSocketURL: "", // No streaming for completed executions
-                }, nil
-            }
-        }
-    }
-    
-    // Fallback: Fetch directly from CloudWatch (guaranteed complete)
-    // This handles:
-    // - No logs in DynamoDB (execution completed before first /logs request)
-    // - Race condition: final logs still being processed by Log Forwarder
-    // - DynamoDB errors
+    // Fetch directly from CloudWatch (no DynamoDB storage needed)
     cloudWatchEvents, err := s.runner.FetchLogsByExecutionID(ctx, executionID)
     if err != nil {
         return nil, err
@@ -295,14 +216,6 @@ func (s *Service) getLogsForCompletedExecution(
         LastIndex:    lastIndex,
         WebSocketURL: "", // No streaming for completed executions
     }, nil
-}
-
-// Helper function to get the timestamp of the last log event
-func getLastLogTimestamp(events []api.IndexedLogEvent) int64 {
-    if len(events) == 0 {
-        return 0
-    }
-    return events[len(events)-1].Timestamp
 }
 ```
 

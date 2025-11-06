@@ -106,7 +106,7 @@ func (s *Service) getLogsForRunningExecution(ctx context.Context, executionID st
 }
 ```
 
-### COMPLETED Execution Flow (Opportunistic with Safety)
+### COMPLETED Execution Flow
 
 ```go
 func (s *Service) getLogsForCompletedExecution(
@@ -114,30 +114,7 @@ func (s *Service) getLogsForCompletedExecution(
     executionID string,
     status string,
 ) (*api.LogsResponse, error) {
-    // 1. Opportunistic: Try DynamoDB first (faster, already indexed)
-    // Logs might already be stored from when execution was RUNNING
-    maxIndex, err := s.logRepo.GetMaxIndex(ctx, executionID)
-    if err == nil && maxIndex > 0 {
-        indexedEvents, err := s.logRepo.GetLogsSinceIndex(ctx, executionID, 0)
-        if err == nil {
-            // 2. Verify completeness to prevent race condition data loss
-            // Race condition: Log Forwarder might still be processing final logs
-            if s.isDynamoDBLogsComplete(ctx, executionID, indexedEvents) {
-                // Safe to use DynamoDB: logs are complete
-                return &api.LogsResponse{
-                    ExecutionID:  executionID,
-                    Events:       indexedEvents,
-                    Status:       status,
-                    LastIndex:    maxIndex,
-                    WebSocketURL: "", // ❌ No WebSocket for completed
-                }, nil
-            }
-            // Logs might be incomplete, fall back to CloudWatch
-        }
-    }
-    
-    // 3. Fallback: Fetch directly from CloudWatch (guaranteed complete)
-    // Handles: no logs in DynamoDB, race conditions, DynamoDB errors
+    // Fetch directly from CloudWatch (no DynamoDB storage needed)
     cloudWatchEvents, err := s.runner.FetchLogsByExecutionID(ctx, executionID)
     if err != nil {
         return nil, err
@@ -165,56 +142,7 @@ func (s *Service) getLogsForCompletedExecution(
         WebSocketURL: "", // ❌ No WebSocket for completed
     }, nil
 }
-
-// Verify DynamoDB logs are complete by checking execution completion time
-func (s *Service) isDynamoDBLogsComplete(
-    ctx context.Context,
-    executionID string,
-    indexedEvents []api.IndexedLogEvent,
-) bool {
-    execution, err := s.executionRepo.GetExecution(ctx, executionID)
-    if err != nil || execution.CompletedAt == nil {
-        // No completion time: use DynamoDB (execution might be very old, no race condition)
-        return true
-    }
-    
-    completionTime := execution.CompletedAt.UnixMilli()
-    if len(indexedEvents) == 0 {
-        return false // No logs in DynamoDB
-    }
-    
-    lastLogTime := indexedEvents[len(indexedEvents)-1].Timestamp
-    currentTime := time.Now().UnixMilli()
-    bufferTime := 30 * 1000 // 30 seconds in milliseconds
-    
-    // Race condition check:
-    // If execution completed recently (within buffer), and last log is before completion,
-    // Log Forwarder might still be processing final logs
-    timeSinceCompletion := currentTime - completionTime
-    
-    if timeSinceCompletion < bufferTime {
-        // Execution completed recently: check if last log is close to completion time
-        // If last log is significantly before completion, we might be missing final logs
-        timeDiff := completionTime - lastLogTime
-        if timeDiff > bufferTime {
-            // Last log is too old relative to completion - might be missing final logs
-            return false
-        }
-    }
-    
-    // Safe to use DynamoDB:
-    // - Execution completed long ago (Log Forwarder has processed all logs)
-    // - OR last log is close to completion time (likely complete)
-    return true
-}
 ```
-
-**Race Condition Protection**:
-
-The verification checks if execution completed recently and if DynamoDB has logs close to the completion time. This ensures:
-- ✅ **No data loss**: If execution completed recently and last log is too old, we fall back to CloudWatch
-- ✅ **Performance**: Fast path when DynamoDB is complete (execution completed long ago or logs are recent)
-- ✅ **Safety**: Always verify completeness before using DynamoDB for recently completed executions
 
 ### Log Forwarder Enhancement
 
@@ -320,36 +248,12 @@ When an execution transitions from RUNNING to COMPLETED:
    - Verify DynamoDB logs still accessible (for backward compatibility)
    - Verify new requests use CloudWatch direct read
 
-## Race Condition Handling
-
-### The Problem
-
-When an execution completes:
-1. Execution status changes to COMPLETED
-2. Log Forwarder might still be processing final logs that arrived just before completion
-3. If we read from DynamoDB immediately, we might miss these final logs
-
-### The Solution
-
-**Verification Strategy**:
-1. Check DynamoDB first (fast path)
-2. Verify completeness by comparing last log timestamp to execution completion time
-3. Use a 30-second buffer to account for Log Forwarder processing delay
-4. If verification fails, fall back to CloudWatch (guaranteed complete)
-
-**Safety Guarantees**:
-- ✅ **No data loss**: CloudWatch fallback ensures all logs are retrieved
-- ✅ **Performance**: Fast DynamoDB path when logs are complete
-- ✅ **Race condition safe**: Verification prevents missing final logs
-- ✅ **Handles edge cases**: Works even if execution completed before first /logs request
-
 ## Summary
 
 The status-based strategy optimizes for:
-- **Performance**: Faster reads for completed executions (opportunistic DynamoDB)
-- **Safety**: No data loss (CloudWatch fallback with verification)
-- **Cost**: Efficient use of DynamoDB when available
-- **Simplicity**: No streaming complexity for finished executions
+- **Performance**: Faster reads for completed executions (direct CloudWatch, no DynamoDB overhead)
+- **Simplicity**: No storage complexity for completed executions
+- **Cost**: No storage for completed executions
 - **Flexibility**: Real-time streaming only when needed (RUNNING)
 
-This ensures the system is efficient, cost-effective, and safe while maintaining the full streaming capabilities for active executions.
+This ensures the system is efficient, cost-effective, and simple while maintaining the full streaming capabilities for active executions.
