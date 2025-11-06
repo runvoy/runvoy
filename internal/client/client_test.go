@@ -53,7 +53,7 @@ func TestClient_Do(t *testing.T) {
 					assert.Equal(t, "application/json", r.Header.Get("Content-Type"))
 					assert.Equal(t, "test-api-key", r.Header.Get("X-API-Key"))
 					w.WriteHeader(http.StatusOK)
-					w.Write([]byte(`{"message": "success"}`))
+					_, _ = w.Write([]byte(`{"message": "success"}`))
 				}))
 			},
 			request: Request{
@@ -73,10 +73,10 @@ func TestClient_Do(t *testing.T) {
 				return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 					assert.Equal(t, "POST", r.Method)
 					var body map[string]interface{}
-					json.NewDecoder(r.Body).Decode(&body)
+					_ = json.NewDecoder(r.Body).Decode(&body)
 					assert.Equal(t, "test-value", body["test"])
 					w.WriteHeader(http.StatusCreated)
-					w.Write([]byte(`{"id": "123"}`))
+					_, _ = w.Write([]byte(`{"id": "123"}`))
 				}))
 			},
 			request: Request{
@@ -92,7 +92,7 @@ func TestClient_Do(t *testing.T) {
 			setupServer: func() *httptest.Server {
 				return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 					w.WriteHeader(http.StatusInternalServerError)
-					w.Write([]byte(`{"error": "internal error"}`))
+					_, _ = w.Write([]byte(`{"error": "internal error"}`))
 				}))
 			},
 			request: Request{
@@ -160,7 +160,7 @@ func TestClient_DoJSON(t *testing.T) {
 			setupServer: func() *httptest.Server {
 				return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 					w.WriteHeader(http.StatusOK)
-					w.Write([]byte(`{"execution_id": "test-123", "status": "RUNNING"}`))
+					_, _ = w.Write([]byte(`{"execution_id": "test-123", "status": "RUNNING"}`))
 				}))
 			},
 			request: Request{
@@ -175,7 +175,7 @@ func TestClient_DoJSON(t *testing.T) {
 			setupServer: func() *httptest.Server {
 				return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 					w.WriteHeader(http.StatusNotFound)
-					w.Write([]byte(`{"error": "Not Found", "details": "Resource not found"}`))
+					_, _ = w.Write([]byte(`{"error": "Not Found", "details": "Resource not found"}`))
 				}))
 			},
 			request: Request{
@@ -191,7 +191,7 @@ func TestClient_DoJSON(t *testing.T) {
 			setupServer: func() *httptest.Server {
 				return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 					w.WriteHeader(http.StatusBadRequest)
-					w.Write([]byte(`not json`))
+					_, _ = w.Write([]byte(`not json`))
 				}))
 			},
 			request: Request{
@@ -207,7 +207,7 @@ func TestClient_DoJSON(t *testing.T) {
 			setupServer: func() *httptest.Server {
 				return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 					w.WriteHeader(http.StatusOK)
-					w.Write([]byte(`not valid json`))
+					_, _ = w.Write([]byte(`not valid json`))
 				}))
 			},
 			request: Request{
@@ -223,7 +223,7 @@ func TestClient_DoJSON(t *testing.T) {
 			setupServer: func() *httptest.Server {
 				return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 					w.WriteHeader(http.StatusOK)
-					w.Write([]byte(`[{"execution_id": "test-1"}, {"execution_id": "test-2"}]`))
+					_, _ = w.Write([]byte(`[{"execution_id": "test-1"}, {"execution_id": "test-2"}]`))
 				}))
 			},
 			request: Request{
@@ -267,11 +267,11 @@ func TestClient_CreateUser(t *testing.T) {
 			assert.Equal(t, "/api/v1/users/create", r.URL.Path)
 
 			var req api.CreateUserRequest
-			json.NewDecoder(r.Body).Decode(&req)
+			_ = json.NewDecoder(r.Body).Decode(&req)
 			assert.Equal(t, "user@example.com", req.Email)
 
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(api.CreateUserResponse{
+			_ = json.NewEncoder(w).Encode(api.CreateUserResponse{
 				User: &api.User{
 					Email:     "user@example.com",
 					APIKey:    "test-key",
@@ -301,7 +301,7 @@ func TestClient_CreateUser(t *testing.T) {
 	t.Run("error response", func(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusConflict)
-			json.NewEncoder(w).Encode(api.ErrorResponse{
+			_ = json.NewEncoder(w).Encode(api.ErrorResponse{
 				Error:   "Conflict",
 				Details: "User already exists",
 			})
@@ -331,11 +331,11 @@ func TestClient_RevokeUser(t *testing.T) {
 			assert.Equal(t, "/api/v1/users/revoke", r.URL.Path)
 
 			var req api.RevokeUserRequest
-			json.NewDecoder(r.Body).Decode(&req)
+			_ = json.NewDecoder(r.Body).Decode(&req)
 			assert.Equal(t, "user@example.com", req.Email)
 
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(api.RevokeUserResponse{
+			_ = json.NewEncoder(w).Encode(api.RevokeUserResponse{
 				Email:   "user@example.com",
 				Message: "User revoked successfully",
 			})
@@ -366,7 +366,7 @@ func TestClient_ListUsers(t *testing.T) {
 			assert.Equal(t, "/api/v1/users/", r.URL.Path)
 
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(api.ListUsersResponse{
+			_ = json.NewEncoder(w).Encode(api.ListUsersResponse{
 				Users: []*api.User{
 					{Email: "user1@example.com"},
 					{Email: "user2@example.com"},
@@ -397,7 +397,7 @@ func TestClient_GetHealth(t *testing.T) {
 			assert.Equal(t, "/api/v1/health", r.URL.Path)
 
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(api.HealthResponse{
+			_ = json.NewEncoder(w).Encode(api.HealthResponse{
 				Status:  "healthy",
 				Version: "1.0.0",
 			})
@@ -426,11 +426,11 @@ func TestClient_RunCommand(t *testing.T) {
 			assert.Equal(t, "/api/v1/run", r.URL.Path)
 
 			var req api.ExecutionRequest
-			json.NewDecoder(r.Body).Decode(&req)
+			_ = json.NewDecoder(r.Body).Decode(&req)
 			assert.Equal(t, "echo hello", req.Command)
 
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(api.ExecutionResponse{
+			_ = json.NewEncoder(w).Encode(api.ExecutionResponse{
 				ExecutionID: "exec-123",
 				LogURL:      "https://example.com/logs/exec-123",
 				Status:      "RUNNING",
@@ -462,7 +462,7 @@ func TestClient_GetLogs(t *testing.T) {
 			assert.Equal(t, "/api/v1/executions/exec-123/logs", r.URL.Path)
 
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(api.LogsResponse{
+			_ = json.NewEncoder(w).Encode(api.LogsResponse{
 				ExecutionID: "exec-123",
 				Status:      "RUNNING",
 				Events: []api.LogEvent{
@@ -497,7 +497,7 @@ func TestClient_GetExecutionStatus(t *testing.T) {
 			assert.True(t, strings.HasSuffix(r.URL.Path, "/status"))
 
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(api.ExecutionStatusResponse{
+			_ = json.NewEncoder(w).Encode(api.ExecutionStatusResponse{
 				ExecutionID: "exec-123",
 				Status:      "SUCCEEDED",
 				ExitCode:    intPtr(0),
@@ -530,7 +530,7 @@ func TestClient_KillExecution(t *testing.T) {
 			assert.True(t, strings.HasSuffix(r.URL.Path, "/kill"))
 
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(api.KillExecutionResponse{
+			_ = json.NewEncoder(w).Encode(api.KillExecutionResponse{
 				ExecutionID: "exec-123",
 				Message:     "Execution killed successfully",
 			})
@@ -559,7 +559,7 @@ func TestClient_ListExecutions(t *testing.T) {
 			assert.Equal(t, "/api/v1/executions", r.URL.Path)
 
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode([]api.Execution{
+			_ = json.NewEncoder(w).Encode([]api.Execution{
 				{ExecutionID: "exec-1", Status: "SUCCEEDED"},
 				{ExecutionID: "exec-2", Status: "RUNNING"},
 			})
@@ -589,7 +589,7 @@ func TestClient_ClaimAPIKey(t *testing.T) {
 			assert.True(t, strings.HasPrefix(r.URL.Path, "/api/v1/claim/"))
 
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(api.ClaimAPIKeyResponse{
+			_ = json.NewEncoder(w).Encode(api.ClaimAPIKeyResponse{
 				APIKey:    "claimed-api-key",
 				UserEmail: "user@example.com",
 				Message:   "API key claimed successfully",
@@ -619,13 +619,13 @@ func TestClient_RegisterImage(t *testing.T) {
 			assert.Equal(t, "/api/v1/images/register", r.URL.Path)
 
 			var req api.RegisterImageRequest
-			json.NewDecoder(r.Body).Decode(&req)
+			_ = json.NewDecoder(r.Body).Decode(&req)
 			assert.Equal(t, "ubuntu:22.04", req.Image)
 			assert.NotNil(t, req.IsDefault)
 			assert.True(t, *req.IsDefault)
 
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(api.RegisterImageResponse{
+			_ = json.NewEncoder(w).Encode(api.RegisterImageResponse{
 				Image:   "ubuntu:22.04",
 				Message: "Image registered successfully",
 			})
@@ -650,12 +650,12 @@ func TestClient_RegisterImage(t *testing.T) {
 	t.Run("register image without default flag", func(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			var req api.RegisterImageRequest
-			json.NewDecoder(r.Body).Decode(&req)
+			_ = json.NewDecoder(r.Body).Decode(&req)
 			assert.Equal(t, "ubuntu:22.04", req.Image)
 			assert.Nil(t, req.IsDefault)
 
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(api.RegisterImageResponse{
+			_ = json.NewEncoder(w).Encode(api.RegisterImageResponse{
 				Image:   "ubuntu:22.04",
 				Message: "Image registered successfully",
 			})
@@ -682,7 +682,7 @@ func TestClient_ListImages(t *testing.T) {
 			assert.Equal(t, "/api/v1/images", r.URL.Path)
 
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(api.ListImagesResponse{
+			_ = json.NewEncoder(w).Encode(api.ListImagesResponse{
 				Images: []api.ImageInfo{
 					{Image: "ubuntu:22.04", IsDefault: boolPtr(true)},
 					{Image: "alpine:latest", IsDefault: boolPtr(false)},
@@ -715,7 +715,7 @@ func TestClient_UnregisterImage(t *testing.T) {
 			assert.True(t, strings.Contains(r.URL.Path, "ubuntu:22.04"))
 
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(api.RemoveImageResponse{
+			_ = json.NewEncoder(w).Encode(api.RemoveImageResponse{
 				Image:   "ubuntu:22.04",
 				Message: "Image unregistered successfully",
 			})
