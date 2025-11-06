@@ -24,14 +24,14 @@ func TestNew(t *testing.T) {
 	}
 	logger := testutil.SilentLogger()
 
-	client := New(cfg, logger)
+	c := New(cfg, logger)
 
-	if client.config != cfg {
-		t.Errorf("Expected config to be %v, got %v", cfg, client.config)
+	if c.config != cfg {
+		t.Errorf("Expected config to be %v, got %v", cfg, c.config)
 	}
 
-	if client.logger != logger {
-		t.Errorf("Expected logger to be %v, got %v", logger, client.logger)
+	if c.logger != logger {
+		t.Errorf("Expected logger to be %v, got %v", logger, c.logger)
 	}
 }
 
@@ -127,9 +127,9 @@ func TestClient_Do(t *testing.T) {
 				APIEndpoint: server.URL,
 				APIKey:      "test-api-key",
 			}
-			client := New(cfg, testutil.SilentLogger())
+			c := New(cfg, testutil.SilentLogger())
 
-			resp, err := client.Do(context.Background(), tt.request)
+			resp, err := c.Do(context.Background(), tt.request)
 
 			if tt.wantErr {
 				require.Error(t, err)
@@ -153,7 +153,7 @@ func TestClient_DoJSON(t *testing.T) {
 		request     Request
 		result      interface{}
 		wantErr     bool
-		errContains  string
+		errContains string
 	}{
 		{
 			name: "successful request with JSON response",
@@ -167,7 +167,7 @@ func TestClient_DoJSON(t *testing.T) {
 				Method: "GET",
 				Path:   "/api/v1/executions/test-123",
 			},
-			result: &api.ExecutionStatusResponse{},
+			result:  &api.ExecutionStatusResponse{},
 			wantErr: false,
 		},
 		{
@@ -182,8 +182,8 @@ func TestClient_DoJSON(t *testing.T) {
 				Method: "GET",
 				Path:   "/api/v1/executions/missing",
 			},
-			result:     &api.ExecutionStatusResponse{},
-			wantErr:    true,
+			result:      &api.ExecutionStatusResponse{},
+			wantErr:     true,
 			errContains: "[404] Not Found: Resource not found",
 		},
 		{
@@ -244,9 +244,9 @@ func TestClient_DoJSON(t *testing.T) {
 				APIEndpoint: server.URL,
 				APIKey:      "test-api-key",
 			}
-			client := New(cfg, testutil.SilentLogger())
+			c := New(cfg, testutil.SilentLogger())
 
-			err := client.DoJSON(context.Background(), tt.request, tt.result)
+			err := c.DoJSON(context.Background(), tt.request, tt.result)
 
 			if tt.wantErr {
 				require.Error(t, err)
@@ -286,9 +286,9 @@ func TestClient_CreateUser(t *testing.T) {
 			APIEndpoint: server.URL,
 			APIKey:      "test-api-key",
 		}
-		client := New(cfg, testutil.SilentLogger())
+		c := New(cfg, testutil.SilentLogger())
 
-		resp, err := client.CreateUser(context.Background(), api.CreateUserRequest{
+		resp, err := c.CreateUser(context.Background(), api.CreateUserRequest{
 			Email: "user@example.com",
 		})
 
@@ -312,9 +312,9 @@ func TestClient_CreateUser(t *testing.T) {
 			APIEndpoint: server.URL,
 			APIKey:      "test-api-key",
 		}
-		client := New(cfg, testutil.SilentLogger())
+		c := New(cfg, testutil.SilentLogger())
 
-		resp, err := client.CreateUser(context.Background(), api.CreateUserRequest{
+		resp, err := c.CreateUser(context.Background(), api.CreateUserRequest{
 			Email: "user@example.com",
 		})
 
@@ -346,9 +346,9 @@ func TestClient_RevokeUser(t *testing.T) {
 			APIEndpoint: server.URL,
 			APIKey:      "test-api-key",
 		}
-		client := New(cfg, testutil.SilentLogger())
+		c := New(cfg, testutil.SilentLogger())
 
-		resp, err := client.RevokeUser(context.Background(), api.RevokeUserRequest{
+		resp, err := c.RevokeUser(context.Background(), api.RevokeUserRequest{
 			Email: "user@example.com",
 		})
 
@@ -379,9 +379,9 @@ func TestClient_ListUsers(t *testing.T) {
 			APIEndpoint: server.URL,
 			APIKey:      "test-api-key",
 		}
-		client := New(cfg, testutil.SilentLogger())
+		c := New(cfg, testutil.SilentLogger())
 
-		resp, err := client.ListUsers(context.Background())
+		resp, err := c.ListUsers(context.Background())
 
 		require.NoError(t, err)
 		require.NotNil(t, resp)
@@ -408,9 +408,9 @@ func TestClient_GetHealth(t *testing.T) {
 			APIEndpoint: server.URL,
 			APIKey:      "test-api-key",
 		}
-		client := New(cfg, testutil.SilentLogger())
+		c := New(cfg, testutil.SilentLogger())
 
-		resp, err := client.GetHealth(context.Background())
+		resp, err := c.GetHealth(context.Background())
 
 		require.NoError(t, err)
 		require.NotNil(t, resp)
@@ -432,8 +432,8 @@ func TestClient_RunCommand(t *testing.T) {
 			w.WriteHeader(http.StatusOK)
 			json.NewEncoder(w).Encode(api.ExecutionResponse{
 				ExecutionID: "exec-123",
-				LogURL:     "https://example.com/logs/exec-123",
-				Status:     "RUNNING",
+				LogURL:      "https://example.com/logs/exec-123",
+				Status:      "RUNNING",
 			})
 		}))
 		defer server.Close()
@@ -442,9 +442,9 @@ func TestClient_RunCommand(t *testing.T) {
 			APIEndpoint: server.URL,
 			APIKey:      "test-api-key",
 		}
-		client := New(cfg, testutil.SilentLogger())
+		c := New(cfg, testutil.SilentLogger())
 
-		resp, err := client.RunCommand(context.Background(), &api.ExecutionRequest{
+		resp, err := c.RunCommand(context.Background(), &api.ExecutionRequest{
 			Command: "echo hello",
 		})
 
@@ -464,7 +464,7 @@ func TestClient_GetLogs(t *testing.T) {
 			w.WriteHeader(http.StatusOK)
 			json.NewEncoder(w).Encode(api.LogsResponse{
 				ExecutionID: "exec-123",
-				Status:     "RUNNING",
+				Status:      "RUNNING",
 				Events: []api.LogEvent{
 					{Timestamp: 1000, Message: "log line 1"},
 					{Timestamp: 2000, Message: "log line 2"},
@@ -477,9 +477,9 @@ func TestClient_GetLogs(t *testing.T) {
 			APIEndpoint: server.URL,
 			APIKey:      "test-api-key",
 		}
-		client := New(cfg, testutil.SilentLogger())
+		c := New(cfg, testutil.SilentLogger())
 
-		resp, err := client.GetLogs(context.Background(), "exec-123")
+		resp, err := c.GetLogs(context.Background(), "exec-123")
 
 		require.NoError(t, err)
 		require.NotNil(t, resp)
@@ -499,8 +499,8 @@ func TestClient_GetExecutionStatus(t *testing.T) {
 			w.WriteHeader(http.StatusOK)
 			json.NewEncoder(w).Encode(api.ExecutionStatusResponse{
 				ExecutionID: "exec-123",
-				Status:     "SUCCEEDED",
-				ExitCode:   intPtr(0),
+				Status:      "SUCCEEDED",
+				ExitCode:    intPtr(0),
 			})
 		}))
 		defer server.Close()
@@ -509,9 +509,9 @@ func TestClient_GetExecutionStatus(t *testing.T) {
 			APIEndpoint: server.URL,
 			APIKey:      "test-api-key",
 		}
-		client := New(cfg, testutil.SilentLogger())
+		c := New(cfg, testutil.SilentLogger())
 
-		resp, err := client.GetExecutionStatus(context.Background(), "exec-123")
+		resp, err := c.GetExecutionStatus(context.Background(), "exec-123")
 
 		require.NoError(t, err)
 		require.NotNil(t, resp)
@@ -532,7 +532,7 @@ func TestClient_KillExecution(t *testing.T) {
 			w.WriteHeader(http.StatusOK)
 			json.NewEncoder(w).Encode(api.KillExecutionResponse{
 				ExecutionID: "exec-123",
-				Message:    "Execution killed successfully",
+				Message:     "Execution killed successfully",
 			})
 		}))
 		defer server.Close()
@@ -541,9 +541,9 @@ func TestClient_KillExecution(t *testing.T) {
 			APIEndpoint: server.URL,
 			APIKey:      "test-api-key",
 		}
-		client := New(cfg, testutil.SilentLogger())
+		c := New(cfg, testutil.SilentLogger())
 
-		resp, err := client.KillExecution(context.Background(), "exec-123")
+		resp, err := c.KillExecution(context.Background(), "exec-123")
 
 		require.NoError(t, err)
 		require.NotNil(t, resp)
@@ -570,9 +570,9 @@ func TestClient_ListExecutions(t *testing.T) {
 			APIEndpoint: server.URL,
 			APIKey:      "test-api-key",
 		}
-		client := New(cfg, testutil.SilentLogger())
+		c := New(cfg, testutil.SilentLogger())
 
-		executions, err := client.ListExecutions(context.Background())
+		executions, err := c.ListExecutions(context.Background())
 
 		require.NoError(t, err)
 		require.NotNil(t, executions)
@@ -601,9 +601,9 @@ func TestClient_ClaimAPIKey(t *testing.T) {
 			APIEndpoint: server.URL,
 			APIKey:      "test-api-key",
 		}
-		client := New(cfg, testutil.SilentLogger())
+		c := New(cfg, testutil.SilentLogger())
 
-		resp, err := client.ClaimAPIKey(context.Background(), "claim-token-123")
+		resp, err := c.ClaimAPIKey(context.Background(), "claim-token-123")
 
 		require.NoError(t, err)
 		require.NotNil(t, resp)
@@ -636,10 +636,10 @@ func TestClient_RegisterImage(t *testing.T) {
 			APIEndpoint: server.URL,
 			APIKey:      "test-api-key",
 		}
-		client := New(cfg, testutil.SilentLogger())
+		c := New(cfg, testutil.SilentLogger())
 
 		isDefault := true
-		resp, err := client.RegisterImage(context.Background(), "ubuntu:22.04", &isDefault)
+		resp, err := c.RegisterImage(context.Background(), "ubuntu:22.04", &isDefault)
 
 		require.NoError(t, err)
 		require.NotNil(t, resp)
@@ -666,9 +666,9 @@ func TestClient_RegisterImage(t *testing.T) {
 			APIEndpoint: server.URL,
 			APIKey:      "test-api-key",
 		}
-		client := New(cfg, testutil.SilentLogger())
+		c := New(cfg, testutil.SilentLogger())
 
-		resp, err := client.RegisterImage(context.Background(), "ubuntu:22.04", nil)
+		resp, err := c.RegisterImage(context.Background(), "ubuntu:22.04", nil)
 
 		require.NoError(t, err)
 		require.NotNil(t, resp)
@@ -695,9 +695,9 @@ func TestClient_ListImages(t *testing.T) {
 			APIEndpoint: server.URL,
 			APIKey:      "test-api-key",
 		}
-		client := New(cfg, testutil.SilentLogger())
+		c := New(cfg, testutil.SilentLogger())
 
-		resp, err := client.ListImages(context.Background())
+		resp, err := c.ListImages(context.Background())
 
 		require.NoError(t, err)
 		require.NotNil(t, resp)
@@ -726,9 +726,9 @@ func TestClient_UnregisterImage(t *testing.T) {
 			APIEndpoint: server.URL,
 			APIKey:      "test-api-key",
 		}
-		client := New(cfg, testutil.SilentLogger())
+		c := New(cfg, testutil.SilentLogger())
 
-		resp, err := client.UnregisterImage(context.Background(), "ubuntu:22.04")
+		resp, err := c.UnregisterImage(context.Background(), "ubuntu:22.04")
 
 		require.NoError(t, err)
 		require.NotNil(t, resp)
