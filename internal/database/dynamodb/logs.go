@@ -3,10 +3,12 @@ package dynamodb
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"strconv"
 
 	"runvoy/internal/api"
+	"runvoy/internal/constants"
 	apperrors "runvoy/internal/errors"
 	"runvoy/internal/logger"
 
@@ -336,7 +338,7 @@ func (r *LogRepository) GetMaxIndex(ctx context.Context, executionID string) (in
 }
 
 // SetExpiration sets TTL for all logs of an execution.
-// Note: This requires scanning all log items for the execution and updating them.
+// Uses TransactWriteItems to batch updates efficiently (up to 25 items per transaction).
 // For efficiency, this should be called sparingly (e.g., when execution completes).
 func (r *LogRepository) SetExpiration(ctx context.Context, executionID string, expiresAt int64) error {
 	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
@@ -350,12 +352,31 @@ func (r *LogRepository) SetExpiration(ctx context.Context, executionID string, e
 			return queryErr
 		}
 
+		// Collect log items to update (skip counter items)
+		var itemsToUpdate []map[string]types.AttributeValue
 		for _, item := range result.Items {
-			count, updateErr := r.updateLogExpiration(ctx, item, executionID, expiresAt)
-			if updateErr != nil {
-				return updateErr
+			var log logItem
+			if err := attributevalue.UnmarshalMap(item, &log); err != nil {
+				return apperrors.ErrDatabaseError("failed to unmarshal log item", err)
 			}
-			updateCount += count
+			// Skip counter items (log_index == 0)
+			if log.LogIndex != 0 {
+				itemsToUpdate = append(itemsToUpdate, item)
+			}
+		}
+
+		// Batch updates using TransactWriteItems (up to 25 items per transaction)
+		if len(itemsToUpdate) > 0 {
+			for i := 0; i < len(itemsToUpdate); i += constants.DynamoDBBatchWriteLimit {
+				end := min(i+constants.DynamoDBBatchWriteLimit, len(itemsToUpdate))
+				batch := itemsToUpdate[i:end]
+
+				count, batchErr := r.batchUpdateExpiration(ctx, batch, executionID, expiresAt)
+				if batchErr != nil {
+					return batchErr
+				}
+				updateCount += count
+			}
 		}
 
 		if len(result.LastEvaluatedKey) == 0 {
@@ -394,48 +415,64 @@ func (r *LogRepository) queryAllLogs(
 	return r.client.Query(ctx, queryInput)
 }
 
-// updateLogExpiration updates expiration for a single log item, skipping counter items.
-func (r *LogRepository) updateLogExpiration(
+// batchUpdateExpiration updates expiration for a batch of log items using TransactWriteItems.
+// DynamoDB allows up to 25 items per transaction.
+func (r *LogRepository) batchUpdateExpiration(
 	ctx context.Context,
-	item map[string]types.AttributeValue,
+	items []map[string]types.AttributeValue,
 	executionID string,
 	expiresAt int64,
 ) (int, error) {
-	var log logItem
-	if err := attributevalue.UnmarshalMap(item, &log); err != nil {
-		return 0, apperrors.ErrDatabaseError("failed to unmarshal log item", err)
-	}
-
-	// Skip counter items
-	if log.LogIndex == 0 {
+	if len(items) == 0 {
 		return 0, nil
 	}
-
-	_, updateErr := r.client.UpdateItem(ctx, &dynamodb.UpdateItemInput{
-		TableName: aws.String(r.tableName),
-		Key: map[string]types.AttributeValue{
-			"execution_id": &types.AttributeValueMemberS{Value: executionID},
-			"log_index":    &types.AttributeValueMemberN{Value: strconv.FormatInt(log.LogIndex, 10)},
-		},
-		UpdateExpression: aws.String("SET expires_at = :expires_at"),
-		ExpressionAttributeValues: map[string]types.AttributeValue{
-			":expires_at": &types.AttributeValueMemberN{Value: strconv.FormatInt(expiresAt, 10)},
-		},
-	})
-
-	if updateErr != nil {
-		return 0, apperrors.ErrDatabaseError("failed to set expiration", updateErr)
+	if len(items) > constants.DynamoDBBatchWriteLimit {
+		return 0, apperrors.ErrDatabaseError(
+			fmt.Sprintf(
+				"batch size exceeds DynamoDB transaction limit of %d",
+				constants.DynamoDBBatchWriteLimit,
+			),
+			nil,
+		)
 	}
 
-	return 1, nil
+	transactItems := make([]types.TransactWriteItem, 0, len(items))
+	for _, item := range items {
+		var log logItem
+		if err := attributevalue.UnmarshalMap(item, &log); err != nil {
+			return 0, apperrors.ErrDatabaseError("failed to unmarshal log item", err)
+		}
+
+		transactItems = append(transactItems, types.TransactWriteItem{
+			Update: &types.Update{
+				TableName: aws.String(r.tableName),
+				Key: map[string]types.AttributeValue{
+					"execution_id": &types.AttributeValueMemberS{Value: executionID},
+					"log_index":    &types.AttributeValueMemberN{Value: strconv.FormatInt(log.LogIndex, 10)},
+				},
+				UpdateExpression: aws.String("SET expires_at = :expires_at"),
+				ExpressionAttributeValues: map[string]types.AttributeValue{
+					":expires_at": &types.AttributeValueMemberN{Value: strconv.FormatInt(expiresAt, 10)},
+				},
+			},
+		})
+	}
+
+	_, err := r.client.TransactWriteItems(ctx, &dynamodb.TransactWriteItemsInput{
+		TransactItems: transactItems,
+	})
+
+	if err != nil {
+		return 0, apperrors.ErrDatabaseError("failed to batch update expiration", err)
+	}
+
+	return len(items), nil
 }
 
 // batchWriteItems processes write requests in batches respecting DynamoDB's 25-item limit.
 func (r *LogRepository) batchWriteItems(ctx context.Context, writeRequests []types.WriteRequest) error {
-	const batchSize = 25
-
-	for i := 0; i < len(writeRequests); i += batchSize {
-		end := min(i+batchSize, len(writeRequests))
+	for i := 0; i < len(writeRequests); i += constants.DynamoDBBatchWriteLimit {
+		end := min(i+constants.DynamoDBBatchWriteLimit, len(writeRequests))
 		batchRequests := writeRequests[i:end]
 
 		_, err := r.client.BatchWriteItem(ctx, &dynamodb.BatchWriteItemInput{

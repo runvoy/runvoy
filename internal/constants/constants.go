@@ -349,3 +349,7 @@ func ExtractExecutionIDFromLogStream(logStream string) string {
 
 // MaxConcurrentSends is the maximum number of concurrent sends to WebSocket connections
 const MaxConcurrentSends = 10
+
+// DynamoDBBatchWriteLimit is the maximum number of items that can be written in a
+// single DynamoDB BatchWriteItem operation
+const DynamoDBBatchWriteLimit = 25

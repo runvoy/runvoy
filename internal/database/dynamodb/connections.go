@@ -6,6 +6,7 @@ import (
 	"log/slog"
 
 	"runvoy/internal/api"
+	"runvoy/internal/constants"
 	"runvoy/internal/database"
 	appErrors "runvoy/internal/errors"
 	"runvoy/internal/logger"
@@ -225,11 +226,10 @@ func (r *ConnectionRepository) executeBatchDeletes(
 	ctx context.Context,
 	deleteRequests []types.WriteRequest,
 ) (int, error) {
-	const batchSize = 25
 	deletedCount := 0
 
-	for i := 0; i < len(deleteRequests); i += batchSize {
-		end := min(i+batchSize, len(deleteRequests))
+	for i := 0; i < len(deleteRequests); i += constants.DynamoDBBatchWriteLimit {
+		end := min(i+constants.DynamoDBBatchWriteLimit, len(deleteRequests))
 
 		batchRequests := deleteRequests[i:end]
 

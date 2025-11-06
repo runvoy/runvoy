@@ -571,7 +571,8 @@ Resources:
                 Action:
                   - 'dynamodb:Query'
                   - 'dynamodb:UpdateItem'
-                # Event processor sets TTL on logs when execution completes
+                  - 'dynamodb:TransactWriteItems'
+                # Event processor sets TTL on logs when execution completes (uses TransactWriteItems for batch updates)
                 Resource:
                   - !GetAtt ExecutionLogsTable.Arn
               - Effect: Allow
