@@ -266,7 +266,7 @@ runvoy --help
 ```
 
 ```text
-runvoy - 0.1.0-20251106-ed969d5
+runvoy - 0.1.0-20251106-0207bbb
 Isolated, repeatable execution environments for your commands
 
 Usage:
@@ -531,3 +531,7 @@ Key targets, grouped by workflow:
 - **Miscellaneous**: `just record-demo` (captures CLI demo as cast and GIF)
 
 All commands honor the environment variables described in the `justfile`; AWS credentials and profiles must already be configured in your shell.
+
+## TODO
+
+- [ ] Axios integration generated subscription filters for CloudWatch Logs outside of CloudFormation, we should automate the removal somehow. See <https://axoim.co/docs/send-data/cloudwatch#remove-subscription-filters>
