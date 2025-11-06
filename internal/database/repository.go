@@ -88,3 +88,25 @@ type ConnectionRepository interface {
 	// Returns a list of connection IDs that are subscribed to the specified execution.
 	GetConnectionsByExecutionID(ctx context.Context, executionID string) ([]string, error)
 }
+
+// LogRepository defines the interface for log storage operations.
+// Logs are stored with sequential indexes for reliable ordering and gap-free streaming.
+type LogRepository interface {
+	// StoreLogs stores log events in DynamoDB with sequential indexes.
+	// Returns the highest index stored.
+	// Uses atomic counter to prevent race conditions when multiple forwarders process logs simultaneously.
+	StoreLogs(ctx context.Context, executionID string, events []api.LogEvent) (int64, error)
+
+	// GetLogsSinceIndex retrieves logs starting from a specific index (exclusive).
+	// Returns logs sorted by log_index ascending.
+	// lastIndex: the highest index the client has already seen (logs with index > lastIndex will be returned).
+	GetLogsSinceIndex(ctx context.Context, executionID string, lastIndex int64) ([]api.IndexedLogEvent, error)
+
+	// GetMaxIndex returns the highest index for an execution (or 0 if none exist).
+	GetMaxIndex(ctx context.Context, executionID string) (int64, error)
+
+	// SetExpiration sets TTL for all logs of an execution.
+	// Updates expires_at attribute for all log items.
+	// expiresAt: Unix timestamp in seconds for TTL.
+	SetExpiration(ctx context.Context, executionID string, expiresAt int64) error
+}

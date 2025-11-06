@@ -84,16 +84,27 @@ type LogEvent struct {
 	Message   string `json:"message"`   // The actual log message text
 }
 
+// IndexedLogEvent extends LogEvent with a sequential index for reliable ordering.
+// The index is unique per execution and enables gap-free streaming.
+type IndexedLogEvent struct {
+	LogEvent
+	Index int64 `json:"index"` // Sequential index (1, 2, 3, ...) per execution
+}
+
 // LogsResponse contains all log events for an execution
 type LogsResponse struct {
-	ExecutionID string     `json:"execution_id"`
-	Events      []LogEvent `json:"events"`
+	ExecutionID string            `json:"execution_id"`
+	Events      []IndexedLogEvent `json:"events"`
 
 	// Current execution status (RUNNING, SUCCEEDED, FAILED, STOPPED)
 	Status string `json:"status"`
 
 	// WebSocket URL for streaming logs (only provided if execution is RUNNING)
 	WebSocketURL string `json:"websocket_url,omitempty"`
+
+	// LastIndex is the highest index in the Events array.
+	// Used by clients to request logs starting from this index via WebSocket.
+	LastIndex int64 `json:"last_index,omitempty"`
 }
 
 // Lock represents a lock record
