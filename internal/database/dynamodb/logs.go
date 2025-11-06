@@ -202,7 +202,7 @@ func (r *LogRepository) initializeCounter(ctx context.Context, executionID strin
 
 // GetLogsSinceIndex retrieves logs starting from a specific index (exclusive).
 // Returns logs sorted by log_index ascending.
-func (r *LogRepository) GetLogsSinceIndex(ctx context.Context, executionID string, lastIndex int64) ([]api.IndexedLogEvent, error) {
+func (r *LogRepository) GetLogsSinceIndex(ctx context.Context, executionID string, lastIndex int64) ([]api.LogEvent, error) {
 	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
 
 	logArgs := []any{
@@ -214,7 +214,7 @@ func (r *LogRepository) GetLogsSinceIndex(ctx context.Context, executionID strin
 	logArgs = append(logArgs, logger.GetDeadlineInfo(ctx)...)
 	reqLogger.Debug("calling external service", "context", logger.SliceToMap(logArgs))
 
-	var indexedEvents []api.IndexedLogEvent
+	var logEvents []api.LogEvent
 	var lastEvaluatedKey map[string]types.AttributeValue
 
 	for {
@@ -237,7 +237,7 @@ func (r *LogRepository) GetLogsSinceIndex(ctx context.Context, executionID strin
 			return nil, apperrors.ErrDatabaseError("failed to query logs", err)
 		}
 
-		// Convert items to IndexedLogEvent
+		// Convert items to LogEvent
 		for _, item := range result.Items {
 			var logItem logItem
 			if err := attributevalue.UnmarshalMap(item, &logItem); err != nil {
@@ -249,12 +249,10 @@ func (r *LogRepository) GetLogsSinceIndex(ctx context.Context, executionID strin
 				continue
 			}
 
-			indexedEvents = append(indexedEvents, api.IndexedLogEvent{
-				LogEvent: api.LogEvent{
-					Timestamp: logItem.Timestamp,
-					Message:   logItem.Message,
-				},
-				Index: logItem.LogIndex,
+			logEvents = append(logEvents, api.LogEvent{
+				Timestamp: logItem.Timestamp,
+				Message:   logItem.Message,
+				Index:     logItem.LogIndex,
 			})
 		}
 
@@ -268,10 +266,10 @@ func (r *LogRepository) GetLogsSinceIndex(ctx context.Context, executionID strin
 	reqLogger.Debug("logs retrieved successfully", "context", map[string]any{
 		"execution_id": executionID,
 		"last_index":   lastIndex,
-		"events_count": len(indexedEvents),
+		"events_count": len(logEvents),
 	})
 
-	return indexedEvents, nil
+	return logEvents, nil
 }
 
 // GetMaxIndex returns the highest index for an execution (or 0 if none exist).

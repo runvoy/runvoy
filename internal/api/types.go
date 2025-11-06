@@ -82,19 +82,13 @@ type Execution struct {
 type LogEvent struct {
 	Timestamp int64  `json:"timestamp"` // Unix timestamp in milliseconds
 	Message   string `json:"message"`   // The actual log message text
-}
-
-// IndexedLogEvent extends LogEvent with a sequential index for reliable ordering.
-// The index is unique per execution and enables gap-free streaming.
-type IndexedLogEvent struct {
-	LogEvent
-	Index int64 `json:"index"` // Sequential index (1, 2, 3, ...) per execution
+	Index     int64  `json:"index,omitempty"` // Sequential index (1, 2, 3, ...) per execution, used for reliable ordering
 }
 
 // LogsResponse contains all log events for an execution
 type LogsResponse struct {
-	ExecutionID string            `json:"execution_id"`
-	Events      []IndexedLogEvent `json:"events"`
+	ExecutionID string     `json:"execution_id"`
+	Events      []LogEvent `json:"events"`
 
 	// Current execution status (RUNNING, SUCCEEDED, FAILED, STOPPED)
 	Status string `json:"status"`
