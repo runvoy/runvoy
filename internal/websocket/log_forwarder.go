@@ -145,23 +145,18 @@ func (lf *LogForwarder) forwardLogsToConnections( //nolint:funlen
 		return nil
 	}
 
-	reqLogger.Debug("found active connections", "context", map[string]string{
-		"execution_id": executionID,
-		"count":        fmt.Sprintf("%d", len(connectionIDs)),
-	})
-
 	if len(logEvents) == 0 {
-		reqLogger.Debug("no log events to send", "context", map[string]string{
-			"execution_id": executionID,
-			"connections":  fmt.Sprintf("%d", len(connectionIDs)),
+		reqLogger.Debug("no log events to send", "context", map[string]any{
+			"execution_id":      executionID,
+			"connections_count": len(connectionIDs),
 		})
 		return nil
 	}
 
-	reqLogger.Debug("sending log events to connections", "context", map[string]string{
-		"execution_id": executionID,
-		"logs_count":   fmt.Sprintf("%d", len(logEvents)),
-		"connections":  fmt.Sprintf("%d", len(connectionIDs)),
+	reqLogger.Debug("sending log events to connections", "context", map[string]any{
+		"execution_id":      executionID,
+		"logs_count":        len(logEvents),
+		"connections_count": len(connectionIDs),
 	})
 
 	slices.SortFunc(logEvents, func(a, b events.CloudwatchLogsLogEvent) int {
@@ -172,15 +167,15 @@ func (lf *LogForwarder) forwardLogsToConnections( //nolint:funlen
 	errGroup.SetLimit(constants.MaxConcurrentSends)
 
 	for _, connectionID := range connectionIDs {
+		connID := connectionID
 		errGroup.Go(func() error {
-			for _, logEvent := range logEvents {
-				if sendErr := lf.sendToConnection(ctx, connectionID, logEvent); sendErr != nil {
-					reqLogger.Error("failed to send log to connection", "context", map[string]string{
-						"error":         sendErr.Error(),
-						"connection_id": connectionID,
-						"execution_id":  executionID,
-					})
-				}
+			if sendErr := lf.sendBatchToConnection(ctx, connID, logEvents); sendErr != nil {
+				reqLogger.Error("failed to send log batch to connection", "context", map[string]any{
+					"error":         sendErr.Error(),
+					"connection_id": connID,
+					"execution_id":  executionID,
+				})
+				return sendErr
 			}
 			return nil
 		})
@@ -200,30 +195,47 @@ func (lf *LogForwarder) forwardLogsToConnections( //nolint:funlen
 	}
 }
 
-// sendToConnection sends a message to a WebSocket connection via API Gateway Management API.
-func (lf *LogForwarder) sendToConnection(
-	ctx context.Context, connectionID string, logEvent events.CloudwatchLogsLogEvent) error {
+// sendBatchToConnection sends a batch of log events to a WebSocket connection via API Gateway Management API.
+// The events are sent as newline-delimited JSON (NDJSON) format.
+func (lf *LogForwarder) sendBatchToConnection(
+	ctx context.Context,
+	connectionID string,
+	logEvents []events.CloudwatchLogsLogEvent,
+) error {
 	reqLogger := logger.DeriveRequestLogger(ctx, lf.logger)
 
-	jsonEventData, err := json.Marshal(api.LogEvent{
-		Timestamp: logEvent.Timestamp,
-		Message:   logEvent.Message,
-	})
-	if err != nil {
-		return fmt.Errorf("failed to marshal log event: %w", err)
+	if len(logEvents) == 0 {
+		return nil
 	}
 
-	_, err = lf.apiGwClient.PostToConnection(ctx, &apigatewaymanagementapi.PostToConnectionInput{
+	var batchData []byte
+	for i, logEvent := range logEvents {
+		jsonEventData, err := json.Marshal(api.LogEvent{
+			Timestamp: logEvent.Timestamp,
+			Message:   logEvent.Message,
+		})
+		if err != nil {
+			return fmt.Errorf("failed to marshal log event at index %d: %w", i, err)
+		}
+
+		if i > 0 {
+			batchData = append(batchData, '\n')
+		}
+		batchData = append(batchData, jsonEventData...)
+	}
+
+	_, err := lf.apiGwClient.PostToConnection(ctx, &apigatewaymanagementapi.PostToConnectionInput{
 		ConnectionId: &connectionID,
-		Data:         jsonEventData,
+		Data:         batchData,
 	})
 
 	if err != nil {
-		reqLogger.Error("failed to post to connection", "context", map[string]string{
+		reqLogger.Error("failed to post batch to connection", "context", map[string]any{
 			"error":         err.Error(),
 			"connection_id": connectionID,
+			"events_count":  len(logEvents),
 		})
-		return fmt.Errorf("failed to post to connection %s: %w", connectionID, err)
+		return fmt.Errorf("failed to post batch to connection %s: %w", connectionID, err)
 	}
 
 	return nil

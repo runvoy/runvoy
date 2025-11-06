@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -132,6 +133,7 @@ func (s *LogsService) fetchLogsWithRetry(ctx context.Context, executionID string
 }
 
 // readWebSocketMessages reads messages from WebSocket and updates the log map
+// Handles newline-delimited JSON (NDJSON) format for batched log events
 func (s *LogsService) readWebSocketMessages(
 	conn *websocket.Conn,
 	logMap map[int64]api.LogEvent,
@@ -151,32 +153,41 @@ func (s *LogsService) readWebSocketMessages(
 				return
 			}
 
-			var rawMessage map[string]any
-			if err = json.Unmarshal(messageBytes, &rawMessage); err != nil {
-				continue
-			}
+			// Handle newline-delimited JSON (NDJSON) format
+			lines := bytes.Split(messageBytes, []byte("\n"))
+			for _, line := range lines {
+				line = bytes.TrimSpace(line)
+				if len(line) == 0 {
+					continue
+				}
 
-			if msgType, ok := rawMessage["type"].(string); ok && msgType == string(api.WebSocketMessageTypeDisconnect) {
-				s.output.Blank()
-				s.output.Infof("Execution completed. Closing connection...")
-				_ = conn.WriteMessage(
-					websocket.CloseMessage,
-					websocket.FormatCloseMessage(websocket.CloseNormalClosure, "Execution completed"),
-				)
-				return
-			}
+				var rawMessage map[string]any
+				if err = json.Unmarshal(line, &rawMessage); err != nil {
+					continue
+				}
 
-			var logEvent api.LogEvent
-			if err = json.Unmarshal(messageBytes, &logEvent); err != nil {
-				continue
-			}
+				if msgType, ok := rawMessage["type"].(string); ok && msgType == string(api.WebSocketMessageTypeDisconnect) {
+					s.output.Blank()
+					s.output.Infof("Execution completed. Closing connection...")
+					_ = conn.WriteMessage(
+						websocket.CloseMessage,
+						websocket.FormatCloseMessage(websocket.CloseNormalClosure, "Execution completed"),
+					)
+					return
+				}
 
-			mu.Lock()
-			if _, exists := logMap[logEvent.Timestamp]; !exists {
-				logMap[logEvent.Timestamp] = logEvent
-				s.printLogLine(len(logMap), logEvent)
+				var logEvent api.LogEvent
+				if err = json.Unmarshal(line, &logEvent); err != nil {
+					continue
+				}
+
+				mu.Lock()
+				if _, exists := logMap[logEvent.Timestamp]; !exists {
+					logMap[logEvent.Timestamp] = logEvent
+					s.printLogLine(len(logMap), logEvent)
+				}
+				mu.Unlock()
 			}
-			mu.Unlock()
 		}
 	}
 }

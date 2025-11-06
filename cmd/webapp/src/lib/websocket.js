@@ -36,34 +36,39 @@ export function connectWebSocket(url) {
 
     socket.onmessage = (event) => {
         try {
-            const message = JSON.parse(event.data);
+            // Handle newline-delimited JSON (NDJSON) format for batched log events
+            const lines = event.data.split('\n').filter((line) => line.trim() !== '');
 
-            // Handle disconnect messages
-            if (message.type === 'disconnect') {
-                // eslint-disable-next-line no-console
-                console.log('Received disconnect message:', message.reason || 'unknown reason');
-                // Close the connection gracefully
-                if (socket && socket.readyState === WebSocket.OPEN) {
-                    socket.close(1000, 'Execution completed');
-                }
-                return;
-            }
+            for (const line of lines) {
+                const message = JSON.parse(line);
 
-            // Handle log events (messages with a message property and timestamp)
-            if (message.message && message.timestamp !== undefined) {
-                logEvents.update((events) => {
-                    // Avoid duplicates by checking timestamp (primary key)
-                    if (events.some((e) => e.timestamp === message.timestamp)) {
-                        return events;
+                // Handle disconnect messages
+                if (message.type === 'disconnect') {
+                    // eslint-disable-next-line no-console
+                    console.log('Received disconnect message:', message.reason || 'unknown reason');
+                    // Close the connection gracefully
+                    if (socket && socket.readyState === WebSocket.OPEN) {
+                        socket.close(1000, 'Execution completed');
                     }
+                    break;
+                }
 
-                    // Assign a new line number
-                    const nextLine =
-                        events.length > 0 ? Math.max(...events.map((e) => e.line)) + 1 : 1;
-                    const eventWithLine = { ...message, line: nextLine };
+                // Handle log events (messages with a message property and timestamp)
+                if (message.message && message.timestamp !== undefined) {
+                    logEvents.update((events) => {
+                        // Avoid duplicates by checking timestamp (primary key)
+                        if (events.some((e) => e.timestamp === message.timestamp)) {
+                            return events;
+                        }
 
-                    return [...events, eventWithLine];
-                });
+                        // Assign a new line number
+                        const nextLine =
+                            events.length > 0 ? Math.max(...events.map((e) => e.line)) + 1 : 1;
+                        const eventWithLine = { ...message, line: nextLine };
+
+                        return [...events, eventWithLine];
+                    });
+                }
             }
         } catch (err) {
             // eslint-disable-next-line no-console
