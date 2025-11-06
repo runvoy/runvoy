@@ -22,7 +22,7 @@ The current log streaming implementation has reliability issues where logs can b
 
 1. **DynamoDB temporary storage**: Logs stored with sequential indexes (1, 2, 3, ...)
 2. **Lazy population**: First `/logs` request triggers CloudWatch fetch and DynamoDB storage
-3. **Index-based streaming**: WebSocket uses `since_index` parameter instead of timestamp
+3. **Index-based streaming**: WebSocket uses `last_index` parameter instead of timestamp
 4. **Streaming-friendly**: Client requests logs starting from last seen index
 
 ### Key Components
@@ -46,14 +46,14 @@ The current log streaming implementation has reliability issues where logs can b
 - ✅ Update Log Forwarder to store logs with indexes
 
 #### Medium Priority (Streaming Support)
-- ✅ Add `since_index` parameter to WebSocket connection
-- ✅ Enhance Log Forwarder to query DynamoDB for logs after `since_index`
+- ✅ Add `last_index` parameter to WebSocket connection
+- ✅ Enhance Log Forwarder to query DynamoDB for logs after `last_index`
 - ✅ Update CLI to track and use `last_index`
 - ✅ Add `LastIndex` field to `LogsResponse`
 
 #### Low Priority (Enhancements)
 - ✅ TTL management for log cleanup
-- ✅ Connection metadata storage for `since_index`
+- ✅ Connection metadata storage for `last_index`
 - ✅ Metrics and monitoring for log streaming reliability
 
 ## Code Locations
@@ -66,6 +66,7 @@ The current log streaming implementation has reliability issues where logs can b
 2. **`internal/database/dynamodb/logs.go`** (new file)
    - Implement `LogRepository` using DynamoDB
    - Methods: `StoreLogs`, `GetLogsSinceIndex`, `GetMaxIndex`, `SetExpiration`
+   - `GetLogsSinceIndex`: Query logs where `log_index > last_index`
 
 ### Files to Modify
 
@@ -79,16 +80,16 @@ The current log streaming implementation has reliability issues where logs can b
 
 3. **`internal/websocket/log_forwarder.go`**
    - Store incoming logs in DynamoDB with sequential indexes
-   - Query DynamoDB for logs after connection's `since_index`
+   - Query DynamoDB for logs after connection's `last_index`
    - Forward logs in index order
 
 4. **`internal/websocket/websocket_manager.go`**
-   - Read `since_index` from query parameter
+   - Read `last_index` from query parameter
    - Pass to Log Forwarder
 
 5. **`cmd/cli/cmd/logs.go`**
    - Track `last_index` from initial response
-   - Include `since_index` in WebSocket URL
+   - Include `last_index` parameter in WebSocket URL
    - Update `last_index` on each received log
 
 6. **`deployments/cloudformation-backend.yaml`**

@@ -2,13 +2,15 @@
 
 ## The Race Condition Problem
 
+**Note**: In practice, it should be rare if not impossible to have two Log Forwarder Lambdas processing logs concurrently for the same execution, as CloudWatch Logs subscription filters typically deliver events sequentially. However, we implement atomic counter protection to ensure correctness in all scenarios.
+
 When multiple Log Forwarder Lambdas process CloudWatch log events simultaneously for the same execution, we need to ensure:
 
 1. **No duplicate indexes**: Each log gets a unique, sequential index
 2. **No gaps**: Indexes should be continuous (1, 2, 3, ... not 1, 2, 5, 6)
 3. **No lost logs**: All logs must be stored successfully
 
-### Example Scenario
+### Example Scenario (Edge Case)
 
 ```
 Execution: abc123
@@ -21,7 +23,7 @@ T3: Forwarder A tries to write logs with indexes 101, 102, 103
 T4: Forwarder B tries to write logs with indexes 101, 102  ❌ CONFLICT!
 ```
 
-**Problem**: Both forwarders read the same max_index and assign overlapping indexes.
+**Problem**: Both forwarders read the same max_index and assign overlapping indexes. The atomic counter solution prevents this even in rare concurrent scenarios.
 
 ## Solution 1: Atomic Counter with UpdateItem
 
@@ -401,6 +403,9 @@ For the runvoy use case, **Solution 1 (Atomic Counter)** is recommended because:
 2. **Most reliable**: No retries needed in normal operation
 3. **Lowest latency**: No retry delays
 4. **Predictable**: Deterministic behavior
+5. **Future-proof**: Handles edge cases even though concurrent forwarders are rare
+
+Even though concurrent forwarders for the same execution are rare in practice, the atomic counter provides a robust, simple solution that guarantees correctness.
 
 ### Simplified Implementation
 

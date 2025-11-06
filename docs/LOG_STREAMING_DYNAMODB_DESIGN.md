@@ -69,7 +69,8 @@ type LogRepository interface {
     
     // GetLogsSinceIndex retrieves logs starting from a specific index (exclusive)
     // Returns logs sorted by log_index ascending
-    GetLogsSinceIndex(ctx context.Context, executionID string, sinceIndex int64) ([]api.IndexedLogEvent, error)
+    // lastIndex: the highest index the client has already seen (logs with index > lastIndex will be returned)
+    GetLogsSinceIndex(ctx context.Context, executionID string, lastIndex int64) ([]api.IndexedLogEvent, error)
     
     // GetMaxIndex returns the highest index for an execution (or 0 if none exist)
     GetMaxIndex(ctx context.Context, executionID string) (int64, error)
@@ -149,8 +150,8 @@ func (s *Service) GetLogsByExecutionID(ctx context.Context, executionID string) 
 2. **Store new logs** with indexes starting from `maxIndex + 1`
 3. **Query for all active connections** for this execution
 4. **For each connection**:
-   - Get connection's `since_index` (from query param or stored metadata)
-   - Query DynamoDB: `execution_id = X AND log_index > since_index`
+   - Get connection's `last_index` (from query param or stored metadata)
+   - Query DynamoDB: `execution_id = X AND log_index > last_index`
    - Forward logs in index order via WebSocket
 
 **Pseudo-code**:
@@ -183,11 +184,11 @@ func (lf *LogForwarder) forwardLogsToConnections(
     
     // Forward to each connection
     for _, connectionID := range connectionIDs {
-        // Get since_index for this connection (from query param or metadata)
-        sinceIndex := lf.getSinceIndexForConnection(connectionID)
+        // Get last_index for this connection (from query param or metadata)
+        lastIndex := lf.getLastIndexForConnection(connectionID)
         
-        // Query DynamoDB for logs after since_index
-        logsToForward, err := lf.logRepo.GetLogsSinceIndex(ctx, executionID, sinceIndex)
+        // Query DynamoDB for logs after last_index
+        logsToForward, err := lf.logRepo.GetLogsSinceIndex(ctx, executionID, lastIndex)
         if err != nil {
             continue // Log error but continue with other connections
         }
@@ -206,11 +207,11 @@ func (lf *LogForwarder) forwardLogsToConnections(
 
 **Connection URL**:
 ```
-wss://{api-endpoint}?execution_id={executionID}&since_index={lastIndex}
+wss://{api-endpoint}?execution_id={executionID}&last_index={lastIndex}
 ```
 
 **WebSocket Manager**:
-- Extract `since_index` from query parameter
+- Extract `last_index` from query parameter
 - Store in connection record or pass to Log Forwarder each time
 - Log Forwarder uses this to query DynamoDB
 
@@ -219,10 +220,10 @@ wss://{api-endpoint}?execution_id={executionID}&since_index={lastIndex}
 **Flow**:
 1. **Initial fetch**: Call `GET /logs`, receive logs with indexes
 2. **Track last_index**: Store highest index from response
-3. **Connect to WebSocket**: Include `since_index=last_index` in URL
+3. **Connect to WebSocket**: Include `last_index=lastIndex` in URL
 4. **Stream logs**: Receive logs with indexes, output immediately
 5. **Update last_index**: Track highest index received
-6. **Reconnection**: Use last seen index for `since_index`
+6. **Reconnection**: Use last seen index for `last_index` parameter
 
 **Example**:
 ```go
@@ -239,8 +240,8 @@ func (s *LogsService) DisplayLogs(ctx context.Context, executionID string) error
     // Track last index
     lastIndex := resp.LastIndex
     
-    // Connect to WebSocket with since_index
-    wsURL := fmt.Sprintf("%s?execution_id=%s&since_index=%d", 
+    // Connect to WebSocket with last_index
+    wsURL := fmt.Sprintf("%s?execution_id=%s&last_index=%d", 
         resp.WebSocketURL, executionID, lastIndex)
     
     // Stream logs
@@ -267,10 +268,10 @@ func (s *LogsService) DisplayLogs(ctx context.Context, executionID string) error
 
 **Query**:
 ```go
-KeyConditionExpression: "execution_id = :execution_id AND log_index > :since_index"
+KeyConditionExpression: "execution_id = :execution_id AND log_index > :last_index"
 ExpressionAttributeValues: {
     ":execution_id": executionID,
-    ":since_index": sinceIndex,
+    ":last_index": lastIndex,
 }
 ScanIndexForward: true  // Sort ascending by log_index
 ```

@@ -231,7 +231,7 @@ Use DynamoDB as temporary storage for logs with sequential indexes, enabling rel
 1. **Indexed Logs**: Each log event gets a sequential index number (1, 2, 3, ...) per execution
 2. **DynamoDB Storage**: Logs stored temporarily in DynamoDB with execution_id + index as composite key
 3. **Lazy Population**: First `/logs` request triggers CloudWatch fetch and DynamoDB storage
-4. **Index-Based Streaming**: WebSocket uses `since_index` parameter instead of timestamp
+4. **Index-Based Streaming**: WebSocket uses `last_index` parameter instead of timestamp
 5. **Streaming-Friendly**: Client requests logs starting from last seen index, enabling true streaming
 
 ### Implementation Strategy
@@ -265,8 +265,9 @@ type LogRepository interface {
     // Returns the highest index stored
     StoreLogs(ctx context.Context, executionID string, events []api.LogEvent) (int64, error)
     
-    // GetLogsSinceIndex retrieves logs starting from a specific index
-    GetLogsSinceIndex(ctx context.Context, executionID string, sinceIndex int64) ([]api.IndexedLogEvent, error)
+    // GetLogsSinceIndex retrieves logs starting from a specific index (exclusive)
+    // lastIndex: the highest index the client has already seen
+    GetLogsSinceIndex(ctx context.Context, executionID string, lastIndex int64) ([]api.IndexedLogEvent, error)
     
     // GetMaxIndex returns the highest index for an execution (or 0 if none)
     GetMaxIndex(ctx context.Context, executionID string) (int64, error)
@@ -311,11 +312,11 @@ type LogsResponse struct {
 
 **Connection with index cursor**:
 ```
-wss://...?execution_id=xxx&since_index=100
+wss://...?execution_id=xxx&last_index=100
 ```
 
 **WebSocket Manager**:
-- Store `since_index` in connection record (or read from query param each time)
+- Store `last_index` in connection record (or read from query param each time)
 - Pass to Log Forwarder when forwarding logs
 
 #### Phase 6: Log Forwarder Enhancement
@@ -324,14 +325,14 @@ wss://...?execution_id=xxx&since_index=100
 
 1. **Get current max index** from DynamoDB for execution_id
 2. **Store new logs** in DynamoDB with indexes starting from max_index + 1
-3. **Query for logs after connection's since_index**:
-   - Query DynamoDB: `execution_id = X AND log_index > since_index`
+3. **Query for logs after connection's last_index**:
+   - Query DynamoDB: `execution_id = X AND log_index > last_index`
    - Sort by log_index
 4. **Forward logs in index order** via WebSocket
 5. **Update connection cursor** (optional: store in connection record)
 
 **Gap Detection**:
-- Before forwarding, check if there are any logs between `since_index` and first new log
+- Before forwarding, check if there are any logs between `last_index` and first new log
 - If gap detected, forward all missing logs first
 
 #### Phase 7: Client Implementation
@@ -339,10 +340,10 @@ wss://...?execution_id=xxx&since_index=100
 **CLI (`cmd/cli/cmd/logs.go`)**:
 
 1. **Initial fetch**: Get logs with indexes, track `last_index`
-2. **WebSocket connection**: Include `since_index=last_index` in URL
+2. **WebSocket connection**: Include `last_index={value}` in URL
 3. **Streaming**: Receive logs with indexes, output immediately (no buffering needed)
 4. **Track last_index**: Update on each received log event
-5. **Reconnection**: Use last seen index for `since_index` parameter
+5. **Reconnection**: Use last seen index for `last_index` parameter
 
 **Benefits for CLI**:
 - ✅ True streaming: Logs output in order without buffering
@@ -379,20 +380,20 @@ wss://...?execution_id=xxx&since_index=100
 
 **File**: `internal/websocket/log_forwarder.go`
 - Store incoming logs in DynamoDB with indexes
-- Query DynamoDB for logs after connection's `since_index`
+- Query DynamoDB for logs after connection's `last_index`
 - Forward in index order
 
 #### Step 5: Update WebSocket Manager
 
 **File**: `internal/websocket/websocket_manager.go`
-- Read `since_index` from query parameter
+- Read `last_index` from query parameter
 - Store in connection metadata (or pass to Log Forwarder)
 
 #### Step 6: Update CLI Client
 
 **File**: `cmd/cli/cmd/logs.go`
 - Track `last_index` from initial response
-- Include `since_index` in WebSocket URL
+- Include `last_index` parameter in WebSocket URL
 - Update `last_index` on each received log
 - Use for reconnection
 
