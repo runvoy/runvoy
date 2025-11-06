@@ -310,15 +310,17 @@ type LogsResponse struct {
 4. **Response includes**: All logs with indexes + `last_index` + WebSocket URL
 
 **For COMPLETED Executions** (SUCCEEDED, FAILED, STOPPED):
-1. **Fetch directly from CloudWatch**: No DynamoDB storage needed
-2. **Return logs**: Simple indexed logs (indexes for display only, not stored)
-3. **No WebSocket URL**: Execution is complete, no streaming needed
-4. **Response includes**: All logs with indexes + `last_index` (no WebSocket URL)
+1. **Opportunistic DynamoDB check**: Try DynamoDB first (faster if logs exist from RUNNING period)
+2. **Verify completeness**: Check if DynamoDB has all logs (including final logs after completion)
+3. **CloudWatch fallback**: If DynamoDB incomplete or missing, fetch from CloudWatch (guaranteed complete)
+4. **Race condition protection**: Verification prevents data loss from Log Forwarder processing delays
+5. **Return logs**: Indexed logs with `last_index` (no WebSocket URL)
 
 **Benefits**:
-- ✅ **Optimized for completed executions**: No unnecessary DynamoDB writes
-- ✅ **Faster for one-off fetches**: Direct CloudWatch read
-- ✅ **Cost-effective**: No storage for completed executions
+- ✅ **Fast path**: DynamoDB read when logs already exist (faster than CloudWatch)
+- ✅ **No data loss**: CloudWatch fallback ensures completeness
+- ✅ **Race condition safe**: Verification prevents missing final logs
+- ✅ **Cost-effective**: Most reads use fast DynamoDB path
 - ✅ **Simpler**: No streaming complexity for finished executions
 
 #### Phase 5: WebSocket Connection Enhancement
@@ -391,7 +393,9 @@ wss://...?execution_id=xxx&last_index=100
   - If not found, fetch from CloudWatch and store in DynamoDB
   - Return indexed logs with `last_index` + WebSocket URL
 - **If COMPLETED** (SUCCEEDED, FAILED, STOPPED):
-  - Fetch directly from CloudWatch (no DynamoDB)
+  - Try DynamoDB first (opportunistic, faster if logs exist)
+  - Verify completeness to prevent race condition data loss
+  - Fall back to CloudWatch if DynamoDB incomplete or missing
   - Return indexed logs with `last_index` (no WebSocket URL)
 
 #### Step 4: Enhance Log Forwarder

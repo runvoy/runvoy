@@ -77,7 +77,7 @@ The current log streaming implementation has reliability issues where logs can b
 2. **`internal/app/main.go`**
    - Enhance `GetLogsByExecutionID` with status-based strategy:
      - **RUNNING**: Check/store in DynamoDB, provide WebSocket URL
-     - **COMPLETED**: Read directly from CloudWatch (no DynamoDB, no WebSocket)
+     - **COMPLETED**: Try DynamoDB first (opportunistic), verify completeness, fallback to CloudWatch
    - Return indexed logs with `last_index`
 
 3. **`internal/websocket/log_forwarder.go`**
