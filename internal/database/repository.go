@@ -87,6 +87,10 @@ type ConnectionRepository interface {
 	// GetConnectionsByExecutionID retrieves all active WebSocket connections for a given execution ID.
 	// Returns a list of connection IDs that are subscribed to the specified execution.
 	GetConnectionsByExecutionID(ctx context.Context, executionID string) ([]string, error)
+
+	// GetConnectionsWithMetadataByExecutionID retrieves all active WebSocket connections with full metadata
+	// for a given execution ID. Returns full connection objects including last_index.
+	GetConnectionsWithMetadataByExecutionID(ctx context.Context, executionID string) ([]*api.WebSocketConnection, error)
 }
 
 // LogRepository defines the interface for log storage operations.

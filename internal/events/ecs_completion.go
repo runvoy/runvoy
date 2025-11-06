@@ -110,8 +110,39 @@ func (p *Processor) handleECSTaskCompletion(ctx context.Context, event *events.C
 
 	reqLogger.Info("execution updated successfully", "execution", execution)
 
+	// Set TTL on logs (7 days after completion)
+	if setTTLErr := p.setLogsTTL(ctx, executionID, stoppedAt, reqLogger); setTTLErr != nil {
+		reqLogger.Warn("failed to set TTL on logs", "error", setTTLErr,
+			"execution_id", executionID,
+		)
+	}
+
 	// Notify WebSocket clients about the execution completion
 	p.notifyDisconnect(ctx, execution.Status, executionID, reqLogger)
+
+	return nil
+}
+
+// setLogsTTL sets TTL on logs for an execution (7 days after completion).
+func (p *Processor) setLogsTTL(
+	ctx context.Context,
+	executionID string,
+	completedAt time.Time,
+	reqLogger *slog.Logger,
+) error {
+	if p.logRepo == nil {
+		return nil
+	}
+
+	expiresAt := completedAt.Add(7 * 24 * time.Hour).Unix()
+	if err := p.logRepo.SetExpiration(ctx, executionID, expiresAt); err != nil {
+		return err
+	}
+
+	reqLogger.Debug("TTL set on logs", "context", map[string]any{
+		"execution_id": executionID,
+		"expires_at":   expiresAt,
+	})
 
 	return nil
 }
@@ -260,11 +291,13 @@ func determineStatusAndExitCode(event *ECSTaskStateChangeEvent) (status string, 
 func ECSCompletionHandler(
 	executionRepo database.ExecutionRepository,
 	connectionRepo database.ConnectionRepository,
+	logRepo database.LogRepository,
 	log *slog.Logger) func(context.Context, events.CloudWatchEvent) error {
 	return func(ctx context.Context, event events.CloudWatchEvent) error {
 		p := &Processor{
 			executionRepo:  executionRepo,
 			connectionRepo: connectionRepo,
+			logRepo:        logRepo,
 			logger:         log,
 		}
 		return p.handleECSTaskCompletion(ctx, &event)

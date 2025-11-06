@@ -520,6 +520,7 @@ Resources:
           RUNVOY_EXECUTIONS_TABLE: !Ref ExecutionsTable
           RUNVOY_ECS_CLUSTER: !Ref ECSCluster
           RUNVOY_WEBSOCKET_CONNECTIONS_TABLE: !Ref WebSocketConnectionsTable
+          RUNVOY_EXECUTION_LOGS_TABLE: !Ref ExecutionLogsTable
           RUNVOY_WEBSOCKET_MANAGER_FUNCTION_NAME: !Ref ConnectionManagerFunction
           RUNVOY_LOG_LEVEL: !Ref 'AWS::NoValue'
 
@@ -566,6 +567,13 @@ Resources:
                 Resource:
                   - !GetAtt WebSocketConnectionsTable.Arn
                   - !Sub '${WebSocketConnectionsTable.Arn}/index/*'
+              - Effect: Allow
+                Action:
+                  - 'dynamodb:Query'
+                  - 'dynamodb:UpdateItem'
+                # Event processor sets TTL on logs when execution completes
+                Resource:
+                  - !GetAtt ExecutionLogsTable.Arn
               - Effect: Allow
                 Action:
                   - 'ecs:DescribeTasks'

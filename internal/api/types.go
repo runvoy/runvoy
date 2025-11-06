@@ -207,6 +207,7 @@ type WebSocketConnection struct {
 	Functionality string `json:"functionality"`
 	ExpiresAt     int64  `json:"expires_at"`
 	ClientIP      string `json:"client_ip,omitempty"`
+	LastIndex     int64  `json:"last_index,omitempty"` // Highest log index the client has seen
 }
 
 // WebSocketMessageType represents the type of WebSocket message

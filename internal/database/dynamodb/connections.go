@@ -44,6 +44,7 @@ type connectionItem struct {
 	Functionality string `dynamodbav:"functionality"`
 	ExpiresAt     int64  `dynamodbav:"expires_at"`
 	ClientIP      string `dynamodbav:"client_ip,omitempty"`
+	LastIndex     int64  `dynamodbav:"last_index,omitempty"`
 }
 
 // toConnectionItem converts an api.WebSocketConnection to a connectionItem.
@@ -54,6 +55,19 @@ func toConnectionItem(conn *api.WebSocketConnection) *connectionItem {
 		Functionality: conn.Functionality,
 		ExpiresAt:     conn.ExpiresAt,
 		ClientIP:      conn.ClientIP,
+		LastIndex:     conn.LastIndex,
+	}
+}
+
+// toWebSocketConnection converts a connectionItem to an api.WebSocketConnection.
+func toWebSocketConnection(item *connectionItem) *api.WebSocketConnection {
+	return &api.WebSocketConnection{
+		ConnectionID:  item.ConnectionID,
+		ExecutionID:   item.ExecutionID,
+		Functionality: item.Functionality,
+		ExpiresAt:     item.ExpiresAt,
+		ClientIP:      item.ClientIP,
+		LastIndex:     item.LastIndex,
 	}
 }
 
@@ -182,6 +196,56 @@ func (r *ConnectionRepository) GetConnectionsByExecutionID(
 	})
 
 	return connectionIDs, nil
+}
+
+// GetConnectionsWithMetadataByExecutionID retrieves all active WebSocket connections with full metadata
+// for a given execution ID using the execution_id-index GSI.
+func (r *ConnectionRepository) GetConnectionsWithMetadataByExecutionID(
+	ctx context.Context,
+	executionID string,
+) ([]*api.WebSocketConnection, error) {
+	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
+
+	logArgs := []any{
+		"operation", "DynamoDB.Query",
+		"table", r.tableName,
+		"index", "execution_id-index",
+		"execution_id", executionID,
+	}
+	logArgs = append(logArgs, logger.GetDeadlineInfo(ctx)...)
+	reqLogger.Debug("calling external service", "context", logger.SliceToMap(logArgs))
+
+	result, err := r.client.Query(ctx, &dynamodb.QueryInput{
+		TableName:              aws.String(r.tableName),
+		IndexName:              aws.String("execution_id-index"),
+		KeyConditionExpression: aws.String("execution_id = :execution_id"),
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":execution_id": &types.AttributeValueMemberS{Value: executionID},
+		},
+	})
+	if err != nil {
+		return nil, appErrors.ErrDatabaseError("failed to query connections by execution ID", err)
+	}
+
+	if len(result.Items) == 0 {
+		return []*api.WebSocketConnection{}, nil
+	}
+
+	connections := make([]*api.WebSocketConnection, 0, len(result.Items))
+	for _, item := range result.Items {
+		var connItem connectionItem
+		if unmarshalErr := attributevalue.UnmarshalMap(item, &connItem); unmarshalErr != nil {
+			return nil, fmt.Errorf("failed to unmarshal connection item: %w", unmarshalErr)
+		}
+		connections = append(connections, toWebSocketConnection(&connItem))
+	}
+
+	reqLogger.Debug("connections with metadata retrieved successfully", "context", map[string]any{
+		"execution_id":      executionID,
+		"connections_count": len(connections),
+	})
+
+	return connections, nil
 }
 
 // buildDeleteRequests creates WriteRequest objects for all connection IDs.

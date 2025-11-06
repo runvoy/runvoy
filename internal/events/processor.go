@@ -21,6 +21,7 @@ import (
 type Processor struct {
 	executionRepo    database.ExecutionRepository
 	connectionRepo   database.ConnectionRepository
+	logRepo          database.LogRepository
 	lambdaClient     *lambda.Client
 	websocketManager string // Lambda function name for websocket_manager
 	logger           *slog.Logger
@@ -33,6 +34,9 @@ func NewProcessor(ctx context.Context, cfg *config.Config, log *slog.Logger) (*P
 	}
 	if cfg.WebSocketConnectionsTable == "" {
 		return nil, fmt.Errorf("WebSocketConnectionsTable cannot be empty")
+	}
+	if cfg.ExecutionLogsTable == "" {
+		return nil, fmt.Errorf("ExecutionLogsTable cannot be empty")
 	}
 	if cfg.WebSocketManagerFunctionName == "" {
 		return nil, fmt.Errorf("WebSocketManagerFunctionName cannot be empty")
@@ -47,6 +51,7 @@ func NewProcessor(ctx context.Context, cfg *config.Config, log *slog.Logger) (*P
 	dynamoClient := dynamodb.NewFromConfig(awsCfg)
 	executionRepo := dynamorepo.NewExecutionRepository(dynamoClient, cfg.ExecutionsTable, log)
 	connectionRepo := dynamorepo.NewConnectionRepository(dynamoClient, cfg.WebSocketConnectionsTable, log)
+	logRepo := dynamorepo.NewLogRepository(dynamoClient, cfg.ExecutionLogsTable, log)
 
 	lambdaClient := lambda.NewFromConfig(awsCfg)
 
@@ -54,6 +59,7 @@ func NewProcessor(ctx context.Context, cfg *config.Config, log *slog.Logger) (*P
 		"context", map[string]string{
 			"executions_table":             cfg.ExecutionsTable,
 			"web_socket_connections_table": cfg.WebSocketConnectionsTable,
+			"execution_logs_table":         cfg.ExecutionLogsTable,
 			"websocket_manager_function":   cfg.WebSocketManagerFunctionName,
 		},
 	)
@@ -61,6 +67,7 @@ func NewProcessor(ctx context.Context, cfg *config.Config, log *slog.Logger) (*P
 	return &Processor{
 		executionRepo:    executionRepo,
 		connectionRepo:   connectionRepo,
+		logRepo:          logRepo,
 		lambdaClient:     lambdaClient,
 		websocketManager: cfg.WebSocketManagerFunctionName,
 		logger:           log,

@@ -58,6 +58,33 @@ func (m *mockConnectionRepo) GetConnectionsByExecutionID(_ context.Context, _ st
 	return nil, nil
 }
 
+func (m *mockConnectionRepo) GetConnectionsWithMetadataByExecutionID(
+	_ context.Context,
+	_ string,
+) ([]*api.WebSocketConnection, error) {
+	return nil, nil
+}
+
+// Mock log repository for testing
+type mockLogRepo struct {
+}
+
+func (m *mockLogRepo) StoreLogs(_ context.Context, _ string, _ []api.LogEvent) (int64, error) {
+	return 0, nil
+}
+
+func (m *mockLogRepo) GetLogsSinceIndex(_ context.Context, _ string, _ int64) ([]api.LogEvent, error) {
+	return nil, nil
+}
+
+func (m *mockLogRepo) GetMaxIndex(_ context.Context, _ string) (int64, error) {
+	return 0, nil
+}
+
+func (m *mockLogRepo) SetExpiration(_ context.Context, _ string, _ int64) error {
+	return nil
+}
+
 func TestParseTime(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -268,10 +295,12 @@ func TestHandleECSTaskCompletion_Success(t *testing.T) {
 	}
 
 	mockConnRepo := &mockConnectionRepo{}
+	mockLogRepo := &mockLogRepo{}
 
 	processor := &Processor{
 		executionRepo:    mockRepo,
 		connectionRepo:   mockConnRepo,
+		logRepo:          mockLogRepo,
 		lambdaClient:     nil, // Lambda invocation is optional for testing
 		websocketManager: "websocket-manager",
 		logger:           testutil.SilentLogger(),
@@ -318,10 +347,12 @@ func TestHandleECSTaskCompletion_OrphanedTask(t *testing.T) {
 	}
 
 	mockConnRepo := &mockConnectionRepo{}
+	mockLogRepo := &mockLogRepo{}
 
 	processor := &Processor{
 		executionRepo:  mockRepo,
 		connectionRepo: mockConnRepo,
+		logRepo:        mockLogRepo,
 		logger:         testutil.SilentLogger(),
 	}
 
@@ -378,10 +409,12 @@ func TestHandleECSTaskCompletion_MissingStartedAt(t *testing.T) {
 	}
 
 	mockConnRepo := &mockConnectionRepo{}
+	mockLogRepo := &mockLogRepo{}
 
 	processor := &Processor{
 		executionRepo:  mockRepo,
 		connectionRepo: mockConnRepo,
+		logRepo:        mockLogRepo,
 		logger:         testutil.SilentLogger(),
 	}
 
@@ -418,6 +451,7 @@ func TestHandleEvent_IgnoresUnknownEventType(t *testing.T) {
 	processor := &Processor{
 		executionRepo:  &mockExecutionRepo{},
 		connectionRepo: &mockConnectionRepo{},
+		logRepo:        &mockLogRepo{},
 		logger:         testutil.SilentLogger(),
 	}
 
@@ -436,6 +470,7 @@ func TestHandleEventJSON(t *testing.T) {
 	processor := &Processor{
 		executionRepo:  &mockExecutionRepo{},
 		connectionRepo: &mockConnectionRepo{},
+		logRepo:        &mockLogRepo{},
 		logger:         testutil.SilentLogger(),
 	}
 
@@ -454,6 +489,7 @@ func TestHandleEventJSON_InvalidJSON(t *testing.T) {
 	processor := &Processor{
 		executionRepo:  &mockExecutionRepo{},
 		connectionRepo: &mockConnectionRepo{},
+		logRepo:        &mockLogRepo{},
 		logger:         testutil.SilentLogger(),
 	}
 
@@ -488,7 +524,8 @@ func TestECSCompletionHandler(t *testing.T) {
 	}
 
 	mockConnRepo := &mockConnectionRepo{}
-	handler := ECSCompletionHandler(mockRepo, mockConnRepo, testutil.SilentLogger())
+	mockLogRepo := &mockLogRepo{}
+	handler := ECSCompletionHandler(mockRepo, mockConnRepo, mockLogRepo, testutil.SilentLogger())
 
 	taskEvent := ECSTaskStateChangeEvent{
 		TaskArn:    "arn:aws:ecs:us-east-1:123456789012:task/cluster/test-exec-123",

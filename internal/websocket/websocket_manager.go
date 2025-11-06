@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"strconv"
 	"time"
 
 	"runvoy/internal/api"
@@ -123,6 +124,7 @@ func (wm *WebSocketManager) handleConnect(
 ) (events.APIGatewayProxyResponse, error) {
 	connectionID := req.RequestContext.ConnectionID
 	executionID := req.QueryStringParameters["execution_id"]
+	lastIndexStr := req.QueryStringParameters["last_index"]
 
 	if connectionID == "" {
 		wm.logger.Info("missing connection_id in connection request")
@@ -140,44 +142,71 @@ func (wm *WebSocketManager) handleConnect(
 		}, nil
 	}
 
-	expiresAt := time.Now().Add(constants.ConnectionTTLHours * time.Hour).Unix()
-	clientIP := getClientIPFromWebSocketRequest(&req)
-	connection := &api.WebSocketConnection{
-		ConnectionID:  connectionID,
-		ExecutionID:   executionID,
-		Functionality: constants.FunctionalityLogStreaming,
-		ExpiresAt:     expiresAt,
-		ClientIP:      clientIP,
-	}
+	connection := wm.buildConnection(connectionID, executionID, lastIndexStr, &req)
 
-	wm.logger.Debug("storing connection", "context", map[string]string{
-		"connection_id": connection.ConnectionID,
-		"execution_id":  connection.ExecutionID,
-		"functionality": connection.Functionality,
-		"expires_at":    fmt.Sprintf("%d", connection.ExpiresAt),
-		"client_ip":     clientIP,
-	})
-
-	err := wm.connRepo.CreateConnection(ctx, connection)
-	if err != nil {
+	if err := wm.connRepo.CreateConnection(ctx, connection); err != nil {
 		wm.logger.Error("failed to store connection", "error", err)
 		return events.APIGatewayProxyResponse{
 			StatusCode: http.StatusInternalServerError,
 			Body:       fmt.Sprintf("Failed to store connection: %v", err),
 		}, nil
 	}
+
 	wm.logger.Info("connection established", "context", map[string]string{
 		"connection_id": connection.ConnectionID,
 		"execution_id":  connection.ExecutionID,
 		"functionality": connection.Functionality,
 		"expires_at":    fmt.Sprintf("%d", connection.ExpiresAt),
-		"client_ip":     clientIP,
+		"client_ip":     connection.ClientIP,
+		"last_index":    fmt.Sprintf("%d", connection.LastIndex),
 	})
 
 	return events.APIGatewayProxyResponse{
 		StatusCode: http.StatusOK,
 		Body:       "Connected",
 	}, nil
+}
+
+// buildConnection creates a WebSocketConnection from request parameters.
+func (wm *WebSocketManager) buildConnection(
+	connectionID string,
+	executionID string,
+	lastIndexStr string,
+	req *events.APIGatewayWebsocketProxyRequest,
+) *api.WebSocketConnection {
+	lastIndex := wm.parseLastIndex(lastIndexStr)
+	expiresAt := time.Now().Add(constants.ConnectionTTLHours * time.Hour).Unix()
+	clientIP := getClientIPFromWebSocketRequest(req)
+
+	return &api.WebSocketConnection{
+		ConnectionID:  connectionID,
+		ExecutionID:   executionID,
+		Functionality: constants.FunctionalityLogStreaming,
+		ExpiresAt:     expiresAt,
+		ClientIP:      clientIP,
+		LastIndex:     lastIndex,
+	}
+}
+
+// parseLastIndex parses last_index from query parameter string.
+// Returns 0 if not provided or invalid.
+func (wm *WebSocketManager) parseLastIndex(lastIndexStr string) int64 {
+	if lastIndexStr == "" {
+		return 0
+	}
+
+	parsed, err := strconv.ParseInt(lastIndexStr, 10, 64)
+	if err != nil {
+		wm.logger.Warn("invalid last_index in connection request, defaulting to 0",
+			"context", map[string]string{
+				"last_index": lastIndexStr,
+				"error":      err.Error(),
+			},
+		)
+		return 0
+	}
+
+	return parsed
 }
 
 // handleDisconnect handles the $disconnect route key.

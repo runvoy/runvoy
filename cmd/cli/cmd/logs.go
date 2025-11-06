@@ -16,6 +16,7 @@ import (
 	"runvoy/internal/constants"
 	apperrors "runvoy/internal/errors"
 	"runvoy/internal/output"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -133,10 +134,12 @@ func (s *LogsService) fetchLogsWithRetry(ctx context.Context, executionID string
 
 // readWebSocketMessages reads messages from WebSocket and updates the log map
 // Handles newline-delimited JSON (NDJSON) format for batched log events
+// Updates lastIndex as logs are received
 func (s *LogsService) readWebSocketMessages(
 	conn *websocket.Conn,
 	logMap map[int64]api.LogEvent,
 	mu *sync.Mutex,
+	lastIndex *int64,
 	done <-chan struct{},
 ) {
 	for {
@@ -152,48 +155,78 @@ func (s *LogsService) readWebSocketMessages(
 				return
 			}
 
-			// Handle newline-delimited JSON (NDJSON) format
-			lines := bytes.Split(messageBytes, []byte("\n"))
-			for _, line := range lines {
-				line = bytes.TrimSpace(line)
-				if len(line) == 0 {
-					continue
-				}
+			s.processWebSocketMessage(messageBytes, logMap, mu, lastIndex, conn)
+		}
+	}
+}
 
-				var rawMessage map[string]any
-				if err = json.Unmarshal(line, &rawMessage); err != nil {
-					continue
-				}
+// processWebSocketMessage processes a single WebSocket message (NDJSON format).
+func (s *LogsService) processWebSocketMessage(
+	messageBytes []byte,
+	logMap map[int64]api.LogEvent,
+	mu *sync.Mutex,
+	lastIndex *int64,
+	conn *websocket.Conn,
+) {
+	//nolint:modernize // bytes.Split is fine for NDJSON processing
+	lines := bytes.Split(messageBytes, []byte("\n"))
+	for _, line := range lines {
+		line = bytes.TrimSpace(line)
+		if len(line) == 0 {
+			continue
+		}
 
-				if msgType, ok := rawMessage["type"].(string); ok && msgType == string(api.WebSocketMessageTypeDisconnect) {
-					s.output.Blank()
-					s.output.Infof("Execution completed. Closing connection...")
-					_ = conn.WriteMessage(
-						websocket.CloseMessage,
-						websocket.FormatCloseMessage(websocket.CloseNormalClosure, "Execution completed"),
-					)
-					return
-				}
+		var rawMessage map[string]any
+		if err := json.Unmarshal(line, &rawMessage); err != nil {
+			continue
+		}
 
-				var logEvent api.LogEvent
-				if err = json.Unmarshal(line, &logEvent); err != nil {
-					continue
-				}
+		if msgType, ok := rawMessage["type"].(string); ok && msgType == string(api.WebSocketMessageTypeDisconnect) {
+			s.output.Blank()
+			s.output.Infof("Execution completed. Closing connection...")
+			_ = conn.WriteMessage(
+				websocket.CloseMessage,
+				websocket.FormatCloseMessage(websocket.CloseNormalClosure, "Execution completed"),
+			)
+			return
+		}
 
-				mu.Lock()
-				if _, exists := logMap[logEvent.Timestamp]; !exists {
-					logMap[logEvent.Timestamp] = logEvent
-					// Use Index as line number if available, otherwise use map size
-					var lineNumber int
-					if logEvent.Index > 0 {
-						lineNumber = int(logEvent.Index)
-					} else {
-						lineNumber = len(logMap)
-					}
-					s.printLogLine(lineNumber, logEvent)
-				}
-				mu.Unlock()
+		var logEvent api.LogEvent
+		if err := json.Unmarshal(line, &logEvent); err != nil {
+			continue
+		}
+
+		s.processLogEvent(logEvent, logMap, mu, lastIndex)
+	}
+}
+
+// processLogEvent processes a single log event, updating the log map and lastIndex.
+func (s *LogsService) processLogEvent(
+	logEvent api.LogEvent,
+	logMap map[int64]api.LogEvent,
+	mu *sync.Mutex,
+	lastIndex *int64,
+) {
+	mu.Lock()
+	defer mu.Unlock()
+
+	// Use index-based deduplication
+	if logEvent.Index > 0 {
+		if _, exists := logMap[logEvent.Index]; !exists {
+			logMap[logEvent.Index] = logEvent
+			s.printLogLine(int(logEvent.Index), logEvent)
+			// Update lastIndex to highest seen index
+			if logEvent.Index > *lastIndex {
+				*lastIndex = logEvent.Index
 			}
+		}
+	} else {
+		// Fallback for logs without index (shouldn't happen with new system)
+		// Use timestamp-based deduplication as fallback
+		if _, exists := logMap[logEvent.Timestamp]; !exists {
+			logMap[logEvent.Timestamp] = logEvent
+			lineNumber := len(logMap)
+			s.printLogLine(lineNumber, logEvent)
 		}
 	}
 }
@@ -203,6 +236,7 @@ func (s *LogsService) streamLogsViaWebSocket(
 	websocketURL string,
 	logMap map[int64]api.LogEvent,
 	mu *sync.Mutex,
+	lastIndex *int64,
 ) error {
 	s.output.Infof("Connecting to log stream...")
 	conn, httpResp, err := websocket.DefaultDialer.Dial(websocketURL, nil)
@@ -230,7 +264,7 @@ func (s *LogsService) streamLogsViaWebSocket(
 
 	go func() {
 		defer closeOnce.Do(func() { close(done) })
-		s.readWebSocketMessages(conn, logMap, mu, done)
+		s.readWebSocketMessages(conn, logMap, mu, lastIndex, done)
 	}()
 
 	select {
@@ -262,18 +296,49 @@ func (s *LogsService) DisplayLogs(ctx context.Context, executionID, webURL strin
 		return nil
 	}
 
-	// Build log map for WebSocket streaming deduplication
+	// Track last_index from initial response
+	lastIndex := resp.LastIndex
+	if lastIndex == 0 && len(resp.Events) > 0 {
+		// Fallback: use highest index from events
+		for _, event := range resp.Events {
+			if event.Index > lastIndex {
+				lastIndex = event.Index
+			}
+		}
+	}
+
+	// Build log map for WebSocket streaming deduplication (index-based)
 	logMap := make(map[int64]api.LogEvent)
 	var mu sync.Mutex
 	for _, log := range resp.Events {
-		logMap[log.Timestamp] = log
+		if log.Index > 0 {
+			logMap[log.Index] = log
+		}
 	}
 
+	// Update WebSocket URL with last_index if not already present
+	websocketURL := s.buildWebSocketURL(resp.WebSocketURL, lastIndex)
+
 	// Stream logs via WebSocket
-	_ = s.streamLogsViaWebSocket(resp.WebSocketURL, logMap, &mu)
+	_ = s.streamLogsViaWebSocket(websocketURL, logMap, &mu, &lastIndex)
 
 	s.printWebviewerURL(webURL, executionID)
 	return nil
+}
+
+// buildWebSocketURL ensures the WebSocket URL includes last_index parameter.
+func (s *LogsService) buildWebSocketURL(baseURL string, lastIndex int64) string {
+	// Check if last_index is already in the URL
+	if strings.Contains(baseURL, "last_index=") {
+		return baseURL
+	}
+
+	// Append last_index parameter
+	separator := "?"
+	if strings.Contains(baseURL, "?") {
+		separator = "&"
+	}
+	return fmt.Sprintf("%s%slast_index=%d", baseURL, separator, lastIndex)
 }
 
 // displayLogEvents displays all log events in a sorted table
