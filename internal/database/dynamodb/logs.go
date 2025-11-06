@@ -107,7 +107,6 @@ func (r *LogRepository) StoreLogs(ctx context.Context, executionID string, event
 func (r *LogRepository) reserveIndexRange(ctx context.Context, executionID string, count int64) (int64, error) {
 	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
 
-	// Use UpdateItem with ADD to atomically increment
 	result, err := r.client.UpdateItem(ctx, &dynamodb.UpdateItemInput{
 		TableName: aws.String(r.tableName),
 		Key: map[string]types.AttributeValue{
@@ -122,7 +121,6 @@ func (r *LogRepository) reserveIndexRange(ctx context.Context, executionID strin
 	})
 
 	if err != nil {
-		// Handle case where counter doesn't exist yet
 		var notFoundErr *types.ResourceNotFoundException
 		if errors.As(err, &notFoundErr) {
 			// Initialize counter if it doesn't exist
@@ -131,7 +129,6 @@ func (r *LogRepository) reserveIndexRange(ctx context.Context, executionID strin
 		return 0, apperrors.ErrDatabaseError("failed to reserve index range", err)
 	}
 
-	// Extract new max_index
 	maxIndexAttr, ok := result.Attributes["max_index"]
 	if !ok {
 		return 0, apperrors.ErrDatabaseError("counter item missing max_index", nil)
@@ -147,14 +144,13 @@ func (r *LogRepository) reserveIndexRange(ctx context.Context, executionID strin
 		return 0, apperrors.ErrDatabaseError("failed to parse max_index", parseErr)
 	}
 
-	// Return starting index (newMaxIndex - count + 1)
 	startIndex := newMaxIndex - count + 1
 
-	reqLogger.Debug("index range reserved", "context", map[string]string{
+	reqLogger.Debug("index range reserved", "context", map[string]any{
 		"execution_id": executionID,
-		"count":        strconv.FormatInt(count, 10),
-		"start_index":  strconv.FormatInt(startIndex, 10),
-		"max_index":    strconv.FormatInt(newMaxIndex, 10),
+		"count":        count,
+		"start_index":  startIndex,
+		"max_index":    newMaxIndex,
 	})
 
 	return startIndex, nil
@@ -183,7 +179,6 @@ func (r *LogRepository) initializeCounter(ctx context.Context, executionID strin
 	})
 
 	if err != nil {
-		// Another forwarder created it, retry the update
 		var condErr *types.ConditionalCheckFailedException
 		if errors.As(err, &condErr) {
 			return r.reserveIndexRange(ctx, executionID, count)
@@ -191,9 +186,9 @@ func (r *LogRepository) initializeCounter(ctx context.Context, executionID strin
 		return 0, apperrors.ErrDatabaseError("failed to initialize counter", err)
 	}
 
-	reqLogger.Debug("counter initialized", "context", map[string]string{
+	reqLogger.Debug("counter initialized", "context", map[string]any{
 		"execution_id": executionID,
-		"max_index":    strconv.FormatInt(count, 10),
+		"max_index":    count,
 	})
 
 	// Return starting index (count - count + 1 = 1)
@@ -227,7 +222,6 @@ func (r *LogRepository) GetLogsSinceIndex(
 			return nil, err
 		}
 
-		// Convert items to LogEvent
 		for _, item := range result.Items {
 			event, convertErr := r.convertItemToLogEvent(item)
 			if convertErr != nil {
@@ -238,7 +232,6 @@ func (r *LogRepository) GetLogsSinceIndex(
 			}
 		}
 
-		// Check if there are more items
 		if len(result.LastEvaluatedKey) == 0 {
 			break
 		}
@@ -285,7 +278,6 @@ func (r *LogRepository) convertItemToLogEvent(item map[string]types.AttributeVal
 		return nil, apperrors.ErrDatabaseError("failed to unmarshal log item", err)
 	}
 
-	// Skip counter items (log_index = 0)
 	if log.LogIndex == 0 {
 		return nil, nil
 	}
@@ -349,7 +341,6 @@ func (r *LogRepository) GetMaxIndex(ctx context.Context, executionID string) (in
 func (r *LogRepository) SetExpiration(ctx context.Context, executionID string, expiresAt int64) error {
 	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
 
-	// Query all log items for this execution
 	var lastEvaluatedKey map[string]types.AttributeValue
 	updateCount := 0
 
@@ -359,7 +350,6 @@ func (r *LogRepository) SetExpiration(ctx context.Context, executionID string, e
 			return queryErr
 		}
 
-		// Update each item with expires_at
 		for _, item := range result.Items {
 			count, updateErr := r.updateLogExpiration(ctx, item, executionID, expiresAt)
 			if updateErr != nil {

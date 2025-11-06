@@ -216,22 +216,54 @@ func (lf *LogForwarder) forwardLogsToConnections(
 		return nil
 	}
 
+	logEvents, err := lf.logRepo.GetLogsSinceIndex(ctx, executionID, 0)
+	if err != nil {
+		return fmt.Errorf("failed to query logs from DynamoDB: %w", err)
+	}
+
 	reqLogger.Debug("forwarding logs to connections", "context", map[string]any{
 		"execution_id":      executionID,
 		"connections_count": len(connectionIDs),
+		"logs_count":        len(logEvents),
 	})
 
+	if forwardErr := lf.forwardLogsToConnectionsParallel(
+		ctx, connectionIDs, executionID, logEvents, reqLogger,
+	); forwardErr != nil {
+		return forwardErr
+	}
+
+	reqLogger.Info("log events forwarded to connections", "context", map[string]any{
+		"execution_id":      executionID,
+		"connections_count": len(connectionIDs),
+		"logs_count":        len(logEvents),
+	})
+
+	return nil
+}
+
+// forwardLogsToConnectionsParallel forwards logs to multiple connections concurrently using errgroup.
+func (lf *LogForwarder) forwardLogsToConnectionsParallel(
+	ctx context.Context,
+	connectionIDs []string,
+	executionID string,
+	logEvents []api.LogEvent,
+	reqLogger *slog.Logger,
+) error {
 	errGroup, ctx := errgroup.WithContext(ctx)
 	errGroup.SetLimit(constants.MaxConcurrentSends)
 
 	for _, connectionID := range connectionIDs {
 		connID := connectionID
 		errGroup.Go(func() error {
-			if forwardErr := lf.forwardLogsToConnection(ctx, connID, executionID, reqLogger); forwardErr != nil {
+			if forwardErr := lf.forwardLogsToConnection(
+				ctx, connID, executionID, logEvents, reqLogger,
+			); forwardErr != nil {
 				reqLogger.Error("failed to forward logs to connection", "context", map[string]any{
 					"error":         forwardErr.Error(),
 					"connection_id": connID,
 					"execution_id":  executionID,
+					"logs_count":    len(logEvents),
 				})
 				return forwardErr
 			}
@@ -243,12 +275,6 @@ func (lf *LogForwarder) forwardLogsToConnections(
 	case err != nil:
 		return errors.New("error(s) occurred while forwarding log events to connections")
 	default:
-		reqLogger.Info("all log events forwarded to connections", "context", map[string]any{
-			"execution_id":      executionID,
-			"connections_count": len(connectionIDs),
-			"connections":       connectionIDs,
-		})
-
 		return nil
 	}
 }
@@ -259,18 +285,13 @@ func (lf *LogForwarder) forwardLogsToConnection(
 	ctx context.Context,
 	connectionID string,
 	executionID string,
+	logEvents []api.LogEvent,
 	reqLogger *slog.Logger,
 ) error {
 	// TODO: Get last_index from connection metadata or query parameter
 	// For now, we'll query all logs (lastIndex = 0) and let clients deduplicate
 	// This will be improved in a follow-up to store last_index in connection record
 	lastIndex := int64(0)
-
-	// Query DynamoDB for logs after last_index
-	logEvents, err := lf.logRepo.GetLogsSinceIndex(ctx, executionID, lastIndex)
-	if err != nil {
-		return fmt.Errorf("failed to query logs from DynamoDB: %w", err)
-	}
 
 	if len(logEvents) == 0 {
 		reqLogger.Debug("no logs to forward for connection", "context", map[string]any{
