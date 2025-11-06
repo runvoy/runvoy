@@ -299,3 +299,9 @@ build-webapp: lint-webapp
 lint-webapp:
     npx prettier --check src/**/*.{js,svelte}
     npx eslint src --ext .js,.svelte
+
+# Curl helper
+curl-get path:
+    curl -sS \
+        -X GET "http://localhost:${RUNVOY_DEV_SERVER_PORT}/api/v1{{path}}" \
+        -H "X-API-Key: ${RUNVOY_ADMIN_API_KEY}"
