@@ -92,7 +92,10 @@ func (r *LogsRepository) getNextLineNumberAtomic(
 			"execution_id":        &types.AttributeValueMemberS{Value: executionID},
 			"timestamp_log_index": &types.AttributeValueMemberS{Value: counterSK},
 		},
-		UpdateExpression: aws.String("ADD line_number :inc SET ingested_at = :now, ttl = :ttl"),
+		UpdateExpression: aws.String("ADD line_number :inc SET ingested_at = :now, #ttl = :ttl"),
+		ExpressionAttributeNames: map[string]string{
+			"#ttl": "ttl",
+		},
 		ExpressionAttributeValues: map[string]types.AttributeValue{
 			":inc": &types.AttributeValueMemberN{Value: "1"},
 			":now": &types.AttributeValueMemberN{Value: fmt.Sprintf("%d", time.Now().UnixMilli())},
