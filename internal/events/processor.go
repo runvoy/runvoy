@@ -94,10 +94,10 @@ func (p *Processor) HandleEvent(ctx context.Context, event *events.CloudWatchEve
 	case "CloudWatch Logs":
 		return p.handleCloudWatchLogs(ctx, event)
 	default:
-		reqLogger.Info("ignoring unhandled event type",
-			"detailType", event.DetailType,
-			"source", event.Source,
-		)
+		reqLogger.Debug("ignoring unhandled event type", "context", map[string]string{
+			"detail_type": event.DetailType,
+			"source":      event.Source,
+		})
 		return nil
 	}
 }

@@ -21,16 +21,13 @@ func (p *Processor) handleCloudWatchLogs(
 ) error {
 	reqLogger := logger.DeriveRequestLogger(ctx, p.logger)
 
-	// The event.Detail contains the CloudWatch Logs event payload
-	// Parse the CloudWatch Logs event from the detail field
 	cwLogsEvent, err := ParseCloudWatchLogsEvent(event.Detail)
 	if err != nil {
 		reqLogger.Error("failed to parse CloudWatch Logs event", "error", err)
 		return fmt.Errorf("failed to parse CloudWatch Logs event: %w", err)
 	}
 
-	// Extract execution ID from log stream name
-	// Log stream name format: /aws/ecs/runvoy/runner-EXECUTION_ID
+	// Extract execution ID from log stream name (last part after /)
 	executionID := extractExecutionIDFromLogStream(cwLogsEvent.LogStream)
 	if executionID == "" {
 		reqLogger.Warn("could not extract execution ID from log stream",
@@ -99,34 +96,11 @@ func (p *Processor) ingestExecutionLogs(
 }
 
 // extractExecutionIDFromLogStream extracts the execution ID from a CloudWatch log stream name.
-// Log stream name format: runner-EXECUTION_ID or similar patterns.
+// It returns the last part after the "/" separator.
 func extractExecutionIDFromLogStream(logStream string) string {
-	const runnerPrefix = "runner-"
-	const pathSeparator = "/"
-	const minPartCount = 2
-
-	// Log stream format from ECS: runner-<execution_id>
-	// Extract the part after "runner-"
-	if strings.Contains(logStream, runnerPrefix) {
-		parts := strings.Split(logStream, runnerPrefix)
-		if len(parts) == minPartCount {
-			return parts[1]
-		}
+	parts := strings.Split(logStream, "/")
+	if len(parts) > 0 {
+		return parts[len(parts)-1]
 	}
-
-	// Fallback: try to use the log stream name directly
-	// if it looks like an execution ID (alphanumeric-dash pattern)
-	if strings.Contains(logStream, "-") {
-		// Get the last part after the last slash
-		parts := strings.Split(logStream, pathSeparator)
-		if len(parts) > 0 {
-			lastPart := parts[len(parts)-1]
-			// Check if it looks like an execution ID
-			if lastPart != "" {
-				return lastPart
-			}
-		}
-	}
-
 	return ""
 }
