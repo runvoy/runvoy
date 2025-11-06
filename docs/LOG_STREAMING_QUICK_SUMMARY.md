@@ -75,13 +75,17 @@ The current log streaming implementation has reliability issues where logs can b
    - Add `LastIndex` field to `LogsResponse`
 
 2. **`internal/app/main.go`**
-   - Enhance `GetLogsByExecutionID` to check/store logs in DynamoDB
+   - Enhance `GetLogsByExecutionID` with status-based strategy:
+     - **RUNNING**: Check/store in DynamoDB, provide WebSocket URL
+     - **COMPLETED**: Read directly from CloudWatch (no DynamoDB, no WebSocket)
    - Return indexed logs with `last_index`
 
 3. **`internal/websocket/log_forwarder.go`**
+   - **Only process RUNNING executions**: Check status before processing
    - Store incoming logs in DynamoDB with sequential indexes
    - Query DynamoDB for logs after connection's `last_index`
    - Forward logs in index order
+   - **Note**: Completed executions handled by `/logs` endpoint directly
 
 4. **`internal/websocket/websocket_manager.go`**
    - Read `last_index` from query parameter

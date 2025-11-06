@@ -298,15 +298,28 @@ type LogsResponse struct {
 
 #### Phase 4: Log Storage Flow
 
-**When `/logs` endpoint is called**:
+**Strategy Based on Execution Status**:
 
+**For RUNNING Executions**:
 1. **Check DynamoDB**: Query for existing logs for execution_id
-2. **If logs exist**: Return indexed logs from DynamoDB
+2. **If logs exist**: Return indexed logs from DynamoDB + WebSocket URL
 3. **If no logs exist**: 
    - Fetch from CloudWatch Logs
    - Store in DynamoDB with sequential indexes (1, 2, 3, ...)
-   - Return indexed logs
-4. **Response includes**: All logs with indexes + `last_index` field
+   - Return indexed logs + WebSocket URL
+4. **Response includes**: All logs with indexes + `last_index` + WebSocket URL
+
+**For COMPLETED Executions** (SUCCEEDED, FAILED, STOPPED):
+1. **Fetch directly from CloudWatch**: No DynamoDB storage needed
+2. **Return logs**: Simple indexed logs (indexes for display only, not stored)
+3. **No WebSocket URL**: Execution is complete, no streaming needed
+4. **Response includes**: All logs with indexes + `last_index` (no WebSocket URL)
+
+**Benefits**:
+- ✅ **Optimized for completed executions**: No unnecessary DynamoDB writes
+- ✅ **Faster for one-off fetches**: Direct CloudWatch read
+- ✅ **Cost-effective**: No storage for completed executions
+- ✅ **Simpler**: No streaming complexity for finished executions
 
 #### Phase 5: WebSocket Connection Enhancement
 
@@ -372,16 +385,23 @@ wss://...?execution_id=xxx&last_index=100
 #### Step 3: Enhance Logs Endpoint
 
 **File**: `internal/app/main.go` - `GetLogsByExecutionID`
-- Check DynamoDB for existing logs
-- If not found, fetch from CloudWatch and store
-- Return indexed logs with `last_index`
+- **Check execution status** first
+- **If RUNNING**:
+  - Check DynamoDB for existing logs
+  - If not found, fetch from CloudWatch and store in DynamoDB
+  - Return indexed logs with `last_index` + WebSocket URL
+- **If COMPLETED** (SUCCEEDED, FAILED, STOPPED):
+  - Fetch directly from CloudWatch (no DynamoDB)
+  - Return indexed logs with `last_index` (no WebSocket URL)
 
 #### Step 4: Enhance Log Forwarder
 
 **File**: `internal/websocket/log_forwarder.go`
+- **Only process RUNNING executions**: Check execution status before processing
 - Store incoming logs in DynamoDB with indexes
 - Query DynamoDB for logs after connection's `last_index`
 - Forward in index order
+- **Note**: Completed executions are handled by `/logs` endpoint, not Log Forwarder
 
 #### Step 5: Update WebSocket Manager
 

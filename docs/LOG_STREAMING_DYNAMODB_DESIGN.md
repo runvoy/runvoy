@@ -85,64 +85,143 @@ type LogRepository interface {
 
 ### 1. Initial Log Fetch (`GET /api/v1/executions/{id}/logs`)
 
+**Strategy Based on Execution Status**:
+
+#### For RUNNING Executions
+- Use DynamoDB for storage and streaming support
+- Enable WebSocket streaming
+
+#### For COMPLETED Executions (SUCCEEDED, FAILED, STOPPED)
+- Read directly from CloudWatch Logs (no DynamoDB needed)
+- No WebSocket URL provided
+- Simpler, faster, no storage overhead
+
 **Flow**:
-1. Check if logs exist in DynamoDB for execution_id
-2. **If logs exist**: Query all logs, return with indexes
-3. **If no logs exist**:
-   - Fetch from CloudWatch Logs
-   - Assign sequential indexes (1, 2, 3, ...)
-   - Store in DynamoDB using batch write
-   - Return indexed logs with `last_index`
+1. **Check execution status** from DynamoDB execution record
+2. **If execution is RUNNING**:
+   - Check if logs exist in DynamoDB for execution_id
+   - **If logs exist**: Query all logs, return with indexes + WebSocket URL
+   - **If no logs exist**:
+     - Fetch from CloudWatch Logs
+     - Assign sequential indexes (1, 2, 3, ...)
+     - Store in DynamoDB using batch write
+     - Return indexed logs with `last_index` + WebSocket URL
+3. **If execution is COMPLETED** (SUCCEEDED, FAILED, STOPPED):
+   - Fetch directly from CloudWatch Logs (no DynamoDB storage)
+   - Return logs without indexes (or with simple sequential indexes)
+   - No WebSocket URL provided
 
 **Pseudo-code**:
 ```go
 func (s *Service) GetLogsByExecutionID(ctx context.Context, executionID string) (*api.LogsResponse, error) {
+    // Fetch execution status
+    execution, err := s.executionRepo.GetExecution(ctx, executionID)
+    if err != nil {
+        return nil, err
+    }
+    if execution == nil {
+        return nil, apperrors.ErrNotFound("execution not found", nil)
+    }
+    
+    // Strategy based on execution status
+    if execution.Status == string(constants.ExecutionRunning) {
+        // RUNNING: Use DynamoDB for streaming support
+        return s.getLogsForRunningExecution(ctx, executionID)
+    }
+    
+    // COMPLETED: Read directly from CloudWatch (no DynamoDB, no streaming)
+    return s.getLogsForCompletedExecution(ctx, executionID, execution.Status)
+}
+
+func (s *Service) getLogsForRunningExecution(ctx context.Context, executionID string) (*api.LogsResponse, error) {
     // Check DynamoDB first
     maxIndex, err := s.logRepo.GetMaxIndex(ctx, executionID)
     if err != nil {
         return nil, err
     }
     
+    var indexedEvents []api.IndexedLogEvent
     if maxIndex > 0 {
         // Logs exist in DynamoDB, fetch all
-        events, err := s.logRepo.GetLogsSinceIndex(ctx, executionID, 0)
+        indexedEvents, err = s.logRepo.GetLogsSinceIndex(ctx, executionID, 0)
         if err != nil {
             return nil, err
         }
-        return &api.LogsResponse{
-            ExecutionID: executionID,
-            Events: events,
-            LastIndex: maxIndex,
-        }, nil
+    } else {
+        // No logs in DynamoDB, fetch from CloudWatch and store
+        cloudWatchEvents, err := s.runner.FetchLogsByExecutionID(ctx, executionID)
+        if err != nil {
+            return nil, err
+        }
+        
+        // Store in DynamoDB with indexes
+        maxIndex, err = s.logRepo.StoreLogs(ctx, executionID, cloudWatchEvents)
+        if err != nil {
+            return nil, err
+        }
+        
+        // Fetch back from DynamoDB to get indexed events
+        indexedEvents, err = s.logRepo.GetLogsSinceIndex(ctx, executionID, 0)
+        if err != nil {
+            return nil, err
+        }
     }
     
-    // No logs in DynamoDB, fetch from CloudWatch
+    // Provide WebSocket URL for streaming
+    var websocketURL string
+    if s.websocketAPIBaseURL != "" {
+        wsURL := "wss://" + s.websocketAPIBaseURL
+        websocketURL = fmt.Sprintf("%s?execution_id=%s&last_index=%d", wsURL, executionID, maxIndex)
+    }
+    
+    return &api.LogsResponse{
+        ExecutionID:  executionID,
+        Events:       indexedEvents,
+        Status:       string(constants.ExecutionRunning),
+        LastIndex:    maxIndex,
+        WebSocketURL: websocketURL,
+    }, nil
+}
+
+func (s *Service) getLogsForCompletedExecution(
+    ctx context.Context,
+    executionID string,
+    status string,
+) (*api.LogsResponse, error) {
+    // Fetch directly from CloudWatch (no DynamoDB storage needed)
     cloudWatchEvents, err := s.runner.FetchLogsByExecutionID(ctx, executionID)
     if err != nil {
         return nil, err
     }
     
-    // Store in DynamoDB with indexes
-    maxIndex, err = s.logRepo.StoreLogs(ctx, executionID, cloudWatchEvents)
-    if err != nil {
-        return nil, err
+    // Convert to indexed events (simple sequential indexes for display)
+    indexedEvents := make([]api.IndexedLogEvent, len(cloudWatchEvents))
+    for i, event := range cloudWatchEvents {
+        indexedEvents[i] = api.IndexedLogEvent{
+            LogEvent: event,
+            Index:    int64(i + 1),
+        }
     }
     
-    // Fetch back from DynamoDB to get indexed events
-    indexedEvents, err := s.logRepo.GetLogsSinceIndex(ctx, executionID, 0)
-    if err != nil {
-        return nil, err
+    // No WebSocket URL for completed executions
+    lastIndex := int64(len(indexedEvents))
+    if lastIndex > 0 {
+        lastIndex = indexedEvents[len(indexedEvents)-1].Index
     }
     
     return &api.LogsResponse{
-        ExecutionID: executionID,
-        Events: indexedEvents,
-        LastIndex: maxIndex,
+        ExecutionID:  executionID,
+        Events:       indexedEvents,
+        Status:       status,
+        LastIndex:    lastIndex,
+        WebSocketURL: "", // No streaming for completed executions
     }, nil
 }
 ```
 
 ### 2. Log Forwarder (CloudWatch → DynamoDB → WebSocket)
+
+**Note**: Log Forwarder only processes logs for RUNNING executions. Completed executions are handled by the `/logs` endpoint reading directly from CloudWatch.
 
 **When new logs arrive from CloudWatch subscription filter**:
 
