@@ -97,45 +97,20 @@ func (lf *LogForwarder) handleLogs(
 		return nil
 	}
 
-	// Check execution status - only process RUNNING executions
-	if !lf.shouldProcessExecution(ctx, executionID, reqLogger) {
-		return nil
-	}
+	// Note: We assume one Lambda execution concurrently per execution,
+	// so no need to check execution status or deduplicate
 
 	// Convert CloudWatch events to API log events
 	apiLogEvents := lf.convertToAPILogEvents(logsData.LogEvents)
 
-	// Deduplicate logs before storing (check against recent logs in DynamoDB)
-	deduplicatedEvents, dedupErr := lf.deduplicateLogs(ctx, executionID, apiLogEvents, reqLogger)
-	if dedupErr != nil {
-		reqLogger.Warn("failed to deduplicate logs, storing all events",
-			"context", map[string]any{
-				"execution_id": executionID,
-				"error":        dedupErr.Error(),
-			},
-		)
-		deduplicatedEvents = apiLogEvents
-	}
-
-	if len(deduplicatedEvents) == 0 {
-		reqLogger.Debug("all logs were duplicates, skipping storage",
-			"context", map[string]any{
-				"execution_id":   executionID,
-				"original_count": len(apiLogEvents),
-			},
-		)
-		// Still forward to connections in case they need updates
-		return lf.forwardLogsToConnections(ctx, executionID, reqLogger)
-	}
-
-	// Store deduplicated logs in DynamoDB
-	maxIndex, storeErr := lf.logRepo.StoreLogs(ctx, executionID, deduplicatedEvents)
+	// Store logs in DynamoDB (assume one Lambda execution concurrently per execution)
+	maxIndex, storeErr := lf.logRepo.StoreLogs(ctx, executionID, apiLogEvents)
 	if storeErr != nil {
 		reqLogger.Error("failed to store logs in DynamoDB",
 			"context", map[string]any{
 				"execution_id": executionID,
 				"error":        storeErr.Error(),
-				"events_count": len(deduplicatedEvents),
+				"events_count": len(apiLogEvents),
 			},
 		)
 		return fmt.Errorf("failed to store logs: %w", storeErr)
@@ -143,112 +118,13 @@ func (lf *LogForwarder) handleLogs(
 
 	reqLogger.Debug("logs stored in DynamoDB",
 		"context", map[string]any{
-			"execution_id":   executionID,
-			"events_count":   len(deduplicatedEvents),
-			"original_count": len(apiLogEvents),
-			"max_index":      maxIndex,
+			"execution_id": executionID,
+			"events_count": len(apiLogEvents),
+			"max_index":    maxIndex,
 		},
 	)
 
-	return lf.forwardLogsToConnections(ctx, executionID, reqLogger)
-}
-
-// shouldProcessExecution checks if the execution is RUNNING and should be processed.
-// Returns false if execution is not found or not RUNNING.
-func (lf *LogForwarder) shouldProcessExecution(
-	ctx context.Context,
-	executionID string,
-	reqLogger *slog.Logger,
-) bool {
-	execution, err := lf.executionRepo.GetExecution(ctx, executionID)
-	if err != nil {
-		reqLogger.Warn("failed to get execution status, skipping log processing",
-			"context", map[string]string{
-				"execution_id": executionID,
-				"error":        err.Error(),
-			},
-		)
-		return false
-	}
-
-	if execution.Status != string(constants.ExecutionRunning) {
-		reqLogger.Debug("execution is not RUNNING, skipping log processing",
-			"context", map[string]string{
-				"execution_id": executionID,
-				"status":       execution.Status,
-			},
-		)
-		return false
-	}
-
-	return true
-}
-
-// deduplicateLogs removes logs that already exist in DynamoDB by comparing timestamp and message.
-// Queries the most recent logs (up to 100) and filters out duplicates.
-func (lf *LogForwarder) deduplicateLogs(
-	ctx context.Context,
-	executionID string,
-	incomingEvents []api.LogEvent,
-	reqLogger *slog.Logger,
-) ([]api.LogEvent, error) {
-	if len(incomingEvents) == 0 {
-		return incomingEvents, nil
-	}
-
-	// Get max index to determine how many recent logs to check
-	maxIndex, err := lf.logRepo.GetMaxIndex(ctx, executionID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get max index: %w", err)
-	}
-
-	// If no logs exist yet, all incoming logs are new
-	if maxIndex == 0 {
-		return incomingEvents, nil
-	}
-
-	// Query recent logs (check last 100 logs, or all if fewer exist)
-	checkFromIndex := maxIndex - 99
-	if checkFromIndex < 1 {
-		checkFromIndex = 1
-	}
-
-	existingLogs, err := lf.logRepo.GetLogsSinceIndex(ctx, executionID, checkFromIndex-1)
-	if err != nil {
-		return nil, fmt.Errorf("failed to query existing logs: %w", err)
-	}
-
-	// Build a set of existing log signatures (timestamp + message)
-	existingSet := make(map[string]bool, len(existingLogs))
-	for _, log := range existingLogs {
-		signature := lf.logSignature(log.Timestamp, log.Message)
-		existingSet[signature] = true
-	}
-
-	// Filter out duplicates
-	deduplicated := make([]api.LogEvent, 0, len(incomingEvents))
-	for _, event := range incomingEvents {
-		signature := lf.logSignature(event.Timestamp, event.Message)
-		if !existingSet[signature] {
-			deduplicated = append(deduplicated, event)
-		}
-	}
-
-	reqLogger.Debug("deduplicated logs",
-		"context", map[string]any{
-			"execution_id":   executionID,
-			"incoming_count": len(incomingEvents),
-			"deduped_count":  len(deduplicated),
-			"existing_count": len(existingLogs),
-		},
-	)
-
-	return deduplicated, nil
-}
-
-// logSignature creates a unique signature for a log event (timestamp + message).
-func (lf *LogForwarder) logSignature(timestamp int64, message string) string {
-	return fmt.Sprintf("%d:%s", timestamp, message)
+	return nil
 }
 
 // convertToAPILogEvents converts CloudWatch log events to API log events.

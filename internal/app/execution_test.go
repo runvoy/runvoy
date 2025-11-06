@@ -509,30 +509,26 @@ func TestGetLogsByExecutionID(t *testing.T) {
 				},
 			}
 
-			// For RUNNING executions, we need a mock logRepo
-			// For COMPLETED executions, logRepo is not used (we read directly from CloudWatch)
-			var logRepo *mockLogRepository
-			if tt.executionStatus == string(constants.ExecutionRunning) {
-				logRepo = &mockLogRepository{
-					getMaxIndexFunc: func(_ context.Context, _ string) (int64, error) {
-						return 0, nil // No logs in DynamoDB yet
-					},
-					storeLogsFunc: func(_ context.Context, _ string, events []api.LogEvent) (int64, error) {
-						return int64(len(events)), nil
-					},
-					getLogsSinceIndexFunc: func(_ context.Context, _ string, _ int64) ([]api.LogEvent, error) {
-						// Return indexed events
-						indexedEvents := make([]api.LogEvent, len(tt.mockEvents))
-						for i, event := range tt.mockEvents {
-							indexedEvents[i] = api.LogEvent{
-								Timestamp: event.Timestamp,
-								Message:   event.Message,
-								Index:     int64(i + 1),
-							}
+			// All executions now use cache-aside pattern, so logRepo is always needed
+			logRepo := &mockLogRepository{
+				getMaxIndexFunc: func(_ context.Context, _ string) (int64, error) {
+					return 0, nil // No logs in DynamoDB yet (cache miss)
+				},
+				storeLogsFunc: func(_ context.Context, _ string, events []api.LogEvent) (int64, error) {
+					return int64(len(events)), nil
+				},
+				getLogsSinceIndexFunc: func(_ context.Context, _ string, _ int64) ([]api.LogEvent, error) {
+					// Return indexed events
+					indexedEvents := make([]api.LogEvent, len(tt.mockEvents))
+					for i, event := range tt.mockEvents {
+						indexedEvents[i] = api.LogEvent{
+							Timestamp: event.Timestamp,
+							Message:   event.Message,
+							Index:     int64(i + 1),
 						}
-						return indexedEvents, nil
-					},
-				}
+					}
+					return indexedEvents, nil
+				},
 			}
 
 			svc := newTestService(nil, execRepo, logRepo, runner)

@@ -378,12 +378,13 @@ func (s *Service) RunCommand(
 }
 
 // GetLogsByExecutionID returns aggregated Cloud logs for a given execution.
-// Strategy based on execution status:
-// - RUNNING: Uses DynamoDB for storage and streaming support
-// - COMPLETED (SUCCEEDED, FAILED, STOPPED): Reads directly from CloudWatch (no DynamoDB)
+// Uses cache-aside pattern: checks DynamoDB first, if empty fetches from CloudWatch and stores.
 func (s *Service) GetLogsByExecutionID(ctx context.Context, executionID string) (*api.LogsResponse, error) {
 	if s.executionRepo == nil {
 		return nil, apperrors.ErrInternalError("execution repository not configured", nil)
+	}
+	if s.logRepo == nil {
+		return nil, apperrors.ErrInternalError("log repository not configured", nil)
 	}
 	if executionID == "" {
 		return nil, apperrors.ErrBadRequest("executionID is required", nil)
@@ -398,24 +399,7 @@ func (s *Service) GetLogsByExecutionID(ctx context.Context, executionID string) 
 		return nil, apperrors.ErrNotFound("execution not found", nil)
 	}
 
-	// Strategy based on execution status
-	if execution.Status == string(constants.ExecutionRunning) {
-		return s.getLogsForRunningExecution(ctx, executionID, execution.Status)
-	}
-
-	// COMPLETED: Read directly from CloudWatch (no DynamoDB, no streaming)
-	return s.getLogsForCompletedExecution(ctx, executionID, execution.Status)
-}
-
-// getLogsForRunningExecution handles log fetching for RUNNING executions.
-// Uses DynamoDB for storage and streaming support.
-func (s *Service) getLogsForRunningExecution(
-	ctx context.Context, executionID, status string) (*api.LogsResponse, error) {
-	if s.logRepo == nil {
-		return nil, apperrors.ErrInternalError("log repository not configured", nil)
-	}
-
-	// Check if logs exist in DynamoDB
+	// Check if logs exist in DynamoDB (cache-aside pattern)
 	maxIndex, err := s.logRepo.GetMaxIndex(ctx, executionID)
 	if err != nil {
 		return nil, err
@@ -429,7 +413,7 @@ func (s *Service) getLogsForRunningExecution(
 			return nil, err
 		}
 	} else {
-		// No logs in DynamoDB, fetch from CloudWatch and store
+		// No logs in DynamoDB, fetch from CloudWatch and store (cache miss)
 		cloudWatchEvents, fetchErr := s.runner.FetchLogsByExecutionID(ctx, executionID)
 		if fetchErr != nil {
 			return nil, fetchErr
@@ -448,54 +432,13 @@ func (s *Service) getLogsForRunningExecution(
 		}
 	}
 
-	// Provide WebSocket URL for streaming
-	var websocketURL string
-	if s.websocketAPIBaseURL != "" {
-		wsURL := "wss://" + s.websocketAPIBaseURL
-		websocketURL = fmt.Sprintf("%s?execution_id=%s&last_index=%d", wsURL, executionID, maxIndex)
-	}
-
+	// No WebSocket streaming for now (will be implemented later with DynamoDB streams)
 	return &api.LogsResponse{
 		ExecutionID:  executionID,
 		Events:       logEvents,
-		Status:       status,
+		Status:       execution.Status,
 		LastIndex:    maxIndex,
-		WebSocketURL: websocketURL,
-	}, nil
-}
-
-// getLogsForCompletedExecution handles log fetching for completed executions.
-// Reads directly from CloudWatch (no DynamoDB storage needed).
-func (s *Service) getLogsForCompletedExecution(
-	ctx context.Context, executionID, status string) (*api.LogsResponse, error) {
-	// Fetch directly from CloudWatch (no DynamoDB storage needed)
-	cloudWatchEvents, err := s.runner.FetchLogsByExecutionID(ctx, executionID)
-	if err != nil {
-		return nil, err
-	}
-
-	// Convert to indexed events (simple sequential indexes for display)
-	logEvents := make([]api.LogEvent, len(cloudWatchEvents))
-	for i, event := range cloudWatchEvents {
-		logEvents[i] = api.LogEvent{
-			Timestamp: event.Timestamp,
-			Message:   event.Message,
-			Index:     int64(i + 1), // Simple sequential index for display
-		}
-	}
-
-	// No WebSocket URL for completed executions
-	lastIndex := int64(len(logEvents))
-	if lastIndex > 0 {
-		lastIndex = logEvents[len(logEvents)-1].Index
-	}
-
-	return &api.LogsResponse{
-		ExecutionID:  executionID,
-		Events:       logEvents,
-		Status:       status,
-		LastIndex:    lastIndex,
-		WebSocketURL: "", // No streaming for completed executions
+		WebSocketURL: "", // Streaming will be implemented later
 	}, nil
 }
 
