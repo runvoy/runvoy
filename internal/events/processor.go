@@ -21,6 +21,7 @@ import (
 type Processor struct {
 	executionRepo    database.ExecutionRepository
 	connectionRepo   database.ConnectionRepository
+	logsRepo         database.LogsRepository
 	lambdaClient     *lambda.Client
 	websocketManager string // Lambda function name for websocket_manager
 	logger           *slog.Logger
@@ -48,6 +49,17 @@ func NewProcessor(ctx context.Context, cfg *config.Config, log *slog.Logger) (*P
 	executionRepo := dynamorepo.NewExecutionRepository(dynamoClient, cfg.ExecutionsTable, log)
 	connectionRepo := dynamorepo.NewConnectionRepository(dynamoClient, cfg.WebSocketConnectionsTable, log)
 
+	// Initialize logs repository if execution logs table is configured
+	var logsRepo database.LogsRepository
+	if cfg.ExecutionLogsTable != "" {
+		logsRepo = dynamorepo.NewLogsRepository(
+			dynamoClient,
+			cfg.ExecutionLogsTable,
+			cfg.ExecutionLogsTTLDays,
+			log,
+		)
+	}
+
 	lambdaClient := lambda.NewFromConfig(awsCfg)
 
 	log.Debug("event processor initialized",
@@ -55,12 +67,14 @@ func NewProcessor(ctx context.Context, cfg *config.Config, log *slog.Logger) (*P
 			"executions_table":             cfg.ExecutionsTable,
 			"web_socket_connections_table": cfg.WebSocketConnectionsTable,
 			"websocket_manager_function":   cfg.WebSocketManagerFunctionName,
+			"execution_logs_table":         cfg.ExecutionLogsTable,
 		},
 	)
 
 	return &Processor{
 		executionRepo:    executionRepo,
 		connectionRepo:   connectionRepo,
+		logsRepo:         logsRepo,
 		lambdaClient:     lambdaClient,
 		websocketManager: cfg.WebSocketManagerFunctionName,
 		logger:           log,
@@ -77,6 +91,8 @@ func (p *Processor) HandleEvent(ctx context.Context, event *events.CloudWatchEve
 	switch event.DetailType {
 	case "ECS Task State Change":
 		return p.handleECSTaskCompletion(ctx, event)
+	case "CloudWatch Logs":
+		return p.handleCloudWatchLogs(ctx, event)
 	default:
 		reqLogger.Info("ignoring unhandled event type",
 			"detailType", event.DetailType,

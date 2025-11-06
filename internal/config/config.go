@@ -271,8 +271,6 @@ func (c *Config) GetLogLevel() slog.Level {
 
 // Helper functions
 
-const executionLogsTTLDaysDefault = 7
-
 func setDefaults(v *viper.Viper) {
 	v.SetDefault("port", "56212")
 	v.SetDefault("request_timeout", 0)
@@ -280,7 +278,7 @@ func setDefaults(v *viper.Viper) {
 	// TODO: we set DEBUG for development, we should update this to use INFO
 	v.SetDefault("log_level", "DEBUG")
 	v.SetDefault("web_url", constants.DefaultWebURL)
-	v.SetDefault("execution_logs_ttl_days", executionLogsTTLDaysDefault)
+	v.SetDefault("execution_logs_ttl_days", constants.ExecutionLogsTTLDays)
 }
 
 func loadConfigFile(v *viper.Viper) error {

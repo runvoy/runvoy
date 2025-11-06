@@ -349,3 +349,6 @@ func ExtractExecutionIDFromLogStream(logStream string) string {
 
 // MaxConcurrentSends is the maximum number of concurrent sends to WebSocket connections
 const MaxConcurrentSends = 10
+
+// ExecutionLogsTTLDays is the number of days to keep execution logs in the database
+const ExecutionLogsTTLDays = 7

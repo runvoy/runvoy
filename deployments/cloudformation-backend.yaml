@@ -618,6 +618,26 @@ Resources:
       Principal: events.amazonaws.com
       SourceArn: !GetAtt TaskCompletionEventRule.Arn
 
+  # CloudWatch Logs Subscription Filter to capture logs from runner tasks
+  # Sends logs via EventBridge to the Event Processor Lambda
+  LogsSubscriptionFilter:
+    Type: AWS::Logs::SubscriptionFilter
+    DependsOn: EventProcessorLogsEventPermission
+    Properties:
+      LogGroupName: !Ref RunnerLogGroup
+      FilterName: !Sub '${ProjectName}-logs-ingestion'
+      FilterPattern: ''
+      DestinationArn: !GetAtt EventProcessorFunction.Arn
+
+  # Permission for CloudWatch Logs to invoke Event Processor Lambda
+  EventProcessorLogsEventPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref EventProcessorFunction
+      Action: lambda:InvokeFunction
+      Principal: logs.amazonaws.com
+      SourceArn: !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:${RunnerLogGroup}:*'
+
   # DynamoDB Table for Execution Logs Cache
   ExecutionLogsTable:
     Type: AWS::DynamoDB::Table
