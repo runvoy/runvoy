@@ -79,7 +79,7 @@ func TestAuthenticateUser(t *testing.T) {
 				},
 			}
 
-			svc := newTestService(userRepo, nil, nil)
+			svc := newTestService(userRepo, nil, nil, nil)
 			user, err := svc.AuthenticateUser(ctx, tt.apiKey)
 
 			if tt.expectErr {
@@ -139,7 +139,7 @@ func TestUpdateUserLastUsed(t *testing.T) {
 				},
 			}
 
-			svc := newTestService(userRepo, nil, nil)
+			svc := newTestService(userRepo, nil, nil, nil)
 			timestamp, err := svc.UpdateUserLastUsed(ctx, tt.email)
 
 			if tt.expectErr {
@@ -223,7 +223,7 @@ func TestRevokeUser(t *testing.T) {
 				},
 			}
 
-			svc := newTestService(userRepo, nil, nil)
+			svc := newTestService(userRepo, nil, nil, nil)
 			err := svc.RevokeUser(ctx, tt.email)
 
 			if tt.expectErr {

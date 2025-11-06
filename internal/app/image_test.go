@@ -69,7 +69,7 @@ func TestRegisterImage(t *testing.T) {
 				},
 			}
 
-			svc := newTestService(nil, nil, runner)
+			svc := newTestService(nil, nil, nil, runner)
 			resp, err := svc.RegisterImage(ctx, tt.image, tt.isDefault)
 
 			if tt.expectErr {
@@ -128,7 +128,7 @@ func TestListImages(t *testing.T) {
 				},
 			}
 
-			svc := newTestService(nil, nil, runner)
+			svc := newTestService(nil, nil, nil, runner)
 			resp, err := svc.ListImages(ctx)
 
 			if tt.expectErr {
@@ -183,7 +183,7 @@ func TestRemoveImage(t *testing.T) {
 				},
 			}
 
-			svc := newTestService(nil, nil, runner)
+			svc := newTestService(nil, nil, nil, runner)
 			err := svc.RemoveImage(ctx, tt.image)
 
 			if tt.expectErr {

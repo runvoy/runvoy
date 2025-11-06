@@ -207,8 +207,44 @@ func (m *mockRunner) FetchLogsByExecutionID(ctx context.Context, executionID str
 	return []api.LogEvent{}, nil
 }
 
+// mockLogRepository implements database.LogRepository for testing
+type mockLogRepository struct {
+	storeLogsFunc        func(ctx context.Context, executionID string, events []api.LogEvent) (int64, error)
+	getLogsSinceIndexFunc func(ctx context.Context, executionID string, lastIndex int64) ([]api.LogEvent, error)
+	getMaxIndexFunc      func(ctx context.Context, executionID string) (int64, error)
+	setExpirationFunc    func(ctx context.Context, executionID string, expiresAt int64) error
+}
+
+func (m *mockLogRepository) StoreLogs(ctx context.Context, executionID string, events []api.LogEvent) (int64, error) {
+	if m.storeLogsFunc != nil {
+		return m.storeLogsFunc(ctx, executionID, events)
+	}
+	return 0, nil
+}
+
+func (m *mockLogRepository) GetLogsSinceIndex(ctx context.Context, executionID string, lastIndex int64) ([]api.LogEvent, error) {
+	if m.getLogsSinceIndexFunc != nil {
+		return m.getLogsSinceIndexFunc(ctx, executionID, lastIndex)
+	}
+	return []api.LogEvent{}, nil
+}
+
+func (m *mockLogRepository) GetMaxIndex(ctx context.Context, executionID string) (int64, error) {
+	if m.getMaxIndexFunc != nil {
+		return m.getMaxIndexFunc(ctx, executionID)
+	}
+	return 0, nil
+}
+
+func (m *mockLogRepository) SetExpiration(ctx context.Context, executionID string, expiresAt int64) error {
+	if m.setExpirationFunc != nil {
+		return m.setExpirationFunc(ctx, executionID, expiresAt)
+	}
+	return nil
+}
+
 // newTestService creates a Service with mocks for testing
-func newTestService(userRepo *mockUserRepository, execRepo *mockExecutionRepository, runner *mockRunner) *Service {
+func newTestService(userRepo *mockUserRepository, execRepo *mockExecutionRepository, logRepo *mockLogRepository, runner *mockRunner) *Service {
 	logger := testutil.SilentLogger()
-	return NewService(userRepo, execRepo, runner, logger, constants.AWS, "")
+	return NewService(userRepo, execRepo, logRepo, runner, logger, constants.AWS, "")
 }

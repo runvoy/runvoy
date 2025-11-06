@@ -101,7 +101,7 @@ func TestRunCommand(t *testing.T) {
 				},
 			}
 
-			svc := newTestService(nil, execRepo, runner)
+			svc := newTestService(nil, execRepo, nil, runner)
 			resp, err := svc.RunCommand(ctx, tt.userEmail, &tt.req)
 
 			if tt.expectErr {
@@ -196,7 +196,7 @@ func TestGetExecutionStatus(t *testing.T) {
 				},
 			}
 
-			svc := newTestService(nil, execRepo, nil)
+			svc := newTestService(nil, execRepo, nil, nil)
 			resp, err := svc.GetExecutionStatus(ctx, tt.executionID)
 
 			if tt.expectErr {
@@ -276,7 +276,7 @@ func TestListExecutions(t *testing.T) {
 				},
 			}
 
-			svc := newTestService(nil, execRepo, nil)
+			svc := newTestService(nil, execRepo, nil, nil)
 			executions, err := svc.ListExecutions(ctx)
 
 			if tt.expectErr {
@@ -399,7 +399,7 @@ func TestKillExecution(t *testing.T) {
 				},
 			}
 
-			svc := newTestService(nil, execRepo, runner)
+			svc := newTestService(nil, execRepo, nil, runner)
 			err := svc.KillExecution(ctx, tt.executionID)
 
 			if tt.expectErr {
@@ -509,7 +509,33 @@ func TestGetLogsByExecutionID(t *testing.T) {
 				},
 			}
 
-			svc := newTestService(nil, execRepo, runner)
+			// For RUNNING executions, we need a mock logRepo
+			// For COMPLETED executions, logRepo is not used (we read directly from CloudWatch)
+			var logRepo *mockLogRepository
+			if tt.executionStatus == string(constants.ExecutionRunning) {
+				logRepo = &mockLogRepository{
+					getMaxIndexFunc: func(_ context.Context, _ string) (int64, error) {
+						return 0, nil // No logs in DynamoDB yet
+					},
+					storeLogsFunc: func(_ context.Context, _ string, events []api.LogEvent) (int64, error) {
+						return int64(len(events)), nil
+					},
+					getLogsSinceIndexFunc: func(_ context.Context, _ string, _ int64) ([]api.LogEvent, error) {
+						// Return indexed events
+						indexedEvents := make([]api.LogEvent, len(tt.mockEvents))
+						for i, event := range tt.mockEvents {
+							indexedEvents[i] = api.LogEvent{
+								Timestamp: event.Timestamp,
+								Message:   event.Message,
+								Index:     int64(i + 1),
+							}
+						}
+						return indexedEvents, nil
+					},
+				}
+			}
+
+			svc := newTestService(nil, execRepo, logRepo, runner)
 			resp, err := svc.GetLogsByExecutionID(ctx, tt.executionID)
 
 			if tt.expectErr {
@@ -535,6 +561,16 @@ func TestGetLogsByExecutionID(t *testing.T) {
 				if tt.shouldHaveWSURL {
 					// Note: Will be empty in test because websocketAPIBaseURL is ""
 					assert.Equal(t, "", resp.WebSocketURL)
+				} else {
+					assert.Equal(t, "", resp.WebSocketURL)
+				}
+				// Check LastIndex is set
+				if len(tt.mockEvents) > 0 {
+					if tt.executionStatus == string(constants.ExecutionRunning) {
+						assert.Equal(t, int64(len(tt.mockEvents)), resp.LastIndex)
+					} else {
+						assert.Equal(t, int64(len(tt.mockEvents)), resp.LastIndex)
+					}
 				}
 			}
 		})

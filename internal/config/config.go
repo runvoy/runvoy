@@ -40,10 +40,11 @@ type Config struct {
 	TaskExecRoleARN              string        `mapstructure:"task_exec_role_arn"`
 	TaskRoleARN                  string        `mapstructure:"task_role_arn"`
 	WebSocketConnectionsTable    string        `mapstructure:"websocket_connections_table"`
-	WebSocketAPIEndpoint         string        `mapstructure:"websocket_api_endpoint"`
-	WebSocketManagerFunctionName string        `mapstructure:"websocket_manager_function_name"`
-	InitTimeout                  time.Duration `mapstructure:"init_timeout"`
-	LogLevel                     string        `mapstructure:"log_level"`
+	ExecutionLogsTable            string        `mapstructure:"execution_logs_table"`
+	WebSocketAPIEndpoint          string        `mapstructure:"websocket_api_endpoint"`
+	WebSocketManagerFunctionName  string        `mapstructure:"websocket_manager_function_name"`
+	InitTimeout                   time.Duration `mapstructure:"init_timeout"`
+	LogLevel                      string        `mapstructure:"log_level"`
 }
 
 var validate = validator.New()
@@ -317,6 +318,7 @@ func bindEnvVars(v *viper.Viper) {
 		"TASK_ROLE_ARN",
 		"WEBSOCKET_API_ENDPOINT",
 		"WEBSOCKET_CONNECTIONS_TABLE",
+		"EXECUTION_LOGS_TABLE",
 		"WEBSOCKET_MANAGER_FUNCTION_NAME",
 		"WEB_URL",
 	}
@@ -341,10 +343,11 @@ func validateOrchestrator(cfg *Config) error {
 	required := map[string]string{
 		"APIKeysTable":         cfg.APIKeysTable,
 		"ExecutionsTable":      cfg.ExecutionsTable,
+		"ExecutionLogsTable":   cfg.ExecutionLogsTable,
 		"ECSCluster":           cfg.ECSCluster,
 		"Subnet1":              cfg.Subnet1,
 		"Subnet2":              cfg.Subnet2,
-		"SecurityGroup":        cfg.SecurityGroup,
+		"SecurityGroup":         cfg.SecurityGroup,
 		"LogGroup":             cfg.LogGroup,
 		"WebSocketAPIEndpoint": cfg.WebSocketAPIEndpoint,
 	}
@@ -438,6 +441,9 @@ func validateConnectionManager(cfg *Config) error {
 func validateLogForwarder(cfg *Config) error {
 	if err := validate.Var(cfg.WebSocketConnectionsTable, "required"); err != nil {
 		return fmt.Errorf("WebSocketConnectionsTable cannot be empty")
+	}
+	if err := validate.Var(cfg.ExecutionLogsTable, "required"); err != nil {
+		return fmt.Errorf("ExecutionLogsTable cannot be empty")
 	}
 	if err := validate.Var(cfg.WebSocketAPIEndpoint, "required"); err != nil {
 		return fmt.Errorf("WebSocketAPIEndpoint cannot be empty")

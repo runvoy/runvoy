@@ -39,13 +39,14 @@ func Initialize(
 	var (
 		userRepo      database.UserRepository
 		executionRepo database.ExecutionRepository
+		logRepo       database.LogRepository
 		runner        Runner
 		err           error
 	)
 
 	switch provider {
 	case constants.AWS:
-		userRepo, executionRepo, runner, err = initializeAWSBackend(ctx, cfg, logger)
+		userRepo, executionRepo, logRepo, runner, err = initializeAWSBackend(ctx, cfg, logger)
 		if err != nil {
 			return nil, fmt.Errorf("failed to initialize AWS: %w", err)
 		}
@@ -55,33 +56,37 @@ func Initialize(
 
 	logger.Debug(constants.ProjectName + " orchestrator initialized successfully")
 
-	return NewService(userRepo, executionRepo, runner, logger, provider, cfg.WebSocketAPIEndpoint), nil
+	return NewService(userRepo, executionRepo, logRepo, runner, logger, provider, cfg.WebSocketAPIEndpoint), nil
 }
 
 // initializeAWSBackend sets up AWS-specific dependencies
 func initializeAWSBackend(
 	ctx context.Context,
 	cfg *config.Config,
-	logger *slog.Logger) (database.UserRepository, database.ExecutionRepository, Runner, error) {
+	logger *slog.Logger) (database.UserRepository, database.ExecutionRepository, database.LogRepository, Runner, error) {
 	if cfg.APIKeysTable == "" {
-		return nil, nil, nil, fmt.Errorf("APIKeysTable cannot be empty")
+		return nil, nil, nil, nil, fmt.Errorf("APIKeysTable cannot be empty")
 	}
 
 	if cfg.ExecutionsTable == "" {
-		return nil, nil, nil, fmt.Errorf("ExecutionsTable cannot be empty")
+		return nil, nil, nil, nil, fmt.Errorf("ExecutionsTable cannot be empty")
 	}
 
 	if cfg.PendingAPIKeysTable == "" {
-		return nil, nil, nil, fmt.Errorf("PendingAPIKeysTable cannot be empty")
+		return nil, nil, nil, nil, fmt.Errorf("PendingAPIKeysTable cannot be empty")
+	}
+
+	if cfg.ExecutionLogsTable == "" {
+		return nil, nil, nil, nil, fmt.Errorf("ExecutionLogsTable cannot be empty")
 	}
 
 	if cfg.ECSCluster == "" {
-		return nil, nil, nil, fmt.Errorf("ECSCluster cannot be empty")
+		return nil, nil, nil, nil, fmt.Errorf("ECSCluster cannot be empty")
 	}
 
 	awsCfg, err := awsConfig.LoadDefaultConfig(ctx)
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("failed to load AWS configuration: %w", err)
+		return nil, nil, nil, nil, fmt.Errorf("failed to load AWS configuration: %w", err)
 	}
 
 	dynamoClient := dynamodb.NewFromConfig(awsCfg)
@@ -90,11 +95,13 @@ func initializeAWSBackend(
 	logger.Debug("DynamoDB backend configured", "context", map[string]string{
 		"api_keys_table":         cfg.APIKeysTable,
 		"executions_table":       cfg.ExecutionsTable,
+		"execution_logs_table":   cfg.ExecutionLogsTable,
 		"pending_api_keys_table": cfg.PendingAPIKeysTable,
 	})
 
 	userRepo := dynamoRepo.NewUserRepository(dynamoClient, cfg.APIKeysTable, cfg.PendingAPIKeysTable, logger)
 	executionRepo := dynamoRepo.NewExecutionRepository(dynamoClient, cfg.ExecutionsTable, logger)
+	logRepo := dynamoRepo.NewLogRepository(dynamoClient, cfg.ExecutionLogsTable, logger)
 
 	awsExecCfg := &appAws.Config{
 		ECSCluster:      cfg.ECSCluster,
@@ -108,5 +115,5 @@ func initializeAWSBackend(
 	}
 	runner := appAws.NewRunner(ecsClientInstance, awsExecCfg, logger)
 
-	return userRepo, executionRepo, runner, nil
+	return userRepo, executionRepo, logRepo, runner, nil
 }
