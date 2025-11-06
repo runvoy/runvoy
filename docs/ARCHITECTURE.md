@@ -709,7 +709,7 @@ The platform includes a minimal web-based log viewer for visualizing execution l
 ### Implementation
 
 **Location**: `cmd/webapp/dist/index.html`
-**Deployment**: Hosted on AWS S3 at `https://runvoy-releases.s3.us-east-2.amazonaws.com/webapp/index.html`
+**Deployment**: Hosted on Netlify at `https://runvoy.site/`
 **Architecture**: Single-page application (SPA) - standalone HTML file with embedded CSS and JavaScript
 
 ### Technology Stack
@@ -770,7 +770,7 @@ All endpoints require authentication via `X-API-Key` header.
 Users access the web viewer via URL with execution ID as query parameter:
 
 ```
-https://runvoy-releases.s3.us-east-2.amazonaws.com/webapp/index.html?execution_id={executionID}
+https://runvoy.site/?execution_id={executionID}
 ```
 
 The CLI automatically provides this link when running commands (see `cmd/cli/cmd/logs.go:58-59`).
@@ -782,11 +782,11 @@ The web application URL is configurable and can be set via:
 1. **Environment Variable**: `RUNVOY_WEB_URL`
 2. **Config File**: `web_url` field in `~/.runvoy/config.yaml`
 
-If not configured, it defaults to `https://runvoy-releases.s3.us-east-2.amazonaws.com/webapp/index.html`.
+If not configured, it defaults to `https://runvoy.site/`.
 
 **Default URL** is defined in `internal/constants/constants.go`:
 ```go
-const DefaultWebURL = "https://runvoy-releases.s3.us-east-2.amazonaws.com/webapp/index.html"
+const DefaultWebURL = "https://runvoy.site/"
 ```
 
 **Usage in CLI commands** (see `cmd/cli/cmd/run.go` and `cmd/cli/cmd/logs.go`):

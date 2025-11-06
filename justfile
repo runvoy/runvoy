@@ -150,27 +150,7 @@ deploy-websocket-log-forwarder: build-websocket-log-forwarder-zip
 # Deploy webapp to S3
 [working-directory: 'cmd/webapp']
 deploy-webapp: build-webapp
-    aws s3 sync dist/ \
-        s3://{{bucket}}/webapp/ \
-        --delete
-    aws s3 cp dist/ \
-        s3://{{bucket}}/webapp/ \
-        --recursive \
-        --exclude "*" \
-        --include "*.html" \
-        --content-type "text/html"
-    aws s3 cp dist/ \
-        s3://{{bucket}}/webapp/ \
-        --recursive \
-        --exclude "*" \
-        --include "*.css" \
-        --content-type "text/css"
-    aws s3 cp dist/ \
-        s3://{{bucket}}/webapp/ \
-        --recursive \
-        --exclude "*" \
-        --include "*.js" \
-        --content-type "application/javascript"
+    netlify deploy --no-build --dir dist --prod
 
 # Run local development server
 run-local: build-local

@@ -41,3 +41,6 @@ dist
 
 # Agents' development dirt
 cmd/runvoy/runvoy
+
+# Local Netlify folder
+.netlify

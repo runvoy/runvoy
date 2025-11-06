@@ -144,7 +144,7 @@ func TerminalExecutionStatuses() []ExecutionStatus {
 
 // DefaultWebURL is the default URL of the web application HTML file.
 // This can be overridden via configuration (RUNVOY_WEB_URL env var or config file).
-const DefaultWebURL = "https://runvoy-releases.s3.us-east-2.amazonaws.com/webapp/index.html"
+const DefaultWebURL = "https://runvoy.site/"
 
 // WebviewerURL is deprecated. Use config.Config.WebURL or constants.DefaultWebURL instead.
 // Kept for backward compatibility.

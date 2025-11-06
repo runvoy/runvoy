@@ -266,7 +266,7 @@ runvoy --help
 ```
 
 ```text
-runvoy - 0.1.0-20251105-b4c230c
+runvoy - 0.1.0-20251106-c2d5672
 Isolated, repeatable execution environments for your commands
 
 Usage:
@@ -325,7 +325,7 @@ runvoy run --git-repo https://github.com/mycompany/myproject.git npm run tests
 # ✓ Command execution started successfully
 #   Execution ID: 61fb9138466c4212b1e0d763a7f4dfe2
 #   Status: RUNNING
-# → View logs in web viewer: https://runvoy-releases.s3.us-east-2.amazonaws.com/webapp/index.html?execution_id=61fb9138466c4212b1e0d763a7f4dfe2
+# → View logs in web viewer: https://runvoy.site/?execution_id=61fb9138466c4212b1e0d763a7f4dfe2
 ```
 
 **Log Viewing:**
@@ -408,7 +408,7 @@ The web application URL can be customized via:
 - Environment variable: `RUNVOY_WEB_URL`
 - Config file (`~/.runvoy/config.yaml`): `web_url` field
 
-If not configured, it defaults to `https://runvoy-releases.s3.us-east-2.amazonaws.com/webapp/index.html`.
+If not configured, it defaults to `https://runvoy.site/`.
 
 **User Management:**
 
