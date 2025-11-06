@@ -63,8 +63,75 @@ func (r *LogsRepository) calculateTTL() int64 {
 	return time.Now().AddDate(0, 0, r.ttlDays).Unix()
 }
 
+// getNextLineNumberAtomic atomically increments and returns the next line number
+// for an execution using DynamoDB's ADD operation on a counter item.
+// This ensures no two concurrent writes can get the same line number.
+func (r *LogsRepository) getNextLineNumberAtomic(
+	ctx context.Context,
+	executionID string,
+) (int, error) {
+	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
+
+	// Use a special counter item with execution_id as PK and a fixed SK for the counter
+	counterSK := "LINE_NUMBER_COUNTER"
+
+	logArgs := []any{
+		"operation", "DynamoDB.UpdateItem",
+		"table", r.tableName,
+		"execution_id", executionID,
+		"counter_sk", counterSK,
+	}
+	logArgs = append(logArgs, logger.GetDeadlineInfo(ctx)...)
+	reqLogger.Debug("calling external service", "context", logger.SliceToMap(logArgs))
+
+	// Atomically increment the counter and get the new value
+	// The ADD operation increments the numeric attribute and returns the updated value
+	result, err := r.client.UpdateItem(ctx, &dynamodb.UpdateItemInput{
+		TableName: aws.String(r.tableName),
+		Key: map[string]types.AttributeValue{
+			"execution_id":        &types.AttributeValueMemberS{Value: executionID},
+			"timestamp_log_index": &types.AttributeValueMemberS{Value: counterSK},
+		},
+		UpdateExpression: aws.String("ADD line_number :inc SET ingested_at = :now, ttl = :ttl"),
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":inc": &types.AttributeValueMemberN{Value: "1"},
+			":now": &types.AttributeValueMemberN{Value: fmt.Sprintf("%d", time.Now().UnixMilli())},
+			":ttl": &types.AttributeValueMemberN{Value: fmt.Sprintf("%d", r.calculateTTL())},
+		},
+		ReturnValues: types.ReturnValueAllNew,
+	})
+	if err != nil {
+		return 0, appErrors.ErrDatabaseError("failed to increment line number counter", err)
+	}
+
+	// Extract the new line_number from the result
+	if result.Attributes == nil {
+		return 0, appErrors.ErrDatabaseError("unexpected response from counter update", nil)
+	}
+
+	lineNumAttr, exists := result.Attributes["line_number"]
+	if !exists {
+		return 0, appErrors.ErrDatabaseError("line_number not found in counter response", nil)
+	}
+
+	lineNumStr := lineNumAttr.(*types.AttributeValueMemberN).Value
+	var lineNumber int
+	_, err = fmt.Sscanf(lineNumStr, "%d", &lineNumber)
+	if err != nil {
+		return 0, appErrors.ErrDatabaseError("failed to parse line number from counter", err)
+	}
+
+	reqLogger.Debug("line number assigned atomically", "context", map[string]any{
+		"execution_id": executionID,
+		"line_number":  lineNumber,
+	})
+
+	return lineNumber, nil
+}
+
 // CreateLogEvent stores a new log event in the cache table.
-// The lineNumber is assigned based on the order of ingestion for the execution.
+// The lineNumber is assigned atomically using DynamoDB's ADD operation on a counter.
+// This ensures no two concurrent writes can be assigned the same line number.
 func (r *LogsRepository) CreateLogEvent(
 	ctx context.Context,
 	executionID string,
@@ -72,12 +139,11 @@ func (r *LogsRepository) CreateLogEvent(
 ) error {
 	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
 
-	// Get the next line number atomically
-	lastLineNum, err := r.GetLastLineNumber(ctx, executionID)
+	// Get the next line number atomically (guarantees uniqueness across concurrent writes)
+	nextLineNum, err := r.getNextLineNumberAtomic(ctx, executionID)
 	if err != nil {
 		return err
 	}
-	nextLineNum := lastLineNum + 1
 
 	// Calculate timestamp#log_index composite sort key
 	// Format: "{timestamp}#{sequence}" for proper sorting
@@ -104,6 +170,7 @@ func (r *LogsRepository) CreateLogEvent(
 		"table", r.tableName,
 		"execution_id", executionID,
 		"timestamp", logEvent.Timestamp,
+		"line_number", nextLineNum,
 	}
 	logArgs = append(logArgs, logger.GetDeadlineInfo(ctx)...)
 	reqLogger.Debug("calling external service", "context", logger.SliceToMap(logArgs))
@@ -260,53 +327,6 @@ func (r *LogsRepository) GetLogsByTimeRange(
 	}
 
 	return events, nil
-}
-
-// GetLastLineNumber retrieves the highest line_number for an execution.
-func (r *LogsRepository) GetLastLineNumber(
-	ctx context.Context,
-	executionID string,
-) (int, error) {
-	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
-
-	logArgs := []any{
-		"operation", "DynamoDB.Query",
-		"table", r.tableName,
-		"execution_id", executionID,
-		"index", "execution_id-line_number-index",
-	}
-	logArgs = append(logArgs, logger.GetDeadlineInfo(ctx)...)
-	reqLogger.Debug("calling external service", "context", logger.SliceToMap(logArgs))
-
-	// Query in reverse order, get the first item (highest line_number)
-	queryInput := &dynamodb.QueryInput{
-		TableName:              aws.String(r.tableName),
-		IndexName:              aws.String("execution_id-line_number-index"),
-		KeyConditionExpression: aws.String("execution_id = :exec_id"),
-		ExpressionAttributeValues: map[string]types.AttributeValue{
-			":exec_id": &types.AttributeValueMemberS{Value: executionID},
-		},
-		Limit:            aws.Int32(1),
-		ScanIndexForward: aws.Bool(false), // Reverse order to get max line_number
-	}
-
-	result, err := r.client.Query(ctx, queryInput)
-	if err != nil {
-		return 0, appErrors.ErrDatabaseError("failed to query last line number", err)
-	}
-
-	if len(result.Items) == 0 {
-		// No logs yet
-		return 0, nil
-	}
-
-	var item logItem
-	err = attributevalue.UnmarshalMap(result.Items[0], &item)
-	if err != nil {
-		return 0, appErrors.ErrDatabaseError("failed to unmarshal log item", err)
-	}
-
-	return item.LineNumber, nil
 }
 
 // batchDeleteItems performs batch deletion of DynamoDB items.

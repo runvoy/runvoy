@@ -103,10 +103,6 @@ type LogsRepository interface {
 	GetLogsByTimeRange(ctx context.Context, executionID string,
 		afterTimestamp, beforeTimestamp int64) ([]*api.LogEvent, error)
 
-	// GetLastLineNumber retrieves the highest line_number for an execution.
-	// Returns 0 if no logs exist yet.
-	GetLastLineNumber(ctx context.Context, executionID string) (int, error)
-
 	// DeleteLogsByExecutionID removes all logs for a given execution.
 	DeleteLogsByExecutionID(ctx context.Context, executionID string) error
 
