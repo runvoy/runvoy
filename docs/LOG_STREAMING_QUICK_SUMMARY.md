@@ -14,61 +14,97 @@ The current log streaming implementation has reliability issues where logs can b
 3. **Fragile deduplication**: Timestamp-based deduplication can fail with duplicate timestamps
 4. **No backfill on reconnection**: Disconnected clients lose logs generated during disconnection
 
-## Recommended Solution: Timestamp-Based Backfill + Polling Fallback
+## Recommended Solution: DynamoDB-Based Indexed Logs
 
-### Quick Win (Fastest to Implement)
+**Designed for CLI streaming and piping scenarios** where logs must be output in strict chronological order without buffering.
 
-1. **Client sends last timestamp to WebSocket**: Include `since` query parameter in WebSocket URL
-2. **Log Forwarder backfills gaps**: Before forwarding new logs, check for and fetch missing logs from CloudWatch
-3. **Client-side polling safety net**: Poll every 10 seconds to catch any missed logs
+### Architecture
+
+1. **DynamoDB temporary storage**: Logs stored with sequential indexes (1, 2, 3, ...)
+2. **Lazy population**: First `/logs` request triggers CloudWatch fetch and DynamoDB storage
+3. **Index-based streaming**: WebSocket uses `since_index` parameter instead of timestamp
+4. **Streaming-friendly**: Client requests logs starting from last seen index
+
+### Key Components
+
+1. **DynamoDB Table**: `{project-name}-execution-logs`
+   - Partition Key: `execution_id`
+   - Sort Key: `log_index`
+   - TTL: `expires_at` (7 days after execution completion)
+
+2. **Indexed Log Events**: Each log gets sequential index per execution
+3. **Log Repository**: New interface for storing/querying indexed logs
+4. **Enhanced Log Forwarder**: Stores logs in DynamoDB, queries by index range
 
 ### Implementation Priority
 
-#### High Priority (Immediate Impact)
-- ✅ Add `since` timestamp parameter to WebSocket connection
-- ✅ Enhance Log Forwarder to backfill missing logs
-- ✅ Add `FetchLogsSinceTimestamp()` method to CloudWatch Logs client
+#### High Priority (Core Functionality)
+- ✅ Create DynamoDB table for execution logs
+- ✅ Add `LogRepository` interface and DynamoDB implementation
+- ✅ Add `IndexedLogEvent` type with `Index` field
+- ✅ Enhance `/logs` endpoint to store logs in DynamoDB on first request
+- ✅ Update Log Forwarder to store logs with indexes
 
-#### Medium Priority (Enhanced Reliability)
-- ✅ Client-side polling fallback
-- ✅ Better deduplication (sequence numbers or better timestamp handling)
-- ✅ Reconnection handling with timestamp tracking
+#### Medium Priority (Streaming Support)
+- ✅ Add `since_index` parameter to WebSocket connection
+- ✅ Enhance Log Forwarder to query DynamoDB for logs after `since_index`
+- ✅ Update CLI to track and use `last_index`
+- ✅ Add `LastIndex` field to `LogsResponse`
 
-#### Low Priority (Future Enhancements)
-- ✅ Sequence number system for guaranteed ordering
-- ✅ Periodic gap detection in Log Forwarder
+#### Low Priority (Enhancements)
+- ✅ TTL management for log cleanup
+- ✅ Connection metadata storage for `since_index`
 - ✅ Metrics and monitoring for log streaming reliability
 
 ## Code Locations
 
+### Files to Create
+
+1. **`internal/database/repository.go`**
+   - Add `LogRepository` interface
+
+2. **`internal/database/dynamodb/logs.go`** (new file)
+   - Implement `LogRepository` using DynamoDB
+   - Methods: `StoreLogs`, `GetLogsSinceIndex`, `GetMaxIndex`, `SetExpiration`
+
 ### Files to Modify
 
-1. **`internal/websocket/websocket_manager.go`**
-   - Store `since` timestamp in connection record
-   - Read from query parameter on connection
+1. **`internal/api/types.go`**
+   - Add `IndexedLogEvent` type (extends `LogEvent` with `Index` field)
+   - Add `LastIndex` field to `LogsResponse`
 
-2. **`internal/websocket/log_forwarder.go`**
-   - Check for gaps before forwarding
-   - Fetch and forward missing logs
-   - Update cursor after forwarding
+2. **`internal/app/main.go`**
+   - Enhance `GetLogsByExecutionID` to check/store logs in DynamoDB
+   - Return indexed logs with `last_index`
 
-3. **`internal/app/aws/logs.go`**
-   - Add `FetchLogsSinceTimestamp(ctx, executionID, sinceTimestamp)` method
+3. **`internal/websocket/log_forwarder.go`**
+   - Store incoming logs in DynamoDB with sequential indexes
+   - Query DynamoDB for logs after connection's `since_index`
+   - Forward logs in index order
 
-4. **`cmd/cli/cmd/logs.go`**
-   - Track last received timestamp
-   - Include in WebSocket URL
-   - Add polling fallback
+4. **`internal/websocket/websocket_manager.go`**
+   - Read `since_index` from query parameter
+   - Pass to Log Forwarder
 
-5. **`internal/api/types.go`**
-   - Add optional `SinceTimestamp` field to `WebSocketConnection` (if storing in DB)
+5. **`cmd/cli/cmd/logs.go`**
+   - Track `last_index` from initial response
+   - Include `since_index` in WebSocket URL
+   - Update `last_index` on each received log
+
+6. **`deployments/cloudformation-backend.yaml`**
+   - Add DynamoDB table: `{project-name}-execution-logs`
+   - Add IAM permissions for logs table access
+   - Configure TTL on `expires_at` attribute
 
 ## Expected Outcomes
 
+- ✅ **Streaming-friendly**: Logs output in strict order without buffering
+- ✅ **CLI piping works**: `runvoy logs <id> | grep error` functions correctly
 - ✅ **100% log coverage**: No logs missed regardless of connection timing
-- ✅ **Consistent ordering**: Logs always displayed in correct chronological order
-- ✅ **No duplicates**: Reliable deduplication mechanism
-- ✅ **Reconnection resilient**: Automatic backfill on reconnection
+- ✅ **No gaps**: All logs delivered in sequence via index-based queries
+- ✅ **No duplicates**: Index-based deduplication (guaranteed unique per index)
+- ✅ **Reconnection resilient**: Automatic catch-up using last index
+- ✅ **Cost-effective**: TTL auto-cleans old logs after 7 days
 
 ## Testing Strategy
 
