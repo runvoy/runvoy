@@ -150,6 +150,20 @@ func (lf *LogForwarder) forwardLogsToConnections( //nolint:funlen
 		"count":        fmt.Sprintf("%d", len(connectionIDs)),
 	})
 
+	if len(logEvents) == 0 {
+		reqLogger.Debug("no log events to send", "context", map[string]string{
+			"execution_id": executionID,
+			"connections":  fmt.Sprintf("%d", len(connectionIDs)),
+		})
+		return nil
+	}
+
+	reqLogger.Debug("sending log events to connections", "context", map[string]string{
+		"execution_id": executionID,
+		"logs_count":   fmt.Sprintf("%d", len(logEvents)),
+		"connections":  fmt.Sprintf("%d", len(connectionIDs)),
+	})
+
 	slices.SortFunc(logEvents, func(a, b events.CloudwatchLogsLogEvent) int {
 		return cmp.Compare(a.Timestamp, b.Timestamp)
 	})
@@ -178,7 +192,7 @@ func (lf *LogForwarder) forwardLogsToConnections( //nolint:funlen
 	default:
 		reqLogger.Info("all log events forwarded to connections", "context", map[string]any{
 			"execution_id": executionID,
-			"events_count": len(logEvents),
+			"logs_count":   len(logEvents),
 			"connections":  connectionIDs,
 		})
 
@@ -190,13 +204,6 @@ func (lf *LogForwarder) forwardLogsToConnections( //nolint:funlen
 func (lf *LogForwarder) sendToConnection(
 	ctx context.Context, connectionID string, logEvent events.CloudwatchLogsLogEvent) error {
 	reqLogger := logger.DeriveRequestLogger(ctx, lf.logger)
-
-	reqLogger.Debug("sending message to connection",
-		"context", map[string]string{
-			"connection_id":  connectionID,
-			"message_length": fmt.Sprintf("%d", len(logEvent.Message)),
-		},
-	)
 
 	jsonEventData, err := json.Marshal(api.LogEvent{
 		Timestamp: logEvent.Timestamp,
@@ -218,10 +225,6 @@ func (lf *LogForwarder) sendToConnection(
 		})
 		return fmt.Errorf("failed to post to connection %s: %w", connectionID, err)
 	}
-
-	reqLogger.Debug("message forwarded to connection", "context", map[string]string{
-		"connection_id": connectionID,
-	})
 
 	return nil
 }
