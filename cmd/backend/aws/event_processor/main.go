@@ -1,18 +1,32 @@
 // Package main implements the AWS Lambda event processor for runvoy.
-// It processes CloudWatch events related to ECS task completions.
+// It processes CloudWatch events related to ECS task completions and CloudWatch Logs.
 package main
 
 import (
 	"context"
+	"encoding/json"
 	"os"
+
+	awsevents "github.com/aws/aws-lambda-go/events"
+	"github.com/aws/aws-lambda-go/lambda"
 
 	"runvoy/internal/config"
 	"runvoy/internal/constants"
 	"runvoy/internal/events"
 	"runvoy/internal/logger"
-
-	"github.com/aws/aws-lambda-go/lambda"
 )
+
+// LambdaEvent represents both EventBridge and direct CloudWatch Logs events
+type LambdaEvent struct {
+	// EventBridge fields
+	DetailType string          `json:"detail-type"`
+	Detail     json.RawMessage `json:"detail"`
+	Source     string          `json:"source"`
+	// Direct CloudWatch Logs fields
+	AWSLogs struct {
+		Data []byte `json:"data"`
+	} `json:"awslogs"`
+}
 
 func main() {
 	cfg := config.MustLoadEventProcessor()
@@ -27,5 +41,24 @@ func main() {
 	}
 
 	log.Debug("starting Lambda handler")
-	lambda.Start(processor.HandleEvent)
+	lambda.Start(func(ctx context.Context, rawEvent json.RawMessage) error {
+		var event LambdaEvent
+		if parseErr := json.Unmarshal(rawEvent, &event); parseErr != nil {
+			log.Error("failed to unmarshal event", "error", parseErr)
+			return parseErr
+		}
+
+		// Check if this is a direct CloudWatch Logs event
+		if len(event.AWSLogs.Data) > 0 {
+			return processor.HandleCloudWatchLogsEvent(ctx, event.AWSLogs.Data)
+		}
+
+		// Otherwise, treat as EventBridge event
+		var ebEvent awsevents.CloudWatchEvent
+		if ebParseErr := json.Unmarshal(rawEvent, &ebEvent); ebParseErr != nil {
+			log.Error("failed to unmarshal EventBridge event", "error", ebParseErr)
+			return ebParseErr
+		}
+		return processor.HandleEvent(ctx, &ebEvent)
+	})
 }
