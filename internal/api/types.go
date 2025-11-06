@@ -80,9 +80,9 @@ type Execution struct {
 // Events are ordered by timestamp. Clients should sort by timestamp
 // and compute line numbers as needed for display purposes.
 type LogEvent struct {
-	Timestamp int64  `json:"timestamp"`       // Unix timestamp in milliseconds
-	Message   string `json:"message"`         // The actual log message text
-	Index     int64  `json:"index,omitempty"` // Sequential index (1, 2, 3, ...) per execution, used for reliable ordering
+	Timestamp int64  `json:"timestamp"` // Unix timestamp in milliseconds
+	Message   string `json:"message"`   // The actual log message text
+	Index     int64  `json:"index"`     // Sequential index (1, 2, 3, ...) per execution, used for reliable ordering
 }
 
 // LogsResponse contains all log events for an execution

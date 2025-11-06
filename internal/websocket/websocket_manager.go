@@ -314,15 +314,21 @@ func (wm *WebSocketManager) handleDisconnectNotification(
 	wm.logger.Debug("handling disconnect notification for execution", "execution_id", executionID)
 
 	// Get all connection IDs for this execution
-	wm.connectionIDs, err = wm.connRepo.GetConnectionsByExecutionID(ctx, executionID)
+	connections, err := wm.connRepo.GetConnectionsByExecutionID(ctx, executionID)
 	if err != nil {
 		wm.logger.Error("failed to get connections for execution", "error", err, "execution_id", executionID)
 		return fmt.Errorf("failed to get connections: %w", err)
 	}
 
-	if len(wm.connectionIDs) == 0 {
+	if len(connections) == 0 {
 		wm.logger.Debug("no active connections to notify", "execution_id", executionID)
 		return nil
+	}
+
+	// Extract connection IDs
+	wm.connectionIDs = make([]string, len(connections))
+	for i, conn := range connections {
+		wm.connectionIDs[i] = conn.ConnectionID
 	}
 
 	errGroup, ctx := errgroup.WithContext(ctx)

@@ -200,7 +200,7 @@ func (lf *LogForwarder) forwardLogsToConnections(
 	executionID string,
 	reqLogger *slog.Logger,
 ) error {
-	connections, queryErr := lf.connRepo.GetConnectionsWithMetadataByExecutionID(ctx, executionID)
+	connections, queryErr := lf.connRepo.GetConnectionsByExecutionID(ctx, executionID)
 	if queryErr != nil {
 		reqLogger.Error("failed to get connections for execution", "context", map[string]string{
 			"execution_id": executionID,

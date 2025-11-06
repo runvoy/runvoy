@@ -54,11 +54,7 @@ func (m *mockConnectionRepo) DeleteConnections(_ context.Context, _ []string) (i
 	return 0, nil
 }
 
-func (m *mockConnectionRepo) GetConnectionsByExecutionID(_ context.Context, _ string) ([]string, error) {
-	return nil, nil
-}
-
-func (m *mockConnectionRepo) GetConnectionsWithMetadataByExecutionID(
+func (m *mockConnectionRepo) GetConnectionsByExecutionID(
 	_ context.Context,
 	_ string,
 ) ([]*api.WebSocketConnection, error) {
