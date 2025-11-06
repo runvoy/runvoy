@@ -805,6 +805,13 @@ Resources:
                   - !GetAtt ExecutionLogsTable.Arn
               - Effect: Allow
                 Action:
+                  - 'dynamodb:GetItem'
+                  - 'dynamodb:Query'
+                Resource:
+                  - !GetAtt ExecutionsTable.Arn
+                  - !Sub '${ExecutionsTable.Arn}/index/*'
+              - Effect: Allow
+                Action:
                   - 'execute-api:ManageConnections'
                 Resource: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:*/*/*'
 
@@ -834,6 +841,7 @@ Resources:
         Variables:
           RUNVOY_WEBSOCKET_CONNECTIONS_TABLE: !Ref WebSocketConnectionsTable
           RUNVOY_EXECUTION_LOGS_TABLE: !Ref ExecutionLogsTable
+          RUNVOY_EXECUTIONS_TABLE: !Ref ExecutionsTable
           RUNVOY_WEBSOCKET_API_ENDPOINT: !Sub '${WebSocketApi.ApiId}.execute-api.${AWS::Region}.amazonaws.com/production'
 
   # API Gateway WebSocket API

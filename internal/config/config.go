@@ -445,6 +445,9 @@ func validateLogForwarder(cfg *Config) error {
 	if err := validate.Var(cfg.ExecutionLogsTable, "required"); err != nil {
 		return fmt.Errorf("ExecutionLogsTable cannot be empty")
 	}
+	if err := validate.Var(cfg.ExecutionsTable, "required"); err != nil {
+		return fmt.Errorf("ExecutionsTable cannot be empty")
+	}
 	if err := validate.Var(cfg.WebSocketAPIEndpoint, "required"); err != nil {
 		return fmt.Errorf("WebSocketAPIEndpoint cannot be empty")
 	}

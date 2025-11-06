@@ -3,13 +3,11 @@
 package websocket
 
 import (
-	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
-	"slices"
 
 	"runvoy/internal/api"
 	"runvoy/internal/config"
@@ -29,6 +27,8 @@ import (
 // LogForwarder handles CloudWatch Logs events and forwards them to WebSocket clients.
 type LogForwarder struct {
 	connRepo      database.ConnectionRepository
+	logRepo       database.LogRepository
+	executionRepo database.ExecutionRepository
 	apiGwClient   *apigatewaymanagementapi.Client
 	apiGwEndpoint *string
 	logger        *slog.Logger
@@ -43,6 +43,8 @@ func NewLogForwarder(ctx context.Context, cfg *config.Config, log *slog.Logger) 
 
 	dynamoClient := dynamodb.NewFromConfig(awsCfg)
 	connRepo := dynamoRepo.NewConnectionRepository(dynamoClient, cfg.WebSocketConnectionsTable, log)
+	logRepo := dynamoRepo.NewLogRepository(dynamoClient, cfg.ExecutionLogsTable, log)
+	executionRepo := dynamoRepo.NewExecutionRepository(dynamoClient, cfg.ExecutionsTable, log)
 
 	apiGwClient := apigatewaymanagementapi.NewFromConfig(awsCfg, func(o *apigatewaymanagementapi.Options) {
 		o.BaseEndpoint = aws.String(cfg.WebSocketAPIEndpoint)
@@ -50,13 +52,17 @@ func NewLogForwarder(ctx context.Context, cfg *config.Config, log *slog.Logger) 
 
 	log.Info("log forwarder initialized",
 		"context", map[string]string{
-			"table":        cfg.WebSocketConnectionsTable,
-			"api_endpoint": cfg.WebSocketAPIEndpoint,
+			"connections_table": cfg.WebSocketConnectionsTable,
+			"logs_table":        cfg.ExecutionLogsTable,
+			"executions_table":  cfg.ExecutionsTable,
+			"api_endpoint":      cfg.WebSocketAPIEndpoint,
 		},
 	)
 
 	return &LogForwarder{
 		connRepo:      connRepo,
+		logRepo:       logRepo,
+		executionRepo: executionRepo,
 		apiGwClient:   apiGwClient,
 		apiGwEndpoint: aws.String(cfg.WebSocketAPIEndpoint),
 		logger:        log,
@@ -91,7 +97,77 @@ func (lf *LogForwarder) handleLogs(
 		return nil
 	}
 
-	return lf.forwardLogsToConnections(ctx, executionID, logsData.LogEvents, reqLogger)
+	// Check execution status - only process RUNNING executions
+	if !lf.shouldProcessExecution(ctx, executionID, reqLogger) {
+		return nil
+	}
+
+	// Convert and store logs in DynamoDB
+	apiLogEvents := lf.convertToAPILogEvents(logsData.LogEvents)
+	maxIndex, storeErr := lf.logRepo.StoreLogs(ctx, executionID, apiLogEvents)
+	if storeErr != nil {
+		reqLogger.Error("failed to store logs in DynamoDB",
+			"context", map[string]any{
+				"execution_id": executionID,
+				"error":        storeErr.Error(),
+				"events_count": len(apiLogEvents),
+			},
+		)
+		return fmt.Errorf("failed to store logs: %w", storeErr)
+	}
+
+	reqLogger.Debug("logs stored in DynamoDB",
+		"context", map[string]any{
+			"execution_id": executionID,
+			"events_count": len(apiLogEvents),
+			"max_index":    maxIndex,
+		},
+	)
+
+	return lf.forwardLogsToConnections(ctx, executionID, reqLogger)
+}
+
+// shouldProcessExecution checks if the execution is RUNNING and should be processed.
+// Returns false if execution is not found or not RUNNING.
+func (lf *LogForwarder) shouldProcessExecution(
+	ctx context.Context,
+	executionID string,
+	reqLogger *slog.Logger,
+) bool {
+	execution, err := lf.executionRepo.GetExecution(ctx, executionID)
+	if err != nil {
+		reqLogger.Warn("failed to get execution status, skipping log processing",
+			"context", map[string]string{
+				"execution_id": executionID,
+				"error":        err.Error(),
+			},
+		)
+		return false
+	}
+
+	if execution.Status != string(constants.ExecutionRunning) {
+		reqLogger.Debug("execution is not RUNNING, skipping log processing",
+			"context", map[string]string{
+				"execution_id": executionID,
+				"status":       execution.Status,
+			},
+		)
+		return false
+	}
+
+	return true
+}
+
+// convertToAPILogEvents converts CloudWatch log events to API log events.
+func (lf *LogForwarder) convertToAPILogEvents(logEvents []events.CloudwatchLogsLogEvent) []api.LogEvent {
+	apiLogEvents := make([]api.LogEvent, len(logEvents))
+	for i, logEvent := range logEvents {
+		apiLogEvents[i] = api.LogEvent{
+			Timestamp: logEvent.Timestamp,
+			Message:   logEvent.Message,
+		}
+	}
+	return apiLogEvents
 }
 
 // decodeLogsEvent decodes and unmarshals the CloudWatch Logs event data.
@@ -117,18 +193,13 @@ func (lf *LogForwarder) decodeLogsEvent(
 	return logsData, nil
 }
 
-// forwardLogsToConnections forwards log events to all active WebSocket connections for an execution.
-// The log events are sorted by timestamp before being forwarded to the connections.
-func (lf *LogForwarder) forwardLogsToConnections( //nolint:funlen
+// forwardLogsToConnections forwards log events from DynamoDB to all active WebSocket connections for an execution.
+// For each connection, it queries DynamoDB for logs after the connection's last_index and forwards them.
+func (lf *LogForwarder) forwardLogsToConnections(
 	ctx context.Context,
 	executionID string,
-	logEvents []events.CloudwatchLogsLogEvent,
 	reqLogger *slog.Logger,
 ) error {
-	reqLogger.Debug("extracted execution_id", "context", map[string]string{
-		"execution_id": executionID,
-	})
-
 	connectionIDs, queryErr := lf.connRepo.GetConnectionsByExecutionID(ctx, executionID)
 	if queryErr != nil {
 		reqLogger.Error("failed to get connections for execution", "context", map[string]string{
@@ -145,22 +216,9 @@ func (lf *LogForwarder) forwardLogsToConnections( //nolint:funlen
 		return nil
 	}
 
-	if len(logEvents) == 0 {
-		reqLogger.Debug("no log events to send", "context", map[string]any{
-			"execution_id":      executionID,
-			"connections_count": len(connectionIDs),
-		})
-		return nil
-	}
-
-	reqLogger.Debug("sending log events to connections", "context", map[string]any{
+	reqLogger.Debug("forwarding logs to connections", "context", map[string]any{
 		"execution_id":      executionID,
-		"logs_count":        len(logEvents),
 		"connections_count": len(connectionIDs),
-	})
-
-	slices.SortFunc(logEvents, func(a, b events.CloudwatchLogsLogEvent) int {
-		return cmp.Compare(a.Timestamp, b.Timestamp)
 	})
 
 	errGroup, ctx := errgroup.WithContext(ctx)
@@ -169,13 +227,13 @@ func (lf *LogForwarder) forwardLogsToConnections( //nolint:funlen
 	for _, connectionID := range connectionIDs {
 		connID := connectionID
 		errGroup.Go(func() error {
-			if sendErr := lf.sendBatchToConnection(ctx, connID, logEvents); sendErr != nil {
-				reqLogger.Error("failed to send log batch to connection", "context", map[string]any{
-					"error":         sendErr.Error(),
+			if forwardErr := lf.forwardLogsToConnection(ctx, connID, executionID, reqLogger); forwardErr != nil {
+				reqLogger.Error("failed to forward logs to connection", "context", map[string]any{
+					"error":         forwardErr.Error(),
 					"connection_id": connID,
 					"execution_id":  executionID,
 				})
-				return sendErr
+				return forwardErr
 			}
 			return nil
 		})
@@ -186,21 +244,59 @@ func (lf *LogForwarder) forwardLogsToConnections( //nolint:funlen
 		return errors.New("error(s) occurred while forwarding log events to connections")
 	default:
 		reqLogger.Info("all log events forwarded to connections", "context", map[string]any{
-			"execution_id": executionID,
-			"logs_count":   len(logEvents),
-			"connections":  connectionIDs,
+			"execution_id":      executionID,
+			"connections_count": len(connectionIDs),
+			"connections":       connectionIDs,
 		})
 
 		return nil
 	}
 }
 
-// sendBatchToConnection sends a batch of log events to a WebSocket connection via API Gateway Management API.
-// The events are sent as newline-delimited JSON (NDJSON) format.
-func (lf *LogForwarder) sendBatchToConnection(
+// forwardLogsToConnection forwards logs from DynamoDB to a single WebSocket connection.
+// It queries DynamoDB for logs after the connection's last_index (defaults to 0 if not set).
+func (lf *LogForwarder) forwardLogsToConnection(
 	ctx context.Context,
 	connectionID string,
-	logEvents []events.CloudwatchLogsLogEvent,
+	executionID string,
+	reqLogger *slog.Logger,
+) error {
+	// TODO: Get last_index from connection metadata or query parameter
+	// For now, we'll query all logs (lastIndex = 0) and let clients deduplicate
+	// This will be improved in a follow-up to store last_index in connection record
+	lastIndex := int64(0)
+
+	// Query DynamoDB for logs after last_index
+	logEvents, err := lf.logRepo.GetLogsSinceIndex(ctx, executionID, lastIndex)
+	if err != nil {
+		return fmt.Errorf("failed to query logs from DynamoDB: %w", err)
+	}
+
+	if len(logEvents) == 0 {
+		reqLogger.Debug("no logs to forward for connection", "context", map[string]any{
+			"connection_id": connectionID,
+			"execution_id":  executionID,
+			"last_index":    lastIndex,
+		})
+		return nil
+	}
+
+	reqLogger.Debug("forwarding logs to connection", "context", map[string]any{
+		"connection_id": connectionID,
+		"execution_id":  executionID,
+		"logs_count":    len(logEvents),
+		"last_index":    lastIndex,
+	})
+
+	return lf.sendLogEventsToConnection(ctx, connectionID, logEvents)
+}
+
+// sendLogEventsToConnection sends a batch of log events to a WebSocket connection via API Gateway Management API.
+// The events are sent as newline-delimited JSON (NDJSON) format.
+func (lf *LogForwarder) sendLogEventsToConnection(
+	ctx context.Context,
+	connectionID string,
+	logEvents []api.LogEvent,
 ) error {
 	reqLogger := logger.DeriveRequestLogger(ctx, lf.logger)
 
@@ -210,10 +306,7 @@ func (lf *LogForwarder) sendBatchToConnection(
 
 	var batchData []byte
 	for i, logEvent := range logEvents {
-		jsonEventData, err := json.Marshal(api.LogEvent{
-			Timestamp: logEvent.Timestamp,
-			Message:   logEvent.Message,
-		})
+		jsonEventData, err := json.Marshal(logEvent)
 		if err != nil {
 			return fmt.Errorf("failed to marshal log event at index %d: %w", i, err)
 		}
