@@ -801,6 +801,7 @@ Resources:
                   - 'dynamodb:GetItem'
                   - 'dynamodb:Query'
                   - 'dynamodb:BatchWriteItem'
+                  - 'dynamodb:UpdateItem'
                 Resource:
                   - !GetAtt ExecutionLogsTable.Arn
               - Effect: Allow
