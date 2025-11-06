@@ -104,35 +104,46 @@ func (p *Processor) HandleEvent(ctx context.Context, event *events.CloudWatchEve
 
 // HandleCloudWatchLogsEvent handles a direct CloudWatch Logs subscription filter Lambda invocation.
 // This is invoked when CloudWatch Logs directly invokes Lambda (not through EventBridge).
-// The data comes in awslogs field and is base64-encoded, gzip-compressed.
-func (p *Processor) HandleCloudWatchLogsEvent(ctx context.Context, awslogsData []byte) error {
+// The rawData comes from the awslogs field and is base64-encoded, gzip-compressed.
+func (p *Processor) HandleCloudWatchLogsEvent(ctx context.Context, rawData events.CloudwatchLogsRawData) error {
 	reqLogger := logger.DeriveRequestLogger(ctx, p.logger)
 
-	cwLogsEvent, err := ParseDirectCloudWatchLogsEvent(awslogsData)
+	// Use AWS SDK to decompress and parse the event
+	cwLogsData, err := rawData.Parse()
 	if err != nil {
-		reqLogger.Error("failed to parse direct CloudWatch Logs event", "error", err)
+		reqLogger.Error("failed to parse CloudWatch Logs event", "error", err)
 		return fmt.Errorf("failed to parse CloudWatch Logs event: %w", err)
 	}
 
 	// Extract execution ID from log stream name
-	executionID := extractExecutionIDFromLogStream(cwLogsEvent.LogStream)
+	executionID := extractExecutionIDFromLogStream(cwLogsData.LogStream)
 	if executionID == "" {
 		reqLogger.Warn("could not extract execution ID from log stream",
-			"log_stream", cwLogsEvent.LogStream,
+			"log_stream", cwLogsData.LogStream,
 		)
 		return nil
 	}
 
-	reqLogger.Debug("processing direct CloudWatch Logs ingestion",
+	reqLogger.Debug("processing CloudWatch Logs ingestion",
 		"context", map[string]any{
 			"execution_id": executionID,
-			"log_stream":   cwLogsEvent.LogStream,
-			"event_count":  len(cwLogsEvent.LogEvents),
+			"log_stream":   cwLogsData.LogStream,
+			"event_count":  len(cwLogsData.LogEvents),
 		},
 	)
 
+	// Convert AWS SDK log events to our internal format
+	var logEvents []CloudWatchLogEvent
+	for _, awsLogEvent := range cwLogsData.LogEvents {
+		logEvents = append(logEvents, CloudWatchLogEvent{
+			ID:        awsLogEvent.ID,
+			Message:   awsLogEvent.Message,
+			Timestamp: awsLogEvent.Timestamp,
+		})
+	}
+
 	// Ingest logs for this execution
-	ingestedCount := p.ingestExecutionLogs(ctx, executionID, cwLogsEvent.LogEvents, reqLogger)
+	ingestedCount := p.ingestExecutionLogs(ctx, executionID, logEvents, reqLogger)
 
 	reqLogger.Debug("logs ingested successfully",
 		"context", map[string]any{

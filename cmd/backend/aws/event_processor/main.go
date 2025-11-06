@@ -16,18 +16,6 @@ import (
 	"runvoy/internal/logger"
 )
 
-// LambdaEvent represents both EventBridge and direct CloudWatch Logs events
-type LambdaEvent struct {
-	// EventBridge fields
-	DetailType string          `json:"detail-type"`
-	Detail     json.RawMessage `json:"detail"`
-	Source     string          `json:"source"`
-	// Direct CloudWatch Logs fields
-	AWSLogs struct {
-		Data []byte `json:"data"`
-	} `json:"awslogs"`
-}
-
 func main() {
 	cfg := config.MustLoadEventProcessor()
 	log := logger.Initialize(constants.Production, cfg.GetLogLevel())
@@ -42,15 +30,10 @@ func main() {
 
 	log.Debug("starting Lambda handler")
 	lambda.Start(func(ctx context.Context, rawEvent json.RawMessage) error {
-		var event LambdaEvent
-		if parseErr := json.Unmarshal(rawEvent, &event); parseErr != nil {
-			log.Error("failed to unmarshal event", "error", parseErr)
-			return parseErr
-		}
-
-		// Check if this is a direct CloudWatch Logs event
-		if len(event.AWSLogs.Data) > 0 {
-			return processor.HandleCloudWatchLogsEvent(ctx, event.AWSLogs.Data)
+		// Try to parse as CloudWatch Logs event first
+		var cwlogsEvent awsevents.CloudwatchLogsEvent
+		if cwlogsParseErr := json.Unmarshal(rawEvent, &cwlogsEvent); cwlogsParseErr == nil && cwlogsEvent.AWSLogs.Data != "" {
+			return processor.HandleCloudWatchLogsEvent(ctx, cwlogsEvent.AWSLogs)
 		}
 
 		// Otherwise, treat as EventBridge event
