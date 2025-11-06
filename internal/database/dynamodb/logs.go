@@ -75,9 +75,9 @@ func (r *LogRepository) StoreLogs(ctx context.Context, executionID string, event
 			Timestamp:   event.Timestamp,
 			Message:     event.Message,
 		}
-		av, err := attributevalue.MarshalMap(item)
-		if err != nil {
-			return 0, apperrors.ErrDatabaseError("failed to marshal log item", err)
+		av, marshalErr := attributevalue.MarshalMap(item)
+		if marshalErr != nil {
+			return 0, apperrors.ErrDatabaseError("failed to marshal log item", marshalErr)
 		}
 		writeRequests = append(writeRequests, types.WriteRequest{
 			PutRequest: &types.PutRequest{Item: av},
@@ -177,8 +177,8 @@ func (r *LogRepository) initializeCounter(ctx context.Context, executionID strin
 	}
 
 	_, err = r.client.PutItem(ctx, &dynamodb.PutItemInput{
-		TableName: aws.String(r.tableName),
-		Item:      av,
+		TableName:           aws.String(r.tableName),
+		Item:                av,
 		ConditionExpression: aws.String("attribute_not_exists(execution_id)"),
 	})
 
@@ -202,7 +202,11 @@ func (r *LogRepository) initializeCounter(ctx context.Context, executionID strin
 
 // GetLogsSinceIndex retrieves logs starting from a specific index (exclusive).
 // Returns logs sorted by log_index ascending.
-func (r *LogRepository) GetLogsSinceIndex(ctx context.Context, executionID string, lastIndex int64) ([]api.LogEvent, error) {
+func (r *LogRepository) GetLogsSinceIndex(
+	ctx context.Context,
+	executionID string,
+	lastIndex int64,
+) ([]api.LogEvent, error) {
 	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
 
 	logArgs := []any{
@@ -218,46 +222,24 @@ func (r *LogRepository) GetLogsSinceIndex(ctx context.Context, executionID strin
 	var lastEvaluatedKey map[string]types.AttributeValue
 
 	for {
-		queryInput := &dynamodb.QueryInput{
-			TableName:              aws.String(r.tableName),
-			KeyConditionExpression: aws.String("execution_id = :execution_id AND log_index > :last_index"),
-			ExpressionAttributeValues: map[string]types.AttributeValue{
-				":execution_id": &types.AttributeValueMemberS{Value: executionID},
-				":last_index":   &types.AttributeValueMemberN{Value: strconv.FormatInt(lastIndex, 10)},
-			},
-			ScanIndexForward: aws.Bool(true), // Sort ascending by log_index
-		}
-
-		if lastEvaluatedKey != nil {
-			queryInput.ExclusiveStartKey = lastEvaluatedKey
-		}
-
-		result, err := r.client.Query(ctx, queryInput)
+		result, err := r.queryLogsSinceIndex(ctx, executionID, lastIndex, lastEvaluatedKey)
 		if err != nil {
-			return nil, apperrors.ErrDatabaseError("failed to query logs", err)
+			return nil, err
 		}
 
 		// Convert items to LogEvent
 		for _, item := range result.Items {
-			var logItem logItem
-			if err := attributevalue.UnmarshalMap(item, &logItem); err != nil {
-				return nil, apperrors.ErrDatabaseError("failed to unmarshal log item", err)
+			event, convertErr := r.convertItemToLogEvent(item)
+			if convertErr != nil {
+				return nil, convertErr
 			}
-
-			// Skip counter items (log_index = 0)
-			if logItem.LogIndex == 0 {
-				continue
+			if event != nil {
+				logEvents = append(logEvents, *event)
 			}
-
-			logEvents = append(logEvents, api.LogEvent{
-				Timestamp: logItem.Timestamp,
-				Message:   logItem.Message,
-				Index:     logItem.LogIndex,
-			})
 		}
 
 		// Check if there are more items
-		if result.LastEvaluatedKey == nil || len(result.LastEvaluatedKey) == 0 {
+		if len(result.LastEvaluatedKey) == 0 {
 			break
 		}
 		lastEvaluatedKey = result.LastEvaluatedKey
@@ -270,6 +252,49 @@ func (r *LogRepository) GetLogsSinceIndex(ctx context.Context, executionID strin
 	})
 
 	return logEvents, nil
+}
+
+// queryLogsSinceIndex executes a DynamoDB query for logs.
+func (r *LogRepository) queryLogsSinceIndex(
+	ctx context.Context,
+	executionID string,
+	lastIndex int64,
+	lastEvaluatedKey map[string]types.AttributeValue,
+) (*dynamodb.QueryOutput, error) {
+	queryInput := &dynamodb.QueryInput{
+		TableName:              aws.String(r.tableName),
+		KeyConditionExpression: aws.String("execution_id = :execution_id AND log_index > :last_index"),
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":execution_id": &types.AttributeValueMemberS{Value: executionID},
+			":last_index":   &types.AttributeValueMemberN{Value: strconv.FormatInt(lastIndex, 10)},
+		},
+		ScanIndexForward: aws.Bool(true), // Sort ascending by log_index
+	}
+
+	if len(lastEvaluatedKey) > 0 {
+		queryInput.ExclusiveStartKey = lastEvaluatedKey
+	}
+
+	return r.client.Query(ctx, queryInput)
+}
+
+// convertItemToLogEvent converts a DynamoDB item to a LogEvent, skipping counter items.
+func (r *LogRepository) convertItemToLogEvent(item map[string]types.AttributeValue) (*api.LogEvent, error) {
+	var log logItem
+	if err := attributevalue.UnmarshalMap(item, &log); err != nil {
+		return nil, apperrors.ErrDatabaseError("failed to unmarshal log item", err)
+	}
+
+	// Skip counter items (log_index = 0)
+	if log.LogIndex == 0 {
+		return nil, nil
+	}
+
+	return &api.LogEvent{
+		Timestamp: log.Timestamp,
+		Message:   log.Message,
+		Index:     log.LogIndex,
+	}, nil
 }
 
 // GetMaxIndex returns the highest index for an execution (or 0 if none exist).
@@ -306,8 +331,8 @@ func (r *LogRepository) GetMaxIndex(ctx context.Context, executionID string) (in
 
 	// Extract max_index from counter item
 	var counter counterItem
-	if err := attributevalue.UnmarshalMap(result.Items[0], &counter); err != nil {
-		return 0, apperrors.ErrDatabaseError("failed to unmarshal counter item", err)
+	if unmarshalErr := attributevalue.UnmarshalMap(result.Items[0], &counter); unmarshalErr != nil {
+		return 0, apperrors.ErrDatabaseError("failed to unmarshal counter item", unmarshalErr)
 	}
 
 	reqLogger.Debug("max index retrieved", "context", map[string]string{
@@ -329,67 +354,90 @@ func (r *LogRepository) SetExpiration(ctx context.Context, executionID string, e
 	updateCount := 0
 
 	for {
-		queryInput := &dynamodb.QueryInput{
-			TableName:              aws.String(r.tableName),
-			KeyConditionExpression: aws.String("execution_id = :execution_id"),
-			ExpressionAttributeValues: map[string]types.AttributeValue{
-				":execution_id": &types.AttributeValueMemberS{Value: executionID},
-			},
-		}
-
-		if lastEvaluatedKey != nil {
-			queryInput.ExclusiveStartKey = lastEvaluatedKey
-		}
-
-		result, err := r.client.Query(ctx, queryInput)
-		if err != nil {
-			return apperrors.ErrDatabaseError("failed to query logs for expiration", err)
+		result, queryErr := r.queryAllLogs(ctx, executionID, lastEvaluatedKey)
+		if queryErr != nil {
+			return queryErr
 		}
 
 		// Update each item with expires_at
 		for _, item := range result.Items {
-			var logItem logItem
-			if err := attributevalue.UnmarshalMap(item, &logItem); err != nil {
-				return apperrors.ErrDatabaseError("failed to unmarshal log item", err)
+			count, updateErr := r.updateLogExpiration(ctx, item, executionID, expiresAt)
+			if updateErr != nil {
+				return updateErr
 			}
-
-			// Skip counter items
-			if logItem.LogIndex == 0 {
-				continue
-			}
-
-			_, err = r.client.UpdateItem(ctx, &dynamodb.UpdateItemInput{
-				TableName: aws.String(r.tableName),
-				Key: map[string]types.AttributeValue{
-					"execution_id": &types.AttributeValueMemberS{Value: executionID},
-					"log_index":    &types.AttributeValueMemberN{Value: strconv.FormatInt(logItem.LogIndex, 10)},
-				},
-				UpdateExpression: aws.String("SET expires_at = :expires_at"),
-				ExpressionAttributeValues: map[string]types.AttributeValue{
-					":expires_at": &types.AttributeValueMemberN{Value: strconv.FormatInt(expiresAt, 10)},
-				},
-			})
-
-			if err != nil {
-				return apperrors.ErrDatabaseError("failed to set expiration", err)
-			}
-
-			updateCount++
+			updateCount += count
 		}
 
-		if result.LastEvaluatedKey == nil || len(result.LastEvaluatedKey) == 0 {
+		if len(result.LastEvaluatedKey) == 0 {
 			break
 		}
 		lastEvaluatedKey = result.LastEvaluatedKey
 	}
 
 	reqLogger.Debug("expiration set for logs", "context", map[string]any{
-		"execution_id": executionID,
-		"expires_at":   expiresAt,
+		"execution_id":  executionID,
+		"expires_at":    expiresAt,
 		"updated_count": updateCount,
 	})
 
 	return nil
+}
+
+// queryAllLogs executes a DynamoDB query for all logs of an execution.
+func (r *LogRepository) queryAllLogs(
+	ctx context.Context,
+	executionID string,
+	lastEvaluatedKey map[string]types.AttributeValue,
+) (*dynamodb.QueryOutput, error) {
+	queryInput := &dynamodb.QueryInput{
+		TableName:              aws.String(r.tableName),
+		KeyConditionExpression: aws.String("execution_id = :execution_id"),
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":execution_id": &types.AttributeValueMemberS{Value: executionID},
+		},
+	}
+
+	if len(lastEvaluatedKey) > 0 {
+		queryInput.ExclusiveStartKey = lastEvaluatedKey
+	}
+
+	return r.client.Query(ctx, queryInput)
+}
+
+// updateLogExpiration updates expiration for a single log item, skipping counter items.
+func (r *LogRepository) updateLogExpiration(
+	ctx context.Context,
+	item map[string]types.AttributeValue,
+	executionID string,
+	expiresAt int64,
+) (int, error) {
+	var log logItem
+	if err := attributevalue.UnmarshalMap(item, &log); err != nil {
+		return 0, apperrors.ErrDatabaseError("failed to unmarshal log item", err)
+	}
+
+	// Skip counter items
+	if log.LogIndex == 0 {
+		return 0, nil
+	}
+
+	_, updateErr := r.client.UpdateItem(ctx, &dynamodb.UpdateItemInput{
+		TableName: aws.String(r.tableName),
+		Key: map[string]types.AttributeValue{
+			"execution_id": &types.AttributeValueMemberS{Value: executionID},
+			"log_index":    &types.AttributeValueMemberN{Value: strconv.FormatInt(log.LogIndex, 10)},
+		},
+		UpdateExpression: aws.String("SET expires_at = :expires_at"),
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":expires_at": &types.AttributeValueMemberN{Value: strconv.FormatInt(expiresAt, 10)},
+		},
+	})
+
+	if updateErr != nil {
+		return 0, apperrors.ErrDatabaseError("failed to set expiration", updateErr)
+	}
+
+	return 1, nil
 }
 
 // batchWriteItems processes write requests in batches respecting DynamoDB's 25-item limit.

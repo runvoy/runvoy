@@ -40,11 +40,11 @@ type Config struct {
 	TaskExecRoleARN              string        `mapstructure:"task_exec_role_arn"`
 	TaskRoleARN                  string        `mapstructure:"task_role_arn"`
 	WebSocketConnectionsTable    string        `mapstructure:"websocket_connections_table"`
-	ExecutionLogsTable            string        `mapstructure:"execution_logs_table"`
-	WebSocketAPIEndpoint          string        `mapstructure:"websocket_api_endpoint"`
-	WebSocketManagerFunctionName  string        `mapstructure:"websocket_manager_function_name"`
-	InitTimeout                   time.Duration `mapstructure:"init_timeout"`
-	LogLevel                      string        `mapstructure:"log_level"`
+	ExecutionLogsTable           string        `mapstructure:"execution_logs_table"`
+	WebSocketAPIEndpoint         string        `mapstructure:"websocket_api_endpoint"`
+	WebSocketManagerFunctionName string        `mapstructure:"websocket_manager_function_name"`
+	InitTimeout                  time.Duration `mapstructure:"init_timeout"`
+	LogLevel                     string        `mapstructure:"log_level"`
 }
 
 var validate = validator.New()
@@ -347,7 +347,7 @@ func validateOrchestrator(cfg *Config) error {
 		"ECSCluster":           cfg.ECSCluster,
 		"Subnet1":              cfg.Subnet1,
 		"Subnet2":              cfg.Subnet2,
-		"SecurityGroup":         cfg.SecurityGroup,
+		"SecurityGroup":        cfg.SecurityGroup,
 		"LogGroup":             cfg.LogGroup,
 		"WebSocketAPIEndpoint": cfg.WebSocketAPIEndpoint,
 	}

@@ -409,7 +409,8 @@ func (s *Service) GetLogsByExecutionID(ctx context.Context, executionID string) 
 
 // getLogsForRunningExecution handles log fetching for RUNNING executions.
 // Uses DynamoDB for storage and streaming support.
-func (s *Service) getLogsForRunningExecution(ctx context.Context, executionID string, status string) (*api.LogsResponse, error) {
+func (s *Service) getLogsForRunningExecution(
+	ctx context.Context, executionID, status string) (*api.LogsResponse, error) {
 	if s.logRepo == nil {
 		return nil, apperrors.ErrInternalError("log repository not configured", nil)
 	}
@@ -429,9 +430,9 @@ func (s *Service) getLogsForRunningExecution(ctx context.Context, executionID st
 		}
 	} else {
 		// No logs in DynamoDB, fetch from CloudWatch and store
-		cloudWatchEvents, err := s.runner.FetchLogsByExecutionID(ctx, executionID)
-		if err != nil {
-			return nil, err
+		cloudWatchEvents, fetchErr := s.runner.FetchLogsByExecutionID(ctx, executionID)
+		if fetchErr != nil {
+			return nil, fetchErr
 		}
 
 		// Store in DynamoDB with indexes
@@ -465,7 +466,8 @@ func (s *Service) getLogsForRunningExecution(ctx context.Context, executionID st
 
 // getLogsForCompletedExecution handles log fetching for completed executions.
 // Reads directly from CloudWatch (no DynamoDB storage needed).
-func (s *Service) getLogsForCompletedExecution(ctx context.Context, executionID string, status string) (*api.LogsResponse, error) {
+func (s *Service) getLogsForCompletedExecution(
+	ctx context.Context, executionID, status string) (*api.LogsResponse, error) {
 	// Fetch directly from CloudWatch (no DynamoDB storage needed)
 	cloudWatchEvents, err := s.runner.FetchLogsByExecutionID(ctx, executionID)
 	if err != nil {

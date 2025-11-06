@@ -558,19 +558,11 @@ func TestGetLogsByExecutionID(t *testing.T) {
 					assert.Equal(t, tt.mockEvents[0].Message, resp.Events[0].Message)
 				}
 				// WebSocket URL should only be present for RUNNING executions
-				if tt.shouldHaveWSURL {
-					// Note: Will be empty in test because websocketAPIBaseURL is ""
-					assert.Equal(t, "", resp.WebSocketURL)
-				} else {
-					assert.Equal(t, "", resp.WebSocketURL)
-				}
+				// Note: Will be empty in test because websocketAPIBaseURL is ""
+				assert.Equal(t, "", resp.WebSocketURL)
 				// Check LastIndex is set
 				if len(tt.mockEvents) > 0 {
-					if tt.executionStatus == string(constants.ExecutionRunning) {
-						assert.Equal(t, int64(len(tt.mockEvents)), resp.LastIndex)
-					} else {
-						assert.Equal(t, int64(len(tt.mockEvents)), resp.LastIndex)
-					}
+					assert.Equal(t, int64(len(tt.mockEvents)), resp.LastIndex)
 				}
 			}
 		})

@@ -100,9 +100,8 @@ func readExistingEnvFile(filePath string) ([]string, error) {
 }
 
 // processExistingLines processes existing lines and updates with Lambda vars.
-func processExistingLines(lines []string, lambdaVars map[string]string) (content strings.Builder, updated int) {
-	var result strings.Builder
-	updatedCount := 0
+func processExistingLines(lines []string, lambdaVars map[string]string) (result *strings.Builder, updatedCount int) {
+	result = &strings.Builder{}
 
 	for i, line := range lines {
 		matches := envLineRegex.FindStringSubmatch(line)
@@ -110,7 +109,7 @@ func processExistingLines(lines []string, lambdaVars map[string]string) (content
 			key := matches[1]
 			if newValue, exists := lambdaVars[key]; exists {
 				formattedValue := formatEnvValue(newValue)
-				result.WriteString(fmt.Sprintf("%s=%s\n", key, formattedValue))
+				fmt.Fprintf(result, "%s=%s\n", key, formattedValue)
 				updatedCount++
 				delete(lambdaVars, key)
 			} else {
@@ -164,7 +163,7 @@ func mergeEnvFile(filePath string, lambdaVars map[string]string) (content string
 	}
 
 	result, updatedCount := processExistingLines(lines, lambdaVars)
-	newCount := appendNewVars(&result, lambdaVars, len(lines) > 0)
+	newCount := appendNewVars(result, lambdaVars, len(lines) > 0)
 
 	return result.String(), updatedCount, newCount, nil
 }

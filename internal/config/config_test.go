@@ -72,6 +72,7 @@ func TestValidateOrchestrator(t *testing.T) {
 			cfg: &Config{
 				APIKeysTable:         "api-keys",
 				ExecutionsTable:      "executions",
+				ExecutionLogsTable:   "execution-logs",
 				ECSCluster:           "cluster",
 				Subnet1:              "subnet-1",
 				Subnet2:              "subnet-2",
@@ -85,6 +86,7 @@ func TestValidateOrchestrator(t *testing.T) {
 			name: "missing APIKeysTable",
 			cfg: &Config{
 				ExecutionsTable:      "executions",
+				ExecutionLogsTable:   "execution-logs",
 				ECSCluster:           "cluster",
 				Subnet1:              "subnet-1",
 				Subnet2:              "subnet-2",
@@ -99,6 +101,7 @@ func TestValidateOrchestrator(t *testing.T) {
 			name: "missing ExecutionsTable",
 			cfg: &Config{
 				APIKeysTable:         "api-keys",
+				ExecutionLogsTable:   "execution-logs",
 				ECSCluster:           "cluster",
 				Subnet1:              "subnet-1",
 				Subnet2:              "subnet-2",
@@ -114,6 +117,7 @@ func TestValidateOrchestrator(t *testing.T) {
 			cfg: &Config{
 				APIKeysTable:         "api-keys",
 				ExecutionsTable:      "executions",
+				ExecutionLogsTable:   "execution-logs",
 				Subnet1:              "subnet-1",
 				Subnet2:              "subnet-2",
 				SecurityGroup:        "sg-123",
@@ -128,6 +132,7 @@ func TestValidateOrchestrator(t *testing.T) {
 			cfg: &Config{
 				APIKeysTable:         "api-keys",
 				ExecutionsTable:      "executions",
+				ExecutionLogsTable:   "execution-logs",
 				ECSCluster:           "cluster",
 				Subnet2:              "subnet-2",
 				SecurityGroup:        "sg-123",
@@ -142,6 +147,7 @@ func TestValidateOrchestrator(t *testing.T) {
 			cfg: &Config{
 				APIKeysTable:         "api-keys",
 				ExecutionsTable:      "executions",
+				ExecutionLogsTable:   "execution-logs",
 				ECSCluster:           "cluster",
 				Subnet1:              "subnet-1",
 				SecurityGroup:        "sg-123",
@@ -156,6 +162,7 @@ func TestValidateOrchestrator(t *testing.T) {
 			cfg: &Config{
 				APIKeysTable:         "api-keys",
 				ExecutionsTable:      "executions",
+				ExecutionLogsTable:   "execution-logs",
 				ECSCluster:           "cluster",
 				Subnet1:              "subnet-1",
 				Subnet2:              "subnet-2",
@@ -170,6 +177,7 @@ func TestValidateOrchestrator(t *testing.T) {
 			cfg: &Config{
 				APIKeysTable:         "api-keys",
 				ExecutionsTable:      "executions",
+				ExecutionLogsTable:   "execution-logs",
 				ECSCluster:           "cluster",
 				Subnet1:              "subnet-1",
 				Subnet2:              "subnet-2",
@@ -182,13 +190,14 @@ func TestValidateOrchestrator(t *testing.T) {
 		{
 			name: "missing WebSocketAPIEndpoint",
 			cfg: &Config{
-				APIKeysTable:    "api-keys",
-				ExecutionsTable: "executions",
-				ECSCluster:      "cluster",
-				Subnet1:         "subnet-1",
-				Subnet2:         "subnet-2",
-				SecurityGroup:   "sg-123",
-				LogGroup:        "/aws/logs/app",
+				APIKeysTable:       "api-keys",
+				ExecutionsTable:    "executions",
+				ExecutionLogsTable: "execution-logs",
+				ECSCluster:         "cluster",
+				Subnet1:            "subnet-1",
+				Subnet2:            "subnet-2",
+				SecurityGroup:      "sg-123",
+				LogGroup:           "/aws/logs/app",
 			},
 			wantErr: true,
 			errMsg:  "WebSocketAPIEndpoint cannot be empty",

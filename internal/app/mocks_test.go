@@ -209,10 +209,10 @@ func (m *mockRunner) FetchLogsByExecutionID(ctx context.Context, executionID str
 
 // mockLogRepository implements database.LogRepository for testing
 type mockLogRepository struct {
-	storeLogsFunc        func(ctx context.Context, executionID string, events []api.LogEvent) (int64, error)
+	storeLogsFunc         func(ctx context.Context, executionID string, events []api.LogEvent) (int64, error)
 	getLogsSinceIndexFunc func(ctx context.Context, executionID string, lastIndex int64) ([]api.LogEvent, error)
-	getMaxIndexFunc      func(ctx context.Context, executionID string) (int64, error)
-	setExpirationFunc    func(ctx context.Context, executionID string, expiresAt int64) error
+	getMaxIndexFunc       func(ctx context.Context, executionID string) (int64, error)
+	setExpirationFunc     func(ctx context.Context, executionID string, expiresAt int64) error
 }
 
 func (m *mockLogRepository) StoreLogs(ctx context.Context, executionID string, events []api.LogEvent) (int64, error) {
@@ -222,7 +222,11 @@ func (m *mockLogRepository) StoreLogs(ctx context.Context, executionID string, e
 	return 0, nil
 }
 
-func (m *mockLogRepository) GetLogsSinceIndex(ctx context.Context, executionID string, lastIndex int64) ([]api.LogEvent, error) {
+func (m *mockLogRepository) GetLogsSinceIndex(
+	ctx context.Context,
+	executionID string,
+	lastIndex int64,
+) ([]api.LogEvent, error) {
 	if m.getLogsSinceIndexFunc != nil {
 		return m.getLogsSinceIndexFunc(ctx, executionID, lastIndex)
 	}
@@ -244,7 +248,12 @@ func (m *mockLogRepository) SetExpiration(ctx context.Context, executionID strin
 }
 
 // newTestService creates a Service with mocks for testing
-func newTestService(userRepo *mockUserRepository, execRepo *mockExecutionRepository, logRepo *mockLogRepository, runner *mockRunner) *Service {
+func newTestService(
+	userRepo *mockUserRepository,
+	execRepo *mockExecutionRepository,
+	logRepo *mockLogRepository,
+	runner *mockRunner,
+) *Service {
 	logger := testutil.SilentLogger()
 	return NewService(userRepo, execRepo, logRepo, runner, logger, constants.AWS, "")
 }
