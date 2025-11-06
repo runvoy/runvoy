@@ -417,10 +417,12 @@ Resources:
                   - 'dynamodb:DeleteItem'
                   - 'dynamodb:Query'
                   - 'dynamodb:Scan'
+                  - 'dynamodb:BatchWriteItem'
                 Resource:
                   - !GetAtt APIKeysTable.Arn
                   - !GetAtt ExecutionsTable.Arn
                   - !GetAtt PendingAPIKeysTable.Arn
+                  - !GetAtt ExecutionLogsTable.Arn
                   - !Sub '${APIKeysTable.Arn}/index/*'
                   - !Sub '${ExecutionsTable.Arn}/index/*'
 
@@ -451,6 +453,7 @@ Resources:
           RUNVOY_API_KEYS_TABLE: !Ref APIKeysTable
           RUNVOY_ECS_CLUSTER: !Ref ECSCluster
           RUNVOY_EXECUTIONS_TABLE: !Ref ExecutionsTable
+          RUNVOY_EXECUTION_LOGS_TABLE: !Ref ExecutionLogsTable
           RUNVOY_LOG_GROUP: !Ref RunnerLogGroup
           RUNVOY_PENDING_API_KEYS_TABLE: !Ref PendingAPIKeysTable
           RUNVOY_SECURITY_GROUP: !Ref FargateSecurityGroup
@@ -636,6 +639,33 @@ Resources:
         - Key: ManagedBy
           Value: 'cloudformation'
 
+  # DynamoDB Table for Execution Logs
+  ExecutionLogsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub '${ProjectName}-execution-logs'
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: execution_id
+          AttributeType: S
+        - AttributeName: log_index
+          AttributeType: N
+      KeySchema:
+        - AttributeName: execution_id
+          KeyType: HASH
+        - AttributeName: log_index
+          KeyType: RANGE
+      TimeToLiveSpecification:
+        AttributeName: expires_at
+        Enabled: true
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-execution-logs'
+        - Key: Application
+          Value: !Ref ProjectName
+        - Key: ManagedBy
+          Value: 'cloudformation'
+
   # CloudWatch Log Group for Connection Manager Lambda
   ConnectionManagerLogGroup:
     Type: AWS::Logs::LogGroup
@@ -767,6 +797,14 @@ Resources:
                   - !Sub '${WebSocketConnectionsTable.Arn}/index/*'
               - Effect: Allow
                 Action:
+                  - 'dynamodb:PutItem'
+                  - 'dynamodb:GetItem'
+                  - 'dynamodb:Query'
+                  - 'dynamodb:BatchWriteItem'
+                Resource:
+                  - !GetAtt ExecutionLogsTable.Arn
+              - Effect: Allow
+                Action:
                   - 'execute-api:ManageConnections'
                 Resource: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:*/*/*'
 
@@ -795,6 +833,7 @@ Resources:
       Environment:
         Variables:
           RUNVOY_WEBSOCKET_CONNECTIONS_TABLE: !Ref WebSocketConnectionsTable
+          RUNVOY_EXECUTION_LOGS_TABLE: !Ref ExecutionLogsTable
           RUNVOY_WEBSOCKET_API_ENDPOINT: !Sub '${WebSocketApi.ApiId}.execute-api.${AWS::Region}.amazonaws.com/production'
 
   # API Gateway WebSocket API
@@ -978,4 +1017,10 @@ Outputs:
     Value: !Ref WebSocketApi
     Export:
       Name: !Sub '${ProjectName}-websocket-api-id'
+
+  ExecutionLogsTableName:
+    Description: DynamoDB Execution Logs Table name
+    Value: !Ref ExecutionLogsTable
+    Export:
+      Name: !Sub '${ProjectName}-execution-logs-table'
 
