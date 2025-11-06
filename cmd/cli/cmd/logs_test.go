@@ -52,18 +52,12 @@ func TestLogsService_DisplayLogs(t *testing.T) {
 			verifyOutput: func(t *testing.T, m *mockOutputInterface) {
 				require.Greater(t, len(m.calls), 0)
 				hasTable := false
-				hasWarning := false
 				for _, call := range m.calls {
 					if call.method == "Table" {
 						hasTable = true
 					}
-					if call.method == "Warningf" {
-						hasWarning = true
-					}
 				}
 				assert.True(t, hasTable, "Expected Table call to display logs")
-				// Since WebSocket URL is empty in mock, we expect a warning instead of success
-				assert.True(t, hasWarning, "Expected Warningf call when WebSocket not configured")
 			},
 		},
 		{

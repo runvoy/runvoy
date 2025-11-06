@@ -16,7 +16,6 @@ import (
 	"runvoy/internal/constants"
 	apperrors "runvoy/internal/errors"
 	"runvoy/internal/output"
-	"slices"
 	"sync"
 	"syscall"
 	"time"
@@ -184,7 +183,14 @@ func (s *LogsService) readWebSocketMessages(
 				mu.Lock()
 				if _, exists := logMap[logEvent.Timestamp]; !exists {
 					logMap[logEvent.Timestamp] = logEvent
-					s.printLogLine(len(logMap), logEvent)
+					// Use Index as line number if available, otherwise use map size
+					var lineNumber int
+					if logEvent.Index > 0 {
+						lineNumber = int(logEvent.Index)
+					} else {
+						lineNumber = len(logMap)
+					}
+					s.printLogLine(lineNumber, logEvent)
 				}
 				mu.Unlock()
 			}
@@ -248,19 +254,19 @@ func (s *LogsService) DisplayLogs(ctx context.Context, executionID, webURL strin
 		return err
 	}
 
-	logMap := make(map[int64]api.LogEvent)
-	var mu sync.Mutex
-
-	for _, log := range resp.Events {
-		logMap[log.Timestamp] = log
-	}
-
-	s.displayLogEvents(logMap)
+	s.displayLogEvents(resp.Events)
 
 	if resp.WebSocketURL == "" {
-		s.output.Warningf("WebSocket streaming not configured on server")
+		// No WebSocket URL means the execution is completed
 		s.printWebviewerURL(webURL, executionID)
 		return nil
+	}
+
+	// Build log map for WebSocket streaming deduplication
+	logMap := make(map[int64]api.LogEvent)
+	var mu sync.Mutex
+	for _, log := range resp.Events {
+		logMap[log.Timestamp] = log
 	}
 
 	// Stream logs via WebSocket
@@ -271,23 +277,21 @@ func (s *LogsService) DisplayLogs(ctx context.Context, executionID, webURL strin
 }
 
 // displayLogEvents displays all log events in a sorted table
-func (s *LogsService) displayLogEvents(logMap map[int64]api.LogEvent) {
-	// Sort logs by timestamp
-	var timestamps []int64
-	for ts := range logMap {
-		timestamps = append(timestamps, ts)
-	}
-	slices.Sort(timestamps)
-
+func (s *LogsService) displayLogEvents(events []api.LogEvent) {
 	s.output.Blank()
 	rows := [][]string{}
-	for i, ts := range timestamps {
-		log := logMap[ts]
-		lineNumber := i + 1 // Compute line number client-side (1-indexed)
+	for _, event := range events {
+		// Use Index as line number if available, otherwise use position (1-indexed)
+		var lineNumber int64
+		if event.Index > 0 {
+			lineNumber = event.Index
+		} else {
+			lineNumber = int64(len(rows) + 1)
+		}
 		rows = append(rows, []string{
 			s.output.Bold(fmt.Sprintf("%d", lineNumber)),
-			time.Unix(log.Timestamp/constants.MillisecondsPerSecond, 0).UTC().Format(time.DateTime),
-			log.Message,
+			time.Unix(event.Timestamp/constants.MillisecondsPerSecond, 0).UTC().Format(time.DateTime),
+			event.Message,
 		})
 	}
 	s.output.Table([]string{"Line", "Timestamp (UTC)", "Message"}, rows)
