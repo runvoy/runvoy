@@ -305,3 +305,8 @@ curl-get path:
     curl -sS \
         -X GET "http://localhost:${RUNVOY_DEV_SERVER_PORT}/api/v1{{path}}" \
         -H "X-API-Key: ${RUNVOY_ADMIN_API_KEY}"
+
+# Helper to setup Axiom logging for development
+# https://axiom.co/docs/send-data/cloudwatch#install-with-cloudformation-stacks
+setup-axiom-logging:
+    open https://axiom.co/docs/send-data/cloudwatch#install-with-cloudformation-stacks
