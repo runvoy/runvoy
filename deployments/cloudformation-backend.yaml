@@ -421,8 +421,10 @@ Resources:
                   - !GetAtt APIKeysTable.Arn
                   - !GetAtt ExecutionsTable.Arn
                   - !GetAtt PendingAPIKeysTable.Arn
+                  - !GetAtt ExecutionLogsTable.Arn
                   - !Sub '${APIKeysTable.Arn}/index/*'
                   - !Sub '${ExecutionsTable.Arn}/index/*'
+                  - !Sub '${ExecutionLogsTable.Arn}/index/*'
 
   # Lambda Function (code loaded from S3 bucket)
   LambdaFunction:
@@ -515,6 +517,7 @@ Resources:
       Environment:
         Variables:
           RUNVOY_EXECUTIONS_TABLE: !Ref ExecutionsTable
+          RUNVOY_EXECUTION_LOGS_TABLE: !Ref ExecutionLogsTable
           RUNVOY_ECS_CLUSTER: !Ref ECSCluster
           RUNVOY_WEBSOCKET_CONNECTIONS_TABLE: !Ref WebSocketConnectionsTable
           RUNVOY_WEBSOCKET_MANAGER_FUNCTION_NAME: !Ref ConnectionManagerFunction
@@ -565,6 +568,17 @@ Resources:
                   - !Sub '${WebSocketConnectionsTable.Arn}/index/*'
               - Effect: Allow
                 Action:
+                  - 'dynamodb:PutItem'
+                  - 'dynamodb:UpdateItem'
+                  - 'dynamodb:GetItem'
+                  - 'dynamodb:Query'
+                  - 'dynamodb:DeleteItem'
+                # Event processor reads and writes to execution logs cache
+                Resource:
+                  - !GetAtt ExecutionLogsTable.Arn
+                  - !Sub '${ExecutionLogsTable.Arn}/index/*'
+              - Effect: Allow
+                Action:
                   - 'ecs:DescribeTasks'
                 # Event processor needs to describe tasks in our cluster to update execution status
                 Resource: !Sub 'arn:aws:ecs:${AWS::Region}:${AWS::AccountId}:task/${ProjectName}-cluster/*'
@@ -603,6 +617,46 @@ Resources:
       Action: lambda:InvokeFunction
       Principal: events.amazonaws.com
       SourceArn: !GetAtt TaskCompletionEventRule.Arn
+
+  # DynamoDB Table for Execution Logs Cache
+  ExecutionLogsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub '${ProjectName}-execution-logs'
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: execution_id
+          AttributeType: S
+        - AttributeName: timestamp_log_index
+          AttributeType: S
+        - AttributeName: line_number
+          AttributeType: N
+      KeySchema:
+        - AttributeName: execution_id
+          KeyType: HASH
+        - AttributeName: timestamp_log_index
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: execution_id-line_number-index
+          KeySchema:
+            - AttributeName: execution_id
+              KeyType: HASH
+            - AttributeName: line_number
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+      StreamSpecification:
+        StreamViewType: NEW_AND_OLD_IMAGES
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-execution-logs'
+        - Key: Application
+          Value: !Ref ProjectName
+        - Key: ManagedBy
+          Value: 'cloudformation'
 
   # DynamoDB Table for WebSocket Connections
   WebSocketConnectionsTable:
@@ -912,6 +966,12 @@ Outputs:
     Value: !Ref ExecutionsTable
     Export:
       Name: !Sub '${ProjectName}-executions-table'
+
+  ExecutionLogsTableName:
+    Description: DynamoDB Execution Logs Cache Table name
+    Value: !Ref ExecutionLogsTable
+    Export:
+      Name: !Sub '${ProjectName}-execution-logs-table'
 
   PendingAPIKeysTableName:
     Description: DynamoDB Pending API Keys Table name

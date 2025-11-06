@@ -88,3 +88,28 @@ type ConnectionRepository interface {
 	// Returns a list of connection IDs that are subscribed to the specified execution.
 	GetConnectionsByExecutionID(ctx context.Context, executionID string) ([]string, error)
 }
+
+// LogsRepository defines the interface for execution logs cache-related database operations.
+type LogsRepository interface {
+	// CreateLogEvent stores a new log event in the cache table.
+	CreateLogEvent(ctx context.Context, executionID string, logEvent *api.LogEvent) error
+
+	// GetLogsByExecutionID retrieves logs for a given execution ID with optional pagination.
+	// Returns logs sorted by line_number in ascending order.
+	GetLogsByExecutionID(ctx context.Context, executionID string, limit int, afterLine int) ([]*api.LogEvent, error)
+
+	// GetLogsByTimeRange retrieves logs within a specific timestamp range for an execution.
+	// afterTimestamp and beforeTimestamp are in Unix milliseconds.
+	GetLogsByTimeRange(ctx context.Context, executionID string,
+		afterTimestamp, beforeTimestamp int64) ([]*api.LogEvent, error)
+
+	// GetLastLineNumber retrieves the highest line_number for an execution.
+	// Returns 0 if no logs exist yet.
+	GetLastLineNumber(ctx context.Context, executionID string) (int, error)
+
+	// DeleteLogsByExecutionID removes all logs for a given execution.
+	DeleteLogsByExecutionID(ctx context.Context, executionID string) error
+
+	// CountLogsByExecutionID returns the total number of logs for an execution.
+	CountLogsByExecutionID(ctx context.Context, executionID string) (int, error)
+}

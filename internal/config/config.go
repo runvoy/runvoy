@@ -31,6 +31,8 @@ type Config struct {
 	APIKeysTable                 string        `mapstructure:"api_keys_table"`
 	ExecutionsTable              string        `mapstructure:"executions_table"`
 	PendingAPIKeysTable          string        `mapstructure:"pending_api_keys_table"`
+	ExecutionLogsTable           string        `mapstructure:"execution_logs_table"`
+	ExecutionLogsTTLDays         int           `mapstructure:"execution_logs_ttl_days"`
 	ECSCluster                   string        `mapstructure:"ecs_cluster"`
 	TaskDefinition               string        `mapstructure:"task_definition"`
 	Subnet1                      string        `mapstructure:"subnet_1"`
@@ -269,6 +271,8 @@ func (c *Config) GetLogLevel() slog.Level {
 
 // Helper functions
 
+const executionLogsTTLDaysDefault = 7
+
 func setDefaults(v *viper.Viper) {
 	v.SetDefault("port", "56212")
 	v.SetDefault("request_timeout", 0)
@@ -276,6 +280,7 @@ func setDefaults(v *viper.Viper) {
 	// TODO: we set DEBUG for development, we should update this to use INFO
 	v.SetDefault("log_level", "DEBUG")
 	v.SetDefault("web_url", constants.DefaultWebURL)
+	v.SetDefault("execution_logs_ttl_days", executionLogsTTLDaysDefault)
 }
 
 func loadConfigFile(v *viper.Viper) error {
@@ -304,6 +309,8 @@ func bindEnvVars(v *viper.Viper) {
 		"DEV_SERVER_PORT",
 		"ECS_CLUSTER",
 		"EXECUTIONS_TABLE",
+		"EXECUTION_LOGS_TABLE",
+		"EXECUTION_LOGS_TTL_DAYS",
 		"INIT_TIMEOUT",
 		"LOG_GROUP",
 		"LOG_LEVEL",
