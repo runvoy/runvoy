@@ -46,11 +46,6 @@ func NewRunner(ecsClient *ecs.Client, cfg *Config, log *slog.Logger) *Runner {
 	return &Runner{ecsClient: ecsClient, cfg: cfg, logger: log}
 }
 
-// FetchLogsByExecutionID returns CloudWatch log events for the given execution ID.
-func (e *Runner) FetchLogsByExecutionID(ctx context.Context, executionID string) ([]api.LogEvent, error) {
-	return FetchLogsByExecutionID(ctx, e.cfg, executionID)
-}
-
 // buildSidecarContainerCommand constructs the shell command for the sidecar container.
 // It handles .env file creation from user environment variables and git repository cloning.
 func buildSidecarContainerCommand(hasGitRepo bool) []string {

@@ -18,6 +18,8 @@ import (
 )
 
 // Runner abstracts provider-specific command execution (e.g., AWS ECS, GCP, etc.).
+// Note: Logs retrieval is handled via the database layer (logsRepo), not through Runner,
+// to maintain cloud-agnostic design and proper separation of concerns.
 type Runner interface {
 	// StartTask triggers an execution on the underlying platform and returns
 	// a stable executionID and the task creation timestamp.
@@ -37,16 +39,13 @@ type Runner interface {
 	ListImages(ctx context.Context) ([]api.ImageInfo, error)
 	// RemoveImage removes a Docker image and deregisters its task definitions.
 	RemoveImage(ctx context.Context, image string) error
-	// FetchLogsByExecutionID retrieves logs for a specific execution.
-	// Returns empty slice if logs are not available or not supported by the provider.
-	FetchLogsByExecutionID(ctx context.Context, executionID string) ([]api.LogEvent, error)
 }
 
 // Service provides the core business logic for command execution and user management.
 type Service struct {
 	userRepo            database.UserRepository
 	executionRepo       database.ExecutionRepository
-	logsRepo            database.LogsRepository // Optional: DynamoDB cache for logs
+	logsRepo            database.LogsRepository
 	runner              Runner
 	Logger              *slog.Logger
 	Provider            constants.BackendProvider
@@ -377,9 +376,9 @@ func (s *Service) RunCommand(
 	}, nil
 }
 
-// GetLogsByExecutionID returns aggregated logs for a given execution using a cache-first strategy.
-// If logsRepo is available (DynamoDB cache), logs are fetched from there with fallback to CloudWatch.
-// Otherwise, logs are fetched directly from CloudWatch (source of truth).
+// GetLogsByExecutionID returns aggregated logs for a given execution from the cache.
+// Logs are populated by the Event Processor Lambda listening to CloudWatch Logs subscription filters.
+// If logsRepo is not configured, returns empty logs.
 // WebSocket endpoint is stored without protocol (normalized in config)
 // Always use wss:// for production WebSocket connections
 // WebSocket URL is only provided if the execution is still RUNNING
@@ -400,32 +399,19 @@ func (s *Service) GetLogsByExecutionID(ctx context.Context, executionID string) 
 		return nil, apperrors.ErrNotFound("execution not found", nil)
 	}
 
-	// Fetch logs: cache-first strategy
+	// Fetch logs from cache (populated by Event Processor Lambda)
 	var events []api.LogEvent
 	if s.logsRepo != nil {
-		// Try to fetch from DynamoDB cache first
 		cachedLogs, cacheErr := s.logsRepo.GetLogsByExecutionID(ctx, executionID, defaultLogsLimit, 0)
-		if cacheErr == nil && cachedLogs != nil {
-			// Convert from cache format to response format
+		if cacheErr != nil {
+			s.Logger.Warn("failed to fetch logs from cache", "execution_id", executionID, "error", cacheErr)
+			// Continue with empty logs on error
+		} else if cachedLogs != nil {
 			events = convertCachedLogsToEvents(cachedLogs)
 			s.Logger.Debug("fetched logs from cache", "execution_id", executionID, "count", len(events))
-		} else {
-			// Fall back to CloudWatch if cache fails
-			s.Logger.Warn("cache miss or error, falling back to CloudWatch", "execution_id", executionID, "error", cacheErr)
-			cloudwatchEvents, cwErr := s.runner.FetchLogsByExecutionID(ctx, executionID)
-			if cwErr != nil {
-				return nil, cwErr
-			}
-			events = cloudwatchEvents
 		}
-	} else {
-		// No cache configured, fetch directly from CloudWatch
-		cloudwatchEvents, cwErr := s.runner.FetchLogsByExecutionID(ctx, executionID)
-		if cwErr != nil {
-			return nil, cwErr
-		}
-		events = cloudwatchEvents
 	}
+	// If logsRepo is nil or no logs found, events remains empty
 
 	// Only provide WebSocket URL if execution is still RUNNING
 	var websocketURL string

@@ -154,11 +154,10 @@ type mockRunner struct {
 		userEmail string,
 		req *api.ExecutionRequest,
 	) (string, *time.Time, error)
-	killTaskFunc               func(ctx context.Context, executionID string) error
-	registerImageFunc          func(ctx context.Context, image string, isDefault *bool) error
-	listImagesFunc             func(ctx context.Context) ([]api.ImageInfo, error)
-	removeImageFunc            func(ctx context.Context, image string) error
-	fetchLogsByExecutionIDFunc func(ctx context.Context, executionID string) ([]api.LogEvent, error)
+	killTaskFunc      func(ctx context.Context, executionID string) error
+	registerImageFunc func(ctx context.Context, image string, isDefault *bool) error
+	listImagesFunc    func(ctx context.Context) ([]api.ImageInfo, error)
+	removeImageFunc   func(ctx context.Context, image string) error
 }
 
 func (m *mockRunner) StartTask(
@@ -200,15 +199,66 @@ func (m *mockRunner) RemoveImage(ctx context.Context, image string) error {
 	return nil
 }
 
-func (m *mockRunner) FetchLogsByExecutionID(ctx context.Context, executionID string) ([]api.LogEvent, error) {
-	if m.fetchLogsByExecutionIDFunc != nil {
-		return m.fetchLogsByExecutionIDFunc(ctx, executionID)
+// mockLogsRepository implements database.LogsRepository for testing
+type mockLogsRepository struct {
+	getLogsByExecutionIDFunc func(
+		ctx context.Context,
+		executionID string,
+		limit int,
+		afterLine int,
+	) ([]*api.LogEvent, error)
+}
+
+func (m *mockLogsRepository) CreateLogEvent(_ context.Context, _ string, _ *api.LogEvent) error {
+	return nil
+}
+
+func (m *mockLogsRepository) GetLogsByExecutionID(
+	ctx context.Context,
+	executionID string,
+	limit int,
+	afterLine int,
+) ([]*api.LogEvent, error) {
+	if m.getLogsByExecutionIDFunc != nil {
+		return m.getLogsByExecutionIDFunc(ctx, executionID, limit, afterLine)
 	}
-	return []api.LogEvent{}, nil
+	return nil, nil
+}
+
+func (m *mockLogsRepository) GetLogsByTimeRange(
+	_ context.Context,
+	_ string,
+	_ int64,
+	_ int64,
+) ([]*api.LogEvent, error) {
+	return nil, nil
+}
+
+func (m *mockLogsRepository) GetLastLineNumber(_ context.Context, _ string) (int, error) {
+	return 0, nil
+}
+
+func (m *mockLogsRepository) DeleteLogsByExecutionID(_ context.Context, _ string) error {
+	return nil
+}
+
+func (m *mockLogsRepository) CountLogsByExecutionID(_ context.Context, _ string) (int, error) {
+	return 0, nil
 }
 
 // newTestService creates a Service with mocks for testing
 func newTestService(userRepo *mockUserRepository, execRepo *mockExecutionRepository, runner *mockRunner) *Service {
 	logger := testutil.SilentLogger()
 	return NewService(userRepo, execRepo, nil, runner, logger, constants.AWS, "")
+}
+
+// newTestServiceWithLogsRepo creates a Service with logs repository mock for testing
+func newTestServiceWithLogsRepo(
+	userRepo *mockUserRepository,
+	execRepo *mockExecutionRepository,
+	logsRepo *mockLogsRepository,
+	runner *mockRunner,
+) *Service {
+	logger := testutil.SilentLogger()
+	return NewService(userRepo, execRepo, logsRepo, runner, logger, constants.AWS, "")
 }

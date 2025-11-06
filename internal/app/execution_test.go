@@ -474,20 +474,29 @@ func TestGetLogsByExecutionID(t *testing.T) {
 			expectedError: apperrors.ErrCodeNotFound,
 		},
 		{
-			name:            "runner error",
+			name:            "logs cache error returns empty logs",
 			executionID:     "exec-111",
 			executionStatus: string(constants.ExecutionRunning),
-			fetchLogsErr:    errors.New("failed to fetch logs"),
-			expectErr:       true,
-			expectedError:   "failed to fetch logs",
+			fetchLogsErr:    errors.New("cache failure"),
+			mockEvents:      []api.LogEvent{},
+			expectErr:       false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			runner := &mockRunner{
-				fetchLogsByExecutionIDFunc: func(_ context.Context, _ string) ([]api.LogEvent, error) {
-					return tt.mockEvents, tt.fetchLogsErr
+			logsRepo := &mockLogsRepository{
+				getLogsByExecutionIDFunc: func(_ context.Context, _ string, _ int, _ int) ([]*api.LogEvent, error) {
+					if tt.fetchLogsErr != nil {
+						// Cache errors return empty logs, not an error
+						return nil, tt.fetchLogsErr
+					}
+					// Convert LogEvent to []*LogEvent for the mock
+					logEventPtrs := make([]*api.LogEvent, len(tt.mockEvents))
+					for i := range tt.mockEvents {
+						logEventPtrs[i] = &tt.mockEvents[i]
+					}
+					return logEventPtrs, nil
 				},
 			}
 
@@ -509,7 +518,8 @@ func TestGetLogsByExecutionID(t *testing.T) {
 				},
 			}
 
-			svc := newTestService(nil, execRepo, runner)
+			runner := &mockRunner{}
+			svc := newTestServiceWithLogsRepo(nil, execRepo, logsRepo, runner)
 			resp, err := svc.GetLogsByExecutionID(ctx, tt.executionID)
 
 			if tt.expectErr {
