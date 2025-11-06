@@ -96,11 +96,16 @@ func (p *Processor) ingestExecutionLogs(
 }
 
 // extractExecutionIDFromLogStream extracts the execution ID from a CloudWatch log stream name.
+// Log stream format: /aws/ecs/runvoy/runner-EXECUTION_ID
 // It returns the last part after the "/" separator.
 func extractExecutionIDFromLogStream(logStream string) string {
-	parts := strings.Split(logStream, "/")
+	const pathSeparator = "/"
+	parts := strings.Split(logStream, pathSeparator)
 	if len(parts) > 0 {
-		return parts[len(parts)-1]
+		lastPart := parts[len(parts)-1]
+		if lastPart != "" {
+			return lastPart
+		}
 	}
 	return ""
 }

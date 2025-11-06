@@ -1,7 +1,12 @@
 package events
 
 import (
+	"bytes"
+	"compress/gzip"
+	"encoding/base64"
 	"encoding/json"
+	"fmt"
+	"io"
 	"time"
 )
 
@@ -52,11 +57,40 @@ type CloudWatchLogEvent struct {
 }
 
 // ParseCloudWatchLogsEvent parses the detail field from a CloudWatch event
-// that contains a compressed and base64-encoded CloudWatch Logs subscription event
+// that contains a compressed and base64-encoded CloudWatch Logs subscription event.
+// Can also parse direct Lambda invocation events from CloudWatch Logs subscription filters.
 func ParseCloudWatchLogsEvent(detailData []byte) (*CloudWatchLogsEvent, error) {
 	var event CloudWatchLogsEvent
 	if err := json.Unmarshal(detailData, &event); err != nil {
 		return nil, err
+	}
+	return &event, nil
+}
+
+// ParseDirectCloudWatchLogsEvent parses a direct CloudWatch Logs subscription filter Lambda invocation event.
+// The awslogs data is base64-encoded and gzip-compressed.
+func ParseDirectCloudWatchLogsEvent(awslogsData []byte) (*CloudWatchLogsEvent, error) {
+	decodedData, err := base64.StdEncoding.DecodeString(string(awslogsData))
+	if err != nil {
+		return nil, fmt.Errorf("failed to base64 decode: %w", err)
+	}
+
+	gzipReader, err := gzip.NewReader(bytes.NewReader(decodedData))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create gzip reader: %w", err)
+	}
+	defer func() {
+		_ = gzipReader.Close()
+	}()
+
+	uncompressed, readErr := io.ReadAll(gzipReader)
+	if readErr != nil {
+		return nil, fmt.Errorf("failed to decompress gzip: %w", readErr)
+	}
+
+	var event CloudWatchLogsEvent
+	if unmarshalErr := json.Unmarshal(uncompressed, &event); unmarshalErr != nil {
+		return nil, fmt.Errorf("failed to unmarshal event: %w", unmarshalErr)
 	}
 	return &event, nil
 }
