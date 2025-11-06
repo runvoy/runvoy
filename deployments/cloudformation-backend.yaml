@@ -416,13 +416,22 @@ Resources:
                   - 'dynamodb:UpdateItem'
                   - 'dynamodb:DeleteItem'
                   - 'dynamodb:Query'
+                  - 'dynamodb:BatchWriteItem'
+                Resource:
+                  - !GetAtt ExecutionLogsTable.Arn
+              - Effect: Allow
+                Action:
+                  - 'dynamodb:GetItem'
+                  - 'dynamodb:PutItem'
+                  - 'dynamodb:UpdateItem'
+                  - 'dynamodb:DeleteItem'
+                  - 'dynamodb:Query'
                   - 'dynamodb:Scan'
                   - 'dynamodb:BatchWriteItem'
                 Resource:
                   - !GetAtt APIKeysTable.Arn
                   - !GetAtt ExecutionsTable.Arn
                   - !GetAtt PendingAPIKeysTable.Arn
-                  - !GetAtt ExecutionLogsTable.Arn
                   - !Sub '${APIKeysTable.Arn}/index/*'
                   - !Sub '${ExecutionsTable.Arn}/index/*'
 
@@ -555,7 +564,6 @@ Resources:
                   - 'dynamodb:GetItem'
                   - 'dynamodb:UpdateItem'
                   - 'dynamodb:Query'
-                  - 'dynamodb:Scan'
                 Resource:
                   - !GetAtt ExecutionsTable.Arn
                   - !Sub '${ExecutionsTable.Arn}/index/*'
