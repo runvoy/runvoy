@@ -46,6 +46,7 @@ type Runner interface {
 type Service struct {
 	userRepo            database.UserRepository
 	executionRepo       database.ExecutionRepository
+	logsRepo            database.LogsRepository // Optional: DynamoDB cache for logs
 	runner              Runner
 	Logger              *slog.Logger
 	Provider            constants.BackendProvider
@@ -56,10 +57,12 @@ type Service struct {
 
 // NewService creates a new service instance.
 // If userRepo is nil, user-related operations will not be available.
+// If logsRepo is nil, logs will be fetched directly from CloudWatch (no caching).
 // This allows the service to work without database dependencies for simple operations.
 func NewService(
 	userRepo database.UserRepository,
 	executionRepo database.ExecutionRepository,
+	logsRepo database.LogsRepository,
 	runner Runner,
 	log *slog.Logger,
 	provider constants.BackendProvider,
@@ -67,6 +70,7 @@ func NewService(
 	return &Service{
 		userRepo:            userRepo,
 		executionRepo:       executionRepo,
+		logsRepo:            logsRepo,
 		runner:              runner,
 		Logger:              log,
 		Provider:            provider,
@@ -373,7 +377,9 @@ func (s *Service) RunCommand(
 	}, nil
 }
 
-// GetLogsByExecutionID returns aggregated Cloud logs for a given execution
+// GetLogsByExecutionID returns aggregated logs for a given execution using a cache-first strategy.
+// If logsRepo is available (DynamoDB cache), logs are fetched from there with fallback to CloudWatch.
+// Otherwise, logs are fetched directly from CloudWatch (source of truth).
 // WebSocket endpoint is stored without protocol (normalized in config)
 // Always use wss:// for production WebSocket connections
 // WebSocket URL is only provided if the execution is still RUNNING
@@ -394,10 +400,31 @@ func (s *Service) GetLogsByExecutionID(ctx context.Context, executionID string) 
 		return nil, apperrors.ErrNotFound("execution not found", nil)
 	}
 
-	// Fetch logs
-	events, err := s.runner.FetchLogsByExecutionID(ctx, executionID)
-	if err != nil {
-		return nil, err
+	// Fetch logs: cache-first strategy
+	var events []api.LogEvent
+	if s.logsRepo != nil {
+		// Try to fetch from DynamoDB cache first
+		cachedLogs, cacheErr := s.logsRepo.GetLogsByExecutionID(ctx, executionID, defaultLogsLimit, 0)
+		if cacheErr == nil && cachedLogs != nil {
+			// Convert from cache format to response format
+			events = convertCachedLogsToEvents(cachedLogs)
+			s.Logger.Debug("fetched logs from cache", "execution_id", executionID, "count", len(events))
+		} else {
+			// Fall back to CloudWatch if cache fails
+			s.Logger.Warn("cache miss or error, falling back to CloudWatch", "execution_id", executionID, "error", cacheErr)
+			cloudwatchEvents, cwErr := s.runner.FetchLogsByExecutionID(ctx, executionID)
+			if cwErr != nil {
+				return nil, cwErr
+			}
+			events = cloudwatchEvents
+		}
+	} else {
+		// No cache configured, fetch directly from CloudWatch
+		cloudwatchEvents, cwErr := s.runner.FetchLogsByExecutionID(ctx, executionID)
+		if cwErr != nil {
+			return nil, cwErr
+		}
+		events = cloudwatchEvents
 	}
 
 	// Only provide WebSocket URL if execution is still RUNNING
@@ -414,6 +441,23 @@ func (s *Service) GetLogsByExecutionID(ctx context.Context, executionID string) 
 		WebSocketURL: websocketURL,
 	}, nil
 }
+
+// convertCachedLogsToEvents converts LogEvent pointers from cache to API events.
+// Used internally to normalize cache responses.
+func convertCachedLogsToEvents(cachedLogs []*api.LogEvent) []api.LogEvent {
+	if cachedLogs == nil {
+		return []api.LogEvent{}
+	}
+	events := make([]api.LogEvent, 0, len(cachedLogs))
+	for _, log := range cachedLogs {
+		if log != nil {
+			events = append(events, *log)
+		}
+	}
+	return events
+}
+
+const defaultLogsLimit = 1000 // Default page size for log fetching
 
 // GetExecutionStatus returns the current status and metadata for a given execution ID
 func (s *Service) GetExecutionStatus(ctx context.Context, executionID string) (*api.ExecutionStatusResponse, error) {

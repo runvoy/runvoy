@@ -4,7 +4,7 @@ set dotenv-load
 # Variables
 bucket := env('RUNVOY_RELEASES_BUCKET', 'runvoy-releases')
 stack_name := env('RUNVOY_CLOUDFORMATION_BACKEND_STACK', 'runvoy-backend')
-admin_email := env('RUNVOY_ADMIN_EMAIL', 'admin@example.com')
+admin_email := env('RUNVOY_ADMIN_EMAIL', 'admin@runvoy.site')
 version := trim(read('VERSION'))
 git_short_hash := trim(`git rev-parse --short HEAD`)
 build_date := datetime_utc('%Y%m%d')
