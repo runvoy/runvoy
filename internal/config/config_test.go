@@ -310,7 +310,7 @@ func TestConfigStruct(t *testing.T) {
 		cfg := &Config{
 			APIEndpoint:         "https://api.example.com",
 			APIKey:              "test-key",
-			Port:                "8080",
+			Port:                8080,
 			APIKeysTable:        "api-keys-table",
 			ExecutionsTable:     "executions-table",
 			PendingAPIKeysTable: "pending-keys-table",

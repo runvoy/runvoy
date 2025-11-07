@@ -12,7 +12,7 @@ import (
 	"sync"
 	"syscall"
 
-	"runvoy/cmd/local-async/server"
+	"runvoy/cmd/local/server"
 	"runvoy/internal/app"
 	"runvoy/internal/config"
 	"runvoy/internal/constants"
@@ -50,12 +50,12 @@ func startOrchestratorServer(log *slog.Logger, cfg *config.Config, svc *app.Serv
 			"request_timeout", cfg.RequestTimeout,
 		)
 		log.Debug("orchestrator health check available",
-			"url", fmt.Sprintf("http://localhost:%s/api/v1/health", cfg.Port),
+			"url", fmt.Sprintf("http://localhost:%d/api/v1/health", cfg.Port),
 		)
 
 		router := serverPkg.NewRouter(svc, cfg.RequestTimeout)
 		srv := &http.Server{
-			Addr:         fmt.Sprintf(":%s", cfg.Port),
+			Addr:         fmt.Sprintf(":%d", cfg.Port),
 			Handler:      router.Handler(),
 			ReadTimeout:  constants.ServerReadTimeout,
 			WriteTimeout: constants.ServerWriteTimeout,
@@ -68,7 +68,7 @@ func startOrchestratorServer(log *slog.Logger, cfg *config.Config, svc *app.Serv
 
 	router := serverPkg.NewRouter(svc, cfg.RequestTimeout)
 	return &http.Server{
-		Addr:         fmt.Sprintf(":%s", cfg.Port),
+		Addr:         fmt.Sprintf(":%d", cfg.Port),
 		Handler:      router.Handler(),
 		ReadTimeout:  constants.ServerReadTimeout,
 		WriteTimeout: constants.ServerWriteTimeout,
@@ -81,18 +81,20 @@ func startAsyncProcessorServer(log *slog.Logger, cfg *config.Config, processor *
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
+
+		port := cfg.Port + 1
 		log.Info("starting async processor server",
-			"port", cfg.Port,
+			"port", port,
 			"version", *constants.GetVersion(),
 			"log_level", cfg.LogLevel,
 		)
 		log.Debug("async processor endpoint available",
-			"url", fmt.Sprintf("http://localhost:%s/process", cfg.Port),
+			"url", fmt.Sprintf("http://localhost:%d/process", port),
 		)
 
 		router := server.NewRouter(processor, log)
 		srv := &http.Server{
-			Addr:         fmt.Sprintf(":%s", cfg.Port),
+			Addr:         fmt.Sprintf(":%d", port),
 			Handler:      router,
 			ReadTimeout:  constants.ServerReadTimeout,
 			WriteTimeout: constants.ServerWriteTimeout,
@@ -105,7 +107,7 @@ func startAsyncProcessorServer(log *slog.Logger, cfg *config.Config, processor *
 
 	router := server.NewRouter(processor, log)
 	return &http.Server{
-		Addr:         fmt.Sprintf(":%s", cfg.Port),
+		Addr:         fmt.Sprintf(":%d", cfg.Port),
 		Handler:      router,
 		ReadTimeout:  constants.ServerReadTimeout,
 		WriteTimeout: constants.ServerWriteTimeout,
