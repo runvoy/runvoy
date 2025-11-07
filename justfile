@@ -21,7 +21,7 @@ runvoy *ARGS: build-cli
     ./bin/runvoy --verbose {{ARGS}}
 
 # Build all binaries
-build: build-cli build-local build-backend build-frontend
+build: build-cli build-local build-local-async build-backend build-frontend
 
 # Build backend binaries (Lambda functions)
 build-backend: build-orchestrator build-event-processor
@@ -66,6 +66,13 @@ build-local:
         -ldflags {{build_flags}} \
         -o ../../bin/local
 
+# Build local async processor server (for testing event processor locally)
+[working-directory: 'cmd/local-async']
+build-local-async:
+    go build \
+        -ldflags {{build_flags}} \
+        -o ../../bin/local-async
+
 # Build orchestrator zip file
 [working-directory: 'dist']
 build-orchestrator-zip: build-orchestrator
@@ -106,6 +113,10 @@ deploy-webapp: build-webapp
 # Run local development server
 run-local: build-local
     ./bin/local
+
+# Run local async processor server
+run-local-async: build-local-async
+    ./bin/local-async
 
 # Run all tests
 test:
