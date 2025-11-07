@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"net/http"
 
 	"runvoy/internal/config"
+	"runvoy/internal/constants"
 	"runvoy/internal/database"
 	dynamorepo "runvoy/internal/database/dynamodb"
 	"runvoy/internal/logger"
@@ -17,16 +19,11 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 )
 
-// WebSocketHandler stores the subset of WebSocket manager functionality used by the processor.
-type WebSocketHandler interface {
-	HandleRequest(ctx context.Context, req events.APIGatewayWebsocketProxyRequest) (events.APIGatewayProxyResponse, error)
-}
-
 // Processor handles async events from EventBridge
 type Processor struct {
 	executionRepo    database.ExecutionRepository
 	connectionRepo   database.ConnectionRepository
-	websocketHandler WebSocketHandler
+	webSocketManager websocket.Manager
 	logger           *slog.Logger
 }
 
@@ -50,11 +47,7 @@ func NewProcessor(ctx context.Context, cfg *config.Config, log *slog.Logger) (*P
 	dynamoClient := dynamodb.NewFromConfig(awsCfg)
 	executionRepo := dynamorepo.NewExecutionRepository(dynamoClient, cfg.ExecutionsTable, log)
 	connectionRepo := dynamorepo.NewConnectionRepository(dynamoClient, cfg.WebSocketConnectionsTable, log)
-
-	websocketManager, err := websocket.NewWebSocketManager(ctx, cfg, log)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create WebSocket manager: %w", err)
-	}
+	websocketManager := websocket.NewWebSocketManager(cfg, &awsCfg, connectionRepo, log)
 
 	log.Debug("event processor initialized",
 		"context", map[string]string{
@@ -67,41 +60,86 @@ func NewProcessor(ctx context.Context, cfg *config.Config, log *slog.Logger) (*P
 	return &Processor{
 		executionRepo:    executionRepo,
 		connectionRepo:   connectionRepo,
-		websocketHandler: websocketManager,
+		webSocketManager: websocketManager,
 		logger:           log,
 	}, nil
 }
 
 // Handle is the universal entry point for Lambda event processing
-// It attempts to unmarshal as CloudWatch Event or CloudWatch Logs Event
-func (p *Processor) Handle(ctx context.Context, rawEvent *json.RawMessage) error {
+// It supports CloudWatch Event, CloudWatch Logs Event and WebSocket Event natively.
+// This method returns an interface{} to support both error responses (for non-WebSocket events)
+// and APIGatewayProxyResponse (for WebSocket events).
+func (p *Processor) Handle(ctx context.Context, rawEvent *json.RawMessage) (any, error) {
 	reqLogger := logger.DeriveRequestLogger(ctx, p.logger)
+	reqLogger.With("version", constants.GetVersion()).Debug("starting event processor Lambda handler")
 
 	if handled, err := p.handleCloudWatchEvent(ctx, rawEvent, reqLogger); handled {
-		return err
+		return nil, err
 	}
 
 	if handled, err := p.handleCloudWatchLogsEvent(ctx, rawEvent, reqLogger); handled {
-		return err
+		return nil, err
 	}
 
-	if handled, err := p.handleWebSocketEvent(ctx, rawEvent, reqLogger); handled {
-		return err
+	// Try to handle as WebSocket event and return the response directly
+	if resp, handled := p.handleWebSocketRequest(ctx, rawEvent, reqLogger); handled {
+		return resp, nil
 	}
 
-	reqLogger.Warn("unhandled event type", "context", map[string]any{
+	reqLogger.Error("unhandled event type", "context", map[string]any{
 		"event": *rawEvent,
 	})
-	return nil
+
+	return nil, fmt.Errorf("unhandled event type: %s", string(*rawEvent))
 }
 
-// HandleEventJSON is a helper for testing that accepts raw JSON
+// handleWebSocketRequest processes WebSocket events and returns the APIGatewayProxyResponse
+// If the event is not a WebSocket event, it returns an empty response and false.
+func (p *Processor) handleWebSocketRequest(
+	ctx context.Context,
+	rawEvent *json.RawMessage,
+	reqLogger *slog.Logger,
+) (events.APIGatewayProxyResponse, bool) {
+	var wsReq events.APIGatewayWebsocketProxyRequest
+	if err := json.Unmarshal(*rawEvent, &wsReq); err != nil || wsReq.RequestContext.RouteKey == "" {
+		return events.APIGatewayProxyResponse{}, false
+	}
+
+	// This is a WebSocket request, handle it through the manager
+	if _, err := p.webSocketManager.HandleRequest(ctx, rawEvent, reqLogger); err != nil {
+		// Return error response to API Gateway
+		return events.APIGatewayProxyResponse{
+			StatusCode: http.StatusInternalServerError,
+			Body:       fmt.Sprintf("Internal server error: %v", err),
+		}, true
+	}
+
+	// Build the response based on the route
+	resp := events.APIGatewayProxyResponse{
+		StatusCode: http.StatusOK,
+		Body:       "OK",
+	}
+
+	return resp, true
+}
+
+// HandleEventJSON is a helper for testing that accepts raw JSON and returns an error.
+// It's used for test cases that expect error returns.
 func (p *Processor) HandleEventJSON(ctx context.Context, eventJSON *json.RawMessage) error {
 	var event events.CloudWatchEvent
 	if err := json.Unmarshal(*eventJSON, &event); err != nil {
 		return fmt.Errorf("failed to unmarshal event: %w", err)
 	}
-	return p.Handle(ctx, eventJSON)
+
+	result, err := p.Handle(ctx, eventJSON)
+	if err != nil {
+		return err
+	}
+	// Convert result to error if it's an error type
+	if resultErr, ok := result.(error); ok {
+		return resultErr
+	}
+	return nil
 }
 
 func (p *Processor) handleCloudWatchEvent(
@@ -140,38 +178,6 @@ func (p *Processor) handleCloudWatchLogsEvent(
 	}
 
 	reqLogger.Debug("processing CloudWatch Logs event, not implemented yet")
-
-	return true, nil
-}
-
-func (p *Processor) handleWebSocketEvent(
-	ctx context.Context, rawEvent *json.RawMessage, reqLogger *slog.Logger) (bool, error) {
-	var webSocketEvent events.APIGatewayWebsocketProxyRequest
-	if err := json.Unmarshal(*rawEvent, &webSocketEvent); err != nil {
-		return false, nil
-	}
-
-	reqLogger.Debug("processing WebSocket event",
-		"context", map[string]string{
-			"route_key": webSocketEvent.RequestContext.RouteKey,
-		},
-	)
-
-	if p.websocketHandler == nil {
-		reqLogger.Warn("websocket handler not configured")
-		return true, fmt.Errorf("websocket handler not configured")
-	}
-
-	resp, err := p.websocketHandler.HandleRequest(ctx, webSocketEvent)
-	if err != nil {
-		reqLogger.Error("failed to handle WebSocket event", "error", err)
-		return true, err
-	}
-
-	reqLogger.Debug("websocket event handled",
-		"context", map[string]any{
-			"status_code": resp.StatusCode,
-		})
 
 	return true, nil
 }

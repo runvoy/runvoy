@@ -13,6 +13,7 @@ import (
 	"runvoy/internal/constants"
 	"runvoy/internal/database"
 	"runvoy/internal/logger"
+	"runvoy/internal/websocket"
 
 	"github.com/aws/aws-lambda-go/events"
 )
@@ -108,59 +109,12 @@ func (p *Processor) handleECSTaskCompletion(ctx context.Context, event *events.C
 	reqLogger.Info("execution updated successfully", "execution", execution)
 
 	// Notify WebSocket clients about the execution completion
-	p.notifyDisconnect(ctx, execution.Status, executionID, reqLogger)
+	if err = p.webSocketManager.NotifyExecutionCompletion(ctx, executionID); err != nil {
+		reqLogger.Error("failed to notify websocket clients of disconnect", "error", err)
+		return err
+	}
 
 	return nil
-}
-
-// notifyDisconnect notifies connected WebSocket clients of execution completion.
-// This is best-effort and won't fail the handler if the notification fails.
-func (p *Processor) notifyDisconnect(
-	ctx context.Context,
-	status string,
-	executionID string,
-	reqLogger *slog.Logger,
-) {
-	if !isTerminalStatus(status) {
-		return
-	}
-
-	if p.websocketHandler == nil {
-		reqLogger.Warn("websocket handler not configured; skipping disconnect notification",
-			"execution_id", executionID,
-		)
-		return
-	}
-
-	event := events.APIGatewayWebsocketProxyRequest{
-		RequestContext: events.APIGatewayWebsocketProxyRequestContext{
-			RouteKey: "$disconnect-execution",
-		},
-		QueryStringParameters: map[string]string{
-			"execution_id": executionID,
-		},
-	}
-
-	if _, err := p.websocketHandler.HandleRequest(ctx, event); err != nil {
-		reqLogger.Warn("failed to notify websocket clients of disconnect",
-			"error", err,
-			"execution_id", executionID,
-		)
-		return
-	}
-
-	reqLogger.Debug("websocket disconnect notification handled",
-		"context", map[string]string{
-			"execution_id": executionID,
-		},
-	)
-}
-
-// isTerminalStatus checks if an execution status is a terminal state
-func isTerminalStatus(status string) bool {
-	return status == string(constants.ExecutionSucceeded) ||
-		status == string(constants.ExecutionFailed) ||
-		status == string(constants.ExecutionStopped)
 }
 
 // extractExecutionIDFromTaskArn extracts the execution ID from a task ARN
@@ -221,12 +175,14 @@ func determineStatusAndExitCode(event *ECSTaskStateChangeEvent) (status string, 
 func ECSCompletionHandler(
 	executionRepo database.ExecutionRepository,
 	connectionRepo database.ConnectionRepository,
+	websocketManager websocket.Manager,
 	log *slog.Logger) func(context.Context, events.CloudWatchEvent) error {
 	return func(ctx context.Context, event events.CloudWatchEvent) error {
 		p := &Processor{
-			executionRepo:  executionRepo,
-			connectionRepo: connectionRepo,
-			logger:         log,
+			executionRepo:    executionRepo,
+			connectionRepo:   connectionRepo,
+			webSocketManager: websocketManager,
+			logger:           log,
 		}
 		return p.handleECSTaskCompletion(ctx, &event)
 	}

@@ -1,5 +1,6 @@
 // Package main implements the AWS Lambda event processor for runvoy.
-// It processes various AWS Lambda events including CloudWatch events related to ECS task completions.
+// It processes various AWS Lambda events including CloudWatch events related to ECS task completions
+// and API Gateway WebSocket events.
 package main
 
 import (
@@ -26,6 +27,5 @@ func main() {
 		os.Exit(1)
 	}
 
-	log.Debug("starting event processor Lambda handler")
 	lambda.Start(processor.Handle)
 }
