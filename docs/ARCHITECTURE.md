@@ -557,6 +557,8 @@ Execution status values are defined as typed constants in `internal/constants/co
 - **`EventProcessorLogGroup`**: CloudWatch Logs for event processor
 - **`TaskCompletionEventRule`**: EventBridge rule filtering ECS task completions
 - **`EventProcessorEventPermission`**: Permission for EventBridge to invoke Lambda
+- **`EventProcessorLogsPermission`**: Allows CloudWatch Logs to invoke the event processor
+- **`RunnerLogsSubscription`**: Subscribes ECS runner logs (filtered to the `runner` container streams) to the event processor for real-time processing
 
 ## WebSocket Architecture
 

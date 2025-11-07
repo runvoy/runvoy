@@ -520,6 +520,27 @@ Resources:
           RUNVOY_WEBSOCKET_API_ENDPOINT: !Sub '${WebSocketApi.ApiId}.execute-api.${AWS::Region}.amazonaws.com/production'
           RUNVOY_LOG_LEVEL: !Ref 'AWS::NoValue'
 
+  # Allow CloudWatch Logs to invoke the event processor
+  EventProcessorLogsPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref EventProcessorFunction
+      Action: lambda:InvokeFunction
+      Principal: !Sub 'logs.${AWS::Region}.amazonaws.com'
+      SourceArn: !GetAtt RunnerLogGroup.Arn
+
+  # Stream runner task logs to the event processor Lambda
+  RunnerLogsSubscription:
+    Type: AWS::Logs::SubscriptionFilter
+    DependsOn:
+      - RunnerLogGroup
+      - EventProcessorFunction
+      - EventProcessorLogsPermission
+    Properties:
+      FilterPattern: ""
+      DestinationArn: !GetAtt EventProcessorFunction.Arn
+      LogGroupName: !Ref RunnerLogGroup
+
   # IAM Role for Event Processor Lambda
   EventProcessorRole:
     Type: AWS::IAM::Role

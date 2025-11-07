@@ -177,7 +177,11 @@ func (p *Processor) handleCloudWatchLogsEvent(
 		return false, nil
 	}
 
-	reqLogger.Debug("processing CloudWatch Logs event, not implemented yet")
+	reqLogger.Debug("processing CloudWatch logs event",
+		"context", map[string]any{
+			"event": cwLogsEvent,
+		},
+	)
 
 	return true, nil
 }
