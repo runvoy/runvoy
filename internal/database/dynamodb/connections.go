@@ -39,21 +39,27 @@ func NewConnectionRepository(
 // connectionItem represents the structure stored in DynamoDB.
 // This keeps the database schema separate from the API types.
 type connectionItem struct {
-	ConnectionID  string `dynamodbav:"connection_id"`
-	ExecutionID   string `dynamodbav:"execution_id"`
-	Functionality string `dynamodbav:"functionality"`
-	ExpiresAt     int64  `dynamodbav:"expires_at"`
-	ClientIP      string `dynamodbav:"client_ip,omitempty"`
+	ConnectionID       string `dynamodbav:"connection_id"`
+	ExecutionID        string `dynamodbav:"execution_id"`
+	Functionality      string `dynamodbav:"functionality"`
+	ExpiresAt          int64  `dynamodbav:"expires_at"`
+	ClientIP           string `dynamodbav:"client_ip,omitempty"`
+	Token              string `dynamodbav:"token,omitempty"`
+	UserEmail          string `dynamodbav:"user_email,omitempty"`
+	ClientIPAtLogsTime string `dynamodbav:"client_ip_at_logs_time,omitempty"`
 }
 
 // toConnectionItem converts an api.WebSocketConnection to a connectionItem.
 func toConnectionItem(conn *api.WebSocketConnection) *connectionItem {
 	return &connectionItem{
-		ConnectionID:  conn.ConnectionID,
-		ExecutionID:   conn.ExecutionID,
-		Functionality: conn.Functionality,
-		ExpiresAt:     conn.ExpiresAt,
-		ClientIP:      conn.ClientIP,
+		ConnectionID:       conn.ConnectionID,
+		ExecutionID:        conn.ExecutionID,
+		Functionality:      conn.Functionality,
+		ExpiresAt:          conn.ExpiresAt,
+		ClientIP:           conn.ClientIP,
+		Token:              conn.Token,
+		UserEmail:          conn.UserEmail,
+		ClientIPAtLogsTime: conn.ClientIPAtLogsTime,
 	}
 }
 
@@ -133,12 +139,12 @@ func (r *ConnectionRepository) DeleteConnections(ctx context.Context, connection
 	return deletedCount, nil
 }
 
-// GetConnectionsByExecutionID retrieves all active WebSocket connections for a given execution ID
+// GetConnectionsByExecutionID retrieves all active WebSocket connection records for a given execution ID
 // using the execution_id-index GSI.
 func (r *ConnectionRepository) GetConnectionsByExecutionID(
 	ctx context.Context,
 	executionID string,
-) ([]string, error) {
+) ([]*api.WebSocketConnection, error) {
 	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
 
 	logArgs := []any{
@@ -163,25 +169,37 @@ func (r *ConnectionRepository) GetConnectionsByExecutionID(
 	}
 
 	if len(result.Items) == 0 {
-		return []string{}, nil
+		return []*api.WebSocketConnection{}, nil
 	}
 
-	connectionIDs := make([]string, 0, len(result.Items))
+	connections := make([]*api.WebSocketConnection, 0, len(result.Items))
+	connIDs := make([]string, 0, len(result.Items))
+
 	for _, item := range result.Items {
 		var connItem connectionItem
 		if unmarshalErr := attributevalue.UnmarshalMap(item, &connItem); unmarshalErr != nil {
 			return nil, fmt.Errorf("failed to unmarshal connection item: %w", unmarshalErr)
 		}
-		connectionIDs = append(connectionIDs, connItem.ConnectionID)
+		connIDs = append(connIDs, connItem.ConnectionID)
+		connections = append(connections, &api.WebSocketConnection{
+			ConnectionID:       connItem.ConnectionID,
+			ExecutionID:        connItem.ExecutionID,
+			Functionality:      connItem.Functionality,
+			ExpiresAt:          connItem.ExpiresAt,
+			ClientIP:           connItem.ClientIP,
+			Token:              connItem.Token,
+			UserEmail:          connItem.UserEmail,
+			ClientIPAtLogsTime: connItem.ClientIPAtLogsTime,
+		})
 	}
 
 	reqLogger.Info("connections retrieved successfully", "context", map[string]any{
 		"execution_id":      executionID,
-		"connections_count": len(connectionIDs),
-		"connections":       connectionIDs,
+		"connection_ids":    connIDs,
+		"connections_count": len(connections),
 	})
 
-	return connectionIDs, nil
+	return connections, nil
 }
 
 // buildDeleteRequests creates WriteRequest objects for all connection IDs.
