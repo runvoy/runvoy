@@ -32,6 +32,11 @@ runvoy/
 - `internal/`: core logic of the runvoy application (business logic, API, database, etc.)
 - `scripts/`: scripts for the runvoy application development and deployment
 
+## Services
+
+- Orchestrator: Handles API requests and orchestrates ECS task executions.
+- Event Processor: Handles asynchronous events from AWS services (ECS task completions, CloudWatch logs, WebSocket notifications, etc.).
+
 ## Execution Provider Abstraction
 
 To support multiple cloud platforms, the service layer now depends on an execution provider interface:
@@ -562,7 +567,7 @@ Execution status values are defined as typed constants in `internal/constants/co
 
 ## WebSocket Architecture
 
-The platform uses WebSocket connections for real-time log streaming to clients (CLI and web viewer). The architecture consists of three main components: the event processor Lambda (reusing the WebSocket manager package), the Log Forwarder Lambda, and the API Gateway WebSocket API.
+The platform uses WebSocket connections for real-time log streaming to clients (CLI and web viewer). The architecture consists of two main components: the event processor Lambda (reusing the WebSocket manager package) and the API Gateway WebSocket API.
 
 ### Design Pattern
 
