@@ -27,5 +27,6 @@ func main() {
 		os.Exit(1)
 	}
 
+	log.With("version", *constants.GetVersion()).Debug("starting event processor Lambda handler")
 	lambda.Start(processor.Handle)
 }

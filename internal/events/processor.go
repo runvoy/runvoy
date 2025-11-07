@@ -72,7 +72,6 @@ func NewProcessor(ctx context.Context, cfg *config.Config, log *slog.Logger) (*P
 // and APIGatewayProxyResponse (for WebSocket events).
 func (p *Processor) Handle(ctx context.Context, rawEvent *json.RawMessage) (any, error) {
 	reqLogger := logger.DeriveRequestLogger(ctx, p.logger)
-	reqLogger.With("version", constants.GetVersion()).Debug("starting event processor Lambda handler")
 
 	if handled, err := p.handleCloudWatchEvent(ctx, rawEvent, reqLogger); handled {
 		return nil, err
