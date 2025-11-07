@@ -205,7 +205,6 @@ func (p *Processor) handleCloudWatchLogsEvent(
 		return false, nil
 	}
 
-	// Parse and decompress the CloudWatch Logs data using native AWS SDK method
 	data, err := cwLogsEvent.AWSLogs.Parse()
 	if err != nil {
 		reqLogger.Error("failed to parse CloudWatch Logs data",
@@ -214,7 +213,6 @@ func (p *Processor) handleCloudWatchLogsEvent(
 		return true, err
 	}
 
-	// Batch logs into newline-separated JSON format
 	logBatch, err := batchLogsAsJSONLines(&data)
 	if err != nil {
 		reqLogger.Error("failed to batch logs",
@@ -223,7 +221,6 @@ func (p *Processor) handleCloudWatchLogsEvent(
 		return true, err
 	}
 
-	// Extract execution ID from the log stream
 	executionID := constants.ExtractExecutionIDFromLogStream(data.LogStream)
 	if executionID == "" {
 		reqLogger.Warn("unable to extract execution ID from log stream",
@@ -244,7 +241,6 @@ func (p *Processor) handleCloudWatchLogsEvent(
 		},
 	)
 
-	// Send batched logs to all WebSocket connections for this execution
 	sendErr := p.webSocketManager.SendLogsToExecution(ctx, executionID, logBatch)
 	if sendErr != nil {
 		reqLogger.Error("failed to send logs to WebSocket connections",
