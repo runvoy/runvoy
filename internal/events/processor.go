@@ -67,30 +67,72 @@ func NewProcessor(ctx context.Context, cfg *config.Config, log *slog.Logger) (*P
 	}, nil
 }
 
-// HandleEvent is the main entry point for Lambda event processing
-// It routes events based on their detail-type
-func (p *Processor) HandleEvent(ctx context.Context, event *events.CloudWatchEvent) error {
+// Handle is the universal entry point for Lambda event processing
+// It attempts to unmarshal as CloudWatch Event or CloudWatch Logs Event
+func (p *Processor) Handle(ctx context.Context, rawEvent *json.RawMessage) error {
 	reqLogger := logger.DeriveRequestLogger(ctx, p.logger)
 
-	reqLogger.Debug("received event", "event", event)
-
-	switch event.DetailType {
-	case "ECS Task State Change":
-		return p.handleECSTaskCompletion(ctx, event)
-	default:
-		reqLogger.Info("ignoring unhandled event type",
-			"detailType", event.DetailType,
-			"source", event.Source,
-		)
-		return nil
+	if handled, err := p.handleCloudWatchEvent(ctx, rawEvent, reqLogger); handled {
+		return err
 	}
+
+	if handled, err := p.handleCloudWatchLogsEvent(ctx, rawEvent, reqLogger); handled {
+		return err
+	}
+
+	reqLogger.Warn("unhandled event type", "context", map[string]any{
+		"event": *rawEvent,
+	})
+	return nil
 }
 
 // HandleEventJSON is a helper for testing that accepts raw JSON
-func (p *Processor) HandleEventJSON(ctx context.Context, eventJSON []byte) error {
+func (p *Processor) HandleEventJSON(ctx context.Context, eventJSON *json.RawMessage) error {
 	var event events.CloudWatchEvent
-	if err := json.Unmarshal(eventJSON, &event); err != nil {
+	if err := json.Unmarshal(*eventJSON, &event); err != nil {
 		return fmt.Errorf("failed to unmarshal event: %w", err)
 	}
-	return p.HandleEvent(ctx, &event)
+	return p.Handle(ctx, eventJSON)
+}
+
+func (p *Processor) handleCloudWatchEvent(
+	ctx context.Context, rawEvent *json.RawMessage, reqLogger *slog.Logger) (bool, error) {
+	var cwEvent events.CloudWatchEvent
+	if err := json.Unmarshal(*rawEvent, &cwEvent); err != nil || cwEvent.Source == "" || cwEvent.DetailType == "" {
+		return false, nil
+	}
+
+	reqLogger.Debug("processing CloudWatch event",
+		"source", cwEvent.Source,
+		"detail_type", cwEvent.DetailType,
+	)
+
+	switch cwEvent.DetailType {
+	case "ECS Task State Change":
+		return true, p.handleECSTaskCompletion(ctx, &cwEvent)
+	default:
+		reqLogger.Debug("ignoring unhandled CloudWatch event detail type",
+			"context", map[string]string{
+				"detail_type": cwEvent.DetailType,
+				"source":      cwEvent.Source,
+			},
+		)
+		return true, nil
+	}
+}
+
+func (p *Processor) handleCloudWatchLogsEvent(
+	_ context.Context, rawEvent *json.RawMessage, reqLogger *slog.Logger) (bool, error) { //nolint:unparam
+	var cwLogsEvent events.CloudwatchLogsEvent
+	if err := json.Unmarshal(*rawEvent, &cwLogsEvent); err != nil || cwLogsEvent.AWSLogs.Data == "" {
+		return false, nil
+	}
+
+	reqLogger.Debug("processing CloudWatch Logs event, not implemented yet",
+		"context", map[string]any{
+			"aws_logs": cwLogsEvent.AWSLogs,
+		},
+	)
+
+	return true, nil
 }

@@ -426,7 +426,10 @@ func TestHandleEvent_IgnoresUnknownEventType(t *testing.T) {
 		Source:     "custom.source",
 	}
 
-	err := processor.HandleEvent(ctx, &event)
+	eventJSON, _ := json.Marshal(event)
+	rawEvent := json.RawMessage(eventJSON)
+
+	err := processor.Handle(ctx, &rawEvent)
 	assert.NoError(t, err)
 }
 
@@ -439,12 +442,12 @@ func TestHandleEventJSON(t *testing.T) {
 		logger:         testutil.SilentLogger(),
 	}
 
-	eventJSON := []byte(`{
+	eventJSON := json.RawMessage([]byte(`{
 		"detail-type": "Unknown Event Type",
 		"source": "custom.source"
-	}`)
+	}`))
 
-	err := processor.HandleEventJSON(ctx, eventJSON)
+	err := processor.HandleEventJSON(ctx, &eventJSON)
 	assert.NoError(t, err)
 }
 
@@ -457,9 +460,9 @@ func TestHandleEventJSON_InvalidJSON(t *testing.T) {
 		logger:         testutil.SilentLogger(),
 	}
 
-	eventJSON := []byte(`invalid json`)
+	eventJSON := json.RawMessage([]byte(`invalid json`))
 
-	err := processor.HandleEventJSON(ctx, eventJSON)
+	err := processor.HandleEventJSON(ctx, &eventJSON)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to unmarshal event")
 }
