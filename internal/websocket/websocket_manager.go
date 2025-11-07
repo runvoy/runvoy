@@ -365,9 +365,8 @@ func (wm *WebSocketManager) SendLogsToExecution(
 		eg.SetLimit(constants.MaxConcurrentSends)
 
 		for _, connectionID := range connectionIDs {
-			connID := connectionID // Capture for closure
 			eg.Go(func() error {
-				return wm.sendLogToConnection(egCtx, connID, event)
+				return wm.sendLogToConnection(egCtx, &connectionID, event)
 			})
 		}
 
@@ -392,9 +391,13 @@ func (wm *WebSocketManager) SendLogsToExecution(
 // sendLogToConnection sends a single log event to a WebSocket connection.
 func (wm *WebSocketManager) sendLogToConnection(
 	ctx context.Context,
-	connectionID string,
+	connectionID *string,
 	logEvent api.LogEvent,
 ) error {
+	if connectionID == nil {
+		return fmt.Errorf("connection ID is nil")
+	}
+
 	logJSON, err := json.Marshal(logEvent)
 	if err != nil {
 		wm.logger.Error("failed to marshal log event",
@@ -408,7 +411,7 @@ func (wm *WebSocketManager) sendLogToConnection(
 	}
 
 	_, err = wm.apiGwClient.PostToConnection(ctx, &apigatewaymanagementapi.PostToConnectionInput{
-		ConnectionId: aws.String(connectionID),
+		ConnectionId: connectionID,
 		Data:         logJSON,
 	})
 
@@ -416,10 +419,10 @@ func (wm *WebSocketManager) sendLogToConnection(
 		wm.logger.Error("failed to send log to connection",
 			"context", map[string]string{
 				"error":         err.Error(),
-				"connection_id": connectionID,
+				"connection_id": *connectionID,
 			},
 		)
-		return fmt.Errorf("failed to send log to connection %s: %w", connectionID, err)
+		return fmt.Errorf("failed to send log to connection %s: %w", *connectionID, err)
 	}
 
 	return nil
