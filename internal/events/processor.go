@@ -214,7 +214,7 @@ func (p *Processor) handleCloudWatchLogsEvent(
 		})
 	}
 
-	sendErr := p.webSocketManager.SendLogsToExecution(ctx, executionID, logEvents)
+	sendErr := p.webSocketManager.SendLogsToExecution(ctx, &executionID, logEvents)
 	if sendErr != nil {
 		reqLogger.Error("failed to send logs to WebSocket connections",
 			"error", sendErr,

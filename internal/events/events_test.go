@@ -61,21 +61,21 @@ func (m *mockConnectionRepo) GetConnectionsByExecutionID(_ context.Context, _ st
 
 // Mock WebSocket handler for testing
 type mockWebSocketHandler struct {
-	notifyExecutionCompletionFunc func(ctx context.Context, executionID string) error
+	notifyExecutionCompletionFunc func(ctx context.Context, executionID *string) error
 }
 
 func (m *mockWebSocketHandler) HandleRequest(_ context.Context, _ *json.RawMessage, _ *slog.Logger) (bool, error) {
 	return false, nil
 }
 
-func (m *mockWebSocketHandler) NotifyExecutionCompletion(ctx context.Context, executionID string) error {
+func (m *mockWebSocketHandler) NotifyExecutionCompletion(ctx context.Context, executionID *string) error {
 	if m.notifyExecutionCompletionFunc != nil {
 		return m.notifyExecutionCompletionFunc(ctx, executionID)
 	}
 	return nil
 }
 
-func (m *mockWebSocketHandler) SendLogsToExecution(_ context.Context, _ string, _ []api.LogEvent) error {
+func (m *mockWebSocketHandler) SendLogsToExecution(_ context.Context, _ *string, _ []api.LogEvent) error {
 	return nil
 }
 
@@ -291,8 +291,9 @@ func TestHandleECSTaskCompletion_Success(t *testing.T) {
 	mockConnRepo := &mockConnectionRepo{}
 
 	mockWebSocket := &mockWebSocketHandler{
-		notifyExecutionCompletionFunc: func(_ context.Context, executionID string) error {
-			assert.Equal(t, "test-exec-123", executionID)
+		notifyExecutionCompletionFunc: func(_ context.Context, executionID *string) error {
+			assert.NotNil(t, executionID)
+			assert.Equal(t, "test-exec-123", *executionID)
 			return nil
 		},
 	}
@@ -410,7 +411,8 @@ func TestHandleECSTaskCompletion_MissingStartedAt(t *testing.T) {
 	mockConnRepo := &mockConnectionRepo{}
 
 	mockWebSocket := &mockWebSocketHandler{
-		notifyExecutionCompletionFunc: func(_ context.Context, _ string) error {
+		notifyExecutionCompletionFunc: func(_ context.Context, executionID *string) error {
+			assert.NotNil(t, executionID)
 			return nil
 		},
 	}
@@ -537,7 +539,8 @@ func TestECSCompletionHandler(t *testing.T) {
 
 	mockConnRepo := &mockConnectionRepo{}
 	mockWebSocket := &mockWebSocketHandler{
-		notifyExecutionCompletionFunc: func(_ context.Context, _ string) error {
+		notifyExecutionCompletionFunc: func(_ context.Context, executionID *string) error {
+			assert.NotNil(t, executionID)
 			return nil
 		},
 	}
