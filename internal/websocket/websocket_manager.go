@@ -3,6 +3,7 @@
 package websocket
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -370,6 +371,7 @@ func (wm *WebSocketManager) SendLogsToExecution(ctx context.Context, executionID
 
 // sendLogsToConnection sends log data to a single WebSocket connection.
 // The logData is expected to be newline-separated JSON log events.
+// Each log event is sent as an individual WebSocketMessage.
 func (wm *WebSocketManager) sendLogsToConnection(
 	ctx context.Context,
 	connectionID string,
@@ -379,21 +381,62 @@ func (wm *WebSocketManager) sendLogsToConnection(
 		"connection_id": connectionID,
 	})
 
-	// Wrap the log batch in a WebSocketMessage
-	messageBody := string(logData)
+	// Parse newline-separated JSON log events
+	logLines := bytes.Split(logData, []byte("\n"))
+	if len(logLines) == 0 || (len(logLines) == 1 && len(logLines[0]) == 0) {
+		wm.logger.Debug("no log events to send", "connection_id", connectionID)
+		return nil
+	}
+
+	sentCount := 0
+	for _, logLine := range logLines {
+		if len(logLine) == 0 {
+			continue
+		}
+
+		if err := wm.sendLogEventToConnection(ctx, connectionID, logLine); err != nil {
+			wm.logger.Error("failed to send log event",
+				"context", map[string]string{
+					"error":         err.Error(),
+					"connection_id": connectionID,
+				},
+			)
+			continue
+		}
+
+		sentCount++
+	}
+
+	wm.logger.Debug("logs sent to connection",
+		"context", map[string]any{
+			"connection_id": connectionID,
+			"sent_count":    sentCount,
+		},
+	)
+	return nil
+}
+
+// sendLogEventToConnection sends a single log event to a WebSocket connection.
+func (wm *WebSocketManager) sendLogEventToConnection(
+	ctx context.Context,
+	connectionID string,
+	logLine []byte,
+) error {
+	// Parse the log event to get timestamp and message
+	var logEvent api.LogEvent
+	if err := json.Unmarshal(logLine, &logEvent); err != nil {
+		return fmt.Errorf("failed to unmarshal log event: %w", err)
+	}
+
+	// Wrap individual log event in a WebSocketMessage
 	wsMessage := api.WebSocketMessage{
-		Type:    api.WebSocketMessageTypeLog,
-		Message: &messageBody,
+		Type:      api.WebSocketMessageTypeLog,
+		Timestamp: &logEvent.Timestamp,
+		Message:   &logEvent.Message,
 	}
 
 	messageBytes, err := json.Marshal(wsMessage)
 	if err != nil {
-		wm.logger.Error("failed to marshal WebSocket message",
-			"context", map[string]string{
-				"error":         err.Error(),
-				"connection_id": connectionID,
-			},
-		)
 		return fmt.Errorf("failed to marshal WebSocket message: %w", err)
 	}
 
@@ -403,18 +446,9 @@ func (wm *WebSocketManager) sendLogsToConnection(
 	})
 
 	if err != nil {
-		wm.logger.Error("failed to send logs to connection",
-			"context", map[string]string{
-				"error":         err.Error(),
-				"connection_id": connectionID,
-			},
-		)
-		return fmt.Errorf("failed to send logs to connection %s: %w", connectionID, err)
+		return fmt.Errorf("failed to post to connection: %w", err)
 	}
 
-	wm.logger.Debug("logs sent to connection", "context", map[string]string{
-		"connection_id": connectionID,
-	})
 	return nil
 }
 
