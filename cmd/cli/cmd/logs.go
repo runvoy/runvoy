@@ -151,12 +151,11 @@ func (s *LogsService) readWebSocketMessages(
 				return
 			}
 
-			var rawMessage map[string]any
-			if err = json.Unmarshal(messageBytes, &rawMessage); err != nil {
-				continue
+			// Check for disconnect message
+			var msg struct {
+				Type string `json:"type,omitempty"`
 			}
-
-			if msgType, ok := rawMessage["type"].(string); ok && msgType == string(api.WebSocketMessageTypeDisconnect) {
+			if err = json.Unmarshal(messageBytes, &msg); err == nil && msg.Type == string(api.WebSocketMessageTypeDisconnect) {
 				s.output.Blank()
 				s.output.Infof("Execution completed. Closing connection...")
 				_ = conn.WriteMessage(

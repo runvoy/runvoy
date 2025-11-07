@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 
+	"runvoy/internal/api"
 	"runvoy/internal/config"
 	"runvoy/internal/constants"
 	"runvoy/internal/database"
@@ -171,17 +172,56 @@ func (p *Processor) handleCloudWatchEvent(
 }
 
 func (p *Processor) handleCloudWatchLogsEvent(
-	_ context.Context, rawEvent *json.RawMessage, reqLogger *slog.Logger) (bool, error) { //nolint:unparam
+	ctx context.Context, rawEvent *json.RawMessage, reqLogger *slog.Logger) (bool, error) {
 	var cwLogsEvent events.CloudwatchLogsEvent
 	if err := json.Unmarshal(*rawEvent, &cwLogsEvent); err != nil || cwLogsEvent.AWSLogs.Data == "" {
 		return false, nil
 	}
 
+	data, err := cwLogsEvent.AWSLogs.Parse()
+	if err != nil {
+		reqLogger.Error("failed to parse CloudWatch Logs data",
+			"error", err,
+		)
+		return true, err
+	}
+
+	executionID := constants.ExtractExecutionIDFromLogStream(data.LogStream)
+	if executionID == "" {
+		reqLogger.Warn("unable to extract execution ID from log stream",
+			"context", map[string]string{
+				"log_stream": data.LogStream,
+			},
+		)
+		return true, nil
+	}
+
 	reqLogger.Debug("processing CloudWatch logs event",
 		"context", map[string]any{
-			"event": cwLogsEvent,
+			"log_group":    data.LogGroup,
+			"log_stream":   data.LogStream,
+			"execution_id": executionID,
+			"log_count":    len(data.LogEvents),
 		},
 	)
+
+	// Convert CloudWatch log events to api.LogEvent format
+	logEvents := make([]api.LogEvent, 0, len(data.LogEvents))
+	for _, cwLogEvent := range data.LogEvents {
+		logEvents = append(logEvents, api.LogEvent{
+			Timestamp: cwLogEvent.Timestamp,
+			Message:   cwLogEvent.Message,
+		})
+	}
+
+	sendErr := p.webSocketManager.SendLogsToExecution(ctx, &executionID, logEvents)
+	if sendErr != nil {
+		reqLogger.Error("failed to send logs to WebSocket connections",
+			"error", sendErr,
+			"execution_id", executionID,
+		)
+		// Don't return error - logs were processed correctly, connection issue shouldn't fail processing
+	}
 
 	return true, nil
 }

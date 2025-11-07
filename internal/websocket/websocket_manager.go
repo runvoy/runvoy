@@ -25,7 +25,8 @@ import (
 // Manager exposes the subset of WebSocket manager functionality used by the event processor.
 type Manager interface {
 	HandleRequest(ctx context.Context, rawEvent *json.RawMessage, reqLogger *slog.Logger) (bool, error)
-	NotifyExecutionCompletion(ctx context.Context, executionID string) error
+	NotifyExecutionCompletion(ctx context.Context, executionID *string) error
+	SendLogsToExecution(ctx context.Context, executionID *string, logEvents []api.LogEvent) error
 }
 
 // WebSocketManager handles WebSocket connection lifecycle events and disconnect notifications.
@@ -296,9 +297,13 @@ func (wm *WebSocketManager) handleDisconnect(
 
 // NotifyExecutionCompletion sends disconnect notifications to all connected clients for an execution
 // and deletes the connections from DynamoDB.
-func (wm *WebSocketManager) NotifyExecutionCompletion(ctx context.Context, executionID string) error {
+func (wm *WebSocketManager) NotifyExecutionCompletion(ctx context.Context, executionID *string) error {
+	if executionID == nil || *executionID == "" {
+		return fmt.Errorf("execution ID is nil or empty")
+	}
+
 	// First send disconnect notifications to clients
-	err := wm.handleDisconnectNotification(ctx, executionID)
+	err := wm.handleDisconnectNotification(ctx, *executionID)
 	if err != nil {
 		return fmt.Errorf("failed to notify disconnect: %w", err)
 	}
@@ -309,17 +314,123 @@ func (wm *WebSocketManager) NotifyExecutionCompletion(ctx context.Context, execu
 		wm.logger.Warn("failed to delete WebSocket connections", "context",
 			map[string]string{
 				"error":        err.Error(),
-				"execution_id": executionID,
+				"execution_id": *executionID,
 			},
 		)
 		// Don't fail - notifications were sent
 	} else if deletedCount > 0 {
 		wm.logger.Debug("deleted WebSocket connections for execution", "context",
 			map[string]string{
-				"execution_id":  executionID,
+				"execution_id":  *executionID,
 				"deleted_count": fmt.Sprintf("%d", deletedCount),
 			},
 		)
+	}
+
+	return nil
+}
+
+// SendLogsToExecution sends log events to all connected clients for an execution.
+// Each log event is sent individually to all connected clients concurrently.
+func (wm *WebSocketManager) SendLogsToExecution(
+	ctx context.Context,
+	executionID *string,
+	logEvents []api.LogEvent,
+) error {
+	if executionID == nil || *executionID == "" {
+		return fmt.Errorf("execution ID is nil or empty")
+	}
+
+	if len(logEvents) == 0 {
+		return nil
+	}
+
+	// Get all connection IDs for this execution
+	connectionIDs, err := wm.connRepo.GetConnectionsByExecutionID(ctx, *executionID)
+	if err != nil {
+		wm.logger.Error("failed to get connections for execution",
+			"error", err, "execution_id", *executionID)
+		return fmt.Errorf("failed to get connections: %w", err)
+	}
+
+	if len(connectionIDs) == 0 {
+		wm.logger.Debug("no active connections to send logs to", "execution_id", *executionID)
+		return nil
+	}
+
+	wm.logger.Debug("sending logs to connections",
+		"context", map[string]any{
+			"execution_id":     *executionID,
+			"connection_count": len(connectionIDs),
+			"log_count":        len(logEvents),
+		},
+	)
+
+	// Send each log event individually to all connections
+	for _, logEvent := range logEvents {
+		event := logEvent // Capture for closure
+		eg, egCtx := errgroup.WithContext(ctx)
+		eg.SetLimit(constants.MaxConcurrentSends)
+
+		for _, connectionID := range connectionIDs {
+			eg.Go(func() error {
+				return wm.sendLogToConnection(egCtx, &connectionID, event)
+			})
+		}
+
+		if egErr := eg.Wait(); egErr != nil {
+			wm.logger.Error("some log sends failed", "context", map[string]any{
+				"error":        egErr.Error(),
+				"execution_id": *executionID,
+				"timestamp":    event.Timestamp,
+			})
+			return fmt.Errorf("failed to send logs to some connections: %w", egErr)
+		}
+	}
+
+	wm.logger.Debug("all logs sent to all connections", "context", map[string]string{
+		"execution_id":     *executionID,
+		"connection_count": fmt.Sprintf("%d", len(connectionIDs)),
+	})
+
+	return nil
+}
+
+// sendLogToConnection sends a single log event to a WebSocket connection.
+func (wm *WebSocketManager) sendLogToConnection(
+	ctx context.Context,
+	connectionID *string,
+	logEvent api.LogEvent,
+) error {
+	if connectionID == nil {
+		return fmt.Errorf("connection ID is nil")
+	}
+
+	logJSON, err := json.Marshal(logEvent)
+	if err != nil {
+		wm.logger.Error("failed to marshal log event",
+			"context", map[string]any{
+				"error":         err.Error(),
+				"connection_id": connectionID,
+				"timestamp":     logEvent.Timestamp,
+			},
+		)
+		return fmt.Errorf("failed to marshal log event: %w", err)
+	}
+
+	_, err = wm.apiGwClient.PostToConnection(ctx, &apigatewaymanagementapi.PostToConnectionInput{
+		ConnectionId: connectionID,
+		Data:         logJSON,
+	})
+
+	if err != nil {
+		wm.logger.Error("failed to send log to connection",
+			"context", map[string]string{
+				"error":         err.Error(),
+				"connection_id": *connectionID,
+			},
+		)
+		return fmt.Errorf("failed to send log to connection %s: %w", *connectionID, err)
 	}
 
 	return nil
@@ -345,7 +456,7 @@ func (wm *WebSocketManager) handleDisconnectExecution(
 	}
 
 	// Use the shared notification method
-	err := wm.NotifyExecutionCompletion(ctx, executionID)
+	err := wm.NotifyExecutionCompletion(ctx, &executionID)
 	if err != nil {
 		return events.APIGatewayProxyResponse{
 			StatusCode: http.StatusInternalServerError,
