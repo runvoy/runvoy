@@ -3,6 +3,7 @@
 package websocket
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -368,8 +369,26 @@ func (wm *WebSocketManager) SendLogsToExecution(ctx context.Context, executionID
 	return nil
 }
 
+// parseNLJSON parses a newline-separated JSON byte stream into log events.
+func (wm *WebSocketManager) parseNLJSON(logData []byte) []api.LogEvent {
+	var logEvents []api.LogEvent
+	for line := range bytes.SplitSeq(logData, []byte("\n")) {
+		if len(line) == 0 {
+			continue
+		}
+		var logEvent api.LogEvent
+		if err := json.Unmarshal(line, &logEvent); err != nil {
+			wm.logger.Warn("failed to parse log event line", "error", err)
+			continue
+		}
+		logEvents = append(logEvents, logEvent)
+	}
+	return logEvents
+}
+
 // sendLogsToConnection sends log data to a single WebSocket connection.
-// The logData is expected to be newline-separated JSON log events and is sent directly as the payload.
+// The logData is expected to be newline-separated JSON log events.
+// Parses each line and sends as a JSON array of log events.
 func (wm *WebSocketManager) sendLogsToConnection(
 	ctx context.Context,
 	connectionID string,
@@ -387,22 +406,19 @@ func (wm *WebSocketManager) sendLogsToConnection(
 		},
 	)
 
-	// Wrap the NLJSON batch in a WebSocketMessage
-	logBatch := string(logData)
-	wsMessage := api.WebSocketMessage{
-		Type:    api.WebSocketMessageTypeLog,
-		Message: &logBatch,
-	}
+	// Parse NLJSON into individual log events
+	logEvents := wm.parseNLJSON(logData)
 
-	messageBytes, err := json.Marshal(wsMessage)
+	// Send as JSON array of log events
+	messageBytes, err := json.Marshal(logEvents)
 	if err != nil {
-		wm.logger.Error("failed to marshal WebSocket message",
+		wm.logger.Error("failed to marshal log events",
 			"context", map[string]string{
 				"error":         err.Error(),
 				"connection_id": connectionID,
 			},
 		)
-		return fmt.Errorf("failed to marshal WebSocket message: %w", err)
+		return fmt.Errorf("failed to marshal log events: %w", err)
 	}
 
 	_, err = wm.apiGwClient.PostToConnection(ctx, &apigatewaymanagementapi.PostToConnectionInput{
