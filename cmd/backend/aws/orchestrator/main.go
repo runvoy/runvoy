@@ -27,7 +27,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	log.Debug("starting Lambda handler")
+	log.Debug("starting orchestrator Lambda handler")
 	handler := lambdaapi.NewHandler(svc, cfg.RequestTimeout)
 	lambda.Start(handler)
 }

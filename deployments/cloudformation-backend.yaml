@@ -517,7 +517,7 @@ Resources:
           RUNVOY_EXECUTIONS_TABLE: !Ref ExecutionsTable
           RUNVOY_ECS_CLUSTER: !Ref ECSCluster
           RUNVOY_WEBSOCKET_CONNECTIONS_TABLE: !Ref WebSocketConnectionsTable
-          RUNVOY_WEBSOCKET_MANAGER_FUNCTION_NAME: !Ref ConnectionManagerFunction
+          RUNVOY_WEBSOCKET_API_ENDPOINT: !Sub '${WebSocketApi.ApiId}.execute-api.${AWS::Region}.amazonaws.com/production'
           RUNVOY_LOG_LEVEL: !Ref 'AWS::NoValue'
 
   # IAM Role for Event Processor Lambda
@@ -557,22 +557,23 @@ Resources:
                   - !Sub '${ExecutionsTable.Arn}/index/*'
               - Effect: Allow
                 Action:
-                  - 'dynamodb:GetItem'
-                  - 'dynamodb:Query'
-                # Event processor only reads WebSocket connections to check if there are any
-                Resource:
-                  - !GetAtt WebSocketConnectionsTable.Arn
-                  - !Sub '${WebSocketConnectionsTable.Arn}/index/*'
-              - Effect: Allow
-                Action:
                   - 'ecs:DescribeTasks'
                 # Event processor needs to describe tasks in our cluster to update execution status
                 Resource: !Sub 'arn:aws:ecs:${AWS::Region}:${AWS::AccountId}:task/${ProjectName}-cluster/*'
               - Effect: Allow
                 Action:
-                  - 'lambda:InvokeFunction'
-                # Event processor invokes connection manager to send disconnect messages
-                Resource: !GetAtt ConnectionManagerFunction.Arn
+                  - 'dynamodb:PutItem'
+                  - 'dynamodb:DeleteItem'
+                  - 'dynamodb:BatchWriteItem'
+                  - 'dynamodb:GetItem'
+                  - 'dynamodb:Query'
+                Resource:
+                  - !GetAtt WebSocketConnectionsTable.Arn
+                  - !Sub '${WebSocketConnectionsTable.Arn}/index/*'
+              - Effect: Allow
+                Action:
+                  - 'execute-api:ManageConnections'
+                Resource: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${WebSocketApi.ApiId}/production/POST/@connections/*'
 
   # EventBridge Rule for ECS Task State Changes
   TaskCompletionEventRule:
@@ -603,6 +604,15 @@ Resources:
       Action: lambda:InvokeFunction
       Principal: events.amazonaws.com
       SourceArn: !GetAtt TaskCompletionEventRule.Arn
+
+  # Permission for API Gateway to invoke Event Processor Lambda (WebSocket events)
+  EventProcessorApiPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref EventProcessorFunction
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${WebSocketApi}/*/*'
 
   # DynamoDB Table for WebSocket Connections
   WebSocketConnectionsTable:
@@ -635,88 +645,6 @@ Resources:
           Value: !Ref ProjectName
         - Key: ManagedBy
           Value: 'cloudformation'
-
-  # CloudWatch Log Group for Connection Manager Lambda
-  ConnectionManagerLogGroup:
-    Type: AWS::Logs::LogGroup
-    Properties:
-      LogGroupName: !Sub '/aws/lambda/${ProjectName}-websocket-manager'
-      RetentionInDays: 7
-      Tags:
-        - Key: Name
-          Value: !Sub '${ProjectName}-websocket-manager-logs'
-        - Key: Application
-          Value: !Ref ProjectName
-        - Key: ManagedBy
-          Value: 'cloudformation'
-
-  # IAM Role for Connection Manager Lambda
-  ConnectionManagerRole:
-    Type: AWS::IAM::Role
-    Properties:
-      RoleName: !Sub '${ProjectName}-websocket-manager-role'
-      Tags:
-        - Key: Name
-          Value: !Sub '${ProjectName}-websocket-manager-role'
-        - Key: Application
-          Value: !Ref ProjectName
-        - Key: ManagedBy
-          Value: 'cloudformation'
-      AssumeRolePolicyDocument:
-        Version: '2012-10-17'
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service: lambda.amazonaws.com
-            Action: 'sts:AssumeRole'
-      ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
-      Policies:
-        - PolicyName: ConnectionManagerPolicy
-          PolicyDocument:
-            Version: '2012-10-17'
-            Statement:
-              - Effect: Allow
-                Action:
-                  - 'dynamodb:PutItem'
-                  - 'dynamodb:GetItem'
-                  - 'dynamodb:DeleteItem'
-                  - 'dynamodb:BatchWriteItem'
-                  - 'dynamodb:Query'
-                Resource:
-                  - !GetAtt WebSocketConnectionsTable.Arn
-                  - !Sub '${WebSocketConnectionsTable.Arn}/index/*'
-              - Effect: Allow
-                Action:
-                  - 'execute-api:ManageConnections'
-                Resource: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:*/*/*'
-
-  # Connection Manager Lambda Function
-  ConnectionManagerFunction:
-    Type: AWS::Lambda::Function
-    DependsOn: ConnectionManagerLogGroup
-    Properties:
-      FunctionName: !Sub '${ProjectName}-websocket-manager'
-      Runtime: provided.al2023
-      Role: !GetAtt ConnectionManagerRole.Arn
-      Handler: bootstrap
-      Code:
-        S3Bucket: !Ref LambdaCodeBucket
-        S3Key: websocket-manager.zip
-      Timeout: 10
-      Architectures:
-        - arm64
-      Tags:
-        - Key: Name
-          Value: !Sub '${ProjectName}-websocket-manager'
-        - Key: Application
-          Value: !Ref ProjectName
-        - Key: ManagedBy
-          Value: 'cloudformation'
-      Environment:
-        Variables:
-          RUNVOY_WEBSOCKET_CONNECTIONS_TABLE: !Ref WebSocketConnectionsTable
-          RUNVOY_WEBSOCKET_API_ENDPOINT: !Sub '${WebSocketApi.ApiId}.execute-api.${AWS::Region}.amazonaws.com/production'
 
   # API Gateway WebSocket API
   WebSocketApi:
@@ -756,12 +684,12 @@ Resources:
   WebSocketConnectIntegration:
     Type: AWS::ApiGatewayV2::Integration
     DependsOn:
-      - ConnectionManagerFunction
-      - ConnectionManagerApiPermission
+      - EventProcessorFunction
+      - EventProcessorApiPermission
     Properties:
       ApiId: !Ref WebSocketApi
       IntegrationType: AWS_PROXY
-      IntegrationUri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ConnectionManagerFunction.Arn}/invocations'
+      IntegrationUri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${EventProcessorFunction.Arn}/invocations'
 
   # WebSocket API $disconnect Route
   WebSocketDisconnectRoute:
@@ -778,21 +706,12 @@ Resources:
   WebSocketDisconnectIntegration:
     Type: AWS::ApiGatewayV2::Integration
     DependsOn:
-      - ConnectionManagerFunction
-      - ConnectionManagerApiPermission
+      - EventProcessorFunction
+      - EventProcessorApiPermission
     Properties:
       ApiId: !Ref WebSocketApi
       IntegrationType: AWS_PROXY
-      IntegrationUri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ConnectionManagerFunction.Arn}/invocations'
-
-  # Permission for API Gateway to invoke Connection Manager Lambda
-  ConnectionManagerApiPermission:
-    Type: AWS::Lambda::Permission
-    Properties:
-      FunctionName: !Ref ConnectionManagerFunction
-      Action: lambda:InvokeFunction
-      Principal: apigateway.amazonaws.com
-      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${WebSocketApi}/*/*'
+      IntegrationUri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${EventProcessorFunction.Arn}/invocations'
 
 Outputs:
   APIEndpoint:

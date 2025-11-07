@@ -62,10 +62,11 @@ func TestConfig_GetLogLevel(t *testing.T) {
 
 func TestValidateOrchestrator(t *testing.T) {
 	tests := []struct {
-		name    string
-		cfg     *Config
-		wantErr bool
-		errMsg  string
+		name               string
+		cfg                *Config
+		wantErr            bool
+		errMsg             string
+		normalizedEndpoint string
 	}{
 		{
 			name: "valid orchestrator config",
@@ -211,27 +212,28 @@ func TestValidateOrchestrator(t *testing.T) {
 
 func TestValidateEventProcessor(t *testing.T) {
 	tests := []struct {
-		name    string
-		cfg     *Config
-		wantErr bool
-		errMsg  string
+		name               string
+		cfg                *Config
+		wantErr            bool
+		errMsg             string
+		normalizedEndpoint string
 	}{
 		{
 			name: "valid event processor config",
 			cfg: &Config{
-				ExecutionsTable:              "executions",
-				ECSCluster:                   "cluster",
-				WebSocketConnectionsTable:    "connections",
-				WebSocketManagerFunctionName: "websocket-manager",
+				ExecutionsTable:           "executions",
+				ECSCluster:                "cluster",
+				WebSocketConnectionsTable: "connections",
+				WebSocketAPIEndpoint:      "wss://example.com",
 			},
 			wantErr: false,
 		},
 		{
 			name: "missing ExecutionsTable",
 			cfg: &Config{
-				ECSCluster:                   "cluster",
-				WebSocketConnectionsTable:    "connections",
-				WebSocketManagerFunctionName: "websocket-manager",
+				ECSCluster:                "cluster",
+				WebSocketConnectionsTable: "connections",
+				WebSocketAPIEndpoint:      "https://example.com",
 			},
 			wantErr: true,
 			errMsg:  "ExecutionsTable cannot be empty",
@@ -239,9 +241,9 @@ func TestValidateEventProcessor(t *testing.T) {
 		{
 			name: "missing ECSCluster",
 			cfg: &Config{
-				ExecutionsTable:              "executions",
-				WebSocketConnectionsTable:    "connections",
-				WebSocketManagerFunctionName: "websocket-manager",
+				ExecutionsTable:           "executions",
+				WebSocketConnectionsTable: "connections",
+				WebSocketAPIEndpoint:      "https://example.com",
 			},
 			wantErr: true,
 			errMsg:  "ECSCluster cannot be empty",
@@ -249,27 +251,38 @@ func TestValidateEventProcessor(t *testing.T) {
 		{
 			name: "missing WebSocketConnectionsTable",
 			cfg: &Config{
-				ExecutionsTable:              "executions",
-				ECSCluster:                   "cluster",
-				WebSocketManagerFunctionName: "websocket-manager",
+				ExecutionsTable:      "executions",
+				ECSCluster:           "cluster",
+				WebSocketAPIEndpoint: "https://example.com",
 			},
 			wantErr: true,
 			errMsg:  "WebSocketConnectionsTable cannot be empty",
 		},
 		{
-			name: "missing WebSocketManagerFunctionName",
+			name: "missing WebSocketAPIEndpoint",
 			cfg: &Config{
 				ExecutionsTable:           "executions",
 				ECSCluster:                "cluster",
 				WebSocketConnectionsTable: "connections",
 			},
 			wantErr: true,
-			errMsg:  "WebSocketManagerFunctionName cannot be empty",
+			errMsg:  "WebSocketAPIEndpoint cannot be empty",
 		},
 		{
 			name:    "all fields empty",
 			cfg:     &Config{},
 			wantErr: true,
+		},
+		{
+			name: "normalizes WebSocketAPIEndpoint",
+			cfg: &Config{
+				ExecutionsTable:           "executions",
+				ECSCluster:                "cluster",
+				WebSocketConnectionsTable: "connections",
+				WebSocketAPIEndpoint:      "example.com",
+			},
+			wantErr:            false,
+			normalizedEndpoint: "https://example.com",
 		},
 	}
 
@@ -284,6 +297,9 @@ func TestValidateEventProcessor(t *testing.T) {
 				}
 			} else {
 				require.NoError(t, err)
+				if tt.normalizedEndpoint != "" {
+					assert.Equal(t, tt.normalizedEndpoint, tt.cfg.WebSocketAPIEndpoint)
+				}
 			}
 		})
 	}

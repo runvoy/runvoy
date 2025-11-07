@@ -15,9 +15,6 @@ import (
 	"runvoy/internal/logger"
 
 	"github.com/aws/aws-lambda-go/events"
-	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/service/lambda"
-	"github.com/aws/aws-sdk-go-v2/service/lambda/types"
 )
 
 // parseTaskTimes parses and validates the task timestamps, calculating duration.
@@ -116,11 +113,8 @@ func (p *Processor) handleECSTaskCompletion(ctx context.Context, event *events.C
 	return nil
 }
 
-// notifyDisconnect invokes the websocket_manager Lambda to notify connected clients
-// of the execution completion and clean up their connections.
-// The websocket_manager Lambda is responsible for both sending disconnect messages
-// and deleting the connection records from DynamoDB.
-// This is best-effort and won't fail the handler if the invocation fails.
+// notifyDisconnect notifies connected WebSocket clients of execution completion.
+// This is best-effort and won't fail the handler if the notification fails.
 func (p *Processor) notifyDisconnect(
 	ctx context.Context,
 	status string,
@@ -131,38 +125,11 @@ func (p *Processor) notifyDisconnect(
 		return
 	}
 
-	// Invoke websocket_manager Lambda to notify connected clients and cleanup
-	invokeErr := p.invokeWebSocketManager(ctx, executionID, reqLogger)
-	if invokeErr != nil {
-		reqLogger.Warn("failed to invoke websocket manager for disconnect notification",
-			"error", invokeErr,
+	if p.websocketHandler == nil {
+		reqLogger.Warn("websocket handler not configured; skipping disconnect notification",
 			"execution_id", executionID,
 		)
-	} else {
-		reqLogger.Debug("invoked websocket manager for disconnect notification",
-			"context", map[string]string{
-				"execution_id": executionID,
-			},
-		)
-	}
-}
-
-// isTerminalStatus checks if an execution status is a terminal state
-func isTerminalStatus(status string) bool {
-	return status == string(constants.ExecutionSucceeded) ||
-		status == string(constants.ExecutionFailed) ||
-		status == string(constants.ExecutionStopped)
-}
-
-// invokeWebSocketManager invokes the websocket_manager Lambda to send disconnect notifications.
-func (p *Processor) invokeWebSocketManager(
-	ctx context.Context,
-	executionID string,
-	_ *slog.Logger,
-) error {
-	// Skip if lambdaClient is not initialized (e.g., in tests)
-	if p.lambdaClient == nil {
-		return nil
+		return
 	}
 
 	event := events.APIGatewayWebsocketProxyRequest{
@@ -172,34 +139,28 @@ func (p *Processor) invokeWebSocketManager(
 		QueryStringParameters: map[string]string{
 			"execution_id": executionID,
 		},
-		Body: "",
 	}
 
-	payloadBytes, err := json.Marshal(event)
-	if err != nil {
-		return fmt.Errorf("failed to marshal disconnect event: %w", err)
+	if _, err := p.websocketHandler.HandleRequest(ctx, event); err != nil {
+		reqLogger.Warn("failed to notify websocket clients of disconnect",
+			"error", err,
+			"execution_id", executionID,
+		)
+		return
 	}
 
-	reqLogger := logger.DeriveRequestLogger(ctx, p.logger)
-	reqLogger.Debug("invoking websocket manager", "context",
-		map[string]any{
-			"function_name": p.websocketManager,
-			"execution_id":  executionID,
+	reqLogger.Debug("websocket disconnect notification handled",
+		"context", map[string]string{
+			"execution_id": executionID,
 		},
 	)
+}
 
-	invocation := &lambda.InvokeInput{
-		FunctionName:   aws.String(p.websocketManager),
-		InvocationType: types.InvocationTypeEvent, // Async invocation
-		Payload:        payloadBytes,
-	}
-
-	_, err = p.lambdaClient.Invoke(ctx, invocation)
-	if err != nil {
-		return fmt.Errorf("failed to invoke websocket manager: %w", err)
-	}
-
-	return nil
+// isTerminalStatus checks if an execution status is a terminal state
+func isTerminalStatus(status string) bool {
+	return status == string(constants.ExecutionSucceeded) ||
+		status == string(constants.ExecutionFailed) ||
+		status == string(constants.ExecutionStopped)
 }
 
 // extractExecutionIDFromTaskArn extracts the execution ID from a task ARN

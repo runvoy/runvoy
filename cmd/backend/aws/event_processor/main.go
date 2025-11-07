@@ -26,6 +26,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	log.Debug("starting Lambda handler with universal event detection")
+	log.Debug("starting event processor Lambda handler")
 	lambda.Start(processor.Handle)
 }

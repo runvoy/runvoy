@@ -270,11 +270,9 @@ func TestHandleECSTaskCompletion_Success(t *testing.T) {
 	mockConnRepo := &mockConnectionRepo{}
 
 	processor := &Processor{
-		executionRepo:    mockRepo,
-		connectionRepo:   mockConnRepo,
-		lambdaClient:     nil, // Lambda invocation is optional for testing
-		websocketManager: "websocket-manager",
-		logger:           testutil.SilentLogger(),
+		executionRepo:  mockRepo,
+		connectionRepo: mockConnRepo,
+		logger:         testutil.SilentLogger(),
 	}
 
 	taskEvent := ECSTaskStateChangeEvent{

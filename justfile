@@ -24,7 +24,7 @@ runvoy *ARGS: build-cli
 build: build-cli build-local build-backend build-frontend
 
 # Build backend binaries (Lambda functions)
-build-backend: build-orchestrator build-event-processor build-websocket-manager
+build-backend: build-orchestrator build-event-processor
 
 # Build frontend binary
 build-frontend: build-webapp
@@ -33,10 +33,7 @@ build-frontend: build-webapp
 deploy: deploy-backend deploy-frontend
 
 # Deploy backend binaries
-deploy-backend: deploy-orchestrator deploy-event-processor deploy-websocket
-
-# Deploy websocket binaries
-deploy-websocket: deploy-websocket-manager
+deploy-backend: deploy-orchestrator deploy-event-processor
 
 # Deploy webapp
 deploy-frontend: deploy-webapp
@@ -100,29 +97,6 @@ deploy-event-processor: build-event-processor-zip
         --s3-bucket {{bucket}} \
         --s3-key event-processor.zip > /dev/null
     aws lambda wait function-updated --function-name runvoy-event-processor
-
-# Build WebSocket connection manager backend service (Lambda function)
-[working-directory: 'cmd/backend/aws/websocket/manager']
-build-websocket-manager:
-    GOARCH=arm64 GOOS=linux go build \
-        -ldflags {{build_flags}} \
-        -o ../../../../../dist/bootstrap
-
-# Build WebSocket connection manager zip file
-[working-directory: 'dist']
-build-websocket-manager-zip: build-websocket-manager
-    rm -f websocket-manager.zip
-    zip websocket-manager.zip bootstrap
-
-# Deploy WebSocket connection manager lambda function
-[working-directory: 'dist']
-deploy-websocket-manager: build-websocket-manager-zip
-    aws s3 cp websocket-manager.zip s3://{{bucket}}/websocket-manager.zip
-    aws lambda update-function-code \
-        --function-name runvoy-websocket-manager \
-        --s3-bucket {{bucket}} \
-        --s3-key websocket-manager.zip > /dev/null
-    aws lambda wait function-updated --function-name runvoy-websocket-manager
 
 # Deploy webapp to S3
 [working-directory: 'cmd/webapp']
