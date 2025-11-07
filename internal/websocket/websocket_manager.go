@@ -26,6 +26,7 @@ import (
 type Manager interface {
 	HandleRequest(ctx context.Context, rawEvent *json.RawMessage, reqLogger *slog.Logger) (bool, error)
 	NotifyExecutionCompletion(ctx context.Context, executionID string) error
+	SendLogsToExecution(ctx context.Context, executionID string, logData []byte) error
 }
 
 // WebSocketManager handles WebSocket connection lifecycle events and disconnect notifications.
@@ -322,6 +323,79 @@ func (wm *WebSocketManager) NotifyExecutionCompletion(ctx context.Context, execu
 		)
 	}
 
+	return nil
+}
+
+// SendLogsToExecution sends log data to all connected clients for an execution.
+// The logData is expected to be newline-separated JSON log events.
+func (wm *WebSocketManager) SendLogsToExecution(ctx context.Context, executionID string, logData []byte) error {
+	// Get all connection IDs for this execution
+	connectionIDs, err := wm.connRepo.GetConnectionsByExecutionID(ctx, executionID)
+	if err != nil {
+		wm.logger.Error("failed to get connections for execution", "error", err, "execution_id", executionID)
+		return fmt.Errorf("failed to get connections: %w", err)
+	}
+
+	if len(connectionIDs) == 0 {
+		wm.logger.Debug("no active connections to send logs to", "execution_id", executionID)
+		return nil
+	}
+
+	errGroup, ctx := errgroup.WithContext(ctx)
+	errGroup.SetLimit(constants.MaxConcurrentSends)
+
+	for _, connectionID := range connectionIDs {
+		connID := connectionID // Capture for closure
+		errGroup.Go(func() error {
+			return wm.sendLogsToConnection(ctx, connID, logData)
+		})
+	}
+
+	err = errGroup.Wait()
+	if err != nil {
+		wm.logger.Error("some log sends failed", "context", map[string]string{
+			"error":        err.Error(),
+			"execution_id": executionID,
+		})
+		return fmt.Errorf("failed to send logs to some connections: %w", err)
+	}
+
+	wm.logger.Debug("logs sent to all connections", "context", map[string]string{
+		"execution_id":     executionID,
+		"connection_count": fmt.Sprintf("%d", len(connectionIDs)),
+	})
+
+	return nil
+}
+
+// sendLogsToConnection sends log data to a single WebSocket connection.
+func (wm *WebSocketManager) sendLogsToConnection(
+	ctx context.Context,
+	connectionID string,
+	logData []byte,
+) error {
+	wm.logger.Debug("sending logs to connection", "context", map[string]string{
+		"connection_id": connectionID,
+	})
+
+	_, err := wm.apiGwClient.PostToConnection(ctx, &apigatewaymanagementapi.PostToConnectionInput{
+		ConnectionId: aws.String(connectionID),
+		Data:         logData,
+	})
+
+	if err != nil {
+		wm.logger.Error("failed to send logs to connection",
+			"context", map[string]string{
+				"error":         err.Error(),
+				"connection_id": connectionID,
+			},
+		)
+		return fmt.Errorf("failed to send logs to connection %s: %w", connectionID, err)
+	}
+
+	wm.logger.Debug("logs sent to connection", "context", map[string]string{
+		"connection_id": connectionID,
+	})
 	return nil
 }
 

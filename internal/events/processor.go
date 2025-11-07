@@ -1,12 +1,14 @@
 package events
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net/http"
 
+	"runvoy/internal/api"
 	"runvoy/internal/config"
 	"runvoy/internal/constants"
 	"runvoy/internal/database"
@@ -170,18 +172,87 @@ func (p *Processor) handleCloudWatchEvent(
 	}
 }
 
+// batchLogsAsJSONLines converts CloudWatch log events to api.LogEvent format
+// and returns them as newline-separated JSON bytes
+func batchLogsAsJSONLines(data *events.CloudwatchLogsData) ([]byte, error) {
+	var buffer bytes.Buffer
+
+	for i, logEvent := range data.LogEvents {
+		logEntry := api.LogEvent{
+			Timestamp: logEvent.Timestamp,
+			Message:   logEvent.Message,
+		}
+
+		logJSON, err := json.Marshal(logEntry)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal log event %d: %w", i, err)
+		}
+
+		buffer.Write(logJSON)
+		// Add newline separator (except for the last entry)
+		if i < len(data.LogEvents)-1 {
+			buffer.WriteString("\n")
+		}
+	}
+
+	return buffer.Bytes(), nil
+}
+
 func (p *Processor) handleCloudWatchLogsEvent(
-	_ context.Context, rawEvent *json.RawMessage, reqLogger *slog.Logger) (bool, error) { //nolint:unparam
+	ctx context.Context, rawEvent *json.RawMessage, reqLogger *slog.Logger) (bool, error) {
 	var cwLogsEvent events.CloudwatchLogsEvent
 	if err := json.Unmarshal(*rawEvent, &cwLogsEvent); err != nil || cwLogsEvent.AWSLogs.Data == "" {
 		return false, nil
 	}
 
+	// Parse and decompress the CloudWatch Logs data using native AWS SDK method
+	data, err := cwLogsEvent.AWSLogs.Parse()
+	if err != nil {
+		reqLogger.Error("failed to parse CloudWatch Logs data",
+			"error", err,
+		)
+		return true, err
+	}
+
+	// Batch logs into newline-separated JSON format
+	logBatch, err := batchLogsAsJSONLines(&data)
+	if err != nil {
+		reqLogger.Error("failed to batch logs",
+			"error", err,
+		)
+		return true, err
+	}
+
+	// Extract execution ID from the log stream
+	executionID := constants.ExtractExecutionIDFromLogStream(data.LogStream)
+	if executionID == "" {
+		reqLogger.Warn("unable to extract execution ID from log stream",
+			"context", map[string]string{
+				"log_stream": data.LogStream,
+			},
+		)
+		return true, nil
+	}
+
 	reqLogger.Debug("processing CloudWatch logs event",
 		"context", map[string]any{
-			"event": cwLogsEvent,
+			"log_group":    data.LogGroup,
+			"log_stream":   data.LogStream,
+			"execution_id": executionID,
+			"log_count":    len(data.LogEvents),
+			"batch_size":   len(logBatch),
 		},
 	)
+
+	// Send batched logs to all WebSocket connections for this execution
+	sendErr := p.webSocketManager.SendLogsToExecution(ctx, executionID, logBatch)
+	if sendErr != nil {
+		reqLogger.Error("failed to send logs to WebSocket connections",
+			"error", sendErr,
+			"execution_id", executionID,
+		)
+		// Don't return error - logs were batched correctly, connection issue shouldn't fail processing
+	}
 
 	return true, nil
 }
