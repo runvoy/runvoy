@@ -4,7 +4,7 @@
 set -e
 
 # Configuration
-PROCESSOR_URL="${PROCESSOR_URL:-http://localhost:8081}"
+PROCESSOR_URL="${PROCESSOR_URL:-http://localhost:56213}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 echo "Testing local development server at $PROCESSOR_URL"
