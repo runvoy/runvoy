@@ -54,7 +54,7 @@ func NewWebSocketManager(
 
 	log.Debug("websocket manager initialized",
 		"table", cfg.WebSocketConnectionsTable,
-		"api_endpoint", cfg.WebSocketAPIEndpoint,
+		"websocket_api_endpoint", cfg.WebSocketAPIEndpoint,
 	)
 
 	return &WebSocketManager{

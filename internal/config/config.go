@@ -26,7 +26,7 @@ type Config struct {
 	WebURL      string `mapstructure:"web_url" yaml:"web_url" validate:"omitempty,url"`
 
 	// Backend Service Configuration
-	Port                      string        `mapstructure:"port" validate:"omitempty"`
+	Port                      int           `mapstructure:"port" validate:"omitempty"`
 	RequestTimeout            time.Duration `mapstructure:"request_timeout"`
 	APIKeysTable              string        `mapstructure:"api_keys_table"`
 	ExecutionsTable           string        `mapstructure:"executions_table"`
