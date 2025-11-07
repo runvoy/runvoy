@@ -23,7 +23,7 @@ func main() {
 	svc, err := app.Initialize(ctx, constants.AWS, cfg, log)
 	cancel()
 	if err != nil {
-		log.Error("failed to initialize service", "error", err)
+		log.Error("failed to initialize orchestrator", "error", err)
 		os.Exit(1)
 	}
 

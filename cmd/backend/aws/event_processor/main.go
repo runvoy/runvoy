@@ -23,7 +23,7 @@ func main() {
 	processor, err := events.NewProcessor(ctx, cfg, log)
 	cancel()
 	if err != nil {
-		log.Error("Failed to create event processor", "error", err)
+		log.Error("failed to create event processor", "error", err)
 		os.Exit(1)
 	}
 
