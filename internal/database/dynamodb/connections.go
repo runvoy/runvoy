@@ -193,7 +193,7 @@ func (r *ConnectionRepository) GetConnectionsByExecutionID(
 		})
 	}
 
-	reqLogger.Info("connections retrieved successfully", "context", map[string]any{
+	reqLogger.Debug("connections retrieved successfully", "context", map[string]any{
 		"execution_id":      executionID,
 		"connection_ids":    connIDs,
 		"connections_count": len(connections),

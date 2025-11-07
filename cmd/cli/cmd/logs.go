@@ -156,7 +156,6 @@ func (s *LogsService) readWebSocketMessages(
 				Type string `json:"type,omitempty"`
 			}
 			if err = json.Unmarshal(messageBytes, &msg); err == nil && msg.Type == string(api.WebSocketMessageTypeDisconnect) {
-				s.output.Blank()
 				s.output.Infof("Execution completed. Closing connection...")
 				_ = conn.WriteMessage(
 					websocket.CloseMessage,
@@ -217,11 +216,9 @@ func (s *LogsService) streamLogsViaWebSocket(
 
 	select {
 	case <-sigChan:
-		s.output.Blank()
 		s.output.Infof("Received interrupt signal, closing connection...")
 		closeOnce.Do(func() { close(done) })
 	case <-done:
-		s.output.Blank()
 		s.output.Infof("WebSocket connection closed")
 	}
 

@@ -30,7 +30,7 @@ func Initialize(
 	provider constants.BackendProvider,
 	cfg *config.Config,
 	logger *slog.Logger) (*Service, error) {
-	logger.Debug(fmt.Sprintf("initializing %s service", constants.ProjectName),
+	logger.Debug(fmt.Sprintf("initializing %s orchestrator service", constants.ProjectName),
 		"provider", provider,
 		"version", *constants.GetVersion(),
 		"init_timeout_seconds", cfg.InitTimeout.Seconds(),
