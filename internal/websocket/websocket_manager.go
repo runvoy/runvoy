@@ -387,11 +387,27 @@ func (wm *WebSocketManager) sendLogsToConnection(
 		},
 	)
 
-	// Send the NLJSON batch directly as the WebSocket message payload
-	// The client will parse the newline-separated JSON events
-	_, err := wm.apiGwClient.PostToConnection(ctx, &apigatewaymanagementapi.PostToConnectionInput{
+	// Wrap the NLJSON batch in a WebSocketMessage
+	logBatch := string(logData)
+	wsMessage := api.WebSocketMessage{
+		Type:    api.WebSocketMessageTypeLog,
+		Message: &logBatch,
+	}
+
+	messageBytes, err := json.Marshal(wsMessage)
+	if err != nil {
+		wm.logger.Error("failed to marshal WebSocket message",
+			"context", map[string]string{
+				"error":         err.Error(),
+				"connection_id": connectionID,
+			},
+		)
+		return fmt.Errorf("failed to marshal WebSocket message: %w", err)
+	}
+
+	_, err = wm.apiGwClient.PostToConnection(ctx, &apigatewaymanagementapi.PostToConnectionInput{
 		ConnectionId: aws.String(connectionID),
-		Data:         logData,
+		Data:         messageBytes,
 	})
 
 	if err != nil {
