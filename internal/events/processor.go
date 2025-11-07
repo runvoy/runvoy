@@ -1,7 +1,6 @@
 package events
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -172,32 +171,6 @@ func (p *Processor) handleCloudWatchEvent(
 	}
 }
 
-// batchLogsAsJSONLines converts CloudWatch log events to api.LogEvent format
-// and returns them as newline-separated JSON bytes
-func batchLogsAsJSONLines(data *events.CloudwatchLogsData) ([]byte, error) {
-	var buffer bytes.Buffer
-
-	for i, logEvent := range data.LogEvents {
-		logEntry := api.LogEvent{
-			Timestamp: logEvent.Timestamp,
-			Message:   logEvent.Message,
-		}
-
-		logJSON, err := json.Marshal(logEntry)
-		if err != nil {
-			return nil, fmt.Errorf("failed to marshal log event %d: %w", i, err)
-		}
-
-		buffer.Write(logJSON)
-		// Add newline separator (except for the last entry)
-		if i < len(data.LogEvents)-1 {
-			buffer.WriteString("\n")
-		}
-	}
-
-	return buffer.Bytes(), nil
-}
-
 func (p *Processor) handleCloudWatchLogsEvent(
 	ctx context.Context, rawEvent *json.RawMessage, reqLogger *slog.Logger) (bool, error) {
 	var cwLogsEvent events.CloudwatchLogsEvent
@@ -208,14 +181,6 @@ func (p *Processor) handleCloudWatchLogsEvent(
 	data, err := cwLogsEvent.AWSLogs.Parse()
 	if err != nil {
 		reqLogger.Error("failed to parse CloudWatch Logs data",
-			"error", err,
-		)
-		return true, err
-	}
-
-	logBatch, err := batchLogsAsJSONLines(&data)
-	if err != nil {
-		reqLogger.Error("failed to batch logs",
 			"error", err,
 		)
 		return true, err
@@ -237,17 +202,25 @@ func (p *Processor) handleCloudWatchLogsEvent(
 			"log_stream":   data.LogStream,
 			"execution_id": executionID,
 			"log_count":    len(data.LogEvents),
-			"batch_size":   len(logBatch),
 		},
 	)
 
-	sendErr := p.webSocketManager.SendLogsToExecution(ctx, executionID, logBatch)
+	// Convert CloudWatch log events to api.LogEvent format
+	logEvents := make([]api.LogEvent, 0, len(data.LogEvents))
+	for _, cwLogEvent := range data.LogEvents {
+		logEvents = append(logEvents, api.LogEvent{
+			Timestamp: cwLogEvent.Timestamp,
+			Message:   cwLogEvent.Message,
+		})
+	}
+
+	sendErr := p.webSocketManager.SendLogsToExecution(ctx, executionID, logEvents)
 	if sendErr != nil {
 		reqLogger.Error("failed to send logs to WebSocket connections",
 			"error", sendErr,
 			"execution_id", executionID,
 		)
-		// Don't return error - logs were batched correctly, connection issue shouldn't fail processing
+		// Don't return error - logs were processed correctly, connection issue shouldn't fail processing
 	}
 
 	return true, nil

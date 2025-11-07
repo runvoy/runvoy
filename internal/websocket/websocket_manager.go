@@ -3,7 +3,6 @@
 package websocket
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -27,7 +26,7 @@ import (
 type Manager interface {
 	HandleRequest(ctx context.Context, rawEvent *json.RawMessage, reqLogger *slog.Logger) (bool, error)
 	NotifyExecutionCompletion(ctx context.Context, executionID string) error
-	SendLogsToExecution(ctx context.Context, executionID string, logData []byte) error
+	SendLogsToExecution(ctx context.Context, executionID string, logEvents []api.LogEvent) error
 }
 
 // WebSocketManager handles WebSocket connection lifecycle events and disconnect notifications.
@@ -327,13 +326,22 @@ func (wm *WebSocketManager) NotifyExecutionCompletion(ctx context.Context, execu
 	return nil
 }
 
-// SendLogsToExecution sends log data to all connected clients for an execution.
-// The logData is expected to be newline-separated JSON log events.
-func (wm *WebSocketManager) SendLogsToExecution(ctx context.Context, executionID string, logData []byte) error {
+// SendLogsToExecution sends log events to all connected clients for an execution.
+// Each log event is sent individually to all connected clients concurrently.
+func (wm *WebSocketManager) SendLogsToExecution(
+	ctx context.Context,
+	executionID string,
+	logEvents []api.LogEvent,
+) error {
+	if len(logEvents) == 0 {
+		return nil
+	}
+
 	// Get all connection IDs for this execution
 	connectionIDs, err := wm.connRepo.GetConnectionsByExecutionID(ctx, executionID)
 	if err != nil {
-		wm.logger.Error("failed to get connections for execution", "error", err, "execution_id", executionID)
+		wm.logger.Error("failed to get connections for execution",
+			"error", err, "execution_id", executionID)
 		return fmt.Errorf("failed to get connections: %w", err)
 	}
 
@@ -342,26 +350,38 @@ func (wm *WebSocketManager) SendLogsToExecution(ctx context.Context, executionID
 		return nil
 	}
 
-	errGroup, ctx := errgroup.WithContext(ctx)
-	errGroup.SetLimit(constants.MaxConcurrentSends)
+	wm.logger.Debug("sending logs to connections",
+		"context", map[string]any{
+			"execution_id":     executionID,
+			"connection_count": len(connectionIDs),
+			"log_count":        len(logEvents),
+		},
+	)
 
-	for _, connectionID := range connectionIDs {
-		connID := connectionID // Capture for closure
-		errGroup.Go(func() error {
-			return wm.sendLogsToConnection(ctx, connID, logData)
-		})
+	// Send each log event individually to all connections
+	for _, logEvent := range logEvents {
+		event := logEvent // Capture for closure
+		eg, egCtx := errgroup.WithContext(ctx)
+		eg.SetLimit(constants.MaxConcurrentSends)
+
+		for _, connectionID := range connectionIDs {
+			connID := connectionID // Capture for closure
+			eg.Go(func() error {
+				return wm.sendLogToConnection(egCtx, connID, event)
+			})
+		}
+
+		if egErr := eg.Wait(); egErr != nil {
+			wm.logger.Error("some log sends failed", "context", map[string]any{
+				"error":        egErr.Error(),
+				"execution_id": executionID,
+				"timestamp":    event.Timestamp,
+			})
+			return fmt.Errorf("failed to send logs to some connections: %w", egErr)
+		}
 	}
 
-	err = errGroup.Wait()
-	if err != nil {
-		wm.logger.Error("some log sends failed", "context", map[string]string{
-			"error":        err.Error(),
-			"execution_id": executionID,
-		})
-		return fmt.Errorf("failed to send logs to some connections: %w", err)
-	}
-
-	wm.logger.Debug("logs sent to all connections", "context", map[string]string{
+	wm.logger.Debug("all logs sent to all connections", "context", map[string]string{
 		"execution_id":     executionID,
 		"connection_count": fmt.Sprintf("%d", len(connectionIDs)),
 	})
@@ -369,74 +389,39 @@ func (wm *WebSocketManager) SendLogsToExecution(ctx context.Context, executionID
 	return nil
 }
 
-// parseNLJSON parses a newline-separated JSON byte stream into log events.
-func (wm *WebSocketManager) parseNLJSON(logData []byte) []api.LogEvent {
-	var logEvents []api.LogEvent
-	for line := range bytes.SplitSeq(logData, []byte("\n")) {
-		if len(line) == 0 {
-			continue
-		}
-		var logEvent api.LogEvent
-		if err := json.Unmarshal(line, &logEvent); err != nil {
-			wm.logger.Warn("failed to parse log event line", "error", err)
-			continue
-		}
-		logEvents = append(logEvents, logEvent)
-	}
-	return logEvents
-}
-
-// sendLogsToConnection sends log data to a single WebSocket connection.
-// The logData is expected to be newline-separated JSON log events.
-// Parses each line and sends as a JSON array of log events.
-func (wm *WebSocketManager) sendLogsToConnection(
+// sendLogToConnection sends a single log event to a WebSocket connection.
+func (wm *WebSocketManager) sendLogToConnection(
 	ctx context.Context,
 	connectionID string,
-	logData []byte,
+	logEvent api.LogEvent,
 ) error {
-	if len(logData) == 0 {
-		wm.logger.Debug("no log data to send", "connection_id", connectionID)
-		return nil
-	}
-
-	wm.logger.Debug("sending log batch to connection",
-		"context", map[string]any{
-			"connection_id": connectionID,
-			"batch_size":    len(logData),
-		},
-	)
-
-	// Parse NLJSON into individual log events
-	logEvents := wm.parseNLJSON(logData)
-
-	// Send as JSON array of log events
-	messageBytes, err := json.Marshal(logEvents)
+	logJSON, err := json.Marshal(logEvent)
 	if err != nil {
-		wm.logger.Error("failed to marshal log events",
-			"context", map[string]string{
+		wm.logger.Error("failed to marshal log event",
+			"context", map[string]any{
 				"error":         err.Error(),
 				"connection_id": connectionID,
+				"timestamp":     logEvent.Timestamp,
 			},
 		)
-		return fmt.Errorf("failed to marshal log events: %w", err)
+		return fmt.Errorf("failed to marshal log event: %w", err)
 	}
 
 	_, err = wm.apiGwClient.PostToConnection(ctx, &apigatewaymanagementapi.PostToConnectionInput{
 		ConnectionId: aws.String(connectionID),
-		Data:         messageBytes,
+		Data:         logJSON,
 	})
 
 	if err != nil {
-		wm.logger.Error("failed to send logs to connection",
+		wm.logger.Error("failed to send log to connection",
 			"context", map[string]string{
 				"error":         err.Error(),
 				"connection_id": connectionID,
 			},
 		)
-		return fmt.Errorf("failed to send logs to connection %s: %w", connectionID, err)
+		return fmt.Errorf("failed to send log to connection %s: %w", connectionID, err)
 	}
 
-	wm.logger.Debug("log batch sent to connection", "connection_id", connectionID)
 	return nil
 }
 

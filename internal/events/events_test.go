@@ -75,7 +75,7 @@ func (m *mockWebSocketHandler) NotifyExecutionCompletion(ctx context.Context, ex
 	return nil
 }
 
-func (m *mockWebSocketHandler) SendLogsToExecution(_ context.Context, _ string, _ []byte) error {
+func (m *mockWebSocketHandler) SendLogsToExecution(_ context.Context, _ string, _ []api.LogEvent) error {
 	return nil
 }
 
