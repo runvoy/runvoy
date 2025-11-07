@@ -29,7 +29,7 @@ coverage.html
 go.work
 go.work.sum
 .envrc
-local
+./local
 ./runvoy
 
 # Svelte
