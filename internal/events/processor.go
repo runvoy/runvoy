@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"reflect"
 
 	"runvoy/internal/config"
 	"runvoy/internal/database"
@@ -77,29 +78,26 @@ func (p *Processor) Handle(ctx context.Context, rawEvent json.RawMessage) error 
 	if err := json.Unmarshal(rawEvent, &event); err == nil && event.Source != "" && event.DetailType != "" {
 		reqLogger.Debug("processing CloudWatch event",
 			"source", event.Source,
-			"detailType", event.DetailType,
+			"detail_type", event.DetailType,
 		)
 
 		switch event.DetailType {
 		case "ECS Task State Change":
 			return p.handleECSTaskCompletion(ctx, &event)
 		default:
-			reqLogger.Info("ignoring unhandled CloudWatch event detail type",
-				"detailType", event.DetailType,
-				"source", event.Source,
+			reqLogger.Debug("ignoring unhandled CloudWatch event detail type",
+				"context", map[string]string{
+					"detail_type": event.DetailType,
+					"source":      event.Source,
+				},
 			)
 			return nil
 		}
 	}
 
-	// Otherwise, treat as custom invoke
-	reqLogger.Info("processing custom Lambda invoke")
-	var customPayload map[string]any
-	if err := json.Unmarshal(rawEvent, &customPayload); err != nil {
-		return fmt.Errorf("failed to unmarshal payload: %w", err)
-	}
-
-	reqLogger.Debug("custom payload received", "payload", customPayload)
+	reqLogger.Debug("unhandled event type", "context", map[string]string{
+		"type": reflect.TypeFor[json.RawMessage]().String(),
+	})
 	return nil
 }
 
