@@ -24,7 +24,7 @@ runvoy *ARGS: build-cli
 build: build-cli build-local build-backend build-frontend
 
 # Build backend binaries (Lambda functions)
-build-backend: build-orchestrator build-event-processor build-websocket-manager build-websocket-log-forwarder
+build-backend: build-orchestrator build-event-processor build-websocket-manager
 
 # Build frontend binary
 build-frontend: build-webapp
@@ -36,7 +36,7 @@ deploy: deploy-backend deploy-frontend
 deploy-backend: deploy-orchestrator deploy-event-processor deploy-websocket
 
 # Deploy websocket binaries
-deploy-websocket: deploy-websocket-manager deploy-websocket-log-forwarder
+deploy-websocket: deploy-websocket-manager
 
 # Deploy webapp
 deploy-frontend: deploy-webapp
@@ -123,29 +123,6 @@ deploy-websocket-manager: build-websocket-manager-zip
         --s3-bucket {{bucket}} \
         --s3-key websocket-manager.zip > /dev/null
     aws lambda wait function-updated --function-name runvoy-websocket-manager
-
-# Build WebSocket log forwarder backend service (Lambda function)
-[working-directory: 'cmd/backend/aws/websocket/log_forwarder']
-build-websocket-log-forwarder:
-    GOARCH=arm64 GOOS=linux go build \
-        -ldflags {{build_flags}} \
-        -o ../../../../../dist/bootstrap
-
-# Build WebSocket log forwarder zip file
-[working-directory: 'dist']
-build-websocket-log-forwarder-zip: build-websocket-log-forwarder
-    rm -f websocket-log-forwarder.zip
-    zip websocket-log-forwarder.zip bootstrap
-
-# Deploy WebSocket log forwarder lambda function
-[working-directory: 'dist']
-deploy-websocket-log-forwarder: build-websocket-log-forwarder-zip
-    aws s3 cp websocket-log-forwarder.zip s3://{{bucket}}/websocket-log-forwarder.zip
-    aws lambda update-function-code \
-        --function-name runvoy-websocket-log-forwarder \
-        --s3-bucket {{bucket}} \
-        --s3-key websocket-log-forwarder.zip > /dev/null
-    aws lambda wait function-updated --function-name runvoy-websocket-log-forwarder
 
 # Deploy webapp to S3
 [working-directory: 'cmd/webapp']

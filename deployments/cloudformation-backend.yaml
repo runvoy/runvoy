@@ -718,85 +718,6 @@ Resources:
           RUNVOY_WEBSOCKET_CONNECTIONS_TABLE: !Ref WebSocketConnectionsTable
           RUNVOY_WEBSOCKET_API_ENDPOINT: !Sub '${WebSocketApi.ApiId}.execute-api.${AWS::Region}.amazonaws.com/production'
 
-  # CloudWatch Log Group for Log Forwarder Lambda
-  LogForwarderLogGroup:
-    Type: AWS::Logs::LogGroup
-    Properties:
-      LogGroupName: !Sub '/aws/lambda/${ProjectName}-websocket-log-forwarder'
-      RetentionInDays: 7
-      Tags:
-        - Key: Name
-          Value: !Sub '${ProjectName}-websocket-log-forwarder-logs'
-        - Key: Application
-          Value: !Ref ProjectName
-        - Key: ManagedBy
-          Value: 'cloudformation'
-
-  # IAM Role for Log Forwarder Lambda
-  LogForwarderRole:
-    Type: AWS::IAM::Role
-    Properties:
-      RoleName: !Sub '${ProjectName}-websocket-log-forwarder-role'
-      Tags:
-        - Key: Name
-          Value: !Sub '${ProjectName}-websocket-log-forwarder-role'
-        - Key: Application
-          Value: !Ref ProjectName
-        - Key: ManagedBy
-          Value: 'cloudformation'
-      AssumeRolePolicyDocument:
-        Version: '2012-10-17'
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service: lambda.amazonaws.com
-            Action: 'sts:AssumeRole'
-      ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
-      Policies:
-        - PolicyName: LogForwarderPolicy
-          PolicyDocument:
-            Version: '2012-10-17'
-            Statement:
-              - Effect: Allow
-                Action:
-                  - 'dynamodb:Query'
-                  - 'dynamodb:UpdateItem'
-                Resource:
-                  - !GetAtt WebSocketConnectionsTable.Arn
-                  - !Sub '${WebSocketConnectionsTable.Arn}/index/*'
-              - Effect: Allow
-                Action:
-                  - 'execute-api:ManageConnections'
-                Resource: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:*/*/*'
-
-  # Log Forwarder Lambda Function
-  LogForwarderFunction:
-    Type: AWS::Lambda::Function
-    DependsOn: LogForwarderLogGroup
-    Properties:
-      FunctionName: !Sub '${ProjectName}-websocket-log-forwarder'
-      Runtime: provided.al2023
-      Role: !GetAtt LogForwarderRole.Arn
-      Handler: bootstrap
-      Code:
-        S3Bucket: !Ref LambdaCodeBucket
-        S3Key: websocket-log-forwarder.zip
-      Timeout: 10
-      Architectures:
-        - arm64
-      Tags:
-        - Key: Name
-          Value: !Sub '${ProjectName}-websocket-log-forwarder'
-        - Key: Application
-          Value: !Ref ProjectName
-        - Key: ManagedBy
-          Value: 'cloudformation'
-      Environment:
-        Variables:
-          RUNVOY_WEBSOCKET_CONNECTIONS_TABLE: !Ref WebSocketConnectionsTable
-          RUNVOY_WEBSOCKET_API_ENDPOINT: !Sub '${WebSocketApi.ApiId}.execute-api.${AWS::Region}.amazonaws.com/production'
-
   # API Gateway WebSocket API
   WebSocketApi:
     Type: AWS::ApiGatewayV2::Api
@@ -872,27 +793,6 @@ Resources:
       Action: lambda:InvokeFunction
       Principal: apigateway.amazonaws.com
       SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${WebSocketApi}/*/*'
-
-  # CloudWatch Logs Subscription Filter for Log Forwarder
-  LogForwarderSubscriptionFilter:
-    Type: AWS::Logs::SubscriptionFilter
-    DependsOn:
-      - LogForwarderFunction
-      - LogForwarderSubscriptionPermission
-    Properties:
-      LogGroupName: !Ref RunnerLogGroup
-      FilterName: !Sub '${ProjectName}-log-forwarder-subscription'
-      FilterPattern: ''
-      DestinationArn: !GetAtt LogForwarderFunction.Arn
-
-  # Permission for CloudWatch Logs to invoke Log Forwarder Lambda
-  LogForwarderSubscriptionPermission:
-    Type: AWS::Lambda::Permission
-    Properties:
-      FunctionName: !Ref LogForwarderFunction
-      Action: lambda:InvokeFunction
-      Principal: logs.amazonaws.com
-      SourceArn: !GetAtt RunnerLogGroup.Arn
 
 Outputs:
   APIEndpoint:

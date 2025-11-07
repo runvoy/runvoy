@@ -603,28 +603,6 @@ The platform uses WebSocket connections for real-time log streaming to clients (
 - Each connection record includes: `connection_id`, `execution_id`, `functionality`, `expires_at`
 - Connections are queried by execution ID for log forwarding
 
-#### Log Forwarder Lambda
-
-**Purpose**: Forwards CloudWatch Logs events to connected WebSocket clients in real-time.
-
-**Entry Point**: `cmd/backend/aws/websocket/log_forwarder/main.go`
-- Initializes log forwarder
-- Starts Lambda handler (`Handle`)
-
-**Implementation**: `internal/websocket/log_forwarder.go`
-- **`Handle()`**: Processes CloudWatch Logs subscription filter events
-- **`forwardLogsToConnections()`**: Forwards log events to all connections for an execution
-- Logs are sorted by timestamp before forwarding
-- Uses concurrent sending with error group for performance
-
-**Flow**:
-1. CloudWatch Logs subscription filter captures log events from ECS tasks
-2. Log Forwarder Lambda receives CloudWatch Logs event
-3. Extracts execution ID from log stream name
-4. Queries DynamoDB for all connections for that execution ID
-5. Forwards log events to all connected clients via API Gateway Management API
-6. Logs are sent concurrently with rate limiting
-
 #### API Gateway WebSocket API
 
 **Configuration**: Defined in CloudFormation template (`deployments/cloudformation-backend.yaml`)
@@ -669,9 +647,8 @@ When an execution reaches a terminal status (SUCCEEDED, FAILED, STOPPED):
 4. Connection ready for log streaming
 
 **Log Streaming**:
-1. CloudWatch Logs subscription filter captures log events
-2. Log Forwarder Lambda forwards events to all connections for execution ID
-3. Clients receive log events in real-time via WebSocket
+1. Log streaming functionality will be reimplemented in the event processor
+2. Clients receive log events in real-time via WebSocket
 
 **Connection Termination**:
 - **Manual disconnect**: Client closes connection → API Gateway routes `$disconnect` → Lambda removes connection record
@@ -695,7 +672,6 @@ When an execution reaches a terminal status (SUCCEEDED, FAILED, STOPPED):
 ### CloudFormation Resources
 
 - **`ConnectionManagerFunction`**: WebSocket Manager Lambda function
-- **`LogForwarderFunction`**: Log Forwarder Lambda function
 - **`WebSocketApi`**: API Gateway WebSocket API
 - **`WebSocketApiStage`**: WebSocket API stage
 - **`WebSocketConnectRoute`**: `$connect` route
