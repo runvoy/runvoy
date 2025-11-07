@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
-	"time"
 
 	"runvoy/internal/api"
 	"runvoy/internal/config"
@@ -187,7 +186,7 @@ func (wm *WebSocketManager) evaluateRouteResponse(
 }
 
 // handleConnect handles the $connect route key.
-// It stores the WebSocket connection in DynamoDB and returns a success response.
+// It validates the WebSocket token, stores the connection in DynamoDB, and returns a success response.
 //
 //nolint:gocritic // Lambda event types are passed by value per AWS Lambda conventions
 func (wm *WebSocketManager) handleConnect(
@@ -196,61 +195,125 @@ func (wm *WebSocketManager) handleConnect(
 ) (events.APIGatewayProxyResponse, error) {
 	connectionID := req.RequestContext.ConnectionID
 	executionID := req.QueryStringParameters["execution_id"]
+	token := req.QueryStringParameters["token"]
 
-	if connectionID == "" {
-		wm.logger.Info("missing connection_id in connection request")
-		return events.APIGatewayProxyResponse{
-			StatusCode: http.StatusBadRequest,
-			Body:       "Missing connection_id",
-		}, nil
+	if errResp := wm.validateConnectionParams(connectionID, executionID, token); errResp != nil {
+		return *errResp, nil
 	}
 
-	if executionID == "" {
-		wm.logger.Info("missing execution_id in connection request")
-		return events.APIGatewayProxyResponse{
-			StatusCode: http.StatusBadRequest,
-			Body:       "Missing execution_id query parameter",
-		}, nil
+	pendingConnection, errResp := wm.validateAndConsumePendingToken(ctx, executionID, token)
+	if errResp != nil {
+		return *errResp, nil
 	}
 
-	expiresAt := time.Now().Add(constants.ConnectionTTLHours * time.Hour).Unix()
-	clientIP := getClientIPFromWebSocketRequest(&req)
 	connection := &api.WebSocketConnection{
-		ConnectionID:  connectionID,
-		ExecutionID:   executionID,
-		Functionality: constants.FunctionalityLogStreaming,
-		ExpiresAt:     expiresAt,
-		ClientIP:      clientIP,
+		ConnectionID:       connectionID,
+		ExecutionID:        executionID,
+		Functionality:      constants.FunctionalityLogStreaming,
+		ExpiresAt:          pendingConnection.ExpiresAt,
+		ClientIP:           getClientIPFromWebSocketRequest(&req),
+		UserEmail:          pendingConnection.UserEmail,
+		ClientIPAtLogsTime: pendingConnection.ClientIPAtLogsTime,
 	}
 
-	wm.logger.Debug("storing connection", "context", map[string]any{
-		"connection_id": connection.ConnectionID,
-		"execution_id":  connection.ExecutionID,
-		"functionality": connection.Functionality,
-		"expires_at":    connection.ExpiresAt,
-		"client_ip":     clientIP,
-	})
-
-	err := wm.connRepo.CreateConnection(ctx, connection)
-	if err != nil {
+	if err := wm.connRepo.CreateConnection(ctx, connection); err != nil {
 		wm.logger.Error("failed to store connection", "error", err)
 		return events.APIGatewayProxyResponse{
 			StatusCode: http.StatusInternalServerError,
 			Body:       fmt.Sprintf("Failed to store connection: %v", err),
 		}, nil
 	}
-	wm.logger.Info("connection established", "context", map[string]any{
-		"connection_id": connection.ConnectionID,
-		"execution_id":  connection.ExecutionID,
-		"functionality": connection.Functionality,
-		"expires_at":    connection.ExpiresAt,
-		"client_ip":     clientIP,
+
+	wm.logger.Info("authenticated connection established", "context", map[string]any{
+		"connection_id":     connection.ConnectionID,
+		"execution_id":      connection.ExecutionID,
+		"functionality":     connection.Functionality,
+		"expires_at":        connection.ExpiresAt,
+		"client_ip":         connection.ClientIP,
+		"user_email":        connection.UserEmail,
+		"client_ip_at_logs": connection.ClientIPAtLogsTime,
 	})
 
 	return events.APIGatewayProxyResponse{
 		StatusCode: http.StatusOK,
 		Body:       "Connected",
 	}, nil
+}
+
+// validateConnectionParams validates required connection parameters.
+func (wm *WebSocketManager) validateConnectionParams(
+	connectionID, executionID, token string,
+) *events.APIGatewayProxyResponse {
+	if connectionID == "" {
+		wm.logger.Info("missing connection_id in connection request")
+		return &events.APIGatewayProxyResponse{
+			StatusCode: http.StatusBadRequest,
+			Body:       "Missing connection_id",
+		}
+	}
+
+	if executionID == "" {
+		wm.logger.Info("missing execution_id in connection request")
+		return &events.APIGatewayProxyResponse{
+			StatusCode: http.StatusBadRequest,
+			Body:       "Missing execution_id query parameter",
+		}
+	}
+
+	if token == "" {
+		wm.logger.Info("missing token in connection request", "execution_id", executionID)
+		return &events.APIGatewayProxyResponse{
+			StatusCode: http.StatusUnauthorized,
+			Body:       "Missing token query parameter",
+		}
+	}
+
+	return nil
+}
+
+// validateAndConsumePendingToken validates the WebSocket token against pending connections
+// and deletes the pending connection entry after validation.
+func (wm *WebSocketManager) validateAndConsumePendingToken(
+	ctx context.Context,
+	executionID, token string,
+) (*api.WebSocketConnection, *events.APIGatewayProxyResponse) {
+	pendingConnections, err := wm.connRepo.GetConnectionsByExecutionID(ctx, executionID)
+	if err != nil {
+		wm.logger.Error("failed to validate websocket token", "error", err,
+			"execution_id", executionID)
+		return nil, &events.APIGatewayProxyResponse{
+			StatusCode: http.StatusInternalServerError,
+			Body:       "Failed to validate token",
+		}
+	}
+
+	var pendingConnection *api.WebSocketConnection
+	for _, conn := range pendingConnections {
+		if conn.Token == token {
+			pendingConnection = conn
+			break
+		}
+	}
+
+	if pendingConnection == nil {
+		wm.logger.Info("invalid or expired websocket token", "execution_id", executionID)
+		return nil, &events.APIGatewayProxyResponse{
+			StatusCode: http.StatusUnauthorized,
+			Body:       "Invalid or expired token",
+		}
+	}
+
+	_, delErr := wm.connRepo.DeleteConnections(ctx, []string{pendingConnection.ConnectionID})
+	if delErr != nil {
+		wm.logger.Error("failed to delete pending connection", "error", delErr,
+			"connection_id", pendingConnection.ConnectionID)
+		return nil, &events.APIGatewayProxyResponse{
+			StatusCode: http.StatusInternalServerError,
+			Body:       "Failed to finalize connection",
+		}
+	}
+
+	return pendingConnection, nil
 }
 
 // handleDisconnect handles the $disconnect route key.
@@ -302,16 +365,14 @@ func (wm *WebSocketManager) NotifyExecutionCompletion(ctx context.Context, execu
 		return fmt.Errorf("execution ID is nil or empty")
 	}
 
-	// First send disconnect notifications to clients
 	err := wm.handleDisconnectNotification(ctx, *executionID)
 	if err != nil {
 		return fmt.Errorf("failed to notify disconnect: %w", err)
 	}
 
-	// Then delete all connection records for this execution
 	deletedCount, err := wm.connRepo.DeleteConnections(ctx, wm.connectionIDs)
 	if err != nil {
-		wm.logger.Warn("failed to delete WebSocket connections", "context",
+		wm.logger.Error("failed to delete WebSocket connections", "context",
 			map[string]string{
 				"error":        err.Error(),
 				"execution_id": *executionID,
@@ -345,15 +406,14 @@ func (wm *WebSocketManager) SendLogsToExecution(
 		return nil
 	}
 
-	// Get all connection IDs for this execution
-	connectionIDs, err := wm.connRepo.GetConnectionsByExecutionID(ctx, *executionID)
+	connections, err := wm.connRepo.GetConnectionsByExecutionID(ctx, *executionID)
 	if err != nil {
 		wm.logger.Error("failed to get connections for execution",
 			"error", err, "execution_id", *executionID)
 		return fmt.Errorf("failed to get connections: %w", err)
 	}
 
-	if len(connectionIDs) == 0 {
+	if len(connections) == 0 {
 		wm.logger.Debug("no active connections to send logs to", "execution_id", *executionID)
 		return nil
 	}
@@ -361,20 +421,18 @@ func (wm *WebSocketManager) SendLogsToExecution(
 	wm.logger.Debug("sending logs to connections",
 		"context", map[string]any{
 			"execution_id":     *executionID,
-			"connection_count": len(connectionIDs),
+			"connection_count": len(connections),
 			"log_count":        len(logEvents),
 		},
 	)
 
-	// Send each log event individually to all connections
 	for _, logEvent := range logEvents {
-		event := logEvent // Capture for closure
 		eg, egCtx := errgroup.WithContext(ctx)
 		eg.SetLimit(constants.MaxConcurrentSends)
 
-		for _, connectionID := range connectionIDs {
+		for _, conn := range connections {
 			eg.Go(func() error {
-				return wm.sendLogToConnection(egCtx, &connectionID, event)
+				return wm.sendLogToConnection(egCtx, &conn.ConnectionID, logEvent)
 			})
 		}
 
@@ -382,7 +440,7 @@ func (wm *WebSocketManager) SendLogsToExecution(
 			wm.logger.Error("some log sends failed", "context", map[string]any{
 				"error":        egErr.Error(),
 				"execution_id": *executionID,
-				"timestamp":    event.Timestamp,
+				"timestamp":    logEvent.Timestamp,
 			})
 			return fmt.Errorf("failed to send logs to some connections: %w", egErr)
 		}
@@ -390,7 +448,7 @@ func (wm *WebSocketManager) SendLogsToExecution(
 
 	wm.logger.Debug("all logs sent to all connections", "context", map[string]string{
 		"execution_id":     *executionID,
-		"connection_count": fmt.Sprintf("%d", len(connectionIDs)),
+		"connection_count": fmt.Sprintf("%d", len(connections)),
 	})
 
 	return nil
@@ -479,16 +537,22 @@ func (wm *WebSocketManager) handleDisconnectNotification(
 	var err error
 	wm.logger.Debug("handling disconnect notification for execution", "execution_id", executionID)
 
-	// Get all connection IDs for this execution
-	wm.connectionIDs, err = wm.connRepo.GetConnectionsByExecutionID(ctx, executionID)
+	// Get all connections for this execution
+	connections, err := wm.connRepo.GetConnectionsByExecutionID(ctx, executionID)
 	if err != nil {
 		wm.logger.Error("failed to get connections for execution", "error", err, "execution_id", executionID)
 		return fmt.Errorf("failed to get connections: %w", err)
 	}
 
-	if len(wm.connectionIDs) == 0 {
+	if len(connections) == 0 {
 		wm.logger.Debug("no active connections to notify", "execution_id", executionID)
 		return nil
+	}
+
+	// Extract connection IDs from connections
+	wm.connectionIDs = make([]string, 0, len(connections))
+	for _, conn := range connections {
+		wm.connectionIDs = append(wm.connectionIDs, conn.ConnectionID)
 	}
 
 	errGroup, ctx := errgroup.WithContext(ctx)
@@ -505,9 +569,8 @@ func (wm *WebSocketManager) handleDisconnectNotification(
 	}
 
 	for _, connectionID := range wm.connectionIDs {
-		connID := connectionID // Capture for closure
 		errGroup.Go(func() error {
-			return wm.sendDisconnectToConnection(ctx, connID, disconnectMessageBytes)
+			return wm.sendDisconnectToConnection(ctx, connectionID, disconnectMessageBytes)
 		})
 	}
 

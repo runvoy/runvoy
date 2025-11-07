@@ -28,7 +28,8 @@ func HashAPIKey(apiKey string) string {
 	return base64.StdEncoding.EncodeToString(hash[:])
 }
 
-// GenerateSecretToken creates a cryptographically secure random secret token for claim URLs.
+// GenerateSecretToken creates a cryptographically secure random secret token.
+// Used for claim URLs, WebSocket authentication, and other temporary access tokens.
 // The token is base64-encoded and approximately 32 characters long.
 func GenerateSecretToken() (string, error) {
 	b := make([]byte, constants.SecretTokenByteSize)

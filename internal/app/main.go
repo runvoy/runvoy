@@ -46,6 +46,7 @@ type Runner interface {
 type Service struct {
 	userRepo            database.UserRepository
 	executionRepo       database.ExecutionRepository
+	connRepo            database.ConnectionRepository
 	runner              Runner
 	Logger              *slog.Logger
 	Provider            constants.BackendProvider
@@ -60,6 +61,7 @@ type Service struct {
 func NewService(
 	userRepo database.UserRepository,
 	executionRepo database.ExecutionRepository,
+	connRepo database.ConnectionRepository,
 	runner Runner,
 	log *slog.Logger,
 	provider constants.BackendProvider,
@@ -67,6 +69,7 @@ func NewService(
 	return &Service{
 		userRepo:            userRepo,
 		executionRepo:       executionRepo,
+		connRepo:            connRepo,
 		runner:              runner,
 		Logger:              log,
 		Provider:            provider,
@@ -377,7 +380,14 @@ func (s *Service) RunCommand(
 // WebSocket endpoint is stored without protocol (normalized in config)
 // Always use wss:// for production WebSocket connections
 // WebSocket URL is only provided if the execution is still RUNNING
-func (s *Service) GetLogsByExecutionID(ctx context.Context, executionID string) (*api.LogsResponse, error) {
+// userEmail: authenticated user email for audit trail
+// clientIPAtLogsTime: client IP from the logs request for tracing
+func (s *Service) GetLogsByExecutionID(
+	ctx context.Context,
+	executionID string,
+	userEmail *string,
+	clientIPAtLogsTime *string,
+) (*api.LogsResponse, error) {
 	if s.executionRepo == nil {
 		return nil, apperrors.ErrInternalError("execution repository not configured", nil)
 	}
@@ -403,8 +413,13 @@ func (s *Service) GetLogsByExecutionID(ctx context.Context, executionID string) 
 	// Only provide WebSocket URL if execution is still RUNNING
 	var websocketURL string
 	if execution.Status == string(constants.ExecutionRunning) && s.websocketAPIBaseURL != "" {
-		wsURL := "wss://" + s.websocketAPIBaseURL
-		websocketURL = fmt.Sprintf("%s?execution_id=%s", wsURL, executionID)
+		url, wsErr := s.createWebSocketPendingConnection(
+			ctx, executionID, userEmail, clientIPAtLogsTime,
+		)
+		if wsErr != nil {
+			return nil, wsErr
+		}
+		websocketURL = url
 	}
 
 	return &api.LogsResponse{
@@ -413,6 +428,56 @@ func (s *Service) GetLogsByExecutionID(ctx context.Context, executionID string) 
 		Events:       events,
 		WebSocketURL: websocketURL,
 	}, nil
+}
+
+// createWebSocketPendingConnection creates a pending WebSocket connection for streaming logs
+// Returns the WebSocket URL with authentication token or an error
+func (s *Service) createWebSocketPendingConnection(
+	ctx context.Context,
+	executionID string,
+	userEmail *string,
+	clientIPAtLogsTime *string,
+) (string, error) {
+	var email string
+	if userEmail != nil {
+		email = *userEmail
+	}
+
+	var clientIP string
+	if clientIPAtLogsTime != nil {
+		clientIP = *clientIPAtLogsTime
+	}
+	// Generate a secure token for WebSocket authentication
+	token, tokenErr := auth.GenerateSecretToken()
+	if tokenErr != nil {
+		s.Logger.Error("failed to generate websocket token",
+			"error", tokenErr,
+			"execution_id", executionID)
+		return "", apperrors.ErrInternalError("failed to generate websocket token", tokenErr)
+	}
+
+	// Create a pending connection entry with the token
+	expiresAt := time.Now().Add(constants.ConnectionTTLHours * time.Hour).Unix()
+	pendingConnection := &api.WebSocketConnection{
+		ConnectionID:       fmt.Sprintf("pending_%s", executionID),
+		ExecutionID:        executionID,
+		Functionality:      constants.FunctionalityLogStreaming,
+		ExpiresAt:          expiresAt,
+		Token:              token,
+		UserEmail:          email,
+		ClientIPAtLogsTime: clientIP,
+	}
+
+	if connErr := s.connRepo.CreateConnection(ctx, pendingConnection); connErr != nil {
+		s.Logger.Error("failed to create pending websocket connection",
+			"error", connErr,
+			"execution_id", executionID,
+			"user_email", email)
+		return "", apperrors.ErrInternalError("failed to create websocket connection", connErr)
+	}
+
+	wsURL := "wss://" + s.websocketAPIBaseURL
+	return fmt.Sprintf("%s?execution_id=%s&token=%s", wsURL, executionID, token), nil
 }
 
 // GetExecutionStatus returns the current status and metadata for a given execution ID

@@ -84,7 +84,7 @@ type ConnectionRepository interface {
 	// DeleteConnections removes WebSocket connections from the database.
 	DeleteConnections(ctx context.Context, connectionIDs []string) (int, error)
 
-	// GetConnectionsByExecutionID retrieves all active WebSocket connections for a given execution ID.
-	// Returns a list of connection IDs that are subscribed to the specified execution.
-	GetConnectionsByExecutionID(ctx context.Context, executionID string) ([]string, error)
+	// GetConnectionsByExecutionID retrieves all active WebSocket connection records for a given execution ID.
+	// Returns the complete connection objects including token and other metadata.
+	GetConnectionsByExecutionID(ctx context.Context, executionID string) ([]*api.WebSocketConnection, error)
 }

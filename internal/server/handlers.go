@@ -16,6 +16,14 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
+// getUserFromContext extracts the authenticated user from request context
+// Returns the user and true if found, or nil and false if not found
+// Callers should check the boolean return value before using the user
+func (r *Router) getUserFromContext(req *http.Request) (*api.User, bool) {
+	user, ok := req.Context().Value(userContextKey).(*api.User)
+	return user, ok && user != nil
+}
+
 // handleCreateUser handles POST /api/v1/users to create a new user with an API key
 func (r *Router) handleCreateUser(w http.ResponseWriter, req *http.Request) {
 	logger := r.GetLoggerFromContext(req.Context())
@@ -28,8 +36,8 @@ func (r *Router) handleCreateUser(w http.ResponseWriter, req *http.Request) {
 	}
 
 	// Extract admin user from context
-	user, ok := req.Context().Value(userContextKey).(*api.User)
-	if !ok || user == nil {
+	user, ok := r.getUserFromContext(req)
+	if !ok {
 		writeErrorResponse(w, http.StatusUnauthorized, "Unauthorized", "user not found in context")
 		return
 	}
@@ -105,8 +113,8 @@ func (r *Router) handleListUsers(w http.ResponseWriter, req *http.Request) {
 func (r *Router) handleRunCommand(w http.ResponseWriter, req *http.Request) {
 	logger := r.GetLoggerFromContext(req.Context())
 
-	user, ok := req.Context().Value(userContextKey).(*api.User)
-	if !ok || user == nil {
+	user, ok := r.getUserFromContext(req)
+	if !ok {
 		writeErrorResponse(w, http.StatusUnauthorized, "Unauthorized", "user not found in context")
 		return
 	}
@@ -147,7 +155,17 @@ func (r *Router) handleGetExecutionLogs(w http.ResponseWriter, req *http.Request
 		return
 	}
 
-	resp, err := r.svc.GetLogsByExecutionID(req.Context(), executionID)
+	// Extract authenticated user from context
+	user, ok := r.getUserFromContext(req)
+	if !ok {
+		writeErrorResponse(w, http.StatusUnauthorized, "Unauthorized", "user not found in context")
+		return
+	}
+
+	// Extract client IP for tracing
+	clientIP := getClientIP(req)
+
+	resp, err := r.svc.GetLogsByExecutionID(req.Context(), executionID, &user.Email, &clientIP)
 	if err != nil {
 		statusCode := apperrors.GetStatusCode(err)
 		errorCode := apperrors.GetErrorCode(err)

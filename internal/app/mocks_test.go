@@ -147,6 +147,36 @@ func (m *mockExecutionRepository) ListExecutions(ctx context.Context) ([]*api.Ex
 	return []*api.Execution{}, nil
 }
 
+// mockConnectionRepository implements database.ConnectionRepository for testing
+type mockConnectionRepository struct {
+	createConnectionFunc            func(ctx context.Context, conn *api.WebSocketConnection) error
+	deleteConnectionsFunc           func(ctx context.Context, connIDs []string) (int, error)
+	getConnectionsByExecutionIDFunc func(ctx context.Context, executionID string) ([]*api.WebSocketConnection, error)
+}
+
+func (m *mockConnectionRepository) CreateConnection(ctx context.Context, conn *api.WebSocketConnection) error {
+	if m.createConnectionFunc != nil {
+		return m.createConnectionFunc(ctx, conn)
+	}
+	return nil
+}
+
+func (m *mockConnectionRepository) DeleteConnections(ctx context.Context, connIDs []string) (int, error) {
+	if m.deleteConnectionsFunc != nil {
+		return m.deleteConnectionsFunc(ctx, connIDs)
+	}
+	return len(connIDs), nil
+}
+
+func (m *mockConnectionRepository) GetConnectionsByExecutionID(
+	ctx context.Context, executionID string,
+) ([]*api.WebSocketConnection, error) {
+	if m.getConnectionsByExecutionIDFunc != nil {
+		return m.getConnectionsByExecutionIDFunc(ctx, executionID)
+	}
+	return nil, nil
+}
+
 // mockRunner implements Runner interface for testing
 type mockRunner struct {
 	startTaskFunc func(
@@ -208,7 +238,21 @@ func (m *mockRunner) FetchLogsByExecutionID(ctx context.Context, executionID str
 }
 
 // newTestService creates a Service with mocks for testing
-func newTestService(userRepo *mockUserRepository, execRepo *mockExecutionRepository, runner *mockRunner) *Service {
+func newTestService(
+	userRepo *mockUserRepository,
+	execRepo *mockExecutionRepository,
+	runner *mockRunner,
+) *Service {
+	return newTestServiceWithConnRepo(userRepo, execRepo, nil, runner)
+}
+
+// newTestServiceWithConnRepo creates a Service with connection repo mock for testing
+func newTestServiceWithConnRepo(
+	userRepo *mockUserRepository,
+	execRepo *mockExecutionRepository,
+	connRepo *mockConnectionRepository,
+	runner *mockRunner,
+) *Service {
 	logger := testutil.SilentLogger()
-	return NewService(userRepo, execRepo, runner, logger, constants.AWS, "")
+	return NewService(userRepo, execRepo, connRepo, runner, logger, constants.AWS, "")
 }
