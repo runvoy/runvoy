@@ -4,7 +4,7 @@ set dotenv-load
 # Variables
 bucket := env('RUNVOY_RELEASES_BUCKET', 'runvoy-releases')
 stack_name := env('RUNVOY_CLOUDFORMATION_BACKEND_STACK', 'runvoy-backend')
-admin_email := env('RUNVOY_ADMIN_EMAIL', 'admin@example.com')
+admin_email := env('RUNVOY_ADMIN_EMAIL', 'admin@runvoy.site')
 version := trim(read('VERSION'))
 git_short_hash := trim(`git rev-parse --short HEAD`)
 build_date := datetime_utc('%Y%m%d')
@@ -299,3 +299,14 @@ build-webapp: lint-webapp
 lint-webapp:
     npx prettier --check src/**/*.{js,svelte}
     npx eslint src --ext .js,.svelte
+
+# Curl helper
+curl-get path:
+    curl -sS \
+        -X GET "http://localhost:${RUNVOY_DEV_SERVER_PORT}/api/v1{{path}}" \
+        -H "X-API-Key: ${RUNVOY_ADMIN_API_KEY}"
+
+# Helper to setup Axiom logging for development
+# https://axiom.co/docs/send-data/cloudwatch#install-with-cloudformation-stacks
+setup-axiom-logging:
+    open https://axiom.co/docs/send-data/cloudwatch#install-with-cloudformation-stacks
