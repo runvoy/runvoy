@@ -94,7 +94,7 @@ func (p *Processor) Handle(ctx context.Context, rawEvent json.RawMessage) error 
 
 	// Otherwise, treat as custom invoke
 	reqLogger.Info("processing custom Lambda invoke")
-	var customPayload map[string]interface{}
+	var customPayload map[string]any
 	if err := json.Unmarshal(rawEvent, &customPayload); err != nil {
 		return fmt.Errorf("failed to unmarshal payload: %w", err)
 	}
@@ -103,30 +103,11 @@ func (p *Processor) Handle(ctx context.Context, rawEvent json.RawMessage) error 
 	return nil
 }
 
-// HandleEvent is the legacy entry point for Lambda event processing
-// Deprecated: Use Handle instead for universal event handling
-func (p *Processor) HandleEvent(ctx context.Context, event *events.CloudWatchEvent) error {
-	reqLogger := logger.DeriveRequestLogger(ctx, p.logger)
-
-	reqLogger.Debug("received event", "event", event)
-
-	switch event.DetailType {
-	case "ECS Task State Change":
-		return p.handleECSTaskCompletion(ctx, event)
-	default:
-		reqLogger.Info("ignoring unhandled event type",
-			"detailType", event.DetailType,
-			"source", event.Source,
-		)
-		return nil
-	}
-}
-
 // HandleEventJSON is a helper for testing that accepts raw JSON
 func (p *Processor) HandleEventJSON(ctx context.Context, eventJSON []byte) error {
 	var event events.CloudWatchEvent
 	if err := json.Unmarshal(eventJSON, &event); err != nil {
 		return fmt.Errorf("failed to unmarshal event: %w", err)
 	}
-	return p.HandleEvent(ctx, &event)
+	return p.Handle(ctx, eventJSON)
 }

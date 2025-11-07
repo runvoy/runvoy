@@ -426,7 +426,8 @@ func TestHandleEvent_IgnoresUnknownEventType(t *testing.T) {
 		Source:     "custom.source",
 	}
 
-	err := processor.HandleEvent(ctx, &event)
+	detailJSON, _ := json.Marshal(event)
+	err := processor.Handle(ctx, detailJSON)
 	assert.NoError(t, err)
 }
 
