@@ -377,44 +377,6 @@ func validateEventProcessor(cfg *Config) error {
 	return nil
 }
 
-// LoadLogForwarder loads configuration for the log forwarder service.
-// Loads from environment variables and validates required fields.
-// The WebSocketAPIEndpoint is normalized and returned as a fully-formed https:// URL
-// ready for use with AWS API Gateway Management API.
-func LoadLogForwarder() (*Config, error) {
-	v := viper.New()
-	setDefaults(v)
-
-	v.SetEnvPrefix("RUNVOY")
-	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
-	v.AutomaticEnv()
-	bindEnvVars(v)
-
-	var cfg Config
-	if err := v.Unmarshal(&cfg); err != nil {
-		return nil, fmt.Errorf("error unmarshaling log forwarder config: %w", err)
-	}
-
-	if err := validateLogForwarder(&cfg); err != nil {
-		return nil, err
-	}
-
-	cfg.WebSocketAPIEndpoint = "https://" + normalizeWebSocketEndpoint(cfg.WebSocketAPIEndpoint)
-
-	return &cfg, nil
-}
-
-// MustLoadLogForwarder loads log forwarder configuration and exits on error.
-// Suitable for application startup where configuration errors should be fatal.
-func MustLoadLogForwarder() *Config {
-	cfg, err := LoadLogForwarder()
-	if err != nil {
-		slog.Error("failed to load log forwarder configuration", "error", err)
-		os.Exit(1)
-	}
-	return cfg
-}
-
 // validateConnectionManager validates required fields for connection manager service.
 func validateConnectionManager(cfg *Config) error {
 	required := map[string]string{
@@ -431,17 +393,6 @@ func validateConnectionManager(cfg *Config) error {
 	// Normalize WebSocket endpoint: strip protocol if present, then add https://
 	cfg.WebSocketAPIEndpoint = "https://" + normalizeWebSocketEndpoint(cfg.WebSocketAPIEndpoint)
 
-	return nil
-}
-
-// validateLogForwarder validates required fields for log forwarder service.
-func validateLogForwarder(cfg *Config) error {
-	if err := validate.Var(cfg.WebSocketConnectionsTable, "required"); err != nil {
-		return fmt.Errorf("WebSocketConnectionsTable cannot be empty")
-	}
-	if err := validate.Var(cfg.WebSocketAPIEndpoint, "required"); err != nil {
-		return fmt.Errorf("WebSocketAPIEndpoint cannot be empty")
-	}
 	return nil
 }
 
