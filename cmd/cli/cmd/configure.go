@@ -4,6 +4,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+
 	"runvoy/internal/config"
 	"runvoy/internal/output"
 
@@ -23,7 +24,12 @@ func init() {
 }
 
 func runConfigure(_ *cobra.Command, _ []string) {
-	service := NewConfigureService(NewOutputWrapper(), NewConfigSaver(), config.Load, config.GetConfigPath)
+	service := NewConfigureService(
+		NewOutputWrapper(),
+		NewConfigSaver(),
+		NewConfigLoader(),
+		NewConfigPathGetter(),
+	)
 	if err := service.Configure(context.Background()); err != nil {
 		output.Errorf(err.Error())
 	}
@@ -34,33 +40,53 @@ type ConfigLoader interface {
 	Load() (*config.Config, error)
 }
 
-// configLoaderWrapper wraps the global config.Load function
-type configLoaderWrapper struct{}
-
-func (c *configLoaderWrapper) Load() (*config.Config, error) {
-	return config.Load()
+// ConfigSaver defines an interface for saving configuration
+type ConfigSaver interface {
+	Save(*config.Config) error
 }
 
-// NewConfigLoader creates a new ConfigLoader that uses the global config.Load function
-func NewConfigLoader() ConfigLoader {
-	return &configLoaderWrapper{}
-}
-
-// ConfigPathGetter defines an interface for getting config path
+// ConfigPathGetter defines an interface for retrieving the configuration path
 type ConfigPathGetter interface {
 	GetConfigPath() (string, error)
 }
 
-// configPathGetterWrapper wraps the global config.GetConfigPath function
-type configPathGetterWrapper struct{}
+// ConfigLoaderFunc adapts a function to the ConfigLoader interface
+type ConfigLoaderFunc func() (*config.Config, error)
 
-func (c *configPathGetterWrapper) GetConfigPath() (string, error) {
-	return config.GetConfigPath()
+// Load executes the underlying function to load configuration
+func (f ConfigLoaderFunc) Load() (*config.Config, error) {
+	return f()
 }
 
-// NewConfigPathGetter creates a new ConfigPathGetter that uses the global config.GetConfigPath function
+// ConfigSaverFunc adapts a function to the ConfigSaver interface
+type ConfigSaverFunc func(*config.Config) error
+
+// Save executes the underlying function to persist configuration
+func (f ConfigSaverFunc) Save(cfg *config.Config) error {
+	return f(cfg)
+}
+
+// ConfigPathGetterFunc adapts a function to the ConfigPathGetter interface
+type ConfigPathGetterFunc func() (string, error)
+
+// GetConfigPath executes the underlying function to retrieve the config path
+func (f ConfigPathGetterFunc) GetConfigPath() (string, error) {
+	return f()
+}
+
+// NewConfigLoader creates a ConfigLoader using the global config.Load function
+func NewConfigLoader() ConfigLoader {
+	return ConfigLoaderFunc(config.Load)
+}
+
+// NewConfigSaver creates a ConfigSaver using the global config.Save function
+func NewConfigSaver() ConfigSaver {
+	return ConfigSaverFunc(config.Save)
+}
+
+// NewConfigPathGetter creates a ConfigPathGetter using the global config.GetConfigPath function
 func NewConfigPathGetter() ConfigPathGetter {
-	return &configPathGetterWrapper{}
+	return ConfigPathGetterFunc(config.GetConfigPath)
 }
 
 // ConfigureService handles configuration logic
@@ -75,31 +101,15 @@ type ConfigureService struct {
 func NewConfigureService(
 	outputter OutputInterface,
 	configSaver ConfigSaver,
-	configLoader func() (*config.Config, error),
-	configPathGetter func() (string, error),
+	configLoader ConfigLoader,
+	configPathGetter ConfigPathGetter,
 ) *ConfigureService {
 	return &ConfigureService{
 		output:           outputter,
 		configSaver:      configSaver,
-		configLoader:     &configLoaderFunc{load: configLoader},
-		configPathGetter: &configPathGetterFunc{getPath: configPathGetter},
+		configLoader:     configLoader,
+		configPathGetter: configPathGetter,
 	}
-}
-
-type configLoaderFunc struct {
-	load func() (*config.Config, error)
-}
-
-func (c *configLoaderFunc) Load() (*config.Config, error) {
-	return c.load()
-}
-
-type configPathGetterFunc struct {
-	getPath func() (string, error)
-}
-
-func (c *configPathGetterFunc) GetConfigPath() (string, error) {
-	return c.getPath()
 }
 
 // Configure runs the interactive configuration flow

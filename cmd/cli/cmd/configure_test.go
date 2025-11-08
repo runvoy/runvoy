@@ -260,8 +260,8 @@ func TestConfigureService_Configure(t *testing.T) {
 			service := NewConfigureService(
 				mockOutput,
 				mockSaver,
-				mockLoader.Load,
-				tt.setupPathGetter,
+				mockLoader,
+				ConfigPathGetterFunc(tt.setupPathGetter),
 			)
 
 			err := service.Configure(context.Background())

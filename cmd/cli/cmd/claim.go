@@ -40,23 +40,6 @@ func runClaim(cmd *cobra.Command, args []string) {
 	}
 }
 
-// ConfigSaver defines an interface for saving configuration
-type ConfigSaver interface {
-	Save(config *config.Config) error
-}
-
-// configSaverWrapper wraps the global config.Save function to implement ConfigSaver
-type configSaverWrapper struct{}
-
-func (c *configSaverWrapper) Save(cfg *config.Config) error {
-	return config.Save(cfg)
-}
-
-// NewConfigSaver creates a new ConfigSaver that uses the global config.Save function
-func NewConfigSaver() ConfigSaver {
-	return &configSaverWrapper{}
-}
-
 // ClaimService handles API key claiming logic
 type ClaimService struct {
 	client      client.Interface
