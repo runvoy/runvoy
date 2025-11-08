@@ -72,7 +72,7 @@ func TestClient_Do(t *testing.T) {
 			setupServer: func() *httptest.Server {
 				return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 					assert.Equal(t, "POST", r.Method)
-					var body map[string]interface{}
+					var body map[string]any
 					_ = json.NewDecoder(r.Body).Decode(&body)
 					assert.Equal(t, "test-value", body["test"])
 					w.WriteHeader(http.StatusCreated)
@@ -90,7 +90,7 @@ func TestClient_Do(t *testing.T) {
 		{
 			name: "server error",
 			setupServer: func() *httptest.Server {
-				return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 					w.WriteHeader(http.StatusInternalServerError)
 					_, _ = w.Write([]byte(`{"error": "internal error"}`))
 				}))
@@ -105,7 +105,7 @@ func TestClient_Do(t *testing.T) {
 		{
 			name: "invalid JSON body",
 			setupServer: func() *httptest.Server {
-				return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 					w.WriteHeader(http.StatusOK)
 				}))
 			},
@@ -151,14 +151,14 @@ func TestClient_DoJSON(t *testing.T) {
 		name        string
 		setupServer func() *httptest.Server
 		request     Request
-		result      interface{}
+		result      any
 		wantErr     bool
 		errContains string
 	}{
 		{
 			name: "successful request with JSON response",
 			setupServer: func() *httptest.Server {
-				return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 					w.WriteHeader(http.StatusOK)
 					_, _ = w.Write([]byte(`{"execution_id": "test-123", "status": "RUNNING"}`))
 				}))
@@ -173,7 +173,7 @@ func TestClient_DoJSON(t *testing.T) {
 		{
 			name: "HTTP error response with error JSON",
 			setupServer: func() *httptest.Server {
-				return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 					w.WriteHeader(http.StatusNotFound)
 					_, _ = w.Write([]byte(`{"error": "Not Found", "details": "Resource not found"}`))
 				}))
@@ -189,7 +189,7 @@ func TestClient_DoJSON(t *testing.T) {
 		{
 			name: "HTTP error response with invalid JSON",
 			setupServer: func() *httptest.Server {
-				return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 					w.WriteHeader(http.StatusBadRequest)
 					_, _ = w.Write([]byte(`not json`))
 				}))
@@ -205,7 +205,7 @@ func TestClient_DoJSON(t *testing.T) {
 		{
 			name: "invalid JSON in response body",
 			setupServer: func() *httptest.Server {
-				return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 					w.WriteHeader(http.StatusOK)
 					_, _ = w.Write([]byte(`not valid json`))
 				}))
@@ -221,7 +221,7 @@ func TestClient_DoJSON(t *testing.T) {
 		{
 			name: "successful request with array response",
 			setupServer: func() *httptest.Server {
-				return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 					w.WriteHeader(http.StatusOK)
 					_, _ = w.Write([]byte(`[{"execution_id": "test-1"}, {"execution_id": "test-2"}]`))
 				}))
@@ -299,7 +299,7 @@ func TestClient_CreateUser(t *testing.T) {
 	})
 
 	t.Run("error response", func(t *testing.T) {
-		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			w.WriteHeader(http.StatusConflict)
 			_ = json.NewEncoder(w).Encode(api.ErrorResponse{
 				Error:   "Conflict",
@@ -522,7 +522,7 @@ func TestClient_GetExecutionStatus(t *testing.T) {
 	})
 }
 
-func TestClient_KillExecution(t *testing.T) {
+func TestClient_KillExecution(t *testing.T) { //nolint:dupl
 	t.Run("successful execution kill", func(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			assert.Equal(t, "POST", r.Method)
@@ -707,7 +707,7 @@ func TestClient_ListImages(t *testing.T) {
 	})
 }
 
-func TestClient_UnregisterImage(t *testing.T) {
+func TestClient_UnregisterImage(t *testing.T) { //nolint:dupl
 	t.Run("successful image unregistration", func(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			assert.Equal(t, "DELETE", r.Method)
