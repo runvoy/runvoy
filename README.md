@@ -72,7 +72,7 @@ just init
 ### Install the CLI
 
 ```bash
-go install cmd/cli
+go build -o $(go env GOPATH)/bin/runvoy ./cmd/cli
 ```
 
 ### User Onboarding
@@ -98,10 +98,6 @@ to create a new user account for a team member.
 When an admin creates a user account for you, they will provide you with a **claim token**. To get started:
 
 1. **Install the CLI** (if not already installed):
-
-   ```bash
-   go install cmd/cli
-   ```
 
 2. **Configure the endpoint** (first time only):
 
@@ -266,7 +262,7 @@ runvoy --help
 ```
 
 ```text
-runvoy - 0.1.0-20251108-e702c1b
+runvoy - 0.1.0-20251108-aa4c149
 Isolated, repeatable execution environments for your commands
 
 Usage:
