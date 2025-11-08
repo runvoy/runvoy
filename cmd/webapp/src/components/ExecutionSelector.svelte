@@ -1,7 +1,6 @@
 <script>
     import { executionId } from '../stores/execution.js';
-    import { logEvents, logsRetryCount } from '../stores/logs.js';
-    import { cachedWebSocketURL, websocketConnection } from '../stores/websocket.js';
+    import { switchExecution, clearExecution } from '../lib/executionState.js';
 
     let inputValue = $executionId || '';
 
@@ -21,33 +20,6 @@
         }
     }
 
-    function switchExecution(newExecutionId) {
-        if (!newExecutionId || newExecutionId === $executionId) {
-            return;
-        }
-
-        // Close existing WebSocket if any
-        if ($websocketConnection) {
-            $websocketConnection.close();
-            websocketConnection.set(null);
-        }
-
-        // Reset state
-        executionId.set(newExecutionId);
-        logEvents.set([]);
-        logsRetryCount.set(0);
-        cachedWebSocketURL.set(null);
-
-        // Update URL query parameter
-        const urlParams = new URLSearchParams(window.location.search);
-        urlParams.set('execution_id', newExecutionId);
-        const newUrl = window.location.pathname + '?' + urlParams.toString();
-        window.history.pushState({ executionId: newExecutionId }, '', newUrl);
-
-        // Update page title
-        document.title = `runvoy Logs - ${newExecutionId}`;
-    }
-
     // Handle browser back/forward buttons
     if (typeof window !== 'undefined') {
         window.addEventListener('popstate', () => {
@@ -55,25 +27,11 @@
             const newExecutionId = urlParams.get('execution_id') || urlParams.get('executionId');
 
             if (newExecutionId && newExecutionId !== $executionId) {
-                executionId.set(newExecutionId);
+                switchExecution(newExecutionId, { updateHistory: false });
                 inputValue = newExecutionId;
-                logEvents.set([]);
-                logsRetryCount.set(0);
-
-                if ($websocketConnection) {
-                    $websocketConnection.close();
-                    websocketConnection.set(null);
-                }
             } else if (!newExecutionId && $executionId) {
-                executionId.set(null);
+                clearExecution({ updateHistory: false });
                 inputValue = '';
-                logEvents.set([]);
-                logsRetryCount.set(0);
-
-                if ($websocketConnection) {
-                    $websocketConnection.close();
-                    websocketConnection.set(null);
-                }
             }
         });
     }
