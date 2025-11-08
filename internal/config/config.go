@@ -41,6 +41,7 @@ type Config struct {
 	TaskRoleARN               string        `mapstructure:"task_role_arn"`
 	WebSocketConnectionsTable string        `mapstructure:"websocket_connections_table"`
 	WebSocketAPIEndpoint      string        `mapstructure:"websocket_api_endpoint"`
+	LogsEventsQueueURL        string        `mapstructure:"logs_events_queue_url"`
 	InitTimeout               time.Duration `mapstructure:"init_timeout"`
 	LogLevel                  string        `mapstructure:"log_level"`
 }
@@ -306,6 +307,7 @@ func bindEnvVars(v *viper.Viper) {
 		"INIT_TIMEOUT",
 		"LOG_GROUP",
 		"LOG_LEVEL",
+		"LOGS_EVENTS_QUEUE_URL",
 		"PENDING_API_KEYS_TABLE",
 		"REQUEST_TIMEOUT",
 		"SECURITY_GROUP",
@@ -365,6 +367,7 @@ func validateEventProcessor(cfg *Config) error {
 		"ECSCluster":                cfg.ECSCluster,
 		"WebSocketConnectionsTable": cfg.WebSocketConnectionsTable,
 		"WebSocketAPIEndpoint":      cfg.WebSocketAPIEndpoint,
+		"LogsEventsQueueURL":        cfg.LogsEventsQueueURL,
 	}
 
 	for field, value := range required {

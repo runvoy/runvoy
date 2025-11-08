@@ -205,6 +205,15 @@ type WebSocketConnection struct {
 	Token              string `json:"token,omitempty"`
 	UserEmail          string `json:"user_email,omitempty"`
 	ClientIPAtLogsTime string `json:"client_ip_at_logs_time,omitempty"`
+	// LastSeenLogTimestamp tracks the cursor position (CloudWatch log event timestamp in ms)
+	// for resumable streaming. Clients can provide this on reconnect.
+	LastSeenLogTimestamp int64 `json:"last_seen_log_timestamp,omitempty"`
+	// ReplayLock indicates if backlog replay is in progress for this connection.
+	// Prevents concurrent log sends while replaying historical logs.
+	ReplayLock bool `json:"replay_lock,omitempty"`
+	// ReplayLockExpiresAt is a TTL for the replay lock (Unix timestamp in seconds).
+	// Prevents deadlocks from stale locks.
+	ReplayLockExpiresAt int64 `json:"replay_lock_expires_at,omitempty"`
 }
 
 // WebSocketMessageType represents the type of WebSocket message

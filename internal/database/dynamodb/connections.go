@@ -47,19 +47,28 @@ type connectionItem struct {
 	Token              string `dynamodbav:"token,omitempty"`
 	UserEmail          string `dynamodbav:"user_email,omitempty"`
 	ClientIPAtLogsTime string `dynamodbav:"client_ip_at_logs_time,omitempty"`
+	// LastSeenLogTimestamp tracks the cursor position for resumable streaming
+	LastSeenLogTimestamp int64 `dynamodbav:"last_seen_log_timestamp,omitempty"`
+	// ReplayLock indicates if backlog replay is in progress
+	ReplayLock bool `dynamodbav:"replay_lock,omitempty"`
+	// ReplayLockExpiresAt is the TTL for the replay lock
+	ReplayLockExpiresAt int64 `dynamodbav:"replay_lock_expires_at,omitempty"`
 }
 
 // toConnectionItem converts an api.WebSocketConnection to a connectionItem.
 func toConnectionItem(conn *api.WebSocketConnection) *connectionItem {
 	return &connectionItem{
-		ConnectionID:       conn.ConnectionID,
-		ExecutionID:        conn.ExecutionID,
-		Functionality:      conn.Functionality,
-		ExpiresAt:          conn.ExpiresAt,
-		ClientIP:           conn.ClientIP,
-		Token:              conn.Token,
-		UserEmail:          conn.UserEmail,
-		ClientIPAtLogsTime: conn.ClientIPAtLogsTime,
+		ConnectionID:         conn.ConnectionID,
+		ExecutionID:          conn.ExecutionID,
+		Functionality:        conn.Functionality,
+		ExpiresAt:            conn.ExpiresAt,
+		ClientIP:             conn.ClientIP,
+		Token:                conn.Token,
+		UserEmail:            conn.UserEmail,
+		ClientIPAtLogsTime:   conn.ClientIPAtLogsTime,
+		LastSeenLogTimestamp: conn.LastSeenLogTimestamp,
+		ReplayLock:           conn.ReplayLock,
+		ReplayLockExpiresAt:  conn.ReplayLockExpiresAt,
 	}
 }
 
@@ -182,14 +191,17 @@ func (r *ConnectionRepository) GetConnectionsByExecutionID(
 		}
 		connIDs = append(connIDs, connItem.ConnectionID)
 		connections = append(connections, &api.WebSocketConnection{
-			ConnectionID:       connItem.ConnectionID,
-			ExecutionID:        connItem.ExecutionID,
-			Functionality:      connItem.Functionality,
-			ExpiresAt:          connItem.ExpiresAt,
-			ClientIP:           connItem.ClientIP,
-			Token:              connItem.Token,
-			UserEmail:          connItem.UserEmail,
-			ClientIPAtLogsTime: connItem.ClientIPAtLogsTime,
+			ConnectionID:         connItem.ConnectionID,
+			ExecutionID:          connItem.ExecutionID,
+			Functionality:        connItem.Functionality,
+			ExpiresAt:            connItem.ExpiresAt,
+			ClientIP:             connItem.ClientIP,
+			Token:                connItem.Token,
+			UserEmail:            connItem.UserEmail,
+			ClientIPAtLogsTime:   connItem.ClientIPAtLogsTime,
+			LastSeenLogTimestamp: connItem.LastSeenLogTimestamp,
+			ReplayLock:           connItem.ReplayLock,
+			ReplayLockExpiresAt:  connItem.ReplayLockExpiresAt,
 		})
 	}
 

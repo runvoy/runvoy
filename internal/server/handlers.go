@@ -165,7 +165,18 @@ func (r *Router) handleGetExecutionLogs(w http.ResponseWriter, req *http.Request
 	// Extract client IP for tracing
 	clientIP := getClientIP(req)
 
-	resp, err := r.svc.GetLogsByExecutionID(req.Context(), executionID, &user.Email, &clientIP)
+	// Parse optional last_seen_timestamp query parameter (CloudWatch log event timestamp in milliseconds)
+	var lastSeenTimestamp int64
+	if lastSeenStr := req.URL.Query().Get("last_seen_timestamp"); lastSeenStr != "" {
+		ts, parseErr := strconv.ParseInt(lastSeenStr, 10, 64)
+		if parseErr != nil {
+			writeErrorResponse(w, http.StatusBadRequest, "invalid_parameter", "last_seen_timestamp must be a valid integer (milliseconds since epoch)")
+			return
+		}
+		lastSeenTimestamp = ts
+	}
+
+	resp, err := r.svc.GetLogsByExecutionID(req.Context(), executionID, lastSeenTimestamp, &user.Email, &clientIP)
 	if err != nil {
 		statusCode := apperrors.GetStatusCode(err)
 		errorCode := apperrors.GetErrorCode(err)

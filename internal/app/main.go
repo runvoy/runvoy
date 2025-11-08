@@ -385,6 +385,7 @@ func (s *Service) RunCommand(
 func (s *Service) GetLogsByExecutionID(
 	ctx context.Context,
 	executionID string,
+	lastSeenTimestamp int64,
 	userEmail *string,
 	clientIPAtLogsTime *string,
 ) (*api.LogsResponse, error) {
@@ -404,37 +405,56 @@ func (s *Service) GetLogsByExecutionID(
 		return nil, apperrors.ErrNotFound("execution not found", nil)
 	}
 
-	// Fetch logs
+	// For RUNNING executions: return only websocket URL, no events
+	if execution.Status == string(constants.ExecutionRunning) {
+		var websocketURL string
+		if s.websocketAPIBaseURL != "" {
+			url, wsErr := s.createWebSocketPendingConnection(
+				ctx, executionID, lastSeenTimestamp, userEmail, clientIPAtLogsTime,
+			)
+			if wsErr != nil {
+				return nil, wsErr
+			}
+			websocketURL = url
+		}
+
+		return &api.LogsResponse{
+			ExecutionID:  executionID,
+			Status:       execution.Status,
+			Events:       nil, // No events for running executions, stream via websocket
+			WebSocketURL: websocketURL,
+		}, nil
+	}
+
+	// For COMPLETED executions: return all logs filtered by lastSeenTimestamp
 	events, err := s.runner.FetchLogsByExecutionID(ctx, executionID)
 	if err != nil {
 		return nil, err
 	}
 
-	// Only provide WebSocket URL if execution is still RUNNING
-	var websocketURL string
-	if execution.Status == string(constants.ExecutionRunning) && s.websocketAPIBaseURL != "" {
-		url, wsErr := s.createWebSocketPendingConnection(
-			ctx, executionID, userEmail, clientIPAtLogsTime,
-		)
-		if wsErr != nil {
-			return nil, wsErr
+	// Filter events to only include those after lastSeenTimestamp
+	var filteredEvents []api.LogEvent
+	for _, event := range events {
+		if event.Timestamp > lastSeenTimestamp {
+			filteredEvents = append(filteredEvents, event)
 		}
-		websocketURL = url
 	}
 
 	return &api.LogsResponse{
 		ExecutionID:  executionID,
 		Status:       execution.Status,
-		Events:       events,
-		WebSocketURL: websocketURL,
+		Events:       filteredEvents,
+		WebSocketURL: "", // No websocket for completed executions
 	}, nil
 }
 
 // createWebSocketPendingConnection creates a pending WebSocket connection for streaming logs
 // Returns the WebSocket URL with authentication token or an error
+// lastSeenTimestamp is the cursor position for resumable streaming
 func (s *Service) createWebSocketPendingConnection(
 	ctx context.Context,
 	executionID string,
+	lastSeenTimestamp int64,
 	userEmail *string,
 	clientIPAtLogsTime *string,
 ) (string, error) {
@@ -459,13 +479,14 @@ func (s *Service) createWebSocketPendingConnection(
 	// Create a pending connection entry with the token
 	expiresAt := time.Now().Add(constants.ConnectionTTLHours * time.Hour).Unix()
 	pendingConnection := &api.WebSocketConnection{
-		ConnectionID:       fmt.Sprintf("pending_%s", executionID),
-		ExecutionID:        executionID,
-		Functionality:      constants.FunctionalityLogStreaming,
-		ExpiresAt:          expiresAt,
-		Token:              token,
-		UserEmail:          email,
-		ClientIPAtLogsTime: clientIP,
+		ConnectionID:         fmt.Sprintf("pending_%s", executionID),
+		ExecutionID:          executionID,
+		Functionality:        constants.FunctionalityLogStreaming,
+		ExpiresAt:            expiresAt,
+		Token:                token,
+		UserEmail:            email,
+		ClientIPAtLogsTime:   clientIP,
+		LastSeenLogTimestamp: lastSeenTimestamp, // Initialize cursor for resumable streaming
 	}
 
 	if connErr := s.connRepo.CreateConnection(ctx, pendingConnection); connErr != nil {
