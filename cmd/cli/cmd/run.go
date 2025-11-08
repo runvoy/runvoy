@@ -161,7 +161,12 @@ func (s *RunService) ExecuteCommand(ctx context.Context, req *ExecuteCommandRequ
 	if req.Image != "" {
 		s.output.KeyValue("Image", s.output.Cyan(req.Image))
 	}
-	s.output.Infof("View logs in web viewer: %s?execution_id=%s",
-		req.WebURL, s.output.Cyan(resp.ExecutionID))
+
+	// Stream logs similar to the logs command
+	logsService := NewLogsService(s.client, s.output)
+	if serviceErr := logsService.DisplayLogs(ctx, resp.ExecutionID, req.WebURL); serviceErr != nil {
+		return fmt.Errorf("failed to stream logs: %w", serviceErr)
+	}
+
 	return nil
 }

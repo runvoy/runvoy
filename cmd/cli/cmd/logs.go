@@ -184,6 +184,8 @@ func (s *LogsService) streamLogsViaWebSocket(
 	websocketURL string,
 	logMap map[int64]api.LogEvent,
 	mu *sync.Mutex,
+	webURL string,
+	executionID string,
 ) error {
 	s.output.Infof("Connecting to log stream...")
 	conn, httpResp, err := websocket.DefaultDialer.Dial(websocketURL, nil)
@@ -218,8 +220,10 @@ func (s *LogsService) streamLogsViaWebSocket(
 	case <-sigChan:
 		s.output.Infof("Received interrupt signal, closing connection...")
 		closeOnce.Do(func() { close(done) })
+		s.printWebviewerURL(webURL, executionID)
 	case <-done:
 		s.output.Infof("WebSocket connection closed")
+		s.printWebviewerURL(webURL, executionID)
 	}
 
 	return nil
@@ -249,9 +253,8 @@ func (s *LogsService) DisplayLogs(ctx context.Context, executionID, webURL strin
 	}
 
 	// Stream logs via WebSocket
-	_ = s.streamLogsViaWebSocket(resp.WebSocketURL, logMap, &mu)
+	_ = s.streamLogsViaWebSocket(resp.WebSocketURL, logMap, &mu, webURL, executionID)
 
-	s.printWebviewerURL(webURL, executionID)
 	return nil
 }
 

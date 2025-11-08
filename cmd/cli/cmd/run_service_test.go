@@ -10,10 +10,11 @@ import (
 	"runvoy/internal/api"
 )
 
-// mockClientInterfaceForRun extends mockClientInterface with RunCommand
+// mockClientInterfaceForRun extends mockClientInterface with RunCommand and GetLogs
 type mockClientInterfaceForRun struct {
 	*mockClientInterface
 	runCommandFunc func(ctx context.Context, req *api.ExecutionRequest) (*api.ExecutionResponse, error)
+	getLogsFunc    func(ctx context.Context, executionID string) (*api.LogsResponse, error)
 }
 
 func (m *mockClientInterfaceForRun) RunCommand(
@@ -21,6 +22,13 @@ func (m *mockClientInterfaceForRun) RunCommand(
 ) (*api.ExecutionResponse, error) {
 	if m.runCommandFunc != nil {
 		return m.runCommandFunc(ctx, req)
+	}
+	return nil, fmt.Errorf("not implemented")
+}
+
+func (m *mockClientInterfaceForRun) GetLogs(ctx context.Context, executionID string) (*api.LogsResponse, error) {
+	if m.getLogsFunc != nil {
+		return m.getLogsFunc(ctx, executionID)
 	}
 	return nil, fmt.Errorf("not implemented")
 }
@@ -44,6 +52,12 @@ func TestRunService_ExecuteCommand(t *testing.T) {
 					return &api.ExecutionResponse{
 						ExecutionID: "exec-123",
 						Status:      "pending",
+					}, nil
+				}
+				m.getLogsFunc = func(_ context.Context, executionID string) (*api.LogsResponse, error) {
+					return &api.LogsResponse{
+						ExecutionID: executionID,
+						Events:      []api.LogEvent{},
 					}, nil
 				}
 			},
@@ -80,6 +94,12 @@ func TestRunService_ExecuteCommand(t *testing.T) {
 						Status:      "pending",
 					}, nil
 				}
+				m.getLogsFunc = func(_ context.Context, executionID string) (*api.LogsResponse, error) {
+					return &api.LogsResponse{
+						ExecutionID: executionID,
+						Events:      []api.LogEvent{},
+					}, nil
+				}
 			},
 			wantErr: false,
 			verifyOutput: func(t *testing.T, m *mockOutputInterface) {
@@ -112,6 +132,12 @@ func TestRunService_ExecuteCommand(t *testing.T) {
 						Status:      "pending",
 					}, nil
 				}
+				m.getLogsFunc = func(_ context.Context, executionID string) (*api.LogsResponse, error) {
+					return &api.LogsResponse{
+						ExecutionID: executionID,
+						Events:      []api.LogEvent{},
+					}, nil
+				}
 			},
 			wantErr: false,
 			verifyOutput: func(t *testing.T, m *mockOutputInterface) {
@@ -140,6 +166,12 @@ func TestRunService_ExecuteCommand(t *testing.T) {
 					return &api.ExecutionResponse{
 						ExecutionID: "exec-abc",
 						Status:      "pending",
+					}, nil
+				}
+				m.getLogsFunc = func(_ context.Context, executionID string) (*api.LogsResponse, error) {
+					return &api.LogsResponse{
+						ExecutionID: executionID,
+						Events:      []api.LogEvent{},
 					}, nil
 				}
 			},
@@ -194,6 +226,12 @@ func TestRunService_ExecuteCommand(t *testing.T) {
 						Status:      "pending",
 					}, nil
 				}
+				m.getLogsFunc = func(_ context.Context, executionID string) (*api.LogsResponse, error) {
+					return &api.LogsResponse{
+						ExecutionID: executionID,
+						Events:      []api.LogEvent{},
+					}, nil
+				}
 			},
 			wantErr: false,
 			verifyOutput: func(t *testing.T, m *mockOutputInterface) {
@@ -211,6 +249,12 @@ func TestRunService_ExecuteCommand(t *testing.T) {
 					return &api.ExecutionResponse{
 						ExecutionID: "exec-final",
 						Status:      "pending",
+					}, nil
+				}
+				m.getLogsFunc = func(_ context.Context, executionID string) (*api.LogsResponse, error) {
+					return &api.LogsResponse{
+						ExecutionID: executionID,
+						Events:      []api.LogEvent{},
 					}, nil
 				}
 			},
