@@ -370,7 +370,7 @@ func buildTaskDefinitionInput(
 					Options: map[string]string{
 						"awslogs-group":         cfg.LogGroup,
 						"awslogs-region":        region,
-						"awslogs-stream-prefix": "sidecar",
+						"awslogs-stream-prefix": constants.LogStreamPrefix,
 					},
 				},
 			},
@@ -401,7 +401,7 @@ func buildTaskDefinitionInput(
 					Options: map[string]string{
 						"awslogs-group":         cfg.LogGroup,
 						"awslogs-region":        region,
-						"awslogs-stream-prefix": "task",
+						"awslogs-stream-prefix": constants.LogStreamPrefix,
 					},
 				},
 			},

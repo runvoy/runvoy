@@ -318,6 +318,9 @@ func BuildLogStreamName(executionID string) string {
 	return "task/" + RunnerContainerName + "/" + executionID
 }
 
+// LogStreamPrefix is the prefix for all log stream names for ECS tasks
+const LogStreamPrefix = "task"
+
 // ExtractExecutionIDFromLogStream extracts the execution ID from a CloudWatch Logs stream name.
 // Expected format: task/{container}/{execution_id}
 // Returns empty string if the format is not recognized.
@@ -331,11 +334,11 @@ func ExtractExecutionIDFromLogStream(logStream string) string {
 		return ""
 	}
 
-	if parts[0] != "task" {
+	if parts[0] != LogStreamPrefix {
 		return ""
 	}
 
-	if parts[1] != RunnerContainerName {
+	if parts[1] != RunnerContainerName && parts[1] != SidecarContainerName {
 		return ""
 	}
 
