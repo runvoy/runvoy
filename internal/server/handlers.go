@@ -155,22 +155,21 @@ func (r *Router) handleGetExecutionLogs(w http.ResponseWriter, req *http.Request
 		return
 	}
 
-	// Extract authenticated user from context
 	user, ok := r.getUserFromContext(req)
 	if !ok {
 		writeErrorResponse(w, http.StatusUnauthorized, "Unauthorized", "user not found in context")
 		return
 	}
 
-	// Extract client IP for tracing
 	clientIP := getClientIP(req)
 
 	// Parse optional last_seen_timestamp query parameter (CloudWatch log event timestamp in milliseconds)
 	var lastSeenTimestamp int64
 	if lastSeenStr := req.URL.Query().Get("last_seen_timestamp"); lastSeenStr != "" {
+		const invalidLastSeenMessage = "last_seen_timestamp must be a valid integer (milliseconds since epoch)"
 		ts, parseErr := strconv.ParseInt(lastSeenStr, 10, 64)
 		if parseErr != nil {
-			writeErrorResponse(w, http.StatusBadRequest, "invalid_parameter", "last_seen_timestamp must be a valid integer (milliseconds since epoch)")
+			writeErrorResponse(w, http.StatusBadRequest, "invalid_parameter", invalidLastSeenMessage)
 			return
 		}
 		lastSeenTimestamp = ts

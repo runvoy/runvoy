@@ -72,6 +72,26 @@ func toConnectionItem(conn *api.WebSocketConnection) *connectionItem {
 	}
 }
 
+// toAPIConnection converts a connectionItem to an api.WebSocketConnection.
+func toAPIConnection(item *connectionItem) *api.WebSocketConnection {
+	if item == nil {
+		return nil
+	}
+	return &api.WebSocketConnection{
+		ConnectionID:         item.ConnectionID,
+		ExecutionID:          item.ExecutionID,
+		Functionality:        item.Functionality,
+		ExpiresAt:            item.ExpiresAt,
+		ClientIP:             item.ClientIP,
+		Token:                item.Token,
+		UserEmail:            item.UserEmail,
+		ClientIPAtLogsTime:   item.ClientIPAtLogsTime,
+		LastSeenLogTimestamp: item.LastSeenLogTimestamp,
+		ReplayLock:           item.ReplayLock,
+		ReplayLockExpiresAt:  item.ReplayLockExpiresAt,
+	}
+}
+
 // CreateConnection stores a new WebSocket connection record in DynamoDB.
 func (r *ConnectionRepository) CreateConnection(
 	ctx context.Context,
@@ -181,28 +201,9 @@ func (r *ConnectionRepository) GetConnectionsByExecutionID(
 		return []*api.WebSocketConnection{}, nil
 	}
 
-	connections := make([]*api.WebSocketConnection, 0, len(result.Items))
-	connIDs := make([]string, 0, len(result.Items))
-
-	for _, item := range result.Items {
-		var connItem connectionItem
-		if unmarshalErr := attributevalue.UnmarshalMap(item, &connItem); unmarshalErr != nil {
-			return nil, fmt.Errorf("failed to unmarshal connection item: %w", unmarshalErr)
-		}
-		connIDs = append(connIDs, connItem.ConnectionID)
-		connections = append(connections, &api.WebSocketConnection{
-			ConnectionID:         connItem.ConnectionID,
-			ExecutionID:          connItem.ExecutionID,
-			Functionality:        connItem.Functionality,
-			ExpiresAt:            connItem.ExpiresAt,
-			ClientIP:             connItem.ClientIP,
-			Token:                connItem.Token,
-			UserEmail:            connItem.UserEmail,
-			ClientIPAtLogsTime:   connItem.ClientIPAtLogsTime,
-			LastSeenLogTimestamp: connItem.LastSeenLogTimestamp,
-			ReplayLock:           connItem.ReplayLock,
-			ReplayLockExpiresAt:  connItem.ReplayLockExpiresAt,
-		})
+	connections, connIDs, err := unmarshalConnectionItems(result.Items)
+	if err != nil {
+		return nil, err
 	}
 
 	reqLogger.Debug("connections retrieved successfully", "context", map[string]any{
@@ -212,6 +213,22 @@ func (r *ConnectionRepository) GetConnectionsByExecutionID(
 	})
 
 	return connections, nil
+}
+
+func unmarshalConnectionItems(items []map[string]types.AttributeValue) ([]*api.WebSocketConnection, []string, error) {
+	connections := make([]*api.WebSocketConnection, 0, len(items))
+	connIDs := make([]string, 0, len(items))
+
+	for _, item := range items {
+		var connItem connectionItem
+		if unmarshalErr := attributevalue.UnmarshalMap(item, &connItem); unmarshalErr != nil {
+			return nil, nil, fmt.Errorf("failed to unmarshal connection item: %w", unmarshalErr)
+		}
+		connIDs = append(connIDs, connItem.ConnectionID)
+		connections = append(connections, toAPIConnection(&connItem))
+	}
+
+	return connections, connIDs, nil
 }
 
 // buildDeleteRequests creates WriteRequest objects for all connection IDs.
