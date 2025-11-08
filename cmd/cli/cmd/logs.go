@@ -102,7 +102,7 @@ func NewLogsService(apiClient client.Interface, outputter OutputInterface) *Logs
 // fetchLogsWithRetry fetches logs with retry logic for 404 errors (execution starting up)
 func (s *LogsService) fetchLogsWithRetry(ctx context.Context, executionID string) (*api.LogsResponse, error) {
 	const (
-		maxRetries = 2
+		maxRetries = 4
 		retryDelay = 10 * time.Second
 	)
 
