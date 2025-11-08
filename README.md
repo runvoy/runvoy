@@ -55,7 +55,7 @@ runvoy addresses the challenge of giving team members access to run infrastructu
 
 - Go 1.24 or later
 - [just](https://github.com/casey/just) command runner
-- AWS CloudFormation and AWS profile configured with admin credentials (or check `infra/cloudformation-backend.yaml` for the required permissions)
+- AWS CLI configured with admin credentials (or check `infra/cloudformation-backend.yaml` for the required permissions)
 
 ### Deploy the backend infrastructure (one time only)
 
