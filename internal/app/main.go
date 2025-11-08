@@ -387,6 +387,7 @@ func (s *Service) GetLogsByExecutionID(
 	executionID string,
 	userEmail *string,
 	clientIPAtLogsTime *string,
+	lastSeenTimestamp *int64,
 ) (*api.LogsResponse, error) {
 	if s.executionRepo == nil {
 		return nil, apperrors.ErrInternalError("execution repository not configured", nil)
@@ -404,28 +405,48 @@ func (s *Service) GetLogsByExecutionID(
 		return nil, apperrors.ErrNotFound("execution not found", nil)
 	}
 
-	// Fetch logs
+	// Only provide WebSocket URL if execution is still RUNNING
+	var websocketURL string
+
+	if execution.Status == string(constants.ExecutionRunning) {
+		if s.websocketAPIBaseURL != "" {
+			url, wsErr := s.createWebSocketPendingConnection(
+				ctx, executionID, userEmail, clientIPAtLogsTime,
+			)
+			if wsErr != nil {
+				return nil, wsErr
+			}
+			websocketURL = url
+		}
+
+		return &api.LogsResponse{
+			ExecutionID:  executionID,
+			Status:       execution.Status,
+			WebSocketURL: websocketURL,
+		}, nil
+	}
+
+	// Fetch logs for completed executions
 	events, err := s.runner.FetchLogsByExecutionID(ctx, executionID)
 	if err != nil {
 		return nil, err
 	}
 
-	// Only provide WebSocket URL if execution is still RUNNING
-	var websocketURL string
-	if execution.Status == string(constants.ExecutionRunning) && s.websocketAPIBaseURL != "" {
-		url, wsErr := s.createWebSocketPendingConnection(
-			ctx, executionID, userEmail, clientIPAtLogsTime,
-		)
-		if wsErr != nil {
-			return nil, wsErr
+	filteredEvents := events
+	if lastSeenTimestamp != nil {
+		filteredEvents = make([]api.LogEvent, 0, len(events))
+		threshold := *lastSeenTimestamp
+		for _, event := range events {
+			if event.Timestamp > threshold {
+				filteredEvents = append(filteredEvents, event)
+			}
 		}
-		websocketURL = url
 	}
 
 	return &api.LogsResponse{
 		ExecutionID:  executionID,
 		Status:       execution.Status,
-		Events:       events,
+		Events:       filteredEvents,
 		WebSocketURL: websocketURL,
 	}, nil
 }

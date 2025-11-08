@@ -165,7 +165,18 @@ func (r *Router) handleGetExecutionLogs(w http.ResponseWriter, req *http.Request
 	// Extract client IP for tracing
 	clientIP := getClientIP(req)
 
-	resp, err := r.svc.GetLogsByExecutionID(req.Context(), executionID, &user.Email, &clientIP)
+	lastSeenQuery := strings.TrimSpace(req.URL.Query().Get("last_seen_timestamp"))
+	var lastSeenTimestamp *int64
+	if lastSeenQuery != "" {
+		parsedTimestamp, parseErr := strconv.ParseInt(lastSeenQuery, 10, 64)
+		if parseErr != nil {
+			writeErrorResponse(w, http.StatusBadRequest, "invalid last_seen_timestamp", "must be a valid integer timestamp")
+			return
+		}
+		lastSeenTimestamp = &parsedTimestamp
+	}
+
+	resp, err := r.svc.GetLogsByExecutionID(req.Context(), executionID, &user.Email, &clientIP, lastSeenTimestamp)
 	if err != nil {
 		statusCode := apperrors.GetStatusCode(err)
 		errorCode := apperrors.GetErrorCode(err)

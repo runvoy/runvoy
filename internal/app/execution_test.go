@@ -417,76 +417,93 @@ func TestKillExecution(t *testing.T) {
 func TestGetLogsByExecutionID(t *testing.T) {
 	ctx := context.Background()
 	now := time.Now()
+	firstTimestamp := now.UnixMilli()
+	secondTimestamp := firstTimestamp + 1000
 
 	tests := []struct {
-		name            string
-		executionID     string
-		mockEvents      []api.LogEvent
-		executionStatus string
-		fetchLogsErr    error
-		getExecutionErr error
-		expectErr       bool
-		expectedError   string
-		shouldHaveWSURL bool
+		name                  string
+		executionID           string
+		mockEvents            []api.LogEvent
+		executionStatus       string
+		fetchLogsErr          error
+		getExecutionErr       error
+		expectErr             bool
+		expectedErrCode       string
+		expectedErrorContains string
+		lastSeenTimestamp     *int64
+		expectedEvents        []api.LogEvent
+		expectedWebSocketURL  string
+		expectFetchCall       bool
 	}{
 		{
-			name:        "successful fetch with logs - running execution",
-			executionID: "exec-123",
-			mockEvents: []api.LogEvent{
-				{
-					Timestamp: now.Unix(),
-					Message:   "Starting task",
-				},
-				{
-					Timestamp: now.Add(1 * time.Second).Unix(),
-					Message:   "Task completed",
-				},
-			},
-			executionStatus: string(constants.ExecutionRunning),
-			expectErr:       false,
-			shouldHaveWSURL: true,
+			name:                 "running execution returns websocket response only",
+			executionID:          "exec-123",
+			executionStatus:      string(constants.ExecutionRunning),
+			expectedEvents:       nil,
+			expectedWebSocketURL: "",
+			expectFetchCall:      false,
 		},
 		{
-			name:            "successful fetch with logs - completed execution",
+			name:            "completed execution returns all logs",
 			executionID:     "exec-456",
-			mockEvents:      []api.LogEvent{{Timestamp: now.Unix(), Message: "Task completed"}},
 			executionStatus: string(constants.ExecutionSucceeded),
-			expectErr:       false,
-			shouldHaveWSURL: false,
+			mockEvents: []api.LogEvent{
+				{Timestamp: firstTimestamp, Message: "Starting task"},
+				{Timestamp: secondTimestamp, Message: "Task completed"},
+			},
+			expectedEvents: []api.LogEvent{
+				{Timestamp: firstTimestamp, Message: "Starting task"},
+				{Timestamp: secondTimestamp, Message: "Task completed"},
+			},
+			expectedWebSocketURL: "",
+			expectFetchCall:      true,
 		},
 		{
-			name:            "successful fetch with empty logs",
+			name:            "completed execution filters logs using last_seen_timestamp",
 			executionID:     "exec-789",
-			mockEvents:      []api.LogEvent{},
-			executionStatus: string(constants.ExecutionRunning),
-			expectErr:       false,
+			executionStatus: string(constants.ExecutionSucceeded),
+			mockEvents: []api.LogEvent{
+				{Timestamp: firstTimestamp, Message: "Starting task"},
+				{Timestamp: secondTimestamp, Message: "Task completed"},
+			},
+			lastSeenTimestamp: &firstTimestamp,
+			expectedEvents: []api.LogEvent{
+				{Timestamp: secondTimestamp, Message: "Task completed"},
+			},
+			expectedWebSocketURL: "",
+			expectFetchCall:      true,
 		},
 		{
-			name:          "empty execution ID",
-			executionID:   "",
-			expectErr:     true,
-			expectedError: apperrors.ErrCodeInvalidRequest,
-		},
-		{
-			name:          "execution not found",
-			executionID:   "exec-not-found",
-			expectErr:     true,
-			expectedError: apperrors.ErrCodeNotFound,
-		},
-		{
-			name:            "runner error",
-			executionID:     "exec-111",
-			executionStatus: string(constants.ExecutionRunning),
-			fetchLogsErr:    errors.New("failed to fetch logs"),
+			name:            "empty execution ID",
+			executionID:     "",
 			expectErr:       true,
-			expectedError:   "failed to fetch logs",
+			expectedErrCode: apperrors.ErrCodeInvalidRequest,
+			expectFetchCall: false,
+		},
+		{
+			name:            "execution not found",
+			executionID:     "exec-not-found",
+			expectErr:       true,
+			expectedErrCode: apperrors.ErrCodeNotFound,
+			expectFetchCall: false,
+		},
+		{
+			name:                  "runner error",
+			executionID:           "exec-111",
+			executionStatus:       string(constants.ExecutionSucceeded),
+			fetchLogsErr:          errors.New("failed to fetch logs"),
+			expectErr:             true,
+			expectedErrorContains: "failed to fetch logs",
+			expectFetchCall:       true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			var fetchCalled bool
 			runner := &mockRunner{
 				fetchLogsByExecutionIDFunc: func(_ context.Context, _ string) ([]api.LogEvent, error) {
+					fetchCalled = true
 					return tt.mockEvents, tt.fetchLogsErr
 				},
 			}
@@ -512,16 +529,16 @@ func TestGetLogsByExecutionID(t *testing.T) {
 			svc := newTestService(nil, execRepo, runner)
 			email := "test@example.com"
 			clientIP := "127.0.0.1"
-			resp, err := svc.GetLogsByExecutionID(ctx, tt.executionID, &email, &clientIP)
+			resp, err := svc.GetLogsByExecutionID(ctx, tt.executionID, &email, &clientIP, tt.lastSeenTimestamp)
 
 			if tt.expectErr {
 				require.Error(t, err)
-				if tt.expectedError == apperrors.ErrCodeInvalidRequest {
+				if tt.expectedErrCode == apperrors.ErrCodeInvalidRequest {
 					assert.Equal(t, apperrors.ErrCodeInvalidRequest, apperrors.GetErrorCode(err))
-				} else if tt.expectedError == apperrors.ErrCodeNotFound {
+				} else if tt.expectedErrCode == apperrors.ErrCodeNotFound {
 					assert.Equal(t, apperrors.ErrCodeNotFound, apperrors.GetErrorCode(err))
-				} else if tt.expectedError != "" {
-					assert.Contains(t, err.Error(), tt.expectedError)
+				} else if tt.expectedErrorContains != "" {
+					assert.Contains(t, err.Error(), tt.expectedErrorContains)
 				}
 				assert.Nil(t, resp)
 			} else {
@@ -529,16 +546,15 @@ func TestGetLogsByExecutionID(t *testing.T) {
 				require.NotNil(t, resp)
 				assert.Equal(t, tt.executionID, resp.ExecutionID)
 				assert.Equal(t, tt.executionStatus, resp.Status)
-				assert.Equal(t, len(tt.mockEvents), len(resp.Events))
-				if len(tt.mockEvents) > 0 {
-					assert.Equal(t, tt.mockEvents[0].Message, resp.Events[0].Message)
-				}
-				// WebSocket URL should only be present for RUNNING executions
-				if tt.shouldHaveWSURL {
-					// Note: Will be empty in test because websocketAPIBaseURL is ""
-					assert.Equal(t, "", resp.WebSocketURL)
+				assert.Equal(t, tt.expectedWebSocketURL, resp.WebSocketURL)
+				if tt.expectedEvents == nil {
+					assert.Len(t, resp.Events, 0)
+				} else {
+					require.Equal(t, len(tt.expectedEvents), len(resp.Events))
+					assert.Equal(t, tt.expectedEvents, resp.Events)
 				}
 			}
+			assert.Equal(t, tt.expectFetchCall, fetchCalled)
 		})
 	}
 }
@@ -633,7 +649,7 @@ func TestGetLogsByExecutionID_WebSocketToken(t *testing.T) {
 
 			email := "test@example.com"
 			clientIP := "192.168.1.1"
-			resp, err := svc.GetLogsByExecutionID(ctx, tt.executionID, &email, &clientIP)
+			resp, err := svc.GetLogsByExecutionID(ctx, tt.executionID, &email, &clientIP, nil)
 
 			if tt.expectErr {
 				assert.Error(t, err)
@@ -700,7 +716,7 @@ func TestGetLogsByExecutionID_TokenUniqueness(t *testing.T) {
 	for range 3 {
 		email := "test@example.com"
 		clientIP := "10.0.0.1"
-		resp, err := svc.GetLogsByExecutionID(ctx, execution.ExecutionID, &email, &clientIP)
+		resp, err := svc.GetLogsByExecutionID(ctx, execution.ExecutionID, &email, &clientIP, nil)
 		require.NoError(t, err)
 		assert.NotEmpty(t, resp.WebSocketURL)
 	}

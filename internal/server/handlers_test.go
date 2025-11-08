@@ -662,6 +662,28 @@ func TestHandleGetExecutionLogs_Success(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestHandleGetExecutionLogs_InvalidLastSeenTimestamp(t *testing.T) {
+	svc := app.NewService(
+		&testUserRepository{},
+		&testExecutionRepository{},
+		nil,
+		&testRunner{},
+		testutil.SilentLogger(),
+		constants.AWS,
+		"",
+	)
+	router := NewRouter(svc, 2*time.Second)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/executions/exec-123/logs?last_seen_timestamp=invalid", http.NoBody)
+	req.Header.Set("X-API-Key", "test-api-key")
+
+	resp := httptest.NewRecorder()
+	router.ServeHTTP(resp, req)
+
+	assert.Equal(t, http.StatusBadRequest, resp.Code)
+	assert.Contains(t, resp.Body.String(), "invalid last_seen_timestamp")
+}
+
 func TestHandleGetExecutionLogs_MissingExecutionID(t *testing.T) {
 	svc := app.NewService(
 		&testUserRepository{},

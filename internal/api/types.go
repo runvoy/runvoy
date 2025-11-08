@@ -84,10 +84,10 @@ type LogEvent struct {
 	Message   string `json:"message"`   // The actual log message text
 }
 
-// LogsResponse contains all log events for an execution
+// LogsResponse contains execution log events or a websocket URL for streaming.
 type LogsResponse struct {
 	ExecutionID string     `json:"execution_id"`
-	Events      []LogEvent `json:"events"`
+	Events      []LogEvent `json:"events,omitempty"`
 
 	// Current execution status (RUNNING, SUCCEEDED, FAILED, STOPPED)
 	Status string `json:"status"`
