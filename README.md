@@ -266,7 +266,7 @@ runvoy --help
 ```
 
 ```text
-runvoy - 0.1.0-20251108-91ee64e
+runvoy - 0.1.0-20251108-e702c1b
 Isolated, repeatable execution environments for your commands
 
 Usage:
@@ -325,7 +325,21 @@ runvoy run --git-repo https://github.com/mycompany/myproject.git npm run tests
 # ✓ Command execution started successfully
 #   Execution ID: 61fb9138466c4212b1e0d763a7f4dfe2
 #   Status: RUNNING
-# → View logs in web viewer: https://runvoy.site/?execution_id=61fb9138466c4212b1e0d763a7f4dfe2
+# → Logs not available yet, waiting 10 seconds... (attempt 1/3)
+# → Logs not available yet, waiting 10 seconds... (attempt 2/3)
+#
+# Line  Timestamp (UTC)  Message
+# ────  ───────────────  ───────
+#
+# → Connecting to log stream...
+# ✓ Connected to log stream. Press Ctrl+C to exit.
+#
+# 1     2025-11-08 10:00:00  Execution starting
+# 2     2025-11-08 10:00:05  ...
+# ... (continues to stream new logs in real-time)
+#
+# ^C
+# → Received interrupt signal, closing connection...
 ```
 
 **Log Viewing:**
