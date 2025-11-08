@@ -1,43 +1,47 @@
-# runvoy - serverless task manager
+# runvoy - serverless command execution platform
 
-Run commands on remote ephemeral containers and let your colleagues do the same, without having to share admin credentials nor use `ssh`.
+Run arbitrary commands on remote ephemeral containers.
 
-Deploy once, issue API keys, let your team execute Terraform, kubectl, and other tools safely from their terminals.
+Deploy once, issue API keys, let your team execute arbitrary (admin) commands safely from their terminals.
 
 Think of Terraform Cloud without the need for a Terraform Cloud account (and monthly bill...).
 
-Think of the flexibility of invoking `kubectl run` without the need for a Kubernetes cluster (or any other _always-running_ cluster, for that matter).
+Think of `kubectl run` without the need for a Kubernetes cluster (or any other _always-running_ cluster, for that matter).
 
-Think of running commands in an ephemeral environment and sharing execution logs like with Github Actions, but without the need for a CI/CD pipeline nor a 3rd party service.
+Think of sharing execution logs like with Github Actions, but without the need for a CI/CD pipeline nor a 3rd party service.
 
-![runvoy demo](runvoy-demo.gif)
+## Components
+
+- A CLI client (`runvoy`) to interact with the runvoy API
+- A web app client (<https://runvoy.site>, or self hosted), currently supporting only the logs view, with plans to map 1:1 with the CLI commands
+- A backend running on AWS (with plans to support other cloud providers in the future)
 
 ## Overview
 
-runvoy solves the challenge of giving team members access to run infrastructure commands (terraform, CDK, kubectl, etc.) without distributing admin credentials. Deploy once, secure forever.
+runvoy addresses the challenge of giving team members access to run infrastructure commands (terraform, ansible, kubectl, etc.) without distributing admin credentials. No more need for complex workstations setups to execute administrative commands, just a single API key to interact with the backend, the containers will run the actual commands in a privileged, production grade environment.
 
 **Key Benefits:**
 
-- **No credential sharing**: Team members never see AWS credentials
-- **Complete audit trail**: Every execution logged with user identification
-- **Safe stateful operations**: Automatic locking prevents concurrent conflicts
-- **Self-service**: Team members don't wait for admins to run commands
-- **Self-hosted**: The backend runs in your AWS account, you control everything
-- **Serverless**: No always-running servers, just pay for the compute your commands comsume
+- **No credential sharing**: Team members never see admin credentials (only one API key to interact with runvoy's backend)
+- **Complete audit trail**: Every interaction with the backend is logged with user identification. All logs stored in read-only database for auditing purposes (currently only CloudWatch Logs is supported, but with plans to extend support to other cloud services in the future)
+- **Self-hosted**: The backend runs in your AWS account, you control everything, including the policies and permissions assigned to the containers
+- **Serverless**: No always-running services, just pay for the compute your commands consume (essentially free for infrequent use)
 - **Full control**: No black magic. You can tune all the parameters, the resources are provisioned in your AWS account via CloudFormation
 
 ## Features
 
+- **API key authentication** - Secure access with hashed API keys (SHA-256)
 - **CloudFormation deployment** - Deploy complete backend infrastructure with CloudFormation templates
 - **Flexible container images** - Use any Docker image (terraform, python, node, etc.)
-- **API key authentication** - Secure access with hashed API keys (SHA-256)
-- **Execution isolation** - Commands run in ephemeral ECS Fargate (ARM64) containers
+- **Execution isolation** - Commands run in ephemeral containers
 - **CloudWatch integration** - Full execution logs and audit trails
 - **Real-time WebSocket streaming** - CLI and web viewer receive live logs over authenticated WebSocket connections
-- **Multi-user support** - Centralized execution for entire teams
-- **Event-driven architecture** - Automatic execution tracking via EventBridge
-- **Execution locking** - Prevent concurrent operations on shared resources (e.g., Terraform state) NOT IMPLEMENTED YET
 - **Unix-style output streams** - Separate logs (stderr) from data (stdout) for easy piping and scripting
+- **RBAC** - Role based access control for the backend API (NOT IMPLEMENTED YET). Runvoy admins define roles and permissions for users, non-admin users can only execute commands / clone repos / select Docker images they are allowed to use
+
+## Demo
+
+![runvoy demo](runvoy-demo.gif)
 
 ## Quick Start
 
@@ -57,14 +61,7 @@ runvoy solves the challenge of giving team members access to run infrastructure 
 
 This will bootstrap the backend infrastructure and seed the admin user, that is, normal users don't need to do this.
 
-Ensure AWS credentials are configured in your shell, e.g:
-
-```bash
-export AWS_PROFILE=your-profile
-export AWS_REGION=us-east-2
-```
-
-then run:
+Ensure [AWS credentials are configured](https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-configure.html) in your shell environment, then run:
 
 ```bash
 just init
@@ -75,6 +72,14 @@ just init
 ```bash
 go build -o $(go env GOPATH)/bin/runvoy ./cmd/cli
 ```
+
+NOTE: this is a temporary solution until we have a proper release process, it will probably look something like this:
+
+```bash
+go install github.com/runvoy/runvoy@latest
+```
+
+and a download page to get the latest release from the [releases page](https://github.com/runvoy/runvoy/releases) for users without Go installed.
 
 ### User Onboarding
 
@@ -198,8 +203,14 @@ just check
 # Build all binaries (CLI, orchestrator, event processor, local server)
 just build
 
-# Deploy all services to AWS
+# Deploy all services
 just deploy
+
+# Deploy backend
+just deploy-backend
+
+# Deploy webapp
+just deploy-webapp
 
 # Or deploy individual services
 just deploy-orchestrator
@@ -237,16 +248,6 @@ For more information about the development workflow, see [Development with `just
 
 ## Architecture
 
-runvoy uses a serverless event-driven architecture built on AWS resources:
-
-- **Orchestrator Lambda**: HTTPS endpoint (Function URL) for synchronous API requests
-- **Event Processor Lambda**: Handles ECS task completions, CloudWatch Logs subscriptions, and WebSocket lifecycle events (one Lambda processes all async workloads)
-- **WebSocket API**: API Gateway endpoint for WebSocket connections used to stream logs in real time
-- **DynamoDB**: Stores API keys (hashed), execution records with status, and WebSocket connection records
-- **ECS Fargate**: Runs commands in isolated, ephemeral ARM64 containers (sidecar)
-- **EventBridge**: Captures ECS task state changes for completion tracking
-- **CloudWatch**: Logs all executions for audit and debugging, forwards logs to WebSocket connections for streaming in real-time
-
 For detailed architecture information, see [ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## Usage
@@ -261,7 +262,7 @@ runvoy --help
 ```
 
 ```text
-runvoy - 0.1.0-20251108-aa4c149
+runvoy - 0.1.0-20251108-71fad8d
 Isolated, repeatable execution environments for your commands
 
 Usage:
@@ -385,7 +386,6 @@ Line  Timestamp (UTC)      Message
 
 ^C
 → Received interrupt signal, closing connection...
-
 → View logs in web viewer: http://localhost:56212/webapp/index.html?execution_id=2e1c58557c3f4ee1a81c0071fdd0b1e9
 ```
 
@@ -410,7 +410,7 @@ The web viewer is a minimal, single-page application that provides:
 3. Enter your API key (same as in `~/.runvoy/config.yaml`)
 4. Settings are saved in browser's localStorage for future use
 
-The web viewer is hosted on AWS S3 by default, but you can configure a custom URL if you deploy your own instance (see Configuration below).
+The web viewer is hosted on [Netlify](https://www.netlify.com/) by default, but you can configure a custom URL if you deploy your own instance (see Configuration below).
 
 **Configuration:**
 
@@ -420,6 +420,8 @@ The web application URL can be customized via:
 - Config file (`~/.runvoy/config.yaml`): `web_url` field
 
 If not configured, it defaults to `https://runvoy.site/`.
+
+`just local-dev-webapp` to run the webapp locally, by default it will be available at <http://localhost:5173>
 
 **User Management:**
 
@@ -524,7 +526,7 @@ The `.env` file is automatically created when you run `just init` or `just local
 
 ### Development with `just`
 
-The repository ships with a `justfile` to streamline common build, deploy, and QA flows. The default recipe (`just runvoy`) rebuilds the CLI before running any arguments you pass through, so you can quickly exercise commands locally:
+The repository ships with a `justfile` to streamline common build, deploy, and QA flows. Run `just --list` to see all available commands. The default recipe (`just runvoy`) rebuilds the CLI before running any arguments you pass through, so you can quickly exercise commands locally:
 
 ```bash
 # equivalent to: go build ./cmd/cli && ./bin/runvoy logs <id>
