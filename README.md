@@ -33,6 +33,7 @@ runvoy solves the challenge of giving team members access to run infrastructure 
 - **API key authentication** - Secure access with hashed API keys (SHA-256)
 - **Execution isolation** - Commands run in ephemeral ECS Fargate (ARM64) containers
 - **CloudWatch integration** - Full execution logs and audit trails
+- **Real-time WebSocket streaming** - CLI and web viewer receive live logs over authenticated WebSocket connections
 - **Multi-user support** - Centralized execution for entire teams
 - **Event-driven architecture** - Automatic execution tracking via EventBridge
 - **Execution locking** - Prevent concurrent operations on shared resources (e.g., Terraform state) NOT IMPLEMENTED YET
@@ -239,10 +240,8 @@ For more information about the development workflow, see [Development with `just
 runvoy uses a serverless event-driven architecture built on AWS resources:
 
 - **Orchestrator Lambda**: HTTPS endpoint (Function URL) for synchronous API requests
-- **Event Processor Lambda**: Asynchronous event handler for ECS task completions and WebSocket disconnect notifications
-- **WebSocket API**: API Gateway endpoint for WebSocket connections for streaming logs in real-time
-- **Log Forwarder Lambda**: Pushes logs to WebSocket connections for streaming in real-time
-- **WebSocket Manager Lambda**: Manages WebSocket connection lifecycle ($connect, $disconnect) and sends disconnect notifications when executions complete
+- **Event Processor Lambda**: Handles ECS task completions, CloudWatch Logs subscriptions, and WebSocket lifecycle events (one Lambda processes all async workloads)
+- **WebSocket API**: API Gateway endpoint for WebSocket connections used to stream logs in real time
 - **DynamoDB**: Stores API keys (hashed), execution records with status, and WebSocket connection records
 - **ECS Fargate**: Runs commands in isolated, ephemeral ARM64 containers (sidecar)
 - **EventBridge**: Captures ECS task state changes for completion tracking
@@ -339,6 +338,8 @@ runvoy run --git-repo https://github.com/mycompany/myproject.git npm run tests
 ```
 
 **Log Viewing:**
+
+`runvoy logs` first retrieves the full log history via the REST API. When the execution is still running, the backend returns a one-time WebSocket URL; the CLI connects to that URL to stream new log events live, and falls back to the web viewer link if the connection closes.
 
 ```bash
 runvoy logs <executionID>

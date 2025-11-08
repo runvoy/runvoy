@@ -450,6 +450,8 @@ The application uses a unified logging approach with structured logging via `log
 │   logs          │
 └─────────────────┘
 
+> **Note:** For brevity the diagram omits the API Gateway WebSocket path. In production, CloudWatch Logs invoke the event processor, which relays batched log events to CLI and web viewer clients over the WebSocket API.
+
 ## Event Processor Architecture
 
 The platform uses a dedicated **event processor Lambda** to handle asynchronous events from AWS services. This provides a clean separation between synchronous API requests (handled by the orchestrator) and asynchronous event processing.
@@ -457,7 +459,7 @@ The platform uses a dedicated **event processor Lambda** to handle asynchronous 
 ### Design Pattern
 
 - **Orchestrator Lambda**: Handles synchronous HTTP API requests
-- **Event Processor Lambda**: Handles asynchronous events from EventBridge
+- **Event Processor Lambda**: Handles asynchronous workloads from EventBridge, CloudWatch Logs subscriptions, and API Gateway WebSocket lifecycle events
 - Both Lambdas are independent, scalable, and focused on their specific domain
 
 ### Event Processing Flow
@@ -476,11 +478,15 @@ The platform uses a dedicated **event processor Lambda** to handle asynchronous 
    - Completion timestamp
    - Duration in seconds
 7. **WebSocket Disconnect Notification**: When execution reaches a terminal status, the event processor reuses the WebSocket manager to notify connected clients and clean up connections without invoking a separate Lambda
+8. **CloudWatch Logs Streaming**: CloudWatch Logs subscription events deliver batched runner log entries; the processor converts them to `api.LogEvent` records and pushes each entry to active WebSocket connections
+9. **WebSocket Lifecycle**: `$connect`, `$disconnect`, and `$disconnect-execution` routes from API Gateway are handled in-process to authenticate clients, persist connection metadata, and fan out disconnect messages
 
 ### Event Types
 
 Currently handles:
 - **ECS Task State Change**: Updates execution records when tasks complete
+- **CloudWatch Logs Subscription**: Streams runner container logs to connected clients in real time
+- **API Gateway WebSocket Events**: Manages `$connect`, `$disconnect`, and `$disconnect-execution` routes
 
 Designed to be extended for future event types:
 - CloudWatch Alarms
@@ -571,8 +577,8 @@ The platform uses WebSocket connections for real-time log streaming to clients (
 
 ### Design Pattern
 
-- **Event Processor Lambda**: Handles WebSocket connection lifecycle events and execution completion notifications via the shared WebSocket manager package
-- **Log Forwarder Lambda**: Forwards CloudWatch Logs events to connected WebSocket clients
+- **Event Processor Lambda**: Handles WebSocket connection lifecycle events, streams CloudWatch log batches, and issues disconnect notifications via the shared WebSocket manager package
+- **CloudWatch Logs subscription**: Invokes the event processor whenever runner container logs are produced, allowing it to push log events to all active connections
 - **API Gateway WebSocket API**: Provides WebSocket endpoints for client connections
 
 ### Components
@@ -644,14 +650,14 @@ When an execution reaches a terminal status (SUCCEEDED, FAILED, STOPPED):
 ### Connection Lifecycle
 
 **Connection Establishment**:
-1. Client connects to WebSocket URL with `execution_id` query parameter
-2. API Gateway routes `$connect` event to the event processor Lambda
-3. Lambda stores connection record in DynamoDB
-4. Connection ready for log streaming
+1. CLI or web viewer calls `GET /api/v1/executions/{id}/logs`; the service creates a pending WebSocket token and returns a one-time `wss://` URL containing `execution_id` and `token` query parameters
+2. Client connects to the returned WebSocket URL
+3. API Gateway routes the `$connect` event to the event processor Lambda
+4. Lambda validates the token, stores the connection record in DynamoDB, and the connection becomes ready for streaming
 
 **Log Streaming**:
-1. Log streaming functionality will be reimplemented in the event processor
-2. Clients receive log events in real-time via WebSocket
+1. CloudWatch Logs invokes the event processor with batched runner log events
+2. The event processor transforms each entry into an `api.LogEvent` and sends it to every active WebSocket connection for that execution in real time
 
 **Connection Termination**:
 - **Manual disconnect**: Client closes connection → API Gateway routes `$disconnect` → Lambda removes connection record via the embedded WebSocket manager
@@ -917,12 +923,13 @@ Automation-friendly targets remain the same: agents should prefer `just lint-fix
 
 ### Log Viewing and Tailing
 
-The service exposes a logs endpoint that aggregates CloudWatch Logs events for a given execution ID (ECS task ID). The response now includes a monotonically increasing `line` number for each event. The CLI implements client-side tailing behavior on top of this endpoint:
+The service exposes a logs endpoint that aggregates CloudWatch Logs events for a given execution ID (ECS task ID). Each response includes the full history of log events (`timestamp` in milliseconds and raw `message`) and, when the execution is still running, a temporary WebSocket URL for live streaming. The CLI implements real-time tailing on top of this endpoint:
 
 - Auth required via `X-API-Key`
 - Returns all available events across discovered streams containing the task ID
 - Reads from deterministic stream: `task/<container-name>/<executionID>` (container: `executor`)
 - Response is sorted by timestamp ascending
+- For RUNNING executions, `websocket_url` contains a one-time `wss://` endpoint with an embedded token used to establish an authenticated WebSocket connection
 
 Error behavior:
 
@@ -934,10 +941,12 @@ Example response:
 ```json
 {
   "execution_id": "abc123",
+  "status": "RUNNING",
   "events": [
-    {"timestamp": 1730250000000, "message": "Execution starting"},
-    {"timestamp": 1730250005000, "message": "..."}
-  ]
+    { "timestamp": 1730250000000, "message": "Execution starting" },
+    { "timestamp": 1730250005000, "message": "..." }
+  ],
+  "websocket_url": "wss://abc123.execute-api.us-east-1.amazonaws.com/production?execution_id=abc123&token=..."
 }
 ```
 
@@ -949,10 +958,10 @@ RUNVOY_LOG_GROUP           # required (e.g. /aws/ecs/runvoy)
 
 Client behavior (CLI `runvoy logs <executionID>`):
 
-- Waits until the execution moves out of pending/queued/starting using the status API, showing a spinner
-- By default (no flags), fetches and prints all logs once with a `Line` column and exits
-- With `--follow` (`-f`), streams logs, polling every 5 seconds and printing only new lines (based on `line`)
-- Stops tailing when the execution reaches a terminal status (COMPLETED/SUCCEEDED/FAILED/etc.) and prints the final status badge
+- Fetches and prints the entire log history with computed line numbers (client-side)
+- When the response contains `websocket_url`, connects to the WebSocket endpoint to stream new logs in real time
+- Falls back to printing the web viewer URL if the WebSocket connection closes (e.g., execution completed or user cancels)
+- Stops tailing automatically once the execution reaches a terminal status (SUCCEEDED/FAILED/STOPPED)
 
 Future enhancements may include server-side filtering and pagination.
 
