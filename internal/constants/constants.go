@@ -338,7 +338,7 @@ func ExtractExecutionIDFromLogStream(logStream string) string {
 		return ""
 	}
 
-	if parts[1] != RunnerContainerName {
+	if parts[1] != RunnerContainerName && parts[1] != SidecarContainerName {
 		return ""
 	}
 
