@@ -59,26 +59,6 @@ func Initialize(
 	return NewService(userRepo, executionRepo, connRepo, runner, logger, provider, cfg.WebSocketAPIEndpoint), nil
 }
 
-// validateAWSConfig validates required AWS configuration.
-func validateAWSConfig(cfg *config.Config) error {
-	if cfg.APIKeysTable == "" {
-		return fmt.Errorf("APIKeysTable cannot be empty")
-	}
-	if cfg.ExecutionsTable == "" {
-		return fmt.Errorf("ExecutionsTable cannot be empty")
-	}
-	if cfg.PendingAPIKeysTable == "" {
-		return fmt.Errorf("PendingAPIKeysTable cannot be empty")
-	}
-	if cfg.WebSocketConnectionsTable == "" {
-		return fmt.Errorf("WebSocketConnectionsTable cannot be empty")
-	}
-	if cfg.ECSCluster == "" {
-		return fmt.Errorf("ECSCluster cannot be empty")
-	}
-	return nil
-}
-
 // initializeAWSBackend sets up AWS-specific dependencies.
 func initializeAWSBackend(
 	ctx context.Context,
@@ -91,10 +71,6 @@ func initializeAWSBackend(
 	Runner,
 	error,
 ) {
-	if err := validateAWSConfig(cfg); err != nil {
-		return nil, nil, nil, nil, err
-	}
-
 	awsCfg, err := awsConfig.LoadDefaultConfig(ctx)
 	if err != nil {
 		return nil, nil, nil, nil, fmt.Errorf("failed to load AWS configuration: %w", err)
