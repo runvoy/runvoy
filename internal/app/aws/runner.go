@@ -47,8 +47,8 @@ func NewRunner(ecsClient *ecs.Client, cfg *Config, log *slog.Logger) *Runner {
 }
 
 // FetchLogsByExecutionID returns CloudWatch log events for the given execution ID.
-func (e *Runner) FetchLogsByExecutionID(ctx context.Context, executionID string) ([]api.LogEvent, error) {
-	return FetchLogsByExecutionID(ctx, e.cfg, executionID)
+func (e *Runner) FetchLogsByExecutionID(ctx context.Context, executionID string, lastSeenTimestamp *int64) ([]api.LogEvent, error) {
+	return FetchLogsByExecutionID(ctx, e.cfg, executionID, lastSeenTimestamp)
 }
 
 // buildSidecarContainerCommand constructs the shell command for the sidecar container.

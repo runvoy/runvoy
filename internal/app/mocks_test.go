@@ -188,7 +188,7 @@ type mockRunner struct {
 	registerImageFunc          func(ctx context.Context, image string, isDefault *bool) error
 	listImagesFunc             func(ctx context.Context) ([]api.ImageInfo, error)
 	removeImageFunc            func(ctx context.Context, image string) error
-	fetchLogsByExecutionIDFunc func(ctx context.Context, executionID string) ([]api.LogEvent, error)
+	fetchLogsByExecutionIDFunc func(ctx context.Context, executionID string, lastSeenTimestamp *int64) ([]api.LogEvent, error)
 }
 
 func (m *mockRunner) StartTask(
@@ -230,9 +230,9 @@ func (m *mockRunner) RemoveImage(ctx context.Context, image string) error {
 	return nil
 }
 
-func (m *mockRunner) FetchLogsByExecutionID(ctx context.Context, executionID string) ([]api.LogEvent, error) {
+func (m *mockRunner) FetchLogsByExecutionID(ctx context.Context, executionID string, lastSeenTimestamp *int64) ([]api.LogEvent, error) {
 	if m.fetchLogsByExecutionIDFunc != nil {
-		return m.fetchLogsByExecutionIDFunc(ctx, executionID)
+		return m.fetchLogsByExecutionIDFunc(ctx, executionID, lastSeenTimestamp)
 	}
 	return []api.LogEvent{}, nil
 }
@@ -243,7 +243,7 @@ func newTestService(
 	execRepo *mockExecutionRepository,
 	runner *mockRunner,
 ) *Service {
-	return newTestServiceWithConnRepo(userRepo, execRepo, nil, runner)
+	return newTestServiceWithConnRepo(userRepo, execRepo, &mockConnectionRepository{}, runner)
 }
 
 // newTestServiceWithConnRepo creates a Service with connection repo mock for testing

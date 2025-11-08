@@ -16,6 +16,20 @@ import (
 // mockRunner implements the app.Runner interface for testing
 type mockRunner struct{}
 
+type noopConnectionRepository struct{}
+
+func (n *noopConnectionRepository) CreateConnection(_ context.Context, _ *api.WebSocketConnection) error {
+	return nil
+}
+
+func (n *noopConnectionRepository) DeleteConnections(_ context.Context, connIDs []string) (int, error) {
+	return len(connIDs), nil
+}
+
+func (n *noopConnectionRepository) GetConnectionsByExecutionID(_ context.Context, _ string) ([]*api.WebSocketConnection, error) {
+	return nil, nil
+}
+
 func (m *mockRunner) StartTask(_ context.Context, _ string, _ *api.ExecutionRequest) (string, *time.Time, error) {
 	return "test-execution-id", nil, nil
 }
@@ -40,14 +54,14 @@ func (m *mockRunner) RemoveImage(_ context.Context, _ string) error {
 	return nil
 }
 
-func (m *mockRunner) FetchLogsByExecutionID(_ context.Context, _ string) ([]api.LogEvent, error) {
+func (m *mockRunner) FetchLogsByExecutionID(_ context.Context, _ string, _ *int64) ([]api.LogEvent, error) {
 	return []api.LogEvent{}, nil
 }
 
 // Test that the status endpoint exists and requires authentication
 func TestGetExecutionStatus_Unauthorized(t *testing.T) {
 	// Build a minimal service with nil repos; we won't reach the handler due to auth
-	svc := app.NewService(nil, nil, nil, &mockRunner{}, testutil.SilentLogger(), constants.AWS, "")
+	svc := app.NewService(nil, nil, &noopConnectionRepository{}, &mockRunner{}, testutil.SilentLogger(), constants.AWS, "")
 	router := NewRouter(svc, 2*time.Second)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/executions/exec-123/status", http.NoBody)

@@ -21,7 +21,7 @@ import (
 
 // FetchLogsByExecutionID queries CloudWatch Logs for events associated with the ECS task ID
 // Returns a slice of LogEvent sorted by timestamp.
-func FetchLogsByExecutionID(ctx context.Context, cfg *Config, executionID string) ([]api.LogEvent, error) {
+func FetchLogsByExecutionID(ctx context.Context, cfg *Config, executionID string, lastSeenTimestamp *int64) ([]api.LogEvent, error) {
 	if cfg == nil || cfg.LogGroup == "" {
 		return nil, appErrors.ErrInternalError("CloudWatch Logs group not configured", nil)
 	}
@@ -50,7 +50,7 @@ func FetchLogsByExecutionID(ctx context.Context, cfg *Config, executionID string
 	})
 
 	var events []api.LogEvent
-	events, err = getAllLogEvents(ctx, cwl, cfg.LogGroup, stream)
+	events, err = getAllLogEvents(ctx, cwl, cfg.LogGroup, stream, lastSeenTimestamp)
 	if err != nil {
 		return nil, err
 	}
@@ -100,10 +100,15 @@ func verifyLogStreamExists(
 // getAllLogEvents paginates through CloudWatch Logs GetLogEvents to collect all events
 // for the provided log group and stream. It returns the aggregated events or an error.
 func getAllLogEvents(ctx context.Context,
-	cwl *cloudwatchlogs.Client, logGroup string, stream string) ([]api.LogEvent, error) {
+	cwl *cloudwatchlogs.Client, logGroup string, stream string, lastSeenTimestamp *int64) ([]api.LogEvent, error) {
 	var events []api.LogEvent
 	var nextToken *string
 	pageCount := 0
+	var startTime *int64
+	if lastSeenTimestamp != nil {
+		start := *lastSeenTimestamp + 1
+		startTime = aws.Int64(start)
+	}
 	for {
 		pageCount++
 
@@ -111,6 +116,7 @@ func getAllLogEvents(ctx context.Context,
 			LogGroupName:  &logGroup,
 			LogStreamName: &stream,
 			NextToken:     nextToken,
+			StartTime:     startTime,
 			StartFromHead: aws.Bool(true),
 			Limit:         aws.Int32(constants.CloudWatchLogsEventsLimit),
 		})

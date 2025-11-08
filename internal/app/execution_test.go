@@ -421,26 +421,27 @@ func TestGetLogsByExecutionID(t *testing.T) {
 	secondTimestamp := firstTimestamp + 1000
 
 	tests := []struct {
-		name                  string
-		executionID           string
-		mockEvents            []api.LogEvent
-		executionStatus       string
-		fetchLogsErr          error
-		getExecutionErr       error
-		expectErr             bool
-		expectedErrCode       string
-		expectedErrorContains string
-		lastSeenTimestamp     *int64
-		expectedEvents        []api.LogEvent
-		expectedWebSocketURL  string
-		expectFetchCall       bool
+		name                    string
+		executionID             string
+		mockEvents              []api.LogEvent
+		executionStatus         string
+		fetchLogsErr            error
+		getExecutionErr         error
+		expectErr               bool
+		expectedErrCode         string
+		expectedErrorContains   string
+		lastSeenTimestamp       *int64
+		expectedEvents          []api.LogEvent
+		expectWebSocketURL      bool
+		expectFetchCall         bool
+		expectLastSeenForwarded bool
 	}{
 		{
 			name:                 "running execution returns websocket response only",
 			executionID:          "exec-123",
 			executionStatus:      string(constants.ExecutionRunning),
 			expectedEvents:       nil,
-			expectedWebSocketURL: "",
+			expectWebSocketURL:   true,
 			expectFetchCall:      false,
 		},
 		{
@@ -455,7 +456,7 @@ func TestGetLogsByExecutionID(t *testing.T) {
 				{Timestamp: firstTimestamp, Message: "Starting task"},
 				{Timestamp: secondTimestamp, Message: "Task completed"},
 			},
-			expectedWebSocketURL: "",
+			expectWebSocketURL:   false,
 			expectFetchCall:      true,
 		},
 		{
@@ -463,29 +464,31 @@ func TestGetLogsByExecutionID(t *testing.T) {
 			executionID:     "exec-789",
 			executionStatus: string(constants.ExecutionSucceeded),
 			mockEvents: []api.LogEvent{
-				{Timestamp: firstTimestamp, Message: "Starting task"},
 				{Timestamp: secondTimestamp, Message: "Task completed"},
 			},
 			lastSeenTimestamp: &firstTimestamp,
 			expectedEvents: []api.LogEvent{
 				{Timestamp: secondTimestamp, Message: "Task completed"},
 			},
-			expectedWebSocketURL: "",
-			expectFetchCall:      true,
+			expectWebSocketURL:      false,
+			expectFetchCall:         true,
+			expectLastSeenForwarded: true,
 		},
 		{
 			name:            "empty execution ID",
 			executionID:     "",
-			expectErr:       true,
-			expectedErrCode: apperrors.ErrCodeInvalidRequest,
-			expectFetchCall: false,
+			expectErr:          true,
+			expectedErrCode:    apperrors.ErrCodeInvalidRequest,
+			expectWebSocketURL: false,
+			expectFetchCall:    false,
 		},
 		{
 			name:            "execution not found",
 			executionID:     "exec-not-found",
-			expectErr:       true,
-			expectedErrCode: apperrors.ErrCodeNotFound,
-			expectFetchCall: false,
+			expectErr:          true,
+			expectedErrCode:    apperrors.ErrCodeNotFound,
+			expectWebSocketURL: false,
+			expectFetchCall:    false,
 		},
 		{
 			name:                  "runner error",
@@ -494,6 +497,7 @@ func TestGetLogsByExecutionID(t *testing.T) {
 			fetchLogsErr:          errors.New("failed to fetch logs"),
 			expectErr:             true,
 			expectedErrorContains: "failed to fetch logs",
+			expectWebSocketURL:    false,
 			expectFetchCall:       true,
 		},
 	}
@@ -501,9 +505,11 @@ func TestGetLogsByExecutionID(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var fetchCalled bool
+			var observedLastSeen *int64
 			runner := &mockRunner{
-				fetchLogsByExecutionIDFunc: func(_ context.Context, _ string) ([]api.LogEvent, error) {
+				fetchLogsByExecutionIDFunc: func(_ context.Context, _ string, lastSeen *int64) ([]api.LogEvent, error) {
 					fetchCalled = true
+					observedLastSeen = lastSeen
 					return tt.mockEvents, tt.fetchLogsErr
 				},
 			}
@@ -546,7 +552,11 @@ func TestGetLogsByExecutionID(t *testing.T) {
 				require.NotNil(t, resp)
 				assert.Equal(t, tt.executionID, resp.ExecutionID)
 				assert.Equal(t, tt.executionStatus, resp.Status)
-				assert.Equal(t, tt.expectedWebSocketURL, resp.WebSocketURL)
+				if tt.expectWebSocketURL {
+					assert.NotEmpty(t, resp.WebSocketURL)
+				} else {
+					assert.Empty(t, resp.WebSocketURL)
+				}
 				if tt.expectedEvents == nil {
 					assert.Len(t, resp.Events, 0)
 				} else {
@@ -555,6 +565,14 @@ func TestGetLogsByExecutionID(t *testing.T) {
 				}
 			}
 			assert.Equal(t, tt.expectFetchCall, fetchCalled)
+			if tt.expectFetchCall {
+				if tt.expectLastSeenForwarded {
+					require.NotNil(t, observedLastSeen)
+					assert.Equal(t, tt.lastSeenTimestamp, observedLastSeen)
+				} else {
+					assert.Nil(t, observedLastSeen)
+				}
+			}
 		})
 	}
 }
@@ -595,15 +613,6 @@ func TestGetLogsByExecutionID_WebSocketToken(t *testing.T) {
 			expectErr:        false,
 		},
 		{
-			name:             "running execution without base URL does not generate token",
-			executionID:      "exec-789",
-			executionStatus:  string(constants.ExecutionRunning),
-			websocketBaseURL: "",
-			mockEvents:       []api.LogEvent{{Message: "test"}},
-			expectTokenInURL: false,
-			expectErr:        false,
-		},
-		{
 			name:              "pending connection creation failure",
 			executionID:       "exec-999",
 			executionStatus:   string(constants.ExecutionRunning),
@@ -629,7 +638,7 @@ func TestGetLogsByExecutionID_WebSocketToken(t *testing.T) {
 			}
 
 			runner := &mockRunner{
-				fetchLogsByExecutionIDFunc: func(_ context.Context, _ string) ([]api.LogEvent, error) {
+				fetchLogsByExecutionIDFunc: func(_ context.Context, _ string, _ *int64) ([]api.LogEvent, error) {
 					return tt.mockEvents, nil
 				},
 			}
@@ -695,7 +704,7 @@ func TestGetLogsByExecutionID_TokenUniqueness(t *testing.T) {
 	}
 
 	runner := &mockRunner{
-		fetchLogsByExecutionIDFunc: func(_ context.Context, _ string) ([]api.LogEvent, error) {
+		fetchLogsByExecutionIDFunc: func(_ context.Context, _ string, _ *int64) ([]api.LogEvent, error) {
 			return []api.LogEvent{{Message: "test"}}, nil
 		},
 	}

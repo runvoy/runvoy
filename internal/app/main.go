@@ -39,7 +39,7 @@ type Runner interface {
 	RemoveImage(ctx context.Context, image string) error
 	// FetchLogsByExecutionID retrieves logs for a specific execution.
 	// Returns empty slice if logs are not available or not supported by the provider.
-	FetchLogsByExecutionID(ctx context.Context, executionID string) ([]api.LogEvent, error)
+	FetchLogsByExecutionID(ctx context.Context, executionID string, lastSeenTimestamp *int64) ([]api.LogEvent, error)
 }
 
 // Service provides the core business logic for command execution and user management.
@@ -409,15 +409,13 @@ func (s *Service) GetLogsByExecutionID(
 	var websocketURL string
 
 	if execution.Status == string(constants.ExecutionRunning) {
-		if s.websocketAPIBaseURL != "" {
-			url, wsErr := s.createWebSocketPendingConnection(
-				ctx, executionID, userEmail, clientIPAtLogsTime,
-			)
-			if wsErr != nil {
-				return nil, wsErr
-			}
-			websocketURL = url
+		url, wsErr := s.createWebSocketPendingConnection(
+			ctx, executionID, userEmail, clientIPAtLogsTime,
+		)
+		if wsErr != nil {
+			return nil, wsErr
 		}
+		websocketURL = url
 
 		return &api.LogsResponse{
 			ExecutionID:  executionID,
@@ -427,26 +425,15 @@ func (s *Service) GetLogsByExecutionID(
 	}
 
 	// Fetch logs for completed executions
-	events, err := s.runner.FetchLogsByExecutionID(ctx, executionID)
+	events, err := s.runner.FetchLogsByExecutionID(ctx, executionID, lastSeenTimestamp)
 	if err != nil {
 		return nil, err
-	}
-
-	filteredEvents := events
-	if lastSeenTimestamp != nil {
-		filteredEvents = make([]api.LogEvent, 0, len(events))
-		threshold := *lastSeenTimestamp
-		for _, event := range events {
-			if event.Timestamp > threshold {
-				filteredEvents = append(filteredEvents, event)
-			}
-		}
 	}
 
 	return &api.LogsResponse{
 		ExecutionID:  executionID,
 		Status:       execution.Status,
-		Events:       filteredEvents,
+		Events:       events,
 		WebSocketURL: websocketURL,
 	}, nil
 }
