@@ -12,9 +12,9 @@ Think of sharing execution logs like with Github Actions, but without the need f
 
 ## Components
 
-- A CLI client (`runvoy`) to interact with the runvoy API
-- A web app client (<https://runvoy.site>, or self hosted), currently supporting only the logs view, with plans to map 1:1 with the CLI commands
-- A backend running on AWS (with plans to support other cloud providers in the future)
+- CLI client (`runvoy`) to interact with the runvoy API
+- web app client (<https://runvoy.site>, or self hosted), currently supporting only the logs view, with plans to map 1:1 with the CLI commands
+- backend running on your AWS account (with plans to support other cloud providers in the future) which exposes the API endpoint and runs background activities
 
 ## Overview
 
@@ -27,6 +27,7 @@ runvoy addresses the challenge of giving team members access to run infrastructu
 - **Self-hosted**: The backend runs in your AWS account, you control everything, including the policies and permissions assigned to the containers
 - **Serverless**: No always-running services, just pay for the compute your commands consume (essentially free for infrequent use)
 - **Full control**: No black magic. You can tune all the parameters, the resources are provisioned in your AWS account via CloudFormation
+- **Doesn't _run on your computer_**: The actual commands are executed in remote production-grade environments properly configured for access, team member's workstations don't need any special configuration with credentials, env vars, and so on
 
 ## Features
 
