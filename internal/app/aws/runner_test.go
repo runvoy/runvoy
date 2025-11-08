@@ -1,6 +1,7 @@
 package aws
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -47,7 +48,13 @@ func TestBuildMainContainerCommandWithoutRepo(t *testing.T) {
 	require.Len(t, cmd, 3)
 	commandScript := cmd[2]
 
-	assert.Contains(t, commandScript, "printf '### "+constants.ProjectName+" runner execution started by requestID => request-123")
+	expectedStart := fmt.Sprintf(
+		"printf '### %s runner execution started by requestID => %s",
+		constants.ProjectName,
+		"request-123",
+	)
+	assert.Contains(t, commandScript, expectedStart)
+
 	assert.Contains(t, commandScript, "printf '### Docker image => ubuntu:22.04")
 	assert.Contains(t, commandScript, constants.ProjectName+" command => "+req.Command)
 	assert.True(t, strings.HasSuffix(commandScript, req.Command), "shell command should end with the user command")
@@ -73,7 +80,13 @@ func TestBuildMainContainerCommandWithRepo(t *testing.T) {
 	require.Len(t, cmd, 3)
 	commandScript := cmd[2]
 
-	assert.Contains(t, commandScript, "cd "+constants.SharedVolumePath+"/repo/nested/path", "should change into the requested git subdirectory")
+	expectedCd := "cd " + constants.SharedVolumePath + "/repo/nested/path"
+	assert.Contains(
+		t,
+		commandScript,
+		expectedCd,
+		"should change into the requested git subdirectory",
+	)
 	assert.Contains(t, commandScript, "Checked out repo => "+repoURL+" (ref: "+repoRef+") (path: "+repoPath+")")
 	assert.True(t, strings.HasSuffix(commandScript, req.Command))
 }
