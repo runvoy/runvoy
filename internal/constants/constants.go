@@ -352,3 +352,6 @@ func ExtractExecutionIDFromLogStream(logStream string) string {
 
 // MaxConcurrentSends is the maximum number of concurrent sends to WebSocket connections
 const MaxConcurrentSends = 10
+
+// DefaultGitRef is the default Git reference to use if no reference is provided
+const DefaultGitRef = "main"
