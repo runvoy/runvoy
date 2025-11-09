@@ -18,6 +18,14 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/ecs"
 )
 
+type serviceDependencies struct {
+	userRepo      database.UserRepository
+	executionRepo database.ExecutionRepository
+	connRepo      database.ConnectionRepository
+	tokenRepo     database.TokenRepository
+	runner        Runner
+}
+
 // Initialize creates a new Service configured for the specified backend provider.
 // It returns an error if the context is canceled, timed out, or if an unknown provider is specified.
 // Callers should handle errors and potentially panic if initialization fails during startup.
@@ -40,23 +48,40 @@ func Initialize(
 		userRepo      database.UserRepository
 		executionRepo database.ExecutionRepository
 		connRepo      database.ConnectionRepository
+		tokenRepo     database.TokenRepository
 		runner        Runner
 		err           error
 	)
 
 	switch provider {
 	case constants.AWS:
-		userRepo, executionRepo, connRepo, runner, err = initializeAWSBackend(ctx, cfg, logger)
+		var deps *serviceDependencies
+		deps, err = initializeAWSBackend(ctx, cfg, logger)
 		if err != nil {
 			return nil, fmt.Errorf("failed to initialize AWS: %w", err)
 		}
+
+		userRepo = deps.userRepo
+		executionRepo = deps.executionRepo
+		connRepo = deps.connRepo
+		tokenRepo = deps.tokenRepo
+		runner = deps.runner
 	default:
 		return nil, fmt.Errorf("unknown backend provider: %s (supported: %s)", provider, constants.AWS)
 	}
 
 	logger.Debug(constants.ProjectName + " orchestrator initialized successfully")
 
-	return NewService(userRepo, executionRepo, connRepo, runner, logger, provider, cfg.WebSocketAPIEndpoint), nil
+	return NewService(
+		userRepo,
+		executionRepo,
+		connRepo,
+		tokenRepo,
+		runner,
+		logger,
+		provider,
+		cfg.WebSocketAPIEndpoint,
+	), nil
 }
 
 // initializeAWSBackend sets up AWS-specific dependencies.
@@ -64,16 +89,10 @@ func initializeAWSBackend(
 	ctx context.Context,
 	cfg *config.Config,
 	logger *slog.Logger,
-) (
-	database.UserRepository,
-	database.ExecutionRepository,
-	database.ConnectionRepository,
-	Runner,
-	error,
-) {
+) (*serviceDependencies, error) {
 	awsCfg, err := awsConfig.LoadDefaultConfig(ctx)
 	if err != nil {
-		return nil, nil, nil, nil, fmt.Errorf("failed to load AWS configuration: %w", err)
+		return nil, fmt.Errorf("failed to load AWS configuration: %w", err)
 	}
 
 	dynamoClient := dynamodb.NewFromConfig(awsCfg)
@@ -84,11 +103,13 @@ func initializeAWSBackend(
 		"executions_table":            cfg.ExecutionsTable,
 		"pending_api_keys_table":      cfg.PendingAPIKeysTable,
 		"websocket_connections_table": cfg.WebSocketConnectionsTable,
+		"websocket_tokens_table":      cfg.WebSocketTokensTable,
 	})
 
 	userRepo := dynamoRepo.NewUserRepository(dynamoClient, cfg.APIKeysTable, cfg.PendingAPIKeysTable, logger)
 	executionRepo := dynamoRepo.NewExecutionRepository(dynamoClient, cfg.ExecutionsTable, logger)
 	connRepo := dynamoRepo.NewConnectionRepository(dynamoClient, cfg.WebSocketConnectionsTable, logger)
+	tokenRepo := dynamoRepo.NewTokenRepository(dynamoClient, cfg.WebSocketTokensTable, logger)
 
 	awsExecCfg := &appAws.Config{
 		ECSCluster:      cfg.ECSCluster,
@@ -102,5 +123,11 @@ func initializeAWSBackend(
 	}
 	runner := appAws.NewRunner(ecsClientInstance, awsExecCfg, logger)
 
-	return userRepo, executionRepo, connRepo, runner, nil
+	return &serviceDependencies{
+		userRepo:      userRepo,
+		executionRepo: executionRepo,
+		connRepo:      connRepo,
+		tokenRepo:     tokenRepo,
+		runner:        runner,
+	}, nil
 }

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"time"
 
 	"runvoy/internal/api"
 	"runvoy/internal/config"
@@ -33,6 +34,7 @@ type Manager interface {
 //nolint:revive // exported type name is intentional for clarity
 type WebSocketManager struct {
 	connRepo      database.ConnectionRepository
+	tokenRepo     database.TokenRepository
 	apiGwClient   *apigatewaymanagementapi.Client
 	apiGwEndpoint *string
 	logger        *slog.Logger
@@ -44,6 +46,7 @@ func NewWebSocketManager(
 	cfg *config.Config,
 	awsCfg *aws.Config,
 	connRepo database.ConnectionRepository,
+	tokenRepo database.TokenRepository,
 	log *slog.Logger,
 ) *WebSocketManager {
 	apiGwClient := apigatewaymanagementapi.NewFromConfig(*awsCfg, func(o *apigatewaymanagementapi.Options) {
@@ -58,6 +61,7 @@ func NewWebSocketManager(
 
 	return &WebSocketManager{
 		connRepo:      connRepo,
+		tokenRepo:     tokenRepo,
 		apiGwClient:   apiGwClient,
 		apiGwEndpoint: aws.String(cfg.WebSocketAPIEndpoint),
 		logger:        log,
@@ -200,20 +204,12 @@ func (wm *WebSocketManager) handleConnect(
 		return *errResp, nil
 	}
 
-	pendingConnection, errResp := wm.validateAndConsumePendingToken(ctx, executionID, token)
+	wsToken, errResp := wm.fetchWebSocketToken(ctx, token, executionID)
 	if errResp != nil {
 		return *errResp, nil
 	}
 
-	connection := &api.WebSocketConnection{
-		ConnectionID:       connectionID,
-		ExecutionID:        executionID,
-		Functionality:      constants.FunctionalityLogStreaming,
-		ExpiresAt:          pendingConnection.ExpiresAt,
-		ClientIP:           getClientIPFromWebSocketRequest(&req),
-		UserEmail:          pendingConnection.UserEmail,
-		ClientIPAtLogsTime: pendingConnection.ClientIPAtLogsTime,
-	}
+	connection := wm.newWebSocketConnection(&req, token, wsToken)
 
 	if err := wm.connRepo.CreateConnection(ctx, connection); err != nil {
 		wm.logger.Error("failed to store connection", "error", err)
@@ -223,6 +219,57 @@ func (wm *WebSocketManager) handleConnect(
 		}, nil
 	}
 
+	wm.logConnectionEstablished(connection)
+
+	return events.APIGatewayProxyResponse{
+		StatusCode: http.StatusOK,
+		Body:       "Connected",
+	}, nil
+}
+
+func (wm *WebSocketManager) fetchWebSocketToken(
+	ctx context.Context,
+	token string,
+	executionID string,
+) (*api.WebSocketToken, *events.APIGatewayProxyResponse) {
+	wsToken, err := wm.tokenRepo.GetToken(ctx, token)
+	if err != nil {
+		wm.logger.Error("failed to validate token", "error", err, "execution_id", executionID)
+		return nil, &events.APIGatewayProxyResponse{
+			StatusCode: http.StatusInternalServerError,
+			Body:       "Failed to validate token",
+		}
+	}
+
+	if wsToken == nil {
+		wm.logger.Info("invalid or expired websocket token", "execution_id", executionID)
+		return nil, &events.APIGatewayProxyResponse{
+			StatusCode: http.StatusUnauthorized,
+			Body:       "Invalid or expired token",
+		}
+	}
+
+	return wsToken, nil
+}
+
+func (wm *WebSocketManager) newWebSocketConnection(
+	req *events.APIGatewayWebsocketProxyRequest,
+	token string,
+	wsToken *api.WebSocketToken,
+) *api.WebSocketConnection {
+	return &api.WebSocketConnection{
+		ConnectionID:       req.RequestContext.ConnectionID,
+		ExecutionID:        req.QueryStringParameters["execution_id"],
+		Functionality:      constants.FunctionalityLogStreaming,
+		ExpiresAt:          time.Now().Add(constants.ConnectionTTLHours * time.Hour).Unix(),
+		Token:              token, // Keep the token for cleanup on disconnect
+		ClientIP:           getClientIPFromWebSocketRequest(req),
+		UserEmail:          wsToken.UserEmail,
+		ClientIPAtLogsTime: wsToken.ClientIPAtLogsTime,
+	}
+}
+
+func (wm *WebSocketManager) logConnectionEstablished(connection *api.WebSocketConnection) {
 	wm.logger.Info("authenticated connection established", "context", map[string]any{
 		"connection_id":     connection.ConnectionID,
 		"execution_id":      connection.ExecutionID,
@@ -232,11 +279,6 @@ func (wm *WebSocketManager) handleConnect(
 		"user_email":        connection.UserEmail,
 		"client_ip_at_logs": connection.ClientIPAtLogsTime,
 	})
-
-	return events.APIGatewayProxyResponse{
-		StatusCode: http.StatusOK,
-		Body:       "Connected",
-	}, nil
 }
 
 // validateConnectionParams validates required connection parameters.
@@ -270,44 +312,8 @@ func (wm *WebSocketManager) validateConnectionParams(
 	return nil
 }
 
-// validateAndConsumePendingToken validates the WebSocket token against pending connections.
-// The token is reusable and persists until it expires via TTL, allowing clients to reconnect
-// without needing to call /logs again. This enables seamless reconnection on connection drops.
-func (wm *WebSocketManager) validateAndConsumePendingToken(
-	ctx context.Context,
-	executionID, token string,
-) (*api.WebSocketConnection, *events.APIGatewayProxyResponse) {
-	pendingConnections, err := wm.connRepo.GetConnectionsByExecutionID(ctx, executionID)
-	if err != nil {
-		wm.logger.Error("failed to validate websocket token", "error", err,
-			"execution_id", executionID)
-		return nil, &events.APIGatewayProxyResponse{
-			StatusCode: http.StatusInternalServerError,
-			Body:       "Failed to validate token",
-		}
-	}
-
-	var pendingConnection *api.WebSocketConnection
-	for _, conn := range pendingConnections {
-		if conn.Token == token {
-			pendingConnection = conn
-			break
-		}
-	}
-
-	if pendingConnection == nil {
-		wm.logger.Info("invalid or expired websocket token", "execution_id", executionID)
-		return nil, &events.APIGatewayProxyResponse{
-			StatusCode: http.StatusUnauthorized,
-			Body:       "Invalid or expired token",
-		}
-	}
-
-	return pendingConnection, nil
-}
-
 // handleDisconnect handles the $disconnect route key.
-// It deletes the WebSocket connection from DynamoDB and returns a success response.
+// It deletes the WebSocket connection and its associated token from DynamoDB.
 //
 //nolint:gocritic // Lambda event types are passed by value per AWS Lambda conventions
 func (wm *WebSocketManager) handleDisconnect(
@@ -328,6 +334,7 @@ func (wm *WebSocketManager) handleDisconnect(
 		"connection_id": connectionID,
 	})
 
+	// Delete the connection
 	deletedCount, err := wm.connRepo.DeleteConnections(ctx, []string{connectionID})
 	if err != nil {
 		wm.logger.Error("failed to delete connection", "error", err)
@@ -336,6 +343,10 @@ func (wm *WebSocketManager) handleDisconnect(
 			Body:       fmt.Sprintf("Failed to delete connection: %v", err),
 		}, nil
 	}
+
+	// Token cleanup: DynamoDB TTL automatically deletes tokens after expiration.
+	// Manual deletion on disconnect is not necessary since the token expires with
+	// the same TTL as the connection.
 
 	wm.logger.Info("connection disconnected", "context", map[string]any{
 		"connection_id": connectionID,

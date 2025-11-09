@@ -40,6 +40,7 @@ type Config struct {
 	TaskExecRoleARN           string        `mapstructure:"task_exec_role_arn"`
 	TaskRoleARN               string        `mapstructure:"task_role_arn"`
 	WebSocketConnectionsTable string        `mapstructure:"websocket_connections_table"`
+	WebSocketTokensTable      string        `mapstructure:"websocket_tokens_table"`
 	WebSocketAPIEndpoint      string        `mapstructure:"websocket_api_endpoint"`
 	InitTimeout               time.Duration `mapstructure:"init_timeout"`
 	LogLevel                  string        `mapstructure:"log_level"`
@@ -316,6 +317,7 @@ func bindEnvVars(v *viper.Viper) {
 		"TASK_ROLE_ARN",
 		"WEBSOCKET_API_ENDPOINT",
 		"WEBSOCKET_CONNECTIONS_TABLE",
+		"WEBSOCKET_TOKENS_TABLE",
 		"WEB_URL",
 	}
 
@@ -346,6 +348,7 @@ func validateOrchestrator(cfg *Config) error {
 		"LogGroup":                  cfg.LogGroup,
 		"WebSocketConnectionsTable": cfg.WebSocketConnectionsTable,
 		"WebSocketAPIEndpoint":      cfg.WebSocketAPIEndpoint,
+		"WebSocketTokensTable":      cfg.WebSocketTokensTable,
 	}
 
 	for field, value := range required {
@@ -365,6 +368,7 @@ func validateEventProcessor(cfg *Config) error {
 		"ECSCluster":                cfg.ECSCluster,
 		"WebSocketConnectionsTable": cfg.WebSocketConnectionsTable,
 		"WebSocketAPIEndpoint":      cfg.WebSocketAPIEndpoint,
+		"WebSocketTokensTable":      cfg.WebSocketTokensTable,
 	}
 
 	for field, value := range required {

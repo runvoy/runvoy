@@ -47,6 +47,7 @@ type Service struct {
 	userRepo            database.UserRepository
 	executionRepo       database.ExecutionRepository
 	connRepo            database.ConnectionRepository
+	tokenRepo           database.TokenRepository
 	runner              Runner
 	Logger              *slog.Logger
 	Provider            constants.BackendProvider
@@ -62,6 +63,7 @@ func NewService(
 	userRepo database.UserRepository,
 	executionRepo database.ExecutionRepository,
 	connRepo database.ConnectionRepository,
+	tokenRepo database.TokenRepository,
 	runner Runner,
 	log *slog.Logger,
 	provider constants.BackendProvider,
@@ -70,6 +72,7 @@ func NewService(
 		userRepo:            userRepo,
 		executionRepo:       executionRepo,
 		connRepo:            connRepo,
+		tokenRepo:           tokenRepo,
 		runner:              runner,
 		Logger:              log,
 		Provider:            provider,
@@ -410,19 +413,7 @@ func (s *Service) GetLogsByExecutionID(
 
 	var websocketURL string
 	if s.websocketAPIBaseURL != "" {
-		url, wsErr := s.createWebSocketPendingConnection(
-			ctx, executionID, userEmail, clientIPAtLogsTime,
-		)
-		if wsErr != nil {
-			s.Logger.Error("failed to create websocket url", "context", map[string]any{
-				"error":        wsErr.Error(),
-				"execution_id": executionID,
-			})
-			// Don't fail the entire response - logs are still available, just no WebSocket
-			// This ensures clients can always access the authoritative log backlog
-		} else {
-			websocketURL = url
-		}
+		websocketURL = s.generateWebSocketURL(ctx, executionID, userEmail, clientIPAtLogsTime)
 	}
 
 	return &api.LogsResponse{
@@ -433,54 +424,52 @@ func (s *Service) GetLogsByExecutionID(
 	}, nil
 }
 
-// createWebSocketPendingConnection creates a pending WebSocket connection for streaming logs
-// Returns the WebSocket URL with authentication token or an error
-func (s *Service) createWebSocketPendingConnection(
+// generateWebSocketURL creates a WebSocket token and returns the connection URL.
+// It stores the token for validation when the client connects.
+func (s *Service) generateWebSocketURL(
 	ctx context.Context,
 	executionID string,
 	userEmail *string,
 	clientIPAtLogsTime *string,
-) (string, error) {
+) string {
+	// Generate a secure token for WebSocket authentication
+	token, tokenGenErr := auth.GenerateSecretToken()
+	if tokenGenErr != nil {
+		s.Logger.Error("failed to generate websocket token",
+			"error", tokenGenErr,
+			"execution_id", executionID)
+		return ""
+	}
+
+	// Store token for validation when client connects
+	expiresAt := time.Now().Add(constants.ConnectionTTLHours * time.Hour).Unix()
 	var email string
 	if userEmail != nil {
 		email = *userEmail
 	}
-
 	var clientIP string
 	if clientIPAtLogsTime != nil {
 		clientIP = *clientIPAtLogsTime
 	}
-	// Generate a secure token for WebSocket authentication
-	token, tokenErr := auth.GenerateSecretToken()
-	if tokenErr != nil {
-		s.Logger.Error("failed to generate websocket token",
-			"error", tokenErr,
-			"execution_id", executionID)
-		return "", apperrors.ErrInternalError("failed to generate websocket token", tokenErr)
-	}
 
-	// Create a pending connection entry with the token
-	expiresAt := time.Now().Add(constants.ConnectionTTLHours * time.Hour).Unix()
-	pendingConnection := &api.WebSocketConnection{
-		ConnectionID:       fmt.Sprintf("pending_%s", executionID),
-		ExecutionID:        executionID,
-		Functionality:      constants.FunctionalityLogStreaming,
-		ExpiresAt:          expiresAt,
+	wsToken := &api.WebSocketToken{
 		Token:              token,
+		ExecutionID:        executionID,
 		UserEmail:          email,
 		ClientIPAtLogsTime: clientIP,
+		ExpiresAt:          expiresAt,
+		CreatedAt:          time.Now().Unix(),
 	}
 
-	if connErr := s.connRepo.CreateConnection(ctx, pendingConnection); connErr != nil {
-		s.Logger.Error("failed to create pending websocket connection",
-			"error", connErr,
-			"execution_id", executionID,
-			"user_email", email)
-		return "", apperrors.ErrInternalError("failed to create websocket connection", connErr)
+	if tokenErr := s.tokenRepo.CreateToken(ctx, wsToken); tokenErr != nil {
+		s.Logger.Error("failed to store websocket token",
+			"error", tokenErr,
+			"execution_id", executionID)
+		return ""
 	}
 
 	wsURL := "wss://" + s.websocketAPIBaseURL
-	return fmt.Sprintf("%s?execution_id=%s&token=%s", wsURL, executionID, token), nil
+	return fmt.Sprintf("%s?execution_id=%s&token=%s", wsURL, executionID, token)
 }
 
 // GetExecutionStatus returns the current status and metadata for a given execution ID

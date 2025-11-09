@@ -151,6 +151,20 @@ func (t *testExecutionRepository) ListExecutions(_ context.Context) ([]*api.Exec
 	return []*api.Execution{}, nil
 }
 
+type testTokenRepository struct{}
+
+func (t *testTokenRepository) CreateToken(_ context.Context, _ *api.WebSocketToken) error {
+	return nil
+}
+
+func (t *testTokenRepository) GetToken(_ context.Context, _ string) (*api.WebSocketToken, error) {
+	return nil, nil
+}
+
+func (t *testTokenRepository) DeleteToken(_ context.Context, _ string) error {
+	return nil
+}
+
 type testRunner struct {
 	runCommandFunc func(userEmail string, req *api.ExecutionRequest) (*time.Time, error)
 	listImagesFunc func() ([]api.ImageInfo, error)
@@ -195,7 +209,16 @@ func (t *testRunner) FetchLogsByExecutionID(_ context.Context, _ string) ([]api.
 }
 
 func TestHandleHealth(t *testing.T) {
-	svc := app.NewService(nil, nil, nil, &testRunner{}, testutil.SilentLogger(), constants.AWS, "")
+	svc := app.NewService(
+		nil,
+		nil,
+		nil,
+		&testTokenRepository{},
+		&testRunner{},
+		testutil.SilentLogger(),
+		constants.AWS,
+		"",
+	)
 	router := NewRouter(svc, 2*time.Second)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/health", http.NoBody)
@@ -213,7 +236,16 @@ func TestHandleRunCommand_Success(t *testing.T) {
 	execRepo := &testExecutionRepository{}
 	runner := &testRunner{}
 
-	svc := app.NewService(userRepo, execRepo, nil, runner, testutil.SilentLogger(), constants.AWS, "")
+	svc := app.NewService(
+		userRepo,
+		execRepo,
+		nil,
+		&testTokenRepository{},
+		runner,
+		testutil.SilentLogger(),
+		constants.AWS,
+		"",
+	)
 	router := NewRouter(svc, 2*time.Second)
 
 	reqBody := api.ExecutionRequest{
@@ -237,7 +269,16 @@ func TestHandleRunCommand_Success(t *testing.T) {
 }
 
 func TestHandleRunCommand_InvalidJSON(t *testing.T) {
-	svc := app.NewService(&testUserRepository{}, nil, nil, &testRunner{}, testutil.SilentLogger(), constants.AWS, "")
+	svc := app.NewService(
+		&testUserRepository{},
+		nil,
+		nil,
+		&testTokenRepository{},
+		&testRunner{},
+		testutil.SilentLogger(),
+		constants.AWS,
+		"",
+	)
 	router := NewRouter(svc, 2*time.Second)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/run", bytes.NewReader([]byte("invalid json")))
@@ -257,7 +298,16 @@ func TestHandleRunCommand_Unauthorized(t *testing.T) {
 		},
 	}
 
-	svc := app.NewService(userRepo, nil, nil, &testRunner{}, testutil.SilentLogger(), constants.AWS, "")
+	svc := app.NewService(
+		userRepo,
+		nil,
+		nil,
+		&testTokenRepository{},
+		&testRunner{},
+		testutil.SilentLogger(),
+		constants.AWS,
+		"",
+	)
 	router := NewRouter(svc, 2*time.Second)
 
 	reqBody := api.ExecutionRequest{Command: "echo hello"}
@@ -288,7 +338,16 @@ func TestHandleListExecutions_Success(t *testing.T) {
 		},
 	}
 
-	svc := app.NewService(&testUserRepository{}, execRepo, nil, &testRunner{}, testutil.SilentLogger(), constants.AWS, "")
+	svc := app.NewService(
+		&testUserRepository{},
+		execRepo,
+		nil,
+		&testTokenRepository{},
+		&testRunner{},
+		testutil.SilentLogger(),
+		constants.AWS,
+		"",
+	)
 	router := NewRouter(svc, 2*time.Second)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/executions", http.NoBody)
@@ -313,7 +372,16 @@ func TestHandleListExecutions_Empty(t *testing.T) {
 		},
 	}
 
-	svc := app.NewService(&testUserRepository{}, execRepo, nil, &testRunner{}, testutil.SilentLogger(), constants.AWS, "")
+	svc := app.NewService(
+		&testUserRepository{},
+		execRepo,
+		nil,
+		&testTokenRepository{},
+		&testRunner{},
+		testutil.SilentLogger(),
+		constants.AWS,
+		"",
+	)
 	router := NewRouter(svc, 2*time.Second)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/executions", http.NoBody)
@@ -333,7 +401,16 @@ func TestHandleListExecutions_DatabaseError(t *testing.T) {
 		},
 	}
 
-	svc := app.NewService(&testUserRepository{}, execRepo, nil, &testRunner{}, testutil.SilentLogger(), constants.AWS, "")
+	svc := app.NewService(
+		&testUserRepository{},
+		execRepo,
+		nil,
+		&testTokenRepository{},
+		&testRunner{},
+		testutil.SilentLogger(),
+		constants.AWS,
+		"",
+	)
 	router := NewRouter(svc, 2*time.Second)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/executions", http.NoBody)
@@ -347,7 +424,16 @@ func TestHandleListExecutions_DatabaseError(t *testing.T) {
 }
 
 func TestHandleRegisterImage_Success(t *testing.T) {
-	svc := app.NewService(&testUserRepository{}, nil, nil, &testRunner{}, testutil.SilentLogger(), constants.AWS, "")
+	svc := app.NewService(
+		&testUserRepository{},
+		nil,
+		nil,
+		&testTokenRepository{},
+		&testRunner{},
+		testutil.SilentLogger(),
+		constants.AWS,
+		"",
+	)
 	router := NewRouter(svc, 2*time.Second)
 
 	reqBody := api.RegisterImageRequest{
@@ -367,7 +453,16 @@ func TestHandleRegisterImage_Success(t *testing.T) {
 }
 
 func TestHandleRegisterImage_InvalidJSON(t *testing.T) {
-	svc := app.NewService(&testUserRepository{}, nil, nil, &testRunner{}, testutil.SilentLogger(), constants.AWS, "")
+	svc := app.NewService(
+		&testUserRepository{},
+		nil,
+		nil,
+		&testTokenRepository{},
+		&testRunner{},
+		testutil.SilentLogger(),
+		constants.AWS,
+		"",
+	)
 	router := NewRouter(svc, 2*time.Second)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/images/register", bytes.NewReader([]byte("invalid json")))
@@ -390,7 +485,16 @@ func TestHandleListImages_Success(t *testing.T) {
 		},
 	}
 
-	svc := app.NewService(&testUserRepository{}, nil, nil, runner, testutil.SilentLogger(), constants.AWS, "")
+	svc := app.NewService(
+		&testUserRepository{},
+		nil,
+		nil,
+		&testTokenRepository{},
+		runner,
+		testutil.SilentLogger(),
+		constants.AWS,
+		"",
+	)
 	router := NewRouter(svc, 2*time.Second)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/images", http.NoBody)
@@ -411,7 +515,16 @@ func TestHandleListImages_Empty(t *testing.T) {
 		},
 	}
 
-	svc := app.NewService(&testUserRepository{}, nil, nil, runner, testutil.SilentLogger(), constants.AWS, "")
+	svc := app.NewService(
+		&testUserRepository{},
+		nil,
+		nil,
+		&testTokenRepository{},
+		runner,
+		testutil.SilentLogger(),
+		constants.AWS,
+		"",
+	)
 	router := NewRouter(svc, 2*time.Second)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/images", http.NoBody)
@@ -424,7 +537,16 @@ func TestHandleListImages_Empty(t *testing.T) {
 }
 
 func TestHandleRemoveImage_Success(t *testing.T) {
-	svc := app.NewService(&testUserRepository{}, nil, nil, &testRunner{}, testutil.SilentLogger(), constants.AWS, "")
+	svc := app.NewService(
+		&testUserRepository{},
+		nil,
+		nil,
+		&testTokenRepository{},
+		&testRunner{},
+		testutil.SilentLogger(),
+		constants.AWS,
+		"",
+	)
 	router := NewRouter(svc, 2*time.Second)
 
 	reqBody := api.RemoveImageRequest{
@@ -443,7 +565,16 @@ func TestHandleRemoveImage_Success(t *testing.T) {
 }
 
 func TestHandleRemoveImage_MissingImage(t *testing.T) {
-	svc := app.NewService(&testUserRepository{}, nil, nil, &testRunner{}, testutil.SilentLogger(), constants.AWS, "")
+	svc := app.NewService(
+		&testUserRepository{},
+		nil,
+		nil,
+		&testTokenRepository{},
+		&testRunner{},
+		testutil.SilentLogger(),
+		constants.AWS,
+		"",
+	)
 	router := NewRouter(svc, 2*time.Second)
 
 	// DELETE request without image path parameter
@@ -498,7 +629,16 @@ func TestGetClientIP_XForwardedForPrecedence(t *testing.T) {
 
 func TestHandleListUsers_Success(t *testing.T) {
 	userRepo := &testUserRepository{}
-	svc := app.NewService(userRepo, nil, nil, &testRunner{}, testutil.SilentLogger(), constants.AWS, "")
+	svc := app.NewService(
+		userRepo,
+		nil,
+		nil,
+		&testTokenRepository{},
+		&testRunner{},
+		testutil.SilentLogger(),
+		constants.AWS,
+		"",
+	)
 	router := NewRouter(svc, 2*time.Second)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/users/", http.NoBody)
@@ -528,7 +668,16 @@ func TestHandleListUsers_Unauthorized(t *testing.T) {
 			return nil, apperrors.ErrInvalidAPIKey(nil)
 		},
 	}
-	svc := app.NewService(userRepo, nil, nil, &testRunner{}, testutil.SilentLogger(), constants.AWS, "")
+	svc := app.NewService(
+		userRepo,
+		nil,
+		nil,
+		&testTokenRepository{},
+		&testRunner{},
+		testutil.SilentLogger(),
+		constants.AWS,
+		"",
+	)
 	router := NewRouter(svc, 2*time.Second)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/users/", http.NoBody)
@@ -551,7 +700,16 @@ func TestHandleListUsers_RepositoryError(t *testing.T) {
 			return nil, apperrors.ErrDatabaseError("database error", errors.New("connection failed"))
 		},
 	}
-	svc := app.NewService(userRepo, nil, nil, &testRunner{}, testutil.SilentLogger(), constants.AWS, "")
+	svc := app.NewService(
+		userRepo,
+		nil,
+		nil,
+		&testTokenRepository{},
+		&testRunner{},
+		testutil.SilentLogger(),
+		constants.AWS,
+		"",
+	)
 	router := NewRouter(svc, 2*time.Second)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/users/", http.NoBody)
@@ -567,7 +725,16 @@ func TestHandleListUsers_RepositoryError(t *testing.T) {
 // TODO: Add TestHandleCreateUser_Success - requires complex mock setup for admin user and pending keys
 
 func TestHandleCreateUser_InvalidJSON(t *testing.T) {
-	svc := app.NewService(&testUserRepository{}, nil, nil, &testRunner{}, testutil.SilentLogger(), constants.AWS, "")
+	svc := app.NewService(
+		&testUserRepository{},
+		nil,
+		nil,
+		&testTokenRepository{},
+		&testRunner{},
+		testutil.SilentLogger(),
+		constants.AWS,
+		"",
+	)
 	router := NewRouter(svc, 2*time.Second)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/users/create", bytes.NewReader([]byte("invalid json")))
@@ -587,7 +754,16 @@ func TestHandleCreateUser_Unauthorized(t *testing.T) {
 		},
 	}
 
-	svc := app.NewService(userRepo, nil, nil, &testRunner{}, testutil.SilentLogger(), constants.AWS, "")
+	svc := app.NewService(
+		userRepo,
+		nil,
+		nil,
+		&testTokenRepository{},
+		&testRunner{},
+		testutil.SilentLogger(),
+		constants.AWS,
+		"",
+	)
 	router := NewRouter(svc, 2*time.Second)
 
 	reqBody := api.CreateUserRequest{Email: "newuser@example.com"}
@@ -604,7 +780,16 @@ func TestHandleCreateUser_Unauthorized(t *testing.T) {
 
 func TestHandleRevokeUser_Success(t *testing.T) {
 	userRepo := &testUserRepository{}
-	svc := app.NewService(userRepo, nil, nil, &testRunner{}, testutil.SilentLogger(), constants.AWS, "")
+	svc := app.NewService(
+		userRepo,
+		nil,
+		nil,
+		&testTokenRepository{},
+		&testRunner{},
+		testutil.SilentLogger(),
+		constants.AWS,
+		"",
+	)
 	router := NewRouter(svc, 2*time.Second)
 
 	reqBody := api.RevokeUserRequest{
@@ -624,7 +809,16 @@ func TestHandleRevokeUser_Success(t *testing.T) {
 }
 
 func TestHandleRevokeUser_InvalidJSON(t *testing.T) {
-	svc := app.NewService(&testUserRepository{}, nil, nil, &testRunner{}, testutil.SilentLogger(), constants.AWS, "")
+	svc := app.NewService(
+		&testUserRepository{},
+		nil,
+		nil,
+		&testTokenRepository{},
+		&testRunner{},
+		testutil.SilentLogger(),
+		constants.AWS,
+		"",
+	)
 	router := NewRouter(svc, 2*time.Second)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/users/revoke", bytes.NewReader([]byte("invalid json")))
@@ -642,6 +836,7 @@ func TestHandleGetExecutionLogs_Success(t *testing.T) {
 		&testUserRepository{},
 		&testExecutionRepository{},
 		nil,
+		&testTokenRepository{},
 		&testRunner{},
 		testutil.SilentLogger(),
 		constants.AWS,
@@ -667,6 +862,7 @@ func TestHandleGetExecutionLogs_MissingExecutionID(t *testing.T) {
 		&testUserRepository{},
 		&testExecutionRepository{},
 		nil,
+		&testTokenRepository{},
 		&testRunner{},
 		testutil.SilentLogger(),
 		constants.AWS,
@@ -686,7 +882,16 @@ func TestHandleGetExecutionLogs_MissingExecutionID(t *testing.T) {
 
 func TestHandleGetExecutionStatus_Success(t *testing.T) {
 	execRepo := &testExecutionRepository{}
-	svc := app.NewService(&testUserRepository{}, execRepo, nil, &testRunner{}, testutil.SilentLogger(), constants.AWS, "")
+	svc := app.NewService(
+		&testUserRepository{},
+		execRepo,
+		nil,
+		&testTokenRepository{},
+		&testRunner{},
+		testutil.SilentLogger(),
+		constants.AWS,
+		"",
+	)
 	router := NewRouter(svc, 2*time.Second)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/executions/exec-123/status", http.NoBody)
@@ -707,6 +912,7 @@ func TestHandleGetExecutionStatus_MissingExecutionID(t *testing.T) {
 		&testUserRepository{},
 		&testExecutionRepository{},
 		nil,
+		&testTokenRepository{},
 		&testRunner{},
 		testutil.SilentLogger(),
 		constants.AWS,
@@ -729,6 +935,7 @@ func TestHandleKillExecution_Success(t *testing.T) {
 		&testUserRepository{},
 		&testExecutionRepository{},
 		nil,
+		&testTokenRepository{},
 		&testRunner{},
 		testutil.SilentLogger(),
 		constants.AWS,
@@ -756,6 +963,7 @@ func TestHandleKillExecution_MissingExecutionID(t *testing.T) {
 		&testUserRepository{},
 		&testExecutionRepository{},
 		nil,
+		&testTokenRepository{},
 		&testRunner{},
 		testutil.SilentLogger(),
 		constants.AWS,

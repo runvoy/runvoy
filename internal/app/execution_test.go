@@ -547,27 +547,25 @@ func TestGetLogsByExecutionID_WebSocketToken(t *testing.T) {
 	ctx := context.Background()
 
 	tests := []struct {
-		name              string
-		executionID       string
-		executionStatus   string
-		websocketBaseURL  string
-		mockEvents        []api.LogEvent
-		connCreateErr     error
-		expectedTokenLen  int
-		expectTokenInURL  bool
-		expectPendingConn bool
-		expectErr         bool
+		name             string
+		executionID      string
+		executionStatus  string
+		websocketBaseURL string
+		mockEvents       []api.LogEvent
+		tokenCreateErr   error
+		expectTokenInURL bool
+		expectTokenRepo  bool
+		expectErr        bool
 	}{
 		{
-			name:              "running execution generates token and pending connection",
-			executionID:       "exec-123",
-			executionStatus:   string(constants.ExecutionRunning),
-			websocketBaseURL:  "api.example.com/production",
-			mockEvents:        []api.LogEvent{{Message: "test"}},
-			expectedTokenLen:  43, // ~32 bytes base64 encoded
-			expectTokenInURL:  true,
-			expectPendingConn: true,
-			expectErr:         false,
+			name:             "running execution generates token",
+			executionID:      "exec-123",
+			executionStatus:  string(constants.ExecutionRunning),
+			websocketBaseURL: "api.example.com/production",
+			mockEvents:       []api.LogEvent{{Message: "test"}},
+			expectTokenInURL: true,
+			expectTokenRepo:  true,
+			expectErr:        false,
 		},
 		{
 			name:             "completed execution also generates token for late-joiners",
@@ -576,6 +574,7 @@ func TestGetLogsByExecutionID_WebSocketToken(t *testing.T) {
 			websocketBaseURL: "api.example.com/production",
 			mockEvents:       []api.LogEvent{{Message: "test"}},
 			expectTokenInURL: true,
+			expectTokenRepo:  true,
 			expectErr:        false,
 		},
 		{
@@ -585,17 +584,19 @@ func TestGetLogsByExecutionID_WebSocketToken(t *testing.T) {
 			websocketBaseURL: "",
 			mockEvents:       []api.LogEvent{{Message: "test"}},
 			expectTokenInURL: false,
+			expectTokenRepo:  false,
 			expectErr:        false,
 		},
 		{
-			name:              "pending connection creation failure is best-effort (logs still returned)",
-			executionID:       "exec-999",
-			executionStatus:   string(constants.ExecutionRunning),
-			websocketBaseURL:  "api.example.com/production",
-			mockEvents:        []api.LogEvent{{Message: "test"}},
-			connCreateErr:     errors.New("database error"),
-			expectPendingConn: true,
-			expectErr:         false,
+			name:             "token creation failure is best-effort (logs still returned)",
+			executionID:      "exec-999",
+			executionStatus:  string(constants.ExecutionRunning),
+			websocketBaseURL: "api.example.com/production",
+			mockEvents:       []api.LogEvent{{Message: "test"}},
+			tokenCreateErr:   errors.New("database error"),
+			expectTokenInURL: false, // URL won't be in response due to error
+			expectTokenRepo:  true,
+			expectErr:        false,
 		},
 	}
 
@@ -618,17 +619,16 @@ func TestGetLogsByExecutionID_WebSocketToken(t *testing.T) {
 				},
 			}
 
-			var capturedPendingConn *api.WebSocketConnection
-			connRepo := &mockConnectionRepository{
-				createConnectionFunc: func(_ context.Context, conn *api.WebSocketConnection) error {
-					if tt.expectPendingConn {
-						capturedPendingConn = conn
-					}
-					return tt.connCreateErr
+			var capturedToken *api.WebSocketToken
+			tokenRepo := &mockTokenRepository{
+				createTokenFunc: func(_ context.Context, token *api.WebSocketToken) error {
+					capturedToken = token
+					return tt.tokenCreateErr
 				},
 			}
 
-			svc := newTestServiceWithConnRepo(nil, execRepo, connRepo, runner)
+			svc := newTestService(nil, execRepo, runner)
+			svc.tokenRepo = tokenRepo
 			svc.websocketAPIBaseURL = tt.websocketBaseURL
 
 			email := "test@example.com"
@@ -650,18 +650,11 @@ func TestGetLogsByExecutionID_WebSocketToken(t *testing.T) {
 				assert.NotEmpty(t, resp.WebSocketURL)
 				assert.Contains(t, resp.WebSocketURL, "token=")
 				assert.Contains(t, resp.WebSocketURL, "execution_id=")
-
-				// Verify pending connection was created (if expected)
-				if tt.expectPendingConn && tt.connCreateErr == nil {
-					require.NotNil(t, capturedPendingConn)
-					assert.Equal(t, tt.executionID, capturedPendingConn.ExecutionID)
-					assert.Contains(t, capturedPendingConn.ConnectionID, "pending_")
-					assert.NotEmpty(t, capturedPendingConn.Token)
-					assert.Equal(t, constants.FunctionalityLogStreaming, capturedPendingConn.Functionality)
-
-					// Verify token in URL matches pending connection
-					assert.Contains(t, resp.WebSocketURL, capturedPendingConn.Token)
-				}
+				require.NotNil(t, capturedToken)
+				assert.Equal(t, email, capturedToken.UserEmail)
+				assert.Equal(t, clientIP, capturedToken.ClientIPAtLogsTime)
+				assert.Equal(t, tt.executionID, capturedToken.ExecutionID)
+				assert.Contains(t, resp.WebSocketURL, capturedToken.Token)
 			} else {
 				// WebSocket URL may be empty (either due to no base URL or creation failure)
 				// but logs should always be present
@@ -692,15 +685,16 @@ func TestGetLogsByExecutionID_TokenUniqueness(t *testing.T) {
 	}
 
 	tokens := make(map[string]bool)
-	connRepo := &mockConnectionRepository{
-		createConnectionFunc: func(_ context.Context, conn *api.WebSocketConnection) error {
+	tokenRepo := &mockTokenRepository{
+		createTokenFunc: func(_ context.Context, token *api.WebSocketToken) error {
 			// Track all tokens generated
-			tokens[conn.Token] = true
+			tokens[token.Token] = true
 			return nil
 		},
 	}
 
-	svc := newTestServiceWithConnRepo(nil, execRepo, connRepo, runner)
+	svc := newTestService(nil, execRepo, runner)
+	svc.tokenRepo = tokenRepo
 	svc.websocketAPIBaseURL = "api.example.com/production"
 
 	// Call GetLogsByExecutionID multiple times and verify tokens are unique

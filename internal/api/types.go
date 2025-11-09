@@ -207,6 +207,16 @@ type WebSocketConnection struct {
 	ClientIPAtLogsTime string `json:"client_ip_at_logs_time,omitempty"`
 }
 
+// WebSocketToken represents a WebSocket authentication token
+type WebSocketToken struct {
+	Token              string `json:"token"`
+	ExecutionID        string `json:"execution_id"`
+	UserEmail          string `json:"user_email,omitempty"`
+	ClientIPAtLogsTime string `json:"client_ip_at_logs_time,omitempty"`
+	ExpiresAt          int64  `json:"expires_at"`
+	CreatedAt          int64  `json:"created_at"`
+}
+
 // WebSocketMessageType represents the type of WebSocket message
 type WebSocketMessageType string
 

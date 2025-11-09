@@ -36,6 +36,9 @@ func NewProcessor(ctx context.Context, cfg *config.Config, log *slog.Logger) (*P
 	if cfg.WebSocketConnectionsTable == "" {
 		return nil, fmt.Errorf("WebSocketConnectionsTable cannot be empty")
 	}
+	if cfg.WebSocketTokensTable == "" {
+		return nil, fmt.Errorf("WebSocketTokensTable cannot be empty")
+	}
 	if cfg.WebSocketAPIEndpoint == "" {
 		return nil, fmt.Errorf("WebSocketAPIEndpoint cannot be empty")
 	}
@@ -48,12 +51,14 @@ func NewProcessor(ctx context.Context, cfg *config.Config, log *slog.Logger) (*P
 	dynamoClient := dynamodb.NewFromConfig(awsCfg)
 	executionRepo := dynamorepo.NewExecutionRepository(dynamoClient, cfg.ExecutionsTable, log)
 	connectionRepo := dynamorepo.NewConnectionRepository(dynamoClient, cfg.WebSocketConnectionsTable, log)
-	websocketManager := websocket.NewWebSocketManager(cfg, &awsCfg, connectionRepo, log)
+	tokenRepo := dynamorepo.NewTokenRepository(dynamoClient, cfg.WebSocketTokensTable, log)
+	websocketManager := websocket.NewWebSocketManager(cfg, &awsCfg, connectionRepo, tokenRepo, log)
 
 	log.Debug("event processor initialized",
 		"context", map[string]string{
 			"executions_table":             cfg.ExecutionsTable,
 			"web_socket_connections_table": cfg.WebSocketConnectionsTable,
+			"web_socket_tokens_table":      cfg.WebSocketTokensTable,
 			"websocket_api_endpoint":       cfg.WebSocketAPIEndpoint,
 		},
 	)

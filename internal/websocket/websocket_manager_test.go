@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"runvoy/internal/api"
-	"runvoy/internal/constants"
 	"runvoy/internal/testutil"
 
 	"github.com/aws/aws-lambda-go/events"
@@ -43,6 +42,34 @@ func (m *mockConnectionRepoForWS) GetConnectionsByExecutionID(
 		return m.getConnectionsByExecutionIDFunc(ctx, executionID)
 	}
 	return nil, nil
+}
+
+// mockTokenRepoForWS implements database.TokenRepository for testing.
+type mockTokenRepoForWS struct {
+	createTokenFunc func(context.Context, *api.WebSocketToken) error
+	getTokenFunc    func(context.Context, string) (*api.WebSocketToken, error)
+	deleteTokenFunc func(context.Context, string) error
+}
+
+func (m *mockTokenRepoForWS) CreateToken(ctx context.Context, token *api.WebSocketToken) error {
+	if m.createTokenFunc != nil {
+		return m.createTokenFunc(ctx, token)
+	}
+	return nil
+}
+
+func (m *mockTokenRepoForWS) GetToken(ctx context.Context, tokenValue string) (*api.WebSocketToken, error) {
+	if m.getTokenFunc != nil {
+		return m.getTokenFunc(ctx, tokenValue)
+	}
+	return nil, nil
+}
+
+func (m *mockTokenRepoForWS) DeleteToken(ctx context.Context, tokenValue string) error {
+	if m.deleteTokenFunc != nil {
+		return m.deleteTokenFunc(ctx, tokenValue)
+	}
+	return nil
 }
 
 func TestValidateConnectionParams(t *testing.T) {
@@ -102,119 +129,12 @@ func TestValidateConnectionParams(t *testing.T) {
 	}
 }
 
-func TestValidateAndConsumePendingToken(t *testing.T) {
-	validToken := "valid-token-123"
-	validPendingConn := &api.WebSocketConnection{
-		ConnectionID:       "pending_exec-456",
-		ExecutionID:        "exec-456",
-		Token:              validToken,
-		Functionality:      constants.FunctionalityLogStreaming,
-		ExpiresAt:          9999999999,
-		UserEmail:          "test@example.com",
-		ClientIPAtLogsTime: "192.168.1.1",
-	}
-
-	tests := []struct {
-		name              string
-		executionID       string
-		token             string
-		mockConnections   []*api.WebSocketConnection
-		mockGetErr        error
-		expectedConnFound bool
-		expectedErrCode   int
-	}{
-		{
-			name:              "valid token",
-			executionID:       "exec-456",
-			token:             validToken,
-			mockConnections:   []*api.WebSocketConnection{validPendingConn},
-			expectedConnFound: true,
-		},
-		{
-			name:            "invalid token",
-			executionID:     "exec-456",
-			token:           "wrong-token",
-			mockConnections: []*api.WebSocketConnection{validPendingConn},
-			expectedErrCode: http.StatusUnauthorized,
-		},
-		{
-			name:            "no connections",
-			executionID:     "exec-456",
-			token:           validToken,
-			mockConnections: []*api.WebSocketConnection{},
-			expectedErrCode: http.StatusUnauthorized,
-		},
-		{
-			name:            "database error on get",
-			executionID:     "exec-456",
-			token:           validToken,
-			mockGetErr:      fmt.Errorf("database error"),
-			expectedErrCode: http.StatusInternalServerError,
-		},
-		{
-			name:        "multiple connections, match second",
-			executionID: "exec-456",
-			token:       validToken,
-			mockConnections: []*api.WebSocketConnection{
-				{
-					ConnectionID:       "pending_exec-999",
-					ExecutionID:        "exec-456",
-					Token:              "other-token",
-					UserEmail:          "other@example.com",
-					ClientIPAtLogsTime: "203.0.113.1",
-				},
-				validPendingConn,
-			},
-			expectedConnFound: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			mockRepo := &mockConnectionRepoForWS{
-				getConnectionsByExecutionIDFunc: func(_ context.Context, _ string) ([]*api.WebSocketConnection, error) {
-					return tt.mockConnections, tt.mockGetErr
-				},
-			}
-
-			wm := &WebSocketManager{
-				connRepo: mockRepo,
-				logger:   testutil.SilentLogger(),
-			}
-
-			ctx := context.Background()
-			conn, errResp := wm.validateAndConsumePendingToken(ctx, tt.executionID, tt.token)
-
-			if tt.expectedConnFound {
-				assert.Nil(t, errResp)
-				require.NotNil(t, conn)
-				assert.Equal(t, validPendingConn.ConnectionID, conn.ConnectionID)
-				assert.Equal(t, validToken, conn.Token)
-			} else {
-				require.NotNil(t, errResp)
-				assert.Equal(t, tt.expectedErrCode, errResp.StatusCode)
-				assert.Nil(t, conn)
-			}
-		})
-	}
-}
-
 func TestHandleConnect(t *testing.T) {
 	validToken := "valid-token-abc"
-	validPendingConn := &api.WebSocketConnection{
-		ConnectionID:       "pending_exec-123",
-		ExecutionID:        "exec-123",
-		Token:              validToken,
-		Functionality:      constants.FunctionalityLogStreaming,
-		ExpiresAt:          9999999999,
-		UserEmail:          "alice@example.com",
-		ClientIPAtLogsTime: "10.0.0.1",
-	}
 
 	tests := []struct {
 		name               string
 		req                events.APIGatewayWebsocketProxyRequest
-		mockConnections    []*api.WebSocketConnection
 		mockGetErr         error
 		mockCreateErr      error
 		expectedStatusCode int
@@ -231,7 +151,6 @@ func TestHandleConnect(t *testing.T) {
 					"token":        validToken,
 				},
 			},
-			mockConnections:    []*api.WebSocketConnection{validPendingConn},
 			expectedStatusCode: http.StatusOK,
 			expectedSuccess:    true,
 		},
@@ -285,11 +204,10 @@ func TestHandleConnect(t *testing.T) {
 					"token":        "wrong-token",
 				},
 			},
-			mockConnections:    []*api.WebSocketConnection{validPendingConn},
 			expectedStatusCode: http.StatusUnauthorized,
 		},
 		{
-			name: "database error getting connections",
+			name: "database error getting token",
 			req: events.APIGatewayWebsocketProxyRequest{
 				RequestContext: events.APIGatewayWebsocketProxyRequestContext{
 					ConnectionID: "real-conn-id",
@@ -303,21 +221,6 @@ func TestHandleConnect(t *testing.T) {
 			expectedStatusCode: http.StatusInternalServerError,
 		},
 		{
-			name: "database error deleting pending connection",
-			req: events.APIGatewayWebsocketProxyRequest{
-				RequestContext: events.APIGatewayWebsocketProxyRequestContext{
-					ConnectionID: "real-conn-id",
-				},
-				QueryStringParameters: map[string]string{
-					"execution_id": "exec-123",
-					"token":        validToken,
-				},
-			},
-			mockConnections:    []*api.WebSocketConnection{validPendingConn},
-			mockCreateErr:      fmt.Errorf("create failed"),
-			expectedStatusCode: http.StatusInternalServerError,
-		},
-		{
 			name: "database error creating real connection",
 			req: events.APIGatewayWebsocketProxyRequest{
 				RequestContext: events.APIGatewayWebsocketProxyRequestContext{
@@ -328,7 +231,6 @@ func TestHandleConnect(t *testing.T) {
 					"token":        validToken,
 				},
 			},
-			mockConnections:    []*api.WebSocketConnection{validPendingConn},
 			mockCreateErr:      fmt.Errorf("create failed"),
 			expectedStatusCode: http.StatusInternalServerError,
 		},
@@ -336,18 +238,39 @@ func TestHandleConnect(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mockRepo := &mockConnectionRepoForWS{
-				getConnectionsByExecutionIDFunc: func(_ context.Context, _ string) ([]*api.WebSocketConnection, error) {
-					return tt.mockConnections, tt.mockGetErr
-				},
+			// Create a WebSocketToken from the pending connection data
+			wsToken := &api.WebSocketToken{
+				Token:              validToken,
+				ExecutionID:        "exec-123",
+				UserEmail:          "alice@example.com",
+				ClientIPAtLogsTime: "10.0.0.1",
+				ExpiresAt:          9999999999,
+				CreatedAt:          1234567890,
+			}
+
+			mockConnRepo := &mockConnectionRepoForWS{
 				createConnectionFunc: func(_ context.Context, _ *api.WebSocketConnection) error {
 					return tt.mockCreateErr
 				},
 			}
 
+			mockTokenRepo := &mockTokenRepoForWS{
+				getTokenFunc: func(_ context.Context, token string) (*api.WebSocketToken, error) {
+					// If test expects an error getting the token, return it
+					if tt.mockGetErr != nil {
+						return nil, tt.mockGetErr
+					}
+					if token == wsToken.Token {
+						return wsToken, nil
+					}
+					return nil, nil // Token not found
+				},
+			}
+
 			wm := &WebSocketManager{
-				connRepo: mockRepo,
-				logger:   testutil.SilentLogger(),
+				connRepo:  mockConnRepo,
+				tokenRepo: mockTokenRepo,
+				logger:    testutil.SilentLogger(),
 			}
 
 			ctx := context.Background()
@@ -363,39 +286,42 @@ func TestHandleConnect(t *testing.T) {
 	}
 }
 
-func TestHandleConnect_PreservesPendingConnectionExpiry(t *testing.T) {
-	// Verify that the real connection reuses the pending connection's ExpiresAt
+func TestHandleConnect_UsesTokenMetadata(t *testing.T) {
+	// Verify that the real connection uses metadata from the WebSocket token
 	validToken := "token-xyz"
-	originalExpiresAt := int64(1234567890)
+	tokenExpiresAt := int64(1234567890)
 
-	pendingConn := &api.WebSocketConnection{
-		ConnectionID:       "pending_exec-789",
-		ExecutionID:        "exec-789",
+	wsToken := &api.WebSocketToken{
 		Token:              validToken,
-		Functionality:      constants.FunctionalityLogStreaming,
-		ExpiresAt:          originalExpiresAt,
+		ExecutionID:        "exec-789",
 		UserEmail:          "bob@example.com",
 		ClientIPAtLogsTime: "172.16.0.1",
+		ExpiresAt:          tokenExpiresAt,
+		CreatedAt:          1234567800,
 	}
 
 	var createdConnection *api.WebSocketConnection
 
-	mockRepo := &mockConnectionRepoForWS{
-		getConnectionsByExecutionIDFunc: func(_ context.Context, _ string) ([]*api.WebSocketConnection, error) {
-			return []*api.WebSocketConnection{pendingConn}, nil
-		},
-		deleteConnectionsFunc: func(_ context.Context, _ []string) (int, error) {
-			return 1, nil
-		},
+	mockConnRepo := &mockConnectionRepoForWS{
 		createConnectionFunc: func(_ context.Context, conn *api.WebSocketConnection) error {
 			createdConnection = conn
 			return nil
 		},
 	}
 
+	mockTokenRepo := &mockTokenRepoForWS{
+		getTokenFunc: func(_ context.Context, token string) (*api.WebSocketToken, error) {
+			if token == validToken {
+				return wsToken, nil
+			}
+			return nil, nil
+		},
+	}
+
 	wm := &WebSocketManager{
-		connRepo: mockRepo,
-		logger:   testutil.SilentLogger(),
+		connRepo:  mockConnRepo,
+		tokenRepo: mockTokenRepo,
+		logger:    testutil.SilentLogger(),
 	}
 
 	req := events.APIGatewayWebsocketProxyRequest{
@@ -414,7 +340,10 @@ func TestHandleConnect_PreservesPendingConnectionExpiry(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 	require.NotNil(t, createdConnection)
-	assert.Equal(t, originalExpiresAt, createdConnection.ExpiresAt)
+	// Real connection should use metadata from token
+	assert.Equal(t, "bob@example.com", createdConnection.UserEmail)
+	assert.Equal(t, "172.16.0.1", createdConnection.ClientIPAtLogsTime)
 	assert.Equal(t, "real-conn-id", createdConnection.ConnectionID)
 	assert.Equal(t, "exec-789", createdConnection.ExecutionID)
+	assert.Equal(t, validToken, createdConnection.Token) // Token is stored in connection for cleanup
 }
