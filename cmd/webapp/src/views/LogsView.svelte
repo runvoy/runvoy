@@ -68,8 +68,8 @@
     }
 
     $: {
-        if (websocketURL) {
-            connectWebSocket(websocketURL);
+        if (websocketURL && currentExecutionId) {
+            connectWebSocket(websocketURL, currentExecutionId);
         }
     }
 
