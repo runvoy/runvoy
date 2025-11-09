@@ -129,9 +129,8 @@ func (wm *WebSocketManager) dispatchWebSocketRoute(
 ) (events.APIGatewayProxyResponse, error) {
 	routeHandlers := map[string]func(
 		context.Context, events.APIGatewayWebsocketProxyRequest) (events.APIGatewayProxyResponse, error){
-		"$connect":              wm.handleConnect,
-		"$disconnect":           wm.handleDisconnect,
-		"$disconnect-execution": wm.handleDisconnectExecution,
+		"$connect":    wm.handleConnect,
+		"$disconnect": wm.handleDisconnect,
 	}
 
 	handler, ok := routeHandlers[req.RequestContext.RouteKey]
@@ -271,8 +270,9 @@ func (wm *WebSocketManager) validateConnectionParams(
 	return nil
 }
 
-// validateAndConsumePendingToken validates the WebSocket token against pending connections
-// and deletes the pending connection entry after validation.
+// validateAndConsumePendingToken validates the WebSocket token against pending connections.
+// The token is reusable and persists until it expires via TTL, allowing clients to reconnect
+// without needing to call /logs again. This enables seamless reconnection on connection drops.
 func (wm *WebSocketManager) validateAndConsumePendingToken(
 	ctx context.Context,
 	executionID, token string,
@@ -300,16 +300,6 @@ func (wm *WebSocketManager) validateAndConsumePendingToken(
 		return nil, &events.APIGatewayProxyResponse{
 			StatusCode: http.StatusUnauthorized,
 			Body:       "Invalid or expired token",
-		}
-	}
-
-	_, delErr := wm.connRepo.DeleteConnections(ctx, []string{pendingConnection.ConnectionID})
-	if delErr != nil {
-		wm.logger.Error("failed to delete pending connection", "error", delErr,
-			"connection_id", pendingConnection.ConnectionID)
-		return nil, &events.APIGatewayProxyResponse{
-			StatusCode: http.StatusInternalServerError,
-			Body:       "Failed to finalize connection",
 		}
 	}
 
@@ -492,40 +482,6 @@ func (wm *WebSocketManager) sendLogToConnection(
 	}
 
 	return nil
-}
-
-// handleDisconnectExecution handles the $disconnect-execution route key.
-// It sends disconnect notifications to all connected clients for an execution
-// and deletes the connections from DynamoDB.
-//
-//nolint:gocritic // Lambda event types are passed by value per AWS Lambda conventions
-func (wm *WebSocketManager) handleDisconnectExecution(
-	ctx context.Context,
-	req events.APIGatewayWebsocketProxyRequest,
-) (events.APIGatewayProxyResponse, error) {
-	executionID := req.QueryStringParameters["execution_id"]
-
-	if executionID == "" {
-		wm.logger.Info("missing execution_id in disconnect execution request")
-		return events.APIGatewayProxyResponse{
-			StatusCode: http.StatusBadRequest,
-			Body:       "Missing execution_id query parameter",
-		}, nil
-	}
-
-	// Use the shared notification method
-	err := wm.NotifyExecutionCompletion(ctx, &executionID)
-	if err != nil {
-		return events.APIGatewayProxyResponse{
-			StatusCode: http.StatusInternalServerError,
-			Body:       fmt.Sprintf("Failed to notify disconnect: %v", err),
-		}, nil
-	}
-
-	return events.APIGatewayProxyResponse{
-		StatusCode: http.StatusOK,
-		Body:       "Disconnect notifications sent and connections cleaned up",
-	}, nil
 }
 
 // handleDisconnectNotification sends disconnect messages to all connected clients for an execution.

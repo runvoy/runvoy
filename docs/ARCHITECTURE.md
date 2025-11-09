@@ -479,14 +479,14 @@ The platform uses a dedicated **event processor Lambda** to handle asynchronous 
    - Duration in seconds
 7. **WebSocket Disconnect Notification**: When execution reaches a terminal status, the event processor reuses the WebSocket manager to notify connected clients and clean up connections without invoking a separate Lambda
 8. **CloudWatch Logs Streaming**: CloudWatch Logs subscription events deliver batched runner log entries; the processor converts them to `api.LogEvent` records and pushes each entry to active WebSocket connections
-9. **WebSocket Lifecycle**: `$connect`, `$disconnect`, and `$disconnect-execution` routes from API Gateway are handled in-process to authenticate clients, persist connection metadata, and fan out disconnect messages
+9. **WebSocket Lifecycle**: `$connect` and `$disconnect` routes from API Gateway are handled in-process to authenticate clients, persist connection metadata, and fan out disconnect messages
 
 ### Event Types
 
 Currently handles:
 - **ECS Task State Change**: Updates execution records when tasks complete
 - **CloudWatch Logs Subscription**: Streams runner container logs to connected clients in real time
-- **API Gateway WebSocket Events**: Manages `$connect`, `$disconnect`, and `$disconnect-execution` routes
+- **API Gateway WebSocket Events**: Manages `$connect` and `$disconnect` routes
 
 Designed to be extended for future event types:
 - CloudWatch Alarms
@@ -511,7 +511,7 @@ Designed to be extended for future event types:
 - Handles missing `startedAt` timestamps: When ECS task events have an empty `startedAt` field (e.g., when containers fail before starting, such as sidecar git puller failures), falls back to the execution's `StartedAt` timestamp that was set at creation time
 - Calculates duration (with safeguards for negative durations)
 - Updates DynamoDB execution record
-- Signals WebSocket termination: When execution reaches a terminal status (SUCCEEDED, FAILED, STOPPED), calls `notifyDisconnect()` which delegates to the shared WebSocket manager to send disconnect notifications to all connected clients and clean up connection records
+- Signals WebSocket termination: When execution reaches a terminal status (SUCCEEDED, FAILED, STOPPED), calls `NotifyExecutionCompletion()` which sends disconnect notifications to all connected clients and cleans up connection records
 
 ### Status Determination Logic
 
@@ -577,7 +577,7 @@ The platform uses WebSocket connections for real-time log streaming to clients (
 
 ### Design Pattern
 
-- **Event Processor Lambda**: Handles WebSocket connection lifecycle events, streams CloudWatch log batches, and issues disconnect notifications via the shared WebSocket manager package
+- **Event Processor Lambda**: Handles WebSocket connection lifecycle events, streams CloudWatch log batches, and issues disconnect notifications via the WebSocket manager package
 - **CloudWatch Logs subscription**: Invokes the event processor whenever runner container logs are produced, allowing it to push log events to all active connections
 - **API Gateway WebSocket API**: Provides WebSocket endpoints for client connections
 
@@ -601,12 +601,6 @@ The platform uses WebSocket connections for real-time log streaming to clients (
    - Removes WebSocket connection from DynamoDB when client disconnects
    - Cleans up connection record
 
-3. **`$disconnect-execution`** (`handleDisconnectExecution`):
-   - Invoked internally by the event processor when execution reaches terminal status
-   - Sends disconnect notifications to all connected clients for an execution
-   - Deletes all connection records for the execution from DynamoDB
-   - Uses `handleDisconnectNotification()` to send messages concurrently to all connections
-
 **Connection Management**:
 - Connections stored in DynamoDB `{project-name}-websocket-connections` table
 - Each connection record includes: `connection_id`, `execution_id`, `functionality`, `expires_at`
@@ -617,13 +611,14 @@ The platform uses WebSocket connections for real-time log streaming to clients (
 **Configuration**: Defined in CloudFormation template (`deployments/cloudformation-backend.yaml`)
 
 **Routes**:
+
 - **`$connect`**: Routes to the event processor Lambda
 - **`$disconnect`**: Routes to the event processor Lambda
-- **`$disconnect-execution`**: Custom route invoked programmatically by the event processor
 
 **Integration**:
+
 - Uses AWS_PROXY integration type
-- All routes integrate with the event processor Lambda, which delegates to the shared WebSocket manager package
+- Both routes integrate with the event processor Lambda
 - API Gateway Management API used for sending messages to connections
 
 ### Execution Completion Flow
@@ -632,17 +627,13 @@ When an execution reaches a terminal status (SUCCEEDED, FAILED, STOPPED):
 
 1. **Event Processor** (`internal/events/ecs_completion.go`):
    - Updates execution record in DynamoDB with final status
-   - Calls `notifyDisconnect()` which invokes the shared WebSocket manager package in-process
-   - Passes execution ID as query parameter
-
-2. **WebSocket Manager Package** (`handleDisconnectExecution`):
-   - Handles `$disconnect-execution` route key event
+   - Calls `NotifyExecutionCompletion()`
    - Queries DynamoDB for all connections for the execution ID
    - Sends disconnect notification message to all connections using `api.WebSocketMessage` type (format: `{"type":"disconnect","reason":"execution_completed"}`)
    - Deletes all connection records from DynamoDB
    - Uses concurrent sending for performance
 
-3. **Clients** (CLI or web viewer):
+2. **Clients** (CLI or web viewer):
    - Receive disconnect notification message
    - Close WebSocket connection gracefully
    - Stop polling/log streaming
@@ -650,10 +641,16 @@ When an execution reaches a terminal status (SUCCEEDED, FAILED, STOPPED):
 ### Connection Lifecycle
 
 **Connection Establishment**:
-1. CLI or web viewer calls `GET /api/v1/executions/{id}/logs`; the service creates a pending WebSocket token and returns a one-time `wss://` URL containing `execution_id` and `token` query parameters
+1. CLI or web viewer calls `GET /api/v1/executions/{id}/logs`; the service creates a reusable WebSocket token and returns a `wss://` URL containing `execution_id` and `token` query parameters
 2. Client connects to the returned WebSocket URL
 3. API Gateway routes the `$connect` event to the event processor Lambda
-4. Lambda validates the token, stores the connection record in DynamoDB, and the connection becomes ready for streaming
+4. Lambda validates the token (which persists for reuse), stores the connection record in DynamoDB, and the connection becomes ready for streaming
+
+**Token Reusability**:
+- Tokens are **reusable** and persist until expiration via TTL (`constants.ConnectionTTLHours`)
+- If a client's WebSocket connection drops, it can reconnect using the same token without calling `/logs` again
+- This enables seamless reconnection for transient network issues
+- Once the token expires (24 hours by default), clients must call `/logs` again to get a new token
 
 **Log Streaming**:
 1. CloudWatch Logs invokes the event processor with batched runner log events
@@ -661,7 +658,8 @@ When an execution reaches a terminal status (SUCCEEDED, FAILED, STOPPED):
 
 **Connection Termination**:
 - **Manual disconnect**: Client closes connection → API Gateway routes `$disconnect` → Lambda removes connection record via the embedded WebSocket manager
-- **Execution completion**: Event processor invokes `$disconnect-execution` → Lambda notifies clients and deletes records via the embedded WebSocket manager
+- **Execution completion**: Event processor calls `NotifyExecutionCompletion()` → Lambda notifies clients and deletes records via the embedded WebSocket manager
+- **Token expiration**: After TTL expires, pending token is automatically deleted; client must call `/logs` to reconnect
 
 ### Error Handling
 
@@ -921,7 +919,7 @@ Automation-friendly targets remain the same: agents should prefer `just lint-fix
 
 ## Current Limitations and Future Enhancements
 
-### Log Viewing and Tailing
+### Log Viewing and Tailing - MVP (Best-Effort Streaming)
 
 The service exposes a logs endpoint that aggregates CloudWatch Logs events for a given execution ID (ECS task ID). Each response includes the full history of log events (`timestamp` in milliseconds and raw `message`) and, when the execution is still running, a temporary WebSocket URL for live streaming. The CLI implements real-time tailing on top of this endpoint:
 
@@ -956,12 +954,60 @@ Environment variables:
 RUNVOY_LOG_GROUP           # required (e.g. /aws/ecs/runvoy)
 ```
 
-Client behavior (CLI `runvoy logs <executionID>`):
+#### Streaming Architecture - Best-Effort Approach
 
-- Fetches and prints the entire log history with computed line numbers (client-side)
-- When the response contains `websocket_url`, connects to the WebSocket endpoint to stream new logs in real time
-- Falls back to printing the web viewer URL if the WebSocket connection closes (e.g., execution completed or user cancels)
-- Stops tailing automatically once the execution reaches a terminal status (SUCCEEDED/FAILED/STOPPED)
+For MVP, the streaming log feature uses a **best-effort, lossy delivery model**:
+
+**REST API (`/logs` endpoint):**
+- Authoritative source of truth for all logs
+- Returns complete historical log events from CloudWatch Logs
+- Guaranteed consistency (all logs that have been written to CloudWatch are returned)
+- Clients can always rely on this endpoint to backfill any missing logs from the real-time stream
+
+**WebSocket Real-Time Streaming:**
+- Best-effort delivery: logs may be dropped if connections fail or buffers overflow
+- Complements the REST API but is not authoritative
+- Useful for real-time visualization without polling
+- Failures are logged but do not fail the event processor (see `internal/events/processor.go` line 222)
+
+**Client Behavior (CLI `runvoy logs <executionID>`):**
+1. Fetches entire log history from `/logs` endpoint with retry logic (handles 404 while execution starts)
+2. Displays historical logs with computed line numbers (client-side)
+3. When WebSocket URL is available, connects for real-time streaming
+4. New logs received via WebSocket are displayed without line number recomputation
+5. If WebSocket disconnects (gracefully or due to error), client gracefully exits and prints web viewer URL
+6. Falls back to printing the web viewer URL if WebSocket unavailable
+7. **Important**: The REST `/logs` endpoint is considered the authoritative source; WebSocket streaming is lossy best-effort
+
+**Web Viewer:**
+- Also uses REST `/logs` endpoint for historical logs (authoritative)
+- Optionally connects to WebSocket for real-time updates
+- Polls REST endpoint every 5 seconds as fallback if WebSocket unavailable
+- Missing real-time logs can be recovered via the next polling cycle or by refreshing
+
+**Event Processor (`internal/events/processor.go`):**
+- Receives CloudWatch Logs batches and forwards to WebSocket connections
+- Best-effort error handling: connection failures are logged but do not fail processing
+- Execution completion is tracked reliably via the REST endpoint, not WebSocket
+
+#### Why Best-Effort for MVP
+
+1. **Simplicity**: Avoids complex state management for reliable delivery (sequence numbers, retries, etc.)
+2. **Cost-Efficient**: No need for durable message queues or persistent delivery state
+3. **Acceptable Trade-Off**: Users can always backfill from REST endpoint if needed
+4. **Sufficient for CLI**: Terminal output is inherently lossy; small gaps are acceptable
+5. **Sufficient for Web Viewer**: UI updates via polling or WebSocket; gaps are transparent to user
+
+#### Future Enhancement: Lossless Streaming
+
+A future phase may implement reliable delivery with:
+- Sequence numbers on log events for deduplication
+- Client-side acking of received logs
+- Retransmission of missed events
+- Persistent message queue (SQS/Kinesis) for buffering
+- Enhanced monitoring and alerting for streaming health
+
+Recommended approach: Client-driven backfill using REST endpoint rather than server-side retransmission, keeping the architecture simple and scalable.
 
 Future enhancements may include server-side filtering and pagination.
 

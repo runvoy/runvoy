@@ -120,7 +120,6 @@ func TestValidateAndConsumePendingToken(t *testing.T) {
 		token             string
 		mockConnections   []*api.WebSocketConnection
 		mockGetErr        error
-		mockDeleteErr     error
 		expectedConnFound bool
 		expectedErrCode   int
 	}{
@@ -153,14 +152,6 @@ func TestValidateAndConsumePendingToken(t *testing.T) {
 			expectedErrCode: http.StatusInternalServerError,
 		},
 		{
-			name:            "database error on delete",
-			executionID:     "exec-456",
-			token:           validToken,
-			mockConnections: []*api.WebSocketConnection{validPendingConn},
-			mockDeleteErr:   fmt.Errorf("delete failed"),
-			expectedErrCode: http.StatusInternalServerError,
-		},
-		{
 			name:        "multiple connections, match second",
 			executionID: "exec-456",
 			token:       validToken,
@@ -183,12 +174,6 @@ func TestValidateAndConsumePendingToken(t *testing.T) {
 			mockRepo := &mockConnectionRepoForWS{
 				getConnectionsByExecutionIDFunc: func(_ context.Context, _ string) ([]*api.WebSocketConnection, error) {
 					return tt.mockConnections, tt.mockGetErr
-				},
-				deleteConnectionsFunc: func(_ context.Context, _ []string) (int, error) {
-					if tt.mockDeleteErr != nil {
-						return 0, tt.mockDeleteErr
-					}
-					return 1, nil
 				},
 			}
 
@@ -231,7 +216,6 @@ func TestHandleConnect(t *testing.T) {
 		req                events.APIGatewayWebsocketProxyRequest
 		mockConnections    []*api.WebSocketConnection
 		mockGetErr         error
-		mockDeleteErr      error
 		mockCreateErr      error
 		expectedStatusCode int
 		expectedSuccess    bool
@@ -330,7 +314,7 @@ func TestHandleConnect(t *testing.T) {
 				},
 			},
 			mockConnections:    []*api.WebSocketConnection{validPendingConn},
-			mockDeleteErr:      fmt.Errorf("delete failed"),
+			mockCreateErr:      fmt.Errorf("create failed"),
 			expectedStatusCode: http.StatusInternalServerError,
 		},
 		{
@@ -355,12 +339,6 @@ func TestHandleConnect(t *testing.T) {
 			mockRepo := &mockConnectionRepoForWS{
 				getConnectionsByExecutionIDFunc: func(_ context.Context, _ string) ([]*api.WebSocketConnection, error) {
 					return tt.mockConnections, tt.mockGetErr
-				},
-				deleteConnectionsFunc: func(_ context.Context, _ []string) (int, error) {
-					if tt.mockDeleteErr != nil {
-						return 0, tt.mockDeleteErr
-					}
-					return 1, nil
 				},
 				createConnectionFunc: func(_ context.Context, _ *api.WebSocketConnection) error {
 					return tt.mockCreateErr
