@@ -245,8 +245,13 @@ func TestExtractExecutionIDFromLogStream(t *testing.T) {
 		expected  string
 	}{
 		{
-			name:      "valid log stream",
+			name:      "valid log stream with runner container",
 			logStream: "task/runner/abc123",
+			expected:  "abc123",
+		},
+		{
+			name:      "valid log stream with sidecar container",
+			logStream: "task/sidecar/abc123",
 			expected:  "abc123",
 		},
 		{
@@ -272,11 +277,6 @@ func TestExtractExecutionIDFromLogStream(t *testing.T) {
 		{
 			name:      "invalid format - wrong prefix",
 			logStream: "job/runner/abc123",
-			expected:  "",
-		},
-		{
-			name:      "invalid format - wrong container name",
-			logStream: "task/sidecar/abc123",
 			expected:  "",
 		},
 		{

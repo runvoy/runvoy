@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"runvoy/internal/api"
+	"runvoy/internal/constants"
 )
 
 // mockClientInterfaceForRun extends mockClientInterface with RunCommand and GetLogs
@@ -82,13 +83,13 @@ func TestRunService_ExecuteCommand(t *testing.T) {
 			request: ExecuteCommandRequest{
 				Command: "npm test",
 				GitRepo: "https://github.com/user/repo.git",
-				GitRef:  "main",
+				GitRef:  constants.DefaultGitRef,
 				WebURL:  "https://logs.example.com",
 			},
 			setupMock: func(m *mockClientInterfaceForRun) {
 				m.runCommandFunc = func(_ context.Context, req *api.ExecutionRequest) (*api.ExecutionResponse, error) {
 					assert.Equal(t, "https://github.com/user/repo.git", req.GitRepo)
-					assert.Equal(t, "main", req.GitRef)
+					assert.Equal(t, constants.DefaultGitRef, req.GitRef)
 					return &api.ExecutionResponse{
 						ExecutionID: "exec-456",
 						Status:      "pending",
