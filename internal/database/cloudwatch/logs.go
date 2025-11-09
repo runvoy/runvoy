@@ -33,23 +33,6 @@ func NewLogRepository(logGroup string, log *slog.Logger) database.LogRepository 
 	}
 }
 
-// GetLogsByExecutionID retrieves all logs for an execution from CloudWatch Logs.
-func (r *LogRepository) GetLogsByExecutionID(
-	ctx context.Context,
-	executionID string,
-) ([]api.LogEvent, error) {
-	if executionID == "" {
-		return nil, appErrors.ErrBadRequest("executionID is required", nil)
-	}
-
-	cwl, err := r.newCloudWatchLogsClient(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	return r.fetchLogs(ctx, cwl, executionID, nil)
-}
-
 // GetLogsByExecutionIDSince retrieves logs newer than the given timestamp from CloudWatch Logs.
 func (r *LogRepository) GetLogsByExecutionIDSince(
 	ctx context.Context,

@@ -96,12 +96,8 @@ type ConnectionRepository interface {
 // LogRepository defines the interface for log retrieval from a durable log store.
 // CloudWatch Logs is the primary implementation, but this abstraction allows for alternative stores.
 type LogRepository interface {
-	// GetLogsByExecutionID retrieves all logs for an execution, ordered by timestamp.
-	// Returns an empty slice if no logs are found, not an error.
-	GetLogsByExecutionID(ctx context.Context, executionID string) ([]api.LogEvent, error)
-
 	// GetLogsByExecutionIDSince retrieves logs newer than the given timestamp (in milliseconds since epoch).
-	// If sinceTimestampMS is nil, retrieves all logs (same as GetLogsByExecutionID).
+	// If sinceTimestampMS is nil, retrieves all logs.
 	// Used for backlog replay on WebSocket connect and resumable streaming.
 	GetLogsByExecutionIDSince(ctx context.Context, executionID string, sinceTimestampMS *int64) ([]api.LogEvent, error)
 }
