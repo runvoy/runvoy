@@ -263,7 +263,11 @@ func (wm *WebSocketManager) handleConnect(
 	// Fetch backlog from CloudWatch
 	backlog, err := wm.logRepo.GetLogsByExecutionIDSince(ctx, executionID, lastSeenTimestamp)
 	if err != nil {
-		wm.logger.Error("failed to fetch backlog", "error", err, "execution_id", executionID)
+		wm.logger.Error("failed to fetch backlog", "context", map[string]any{
+			"error":               err.Error(),
+			"execution_id":        executionID,
+			"last_seen_timestamp": lastSeenTimestamp,
+		})
 		// Don't fail the connection - client will get live events at least
 		// Clear replay lock so live events can be sent
 		if clearErr := wm.clearReplayLock(ctx, connectionID, executionID); clearErr != nil {
