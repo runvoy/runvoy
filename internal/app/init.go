@@ -11,6 +11,7 @@ import (
 	"runvoy/internal/config"
 	"runvoy/internal/constants"
 	"runvoy/internal/database"
+	"runvoy/internal/database/cloudwatch"
 	dynamoRepo "runvoy/internal/database/dynamodb"
 
 	awsConfig "github.com/aws/aws-sdk-go-v2/config"
@@ -40,13 +41,14 @@ func Initialize(
 		userRepo      database.UserRepository
 		executionRepo database.ExecutionRepository
 		connRepo      database.ConnectionRepository
+		logRepo       database.LogRepository
 		runner        Runner
 		err           error
 	)
 
 	switch provider {
 	case constants.AWS:
-		userRepo, executionRepo, connRepo, runner, err = initializeAWSBackend(ctx, cfg, logger)
+		userRepo, executionRepo, connRepo, logRepo, runner, err = initializeAWSBackend(ctx, cfg, logger)
 		if err != nil {
 			return nil, fmt.Errorf("failed to initialize AWS: %w", err)
 		}
@@ -56,11 +58,11 @@ func Initialize(
 
 	logger.Debug(constants.ProjectName + " orchestrator initialized successfully")
 
-	return NewService(userRepo, executionRepo, connRepo, runner, logger, provider, cfg.WebSocketAPIEndpoint), nil
+	return NewService(userRepo, executionRepo, connRepo, logRepo, runner, logger, provider, cfg.WebSocketAPIEndpoint), nil
 }
 
 // initializeAWSBackend sets up AWS-specific dependencies.
-func initializeAWSBackend(
+func initializeAWSBackend( //nolint:gocritic
 	ctx context.Context,
 	cfg *config.Config,
 	logger *slog.Logger,
@@ -68,12 +70,13 @@ func initializeAWSBackend(
 	database.UserRepository,
 	database.ExecutionRepository,
 	database.ConnectionRepository,
+	database.LogRepository,
 	Runner,
 	error,
 ) {
 	awsCfg, err := awsConfig.LoadDefaultConfig(ctx)
 	if err != nil {
-		return nil, nil, nil, nil, fmt.Errorf("failed to load AWS configuration: %w", err)
+		return nil, nil, nil, nil, nil, fmt.Errorf("failed to load AWS configuration: %w", err)
 	}
 
 	dynamoClient := dynamodb.NewFromConfig(awsCfg)
@@ -89,6 +92,7 @@ func initializeAWSBackend(
 	userRepo := dynamoRepo.NewUserRepository(dynamoClient, cfg.APIKeysTable, cfg.PendingAPIKeysTable, logger)
 	executionRepo := dynamoRepo.NewExecutionRepository(dynamoClient, cfg.ExecutionsTable, logger)
 	connRepo := dynamoRepo.NewConnectionRepository(dynamoClient, cfg.WebSocketConnectionsTable, logger)
+	logRepo := cloudwatch.NewLogRepository(cfg.LogGroup, logger)
 
 	awsExecCfg := &appAws.Config{
 		ECSCluster:      cfg.ECSCluster,
@@ -102,5 +106,5 @@ func initializeAWSBackend(
 	}
 	runner := appAws.NewRunner(ecsClientInstance, awsExecCfg, logger)
 
-	return userRepo, executionRepo, connRepo, runner, nil
+	return userRepo, executionRepo, connRepo, logRepo, runner, nil
 }

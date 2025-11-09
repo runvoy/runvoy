@@ -47,6 +47,7 @@ type Service struct {
 	userRepo            database.UserRepository
 	executionRepo       database.ExecutionRepository
 	connRepo            database.ConnectionRepository
+	logRepo             database.LogRepository
 	runner              Runner
 	Logger              *slog.Logger
 	Provider            constants.BackendProvider
@@ -62,6 +63,7 @@ func NewService(
 	userRepo database.UserRepository,
 	executionRepo database.ExecutionRepository,
 	connRepo database.ConnectionRepository,
+	logRepo database.LogRepository,
 	runner Runner,
 	log *slog.Logger,
 	provider constants.BackendProvider,
@@ -70,6 +72,7 @@ func NewService(
 		userRepo:            userRepo,
 		executionRepo:       executionRepo,
 		connRepo:            connRepo,
+		logRepo:             logRepo,
 		runner:              runner,
 		Logger:              log,
 		Provider:            provider,
@@ -426,24 +429,20 @@ func (s *Service) GetLogsByExecutionID(
 		}, nil
 	}
 
-	// For COMPLETED executions: return all logs filtered by lastSeenTimestamp
-	events, err := s.runner.FetchLogsByExecutionID(ctx, executionID)
-	if err != nil {
-		return nil, err
+	// For COMPLETED executions: fetch logs after lastSeenTimestamp
+	if s.logRepo == nil {
+		return nil, apperrors.ErrInternalError("log repository not configured", nil)
 	}
 
-	// Filter events to only include those after lastSeenTimestamp
-	var filteredEvents []api.LogEvent
-	for _, event := range events {
-		if event.Timestamp > lastSeenTimestamp {
-			filteredEvents = append(filteredEvents, event)
-		}
+	events, err := s.logRepo.GetLogsByExecutionIDSince(ctx, executionID, &lastSeenTimestamp)
+	if err != nil {
+		return nil, err
 	}
 
 	return &api.LogsResponse{
 		ExecutionID:  executionID,
 		Status:       execution.Status,
-		Events:       filteredEvents,
+		Events:       events,
 		WebSocketURL: "", // No websocket for completed executions
 	}, nil
 }

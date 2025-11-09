@@ -155,6 +155,29 @@ type mockConnectionRepository struct {
 	getConnectionsByExecutionIDFunc func(ctx context.Context, executionID string) ([]*api.WebSocketConnection, error)
 }
 
+// mockLogRepository implements database.LogRepository for testing
+type mockLogRepository struct {
+	getLogsByExecutionIDFunc func(
+		ctx context.Context, executionID string) ([]api.LogEvent, error)
+	getLogsByExecutionIDSinceFunc func(
+		ctx context.Context, executionID string, sinceTimestampMS *int64) ([]api.LogEvent, error)
+}
+
+func (m *mockLogRepository) GetLogsByExecutionID(ctx context.Context, executionID string) ([]api.LogEvent, error) {
+	if m.getLogsByExecutionIDFunc != nil {
+		return m.getLogsByExecutionIDFunc(ctx, executionID)
+	}
+	return []api.LogEvent{}, nil
+}
+
+func (m *mockLogRepository) GetLogsByExecutionIDSince(
+	ctx context.Context, executionID string, sinceTimestampMS *int64) ([]api.LogEvent, error) {
+	if m.getLogsByExecutionIDSinceFunc != nil {
+		return m.getLogsByExecutionIDSinceFunc(ctx, executionID, sinceTimestampMS)
+	}
+	return []api.LogEvent{}, nil
+}
+
 func (m *mockConnectionRepository) CreateConnection(ctx context.Context, conn *api.WebSocketConnection) error {
 	if m.createConnectionFunc != nil {
 		return m.createConnectionFunc(ctx, conn)
@@ -251,7 +274,7 @@ func newTestService(
 	execRepo *mockExecutionRepository,
 	runner *mockRunner,
 ) *Service {
-	return newTestServiceWithConnRepo(userRepo, execRepo, nil, runner)
+	return newTestServiceWithConnRepo(userRepo, execRepo, nil, nil, runner)
 }
 
 // newTestServiceWithConnRepo creates a Service with connection repo mock for testing
@@ -259,8 +282,9 @@ func newTestServiceWithConnRepo(
 	userRepo *mockUserRepository,
 	execRepo *mockExecutionRepository,
 	connRepo *mockConnectionRepository,
+	logRepo *mockLogRepository,
 	runner *mockRunner,
 ) *Service {
 	logger := testutil.SilentLogger()
-	return NewService(userRepo, execRepo, connRepo, runner, logger, constants.AWS, "")
+	return NewService(userRepo, execRepo, connRepo, logRepo, runner, logger, constants.AWS, "")
 }

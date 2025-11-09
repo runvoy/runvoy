@@ -527,7 +527,26 @@ func TestGetLogsByExecutionID(t *testing.T) {
 				},
 			}
 
-			svc := newTestService(nil, execRepo, runner)
+			logRepo := &mockLogRepository{
+				getLogsByExecutionIDSinceFunc: func(_ context.Context, _ string, sinceTimestampMS *int64) ([]api.LogEvent, error) {
+					if tt.fetchLogsErr != nil {
+						return nil, tt.fetchLogsErr
+					}
+					if sinceTimestampMS == nil {
+						return tt.mockEvents, nil
+					}
+					// Filter logs: return only those with Timestamp > sinceTimestampMS
+					var filtered []api.LogEvent
+					for _, event := range tt.mockEvents {
+						if event.Timestamp > *sinceTimestampMS {
+							filtered = append(filtered, event)
+						}
+					}
+					return filtered, nil
+				},
+			}
+
+			svc := newTestServiceWithConnRepo(nil, execRepo, nil, logRepo, runner)
 			email := "test@example.com"
 			clientIP := "127.0.0.1"
 			resp, err := svc.GetLogsByExecutionID(ctx, tt.executionID, tt.lastSeenTimestamp, &email, &clientIP)
@@ -646,7 +665,7 @@ func TestGetLogsByExecutionID_WebSocketToken(t *testing.T) {
 				},
 			}
 
-			svc := newTestServiceWithConnRepo(nil, execRepo, connRepo, runner)
+			svc := newTestServiceWithConnRepo(nil, execRepo, connRepo, &mockLogRepository{}, runner)
 			svc.websocketAPIBaseURL = tt.websocketBaseURL
 
 			email := "test@example.com"
@@ -711,7 +730,7 @@ func TestGetLogsByExecutionID_TokenUniqueness(t *testing.T) {
 		},
 	}
 
-	svc := newTestServiceWithConnRepo(nil, execRepo, connRepo, runner)
+	svc := newTestServiceWithConnRepo(nil, execRepo, connRepo, &mockLogRepository{}, runner)
 	svc.websocketAPIBaseURL = "api.example.com/production"
 
 	// Call GetLogsByExecutionID multiple times and verify tokens are unique
