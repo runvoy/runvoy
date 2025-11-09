@@ -1,5 +1,5 @@
 <h1 align="center">
-    <p>runvoy</p>
+    <p><strong>Runvoy</strong></p>
     <p>serverless command execution platform</p>
 </h1>
 <p align="center">
