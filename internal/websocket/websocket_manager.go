@@ -5,16 +5,17 @@ package websocket
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
-	"strings"
 	"time"
 
 	"runvoy/internal/api"
 	"runvoy/internal/config"
 	"runvoy/internal/constants"
 	"runvoy/internal/database"
+	apperrors "runvoy/internal/errors"
 	"runvoy/internal/logger"
 
 	"github.com/aws/aws-lambda-go/events"
@@ -380,10 +381,9 @@ func (wm *WebSocketManager) fetchBacklogWithRetry(
 		}
 
 		lastErr = err
-		errMsg := err.Error()
 
 		// Check if this is a "stream doesn't exist yet" error, which is expected during early startup
-		if strings.Contains(errMsg, "does not exist yet") {
+		if wm.isLogStreamNotReadyError(err, executionID) {
 			wm.logger.Debug("log stream not ready yet, will retry", "context", map[string]any{
 				"attempt":      attempt + 1,
 				"max_retries":  maxRetries,
@@ -408,7 +408,7 @@ func (wm *WebSocketManager) fetchBacklogWithRetry(
 	}
 
 	// After all retries, if stream still doesn't exist, return empty backlog (graceful degradation)
-	if lastErr != nil && strings.Contains(lastErr.Error(), "does not exist yet") {
+	if wm.isLogStreamNotReadyError(lastErr, executionID) {
 		wm.logger.Warn("log stream not ready, proceeding with empty backlog", "context", map[string]string{
 			"execution_id": executionID,
 			"max_retries":  fmt.Sprintf("%d", maxRetries),
@@ -418,6 +418,26 @@ func (wm *WebSocketManager) fetchBacklogWithRetry(
 
 	// Otherwise return the last error
 	return nil, lastErr
+}
+
+// isLogStreamNotReadyError checks whether the provided error indicates that the log stream has not
+// been created yet for the given execution.
+func (wm *WebSocketManager) isLogStreamNotReadyError(err error, executionID string) bool {
+	if err == nil {
+		return false
+	}
+
+	var appErr *apperrors.AppError
+	if !errors.As(err, &appErr) {
+		return false
+	}
+
+	if appErr.Code != apperrors.ErrCodeNotFound {
+		return false
+	}
+
+	expectedMessage := fmt.Sprintf("log stream '%s' does not exist yet", constants.BuildLogStreamName(executionID))
+	return appErr.Message == expectedMessage
 }
 
 func (wm *WebSocketManager) logSuccessfulConnect(
