@@ -179,6 +179,30 @@ func (s *LogsService) readWebSocketMessages(
 	}
 }
 
+// sendBacklogRequest sends a backlog request message to the WebSocket connection
+func sendBacklogRequest(conn *websocket.Conn, executionID string, lastSeenTimestamp int64) error {
+	message := map[string]any{
+		"type":         "getBacklog",
+		"execution_id": executionID,
+	}
+
+	// Only include 'since' if we have a timestamp
+	if lastSeenTimestamp > 0 {
+		message["since"] = lastSeenTimestamp
+	}
+
+	messageBytes, err := json.Marshal(message)
+	if err != nil {
+		return fmt.Errorf("failed to marshal backlog request: %w", err)
+	}
+
+	if sendErr := conn.WriteMessage(websocket.TextMessage, messageBytes); sendErr != nil {
+		return fmt.Errorf("failed to send backlog request: %w", sendErr)
+	}
+
+	return nil
+}
+
 // streamLogsViaWebSocket connects to WebSocket and streams logs in real-time
 func (s *LogsService) streamLogsViaWebSocket(
 	websocketURL string,
@@ -204,6 +228,21 @@ func (s *LogsService) streamLogsViaWebSocket(
 
 	s.output.Successf("Connected to log stream. Press Ctrl+C to exit.")
 	s.output.Blank()
+
+	// Request backlog in case new logs arrived between initial HTTP fetch and WebSocket connection
+	lastSeenTimestamp := int64(0)
+	mu.Lock()
+	for ts := range logMap {
+		if ts > lastSeenTimestamp {
+			lastSeenTimestamp = ts
+		}
+	}
+	mu.Unlock()
+
+	if backlogErr := sendBacklogRequest(conn, executionID, lastSeenTimestamp); backlogErr != nil {
+		s.output.Warningf("Failed to request backlog: %v", backlogErr)
+		// Continue anyway - we'll still get live logs
+	}
 
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
