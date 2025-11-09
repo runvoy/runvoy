@@ -181,7 +181,7 @@ func (wm *WebSocketManager) evaluateRouteResponse(
 			resp.Body,
 		)
 	case resp.StatusCode >= http.StatusBadRequest:
-		reqLogger.Error("websocket handler returned client error response", "context", map[string]any{
+		reqLogger.Debug("websocket handler returned client error response", "context", map[string]any{
 			"route_key":   routeKey,
 			"status_code": resp.StatusCode,
 			"body":        resp.Body,
@@ -368,8 +368,8 @@ func (wm *WebSocketManager) fetchBacklogWithRetry(
 	executionID string,
 	lastSeenTimestamp *int64,
 ) ([]api.LogEvent, error) {
-	const maxRetries = 3
-	const retryDelay = 10 * time.Second
+	const maxRetries = 4
+	const retryDelay = 5 * time.Second
 
 	var lastErr error
 
