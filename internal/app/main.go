@@ -383,7 +383,7 @@ func (s *Service) RunCommand(
 // WebSocket endpoint is stored without protocol (normalized in config)
 // Always use wss:// for production WebSocket connections
 // userEmail: authenticated user email for audit trail
-// clientIPAtCreationTime: client IP captured when the execution was created for tracing
+// clientIPAtCreationTime: client IP captured when the token was created (for tracing)
 func (s *Service) GetLogsByExecutionID(
 	ctx context.Context,
 	executionID string,
