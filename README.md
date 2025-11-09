@@ -1,6 +1,22 @@
-# runvoy - serverless command execution platform
+<p align="center">
+    <strong>runvoy - serverless command execution platform</strong>
+</p>
+<p align="center">
+    <em>Run arbitrary commands on remote ephemeral containers.</em>
+</p>
+<p align="center">
+<a href="https://github.com/runvoy/runvoy/actions?query=workflow%3Atests+event%3Apush+branch%3Amain" target="_blank">
+    <img src="https://github.com/runvoy/runvoy/actions/workflows/ci.yml/badge.svg?event=push&branch=main" alt="Tests">
+</a>
+<a href="https://github.com/runvoy/runvoy/actions?query=workflow%3Agolangci-lint+event%3Apush+branch%3Amain" target="_blank">
+    <img src="https://github.com/runvoy/runvoy/actions/workflows/golangci-lint.yml/badge.svg?event=push&branch=main" alt="Lint">
+</a>
+<a href="https://golang.org" target="_blank">
+    <img src="https://img.shields.io/badge/Go-1.24+-00ADD8?logo=go" alt="Go version">
+</a>
+</p>
 
-Run arbitrary commands on remote ephemeral containers.
+---
 
 Deploy once, issue API keys, let your team execute arbitrary (admin) commands safely from their terminals.
 
