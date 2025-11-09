@@ -520,7 +520,7 @@ Resources:
           RUNVOY_ECS_CLUSTER: !Ref ECSCluster
           RUNVOY_WEBSOCKET_CONNECTIONS_TABLE: !Ref WebSocketConnectionsTable
           RUNVOY_WEBSOCKET_API_ENDPOINT: !Sub '${WebSocketApi.ApiId}.execute-api.${AWS::Region}.amazonaws.com/production'
-          RUNVOY_LOGS_EVENTS_QUEUE_URL: !Ref LogsEventQueue
+          RUNVOY_LOG_GROUP: !Ref RunnerLogGroup
           RUNVOY_LOG_LEVEL: !Ref 'AWS::NoValue'
 
   # Allow CloudWatch Logs to invoke the event processor
@@ -601,11 +601,10 @@ Resources:
                 Resource: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${WebSocketApi.ApiId}/production/POST/@connections/*'
               - Effect: Allow
                 Action:
-                  - 'sqs:SendMessage'
-                  - 'sqs:ReceiveMessage'
-                  - 'sqs:DeleteMessage'
-                  - 'sqs:GetQueueAttributes'
-                Resource: !GetAtt LogsEventQueue.Arn
+                  - 'logs:GetLogEvents'
+                  - 'logs:FilterLogEvents'
+                  - 'logs:DescribeLogStreams'
+                Resource: !GetAtt RunnerLogGroup.Arn
 
   # EventBridge Rule for ECS Task State Changes
   TaskCompletionEventRule:
@@ -677,41 +676,6 @@ Resources:
           Value: !Ref ProjectName
         - Key: ManagedBy
           Value: 'cloudformation'
-
-  # SQS FIFO Queue for CloudWatch Logs Events
-  # Provides ordered, durable buffering between CloudWatch Logs and WebSocket delivery
-  # Message Group ID = executionID ensures per-execution ordering
-  LogsEventQueue:
-    Type: AWS::SQS::Queue
-    Properties:
-      QueueName: !Sub '${ProjectName}-logs-events.fifo'
-      FifoQueue: true
-      ContentBasedDeduplication: false
-      MessageRetentionPeriod: 1209600  # 14 days, matches CloudWatch Logs retention
-      VisibilityTimeout: 60  # Event processor has 60s to process and send to websocket
-      Tags:
-        - Key: Name
-          Value: !Sub '${ProjectName}-logs-events-queue'
-        - Key: Application
-          Value: !Ref ProjectName
-        - Key: ManagedBy
-          Value: 'cloudformation'
-
-  # Event Source Mapping: SQS → Event Processor Lambda
-  # Consumes log events from SQS FIFO for WebSocket delivery
-  # Note: FIFO queues don't support MaximumBatchingWindowInSeconds
-  EventProcessorSQSEventSource:
-    Type: AWS::Lambda::EventSourceMapping
-    DependsOn:
-      - EventProcessorFunction
-      - LogsEventQueue
-    Properties:
-      EventSourceArn: !GetAtt LogsEventQueue.Arn
-      FunctionName: !Ref EventProcessorFunction
-      Enabled: true
-      BatchSize: 10
-      FunctionResponseTypes:
-        - ReportBatchItemFailures
 
   # API Gateway WebSocket API
   WebSocketApi:
