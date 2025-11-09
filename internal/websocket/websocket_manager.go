@@ -265,7 +265,7 @@ func (wm *WebSocketManager) newWebSocketConnection(
 		Token:                token, // Keep the token for cleanup on disconnect
 		ClientIP:             getClientIPFromWebSocketRequest(req),
 		UserEmail:            wsToken.UserEmail,
-		TokenRequestClientIP: wsToken.ClientIPAtCreationTime,
+		TokenRequestClientIP: wsToken.ClientIP,
 	}
 }
 

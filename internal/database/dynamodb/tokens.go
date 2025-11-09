@@ -38,23 +38,23 @@ func NewTokenRepository(
 
 // tokenItem represents the structure stored in DynamoDB.
 type tokenItem struct {
-	Token                  string `dynamodbav:"token"`
-	ExecutionID            string `dynamodbav:"execution_id"`
-	UserEmail              string `dynamodbav:"user_email,omitempty"`
-	ClientIPAtCreationTime string `dynamodbav:"client_ip_at_creation_time,omitempty"`
-	ExpiresAt              int64  `dynamodbav:"expires_at"`
-	CreatedAt              int64  `dynamodbav:"created_at"`
+	Token       string `dynamodbav:"token"`
+	ExecutionID string `dynamodbav:"execution_id"`
+	UserEmail   string `dynamodbav:"user_email,omitempty"`
+	ClientIP    string `dynamodbav:"client_ip_at_creation_time,omitempty"`
+	ExpiresAt   int64  `dynamodbav:"expires_at"`
+	CreatedAt   int64  `dynamodbav:"created_at"`
 }
 
 // toTokenItem converts an api.WebSocketToken to a tokenItem.
 func toTokenItem(token *api.WebSocketToken) *tokenItem {
 	return &tokenItem{
-		Token:                  token.Token,
-		ExecutionID:            token.ExecutionID,
-		UserEmail:              token.UserEmail,
-		ClientIPAtCreationTime: token.ClientIPAtCreationTime,
-		ExpiresAt:              token.ExpiresAt,
-		CreatedAt:              token.CreatedAt,
+		Token:       token.Token,
+		ExecutionID: token.ExecutionID,
+		UserEmail:   token.UserEmail,
+		ClientIP:    token.ClientIP,
+		ExpiresAt:   token.ExpiresAt,
+		CreatedAt:   token.CreatedAt,
 	}
 }
 
@@ -132,12 +132,12 @@ func (r *TokenRepository) GetToken(
 	}
 
 	token := &api.WebSocketToken{
-		Token:                  item.Token,
-		ExecutionID:            item.ExecutionID,
-		UserEmail:              item.UserEmail,
-		ClientIPAtCreationTime: item.ClientIPAtCreationTime,
-		ExpiresAt:              item.ExpiresAt,
-		CreatedAt:              item.CreatedAt,
+		Token:       item.Token,
+		ExecutionID: item.ExecutionID,
+		UserEmail:   item.UserEmail,
+		ClientIP:    item.ClientIP,
+		ExpiresAt:   item.ExpiresAt,
+		CreatedAt:   item.CreatedAt,
 	}
 
 	reqLogger.Debug("token retrieved successfully", "context", map[string]string{

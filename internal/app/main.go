@@ -453,12 +453,12 @@ func (s *Service) generateWebSocketURL(
 	}
 
 	wsToken := &api.WebSocketToken{
-		Token:                  token,
-		ExecutionID:            executionID,
-		UserEmail:              email,
-		ClientIPAtCreationTime: clientIP,
-		ExpiresAt:              expiresAt,
-		CreatedAt:              time.Now().Unix(),
+		Token:       token,
+		ExecutionID: executionID,
+		UserEmail:   email,
+		ClientIP:    clientIP,
+		ExpiresAt:   expiresAt,
+		CreatedAt:   time.Now().Unix(),
 	}
 
 	if tokenErr := s.tokenRepo.CreateToken(ctx, wsToken); tokenErr != nil {
