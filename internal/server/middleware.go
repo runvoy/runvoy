@@ -233,7 +233,7 @@ func (r *Router) requestLoggingMiddleware(next http.Handler) http.Handler {
 		next.ServeHTTP(wrapped, req)
 		duration := time.Since(start)
 
-		logger.Info("sent response to client", "response", map[string]any{
+		logger.Info("response sent to client", "response", map[string]any{
 			"status":   wrapped.statusCode,
 			"duration": duration.String(),
 		})

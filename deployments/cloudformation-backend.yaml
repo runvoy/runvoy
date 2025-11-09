@@ -421,6 +421,7 @@ Resources:
                   - !GetAtt APIKeysTable.Arn
                   - !GetAtt ExecutionsTable.Arn
                   - !GetAtt PendingAPIKeysTable.Arn
+                  - !GetAtt WebSocketConnectionsTable.Arn
                   - !Sub '${APIKeysTable.Arn}/index/*'
                   - !Sub '${ExecutionsTable.Arn}/index/*'
 
@@ -458,6 +459,7 @@ Resources:
           RUNVOY_SUBNET_2: !Ref PublicSubnet2
           RUNVOY_TASK_EXEC_ROLE_ARN: !GetAtt TaskExecutionRole.Arn
           RUNVOY_TASK_ROLE_ARN: !GetAtt TaskRole.Arn
+          RUNVOY_WEBSOCKET_CONNECTIONS_TABLE: !Ref WebSocketConnectionsTable
           RUNVOY_WEBSOCKET_API_ENDPOINT: !Sub '${WebSocketApi.ApiId}.execute-api.${AWS::Region}.amazonaws.com/production'
 
   # Lambda Function URL
