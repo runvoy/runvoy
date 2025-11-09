@@ -1,6 +1,6 @@
-# Runvoy Webviewer
+# Runvoy Web Console
 
-Web-based log viewer for runvoy executions, built with SvelteKit.
+Web-based console for runvoy that lets you launch executions and inspect their logs in real time. Built with SvelteKit.
 
 ## Development
 
@@ -27,16 +27,21 @@ cmd/webapp/
 │   ├── routes/
 │   │   ├── +layout.js          # Layout configuration (prerender)
 │   │   └── +page.svelte        # Main page component
-│   ├── components/             # Svelte components
+│   ├── components/             # Reusable UI components
 │   ├── stores/                 # Svelte stores (state management)
 │   │   ├── config.js           # API endpoint, API key
 │   │   ├── execution.js        # Execution ID, status
 │   │   ├── logs.js             # Log events
-│   │   └── websocket.js        # WebSocket connection
+│   │   ├── websocket.js        # WebSocket connection
+│   │   └── ui.js               # Active view/navigation state
 │   ├── lib/                    # Utilities and helpers
 │   │   ├── api.js              # API client
 │   │   ├── websocket.js        # WebSocket connection logic
+│   │   ├── executionState.js   # Helpers for switching executions
 │   │   └── ansi.js             # ANSI color parser
+│   ├── views/                  # High-level application views
+│   │   ├── LogsView.svelte     # Log tailing workflow
+│   │   └── RunView.svelte      # Command execution workflow
 │   └── styles/
 │       └── global.css          # Global styles (Pico CSS + custom)
 ├── svelte.config.js            # SvelteKit configuration

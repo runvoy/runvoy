@@ -1,96 +1,60 @@
 <script>
     import { onMount } from 'svelte';
-    import { executionId } from '../stores/execution.js';
     import { apiEndpoint, apiKey } from '../stores/config.js';
-    import { logEvents, logsRetryCount } from '../stores/logs.js';
-    import { cachedWebSocketURL } from '../stores/websocket.js';
+    import { get } from 'svelte/store';
+    import { activeView, VIEWS } from '../stores/ui.js';
     import APIClient from '../lib/api.js';
-    import { connectWebSocket, disconnectWebSocket } from '../lib/websocket.js';
-
-    import ExecutionSelector from '../components/ExecutionSelector.svelte';
+    import { switchExecution } from '../lib/executionState.js';
     import ConnectionManager from '../components/ConnectionManager.svelte';
-    import LogViewer from '../components/LogViewer.svelte';
-    import WebSocketStatus from '../components/WebSocketStatus.svelte';
-    import StatusBar from '../components/StatusBar.svelte';
-    import LogControls from '../components/LogControls.svelte';
+    import ViewSwitcher from '../components/ViewSwitcher.svelte';
+    import RunView from '../views/RunView.svelte';
+    import LogsView from '../views/LogsView.svelte';
+    import { executionId } from '../stores/execution.js';
 
     import '../styles/global.css';
 
-    let showWelcome = false;
-    let apiClient;
-    let fetchLogsTimer;
-    let errorMessage = '';
+    let apiClient = null;
+    let isConfigured = false;
 
-    const MAX_LOG_RETRIES = 2;
-    const LOG_RETRY_DELAY = 10000; // 10 seconds
+    const views = [
+        { id: VIEWS.RUN, label: 'Run Command' },
+        { id: VIEWS.LOGS, label: 'Logs' }
+    ];
+    let navViews = views;
 
     onMount(() => {
+        if (typeof window === 'undefined') {
+            return;
+        }
+
         const urlParams = new URLSearchParams(window.location.search);
         const execId = urlParams.get('execution_id') || urlParams.get('executionId');
 
         if (execId) {
-            executionId.set(execId);
+            switchExecution(execId, { updateHistory: false });
+            activeView.set(VIEWS.LOGS);
+        } else {
+            document.title = 'runvoy Logs';
         }
-
-        document.title = execId ? `runvoy Logs - ${execId}` : 'runvoy Logs';
-
-        if (!$apiEndpoint || !$apiKey) {
-            showWelcome = true;
-        }
-
-        window.addEventListener('credentials-updated', () => {
-            apiEndpoint.set($apiEndpoint);
-            apiKey.set($apiKey);
-        });
-
-        return () => {
-            clearTimeout(fetchLogsTimer);
-            disconnectWebSocket();
-        };
     });
 
-    async function fetchLogs() {
-        if (!apiClient || !$executionId) return;
+    $: apiClient =
+        $apiEndpoint && $apiKey ? new APIClient($apiEndpoint, $apiKey) : null;
 
-        clearTimeout(fetchLogsTimer);
-        errorMessage = '';
+    $: isConfigured = Boolean(apiClient);
 
-        try {
-            const response = await apiClient.getLogs($executionId);
-            const eventsWithLines = (response.events || []).map((event, index) => ({
-                ...event,
-                line: index + 1
-            }));
-            logEvents.set(eventsWithLines);
-            cachedWebSocketURL.set(response.websocket_url);
-            logsRetryCount.set(0);
-        } catch (error) {
-            if (error.status === 404 && $logsRetryCount < MAX_LOG_RETRIES) {
-                errorMessage = `Execution not found, retrying... (${$logsRetryCount + 1}/${MAX_LOG_RETRIES})`;
-                logsRetryCount.update((n) => n + 1);
-                fetchLogsTimer = setTimeout(fetchLogs, LOG_RETRY_DELAY);
-            } else {
-                errorMessage = error.details?.error || error.message || 'Failed to fetch logs';
-                logEvents.set([]);
-            }
+    $: navViews = views.map((view) =>
+        view.id === VIEWS.LOGS ? { ...view, disabled: !isConfigured } : view
+    );
+
+    $: if (!isConfigured) {
+        activeView.set(VIEWS.RUN);
+    }
+
+    $: {
+        if (isConfigured && get(executionId) && $activeView === VIEWS.RUN) {
+            activeView.set(VIEWS.LOGS);
         }
-    }
-
-    $: apiClient = $apiEndpoint && $apiKey ? new APIClient($apiEndpoint, $apiKey) : null;
-
-    $: if (apiClient) {
-        showWelcome = false;
-    } else {
-        showWelcome = true;
-    }
-
-    $: if ($executionId && apiClient) {
-        disconnectWebSocket();
-        fetchLogs();
-    }
-
-    $: if ($cachedWebSocketURL) {
-        connectWebSocket($cachedWebSocketURL);
     }
 </script>
 
@@ -98,7 +62,7 @@
 
 <main class="container">
     <header>
-        <h1>runvoy Log Viewer</h1>
+        <h1>runvoy Console</h1>
         <p class="subtitle">
             <a href="https://github.com/runvoy/runvoy" target="_blank" rel="noopener">
                 View on GitHub
@@ -106,45 +70,12 @@
         </p>
     </header>
 
-    <ExecutionSelector />
+    <ViewSwitcher views={navViews} />
 
-    {#if errorMessage}
-        <article class="error-box">
-            <p>{errorMessage}</p>
-        </article>
-    {/if}
-
-    {#if showWelcome}
-        <article>
-            <header>
-                <strong>Welcome to runvoy Log Viewer</strong>
-            </header>
-            <p>To get started:</p>
-            <ol>
-                <li>Click the "⚙️ Configure API" button to set your API endpoint and key</li>
-                <li>Enter an execution ID in the field above</li>
-                <li>View logs and monitor execution status in real-time</li>
-            </ol>
-            <footer>
-                <small
-                    >Your credentials are stored locally in your browser and never sent to third
-                    parties.</small
-                >
-            </footer>
-        </article>
-    {:else if !$executionId}
-        <article>
-            <p>
-                Enter an execution ID above or provide <code>?execution_id=&lt;id&gt;</code> in the URL
-            </p>
-        </article>
-    {:else}
-        <section>
-            <StatusBar />
-            <WebSocketStatus />
-            <LogControls />
-            <LogViewer />
-        </section>
+    {#if $activeView === VIEWS.RUN}
+        <RunView {apiClient} {isConfigured} />
+    {:else if $activeView === VIEWS.LOGS}
+        <LogsView {apiClient} {isConfigured} />
     {/if}
 </main>
 
