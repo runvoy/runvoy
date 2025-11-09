@@ -88,3 +88,16 @@ type ConnectionRepository interface {
 	// Returns the complete connection objects including token and other metadata.
 	GetConnectionsByExecutionID(ctx context.Context, executionID string) ([]*api.WebSocketConnection, error)
 }
+
+// TokenRepository defines the interface for WebSocket token validation operations.
+type TokenRepository interface {
+	// CreateToken stores a new WebSocket authentication token with metadata.
+	CreateToken(ctx context.Context, token *api.WebSocketToken) error
+
+	// GetToken retrieves a token by its value and validates it hasn't expired.
+	// Returns nil if the token doesn't exist or has expired (DynamoDB TTL handles expiration).
+	GetToken(ctx context.Context, tokenValue string) (*api.WebSocketToken, error)
+
+	// DeleteToken removes a token from the database (used after validation or explicit cleanup).
+	DeleteToken(ctx context.Context, tokenValue string) error
+}

@@ -422,8 +422,10 @@ Resources:
                   - !GetAtt ExecutionsTable.Arn
                   - !GetAtt PendingAPIKeysTable.Arn
                   - !GetAtt WebSocketConnectionsTable.Arn
+                  - !GetAtt WebSocketTokensTable.Arn
                   - !Sub '${APIKeysTable.Arn}/index/*'
                   - !Sub '${ExecutionsTable.Arn}/index/*'
+                  - !Sub '${WebSocketTokensTable.Arn}/index/*'
 
   # Lambda Function (code loaded from S3 bucket)
   LambdaFunction:
@@ -460,6 +462,7 @@ Resources:
           RUNVOY_TASK_EXEC_ROLE_ARN: !GetAtt TaskExecutionRole.Arn
           RUNVOY_TASK_ROLE_ARN: !GetAtt TaskRole.Arn
           RUNVOY_WEBSOCKET_CONNECTIONS_TABLE: !Ref WebSocketConnectionsTable
+          RUNVOY_WEBSOCKET_TOKENS_TABLE: !Ref WebSocketTokensTable
           RUNVOY_WEBSOCKET_API_ENDPOINT: !Sub '${WebSocketApi.ApiId}.execute-api.${AWS::Region}.amazonaws.com/production'
 
   # Lambda Function URL
@@ -519,6 +522,7 @@ Resources:
           RUNVOY_EXECUTIONS_TABLE: !Ref ExecutionsTable
           RUNVOY_ECS_CLUSTER: !Ref ECSCluster
           RUNVOY_WEBSOCKET_CONNECTIONS_TABLE: !Ref WebSocketConnectionsTable
+          RUNVOY_WEBSOCKET_TOKENS_TABLE: !Ref WebSocketTokensTable
           RUNVOY_WEBSOCKET_API_ENDPOINT: !Sub '${WebSocketApi.ApiId}.execute-api.${AWS::Region}.amazonaws.com/production'
           RUNVOY_LOG_LEVEL: !Ref 'AWS::NoValue'
 
@@ -592,7 +596,9 @@ Resources:
                   - 'dynamodb:Query'
                 Resource:
                   - !GetAtt WebSocketConnectionsTable.Arn
+                  - !GetAtt WebSocketTokensTable.Arn
                   - !Sub '${WebSocketConnectionsTable.Arn}/index/*'
+                  - !Sub '${WebSocketTokensTable.Arn}/index/*'
               - Effect: Allow
                 Action:
                   - 'execute-api:ManageConnections'
@@ -664,6 +670,38 @@ Resources:
       Tags:
         - Key: Name
           Value: !Sub '${ProjectName}-websocket-connections'
+        - Key: Application
+          Value: !Ref ProjectName
+        - Key: ManagedBy
+          Value: 'cloudformation'
+
+  # DynamoDB Table for WebSocket Tokens (authentication tokens for WebSocket connections)
+  WebSocketTokensTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub '${ProjectName}-websocket-tokens'
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: token
+          AttributeType: S
+        - AttributeName: execution_id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: token
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: execution_id-index
+          KeySchema:
+            - AttributeName: execution_id
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+      TimeToLiveSpecification:
+        AttributeName: expires_at
+        Enabled: true
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-websocket-tokens'
         - Key: Application
           Value: !Ref ProjectName
         - Key: ManagedBy
@@ -820,4 +858,10 @@ Outputs:
     Value: !Ref WebSocketApi
     Export:
       Name: !Sub '${ProjectName}-websocket-api-id'
+
+  WebSocketTokensTableName:
+    Description: DynamoDB WebSocket Tokens Table name
+    Value: !Ref WebSocketTokensTable
+    Export:
+      Name: !Sub '${ProjectName}-websocket-tokens-table'
 

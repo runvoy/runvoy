@@ -177,6 +177,34 @@ func (m *mockConnectionRepository) GetConnectionsByExecutionID(
 	return nil, nil
 }
 
+// mockTokenRepository implements database.TokenRepository for testing
+type mockTokenRepository struct {
+	createTokenFunc func(ctx context.Context, token *api.WebSocketToken) error
+	getTokenFunc    func(ctx context.Context, tokenValue string) (*api.WebSocketToken, error)
+	deleteTokenFunc func(ctx context.Context, tokenValue string) error
+}
+
+func (m *mockTokenRepository) CreateToken(ctx context.Context, token *api.WebSocketToken) error {
+	if m.createTokenFunc != nil {
+		return m.createTokenFunc(ctx, token)
+	}
+	return nil
+}
+
+func (m *mockTokenRepository) GetToken(ctx context.Context, tokenValue string) (*api.WebSocketToken, error) {
+	if m.getTokenFunc != nil {
+		return m.getTokenFunc(ctx, tokenValue)
+	}
+	return nil, nil
+}
+
+func (m *mockTokenRepository) DeleteToken(ctx context.Context, tokenValue string) error {
+	if m.deleteTokenFunc != nil {
+		return m.deleteTokenFunc(ctx, tokenValue)
+	}
+	return nil
+}
+
 // mockRunner implements Runner interface for testing
 type mockRunner struct {
 	startTaskFunc func(
@@ -254,5 +282,5 @@ func newTestServiceWithConnRepo(
 	runner *mockRunner,
 ) *Service {
 	logger := testutil.SilentLogger()
-	return NewService(userRepo, execRepo, connRepo, runner, logger, constants.AWS, "")
+	return NewService(userRepo, execRepo, connRepo, &mockTokenRepository{}, runner, logger, constants.AWS, "")
 }

@@ -197,14 +197,26 @@ type ListImagesResponse struct {
 
 // WebSocketConnection represents a WebSocket connection record
 type WebSocketConnection struct {
-	ConnectionID       string `json:"connection_id"`
-	ExecutionID        string `json:"execution_id"`
-	Functionality      string `json:"functionality"`
-	ExpiresAt          int64  `json:"expires_at"`
-	ClientIP           string `json:"client_ip,omitempty"`
-	Token              string `json:"token,omitempty"`
-	UserEmail          string `json:"user_email,omitempty"`
-	ClientIPAtLogsTime string `json:"client_ip_at_logs_time,omitempty"`
+	ConnectionID  string `json:"connection_id"`
+	ExecutionID   string `json:"execution_id"`
+	Functionality string `json:"functionality"`
+	ExpiresAt     int64  `json:"expires_at"`
+	ClientIP      string `json:"client_ip,omitempty"`
+	Token         string `json:"token,omitempty"`
+	UserEmail     string `json:"user_email,omitempty"`
+	// Client IP captured when the websocket token was created (for tracing)
+	TokenRequestClientIP string `json:"token_request_client_ip,omitempty"`
+}
+
+// WebSocketToken represents a WebSocket authentication token
+type WebSocketToken struct {
+	Token       string `json:"token"`
+	ExecutionID string `json:"execution_id"`
+	UserEmail   string `json:"user_email,omitempty"`
+	// Client IP captured when the websocket token was created (for tracing)
+	ClientIP  string `json:"client_ip,omitempty"`
+	ExpiresAt int64  `json:"expires_at"`
+	CreatedAt int64  `json:"created_at"`
 }
 
 // WebSocketMessageType represents the type of WebSocket message
