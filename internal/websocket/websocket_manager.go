@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 
 	"runvoy/internal/api"
@@ -508,6 +509,21 @@ func (wm *WebSocketManager) clearReplayLock(
 	return nil
 }
 
+// deleteStaleConnection removes a connection that no longer exists (410 Gone).
+// This handles the case where the WebSocket was closed but the database record persists.
+func (wm *WebSocketManager) deleteStaleConnection(ctx context.Context, connectionID string) error {
+	_, err := wm.connRepo.DeleteConnections(ctx, []string{connectionID})
+	if err != nil {
+		return fmt.Errorf("failed to delete stale connection %s: %w", connectionID, err)
+	}
+
+	wm.logger.Debug("stale connection deleted from database", "context", map[string]string{
+		"connection_id": connectionID,
+	})
+
+	return nil
+}
+
 // validateConnectionParams validates required connection parameters.
 func (wm *WebSocketManager) validateConnectionParams(
 	connectionID, executionID, token string,
@@ -746,14 +762,16 @@ func (wm *WebSocketManager) SendLogsToExecution(
 		eg.SetLimit(constants.MaxConcurrentSends)
 
 		for _, conn := range activeConnections {
+			// Capture current connection in closure
+			currentConn := conn
 			eg.Go(func() error {
 				// Send log and update LastSeenLogTimestamp
-				if sendErr := wm.sendLogToConnection(egCtx, &conn.ConnectionID, logEvent); sendErr != nil {
+				if sendErr := wm.sendLogToConnection(egCtx, &currentConn.ConnectionID, logEvent); sendErr != nil {
 					return sendErr
 				}
 				// Update the connection record with the latest timestamp
-				conn.LastSeenLogTimestamp = logEvent.Timestamp
-				if updateErr := wm.connRepo.UpdateConnection(egCtx, conn); updateErr != nil {
+				currentConn.LastSeenLogTimestamp = logEvent.Timestamp
+				if updateErr := wm.connRepo.UpdateConnection(egCtx, currentConn); updateErr != nil {
 					wm.logger.Error("failed to update connection timestamp", "error", updateErr)
 					// Don't fail the send just because we couldn't update the timestamp
 				}
@@ -762,6 +780,21 @@ func (wm *WebSocketManager) SendLogsToExecution(
 		}
 
 		if egErr := eg.Wait(); egErr != nil {
+			// Check if this is a stale connection error - if so, delete it and continue
+			var staleConnErr *StaleConnectionError
+			if errors.As(egErr, &staleConnErr) {
+				wm.logger.Debug("deleting stale connection and continuing", "context", map[string]string{
+					"connection_id": staleConnErr.ConnectionID,
+					"execution_id":  executionID,
+				})
+				if delErr := wm.deleteStaleConnection(ctx, staleConnErr.ConnectionID); delErr != nil {
+					wm.logger.Error("failed to delete stale connection", "error", delErr)
+				}
+				// Don't fail - continue with other connections
+				continue
+			}
+
+			// For other errors, log and fail
 			wm.logger.Error("some log sends failed", "context", map[string]any{
 				"error":        egErr.Error(),
 				"execution_id": executionID,
@@ -780,6 +813,7 @@ func (wm *WebSocketManager) SendLogsToExecution(
 }
 
 // sendLogToConnection sends a single log event to a WebSocket connection.
+// Returns a StaleConnectionError if the connection no longer exists (410 Gone).
 func (wm *WebSocketManager) sendLogToConnection(
 	ctx context.Context,
 	connectionID *string,
@@ -807,6 +841,16 @@ func (wm *WebSocketManager) sendLogToConnection(
 	})
 
 	if err != nil {
+		// Check if connection is gone (410 error indicates the connection was closed)
+		if isGoneError(err) {
+			wm.logger.Debug("connection no longer exists, will delete from database",
+				"context", map[string]string{
+					"connection_id": *connectionID,
+				},
+			)
+			return &StaleConnectionError{ConnectionID: *connectionID}
+		}
+
 		wm.logger.Error("failed to send log to connection",
 			"context", map[string]string{
 				"error":         err.Error(),
@@ -817,6 +861,27 @@ func (wm *WebSocketManager) sendLogToConnection(
 	}
 
 	return nil
+}
+
+// StaleConnectionError indicates a connection no longer exists and should be deleted.
+type StaleConnectionError struct {
+	ConnectionID string
+}
+
+func (e *StaleConnectionError) Error() string {
+	return fmt.Sprintf("connection %s is stale", e.ConnectionID)
+}
+
+// isGoneError checks if an error is a 410 Gone error from API Gateway Management API.
+func isGoneError(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	errStr := err.Error()
+	// Check for the 410 status code in the error message
+	// API Gateway Management API returns "StatusCode: 410" for closed connections
+	return strings.Contains(errStr, "StatusCode: 410") || strings.Contains(errStr, "GoneException")
 }
 
 // handleDisconnectExecution handles the $disconnect-execution route key.
@@ -918,6 +983,7 @@ func (wm *WebSocketManager) handleDisconnectNotification(
 }
 
 // sendDisconnectToConnection sends a disconnect message to a single WebSocket connection.
+// Returns no error for 410 Gone (connection already closed), treating it as success.
 func (wm *WebSocketManager) sendDisconnectToConnection(
 	ctx context.Context,
 	connectionID string,
@@ -933,6 +999,16 @@ func (wm *WebSocketManager) sendDisconnectToConnection(
 	})
 
 	if err != nil {
+		// 410 Gone is expected for already-closed connections, treat as success
+		if isGoneError(err) {
+			wm.logger.Debug("connection already closed, no need to send disconnect",
+				"context", map[string]string{
+					"connection_id": connectionID,
+				},
+			)
+			return nil
+		}
+
 		wm.logger.Error("failed to send disconnect notification to connection",
 			"context", map[string]string{
 				"error":         err.Error(),
