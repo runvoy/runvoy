@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -123,13 +124,17 @@ func (t *testUserRepository) ListUsers(_ context.Context) ([]*api.User, error) {
 
 type testExecutionRepository struct {
 	listExecutionsFunc func() ([]*api.Execution, error)
+	getExecutionFunc   func(ctx context.Context, executionID string) (*api.Execution, error)
 }
 
 func (t *testExecutionRepository) CreateExecution(_ context.Context, _ *api.Execution) error {
 	return nil
 }
 
-func (t *testExecutionRepository) GetExecution(_ context.Context, executionID string) (*api.Execution, error) {
+func (t *testExecutionRepository) GetExecution(ctx context.Context, executionID string) (*api.Execution, error) {
+	if t.getExecutionFunc != nil {
+		return t.getExecutionFunc(ctx, executionID)
+	}
 	now := time.Now()
 	return &api.Execution{
 		ExecutionID: executionID,
@@ -667,6 +672,274 @@ func TestHandleGetExecutionLogs_Success(t *testing.T) {
 	var logsResp api.LogsResponse
 	err := json.NewDecoder(resp.Body).Decode(&logsResp)
 	assert.NoError(t, err)
+}
+
+// testLogRepository is a mock implementation of the log repository for testing
+type testLogRepository struct {
+	getLogsByExecutionIDFunc func(ctx context.Context, executionID string) (
+		[]api.LogEvent, error)
+	getLogsByExecutionIDSinceFunc func(ctx context.Context, executionID string,
+		sinceTimestampMS *int64) ([]api.LogEvent, error)
+}
+
+func (t *testLogRepository) GetLogsByExecutionID(ctx context.Context, executionID string) ([]api.LogEvent, error) {
+	if t.getLogsByExecutionIDFunc != nil {
+		return t.getLogsByExecutionIDFunc(ctx, executionID)
+	}
+	return []api.LogEvent{}, nil
+}
+
+func (t *testLogRepository) GetLogsByExecutionIDSince(ctx context.Context,
+	executionID string, sinceTimestampMS *int64) ([]api.LogEvent, error) {
+	if t.getLogsByExecutionIDSinceFunc != nil {
+		return t.getLogsByExecutionIDSinceFunc(ctx, executionID, sinceTimestampMS)
+	}
+	return []api.LogEvent{}, nil
+}
+
+// testConnectionRepository is a mock implementation of the connection repository for testing
+type testConnectionRepository struct {
+	createConnectionFunc func(ctx context.Context, conn *api.WebSocketConnection) error
+	getConnectionFunc    func(ctx context.Context, connID string) (*api.WebSocketConnection, error)
+}
+
+func (t *testConnectionRepository) CreateConnection(ctx context.Context, conn *api.WebSocketConnection) error {
+	if t.createConnectionFunc != nil {
+		return t.createConnectionFunc(ctx, conn)
+	}
+	return nil
+}
+
+func (t *testConnectionRepository) UpdateConnection(_ context.Context, _ *api.WebSocketConnection) error {
+	return nil
+}
+
+func (t *testConnectionRepository) DeleteConnections(_ context.Context, _ []string) (int, error) {
+	return 0, nil
+}
+
+func (t *testConnectionRepository) GetConnection(ctx context.Context, connID string) (*api.WebSocketConnection, error) {
+	if t.getConnectionFunc != nil {
+		return t.getConnectionFunc(ctx, connID)
+	}
+	return nil, nil
+}
+
+func (t *testConnectionRepository) GetConnectionsByExecutionID(
+	_ context.Context, _ string) ([]*api.WebSocketConnection, error) {
+	return []*api.WebSocketConnection{}, nil
+}
+
+func (t *testConnectionRepository) UpdateConnectionToken(_ context.Context, _, _ string) error {
+	return nil
+}
+
+// TestHandleGetExecutionLogs_CompletedExecution tests logs retrieval for a completed execution with backlog
+func TestHandleGetExecutionLogs_CompletedExecution(t *testing.T) {
+	now := time.Now()
+	baseTimestamp := now.UnixMilli()
+
+	logEvents := []api.LogEvent{
+		{Timestamp: baseTimestamp, Message: "Task started"},
+		{Timestamp: baseTimestamp + 1000, Message: "Processing data"},
+		{Timestamp: baseTimestamp + 2000, Message: "Task completed"},
+	}
+
+	execRepo := &testExecutionRepository{
+		getExecutionFunc: func(_ context.Context, execID string) (*api.Execution, error) {
+			return &api.Execution{
+				ExecutionID: execID,
+				UserEmail:   "user@example.com",
+				Command:     "echo hello",
+				Status:      string(constants.ExecutionSucceeded),
+				StartedAt:   now,
+			}, nil
+		},
+	}
+
+	logRepo := &testLogRepository{
+		getLogsByExecutionIDSinceFunc: func(_ context.Context, _ string, _ *int64) ([]api.LogEvent, error) {
+			return logEvents, nil
+		},
+	}
+
+	svc := app.NewService(
+		&testUserRepository{},
+		execRepo,
+		nil,
+		logRepo,
+		&testRunner{},
+		testutil.SilentLogger(),
+		constants.AWS,
+		"",
+	)
+	router := NewRouter(svc, 2*time.Second)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/executions/exec-123/logs", http.NoBody)
+	req.Header.Set("X-API-Key", "test-api-key")
+
+	resp := httptest.NewRecorder()
+	router.ServeHTTP(resp, req)
+
+	assert.Equal(t, http.StatusOK, resp.Code)
+
+	var logsResp api.LogsResponse
+	err := json.NewDecoder(resp.Body).Decode(&logsResp)
+	assert.NoError(t, err)
+	assert.Equal(t, string(constants.ExecutionSucceeded), logsResp.Status)
+	assert.Equal(t, "", logsResp.WebSocketURL)
+	assert.Len(t, logsResp.Events, 3, "should return all log events")
+	assert.Equal(t, "Task started", logsResp.Events[0].Message)
+	assert.Equal(t, "Task completed", logsResp.Events[2].Message)
+}
+
+// TestHandleGetExecutionLogs_CompletedExecution_WithLastSeenTimestamp tests backlog filtering
+func TestHandleGetExecutionLogs_CompletedExecution_WithLastSeenTimestamp(t *testing.T) {
+	now := time.Now()
+	baseTimestamp := now.UnixMilli()
+
+	allLogEvents := []api.LogEvent{
+		{Timestamp: baseTimestamp - 5000, Message: "Old event 1"},
+		{Timestamp: baseTimestamp - 3000, Message: "Old event 2"},
+		{Timestamp: baseTimestamp, Message: "Recent event 1"},
+		{Timestamp: baseTimestamp + 2000, Message: "Recent event 2"},
+	}
+
+	execRepo := &testExecutionRepository{
+		getExecutionFunc: func(_ context.Context, execID string) (*api.Execution, error) {
+			return &api.Execution{
+				ExecutionID: execID,
+				UserEmail:   "user@example.com",
+				Command:     "echo hello",
+				Status:      string(constants.ExecutionSucceeded),
+				StartedAt:   now,
+			}, nil
+		},
+	}
+
+	logRepo := &testLogRepository{
+		getLogsByExecutionIDSinceFunc: func(_ context.Context, _ string, sinceTimestampMS *int64) ([]api.LogEvent, error) {
+			// Simulate server-side filtering
+			if sinceTimestampMS != nil {
+				var filtered []api.LogEvent
+				for _, event := range allLogEvents {
+					if event.Timestamp > *sinceTimestampMS {
+						filtered = append(filtered, event)
+					}
+				}
+				return filtered, nil
+			}
+			return allLogEvents, nil
+		},
+	}
+
+	svc := app.NewService(
+		&testUserRepository{},
+		execRepo,
+		nil,
+		logRepo,
+		&testRunner{},
+		testutil.SilentLogger(),
+		constants.AWS,
+		"",
+	)
+	router := NewRouter(svc, 2*time.Second)
+
+	lastSeenStr := fmt.Sprintf("%d", baseTimestamp-3000)
+	url := "/api/v1/executions/exec-123/logs?last_seen_timestamp=" + lastSeenStr
+	req := httptest.NewRequest(http.MethodGet, url, http.NoBody)
+	req.Header.Set("X-API-Key", "test-api-key")
+
+	resp := httptest.NewRecorder()
+	router.ServeHTTP(resp, req)
+
+	assert.Equal(t, http.StatusOK, resp.Code)
+
+	var logsResp api.LogsResponse
+	err := json.NewDecoder(resp.Body).Decode(&logsResp)
+	assert.NoError(t, err)
+	assert.Equal(t, string(constants.ExecutionSucceeded), logsResp.Status)
+	assert.Len(t, logsResp.Events, 2, "should return filtered log events")
+	assert.Equal(t, "Recent event 1", logsResp.Events[0].Message)
+	assert.Equal(t, "Recent event 2", logsResp.Events[1].Message)
+}
+
+// TestHandleGetExecutionLogs_RunningExecution tests WebSocket URL generation for running executions
+func TestHandleGetExecutionLogs_RunningExecution(t *testing.T) {
+	now := time.Now()
+
+	execRepo := &testExecutionRepository{
+		getExecutionFunc: func(_ context.Context, execID string) (*api.Execution, error) {
+			return &api.Execution{
+				ExecutionID: execID,
+				UserEmail:   "user@example.com",
+				Command:     "echo hello",
+				Status:      string(constants.ExecutionRunning),
+				StartedAt:   now,
+			}, nil
+		},
+	}
+
+	connRepo := &testConnectionRepository{
+		createConnectionFunc: func(_ context.Context, conn *api.WebSocketConnection) error {
+			// Verify connection is created with correct execution ID
+			assert.Equal(t, "exec-123", conn.ExecutionID)
+			assert.NotEmpty(t, conn.ConnectionID)
+			return nil
+		},
+	}
+
+	svc := app.NewService(
+		&testUserRepository{},
+		execRepo,
+		connRepo,
+		nil,
+		&testRunner{},
+		testutil.SilentLogger(),
+		constants.AWS,
+		"https://websocket.example.com",
+	)
+	router := NewRouter(svc, 2*time.Second)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/executions/exec-123/logs", http.NoBody)
+	req.Header.Set("X-API-Key", "test-api-key")
+
+	resp := httptest.NewRecorder()
+	router.ServeHTTP(resp, req)
+
+	assert.Equal(t, http.StatusOK, resp.Code)
+
+	var logsResp api.LogsResponse
+	err := json.NewDecoder(resp.Body).Decode(&logsResp)
+	assert.NoError(t, err)
+	assert.Equal(t, string(constants.ExecutionRunning), logsResp.Status)
+	assert.Empty(t, logsResp.Events, "running executions should have no events")
+	assert.NotEmpty(t, logsResp.WebSocketURL, "running executions should have WebSocket URL")
+	assert.Contains(t, logsResp.WebSocketURL, "wss://")
+}
+
+// TestHandleGetExecutionLogs_InvalidLastSeenTimestamp tests parameter validation
+func TestHandleGetExecutionLogs_InvalidLastSeenTimestamp(t *testing.T) {
+	svc := app.NewService(
+		&testUserRepository{},
+		&testExecutionRepository{},
+		nil,
+		nil,
+		&testRunner{},
+		testutil.SilentLogger(),
+		constants.AWS,
+		"",
+	)
+	router := NewRouter(svc, 2*time.Second)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/executions/exec-123/logs?last_seen_timestamp=invalid", http.NoBody)
+	req.Header.Set("X-API-Key", "test-api-key")
+
+	resp := httptest.NewRecorder()
+	router.ServeHTTP(resp, req)
+
+	assert.Equal(t, http.StatusBadRequest, resp.Code)
+	assert.Contains(t, resp.Body.String(), "last_seen_timestamp must be a valid integer")
 }
 
 func TestHandleGetExecutionLogs_MissingExecutionID(t *testing.T) {

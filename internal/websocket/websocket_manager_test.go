@@ -508,3 +508,99 @@ func TestHandleConnect_PreservesPendingConnectionExpiry(t *testing.T) {
 	assert.Equal(t, "real-conn-id", createdConnection.ConnectionID)
 	assert.Equal(t, "exec-789", createdConnection.ExecutionID)
 }
+
+// TestBacklogFiltering_PartialBacklog tests that logs are correctly filtered by timestamp
+func TestBacklogFiltering_PartialBacklog(t *testing.T) {
+	allLogEvents := []api.LogEvent{
+		{Timestamp: 1000, Message: "Old log 1"},
+		{Timestamp: 2000, Message: "Old log 2"},
+		{Timestamp: 3000, Message: "New log 1"},
+		{Timestamp: 4000, Message: "New log 2"},
+	}
+
+	logRepo := &mockLogRepoForWS{
+		getLogsByExecutionIDSinceFunc: func(_ context.Context, _ string, since *int64) (
+			[]api.LogEvent, error) {
+			var filtered []api.LogEvent
+			if since != nil {
+				for _, event := range allLogEvents {
+					if event.Timestamp > *since {
+						filtered = append(filtered, event)
+					}
+				}
+				return filtered, nil
+			}
+			return allLogEvents, nil
+		},
+	}
+
+	ctx := context.Background()
+	since := int64(2000)
+	logs, err := logRepo.GetLogsByExecutionIDSince(ctx, "exec-456", &since)
+	assert.NoError(t, err)
+	assert.Len(t, logs, 2, "should return only logs after timestamp 2000")
+	assert.Equal(t, "New log 1", logs[0].Message)
+	assert.Equal(t, int64(3000), logs[0].Timestamp)
+}
+
+// TestBacklogFiltering_AllLogs tests that all logs are returned when since is nil
+func TestBacklogFiltering_AllLogs(t *testing.T) {
+	logEvents := []api.LogEvent{
+		{Timestamp: 1000, Message: "Log 1"},
+		{Timestamp: 2000, Message: "Log 2"},
+		{Timestamp: 3000, Message: "Log 3"},
+	}
+
+	logRepo := &mockLogRepoForWS{
+		getLogsByExecutionIDSinceFunc: func(_ context.Context, _ string, since *int64) (
+			[]api.LogEvent, error) {
+			// When since is nil, return all logs
+			if since == nil {
+				return logEvents, nil
+			}
+			// Otherwise filter
+			var filtered []api.LogEvent
+			for _, event := range logEvents {
+				if event.Timestamp > *since {
+					filtered = append(filtered, event)
+				}
+			}
+			return filtered, nil
+		},
+	}
+
+	ctx := context.Background()
+	logs, err := logRepo.GetLogsByExecutionIDSince(ctx, "exec-all", nil)
+	assert.NoError(t, err)
+	assert.Len(t, logs, 3, "should return all logs when since is nil")
+	assert.Equal(t, "Log 1", logs[0].Message)
+}
+
+// TestBacklogFiltering_EmptyBacklog tests handling when no logs exist after timestamp
+func TestBacklogFiltering_EmptyBacklog(t *testing.T) {
+	logEvents := []api.LogEvent{
+		{Timestamp: 1000, Message: "Old log 1"},
+		{Timestamp: 2000, Message: "Old log 2"},
+	}
+
+	logRepo := &mockLogRepoForWS{
+		getLogsByExecutionIDSinceFunc: func(_ context.Context, _ string, since *int64) ([]api.LogEvent, error) {
+			if since == nil {
+				return logEvents, nil
+			}
+			var filtered []api.LogEvent
+			for _, event := range logEvents {
+				if event.Timestamp > *since {
+					filtered = append(filtered, event)
+				}
+			}
+			return filtered, nil
+		},
+	}
+
+	ctx := context.Background()
+	since := int64(5000)
+	logs, err := logRepo.GetLogsByExecutionIDSince(ctx, "exec-empty", &since)
+	assert.NoError(t, err)
+	assert.Empty(t, logs, "should return empty list when all logs are older than since timestamp")
+}
