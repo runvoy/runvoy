@@ -5,5 +5,5 @@ export const logsRetryCount = writable(0);
 export const showMetadata = writable(true);
 
 // Constants for retry logic
-export const MAX_LOGS_RETRIES = 2;
+export const MAX_LOGS_RETRIES = 3;
 export const LOGS_RETRY_DELAY = 10000; // 10 seconds in milliseconds

@@ -3,6 +3,7 @@ import { executionId } from '../stores/execution.js';
 import { logEvents, logsRetryCount } from '../stores/logs.js';
 import { cachedWebSocketURL, websocketConnection } from '../stores/websocket.js';
 import { disconnectWebSocket } from './websocket.js';
+import { activeView, VIEWS } from '../stores/ui.js';
 
 function resetExecutionData() {
     logEvents.set([]);
@@ -39,6 +40,7 @@ export function switchExecution(newExecutionId, { updateHistory = true } = {}) {
     executionId.set(trimmedId);
     resetExecutionData();
     updateDocumentTitle(trimmedId);
+    activeView.set(VIEWS.LOGS);
 
     if (updateHistory && typeof window !== 'undefined') {
         const urlParams = new URLSearchParams(window.location.search);

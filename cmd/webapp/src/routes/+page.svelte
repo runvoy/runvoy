@@ -1,7 +1,6 @@
 <script>
     import { onMount } from 'svelte';
     import { apiEndpoint, apiKey } from '../stores/config.js';
-    import { get } from 'svelte/store';
     import { activeView, VIEWS } from '../stores/ui.js';
     import APIClient from '../lib/api.js';
     import { switchExecution } from '../lib/executionState.js';
@@ -9,10 +8,10 @@
     import ViewSwitcher from '../components/ViewSwitcher.svelte';
     import RunView from '../views/RunView.svelte';
     import LogsView from '../views/LogsView.svelte';
-    import { executionId } from '../stores/execution.js';
 
     import '../styles/global.css';
 
+    const appVersion = import.meta.env.VITE_RUNVOY_VERSION || '';
     let apiClient = null;
     let isConfigured = false;
 
@@ -49,12 +48,6 @@
     $: if (!isConfigured) {
         activeView.set(VIEWS.RUN);
     }
-
-    $: {
-        if (isConfigured && get(executionId) && $activeView === VIEWS.RUN) {
-            activeView.set(VIEWS.LOGS);
-        }
-    }
 </script>
 
 <ConnectionManager />
@@ -62,6 +55,10 @@
 <main class="container">
     <header>
         <h1>runvoy Console</h1>
+        {#if appVersion}
+            <p class="version">Version {appVersion}</p>
+        {/if}
+
         <p class="subtitle">
             <a href="https://github.com/runvoy/runvoy" target="_blank" rel="noopener">
                 View on GitHub
@@ -86,6 +83,11 @@
 
     header {
         margin-bottom: 2rem;
+    }
+
+    .version {
+        margin: 0;
+        color: var(--pico-muted-color);
     }
 
     h1 {

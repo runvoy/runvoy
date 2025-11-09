@@ -9,7 +9,8 @@ version := trim(read('VERSION'))
 git_short_hash := trim(`git rev-parse --short HEAD`)
 build_date := datetime_utc('%Y%m%d')
 build_flags_x := '-X=runvoy/internal/constants.version='
-build_flags := build_flags_x + version + '-' + build_date + '-' + git_short_hash
+build_version := version + '-' + build_date + '-' + git_short_hash
+build_flags := build_flags_x + build_version
 
 # Aliases
 alias r := runvoy
@@ -243,7 +244,7 @@ local-dev-webapp:
 # Build webapp
 [working-directory: 'cmd/webapp']
 build-webapp: lint-webapp
-    npx vite build
+    VITE_RUNVOY_VERSION={{build_version}} npx vite build
 
 # Lint/prettify webapp
 [working-directory: 'cmd/webapp']
