@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 
 	"runvoy/internal/api"
@@ -316,9 +317,9 @@ func (wm *WebSocketManager) replayBacklogForConnection(
 	connection *api.WebSocketConnection,
 	lastSeenTimestamp *int64,
 ) ([]api.LogEvent, *events.APIGatewayProxyResponse) {
-	backlog, err := wm.logRepo.GetLogsByExecutionIDSince(ctx, connection.ExecutionID, lastSeenTimestamp)
+	backlog, err := wm.fetchBacklogWithRetry(ctx, connection.ExecutionID, lastSeenTimestamp)
 	if err != nil {
-		wm.logger.Error("failed to fetch backlog", "context", map[string]any{
+		wm.logger.Error("failed to fetch backlog after retries", "context", map[string]any{
 			"error":               err.Error(),
 			"execution_id":        connection.ExecutionID,
 			"last_seen_timestamp": lastSeenTimestamp,
@@ -356,6 +357,66 @@ func (wm *WebSocketManager) replayBacklogForConnection(
 	}
 
 	return backlog, nil
+}
+
+// fetchBacklogWithRetry attempts to fetch the execution backlog with retries and tolerance.
+// It tolerates the log stream not existing yet (common during task startup) and returns
+// an empty backlog in that case. Non-recoverable errors are returned after retries exhaust.
+func (wm *WebSocketManager) fetchBacklogWithRetry(
+	ctx context.Context,
+	executionID string,
+	lastSeenTimestamp *int64,
+) ([]api.LogEvent, error) {
+	const maxRetries = 5
+	const retryDelay = 100 * time.Millisecond
+
+	var lastErr error
+
+	for attempt := range maxRetries {
+		backlog, err := wm.logRepo.GetLogsByExecutionIDSince(ctx, executionID, lastSeenTimestamp)
+		if err == nil {
+			// Success
+			return backlog, nil
+		}
+
+		lastErr = err
+		errMsg := err.Error()
+
+		// Check if this is a "stream doesn't exist yet" error, which is expected during early startup
+		if strings.Contains(errMsg, "does not exist yet") {
+			wm.logger.Debug("log stream not ready yet, will retry", "context", map[string]any{
+				"attempt":      attempt + 1,
+				"max_retries":  maxRetries,
+				"execution_id": executionID,
+			})
+
+			// Wait before retrying, unless this is the last attempt
+			if attempt < maxRetries-1 {
+				select {
+				case <-time.After(retryDelay):
+					// Continue to next iteration
+				case <-ctx.Done():
+					return nil, fmt.Errorf("context canceled while waiting to retry backlog fetch: %w", ctx.Err())
+				}
+			}
+			continue
+		}
+
+		// For non-recoverable errors, fail immediately
+		return nil, fmt.Errorf("failed to fetch backlog: %w", err)
+	}
+
+	// After all retries, if stream still doesn't exist, return empty backlog (graceful degradation)
+	if lastErr != nil && strings.Contains(lastErr.Error(), "does not exist yet") {
+		wm.logger.Warn("log stream not ready, proceeding with empty backlog", "context", map[string]string{
+			"execution_id": executionID,
+			"max_retries":  fmt.Sprintf("%d", maxRetries),
+		})
+		return []api.LogEvent{}, nil
+	}
+
+	// Otherwise return the last error
+	return nil, lastErr
 }
 
 func (wm *WebSocketManager) logSuccessfulConnect(
