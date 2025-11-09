@@ -504,7 +504,7 @@ Resources:
       Code:
         S3Bucket: !Ref LambdaCodeBucket
         S3Key: event-processor.zip
-      Timeout: 10
+      Timeout: 30
       Architectures:
         - arm64
       Tags:
