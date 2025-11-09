@@ -122,8 +122,8 @@
     <article class="info-card">
         <h2>Configure API access to run commands</h2>
         <p>
-            Use the <strong>⚙️ Configure API</strong> button to set the endpoint and API key for your runvoy
-            backend. Once configured, you can launch commands directly from this view.
+            Use the <strong>⚙️ Configure API</strong> button to set the endpoint and API key for your
+            runvoy backend. Once configured, you can launch commands directly from this view.
         </p>
     </article>
 {:else}
@@ -202,22 +202,12 @@
 
                 <label for="git-ref-input">
                     Git ref
-                    <input
-                        id="git-ref-input"
-                        type="text"
-                        placeholder="main"
-                        bind:value={gitRef}
-                    />
+                    <input id="git-ref-input" type="text" placeholder="main" bind:value={gitRef} />
                 </label>
 
                 <label for="git-path-input">
                     Working directory
-                    <input
-                        id="git-path-input"
-                        type="text"
-                        placeholder="."
-                        bind:value={gitPath}
-                    />
+                    <input id="git-path-input" type="text" placeholder="." bind:value={gitPath} />
                 </label>
             </fieldset>
 
@@ -230,13 +220,15 @@
                                 type="text"
                                 placeholder="KEY"
                                 value={row.key}
-                                on:input={(event) => updateEnvRow(row.id, 'key', event.target.value)}
+                                on:input={(event) =>
+                                    updateEnvRow(row.id, 'key', event.target.value)}
                             />
                             <input
                                 type="text"
                                 placeholder="value"
                                 value={row.value}
-                                on:input={(event) => updateEnvRow(row.id, 'value', event.target.value)}
+                                on:input={(event) =>
+                                    updateEnvRow(row.id, 'value', event.target.value)}
                             />
                             <button
                                 type="button"

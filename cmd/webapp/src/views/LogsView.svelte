@@ -8,7 +8,12 @@
     import LogControls from '../components/LogControls.svelte';
     import LogViewer from '../components/LogViewer.svelte';
     import { executionId } from '../stores/execution.js';
-    import { logEvents, logsRetryCount, MAX_LOGS_RETRIES, LOGS_RETRY_DELAY } from '../stores/logs.js';
+    import {
+        logEvents,
+        logsRetryCount,
+        MAX_LOGS_RETRIES,
+        LOGS_RETRY_DELAY
+    } from '../stores/logs.js';
     import { cachedWebSocketURL } from '../stores/websocket.js';
     import { connectWebSocket, disconnectWebSocket } from '../lib/websocket.js';
 
@@ -52,8 +57,8 @@
         }
     }
 
-    $: currentExecutionId = get(executionId);
-    $: websocketURL = get(cachedWebSocketURL);
+    $: currentExecutionId = $executionId;
+    $: websocketURL = $cachedWebSocketURL;
 
     $: {
         if (apiClient && currentExecutionId) {
@@ -101,12 +106,17 @@
             <li>View logs and monitor execution status in real-time</li>
         </ol>
         <footer>
-            <small>Your credentials are stored locally in your browser and never sent to third parties.</small>
+            <small
+                >Your credentials are stored locally in your browser and never sent to third
+                parties.</small
+            >
         </footer>
     </article>
 {:else if !currentExecutionId}
     <article>
-        <p>Enter an execution ID above or provide <code>?execution_id=&lt;id&gt;</code> in the URL</p>
+        <p>
+            Enter an execution ID above or provide <code>?execution_id=&lt;id&gt;</code> in the URL
+        </p>
     </article>
 {:else}
     <section>

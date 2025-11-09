@@ -42,7 +42,10 @@
         color: inherit;
         cursor: pointer;
         font-weight: 600;
-        transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+        transition:
+            background-color 0.15s ease,
+            color 0.15s ease,
+            border-color 0.15s ease;
     }
 
     button:hover {

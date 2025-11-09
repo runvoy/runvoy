@@ -64,7 +64,9 @@ export function clearExecution({ updateHistory = true } = {}) {
         const urlParams = new URLSearchParams(window.location.search);
         urlParams.delete('execution_id');
         const newQuery = urlParams.toString();
-        const newUrl = newQuery ? `${window.location.pathname}?${newQuery}` : window.location.pathname;
+        const newUrl = newQuery
+            ? `${window.location.pathname}?${newQuery}`
+            : window.location.pathname;
         window.history.pushState({}, '', newUrl);
     }
 }

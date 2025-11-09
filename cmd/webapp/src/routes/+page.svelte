@@ -38,8 +38,7 @@
         }
     });
 
-    $: apiClient =
-        $apiEndpoint && $apiKey ? new APIClient($apiEndpoint, $apiKey) : null;
+    $: apiClient = $apiEndpoint && $apiKey ? new APIClient($apiEndpoint, $apiKey) : null;
 
     $: isConfigured = Boolean(apiClient);
 
@@ -105,31 +104,5 @@
 
     .subtitle a:hover {
         text-decoration: underline;
-    }
-
-    article {
-        margin-top: 2rem;
-    }
-
-    code {
-        background: var(--pico-code-background-color);
-        padding: 0.25rem 0.5rem;
-        border-radius: 0.25rem;
-        font-size: 0.9em;
-    }
-
-    .error-box {
-        background-color: var(--pico-card-background-color);
-        border: 1px solid var(--pico-card-border-color);
-        border-left: 4px solid var(--pico-color-red-500);
-        padding: 1rem 1.5rem;
-        margin-top: 2rem;
-        border-radius: var(--pico-border-radius);
-    }
-
-    .error-box p {
-        margin: 0;
-        color: var(--pico-color-red-500);
-        font-weight: bold;
     }
 </style>
