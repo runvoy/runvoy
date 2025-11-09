@@ -337,14 +337,15 @@ func bindEnvVars(v *viper.Viper) {
 // WebSocketConnectionsTable is only required by the WebSocket lambdas, not the orchestrator.
 func validateOrchestrator(cfg *Config) error {
 	required := map[string]string{
-		"APIKeysTable":         cfg.APIKeysTable,
-		"ExecutionsTable":      cfg.ExecutionsTable,
-		"ECSCluster":           cfg.ECSCluster,
-		"Subnet1":              cfg.Subnet1,
-		"Subnet2":              cfg.Subnet2,
-		"SecurityGroup":        cfg.SecurityGroup,
-		"LogGroup":             cfg.LogGroup,
-		"WebSocketAPIEndpoint": cfg.WebSocketAPIEndpoint,
+		"APIKeysTable":              cfg.APIKeysTable,
+		"ExecutionsTable":           cfg.ExecutionsTable,
+		"ECSCluster":                cfg.ECSCluster,
+		"Subnet1":                   cfg.Subnet1,
+		"Subnet2":                   cfg.Subnet2,
+		"SecurityGroup":             cfg.SecurityGroup,
+		"LogGroup":                  cfg.LogGroup,
+		"WebSocketConnectionsTable": cfg.WebSocketConnectionsTable,
+		"WebSocketAPIEndpoint":      cfg.WebSocketAPIEndpoint,
 	}
 
 	for field, value := range required {
