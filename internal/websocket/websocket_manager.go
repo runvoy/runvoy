@@ -368,7 +368,7 @@ func (wm *WebSocketManager) fetchBacklogWithRetry(
 	lastSeenTimestamp *int64,
 ) ([]api.LogEvent, error) {
 	const maxRetries = 5
-	const retryDelay = 100 * time.Millisecond
+	const retryDelay = time.Second
 
 	var lastErr error
 
@@ -388,6 +388,7 @@ func (wm *WebSocketManager) fetchBacklogWithRetry(
 				"attempt":      attempt + 1,
 				"max_retries":  maxRetries,
 				"execution_id": executionID,
+				"delay":        retryDelay,
 			})
 
 			// Wait before retrying, unless this is the last attempt
