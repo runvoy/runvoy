@@ -144,6 +144,7 @@ func (wm *WebSocketManager) dispatchWebSocketRoute(
 		"$connect":              wm.handleConnect,
 		"$disconnect":           wm.handleDisconnect,
 		"$disconnect-execution": wm.handleDisconnectExecution,
+		"$default":              wm.handleMessage,
 	}
 
 	handler, ok := routeHandlers[req.RequestContext.RouteKey]
@@ -219,12 +220,12 @@ func (wm *WebSocketManager) handleConnect(
 		return *errResp, nil
 	}
 
-	backlog, errResp := wm.replayBacklogForConnection(ctx, connection, params.lastSeenTimestamp)
+	errResp = wm.replayBacklogForConnection(ctx, connection)
 	if errResp != nil {
 		return *errResp, nil
 	}
 
-	wm.logSuccessfulConnect(connection, backlog)
+	wm.logSuccessfulConnect(connection)
 
 	return events.APIGatewayProxyResponse{
 		StatusCode: http.StatusOK,
@@ -317,59 +318,23 @@ func (wm *WebSocketManager) initializeConnection(
 func (wm *WebSocketManager) replayBacklogForConnection(
 	ctx context.Context,
 	connection *api.WebSocketConnection,
-	lastSeenTimestamp *int64,
-) ([]api.LogEvent, *events.APIGatewayProxyResponse) {
-	backlog, err := wm.fetchBacklogWithRetry(ctx, connection.ExecutionID, lastSeenTimestamp)
-	if err != nil {
-		wm.logger.Error("failed to fetch backlog after retries", "context", map[string]any{
-			"error":               err.Error(),
-			"execution_id":        connection.ExecutionID,
-			"last_seen_timestamp": lastSeenTimestamp,
-		})
-
-		if clearErr := wm.clearReplayLock(ctx, connection.ConnectionID, connection.ExecutionID); clearErr != nil {
-			wm.logger.Error("failed to clear replay lock after backlog fetch error", "error", clearErr)
-		}
-
-		return nil, &events.APIGatewayProxyResponse{
-			StatusCode: http.StatusInternalServerError,
-			Body:       fmt.Sprintf("Failed to fetch backlog: %v", err),
-		}
-	}
-
-	// Send backlog directly to this connection before clearing replay lock
-	if len(backlog) > 0 {
-		wm.logger.Debug("sending backlog to connection", "context", map[string]any{
-			"connection_id": connection.ConnectionID,
-			"execution_id":  connection.ExecutionID,
-			"log_count":     len(backlog),
-		})
-
-		for _, logEvent := range backlog {
-			if sendErr := wm.sendLogToConnection(ctx, &connection.ConnectionID, logEvent); sendErr != nil {
-				wm.logger.Error("failed to send backlog event to connection", "context", map[string]any{
-					"error":           sendErr.Error(),
-					"connection_id":   connection.ConnectionID,
-					"execution_id":    connection.ExecutionID,
-					"event_timestamp": logEvent.Timestamp,
-				})
-				// Continue sending remaining backlog events despite individual failures
-			}
-		}
-
-		connection.LastSeenLogTimestamp = backlog[len(backlog)-1].Timestamp
-	}
-
-	// Clear replay lock so live logs can start flowing
+) *events.APIGatewayProxyResponse {
+	// Clear replay lock so live logs can start flowing immediately.
+	// Backlog is sent later when client explicitly requests it via getBacklog message.
 	if clearErr := wm.clearReplayLock(ctx, connection.ConnectionID, connection.ExecutionID); clearErr != nil {
 		wm.logger.Error("failed to clear replay lock", "error", clearErr)
-		return nil, &events.APIGatewayProxyResponse{
+		return &events.APIGatewayProxyResponse{
 			StatusCode: http.StatusInternalServerError,
 			Body:       fmt.Sprintf("Failed to finalize connection: %v", clearErr),
 		}
 	}
 
-	return backlog, nil
+	wm.logger.Debug("connection ready for log streaming", "context", map[string]any{
+		"connection_id": connection.ConnectionID,
+		"execution_id":  connection.ExecutionID,
+	})
+
+	return nil
 }
 
 // fetchBacklogWithRetry attempts to fetch the execution backlog with retries and tolerance.
@@ -452,20 +417,14 @@ func (wm *WebSocketManager) isLogStreamNotReadyError(err error, executionID stri
 	return appErr.Message == expectedMessage
 }
 
-func (wm *WebSocketManager) logSuccessfulConnect(
-	connection *api.WebSocketConnection,
-	backlog []api.LogEvent,
-) {
-	wm.logger.Info("authenticated connection established with backlog replay", "context", map[string]any{
-		"connection_id":           connection.ConnectionID,
-		"execution_id":            connection.ExecutionID,
-		"functionality":           connection.Functionality,
-		"expires_at":              connection.ExpiresAt,
-		"client_ip":               connection.ClientIP,
-		"user_email":              connection.UserEmail,
-		"backlog_sent":            len(backlog) > 0,
-		"backlog_count":           len(backlog),
-		"last_seen_log_timestamp": connection.LastSeenLogTimestamp,
+func (wm *WebSocketManager) logSuccessfulConnect(connection *api.WebSocketConnection) {
+	wm.logger.Info("authenticated connection established, ready for live logs", "context", map[string]any{
+		"connection_id": connection.ConnectionID,
+		"execution_id":  connection.ExecutionID,
+		"functionality": connection.Functionality,
+		"expires_at":    connection.ExpiresAt,
+		"client_ip":     connection.ClientIP,
+		"user_email":    connection.UserEmail,
 	})
 }
 
@@ -915,6 +874,172 @@ func (wm *WebSocketManager) handleDisconnectExecution(
 	return events.APIGatewayProxyResponse{
 		StatusCode: http.StatusOK,
 		Body:       "Disconnect notifications sent and connections cleaned up",
+	}, nil
+}
+
+// handleMessage handles $default WebSocket messages (client-sent messages).
+// Currently supports the "getBacklog" message type to request historical logs.
+//
+//nolint:gocritic // Lambda event types are passed by value per AWS Lambda conventions
+func (wm *WebSocketManager) handleMessage(
+	ctx context.Context,
+	req events.APIGatewayWebsocketProxyRequest,
+) (events.APIGatewayProxyResponse, error) {
+	connectionID := req.RequestContext.ConnectionID
+	if connectionID == "" {
+		wm.logger.Info("missing connection_id in message request")
+		return events.APIGatewayProxyResponse{
+			StatusCode: http.StatusBadRequest,
+			Body:       "Missing connection_id",
+		}, nil
+	}
+
+	var msg map[string]any
+	if err := json.Unmarshal([]byte(req.Body), &msg); err != nil {
+		wm.logger.Warn("failed to parse message from client", "context", map[string]any{
+			"connection_id": connectionID,
+			"error":         err.Error(),
+		})
+		return events.APIGatewayProxyResponse{
+			StatusCode: http.StatusBadRequest,
+			Body:       "Invalid message format",
+		}, nil
+	}
+
+	msgType, ok := msg["type"].(string)
+	if !ok {
+		wm.logger.Warn("missing or invalid message type", "connection_id", connectionID)
+		return events.APIGatewayProxyResponse{
+			StatusCode: http.StatusBadRequest,
+			Body:       "Missing message type",
+		}, nil
+	}
+
+	switch msgType {
+	case "getBacklog":
+		return wm.handleGetBacklogMessage(ctx, connectionID, msg)
+	default:
+		wm.logger.Warn("unknown message type", "context", map[string]any{
+			"connection_id": connectionID,
+			"message_type":  msgType,
+		})
+		return events.APIGatewayProxyResponse{
+			StatusCode: http.StatusBadRequest,
+			Body:       fmt.Sprintf("Unknown message type: %s", msgType),
+		}, nil
+	}
+}
+
+// handleGetBacklogMessage handles getBacklog requests from connected clients.
+// The client sends: {"type": "getBacklog", "execution_id": "...", "since": <optional_timestamp_ms>}
+// The server fetches and sends historical logs newer than the "since" timestamp.
+//
+//nolint:funlen // Multiple error handling paths and detailed logging required
+func (wm *WebSocketManager) handleGetBacklogMessage(
+	ctx context.Context,
+	connectionID string,
+	msg map[string]any,
+) (events.APIGatewayProxyResponse, error) {
+	// Extract execution_id from message
+	executionID, okExecID := msg["execution_id"].(string)
+	if !okExecID || executionID == "" {
+		wm.logger.Warn("missing execution_id in getBacklog message", "connection_id", connectionID)
+		return events.APIGatewayProxyResponse{
+			StatusCode: http.StatusBadRequest,
+			Body:       "Missing execution_id parameter",
+		}, nil
+	}
+
+	// Get all connections for this execution to verify and find our connection
+	connections, err := wm.connRepo.GetConnectionsByExecutionID(ctx, executionID)
+	if err != nil {
+		wm.logger.Error("failed to get connections for backlog request", "context", map[string]any{
+			"error":         err.Error(),
+			"connection_id": connectionID,
+			"execution_id":  executionID,
+		})
+		return events.APIGatewayProxyResponse{
+			StatusCode: http.StatusInternalServerError,
+			Body:       "Failed to process backlog request",
+		}, nil
+	}
+
+	// Find our connection in the list
+	var connection *api.WebSocketConnection
+	for _, conn := range connections {
+		if conn.ConnectionID == connectionID {
+			connection = conn
+			break
+		}
+	}
+
+	if connection == nil {
+		wm.logger.Warn("connection not found for backlog request", "context", map[string]any{
+			"connection_id": connectionID,
+			"execution_id":  executionID,
+		})
+		return events.APIGatewayProxyResponse{
+			StatusCode: http.StatusNotFound,
+			Body:       "Connection not found",
+		}, nil
+	}
+
+	// Extract optional "since" timestamp from message
+	var sinceTimestamp *int64
+	if since, okSince := msg["since"].(float64); okSince && since > 0 {
+		ts := int64(since)
+		sinceTimestamp = &ts
+	}
+
+	wm.logger.Debug("handling getBacklog message", "context", map[string]any{
+		"connection_id":   connectionID,
+		"execution_id":    executionID,
+		"since_timestamp": sinceTimestamp,
+	})
+
+	// Fetch backlog with retries
+	backlog, err := wm.fetchBacklogWithRetry(ctx, executionID, sinceTimestamp)
+	if err != nil {
+		wm.logger.Error("failed to fetch backlog for client request", "context", map[string]any{
+			"error":         err.Error(),
+			"connection_id": connectionID,
+			"execution_id":  executionID,
+		})
+		return events.APIGatewayProxyResponse{
+			StatusCode: http.StatusInternalServerError,
+			Body:       "Failed to fetch backlog",
+		}, nil
+	}
+
+	// Send backlog events to the client
+	if len(backlog) > 0 {
+		wm.logger.Debug("sending backlog to client", "context", map[string]any{
+			"connection_id": connectionID,
+			"execution_id":  executionID,
+			"log_count":     len(backlog),
+		})
+
+		for _, logEvent := range backlog {
+			if sendErr := wm.sendLogToConnection(ctx, &connectionID, logEvent); sendErr != nil {
+				wm.logger.Error("failed to send backlog event", "context", map[string]any{
+					"error":           sendErr.Error(),
+					"connection_id":   connectionID,
+					"event_timestamp": logEvent.Timestamp,
+				})
+				// Continue sending remaining events
+			}
+		}
+
+		// Update connection's last seen timestamp
+		connection.LastSeenLogTimestamp = backlog[len(backlog)-1].Timestamp
+		if updateErr := wm.connRepo.UpdateConnection(ctx, connection); updateErr != nil {
+			wm.logger.Error("failed to update connection timestamp", "error", updateErr)
+		}
+	}
+
+	return events.APIGatewayProxyResponse{
+		StatusCode: http.StatusOK,
+		Body:       fmt.Sprintf("Sent %d log events", len(backlog)),
 	}, nil
 }
 
