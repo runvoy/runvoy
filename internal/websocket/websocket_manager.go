@@ -271,13 +271,13 @@ func (wm *WebSocketManager) newWebSocketConnection(
 
 func (wm *WebSocketManager) logConnectionEstablished(connection *api.WebSocketConnection) {
 	wm.logger.Info("authenticated connection established", "context", map[string]any{
-		"connection_id":              connection.ConnectionID,
-		"execution_id":               connection.ExecutionID,
-		"functionality":              connection.Functionality,
-		"expires_at":                 connection.ExpiresAt,
-		"client_ip":                  connection.ClientIP,
-		"user_email":                 connection.UserEmail,
-		"client_ip_at_creation_time": connection.TokenRequestClientIP,
+		"connection_id":           connection.ConnectionID,
+		"execution_id":            connection.ExecutionID,
+		"functionality":           connection.Functionality,
+		"expires_at":              connection.ExpiresAt,
+		"client_ip":               connection.ClientIP,
+		"user_email":              connection.UserEmail,
+		"token_request_client_ip": connection.TokenRequestClientIP,
 	})
 }
 

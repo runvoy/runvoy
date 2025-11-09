@@ -205,7 +205,7 @@ type WebSocketConnection struct {
 	Token         string `json:"token,omitempty"`
 	UserEmail     string `json:"user_email,omitempty"`
 	// Client IP captured when the websocket token was created (for tracing)
-	TokenRequestClientIP string `json:"client_ip_at_creation_time,omitempty"`
+	TokenRequestClientIP string `json:"token_request_client_ip,omitempty"`
 }
 
 // WebSocketToken represents a WebSocket authentication token
@@ -214,7 +214,7 @@ type WebSocketToken struct {
 	ExecutionID string `json:"execution_id"`
 	UserEmail   string `json:"user_email,omitempty"`
 	// Client IP captured when the websocket token was created (for tracing)
-	ClientIP  string `json:"client_ip_at_creation_time,omitempty"`
+	ClientIP  string `json:"client_ip,omitempty"`
 	ExpiresAt int64  `json:"expires_at"`
 	CreatedAt int64  `json:"created_at"`
 }

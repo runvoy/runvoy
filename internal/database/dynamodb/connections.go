@@ -46,7 +46,7 @@ type connectionItem struct {
 	ClientIP             string `dynamodbav:"client_ip,omitempty"`
 	Token                string `dynamodbav:"token,omitempty"`
 	UserEmail            string `dynamodbav:"user_email,omitempty"`
-	TokenRequestClientIP string `dynamodbav:"client_ip_at_creation_time,omitempty"`
+	TokenRequestClientIP string `dynamodbav:"token_request_client_ip,omitempty"`
 }
 
 // toConnectionItem converts an api.WebSocketConnection to a connectionItem.
