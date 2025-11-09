@@ -338,7 +338,7 @@ runvoy run --git-repo https://github.com/mycompany/myproject.git npm run tests
 # → Running command: npm run tests
 # ✓ Command execution started successfully
 #   Execution ID: 61fb9138466c4212b1e0d763a7f4dfe2
-#   Status: RUNNING
+#   Status: STARTING
 # → Logs not available yet, waiting 10 seconds... (attempt 1/3)
 # → Logs not available yet, waiting 10 seconds... (attempt 2/3)
 #
@@ -413,7 +413,7 @@ The web viewer is a minimal, single-page application that provides:
 
 - **Real-time log streaming** - Automatically get updates from the websocket API in real-time
 - **ANSI color support** - Displays colored terminal output
-- **Status tracking** - Shows execution status (RUNNING, SUCCEEDED, FAILED, STOPPED)
+- **Status tracking** - Shows execution status (STARTING, RUNNING, SUCCEEDED, FAILED, STOPPED, TERMINATING)
 - **Execution metadata** - Displays execution ID, start time, and exit codes
 - **Interactive controls**:
   - Pause/Resume streaming

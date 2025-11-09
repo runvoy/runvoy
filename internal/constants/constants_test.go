@@ -133,10 +133,12 @@ func TestEcsStatus(t *testing.T) {
 
 func TestExecutionStatus(t *testing.T) {
 	t.Run("execution status constants are set", func(t *testing.T) {
+		assert.Equal(t, ExecutionStatus("STARTING"), ExecutionStarting)
 		assert.Equal(t, ExecutionStatus("RUNNING"), ExecutionRunning)
 		assert.Equal(t, ExecutionStatus("SUCCEEDED"), ExecutionSucceeded)
 		assert.Equal(t, ExecutionStatus("FAILED"), ExecutionFailed)
 		assert.Equal(t, ExecutionStatus("STOPPED"), ExecutionStopped)
+		assert.Equal(t, ExecutionStatus("TERMINATING"), ExecutionTerminating)
 	})
 }
 
@@ -149,6 +151,8 @@ func TestTerminalExecutionStatuses(t *testing.T) {
 		assert.Contains(t, statuses, ExecutionFailed)
 		assert.Contains(t, statuses, ExecutionStopped)
 		assert.NotContains(t, statuses, ExecutionRunning, "RUNNING should not be terminal")
+		assert.NotContains(t, statuses, ExecutionStarting, "STARTING should not be terminal")
+		assert.NotContains(t, statuses, ExecutionTerminating, "TERMINATING should not be terminal")
 	})
 
 	t.Run("terminal statuses are unique", func(t *testing.T) {

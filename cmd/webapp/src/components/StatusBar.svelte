@@ -110,6 +110,10 @@
     .status-badge.loading {
         background-color: #78909c;
     } /* Blue Grey */
+    .status-badge.starting {
+        background-color: #64b5f6;
+        color: #000;
+    } /* Light Blue */
     .status-badge.running {
         background-color: #2196f3;
     } /* Blue */
@@ -122,4 +126,8 @@
     .status-badge.stopped {
         background-color: #ff9800;
     } /* Orange */
+    .status-badge.terminating {
+        background-color: #ff7043;
+        color: #000;
+    } /* Orange-Red */
 </style>

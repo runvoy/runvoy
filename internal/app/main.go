@@ -354,7 +354,7 @@ func (s *Service) RunCommand(
 		Command:         req.Command,
 		LockName:        req.Lock,
 		StartedAt:       startedAt,
-		Status:          string(constants.ExecutionRunning),
+		Status:          string(constants.ExecutionStarting),
 		RequestID:       requestID,
 		ComputePlatform: string(s.Provider),
 	}
@@ -375,7 +375,7 @@ func (s *Service) RunCommand(
 
 	return &api.ExecutionResponse{
 		ExecutionID: executionID,
-		Status:      string(constants.ExecutionRunning),
+		Status:      string(constants.ExecutionStarting),
 	}, nil
 }
 
@@ -543,6 +543,20 @@ func (s *Service) KillExecution(ctx context.Context, executionID string) error {
 	if killErr := s.runner.KillTask(ctx, executionID); killErr != nil {
 		return killErr
 	}
+
+	execution.Status = string(constants.ExecutionTerminating)
+	if err := s.executionRepo.UpdateExecution(ctx, execution); err != nil {
+		reqLogger.Error("failed to update execution status to TERMINATING",
+			"execution_id", executionID,
+			"error", err,
+		)
+		return apperrors.ErrInternalError("failed to update execution status", err)
+	}
+
+	reqLogger.Info("execution status set to TERMINATING",
+		"execution_id", executionID,
+		"user_email", execution.UserEmail,
+	)
 
 	return nil
 }

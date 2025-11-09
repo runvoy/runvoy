@@ -79,7 +79,7 @@ DELETE /api/v1/images/{image}           - Remove a registered Docker image (admi
 POST   /api/v1/run                      - Start an execution
 GET    /api/v1/executions               - List executions (queried via DynamoDB GSI)
 GET    /api/v1/executions/{id}/logs     - Fetch execution logs (CloudWatch)
-GET    /api/v1/executions/{id}/status   - Get execution status (RUNNING/SUCCEEDED/FAILED/STOPPED)
+GET    /api/v1/executions/{id}/status   - Get execution status (STARTING/RUNNING/SUCCEEDED/FAILED/STOPPED/TERMINATING)
 POST   /api/v1/executions/{id}/kill     - Terminate a running execution
 GET    /api/v1/claim/{token}            - Claim a pending API key (public, no auth required)
 ```
@@ -716,7 +716,7 @@ The platform includes a minimal web-based log viewer for visualizing execution l
    - Maintains terminal formatting in the browser
 
 3. **Status Tracking**
-   - Displays execution status (RUNNING, SUCCEEDED, FAILED, STOPPED)
+   - Displays execution status (STARTING, RUNNING, SUCCEEDED, FAILED, STOPPED, TERMINATING)
    - Shows execution metadata (ID, start time, exit codes)
    - Updates in real-time as execution progresses
 
@@ -1323,7 +1323,7 @@ The `run` command executes commands remotely via the orchestrator Lambda.
    ```
 3. Orchestrator Lambda:
    - Validates API key
-   - Creates execution record in DynamoDB (status: RUNNING)
+   - Creates execution record in DynamoDB (status: STARTING)
    - Starts ECS Fargate task with the command and sidecar
    - Returns execution ID
 
@@ -1332,7 +1332,7 @@ The `run` command executes commands remotely via the orchestrator Lambda.
 {
   "execution_id": "abc123...",
   "log_url": "/api/v1/executions/abc123/logs/notimplemented",
-  "status": "RUNNING"
+  "status": "STARTING"
 }
 ```
 
@@ -1505,7 +1505,7 @@ Stores execution records for all command runs.
 - `command` (String) - The command that was executed
 - `lock_name` (String, optional) - Lock name if specified
 - `completed_at` (String, optional) - ISO 8601 timestamp when execution completed
-- `status` (String) - Current status (RUNNING, SUCCEEDED, FAILED, STOPPED)
+- `status` (String) - Current status (STARTING, RUNNING, SUCCEEDED, FAILED, STOPPED, TERMINATING)
 - `exit_code` (Number) - Exit code from the command
 - `duration_seconds` (Number, optional) - Execution duration in seconds
 - `log_stream_name` (String, optional) - CloudWatch Logs stream name

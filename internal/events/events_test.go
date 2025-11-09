@@ -337,6 +337,64 @@ func TestHandleECSTaskCompletion_Success(t *testing.T) {
 	assert.Greater(t, updatedExecution.DurationSeconds, 0)
 }
 
+func TestHandleECSTaskCompletion_RunningStatus(t *testing.T) {
+	ctx := context.Background()
+	startTime := time.Now()
+
+	execution := &api.Execution{
+		ExecutionID: "exec-running",
+		Status:      string(constants.ExecutionStarting),
+		StartedAt:   startTime.Add(-2 * time.Minute),
+	}
+
+	updateCalls := 0
+	mockRepo := &mockExecutionRepo{
+		getExecutionFunc: func(_ context.Context, executionID string) (*api.Execution, error) {
+			assert.Equal(t, "exec-running", executionID)
+			return execution, nil
+		},
+		updateExecutionFunc: func(_ context.Context, exec *api.Execution) error {
+			updateCalls++
+			assert.Equal(t, string(constants.ExecutionRunning), exec.Status)
+			assert.WithinDuration(t, startTime, exec.StartedAt, time.Second)
+			return nil
+		},
+	}
+
+	notifyCalls := 0
+	mockWebSocket := &mockWebSocketHandler{
+		notifyExecutionCompletionFunc: func(_ context.Context, _ *string) error {
+			notifyCalls++
+			return nil
+		},
+	}
+
+	processor := &Processor{
+		executionRepo:    mockRepo,
+		connectionRepo:   &mockConnectionRepo{},
+		webSocketManager: mockWebSocket,
+		logger:           testutil.SilentLogger(),
+	}
+
+	taskEvent := ECSTaskStateChangeEvent{
+		TaskArn:    "arn:aws:ecs:us-east-1:123456789012:task/cluster/exec-running",
+		LastStatus: string(constants.EcsStatusRunning),
+		StartedAt:  startTime.Format(time.RFC3339),
+	}
+
+	detailJSON, _ := json.Marshal(taskEvent)
+	event := events.CloudWatchEvent{
+		DetailType: "ECS Task State Change",
+		Source:     "aws.ecs",
+		Detail:     detailJSON,
+	}
+
+	err := processor.handleECSTaskCompletion(ctx, &event)
+	assert.NoError(t, err)
+	assert.Equal(t, 1, updateCalls, "expected exactly one update call")
+	assert.Equal(t, 0, notifyCalls, "should not notify completion when task is running")
+}
+
 func TestHandleECSTaskCompletion_OrphanedTask(t *testing.T) {
 	ctx := context.Background()
 

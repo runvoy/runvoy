@@ -89,7 +89,7 @@ type LogsResponse struct {
 	ExecutionID string     `json:"execution_id"`
 	Events      []LogEvent `json:"events"`
 
-	// Current execution status (RUNNING, SUCCEEDED, FAILED, STOPPED)
+	// Current execution status (STARTING, RUNNING, SUCCEEDED, FAILED, STOPPED, TERMINATING)
 	Status string `json:"status"`
 
 	// WebSocket URL for streaming logs (only provided if execution is RUNNING)

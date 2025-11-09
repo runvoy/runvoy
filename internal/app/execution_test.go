@@ -118,7 +118,7 @@ func TestRunCommand(t *testing.T) {
 				require.NoError(t, err)
 				require.NotNil(t, resp)
 				assert.Equal(t, tt.executionID, resp.ExecutionID)
-				assert.Equal(t, string(constants.ExecutionRunning), resp.Status)
+				assert.Equal(t, string(constants.ExecutionStarting), resp.Status)
 			}
 		})
 	}
@@ -387,9 +387,17 @@ func TestKillExecution(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			updateCalls := 0
+
 			execRepo := &mockExecutionRepository{
 				getExecutionFunc: func(_ context.Context, _ string) (*api.Execution, error) {
 					return tt.mockExecution, tt.getExecErr
+				},
+				updateExecutionFunc: func(_ context.Context, exec *api.Execution) error {
+					updateCalls++
+					require.NotNil(t, exec)
+					assert.Equal(t, string(constants.ExecutionTerminating), exec.Status)
+					return nil
 				},
 			}
 
@@ -407,8 +415,12 @@ func TestKillExecution(t *testing.T) {
 				if tt.expectedErrCode != "" {
 					assert.Equal(t, tt.expectedErrCode, apperrors.GetErrorCode(err))
 				}
+				assert.Equal(t, 0, updateCalls, "execution updates should not occur on error")
 			} else {
 				require.NoError(t, err)
+				assert.Equal(t, 1, updateCalls, "execution status should be updated once on success")
+				require.NotNil(t, tt.mockExecution)
+				assert.Equal(t, string(constants.ExecutionTerminating), tt.mockExecution.Status)
 			}
 		})
 	}

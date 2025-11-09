@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"runvoy/internal/api"
 	"runvoy/internal/constants"
 	"runvoy/internal/database"
 	"runvoy/internal/logger"
@@ -64,6 +65,12 @@ func (p *Processor) handleECSTaskCompletion(ctx context.Context, event *events.C
 	}
 
 	executionID := extractExecutionIDFromTaskArn(taskEvent.TaskArn)
+	if executionID == "" {
+		reqLogger.Error("failed to extract execution ID from task ARN",
+			"task_arn", taskEvent.TaskArn,
+		)
+		return nil
+	}
 
 	reqLogger.Info("pattern matched, processing ECS task completion",
 		"execution", map[string]string{
@@ -90,31 +97,18 @@ func (p *Processor) handleECSTaskCompletion(ctx context.Context, event *events.C
 		return nil
 	}
 
-	status, exitCode := determineStatusAndExitCode(&taskEvent)
-	_, stoppedAt, durationSeconds, err := parseTaskTimes(&taskEvent, execution.StartedAt, reqLogger)
-	if err != nil {
-		return err
+	switch constants.EcsStatus(taskEvent.LastStatus) {
+	case constants.EcsStatusRunning:
+		return p.markExecutionRunning(ctx, execution, &taskEvent, reqLogger)
+	case constants.EcsStatusStopped:
+		return p.markExecutionCompleted(ctx, executionID, execution, &taskEvent, reqLogger)
+	default:
+		reqLogger.Debug("ignoring ECS task state change",
+			"execution_id", executionID,
+			"last_status", taskEvent.LastStatus,
+		)
+		return nil
 	}
-
-	execution.Status = status
-	execution.ExitCode = exitCode
-	execution.CompletedAt = &stoppedAt
-	execution.DurationSeconds = durationSeconds
-
-	if err = p.executionRepo.UpdateExecution(ctx, execution); err != nil {
-		reqLogger.Error("failed to update execution", "error", err)
-		return fmt.Errorf("failed to update execution: %w", err)
-	}
-
-	reqLogger.Info("execution updated successfully", "execution", execution)
-
-	// Notify WebSocket clients about the execution completion
-	if err = p.webSocketManager.NotifyExecutionCompletion(ctx, &executionID); err != nil {
-		reqLogger.Error("failed to notify websocket clients of disconnect", "error", err)
-		return err
-	}
-
-	return nil
 }
 
 // extractExecutionIDFromTaskArn extracts the execution ID from a task ARN
@@ -186,4 +180,84 @@ func ECSCompletionHandler(
 		}
 		return p.handleECSTaskCompletion(ctx, &event)
 	}
+}
+
+func (p *Processor) markExecutionRunning(
+	ctx context.Context,
+	execution *api.Execution,
+	taskEvent *ECSTaskStateChangeEvent,
+	reqLogger *slog.Logger,
+) error {
+	updated := false
+
+	if execution.Status != string(constants.ExecutionRunning) {
+		execution.Status = string(constants.ExecutionRunning)
+		updated = true
+	}
+
+	if taskEvent.StartedAt != "" {
+		startedAt, err := ParseTime(taskEvent.StartedAt)
+		if err != nil {
+			reqLogger.Warn("failed to parse startedAt timestamp for running task",
+				"error", err,
+				"started_at", taskEvent.StartedAt,
+			)
+		} else if !startedAt.IsZero() && !startedAt.Equal(execution.StartedAt) {
+			execution.StartedAt = startedAt
+			updated = true
+		}
+	}
+
+	if !updated {
+		reqLogger.Debug("execution already marked as running",
+			"execution_id", execution.ExecutionID,
+		)
+		return nil
+	}
+
+	if err := p.executionRepo.UpdateExecution(ctx, execution); err != nil {
+		reqLogger.Error("failed to update execution to running", "error", err)
+		return fmt.Errorf("failed to update execution: %w", err)
+	}
+
+	reqLogger.Info("execution marked as running",
+		"execution_id", execution.ExecutionID,
+		"user_email", execution.UserEmail,
+	)
+
+	return nil
+}
+
+func (p *Processor) markExecutionCompleted(
+	ctx context.Context,
+	executionID string,
+	execution *api.Execution,
+	taskEvent *ECSTaskStateChangeEvent,
+	reqLogger *slog.Logger,
+) error {
+	status, exitCode := determineStatusAndExitCode(taskEvent)
+	_, stoppedAt, durationSeconds, err := parseTaskTimes(taskEvent, execution.StartedAt, reqLogger)
+	if err != nil {
+		return err
+	}
+
+	execution.Status = status
+	execution.ExitCode = exitCode
+	execution.CompletedAt = &stoppedAt
+	execution.DurationSeconds = durationSeconds
+
+	if err = p.executionRepo.UpdateExecution(ctx, execution); err != nil {
+		reqLogger.Error("failed to update execution", "error", err)
+		return fmt.Errorf("failed to update execution: %w", err)
+	}
+
+	reqLogger.Info("execution updated successfully", "execution", execution)
+
+	// Notify WebSocket clients about the execution completion
+	if err = p.webSocketManager.NotifyExecutionCompletion(ctx, &executionID); err != nil {
+		reqLogger.Error("failed to notify websocket clients of disconnect", "error", err)
+		return err
+	}
+
+	return nil
 }
