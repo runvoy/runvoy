@@ -20,6 +20,9 @@ import (
 // Config represents the unified configuration structure for both CLI and services.
 // It supports loading from YAML files and environment variables.
 type Config struct {
+	// Backend provider configuration
+	BackendProvider constants.BackendProvider `mapstructure:"backend_provider" yaml:"backend_provider"`
+
 	// CLI Configuration
 	APIEndpoint string `mapstructure:"api_endpoint" yaml:"api_endpoint" validate:"omitempty,url"`
 	APIKey      string `mapstructure:"api_key" yaml:"api_key"`
@@ -80,6 +83,11 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("error unmarshaling config: %w", err)
 	}
 
+	cfg.BackendProvider = normalizeBackendProvider(cfg.BackendProvider)
+	if cfg.BackendProvider == "" {
+		cfg.BackendProvider = constants.AWS
+	}
+
 	// Validate configuration
 	if err = validate.Struct(&cfg); err != nil {
 		return nil, fmt.Errorf("config validation failed: %w", err)
@@ -120,6 +128,11 @@ func LoadOrchestrator() (*Config, error) {
 	var cfg Config
 	if err := v.Unmarshal(&cfg); err != nil {
 		return nil, fmt.Errorf("error unmarshaling orchestrator config: %w", err)
+	}
+
+	cfg.BackendProvider = normalizeBackendProvider(cfg.BackendProvider)
+	if cfg.BackendProvider == "" {
+		cfg.BackendProvider = constants.AWS
 	}
 
 	// Validate required fields (matches old caarlos0/env notEmpty tags)
@@ -276,6 +289,7 @@ func setDefaults(v *viper.Viper) {
 	// TODO: we set DEBUG for development, we should update this to use INFO
 	v.SetDefault("log_level", "DEBUG")
 	v.SetDefault("web_url", constants.DefaultWebURL)
+	v.SetDefault("backend_provider", string(constants.AWS))
 }
 
 func loadConfigFile(v *viper.Viper) error {
@@ -300,6 +314,7 @@ func loadConfigFile(v *viper.Viper) error {
 func bindEnvVars(v *viper.Viper) {
 	// Bind all environment variables explicitly
 	envVars := []string{
+		"BACKEND_PROVIDER",
 		"API_KEYS_TABLE",
 		"DEV_SERVER_PORT",
 		"ECS_CLUSTER",
@@ -338,6 +353,23 @@ func bindEnvVars(v *viper.Viper) {
 // TaskDefinition is no longer required - task definitions are managed dynamically via API.
 // WebSocketConnectionsTable is only required by the WebSocket lambdas, not the orchestrator.
 func validateOrchestrator(cfg *Config) error {
+	provider := normalizeBackendProvider(cfg.BackendProvider)
+	cfg.BackendProvider = provider
+
+	if provider == "" {
+		provider = constants.AWS
+		cfg.BackendProvider = provider
+	}
+
+	switch provider {
+	case constants.AWS:
+		return validateAWSOrchestrator(cfg)
+	default:
+		return fmt.Errorf("unsupported backend provider: %s", provider)
+	}
+}
+
+func validateAWSOrchestrator(cfg *Config) error {
 	required := map[string]string{
 		"APIKeysTable":              cfg.APIKeysTable,
 		"ExecutionsTable":           cfg.ExecutionsTable,
@@ -411,4 +443,13 @@ func normalizeWebSocketEndpoint(endpoint string) string {
 	endpoint = strings.TrimPrefix(endpoint, "wss://")
 	endpoint = strings.TrimPrefix(endpoint, "ws://")
 	return endpoint
+}
+
+// normalizeBackendProvider trims whitespace and uppercases the backend provider identifier.
+func normalizeBackendProvider(provider constants.BackendProvider) constants.BackendProvider {
+	normalized := strings.TrimSpace(string(provider))
+	if normalized == "" {
+		return ""
+	}
+	return constants.BackendProvider(strings.ToUpper(normalized))
 }

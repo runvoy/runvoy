@@ -4,6 +4,8 @@ import (
 	"log/slog"
 	"testing"
 
+	"runvoy/internal/constants"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -71,6 +73,7 @@ func TestValidateOrchestrator(t *testing.T) {
 		{
 			name: "valid orchestrator config",
 			cfg: &Config{
+				BackendProvider:           constants.BackendProvider("aws"),
 				APIKeysTable:              "api-keys",
 				ExecutionsTable:           "executions",
 				ECSCluster:                "cluster",
@@ -243,6 +246,14 @@ func TestValidateOrchestrator(t *testing.T) {
 			},
 			wantErr: true,
 			errMsg:  "WebSocketTokensTable cannot be empty",
+		},
+		{
+			name: "unsupported provider",
+			cfg: &Config{
+				BackendProvider: constants.BackendProvider("gcp"),
+			},
+			wantErr: true,
+			errMsg:  "unsupported backend provider",
 		},
 	}
 
@@ -513,6 +524,42 @@ func TestNormalizeWebSocketEndpoint(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := normalizeWebSocketEndpoint(tt.input)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestNormalizeBackendProvider(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    constants.BackendProvider
+		expected constants.BackendProvider
+	}{
+		{
+			name:     "empty provider",
+			input:    "",
+			expected: "",
+		},
+		{
+			name:     "lowercase provider",
+			input:    constants.BackendProvider("aws"),
+			expected: constants.AWS,
+		},
+		{
+			name:     "uppercase provider",
+			input:    constants.BackendProvider("AWS"),
+			expected: constants.AWS,
+		},
+		{
+			name:     "mixed case provider",
+			input:    constants.BackendProvider("Aws"),
+			expected: constants.AWS,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := normalizeBackendProvider(tt.input)
 			assert.Equal(t, tt.expected, result)
 		})
 	}
