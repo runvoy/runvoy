@@ -652,7 +652,7 @@ func TestGetLogsByExecutionID_WebSocketToken(t *testing.T) {
 				assert.Contains(t, resp.WebSocketURL, "execution_id=")
 				require.NotNil(t, capturedToken)
 				assert.Equal(t, email, capturedToken.UserEmail)
-				assert.Equal(t, clientIP, capturedToken.ClientIPAtLogsTime)
+				assert.Equal(t, clientIP, capturedToken.ClientIPAtCreationTime)
 				assert.Equal(t, tt.executionID, capturedToken.ExecutionID)
 				assert.Contains(t, resp.WebSocketURL, capturedToken.Token)
 			} else {

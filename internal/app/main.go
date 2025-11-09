@@ -383,12 +383,12 @@ func (s *Service) RunCommand(
 // WebSocket endpoint is stored without protocol (normalized in config)
 // Always use wss:// for production WebSocket connections
 // userEmail: authenticated user email for audit trail
-// clientIPAtLogsTime: client IP from the logs request for tracing
+// clientIPAtCreationTime: client IP captured when the execution was created for tracing
 func (s *Service) GetLogsByExecutionID(
 	ctx context.Context,
 	executionID string,
 	userEmail *string,
-	clientIPAtLogsTime *string,
+	clientIPAtCreationTime *string,
 ) (*api.LogsResponse, error) {
 	if s.executionRepo == nil {
 		return nil, apperrors.ErrInternalError("execution repository not configured", nil)
@@ -413,7 +413,7 @@ func (s *Service) GetLogsByExecutionID(
 
 	var websocketURL string
 	if s.websocketAPIBaseURL != "" {
-		websocketURL = s.generateWebSocketURL(ctx, executionID, userEmail, clientIPAtLogsTime)
+		websocketURL = s.generateWebSocketURL(ctx, executionID, userEmail, clientIPAtCreationTime)
 	}
 
 	return &api.LogsResponse{
@@ -430,7 +430,7 @@ func (s *Service) generateWebSocketURL(
 	ctx context.Context,
 	executionID string,
 	userEmail *string,
-	clientIPAtLogsTime *string,
+	clientIPAtCreationTime *string,
 ) string {
 	// Generate a secure token for WebSocket authentication
 	token, tokenGenErr := auth.GenerateSecretToken()
@@ -448,17 +448,17 @@ func (s *Service) generateWebSocketURL(
 		email = *userEmail
 	}
 	var clientIP string
-	if clientIPAtLogsTime != nil {
-		clientIP = *clientIPAtLogsTime
+	if clientIPAtCreationTime != nil {
+		clientIP = *clientIPAtCreationTime
 	}
 
 	wsToken := &api.WebSocketToken{
-		Token:              token,
-		ExecutionID:        executionID,
-		UserEmail:          email,
-		ClientIPAtLogsTime: clientIP,
-		ExpiresAt:          expiresAt,
-		CreatedAt:          time.Now().Unix(),
+		Token:                  token,
+		ExecutionID:            executionID,
+		UserEmail:              email,
+		ClientIPAtCreationTime: clientIP,
+		ExpiresAt:              expiresAt,
+		CreatedAt:              time.Now().Unix(),
 	}
 
 	if tokenErr := s.tokenRepo.CreateToken(ctx, wsToken); tokenErr != nil {

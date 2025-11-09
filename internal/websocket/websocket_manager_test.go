@@ -240,12 +240,12 @@ func TestHandleConnect(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create a WebSocketToken from the pending connection data
 			wsToken := &api.WebSocketToken{
-				Token:              validToken,
-				ExecutionID:        "exec-123",
-				UserEmail:          "alice@example.com",
-				ClientIPAtLogsTime: "10.0.0.1",
-				ExpiresAt:          9999999999,
-				CreatedAt:          1234567890,
+				Token:                  validToken,
+				ExecutionID:            "exec-123",
+				UserEmail:              "alice@example.com",
+				ClientIPAtCreationTime: "10.0.0.1",
+				ExpiresAt:              9999999999,
+				CreatedAt:              1234567890,
 			}
 
 			mockConnRepo := &mockConnectionRepoForWS{
@@ -292,12 +292,12 @@ func TestHandleConnect_UsesTokenMetadata(t *testing.T) {
 	tokenExpiresAt := int64(1234567890)
 
 	wsToken := &api.WebSocketToken{
-		Token:              validToken,
-		ExecutionID:        "exec-789",
-		UserEmail:          "bob@example.com",
-		ClientIPAtLogsTime: "172.16.0.1",
-		ExpiresAt:          tokenExpiresAt,
-		CreatedAt:          1234567800,
+		Token:                  validToken,
+		ExecutionID:            "exec-789",
+		UserEmail:              "bob@example.com",
+		ClientIPAtCreationTime: "172.16.0.1",
+		ExpiresAt:              tokenExpiresAt,
+		CreatedAt:              1234567800,
 	}
 
 	var createdConnection *api.WebSocketConnection
@@ -342,7 +342,7 @@ func TestHandleConnect_UsesTokenMetadata(t *testing.T) {
 	require.NotNil(t, createdConnection)
 	// Real connection should use metadata from token
 	assert.Equal(t, "bob@example.com", createdConnection.UserEmail)
-	assert.Equal(t, "172.16.0.1", createdConnection.ClientIPAtLogsTime)
+	assert.Equal(t, "172.16.0.1", createdConnection.ClientIPAtCreationTime)
 	assert.Equal(t, "real-conn-id", createdConnection.ConnectionID)
 	assert.Equal(t, "exec-789", createdConnection.ExecutionID)
 	assert.Equal(t, validToken, createdConnection.Token) // Token is stored in connection for cleanup

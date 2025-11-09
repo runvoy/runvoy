@@ -39,27 +39,27 @@ func NewConnectionRepository(
 // connectionItem represents the structure stored in DynamoDB.
 // This keeps the database schema separate from the API types.
 type connectionItem struct {
-	ConnectionID       string `dynamodbav:"connection_id"`
-	ExecutionID        string `dynamodbav:"execution_id"`
-	Functionality      string `dynamodbav:"functionality"`
-	ExpiresAt          int64  `dynamodbav:"expires_at"`
-	ClientIP           string `dynamodbav:"client_ip,omitempty"`
-	Token              string `dynamodbav:"token,omitempty"`
-	UserEmail          string `dynamodbav:"user_email,omitempty"`
-	ClientIPAtLogsTime string `dynamodbav:"client_ip_at_logs_time,omitempty"`
+	ConnectionID           string `dynamodbav:"connection_id"`
+	ExecutionID            string `dynamodbav:"execution_id"`
+	Functionality          string `dynamodbav:"functionality"`
+	ExpiresAt              int64  `dynamodbav:"expires_at"`
+	ClientIP               string `dynamodbav:"client_ip,omitempty"`
+	Token                  string `dynamodbav:"token,omitempty"`
+	UserEmail              string `dynamodbav:"user_email,omitempty"`
+	ClientIPAtCreationTime string `dynamodbav:"client_ip_at_creation_time,omitempty"`
 }
 
 // toConnectionItem converts an api.WebSocketConnection to a connectionItem.
 func toConnectionItem(conn *api.WebSocketConnection) *connectionItem {
 	return &connectionItem{
-		ConnectionID:       conn.ConnectionID,
-		ExecutionID:        conn.ExecutionID,
-		Functionality:      conn.Functionality,
-		ExpiresAt:          conn.ExpiresAt,
-		ClientIP:           conn.ClientIP,
-		Token:              conn.Token,
-		UserEmail:          conn.UserEmail,
-		ClientIPAtLogsTime: conn.ClientIPAtLogsTime,
+		ConnectionID:           conn.ConnectionID,
+		ExecutionID:            conn.ExecutionID,
+		Functionality:          conn.Functionality,
+		ExpiresAt:              conn.ExpiresAt,
+		ClientIP:               conn.ClientIP,
+		Token:                  conn.Token,
+		UserEmail:              conn.UserEmail,
+		ClientIPAtCreationTime: conn.ClientIPAtCreationTime,
 	}
 }
 
@@ -182,14 +182,14 @@ func (r *ConnectionRepository) GetConnectionsByExecutionID(
 		}
 		connIDs = append(connIDs, connItem.ConnectionID)
 		connections = append(connections, &api.WebSocketConnection{
-			ConnectionID:       connItem.ConnectionID,
-			ExecutionID:        connItem.ExecutionID,
-			Functionality:      connItem.Functionality,
-			ExpiresAt:          connItem.ExpiresAt,
-			ClientIP:           connItem.ClientIP,
-			Token:              connItem.Token,
-			UserEmail:          connItem.UserEmail,
-			ClientIPAtLogsTime: connItem.ClientIPAtLogsTime,
+			ConnectionID:           connItem.ConnectionID,
+			ExecutionID:            connItem.ExecutionID,
+			Functionality:          connItem.Functionality,
+			ExpiresAt:              connItem.ExpiresAt,
+			ClientIP:               connItem.ClientIP,
+			Token:                  connItem.Token,
+			UserEmail:              connItem.UserEmail,
+			ClientIPAtCreationTime: connItem.ClientIPAtCreationTime,
 		})
 	}
 

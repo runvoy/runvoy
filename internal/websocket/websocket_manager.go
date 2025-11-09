@@ -258,26 +258,26 @@ func (wm *WebSocketManager) newWebSocketConnection(
 	wsToken *api.WebSocketToken,
 ) *api.WebSocketConnection {
 	return &api.WebSocketConnection{
-		ConnectionID:       req.RequestContext.ConnectionID,
-		ExecutionID:        req.QueryStringParameters["execution_id"],
-		Functionality:      constants.FunctionalityLogStreaming,
-		ExpiresAt:          time.Now().Add(constants.ConnectionTTLHours * time.Hour).Unix(),
-		Token:              token, // Keep the token for cleanup on disconnect
-		ClientIP:           getClientIPFromWebSocketRequest(req),
-		UserEmail:          wsToken.UserEmail,
-		ClientIPAtLogsTime: wsToken.ClientIPAtLogsTime,
+		ConnectionID:           req.RequestContext.ConnectionID,
+		ExecutionID:            req.QueryStringParameters["execution_id"],
+		Functionality:          constants.FunctionalityLogStreaming,
+		ExpiresAt:              time.Now().Add(constants.ConnectionTTLHours * time.Hour).Unix(),
+		Token:                  token, // Keep the token for cleanup on disconnect
+		ClientIP:               getClientIPFromWebSocketRequest(req),
+		UserEmail:              wsToken.UserEmail,
+		ClientIPAtCreationTime: wsToken.ClientIPAtCreationTime,
 	}
 }
 
 func (wm *WebSocketManager) logConnectionEstablished(connection *api.WebSocketConnection) {
 	wm.logger.Info("authenticated connection established", "context", map[string]any{
-		"connection_id":     connection.ConnectionID,
-		"execution_id":      connection.ExecutionID,
-		"functionality":     connection.Functionality,
-		"expires_at":        connection.ExpiresAt,
-		"client_ip":         connection.ClientIP,
-		"user_email":        connection.UserEmail,
-		"client_ip_at_logs": connection.ClientIPAtLogsTime,
+		"connection_id":              connection.ConnectionID,
+		"execution_id":               connection.ExecutionID,
+		"functionality":              connection.Functionality,
+		"expires_at":                 connection.ExpiresAt,
+		"client_ip":                  connection.ClientIP,
+		"user_email":                 connection.UserEmail,
+		"client_ip_at_creation_time": connection.ClientIPAtCreationTime,
 	})
 }
 
