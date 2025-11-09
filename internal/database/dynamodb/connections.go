@@ -132,6 +132,44 @@ func (r *ConnectionRepository) CreateConnection(
 	return nil
 }
 
+// UpdateConnection updates an existing WebSocket connection record in DynamoDB.
+func (r *ConnectionRepository) UpdateConnection(
+	ctx context.Context,
+	connection *api.WebSocketConnection,
+) error {
+	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
+
+	item := toConnectionItem(connection)
+
+	av, err := attributevalue.MarshalMap(item)
+	if err != nil {
+		return appErrors.ErrDatabaseError("failed to marshal connection item", err)
+	}
+
+	logArgs := []any{
+		"operation", "DynamoDB.PutItem",
+		"table", r.tableName,
+		"connection_id", connection.ConnectionID,
+		"execution_id", connection.ExecutionID,
+	}
+	logArgs = append(logArgs, logger.GetDeadlineInfo(ctx)...)
+	reqLogger.Debug("calling external service", "context", logger.SliceToMap(logArgs))
+
+	_, err = r.client.PutItem(ctx, &dynamodb.PutItemInput{
+		TableName: aws.String(r.tableName),
+		Item:      av,
+	})
+	if err != nil {
+		return appErrors.ErrDatabaseError("failed to update connection", err)
+	}
+
+	reqLogger.Debug("connection updated successfully", "context", map[string]string{
+		"connection_id": connection.ConnectionID,
+		"execution_id":  connection.ExecutionID,
+	})
+	return nil
+}
+
 // DeleteConnections removes WebSocket connections from DynamoDB by connection IDs using batch delete.
 func (r *ConnectionRepository) DeleteConnections(ctx context.Context, connectionIDs []string) (int, error) {
 	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)

@@ -81,10 +81,27 @@ type ConnectionRepository interface {
 	// CreateConnection stores a new WebSocket connection record in the database.
 	CreateConnection(ctx context.Context, connection *api.WebSocketConnection) error
 
+	// UpdateConnection updates an existing WebSocket connection record in the database.
+	// Typically used to update replay lock status and cursor position.
+	UpdateConnection(ctx context.Context, connection *api.WebSocketConnection) error
+
 	// DeleteConnections removes WebSocket connections from the database.
 	DeleteConnections(ctx context.Context, connectionIDs []string) (int, error)
 
 	// GetConnectionsByExecutionID retrieves all active WebSocket connection records for a given execution ID.
 	// Returns the complete connection objects including token and other metadata.
 	GetConnectionsByExecutionID(ctx context.Context, executionID string) ([]*api.WebSocketConnection, error)
+}
+
+// LogRepository defines the interface for log retrieval from a durable log store.
+// CloudWatch Logs is the primary implementation, but this abstraction allows for alternative stores.
+type LogRepository interface {
+	// GetLogsByExecutionID retrieves all logs for an execution, ordered by timestamp.
+	// Returns an empty slice if no logs are found, not an error.
+	GetLogsByExecutionID(ctx context.Context, executionID string) ([]api.LogEvent, error)
+
+	// GetLogsByExecutionIDSince retrieves logs newer than the given timestamp (in milliseconds since epoch).
+	// If sinceTimestampMS is nil, retrieves all logs (same as GetLogsByExecutionID).
+	// Used for backlog replay on WebSocket connect and resumable streaming.
+	GetLogsByExecutionIDSince(ctx context.Context, executionID string, sinceTimestampMS *int64) ([]api.LogEvent, error)
 }

@@ -18,13 +18,42 @@ import (
 // mockConnectionRepoForWS implements database.ConnectionRepository for testing.
 type mockConnectionRepoForWS struct {
 	createConnectionFunc            func(context.Context, *api.WebSocketConnection) error
+	updateConnectionFunc            func(context.Context, *api.WebSocketConnection) error
 	deleteConnectionsFunc           func(context.Context, []string) (int, error)
 	getConnectionsByExecutionIDFunc func(context.Context, string) ([]*api.WebSocketConnection, error)
+}
+
+// mockLogRepoForWS implements database.LogRepository for testing.
+type mockLogRepoForWS struct {
+	getLogsByExecutionIDFunc      func(context.Context, string) ([]api.LogEvent, error)
+	getLogsByExecutionIDSinceFunc func(context.Context, string, *int64) ([]api.LogEvent, error)
+}
+
+func (m *mockLogRepoForWS) GetLogsByExecutionID(ctx context.Context, executionID string) ([]api.LogEvent, error) {
+	if m.getLogsByExecutionIDFunc != nil {
+		return m.getLogsByExecutionIDFunc(ctx, executionID)
+	}
+	return []api.LogEvent{}, nil
+}
+
+func (m *mockLogRepoForWS) GetLogsByExecutionIDSince(
+	ctx context.Context, executionID string, sinceTimestampMS *int64) ([]api.LogEvent, error) {
+	if m.getLogsByExecutionIDSinceFunc != nil {
+		return m.getLogsByExecutionIDSinceFunc(ctx, executionID, sinceTimestampMS)
+	}
+	return []api.LogEvent{}, nil
 }
 
 func (m *mockConnectionRepoForWS) CreateConnection(ctx context.Context, conn *api.WebSocketConnection) error {
 	if m.createConnectionFunc != nil {
 		return m.createConnectionFunc(ctx, conn)
+	}
+	return nil
+}
+
+func (m *mockConnectionRepoForWS) UpdateConnection(ctx context.Context, conn *api.WebSocketConnection) error {
+	if m.updateConnectionFunc != nil {
+		return m.updateConnectionFunc(ctx, conn)
 	}
 	return nil
 }
@@ -88,7 +117,10 @@ func TestValidateConnectionParams(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			wm := &WebSocketManager{logger: testutil.SilentLogger()}
+			wm := &WebSocketManager{
+				logRepo: &mockLogRepoForWS{},
+				logger:  testutil.SilentLogger(),
+			}
 
 			resp := wm.validateConnectionParams(tt.connectionID, tt.executionID, tt.token)
 
@@ -194,6 +226,7 @@ func TestValidateAndConsumePendingToken(t *testing.T) {
 
 			wm := &WebSocketManager{
 				connRepo: mockRepo,
+				logRepo:  &mockLogRepoForWS{},
 				logger:   testutil.SilentLogger(),
 			}
 
@@ -352,9 +385,20 @@ func TestHandleConnect(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			var createdConn *api.WebSocketConnection
+
 			mockRepo := &mockConnectionRepoForWS{
 				getConnectionsByExecutionIDFunc: func(_ context.Context, _ string) ([]*api.WebSocketConnection, error) {
-					return tt.mockConnections, tt.mockGetErr
+					if tt.mockGetErr != nil {
+						return nil, tt.mockGetErr
+					}
+					// Return pending connection, plus created connection if it was created
+					result := make([]*api.WebSocketConnection, len(tt.mockConnections))
+					copy(result, tt.mockConnections)
+					if createdConn != nil {
+						result = append(result, createdConn)
+					}
+					return result, nil
 				},
 				deleteConnectionsFunc: func(_ context.Context, _ []string) (int, error) {
 					if tt.mockDeleteErr != nil {
@@ -362,13 +406,24 @@ func TestHandleConnect(t *testing.T) {
 					}
 					return 1, nil
 				},
-				createConnectionFunc: func(_ context.Context, _ *api.WebSocketConnection) error {
+				createConnectionFunc: func(_ context.Context, conn *api.WebSocketConnection) error {
+					if tt.mockCreateErr == nil {
+						createdConn = conn
+					}
 					return tt.mockCreateErr
+				},
+				updateConnectionFunc: func(_ context.Context, conn *api.WebSocketConnection) error {
+					// Update tracking if it's the created connection
+					if createdConn != nil && conn.ConnectionID == createdConn.ConnectionID {
+						createdConn = conn
+					}
+					return nil
 				},
 			}
 
 			wm := &WebSocketManager{
 				connRepo: mockRepo,
+				logRepo:  &mockLogRepoForWS{},
 				logger:   testutil.SilentLogger(),
 			}
 
@@ -404,7 +459,12 @@ func TestHandleConnect_PreservesPendingConnectionExpiry(t *testing.T) {
 
 	mockRepo := &mockConnectionRepoForWS{
 		getConnectionsByExecutionIDFunc: func(_ context.Context, _ string) ([]*api.WebSocketConnection, error) {
-			return []*api.WebSocketConnection{pendingConn}, nil
+			result := []*api.WebSocketConnection{pendingConn}
+			// Also return the created connection if it was created
+			if createdConnection != nil {
+				result = append(result, createdConnection)
+			}
+			return result, nil
 		},
 		deleteConnectionsFunc: func(_ context.Context, _ []string) (int, error) {
 			return 1, nil
@@ -413,10 +473,18 @@ func TestHandleConnect_PreservesPendingConnectionExpiry(t *testing.T) {
 			createdConnection = conn
 			return nil
 		},
+		updateConnectionFunc: func(_ context.Context, conn *api.WebSocketConnection) error {
+			// Update tracking if it's the created connection
+			if createdConnection != nil && conn.ConnectionID == createdConnection.ConnectionID {
+				createdConnection = conn
+			}
+			return nil
+		},
 	}
 
 	wm := &WebSocketManager{
 		connRepo: mockRepo,
+		logRepo:  &mockLogRepoForWS{},
 		logger:   testutil.SilentLogger(),
 	}
 

@@ -150,6 +150,7 @@ func (m *mockExecutionRepository) ListExecutions(ctx context.Context) ([]*api.Ex
 // mockConnectionRepository implements database.ConnectionRepository for testing
 type mockConnectionRepository struct {
 	createConnectionFunc            func(ctx context.Context, conn *api.WebSocketConnection) error
+	updateConnectionFunc            func(ctx context.Context, conn *api.WebSocketConnection) error
 	deleteConnectionsFunc           func(ctx context.Context, connIDs []string) (int, error)
 	getConnectionsByExecutionIDFunc func(ctx context.Context, executionID string) ([]*api.WebSocketConnection, error)
 }
@@ -157,6 +158,13 @@ type mockConnectionRepository struct {
 func (m *mockConnectionRepository) CreateConnection(ctx context.Context, conn *api.WebSocketConnection) error {
 	if m.createConnectionFunc != nil {
 		return m.createConnectionFunc(ctx, conn)
+	}
+	return nil
+}
+
+func (m *mockConnectionRepository) UpdateConnection(ctx context.Context, conn *api.WebSocketConnection) error {
+	if m.updateConnectionFunc != nil {
+		return m.updateConnectionFunc(ctx, conn)
 	}
 	return nil
 }

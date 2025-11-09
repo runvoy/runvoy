@@ -11,6 +11,7 @@ import (
 	"runvoy/internal/config"
 	"runvoy/internal/constants"
 	"runvoy/internal/database"
+	"runvoy/internal/database/cloudwatch"
 	dynamorepo "runvoy/internal/database/dynamodb"
 	"runvoy/internal/logger"
 	"runvoy/internal/websocket"
@@ -48,7 +49,8 @@ func NewProcessor(ctx context.Context, cfg *config.Config, log *slog.Logger) (*P
 	dynamoClient := dynamodb.NewFromConfig(awsCfg)
 	executionRepo := dynamorepo.NewExecutionRepository(dynamoClient, cfg.ExecutionsTable, log)
 	connectionRepo := dynamorepo.NewConnectionRepository(dynamoClient, cfg.WebSocketConnectionsTable, log)
-	websocketManager := websocket.NewWebSocketManager(cfg, &awsCfg, connectionRepo, log)
+	logRepo := cloudwatch.NewLogRepository(cfg.LogGroup, log)
+	websocketManager := websocket.NewWebSocketManager(cfg, &awsCfg, connectionRepo, logRepo, log)
 
 	log.Debug("event processor initialized",
 		"context", map[string]string{
@@ -213,7 +215,7 @@ func (p *Processor) handleCloudWatchLogsEvent(
 		})
 	}
 
-	sendErr := p.webSocketManager.SendLogsToExecution(ctx, &executionID, logEvents)
+	sendErr := p.webSocketManager.SendLogsToExecution(ctx, executionID, logEvents)
 	if sendErr != nil {
 		reqLogger.Error("failed to send logs to WebSocket connections",
 			"error", sendErr,

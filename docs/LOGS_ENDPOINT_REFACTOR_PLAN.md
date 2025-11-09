@@ -1,5 +1,28 @@
 ## Logs Endpoint Refactor Plan
 
+# TODOS:
+
+ Todos
+  [x] Review current codebase structure and identify key files for API handlers, DynamoDB models, event processor, and websocket manager
+  [x] Update api.WebSocketConnection model to include replay cursor and lock fields
+  [x] Update DynamoDB mappers/serialization for new WebSocketConnection fields
+  [x] Simplify GET /api/v1/executions/{executionID}/logs handler: always require last_seen_timestamp, single response format
+  [x] Implement response logic: completed executions return events, running executions return websocket URL only
+  [x] Create SQS FIFO queue for CloudWatch logs with execution ID as message group ID
+  [x] Update config to include LogsEventsQueueURL
+  [ ] Implement Lambda function to write CloudWatch Logs events to SQS FIFO
+  [ ] Update event processor to consume from SQS FIFO instead of direct Lambda invocation
+  [ ] Implement replay lock mechanism in websocket connection record (DynamoDB)
+  [ ] Implement $connect handler logic: acquire replay lock, fetch CloudWatch backlog, deliver to client
+  [ ] Update event processor to check replay lock before sending events, buffer if locked
+  [ ] Add TTL/watchdog to clear stale replay locks (prevent deadlocks)
+  [ ] Write unit tests for handler logic, query param parsing, and DynamoDB changes
+  [ ] Write integration tests for websocket connect flow with backlog replay
+  [ ] Load test SQS FIFO + Lambda path to verify message group ordering and throughput
+  [ ] Update ARCHITECTURE.md docs to reflect new flow
+  [ ] Run 'just check' to ensure lint and tests pass
+  [ ] Create PR and get review from team
+
 ### Overview
 - Replace fragile mixed log fetch + websocket response with deterministic flow.
 - Preserve zero-cost idle posture by preferring SQS FIFO over Kinesis.

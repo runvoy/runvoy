@@ -481,6 +481,53 @@ The platform uses a dedicated **event processor Lambda** to handle asynchronous 
 8. **CloudWatch Logs Streaming**: CloudWatch Logs subscription events deliver batched runner log entries; the processor converts them to `api.LogEvent` records and pushes each entry to active WebSocket connections
 9. **WebSocket Lifecycle**: `$connect`, `$disconnect`, and `$disconnect-execution` routes from API Gateway are handled in-process to authenticate clients, persist connection metadata, and fan out disconnect messages
 
+### Log Backlog Replay with Replay Lock
+
+The platform implements a **replay lock mechanism** to ensure clients receive historical logs without gaps when connecting to running executions.
+
+#### How Backlog Replay Works
+
+When a client connects via WebSocket:
+
+1. **Query Parameter Extraction**: The `$connect` handler extracts an optional `last_seen_timestamp` query parameter (milliseconds since epoch) indicating where the client wants to resume from
+2. **Replay Lock Creation**: A connection record is created with `ReplayLock=true` and `ReplayLockExpiresAt` (30-second TTL) to prevent new live logs from being sent during backlog fetch
+3. **Backlog Retrieval**: The handler queries CloudWatch Logs for all events newer than `last_seen_timestamp`
+4. **Backlog Delivery**: Historical logs are sent to the client in a single batch
+5. **Lock Clearing**: The replay lock is cleared, allowing live events to resume
+
+#### Replay Lock Safety
+
+- **Stale Lock Prevention**: Locks automatically expire after 30 seconds (TTL) to handle disconnects
+- **Stateless Event Processor**: The event processor checks replay lock status before sending each batch of logs:
+  - If `ReplayLock=true` and not expired: Connection is skipped (no buffering, reduces Lambda memory pressure)
+  - If `ReplayLock=true` and expired: Lock is cleared and logs are delivered
+  - If `ReplayLock=false`: Logs are sent immediately
+- **Timestamp Cursor**: Each connection maintains `LastSeenLogTimestamp` to track where logs were delivered, enabling clients to resume without gaps if they reconnect
+
+#### Data Model
+
+```go
+type WebSocketConnection struct {
+    // ... other fields ...
+    LastSeenLogTimestamp int64 // CloudWatch log event timestamp in ms
+    ReplayLock           bool  // Indicates backlog replay in progress
+    ReplayLockExpiresAt  int64 // Unix timestamp (seconds) - TTL for lock
+}
+```
+
+#### Example Client Flow
+
+1. Client calls `GET /api/v1/executions/{id}/logs?last_seen_timestamp=1699564800000`
+2. Response includes `websocket_url` and no events (for running executions)
+3. Client connects: `wss://api.example.com/...?execution_id=exec-123&token=xyz&last_seen_timestamp=1699564800000`
+4. `$connect` handler:
+   - Sets `ReplayLock=true` (blocks live events)
+   - Fetches logs from CloudWatch since `1699564800000`
+   - Sends backlog to client
+   - Clears `ReplayLock`
+5. Subsequent logs flow in as they're generated, with each sent log updating `LastSeenLogTimestamp`
+6. If client disconnects and reconnects, they can query logs starting from their last timestamp to resume without gaps
+
 ### Event Types
 
 Currently handles:

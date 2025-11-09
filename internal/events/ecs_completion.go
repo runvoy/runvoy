@@ -109,7 +109,7 @@ func (p *Processor) handleECSTaskCompletion(ctx context.Context, event *events.C
 	reqLogger.Info("execution updated successfully", "execution", execution)
 
 	// Notify WebSocket clients about the execution completion
-	if err = p.webSocketManager.NotifyExecutionCompletion(ctx, &executionID); err != nil {
+	if err = p.webSocketManager.NotifyExecutionCompletion(ctx, executionID); err != nil {
 		reqLogger.Error("failed to notify websocket clients of disconnect", "error", err)
 		return err
 	}
