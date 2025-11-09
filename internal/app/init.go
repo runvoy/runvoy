@@ -43,15 +43,19 @@ func Initialize(
 		connRepo      database.ConnectionRepository
 		logRepo       database.LogRepository
 		runner        Runner
-		err           error
 	)
 
 	switch provider {
 	case constants.AWS:
-		userRepo, executionRepo, connRepo, logRepo, runner, err = initializeAWSBackend(ctx, cfg, logger)
+		deps, err := initializeAWSBackend(ctx, cfg, logger)
 		if err != nil {
 			return nil, fmt.Errorf("failed to initialize AWS: %w", err)
 		}
+		userRepo = deps.userRepo
+		executionRepo = deps.executionRepo
+		connRepo = deps.connRepo
+		logRepo = deps.logRepo
+		runner = deps.runner
 	default:
 		return nil, fmt.Errorf("unknown backend provider: %s (supported: %s)", provider, constants.AWS)
 	}
@@ -62,21 +66,22 @@ func Initialize(
 }
 
 // initializeAWSBackend sets up AWS-specific dependencies.
-func initializeAWSBackend( //nolint:gocritic
+type awsBackendDeps struct {
+	userRepo      database.UserRepository
+	executionRepo database.ExecutionRepository
+	connRepo      database.ConnectionRepository
+	logRepo       database.LogRepository
+	runner        Runner
+}
+
+func initializeAWSBackend(
 	ctx context.Context,
 	cfg *config.Config,
 	logger *slog.Logger,
-) (
-	database.UserRepository,
-	database.ExecutionRepository,
-	database.ConnectionRepository,
-	database.LogRepository,
-	Runner,
-	error,
-) {
+) (awsBackendDeps, error) {
 	awsCfg, err := awsConfig.LoadDefaultConfig(ctx)
 	if err != nil {
-		return nil, nil, nil, nil, nil, fmt.Errorf("failed to load AWS configuration: %w", err)
+		return awsBackendDeps{}, fmt.Errorf("failed to load AWS configuration: %w", err)
 	}
 
 	dynamoClient := dynamodb.NewFromConfig(awsCfg)
@@ -106,5 +111,11 @@ func initializeAWSBackend( //nolint:gocritic
 	}
 	runner := appAws.NewRunner(ecsClientInstance, awsExecCfg, logger)
 
-	return userRepo, executionRepo, connRepo, logRepo, runner, nil
+	return awsBackendDeps{
+		userRepo:      userRepo,
+		executionRepo: executionRepo,
+		connRepo:      connRepo,
+		logRepo:       logRepo,
+		runner:        runner,
+	}, nil
 }
