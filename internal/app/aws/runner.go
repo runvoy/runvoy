@@ -206,7 +206,7 @@ func (e *Runner) StartTask( //nolint: funlen
 	if hasGitRepo {
 		gitRef := req.GitRef
 		if gitRef == "" {
-			gitRef = "main"
+			gitRef = constants.DefaultGitRef
 		}
 		sidecarEnv = append(sidecarEnv,
 			ecsTypes.KeyValuePair{Name: awsStd.String("GIT_REPO"), Value: awsStd.String(req.GitRepo)},
