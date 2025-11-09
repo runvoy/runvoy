@@ -199,46 +199,90 @@ func (wm *WebSocketManager) evaluateRouteResponse(
 // fetches any historical logs for backlog replay, sends them to the client,
 // and then clears the replay lock to allow live events to be sent.
 //
-//nolint:gocritic,funlen // Lambda event types passed by value; complex replay logic justified
+//nolint:gocritic // Lambda event types passed by value; orchestrates replay helpers
 func (wm *WebSocketManager) handleConnect(
 	ctx context.Context,
 	req events.APIGatewayWebsocketProxyRequest,
 ) (events.APIGatewayProxyResponse, error) {
-	connectionID := req.RequestContext.ConnectionID
-	executionID := req.QueryStringParameters["execution_id"]
-	token := req.QueryStringParameters["token"]
-	lastSeenTimestampStr := req.QueryStringParameters["last_seen_timestamp"]
+	params := buildConnectParams(&req)
 
-	if errResp := wm.validateConnectionParams(connectionID, executionID, token); errResp != nil {
-		return *errResp, nil
-	}
-
-	pendingConnection, errResp := wm.validateAndConsumePendingToken(ctx, executionID, token)
+	pendingConnection, errResp := wm.validateConnectRequest(ctx, params)
 	if errResp != nil {
 		return *errResp, nil
 	}
 
-	// Parse optional last_seen_timestamp query parameter
-	var lastSeenTimestamp *int64
-	if lastSeenTimestampStr != "" {
-		// Parse timestamp (milliseconds since epoch)
-		var ts int64
-		if _, err := fmt.Sscanf(lastSeenTimestampStr, "%d", &ts); err == nil && ts > 0 {
-			lastSeenTimestamp = &ts
-		}
+	connection, errResp := wm.initializeConnection(ctx, &req, params, pendingConnection)
+	if errResp != nil {
+		return *errResp, nil
 	}
 
-	// Set up replay lock with TTL (extendable if needed)
-	now := time.Now().Unix()
-	replayLockTTL := now + ReplayLockTTLSeconds
+	backlog, errResp := wm.replayBacklogForConnection(ctx, connection, params.lastSeenTimestamp)
+	if errResp != nil {
+		return *errResp, nil
+	}
 
-	// Create connection with replay lock enabled
+	wm.logSuccessfulConnect(connection, backlog)
+
+	return events.APIGatewayProxyResponse{
+		StatusCode: http.StatusOK,
+		Body:       "Connected",
+	}, nil
+}
+
+type connectRequestParams struct {
+	connectionID      string
+	executionID       string
+	token             string
+	lastSeenTimestamp *int64
+}
+
+func buildConnectParams(req *events.APIGatewayWebsocketProxyRequest) connectRequestParams {
+	return connectRequestParams{
+		connectionID:      req.RequestContext.ConnectionID,
+		executionID:       req.QueryStringParameters["execution_id"],
+		token:             req.QueryStringParameters["token"],
+		lastSeenTimestamp: parseLastSeenTimestamp(req.QueryStringParameters["last_seen_timestamp"]),
+	}
+}
+
+func parseLastSeenTimestamp(raw string) *int64 {
+	if raw == "" {
+		return nil
+	}
+
+	var ts int64
+	if _, err := fmt.Sscanf(raw, "%d", &ts); err == nil && ts > 0 {
+		return &ts
+	}
+
+	return nil
+}
+
+func (wm *WebSocketManager) validateConnectRequest(
+	ctx context.Context,
+	params connectRequestParams,
+) (*api.WebSocketConnection, *events.APIGatewayProxyResponse) {
+	if errResp := wm.validateConnectionParams(params.connectionID, params.executionID, params.token); errResp != nil {
+		return nil, errResp
+	}
+
+	return wm.validateAndConsumePendingToken(ctx, params.executionID, params.token)
+}
+
+func (wm *WebSocketManager) initializeConnection(
+	ctx context.Context,
+	req *events.APIGatewayWebsocketProxyRequest,
+	params connectRequestParams,
+	pendingConnection *api.WebSocketConnection,
+) (*api.WebSocketConnection, *events.APIGatewayProxyResponse) {
+	replayLockTTL := time.Now().Unix() + ReplayLockTTLSeconds
+
 	connection := &api.WebSocketConnection{
-		ConnectionID:         connectionID,
-		ExecutionID:          executionID,
+		ConnectionID:         params.connectionID,
+		ExecutionID:          params.executionID,
 		Functionality:        constants.FunctionalityLogStreaming,
 		ExpiresAt:            pendingConnection.ExpiresAt,
-		ClientIP:             getClientIPFromWebSocketRequest(&req),
+		ClientIP:             getClientIPFromWebSocketRequest(req),
 		UserEmail:            pendingConnection.UserEmail,
 		ClientIPAtLogsTime:   pendingConnection.ClientIPAtLogsTime,
 		LastSeenLogTimestamp: 0, // Will be updated after fetching backlog
@@ -247,11 +291,15 @@ func (wm *WebSocketManager) handleConnect(
 	}
 
 	if err := wm.connRepo.CreateConnection(ctx, connection); err != nil {
-		wm.logger.Error("failed to store connection", "error", err)
-		return events.APIGatewayProxyResponse{
+		wm.logger.Error("failed to store connection", "context", map[string]any{
+			"error":         err.Error(),
+			"connection_id": connection.ConnectionID,
+			"execution_id":  connection.ExecutionID,
+		})
+		return nil, &events.APIGatewayProxyResponse{
 			StatusCode: http.StatusInternalServerError,
 			Body:       fmt.Sprintf("Failed to store connection: %v", err),
-		}, nil
+		}
 	}
 
 	wm.logger.Debug("connection created with replay lock", "context", map[string]any{
@@ -260,54 +308,60 @@ func (wm *WebSocketManager) handleConnect(
 		"replay_lock":   true,
 	})
 
-	// Fetch backlog from CloudWatch
-	backlog, err := wm.logRepo.GetLogsByExecutionIDSince(ctx, executionID, lastSeenTimestamp)
+	return connection, nil
+}
+
+func (wm *WebSocketManager) replayBacklogForConnection(
+	ctx context.Context,
+	connection *api.WebSocketConnection,
+	lastSeenTimestamp *int64,
+) ([]api.LogEvent, *events.APIGatewayProxyResponse) {
+	backlog, err := wm.logRepo.GetLogsByExecutionIDSince(ctx, connection.ExecutionID, lastSeenTimestamp)
 	if err != nil {
 		wm.logger.Error("failed to fetch backlog", "context", map[string]any{
 			"error":               err.Error(),
-			"execution_id":        executionID,
+			"execution_id":        connection.ExecutionID,
 			"last_seen_timestamp": lastSeenTimestamp,
 		})
-		// Don't fail the connection - client will get live events at least
-		// Clear replay lock so live events can be sent
-		if clearErr := wm.clearReplayLock(ctx, connectionID, executionID); clearErr != nil {
+
+		if clearErr := wm.clearReplayLock(ctx, connection.ConnectionID, connection.ExecutionID); clearErr != nil {
 			wm.logger.Error("failed to clear replay lock after backlog fetch error", "error", clearErr)
 		}
-		return events.APIGatewayProxyResponse{
+
+		return nil, &events.APIGatewayProxyResponse{
 			StatusCode: http.StatusInternalServerError,
 			Body:       fmt.Sprintf("Failed to fetch backlog: %v", err),
-		}, nil
+		}
 	}
 
-	// Send backlog to the client
 	if len(backlog) > 0 {
 		wm.logger.Debug("sending backlog to client", "context", map[string]any{
-			"execution_id": executionID,
+			"execution_id": connection.ExecutionID,
 			"log_count":    len(backlog),
 		})
 
-		sendErr := wm.SendLogsToExecution(ctx, executionID, backlog)
-		if sendErr != nil {
-			wm.logger.Error("failed to send backlog", "error", sendErr, "execution_id", executionID)
-			// Still clear the lock even if sends failed
+		if sendErr := wm.SendLogsToExecution(ctx, connection.ExecutionID, backlog); sendErr != nil {
+			wm.logger.Error("failed to send backlog", "error", sendErr, "execution_id", connection.ExecutionID)
 		}
 
-		// Update last seen timestamp to the latest log in backlog
-		if len(backlog) > 0 {
-			connection.LastSeenLogTimestamp = backlog[len(backlog)-1].Timestamp
-		}
+		connection.LastSeenLogTimestamp = backlog[len(backlog)-1].Timestamp
 	}
 
-	// Clear replay lock to allow live events
-	clearErr := wm.clearReplayLock(ctx, connectionID, executionID)
-	if clearErr != nil {
+	if clearErr := wm.clearReplayLock(ctx, connection.ConnectionID, connection.ExecutionID); clearErr != nil {
 		wm.logger.Error("failed to clear replay lock", "error", clearErr)
-		return events.APIGatewayProxyResponse{
+		return nil, &events.APIGatewayProxyResponse{
 			StatusCode: http.StatusInternalServerError,
 			Body:       fmt.Sprintf("Failed to finalize connection: %v", clearErr),
-		}, nil
+		}
 	}
 
+	return backlog, nil
+}
+
+func (wm *WebSocketManager) logSuccessfulConnect(
+	connection *api.WebSocketConnection,
+	backlog []api.LogEvent,
+) {
 	wm.logger.Info("authenticated connection established with backlog replay", "context", map[string]any{
 		"connection_id":           connection.ConnectionID,
 		"execution_id":            connection.ExecutionID,
@@ -319,11 +373,6 @@ func (wm *WebSocketManager) handleConnect(
 		"backlog_count":           len(backlog),
 		"last_seen_log_timestamp": connection.LastSeenLogTimestamp,
 	})
-
-	return events.APIGatewayProxyResponse{
-		StatusCode: http.StatusOK,
-		Body:       "Connected",
-	}, nil
 }
 
 // clearReplayLock clears the replay lock flag on a connection and updates it in DynamoDB.
