@@ -368,8 +368,8 @@ func (wm *WebSocketManager) fetchBacklogWithRetry(
 	executionID string,
 	lastSeenTimestamp *int64,
 ) ([]api.LogEvent, error) {
-	const maxRetries = 5
-	const retryDelay = time.Second
+	const maxRetries = 3
+	const retryDelay = 10 * time.Second
 
 	var lastErr error
 
