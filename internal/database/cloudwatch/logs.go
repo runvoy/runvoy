@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"sort"
 
 	"runvoy/internal/api"
 	"runvoy/internal/constants"
@@ -105,8 +104,6 @@ func (r *LogRepository) fetchLogs(
 		"events_count": fmt.Sprintf("%d", len(events)),
 	})
 
-	// Sort events by timestamp (ascending order)
-	sort.SliceStable(events, func(i, j int) bool { return events[i].Timestamp < events[j].Timestamp })
 	return events, nil
 }
 
@@ -151,7 +148,7 @@ func (r *LogRepository) verifyLogStreamExists(
 }
 
 // getAllLogEvents paginates through CloudWatch Logs GetLogEvents to collect all events.
-// If sinceTimestampMS is provided, filters to only return events newer than that timestamp.
+// If sinceTimestampMS is provided, uses the CloudWatch Logs API's StartTime parameter for server-side filtering.
 func (r *LogRepository) getAllLogEvents(
 	ctx context.Context,
 	cwl *cloudwatchlogs.Client,
@@ -162,13 +159,21 @@ func (r *LogRepository) getAllLogEvents(
 	var nextToken *string
 
 	for {
-		out, err := cwl.GetLogEvents(ctx, &cloudwatchlogs.GetLogEventsInput{
+		input := &cloudwatchlogs.GetLogEventsInput{
 			LogGroupName:  aws.String(r.logGroup),
 			LogStreamName: aws.String(stream),
 			NextToken:     nextToken,
 			StartFromHead: aws.Bool(true),
 			Limit:         aws.Int32(constants.CloudWatchLogsEventsLimit),
-		})
+		}
+
+		// Use CloudWatch Logs API's StartTime parameter for server-side filtering
+		if sinceTimestampMS != nil {
+			// Add 1 to exclude the boundary timestamp (we want events strictly after this timestamp)
+			input.StartTime = aws.Int64(*sinceTimestampMS + 1)
+		}
+
+		out, err := cwl.GetLogEvents(ctx, input)
 
 		if err != nil {
 			var rte *cwlTypes.ResourceNotFoundException
@@ -179,13 +184,8 @@ func (r *LogRepository) getAllLogEvents(
 		}
 
 		for _, e := range out.Events {
-			timestamp := aws.ToInt64(e.Timestamp)
-			// Filter by sinceTimestampMS if provided
-			if sinceTimestampMS != nil && timestamp <= *sinceTimestampMS {
-				continue
-			}
 			events = append(events, api.LogEvent{
-				Timestamp: timestamp,
+				Timestamp: aws.ToInt64(e.Timestamp),
 				Message:   aws.ToString(e.Message),
 			})
 		}
