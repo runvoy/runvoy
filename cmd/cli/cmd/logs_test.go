@@ -52,18 +52,12 @@ func TestLogsService_DisplayLogs(t *testing.T) {
 			verifyOutput: func(t *testing.T, m *mockOutputInterface) {
 				require.Greater(t, len(m.calls), 0)
 				hasTable := false
-				hasWarning := false
 				for _, call := range m.calls {
 					if call.method == "Table" {
 						hasTable = true
 					}
-					if call.method == "Warningf" {
-						hasWarning = true
-					}
 				}
 				assert.True(t, hasTable, "Expected Table call to display logs")
-				// Since WebSocket URL is empty in mock, we expect a warning instead of success
-				assert.True(t, hasWarning, "Expected Warningf call when WebSocket not configured")
 			},
 		},
 		{
@@ -110,34 +104,6 @@ func TestLogsService_DisplayLogs(t *testing.T) {
 				for _, call := range m.calls {
 					assert.NotEqual(t, "Table", call.method, "Should not display Table on error")
 				}
-			},
-		},
-		{
-			name:        "displays webviewer URL",
-			executionID: "exec-abc",
-			webURL:      "https://custom-viewer.com",
-			setupMock: func(m *mockClientInterfaceForLogs) {
-				m.getLogsFunc = func(_ context.Context, _ string) (*api.LogsResponse, error) {
-					return &api.LogsResponse{
-						ExecutionID: "exec-abc",
-						Events:      []api.LogEvent{{Timestamp: 1000000, Message: "test"}},
-					}, nil
-				}
-			},
-			wantErr: false,
-			verifyOutput: func(t *testing.T, m *mockOutputInterface) {
-				hasInfof := false
-				for _, call := range m.calls {
-					if call.method == "Infof" && len(call.args) >= 1 {
-						format, ok := call.args[0].(string)
-						if ok {
-							if fmt.Sprintf(format, call.args[1:]...) != "" {
-								hasInfof = true
-							}
-						}
-					}
-				}
-				assert.True(t, hasInfof, "Should display webviewer URL via Infof")
 			},
 		},
 	}

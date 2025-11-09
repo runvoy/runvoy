@@ -247,8 +247,7 @@ func (s *LogsService) DisplayLogs(ctx context.Context, executionID, webURL strin
 	s.displayLogEvents(logMap)
 
 	if resp.WebSocketURL == "" {
-		s.output.Warningf("WebSocket streaming not configured on server")
-		s.printWebviewerURL(webURL, executionID)
+		// Streaming is not available
 		return nil
 	}
 

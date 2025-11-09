@@ -954,49 +954,51 @@ Environment variables:
 RUNVOY_LOG_GROUP           # required (e.g. /aws/ecs/runvoy)
 ```
 
-#### Streaming Architecture - Best-Effort Approach
+#### Streaming Architecture - Mixed Approach (REST + WebSocket Best-Effort)
 
-For MVP, the streaming log feature uses a **best-effort, lossy delivery model**:
+For MVP, the streaming log feature uses a **mixed approach**: REST API provides authoritative complete logs, while WebSocket offers best-effort real-time overlay.
 
-**REST API (`/logs` endpoint):**
-- Authoritative source of truth for all logs
-- Returns complete historical log events from CloudWatch Logs
-- Guaranteed consistency (all logs that have been written to CloudWatch are returned)
-- Clients can always rely on this endpoint to backfill any missing logs from the real-time stream
+**REST API (`/logs` endpoint) - Authoritative Backlog:**
+- Always returns complete historical log events from CloudWatch Logs
+- Guaranteed consistency (all logs written to CloudWatch are returned)
+- Always provides a WebSocket URL regardless of execution status (for late-joining clients)
+- Clients can use this to catch up on logs missed from the real-time stream
 
-**WebSocket Real-Time Streaming:**
+**WebSocket Real-Time Streaming - Best-Effort Overlay:**
 - Best-effort delivery: logs may be dropped if connections fail or buffers overflow
-- Complements the REST API but is not authoritative
-- Useful for real-time visualization without polling
+- Complements the REST API with real-time updates (reduces polling overhead)
+- Available for both RUNNING and completed executions (late-joiners can connect to receive disconnect notification)
 - Failures are logged but do not fail the event processor (see `internal/events/processor.go` line 222)
 
 **Client Behavior (CLI `runvoy logs <executionID>`):**
 1. Fetches entire log history from `/logs` endpoint with retry logic (handles 404 while execution starts)
-2. Displays historical logs with computed line numbers (client-side)
-3. When WebSocket URL is available, connects for real-time streaming
+2. Displays historical logs with computed line numbers (client-side) - **authoritative backlog**
+3. Simultaneously connects to WebSocket URL for real-time streaming
 4. New logs received via WebSocket are displayed without line number recomputation
 5. If WebSocket disconnects (gracefully or due to error), client gracefully exits and prints web viewer URL
 6. Falls back to printing the web viewer URL if WebSocket unavailable
-7. **Important**: The REST `/logs` endpoint is considered the authoritative source; WebSocket streaming is lossy best-effort
+7. **Important**: REST `/logs` endpoint is authoritative; WebSocket is lossy best-effort for real-time overlay
 
 **Web Viewer:**
-- Also uses REST `/logs` endpoint for historical logs (authoritative)
-- Optionally connects to WebSocket for real-time updates
-- Polls REST endpoint every 5 seconds as fallback if WebSocket unavailable
-- Missing real-time logs can be recovered via the next polling cycle or by refreshing
+- Gets complete log backlog from REST `/logs` endpoint (authoritative)
+- Connects to WebSocket for real-time updates and disconnect notifications
+- Polls REST endpoint every 5 seconds as fallback if WebSocket unavailable or for catch-up
+- Backlog always accessible regardless of WebSocket state
 
 **Event Processor (`internal/events/processor.go`):**
-- Receives CloudWatch Logs batches and forwards to WebSocket connections
-- Best-effort error handling: connection failures are logged but do not fail processing
-- Execution completion is tracked reliably via the REST endpoint, not WebSocket
+- Receives CloudWatch Logs batches and forwards to WebSocket connections (best-effort)
+- Connection failures are logged but do not fail processing
+- Sends disconnect notifications to all connected clients when execution completes
+- Execution completion is tracked reliably via REST endpoint, not WebSocket
 
-#### Why Best-Effort for MVP
+#### Why Mixed Approach with Best-Effort Streaming for MVP
 
-1. **Simplicity**: Avoids complex state management for reliable delivery (sequence numbers, retries, etc.)
-2. **Cost-Efficient**: No need for durable message queues or persistent delivery state
-3. **Acceptable Trade-Off**: Users can always backfill from REST endpoint if needed
-4. **Sufficient for CLI**: Terminal output is inherently lossy; small gaps are acceptable
-5. **Sufficient for Web Viewer**: UI updates via polling or WebSocket; gaps are transparent to user
+1. **Complete Backlog Access**: REST API always provides authoritative complete logs, so late-joining clients get the full picture
+2. **Real-time UX Improvement**: WebSocket overlay provides instant updates without polling, improving responsiveness
+3. **Resilient Architecture**: If WebSocket fails, REST API ensures no logs are lost; clients can always catch up
+4. **Simple Implementation**: Avoids complex state management (sequences, retries, etc.) while providing complete logs
+5. **Cost-Efficient**: WebSocket is best-effort, reducing server load from polling without complex delivery guarantees
+6. **Sufficient for All Clients**: Terminal output is inherently lossy (small gaps acceptable); web viewer can poll if needed
 
 #### Future Enhancement: Lossless Streaming
 

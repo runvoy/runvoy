@@ -570,16 +570,16 @@ func TestGetLogsByExecutionID_WebSocketToken(t *testing.T) {
 			expectErr:         false,
 		},
 		{
-			name:             "completed execution does not generate token",
+			name:             "completed execution also generates token for late-joiners",
 			executionID:      "exec-456",
 			executionStatus:  string(constants.ExecutionSucceeded),
 			websocketBaseURL: "api.example.com/production",
 			mockEvents:       []api.LogEvent{{Message: "test"}},
-			expectTokenInURL: false,
+			expectTokenInURL: true,
 			expectErr:        false,
 		},
 		{
-			name:             "running execution without base URL does not generate token",
+			name:             "execution without base URL does not generate token",
 			executionID:      "exec-789",
 			executionStatus:  string(constants.ExecutionRunning),
 			websocketBaseURL: "",
@@ -588,14 +588,14 @@ func TestGetLogsByExecutionID_WebSocketToken(t *testing.T) {
 			expectErr:        false,
 		},
 		{
-			name:              "pending connection creation failure",
+			name:              "pending connection creation failure is best-effort (logs still returned)",
 			executionID:       "exec-999",
 			executionStatus:   string(constants.ExecutionRunning),
 			websocketBaseURL:  "api.example.com/production",
 			mockEvents:        []api.LogEvent{{Message: "test"}},
 			connCreateErr:     errors.New("database error"),
 			expectPendingConn: true,
-			expectErr:         true,
+			expectErr:         false,
 		},
 	}
 
@@ -643,21 +643,28 @@ func TestGetLogsByExecutionID_WebSocketToken(t *testing.T) {
 			require.NoError(t, err)
 			require.NotNil(t, resp)
 
+			// Logs should always be returned
+			assert.Equal(t, tt.mockEvents, resp.Events)
+
 			if tt.expectTokenInURL {
 				assert.NotEmpty(t, resp.WebSocketURL)
 				assert.Contains(t, resp.WebSocketURL, "token=")
 				assert.Contains(t, resp.WebSocketURL, "execution_id=")
 
-				// Verify pending connection was created
-				require.NotNil(t, capturedPendingConn)
-				assert.Equal(t, tt.executionID, capturedPendingConn.ExecutionID)
-				assert.Contains(t, capturedPendingConn.ConnectionID, "pending_")
-				assert.NotEmpty(t, capturedPendingConn.Token)
-				assert.Equal(t, constants.FunctionalityLogStreaming, capturedPendingConn.Functionality)
+				// Verify pending connection was created (if expected)
+				if tt.expectPendingConn && tt.connCreateErr == nil {
+					require.NotNil(t, capturedPendingConn)
+					assert.Equal(t, tt.executionID, capturedPendingConn.ExecutionID)
+					assert.Contains(t, capturedPendingConn.ConnectionID, "pending_")
+					assert.NotEmpty(t, capturedPendingConn.Token)
+					assert.Equal(t, constants.FunctionalityLogStreaming, capturedPendingConn.Functionality)
 
-				// Verify token in URL matches pending connection
-				assert.Contains(t, resp.WebSocketURL, capturedPendingConn.Token)
+					// Verify token in URL matches pending connection
+					assert.Contains(t, resp.WebSocketURL, capturedPendingConn.Token)
+				}
 			} else {
+				// WebSocket URL may be empty (either due to no base URL or creation failure)
+				// but logs should always be present
 				assert.Empty(t, resp.WebSocketURL)
 			}
 		})

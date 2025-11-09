@@ -280,7 +280,7 @@ runvoy --help
 ```
 
 ```text
-runvoy - 0.1.0-20251109-1e5b9a3
+runvoy - 0.1.0-20251109-b33ffa4
 Isolated, repeatable execution environments for your commands
 
 Usage:
@@ -358,7 +358,7 @@ runvoy run --git-repo https://github.com/mycompany/myproject.git npm run tests
 
 **Log Viewing:**
 
-`runvoy logs` first retrieves the full log history via the REST API. When the execution is still running, the backend returns a one-time WebSocket URL; the CLI connects to that URL to stream new log events live, and falls back to the web viewer link if the connection closes.
+`runvoy logs` first retrieves the full log history via the REST API. When the execution is still running, the backend returns a WebSocket URL; the CLI connects to that URL to stream new log events live, and falls back to the web viewer link if the connection closes.
 
 ```bash
 runvoy logs <executionID>

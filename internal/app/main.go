@@ -379,7 +379,6 @@ func (s *Service) RunCommand(
 // GetLogsByExecutionID returns aggregated Cloud logs for a given execution
 // WebSocket endpoint is stored without protocol (normalized in config)
 // Always use wss:// for production WebSocket connections
-// WebSocket URL is only provided if the execution is still RUNNING
 // userEmail: authenticated user email for audit trail
 // clientIPAtLogsTime: client IP from the logs request for tracing
 func (s *Service) GetLogsByExecutionID(
@@ -404,22 +403,26 @@ func (s *Service) GetLogsByExecutionID(
 		return nil, apperrors.ErrNotFound("execution not found", nil)
 	}
 
-	// Fetch logs
 	events, err := s.runner.FetchLogsByExecutionID(ctx, executionID)
 	if err != nil {
 		return nil, err
 	}
 
-	// Only provide WebSocket URL if execution is still RUNNING
 	var websocketURL string
-	if execution.Status == string(constants.ExecutionRunning) && s.websocketAPIBaseURL != "" {
+	if s.websocketAPIBaseURL != "" {
 		url, wsErr := s.createWebSocketPendingConnection(
 			ctx, executionID, userEmail, clientIPAtLogsTime,
 		)
 		if wsErr != nil {
-			return nil, wsErr
+			s.Logger.Error("failed to create websocket url", "context", map[string]any{
+				"error":        wsErr.Error(),
+				"execution_id": executionID,
+			})
+			// Don't fail the entire response - logs are still available, just no WebSocket
+			// This ensures clients can always access the authoritative log backlog
+		} else {
+			websocketURL = url
 		}
-		websocketURL = url
 	}
 
 	return &api.LogsResponse{
