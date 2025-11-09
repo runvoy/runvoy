@@ -342,7 +342,7 @@ func TestHandleConnect_UsesTokenMetadata(t *testing.T) {
 	require.NotNil(t, createdConnection)
 	// Real connection should use metadata from token
 	assert.Equal(t, "bob@example.com", createdConnection.UserEmail)
-	assert.Equal(t, "172.16.0.1", createdConnection.ClientIPAtCreationTime)
+	assert.Equal(t, "172.16.0.1", createdConnection.TokenRequestClientIP)
 	assert.Equal(t, "real-conn-id", createdConnection.ConnectionID)
 	assert.Equal(t, "exec-789", createdConnection.ExecutionID)
 	assert.Equal(t, validToken, createdConnection.Token) // Token is stored in connection for cleanup

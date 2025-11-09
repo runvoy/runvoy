@@ -258,14 +258,14 @@ func (wm *WebSocketManager) newWebSocketConnection(
 	wsToken *api.WebSocketToken,
 ) *api.WebSocketConnection {
 	return &api.WebSocketConnection{
-		ConnectionID:           req.RequestContext.ConnectionID,
-		ExecutionID:            req.QueryStringParameters["execution_id"],
-		Functionality:          constants.FunctionalityLogStreaming,
-		ExpiresAt:              time.Now().Add(constants.ConnectionTTLHours * time.Hour).Unix(),
-		Token:                  token, // Keep the token for cleanup on disconnect
-		ClientIP:               getClientIPFromWebSocketRequest(req),
-		UserEmail:              wsToken.UserEmail,
-		ClientIPAtCreationTime: wsToken.ClientIPAtCreationTime,
+		ConnectionID:         req.RequestContext.ConnectionID,
+		ExecutionID:          req.QueryStringParameters["execution_id"],
+		Functionality:        constants.FunctionalityLogStreaming,
+		ExpiresAt:            time.Now().Add(constants.ConnectionTTLHours * time.Hour).Unix(),
+		Token:                token, // Keep the token for cleanup on disconnect
+		ClientIP:             getClientIPFromWebSocketRequest(req),
+		UserEmail:            wsToken.UserEmail,
+		TokenRequestClientIP: wsToken.ClientIPAtCreationTime,
 	}
 }
 
@@ -277,7 +277,7 @@ func (wm *WebSocketManager) logConnectionEstablished(connection *api.WebSocketCo
 		"expires_at":                 connection.ExpiresAt,
 		"client_ip":                  connection.ClientIP,
 		"user_email":                 connection.UserEmail,
-		"client_ip_at_creation_time": connection.ClientIPAtCreationTime,
+		"client_ip_at_creation_time": connection.TokenRequestClientIP,
 	})
 }
 
