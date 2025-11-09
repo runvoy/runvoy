@@ -5,8 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"math/rand"
 	"slices"
 	"sort"
+	"time"
 
 	"runvoy/internal/api"
 	"runvoy/internal/constants"
@@ -70,31 +72,74 @@ func verifyLogStreamExists(
 	logGroup, stream, executionID string,
 	reqLogger *slog.Logger,
 ) error {
-	describeLogArgs := []any{
-		"operation", "CloudWatchLogs.DescribeLogStreams",
-		"log_group", logGroup,
-		"stream_prefix", stream,
-		"execution_id", executionID,
-	}
-	describeLogArgs = append(describeLogArgs, logger.GetDeadlineInfo(ctx)...)
-	reqLogger.Debug("calling external service", "context", logger.SliceToMap(describeLogArgs))
+	const (
+		maxDescribeAttempts    = 6
+		initialBackoffDuration = 2 * time.Second
+		maxBackoffDuration     = 30 * time.Second
+	)
 
-	lsOut, err := cwl.DescribeLogStreams(ctx, &cloudwatchlogs.DescribeLogStreamsInput{
+	backoff := initialBackoffDuration
+	describeInput := &cloudwatchlogs.DescribeLogStreamsInput{
 		LogGroupName:        aws.String(logGroup),
 		LogStreamNamePrefix: aws.String(stream),
 		Limit:               aws.Int32(constants.CloudWatchLogsDescribeLimit),
-	})
-	if err != nil {
-		return appErrors.ErrInternalError("failed to describe log streams", err)
+	}
+	jitter := rand.New(rand.NewSource(time.Now().UnixNano()))
+
+	for attempt := 1; attempt <= maxDescribeAttempts; attempt++ {
+		describeLogArgs := []any{
+			"operation", "CloudWatchLogs.DescribeLogStreams",
+			"log_group", logGroup,
+			"stream_prefix", stream,
+			"execution_id", executionID,
+			"attempt", fmt.Sprintf("%d/%d", attempt, maxDescribeAttempts),
+		}
+		describeLogArgs = append(describeLogArgs, logger.GetDeadlineInfo(ctx)...)
+		reqLogger.Debug("calling external service", "context", logger.SliceToMap(describeLogArgs))
+
+		lsOut, err := cwl.DescribeLogStreams(ctx, describeInput)
+		if err != nil {
+			return appErrors.ErrInternalError("failed to describe log streams", err)
+		}
+
+		if slices.ContainsFunc(lsOut.LogStreams, func(s cwlTypes.LogStream) bool {
+			return aws.ToString(s.LogStreamName) == stream
+		}) {
+			return nil
+		}
+
+		if attempt == maxDescribeAttempts {
+			break
+		}
+
+		waitDuration := backoff
+		if waitDuration > maxBackoffDuration {
+			waitDuration = maxBackoffDuration
+		}
+		jitterFactor := 0.5 + jitter.Float64()*0.5
+		waitWithJitter := time.Duration(float64(waitDuration) * jitterFactor)
+
+		reqLogger.Debug("log stream not found yet; backing off",
+			"execution_id", executionID,
+			"attempt", fmt.Sprintf("%d/%d", attempt, maxDescribeAttempts),
+			"sleep", waitWithJitter.String(),
+		)
+
+		select {
+		case <-ctx.Done():
+			return appErrors.ErrNotFound(fmt.Sprintf("log stream '%s' does not exist yet", stream), ctx.Err())
+		case <-time.After(waitWithJitter):
+		}
+
+		if backoff < maxBackoffDuration {
+			backoff *= 2
+			if backoff > maxBackoffDuration {
+				backoff = maxBackoffDuration
+			}
+		}
 	}
 
-	if !slices.ContainsFunc(lsOut.LogStreams, func(s cwlTypes.LogStream) bool {
-		return aws.ToString(s.LogStreamName) == stream
-	}) {
-		return appErrors.ErrNotFound(fmt.Sprintf("log stream '%s' does not exist yet", stream), nil)
-	}
-
-	return nil
+	return appErrors.ErrNotFound(fmt.Sprintf("log stream '%s' does not exist yet", stream), nil)
 }
 
 // getAllLogEvents paginates through CloudWatch Logs GetLogEvents to collect all events
