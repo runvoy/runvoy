@@ -1,5 +1,6 @@
 <h1 align="center">
-    <p>runvoy - serverless command execution platform</p>
+    <p>runvoy</p>
+    <p>serverless command execution platform</p>
 </h1>
 <p align="center">
     <em>Run arbitrary commands on remote ephemeral containers.</em>
