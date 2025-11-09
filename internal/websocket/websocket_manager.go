@@ -336,19 +336,30 @@ func (wm *WebSocketManager) replayBacklogForConnection(
 		}
 	}
 
+	// Send backlog directly to this connection before clearing replay lock
 	if len(backlog) > 0 {
-		wm.logger.Debug("sending backlog to client", "context", map[string]any{
-			"execution_id": connection.ExecutionID,
-			"log_count":    len(backlog),
+		wm.logger.Debug("sending backlog to connection", "context", map[string]any{
+			"connection_id": connection.ConnectionID,
+			"execution_id":  connection.ExecutionID,
+			"log_count":     len(backlog),
 		})
 
-		if sendErr := wm.SendLogsToExecution(ctx, connection.ExecutionID, backlog); sendErr != nil {
-			wm.logger.Error("failed to send backlog", "error", sendErr, "execution_id", connection.ExecutionID)
+		for _, logEvent := range backlog {
+			if sendErr := wm.sendLogToConnection(ctx, &connection.ConnectionID, logEvent); sendErr != nil {
+				wm.logger.Error("failed to send backlog event to connection", "context", map[string]any{
+					"error":           sendErr.Error(),
+					"connection_id":   connection.ConnectionID,
+					"execution_id":    connection.ExecutionID,
+					"event_timestamp": logEvent.Timestamp,
+				})
+				// Continue sending remaining backlog events despite individual failures
+			}
 		}
 
 		connection.LastSeenLogTimestamp = backlog[len(backlog)-1].Timestamp
 	}
 
+	// Clear replay lock so live logs can start flowing
 	if clearErr := wm.clearReplayLock(ctx, connection.ConnectionID, connection.ExecutionID); clearErr != nil {
 		wm.logger.Error("failed to clear replay lock", "error", clearErr)
 		return nil, &events.APIGatewayProxyResponse{
