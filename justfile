@@ -116,7 +116,7 @@ test:
 test-coverage:
     go test -coverprofile=coverage.out ./...
     go tool cover -html=coverage.out -o coverage.html
-    go tool cover -func=coverage.out | grep total | awk '{print $3}'
+    go-test-coverage --config .testcoverage.yml
 
 # Clean build artifacts
 clean:
@@ -128,6 +128,7 @@ dev-setup: dev-setup-webapp
     go mod tidy
     go mod download
     go install golang.org/x/tools/cmd/goimports@latest
+    go install github.com/vladopajic/go-test-coverage/v2@latest
 
 [working-directory: 'cmd/webapp']
 dev-setup-webapp:
@@ -150,7 +151,7 @@ fmt:
     goimports -w .
 
 # Run all checks (lint + test)
-check: lint test lint-webapp
+check: lint test test-coverage lint-webapp
 
 # Install pre-commit hook
 install-hook:

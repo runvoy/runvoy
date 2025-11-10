@@ -1,4 +1,4 @@
-name: Tests
+name: Coverage
 
 on:
   pull_request:
@@ -7,8 +7,8 @@ permissions:
   contents: read
 
 jobs:
-  tests:
-    name: tests
+  coverage:
+    name: coverage
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -19,8 +19,7 @@ jobs:
         with:
           cache: true
 
-      - name: Add just
-        uses: extractions/setup-just@v3
-
-      - name: Run tests
-        run: just ci-test
+      - name: Check coverage threshold
+        uses: vladopajic/go-test-coverage@v2
+        with:
+            config: .testcoverage.yml

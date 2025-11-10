@@ -1,0 +1,7 @@
+# https://github.com/vladopajic/go-test-coverage?tab=readme-ov-file#configuration
+profile: coverage.out
+
+threshold:
+  total: 35
+
+force-annotation-comment: true
