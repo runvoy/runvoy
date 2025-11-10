@@ -40,29 +40,25 @@ func Initialize(
 	)
 
 	var (
-		userRepo          database.UserRepository
-		executionRepo     database.ExecutionRepository
-		connRepo          database.ConnectionRepository
-		tokenRepo         database.TokenRepository
-		runner            Runner
-		err               error
+		deps              *serviceDependencies
 		websocketEndpoint string
 	)
 
 	switch provider {
 	case constants.AWS:
-		var deps *serviceDependencies
-		deps, err = initializeAWSBackend(ctx, cfg, logger)
+		awsDeps, err := appAws.Initialize(ctx, cfg, logger)
 		if err != nil {
-			return nil, fmt.Errorf("failed to initialize AWS: %w", err)
+			return nil, fmt.Errorf("failed to initialize AWS dependencies: %w", err)
 		}
-
-		userRepo = deps.userRepo
-		executionRepo = deps.executionRepo
-		connRepo = deps.connRepo
-		tokenRepo = deps.tokenRepo
-		runner = deps.runner
+		deps = &serviceDependencies{
+			userRepo:      awsDeps.UserRepo,
+			executionRepo: awsDeps.ExecutionRepo,
+			connRepo:      awsDeps.ConnectionRepo,
+			tokenRepo:     awsDeps.TokenRepo,
+			runner:        awsDeps.Runner,
+		}
 		websocketEndpoint = cfg.AWS.WebSocketAPIEndpoint
+
 	default:
 		return nil, fmt.Errorf("unknown backend provider: %s (supported: %s)", provider, constants.AWS)
 	}
@@ -70,33 +66,13 @@ func Initialize(
 	logger.Debug(constants.ProjectName + " orchestrator initialized successfully")
 
 	return NewService(
-		userRepo,
-		executionRepo,
-		connRepo,
-		tokenRepo,
-		runner,
+		deps.userRepo,
+		deps.executionRepo,
+		deps.connRepo,
+		deps.tokenRepo,
+		deps.runner,
 		logger,
 		provider,
 		websocketEndpoint,
 	), nil
-}
-
-// initializeAWSBackend sets up AWS-specific dependencies.
-func initializeAWSBackend(
-	ctx context.Context,
-	cfg *config.Config,
-	logger *slog.Logger,
-) (*serviceDependencies, error) {
-	deps, err := appAws.Initialize(ctx, cfg, logger)
-	if err != nil {
-		return nil, fmt.Errorf("failed to initialize AWS dependencies: %w", err)
-	}
-
-	return &serviceDependencies{
-		userRepo:      deps.UserRepo,
-		executionRepo: deps.ExecutionRepo,
-		connRepo:      deps.ConnectionRepo,
-		tokenRepo:     deps.TokenRepo,
-		runner:        deps.Runner,
-	}, nil
 }

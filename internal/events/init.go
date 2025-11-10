@@ -11,10 +11,6 @@ import (
 	eventsAws "runvoy/internal/providers/aws/events"
 )
 
-type processorDependencies struct {
-	backend Backend
-}
-
 // Initialize creates a new Processor configured for the backend provider specified in cfg.
 // It returns an error if the context is canceled, timed out, or if an unknown provider is specified.
 //
@@ -40,12 +36,10 @@ func Initialize(
 
 	switch cfg.BackendProvider {
 	case constants.AWS:
-		var deps *processorDependencies
-		deps, err = initializeAWSBackend(ctx, cfg, logger)
+		backend, err = eventsAws.Initialize(ctx, cfg, logger)
 		if err != nil {
 			return nil, fmt.Errorf("failed to initialize AWS backend: %w", err)
 		}
-		backend = deps.backend
 	default:
 		return nil, fmt.Errorf("unknown backend provider: %s (supported: %s)", cfg.BackendProvider, constants.AWS)
 	}
@@ -53,20 +47,4 @@ func Initialize(
 	logger.Debug(constants.ProjectName + " event processor initialized successfully")
 
 	return NewProcessor(backend, logger), nil
-}
-
-// initializeAWSBackend sets up AWS-specific event processing dependencies.
-func initializeAWSBackend(
-	ctx context.Context,
-	cfg *config.Config,
-	logger *slog.Logger,
-) (*processorDependencies, error) {
-	backend, err := eventsAws.Initialize(ctx, cfg, logger)
-	if err != nil {
-		return nil, fmt.Errorf("failed to initialize AWS backend: %w", err)
-	}
-
-	return &processorDependencies{
-		backend: backend,
-	}, nil
 }
