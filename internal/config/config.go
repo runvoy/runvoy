@@ -26,25 +26,25 @@ type Config struct {
 	WebURL      string `mapstructure:"web_url" yaml:"web_url" validate:"omitempty,url"`
 
 	// Backend Service Configuration
+	APIKeysTable              string                    `mapstructure:"api_keys_table"`
 	BackendProvider           constants.BackendProvider `mapstructure:"backend_provider" yaml:"backend_provider"`
+	ECSCluster                string                    `mapstructure:"ecs_cluster"`
+	ExecutionsTable           string                    `mapstructure:"executions_table"`
+	InitTimeout               time.Duration             `mapstructure:"init_timeout"`
+	LogGroup                  string                    `mapstructure:"log_group"`
+	LogLevel                  string                    `mapstructure:"log_level"`
+	PendingAPIKeysTable       string                    `mapstructure:"pending_api_keys_table"`
 	Port                      int                       `mapstructure:"port" validate:"omitempty"`
 	RequestTimeout            time.Duration             `mapstructure:"request_timeout"`
-	APIKeysTable              string                    `mapstructure:"api_keys_table"`
-	ExecutionsTable           string                    `mapstructure:"executions_table"`
-	PendingAPIKeysTable       string                    `mapstructure:"pending_api_keys_table"`
-	ECSCluster                string                    `mapstructure:"ecs_cluster"`
-	TaskDefinition            string                    `mapstructure:"task_definition"`
+	SecurityGroup             string                    `mapstructure:"security_group"`
 	Subnet1                   string                    `mapstructure:"subnet_1"`
 	Subnet2                   string                    `mapstructure:"subnet_2"`
-	SecurityGroup             string                    `mapstructure:"security_group"`
-	LogGroup                  string                    `mapstructure:"log_group"`
+	TaskDefinition            string                    `mapstructure:"task_definition"`
 	TaskExecRoleARN           string                    `mapstructure:"task_exec_role_arn"`
 	TaskRoleARN               string                    `mapstructure:"task_role_arn"`
+	WebSocketAPIEndpoint      string                    `mapstructure:"websocket_api_endpoint"`
 	WebSocketConnectionsTable string                    `mapstructure:"websocket_connections_table"`
 	WebSocketTokensTable      string                    `mapstructure:"websocket_tokens_table"`
-	WebSocketAPIEndpoint      string                    `mapstructure:"websocket_api_endpoint"`
-	InitTimeout               time.Duration             `mapstructure:"init_timeout"`
-	LogLevel                  string                    `mapstructure:"log_level"`
 }
 
 var validate = validator.New()
