@@ -63,6 +63,10 @@ func (m *mockWebSocketHandler) SendLogsToExecution(_ context.Context, _ *string,
 	return nil
 }
 
+func (m *mockWebSocketHandler) GenerateWebSocketURL(_ context.Context, _ string, _ *string, _ *string) string {
+	return ""
+}
+
 func TestParseTime(t *testing.T) {
 	tests := []struct {
 		name      string
