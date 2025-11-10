@@ -2,17 +2,46 @@ package websocket
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"testing"
 
 	"runvoy/internal/api"
 	"runvoy/internal/testutil"
 
-	"github.com/aws/aws-lambda-go/events"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+// mockWebSocketBackend implements Backend interface for testing.
+type mockWebSocketBackend struct {
+	parseEventFunc      func(context.Context, *json.RawMessage, *slog.Logger) (*WebSocketEvent, error)
+	sendToConnectionFunc func(context.Context, string, []byte) error
+	buildResponseFunc   func(int, string) any
+}
+
+func (m *mockWebSocketBackend) ParseEvent(ctx context.Context, rawEvent *json.RawMessage, reqLogger *slog.Logger) (*WebSocketEvent, error) {
+	if m.parseEventFunc != nil {
+		return m.parseEventFunc(ctx, rawEvent, reqLogger)
+	}
+	return nil, nil
+}
+
+func (m *mockWebSocketBackend) SendToConnection(ctx context.Context, connectionID string, data []byte) error {
+	if m.sendToConnectionFunc != nil {
+		return m.sendToConnectionFunc(ctx, connectionID, data)
+	}
+	return nil
+}
+
+func (m *mockWebSocketBackend) BuildResponse(statusCode int, body string) any {
+	if m.buildResponseFunc != nil {
+		return m.buildResponseFunc(statusCode, body)
+	}
+	return WebSocketResponse{StatusCode: statusCode, Body: body}
+}
 
 // mockConnectionRepoForWS implements database.ConnectionRepository for testing.
 type mockConnectionRepoForWS struct {

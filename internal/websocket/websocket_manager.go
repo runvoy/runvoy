@@ -1,5 +1,5 @@
 // Package websocket provides WebSocket management for runvoy.
-// It handles connection lifecycle events and manages WebSocket connections in DynamoDB.
+// It handles connection lifecycle events and manages WebSocket connections in the database.
 package websocket
 
 import (
@@ -11,14 +11,10 @@ import (
 	"time"
 
 	"runvoy/internal/api"
-	"runvoy/internal/config"
 	"runvoy/internal/constants"
 	"runvoy/internal/database"
 	"runvoy/internal/logger"
 
-	"github.com/aws/aws-lambda-go/events"
-	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/service/apigatewaymanagementapi"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -35,52 +31,33 @@ type Manager interface {
 type WebSocketManager struct {
 	connRepo      database.ConnectionRepository
 	tokenRepo     database.TokenRepository
-	apiGwClient   *apigatewaymanagementapi.Client
-	apiGwEndpoint *string
+	backend       Backend
 	logger        *slog.Logger
 	connectionIDs []string
 }
 
 // NewWebSocketManager creates a new WebSocket manager.
 func NewWebSocketManager(
-	cfg *config.Config,
-	awsCfg *aws.Config,
+	backend Backend,
 	connRepo database.ConnectionRepository,
 	tokenRepo database.TokenRepository,
 	log *slog.Logger,
 ) *WebSocketManager {
-	apiGwClient := apigatewaymanagementapi.NewFromConfig(*awsCfg, func(o *apigatewaymanagementapi.Options) {
-		o.BaseEndpoint = aws.String(cfg.WebSocketAPIEndpoint)
-	})
 	connectionIDs := make([]string, 0)
 
-	log.Debug("websocket manager initialized",
-		"table", cfg.WebSocketConnectionsTable,
-		"websocket_api_endpoint", cfg.WebSocketAPIEndpoint,
-	)
+	log.Debug("websocket manager initialized")
 
 	return &WebSocketManager{
 		connRepo:      connRepo,
 		tokenRepo:     tokenRepo,
-		apiGwClient:   apiGwClient,
-		apiGwEndpoint: aws.String(cfg.WebSocketAPIEndpoint),
+		backend:       backend,
 		logger:        log,
 		connectionIDs: connectionIDs,
 	}
 }
 
-// getClientIPFromWebSocketRequest extracts the client IP address from a WebSocket proxy request.
-// It checks the RequestContext.Identity.SourceIP field which contains the client's IP address.
-func getClientIPFromWebSocketRequest(req *events.APIGatewayWebsocketProxyRequest) string {
-	if req.RequestContext.Identity.SourceIP != "" {
-		return req.RequestContext.Identity.SourceIP
-	}
-	return ""
-}
-
 // HandleRequest adapts WebSocket events so the generic event processor can route them.
-// It attempts to unmarshal the raw Lambda event as an API Gateway WebSocket request and,
-// when successful, dispatches based on the route key.
+// It parses the event using the backend and dispatches based on the route key.
 func (wm *WebSocketManager) HandleRequest(
 	ctx context.Context,
 	rawEvent *json.RawMessage,
@@ -90,70 +67,72 @@ func (wm *WebSocketManager) HandleRequest(
 		return false, nil
 	}
 
-	var req events.APIGatewayWebsocketProxyRequest
-	if err := json.Unmarshal(*rawEvent, &req); err != nil {
-		return false, nil
+	// Parse event using backend
+	event, err := wm.backend.ParseEvent(ctx, rawEvent, reqLogger)
+	if err != nil {
+		return false, fmt.Errorf("failed to parse websocket event: %w", err)
 	}
 
-	handled := true
+	if event == nil {
+		return false, nil // Not a WebSocket event
+	}
 
-	if req.RequestContext.RouteKey == "" {
+	if event.RouteKey == "" {
 		reqLogger.Error("missing route key in WebSocket request")
-		return handled, fmt.Errorf("missing route key in WebSocket request")
+		return true, fmt.Errorf("missing route key in WebSocket request")
 	}
 
-	clientIP := getClientIPFromWebSocketRequest(&req)
 	logArgs := []any{
-		"route_key", req.RequestContext.RouteKey,
+		"route_key", event.RouteKey,
 	}
-	if req.RequestContext.ConnectionID != "" {
-		logArgs = append(logArgs, "connection_id", req.RequestContext.ConnectionID)
+	if event.ConnectionID != "" {
+		logArgs = append(logArgs, "connection_id", event.ConnectionID)
 	}
-	if clientIP != "" {
-		logArgs = append(logArgs, "client_ip", clientIP)
+	if event.ClientIP != "" {
+		logArgs = append(logArgs, "client_ip", event.ClientIP)
 	}
 	reqLogger.Debug("received WebSocket event", "context", logger.SliceToMap(logArgs))
 
-	resp, err := wm.dispatchWebSocketRoute(ctx, reqLogger, &req)
+	resp, err := wm.dispatchWebSocketRoute(ctx, reqLogger, event)
 	if err != nil {
-		return handled, err
+		return true, err
 	}
 
-	if webSocketErr := wm.evaluateRouteResponse(reqLogger, req.RequestContext.RouteKey, resp); webSocketErr != nil {
-		return handled, webSocketErr
+	if webSocketErr := wm.evaluateRouteResponse(reqLogger, event.RouteKey, resp); webSocketErr != nil {
+		return true, webSocketErr
 	}
 
-	return handled, nil
+	return true, nil
 }
 
 func (wm *WebSocketManager) dispatchWebSocketRoute(
 	ctx context.Context,
 	reqLogger *slog.Logger,
-	req *events.APIGatewayWebsocketProxyRequest,
-) (events.APIGatewayProxyResponse, error) {
+	event *WebSocketEvent,
+) (WebSocketResponse, error) {
 	routeHandlers := map[string]func(
-		context.Context, events.APIGatewayWebsocketProxyRequest) (events.APIGatewayProxyResponse, error){
+		context.Context, *WebSocketEvent) (WebSocketResponse, error){
 		"$connect":    wm.handleConnect,
 		"$disconnect": wm.handleDisconnect,
 	}
 
-	handler, ok := routeHandlers[req.RequestContext.RouteKey]
+	handler, ok := routeHandlers[event.RouteKey]
 	if !ok {
 		reqLogger.Error("unrecognized WebSocket route", "context", map[string]string{
-			"route_key": req.RequestContext.RouteKey,
+			"route_key": event.RouteKey,
 		})
-		return events.APIGatewayProxyResponse{}, fmt.Errorf("unrecognized WebSocket route: %s", req.RequestContext.RouteKey)
+		return WebSocketResponse{}, fmt.Errorf("unrecognized WebSocket route: %s", event.RouteKey)
 	}
 
-	resp, err := handler(ctx, *req)
+	resp, err := handler(ctx, event)
 	if err != nil {
 		reqLogger.Error("websocket route failed", "context", map[string]any{
-			"route_key":   req.RequestContext.RouteKey,
+			"route_key":   event.RouteKey,
 			"error":       err.Error(),
 			"status_code": resp.StatusCode,
 			"body":        resp.Body,
 		})
-		return events.APIGatewayProxyResponse{}, fmt.Errorf("websocket route %s failed: %w", req.RequestContext.RouteKey, err)
+		return WebSocketResponse{}, fmt.Errorf("websocket route %s failed: %w", event.RouteKey, err)
 	}
 
 	return resp, nil
@@ -162,7 +141,7 @@ func (wm *WebSocketManager) dispatchWebSocketRoute(
 func (wm *WebSocketManager) evaluateRouteResponse(
 	reqLogger *slog.Logger,
 	routeKey string,
-	resp events.APIGatewayProxyResponse,
+	resp WebSocketResponse,
 ) error {
 	switch {
 	case resp.StatusCode >= http.StatusInternalServerError:
@@ -189,16 +168,14 @@ func (wm *WebSocketManager) evaluateRouteResponse(
 }
 
 // handleConnect handles the $connect route key.
-// It validates the WebSocket token, stores the connection in DynamoDB, and returns a success response.
-//
-//nolint:gocritic // Lambda event types are passed by value per AWS Lambda conventions
+// It validates the WebSocket token, stores the connection in the database, and returns a success response.
 func (wm *WebSocketManager) handleConnect(
 	ctx context.Context,
-	req events.APIGatewayWebsocketProxyRequest,
-) (events.APIGatewayProxyResponse, error) {
-	connectionID := req.RequestContext.ConnectionID
-	executionID := req.QueryStringParameters["execution_id"]
-	token := req.QueryStringParameters["token"]
+	event *WebSocketEvent,
+) (WebSocketResponse, error) {
+	connectionID := event.ConnectionID
+	executionID := event.QueryParams["execution_id"]
+	token := event.QueryParams["token"]
 
 	if errResp := wm.validateConnectionParams(connectionID, executionID, token); errResp != nil {
 		return *errResp, nil
@@ -209,11 +186,11 @@ func (wm *WebSocketManager) handleConnect(
 		return *errResp, nil
 	}
 
-	connection := wm.newWebSocketConnection(&req, token, wsToken)
+	connection := wm.newWebSocketConnection(event, token, wsToken)
 
 	if err := wm.connRepo.CreateConnection(ctx, connection); err != nil {
 		wm.logger.Error("failed to store connection", "error", err)
-		return events.APIGatewayProxyResponse{
+		return WebSocketResponse{
 			StatusCode: http.StatusInternalServerError,
 			Body:       fmt.Sprintf("Failed to store connection: %v", err),
 		}, nil
@@ -221,7 +198,7 @@ func (wm *WebSocketManager) handleConnect(
 
 	wm.logConnectionEstablished(connection)
 
-	return events.APIGatewayProxyResponse{
+	return WebSocketResponse{
 		StatusCode: http.StatusOK,
 		Body:       "Connected",
 	}, nil
@@ -231,11 +208,11 @@ func (wm *WebSocketManager) fetchWebSocketToken(
 	ctx context.Context,
 	token string,
 	executionID string,
-) (*api.WebSocketToken, *events.APIGatewayProxyResponse) {
+) (*api.WebSocketToken, *WebSocketResponse) {
 	wsToken, err := wm.tokenRepo.GetToken(ctx, token)
 	if err != nil {
 		wm.logger.Error("failed to validate token", "error", err, "execution_id", executionID)
-		return nil, &events.APIGatewayProxyResponse{
+		return nil, &WebSocketResponse{
 			StatusCode: http.StatusInternalServerError,
 			Body:       "Failed to validate token",
 		}
@@ -243,7 +220,7 @@ func (wm *WebSocketManager) fetchWebSocketToken(
 
 	if wsToken == nil {
 		wm.logger.Info("invalid or expired websocket token", "execution_id", executionID)
-		return nil, &events.APIGatewayProxyResponse{
+		return nil, &WebSocketResponse{
 			StatusCode: http.StatusUnauthorized,
 			Body:       "Invalid or expired token",
 		}
@@ -253,17 +230,17 @@ func (wm *WebSocketManager) fetchWebSocketToken(
 }
 
 func (wm *WebSocketManager) newWebSocketConnection(
-	req *events.APIGatewayWebsocketProxyRequest,
+	event *WebSocketEvent,
 	token string,
 	wsToken *api.WebSocketToken,
 ) *api.WebSocketConnection {
 	return &api.WebSocketConnection{
-		ConnectionID:         req.RequestContext.ConnectionID,
-		ExecutionID:          req.QueryStringParameters["execution_id"],
+		ConnectionID:         event.ConnectionID,
+		ExecutionID:          event.QueryParams["execution_id"],
 		Functionality:        constants.FunctionalityLogStreaming,
 		ExpiresAt:            time.Now().Add(constants.ConnectionTTLHours * time.Hour).Unix(),
 		Token:                token, // Keep the token for cleanup on disconnect
-		ClientIP:             getClientIPFromWebSocketRequest(req),
+		ClientIP:             event.ClientIP,
 		UserEmail:            wsToken.UserEmail,
 		TokenRequestClientIP: wsToken.ClientIP,
 	}
@@ -284,10 +261,10 @@ func (wm *WebSocketManager) logConnectionEstablished(connection *api.WebSocketCo
 // validateConnectionParams validates required connection parameters.
 func (wm *WebSocketManager) validateConnectionParams(
 	connectionID, executionID, token string,
-) *events.APIGatewayProxyResponse {
+) *WebSocketResponse {
 	if connectionID == "" {
 		wm.logger.Info("missing connection_id in connection request")
-		return &events.APIGatewayProxyResponse{
+		return &WebSocketResponse{
 			StatusCode: http.StatusBadRequest,
 			Body:       "Missing connection_id",
 		}
@@ -295,7 +272,7 @@ func (wm *WebSocketManager) validateConnectionParams(
 
 	if executionID == "" {
 		wm.logger.Info("missing execution_id in connection request")
-		return &events.APIGatewayProxyResponse{
+		return &WebSocketResponse{
 			StatusCode: http.StatusBadRequest,
 			Body:       "Missing execution_id query parameter",
 		}
@@ -303,7 +280,7 @@ func (wm *WebSocketManager) validateConnectionParams(
 
 	if token == "" {
 		wm.logger.Info("missing token in connection request", "execution_id", executionID)
-		return &events.APIGatewayProxyResponse{
+		return &WebSocketResponse{
 			StatusCode: http.StatusUnauthorized,
 			Body:       "Missing token query parameter",
 		}
@@ -313,18 +290,16 @@ func (wm *WebSocketManager) validateConnectionParams(
 }
 
 // handleDisconnect handles the $disconnect route key.
-// It deletes the WebSocket connection and its associated token from DynamoDB.
-//
-//nolint:gocritic // Lambda event types are passed by value per AWS Lambda conventions
+// It deletes the WebSocket connection and its associated token from the database.
 func (wm *WebSocketManager) handleDisconnect(
 	ctx context.Context,
-	req events.APIGatewayWebsocketProxyRequest,
-) (events.APIGatewayProxyResponse, error) {
-	connectionID := req.RequestContext.ConnectionID
+	event *WebSocketEvent,
+) (WebSocketResponse, error) {
+	connectionID := event.ConnectionID
 
 	if connectionID == "" {
 		wm.logger.Info("missing connection_id in disconnect request")
-		return events.APIGatewayProxyResponse{
+		return WebSocketResponse{
 			StatusCode: http.StatusBadRequest,
 			Body:       "Missing connection_id",
 		}, nil
@@ -338,13 +313,13 @@ func (wm *WebSocketManager) handleDisconnect(
 	deletedCount, err := wm.connRepo.DeleteConnections(ctx, []string{connectionID})
 	if err != nil {
 		wm.logger.Error("failed to delete connection", "error", err)
-		return events.APIGatewayProxyResponse{
+		return WebSocketResponse{
 			StatusCode: http.StatusInternalServerError,
 			Body:       fmt.Sprintf("Failed to delete connection: %v", err),
 		}, nil
 	}
 
-	// Token cleanup: DynamoDB TTL automatically deletes tokens after expiration.
+	// Token cleanup: Database TTL automatically deletes tokens after expiration.
 	// Manual deletion on disconnect is not necessary since the token expires with
 	// the same TTL as the connection.
 
@@ -353,7 +328,7 @@ func (wm *WebSocketManager) handleDisconnect(
 		"deleted_count": deletedCount,
 	})
 
-	return events.APIGatewayProxyResponse{
+	return WebSocketResponse{
 		StatusCode: http.StatusOK,
 		Body:       "Disconnected",
 	}, nil
@@ -477,11 +452,7 @@ func (wm *WebSocketManager) sendLogToConnection(
 		return fmt.Errorf("failed to marshal log event: %w", err)
 	}
 
-	_, err = wm.apiGwClient.PostToConnection(ctx, &apigatewaymanagementapi.PostToConnectionInput{
-		ConnectionId: connectionID,
-		Data:         logJSON,
-	})
-
+	err = wm.backend.SendToConnection(ctx, *connectionID, logJSON)
 	if err != nil {
 		wm.logger.Error("failed to send log to connection",
 			"context", map[string]string{
@@ -569,11 +540,7 @@ func (wm *WebSocketManager) sendDisconnectToConnection(
 		"connection_id": connectionID,
 	})
 
-	_, err := wm.apiGwClient.PostToConnection(ctx, &apigatewaymanagementapi.PostToConnectionInput{
-		ConnectionId: aws.String(connectionID),
-		Data:         message,
-	})
-
+	err := wm.backend.SendToConnection(ctx, connectionID, message)
 	if err != nil {
 		wm.logger.Error("failed to send disconnect notification to connection",
 			"context", map[string]string{
