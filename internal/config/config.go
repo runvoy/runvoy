@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/user"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"time"
 
@@ -15,6 +16,7 @@ import (
 	"runvoy/internal/constants"
 
 	"github.com/go-playground/validator/v10"
+	"github.com/mitchellh/mapstructure"
 	"github.com/spf13/viper"
 )
 
@@ -30,7 +32,7 @@ type Config struct {
 	// Backend Service Configuration
 	BackendProvider constants.BackendProvider `mapstructure:"backend_provider" yaml:"backend_provider"`
 	InitTimeout     time.Duration             `mapstructure:"init_timeout"`
-	LogLevel        string                    `mapstructure:"log_level"`
+	LogLevel        slog.Level                `mapstructure:"log_level"`
 	Port            int                       `mapstructure:"port" validate:"omitempty"`
 	RequestTimeout  time.Duration             `mapstructure:"request_timeout"`
 
@@ -70,11 +72,9 @@ func Load() (*Config, error) {
 
 	var cfg Config
 	var err error
-	if err = v.Unmarshal(&cfg); err != nil {
+	if err = v.Unmarshal(&cfg, viper.DecodeHook(composeDecodeHooks())); err != nil {
 		return nil, fmt.Errorf("error unmarshaling config: %w", err)
 	}
-
-	normalizeLogLevel(&cfg)
 
 	// Validate configuration
 	if err = validate.Struct(&cfg); err != nil {
@@ -94,11 +94,9 @@ func LoadCLI() (*Config, error) {
 	}
 
 	var cfg Config
-	if err := v.Unmarshal(&cfg); err != nil {
+	if err := v.Unmarshal(&cfg, viper.DecodeHook(composeDecodeHooks())); err != nil {
 		return nil, fmt.Errorf("error unmarshaling config: %w", err)
 	}
-
-	normalizeLogLevel(&cfg)
 
 	return &cfg, nil
 }
@@ -116,11 +114,9 @@ func LoadOrchestrator() (*Config, error) {
 	bindEnvVars(v)
 
 	var cfg Config
-	if err := v.Unmarshal(&cfg); err != nil {
+	if err := v.Unmarshal(&cfg, viper.DecodeHook(composeDecodeHooks())); err != nil {
 		return nil, fmt.Errorf("error unmarshaling orchestrator config: %w", err)
 	}
-
-	normalizeLogLevel(&cfg)
 
 	if err := validateBackendProvider(&cfg, awsconfig.ValidateOrchestrator); err != nil {
 		return nil, err
@@ -141,11 +137,9 @@ func LoadEventProcessor() (*Config, error) {
 	bindEnvVars(v)
 
 	var cfg Config
-	if err := v.Unmarshal(&cfg); err != nil {
+	if err := v.Unmarshal(&cfg, viper.DecodeHook(composeDecodeHooks())); err != nil {
 		return nil, fmt.Errorf("error unmarshaling event processor config: %w", err)
 	}
-
-	normalizeLogLevel(&cfg)
 
 	if err := validateBackendProvider(&cfg, awsconfig.ValidateEventProcessor); err != nil {
 		return nil, err
@@ -196,6 +190,7 @@ func Save(config *Config) error {
 	v.Set("api_endpoint", config.APIEndpoint)
 	v.Set("api_key", config.APIKey)
 	v.Set("web_url", config.WebURL)
+	v.Set("log_level", config.LogLevel.String())
 
 	if err = v.WriteConfigAs(configFilePath); err != nil {
 		return fmt.Errorf("error writing config file: %w", err)
@@ -226,7 +221,7 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("web_url", constants.DefaultWebURL)
 	v.SetDefault("backend_provider", string(constants.AWS))
 	// TODO: we set DEBUG for development, we should update this to use INFO
-	v.SetDefault("log_level", "DEBUG")
+	v.SetDefault("log_level", slog.LevelDebug.String())
 }
 
 func loadConfigFile(v *viper.Viper) error {
@@ -282,18 +277,41 @@ func normalizeBackendProvider(provider constants.BackendProvider) constants.Back
 	return constants.BackendProvider(strings.ToUpper(normalized))
 }
 
-func normalizeLogLevel(cfg *Config) {
-	val := strings.TrimSpace(cfg.LogLevel)
-	if val == "" {
-		cfg.LogLevel = slog.LevelInfo.String()
-		return
+func composeDecodeHooks() mapstructure.DecodeHookFunc {
+	return mapstructure.ComposeDecodeHookFunc(
+		mapstructure.StringToTimeDurationHookFunc(),
+		stringToSlogLevelHookFunc(),
+	)
+}
+
+func stringToSlogLevelHookFunc() mapstructure.DecodeHookFunc {
+	levelType := reflect.TypeOf(slog.Level(0))
+	return func(f reflect.Type, t reflect.Type, data interface{}) (interface{}, error) {
+		if t != levelType {
+			return data, nil
+		}
+
+		switch v := data.(type) {
+		case string:
+			return parseLogLevel(v), nil
+		case []byte:
+			return parseLogLevel(string(v)), nil
+		default:
+			return slog.LevelInfo, nil
+		}
+	}
+}
+
+func parseLogLevel(value string) slog.Level {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return slog.LevelInfo
 	}
 
 	var level slog.Level
-	if err := level.UnmarshalText([]byte(val)); err != nil {
-		cfg.LogLevel = slog.LevelInfo.String()
-		return
+	if err := level.UnmarshalText([]byte(value)); err != nil {
+		return slog.LevelInfo
 	}
 
-	cfg.LogLevel = level.String()
+	return level
 }

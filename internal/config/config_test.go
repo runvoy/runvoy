@@ -11,59 +11,58 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestNormalizeLogLevel(t *testing.T) {
+func TestParseLogLevel(t *testing.T) {
 	tests := []struct {
 		name     string
 		logLevel string
-		expected string
+		expected slog.Level
 	}{
 		{
 			name:     "DEBUG level stays uppercase",
 			logLevel: "DEBUG",
-			expected: slog.LevelDebug.String(),
+			expected: slog.LevelDebug,
 		},
 		{
 			name:     "INFO level stays uppercase",
 			logLevel: "INFO",
-			expected: slog.LevelInfo.String(),
+			expected: slog.LevelInfo,
 		},
 		{
 			name:     "WARN level stays uppercase",
 			logLevel: "WARN",
-			expected: slog.LevelWarn.String(),
+			expected: slog.LevelWarn,
 		},
 		{
 			name:     "ERROR level stays uppercase",
 			logLevel: "ERROR",
-			expected: slog.LevelError.String(),
+			expected: slog.LevelError,
 		},
 		{
 			name:     "invalid level defaults to INFO",
 			logLevel: "INVALID",
-			expected: slog.LevelInfo.String(),
+			expected: slog.LevelInfo,
 		},
 		{
 			name:     "empty string defaults to INFO",
 			logLevel: "",
-			expected: slog.LevelInfo.String(),
+			expected: slog.LevelInfo,
 		},
 		{
 			name:     "lowercase level is normalized to uppercase",
 			logLevel: "debug",
-			expected: slog.LevelDebug.String(),
+			expected: slog.LevelDebug,
 		},
 		{
 			name:     "whitespace trimmed",
 			logLevel: "  warn  ",
-			expected: slog.LevelWarn.String(),
+			expected: slog.LevelWarn,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cfg := &Config{LogLevel: tt.logLevel}
-			normalizeLogLevel(cfg)
-			assert.Equal(t, tt.expected, cfg.LogLevel)
+			level := parseLogLevel(tt.logLevel)
+			assert.Equal(t, tt.expected, level)
 		})
 	}
 }
@@ -493,7 +492,7 @@ func TestConfigStruct(t *testing.T) {
 			APIEndpoint: "https://api.example.com",
 			APIKey:      "test-key",
 			Port:        8080,
-			LogLevel:    "INFO",
+			LogLevel:    slog.LevelInfo,
 			AWS: &awsconfig.Config{
 				APIKeysTable:        "api-keys-table",
 				ExecutionsTable:     "executions-table",
@@ -512,7 +511,7 @@ func TestConfigStruct(t *testing.T) {
 		assert.NotNil(t, cfg)
 		assert.Equal(t, "https://api.example.com", cfg.APIEndpoint)
 		assert.Equal(t, "test-key", cfg.APIKey)
-		assert.Equal(t, "INFO", cfg.LogLevel)
+		assert.Equal(t, slog.LevelInfo, cfg.LogLevel)
 		assert.NotNil(t, cfg.AWS)
 		assert.Equal(t, "test-cluster", cfg.AWS.ECSCluster)
 	})

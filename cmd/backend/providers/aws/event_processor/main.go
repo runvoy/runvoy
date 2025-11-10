@@ -5,7 +5,6 @@ package main
 
 import (
 	"context"
-	"log/slog"
 	"os"
 
 	"runvoy/internal/config"
@@ -18,11 +17,7 @@ import (
 
 func main() {
 	cfg := config.MustLoadEventProcessor()
-	var level slog.Level
-	if err := level.UnmarshalText([]byte(cfg.LogLevel)); err != nil {
-		level = slog.LevelInfo
-	}
-	log := logger.Initialize(constants.Production, level)
+	log := logger.Initialize(constants.Production, cfg.LogLevel)
 	ctx, cancel := context.WithTimeout(context.Background(), cfg.InitTimeout)
 
 	processor, err := events.Initialize(ctx, cfg, log)

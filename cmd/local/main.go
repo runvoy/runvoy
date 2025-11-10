@@ -46,7 +46,7 @@ func startOrchestratorServer(log *slog.Logger, cfg *config.Config, svc *app.Serv
 		log.Info("starting orchestrator server",
 			"port", cfg.Port,
 			"version", *constants.GetVersion(),
-			"log_level", cfg.LogLevel,
+			"log_level", cfg.LogLevel.String(),
 			"request_timeout", cfg.RequestTimeout,
 		)
 		log.Debug("orchestrator health check available",
@@ -86,7 +86,7 @@ func startAsyncProcessorServer(log *slog.Logger, cfg *config.Config, processor *
 		log.Info("starting async processor server",
 			"port", port,
 			"version", *constants.GetVersion(),
-			"log_level", cfg.LogLevel,
+			"log_level", cfg.LogLevel.String(),
 		)
 		log.Debug("async processor endpoint available",
 			"url", fmt.Sprintf("http://localhost:%d/process", port),
@@ -159,11 +159,7 @@ func main() {
 	orchestratorCfg := config.MustLoadOrchestrator()
 	eventProcessorCfg := config.MustLoadEventProcessor()
 
-	var level slog.Level
-	if err := level.UnmarshalText([]byte(orchestratorCfg.LogLevel)); err != nil {
-		level = slog.LevelInfo
-	}
-	log := logger.Initialize(constants.Development, level)
+	log := logger.Initialize(constants.Development, orchestratorCfg.LogLevel)
 
 	ctx, cancel := context.WithTimeout(context.Background(), orchestratorCfg.InitTimeout)
 	svc, processor, initErr := initializeServices(ctx, log, orchestratorCfg, eventProcessorCfg)

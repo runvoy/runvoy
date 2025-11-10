@@ -4,7 +4,6 @@ package main
 
 import (
 	"context"
-	"log/slog"
 	"os"
 
 	"runvoy/internal/app"
@@ -18,11 +17,7 @@ import (
 
 func main() {
 	cfg := config.MustLoadOrchestrator()
-	var level slog.Level
-	if err := level.UnmarshalText([]byte(cfg.LogLevel)); err != nil {
-		level = slog.LevelInfo
-	}
-	log := logger.Initialize(constants.Production, level)
+	log := logger.Initialize(constants.Production, cfg.LogLevel)
 	ctx, cancel := context.WithTimeout(context.Background(), cfg.InitTimeout)
 
 	svc, err := app.Initialize(ctx, constants.AWS, cfg, log)
