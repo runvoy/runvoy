@@ -30,10 +30,12 @@ func Initialize(
 	cfg *config.Config,
 	logger *slog.Logger,
 ) (*Processor, error) {
-	logger.Debug("initializing event processor",
-		"provider", cfg.BackendProvider,
-		"version", *constants.GetVersion(),
-		"init_timeout_seconds", cfg.InitTimeout.Seconds(),
+	logger.Debug(fmt.Sprintf("initializing %s event processor", constants.ProjectName),
+		"context", map[string]any{
+			"provider":             cfg.BackendProvider,
+			"version":              *constants.GetVersion(),
+			"init_timeout_seconds": cfg.InitTimeout.Seconds(),
+		},
 	)
 
 	var (
@@ -53,7 +55,7 @@ func Initialize(
 		return nil, fmt.Errorf("unknown backend provider: %s (supported: %s)", cfg.BackendProvider, constants.AWS)
 	}
 
-	logger.Debug("event processor initialized successfully")
+	logger.Debug(constants.ProjectName + " event processor initialized successfully")
 
 	return NewProcessor(backend, logger), nil
 }
