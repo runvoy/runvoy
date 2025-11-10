@@ -10,7 +10,7 @@ import (
 	"runvoy/internal/constants"
 	dynamoRepo "runvoy/internal/providers/aws/database/dynamodb"
 	eventsAws "runvoy/internal/providers/aws/events"
-	"runvoy/internal/websocket"
+	websocketAws "runvoy/internal/websocket/aws"
 
 	awsConfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
@@ -81,7 +81,7 @@ func initializeAWSBackend(
 	connectionRepo := dynamoRepo.NewConnectionRepository(dynamoClient, cfg.WebSocketConnectionsTable, logger)
 	tokenRepo := dynamoRepo.NewTokenRepository(dynamoClient, cfg.WebSocketTokensTable, logger)
 
-	websocketManager := websocket.NewWebSocketManager(cfg, &awsCfg, connectionRepo, tokenRepo, logger)
+	websocketManager := websocketAws.NewManager(cfg, &awsCfg, connectionRepo, tokenRepo, logger)
 
 	backend := eventsAws.NewBackend(executionRepo, websocketManager, logger)
 
