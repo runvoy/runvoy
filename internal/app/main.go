@@ -352,7 +352,6 @@ func (s *Service) RunCommand(
 		ExecutionID:     executionID,
 		UserEmail:       userEmail,
 		Command:         req.Command,
-		LockName:        req.Lock,
 		StartedAt:       startedAt,
 		Status:          string(constants.ExecutionRunning),
 		RequestID:       requestID,

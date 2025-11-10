@@ -49,16 +49,6 @@ func TestRunCommand(t *testing.T) {
 			expectErr:   false,
 		},
 		{
-			name:      "successful execution with lock",
-			userEmail: "user@example.com",
-			req: api.ExecutionRequest{
-				Command: "echo hello",
-				Lock:    "my-lock",
-			},
-			executionID: "exec-789",
-			expectErr:   false,
-		},
-		{
 			name:          "empty command",
 			userEmail:     "user@example.com",
 			req:           api.ExecutionRequest{Command: ""},

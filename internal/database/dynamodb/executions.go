@@ -44,7 +44,6 @@ type executionItem struct {
 	StartedAt       time.Time  `dynamodbav:"started_at"`
 	UserEmail       string     `dynamodbav:"user_email"`
 	Command         string     `dynamodbav:"command"`
-	LockName        string     `dynamodbav:"lock_name,omitempty"`
 	Status          string     `dynamodbav:"status"`
 	CompletedAt     *time.Time `dynamodbav:"completed_at,omitempty"`
 	ExitCode        int        `dynamodbav:"exit_code,omitempty"`
@@ -61,7 +60,6 @@ func toExecutionItem(e *api.Execution) *executionItem {
 		StartedAt:       e.StartedAt,
 		UserEmail:       e.UserEmail,
 		Command:         e.Command,
-		LockName:        e.LockName,
 		Status:          e.Status,
 		CompletedAt:     e.CompletedAt,
 		ExitCode:        e.ExitCode,
@@ -79,7 +77,6 @@ func (e *executionItem) toAPIExecution() *api.Execution {
 		StartedAt:       e.StartedAt,
 		UserEmail:       e.UserEmail,
 		Command:         e.Command,
-		LockName:        e.LockName,
 		Status:          e.Status,
 		CompletedAt:     e.CompletedAt,
 		ExitCode:        e.ExitCode,
