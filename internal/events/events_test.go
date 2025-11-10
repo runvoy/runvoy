@@ -6,9 +6,7 @@ import (
 	"log/slog"
 	"testing"
 
-	eventsAws "runvoy/internal/events/aws"
 	"runvoy/internal/api"
-	"runvoy/internal/constants"
 	"runvoy/internal/testutil"
 
 	"github.com/aws/aws-lambda-go/events"
@@ -183,22 +181,6 @@ func TestHandleEventJSON_InvalidJSON(t *testing.T) {
 	assert.Contains(t, err.Error(), "failed to unmarshal event")
 }
 
-func TestNewProcessorForAWS(t *testing.T) {
-	mockRepo := &mockExecutionRepo{}
-	mockWebSocket := &mockWebSocketHandler{}
-	logger := testutil.SilentLogger()
-
-	processor := NewProcessorForAWS(mockRepo, mockWebSocket, logger)
-
-	assert.NotNil(t, processor)
-	assert.NotNil(t, processor.backend)
-	assert.Equal(t, logger, processor.logger)
-
-	// Verify the backend is an AWS backend
-	_, ok := processor.backend.(*eventsAws.Backend)
-	assert.True(t, ok, "Expected AWS backend type")
-}
-
 func TestHandle_CloudEvent(t *testing.T) {
 	ctx := context.Background()
 	handled := false
@@ -288,47 +270,4 @@ func TestHandle_WebSocketEvent(t *testing.T) {
 	resp, ok := result.(events.APIGatewayProxyResponse)
 	assert.True(t, ok)
 	assert.Equal(t, 200, resp.StatusCode)
-}
-
-func TestECSCompletionHandler(t *testing.T) {
-	ctx := context.Background()
-
-	execution := &api.Execution{
-		ExecutionID: "test-exec-123",
-		UserEmail:   "user@example.com",
-		Command:     "echo hello",
-		Status:      string(constants.ExecutionRunning),
-	}
-
-	mockRepo := &mockExecutionRepo{
-		getExecutionFunc: func(_ context.Context, _ string) (*api.Execution, error) {
-			return execution, nil
-		},
-		updateExecutionFunc: func(_ context.Context, _ *api.Execution) error {
-			return nil
-		},
-	}
-
-	mockConnRepo := &mockConnectionRepo{}
-	mockWebSocket := &mockWebSocketHandler{
-		notifyExecutionCompletionFunc: func(_ context.Context, executionID *string) error {
-			assert.NotNil(t, executionID)
-			return nil
-		},
-	}
-
-	// Use the deprecated factory function for backward compatibility test
-	handler := eventsAws.ECSCompletionHandler(mockRepo, mockConnRepo, mockWebSocket, testutil.SilentLogger())
-	assert.NotNil(t, handler)
-
-	// Create a simple event (handler will be called separately, not testing the full flow here)
-	event := events.CloudWatchEvent{
-		DetailType: "ECS Task State Change",
-		Source:     "aws.ecs",
-	}
-
-	// Just verify handler is created properly
-	assert.NotNil(t, handler)
-	_ = ctx
-	_ = event
 }

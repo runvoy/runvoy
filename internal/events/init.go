@@ -9,7 +9,6 @@ import (
 	eventsAws "runvoy/internal/events/aws"
 	"runvoy/internal/config"
 	"runvoy/internal/constants"
-	"runvoy/internal/database"
 	dynamoRepo "runvoy/internal/database/dynamodb"
 	"runvoy/internal/websocket"
 
@@ -89,16 +88,4 @@ func initializeAWSBackend(
 	return &processorDependencies{
 		backend: backend,
 	}, nil
-}
-
-// NewProcessorForAWS creates a new event processor with AWS backend.
-// This is a convenience function for backward compatibility and testing.
-// Deprecated: Use Initialize() instead for better multi-cloud support.
-func NewProcessorForAWS(
-	executionRepo database.ExecutionRepository,
-	webSocketManager websocket.Manager,
-	logger *slog.Logger,
-) *Processor {
-	backend := eventsAws.NewBackend(executionRepo, webSocketManager, logger)
-	return NewProcessor(backend, logger)
 }

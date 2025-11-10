@@ -12,7 +12,6 @@ import (
 	"runvoy/internal/api"
 	"runvoy/internal/constants"
 	"runvoy/internal/database"
-	"runvoy/internal/logger"
 	"runvoy/internal/websocket"
 
 	"github.com/aws/aws-lambda-go/events"
@@ -311,17 +310,4 @@ func parseTaskTimes(
 	}
 
 	return startedAt, stoppedAt, durationSeconds, nil
-}
-
-// ECSCompletionHandler is a factory function that returns a handler for ECS completion events.
-// Deprecated: This function is kept for backward compatibility. Use the Backend directly instead.
-func ECSCompletionHandler(
-	executionRepo database.ExecutionRepository,
-	_ database.ConnectionRepository,
-	websocketManager websocket.Manager,
-	log *slog.Logger) func(context.Context, events.CloudWatchEvent) error {
-	backend := NewBackend(executionRepo, websocketManager, log)
-	return func(ctx context.Context, event events.CloudWatchEvent) error {
-		return backend.handleECSTaskCompletion(ctx, &event, logger.DeriveRequestLogger(ctx, log))
-	}
 }
