@@ -47,9 +47,12 @@ func NewManager(
 	})
 	connectionIDs := make([]string, 0)
 
-	log.Debug("AWS websocket manager initialized",
-		"table", cfg.WebSocketConnectionsTable,
-		"websocket_api_endpoint", cfg.WebSocketAPIEndpoint,
+	log.Debug("websocket manager initialized",
+		"context", map[string]string{
+			"connections_table": cfg.WebSocketConnectionsTable,
+			"tokens_table":      cfg.WebSocketTokensTable,
+			"api_endpoint":      cfg.WebSocketAPIEndpoint,
+		},
 	)
 
 	return &Manager{
