@@ -17,34 +17,59 @@ import (
 	"github.com/spf13/viper"
 )
 
+// AWSConfig holds AWS-specific configuration for backend services.
+// It includes settings for DynamoDB tables, ECS/Fargate resources, and WebSocket endpoints.
+type AWSConfig struct {
+	// DynamoDB Tables
+	APIKeysTable              string `mapstructure:"api_keys_table"`
+	ExecutionsTable           string `mapstructure:"executions_table"`
+	PendingAPIKeysTable       string `mapstructure:"pending_api_keys_table"`
+	WebSocketConnectionsTable string `mapstructure:"websocket_connections_table"`
+	WebSocketTokensTable      string `mapstructure:"websocket_tokens_table"`
+
+	// ECS/Fargate Configuration
+	ECSCluster      string `mapstructure:"ecs_cluster"`
+	TaskDefinition  string `mapstructure:"task_definition"`
+	Subnet1         string `mapstructure:"subnet_1"`
+	Subnet2         string `mapstructure:"subnet_2"`
+	SecurityGroup   string `mapstructure:"security_group"`
+	LogGroup        string `mapstructure:"log_group"`
+	TaskExecRoleARN string `mapstructure:"task_exec_role_arn"`
+	TaskRoleARN     string `mapstructure:"task_role_arn"`
+
+	// WebSocket Configuration
+	WebSocketAPIEndpoint string `mapstructure:"websocket_api_endpoint"`
+}
+
+// GCPConfig holds GCP-specific configuration for backend services.
+// This is a placeholder for future GCP support.
+type GCPConfig struct {
+	// Placeholder for GCP-specific configuration
+	// Example fields:
+	// ProjectID string `mapstructure:"project_id"`
+	// Region    string `mapstructure:"region"`
+}
+
 // Config represents the unified configuration structure for both CLI and services.
 // It supports loading from YAML files and environment variables.
+// Provider-specific configuration is nested under the AWS or GCP fields.
 type Config struct {
 	// CLI Configuration
 	APIEndpoint string `mapstructure:"api_endpoint" yaml:"api_endpoint" validate:"omitempty,url"`
 	APIKey      string `mapstructure:"api_key" yaml:"api_key"`
 	WebURL      string `mapstructure:"web_url" yaml:"web_url" validate:"omitempty,url"`
 
-	// Backend Service Configuration
-	APIKeysTable              string                    `mapstructure:"api_keys_table"`
-	BackendProvider           constants.BackendProvider `mapstructure:"backend_provider" yaml:"backend_provider"`
-	ECSCluster                string                    `mapstructure:"ecs_cluster"`
-	ExecutionsTable           string                    `mapstructure:"executions_table"`
-	InitTimeout               time.Duration             `mapstructure:"init_timeout"`
-	LogGroup                  string                    `mapstructure:"log_group"`
-	LogLevel                  string                    `mapstructure:"log_level"`
-	PendingAPIKeysTable       string                    `mapstructure:"pending_api_keys_table"`
-	Port                      int                       `mapstructure:"port" validate:"omitempty"`
-	RequestTimeout            time.Duration             `mapstructure:"request_timeout"`
-	SecurityGroup             string                    `mapstructure:"security_group"`
-	Subnet1                   string                    `mapstructure:"subnet_1"`
-	Subnet2                   string                    `mapstructure:"subnet_2"`
-	TaskDefinition            string                    `mapstructure:"task_definition"`
-	TaskExecRoleARN           string                    `mapstructure:"task_exec_role_arn"`
-	TaskRoleARN               string                    `mapstructure:"task_role_arn"`
-	WebSocketAPIEndpoint      string                    `mapstructure:"websocket_api_endpoint"`
-	WebSocketConnectionsTable string                    `mapstructure:"websocket_connections_table"`
-	WebSocketTokensTable      string                    `mapstructure:"websocket_tokens_table"`
+	// Common Backend Service Configuration
+	BackendProvider constants.BackendProvider `mapstructure:"backend_provider" yaml:"backend_provider"`
+	InitTimeout     time.Duration             `mapstructure:"init_timeout"`
+	LogLevel        string                    `mapstructure:"log_level"`
+	Port            int                       `mapstructure:"port" validate:"omitempty"`
+	RequestTimeout  time.Duration             `mapstructure:"request_timeout"`
+
+	// Provider-specific Configuration
+	// Only the configuration for the active BackendProvider should be populated
+	AWS *AWSConfig `mapstructure:"aws"`
+	GCP *GCPConfig `mapstructure:"gcp"`
 }
 
 var validate = validator.New()
@@ -79,6 +104,11 @@ func Load() (*Config, error) {
 	var err error
 	if err = v.Unmarshal(&cfg); err != nil {
 		return nil, fmt.Errorf("error unmarshaling config: %w", err)
+	}
+
+	// Initialize provider-specific configs if needed
+	if err = initializeProviderConfig(&cfg, v); err != nil {
+		return nil, fmt.Errorf("error initializing provider config: %w", err)
 	}
 
 	// Validate configuration
@@ -123,13 +153,20 @@ func LoadOrchestrator() (*Config, error) {
 		return nil, fmt.Errorf("error unmarshaling orchestrator config: %w", err)
 	}
 
+	// Initialize provider-specific configs
+	if err := initializeProviderConfig(&cfg, v); err != nil {
+		return nil, fmt.Errorf("error initializing provider config: %w", err)
+	}
+
 	// Validate required fields (matches old caarlos0/env notEmpty tags)
 	if err := validateOrchestrator(&cfg); err != nil {
 		return nil, err
 	}
 
 	// Normalize WebSocket endpoint: strip protocol if present
-	cfg.WebSocketAPIEndpoint = normalizeWebSocketEndpoint(cfg.WebSocketAPIEndpoint)
+	if cfg.AWS != nil {
+		cfg.AWS.WebSocketAPIEndpoint = normalizeWebSocketEndpoint(cfg.AWS.WebSocketAPIEndpoint)
+	}
 
 	return &cfg, nil
 }
@@ -148,6 +185,11 @@ func LoadEventProcessor() (*Config, error) {
 	var cfg Config
 	if err := v.Unmarshal(&cfg); err != nil {
 		return nil, fmt.Errorf("error unmarshaling event processor config: %w", err)
+	}
+
+	// Initialize provider-specific configs
+	if err := initializeProviderConfig(&cfg, v); err != nil {
+		return nil, fmt.Errorf("error initializing provider config: %w", err)
 	}
 
 	// Validate required fields (matches old caarlos0/env notEmpty tags)
@@ -266,31 +308,17 @@ func loadConfigFile(v *viper.Viper) error {
 }
 
 func bindEnvVars(v *viper.Viper) {
-	// Bind all environment variables explicitly
-	envVars := []string{
-		"API_KEYS_TABLE",
+	// Bind common environment variables
+	commonEnvVars := []string{
 		"BACKEND_PROVIDER",
 		"DEV_SERVER_PORT",
-		"ECS_CLUSTER",
-		"EXECUTIONS_TABLE",
 		"INIT_TIMEOUT",
-		"LOG_GROUP",
 		"LOG_LEVEL",
-		"PENDING_API_KEYS_TABLE",
 		"REQUEST_TIMEOUT",
-		"SECURITY_GROUP",
-		"SUBNET_1",
-		"SUBNET_2",
-		"TASK_DEFINITION",
-		"TASK_EXEC_ROLE_ARN",
-		"TASK_ROLE_ARN",
 		"WEB_URL",
-		"WEBSOCKET_API_ENDPOINT",
-		"WEBSOCKET_CONNECTIONS_TABLE",
-		"WEBSOCKET_TOKENS_TABLE",
 	}
 
-	for _, envVar := range envVars {
+	for _, envVar := range commonEnvVars {
 		// Map DEV_SERVER_PORT to port
 		if envVar == "DEV_SERVER_PORT" {
 			_ = v.BindEnv("port", "RUNVOY_DEV_SERVER_PORT")
@@ -300,6 +328,63 @@ func bindEnvVars(v *viper.Viper) {
 			_ = v.BindEnv(configKey, "RUNVOY_"+envVar)
 		}
 	}
+
+	// Bind AWS-specific environment variables with nested path
+	awsEnvVars := []string{
+		"API_KEYS_TABLE",
+		"ECS_CLUSTER",
+		"EXECUTIONS_TABLE",
+		"LOG_GROUP",
+		"PENDING_API_KEYS_TABLE",
+		"SECURITY_GROUP",
+		"SUBNET_1",
+		"SUBNET_2",
+		"TASK_DEFINITION",
+		"TASK_EXEC_ROLE_ARN",
+		"TASK_ROLE_ARN",
+		"WEBSOCKET_API_ENDPOINT",
+		"WEBSOCKET_CONNECTIONS_TABLE",
+		"WEBSOCKET_TOKENS_TABLE",
+	}
+
+	for _, envVar := range awsEnvVars {
+		// Convert to lowercase and nest under aws.
+		configKey := "aws." + strings.ToLower(envVar)
+		_ = v.BindEnv(configKey, "RUNVOY_"+envVar)
+	}
+}
+
+// initializeProviderConfig initializes provider-specific configuration based on the backend provider.
+// This ensures that only the relevant provider config is populated and properly structured.
+func initializeProviderConfig(cfg *Config, v *viper.Viper) error {
+	provider := normalizeBackendProvider(cfg.BackendProvider)
+
+	switch provider {
+	case constants.AWS:
+		// Initialize AWS config if not already present
+		if cfg.AWS == nil {
+			cfg.AWS = &AWSConfig{}
+		}
+		// Unmarshal AWS-specific config
+		if err := v.UnmarshalKey("aws", cfg.AWS); err != nil {
+			return fmt.Errorf("error unmarshaling AWS config: %w", err)
+		}
+	case constants.BackendProvider("GCP"):
+		// Future: Initialize GCP config
+		if cfg.GCP == nil {
+			cfg.GCP = &GCPConfig{}
+		}
+		if err := v.UnmarshalKey("gcp", cfg.GCP); err != nil {
+			return fmt.Errorf("error unmarshaling GCP config: %w", err)
+		}
+	case "":
+		// No provider specified - this is ok for CLI-only usage
+		return nil
+	default:
+		return fmt.Errorf("unsupported backend provider: %s", provider)
+	}
+
+	return nil
 }
 
 // validateOrchestrator validates required fields for orchestrator service.
@@ -315,22 +400,26 @@ func validateOrchestrator(cfg *Config) error {
 }
 
 func validateAWSOrchestrator(cfg *Config) error {
+	if cfg.AWS == nil {
+		return fmt.Errorf("AWS configuration is required for AWS backend provider")
+	}
+
 	required := map[string]string{
-		"APIKeysTable":              cfg.APIKeysTable,
-		"ECSCluster":                cfg.ECSCluster,
-		"ExecutionsTable":           cfg.ExecutionsTable,
-		"LogGroup":                  cfg.LogGroup,
-		"SecurityGroup":             cfg.SecurityGroup,
-		"Subnet1":                   cfg.Subnet1,
-		"Subnet2":                   cfg.Subnet2,
-		"WebSocketAPIEndpoint":      cfg.WebSocketAPIEndpoint,
-		"WebSocketConnectionsTable": cfg.WebSocketConnectionsTable,
-		"WebSocketTokensTable":      cfg.WebSocketTokensTable,
+		"APIKeysTable":              cfg.AWS.APIKeysTable,
+		"ECSCluster":                cfg.AWS.ECSCluster,
+		"ExecutionsTable":           cfg.AWS.ExecutionsTable,
+		"LogGroup":                  cfg.AWS.LogGroup,
+		"SecurityGroup":             cfg.AWS.SecurityGroup,
+		"Subnet1":                   cfg.AWS.Subnet1,
+		"Subnet2":                   cfg.AWS.Subnet2,
+		"WebSocketAPIEndpoint":      cfg.AWS.WebSocketAPIEndpoint,
+		"WebSocketConnectionsTable": cfg.AWS.WebSocketConnectionsTable,
+		"WebSocketTokensTable":      cfg.AWS.WebSocketTokensTable,
 	}
 
 	for field, value := range required {
 		if value == "" {
-			return fmt.Errorf("%s cannot be empty", field)
+			return fmt.Errorf("AWS.%s cannot be empty", field)
 		}
 	}
 
@@ -350,21 +439,25 @@ func validateEventProcessor(cfg *Config) error {
 }
 
 func validateAWSEventProcessor(cfg *Config) error {
+	if cfg.AWS == nil {
+		return fmt.Errorf("AWS configuration is required for AWS backend provider")
+	}
+
 	required := map[string]string{
-		"ECSCluster":                cfg.ECSCluster,
-		"ExecutionsTable":           cfg.ExecutionsTable,
-		"WebSocketAPIEndpoint":      cfg.WebSocketAPIEndpoint,
-		"WebSocketConnectionsTable": cfg.WebSocketConnectionsTable,
-		"WebSocketTokensTable":      cfg.WebSocketTokensTable,
+		"ECSCluster":                cfg.AWS.ECSCluster,
+		"ExecutionsTable":           cfg.AWS.ExecutionsTable,
+		"WebSocketAPIEndpoint":      cfg.AWS.WebSocketAPIEndpoint,
+		"WebSocketConnectionsTable": cfg.AWS.WebSocketConnectionsTable,
+		"WebSocketTokensTable":      cfg.AWS.WebSocketTokensTable,
 	}
 
 	for field, value := range required {
 		if value == "" {
-			return fmt.Errorf("%s cannot be empty", field)
+			return fmt.Errorf("AWS.%s cannot be empty", field)
 		}
 	}
 
-	cfg.WebSocketAPIEndpoint = "https://" + normalizeWebSocketEndpoint(cfg.WebSocketAPIEndpoint)
+	cfg.AWS.WebSocketAPIEndpoint = "https://" + normalizeWebSocketEndpoint(cfg.AWS.WebSocketAPIEndpoint)
 
 	return nil
 }

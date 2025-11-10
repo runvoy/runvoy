@@ -72,6 +72,15 @@ func Initialize(
 
 	logger.Debug(constants.ProjectName + " orchestrator initialized successfully")
 
+	// Get WebSocket endpoint from provider-specific config
+	var wsEndpoint string
+	switch provider {
+	case constants.AWS:
+		if cfg.AWS != nil {
+			wsEndpoint = cfg.AWS.WebSocketAPIEndpoint
+		}
+	}
+
 	return NewService(
 		userRepo,
 		executionRepo,
@@ -80,7 +89,7 @@ func Initialize(
 		runner,
 		logger,
 		provider,
-		cfg.WebSocketAPIEndpoint,
+		wsEndpoint,
 	), nil
 }
 
@@ -98,27 +107,31 @@ func initializeAWSBackend(
 	dynamoClient := dynamodb.NewFromConfig(awsCfg)
 	ecsClientInstance := ecs.NewFromConfig(awsCfg)
 
+	if cfg.AWS == nil {
+		return nil, fmt.Errorf("AWS configuration is required but not provided")
+	}
+
 	logger.Debug("DynamoDB backend configured", "context", map[string]string{
-		"api_keys_table":              cfg.APIKeysTable,
-		"executions_table":            cfg.ExecutionsTable,
-		"pending_api_keys_table":      cfg.PendingAPIKeysTable,
-		"websocket_connections_table": cfg.WebSocketConnectionsTable,
-		"websocket_tokens_table":      cfg.WebSocketTokensTable,
+		"api_keys_table":              cfg.AWS.APIKeysTable,
+		"executions_table":            cfg.AWS.ExecutionsTable,
+		"pending_api_keys_table":      cfg.AWS.PendingAPIKeysTable,
+		"websocket_connections_table": cfg.AWS.WebSocketConnectionsTable,
+		"websocket_tokens_table":      cfg.AWS.WebSocketTokensTable,
 	})
 
-	userRepo := dynamoRepo.NewUserRepository(dynamoClient, cfg.APIKeysTable, cfg.PendingAPIKeysTable, logger)
-	executionRepo := dynamoRepo.NewExecutionRepository(dynamoClient, cfg.ExecutionsTable, logger)
-	connRepo := dynamoRepo.NewConnectionRepository(dynamoClient, cfg.WebSocketConnectionsTable, logger)
-	tokenRepo := dynamoRepo.NewTokenRepository(dynamoClient, cfg.WebSocketTokensTable, logger)
+	userRepo := dynamoRepo.NewUserRepository(dynamoClient, cfg.AWS.APIKeysTable, cfg.AWS.PendingAPIKeysTable, logger)
+	executionRepo := dynamoRepo.NewExecutionRepository(dynamoClient, cfg.AWS.ExecutionsTable, logger)
+	connRepo := dynamoRepo.NewConnectionRepository(dynamoClient, cfg.AWS.WebSocketConnectionsTable, logger)
+	tokenRepo := dynamoRepo.NewTokenRepository(dynamoClient, cfg.AWS.WebSocketTokensTable, logger)
 
 	awsExecCfg := &appAws.Config{
-		ECSCluster:      cfg.ECSCluster,
-		Subnet1:         cfg.Subnet1,
-		Subnet2:         cfg.Subnet2,
-		SecurityGroup:   cfg.SecurityGroup,
-		LogGroup:        cfg.LogGroup,
-		TaskExecRoleARN: cfg.TaskExecRoleARN,
-		TaskRoleARN:     cfg.TaskRoleARN,
+		ECSCluster:      cfg.AWS.ECSCluster,
+		Subnet1:         cfg.AWS.Subnet1,
+		Subnet2:         cfg.AWS.Subnet2,
+		SecurityGroup:   cfg.AWS.SecurityGroup,
+		LogGroup:        cfg.AWS.LogGroup,
+		TaskExecRoleARN: cfg.AWS.TaskExecRoleARN,
+		TaskRoleARN:     cfg.AWS.TaskRoleARN,
 		Region:          awsCfg.Region,
 	}
 	runner := appAws.NewRunner(ecsClientInstance, awsExecCfg, logger)

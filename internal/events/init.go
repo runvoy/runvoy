@@ -71,17 +71,21 @@ func initializeAWSBackend(
 		return nil, fmt.Errorf("failed to load AWS configuration: %w", err)
 	}
 
+	if cfg.AWS == nil {
+		return nil, fmt.Errorf("AWS configuration is required but not provided")
+	}
+
 	dynamoClient := dynamodb.NewFromConfig(awsCfg)
 
 	logger.Debug("DynamoDB backend configured", "context", map[string]string{
-		"executions_table":            cfg.ExecutionsTable,
-		"websocket_connections_table": cfg.WebSocketConnectionsTable,
-		"websocket_tokens_table":      cfg.WebSocketTokensTable,
+		"executions_table":            cfg.AWS.ExecutionsTable,
+		"websocket_connections_table": cfg.AWS.WebSocketConnectionsTable,
+		"websocket_tokens_table":      cfg.AWS.WebSocketTokensTable,
 	})
 
-	executionRepo := dynamoRepo.NewExecutionRepository(dynamoClient, cfg.ExecutionsTable, logger)
-	connectionRepo := dynamoRepo.NewConnectionRepository(dynamoClient, cfg.WebSocketConnectionsTable, logger)
-	tokenRepo := dynamoRepo.NewTokenRepository(dynamoClient, cfg.WebSocketTokensTable, logger)
+	executionRepo := dynamoRepo.NewExecutionRepository(dynamoClient, cfg.AWS.ExecutionsTable, logger)
+	connectionRepo := dynamoRepo.NewConnectionRepository(dynamoClient, cfg.AWS.WebSocketConnectionsTable, logger)
+	tokenRepo := dynamoRepo.NewTokenRepository(dynamoClient, cfg.AWS.WebSocketTokensTable, logger)
 
 	websocketManager := websocketAws.NewManager(cfg, &awsCfg, connectionRepo, tokenRepo, logger)
 
