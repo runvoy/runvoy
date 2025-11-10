@@ -323,6 +323,7 @@ The request ID middleware automatically:
 - The `request_id` is persisted in DynamoDB via the `internal/database/dynamodb` repository.
 - If a request ID is not present (e.g., non-Lambda environments), the service logs a warning and stores the execution without a `request_id`.
 - The `compute_platform` field in execution records is derived from the configured backend provider at initialization time (e.g., `AWS`) rather than being hardcoded in the service logic.
+- The backend provider is selected via the `RUNVOY_BACKEND_PROVIDER` configuration value (default: `AWS`); provider-specific bootstrapping logic determines which runner and repositories are wired in.
 
 ### Execution ID Uniqueness and Write Semantics
 

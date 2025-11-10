@@ -4,6 +4,8 @@ import (
 	"log/slog"
 	"testing"
 
+	"runvoy/internal/constants"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -72,6 +74,24 @@ func TestValidateOrchestrator(t *testing.T) {
 			name: "valid orchestrator config",
 			cfg: &Config{
 				APIKeysTable:              "api-keys",
+				BackendProvider:           constants.AWS,
+				ExecutionsTable:           "executions",
+				ECSCluster:                "cluster",
+				Subnet1:                   "subnet-1",
+				Subnet2:                   "subnet-2",
+				SecurityGroup:             "sg-123",
+				LogGroup:                  "/aws/logs/app",
+				WebSocketAPIEndpoint:      "https://example.execute-api.us-east-1.amazonaws.com/production",
+				WebSocketConnectionsTable: "connections",
+				WebSocketTokensTable:      "tokens",
+			},
+			wantErr: false,
+		},
+		{
+			name: "wrong case provider is normalized to uppercase",
+			cfg: &Config{
+				APIKeysTable:              "api-keys",
+				BackendProvider:           "aWs",
 				ExecutionsTable:           "executions",
 				ECSCluster:                "cluster",
 				Subnet1:                   "subnet-1",
@@ -87,6 +107,7 @@ func TestValidateOrchestrator(t *testing.T) {
 		{
 			name: "missing APIKeysTable",
 			cfg: &Config{
+				BackendProvider:           constants.AWS,
 				ExecutionsTable:           "executions",
 				ECSCluster:                "cluster",
 				Subnet1:                   "subnet-1",
@@ -104,6 +125,7 @@ func TestValidateOrchestrator(t *testing.T) {
 			name: "missing ExecutionsTable",
 			cfg: &Config{
 				APIKeysTable:              "api-keys",
+				BackendProvider:           constants.AWS,
 				ECSCluster:                "cluster",
 				Subnet1:                   "subnet-1",
 				Subnet2:                   "subnet-2",
@@ -120,6 +142,7 @@ func TestValidateOrchestrator(t *testing.T) {
 			name: "missing ECSCluster",
 			cfg: &Config{
 				APIKeysTable:              "api-keys",
+				BackendProvider:           constants.AWS,
 				ExecutionsTable:           "executions",
 				Subnet1:                   "subnet-1",
 				Subnet2:                   "subnet-2",
@@ -136,6 +159,7 @@ func TestValidateOrchestrator(t *testing.T) {
 			name: "missing Subnet1",
 			cfg: &Config{
 				APIKeysTable:              "api-keys",
+				BackendProvider:           constants.AWS,
 				ExecutionsTable:           "executions",
 				ECSCluster:                "cluster",
 				Subnet2:                   "subnet-2",
@@ -152,6 +176,7 @@ func TestValidateOrchestrator(t *testing.T) {
 			name: "missing Subnet2",
 			cfg: &Config{
 				APIKeysTable:              "api-keys",
+				BackendProvider:           constants.AWS,
 				ExecutionsTable:           "executions",
 				ECSCluster:                "cluster",
 				Subnet1:                   "subnet-1",
@@ -168,6 +193,7 @@ func TestValidateOrchestrator(t *testing.T) {
 			name: "missing SecurityGroup",
 			cfg: &Config{
 				APIKeysTable:              "api-keys",
+				BackendProvider:           constants.AWS,
 				ExecutionsTable:           "executions",
 				ECSCluster:                "cluster",
 				Subnet1:                   "subnet-1",
@@ -184,6 +210,7 @@ func TestValidateOrchestrator(t *testing.T) {
 			name: "missing LogGroup",
 			cfg: &Config{
 				APIKeysTable:              "api-keys",
+				BackendProvider:           constants.AWS,
 				ExecutionsTable:           "executions",
 				ECSCluster:                "cluster",
 				Subnet1:                   "subnet-1",
@@ -200,6 +227,7 @@ func TestValidateOrchestrator(t *testing.T) {
 			name: "missing WebSocketAPIEndpoint",
 			cfg: &Config{
 				APIKeysTable:              "api-keys",
+				BackendProvider:           constants.AWS,
 				ExecutionsTable:           "executions",
 				ECSCluster:                "cluster",
 				Subnet1:                   "subnet-1",
@@ -216,6 +244,7 @@ func TestValidateOrchestrator(t *testing.T) {
 			name: "missing WebSocketConnectionsTable",
 			cfg: &Config{
 				APIKeysTable:         "api-keys",
+				BackendProvider:      constants.AWS,
 				ExecutionsTable:      "executions",
 				ECSCluster:           "cluster",
 				Subnet1:              "subnet-1",
@@ -232,6 +261,7 @@ func TestValidateOrchestrator(t *testing.T) {
 			name: "missing WebSocketTokensTable",
 			cfg: &Config{
 				APIKeysTable:              "api-keys",
+				BackendProvider:           constants.AWS,
 				ExecutionsTable:           "executions",
 				ECSCluster:                "cluster",
 				Subnet1:                   "subnet-1",
@@ -243,6 +273,22 @@ func TestValidateOrchestrator(t *testing.T) {
 			},
 			wantErr: true,
 			errMsg:  "WebSocketTokensTable cannot be empty",
+		},
+		{
+			name: "unsupported provider",
+			cfg: &Config{
+				BackendProvider: constants.BackendProvider("gcp"),
+			},
+			wantErr: true,
+			errMsg:  "unsupported backend provider",
+		},
+		{
+			name: "empty provider",
+			cfg: &Config{
+				BackendProvider: "",
+			},
+			wantErr: true,
+			errMsg:  "unsupported backend provider",
 		},
 	}
 
@@ -513,6 +559,42 @@ func TestNormalizeWebSocketEndpoint(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := normalizeWebSocketEndpoint(tt.input)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestNormalizeBackendProvider(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    constants.BackendProvider
+		expected constants.BackendProvider
+	}{
+		{
+			name:     "empty provider",
+			input:    "",
+			expected: "",
+		},
+		{
+			name:     "lowercase provider",
+			input:    constants.BackendProvider("aws"),
+			expected: constants.AWS,
+		},
+		{
+			name:     "uppercase provider",
+			input:    constants.BackendProvider("AWS"),
+			expected: constants.AWS,
+		},
+		{
+			name:     "mixed case provider",
+			input:    constants.BackendProvider("Aws"),
+			expected: constants.AWS,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := normalizeBackendProvider(tt.input)
 			assert.Equal(t, tt.expected, result)
 		})
 	}

@@ -30,19 +30,6 @@ type Processor struct {
 
 // NewProcessor creates a new event processor with AWS backend
 func NewProcessor(ctx context.Context, cfg *config.Config, log *slog.Logger) (*Processor, error) {
-	if cfg.ExecutionsTable == "" {
-		return nil, fmt.Errorf("ExecutionsTable cannot be empty")
-	}
-	if cfg.WebSocketConnectionsTable == "" {
-		return nil, fmt.Errorf("WebSocketConnectionsTable cannot be empty")
-	}
-	if cfg.WebSocketTokensTable == "" {
-		return nil, fmt.Errorf("WebSocketTokensTable cannot be empty")
-	}
-	if cfg.WebSocketAPIEndpoint == "" {
-		return nil, fmt.Errorf("WebSocketAPIEndpoint cannot be empty")
-	}
-
 	awsCfg, err := awsconfig.LoadDefaultConfig(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load AWS configuration: %w", err)
