@@ -1,4 +1,4 @@
-package websocket
+package aws
 
 import (
 	"context"
@@ -115,7 +115,7 @@ func TestValidateConnectionParams(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			wm := &WebSocketManager{logger: testutil.SilentLogger()}
+			wm := &Manager{logger: testutil.SilentLogger()}
 
 			resp := wm.validateConnectionParams(tt.connectionID, tt.executionID, tt.token)
 
@@ -267,7 +267,7 @@ func TestHandleConnect(t *testing.T) {
 				},
 			}
 
-			wm := &WebSocketManager{
+			wm := &Manager{
 				connRepo:  mockConnRepo,
 				tokenRepo: mockTokenRepo,
 				logger:    testutil.SilentLogger(),
@@ -318,7 +318,7 @@ func TestHandleConnect_UsesTokenMetadata(t *testing.T) {
 		},
 	}
 
-	wm := &WebSocketManager{
+	wm := &Manager{
 		connRepo:  mockConnRepo,
 		tokenRepo: mockTokenRepo,
 		logger:    testutil.SilentLogger(),
