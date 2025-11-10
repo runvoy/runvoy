@@ -20,10 +20,10 @@ func main() {
 	log := logger.Initialize(constants.Production, cfg.GetLogLevel())
 	ctx, cancel := context.WithTimeout(context.Background(), cfg.InitTimeout)
 
-	processor, err := events.NewProcessor(ctx, cfg, log)
+	processor, err := events.Initialize(ctx, cfg, log)
 	cancel()
 	if err != nil {
-		log.Error("failed to create event processor", "error", err)
+		log.Error("failed to initialize event processor", "error", err)
 		os.Exit(1)
 	}
 
