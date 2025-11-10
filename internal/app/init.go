@@ -40,12 +40,13 @@ func Initialize(
 	)
 
 	var (
-		userRepo      database.UserRepository
-		executionRepo database.ExecutionRepository
-		connRepo      database.ConnectionRepository
-		tokenRepo     database.TokenRepository
-		runner        Runner
-		err           error
+		userRepo          database.UserRepository
+		executionRepo     database.ExecutionRepository
+		connRepo          database.ConnectionRepository
+		tokenRepo         database.TokenRepository
+		runner            Runner
+		err               error
+		websocketEndpoint string
 	)
 
 	switch provider {
@@ -61,6 +62,7 @@ func Initialize(
 		connRepo = deps.connRepo
 		tokenRepo = deps.tokenRepo
 		runner = deps.runner
+		websocketEndpoint = cfg.AWS.WebSocketAPIEndpoint
 	default:
 		return nil, fmt.Errorf("unknown backend provider: %s (supported: %s)", provider, constants.AWS)
 	}
@@ -75,7 +77,7 @@ func Initialize(
 		runner,
 		logger,
 		provider,
-		cfg.WebSocketAPIEndpoint,
+		websocketEndpoint,
 	), nil
 }
 

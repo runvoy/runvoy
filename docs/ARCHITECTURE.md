@@ -952,7 +952,7 @@ Example response:
 Environment variables:
 
 ```text
-RUNVOY_LOG_GROUP           # required (e.g. /aws/ecs/runvoy)
+RUNVOY_AWS_LOG_GROUP       # required (e.g. /aws/ecs/runvoy)
 ```
 
 #### Streaming Architecture - Mixed Approach (REST + WebSocket Best-Effort)

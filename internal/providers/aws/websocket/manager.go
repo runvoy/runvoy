@@ -42,16 +42,21 @@ func NewManager(
 	tokenRepo database.TokenRepository,
 	log *slog.Logger,
 ) *Manager {
+	if cfg.AWS == nil {
+		log.Error("AWS configuration is nil")
+		panic("AWS configuration is required for WebSocket manager")
+	}
+
 	apiGwClient := apigatewaymanagementapi.NewFromConfig(*awsCfg, func(o *apigatewaymanagementapi.Options) {
-		o.BaseEndpoint = aws.String(cfg.WebSocketAPIEndpoint)
+		o.BaseEndpoint = aws.String(cfg.AWS.WebSocketAPIEndpoint)
 	})
 	connectionIDs := make([]string, 0)
 
 	log.Debug("websocket manager initialized",
 		"context", map[string]string{
-			"connections_table": cfg.WebSocketConnectionsTable,
-			"tokens_table":      cfg.WebSocketTokensTable,
-			"api_endpoint":      cfg.WebSocketAPIEndpoint,
+			"connections_table": cfg.AWS.WebSocketConnectionsTable,
+			"tokens_table":      cfg.AWS.WebSocketTokensTable,
+			"api_endpoint":      cfg.AWS.WebSocketAPIEndpoint,
 		},
 	)
 
@@ -59,7 +64,7 @@ func NewManager(
 		connRepo:      connRepo,
 		tokenRepo:     tokenRepo,
 		apiGwClient:   apiGwClient,
-		apiGwEndpoint: aws.String(cfg.WebSocketAPIEndpoint),
+		apiGwEndpoint: aws.String(cfg.AWS.WebSocketAPIEndpoint),
 		logger:        log,
 		connectionIDs: connectionIDs,
 	}

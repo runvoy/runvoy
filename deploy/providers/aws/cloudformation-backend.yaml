@@ -451,19 +451,19 @@ Resources:
           Value: 'cloudformation'
       Environment:
         Variables:
-          RUNVOY_API_KEYS_TABLE: !Ref APIKeysTable
-          RUNVOY_ECS_CLUSTER: !Ref ECSCluster
-          RUNVOY_EXECUTIONS_TABLE: !Ref ExecutionsTable
-          RUNVOY_LOG_GROUP: !Ref RunnerLogGroup
-          RUNVOY_PENDING_API_KEYS_TABLE: !Ref PendingAPIKeysTable
-          RUNVOY_SECURITY_GROUP: !Ref FargateSecurityGroup
-          RUNVOY_SUBNET_1: !Ref PublicSubnet1
-          RUNVOY_SUBNET_2: !Ref PublicSubnet2
-          RUNVOY_TASK_EXEC_ROLE_ARN: !GetAtt TaskExecutionRole.Arn
-          RUNVOY_TASK_ROLE_ARN: !GetAtt TaskRole.Arn
-          RUNVOY_WEBSOCKET_CONNECTIONS_TABLE: !Ref WebSocketConnectionsTable
-          RUNVOY_WEBSOCKET_TOKENS_TABLE: !Ref WebSocketTokensTable
-          RUNVOY_WEBSOCKET_API_ENDPOINT: !Sub '${WebSocketApi.ApiId}.execute-api.${AWS::Region}.amazonaws.com/production'
+          RUNVOY_AWS_API_KEYS_TABLE: !Ref APIKeysTable
+          RUNVOY_AWS_ECS_CLUSTER: !Ref ECSCluster
+          RUNVOY_AWS_EXECUTIONS_TABLE: !Ref ExecutionsTable
+          RUNVOY_AWS_LOG_GROUP: !Ref RunnerLogGroup
+          RUNVOY_AWS_PENDING_API_KEYS_TABLE: !Ref PendingAPIKeysTable
+          RUNVOY_AWS_SECURITY_GROUP: !Ref FargateSecurityGroup
+          RUNVOY_AWS_SUBNET_1: !Ref PublicSubnet1
+          RUNVOY_AWS_SUBNET_2: !Ref PublicSubnet2
+          RUNVOY_AWS_TASK_EXEC_ROLE_ARN: !GetAtt TaskExecutionRole.Arn
+          RUNVOY_AWS_TASK_ROLE_ARN: !GetAtt TaskRole.Arn
+          RUNVOY_AWS_WEBSOCKET_CONNECTIONS_TABLE: !Ref WebSocketConnectionsTable
+          RUNVOY_AWS_WEBSOCKET_TOKENS_TABLE: !Ref WebSocketTokensTable
+          RUNVOY_AWS_WEBSOCKET_API_ENDPOINT: !Sub '${WebSocketApi.ApiId}.execute-api.${AWS::Region}.amazonaws.com/production'
 
   # Lambda Function URL
   LambdaFunctionUrl:
@@ -519,11 +519,11 @@ Resources:
           Value: 'cloudformation'
       Environment:
         Variables:
-          RUNVOY_EXECUTIONS_TABLE: !Ref ExecutionsTable
-          RUNVOY_ECS_CLUSTER: !Ref ECSCluster
-          RUNVOY_WEBSOCKET_CONNECTIONS_TABLE: !Ref WebSocketConnectionsTable
-          RUNVOY_WEBSOCKET_TOKENS_TABLE: !Ref WebSocketTokensTable
-          RUNVOY_WEBSOCKET_API_ENDPOINT: !Sub '${WebSocketApi.ApiId}.execute-api.${AWS::Region}.amazonaws.com/production'
+          RUNVOY_AWS_EXECUTIONS_TABLE: !Ref ExecutionsTable
+          RUNVOY_AWS_ECS_CLUSTER: !Ref ECSCluster
+          RUNVOY_AWS_WEBSOCKET_CONNECTIONS_TABLE: !Ref WebSocketConnectionsTable
+          RUNVOY_AWS_WEBSOCKET_TOKENS_TABLE: !Ref WebSocketTokensTable
+          RUNVOY_AWS_WEBSOCKET_API_ENDPOINT: !Sub '${WebSocketApi.ApiId}.execute-api.${AWS::Region}.amazonaws.com/production'
           RUNVOY_LOG_LEVEL: !Ref 'AWS::NoValue'
 
   # Allow CloudWatch Logs to invoke the event processor

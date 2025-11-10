@@ -91,9 +91,9 @@ Both services read configuration from environment variables:
 
 ### Event Processor Configuration
 - `RUNVOY_EVENT_PROCESSOR_PORT` - Server port (default: 8081)
-- `RUNVOY_EXECUTIONS_TABLE` - DynamoDB table for executions
-- `RUNVOY_WEBSOCKET_CONNECTIONS_TABLE` - DynamoDB table for WebSocket connections
-- `RUNVOY_WEBSOCKET_API_ENDPOINT` - API Gateway Management API endpoint
+- `RUNVOY_AWS_EXECUTIONS_TABLE` - DynamoDB table for executions
+- `RUNVOY_AWS_WEBSOCKET_CONNECTIONS_TABLE` - DynamoDB table for WebSocket connections
+- `RUNVOY_AWS_WEBSOCKET_API_ENDPOINT` - API Gateway Management API endpoint
 - `RUNVOY_LOG_LEVEL` - Logging level
 
 For local development, ensure these are set in your `.env` file.
