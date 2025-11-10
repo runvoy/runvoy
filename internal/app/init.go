@@ -67,6 +67,15 @@ func Initialize(
 
 	logger.Debug(constants.ProjectName + " orchestrator initialized successfully")
 
+	// Get the WebSocket API endpoint based on provider
+	var websocketEndpoint string
+	switch provider {
+	case constants.AWS:
+		if cfg.AWS != nil {
+			websocketEndpoint = cfg.AWS.WebSocketAPIEndpoint
+		}
+	}
+
 	return NewService(
 		userRepo,
 		executionRepo,
@@ -75,7 +84,7 @@ func Initialize(
 		runner,
 		logger,
 		provider,
-		cfg.WebSocketAPIEndpoint,
+		websocketEndpoint,
 	), nil
 }
 

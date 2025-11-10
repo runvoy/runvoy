@@ -19,6 +19,7 @@ import (
 
 // Config represents the unified configuration structure for both CLI and services.
 // It supports loading from YAML files and environment variables.
+// Provider-specific configurations are nested under their respective provider keys.
 type Config struct {
 	// CLI Configuration
 	APIEndpoint string `mapstructure:"api_endpoint" yaml:"api_endpoint" validate:"omitempty,url"`
@@ -26,25 +27,42 @@ type Config struct {
 	WebURL      string `mapstructure:"web_url" yaml:"web_url" validate:"omitempty,url"`
 
 	// Backend Service Configuration
-	APIKeysTable              string                    `mapstructure:"api_keys_table"`
-	BackendProvider           constants.BackendProvider `mapstructure:"backend_provider" yaml:"backend_provider"`
-	ECSCluster                string                    `mapstructure:"ecs_cluster"`
-	ExecutionsTable           string                    `mapstructure:"executions_table"`
-	InitTimeout               time.Duration             `mapstructure:"init_timeout"`
-	LogGroup                  string                    `mapstructure:"log_group"`
-	LogLevel                  string                    `mapstructure:"log_level"`
-	PendingAPIKeysTable       string                    `mapstructure:"pending_api_keys_table"`
-	Port                      int                       `mapstructure:"port" validate:"omitempty"`
-	RequestTimeout            time.Duration             `mapstructure:"request_timeout"`
-	SecurityGroup             string                    `mapstructure:"security_group"`
-	Subnet1                   string                    `mapstructure:"subnet_1"`
-	Subnet2                   string                    `mapstructure:"subnet_2"`
-	TaskDefinition            string                    `mapstructure:"task_definition"`
-	TaskExecRoleARN           string                    `mapstructure:"task_exec_role_arn"`
-	TaskRoleARN               string                    `mapstructure:"task_role_arn"`
-	WebSocketAPIEndpoint      string                    `mapstructure:"websocket_api_endpoint"`
-	WebSocketConnectionsTable string                    `mapstructure:"websocket_connections_table"`
-	WebSocketTokensTable      string                    `mapstructure:"websocket_tokens_table"`
+	BackendProvider constants.BackendProvider `mapstructure:"backend_provider" yaml:"backend_provider"`
+	InitTimeout     time.Duration             `mapstructure:"init_timeout"`
+	LogLevel        string                    `mapstructure:"log_level"`
+	Port            int                       `mapstructure:"port" validate:"omitempty"`
+	RequestTimeout  time.Duration             `mapstructure:"request_timeout"`
+
+	// Provider-specific configurations
+	AWS *AWSConfig `mapstructure:"aws" yaml:"aws,omitempty"`
+	// Future providers can be added here:
+	// GCP *GCPConfig `mapstructure:"gcp" yaml:"gcp,omitempty"`
+}
+
+// AWSConfig contains AWS-specific configuration.
+// These settings are only used when BackendProvider is set to AWS.
+type AWSConfig struct {
+	// DynamoDB Tables
+	APIKeysTable              string `mapstructure:"api_keys_table"`
+	ExecutionsTable           string `mapstructure:"executions_table"`
+	PendingAPIKeysTable       string `mapstructure:"pending_api_keys_table"`
+	WebSocketConnectionsTable string `mapstructure:"websocket_connections_table"`
+	WebSocketTokensTable      string `mapstructure:"websocket_tokens_table"`
+
+	// ECS Configuration
+	ECSCluster      string `mapstructure:"ecs_cluster"`
+	SecurityGroup   string `mapstructure:"security_group"`
+	Subnet1         string `mapstructure:"subnet_1"`
+	Subnet2         string `mapstructure:"subnet_2"`
+	TaskDefinition  string `mapstructure:"task_definition"`
+	TaskExecRoleARN string `mapstructure:"task_exec_role_arn"`
+	TaskRoleARN     string `mapstructure:"task_role_arn"`
+
+	// CloudWatch Logs
+	LogGroup string `mapstructure:"log_group"`
+
+	// API Gateway WebSocket
+	WebSocketAPIEndpoint string `mapstructure:"websocket_api_endpoint"`
 }
 
 var validate = validator.New()
@@ -129,7 +147,9 @@ func LoadOrchestrator() (*Config, error) {
 	}
 
 	// Normalize WebSocket endpoint: strip protocol if present
-	cfg.WebSocketAPIEndpoint = normalizeWebSocketEndpoint(cfg.WebSocketAPIEndpoint)
+	if cfg.AWS != nil {
+		cfg.AWS.WebSocketAPIEndpoint = normalizeWebSocketEndpoint(cfg.AWS.WebSocketAPIEndpoint)
+	}
 
 	return &cfg, nil
 }
@@ -266,40 +286,30 @@ func loadConfigFile(v *viper.Viper) error {
 }
 
 func bindEnvVars(v *viper.Viper) {
-	// Bind all environment variables explicitly
-	envVars := []string{
-		"API_KEYS_TABLE",
-		"BACKEND_PROVIDER",
-		"DEV_SERVER_PORT",
-		"ECS_CLUSTER",
-		"EXECUTIONS_TABLE",
-		"INIT_TIMEOUT",
-		"LOG_GROUP",
-		"LOG_LEVEL",
-		"PENDING_API_KEYS_TABLE",
-		"REQUEST_TIMEOUT",
-		"SECURITY_GROUP",
-		"SUBNET_1",
-		"SUBNET_2",
-		"TASK_DEFINITION",
-		"TASK_EXEC_ROLE_ARN",
-		"TASK_ROLE_ARN",
-		"WEB_URL",
-		"WEBSOCKET_API_ENDPOINT",
-		"WEBSOCKET_CONNECTIONS_TABLE",
-		"WEBSOCKET_TOKENS_TABLE",
-	}
+	// Bind common environment variables
+	_ = v.BindEnv("port", "RUNVOY_DEV_SERVER_PORT", "RUNVOY_PORT")
+	_ = v.BindEnv("backend_provider", "RUNVOY_BACKEND_PROVIDER")
+	_ = v.BindEnv("init_timeout", "RUNVOY_INIT_TIMEOUT")
+	_ = v.BindEnv("log_level", "RUNVOY_LOG_LEVEL")
+	_ = v.BindEnv("request_timeout", "RUNVOY_REQUEST_TIMEOUT")
+	_ = v.BindEnv("web_url", "RUNVOY_WEB_URL")
 
-	for _, envVar := range envVars {
-		// Map DEV_SERVER_PORT to port
-		if envVar == "DEV_SERVER_PORT" {
-			_ = v.BindEnv("port", "RUNVOY_DEV_SERVER_PORT")
-		} else {
-			// Convert to lowercase to match mapstructure tags (keep underscores)
-			configKey := strings.ToLower(envVar)
-			_ = v.BindEnv(configKey, "RUNVOY_"+envVar)
-		}
-	}
+	// Bind AWS-specific environment variables
+	// Support both new nested format (RUNVOY_AWS_*) and old flat format (RUNVOY_*) for backward compatibility
+	_ = v.BindEnv("aws.api_keys_table", "RUNVOY_AWS_API_KEYS_TABLE", "RUNVOY_API_KEYS_TABLE")
+	_ = v.BindEnv("aws.ecs_cluster", "RUNVOY_AWS_ECS_CLUSTER", "RUNVOY_ECS_CLUSTER")
+	_ = v.BindEnv("aws.executions_table", "RUNVOY_AWS_EXECUTIONS_TABLE", "RUNVOY_EXECUTIONS_TABLE")
+	_ = v.BindEnv("aws.log_group", "RUNVOY_AWS_LOG_GROUP", "RUNVOY_LOG_GROUP")
+	_ = v.BindEnv("aws.pending_api_keys_table", "RUNVOY_AWS_PENDING_API_KEYS_TABLE", "RUNVOY_PENDING_API_KEYS_TABLE")
+	_ = v.BindEnv("aws.security_group", "RUNVOY_AWS_SECURITY_GROUP", "RUNVOY_SECURITY_GROUP")
+	_ = v.BindEnv("aws.subnet_1", "RUNVOY_AWS_SUBNET_1", "RUNVOY_SUBNET_1")
+	_ = v.BindEnv("aws.subnet_2", "RUNVOY_AWS_SUBNET_2", "RUNVOY_SUBNET_2")
+	_ = v.BindEnv("aws.task_definition", "RUNVOY_AWS_TASK_DEFINITION", "RUNVOY_TASK_DEFINITION")
+	_ = v.BindEnv("aws.task_exec_role_arn", "RUNVOY_AWS_TASK_EXEC_ROLE_ARN", "RUNVOY_TASK_EXEC_ROLE_ARN")
+	_ = v.BindEnv("aws.task_role_arn", "RUNVOY_AWS_TASK_ROLE_ARN", "RUNVOY_TASK_ROLE_ARN")
+	_ = v.BindEnv("aws.websocket_api_endpoint", "RUNVOY_AWS_WEBSOCKET_API_ENDPOINT", "RUNVOY_WEBSOCKET_API_ENDPOINT")
+	_ = v.BindEnv("aws.websocket_connections_table", "RUNVOY_AWS_WEBSOCKET_CONNECTIONS_TABLE", "RUNVOY_WEBSOCKET_CONNECTIONS_TABLE")
+	_ = v.BindEnv("aws.websocket_tokens_table", "RUNVOY_AWS_WEBSOCKET_TOKENS_TABLE", "RUNVOY_WEBSOCKET_TOKENS_TABLE")
 }
 
 // validateOrchestrator validates required fields for orchestrator service.
@@ -315,17 +325,21 @@ func validateOrchestrator(cfg *Config) error {
 }
 
 func validateAWSOrchestrator(cfg *Config) error {
+	if cfg.AWS == nil {
+		return fmt.Errorf("AWS configuration is required when backend_provider is AWS")
+	}
+
 	required := map[string]string{
-		"APIKeysTable":              cfg.APIKeysTable,
-		"ECSCluster":                cfg.ECSCluster,
-		"ExecutionsTable":           cfg.ExecutionsTable,
-		"LogGroup":                  cfg.LogGroup,
-		"SecurityGroup":             cfg.SecurityGroup,
-		"Subnet1":                   cfg.Subnet1,
-		"Subnet2":                   cfg.Subnet2,
-		"WebSocketAPIEndpoint":      cfg.WebSocketAPIEndpoint,
-		"WebSocketConnectionsTable": cfg.WebSocketConnectionsTable,
-		"WebSocketTokensTable":      cfg.WebSocketTokensTable,
+		"AWS.APIKeysTable":              cfg.AWS.APIKeysTable,
+		"AWS.ECSCluster":                cfg.AWS.ECSCluster,
+		"AWS.ExecutionsTable":           cfg.AWS.ExecutionsTable,
+		"AWS.LogGroup":                  cfg.AWS.LogGroup,
+		"AWS.SecurityGroup":             cfg.AWS.SecurityGroup,
+		"AWS.Subnet1":                   cfg.AWS.Subnet1,
+		"AWS.Subnet2":                   cfg.AWS.Subnet2,
+		"AWS.WebSocketAPIEndpoint":      cfg.AWS.WebSocketAPIEndpoint,
+		"AWS.WebSocketConnectionsTable": cfg.AWS.WebSocketConnectionsTable,
+		"AWS.WebSocketTokensTable":      cfg.AWS.WebSocketTokensTable,
 	}
 
 	for field, value := range required {
@@ -350,12 +364,16 @@ func validateEventProcessor(cfg *Config) error {
 }
 
 func validateAWSEventProcessor(cfg *Config) error {
+	if cfg.AWS == nil {
+		return fmt.Errorf("AWS configuration is required when backend_provider is AWS")
+	}
+
 	required := map[string]string{
-		"ECSCluster":                cfg.ECSCluster,
-		"ExecutionsTable":           cfg.ExecutionsTable,
-		"WebSocketAPIEndpoint":      cfg.WebSocketAPIEndpoint,
-		"WebSocketConnectionsTable": cfg.WebSocketConnectionsTable,
-		"WebSocketTokensTable":      cfg.WebSocketTokensTable,
+		"AWS.ECSCluster":                cfg.AWS.ECSCluster,
+		"AWS.ExecutionsTable":           cfg.AWS.ExecutionsTable,
+		"AWS.WebSocketAPIEndpoint":      cfg.AWS.WebSocketAPIEndpoint,
+		"AWS.WebSocketConnectionsTable": cfg.AWS.WebSocketConnectionsTable,
+		"AWS.WebSocketTokensTable":      cfg.AWS.WebSocketTokensTable,
 	}
 
 	for field, value := range required {
@@ -364,7 +382,7 @@ func validateAWSEventProcessor(cfg *Config) error {
 		}
 	}
 
-	cfg.WebSocketAPIEndpoint = "https://" + normalizeWebSocketEndpoint(cfg.WebSocketAPIEndpoint)
+	cfg.AWS.WebSocketAPIEndpoint = "https://" + normalizeWebSocketEndpoint(cfg.AWS.WebSocketAPIEndpoint)
 
 	return nil
 }
