@@ -10,7 +10,7 @@ import (
 	"runvoy/internal/constants"
 	dynamoRepo "runvoy/internal/providers/aws/database/dynamodb"
 	eventsAws "runvoy/internal/providers/aws/events"
-	websocketAws "runvoy/internal/websocket/aws"
+	websocketAws "runvoy/internal/providers/aws/websocket"
 
 	awsConfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
