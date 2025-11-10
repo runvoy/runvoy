@@ -20,7 +20,7 @@ func main() {
 	log := logger.Initialize(constants.Production, cfg.GetLogLevel())
 	ctx, cancel := context.WithTimeout(context.Background(), cfg.InitTimeout)
 
-	processor, err := events.Initialize(ctx, constants.AWS, cfg, log)
+	processor, err := events.Initialize(ctx, cfg.BackendProvider, cfg, log)
 	cancel()
 	if err != nil {
 		log.Error("failed to initialize event processor", "error", err)
