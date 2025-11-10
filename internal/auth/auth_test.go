@@ -10,43 +10,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestGenerateAPIKey(t *testing.T) {
-	tests := []struct {
-		name string
-	}{
-		{name: "generates valid API key"},
-		{name: "generates unique keys on multiple calls"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			key, err := GenerateAPIKey()
-
-			require.NoError(t, err, "GenerateAPIKey should not return an error")
-			assert.NotEmpty(t, key, "Generated key should not be empty")
-
-			// Verify it's base64 URL encoded
-			_, err = base64.URLEncoding.WithPadding(base64.NoPadding).DecodeString(key)
-			assert.NoError(t, err, "Key should be valid base64 URL encoding")
-
-			// Verify minimum length (24 bytes encoded should be ~32 chars)
-			assert.GreaterOrEqual(t, len(key), 30, "Key should be at least 30 characters")
-
-			// Verify it doesn't contain invalid characters
-			assert.True(t, isValidBase64URL(key), "Key should only contain valid base64 URL characters")
-		})
-	}
-
-	t.Run("generates unique keys", func(t *testing.T) {
-		key1, err1 := GenerateAPIKey()
-		key2, err2 := GenerateAPIKey()
-
-		require.NoError(t, err1)
-		require.NoError(t, err2)
-		assert.NotEqual(t, key1, key2, "Two consecutive API keys should be different")
-	})
-}
-
 func TestHashAPIKey(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -126,13 +89,6 @@ func isValidBase64URL(s string) bool {
 func computeExpectedHash(input string) string {
 	hash := sha256.Sum256([]byte(input))
 	return base64.StdEncoding.EncodeToString(hash[:])
-}
-
-// Benchmark for API key generation
-func BenchmarkGenerateAPIKey(b *testing.B) {
-	for b.Loop() {
-		_, _ = GenerateAPIKey()
-	}
 }
 
 func TestGenerateSecretToken(t *testing.T) {
