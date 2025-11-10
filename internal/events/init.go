@@ -8,8 +8,8 @@ import (
 
 	"runvoy/internal/config"
 	"runvoy/internal/constants"
-	dynamoRepo "runvoy/internal/database/dynamodb"
-	eventsAws "runvoy/internal/events/aws"
+	dynamoRepo "runvoy/internal/providers/aws/database/dynamodb"
+	eventsAws "runvoy/internal/providers/aws/events"
 	websocketAws "runvoy/internal/websocket/aws"
 
 	awsConfig "github.com/aws/aws-sdk-go-v2/config"
