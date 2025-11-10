@@ -154,7 +154,7 @@ Dedicate 2-3 weeks to adding comprehensive test coverage as the #1 priority.
 
 **Quick Wins:**
 1. Add unit tests for `internal/app` (service layer)
-2. Add unit tests for `internal/database/dynamodb`
+2. Add unit tests for `internal/providers/aws/database/dynamodb`
 3. Add integration tests for API endpoints
 4. Set up coverage tracking with Codecov
 

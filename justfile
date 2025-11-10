@@ -47,18 +47,18 @@ build-cli:
         -o ../../bin/runvoy
 
 # Build orchestrator backend service (Lambda function)
-[working-directory: 'cmd/backend/aws/orchestrator']
+[working-directory: 'cmd/backend/providers/aws/orchestrator']
 build-orchestrator:
     GOARCH=arm64 GOOS=linux go build \
         -ldflags {{build_flags}} \
-        -o ../../../../dist/bootstrap
+        -o ../../../../../dist/bootstrap
 
 # Build event processor backend service (Lambda function)
-[working-directory: 'cmd/backend/aws/event_processor']
+[working-directory: 'cmd/backend/providers/aws/event_processor']
 build-event-processor:
     GOARCH=arm64 GOOS=linux go build \
         -ldflags {{build_flags}} \
-        -o ../../../../dist/bootstrap
+        -o ../../../../../dist/bootstrap
 
 # Build local development server
 [working-directory: 'cmd/local']
@@ -165,13 +165,13 @@ pre-commit: check test-coverage
 create-lambda-bucket:
     aws cloudformation deploy \
         --stack-name runvoy-releases-bucket \
-        --template-file deployments/runvoy-bucket.yaml
+        --template-file deploy/providers/aws/runvoy-bucket.yaml
 
 # Create/update backend infrastructure via cloudformation
 create-backend-infra:
     aws cloudformation deploy \
         --stack-name {{stack_name}} \
-        --template-file deployments/cloudformation-backend.yaml \
+        --template-file deploy/providers/aws/cloudformation-backend.yaml \
         --capabilities CAPABILITY_NAMED_IAM
     just create-config-file {{stack_name}}
     just seed-admin-user {{admin_email}} {{stack_name}}

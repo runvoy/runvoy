@@ -54,7 +54,7 @@ type Service struct {
 	websocketAPIBaseURL string // Base WebSocket API URL (without wss:// prefix or path)
 }
 
-// NOTE: provider-specific configuration has been moved to subpackages (e.g., app/aws).
+// NOTE: provider-specific configuration has been moved to subpackages (e.g., providers/aws/app).
 
 // NewService creates a new service instance.
 // If userRepo is nil, user-related operations will not be available.

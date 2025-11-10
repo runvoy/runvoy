@@ -87,7 +87,7 @@ See `internal/auth/apikey_test.go` for a comprehensive example with:
 **Estimated: 1-2 weeks**
 
 Priority packages to test:
-1. **`internal/database/dynamodb`** - Critical database operations
+1. **`internal/providers/aws/database/dynamodb`** - Critical database operations
    - User repository (CreateUser, GetUser, UpdateLastUsed, RevokeUser)
    - Execution repository (CreateExecution, GetExecution, UpdateExecution, ListExecutions)
    - Target: 80% coverage
@@ -110,7 +110,7 @@ Priority packages to test:
 **Estimated: 1 week**
 
 - `internal/app` - Service initialization and orchestration
-- `internal/app/aws` - AWS integration (with mocks)
+- `internal/providers/aws/app` - AWS integration (with mocks)
 - `internal/events` - Event processing
 
 **Expected outcome**: Coverage 60%
