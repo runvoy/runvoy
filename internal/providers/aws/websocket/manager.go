@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"runvoy/internal/api"
+	"runvoy/internal/auth"
 	"runvoy/internal/config"
 	"runvoy/internal/constants"
 	"runvoy/internal/database"
@@ -589,4 +590,53 @@ func (m *Manager) sendDisconnectToConnection(
 		"connection_id": connectionID,
 	})
 	return nil
+}
+
+// GenerateWebSocketURL creates a WebSocket token and returns the connection URL.
+// It stores the token for validation when the client connects.
+func (m *Manager) GenerateWebSocketURL(
+	ctx context.Context,
+	executionID string,
+	userEmail *string,
+	clientIPAtCreationTime *string,
+) string {
+	// Generate a secure token for WebSocket authentication
+	token, tokenGenErr := auth.GenerateSecretToken()
+	if tokenGenErr != nil {
+		m.logger.Error("failed to generate websocket token",
+			"error", tokenGenErr,
+			"execution_id", executionID)
+		return ""
+	}
+
+	// Store token for validation when client connects
+	expiresAt := time.Now().Add(constants.ConnectionTTLHours * time.Hour).Unix()
+	var email string
+	if userEmail != nil {
+		email = *userEmail
+	}
+	var clientIP string
+	if clientIPAtCreationTime != nil {
+		clientIP = *clientIPAtCreationTime
+	}
+
+	wsToken := &api.WebSocketToken{
+		Token:       token,
+		ExecutionID: executionID,
+		UserEmail:   email,
+		ClientIP:    clientIP,
+		ExpiresAt:   expiresAt,
+		CreatedAt:   time.Now().Unix(),
+	}
+
+	if tokenErr := m.tokenRepo.CreateToken(ctx, wsToken); tokenErr != nil {
+		m.logger.Error("failed to store websocket token",
+			"error", tokenErr,
+			"execution_id", executionID)
+		return ""
+	}
+
+	// Construct WebSocket URL with wss:// protocol
+	wsURL := "wss://" + *m.apiGwEndpoint
+	return fmt.Sprintf("%s?execution_id=%s&token=%s", wsURL, executionID, token)
 }

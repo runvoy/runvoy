@@ -15,6 +15,7 @@ import (
 	"runvoy/internal/database"
 	apperrors "runvoy/internal/errors"
 	"runvoy/internal/logger"
+	"runvoy/internal/websocket"
 )
 
 // Runner abstracts provider-specific command execution (e.g., AWS ECS, GCP, etc.).
@@ -44,14 +45,14 @@ type Runner interface {
 
 // Service provides the core business logic for command execution and user management.
 type Service struct {
-	userRepo            database.UserRepository
-	executionRepo       database.ExecutionRepository
-	connRepo            database.ConnectionRepository
-	tokenRepo           database.TokenRepository
-	runner              Runner
-	Logger              *slog.Logger
-	Provider            constants.BackendProvider
-	websocketAPIBaseURL string // Base WebSocket API URL (without wss:// prefix or path)
+	userRepo      database.UserRepository
+	executionRepo database.ExecutionRepository
+	connRepo      database.ConnectionRepository
+	tokenRepo     database.TokenRepository
+	runner        Runner
+	Logger        *slog.Logger
+	Provider      constants.BackendProvider
+	wsManager     websocket.Manager // WebSocket manager for generating URLs and managing connections
 }
 
 // NOTE: provider-specific configuration has been moved to subpackages (e.g., providers/aws/app).
@@ -59,6 +60,7 @@ type Service struct {
 // NewService creates a new service instance.
 // If userRepo is nil, user-related operations will not be available.
 // This allows the service to work without database dependencies for simple operations.
+// If wsManager is nil, WebSocket URL generation will be skipped.
 func NewService(
 	userRepo database.UserRepository,
 	executionRepo database.ExecutionRepository,
@@ -67,16 +69,16 @@ func NewService(
 	runner Runner,
 	log *slog.Logger,
 	provider constants.BackendProvider,
-	websocketAPIBaseURL string) *Service {
+	wsManager websocket.Manager) *Service {
 	return &Service{
-		userRepo:            userRepo,
-		executionRepo:       executionRepo,
-		connRepo:            connRepo,
-		tokenRepo:           tokenRepo,
-		runner:              runner,
-		Logger:              log,
-		Provider:            provider,
-		websocketAPIBaseURL: websocketAPIBaseURL,
+		userRepo:      userRepo,
+		executionRepo: executionRepo,
+		connRepo:      connRepo,
+		tokenRepo:     tokenRepo,
+		runner:        runner,
+		Logger:        log,
+		Provider:      provider,
+		wsManager:     wsManager,
 	}
 }
 
@@ -411,8 +413,8 @@ func (s *Service) GetLogsByExecutionID(
 	}
 
 	var websocketURL string
-	if s.websocketAPIBaseURL != "" {
-		websocketURL = s.generateWebSocketURL(ctx, executionID, userEmail, clientIPAtCreationTime)
+	if s.wsManager != nil {
+		websocketURL = s.wsManager.GenerateWebSocketURL(ctx, executionID, userEmail, clientIPAtCreationTime)
 	}
 
 	return &api.LogsResponse{
@@ -423,53 +425,6 @@ func (s *Service) GetLogsByExecutionID(
 	}, nil
 }
 
-// generateWebSocketURL creates a WebSocket token and returns the connection URL.
-// It stores the token for validation when the client connects.
-func (s *Service) generateWebSocketURL(
-	ctx context.Context,
-	executionID string,
-	userEmail *string,
-	clientIPAtCreationTime *string,
-) string {
-	// Generate a secure token for WebSocket authentication
-	token, tokenGenErr := auth.GenerateSecretToken()
-	if tokenGenErr != nil {
-		s.Logger.Error("failed to generate websocket token",
-			"error", tokenGenErr,
-			"execution_id", executionID)
-		return ""
-	}
-
-	// Store token for validation when client connects
-	expiresAt := time.Now().Add(constants.ConnectionTTLHours * time.Hour).Unix()
-	var email string
-	if userEmail != nil {
-		email = *userEmail
-	}
-	var clientIP string
-	if clientIPAtCreationTime != nil {
-		clientIP = *clientIPAtCreationTime
-	}
-
-	wsToken := &api.WebSocketToken{
-		Token:       token,
-		ExecutionID: executionID,
-		UserEmail:   email,
-		ClientIP:    clientIP,
-		ExpiresAt:   expiresAt,
-		CreatedAt:   time.Now().Unix(),
-	}
-
-	if tokenErr := s.tokenRepo.CreateToken(ctx, wsToken); tokenErr != nil {
-		s.Logger.Error("failed to store websocket token",
-			"error", tokenErr,
-			"execution_id", executionID)
-		return ""
-	}
-
-	wsURL := "wss://" + s.websocketAPIBaseURL
-	return fmt.Sprintf("%s?execution_id=%s&token=%s", wsURL, executionID, token)
-}
 
 // GetExecutionStatus returns the current status and metadata for a given execution ID
 func (s *Service) GetExecutionStatus(ctx context.Context, executionID string) (*api.ExecutionStatusResponse, error) {

@@ -2,11 +2,14 @@ package app
 
 import (
 	"context"
+	"encoding/json"
+	"log/slog"
 	"time"
 
 	"runvoy/internal/api"
 	"runvoy/internal/constants"
 	"runvoy/internal/testutil"
+	"runvoy/internal/websocket"
 )
 
 // mockUserRepository implements database.UserRepository for testing
@@ -282,5 +285,57 @@ func newTestServiceWithConnRepo(
 	runner *mockRunner,
 ) *Service {
 	logger := testutil.SilentLogger()
-	return NewService(userRepo, execRepo, connRepo, &mockTokenRepository{}, runner, logger, constants.AWS, "")
+	return NewService(userRepo, execRepo, connRepo, &mockTokenRepository{}, runner, logger, constants.AWS, nil)
+}
+
+// newTestServiceWithWebSocketManager creates a Service with websocket manager for testing
+func newTestServiceWithWebSocketManager(
+	userRepo *mockUserRepository,
+	execRepo *mockExecutionRepository,
+	runner *mockRunner,
+	wsManager websocket.Manager,
+) *Service {
+	logger := testutil.SilentLogger()
+	return NewService(userRepo, execRepo, nil, &mockTokenRepository{}, runner, logger, constants.AWS, wsManager)
+}
+
+// mockWebSocketManager implements websocket.Manager for testing
+type mockWebSocketManager struct {
+	generateWebSocketURLFunc func(ctx context.Context, executionID string, userEmail *string, clientIPAtCreationTime *string) string
+	handleRequestFunc        func(ctx context.Context, rawEvent *json.RawMessage, reqLogger *slog.Logger) (bool, error)
+	notifyExecutionCompletionFunc func(ctx context.Context, executionID *string) error
+	sendLogsToExecutionFunc  func(ctx context.Context, executionID *string, logEvents []api.LogEvent) error
+}
+
+func (m *mockWebSocketManager) GenerateWebSocketURL(
+	ctx context.Context,
+	executionID string,
+	userEmail *string,
+	clientIPAtCreationTime *string,
+) string {
+	if m.generateWebSocketURLFunc != nil {
+		return m.generateWebSocketURLFunc(ctx, executionID, userEmail, clientIPAtCreationTime)
+	}
+	return ""
+}
+
+func (m *mockWebSocketManager) HandleRequest(ctx context.Context, rawEvent *json.RawMessage, reqLogger *slog.Logger) (bool, error) {
+	if m.handleRequestFunc != nil {
+		return m.handleRequestFunc(ctx, rawEvent, reqLogger)
+	}
+	return false, nil
+}
+
+func (m *mockWebSocketManager) NotifyExecutionCompletion(ctx context.Context, executionID *string) error {
+	if m.notifyExecutionCompletionFunc != nil {
+		return m.notifyExecutionCompletionFunc(ctx, executionID)
+	}
+	return nil
+}
+
+func (m *mockWebSocketManager) SendLogsToExecution(ctx context.Context, executionID *string, logEvents []api.LogEvent) error {
+	if m.sendLogsToExecutionFunc != nil {
+		return m.sendLogsToExecutionFunc(ctx, executionID, logEvents)
+	}
+	return nil
 }

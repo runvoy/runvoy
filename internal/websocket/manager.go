@@ -23,4 +23,14 @@ type Manager interface {
 
 	// SendLogsToExecution sends log events to all connected clients for an execution.
 	SendLogsToExecution(ctx context.Context, executionID *string, logEvents []api.LogEvent) error
+
+	// GenerateWebSocketURL creates a WebSocket token and returns the connection URL.
+	// It stores the token for validation when the client connects.
+	// Returns an empty string if URL generation fails (errors are logged).
+	GenerateWebSocketURL(
+		ctx context.Context,
+		executionID string,
+		userEmail *string,
+		clientIPAtCreationTime *string,
+	) string
 }

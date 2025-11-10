@@ -3,12 +3,15 @@ package app
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
 	"runvoy/internal/api"
+	"runvoy/internal/auth"
 	"runvoy/internal/constants"
 	apperrors "runvoy/internal/errors"
+	"runvoy/internal/websocket"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -525,7 +528,7 @@ func TestGetLogsByExecutionID(t *testing.T) {
 				}
 				// WebSocket URL should only be present for RUNNING executions
 				if tt.shouldHaveWSURL {
-					// Note: Will be empty in test because websocketAPIBaseURL is ""
+					// Note: Will be empty in test because wsManager is nil
 					assert.Equal(t, "", resp.WebSocketURL)
 				}
 			}
@@ -617,9 +620,42 @@ func TestGetLogsByExecutionID_WebSocketToken(t *testing.T) {
 				},
 			}
 
-			svc := newTestService(nil, execRepo, runner)
+			// Create mock websocket manager if base URL is provided
+			var wsManager websocket.Manager
+			if tt.websocketBaseURL != "" {
+				wsManager = &mockWebSocketManager{
+					generateWebSocketURLFunc: func(ctx context.Context, executionID string, userEmail *string, clientIPAtCreationTime *string) string {
+						// Simulate the real GenerateWebSocketURL behavior
+						token, err := auth.GenerateSecretToken()
+						if err != nil {
+							return ""
+						}
+						email := ""
+						if userEmail != nil {
+							email = *userEmail
+						}
+						clientIP := ""
+						if clientIPAtCreationTime != nil {
+							clientIP = *clientIPAtCreationTime
+						}
+						wsToken := &api.WebSocketToken{
+							Token:       token,
+							ExecutionID: executionID,
+							UserEmail:   email,
+							ClientIP:    clientIP,
+							ExpiresAt:   time.Now().Add(24 * time.Hour).Unix(),
+							CreatedAt:   time.Now().Unix(),
+						}
+						if err := tokenRepo.CreateToken(ctx, wsToken); err != nil {
+							return ""
+						}
+						return fmt.Sprintf("wss://%s?execution_id=%s&token=%s", tt.websocketBaseURL, executionID, token)
+					},
+				}
+			}
+
+			svc := newTestServiceWithWebSocketManager(nil, execRepo, runner, wsManager)
 			svc.tokenRepo = tokenRepo
-			svc.websocketAPIBaseURL = tt.websocketBaseURL
 
 			email := "test@example.com"
 			clientIP := "192.168.1.1"
@@ -683,9 +719,37 @@ func TestGetLogsByExecutionID_TokenUniqueness(t *testing.T) {
 		},
 	}
 
-	svc := newTestService(nil, execRepo, runner)
+	wsManager := &mockWebSocketManager{
+		generateWebSocketURLFunc: func(ctx context.Context, executionID string, userEmail *string, clientIPAtCreationTime *string) string {
+			token, err := auth.GenerateSecretToken()
+			if err != nil {
+				return ""
+			}
+			email := ""
+			if userEmail != nil {
+				email = *userEmail
+			}
+			clientIP := ""
+			if clientIPAtCreationTime != nil {
+				clientIP = *clientIPAtCreationTime
+			}
+			wsToken := &api.WebSocketToken{
+				Token:       token,
+				ExecutionID: executionID,
+				UserEmail:   email,
+				ClientIP:    clientIP,
+				ExpiresAt:   time.Now().Add(24 * time.Hour).Unix(),
+				CreatedAt:   time.Now().Unix(),
+			}
+			if err := tokenRepo.CreateToken(ctx, wsToken); err != nil {
+				return ""
+			}
+			return fmt.Sprintf("wss://api.example.com/production?execution_id=%s&token=%s", executionID, token)
+		},
+	}
+
+	svc := newTestServiceWithWebSocketManager(nil, execRepo, runner, wsManager)
 	svc.tokenRepo = tokenRepo
-	svc.websocketAPIBaseURL = "api.example.com/production"
 
 	// Call GetLogsByExecutionID multiple times and verify tokens are unique
 	for range 3 {
