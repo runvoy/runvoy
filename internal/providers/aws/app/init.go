@@ -67,12 +67,7 @@ func Initialize(
 		Region:          awsCfg.Region,
 	}
 	runner := NewRunner(ecsClient, runnerCfg, logger)
-
-	// Create WebSocket manager if endpoint is configured
-	var wsManager *awsWebsocket.Manager
-	if cfg.AWS.WebSocketAPIEndpoint != "" {
-		wsManager = awsWebsocket.NewManager(cfg, &awsCfg, connectionRepo, tokenRepo, logger)
-	}
+	wsManager := awsWebsocket.NewManager(cfg, &awsCfg, connectionRepo, tokenRepo, logger)
 
 	return &Dependencies{
 		UserRepo:         userRepo,

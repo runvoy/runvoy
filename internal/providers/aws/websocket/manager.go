@@ -316,6 +316,9 @@ func (m *Manager) validateConnectionParams(
 
 // handleDisconnect handles the $disconnect route key.
 // It deletes the WebSocket connection and its associated token from DynamoDB.
+// Token cleanup: DynamoDB TTL automatically deletes tokens after expiration.
+// Manual deletion on disconnect is not necessary since the token expires with
+// the same TTL as the connection.
 //
 //nolint:gocritic // Lambda event types are passed by value per AWS Lambda conventions
 func (m *Manager) handleDisconnect(
@@ -336,7 +339,6 @@ func (m *Manager) handleDisconnect(
 		"connection_id": connectionID,
 	})
 
-	// Delete the connection
 	deletedCount, err := m.connRepo.DeleteConnections(ctx, []string{connectionID})
 	if err != nil {
 		m.logger.Error("failed to delete connection", "error", err)
@@ -345,10 +347,6 @@ func (m *Manager) handleDisconnect(
 			Body:       fmt.Sprintf("Failed to delete connection: %v", err),
 		}, nil
 	}
-
-	// Token cleanup: DynamoDB TTL automatically deletes tokens after expiration.
-	// Manual deletion on disconnect is not necessary since the token expires with
-	// the same TTL as the connection.
 
 	m.logger.Info("connection disconnected", "context", map[string]any{
 		"connection_id": connectionID,
@@ -506,7 +504,6 @@ func (m *Manager) handleDisconnectNotification(
 	var err error
 	m.logger.Debug("handling disconnect notification for execution", "execution_id", executionID)
 
-	// Get all connections for this execution
 	connections, err := m.connRepo.GetConnectionsByExecutionID(ctx, executionID)
 	if err != nil {
 		m.logger.Error("failed to get connections for execution", "error", err, "execution_id", executionID)
@@ -518,7 +515,6 @@ func (m *Manager) handleDisconnectNotification(
 		return nil
 	}
 
-	// Extract connection IDs from connections
 	m.connectionIDs = make([]string, 0, len(connections))
 	for _, conn := range connections {
 		m.connectionIDs = append(m.connectionIDs, conn.ConnectionID)
@@ -600,7 +596,6 @@ func (m *Manager) GenerateWebSocketURL(
 	userEmail *string,
 	clientIPAtCreationTime *string,
 ) string {
-	// Generate a secure token for WebSocket authentication
 	token, tokenGenErr := auth.GenerateSecretToken()
 	if tokenGenErr != nil {
 		m.logger.Error("failed to generate websocket token",
@@ -609,7 +604,6 @@ func (m *Manager) GenerateWebSocketURL(
 		return ""
 	}
 
-	// Store token for validation when client connects
 	expiresAt := time.Now().Add(constants.ConnectionTTLHours * time.Hour).Unix()
 	var email string
 	if userEmail != nil {
@@ -636,7 +630,6 @@ func (m *Manager) GenerateWebSocketURL(
 		return ""
 	}
 
-	// Construct WebSocket URL with wss:// protocol
 	wsURL := "wss://" + *m.apiGwEndpoint
 	return fmt.Sprintf("%s?execution_id=%s&token=%s", wsURL, executionID, token)
 }
