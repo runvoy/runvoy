@@ -28,7 +28,6 @@ func TestToExecutionItem(t *testing.T) {
 				ExecutionID:     "exec-123",
 				UserEmail:       "user@example.com",
 				Command:         "echo hello",
-				LockName:        "test-lock",
 				StartedAt:       now,
 				CompletedAt:     &completed,
 				Status:          "SUCCEEDED",
@@ -58,7 +57,6 @@ func TestToExecutionItem(t *testing.T) {
 			assert.Equal(t, tt.execution.ExecutionID, item.ExecutionID)
 			assert.Equal(t, tt.execution.UserEmail, item.UserEmail)
 			assert.Equal(t, tt.execution.Command, item.Command)
-			assert.Equal(t, tt.execution.LockName, item.LockName)
 			assert.Equal(t, tt.execution.StartedAt, item.StartedAt)
 			assert.Equal(t, tt.execution.CompletedAt, item.CompletedAt)
 			assert.Equal(t, tt.execution.Status, item.Status)
@@ -85,7 +83,6 @@ func TestExecutionItem_ToAPIExecution(t *testing.T) {
 				ExecutionID:     "exec-123",
 				UserEmail:       "user@example.com",
 				Command:         "echo hello",
-				LockName:        "test-lock",
 				StartedAt:       now,
 				CompletedAt:     &completed,
 				Status:          "SUCCEEDED",
@@ -115,7 +112,6 @@ func TestExecutionItem_ToAPIExecution(t *testing.T) {
 			assert.Equal(t, tt.item.ExecutionID, execution.ExecutionID)
 			assert.Equal(t, tt.item.UserEmail, execution.UserEmail)
 			assert.Equal(t, tt.item.Command, execution.Command)
-			assert.Equal(t, tt.item.LockName, execution.LockName)
 			assert.Equal(t, tt.item.StartedAt, execution.StartedAt)
 			assert.Equal(t, tt.item.CompletedAt, execution.CompletedAt)
 			assert.Equal(t, tt.item.Status, execution.Status)
@@ -135,7 +131,6 @@ func TestRoundTripConversion(t *testing.T) {
 		ExecutionID:     "exec-roundtrip",
 		UserEmail:       "user@example.com",
 		Command:         "echo test",
-		LockName:        "lock-1",
 		StartedAt:       now,
 		CompletedAt:     &completed,
 		Status:          "SUCCEEDED",
@@ -153,7 +148,6 @@ func TestRoundTripConversion(t *testing.T) {
 	assert.Equal(t, original.ExecutionID, result.ExecutionID)
 	assert.Equal(t, original.UserEmail, result.UserEmail)
 	assert.Equal(t, original.Command, result.Command)
-	assert.Equal(t, original.LockName, result.LockName)
 	assert.Equal(t, original.StartedAt.Unix(), result.StartedAt.Unix())
 	assert.Equal(t, original.Status, result.Status)
 	assert.Equal(t, original.ExitCode, result.ExitCode)
@@ -236,16 +230,13 @@ func TestConversionEdgeCases(t *testing.T) {
 			Command:     "test",
 			StartedAt:   time.Now(),
 			Status:      "RUNNING",
-			LockName:    "",
 			RequestID:   "",
 		}
 
 		item := toExecutionItem(exec)
-		assert.Empty(t, item.LockName)
 		assert.Empty(t, item.RequestID)
 
 		result := item.toAPIExecution()
-		assert.Empty(t, result.LockName)
 		assert.Empty(t, result.RequestID)
 	})
 }
@@ -280,7 +271,6 @@ func BenchmarkToExecutionItem(b *testing.B) {
 		ExecutionID:     "exec-bench",
 		UserEmail:       "user@example.com",
 		Command:         "echo benchmark",
-		LockName:        "lock-bench",
 		StartedAt:       now,
 		CompletedAt:     &completed,
 		Status:          "SUCCEEDED",
@@ -303,7 +293,6 @@ func BenchmarkToAPIExecution(b *testing.B) {
 		ExecutionID:     "exec-bench",
 		UserEmail:       "user@example.com",
 		Command:         "echo benchmark",
-		LockName:        "lock-bench",
 		StartedAt:       now,
 		CompletedAt:     &completed,
 		Status:          "SUCCEEDED",

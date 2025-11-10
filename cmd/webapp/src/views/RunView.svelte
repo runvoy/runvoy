@@ -7,7 +7,6 @@
 
     let command = '';
     let image = '';
-    let lock = '';
     let timeout = '';
     let gitRepo = '';
     let gitRef = '';
@@ -62,10 +61,6 @@
 
         if (image.trim()) {
             payload.image = image.trim();
-        }
-
-        if (lock.trim()) {
-            payload.lock = lock.trim();
         }
 
         const parsedTimeout = Number.parseInt(timeout, 10);
@@ -162,16 +157,6 @@
                         type="text"
                         placeholder="Optional image override"
                         bind:value={image}
-                    />
-                </label>
-
-                <label for="lock-input">
-                    Lock name
-                    <input
-                        id="lock-input"
-                        type="text"
-                        placeholder="Optional lock name"
-                        bind:value={lock}
                     />
                 </label>
 

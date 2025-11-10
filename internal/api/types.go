@@ -11,7 +11,6 @@ import (
 // ExecutionRequest represents a request to execute a command
 type ExecutionRequest struct {
 	Command string            `json:"command"`
-	Lock    string            `json:"lock,omitempty"`
 	Image   string            `json:"image,omitempty"`
 	Env     map[string]string `json:"env,omitempty"`
 	Timeout int               `json:"timeout,omitempty"`
@@ -65,7 +64,6 @@ type Execution struct {
 	ExecutionID     string     `json:"execution_id"`
 	UserEmail       string     `json:"user_email"`
 	Command         string     `json:"command"`
-	LockName        string     `json:"lock_name,omitempty"`
 	StartedAt       time.Time  `json:"started_at"`
 	CompletedAt     *time.Time `json:"completed_at,omitempty"`
 	Status          string     `json:"status"`
@@ -94,15 +92,6 @@ type LogsResponse struct {
 
 	// WebSocket URL for streaming logs (only provided if execution is RUNNING)
 	WebSocketURL string `json:"websocket_url,omitempty"`
-}
-
-// Lock represents a lock record
-type Lock struct {
-	LockName    string    `json:"lock_name"`
-	ExecutionID string    `json:"execution_id"`
-	UserEmail   string    `json:"user_email"`
-	AcquiredAt  time.Time `json:"acquired_at"`
-	TTL         int64     `json:"ttl"`
 }
 
 // CreateUserRequest represents the request to create a new user
