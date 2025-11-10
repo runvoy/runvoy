@@ -9,7 +9,7 @@ import (
 
 	"runvoy/internal/config"
 	"runvoy/internal/constants"
-	"runvoy/internal/events"
+	eventsaws "runvoy/internal/events/providers/aws"
 	"runvoy/internal/logger"
 
 	"github.com/aws/aws-lambda-go/lambda"
@@ -20,7 +20,7 @@ func main() {
 	log := logger.Initialize(constants.Production, cfg.GetLogLevel())
 	ctx, cancel := context.WithTimeout(context.Background(), cfg.InitTimeout)
 
-	processor, err := events.NewProcessor(ctx, cfg, log)
+	processor, err := eventsaws.NewProcessor(ctx, cfg, log)
 	cancel()
 	if err != nil {
 		log.Error("failed to create event processor", "error", err)

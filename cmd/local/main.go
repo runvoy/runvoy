@@ -17,6 +17,7 @@ import (
 	"runvoy/internal/config"
 	"runvoy/internal/constants"
 	"runvoy/internal/events"
+	eventsaws "runvoy/internal/events/providers/aws"
 	"runvoy/internal/logger"
 	serverPkg "runvoy/internal/server"
 )
@@ -30,7 +31,7 @@ func initializeServices(ctx context.Context, log *slog.Logger, oCfg *config.Conf
 		return nil, nil, fmt.Errorf("failed to initialize orchestrator service: %w", err)
 	}
 
-	processor, err := events.NewProcessor(ctx, eCfg, log)
+	processor, err := eventsaws.NewProcessor(ctx, eCfg, log)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to initialize event processor: %w", err)
 	}

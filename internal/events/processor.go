@@ -8,52 +8,42 @@ import (
 	"net/http"
 
 	"runvoy/internal/api"
-	"runvoy/internal/config"
 	"runvoy/internal/constants"
 	"runvoy/internal/database"
-	dynamorepo "runvoy/internal/database/dynamodb"
 	"runvoy/internal/logger"
 	"runvoy/internal/websocket"
 
 	"github.com/aws/aws-lambda-go/events"
-	awsconfig "github.com/aws/aws-sdk-go-v2/config"
-	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 )
 
 // Processor handles async events from EventBridge
 type Processor struct {
 	executionRepo    database.ExecutionRepository
-	connectionRepo   database.ConnectionRepository
 	webSocketManager websocket.Manager
 	logger           *slog.Logger
 }
 
-// NewProcessor creates a new event processor with AWS backend
-func NewProcessor(ctx context.Context, cfg *config.Config, log *slog.Logger) (*Processor, error) {
-	awsCfg, err := awsconfig.LoadDefaultConfig(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load AWS configuration: %w", err)
+// ProcessorDependencies describes the backend integrations required by the processor.
+type ProcessorDependencies struct {
+	ExecutionRepo    database.ExecutionRepository
+	WebSocketManager websocket.Manager
+}
+
+// NewProcessor creates a new event processor using the provided dependencies.
+func NewProcessor(deps ProcessorDependencies, log *slog.Logger) (*Processor, error) {
+	if deps.ExecutionRepo == nil {
+		return nil, fmt.Errorf("execution repository is required")
+	}
+	if deps.WebSocketManager == nil {
+		return nil, fmt.Errorf("websocket manager is required")
+	}
+	if log == nil {
+		return nil, fmt.Errorf("logger is required")
 	}
 
-	dynamoClient := dynamodb.NewFromConfig(awsCfg)
-	executionRepo := dynamorepo.NewExecutionRepository(dynamoClient, cfg.ExecutionsTable, log)
-	connectionRepo := dynamorepo.NewConnectionRepository(dynamoClient, cfg.WebSocketConnectionsTable, log)
-	tokenRepo := dynamorepo.NewTokenRepository(dynamoClient, cfg.WebSocketTokensTable, log)
-	websocketManager := websocket.NewWebSocketManager(cfg, &awsCfg, connectionRepo, tokenRepo, log)
-
-	log.Debug("event processor initialized",
-		"context", map[string]string{
-			"executions_table":             cfg.ExecutionsTable,
-			"web_socket_connections_table": cfg.WebSocketConnectionsTable,
-			"web_socket_tokens_table":      cfg.WebSocketTokensTable,
-			"websocket_api_endpoint":       cfg.WebSocketAPIEndpoint,
-		},
-	)
-
 	return &Processor{
-		executionRepo:    executionRepo,
-		connectionRepo:   connectionRepo,
-		webSocketManager: websocketManager,
+		executionRepo:    deps.ExecutionRepo,
+		webSocketManager: deps.WebSocketManager,
 		logger:           log,
 	}, nil
 }

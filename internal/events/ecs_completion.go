@@ -174,15 +174,18 @@ func determineStatusAndExitCode(event *ECSTaskStateChangeEvent) (status string, 
 // ECSCompletionHandler is a factory function that returns a handler for ECS completion events
 func ECSCompletionHandler(
 	executionRepo database.ExecutionRepository,
-	connectionRepo database.ConnectionRepository,
 	websocketManager websocket.Manager,
 	log *slog.Logger) func(context.Context, events.CloudWatchEvent) error {
 	return func(ctx context.Context, event events.CloudWatchEvent) error {
-		p := &Processor{
-			executionRepo:    executionRepo,
-			connectionRepo:   connectionRepo,
-			webSocketManager: websocketManager,
-			logger:           log,
+		p, err := NewProcessor(
+			ProcessorDependencies{
+				ExecutionRepo:    executionRepo,
+				WebSocketManager: websocketManager,
+			},
+			log,
+		)
+		if err != nil {
+			return err
 		}
 		return p.handleECSTaskCompletion(ctx, &event)
 	}

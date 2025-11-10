@@ -9,10 +9,13 @@ import (
 
 	"runvoy/internal/api"
 	"runvoy/internal/constants"
+	"runvoy/internal/database"
 	"runvoy/internal/testutil"
+	"runvoy/internal/websocket"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // Mock execution repository for testing
@@ -40,24 +43,6 @@ func (m *mockExecutionRepo) CreateExecution(_ context.Context, _ *api.Execution)
 }
 
 func (m *mockExecutionRepo) ListExecutions(_ context.Context) ([]*api.Execution, error) {
-	return nil, nil
-}
-
-// Mock connection repository for testing
-type mockConnectionRepo struct {
-}
-
-func (m *mockConnectionRepo) CreateConnection(_ context.Context, _ *api.WebSocketConnection) error {
-	return nil
-}
-
-func (m *mockConnectionRepo) DeleteConnections(_ context.Context, _ []string) (int, error) {
-	return 0, nil
-}
-
-func (m *mockConnectionRepo) GetConnectionsByExecutionID(
-	_ context.Context, _ string,
-) ([]*api.WebSocketConnection, error) {
 	return nil, nil
 }
 
@@ -290,8 +275,6 @@ func TestHandleECSTaskCompletion_Success(t *testing.T) {
 		},
 	}
 
-	mockConnRepo := &mockConnectionRepo{}
-
 	mockWebSocket := &mockWebSocketHandler{
 		notifyExecutionCompletionFunc: func(_ context.Context, executionID *string) error {
 			assert.NotNil(t, executionID)
@@ -300,12 +283,7 @@ func TestHandleECSTaskCompletion_Success(t *testing.T) {
 		},
 	}
 
-	processor := &Processor{
-		executionRepo:    mockRepo,
-		connectionRepo:   mockConnRepo,
-		webSocketManager: mockWebSocket,
-		logger:           testutil.SilentLogger(),
-	}
+	processor := newTestProcessor(t, mockRepo, mockWebSocket)
 
 	taskEvent := ECSTaskStateChangeEvent{
 		TaskArn:    "arn:aws:ecs:us-east-1:123456789012:task/cluster/test-exec-123",
@@ -347,16 +325,9 @@ func TestHandleECSTaskCompletion_OrphanedTask(t *testing.T) {
 		},
 	}
 
-	mockConnRepo := &mockConnectionRepo{}
-
 	mockWebSocket := &mockWebSocketHandler{}
 
-	processor := &Processor{
-		executionRepo:    mockRepo,
-		connectionRepo:   mockConnRepo,
-		webSocketManager: mockWebSocket,
-		logger:           testutil.SilentLogger(),
-	}
+	processor := newTestProcessor(t, mockRepo, mockWebSocket)
 
 	exitCode := 0
 	taskEvent := ECSTaskStateChangeEvent{
@@ -410,8 +381,6 @@ func TestHandleECSTaskCompletion_MissingStartedAt(t *testing.T) {
 		},
 	}
 
-	mockConnRepo := &mockConnectionRepo{}
-
 	mockWebSocket := &mockWebSocketHandler{
 		notifyExecutionCompletionFunc: func(_ context.Context, executionID *string) error {
 			assert.NotNil(t, executionID)
@@ -419,12 +388,7 @@ func TestHandleECSTaskCompletion_MissingStartedAt(t *testing.T) {
 		},
 	}
 
-	processor := &Processor{
-		executionRepo:    mockRepo,
-		connectionRepo:   mockConnRepo,
-		webSocketManager: mockWebSocket,
-		logger:           testutil.SilentLogger(),
-	}
+	processor := newTestProcessor(t, mockRepo, mockWebSocket)
 
 	taskEvent := ECSTaskStateChangeEvent{
 		TaskArn:    "arn:aws:ecs:us-east-1:123456789012:task/cluster/test-exec-123",
@@ -456,12 +420,7 @@ func TestHandleECSTaskCompletion_MissingStartedAt(t *testing.T) {
 func TestHandleEvent_IgnoresUnknownEventType(t *testing.T) {
 	ctx := context.Background()
 
-	processor := &Processor{
-		executionRepo:    &mockExecutionRepo{},
-		connectionRepo:   &mockConnectionRepo{},
-		webSocketManager: &mockWebSocketHandler{},
-		logger:           testutil.SilentLogger(),
-	}
+	processor := newTestProcessor(t, &mockExecutionRepo{}, &mockWebSocketHandler{})
 
 	event := events.CloudWatchEvent{
 		DetailType: "Unknown Event Type",
@@ -483,12 +442,7 @@ func TestHandleEvent_IgnoresUnknownEventType(t *testing.T) {
 func TestHandleEventJSON(t *testing.T) {
 	ctx := context.Background()
 
-	processor := &Processor{
-		executionRepo:    &mockExecutionRepo{},
-		connectionRepo:   &mockConnectionRepo{},
-		webSocketManager: &mockWebSocketHandler{},
-		logger:           testutil.SilentLogger(),
-	}
+	processor := newTestProcessor(t, &mockExecutionRepo{}, &mockWebSocketHandler{})
 
 	eventJSON := json.RawMessage([]byte(`{
 		"detail-type": "Unknown Event Type",
@@ -502,12 +456,7 @@ func TestHandleEventJSON(t *testing.T) {
 func TestHandleEventJSON_InvalidJSON(t *testing.T) {
 	ctx := context.Background()
 
-	processor := &Processor{
-		executionRepo:    &mockExecutionRepo{},
-		connectionRepo:   &mockConnectionRepo{},
-		webSocketManager: &mockWebSocketHandler{},
-		logger:           testutil.SilentLogger(),
-	}
+	processor := newTestProcessor(t, &mockExecutionRepo{}, &mockWebSocketHandler{})
 
 	eventJSON := json.RawMessage([]byte(`invalid json`))
 
@@ -539,14 +488,13 @@ func TestECSCompletionHandler(t *testing.T) {
 		},
 	}
 
-	mockConnRepo := &mockConnectionRepo{}
 	mockWebSocket := &mockWebSocketHandler{
 		notifyExecutionCompletionFunc: func(_ context.Context, executionID *string) error {
 			assert.NotNil(t, executionID)
 			return nil
 		},
 	}
-	handler := ECSCompletionHandler(mockRepo, mockConnRepo, mockWebSocket, testutil.SilentLogger())
+	handler := ECSCompletionHandler(mockRepo, mockWebSocket, testutil.SilentLogger())
 
 	taskEvent := ECSTaskStateChangeEvent{
 		TaskArn:    "arn:aws:ecs:us-east-1:123456789012:task/cluster/test-exec-123",
@@ -658,4 +606,18 @@ func TestParseTaskTimes_ValidParse(t *testing.T) {
 // Helper function to create int pointers
 func intPtr(i int) *int {
 	return &i
+}
+
+func newTestProcessor(t *testing.T, executionRepo database.ExecutionRepository, ws websocket.Manager) *Processor {
+	t.Helper()
+
+	processor, err := NewProcessor(
+		ProcessorDependencies{
+			ExecutionRepo:    executionRepo,
+			WebSocketManager: ws,
+		},
+		testutil.SilentLogger(),
+	)
+	require.NoError(t, err)
+	return processor
 }
