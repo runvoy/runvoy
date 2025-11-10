@@ -6,7 +6,6 @@ import (
 	"log/slog"
 	"testing"
 
-	"runvoy/internal/api"
 	"runvoy/internal/testutil"
 
 	"github.com/aws/aws-lambda-go/events"
@@ -15,109 +14,79 @@ import (
 
 // Mock backend for testing
 type mockBackend struct {
-	handleCloudEventFunc     func(ctx context.Context, rawEvent *json.RawMessage, reqLogger *slog.Logger) (bool, error)
-	handleLogsEventFunc      func(ctx context.Context, rawEvent *json.RawMessage, reqLogger *slog.Logger) (bool, error)
-	handleWebSocketEventFunc func(ctx context.Context, rawEvent *json.RawMessage, reqLogger *slog.Logger) (events.APIGatewayProxyResponse, bool)
+	handleCloudEventFunc func(
+		ctx context.Context,
+		rawEvent *json.RawMessage,
+		reqLogger *slog.Logger,
+	) (bool, error)
+	handleLogsEventFunc func(
+		ctx context.Context,
+		rawEvent *json.RawMessage,
+		reqLogger *slog.Logger,
+	) (bool, error)
+	handleWebSocketEventFunc func(
+		ctx context.Context,
+		rawEvent *json.RawMessage,
+		reqLogger *slog.Logger,
+	) (events.APIGatewayProxyResponse, bool)
 }
 
-func (m *mockBackend) HandleCloudEvent(ctx context.Context, rawEvent *json.RawMessage, reqLogger *slog.Logger) (bool, error) {
+func (m *mockBackend) HandleCloudEvent(
+	ctx context.Context,
+	rawEvent *json.RawMessage,
+	reqLogger *slog.Logger,
+) (bool, error) {
 	if m.handleCloudEventFunc != nil {
 		return m.handleCloudEventFunc(ctx, rawEvent, reqLogger)
 	}
 	return false, nil
 }
 
-func (m *mockBackend) HandleLogsEvent(ctx context.Context, rawEvent *json.RawMessage, reqLogger *slog.Logger) (bool, error) {
+func (m *mockBackend) HandleLogsEvent(
+	ctx context.Context,
+	rawEvent *json.RawMessage,
+	reqLogger *slog.Logger,
+) (bool, error) {
 	if m.handleLogsEventFunc != nil {
 		return m.handleLogsEventFunc(ctx, rawEvent, reqLogger)
 	}
 	return false, nil
 }
 
-func (m *mockBackend) HandleWebSocketEvent(ctx context.Context, rawEvent *json.RawMessage, reqLogger *slog.Logger) (events.APIGatewayProxyResponse, bool) {
+func (m *mockBackend) HandleWebSocketEvent(
+	ctx context.Context,
+	rawEvent *json.RawMessage,
+	reqLogger *slog.Logger,
+) (events.APIGatewayProxyResponse, bool) {
 	if m.handleWebSocketEventFunc != nil {
 		return m.handleWebSocketEventFunc(ctx, rawEvent, reqLogger)
 	}
 	return events.APIGatewayProxyResponse{}, false
 }
 
-// Mock execution repository for testing
-type mockExecutionRepo struct {
-	getExecutionFunc    func(ctx context.Context, executionID string) (*api.Execution, error)
-	updateExecutionFunc func(ctx context.Context, execution *api.Execution) error
-}
-
-func (m *mockExecutionRepo) GetExecution(ctx context.Context, executionID string) (*api.Execution, error) {
-	if m.getExecutionFunc != nil {
-		return m.getExecutionFunc(ctx, executionID)
-	}
-	return nil, nil
-}
-
-func (m *mockExecutionRepo) UpdateExecution(ctx context.Context, execution *api.Execution) error {
-	if m.updateExecutionFunc != nil {
-		return m.updateExecutionFunc(ctx, execution)
-	}
-	return nil
-}
-
-func (m *mockExecutionRepo) CreateExecution(_ context.Context, _ *api.Execution) error {
-	return nil
-}
-
-func (m *mockExecutionRepo) ListExecutions(_ context.Context) ([]*api.Execution, error) {
-	return nil, nil
-}
-
-// Mock connection repository for testing
-type mockConnectionRepo struct {
-}
-
-func (m *mockConnectionRepo) CreateConnection(_ context.Context, _ *api.WebSocketConnection) error {
-	return nil
-}
-
-func (m *mockConnectionRepo) DeleteConnections(_ context.Context, _ []string) (int, error) {
-	return 0, nil
-}
-
-func (m *mockConnectionRepo) GetConnectionsByExecutionID(
-	_ context.Context, _ string,
-) ([]*api.WebSocketConnection, error) {
-	return nil, nil
-}
-
-// Mock WebSocket handler for testing
-type mockWebSocketHandler struct {
-	notifyExecutionCompletionFunc func(ctx context.Context, executionID *string) error
-}
-
-func (m *mockWebSocketHandler) HandleRequest(_ context.Context, _ *json.RawMessage, _ *slog.Logger) (bool, error) {
-	return false, nil
-}
-
-func (m *mockWebSocketHandler) NotifyExecutionCompletion(ctx context.Context, executionID *string) error {
-	if m.notifyExecutionCompletionFunc != nil {
-		return m.notifyExecutionCompletionFunc(ctx, executionID)
-	}
-	return nil
-}
-
-func (m *mockWebSocketHandler) SendLogsToExecution(_ context.Context, _ *string, _ []api.LogEvent) error {
-	return nil
-}
-
 func TestHandleEvent_IgnoresUnknownEventType(t *testing.T) {
 	ctx := context.Background()
 
 	backend := &mockBackend{
-		handleCloudEventFunc: func(_ context.Context, _ *json.RawMessage, _ *slog.Logger) (bool, error) {
+		handleCloudEventFunc: func(
+			_ context.Context,
+			_ *json.RawMessage,
+			_ *slog.Logger,
+		) (bool, error) {
 			return false, nil
 		},
-		handleLogsEventFunc: func(_ context.Context, _ *json.RawMessage, _ *slog.Logger) (bool, error) {
+		handleLogsEventFunc: func(
+			_ context.Context,
+			_ *json.RawMessage,
+			_ *slog.Logger,
+		) (bool, error) {
 			return false, nil
 		},
-		handleWebSocketEventFunc: func(_ context.Context, _ *json.RawMessage, _ *slog.Logger) (events.APIGatewayProxyResponse, bool) {
+		handleWebSocketEventFunc: func(
+			_ context.Context,
+			_ *json.RawMessage,
+			_ *slog.Logger,
+		) (events.APIGatewayProxyResponse, bool) {
 			return events.APIGatewayProxyResponse{}, false
 		},
 	}
@@ -142,17 +111,29 @@ func TestHandleEventJSON(t *testing.T) {
 	ctx := context.Background()
 
 	backend := &mockBackend{
-		handleCloudEventFunc: func(_ context.Context, rawEvent *json.RawMessage, _ *slog.Logger) (bool, error) {
+		handleCloudEventFunc: func(
+			_ context.Context,
+			rawEvent *json.RawMessage,
+			_ *slog.Logger,
+		) (bool, error) {
 			var cwEvent events.CloudWatchEvent
 			if err := json.Unmarshal(*rawEvent, &cwEvent); err == nil && cwEvent.Source != "" {
 				return true, nil
 			}
 			return false, nil
 		},
-		handleLogsEventFunc: func(_ context.Context, _ *json.RawMessage, _ *slog.Logger) (bool, error) {
+		handleLogsEventFunc: func(
+			_ context.Context,
+			_ *json.RawMessage,
+			_ *slog.Logger,
+		) (bool, error) {
 			return false, nil
 		},
-		handleWebSocketEventFunc: func(_ context.Context, _ *json.RawMessage, _ *slog.Logger) (events.APIGatewayProxyResponse, bool) {
+		handleWebSocketEventFunc: func(
+			_ context.Context,
+			_ *json.RawMessage,
+			_ *slog.Logger,
+		) (events.APIGatewayProxyResponse, bool) {
 			return events.APIGatewayProxyResponse{}, false
 		},
 	}
@@ -186,14 +167,26 @@ func TestHandle_CloudEvent(t *testing.T) {
 	handled := false
 
 	backend := &mockBackend{
-		handleCloudEventFunc: func(_ context.Context, _ *json.RawMessage, _ *slog.Logger) (bool, error) {
+		handleCloudEventFunc: func(
+			_ context.Context,
+			_ *json.RawMessage,
+			_ *slog.Logger,
+		) (bool, error) {
 			handled = true
 			return true, nil
 		},
-		handleLogsEventFunc: func(_ context.Context, _ *json.RawMessage, _ *slog.Logger) (bool, error) {
+		handleLogsEventFunc: func(
+			_ context.Context,
+			_ *json.RawMessage,
+			_ *slog.Logger,
+		) (bool, error) {
 			return false, nil
 		},
-		handleWebSocketEventFunc: func(_ context.Context, _ *json.RawMessage, _ *slog.Logger) (events.APIGatewayProxyResponse, bool) {
+		handleWebSocketEventFunc: func(
+			_ context.Context,
+			_ *json.RawMessage,
+			_ *slog.Logger,
+		) (events.APIGatewayProxyResponse, bool) {
 			return events.APIGatewayProxyResponse{}, false
 		},
 	}
@@ -219,14 +212,26 @@ func TestHandle_LogsEvent(t *testing.T) {
 	handled := false
 
 	backend := &mockBackend{
-		handleCloudEventFunc: func(_ context.Context, _ *json.RawMessage, _ *slog.Logger) (bool, error) {
+		handleCloudEventFunc: func(
+			_ context.Context,
+			_ *json.RawMessage,
+			_ *slog.Logger,
+		) (bool, error) {
 			return false, nil
 		},
-		handleLogsEventFunc: func(_ context.Context, _ *json.RawMessage, _ *slog.Logger) (bool, error) {
+		handleLogsEventFunc: func(
+			_ context.Context,
+			_ *json.RawMessage,
+			_ *slog.Logger,
+		) (bool, error) {
 			handled = true
 			return true, nil
 		},
-		handleWebSocketEventFunc: func(_ context.Context, _ *json.RawMessage, _ *slog.Logger) (events.APIGatewayProxyResponse, bool) {
+		handleWebSocketEventFunc: func(
+			_ context.Context,
+			_ *json.RawMessage,
+			_ *slog.Logger,
+		) (events.APIGatewayProxyResponse, bool) {
 			return events.APIGatewayProxyResponse{}, false
 		},
 	}
@@ -246,13 +251,25 @@ func TestHandle_WebSocketEvent(t *testing.T) {
 	handled := false
 
 	backend := &mockBackend{
-		handleCloudEventFunc: func(_ context.Context, _ *json.RawMessage, _ *slog.Logger) (bool, error) {
+		handleCloudEventFunc: func(
+			_ context.Context,
+			_ *json.RawMessage,
+			_ *slog.Logger,
+		) (bool, error) {
 			return false, nil
 		},
-		handleLogsEventFunc: func(_ context.Context, _ *json.RawMessage, _ *slog.Logger) (bool, error) {
+		handleLogsEventFunc: func(
+			_ context.Context,
+			_ *json.RawMessage,
+			_ *slog.Logger,
+		) (bool, error) {
 			return false, nil
 		},
-		handleWebSocketEventFunc: func(_ context.Context, _ *json.RawMessage, _ *slog.Logger) (events.APIGatewayProxyResponse, bool) {
+		handleWebSocketEventFunc: func(
+			_ context.Context,
+			_ *json.RawMessage,
+			_ *slog.Logger,
+		) (events.APIGatewayProxyResponse, bool) {
 			handled = true
 			return events.APIGatewayProxyResponse{StatusCode: 200}, true
 		},

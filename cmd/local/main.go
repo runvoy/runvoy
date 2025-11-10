@@ -30,7 +30,7 @@ func initializeServices(ctx context.Context, log *slog.Logger, oCfg *config.Conf
 		return nil, nil, fmt.Errorf("failed to initialize orchestrator service: %w", err)
 	}
 
-	processor, err := events.NewProcessor(ctx, eCfg, log)
+	processor, err := events.Initialize(ctx, eCfg, log)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to initialize event processor: %w", err)
 	}

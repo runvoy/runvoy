@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"log/slog"
 
-	eventsAws "runvoy/internal/events/aws"
 	"runvoy/internal/config"
 	"runvoy/internal/constants"
 	dynamoRepo "runvoy/internal/database/dynamodb"
+	eventsAws "runvoy/internal/events/aws"
 	"runvoy/internal/websocket"
 
 	awsConfig "github.com/aws/aws-sdk-go-v2/config"

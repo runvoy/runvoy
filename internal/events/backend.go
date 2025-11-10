@@ -21,5 +21,9 @@ type Backend interface {
 
 	// HandleWebSocketEvent processes WebSocket events.
 	// Returns the response and true if the event was handled, false otherwise.
-	HandleWebSocketEvent(ctx context.Context, rawEvent *json.RawMessage, reqLogger *slog.Logger) (events.APIGatewayProxyResponse, bool)
+	HandleWebSocketEvent(
+		ctx context.Context,
+		rawEvent *json.RawMessage,
+		reqLogger *slog.Logger,
+	) (events.APIGatewayProxyResponse, bool)
 }
