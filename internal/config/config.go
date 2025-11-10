@@ -116,14 +116,8 @@ func LoadOrchestrator() (*Config, error) {
 		return nil, fmt.Errorf("error unmarshaling orchestrator config: %w", err)
 	}
 
-	// Validate required fields (matches old caarlos0/env notEmpty tags)
-	if err := validateOrchestrator(&cfg); err != nil {
+	if err := validateBackendProvider(&cfg, awsconfig.ValidateOrchestrator); err != nil {
 		return nil, err
-	}
-
-	// Normalize WebSocket endpoint: strip protocol if present
-	if cfg.AWS != nil {
-		cfg.AWS.WebSocketAPIEndpoint = awsconfig.NormalizeWebSocketEndpoint(cfg.AWS.WebSocketAPIEndpoint)
 	}
 
 	return &cfg, nil
@@ -145,8 +139,7 @@ func LoadEventProcessor() (*Config, error) {
 		return nil, fmt.Errorf("error unmarshaling event processor config: %w", err)
 	}
 
-	// Validate required fields (matches old caarlos0/env notEmpty tags)
-	if err := validateEventProcessor(&cfg); err != nil {
+	if err := validateBackendProvider(&cfg, awsconfig.ValidateEventProcessor); err != nil {
 		return nil, err
 	}
 
@@ -200,7 +193,6 @@ func Save(config *Config) error {
 		return fmt.Errorf("error writing config file: %w", err)
 	}
 
-	// Set proper permissions
 	if err = os.Chmod(configFilePath, constants.ConfigFilePermissions); err != nil {
 		return fmt.Errorf("error setting config file permissions: %w", err)
 	}
@@ -273,25 +265,13 @@ func bindEnvVars(v *viper.Viper) {
 	awsconfig.BindEnvVars(v)
 }
 
-// validateOrchestrator validates required fields for orchestrator service.
-func validateOrchestrator(cfg *Config) error {
+// validateBackendProvider validates required fields for a backend provider.
+func validateBackendProvider(cfg *Config, validateFn func(*awsconfig.Config) error) error {
 	provider := normalizeBackendProvider(cfg.BackendProvider)
 
 	switch provider {
 	case constants.AWS:
-		return awsconfig.ValidateOrchestrator(cfg.AWS)
-	default:
-		return fmt.Errorf("unsupported backend provider: %s", provider)
-	}
-}
-
-// validateEventProcessor validates required fields for event processor service.
-func validateEventProcessor(cfg *Config) error {
-	provider := normalizeBackendProvider(cfg.BackendProvider)
-
-	switch provider {
-	case constants.AWS:
-		return awsconfig.ValidateEventProcessor(cfg.AWS)
+		return validateFn(cfg.AWS)
 	default:
 		return fmt.Errorf("unsupported backend provider: %s", provider)
 	}

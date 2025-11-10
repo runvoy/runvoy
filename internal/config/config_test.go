@@ -328,7 +328,7 @@ func TestValidateOrchestrator(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := validateOrchestrator(tt.cfg)
+			err := validateBackendProvider(tt.cfg, awsconfig.ValidateOrchestrator)
 
 			if tt.wantErr {
 				require.Error(t, err)
@@ -465,7 +465,7 @@ func TestValidateEventProcessor(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := validateEventProcessor(tt.cfg)
+			err := validateBackendProvider(tt.cfg, awsconfig.ValidateEventProcessor)
 
 			if tt.wantErr {
 				require.Error(t, err)
