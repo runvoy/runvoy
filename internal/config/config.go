@@ -74,6 +74,8 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("error unmarshaling config: %w", err)
 	}
 
+	normalizeLogLevel(&cfg)
+
 	// Validate configuration
 	if err = validate.Struct(&cfg); err != nil {
 		return nil, fmt.Errorf("config validation failed: %w", err)
@@ -96,6 +98,8 @@ func LoadCLI() (*Config, error) {
 		return nil, fmt.Errorf("error unmarshaling config: %w", err)
 	}
 
+	normalizeLogLevel(&cfg)
+
 	return &cfg, nil
 }
 
@@ -115,6 +119,8 @@ func LoadOrchestrator() (*Config, error) {
 	if err := v.Unmarshal(&cfg); err != nil {
 		return nil, fmt.Errorf("error unmarshaling orchestrator config: %w", err)
 	}
+
+	normalizeLogLevel(&cfg)
 
 	if err := validateBackendProvider(&cfg, awsconfig.ValidateOrchestrator); err != nil {
 		return nil, err
@@ -138,6 +144,8 @@ func LoadEventProcessor() (*Config, error) {
 	if err := v.Unmarshal(&cfg); err != nil {
 		return nil, fmt.Errorf("error unmarshaling event processor config: %w", err)
 	}
+
+	normalizeLogLevel(&cfg)
 
 	if err := validateBackendProvider(&cfg, awsconfig.ValidateEventProcessor); err != nil {
 		return nil, err
@@ -211,18 +219,6 @@ func GetConfigPath() (string, error) {
 	return filepath.Join(configDir, constants.ConfigFileName), nil
 }
 
-// GetLogLevel returns the slog.Level from the string configuration.
-// Defaults to INFO if the level string is invalid.
-func (c *Config) GetLogLevel() slog.Level {
-	var level slog.Level
-	if err := level.UnmarshalText([]byte(c.LogLevel)); err != nil {
-		return slog.LevelInfo
-	}
-	return level
-}
-
-// Helper functions
-
 func setDefaults(v *viper.Viper) {
 	v.SetDefault("port", "56212")
 	v.SetDefault("request_timeout", 0)
@@ -284,4 +280,20 @@ func normalizeBackendProvider(provider constants.BackendProvider) constants.Back
 		return ""
 	}
 	return constants.BackendProvider(strings.ToUpper(normalized))
+}
+
+func normalizeLogLevel(cfg *Config) {
+	val := strings.TrimSpace(cfg.LogLevel)
+	if val == "" {
+		cfg.LogLevel = slog.LevelInfo.String()
+		return
+	}
+
+	var level slog.Level
+	if err := level.UnmarshalText([]byte(val)); err != nil {
+		cfg.LogLevel = slog.LevelInfo.String()
+		return
+	}
+
+	cfg.LogLevel = level.String()
 }

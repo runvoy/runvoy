@@ -11,54 +11,59 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestConfig_GetLogLevel(t *testing.T) {
+func TestNormalizeLogLevel(t *testing.T) {
 	tests := []struct {
 		name     string
 		logLevel string
-		expected slog.Level
+		expected string
 	}{
 		{
-			name:     "DEBUG level",
+			name:     "DEBUG level stays uppercase",
 			logLevel: "DEBUG",
-			expected: slog.LevelDebug,
+			expected: slog.LevelDebug.String(),
 		},
 		{
-			name:     "INFO level",
+			name:     "INFO level stays uppercase",
 			logLevel: "INFO",
-			expected: slog.LevelInfo,
+			expected: slog.LevelInfo.String(),
 		},
 		{
-			name:     "WARN level",
+			name:     "WARN level stays uppercase",
 			logLevel: "WARN",
-			expected: slog.LevelWarn,
+			expected: slog.LevelWarn.String(),
 		},
 		{
-			name:     "ERROR level",
+			name:     "ERROR level stays uppercase",
 			logLevel: "ERROR",
-			expected: slog.LevelError,
+			expected: slog.LevelError.String(),
 		},
 		{
 			name:     "invalid level defaults to INFO",
 			logLevel: "INVALID",
-			expected: slog.LevelInfo,
+			expected: slog.LevelInfo.String(),
 		},
 		{
 			name:     "empty string defaults to INFO",
 			logLevel: "",
-			expected: slog.LevelInfo,
+			expected: slog.LevelInfo.String(),
 		},
 		{
-			name:     "lowercase level",
+			name:     "lowercase level is normalized to uppercase",
 			logLevel: "debug",
-			expected: slog.LevelDebug,
+			expected: slog.LevelDebug.String(),
+		},
+		{
+			name:     "whitespace trimmed",
+			logLevel: "  warn  ",
+			expected: slog.LevelWarn.String(),
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cfg := &Config{LogLevel: tt.logLevel}
-			result := cfg.GetLogLevel()
-			assert.Equal(t, tt.expected, result)
+			normalizeLogLevel(cfg)
+			assert.Equal(t, tt.expected, cfg.LogLevel)
 		})
 	}
 }
@@ -510,19 +515,6 @@ func TestConfigStruct(t *testing.T) {
 		assert.Equal(t, "INFO", cfg.LogLevel)
 		assert.NotNil(t, cfg.AWS)
 		assert.Equal(t, "test-cluster", cfg.AWS.ECSCluster)
-	})
-}
-
-func TestSetDefaults(t *testing.T) {
-	t.Run("sets expected default values", func(t *testing.T) {
-		// This test verifies the behavior indirectly by checking if defaults
-		// are reasonable. Direct testing would require exposing setDefaults.
-		cfg := &Config{
-			LogLevel: "INFO",
-		}
-
-		level := cfg.GetLogLevel()
-		assert.Equal(t, slog.LevelInfo, level)
 	})
 }
 

@@ -159,7 +159,11 @@ func main() {
 	orchestratorCfg := config.MustLoadOrchestrator()
 	eventProcessorCfg := config.MustLoadEventProcessor()
 
-	log := logger.Initialize(constants.Development, orchestratorCfg.GetLogLevel())
+	var level slog.Level
+	if err := level.UnmarshalText([]byte(orchestratorCfg.LogLevel)); err != nil {
+		level = slog.LevelInfo
+	}
+	log := logger.Initialize(constants.Development, level)
 
 	ctx, cancel := context.WithTimeout(context.Background(), orchestratorCfg.InitTimeout)
 	svc, processor, initErr := initializeServices(ctx, log, orchestratorCfg, eventProcessorCfg)
