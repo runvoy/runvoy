@@ -7,11 +7,11 @@ import (
 	"fmt"
 	"log/slog"
 
-	appAws "runvoy/internal/app/aws"
 	"runvoy/internal/config"
 	"runvoy/internal/constants"
 	"runvoy/internal/database"
-	dynamoRepo "runvoy/internal/database/dynamodb"
+	appAws "runvoy/internal/providers/aws/app"
+	dynamoRepo "runvoy/internal/providers/aws/database/dynamodb"
 
 	awsConfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"

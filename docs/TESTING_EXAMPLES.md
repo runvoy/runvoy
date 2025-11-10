@@ -7,7 +7,7 @@ This document shows practical examples of how to refactor existing code for bett
 ### Before: Untestable Code
 
 ```go
-// internal/database/dynamodb/users.go
+// internal/providers/aws/database/dynamodb/users.go
 package dynamodb
 
 import (
@@ -49,7 +49,7 @@ type DynamoDBClient interface {
 	Query(ctx context.Context, params *dynamodb.QueryInput, optFns ...func(*dynamodb.Options)) (*dynamodb.QueryOutput, error)
 }
 
-// internal/database/dynamodb/users.go
+// internal/providers/aws/database/dynamodb/users.go
 type UserRepository struct {
 	client    DynamoDBClient  // Use interface
 	tableName string
@@ -68,7 +68,7 @@ func NewUserRepository(client DynamoDBClient, tableName string, logger *slog.Log
 **Test with Mock:**
 
 ```go
-// internal/database/dynamodb/users_test.go
+// internal/providers/aws/database/dynamodb/users_test.go
 package dynamodb
 
 import (
@@ -584,7 +584,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/stretchr/testify/require"
 
-	dynamodbrepo "runvoy/internal/database/dynamodb"
+	dynamodbrepo "runvoy/internal/providers/aws/database/dynamodb"
 	"runvoy/internal/testutil"
 )
 

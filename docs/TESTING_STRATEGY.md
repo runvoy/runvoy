@@ -39,7 +39,7 @@ Total Test Functions:  47
 ### Critical Gaps
 
 **Untested Core Business Logic:**
-1. **Database Layer** (`internal/database/dynamodb/`)
+1. **Database Layer** (`internal/providers/aws/database/dynamodb/`)
    - User management (CreateUser, GetUser, UpdateLastUsed, RevokeUser)
    - Execution tracking (CreateExecution, GetExecution, UpdateExecution, ListExecutions)
    - DynamoDB operations with error handling
@@ -53,7 +53,7 @@ Total Test Functions:  47
    - ECS task completion handling
    - Event routing
 
-4. **AWS Integration** (`internal/app/aws/`)
+4. **AWS Integration** (`internal/providers/aws/app/`)
    - Task runner orchestration
    - CloudWatch logs retrieval
    - ECS task management

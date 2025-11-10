@@ -15,10 +15,10 @@ This document outlines the planned improvements and future direction for the run
 - [x] Fix broken test files (compilation errors)
 - [ ] Increase test coverage to minimum 70%
   - [ ] Add unit tests for `internal/app` (service layer)
-  - [ ] Add unit tests for `internal/database/dynamodb` (repository)
+  - [ ] Add unit tests for `internal/providers/aws/database/dynamodb` (repository)
   - [ ] Add unit tests for `internal/events` (event processing)
   - [ ] Add unit tests for `internal/auth` (API key validation)
-  - [ ] Add unit tests for `internal/app/aws` (ECS runner)
+  - [ ] Add unit tests for `internal/providers/aws/app` (ECS runner)
 - [ ] Add integration tests for API endpoints
 - [ ] Add end-to-end tests for critical workflows
 - [ ] Set up code coverage reporting (Codecov)

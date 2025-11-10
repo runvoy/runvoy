@@ -19,15 +19,15 @@ runvoy is a centralized execution platform that allows teams to run infrastructu
 runvoy/
 ├── bin/
 ├── cmd/
-├── deployments/
+├── deploy/
 ├── docs/
 ├── internal/
 ├── scripts/
 ```
 
 - `bin/`: built binaries for the runvoy application (temporary storage for building artifacts during development).
-- `cmd/`: main entry points for the various application (CLI, local dev server, lambdas, etc.)
-- `deployments/`: infrastructure as code for the runvoy application (CloudFormation templates, etc.).
+- `cmd/`: main entry points for the various application (CLI, local dev server, provider-specific lambdas, etc.)
+- `deploy/`: infrastructure as code grouped by provider (CloudFormation templates, etc.).
 - `docs/`: project documentation (architecture, testing strategy, etc.).
 - `internal/`: core logic of the runvoy application (business logic, API, database, etc.)
 - `scripts/`: scripts for the runvoy application development and deployment
@@ -42,12 +42,12 @@ runvoy/
 To support multiple cloud platforms, the service layer now depends on an execution provider interface:
 
 ```text
-internal/app.Service → uses Runner interface (provider-agnostic)
-internal/app/aws     → AWS-specific Runner implementation (ECS Fargate)
+internal/app.Service           → uses Runner interface (provider-agnostic)
+internal/providers/aws/app     → AWS-specific Runner implementation (ECS Fargate)
 ```
 
 - The `Runner` interface abstracts starting a command execution and returns a stable execution ID and the task creation timestamp.
-- The AWS implementation resides in `internal/app/aws` and encapsulates all ECS- and AWS-specific logic and types.
+- The AWS implementation resides in `internal/providers/aws/app` and encapsulates all ECS- and AWS-specific logic and types.
 - `internal/app/init.go` wires the chosen provider by constructing the appropriate `Runner` and passing it into `Service`.
 
 This change removes direct AWS SDK coupling from `internal/app` and makes adding providers (e.g., GCP) straightforward.
@@ -62,7 +62,7 @@ The application uses **chi** (github.com/go-chi/chi/v5) as the HTTP router for b
 - **`internal/server/middleware.go`**: Middleware for request ID extraction and logging context
 - **`internal/lambdaapi/handler.go`**: Lambda handler that uses algnhsa to adapt the chi router
 - **`cmd/local/main.go`**: Local HTTP server implementation using the same router
-- **`cmd/backend/aws/orchestrator/main.go`**: Lambda entry point for the orchestrator (uses the chi-based handler)
+- **`cmd/backend/providers/aws/orchestrator/main.go`**: Lambda entry point for the orchestrator (uses the chi-based handler)
 
 ### Route Structure
 
@@ -320,7 +320,7 @@ The request ID middleware automatically:
 ### Execution Records: Compute Platform, and Request ID
 
 - The service includes the request ID (when available) in execution records created in `internal/app.Service.RunCommand()`.
-- The `request_id` is persisted in DynamoDB via the `internal/database/dynamodb` repository.
+- The `request_id` is persisted in DynamoDB via the `internal/providers/aws/database/dynamodb` repository.
 - If a request ID is not present (e.g., non-Lambda environments), the service logs a warning and stores the execution without a `request_id`.
 - The `compute_platform` field in execution records is derived from the configured backend provider at initialization time (e.g., `AWS`) rather than being hardcoded in the service logic.
 - The backend provider is selected via the `RUNVOY_BACKEND_PROVIDER` configuration value (default: `AWS`); provider-specific bootstrapping logic determines which runner and repositories are wired in.
@@ -496,7 +496,7 @@ Designed to be extended for future event types:
 
 ### Implementation
 
-**Entry Point**: `cmd/backend/aws/event-processor/main.go`
+**Entry Point**: `cmd/backend/providers/aws/event_processor/main.go`
 - Initializes event processor
 - Starts Lambda handler
 
@@ -609,7 +609,7 @@ The platform uses WebSocket connections for real-time log streaming to clients (
 
 #### API Gateway WebSocket API
 
-**Configuration**: Defined in CloudFormation template (`deployments/cloudformation-backend.yaml`)
+**Configuration**: Defined in CloudFormation template (`deploy/providers/aws/cloudformation-backend.yaml`)
 
 **Routes**:
 
@@ -830,7 +830,7 @@ All errors are wrapped in `AppError` which includes:
 
 ### Error Propagation
 
-**Database Layer (`internal/database/dynamodb`):**
+**Database Layer (`internal/providers/aws/database/dynamodb`):**
 - DynamoDB errors are wrapped as `ErrDatabaseError` (503 Service Unavailable)
 - Conditional check failures (e.g., user already exists) become `ErrConflict` (409)
 - User not found scenarios return `nil` user (not an error)
@@ -1339,7 +1339,7 @@ The `run` command executes commands remotely via the orchestrator Lambda.
 
 **sidecar Architecture:**
 - Tasks use dynamically registered ECS task definitions (one per Docker image) with a sidecar container
-- The sidecar command is dynamically generated in `internal/app/aws/runner.go` via `buildSidecarContainerCommand()`
+- The sidecar command is dynamically generated in `internal/providers/aws/app/runner.go` via `buildSidecarContainerCommand()`
 - The sidecar handles auxiliary tasks (git cloning, .env file generation, etc.)
 - If no git repository is specified, the sidecar simply exits successfully (exit 0)
 - Task definitions are registered on-demand via ECS API when images are added
@@ -1384,7 +1384,7 @@ The kill endpoint allows users to terminate running executions. This endpoint pr
 
 **Implementation Details:**
 - Service layer (`internal/app/main.go`): `KillExecution` validates execution exists and checks status
-- AWS Runner (`internal/app/aws/runner.go`): `KillTask` finds task via ListTasks, checks status, and calls StopTask
+- AWS Runner (`internal/providers/aws/app/runner.go`): `KillTask` finds task via ListTasks, checks status, and calls StopTask
 - ECS task lifecycle statuses (`LastStatus`) are represented by `constants.EcsStatus` typed constants (e.g., `EcsStatusRunning`, `EcsStatusStopped`) to avoid string literals across the codebase
 - Execution status values are represented by `constants.ExecutionStatus` typed constants (e.g., `ExecutionRunning`, `ExecutionSucceeded`, `ExecutionFailed`, `ExecutionStopped`) as part of the API contract
 - Requires `ecs:StopTask` and `ecs:ListTasks` IAM permissions (added to CloudFormation template)
@@ -1428,7 +1428,7 @@ Each task definition follows a consistent structure:
 - **Sidecar Container ("sidecar")**: Handles auxiliary tasks before main execution
   - Essential: `false` (task continues after sidecar completes)
   - Image: Alpine Linux (lightweight, includes git)
-  - Command is dynamically generated by `internal/app/aws/runner.go` via `buildSidecarContainerCommand()`
+  - Command is dynamically generated by `internal/providers/aws/app/runner.go` via `buildSidecarContainerCommand()`
   - Creates `.env` file from user environment variables (variables prefixed with `RUNVOY_USER_`)
   - Conditionally clones git repository if `GIT_REPO` environment variable is set
   - If git repo is cloned and `.env` exists, copies `.env` to the repo directory
@@ -1460,7 +1460,7 @@ Each task definition follows a consistent structure:
 
 ## Database Schema
 
-The platform uses DynamoDB tables for data persistence. All tables are defined in the CloudFormation template (`deployments/cloudformation-backend.yaml`).
+The platform uses DynamoDB tables for data persistence. All tables are defined in the CloudFormation template (`deploy/providers/aws/cloudformation-backend.yaml`).
 
 ### API Keys Table (`{project-name}-api-keys`)
 
@@ -1485,7 +1485,7 @@ Stores user records with hashed API keys.
 - Unclaimed users are automatically deleted after 15 minutes
 - TTL is removed when user claims their API key
 
-**Code Reference:** `internal/database/dynamodb/users.go`
+**Code Reference:** `internal/providers/aws/database/dynamodb/users.go`
 
 ### Executions Table (`{project-name}-executions`)
 
@@ -1514,7 +1514,7 @@ Stores execution records for all command runs.
 - `request_id` (String, optional) - AWS Lambda request ID for tracing
 - `cloud` (String, optional) - Compute platform (AWS, etc.)
 
-**Code Reference:** `internal/database/dynamodb/executions.go`
+**Code Reference:** `internal/providers/aws/database/dynamodb/executions.go`
 
 ### Pending API Keys Table (`{project-name}-pending-api-keys`)
 
@@ -1538,7 +1538,7 @@ Stores pending API key claims for secure distribution.
 - Enabled on `expires_at` attribute
 - Pending keys are automatically deleted after 15 minutes
 
-**Code Reference:** `internal/database/dynamodb/pending_keys.go`
+**Code Reference:** `internal/providers/aws/database/dynamodb/pending_keys.go`
 
 ## Task Definition Cleanup
 
