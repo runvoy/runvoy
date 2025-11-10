@@ -1,68 +1,29 @@
 <script>
-    import { executionId, executionStatus, isCompleted, startedAt } from '../stores/execution.js';
-    import { apiEndpoint, apiKey } from '../stores/config.js';
-    import APIClient from '../lib/api.js';
+    import { executionId, executionStatus, startedAt } from '../stores/execution.js';
 
-    let statusTimer;
-    let apiClient;
-
-    $: if ($apiEndpoint && $apiKey) {
-        apiClient = new APIClient($apiEndpoint, $apiKey);
-    }
-
-    async function fetchStatus() {
-        if (!apiClient || !$executionId || $isCompleted) {
-            clearInterval(statusTimer);
-            return;
-        }
-
-        try {
-            const response = await apiClient.getStatus($executionId);
-            executionStatus.set(response.status);
-            startedAt.set(response.started_at);
-
-            const terminalStates = ['SUCCEEDED', 'FAILED', 'STOPPED'];
-            if (terminalStates.includes(response.status)) {
-                isCompleted.set(true);
-                clearInterval(statusTimer);
-            }
-        } catch (error) {
-            // eslint-disable-next-line no-console
-            console.error('Failed to fetch status:', error);
-            // Stop polling on error to avoid spamming
-            clearInterval(statusTimer);
-        }
-    }
-
-    // Poll for status when executionId changes
-    $: {
-        if ($executionId && apiClient) {
-            // Reset state for new execution
-            isCompleted.set(false);
-            executionStatus.set('LOADING');
-            startedAt.set(null);
-
-            // Fetch immediately, then poll
-            fetchStatus();
-            clearInterval(statusTimer);
-            statusTimer = setInterval(fetchStatus, 5000); // Poll every 5 seconds
-        }
-    }
-
-    // Cleanup timer on component destroy
-    import { onDestroy } from 'svelte';
-    onDestroy(() => {
-        clearInterval(statusTimer);
-    });
+    const DEFAULT_STATUS = 'LOADING';
 
     $: statusClass = $executionStatus ? $executionStatus.toLowerCase() : 'loading';
-    $: formattedStartedAt = $startedAt ? new Date($startedAt).toLocaleString() : 'N/A';
+    $: formattedStartedAt = (() => {
+        if (!$startedAt) {
+            return 'N/A';
+        }
+
+        const dateValue = typeof $startedAt === 'number' ? $startedAt : Date.parse($startedAt);
+        const date = new Date(dateValue);
+
+        if (Number.isNaN(date.getTime())) {
+            return 'N/A';
+        }
+
+        return date.toLocaleString();
+    })();
 </script>
 
 <div class="status-bar">
     <div class="status-item">
         <strong>Status:</strong>
-        <span class="status-badge {statusClass}">{$executionStatus || 'LOADING'}</span>
+        <span class="status-badge {statusClass}">{$executionStatus || DEFAULT_STATUS}</span>
     </div>
     <div class="status-item">
         <strong>Started:</strong>

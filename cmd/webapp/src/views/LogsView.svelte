@@ -1,5 +1,5 @@
 <script>
-    import { onDestroy } from 'svelte';
+    import { onDestroy, onMount } from 'svelte';
     import { get } from 'svelte/store';
 
     import ExecutionSelector from '../components/ExecutionSelector.svelte';
@@ -7,7 +7,7 @@
     import WebSocketStatus from '../components/WebSocketStatus.svelte';
     import LogControls from '../components/LogControls.svelte';
     import LogViewer from '../components/LogViewer.svelte';
-    import { executionId } from '../stores/execution.js';
+    import { executionId, executionStatus, startedAt, isCompleted } from '../stores/execution.js';
     import {
         logEvents,
         logsRetryCount,
@@ -24,6 +24,24 @@
     let fetchLogsTimer;
     let currentExecutionId = null;
     let websocketURL = null;
+    const TERMINAL_STATES = ['SUCCEEDED', 'FAILED', 'STOPPED'];
+
+    function deriveStartedAtFromLogs(events = []) {
+        if (!Array.isArray(events) || events.length === 0) {
+            return null;
+        }
+
+        const timestamps = events
+            .map((event) => event.timestamp)
+            .filter((ts) => typeof ts === 'number' && !Number.isNaN(ts));
+
+        if (timestamps.length === 0) {
+            return null;
+        }
+
+        const earliestTimestamp = Math.min(...timestamps);
+        return new Date(earliestTimestamp).toISOString();
+    }
 
     async function fetchLogs() {
         const id = get(executionId);
@@ -36,13 +54,31 @@
 
         try {
             const response = await apiClient.getLogs(id);
-            const eventsWithLines = (response.events || []).map((event, index) => ({
+            const events = response.events || [];
+            const eventsWithLines = events.map((event, index) => ({
                 ...event,
                 line: index + 1
             }));
             logEvents.set(eventsWithLines);
-            cachedWebSocketURL.set(response.websocket_url);
+            cachedWebSocketURL.set(response.websocket_url || null);
             logsRetryCount.set(0);
+
+            const status = response.status || 'UNKNOWN';
+            executionStatus.set(status);
+
+            if (response.started_at) {
+                startedAt.set(response.started_at);
+            } else {
+                const derivedStartedAt = deriveStartedAtFromLogs(events);
+                startedAt.set(derivedStartedAt);
+            }
+
+            const terminal = TERMINAL_STATES.includes(status);
+            isCompleted.set(terminal);
+
+            if (terminal) {
+                cachedWebSocketURL.set(null);
+            }
         } catch (error) {
             const retryCount = get(logsRetryCount);
             if (error.status === 404 && retryCount < MAX_LOGS_RETRIES) {
@@ -63,6 +99,9 @@
     $: {
         if (apiClient && currentExecutionId) {
             disconnectWebSocket();
+            executionStatus.set('LOADING');
+            startedAt.set(null);
+            isCompleted.set(false);
             fetchLogs();
         }
     }
@@ -79,6 +118,26 @@
         clearTimeout(fetchLogsTimer);
         disconnectWebSocket();
     }
+
+    onMount(() => {
+        if (typeof window === 'undefined') {
+            return undefined;
+        }
+
+        const handleExecutionComplete = () => {
+            const id = get(executionId);
+            if (!apiClient || !id) {
+                return;
+            }
+            fetchLogs();
+        };
+
+        window.addEventListener('runvoy:execution-complete', handleExecutionComplete);
+
+        return () => {
+            window.removeEventListener('runvoy:execution-complete', handleExecutionComplete);
+        };
+    });
 
     onDestroy(() => {
         clearTimeout(fetchLogsTimer);

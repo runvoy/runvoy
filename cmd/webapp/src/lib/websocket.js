@@ -1,5 +1,6 @@
 import { websocketConnection, isConnecting, connectionError } from '../stores/websocket.js';
 import { logEvents } from '../stores/logs.js';
+import { isCompleted } from '../stores/execution.js';
 
 let socket = null;
 
@@ -42,6 +43,10 @@ export function connectWebSocket(url) {
             if (message.type === 'disconnect') {
                 // eslint-disable-next-line no-console
                 console.log('Received disconnect message:', message.reason || 'unknown reason');
+                isCompleted.set(true);
+                if (typeof window !== 'undefined') {
+                    window.dispatchEvent(new CustomEvent('runvoy:execution-complete'));
+                }
                 // Close the connection gracefully
                 if (socket && socket.readyState === WebSocket.OPEN) {
                     socket.close(1000, 'Execution completed');
