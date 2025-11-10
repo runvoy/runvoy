@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	awsconfig "runvoy/internal/config/aws"
 	"runvoy/internal/constants"
 
 	"github.com/go-playground/validator/v10"
@@ -34,35 +35,9 @@ type Config struct {
 	RequestTimeout  time.Duration             `mapstructure:"request_timeout"`
 
 	// Provider-specific configurations
-	AWS *AWSConfig `mapstructure:"aws" yaml:"aws,omitempty"`
+	AWS *awsconfig.Config `mapstructure:"aws" yaml:"aws,omitempty"`
 	// Future providers can be added here:
 	// GCP *GCPConfig `mapstructure:"gcp" yaml:"gcp,omitempty"`
-}
-
-// AWSConfig contains AWS-specific configuration.
-// These settings are only used when BackendProvider is set to AWS.
-type AWSConfig struct {
-	// DynamoDB Tables
-	APIKeysTable              string `mapstructure:"api_keys_table"`
-	ExecutionsTable           string `mapstructure:"executions_table"`
-	PendingAPIKeysTable       string `mapstructure:"pending_api_keys_table"`
-	WebSocketConnectionsTable string `mapstructure:"websocket_connections_table"`
-	WebSocketTokensTable      string `mapstructure:"websocket_tokens_table"`
-
-	// ECS Configuration
-	ECSCluster      string `mapstructure:"ecs_cluster"`
-	SecurityGroup   string `mapstructure:"security_group"`
-	Subnet1         string `mapstructure:"subnet_1"`
-	Subnet2         string `mapstructure:"subnet_2"`
-	TaskDefinition  string `mapstructure:"task_definition"`
-	TaskExecRoleARN string `mapstructure:"task_exec_role_arn"`
-	TaskRoleARN     string `mapstructure:"task_role_arn"`
-
-	// CloudWatch Logs
-	LogGroup string `mapstructure:"log_group"`
-
-	// API Gateway WebSocket
-	WebSocketAPIEndpoint string `mapstructure:"websocket_api_endpoint"`
 }
 
 var validate = validator.New()
@@ -148,7 +123,7 @@ func LoadOrchestrator() (*Config, error) {
 
 	// Normalize WebSocket endpoint: strip protocol if present
 	if cfg.AWS != nil {
-		cfg.AWS.WebSocketAPIEndpoint = normalizeWebSocketEndpoint(cfg.AWS.WebSocketAPIEndpoint)
+		cfg.AWS.WebSocketAPIEndpoint = awsconfig.NormalizeWebSocketEndpoint(cfg.AWS.WebSocketAPIEndpoint)
 	}
 
 	return &cfg, nil
@@ -294,21 +269,8 @@ func bindEnvVars(v *viper.Viper) {
 	_ = v.BindEnv("request_timeout", "RUNVOY_REQUEST_TIMEOUT")
 	_ = v.BindEnv("web_url", "RUNVOY_WEB_URL")
 
-	// Bind AWS-specific environment variables with new nested format (RUNVOY_AWS_*)
-	_ = v.BindEnv("aws.api_keys_table", "RUNVOY_AWS_API_KEYS_TABLE")
-	_ = v.BindEnv("aws.ecs_cluster", "RUNVOY_AWS_ECS_CLUSTER")
-	_ = v.BindEnv("aws.executions_table", "RUNVOY_AWS_EXECUTIONS_TABLE")
-	_ = v.BindEnv("aws.log_group", "RUNVOY_AWS_LOG_GROUP")
-	_ = v.BindEnv("aws.pending_api_keys_table", "RUNVOY_AWS_PENDING_API_KEYS_TABLE")
-	_ = v.BindEnv("aws.security_group", "RUNVOY_AWS_SECURITY_GROUP")
-	_ = v.BindEnv("aws.subnet_1", "RUNVOY_AWS_SUBNET_1")
-	_ = v.BindEnv("aws.subnet_2", "RUNVOY_AWS_SUBNET_2")
-	_ = v.BindEnv("aws.task_definition", "RUNVOY_AWS_TASK_DEFINITION")
-	_ = v.BindEnv("aws.task_exec_role_arn", "RUNVOY_AWS_TASK_EXEC_ROLE_ARN")
-	_ = v.BindEnv("aws.task_role_arn", "RUNVOY_AWS_TASK_ROLE_ARN")
-	_ = v.BindEnv("aws.websocket_api_endpoint", "RUNVOY_AWS_WEBSOCKET_API_ENDPOINT")
-	_ = v.BindEnv("aws.websocket_connections_table", "RUNVOY_AWS_WEBSOCKET_CONNECTIONS_TABLE")
-	_ = v.BindEnv("aws.websocket_tokens_table", "RUNVOY_AWS_WEBSOCKET_TOKENS_TABLE")
+	// Bind provider-specific environment variables
+	awsconfig.BindEnvVars(v)
 }
 
 // validateOrchestrator validates required fields for orchestrator service.
@@ -317,37 +279,10 @@ func validateOrchestrator(cfg *Config) error {
 
 	switch provider {
 	case constants.AWS:
-		return validateAWSOrchestrator(cfg)
+		return awsconfig.ValidateOrchestrator(cfg.AWS)
 	default:
 		return fmt.Errorf("unsupported backend provider: %s", provider)
 	}
-}
-
-func validateAWSOrchestrator(cfg *Config) error {
-	if cfg.AWS == nil {
-		return fmt.Errorf("AWS configuration is required when backend_provider is AWS")
-	}
-
-	required := map[string]string{
-		"AWS.APIKeysTable":              cfg.AWS.APIKeysTable,
-		"AWS.ECSCluster":                cfg.AWS.ECSCluster,
-		"AWS.ExecutionsTable":           cfg.AWS.ExecutionsTable,
-		"AWS.LogGroup":                  cfg.AWS.LogGroup,
-		"AWS.SecurityGroup":             cfg.AWS.SecurityGroup,
-		"AWS.Subnet1":                   cfg.AWS.Subnet1,
-		"AWS.Subnet2":                   cfg.AWS.Subnet2,
-		"AWS.WebSocketAPIEndpoint":      cfg.AWS.WebSocketAPIEndpoint,
-		"AWS.WebSocketConnectionsTable": cfg.AWS.WebSocketConnectionsTable,
-		"AWS.WebSocketTokensTable":      cfg.AWS.WebSocketTokensTable,
-	}
-
-	for field, value := range required {
-		if value == "" {
-			return fmt.Errorf("%s cannot be empty", field)
-		}
-	}
-
-	return nil
 }
 
 // validateEventProcessor validates required fields for event processor service.
@@ -356,46 +291,10 @@ func validateEventProcessor(cfg *Config) error {
 
 	switch provider {
 	case constants.AWS:
-		return validateAWSEventProcessor(cfg)
+		return awsconfig.ValidateEventProcessor(cfg.AWS)
 	default:
 		return fmt.Errorf("unsupported backend provider: %s", provider)
 	}
-}
-
-func validateAWSEventProcessor(cfg *Config) error {
-	if cfg.AWS == nil {
-		return fmt.Errorf("AWS configuration is required when backend_provider is AWS")
-	}
-
-	required := map[string]string{
-		"AWS.ECSCluster":                cfg.AWS.ECSCluster,
-		"AWS.ExecutionsTable":           cfg.AWS.ExecutionsTable,
-		"AWS.WebSocketAPIEndpoint":      cfg.AWS.WebSocketAPIEndpoint,
-		"AWS.WebSocketConnectionsTable": cfg.AWS.WebSocketConnectionsTable,
-		"AWS.WebSocketTokensTable":      cfg.AWS.WebSocketTokensTable,
-	}
-
-	for field, value := range required {
-		if value == "" {
-			return fmt.Errorf("%s cannot be empty", field)
-		}
-	}
-
-	cfg.AWS.WebSocketAPIEndpoint = "https://" + normalizeWebSocketEndpoint(cfg.AWS.WebSocketAPIEndpoint)
-
-	return nil
-}
-
-// normalizeWebSocketEndpoint strips protocol prefixes from WebSocket endpoint URLs.
-// Accepts: https://example.com, http://example.com, wss://example.com, ws://example.com, example.com
-// Returns: example.com (without protocol)
-func normalizeWebSocketEndpoint(endpoint string) string {
-	endpoint = strings.TrimSpace(endpoint)
-	endpoint = strings.TrimPrefix(endpoint, "https://")
-	endpoint = strings.TrimPrefix(endpoint, "http://")
-	endpoint = strings.TrimPrefix(endpoint, "wss://")
-	endpoint = strings.TrimPrefix(endpoint, "ws://")
-	return endpoint
 }
 
 // normalizeBackendProvider trims whitespace and uppercases the backend provider identifier.
