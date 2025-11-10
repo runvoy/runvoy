@@ -317,6 +317,7 @@ func TestValidateEventProcessor(t *testing.T) {
 		{
 			name: "valid event processor config",
 			cfg: &Config{
+				BackendProvider:           constants.AWS,
 				ExecutionsTable:           "executions",
 				ECSCluster:                "cluster",
 				WebSocketConnectionsTable: "connections",
@@ -328,6 +329,7 @@ func TestValidateEventProcessor(t *testing.T) {
 		{
 			name: "missing ExecutionsTable",
 			cfg: &Config{
+				BackendProvider:           constants.AWS,
 				ECSCluster:                "cluster",
 				WebSocketConnectionsTable: "connections",
 				WebSocketAPIEndpoint:      "https://example.com",
@@ -339,6 +341,7 @@ func TestValidateEventProcessor(t *testing.T) {
 		{
 			name: "missing ECSCluster",
 			cfg: &Config{
+				BackendProvider:           constants.AWS,
 				ExecutionsTable:           "executions",
 				WebSocketConnectionsTable: "connections",
 				WebSocketAPIEndpoint:      "https://example.com",
@@ -350,6 +353,7 @@ func TestValidateEventProcessor(t *testing.T) {
 		{
 			name: "missing WebSocketConnectionsTable",
 			cfg: &Config{
+				BackendProvider:      constants.AWS,
 				ExecutionsTable:      "executions",
 				ECSCluster:           "cluster",
 				WebSocketAPIEndpoint: "https://example.com",
@@ -361,6 +365,7 @@ func TestValidateEventProcessor(t *testing.T) {
 		{
 			name: "missing WebSocketAPIEndpoint",
 			cfg: &Config{
+				BackendProvider:           constants.AWS,
 				ExecutionsTable:           "executions",
 				ECSCluster:                "cluster",
 				WebSocketConnectionsTable: "connections",
@@ -377,6 +382,7 @@ func TestValidateEventProcessor(t *testing.T) {
 		{
 			name: "normalizes WebSocketAPIEndpoint",
 			cfg: &Config{
+				BackendProvider:           constants.AWS,
 				ExecutionsTable:           "executions",
 				ECSCluster:                "cluster",
 				WebSocketConnectionsTable: "connections",
@@ -389,6 +395,7 @@ func TestValidateEventProcessor(t *testing.T) {
 		{
 			name: "missing WebSocketTokensTable",
 			cfg: &Config{
+				BackendProvider:           constants.AWS,
 				ExecutionsTable:           "executions",
 				ECSCluster:                "cluster",
 				WebSocketConnectionsTable: "connections",

@@ -338,8 +338,18 @@ func validateAWSOrchestrator(cfg *Config) error {
 }
 
 // validateEventProcessor validates required fields for event processor service.
-// These match the old caarlos0/env notEmpty tags.
 func validateEventProcessor(cfg *Config) error {
+	provider := normalizeBackendProvider(cfg.BackendProvider)
+
+	switch provider {
+	case constants.AWS:
+		return validateAWSEventProcessor(cfg)
+	default:
+		return fmt.Errorf("unsupported backend provider: %s", provider)
+	}
+}
+
+func validateAWSEventProcessor(cfg *Config) error {
 	required := map[string]string{
 		"ECSCluster":                cfg.ECSCluster,
 		"ExecutionsTable":           cfg.ExecutionsTable,

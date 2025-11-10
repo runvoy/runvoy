@@ -1,4 +1,5 @@
-package events
+// Package aws provides AWS-specific event processing implementations.
+package aws
 
 import "time"
 
