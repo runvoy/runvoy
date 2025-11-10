@@ -11,6 +11,7 @@ import (
 	"runvoy/internal/constants"
 	"runvoy/internal/database"
 	appAws "runvoy/internal/providers/aws/app"
+	"runvoy/internal/websocket"
 )
 
 type serviceDependencies struct {
@@ -40,8 +41,8 @@ func Initialize(
 	)
 
 	var (
-		deps              *serviceDependencies
-		websocketEndpoint string
+		deps      *serviceDependencies
+		wsManager websocket.Manager
 	)
 
 	switch provider {
@@ -57,7 +58,9 @@ func Initialize(
 			tokenRepo:     awsDeps.TokenRepo,
 			runner:        awsDeps.Runner,
 		}
-		websocketEndpoint = cfg.AWS.WebSocketAPIEndpoint
+		if awsDeps.WebSocketManager != nil {
+			wsManager = awsDeps.WebSocketManager
+		}
 
 	default:
 		return nil, fmt.Errorf("unknown backend provider: %s (supported: %s)", provider, constants.AWS)
@@ -73,6 +76,6 @@ func Initialize(
 		deps.runner,
 		logger,
 		provider,
-		websocketEndpoint,
+		wsManager,
 	), nil
 }

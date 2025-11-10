@@ -8,6 +8,7 @@ import (
 	"runvoy/internal/config"
 	"runvoy/internal/database"
 	dynamoRepo "runvoy/internal/providers/aws/database/dynamodb"
+	awsWebsocket "runvoy/internal/providers/aws/websocket"
 
 	awsConfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
@@ -16,11 +17,12 @@ import (
 
 // Dependencies bundles the AWS-backed implementations required by the app service.
 type Dependencies struct {
-	UserRepo       database.UserRepository
-	ExecutionRepo  database.ExecutionRepository
-	ConnectionRepo database.ConnectionRepository
-	TokenRepo      database.TokenRepository
-	Runner         *Runner
+	UserRepo         database.UserRepository
+	ExecutionRepo    database.ExecutionRepository
+	ConnectionRepo   database.ConnectionRepository
+	TokenRepo        database.TokenRepository
+	Runner           *Runner
+	WebSocketManager *awsWebsocket.Manager
 }
 
 // Initialize prepares AWS service dependencies for the app package.
@@ -65,12 +67,14 @@ func Initialize(
 		Region:          awsCfg.Region,
 	}
 	runner := NewRunner(ecsClient, runnerCfg, logger)
+	wsManager := awsWebsocket.NewManager(cfg, &awsCfg, connectionRepo, tokenRepo, logger)
 
 	return &Dependencies{
-		UserRepo:       userRepo,
-		ExecutionRepo:  executionRepo,
-		ConnectionRepo: connectionRepo,
-		TokenRepo:      tokenRepo,
-		Runner:         runner,
+		UserRepo:         userRepo,
+		ExecutionRepo:    executionRepo,
+		ConnectionRepo:   connectionRepo,
+		TokenRepo:        tokenRepo,
+		Runner:           runner,
+		WebSocketManager: wsManager,
 	}, nil
 }
