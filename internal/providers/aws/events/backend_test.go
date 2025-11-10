@@ -63,7 +63,7 @@ func (m *mockWebSocketHandler) SendLogsToExecution(_ context.Context, _ *string,
 	return nil
 }
 
-func (m *mockWebSocketHandler) GenerateWebSocketURL(_ context.Context, _ string, _ *string, _ *string) string {
+func (m *mockWebSocketHandler) GenerateWebSocketURL(_ context.Context, _ string, _, _ *string) string {
 	return ""
 }
 

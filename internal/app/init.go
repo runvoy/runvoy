@@ -10,8 +10,8 @@ import (
 	"runvoy/internal/config"
 	"runvoy/internal/constants"
 	"runvoy/internal/database"
-	"runvoy/internal/websocket"
 	appAws "runvoy/internal/providers/aws/app"
+	"runvoy/internal/websocket"
 )
 
 type serviceDependencies struct {

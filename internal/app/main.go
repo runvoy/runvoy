@@ -425,7 +425,6 @@ func (s *Service) GetLogsByExecutionID(
 	}, nil
 }
 
-
 // GetExecutionStatus returns the current status and metadata for a given execution ID
 func (s *Service) GetExecutionStatus(ctx context.Context, executionID string) (*api.ExecutionStatusResponse, error) {
 	if s.executionRepo == nil {

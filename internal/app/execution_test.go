@@ -624,7 +624,12 @@ func TestGetLogsByExecutionID_WebSocketToken(t *testing.T) {
 			var wsManager websocket.Manager
 			if tt.websocketBaseURL != "" {
 				wsManager = &mockWebSocketManager{
-					generateWebSocketURLFunc: func(ctx context.Context, executionID string, userEmail *string, clientIPAtCreationTime *string) string {
+					generateWebSocketURLFunc: func(
+						ctx context.Context,
+						executionID string,
+						userEmail *string,
+						clientIPAtCreationTime *string,
+					) string {
 						// Simulate the real GenerateWebSocketURL behavior
 						token, err := auth.GenerateSecretToken()
 						if err != nil {
@@ -646,10 +651,15 @@ func TestGetLogsByExecutionID_WebSocketToken(t *testing.T) {
 							ExpiresAt:   time.Now().Add(24 * time.Hour).Unix(),
 							CreatedAt:   time.Now().Unix(),
 						}
-						if err := tokenRepo.CreateToken(ctx, wsToken); err != nil {
+						if createErr := tokenRepo.CreateToken(ctx, wsToken); createErr != nil {
 							return ""
 						}
-						return fmt.Sprintf("wss://%s?execution_id=%s&token=%s", tt.websocketBaseURL, executionID, token)
+						return fmt.Sprintf(
+							"wss://%s?execution_id=%s&token=%s",
+							tt.websocketBaseURL,
+							executionID,
+							token,
+						)
 					},
 				}
 			}
@@ -720,7 +730,12 @@ func TestGetLogsByExecutionID_TokenUniqueness(t *testing.T) {
 	}
 
 	wsManager := &mockWebSocketManager{
-		generateWebSocketURLFunc: func(ctx context.Context, executionID string, userEmail *string, clientIPAtCreationTime *string) string {
+		generateWebSocketURLFunc: func(
+			ctx context.Context,
+			executionID string,
+			userEmail *string,
+			clientIPAtCreationTime *string,
+		) string {
 			token, err := auth.GenerateSecretToken()
 			if err != nil {
 				return ""
@@ -741,10 +756,14 @@ func TestGetLogsByExecutionID_TokenUniqueness(t *testing.T) {
 				ExpiresAt:   time.Now().Add(24 * time.Hour).Unix(),
 				CreatedAt:   time.Now().Unix(),
 			}
-			if err := tokenRepo.CreateToken(ctx, wsToken); err != nil {
+			if createErr := tokenRepo.CreateToken(ctx, wsToken); createErr != nil {
 				return ""
 			}
-			return fmt.Sprintf("wss://api.example.com/production?execution_id=%s&token=%s", executionID, token)
+			return fmt.Sprintf(
+				"wss://api.example.com/production?execution_id=%s&token=%s",
+				executionID,
+				token,
+			)
 		},
 	}
 

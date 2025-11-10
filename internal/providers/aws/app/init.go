@@ -17,11 +17,11 @@ import (
 
 // Dependencies bundles the AWS-backed implementations required by the app service.
 type Dependencies struct {
-	UserRepo       database.UserRepository
-	ExecutionRepo  database.ExecutionRepository
-	ConnectionRepo database.ConnectionRepository
-	TokenRepo      database.TokenRepository
-	Runner         *Runner
+	UserRepo         database.UserRepository
+	ExecutionRepo    database.ExecutionRepository
+	ConnectionRepo   database.ConnectionRepository
+	TokenRepo        database.TokenRepository
+	Runner           *Runner
 	WebSocketManager *awsWebsocket.Manager
 }
 
@@ -75,11 +75,11 @@ func Initialize(
 	}
 
 	return &Dependencies{
-		UserRepo:        userRepo,
-		ExecutionRepo:   executionRepo,
-		ConnectionRepo:  connectionRepo,
-		TokenRepo:       tokenRepo,
-		Runner:          runner,
+		UserRepo:         userRepo,
+		ExecutionRepo:    executionRepo,
+		ConnectionRepo:   connectionRepo,
+		TokenRepo:        tokenRepo,
+		Runner:           runner,
 		WebSocketManager: wsManager,
 	}, nil
 }
