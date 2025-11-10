@@ -294,22 +294,21 @@ func bindEnvVars(v *viper.Viper) {
 	_ = v.BindEnv("request_timeout", "RUNVOY_REQUEST_TIMEOUT")
 	_ = v.BindEnv("web_url", "RUNVOY_WEB_URL")
 
-	// Bind AWS-specific environment variables
-	// Support both new nested format (RUNVOY_AWS_*) and old flat format (RUNVOY_*) for backward compatibility
-	_ = v.BindEnv("aws.api_keys_table", "RUNVOY_AWS_API_KEYS_TABLE", "RUNVOY_API_KEYS_TABLE")
-	_ = v.BindEnv("aws.ecs_cluster", "RUNVOY_AWS_ECS_CLUSTER", "RUNVOY_ECS_CLUSTER")
-	_ = v.BindEnv("aws.executions_table", "RUNVOY_AWS_EXECUTIONS_TABLE", "RUNVOY_EXECUTIONS_TABLE")
-	_ = v.BindEnv("aws.log_group", "RUNVOY_AWS_LOG_GROUP", "RUNVOY_LOG_GROUP")
-	_ = v.BindEnv("aws.pending_api_keys_table", "RUNVOY_AWS_PENDING_API_KEYS_TABLE", "RUNVOY_PENDING_API_KEYS_TABLE")
-	_ = v.BindEnv("aws.security_group", "RUNVOY_AWS_SECURITY_GROUP", "RUNVOY_SECURITY_GROUP")
-	_ = v.BindEnv("aws.subnet_1", "RUNVOY_AWS_SUBNET_1", "RUNVOY_SUBNET_1")
-	_ = v.BindEnv("aws.subnet_2", "RUNVOY_AWS_SUBNET_2", "RUNVOY_SUBNET_2")
-	_ = v.BindEnv("aws.task_definition", "RUNVOY_AWS_TASK_DEFINITION", "RUNVOY_TASK_DEFINITION")
-	_ = v.BindEnv("aws.task_exec_role_arn", "RUNVOY_AWS_TASK_EXEC_ROLE_ARN", "RUNVOY_TASK_EXEC_ROLE_ARN")
-	_ = v.BindEnv("aws.task_role_arn", "RUNVOY_AWS_TASK_ROLE_ARN", "RUNVOY_TASK_ROLE_ARN")
-	_ = v.BindEnv("aws.websocket_api_endpoint", "RUNVOY_AWS_WEBSOCKET_API_ENDPOINT", "RUNVOY_WEBSOCKET_API_ENDPOINT")
-	_ = v.BindEnv("aws.websocket_connections_table", "RUNVOY_AWS_WEBSOCKET_CONNECTIONS_TABLE", "RUNVOY_WEBSOCKET_CONNECTIONS_TABLE")
-	_ = v.BindEnv("aws.websocket_tokens_table", "RUNVOY_AWS_WEBSOCKET_TOKENS_TABLE", "RUNVOY_WEBSOCKET_TOKENS_TABLE")
+	// Bind AWS-specific environment variables with new nested format (RUNVOY_AWS_*)
+	_ = v.BindEnv("aws.api_keys_table", "RUNVOY_AWS_API_KEYS_TABLE")
+	_ = v.BindEnv("aws.ecs_cluster", "RUNVOY_AWS_ECS_CLUSTER")
+	_ = v.BindEnv("aws.executions_table", "RUNVOY_AWS_EXECUTIONS_TABLE")
+	_ = v.BindEnv("aws.log_group", "RUNVOY_AWS_LOG_GROUP")
+	_ = v.BindEnv("aws.pending_api_keys_table", "RUNVOY_AWS_PENDING_API_KEYS_TABLE")
+	_ = v.BindEnv("aws.security_group", "RUNVOY_AWS_SECURITY_GROUP")
+	_ = v.BindEnv("aws.subnet_1", "RUNVOY_AWS_SUBNET_1")
+	_ = v.BindEnv("aws.subnet_2", "RUNVOY_AWS_SUBNET_2")
+	_ = v.BindEnv("aws.task_definition", "RUNVOY_AWS_TASK_DEFINITION")
+	_ = v.BindEnv("aws.task_exec_role_arn", "RUNVOY_AWS_TASK_EXEC_ROLE_ARN")
+	_ = v.BindEnv("aws.task_role_arn", "RUNVOY_AWS_TASK_ROLE_ARN")
+	_ = v.BindEnv("aws.websocket_api_endpoint", "RUNVOY_AWS_WEBSOCKET_API_ENDPOINT")
+	_ = v.BindEnv("aws.websocket_connections_table", "RUNVOY_AWS_WEBSOCKET_CONNECTIONS_TABLE")
+	_ = v.BindEnv("aws.websocket_tokens_table", "RUNVOY_AWS_WEBSOCKET_TOKENS_TABLE")
 }
 
 // validateOrchestrator validates required fields for orchestrator service.
