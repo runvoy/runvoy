@@ -30,7 +30,7 @@ type Config struct {
 	// Backend Service Configuration
 	BackendProvider constants.BackendProvider `mapstructure:"backend_provider" yaml:"backend_provider"`
 	InitTimeout     time.Duration             `mapstructure:"init_timeout"`
-	LogLevel        string                    `mapstructure:"log_level"`
+	LogLevel        slog.Level                `mapstructure:"log_level"`
 	Port            int                       `mapstructure:"port" validate:"omitempty"`
 	RequestTimeout  time.Duration             `mapstructure:"request_timeout"`
 
@@ -209,16 +209,6 @@ func GetConfigPath() (string, error) {
 
 	configDir := constants.ConfigDirPath(currentUser.HomeDir)
 	return filepath.Join(configDir, constants.ConfigFileName), nil
-}
-
-// GetLogLevel returns the slog.Level from the string configuration.
-// Defaults to INFO if the level string is invalid.
-func (c *Config) GetLogLevel() slog.Level {
-	var level slog.Level
-	if err := level.UnmarshalText([]byte(c.LogLevel)); err != nil {
-		return slog.LevelInfo
-	}
-	return level
 }
 
 // Helper functions

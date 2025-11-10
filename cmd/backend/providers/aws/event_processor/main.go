@@ -17,7 +17,7 @@ import (
 
 func main() {
 	cfg := config.MustLoadEventProcessor()
-	log := logger.Initialize(constants.Production, cfg.GetLogLevel())
+	log := logger.Initialize(constants.Production, cfg.LogLevel)
 	ctx, cancel := context.WithTimeout(context.Background(), cfg.InitTimeout)
 
 	processor, err := events.Initialize(ctx, cfg, log)

@@ -17,7 +17,7 @@ import (
 
 func main() {
 	cfg := config.MustLoadOrchestrator()
-	log := logger.Initialize(constants.Production, cfg.GetLogLevel())
+	log := logger.Initialize(constants.Production, cfg.LogLevel)
 	ctx, cancel := context.WithTimeout(context.Background(), cfg.InitTimeout)
 
 	svc, err := app.Initialize(ctx, constants.AWS, cfg, log)

@@ -11,54 +11,38 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestConfig_GetLogLevel(t *testing.T) {
+func TestConfig_LogLevel(t *testing.T) {
 	tests := []struct {
 		name     string
-		logLevel string
+		logLevel slog.Level
 		expected slog.Level
 	}{
 		{
 			name:     "DEBUG level",
-			logLevel: "DEBUG",
+			logLevel: slog.LevelDebug,
 			expected: slog.LevelDebug,
 		},
 		{
 			name:     "INFO level",
-			logLevel: "INFO",
+			logLevel: slog.LevelInfo,
 			expected: slog.LevelInfo,
 		},
 		{
 			name:     "WARN level",
-			logLevel: "WARN",
+			logLevel: slog.LevelWarn,
 			expected: slog.LevelWarn,
 		},
 		{
 			name:     "ERROR level",
-			logLevel: "ERROR",
+			logLevel: slog.LevelError,
 			expected: slog.LevelError,
-		},
-		{
-			name:     "invalid level defaults to INFO",
-			logLevel: "INVALID",
-			expected: slog.LevelInfo,
-		},
-		{
-			name:     "empty string defaults to INFO",
-			logLevel: "",
-			expected: slog.LevelInfo,
-		},
-		{
-			name:     "lowercase level",
-			logLevel: "debug",
-			expected: slog.LevelDebug,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cfg := &Config{LogLevel: tt.logLevel}
-			result := cfg.GetLogLevel()
-			assert.Equal(t, tt.expected, result)
+			assert.Equal(t, tt.expected, cfg.LogLevel)
 		})
 	}
 }
@@ -488,7 +472,7 @@ func TestConfigStruct(t *testing.T) {
 			APIEndpoint: "https://api.example.com",
 			APIKey:      "test-key",
 			Port:        8080,
-			LogLevel:    "INFO",
+			LogLevel:    slog.LevelInfo,
 			AWS: &awsconfig.Config{
 				APIKeysTable:        "api-keys-table",
 				ExecutionsTable:     "executions-table",
@@ -507,7 +491,7 @@ func TestConfigStruct(t *testing.T) {
 		assert.NotNil(t, cfg)
 		assert.Equal(t, "https://api.example.com", cfg.APIEndpoint)
 		assert.Equal(t, "test-key", cfg.APIKey)
-		assert.Equal(t, "INFO", cfg.LogLevel)
+		assert.Equal(t, slog.LevelInfo, cfg.LogLevel)
 		assert.NotNil(t, cfg.AWS)
 		assert.Equal(t, "test-cluster", cfg.AWS.ECSCluster)
 	})
@@ -518,11 +502,10 @@ func TestSetDefaults(t *testing.T) {
 		// This test verifies the behavior indirectly by checking if defaults
 		// are reasonable. Direct testing would require exposing setDefaults.
 		cfg := &Config{
-			LogLevel: "INFO",
+			LogLevel: slog.LevelInfo,
 		}
 
-		level := cfg.GetLogLevel()
-		assert.Equal(t, slog.LevelInfo, level)
+		assert.Equal(t, slog.LevelInfo, cfg.LogLevel)
 	})
 }
 
