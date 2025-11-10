@@ -30,7 +30,7 @@ type userItem struct {
 
 func setupAPIKeyAndConfig() (cfg *config.Config, apiKey, apiKeyHash string) {
 	var err error
-	apiKey, err = auth.GenerateAPIKey()
+	apiKey, err = auth.GenerateSecretToken()
 	if err != nil {
 		log.Fatalf("error: failed to generate API key: %v", err)
 	}

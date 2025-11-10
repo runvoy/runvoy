@@ -107,7 +107,7 @@ func generateOrUseAPIKey(providedKey string) (string, error) {
 	if providedKey != "" {
 		return providedKey, nil
 	}
-	apiKey, err := auth.GenerateAPIKey()
+	apiKey, err := auth.GenerateSecretToken()
 	if err != nil {
 		return "", apperrors.ErrInternalError("failed to generate API key", err)
 	}
