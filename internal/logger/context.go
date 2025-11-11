@@ -66,12 +66,10 @@ func DeriveRequestLogger(ctx context.Context, base *slog.Logger) *slog.Logger {
 		return slog.Default()
 	}
 
-	// Try to get requestID from context value first (used in HTTP server)
 	if requestID := GetRequestID(ctx); requestID != "" {
 		return base.With("requestID", requestID)
 	}
 
-	// Try all registered context extractors
 	for _, extractor := range contextExtractors {
 		if requestID, found := extractor.ExtractRequestID(ctx); found && requestID != "" {
 			return base.With("requestID", requestID)

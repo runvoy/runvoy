@@ -32,7 +32,6 @@ func Initialize(
 	cfg *config.Config,
 	log *slog.Logger,
 ) (*Dependencies, error) {
-	// Register AWS Lambda context extractor
 	logger.RegisterContextExtractor(NewLambdaContextExtractor())
 
 	awsCfg, err := awsConfig.LoadDefaultConfig(ctx)
