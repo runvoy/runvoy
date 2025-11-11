@@ -155,7 +155,8 @@ func (sm *SecretsManager) ListSecrets(ctx context.Context, userEmail string) ([]
 }
 
 // UpdateSecret updates a secret (metadata and/or value).
-// Always updates the description (can be empty) and UpdatedAt timestamp.
+// Users can update: description, keyName, and value.
+// Always updates the UpdatedAt timestamp.
 // If Value is provided (non-empty), also updates the secret value in the value store.
 func (sm *SecretsManager) UpdateSecret(
 	ctx context.Context,
@@ -188,8 +189,8 @@ func (sm *SecretsManager) UpdateSecret(
 		}
 	}
 
-	// Always update metadata (description and timestamp)
-	if err = sm.metadataRepo.UpdateSecretMetadata(ctx, name, req.Description, userEmail); err != nil {
+	// Always update metadata (description, keyName, and timestamp)
+	if err = sm.metadataRepo.UpdateSecretMetadata(ctx, name, req.KeyName, req.Description, userEmail); err != nil {
 		sm.logger.Error("failed to update secret metadata", "error", err, "name", name)
 		return nil, fmt.Errorf("failed to update secret metadata: %w", err)
 	}

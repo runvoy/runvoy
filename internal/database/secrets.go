@@ -31,9 +31,9 @@ type SecretsRepository interface {
 	// If userEmail is empty, returns all secrets.
 	ListSecrets(ctx context.Context, userEmail string) ([]*api.Secret, error)
 
-	// UpdateSecretMetadata updates a secret's description and updated_at timestamp.
+	// UpdateSecretMetadata updates a secret's editable metadata (description and keyName) and updated_at timestamp.
 	// Returns an error if the secret is not found.
-	UpdateSecretMetadata(ctx context.Context, name, description, updatedBy string) error
+	UpdateSecretMetadata(ctx context.Context, name, keyName, description, updatedBy string) error
 
 	// DeleteSecret removes a secret's metadata from persistent storage.
 	// Returns an error if the secret is not found.

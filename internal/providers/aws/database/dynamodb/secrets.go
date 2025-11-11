@@ -181,8 +181,11 @@ func (r *SecretsRepository) ListSecrets(ctx context.Context, userEmail string) (
 	return secrets, nil
 }
 
-// UpdateSecretMetadata updates a secret's metadata in DynamoDB.
-func (r *SecretsRepository) UpdateSecretMetadata(ctx context.Context, name, description, updatedBy string) error {
+// UpdateSecretMetadata updates a secret's metadata (description and keyName) in DynamoDB.
+func (r *SecretsRepository) UpdateSecretMetadata(
+	ctx context.Context,
+	name, keyName, description, updatedBy string,
+) error {
 	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
 
 	now := time.Now().UTC()
@@ -190,8 +193,11 @@ func (r *SecretsRepository) UpdateSecretMetadata(ctx context.Context, name, desc
 	updateExpr := expression.NewBuilder().
 		WithUpdate(
 			expression.Set(
-				expression.Name("description"), expression.Value(description),
+				expression.Name("key_name"), expression.Value(keyName),
 			).
+				Set(
+					expression.Name("description"), expression.Value(description),
+				).
 				Set(
 					expression.Name("updated_at"), expression.Value(now),
 				).

@@ -33,11 +33,13 @@ type CreateSecretResponse struct {
 }
 
 // UpdateSecretRequest represents the request to update a secret (metadata and/or value)
+// Users can update: description, key_name (environment variable name), and value.
+// Description and KeyName are metadata fields. UpdatedAt is always refreshed.
 // If Value is provided, the secret's value will be updated.
-// Description can be updated regardless. UpdatedAt is always refreshed.
 type UpdateSecretRequest struct {
-	Description string `json:"description,omitempty"`
-	Value       string `json:"value,omitempty"` // If provided, updates the secret value
+	Description string `json:"description,omitempty"` // Environment variable description
+	KeyName     string `json:"key_name,omitempty"`    // Environment variable name (e.g., GITHUB_TOKEN)
+	Value       string `json:"value,omitempty"`       // If provided, updates the secret value
 }
 
 // UpdateSecretResponse represents the response after updating a secret
