@@ -741,9 +741,20 @@ The web viewer interacts with multiple API endpoints:
 - `GET /api/v1/executions/{id}/status` - Fetch execution status and metadata
 - `GET /api/v1/executions/{id}/logs` - Fetch execution logs and WebSocket URL
 
+**`/logs` Response Contract**:
+The `/logs` endpoint returns:
+- `execution_id`: The execution identifier
+- `status`: Current execution status (RUNNING, SUCCEEDED, FAILED, STOPPED)
+- `events`: Array of completed log entries
+- `websocket_url`: URL for real-time log streaming (only present if available)
+
+Clients should check the `status` field to determine behavior:
+- **RUNNING**: WebSocket URL will be present; client should connect to stream new logs in real-time
+- **SUCCEEDED/FAILED/STOPPED**: Execution has completed; all logs are in the `events` array; client should not attempt WebSocket connection
+
 **WebSocket API**:
 - Connects to WebSocket URL returned in logs response
-- Receives real-time log events via WebSocket
+- Receives real-time log events via WebSocket (only for RUNNING executions)
 - Receives disconnect notification when execution completes
 
 All endpoints require authentication via `X-API-Key` header.

@@ -230,6 +230,7 @@ func (s *LogsService) streamLogsViaWebSocket(
 }
 
 // DisplayLogs retrieves static logs and then streams new logs via WebSocket in real-time
+// If the execution has already completed, it displays static logs only and skips WebSocket streaming
 func (s *LogsService) DisplayLogs(ctx context.Context, executionID, webURL string) error {
 	// Fetch static logs with retry logic
 	resp, err := s.fetchLogsWithRetry(ctx, executionID)
@@ -247,11 +248,14 @@ func (s *LogsService) DisplayLogs(ctx context.Context, executionID, webURL strin
 	s.displayLogEvents(logMap)
 
 	if resp.WebSocketURL == "" {
-		// Streaming is not available
 		return nil
 	}
 
-	// Stream logs via WebSocket
+	if resp.Status != "RUNNING" {
+		s.output.Infof("Execution has completed with status: %s", resp.Status)
+		return nil
+	}
+
 	_ = s.streamLogsViaWebSocket(resp.WebSocketURL, logMap, &mu, webURL, executionID)
 
 	return nil

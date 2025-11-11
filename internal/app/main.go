@@ -385,6 +385,7 @@ func (s *Service) RunCommand(
 // Always use wss:// for production WebSocket connections
 // userEmail: authenticated user email for audit trail
 // clientIPAtCreationTime: client IP captured when the token was created (for tracing)
+// If task is not running, don't return a WebSocket URL.
 func (s *Service) GetLogsByExecutionID(
 	ctx context.Context,
 	executionID string,
@@ -398,7 +399,6 @@ func (s *Service) GetLogsByExecutionID(
 		return nil, apperrors.ErrBadRequest("executionID is required", nil)
 	}
 
-	// Fetch execution status
 	execution, err := s.executionRepo.GetExecution(ctx, executionID)
 	if err != nil {
 		return nil, err
