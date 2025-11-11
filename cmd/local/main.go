@@ -24,7 +24,7 @@ import (
 const numServers = 2
 
 func initializeServices(ctx context.Context, log *slog.Logger, oCfg *config.Config, eCfg *config.Config,
-) (*app.Service, *events.Processor, error) {
+) (*app.Service, events.Processor, error) {
 	svc, err := app.Initialize(ctx, constants.AWS, oCfg, log)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to initialize orchestrator service: %w", err)
@@ -76,7 +76,7 @@ func startOrchestratorServer(log *slog.Logger, cfg *config.Config, svc *app.Serv
 	}
 }
 
-func startAsyncProcessorServer(log *slog.Logger, cfg *config.Config, processor *events.Processor,
+func startAsyncProcessorServer(log *slog.Logger, cfg *config.Config, processor events.Processor,
 	serverErrors chan error, wg *sync.WaitGroup) *http.Server {
 	wg.Add(1)
 	go func() {

@@ -12,33 +12,81 @@ import (
 	"runvoy/internal/api"
 	"runvoy/internal/constants"
 	"runvoy/internal/database"
+	"runvoy/internal/logger"
 	"runvoy/internal/websocket"
 
 	"github.com/aws/aws-lambda-go/events"
 )
 
-// Backend implements the events.Backend interface for AWS.
-type Backend struct {
+// Processor implements the events.Processor interface for AWS.
+// It handles CloudWatch events, CloudWatch Logs, and API Gateway WebSocket events.
+type Processor struct {
 	executionRepo    database.ExecutionRepository
 	webSocketManager websocket.Manager
 	logger           *slog.Logger
 }
 
-// NewBackend creates a new AWS event backend.
-func NewBackend(
+// NewProcessor creates a new AWS event processor.
+func NewProcessor(
 	executionRepo database.ExecutionRepository,
 	webSocketManager websocket.Manager,
-	logger *slog.Logger,
-) *Backend {
-	return &Backend{
+	log *slog.Logger,
+) *Processor {
+	return &Processor{
 		executionRepo:    executionRepo,
 		webSocketManager: webSocketManager,
-		logger:           logger,
+		logger:           log,
 	}
 }
 
-// HandleCloudEvent processes CloudWatch events (ECS task state changes).
-func (b *Backend) HandleCloudEvent(
+// Handle processes a raw AWS event by delegating to the appropriate handler.
+// It supports CloudWatch events, CloudWatch Logs, and WebSocket events.
+func (p *Processor) Handle(ctx context.Context, rawEvent *json.RawMessage) (any, error) {
+	reqLogger := logger.DeriveRequestLogger(ctx, p.logger)
+
+	// Try cloud-specific events
+	if handled, err := p.handleCloudEvent(ctx, rawEvent, reqLogger); handled {
+		return nil, err
+	}
+
+	// Try logs events
+	if handled, err := p.handleLogsEvent(ctx, rawEvent, reqLogger); handled {
+		return nil, err
+	}
+
+	// Try WebSocket events
+	if resp, handled := p.handleWebSocketEvent(ctx, rawEvent, reqLogger); handled {
+		return resp, nil
+	}
+
+	reqLogger.Error("unhandled event type", "context", map[string]any{
+		"event": *rawEvent,
+	})
+
+	return nil, fmt.Errorf("unhandled event type: %s", string(*rawEvent))
+}
+
+// HandleEventJSON is a helper for testing that accepts raw JSON and returns an error.
+// It's used for test cases that expect error returns.
+func (p *Processor) HandleEventJSON(ctx context.Context, eventJSON *json.RawMessage) error {
+	var event events.CloudWatchEvent
+	if err := json.Unmarshal(*eventJSON, &event); err != nil {
+		return fmt.Errorf("failed to unmarshal event: %w", err)
+	}
+
+	result, err := p.Handle(ctx, eventJSON)
+	if err != nil {
+		return err
+	}
+	// Convert result to error if it's an error type
+	if resultErr, ok := result.(error); ok {
+		return resultErr
+	}
+	return nil
+}
+
+// handleCloudEvent processes CloudWatch events (ECS task state changes).
+func (p *Processor) handleCloudEvent(
 	ctx context.Context,
 	rawEvent *json.RawMessage,
 	reqLogger *slog.Logger,
@@ -57,7 +105,7 @@ func (b *Backend) HandleCloudEvent(
 
 	switch cwEvent.DetailType {
 	case "ECS Task State Change":
-		return true, b.handleECSTaskCompletion(ctx, &cwEvent, reqLogger)
+		return true, p.handleECSTaskCompletion(ctx, &cwEvent, reqLogger)
 	default:
 		reqLogger.Warn("ignoring unhandled CloudWatch event detail type",
 			"context", map[string]string{
@@ -69,8 +117,8 @@ func (b *Backend) HandleCloudEvent(
 	}
 }
 
-// HandleLogsEvent processes CloudWatch Logs events.
-func (b *Backend) HandleLogsEvent(
+// handleLogsEvent processes CloudWatch Logs events.
+func (p *Processor) handleLogsEvent(
 	ctx context.Context,
 	rawEvent *json.RawMessage,
 	reqLogger *slog.Logger,
@@ -116,7 +164,7 @@ func (b *Backend) HandleLogsEvent(
 		})
 	}
 
-	sendErr := b.webSocketManager.SendLogsToExecution(ctx, &executionID, logEvents)
+	sendErr := p.webSocketManager.SendLogsToExecution(ctx, &executionID, logEvents)
 	if sendErr != nil {
 		reqLogger.Error("failed to send logs to WebSocket connections",
 			"error", sendErr,
@@ -128,8 +176,8 @@ func (b *Backend) HandleLogsEvent(
 	return true, nil
 }
 
-// HandleWebSocketEvent processes API Gateway WebSocket events.
-func (b *Backend) HandleWebSocketEvent(
+// handleWebSocketEvent processes API Gateway WebSocket events.
+func (p *Processor) handleWebSocketEvent(
 	ctx context.Context,
 	rawEvent *json.RawMessage,
 	reqLogger *slog.Logger,
@@ -140,7 +188,7 @@ func (b *Backend) HandleWebSocketEvent(
 	}
 
 	// This is a WebSocket request, handle it through the manager
-	if _, err := b.webSocketManager.HandleRequest(ctx, rawEvent, reqLogger); err != nil {
+	if _, err := p.webSocketManager.HandleRequest(ctx, rawEvent, reqLogger); err != nil {
 		// Return error response to API Gateway
 		return events.APIGatewayProxyResponse{
 			StatusCode: http.StatusInternalServerError,
@@ -158,7 +206,7 @@ func (b *Backend) HandleWebSocketEvent(
 }
 
 // handleECSTaskCompletion processes ECS Task State Change events
-func (b *Backend) handleECSTaskCompletion(
+func (p *Processor) handleECSTaskCompletion(
 	ctx context.Context,
 	event *events.CloudWatchEvent,
 	reqLogger *slog.Logger,
@@ -181,7 +229,7 @@ func (b *Backend) handleECSTaskCompletion(
 			"task_arn":       taskEvent.TaskArn,
 		})
 
-	execution, err := b.executionRepo.GetExecution(ctx, executionID)
+	execution, err := p.executionRepo.GetExecution(ctx, executionID)
 	if err != nil {
 		reqLogger.Error("failed to get execution", "error", err)
 		return fmt.Errorf("failed to get execution: %w", err)
@@ -207,7 +255,7 @@ func (b *Backend) handleECSTaskCompletion(
 	execution.CompletedAt = &stoppedAt
 	execution.DurationSeconds = durationSeconds
 
-	if err = b.executionRepo.UpdateExecution(ctx, execution); err != nil {
+	if err = p.executionRepo.UpdateExecution(ctx, execution); err != nil {
 		reqLogger.Error("failed to update execution", "error", err)
 		return fmt.Errorf("failed to update execution: %w", err)
 	}
@@ -215,7 +263,7 @@ func (b *Backend) handleECSTaskCompletion(
 	reqLogger.Info("execution updated successfully", "execution", execution)
 
 	// Notify WebSocket clients about the execution completion
-	if err = b.webSocketManager.NotifyExecutionCompletion(ctx, &executionID); err != nil {
+	if err = p.webSocketManager.NotifyExecutionCompletion(ctx, &executionID); err != nil {
 		reqLogger.Error("failed to notify websocket clients of disconnect", "error", err)
 		return err
 	}

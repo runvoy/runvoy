@@ -1,30 +1,19 @@
-// Package events provides a backend interface for event processing.
+// Package events provides event processing interfaces and utilities.
 package events
 
 import (
 	"context"
 	"encoding/json"
-	"log/slog"
-
-	"github.com/aws/aws-lambda-go/events"
 )
 
-// Backend abstracts provider-specific event processing operations.
-// This allows the event processor to handle events from different cloud providers.
-type Backend interface {
-	// HandleCloudEvent processes cloud-specific events (e.g., ECS task completion).
-	// Returns true if the event was handled, false if it should be passed to the next handler.
-	HandleCloudEvent(ctx context.Context, rawEvent *json.RawMessage, reqLogger *slog.Logger) (bool, error)
+// Processor defines the interface for event processing across different cloud providers.
+// Each provider implements this interface to handle events specific to their platform.
+type Processor interface {
+	// Handle processes a raw cloud event and returns a result (or nil for non-WebSocket events).
+	// The result may be an APIGatewayProxyResponse for WebSocket events.
+	Handle(ctx context.Context, rawEvent *json.RawMessage) (any, error)
 
-	// HandleLogsEvent processes cloud-specific log events.
-	// Returns true if the event was handled, false if it should be passed to the next handler.
-	HandleLogsEvent(ctx context.Context, rawEvent *json.RawMessage, reqLogger *slog.Logger) (bool, error)
-
-	// HandleWebSocketEvent processes WebSocket events.
-	// Returns the response and true if the event was handled, false otherwise.
-	HandleWebSocketEvent(
-		ctx context.Context,
-		rawEvent *json.RawMessage,
-		reqLogger *slog.Logger,
-	) (events.APIGatewayProxyResponse, bool)
+	// HandleEventJSON is a helper for testing that accepts raw JSON and returns an error.
+	// It's used for test cases that expect error returns.
+	HandleEventJSON(ctx context.Context, eventJSON *json.RawMessage) error
 }
