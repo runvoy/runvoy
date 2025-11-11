@@ -5,6 +5,8 @@ package main
 
 import (
 	"context"
+	"encoding/json"
+	"net/http"
 	"os"
 
 	"runvoy/internal/config"
@@ -12,6 +14,7 @@ import (
 	"runvoy/internal/events"
 	"runvoy/internal/logger"
 
+	awsevents "github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
 )
 
@@ -28,5 +31,39 @@ func main() {
 	}
 
 	log.With("version", *constants.GetVersion()).Debug("starting event processor Lambda handler")
-	lambda.Start(processor.Handle)
+	// Wrap the processor to handle response conversion from generic to AWS-specific types
+	lambda.Start(awsLambdaHandler(processor))
+}
+
+// awsLambdaHandler wraps the generic event processor and converts responses to AWS Lambda types.
+// This allows the core event processor to remain cloud-provider agnostic while still
+// supporting AWS Lambda's specific response formats.
+func awsLambdaHandler(
+	processor events.Processor,
+) func(
+	ctx context.Context,
+	rawEvent *json.RawMessage,
+) (awsevents.APIGatewayProxyResponse, error) {
+	return func(ctx context.Context, rawEvent *json.RawMessage) (awsevents.APIGatewayProxyResponse, error) {
+		result, err := processor.Handle(ctx, rawEvent)
+
+		if err != nil {
+			return awsevents.APIGatewayProxyResponse{
+				StatusCode: http.StatusInternalServerError,
+				Body:       err.Error(),
+			}, nil // Return nil error to Lambda so it doesn't treat it as a handler failure
+		}
+
+		// If result is an APIGatewayProxyResponse, return it directly
+		if awsResp, ok := result.(awsevents.APIGatewayProxyResponse); ok {
+			return awsResp, nil
+		}
+
+		// For non-WebSocket events, return a 200 OK with no body
+		// (CloudWatch events and CloudWatch Logs are typically async and don't expect a response)
+		return awsevents.APIGatewayProxyResponse{
+			StatusCode: http.StatusOK,
+			Body:       "OK",
+		}, nil
+	}
 }
