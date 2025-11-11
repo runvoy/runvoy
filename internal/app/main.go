@@ -52,19 +52,19 @@ type SecretsManager interface {
 		req *api.CreateSecretRequest,
 		userEmail string,
 	) (*api.Secret, error)
-	// GetSecret retrieves a secret's metadata by name.
+	// GetSecret retrieves a secret's metadata and value by name.
 	GetSecret(ctx context.Context, name string) (*api.Secret, error)
-	// ListSecrets retrieves all secrets, optionally filtered by user.
+	// ListSecrets retrieves all secrets with values, optionally filtered by user.
 	ListSecrets(ctx context.Context, userEmail string) ([]*api.Secret, error)
-	// UpdateSecretMetadata updates a secret's metadata.
-	UpdateSecretMetadata(
+	// UpdateSecret updates a secret (metadata and/or value).
+	// Always updates the description (can be empty) and UpdatedAt timestamp.
+	// If Value is provided (non-empty), also updates the secret value.
+	UpdateSecret(
 		ctx context.Context,
 		name string,
-		req *api.UpdateSecretMetadataRequest,
+		req *api.UpdateSecretRequest,
 		userEmail string,
 	) (*api.Secret, error)
-	// SetSecretValue updates a secret's value.
-	SetSecretValue(ctx context.Context, name, value string) error
 	// DeleteSecret deletes a secret and its value.
 	DeleteSecret(ctx context.Context, name string) error
 }

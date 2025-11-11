@@ -154,11 +154,13 @@ func (sm *SecretsManager) ListSecrets(ctx context.Context, userEmail string) ([]
 	return secretList, nil
 }
 
-// UpdateSecretMetadata updates a secret's metadata (description, updated_at, updated_by).
-func (sm *SecretsManager) UpdateSecretMetadata(
+// UpdateSecret updates a secret (metadata and/or value).
+// Always updates the description (can be empty) and UpdatedAt timestamp.
+// If Value is provided (non-empty), also updates the secret value in the value store.
+func (sm *SecretsManager) UpdateSecret(
 	ctx context.Context,
 	name string,
-	req *api.UpdateSecretMetadataRequest,
+	req *api.UpdateSecretRequest,
 	userEmail string,
 ) (*api.Secret, error) {
 	if req == nil {
@@ -178,7 +180,15 @@ func (sm *SecretsManager) UpdateSecretMetadata(
 		return nil, fmt.Errorf("secret %q not found", name)
 	}
 
-	// Update metadata
+	// Update value if provided
+	if req.Value != "" {
+		if err = sm.valueStore.StoreSecret(ctx, name, req.Value); err != nil {
+			sm.logger.Error("failed to store secret value", "error", err, "name", name)
+			return nil, fmt.Errorf("failed to update secret value: %w", err)
+		}
+	}
+
+	// Always update metadata (description and timestamp)
 	if err = sm.metadataRepo.UpdateSecretMetadata(ctx, name, req.Description, userEmail); err != nil {
 		sm.logger.Error("failed to update secret metadata", "error", err, "name", name)
 		return nil, fmt.Errorf("failed to update secret metadata: %w", err)
@@ -195,34 +205,6 @@ func (sm *SecretsManager) UpdateSecretMetadata(
 	sm.populateSecretValue(ctx, secret)
 
 	return secret, nil
-}
-
-// SetSecretValue updates a secret's value without changing its metadata.
-func (sm *SecretsManager) SetSecretValue(ctx context.Context, name, value string) error {
-	if name == "" {
-		return fmt.Errorf("secret name cannot be empty")
-	}
-	if value == "" {
-		return fmt.Errorf("secret value cannot be empty")
-	}
-
-	// Check if secret exists
-	exists, err := sm.metadataRepo.SecretExists(ctx, name)
-	if err != nil {
-		sm.logger.Error("failed to check if secret exists", "error", err, "name", name)
-		return fmt.Errorf("failed to check secret existence: %w", err)
-	}
-	if !exists {
-		return fmt.Errorf("secret %q not found", name)
-	}
-
-	// Update the value
-	if err = sm.valueStore.StoreSecret(ctx, name, value); err != nil {
-		sm.logger.Error("failed to store secret value", "error", err, "name", name)
-		return fmt.Errorf("failed to update secret value: %w", err)
-	}
-
-	return nil
 }
 
 // DeleteSecret deletes a secret and its value.

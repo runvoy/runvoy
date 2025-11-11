@@ -32,41 +32,33 @@ type CreateSecretResponse struct {
 	Message string  `json:"message"`
 }
 
-// UpdateSecretMetadataRequest represents the request to update secret metadata
-type UpdateSecretMetadataRequest struct {
+// UpdateSecretRequest represents the request to update a secret (metadata and/or value)
+// If Value is provided, the secret's value will be updated.
+// Description can be updated regardless. UpdatedAt is always refreshed.
+type UpdateSecretRequest struct {
 	Description string `json:"description,omitempty"`
+	Value       string `json:"value,omitempty"` // If provided, updates the secret value
 }
 
-// UpdateSecretMetadataResponse represents the response after updating metadata
-type UpdateSecretMetadataResponse struct {
+// UpdateSecretResponse represents the response after updating a secret
+type UpdateSecretResponse struct {
 	Secret  *Secret `json:"secret"`
 	Message string  `json:"message"`
 }
 
-// SetSecretValueRequest represents the request to update just a secret's value
-type SetSecretValueRequest struct {
-	Value string `json:"value"`
-}
-
-// SetSecretValueResponse represents the response after updating secret value
-type SetSecretValueResponse struct {
-	Name    string `json:"name"`
-	Message string `json:"message"`
-}
-
-// GetSecretResponse represents the response when retrieving secret metadata
+// GetSecretResponse represents the response when retrieving a secret
 type GetSecretResponse struct {
 	Secret *Secret `json:"secret"`
-}
-
-// DeleteSecretResponse represents the response after deleting a secret
-type DeleteSecretResponse struct {
-	Name    string `json:"name"`
-	Message string `json:"message"`
 }
 
 // ListSecretsResponse represents the response containing all secrets
 type ListSecretsResponse struct {
 	Secrets []*Secret `json:"secrets"`
 	Total   int       `json:"total"`
+}
+
+// DeleteSecretResponse represents the response after deleting a secret
+type DeleteSecretResponse struct {
+	Name    string `json:"name"`
+	Message string `json:"message"`
 }

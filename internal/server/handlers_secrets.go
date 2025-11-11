@@ -95,15 +95,16 @@ func (r *Router) handleListSecrets(w http.ResponseWriter, req *http.Request) {
 	})
 }
 
-// handleUpdateSecretMetadata handles PUT /api/v1/secrets/{name}
-func (r *Router) handleUpdateSecretMetadata(w http.ResponseWriter, req *http.Request) {
+// handleUpdateSecret handles PUT /api/v1/secrets/{name}
+// Updates secret metadata (description) and/or value in a single request.
+func (r *Router) handleUpdateSecret(w http.ResponseWriter, req *http.Request) {
 	name := chi.URLParam(req, "name")
 	if name == "" {
 		writeErrorResponse(w, http.StatusBadRequest, "secret name is required", "")
 		return
 	}
 
-	var updateReq api.UpdateSecretMetadataRequest
+	var updateReq api.UpdateSecretRequest
 	if err := json.NewDecoder(req.Body).Decode(&updateReq); err != nil {
 		writeErrorResponse(w, http.StatusBadRequest, "invalid request body", err.Error())
 		return
@@ -118,51 +119,16 @@ func (r *Router) handleUpdateSecretMetadata(w http.ResponseWriter, req *http.Req
 		return
 	}
 
-	secret, err := secretsManager.UpdateSecretMetadata(req.Context(), name, &updateReq, user.Email)
+	secret, err := secretsManager.UpdateSecret(req.Context(), name, &updateReq, user.Email)
 	if err != nil {
 		handleServiceError(w, err)
 		return
 	}
 
 	w.WriteHeader(http.StatusOK)
-	_ = json.NewEncoder(w).Encode(api.UpdateSecretMetadataResponse{
+	_ = json.NewEncoder(w).Encode(api.UpdateSecretResponse{
 		Secret:  secret,
-		Message: "Secret metadata updated successfully",
-	})
-}
-
-// handleSetSecretValue handles PUT /api/v1/secrets/{name}/value
-func (r *Router) handleSetSecretValue(w http.ResponseWriter, req *http.Request) {
-	name := chi.URLParam(req, "name")
-	if name == "" {
-		writeErrorResponse(w, http.StatusBadRequest, "secret name is required", "")
-		return
-	}
-
-	var setValueReq api.SetSecretValueRequest
-	if err := json.NewDecoder(req.Body).Decode(&setValueReq); err != nil {
-		writeErrorResponse(w, http.StatusBadRequest, "invalid request body", err.Error())
-		return
-	}
-
-	svc := req.Context().Value(serviceContextKey).(*app.Service)
-	secretsManager := svc.GetSecretsManager()
-
-	if secretsManager == nil {
-		writeErrorResponse(w, http.StatusServiceUnavailable, "secrets service not available", "")
-		return
-	}
-
-	err := secretsManager.SetSecretValue(req.Context(), name, setValueReq.Value)
-	if err != nil {
-		handleServiceError(w, err)
-		return
-	}
-
-	w.WriteHeader(http.StatusOK)
-	_ = json.NewEncoder(w).Encode(api.SetSecretValueResponse{
-		Name:    name,
-		Message: "Secret value updated successfully",
+		Message: "Secret updated successfully",
 	})
 }
 

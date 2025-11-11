@@ -134,12 +134,14 @@ func (s *SecretsService) ListSecrets(ctx context.Context, userEmail string) ([]*
 	return secrets, nil
 }
 
-// UpdateSecretMetadata updates a secret's metadata (description, updated_at, updated_by).
-// Returns the updated secret metadata and any error.
-func (s *SecretsService) UpdateSecretMetadata(
+// UpdateSecret updates a secret (metadata and/or value).
+// Always updates the description (can be empty) and UpdatedAt timestamp.
+// If Value is provided (non-empty), also updates the secret value.
+// Returns the updated secret and any error.
+func (s *SecretsService) UpdateSecret(
 	ctx context.Context,
 	name string,
-	req *api.UpdateSecretMetadataRequest,
+	req *api.UpdateSecretRequest,
 	userEmail string,
 ) (*api.Secret, error) {
 	if req == nil {
@@ -159,7 +161,15 @@ func (s *SecretsService) UpdateSecretMetadata(
 		return nil, appErrors.ErrNotFound(fmt.Sprintf("secret %q not found", name), nil)
 	}
 
-	// Update metadata
+	// Update value if provided
+	if req.Value != "" {
+		if err = s.manager.StoreSecret(ctx, name, req.Value); err != nil {
+			s.logger.Error("failed to store secret value", "error", err, "name", name)
+			return nil, appErrors.ErrInternalError("failed to update secret value", err)
+		}
+	}
+
+	// Always update metadata (description and timestamp)
 	if err = s.repo.UpdateSecretMetadata(ctx, name, req.Description, userEmail); err != nil {
 		s.logger.Error("failed to update secret metadata", "error", err, "name", name)
 		return nil, appErrors.ErrInternalError("failed to update secret metadata", err)
@@ -173,35 +183,6 @@ func (s *SecretsService) UpdateSecretMetadata(
 	}
 
 	return secret, nil
-}
-
-// SetSecretValue updates a secret's value without changing its metadata.
-// Returns any error.
-func (s *SecretsService) SetSecretValue(ctx context.Context, name, value string) error {
-	if name == "" {
-		return appErrors.ErrBadRequest("secret name cannot be empty", nil)
-	}
-	if value == "" {
-		return appErrors.ErrBadRequest("secret value cannot be empty", nil)
-	}
-
-	// Check if secret exists
-	exists, err := s.repo.SecretExists(ctx, name)
-	if err != nil {
-		s.logger.Error("failed to check if secret exists", "error", err, "name", name)
-		return appErrors.ErrInternalError("failed to check secret existence", err)
-	}
-	if !exists {
-		return appErrors.ErrNotFound(fmt.Sprintf("secret %q not found", name), nil)
-	}
-
-	// Update the value
-	if err = s.manager.StoreSecret(ctx, name, value); err != nil {
-		s.logger.Error("failed to store secret value", "error", err, "name", name)
-		return appErrors.ErrInternalError("failed to update secret value", err)
-	}
-
-	return nil
 }
 
 // DeleteSecret deletes a secret and its value.
