@@ -22,7 +22,7 @@ func Initialize(
 	ctx context.Context,
 	cfg *config.Config,
 	logger *slog.Logger,
-) (*eventsAws.Processor, error) {
+) (Processor, error) {
 	logger.Debug(fmt.Sprintf("initializing %s event processor", constants.ProjectName),
 		"provider", cfg.BackendProvider,
 		"version", *constants.GetVersion(),
