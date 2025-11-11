@@ -48,15 +48,33 @@ type UpdateSecretResponse struct {
 	Message string  `json:"message"`
 }
 
+// GetSecretRequest represents the request to retrieve a secret
+// The secret name is provided in the URL path parameter
+type GetSecretRequest struct {
+	Name string `json:"name"` // Secret name from URL path
+}
+
 // GetSecretResponse represents the response when retrieving a secret
 type GetSecretResponse struct {
 	Secret *Secret `json:"secret"`
+}
+
+// ListSecretsRequest represents the request to list secrets
+// Optionally filters by user email
+type ListSecretsRequest struct {
+	CreatedBy string `json:"created_by,omitempty"` // Filter by user who created the secret
 }
 
 // ListSecretsResponse represents the response containing all secrets
 type ListSecretsResponse struct {
 	Secrets []*Secret `json:"secrets"`
 	Total   int       `json:"total"`
+}
+
+// DeleteSecretRequest represents the request to delete a secret
+// The secret name is provided in the URL path parameter
+type DeleteSecretRequest struct {
+	Name string `json:"name"` // Secret name from URL path
 }
 
 // DeleteSecretResponse represents the response after deleting a secret
