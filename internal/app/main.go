@@ -59,12 +59,13 @@ type SecretsManager interface {
 	ListSecrets(ctx context.Context, includeValue bool) ([]*api.Secret, error)
 
 	// UpdateSecret updates a secret's value and/or editable properties (description, keyName).
+	// The secret's UpdatedAt timestamp is always refreshed.
 	// The secret's UpdatedBy field must be set by the caller.
 	// The Name field identifies which secret to update.
 	// The Value, Description, and KeyName fields (if provided) will be updated.
 	UpdateSecret(ctx context.Context, secret *api.Secret) error
 
-	// DeleteSecret deletes a secret and its value.
+	// DeleteSecret deletes a secret.
 	DeleteSecret(ctx context.Context, name string) error
 }
 
