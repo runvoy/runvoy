@@ -6,15 +6,15 @@
     <em>Run arbitrary commands on remote ephemeral containers.</em>
 </p>
 <p align="center">
-<a href="https://github.com/runvoy/runvoy/actions?query=workflow%3Atests+event%3Apush+branch%3Amain" target="_blank">
-    <img src="https://github.com/runvoy/runvoy/actions/workflows/ci.yml/badge.svg?event=push&branch=main" alt="Tests">
-</a>
-<a href="https://github.com/runvoy/runvoy/actions?query=workflow%3Agolangci-lint+event%3Apush+branch%3Amain" target="_blank">
-    <img src="https://github.com/runvoy/runvoy/actions/workflows/golangci-lint.yml/badge.svg?event=push&branch=main" alt="Lint">
-</a>
-<a href="https://golang.org" target="_blank">
-    <img src="https://img.shields.io/badge/Go-1.24+-00ADD8?logo=go" alt="Go version">
-</a>
+  <a href="https://github.com/runvoy/runvoy/actions?query=workflow%3Atests+event%3Apush+branch%3Amain" target="_blank">
+      <img src="https://github.com/runvoy/runvoy/actions/workflows/ci.yml/badge.svg?event=push&branch=main" alt="Tests">
+  </a>
+  <a href="https://github.com/runvoy/runvoy/actions?query=workflow%3Agolangci-lint+event%3Apush+branch%3Amain" target="_blank">
+      <img src="https://github.com/runvoy/runvoy/actions/workflows/golangci-lint.yml/badge.svg?event=push&branch=main" alt="Lint">
+  </a>
+  <a href="https://golang.org" target="_blank">
+      <img src="https://img.shields.io/badge/Go-1.24+-00ADD8?logo=go" alt="Go version">
+  </a>
 </p>
 
 ---
@@ -27,15 +27,15 @@ Think of running Terraform in the cloud without the need for a Terraform Cloud a
 
 Think of sharing execution logs like with Github Actions, but without the need for a CI/CD pipeline nor a 3rd party service.
 
-## Components
-
-- CLI client (`runvoy`) to interact with the runvoy API
-- web app client (<https://runvoy.site>, or self hosted), currently supporting only the logs view, with plans to map 1:1 with the CLI commands
-- backend running on your AWS account (with plans to support other cloud providers in the future) which exposes the API endpoint and runs background activities
-
 ## Overview
 
-runvoy addresses the challenge of giving team members access to run infrastructure commands (terraform, ansible, kubectl, etc.) without distributing admin credentials. No more need for complex workstations setups to execute administrative commands, just a single API key to interact with the backend, the containers will run the actual commands in a privileged, production grade environment.
+Runvoy is composed of 3 main parts:
+
+- a CLI client (`runvoy`) to interact with the runvoy API
+- a web app client (<https://runvoy.site>, or self hosted), currently supporting only the logs view, with plans to map 1:1 with the CLI commands
+- a backend running on your AWS account (with plans to support other cloud providers in the future) which exposes the HTTP API endpoint and interacts with the cloud resources
+
+Runvoy tries to simplify the requirements for running any kind of "priviledged" application (Terraform, Ansible, Kubectl, etc.) without distributing admin credentials. Workstations shouldn't be snowflakes that need complex setups, just a single API key to interact with the backend. The remote containers run the actual commands in a privileged, production grade environment.
 
 **Key Benefits:**
 
