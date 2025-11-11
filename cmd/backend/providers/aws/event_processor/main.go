@@ -10,6 +10,7 @@ import (
 	"runvoy/internal/config"
 	"runvoy/internal/constants"
 	"runvoy/internal/events"
+	"runvoy/internal/lambdaapi"
 	"runvoy/internal/logger"
 
 	"github.com/aws/aws-lambda-go/lambda"
@@ -28,5 +29,5 @@ func main() {
 	}
 
 	log.With("version", *constants.GetVersion()).Debug("starting event processor Lambda handler")
-	lambda.Start(processor.Handle)
+	lambda.Start(lambdaapi.NewEventProcessorHandler(processor))
 }
