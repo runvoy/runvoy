@@ -6,7 +6,6 @@ import (
 	"net/http"
 
 	"runvoy/internal/api"
-	"runvoy/internal/database"
 	appErrors "runvoy/internal/errors"
 
 	"github.com/go-chi/chi/v5"
@@ -151,14 +150,10 @@ func (r *Router) handleDeleteSecret(w http.ResponseWriter, req *http.Request) {
 func handleServiceError(w http.ResponseWriter, err error) {
 	var appErr *appErrors.AppError
 
-	switch {
-	case errors.As(err, &appErr):
+	if errors.As(err, &appErr) {
 		writeErrorResponse(w, appErr.StatusCode, appErr.Message, "")
-	case errors.Is(err, database.ErrSecretNotFound):
-		writeErrorResponse(w, http.StatusNotFound, "Secret not found", "")
-	case errors.Is(err, database.ErrSecretAlreadyExists):
-		writeErrorResponse(w, http.StatusConflict, "Secret already exists", "")
-	default:
-		writeErrorResponse(w, http.StatusInternalServerError, "Internal server error", err.Error())
+		return
 	}
+
+	writeErrorResponse(w, http.StatusInternalServerError, "Internal server error", err.Error())
 }

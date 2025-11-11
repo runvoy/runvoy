@@ -4,15 +4,15 @@ package database
 
 import (
 	"context"
-	"errors"
 
 	"runvoy/internal/api"
+	appErrors "runvoy/internal/errors"
 )
 
 // Errors for secrets operations
 var (
-	ErrSecretNotFound      = errors.New("secret not found")
-	ErrSecretAlreadyExists = errors.New("secret already exists")
+	ErrSecretNotFound      = appErrors.ErrSecretNotFound("secret not found", nil)
+	ErrSecretAlreadyExists = appErrors.ErrSecretAlreadyExists("secret already exists", nil)
 )
 
 // SecretsRepository defines the interface for managing secret metadata in persistent storage.
