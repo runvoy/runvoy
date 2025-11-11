@@ -4,9 +4,16 @@ import (
 	"context"
 	"encoding/json"
 	"log/slog"
-
-	"github.com/aws/aws-lambda-go/events"
 )
+
+// WebSocketResponse represents a generic WebSocket event response.
+// This abstraction allows different cloud providers to return responses
+// without coupling to provider-specific types (e.g., AWS API Gateway).
+type WebSocketResponse struct {
+	StatusCode int
+	Headers    map[string]string
+	Body       string
+}
 
 // Backend abstracts provider-specific event processing operations.
 // This allows the event processor to handle events from different cloud providers.
@@ -25,5 +32,5 @@ type Backend interface {
 		ctx context.Context,
 		rawEvent *json.RawMessage,
 		reqLogger *slog.Logger,
-	) (events.APIGatewayProxyResponse, bool)
+	) (WebSocketResponse, bool)
 }

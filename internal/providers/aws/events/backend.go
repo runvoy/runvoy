@@ -12,6 +12,7 @@ import (
 	"runvoy/internal/api"
 	"runvoy/internal/constants"
 	"runvoy/internal/database"
+	appevents "runvoy/internal/events"
 	"runvoy/internal/websocket"
 
 	"github.com/aws/aws-lambda-go/events"
@@ -133,23 +134,23 @@ func (b *Backend) HandleWebSocketEvent(
 	ctx context.Context,
 	rawEvent *json.RawMessage,
 	reqLogger *slog.Logger,
-) (events.APIGatewayProxyResponse, bool) {
+) (appevents.WebSocketResponse, bool) {
 	var wsReq events.APIGatewayWebsocketProxyRequest
 	if err := json.Unmarshal(*rawEvent, &wsReq); err != nil || wsReq.RequestContext.RouteKey == "" {
-		return events.APIGatewayProxyResponse{}, false
+		return appevents.WebSocketResponse{}, false
 	}
 
 	// This is a WebSocket request, handle it through the manager
 	if _, err := b.webSocketManager.HandleRequest(ctx, rawEvent, reqLogger); err != nil {
 		// Return error response to API Gateway
-		return events.APIGatewayProxyResponse{
+		return appevents.WebSocketResponse{
 			StatusCode: http.StatusInternalServerError,
 			Body:       fmt.Sprintf("Internal server error: %v", err),
 		}, true
 	}
 
 	// Build the response based on the route
-	resp := events.APIGatewayProxyResponse{
+	resp := appevents.WebSocketResponse{
 		StatusCode: http.StatusOK,
 		Body:       "OK",
 	}

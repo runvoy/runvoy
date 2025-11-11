@@ -18,6 +18,7 @@ import (
 	"runvoy/internal/constants"
 	"runvoy/internal/events"
 	"runvoy/internal/logger"
+	awsevents "runvoy/internal/providers/aws/events"
 	serverPkg "runvoy/internal/server"
 )
 
@@ -30,10 +31,14 @@ func initializeServices(ctx context.Context, log *slog.Logger, oCfg *config.Conf
 		return nil, nil, fmt.Errorf("failed to initialize orchestrator service: %w", err)
 	}
 
-	processor, err := events.Initialize(ctx, eCfg, log)
+	// Initialize AWS-specific backend
+	backend, err := awsevents.Initialize(ctx, eCfg, log)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to initialize event processor: %w", err)
+		return nil, nil, fmt.Errorf("failed to initialize AWS backend: %w", err)
 	}
+
+	// Create generic processor with AWS backend
+	processor := events.NewProcessor(backend, log)
 
 	return svc, processor, nil
 }

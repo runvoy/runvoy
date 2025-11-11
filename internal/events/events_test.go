@@ -28,7 +28,7 @@ type mockBackend struct {
 		ctx context.Context,
 		rawEvent *json.RawMessage,
 		reqLogger *slog.Logger,
-	) (events.APIGatewayProxyResponse, bool)
+	) (WebSocketResponse, bool)
 }
 
 func (m *mockBackend) HandleCloudEvent(
@@ -57,11 +57,11 @@ func (m *mockBackend) HandleWebSocketEvent(
 	ctx context.Context,
 	rawEvent *json.RawMessage,
 	reqLogger *slog.Logger,
-) (events.APIGatewayProxyResponse, bool) {
+) (WebSocketResponse, bool) {
 	if m.handleWebSocketEventFunc != nil {
 		return m.handleWebSocketEventFunc(ctx, rawEvent, reqLogger)
 	}
-	return events.APIGatewayProxyResponse{}, false
+	return WebSocketResponse{}, false
 }
 
 func TestHandleEvent_IgnoresUnknownEventType(t *testing.T) {
@@ -86,8 +86,8 @@ func TestHandleEvent_IgnoresUnknownEventType(t *testing.T) {
 			_ context.Context,
 			_ *json.RawMessage,
 			_ *slog.Logger,
-		) (events.APIGatewayProxyResponse, bool) {
-			return events.APIGatewayProxyResponse{}, false
+		) (WebSocketResponse, bool) {
+			return WebSocketResponse{}, false
 		},
 	}
 
@@ -105,61 +105,6 @@ func TestHandleEvent_IgnoresUnknownEventType(t *testing.T) {
 	// Should return error for unhandled event
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "unhandled event type")
-}
-
-func TestHandleEventJSON(t *testing.T) {
-	ctx := context.Background()
-
-	backend := &mockBackend{
-		handleCloudEventFunc: func(
-			_ context.Context,
-			rawEvent *json.RawMessage,
-			_ *slog.Logger,
-		) (bool, error) {
-			var cwEvent events.CloudWatchEvent
-			if err := json.Unmarshal(*rawEvent, &cwEvent); err == nil && cwEvent.Source != "" {
-				return true, nil
-			}
-			return false, nil
-		},
-		handleLogsEventFunc: func(
-			_ context.Context,
-			_ *json.RawMessage,
-			_ *slog.Logger,
-		) (bool, error) {
-			return false, nil
-		},
-		handleWebSocketEventFunc: func(
-			_ context.Context,
-			_ *json.RawMessage,
-			_ *slog.Logger,
-		) (events.APIGatewayProxyResponse, bool) {
-			return events.APIGatewayProxyResponse{}, false
-		},
-	}
-
-	processor := NewProcessor(backend, testutil.SilentLogger())
-
-	eventJSON := json.RawMessage([]byte(`{
-		"detail-type": "Unknown Event Type",
-		"source": "custom.source"
-	}`))
-
-	err := processor.HandleEventJSON(ctx, &eventJSON)
-	assert.NoError(t, err)
-}
-
-func TestHandleEventJSON_InvalidJSON(t *testing.T) {
-	ctx := context.Background()
-
-	backend := &mockBackend{}
-	processor := NewProcessor(backend, testutil.SilentLogger())
-
-	eventJSON := json.RawMessage([]byte(`invalid json`))
-
-	err := processor.HandleEventJSON(ctx, &eventJSON)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to unmarshal event")
 }
 
 func TestHandle_CloudEvent(t *testing.T) {
@@ -186,8 +131,8 @@ func TestHandle_CloudEvent(t *testing.T) {
 			_ context.Context,
 			_ *json.RawMessage,
 			_ *slog.Logger,
-		) (events.APIGatewayProxyResponse, bool) {
-			return events.APIGatewayProxyResponse{}, false
+		) (WebSocketResponse, bool) {
+			return WebSocketResponse{}, false
 		},
 	}
 
@@ -231,8 +176,8 @@ func TestHandle_LogsEvent(t *testing.T) {
 			_ context.Context,
 			_ *json.RawMessage,
 			_ *slog.Logger,
-		) (events.APIGatewayProxyResponse, bool) {
-			return events.APIGatewayProxyResponse{}, false
+		) (WebSocketResponse, bool) {
+			return WebSocketResponse{}, false
 		},
 	}
 
@@ -269,9 +214,9 @@ func TestHandle_WebSocketEvent(t *testing.T) {
 			_ context.Context,
 			_ *json.RawMessage,
 			_ *slog.Logger,
-		) (events.APIGatewayProxyResponse, bool) {
+		) (WebSocketResponse, bool) {
 			handled = true
-			return events.APIGatewayProxyResponse{StatusCode: 200}, true
+			return WebSocketResponse{StatusCode: 200}, true
 		},
 	}
 
@@ -284,7 +229,7 @@ func TestHandle_WebSocketEvent(t *testing.T) {
 	assert.NotNil(t, result)
 	assert.True(t, handled, "WebSocket event should have been handled")
 
-	resp, ok := result.(events.APIGatewayProxyResponse)
+	resp, ok := result.(WebSocketResponse)
 	assert.True(t, ok)
 	assert.Equal(t, 200, resp.StatusCode)
 }
