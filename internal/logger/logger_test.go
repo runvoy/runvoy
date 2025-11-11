@@ -220,7 +220,7 @@ func TestDeriveRequestLogger(t *testing.T) {
 
 		// Register a mock Lambda extractor
 		lambdaExtractor := &mockContextExtractor{
-			requestID: "lambda-req-456",
+			requestID:  "lambda-req-456",
 			shouldFind: true,
 		}
 		RegisterContextExtractor(lambdaExtractor)
@@ -357,11 +357,11 @@ func TestSliceToMapEdgeCases(t *testing.T) {
 
 // mockContextExtractor is a test implementation of ContextExtractor.
 type mockContextExtractor struct {
-	requestID string
+	requestID  string
 	shouldFind bool
 }
 
-func (m *mockContextExtractor) ExtractRequestID(ctx context.Context) (string, bool) {
+func (m *mockContextExtractor) ExtractRequestID(_ context.Context) (string, bool) {
 	return m.requestID, m.shouldFind
 }
 
@@ -375,7 +375,7 @@ func TestContextExtractor(t *testing.T) {
 
 		// Register a custom extractor
 		customExtractor := &mockContextExtractor{
-			requestID: "custom-req-789",
+			requestID:  "custom-req-789",
 			shouldFind: true,
 		}
 		RegisterContextExtractor(customExtractor)
@@ -426,7 +426,7 @@ func TestContextExtractor(t *testing.T) {
 
 		// Register an extractor
 		customExtractor := &mockContextExtractor{
-			requestID: "extractor-id",
+			requestID:  "extractor-id",
 			shouldFind: true,
 		}
 		RegisterContextExtractor(customExtractor)
