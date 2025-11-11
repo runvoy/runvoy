@@ -90,8 +90,6 @@ const SidecarContainerName = "sidecar"
 const SharedVolumeName = "workspace"
 
 // SharedVolumePath is the mount path for the shared volume in both containers.
-// When git repository is specified, the sidecar clones to /workspace/repo.
-// The sidecar also creates .env file from user environment variables (prefixed with RUNVOY_USER_).
 const SharedVolumePath = "/workspace"
 
 // EcsStatus represents the AWS ECS Task LastStatus lifecycle values.

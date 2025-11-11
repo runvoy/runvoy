@@ -350,6 +350,7 @@ func buildTaskDefinitionInput(
 			},
 		},
 		ContainerDefinitions: []ecsTypes.ContainerDefinition{
+			// Sidecar container
 			{
 				Name:      awsStd.String(constants.SidecarContainerName),
 				Image:     awsStd.String("public.ecr.aws/docker/library/alpine:latest"),
@@ -374,6 +375,8 @@ func buildTaskDefinitionInput(
 					},
 				},
 			},
+
+			// Runner container
 			{
 				Name:      awsStd.String(constants.RunnerContainerName),
 				Image:     awsStd.String(image),
@@ -389,7 +392,7 @@ func buildTaskDefinitionInput(
 					"-c",
 					"echo \"This task definition is a template. Command will be overridden at runtime.\"",
 				},
-				WorkingDirectory: awsStd.String("/workspace/repo"),
+				WorkingDirectory: awsStd.String(constants.SharedVolumePath),
 				MountPoints: []ecsTypes.MountPoint{
 					{
 						ContainerPath: awsStd.String(constants.SharedVolumePath),
