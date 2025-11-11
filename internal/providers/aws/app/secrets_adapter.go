@@ -43,8 +43,8 @@ func (sma *SecretsManagerAdapter) GetSecret(ctx context.Context, name string) (*
 }
 
 // ListSecrets delegates to the repository.
-func (sma *SecretsManagerAdapter) ListSecrets(ctx context.Context, userEmail string) ([]*api.Secret, error) {
-	return sma.repo.ListSecrets(ctx, userEmail)
+func (sma *SecretsManagerAdapter) ListSecrets(ctx context.Context) ([]*api.Secret, error) {
+	return sma.repo.ListSecrets(ctx)
 }
 
 // UpdateSecret delegates to the repository.

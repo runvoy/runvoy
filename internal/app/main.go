@@ -54,8 +54,8 @@ type SecretsManager interface {
 	) (*api.Secret, error)
 	// GetSecret retrieves a secret's metadata and value by name.
 	GetSecret(ctx context.Context, name string) (*api.Secret, error)
-	// ListSecrets retrieves all secrets with values, optionally filtered by user.
-	ListSecrets(ctx context.Context, userEmail string) ([]*api.Secret, error)
+	// ListSecrets retrieves all secrets with values
+	ListSecrets(ctx context.Context) ([]*api.Secret, error)
 	// UpdateSecret updates a secret (metadata and/or value).
 	// Always updates the description (can be empty) and UpdatedAt timestamp.
 	// If Value is provided (non-empty), also updates the secret value.
@@ -132,12 +132,12 @@ func (s *Service) GetSecret(ctx context.Context, name string) (*api.Secret, erro
 	return s.secretsManager.GetSecret(ctx, name)
 }
 
-// ListSecrets retrieves all secrets with values, optionally filtered by user.
-func (s *Service) ListSecrets(ctx context.Context, userEmail string) ([]*api.Secret, error) {
+// ListSecrets retrieves all secrets with values
+func (s *Service) ListSecrets(ctx context.Context) ([]*api.Secret, error) {
 	if s.secretsManager == nil {
 		return nil, apperrors.ErrInternalError("secrets service not available", fmt.Errorf("secretsManager is nil"))
 	}
-	return s.secretsManager.ListSecrets(ctx, userEmail)
+	return s.secretsManager.ListSecrets(ctx)
 }
 
 // UpdateSecret updates a secret (metadata and/or value).

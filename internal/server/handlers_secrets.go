@@ -66,13 +66,13 @@ func (r *Router) handleGetSecret(w http.ResponseWriter, req *http.Request) {
 
 // handleListSecrets handles GET /api/v1/secrets
 func (r *Router) handleListSecrets(w http.ResponseWriter, req *http.Request) {
-	user, ok := r.getUserFromContext(req)
+	_, ok := r.getUserFromContext(req)
 	if !ok {
 		writeErrorResponse(w, http.StatusUnauthorized, "Unauthorized", "user not found in context")
 		return
 	}
 
-	secrets, err := r.svc.ListSecrets(req.Context(), user.Email)
+	secrets, err := r.svc.ListSecrets(req.Context())
 	if err != nil {
 		handleServiceError(w, err)
 		return

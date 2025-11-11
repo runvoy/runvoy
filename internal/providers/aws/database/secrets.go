@@ -81,9 +81,9 @@ func (sr *SecretsRepository) GetSecret(ctx context.Context, name string) (*api.S
 }
 
 // ListSecrets retrieves all secrets with their values.
-func (sr *SecretsRepository) ListSecrets(ctx context.Context, userEmail string) ([]*api.Secret, error) {
+func (sr *SecretsRepository) ListSecrets(ctx context.Context) ([]*api.Secret, error) {
 	// Get all metadata
-	secretList, err := sr.metadataRepo.ListSecrets(ctx, userEmail)
+	secretList, err := sr.metadataRepo.ListSecrets(ctx)
 	if err != nil {
 		return nil, err
 	}

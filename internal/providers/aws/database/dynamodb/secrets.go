@@ -129,38 +129,12 @@ func (r *SecretsRepository) GetSecret(ctx context.Context, name string) (*api.Se
 	return item.toAPISecret(), nil
 }
 
-// ListSecrets retrieves all secrets (optionally filtered by user).
-// If userEmail is empty, returns all secrets.
-func (r *SecretsRepository) ListSecrets(ctx context.Context, userEmail string) ([]*api.Secret, error) {
+// ListSecrets retrieves all secrets.
+func (r *SecretsRepository) ListSecrets(ctx context.Context) ([]*api.Secret, error) {
 	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
 
-	var builder expression.Builder
-
-	// If userEmail is provided, filter by created_by or updated_by
-	if userEmail != "" {
-		// Note: Without a GSI on created_by, we have to scan and filter
-		fe := expression.Or(
-			expression.Name("created_by").Equal(expression.Value(userEmail)),
-			expression.Name("updated_by").Equal(expression.Value(userEmail)),
-		)
-		builder = expression.NewBuilder().WithFilter(fe)
-	} else {
-		// No filter, just scan all
-		builder = expression.NewBuilder()
-	}
-
-	expr, err := builder.Build()
-
-	if err != nil {
-		reqLogger.Error("failed to build scan expression", "error", err)
-		return nil, appErrors.ErrInternalError("failed to build query", err)
-	}
-
 	result, err := r.client.Scan(ctx, &dynamodb.ScanInput{
-		TableName:                 aws.String(r.tableName),
-		FilterExpression:          expr.Filter(),
-		ExpressionAttributeNames:  expr.Names(),
-		ExpressionAttributeValues: expr.Values(),
+		TableName: aws.String(r.tableName),
 	})
 
 	if err != nil {

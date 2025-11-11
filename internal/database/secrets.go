@@ -28,9 +28,8 @@ type SecretsRepository interface {
 	// Returns an error if the secret is not found.
 	GetSecret(ctx context.Context, name string) (*api.Secret, error)
 
-	// ListSecrets retrieves all secrets, optionally filtered by user.
-	// If userEmail is empty, returns all secrets.
-	ListSecrets(ctx context.Context, userEmail string) ([]*api.Secret, error)
+	// ListSecrets retrieves all secrets.
+	ListSecrets(ctx context.Context) ([]*api.Secret, error)
 
 	// UpdateSecret updates a secret's value and/or editable properties.
 	// The updatedAt timestamp is always refreshed.

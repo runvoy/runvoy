@@ -25,7 +25,7 @@ import (
 type SecretsManager interface {
 	CreateSecret(ctx context.Context, req *api.CreateSecretRequest, userEmail string) (*api.Secret, error)
 	GetSecret(ctx context.Context, name string) (*api.Secret, error)
-	ListSecrets(ctx context.Context, userEmail string) ([]*api.Secret, error)
+	ListSecrets(ctx context.Context) ([]*api.Secret, error)
 	UpdateSecret(ctx context.Context, name string, req *api.UpdateSecretRequest, userEmail string) (*api.Secret, error)
 	DeleteSecret(ctx context.Context, name string) error
 }
