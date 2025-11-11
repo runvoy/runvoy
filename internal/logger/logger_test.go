@@ -9,7 +9,6 @@ import (
 
 	"runvoy/internal/constants"
 
-	"github.com/aws/aws-lambda-go/lambdacontext"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -213,15 +212,25 @@ func TestDeriveRequestLogger(t *testing.T) {
 	})
 
 	t.Run("context with AWS Lambda request ID", func(t *testing.T) {
+		// Save and restore original extractors
+		originalExtractors := contextExtractors
+		defer func() { contextExtractors = originalExtractors }()
+
+		ClearContextExtractors()
+
+		// Register a mock Lambda extractor
+		lambdaExtractor := &mockContextExtractor{
+			requestID: "lambda-req-456",
+			shouldFind: true,
+		}
+		RegisterContextExtractor(lambdaExtractor)
+
 		buf := &bytes.Buffer{}
 		baseLogger := slog.New(slog.NewJSONHandler(buf, nil))
 
-		lc := &lambdacontext.LambdaContext{
-			AwsRequestID: "lambda-req-456",
-		}
-		ctx := lambdacontext.NewContext(context.Background(), lc)
-
-		logger := DeriveRequestLogger(ctx, baseLogger)
+		// The extractor will be called even though we're not using Lambda context
+		// This simulates what would happen with the real AWS Lambda extractor
+		logger := DeriveRequestLogger(context.Background(), baseLogger)
 		logger.Info("lambda test")
 
 		output := buf.String()
@@ -343,5 +352,96 @@ func TestSliceToMapEdgeCases(t *testing.T) {
 	t.Run("all non-string keys", func(t *testing.T) {
 		result := SliceToMap([]any{1, "a", 2, "b", 3, "c"})
 		assert.Empty(t, result)
+	})
+}
+
+// mockContextExtractor is a test implementation of ContextExtractor.
+type mockContextExtractor struct {
+	requestID string
+	shouldFind bool
+}
+
+func (m *mockContextExtractor) ExtractRequestID(ctx context.Context) (string, bool) {
+	return m.requestID, m.shouldFind
+}
+
+func TestContextExtractor(t *testing.T) {
+	t.Run("custom extractor can be registered and used", func(t *testing.T) {
+		// Save and restore original extractors
+		originalExtractors := contextExtractors
+		defer func() { contextExtractors = originalExtractors }()
+
+		ClearContextExtractors()
+
+		// Register a custom extractor
+		customExtractor := &mockContextExtractor{
+			requestID: "custom-req-789",
+			shouldFind: true,
+		}
+		RegisterContextExtractor(customExtractor)
+
+		buf := &bytes.Buffer{}
+		baseLogger := slog.New(slog.NewJSONHandler(buf, nil))
+
+		logger := DeriveRequestLogger(context.Background(), baseLogger)
+		logger.Info("test with custom extractor")
+
+		output := buf.String()
+		assert.Contains(t, output, "custom-req-789", "Output should contain custom request ID")
+	})
+
+	t.Run("multiple extractors are tried in order", func(t *testing.T) {
+		// Save and restore original extractors
+		originalExtractors := contextExtractors
+		defer func() { contextExtractors = originalExtractors }()
+
+		ClearContextExtractors()
+
+		// Register multiple extractors - first one doesn't find, second one does
+		extractor1 := &mockContextExtractor{shouldFind: false}
+		extractor2 := &mockContextExtractor{requestID: "second-extractor", shouldFind: true}
+		extractor3 := &mockContextExtractor{requestID: "third-extractor", shouldFind: true}
+
+		RegisterContextExtractor(extractor1)
+		RegisterContextExtractor(extractor2)
+		RegisterContextExtractor(extractor3)
+
+		buf := &bytes.Buffer{}
+		baseLogger := slog.New(slog.NewJSONHandler(buf, nil))
+
+		logger := DeriveRequestLogger(context.Background(), baseLogger)
+		logger.Info("test multiple extractors")
+
+		output := buf.String()
+		assert.Contains(t, output, "second-extractor", "Should use first successful extractor")
+		assert.NotContains(t, output, "third-extractor", "Should not try remaining extractors")
+	})
+
+	t.Run("WithRequestID takes precedence over extractors", func(t *testing.T) {
+		// Save and restore original extractors
+		originalExtractors := contextExtractors
+		defer func() { contextExtractors = originalExtractors }()
+
+		ClearContextExtractors()
+
+		// Register an extractor
+		customExtractor := &mockContextExtractor{
+			requestID: "extractor-id",
+			shouldFind: true,
+		}
+		RegisterContextExtractor(customExtractor)
+
+		buf := &bytes.Buffer{}
+		baseLogger := slog.New(slog.NewJSONHandler(buf, nil))
+
+		// Set request ID via WithRequestID
+		ctx := WithRequestID(context.Background(), "context-value-id")
+
+		logger := DeriveRequestLogger(ctx, baseLogger)
+		logger.Info("test precedence")
+
+		output := buf.String()
+		assert.Contains(t, output, "context-value-id", "Should use WithRequestID value")
+		assert.NotContains(t, output, "extractor-id", "Should not use extractor when WithRequestID is set")
 	})
 }

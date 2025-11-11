@@ -7,6 +7,7 @@ import (
 
 	"runvoy/internal/config"
 	"runvoy/internal/database"
+	"runvoy/internal/logger"
 	dynamoRepo "runvoy/internal/providers/aws/database/dynamodb"
 	awsWebsocket "runvoy/internal/providers/aws/websocket"
 
@@ -29,8 +30,11 @@ type Dependencies struct {
 func Initialize(
 	ctx context.Context,
 	cfg *config.Config,
-	logger *slog.Logger,
+	log *slog.Logger,
 ) (*Dependencies, error) {
+	// Register AWS Lambda context extractor
+	logger.RegisterContextExtractor(NewLambdaContextExtractor())
+
 	awsCfg, err := awsConfig.LoadDefaultConfig(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load AWS configuration: %w", err)
@@ -43,7 +47,7 @@ func Initialize(
 		return nil, fmt.Errorf("AWS configuration is required")
 	}
 
-	logger.Debug("DynamoDB backend configured", "context", map[string]string{
+	log.Debug("DynamoDB backend configured", "context", map[string]string{
 		"api_keys_table":              cfg.AWS.APIKeysTable,
 		"executions_table":            cfg.AWS.ExecutionsTable,
 		"pending_api_keys_table":      cfg.AWS.PendingAPIKeysTable,
@@ -51,10 +55,10 @@ func Initialize(
 		"websocket_tokens_table":      cfg.AWS.WebSocketTokensTable,
 	})
 
-	userRepo := dynamoRepo.NewUserRepository(dynamoClient, cfg.AWS.APIKeysTable, cfg.AWS.PendingAPIKeysTable, logger)
-	executionRepo := dynamoRepo.NewExecutionRepository(dynamoClient, cfg.AWS.ExecutionsTable, logger)
-	connectionRepo := dynamoRepo.NewConnectionRepository(dynamoClient, cfg.AWS.WebSocketConnectionsTable, logger)
-	tokenRepo := dynamoRepo.NewTokenRepository(dynamoClient, cfg.AWS.WebSocketTokensTable, logger)
+	userRepo := dynamoRepo.NewUserRepository(dynamoClient, cfg.AWS.APIKeysTable, cfg.AWS.PendingAPIKeysTable, log)
+	executionRepo := dynamoRepo.NewExecutionRepository(dynamoClient, cfg.AWS.ExecutionsTable, log)
+	connectionRepo := dynamoRepo.NewConnectionRepository(dynamoClient, cfg.AWS.WebSocketConnectionsTable, log)
+	tokenRepo := dynamoRepo.NewTokenRepository(dynamoClient, cfg.AWS.WebSocketTokensTable, log)
 
 	runnerCfg := &Config{
 		ECSCluster:      cfg.AWS.ECSCluster,
@@ -66,8 +70,8 @@ func Initialize(
 		TaskRoleARN:     cfg.AWS.TaskRoleARN,
 		Region:          awsCfg.Region,
 	}
-	runner := NewRunner(ecsClient, runnerCfg, logger)
-	wsManager := awsWebsocket.NewManager(cfg, &awsCfg, connectionRepo, tokenRepo, logger)
+	runner := NewRunner(ecsClient, runnerCfg, log)
+	wsManager := awsWebsocket.NewManager(cfg, &awsCfg, connectionRepo, tokenRepo, log)
 
 	return &Dependencies{
 		UserRepo:         userRepo,

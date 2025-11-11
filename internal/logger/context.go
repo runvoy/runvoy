@@ -6,8 +6,6 @@ import (
 	"context"
 	"log/slog"
 	"time"
-
-	"github.com/aws/aws-lambda-go/lambdacontext"
 )
 
 type contextKey string
@@ -15,6 +13,32 @@ type contextKey string
 const (
 	requestIDContextKey contextKey = "requestID"
 )
+
+// ContextExtractor defines an interface for extracting request IDs from various
+// context sources (e.g., AWS Lambda, HTTP servers, other cloud providers).
+// This interface allows the logger to remain portable and not bound to any
+// specific provider implementation.
+type ContextExtractor interface {
+	// ExtractRequestID attempts to extract a request ID from the given context.
+	// Returns the request ID and true if found, empty string and false otherwise.
+	ExtractRequestID(ctx context.Context) (requestID string, found bool)
+}
+
+// contextExtractors holds the registered context extractors.
+// Extractors are tried in order until one successfully extracts a request ID.
+var contextExtractors []ContextExtractor
+
+// RegisterContextExtractor registers a new context extractor.
+// Extractors are called in the order they are registered.
+func RegisterContextExtractor(extractor ContextExtractor) {
+	contextExtractors = append(contextExtractors, extractor)
+}
+
+// ClearContextExtractors removes all registered context extractors.
+// This is primarily useful for testing.
+func ClearContextExtractors() {
+	contextExtractors = nil
+}
 
 // WithRequestID returns a new context with the given request ID attached.
 // This should be used by server middleware to add request IDs to the context.
@@ -33,9 +57,10 @@ func GetRequestID(ctx context.Context) string {
 }
 
 // DeriveRequestLogger returns a logger enriched with request-scoped fields
-// available in the provided context. Today it extracts AWS Lambda request ID
-// when present. In the future, additional providers can be added here without
-// changing call sites across the codebase.
+// available in the provided context. It first checks for a request ID set via
+// WithRequestID, then tries all registered ContextExtractors in order.
+// This allows supporting multiple providers (AWS Lambda, HTTP servers, etc.)
+// without hardcoding provider-specific logic.
 func DeriveRequestLogger(ctx context.Context, base *slog.Logger) *slog.Logger {
 	if base == nil {
 		return slog.Default()
@@ -46,10 +71,10 @@ func DeriveRequestLogger(ctx context.Context, base *slog.Logger) *slog.Logger {
 		return base.With("requestID", requestID)
 	}
 
-	// Fall back to AWS Lambda request ID (used in Lambda functions)
-	if lc, ok := lambdacontext.FromContext(ctx); ok {
-		if lc.AwsRequestID != "" {
-			return base.With("requestID", lc.AwsRequestID)
+	// Try all registered context extractors
+	for _, extractor := range contextExtractors {
+		if requestID, found := extractor.ExtractRequestID(ctx); found && requestID != "" {
+			return base.With("requestID", requestID)
 		}
 	}
 
