@@ -285,7 +285,7 @@ func newTestServiceWithConnRepo(
 	runner *mockRunner,
 ) *Service {
 	logger := testutil.SilentLogger()
-	return NewService(userRepo, execRepo, connRepo, &mockTokenRepository{}, runner, logger, constants.AWS, nil)
+	return NewTestService(userRepo, execRepo, connRepo, &mockTokenRepository{}, runner, logger, constants.AWS, nil)
 }
 
 // newTestServiceWithWebSocketManager creates a Service with websocket manager for testing
@@ -296,7 +296,7 @@ func newTestServiceWithWebSocketManager(
 	wsManager websocket.Manager,
 ) *Service {
 	logger := testutil.SilentLogger()
-	return NewService(userRepo, execRepo, nil, &mockTokenRepository{}, runner, logger, constants.AWS, wsManager)
+	return NewTestService(userRepo, execRepo, nil, &mockTokenRepository{}, runner, logger, constants.AWS, wsManager)
 }
 
 // mockWebSocketManager implements websocket.Manager for testing

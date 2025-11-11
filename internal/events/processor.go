@@ -27,8 +27,7 @@ func NewProcessor(backend Backend, log *slog.Logger) *Processor {
 
 // Handle is the universal entry point for event processing
 // It supports CloudWatch Event, CloudWatch Logs Event and WebSocket Event natively.
-// This method returns an interface{} to support both error responses (for non-WebSocket events)
-// and APIGatewayProxyResponse (for WebSocket events).
+// This method returns an interface{} to support different responses types.
 func (p *Processor) Handle(ctx context.Context, rawEvent *json.RawMessage) (any, error) {
 	reqLogger := logger.DeriveRequestLogger(ctx, p.logger)
 

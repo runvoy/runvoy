@@ -23,9 +23,9 @@ func Initialize(
 ) (*Processor, error) {
 	logger.Debug(fmt.Sprintf("initializing %s event processor", constants.ProjectName),
 		"context", map[string]any{
-			"provider":             cfg.BackendProvider,
-			"version":              *constants.GetVersion(),
-			"init_timeout_seconds": cfg.InitTimeout.Seconds(),
+			"provider":     cfg.BackendProvider,
+			"version":      *constants.GetVersion(),
+			"init_timeout": cfg.InitTimeout,
 		},
 	)
 

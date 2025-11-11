@@ -515,7 +515,7 @@ func TestService_Method(t *testing.T) {
     mockClient := mocks.NewMockClientInterface(ctrl)
     mockOutput := mocks.NewMockOutputInterface(ctrl)
     
-    service := NewService(mockClient, mockOutput)
+    service := NewTestService(mockClient, mockOutput)
     // ...
 }
 ```

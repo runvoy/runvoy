@@ -9,18 +9,8 @@ import (
 
 	"runvoy/internal/config"
 	"runvoy/internal/constants"
-	"runvoy/internal/database"
 	appAws "runvoy/internal/providers/aws/app"
-	"runvoy/internal/websocket"
 )
-
-type serviceDependencies struct {
-	userRepo      database.UserRepository
-	executionRepo database.ExecutionRepository
-	connRepo      database.ConnectionRepository
-	tokenRepo     database.TokenRepository
-	runner        Runner
-}
 
 // Initialize creates a new Service configured for the specified backend provider.
 // It returns an error if the context is canceled, timed out, or if an unknown provider is specified.
@@ -37,13 +27,10 @@ func Initialize(
 	logger.Debug(fmt.Sprintf("initializing %s orchestrator service", constants.ProjectName),
 		"provider", provider,
 		"version", *constants.GetVersion(),
-		"init_timeout_seconds", cfg.InitTimeout.Seconds(),
+		"init_timeout", cfg.InitTimeout,
 	)
 
-	var (
-		deps      *serviceDependencies
-		wsManager websocket.Manager
-	)
+	var service *Service
 
 	switch provider {
 	case constants.AWS:
@@ -51,15 +38,13 @@ func Initialize(
 		if err != nil {
 			return nil, fmt.Errorf("failed to initialize AWS dependencies: %w", err)
 		}
-		deps = &serviceDependencies{
+		service = &Service{
 			userRepo:      awsDeps.UserRepo,
 			executionRepo: awsDeps.ExecutionRepo,
 			connRepo:      awsDeps.ConnectionRepo,
 			tokenRepo:     awsDeps.TokenRepo,
 			runner:        awsDeps.Runner,
-		}
-		if awsDeps.WebSocketManager != nil {
-			wsManager = awsDeps.WebSocketManager
+			wsManager:     awsDeps.WebSocketManager,
 		}
 
 	default:
@@ -68,14 +53,5 @@ func Initialize(
 
 	logger.Debug(constants.ProjectName + " orchestrator initialized successfully")
 
-	return NewService(
-		deps.userRepo,
-		deps.executionRepo,
-		deps.connRepo,
-		deps.tokenRepo,
-		deps.runner,
-		logger,
-		provider,
-		wsManager,
-	), nil
+	return service, nil
 }

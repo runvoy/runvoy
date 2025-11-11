@@ -55,33 +55,6 @@ type Service struct {
 	wsManager     websocket.Manager // WebSocket manager for generating URLs and managing connections
 }
 
-// NOTE: provider-specific configuration has been moved to subpackages (e.g., providers/aws/app).
-
-// NewService creates a new service instance.
-// If userRepo is nil, user-related operations will not be available.
-// This allows the service to work without database dependencies for simple operations.
-// If wsManager is nil, WebSocket URL generation will be skipped.
-func NewService(
-	userRepo database.UserRepository,
-	executionRepo database.ExecutionRepository,
-	connRepo database.ConnectionRepository,
-	tokenRepo database.TokenRepository,
-	runner Runner,
-	log *slog.Logger,
-	provider constants.BackendProvider,
-	wsManager websocket.Manager) *Service {
-	return &Service{
-		userRepo:      userRepo,
-		executionRepo: executionRepo,
-		connRepo:      connRepo,
-		tokenRepo:     tokenRepo,
-		runner:        runner,
-		Logger:        log,
-		Provider:      provider,
-		wsManager:     wsManager,
-	}
-}
-
 // validateCreateUserRequest validates the email in the create user request.
 func (s *Service) validateCreateUserRequest(ctx context.Context, email string) error {
 	if email == "" {
