@@ -54,6 +54,9 @@ func (sm *SecretsManager) CreateSecret(
 	if req.Name == "" {
 		return nil, fmt.Errorf("secret name cannot be empty")
 	}
+	if req.KeyName == "" {
+		return nil, fmt.Errorf("secret key_name cannot be empty")
+	}
 	if req.Value == "" {
 		return nil, fmt.Errorf("secret value cannot be empty")
 	}
@@ -75,7 +78,7 @@ func (sm *SecretsManager) CreateSecret(
 	}
 
 	// Store the metadata
-	if err = sm.metadataRepo.CreateSecret(ctx, req.Name, req.Description, userEmail); err != nil {
+	if err = sm.metadataRepo.CreateSecret(ctx, req.Name, req.KeyName, req.Description, userEmail); err != nil {
 		sm.logger.Error("failed to create secret metadata", "error", err, "name", req.Name)
 		// Best effort: try to clean up the stored value
 		_ = sm.valueStore.DeleteSecret(ctx, req.Name)

@@ -17,11 +17,11 @@ var (
 
 // SecretsRepository defines the interface for managing secret metadata in persistent storage.
 // The actual secret values are stored separately in a secrets manager (e.g., AWS Parameter Store).
-// This repository only manages the metadata (name, description, created_at, updated_at, etc.)
+// This repository only manages the metadata (name, key_name, description, created_at, updated_at, etc.)
 type SecretsRepository interface {
 	// CreateSecret stores a new secret's metadata in persistent storage.
 	// Returns an error if a secret with the same name already exists.
-	CreateSecret(ctx context.Context, name, description, createdBy string) error
+	CreateSecret(ctx context.Context, name, keyName, description, createdBy string) error
 
 	// GetSecret retrieves a secret's metadata by name.
 	// Returns an error if the secret is not found.

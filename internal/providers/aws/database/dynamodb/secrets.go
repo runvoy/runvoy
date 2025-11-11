@@ -38,6 +38,7 @@ func NewSecretsRepository(client *dynamodb.Client, tableName string, log *slog.L
 // This keeps the database schema separate from the API types.
 type secretItem struct {
 	SecretName  string    `dynamodbav:"secret_name"` // Partition key
+	KeyName     string    `dynamodbav:"key_name"`    // Environment variable name
 	Description string    `dynamodbav:"description"`
 	CreatedBy   string    `dynamodbav:"created_by"`
 	CreatedAt   time.Time `dynamodbav:"created_at"`
@@ -49,6 +50,7 @@ type secretItem struct {
 func (si *secretItem) toAPISecret() *api.Secret {
 	return &api.Secret{
 		Name:        si.SecretName,
+		KeyName:     si.KeyName,
 		Description: si.Description,
 		CreatedBy:   si.CreatedBy,
 		CreatedAt:   si.CreatedAt,
@@ -58,11 +60,12 @@ func (si *secretItem) toAPISecret() *api.Secret {
 }
 
 // CreateSecret stores a new secret's metadata in DynamoDB.
-func (r *SecretsRepository) CreateSecret(ctx context.Context, name, description, createdBy string) error {
+func (r *SecretsRepository) CreateSecret(ctx context.Context, name, keyName, description, createdBy string) error {
 	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
 
 	item := secretItem{
 		SecretName:  name,
+		KeyName:     keyName,
 		Description: description,
 		CreatedBy:   createdBy,
 		CreatedAt:   time.Now().UTC(),
