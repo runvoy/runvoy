@@ -6,7 +6,6 @@ import (
 	"net/http"
 
 	"runvoy/internal/api"
-	"runvoy/internal/app"
 	"runvoy/internal/database"
 	appErrors "runvoy/internal/errors"
 
@@ -21,10 +20,13 @@ func (r *Router) handleCreateSecret(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	user := req.Context().Value(userContextKey).(*api.User)
-	svc := req.Context().Value(serviceContextKey).(*app.Service)
+	user, ok := r.getUserFromContext(req)
+	if !ok {
+		writeErrorResponse(w, http.StatusUnauthorized, "Unauthorized", "user not found in context")
+		return
+	}
 
-	secret, err := svc.CreateSecret(req.Context(), &createReq, user.Email)
+	secret, err := r.svc.CreateSecret(req.Context(), &createReq, user.Email)
 	if err != nil {
 		handleServiceError(w, err)
 		return
@@ -45,9 +47,13 @@ func (r *Router) handleGetSecret(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	svc := req.Context().Value(serviceContextKey).(*app.Service)
+	_, ok := r.getUserFromContext(req)
+	if !ok {
+		writeErrorResponse(w, http.StatusUnauthorized, "Unauthorized", "user not found in context")
+		return
+	}
 
-	secret, err := svc.GetSecret(req.Context(), name)
+	secret, err := r.svc.GetSecret(req.Context(), name)
 	if err != nil {
 		handleServiceError(w, err)
 		return
@@ -61,10 +67,13 @@ func (r *Router) handleGetSecret(w http.ResponseWriter, req *http.Request) {
 
 // handleListSecrets handles GET /api/v1/secrets
 func (r *Router) handleListSecrets(w http.ResponseWriter, req *http.Request) {
-	user := req.Context().Value(userContextKey).(*api.User)
-	svc := req.Context().Value(serviceContextKey).(*app.Service)
+	user, ok := r.getUserFromContext(req)
+	if !ok {
+		writeErrorResponse(w, http.StatusUnauthorized, "Unauthorized", "user not found in context")
+		return
+	}
 
-	secrets, err := svc.ListSecrets(req.Context(), user.Email)
+	secrets, err := r.svc.ListSecrets(req.Context(), user.Email)
 	if err != nil {
 		handleServiceError(w, err)
 		return
@@ -92,10 +101,13 @@ func (r *Router) handleUpdateSecret(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	user := req.Context().Value(userContextKey).(*api.User)
-	svc := req.Context().Value(serviceContextKey).(*app.Service)
+	user, ok := r.getUserFromContext(req)
+	if !ok {
+		writeErrorResponse(w, http.StatusUnauthorized, "Unauthorized", "user not found in context")
+		return
+	}
 
-	secret, err := svc.UpdateSecret(req.Context(), name, &updateReq, user.Email)
+	secret, err := r.svc.UpdateSecret(req.Context(), name, &updateReq, user.Email)
 	if err != nil {
 		handleServiceError(w, err)
 		return
@@ -116,9 +128,13 @@ func (r *Router) handleDeleteSecret(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	svc := req.Context().Value(serviceContextKey).(*app.Service)
+	_, ok := r.getUserFromContext(req)
+	if !ok {
+		writeErrorResponse(w, http.StatusUnauthorized, "Unauthorized", "user not found in context")
+		return
+	}
 
-	err := svc.DeleteSecret(req.Context(), name)
+	err := r.svc.DeleteSecret(req.Context(), name)
 	if err != nil {
 		handleServiceError(w, err)
 		return
