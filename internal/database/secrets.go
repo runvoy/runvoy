@@ -41,4 +41,9 @@ type SecretsRepository interface {
 
 	// SecretExists checks if a secret with the given name exists.
 	SecretExists(ctx context.Context, name string) (bool, error)
+
+	// RetrieveSecretValue retrieves a secret's actual value from the value store.
+	// This is separate from GetSecret which only returns metadata.
+	// Returns an error if the secret is not found.
+	RetrieveSecretValue(ctx context.Context, name string) (string, error)
 }

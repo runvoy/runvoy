@@ -6,11 +6,12 @@ import (
 	"time"
 )
 
-// Secret represents a secret with its metadata (but not its value)
+// Secret represents a secret with its metadata and optionally its value
 type Secret struct {
 	Name        string    `json:"name"`     // Internal identifier for the secret
 	KeyName     string    `json:"key_name"` // Environment variable name (e.g., GITHUB_TOKEN)
 	Description string    `json:"description,omitempty"`
+	Value       string    `json:"value,omitempty"` // Secret value (only returned for authenticated users)
 	CreatedBy   string    `json:"created_by"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`

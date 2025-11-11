@@ -40,6 +40,24 @@ func NewSecretsManager(
 	}
 }
 
+// populateSecretValue retrieves and populates the actual secret value for a given secret.
+// Currently returns the value for all authenticated users (no RBAC yet).
+// This is where role-based access control will be added in the future.
+func (sm *SecretsManager) populateSecretValue(ctx context.Context, secret *api.Secret) {
+	if secret == nil {
+		return
+	}
+
+	value, err := sm.valueStore.RetrieveSecret(ctx, secret.Name)
+	if err != nil {
+		sm.logger.Debug("failed to retrieve secret value", "error", err, "name", secret.Name)
+		// Don't fail the entire request if value retrieval fails, just return without value
+		return
+	}
+
+	secret.Value = value
+}
+
 // CreateSecret creates a new secret with the given name, description, and value.
 func (sm *SecretsManager) CreateSecret(
 	ctx context.Context,
@@ -92,10 +110,13 @@ func (sm *SecretsManager) CreateSecret(
 		return nil, fmt.Errorf("failed to retrieve secret after creation: %w", err)
 	}
 
+	// Populate the secret value
+	sm.populateSecretValue(ctx, secret)
+
 	return secret, nil
 }
 
-// GetSecret retrieves a secret's metadata by name.
+// GetSecret retrieves a secret's metadata and value by name.
 func (sm *SecretsManager) GetSecret(ctx context.Context, name string) (*api.Secret, error) {
 	if name == "" {
 		return nil, fmt.Errorf("secret name cannot be empty")
@@ -107,10 +128,13 @@ func (sm *SecretsManager) GetSecret(ctx context.Context, name string) (*api.Secr
 		return nil, fmt.Errorf("failed to get secret: %w", err)
 	}
 
+	// Populate the secret value
+	sm.populateSecretValue(ctx, secret)
+
 	return secret, nil
 }
 
-// ListSecrets retrieves all secrets, optionally filtered by user.
+// ListSecrets retrieves all secrets with their values, optionally filtered by user.
 func (sm *SecretsManager) ListSecrets(ctx context.Context, userEmail string) ([]*api.Secret, error) {
 	secretList, err := sm.metadataRepo.ListSecrets(ctx, userEmail)
 	if err != nil {
@@ -120,6 +144,11 @@ func (sm *SecretsManager) ListSecrets(ctx context.Context, userEmail string) ([]
 
 	if secretList == nil {
 		secretList = []*api.Secret{}
+	}
+
+	// Populate the secret values for all secrets
+	for _, secret := range secretList {
+		sm.populateSecretValue(ctx, secret)
 	}
 
 	return secretList, nil
@@ -161,6 +190,9 @@ func (sm *SecretsManager) UpdateSecretMetadata(
 		sm.logger.Error("failed to retrieve updated secret", "error", err, "name", name)
 		return nil, fmt.Errorf("failed to retrieve secret after update: %w", err)
 	}
+
+	// Populate the secret value
+	sm.populateSecretValue(ctx, secret)
 
 	return secret, nil
 }

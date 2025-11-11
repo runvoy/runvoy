@@ -274,3 +274,13 @@ func (r *SecretsRepository) SecretExists(ctx context.Context, name string) (bool
 
 	return result.Item != nil, nil
 }
+
+// RetrieveSecretValue is a no-op in the repository layer since values are stored separately.
+// This method exists to satisfy the SecretsRepository interface but the actual value retrieval
+// is handled by the SecretsManager at the application layer.
+// Returns an empty string - values should be retrieved through the valueStore.
+func (r *SecretsRepository) RetrieveSecretValue(_ context.Context, _ string) (string, error) {
+	// Values are stored in Parameter Store, not in DynamoDB
+	// This method exists for interface compliance but should not be used directly
+	return "", database.ErrSecretNotFound
+}
