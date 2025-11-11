@@ -15,35 +15,36 @@ var (
 	ErrSecretAlreadyExists = appErrors.ErrSecretAlreadyExists("secret already exists", nil)
 )
 
-// SecretsRepository defines the interface for managing secret metadata in persistent storage.
-// The actual secret values are stored separately in a secrets manager (e.g., AWS Parameter Store).
-// This repository only manages the metadata (name, key_name, description, created_at, updated_at, etc.)
+// SecretsRepository defines the interface for persisting secret data.
+// Implementations handle storing and retrieving secrets in their preferred storage backend.
 type SecretsRepository interface {
-	// CreateSecret stores a new secret's metadata in persistent storage.
+	// CreateSecret stores a new secret with the given information.
 	// Returns an error if a secret with the same name already exists.
-	CreateSecret(ctx context.Context, name, keyName, description, createdBy string) error
+	CreateSecret(
+		ctx context.Context,
+		name, keyName, description, value, createdBy string,
+	) error
 
-	// GetSecret retrieves a secret's metadata by name.
+	// GetSecret retrieves a secret by name.
 	// Returns an error if the secret is not found.
 	GetSecret(ctx context.Context, name string) (*api.Secret, error)
 
-	// ListSecrets retrieves all secrets (optionally filtered by user).
+	// ListSecrets retrieves all secrets, optionally filtered by user.
 	// If userEmail is empty, returns all secrets.
 	ListSecrets(ctx context.Context, userEmail string) ([]*api.Secret, error)
 
-	// UpdateSecretMetadata updates a secret's editable metadata (description and keyName) and updated_at timestamp.
+	// UpdateSecret updates a secret's value and/or editable properties (description, keyName).
+	// The updatedAt timestamp is always refreshed.
 	// Returns an error if the secret is not found.
-	UpdateSecretMetadata(ctx context.Context, name, keyName, description, updatedBy string) error
+	UpdateSecret(
+		ctx context.Context,
+		name, keyName, description, value, updatedBy string,
+	) error
 
-	// DeleteSecret removes a secret's metadata from persistent storage.
+	// DeleteSecret removes a secret from storage.
 	// Returns an error if the secret is not found.
 	DeleteSecret(ctx context.Context, name string) error
 
 	// SecretExists checks if a secret with the given name exists.
 	SecretExists(ctx context.Context, name string) (bool, error)
-
-	// RetrieveSecretValue retrieves a secret's actual value from the value store.
-	// This is separate from GetSecret which only returns metadata.
-	// Returns an error if the secret is not found.
-	RetrieveSecretValue(ctx context.Context, name string) (string, error)
 }
