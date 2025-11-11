@@ -6,6 +6,8 @@ import (
 	"log/slog"
 
 	"runvoy/internal/config"
+	"runvoy/internal/logger"
+	appAws "runvoy/internal/providers/aws/app"
 	dynamoRepo "runvoy/internal/providers/aws/database/dynamodb"
 	websocketAws "runvoy/internal/providers/aws/websocket"
 
@@ -17,8 +19,10 @@ import (
 func Initialize(
 	ctx context.Context,
 	cfg *config.Config,
-	logger *slog.Logger,
+	log *slog.Logger,
 ) (*Backend, error) {
+	logger.RegisterContextExtractor(appAws.NewLambdaContextExtractor())
+
 	awsCfg, err := awsConfig.LoadDefaultConfig(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load AWS configuration: %w", err)
@@ -30,17 +34,17 @@ func Initialize(
 		return nil, fmt.Errorf("AWS configuration is required")
 	}
 
-	logger.Debug("DynamoDB backend configured", "context", map[string]string{
+	log.Debug("DynamoDB backend configured", "context", map[string]string{
 		"executions_table":            cfg.AWS.ExecutionsTable,
 		"websocket_connections_table": cfg.AWS.WebSocketConnectionsTable,
 		"websocket_tokens_table":      cfg.AWS.WebSocketTokensTable,
 	})
 
-	executionRepo := dynamoRepo.NewExecutionRepository(dynamoClient, cfg.AWS.ExecutionsTable, logger)
-	connectionRepo := dynamoRepo.NewConnectionRepository(dynamoClient, cfg.AWS.WebSocketConnectionsTable, logger)
-	tokenRepo := dynamoRepo.NewTokenRepository(dynamoClient, cfg.AWS.WebSocketTokensTable, logger)
+	executionRepo := dynamoRepo.NewExecutionRepository(dynamoClient, cfg.AWS.ExecutionsTable, log)
+	connectionRepo := dynamoRepo.NewConnectionRepository(dynamoClient, cfg.AWS.WebSocketConnectionsTable, log)
+	tokenRepo := dynamoRepo.NewTokenRepository(dynamoClient, cfg.AWS.WebSocketTokensTable, log)
 
-	websocketManager := websocketAws.NewManager(cfg, &awsCfg, connectionRepo, tokenRepo, logger)
+	websocketManager := websocketAws.NewManager(cfg, &awsCfg, connectionRepo, tokenRepo, log)
 
-	return NewBackend(executionRepo, websocketManager, logger), nil
+	return NewBackend(executionRepo, websocketManager, log), nil
 }
