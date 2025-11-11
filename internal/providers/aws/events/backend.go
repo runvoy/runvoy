@@ -177,7 +177,6 @@ func (p *Processor) handleLogsEvent(
 }
 
 // handleWebSocketEvent processes API Gateway WebSocket events.
-// Returns a provider-agnostic response that can be converted to AWS types in the handler.
 func (p *Processor) handleWebSocketEvent(
 	ctx context.Context,
 	rawEvent *json.RawMessage,
@@ -190,14 +189,12 @@ func (p *Processor) handleWebSocketEvent(
 
 	// This is a WebSocket request, handle it through the manager
 	if _, err := p.webSocketManager.HandleRequest(ctx, rawEvent, reqLogger); err != nil {
-		// Return error response - will be converted to AWS type in handler
 		return events.APIGatewayProxyResponse{
 			StatusCode: http.StatusInternalServerError,
 			Body:       fmt.Sprintf("Internal server error: %v", err),
 		}, true
 	}
 
-	// Build the response based on the route
 	resp := events.APIGatewayProxyResponse{
 		StatusCode: http.StatusOK,
 		Body:       "OK",
