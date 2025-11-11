@@ -58,7 +58,7 @@ func TestBuildMainContainerCommandWithoutRepo(t *testing.T) {
 	assert.Contains(
 		t,
 		commandScript,
-		fmt.Sprintf("printf '### %s command => %%s\\n' \"%s\"", constants.ProjectName, req.Command),
+		fmt.Sprintf("printf '### %s command => %%s\\n' %q", constants.ProjectName, req.Command),
 	)
 	assert.True(t, strings.HasSuffix(commandScript, req.Command), "shell command should end with the user command")
 	assert.Contains(t, commandScript, "set -e", "script should enable exit on error")
@@ -95,7 +95,7 @@ func TestBuildMainContainerCommandWithRepo(t *testing.T) {
 		t,
 		commandScript,
 		fmt.Sprintf(
-			"printf '### Checked out repo => %%s (ref: %%s) (path: %%s)\\n' \"%s\" \"%s\" \"%s\"",
+			"printf '### Checked out repo => %%s (ref: %%s) (path: %%s)\\n' %q %q %q",
 			repoURL,
 			repoRef,
 			repoPath,
@@ -104,7 +104,7 @@ func TestBuildMainContainerCommandWithRepo(t *testing.T) {
 	assert.Contains(
 		t,
 		commandScript,
-		fmt.Sprintf("printf '### Working directory => %%s\\n' \"%s\"", constants.SharedVolumePath+"/repo/nested/path"),
+		fmt.Sprintf("printf '### Working directory => %%s\\n' %q", constants.SharedVolumePath+"/repo/nested/path"),
 	)
 	assert.True(t, strings.HasSuffix(commandScript, req.Command))
 }
