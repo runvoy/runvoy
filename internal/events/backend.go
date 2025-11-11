@@ -1,3 +1,4 @@
+// Package events provides a backend interface for event processing.
 package events
 
 import (
