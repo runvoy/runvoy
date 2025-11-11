@@ -23,11 +23,8 @@ func NewSecretsManagerAdapter(repo database.SecretsRepository) *SecretsManagerAd
 func (sma *SecretsManagerAdapter) CreateSecret(
 	ctx context.Context,
 	secret *api.Secret,
-) (*api.Secret, error) {
-	if err := sma.repo.CreateSecret(ctx, secret); err != nil {
-		return nil, err
-	}
-	return sma.repo.GetSecret(ctx, secret.Name)
+) error {
+	return sma.repo.CreateSecret(ctx, secret)
 }
 
 // GetSecret delegates to the repository.
@@ -45,16 +42,13 @@ func (sma *SecretsManagerAdapter) ListSecrets(ctx context.Context) ([]*api.Secre
 func (sma *SecretsManagerAdapter) UpdateSecret(
 	ctx context.Context,
 	secret *api.Secret,
-) (*api.Secret, error) {
+) error {
 	updateReq := &api.UpdateSecretRequest{
 		Description: secret.Description,
 		KeyName:     secret.KeyName,
 		Value:       secret.Value,
 	}
-	if err := sma.repo.UpdateSecret(ctx, secret.Name, updateReq, secret.UpdatedBy); err != nil {
-		return nil, err
-	}
-	return sma.repo.GetSecret(ctx, secret.Name)
+	return sma.repo.UpdateSecret(ctx, secret.Name, updateReq, secret.UpdatedBy)
 }
 
 // DeleteSecret delegates to the repository.

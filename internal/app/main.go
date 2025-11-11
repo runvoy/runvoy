@@ -48,8 +48,7 @@ type Runner interface {
 type SecretsManager interface {
 	// CreateSecret creates a new secret.
 	// The secret's CreatedBy field must be set by the caller.
-	// Returns the created secret with all fields populated (including timestamps).
-	CreateSecret(ctx context.Context, secret *api.Secret) (*api.Secret, error)
+	CreateSecret(ctx context.Context, secret *api.Secret) error
 
 	// GetSecret retrieves a secret's metadata and value by name.
 	GetSecret(ctx context.Context, name string) (*api.Secret, error)
@@ -61,9 +60,7 @@ type SecretsManager interface {
 	// The secret's UpdatedBy field must be set by the caller.
 	// The Name field identifies which secret to update.
 	// The Value, Description, and KeyName fields (if provided) will be updated.
-	// The implementation always updates the UpdatedAt timestamp.
-	// Returns the updated secret with all fields populated.
-	UpdateSecret(ctx context.Context, secret *api.Secret) (*api.Secret, error)
+	UpdateSecret(ctx context.Context, secret *api.Secret) error
 
 	// DeleteSecret deletes a secret and its value.
 	DeleteSecret(ctx context.Context, name string) error
@@ -128,7 +125,10 @@ func (s *Service) CreateSecret(
 		Value:       req.Value,
 		CreatedBy:   userEmail,
 	}
-	return s.secretsManager.CreateSecret(ctx, secret)
+	if err := s.secretsManager.CreateSecret(ctx, secret); err != nil {
+		return nil, err
+	}
+	return s.secretsManager.GetSecret(ctx, req.Name)
 }
 
 // GetSecret retrieves a secret's metadata and value by name.
@@ -164,7 +164,10 @@ func (s *Service) UpdateSecret(
 		Value:       req.Value,
 		UpdatedBy:   userEmail,
 	}
-	return s.secretsManager.UpdateSecret(ctx, secret)
+	if err := s.secretsManager.UpdateSecret(ctx, secret); err != nil {
+		return nil, err
+	}
+	return s.secretsManager.GetSecret(ctx, name)
 }
 
 // DeleteSecret deletes a secret and its value.
