@@ -9,6 +9,7 @@ import (
 
 	"runvoy/internal/api"
 	"runvoy/internal/constants"
+	awsConstants "runvoy/internal/providers/aws/constants"
 	"runvoy/internal/testutil"
 
 	"github.com/aws/aws-lambda-go/events"
@@ -152,7 +153,7 @@ func TestDetermineStatusAndExitCode(t *testing.T) {
 				StopCode: "EssentialContainerExited",
 				Containers: []ContainerDetail{
 					{
-						Name:     constants.RunnerContainerName,
+						Name:     awsConstants.RunnerContainerName,
 						ExitCode: intPtr(0),
 					},
 				},
@@ -166,7 +167,7 @@ func TestDetermineStatusAndExitCode(t *testing.T) {
 				StopCode: "EssentialContainerExited",
 				Containers: []ContainerDetail{
 					{
-						Name:     constants.RunnerContainerName,
+						Name:     awsConstants.RunnerContainerName,
 						ExitCode: intPtr(1),
 					},
 				},
@@ -180,7 +181,7 @@ func TestDetermineStatusAndExitCode(t *testing.T) {
 				StopCode: "UserInitiated",
 				Containers: []ContainerDetail{
 					{
-						Name:     constants.RunnerContainerName,
+						Name:     awsConstants.RunnerContainerName,
 						ExitCode: intPtr(0),
 					},
 				},
@@ -203,7 +204,7 @@ func TestDetermineStatusAndExitCode(t *testing.T) {
 				StopCode: "EssentialContainerExited",
 				Containers: []ContainerDetail{
 					{
-						Name:     constants.RunnerContainerName,
+						Name:     awsConstants.RunnerContainerName,
 						ExitCode: intPtr(137),
 					},
 				},
@@ -217,7 +218,7 @@ func TestDetermineStatusAndExitCode(t *testing.T) {
 				StopCode: "EssentialContainerExited",
 				Containers: []ContainerDetail{
 					{
-						Name:     constants.RunnerContainerName,
+						Name:     awsConstants.RunnerContainerName,
 						ExitCode: nil,
 					},
 				},
@@ -291,7 +292,7 @@ func TestHandleECSTaskCompletion_Success(t *testing.T) {
 		LastStatus: "STOPPED",
 		Containers: []ContainerDetail{
 			{
-				Name:     constants.RunnerContainerName,
+				Name:     awsConstants.RunnerContainerName,
 				ExitCode: &exitCode,
 			},
 		},
@@ -336,7 +337,7 @@ func TestHandleECSTaskCompletion_OrphanedTask(t *testing.T) {
 		LastStatus: "STOPPED",
 		Containers: []ContainerDetail{
 			{
-				Name:     constants.RunnerContainerName,
+				Name:     awsConstants.RunnerContainerName,
 				ExitCode: &exitCode,
 			},
 		},
@@ -396,7 +397,7 @@ func TestHandleECSTaskCompletion_MissingStartedAt(t *testing.T) {
 		LastStatus: "STOPPED",
 		Containers: []ContainerDetail{
 			{
-				Name:     constants.RunnerContainerName,
+				Name:     awsConstants.RunnerContainerName,
 				ExitCode: &exitCode,
 			},
 		},

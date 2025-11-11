@@ -13,6 +13,7 @@ import (
 	"runvoy/internal/constants"
 	"runvoy/internal/database"
 	"runvoy/internal/logger"
+	awsConstants "runvoy/internal/providers/aws/constants"
 	"runvoy/internal/websocket"
 
 	"github.com/aws/aws-lambda-go/events"
@@ -136,7 +137,7 @@ func (p *Processor) handleLogsEvent(
 		return true, err
 	}
 
-	executionID := constants.ExtractExecutionIDFromLogStream(data.LogStream)
+	executionID := awsConstants.ExtractExecutionIDFromLogStream(data.LogStream)
 	if executionID == "" {
 		reqLogger.Warn("unable to extract execution ID from log stream",
 			"context", map[string]string{
@@ -296,7 +297,7 @@ func determineStatusAndExitCode(event *ECSTaskStateChangeEvent) (status string, 
 
 	// Find the main runner container by name and get its exit code
 	for _, container := range event.Containers {
-		if container.Name == constants.RunnerContainerName {
+		if container.Name == awsConstants.RunnerContainerName {
 			if container.ExitCode != nil {
 				exitCode = *container.ExitCode
 				if exitCode == 0 {

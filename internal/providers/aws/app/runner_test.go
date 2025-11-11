@@ -7,6 +7,7 @@ import (
 
 	"runvoy/internal/api"
 	"runvoy/internal/constants"
+	awsConstants "runvoy/internal/providers/aws/constants"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -84,7 +85,7 @@ func TestBuildMainContainerCommandWithRepo(t *testing.T) {
 	require.Len(t, cmd, 3)
 	commandScript := cmd[2]
 
-	expectedCd := "cd " + constants.SharedVolumePath + "/repo/nested/path"
+	expectedCd := "cd " + awsConstants.SharedVolumePath + "/repo/nested/path"
 	assert.Contains(
 		t,
 		commandScript,
@@ -104,7 +105,7 @@ func TestBuildMainContainerCommandWithRepo(t *testing.T) {
 	assert.Contains(
 		t,
 		commandScript,
-		fmt.Sprintf("printf '### Working directory => %%s\\n' %q", constants.SharedVolumePath+"/repo/nested/path"),
+		fmt.Sprintf("printf '### Working directory => %%s\\n' %q", awsConstants.SharedVolumePath+"/repo/nested/path"),
 	)
 	assert.True(t, strings.HasSuffix(commandScript, req.Command))
 }
@@ -123,18 +124,18 @@ func TestExtractTaskARNFromList(t *testing.T) {
 
 func TestValidateTaskStatusForKill(t *testing.T) {
 	t.Run("allows runnable statuses", func(t *testing.T) {
-		assert.NoError(t, validateTaskStatusForKill(string(constants.EcsStatusRunning)))
-		assert.NoError(t, validateTaskStatusForKill(string(constants.EcsStatusActivating)))
+		assert.NoError(t, validateTaskStatusForKill(string(awsConstants.EcsStatusRunning)))
+		assert.NoError(t, validateTaskStatusForKill(string(awsConstants.EcsStatusActivating)))
 	})
 
 	t.Run("rejects already terminated statuses", func(t *testing.T) {
-		err := validateTaskStatusForKill(string(constants.EcsStatusStopped))
+		err := validateTaskStatusForKill(string(awsConstants.EcsStatusStopped))
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "already terminated")
 	})
 
 	t.Run("rejects unexpected status", func(t *testing.T) {
-		err := validateTaskStatusForKill(string(constants.EcsStatusPending))
+		err := validateTaskStatusForKill(string(awsConstants.EcsStatusPending))
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "task cannot be terminated in current state")
 	})

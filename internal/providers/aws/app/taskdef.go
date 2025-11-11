@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"runvoy/internal/constants"
+	awsConstants "runvoy/internal/providers/aws/constants"
 
 	awsStd "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ecs"
@@ -34,14 +35,14 @@ func SanitizeImageNameForTaskDef(image string) string {
 // Format: {TaskDefinitionFamilyPrefix}-{sanitized-image-name}
 func TaskDefinitionFamilyName(image string) string {
 	sanitized := SanitizeImageNameForTaskDef(image)
-	return fmt.Sprintf("%s-%s", constants.TaskDefinitionFamilyPrefix, sanitized)
+	return fmt.Sprintf("%s-%s", constants.TaskDefinitionFamilyPrefix, sanitized) // AWS ECS-specific naming
 }
 
 // ExtractImageFromTaskDefFamily extracts the Docker image name from a task definition family name.
 // Returns empty string if the family name doesn't match the expected format.
 // NOTE: This is approximate - images should be read from container definitions or tags, not family names.
 func ExtractImageFromTaskDefFamily(familyName string) string {
-	prefix := constants.TaskDefinitionFamilyPrefix + "-"
+	prefix := constants.TaskDefinitionFamilyPrefix + "-" // AWS ECS-specific naming
 	if !strings.HasPrefix(familyName, prefix) {
 		return ""
 	}
@@ -342,17 +343,17 @@ func buildTaskDefinitionInput(
 		Memory:           awsStd.String("512"),
 		ExecutionRoleArn: awsStd.String(taskExecRoleARN),
 		EphemeralStorage: &ecsTypes.EphemeralStorage{
-			SizeInGiB: constants.ECSEphemeralStorageSizeGiB,
+			SizeInGiB: awsConstants.ECSEphemeralStorageSizeGiB,
 		},
 		Volumes: []ecsTypes.Volume{
 			{
-				Name: awsStd.String(constants.SharedVolumeName),
+				Name: awsStd.String(awsConstants.SharedVolumeName),
 			},
 		},
 		ContainerDefinitions: []ecsTypes.ContainerDefinition{
 			// Sidecar container
 			{
-				Name:      awsStd.String(constants.SidecarContainerName),
+				Name:      awsStd.String(awsConstants.SidecarContainerName),
 				Image:     awsStd.String("public.ecr.aws/docker/library/alpine:latest"),
 				Essential: awsStd.Bool(false),
 				Command: []string{
@@ -362,8 +363,8 @@ func buildTaskDefinitionInput(
 				},
 				MountPoints: []ecsTypes.MountPoint{
 					{
-						ContainerPath: awsStd.String(constants.SharedVolumePath),
-						SourceVolume:  awsStd.String(constants.SharedVolumeName),
+						ContainerPath: awsStd.String(awsConstants.SharedVolumePath),
+						SourceVolume:  awsStd.String(awsConstants.SharedVolumeName),
 					},
 				},
 				LogConfiguration: &ecsTypes.LogConfiguration{
@@ -371,19 +372,19 @@ func buildTaskDefinitionInput(
 					Options: map[string]string{
 						"awslogs-group":         cfg.LogGroup,
 						"awslogs-region":        region,
-						"awslogs-stream-prefix": constants.LogStreamPrefix,
+						"awslogs-stream-prefix": awsConstants.LogStreamPrefix,
 					},
 				},
 			},
 
 			// Runner container
 			{
-				Name:      awsStd.String(constants.RunnerContainerName),
+				Name:      awsStd.String(awsConstants.RunnerContainerName),
 				Image:     awsStd.String(image),
 				Essential: awsStd.Bool(true),
 				DependsOn: []ecsTypes.ContainerDependency{
 					{
-						ContainerName: awsStd.String(constants.SidecarContainerName),
+						ContainerName: awsStd.String(awsConstants.SidecarContainerName),
 						Condition:     ecsTypes.ContainerConditionSuccess,
 					},
 				},
@@ -392,11 +393,11 @@ func buildTaskDefinitionInput(
 					"-c",
 					"echo \"This task definition is a template. Command will be overridden at runtime.\"",
 				},
-				WorkingDirectory: awsStd.String(constants.SharedVolumePath),
+				WorkingDirectory: awsStd.String(awsConstants.SharedVolumePath),
 				MountPoints: []ecsTypes.MountPoint{
 					{
-						ContainerPath: awsStd.String(constants.SharedVolumePath),
-						SourceVolume:  awsStd.String(constants.SharedVolumeName),
+						ContainerPath: awsStd.String(awsConstants.SharedVolumePath),
+						SourceVolume:  awsStd.String(awsConstants.SharedVolumeName),
 					},
 				},
 				LogConfiguration: &ecsTypes.LogConfiguration{
@@ -404,7 +405,7 @@ func buildTaskDefinitionInput(
 					Options: map[string]string{
 						"awslogs-group":         cfg.LogGroup,
 						"awslogs-region":        region,
-						"awslogs-stream-prefix": constants.LogStreamPrefix,
+						"awslogs-stream-prefix": awsConstants.LogStreamPrefix,
 					},
 				},
 			},
@@ -531,7 +532,7 @@ func deregisterAllTaskDefRevisions(
 		listOutput, err := ecsClient.ListTaskDefinitions(ctx, &ecs.ListTaskDefinitionsInput{
 			FamilyPrefix: awsStd.String(family),
 			Status:       ecsTypes.TaskDefinitionStatusActive,
-			MaxResults:   awsStd.Int32(constants.ECSTaskDefinitionMaxResults),
+			MaxResults:   awsStd.Int32(awsConstants.ECSTaskDefinitionMaxResults),
 			NextToken:    awsStd.String(nextToken),
 		})
 		if err != nil {
@@ -605,7 +606,7 @@ func markLastRemainingImageAsDefault(
 
 		for i := range descOutput.TaskDefinition.ContainerDefinitions {
 			container := &descOutput.TaskDefinition.ContainerDefinitions[i]
-			if container.Name != nil && *container.Name == constants.RunnerContainerName && container.Image != nil {
+			if container.Name != nil && *container.Name == awsConstants.RunnerContainerName && container.Image != nil {
 				remainingImages[*container.Image] = taskDefARN
 				break
 			}

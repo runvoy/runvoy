@@ -9,9 +9,9 @@ import (
 	"sort"
 
 	"runvoy/internal/api"
-	"runvoy/internal/constants"
 	appErrors "runvoy/internal/errors"
 	"runvoy/internal/logger"
+	awsConstants "runvoy/internal/providers/aws/constants"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awsConfig "github.com/aws/aws-sdk-go-v2/config"
@@ -34,7 +34,7 @@ func FetchLogsByExecutionID(ctx context.Context, cfg *Config, executionID string
 		return nil, appErrors.ErrInternalError("failed to load AWS configuration", err)
 	}
 	cwl := cloudwatchlogs.NewFromConfig(awsCfg)
-	stream := constants.BuildLogStreamName(executionID)
+	stream := awsConstants.BuildLogStreamName(executionID)
 	reqLogger := logger.DeriveRequestLogger(ctx, slog.Default())
 
 	if verifyErr := verifyLogStreamExists(ctx, cwl, cfg.LogGroup, stream, executionID, reqLogger); verifyErr != nil {
@@ -82,7 +82,7 @@ func verifyLogStreamExists(
 	lsOut, err := cwl.DescribeLogStreams(ctx, &cloudwatchlogs.DescribeLogStreamsInput{
 		LogGroupName:        aws.String(logGroup),
 		LogStreamNamePrefix: aws.String(stream),
-		Limit:               aws.Int32(constants.CloudWatchLogsDescribeLimit),
+		Limit:               aws.Int32(awsConstants.CloudWatchLogsDescribeLimit),
 	})
 	if err != nil {
 		return appErrors.ErrInternalError("failed to describe log streams", err)
@@ -112,7 +112,7 @@ func getAllLogEvents(ctx context.Context,
 			LogStreamName: &stream,
 			NextToken:     nextToken,
 			StartFromHead: aws.Bool(true),
-			Limit:         aws.Int32(constants.CloudWatchLogsEventsLimit),
+			Limit:         aws.Int32(awsConstants.CloudWatchLogsEventsLimit),
 		})
 
 		if err != nil {

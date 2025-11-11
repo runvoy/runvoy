@@ -15,6 +15,7 @@ import (
 	"runvoy/internal/constants"
 	appErrors "runvoy/internal/errors"
 	"runvoy/internal/logger"
+	awsConstants "runvoy/internal/providers/aws/constants"
 
 	awsStd "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ecs"
@@ -95,7 +96,7 @@ type mainScriptData struct {
 func buildMainContainerCommand(req *api.ExecutionRequest, requestID, image string, repo *gitRepoInfo) []string {
 	var repoData *mainScriptRepoData
 	if repo != nil {
-		workDir := constants.SharedVolumePath + "/repo"
+		workDir := awsConstants.SharedVolumePath + "/repo"
 		if trimmed := strings.TrimPrefix(awsStd.ToString(repo.RepoPath), "/"); trimmed != "" && trimmed != "." {
 			workDir = workDir + "/" + trimmed
 		}
@@ -165,7 +166,7 @@ func (e *Runner) StartTask( //nolint: funlen
 
 	sidecarEnv := []ecsTypes.KeyValuePair{
 		{Name: awsStd.String("RUNVOY_SHARED_VOLUME_PATH"),
-			Value: awsStd.String(constants.SharedVolumePath)},
+			Value: awsStd.String(awsConstants.SharedVolumePath)},
 	}
 
 	for key, value := range req.Env {
@@ -204,12 +205,12 @@ func (e *Runner) StartTask( //nolint: funlen
 	}
 	containerOverrides := []ecsTypes.ContainerOverride{
 		{
-			Name:        awsStd.String(constants.SidecarContainerName),
+			Name:        awsStd.String(awsConstants.SidecarContainerName),
 			Command:     buildSidecarContainerCommand(hasGitRepo),
 			Environment: sidecarEnv,
 		},
 		{
-			Name:        awsStd.String(constants.RunnerContainerName),
+			Name:        awsStd.String(awsConstants.RunnerContainerName),
 			Command:     buildMainContainerCommand(req, requestID, imageToUse, repo),
 			Environment: envVars,
 		},
@@ -372,7 +373,7 @@ func extractImageFromTaskDef(taskDef *ecsTypes.TaskDefinition, reqLogger *slog.L
 	familyName := awsStd.ToString(taskDef.Family)
 	for i := range taskDef.ContainerDefinitions {
 		container := &taskDef.ContainerDefinitions[i]
-		if container.Name != nil && *container.Name == constants.RunnerContainerName && container.Image != nil {
+		if container.Name != nil && *container.Name == awsConstants.RunnerContainerName && container.Image != nil {
 			return *container.Image
 		}
 	}
@@ -433,7 +434,7 @@ func collectImageInfos(
 	for _, imageInfo := range result {
 		reqLogger.Debug("found runner container image", "context", map[string]string{
 			"family":         imageInfo.TaskDefinitionName,
-			"container_name": constants.RunnerContainerName,
+			"container_name": awsConstants.RunnerContainerName,
 			"image":          imageInfo.Image,
 			"is_default":     strconv.FormatBool(awsStd.ToBool(imageInfo.IsDefault)),
 		})
@@ -524,9 +525,9 @@ func extractTaskARNFromList(taskArns []string, executionID string) string {
 // validateTaskStatusForKill validates that a task is in a state that can be terminated.
 func validateTaskStatusForKill(currentStatus string) error {
 	terminatedStatuses := []string{
-		string(constants.EcsStatusStopped),
-		string(constants.EcsStatusStopping),
-		string(constants.EcsStatusDeactivating),
+		string(awsConstants.EcsStatusStopped),
+		string(awsConstants.EcsStatusStopping),
+		string(awsConstants.EcsStatusDeactivating),
 	}
 	if slices.Contains(terminatedStatuses, currentStatus) {
 		return appErrors.ErrBadRequest(
@@ -535,10 +536,10 @@ func validateTaskStatusForKill(currentStatus string) error {
 	}
 
 	taskRunnableStatuses := []string{
-		string(constants.EcsStatusRunning),
-		string(constants.EcsStatusActivating),
+		string(awsConstants.EcsStatusRunning),
+		string(awsConstants.EcsStatusActivating),
 	}
-	if !slices.Contains(taskRunnableStatuses, string(constants.EcsStatus(currentStatus))) {
+	if !slices.Contains(taskRunnableStatuses, string(awsConstants.EcsStatus(currentStatus))) {
 		return appErrors.ErrBadRequest(
 			"task cannot be terminated in current state",
 			fmt.Errorf(

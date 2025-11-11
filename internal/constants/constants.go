@@ -3,7 +3,6 @@
 package constants
 
 import (
-	"strings"
 	"time"
 )
 
@@ -76,44 +75,8 @@ const (
 	EventProcessorService Service = "event-processor"
 )
 
-// RunnerContainerName is the ECS container name used for task execution.
-// Must match the container override name passed in the ECS RunTask call.
-const RunnerContainerName = "runner"
-
-// SidecarContainerName is the sidecar container name for auxiliary tasks.
-// This container runs before the main runner container and handles tasks like
-// .env file generation from user environment variables, git repository cloning, etc.
-const SidecarContainerName = "sidecar"
-
-// SharedVolumeName is the name of the shared volume between containers.
-// Used for sharing the cloned git repository from sidecar to main container.
-const SharedVolumeName = "workspace"
-
-// SharedVolumePath is the mount path for the shared volume in both containers.
-const SharedVolumePath = "/workspace"
-
-// EcsStatus represents the AWS ECS Task LastStatus lifecycle values.
-// These are string statuses returned by ECS DescribeTasks for Task.LastStatus.
-type EcsStatus string
-
-const (
-	// EcsStatusProvisioning represents a task being provisioned
-	EcsStatusProvisioning EcsStatus = "PROVISIONING"
-	// EcsStatusPending represents a task pending activation
-	EcsStatusPending EcsStatus = "PENDING"
-	// EcsStatusActivating represents a task being activated
-	EcsStatusActivating EcsStatus = "ACTIVATING"
-	// EcsStatusRunning represents a task currently running
-	EcsStatusRunning EcsStatus = "RUNNING"
-	// EcsStatusDeactivating represents a task being deactivated
-	EcsStatusDeactivating EcsStatus = "DEACTIVATING"
-	// EcsStatusStopping represents a task being stopped
-	EcsStatusStopping EcsStatus = "STOPPING"
-	// EcsStatusDeprovisioning represents a task being deprovisioned
-	EcsStatusDeprovisioning EcsStatus = "DEPROVISIONING"
-	// EcsStatusStopped represents a task that has stopped
-	EcsStatusStopped EcsStatus = "STOPPED"
-)
+// EcsStatus, container name, and volume constants are provider-specific.
+// See internal/providers/aws/constants/ecs.go for AWS ECS-specific constants.
 
 // ExecutionStatus represents the business-level status of a command execution.
 // This is distinct from EcsStatus, which reflects the AWS ECS task lifecycle.
@@ -157,15 +120,20 @@ const ClaimEndpointPath = "/claim"
 // TaskDefinitionFamilyPrefix is the prefix for all runvoy task definition families
 // Task definitions are named: {ProjectName}-image-{sanitized-image-name}
 // e.g., "runvoy-image-hashicorp-terraform-1-6" for image "hashicorp/terraform:1.6"
+// This is AWS ECS-specific and should ideally be in internal/providers/aws/constants/,
+// but is kept here as it's used by the core app interface for task definition naming.
 const TaskDefinitionFamilyPrefix = "runvoy-image"
 
 // TaskDefinitionIsDefaultTagKey is the ECS tag key used to mark a task definition as the default image
+// AWS-specific tagging convention.
 const TaskDefinitionIsDefaultTagKey = "IsDefault"
 
 // TaskDefinitionDockerImageTagKey is the ECS tag key used to store the Docker image name for metadata
+// AWS-specific tagging convention.
 const TaskDefinitionDockerImageTagKey = "DockerImage"
 
 // TaskDefinitionIsDefaultTagValue is the tag value used to mark a task definition as the default image
+// AWS-specific tagging convention.
 const TaskDefinitionIsDefaultTagValue = "true"
 
 // StartTimeCtxKeyType is the type for start time context keys
@@ -231,18 +199,7 @@ const SecretTokenByteSize = 24
 const RequestIDByteSize = 16
 
 // AWS/CloudWatch constants
-
-// CloudWatchLogsDescribeLimit is the limit for CloudWatch Logs DescribeLogStreams API
-const CloudWatchLogsDescribeLimit = int32(50)
-
-// CloudWatchLogsEventsLimit is the limit for CloudWatch Logs GetLogEvents API
-const CloudWatchLogsEventsLimit = int32(10000)
-
-// ECSTaskDefinitionMaxResults is the maximum number of results for ECS ListTaskDefinitions
-const ECSTaskDefinitionMaxResults = int32(100)
-
-// ECSEphemeralStorageSizeGiB is the ECS ephemeral storage size in GiB
-const ECSEphemeralStorageSizeGiB = 21
+// AWS-specific constants have been moved to internal/providers/aws/constants/
 
 // UI/Display constants
 
@@ -304,49 +261,6 @@ const ConnectionTTLHours = 24
 
 // FunctionalityLogStreaming identifies connections used for streaming execution logs
 const FunctionalityLogStreaming = "log_streaming"
-
-// LogStreamPartsCount is the expected number of parts in a log stream name
-// Format: task/{container}/{execution_id} = 3 parts
-const LogStreamPartsCount = 3
-
-// BuildLogStreamName constructs a CloudWatch Logs stream name for an execution.
-// Format: task/{container}/{execution_id}
-// Example: task/runner/abc123
-func BuildLogStreamName(executionID string) string {
-	return "task/" + RunnerContainerName + "/" + executionID
-}
-
-// LogStreamPrefix is the prefix for all log stream names for ECS tasks
-const LogStreamPrefix = "task"
-
-// ExtractExecutionIDFromLogStream extracts the execution ID from a CloudWatch Logs stream name.
-// Expected format: task/{container}/{execution_id}
-// Returns empty string if the format is not recognized.
-func ExtractExecutionIDFromLogStream(logStream string) string {
-	if logStream == "" {
-		return ""
-	}
-
-	parts := strings.Split(logStream, "/")
-	if len(parts) != LogStreamPartsCount {
-		return ""
-	}
-
-	if parts[0] != LogStreamPrefix {
-		return ""
-	}
-
-	if parts[1] != RunnerContainerName && parts[1] != SidecarContainerName {
-		return ""
-	}
-
-	executionID := parts[2]
-	if executionID == "" {
-		return ""
-	}
-
-	return executionID
-}
 
 // MaxConcurrentSends is the maximum number of concurrent sends to WebSocket connections
 const MaxConcurrentSends = 10
