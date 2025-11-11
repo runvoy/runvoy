@@ -19,22 +19,15 @@ func NewSecretsManagerAdapter(repo database.SecretsRepository) *SecretsManagerAd
 }
 
 // CreateSecret delegates to the repository.
+// The secret's CreatedBy field must be pre-populated by the caller.
 func (sma *SecretsManagerAdapter) CreateSecret(
 	ctx context.Context,
-	req *api.CreateSecretRequest,
-	userEmail string,
+	secret *api.Secret,
 ) (*api.Secret, error) {
-	secret := &api.Secret{
-		Name:        req.Name,
-		KeyName:     req.KeyName,
-		Description: req.Description,
-		Value:       req.Value,
-		CreatedBy:   userEmail,
-	}
 	if err := sma.repo.CreateSecret(ctx, secret); err != nil {
 		return nil, err
 	}
-	return sma.repo.GetSecret(ctx, req.Name)
+	return sma.repo.GetSecret(ctx, secret.Name)
 }
 
 // GetSecret delegates to the repository.

@@ -23,10 +23,24 @@ import (
 // SecretsManager is an interface for managing secrets.
 // This is defined here to avoid circular imports with internal/app.
 type SecretsManager interface {
-	CreateSecret(ctx context.Context, req *api.CreateSecretRequest, userEmail string) (*api.Secret, error)
+	// CreateSecret creates a new secret.
+	// The secret's CreatedBy field must be set by the caller.
+	// Returns the created secret with all fields populated (including timestamps).
+	CreateSecret(ctx context.Context, secret *api.Secret) (*api.Secret, error)
+
+	// GetSecret retrieves a secret's metadata and value by name.
 	GetSecret(ctx context.Context, name string) (*api.Secret, error)
+
+	// ListSecrets retrieves all secrets with their values.
 	ListSecrets(ctx context.Context) ([]*api.Secret, error)
-	UpdateSecret(ctx context.Context, name string, req *api.UpdateSecretRequest, userEmail string) (*api.Secret, error)
+
+	// UpdateSecret updates a secret's value and/or editable properties (description, keyName).
+	// The secret's UpdatedBy field must be set by the caller.
+	// The implementation always updates the UpdatedAt timestamp.
+	// Returns the updated secret with all fields populated.
+	UpdateSecret(ctx context.Context, name string, updates *api.UpdateSecretRequest, updatedBy string) (*api.Secret, error)
+
+	// DeleteSecret deletes a secret and its value.
 	DeleteSecret(ctx context.Context, name string) error
 }
 

@@ -46,25 +46,23 @@ type Runner interface {
 // SecretsManager is the interface for managing secrets.
 // Implementations handle both metadata storage and value encryption/storage.
 type SecretsManager interface {
-	// CreateSecret creates a new secret with the given name, description, and value.
-	CreateSecret(
-		ctx context.Context,
-		req *api.CreateSecretRequest,
-		userEmail string,
-	) (*api.Secret, error)
+	// CreateSecret creates a new secret.
+	// The secret's CreatedBy field must be set by the caller.
+	// Returns the created secret with all fields populated (including timestamps).
+	CreateSecret(ctx context.Context, secret *api.Secret) (*api.Secret, error)
+
 	// GetSecret retrieves a secret's metadata and value by name.
 	GetSecret(ctx context.Context, name string) (*api.Secret, error)
-	// ListSecrets retrieves all secrets with values
+
+	// ListSecrets retrieves all secrets with their values.
 	ListSecrets(ctx context.Context) ([]*api.Secret, error)
-	// UpdateSecret updates a secret (metadata and/or value).
-	// Always updates the description (can be empty) and UpdatedAt timestamp.
-	// If Value is provided (non-empty), also updates the secret value.
-	UpdateSecret(
-		ctx context.Context,
-		name string,
-		req *api.UpdateSecretRequest,
-		userEmail string,
-	) (*api.Secret, error)
+
+	// UpdateSecret updates a secret's value and/or editable properties (description, keyName).
+	// The secret's UpdatedBy field must be set by the caller.
+	// The implementation always updates the UpdatedAt timestamp.
+	// Returns the updated secret with all fields populated.
+	UpdateSecret(ctx context.Context, name string, updates *api.UpdateSecretRequest, updatedBy string) (*api.Secret, error)
+
 	// DeleteSecret deletes a secret and its value.
 	DeleteSecret(ctx context.Context, name string) error
 }
@@ -121,7 +119,14 @@ func (s *Service) CreateSecret(
 	if s.secretsManager == nil {
 		return nil, apperrors.ErrInternalError("secrets service not available", fmt.Errorf("secretsManager is nil"))
 	}
-	return s.secretsManager.CreateSecret(ctx, req, userEmail)
+	secret := &api.Secret{
+		Name:        req.Name,
+		KeyName:     req.KeyName,
+		Description: req.Description,
+		Value:       req.Value,
+		CreatedBy:   userEmail,
+	}
+	return s.secretsManager.CreateSecret(ctx, secret)
 }
 
 // GetSecret retrieves a secret's metadata and value by name.
