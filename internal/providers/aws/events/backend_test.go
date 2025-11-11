@@ -284,7 +284,7 @@ func TestHandleECSTaskCompletion_Success(t *testing.T) {
 		},
 	}
 
-	backend := NewBackend(mockRepo, mockWebSocket, testutil.SilentLogger())
+	backend := NewProcessor(mockRepo, mockWebSocket, testutil.SilentLogger())
 
 	taskEvent := ECSTaskStateChangeEvent{
 		TaskArn:    "arn:aws:ecs:us-east-1:123456789012:task/cluster/test-exec-123",
@@ -328,7 +328,7 @@ func TestHandleECSTaskCompletion_OrphanedTask(t *testing.T) {
 
 	mockWebSocket := &mockWebSocketHandler{}
 
-	backend := NewBackend(mockRepo, mockWebSocket, testutil.SilentLogger())
+	backend := NewProcessor(mockRepo, mockWebSocket, testutil.SilentLogger())
 
 	exitCode := 0
 	taskEvent := ECSTaskStateChangeEvent{
@@ -389,7 +389,7 @@ func TestHandleECSTaskCompletion_MissingStartedAt(t *testing.T) {
 		},
 	}
 
-	backend := NewBackend(mockRepo, mockWebSocket, testutil.SilentLogger())
+	backend := NewProcessor(mockRepo, mockWebSocket, testutil.SilentLogger())
 
 	taskEvent := ECSTaskStateChangeEvent{
 		TaskArn:    "arn:aws:ecs:us-east-1:123456789012:task/cluster/test-exec-123",

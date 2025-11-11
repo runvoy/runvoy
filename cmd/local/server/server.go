@@ -15,7 +15,7 @@ import (
 )
 
 // NewRouter creates a chi router for the async event processor.
-func NewRouter(processor *events.Processor, log *slog.Logger) *chi.Mux {
+func NewRouter(processor events.Processor, log *slog.Logger) *chi.Mux {
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
 	r.Use(middleware.Logger)

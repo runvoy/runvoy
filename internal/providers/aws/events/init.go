@@ -15,12 +15,12 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 )
 
-// Initialize constructs an AWS-backed events backend with all required dependencies.
+// Initialize constructs an AWS-backed event processor with all required dependencies.
 func Initialize(
 	ctx context.Context,
 	cfg *config.Config,
 	log *slog.Logger,
-) (*Backend, error) {
+) (*Processor, error) {
 	logger.RegisterContextExtractor(appAws.NewLambdaContextExtractor())
 
 	awsCfg, err := awsConfig.LoadDefaultConfig(ctx)
@@ -46,5 +46,5 @@ func Initialize(
 
 	websocketManager := websocketAws.NewManager(cfg, &awsCfg, connectionRepo, tokenRepo, log)
 
-	return NewBackend(executionRepo, websocketManager, log), nil
+	return NewProcessor(executionRepo, websocketManager, log), nil
 }

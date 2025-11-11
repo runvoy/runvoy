@@ -13,38 +13,31 @@ import (
 
 // Initialize creates a new Processor configured for the backend provider specified in cfg.
 // It returns an error if the context is canceled, timed out, or if an unknown provider is specified.
+// Callers should handle errors and potentially panic if initialization fails during startup.
 //
 // Supported cloud providers:
 //   - "aws": Uses CloudWatch events for ECS task state changes and API Gateway for WebSocket events
+//   - "gcp": (future) Google Cloud Pub/Sub and Cloud Tasks for event processing
 func Initialize(
 	ctx context.Context,
 	cfg *config.Config,
 	logger *slog.Logger,
-) (*Processor, error) {
+) (Processor, error) {
 	logger.Debug(fmt.Sprintf("initializing %s event processor", constants.ProjectName),
-		"context", map[string]any{
-			"provider":             cfg.BackendProvider,
-			"version":              *constants.GetVersion(),
-			"init_timeout_seconds": cfg.InitTimeout.Seconds(),
-		},
-	)
-
-	var (
-		backend Backend
-		err     error
+		"provider", cfg.BackendProvider,
+		"version", *constants.GetVersion(),
+		"init_timeout", cfg.InitTimeout,
 	)
 
 	switch cfg.BackendProvider {
 	case constants.AWS:
-		backend, err = eventsAws.Initialize(ctx, cfg, logger)
+		processor, err := eventsAws.Initialize(ctx, cfg, logger)
 		if err != nil {
 			return nil, fmt.Errorf("failed to initialize AWS backend: %w", err)
 		}
+		logger.Debug(constants.ProjectName + " event processor initialized successfully")
+		return processor, nil
 	default:
 		return nil, fmt.Errorf("unknown backend provider: %s (supported: %s)", cfg.BackendProvider, constants.AWS)
 	}
-
-	logger.Debug(constants.ProjectName + " event processor initialized successfully")
-
-	return NewProcessor(backend, logger), nil
 }
