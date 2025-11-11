@@ -182,10 +182,10 @@ func (p *Processor) handleWebSocketEvent(
 	ctx context.Context,
 	rawEvent *json.RawMessage,
 	reqLogger *slog.Logger,
-) (any, bool) {
+) (events.APIGatewayProxyResponse, bool) {
 	var wsReq events.APIGatewayWebsocketProxyRequest
 	if err := json.Unmarshal(*rawEvent, &wsReq); err != nil || wsReq.RequestContext.RouteKey == "" {
-		return nil, false
+		return events.APIGatewayProxyResponse{}, false
 	}
 
 	// This is a WebSocket request, handle it through the manager
