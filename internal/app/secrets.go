@@ -29,17 +29,17 @@ type valueStore interface {
 // SecretsService provides business logic for managing secrets.
 // It implements the SecretsManager interface defined in main.go.
 type SecretsService struct {
-	repo    database.SecretsRepository
-	manager valueStore
-	logger  *slog.Logger
+	metaRepo  database.SecretsRepository
+	valueRepo valueStore
+	logger    *slog.Logger
 }
 
 // NewSecretsService creates a new secrets service with the given repository and value store.
 func NewSecretsService(repo database.SecretsRepository, manager valueStore, logger *slog.Logger) *SecretsService {
 	return &SecretsService{
-		repo:    repo,
-		manager: manager,
-		logger:  logger,
+		metaRepo:  repo,
+		valueRepo: manager,
+		logger:    logger,
 	}
 }
 
@@ -66,7 +66,7 @@ func (s *SecretsService) CreateSecret(
 	}
 
 	// Check if secret already exists
-	exists, err := s.repo.SecretExists(ctx, req.Name)
+	exists, err := s.metaRepo.SecretExists(ctx, req.Name)
 	if err != nil {
 		s.logger.Error("failed to check if secret exists", "error", err, "name", req.Name)
 		return nil, appErrors.ErrInternalError("failed to check secret existence", err)
@@ -76,21 +76,21 @@ func (s *SecretsService) CreateSecret(
 	}
 
 	// Store the secret value
-	if err = s.manager.StoreSecret(ctx, req.Name, req.Value); err != nil {
+	if err = s.valueRepo.StoreSecret(ctx, req.Name, req.Value); err != nil {
 		s.logger.Error("failed to store secret value", "error", err, "name", req.Name)
 		return nil, appErrors.ErrInternalError("failed to store secret value", err)
 	}
 
 	// Store the metadata
-	if err = s.repo.CreateSecret(ctx, req.Name, req.KeyName, req.Description, userEmail); err != nil {
+	if err = s.metaRepo.CreateSecret(ctx, req.Name, req.KeyName, req.Description, userEmail); err != nil {
 		s.logger.Error("failed to create secret metadata", "error", err, "name", req.Name)
 		// Best effort: try to clean up the stored value
-		_ = s.manager.DeleteSecret(ctx, req.Name)
+		_ = s.valueRepo.DeleteSecret(ctx, req.Name)
 		return nil, appErrors.ErrInternalError("failed to create secret metadata", err)
 	}
 
 	// Retrieve and return the created secret
-	secret, err := s.repo.GetSecret(ctx, req.Name)
+	secret, err := s.metaRepo.GetSecret(ctx, req.Name)
 	if err != nil {
 		s.logger.Error("failed to retrieve created secret", "error", err, "name", req.Name)
 		return nil, appErrors.ErrInternalError("failed to retrieve secret after creation", err)
@@ -106,7 +106,7 @@ func (s *SecretsService) GetSecret(ctx context.Context, name string) (*api.Secre
 		return nil, appErrors.ErrBadRequest("secret name cannot be empty", nil)
 	}
 
-	secret, err := s.repo.GetSecret(ctx, name)
+	secret, err := s.metaRepo.GetSecret(ctx, name)
 	if err != nil {
 		if errors.Is(err, database.ErrSecretNotFound) {
 			return nil, appErrors.ErrNotFound(fmt.Sprintf("secret %q not found", name), nil)
@@ -121,7 +121,7 @@ func (s *SecretsService) GetSecret(ctx context.Context, name string) (*api.Secre
 // ListSecrets retrieves all secrets (optionally filtered by user).
 // If userEmail is empty, returns all secrets.
 func (s *SecretsService) ListSecrets(ctx context.Context, userEmail string) ([]*api.Secret, error) {
-	secrets, err := s.repo.ListSecrets(ctx, userEmail)
+	secrets, err := s.metaRepo.ListSecrets(ctx, userEmail)
 	if err != nil {
 		s.logger.Error("failed to list secrets", "error", err)
 		return nil, appErrors.ErrInternalError("failed to list secrets", err)
@@ -153,7 +153,7 @@ func (s *SecretsService) UpdateSecret(
 	}
 
 	// Check if secret exists
-	exists, err := s.repo.SecretExists(ctx, name)
+	exists, err := s.metaRepo.SecretExists(ctx, name)
 	if err != nil {
 		s.logger.Error("failed to check if secret exists", "error", err, "name", name)
 		return nil, appErrors.ErrInternalError("failed to check secret existence", err)
@@ -164,20 +164,20 @@ func (s *SecretsService) UpdateSecret(
 
 	// Update value if provided
 	if req.Value != "" {
-		if err = s.manager.StoreSecret(ctx, name, req.Value); err != nil {
+		if err = s.valueRepo.StoreSecret(ctx, name, req.Value); err != nil {
 			s.logger.Error("failed to store secret value", "error", err, "name", name)
 			return nil, appErrors.ErrInternalError("failed to update secret value", err)
 		}
 	}
 
 	// Always update metadata (description, keyName, and timestamp)
-	if err = s.repo.UpdateSecretMetadata(ctx, name, req.KeyName, req.Description, userEmail); err != nil {
+	if err = s.metaRepo.UpdateSecretMetadata(ctx, name, req.KeyName, req.Description, userEmail); err != nil {
 		s.logger.Error("failed to update secret metadata", "error", err, "name", name)
 		return nil, appErrors.ErrInternalError("failed to update secret metadata", err)
 	}
 
 	// Retrieve and return the updated secret
-	secret, err := s.repo.GetSecret(ctx, name)
+	secret, err := s.metaRepo.GetSecret(ctx, name)
 	if err != nil {
 		s.logger.Error("failed to retrieve updated secret", "error", err, "name", name)
 		return nil, appErrors.ErrInternalError("failed to retrieve secret after update", err)
@@ -194,7 +194,7 @@ func (s *SecretsService) DeleteSecret(ctx context.Context, name string) error {
 	}
 
 	// Check if secret exists
-	exists, err := s.repo.SecretExists(ctx, name)
+	exists, err := s.metaRepo.SecretExists(ctx, name)
 	if err != nil {
 		s.logger.Error("failed to check if secret exists", "error", err, "name", name)
 		return appErrors.ErrInternalError("failed to check secret existence", err)
@@ -204,13 +204,13 @@ func (s *SecretsService) DeleteSecret(ctx context.Context, name string) error {
 	}
 
 	// Delete the secret value
-	if err = s.manager.DeleteSecret(ctx, name); err != nil {
+	if err = s.valueRepo.DeleteSecret(ctx, name); err != nil {
 		s.logger.Error("failed to delete secret value", "error", err, "name", name)
 		// Continue to delete metadata even if value deletion fails
 	}
 
 	// Delete the metadata
-	if err = s.repo.DeleteSecret(ctx, name); err != nil {
+	if err = s.metaRepo.DeleteSecret(ctx, name); err != nil {
 		s.logger.Error("failed to delete secret metadata", "error", err, "name", name)
 		return appErrors.ErrInternalError("failed to delete secret metadata", err)
 	}
