@@ -24,6 +24,7 @@ func TestBuildSidecarContainerCommandWithoutGitRepo(t *testing.T) {
 	assert.Contains(t, script, "grep '^RUNVOY_USER_'", "should create .env file when user env vars exist")
 	assert.Contains(t, script, constants.ProjectName+" sidecar: No git repository specified, exiting")
 	assert.NotContains(t, script, "git clone", "git repo commands must be skipped when not requested")
+	assert.Contains(t, script, "set -e", "script should enable exit on error")
 }
 
 func TestBuildSidecarContainerCommandWithGitRepo(t *testing.T) {
@@ -48,16 +49,19 @@ func TestBuildMainContainerCommandWithoutRepo(t *testing.T) {
 	require.Len(t, cmd, 3)
 	commandScript := cmd[2]
 
-	expectedStart := fmt.Sprintf(
-		"printf '### %s runner execution started by requestID => %s",
-		constants.ProjectName,
-		"request-123",
+	assert.Contains(t,
+		commandScript,
+		fmt.Sprintf("printf '### %s runner execution started by requestID => %%s\\n' \"request-123\"", constants.ProjectName),
 	)
-	assert.Contains(t, commandScript, expectedStart)
 
-	assert.Contains(t, commandScript, "printf '### Docker image => ubuntu:22.04")
-	assert.Contains(t, commandScript, constants.ProjectName+" command => "+req.Command)
+	assert.Contains(t, commandScript, "printf '### Docker image => %s\\n' \"ubuntu:22.04\"")
+	assert.Contains(
+		t,
+		commandScript,
+		fmt.Sprintf("printf '### %s command => %%s\\n' %q", constants.ProjectName, req.Command),
+	)
 	assert.True(t, strings.HasSuffix(commandScript, req.Command), "shell command should end with the user command")
+	assert.Contains(t, commandScript, "set -e", "script should enable exit on error")
 }
 
 func TestBuildMainContainerCommandWithRepo(t *testing.T) {
@@ -87,7 +91,21 @@ func TestBuildMainContainerCommandWithRepo(t *testing.T) {
 		expectedCd,
 		"should change into the requested git subdirectory",
 	)
-	assert.Contains(t, commandScript, "Checked out repo => "+repoURL+" (ref: "+repoRef+") (path: "+repoPath+")")
+	assert.Contains(
+		t,
+		commandScript,
+		fmt.Sprintf(
+			"printf '### Checked out repo => %%s (ref: %%s) (path: %%s)\\n' %q %q %q",
+			repoURL,
+			repoRef,
+			repoPath,
+		),
+	)
+	assert.Contains(
+		t,
+		commandScript,
+		fmt.Sprintf("printf '### Working directory => %%s\\n' %q", constants.SharedVolumePath+"/repo/nested/path"),
+	)
 	assert.True(t, strings.HasSuffix(commandScript, req.Command))
 }
 

@@ -1,0 +1,13 @@
+set -e
+
+printf '### {{ .ProjectName }} runner execution started by requestID => %s\n' "{{ .RequestID }}"
+printf '### Docker image => %s\n' "{{ .Image }}"
+
+{{- if .Repo }}
+cd {{ .Repo.WorkDir }}
+printf '### Checked out repo => %s (ref: %s) (path: %s)\n' "{{ .Repo.URL }}" "{{ .Repo.Ref }}" "{{ .Repo.Path }}"
+printf '### Working directory => %s\n' "{{ .Repo.WorkDir }}"
+{{- end }}
+
+printf '### {{ .ProjectName }} command => %s\n' "{{ .Command }}"
+{{ .Command }}
