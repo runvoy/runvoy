@@ -50,11 +50,13 @@ type SecretsManager interface {
 	// The secret's CreatedBy field must be set by the caller.
 	CreateSecret(ctx context.Context, secret *api.Secret) error
 
-	// GetSecret retrieves a secret's metadata and value by name.
-	GetSecret(ctx context.Context, name string) (*api.Secret, error)
+	// GetSecret retrieves a secret's metadata and optionally its value by name.
+	// If includeValue is true, the secret value will be decrypted and included in the response.
+	GetSecret(ctx context.Context, name string, includeValue bool) (*api.Secret, error)
 
-	// ListSecrets retrieves all secrets with their values.
-	ListSecrets(ctx context.Context) ([]*api.Secret, error)
+	// ListSecrets retrieves all secrets with optionally their values.
+	// If includeValue is true, secret values will be decrypted and included in the response.
+	ListSecrets(ctx context.Context, includeValue bool) ([]*api.Secret, error)
 
 	// UpdateSecret updates a secret's value and/or editable properties (description, keyName).
 	// The secret's UpdatedBy field must be set by the caller.
@@ -128,7 +130,7 @@ func (s *Service) CreateSecret(
 	if err := s.secretsManager.CreateSecret(ctx, secret); err != nil {
 		return nil, err
 	}
-	return s.secretsManager.GetSecret(ctx, req.Name)
+	return s.secretsManager.GetSecret(ctx, req.Name, true)
 }
 
 // GetSecret retrieves a secret's metadata and value by name.
@@ -136,7 +138,7 @@ func (s *Service) GetSecret(ctx context.Context, name string) (*api.Secret, erro
 	if s.secretsManager == nil {
 		return nil, apperrors.ErrInternalError("secrets service not available", fmt.Errorf("secretsManager is nil"))
 	}
-	return s.secretsManager.GetSecret(ctx, name)
+	return s.secretsManager.GetSecret(ctx, name, true)
 }
 
 // ListSecrets retrieves all secrets with values
@@ -144,7 +146,7 @@ func (s *Service) ListSecrets(ctx context.Context) ([]*api.Secret, error) {
 	if s.secretsManager == nil {
 		return nil, apperrors.ErrInternalError("secrets service not available", fmt.Errorf("secretsManager is nil"))
 	}
-	return s.secretsManager.ListSecrets(ctx)
+	return s.secretsManager.ListSecrets(ctx, true)
 }
 
 // UpdateSecret updates a secret (metadata and/or value).
@@ -167,7 +169,7 @@ func (s *Service) UpdateSecret(
 	if err := s.secretsManager.UpdateSecret(ctx, secret); err != nil {
 		return nil, err
 	}
-	return s.secretsManager.GetSecret(ctx, name)
+	return s.secretsManager.GetSecret(ctx, name, true)
 }
 
 // DeleteSecret deletes a secret and its value.

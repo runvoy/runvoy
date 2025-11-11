@@ -27,11 +27,13 @@ type SecretsManager interface {
 	// The secret's CreatedBy field must be set by the caller.
 	CreateSecret(ctx context.Context, secret *api.Secret) error
 
-	// GetSecret retrieves a secret's metadata and value by name.
-	GetSecret(ctx context.Context, name string) (*api.Secret, error)
+	// GetSecret retrieves a secret's metadata and optionally its value by name.
+	// If includeValue is true, the secret value will be decrypted and included in the response.
+	GetSecret(ctx context.Context, name string, includeValue bool) (*api.Secret, error)
 
-	// ListSecrets retrieves all secrets with their values.
-	ListSecrets(ctx context.Context) ([]*api.Secret, error)
+	// ListSecrets retrieves all secrets with optionally their values.
+	// If includeValue is true, secret values will be decrypted and included in the response.
+	ListSecrets(ctx context.Context, includeValue bool) ([]*api.Secret, error)
 
 	// UpdateSecret updates a secret's value and/or editable properties (description, keyName).
 	// The secret's UpdatedBy field must be set by the caller.

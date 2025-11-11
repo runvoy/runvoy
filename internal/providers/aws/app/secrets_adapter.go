@@ -28,13 +28,31 @@ func (sma *SecretsManagerAdapter) CreateSecret(
 }
 
 // GetSecret delegates to the repository.
-func (sma *SecretsManagerAdapter) GetSecret(ctx context.Context, name string) (*api.Secret, error) {
-	return sma.repo.GetSecret(ctx, name)
+// If includeValue is true, the secret value will be decrypted and included in the response.
+func (sma *SecretsManagerAdapter) GetSecret(ctx context.Context, name string, includeValue bool) (*api.Secret, error) {
+	secret, err := sma.repo.GetSecret(ctx, name)
+	if err != nil {
+		return nil, err
+	}
+	if !includeValue {
+		secret.Value = ""
+	}
+	return secret, nil
 }
 
 // ListSecrets delegates to the repository.
-func (sma *SecretsManagerAdapter) ListSecrets(ctx context.Context) ([]*api.Secret, error) {
-	return sma.repo.ListSecrets(ctx)
+// If includeValue is true, secret values will be decrypted and included in the response.
+func (sma *SecretsManagerAdapter) ListSecrets(ctx context.Context, includeValue bool) ([]*api.Secret, error) {
+	secrets, err := sma.repo.ListSecrets(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if !includeValue {
+		for _, secret := range secrets {
+			secret.Value = ""
+		}
+	}
+	return secrets, nil
 }
 
 // UpdateSecret delegates to the repository.
