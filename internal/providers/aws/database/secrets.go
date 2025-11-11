@@ -41,19 +41,19 @@ func NewSecretsRepository(
 // CreateSecret stores a new secret with both metadata and value.
 func (sr *SecretsRepository) CreateSecret(
 	ctx context.Context,
-	name, keyName, description, value, createdBy string,
+	secret *api.Secret,
 ) error {
 	// Store the value first
-	if err := sr.valueStore.StoreSecret(ctx, name, value); err != nil {
-		sr.logger.Error("failed to store secret value", "error", err, "name", name)
+	if err := sr.valueStore.StoreSecret(ctx, secret.Name, secret.Value); err != nil {
+		sr.logger.Error("failed to store secret value", "error", err, "name", secret.Name)
 		return appErrors.ErrInternalError("failed to store secret value", err)
 	}
 
 	// Store the metadata
-	if err := sr.metadataRepo.CreateSecret(ctx, name, keyName, description, createdBy); err != nil {
-		sr.logger.Error("failed to store secret metadata", "error", err, "name", name)
+	if err := sr.metadataRepo.CreateSecret(ctx, secret); err != nil {
+		sr.logger.Error("failed to store secret metadata", "error", err, "name", secret.Name)
 		// Best effort cleanup: try to remove the stored value
-		_ = sr.valueStore.DeleteSecret(ctx, name)
+		_ = sr.valueStore.DeleteSecret(ctx, secret.Name)
 		return err
 	}
 
@@ -109,18 +109,22 @@ func (sr *SecretsRepository) ListSecrets(ctx context.Context, userEmail string) 
 // UpdateSecret updates a secret's metadata and/or value.
 func (sr *SecretsRepository) UpdateSecret(
 	ctx context.Context,
-	name, keyName, description, value, updatedBy string,
+	name string,
+	updates *api.UpdateSecretRequest,
+	updatedBy string,
 ) error {
 	// Update the value if provided
-	if value != "" {
-		if err := sr.valueStore.StoreSecret(ctx, name, value); err != nil {
+	if updates.Value != "" {
+		if err := sr.valueStore.StoreSecret(ctx, name, updates.Value); err != nil {
 			sr.logger.Error("failed to update secret value", "error", err, "name", name)
 			return appErrors.ErrInternalError("failed to update secret value", err)
 		}
 	}
 
 	// Always update metadata (description, keyName, and timestamp)
-	if err := sr.metadataRepo.UpdateSecretMetadata(ctx, name, keyName, description, updatedBy); err != nil {
+	if err := sr.metadataRepo.UpdateSecretMetadata(
+		ctx, name, updates.KeyName, updates.Description, updatedBy,
+	); err != nil {
 		sr.logger.Error("failed to update secret metadata", "error", err, "name", name)
 		return err
 	}

@@ -60,17 +60,18 @@ func (si *secretItem) toAPISecret() *api.Secret {
 }
 
 // CreateSecret stores a new secret's metadata in DynamoDB.
-func (r *SecretsRepository) CreateSecret(ctx context.Context, name, keyName, description, createdBy string) error {
+func (r *SecretsRepository) CreateSecret(ctx context.Context, secret *api.Secret) error {
 	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
 
+	now := time.Now().UTC()
 	item := secretItem{
-		SecretName:  name,
-		KeyName:     keyName,
-		Description: description,
-		CreatedBy:   createdBy,
-		CreatedAt:   time.Now().UTC(),
-		UpdatedAt:   time.Now().UTC(),
-		UpdatedBy:   createdBy,
+		SecretName:  secret.Name,
+		KeyName:     secret.KeyName,
+		Description: secret.Description,
+		CreatedBy:   secret.CreatedBy,
+		CreatedAt:   now,
+		UpdatedAt:   now,
+		UpdatedBy:   secret.CreatedBy,
 	}
 
 	av, err := attributevalue.MarshalMap(item)
@@ -91,11 +92,11 @@ func (r *SecretsRepository) CreateSecret(ctx context.Context, name, keyName, des
 		if errors.As(err, &ccf) {
 			return database.ErrSecretAlreadyExists
 		}
-		reqLogger.Error("failed to create secret", "error", err, "name", name)
+		reqLogger.Error("failed to create secret", "error", err, "name", secret.Name)
 		return appErrors.ErrInternalError("failed to create secret", err)
 	}
 
-	reqLogger.Debug("secret created", "name", name, "created_by", createdBy)
+	reqLogger.Debug("secret created", "name", secret.Name, "created_by", secret.CreatedBy)
 	return nil
 }
 

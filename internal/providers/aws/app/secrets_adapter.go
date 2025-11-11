@@ -24,7 +24,14 @@ func (sma *SecretsManagerAdapter) CreateSecret(
 	req *api.CreateSecretRequest,
 	userEmail string,
 ) (*api.Secret, error) {
-	if err := sma.repo.CreateSecret(ctx, req.Name, req.KeyName, req.Description, req.Value, userEmail); err != nil {
+	secret := &api.Secret{
+		Name:        req.Name,
+		KeyName:     req.KeyName,
+		Description: req.Description,
+		Value:       req.Value,
+		CreatedBy:   userEmail,
+	}
+	if err := sma.repo.CreateSecret(ctx, secret); err != nil {
 		return nil, err
 	}
 	return sma.repo.GetSecret(ctx, req.Name)
@@ -47,7 +54,7 @@ func (sma *SecretsManagerAdapter) UpdateSecret(
 	req *api.UpdateSecretRequest,
 	userEmail string,
 ) (*api.Secret, error) {
-	if err := sma.repo.UpdateSecret(ctx, name, req.KeyName, req.Description, req.Value, userEmail); err != nil {
+	if err := sma.repo.UpdateSecret(ctx, name, req, userEmail); err != nil {
 		return nil, err
 	}
 	return sma.repo.GetSecret(ctx, name)

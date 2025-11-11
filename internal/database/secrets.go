@@ -18,12 +18,11 @@ var (
 // SecretsRepository defines the interface for persisting secret data.
 // Implementations handle storing and retrieving secrets in their preferred storage backend.
 type SecretsRepository interface {
-	// CreateSecret stores a new secret with the given information.
+	// CreateSecret stores a new secret.
+	// The secret's CreatedBy field must be set by the caller.
+	// The repository sets CreatedAt and UpdatedAt timestamps.
 	// Returns an error if a secret with the same name already exists.
-	CreateSecret(
-		ctx context.Context,
-		name, keyName, description, value, createdBy string,
-	) error
+	CreateSecret(ctx context.Context, secret *api.Secret) error
 
 	// GetSecret retrieves a secret by name.
 	// Returns an error if the secret is not found.
@@ -33,13 +32,10 @@ type SecretsRepository interface {
 	// If userEmail is empty, returns all secrets.
 	ListSecrets(ctx context.Context, userEmail string) ([]*api.Secret, error)
 
-	// UpdateSecret updates a secret's value and/or editable properties (description, keyName).
+	// UpdateSecret updates a secret's value and/or editable properties.
 	// The updatedAt timestamp is always refreshed.
 	// Returns an error if the secret is not found.
-	UpdateSecret(
-		ctx context.Context,
-		name, keyName, description, value, updatedBy string,
-	) error
+	UpdateSecret(ctx context.Context, name string, updates *api.UpdateSecretRequest, updatedBy string) error
 
 	// DeleteSecret removes a secret from storage.
 	// Returns an error if the secret is not found.
