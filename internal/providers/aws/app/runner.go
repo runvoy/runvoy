@@ -51,64 +51,22 @@ func (e *Runner) FetchLogsByExecutionID(ctx context.Context, executionID string)
 	return FetchLogsByExecutionID(ctx, e.cfg, executionID)
 }
 
+type sidecarScriptData struct {
+	ProjectName   string
+	DefaultGitRef string
+	HasGitRepo    bool
+}
+
 // buildSidecarContainerCommand constructs the shell command for the sidecar container.
 // It handles .env file creation from user environment variables and git repository cloning.
 func buildSidecarContainerCommand(hasGitRepo bool) []string {
-	commands := []string{"set -e"}
+	script := renderScript("sidecar.sh.tmpl", sidecarScriptData{
+		ProjectName:   constants.ProjectName,
+		DefaultGitRef: constants.DefaultGitRef,
+		HasGitRepo:    hasGitRepo,
+	})
 
-	// Create .env file from user environment variables (if any)
-	commands = append(commands,
-		"if env | grep -q '^RUNVOY_USER_'; then",
-		fmt.Sprintf("  echo '### %s sidecar: Creating .env file from user environment variables'", constants.ProjectName),
-		"  ENV_FILE_PATH=\"${RUNVOY_SHARED_VOLUME_PATH}/.env\"",
-		"  env | grep '^RUNVOY_USER_' | while IFS='=' read -r key value; do",
-		"    actual_key=\"${key#RUNVOY_USER_}\"",
-		"    echo \"${actual_key}=${value}\" >> \"${ENV_FILE_PATH}\"",
-		"  done",
-		"  if [ -f \"${ENV_FILE_PATH}\" ]; then",
-		fmt.Sprintf(
-			"    echo '### %s sidecar: .env file created with' "+
-				"$(wc -l < \"${ENV_FILE_PATH}\") 'variables at' \"${ENV_FILE_PATH}\"",
-			constants.ProjectName,
-		),
-		"  else",
-		fmt.Sprintf("    echo '### %s sidecar: No .env file created'", constants.ProjectName),
-		"  fi",
-		"else",
-		fmt.Sprintf(
-			"  echo '### %s sidecar: No RUNVOY_USER_* variables found, skipping .env creation'",
-			constants.ProjectName,
-		),
-		"fi",
-	)
-
-	// Git repository cloning logic (if specified)
-	if hasGitRepo {
-		commands = append(commands,
-			"apk add --no-cache git",
-			"GIT_REF=${GIT_REF:-main}",
-			"CLONE_PATH=${RUNVOY_SHARED_VOLUME_PATH}/repo",
-			fmt.Sprintf("echo '### %s sidecar: Cloning ${GIT_REPO} (ref: ${GIT_REF})'", constants.ProjectName),
-			"git clone --depth 1 --branch \"${GIT_REF}\" \"${GIT_REPO}\" \"${CLONE_PATH}\"",
-			fmt.Sprintf("echo '### %s sidecar: Clone completed successfully'", constants.ProjectName),
-			"if [ -f \"${RUNVOY_SHARED_VOLUME_PATH}/.env\" ]; then",
-			"  cp \"${RUNVOY_SHARED_VOLUME_PATH}/.env\" \"${CLONE_PATH}/.env\"",
-			fmt.Sprintf("  echo '### %s sidecar: .env file copied to repo directory'", constants.ProjectName),
-			"fi",
-			"ls -la \"${CLONE_PATH}\"",
-		)
-	} else {
-		// If no GIT_REPO is specified, just exit successfully
-		commands = append(commands,
-			fmt.Sprintf("echo '### %s sidecar: No git repository specified, exiting'", constants.ProjectName),
-		)
-	}
-
-	commands = append(commands,
-		fmt.Sprintf("echo '### %s sidecar: Sidecar completed successfully'", constants.ProjectName),
-	)
-
-	return []string{"/bin/sh", "-c", strings.Join(commands, "\n")}
+	return []string{"/bin/sh", "-c", script}
 }
 
 type gitRepoInfo struct {
@@ -117,34 +75,48 @@ type gitRepoInfo struct {
 	RepoPath *string
 }
 
+type mainScriptRepoData struct {
+	URL     string
+	Ref     string
+	Path    string
+	WorkDir string
+}
+
+type mainScriptData struct {
+	ProjectName string
+	RequestID   string
+	Image       string
+	Command     string
+	Repo        *mainScriptRepoData
+}
+
 // buildMainContainerCommand constructs the shell command for the main runner container.
 // It adds logging statements and optionally changes to the git repo working directory.
 func buildMainContainerCommand(req *api.ExecutionRequest, requestID, image string, repo *gitRepoInfo) []string {
-	commands := []string{
-		fmt.Sprintf("printf '### %s runner execution started by requestID => %s\\n'",
-			constants.ProjectName, requestID),
-		fmt.Sprintf("printf '### Docker image => %s\\n'", image),
-	}
-
+	var repoData *mainScriptRepoData
 	if repo != nil {
 		workDir := constants.SharedVolumePath + "/repo"
-		if *repo.RepoPath != "" && *repo.RepoPath != "." {
-			workDir = workDir + "/" + strings.TrimPrefix(*repo.RepoPath, "/")
+		if trimmed := strings.TrimPrefix(awsStd.ToString(repo.RepoPath), "/"); trimmed != "" && trimmed != "." {
+			workDir = workDir + "/" + trimmed
 		}
-		commands = append(commands,
-			fmt.Sprintf("cd %s", workDir),
-			fmt.Sprintf("printf '### Checked out repo => %s (ref: %s) (path: %s)\\n'",
-				*repo.RepoURL, *repo.RepoRef, *repo.RepoPath),
-			fmt.Sprintf("printf '### Working directory => %s\\n'", workDir),
-		)
+
+		repoData = &mainScriptRepoData{
+			URL:     awsStd.ToString(repo.RepoURL),
+			Ref:     awsStd.ToString(repo.RepoRef),
+			Path:    awsStd.ToString(repo.RepoPath),
+			WorkDir: workDir,
+		}
 	}
 
-	commands = append(commands,
-		fmt.Sprintf("printf '### %s command => %s\\n'", constants.ProjectName, req.Command),
-		req.Command,
-	)
+	script := renderScript("main.sh.tmpl", mainScriptData{
+		ProjectName: constants.ProjectName,
+		RequestID:   requestID,
+		Image:       image,
+		Command:     req.Command,
+		Repo:        repoData,
+	})
 
-	return []string{"/bin/sh", "-c", strings.Join(commands, " && ")}
+	return []string{"/bin/sh", "-c", script}
 }
 
 // StartTask triggers an ECS Fargate task and returns identifiers.
@@ -198,7 +170,7 @@ func (e *Runner) StartTask( //nolint: funlen
 
 	for key, value := range req.Env {
 		sidecarEnv = append(sidecarEnv, ecsTypes.KeyValuePair{
-			Name:  awsStd.String(key),
+			Name:  awsStd.String("RUNVOY_USER_" + key),
 			Value: awsStd.String(value),
 		})
 	}

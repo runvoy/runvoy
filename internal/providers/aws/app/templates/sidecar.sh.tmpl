@@ -1,0 +1,36 @@
+set -e
+
+if env | grep -q '^RUNVOY_USER_'; then
+  echo '### {{ .ProjectName }} sidecar: Creating .env file from user environment variables'
+  ENV_FILE_PATH="${RUNVOY_SHARED_VOLUME_PATH}/.env"
+  rm -f "${ENV_FILE_PATH}"
+  env | grep '^RUNVOY_USER_' | while IFS='=' read -r key value; do
+    actual_key="${key#RUNVOY_USER_}"
+    printf '%s=%s\n' "${actual_key}" "${value}" >> "${ENV_FILE_PATH}"
+  done
+  if [ -f "${ENV_FILE_PATH}" ]; then
+    echo '### {{ .ProjectName }} sidecar: .env file created with' "$(wc -l < "${ENV_FILE_PATH}")" 'variables at' "${ENV_FILE_PATH}"
+  else
+    echo '### {{ .ProjectName }} sidecar: No .env file created'
+  fi
+else
+  echo '### {{ .ProjectName }} sidecar: No RUNVOY_USER_* variables found, skipping .env creation'
+fi
+
+{{- if .HasGitRepo }}
+apk add --no-cache git
+GIT_REF=${GIT_REF:-{{ .DefaultGitRef }}}
+CLONE_PATH=${RUNVOY_SHARED_VOLUME_PATH}/repo
+echo '### {{ .ProjectName }} sidecar: Cloning ${GIT_REPO} (ref: ${GIT_REF})'
+git clone --depth 1 --branch "${GIT_REF}" "${GIT_REPO}" "${CLONE_PATH}"
+echo '### {{ .ProjectName }} sidecar: Clone completed successfully'
+if [ -f "${RUNVOY_SHARED_VOLUME_PATH}/.env" ]; then
+  cp "${RUNVOY_SHARED_VOLUME_PATH}/.env" "${CLONE_PATH}/.env"
+  echo '### {{ .ProjectName }} sidecar: .env file copied to repo directory'
+fi
+ls -la "${CLONE_PATH}"
+{{- else }}
+echo '### {{ .ProjectName }} sidecar: No git repository specified, exiting'
+{{- end }}
+
+echo '### {{ .ProjectName }} sidecar: Sidecar completed successfully'
