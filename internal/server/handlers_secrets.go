@@ -23,14 +23,8 @@ func (r *Router) handleCreateSecret(w http.ResponseWriter, req *http.Request) {
 
 	user := req.Context().Value(userContextKey).(*api.User)
 	svc := req.Context().Value(serviceContextKey).(*app.Service)
-	secretsManager := svc.GetSecretsManager()
 
-	if secretsManager == nil {
-		writeErrorResponse(w, http.StatusServiceUnavailable, "secrets service not available", "")
-		return
-	}
-
-	secret, err := secretsManager.CreateSecret(req.Context(), &createReq, user.Email)
+	secret, err := svc.CreateSecret(req.Context(), &createReq, user.Email)
 	if err != nil {
 		handleServiceError(w, err)
 		return
@@ -52,14 +46,8 @@ func (r *Router) handleGetSecret(w http.ResponseWriter, req *http.Request) {
 	}
 
 	svc := req.Context().Value(serviceContextKey).(*app.Service)
-	secretsManager := svc.GetSecretsManager()
 
-	if secretsManager == nil {
-		writeErrorResponse(w, http.StatusServiceUnavailable, "secrets service not available", "")
-		return
-	}
-
-	secret, err := secretsManager.GetSecret(req.Context(), name)
+	secret, err := svc.GetSecret(req.Context(), name)
 	if err != nil {
 		handleServiceError(w, err)
 		return
@@ -75,14 +63,8 @@ func (r *Router) handleGetSecret(w http.ResponseWriter, req *http.Request) {
 func (r *Router) handleListSecrets(w http.ResponseWriter, req *http.Request) {
 	user := req.Context().Value(userContextKey).(*api.User)
 	svc := req.Context().Value(serviceContextKey).(*app.Service)
-	secretsManager := svc.GetSecretsManager()
 
-	if secretsManager == nil {
-		writeErrorResponse(w, http.StatusServiceUnavailable, "secrets service not available", "")
-		return
-	}
-
-	secrets, err := secretsManager.ListSecrets(req.Context(), user.Email)
+	secrets, err := svc.ListSecrets(req.Context(), user.Email)
 	if err != nil {
 		handleServiceError(w, err)
 		return
@@ -112,14 +94,8 @@ func (r *Router) handleUpdateSecret(w http.ResponseWriter, req *http.Request) {
 
 	user := req.Context().Value(userContextKey).(*api.User)
 	svc := req.Context().Value(serviceContextKey).(*app.Service)
-	secretsManager := svc.GetSecretsManager()
 
-	if secretsManager == nil {
-		writeErrorResponse(w, http.StatusServiceUnavailable, "secrets service not available", "")
-		return
-	}
-
-	secret, err := secretsManager.UpdateSecret(req.Context(), name, &updateReq, user.Email)
+	secret, err := svc.UpdateSecret(req.Context(), name, &updateReq, user.Email)
 	if err != nil {
 		handleServiceError(w, err)
 		return
@@ -141,14 +117,8 @@ func (r *Router) handleDeleteSecret(w http.ResponseWriter, req *http.Request) {
 	}
 
 	svc := req.Context().Value(serviceContextKey).(*app.Service)
-	secretsManager := svc.GetSecretsManager()
 
-	if secretsManager == nil {
-		writeErrorResponse(w, http.StatusServiceUnavailable, "secrets service not available", "")
-		return
-	}
-
-	err := secretsManager.DeleteSecret(req.Context(), name)
+	err := svc.DeleteSecret(req.Context(), name)
 	if err != nil {
 		handleServiceError(w, err)
 		return

@@ -112,9 +112,53 @@ func NewService(
 	}
 }
 
-// GetSecretsManager returns the secrets manager, or nil if not available.
-func (s *Service) GetSecretsManager() SecretsManager {
-	return s.secretsManager
+// CreateSecret creates a new secret with the given name, description, key name, and value.
+func (s *Service) CreateSecret(
+	ctx context.Context,
+	req *api.CreateSecretRequest,
+	userEmail string,
+) (*api.Secret, error) {
+	if s.secretsManager == nil {
+		return nil, apperrors.ErrInternalError("secrets service not available", fmt.Errorf("secretsManager is nil"))
+	}
+	return s.secretsManager.CreateSecret(ctx, req, userEmail)
+}
+
+// GetSecret retrieves a secret's metadata and value by name.
+func (s *Service) GetSecret(ctx context.Context, name string) (*api.Secret, error) {
+	if s.secretsManager == nil {
+		return nil, apperrors.ErrInternalError("secrets service not available", fmt.Errorf("secretsManager is nil"))
+	}
+	return s.secretsManager.GetSecret(ctx, name)
+}
+
+// ListSecrets retrieves all secrets with values, optionally filtered by user.
+func (s *Service) ListSecrets(ctx context.Context, userEmail string) ([]*api.Secret, error) {
+	if s.secretsManager == nil {
+		return nil, apperrors.ErrInternalError("secrets service not available", fmt.Errorf("secretsManager is nil"))
+	}
+	return s.secretsManager.ListSecrets(ctx, userEmail)
+}
+
+// UpdateSecret updates a secret (metadata and/or value).
+func (s *Service) UpdateSecret(
+	ctx context.Context,
+	name string,
+	req *api.UpdateSecretRequest,
+	userEmail string,
+) (*api.Secret, error) {
+	if s.secretsManager == nil {
+		return nil, apperrors.ErrInternalError("secrets service not available", fmt.Errorf("secretsManager is nil"))
+	}
+	return s.secretsManager.UpdateSecret(ctx, name, req, userEmail)
+}
+
+// DeleteSecret deletes a secret and its value.
+func (s *Service) DeleteSecret(ctx context.Context, name string) error {
+	if s.secretsManager == nil {
+		return apperrors.ErrInternalError("secrets service not available", fmt.Errorf("secretsManager is nil"))
+	}
+	return s.secretsManager.DeleteSecret(ctx, name)
 }
 
 // validateCreateUserRequest validates the email in the create user request.
