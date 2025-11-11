@@ -41,16 +41,20 @@ func (sma *SecretsManagerAdapter) ListSecrets(ctx context.Context) ([]*api.Secre
 }
 
 // UpdateSecret delegates to the repository.
+// The secret's UpdatedBy field must be pre-populated by the caller.
 func (sma *SecretsManagerAdapter) UpdateSecret(
 	ctx context.Context,
-	name string,
-	req *api.UpdateSecretRequest,
-	userEmail string,
+	secret *api.Secret,
 ) (*api.Secret, error) {
-	if err := sma.repo.UpdateSecret(ctx, name, req, userEmail); err != nil {
+	updateReq := &api.UpdateSecretRequest{
+		Description: secret.Description,
+		KeyName:     secret.KeyName,
+		Value:       secret.Value,
+	}
+	if err := sma.repo.UpdateSecret(ctx, secret.Name, updateReq, secret.UpdatedBy); err != nil {
 		return nil, err
 	}
-	return sma.repo.GetSecret(ctx, name)
+	return sma.repo.GetSecret(ctx, secret.Name)
 }
 
 // DeleteSecret delegates to the repository.

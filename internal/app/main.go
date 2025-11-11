@@ -59,9 +59,11 @@ type SecretsManager interface {
 
 	// UpdateSecret updates a secret's value and/or editable properties (description, keyName).
 	// The secret's UpdatedBy field must be set by the caller.
+	// The Name field identifies which secret to update.
+	// The Value, Description, and KeyName fields (if provided) will be updated.
 	// The implementation always updates the UpdatedAt timestamp.
 	// Returns the updated secret with all fields populated.
-	UpdateSecret(ctx context.Context, name string, updates *api.UpdateSecretRequest, updatedBy string) (*api.Secret, error)
+	UpdateSecret(ctx context.Context, secret *api.Secret) (*api.Secret, error)
 
 	// DeleteSecret deletes a secret and its value.
 	DeleteSecret(ctx context.Context, name string) error
@@ -155,7 +157,14 @@ func (s *Service) UpdateSecret(
 	if s.secretsManager == nil {
 		return nil, apperrors.ErrInternalError("secrets service not available", fmt.Errorf("secretsManager is nil"))
 	}
-	return s.secretsManager.UpdateSecret(ctx, name, req, userEmail)
+	secret := &api.Secret{
+		Name:        name,
+		Description: req.Description,
+		KeyName:     req.KeyName,
+		Value:       req.Value,
+		UpdatedBy:   userEmail,
+	}
+	return s.secretsManager.UpdateSecret(ctx, secret)
 }
 
 // DeleteSecret deletes a secret and its value.
