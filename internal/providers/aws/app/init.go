@@ -14,6 +14,7 @@ import (
 	awsConfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/ecs"
+	"github.com/aws/aws-sdk-go-v2/service/ssm"
 )
 
 // Dependencies bundles the AWS-backed implementations required by the app service.
@@ -24,6 +25,7 @@ type Dependencies struct {
 	TokenRepo        database.TokenRepository
 	Runner           *Runner
 	WebSocketManager *awsWebsocket.Manager
+	SecretsManager   *SecretsManager // AWS implementation of app.SecretsManager
 }
 
 // Initialize prepares AWS service dependencies for the app package.
@@ -41,6 +43,7 @@ func Initialize(
 
 	dynamoClient := dynamodb.NewFromConfig(awsCfg)
 	ecsClient := ecs.NewFromConfig(awsCfg)
+	ssmClient := ssm.NewFromConfig(awsCfg)
 
 	if cfg.AWS == nil {
 		return nil, fmt.Errorf("AWS configuration is required")
@@ -58,6 +61,7 @@ func Initialize(
 	executionRepo := dynamoRepo.NewExecutionRepository(dynamoClient, cfg.AWS.ExecutionsTable, log)
 	connectionRepo := dynamoRepo.NewConnectionRepository(dynamoClient, cfg.AWS.WebSocketConnectionsTable, log)
 	tokenRepo := dynamoRepo.NewTokenRepository(dynamoClient, cfg.AWS.WebSocketTokensTable, log)
+	secretsRepo := dynamoRepo.NewSecretsRepository(dynamoClient, cfg.AWS.SecretsMetadataTable, log)
 
 	runnerCfg := &Config{
 		ECSCluster:      cfg.AWS.ECSCluster,
@@ -72,6 +76,9 @@ func Initialize(
 	runner := NewRunner(ecsClient, runnerCfg, log)
 	wsManager := awsWebsocket.NewManager(cfg, &awsCfg, connectionRepo, tokenRepo, log)
 
+	// Create the comprehensive secrets manager
+	secretsManager := NewSecretsManager(secretsRepo, ssmClient, cfg.AWS.SecretsPrefix, cfg.AWS.SecretsKMSKeyARN, log)
+
 	return &Dependencies{
 		UserRepo:         userRepo,
 		ExecutionRepo:    executionRepo,
@@ -79,5 +86,6 @@ func Initialize(
 		TokenRepo:        tokenRepo,
 		Runner:           runner,
 		WebSocketManager: wsManager,
+		SecretsManager:   secretsManager,
 	}, nil
 }

@@ -43,16 +43,43 @@ type Runner interface {
 	FetchLogsByExecutionID(ctx context.Context, executionID string) ([]api.LogEvent, error)
 }
 
+// SecretsManager is the interface for managing secrets.
+// Implementations handle both metadata storage and value encryption/storage.
+type SecretsManager interface {
+	// CreateSecret creates a new secret with the given name, description, and value.
+	CreateSecret(
+		ctx context.Context,
+		req *api.CreateSecretRequest,
+		userEmail string,
+	) (*api.Secret, error)
+	// GetSecret retrieves a secret's metadata by name.
+	GetSecret(ctx context.Context, name string) (*api.Secret, error)
+	// ListSecrets retrieves all secrets, optionally filtered by user.
+	ListSecrets(ctx context.Context, userEmail string) ([]*api.Secret, error)
+	// UpdateSecretMetadata updates a secret's metadata.
+	UpdateSecretMetadata(
+		ctx context.Context,
+		name string,
+		req *api.UpdateSecretMetadataRequest,
+		userEmail string,
+	) (*api.Secret, error)
+	// SetSecretValue updates a secret's value.
+	SetSecretValue(ctx context.Context, name, value string) error
+	// DeleteSecret deletes a secret and its value.
+	DeleteSecret(ctx context.Context, name string) error
+}
+
 // Service provides the core business logic for command execution and user management.
 type Service struct {
-	userRepo      database.UserRepository
-	executionRepo database.ExecutionRepository
-	connRepo      database.ConnectionRepository
-	tokenRepo     database.TokenRepository
-	runner        Runner
-	Logger        *slog.Logger
-	Provider      constants.BackendProvider
-	wsManager     websocket.Manager // WebSocket manager for generating URLs and managing connections
+	userRepo       database.UserRepository
+	executionRepo  database.ExecutionRepository
+	connRepo       database.ConnectionRepository
+	tokenRepo      database.TokenRepository
+	runner         Runner
+	Logger         *slog.Logger
+	Provider       constants.BackendProvider
+	wsManager      websocket.Manager // WebSocket manager for generating URLs and managing connections
+	secretsManager SecretsManager    // Secrets manager for managing secrets (metadata + values)
 }
 
 // NOTE: provider-specific configuration has been moved to subpackages (e.g., providers/aws/app).
@@ -61,6 +88,7 @@ type Service struct {
 // If userRepo is nil, user-related operations will not be available.
 // This allows the service to work without database dependencies for simple operations.
 // If wsManager is nil, WebSocket URL generation will be skipped.
+// If secretsManager is nil, secrets operations will not be available.
 func NewService(
 	userRepo database.UserRepository,
 	executionRepo database.ExecutionRepository,
@@ -69,17 +97,24 @@ func NewService(
 	runner Runner,
 	log *slog.Logger,
 	provider constants.BackendProvider,
-	wsManager websocket.Manager) *Service {
+	wsManager websocket.Manager,
+	secretsManager SecretsManager) *Service {
 	return &Service{
-		userRepo:      userRepo,
-		executionRepo: executionRepo,
-		connRepo:      connRepo,
-		tokenRepo:     tokenRepo,
-		runner:        runner,
-		Logger:        log,
-		Provider:      provider,
-		wsManager:     wsManager,
+		userRepo:       userRepo,
+		executionRepo:  executionRepo,
+		connRepo:       connRepo,
+		tokenRepo:      tokenRepo,
+		runner:         runner,
+		Logger:         log,
+		Provider:       provider,
+		wsManager:      wsManager,
+		secretsManager: secretsManager,
 	}
+}
+
+// GetSecretsManager returns the secrets manager, or nil if not available.
+func (s *Service) GetSecretsManager() SecretsManager {
+	return s.secretsManager
 }
 
 // validateCreateUserRequest validates the email in the create user request.

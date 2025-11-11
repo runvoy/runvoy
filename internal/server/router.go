@@ -60,6 +60,14 @@ func NewRouter(svc *app.Service, requestTimeout time.Duration) *Router {
 			r.Get("/", router.handleListImages)
 			r.Delete("/*", router.handleRemoveImage)
 		})
+		r.With(router.authenticateRequestMiddleware).Route("/secrets", func(r chi.Router) {
+			r.Get("/", router.handleListSecrets)
+			r.Post("/", router.handleCreateSecret)
+			r.Get("/{name}", router.handleGetSecret)
+			r.Put("/{name}", router.handleUpdateSecretMetadata)
+			r.Put("/{name}/value", router.handleSetSecretValue)
+			r.Delete("/{name}", router.handleDeleteSecret)
+		})
 		r.With(router.authenticateRequestMiddleware).Post("/run", router.handleRunCommand)
 		r.With(router.authenticateRequestMiddleware).Get("/executions", router.handleListExecutions)
 		r.With(router.authenticateRequestMiddleware).Get("/executions/{executionID}/logs",

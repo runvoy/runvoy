@@ -15,11 +15,12 @@ import (
 )
 
 type serviceDependencies struct {
-	userRepo      database.UserRepository
-	executionRepo database.ExecutionRepository
-	connRepo      database.ConnectionRepository
-	tokenRepo     database.TokenRepository
-	runner        Runner
+	userRepo       database.UserRepository
+	executionRepo  database.ExecutionRepository
+	connRepo       database.ConnectionRepository
+	tokenRepo      database.TokenRepository
+	runner         Runner
+	secretsManager SecretsManager
 }
 
 // Initialize creates a new Service configured for the specified backend provider.
@@ -52,11 +53,12 @@ func Initialize(
 			return nil, fmt.Errorf("failed to initialize AWS dependencies: %w", err)
 		}
 		deps = &serviceDependencies{
-			userRepo:      awsDeps.UserRepo,
-			executionRepo: awsDeps.ExecutionRepo,
-			connRepo:      awsDeps.ConnectionRepo,
-			tokenRepo:     awsDeps.TokenRepo,
-			runner:        awsDeps.Runner,
+			userRepo:       awsDeps.UserRepo,
+			executionRepo:  awsDeps.ExecutionRepo,
+			connRepo:       awsDeps.ConnectionRepo,
+			tokenRepo:      awsDeps.TokenRepo,
+			runner:         awsDeps.Runner,
+			secretsManager: awsDeps.SecretsManager,
 		}
 		if awsDeps.WebSocketManager != nil {
 			wsManager = awsDeps.WebSocketManager
@@ -77,5 +79,6 @@ func Initialize(
 		logger,
 		provider,
 		wsManager,
+		deps.secretsManager,
 	), nil
 }

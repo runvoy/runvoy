@@ -1,0 +1,5 @@
+// Package constants provides AWS-specific constants for secrets management.
+package constants
+
+// SecretsPrefix is the prefix for AWS secrets management.
+const SecretsPrefix = "/runvoy/secrets" //nolint:gosec // G101: This is a constant, not a hardcoded credential
