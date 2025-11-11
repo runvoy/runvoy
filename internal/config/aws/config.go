@@ -17,6 +17,7 @@ type Config struct {
 	PendingAPIKeysTable       string `mapstructure:"pending_api_keys_table"`
 	WebSocketConnectionsTable string `mapstructure:"websocket_connections_table"`
 	WebSocketTokensTable      string `mapstructure:"websocket_tokens_table"`
+	SecretsMetadataTable      string `mapstructure:"secrets_metadata_table"`
 
 	// ECS Configuration
 	ECSCluster      string `mapstructure:"ecs_cluster"`
@@ -32,6 +33,9 @@ type Config struct {
 
 	// API Gateway WebSocket
 	WebSocketAPIEndpoint string `mapstructure:"websocket_api_endpoint"`
+
+	// Secrets Management
+	SecretsKMSKeyARN string `mapstructure:"secrets_kms_key_arn"`
 }
 
 // BindEnvVars binds AWS-specific environment variables to the provided Viper instance.
@@ -50,6 +54,8 @@ func BindEnvVars(v *viper.Viper) {
 	_ = v.BindEnv("aws.websocket_api_endpoint", "RUNVOY_AWS_WEBSOCKET_API_ENDPOINT")
 	_ = v.BindEnv("aws.websocket_connections_table", "RUNVOY_AWS_WEBSOCKET_CONNECTIONS_TABLE")
 	_ = v.BindEnv("aws.websocket_tokens_table", "RUNVOY_AWS_WEBSOCKET_TOKENS_TABLE")
+	_ = v.BindEnv("aws.secrets_metadata_table", "RUNVOY_AWS_SECRETS_METADATA_TABLE")
+	_ = v.BindEnv("aws.secrets_kms_key_arn", "RUNVOY_AWS_SECRETS_KMS_KEY_ARN")
 }
 
 // ValidateOrchestrator validates required AWS fields for the orchestrator service.
@@ -69,6 +75,8 @@ func ValidateOrchestrator(cfg *Config) error {
 		"AWS.WebSocketAPIEndpoint":      cfg.WebSocketAPIEndpoint,
 		"AWS.WebSocketConnectionsTable": cfg.WebSocketConnectionsTable,
 		"AWS.WebSocketTokensTable":      cfg.WebSocketTokensTable,
+		"AWS.SecretsMetadataTable":      cfg.SecretsMetadataTable,
+		"AWS.SecretsKMSKeyARN":          cfg.SecretsKMSKeyARN,
 	}
 
 	for field, value := range required {

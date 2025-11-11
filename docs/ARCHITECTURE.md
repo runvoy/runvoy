@@ -571,6 +571,9 @@ Execution status values are defined as typed constants in `internal/constants/co
 - **`EventProcessorEventPermission`**: Permission for EventBridge to invoke Lambda
 - **`EventProcessorLogsPermission`**: Allows CloudWatch Logs to invoke the event processor
 - **`RunnerLogsSubscription`**: Subscribes ECS runner logs (filtered to the `runner` container streams) to the event processor for real-time processing
+- **`SecretsMetadataTable`**: DynamoDB table tracking metadata for managed secrets (name, description, env var binding, audit timestamps)
+- **`SecretsKmsKey`**: KMS key dedicated to encrypting secret payloads stored as SecureString parameters
+- **`SecretsKmsKeyAlias`**: Friendly alias pointing to the secrets KMS key for CLI and configuration usage
 
 ## WebSocket Architecture
 

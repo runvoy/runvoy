@@ -115,6 +115,55 @@ Resources:
         - Key: ManagedBy
           Value: 'cloudformation'
 
+  # DynamoDB Table for Secrets Metadata
+  SecretsMetadataTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub '${ProjectName}-secrets-metadata'
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: secret_name
+          AttributeType: S
+      KeySchema:
+        - AttributeName: secret_name
+          KeyType: HASH
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-secrets-metadata'
+        - Key: Application
+          Value: !Ref ProjectName
+        - Key: ManagedBy
+          Value: 'cloudformation'
+
+  # KMS Key for encrypting secrets in e.g. Parameter Store
+  SecretsKmsKey:
+    Type: AWS::KMS::Key
+    Properties:
+      Description: !Sub '${ProjectName} secrets encryption key'
+      EnableKeyRotation: true
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-secrets-kms-key'
+        - Key: Application
+          Value: !Ref ProjectName
+        - Key: ManagedBy
+          Value: 'cloudformation'
+      KeyPolicy:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: AllowRootAccount
+            Effect: Allow
+            Principal:
+              AWS: !Sub 'arn:aws:iam::${AWS::AccountId}:root'
+            Action: 'kms:*'
+            Resource: '*'
+
+  SecretsKmsKeyAlias:
+    Type: AWS::KMS::Alias
+    Properties:
+      AliasName: !Sub 'alias/${ProjectName}'
+      TargetKeyId: !Ref SecretsKmsKey
+
   # CloudWatch Log Group for ECS task runner logs
   RunnerLogGroup:
     Type: AWS::Logs::LogGroup
@@ -421,11 +470,29 @@ Resources:
                   - !GetAtt APIKeysTable.Arn
                   - !GetAtt ExecutionsTable.Arn
                   - !GetAtt PendingAPIKeysTable.Arn
+                  - !GetAtt SecretsMetadataTable.Arn
                   - !GetAtt WebSocketConnectionsTable.Arn
                   - !GetAtt WebSocketTokensTable.Arn
                   - !Sub '${APIKeysTable.Arn}/index/*'
                   - !Sub '${ExecutionsTable.Arn}/index/*'
                   - !Sub '${WebSocketTokensTable.Arn}/index/*'
+                  - !Sub '${SecretsMetadataTable.Arn}/index/*'
+              - Effect: Allow
+                Action:
+                  - 'ssm:PutParameter'
+                  - 'ssm:DeleteParameter'
+                  - 'ssm:GetParameter'
+                  - 'ssm:GetParameters'
+                  - 'ssm:GetParametersByPath'
+                Resource: !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${ProjectName}/*'
+              - Effect: Allow
+                Action:
+                  - 'kms:Encrypt'
+                  - 'kms:Decrypt'
+                  - 'kms:ReEncrypt*'
+                  - 'kms:GenerateDataKey*'
+                  - 'kms:DescribeKey'
+                Resource: !GetAtt SecretsKmsKey.Arn
 
   # Lambda Function (code loaded from S3 bucket)
   LambdaFunction:
@@ -456,6 +523,8 @@ Resources:
           RUNVOY_AWS_EXECUTIONS_TABLE: !Ref ExecutionsTable
           RUNVOY_AWS_LOG_GROUP: !Ref RunnerLogGroup
           RUNVOY_AWS_PENDING_API_KEYS_TABLE: !Ref PendingAPIKeysTable
+          RUNVOY_AWS_SECRETS_METADATA_TABLE: !Ref SecretsMetadataTable
+          RUNVOY_AWS_SECRETS_KMS_KEY_ARN: !GetAtt SecretsKmsKey.Arn
           RUNVOY_AWS_SECURITY_GROUP: !Ref FargateSecurityGroup
           RUNVOY_AWS_SUBNET_1: !Ref PublicSubnet1
           RUNVOY_AWS_SUBNET_2: !Ref PublicSubnet2
@@ -798,6 +867,24 @@ Outputs:
     Value: !Ref PendingAPIKeysTable
     Export:
       Name: !Sub '${ProjectName}-pending-api-keys-table'
+
+  SecretsMetadataTableName:
+    Description: DynamoDB Secrets Metadata Table name
+    Value: !Ref SecretsMetadataTable
+    Export:
+      Name: !Sub '${ProjectName}-secrets-metadata-table'
+
+  SecretsKmsKeyArn:
+    Description: KMS Key ARN used for encrypting secrets in Parameter Store
+    Value: !GetAtt SecretsKmsKey.Arn
+    Export:
+      Name: !Sub '${ProjectName}-secrets-kms-key-arn'
+
+  SecretsKmsKeyAliasName:
+    Description: Alias assigned to the secrets KMS key
+    Value: !Ref SecretsKmsKeyAlias
+    Export:
+      Name: !Sub '${ProjectName}-secrets-kms-key-alias'
 
   ECSClusterName:
     Description: ECS Cluster name
