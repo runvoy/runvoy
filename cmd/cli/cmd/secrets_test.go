@@ -15,10 +15,10 @@ import (
 type mockClientInterfaceForSecrets struct {
 	*mockClientInterface
 	createSecretFunc func(ctx context.Context, req api.CreateSecretRequest) (*api.CreateSecretResponse, error)
-	getSecretFunc     func(ctx context.Context, name string) (*api.GetSecretResponse, error)
-	listSecretsFunc   func(ctx context.Context) (*api.ListSecretsResponse, error)
-	updateSecretFunc  func(ctx context.Context, name string, req api.UpdateSecretRequest) (*api.UpdateSecretResponse, error)
-	deleteSecretFunc  func(ctx context.Context, name string) (*api.DeleteSecretResponse, error)
+	getSecretFunc    func(ctx context.Context, name string) (*api.GetSecretResponse, error)
+	listSecretsFunc  func(ctx context.Context) (*api.ListSecretsResponse, error)
+	updateSecretFunc func(ctx context.Context, name string, req api.UpdateSecretRequest) (*api.UpdateSecretResponse, error)
+	deleteSecretFunc func(ctx context.Context, name string) (*api.DeleteSecretResponse, error)
 }
 
 func (m *mockClientInterfaceForSecrets) CreateSecret(
@@ -53,7 +53,10 @@ func (m *mockClientInterfaceForSecrets) UpdateSecret(
 	return nil, fmt.Errorf("not implemented")
 }
 
-func (m *mockClientInterfaceForSecrets) DeleteSecret(ctx context.Context, name string) (*api.DeleteSecretResponse, error) {
+func (m *mockClientInterfaceForSecrets) DeleteSecret(
+	ctx context.Context,
+	name string,
+) (*api.DeleteSecretResponse, error) {
 	if m.deleteSecretFunc != nil {
 		return m.deleteSecretFunc(ctx, name)
 	}
@@ -197,7 +200,7 @@ func TestSecretsService_GetSecret(t *testing.T) {
 		verifyOutput func(*testing.T, *mockOutputInterface)
 	}{
 		{
-			name:      "successfully gets secret",
+			name:       "successfully gets secret",
 			secretName: "github-token",
 			setupMock: func(m *mockClientInterfaceForSecrets) {
 				m.getSecretFunc = func(_ context.Context, name string) (*api.GetSecretResponse, error) {
@@ -238,7 +241,7 @@ func TestSecretsService_GetSecret(t *testing.T) {
 			},
 		},
 		{
-			name:      "handles secret not found",
+			name:       "handles secret not found",
 			secretName: "nonexistent",
 			setupMock: func(m *mockClientInterfaceForSecrets) {
 				m.getSecretFunc = func(_ context.Context, _ string) (*api.GetSecretResponse, error) {
@@ -425,7 +428,11 @@ func TestSecretsService_UpdateSecret(t *testing.T) {
 			value:       "new-token",
 			description: "Updated description",
 			setupMock: func(m *mockClientInterfaceForSecrets) {
-				m.updateSecretFunc = func(_ context.Context, name string, req api.UpdateSecretRequest) (*api.UpdateSecretResponse, error) {
+				m.updateSecretFunc = func(
+					_ context.Context,
+					name string,
+					req api.UpdateSecretRequest,
+				) (*api.UpdateSecretResponse, error) {
 					assert.Equal(t, "github-token", name)
 					assert.Equal(t, "GITHUB_API_TOKEN", req.KeyName)
 					assert.Equal(t, "new-token", req.Value)
@@ -458,7 +465,11 @@ func TestSecretsService_UpdateSecret(t *testing.T) {
 			value:       "new-token",
 			description: "",
 			setupMock: func(m *mockClientInterfaceForSecrets) {
-				m.updateSecretFunc = func(_ context.Context, name string, req api.UpdateSecretRequest) (*api.UpdateSecretResponse, error) {
+				m.updateSecretFunc = func(
+					_ context.Context,
+					name string,
+					req api.UpdateSecretRequest,
+				) (*api.UpdateSecretResponse, error) {
 					assert.Equal(t, "github-token", name)
 					assert.Equal(t, "new-token", req.Value)
 					assert.Empty(t, req.KeyName)
@@ -486,7 +497,11 @@ func TestSecretsService_UpdateSecret(t *testing.T) {
 			value:       "",
 			description: "",
 			setupMock: func(m *mockClientInterfaceForSecrets) {
-				m.updateSecretFunc = func(_ context.Context, _ string, _ api.UpdateSecretRequest) (*api.UpdateSecretResponse, error) {
+				m.updateSecretFunc = func(
+					_ context.Context,
+					_ string,
+					_ api.UpdateSecretRequest,
+				) (*api.UpdateSecretResponse, error) {
 					return nil, fmt.Errorf("should not be called")
 				}
 			},
@@ -508,7 +523,11 @@ func TestSecretsService_UpdateSecret(t *testing.T) {
 			value:       "new-token",
 			description: "",
 			setupMock: func(m *mockClientInterfaceForSecrets) {
-				m.updateSecretFunc = func(_ context.Context, _ string, _ api.UpdateSecretRequest) (*api.UpdateSecretResponse, error) {
+				m.updateSecretFunc = func(
+					_ context.Context,
+					_ string,
+					_ api.UpdateSecretRequest,
+				) (*api.UpdateSecretResponse, error) {
 					return nil, fmt.Errorf("secret not found")
 				}
 			},
@@ -559,7 +578,7 @@ func TestSecretsService_DeleteSecret(t *testing.T) {
 		verifyOutput func(*testing.T, *mockOutputInterface)
 	}{
 		{
-			name:      "successfully deletes secret",
+			name:       "successfully deletes secret",
 			secretName: "github-token",
 			setupMock: func(m *mockClientInterfaceForSecrets) {
 				m.deleteSecretFunc = func(_ context.Context, name string) (*api.DeleteSecretResponse, error) {
@@ -594,7 +613,7 @@ func TestSecretsService_DeleteSecret(t *testing.T) {
 			},
 		},
 		{
-			name:      "handles secret not found error",
+			name:       "handles secret not found error",
 			secretName: "nonexistent",
 			setupMock: func(m *mockClientInterfaceForSecrets) {
 				m.deleteSecretFunc = func(_ context.Context, _ string) (*api.DeleteSecretResponse, error) {

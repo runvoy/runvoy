@@ -14,6 +14,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const createSecretArgCount = 3
+
 var secretsCmd = &cobra.Command{
 	Use:   "secrets",
 	Short: "Secrets management commands",
@@ -23,10 +25,14 @@ var createSecretCmd = &cobra.Command{
 	Use:   "create <name> <key-name> <value>",
 	Short: "Create a new secret",
 	Long:  `Create a new secret with the given name, key name (environment variable name), and value`,
-	Example: fmt.Sprintf(`  - %s secrets create github-token GITHUB_TOKEN "ghp_xxxxx"
-  - %s secrets create db-password DB_PASSWORD "secret123" --description "Database password"`, constants.ProjectName, constants.ProjectName),
+	Example: fmt.Sprintf(
+		"  - %s secrets create github-token GITHUB_TOKEN \"ghp_xxxxx\"\n"+
+			"  - %s secrets create db-password DB_PASSWORD \"secret123\" --description \"Database password\"",
+		constants.ProjectName,
+		constants.ProjectName,
+	),
 	Run:  runCreateSecret,
-	Args: cobra.ExactArgs(3),
+	Args: cobra.ExactArgs(createSecretArgCount),
 }
 
 var createSecretDescription string
@@ -112,8 +118,12 @@ var updateSecretCmd = &cobra.Command{
 	Use:   "update <name>",
 	Short: "Update a secret",
 	Long:  `Update a secret's metadata (description, key_name) and/or value`,
-	Example: fmt.Sprintf(`  - %s secrets update github-token --key-name GITHUB_API_TOKEN --value "new-token"
-  - %s secrets update db-password --description "Updated database password"`, constants.ProjectName, constants.ProjectName),
+	Example: fmt.Sprintf(
+		"  - %s secrets update github-token --key-name GITHUB_API_TOKEN --value \"new-token\"\n"+
+			"  - %s secrets update db-password --description \"Updated database password\"",
+		constants.ProjectName,
+		constants.ProjectName,
+	),
 	Run:  runUpdateSecret,
 	Args: cobra.ExactArgs(1),
 }
@@ -124,9 +134,19 @@ var updateSecretDescription string
 
 func init() {
 	secretsCmd.AddCommand(updateSecretCmd)
-	updateSecretCmd.Flags().StringVar(&updateSecretKeyName, "key-name", "", "Environment variable name (e.g., GITHUB_TOKEN)")
+	updateSecretCmd.Flags().StringVar(
+		&updateSecretKeyName,
+		"key-name",
+		"",
+		"Environment variable name (e.g., GITHUB_TOKEN)",
+	)
 	updateSecretCmd.Flags().StringVar(&updateSecretValue, "value", "", "Secret value to update")
-	updateSecretCmd.Flags().StringVar(&updateSecretDescription, "description", "", "Description for the secret")
+	updateSecretCmd.Flags().StringVar(
+		&updateSecretDescription,
+		"description",
+		"",
+		"Description for the secret",
+	)
 }
 
 func runUpdateSecret(cmd *cobra.Command, args []string) {
@@ -139,7 +159,13 @@ func runUpdateSecret(cmd *cobra.Command, args []string) {
 
 	c := client.New(cfg, slog.Default())
 	service := NewSecretsService(c, NewOutputWrapper())
-	if err = service.UpdateSecret(cmd.Context(), name, updateSecretKeyName, updateSecretValue, updateSecretDescription); err != nil {
+	if err = service.UpdateSecret(
+		cmd.Context(),
+		name,
+		updateSecretKeyName,
+		updateSecretValue,
+		updateSecretDescription,
+	); err != nil {
 		output.Errorf(err.Error())
 	}
 }

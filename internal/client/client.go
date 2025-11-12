@@ -353,7 +353,11 @@ func (c *Client) ListSecrets(ctx context.Context) (*api.ListSecretsResponse, err
 }
 
 // UpdateSecret updates a secret by name
-func (c *Client) UpdateSecret(ctx context.Context, name string, req api.UpdateSecretRequest) (*api.UpdateSecretResponse, error) {
+func (c *Client) UpdateSecret(
+	ctx context.Context,
+	name string,
+	req api.UpdateSecretRequest,
+) (*api.UpdateSecretResponse, error) {
 	var resp api.UpdateSecretResponse
 	err := c.DoJSON(ctx, Request{
 		Method: "PUT",
