@@ -5,7 +5,6 @@ package lambdaapi
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"net/http"
 
 	"runvoy/internal/app/events"
@@ -31,13 +30,15 @@ func NewEventProcessorHandler(processor events.Processor) lambda.Handler {
 			}, err
 		}
 
-		if awsResp, ok := result.(awsevents.APIGatewayProxyResponse); ok {
-			return awsResp, nil
+		if result != nil {
+			if awsResp, ok := result.(awsevents.APIGatewayProxyResponse); ok {
+				return awsResp, nil
+			}
 		}
 
+		// Some events like logs don't expect a response, so we return a 200 OK
 		return awsevents.APIGatewayProxyResponse{
-			StatusCode: http.StatusBadRequest,
-			Body:       "Bad request",
-		}, errors.New("result is not an APIGatewayProxyResponse")
+			StatusCode: http.StatusOK,
+		}, nil
 	})
 }
