@@ -64,8 +64,7 @@ func runRun(cmd *cobra.Command, args []string) {
 	image := cmd.Flag("image").Value.String()
 	secrets, err := cmd.Flags().GetStringSlice("secret")
 	if err != nil {
-		output.Errorf("failed to parse secrets: %v", err)
-		return
+		output.Fatalf("failed to parse secrets: %v", err)
 	}
 
 	c := client.New(cfg, slog.Default())
