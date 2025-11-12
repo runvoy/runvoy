@@ -64,7 +64,7 @@
             const status = statusResponse.status || 'UNKNOWN';
 
             if (status === 'STARTING') {
-                errorMessage = 'Execution is starting (Fargate provisioning takes ~15 seconds)...';
+                errorMessage = 'Execution is starting (provisioning takes ~20 seconds)...';
                 await delayFn(STARTING_STATE_DELAY);
                 errorMessage = ''; // Clear the message after waiting
             } else if (status === 'TERMINATING') {

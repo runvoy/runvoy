@@ -689,6 +689,7 @@ Resources:
           clusterArn:
             - !GetAtt ECSCluster.Arn
           lastStatus:
+            - RUNNING
             - STOPPED
       Targets:
         - Arn: !GetAtt EventProcessorFunction.Arn

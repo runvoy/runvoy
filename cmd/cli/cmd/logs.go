@@ -120,13 +120,14 @@ func NewLogsService(apiClient client.Interface, outputter OutputInterface, sleep
 }
 
 // fetchLogsWithRetry fetches logs with retry logic for 404 errors (execution starting up).
-// It intelligently handles STARTING state by waiting ~15 seconds before the first poll,
-// as Fargate tasks typically take that long to provision and start.
+// It intelligently handles STARTING state by waiting ~20 seconds before the first poll,
+// as provisioners like Fargate typically take that long to provision and start (and even longer
+// for logs to be available).
 func (s *LogsService) fetchLogsWithRetry(ctx context.Context, executionID string) (*api.LogsResponse, error) {
 	const (
 		maxRetries         = 4
 		retryDelay         = 10 * time.Second
-		startingStateDelay = 15 * time.Second // Fargate takes ~15s to start
+		startingStateDelay = 20 * time.Second
 	)
 
 	// Smart initial wait: Check execution status first
@@ -134,7 +135,8 @@ func (s *LogsService) fetchLogsWithRetry(ctx context.Context, executionID string
 	status, err := s.client.GetExecutionStatus(ctx, executionID)
 	if err == nil {
 		if status.Status == string(constants.ExecutionStarting) {
-			s.output.Infof("Execution is starting (Fargate provisioning takes ~15 seconds)...")
+			s.output.Infof(fmt.Sprintf(
+				"Execution is starting (provisioning takes ~%d seconds)...", int(startingStateDelay.Seconds())))
 			s.sleeper.Sleep(startingStateDelay)
 		} else if status.Status == string(constants.ExecutionTerminating) {
 			s.output.Infof("Execution is terminating, waiting for final state...")
