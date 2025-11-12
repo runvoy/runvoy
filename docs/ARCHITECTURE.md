@@ -60,7 +60,7 @@ The application uses **chi** (github.com/go-chi/chi/v5) as the HTTP router for b
 
 - **`internal/server/router.go`**: Shared chi-based router configuration with all API routes
 - **`internal/server/middleware.go`**: Middleware for request ID extraction and logging context
-- **`internal/lambdaapi/handler.go`**: Lambda handler that uses algnhsa to adapt the chi router
+- **`internal/providers/aws/lambdaapi/handler.go`**: Lambda handler that uses algnhsa to adapt the chi router
 - **`cmd/local/main.go`**: Local HTTP server implementation using the same router
 - **`cmd/backend/providers/aws/orchestrator/main.go`**: Lambda entry point for the orchestrator (uses the chi-based handler)
 
@@ -90,7 +90,7 @@ Both Lambda and local HTTP server use identical routing logic, ensuring developm
 
 The platform uses **algnhsa** (`github.com/akrylysov/algnhsa`), a well-maintained open-source library that adapts standard Go `http.Handler` implementations (like chi routers) to work with AWS Lambda. This eliminates the need for custom adapter code and provides robust support for multiple Lambda event types.
 
-**Implementation:** `internal/lambdaapi/handler.go` creates the Lambda handler by wrapping the chi router with `algnhsa.New()`:
+**Implementation:** `internal/providers/aws/lambdaapi/handler.go` creates the Lambda handler by wrapping the chi router with `algnhsa.New()`:
 
 ```go
 func NewHandler(svc *app.Service, requestTimeout time.Duration) lambda.Handler {
