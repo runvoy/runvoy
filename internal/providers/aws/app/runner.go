@@ -70,6 +70,34 @@ func buildSidecarContainerCommand(hasGitRepo bool) []string {
 	return []string{"/bin/sh", "-c", script}
 }
 
+func buildSidecarEnvironment(userEnv map[string]string) []ecsTypes.KeyValuePair {
+	env := make([]ecsTypes.KeyValuePair, 0, len(userEnv)*2+1)
+	seen := make(map[string]struct{}, len(userEnv)*2+1)
+
+	add := func(name, value string) {
+		if _, exists := seen[name]; exists {
+			return
+		}
+		env = append(env, ecsTypes.KeyValuePair{
+			Name:  awsStd.String(name),
+			Value: awsStd.String(value),
+		})
+		seen[name] = struct{}{}
+	}
+
+	add("RUNVOY_SHARED_VOLUME_PATH", awsConstants.SharedVolumePath)
+
+	for key, value := range userEnv {
+		add("RUNVOY_USER_"+key, value)
+	}
+
+	for key, value := range userEnv {
+		add(key, value)
+	}
+
+	return env
+}
+
 type gitRepoInfo struct {
 	RepoURL  *string
 	RepoRef  *string
@@ -164,17 +192,7 @@ func (e *Runner) StartTask( //nolint: funlen
 		})
 	}
 
-	sidecarEnv := []ecsTypes.KeyValuePair{
-		{Name: awsStd.String("RUNVOY_SHARED_VOLUME_PATH"),
-			Value: awsStd.String(awsConstants.SharedVolumePath)},
-	}
-
-	for key, value := range req.Env {
-		sidecarEnv = append(sidecarEnv, ecsTypes.KeyValuePair{
-			Name:  awsStd.String("RUNVOY_USER_" + key),
-			Value: awsStd.String(value),
-		})
-	}
+	sidecarEnv := buildSidecarEnvironment(req.Env)
 
 	if hasGitRepo {
 		gitRef := req.GitRef

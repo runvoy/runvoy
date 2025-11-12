@@ -25,9 +25,12 @@ in the command working directory.`,
 	Example: fmt.Sprintf(`  - %s run echo hello world
   - %s run terraform plan
 
-  # With Git repository cloning
-  - %s run --git-repo https://github.com/mycompany/myproject.git npm run test
+  # With private Git repository cloning
+  - %s run --secret github-token \
+               --git-repo https://github.com/mycompany/myproject.git \
+               npm run test
 
+  # With public Git repository cloning and a specific Git reference and path
   - %s run --git-repo https://github.com/ansible/ansible-examples.git \
                --git-ref main \
                --git-path ansible-examples/playbooks/hello_world \
