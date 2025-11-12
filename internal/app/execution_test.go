@@ -91,7 +91,10 @@ func TestRunCommand(t *testing.T) {
 			}
 
 			execRepo := &mockExecutionRepository{
-				createExecutionFunc: func(_ context.Context, _ *api.Execution) error {
+				createExecutionFunc: func(_ context.Context, execution *api.Execution) error {
+					if !tt.expectErr && tt.startTaskErr == nil {
+						assert.Equal(t, string(constants.ExecutionStarting), execution.Status)
+					}
 					return tt.createExecErr
 				},
 			}
@@ -113,7 +116,7 @@ func TestRunCommand(t *testing.T) {
 				require.NoError(t, err)
 				require.NotNil(t, resp)
 				assert.Equal(t, tt.executionID, resp.ExecutionID)
-				assert.Equal(t, string(constants.ExecutionRunning), resp.Status)
+				assert.Equal(t, string(constants.ExecutionStarting), resp.Status)
 			}
 		})
 	}
@@ -175,7 +178,7 @@ func TestRunCommand_WithSecrets(t *testing.T) {
 	assert.NotEqual(t, githubSecretValue, capturedEnv["GITHUB_TOKEN"])
 	assert.Equal(t, dbSecretValue, capturedEnv["DB_PASSWORD"])
 	assert.Equal(t, "value", capturedEnv["USER_DEFINED"])
-	assert.Equal(t, string(constants.ExecutionRunning), resp.Status)
+	assert.Equal(t, string(constants.ExecutionStarting), resp.Status)
 }
 
 func TestGetExecutionStatus(t *testing.T) {
@@ -358,7 +361,9 @@ func TestKillExecution(t *testing.T) {
 		mockExecution   *api.Execution
 		getExecErr      error
 		killTaskErr     error
+		updateErr       error
 		expectErr       bool
+		expectUpdate    bool
 		expectedErrCode string
 	}{
 		{
@@ -369,12 +374,14 @@ func TestKillExecution(t *testing.T) {
 				Status:      string(constants.ExecutionRunning),
 				StartedAt:   now,
 			},
-			expectErr: false,
+			expectErr:    false,
+			expectUpdate: true,
 		},
 		{
 			name:            "empty execution ID",
 			executionID:     "",
 			expectErr:       true,
+			expectUpdate:    false,
 			expectedErrCode: apperrors.ErrCodeInvalidRequest,
 		},
 		{
@@ -382,6 +389,7 @@ func TestKillExecution(t *testing.T) {
 			executionID:     "non-existent",
 			mockExecution:   nil,
 			expectErr:       true,
+			expectUpdate:    false,
 			expectedErrCode: apperrors.ErrCodeNotFound,
 		},
 		{
@@ -394,6 +402,7 @@ func TestKillExecution(t *testing.T) {
 				CompletedAt: timePtr(now.Add(5 * time.Second)),
 			},
 			expectErr:       true,
+			expectUpdate:    false,
 			expectedErrCode: apperrors.ErrCodeInvalidRequest,
 		},
 		{
@@ -406,6 +415,7 @@ func TestKillExecution(t *testing.T) {
 				CompletedAt: timePtr(now.Add(3 * time.Second)),
 			},
 			expectErr:       true,
+			expectUpdate:    false,
 			expectedErrCode: apperrors.ErrCodeInvalidRequest,
 		},
 		{
@@ -418,6 +428,7 @@ func TestKillExecution(t *testing.T) {
 				CompletedAt: timePtr(now.Add(2 * time.Second)),
 			},
 			expectErr:       true,
+			expectUpdate:    false,
 			expectedErrCode: apperrors.ErrCodeInvalidRequest,
 		},
 		{
@@ -425,6 +436,7 @@ func TestKillExecution(t *testing.T) {
 			executionID: "exec-111",
 			getExecErr:  errors.New("database error"),
 			expectErr:   true,
+			expectUpdate: false,
 		},
 		{
 			name:        "runner error on kill",
@@ -436,14 +448,33 @@ func TestKillExecution(t *testing.T) {
 			},
 			killTaskErr: errors.New("failed to stop task"),
 			expectErr:   true,
+			expectUpdate: false,
+		},
+		{
+			name:        "update execution fails",
+			executionID: "exec-333",
+			mockExecution: &api.Execution{
+				ExecutionID: "exec-333",
+				Status:      string(constants.ExecutionRunning),
+				StartedAt:   now,
+			},
+			updateErr:    errors.New("update failed"),
+			expectErr:    true,
+			expectUpdate: true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			updateCalled := false
 			execRepo := &mockExecutionRepository{
 				getExecutionFunc: func(_ context.Context, _ string) (*api.Execution, error) {
 					return tt.mockExecution, tt.getExecErr
+				},
+				updateExecutionFunc: func(_ context.Context, execution *api.Execution) error {
+					updateCalled = true
+					assert.Equal(t, string(constants.ExecutionTerminating), execution.Status)
+					return tt.updateErr
 				},
 			}
 
@@ -464,6 +495,8 @@ func TestKillExecution(t *testing.T) {
 			} else {
 				require.NoError(t, err)
 			}
+
+			assert.Equal(t, tt.expectUpdate, updateCalled)
 		})
 	}
 }

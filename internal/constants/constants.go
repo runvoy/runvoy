@@ -84,6 +84,8 @@ const (
 type ExecutionStatus string
 
 const (
+	// ExecutionStarting indicates the command has been accepted and is being scheduled
+	ExecutionStarting ExecutionStatus = "STARTING"
 	// ExecutionRunning indicates the command is currently executing
 	ExecutionRunning ExecutionStatus = "RUNNING"
 	// ExecutionSucceeded indicates the command completed successfully
@@ -92,6 +94,8 @@ const (
 	ExecutionFailed ExecutionStatus = "FAILED"
 	// ExecutionStopped indicates the command was manually terminated
 	ExecutionStopped ExecutionStatus = "STOPPED"
+	// ExecutionTerminating indicates a stop request is in progress
+	ExecutionTerminating ExecutionStatus = "TERMINATING"
 )
 
 // TerminalExecutionStatuses returns all statuses that represent completed executions
