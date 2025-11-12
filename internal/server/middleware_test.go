@@ -8,9 +8,9 @@ import (
 	"testing"
 
 	"runvoy/internal/app"
-	appAws "runvoy/internal/providers/aws/app"
 	"runvoy/internal/constants"
 	"runvoy/internal/logger"
+	appAws "runvoy/internal/providers/aws/app"
 	"runvoy/internal/testutil"
 
 	"github.com/aws/aws-lambda-go/lambdacontext"
