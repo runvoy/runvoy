@@ -41,21 +41,20 @@ Runvoy tries to simplify the requirements for running any kind of "priviledged" 
 
 - **No credential sharing**: Team members never see admin credentials (only one API key to interact with runvoy's backend)
 - **Complete audit trail**: Every interaction with the backend is logged with user identification. All logs stored in read-only database for auditing purposes (currently only CloudWatch Logs is supported, but with plans to extend support to other cloud services in the future)
-- **Self-hosted**: The backend runs in your AWS account, you control everything, including the policies and permissions assigned to the containers
+- **Self-hosted, no black magic**: The backend runs in your cloud provider account, you control everything, including the policies and permissions assigned to the containers
 - **Serverless**: No always-running services, just pay for the compute your commands consume (essentially free for infrequent use)
-- **Full control**: No black magic. You can tune all the parameters, the resources are provisioned in your AWS account via CloudFormation
-- **Doesn't _run on your computer_**: The actual commands are executed in remote production-grade environments properly configured for access, team member's workstations don't need any special configuration with credentials, env vars, and so on
+- **Doesn't _run on your computer_**: The actual commands are executed in remote production-grade environments properly configured for access to secrets and other resources, team member's workstations don't need any special configuration with credentials, environment variables, and so on
 
 ## Features
 
 - **API key authentication** - Secure access with hashed API keys (SHA-256)
-- **CloudFormation deployment** - Deploy complete backend infrastructure with CloudFormation templates
-- **Flexible container images** - Use any Docker image (terraform, python, node, etc.)
+- **IaC deployment** - Deploy complete backend infrastructure with IaC templates (currently only AWS CloudFormation is supported, but with plans to extend support to other cloud providers in the future)
+- **Flexible container images** - Use any public Docker image (terraform, python, node, etc.)
 - **Execution isolation** - Commands run in ephemeral containers
-- **CloudWatch integration** - Full execution logs and audit trails
+- **CloudWatch integration** - Full execution logs and audit trails with request ID tracking
 - **Secrets management** - Centralized encrypted secrets with full CRUD from the CLI
 - **Real-time WebSocket streaming** - CLI and web viewer receive live logs over authenticated WebSocket connections
-- **Unix-style output streams** - Separate logs (stderr) from data (stdout) for easy piping and scripting
+- **Unix-style output streams** - Separate CLI logs (stderr) from data (stdout) for easy piping and scripting
 - **RBAC** - Role based access control for the backend API (NOT IMPLEMENTED YET). Runvoy admins define roles and permissions for users, non-admin users can only execute commands / clone repos / select Docker images they are allowed to use
 
 ## Demo
@@ -155,120 +154,6 @@ When an admin creates a user account for you, they will provide you with a **cla
 - 👁  Each token can only be used once
 - If your token expires or is already used, ask your admin to create a new user account for you
 
-## Development
-
-### Prerequisites for Development
-
-- Go 1.24 or later
-- [just](https://github.com/casey/just) command runner
-- AWS credentials configured in your shell environment
-
-### Environment Setup
-
-First-time setup for new developers:
-
-```bash
-# Install dependencies and development tools
-just dev-setup
-
-# Install pre-commit hook
-just install-hook
-
-# Sync Lambda environment variables to local .env file
-just local-dev-sync
-```
-
-### Local Development Workflow
-
-**Run the local development server:**
-
-```bash
-# Build and run local server (rebuilds on each restart)
-just run-local
-
-# Run local server with hot reloading (rebuilds automatically on file changes)
-just local-dev-server
-```
-
-**Sync environment variables from AWS:**
-
-```bash
-# Fetch current environment variables from runvoy-orchestrator Lambda and save to .env
-just local-dev-sync
-```
-
-**Run tests and quality checks:**
-
-```bash
-# Run all tests
-just test
-
-# Run tests with coverage report
-just test-coverage
-
-# Lint code
-just lint
-
-# Format code
-just fmt
-
-# Run both lint and tests
-just check
-```
-
-**Build and deploy:**
-
-```bash
-# Build all binaries (CLI, orchestrator, event processor, local server)
-just build
-
-# Deploy all services
-just deploy
-
-# Deploy backend
-just deploy-backend
-
-# Deploy webapp
-just deploy-webapp
-
-# Or deploy individual services
-just deploy-orchestrator
-just deploy-event-processor
-just deploy-webapp
-```
-
-**Infrastructure management:**
-
-```bash
-# Initialize complete backend infrastructure
-just init
-
-# Create/update backend infrastructure
-just create-backend-infra
-
-# Destroy backend infrastructure
-just destroy-backend-infra
-```
-
-**Other useful commands:**
-
-```bash
-# Seed admin user in AWS DynamoDB
-just seed-admin-user admin@example.com runvoy-backend
-
-# Update README with latest CLI help output
-just update-readme-help
-
-# Clean build artifacts
-just clean
-```
-
-For more information about the development workflow, see [Development with `just`](#development-with-just).
-
-## Architecture
-
-For detailed architecture information, see [ARCHITECTURE.md](docs/ARCHITECTURE.md).
-
 ## Usage
 
 <!-- CLI_HELP_START -->
@@ -281,7 +166,7 @@ runvoy --help
 ```
 
 ```text
-runvoy - 0.1.0-20251112-eaafb79
+runvoy - 0.1.0-20251112-23566c3
 Isolated, repeatable execution environments for your commands
 
 Usage:
@@ -573,6 +458,120 @@ runvoy --verbose --timeout 5m users create alice@example.com
 ### Environment Configuration
 
 The `.env` file is automatically created when you run `just init` or `just local-dev-sync`. The `local-dev-sync` command syncs environment variables from the runvoy-orchestrator Lambda function to your local `.env` file for development.
+
+## Development
+
+### Prerequisites for Development
+
+- Go 1.24 or later
+- [just](https://github.com/casey/just) command runner
+- AWS credentials configured in your shell environment
+
+### Environment Setup
+
+First-time setup for new developers:
+
+```bash
+# Install dependencies and development tools
+just dev-setup
+
+# Install pre-commit hook
+just install-hook
+
+# Sync Lambda environment variables to local .env file
+just local-dev-sync
+```
+
+### Local Development Workflow
+
+**Run the local development server:**
+
+```bash
+# Build and run local server (rebuilds on each restart)
+just run-local
+
+# Run local server with hot reloading (rebuilds automatically on file changes)
+just local-dev-server
+```
+
+**Sync environment variables from AWS:**
+
+```bash
+# Fetch current environment variables from runvoy-orchestrator Lambda and save to .env
+just local-dev-sync
+```
+
+**Run tests and quality checks:**
+
+```bash
+# Run all tests
+just test
+
+# Run tests with coverage report
+just test-coverage
+
+# Lint code
+just lint
+
+# Format code
+just fmt
+
+# Run both lint and tests
+just check
+```
+
+**Build and deploy:**
+
+```bash
+# Build all binaries (CLI, orchestrator, event processor, local server)
+just build
+
+# Deploy all services
+just deploy
+
+# Deploy backend
+just deploy-backend
+
+# Deploy webapp
+just deploy-webapp
+
+# Or deploy individual services
+just deploy-orchestrator
+just deploy-event-processor
+just deploy-webapp
+```
+
+**Infrastructure management:**
+
+```bash
+# Initialize complete backend infrastructure
+just init
+
+# Create/update backend infrastructure
+just create-backend-infra
+
+# Destroy backend infrastructure
+just destroy-backend-infra
+```
+
+**Other useful commands:**
+
+```bash
+# Seed admin user in AWS DynamoDB
+just seed-admin-user admin@example.com runvoy-backend
+
+# Update README with latest CLI help output
+just update-readme-help
+
+# Clean build artifacts
+just clean
+```
+
+For more information about the development workflow, see [Development with `just`](#development-with-just).
+
+## Architecture
+
+For detailed architecture information, see [ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ### Development with `just`
 
