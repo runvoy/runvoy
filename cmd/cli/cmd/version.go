@@ -3,8 +3,8 @@ package cmd
 import (
 	"log/slog"
 	"runvoy/internal/client"
+	"runvoy/internal/client/output"
 	"runvoy/internal/constants"
-	"runvoy/internal/output"
 
 	"github.com/spf13/cobra"
 )

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"runvoy/internal/client"
-	"runvoy/internal/output"
+	"runvoy/internal/client/output"
 	"time"
 
 	"github.com/spf13/cobra"
