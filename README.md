@@ -281,7 +281,7 @@ runvoy --help
 ```
 
 ```text
-runvoy - 0.1.0-20251112-d3562bb
+runvoy - 0.1.0-20251112-a5faf81
 Isolated, repeatable execution environments for your commands
 
 Usage:
@@ -356,6 +356,13 @@ runvoy run --git-repo https://github.com/mycompany/myproject.git npm run tests
 #
 # ^C
 # → Received interrupt signal, closing connection...
+```
+
+Secrets stored via `runvoy secrets` can be mounted into the execution environment:
+
+```bash
+# Secrets can be specified multiple times; user-provided env vars override secret values with the same key.
+runvoy run --secret github-token --secret db-password terraform plan
 ```
 
 **Log Viewing:**

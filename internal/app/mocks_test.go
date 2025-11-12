@@ -9,6 +9,7 @@ import (
 	"runvoy/internal/api"
 	"runvoy/internal/app/websocket"
 	"runvoy/internal/constants"
+	"runvoy/internal/database"
 	"runvoy/internal/testutil"
 )
 
@@ -286,6 +287,68 @@ func newTestServiceWithConnRepo(
 ) *Service {
 	logger := testutil.SilentLogger()
 	return NewService(userRepo, execRepo, connRepo, &mockTokenRepository{}, runner, logger, constants.AWS, nil, nil)
+}
+
+// newTestServiceWithSecretsRepo creates a Service with a secrets repository for testing.
+func newTestServiceWithSecretsRepo(
+	userRepo *mockUserRepository,
+	execRepo *mockExecutionRepository,
+	runner *mockRunner,
+	secretsRepo database.SecretsRepository,
+) *Service {
+	logger := testutil.SilentLogger()
+	return NewService(userRepo, execRepo, nil, &mockTokenRepository{}, runner, logger, constants.AWS, nil, secretsRepo)
+}
+
+// mockSecretsRepository implements database.SecretsRepository for testing.
+type mockSecretsRepository struct {
+	createSecretFunc func(ctx context.Context, secret *api.Secret) error
+	getSecretFunc    func(ctx context.Context, name string, includeValue bool) (*api.Secret, error)
+	listSecretsFunc  func(ctx context.Context, includeValue bool) ([]*api.Secret, error)
+	updateSecretFunc func(ctx context.Context, secret *api.Secret) error
+	deleteSecretFunc func(ctx context.Context, name string) error
+}
+
+func (m *mockSecretsRepository) CreateSecret(ctx context.Context, secret *api.Secret) error {
+	if m.createSecretFunc != nil {
+		return m.createSecretFunc(ctx, secret)
+	}
+	return nil
+}
+
+func (m *mockSecretsRepository) GetSecret(
+	ctx context.Context,
+	name string,
+	includeValue bool,
+) (*api.Secret, error) {
+	if m.getSecretFunc != nil {
+		return m.getSecretFunc(ctx, name, includeValue)
+	}
+	return nil, nil
+}
+
+func (m *mockSecretsRepository) ListSecrets(
+	ctx context.Context,
+	includeValue bool,
+) ([]*api.Secret, error) {
+	if m.listSecretsFunc != nil {
+		return m.listSecretsFunc(ctx, includeValue)
+	}
+	return nil, nil
+}
+
+func (m *mockSecretsRepository) UpdateSecret(ctx context.Context, secret *api.Secret) error {
+	if m.updateSecretFunc != nil {
+		return m.updateSecretFunc(ctx, secret)
+	}
+	return nil
+}
+
+func (m *mockSecretsRepository) DeleteSecret(ctx context.Context, name string) error {
+	if m.deleteSecretFunc != nil {
+		return m.deleteSecretFunc(ctx, name)
+	}
+	return nil
 }
 
 // newTestServiceWithWebSocketManager creates a Service with websocket manager for testing

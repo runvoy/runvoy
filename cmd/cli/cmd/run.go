@@ -46,6 +46,7 @@ func init() {
 	runCmd.Flags().StringP("git-ref", "r", "", "Git reference")
 	runCmd.Flags().StringP("git-path", "p", "", "Git path")
 	runCmd.Flags().StringP("image", "i", "", "Image to use")
+	runCmd.Flags().StringSlice("secret", []string{}, "Secret name to inject (repeatable)")
 }
 
 func runRun(cmd *cobra.Command, args []string) {
@@ -61,6 +62,10 @@ func runRun(cmd *cobra.Command, args []string) {
 	gitRef := cmd.Flag("git-ref").Value.String()
 	gitPath := cmd.Flag("git-path").Value.String()
 	image := cmd.Flag("image").Value.String()
+	secrets, err := cmd.Flags().GetStringSlice("secret")
+	if err != nil {
+		output.Fatalf("failed to parse secrets: %v", err)
+	}
 
 	c := client.New(cfg, slog.Default())
 	service := NewRunService(c, NewOutputWrapper())
@@ -71,6 +76,7 @@ func runRun(cmd *cobra.Command, args []string) {
 		GitPath: gitPath,
 		Image:   image,
 		Env:     envs,
+		Secrets: secrets,
 		WebURL:  cfg.WebURL,
 	}
 	if err = service.ExecuteCommand(cmd.Context(), &req); err != nil {
@@ -103,6 +109,7 @@ type ExecuteCommandRequest struct {
 	GitPath string
 	Image   string
 	Env     map[string]string
+	Secrets []string
 	WebURL  string
 }
 
@@ -149,6 +156,7 @@ func (s *RunService) ExecuteCommand(ctx context.Context, req *ExecuteCommandRequ
 		GitPath: req.GitPath,
 		Env:     req.Env,
 		Image:   req.Image,
+		Secrets: req.Secrets,
 	}
 	resp, err := s.client.RunCommand(ctx, &execReq)
 	if err != nil {

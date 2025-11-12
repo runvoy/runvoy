@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/mail"
@@ -411,12 +412,109 @@ func (s *Service) RunCommand(
 	if req.Command == "" {
 		return nil, apperrors.ErrBadRequest("command is required", nil)
 	}
+
+	// Resolve secret references to environment variables before starting the task.
+	secretEnvVars, err := s.resolveSecretsForExecution(ctx, req.Secrets)
+	if err != nil {
+		return nil, err
+	}
+	s.applyResolvedSecrets(req, secretEnvVars)
+
 	executionID, createdAt, err := s.runner.StartTask(ctx, userEmail, req)
 	if err != nil {
 		return nil, err
 	}
 
+	s.recordExecution(ctx, userEmail, req, executionID, createdAt)
+
+	return &api.ExecutionResponse{
+		ExecutionID: executionID,
+		Status:      string(constants.ExecutionRunning),
+	}, nil
+}
+
+// resolveSecretsForExecution fetches secret values referenced by name and returns a map of env vars.
+// The returned map uses the secret's KeyName as the environment variable key.
+// Returns an error if the secrets repository is unavailable or if any requested secret cannot be retrieved.
+func (s *Service) resolveSecretsForExecution(
+	ctx context.Context,
+	secretNames []string,
+) (map[string]string, error) {
+	if len(secretNames) == 0 {
+		return nil, nil
+	}
+
+	if s.secretsRepo == nil {
+		return nil, apperrors.ErrInternalError("secrets repository not available", fmt.Errorf("secretsRepo is nil"))
+	}
+
 	reqLogger := logger.DeriveRequestLogger(ctx, s.Logger)
+	secretEnvVars := make(map[string]string, len(secretNames))
+	seen := make(map[string]struct{}, len(secretNames))
+
+	for _, rawName := range secretNames {
+		name := strings.TrimSpace(rawName)
+		if name == "" {
+			return nil, apperrors.ErrBadRequest("secret names cannot be empty", nil)
+		}
+		if _, alreadyProcessed := seen[name]; alreadyProcessed {
+			continue
+		}
+		seen[name] = struct{}{}
+
+		secret, err := s.secretsRepo.GetSecret(ctx, name, true)
+		if err != nil {
+			if errors.Is(err, database.ErrSecretNotFound) {
+				return nil, apperrors.ErrBadRequest(fmt.Sprintf("secret %q not found", name), err)
+			}
+			return nil, err
+		}
+		if secret == nil {
+			return nil, apperrors.ErrBadRequest(fmt.Sprintf("secret %q not found", name), nil)
+		}
+
+		keyName := strings.TrimSpace(secret.KeyName)
+		if keyName == "" {
+			return nil, apperrors.ErrInternalError(
+				fmt.Sprintf("secret %q has no key name configured", name),
+				fmt.Errorf("missing key name"))
+		}
+
+		secretEnvVars[keyName] = secret.Value
+	}
+
+	reqLogger.Debug("resolved secrets for execution", "context", map[string]string{
+		"secret_count": fmt.Sprintf("%d", len(secretEnvVars)),
+	})
+
+	return secretEnvVars, nil
+}
+
+func (s *Service) applyResolvedSecrets(req *api.ExecutionRequest, secretEnvVars map[string]string) {
+	if req == nil || len(secretEnvVars) == 0 {
+		return
+	}
+
+	if req.Env == nil {
+		req.Env = make(map[string]string, len(secretEnvVars))
+	}
+	for key, value := range secretEnvVars {
+		if _, exists := req.Env[key]; exists {
+			continue
+		}
+		req.Env[key] = value
+	}
+}
+
+func (s *Service) recordExecution(
+	ctx context.Context,
+	userEmail string,
+	req *api.ExecutionRequest,
+	executionID string,
+	createdAt *time.Time,
+) {
+	reqLogger := logger.DeriveRequestLogger(ctx, s.Logger)
+
 	startedAt := time.Now().UTC()
 	if createdAt != nil {
 		startedAt = createdAt.UTC()
@@ -439,18 +537,13 @@ func (s *Service) RunCommand(
 		)
 	}
 
-	if err = s.executionRepo.CreateExecution(ctx, execution); err != nil {
+	if err := s.executionRepo.CreateExecution(ctx, execution); err != nil {
 		reqLogger.Error("failed to create execution record, but task started",
 			"error", err,
 			"execution_id", executionID,
 		)
 		// Continue even if recording fails - the task is already running
 	}
-
-	return &api.ExecutionResponse{
-		ExecutionID: executionID,
-		Status:      string(constants.ExecutionRunning),
-	}, nil
 }
 
 // GetLogsByExecutionID returns aggregated Cloud logs for a given execution
