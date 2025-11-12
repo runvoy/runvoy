@@ -53,7 +53,8 @@ Workstations shouldn't be snowflakes that need complex setups, just a single API
 - **IaC deployment** - Deploy complete backend infrastructure with IaC templates (currently only AWS CloudFormation is supported, but with plans to extend support to other cloud providers in the future)
 - **Flexible container images** - Use any public Docker image (terraform, python, node, etc.)
 - **Execution isolation** - Commands run in ephemeral containers
-- **CloudWatch integration** - Full execution logs and audit trails with request ID tracking
+- **Native cloud provider logging integration** - Full execution logs and audit trails with request ID tracking
+- **Reusable playbooks** - Store and reuse command execution configurations in YAML files, share with your team to execute commands consistently
 - **Secrets management** - Centralized encrypted secrets with full CRUD from the CLI
 - **Real-time WebSocket streaming** - CLI and web viewer receive live logs over authenticated WebSocket connections
 - **Unix-style output streams** - Separate CLI logs (stderr) from data (stdout) for easy piping and scripting
@@ -168,7 +169,7 @@ runvoy --help
 ```
 
 ```text
-runvoy - 0.1.0-20251112-5e2588b
+runvoy - 0.1.0-20251112-64a06df
 Isolated, repeatable execution environments for your commands
 
 Usage:
