@@ -119,9 +119,9 @@ func NewLogsService(apiClient client.Interface, outputter OutputInterface, sleep
 // as Fargate tasks typically take that long to provision and start.
 func (s *LogsService) fetchLogsWithRetry(ctx context.Context, executionID string) (*api.LogsResponse, error) {
 	const (
-		maxRetries            = 4
-		retryDelay            = 10 * time.Second
-		startingStateDelay    = 15 * time.Second // Fargate takes ~15s to start
+		maxRetries         = 4
+		retryDelay         = 10 * time.Second
+		startingStateDelay = 15 * time.Second // Fargate takes ~15s to start
 	)
 
 	// Smart initial wait: Check execution status first

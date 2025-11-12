@@ -24,6 +24,8 @@
     export let delayFn = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
     let errorMessage = '';
+    let showStatusCheckErrorModal = false;
+    let statusCheckErrorMessage = '';
     let fetchLogsTimer;
     let currentExecutionId = null;
     let websocketURL = null;
@@ -72,7 +74,11 @@
             }
         } catch (statusError) {
             // If status check fails, proceed with normal retry logic
-            console.warn('Failed to check execution status:', statusError);
+            statusCheckErrorMessage =
+                statusError?.details?.error ||
+                statusError?.message ||
+                'Failed to check execution status.';
+            showStatusCheckErrorModal = true;
         }
 
         try {
@@ -170,6 +176,22 @@
 
 <ExecutionSelector />
 
+{#if showStatusCheckErrorModal}
+    <dialog open class="status-check-error-modal">
+        <article>
+            <header>
+                <strong>Unable to verify execution status</strong>
+            </header>
+            <p>
+                {statusCheckErrorMessage}
+            </p>
+            <footer>
+                <button on:click={() => (showStatusCheckErrorModal = false)}>Dismiss</button>
+            </footer>
+        </article>
+    </dialog>
+{/if}
+
 {#if errorMessage}
     <article class="error-box">
         <p>{errorMessage}</p>
@@ -212,6 +234,24 @@
 <style>
     article {
         margin-top: 2rem;
+    }
+
+    .status-check-error-modal {
+        max-width: 32rem;
+        border: none;
+        padding: 0;
+    }
+
+    .status-check-error-modal::backdrop {
+        background-color: rgb(0 0 0 / 0.35);
+    }
+
+    .status-check-error-modal article {
+        margin: 0;
+    }
+
+    .status-check-error-modal header {
+        margin-bottom: 0.5rem;
     }
 
     code {

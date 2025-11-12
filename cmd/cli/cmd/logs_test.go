@@ -25,8 +25,8 @@ func (m *mockSleeper) Sleep(duration time.Duration) {
 // mockClientInterfaceForLogs extends mockClientInterface with GetLogs
 type mockClientInterfaceForLogs struct {
 	*mockClientInterface
-	getLogsFunc               func(ctx context.Context, executionID string) (*api.LogsResponse, error)
-	getExecutionStatusFunc    func(ctx context.Context, executionID string) (*api.ExecutionStatusResponse, error)
+	getLogsFunc            func(ctx context.Context, executionID string) (*api.LogsResponse, error)
+	getExecutionStatusFunc func(ctx context.Context, executionID string) (*api.ExecutionStatusResponse, error)
 }
 
 func (m *mockClientInterfaceForLogs) GetLogs(ctx context.Context, executionID string) (*api.LogsResponse, error) {
@@ -36,7 +36,10 @@ func (m *mockClientInterfaceForLogs) GetLogs(ctx context.Context, executionID st
 	return nil, fmt.Errorf("not implemented")
 }
 
-func (m *mockClientInterfaceForLogs) GetExecutionStatus(ctx context.Context, executionID string) (*api.ExecutionStatusResponse, error) {
+func (m *mockClientInterfaceForLogs) GetExecutionStatus(
+	ctx context.Context,
+	executionID string,
+) (*api.ExecutionStatusResponse, error) {
 	if m.getExecutionStatusFunc != nil {
 		return m.getExecutionStatusFunc(ctx, executionID)
 	}
