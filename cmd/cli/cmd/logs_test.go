@@ -128,6 +128,46 @@ func TestLogsService_DisplayLogs(t *testing.T) {
 				}
 			},
 		},
+		{
+			name:        "displays all logs with duplicate timestamps",
+			executionID: "exec-dup-ts",
+			webURL:      "https://logs.example.com",
+			setupMock: func(m *mockClientInterfaceForLogs) {
+				m.getLogsFunc = func(_ context.Context, _ string) (*api.LogsResponse, error) {
+					// Simulate the bug scenario: multiple events with the same timestamp
+					commonTimestamp := int64(1762984282442)
+					return &api.LogsResponse{
+						ExecutionID: "exec-dup-ts",
+						Events: []api.LogEvent{
+							{Timestamp: 1762984282441, Message: "### runvoy runner execution started"},
+							{Timestamp: commonTimestamp, Message: "### Docker image => alpine:latest"},
+							{Timestamp: commonTimestamp, Message: "### runvoy command => echo test"},
+							{Timestamp: commonTimestamp, Message: "KEY1=value1"},
+							{Timestamp: commonTimestamp, Message: "KEY2=value2"},
+							{Timestamp: commonTimestamp, Message: "GITHUB_TOKEN=ghp_example1234567890"},
+							{Timestamp: commonTimestamp, Message: "all done"},
+						},
+						Status: "SUCCEEDED",
+					}, nil
+				}
+			},
+			wantErr: false,
+			verifyOutput: func(t *testing.T, m *mockOutputInterface) {
+				var tableCall *call
+				for i := range m.calls {
+					if m.calls[i].method == "Table" {
+						tableCall = &m.calls[i]
+						break
+					}
+				}
+				require.NotNil(t, tableCall, "Expected Table call to display logs")
+				require.GreaterOrEqual(t, len(tableCall.args), 2, "Table call should have at least 2 args")
+				rows, ok := tableCall.args[1].([][]string)
+				require.True(t, ok, "Second arg should be [][]string")
+				// Should display all 7 log events, not just 2
+				assert.Equal(t, 7, len(rows), "Should display all 7 log events even with duplicate timestamps")
+			},
+		},
 	}
 
 	for _, tt := range tests {

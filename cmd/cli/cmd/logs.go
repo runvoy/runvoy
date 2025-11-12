@@ -169,10 +169,20 @@ func (s *LogsService) fetchLogsWithRetry(ctx context.Context, executionID string
 	return nil, fmt.Errorf("failed to get logs: %w", err)
 }
 
-// readWebSocketMessages reads messages from WebSocket and updates the log map
+// logEventExists checks if a log event already exists in the slice
+func logEventExists(events []api.LogEvent, event api.LogEvent) bool {
+	for _, e := range events {
+		if e.Timestamp == event.Timestamp && e.Message == event.Message {
+			return true
+		}
+	}
+	return false
+}
+
+// readWebSocketMessages reads messages from WebSocket and updates the log slice
 func (s *LogsService) readWebSocketMessages(
 	conn *websocket.Conn,
-	logMap map[int64]api.LogEvent,
+	logEvents *[]api.LogEvent,
 	mu *sync.Mutex,
 	done <-chan struct{},
 ) {
@@ -208,9 +218,9 @@ func (s *LogsService) readWebSocketMessages(
 			}
 
 			mu.Lock()
-			if _, exists := logMap[logEvent.Timestamp]; !exists {
-				logMap[logEvent.Timestamp] = logEvent
-				s.printLogLine(len(logMap), logEvent)
+			if !logEventExists(*logEvents, logEvent) {
+				*logEvents = append(*logEvents, logEvent)
+				s.printLogLine(len(*logEvents), logEvent)
 			}
 			mu.Unlock()
 		}
@@ -220,7 +230,7 @@ func (s *LogsService) readWebSocketMessages(
 // streamLogsViaWebSocket connects to WebSocket and streams logs in real-time
 func (s *LogsService) streamLogsViaWebSocket(
 	websocketURL string,
-	logMap map[int64]api.LogEvent,
+	logEvents *[]api.LogEvent,
 	mu *sync.Mutex,
 	webURL string,
 	executionID string,
@@ -251,7 +261,7 @@ func (s *LogsService) streamLogsViaWebSocket(
 
 	go func() {
 		defer closeOnce.Do(func() { close(done) })
-		s.readWebSocketMessages(conn, logMap, mu, done)
+		s.readWebSocketMessages(conn, logEvents, mu, done)
 	}()
 
 	select {
@@ -276,14 +286,13 @@ func (s *LogsService) DisplayLogs(ctx context.Context, executionID, webURL strin
 		return err
 	}
 
-	logMap := make(map[int64]api.LogEvent)
+	// Use a slice to preserve all log events, even those with duplicate timestamps
+	logEvents := make([]api.LogEvent, 0, len(resp.Events))
+	logEvents = append(logEvents, resp.Events...)
+
 	var mu sync.Mutex
 
-	for _, log := range resp.Events {
-		logMap[log.Timestamp] = log
-	}
-
-	s.displayLogEvents(logMap)
+	s.displayLogEvents(logEvents)
 
 	if resp.WebSocketURL == "" {
 		return nil
@@ -294,24 +303,29 @@ func (s *LogsService) DisplayLogs(ctx context.Context, executionID, webURL strin
 		return nil
 	}
 
-	_ = s.streamLogsViaWebSocket(resp.WebSocketURL, logMap, &mu, webURL, executionID)
+	_ = s.streamLogsViaWebSocket(resp.WebSocketURL, &logEvents, &mu, webURL, executionID)
 
 	return nil
 }
 
 // displayLogEvents displays all log events in a sorted table
-func (s *LogsService) displayLogEvents(logMap map[int64]api.LogEvent) {
-	// Sort logs by timestamp
-	var timestamps []int64
-	for ts := range logMap {
-		timestamps = append(timestamps, ts)
-	}
-	slices.Sort(timestamps)
+func (s *LogsService) displayLogEvents(logEvents []api.LogEvent) {
+	// Sort logs by timestamp (and preserve order for same timestamps)
+	sortedEvents := make([]api.LogEvent, len(logEvents))
+	copy(sortedEvents, logEvents)
+	slices.SortFunc(sortedEvents, func(a, b api.LogEvent) int {
+		if a.Timestamp < b.Timestamp {
+			return -1
+		}
+		if a.Timestamp > b.Timestamp {
+			return 1
+		}
+		return 0
+	})
 
 	s.output.Blank()
 	rows := [][]string{}
-	for i, ts := range timestamps {
-		log := logMap[ts]
+	for i, log := range sortedEvents {
 		lineNumber := i + 1 // Compute line number client-side (1-indexed)
 		rows = append(rows, []string{
 			s.output.Bold(fmt.Sprintf("%d", lineNumber)),
