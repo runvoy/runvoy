@@ -25,7 +25,7 @@ type WebSocketResponse struct {
 type Processor interface {
 	// Handle processes a raw cloud event and returns a result (or nil for non-WebSocket events).
 	// The result may be a WebSocketResponse for WebSocket events.
-	Handle(ctx context.Context, rawEvent *json.RawMessage) (any, error)
+	Handle(ctx context.Context, rawEvent *json.RawMessage) (*json.RawMessage, error)
 
 	// HandleEventJSON is a helper for testing that accepts raw JSON and returns an error.
 	// It's used for test cases that expect error returns.

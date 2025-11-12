@@ -42,7 +42,7 @@ func NewProcessor(
 
 // Handle processes a raw AWS event by delegating to the appropriate handler.
 // It supports CloudWatch events, CloudWatch Logs, and WebSocket events.
-func (p *Processor) Handle(ctx context.Context, rawEvent *json.RawMessage) (any, error) {
+func (p *Processor) Handle(ctx context.Context, rawEvent *json.RawMessage) (*json.RawMessage, error) {
 	reqLogger := logger.DeriveRequestLogger(ctx, p.logger)
 
 	// Try cloud-specific events
@@ -57,12 +57,14 @@ func (p *Processor) Handle(ctx context.Context, rawEvent *json.RawMessage) (any,
 
 	// Try WebSocket events
 	if resp, handled := p.handleWebSocketEvent(ctx, rawEvent, reqLogger); handled {
-		return resp, nil
+		marshaled, err := json.Marshal(resp)
+		if err != nil {
+			reqLogger.Error("failed to marshal response", "error", err)
+			return nil, fmt.Errorf("failed to marshal response: %w", err)
+		}
+		result := json.RawMessage(marshaled)
+		return &result, nil
 	}
-
-	reqLogger.Error("unhandled event type", "context", map[string]any{
-		"event": *rawEvent,
-	})
 
 	return nil, fmt.Errorf("unhandled event type: %s", string(*rawEvent))
 }
@@ -75,13 +77,8 @@ func (p *Processor) HandleEventJSON(ctx context.Context, eventJSON *json.RawMess
 		return fmt.Errorf("failed to unmarshal event: %w", err)
 	}
 
-	result, err := p.Handle(ctx, eventJSON)
-	if err != nil {
+	if _, err := p.Handle(ctx, eventJSON); err != nil {
 		return err
-	}
-	// Convert result to error if it's an error type
-	if resultErr, ok := result.(error); ok {
-		return resultErr
 	}
 	return nil
 }
