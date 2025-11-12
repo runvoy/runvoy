@@ -12,13 +12,16 @@
         logEvents,
         logsRetryCount,
         MAX_LOGS_RETRIES,
-        LOGS_RETRY_DELAY
+        LOGS_RETRY_DELAY,
+        STARTING_STATE_DELAY
     } from '../stores/logs.js';
     import { cachedWebSocketURL } from '../stores/websocket.js';
     import { connectWebSocket, disconnectWebSocket } from '../lib/websocket.js';
 
     export let apiClient = null;
     export let isConfigured = false;
+    // Allow delay override for testing (e.g., set to 0 in tests to avoid waiting)
+    export let delayFn = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
     let errorMessage = '';
     let fetchLogsTimer;
@@ -51,6 +54,26 @@
 
         clearTimeout(fetchLogsTimer);
         errorMessage = '';
+
+        // Smart initial wait: Check execution status first
+        // If STARTING or TERMINATING, wait before first log poll to avoid unnecessary 404s
+        try {
+            const statusResponse = await apiClient.getExecutionStatus(id);
+            const status = statusResponse.status || 'UNKNOWN';
+
+            if (status === 'STARTING') {
+                errorMessage = 'Execution is starting (Fargate provisioning takes ~15 seconds)...';
+                await delayFn(STARTING_STATE_DELAY);
+                errorMessage = ''; // Clear the message after waiting
+            } else if (status === 'TERMINATING') {
+                errorMessage = 'Execution is terminating, waiting for final state...';
+                await delayFn(LOGS_RETRY_DELAY);
+                errorMessage = ''; // Clear the message after waiting
+            }
+        } catch (statusError) {
+            // If status check fails, proceed with normal retry logic
+            console.warn('Failed to check execution status:', statusError);
+        }
 
         try {
             const response = await apiClient.getLogs(id);

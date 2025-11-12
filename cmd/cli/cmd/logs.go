@@ -24,6 +24,19 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// Sleeper provides a testable interface for introducing delays
+type Sleeper interface {
+	Sleep(duration time.Duration)
+}
+
+// RealSleeper implements Sleeper using the standard time.Sleep
+type RealSleeper struct{}
+
+// Sleep pauses execution for the specified duration
+func (r *RealSleeper) Sleep(duration time.Duration) {
+	time.Sleep(duration)
+}
+
 var logsCmd = &cobra.Command{
 	Use:   "logs <execution-id>",
 	Short: "Get logs for an execution",
@@ -79,7 +92,7 @@ func logsRun(cmd *cobra.Command, args []string) {
 	output.Infof("Getting logs for execution: %s", output.Bold(executionID))
 
 	c := client.New(cfg, slog.Default())
-	service := NewLogsService(c, NewOutputWrapper())
+	service := NewLogsService(c, NewOutputWrapper(), &RealSleeper{})
 	if err = service.DisplayLogs(cmd.Context(), executionID, cfg.WebURL); err != nil {
 		output.Errorf(err.Error())
 	}
@@ -87,27 +100,45 @@ func logsRun(cmd *cobra.Command, args []string) {
 
 // LogsService handles log display logic
 type LogsService struct {
-	client client.Interface
-	output OutputInterface
+	client  client.Interface
+	output  OutputInterface
+	sleeper Sleeper
 }
 
 // NewLogsService creates a new LogsService with the provided dependencies
-func NewLogsService(apiClient client.Interface, outputter OutputInterface) *LogsService {
+func NewLogsService(apiClient client.Interface, outputter OutputInterface, sleeper Sleeper) *LogsService {
 	return &LogsService{
-		client: apiClient,
-		output: outputter,
+		client:  apiClient,
+		output:  outputter,
+		sleeper: sleeper,
 	}
 }
 
-// fetchLogsWithRetry fetches logs with retry logic for 404 errors (execution starting up)
+// fetchLogsWithRetry fetches logs with retry logic for 404 errors (execution starting up).
+// It intelligently handles STARTING state by waiting ~15 seconds before the first poll,
+// as Fargate tasks typically take that long to provision and start.
 func (s *LogsService) fetchLogsWithRetry(ctx context.Context, executionID string) (*api.LogsResponse, error) {
 	const (
-		maxRetries = 4
-		retryDelay = 10 * time.Second
+		maxRetries            = 4
+		retryDelay            = 10 * time.Second
+		startingStateDelay    = 15 * time.Second // Fargate takes ~15s to start
 	)
 
+	// Smart initial wait: Check execution status first
+	// If STARTING or TERMINATING, wait before first log poll to avoid unnecessary 404s
+	status, err := s.client.GetExecutionStatus(ctx, executionID)
+	if err == nil {
+		if status.Status == string(constants.ExecutionStarting) {
+			s.output.Infof("Execution is starting (Fargate provisioning takes ~15 seconds)...")
+			s.sleeper.Sleep(startingStateDelay)
+		} else if status.Status == string(constants.ExecutionTerminating) {
+			s.output.Infof("Execution is terminating, waiting for final state...")
+			s.sleeper.Sleep(retryDelay)
+		}
+	}
+	// If status check fails, proceed with normal retry logic
+
 	var resp *api.LogsResponse
-	var err error
 	for attempt := 0; attempt <= maxRetries; attempt++ {
 		resp, err = s.client.GetLogs(ctx, executionID)
 		if err == nil {
@@ -119,7 +150,7 @@ func (s *LogsService) fetchLogsWithRetry(ctx context.Context, executionID string
 			if attempt < maxRetries {
 				s.output.Infof("Logs not available yet, waiting %d seconds... (attempt %d/%d)",
 					int(retryDelay.Seconds()), attempt+1, maxRetries+1)
-				time.Sleep(retryDelay)
+				s.sleeper.Sleep(retryDelay)
 				continue
 			}
 		}

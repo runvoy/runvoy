@@ -174,7 +174,7 @@ func (s *RunService) ExecuteCommand(ctx context.Context, req *ExecuteCommandRequ
 	}
 
 	// Stream logs similar to the logs command
-	logsService := NewLogsService(s.client, s.output)
+	logsService := NewLogsService(s.client, s.output, &RealSleeper{})
 	if serviceErr := logsService.DisplayLogs(ctx, resp.ExecutionID, req.WebURL); serviceErr != nil {
 		return fmt.Errorf("failed to stream logs: %w", serviceErr)
 	}

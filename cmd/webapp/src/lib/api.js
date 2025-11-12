@@ -59,6 +59,30 @@ export class APIClient {
     }
 
     /**
+     * Get execution status
+     * @param {string} executionId - Execution ID
+     * @returns {Promise<Object>} Status response with execution_id, status, started_at, etc.
+     */
+    async getExecutionStatus(executionId) {
+        const url = `${this.endpoint}/api/v1/executions/${executionId}/status`;
+        const response = await fetch(url, {
+            headers: {
+                'X-API-Key': this.apiKey
+            }
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            const error = new Error(errorData.details || `HTTP ${response.status}`);
+            error.status = response.status;
+            error.details = errorData;
+            throw error;
+        }
+
+        return response.json();
+    }
+
+    /**
      * Kill a running execution
      * @param {string} executionId - Execution ID
      * @returns {Promise<Object>} Kill response
