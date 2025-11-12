@@ -48,6 +48,8 @@ const (
 	ErrCodeUnauthorized   = "UNAUTHORIZED"
 	ErrCodeNotFound       = "NOT_FOUND"
 	ErrCodeConflict       = "CONFLICT"
+	ErrCodeSecretNotFound = "SECRET_NOT_FOUND"
+	ErrCodeSecretExists   = "SECRET_ALREADY_EXISTS"
 	ErrCodeInvalidAPIKey  = "INVALID_API_KEY" //nolint:gosec
 	ErrCodeAPIKeyRevoked  = "API_KEY_REVOKED" //nolint:gosec
 
@@ -113,6 +115,16 @@ func ErrConflict(message string, cause error) *AppError {
 // ErrBadRequest creates a bad request error (400).
 func ErrBadRequest(message string, cause error) *AppError {
 	return NewClientError(http.StatusBadRequest, ErrCodeInvalidRequest, message, cause)
+}
+
+// ErrSecretNotFound creates a secret not found error (404).
+func ErrSecretNotFound(message string, cause error) *AppError {
+	return NewClientError(http.StatusNotFound, ErrCodeSecretNotFound, message, cause)
+}
+
+// ErrSecretAlreadyExists creates a secret already exists error (409).
+func ErrSecretAlreadyExists(message string, cause error) *AppError {
+	return NewClientError(http.StatusConflict, ErrCodeSecretExists, message, cause)
 }
 
 // ErrInternalError creates an internal server error (500).

@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strings"
 
+	awsConstants "runvoy/internal/providers/aws/constants"
+
 	"github.com/spf13/viper"
 )
 
@@ -35,11 +37,14 @@ type Config struct {
 	WebSocketAPIEndpoint string `mapstructure:"websocket_api_endpoint"`
 
 	// Secrets Management
+	SecretsPrefix    string `mapstructure:"secrets_prefix"`
 	SecretsKMSKeyARN string `mapstructure:"secrets_kms_key_arn"`
 }
 
 // BindEnvVars binds AWS-specific environment variables to the provided Viper instance.
 func BindEnvVars(v *viper.Viper) {
+	v.SetDefault("aws.secrets_prefix", awsConstants.SecretsPrefix)
+
 	_ = v.BindEnv("aws.api_keys_table", "RUNVOY_AWS_API_KEYS_TABLE")
 	_ = v.BindEnv("aws.ecs_cluster", "RUNVOY_AWS_ECS_CLUSTER")
 	_ = v.BindEnv("aws.executions_table", "RUNVOY_AWS_EXECUTIONS_TABLE")
@@ -55,6 +60,7 @@ func BindEnvVars(v *viper.Viper) {
 	_ = v.BindEnv("aws.websocket_connections_table", "RUNVOY_AWS_WEBSOCKET_CONNECTIONS_TABLE")
 	_ = v.BindEnv("aws.websocket_tokens_table", "RUNVOY_AWS_WEBSOCKET_TOKENS_TABLE")
 	_ = v.BindEnv("aws.secrets_metadata_table", "RUNVOY_AWS_SECRETS_METADATA_TABLE")
+	_ = v.BindEnv("aws.secrets_prefix", "RUNVOY_AWS_SECRETS_PREFIX")
 	_ = v.BindEnv("aws.secrets_kms_key_arn", "RUNVOY_AWS_SECRETS_KMS_KEY_ARN")
 }
 
@@ -76,6 +82,7 @@ func ValidateOrchestrator(cfg *Config) error {
 		"AWS.WebSocketConnectionsTable": cfg.WebSocketConnectionsTable,
 		"AWS.WebSocketTokensTable":      cfg.WebSocketTokensTable,
 		"AWS.SecretsMetadataTable":      cfg.SecretsMetadataTable,
+		"AWS.SecretsPrefix":             cfg.SecretsPrefix,
 		"AWS.SecretsKMSKeyARN":          cfg.SecretsKMSKeyARN,
 	}
 

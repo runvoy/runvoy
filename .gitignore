@@ -42,6 +42,7 @@ dist
 # Agents' development dirt
 cmd/runvoy/runvoy
 ./event_processor
+./orchestrator
 
 # Local Netlify folder
 .netlify

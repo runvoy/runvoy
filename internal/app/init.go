@@ -20,6 +20,7 @@ type serviceDependencies struct {
 	connRepo      database.ConnectionRepository
 	tokenRepo     database.TokenRepository
 	runner        Runner
+	secretsRepo   database.SecretsRepository
 }
 
 // Initialize creates a new Service configured for the specified backend provider.
@@ -57,6 +58,7 @@ func Initialize(
 			connRepo:      awsDeps.ConnectionRepo,
 			tokenRepo:     awsDeps.TokenRepo,
 			runner:        awsDeps.Runner,
+			secretsRepo:   awsDeps.SecretsRepo,
 		}
 		if awsDeps.WebSocketManager != nil {
 			wsManager = awsDeps.WebSocketManager
@@ -77,5 +79,6 @@ func Initialize(
 		logger,
 		provider,
 		wsManager,
+		deps.secretsRepo,
 	), nil
 }

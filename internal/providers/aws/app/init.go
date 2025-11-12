@@ -8,12 +8,15 @@ import (
 	"runvoy/internal/config"
 	"runvoy/internal/database"
 	"runvoy/internal/logger"
+	awsDatabase "runvoy/internal/providers/aws/database"
 	dynamoRepo "runvoy/internal/providers/aws/database/dynamodb"
+	"runvoy/internal/providers/aws/secrets"
 	awsWebsocket "runvoy/internal/providers/aws/websocket"
 
 	awsConfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/ecs"
+	"github.com/aws/aws-sdk-go-v2/service/ssm"
 )
 
 // Dependencies bundles the AWS-backed implementations required by the app service.
@@ -24,6 +27,7 @@ type Dependencies struct {
 	TokenRepo        database.TokenRepository
 	Runner           *Runner
 	WebSocketManager *awsWebsocket.Manager
+	SecretsRepo      database.SecretsRepository
 }
 
 // Initialize prepares AWS service dependencies for the app package.
@@ -41,6 +45,7 @@ func Initialize(
 
 	dynamoClient := dynamodb.NewFromConfig(awsCfg)
 	ecsClient := ecs.NewFromConfig(awsCfg)
+	ssmClient := ssm.NewFromConfig(awsCfg)
 
 	if cfg.AWS == nil {
 		return nil, fmt.Errorf("AWS configuration is required")
@@ -58,6 +63,11 @@ func Initialize(
 	executionRepo := dynamoRepo.NewExecutionRepository(dynamoClient, cfg.AWS.ExecutionsTable, log)
 	connectionRepo := dynamoRepo.NewConnectionRepository(dynamoClient, cfg.AWS.WebSocketConnectionsTable, log)
 	tokenRepo := dynamoRepo.NewTokenRepository(dynamoClient, cfg.AWS.WebSocketTokensTable, log)
+
+	// Create secrets repository with DynamoDB metadata and Parameter Store values
+	dynamoSecretsRepo := dynamoRepo.NewSecretsRepository(dynamoClient, cfg.AWS.SecretsMetadataTable, log)
+	valueStore := secrets.NewParameterStoreManager(ssmClient, cfg.AWS.SecretsPrefix, cfg.AWS.SecretsKMSKeyARN, log)
+	secretsRepo := awsDatabase.NewSecretsRepository(dynamoSecretsRepo, valueStore, log)
 
 	runnerCfg := &Config{
 		ECSCluster:      cfg.AWS.ECSCluster,
@@ -79,5 +89,6 @@ func Initialize(
 		TokenRepo:        tokenRepo,
 		Runner:           runner,
 		WebSocketManager: wsManager,
+		SecretsRepo:      secretsRepo,
 	}, nil
 }

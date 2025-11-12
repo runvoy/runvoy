@@ -56,6 +56,7 @@ func TestGetExecutionStatus_Unauthorized(t *testing.T) {
 		testutil.SilentLogger(),
 		constants.AWS,
 		nil,
+		nil, // SecretsService
 	)
 	router := NewRouter(svc, 2*time.Second)
 
