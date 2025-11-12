@@ -8,8 +8,8 @@ import (
 	"runvoy/internal/api"
 	"runvoy/internal/client"
 	"runvoy/internal/client/output"
+	"runvoy/internal/client/playbooks"
 	"runvoy/internal/constants"
-	"runvoy/internal/playbooks"
 	"strings"
 
 	"github.com/spf13/cobra"

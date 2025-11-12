@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"runvoy/internal/api"
-	"runvoy/internal/playbooks"
+	"runvoy/internal/client/playbooks"
 )
 
 func TestPlaybookService_ListPlaybooks(t *testing.T) {
