@@ -23,7 +23,7 @@ type serviceDependencies struct {
 	secretsRepo   database.SecretsRepository
 }
 
-// Initialize creates a new Service configured for the specified backend provider.
+// Initialize creates a new Service configured for the backend provider specified in cfg.
 // It returns an error if the context is canceled, timed out, or if an unknown provider is specified.
 // Callers should handle errors and potentially panic if initialization fails during startup.
 //
@@ -32,11 +32,10 @@ type serviceDependencies struct {
 //   - "gcp": (future) E.g. using Google Cloud Run and Firestore for storage
 func Initialize(
 	ctx context.Context,
-	provider constants.BackendProvider,
 	cfg *config.Config,
 	logger *slog.Logger) (*Service, error) {
 	logger.Debug(fmt.Sprintf("initializing %s orchestrator service", constants.ProjectName),
-		"provider", provider,
+		"provider", cfg.BackendProvider,
 		"version", *constants.GetVersion(),
 		"init_timeout_seconds", cfg.InitTimeout.Seconds(),
 	)
@@ -46,7 +45,7 @@ func Initialize(
 		wsManager websocket.Manager
 	)
 
-	switch provider {
+	switch cfg.BackendProvider {
 	case constants.AWS:
 		awsDeps, err := appAws.Initialize(ctx, cfg, logger)
 		if err != nil {
@@ -65,7 +64,7 @@ func Initialize(
 		}
 
 	default:
-		return nil, fmt.Errorf("unknown backend provider: %s (supported: %s)", provider, constants.AWS)
+		return nil, fmt.Errorf("unknown backend provider: %s (supported: %s)", cfg.BackendProvider, constants.AWS)
 	}
 
 	logger.Debug(constants.ProjectName + " orchestrator initialized successfully")
@@ -77,7 +76,7 @@ func Initialize(
 		deps.tokenRepo,
 		deps.runner,
 		logger,
-		provider,
+		cfg.BackendProvider,
 		wsManager,
 		deps.secretsRepo,
 	), nil

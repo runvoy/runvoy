@@ -25,7 +25,7 @@ const numServers = 2
 
 func initializeServices(ctx context.Context, log *slog.Logger, oCfg *config.Config, eCfg *config.Config,
 ) (*app.Service, events.Processor, error) {
-	svc, err := app.Initialize(ctx, constants.AWS, oCfg, log)
+	svc, err := app.Initialize(ctx, oCfg, log)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to initialize orchestrator service: %w", err)
 	}
