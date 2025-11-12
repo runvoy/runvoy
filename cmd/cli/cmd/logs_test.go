@@ -231,3 +231,27 @@ func TestLogsService_SmartPolling_StartingState(t *testing.T) {
 		})
 	}
 }
+
+func TestIsTerminalStatus(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		status       string
+		wantTerminal bool
+	}{
+		{status: "SUCCEEDED", wantTerminal: true},
+		{status: "FAILED", wantTerminal: true},
+		{status: "STOPPED", wantTerminal: true},
+		{status: "RUNNING", wantTerminal: false},
+		{status: "STARTING", wantTerminal: false},
+		{status: "STARTED", wantTerminal: false},
+		{status: "TERMINATING", wantTerminal: false},
+		{status: "", wantTerminal: false},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.status, func(t *testing.T) {
+			assert.Equal(t, tc.wantTerminal, isTerminalStatus(tc.status))
+		})
+	}
+}

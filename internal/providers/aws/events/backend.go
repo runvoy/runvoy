@@ -103,7 +103,7 @@ func (p *Processor) handleCloudEvent(
 
 	switch cwEvent.DetailType {
 	case "ECS Task State Change":
-		return true, p.handleECSTaskCompletion(ctx, &cwEvent, reqLogger)
+		return true, p.handleECSTaskEvent(ctx, &cwEvent, reqLogger)
 	default:
 		reqLogger.Warn("ignoring unhandled CloudWatch event detail type",
 			"context", map[string]string{
@@ -201,8 +201,8 @@ func (p *Processor) handleWebSocketEvent(
 	return resp, true
 }
 
-// handleECSTaskCompletion processes ECS Task State Change events
-func (p *Processor) handleECSTaskCompletion(
+// handleECSTaskEvent processes ECS Task State Change events
+func (p *Processor) handleECSTaskEvent(
 
 	ctx context.Context,
 	event *events.CloudWatchEvent,

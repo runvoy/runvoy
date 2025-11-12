@@ -81,6 +81,11 @@ func isNotFoundError(err error) bool {
 	return false
 }
 
+// isTerminalStatus reports whether the provided execution status is terminal.
+func isTerminalStatus(status string) bool {
+	return slices.Contains(constants.TerminalExecutionStatuses(), constants.ExecutionStatus(status))
+}
+
 func logsRun(cmd *cobra.Command, args []string) {
 	executionID := args[0]
 	cfg, err := getConfigFromContext(cmd)
@@ -282,7 +287,7 @@ func (s *LogsService) DisplayLogs(ctx context.Context, executionID, webURL strin
 		return nil
 	}
 
-	if resp.Status != "RUNNING" {
+	if isTerminalStatus(resp.Status) {
 		s.output.Infof("Execution has completed with status: %s", resp.Status)
 		return nil
 	}

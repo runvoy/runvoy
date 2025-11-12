@@ -308,7 +308,7 @@ func TestHandleECSTaskCompletion_Success(t *testing.T) {
 		Detail:     detailJSON,
 	}
 
-	err := backend.handleECSTaskCompletion(ctx, &event, testutil.SilentLogger())
+	err := backend.handleECSTaskEvent(ctx, &event, testutil.SilentLogger())
 	assert.NoError(t, err)
 	assert.NotNil(t, updatedExecution)
 	assert.Equal(t, string(constants.ExecutionSucceeded), updatedExecution.Status)
@@ -363,7 +363,7 @@ func TestHandleECSTaskCompletion_MarkRunning(t *testing.T) {
 		Detail:     detailJSON,
 	}
 
-	err := backend.handleECSTaskCompletion(ctx, &event, testutil.SilentLogger())
+	err := backend.handleECSTaskEvent(ctx, &event, testutil.SilentLogger())
 	assert.NoError(t, err)
 	assert.True(t, updateCalled)
 }
@@ -405,7 +405,7 @@ func TestHandleECSTaskCompletion_OrphanedTask(t *testing.T) {
 	}
 
 	// Should not fail for orphaned tasks
-	err := backend.handleECSTaskCompletion(ctx, &event, testutil.SilentLogger())
+	err := backend.handleECSTaskEvent(ctx, &event, testutil.SilentLogger())
 	assert.NoError(t, err)
 }
 
@@ -464,7 +464,7 @@ func TestHandleECSTaskCompletion_MissingStartedAt(t *testing.T) {
 		Detail:     detailJSON,
 	}
 
-	err := backend.handleECSTaskCompletion(ctx, &event, testutil.SilentLogger())
+	err := backend.handleECSTaskEvent(ctx, &event, testutil.SilentLogger())
 	assert.NoError(t, err)
 	assert.NotNil(t, updatedExecution)
 	assert.Greater(t, updatedExecution.DurationSeconds, 0)
