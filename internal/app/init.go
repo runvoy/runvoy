@@ -26,7 +26,7 @@ func Initialize(
 	logger.Debug(fmt.Sprintf("initializing %s orchestrator service", constants.ProjectName),
 		"provider", cfg.BackendProvider,
 		"version", *constants.GetVersion(),
-		"init_timeout", cfg.InitTimeout,
+		"init_timeout", cfg.InitTimeout.String(),
 	)
 
 	switch cfg.BackendProvider {
