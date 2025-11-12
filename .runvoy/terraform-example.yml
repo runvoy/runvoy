@@ -1,0 +1,14 @@
+description: Test terraform playbook
+image: debian:latest
+git_repo: https://github.com/runvoy/terraform-example.git
+env:
+  TF_VAR_injected_variable: whatever_value
+commands:
+  - apt-get update >/dev/null
+  - apt-get install -y unzip wget >/dev/null
+  - wget --quiet -O terraform.zip https://releases.hashicorp.com/terraform/1.13.5/terraform_1.13.5_linux_amd64.zip
+  - unzip terraform.zip
+  - mv terraform /usr/local/bin/terraform
+  - terraform version
+  - terraform init
+  - terraform plan
