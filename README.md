@@ -1,5 +1,5 @@
 <h1 align="center">
-    <p><strong>Runvoy</strong></p>
+    <p><strong>🚀 Runvoy</strong></p>
     <p>serverless command execution platform</p>
 </h1>
 <p align="center">
@@ -168,7 +168,7 @@ runvoy --help
 ```
 
 ```text
-runvoy - 0.1.0-20251112-8d11e09
+runvoy - 0.1.0-20251112-ff80bcd
 Isolated, repeatable execution environments for your commands
 
 Usage:
