@@ -113,23 +113,21 @@ func (sr *SecretsRepository) ListSecrets(ctx context.Context, includeValue bool)
 // UpdateSecret updates a secret's metadata and/or value.
 func (sr *SecretsRepository) UpdateSecret(
 	ctx context.Context,
-	name string,
-	updates *api.UpdateSecretRequest,
-	updatedBy string,
+	secret *api.Secret,
 ) error {
 	// Update the value if provided
-	if updates.Value != "" {
-		if err := sr.valueStore.StoreSecret(ctx, name, updates.Value); err != nil {
-			sr.logger.Error("failed to update secret value", "error", err, "name", name)
+	if secret.Value != "" {
+		if err := sr.valueStore.StoreSecret(ctx, secret.Name, secret.Value); err != nil {
+			sr.logger.Error("failed to update secret value", "error", err, "name", secret.Name)
 			return appErrors.ErrInternalError("failed to update secret value", err)
 		}
 	}
 
 	// Always update metadata (description, keyName, and timestamp)
 	if err := sr.metadataRepo.UpdateSecretMetadata(
-		ctx, name, updates.KeyName, updates.Description, updatedBy,
+		ctx, secret.Name, secret.KeyName, secret.Description, secret.UpdatedBy,
 	); err != nil {
-		sr.logger.Error("failed to update secret metadata", "error", err, "name", name)
+		sr.logger.Error("failed to update secret metadata", "error", err, "name", secret.Name)
 		return err
 	}
 

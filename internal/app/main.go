@@ -134,7 +134,14 @@ func (s *Service) UpdateSecret(
 	if s.secretsRepo == nil {
 		return nil, apperrors.ErrInternalError("secrets repository not available", fmt.Errorf("secretsRepo is nil"))
 	}
-	if err := s.secretsRepo.UpdateSecret(ctx, name, req, userEmail); err != nil {
+	secret := &api.Secret{
+		Name:        name,
+		Description: req.Description,
+		KeyName:     req.KeyName,
+		Value:       req.Value,
+		UpdatedBy:   userEmail,
+	}
+	if err := s.secretsRepo.UpdateSecret(ctx, secret); err != nil {
 		return nil, err
 	}
 	return s.secretsRepo.GetSecret(ctx, name, true)

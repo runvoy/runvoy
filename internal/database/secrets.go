@@ -34,9 +34,11 @@ type SecretsRepository interface {
 	ListSecrets(ctx context.Context, includeValue bool) ([]*api.Secret, error)
 
 	// UpdateSecret updates a secret's value and/or editable properties.
+	// The secret's UpdatedBy field must be set by the caller.
+	// The Name field identifies which secret to update.
 	// The updatedAt timestamp is always refreshed.
 	// Returns an error if the secret is not found.
-	UpdateSecret(ctx context.Context, name string, updates *api.UpdateSecretRequest, updatedBy string) error
+	UpdateSecret(ctx context.Context, secret *api.Secret) error
 
 	// DeleteSecret removes a secret from storage.
 	// Returns an error if the secret is not found.
