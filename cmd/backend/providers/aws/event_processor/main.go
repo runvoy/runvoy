@@ -7,9 +7,9 @@ import (
 	"context"
 	"os"
 
+	"runvoy/internal/app/events"
 	"runvoy/internal/config"
 	"runvoy/internal/constants"
-	"runvoy/internal/events"
 	"runvoy/internal/logger"
 	"runvoy/internal/providers/aws/lambdaapi"
 

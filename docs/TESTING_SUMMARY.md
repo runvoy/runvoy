@@ -71,7 +71,7 @@ See `internal/auth/apikey_test.go` for a comprehensive example with:
 | `internal/client` | 1.2% | ❌ Minimal |
 | `internal/database` | 0.0% | ❌ **Priority** |
 | `internal/app` | 0.0% | ❌ **Priority** |
-| `internal/events` | 0.0% | ❌ **Priority** |
+| `internal/app/events` | 0.0% | ❌ **Priority** |
 | `internal/config` | 0.0% | ❌ **Priority** |
 
 ## Implementation Roadmap
@@ -111,7 +111,7 @@ Priority packages to test:
 
 - `internal/app` - Service initialization and orchestration
 - `internal/providers/aws/app` - AWS integration (with mocks)
-- `internal/events` - Event processing
+- `internal/app/events` - Event processing
 
 **Expected outcome**: Coverage 60%
 

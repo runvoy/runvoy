@@ -8,7 +8,7 @@ import (
 	"errors"
 	"net/http"
 
-	"runvoy/internal/events"
+	"runvoy/internal/app/events"
 
 	awsevents "github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"

@@ -14,9 +14,9 @@ import (
 
 	"runvoy/cmd/local/server"
 	"runvoy/internal/app"
+	"runvoy/internal/app/events"
 	"runvoy/internal/config"
 	"runvoy/internal/constants"
-	"runvoy/internal/events"
 	"runvoy/internal/logger"
 	serverPkg "runvoy/internal/server"
 )

@@ -500,12 +500,12 @@ Designed to be extended for future event types:
 - Initializes event processor
 - Starts Lambda handler
 
-**Event Routing**: `internal/events/processor.go`
+**Event Routing**: `internal/providers/aws/events/backend.go`
 - Routes events by `detail-type`
 - Ignores unknown event types (log and continue)
 - Extensible switch statement for new handlers
 
-**ECS Handler**: `internal/events/ecs_completion.go`
+**ECS Handler**: `internal/providers/aws/events/backend.go`
 - Parses ECS task events
 - Extracts execution ID from task ARN
 - Determines final status from exit code and stop reason
@@ -629,7 +629,7 @@ The platform uses WebSocket connections for real-time log streaming to clients (
 
 When an execution reaches a terminal status (SUCCEEDED, FAILED, STOPPED):
 
-1. **Event Processor** (`internal/events/ecs_completion.go`):
+1. **Event Processor** (`internal/providers/aws/events/backend.go`):
    - Updates execution record in DynamoDB with final status
    - Calls `NotifyExecutionCompletion()`
    - Queries DynamoDB for all connections for the execution ID
@@ -983,7 +983,7 @@ For MVP, the streaming log feature uses a **mixed approach**: REST API provides 
 - Best-effort delivery: logs may be dropped if connections fail or buffers overflow
 - Complements the REST API with real-time updates (reduces polling overhead)
 - Available for both RUNNING and completed executions (late-joiners can connect to receive disconnect notification)
-- Failures are logged but do not fail the event processor (see `internal/events/processor.go` line 222)
+- Failures are logged but do not fail the event processor (see `internal/providers/aws/events/backend.go`)
 
 **Client Behavior (CLI `runvoy logs <executionID>`):**
 1. Fetches entire log history from `/logs` endpoint with retry logic (handles 404 while execution starts)
@@ -1000,7 +1000,7 @@ For MVP, the streaming log feature uses a **mixed approach**: REST API provides 
 - Polls REST endpoint every 5 seconds as fallback if WebSocket unavailable or for catch-up
 - Backlog always accessible regardless of WebSocket state
 
-**Event Processor (`internal/events/processor.go`):**
+**Event Processor (`internal/providers/aws/events/backend.go`):**
 - Receives CloudWatch Logs batches and forwards to WebSocket connections (best-effort)
 - Connection failures are logged but do not fail processing
 - Sends disconnect notifications to all connected clients when execution completes

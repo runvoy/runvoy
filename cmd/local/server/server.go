@@ -8,7 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 
-	"runvoy/internal/events"
+	"runvoy/internal/app/events"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"

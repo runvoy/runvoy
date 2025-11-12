@@ -219,7 +219,7 @@ func (e *LambdaContextExtractor) ExtractRequestID(ctx context.Context) (string, 
 
 ### ✅ 3. Events Backend Interface - AWS Response Type (COMPLETED 2025-11-11)
 
-**Location:** `internal/events/backend.go`
+**Location:** `internal/app/events/backend.go`
 
 **What Was Done:**
 ✅ Generic `WebSocketResponse` type already implemented:
@@ -314,7 +314,7 @@ Ready to begin GCP support with these new simplified timelines:
 |------|---------|
 | `internal/constants/constants.go` | Removed AWS-specific constants, kept only generic ones |
 | `internal/logger/context.go` | Already had pluggable ContextExtractor pattern |
-| `internal/events/backend.go` | Already had generic WebSocketResponse type |
+| `internal/app/events/backend.go` | Already had generic WebSocketResponse type |
 | `internal/providers/aws/app/runner.go` | Updated to use `awsConstants` |
 | `internal/providers/aws/app/logs.go` | Updated to use `awsConstants` |
 | `internal/providers/aws/app/taskdef.go` | Updated 15+ constant references |
