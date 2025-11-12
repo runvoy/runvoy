@@ -35,7 +35,9 @@ Runvoy is composed of 3 main parts:
 - a web app client (<https://runvoy.site>, or self hosted), currently supporting only the logs view, with plans to map 1:1 with the CLI commands
 - a backend running on your AWS account (with plans to support other cloud providers in the future) which exposes the HTTP API endpoint and interacts with the cloud resources
 
-Runvoy tries to simplify the requirements for running any kind of "priviledged" application (Terraform, Ansible, Kubectl, etc.) without distributing admin credentials. Workstations shouldn't be snowflakes that need complex setups, just a single API key to interact with the backend. The remote containers run the actual commands in a privileged, production grade environment.
+Runvoy tries to simplify the requirements for running any kind of "priviledged" application (Terraform, Ansible, Kubectl, etc.) without distributing admin credentials.
+
+Workstations shouldn't be snowflakes that need complex setups, just a single API key to interact with the backend. Let remote containers (_run envoys..._) execute the actual commands in a privileged, production grade environment.
 
 **Key Benefits:**
 
@@ -166,7 +168,7 @@ runvoy --help
 ```
 
 ```text
-runvoy - 0.1.0-20251112-6daabb0
+runvoy - 0.1.0-20251112-9b83cfb
 Isolated, repeatable execution environments for your commands
 
 Usage:
