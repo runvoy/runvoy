@@ -5,11 +5,11 @@ package lambdaapi
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 
 	"runvoy/internal/app/events"
 
-	awsevents "github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
 )
 
@@ -21,24 +21,21 @@ func NewEventProcessorHandler(processor events.Processor) lambda.Handler {
 	return lambda.NewHandler(func(
 		ctx context.Context,
 		rawEvent *json.RawMessage,
-	) (awsevents.APIGatewayProxyResponse, error) {
+	) (json.RawMessage, error) {
 		result, err := processor.Handle(ctx, rawEvent)
 		if err != nil {
-			return awsevents.APIGatewayProxyResponse{
-				StatusCode: http.StatusInternalServerError,
-				Body:       err.Error(),
-			}, err
+			return json.RawMessage(
+				fmt.Sprintf(`{"status_code": %d, "body": %q}`,
+					http.StatusInternalServerError, err.Error(),
+				),
+			), err
 		}
 
 		if result != nil {
-			if awsResp, ok := result.(awsevents.APIGatewayProxyResponse); ok {
-				return awsResp, nil
-			}
+			return *result, nil
 		}
 
 		// Some events like logs don't expect a response, so we return a 200 OK
-		return awsevents.APIGatewayProxyResponse{
-			StatusCode: http.StatusOK,
-		}, nil
+		return json.RawMessage(fmt.Sprintf(`{"status_code": %d, "body": "OK"}`, http.StatusOK)), nil
 	})
 }

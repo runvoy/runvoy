@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"testing"
 
 	"github.com/aws/aws-lambda-go/events"
@@ -12,11 +13,11 @@ import (
 
 // Mock processor for testing
 type mockProcessor struct {
-	handleFunc          func(ctx context.Context, rawEvent *json.RawMessage) (any, error)
+	handleFunc          func(ctx context.Context, rawEvent *json.RawMessage) (*json.RawMessage, error)
 	handleEventJSONFunc func(ctx context.Context, eventJSON *json.RawMessage) error
 }
 
-func (m *mockProcessor) Handle(ctx context.Context, rawEvent *json.RawMessage) (any, error) {
+func (m *mockProcessor) Handle(ctx context.Context, rawEvent *json.RawMessage) (*json.RawMessage, error) {
 	if m.handleFunc != nil {
 		return m.handleFunc(ctx, rawEvent)
 	}
@@ -34,7 +35,7 @@ func TestHandleEvent_IgnoresUnknownEventType(t *testing.T) {
 	ctx := context.Background()
 
 	processor := &mockProcessor{
-		handleFunc: func(_ context.Context, _ *json.RawMessage) (any, error) {
+		handleFunc: func(_ context.Context, _ *json.RawMessage) (*json.RawMessage, error) {
 			return nil, fmt.Errorf("unhandled event type")
 		},
 	}
@@ -92,7 +93,7 @@ func TestHandle_CloudEvent(t *testing.T) {
 	handled := false
 
 	processor := &mockProcessor{
-		handleFunc: func(_ context.Context, _ *json.RawMessage) (any, error) {
+		handleFunc: func(_ context.Context, _ *json.RawMessage) (*json.RawMessage, error) {
 			handled = true
 			return nil, nil
 		},
@@ -117,7 +118,7 @@ func TestHandle_LogsEvent(t *testing.T) {
 	handled := false
 
 	processor := &mockProcessor{
-		handleFunc: func(_ context.Context, _ *json.RawMessage) (any, error) {
+		handleFunc: func(_ context.Context, _ *json.RawMessage) (*json.RawMessage, error) {
 			handled = true
 			return nil, nil
 		},
@@ -135,10 +136,14 @@ func TestHandle_WebSocketEvent(t *testing.T) {
 	ctx := context.Background()
 	handled := false
 
+	expectedResponse := events.APIGatewayProxyResponse{StatusCode: http.StatusOK}
+	respBytes, _ := json.Marshal(expectedResponse)
+
 	processor := &mockProcessor{
-		handleFunc: func(_ context.Context, _ *json.RawMessage) (any, error) {
+		handleFunc: func(_ context.Context, _ *json.RawMessage) (*json.RawMessage, error) {
 			handled = true
-			return events.APIGatewayProxyResponse{StatusCode: 200}, nil
+			raw := json.RawMessage(respBytes)
+			return &raw, nil
 		},
 	}
 
@@ -149,7 +154,7 @@ func TestHandle_WebSocketEvent(t *testing.T) {
 	assert.NotNil(t, result)
 	assert.True(t, handled, "WebSocket event should have been handled")
 
-	resp, ok := result.(events.APIGatewayProxyResponse)
-	assert.True(t, ok)
-	assert.Equal(t, 200, resp.StatusCode)
+	var resp events.APIGatewayProxyResponse
+	assert.NoError(t, json.Unmarshal(*result, &resp))
+	assert.Equal(t, expectedResponse.StatusCode, resp.StatusCode)
 }
