@@ -168,7 +168,7 @@ runvoy --help
 ```
 
 ```text
-runvoy - 0.1.0-20251112-def0ed7
+runvoy - 0.1.0-20251112-2a0d00b
 Isolated, repeatable execution environments for your commands
 
 Usage:
@@ -183,6 +183,7 @@ Available Commands:
   kill        Kill a running command execution
   list        List executions
   logs        Get logs for an execution
+  playbook    Manage and execute playbooks
   run         Run a command
   secrets     Secrets management commands
   status      Get the status of a command execution

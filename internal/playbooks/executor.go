@@ -2,6 +2,7 @@
 package playbooks
 
 import (
+	"maps"
 	"runvoy/internal/api"
 	"strings"
 )
@@ -24,12 +25,8 @@ func (e *PlaybookExecutor) ToExecutionRequest(
 	command := strings.Join(playbook.Commands, " && ")
 
 	env := make(map[string]string)
-	for k, v := range playbook.Env {
-		env[k] = v
-	}
-	for k, v := range userEnv {
-		env[k] = v
-	}
+	maps.Copy(env, playbook.Env)
+	maps.Copy(env, userEnv)
 
 	secrets := make([]string, 0, len(playbook.Secrets)+len(userSecrets))
 	secrets = append(secrets, playbook.Secrets...)

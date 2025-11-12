@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"runvoy/internal/api"
@@ -30,7 +31,7 @@ func (l *PlaybookLoader) GetPlaybookDir() (string, error) {
 	}
 
 	playbookDir := filepath.Join(cwd, constants.PlaybookDirName)
-	if _, err := os.Stat(playbookDir); err == nil {
+	if _, statErr := os.Stat(playbookDir); statErr == nil {
 		return playbookDir, nil
 	}
 
@@ -51,7 +52,7 @@ func (l *PlaybookLoader) ListPlaybooks() ([]string, error) {
 		return []string{}, nil
 	}
 
-	if _, err := os.Stat(playbookDir); os.IsNotExist(err) {
+	if _, statErr := os.Stat(playbookDir); os.IsNotExist(statErr) {
 		return []string{}, nil
 	}
 
@@ -67,12 +68,9 @@ func (l *PlaybookLoader) ListPlaybooks() ([]string, error) {
 		}
 
 		ext := filepath.Ext(entry.Name())
-		for _, validExt := range constants.PlaybookFileExtensions {
-			if ext == validExt {
-				name := strings.TrimSuffix(entry.Name(), ext)
-				playbooks = append(playbooks, name)
-				break
-			}
+		if slices.Contains(constants.PlaybookFileExtensions, ext) {
+			name := strings.TrimSuffix(entry.Name(), ext)
+			playbooks = append(playbooks, name)
 		}
 	}
 
@@ -90,7 +88,7 @@ func (l *PlaybookLoader) LoadPlaybook(name string) (*api.Playbook, error) {
 	var found bool
 	for _, ext := range constants.PlaybookFileExtensions {
 		candidatePath := filepath.Join(playbookDir, name+ext)
-		if _, err := os.Stat(candidatePath); err == nil {
+		if _, statErr := os.Stat(candidatePath); statErr == nil {
 			playbookPath = candidatePath
 			found = true
 			break
@@ -101,18 +99,18 @@ func (l *PlaybookLoader) LoadPlaybook(name string) (*api.Playbook, error) {
 		return nil, fmt.Errorf("playbook not found: %s", name)
 	}
 
-	data, err := os.ReadFile(playbookPath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read playbook file: %w", err)
+	data, readErr := os.ReadFile(playbookPath) //nolint:gosec // G304: playbookPath is validated before use
+	if readErr != nil {
+		return nil, fmt.Errorf("failed to read playbook file: %w", readErr)
 	}
 
 	var playbook api.Playbook
-	if err := yaml.Unmarshal(data, &playbook); err != nil {
-		return nil, fmt.Errorf("failed to parse playbook YAML in %s: %w", playbookPath, err)
+	if unmarshalErr := yaml.Unmarshal(data, &playbook); unmarshalErr != nil {
+		return nil, fmt.Errorf("failed to parse playbook YAML in %s: %w", playbookPath, unmarshalErr)
 	}
 
-	if err := l.validatePlaybook(&playbook); err != nil {
-		return nil, fmt.Errorf("invalid playbook %s: %w", name, err)
+	if validateErr := l.validatePlaybook(&playbook); validateErr != nil {
+		return nil, fmt.Errorf("invalid playbook %s: %w", name, validateErr)
 	}
 
 	return &playbook, nil

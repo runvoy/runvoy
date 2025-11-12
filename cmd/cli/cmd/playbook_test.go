@@ -17,7 +17,7 @@ func TestPlaybookService_ListPlaybooks(t *testing.T) {
 	t.Run("lists playbooks successfully", func(t *testing.T) {
 		tmpDir := t.TempDir()
 		playbookDir := filepath.Join(tmpDir, ".runvoy")
-		err := os.MkdirAll(playbookDir, 0755)
+		err := os.MkdirAll(playbookDir, 0750)
 		require.NoError(t, err)
 
 		yamlContent1 := `description: First playbook
@@ -28,14 +28,14 @@ commands:
 commands:
   - echo world
 `
-		err = os.WriteFile(filepath.Join(playbookDir, "playbook1.yaml"), []byte(yamlContent1), 0644)
+		err = os.WriteFile(filepath.Join(playbookDir, "playbook1.yaml"), []byte(yamlContent1), 0600)
 		require.NoError(t, err)
-		err = os.WriteFile(filepath.Join(playbookDir, "playbook2.yaml"), []byte(yamlContent2), 0644)
+		err = os.WriteFile(filepath.Join(playbookDir, "playbook2.yaml"), []byte(yamlContent2), 0600)
 		require.NoError(t, err)
 
 		oldWd, err := os.Getwd()
 		require.NoError(t, err)
-		defer os.Chdir(oldWd)
+		defer func() { _ = os.Chdir(oldWd) }()
 
 		err = os.Chdir(tmpDir)
 		require.NoError(t, err)
@@ -68,7 +68,7 @@ commands:
 
 		oldWd, err := os.Getwd()
 		require.NoError(t, err)
-		defer os.Chdir(oldWd)
+		defer func() { _ = os.Chdir(oldWd) }()
 
 		err = os.Chdir(tmpDir)
 		require.NoError(t, err)
@@ -94,7 +94,7 @@ func TestPlaybookService_ShowPlaybook(t *testing.T) {
 	t.Run("shows playbook details", func(t *testing.T) {
 		tmpDir := t.TempDir()
 		playbookDir := filepath.Join(tmpDir, ".runvoy")
-		err := os.MkdirAll(playbookDir, 0755)
+		err := os.MkdirAll(playbookDir, 0750)
 		require.NoError(t, err)
 
 		yamlContent := `description: Test playbook
@@ -110,12 +110,12 @@ commands:
   - echo hello
   - echo world
 `
-		err = os.WriteFile(filepath.Join(playbookDir, "test.yaml"), []byte(yamlContent), 0644)
+		err = os.WriteFile(filepath.Join(playbookDir, "test.yaml"), []byte(yamlContent), 0600)
 		require.NoError(t, err)
 
 		oldWd, err := os.Getwd()
 		require.NoError(t, err)
-		defer os.Chdir(oldWd)
+		defer func() { _ = os.Chdir(oldWd) }()
 
 		err = os.Chdir(tmpDir)
 		require.NoError(t, err)
@@ -152,7 +152,7 @@ commands:
 
 		oldWd, err := os.Getwd()
 		require.NoError(t, err)
-		defer os.Chdir(oldWd)
+		defer func() { _ = os.Chdir(oldWd) }()
 
 		err = os.Chdir(tmpDir)
 		require.NoError(t, err)
@@ -171,19 +171,19 @@ func TestPlaybookService_RunPlaybook(t *testing.T) {
 	t.Run("executes playbook successfully", func(t *testing.T) {
 		tmpDir := t.TempDir()
 		playbookDir := filepath.Join(tmpDir, ".runvoy")
-		err := os.MkdirAll(playbookDir, 0755)
+		err := os.MkdirAll(playbookDir, 0750)
 		require.NoError(t, err)
 
 		yamlContent := `description: Test playbook
 commands:
   - echo hello
 `
-		err = os.WriteFile(filepath.Join(playbookDir, "test.yaml"), []byte(yamlContent), 0644)
+		err = os.WriteFile(filepath.Join(playbookDir, "test.yaml"), []byte(yamlContent), 0600)
 		require.NoError(t, err)
 
 		oldWd, err := os.Getwd()
 		require.NoError(t, err)
-		defer os.Chdir(oldWd)
+		defer func() { _ = os.Chdir(oldWd) }()
 
 		err = os.Chdir(tmpDir)
 		require.NoError(t, err)
@@ -211,7 +211,7 @@ commands:
 		runService := NewRunService(mockClient, mockOutput)
 		service := NewPlaybookService(loader, executor, mockOutput)
 
-		overrides := PlaybookOverrides{}
+		overrides := &PlaybookOverrides{}
 		err = service.RunPlaybook(context.Background(), "test", nil, overrides, "", runService)
 		assert.NoError(t, err)
 
@@ -227,7 +227,7 @@ commands:
 	t.Run("applies overrides correctly", func(t *testing.T) {
 		tmpDir := t.TempDir()
 		playbookDir := filepath.Join(tmpDir, ".runvoy")
-		err := os.MkdirAll(playbookDir, 0755)
+		err := os.MkdirAll(playbookDir, 0750)
 		require.NoError(t, err)
 
 		yamlContent := `description: Test playbook
@@ -235,12 +235,12 @@ image: original/image:latest
 commands:
   - echo hello
 `
-		err = os.WriteFile(filepath.Join(playbookDir, "test.yaml"), []byte(yamlContent), 0644)
+		err = os.WriteFile(filepath.Join(playbookDir, "test.yaml"), []byte(yamlContent), 0600)
 		require.NoError(t, err)
 
 		oldWd, err := os.Getwd()
 		require.NoError(t, err)
-		defer os.Chdir(oldWd)
+		defer func() { _ = os.Chdir(oldWd) }()
 
 		err = os.Chdir(tmpDir)
 		require.NoError(t, err)
@@ -268,7 +268,7 @@ commands:
 		runService := NewRunService(mockClient, mockOutput)
 		service := NewPlaybookService(loader, executor, mockOutput)
 
-		overrides := PlaybookOverrides{
+		overrides := &PlaybookOverrides{
 			Image: "override/image:latest",
 		}
 		err = service.RunPlaybook(context.Background(), "test", nil, overrides, "", runService)
@@ -278,7 +278,7 @@ commands:
 	t.Run("merges user env and secrets", func(t *testing.T) {
 		tmpDir := t.TempDir()
 		playbookDir := filepath.Join(tmpDir, ".runvoy")
-		err := os.MkdirAll(playbookDir, 0755)
+		err := os.MkdirAll(playbookDir, 0750)
 		require.NoError(t, err)
 
 		yamlContent := `secrets:
@@ -288,12 +288,12 @@ env:
 commands:
   - echo hello
 `
-		err = os.WriteFile(filepath.Join(playbookDir, "test.yaml"), []byte(yamlContent), 0644)
+		err = os.WriteFile(filepath.Join(playbookDir, "test.yaml"), []byte(yamlContent), 0600)
 		require.NoError(t, err)
 
 		oldWd, err := os.Getwd()
 		require.NoError(t, err)
-		defer os.Chdir(oldWd)
+		defer func() { _ = os.Chdir(oldWd) }()
 
 		err = os.Chdir(tmpDir)
 		require.NoError(t, err)
@@ -327,7 +327,7 @@ commands:
 		userEnv := map[string]string{
 			"USER_KEY": "user-value",
 		}
-		overrides := PlaybookOverrides{
+		overrides := &PlaybookOverrides{
 			Secrets: []string{"user-secret"},
 		}
 		err = service.RunPlaybook(context.Background(), "test", userEnv, overrides, "", runService)
@@ -338,14 +338,14 @@ commands:
 func TestApplyOverrides(t *testing.T) {
 	t.Run("applies all overrides", func(t *testing.T) {
 		pb := &api.Playbook{
-			Image:   "original/image:latest",
-			GitRepo: "https://github.com/original/repo.git",
-			GitRef:  "main",
-			GitPath: "/original",
+			Image:    "original/image:latest",
+			GitRepo:  "https://github.com/original/repo.git",
+			GitRef:   "main",
+			GitPath:  "/original",
 			Commands: []string{"echo hello"},
 		}
 
-		overrides := PlaybookOverrides{
+		overrides := &PlaybookOverrides{
 			Image:   "override/image:latest",
 			GitRepo: "https://github.com/override/repo.git",
 			GitRef:  "develop",
@@ -362,12 +362,12 @@ func TestApplyOverrides(t *testing.T) {
 
 	t.Run("preserves original values when override is empty", func(t *testing.T) {
 		pb := &api.Playbook{
-			Image:   "original/image:latest",
-			GitRepo: "https://github.com/original/repo.git",
+			Image:    "original/image:latest",
+			GitRepo:  "https://github.com/original/repo.git",
 			Commands: []string{"echo hello"},
 		}
 
-		overrides := PlaybookOverrides{
+		overrides := &PlaybookOverrides{
 			Image: "override/image:latest",
 		}
 
@@ -377,4 +377,3 @@ func TestApplyOverrides(t *testing.T) {
 		assert.Equal(t, "https://github.com/original/repo.git", pb.GitRepo)
 	})
 }
-

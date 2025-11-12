@@ -96,7 +96,7 @@ func playbookRunRun(cmd *cobra.Command, args []string) {
 
 	userEnv := extractUserEnvVars(os.Environ())
 
-	overrides := PlaybookOverrides{
+	overrides := &PlaybookOverrides{
 		Image:   image,
 		GitRepo: gitRepo,
 		GitRef:  gitRef,
@@ -109,8 +109,8 @@ func playbookRunRun(cmd *cobra.Command, args []string) {
 		webURL = cfg.WebURL
 	}
 
-	if err := service.RunPlaybook(cmd.Context(), name, userEnv, overrides, webURL, runService); err != nil {
-		output.Errorf(err.Error())
+	if runErr := service.RunPlaybook(cmd.Context(), name, userEnv, overrides, webURL, runService); runErr != nil {
+		output.Errorf(runErr.Error())
 	}
 }
 
@@ -122,7 +122,11 @@ type PlaybookService struct {
 }
 
 // NewPlaybookService creates a new PlaybookService
-func NewPlaybookService(loader *playbooks.PlaybookLoader, executor *playbooks.PlaybookExecutor, outputter OutputInterface) *PlaybookService {
+func NewPlaybookService(
+	loader *playbooks.PlaybookLoader,
+	executor *playbooks.PlaybookExecutor,
+	outputter OutputInterface,
+) *PlaybookService {
 	return &PlaybookService{
 		loader:   loader,
 		executor: executor,
@@ -140,7 +144,7 @@ type PlaybookOverrides struct {
 }
 
 // ListPlaybooks lists all available playbooks
-func (s *PlaybookService) ListPlaybooks(ctx context.Context) error {
+func (s *PlaybookService) ListPlaybooks(_ context.Context) error {
 	s.output.Infof("Discovering playbooks…")
 
 	names, err := s.loader.ListPlaybooks()
@@ -153,17 +157,17 @@ func (s *PlaybookService) ListPlaybooks(ctx context.Context) error {
 		return nil
 	}
 
-	playbooks := make([]*api.Playbook, 0, len(names))
+	playbookList := make([]*api.Playbook, 0, len(names))
 	for _, name := range names {
-		pb, err := s.loader.LoadPlaybook(name)
-		if err != nil {
-			s.output.Warningf("Failed to load playbook %s: %v", name, err)
+		pb, loadErr := s.loader.LoadPlaybook(name)
+		if loadErr != nil {
+			s.output.Warningf("Failed to load playbook %s: %v", name, loadErr)
 			continue
 		}
-		playbooks = append(playbooks, pb)
+		playbookList = append(playbookList, pb)
 	}
 
-	rows := s.formatPlaybooks(playbooks, names)
+	rows := s.formatPlaybooks(playbookList, names)
 
 	s.output.Blank()
 	s.output.Table(
@@ -171,14 +175,14 @@ func (s *PlaybookService) ListPlaybooks(ctx context.Context) error {
 		rows,
 	)
 	s.output.Blank()
-	s.output.Successf("Found %d playbook(s)", len(playbooks))
+	s.output.Successf("Found %d playbook(s)", len(playbookList))
 	return nil
 }
 
 // formatPlaybooks formats playbook data into table rows
-func (s *PlaybookService) formatPlaybooks(playbooks []*api.Playbook, names []string) [][]string {
-	rows := make([][]string, 0, len(playbooks))
-	for i, pb := range playbooks {
+func (s *PlaybookService) formatPlaybooks(playbookList []*api.Playbook, names []string) [][]string {
+	rows := make([][]string, 0, len(playbookList))
+	for i, pb := range playbookList {
 		description := pb.Description
 		if description == "" {
 			description = "-"
@@ -192,7 +196,7 @@ func (s *PlaybookService) formatPlaybooks(playbooks []*api.Playbook, names []str
 }
 
 // ShowPlaybook displays the full content of a playbook
-func (s *PlaybookService) ShowPlaybook(ctx context.Context, name string) error {
+func (s *PlaybookService) ShowPlaybook(_ context.Context, name string) error {
 	pb, err := s.loader.LoadPlaybook(name)
 	if err != nil {
 		return fmt.Errorf("failed to load playbook: %w", err)
@@ -236,13 +240,13 @@ func (s *PlaybookService) RunPlaybook(
 	ctx context.Context,
 	name string,
 	userEnv map[string]string,
-	overrides PlaybookOverrides,
+	overrides *PlaybookOverrides,
 	webURL string,
 	runService *RunService,
 ) error {
-	pb, err := s.loader.LoadPlaybook(name)
-	if err != nil {
-		return fmt.Errorf("failed to load playbook: %w", err)
+	pb, loadErr := s.loader.LoadPlaybook(name)
+	if loadErr != nil {
+		return fmt.Errorf("failed to load playbook: %w", loadErr)
 	}
 
 	s.output.Infof("Executing playbook: %s", s.output.Bold(name))
@@ -262,15 +266,15 @@ func (s *PlaybookService) RunPlaybook(
 		WebURL:  webURL,
 	}
 
-	if err := runService.ExecuteCommand(ctx, &req); err != nil {
-		return fmt.Errorf("failed to execute playbook: %w", err)
+	if execErr := runService.ExecuteCommand(ctx, &req); execErr != nil {
+		return fmt.Errorf("failed to execute playbook: %w", execErr)
 	}
 
 	return nil
 }
 
 // applyOverrides applies CLI flag overrides to a playbook
-func applyOverrides(pb *api.Playbook, overrides PlaybookOverrides) {
+func applyOverrides(pb *api.Playbook, overrides *PlaybookOverrides) {
 	if overrides.Image != "" {
 		pb.Image = overrides.Image
 	}
