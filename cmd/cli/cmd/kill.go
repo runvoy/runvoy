@@ -58,7 +58,7 @@ func (s *KillService) KillExecution(ctx context.Context, executionID string) err
 		return fmt.Errorf("failed to kill execution: %w", err)
 	}
 
-	s.output.Successf("Execution killed successfully")
+	s.output.Successf("Execution kill started successfully")
 	s.output.KeyValue("Execution ID", resp.ExecutionID)
 	s.output.KeyValue("Message", resp.Message)
 	return nil

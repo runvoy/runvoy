@@ -532,7 +532,7 @@ func TestClient_KillExecution(t *testing.T) { //nolint:dupl
 			w.WriteHeader(http.StatusOK)
 			_ = json.NewEncoder(w).Encode(api.KillExecutionResponse{
 				ExecutionID: "exec-123",
-				Message:     "Execution killed successfully",
+				Message:     "Execution kill started successfully",
 			})
 		}))
 		defer server.Close()
@@ -548,7 +548,7 @@ func TestClient_KillExecution(t *testing.T) { //nolint:dupl
 		require.NoError(t, err)
 		require.NotNil(t, resp)
 		assert.Equal(t, "exec-123", resp.ExecutionID)
-		assert.Equal(t, "Execution killed successfully", resp.Message)
+		assert.Equal(t, "Execution kill started successfully", resp.Message)
 	})
 }
 
