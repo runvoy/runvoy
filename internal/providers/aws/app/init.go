@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log/slog"
 
-	"runvoy/internal/api"
 	"runvoy/internal/config"
 	"runvoy/internal/database"
 	"runvoy/internal/logger"
@@ -20,31 +19,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/ssm"
 )
 
-// SecretsManager is an interface for managing secrets.
-// This is defined here to avoid circular imports with internal/app.
-type SecretsManager interface {
-	// CreateSecret creates a new secret.
-	// The secret's CreatedBy field must be set by the caller.
-	CreateSecret(ctx context.Context, secret *api.Secret) error
-
-	// GetSecret retrieves a secret's metadata and optionally its value by name.
-	// If includeValue is true, the secret value will be decrypted and included in the response.
-	GetSecret(ctx context.Context, name string, includeValue bool) (*api.Secret, error)
-
-	// ListSecrets retrieves all secrets with optionally their values.
-	// If includeValue is true, secret values will be decrypted and included in the response.
-	ListSecrets(ctx context.Context, includeValue bool) ([]*api.Secret, error)
-
-	// UpdateSecret updates a secret's value and/or editable properties (description, keyName).
-	// The secret's UpdatedBy field must be set by the caller.
-	// The Name field identifies which secret to update.
-	// The Value, Description, and KeyName fields (if provided) will be updated.
-	UpdateSecret(ctx context.Context, secret *api.Secret) error
-
-	// DeleteSecret deletes a secret and its value.
-	DeleteSecret(ctx context.Context, name string) error
-}
-
 // Dependencies bundles the AWS-backed implementations required by the app service.
 type Dependencies struct {
 	UserRepo         database.UserRepository
@@ -53,7 +27,7 @@ type Dependencies struct {
 	TokenRepo        database.TokenRepository
 	Runner           *Runner
 	WebSocketManager *awsWebsocket.Manager
-	SecretsManager   SecretsManager
+	SecretsRepo      database.SecretsRepository
 }
 
 // Initialize prepares AWS service dependencies for the app package.
@@ -108,9 +82,6 @@ func Initialize(
 	runner := NewRunner(ecsClient, runnerCfg, log)
 	wsManager := awsWebsocket.NewManager(cfg, &awsCfg, connectionRepo, tokenRepo, log)
 
-	// Create an adapter that implements app.SecretsManager using the repository
-	secretsManager := NewSecretsManagerAdapter(secretsRepo)
-
 	return &Dependencies{
 		UserRepo:         userRepo,
 		ExecutionRepo:    executionRepo,
@@ -118,6 +89,6 @@ func Initialize(
 		TokenRepo:        tokenRepo,
 		Runner:           runner,
 		WebSocketManager: wsManager,
-		SecretsManager:   secretsManager,
+		SecretsRepo:      secretsRepo,
 	}, nil
 }

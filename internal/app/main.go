@@ -43,44 +43,17 @@ type Runner interface {
 	FetchLogsByExecutionID(ctx context.Context, executionID string) ([]api.LogEvent, error)
 }
 
-// SecretsManager is the interface for managing secrets.
-// Implementations handle both metadata storage and value encryption/storage.
-type SecretsManager interface {
-	// CreateSecret creates a new secret.
-	// The secret's CreatedBy field must be set by the caller.
-	CreateSecret(ctx context.Context, secret *api.Secret) error
-
-	// GetSecret retrieves a secret's metadata and optionally its value by name.
-	// If includeValue is true, the secret value will be decrypted and included in the response.
-	GetSecret(ctx context.Context, name string, includeValue bool) (*api.Secret, error)
-
-	// ListSecrets retrieves all secrets with optionally their values.
-	// If includeValue is true, secret values will be decrypted and included in the response.
-	ListSecrets(ctx context.Context, includeValue bool) ([]*api.Secret, error)
-
-	// UpdateSecret updates a secret's value and/or editable properties (description, keyName).
-	// The secret's UpdatedAt timestamp is always refreshed by the implementation,
-	// ignoring the provided timestamp in the secret input.
-	// The secret's UpdatedBy field must be set by the caller.
-	// The Name field identifies which secret to update.
-	// The Value, Description, and KeyName fields (if provided) will be updated.
-	UpdateSecret(ctx context.Context, secret *api.Secret) error
-
-	// DeleteSecret deletes a secret.
-	DeleteSecret(ctx context.Context, name string) error
-}
-
 // Service provides the core business logic for command execution and user management.
 type Service struct {
-	userRepo       database.UserRepository
-	executionRepo  database.ExecutionRepository
-	connRepo       database.ConnectionRepository
-	tokenRepo      database.TokenRepository
-	runner         Runner
-	Logger         *slog.Logger
-	Provider       constants.BackendProvider
-	wsManager      websocket.Manager // WebSocket manager for generating URLs and managing connections
-	secretsManager SecretsManager    // Secrets manager for managing secrets (metadata + values)
+	userRepo      database.UserRepository
+	executionRepo database.ExecutionRepository
+	connRepo      database.ConnectionRepository
+	tokenRepo     database.TokenRepository
+	runner        Runner
+	Logger        *slog.Logger
+	Provider      constants.BackendProvider
+	wsManager     websocket.Manager          // WebSocket manager for generating URLs and managing connections
+	secretsRepo   database.SecretsRepository // Repository for managing secrets
 }
 
 // NOTE: provider-specific configuration has been moved to subpackages (e.g., providers/aws/app).
@@ -89,7 +62,7 @@ type Service struct {
 // If userRepo is nil, user-related operations will not be available.
 // This allows the service to work without database dependencies for simple operations.
 // If wsManager is nil, WebSocket URL generation will be skipped.
-// If secretsManager is nil, secrets operations will not be available.
+// If secretsRepo is nil, secrets operations will not be available.
 func NewService(
 	userRepo database.UserRepository,
 	executionRepo database.ExecutionRepository,
@@ -99,17 +72,17 @@ func NewService(
 	log *slog.Logger,
 	provider constants.BackendProvider,
 	wsManager websocket.Manager,
-	secretsManager SecretsManager) *Service {
+	secretsRepo database.SecretsRepository) *Service {
 	return &Service{
-		userRepo:       userRepo,
-		executionRepo:  executionRepo,
-		connRepo:       connRepo,
-		tokenRepo:      tokenRepo,
-		runner:         runner,
-		Logger:         log,
-		Provider:       provider,
-		wsManager:      wsManager,
-		secretsManager: secretsManager,
+		userRepo:      userRepo,
+		executionRepo: executionRepo,
+		connRepo:      connRepo,
+		tokenRepo:     tokenRepo,
+		runner:        runner,
+		Logger:        log,
+		Provider:      provider,
+		wsManager:     wsManager,
+		secretsRepo:   secretsRepo,
 	}
 }
 
@@ -119,8 +92,8 @@ func (s *Service) CreateSecret(
 	req *api.CreateSecretRequest,
 	userEmail string,
 ) (*api.Secret, error) {
-	if s.secretsManager == nil {
-		return nil, apperrors.ErrInternalError("secrets service not available", fmt.Errorf("secretsManager is nil"))
+	if s.secretsRepo == nil {
+		return nil, apperrors.ErrInternalError("secrets repository not available", fmt.Errorf("secretsRepo is nil"))
 	}
 	secret := &api.Secret{
 		Name:        req.Name,
@@ -129,26 +102,26 @@ func (s *Service) CreateSecret(
 		Value:       req.Value,
 		CreatedBy:   userEmail,
 	}
-	if err := s.secretsManager.CreateSecret(ctx, secret); err != nil {
+	if err := s.secretsRepo.CreateSecret(ctx, secret); err != nil {
 		return nil, err
 	}
-	return s.secretsManager.GetSecret(ctx, req.Name, true)
+	return s.secretsRepo.GetSecret(ctx, req.Name, true)
 }
 
 // GetSecret retrieves a secret's metadata and value by name.
 func (s *Service) GetSecret(ctx context.Context, name string) (*api.Secret, error) {
-	if s.secretsManager == nil {
-		return nil, apperrors.ErrInternalError("secrets service not available", fmt.Errorf("secretsManager is nil"))
+	if s.secretsRepo == nil {
+		return nil, apperrors.ErrInternalError("secrets repository not available", fmt.Errorf("secretsRepo is nil"))
 	}
-	return s.secretsManager.GetSecret(ctx, name, true)
+	return s.secretsRepo.GetSecret(ctx, name, true)
 }
 
 // ListSecrets retrieves all secrets with values
 func (s *Service) ListSecrets(ctx context.Context) ([]*api.Secret, error) {
-	if s.secretsManager == nil {
-		return nil, apperrors.ErrInternalError("secrets service not available", fmt.Errorf("secretsManager is nil"))
+	if s.secretsRepo == nil {
+		return nil, apperrors.ErrInternalError("secrets repository not available", fmt.Errorf("secretsRepo is nil"))
 	}
-	return s.secretsManager.ListSecrets(ctx, true)
+	return s.secretsRepo.ListSecrets(ctx, true)
 }
 
 // UpdateSecret updates a secret (metadata and/or value).
@@ -158,28 +131,21 @@ func (s *Service) UpdateSecret(
 	req *api.UpdateSecretRequest,
 	userEmail string,
 ) (*api.Secret, error) {
-	if s.secretsManager == nil {
-		return nil, apperrors.ErrInternalError("secrets service not available", fmt.Errorf("secretsManager is nil"))
+	if s.secretsRepo == nil {
+		return nil, apperrors.ErrInternalError("secrets repository not available", fmt.Errorf("secretsRepo is nil"))
 	}
-	secret := &api.Secret{
-		Name:        name,
-		Description: req.Description,
-		KeyName:     req.KeyName,
-		Value:       req.Value,
-		UpdatedBy:   userEmail,
-	}
-	if err := s.secretsManager.UpdateSecret(ctx, secret); err != nil {
+	if err := s.secretsRepo.UpdateSecret(ctx, name, req, userEmail); err != nil {
 		return nil, err
 	}
-	return s.secretsManager.GetSecret(ctx, name, true)
+	return s.secretsRepo.GetSecret(ctx, name, true)
 }
 
 // DeleteSecret deletes a secret and its value.
 func (s *Service) DeleteSecret(ctx context.Context, name string) error {
-	if s.secretsManager == nil {
-		return apperrors.ErrInternalError("secrets service not available", fmt.Errorf("secretsManager is nil"))
+	if s.secretsRepo == nil {
+		return apperrors.ErrInternalError("secrets repository not available", fmt.Errorf("secretsRepo is nil"))
 	}
-	return s.secretsManager.DeleteSecret(ctx, name)
+	return s.secretsRepo.DeleteSecret(ctx, name)
 }
 
 // validateCreateUserRequest validates the email in the create user request.

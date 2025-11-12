@@ -60,28 +60,30 @@ func (sr *SecretsRepository) CreateSecret(
 	return nil
 }
 
-// GetSecret retrieves a secret with its metadata and value.
-func (sr *SecretsRepository) GetSecret(ctx context.Context, name string) (*api.Secret, error) {
+// GetSecret retrieves a secret with its metadata and optionally its value.
+func (sr *SecretsRepository) GetSecret(ctx context.Context, name string, includeValue bool) (*api.Secret, error) {
 	// Get the metadata
 	secret, err := sr.metadataRepo.GetSecret(ctx, name)
 	if err != nil {
 		return nil, err
 	}
 
-	// Get the value
-	value, err := sr.valueStore.RetrieveSecret(ctx, name)
-	if err != nil {
-		sr.logger.Debug("failed to retrieve secret value", "error", err, "name", name)
-		// Don't fail if value retrieval fails - return metadata only
-		return secret, nil
+	// Get the value if requested
+	if includeValue {
+		value, valueErr := sr.valueStore.RetrieveSecret(ctx, name)
+		if valueErr != nil {
+			sr.logger.Debug("failed to retrieve secret value", "error", valueErr, "name", name)
+			// Don't fail if value retrieval fails - return metadata only
+			return secret, nil
+		}
+		secret.Value = value
 	}
 
-	secret.Value = value
 	return secret, nil
 }
 
-// ListSecrets retrieves all secrets with their values.
-func (sr *SecretsRepository) ListSecrets(ctx context.Context) ([]*api.Secret, error) {
+// ListSecrets retrieves all secrets with optionally their values.
+func (sr *SecretsRepository) ListSecrets(ctx context.Context, includeValue bool) ([]*api.Secret, error) {
 	// Get all metadata
 	secretList, err := sr.metadataRepo.ListSecrets(ctx)
 	if err != nil {
@@ -92,15 +94,17 @@ func (sr *SecretsRepository) ListSecrets(ctx context.Context) ([]*api.Secret, er
 		secretList = []*api.Secret{}
 	}
 
-	// Populate values for each secret
-	for _, secret := range secretList {
-		value, valueErr := sr.valueStore.RetrieveSecret(ctx, secret.Name)
-		if valueErr != nil {
-			sr.logger.Debug("failed to retrieve secret value", "error", valueErr, "name", secret.Name)
-			// Don't fail - continue with other secrets
-			continue
+	// Populate values for each secret if requested
+	if includeValue {
+		for _, secret := range secretList {
+			value, valueErr := sr.valueStore.RetrieveSecret(ctx, secret.Name)
+			if valueErr != nil {
+				sr.logger.Debug("failed to retrieve secret value", "error", valueErr, "name", secret.Name)
+				// Don't fail - continue with other secrets
+				continue
+			}
+			secret.Value = value
 		}
-		secret.Value = value
 	}
 
 	return secretList, nil

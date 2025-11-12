@@ -25,11 +25,13 @@ type SecretsRepository interface {
 	CreateSecret(ctx context.Context, secret *api.Secret) error
 
 	// GetSecret retrieves a secret by name.
+	// If includeValue is true, the secret value will be decrypted and included in the response.
 	// Returns an error if the secret is not found.
-	GetSecret(ctx context.Context, name string) (*api.Secret, error)
+	GetSecret(ctx context.Context, name string, includeValue bool) (*api.Secret, error)
 
 	// ListSecrets retrieves all secrets.
-	ListSecrets(ctx context.Context) ([]*api.Secret, error)
+	// If includeValue is true, secret values will be decrypted and included in the response.
+	ListSecrets(ctx context.Context, includeValue bool) ([]*api.Secret, error)
 
 	// UpdateSecret updates a secret's value and/or editable properties.
 	// The updatedAt timestamp is always refreshed.
