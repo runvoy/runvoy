@@ -311,3 +311,70 @@ func (c *Client) UnregisterImage(ctx context.Context, image string) (*api.Remove
 	}
 	return &resp, nil
 }
+
+// CreateSecret creates a new secret
+func (c *Client) CreateSecret(ctx context.Context, req api.CreateSecretRequest) (*api.CreateSecretResponse, error) {
+	var resp api.CreateSecretResponse
+	err := c.DoJSON(ctx, Request{
+		Method: "POST",
+		Path:   "/api/v1/secrets",
+		Body:   req,
+	}, &resp)
+	if err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
+// GetSecret retrieves a secret by name
+func (c *Client) GetSecret(ctx context.Context, name string) (*api.GetSecretResponse, error) {
+	var resp api.GetSecretResponse
+	err := c.DoJSON(ctx, Request{
+		Method: "GET",
+		Path:   fmt.Sprintf("/api/v1/secrets/%s", name),
+	}, &resp)
+	if err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
+// ListSecrets lists all secrets
+func (c *Client) ListSecrets(ctx context.Context) (*api.ListSecretsResponse, error) {
+	var resp api.ListSecretsResponse
+	err := c.DoJSON(ctx, Request{
+		Method: "GET",
+		Path:   "/api/v1/secrets",
+	}, &resp)
+	if err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
+// UpdateSecret updates a secret by name
+func (c *Client) UpdateSecret(ctx context.Context, name string, req api.UpdateSecretRequest) (*api.UpdateSecretResponse, error) {
+	var resp api.UpdateSecretResponse
+	err := c.DoJSON(ctx, Request{
+		Method: "PUT",
+		Path:   fmt.Sprintf("/api/v1/secrets/%s", name),
+		Body:   req,
+	}, &resp)
+	if err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
+// DeleteSecret deletes a secret by name
+func (c *Client) DeleteSecret(ctx context.Context, name string) (*api.DeleteSecretResponse, error) {
+	var resp api.DeleteSecretResponse
+	err := c.DoJSON(ctx, Request{
+		Method: "DELETE",
+		Path:   fmt.Sprintf("/api/v1/secrets/%s", name),
+	}, &resp)
+	if err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}

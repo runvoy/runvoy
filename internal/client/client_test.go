@@ -737,6 +737,320 @@ func TestClient_UnregisterImage(t *testing.T) { //nolint:dupl
 	})
 }
 
+func TestClient_CreateSecret(t *testing.T) {
+	t.Run("successful secret creation", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			assert.Equal(t, "POST", r.Method)
+			assert.Equal(t, "/api/v1/secrets", r.URL.Path)
+
+			var req api.CreateSecretRequest
+			_ = json.NewDecoder(r.Body).Decode(&req)
+			assert.Equal(t, "github-token", req.Name)
+			assert.Equal(t, "GITHUB_TOKEN", req.KeyName)
+			assert.Equal(t, "ghp_xxxxx", req.Value)
+			assert.Equal(t, "GitHub API token", req.Description)
+
+			w.WriteHeader(http.StatusCreated)
+			_ = json.NewEncoder(w).Encode(api.CreateSecretResponse{
+				Message: "Secret created successfully",
+			})
+		}))
+		defer server.Close()
+
+		cfg := &config.Config{
+			APIEndpoint: server.URL,
+			APIKey:      "test-api-key",
+		}
+		c := New(cfg, testutil.SilentLogger())
+
+		resp, err := c.CreateSecret(context.Background(), api.CreateSecretRequest{
+			Name:        "github-token",
+			KeyName:     "GITHUB_TOKEN",
+			Value:       "ghp_xxxxx",
+			Description: "GitHub API token",
+		})
+
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+		assert.Equal(t, "Secret created successfully", resp.Message)
+	})
+
+	t.Run("error response", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusConflict)
+			_ = json.NewEncoder(w).Encode(api.ErrorResponse{
+				Error:   "Conflict",
+				Details: "Secret already exists",
+			})
+		}))
+		defer server.Close()
+
+		cfg := &config.Config{
+			APIEndpoint: server.URL,
+			APIKey:      "test-api-key",
+		}
+		c := New(cfg, testutil.SilentLogger())
+
+		resp, err := c.CreateSecret(context.Background(), api.CreateSecretRequest{
+			Name:    "github-token",
+			KeyName: "GITHUB_TOKEN",
+			Value:   "ghp_xxxxx",
+		})
+
+		require.Error(t, err)
+		assert.Nil(t, resp)
+		assert.Contains(t, err.Error(), "Conflict")
+	})
+}
+
+func TestClient_GetSecret(t *testing.T) {
+	t.Run("successful secret retrieval", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			assert.Equal(t, "GET", r.Method)
+			assert.Equal(t, "/api/v1/secrets/github-token", r.URL.Path)
+
+			w.WriteHeader(http.StatusOK)
+			_ = json.NewEncoder(w).Encode(api.GetSecretResponse{
+				Secret: &api.Secret{
+					Name:        "github-token",
+					KeyName:     "GITHUB_TOKEN",
+					Description: "GitHub API token",
+					Value:       "ghp_xxxxx",
+					CreatedBy:   "alice@example.com",
+					CreatedAt:   time.Now().UTC(),
+					UpdatedBy:   "alice@example.com",
+					UpdatedAt:   time.Now().UTC(),
+				},
+			})
+		}))
+		defer server.Close()
+
+		cfg := &config.Config{
+			APIEndpoint: server.URL,
+			APIKey:      "test-api-key",
+		}
+		c := New(cfg, testutil.SilentLogger())
+
+		resp, err := c.GetSecret(context.Background(), "github-token")
+
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+		assert.NotNil(t, resp.Secret)
+		assert.Equal(t, "github-token", resp.Secret.Name)
+		assert.Equal(t, "GITHUB_TOKEN", resp.Secret.KeyName)
+		assert.Equal(t, "ghp_xxxxx", resp.Secret.Value)
+	})
+
+	t.Run("secret not found", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusNotFound)
+			_ = json.NewEncoder(w).Encode(api.ErrorResponse{
+				Error:   "Not Found",
+				Details: "Secret not found",
+			})
+		}))
+		defer server.Close()
+
+		cfg := &config.Config{
+			APIEndpoint: server.URL,
+			APIKey:      "test-api-key",
+		}
+		c := New(cfg, testutil.SilentLogger())
+
+		resp, err := c.GetSecret(context.Background(), "nonexistent")
+
+		require.Error(t, err)
+		assert.Nil(t, resp)
+		assert.Contains(t, err.Error(), "Not Found")
+	})
+}
+
+func TestClient_ListSecrets(t *testing.T) {
+	t.Run("successful list secrets", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			assert.Equal(t, "GET", r.Method)
+			assert.Equal(t, "/api/v1/secrets", r.URL.Path)
+
+			w.WriteHeader(http.StatusOK)
+			_ = json.NewEncoder(w).Encode(api.ListSecretsResponse{
+				Secrets: []*api.Secret{
+					{
+						Name:      "github-token",
+						KeyName:   "GITHUB_TOKEN",
+						CreatedBy: "alice@example.com",
+						CreatedAt: time.Now().UTC(),
+					},
+					{
+						Name:      "db-password",
+						KeyName:   "DB_PASSWORD",
+						CreatedBy: "bob@example.com",
+						CreatedAt: time.Now().UTC(),
+					},
+				},
+				Total: 2,
+			})
+		}))
+		defer server.Close()
+
+		cfg := &config.Config{
+			APIEndpoint: server.URL,
+			APIKey:      "test-api-key",
+		}
+		c := New(cfg, testutil.SilentLogger())
+
+		resp, err := c.ListSecrets(context.Background())
+
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+		assert.Len(t, resp.Secrets, 2)
+		assert.Equal(t, 2, resp.Total)
+		assert.Equal(t, "github-token", resp.Secrets[0].Name)
+		assert.Equal(t, "db-password", resp.Secrets[1].Name)
+	})
+
+	t.Run("empty list", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusOK)
+			_ = json.NewEncoder(w).Encode(api.ListSecretsResponse{
+				Secrets: []*api.Secret{},
+				Total:   0,
+			})
+		}))
+		defer server.Close()
+
+		cfg := &config.Config{
+			APIEndpoint: server.URL,
+			APIKey:      "test-api-key",
+		}
+		c := New(cfg, testutil.SilentLogger())
+
+		resp, err := c.ListSecrets(context.Background())
+
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+		assert.Len(t, resp.Secrets, 0)
+		assert.Equal(t, 0, resp.Total)
+	})
+}
+
+func TestClient_UpdateSecret(t *testing.T) {
+	t.Run("successful secret update", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			assert.Equal(t, "PUT", r.Method)
+			assert.Equal(t, "/api/v1/secrets/github-token", r.URL.Path)
+
+			var req api.UpdateSecretRequest
+			_ = json.NewDecoder(r.Body).Decode(&req)
+			assert.Equal(t, "GITHUB_API_TOKEN", req.KeyName)
+			assert.Equal(t, "new-token-value", req.Value)
+			assert.Equal(t, "Updated description", req.Description)
+
+			w.WriteHeader(http.StatusOK)
+			_ = json.NewEncoder(w).Encode(api.UpdateSecretResponse{
+				Message: "Secret updated successfully",
+			})
+		}))
+		defer server.Close()
+
+		cfg := &config.Config{
+			APIEndpoint: server.URL,
+			APIKey:      "test-api-key",
+		}
+		c := New(cfg, testutil.SilentLogger())
+
+		resp, err := c.UpdateSecret(context.Background(), "github-token", api.UpdateSecretRequest{
+			KeyName:     "GITHUB_API_TOKEN",
+			Value:       "new-token-value",
+			Description: "Updated description",
+		})
+
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+		assert.Equal(t, "Secret updated successfully", resp.Message)
+	})
+
+	t.Run("update only value", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			var req api.UpdateSecretRequest
+			_ = json.NewDecoder(r.Body).Decode(&req)
+			assert.Equal(t, "new-value", req.Value)
+			assert.Empty(t, req.KeyName)
+			assert.Empty(t, req.Description)
+
+			w.WriteHeader(http.StatusOK)
+			_ = json.NewEncoder(w).Encode(api.UpdateSecretResponse{
+				Message: "Secret updated successfully",
+			})
+		}))
+		defer server.Close()
+
+		cfg := &config.Config{
+			APIEndpoint: server.URL,
+			APIKey:      "test-api-key",
+		}
+		c := New(cfg, testutil.SilentLogger())
+
+		resp, err := c.UpdateSecret(context.Background(), "github-token", api.UpdateSecretRequest{
+			Value: "new-value",
+		})
+
+		require.NoError(t, err)
+		assert.NotNil(t, resp)
+	})
+}
+
+func TestClient_DeleteSecret(t *testing.T) {
+	t.Run("successful secret deletion", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			assert.Equal(t, "DELETE", r.Method)
+			assert.Equal(t, "/api/v1/secrets/github-token", r.URL.Path)
+
+			w.WriteHeader(http.StatusOK)
+			_ = json.NewEncoder(w).Encode(api.DeleteSecretResponse{
+				Name:    "github-token",
+				Message: "Secret deleted successfully",
+			})
+		}))
+		defer server.Close()
+
+		cfg := &config.Config{
+			APIEndpoint: server.URL,
+			APIKey:      "test-api-key",
+		}
+		c := New(cfg, testutil.SilentLogger())
+
+		resp, err := c.DeleteSecret(context.Background(), "github-token")
+
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+		assert.Equal(t, "github-token", resp.Name)
+		assert.Equal(t, "Secret deleted successfully", resp.Message)
+	})
+
+	t.Run("secret not found", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusNotFound)
+			_ = json.NewEncoder(w).Encode(api.ErrorResponse{
+				Error:   "Not Found",
+				Details: "Secret not found",
+			})
+		}))
+		defer server.Close()
+
+		cfg := &config.Config{
+			APIEndpoint: server.URL,
+			APIKey:      "test-api-key",
+		}
+		c := New(cfg, testutil.SilentLogger())
+
+		resp, err := c.DeleteSecret(context.Background(), "nonexistent")
+
+		require.Error(t, err)
+		assert.Nil(t, resp)
+		assert.Contains(t, err.Error(), "Not Found")
+	})
+}
+
 // Helper functions
 func intPtr(i int) *int {
 	return &i

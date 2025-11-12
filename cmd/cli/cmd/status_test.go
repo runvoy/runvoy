@@ -60,6 +60,21 @@ func (m *mockClientInterface) ListImages(_ context.Context) (*api.ListImagesResp
 func (m *mockClientInterface) UnregisterImage(_ context.Context, _ string) (*api.RemoveImageResponse, error) {
 	return nil, fmt.Errorf("not implemented")
 }
+func (m *mockClientInterface) CreateSecret(_ context.Context, _ api.CreateSecretRequest) (*api.CreateSecretResponse, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+func (m *mockClientInterface) GetSecret(_ context.Context, _ string) (*api.GetSecretResponse, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+func (m *mockClientInterface) ListSecrets(_ context.Context) (*api.ListSecretsResponse, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+func (m *mockClientInterface) UpdateSecret(_ context.Context, _ string, _ api.UpdateSecretRequest) (*api.UpdateSecretResponse, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+func (m *mockClientInterface) DeleteSecret(_ context.Context, _ string) (*api.DeleteSecretResponse, error) {
+	return nil, fmt.Errorf("not implemented")
+}
 
 // mockOutputInterface is a manual mock for testing
 type mockOutputInterface struct {

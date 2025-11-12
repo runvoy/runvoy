@@ -21,6 +21,11 @@ type Interface interface {
 	RegisterImage(ctx context.Context, image string, isDefault *bool) (*api.RegisterImageResponse, error)
 	ListImages(ctx context.Context) (*api.ListImagesResponse, error)
 	UnregisterImage(ctx context.Context, image string) (*api.RemoveImageResponse, error)
+	CreateSecret(ctx context.Context, req api.CreateSecretRequest) (*api.CreateSecretResponse, error)
+	GetSecret(ctx context.Context, name string) (*api.GetSecretResponse, error)
+	ListSecrets(ctx context.Context) (*api.ListSecretsResponse, error)
+	UpdateSecret(ctx context.Context, name string, req api.UpdateSecretRequest) (*api.UpdateSecretResponse, error)
+	DeleteSecret(ctx context.Context, name string) (*api.DeleteSecretResponse, error)
 }
 
 // Compile-time check to ensure Client implements Interface
