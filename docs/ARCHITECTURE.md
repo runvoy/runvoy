@@ -1354,17 +1354,19 @@ The `run` command executes commands remotely via the orchestrator Lambda.
 **Request Flow:**
 1. User runs: `runvoy run "echo hello world"`
 2. CLI sends POST request to `/api/v1/run` with:
-   ```json
-   {
-     "command": "echo hello world",
-     "lock": "optional_lock_name",
-     "image": "ubuntu:22.04",
-     "env": {"VAR": "value"},
-     "timeout": 300
-   }
-   ```
+    ```json
+    {
+      "command": "echo hello world",
+      "lock": "optional_lock_name",
+      "image": "ubuntu:22.04",
+      "env": {"VAR": "value"},
+      "secrets": ["github-token", "db-password"],
+      "timeout": 300
+    }
+    ```
 3. Orchestrator Lambda:
    - Validates API key
+   - Resolves referenced secrets via `database.SecretsRepository` and merges them with user-provided environment variables (user values take precedence when keys overlap)
    - Creates execution record in DynamoDB (status: RUNNING)
    - Starts ECS Fargate task with the command and sidecar
    - Returns execution ID

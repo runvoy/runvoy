@@ -272,6 +272,30 @@ func TestRunService_ExecuteCommand(t *testing.T) {
 				assert.True(t, hasExecID, "Should display execution ID")
 			},
 		},
+		{
+			name: "passes secrets to execution request",
+			request: ExecuteCommandRequest{
+				Command: "echo secret",
+				Secrets: []string{"db-password", "api-token"},
+				WebURL:  "https://logs.example.com",
+			},
+			setupMock: func(m *mockClientInterfaceForRun) {
+				m.runCommandFunc = func(_ context.Context, req *api.ExecutionRequest) (*api.ExecutionResponse, error) {
+					assert.ElementsMatch(t, []string{"db-password", "api-token"}, req.Secrets)
+					return &api.ExecutionResponse{
+						ExecutionID: "exec-secrets",
+						Status:      "pending",
+					}, nil
+				}
+				m.getLogsFunc = func(_ context.Context, executionID string) (*api.LogsResponse, error) {
+					return &api.LogsResponse{
+						ExecutionID: executionID,
+						Events:      []api.LogEvent{},
+					}, nil
+				}
+			},
+			wantErr: false,
+		},
 	}
 
 	for _, tt := range tests {

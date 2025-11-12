@@ -11,6 +11,7 @@ import (
 	"runvoy/internal/app/websocket"
 	"runvoy/internal/auth"
 	"runvoy/internal/constants"
+	"runvoy/internal/database"
 	apperrors "runvoy/internal/errors"
 
 	"github.com/stretchr/testify/assert"
@@ -115,6 +116,67 @@ func TestRunCommand(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestRunCommand_WithSecrets(t *testing.T) {
+	ctx := context.Background()
+	dbSecretValue := "super-secret"
+	githubSecretValue := "ghp_secret"
+
+	secretsRepo := &mockSecretsRepository{
+		getSecretFunc: func(_ context.Context, name string, _ bool) (*api.Secret, error) {
+			switch name {
+			case "github-token":
+				return &api.Secret{
+					Name:    "github-token",
+					KeyName: "GITHUB_TOKEN",
+					Value:   githubSecretValue,
+				}, nil
+			case "db-password":
+				return &api.Secret{
+					Name:    "db-password",
+					KeyName: "DB_PASSWORD",
+					Value:   dbSecretValue,
+				}, nil
+			default:
+				return nil, database.ErrSecretNotFound
+			}
+		},
+	}
+
+	var capturedEnv map[string]string
+	runner := &mockRunner{
+		startTaskFunc: func(_ context.Context, _ string, req *api.ExecutionRequest) (string, *time.Time, error) {
+			capturedEnv = map[string]string{}
+			for k, v := range req.Env {
+				capturedEnv[k] = v
+			}
+			return "exec-with-secrets", timePtr(time.Now()), nil
+		},
+	}
+
+	execRepo := &mockExecutionRepository{}
+	svc := newTestServiceWithSecretsRepo(nil, execRepo, runner, secretsRepo)
+
+	req := api.ExecutionRequest{
+		Command: "echo hello",
+		Env: map[string]string{
+			"GITHUB_TOKEN": "user-override",
+			"USER_DEFINED": "value",
+		},
+		Secrets: []string{"github-token", "db-password", "github-token"},
+	}
+
+	resp, err := svc.RunCommand(ctx, "user@example.com", &req)
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+
+	require.NotNil(t, capturedEnv)
+	assert.Equal(t, "user-override", capturedEnv["GITHUB_TOKEN"], "user env should take precedence over secret")
+	assert.NotEqual(t, githubSecretValue, capturedEnv["GITHUB_TOKEN"])
+	assert.Equal(t, dbSecretValue, capturedEnv["DB_PASSWORD"])
+	assert.Equal(t, "value", capturedEnv["USER_DEFINED"])
+	assert.Equal(t, string(constants.ExecutionRunning), resp.Status)
 }
 
 func TestGetExecutionStatus(t *testing.T) {

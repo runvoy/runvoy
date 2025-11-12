@@ -358,6 +358,13 @@ runvoy run --git-repo https://github.com/mycompany/myproject.git npm run tests
 # → Received interrupt signal, closing connection...
 ```
 
+Secrets stored via `runvoy secrets` can be mounted into the execution environment:
+
+```bash
+# Secrets can be specified multiple times; user-provided env vars override secret values with the same key.
+runvoy run --secret github-token --secret db-password terraform plan
+```
+
 **Log Viewing:**
 
 `runvoy logs` first retrieves the full log history via the REST API. When the execution is still running, the backend returns a WebSocket URL; the CLI connects to that URL to stream new log events live, and falls back to the web viewer link if the connection closes.
