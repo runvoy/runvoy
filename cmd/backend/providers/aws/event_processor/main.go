@@ -7,11 +7,11 @@ import (
 	"context"
 	"os"
 
+	"runvoy/internal/app/events"
 	"runvoy/internal/config"
 	"runvoy/internal/constants"
-	"runvoy/internal/events"
-	"runvoy/internal/lambdaapi"
 	"runvoy/internal/logger"
+	"runvoy/internal/providers/aws/lambdaapi"
 
 	"github.com/aws/aws-lambda-go/lambda"
 )

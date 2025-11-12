@@ -9,8 +9,8 @@ import (
 	"runvoy/internal/app"
 	"runvoy/internal/config"
 	"runvoy/internal/constants"
-	"runvoy/internal/lambdaapi"
 	"runvoy/internal/logger"
+	"runvoy/internal/providers/aws/lambdaapi"
 
 	"github.com/aws/aws-lambda-go/lambda"
 )

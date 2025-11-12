@@ -10,12 +10,12 @@ import (
 	"time"
 
 	"runvoy/internal/api"
+	"runvoy/internal/app/websocket"
 	"runvoy/internal/auth"
 	"runvoy/internal/constants"
 	"runvoy/internal/database"
 	apperrors "runvoy/internal/errors"
 	"runvoy/internal/logger"
-	"runvoy/internal/websocket"
 )
 
 // Runner abstracts provider-specific command execution (e.g., AWS ECS, GCP, etc.).

@@ -207,7 +207,7 @@ Enable Dependabot and govulncheck immediately (already done in this PR).
 
 ### Immediate Fixes Required
 
-1. **Orphaned Tasks Handling** (`internal/events/ecs_completion.go:50`)
+1. **Orphaned Tasks Handling** (`internal/providers/aws/events/backend.go`)
    - TODO about what to do with tasks without database records
    - **Impact:** Potential Lambda failures
    - **Effort:** Low (1-2 days)

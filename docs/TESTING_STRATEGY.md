@@ -49,7 +49,7 @@ Total Test Functions:  47
    - API key hashing
    - Authentication middleware
 
-3. **Event Processing** (`internal/events/`)
+3. **Event Processing** (`internal/app/events/`)
    - ECS task completion handling
    - Event routing
 

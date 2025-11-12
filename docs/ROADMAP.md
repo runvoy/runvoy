@@ -16,7 +16,7 @@ This document outlines the planned improvements and future direction for the run
 - [ ] Increase test coverage to minimum 70%
   - [ ] Add unit tests for `internal/app` (service layer)
   - [ ] Add unit tests for `internal/providers/aws/database/dynamodb` (repository)
-  - [ ] Add unit tests for `internal/events` (event processing)
+  - [ ] Add unit tests for `internal/app/events` (event processing)
   - [ ] Add unit tests for `internal/auth` (API key validation)
   - [ ] Add unit tests for `internal/providers/aws/app` (ECS runner)
 - [ ] Add integration tests for API endpoints
@@ -287,7 +287,7 @@ This document outlines the planned improvements and future direction for the run
 ## 📋 Technical Debt
 
 ### Immediate (Include in next sprint)
-- [ ] Fix orphaned tasks handling (see `internal/events/ecs_completion.go:50`)
+- [ ] Fix orphaned tasks handling (see `internal/providers/aws/events/backend.go`)
 - [ ] Make webviewer URL configurable (see `internal/constants/constants.go:130`)
 - [ ] Replace temporary admin seeding script with permanent solution
 - [ ] Add error handling for DynamoDB conditional check failures

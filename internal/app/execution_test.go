@@ -8,10 +8,10 @@ import (
 	"time"
 
 	"runvoy/internal/api"
+	"runvoy/internal/app/websocket"
 	"runvoy/internal/auth"
 	"runvoy/internal/constants"
 	apperrors "runvoy/internal/errors"
-	"runvoy/internal/websocket"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
