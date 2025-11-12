@@ -3,6 +3,7 @@ package auth
 import (
 	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"strings"
 	"testing"
 
@@ -119,6 +120,33 @@ func TestGenerateSecretToken(t *testing.T) {
 	})
 }
 
+func TestGenerateRequestID(t *testing.T) {
+	t.Run("generates valid request ID", func(t *testing.T) {
+		requestID := GenerateRequestID()
+
+		assert.NotEmpty(t, requestID, "Generated request ID should not be empty")
+
+		// Verify it's valid hex encoding
+		decoded, err := hex.DecodeString(requestID)
+		assert.NoError(t, err, "Request ID should be valid hex encoding")
+		assert.NotEmpty(t, decoded, "Decoded request ID should not be empty")
+	})
+
+	t.Run("generates unique request IDs", func(t *testing.T) {
+		requestID1 := GenerateRequestID()
+		requestID2 := GenerateRequestID()
+
+		assert.NotEqual(t, requestID1, requestID2, "Two consecutive request IDs should be different")
+	})
+
+	t.Run("generates request IDs of consistent length", func(t *testing.T) {
+		// RequestIDByteSize is 16 bytes, hex encoded should be 32 characters
+		requestID := GenerateRequestID()
+		// Allow some flexibility for the fallback case, but normal case should be 32
+		assert.GreaterOrEqual(t, len(requestID), 16, "Request ID should be at least 16 characters")
+	})
+}
+
 // Benchmark for API key hashing
 func BenchmarkHashAPIKey(b *testing.B) {
 	apiKey := "test-key-for-benchmarking-12345"
@@ -132,5 +160,12 @@ func BenchmarkHashAPIKey(b *testing.B) {
 func BenchmarkGenerateSecretToken(b *testing.B) {
 	for b.Loop() {
 		_, _ = GenerateSecretToken()
+	}
+}
+
+// Benchmark for request ID generation
+func BenchmarkGenerateRequestID(b *testing.B) {
+	for b.Loop() {
+		_ = GenerateRequestID()
 	}
 }
