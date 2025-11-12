@@ -240,6 +240,8 @@ func (r *SecretsRepository) DeleteSecret(ctx context.Context, name string) error
 
 // SecretExists checks if a secret with the given name exists in DynamoDB.
 func (r *SecretsRepository) SecretExists(ctx context.Context, name string) (bool, error) {
+	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
+
 	result, err := r.client.GetItem(ctx, &dynamodb.GetItemInput{
 		TableName:      aws.String(r.tableName),
 		ConsistentRead: aws.Bool(true),
@@ -249,7 +251,7 @@ func (r *SecretsRepository) SecretExists(ctx context.Context, name string) (bool
 	})
 
 	if err != nil {
-		r.logger.Error("failed to check if secret exists", "error", err, "name", name)
+		reqLogger.Error("failed to check if secret exists", "error", err, "name", name)
 		return false, appErrors.ErrInternalError("failed to check secret existence", err)
 	}
 
