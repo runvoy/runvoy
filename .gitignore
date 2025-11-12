@@ -43,6 +43,8 @@ dist
 cmd/runvoy/runvoy
 ./event_processor
 ./orchestrator
+./main
+main
 
 # Local Netlify folder
 .netlify

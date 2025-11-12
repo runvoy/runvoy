@@ -20,7 +20,7 @@ func main() {
 	log := logger.Initialize(constants.Production, cfg.GetLogLevel())
 	ctx, cancel := context.WithTimeout(context.Background(), cfg.InitTimeout)
 
-	svc, err := app.Initialize(ctx, constants.AWS, cfg, log)
+	svc, err := app.Initialize(ctx, cfg, log)
 	cancel()
 	if err != nil {
 		log.Error("failed to initialize orchestrator", "error", err)
