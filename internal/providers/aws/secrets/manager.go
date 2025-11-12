@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 
+	"runvoy/internal/constants"
 	"runvoy/internal/logger"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -60,8 +61,8 @@ func (m *ParameterStoreManager) getParameterName(secretName string) string {
 // The value is encrypted with the KMS key specified during initialization.
 func (m *ParameterStoreManager) StoreSecret(ctx context.Context, name, value string) error {
 	reqLogger := logger.DeriveRequestLogger(ctx, m.logger)
-
 	parameterName := m.getParameterName(name)
+	parameterTags := m.parameterTags()
 
 	_, err := m.client.PutParameter(ctx, &ssm.PutParameterInput{
 		Name:      aws.String(parameterName),
@@ -69,16 +70,6 @@ func (m *ParameterStoreManager) StoreSecret(ctx context.Context, name, value str
 		Type:      types.ParameterTypeSecureString,
 		KeyId:     aws.String(m.kmsKeyARN),
 		Overwrite: aws.Bool(true),
-		Tags: []types.Tag{
-			{
-				Key:   aws.String("Application"),
-				Value: aws.String("runvoy"),
-			},
-			{
-				Key:   aws.String("ManagedBy"),
-				Value: aws.String("runvoy-orchestrator"),
-			},
-		},
 	})
 
 	if err != nil {
@@ -86,8 +77,32 @@ func (m *ParameterStoreManager) StoreSecret(ctx context.Context, name, value str
 		return fmt.Errorf("failed to store secret: %w", err)
 	}
 
+	_, err = m.client.AddTagsToResource(ctx, &ssm.AddTagsToResourceInput{
+		ResourceType: types.ResourceTypeForTaggingParameter,
+		ResourceId:   aws.String(parameterName),
+		Tags:         parameterTags,
+	})
+
+	if err != nil {
+		reqLogger.Error("failed to tag secret parameter", "error", err, "name", name)
+		// no need to return an error here, as the secret is still stored
+	}
+
 	reqLogger.Debug("secret stored", "name", name)
 	return nil
+}
+
+func (m *ParameterStoreManager) parameterTags() []types.Tag {
+	return []types.Tag{
+		{
+			Key:   aws.String("Application"),
+			Value: aws.String(constants.ProjectName),
+		},
+		{
+			Key:   aws.String("ManagedBy"),
+			Value: aws.String(constants.ProjectName + "-orchestrator"),
+		},
+	}
 }
 
 // RetrieveSecret retrieves a secret value from AWS Systems Manager Parameter Store.
