@@ -63,22 +63,14 @@ func (m *ParameterStoreManager) StoreSecret(ctx context.Context, name, value str
 
 	parameterName := m.getParameterName(name)
 
+	parameterTags := m.parameterTags()
+
 	_, err := m.client.PutParameter(ctx, &ssm.PutParameterInput{
 		Name:      aws.String(parameterName),
 		Value:     aws.String(value),
 		Type:      types.ParameterTypeSecureString,
 		KeyId:     aws.String(m.kmsKeyARN),
 		Overwrite: aws.Bool(true),
-		Tags: []types.Tag{
-			{
-				Key:   aws.String("Application"),
-				Value: aws.String("runvoy"),
-			},
-			{
-				Key:   aws.String("ManagedBy"),
-				Value: aws.String("runvoy-orchestrator"),
-			},
-		},
 	})
 
 	if err != nil {
@@ -86,8 +78,32 @@ func (m *ParameterStoreManager) StoreSecret(ctx context.Context, name, value str
 		return fmt.Errorf("failed to store secret: %w", err)
 	}
 
+	_, err = m.client.AddTagsToResource(ctx, &ssm.AddTagsToResourceInput{
+		ResourceType: types.ResourceTypeForTaggingParameter,
+		ResourceId:   aws.String(parameterName),
+		Tags:         parameterTags,
+	})
+
+	if err != nil {
+		reqLogger.Error("failed to tag secret parameter", "error", err, "name", name)
+		return fmt.Errorf("failed to tag secret parameter: %w", err)
+	}
+
 	reqLogger.Debug("secret stored", "name", name)
 	return nil
+}
+
+func (m *ParameterStoreManager) parameterTags() []types.Tag {
+	return []types.Tag{
+		{
+			Key:   aws.String("Application"),
+			Value: aws.String("runvoy"),
+		},
+		{
+			Key:   aws.String("ManagedBy"),
+			Value: aws.String("runvoy-orchestrator"),
+		},
+	}
 }
 
 // RetrieveSecret retrieves a secret value from AWS Systems Manager Parameter Store.
