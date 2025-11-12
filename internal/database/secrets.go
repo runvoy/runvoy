@@ -41,7 +41,4 @@ type SecretsRepository interface {
 	// DeleteSecret removes a secret from storage.
 	// Returns an error if the secret is not found.
 	DeleteSecret(ctx context.Context, name string) error
-
-	// SecretExists checks if a secret with the given name exists.
-	SecretExists(ctx context.Context, name string) (bool, error)
 }

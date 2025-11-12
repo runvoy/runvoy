@@ -151,8 +151,3 @@ func (sr *SecretsRepository) DeleteSecret(ctx context.Context, name string) erro
 
 	return nil
 }
-
-// SecretExists checks if a secret exists.
-func (sr *SecretsRepository) SecretExists(ctx context.Context, name string) (bool, error) {
-	return sr.metadataRepo.SecretExists(ctx, name)
-}
