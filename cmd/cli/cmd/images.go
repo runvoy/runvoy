@@ -6,8 +6,8 @@ import (
 	"log/slog"
 	"runvoy/internal/api"
 	"runvoy/internal/client"
-	"runvoy/internal/constants"
 	"runvoy/internal/client/output"
+	"runvoy/internal/constants"
 	"strconv"
 
 	"github.com/spf13/cobra"

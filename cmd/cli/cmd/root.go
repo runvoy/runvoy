@@ -9,10 +9,10 @@ import (
 	"strconv"
 	"time"
 
+	"runvoy/internal/client/output"
 	"runvoy/internal/config"
 	"runvoy/internal/constants"
 	"runvoy/internal/logger"
-	"runvoy/internal/client/output"
 
 	"github.com/spf13/cobra"
 )
