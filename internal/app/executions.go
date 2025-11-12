@@ -13,6 +13,8 @@ import (
 )
 
 // RunCommand starts a provider-specific task and records the execution.
+// Resolve secret references to environment variables before starting the task.
+// Set execution status to STARTING after the task has been accepted by the provider.
 func (s *Service) RunCommand(
 	ctx context.Context,
 	userEmail string,
@@ -26,7 +28,6 @@ func (s *Service) RunCommand(
 		return nil, apperrors.ErrBadRequest("command is required", nil)
 	}
 
-	// Resolve secret references to environment variables before starting the task.
 	secretEnvVars, err := s.resolveSecretsForExecution(ctx, req.Secrets)
 	if err != nil {
 		return nil, err
@@ -38,7 +39,11 @@ func (s *Service) RunCommand(
 		return nil, err
 	}
 
-	s.recordExecution(ctx, userEmail, req, executionID, createdAt, constants.ExecutionStarting)
+	if execErr := s.recordExecution(
+		ctx, userEmail, req, executionID, createdAt, constants.ExecutionStarting,
+	); execErr != nil {
+		return nil, fmt.Errorf("failed to record execution: %w", execErr)
+	}
 
 	return &api.ExecutionResponse{
 		ExecutionID: executionID,
@@ -53,7 +58,7 @@ func (s *Service) recordExecution(
 	executionID string,
 	createdAt *time.Time,
 	status constants.ExecutionStatus,
-) {
+) error {
 	reqLogger := logger.DeriveRequestLogger(ctx, s.Logger)
 
 	startedAt := time.Now().UTC()
@@ -79,12 +84,16 @@ func (s *Service) recordExecution(
 	}
 
 	if err := s.executionRepo.CreateExecution(ctx, execution); err != nil {
-		reqLogger.Error("failed to create execution record, but task started",
-			"error", err,
-			"execution_id", executionID,
+		reqLogger.Error("failed to create execution record, but task has been accepted by the provider",
+			"context", map[string]string{
+				"execution_id": executionID,
+				"error":        err.Error(),
+			},
 		)
-		// Continue even if recording fails - the task is already running
+		return fmt.Errorf("failed to create execution record, but task has been accepted by the provider: %w", err)
 	}
+
+	return nil
 }
 
 // GetLogsByExecutionID returns aggregated Cloud logs for a given execution.

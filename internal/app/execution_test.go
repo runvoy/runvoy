@@ -78,7 +78,9 @@ func TestRunCommand(t *testing.T) {
 			},
 			executionID:   "exec-999",
 			createExecErr: errors.New("database error"),
-			expectErr:     false, // Task started successfully, DB error logged but not returned
+			expectErr:     true,
+			expectedError: "failed to record execution: " +
+				"failed to create execution record, but task has been accepted by the provider",
 		},
 	}
 
