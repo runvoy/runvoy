@@ -91,9 +91,9 @@ func (s *Service) CreateSecret(
 	ctx context.Context,
 	req *api.CreateSecretRequest,
 	userEmail string,
-) (*api.Secret, error) {
+) error {
 	if s.secretsRepo == nil {
-		return nil, apperrors.ErrInternalError("secrets repository not available", fmt.Errorf("secretsRepo is nil"))
+		return apperrors.ErrInternalError("secrets repository not available", fmt.Errorf("secretsRepo is nil"))
 	}
 	secret := &api.Secret{
 		Name:        req.Name,
@@ -103,9 +103,9 @@ func (s *Service) CreateSecret(
 		CreatedBy:   userEmail,
 	}
 	if err := s.secretsRepo.CreateSecret(ctx, secret); err != nil {
-		return nil, err
+		return err
 	}
-	return s.secretsRepo.GetSecret(ctx, req.Name, true)
+	return nil
 }
 
 // GetSecret retrieves a secret's metadata and value by name.
@@ -130,9 +130,9 @@ func (s *Service) UpdateSecret(
 	name string,
 	req *api.UpdateSecretRequest,
 	userEmail string,
-) (*api.Secret, error) {
+) error {
 	if s.secretsRepo == nil {
-		return nil, apperrors.ErrInternalError("secrets repository not available", fmt.Errorf("secretsRepo is nil"))
+		return apperrors.ErrInternalError("secrets repository not available", fmt.Errorf("secretsRepo is nil"))
 	}
 	secret := &api.Secret{
 		Name:        name,
@@ -142,9 +142,9 @@ func (s *Service) UpdateSecret(
 		UpdatedBy:   userEmail,
 	}
 	if err := s.secretsRepo.UpdateSecret(ctx, secret); err != nil {
-		return nil, err
+		return err
 	}
-	return s.secretsRepo.GetSecret(ctx, name, true)
+	return nil
 }
 
 // DeleteSecret deletes a secret and its value.

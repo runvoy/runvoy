@@ -27,9 +27,9 @@ type CreateSecretRequest struct {
 }
 
 // CreateSecretResponse represents the response after creating a secret
+// To avoid exposing secret data, only a success message is returned.
 type CreateSecretResponse struct {
-	Secret  *Secret `json:"secret"`
-	Message string  `json:"message"`
+	Message string `json:"message"`
 }
 
 // UpdateSecretRequest represents the request to update a secret (metadata and/or value)
@@ -43,9 +43,9 @@ type UpdateSecretRequest struct {
 }
 
 // UpdateSecretResponse represents the response after updating a secret
+// To avoid exposing secret data, only a success message is returned.
 type UpdateSecretResponse struct {
-	Secret  *Secret `json:"secret"`
-	Message string  `json:"message"`
+	Message string `json:"message"`
 }
 
 // GetSecretRequest represents the request to retrieve a secret

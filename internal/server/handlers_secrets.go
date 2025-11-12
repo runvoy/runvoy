@@ -25,15 +25,13 @@ func (r *Router) handleCreateSecret(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	secret, err := r.svc.CreateSecret(req.Context(), &createReq, user.Email)
-	if err != nil {
+	if err := r.svc.CreateSecret(req.Context(), &createReq, user.Email); err != nil {
 		handleServiceError(w, err)
 		return
 	}
 
 	w.WriteHeader(http.StatusCreated)
 	_ = json.NewEncoder(w).Encode(api.CreateSecretResponse{
-		Secret:  secret,
 		Message: "Secret created successfully",
 	})
 }
@@ -106,15 +104,13 @@ func (r *Router) handleUpdateSecret(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	secret, err := r.svc.UpdateSecret(req.Context(), name, &updateReq, user.Email)
-	if err != nil {
+	if err := r.svc.UpdateSecret(req.Context(), name, &updateReq, user.Email); err != nil {
 		handleServiceError(w, err)
 		return
 	}
 
 	w.WriteHeader(http.StatusOK)
 	_ = json.NewEncoder(w).Encode(api.UpdateSecretResponse{
-		Secret:  secret,
 		Message: "Secret updated successfully",
 	})
 }
