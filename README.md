@@ -53,6 +53,7 @@ Runvoy tries to simplify the requirements for running any kind of "priviledged" 
 - **Flexible container images** - Use any Docker image (terraform, python, node, etc.)
 - **Execution isolation** - Commands run in ephemeral containers
 - **CloudWatch integration** - Full execution logs and audit trails
+- **Secrets management** - Centralized encrypted secrets with full CRUD from the CLI
 - **Real-time WebSocket streaming** - CLI and web viewer receive live logs over authenticated WebSocket connections
 - **Unix-style output streams** - Separate logs (stderr) from data (stdout) for easy piping and scripting
 - **RBAC** - Role based access control for the backend API (NOT IMPLEMENTED YET). Runvoy admins define roles and permissions for users, non-admin users can only execute commands / clone repos / select Docker images they are allowed to use
@@ -485,6 +486,29 @@ runvoy users revoke <email>
 # Example
 runvoy users revoke bob@example.com
 ```
+
+### Secrets Management
+
+The CLI exposes a full secrets workflow backed by AWS Systems Manager Parameter Store (encrypted with a dedicated KMS key) and a DynamoDB metadata catalog. Authenticated users can create, inspect, rotate, and delete shared secrets without distributing raw credentials out of band.
+
+```bash
+# Create or rotate a secret (value stored encrypted, metadata tracked for auditing)
+runvoy secrets create github-token GITHUB_TOKEN "ghp_xxxxx" --description "GitHub personal access token"
+
+# List available secrets with key bindings and ownership metadata
+runvoy secrets list
+
+# Retrieve the latest value when you need to inject it locally or into automation
+runvoy secrets get github-token
+
+# Update metadata or rotate the value in place
+runvoy secrets update github-token --key-name GITHUB_API_TOKEN --value "ghp_new" --description "Rotated on 2025-11-12"
+
+# Clean up secrets that are no longer required
+runvoy secrets delete legacy-token
+```
+
+Secrets are versioned at the storage layer and always transmitted over HTTPS. The orchestrator keeps audit fields (created/updated by, timestamps) so teams can see who managed a secret and when.
 
 ### Output Streams and Piping
 

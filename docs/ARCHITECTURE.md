@@ -575,6 +575,33 @@ Execution status values are defined as typed constants in `internal/constants/co
 - **`SecretsKmsKey`**: KMS key dedicated to encrypting secret payloads stored as SecureString parameters
 - **`SecretsKmsKeyAlias`**: Friendly alias pointing to the secrets KMS key for CLI and configuration usage
 
+## Secrets Management
+
+Runvoy includes a first-party secrets store so admins can centralize credentials that executions or operators need. Secret payloads never live in the database; they are written to AWS Systems Manager Parameter Store as SecureString parameters encrypted with a dedicated KMS key, while descriptive metadata is persisted separately in DynamoDB for fast queries and auditing.
+
+### Components
+
+- **Metadata repository (`SecretsMetadataTable`)**: DynamoDB table keyed by `secret_name`. Stores the environment variable binding (`key_name`), description, and audit fields (`created_by`, `created_at`, `updated_by`, `updated_at`). Conditional writes prevent accidental overwrites.
+- **Value store (Parameter Store)**: Secrets are persisted under the configurable prefix (default `/runvoy/secrets/{name}`) using SecureString entries encrypted with `SecretsKmsKey`. Every rotation creates a new Parameter Store version while the CLI/API always surfaces the latest value.
+- **Dedicated KMS key**: CloudFormation provisions a scoped CMK and alias for secrets. Lambda execution roles have permission to encrypt/decrypt with this key only for the configured prefix.
+
+### API and CLI Workflow
+
+All secrets endpoints require authentication via the standard `X-API-Key` header.
+
+1. **Create (`POST /api/v1/secrets`)**: The orchestrator stores the value in Parameter Store first and then records metadata in DynamoDB. On metadata failure, it performs best-effort cleanup of the value to avoid orphans.
+2. **Read (`GET /api/v1/secrets/{name}`)**: Returns metadata plus the decrypted value. Missing Parameter Store values are logged and surfaced as metadata-only responses.
+3. **List (`GET /api/v1/secrets`)**: Scans the metadata table, then hydrates values from Parameter Store in best effort fashion. The CLI formats the result as a table without echoing secret payloads.
+4. **Update (`PUT /api/v1/secrets/{name}`)**: Rotates the value (if provided) by overwriting the Parameter Store entry and refreshes metadata, including the optional `key_name` change.
+5. **Delete (`DELETE /api/v1/secrets/{name}`)**: Removes the SecureString entry and then deletes the metadata record. Missing payloads are tolerated so cleanup is idempotent.
+
+### Operational Characteristics
+
+- **Auditability**: Metadata captures who created or updated a secret and when. CLI output highlights those fields so teams can spot stale or orphaned credentials.
+- **Prefix isolation**: The orchestrator only writes inside the configured prefix, ensuring teams can segregate secrets per environment (e.g., `/runvoy/prod/secrets` vs `/runvoy/dev/secrets`).
+- **Error handling**: Parameter Store failures surface as `500` errors. DynamoDB conditional failures map to conflict/not-found errors so the CLI can react appropriately.
+- **Infrastructure integration**: `just init` provisions the metadata table, KMS key, and IAM policies. Environment variables (`RUNVOY_AWS_SECRETS_PREFIX`, `RUNVOY_AWS_SECRETS_KMS_KEY_ARN`, `RUNVOY_AWS_SECRETS_METADATA_TABLE`) keep the orchestrator configuration explicit across environments.
+
 ## WebSocket Architecture
 
 The platform uses WebSocket connections for real-time log streaming to clients (CLI and web viewer). The architecture consists of two main components: the event processor Lambda (reusing the WebSocket manager package) and the API Gateway WebSocket API.
