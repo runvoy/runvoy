@@ -14,7 +14,7 @@ import (
 	"runvoy/internal/client"
 	"runvoy/internal/constants"
 	apperrors "runvoy/internal/errors"
-	"runvoy/internal/output"
+	"runvoy/internal/client/output"
 	"slices"
 	"sync"
 	"syscall"

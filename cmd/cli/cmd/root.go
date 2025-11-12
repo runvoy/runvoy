@@ -12,7 +12,7 @@ import (
 	"runvoy/internal/config"
 	"runvoy/internal/constants"
 	"runvoy/internal/logger"
-	"runvoy/internal/output"
+	"runvoy/internal/client/output"
 
 	"github.com/spf13/cobra"
 )

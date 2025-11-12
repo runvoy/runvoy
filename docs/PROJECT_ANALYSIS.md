@@ -40,7 +40,7 @@ The runvoy project demonstrates **strong architectural foundations** and **excel
 |---------|----------|--------|
 | `internal/client` | 1.2% | 🔴 Critical |
 | `internal/server` | 35.6% | 🟡 Needs Work |
-| `internal/output` | Good | ✅ Good |
+| `internal/client/output` | Good | ✅ Good |
 | Most other packages | 0% | 🔴 Critical |
 
 **Industry Standard:** 70-80%
@@ -301,7 +301,7 @@ Enable Dependabot and govulncheck immediately (already done in this PR).
 As part of this analysis, the following quick wins have been implemented:
 
 ### 1. Fixed Broken Tests ✅
-- **Issue:** `internal/output/examples_test.go` had compilation errors
+- **Issue:** `internal/client/output/examples_test.go` had compilation errors
 - **Fix:** Removed non-functional example tests, fixed TestError
 - **Impact:** All tests now pass
 - **Time:** 30 minutes
@@ -357,8 +357,8 @@ As part of this analysis, the following quick wins have been implemented:
 
 ### Files Modified
 1. `.pre-commit-config.yaml` - Added govulncheck
-2. `internal/output/output_test.go` - Fixed TestError
-3. `internal/output/examples_test.go` - Removed (broken)
+2. `internal/client/output/output_test.go` - Fixed TestError
+3. `internal/client/output/examples_test.go` - Removed (broken)
 
 ### Next Steps for Maintainers
 

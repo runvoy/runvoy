@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	"runvoy/internal/config"
-	"runvoy/internal/output"
+	"runvoy/internal/client/output"
 
 	"github.com/spf13/cobra"
 )

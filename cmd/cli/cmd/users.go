@@ -9,7 +9,7 @@ import (
 	"runvoy/internal/api"
 	"runvoy/internal/client"
 	"runvoy/internal/constants"
-	"runvoy/internal/output"
+	"runvoy/internal/client/output"
 
 	"github.com/spf13/cobra"
 )

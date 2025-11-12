@@ -23,7 +23,7 @@ This document outlines a comprehensive strategy to achieve >80% test coverage wi
 - Codecov integration
 
 **Tested Components:**
-- ✅ `internal/output` - Output formatting (32 tests + benchmarks)
+- ✅ `internal/client/output` - Output formatting (32 tests + benchmarks)
 - ✅ `internal/server` - Middleware and basic handlers (14 tests)
 - ✅ `internal/client` - Client initialization (1 test)
 
