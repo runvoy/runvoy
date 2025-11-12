@@ -79,6 +79,9 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("config validation failed: %w", err)
 	}
 
+	// Normalize backend provider
+	cfg.BackendProvider = normalizeBackendProvider(cfg.BackendProvider)
+
 	return &cfg, nil
 }
 
@@ -116,7 +119,7 @@ func LoadOrchestrator() (*Config, error) {
 		return nil, fmt.Errorf("error unmarshaling orchestrator config: %w", err)
 	}
 
-	if err := validateBackendProvider(&cfg, awsconfig.ValidateOrchestrator); err != nil {
+	if err := validateOrchestratorConfig(&cfg); err != nil {
 		return nil, err
 	}
 
@@ -139,7 +142,7 @@ func LoadEventProcessor() (*Config, error) {
 		return nil, fmt.Errorf("error unmarshaling event processor config: %w", err)
 	}
 
-	if err := validateBackendProvider(&cfg, awsconfig.ValidateEventProcessor); err != nil {
+	if err := validateEventProcessorConfig(&cfg); err != nil {
 		return nil, err
 	}
 
@@ -265,15 +268,21 @@ func bindEnvVars(v *viper.Viper) {
 	awsconfig.BindEnvVars(v)
 }
 
-// validateBackendProvider validates required fields for a backend provider.
-func validateBackendProvider(cfg *Config, validateFn func(*awsconfig.Config) error) error {
-	provider := normalizeBackendProvider(cfg.BackendProvider)
-
-	switch provider {
+func validateOrchestratorConfig(cfg *Config) error {
+	switch cfg.BackendProvider {
 	case constants.AWS:
-		return validateFn(cfg.AWS)
+		return awsconfig.ValidateOrchestrator(cfg.AWS)
 	default:
-		return fmt.Errorf("unsupported backend provider: %s", provider)
+		return fmt.Errorf("unsupported backend provider: %s", cfg.BackendProvider)
+	}
+}
+
+func validateEventProcessorConfig(cfg *Config) error {
+	switch cfg.BackendProvider {
+	case constants.AWS:
+		return awsconfig.ValidateEventProcessor(cfg.AWS)
+	default:
+		return fmt.Errorf("unsupported backend provider: %s", cfg.BackendProvider)
 	}
 }
 

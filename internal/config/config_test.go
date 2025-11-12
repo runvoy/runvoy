@@ -94,28 +94,6 @@ func TestValidateOrchestrator(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "wrong case provider is normalized to uppercase",
-			cfg: &Config{
-				BackendProvider: "aWs",
-				AWS: &awsconfig.Config{
-					APIKeysTable:              "api-keys",
-					ExecutionsTable:           "executions",
-					ECSCluster:                "cluster",
-					Subnet1:                   "subnet-1",
-					Subnet2:                   "subnet-2",
-					SecurityGroup:             "sg-123",
-					LogGroup:                  "/aws/logs/app",
-					WebSocketAPIEndpoint:      "https://example.execute-api.us-east-1.amazonaws.com/production",
-					WebSocketConnectionsTable: "connections",
-					WebSocketTokensTable:      "tokens",
-					SecretsMetadataTable:      "secrets",
-					SecretsPrefix:             "/runvoy/secrets",
-					SecretsKMSKeyARN:          "arn:aws:kms:us-east-1:123456789012:key/abc",
-				},
-			},
-			wantErr: false,
-		},
-		{
 			name: "missing AWS config",
 			cfg: &Config{
 				BackendProvider: constants.AWS,
@@ -409,7 +387,7 @@ func TestValidateOrchestrator(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := validateBackendProvider(tt.cfg, awsconfig.ValidateOrchestrator)
+			err := validateOrchestratorConfig(tt.cfg)
 
 			if tt.wantErr {
 				require.Error(t, err)
@@ -546,7 +524,7 @@ func TestValidateEventProcessor(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := validateBackendProvider(tt.cfg, awsconfig.ValidateEventProcessor)
+			err := validateEventProcessorConfig(tt.cfg)
 
 			if tt.wantErr {
 				require.Error(t, err)
