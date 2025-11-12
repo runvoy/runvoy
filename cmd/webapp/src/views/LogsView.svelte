@@ -12,15 +12,20 @@
         logEvents,
         logsRetryCount,
         MAX_LOGS_RETRIES,
-        LOGS_RETRY_DELAY
+        LOGS_RETRY_DELAY,
+        STARTING_STATE_DELAY
     } from '../stores/logs.js';
     import { cachedWebSocketURL } from '../stores/websocket.js';
     import { connectWebSocket, disconnectWebSocket } from '../lib/websocket.js';
 
     export let apiClient = null;
     export let isConfigured = false;
+    // Allow delay override for testing (e.g., set to 0 in tests to avoid waiting)
+    export let delayFn = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
     let errorMessage = '';
+    let showStatusCheckErrorModal = false;
+    let statusCheckErrorMessage = '';
     let fetchLogsTimer;
     let currentExecutionId = null;
     let websocketURL = null;
@@ -51,6 +56,30 @@
 
         clearTimeout(fetchLogsTimer);
         errorMessage = '';
+
+        // Smart initial wait: Check execution status first
+        // If STARTING or TERMINATING, wait before first log poll to avoid unnecessary 404s
+        try {
+            const statusResponse = await apiClient.getExecutionStatus(id);
+            const status = statusResponse.status || 'UNKNOWN';
+
+            if (status === 'STARTING') {
+                errorMessage = 'Execution is starting (Fargate provisioning takes ~15 seconds)...';
+                await delayFn(STARTING_STATE_DELAY);
+                errorMessage = ''; // Clear the message after waiting
+            } else if (status === 'TERMINATING') {
+                errorMessage = 'Execution is terminating, waiting for final state...';
+                await delayFn(LOGS_RETRY_DELAY);
+                errorMessage = ''; // Clear the message after waiting
+            }
+        } catch (statusError) {
+            // If status check fails, proceed with normal retry logic
+            statusCheckErrorMessage =
+                statusError?.details?.error ||
+                statusError?.message ||
+                'Failed to check execution status.';
+            showStatusCheckErrorModal = true;
+        }
 
         try {
             const response = await apiClient.getLogs(id);
@@ -147,6 +176,22 @@
 
 <ExecutionSelector />
 
+{#if showStatusCheckErrorModal}
+    <dialog open class="status-check-error-modal">
+        <article>
+            <header>
+                <strong>Unable to verify execution status</strong>
+            </header>
+            <p>
+                {statusCheckErrorMessage}
+            </p>
+            <footer>
+                <button on:click={() => (showStatusCheckErrorModal = false)}>Dismiss</button>
+            </footer>
+        </article>
+    </dialog>
+{/if}
+
 {#if errorMessage}
     <article class="error-box">
         <p>{errorMessage}</p>
@@ -189,6 +234,24 @@
 <style>
     article {
         margin-top: 2rem;
+    }
+
+    .status-check-error-modal {
+        max-width: 32rem;
+        border: none;
+        padding: 0;
+    }
+
+    .status-check-error-modal::backdrop {
+        background-color: rgb(0 0 0 / 0.35);
+    }
+
+    .status-check-error-modal article {
+        margin: 0;
+    }
+
+    .status-check-error-modal header {
+        margin-bottom: 0.5rem;
     }
 
     code {
