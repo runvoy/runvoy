@@ -280,7 +280,7 @@ runvoy --help
 ```
 
 ```text
-runvoy - 0.1.0-20251112-89794b0
+runvoy - 0.1.0-20251112-669856b
 Isolated, repeatable execution environments for your commands
 
 Usage:
@@ -296,6 +296,7 @@ Available Commands:
   list        List executions
   logs        Get logs for an execution
   run         Run a command
+  secrets     Secrets management commands
   status      Get the status of a command execution
   users       User management commands
   version     Show the version of the CLI
