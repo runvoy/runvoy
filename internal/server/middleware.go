@@ -13,8 +13,6 @@ import (
 	"runvoy/internal/constants"
 	apperrors "runvoy/internal/errors"
 	loggerPkg "runvoy/internal/logger"
-
-	"github.com/aws/aws-lambda-go/lambdacontext"
 )
 
 const (
@@ -32,16 +30,10 @@ func generateRequestID() string {
 }
 
 // requestIDMiddleware extracts the request ID from the context (if present) or generates a random one.
-// Priority: 1) Existing request ID in context, 2) Lambda request ID, 3) Generated random ID.
+// Priority: 1) Existing request ID in context, 2) Provider-specific request ID (via registered extractors), 3) Generated random ID.
 func (r *Router) requestIDMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		requestID := loggerPkg.GetRequestID(req.Context())
-
-		if requestID == "" {
-			if lc, ok := lambdacontext.FromContext(req.Context()); ok && lc.AwsRequestID != "" {
-				requestID = lc.AwsRequestID
-			}
-		}
+		requestID := loggerPkg.ExtractRequestIDFromContext(req.Context())
 
 		if requestID == "" {
 			requestID = generateRequestID()

@@ -56,6 +56,26 @@ func GetRequestID(ctx context.Context) string {
 	return ""
 }
 
+// ExtractRequestIDFromContext attempts to extract a request ID from the context
+// using the same priority as DeriveRequestLogger: first checks for a request ID
+// set via WithRequestID, then tries all registered ContextExtractors in order.
+// Returns the first request ID found, or an empty string if none is found.
+// This allows middleware to extract request IDs without knowing about provider-specific
+// implementations (e.g., AWS Lambda).
+func ExtractRequestIDFromContext(ctx context.Context) string {
+	if requestID := GetRequestID(ctx); requestID != "" {
+		return requestID
+	}
+
+	for _, extractor := range contextExtractors {
+		if requestID, found := extractor.ExtractRequestID(ctx); found && requestID != "" {
+			return requestID
+		}
+	}
+
+	return ""
+}
+
 // DeriveRequestLogger returns a logger enriched with request-scoped fields
 // available in the provided context. It first checks for a request ID set via
 // WithRequestID, then tries all registered ContextExtractors in order.
