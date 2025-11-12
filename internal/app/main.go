@@ -418,53 +418,14 @@ func (s *Service) RunCommand(
 	if err != nil {
 		return nil, err
 	}
-	if len(secretEnvVars) > 0 {
-		if req.Env == nil {
-			req.Env = make(map[string]string, len(secretEnvVars))
-		}
-		for key, value := range secretEnvVars {
-			if _, exists := req.Env[key]; exists {
-				continue
-			}
-			req.Env[key] = value
-		}
-	}
+	s.applyResolvedSecrets(req, secretEnvVars)
 
 	executionID, createdAt, err := s.runner.StartTask(ctx, userEmail, req)
 	if err != nil {
 		return nil, err
 	}
 
-	reqLogger := logger.DeriveRequestLogger(ctx, s.Logger)
-	startedAt := time.Now().UTC()
-	if createdAt != nil {
-		startedAt = createdAt.UTC()
-	}
-
-	requestID := logger.GetRequestID(ctx)
-	execution := &api.Execution{
-		ExecutionID:     executionID,
-		UserEmail:       userEmail,
-		Command:         req.Command,
-		StartedAt:       startedAt,
-		Status:          string(constants.ExecutionRunning),
-		RequestID:       requestID,
-		ComputePlatform: string(s.Provider),
-	}
-
-	if requestID == "" {
-		reqLogger.Warn("request ID not available; storing execution without request ID",
-			"execution_id", executionID,
-		)
-	}
-
-	if err = s.executionRepo.CreateExecution(ctx, execution); err != nil {
-		reqLogger.Error("failed to create execution record, but task started",
-			"error", err,
-			"execution_id", executionID,
-		)
-		// Continue even if recording fails - the task is already running
-	}
+	s.recordExecution(ctx, userEmail, req, executionID, createdAt)
 
 	return &api.ExecutionResponse{
 		ExecutionID: executionID,
@@ -527,6 +488,62 @@ func (s *Service) resolveSecretsForExecution(
 	})
 
 	return secretEnvVars, nil
+}
+
+func (s *Service) applyResolvedSecrets(req *api.ExecutionRequest, secretEnvVars map[string]string) {
+	if req == nil || len(secretEnvVars) == 0 {
+		return
+	}
+
+	if req.Env == nil {
+		req.Env = make(map[string]string, len(secretEnvVars))
+	}
+	for key, value := range secretEnvVars {
+		if _, exists := req.Env[key]; exists {
+			continue
+		}
+		req.Env[key] = value
+	}
+}
+
+func (s *Service) recordExecution(
+	ctx context.Context,
+	userEmail string,
+	req *api.ExecutionRequest,
+	executionID string,
+	createdAt *time.Time,
+) {
+	reqLogger := logger.DeriveRequestLogger(ctx, s.Logger)
+
+	startedAt := time.Now().UTC()
+	if createdAt != nil {
+		startedAt = createdAt.UTC()
+	}
+
+	requestID := logger.GetRequestID(ctx)
+	execution := &api.Execution{
+		ExecutionID:     executionID,
+		UserEmail:       userEmail,
+		Command:         req.Command,
+		StartedAt:       startedAt,
+		Status:          string(constants.ExecutionRunning),
+		RequestID:       requestID,
+		ComputePlatform: string(s.Provider),
+	}
+
+	if requestID == "" {
+		reqLogger.Warn("request ID not available; storing execution without request ID",
+			"execution_id", executionID,
+		)
+	}
+
+	if err := s.executionRepo.CreateExecution(ctx, execution); err != nil {
+		reqLogger.Error("failed to create execution record, but task started",
+			"error", err,
+			"execution_id", executionID,
+		)
+		// Continue even if recording fails - the task is already running
+	}
 }
 
 // GetLogsByExecutionID returns aggregated Cloud logs for a given execution

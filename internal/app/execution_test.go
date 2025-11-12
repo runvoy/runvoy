@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"testing"
 	"time"
 
@@ -148,9 +149,7 @@ func TestRunCommand_WithSecrets(t *testing.T) {
 	runner := &mockRunner{
 		startTaskFunc: func(_ context.Context, _ string, req *api.ExecutionRequest) (string, *time.Time, error) {
 			capturedEnv = map[string]string{}
-			for k, v := range req.Env {
-				capturedEnv[k] = v
-			}
+			maps.Copy(capturedEnv, req.Env)
 			return "exec-with-secrets", timePtr(time.Now()), nil
 		},
 	}
