@@ -7,11 +7,11 @@ import (
 	"fmt"
 	"log/slog"
 
+	"runvoy/internal/app/websocket"
 	"runvoy/internal/config"
 	"runvoy/internal/constants"
 	"runvoy/internal/database"
 	appAws "runvoy/internal/providers/aws/app"
-	"runvoy/internal/websocket"
 )
 
 type serviceDependencies struct {

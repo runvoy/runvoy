@@ -7,9 +7,9 @@ import (
 	"time"
 
 	"runvoy/internal/api"
+	"runvoy/internal/app/websocket"
 	"runvoy/internal/constants"
 	"runvoy/internal/testutil"
-	"runvoy/internal/websocket"
 )
 
 // mockUserRepository implements database.UserRepository for testing

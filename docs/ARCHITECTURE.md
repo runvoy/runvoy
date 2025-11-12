@@ -591,7 +591,7 @@ The platform uses WebSocket connections for real-time log streaming to clients (
 
 **Purpose**: Manages WebSocket connection lifecycle and sends disconnect notifications when executions complete. It is embedded inside the event processor Lambda rather than deployed as a separate Lambda function.
 
-**Implementation**: `internal/websocket/websocket_manager.go`
+**Implementation**: `internal/app/websocket/manager.go` (interface), `internal/providers/aws/websocket/manager.go` (AWS implementation)
 - **`HandleRequest(ctx, rawEvent, logger)`**: Adapts raw Lambda events for the generic processor, routes WebSocket events by route key, and reports whether the event was handled
 
 **Route Keys Handled**:

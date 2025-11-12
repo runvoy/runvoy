@@ -10,11 +10,11 @@ import (
 	"time"
 
 	"runvoy/internal/api"
+	"runvoy/internal/app/websocket"
 	"runvoy/internal/constants"
 	"runvoy/internal/database"
 	"runvoy/internal/logger"
 	awsConstants "runvoy/internal/providers/aws/constants"
-	"runvoy/internal/websocket"
 
 	"github.com/aws/aws-lambda-go/events"
 )
