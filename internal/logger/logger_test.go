@@ -445,3 +445,76 @@ func TestContextExtractor(t *testing.T) {
 		assert.NotContains(t, output, "extractor-id", "Should not use extractor when WithRequestID is set")
 	})
 }
+
+func TestExtractRequestIDFromContext(t *testing.T) {
+	t.Run("returns empty string when no request ID available", func(t *testing.T) {
+		// Save and restore original extractors
+		originalExtractors := contextExtractors
+		defer func() { contextExtractors = originalExtractors }()
+
+		ClearContextExtractors()
+
+		result := ExtractRequestIDFromContext(context.Background())
+		assert.Empty(t, result)
+	})
+
+	t.Run("returns request ID from WithRequestID", func(t *testing.T) {
+		ctx := WithRequestID(context.Background(), "test-request-id")
+		result := ExtractRequestIDFromContext(ctx)
+		assert.Equal(t, "test-request-id", result)
+	})
+
+	t.Run("returns request ID from registered extractor", func(t *testing.T) {
+		// Save and restore original extractors
+		originalExtractors := contextExtractors
+		defer func() { contextExtractors = originalExtractors }()
+
+		ClearContextExtractors()
+
+		customExtractor := &mockContextExtractor{
+			requestID:  "extractor-request-id",
+			shouldFind: true,
+		}
+		RegisterContextExtractor(customExtractor)
+
+		result := ExtractRequestIDFromContext(context.Background())
+		assert.Equal(t, "extractor-request-id", result)
+	})
+
+	t.Run("WithRequestID takes precedence over extractors", func(t *testing.T) {
+		// Save and restore original extractors
+		originalExtractors := contextExtractors
+		defer func() { contextExtractors = originalExtractors }()
+
+		ClearContextExtractors()
+
+		customExtractor := &mockContextExtractor{
+			requestID:  "extractor-id",
+			shouldFind: true,
+		}
+		RegisterContextExtractor(customExtractor)
+
+		ctx := WithRequestID(context.Background(), "context-priority-id")
+		result := ExtractRequestIDFromContext(ctx)
+		assert.Equal(t, "context-priority-id", result)
+	})
+
+	t.Run("tries extractors in order until one succeeds", func(t *testing.T) {
+		// Save and restore original extractors
+		originalExtractors := contextExtractors
+		defer func() { contextExtractors = originalExtractors }()
+
+		ClearContextExtractors()
+
+		extractor1 := &mockContextExtractor{shouldFind: false}
+		extractor2 := &mockContextExtractor{requestID: "second-extractor-id", shouldFind: true}
+		extractor3 := &mockContextExtractor{requestID: "third-extractor-id", shouldFind: true}
+
+		RegisterContextExtractor(extractor1)
+		RegisterContextExtractor(extractor2)
+		RegisterContextExtractor(extractor3)
+
+		result := ExtractRequestIDFromContext(context.Background())
+		assert.Equal(t, "second-extractor-id", result)
+	})
+}
