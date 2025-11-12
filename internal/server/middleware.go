@@ -2,14 +2,13 @@ package server
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/hex"
 	"log/slog"
 	"net/http"
 	"sync"
 	"time"
 
 	"runvoy/internal/api"
+	"runvoy/internal/auth"
 	"runvoy/internal/constants"
 	apperrors "runvoy/internal/errors"
 	loggerPkg "runvoy/internal/logger"
@@ -20,15 +19,6 @@ const (
 	lastUsedUpdateTimeout            = 5 * time.Second
 )
 
-// generateRequestID generates a random request ID using crypto/rand
-func generateRequestID() string {
-	b := make([]byte, constants.RequestIDByteSize)
-	if _, err := rand.Read(b); err != nil {
-		return hex.EncodeToString([]byte(time.Now().String()))
-	}
-	return hex.EncodeToString(b)
-}
-
 // requestIDMiddleware extracts the request ID from the context (if present) or generates a random one.
 // Priority: 1) Existing request ID in context, 2) Provider-specific request ID (via registered
 // extractors), 3) Generated random ID.
@@ -37,7 +27,7 @@ func (r *Router) requestIDMiddleware(next http.Handler) http.Handler {
 		requestID := loggerPkg.ExtractRequestIDFromContext(req.Context())
 
 		if requestID == "" {
-			requestID = generateRequestID()
+			requestID = auth.GenerateRequestID()
 		}
 
 		ctx := loggerPkg.WithRequestID(req.Context(), requestID)
