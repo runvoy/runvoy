@@ -168,7 +168,7 @@ runvoy --help
 ```
 
 ```text
-runvoy - 0.1.0-20251112-def0ed7
+runvoy - 0.1.0-20251112-792aa43
 Isolated, repeatable execution environments for your commands
 
 Usage:
@@ -183,6 +183,7 @@ Available Commands:
   kill        Kill a running command execution
   list        List executions
   logs        Get logs for an execution
+  playbook    Manage and execute playbooks
   run         Run a command
   secrets     Secrets management commands
   status      Get the status of a command execution
@@ -403,6 +404,138 @@ runvoy secrets delete legacy-token
 ```
 
 Secrets are versioned at the storage layer and always transmitted over HTTPS. The orchestrator keeps audit fields (created/updated by, timestamps) so teams can see who managed a secret and when.
+
+### Playbooks
+
+Playbooks allow you to define reusable command execution configurations in YAML files. They are stored in a `.runvoy/` directory (in your current working directory) and can be executed via the CLI.
+
+**Creating a Playbook:**
+
+Create a YAML file in the `.runvoy/` directory with a `.yaml` or `.yml` extension. The filename (without extension) becomes the playbook name.
+
+Example playbook (`.runvoy/terraform-plan.yaml`):
+
+```yaml
+description: Terraform plan infrastructure
+image: hashicorp/terraform:latest
+git_repo: https://github.com/mycompany/infrastructure.git
+git_ref: main
+git_path: terraform/environments/production
+secrets:
+  - aws-credentials
+  - terraform-backend-key
+env:
+  TF_VAR_environment: production
+  TF_VAR_region: us-east-1
+commands:
+  - terraform init
+  - terraform plan -out=plan.tfplan
+```
+
+**Playbook Fields:**
+
+- `description` (optional): Human-readable description of the playbook
+- `image` (optional): Docker image to use for execution
+- `git_repo` (optional): Git repository URL to clone
+- `git_ref` (optional): Git branch, tag, or commit SHA (defaults to "main" if not specified)
+- `git_path` (optional): Working directory within the cloned repository
+- `secrets` (optional): List of secret names to inject into the execution environment
+- `env` (optional): Map of environment variables (key-value pairs)
+- `commands` (required): List of commands to execute sequentially (combined with `&&`)
+
+**Playbook Commands:**
+
+```bash
+# List all available playbooks
+runvoy playbook list
+
+# Show detailed information about a playbook
+runvoy playbook show terraform-plan
+
+# Execute a playbook
+runvoy playbook run terraform-plan
+
+# Execute a playbook with flag overrides
+runvoy playbook run terraform-plan --image hashicorp/terraform:1.6.0
+
+# Override multiple playbook values
+runvoy playbook run terraform-plan \
+  --image hashicorp/terraform:1.6.0 \
+  --git-ref develop \
+  --git-path terraform/environments/staging \
+  --secret additional-secret
+```
+
+**Flag Overrides:**
+
+When executing a playbook, you can override any playbook value using CLI flags:
+
+- `--image` / `-i`: Override the Docker image
+- `--git-repo` / `-g`: Override the Git repository URL
+- `--git-ref` / `-r`: Override the Git reference
+- `--git-path` / `-p`: Override the Git path
+- `--secret`: Add additional secrets (merged with playbook secrets)
+
+**Environment Variables:**
+
+User environment variables prefixed with `RUNVOY_USER_` are automatically merged with playbook environment variables. User variables take precedence over playbook variables if there's a conflict.
+
+```bash
+# User env vars are merged with playbook env vars
+RUNVOY_USER_API_KEY=abc123 runvoy playbook run my-playbook
+```
+
+**Example Playbooks:**
+
+**Terraform Plan:**
+```yaml
+description: Run Terraform plan
+image: hashicorp/terraform:latest
+git_repo: https://github.com/mycompany/infrastructure.git
+git_ref: main
+secrets:
+  - aws-credentials
+env:
+  TF_VAR_environment: production
+commands:
+  - terraform init
+  - terraform plan
+```
+
+**Ansible Playbook:**
+```yaml
+description: Run Ansible playbook
+image: quay.io/ansible/ansible-runner:latest
+git_repo: https://github.com/mycompany/ansible-playbooks.git
+git_ref: main
+git_path: playbooks
+secrets:
+  - ssh-key
+  - vault-password
+commands:
+  - ansible-playbook site.yml -i inventory/production
+```
+
+**Node.js Tests:**
+```yaml
+description: Run Node.js test suite
+image: node:20
+git_repo: https://github.com/mycompany/myapp.git
+git_ref: main
+env:
+  NODE_ENV: test
+commands:
+  - npm install
+  - npm run test
+```
+
+**Playbook Discovery:**
+
+Playbooks are discovered in the following order:
+1. Current working directory `.runvoy/` folder
+2. Home directory `.runvoy/` folder (fallback)
+
+If the playbook directory doesn't exist, it's treated as empty (no playbooks available).
 
 ### Output Streams and Piping
 
