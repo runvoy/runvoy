@@ -342,7 +342,7 @@ func TestHandleECSTaskCompletion_MarkRunning(t *testing.T) {
 	}
 
 	mockWebSocket := &mockWebSocketHandler{
-		notifyExecutionCompletionFunc: func(_ context.Context, executionID *string) error {
+		notifyExecutionCompletionFunc: func(_ context.Context, _ *string) error {
 			assert.Fail(t, "should not notify completion for RUNNING status")
 			return nil
 		},

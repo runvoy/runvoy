@@ -432,10 +432,10 @@ func TestKillExecution(t *testing.T) {
 			expectedErrCode: apperrors.ErrCodeInvalidRequest,
 		},
 		{
-			name:        "repository error on get",
-			executionID: "exec-111",
-			getExecErr:  errors.New("database error"),
-			expectErr:   true,
+			name:         "repository error on get",
+			executionID:  "exec-111",
+			getExecErr:   errors.New("database error"),
+			expectErr:    true,
 			expectUpdate: false,
 		},
 		{
@@ -446,8 +446,8 @@ func TestKillExecution(t *testing.T) {
 				Status:      string(constants.ExecutionRunning),
 				StartedAt:   now,
 			},
-			killTaskErr: errors.New("failed to stop task"),
-			expectErr:   true,
+			killTaskErr:  errors.New("failed to stop task"),
+			expectErr:    true,
 			expectUpdate: false,
 		},
 		{

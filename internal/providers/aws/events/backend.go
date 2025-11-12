@@ -202,7 +202,8 @@ func (p *Processor) handleWebSocketEvent(
 }
 
 // handleECSTaskCompletion processes ECS Task State Change events
-func (p *Processor) handleECSTaskCompletion(
+func (p *Processor) handleECSTaskCompletion( //nolint: funlen
+
 	ctx context.Context,
 	event *events.CloudWatchEvent,
 	reqLogger *slog.Logger,
@@ -241,12 +242,19 @@ func (p *Processor) handleECSTaskCompletion(
 		return nil
 	}
 
-	switch awsConstants.EcsStatus(taskEvent.LastStatus) {
+	status := awsConstants.EcsStatus(taskEvent.LastStatus)
+
+	switch status {
 	case awsConstants.EcsStatusRunning:
 		return p.updateExecutionToRunning(ctx, executionID, execution, reqLogger)
 	case awsConstants.EcsStatusStopped:
 		return p.finalizeExecutionFromTaskEvent(ctx, executionID, execution, &taskEvent, reqLogger)
-	default:
+	case awsConstants.EcsStatusProvisioning,
+		awsConstants.EcsStatusPending,
+		awsConstants.EcsStatusActivating,
+		awsConstants.EcsStatusDeactivating,
+		awsConstants.EcsStatusStopping,
+		awsConstants.EcsStatusDeprovisioning:
 		reqLogger.Debug("ignoring ECS task status update",
 			"context", map[string]string{
 				"execution_id": executionID,
@@ -255,6 +263,14 @@ func (p *Processor) handleECSTaskCompletion(
 		)
 		return nil
 	}
+
+	reqLogger.Debug("ignoring ECS task status update",
+		"context", map[string]string{
+			"execution_id": executionID,
+			"last_status":  taskEvent.LastStatus,
+		},
+	)
+	return nil
 }
 
 func (p *Processor) updateExecutionToRunning(
