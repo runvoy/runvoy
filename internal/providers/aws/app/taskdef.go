@@ -315,7 +315,7 @@ func buildTaskDefinitionTags(image string, isDefault *bool) []ecsTypes.Tag {
 		},
 		{
 			Key:   awsStd.String("Application"),
-			Value: awsStd.String("runvoy"),
+			Value: awsStd.String(constants.ProjectName),
 		},
 	}
 	if isDefault != nil && *isDefault {

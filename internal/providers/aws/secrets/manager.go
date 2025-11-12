@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 
+	"runvoy/internal/constants"
 	"runvoy/internal/logger"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -60,9 +61,7 @@ func (m *ParameterStoreManager) getParameterName(secretName string) string {
 // The value is encrypted with the KMS key specified during initialization.
 func (m *ParameterStoreManager) StoreSecret(ctx context.Context, name, value string) error {
 	reqLogger := logger.DeriveRequestLogger(ctx, m.logger)
-
 	parameterName := m.getParameterName(name)
-
 	parameterTags := m.parameterTags()
 
 	_, err := m.client.PutParameter(ctx, &ssm.PutParameterInput{
@@ -86,7 +85,7 @@ func (m *ParameterStoreManager) StoreSecret(ctx context.Context, name, value str
 
 	if err != nil {
 		reqLogger.Error("failed to tag secret parameter", "error", err, "name", name)
-		return fmt.Errorf("failed to tag secret parameter: %w", err)
+		// no need to return an error here, as the secret is still stored
 	}
 
 	reqLogger.Debug("secret stored", "name", name)
@@ -97,11 +96,11 @@ func (m *ParameterStoreManager) parameterTags() []types.Tag {
 	return []types.Tag{
 		{
 			Key:   aws.String("Application"),
-			Value: aws.String("runvoy"),
+			Value: aws.String(constants.ProjectName),
 		},
 		{
 			Key:   aws.String("ManagedBy"),
-			Value: aws.String("runvoy-orchestrator"),
+			Value: aws.String(constants.ProjectName + "-orchestrator"),
 		},
 	}
 }
