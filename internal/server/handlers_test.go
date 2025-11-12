@@ -267,7 +267,7 @@ func TestHandleRunCommand_Success(t *testing.T) {
 	err := json.NewDecoder(resp.Body).Decode(&execResp)
 	assert.NoError(t, err)
 	assert.NotEmpty(t, execResp.ExecutionID)
-	assert.Equal(t, string(constants.ExecutionRunning), execResp.Status)
+	assert.Equal(t, string(constants.ExecutionStarting), execResp.Status)
 }
 
 func TestHandleRunCommand_InvalidJSON(t *testing.T) {

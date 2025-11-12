@@ -114,10 +114,12 @@ func TestServiceConstants(t *testing.T) {
 
 func TestExecutionStatus(t *testing.T) {
 	t.Run("execution status constants are set", func(t *testing.T) {
+		assert.Equal(t, ExecutionStatus("STARTING"), ExecutionStarting)
 		assert.Equal(t, ExecutionStatus("RUNNING"), ExecutionRunning)
 		assert.Equal(t, ExecutionStatus("SUCCEEDED"), ExecutionSucceeded)
 		assert.Equal(t, ExecutionStatus("FAILED"), ExecutionFailed)
 		assert.Equal(t, ExecutionStatus("STOPPED"), ExecutionStopped)
+		assert.Equal(t, ExecutionStatus("TERMINATING"), ExecutionTerminating)
 	})
 }
 

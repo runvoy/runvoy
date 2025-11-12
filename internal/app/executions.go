@@ -38,11 +38,11 @@ func (s *Service) RunCommand(
 		return nil, err
 	}
 
-	s.recordExecution(ctx, userEmail, req, executionID, createdAt)
+	s.recordExecution(ctx, userEmail, req, executionID, createdAt, constants.ExecutionStarting)
 
 	return &api.ExecutionResponse{
 		ExecutionID: executionID,
-		Status:      string(constants.ExecutionRunning),
+		Status:      string(constants.ExecutionStarting),
 	}, nil
 }
 
@@ -52,6 +52,7 @@ func (s *Service) recordExecution(
 	req *api.ExecutionRequest,
 	executionID string,
 	createdAt *time.Time,
+	status constants.ExecutionStatus,
 ) {
 	reqLogger := logger.DeriveRequestLogger(ctx, s.Logger)
 
@@ -66,7 +67,7 @@ func (s *Service) recordExecution(
 		UserEmail:       userEmail,
 		Command:         req.Command,
 		StartedAt:       startedAt,
-		Status:          string(constants.ExecutionRunning),
+		Status:          string(status),
 		RequestID:       requestID,
 		ComputePlatform: string(s.Provider),
 	}
@@ -201,6 +202,17 @@ func (s *Service) KillExecution(ctx context.Context, executionID string) error {
 	// Delegate to the runner to kill the task.
 	if killErr := s.runner.KillTask(ctx, executionID); killErr != nil {
 		return killErr
+	}
+
+	execution.Status = string(constants.ExecutionTerminating)
+	execution.CompletedAt = nil
+
+	if updateErr := s.executionRepo.UpdateExecution(ctx, execution); updateErr != nil {
+		reqLogger.Error("failed to update execution status to TERMINATING",
+			"error", updateErr,
+			"execution_id", executionID,
+		)
+		return updateErr
 	}
 
 	return nil

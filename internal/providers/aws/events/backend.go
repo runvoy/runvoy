@@ -203,6 +203,7 @@ func (p *Processor) handleWebSocketEvent(
 
 // handleECSTaskCompletion processes ECS Task State Change events
 func (p *Processor) handleECSTaskCompletion(
+
 	ctx context.Context,
 	event *events.CloudWatchEvent,
 	reqLogger *slog.Logger,
@@ -215,10 +216,11 @@ func (p *Processor) handleECSTaskCompletion(
 
 	executionID := extractExecutionIDFromTaskArn(taskEvent.TaskArn)
 
-	reqLogger.Info("pattern matched, processing ECS task completion",
+	reqLogger.Info("processing ECS task state change",
 		"execution", map[string]string{
 			"execution_id":   executionID,
 			"started_at":     taskEvent.StartedAt,
+			"last_status":    taskEvent.LastStatus,
 			"stop_code":      taskEvent.StopCode,
 			"stopped_at":     taskEvent.StoppedAt,
 			"stopped_reason": taskEvent.StoppedReason,
@@ -240,8 +242,80 @@ func (p *Processor) handleECSTaskCompletion(
 		return nil
 	}
 
-	status, exitCode := determineStatusAndExitCode(&taskEvent)
-	_, stoppedAt, durationSeconds, err := parseTaskTimes(&taskEvent, execution.StartedAt, reqLogger)
+	status := awsConstants.EcsStatus(taskEvent.LastStatus)
+
+	switch status { //nolint:exhaustive
+	case awsConstants.EcsStatusRunning:
+		return p.updateExecutionToRunning(ctx, executionID, execution, reqLogger)
+	case awsConstants.EcsStatusStopped:
+		return p.finalizeExecutionFromTaskEvent(ctx, executionID, execution, &taskEvent, reqLogger)
+	default:
+		reqLogger.Debug("ignoring ECS task status update",
+			"context", map[string]string{
+				"execution_id": executionID,
+				"last_status":  taskEvent.LastStatus,
+			},
+		)
+		return nil
+	}
+}
+
+func (p *Processor) updateExecutionToRunning(
+	ctx context.Context,
+	executionID string,
+	execution *api.Execution,
+	reqLogger *slog.Logger,
+) error {
+	for _, terminal := range constants.TerminalExecutionStatuses() {
+		if execution.Status == string(terminal) {
+			reqLogger.Debug("skipping RUNNING update for terminal execution",
+				"context", map[string]string{
+					"execution_id": executionID,
+					"status":       execution.Status,
+				},
+			)
+			return nil
+		}
+	}
+
+	if execution.Status == string(constants.ExecutionRunning) {
+		reqLogger.Debug("execution already marked as RUNNING",
+			"context", map[string]string{
+				"execution_id": executionID,
+			},
+		)
+		return nil
+	}
+
+	execution.Status = string(constants.ExecutionRunning)
+	execution.CompletedAt = nil
+
+	if err := p.executionRepo.UpdateExecution(ctx, execution); err != nil {
+		reqLogger.Error("failed to update execution status to RUNNING",
+			"error", err,
+			"execution_id", executionID,
+		)
+		return fmt.Errorf("failed to update execution to running: %w", err)
+	}
+
+	reqLogger.Info("execution marked as RUNNING",
+		"context", map[string]string{
+			"execution_id": executionID,
+		},
+	)
+
+	return nil
+}
+
+func (p *Processor) finalizeExecutionFromTaskEvent(
+	ctx context.Context,
+	executionID string,
+	execution *api.Execution,
+	taskEvent *ECSTaskStateChangeEvent,
+	reqLogger *slog.Logger,
+) error {
+	status, exitCode := determineStatusAndExitCode(taskEvent)
+	_, stoppedAt, durationSeconds, err := parseTaskTimes(taskEvent, execution.StartedAt, reqLogger)
 	if err != nil {
 		return err
 	}
