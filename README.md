@@ -41,17 +41,16 @@ Workstations shouldn't be snowflakes that need complex setups, just a single API
 
 **Key Benefits:**
 
-- **No credential sharing**: Team members never see admin credentials (only one API key to interact with runvoy's backend)
+- **Doesn't _run on your computer_**: The actual commands are executed in remote production-grade environments properly configured for access to secrets and other resources, team member's workstations don't need any special configuration with credentials, environment variables, and so on
 - **Complete audit trail**: Every interaction with the backend is logged with user identification. All logs stored in read-only database for auditing purposes (currently only CloudWatch Logs is supported, but with plans to extend support to other cloud services in the future)
 - **Self-hosted, no black magic**: The backend runs in your cloud provider account, you control everything, including the policies and permissions assigned to the containers
 - **Serverless**: No always-running services, just pay for the compute your commands consume (essentially free for infrequent use)
-- **Doesn't _run on your computer_**: The actual commands are executed in remote production-grade environments properly configured for access to secrets and other resources, team member's workstations don't need any special configuration with credentials, environment variables, and so on
 
 ## Features
 
 - **API key authentication** - Secure access with hashed API keys (SHA-256)
 - **IaC deployment** - Deploy complete backend infrastructure with IaC templates (currently only AWS CloudFormation is supported, but with plans to extend support to other cloud providers in the future)
-- **Flexible container images** - Use any public Docker image (terraform, python, node, etc.)
+- **Flexible container images** - Use any public Docker image (Ubuntu, Python, Node, etc.)
 - **Execution isolation** - Commands run in ephemeral containers
 - **Native cloud provider logging integration** - Full execution logs and audit trails with request ID tracking
 - **Reusable playbooks** - Store and reuse command execution configurations in YAML files, share with your team to execute commands consistently
