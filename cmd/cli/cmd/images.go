@@ -15,7 +15,7 @@ import (
 
 var imagesCmd = &cobra.Command{
 	Use:   "images",
-	Short: "Images management commands",
+	Short: "Docker images management commands",
 }
 
 var (
@@ -24,7 +24,7 @@ var (
 
 var registerImageCmd = &cobra.Command{
 	Use:   "register <image>",
-	Short: "Register a new image",
+	Short: "Register a new Docker image",
 	Example: fmt.Sprintf(`  - %s images register alpine:latest
   - %s images register ecr-public.us-east-1.amazonaws.com/docker/library/ubuntu:22.04
   - %s images register ubuntu:22.04 --set-default`,
@@ -38,13 +38,13 @@ var registerImageCmd = &cobra.Command{
 
 var listImagesCmd = &cobra.Command{
 	Use:   "list",
-	Short: "List all images",
+	Short: "List all registered Docker images",
 	Run:   listImagesRun,
 }
 
 var unregisterImageCmd = &cobra.Command{
 	Use:     "unregister <image>",
-	Short:   "Unregister an image",
+	Short:   "Unregister a Docker image",
 	Example: fmt.Sprintf(`  - %s images unregister alpine:latest`, constants.ProjectName),
 	Run:     unregisterImageRun,
 	Args:    cobra.ExactArgs(1),

@@ -169,7 +169,7 @@ runvoy --help
 ```
 
 ```text
-runvoy - 0.1.0-20251112-64a06df
+runvoy - 0.1.0-20251112-e5d00db
 Isolated, repeatable execution environments for your commands
 
 Usage:
@@ -180,7 +180,7 @@ Available Commands:
   completion  Generate the autocompletion script for the specified shell
   configure   Configure local environment with API key and endpoint URL
   help        Help about any command
-  images      Images management commands
+  images      Docker images management commands
   kill        Kill a running command execution
   list        List executions
   logs        Get logs for an execution
