@@ -37,7 +37,7 @@ Runvoy is composed of 3 main parts:
 
 Runvoy tries to simplify the requirements for running any kind of "priviledged" application (Terraform, Ansible, Kubectl, etc.) without distributing admin credentials.
 
-Workstations shouldn't be snowflakes that need complex setups, just a single API key to interact with the backend. Let remote containers (_run envoys..._) execute the actual commands in a privileged, production grade environment.
+Workstations shouldn't be snowflakes that need complex setups, let remote containers (_run envoys..._) execute the actual commands in a privileged, production grade environment.
 
 **Key Benefits:**
 
