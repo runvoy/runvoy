@@ -443,23 +443,8 @@ func (m *Manager) SendLogsToExecution(
 	)
 
 	for _, logEvent := range logEvents {
-		eg, egCtx := errgroup.WithContext(ctx)
-		eg.SetLimit(constants.MaxConcurrentSends)
-
-		for _, conn := range connections {
-			conn := conn
-			eg.Go(func() error {
-				return m.sendLogToConnection(egCtx, reqLogger, conn.ConnectionID, logEvent)
-			})
-		}
-
-		if egErr := eg.Wait(); egErr != nil {
-			reqLogger.Error("some log sends failed", "context", map[string]any{
-				"error":        egErr.Error(),
-				"execution_id": *executionID,
-				"timestamp":    logEvent.Timestamp,
-			})
-			return fmt.Errorf("failed to send logs to some connections: %w", egErr)
+		if dispatchErr := m.dispatchLogEvent(ctx, reqLogger, *executionID, connections, logEvent); dispatchErr != nil {
+			return dispatchErr
 		}
 	}
 
@@ -467,6 +452,34 @@ func (m *Manager) SendLogsToExecution(
 		"execution_id":     *executionID,
 		"connection_count": fmt.Sprintf("%d", len(connections)),
 	})
+
+	return nil
+}
+
+func (m *Manager) dispatchLogEvent(
+	ctx context.Context,
+	reqLogger *slog.Logger,
+	executionID string,
+	connections []*api.WebSocketConnection,
+	logEvent api.LogEvent,
+) error {
+	eg, egCtx := errgroup.WithContext(ctx)
+	eg.SetLimit(constants.MaxConcurrentSends)
+
+	for _, conn := range connections {
+		eg.Go(func() error {
+			return m.sendLogToConnection(egCtx, reqLogger, conn.ConnectionID, logEvent)
+		})
+	}
+
+	if egErr := eg.Wait(); egErr != nil {
+		reqLogger.Error("some log sends failed", "context", map[string]any{
+			"error":        egErr.Error(),
+			"execution_id": executionID,
+			"timestamp":    logEvent.Timestamp,
+		})
+		return fmt.Errorf("failed to send logs to some connections: %w", egErr)
+	}
 
 	return nil
 }
@@ -552,7 +565,6 @@ func (m *Manager) handleDisconnectNotification(
 	}
 
 	for _, connectionID := range m.connectionIDs {
-		connectionID := connectionID
 		errGroup.Go(func() error {
 			return m.sendDisconnectToConnection(errCtx, reqLogger, connectionID, disconnectMessageBytes)
 		})

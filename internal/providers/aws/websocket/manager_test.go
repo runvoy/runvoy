@@ -115,9 +115,10 @@ func TestValidateConnectionParams(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			wm := &Manager{logger: testutil.SilentLogger()}
+			reqLogger := testutil.SilentLogger()
+			wm := &Manager{logger: reqLogger}
 
-			resp := wm.validateConnectionParams(tt.connectionID, tt.executionID, tt.token)
+			resp := wm.validateConnectionParams(reqLogger, tt.connectionID, tt.executionID, tt.token)
 
 			if tt.expectedError {
 				require.NotNil(t, resp)
@@ -238,6 +239,7 @@ func TestHandleConnect(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			reqLogger := testutil.SilentLogger()
 			// Create a WebSocketToken from the pending connection data
 			wsToken := &api.WebSocketToken{
 				Token:       validToken,
@@ -274,7 +276,7 @@ func TestHandleConnect(t *testing.T) {
 			}
 
 			ctx := context.Background()
-			resp, err := wm.handleConnect(ctx, tt.req)
+			resp, err := wm.handleConnect(ctx, reqLogger, tt.req)
 
 			assert.NoError(t, err)
 			assert.Equal(t, tt.expectedStatusCode, resp.StatusCode)
@@ -318,10 +320,11 @@ func TestHandleConnect_UsesTokenMetadata(t *testing.T) {
 		},
 	}
 
+	reqLogger := testutil.SilentLogger()
 	wm := &Manager{
 		connRepo:  mockConnRepo,
 		tokenRepo: mockTokenRepo,
-		logger:    testutil.SilentLogger(),
+		logger:    reqLogger,
 	}
 
 	req := events.APIGatewayWebsocketProxyRequest{
@@ -335,7 +338,7 @@ func TestHandleConnect_UsesTokenMetadata(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	resp, err := wm.handleConnect(ctx, req)
+	resp, err := wm.handleConnect(ctx, reqLogger, req)
 
 	assert.NoError(t, err)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)

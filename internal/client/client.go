@@ -47,8 +47,6 @@ type Response struct {
 
 // Do makes an HTTP request to the API
 func (c *Client) Do(ctx context.Context, req Request) (*Response, error) {
-	reqLogger := logger.DeriveRequestLogger(ctx, c.logger)
-
 	var bodyReader io.Reader
 	if req.Body != nil {
 		jsonData, err := json.Marshal(req.Body)
@@ -84,7 +82,7 @@ func (c *Client) Do(ctx context.Context, req Request) (*Response, error) {
 		logArgs = append(logArgs, "hasBody", false)
 	}
 	logArgs = append(logArgs, logger.GetDeadlineInfo(ctx)...)
-	reqLogger.Debug("calling external service", logArgs...)
+	c.logger.Debug("calling external service", logArgs...)
 
 	httpClient := &http.Client{}
 	resp, err := httpClient.Do(httpReq)
@@ -101,7 +99,7 @@ func (c *Client) Do(ctx context.Context, req Request) (*Response, error) {
 	}
 
 	// Log response summary
-	reqLogger.Debug("received HTTP response",
+	c.logger.Debug("received HTTP response",
 		"status", resp.StatusCode,
 		"bodySize", len(body),
 		"method", req.Method,
@@ -115,8 +113,6 @@ func (c *Client) Do(ctx context.Context, req Request) (*Response, error) {
 
 // DoJSON makes a request and unmarshals the response into the provided interface
 func (c *Client) DoJSON(ctx context.Context, req Request, result any) error {
-	reqLogger := logger.DeriveRequestLogger(ctx, c.logger)
-
 	resp, err := c.Do(ctx, req)
 	if err != nil {
 		return err
@@ -131,7 +127,7 @@ func (c *Client) DoJSON(ctx context.Context, req Request, result any) error {
 	}
 
 	if err = json.Unmarshal(resp.Body, result); err != nil {
-		reqLogger.Debug("response body", "body", string(resp.Body))
+		c.logger.Debug("response body", "body", string(resp.Body))
 		return fmt.Errorf("failed to parse response: %w", err)
 	}
 
