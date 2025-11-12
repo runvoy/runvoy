@@ -66,7 +66,7 @@ See `internal/auth/apikey_test.go` for a comprehensive example with:
 | Package | Coverage | Status |
 |---------|----------|--------|
 | `internal/auth` | **83.3%** | ✅ **Well-tested** |
-| `internal/output` | 64.4% | ⚠️ Good |
+| `internal/client/output` | 64.4% | ⚠️ Good |
 | `internal/server` | 35.0% | ⚠️ Needs improvement |
 | `internal/client` | 1.2% | ❌ Minimal |
 | `internal/database` | 0.0% | ❌ **Priority** |

@@ -1,6 +1,6 @@
 package cmd
 
-import "runvoy/internal/output"
+import "runvoy/internal/client/output"
 
 // OutputInterface defines the interface for output operations to enable dependency injection and testing
 type OutputInterface interface {

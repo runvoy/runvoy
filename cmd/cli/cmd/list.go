@@ -6,7 +6,7 @@ import (
 	"log/slog"
 	"runvoy/internal/api"
 	"runvoy/internal/client"
-	"runvoy/internal/output"
+	"runvoy/internal/client/output"
 	"time"
 
 	"github.com/spf13/cobra"
