@@ -146,6 +146,140 @@ func TestTerminalExecutionStatuses(t *testing.T) {
 	})
 }
 
+func TestCanTransition(t *testing.T) {
+	tests := []struct {
+		name     string
+		from     ExecutionStatus
+		to       ExecutionStatus
+		expected bool
+	}{
+		// Valid transitions from STARTING
+		{
+			name:     "STARTING to RUNNING",
+			from:     ExecutionStarting,
+			to:       ExecutionRunning,
+			expected: true,
+		},
+		{
+			name:     "STARTING to FAILED",
+			from:     ExecutionStarting,
+			to:       ExecutionFailed,
+			expected: true,
+		},
+		// Invalid transitions from STARTING
+		{
+			name:     "STARTING to SUCCEEDED",
+			from:     ExecutionStarting,
+			to:       ExecutionSucceeded,
+			expected: false,
+		},
+		{
+			name:     "STARTING to STOPPED",
+			from:     ExecutionStarting,
+			to:       ExecutionStopped,
+			expected: false,
+		},
+		{
+			name:     "STARTING to TERMINATING",
+			from:     ExecutionStarting,
+			to:       ExecutionTerminating,
+			expected: true,
+		},
+		// Valid transitions from RUNNING
+		{
+			name:     "RUNNING to SUCCEEDED",
+			from:     ExecutionRunning,
+			to:       ExecutionSucceeded,
+			expected: true,
+		},
+		{
+			name:     "RUNNING to FAILED",
+			from:     ExecutionRunning,
+			to:       ExecutionFailed,
+			expected: true,
+		},
+		{
+			name:     "RUNNING to STOPPED",
+			from:     ExecutionRunning,
+			to:       ExecutionStopped,
+			expected: true,
+		},
+		{
+			name:     "RUNNING to TERMINATING",
+			from:     ExecutionRunning,
+			to:       ExecutionTerminating,
+			expected: true,
+		},
+		// Invalid transitions from RUNNING
+		{
+			name:     "RUNNING to STARTING",
+			from:     ExecutionRunning,
+			to:       ExecutionStarting,
+			expected: false,
+		},
+		// Valid transitions from TERMINATING
+		{
+			name:     "TERMINATING to STOPPED",
+			from:     ExecutionTerminating,
+			to:       ExecutionStopped,
+			expected: true,
+		},
+		// Invalid transitions from TERMINATING
+		{
+			name:     "TERMINATING to RUNNING",
+			from:     ExecutionTerminating,
+			to:       ExecutionRunning,
+			expected: false,
+		},
+		{
+			name:     "TERMINATING to SUCCEEDED",
+			from:     ExecutionTerminating,
+			to:       ExecutionSucceeded,
+			expected: false,
+		},
+		// Terminal states cannot transition
+		{
+			name:     "SUCCEEDED to any status",
+			from:     ExecutionSucceeded,
+			to:       ExecutionRunning,
+			expected: false,
+		},
+		{
+			name:     "FAILED to any status",
+			from:     ExecutionFailed,
+			to:       ExecutionRunning,
+			expected: false,
+		},
+		{
+			name:     "STOPPED to any status",
+			from:     ExecutionStopped,
+			to:       ExecutionRunning,
+			expected: false,
+		},
+		// Same status (no-op transitions)
+		{
+			name:     "STARTING to STARTING",
+			from:     ExecutionStarting,
+			to:       ExecutionStarting,
+			expected: false,
+		},
+		{
+			name:     "RUNNING to RUNNING",
+			from:     ExecutionRunning,
+			to:       ExecutionRunning,
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := CanTransition(tt.from, tt.to)
+			assert.Equal(t, tt.expected, result,
+				"CanTransition(%s, %s) = %v, want %v", tt.from, tt.to, result, tt.expected)
+		})
+	}
+}
+
 func TestWebURL(t *testing.T) {
 	t.Run("default URL is set", func(t *testing.T) {
 		assert.NotEmpty(t, DefaultWebURL)

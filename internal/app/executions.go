@@ -207,14 +207,15 @@ func (s *Service) KillExecution(ctx context.Context, executionID string) (*api.K
 		return nil, apperrors.ErrNotFound("execution not found", nil)
 	}
 
-	terminalStatuses := constants.TerminalExecutionStatuses()
-	if slices.ContainsFunc(terminalStatuses, func(status constants.ExecutionStatus) bool {
-		return execution.Status == string(status)
-	}) {
-		reqLogger.Info("execution already terminated, no action taken", "context", map[string]string{
-			"execution_id": executionID,
-			"status":       execution.Status,
-		})
+	currentStatus := constants.ExecutionStatus(execution.Status)
+	targetStatus := constants.ExecutionTerminating
+
+	if !constants.CanTransition(currentStatus, targetStatus) {
+		reqLogger.Info("execution already in terminal state, no action taken",
+			"context", map[string]any{
+				"execution_id": executionID,
+				"status":       currentStatus,
+			})
 		return nil, nil
 	}
 
@@ -222,7 +223,7 @@ func (s *Service) KillExecution(ctx context.Context, executionID string) (*api.K
 		return nil, killErr
 	}
 
-	execution.Status = string(constants.ExecutionTerminating)
+	execution.Status = string(targetStatus)
 	execution.CompletedAt = nil
 
 	if updateErr := s.executionRepo.UpdateExecution(ctx, execution); updateErr != nil {
