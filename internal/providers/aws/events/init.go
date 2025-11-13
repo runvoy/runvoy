@@ -1,7 +1,6 @@
 package aws
 
 import (
-	"context"
 	"log/slog"
 
 	"runvoy/internal/config"
@@ -15,7 +14,6 @@ import (
 
 // Initialize constructs an AWS-backed event processor with all required dependencies.
 func Initialize(
-	ctx context.Context,
 	cfg *config.Config,
 	log *slog.Logger,
 ) (*Processor, error) {

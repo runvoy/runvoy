@@ -1,7 +1,6 @@
 package aws
 
 import (
-	"context"
 	"log/slog"
 
 	"runvoy/internal/config"
@@ -30,7 +29,6 @@ type Dependencies struct {
 
 // Initialize prepares AWS service dependencies for the app package.
 func Initialize(
-	ctx context.Context,
 	cfg *config.Config,
 	log *slog.Logger,
 ) (*Dependencies, error) {
@@ -68,8 +66,9 @@ func Initialize(
 		TaskExecRoleARN: cfg.AWS.TaskExecRoleARN,
 		TaskRoleARN:     cfg.AWS.TaskRoleARN,
 		Region:          awsCfg.Region,
+		SDKConfig:       &awsCfg,
 	}
-	runner := NewRunner(ecsClient, runnerCfg, &awsCfg, log)
+	runner := NewRunner(ecsClient, runnerCfg, log)
 	wsManager := awsWebsocket.NewManager(cfg, connectionRepo, tokenRepo, log)
 
 	return &Dependencies{

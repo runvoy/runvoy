@@ -35,7 +35,7 @@ func Initialize(
 			return nil, fmt.Errorf("failed to load AWS SDK config: %w", err)
 		}
 
-		processor, err := eventsAws.Initialize(ctx, cfg, logger)
+		processor, err := eventsAws.Initialize(cfg, logger)
 		if err != nil {
 			return nil, fmt.Errorf("failed to initialize AWS backend: %w", err)
 		}

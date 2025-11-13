@@ -33,24 +33,24 @@ type Config struct {
 	TaskRoleARN     string
 	TaskExecRoleARN string
 	Region          string
+	SDKConfig       *awsStd.Config
 }
 
 // Runner implements app.Runner for AWS ECS Fargate.
 type Runner struct {
 	ecsClient *ecs.Client
 	cfg       *Config
-	sdkConfig *awsStd.Config
 	logger    *slog.Logger
 }
 
 // NewRunner creates a new AWS ECS runner with the provided configuration.
-func NewRunner(ecsClient *ecs.Client, cfg *Config, sdkConfig *awsStd.Config, log *slog.Logger) *Runner {
-	return &Runner{ecsClient: ecsClient, cfg: cfg, sdkConfig: sdkConfig, logger: log}
+func NewRunner(ecsClient *ecs.Client, cfg *Config, log *slog.Logger) *Runner {
+	return &Runner{ecsClient: ecsClient, cfg: cfg, logger: log}
 }
 
 // FetchLogsByExecutionID returns CloudWatch log events for the given execution ID.
 func (e *Runner) FetchLogsByExecutionID(ctx context.Context, executionID string) ([]api.LogEvent, error) {
-	return FetchLogsByExecutionID(ctx, e.cfg, e.sdkConfig, executionID)
+	return FetchLogsByExecutionID(ctx, e.cfg, e.cfg.SDKConfig, executionID)
 }
 
 type sidecarScriptData struct {
