@@ -9,6 +9,7 @@ import (
 	"runvoy/internal/api"
 	"runvoy/internal/testutil"
 
+	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -486,4 +487,262 @@ func TestBuildUpdateExpression(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestExecutionRepository_CreateExecution(t *testing.T) {
+	ctx := context.Background()
+	logger := testutil.SilentLogger()
+	tableName := "test-executions-table"
+
+	t.Run("successfully creates execution", func(t *testing.T) {
+		mockClient := NewMockDynamoDBClient()
+		repo := NewExecutionRepository(mockClient, tableName, logger)
+
+		execution := &api.Execution{
+			ExecutionID: "exec-123",
+			StartedAt:   time.Now(),
+			UserEmail:   "user@example.com",
+			Command:     "echo hello",
+			Status:      "RUNNING",
+		}
+
+		err := repo.CreateExecution(ctx, execution)
+
+		require.NoError(t, err)
+		assert.Equal(t, 1, mockClient.PutItemCalls)
+	})
+
+	t.Run("handles duplicate execution ID", func(t *testing.T) {
+		mockClient := NewMockDynamoDBClient()
+		repo := NewExecutionRepository(mockClient, tableName, logger)
+
+		execution := &api.Execution{
+			ExecutionID: "exec-123",
+			StartedAt:   time.Now(),
+			UserEmail:   "user@example.com",
+			Command:     "echo hello",
+			Status:      "RUNNING",
+		}
+
+		// Create first execution
+		err := repo.CreateExecution(ctx, execution)
+		require.NoError(t, err)
+
+		// Try to create duplicate - mock client doesn't check condition expressions
+		// so we'll simulate it by setting an error
+		mockClient.PutItemError = &types.ConditionalCheckFailedException{}
+
+		err = repo.CreateExecution(ctx, execution)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "execution already exists")
+	})
+
+	t.Run("handles database error", func(t *testing.T) {
+		mockClient := NewMockDynamoDBClient()
+		mockClient.PutItemError = fmt.Errorf("database error")
+		repo := NewExecutionRepository(mockClient, tableName, logger)
+
+		execution := &api.Execution{
+			ExecutionID: "exec-123",
+			StartedAt:   time.Now(),
+			UserEmail:   "user@example.com",
+			Command:     "echo hello",
+			Status:      "RUNNING",
+		}
+
+		err := repo.CreateExecution(ctx, execution)
+
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to create execution")
+	})
+}
+
+func TestExecutionRepository_GetExecution(t *testing.T) {
+	ctx := context.Background()
+	logger := testutil.SilentLogger()
+	tableName := "test-executions-table"
+
+	t.Run("successfully retrieves execution", func(t *testing.T) {
+		mockClient := NewMockDynamoDBClient()
+		// Manually set up the table structure with an execution item
+		// This works around the mock's limitation in key extraction
+		if mockClient.Tables[tableName] == nil {
+			mockClient.Tables[tableName] = make(
+				map[string]map[string]map[string]types.AttributeValue,
+			)
+		}
+		if mockClient.Tables[tableName]["exec-123"] == nil {
+			mockClient.Tables[tableName]["exec-123"] = make(
+				map[string]map[string]types.AttributeValue,
+			)
+		}
+		now := time.Now()
+		// Create a properly formatted execution item
+		executionItem := toExecutionItem(&api.Execution{
+			ExecutionID: "exec-123",
+			StartedAt:   now,
+			UserEmail:   "user@example.com",
+			Command:     "echo hello",
+			Status:      "RUNNING",
+		})
+		av, err := attributevalue.MarshalMap(executionItem)
+		require.NoError(t, err)
+		av["_all"] = &types.AttributeValueMemberS{Value: "1"}
+		mockClient.Tables[tableName]["exec-123"][""] = av
+
+		repo := NewExecutionRepository(mockClient, tableName, logger)
+
+		result, err := repo.GetExecution(ctx, "exec-123")
+
+		require.NoError(t, err)
+		require.NotNil(t, result)
+		assert.Equal(t, "exec-123", result.ExecutionID)
+		assert.Equal(t, "user@example.com", result.UserEmail)
+		assert.Equal(t, "echo hello", result.Command)
+		assert.Equal(t, 1, mockClient.GetItemCalls)
+	})
+
+	t.Run("returns nil for non-existent execution", func(t *testing.T) {
+		mockClient := NewMockDynamoDBClient()
+		repo := NewExecutionRepository(mockClient, tableName, logger)
+
+		result, err := repo.GetExecution(ctx, "non-existent")
+
+		require.NoError(t, err)
+		assert.Nil(t, result)
+		assert.Equal(t, 1, mockClient.GetItemCalls)
+	})
+
+	t.Run("handles database error", func(t *testing.T) {
+		mockClient := NewMockDynamoDBClient()
+		mockClient.GetItemError = fmt.Errorf("database error")
+		repo := NewExecutionRepository(mockClient, tableName, logger)
+
+		result, err := repo.GetExecution(ctx, "exec-123")
+
+		require.Error(t, err)
+		assert.Nil(t, result)
+		assert.Contains(t, err.Error(), "failed to get execution")
+	})
+}
+
+func TestExecutionRepository_UpdateExecution(t *testing.T) {
+	ctx := context.Background()
+	logger := testutil.SilentLogger()
+	tableName := "test-executions-table"
+
+	t.Run("successfully updates execution", func(t *testing.T) {
+		mockClient := NewMockDynamoDBClient()
+		// Manually set up the table structure to match what PutItem would create
+		// This works around the mock's limitation in key extraction
+		if mockClient.Tables[tableName] == nil {
+			mockClient.Tables[tableName] = make(
+				map[string]map[string]map[string]types.AttributeValue,
+			)
+		}
+		if mockClient.Tables[tableName]["exec-123"] == nil {
+			mockClient.Tables[tableName]["exec-123"] = make(
+				map[string]map[string]types.AttributeValue,
+			)
+		}
+		// Create a dummy item
+		mockClient.Tables[tableName]["exec-123"][""] = map[string]types.AttributeValue{
+			"execution_id": &types.AttributeValueMemberS{Value: "exec-123"},
+		}
+
+		repo := NewExecutionRepository(mockClient, tableName, logger)
+
+		now := time.Now()
+		completed := now.Add(5 * time.Minute)
+		execution := &api.Execution{
+			ExecutionID:     "exec-123",
+			StartedAt:       now,
+			UserEmail:       "user@example.com",
+			Command:         "echo hello",
+			Status:          "SUCCEEDED",
+			CompletedAt:     &completed,
+			ExitCode:        0,
+			DurationSeconds: 300,
+			LogStreamName:   "logs/stream",
+		}
+
+		err := repo.UpdateExecution(ctx, execution)
+
+		require.NoError(t, err)
+		assert.Equal(t, 1, mockClient.UpdateItemCalls)
+	})
+
+	t.Run("handles execution not found", func(t *testing.T) {
+		mockClient := NewMockDynamoDBClient()
+		mockClient.UpdateItemError = &types.ConditionalCheckFailedException{}
+		repo := NewExecutionRepository(mockClient, tableName, logger)
+
+		execution := &api.Execution{
+			ExecutionID: "exec-123",
+			Status:      "SUCCEEDED",
+			ExitCode:    0,
+		}
+
+		err := repo.UpdateExecution(ctx, execution)
+
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "execution not found")
+	})
+
+	t.Run("handles database error", func(t *testing.T) {
+		mockClient := NewMockDynamoDBClient()
+		mockClient.UpdateItemError = fmt.Errorf("database error")
+		repo := NewExecutionRepository(mockClient, tableName, logger)
+
+		execution := &api.Execution{
+			ExecutionID: "exec-123",
+			Status:      "SUCCEEDED",
+			ExitCode:    0,
+		}
+
+		err := repo.UpdateExecution(ctx, execution)
+
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to update execution")
+	})
+}
+
+func TestExecutionRepository_ListExecutions(t *testing.T) {
+	ctx := context.Background()
+	logger := testutil.SilentLogger()
+	tableName := "test-executions-table"
+
+	t.Run("successfully lists executions", func(t *testing.T) {
+		mockClient := NewMockDynamoDBClient()
+		repo := NewExecutionRepository(mockClient, tableName, logger)
+
+		executions, err := repo.ListExecutions(ctx)
+
+		require.NoError(t, err)
+		assert.NotNil(t, executions)
+		assert.Equal(t, 1, mockClient.QueryCalls)
+	})
+
+	t.Run("handles empty results", func(t *testing.T) {
+		mockClient := NewMockDynamoDBClient()
+		repo := NewExecutionRepository(mockClient, tableName, logger)
+
+		executions, err := repo.ListExecutions(ctx)
+
+		require.NoError(t, err)
+		assert.NotNil(t, executions)
+		assert.Empty(t, executions)
+	})
+
+	t.Run("handles database error", func(t *testing.T) {
+		mockClient := NewMockDynamoDBClient()
+		mockClient.QueryError = fmt.Errorf("database error")
+		repo := NewExecutionRepository(mockClient, tableName, logger)
+
+		executions, err := repo.ListExecutions(ctx)
+
+		require.Error(t, err)
+		assert.Nil(t, executions)
+		assert.Contains(t, err.Error(), "failed to query executions")
+	})
 }
