@@ -176,6 +176,7 @@ func (s *Service) GetExecutionStatus(ctx context.Context, executionID string) (*
 
 // KillExecution terminates a running execution identified by executionID.
 // It verifies the execution exists in the database and checks task status before termination.
+// Updates the execution status to TERMINATING after successful task stop.
 // Returns an error if the execution is not found, already terminated, or termination fails.
 func (s *Service) KillExecution(ctx context.Context, executionID string) error {
 	if s.executionRepo == nil {
@@ -187,7 +188,6 @@ func (s *Service) KillExecution(ctx context.Context, executionID string) error {
 
 	reqLogger := logger.DeriveRequestLogger(ctx, s.Logger)
 
-	// First, verify the execution exists in the database.
 	execution, err := s.executionRepo.GetExecution(ctx, executionID)
 	if err != nil {
 		return err
@@ -198,7 +198,6 @@ func (s *Service) KillExecution(ctx context.Context, executionID string) error {
 
 	reqLogger.Debug("execution found", "execution_id", executionID, "status", execution.Status)
 
-	// Check if execution is already in a terminal state.
 	terminalStatuses := constants.TerminalExecutionStatuses()
 	if slices.ContainsFunc(terminalStatuses, func(status constants.ExecutionStatus) bool {
 		return execution.Status == string(status)
@@ -208,7 +207,6 @@ func (s *Service) KillExecution(ctx context.Context, executionID string) error {
 			fmt.Errorf("execution status: %s", execution.Status))
 	}
 
-	// Delegate to the runner to kill the task.
 	if killErr := s.runner.KillTask(ctx, executionID); killErr != nil {
 		return killErr
 	}
@@ -217,12 +215,20 @@ func (s *Service) KillExecution(ctx context.Context, executionID string) error {
 	execution.CompletedAt = nil
 
 	if updateErr := s.executionRepo.UpdateExecution(ctx, execution); updateErr != nil {
-		reqLogger.Error("failed to update execution status to TERMINATING",
-			"error", updateErr,
-			"execution_id", executionID,
-		)
+		reqLogger.Error("failed to update execution status", "context", map[string]string{
+			"execution_id": executionID,
+			"status":       execution.Status,
+			"error":        updateErr.Error(),
+		})
 		return updateErr
 	}
+
+	reqLogger.Debug("execution updated successfully",
+		"context", map[string]string{
+			"execution_id": executionID,
+			"status":       execution.Status,
+		},
+	)
 
 	return nil
 }
