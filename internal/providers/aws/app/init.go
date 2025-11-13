@@ -35,7 +35,7 @@ func Initialize(
 	logger.RegisterContextExtractor(NewLambdaContextExtractor())
 
 	awsCfg := *cfg.AWS.SDKConfig
-	dynamoClient := dynamodb.NewFromConfig(awsCfg)
+	dynamoSDKClient := dynamodb.NewFromConfig(awsCfg)
 	ecsClient := ecs.NewFromConfig(awsCfg)
 	ssmClient := ssm.NewFromConfig(awsCfg)
 
@@ -46,6 +46,10 @@ func Initialize(
 		"websocket_connections_table": cfg.AWS.WebSocketConnectionsTable,
 		"websocket_tokens_table":      cfg.AWS.WebSocketTokensTable,
 	})
+
+	// Wrap the AWS SDK DynamoDB client in an adapter for improved testability
+	// All repositories share the same client instance
+	dynamoClient := dynamoRepo.NewClientAdapter(dynamoSDKClient)
 
 	userRepo := dynamoRepo.NewUserRepository(dynamoClient, cfg.AWS.APIKeysTable, cfg.AWS.PendingAPIKeysTable, log)
 	executionRepo := dynamoRepo.NewExecutionRepository(dynamoClient, cfg.AWS.ExecutionsTable, log)

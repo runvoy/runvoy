@@ -22,13 +22,13 @@ import (
 
 // ExecutionRepository implements the database.ExecutionRepository interface using DynamoDB.
 type ExecutionRepository struct {
-	client    *dynamodb.Client
+	client    Client
 	tableName string
 	logger    *slog.Logger
 }
 
 // NewExecutionRepository creates a new DynamoDB-backed execution repository.
-func NewExecutionRepository(client *dynamodb.Client, tableName string, log *slog.Logger) *ExecutionRepository {
+func NewExecutionRepository(client Client, tableName string, log *slog.Logger) *ExecutionRepository {
 	return &ExecutionRepository{
 		client:    client,
 		tableName: tableName,
