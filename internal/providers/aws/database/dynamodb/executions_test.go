@@ -357,7 +357,7 @@ func TestBuildUpdateExpression(t *testing.T) {
 				Status:      "RUNNING",
 				ExitCode:    0,
 			},
-			expectedUpdateExpr: "SET #status = :status, exit_code = :exit_code",
+			expectedUpdateExpr: "SET #status = :status, exit_code = :exit_code REMOVE completed_at",
 			expectedExprNames: map[string]string{
 				"#status": "status",
 			},
@@ -405,7 +405,7 @@ func TestBuildUpdateExpression(t *testing.T) {
 				ExitCode:        0,
 				DurationSeconds: 150,
 			},
-			expectedUpdateExpr: "SET #status = :status, exit_code = :exit_code, duration_seconds = :duration_seconds",
+			expectedUpdateExpr: "SET #status = :status, exit_code = :exit_code, duration_seconds = :duration_seconds REMOVE completed_at",
 			expectedExprNames: map[string]string{
 				"#status": "status",
 			},
@@ -420,7 +420,7 @@ func TestBuildUpdateExpression(t *testing.T) {
 				ExitCode:      0,
 				LogStreamName: "logs/stream-123",
 			},
-			expectedUpdateExpr: "SET #status = :status, exit_code = :exit_code, log_stream_name = :log_stream_name",
+			expectedUpdateExpr: "SET #status = :status, exit_code = :exit_code, log_stream_name = :log_stream_name REMOVE completed_at",
 			expectedExprNames: map[string]string{
 				"#status": "status",
 			},

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 	"slices"
+	"strings"
 	"time"
 
 	"runvoy/internal/api"
@@ -185,7 +186,8 @@ func marshallTimestamp(t time.Time) (string, error) {
 func buildUpdateExpression(
 	execution *api.Execution,
 ) (updateExpr string, exprNames map[string]string, exprValues map[string]types.AttributeValue, err error) {
-	updateExpr = "SET #status = :status"
+	var setParts []string
+	var removeParts []string
 	exprNames = map[string]string{
 		"#status": "status",
 	}
@@ -193,27 +195,43 @@ func buildUpdateExpression(
 		":status": &types.AttributeValueMemberS{Value: execution.Status},
 	}
 
+	setParts = append(setParts, "#status = :status")
+
 	if execution.CompletedAt != nil {
-		updateExpr += ", completed_at = :completed_at"
+		setParts = append(setParts, "completed_at = :completed_at")
 		completedAtStr, marshalErr := marshallTimestamp(*execution.CompletedAt)
 		if marshalErr != nil {
 			return "", nil, nil, marshalErr
 		}
 		exprAttrValues[":completed_at"] = &types.AttributeValueMemberS{Value: completedAtStr}
+	} else {
+		// Explicitly remove completed_at if it's nil (to clear it from DynamoDB)
+		removeParts = append(removeParts, "completed_at")
 	}
 
-	updateExpr += ", exit_code = :exit_code"
+	setParts = append(setParts, "exit_code = :exit_code")
 	exprAttrValues[":exit_code"] = &types.AttributeValueMemberN{Value: fmt.Sprintf("%d", execution.ExitCode)}
 
 	if execution.DurationSeconds > 0 {
-		updateExpr += ", duration_seconds = :duration_seconds"
+		setParts = append(setParts, "duration_seconds = :duration_seconds")
 		exprAttrValues[":duration_seconds"] = &types.AttributeValueMemberN{
 			Value: fmt.Sprintf("%d", execution.DurationSeconds)}
 	}
 
 	if execution.LogStreamName != "" {
-		updateExpr += ", log_stream_name = :log_stream_name"
+		setParts = append(setParts, "log_stream_name = :log_stream_name")
 		exprAttrValues[":log_stream_name"] = &types.AttributeValueMemberS{Value: execution.LogStreamName}
+	}
+
+	// Build the update expression
+	if len(setParts) > 0 {
+		updateExpr = "SET " + strings.Join(setParts, ", ")
+	}
+	if len(removeParts) > 0 {
+		if updateExpr != "" {
+			updateExpr += " "
+		}
+		updateExpr += "REMOVE " + strings.Join(removeParts, ", ")
 	}
 
 	return updateExpr, exprNames, exprAttrValues, nil
@@ -241,7 +259,7 @@ func (r *ExecutionRepository) UpdateExecution(ctx context.Context, execution *ap
 		"update_expression", updateExpr,
 	}
 	updateLogArgs = append(updateLogArgs, logger.GetDeadlineInfo(ctx)...)
-	reqLogger.Debug("calling external service", "context", logger.SliceToMap(updateLogArgs))
+	reqLogger.Info("updating execution in database", "context", logger.SliceToMap(updateLogArgs))
 
 	_, err = r.client.UpdateItem(ctx, &dynamodb.UpdateItemInput{
 		TableName: aws.String(r.tableName),
@@ -255,8 +273,19 @@ func (r *ExecutionRepository) UpdateExecution(ctx context.Context, execution *ap
 	})
 
 	if err != nil {
+		reqLogger.Error("DynamoDB UpdateItem failed",
+			"error", err,
+			"execution_id", execution.ExecutionID,
+			"status", execution.Status,
+			"update_expression", updateExpr,
+		)
 		return apperrors.ErrDatabaseError("failed to update execution", err)
 	}
+
+	reqLogger.Info("execution updated successfully in database",
+		"execution_id", execution.ExecutionID,
+		"status", execution.Status,
+	)
 
 	return nil
 }
