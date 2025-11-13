@@ -71,7 +71,7 @@ func TestInitialize_ContextCancelled(t *testing.T) {
 		},
 	}
 
-	// SDK config loading might succeed even with cancelled context
+	// SDK config loading might succeed even with canceled context
 	// depending on implementation, so we just check it doesn't panic
 	processor, err := Initialize(ctx, cfg, logger)
 	// Either succeeds or returns an error, but shouldn't panic

@@ -48,11 +48,12 @@ func (m *mockExecutionRepo) ListExecutions(_ context.Context) ([]*api.Execution,
 
 // Mock WebSocket handler for testing
 type mockWebSocketHandler struct {
-	handleRequestFunc            func(ctx context.Context, rawEvent *json.RawMessage, logger *slog.Logger) (bool, error)
+	handleRequestFunc             func(ctx context.Context, rawEvent *json.RawMessage, logger *slog.Logger) (bool, error)
 	notifyExecutionCompletionFunc func(ctx context.Context, executionID *string) error
 }
 
-func (m *mockWebSocketHandler) HandleRequest(ctx context.Context, rawEvent *json.RawMessage, logger *slog.Logger) (bool, error) {
+func (m *mockWebSocketHandler) HandleRequest(
+	ctx context.Context, rawEvent *json.RawMessage, logger *slog.Logger) (bool, error) {
 	if m.handleRequestFunc != nil {
 		return m.handleRequestFunc(ctx, rawEvent, logger)
 	}
