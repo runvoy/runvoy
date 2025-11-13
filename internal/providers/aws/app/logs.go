@@ -20,14 +20,8 @@ import (
 // FetchLogsByExecutionID queries CloudWatch Logs for events associated with the ECS task ID
 // Returns a slice of LogEvent sorted by timestamp.
 func FetchLogsByExecutionID(ctx context.Context, cfg *Config, awsCfg *aws.Config, executionID string) ([]api.LogEvent, error) {
-	if cfg == nil || cfg.LogGroup == "" {
-		return nil, appErrors.ErrInternalError("CloudWatch Logs group not configured", nil)
-	}
 	if executionID == "" {
 		return nil, appErrors.ErrBadRequest("executionID is required", nil)
-	}
-	if awsCfg == nil {
-		return nil, appErrors.ErrInternalError("AWS SDK configuration not provided", nil)
 	}
 
 	cwl := cloudwatchlogs.NewFromConfig(*awsCfg)

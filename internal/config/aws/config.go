@@ -43,9 +43,7 @@ type Config struct {
 	SecretsPrefix    string `mapstructure:"secrets_prefix"`
 	SecretsKMSKeyARN string `mapstructure:"secrets_kms_key_arn"`
 
-	// AWS SDK Configuration
-	// This holds the loaded AWS SDK config with credentials, region, etc.
-	// It should be initialized once during application startup using LoadSDKConfig.
+	// AWS SDK Configuration (credentials, region, etc.)
 	SDKConfig *aws.Config `mapstructure:"-"`
 }
 
@@ -140,9 +138,7 @@ func NormalizeWebSocketEndpoint(endpoint string) string {
 	return endpoint
 }
 
-// LoadSDKConfig loads the AWS SDK configuration and stores it in the Config.
-// This should be called once during application initialization.
-// It loads credentials, region, and other AWS settings from the environment.
+// LoadSDKConfig loads the AWS SDK configuration from the environment.
 func (c *Config) LoadSDKConfig(ctx context.Context) error {
 	awsCfg, err := awsConfig.LoadDefaultConfig(ctx)
 	if err != nil {

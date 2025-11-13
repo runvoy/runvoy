@@ -2,7 +2,6 @@ package aws
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 
 	"runvoy/internal/config"
@@ -36,14 +35,6 @@ func Initialize(
 	log *slog.Logger,
 ) (*Dependencies, error) {
 	logger.RegisterContextExtractor(NewLambdaContextExtractor())
-
-	if cfg.AWS == nil {
-		return nil, fmt.Errorf("AWS configuration is required")
-	}
-
-	if cfg.AWS.SDKConfig == nil {
-		return nil, fmt.Errorf("AWS SDK configuration not loaded; call LoadSDKConfig first")
-	}
 
 	awsCfg := *cfg.AWS.SDKConfig
 	dynamoClient := dynamodb.NewFromConfig(awsCfg)
@@ -79,7 +70,7 @@ func Initialize(
 		Region:          awsCfg.Region,
 	}
 	runner := NewRunner(ecsClient, runnerCfg, &awsCfg, log)
-	wsManager := awsWebsocket.NewManager(cfg, &awsCfg, connectionRepo, tokenRepo, log)
+	wsManager := awsWebsocket.NewManager(cfg, connectionRepo, tokenRepo, log)
 
 	return &Dependencies{
 		UserRepo:         userRepo,
