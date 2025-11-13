@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"slices"
 	"time"
 
 	"runvoy/internal/api"
@@ -107,6 +106,9 @@ func (r *ExecutionRepository) CreateExecution(ctx context.Context, execution *ap
 		return apperrors.ErrDatabaseError("failed to marshal execution", err)
 	}
 
+	// Add _all field for the all-started_at GSI (sparse index pattern)
+	av["_all"] = &types.AttributeValueMemberS{Value: "1"}
+
 	reqLogger.Debug("calling external service", "context", map[string]string{
 		"operation":    "DynamoDB.PutItem",
 		"table":        r.tableName,
@@ -115,14 +117,13 @@ func (r *ExecutionRepository) CreateExecution(ctx context.Context, execution *ap
 		"status":       execution.Status,
 	})
 
-	// Ensure uniqueness: only create if this PK does not already exist
+	// Ensure uniqueness: only create if this execution_id does not already exist
 	_, err = r.client.PutItem(ctx, &dynamodb.PutItemInput{
 		TableName: aws.String(r.tableName),
 		Item:      av,
-		// This condition prevents overwriting an existing item with the same
-		// composite key (execution_id, started_at). If an item exists, DynamoDB
-		// returns a ConditionalCheckFailedException, which we map to a conflict.
-		ConditionExpression: aws.String("attribute_not_exists(execution_id) AND attribute_not_exists(started_at)"),
+		// This condition prevents overwriting an existing item with the same execution_id.
+		// If an item exists, DynamoDB returns a ConditionalCheckFailedException, which we map to a conflict.
+		ConditionExpression: aws.String("attribute_not_exists(execution_id)"),
 	})
 
 	if err != nil {
@@ -143,36 +144,32 @@ func (r *ExecutionRepository) CreateExecution(ctx context.Context, execution *ap
 func (r *ExecutionRepository) GetExecution(ctx context.Context, executionID string) (*api.Execution, error) {
 	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
 
-	// Log before calling DynamoDB Query
 	logArgs := []any{
-		"operation", "DynamoDB.Query",
+		"operation", "DynamoDB.GetItem",
 		"table", r.tableName,
 		"execution_id", executionID,
 	}
 	logArgs = append(logArgs, logger.GetDeadlineInfo(ctx)...)
 	reqLogger.Debug("calling external service", "context", logger.SliceToMap(logArgs))
 
-	result, err := r.client.Query(ctx, &dynamodb.QueryInput{
-		TableName:              aws.String(r.tableName),
-		ConsistentRead:         aws.Bool(true), // Use strongly consistent read to ensure we see the latest data
-		KeyConditionExpression: aws.String("execution_id = :execution_id"),
-		ExpressionAttributeValues: map[string]types.AttributeValue{
-			":execution_id": &types.AttributeValueMemberS{Value: executionID},
+	result, err := r.client.GetItem(ctx, &dynamodb.GetItemInput{
+		TableName:      aws.String(r.tableName),
+		ConsistentRead: aws.Bool(true), // Use strongly consistent read to ensure we see the latest data
+		Key: map[string]types.AttributeValue{
+			"execution_id": &types.AttributeValueMemberS{Value: executionID},
 		},
-		ScanIndexForward: aws.Bool(false), // sort descending by started_at
-		Limit:            aws.Int32(1),
 	})
 
 	if err != nil {
-		return nil, apperrors.ErrDatabaseError("failed to query execution", err)
+		return nil, apperrors.ErrDatabaseError("failed to get execution", err)
 	}
 
-	if len(result.Items) == 0 {
+	if len(result.Item) == 0 {
 		return nil, nil
 	}
 
 	var item executionItem
-	if err = attributevalue.UnmarshalMap(result.Items[0], &item); err != nil {
+	if err = attributevalue.UnmarshalMap(result.Item, &item); err != nil {
 		return nil, apperrors.ErrDatabaseError("failed to unmarshal execution", err)
 	}
 
@@ -218,8 +215,7 @@ func buildUpdateExpression(
 func (r *ExecutionRepository) UpdateExecution(ctx context.Context, execution *api.Execution) error {
 	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
 
-	const conditionExpr = "attribute_exists(execution_id) AND attribute_exists(started_at)"
-	startedAtStr := fmt.Sprintf("%d", execution.StartedAt.Unix()) // DynamoDB requires Number values as strings
+	const conditionExpr = "attribute_exists(execution_id)"
 
 	updateExpr, exprNames, exprValues := buildUpdateExpression(execution)
 
@@ -237,7 +233,6 @@ func (r *ExecutionRepository) UpdateExecution(ctx context.Context, execution *ap
 		TableName: aws.String(r.tableName),
 		Key: map[string]types.AttributeValue{
 			"execution_id": &types.AttributeValueMemberS{Value: execution.ExecutionID},
-			"started_at":   &types.AttributeValueMemberN{Value: startedAtStr},
 		},
 		UpdateExpression:          aws.String(updateExpr),
 		ExpressionAttributeNames:  exprNames,
@@ -255,7 +250,6 @@ func (r *ExecutionRepository) UpdateExecution(ctx context.Context, execution *ap
 		reqLogger.Error("update item failed", "context", map[string]any{
 			"error":        updateErr.Error(),
 			"execution_id": execution.ExecutionID,
-			"started_at":   startedAtStr,
 		})
 		return apperrors.ErrDatabaseError("failed to update execution", updateErr)
 	}
@@ -263,29 +257,37 @@ func (r *ExecutionRepository) UpdateExecution(ctx context.Context, execution *ap
 	return nil
 }
 
-// ListExecutions scans the executions table to return all execution records.
-// Results are sorted by StartedAt descending in-memory to provide a reasonable default ordering.
+// ListExecutions queries the executions table using the all-started_at GSI
+// to return all execution records sorted by StartedAt descending (newest first).
+// This uses Query instead of Scan for better performance and native sorting by DynamoDB.
 func (r *ExecutionRepository) ListExecutions(ctx context.Context) ([]*api.Execution, error) {
 	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
 	executions := make([]*api.Execution, 0, constants.ExecutionsSliceInitialCapacity)
 	var lastKey map[string]types.AttributeValue
-	pageCount := 0
 
 	reqLogger.Debug("calling external service", "context", map[string]string{
-		"operation": "DynamoDB.Scan",
+		"operation": "DynamoDB.Query",
 		"table":     r.tableName,
+		"index":     "all-started_at",
 		"paginated": "true",
 	})
 
 	for {
-		pageCount++
-
-		out, err := r.client.Scan(ctx, &dynamodb.ScanInput{
-			TableName:         aws.String(r.tableName),
+		out, err := r.client.Query(ctx, &dynamodb.QueryInput{
+			TableName:              aws.String(r.tableName),
+			IndexName:              aws.String("all-started_at"),
+			KeyConditionExpression: aws.String("#all = :all"),
+			ExpressionAttributeNames: map[string]string{
+				"#all": "_all",
+			},
+			ExpressionAttributeValues: map[string]types.AttributeValue{
+				":all": &types.AttributeValueMemberS{Value: "1"},
+			},
+			ScanIndexForward:  aws.Bool(false), // Sort descending by started_at (newest first)
 			ExclusiveStartKey: lastKey,
 		})
 		if err != nil {
-			return nil, apperrors.ErrDatabaseError("failed to scan executions", err)
+			return nil, apperrors.ErrDatabaseError("failed to query executions", err)
 		}
 
 		for _, it := range out.Items {
@@ -301,17 +303,6 @@ func (r *ExecutionRepository) ListExecutions(ctx context.Context) ([]*api.Execut
 		}
 		lastKey = out.LastEvaluatedKey
 	}
-
-	// Sort by StartedAt descending (newest first)
-	slices.SortFunc(executions, func(a, b *api.Execution) int {
-		if a.StartedAt.Equal(b.StartedAt) {
-			return 0
-		}
-		if a.StartedAt.After(b.StartedAt) {
-			return -1
-		}
-		return 1
-	})
 
 	return executions, nil
 }

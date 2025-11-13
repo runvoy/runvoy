@@ -60,11 +60,11 @@ Resources:
           AttributeType: S
         - AttributeName: status
           AttributeType: S
+        - AttributeName: _all
+          AttributeType: S
       KeySchema:
         - AttributeName: execution_id
           KeyType: HASH
-        - AttributeName: started_at
-          KeyType: RANGE
       GlobalSecondaryIndexes:
         - IndexName: user_email-started_at
           KeySchema:
@@ -77,6 +77,14 @@ Resources:
         - IndexName: status-started_at
           KeySchema:
             - AttributeName: status
+              KeyType: HASH
+            - AttributeName: started_at
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+        - IndexName: all-started_at
+          KeySchema:
+            - AttributeName: _all
               KeyType: HASH
             - AttributeName: started_at
               KeyType: RANGE
