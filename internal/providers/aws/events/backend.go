@@ -314,10 +314,38 @@ func (p *Processor) finalizeExecutionFromTaskEvent(
 	taskEvent *ECSTaskStateChangeEvent,
 	reqLogger *slog.Logger,
 ) error {
+	// Skip if execution is already in a terminal state (idempotency)
+	for _, terminal := range constants.TerminalExecutionStatuses() {
+		if execution.Status == string(terminal) {
+			reqLogger.Debug("skipping finalization for execution already in terminal state",
+				"context", map[string]string{
+					"execution_id": executionID,
+					"status":       execution.Status,
+				},
+			)
+			return nil
+		}
+	}
+
+	// Check if execution was in TERMINATING status (manual kill)
+	wasTerminating := execution.Status == string(constants.ExecutionTerminating)
+
 	status, exitCode := determineStatusAndExitCode(taskEvent)
 	_, stoppedAt, durationSeconds, err := parseTaskTimes(taskEvent, execution.StartedAt, reqLogger)
 	if err != nil {
 		return err
+	}
+
+	// If execution was in TERMINATING and stop code is UserInitiated, ensure we transition to STOPPED
+	if wasTerminating && taskEvent.StopCode == "UserInitiated" {
+		status = string(constants.ExecutionStopped)
+		exitCode = 130 // Standard exit code for SIGINT/manual termination
+		reqLogger.Info("transitioning execution from TERMINATING to STOPPED",
+			"context", map[string]string{
+				"execution_id": executionID,
+				"stop_code":    taskEvent.StopCode,
+			},
+		)
 	}
 
 	execution.Status = status

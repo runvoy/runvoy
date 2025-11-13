@@ -552,6 +552,135 @@ func TestParseTaskTimes_ValidParse(t *testing.T) {
 	assert.LessOrEqual(t, duration, 301)    // At most 301 seconds
 }
 
+func TestHandleECSTaskCompletion_FromTerminating(t *testing.T) {
+	ctx := context.Background()
+	startTime := time.Now().Add(-5 * time.Minute)
+	stopTime := time.Now()
+
+	execution := &api.Execution{
+		ExecutionID: "test-exec-123",
+		UserEmail:   "user@example.com",
+		Command:     "echo hello",
+		Status:      string(constants.ExecutionTerminating), // Execution was in TERMINATING state
+		StartedAt:   startTime,
+	}
+
+	var updatedExecution *api.Execution
+	mockRepo := &mockExecutionRepo{
+		getExecutionFunc: func(_ context.Context, executionID string) (*api.Execution, error) {
+			assert.Equal(t, "test-exec-123", executionID)
+			return execution, nil
+		},
+		updateExecutionFunc: func(_ context.Context, exec *api.Execution) error {
+			updatedExecution = exec
+			return nil
+		},
+	}
+
+	mockWebSocket := &mockWebSocketHandler{
+		notifyExecutionCompletionFunc: func(_ context.Context, executionID *string) error {
+			assert.NotNil(t, executionID)
+			assert.Equal(t, "test-exec-123", *executionID)
+			return nil
+		},
+	}
+
+	backend := NewProcessor(mockRepo, mockWebSocket, testutil.SilentLogger())
+
+	taskEvent := ECSTaskStateChangeEvent{
+		TaskArn:    "arn:aws:ecs:us-east-1:123456789012:task/cluster/test-exec-123",
+		LastStatus: "STOPPED",
+		Containers: []ContainerDetail{
+			{
+				Name:     awsConstants.RunnerContainerName,
+				ExitCode: intPtr(0), // Exit code doesn't matter for UserInitiated
+			},
+		},
+		StartedAt: startTime.Format(time.RFC3339),
+		StoppedAt: stopTime.Format(time.RFC3339),
+		StopCode:  "UserInitiated", // Manual kill
+	}
+
+	detailJSON, _ := json.Marshal(taskEvent)
+	event := events.CloudWatchEvent{
+		DetailType: "ECS Task State Change",
+		Source:     "aws.ecs",
+		Detail:     detailJSON,
+	}
+
+	err := backend.handleECSTaskEvent(ctx, &event, testutil.SilentLogger())
+	assert.NoError(t, err)
+	assert.NotNil(t, updatedExecution)
+	// Should transition from TERMINATING to STOPPED
+	assert.Equal(t, string(constants.ExecutionStopped), updatedExecution.Status)
+	assert.Equal(t, 130, updatedExecution.ExitCode) // Standard exit code for SIGINT
+	assert.NotNil(t, updatedExecution.CompletedAt)
+	assert.Greater(t, updatedExecution.DurationSeconds, 0)
+}
+
+func TestHandleECSTaskCompletion_AlreadyTerminal(t *testing.T) {
+	ctx := context.Background()
+	startTime := time.Now().Add(-5 * time.Minute)
+	stopTime := time.Now()
+
+	// Execution is already in a terminal state
+	execution := &api.Execution{
+		ExecutionID: "test-exec-123",
+		UserEmail:   "user@example.com",
+		Command:     "echo hello",
+		Status:      string(constants.ExecutionStopped), // Already stopped
+		StartedAt:   startTime,
+		CompletedAt: &stopTime,
+	}
+
+	updateCalled := false
+	mockRepo := &mockExecutionRepo{
+		getExecutionFunc: func(_ context.Context, executionID string) (*api.Execution, error) {
+			assert.Equal(t, "test-exec-123", executionID)
+			return execution, nil
+		},
+		updateExecutionFunc: func(_ context.Context, exec *api.Execution) error {
+			updateCalled = true
+			return nil
+		},
+	}
+
+	mockWebSocket := &mockWebSocketHandler{
+		notifyExecutionCompletionFunc: func(_ context.Context, _ *string) error {
+			assert.Fail(t, "should not notify completion if already terminal")
+			return nil
+		},
+	}
+
+	backend := NewProcessor(mockRepo, mockWebSocket, testutil.SilentLogger())
+
+	taskEvent := ECSTaskStateChangeEvent{
+		TaskArn:    "arn:aws:ecs:us-east-1:123456789012:task/cluster/test-exec-123",
+		LastStatus: "STOPPED",
+		Containers: []ContainerDetail{
+			{
+				Name:     awsConstants.RunnerContainerName,
+				ExitCode: intPtr(0),
+			},
+		},
+		StartedAt: startTime.Format(time.RFC3339),
+		StoppedAt: stopTime.Format(time.RFC3339),
+		StopCode:  "EssentialContainerExited",
+	}
+
+	detailJSON, _ := json.Marshal(taskEvent)
+	event := events.CloudWatchEvent{
+		DetailType: "ECS Task State Change",
+		Source:     "aws.ecs",
+		Detail:     detailJSON,
+	}
+
+	err := backend.handleECSTaskEvent(ctx, &event, testutil.SilentLogger())
+	assert.NoError(t, err)
+	// Should skip update if already in terminal state (idempotency)
+	assert.False(t, updateCalled, "should not update execution if already in terminal state")
+}
+
 // Helper function to create int pointers
 func intPtr(i int) *int {
 	return &i

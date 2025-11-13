@@ -211,11 +211,17 @@ func (s *Service) KillExecution(ctx context.Context, executionID string) error {
 		return killErr
 	}
 
+	reqLogger.Info("task kill command sent successfully, updating execution status to TERMINATING",
+		"context", map[string]string{
+			"execution_id": executionID,
+		},
+	)
+
 	execution.Status = string(constants.ExecutionTerminating)
 	execution.CompletedAt = nil
 
 	if updateErr := s.executionRepo.UpdateExecution(ctx, execution); updateErr != nil {
-		reqLogger.Error("failed to update execution status", "context", map[string]string{
+		reqLogger.Error("failed to update execution status to TERMINATING", "context", map[string]string{
 			"execution_id": executionID,
 			"status":       execution.Status,
 			"error":        updateErr.Error(),
@@ -223,7 +229,7 @@ func (s *Service) KillExecution(ctx context.Context, executionID string) error {
 		return updateErr
 	}
 
-	reqLogger.Debug("execution updated successfully",
+	reqLogger.Info("execution status updated to TERMINATING",
 		"context", map[string]string{
 			"execution_id": executionID,
 			"status":       execution.Status,
