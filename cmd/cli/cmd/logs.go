@@ -16,6 +16,7 @@ import (
 	"runvoy/internal/constants"
 	apperrors "runvoy/internal/errors"
 	"slices"
+	"sync"
 	"syscall"
 	"time"
 
@@ -172,9 +173,11 @@ func (s *LogsService) fetchLogsWithRetry(ctx context.Context, executionID string
 func (s *LogsService) readWebSocketMessages(
 	conn *websocket.Conn,
 	logChan chan<- api.LogEvent,
-	done <-chan struct{},
+	done chan struct{},
+	closeOnce *sync.Once,
 ) {
 	defer close(logChan)
+	defer closeOnce.Do(func() { close(done) })
 	for {
 		select {
 		case <-done:
@@ -246,9 +249,10 @@ func (s *LogsService) streamLogsViaWebSocket(
 	bufferSize := 10
 	done := make(chan struct{})
 	logChan := make(chan api.LogEvent, bufferSize) // buffered channel for better throughput
+	var closeOnce sync.Once
 
 	// Goroutine 1: Read from websocket and send to channel
-	go s.readWebSocketMessages(conn, logChan, done)
+	go s.readWebSocketMessages(conn, logChan, done, &closeOnce)
 
 	// Goroutine 2: Read from channel and print logs
 	go func() {
@@ -262,7 +266,7 @@ func (s *LogsService) streamLogsViaWebSocket(
 	select {
 	case <-sigChan:
 		s.output.Infof("Received interrupt signal, closing connection...")
-		close(done)
+		closeOnce.Do(func() { close(done) })
 		s.printWebviewerURL(webURL, executionID)
 	case <-done:
 		s.output.Infof("WebSocket connection closed")
