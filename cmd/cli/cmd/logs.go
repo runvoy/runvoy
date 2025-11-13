@@ -243,8 +243,9 @@ func (s *LogsService) streamLogsViaWebSocket(
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 
+	bufferSize := 10
 	done := make(chan struct{})
-	logChan := make(chan api.LogEvent, 10) // buffered channel for better throughput
+	logChan := make(chan api.LogEvent, bufferSize) // buffered channel for better throughput
 
 	// Goroutine 1: Read from websocket and send to channel
 	go s.readWebSocketMessages(conn, logChan, done)
