@@ -154,6 +154,7 @@ func (r *ExecutionRepository) GetExecution(ctx context.Context, executionID stri
 
 	result, err := r.client.Query(ctx, &dynamodb.QueryInput{
 		TableName:              aws.String(r.tableName),
+		ConsistentRead:         aws.Bool(true), // Use strongly consistent read to ensure we see the latest data
 		KeyConditionExpression: aws.String("execution_id = :execution_id"),
 		ExpressionAttributeValues: map[string]types.AttributeValue{
 			":execution_id": &types.AttributeValueMemberS{Value: executionID},
@@ -217,7 +218,10 @@ func buildUpdateExpression(
 func (r *ExecutionRepository) UpdateExecution(ctx context.Context, execution *api.Execution) error {
 	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
 
-	updateExpr, exprAttrNames, exprAttrValues := buildUpdateExpression(execution)
+	const conditionExpr = "attribute_exists(execution_id) AND attribute_exists(started_at)"
+	startedAtStr := fmt.Sprintf("%d", execution.StartedAt.Unix()) // DynamoDB requires Number values as strings
+
+	updateExpr, exprNames, exprValues := buildUpdateExpression(execution)
 
 	updateLogArgs := []any{
 		"operation", "DynamoDB.UpdateItem",
@@ -229,19 +233,31 @@ func (r *ExecutionRepository) UpdateExecution(ctx context.Context, execution *ap
 	updateLogArgs = append(updateLogArgs, logger.GetDeadlineInfo(ctx)...)
 	reqLogger.Debug("calling external service", "context", logger.SliceToMap(updateLogArgs))
 
-	_, err := r.client.UpdateItem(ctx, &dynamodb.UpdateItemInput{
+	input := &dynamodb.UpdateItemInput{
 		TableName: aws.String(r.tableName),
 		Key: map[string]types.AttributeValue{
 			"execution_id": &types.AttributeValueMemberS{Value: execution.ExecutionID},
-			"started_at":   &types.AttributeValueMemberN{Value: fmt.Sprintf("%d", execution.StartedAt.Unix())},
+			"started_at":   &types.AttributeValueMemberN{Value: startedAtStr},
 		},
 		UpdateExpression:          aws.String(updateExpr),
-		ExpressionAttributeNames:  exprAttrNames,
-		ExpressionAttributeValues: exprAttrValues,
-	})
+		ExpressionAttributeNames:  exprNames,
+		ExpressionAttributeValues: exprValues,
+		ConditionExpression:       aws.String(conditionExpr),
+	}
 
-	if err != nil {
-		return apperrors.ErrDatabaseError("failed to update execution", err)
+	_, updateErr := r.client.UpdateItem(ctx, input)
+
+	if updateErr != nil {
+		var ccfe *types.ConditionalCheckFailedException
+		if errors.As(updateErr, &ccfe) {
+			return apperrors.ErrNotFound("execution not found", updateErr)
+		}
+		reqLogger.Error("update item failed", "context", map[string]any{
+			"error":        updateErr.Error(),
+			"execution_id": execution.ExecutionID,
+			"started_at":   startedAtStr,
+		})
+		return apperrors.ErrDatabaseError("failed to update execution", updateErr)
 	}
 
 	return nil

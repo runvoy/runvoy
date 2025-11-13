@@ -278,6 +278,17 @@ func (p *Processor) updateExecutionToRunning(
 		}
 	}
 
+	// Don't overwrite TERMINATING status - user has requested termination
+	if execution.Status == string(constants.ExecutionTerminating) {
+		reqLogger.Debug("skipping RUNNING update for execution being terminated",
+			"context", map[string]string{
+				"execution_id": executionID,
+				"status":       execution.Status,
+			},
+		)
+		return nil
+	}
+
 	if execution.Status == string(constants.ExecutionRunning) {
 		reqLogger.Debug("execution already marked as RUNNING",
 			"context", map[string]string{

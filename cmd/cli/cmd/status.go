@@ -60,8 +60,10 @@ func (s *StatusService) DisplayStatus(ctx context.Context, executionID string) e
 	s.output.KeyValue("Execution ID", status.ExecutionID)
 	s.output.KeyValue("Status", status.Status)
 	s.output.KeyValue("Started At", status.StartedAt.Format(time.DateTime))
+	s.output.KeyValue("Started At (Unix)", fmt.Sprintf("%d", status.StartedAt.Unix()))
 	if status.CompletedAt != nil {
 		s.output.KeyValue("Completed At", status.CompletedAt.Format(time.DateTime))
+		s.output.KeyValue("Completed At (Unix)", fmt.Sprintf("%d", status.CompletedAt.Unix()))
 	}
 	if status.ExitCode != nil {
 		s.output.KeyValue("Exit Code", fmt.Sprintf("%d", *status.ExitCode))

@@ -196,8 +196,6 @@ func (s *Service) KillExecution(ctx context.Context, executionID string) error {
 		return apperrors.ErrNotFound("execution not found", nil)
 	}
 
-	reqLogger.Debug("execution found", "execution_id", executionID, "status", execution.Status)
-
 	terminalStatuses := constants.TerminalExecutionStatuses()
 	if slices.ContainsFunc(terminalStatuses, func(status constants.ExecutionStatus) bool {
 		return execution.Status == string(status)
@@ -223,12 +221,11 @@ func (s *Service) KillExecution(ctx context.Context, executionID string) error {
 		return updateErr
 	}
 
-	reqLogger.Debug("execution updated successfully",
-		"context", map[string]string{
-			"execution_id": executionID,
-			"status":       execution.Status,
-		},
-	)
+	reqLogger.Info("execution updated successfully", "context", map[string]any{
+		"execution_id": executionID,
+		"status":       execution.Status,
+		"started_at":   execution.StartedAt.String(),
+	})
 
 	return nil
 }
