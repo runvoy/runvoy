@@ -16,7 +16,6 @@ import (
 	"runvoy/internal/constants"
 	apperrors "runvoy/internal/errors"
 	"slices"
-	"sync"
 	"syscall"
 	"time"
 
@@ -169,23 +168,13 @@ func (s *LogsService) fetchLogsWithRetry(ctx context.Context, executionID string
 	return nil, fmt.Errorf("failed to get logs: %w", err)
 }
 
-// logEventExists checks if a log event already exists in the slice
-func logEventExists(events []api.LogEvent, event api.LogEvent) bool {
-	for _, e := range events {
-		if e.Timestamp == event.Timestamp && e.Message == event.Message {
-			return true
-		}
-	}
-	return false
-}
-
-// readWebSocketMessages reads messages from WebSocket and updates the log slice
+// readWebSocketMessages reads messages from WebSocket and sends log events to a channel
 func (s *LogsService) readWebSocketMessages(
 	conn *websocket.Conn,
-	logEvents *[]api.LogEvent,
-	mu *sync.Mutex,
+	logChan chan<- api.LogEvent,
 	done <-chan struct{},
 ) {
+	defer close(logChan)
 	for {
 		select {
 		case <-done:
@@ -217,12 +206,11 @@ func (s *LogsService) readWebSocketMessages(
 				continue
 			}
 
-			mu.Lock()
-			if !logEventExists(*logEvents, logEvent) {
-				*logEvents = append(*logEvents, logEvent)
-				s.printLogLine(len(*logEvents), logEvent)
+			select {
+			case logChan <- logEvent:
+			case <-done:
+				return
 			}
-			mu.Unlock()
 		}
 	}
 }
@@ -230,8 +218,7 @@ func (s *LogsService) readWebSocketMessages(
 // streamLogsViaWebSocket connects to WebSocket and streams logs in real-time
 func (s *LogsService) streamLogsViaWebSocket(
 	websocketURL string,
-	logEvents *[]api.LogEvent,
-	mu *sync.Mutex,
+	startingLineNumber int,
 	webURL string,
 	executionID string,
 ) error {
@@ -257,17 +244,24 @@ func (s *LogsService) streamLogsViaWebSocket(
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 
 	done := make(chan struct{})
-	var closeOnce sync.Once
+	logChan := make(chan api.LogEvent, 10) // buffered channel for better throughput
 
+	// Goroutine 1: Read from websocket and send to channel
+	go s.readWebSocketMessages(conn, logChan, done)
+
+	// Goroutine 2: Read from channel and print logs
 	go func() {
-		defer closeOnce.Do(func() { close(done) })
-		s.readWebSocketMessages(conn, logEvents, mu, done)
+		lineNumber := startingLineNumber
+		for logEvent := range logChan {
+			lineNumber++
+			s.printLogLine(lineNumber, logEvent)
+		}
 	}()
 
 	select {
 	case <-sigChan:
 		s.output.Infof("Received interrupt signal, closing connection...")
-		closeOnce.Do(func() { close(done) })
+		close(done)
 		s.printWebviewerURL(webURL, executionID)
 	case <-done:
 		s.output.Infof("WebSocket connection closed")
@@ -286,13 +280,7 @@ func (s *LogsService) DisplayLogs(ctx context.Context, executionID, webURL strin
 		return err
 	}
 
-	// Use a slice to preserve all log events, even those with duplicate timestamps
-	logEvents := make([]api.LogEvent, 0, len(resp.Events))
-	logEvents = append(logEvents, resp.Events...)
-
-	var mu sync.Mutex
-
-	s.displayLogEvents(logEvents)
+	s.displayLogEvents(resp.Events)
 
 	if resp.WebSocketURL == "" {
 		return nil
@@ -303,7 +291,8 @@ func (s *LogsService) DisplayLogs(ctx context.Context, executionID, webURL strin
 		return nil
 	}
 
-	_ = s.streamLogsViaWebSocket(resp.WebSocketURL, &logEvents, &mu, webURL, executionID)
+	// Start streaming from line number after static logs
+	_ = s.streamLogsViaWebSocket(resp.WebSocketURL, len(resp.Events), webURL, executionID)
 
 	return nil
 }
