@@ -21,12 +21,14 @@
 
 Deploy once, issue API keys, let your team execute arbitrary (admin) commands safely from their terminals. Share playbooks with your team to execute commands consistently and reliably.
 
+Workstations shouldn't be snowflakes that need complex setups, let remote containers (_run envoys..._) execute the actual commands in a privileged, production grade environment.
+
 ## Use cases
 
-- run arbitrary commands in remote containers like with `kubectl run` without the need for a Kubernetes cluster (or any other _always-running_ cluster, for that matter)
+- run one-off arbitrary commands in remote containers like with `kubectl run` without the need for a Kubernetes cluster (or any other _always-running_ cluster, for that matter)
 - run Terraform "in the cloud" without the need for a Terraform Cloud account (and monthly bill...)
-- share execution logs like with Github Actions, but without the need for a CI/CD pipeline nor a 3rd party service
-- commands which require full audit trail and secrets management
+- share execution logs like in Github Actions without the need for a CI/CD pipeline nor a 3rd party service
+- run commands which require full audit trail and secrets management
 - ...
 
 ## Overview
@@ -36,8 +38,6 @@ Runvoy is composed of 3 main parts:
 - a CLI client (`runvoy`) to interact with the runvoy API
 - a web app client (<https://runvoy.site>, or self hosted), currently supporting only the logs view, with plans to map 1:1 with the CLI commands
 - a backend running on your AWS account (with plans to support other cloud providers in the future) which exposes the HTTP API endpoint and interacts with the cloud resources
-
-Workstations shouldn't be snowflakes that need complex setups, let remote containers (_run envoys..._) execute the actual commands in a privileged, production grade environment.
 
 **Key Benefits:**
 
