@@ -39,13 +39,13 @@ type Config struct {
 
 // Runner implements app.Runner for AWS ECS Fargate.
 type Runner struct {
-	ecsClient *ecs.Client
+	ecsClient Client
 	cfg       *Config
 	logger    *slog.Logger
 }
 
 // NewRunner creates a new AWS ECS runner with the provided configuration.
-func NewRunner(ecsClient *ecs.Client, cfg *Config, log *slog.Logger) *Runner {
+func NewRunner(ecsClient Client, cfg *Config, log *slog.Logger) *Runner {
 	return &Runner{ecsClient: ecsClient, cfg: cfg, logger: log}
 }
 
@@ -402,7 +402,7 @@ func (e *Runner) ListImages(ctx context.Context) ([]api.ImageInfo, error) {
 
 // describeTaskDef describes a task definition and returns it.
 func describeTaskDef(
-	ctx context.Context, ecsClient *ecs.Client, taskDefARN string, reqLogger *slog.Logger,
+	ctx context.Context, ecsClient Client, taskDefARN string, reqLogger *slog.Logger,
 ) (*ecsTypes.TaskDefinition, error) {
 	descOutput, err := ecsClient.DescribeTaskDefinition(ctx, &ecs.DescribeTaskDefinitionInput{
 		TaskDefinition: awsStd.String(taskDefARN),
@@ -438,7 +438,7 @@ func extractImageFromTaskDef(taskDef *ecsTypes.TaskDefinition, reqLogger *slog.L
 }
 
 // checkIsDefaultTaskDef checks if a task definition is marked as default.
-func checkIsDefaultTaskDef(ctx context.Context, ecsClient *ecs.Client, taskDefARN string) bool {
+func checkIsDefaultTaskDef(ctx context.Context, ecsClient Client, taskDefARN string) bool {
 	tagsOutput, err := ecsClient.ListTagsForResource(ctx, &ecs.ListTagsForResourceInput{
 		ResourceArn: awsStd.String(taskDefARN),
 	})
@@ -457,7 +457,7 @@ func checkIsDefaultTaskDef(ctx context.Context, ecsClient *ecs.Client, taskDefAR
 
 // collectImageInfos iterates described ECS task definitions and extracts unique runner image infos.
 func collectImageInfos(
-	ctx context.Context, ecsClient *ecs.Client, taskDefArns []string, reqLogger *slog.Logger,
+	ctx context.Context, ecsClient Client, taskDefArns []string, reqLogger *slog.Logger,
 ) ([]api.ImageInfo, error) { //nolint:cyclop
 	result := make([]api.ImageInfo, 0)
 	seenImages := make(map[string]bool)

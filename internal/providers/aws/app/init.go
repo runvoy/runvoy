@@ -28,6 +28,7 @@ type Dependencies struct {
 }
 
 // Initialize prepares AWS service dependencies for the app package.
+// Wraps the AWS SDK clients in adapters for improved testability.
 func Initialize(
 	cfg *config.Config,
 	log *slog.Logger,
@@ -36,7 +37,7 @@ func Initialize(
 
 	awsCfg := *cfg.AWS.SDKConfig
 	dynamoSDKClient := dynamodb.NewFromConfig(awsCfg)
-	ecsClient := ecs.NewFromConfig(awsCfg)
+	ecsSDKClient := ecs.NewFromConfig(awsCfg)
 	ssmClient := ssm.NewFromConfig(awsCfg)
 
 	log.Debug("DynamoDB backend configured", "context", map[string]string{
@@ -47,9 +48,8 @@ func Initialize(
 		"websocket_tokens_table":      cfg.AWS.WebSocketTokensTable,
 	})
 
-	// Wrap the AWS SDK DynamoDB client in an adapter for improved testability
-	// All repositories share the same client instance
 	dynamoClient := dynamoRepo.NewClientAdapter(dynamoSDKClient)
+	ecsClient := NewClientAdapter(ecsSDKClient)
 
 	userRepo := dynamoRepo.NewUserRepository(dynamoClient, cfg.AWS.APIKeysTable, cfg.AWS.PendingAPIKeysTable, log)
 	executionRepo := dynamoRepo.NewExecutionRepository(dynamoClient, cfg.AWS.ExecutionsTable, log)
