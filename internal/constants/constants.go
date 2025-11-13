@@ -253,6 +253,9 @@ const ExpectedArgsCreateConfigFile = 2
 // ExpectedArgsSeedAdminUser is the expected number of arguments for seed-admin-user script
 const ExpectedArgsSeedAdminUser = 3
 
+// ExpectedArgsTruncateDynamoDBTable is the expected number of arguments for truncate-dynamodb-table script
+const ExpectedArgsTruncateDynamoDBTable = 2
+
 // MinimumArgsUpdateReadmeHelp is the minimum number of arguments for update-readme-help script
 const MinimumArgsUpdateReadmeHelp = 2
 

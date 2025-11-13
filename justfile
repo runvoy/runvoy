@@ -273,3 +273,7 @@ curl-post path body:
 # https://axiom.co/docs/send-data/cloudwatch#install-with-cloudformation-stacks
 setup-axiom-logging:
     open https://axiom.co/docs/send-data/cloudwatch#install-with-cloudformation-stacks
+
+# Helper to truncate a DynamoDB table
+truncate-dynamodb-table table_name:
+    go run scripts/truncate-dynamodb-table/main.go {{table_name}}
