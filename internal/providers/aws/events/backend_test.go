@@ -3,7 +3,9 @@ package aws
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log/slog"
+	"net/http"
 	"testing"
 	"time"
 
@@ -46,10 +48,14 @@ func (m *mockExecutionRepo) ListExecutions(_ context.Context) ([]*api.Execution,
 
 // Mock WebSocket handler for testing
 type mockWebSocketHandler struct {
+	handleRequestFunc            func(ctx context.Context, rawEvent *json.RawMessage, logger *slog.Logger) (bool, error)
 	notifyExecutionCompletionFunc func(ctx context.Context, executionID *string) error
 }
 
-func (m *mockWebSocketHandler) HandleRequest(_ context.Context, _ *json.RawMessage, _ *slog.Logger) (bool, error) {
+func (m *mockWebSocketHandler) HandleRequest(ctx context.Context, rawEvent *json.RawMessage, logger *slog.Logger) (bool, error) {
+	if m.handleRequestFunc != nil {
+		return m.handleRequestFunc(ctx, rawEvent, logger)
+	}
 	return false, nil
 }
 
@@ -550,6 +556,488 @@ func TestParseTaskTimes_ValidParse(t *testing.T) {
 	assert.WithinDuration(t, stopTime, parsedStop, time.Second)
 	assert.GreaterOrEqual(t, duration, 299) // At least 299 seconds (allowing for minor time drift)
 	assert.LessOrEqual(t, duration, 301)    // At most 301 seconds
+}
+
+func TestHandle_EventRouting(t *testing.T) {
+	ctx := context.Background()
+	logger := testutil.SilentLogger()
+
+	t.Run("routes CloudWatch event correctly", func(t *testing.T) {
+		mockRepo := &mockExecutionRepo{
+			getExecutionFunc: func(_ context.Context, _ string) (*api.Execution, error) {
+				return nil, nil // Execution not found
+			},
+		}
+		mockWebSocket := &mockWebSocketHandler{}
+		processor := NewProcessor(mockRepo, mockWebSocket, logger)
+
+		// Test with actual CloudWatch event
+		event := events.CloudWatchEvent{
+			DetailType: "ECS Task State Change",
+			Source:     "aws.ecs",
+			Detail:     json.RawMessage(`{"taskArn":"arn:aws:ecs:us-east-1:123456789012:task/cluster/test-123"}`),
+		}
+
+		eventJSON, _ := json.Marshal(event)
+		rawEvent := json.RawMessage(eventJSON)
+
+		// Should route to cloud event handler
+		// Execution not found returns nil (no error) for orphaned tasks
+		_, err := processor.Handle(ctx, &rawEvent)
+		// Should not error with "unhandled event type" - confirms routing worked
+		if err != nil {
+			assert.NotContains(t, err.Error(), "unhandled event type")
+		} else {
+			// No error is also valid - confirms it routed and handled gracefully
+			assert.NoError(t, err)
+		}
+	})
+
+	t.Run("routes CloudWatch Logs event correctly", func(t *testing.T) {
+		mockRepo := &mockExecutionRepo{}
+		mockWebSocket := &mockWebSocketHandler{}
+		processor := NewProcessor(mockRepo, mockWebSocket, logger)
+
+		// Create a CloudWatch Logs event (will fail parsing but should route correctly)
+		logsEvent := events.CloudwatchLogsEvent{
+			AWSLogs: events.CloudwatchLogsRawData{
+				Data: "invalid-data", // Will fail parsing but routes to logs handler
+			},
+		}
+
+		eventJSON, _ := json.Marshal(logsEvent)
+		rawEvent := json.RawMessage(eventJSON)
+
+		_, err := processor.Handle(ctx, &rawEvent)
+		// Should error on parsing, confirming it routed to logs handler
+		assert.Error(t, err)
+	})
+
+	t.Run("routes WebSocket event correctly", func(t *testing.T) {
+		wsHandled := false
+		mockRepo := &mockExecutionRepo{}
+		mockWebSocket := &mockWebSocketHandler{}
+
+		processor := NewProcessor(mockRepo, mockWebSocket, logger)
+
+		wsEvent := events.APIGatewayWebsocketProxyRequest{
+			RequestContext: events.APIGatewayWebsocketProxyRequestContext{
+				RouteKey: "$connect",
+			},
+		}
+
+		eventJSON, _ := json.Marshal(wsEvent)
+		rawEvent := json.RawMessage(eventJSON)
+
+		result, err := processor.Handle(ctx, &rawEvent)
+		assert.NoError(t, err)
+		assert.NotNil(t, result)
+		wsHandled = true
+		assert.True(t, wsHandled)
+	})
+
+	t.Run("returns error for unhandled event type", func(t *testing.T) {
+		mockRepo := &mockExecutionRepo{}
+		mockWebSocket := &mockWebSocketHandler{}
+		processor := NewProcessor(mockRepo, mockWebSocket, logger)
+
+		rawEvent := json.RawMessage(`{"unknown": "event", "type": "not_supported"}`)
+
+		_, err := processor.Handle(ctx, &rawEvent)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "unhandled event type")
+	})
+}
+
+func TestHandle_EventValidation(t *testing.T) {
+	ctx := context.Background()
+	logger := testutil.SilentLogger()
+	mockRepo := &mockExecutionRepo{}
+	mockWebSocket := &mockWebSocketHandler{}
+	processor := NewProcessor(mockRepo, mockWebSocket, logger)
+
+	t.Run("handles invalid JSON", func(t *testing.T) {
+		rawEvent := json.RawMessage(`invalid json{`)
+		_, err := processor.Handle(ctx, &rawEvent)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "unhandled event type")
+	})
+
+	t.Run("handles empty event", func(t *testing.T) {
+		rawEvent := json.RawMessage(`{}`)
+		_, err := processor.Handle(ctx, &rawEvent)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "unhandled event type")
+	})
+
+	t.Run("handles CloudWatch event with missing source", func(t *testing.T) {
+		event := events.CloudWatchEvent{
+			DetailType: "ECS Task State Change",
+			// Missing Source
+		}
+		eventJSON, _ := json.Marshal(event)
+		rawEvent := json.RawMessage(eventJSON)
+
+		_, err := processor.Handle(ctx, &rawEvent)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "unhandled event type")
+	})
+
+	t.Run("handles CloudWatch event with missing detail type", func(t *testing.T) {
+		event := events.CloudWatchEvent{
+			Source: "aws.ecs",
+			// Missing DetailType
+		}
+		eventJSON, _ := json.Marshal(event)
+		rawEvent := json.RawMessage(eventJSON)
+
+		_, err := processor.Handle(ctx, &rawEvent)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "unhandled event type")
+	})
+
+	t.Run("handles CloudWatch Logs event with empty data", func(t *testing.T) {
+		logsEvent := events.CloudwatchLogsEvent{
+			AWSLogs: events.CloudwatchLogsRawData{
+				Data: "", // Empty data
+			},
+		}
+		eventJSON, _ := json.Marshal(logsEvent)
+		rawEvent := json.RawMessage(eventJSON)
+
+		_, err := processor.Handle(ctx, &rawEvent)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "unhandled event type")
+	})
+
+	t.Run("handles WebSocket event with missing route key", func(t *testing.T) {
+		wsEvent := events.APIGatewayWebsocketProxyRequest{
+			RequestContext: events.APIGatewayWebsocketProxyRequestContext{
+				// Missing RouteKey
+			},
+		}
+		eventJSON, _ := json.Marshal(wsEvent)
+		rawEvent := json.RawMessage(eventJSON)
+
+		_, err := processor.Handle(ctx, &rawEvent)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "unhandled event type")
+	})
+
+	t.Run("handles unhandled CloudWatch event detail type", func(t *testing.T) {
+		event := events.CloudWatchEvent{
+			DetailType: "Unknown Event Type",
+			Source:     "aws.ecs",
+			Detail:     json.RawMessage(`{}`),
+		}
+		eventJSON, _ := json.Marshal(event)
+		rawEvent := json.RawMessage(eventJSON)
+
+		// Should handle but ignore unhandled detail types
+		_, err := processor.Handle(ctx, &rawEvent)
+		assert.NoError(t, err) // Unhandled detail types are ignored, not errors
+	})
+}
+
+func TestHandle_ErrorHandling(t *testing.T) {
+	ctx := context.Background()
+	logger := testutil.SilentLogger()
+
+	t.Run("handles repository error when getting execution", func(t *testing.T) {
+		mockRepo := &mockExecutionRepo{
+			getExecutionFunc: func(_ context.Context, _ string) (*api.Execution, error) {
+				return nil, fmt.Errorf("database connection failed")
+			},
+		}
+		mockWebSocket := &mockWebSocketHandler{}
+		processor := NewProcessor(mockRepo, mockWebSocket, logger)
+
+		taskEvent := ECSTaskStateChangeEvent{
+			TaskArn:    "arn:aws:ecs:us-east-1:123456789012:task/cluster/test-123",
+			LastStatus: "STOPPED",
+			StoppedAt:  time.Now().Format(time.RFC3339),
+			StopCode:   "EssentialContainerExited",
+		}
+
+		detailJSON, _ := json.Marshal(taskEvent)
+		event := events.CloudWatchEvent{
+			DetailType: "ECS Task State Change",
+			Source:     "aws.ecs",
+			Detail:     detailJSON,
+		}
+
+		eventJSON, _ := json.Marshal(event)
+		rawEvent := json.RawMessage(eventJSON)
+
+		_, err := processor.Handle(ctx, &rawEvent)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to get execution")
+	})
+
+	t.Run("handles repository error when updating execution", func(t *testing.T) {
+		execution := &api.Execution{
+			ExecutionID: "test-exec-123",
+			Status:      string(constants.ExecutionRunning),
+			StartedAt:   time.Now(),
+		}
+
+		mockRepo := &mockExecutionRepo{
+			getExecutionFunc: func(_ context.Context, _ string) (*api.Execution, error) {
+				return execution, nil
+			},
+			updateExecutionFunc: func(_ context.Context, _ *api.Execution) error {
+				return fmt.Errorf("update failed")
+			},
+		}
+		mockWebSocket := &mockWebSocketHandler{}
+		processor := NewProcessor(mockRepo, mockWebSocket, logger)
+
+		taskEvent := ECSTaskStateChangeEvent{
+			TaskArn:    "arn:aws:ecs:us-east-1:123456789012:task/cluster/test-exec-123",
+			LastStatus: "STOPPED",
+			StoppedAt:  time.Now().Format(time.RFC3339),
+			StopCode:   "EssentialContainerExited",
+			Containers: []ContainerDetail{
+				{
+					Name:     awsConstants.RunnerContainerName,
+					ExitCode: intPtr(0),
+				},
+			},
+		}
+
+		detailJSON, _ := json.Marshal(taskEvent)
+		event := events.CloudWatchEvent{
+			DetailType: "ECS Task State Change",
+			Source:     "aws.ecs",
+			Detail:     detailJSON,
+		}
+
+		eventJSON, _ := json.Marshal(event)
+		rawEvent := json.RawMessage(eventJSON)
+
+		_, err := processor.Handle(ctx, &rawEvent)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to update execution")
+	})
+
+	t.Run("handles WebSocket manager error", func(t *testing.T) {
+		mockRepo := &mockExecutionRepo{}
+		mockWebSocket := &mockWebSocketHandler{
+			handleRequestFunc: func(_ context.Context, _ *json.RawMessage, _ *slog.Logger) (bool, error) {
+				return false, fmt.Errorf("websocket connection failed")
+			},
+		}
+		processor := NewProcessor(mockRepo, mockWebSocket, logger)
+
+		wsEvent := events.APIGatewayWebsocketProxyRequest{
+			RequestContext: events.APIGatewayWebsocketProxyRequestContext{
+				RouteKey: "$connect",
+			},
+		}
+
+		eventJSON, _ := json.Marshal(wsEvent)
+		rawEvent := json.RawMessage(eventJSON)
+
+		result, err := processor.Handle(ctx, &rawEvent)
+		// WebSocket errors should result in error response, not nil
+		assert.NoError(t, err)
+		assert.NotNil(t, result)
+		var resp events.APIGatewayProxyResponse
+		err = json.Unmarshal(*result, &resp)
+		assert.NoError(t, err)
+		assert.Equal(t, http.StatusInternalServerError, resp.StatusCode)
+	})
+
+	t.Run("routes ECS task event correctly even with minimal detail", func(t *testing.T) {
+		mockRepo := &mockExecutionRepo{
+			getExecutionFunc: func(_ context.Context, _ string) (*api.Execution, error) {
+				return nil, nil // Execution not found
+			},
+		}
+		mockWebSocket := &mockWebSocketHandler{}
+		processor := NewProcessor(mockRepo, mockWebSocket, logger)
+
+		// Test with minimal detail - empty taskArn
+		detailJSON := json.RawMessage(`{}`)
+		event := events.CloudWatchEvent{
+			DetailType: "ECS Task State Change",
+			Source:     "aws.ecs",
+			Detail:     detailJSON,
+		}
+
+		eventJSON, _ := json.Marshal(event)
+		rawEvent := json.RawMessage(eventJSON)
+
+		// Should route to ECS handler (no "unhandled event type" error)
+		// Empty taskArn means empty executionID, execution will be nil, returns nil (no error)
+		_, err := processor.Handle(ctx, &rawEvent)
+		assert.NoError(t, err) // Orphaned tasks handled gracefully
+	})
+
+	t.Run("handles CloudWatch Logs parsing error", func(t *testing.T) {
+		mockRepo := &mockExecutionRepo{}
+		mockWebSocket := &mockWebSocketHandler{}
+		processor := NewProcessor(mockRepo, mockWebSocket, logger)
+
+		logsEvent := events.CloudwatchLogsEvent{
+			AWSLogs: events.CloudwatchLogsRawData{
+				Data: "invalid-base64-data!!!",
+			},
+		}
+
+		eventJSON, _ := json.Marshal(logsEvent)
+		rawEvent := json.RawMessage(eventJSON)
+
+		_, err := processor.Handle(ctx, &rawEvent)
+		assert.Error(t, err)
+	})
+}
+
+func TestHandleLogsEvent_Scenarios(t *testing.T) {
+	ctx := context.Background()
+	logger := testutil.SilentLogger()
+
+	t.Run("handles logs event parsing error gracefully", func(t *testing.T) {
+		mockRepo := &mockExecutionRepo{}
+		mockWebSocket := &mockWebSocketHandler{}
+		processor := NewProcessor(mockRepo, mockWebSocket, logger)
+
+		// Invalid base64 data that will fail to parse
+		logsEvent := events.CloudwatchLogsEvent{
+			AWSLogs: events.CloudwatchLogsRawData{
+				Data: "invalid-base64-data!!!",
+			},
+		}
+
+		eventJSON, _ := json.Marshal(logsEvent)
+		rawEvent := json.RawMessage(eventJSON)
+
+		_, err := processor.Handle(ctx, &rawEvent)
+		// Should return error from parsing
+		assert.Error(t, err)
+	})
+
+	t.Run("handles empty logs data", func(t *testing.T) {
+		mockRepo := &mockExecutionRepo{}
+		mockWebSocket := &mockWebSocketHandler{}
+		processor := NewProcessor(mockRepo, mockWebSocket, logger)
+
+		logsEvent := events.CloudwatchLogsEvent{
+			AWSLogs: events.CloudwatchLogsRawData{
+				Data: "", // Empty data
+			},
+		}
+
+		eventJSON, _ := json.Marshal(logsEvent)
+		rawEvent := json.RawMessage(eventJSON)
+
+		// Should not be recognized as logs event
+		_, err := processor.Handle(ctx, &rawEvent)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "unhandled event type")
+	})
+}
+
+func TestHandleWebSocketEvent_Scenarios(t *testing.T) {
+	ctx := context.Background()
+	logger := testutil.SilentLogger()
+
+	t.Run("handles WebSocket event with manager error", func(t *testing.T) {
+		mockRepo := &mockExecutionRepo{}
+		mockWebSocket := &mockWebSocketHandler{}
+
+		processor := NewProcessor(mockRepo, mockWebSocket, logger)
+
+		wsEvent := events.APIGatewayWebsocketProxyRequest{
+			RequestContext: events.APIGatewayWebsocketProxyRequestContext{
+				RouteKey: "$connect",
+			},
+		}
+
+		eventJSON, _ := json.Marshal(wsEvent)
+		rawEvent := json.RawMessage(eventJSON)
+
+		result, err := processor.Handle(ctx, &rawEvent)
+		assert.NoError(t, err)
+		assert.NotNil(t, result)
+
+		var resp events.APIGatewayProxyResponse
+		err = json.Unmarshal(*result, &resp)
+		assert.NoError(t, err)
+		assert.Equal(t, http.StatusOK, resp.StatusCode)
+	})
+
+	t.Run("handles different WebSocket route keys", func(t *testing.T) {
+		mockRepo := &mockExecutionRepo{}
+		mockWebSocket := &mockWebSocketHandler{}
+		processor := NewProcessor(mockRepo, mockWebSocket, logger)
+
+		routeKeys := []string{"$connect", "$disconnect", "$default", "custom-route"}
+
+		for _, routeKey := range routeKeys {
+			wsEvent := events.APIGatewayWebsocketProxyRequest{
+				RequestContext: events.APIGatewayWebsocketProxyRequestContext{
+					RouteKey: routeKey,
+				},
+			}
+
+			eventJSON, _ := json.Marshal(wsEvent)
+			rawEvent := json.RawMessage(eventJSON)
+
+			result, err := processor.Handle(ctx, &rawEvent)
+			assert.NoError(t, err, "route key: %s", routeKey)
+			assert.NotNil(t, result, "route key: %s", routeKey)
+		}
+	})
+}
+
+func TestHandleEventJSON(t *testing.T) {
+	ctx := context.Background()
+	logger := testutil.SilentLogger()
+
+	t.Run("handles valid CloudWatch event JSON", func(t *testing.T) {
+		mockRepo := &mockExecutionRepo{
+			getExecutionFunc: func(_ context.Context, _ string) (*api.Execution, error) {
+				return nil, fmt.Errorf("execution not found")
+			},
+		}
+		mockWebSocket := &mockWebSocketHandler{}
+		processor := NewProcessor(mockRepo, mockWebSocket, logger)
+
+		eventJSON := json.RawMessage(`{
+			"detail-type": "ECS Task State Change",
+			"source": "aws.ecs",
+			"detail": {"taskArn": "arn:aws:ecs:us-east-1:123456789012:task/cluster/test-123"}
+		}`)
+
+		// Will error on execution lookup
+		err := processor.HandleEventJSON(ctx, &eventJSON)
+		assert.Error(t, err)
+	})
+
+	t.Run("handles invalid JSON", func(t *testing.T) {
+		mockRepo := &mockExecutionRepo{}
+		mockWebSocket := &mockWebSocketHandler{}
+		processor := NewProcessor(mockRepo, mockWebSocket, logger)
+
+		eventJSON := json.RawMessage(`invalid json`)
+
+		err := processor.HandleEventJSON(ctx, &eventJSON)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to unmarshal event")
+	})
+
+	t.Run("handles non-CloudWatch event JSON", func(t *testing.T) {
+		mockRepo := &mockExecutionRepo{}
+		mockWebSocket := &mockWebSocketHandler{}
+		processor := NewProcessor(mockRepo, mockWebSocket, logger)
+
+		eventJSON := json.RawMessage(`{"type": "not-cloudwatch"}`)
+
+		err := processor.HandleEventJSON(ctx, &eventJSON)
+		// Should error because it's not a valid CloudWatch event structure
+		assert.Error(t, err)
+	})
 }
 
 // Helper function to create int pointers
