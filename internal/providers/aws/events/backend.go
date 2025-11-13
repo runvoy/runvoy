@@ -325,7 +325,6 @@ func (p *Processor) finalizeExecutionFromTaskEvent(
 	currentStatus := constants.ExecutionStatus(execution.Status)
 	targetStatus := constants.ExecutionStatus(status)
 
-	// Validate transition
 	if !constants.CanTransition(currentStatus, targetStatus) {
 		reqLogger.Warn("skipping invalid status transition",
 			"context", map[string]string{
