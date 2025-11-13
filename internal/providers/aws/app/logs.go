@@ -17,43 +17,6 @@ import (
 	cwlTypes "github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs/types"
 )
 
-// FetchLogsByExecutionID queries CloudWatch Logs for events associated with the ECS task ID
-// Returns a slice of LogEvent sorted by timestamp.
-func FetchLogsByExecutionID(
-	ctx context.Context, cfg *Config, executionID string,
-) ([]api.LogEvent, error) {
-	if executionID == "" {
-		return nil, appErrors.ErrBadRequest("executionID is required", nil)
-	}
-
-	cwl := cloudwatchlogs.NewFromConfig(*cfg.SDKConfig)
-	stream := awsConstants.BuildLogStreamName(executionID)
-	reqLogger := logger.DeriveRequestLogger(ctx, slog.Default())
-
-	if verifyErr := verifyLogStreamExists(ctx, cwl, cfg.LogGroup, stream, executionID, reqLogger); verifyErr != nil {
-		return nil, verifyErr
-	}
-
-	reqLogger.Debug("calling external service", "context", map[string]string{
-		"operation":    "CloudWatchLogs.GetLogEvents",
-		"log_group":    cfg.LogGroup,
-		"log_stream":   stream,
-		"execution_id": executionID,
-		"paginated":    "true",
-	})
-
-	var events []api.LogEvent
-	events, err := getAllLogEvents(ctx, cwl, cfg.LogGroup, stream)
-	if err != nil {
-		return nil, err
-	}
-	reqLogger.Debug("log events fetched successfully", "context", map[string]string{
-		"events_count": fmt.Sprintf("%d", len(events)),
-	})
-
-	return events, nil
-}
-
 // verifyLogStreamExists checks if the log stream exists and returns an error if it doesn't
 func verifyLogStreamExists(
 	ctx context.Context,
