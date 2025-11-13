@@ -19,13 +19,13 @@
 
 ---
 
-Deploy once, issue API keys, let your team execute arbitrary (admin) commands safely from their terminals.
+Deploy once, issue API keys, let your team execute arbitrary (admin) commands safely from their terminals. Share playbooks with your team to execute commands consistently and reliably.
 
-Think of `kubectl run` without the need for a Kubernetes cluster (or any other _always-running_ cluster, for that matter).
+## Use cases
 
-Think of running Terraform in the cloud without the need for a Terraform Cloud account (and monthly bill...).
-
-Think of sharing execution logs like with Github Actions, but without the need for a CI/CD pipeline nor a 3rd party service.
+- run arbitrary commands in remote containers like with `kubectl run` without the need for a Kubernetes cluster (or any other _always-running_ cluster, for that matter)
+- run Terraform "in the cloud" without the need for a Terraform Cloud account (and monthly bill...)
+- share execution logs like with Github Actions, but without the need for a CI/CD pipeline nor a 3rd party service
 
 ## Overview
 
@@ -35,7 +35,7 @@ Runvoy is composed of 3 main parts:
 - a web app client (<https://runvoy.site>, or self hosted), currently supporting only the logs view, with plans to map 1:1 with the CLI commands
 - a backend running on your AWS account (with plans to support other cloud providers in the future) which exposes the HTTP API endpoint and interacts with the cloud resources
 
-Runvoy tries to simplify the requirements for running any kind of "priviledged" application (Terraform, Ansible, Kubectl, etc.) without distributing admin credentials.
+It tries to simplify the requirements for running any kind of "privileged" application (Terraform, Ansible, Kubectl, etc.) without distributing admin credentials nor configuration details.
 
 Workstations shouldn't be snowflakes that need complex setups, let remote containers (_run envoys..._) execute the actual commands in a privileged, production grade environment.
 
@@ -59,41 +59,19 @@ Workstations shouldn't be snowflakes that need complex setups, let remote contai
 - **Unix-style output streams** - Separate CLI logs (stderr) from data (stdout) for easy piping and scripting
 - **RBAC** - Role based access control for the backend API (NOT IMPLEMENTED YET). Runvoy admins define roles and permissions for users, non-admin users can only execute commands / clone repos / select Docker images they are allowed to use
 
-## Demo
-
-![runvoy demo](runvoy-demo.gif)
-
 ## Quick Start
 
-### Prerequisites
+### CLI Users (requires Go 1.24 or later)
 
-#### CLI user
-
-- Go 1.24 or later
-
-#### Admin user
-
-- Go 1.24 or later
-- [just](https://github.com/casey/just) command runner
-- AWS CLI configured with admin credentials (or check `infra/cloudformation-backend.yaml` for the required permissions)
-
-### Deploy the backend infrastructure (one time only)
-
-This will bootstrap the backend infrastructure and seed the admin user, that is, normal users don't need to do this.
-
-Ensure [AWS credentials are configured](https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-configure.html) in your shell environment, then run:
-
-```bash
-just init
-```
-
-### Install the CLI
+Install the CLI
 
 ```bash
 go build -o $(go env GOPATH)/bin/runvoy ./cmd/cli
 ```
 
-NOTE: this is a temporary solution until we have a proper release process, it will probably look something like this:
+then run `runvoy configure` to configure the CLI with the endpoint URL given by your admin.
+
+NOTE: this is a temporary solution until we have a proper release process, install will probably look something like this:
 
 ```bash
 go install github.com/runvoy/runvoy@latest
@@ -101,11 +79,23 @@ go install github.com/runvoy/runvoy@latest
 
 and a download page to get the latest release from the [releases page](https://github.com/runvoy/runvoy/releases) for users without Go installed.
 
-### User Onboarding
+### Admin user
 
-#### For Admin Users
+Requirements:
 
-If you deployed the backend infrastructure with `just init`, the admin API key and endpoint are automatically configured in `~/.runvoy/config.yaml`. You can start using runvoy immediately:
+- Go 1.24 or later
+- [just](https://github.com/casey/just) command runner installed
+- AWS credentials configured in your shell environment (see [AWS credentials configuration](https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-configure.html))
+
+This will bootstrap the backend infrastructure and seed the admin user:
+
+```bash
+just init
+```
+
+#### User Onboarding
+
+The admin API key and endpoint are automatically configured in `~/.runvoy/config.yaml` after running `just init`. You can start using runvoy immediately:
 
 ```bash
 runvoy run "echo hello world"
@@ -117,44 +107,12 @@ or
 runvoy users create <email>
 ```
 
-to create a new user account for a team member.
-
-#### For Non-Admin Users (Team Members)
-
-When an admin creates a user account for you, they will provide you with a **claim token**. To get started:
-
-1. **Install the CLI** (if not already installed):
-
-2. **Configure the endpoint** (first time only):
-
-   ```bash
-   runvoy configure
-   # When prompted, enter your API endpoint URL (provided by your admin)
-   # Example: https://your-endpoint.example.com
-   ```
-
-3. **Claim your API key** using the token provided by your admin:
-
-   ```bash
-   runvoy claim <your-claim-token>
-   ```
-
-   This command will:
-   - Validate the token with the backend
-   - Retrieve your API key
-   - Automatically save it to your local configuration file (`~/.runvoy/config.yaml`)
-
-4. **You're ready to use runvoy!** Try running a command:
-
-   ```bash
-   runvoy run "echo hello world"
-   ```
+to create a new user account for a team member. This will generate a claim token that the user can use to claim their API key.
 
 **Important Notes:**
 
 - ⏱  Claim tokens expire after 15 minutes
 - 👁  Each token can only be used once
-- If your token expires or is already used, ask your admin to create a new user account for you
 
 ## Usage
 
@@ -168,7 +126,7 @@ runvoy --help
 ```
 
 ```text
-runvoy - 0.1.0-20251113-a70ca20
+runvoy - 0.1.0-20251113-7c26935
 Isolated, repeatable execution environments for your commands
 
 Usage:
