@@ -130,7 +130,6 @@ func (s *Service) GetLogsByExecutionID(
 
 	var websocketURL string
 	if s.wsManager != nil {
-		// Only generate WebSocket URL if the execution is not in a terminal state
 		isTerminal := slices.ContainsFunc(constants.TerminalExecutionStatuses(), func(status constants.ExecutionStatus) bool {
 			return execution.Status == string(status)
 		})
