@@ -635,13 +635,10 @@ func TestValidationRules(t *testing.T) {
 func TestGetConfigPath(t *testing.T) {
 	t.Run("returns a non-empty path", func(t *testing.T) {
 		path, err := GetConfigPath()
-
-		// This might fail in some test environments without a home directory
-		if err == nil {
-			assert.NotEmpty(t, path)
-			assert.Contains(t, path, ".runvoy")
-			assert.Contains(t, path, "config.yaml")
-		}
+		require.NoError(t, err)
+		assert.NotEmpty(t, path)
+		assert.Contains(t, path, ".runvoy")
+		assert.Contains(t, path, "config.yaml")
 	})
 }
 
@@ -715,6 +712,11 @@ func TestNormalizeBackendProvider(t *testing.T) {
 		{
 			name:     "mixed case provider",
 			input:    constants.BackendProvider("Aws"),
+			expected: constants.AWS,
+		},
+		{
+			name:     "provider with whitespace",
+			input:    constants.BackendProvider("  aws  "),
 			expected: constants.AWS,
 		},
 	}
