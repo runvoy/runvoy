@@ -50,7 +50,7 @@ func NewRunner(ecsClient *ecs.Client, cfg *Config, log *slog.Logger) *Runner {
 
 // FetchLogsByExecutionID returns CloudWatch log events for the given execution ID.
 func (e *Runner) FetchLogsByExecutionID(ctx context.Context, executionID string) ([]api.LogEvent, error) {
-	return FetchLogsByExecutionID(ctx, e.cfg, e.cfg.SDKConfig, executionID)
+	return FetchLogsByExecutionID(ctx, e.cfg, executionID)
 }
 
 type sidecarScriptData struct {
