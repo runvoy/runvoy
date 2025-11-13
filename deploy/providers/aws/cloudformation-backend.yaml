@@ -56,27 +56,15 @@ Resources:
           AttributeType: S
         - AttributeName: started_at
           AttributeType: N
-        - AttributeName: user_email
-          AttributeType: S
-        - AttributeName: status
+        - AttributeName: _all
           AttributeType: S
       KeySchema:
         - AttributeName: execution_id
           KeyType: HASH
-        - AttributeName: started_at
-          KeyType: RANGE
       GlobalSecondaryIndexes:
-        - IndexName: user_email-started_at
+        - IndexName: all-started_at
           KeySchema:
-            - AttributeName: user_email
-              KeyType: HASH
-            - AttributeName: started_at
-              KeyType: RANGE
-          Projection:
-            ProjectionType: ALL
-        - IndexName: status-started_at
-          KeySchema:
-            - AttributeName: status
+            - AttributeName: _all
               KeyType: HASH
             - AttributeName: started_at
               KeyType: RANGE

@@ -1539,15 +1539,14 @@ Stores execution records for all command runs.
 
 **Primary Key:**
 - `execution_id` (String) - Unique execution identifier
-- `started_at` (String) - ISO 8601 timestamp (range key)
 
 **Global Secondary Indexes:**
-- `user_email-started_at` - Lookup executions by user
-- `status-started_at` - Lookup executions by status
+- `all-started_at` - Query all executions sorted by `started_at` (uses `_all` as constant partition key)
 
 **Attributes:**
 - `execution_id` (String) - Primary key, unique execution identifier
-- `started_at` (String) - Range key, ISO 8601 timestamp
+- `started_at` (Number) - Unix timestamp when execution started (used as sort key in GSI)
+- `_all` (String) - Constant value ("1") used as partition key in `all-started_at` GSI for querying all executions
 - `user_email` (String) - Email of the user who ran the execution
 - `command` (String) - The command that was executed
 - `lock_name` (String, optional) - Lock name if specified
