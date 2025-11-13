@@ -243,7 +243,7 @@ func (r *ExecutionRepository) UpdateExecution(ctx context.Context, execution *ap
 	updateLogArgs = append(updateLogArgs, logger.GetDeadlineInfo(ctx)...)
 	reqLogger.Debug("calling external service", "context", logger.SliceToMap(updateLogArgs))
 
-	_, err = r.client.UpdateItem(ctx, &dynamodb.UpdateItemInput{
+	result, err := r.client.UpdateItem(ctx, &dynamodb.UpdateItemInput{
 		TableName: aws.String(r.tableName),
 		Key: map[string]types.AttributeValue{
 			"execution_id": &types.AttributeValueMemberS{Value: execution.ExecutionID},
@@ -252,10 +252,19 @@ func (r *ExecutionRepository) UpdateExecution(ctx context.Context, execution *ap
 		UpdateExpression:          aws.String(updateExpr),
 		ExpressionAttributeNames:  exprAttrNames,
 		ExpressionAttributeValues: exprAttrValues,
+		ReturnValues:              types.ReturnValueAllOld,
 	})
 
 	if err != nil {
 		return apperrors.ErrDatabaseError("failed to update execution", err)
+	}
+
+	// Warn if the item didn't exist before the update (it was created instead of updated)
+	if len(result.Attributes) == 0 {
+		reqLogger.Warn("update created new item instead of updating existing one",
+			"execution_id", execution.ExecutionID,
+			"started_at", startedAtStr,
+		)
 	}
 
 	return nil
