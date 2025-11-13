@@ -130,7 +130,12 @@ func (s *Service) GetLogsByExecutionID(
 
 	var websocketURL string
 	if s.wsManager != nil {
-		websocketURL = s.wsManager.GenerateWebSocketURL(ctx, executionID, userEmail, clientIPAtCreationTime)
+		isTerminal := slices.ContainsFunc(constants.TerminalExecutionStatuses(), func(status constants.ExecutionStatus) bool {
+			return execution.Status == string(status)
+		})
+		if !isTerminal {
+			websocketURL = s.wsManager.GenerateWebSocketURL(ctx, executionID, userEmail, clientIPAtCreationTime)
+		}
 	}
 
 	return &api.LogsResponse{
