@@ -139,6 +139,7 @@ func (s *LogsService) fetchLogsWithRetry(ctx context.Context, executionID string
 	// If STARTING or TERMINATING, wait before first log poll to avoid unnecessary 503s
 	status, err := s.client.GetExecutionStatus(ctx, executionID)
 	if err == nil {
+		s.output.Infof("Execution status: %s", status.Status)
 		if status.Status == string(constants.ExecutionStarting) {
 			s.output.Infof(fmt.Sprintf(
 				"Execution is starting (provisioning takes ~%d seconds)...", int(startingStateDelay.Seconds())))
