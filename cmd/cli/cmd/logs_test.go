@@ -282,10 +282,10 @@ func TestIsTerminalStatus(t *testing.T) {
 		{status: "SUCCEEDED", wantTerminal: true},
 		{status: "FAILED", wantTerminal: true},
 		{status: "STOPPED", wantTerminal: true},
+		{status: "TERMINATING", wantTerminal: true},
 		{status: "RUNNING", wantTerminal: false},
 		{status: "STARTING", wantTerminal: false},
 		{status: "STARTED", wantTerminal: false},
-		{status: "TERMINATING", wantTerminal: false},
 		{status: "", wantTerminal: false},
 	}
 

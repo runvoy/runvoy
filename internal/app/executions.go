@@ -182,36 +182,44 @@ func (s *Service) GetExecutionStatus(ctx context.Context, executionID string) (*
 // KillExecution terminates a running execution identified by executionID.
 // It verifies the execution exists in the database and checks task status before termination.
 // Updates the execution status to TERMINATING after successful task stop.
-// Returns an error if the execution is not found, already terminated, or termination fails.
-func (s *Service) KillExecution(ctx context.Context, executionID string) error {
+//
+// This operation is idempotent: if the execution is already in a terminal state (SUCCEEDED, FAILED,
+// STOPPED, TERMINATING), it returns nil, nil (which results in HTTP 204 No Content), indicating
+// that no action was taken.
+// If termination is initiated, returns a KillExecutionResponse with the execution ID and a success message.
+//
+// Returns an error if the execution is not found or termination fails.
+func (s *Service) KillExecution(ctx context.Context, executionID string) (*api.KillExecutionResponse, error) {
 	if s.executionRepo == nil {
-		return apperrors.ErrInternalError("execution repository not configured", nil)
+		return nil, apperrors.ErrInternalError("execution repository not configured", nil)
 	}
 	if executionID == "" {
-		return apperrors.ErrBadRequest("executionID is required", nil)
+		return nil, apperrors.ErrBadRequest("executionID is required", nil)
 	}
 
 	reqLogger := logger.DeriveRequestLogger(ctx, s.Logger)
 
 	execution, err := s.executionRepo.GetExecution(ctx, executionID)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if execution == nil {
-		return apperrors.ErrNotFound("execution not found", nil)
+		return nil, apperrors.ErrNotFound("execution not found", nil)
 	}
 
 	terminalStatuses := constants.TerminalExecutionStatuses()
 	if slices.ContainsFunc(terminalStatuses, func(status constants.ExecutionStatus) bool {
 		return execution.Status == string(status)
 	}) {
-		return apperrors.ErrBadRequest(
-			"execution is already terminated",
-			fmt.Errorf("execution status: %s", execution.Status))
+		reqLogger.Info("execution already terminated, no action taken", "context", map[string]string{
+			"execution_id": executionID,
+			"status":       execution.Status,
+		})
+		return nil, nil
 	}
 
 	if killErr := s.runner.KillTask(ctx, executionID); killErr != nil {
-		return killErr
+		return nil, killErr
 	}
 
 	execution.Status = string(constants.ExecutionTerminating)
@@ -223,7 +231,7 @@ func (s *Service) KillExecution(ctx context.Context, executionID string) error {
 			"status":       execution.Status,
 			"error":        updateErr.Error(),
 		})
-		return updateErr
+		return nil, updateErr
 	}
 
 	reqLogger.Info("execution updated successfully", "context", map[string]any{
@@ -232,7 +240,10 @@ func (s *Service) KillExecution(ctx context.Context, executionID string) error {
 		"started_at":   execution.StartedAt.String(),
 	})
 
-	return nil
+	return &api.KillExecutionResponse{
+		ExecutionID: executionID,
+		Message:     "Execution termination initiated",
+	}, nil
 }
 
 // ListExecutions returns all executions currently present in the database.

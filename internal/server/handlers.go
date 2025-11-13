@@ -223,7 +223,7 @@ func (r *Router) handleKillExecution(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	err := r.svc.KillExecution(req.Context(), executionID)
+	resp, err := r.svc.KillExecution(req.Context(), executionID)
 	if err != nil {
 		statusCode := apperrors.GetStatusCode(err)
 		errorCode := apperrors.GetErrorCode(err)
@@ -241,11 +241,13 @@ func (r *Router) handleKillExecution(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	if resp == nil {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+
 	w.WriteHeader(http.StatusOK)
-	_ = json.NewEncoder(w).Encode(api.KillExecutionResponse{
-		ExecutionID: executionID,
-		Message:     "Execution termination initiated",
-	})
+	_ = json.NewEncoder(w).Encode(resp)
 }
 
 // handleListExecutions handles GET /api/v1/executions to list all executions

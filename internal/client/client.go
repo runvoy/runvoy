@@ -126,6 +126,10 @@ func (c *Client) DoJSON(ctx context.Context, req Request, result any) error {
 		return fmt.Errorf("[%d] %s: %s", resp.StatusCode, errorResp.Error, errorResp.Details)
 	}
 
+	if resp.StatusCode == http.StatusNoContent {
+		return nil
+	}
+
 	if err = json.Unmarshal(resp.Body, result); err != nil {
 		c.logger.Debug("response body", "body", string(resp.Body))
 		return fmt.Errorf("failed to parse response: %w", err)
@@ -234,14 +238,34 @@ func (c *Client) GetExecutionStatus(ctx context.Context, executionID string) (*a
 }
 
 // KillExecution stops a running execution by its ID
+// Returns nil response if the execution was already terminated (204 No Content)
 func (c *Client) KillExecution(ctx context.Context, executionID string) (*api.KillExecutionResponse, error) {
-	var resp api.KillExecutionResponse
-	err := c.DoJSON(ctx, Request{
+	httpReq := Request{
 		Method: "POST",
 		Path:   fmt.Sprintf("/api/v1/executions/%s/kill", executionID),
-	}, &resp)
+	}
+
+	httpResp, err := c.Do(ctx, httpReq)
 	if err != nil {
 		return nil, err
+	}
+
+	if httpResp.StatusCode == http.StatusNoContent {
+		return nil, nil
+	}
+
+	if httpResp.StatusCode >= constants.HTTPStatusBadRequest {
+		var errorResp api.ErrorResponse
+		if err = json.Unmarshal(httpResp.Body, &errorResp); err != nil {
+			return nil, fmt.Errorf("request failed with status %d: %s", httpResp.StatusCode, string(httpResp.Body))
+		}
+		return nil, fmt.Errorf("[%d] %s: %s", httpResp.StatusCode, errorResp.Error, errorResp.Details)
+	}
+
+	var resp api.KillExecutionResponse
+	if err = json.Unmarshal(httpResp.Body, &resp); err != nil {
+		c.logger.Debug("response body", "body", string(httpResp.Body))
+		return nil, fmt.Errorf("failed to parse response: %w", err)
 	}
 	return &resp, nil
 }

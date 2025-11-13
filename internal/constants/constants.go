@@ -101,9 +101,10 @@ const (
 // TerminalExecutionStatuses returns all statuses that represent completed executions
 func TerminalExecutionStatuses() []ExecutionStatus {
 	return []ExecutionStatus{
-		ExecutionSucceeded,
 		ExecutionFailed,
 		ExecutionStopped,
+		ExecutionSucceeded,
+		ExecutionTerminating,
 	}
 }
 

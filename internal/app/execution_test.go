@@ -367,6 +367,8 @@ func TestKillExecution(t *testing.T) {
 		expectErr       bool
 		expectUpdate    bool
 		expectedErrCode string
+		expectResponse  bool
+		expectedMessage string
 	}{
 		{
 			name:        "successful kill",
@@ -376,8 +378,10 @@ func TestKillExecution(t *testing.T) {
 				Status:      string(constants.ExecutionRunning),
 				StartedAt:   now,
 			},
-			expectErr:    false,
-			expectUpdate: true,
+			expectErr:       false,
+			expectUpdate:    true,
+			expectResponse:  true,
+			expectedMessage: "Execution termination initiated",
 		},
 		{
 			name:            "empty execution ID",
@@ -385,6 +389,7 @@ func TestKillExecution(t *testing.T) {
 			expectErr:       true,
 			expectUpdate:    false,
 			expectedErrCode: apperrors.ErrCodeInvalidRequest,
+			expectResponse:  false,
 		},
 		{
 			name:            "execution not found",
@@ -393,6 +398,7 @@ func TestKillExecution(t *testing.T) {
 			expectErr:       true,
 			expectUpdate:    false,
 			expectedErrCode: apperrors.ErrCodeNotFound,
+			expectResponse:  false,
 		},
 		{
 			name:        "execution already succeeded",
@@ -403,9 +409,9 @@ func TestKillExecution(t *testing.T) {
 				StartedAt:   now,
 				CompletedAt: timePtr(now.Add(5 * time.Second)),
 			},
-			expectErr:       true,
-			expectUpdate:    false,
-			expectedErrCode: apperrors.ErrCodeInvalidRequest,
+			expectErr:      false,
+			expectUpdate:   false,
+			expectResponse: false,
 		},
 		{
 			name:        "execution already failed",
@@ -416,9 +422,9 @@ func TestKillExecution(t *testing.T) {
 				StartedAt:   now,
 				CompletedAt: timePtr(now.Add(3 * time.Second)),
 			},
-			expectErr:       true,
-			expectUpdate:    false,
-			expectedErrCode: apperrors.ErrCodeInvalidRequest,
+			expectErr:      false,
+			expectUpdate:   false,
+			expectResponse: false,
 		},
 		{
 			name:        "execution already stopped",
@@ -429,9 +435,9 @@ func TestKillExecution(t *testing.T) {
 				StartedAt:   now,
 				CompletedAt: timePtr(now.Add(2 * time.Second)),
 			},
-			expectErr:       true,
-			expectUpdate:    false,
-			expectedErrCode: apperrors.ErrCodeInvalidRequest,
+			expectErr:      false,
+			expectUpdate:   false,
+			expectResponse: false,
 		},
 		{
 			name:         "repository error on get",
@@ -487,15 +493,25 @@ func TestKillExecution(t *testing.T) {
 			}
 
 			svc := newTestService(nil, execRepo, runner)
-			err := svc.KillExecution(ctx, tt.executionID)
+			resp, err := svc.KillExecution(ctx, tt.executionID)
 
 			if tt.expectErr {
 				require.Error(t, err)
 				if tt.expectedErrCode != "" {
 					assert.Equal(t, tt.expectedErrCode, apperrors.GetErrorCode(err))
 				}
+				assert.Nil(t, resp)
 			} else {
 				require.NoError(t, err)
+				if tt.expectResponse {
+					require.NotNil(t, resp)
+					assert.Equal(t, tt.executionID, resp.ExecutionID)
+					if tt.expectedMessage != "" {
+						assert.Equal(t, tt.expectedMessage, resp.Message)
+					}
+				} else {
+					assert.Nil(t, resp)
+				}
 			}
 
 			assert.Equal(t, tt.expectUpdate, updateCalled)

@@ -127,10 +127,11 @@ func TestTerminalExecutionStatuses(t *testing.T) {
 	t.Run("returns all terminal statuses", func(t *testing.T) {
 		statuses := TerminalExecutionStatuses()
 
-		assert.Len(t, statuses, 3, "Should have 3 terminal statuses")
+		assert.Len(t, statuses, 4, "Should have 4 terminal statuses")
 		assert.Contains(t, statuses, ExecutionSucceeded)
 		assert.Contains(t, statuses, ExecutionFailed)
 		assert.Contains(t, statuses, ExecutionStopped)
+		assert.Contains(t, statuses, ExecutionTerminating)
 		assert.NotContains(t, statuses, ExecutionRunning, "RUNNING should not be terminal")
 	})
 

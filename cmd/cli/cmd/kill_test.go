@@ -103,12 +103,26 @@ func TestKillService_KillExecution(t *testing.T) {
 			executionID: "exec-completed",
 			setupMock: func(m *mockClientInterfaceForKill) {
 				m.killExecutionFunc = func(_ context.Context, _ string) (*api.KillExecutionResponse, error) {
-					return nil, fmt.Errorf("execution already completed")
+					return nil, nil
 				}
 			},
-			wantErr: true,
+			wantErr: false,
 			verifyOutput: func(t *testing.T, m *mockOutputInterface) {
-				assert.Equal(t, 0, len(m.calls), "Service should not call output on error")
+				hasSuccess := false
+				hasExecID := false
+				for _, call := range m.calls {
+					if call.method == "Successf" {
+						hasSuccess = true
+						assert.Contains(t, call.args[0].(string), "already terminated")
+					}
+					if call.method == "KeyValue" && len(call.args) >= 2 {
+						if call.args[0] == "Execution ID" && call.args[1] == "exec-completed" {
+							hasExecID = true
+						}
+					}
+				}
+				assert.True(t, hasSuccess, "Expected Successf call for already terminated execution")
+				assert.True(t, hasExecID, "Expected Execution ID to be displayed")
 			},
 		},
 		{

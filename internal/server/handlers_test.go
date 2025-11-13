@@ -123,13 +123,17 @@ func (t *testUserRepository) ListUsers(_ context.Context) ([]*api.User, error) {
 
 type testExecutionRepository struct {
 	listExecutionsFunc func() ([]*api.Execution, error)
+	getExecutionFunc   func(ctx context.Context, executionID string) (*api.Execution, error)
 }
 
 func (t *testExecutionRepository) CreateExecution(_ context.Context, _ *api.Execution) error {
 	return nil
 }
 
-func (t *testExecutionRepository) GetExecution(_ context.Context, executionID string) (*api.Execution, error) {
+func (t *testExecutionRepository) GetExecution(ctx context.Context, executionID string) (*api.Execution, error) {
+	if t.getExecutionFunc != nil {
+		return t.getExecutionFunc(ctx, executionID)
+	}
 	now := time.Now()
 	return &api.Execution{
 		ExecutionID: executionID,
@@ -981,6 +985,40 @@ func TestHandleKillExecution_Success(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, "exec-123", killResp.ExecutionID)
 	assert.Contains(t, killResp.Message, "termination initiated")
+}
+
+func TestHandleKillExecution_AlreadyTerminated(t *testing.T) {
+	execRepo := &testExecutionRepository{
+		getExecutionFunc: func(_ context.Context, executionID string) (*api.Execution, error) {
+			return &api.Execution{
+				ExecutionID: executionID,
+				Status:      string(constants.ExecutionSucceeded),
+				StartedAt:   time.Now(),
+			}, nil
+		},
+	}
+
+	svc := app.NewService(
+		&testUserRepository{},
+		execRepo,
+		nil,
+		&testTokenRepository{},
+		&testRunner{},
+		testutil.SilentLogger(),
+		constants.AWS,
+		nil,
+		nil, // SecretsService
+	)
+	router := NewRouter(svc, 2*time.Second)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/executions/exec-456/kill", http.NoBody)
+	req.Header.Set("X-API-Key", "test-api-key")
+
+	resp := httptest.NewRecorder()
+	router.ServeHTTP(resp, req)
+
+	assert.Equal(t, http.StatusNoContent, resp.Code)
+	assert.Equal(t, 0, resp.Body.Len())
 }
 
 func TestHandleKillExecution_MissingExecutionID(t *testing.T) {
