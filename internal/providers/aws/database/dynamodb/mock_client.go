@@ -3,13 +3,14 @@ package dynamodb
 import (
 	"context"
 	"fmt"
+	"math"
 	"sync"
 
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 )
 
-// MockDynamoDBClient is a simple in-memory mock implementation of DynamoDBClient for testing.
+// MockDynamoDBClient is a simple in-memory mock implementation of Client for testing.
 // It provides basic support for Put, Get, Query, Update, Delete, and BatchWrite operations.
 type MockDynamoDBClient struct {
 	mu sync.RWMutex
@@ -23,13 +24,13 @@ type MockDynamoDBClient struct {
 	Indexes map[string]map[string]map[string][]map[string]types.AttributeValue
 
 	// Error injection for testing error scenarios
-	PutItemError         error
-	GetItemError         error
-	QueryError           error
-	UpdateItemError      error
-	DeleteItemError      error
-	BatchWriteItemError  error
-	ScanError            error
+	PutItemError        error
+	GetItemError        error
+	QueryError          error
+	UpdateItemError     error
+	DeleteItemError     error
+	BatchWriteItemError error
+	ScanError           error
 
 	// Call tracking for test assertions
 	PutItemCalls        int
@@ -50,7 +51,11 @@ func NewMockDynamoDBClient() *MockDynamoDBClient {
 }
 
 // PutItem stores an item in the mock table.
-func (m *MockDynamoDBClient) PutItem(ctx context.Context, params *dynamodb.PutItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.PutItemOutput, error) {
+func (m *MockDynamoDBClient) PutItem(
+	_ context.Context,
+	params *dynamodb.PutItemInput,
+	_ ...func(*dynamodb.Options),
+) (*dynamodb.PutItemOutput, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -83,7 +88,11 @@ func (m *MockDynamoDBClient) PutItem(ctx context.Context, params *dynamodb.PutIt
 }
 
 // GetItem retrieves an item from the mock table.
-func (m *MockDynamoDBClient) GetItem(ctx context.Context, params *dynamodb.GetItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.GetItemOutput, error) {
+func (m *MockDynamoDBClient) GetItem(
+	_ context.Context,
+	params *dynamodb.GetItemInput,
+	_ ...func(*dynamodb.Options),
+) (*dynamodb.GetItemOutput, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
@@ -113,7 +122,11 @@ func (m *MockDynamoDBClient) GetItem(ctx context.Context, params *dynamodb.GetIt
 }
 
 // Query searches for items in the mock table.
-func (m *MockDynamoDBClient) Query(ctx context.Context, params *dynamodb.QueryInput, optFns ...func(*dynamodb.Options)) (*dynamodb.QueryOutput, error) {
+func (m *MockDynamoDBClient) Query(
+	_ context.Context,
+	params *dynamodb.QueryInput,
+	_ ...func(*dynamodb.Options),
+) (*dynamodb.QueryOutput, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
@@ -125,24 +138,20 @@ func (m *MockDynamoDBClient) Query(ctx context.Context, params *dynamodb.QueryIn
 
 	// Simplified query implementation - returns all items in table
 	tableName := *params.TableName
-	var items []map[string]types.AttributeValue
-
-	if m.Tables[tableName] != nil {
-		for _, partitionItems := range m.Tables[tableName] {
-			for _, item := range partitionItems {
-				items = append(items, item)
-			}
-		}
-	}
+	items := m.collectTableItems(tableName)
 
 	return &dynamodb.QueryOutput{
 		Items: items,
-		Count: int32(len(items)),
+		Count: safeInt32Count(len(items)),
 	}, nil
 }
 
 // UpdateItem updates an item in the mock table.
-func (m *MockDynamoDBClient) UpdateItem(ctx context.Context, params *dynamodb.UpdateItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.UpdateItemOutput, error) {
+func (m *MockDynamoDBClient) UpdateItem(
+	_ context.Context,
+	params *dynamodb.UpdateItemInput,
+	_ ...func(*dynamodb.Options),
+) (*dynamodb.UpdateItemOutput, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -177,7 +186,11 @@ func (m *MockDynamoDBClient) UpdateItem(ctx context.Context, params *dynamodb.Up
 }
 
 // DeleteItem removes an item from the mock table.
-func (m *MockDynamoDBClient) DeleteItem(ctx context.Context, params *dynamodb.DeleteItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.DeleteItemOutput, error) {
+func (m *MockDynamoDBClient) DeleteItem(
+	_ context.Context,
+	params *dynamodb.DeleteItemInput,
+	_ ...func(*dynamodb.Options),
+) (*dynamodb.DeleteItemOutput, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -204,7 +217,11 @@ func (m *MockDynamoDBClient) DeleteItem(ctx context.Context, params *dynamodb.De
 }
 
 // BatchWriteItem performs batch write operations.
-func (m *MockDynamoDBClient) BatchWriteItem(ctx context.Context, params *dynamodb.BatchWriteItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.BatchWriteItemOutput, error) {
+func (m *MockDynamoDBClient) BatchWriteItem(
+	_ context.Context,
+	params *dynamodb.BatchWriteItemInput,
+	_ ...func(*dynamodb.Options),
+) (*dynamodb.BatchWriteItemOutput, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -235,7 +252,11 @@ func (m *MockDynamoDBClient) BatchWriteItem(ctx context.Context, params *dynamod
 }
 
 // Scan scans all items in the mock table.
-func (m *MockDynamoDBClient) Scan(ctx context.Context, params *dynamodb.ScanInput, optFns ...func(*dynamodb.Options)) (*dynamodb.ScanOutput, error) {
+func (m *MockDynamoDBClient) Scan(
+	_ context.Context,
+	params *dynamodb.ScanInput,
+	_ ...func(*dynamodb.Options),
+) (*dynamodb.ScanOutput, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
@@ -247,19 +268,11 @@ func (m *MockDynamoDBClient) Scan(ctx context.Context, params *dynamodb.ScanInpu
 
 	// Simplified scan implementation - returns all items in table
 	tableName := *params.TableName
-	var items []map[string]types.AttributeValue
-
-	if m.Tables[tableName] != nil {
-		for _, partitionItems := range m.Tables[tableName] {
-			for _, item := range partitionItems {
-				items = append(items, item)
-			}
-		}
-	}
+	items := m.collectTableItems(tableName)
 
 	return &dynamodb.ScanOutput{
 		Items: items,
-		Count: int32(len(items)),
+		Count: safeInt32Count(len(items)),
 	}, nil
 }
 
@@ -297,4 +310,27 @@ func getStringValue(av types.AttributeValue) string {
 	default:
 		return ""
 	}
+}
+
+// safeInt32Count safely converts an int count to int32, clamping to max int32 if necessary.
+func safeInt32Count(count int) int32 {
+	const maxInt32 = int32(math.MaxInt32)
+	if count > int(maxInt32) {
+		return maxInt32
+	}
+	//nolint:gosec // Safe conversion: count is already checked to be <= maxInt32
+	return int32(count)
+}
+
+// collectTableItems collects all items from a table for Query/Scan operations.
+func (m *MockDynamoDBClient) collectTableItems(tableName string) []map[string]types.AttributeValue {
+	var items []map[string]types.AttributeValue
+	if m.Tables[tableName] != nil {
+		for _, partitionItems := range m.Tables[tableName] {
+			for _, item := range partitionItems {
+				items = append(items, item)
+			}
+		}
+	}
+	return items
 }

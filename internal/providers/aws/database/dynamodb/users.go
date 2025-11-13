@@ -19,7 +19,7 @@ import (
 
 // UserRepository implements the database.UserRepository interface using DynamoDB.
 type UserRepository struct {
-	client           DynamoDBClient
+	client           Client
 	tableName        string
 	pendingTableName string
 	logger           *slog.Logger
@@ -27,7 +27,7 @@ type UserRepository struct {
 
 // NewUserRepository creates a new DynamoDB-backed user repository.
 func NewUserRepository(
-	client DynamoDBClient,
+	client Client,
 	tableName string,
 	pendingTableName string,
 	log *slog.Logger,

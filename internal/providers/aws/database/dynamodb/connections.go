@@ -18,14 +18,14 @@ import (
 
 // ConnectionRepository implements the database.ConnectionRepository interface using DynamoDB.
 type ConnectionRepository struct {
-	client    DynamoDBClient
+	client    Client
 	tableName string
 	logger    *slog.Logger
 }
 
 // NewConnectionRepository creates a new DynamoDB-backed connection repository.
 func NewConnectionRepository(
-	client DynamoDBClient,
+	client Client,
 	tableName string,
 	log *slog.Logger,
 ) database.ConnectionRepository {
