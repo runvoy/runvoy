@@ -657,13 +657,13 @@ func TestGetLogsByExecutionID_WebSocketToken(t *testing.T) {
 			expectErr:        false,
 		},
 		{
-			name:             "completed execution also generates token for late-joiners",
+			name:             "completed execution does not generate token (terminal state)",
 			executionID:      "exec-456",
 			executionStatus:  string(constants.ExecutionSucceeded),
 			websocketBaseURL: "api.example.com/production",
 			mockEvents:       []api.LogEvent{{Message: "test"}},
-			expectTokenInURL: true,
-			expectTokenRepo:  true,
+			expectTokenInURL: false,
+			expectTokenRepo:  false,
 			expectErr:        false,
 		},
 		{
