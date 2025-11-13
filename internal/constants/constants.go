@@ -108,6 +108,34 @@ func TerminalExecutionStatuses() []ExecutionStatus {
 	}
 }
 
+// validTransitions defines the allowed state transitions for execution statuses.
+// Each key represents a source status, and the value is a slice of allowed destination statuses.
+var validTransitions = map[ExecutionStatus][]ExecutionStatus{
+	ExecutionStarting:   {ExecutionRunning, ExecutionFailed, ExecutionTerminating},
+	ExecutionRunning:    {ExecutionSucceeded, ExecutionFailed, ExecutionStopped, ExecutionTerminating},
+	ExecutionTerminating: {ExecutionStopped},
+	// Terminal states (SUCCEEDED, FAILED, STOPPED) have no valid transitions
+	ExecutionSucceeded: {},
+	ExecutionFailed:    {},
+	ExecutionStopped:   {},
+}
+
+// CanTransition checks if a status transition from 'from' to 'to' is valid.
+// Returns true if the transition is allowed, false otherwise.
+// If the source status is not in the validTransitions map, returns false.
+func CanTransition(from, to ExecutionStatus) bool {
+	allowed, ok := validTransitions[from]
+	if !ok {
+		return false
+	}
+	for _, state := range allowed {
+		if state == to {
+			return true
+		}
+	}
+	return false
+}
+
 // DefaultWebURL is the default URL of the web application HTML file.
 // This can be overridden via configuration (RUNVOY_WEB_URL env var or config file).
 const DefaultWebURL = "https://runvoy.site/"

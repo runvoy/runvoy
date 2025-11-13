@@ -266,30 +266,11 @@ func (p *Processor) updateExecutionToRunning(
 	execution *api.Execution,
 	reqLogger *slog.Logger,
 ) error {
-	for _, terminal := range constants.TerminalExecutionStatuses() {
-		if execution.Status == string(terminal) {
-			reqLogger.Debug("skipping RUNNING update for terminal execution",
-				"context", map[string]string{
-					"execution_id": executionID,
-					"status":       execution.Status,
-				},
-			)
-			return nil
-		}
-	}
+	currentStatus := constants.ExecutionStatus(execution.Status)
+	targetStatus := constants.ExecutionRunning
 
-	// Don't overwrite TERMINATING status - user has requested termination
-	if execution.Status == string(constants.ExecutionTerminating) {
-		reqLogger.Debug("skipping RUNNING update for execution being terminated",
-			"context", map[string]string{
-				"execution_id": executionID,
-				"status":       execution.Status,
-			},
-		)
-		return nil
-	}
-
-	if execution.Status == string(constants.ExecutionRunning) {
+	// Skip if already in target status
+	if currentStatus == targetStatus {
 		reqLogger.Debug("execution already marked as RUNNING",
 			"context", map[string]string{
 				"execution_id": executionID,
@@ -298,7 +279,19 @@ func (p *Processor) updateExecutionToRunning(
 		return nil
 	}
 
-	execution.Status = string(constants.ExecutionRunning)
+	// Validate transition
+	if !constants.CanTransition(currentStatus, targetStatus) {
+		reqLogger.Debug("skipping invalid status transition to RUNNING",
+			"context", map[string]string{
+				"execution_id": executionID,
+				"current_status": execution.Status,
+				"target_status": string(targetStatus),
+			},
+		)
+		return nil
+	}
+
+	execution.Status = string(targetStatus)
 	execution.CompletedAt = nil
 
 	if err := p.executionRepo.UpdateExecution(ctx, execution); err != nil {
@@ -329,6 +322,21 @@ func (p *Processor) finalizeExecutionFromTaskEvent(
 	_, stoppedAt, durationSeconds, err := parseTaskTimes(taskEvent, execution.StartedAt, reqLogger)
 	if err != nil {
 		return err
+	}
+
+	currentStatus := constants.ExecutionStatus(execution.Status)
+	targetStatus := constants.ExecutionStatus(status)
+
+	// Validate transition
+	if !constants.CanTransition(currentStatus, targetStatus) {
+		reqLogger.Warn("skipping invalid status transition",
+			"context", map[string]string{
+				"execution_id":   executionID,
+				"current_status": execution.Status,
+				"target_status":  status,
+			},
+		)
+		return nil
 	}
 
 	execution.Status = status
