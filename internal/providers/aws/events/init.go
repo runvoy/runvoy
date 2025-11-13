@@ -11,7 +11,6 @@ import (
 	dynamoRepo "runvoy/internal/providers/aws/database/dynamodb"
 	websocketAws "runvoy/internal/providers/aws/websocket"
 
-	awsConfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 )
 
@@ -23,16 +22,16 @@ func Initialize(
 ) (*Processor, error) {
 	logger.RegisterContextExtractor(appAws.NewLambdaContextExtractor())
 
-	awsCfg, err := awsConfig.LoadDefaultConfig(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load AWS configuration: %w", err)
-	}
-
-	dynamoClient := dynamodb.NewFromConfig(awsCfg)
-
 	if cfg.AWS == nil {
 		return nil, fmt.Errorf("AWS configuration is required")
 	}
+
+	if cfg.AWS.SDKConfig == nil {
+		return nil, fmt.Errorf("AWS SDK configuration not loaded; call LoadSDKConfig first")
+	}
+
+	awsCfg := *cfg.AWS.SDKConfig
+	dynamoClient := dynamodb.NewFromConfig(awsCfg)
 
 	log.Debug("DynamoDB backend configured", "context", map[string]string{
 		"executions_table":            cfg.AWS.ExecutionsTable,

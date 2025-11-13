@@ -39,17 +39,18 @@ type Config struct {
 type Runner struct {
 	ecsClient *ecs.Client
 	cfg       *Config
+	awsCfg    *awsStd.Config // AWS SDK configuration for creating service clients on-demand
 	logger    *slog.Logger
 }
 
 // NewRunner creates a new AWS ECS runner with the provided configuration.
-func NewRunner(ecsClient *ecs.Client, cfg *Config, log *slog.Logger) *Runner {
-	return &Runner{ecsClient: ecsClient, cfg: cfg, logger: log}
+func NewRunner(ecsClient *ecs.Client, cfg *Config, awsCfg *awsStd.Config, log *slog.Logger) *Runner {
+	return &Runner{ecsClient: ecsClient, cfg: cfg, awsCfg: awsCfg, logger: log}
 }
 
 // FetchLogsByExecutionID returns CloudWatch log events for the given execution ID.
 func (e *Runner) FetchLogsByExecutionID(ctx context.Context, executionID string) ([]api.LogEvent, error) {
-	return FetchLogsByExecutionID(ctx, e.cfg, executionID)
+	return FetchLogsByExecutionID(ctx, e.cfg, e.awsCfg, executionID)
 }
 
 type sidecarScriptData struct {
