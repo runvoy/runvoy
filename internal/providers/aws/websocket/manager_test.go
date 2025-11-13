@@ -2,14 +2,17 @@ package aws
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"testing"
+	"time"
 
 	"runvoy/internal/api"
 	"runvoy/internal/testutil"
 
 	"github.com/aws/aws-lambda-go/events"
+	"github.com/aws/aws-sdk-go-v2/service/apigatewaymanagementapi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -349,4 +352,467 @@ func TestHandleConnect_UsesTokenMetadata(t *testing.T) {
 	assert.Equal(t, "real-conn-id", createdConnection.ConnectionID)
 	assert.Equal(t, "exec-789", createdConnection.ExecutionID)
 	assert.Equal(t, validToken, createdConnection.Token) // Token is stored in connection for cleanup
+}
+
+type mockAPIGatewayClient struct {
+	postToConnectionFunc func(
+		context.Context,
+		*apigatewaymanagementapi.PostToConnectionInput,
+		...func(*apigatewaymanagementapi.Options),
+	) (*apigatewaymanagementapi.PostToConnectionOutput, error)
+}
+
+func (m *mockAPIGatewayClient) PostToConnection(
+	ctx context.Context,
+	params *apigatewaymanagementapi.PostToConnectionInput,
+	optFns ...func(*apigatewaymanagementapi.Options),
+) (*apigatewaymanagementapi.PostToConnectionOutput, error) {
+	if m.postToConnectionFunc != nil {
+		return m.postToConnectionFunc(ctx, params, optFns...)
+	}
+	return &apigatewaymanagementapi.PostToConnectionOutput{}, nil
+}
+
+func TestSendLogsToExecution(t *testing.T) {
+	ctx := context.Background()
+	executionID := "exec-123"
+	connectionID1 := "conn-1"
+	connectionID2 := "conn-2"
+
+	t.Run("successfully sends logs to connections", func(t *testing.T) {
+		logEvents := []api.LogEvent{
+			{Timestamp: time.Now().Unix(), Message: "log message 1"},
+			{Timestamp: time.Now().Unix(), Message: "log message 2"},
+		}
+
+		connections := []*api.WebSocketConnection{
+			{ConnectionID: connectionID1, ExecutionID: executionID},
+			{ConnectionID: connectionID2, ExecutionID: executionID},
+		}
+
+		var sentMessages []string
+		mockClient := &mockAPIGatewayClient{
+			postToConnectionFunc: func(
+				_ context.Context,
+				input *apigatewaymanagementapi.PostToConnectionInput,
+				_ ...func(*apigatewaymanagementapi.Options),
+			) (*apigatewaymanagementapi.PostToConnectionOutput, error) {
+				sentMessages = append(sentMessages, string(input.Data))
+				return &apigatewaymanagementapi.PostToConnectionOutput{}, nil
+			},
+		}
+
+		mockConnRepo := &mockConnectionRepoForWS{
+			getConnectionsByExecutionIDFunc: func(
+				_ context.Context,
+				execID string,
+			) ([]*api.WebSocketConnection, error) {
+				if execID == executionID {
+					return connections, nil
+				}
+				return nil, nil
+			},
+		}
+
+		m := &Manager{
+			connRepo:    mockConnRepo,
+			apiGwClient: mockClient,
+			logger:      testutil.SilentLogger(),
+		}
+
+		err := m.SendLogsToExecution(ctx, &executionID, logEvents)
+
+		assert.NoError(t, err)
+		assert.Len(t, sentMessages, 4) // 2 log events * 2 connections
+	})
+
+	t.Run("handles nil execution ID", func(t *testing.T) {
+		m := &Manager{logger: testutil.SilentLogger()}
+		err := m.SendLogsToExecution(ctx, nil, []api.LogEvent{{Message: "test"}})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "execution ID is nil or empty")
+	})
+
+	t.Run("handles empty execution ID", func(t *testing.T) {
+		emptyID := ""
+		m := &Manager{logger: testutil.SilentLogger()}
+		err := m.SendLogsToExecution(ctx, &emptyID, []api.LogEvent{{Message: "test"}})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "execution ID is nil or empty")
+	})
+
+	t.Run("handles empty log events", func(t *testing.T) {
+		m := &Manager{logger: testutil.SilentLogger()}
+		err := m.SendLogsToExecution(ctx, &executionID, []api.LogEvent{})
+		assert.NoError(t, err)
+	})
+
+	t.Run("handles no connections", func(t *testing.T) {
+		mockConnRepo := &mockConnectionRepoForWS{
+			getConnectionsByExecutionIDFunc: func(_ context.Context, _ string) ([]*api.WebSocketConnection, error) {
+				return []*api.WebSocketConnection{}, nil
+			},
+		}
+
+		m := &Manager{
+			connRepo: mockConnRepo,
+			logger:   testutil.SilentLogger(),
+		}
+
+		err := m.SendLogsToExecution(ctx, &executionID, []api.LogEvent{{Message: "test"}})
+		assert.NoError(t, err)
+	})
+
+	t.Run("handles connection repository error", func(t *testing.T) {
+		mockConnRepo := &mockConnectionRepoForWS{
+			getConnectionsByExecutionIDFunc: func(_ context.Context, _ string) ([]*api.WebSocketConnection, error) {
+				return nil, fmt.Errorf("database error")
+			},
+		}
+
+		m := &Manager{
+			connRepo: mockConnRepo,
+			logger:   testutil.SilentLogger(),
+		}
+
+		err := m.SendLogsToExecution(ctx, &executionID, []api.LogEvent{{Message: "test"}})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to get connections")
+	})
+
+	t.Run("handles PostToConnection error", func(t *testing.T) {
+		connections := []*api.WebSocketConnection{
+			{ConnectionID: connectionID1, ExecutionID: executionID},
+		}
+
+		mockClient := &mockAPIGatewayClient{
+			postToConnectionFunc: func(
+				_ context.Context,
+				_ *apigatewaymanagementapi.PostToConnectionInput,
+				_ ...func(*apigatewaymanagementapi.Options),
+			) (*apigatewaymanagementapi.PostToConnectionOutput, error) {
+				return nil, fmt.Errorf("connection gone")
+			},
+		}
+
+		mockConnRepo := &mockConnectionRepoForWS{
+			getConnectionsByExecutionIDFunc: func(
+				_ context.Context,
+				_ string,
+			) ([]*api.WebSocketConnection, error) {
+				return connections, nil
+			},
+		}
+
+		m := &Manager{
+			connRepo:    mockConnRepo,
+			apiGwClient: mockClient,
+			logger:      testutil.SilentLogger(),
+		}
+
+		err := m.SendLogsToExecution(ctx, &executionID, []api.LogEvent{{Message: "test"}})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to send logs to some connections")
+	})
+}
+
+func TestSendLogToConnection(t *testing.T) {
+	ctx := context.Background()
+	reqLogger := testutil.SilentLogger()
+	connectionID := "conn-123"
+	logEvent := api.LogEvent{
+		Timestamp: time.Now().Unix(),
+		Message:   "test log message",
+	}
+
+	t.Run("successfully sends log to connection", func(t *testing.T) {
+		var sentData []byte
+		mockClient := &mockAPIGatewayClient{
+			postToConnectionFunc: func(
+				_ context.Context,
+				input *apigatewaymanagementapi.PostToConnectionInput,
+				_ ...func(*apigatewaymanagementapi.Options),
+			) (*apigatewaymanagementapi.PostToConnectionOutput, error) {
+				assert.Equal(t, connectionID, *input.ConnectionId)
+				sentData = input.Data
+				return &apigatewaymanagementapi.PostToConnectionOutput{}, nil
+			},
+		}
+
+		m := &Manager{
+			apiGwClient: mockClient,
+			logger:      reqLogger,
+		}
+
+		err := m.sendLogToConnection(ctx, reqLogger, connectionID, logEvent)
+
+		assert.NoError(t, err)
+		assert.NotNil(t, sentData)
+
+		var receivedEvent api.LogEvent
+		err = json.Unmarshal(sentData, &receivedEvent)
+		assert.NoError(t, err)
+		assert.Equal(t, logEvent.Message, receivedEvent.Message)
+	})
+
+	t.Run("handles empty connection ID", func(t *testing.T) {
+		m := &Manager{logger: reqLogger}
+		err := m.sendLogToConnection(ctx, reqLogger, "", logEvent)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "connection ID is empty")
+	})
+
+	t.Run("handles PostToConnection error", func(t *testing.T) {
+		mockClient := &mockAPIGatewayClient{
+			postToConnectionFunc: func(
+				_ context.Context,
+				_ *apigatewaymanagementapi.PostToConnectionInput,
+				_ ...func(*apigatewaymanagementapi.Options),
+			) (*apigatewaymanagementapi.PostToConnectionOutput, error) {
+				return nil, fmt.Errorf("connection gone")
+			},
+		}
+
+		m := &Manager{
+			apiGwClient: mockClient,
+			logger:      reqLogger,
+		}
+
+		err := m.sendLogToConnection(ctx, reqLogger, connectionID, logEvent)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to send log to connection")
+	})
+}
+
+func TestNotifyExecutionCompletion(t *testing.T) {
+	ctx := context.Background()
+	executionID := "exec-123"
+	connectionID1 := "conn-1"
+	connectionID2 := "conn-2"
+
+	t.Run("successfully notifies completion", func(t *testing.T) {
+		connections := []*api.WebSocketConnection{
+			{ConnectionID: connectionID1, ExecutionID: executionID},
+			{ConnectionID: connectionID2, ExecutionID: executionID},
+		}
+
+		var sentMessages []string
+		mockClient := &mockAPIGatewayClient{
+			postToConnectionFunc: func(
+				_ context.Context,
+				input *apigatewaymanagementapi.PostToConnectionInput,
+				_ ...func(*apigatewaymanagementapi.Options),
+			) (*apigatewaymanagementapi.PostToConnectionOutput, error) {
+				sentMessages = append(sentMessages, string(input.Data))
+				return &apigatewaymanagementapi.PostToConnectionOutput{}, nil
+			},
+		}
+
+		mockConnRepo := &mockConnectionRepoForWS{
+			getConnectionsByExecutionIDFunc: func(
+				_ context.Context,
+				_ string,
+			) ([]*api.WebSocketConnection, error) {
+				return connections, nil
+			},
+			deleteConnectionsFunc: func(_ context.Context, connIDs []string) (int, error) {
+				return len(connIDs), nil
+			},
+		}
+
+		m := &Manager{
+			connRepo:    mockConnRepo,
+			apiGwClient: mockClient,
+			logger:      testutil.SilentLogger(),
+		}
+
+		err := m.NotifyExecutionCompletion(ctx, &executionID)
+
+		assert.NoError(t, err)
+		assert.Len(t, sentMessages, 2)
+
+		var disconnectMsg api.WebSocketMessage
+		err = json.Unmarshal([]byte(sentMessages[0]), &disconnectMsg)
+		assert.NoError(t, err)
+		assert.Equal(t, api.WebSocketMessageTypeDisconnect, disconnectMsg.Type)
+		assert.NotNil(t, disconnectMsg.Reason)
+		assert.Equal(t, api.WebSocketDisconnectReasonExecutionCompleted, *disconnectMsg.Reason)
+	})
+
+	t.Run("handles nil execution ID", func(t *testing.T) {
+		m := &Manager{logger: testutil.SilentLogger()}
+		err := m.NotifyExecutionCompletion(ctx, nil)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "execution ID is nil or empty")
+	})
+
+	t.Run("handles empty execution ID", func(t *testing.T) {
+		emptyID := ""
+		m := &Manager{logger: testutil.SilentLogger()}
+		err := m.NotifyExecutionCompletion(ctx, &emptyID)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "execution ID is nil or empty")
+	})
+
+	t.Run("handles no connections", func(t *testing.T) {
+		mockConnRepo := &mockConnectionRepoForWS{
+			getConnectionsByExecutionIDFunc: func(_ context.Context, _ string) ([]*api.WebSocketConnection, error) {
+				return []*api.WebSocketConnection{}, nil
+			},
+			deleteConnectionsFunc: func(_ context.Context, _ []string) (int, error) {
+				return 0, nil
+			},
+		}
+
+		m := &Manager{
+			connRepo: mockConnRepo,
+			logger:   testutil.SilentLogger(),
+		}
+
+		err := m.NotifyExecutionCompletion(ctx, &executionID)
+		assert.NoError(t, err)
+	})
+
+	t.Run("handles connection repository error", func(t *testing.T) {
+		mockConnRepo := &mockConnectionRepoForWS{
+			getConnectionsByExecutionIDFunc: func(_ context.Context, _ string) ([]*api.WebSocketConnection, error) {
+				return nil, fmt.Errorf("database error")
+			},
+		}
+
+		m := &Manager{
+			connRepo: mockConnRepo,
+			logger:   testutil.SilentLogger(),
+		}
+
+		err := m.NotifyExecutionCompletion(ctx, &executionID)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to notify disconnect")
+	})
+}
+
+func TestSendDisconnectToConnection(t *testing.T) {
+	ctx := context.Background()
+	reqLogger := testutil.SilentLogger()
+	connectionID := "conn-123"
+	message := []byte(`{"type":"disconnect","reason":"execution_completed"}`)
+
+	t.Run("successfully sends disconnect message", func(t *testing.T) {
+		var sentData []byte
+		mockClient := &mockAPIGatewayClient{
+			postToConnectionFunc: func(
+				_ context.Context,
+				input *apigatewaymanagementapi.PostToConnectionInput,
+				_ ...func(*apigatewaymanagementapi.Options),
+			) (*apigatewaymanagementapi.PostToConnectionOutput, error) {
+				assert.Equal(t, connectionID, *input.ConnectionId)
+				sentData = input.Data
+				return &apigatewaymanagementapi.PostToConnectionOutput{}, nil
+			},
+		}
+
+		m := &Manager{
+			apiGwClient: mockClient,
+			logger:      reqLogger,
+		}
+
+		err := m.sendDisconnectToConnection(ctx, reqLogger, connectionID, message)
+
+		assert.NoError(t, err)
+		assert.Equal(t, message, sentData)
+	})
+
+	t.Run("handles PostToConnection error", func(t *testing.T) {
+		mockClient := &mockAPIGatewayClient{
+			postToConnectionFunc: func(
+				_ context.Context,
+				_ *apigatewaymanagementapi.PostToConnectionInput,
+				_ ...func(*apigatewaymanagementapi.Options),
+			) (*apigatewaymanagementapi.PostToConnectionOutput, error) {
+				return nil, fmt.Errorf("connection gone")
+			},
+		}
+
+		m := &Manager{
+			apiGwClient: mockClient,
+			logger:      reqLogger,
+		}
+
+		err := m.sendDisconnectToConnection(ctx, reqLogger, connectionID, message)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to send disconnect notification")
+	})
+}
+
+func TestGenerateWebSocketURL(t *testing.T) {
+	ctx := context.Background()
+	executionID := "exec-123"
+	endpoint := "api.example.com"
+	userEmail := "user@example.com"
+	clientIP := "10.0.0.1"
+
+	t.Run("successfully generates WebSocket URL", func(t *testing.T) {
+		var createdToken *api.WebSocketToken
+		mockTokenRepo := &mockTokenRepoForWS{
+			createTokenFunc: func(_ context.Context, token *api.WebSocketToken) error {
+				createdToken = token
+				return nil
+			},
+		}
+
+		m := &Manager{
+			tokenRepo:     mockTokenRepo,
+			apiGwEndpoint: &endpoint,
+			logger:        testutil.SilentLogger(),
+		}
+
+		url := m.GenerateWebSocketURL(ctx, executionID, &userEmail, &clientIP)
+
+		require.NotEmpty(t, url)
+		assert.Contains(t, url, "wss://"+endpoint)
+		assert.Contains(t, url, "execution_id="+executionID)
+		assert.Contains(t, url, "token=")
+		require.NotNil(t, createdToken)
+		assert.Equal(t, executionID, createdToken.ExecutionID)
+		assert.Equal(t, userEmail, createdToken.UserEmail)
+		assert.Equal(t, clientIP, createdToken.ClientIP)
+		assert.NotEmpty(t, createdToken.Token)
+	})
+
+	t.Run("handles nil user email and client IP", func(t *testing.T) {
+		mockTokenRepo := &mockTokenRepoForWS{
+			createTokenFunc: func(_ context.Context, _ *api.WebSocketToken) error {
+				return nil
+			},
+		}
+
+		m := &Manager{
+			tokenRepo:     mockTokenRepo,
+			apiGwEndpoint: &endpoint,
+			logger:        testutil.SilentLogger(),
+		}
+
+		url := m.GenerateWebSocketURL(ctx, executionID, nil, nil)
+
+		require.NotEmpty(t, url)
+		assert.Contains(t, url, "wss://"+endpoint)
+	})
+
+	t.Run("handles token creation error", func(t *testing.T) {
+		mockTokenRepo := &mockTokenRepoForWS{
+			createTokenFunc: func(_ context.Context, _ *api.WebSocketToken) error {
+				return fmt.Errorf("database error")
+			},
+		}
+
+		m := &Manager{
+			tokenRepo:     mockTokenRepo,
+			apiGwEndpoint: &endpoint,
+			logger:        testutil.SilentLogger(),
+		}
+
+		url := m.GenerateWebSocketURL(ctx, executionID, &userEmail, &clientIP)
+
+		assert.Empty(t, url)
+	})
 }
