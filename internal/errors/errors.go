@@ -138,6 +138,12 @@ func ErrDatabaseError(message string, cause error) *AppError {
 	return NewServerError(http.StatusServiceUnavailable, ErrCodeDatabaseError, message, cause)
 }
 
+// ErrServiceUnavailable creates a service unavailable error (503).
+// Use this for resources that are temporarily unavailable but may become available soon.
+func ErrServiceUnavailable(message string, cause error) *AppError {
+	return NewServerError(http.StatusServiceUnavailable, ErrCodeServiceUnavailable, message, cause)
+}
+
 // GetStatusCode extracts the HTTP status code from an error.
 // Returns 500 if the error is not an AppError.
 func GetStatusCode(err error) int {

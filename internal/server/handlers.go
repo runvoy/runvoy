@@ -155,14 +155,12 @@ func (r *Router) handleGetExecutionLogs(w http.ResponseWriter, req *http.Request
 		return
 	}
 
-	// Extract authenticated user from context
 	user, ok := r.getUserFromContext(req)
 	if !ok {
 		writeErrorResponse(w, http.StatusUnauthorized, "Unauthorized", "user not found in context")
 		return
 	}
 
-	// Extract client IP for tracing
 	clientIP := getClientIP(req)
 
 	resp, err := r.svc.GetLogsByExecutionID(req.Context(), executionID, &user.Email, &clientIP)

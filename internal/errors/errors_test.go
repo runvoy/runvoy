@@ -225,6 +225,13 @@ func TestErrDatabaseError(t *testing.T) {
 	assert.Equal(t, http.StatusServiceUnavailable, err.StatusCode)
 }
 
+func TestErrServiceUnavailable(t *testing.T) {
+	err := ErrServiceUnavailable("resource not ready yet", nil)
+	assert.Equal(t, ErrCodeServiceUnavailable, err.Code)
+	assert.Equal(t, "resource not ready yet", err.Message)
+	assert.Equal(t, http.StatusServiceUnavailable, err.StatusCode)
+}
+
 func TestGetStatusCode(t *testing.T) {
 	tests := []struct {
 		name     string

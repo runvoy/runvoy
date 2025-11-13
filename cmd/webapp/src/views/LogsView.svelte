@@ -58,7 +58,7 @@
         errorMessage = '';
 
         // Smart initial wait: Check execution status first
-        // If STARTING or TERMINATING, wait before first log poll to avoid unnecessary 404s
+        // If STARTING or TERMINATING, wait before first log poll to avoid unnecessary 503s
         try {
             const statusResponse = await apiClient.getExecutionStatus(id);
             const status = statusResponse.status || 'UNKNOWN';
@@ -110,9 +110,11 @@
             }
         } catch (error) {
             const retryCount = get(logsRetryCount);
-            if (error.status === 404 && retryCount < MAX_LOGS_RETRIES) {
+            // 503 Service Unavailable indicates log stream doesn't exist yet (execution starting)
+            // Retry with exponential backoff as the stream may become available soon
+            if (error.status === 503 && retryCount < MAX_LOGS_RETRIES) {
                 const attempt = retryCount + 1;
-                errorMessage = `Execution not found, retrying... (${attempt}/${MAX_LOGS_RETRIES})`;
+                errorMessage = `Logs not available yet, retrying... (${attempt}/${MAX_LOGS_RETRIES})`;
                 logsRetryCount.set(attempt);
                 fetchLogsTimer = setTimeout(fetchLogs, LOGS_RETRY_DELAY);
             } else {

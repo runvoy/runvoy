@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log/slog"
 	"slices"
-	"sort"
 
 	"runvoy/internal/api"
 	appErrors "runvoy/internal/errors"
@@ -58,8 +57,6 @@ func FetchLogsByExecutionID(ctx context.Context, cfg *Config, executionID string
 		"events_count": fmt.Sprintf("%d", len(events)),
 	})
 
-	// Sort events by timestamp (ascending order)
-	sort.SliceStable(events, func(i, j int) bool { return events[i].Timestamp < events[j].Timestamp })
 	return events, nil
 }
 
@@ -91,14 +88,15 @@ func verifyLogStreamExists(
 	if !slices.ContainsFunc(lsOut.LogStreams, func(s cwlTypes.LogStream) bool {
 		return aws.ToString(s.LogStreamName) == stream
 	}) {
-		return appErrors.ErrNotFound(fmt.Sprintf("log stream '%s' does not exist yet", stream), nil)
+		return appErrors.ErrServiceUnavailable(fmt.Sprintf("log stream '%s' does not exist yet", stream), nil)
 	}
 
 	return nil
 }
 
 // getAllLogEvents paginates through CloudWatch Logs GetLogEvents to collect all events
-// for the provided log group and stream. It returns the aggregated events or an error.
+// for the provided log group and stream. It returns the aggregated sorted by timestamp
+// events or an error.
 func getAllLogEvents(ctx context.Context,
 	cwl *cloudwatchlogs.Client, logGroup string, stream string) ([]api.LogEvent, error) {
 	var events []api.LogEvent

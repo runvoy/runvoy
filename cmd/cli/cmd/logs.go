@@ -53,27 +53,31 @@ const (
 	minRegexMatches = 2 // Minimum number of regex matches expected: full match + capture group
 )
 
-// isNotFoundError checks if an error represents a 404 Not Found status.
-// It handles both AppError types and client error strings formatted as [404] ...
-func isNotFoundError(err error) bool {
-	// First check if it's an AppError with status code 404
-	if statusCode := apperrors.GetStatusCode(err); statusCode == http.StatusNotFound {
+// isLogsNotReadyError checks if an error represents a logs-not-ready condition.
+// This checks for 503 Service Unavailable (log stream doesn't exist yet).
+// It handles both AppError types and client error strings formatted as [status] ...
+func isLogsNotReadyError(err error) bool {
+	statusCode := apperrors.GetStatusCode(err)
+	// Check for 503 Service Unavailable (log stream not ready yet)
+	if statusCode == http.StatusServiceUnavailable {
 		return true
 	}
 
-	// Check if it's an AppError with NOT_FOUND error code
+	// Check if it's an AppError with SERVICE_UNAVAILABLE error code
 	var appErr *apperrors.AppError
 	if errors.As(err, &appErr) {
-		return appErr.Code == apperrors.ErrCodeNotFound || appErr.StatusCode == http.StatusNotFound
+		return appErr.Code == apperrors.ErrCodeServiceUnavailable ||
+			appErr.StatusCode == http.StatusServiceUnavailable
 	}
 
-	// Parse client error format: [404] error message
+	// Parse client error format: [status] error message
 	// The client formats errors as: "[%d] %s: %s"
 	errStr := err.Error()
 	re := regexp.MustCompile(`\[(\d+)\]`)
 	matches := re.FindStringSubmatch(errStr)
 	if len(matches) >= minRegexMatches {
-		if matches[1] == fmt.Sprintf("%d", http.StatusNotFound) {
+		statusStr := matches[1]
+		if statusStr == fmt.Sprintf("%d", http.StatusServiceUnavailable) {
 			return true
 		}
 	}
@@ -119,7 +123,8 @@ func NewLogsService(apiClient client.Interface, outputter OutputInterface, sleep
 	}
 }
 
-// fetchLogsWithRetry fetches logs with retry logic for 404 errors (execution starting up).
+// fetchLogsWithRetry fetches logs with retry logic for 503 errors
+// (execution starting up, log stream not ready yet).
 // It intelligently handles STARTING state by waiting ~20 seconds before the first poll,
 // as provisioners like Fargate typically take that long to provision and start (and even longer
 // for logs to be available).
@@ -131,7 +136,7 @@ func (s *LogsService) fetchLogsWithRetry(ctx context.Context, executionID string
 	)
 
 	// Smart initial wait: Check execution status first
-	// If STARTING or TERMINATING, wait before first log poll to avoid unnecessary 404s
+	// If STARTING or TERMINATING, wait before first log poll to avoid unnecessary 503s
 	status, err := s.client.GetExecutionStatus(ctx, executionID)
 	if err == nil {
 		if status.Status == string(constants.ExecutionStarting) {
@@ -152,8 +157,8 @@ func (s *LogsService) fetchLogsWithRetry(ctx context.Context, executionID string
 			return resp, nil
 		}
 
-		// Check if it's a 404 error (log stream doesn't exist yet)
-		if isNotFoundError(err) {
+		// Check if it's a logs-not-ready error (503 - log stream doesn't exist yet)
+		if isLogsNotReadyError(err) {
 			if attempt < maxRetries {
 				s.output.Infof("Logs not available yet, waiting %d seconds... (attempt %d/%d)",
 					int(retryDelay.Seconds()), attempt+1, maxRetries+1)
@@ -162,7 +167,7 @@ func (s *LogsService) fetchLogsWithRetry(ctx context.Context, executionID string
 			}
 		}
 
-		// For non-404 errors or final attempt, return error
+		// For non-retryable errors or final attempt, return error
 		return nil, fmt.Errorf("failed to get logs: %w", err)
 	}
 

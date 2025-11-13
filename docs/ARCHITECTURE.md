@@ -976,7 +976,7 @@ The service exposes a logs endpoint that aggregates CloudWatch Logs events for a
 Error behavior:
 
 - 500 Internal Server Error when the configured CloudWatch Logs group does not exist (or other AWS errors)
-- 404 Not Found when the expected log stream for the execution ID does not exist yet (clients may retry later)
+- 503 Service Unavailable when the expected log stream for the execution ID does not exist yet (clients may retry later)
 
 Example response:
 
@@ -1015,7 +1015,7 @@ For MVP, the streaming log feature uses a **mixed approach**: REST API provides 
 - Failures are logged but do not fail the event processor (see `internal/providers/aws/events/backend.go`)
 
 **Client Behavior (CLI `runvoy logs <executionID>`):**
-1. Fetches entire log history from `/logs` endpoint with retry logic (handles 404 while execution starts)
+1. Fetches entire log history from `/logs` endpoint with retry logic (handles 503 while execution starts)
 2. Displays historical logs with computed line numbers (client-side) - **authoritative backlog**
 3. Simultaneously connects to WebSocket URL for real-time streaming
 4. New logs received via WebSocket are displayed without line number recomputation

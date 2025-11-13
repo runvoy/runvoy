@@ -188,10 +188,6 @@ func (m *Manager) evaluateRouteResponse(
 			"body":        resp.Body,
 		})
 	default:
-		reqLogger.Debug("websocket handler completed", "context", map[string]any{
-			"route_key":   routeKey,
-			"status_code": resp.StatusCode,
-		})
 	}
 
 	return nil
@@ -281,11 +277,11 @@ func (m *Manager) newWebSocketConnection(
 }
 
 func (m *Manager) logConnectionEstablished(reqLogger *slog.Logger, connection *api.WebSocketConnection) {
-	reqLogger.Info("authenticated connection established", "context", map[string]any{
+	reqLogger.Info("authenticated connection established", "context", map[string]string{
 		"connection_id":           connection.ConnectionID,
 		"execution_id":            connection.ExecutionID,
 		"functionality":           connection.Functionality,
-		"expires_at":              connection.ExpiresAt,
+		"expires_at":              time.Unix(connection.ExpiresAt, 0).Format(time.RFC3339),
 		"client_ip":               connection.ClientIP,
 		"user_email":              connection.UserEmail,
 		"token_request_client_ip": connection.TokenRequestClientIP,
