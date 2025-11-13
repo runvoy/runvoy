@@ -210,12 +210,12 @@ func (s *Service) KillExecution(ctx context.Context, executionID string) (*api.K
 	currentStatus := constants.ExecutionStatus(execution.Status)
 	targetStatus := constants.ExecutionTerminating
 
-	// Validate transition - terminal states cannot transition to TERMINATING
 	if !constants.CanTransition(currentStatus, targetStatus) {
-		reqLogger.Info("execution already terminated or cannot be terminated, no action taken", "context", map[string]string{
-			"execution_id": executionID,
-			"status":       execution.Status,
-		})
+		reqLogger.Info("execution already in terminal state, no action taken",
+			"context", map[string]any{
+				"execution_id": executionID,
+				"status":       currentStatus,
+			})
 		return nil, nil
 	}
 

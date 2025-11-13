@@ -250,7 +250,7 @@ func (p *Processor) handleECSTaskEvent(
 	case awsConstants.EcsStatusStopped:
 		return p.finalizeExecutionFromTaskEvent(ctx, executionID, execution, &taskEvent, reqLogger)
 	default:
-		reqLogger.Debug("ignoring ECS task status update",
+		reqLogger.Debug("ignoring unhandled ECS task status update",
 			"context", map[string]string{
 				"execution_id": executionID,
 				"last_status":  taskEvent.LastStatus,
@@ -269,9 +269,8 @@ func (p *Processor) updateExecutionToRunning(
 	currentStatus := constants.ExecutionStatus(execution.Status)
 	targetStatus := constants.ExecutionRunning
 
-	// Skip if already in target status
 	if currentStatus == targetStatus {
-		reqLogger.Debug("execution already marked as RUNNING",
+		reqLogger.Debug("execution already marked as "+string(targetStatus),
 			"context", map[string]string{
 				"execution_id": executionID,
 			},
@@ -279,9 +278,8 @@ func (p *Processor) updateExecutionToRunning(
 		return nil
 	}
 
-	// Validate transition
 	if !constants.CanTransition(currentStatus, targetStatus) {
-		reqLogger.Debug("skipping invalid status transition to RUNNING",
+		reqLogger.Debug("skipping invalid status transition to "+string(targetStatus),
 			"context", map[string]string{
 				"execution_id":   executionID,
 				"current_status": execution.Status,
@@ -295,14 +293,14 @@ func (p *Processor) updateExecutionToRunning(
 	execution.CompletedAt = nil
 
 	if err := p.executionRepo.UpdateExecution(ctx, execution); err != nil {
-		reqLogger.Error("failed to update execution status to RUNNING",
+		reqLogger.Error("failed to update execution status to "+string(targetStatus),
 			"error", err,
 			"execution_id", executionID,
 		)
 		return fmt.Errorf("failed to update execution to running: %w", err)
 	}
 
-	reqLogger.Info("execution marked as RUNNING",
+	reqLogger.Debug("execution marked as "+string(targetStatus),
 		"context", map[string]string{
 			"execution_id": executionID,
 		},
