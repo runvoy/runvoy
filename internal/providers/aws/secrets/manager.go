@@ -31,7 +31,7 @@ type ValueStore interface {
 // ParameterStoreManager implements secret value storage using AWS Systems Manager Parameter Store.
 // Secrets are stored as SecureString parameters and encrypted with KMS.
 type ParameterStoreManager struct {
-	client       *ssm.Client
+	client       Client
 	secretPrefix string // e.g., "/runvoy" or "/runvoy/secrets"
 	kmsKeyARN    string // ARN of the KMS key to use for encryption
 	logger       *slog.Logger
@@ -40,7 +40,7 @@ type ParameterStoreManager struct {
 // NewParameterStoreManager creates a new Parameter Store-based secrets manager.
 // secretPrefix should include a leading slash, e.g., "/runvoy/secrets"
 func NewParameterStoreManager(
-	client *ssm.Client,
+	client Client,
 	secretPrefix, kmsKeyARN string,
 	log *slog.Logger,
 ) *ParameterStoreManager {

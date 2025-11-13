@@ -38,7 +38,7 @@ func Initialize(
 	awsCfg := *cfg.AWS.SDKConfig
 	dynamoSDKClient := dynamodb.NewFromConfig(awsCfg)
 	ecsSDKClient := ecs.NewFromConfig(awsCfg)
-	ssmClient := ssm.NewFromConfig(awsCfg)
+	ssmSDKClient := ssm.NewFromConfig(awsCfg)
 
 	log.Debug("DynamoDB backend configured", "context", map[string]string{
 		"api_keys_table":              cfg.AWS.APIKeysTable,
@@ -50,6 +50,7 @@ func Initialize(
 
 	dynamoClient := dynamoRepo.NewClientAdapter(dynamoSDKClient)
 	ecsClient := NewClientAdapter(ecsSDKClient)
+	ssmClient := secrets.NewClientAdapter(ssmSDKClient)
 
 	userRepo := dynamoRepo.NewUserRepository(dynamoClient, cfg.AWS.APIKeysTable, cfg.AWS.PendingAPIKeysTable, log)
 	executionRepo := dynamoRepo.NewExecutionRepository(dynamoClient, cfg.AWS.ExecutionsTable, log)
