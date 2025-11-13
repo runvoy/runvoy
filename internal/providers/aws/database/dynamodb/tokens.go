@@ -18,14 +18,14 @@ import (
 
 // TokenRepository implements the database.TokenRepository interface using DynamoDB.
 type TokenRepository struct {
-	client    *dynamodb.Client
+	client    DynamoDBClient
 	tableName string
 	logger    *slog.Logger
 }
 
 // NewTokenRepository creates a new DynamoDB-backed token repository.
 func NewTokenRepository(
-	client *dynamodb.Client,
+	client DynamoDBClient,
 	tableName string,
 	log *slog.Logger,
 ) database.TokenRepository {

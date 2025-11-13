@@ -20,13 +20,13 @@ import (
 
 // SecretsRepository implements the database.SecretsRepository interface using DynamoDB.
 type SecretsRepository struct {
-	client    *dynamodb.Client
+	client    DynamoDBClient
 	tableName string
 	logger    *slog.Logger
 }
 
 // NewSecretsRepository creates a new DynamoDB-backed secrets repository.
-func NewSecretsRepository(client *dynamodb.Client, tableName string, log *slog.Logger) *SecretsRepository {
+func NewSecretsRepository(client DynamoDBClient, tableName string, log *slog.Logger) *SecretsRepository {
 	return &SecretsRepository{
 		client:    client,
 		tableName: tableName,
