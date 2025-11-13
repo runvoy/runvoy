@@ -3,6 +3,7 @@
 package constants
 
 import (
+	"slices"
 	"time"
 )
 
@@ -111,8 +112,8 @@ func TerminalExecutionStatuses() []ExecutionStatus {
 // validTransitions defines the allowed state transitions for execution statuses.
 // Each key represents a source status, and the value is a slice of allowed destination statuses.
 var validTransitions = map[ExecutionStatus][]ExecutionStatus{
-	ExecutionStarting:   {ExecutionRunning, ExecutionFailed, ExecutionTerminating},
-	ExecutionRunning:    {ExecutionSucceeded, ExecutionFailed, ExecutionStopped, ExecutionTerminating},
+	ExecutionStarting:    {ExecutionRunning, ExecutionFailed, ExecutionTerminating},
+	ExecutionRunning:     {ExecutionSucceeded, ExecutionFailed, ExecutionStopped, ExecutionTerminating},
 	ExecutionTerminating: {ExecutionStopped},
 	// Terminal states (SUCCEEDED, FAILED, STOPPED) have no valid transitions
 	ExecutionSucceeded: {},
@@ -128,12 +129,7 @@ func CanTransition(from, to ExecutionStatus) bool {
 	if !ok {
 		return false
 	}
-	for _, state := range allowed {
-		if state == to {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(allowed, to)
 }
 
 // DefaultWebURL is the default URL of the web application HTML file.

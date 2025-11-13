@@ -283,9 +283,9 @@ func (p *Processor) updateExecutionToRunning(
 	if !constants.CanTransition(currentStatus, targetStatus) {
 		reqLogger.Debug("skipping invalid status transition to RUNNING",
 			"context", map[string]string{
-				"execution_id": executionID,
+				"execution_id":   executionID,
 				"current_status": execution.Status,
-				"target_status": string(targetStatus),
+				"target_status":  string(targetStatus),
 			},
 		)
 		return nil
