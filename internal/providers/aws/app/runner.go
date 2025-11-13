@@ -18,6 +18,7 @@ import (
 	awsConstants "runvoy/internal/providers/aws/constants"
 
 	awsStd "github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs"
 	"github.com/aws/aws-sdk-go-v2/service/ecs"
 	ecsTypes "github.com/aws/aws-sdk-go-v2/service/ecs/types"
 )
@@ -48,9 +49,42 @@ func NewRunner(ecsClient *ecs.Client, cfg *Config, log *slog.Logger) *Runner {
 	return &Runner{ecsClient: ecsClient, cfg: cfg, logger: log}
 }
 
+// newCloudWatchLogsClient creates a CloudWatch Logs client from the AWS SDK config.
+func newCloudWatchLogsClient(sdkConfig *awsStd.Config) *cloudwatchlogs.Client {
+	return cloudwatchlogs.NewFromConfig(*sdkConfig)
+}
+
 // FetchLogsByExecutionID returns CloudWatch log events for the given execution ID.
 func (e *Runner) FetchLogsByExecutionID(ctx context.Context, executionID string) ([]api.LogEvent, error) {
-	return FetchLogsByExecutionID(ctx, e.cfg, executionID)
+	if executionID == "" {
+		return nil, appErrors.ErrBadRequest("executionID is required", nil)
+	}
+
+	cwl := newCloudWatchLogsClient(e.cfg.SDKConfig)
+	stream := awsConstants.BuildLogStreamName(executionID)
+	reqLogger := logger.DeriveRequestLogger(ctx, e.logger)
+
+	if verifyErr := verifyLogStreamExists(ctx, cwl, e.cfg.LogGroup, stream, executionID, reqLogger); verifyErr != nil {
+		return nil, verifyErr
+	}
+
+	reqLogger.Debug("calling external service", "context", map[string]string{
+		"operation":    "CloudWatchLogs.GetLogEvents",
+		"log_group":    e.cfg.LogGroup,
+		"log_stream":   stream,
+		"execution_id": executionID,
+		"paginated":    "true",
+	})
+
+	events, err := getAllLogEvents(ctx, cwl, e.cfg.LogGroup, stream)
+	if err != nil {
+		return nil, err
+	}
+	reqLogger.Debug("log events fetched successfully", "context", map[string]string{
+		"events_count": fmt.Sprintf("%d", len(events)),
+	})
+
+	return events, nil
 }
 
 type sidecarScriptData struct {
