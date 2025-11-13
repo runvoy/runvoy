@@ -55,7 +55,7 @@ Resources:
         - AttributeName: execution_id
           AttributeType: S
         - AttributeName: started_at
-          AttributeType: S
+          AttributeType: N
         - AttributeName: user_email
           AttributeType: S
         - AttributeName: status

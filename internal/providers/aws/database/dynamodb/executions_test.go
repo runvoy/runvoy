@@ -57,8 +57,13 @@ func TestToExecutionItem(t *testing.T) {
 			assert.Equal(t, tt.execution.ExecutionID, item.ExecutionID)
 			assert.Equal(t, tt.execution.UserEmail, item.UserEmail)
 			assert.Equal(t, tt.execution.Command, item.Command)
-			assert.Equal(t, tt.execution.StartedAt, item.StartedAt)
-			assert.Equal(t, tt.execution.CompletedAt, item.CompletedAt)
+			assert.Equal(t, tt.execution.StartedAt.Unix(), item.StartedAt)
+			if tt.execution.CompletedAt != nil {
+				require.NotNil(t, item.CompletedAt)
+				assert.Equal(t, tt.execution.CompletedAt.Unix(), *item.CompletedAt)
+			} else {
+				assert.Nil(t, item.CompletedAt)
+			}
 			assert.Equal(t, tt.execution.Status, item.Status)
 			assert.Equal(t, tt.execution.ExitCode, item.ExitCode)
 			assert.Equal(t, tt.execution.DurationSeconds, item.DurationSecs)
@@ -70,8 +75,8 @@ func TestToExecutionItem(t *testing.T) {
 }
 
 func TestExecutionItem_ToAPIExecution(t *testing.T) {
-	now := time.Now()
-	completed := now.Add(5 * time.Minute)
+	nowUnix := time.Now().Unix()
+	completedUnix := time.Now().Add(5 * time.Minute).Unix()
 
 	tests := []struct {
 		name string
@@ -83,8 +88,8 @@ func TestExecutionItem_ToAPIExecution(t *testing.T) {
 				ExecutionID:     "exec-123",
 				UserEmail:       "user@example.com",
 				Command:         "echo hello",
-				StartedAt:       now,
-				CompletedAt:     &completed,
+				StartedAt:       nowUnix,
+				CompletedAt:     &completedUnix,
 				Status:          "SUCCEEDED",
 				ExitCode:        0,
 				DurationSecs:    300,
@@ -99,7 +104,7 @@ func TestExecutionItem_ToAPIExecution(t *testing.T) {
 				ExecutionID: "exec-minimal",
 				UserEmail:   "user@example.com",
 				Command:     "ls",
-				StartedAt:   now,
+				StartedAt:   nowUnix,
 				Status:      "RUNNING",
 			},
 		},
@@ -112,8 +117,13 @@ func TestExecutionItem_ToAPIExecution(t *testing.T) {
 			assert.Equal(t, tt.item.ExecutionID, execution.ExecutionID)
 			assert.Equal(t, tt.item.UserEmail, execution.UserEmail)
 			assert.Equal(t, tt.item.Command, execution.Command)
-			assert.Equal(t, tt.item.StartedAt, execution.StartedAt)
-			assert.Equal(t, tt.item.CompletedAt, execution.CompletedAt)
+			assert.Equal(t, tt.item.StartedAt, execution.StartedAt.Unix())
+			if tt.item.CompletedAt != nil {
+				require.NotNil(t, execution.CompletedAt)
+				assert.Equal(t, *tt.item.CompletedAt, execution.CompletedAt.Unix())
+			} else {
+				assert.Nil(t, execution.CompletedAt)
+			}
 			assert.Equal(t, tt.item.Status, execution.Status)
 			assert.Equal(t, tt.item.ExitCode, execution.ExitCode)
 			assert.Equal(t, tt.item.DurationSecs, execution.DurationSeconds)
@@ -124,7 +134,7 @@ func TestExecutionItem_ToAPIExecution(t *testing.T) {
 }
 
 func TestRoundTripConversion(t *testing.T) {
-	now := time.Now()
+	now := time.Now().UTC()
 	completed := now.Add(5 * time.Minute)
 
 	original := &api.Execution{
@@ -247,7 +257,7 @@ func TestExecutionItemDynamoDBTags(t *testing.T) {
 		// by attempting to marshal/unmarshal
 		item := &executionItem{
 			ExecutionID:     "test-123",
-			StartedAt:       time.Now(),
+			StartedAt:       time.Now().Unix(),
 			UserEmail:       "user@example.com",
 			Command:         "echo test",
 			Status:          "RUNNING",
@@ -287,14 +297,14 @@ func BenchmarkToExecutionItem(b *testing.B) {
 }
 
 func BenchmarkToAPIExecution(b *testing.B) {
-	now := time.Now()
-	completed := now.Add(5 * time.Minute)
+	nowUnix := time.Now().Unix()
+	completedUnix := time.Now().Add(5 * time.Minute).Unix()
 	item := &executionItem{
 		ExecutionID:     "exec-bench",
 		UserEmail:       "user@example.com",
 		Command:         "echo benchmark",
-		StartedAt:       now,
-		CompletedAt:     &completed,
+		StartedAt:       nowUnix,
+		CompletedAt:     &completedUnix,
 		Status:          "SUCCEEDED",
 		ExitCode:        0,
 		DurationSecs:    300,
@@ -431,14 +441,8 @@ func TestBuildUpdateExpression(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			updateExpr, exprNames, exprValues, err := buildUpdateExpression(tt.execution)
+			updateExpr, exprNames, exprValues := buildUpdateExpression(tt.execution)
 
-			if tt.wantErr {
-				assert.Error(t, err)
-				return
-			}
-
-			require.NoError(t, err)
 			assert.Equal(t, tt.expectedUpdateExpr, updateExpr)
 			assert.Equal(t, tt.expectedExprNames, exprNames)
 
@@ -464,7 +468,7 @@ func TestBuildUpdateExpression(t *testing.T) {
 			if tt.execution.CompletedAt != nil {
 				completedAtVal, hasCompletedAt := exprValues[":completed_at"]
 				require.True(t, hasCompletedAt)
-				assert.IsType(t, &types.AttributeValueMemberS{}, completedAtVal)
+				assert.IsType(t, &types.AttributeValueMemberN{}, completedAtVal)
 			}
 
 			if tt.execution.DurationSeconds > 0 {

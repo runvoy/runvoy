@@ -39,51 +39,61 @@ func NewExecutionRepository(client *dynamodb.Client, tableName string, log *slog
 
 // executionItem represents the structure stored in DynamoDB.
 // This keeps the database schema separate from the API types.
+// StartedAt is stored as a Unix timestamp (number) as the sort key to avoid timestamp serialization issues.
+// CompletedAt is also stored as a Unix timestamp (number) to maintain consistency.
 type executionItem struct {
-	ExecutionID     string     `dynamodbav:"execution_id"`
-	StartedAt       time.Time  `dynamodbav:"started_at"`
-	UserEmail       string     `dynamodbav:"user_email"`
-	Command         string     `dynamodbav:"command"`
-	Status          string     `dynamodbav:"status"`
-	CompletedAt     *time.Time `dynamodbav:"completed_at,omitempty"`
-	ExitCode        int        `dynamodbav:"exit_code,omitempty"`
-	DurationSecs    int        `dynamodbav:"duration_seconds,omitempty"`
-	LogStreamName   string     `dynamodbav:"log_stream_name,omitempty"`
-	RequestID       string     `dynamodbav:"request_id,omitempty"`
-	ComputePlatform string     `dynamodbav:"compute_platform,omitempty"`
+	ExecutionID     string `dynamodbav:"execution_id"`
+	StartedAt       int64  `dynamodbav:"started_at"`
+	UserEmail       string `dynamodbav:"user_email"`
+	Command         string `dynamodbav:"command"`
+	Status          string `dynamodbav:"status"`
+	CompletedAt     *int64 `dynamodbav:"completed_at,omitempty"`
+	ExitCode        int    `dynamodbav:"exit_code,omitempty"`
+	DurationSecs    int    `dynamodbav:"duration_seconds,omitempty"`
+	LogStreamName   string `dynamodbav:"log_stream_name,omitempty"`
+	RequestID       string `dynamodbav:"request_id,omitempty"`
+	ComputePlatform string `dynamodbav:"compute_platform,omitempty"`
 }
 
 // toExecutionItem converts an api.Execution to an executionItem.
 func toExecutionItem(e *api.Execution) *executionItem {
-	return &executionItem{
+	item := &executionItem{
 		ExecutionID:     e.ExecutionID,
-		StartedAt:       e.StartedAt,
+		StartedAt:       e.StartedAt.Unix(),
 		UserEmail:       e.UserEmail,
 		Command:         e.Command,
 		Status:          e.Status,
-		CompletedAt:     e.CompletedAt,
 		ExitCode:        e.ExitCode,
 		DurationSecs:    e.DurationSeconds,
 		LogStreamName:   e.LogStreamName,
 		RequestID:       e.RequestID,
 		ComputePlatform: e.ComputePlatform,
 	}
+	if e.CompletedAt != nil {
+		completedAt := e.CompletedAt.Unix()
+		item.CompletedAt = &completedAt
+	}
+	return item
 }
 
 // toAPIExecution converts an executionItem to an api.Execution.
 func (e *executionItem) toAPIExecution() *api.Execution {
-	return &api.Execution{
+	exec := &api.Execution{
 		ExecutionID:     e.ExecutionID,
-		StartedAt:       e.StartedAt,
+		StartedAt:       time.Unix(e.StartedAt, 0).UTC(),
 		UserEmail:       e.UserEmail,
 		Command:         e.Command,
 		Status:          e.Status,
-		CompletedAt:     e.CompletedAt,
 		ExitCode:        e.ExitCode,
 		DurationSeconds: e.DurationSecs,
 		LogStreamName:   e.LogStreamName,
 		ComputePlatform: e.ComputePlatform,
 	}
+	if e.CompletedAt != nil {
+		completedAt := time.Unix(*e.CompletedAt, 0).UTC()
+		exec.CompletedAt = &completedAt
+	}
+	return exec
 }
 
 // CreateExecution stores a new execution record in DynamoDB.
@@ -168,23 +178,10 @@ func (r *ExecutionRepository) GetExecution(ctx context.Context, executionID stri
 	return item.toAPIExecution(), nil
 }
 
-// marshallTimestamp marshals a timestamp to a DynamoDB attribute value string.
-func marshallTimestamp(t time.Time) (string, error) {
-	timestampAV, err := attributevalue.Marshal(t)
-	if err != nil {
-		return "", apperrors.ErrDatabaseError("failed to marshal timestamp", err)
-	}
-	timestampStr, ok := timestampAV.(*types.AttributeValueMemberS)
-	if !ok {
-		return "", apperrors.ErrDatabaseError("timestamp is not a string attribute", nil)
-	}
-	return timestampStr.Value, nil
-}
-
 // buildUpdateExpression builds a DynamoDB update expression for an execution.
 func buildUpdateExpression(
 	execution *api.Execution,
-) (updateExpr string, exprNames map[string]string, exprValues map[string]types.AttributeValue, err error) {
+) (updateExpr string, exprNames map[string]string, exprValues map[string]types.AttributeValue) {
 	updateExpr = "SET #status = :status"
 	exprNames = map[string]string{
 		"#status": "status",
@@ -195,11 +192,8 @@ func buildUpdateExpression(
 
 	if execution.CompletedAt != nil {
 		updateExpr += ", completed_at = :completed_at"
-		completedAtStr, marshalErr := marshallTimestamp(*execution.CompletedAt)
-		if marshalErr != nil {
-			return "", nil, nil, marshalErr
-		}
-		exprAttrValues[":completed_at"] = &types.AttributeValueMemberS{Value: completedAtStr}
+		completedAt := execution.CompletedAt.Unix()
+		exprAttrValues[":completed_at"] = &types.AttributeValueMemberN{Value: fmt.Sprintf("%d", completedAt)}
 	}
 
 	updateExpr += ", exit_code = :exit_code"
@@ -216,22 +210,14 @@ func buildUpdateExpression(
 		exprAttrValues[":log_stream_name"] = &types.AttributeValueMemberS{Value: execution.LogStreamName}
 	}
 
-	return updateExpr, exprNames, exprAttrValues, nil
+	return updateExpr, exprNames, exprAttrValues
 }
 
 // UpdateExecution updates an existing execution record.
 func (r *ExecutionRepository) UpdateExecution(ctx context.Context, execution *api.Execution) error {
 	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
 
-	updateExpr, exprAttrNames, exprAttrValues, err := buildUpdateExpression(execution)
-	if err != nil {
-		return err
-	}
-
-	startedAtStr, err := marshallTimestamp(execution.StartedAt)
-	if err != nil {
-		return err
-	}
+	updateExpr, exprAttrNames, exprAttrValues := buildUpdateExpression(execution)
 
 	updateLogArgs := []any{
 		"operation", "DynamoDB.UpdateItem",
@@ -243,11 +229,11 @@ func (r *ExecutionRepository) UpdateExecution(ctx context.Context, execution *ap
 	updateLogArgs = append(updateLogArgs, logger.GetDeadlineInfo(ctx)...)
 	reqLogger.Debug("calling external service", "context", logger.SliceToMap(updateLogArgs))
 
-	_, err = r.client.UpdateItem(ctx, &dynamodb.UpdateItemInput{
+	_, err := r.client.UpdateItem(ctx, &dynamodb.UpdateItemInput{
 		TableName: aws.String(r.tableName),
 		Key: map[string]types.AttributeValue{
 			"execution_id": &types.AttributeValueMemberS{Value: execution.ExecutionID},
-			"started_at":   &types.AttributeValueMemberS{Value: startedAtStr},
+			"started_at":   &types.AttributeValueMemberN{Value: fmt.Sprintf("%d", execution.StartedAt.Unix())},
 		},
 		UpdateExpression:          aws.String(updateExpr),
 		ExpressionAttributeNames:  exprAttrNames,
