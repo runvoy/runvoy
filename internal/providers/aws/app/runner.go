@@ -18,7 +18,6 @@ import (
 	awsConstants "runvoy/internal/providers/aws/constants"
 
 	awsStd "github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs"
 	"github.com/aws/aws-sdk-go-v2/service/ecs"
 	ecsTypes "github.com/aws/aws-sdk-go-v2/service/ecs/types"
 )
@@ -40,18 +39,14 @@ type Config struct {
 // Runner implements app.Runner for AWS ECS Fargate.
 type Runner struct {
 	ecsClient Client
+	cwlClient CloudWatchLogsClient
 	cfg       *Config
 	logger    *slog.Logger
 }
 
 // NewRunner creates a new AWS ECS runner with the provided configuration.
-func NewRunner(ecsClient Client, cfg *Config, log *slog.Logger) *Runner {
-	return &Runner{ecsClient: ecsClient, cfg: cfg, logger: log}
-}
-
-// newCloudWatchLogsClient creates a CloudWatch Logs client from the AWS SDK config.
-func newCloudWatchLogsClient(sdkConfig *awsStd.Config) *cloudwatchlogs.Client {
-	return cloudwatchlogs.NewFromConfig(*sdkConfig)
+func NewRunner(ecsClient Client, cwlClient CloudWatchLogsClient, cfg *Config, log *slog.Logger) *Runner {
+	return &Runner{ecsClient: ecsClient, cwlClient: cwlClient, cfg: cfg, logger: log}
 }
 
 // FetchLogsByExecutionID returns CloudWatch log events for the given execution ID.
@@ -60,11 +55,12 @@ func (e *Runner) FetchLogsByExecutionID(ctx context.Context, executionID string)
 		return nil, appErrors.ErrBadRequest("executionID is required", nil)
 	}
 
-	cwl := newCloudWatchLogsClient(e.cfg.SDKConfig)
 	stream := awsConstants.BuildLogStreamName(executionID)
 	reqLogger := logger.DeriveRequestLogger(ctx, e.logger)
 
-	if verifyErr := verifyLogStreamExists(ctx, cwl, e.cfg.LogGroup, stream, executionID, reqLogger); verifyErr != nil {
+	if verifyErr := verifyLogStreamExists(
+		ctx, e.cwlClient, e.cfg.LogGroup, stream, executionID, reqLogger,
+	); verifyErr != nil {
 		return nil, verifyErr
 	}
 
@@ -76,7 +72,7 @@ func (e *Runner) FetchLogsByExecutionID(ctx context.Context, executionID string)
 		"paginated":    "true",
 	})
 
-	events, err := getAllLogEvents(ctx, cwl, e.cfg.LogGroup, stream)
+	events, err := getAllLogEvents(ctx, e.cwlClient, e.cfg.LogGroup, stream)
 	if err != nil {
 		return nil, err
 	}

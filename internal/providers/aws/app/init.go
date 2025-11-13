@@ -11,6 +11,7 @@ import (
 	"runvoy/internal/providers/aws/secrets"
 	awsWebsocket "runvoy/internal/providers/aws/websocket"
 
+	"github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/ecs"
 	"github.com/aws/aws-sdk-go-v2/service/ssm"
@@ -39,6 +40,7 @@ func Initialize(
 	dynamoSDKClient := dynamodb.NewFromConfig(awsCfg)
 	ecsSDKClient := ecs.NewFromConfig(awsCfg)
 	ssmSDKClient := ssm.NewFromConfig(awsCfg)
+	cwlSDKClient := cloudwatchlogs.NewFromConfig(awsCfg)
 
 	log.Debug("DynamoDB backend configured", "context", map[string]string{
 		"api_keys_table":              cfg.AWS.APIKeysTable,
@@ -51,6 +53,7 @@ func Initialize(
 	dynamoClient := dynamoRepo.NewClientAdapter(dynamoSDKClient)
 	ecsClient := NewClientAdapter(ecsSDKClient)
 	ssmClient := secrets.NewClientAdapter(ssmSDKClient)
+	cwlClient := NewCloudWatchLogsClientAdapter(cwlSDKClient)
 
 	userRepo := dynamoRepo.NewUserRepository(dynamoClient, cfg.AWS.APIKeysTable, cfg.AWS.PendingAPIKeysTable, log)
 	executionRepo := dynamoRepo.NewExecutionRepository(dynamoClient, cfg.AWS.ExecutionsTable, log)
@@ -73,7 +76,7 @@ func Initialize(
 		Region:          awsCfg.Region,
 		SDKConfig:       &awsCfg,
 	}
-	runner := NewRunner(ecsClient, runnerCfg, log)
+	runner := NewRunner(ecsClient, cwlClient, runnerCfg, log)
 	wsManager := awsWebsocket.NewManager(cfg, connectionRepo, tokenRepo, log)
 
 	return &Dependencies{

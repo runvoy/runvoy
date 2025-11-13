@@ -13,6 +13,7 @@ import (
 )
 
 // Initialize constructs an AWS-backed event processor with all required dependencies.
+// Wraps the AWS SDK clients in adapters for improved testability.
 func Initialize(
 	cfg *config.Config,
 	log *slog.Logger,
@@ -20,13 +21,15 @@ func Initialize(
 	logger.RegisterContextExtractor(appAws.NewLambdaContextExtractor())
 
 	awsCfg := *cfg.AWS.SDKConfig
-	dynamoClient := dynamodb.NewFromConfig(awsCfg)
+	dynamoSDKClient := dynamodb.NewFromConfig(awsCfg)
 
 	log.Debug("DynamoDB backend configured", "context", map[string]string{
 		"executions_table":            cfg.AWS.ExecutionsTable,
 		"websocket_connections_table": cfg.AWS.WebSocketConnectionsTable,
 		"websocket_tokens_table":      cfg.AWS.WebSocketTokensTable,
 	})
+
+	dynamoClient := dynamoRepo.NewClientAdapter(dynamoSDKClient)
 
 	executionRepo := dynamoRepo.NewExecutionRepository(dynamoClient, cfg.AWS.ExecutionsTable, log)
 	connectionRepo := dynamoRepo.NewConnectionRepository(dynamoClient, cfg.AWS.WebSocketConnectionsTable, log)

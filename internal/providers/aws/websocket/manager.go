@@ -29,7 +29,7 @@ import (
 type Manager struct {
 	connRepo      database.ConnectionRepository
 	tokenRepo     database.TokenRepository
-	apiGwClient   *apigatewaymanagementapi.Client
+	apiGwClient   Client
 	apiGwEndpoint *string
 	logger        *slog.Logger
 	connectionIDs []string
@@ -42,9 +42,10 @@ func NewManager(
 	tokenRepo database.TokenRepository,
 	log *slog.Logger,
 ) *Manager {
-	apiGwClient := apigatewaymanagementapi.NewFromConfig(*cfg.AWS.SDKConfig, func(o *apigatewaymanagementapi.Options) {
+	apiGwSDKClient := apigatewaymanagementapi.NewFromConfig(*cfg.AWS.SDKConfig, func(o *apigatewaymanagementapi.Options) {
 		o.BaseEndpoint = aws.String(cfg.AWS.WebSocketAPIEndpoint)
 	})
+	apiGwClient := NewClientAdapter(apiGwSDKClient)
 	connectionIDs := make([]string, 0)
 
 	log.Debug("websocket manager initialized",

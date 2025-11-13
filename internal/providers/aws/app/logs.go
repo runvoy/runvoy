@@ -20,7 +20,7 @@ import (
 // verifyLogStreamExists checks if the log stream exists and returns an error if it doesn't
 func verifyLogStreamExists(
 	ctx context.Context,
-	cwl *cloudwatchlogs.Client,
+	cwl CloudWatchLogsClient,
 	logGroup, stream, executionID string,
 	reqLogger *slog.Logger,
 ) error {
@@ -55,7 +55,7 @@ func verifyLogStreamExists(
 // for the provided log group and stream. It returns the aggregated sorted by timestamp
 // events or an error.
 func getAllLogEvents(ctx context.Context,
-	cwl *cloudwatchlogs.Client, logGroup string, stream string) ([]api.LogEvent, error) {
+	cwl CloudWatchLogsClient, logGroup string, stream string) ([]api.LogEvent, error) {
 	var events []api.LogEvent
 	var nextToken *string
 	pageCount := 0
