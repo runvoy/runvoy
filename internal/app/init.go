@@ -31,7 +31,11 @@ func Initialize(
 
 	switch cfg.BackendProvider {
 	case constants.AWS:
-		awsDeps, err := appAws.Initialize(ctx, cfg, logger)
+		if err := cfg.AWS.LoadSDKConfig(ctx); err != nil {
+			return nil, fmt.Errorf("failed to load AWS SDK config: %w", err)
+		}
+
+		awsDeps, err := appAws.Initialize(cfg, logger)
 		if err != nil {
 			return nil, fmt.Errorf("failed to initialize AWS dependencies: %w", err)
 		}

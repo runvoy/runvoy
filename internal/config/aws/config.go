@@ -2,11 +2,14 @@
 package aws
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
 	awsConstants "runvoy/internal/providers/aws/constants"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
+	awsConfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/spf13/viper"
 )
 
@@ -39,6 +42,9 @@ type Config struct {
 	// Secrets Management
 	SecretsPrefix    string `mapstructure:"secrets_prefix"`
 	SecretsKMSKeyARN string `mapstructure:"secrets_kms_key_arn"`
+
+	// AWS SDK Configuration (credentials, region, etc.)
+	SDKConfig *aws.Config `mapstructure:"-"`
 }
 
 // BindEnvVars binds AWS-specific environment variables to the provided Viper instance.
@@ -130,4 +136,14 @@ func NormalizeWebSocketEndpoint(endpoint string) string {
 	endpoint = strings.TrimPrefix(endpoint, "wss://")
 	endpoint = strings.TrimPrefix(endpoint, "ws://")
 	return endpoint
+}
+
+// LoadSDKConfig loads the AWS SDK configuration from the environment.
+func (c *Config) LoadSDKConfig(ctx context.Context) error {
+	awsCfg, err := awsConfig.LoadDefaultConfig(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to load AWS SDK configuration: %w", err)
+	}
+	c.SDKConfig = &awsCfg
+	return nil
 }

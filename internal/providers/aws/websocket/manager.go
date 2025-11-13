@@ -38,17 +38,11 @@ type Manager struct {
 // NewManager creates a new AWS WebSocket manager.
 func NewManager(
 	cfg *config.Config,
-	awsCfg *aws.Config,
 	connRepo database.ConnectionRepository,
 	tokenRepo database.TokenRepository,
 	log *slog.Logger,
 ) *Manager {
-	if cfg.AWS == nil {
-		log.Error("AWS configuration is nil")
-		panic("AWS configuration is required for WebSocket manager")
-	}
-
-	apiGwClient := apigatewaymanagementapi.NewFromConfig(*awsCfg, func(o *apigatewaymanagementapi.Options) {
+	apiGwClient := apigatewaymanagementapi.NewFromConfig(*cfg.AWS.SDKConfig, func(o *apigatewaymanagementapi.Options) {
 		o.BaseEndpoint = aws.String(cfg.AWS.WebSocketAPIEndpoint)
 	})
 	connectionIDs := make([]string, 0)

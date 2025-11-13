@@ -1,8 +1,6 @@
 package aws
 
 import (
-	"context"
-	"fmt"
 	"log/slog"
 
 	"runvoy/internal/config"
@@ -13,7 +11,6 @@ import (
 	"runvoy/internal/providers/aws/secrets"
 	awsWebsocket "runvoy/internal/providers/aws/websocket"
 
-	awsConfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/ecs"
 	"github.com/aws/aws-sdk-go-v2/service/ssm"
@@ -32,24 +29,15 @@ type Dependencies struct {
 
 // Initialize prepares AWS service dependencies for the app package.
 func Initialize(
-	ctx context.Context,
 	cfg *config.Config,
 	log *slog.Logger,
 ) (*Dependencies, error) {
 	logger.RegisterContextExtractor(NewLambdaContextExtractor())
 
-	awsCfg, err := awsConfig.LoadDefaultConfig(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load AWS configuration: %w", err)
-	}
-
+	awsCfg := *cfg.AWS.SDKConfig
 	dynamoClient := dynamodb.NewFromConfig(awsCfg)
 	ecsClient := ecs.NewFromConfig(awsCfg)
 	ssmClient := ssm.NewFromConfig(awsCfg)
-
-	if cfg.AWS == nil {
-		return nil, fmt.Errorf("AWS configuration is required")
-	}
 
 	log.Debug("DynamoDB backend configured", "context", map[string]string{
 		"api_keys_table":              cfg.AWS.APIKeysTable,
@@ -78,9 +66,10 @@ func Initialize(
 		TaskExecRoleARN: cfg.AWS.TaskExecRoleARN,
 		TaskRoleARN:     cfg.AWS.TaskRoleARN,
 		Region:          awsCfg.Region,
+		SDKConfig:       &awsCfg,
 	}
 	runner := NewRunner(ecsClient, runnerCfg, log)
-	wsManager := awsWebsocket.NewManager(cfg, &awsCfg, connectionRepo, tokenRepo, log)
+	wsManager := awsWebsocket.NewManager(cfg, connectionRepo, tokenRepo, log)
 
 	return &Dependencies{
 		UserRepo:         userRepo,

@@ -1,8 +1,6 @@
 package aws
 
 import (
-	"context"
-	"fmt"
 	"log/slog"
 
 	"runvoy/internal/config"
@@ -11,28 +9,18 @@ import (
 	dynamoRepo "runvoy/internal/providers/aws/database/dynamodb"
 	websocketAws "runvoy/internal/providers/aws/websocket"
 
-	awsConfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 )
 
 // Initialize constructs an AWS-backed event processor with all required dependencies.
 func Initialize(
-	ctx context.Context,
 	cfg *config.Config,
 	log *slog.Logger,
 ) (*Processor, error) {
 	logger.RegisterContextExtractor(appAws.NewLambdaContextExtractor())
 
-	awsCfg, err := awsConfig.LoadDefaultConfig(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load AWS configuration: %w", err)
-	}
-
+	awsCfg := *cfg.AWS.SDKConfig
 	dynamoClient := dynamodb.NewFromConfig(awsCfg)
-
-	if cfg.AWS == nil {
-		return nil, fmt.Errorf("AWS configuration is required")
-	}
 
 	log.Debug("DynamoDB backend configured", "context", map[string]string{
 		"executions_table":            cfg.AWS.ExecutionsTable,
@@ -44,7 +32,7 @@ func Initialize(
 	connectionRepo := dynamoRepo.NewConnectionRepository(dynamoClient, cfg.AWS.WebSocketConnectionsTable, log)
 	tokenRepo := dynamoRepo.NewTokenRepository(dynamoClient, cfg.AWS.WebSocketTokensTable, log)
 
-	websocketManager := websocketAws.NewManager(cfg, &awsCfg, connectionRepo, tokenRepo, log)
+	websocketManager := websocketAws.NewManager(cfg, connectionRepo, tokenRepo, log)
 
 	return NewProcessor(executionRepo, websocketManager, log), nil
 }

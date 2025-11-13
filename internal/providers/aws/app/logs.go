@@ -13,26 +13,20 @@ import (
 	awsConstants "runvoy/internal/providers/aws/constants"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	awsConfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs"
 	cwlTypes "github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs/types"
 )
 
 // FetchLogsByExecutionID queries CloudWatch Logs for events associated with the ECS task ID
 // Returns a slice of LogEvent sorted by timestamp.
-func FetchLogsByExecutionID(ctx context.Context, cfg *Config, executionID string) ([]api.LogEvent, error) {
-	if cfg == nil || cfg.LogGroup == "" {
-		return nil, appErrors.ErrInternalError("CloudWatch Logs group not configured", nil)
-	}
+func FetchLogsByExecutionID(
+	ctx context.Context, cfg *Config, executionID string,
+) ([]api.LogEvent, error) {
 	if executionID == "" {
 		return nil, appErrors.ErrBadRequest("executionID is required", nil)
 	}
 
-	awsCfg, err := awsConfig.LoadDefaultConfig(ctx)
-	if err != nil {
-		return nil, appErrors.ErrInternalError("failed to load AWS configuration", err)
-	}
-	cwl := cloudwatchlogs.NewFromConfig(awsCfg)
+	cwl := cloudwatchlogs.NewFromConfig(*cfg.SDKConfig)
 	stream := awsConstants.BuildLogStreamName(executionID)
 	reqLogger := logger.DeriveRequestLogger(ctx, slog.Default())
 
@@ -49,7 +43,7 @@ func FetchLogsByExecutionID(ctx context.Context, cfg *Config, executionID string
 	})
 
 	var events []api.LogEvent
-	events, err = getAllLogEvents(ctx, cwl, cfg.LogGroup, stream)
+	events, err := getAllLogEvents(ctx, cwl, cfg.LogGroup, stream)
 	if err != nil {
 		return nil, err
 	}

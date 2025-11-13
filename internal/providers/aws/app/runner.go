@@ -33,6 +33,7 @@ type Config struct {
 	TaskRoleARN     string
 	TaskExecRoleARN string
 	Region          string
+	SDKConfig       *awsStd.Config
 }
 
 // Runner implements app.Runner for AWS ECS Fargate.
