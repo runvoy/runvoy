@@ -31,6 +31,7 @@ type RemoveImageResponse struct {
 
 // ImageInfo represents information about a registered image
 type ImageInfo struct {
+	ImageID               string  `json:"image_id"` // Unique ID for this configuration
 	Image                 string  `json:"image"`
 	TaskDefinitionName    string  `json:"task_definition_name,omitempty"`
 	IsDefault             *bool   `json:"is_default,omitempty"`

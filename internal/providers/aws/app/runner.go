@@ -40,6 +40,7 @@ type Config struct {
 type ImageTaskDefRepository interface {
 	PutImageTaskDef(
 		ctx context.Context,
+		imageID string,
 		image string,
 		imageRegistry string,
 		imageName string,
@@ -57,6 +58,7 @@ type ImageTaskDefRepository interface {
 		cpu, memory *int,
 		runtimePlatform *string,
 	) (*api.ImageInfo, error)
+	GetImageTaskDefByID(ctx context.Context, imageID string) (*api.ImageInfo, error)
 	GetAnyImageTaskDef(ctx context.Context, image string) (*api.ImageInfo, error)
 	ListImages(ctx context.Context) ([]api.ImageInfo, error)
 	GetDefaultImage(ctx context.Context) (*api.ImageInfo, error)

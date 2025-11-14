@@ -4,10 +4,14 @@ package dynamodb
 
 import (
 	"context"
+	"crypto/sha256"
+	"errors"
 	"fmt"
 	"log/slog"
+	"regexp"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 
 	"runvoy/internal/api"
@@ -18,6 +22,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
+	"github.com/aws/smithy-go"
 )
 
 // ImageTaskDefRepository implements image-taskdef mapping operations using DynamoDB.
@@ -38,8 +43,8 @@ func NewImageTaskDefRepository(client Client, tableName string, log *slog.Logger
 
 // imageTaskDefItem represents the structure stored in DynamoDB.
 type imageTaskDefItem struct {
-	Image                 string  `dynamodbav:"image"`         // Partition key
-	CompositeKey          string  `dynamodbav:"composite_key"` // Sort key: role_composite#cpu#memory#runtime_platform
+	ImageID               string  `dynamodbav:"image_id"` // Partition key
+	Image                 string  `dynamodbav:"image"`    // Regular attribute for queries by image name
 	TaskRoleName          *string `dynamodbav:"task_role_name,omitempty"`
 	TaskExecutionRoleName *string `dynamodbav:"task_execution_role_name,omitempty"`
 	Cpu                   string  `dynamodbav:"cpu"`              //nolint:revive // DynamoDB field name matches schema
@@ -89,11 +94,48 @@ func buildRoleComposite(taskRoleName, taskExecutionRoleName *string) string {
 	return fmt.Sprintf("%s#%s", taskRole, execRole)
 }
 
-// buildCompositeKey creates a composite sort key from roles, CPU, Memory, and RuntimePlatform.
-// Format: role_composite#cpu#memory#runtime_platform
-func buildCompositeKey(taskRoleName, taskExecutionRoleName *string, cpu, memory int, runtimePlatform string) string {
+// sanitizeImageNameForID sanitizes an image name for use in ImageID.
+// Replaces invalid characters (/, :, etc.) with hyphens and removes registry.
+func sanitizeImageNameForID(imageName string) string {
+	// Replace invalid characters with hyphens
+	re := regexp.MustCompile(`[^a-zA-Z0-9_-]`)
+	sanitized := re.ReplaceAllString(imageName, "-")
+	// Collapse multiple hyphens
+	re2 := regexp.MustCompile(`-+`)
+	sanitized = re2.ReplaceAllString(sanitized, "-")
+	// Trim hyphens from edges
+	sanitized = strings.Trim(sanitized, "-")
+	return sanitized
+}
+
+// GenerateImageID generates a unique, human-readable ID for an image configuration.
+// Format: {sanitized-image-name}-{tag}-{first-8-chars-of-hash}
+// Example: alpine-latest-a1b2c3d4
+func GenerateImageID(
+	imageName, imageTag string,
+	cpu, memory int,
+	runtimePlatform string,
+	taskRoleName, taskExecutionRoleName *string,
+) string {
 	roleComposite := buildRoleComposite(taskRoleName, taskExecutionRoleName)
-	return fmt.Sprintf("%s#%d#%d#%s", roleComposite, cpu, memory, runtimePlatform)
+
+	// Create hash input from full configuration
+	hashInput := fmt.Sprintf("%s:%s:%d:%d:%s:%s", imageName, imageTag, cpu, memory, runtimePlatform, roleComposite)
+
+	// Compute SHA256 hash
+	hash := sha256.Sum256([]byte(hashInput))
+	hashStr := fmt.Sprintf("%x", hash)
+
+	// Take first 8 characters of hash
+	shortHash := hashStr[:8]
+
+	// Sanitize image name (remove registry, replace invalid chars)
+	sanitizedName := sanitizeImageNameForID(imageName)
+
+	// Build ID: {sanitized-name}-{tag}-{hash}
+	imageID := fmt.Sprintf("%s-%s-%s", sanitizedName, imageTag, shortHash)
+
+	return imageID
 }
 
 // PutImageTaskDef stores or updates an image-taskdef mapping.
@@ -101,6 +143,7 @@ func buildCompositeKey(taskRoleName, taskExecutionRoleName *string, cpu, memory 
 //nolint:funlen // Complex item construction with multiple fields
 func (r *ImageTaskDefRepository) PutImageTaskDef(
 	ctx context.Context,
+	imageID string,
 	image string,
 	imageRegistry string,
 	imageName string,
@@ -116,15 +159,14 @@ func (r *ImageTaskDefRepository) PutImageTaskDef(
 	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
 
 	now := time.Now().Unix()
-	compositeKey := buildCompositeKey(taskRoleName, taskExecutionRoleName, cpu, memory, runtimePlatform)
 
 	// Convert to strings for DynamoDB storage
 	cpuStr := fmt.Sprintf("%d", cpu)
 	memoryStr := fmt.Sprintf("%d", memory)
 
 	item := &imageTaskDefItem{
+		ImageID:               imageID,
 		Image:                 image,
-		CompositeKey:          compositeKey,
 		TaskRoleName:          taskRoleName,
 		TaskExecutionRoleName: taskExecutionRoleName,
 		Cpu:                   cpuStr,
@@ -152,8 +194,8 @@ func (r *ImageTaskDefRepository) PutImageTaskDef(
 	logArgs := []any{
 		"operation", "DynamoDB.PutItem",
 		"table", r.tableName,
+		"image_id", imageID,
 		"image", image,
-		"composite_key", compositeKey,
 		"cpu", cpu,
 		"memory", memory,
 		"runtime_platform", runtimePlatform,
@@ -173,9 +215,58 @@ func (r *ImageTaskDefRepository) PutImageTaskDef(
 	return nil
 }
 
-// GetImageTaskDef retrieves a specific image-taskdef mapping by image, roles, CPU, Memory, and RuntimePlatform.
-//
-//nolint:funlen // Complex lookup with default value handling
+// parseImageReference parses a Docker image reference into name and tag.
+// This is a simplified version to avoid import cycles.
+func parseImageReference(image string) (name, tag string) {
+	tag = "latest" // Default tag
+
+	// Split on '@' to handle digest references
+	var remainder string
+	idx := strings.Index(image, "@")
+	if idx != -1 {
+		remainder = image[:idx]
+		tag = image[idx+1:] // Everything after @ is the digest
+	} else {
+		remainder = image
+		// Split on ':' to extract tag
+		tagIdx := strings.LastIndex(remainder, ":")
+		if tagIdx != -1 {
+			// Check if this is a tag (not a port number in registry)
+			firstSlash := strings.Index(remainder, "/")
+			if firstSlash == -1 || tagIdx > firstSlash {
+				// This is a tag, not a port
+				tag = remainder[tagIdx+1:]
+				remainder = remainder[:tagIdx]
+			}
+		}
+	}
+
+	// Now remainder is registry/name or just name
+	// Extract name (everything after the first slash if it contains a registry)
+	const splitLimit = 2
+	parts := strings.SplitN(remainder, "/", splitLimit)
+
+	if len(parts) == 1 {
+		// Just a name, no registry
+		name = parts[0]
+	} else {
+		// Check if first part is a registry
+		firstPart := parts[0]
+		if strings.Contains(firstPart, ".") ||
+			strings.Contains(firstPart, ":") ||
+			firstPart == "localhost" {
+			// This is a registry
+			name = parts[1]
+		} else {
+			// This is org/repo format (no registry)
+			name = remainder
+		}
+	}
+
+	return name, tag
+}
+
+// GetImageTaskDef retrieves a specific image-taskdef mapping by generating ImageID from the configuration.
 func (r *ImageTaskDefRepository) GetImageTaskDef(
 	ctx context.Context,
 	image string,
@@ -185,7 +276,8 @@ func (r *ImageTaskDefRepository) GetImageTaskDef(
 	memory *int,
 	runtimePlatform *string,
 ) (*api.ImageInfo, error) {
-	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
+	// Parse image to get name and tag
+	imageName, imageTag := parseImageReference(image)
 
 	// Apply defaults if not provided
 	cpuVal := DefaultCPU
@@ -201,16 +293,29 @@ func (r *ImageTaskDefRepository) GetImageTaskDef(
 		runtimePlatformVal = *runtimePlatform
 	}
 
-	compositeKey := buildCompositeKey(taskRoleName, taskExecutionRoleName, cpuVal, memoryVal, runtimePlatformVal)
+	// Generate ImageID from configuration
+	imageID := GenerateImageID(
+		imageName,
+		imageTag,
+		cpuVal,
+		memoryVal,
+		runtimePlatformVal,
+		taskRoleName,
+		taskExecutionRoleName,
+	)
+
+	// Query by ImageID
+	return r.GetImageTaskDefByID(ctx, imageID)
+}
+
+// GetImageTaskDefByID retrieves an image-taskdef mapping by ImageID.
+func (r *ImageTaskDefRepository) GetImageTaskDefByID(ctx context.Context, imageID string) (*api.ImageInfo, error) {
+	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
 
 	logArgs := []any{
 		"operation", "DynamoDB.GetItem",
 		"table", r.tableName,
-		"image", image,
-		"composite_key", compositeKey,
-		"cpu", cpuVal,
-		"memory", memoryVal,
-		"runtime_platform", runtimePlatformVal,
+		"image_id", imageID,
 	}
 	logArgs = append(logArgs, logger.GetDeadlineInfo(ctx)...)
 	reqLogger.Debug("calling external service", "context", logger.SliceToMap(logArgs))
@@ -218,8 +323,7 @@ func (r *ImageTaskDefRepository) GetImageTaskDef(
 	result, err := r.client.GetItem(ctx, &dynamodb.GetItemInput{
 		TableName: aws.String(r.tableName),
 		Key: map[string]types.AttributeValue{
-			"image":         &types.AttributeValueMemberS{Value: image},
-			"composite_key": &types.AttributeValueMemberS{Value: compositeKey},
+			"image_id": &types.AttributeValueMemberS{Value: imageID},
 		},
 	})
 	if err != nil {
@@ -236,17 +340,18 @@ func (r *ImageTaskDefRepository) GetImageTaskDef(
 	}
 
 	// Convert from strings to ints
-	cpuInt, err := strconv.Atoi(item.Cpu)
-	if err != nil {
-		return nil, apperrors.ErrInternalError("failed to parse CPU value", err)
+	cpuInt, parseErr := strconv.Atoi(item.Cpu)
+	if parseErr != nil {
+		return nil, apperrors.ErrInternalError("failed to parse CPU value", parseErr)
 	}
-	memoryInt, err := strconv.Atoi(item.Memory)
-	if err != nil {
-		return nil, apperrors.ErrInternalError("failed to parse Memory value", err)
+	memoryInt, parseErr := strconv.Atoi(item.Memory)
+	if parseErr != nil {
+		return nil, apperrors.ErrInternalError("failed to parse Memory value", parseErr)
 	}
 
 	isDefault := item.isDefault()
 	return &api.ImageInfo{
+		ImageID:               item.ImageID,
 		Image:                 item.Image,
 		TaskDefinitionName:    item.TaskDefinitionFamily,
 		IsDefault:             &isDefault,
@@ -262,7 +367,7 @@ func (r *ImageTaskDefRepository) GetImageTaskDef(
 }
 
 // ListImages retrieves all registered images with their task definitions.
-// Deduplicates by image name, preferring the default configuration if available.
+// Shows all configurations (no deduplication).
 func (r *ImageTaskDefRepository) ListImages(ctx context.Context) ([]api.ImageInfo, error) {
 	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
 
@@ -290,14 +395,15 @@ func (r *ImageTaskDefRepository) ListImages(ctx context.Context) ([]api.ImageInf
 		return nil, convertErr
 	}
 
-	images := r.deduplicateImages(allImages)
-
-	// Sort by image name for consistency
-	sort.Slice(images, func(i, j int) bool {
-		return images[i].Image < images[j].Image
+	// Sort by image name, then by ImageID for consistency
+	sort.Slice(allImages, func(i, j int) bool {
+		if allImages[i].Image != allImages[j].Image {
+			return allImages[i].Image < allImages[j].Image
+		}
+		return allImages[i].ImageID < allImages[j].ImageID
 	})
 
-	return images, nil
+	return allImages, nil
 }
 
 // convertItemsToImageInfo converts DynamoDB items to ImageInfo structs.
@@ -318,6 +424,7 @@ func (r *ImageTaskDefRepository) convertItemsToImageInfo(items []imageTaskDefIte
 		}
 
 		allImages = append(allImages, api.ImageInfo{
+			ImageID:               item.ImageID,
 			Image:                 item.Image,
 			TaskDefinitionName:    item.TaskDefinitionFamily,
 			IsDefault:             &isDefault,
@@ -332,32 +439,6 @@ func (r *ImageTaskDefRepository) convertItemsToImageInfo(items []imageTaskDefIte
 		})
 	}
 	return allImages, nil
-}
-
-// deduplicateImages deduplicates images by name, preferring default configuration.
-func (r *ImageTaskDefRepository) deduplicateImages(allImages []api.ImageInfo) []api.ImageInfo {
-	imageMap := make(map[string]api.ImageInfo)
-	for i := range allImages {
-		img := &allImages[i]
-		_, exists := imageMap[img.Image]
-
-		if !exists {
-			// First occurrence of this image
-			imageMap[img.Image] = *img
-		} else if img.IsDefault != nil && *img.IsDefault {
-			// Prefer default configuration
-			imageMap[img.Image] = *img
-		}
-		// If neither is default, keep the first one (already in map)
-	}
-
-	// Convert map to slice
-	images := make([]api.ImageInfo, 0, len(imageMap))
-	for imgName := range imageMap {
-		images = append(images, imageMap[imgName])
-	}
-
-	return images
 }
 
 // GetDefaultImage retrieves the image marked as default.
@@ -406,6 +487,7 @@ func (r *ImageTaskDefRepository) GetDefaultImage(ctx context.Context) (*api.Imag
 
 	isDefault := item.isDefault()
 	return &api.ImageInfo{
+		ImageID:               item.ImageID,
 		Image:                 item.Image,
 		TaskDefinitionName:    item.TaskDefinitionFamily,
 		IsDefault:             &isDefault,
@@ -445,12 +527,10 @@ func (r *ImageTaskDefRepository) UnmarkAllDefaults(ctx context.Context) error {
 	// Update each item to remove default status
 	for i := range items {
 		item := &items[i]
-		roleComposite := buildRoleComposite(item.TaskRoleName, item.TaskExecutionRoleName)
 		logArgs := []any{
 			"operation", "DynamoDB.UpdateItem",
 			"table", r.tableName,
-			"image", item.Image,
-			"role_composite", roleComposite,
+			"image_id", item.ImageID,
 		}
 		logArgs = append(logArgs, logger.GetDeadlineInfo(ctx)...)
 		reqLogger.Debug("calling external service", "context", logger.SliceToMap(logArgs))
@@ -458,13 +538,11 @@ func (r *ImageTaskDefRepository) UnmarkAllDefaults(ctx context.Context) error {
 		_, err = r.client.UpdateItem(ctx, &dynamodb.UpdateItemInput{
 			TableName: aws.String(r.tableName),
 			Key: map[string]types.AttributeValue{
-				"image":         &types.AttributeValueMemberS{Value: item.Image},
-				"composite_key": &types.AttributeValueMemberS{Value: item.CompositeKey},
+				"image_id": &types.AttributeValueMemberS{Value: item.ImageID},
 			},
-			UpdateExpression: aws.String("SET is_default = :false, updated_at = :now REMOVE is_default_placeholder"),
+			UpdateExpression: aws.String("SET updated_at = :now REMOVE is_default_placeholder"),
 			ExpressionAttributeValues: map[string]types.AttributeValue{
-				":false": &types.AttributeValueMemberBOOL{Value: false},
-				":now":   &types.AttributeValueMemberN{Value: fmt.Sprintf("%d", time.Now().Unix())},
+				":now": &types.AttributeValueMemberN{Value: fmt.Sprintf("%d", time.Now().Unix())},
 			},
 		})
 		if err != nil {
@@ -476,27 +554,30 @@ func (r *ImageTaskDefRepository) UnmarkAllDefaults(ctx context.Context) error {
 }
 
 // DeleteImage removes all task definition mappings for a specific image.
+// Returns success if image is not found (idempotent operation).
+//
+//nolint:funlen // Complex error handling for validation errors
 func (r *ImageTaskDefRepository) DeleteImage(ctx context.Context, image string) error {
 	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
 
-	// Query all items for this image
+	// Scan table and filter by image attribute
 	logArgs := []any{
-		"operation", "DynamoDB.Query",
+		"operation", "DynamoDB.Scan",
 		"table", r.tableName,
 		"image", image,
 	}
 	logArgs = append(logArgs, logger.GetDeadlineInfo(ctx)...)
 	reqLogger.Debug("calling external service", "context", logger.SliceToMap(logArgs))
 
-	result, err := r.client.Query(ctx, &dynamodb.QueryInput{
-		TableName:              aws.String(r.tableName),
-		KeyConditionExpression: aws.String("image = :image"),
+	result, err := r.client.Scan(ctx, &dynamodb.ScanInput{
+		TableName:        aws.String(r.tableName),
+		FilterExpression: aws.String("image = :image"),
 		ExpressionAttributeValues: map[string]types.AttributeValue{
 			":image": &types.AttributeValueMemberS{Value: image},
 		},
 	})
 	if err != nil {
-		return apperrors.ErrInternalError("failed to query image mappings", err)
+		return apperrors.ErrInternalError("failed to scan image mappings", err)
 	}
 
 	var items []imageTaskDefItem
@@ -504,15 +585,21 @@ func (r *ImageTaskDefRepository) DeleteImage(ctx context.Context, image string) 
 		return apperrors.ErrInternalError("failed to unmarshal image items", unmarshalErr)
 	}
 
-	// Delete each item
+	// If no items found, image doesn't exist - return success (idempotent operation)
+	if len(items) == 0 {
+		reqLogger.Debug("image not found, nothing to delete", "context", map[string]string{
+			"image": image,
+		})
+		return nil
+	}
+
+	// Delete each item by image_id
 	for i := range items {
 		item := &items[i]
-		roleComposite := buildRoleComposite(item.TaskRoleName, item.TaskExecutionRoleName)
 		deleteLogArgs := []any{
 			"operation", "DynamoDB.DeleteItem",
 			"table", r.tableName,
-			"image", item.Image,
-			"role_composite", roleComposite,
+			"image_id", item.ImageID,
 		}
 		deleteLogArgs = append(deleteLogArgs, logger.GetDeadlineInfo(ctx)...)
 		reqLogger.Debug("calling external service", "context", logger.SliceToMap(deleteLogArgs))
@@ -520,11 +607,20 @@ func (r *ImageTaskDefRepository) DeleteImage(ctx context.Context, image string) 
 		_, err = r.client.DeleteItem(ctx, &dynamodb.DeleteItemInput{
 			TableName: aws.String(r.tableName),
 			Key: map[string]types.AttributeValue{
-				"image":         &types.AttributeValueMemberS{Value: item.Image},
-				"composite_key": &types.AttributeValueMemberS{Value: item.CompositeKey},
+				"image_id": &types.AttributeValueMemberS{Value: item.ImageID},
 			},
 		})
 		if err != nil {
+			// Check if it's a validation error (item doesn't exist or wrong key schema)
+			var apiErr smithy.APIError
+			if errors.As(err, &apiErr) && apiErr.ErrorCode() == "ValidationException" {
+				// Item might not exist or have wrong schema - log and continue
+				reqLogger.Warn("failed to delete item (may not exist or wrong schema)", "context", map[string]any{
+					"image_id": item.ImageID,
+					"error":    err.Error(),
+				})
+				continue
+			}
 			return apperrors.ErrInternalError("failed to delete image mapping", err)
 		}
 	}
@@ -535,31 +631,32 @@ func (r *ImageTaskDefRepository) DeleteImage(ctx context.Context, image string) 
 // GetAnyImageTaskDef retrieves any task definition configuration for a given image.
 // This is useful when you need to find a task definition for an image regardless of
 // its specific CPU/Memory/RuntimePlatform configuration.
-// It queries by image (partition key) and returns the first matching item,
+// It scans by image attribute and returns the first matching item,
 // preferring the default configuration if available.
 //
-//nolint:funlen // Complex query with preference logic
+//nolint:funlen // Complex logic with helper function
 func (r *ImageTaskDefRepository) GetAnyImageTaskDef(ctx context.Context, image string) (*api.ImageInfo, error) {
 	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
 
 	logArgs := []any{
-		"operation", "DynamoDB.Query",
+		"operation", "DynamoDB.Scan",
 		"table", r.tableName,
 		"image", image,
 	}
 	logArgs = append(logArgs, logger.GetDeadlineInfo(ctx)...)
 	reqLogger.Debug("calling external service", "context", logger.SliceToMap(logArgs))
 
-	result, err := r.client.Query(ctx, &dynamodb.QueryInput{
-		TableName:              aws.String(r.tableName),
-		KeyConditionExpression: aws.String("image = :image"),
+	// Scan table and filter by image attribute
+	result, err := r.client.Scan(ctx, &dynamodb.ScanInput{
+		TableName:        aws.String(r.tableName),
+		FilterExpression: aws.String("image = :image"),
 		ExpressionAttributeValues: map[string]types.AttributeValue{
 			":image": &types.AttributeValueMemberS{Value: image},
 		},
 		Limit: aws.Int32(100), //nolint:mnd // Get up to 100 items to find default if available
 	})
 	if err != nil {
-		return nil, apperrors.ErrInternalError("failed to query image-taskdef mappings", err)
+		return nil, apperrors.ErrInternalError("failed to scan image-taskdef mappings", err)
 	}
 
 	if len(result.Items) == 0 {
@@ -585,6 +682,7 @@ func (r *ImageTaskDefRepository) GetAnyImageTaskDef(ctx context.Context, image s
 
 		isDefault := item.isDefault()
 		return &api.ImageInfo{
+			ImageID:               item.ImageID,
 			Image:                 item.Image,
 			TaskDefinitionName:    item.TaskDefinitionFamily,
 			IsDefault:             &isDefault,
@@ -657,8 +755,8 @@ func (r *ImageTaskDefRepository) GetUniqueImages(ctx context.Context) ([]string,
 	return uniqueImages, nil
 }
 
-// SetImageAsOnlyDefault marks a specific image+role combination as the only default.
-// It first unmarksall other defaults, then sets this one as default.
+// SetImageAsOnlyDefault marks a specific image configuration as the only default.
+// It first unmarks all other defaults, then sets this one as default.
 func (r *ImageTaskDefRepository) SetImageAsOnlyDefault(
 	ctx context.Context,
 	image string,
@@ -670,32 +768,36 @@ func (r *ImageTaskDefRepository) SetImageAsOnlyDefault(
 		return err
 	}
 
+	// Generate ImageID for the default configuration
+	imageName, imageTag := parseImageReference(image)
+	imageID := GenerateImageID(
+		imageName,
+		imageTag,
+		DefaultCPU,
+		DefaultMemory,
+		DefaultRuntimePlatform,
+		taskRoleName,
+		taskExecutionRoleName,
+	)
+
 	// Then mark this one as default
 	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
-	roleComposite := buildRoleComposite(taskRoleName, taskExecutionRoleName)
 
 	logArgs := []any{
 		"operation", "DynamoDB.UpdateItem",
 		"table", r.tableName,
-		"image", image,
-		"role_composite", roleComposite,
+		"image_id", imageID,
 	}
 	logArgs = append(logArgs, logger.GetDeadlineInfo(ctx)...)
 	reqLogger.Debug("calling external service", "context", logger.SliceToMap(logArgs))
 
-	compositeKey := buildCompositeKey(
-		taskRoleName, taskExecutionRoleName, DefaultCPU, DefaultMemory, DefaultRuntimePlatform,
-	)
-
 	_, err := r.client.UpdateItem(ctx, &dynamodb.UpdateItemInput{
 		TableName: aws.String(r.tableName),
 		Key: map[string]types.AttributeValue{
-			"image":         &types.AttributeValueMemberS{Value: image},
-			"composite_key": &types.AttributeValueMemberS{Value: compositeKey},
+			"image_id": &types.AttributeValueMemberS{Value: imageID},
 		},
-		UpdateExpression: aws.String("SET is_default = :true, is_default_placeholder = :placeholder, updated_at = :now"),
+		UpdateExpression: aws.String("SET is_default_placeholder = :placeholder, updated_at = :now"),
 		ExpressionAttributeValues: map[string]types.AttributeValue{
-			":true":        &types.AttributeValueMemberBOOL{Value: true},
 			":placeholder": &types.AttributeValueMemberS{Value: "DEFAULT"},
 			":now":         &types.AttributeValueMemberN{Value: fmt.Sprintf("%d", time.Now().Unix())},
 		},

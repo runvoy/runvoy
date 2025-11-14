@@ -208,13 +208,12 @@ func (s *ImagesService) ListImages(ctx context.Context) error {
 	s.output.Blank()
 	s.output.Table(
 		[]string{
+			"Image ID",
 			"Image",
-			"Default",
 			"CPU",
-			"Memory (MB)",
-			"Platform",
-			"Task Role",
-			"Task Exec Role",
+			"Memory",
+			"Runtime Platform",
+			"Is Default",
 		},
 		rows,
 	)
@@ -247,29 +246,18 @@ func (s *ImagesService) formatImages(images []api.ImageInfo) [][]string {
 			defaultStr = "true"
 		}
 
-		taskRoleStr := "-"
-		if image.TaskRoleName != nil && *image.TaskRoleName != "" {
-			taskRoleStr = *image.TaskRoleName
-		}
-
-		taskExecRoleStr := "-"
-		if image.TaskExecutionRoleName != nil && *image.TaskExecutionRoleName != "" {
-			taskExecRoleStr = *image.TaskExecutionRoleName
-		}
-
 		platformStr := image.RuntimePlatform
 		if platformStr == "" {
 			platformStr = "-"
 		}
 
 		rows = append(rows, []string{
+			image.ImageID,
 			image.Image,
-			defaultStr,
 			strconv.Itoa(image.Cpu),
 			strconv.Itoa(image.Memory),
 			platformStr,
-			taskRoleStr,
-			taskExecRoleStr,
+			defaultStr,
 		})
 	}
 	return rows

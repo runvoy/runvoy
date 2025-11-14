@@ -6,9 +6,9 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"strings"
 
 	"runvoy/internal/api"
-	"runvoy/internal/auth"
 	"runvoy/internal/logger"
 	awsConstants "runvoy/internal/providers/aws/constants"
 	"runvoy/internal/providers/aws/database/dynamodb"
@@ -92,8 +92,10 @@ func (e *Runner) handleExistingImage(
 }
 
 // registerNewImage handles registration of a new image.
-// It generates a unique task definition family name using UUID, registers the task definition
-// with ECS, and stores the mapping in DynamoDB.
+// It generates a unique ImageID, uses it as the task definition family name (prefixed with "runvoy-"),
+// registers the task definition with ECS, and stores the mapping in DynamoDB.
+//
+//nolint:funlen // Complex registration flow with multiple steps
 func (e *Runner) registerNewImage(
 	ctx context.Context,
 	image string,
@@ -104,7 +106,21 @@ func (e *Runner) registerNewImage(
 	runtimePlatform string,
 	reqLogger *slog.Logger,
 ) (taskDefARN, family string, err error) {
-	family = fmt.Sprintf("runvoy-taskdef-%s", auth.GenerateUUID())
+	imageRef := ParseImageReference(image)
+
+	// Generate ImageID from configuration
+	imageID := dynamodb.GenerateImageID(
+		imageRef.Name,
+		imageRef.Tag,
+		cpu,
+		memory,
+		runtimePlatform,
+		taskRoleName,
+		taskExecutionRoleName,
+	)
+
+	// Use ImageID (prefixed with "runvoy-") as task definition family name
+	family = fmt.Sprintf("runvoy-%s", imageID)
 
 	taskDefARN, err = e.registerTaskDefinitionWithRoles(
 		ctx,
@@ -133,10 +149,9 @@ func (e *Runner) registerNewImage(
 		}
 	}
 
-	imageRef := ParseImageReference(image)
-
 	if putErr := e.imageRepo.PutImageTaskDef(
 		ctx,
+		imageID,
 		image,
 		imageRef.Registry,
 		imageRef.Name,
@@ -497,19 +512,57 @@ func (e *Runner) GetDefaultImageFromDB(ctx context.Context) (string, error) {
 	return imageInfo.Image, nil
 }
 
-// GetTaskDefinitionARNForImage returns the task definition family name for a specific image from DynamoDB.
-// It queries for any configuration of the image (preferring the default configuration if available).
+// looksLikeImageID checks if a string looks like an ImageID format.
+// ImageID format: {name}-{tag}-{8-char-hash}
+func looksLikeImageID(s string) bool {
+	// ImageID should have at least 2 hyphens (name-tag-hash)
+	// and the last part should be 8 characters (hash)
+	const minParts = 3
+	const hashLength = 8
+	parts := strings.Split(s, "-")
+	if len(parts) < minParts {
+		return false
+	}
+	// Check if last part looks like a hash (8 hex characters)
+	lastPart := parts[len(parts)-1]
+	if len(lastPart) == hashLength {
+		// Check if it's hexadecimal
+		for _, c := range lastPart {
+			if (c < '0' || c > '9') && (c < 'a' || c > 'f') && (c < 'A' || c > 'F') {
+				return false
+			}
+		}
+		return true
+	}
+	return false
+}
+
+// GetTaskDefinitionARNForImage returns the task definition family name for a specific image or ImageID.
+// Accepts either an ImageID (e.g., "alpine-latest-a1b2c3d4") or an image name (e.g., "alpine:latest").
+// If ImageID is provided, queries directly by ID. Otherwise, uses GetAnyImageTaskDef to find any configuration.
 // Returns just the family name - ECS will automatically use the latest ACTIVE revision when running tasks.
 func (e *Runner) GetTaskDefinitionARNForImage(ctx context.Context, image string) (string, error) {
 	if e.imageRepo == nil {
 		return "", fmt.Errorf("image repository not configured")
 	}
 
-	// Use GetAnyImageTaskDef to find any configuration for this image
-	// This is more flexible than requiring exact CPU/Memory/RuntimePlatform match
-	imageInfo, err := e.imageRepo.GetAnyImageTaskDef(ctx, image)
-	if err != nil {
-		return "", fmt.Errorf("failed to get task definition for image: %w", err)
+	var imageInfo *api.ImageInfo
+	var err error
+
+	// Check if input looks like an ImageID
+	if looksLikeImageID(image) {
+		// Query by ImageID directly
+		imageInfo, err = e.imageRepo.GetImageTaskDefByID(ctx, image)
+		if err != nil {
+			return "", fmt.Errorf("failed to get task definition by ImageID: %w", err)
+		}
+	} else {
+		// Use GetAnyImageTaskDef to find any configuration for this image
+		// This is more flexible than requiring exact CPU/Memory/RuntimePlatform match
+		imageInfo, err = e.imageRepo.GetAnyImageTaskDef(ctx, image)
+		if err != nil {
+			return "", fmt.Errorf("failed to get task definition for image: %w", err)
+		}
 	}
 
 	if imageInfo == nil {

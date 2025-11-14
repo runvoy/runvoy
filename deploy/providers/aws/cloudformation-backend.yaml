@@ -130,23 +130,19 @@ Resources:
       TableName: !Sub '${ProjectName}-image-taskdefs'
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
-        - AttributeName: image
-          AttributeType: S
-        - AttributeName: composite_key
+        - AttributeName: image_id
           AttributeType: S
         - AttributeName: is_default_placeholder
           AttributeType: S
       KeySchema:
-        - AttributeName: image
+        - AttributeName: image_id
           KeyType: HASH
-        - AttributeName: composite_key
-          KeyType: RANGE
       GlobalSecondaryIndexes:
         - IndexName: is_default-index
           KeySchema:
             - AttributeName: is_default_placeholder
               KeyType: HASH
-            - AttributeName: image
+            - AttributeName: image_id
               KeyType: RANGE
           Projection:
             ProjectionType: ALL
