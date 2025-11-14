@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"runvoy/internal/constants"
+	"runvoy/internal/logger"
 	awsConstants "runvoy/internal/providers/aws/constants"
 
 	awsStd "github.com/aws/aws-sdk-go-v2/aws"
@@ -91,7 +92,7 @@ func listTaskDefinitionsByPrefix(ctx context.Context, ecsClient Client, prefix s
 func GetDefaultImage(
 	ctx context.Context,
 	ecsClient Client,
-	logger *slog.Logger,
+	log *slog.Logger,
 ) (string, error) {
 	familyPrefix := constants.TaskDefinitionFamilyPrefix + "-"
 	taskDefArns, err := listTaskDefinitionsByPrefix(ctx, ecsClient, familyPrefix)
@@ -99,7 +100,7 @@ func GetDefaultImage(
 		return "", err
 	}
 
-	logger.Debug("calling external service", "context", map[string]string{
+	log.Debug("calling external service", "context", map[string]string{
 		"operation":     "ECS.ListTagsForResource",
 		"resource_arns": strings.Join(taskDefArns, ", "),
 	})
@@ -110,7 +111,7 @@ func GetDefaultImage(
 			ResourceArn: awsStd.String(taskDefARN),
 		})
 		if err != nil {
-			logger.Debug("failed to list tags for task definition", "context", map[string]string{
+			log.Debug("failed to list tags for task definition", "context", map[string]string{
 				"arn":   taskDefARN,
 				"error": err.Error(),
 			})
@@ -144,7 +145,7 @@ func GetTaskDefinitionForImage(
 	ctx context.Context,
 	ecsClient Client,
 	image string,
-	logger *slog.Logger,
+	log *slog.Logger,
 ) (string, error) {
 	family := TaskDefinitionFamilyName(image)
 
@@ -159,7 +160,7 @@ func GetTaskDefinitionForImage(
 
 	if len(listOutput.TaskDefinitionArns) > 0 {
 		latestARN := listOutput.TaskDefinitionArns[len(listOutput.TaskDefinitionArns)-1]
-		logger.Debug("task definition found", "context", map[string]string{
+		log.Debug("task definition found", "context", map[string]string{
 			"family": family,
 			"arn":    latestARN,
 		})
@@ -223,6 +224,7 @@ func convertOSFamilyToECSEnum(osFamily string) ecsTypes.OSFamily {
 //
 //nolint:funlen // Large data structure definition
 func buildTaskDefinitionInput(
+	ctx context.Context,
 	family, image, taskExecRoleARN, taskRoleARN, region string,
 	cpu, memory, runtimePlatform string,
 	cfg *Config,
@@ -315,6 +317,15 @@ func buildTaskDefinitionInput(
 		// But we'll use defaults as fallback
 		osFamily = awsConstants.DefaultRuntimePlatformOSFamily
 		cpuArch = awsConstants.DefaultRuntimePlatformArchitecture
+
+		reqLogger := logger.DeriveRequestLogger(ctx, slog.Default())
+		reqLogger.Warn("failed to parse runtime platform, falling back to defaults", "context",
+			map[string]any{
+				"error":            err,
+				"runtime_platform": runtimePlatform,
+				"os_family":        osFamily,
+				"cpu_arch":         cpuArch,
+			})
 	}
 
 	osFamilyEnum := convertOSFamilyToECSEnum(osFamily)
@@ -328,10 +339,10 @@ func buildTaskDefinitionInput(
 }
 
 // checkIfImageIsDefault checks if the image being removed is marked as default.
-func checkIfImageIsDefault(ctx context.Context, ecsClient Client, family string, logger *slog.Logger) bool {
+func checkIfImageIsDefault(ctx context.Context, ecsClient Client, family string, log *slog.Logger) bool {
 	taskDefArns, err := listTaskDefinitionsByPrefix(ctx, ecsClient, family)
 	if err != nil {
-		logger.Warn("failed to check if image is default before removal", "error", err)
+		log.Warn("failed to check if image is default before removal", "error", err)
 		return false
 	}
 
@@ -353,10 +364,10 @@ func checkIfImageIsDefault(ctx context.Context, ecsClient Client, family string,
 
 // deregisterAllTaskDefRevisions deregisters all active task definition revisions for a given family.
 func deregisterAllTaskDefRevisions(
-	ctx context.Context, ecsClient Client, family, image string, logger *slog.Logger,
+	ctx context.Context, ecsClient Client, family, image string, log *slog.Logger,
 ) error {
 	nextToken := ""
-	logger.Debug("calling external service", "context", map[string]string{
+	log.Debug("calling external service", "context", map[string]string{
 		"operation": "ECS.ListTaskDefinitions",
 		"family":    family,
 		"image":     image,
@@ -380,7 +391,7 @@ func deregisterAllTaskDefRevisions(
 				TaskDefinition: awsStd.String(taskDefARN),
 			})
 			if deregErr != nil {
-				logger.Error("failed to deregister task definition revision", "context", map[string]string{
+				log.Error("failed to deregister task definition revision", "context", map[string]string{
 					"family": family,
 					"image":  image,
 					"arn":    taskDefARN,
@@ -389,7 +400,7 @@ func deregisterAllTaskDefRevisions(
 				return fmt.Errorf("failed to deregister task definition revision: %w", deregErr)
 			}
 
-			logger.Info("deregistered task definition revision", "context", map[string]string{
+			log.Info("deregistered task definition revision", "context", map[string]string{
 				"family": family,
 				"image":  image,
 				"arn":    taskDefARN,
@@ -402,7 +413,7 @@ func deregisterAllTaskDefRevisions(
 		nextToken = *listOutput.NextToken
 	}
 
-	logger.Info("deregistered all task definition revisions", "context", map[string]string{
+	log.Info("deregistered all task definition revisions", "context", map[string]string{
 		"family": family,
 		"image":  image,
 	})
@@ -413,12 +424,12 @@ func deregisterAllTaskDefRevisions(
 //
 //nolint:funlen // Complex AWS API orchestration
 func markLastRemainingImageAsDefault(
-	ctx context.Context, ecsClient Client, family string, logger *slog.Logger,
+	ctx context.Context, ecsClient Client, family string, log *slog.Logger,
 ) error {
 	familyPrefix := constants.TaskDefinitionFamilyPrefix + "-"
 	remainingTaskDefs, err := listTaskDefinitionsByPrefix(ctx, ecsClient, familyPrefix)
 	if err != nil {
-		logger.Warn("failed to list remaining task definitions after removal", "error", err)
+		log.Warn("failed to list remaining task definitions after removal", "error", err)
 		return nil
 	}
 
@@ -428,7 +439,7 @@ func markLastRemainingImageAsDefault(
 			TaskDefinition: awsStd.String(taskDefARN),
 		})
 		if descErr != nil {
-			logger.Error("failed to describe task definition", "context", map[string]string{
+			log.Error("failed to describe task definition", "context", map[string]string{
 				"family": family,
 				"arn":    taskDefARN,
 				"error":  descErr.Error(),
@@ -457,7 +468,7 @@ func markLastRemainingImageAsDefault(
 			lastTaskDefARN = arn
 		}
 
-		logger.Info("only one image remaining after removing default, marking it as default",
+		log.Info("only one image remaining after removing default, marking it as default",
 			"image", lastImage)
 
 		tags := []ecsTypes.Tag{
@@ -476,13 +487,13 @@ func markLastRemainingImageAsDefault(
 			Tags:        tags,
 		})
 		if tagErr != nil {
-			logger.Warn("failed to tag last remaining image as default", "context", map[string]string{
+			log.Warn("failed to tag last remaining image as default", "context", map[string]string{
 				"image": lastImage,
 				"arn":   lastTaskDefARN,
 				"error": tagErr.Error(),
 			})
 		} else {
-			logger.Info("marked last remaining image as default", "context", map[string]string{
+			log.Info("marked last remaining image as default", "context", map[string]string{
 				"image": lastImage,
 				"arn":   lastTaskDefARN,
 			})
@@ -497,18 +508,18 @@ func DeregisterTaskDefinitionsForImage(
 	ctx context.Context,
 	ecsClient Client,
 	image string,
-	logger *slog.Logger,
+	log *slog.Logger,
 ) error {
 	family := TaskDefinitionFamilyName(image)
 
-	wasDefault := checkIfImageIsDefault(ctx, ecsClient, family, logger)
+	wasDefault := checkIfImageIsDefault(ctx, ecsClient, family, log)
 
-	if err := deregisterAllTaskDefRevisions(ctx, ecsClient, family, image, logger); err != nil {
+	if err := deregisterAllTaskDefRevisions(ctx, ecsClient, family, image, log); err != nil {
 		return err
 	}
 
 	if wasDefault {
-		if err := markLastRemainingImageAsDefault(ctx, ecsClient, family, logger); err != nil {
+		if err := markLastRemainingImageAsDefault(ctx, ecsClient, family, log); err != nil {
 			return err
 		}
 	}

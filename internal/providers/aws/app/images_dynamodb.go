@@ -268,7 +268,7 @@ func (e *Runner) registerTaskDefinitionWithRoles(
 	cpuStr := fmt.Sprintf("%d", cpu)
 	memoryStr := fmt.Sprintf("%d", memory)
 	registerInput := buildTaskDefinitionInput(
-		family, image, taskExecRoleARN, taskRoleARN, region, cpuStr, memoryStr, runtimePlatform, e.cfg,
+		ctx, family, image, taskExecRoleARN, taskRoleARN, region, cpuStr, memoryStr, runtimePlatform, e.cfg,
 	)
 
 	logArgs := []any{
