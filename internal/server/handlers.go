@@ -327,7 +327,7 @@ func (r *Router) handleRegisterImage(w http.ResponseWriter, req *http.Request) {
 		registerReq.IsDefault,
 		registerReq.TaskRoleName,
 		registerReq.TaskExecutionRoleName,
-		registerReq.Cpu,
+		registerReq.CPU,
 		registerReq.Memory,
 		registerReq.RuntimePlatform,
 	)

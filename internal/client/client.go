@@ -314,7 +314,7 @@ func (c *Client) RegisterImage(
 			IsDefault:             isDefault,
 			TaskRoleName:          taskRoleName,
 			TaskExecutionRoleName: taskExecutionRoleName,
-			Cpu:                   cpu,
+			CPU:                   cpu,
 			Memory:                memory,
 			RuntimePlatform:       runtimePlatform,
 		},

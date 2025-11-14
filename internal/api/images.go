@@ -7,7 +7,7 @@ type RegisterImageRequest struct {
 	IsDefault             *bool   `json:"is_default,omitempty"`
 	TaskRoleName          *string `json:"task_role_name,omitempty"`
 	TaskExecutionRoleName *string `json:"task_execution_role_name,omitempty"`
-	Cpu                   *int    `json:"cpu,omitempty"` //nolint:revive // API contract
+	CPU                   *int    `json:"cpu,omitempty"`
 	Memory                *int    `json:"memory,omitempty"`
 	RuntimePlatform       *string `json:"runtime_platform,omitempty"`
 }
@@ -37,7 +37,7 @@ type ImageInfo struct {
 	IsDefault             *bool   `json:"is_default,omitempty"`
 	TaskRoleName          *string `json:"task_role_name,omitempty"`
 	TaskExecutionRoleName *string `json:"task_execution_role_name,omitempty"`
-	Cpu                   int     `json:"cpu,omitempty"` //nolint:revive // API contract
+	CPU                   int     `json:"cpu,omitempty"`
 	Memory                int     `json:"memory,omitempty"`
 	RuntimePlatform       string  `json:"runtime_platform,omitempty"`
 	ImageRegistry         string  `json:"image_registry,omitempty"`

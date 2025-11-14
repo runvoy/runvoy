@@ -254,7 +254,7 @@ func (s *ImagesService) formatImages(images []api.ImageInfo) [][]string {
 		rows = append(rows, []string{
 			image.ImageID,
 			image.Image,
-			strconv.Itoa(image.Cpu),
+			strconv.Itoa(image.CPU),
 			strconv.Itoa(image.Memory),
 			platformStr,
 			defaultStr,
