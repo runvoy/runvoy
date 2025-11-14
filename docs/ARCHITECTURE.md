@@ -2,7 +2,7 @@
 
 ## Overview
 
-runvoy is a centralized execution platform that allows teams to run infrastructure commands without sharing AWS credentials. An AWS admin deploys runvoy once to the company's AWS account, then issues API keys to team members who can execute commands safely with full audit trails.
+runvoy is a centralized execution platform that allows teams to run infrastructure commands without sharing credentials. An admin deploys runvoy once to the company's cloud provider account, then issues API keys to team members who can execute commands safely with full audit trails.
 
 ## Design Principles
 
@@ -34,8 +34,8 @@ runvoy/
 
 ## Services
 
-- Orchestrator: Handles API requests and orchestrates ECS task executions.
-- Event Processor: Handles asynchronous events from AWS services (ECS task completions, CloudWatch logs, WebSocket notifications, etc.).
+- Orchestrator: Handles API requests and orchestrates task executions.
+- Event Processor: Handles asynchronous events from cloud services (ECS task completions, CloudWatch logs, WebSocket notifications, etc.).
 
 ## Execution Provider Abstraction
 
@@ -50,11 +50,9 @@ internal/providers/aws/app     → AWS-specific Runner implementation (ECS Farga
 - The AWS implementation resides in `internal/providers/aws/app` and encapsulates all ECS- and AWS-specific logic and types.
 - `internal/app/init.go` wires the chosen provider by constructing the appropriate `Runner` and passing it into `Service`.
 
-This change removes direct AWS SDK coupling from `internal/app` and makes adding providers (e.g., GCP) straightforward.
-
 ## Router Architecture
 
-The application uses **chi** (github.com/go-chi/chi/v5) as the HTTP router for both Lambda and local HTTP server implementations. This provides a consistent routing API across deployment models.
+The application uses **chi** (github.com/go-chi/chi/v5) as the HTTP router for both Lambda and local HTTP server orchestrator implementations. This provides a consistent routing API across deployment models.
 
 ### Components
 
@@ -78,7 +76,7 @@ POST   /api/v1/images/register          - Register a new Docker image (admin)
 DELETE /api/v1/images/{image}           - Remove a registered Docker image (admin)
 POST   /api/v1/run                      - Start an execution
 GET    /api/v1/executions               - List executions (queried via DynamoDB GSI)
-GET    /api/v1/executions/{id}/logs     - Fetch execution logs (CloudWatch)
+GET    /api/v1/executions/{id}/logs     - Fetch execution logs (CloudWatch + API GW powered websocket)
 GET    /api/v1/executions/{id}/status   - Get execution status (RUNNING/SUCCEEDED/FAILED/STOPPED)
 POST   /api/v1/executions/{id}/kill     - Terminate a running execution
 GET    /api/v1/claim/{token}            - Claim a pending API key (public, no auth required)
@@ -98,21 +96,6 @@ func NewHandler(svc *app.Service, requestTimeout time.Duration) lambda.Handler {
     return algnhsa.New(router.Handler(), nil)
 }
 ```
-
-**Supported Event Types:**
-- Lambda Function URLs (current deployment model)
-- API Gateway v1 (REST API)
-- API Gateway v2 (HTTP API)
-- Application Load Balancer (ALB)
-
-**Benefits:**
-- ✅ **Zero custom adapter code**: The library handles all event type detection and conversion
-- ✅ **Battle-tested**: Actively maintained and widely used in production
-- ✅ **Automatic conversion**: Transforms Lambda events into standard `http.Request` and `http.ResponseWriter` objects
-- ✅ **Transparent to middleware**: All middleware (logging, request ID extraction, authentication) work identically in both Lambda and local environments
-- ✅ **Future-proof**: Easy migration between Lambda invocation models without code changes
-
-The adapter ensures that the same router and middleware work seamlessly in both local development (HTTP server) and production (Lambda) environments without any conditional logic.
 
 ### User Management API
 
