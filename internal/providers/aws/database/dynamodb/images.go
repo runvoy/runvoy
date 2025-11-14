@@ -52,7 +52,7 @@ type imageTaskDefItem struct {
 }
 
 const (
-	defaultRoleName        = "default"
+	defaultRoleName         = "default"
 	defaultPlaceholderValue = "DEFAULT"
 )
 
