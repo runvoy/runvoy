@@ -309,19 +309,16 @@ func buildTaskDefinitionInput(
 		registerInput.TaskRoleArn = awsStd.String(taskRoleARN)
 	}
 
-	// Parse runtime_platform into OS and Architecture for ECS API
 	osFamily, cpuArch, err := parseRuntimePlatform(runtimePlatform)
 	if err != nil {
 		// This should not happen if validation is done before calling this function
 		// But we'll use defaults as fallback
-		osFamily = "Linux"
-		cpuArch = "ARM64"
+		osFamily = awsConstants.DefaultRuntimePlatformOSFamily
+		cpuArch = awsConstants.DefaultRuntimePlatformArchitecture
 	}
 
-	// Convert OS family string to ECS enum
 	osFamilyEnum := convertOSFamilyToECSEnum(osFamily)
 
-	// Set RuntimePlatform for OS and Architecture
 	registerInput.RuntimePlatform = &ecsTypes.RuntimePlatform{
 		OperatingSystemFamily: osFamilyEnum,
 		CpuArchitecture:       ecsTypes.CPUArchitecture(cpuArch),
