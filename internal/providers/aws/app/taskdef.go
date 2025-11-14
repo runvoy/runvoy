@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log/slog"
 	"regexp"
-	"strconv"
 	"strings"
 
 	"runvoy/internal/constants"
@@ -139,61 +138,6 @@ func GetDefaultImage(
 	return "", nil
 }
 
-// unmarkExistingDefaultImages removes the IsDefault tag from all existing task definitions
-// that have it. This ensures only one image can be marked as default at a time.
-func unmarkExistingDefaultImages(
-	ctx context.Context,
-	ecsClient Client,
-	logger *slog.Logger,
-) error {
-	familyPrefix := constants.TaskDefinitionFamilyPrefix + "-"
-	taskDefArns, err := listTaskDefinitionsByPrefix(ctx, ecsClient, familyPrefix)
-	if err != nil {
-		return err
-	}
-
-	for _, taskDefARN := range taskDefArns {
-		var tagsOutput *ecs.ListTagsForResourceOutput
-		tagsOutput, err = ecsClient.ListTagsForResource(ctx, &ecs.ListTagsForResourceInput{
-			ResourceArn: awsStd.String(taskDefARN),
-		})
-		if err != nil {
-			logger.Warn("failed to list tags for task definition", "context", map[string]string{
-				"arn":   taskDefARN,
-				"error": err.Error(),
-			})
-			continue
-		}
-
-		hasDefaultTag := false
-		for _, tag := range tagsOutput.Tags {
-			if tag.Key != nil && *tag.Key == constants.TaskDefinitionIsDefaultTagKey &&
-				tag.Value != nil && *tag.Value == constants.TaskDefinitionIsDefaultTagValue {
-				hasDefaultTag = true
-				break
-			}
-		}
-
-		if hasDefaultTag {
-			_, err = ecsClient.UntagResource(ctx, &ecs.UntagResourceInput{
-				ResourceArn: awsStd.String(taskDefARN),
-				TagKeys:     []string{constants.TaskDefinitionIsDefaultTagKey},
-			})
-			if err != nil {
-				logger.Warn("failed to remove default tag from task definition", "context", map[string]string{
-					"arn":    taskDefARN,
-					"error":  err.Error(),
-					"tagKey": constants.TaskDefinitionIsDefaultTagKey,
-				})
-			} else {
-				logger.Info("removed default tag from existing task definition", "arn", taskDefARN)
-			}
-		}
-	}
-
-	return nil
-}
-
 // GetTaskDefinitionForImage looks up an existing task definition for the given Docker image.
 // Returns an error if the task definition doesn't exist (does not auto-register).
 func GetTaskDefinitionForImage(
@@ -225,85 +169,6 @@ func GetTaskDefinitionForImage(
 	return "", fmt.Errorf("task definition for image %q not found (family: %s). "+
 		"Image must be registered via /api/v1/images/register",
 		image, family)
-}
-
-// handleDefaultImageTagging handles updating default image tags when registering a new image.
-func handleDefaultImageTagging(
-	ctx context.Context, ecsClient Client, isDefault *bool, existingTaskDefARN string, logger *slog.Logger,
-) error {
-	if isDefault != nil && *isDefault {
-		if err := unmarkExistingDefaultImages(ctx, ecsClient, logger); err != nil {
-			logger.Warn("failed to unmark existing default images, proceeding anyway", "error", err)
-		}
-	} else if existingTaskDefARN != "" {
-		_, err := ecsClient.UntagResource(ctx, &ecs.UntagResourceInput{
-			ResourceArn: awsStd.String(existingTaskDefARN),
-			TagKeys:     []string{constants.TaskDefinitionIsDefaultTagKey},
-		})
-		if err != nil {
-			logger.Debug(
-				"failed to remove default tag from existing task definition (may not have had it)",
-				"arn", existingTaskDefARN,
-				"error", err,
-			)
-		} else {
-			logger.Info("removed default tag from existing task definition", "arn", existingTaskDefARN)
-		}
-	}
-	return nil
-}
-
-// updateExistingTaskDefTags updates tags on an existing task definition.
-func updateExistingTaskDefTags(
-	ctx context.Context, ecsClient Client, taskDefARN, image string,
-	isDefault *bool, family string, logger *slog.Logger,
-) error {
-	tags := buildTaskDefinitionTags(image, isDefault)
-	_, tagErr := ecsClient.TagResource(ctx, &ecs.TagResourceInput{
-		ResourceArn: awsStd.String(taskDefARN),
-		Tags:        tags,
-	})
-	if tagErr != nil {
-		logger.Warn("failed to tag existing task definition", "context", map[string]string{
-			"arn":   taskDefARN,
-			"error": tagErr.Error(),
-		})
-		return fmt.Errorf("failed to update tags on existing task definition: %w", tagErr)
-	}
-	logger.Info("updated tags on existing task definition", "context", map[string]string{
-		"family":     family,
-		"arn":        taskDefARN,
-		"image":      image,
-		"is_default": strconv.FormatBool(isDefault != nil && *isDefault),
-	})
-	return nil
-}
-
-// getRoleARNsFromExistingTaskDef retrieves task role ARNs from an existing task definition
-// if they're not provided in config.
-func getRoleARNsFromExistingTaskDef(
-	ctx context.Context, ecsClient Client, taskExecRoleARN, taskRoleARN string,
-) (execRoleARN, roleARN string) {
-	if taskExecRoleARN == "" || taskRoleARN == "" {
-		allFamilies, err := ecsClient.ListTaskDefinitions(ctx, &ecs.ListTaskDefinitionsInput{
-			MaxResults: awsStd.Int32(1),
-		})
-		if err == nil && len(allFamilies.TaskDefinitionArns) > 0 {
-			var descOutput *ecs.DescribeTaskDefinitionOutput
-			descOutput, err = ecsClient.DescribeTaskDefinition(ctx, &ecs.DescribeTaskDefinitionInput{
-				TaskDefinition: awsStd.String(allFamilies.TaskDefinitionArns[len(allFamilies.TaskDefinitionArns)-1]),
-			})
-			if err == nil && descOutput.TaskDefinition != nil {
-				if taskExecRoleARN == "" && descOutput.TaskDefinition.ExecutionRoleArn != nil {
-					taskExecRoleARN = awsStd.ToString(descOutput.TaskDefinition.ExecutionRoleArn)
-				}
-				if taskRoleARN == "" && descOutput.TaskDefinition.TaskRoleArn != nil {
-					taskRoleARN = awsStd.ToString(descOutput.TaskDefinition.TaskRoleArn)
-				}
-			}
-		}
-	}
-	return taskExecRoleARN, taskRoleARN
 }
 
 // buildTaskDefinitionTags creates the tags to be applied to a task definition.
@@ -463,83 +328,6 @@ func buildTaskDefinitionInput(
 	}
 
 	return registerInput
-}
-
-// RegisterTaskDefinitionForImage registers a new ECS task definition for the given Docker image.
-// The task definition uses the same structure as before (sidecar + runner), but with the specified runner image.
-// The Docker image is stored in a task definition tag for reliable retrieval.
-// If isDefault is true, the image will be tagged as the default image.
-//
-//nolint:funlen // Complex AWS API orchestration
-func RegisterTaskDefinitionForImage(
-	ctx context.Context,
-	ecsClient Client,
-	cfg *Config,
-	image string,
-	isDefault *bool,
-	region string,
-	logger *slog.Logger,
-) error {
-	family := TaskDefinitionFamilyName(image)
-
-	taskDefArns, err := listTaskDefinitionsByPrefix(ctx, ecsClient, family)
-	if err != nil {
-		return err
-	}
-
-	var existingTaskDefARN string
-	if len(taskDefArns) > 0 {
-		existingTaskDefARN = taskDefArns[len(taskDefArns)-1]
-		logger.Debug("task definition already exists", "context", map[string]string{
-			"family": family,
-			"arn":    existingTaskDefARN,
-		})
-	}
-
-	if tagErr := handleDefaultImageTagging(ctx, ecsClient, isDefault, existingTaskDefARN, logger); tagErr != nil {
-		return tagErr
-	}
-
-	if existingTaskDefARN != "" {
-		return updateExistingTaskDefTags(ctx, ecsClient, existingTaskDefARN, image, isDefault, family, logger)
-	}
-
-	taskExecRoleARN, taskRoleARN := getRoleARNsFromExistingTaskDef(
-		ctx, ecsClient, cfg.DefaultTaskExecRoleARN, cfg.DefaultTaskRoleARN,
-	)
-
-	if taskExecRoleARN == "" {
-		return fmt.Errorf("task execution role ARN is required but not found in config or existing task definitions")
-	}
-
-	// Use defaults for RegisterTaskDefinitionForImage (legacy function)
-	registerInput := buildTaskDefinitionInput(
-		family, image, taskExecRoleARN, taskRoleARN, region, "256", "512", "Linux/ARM64", cfg,
-	)
-	registerOutput, err := ecsClient.RegisterTaskDefinition(ctx, registerInput)
-	if err != nil {
-		return fmt.Errorf("failed to register task definition: %w", err)
-	}
-
-	taskDefARN := awsStd.ToString(registerOutput.TaskDefinition.TaskDefinitionArn)
-	tags := buildTaskDefinitionTags(image, isDefault)
-
-	if len(tags) > 0 {
-		_, tagErr := ecsClient.TagResource(ctx, &ecs.TagResourceInput{
-			ResourceArn: awsStd.String(taskDefARN),
-			Tags:        tags,
-		})
-		if tagErr != nil {
-			logger.Warn(
-				"failed to tag task definition (task definition registered successfully)",
-				"arn", taskDefARN,
-				"error", tagErr,
-			)
-		}
-	}
-
-	logger.Info("registered task definition", "family", family, "arn", taskDefARN, "image", image)
-	return nil
 }
 
 // checkIfImageIsDefault checks if the image being removed is marked as default.
