@@ -224,7 +224,12 @@ local-dev-server:
 # This ensures the README stays in sync with CLI commands
 update-readme-help: build-cli
     go run scripts/update-readme-help/main.go ./bin/runvoy
-    git add README.md
+    just generate-cli-docs
+    git add README.md docs/CLI.md
+
+# Generate CLI documentation as a single markdown file
+generate-cli-docs out_file="docs/CLI.md":
+    go run scripts/generate-cli-docs/main.go -out {{out_file}}
 
 # Sync Lambda environment variables to local .env file for development
 local-dev-sync:

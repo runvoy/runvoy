@@ -130,7 +130,7 @@ runvoy --help
 ```
 
 ```text
-runvoy - 0.1.0-20251114-c9e6c8e
+runvoy - 0.1.0-20251114-8c3c0e5
 Isolated, repeatable execution environments for your commands
 
 Usage:
@@ -175,98 +175,11 @@ runvoy users --help
 
 <!-- CLI_HELP_END -->
 
-### Common Commands Examples
+### CLI commands
 
-**Command Execution:**
+See [CLI Documentation](docs/CLI.md) for more details.
 
-```bash
-runvoy run <command...>
-
-# Example
-runvoy run --git-repo https://github.com/mycompany/myproject.git npm run tests
-# Output:
-# 🚀 runvoy
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# → Running command: npm run tests
-# ✓ Command execution started successfully
-#   Execution ID: 61fb9138466c4212b1e0d763a7f4dfe2
-#   Status: RUNNING
-# → Logs not available yet, waiting 10 seconds... (attempt 1/3)
-# → Logs not available yet, waiting 10 seconds... (attempt 2/3)
-#
-# Line  Timestamp (UTC)  Message
-# ────  ───────────────  ───────
-#
-# → Connecting to log stream...
-# ✓ Connected to log stream. Press Ctrl+C to exit.
-#
-# 1     2025-11-08 10:00:00  Execution starting
-# 2     2025-11-08 10:00:05  ...
-# ... (continues to stream new logs in real-time)
-#
-# ^C
-# → Received interrupt signal, closing connection...
-```
-
-Secrets stored via `runvoy secrets` can be mounted into the execution environment:
-
-```bash
-# Secrets can be specified multiple times; user-provided env vars override secret values with the same key.
-runvoy run --secret github-token --secret db-password terraform plan
-```
-
-**Log Viewing:**
-
-`runvoy logs` first retrieves the full log history via the REST API. When the execution is still running, the backend returns a WebSocket URL; the CLI connects to that URL to stream new log events live, and falls back to the web viewer link if the connection closes.
-
-```bash
-runvoy logs <executionID>
-
-# Example
-runvoy logs 72f57686926e4becb89116b0ac72caec
-
-# Default behavior
-# - Waits until the execution starts (spinner)
-# - Prints all available logs and start tailing logs in real-time
-# - Stops tailing when the execution reaches a terminal status (COMPLETED/SUCCEEDED/FAILED/etc.)
-
-# Sample output
-runvoy --verbose logs 2e1c58557c3f4ee1a81c0071fdd0b1e9
-```
-
-```text
-🚀 runvoy logs
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-→ CLI build: 0.1.0-20251104-b03e68c
-→ Verbose output enabled
-→ Timeout: 10m0s
-→ Loaded configuration from /Users/alex/.runvoy/config.yaml
-→ API endpoint: http://localhost:56212/
-→ Getting logs for execution: 2e1c58557c3f4ee1a81c0071fdd0b1e9
-
-Line  Timestamp (UTC)      Message
-────  ───────────────────  ────────────────────────────────────────────────────────────
-1     2025-11-04 18:18:04  ### runvoy command => while true; do date -u; sleep 30; done
-2     2025-11-04 18:18:04  Tue Nov  4 18:18:04 UTC 2025
-3     2025-11-04 18:18:34  Tue Nov  4 18:18:34 UTC 2025
-4     2025-11-04 18:19:04  Tue Nov  4 18:19:04 UTC 2025
-
-→ Connecting to log stream...
-✓ Connected to log stream. Press Ctrl+C to exit.
-
-5     2025-11-04 18:19:34  Tue Nov  4 18:19:34 UTC 2025
-6     2025-11-04 18:20:04  Tue Nov  4 18:20:04 UTC 2025
-7     2025-11-04 18:20:34  Tue Nov  4 18:20:34 UTC 2025
-8     2025-11-04 18:21:04  Tue Nov  4 18:21:04 UTC 2025
-9     2025-11-04 18:21:34  Tue Nov  4 18:21:34 UTC 2025
-... (continues to stream new logs in real-time)
-
-^C
-→ Received interrupt signal, closing connection...
-→ View logs in web viewer: http://localhost:56212/webapp/index.html?execution_id=2e1c58557c3f4ee1a81c0071fdd0b1e9
-```
-
-**Web Viewer:**
+### Web Viewer
 
 The web viewer is a minimal, single-page application that provides:
 
@@ -299,205 +212,6 @@ The web application URL can be customized via:
 If not configured, it defaults to `https://runvoy.site/`.
 
 `just local-dev-webapp` to run the webapp locally, by default it will be available at <http://localhost:5173>
-
-**User Management:**
-
-```bash
-# Create a new user
-runvoy users create <email>
-
-# Example
-runvoy users create alice@example.com
-# Output:
-# 🚀 runvoy
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# → Creating user with email alice@example.com...
-# ✓ User created successfully
-#   Email: alice@example.com
-#   Claim Token: abc123def456...
-#
-# ℹ Share this command with the user => runvoy claim abc123def456...
-#
-# ⏱  Token expires in 15 minutes
-# 👁  Can only be viewed once
-
-# List all users
-runvoy users list
-
-# Example output:
-# 🚀 runvoy
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# → Listing users…
-#
-# Email                  Status    Created (UTC)        Last Used (UTC)
-# ─────────────────────  ────────  ───────────────────  ───────────────────
-# admin@example.com      Active    2025-10-30 10:00:00  2025-11-02 14:30:00
-# alice@example.com      Active    2025-11-01 09:15:00  2025-11-02 12:45:00
-# bob@example.com        Revoked   2025-10-28 16:20:00  2025-10-29 08:10:00
-#
-# ✓ Users listed successfully
-
-# Revoke a user's API key
-runvoy users revoke <email>
-
-# Example
-runvoy users revoke bob@example.com
-```
-
-### Secrets Management
-
-The CLI exposes a full secrets workflow backed by AWS Systems Manager Parameter Store (encrypted with a dedicated KMS key) and a DynamoDB metadata catalog. Authenticated users can create, inspect, rotate, and delete shared secrets without distributing raw credentials out of band.
-
-```bash
-# Create or rotate a secret (value stored encrypted, metadata tracked for auditing)
-runvoy secrets create github-token GITHUB_TOKEN "ghp_xxxxx" --description "GitHub personal access token"
-
-# List available secrets with key bindings and ownership metadata
-runvoy secrets list
-
-# Retrieve the latest value when you need to inject it locally or into automation
-runvoy secrets get github-token
-
-# Update metadata or rotate the value in place
-runvoy secrets update github-token --key-name GITHUB_API_TOKEN --value "ghp_new" --description "Rotated on 2025-11-12"
-
-# Clean up secrets that are no longer required
-runvoy secrets delete legacy-token
-```
-
-Secrets are versioned at the storage layer and always transmitted over HTTPS. The orchestrator keeps audit fields (created/updated by, timestamps) so teams can see who managed a secret and when.
-
-### Playbooks
-
-Playbooks allow you to define reusable command execution configurations in YAML files. They are stored in a `.runvoy/` directory (in your current working directory) and can be executed via the CLI.
-
-**Creating a Playbook:**
-
-Create a YAML file in the `.runvoy/` directory with a `.yaml` or `.yml` extension. The filename (without extension) becomes the playbook name.
-
-Example playbook (`.runvoy/terraform-plan.yaml`):
-
-```yaml
-description: Terraform plan infrastructure
-image: hashicorp/terraform:latest
-git_repo: https://github.com/mycompany/infrastructure.git
-git_ref: main
-git_path: terraform/environments/production
-secrets:
-  - aws-credentials
-  - terraform-backend-key
-env:
-  TF_VAR_environment: production
-  TF_VAR_region: us-east-1
-commands:
-  - terraform init
-  - terraform plan -out=plan.tfplan
-```
-
-**Playbook Fields:**
-
-- `description` (optional): Human-readable description of the playbook
-- `image` (optional): Docker image to use for execution
-- `git_repo` (optional): Git repository URL to clone
-- `git_ref` (optional): Git branch, tag, or commit SHA (defaults to "main" if not specified)
-- `git_path` (optional): Working directory within the cloned repository
-- `secrets` (optional): List of secret names to inject into the execution environment
-- `env` (optional): Map of environment variables (key-value pairs)
-- `commands` (required): List of commands to execute sequentially (combined with `&&`)
-
-**Playbook Commands:**
-
-```bash
-# List all available playbooks
-runvoy playbook list
-
-# Show detailed information about a playbook
-runvoy playbook show terraform-plan
-
-# Execute a playbook
-runvoy playbook run terraform-plan
-
-# Execute a playbook with flag overrides
-runvoy playbook run terraform-plan --image hashicorp/terraform:1.6.0
-
-# Override multiple playbook values
-runvoy playbook run terraform-plan \
-  --image hashicorp/terraform:1.6.0 \
-  --git-ref develop \
-  --git-path terraform/environments/staging \
-  --secret additional-secret
-```
-
-**Flag Overrides:**
-
-When executing a playbook, you can override any playbook value using CLI flags:
-
-- `--image` / `-i`: Override the Docker image
-- `--git-repo` / `-g`: Override the Git repository URL
-- `--git-ref` / `-r`: Override the Git reference
-- `--git-path` / `-p`: Override the Git path
-- `--secret`: Add additional secrets (merged with playbook secrets)
-
-**Environment Variables:**
-
-User environment variables prefixed with `RUNVOY_USER_` are automatically merged with playbook environment variables. User variables take precedence over playbook variables if there's a conflict.
-
-```bash
-# User env vars are merged with playbook env vars
-RUNVOY_USER_API_KEY=abc123 runvoy playbook run my-playbook
-```
-
-**Example Playbooks:**
-
-**Terraform Plan:**
-```yaml
-description: Run Terraform plan
-image: hashicorp/terraform:latest
-git_repo: https://github.com/mycompany/infrastructure.git
-git_ref: main
-secrets:
-  - aws-credentials
-env:
-  TF_VAR_environment: production
-commands:
-  - terraform init
-  - terraform plan
-```
-
-**Ansible Playbook:**
-```yaml
-description: Run Ansible playbook
-image: quay.io/ansible/ansible-runner:latest
-git_repo: https://github.com/mycompany/ansible-playbooks.git
-git_ref: main
-git_path: playbooks
-secrets:
-  - ssh-key
-  - vault-password
-commands:
-  - ansible-playbook site.yml -i inventory/production
-```
-
-**Node.js Tests:**
-```yaml
-description: Run Node.js test suite
-image: node:20
-git_repo: https://github.com/mycompany/myapp.git
-git_ref: main
-env:
-  NODE_ENV: test
-commands:
-  - npm install
-  - npm run test
-```
-
-**Playbook Discovery:**
-
-Playbooks are discovered in the following order:
-1. Current working directory `.runvoy/` folder
-2. Home directory `.runvoy/` folder (fallback)
-
-If the playbook directory doesn't exist, it's treated as empty (no playbooks available).
 
 ### Output Streams and Piping
 
@@ -538,24 +252,6 @@ fi
 
 This separation enables clean automation and integration with other Unix tools without mixing informational output with parseable data.
 
-### Global Flags
-
-All commands support the following global flags:
-
-- `--timeout <duration>` - Timeout for command execution (default: `10m`, e.g., `30s`, `1h`, `600`)
-- `--verbose` - Enable verbose output
-- `--debug` - Enable debugging logs
-
-Example:
-
-```bash
-runvoy --verbose --timeout 5m users create alice@example.com
-```
-
-### Environment Configuration
-
-The `.env` file is automatically created when you run `just init` or `just local-dev-sync`. The `local-dev-sync` command syncs environment variables from the runvoy-orchestrator Lambda function to your local `.env` file for development.
-
 ## Development
 
 ### Prerequisites for Development
@@ -563,6 +259,10 @@ The `.env` file is automatically created when you run `just init` or `just local
 - Go 1.24 or later
 - [just](https://github.com/casey/just) command runner
 - AWS credentials configured in your shell environment
+
+### Environment Configuration
+
+The `.env` file is automatically created when you run `just init` or `just local-dev-sync`. The `local-dev-sync` command syncs environment variables from the runvoy-orchestrator Lambda function to your local `.env` file for development.
 
 ### Environment Setup
 

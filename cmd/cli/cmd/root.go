@@ -168,3 +168,8 @@ func getStartTimeFromContext(cmd *cobra.Command) time.Time {
 	}
 	return startTime
 }
+
+// RootCmd returns the root command for use by tools like doc generators.
+func RootCmd() *cobra.Command {
+	return rootCmd
+}

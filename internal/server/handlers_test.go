@@ -172,6 +172,7 @@ func (t *testTokenRepository) DeleteToken(_ context.Context, _ string) error {
 type testRunner struct {
 	runCommandFunc func(userEmail string, req *api.ExecutionRequest) (*time.Time, error)
 	listImagesFunc func() ([]api.ImageInfo, error)
+	getImageFunc   func(image string) (*api.ImageInfo, error)
 }
 
 func (t *testRunner) StartTask(
@@ -211,7 +212,10 @@ func (t *testRunner) ListImages(_ context.Context) ([]api.ImageInfo, error) {
 	return []api.ImageInfo{}, nil
 }
 
-func (t *testRunner) GetImage(_ context.Context, _ string) (*api.ImageInfo, error) {
+func (t *testRunner) GetImage(_ context.Context, image string) (*api.ImageInfo, error) {
+	if t.getImageFunc != nil {
+		return t.getImageFunc(image)
+	}
 	return nil, nil
 }
 
@@ -614,6 +618,71 @@ func TestHandleRemoveImage_MissingImage(t *testing.T) {
 
 	assert.Equal(t, http.StatusBadRequest, resp.Code)
 	assert.Contains(t, resp.Body.String(), "image parameter is required")
+}
+
+func TestHandleGetImage_Success(t *testing.T) {
+	runner := &testRunner{
+		getImageFunc: func(_ string) (*api.ImageInfo, error) {
+			return &api.ImageInfo{
+				Image:              "alpine:latest",
+				TaskDefinitionName: "runvoy-alpine-latest",
+			}, nil
+		},
+	}
+
+	svc := app.NewService(
+		&testUserRepository{},
+		nil,
+		nil,
+		&testTokenRepository{},
+		runner,
+		testutil.SilentLogger(),
+		constants.AWS,
+		nil,
+		nil, // SecretsService
+	)
+	router := NewRouter(svc, 2*time.Second)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/images/alpine:latest", http.NoBody)
+	req.Header.Set("X-API-Key", "test-api-key")
+
+	resp := httptest.NewRecorder()
+	router.ServeHTTP(resp, req)
+
+	assert.Equal(t, http.StatusOK, resp.Code)
+	assert.Contains(t, resp.Body.String(), "alpine:latest")
+	assert.Contains(t, resp.Body.String(), "runvoy-alpine-latest")
+}
+
+func TestHandleGetImage_NotFound(t *testing.T) {
+	runner := &testRunner{
+		getImageFunc: func(_ string) (*api.ImageInfo, error) {
+			return nil, errors.New("image not found")
+		},
+	}
+
+	svc := app.NewService(
+		&testUserRepository{},
+		nil,
+		nil,
+		&testTokenRepository{},
+		runner,
+		testutil.SilentLogger(),
+		constants.AWS,
+		nil,
+		nil, // SecretsService
+	)
+	router := NewRouter(svc, 2*time.Second)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/images/nonexistent:latest", http.NoBody)
+	req.Header.Set("X-API-Key", "test-api-key")
+
+	resp := httptest.NewRecorder()
+	router.ServeHTTP(resp, req)
+
+	// Error should return 500
+	assert.Equal(t, http.StatusInternalServerError, resp.Code)
+	assert.Contains(t, resp.Body.String(), "failed to get image")
 }
 
 func TestGetClientIP_XForwardedFor(t *testing.T) {

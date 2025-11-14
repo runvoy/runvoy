@@ -170,6 +170,10 @@ func TestRunner_BuildRoleARNs(t *testing.T) {
 // mockImageRepo is a mock implementation of the image repository for testing
 type mockImageRepo struct {
 	getDefaultImageFunc func(ctx context.Context) (*api.ImageInfo, error)
+	listImagesFunc      func(ctx context.Context) ([]api.ImageInfo, error)
+	deleteImageFunc     func(ctx context.Context, image string) error
+	getAnyImageTaskDef  func(ctx context.Context, image string) (*api.ImageInfo, error)
+	getImageTaskDefByID func(ctx context.Context, imageID string) (*api.ImageInfo, error)
 }
 
 func (m *mockImageRepo) GetDefaultImage(ctx context.Context) (*api.ImageInfo, error) {
@@ -185,11 +189,17 @@ func (m *mockImageRepo) GetImageTaskDef(
 	return nil, nil
 }
 
-func (m *mockImageRepo) GetImageTaskDefByID(_ context.Context, _ string) (*api.ImageInfo, error) {
+func (m *mockImageRepo) GetImageTaskDefByID(ctx context.Context, imageID string) (*api.ImageInfo, error) {
+	if m.getImageTaskDefByID != nil {
+		return m.getImageTaskDefByID(ctx, imageID)
+	}
 	return nil, nil
 }
 
-func (m *mockImageRepo) GetAnyImageTaskDef(_ context.Context, _ string) (*api.ImageInfo, error) {
+func (m *mockImageRepo) GetAnyImageTaskDef(ctx context.Context, image string) (*api.ImageInfo, error) {
+	if m.getAnyImageTaskDef != nil {
+		return m.getAnyImageTaskDef(ctx, image)
+	}
 	return nil, nil
 }
 
@@ -198,11 +208,17 @@ func (m *mockImageRepo) PutImageTaskDef(
 	return nil
 }
 
-func (m *mockImageRepo) ListImages(_ context.Context) ([]api.ImageInfo, error) {
+func (m *mockImageRepo) ListImages(ctx context.Context) ([]api.ImageInfo, error) {
+	if m.listImagesFunc != nil {
+		return m.listImagesFunc(ctx)
+	}
 	return nil, nil
 }
 
-func (m *mockImageRepo) DeleteImage(_ context.Context, _ string) error {
+func (m *mockImageRepo) DeleteImage(ctx context.Context, image string) error {
+	if m.deleteImageFunc != nil {
+		return m.deleteImageFunc(ctx, image)
+	}
 	return nil
 }
 
@@ -290,6 +306,602 @@ func TestRunner_DetermineDefaultStatus(t *testing.T) {
 				require.NoError(t, err)
 				assert.Equal(t, tt.expected, result)
 			}
+		})
+	}
+}
+
+func TestRunner_ListImages(t *testing.T) {
+	ctx := testutil.TestContext()
+
+	tests := []struct {
+		name           string
+		mockSetup      func(*mockImageRepo)
+		expectedImages []api.ImageInfo
+		expectError    bool
+		expectedErr    string
+	}{
+		{
+			name: "successfully lists multiple images",
+			mockSetup: func(m *mockImageRepo) {
+				isDefaultTrue := true
+				isDefaultFalse := false
+				m.listImagesFunc = func(_ context.Context) ([]api.ImageInfo, error) {
+					return []api.ImageInfo{
+						{
+							Image:              "alpine:latest",
+							IsDefault:          &isDefaultTrue,
+							TaskDefinitionName: "runvoy-alpine-latest",
+						},
+						{
+							Image:              "ubuntu:22.04",
+							IsDefault:          &isDefaultFalse,
+							TaskDefinitionName: "runvoy-ubuntu-2204",
+						},
+					}, nil
+				}
+			},
+			expectedImages: []api.ImageInfo{
+				{
+					Image:              "alpine:latest",
+					TaskDefinitionName: "runvoy-alpine-latest",
+				},
+				{
+					Image:              "ubuntu:22.04",
+					TaskDefinitionName: "runvoy-ubuntu-2204",
+				},
+			},
+			expectError: false,
+		},
+		{
+			name: "handles empty image list",
+			mockSetup: func(m *mockImageRepo) {
+				m.listImagesFunc = func(_ context.Context) ([]api.ImageInfo, error) {
+					return []api.ImageInfo{}, nil
+				}
+			},
+			expectedImages: []api.ImageInfo{},
+			expectError:    false,
+		},
+		{
+			name: "handles repository error",
+			mockSetup: func(m *mockImageRepo) {
+				m.listImagesFunc = func(_ context.Context) ([]api.ImageInfo, error) {
+					return nil, assert.AnError
+				}
+			},
+			expectError: true,
+			expectedErr: "failed to list images from repository",
+		},
+		{
+			name: "handles nil repo",
+			mockSetup: func(_ *mockImageRepo) {
+				// Don't set up ListImages
+			},
+			expectError:    false,
+			expectedImages: nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockRepo := &mockImageRepo{}
+			if tt.mockSetup != nil {
+				tt.mockSetup(mockRepo)
+			}
+
+			runner := &Runner{
+				imageRepo: mockRepo,
+				logger:    testutil.SilentLogger(),
+			}
+
+			images, err := runner.ListImages(ctx)
+
+			if tt.expectError {
+				assert.Error(t, err)
+				if tt.expectedErr != "" {
+					assert.Contains(t, err.Error(), tt.expectedErr)
+				}
+			} else {
+				require.NoError(t, err)
+				assert.Equal(t, len(tt.expectedImages), len(images))
+				if len(images) > 0 {
+					for i, img := range images {
+						assert.Equal(t, tt.expectedImages[i].Image, img.Image)
+						assert.Equal(t, tt.expectedImages[i].TaskDefinitionName, img.TaskDefinitionName)
+					}
+				}
+			}
+		})
+	}
+}
+
+func TestRunner_RemoveImage(t *testing.T) {
+	ctx := testutil.TestContext()
+
+	tests := []struct {
+		name        string
+		image       string
+		mockSetup   func(*mockImageRepo)
+		expectError bool
+		expectedErr string
+	}{
+		{
+			name:  "successfully removes image with no task definitions",
+			image: "alpine:latest",
+			mockSetup: func(mr *mockImageRepo) {
+				mr.listImagesFunc = func(_ context.Context) ([]api.ImageInfo, error) {
+					return []api.ImageInfo{
+						{
+							Image:              "alpine:latest",
+							TaskDefinitionName: "runvoy-alpine-latest",
+						},
+					}, nil
+				}
+				mr.deleteImageFunc = func(_ context.Context, _ string) error {
+					return nil
+				}
+			},
+			expectError: false,
+		},
+		{
+			name:  "handles image not found in list",
+			image: "nonexistent:latest",
+			mockSetup: func(mr *mockImageRepo) {
+				mr.listImagesFunc = func(_ context.Context) ([]api.ImageInfo, error) {
+					return []api.ImageInfo{}, nil
+				}
+				mr.deleteImageFunc = func(_ context.Context, _ string) error {
+					return nil
+				}
+			},
+			expectError: false,
+		},
+		{
+			name:  "handles repository list error",
+			image: "alpine:latest",
+			mockSetup: func(mr *mockImageRepo) {
+				mr.listImagesFunc = func(_ context.Context) ([]api.ImageInfo, error) {
+					return nil, assert.AnError
+				}
+			},
+			expectError: true,
+			expectedErr: "failed to list images",
+		},
+		{
+			name:  "handles repository delete error",
+			image: "alpine:latest",
+			mockSetup: func(mr *mockImageRepo) {
+				mr.listImagesFunc = func(_ context.Context) ([]api.ImageInfo, error) {
+					return []api.ImageInfo{
+						{
+							Image:              "alpine:latest",
+							TaskDefinitionName: "runvoy-alpine-latest",
+						},
+					}, nil
+				}
+				mr.deleteImageFunc = func(_ context.Context, _ string) error {
+					return assert.AnError
+				}
+			},
+			expectError: true,
+			expectedErr: "failed to delete image from repository",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockRepo := &mockImageRepo{}
+			mockECS := &mockECSClient{}
+
+			if tt.mockSetup != nil {
+				tt.mockSetup(mockRepo)
+			}
+
+			runner := &Runner{
+				imageRepo: mockRepo,
+				ecsClient: mockECS,
+				cfg:       &Config{AccountID: "123456789012"},
+				logger:    testutil.SilentLogger(),
+			}
+
+			err := runner.RemoveImage(ctx, tt.image)
+
+			if tt.expectError {
+				assert.Error(t, err)
+				if tt.expectedErr != "" {
+					assert.Contains(t, err.Error(), tt.expectedErr)
+				}
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestRunner_GetImage(t *testing.T) {
+	ctx := testutil.TestContext()
+
+	tests := []struct {
+		name        string
+		image       string
+		mockSetup   func(*mockImageRepo)
+		expected    *api.ImageInfo
+		expectErr   bool
+		expectedErr string
+	}{
+		{
+			name:  "successfully gets image by name",
+			image: "alpine:latest",
+			mockSetup: func(m *mockImageRepo) {
+				m.getAnyImageTaskDef = func(_ context.Context, img string) (*api.ImageInfo, error) {
+					if img == "alpine:latest" {
+						return &api.ImageInfo{
+							Image:              "alpine:latest",
+							TaskDefinitionName: "runvoy-alpine-latest",
+						}, nil
+					}
+					return nil, nil
+				}
+			},
+			expected: &api.ImageInfo{
+				Image:              "alpine:latest",
+				TaskDefinitionName: "runvoy-alpine-latest",
+			},
+			expectErr: false,
+		},
+		{
+			name:  "successfully gets image by ImageID",
+			image: "alpine:latest-a1b2c3d4",
+			mockSetup: func(m *mockImageRepo) {
+				m.getImageTaskDefByID = func(_ context.Context, imgID string) (*api.ImageInfo, error) {
+					if imgID == "alpine:latest-a1b2c3d4" {
+						return &api.ImageInfo{
+							Image:              "alpine:latest",
+							TaskDefinitionName: "runvoy-alpine-latest",
+						}, nil
+					}
+					return nil, nil
+				}
+			},
+			expected: &api.ImageInfo{
+				Image:              "alpine:latest",
+				TaskDefinitionName: "runvoy-alpine-latest",
+			},
+			expectErr: false,
+		},
+		{
+			name:  "handles image not found",
+			image: "nonexistent:latest",
+			mockSetup: func(m *mockImageRepo) {
+				m.getAnyImageTaskDef = func(_ context.Context, _ string) (*api.ImageInfo, error) {
+					return nil, nil
+				}
+			},
+			expected:    nil,
+			expectErr:   true,
+			expectedErr: "image not found",
+		},
+		{
+			name:  "handles repository error for image name",
+			image: "alpine:latest",
+			mockSetup: func(m *mockImageRepo) {
+				m.getAnyImageTaskDef = func(_ context.Context, _ string) (*api.ImageInfo, error) {
+					return nil, assert.AnError
+				}
+			},
+			expected:    nil,
+			expectErr:   true,
+			expectedErr: "failed to get image",
+		},
+		{
+			name:  "handles repository error for ImageID",
+			image: "alpine:latest-a1b2c3d4",
+			mockSetup: func(m *mockImageRepo) {
+				m.getImageTaskDefByID = func(_ context.Context, _ string) (*api.ImageInfo, error) {
+					return nil, assert.AnError
+				}
+			},
+			expected:    nil,
+			expectErr:   true,
+			expectedErr: "failed to get image by ImageID",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockRepo := &mockImageRepo{}
+			if tt.mockSetup != nil {
+				tt.mockSetup(mockRepo)
+			}
+
+			runner := &Runner{
+				imageRepo: mockRepo,
+				logger:    testutil.SilentLogger(),
+			}
+
+			imageInfo, err := runner.GetImage(ctx, tt.image)
+
+			if tt.expectErr {
+				assert.Error(t, err)
+				if tt.expectedErr != "" {
+					assert.Contains(t, err.Error(), tt.expectedErr)
+				}
+				assert.Nil(t, imageInfo)
+			} else {
+				require.NoError(t, err)
+				require.NotNil(t, imageInfo)
+				assert.Equal(t, tt.expected.Image, imageInfo.Image)
+				assert.Equal(t, tt.expected.TaskDefinitionName, imageInfo.TaskDefinitionName)
+			}
+		})
+	}
+}
+
+func TestRunner_GetTaskDefinitionARNForImage(t *testing.T) {
+	ctx := testutil.TestContext()
+
+	tests := []struct {
+		name            string
+		image           string
+		mockSetup       func(*mockImageRepo)
+		expectedTaskDef string
+		expectError     bool
+		expectedErr     string
+	}{
+		{
+			name:  "successfully gets task definition for image name",
+			image: "alpine:latest",
+			mockSetup: func(m *mockImageRepo) {
+				m.getAnyImageTaskDef = func(_ context.Context, _ string) (*api.ImageInfo, error) {
+					return &api.ImageInfo{
+						Image:              "alpine:latest",
+						TaskDefinitionName: "runvoy-alpine-latest",
+					}, nil
+				}
+			},
+			expectedTaskDef: "runvoy-alpine-latest",
+			expectError:     false,
+		},
+		{
+			name:  "successfully gets task definition for ImageID",
+			image: "alpine:latest-a1b2c3d4",
+			mockSetup: func(m *mockImageRepo) {
+				m.getImageTaskDefByID = func(_ context.Context, _ string) (*api.ImageInfo, error) {
+					return &api.ImageInfo{
+						Image:              "alpine:latest",
+						TaskDefinitionName: "runvoy-alpine-latest",
+					}, nil
+				}
+			},
+			expectedTaskDef: "runvoy-alpine-latest",
+			expectError:     false,
+		},
+		{
+			name:  "handles task definition not found",
+			image: "nonexistent:latest",
+			mockSetup: func(m *mockImageRepo) {
+				m.getAnyImageTaskDef = func(_ context.Context, _ string) (*api.ImageInfo, error) {
+					return nil, nil
+				}
+			},
+			expectedTaskDef: "",
+			expectError:     true,
+			expectedErr:     "no task definition found",
+		},
+		{
+			name:  "handles repository error",
+			image: "alpine:latest",
+			mockSetup: func(m *mockImageRepo) {
+				m.getAnyImageTaskDef = func(_ context.Context, _ string) (*api.ImageInfo, error) {
+					return nil, assert.AnError
+				}
+			},
+			expectedTaskDef: "",
+			expectError:     true,
+			expectedErr:     "failed to get task definition",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockRepo := &mockImageRepo{}
+			if tt.mockSetup != nil {
+				tt.mockSetup(mockRepo)
+			}
+
+			runner := &Runner{
+				imageRepo: mockRepo,
+				logger:    testutil.SilentLogger(),
+			}
+
+			taskDef, err := runner.GetTaskDefinitionARNForImage(ctx, tt.image)
+
+			if tt.expectError {
+				assert.Error(t, err)
+				if tt.expectedErr != "" {
+					assert.Contains(t, err.Error(), tt.expectedErr)
+				}
+				assert.Equal(t, "", taskDef)
+			} else {
+				require.NoError(t, err)
+				assert.Equal(t, tt.expectedTaskDef, taskDef)
+			}
+		})
+	}
+}
+
+func TestRunner_GetDefaultImageFromDB(t *testing.T) {
+	ctx := testutil.TestContext()
+
+	tests := []struct {
+		name        string
+		mockSetup   func(*mockImageRepo)
+		expected    string
+		expectError bool
+		expectedErr string
+	}{
+		{
+			name: "successfully gets default image",
+			mockSetup: func(m *mockImageRepo) {
+				m.getDefaultImageFunc = func(_ context.Context) (*api.ImageInfo, error) {
+					isDefault := true
+					return &api.ImageInfo{
+						Image:     "alpine:latest",
+						IsDefault: &isDefault,
+					}, nil
+				}
+			},
+			expected:    "alpine:latest",
+			expectError: false,
+		},
+		{
+			name: "handles no default image",
+			mockSetup: func(m *mockImageRepo) {
+				m.getDefaultImageFunc = func(_ context.Context) (*api.ImageInfo, error) {
+					return nil, nil
+				}
+			},
+			expected:    "",
+			expectError: false,
+		},
+		{
+			name: "handles repository error",
+			mockSetup: func(m *mockImageRepo) {
+				m.getDefaultImageFunc = func(_ context.Context) (*api.ImageInfo, error) {
+					return nil, assert.AnError
+				}
+			},
+			expected:    "",
+			expectError: true,
+			expectedErr: "failed to get default image",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockRepo := &mockImageRepo{}
+			if tt.mockSetup != nil {
+				tt.mockSetup(mockRepo)
+			}
+
+			runner := &Runner{
+				imageRepo: mockRepo,
+				logger:    testutil.SilentLogger(),
+			}
+
+			image, err := runner.GetDefaultImageFromDB(ctx)
+
+			if tt.expectError {
+				assert.Error(t, err)
+				if tt.expectedErr != "" {
+					assert.Contains(t, err.Error(), tt.expectedErr)
+				}
+			} else {
+				require.NoError(t, err)
+				assert.Equal(t, tt.expected, image)
+			}
+		})
+	}
+}
+
+func TestSanitizeImageIDForTaskDef(t *testing.T) {
+	tests := []struct {
+		name     string
+		imageID  string
+		expected string
+	}{
+		{
+			name:     "simple image ID",
+			imageID:  "alpine:latest-a1b2c3d4",
+			expected: "runvoy-alpine-latest-a1b2c3d4",
+		},
+		{
+			name:     "image ID with dots",
+			imageID:  "myregistry.azurecr.io:my-image-12345678",
+			expected: "runvoy-myregistry-azurecr-io-my-image-12345678",
+		},
+		{
+			name:     "image ID with slashes",
+			imageID:  "ghcr.io/user/image:tag-abcdef12",
+			expected: "runvoy-ghcr-io-user-image-tag-abcdef12",
+		},
+		{
+			name:     "consecutive special characters",
+			imageID:  "image...name---tag-aabbccdd",
+			expected: "runvoy-image-name-tag-aabbccdd",
+		},
+		{
+			name:     "leading/trailing special chars",
+			imageID:  "---image-name-tag-aabbccdd---",
+			expected: "runvoy-image-name-tag-aabbccdd",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := sanitizeImageIDForTaskDef(tt.imageID)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestLooksLikeImageID(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected bool
+	}{
+		{
+			name:     "valid ImageID format",
+			input:    "alpine:latest-a1b2c3d4",
+			expected: true,
+		},
+		{
+			name:     "valid ImageID with uppercase hash",
+			input:    "alpine:latest-A1B2C3D4",
+			expected: true,
+		},
+		{
+			name:     "valid ImageID with mixed case hash",
+			input:    "alpine:latest-aAbBcCdD",
+			expected: true,
+		},
+		{
+			name:     "missing colon",
+			input:    "alpinelatest-a1b2c3d4",
+			expected: false,
+		},
+		{
+			name:     "wrong hash length (7 chars)",
+			input:    "alpine:latest-a1b2c3d",
+			expected: false,
+		},
+		{
+			name:     "wrong hash length (9 chars)",
+			input:    "alpine:latest-a1b2c3d45",
+			expected: false,
+		},
+		{
+			name:     "non-hex hash",
+			input:    "alpine:latest-a1b2c3zz",
+			expected: false,
+		},
+		{
+			name:     "plain image name",
+			input:    "alpine:latest",
+			expected: false,
+		},
+		{
+			name:     "image with registry",
+			input:    "docker.io/library/alpine:latest",
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := looksLikeImageID(tt.input)
+			assert.Equal(t, tt.expected, result)
 		})
 	}
 }
