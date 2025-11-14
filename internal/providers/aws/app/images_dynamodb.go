@@ -42,6 +42,8 @@ func buildRoleARN(roleName *string, accountID, _ string) string {
 
 // buildTaskDefinitionARN constructs a task definition ARN from family name.
 // Since each family is only registered once, revision is always 1.
+// This is used for DeregisterTaskDefinition which requires a full ARN with revision.
+// For RunTask, we use just the family name so ECS picks the latest active revision.
 func buildTaskDefinitionARN(family, region, accountID string) string {
 	return fmt.Sprintf("arn:aws:ecs:%s:%s:task-definition/%s:1", region, accountID, family)
 }
@@ -371,8 +373,9 @@ func (e *Runner) GetDefaultImageFromDB(ctx context.Context) (string, error) {
 	return imageInfo.Image, nil
 }
 
-// GetTaskDefinitionARNForImage returns the task definition ARN for a specific image from DynamoDB.
+// GetTaskDefinitionARNForImage returns the task definition family name for a specific image from DynamoDB.
 // Uses default roles (from config) to look up the task definition.
+// Returns just the family name - ECS will automatically use the latest ACTIVE revision when running tasks.
 func (e *Runner) GetTaskDefinitionARNForImage(ctx context.Context, image string) (string, error) {
 	if e.imageRepo == nil {
 		return "", fmt.Errorf("image repository not configured")
@@ -388,11 +391,6 @@ func (e *Runner) GetTaskDefinitionARNForImage(ctx context.Context, image string)
 		return "", fmt.Errorf("no task definition found for image: %s", image)
 	}
 
-	// Build ARN from family name
-	accountID, err := extractAccountIDFromRoleARN(e.cfg.DefaultTaskExecRoleARN)
-	if err != nil {
-		return "", fmt.Errorf("failed to extract account ID: %w", err)
-	}
-
-	return buildTaskDefinitionARN(imageInfo.TaskDefinitionName, e.cfg.Region, accountID), nil
+	// Return just the family name - ECS will use the latest active revision
+	return imageInfo.TaskDefinitionName, nil
 }
