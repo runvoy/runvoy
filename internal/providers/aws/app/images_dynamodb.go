@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"regexp"
 	"strings"
 
 	"runvoy/internal/api"
@@ -120,7 +121,9 @@ func (e *Runner) registerNewImage(
 	)
 
 	// Use ImageID (prefixed with "runvoy-") as task definition family name
-	family = fmt.Sprintf("runvoy-%s", imageID)
+	// Sanitize ImageID to ensure it's valid for ECS task definition family names
+	// ECS family names must match [a-zA-Z0-9_-]+ (no dots allowed)
+	family = sanitizeImageIDForTaskDef(imageID)
 
 	taskDefARN, err = e.registerTaskDefinitionWithRoles(
 		ctx,
@@ -510,6 +513,22 @@ func (e *Runner) GetDefaultImageFromDB(ctx context.Context) (string, error) {
 	}
 
 	return imageInfo.Image, nil
+}
+
+// sanitizeImageIDForTaskDef sanitizes an ImageID for use as an ECS task definition family name.
+// ECS task definition family names must match [a-zA-Z0-9_-]+ (no dots or other special chars).
+// Replaces invalid characters (dots, etc.) with hyphens.
+func sanitizeImageIDForTaskDef(imageID string) string {
+	// Replace dots and other invalid characters with hyphens
+	re := regexp.MustCompile(`[^a-zA-Z0-9_-]`)
+	sanitized := re.ReplaceAllString(imageID, "-")
+	// Collapse multiple consecutive hyphens
+	re2 := regexp.MustCompile(`-+`)
+	sanitized = re2.ReplaceAllString(sanitized, "-")
+	// Trim hyphens from edges
+	sanitized = strings.Trim(sanitized, "-")
+	// Prefix with "runvoy-"
+	return fmt.Sprintf("runvoy-%s", sanitized)
 }
 
 // looksLikeImageID checks if a string looks like an ImageID format.
