@@ -554,8 +554,8 @@ Resources:
           RUNVOY_AWS_SECURITY_GROUP: !Ref FargateSecurityGroup
           RUNVOY_AWS_SUBNET_1: !Ref PublicSubnet1
           RUNVOY_AWS_SUBNET_2: !Ref PublicSubnet2
-          RUNVOY_AWS_TASK_EXEC_ROLE_ARN: !GetAtt TaskExecutionRole.Arn
-          RUNVOY_AWS_TASK_ROLE_ARN: !GetAtt TaskRole.Arn
+          RUNVOY_AWS_DEFAULT_TASK_EXEC_ROLE_ARN: !GetAtt TaskExecutionRole.Arn
+          RUNVOY_AWS_DEFAULT_TASK_ROLE_ARN: !GetAtt TaskRole.Arn
           RUNVOY_AWS_WEBSOCKET_CONNECTIONS_TABLE: !Ref WebSocketConnectionsTable
           RUNVOY_AWS_WEBSOCKET_TOKENS_TABLE: !Ref WebSocketTokensTable
           RUNVOY_AWS_WEBSOCKET_API_ENDPOINT: !Sub '${WebSocketApi.ApiId}.execute-api.${AWS::Region}.amazonaws.com/production'

@@ -23,16 +23,16 @@ import (
 
 // Config holds AWS-specific execution configuration.
 type Config struct {
-	ECSCluster      string
-	TaskDefinition  string
-	Subnet1         string
-	Subnet2         string
-	SecurityGroup   string
-	LogGroup        string
-	TaskRoleARN     string
-	TaskExecRoleARN string
-	Region          string
-	SDKConfig       *awsStd.Config
+	ECSCluster             string
+	TaskDefinition         string
+	Subnet1                string
+	Subnet2                string
+	SecurityGroup          string
+	LogGroup               string
+	DefaultTaskRoleARN     string
+	DefaultTaskExecRoleARN string
+	Region                 string
+	SDKConfig              *awsStd.Config
 }
 
 // ImageTaskDefRepository defines the interface for image-taskdef mapping operations.

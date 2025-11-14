@@ -58,20 +58,20 @@ func (e *Runner) RegisterImage(
 		return fmt.Errorf("AWS region not configured")
 	}
 
-	// Extract account ID from the task execution role ARN in config
-	accountID, err := extractAccountIDFromRoleARN(e.cfg.TaskExecRoleARN)
+	// Extract account ID from the default task execution role ARN in config
+	accountID, err := extractAccountIDFromRoleARN(e.cfg.DefaultTaskExecRoleARN)
 	if err != nil {
 		return fmt.Errorf("failed to extract account ID: %w", err)
 	}
 
 	// Build role ARNs from names, or use defaults from config
 	taskRoleARN := ""
-	taskExecRoleARN := e.cfg.TaskExecRoleARN // Always required
+	taskExecRoleARN := e.cfg.DefaultTaskExecRoleARN // Always required
 
 	if taskRoleName != nil && *taskRoleName != "" {
 		taskRoleARN = buildRoleARN(taskRoleName, accountID, region)
-	} else if e.cfg.TaskRoleARN != "" {
-		taskRoleARN = e.cfg.TaskRoleARN
+	} else if e.cfg.DefaultTaskRoleARN != "" {
+		taskRoleARN = e.cfg.DefaultTaskRoleARN
 	}
 
 	if taskExecutionRoleName != nil && *taskExecutionRoleName != "" {

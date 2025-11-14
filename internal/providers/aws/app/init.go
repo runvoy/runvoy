@@ -68,15 +68,15 @@ func Initialize(
 	secretsRepo := awsDatabase.NewSecretsRepository(dynamoSecretsRepo, valueStore, log)
 
 	runnerCfg := &Config{
-		ECSCluster:      cfg.AWS.ECSCluster,
-		Subnet1:         cfg.AWS.Subnet1,
-		Subnet2:         cfg.AWS.Subnet2,
-		SecurityGroup:   cfg.AWS.SecurityGroup,
-		LogGroup:        cfg.AWS.LogGroup,
-		TaskExecRoleARN: cfg.AWS.TaskExecRoleARN,
-		TaskRoleARN:     cfg.AWS.TaskRoleARN,
-		Region:          awsCfg.Region,
-		SDKConfig:       &awsCfg,
+		ECSCluster:             cfg.AWS.ECSCluster,
+		Subnet1:                cfg.AWS.Subnet1,
+		Subnet2:                cfg.AWS.Subnet2,
+		SecurityGroup:          cfg.AWS.SecurityGroup,
+		LogGroup:               cfg.AWS.LogGroup,
+		DefaultTaskExecRoleARN: cfg.AWS.DefaultTaskExecRoleARN,
+		DefaultTaskRoleARN:     cfg.AWS.DefaultTaskRoleARN,
+		Region:                 awsCfg.Region,
+		SDKConfig:              &awsCfg,
 	}
 	runner := NewRunner(ecsClient, cwlClient, imageTaskDefRepo, runnerCfg, log)
 	wsManager := awsWebsocket.NewManager(cfg, connectionRepo, tokenRepo, log)

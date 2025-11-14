@@ -26,13 +26,13 @@ type Config struct {
 	SecretsMetadataTable      string `mapstructure:"secrets_metadata_table"`
 
 	// ECS Configuration
-	ECSCluster      string `mapstructure:"ecs_cluster"`
-	SecurityGroup   string `mapstructure:"security_group"`
-	Subnet1         string `mapstructure:"subnet_1"`
-	Subnet2         string `mapstructure:"subnet_2"`
-	TaskDefinition  string `mapstructure:"task_definition"`
-	TaskExecRoleARN string `mapstructure:"task_exec_role_arn"`
-	TaskRoleARN     string `mapstructure:"task_role_arn"`
+	ECSCluster             string `mapstructure:"ecs_cluster"`
+	SecurityGroup          string `mapstructure:"security_group"`
+	Subnet1                string `mapstructure:"subnet_1"`
+	Subnet2                string `mapstructure:"subnet_2"`
+	TaskDefinition         string `mapstructure:"task_definition"`
+	DefaultTaskExecRoleARN string `mapstructure:"default_task_exec_role_arn"`
+	DefaultTaskRoleARN     string `mapstructure:"default_task_role_arn"`
 
 	// CloudWatch Logs
 	LogGroup string `mapstructure:"log_group"`
@@ -62,8 +62,8 @@ func BindEnvVars(v *viper.Viper) {
 	_ = v.BindEnv("aws.subnet_1", "RUNVOY_AWS_SUBNET_1")
 	_ = v.BindEnv("aws.subnet_2", "RUNVOY_AWS_SUBNET_2")
 	_ = v.BindEnv("aws.task_definition", "RUNVOY_AWS_TASK_DEFINITION")
-	_ = v.BindEnv("aws.task_exec_role_arn", "RUNVOY_AWS_TASK_EXEC_ROLE_ARN")
-	_ = v.BindEnv("aws.task_role_arn", "RUNVOY_AWS_TASK_ROLE_ARN")
+	_ = v.BindEnv("aws.default_task_exec_role_arn", "RUNVOY_AWS_DEFAULT_TASK_EXEC_ROLE_ARN")
+	_ = v.BindEnv("aws.default_task_role_arn", "RUNVOY_AWS_DEFAULT_TASK_ROLE_ARN")
 	_ = v.BindEnv("aws.websocket_api_endpoint", "RUNVOY_AWS_WEBSOCKET_API_ENDPOINT")
 	_ = v.BindEnv("aws.websocket_connections_table", "RUNVOY_AWS_WEBSOCKET_CONNECTIONS_TABLE")
 	_ = v.BindEnv("aws.websocket_tokens_table", "RUNVOY_AWS_WEBSOCKET_TOKENS_TABLE")
