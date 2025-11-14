@@ -297,12 +297,22 @@ func (c *Client) ClaimAPIKey(ctx context.Context, token string) (*api.ClaimAPIKe
 }
 
 // RegisterImage registers a new container image for execution, optionally marking it as the default
-func (c *Client) RegisterImage(ctx context.Context, image string, isDefault *bool) (*api.RegisterImageResponse, error) {
+func (c *Client) RegisterImage(
+	ctx context.Context,
+	image string,
+	isDefault *bool,
+	taskRoleName, taskExecutionRoleName *string,
+) (*api.RegisterImageResponse, error) {
 	var resp api.RegisterImageResponse
 	err := c.DoJSON(ctx, Request{
 		Method: "POST",
 		Path:   "/api/v1/images/register",
-		Body:   api.RegisterImageRequest{Image: image, IsDefault: isDefault},
+		Body: api.RegisterImageRequest{
+			Image:                 image,
+			IsDefault:             isDefault,
+			TaskRoleName:          taskRoleName,
+			TaskExecutionRoleName: taskExecutionRoleName,
+		},
 	}, &resp)
 	if err != nil {
 		return nil, err

@@ -19,7 +19,9 @@ var imagesCmd = &cobra.Command{
 }
 
 var (
-	registerImageIsDefault bool
+	registerImageIsDefault    bool
+	registerImageTaskRole     string
+	registerImageTaskExecRole string
 )
 
 var registerImageCmd = &cobra.Command{
@@ -53,6 +55,10 @@ var unregisterImageCmd = &cobra.Command{
 func init() {
 	registerImageCmd.Flags().BoolVar(&registerImageIsDefault,
 		"set-default", false, "Set this image as the default image")
+	registerImageCmd.Flags().StringVar(&registerImageTaskRole,
+		"task-role", "", "Optional task role name for the image")
+	registerImageCmd.Flags().StringVar(&registerImageTaskExecRole,
+		"task-exec-role", "", "Optional task execution role name for the image")
 	imagesCmd.AddCommand(registerImageCmd)
 	imagesCmd.AddCommand(listImagesCmd)
 	imagesCmd.AddCommand(unregisterImageCmd)
@@ -72,9 +78,19 @@ func registerImageRun(cmd *cobra.Command, args []string) {
 		isDefault = &registerImageIsDefault
 	}
 
+	var taskRoleName *string
+	if cmd.Flags().Changed("task-role") {
+		taskRoleName = &registerImageTaskRole
+	}
+
+	var taskExecutionRoleName *string
+	if cmd.Flags().Changed("task-exec-role") {
+		taskExecutionRoleName = &registerImageTaskExecRole
+	}
+
 	c := client.New(cfg, slog.Default())
 	service := NewImagesService(c, NewOutputWrapper())
-	if err = service.RegisterImage(cmd.Context(), image, isDefault); err != nil {
+	if err = service.RegisterImage(cmd.Context(), image, isDefault, taskRoleName, taskExecutionRoleName); err != nil {
 		output.Errorf(err.Error())
 	}
 }
@@ -123,8 +139,10 @@ func NewImagesService(apiClient client.Interface, outputter OutputInterface) *Im
 }
 
 // RegisterImage registers a new image
-func (s *ImagesService) RegisterImage(ctx context.Context, image string, isDefault *bool) error {
-	resp, err := s.client.RegisterImage(ctx, image, isDefault)
+func (s *ImagesService) RegisterImage(
+	ctx context.Context, image string, isDefault *bool, taskRoleName, taskExecutionRoleName *string,
+) error {
+	resp, err := s.client.RegisterImage(ctx, image, isDefault, taskRoleName, taskExecutionRoleName)
 	if err != nil {
 		return fmt.Errorf("failed to register image: %w", err)
 	}

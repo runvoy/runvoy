@@ -13,16 +13,21 @@ import (
 // mockClientInterfaceForImages extends mockClientInterface with image management methods
 type mockClientInterfaceForImages struct {
 	*mockClientInterface
-	registerImageFunc   func(ctx context.Context, image string, isDefault *bool) (*api.RegisterImageResponse, error)
+	registerImageFunc func(
+		ctx context.Context,
+		image string,
+		isDefault *bool,
+		taskRoleName, taskExecutionRoleName *string,
+	) (*api.RegisterImageResponse, error)
 	listImagesFunc      func(ctx context.Context) (*api.ListImagesResponse, error)
 	unregisterImageFunc func(ctx context.Context, image string) (*api.RemoveImageResponse, error)
 }
 
 func (m *mockClientInterfaceForImages) RegisterImage(
-	ctx context.Context, image string, isDefault *bool,
+	ctx context.Context, image string, isDefault *bool, taskRoleName, taskExecutionRoleName *string,
 ) (*api.RegisterImageResponse, error) {
 	if m.registerImageFunc != nil {
-		return m.registerImageFunc(ctx, image, isDefault)
+		return m.registerImageFunc(ctx, image, isDefault, taskRoleName, taskExecutionRoleName)
 	}
 	return nil, fmt.Errorf("not implemented")
 }
@@ -45,21 +50,28 @@ func (m *mockClientInterfaceForImages) UnregisterImage(
 
 func TestImagesService_RegisterImage(t *testing.T) {
 	tests := []struct {
-		name         string
-		image        string
-		isDefault    *bool
-		setupMock    func(*mockClientInterfaceForImages)
-		wantErr      bool
-		verifyOutput func(*testing.T, *mockOutputInterface)
+		name                  string
+		image                 string
+		isDefault             *bool
+		taskRoleName          *string
+		taskExecutionRoleName *string
+		setupMock             func(*mockClientInterfaceForImages)
+		wantErr               bool
+		verifyOutput          func(*testing.T, *mockOutputInterface)
 	}{
 		{
 			name:      "successfully registers image",
 			image:     "alpine:latest",
 			isDefault: nil,
 			setupMock: func(m *mockClientInterfaceForImages) {
-				m.registerImageFunc = func(_ context.Context, image string, isDefault *bool) (*api.RegisterImageResponse, error) {
+				m.registerImageFunc = func(
+					_ context.Context, image string, isDefault *bool, taskRoleName,
+					taskExecutionRoleName *string,
+				) (*api.RegisterImageResponse, error) {
 					assert.Equal(t, "alpine:latest", image)
 					assert.Nil(t, isDefault)
+					assert.Nil(t, taskRoleName)
+					assert.Nil(t, taskExecutionRoleName)
 					return &api.RegisterImageResponse{
 						Image:   "alpine:latest",
 						Message: "Image registered",
@@ -89,10 +101,15 @@ func TestImagesService_RegisterImage(t *testing.T) {
 			image:     "ubuntu:22.04",
 			isDefault: func() *bool { b := true; return &b }(),
 			setupMock: func(m *mockClientInterfaceForImages) {
-				m.registerImageFunc = func(_ context.Context, image string, isDefault *bool) (*api.RegisterImageResponse, error) {
+				m.registerImageFunc = func(
+					_ context.Context, image string, isDefault *bool, taskRoleName,
+					taskExecutionRoleName *string,
+				) (*api.RegisterImageResponse, error) {
 					assert.Equal(t, "ubuntu:22.04", image)
 					assert.NotNil(t, isDefault)
 					assert.True(t, *isDefault)
+					assert.Nil(t, taskRoleName)
+					assert.Nil(t, taskExecutionRoleName)
 					return &api.RegisterImageResponse{
 						Image:   "ubuntu:22.04",
 						Message: "Image registered as default",
@@ -113,11 +130,47 @@ func TestImagesService_RegisterImage(t *testing.T) {
 			},
 		},
 		{
+			name:                  "registers image with task roles",
+			image:                 "alpine:latest",
+			isDefault:             nil,
+			taskRoleName:          func() *string { s := "my-task-role"; return &s }(),
+			taskExecutionRoleName: func() *string { s := "my-exec-role"; return &s }(),
+			setupMock: func(m *mockClientInterfaceForImages) {
+				m.registerImageFunc = func(
+					_ context.Context, image string, isDefault *bool, taskRoleName,
+					taskExecutionRoleName *string,
+				) (*api.RegisterImageResponse, error) {
+					assert.Equal(t, "alpine:latest", image)
+					assert.Nil(t, isDefault)
+					assert.NotNil(t, taskRoleName)
+					assert.Equal(t, "my-task-role", *taskRoleName)
+					assert.NotNil(t, taskExecutionRoleName)
+					assert.Equal(t, "my-exec-role", *taskExecutionRoleName)
+					return &api.RegisterImageResponse{
+						Image:   "alpine:latest",
+						Message: "Image registered with custom roles",
+					}, nil
+				}
+			},
+			wantErr: false,
+			verifyOutput: func(t *testing.T, m *mockOutputInterface) {
+				hasSuccess := false
+				for _, call := range m.calls {
+					if call.method == "Successf" {
+						hasSuccess = true
+					}
+				}
+				assert.True(t, hasSuccess, "Expected Successf call")
+			},
+		},
+		{
 			name:      "handles client error",
 			image:     "invalid:image",
 			isDefault: nil,
 			setupMock: func(m *mockClientInterfaceForImages) {
-				m.registerImageFunc = func(_ context.Context, _ string, _ *bool) (*api.RegisterImageResponse, error) {
+				m.registerImageFunc = func(
+					_ context.Context, _ string, _ *bool, _, _ *string,
+				) (*api.RegisterImageResponse, error) {
 					return nil, fmt.Errorf("invalid image format")
 				}
 			},
@@ -144,7 +197,7 @@ func TestImagesService_RegisterImage(t *testing.T) {
 			mockOutput := &mockOutputInterface{}
 			service := NewImagesService(mockClient, mockOutput)
 
-			err := service.RegisterImage(context.Background(), tt.image, tt.isDefault)
+			err := service.RegisterImage(context.Background(), tt.image, tt.isDefault, tt.taskRoleName, tt.taskExecutionRoleName)
 
 			if tt.wantErr {
 				assert.Error(t, err)
