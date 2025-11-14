@@ -17,6 +17,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/ecs"
+	"github.com/aws/aws-sdk-go-v2/service/iam"
 	"github.com/aws/aws-sdk-go-v2/service/ssm"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 )
@@ -54,11 +55,13 @@ func Initialize(
 	ecsSDKClient := ecs.NewFromConfig(*cfg.AWS.SDKConfig)
 	ssmSDKClient := ssm.NewFromConfig(*cfg.AWS.SDKConfig)
 	cwlSDKClient := cloudwatchlogs.NewFromConfig(*cfg.AWS.SDKConfig)
+	iamSDKClient := iam.NewFromConfig(*cfg.AWS.SDKConfig)
 
 	dynamoClient := dynamoRepo.NewClientAdapter(dynamoSDKClient)
 	ecsClient := NewClientAdapter(ecsSDKClient)
 	ssmClient := secrets.NewClientAdapter(ssmSDKClient)
 	cwlClient := NewCloudWatchLogsClientAdapter(cwlSDKClient)
+	iamClient := NewIAMClientAdapter(iamSDKClient)
 
 	userRepo := dynamoRepo.NewUserRepository(dynamoClient, cfg.AWS.APIKeysTable, cfg.AWS.PendingAPIKeysTable, log)
 	executionRepo := dynamoRepo.NewExecutionRepository(dynamoClient, cfg.AWS.ExecutionsTable, log)
@@ -82,7 +85,7 @@ func Initialize(
 		AccountID:              accountID,
 		SDKConfig:              cfg.AWS.SDKConfig,
 	}
-	runner := NewRunner(ecsClient, cwlClient, imageTaskDefRepo, runnerCfg, log)
+	runner := NewRunner(ecsClient, cwlClient, iamClient, imageTaskDefRepo, runnerCfg, log)
 	wsManager := awsWebsocket.NewManager(cfg, connectionRepo, tokenRepo, log)
 
 	return &Dependencies{

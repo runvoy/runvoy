@@ -4,12 +4,14 @@ package aws
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"regexp"
 	"strings"
 
 	"runvoy/internal/api"
+	appErrors "runvoy/internal/errors"
 	"runvoy/internal/logger"
 	awsConstants "runvoy/internal/providers/aws/constants"
 	"runvoy/internal/providers/aws/database/dynamodb"
@@ -17,6 +19,8 @@ import (
 	awsStd "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ecs"
 	ecsTypes "github.com/aws/aws-sdk-go-v2/service/ecs/types"
+	"github.com/aws/aws-sdk-go-v2/service/iam"
+	iamTypes "github.com/aws/aws-sdk-go-v2/service/iam/types"
 )
 
 // buildRoleARN constructs a full IAM role ARN from a role name and account ID.
@@ -171,6 +175,71 @@ func (e *Runner) registerNewImage(
 	return taskDefARN, family, nil
 }
 
+// validateIAMRoles validates that the specified IAM roles exist in AWS.
+// Returns an error if any role does not exist.
+func (e *Runner) validateIAMRoles(
+	ctx context.Context,
+	taskRoleName *string,
+	taskExecutionRoleName *string,
+	region string,
+	reqLogger *slog.Logger,
+) error {
+	if e.iamClient == nil {
+		return fmt.Errorf("IAM client not configured")
+	}
+
+	rolesToValidate := []struct {
+		name *string
+		arn  string
+		kind string
+	}{}
+
+	if taskRoleName != nil && *taskRoleName != "" {
+		taskRoleARN := buildRoleARN(taskRoleName, e.cfg.AccountID, region)
+		rolesToValidate = append(rolesToValidate, struct {
+			name *string
+			arn  string
+			kind string
+		}{taskRoleName, taskRoleARN, "task"})
+	}
+
+	if taskExecutionRoleName != nil && *taskExecutionRoleName != "" {
+		taskExecRoleARN := buildRoleARN(taskExecutionRoleName, e.cfg.AccountID, region)
+		rolesToValidate = append(rolesToValidate, struct {
+			name *string
+			arn  string
+			kind string
+		}{taskExecutionRoleName, taskExecRoleARN, "task execution"})
+	}
+
+	for _, role := range rolesToValidate {
+		roleName := *role.name
+		logArgs := []any{
+			"operation", "IAM.GetRole",
+			"role_name", roleName,
+			"role_kind", role.kind,
+		}
+		logArgs = append(logArgs, logger.GetDeadlineInfo(ctx)...)
+		reqLogger.Debug("validating IAM role", "context", logger.SliceToMap(logArgs))
+
+		_, err := e.iamClient.GetRole(ctx, &iam.GetRoleInput{
+			RoleName: awsStd.String(roleName),
+		})
+		if err != nil {
+			var noSuchEntity *iamTypes.NoSuchEntityException
+			if errors.As(err, &noSuchEntity) {
+				return appErrors.ErrBadRequest(
+					fmt.Sprintf("%s IAM role does not exist: %s", role.kind, roleName),
+					err,
+				)
+			}
+			return fmt.Errorf("failed to validate %s IAM role %s: %w", role.kind, roleName, err)
+		}
+	}
+
+	return nil
+}
+
 // RegisterImage registers a Docker image with optional custom IAM roles, CPU, Memory, and RuntimePlatform.
 // Creates a new task definition with a unique family name and stores the mapping in DynamoDB.
 //
@@ -201,6 +270,11 @@ func (e *Runner) RegisterImage(
 
 	if e.cfg.AccountID == "" {
 		return fmt.Errorf("AWS account ID not configured")
+	}
+
+	// Validate IAM roles exist before proceeding
+	if err := e.validateIAMRoles(ctx, taskRoleName, taskExecutionRoleName, region, reqLogger); err != nil {
+		return err
 	}
 
 	// Apply defaults for missing values

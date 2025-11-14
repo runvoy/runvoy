@@ -8,6 +8,8 @@ import (
 	"runvoy/internal/testutil"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/iam"
+	iamTypes "github.com/aws/aws-sdk-go-v2/service/iam/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -902,6 +904,176 @@ func TestLooksLikeImageID(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			result := looksLikeImageID(tt.input)
 			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+// mockIAMClient is a mock implementation of IAMClient for testing
+type mockIAMClient struct {
+	getRoleFunc func(ctx context.Context, params *iam.GetRoleInput, optFns ...func(*iam.Options)) (*iam.GetRoleOutput, error)
+}
+
+func (m *mockIAMClient) GetRole(
+	ctx context.Context,
+	params *iam.GetRoleInput,
+	optFns ...func(*iam.Options),
+) (*iam.GetRoleOutput, error) {
+	if m.getRoleFunc != nil {
+		return m.getRoleFunc(ctx, params, optFns...)
+	}
+	return &iam.GetRoleOutput{}, nil
+}
+
+func TestRunner_ValidateIAMRoles(t *testing.T) {
+	ctx := testutil.TestContext()
+
+	tests := []struct {
+		name                  string
+		taskRoleName          *string
+		taskExecutionRoleName *string
+		region                string
+		accountID             string
+		mockSetup             func(*mockIAMClient)
+		expectError           bool
+		expectedError         string
+		useNilIAMClient       bool
+	}{
+		{
+			name:                  "both roles nil - no validation needed",
+			taskRoleName:          nil,
+			taskExecutionRoleName: nil,
+			region:                "us-east-1",
+			accountID:             "123456789012",
+			mockSetup:             nil,
+			expectError:           false,
+		},
+		{
+			name:                  "task role exists",
+			taskRoleName:          aws.String("existing-task-role"),
+			taskExecutionRoleName: nil,
+			region:                "us-east-1",
+			accountID:             "123456789012",
+			mockSetup: func(m *mockIAMClient) {
+				m.getRoleFunc = func(_ context.Context, params *iam.GetRoleInput, _ ...func(*iam.Options)) (*iam.GetRoleOutput, error) {
+					if *params.RoleName == "existing-task-role" {
+						return &iam.GetRoleOutput{}, nil
+					}
+					return nil, &iamTypes.NoSuchEntityException{}
+				}
+			},
+			expectError: false,
+		},
+		{
+			name:                  "task execution role exists",
+			taskRoleName:          nil,
+			taskExecutionRoleName: aws.String("existing-exec-role"),
+			region:                "us-east-1",
+			accountID:             "123456789012",
+			mockSetup: func(m *mockIAMClient) {
+				m.getRoleFunc = func(_ context.Context, params *iam.GetRoleInput, _ ...func(*iam.Options)) (*iam.GetRoleOutput, error) {
+					if *params.RoleName == "existing-exec-role" {
+						return &iam.GetRoleOutput{}, nil
+					}
+					return nil, &iamTypes.NoSuchEntityException{}
+				}
+			},
+			expectError: false,
+		},
+		{
+			name:                  "both roles exist",
+			taskRoleName:          aws.String("existing-task-role"),
+			taskExecutionRoleName: aws.String("existing-exec-role"),
+			region:                "us-east-1",
+			accountID:             "123456789012",
+			mockSetup: func(m *mockIAMClient) {
+				m.getRoleFunc = func(_ context.Context, params *iam.GetRoleInput, _ ...func(*iam.Options)) (*iam.GetRoleOutput, error) {
+					return &iam.GetRoleOutput{}, nil
+				}
+			},
+			expectError: false,
+		},
+		{
+			name:                  "task role does not exist",
+			taskRoleName:          aws.String("nonexistent-task-role"),
+			taskExecutionRoleName: nil,
+			region:                "us-east-1",
+			accountID:             "123456789012",
+			mockSetup: func(m *mockIAMClient) {
+				m.getRoleFunc = func(_ context.Context, params *iam.GetRoleInput, _ ...func(*iam.Options)) (*iam.GetRoleOutput, error) {
+					return nil, &iamTypes.NoSuchEntityException{}
+				}
+			},
+			expectError:   true,
+			expectedError: "task IAM role does not exist",
+		},
+		{
+			name:                  "task execution role does not exist",
+			taskRoleName:          nil,
+			taskExecutionRoleName: aws.String("nonexistent-exec-role"),
+			region:                "us-east-1",
+			accountID:             "123456789012",
+			mockSetup: func(m *mockIAMClient) {
+				m.getRoleFunc = func(_ context.Context, params *iam.GetRoleInput, _ ...func(*iam.Options)) (*iam.GetRoleOutput, error) {
+					return nil, &iamTypes.NoSuchEntityException{}
+				}
+			},
+			expectError:   true,
+			expectedError: "task execution IAM role does not exist",
+		},
+		{
+			name:                  "both roles do not exist - task role error first",
+			taskRoleName:          aws.String("nonexistent-task-role"),
+			taskExecutionRoleName: aws.String("nonexistent-exec-role"),
+			region:                "us-east-1",
+			accountID:             "123456789012",
+			mockSetup: func(m *mockIAMClient) {
+				m.getRoleFunc = func(_ context.Context, params *iam.GetRoleInput, _ ...func(*iam.Options)) (*iam.GetRoleOutput, error) {
+					return nil, &iamTypes.NoSuchEntityException{}
+				}
+			},
+			expectError:   true,
+			expectedError: "task IAM role does not exist",
+		},
+		{
+			name:                  "IAM client not configured",
+			taskRoleName:          aws.String("some-role"),
+			taskExecutionRoleName: nil,
+			region:                "us-east-1",
+			accountID:             "123456789012",
+			mockSetup:             nil,
+			expectError:           true,
+			expectedError:         "IAM client not configured",
+			useNilIAMClient:       true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var iamClient IAMClient
+			if !tt.useNilIAMClient {
+				mockIAM := &mockIAMClient{}
+				if tt.mockSetup != nil {
+					tt.mockSetup(mockIAM)
+				}
+				iamClient = mockIAM
+			}
+
+			runner := &Runner{
+				iamClient: iamClient,
+				cfg: &Config{
+					AccountID: tt.accountID,
+				},
+				logger: testutil.SilentLogger(),
+			}
+
+			err := runner.validateIAMRoles(ctx, tt.taskRoleName, tt.taskExecutionRoleName, tt.region, runner.logger)
+
+			if tt.expectError {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.expectedError)
+			} else {
+				require.NoError(t, err)
+			}
 		})
 	}
 }
