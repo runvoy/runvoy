@@ -1,21 +1,35 @@
 set -e
 
-if env | grep -q '^RUNVOY_USER_'; then
+{{- $secretVarNames := .SecretVarNames }}
+{{- $allVarNames := .AllVarNames }}
+{{- $hasSecretVars := gt (len $secretVarNames) 0 }}
+{{- $hasVars := gt (len $allVarNames) 0 }}
+{{- if $hasVars }}
   echo '### {{ .ProjectName }} sidecar: Creating .env file from user environment variables'
   ENV_FILE_PATH="${RUNVOY_SHARED_VOLUME_PATH}/.env"
   rm -f "${ENV_FILE_PATH}"
+  {{- if $hasSecretVars }}
+  # Process all variables by iterating through known names (avoids using env | grep which could expose secrets)
+  {{- range $allVarNames }}
+  if [ -n "${RUNVOY_USER_{{ . }}+x}" ]; then
+    printf '%s=%s\n' "{{ . }}" "${RUNVOY_USER_{{ . }}}" >> "${ENV_FILE_PATH}" 2>/dev/null
+  fi
+  {{- end }}
+  {{- else }}
+  # No secrets detected, safe to use env | grep for all variables
   env | grep '^RUNVOY_USER_' | while IFS='=' read -r key value; do
     actual_key="${key#RUNVOY_USER_}"
     printf '%s=%s\n' "${actual_key}" "${value}" >> "${ENV_FILE_PATH}"
   done
+  {{- end }}
   if [ -f "${ENV_FILE_PATH}" ]; then
     echo '### {{ .ProjectName }} sidecar: .env file created with' "$(wc -l < "${ENV_FILE_PATH}")" 'variables at' "${ENV_FILE_PATH}"
   else
     echo '### {{ .ProjectName }} sidecar: No .env file created'
   fi
-else
+{{- else }}
   echo '### {{ .ProjectName }} sidecar: No RUNVOY_USER_* variables found, skipping .env creation'
-fi
+{{- end }}
 
 {{- if .HasGitRepo }}
 apk add --no-cache git

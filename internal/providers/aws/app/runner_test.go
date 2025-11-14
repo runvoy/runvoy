@@ -14,7 +14,7 @@ import (
 )
 
 func TestBuildSidecarContainerCommandWithoutGitRepo(t *testing.T) {
-	cmd := buildSidecarContainerCommand(false)
+	cmd := buildSidecarContainerCommand(false, map[string]string{})
 
 	require.Len(t, cmd, 3, "expected shell command with interpreter and script")
 	assert.Equal(t, "/bin/sh", cmd[0])
@@ -22,14 +22,14 @@ func TestBuildSidecarContainerCommandWithoutGitRepo(t *testing.T) {
 
 	script := cmd[2]
 
-	assert.Contains(t, script, "grep '^RUNVOY_USER_'", "should create .env file when user env vars exist")
+	assert.Contains(t, script, constants.ProjectName+" sidecar: No RUNVOY_USER_* variables found, skipping .env creation")
 	assert.Contains(t, script, constants.ProjectName+" sidecar: No git repository specified, exiting")
 	assert.NotContains(t, script, "git clone", "git repo commands must be skipped when not requested")
 	assert.Contains(t, script, "set -e", "script should enable exit on error")
 }
 
 func TestBuildSidecarContainerCommandWithGitRepo(t *testing.T) {
-	cmd := buildSidecarContainerCommand(true)
+	cmd := buildSidecarContainerCommand(true, map[string]string{})
 
 	require.Len(t, cmd, 3)
 	script := cmd[2]

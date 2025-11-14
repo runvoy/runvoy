@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"maps"
+	"regexp"
 	"slices"
 	"strings"
 	"time"
@@ -123,9 +124,49 @@ func (e *Runner) FetchLogsByExecutionID(ctx context.Context, executionID string)
 }
 
 type sidecarScriptData struct {
-	ProjectName   string
-	DefaultGitRef string
-	HasGitRepo    bool
+	ProjectName    string
+	DefaultGitRef  string
+	HasGitRepo     bool
+	SecretVarNames []string
+	AllVarNames    []string
+}
+
+// getSecretVariableNames returns a list of variable names that should be treated as secrets.
+// These variables will be processed without exposing their values in logs.
+func getSecretVariableNames(userEnv map[string]string) []string {
+	secretNames := []string{}
+	secretPatterns := []string{
+		"GITHUB_SECRET",
+		"GITHUB_TOKEN",
+		"SECRET",
+		"TOKEN",
+		"PASSWORD",
+		"API_KEY",
+		"API_SECRET",
+		"PRIVATE_KEY",
+		"ACCESS_KEY",
+		"SECRET_KEY",
+	}
+
+	for key := range userEnv {
+		upperKey := strings.ToUpper(key)
+		for _, pattern := range secretPatterns {
+			if strings.Contains(upperKey, pattern) {
+				secretNames = append(secretNames, key)
+				break
+			}
+		}
+	}
+
+	return secretNames
+}
+
+// sanitizeURLForLogging removes authentication tokens from URLs for safe logging.
+// Replaces patterns like "https://token@host" with "https://***@host".
+func sanitizeURLForLogging(url string) string {
+	// Match pattern: https://anything@host/path
+	re := regexp.MustCompile(`(https?://)([^/@]+@)([^/]+)`)
+	return re.ReplaceAllString(url, "${1}***@${3}")
 }
 
 // injectGitHubTokenIfNeeded modifies a GitHub repository URL to include authentication
@@ -146,11 +187,18 @@ func injectGitHubTokenIfNeeded(gitRepo string, userEnv map[string]string) string
 
 // buildSidecarContainerCommand constructs the shell command for the sidecar container.
 // It handles .env file creation from user environment variables and git repository cloning.
-func buildSidecarContainerCommand(hasGitRepo bool) []string {
+func buildSidecarContainerCommand(hasGitRepo bool, userEnv map[string]string) []string {
+	secretVarNames := getSecretVariableNames(userEnv)
+	allVarNames := make([]string, 0, len(userEnv))
+	for key := range userEnv {
+		allVarNames = append(allVarNames, key)
+	}
 	script := renderScript("sidecar.sh.tmpl", sidecarScriptData{
-		ProjectName:   constants.ProjectName,
-		DefaultGitRef: constants.DefaultGitRef,
-		HasGitRepo:    hasGitRepo,
+		ProjectName:    constants.ProjectName,
+		DefaultGitRef:  constants.DefaultGitRef,
+		HasGitRepo:     hasGitRepo,
+		SecretVarNames: secretVarNames,
+		AllVarNames:    allVarNames,
 	})
 
 	return []string{"/bin/sh", "-c", script}
@@ -215,8 +263,11 @@ func buildMainContainerCommand(req *api.ExecutionRequest, requestID, image strin
 			workDir = workDir + "/" + trimmed
 		}
 
+		repoURL := awsStd.ToString(repo.RepoURL)
+		// Sanitize URL for logging to avoid exposing tokens
+		sanitizedURL := sanitizeURLForLogging(repoURL)
 		repoData = &mainScriptRepoData{
-			URL:     awsStd.ToString(repo.RepoURL),
+			URL:     sanitizedURL,
 			Ref:     awsStd.ToString(repo.RepoRef),
 			Path:    awsStd.ToString(repo.RepoPath),
 			WorkDir: workDir,
@@ -369,7 +420,7 @@ func (e *Runner) buildContainerOverrides(
 	return []ecsTypes.ContainerOverride{
 		{
 			Name:        awsStd.String(awsConstants.SidecarContainerName),
-			Command:     buildSidecarContainerCommand(gitConfig.HasRepo),
+			Command:     buildSidecarContainerCommand(gitConfig.HasRepo, req.Env),
 			Environment: sidecarEnv,
 		},
 		{
