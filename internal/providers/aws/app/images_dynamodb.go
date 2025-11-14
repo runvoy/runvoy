@@ -16,7 +16,7 @@ import (
 )
 
 // buildRoleARN constructs a full IAM role ARN from a role name and account ID.
-// If roleName is empty/nil, returns empty string.
+// Returns an empty string if roleName is nil or empty.
 func buildRoleARN(roleName *string, accountID, _ string) string {
 	if roleName == nil || *roleName == "" {
 		return ""
@@ -25,7 +25,7 @@ func buildRoleARN(roleName *string, accountID, _ string) string {
 }
 
 // buildTaskDefinitionARN constructs a task definition ARN from family name.
-// Since each family is only registered once, revision is always 1.
+// Since each family is only registered once, the revision is always 1.
 // This is used for DeregisterTaskDefinition which requires a full ARN with revision.
 // For RunTask, we use just the family name so ECS picks the latest active revision.
 func (e *Runner) buildTaskDefinitionARN(family, region string) string {
@@ -33,13 +33,14 @@ func (e *Runner) buildTaskDefinitionARN(family, region string) string {
 }
 
 // buildRoleARNs constructs task and execution role ARNs from names or config defaults.
+// The execution role ARN is always required and defaults to DefaultTaskExecRoleARN from config.
 func (e *Runner) buildRoleARNs(
 	taskRoleName *string,
 	taskExecutionRoleName *string,
 	region string,
 ) (taskRoleARN, taskExecRoleARN string) {
 	taskRoleARN = ""
-	taskExecRoleARN = e.cfg.DefaultTaskExecRoleARN // Always required
+	taskExecRoleARN = e.cfg.DefaultTaskExecRoleARN
 
 	if taskRoleName != nil && *taskRoleName != "" {
 		taskRoleARN = buildRoleARN(taskRoleName, e.cfg.AccountID, region)
@@ -55,6 +56,7 @@ func (e *Runner) buildRoleARNs(
 }
 
 // determineDefaultStatus determines if an image should be marked as default.
+// If isDefault is nil, it automatically marks the image as default if no default image exists.
 func (e *Runner) determineDefaultStatus(
 	ctx context.Context,
 	isDefault *bool,
@@ -63,7 +65,6 @@ func (e *Runner) determineDefaultStatus(
 		return *isDefault, nil
 	}
 
-	// Auto-default if no default exists
 	defaultImg, defaultErr := e.imageRepo.GetDefaultImage(ctx)
 	if defaultErr != nil {
 		return false, fmt.Errorf("failed to check for default image: %w", defaultErr)
@@ -85,7 +86,6 @@ func (e *Runner) handleExistingImage(
 		"task_definition_family": existing.TaskDefinitionName,
 	})
 
-	// If isDefault is requested, update the default status
 	shouldBeDefault := isDefault != nil && *isDefault
 	if shouldBeDefault {
 		if setErr := e.imageRepo.SetImageAsOnlyDefault(ctx, image, taskRoleName, taskExecutionRoleName); setErr != nil {
@@ -97,8 +97,8 @@ func (e *Runner) handleExistingImage(
 }
 
 // registerNewImage handles registration of a new image.
-// Generate a unique task definition family name using UUID
-// Register the task definition with ECS
+// It generates a unique task definition family name using UUID, registers the task definition
+// with ECS, and stores the mapping in DynamoDB.
 func (e *Runner) registerNewImage(
 	ctx context.Context,
 	image string,
@@ -220,7 +220,6 @@ func (e *Runner) registerTaskDefinitionWithRoles(
 	region string,
 	reqLogger *slog.Logger,
 ) (string, error) {
-	// Build the task definition input (reuse existing buildTaskDefinitionInput logic)
 	registerInput := buildTaskDefinitionInput(family, image, taskExecRoleARN, taskRoleARN, region, e.cfg)
 
 	logArgs := []any{
@@ -268,6 +267,8 @@ func (e *Runner) ListImages(ctx context.Context) ([]api.ImageInfo, error) {
 
 // RemoveImage removes a Docker image and all its task definition variants from DynamoDB.
 // It also deregisters all associated task definitions from ECS.
+// If deregistration fails for any task definition, it continues to clean up the remaining ones
+// and still removes the mappings from DynamoDB.
 func (e *Runner) RemoveImage(ctx context.Context, image string) error {
 	if e.imageRepo == nil {
 		return fmt.Errorf("image repository not configured")
@@ -283,13 +284,11 @@ func (e *Runner) RemoveImage(ctx context.Context, image string) error {
 	}
 	region := e.cfg.Region
 
-	// Get all task definitions for this image by listing all images and filtering
 	allImages, err := e.imageRepo.ListImages(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to list images: %w", err)
 	}
 
-	// Build ARNs for task definitions that match this image
 	var taskDefsToDeregister []string
 	for i := range allImages {
 		if allImages[i].Image == image && allImages[i].TaskDefinitionName != "" {
@@ -298,7 +297,6 @@ func (e *Runner) RemoveImage(ctx context.Context, image string) error {
 		}
 	}
 
-	// Deregister all task definitions from ECS
 	for _, taskDefARN := range taskDefsToDeregister {
 		logArgs := []any{
 			"operation", "ECS.DeregisterTaskDefinition",
@@ -312,11 +310,9 @@ func (e *Runner) RemoveImage(ctx context.Context, image string) error {
 		})
 		if deregErr != nil {
 			reqLogger.Warn("failed to deregister task definition", "error", deregErr, "arn", taskDefARN)
-			// Continue anyway to clean up DynamoDB
 		}
 	}
 
-	// Delete all mappings from DynamoDB
 	if deleteErr := e.imageRepo.DeleteImage(ctx, image); deleteErr != nil {
 		return fmt.Errorf("failed to delete image from repository: %w", deleteErr)
 	}
@@ -348,14 +344,13 @@ func (e *Runner) GetDefaultImageFromDB(ctx context.Context) (string, error) {
 }
 
 // GetTaskDefinitionARNForImage returns the task definition family name for a specific image from DynamoDB.
-// Uses default roles (from config) to look up the task definition.
+// Uses default roles (from config) to look up the task definition by querying with nil role names.
 // Returns just the family name - ECS will automatically use the latest ACTIVE revision when running tasks.
 func (e *Runner) GetTaskDefinitionARNForImage(ctx context.Context, image string) (string, error) {
 	if e.imageRepo == nil {
 		return "", fmt.Errorf("image repository not configured")
 	}
 
-	// Query with nil role names to get the default role variant
 	imageInfo, err := e.imageRepo.GetImageTaskDef(ctx, image, nil, nil)
 	if err != nil {
 		return "", fmt.Errorf("failed to get task definition for image: %w", err)
@@ -365,6 +360,5 @@ func (e *Runner) GetTaskDefinitionARNForImage(ctx context.Context, image string)
 		return "", fmt.Errorf("no task definition found for image: %s", image)
 	}
 
-	// Return just the family name - ECS will use the latest active revision
 	return imageInfo.TaskDefinitionName, nil
 }
