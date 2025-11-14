@@ -52,7 +52,7 @@ func (m *mockClientInterface) ListUsers(_ context.Context) (*api.ListUsersRespon
 	return nil, fmt.Errorf("not implemented")
 }
 func (m *mockClientInterface) RegisterImage(
-	_ context.Context, _ string, _ *bool, _, _ *string,
+	_ context.Context, _ string, _ *bool, _, _ *string, _, _, _ *string,
 ) (*api.RegisterImageResponse, error) {
 	return nil, fmt.Errorf("not implemented")
 }

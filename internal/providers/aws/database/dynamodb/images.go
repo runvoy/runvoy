@@ -37,10 +37,13 @@ func NewImageTaskDefRepository(client Client, tableName string, log *slog.Logger
 
 // imageTaskDefItem represents the structure stored in DynamoDB.
 type imageTaskDefItem struct {
-	Image                 string  `dynamodbav:"image"`
-	RoleComposite         string  `dynamodbav:"role_composite"`
+	Image                 string  `dynamodbav:"image"`         // Partition key
+	CompositeKey          string  `dynamodbav:"composite_key"` // Sort key: role_composite#cpu#memory#runtime_platform
 	TaskRoleName          *string `dynamodbav:"task_role_name,omitempty"`
 	TaskExecutionRoleName *string `dynamodbav:"task_execution_role_name,omitempty"`
+	Cpu                   string  `dynamodbav:"cpu"`              //nolint:revive // DynamoDB field name matches schema
+	Memory                string  `dynamodbav:"memory"`           // e.g., "512", "2048"
+	RuntimePlatform       string  `dynamodbav:"runtime_platform"` // e.g., "Linux/ARM64", "Linux/X86_64"
 	TaskDefinitionFamily  string  `dynamodbav:"task_definition_family"`
 	IsDefaultPlaceholder  *string `dynamodbav:"is_default_placeholder,omitempty"` // "DEFAULT" if default, nil otherwise
 	// Parsed image components
@@ -54,6 +57,16 @@ type imageTaskDefItem struct {
 const (
 	defaultRoleName         = "default"
 	defaultPlaceholderValue = "DEFAULT"
+)
+
+// Default values for new image registrations
+const (
+	// DefaultCPU is the minimum Fargate CPU value
+	DefaultCPU = "256"
+	// DefaultMemory is the minimum Fargate Memory value (compatible with 256 CPU)
+	DefaultMemory = "512"
+	// DefaultRuntimePlatform is the default architecture (Graviton2 - better price-performance)
+	DefaultRuntimePlatform = "Linux/ARM64"
 )
 
 // isDefault derives the boolean default status from the placeholder field.
@@ -75,7 +88,16 @@ func buildRoleComposite(taskRoleName, taskExecutionRoleName *string) string {
 	return fmt.Sprintf("%s#%s", taskRole, execRole)
 }
 
+// buildCompositeKey creates a composite sort key from roles, CPU, Memory, and RuntimePlatform.
+// Format: role_composite#cpu#memory#runtime_platform
+func buildCompositeKey(taskRoleName, taskExecutionRoleName *string, cpu, memory, runtimePlatform string) string {
+	roleComposite := buildRoleComposite(taskRoleName, taskExecutionRoleName)
+	return fmt.Sprintf("%s#%s#%s#%s", roleComposite, cpu, memory, runtimePlatform)
+}
+
 // PutImageTaskDef stores or updates an image-taskdef mapping.
+//
+//nolint:funlen // Complex item construction with multiple fields
 func (r *ImageTaskDefRepository) PutImageTaskDef(
 	ctx context.Context,
 	image string,
@@ -84,17 +106,25 @@ func (r *ImageTaskDefRepository) PutImageTaskDef(
 	imageTag string,
 	taskRoleName *string,
 	taskExecutionRoleName *string,
+	cpu string,
+	memory string,
+	runtimePlatform string,
 	taskDefFamily string,
 	isDefault bool,
 ) error {
 	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
 
 	now := time.Now().Unix()
+	compositeKey := buildCompositeKey(taskRoleName, taskExecutionRoleName, cpu, memory, runtimePlatform)
+
 	item := &imageTaskDefItem{
 		Image:                 image,
-		RoleComposite:         buildRoleComposite(taskRoleName, taskExecutionRoleName),
+		CompositeKey:          compositeKey,
 		TaskRoleName:          taskRoleName,
 		TaskExecutionRoleName: taskExecutionRoleName,
+		Cpu:                   cpu,
+		Memory:                memory,
+		RuntimePlatform:       runtimePlatform,
 		TaskDefinitionFamily:  taskDefFamily,
 		ImageRegistry:         imageRegistry,
 		ImageName:             imageName,
@@ -118,7 +148,10 @@ func (r *ImageTaskDefRepository) PutImageTaskDef(
 		"operation", "DynamoDB.PutItem",
 		"table", r.tableName,
 		"image", image,
-		"role_composite", item.RoleComposite,
+		"composite_key", compositeKey,
+		"cpu", cpu,
+		"memory", memory,
+		"runtime_platform", runtimePlatform,
 		"is_default", isDefault,
 	}
 	logArgs = append(logArgs, logger.GetDeadlineInfo(ctx)...)
@@ -135,22 +168,44 @@ func (r *ImageTaskDefRepository) PutImageTaskDef(
 	return nil
 }
 
-// GetImageTaskDef retrieves a specific image-taskdef mapping by image and roles.
+// GetImageTaskDef retrieves a specific image-taskdef mapping by image, roles, CPU, Memory, and RuntimePlatform.
+//
+//nolint:funlen // Complex lookup with default value handling
 func (r *ImageTaskDefRepository) GetImageTaskDef(
 	ctx context.Context,
 	image string,
 	taskRoleName *string,
 	taskExecutionRoleName *string,
+	cpu *string,
+	memory *string,
+	runtimePlatform *string,
 ) (*api.ImageInfo, error) {
 	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
 
-	roleComposite := buildRoleComposite(taskRoleName, taskExecutionRoleName)
+	// Apply defaults if not provided
+	cpuVal := DefaultCPU
+	if cpu != nil && *cpu != "" {
+		cpuVal = *cpu
+	}
+	memoryVal := DefaultMemory
+	if memory != nil && *memory != "" {
+		memoryVal = *memory
+	}
+	runtimePlatformVal := DefaultRuntimePlatform
+	if runtimePlatform != nil && *runtimePlatform != "" {
+		runtimePlatformVal = *runtimePlatform
+	}
+
+	compositeKey := buildCompositeKey(taskRoleName, taskExecutionRoleName, cpuVal, memoryVal, runtimePlatformVal)
 
 	logArgs := []any{
 		"operation", "DynamoDB.GetItem",
 		"table", r.tableName,
 		"image", image,
-		"role_composite", roleComposite,
+		"composite_key", compositeKey,
+		"cpu", cpuVal,
+		"memory", memoryVal,
+		"runtime_platform", runtimePlatformVal,
 	}
 	logArgs = append(logArgs, logger.GetDeadlineInfo(ctx)...)
 	reqLogger.Debug("calling external service", "context", logger.SliceToMap(logArgs))
@@ -158,8 +213,8 @@ func (r *ImageTaskDefRepository) GetImageTaskDef(
 	result, err := r.client.GetItem(ctx, &dynamodb.GetItemInput{
 		TableName: aws.String(r.tableName),
 		Key: map[string]types.AttributeValue{
-			"image":          &types.AttributeValueMemberS{Value: image},
-			"role_composite": &types.AttributeValueMemberS{Value: roleComposite},
+			"image":         &types.AttributeValueMemberS{Value: image},
+			"composite_key": &types.AttributeValueMemberS{Value: compositeKey},
 		},
 	})
 	if err != nil {
@@ -182,6 +237,9 @@ func (r *ImageTaskDefRepository) GetImageTaskDef(
 		IsDefault:             &isDefault,
 		TaskRoleName:          item.TaskRoleName,
 		TaskExecutionRoleName: item.TaskExecutionRoleName,
+		Cpu:                   item.Cpu,
+		Memory:                item.Memory,
+		RuntimePlatform:       item.RuntimePlatform,
 		ImageRegistry:         item.ImageRegistry,
 		ImageName:             item.ImageName,
 		ImageTag:              item.ImageTag,
@@ -221,6 +279,9 @@ func (r *ImageTaskDefRepository) ListImages(ctx context.Context) ([]api.ImageInf
 			IsDefault:             &isDefault,
 			TaskRoleName:          item.TaskRoleName,
 			TaskExecutionRoleName: item.TaskExecutionRoleName,
+			Cpu:                   item.Cpu,
+			Memory:                item.Memory,
+			RuntimePlatform:       item.RuntimePlatform,
 			ImageRegistry:         item.ImageRegistry,
 			ImageName:             item.ImageName,
 			ImageTag:              item.ImageTag,
@@ -282,6 +343,9 @@ func (r *ImageTaskDefRepository) GetDefaultImage(ctx context.Context) (*api.Imag
 		IsDefault:             &isDefault,
 		TaskRoleName:          item.TaskRoleName,
 		TaskExecutionRoleName: item.TaskExecutionRoleName,
+		Cpu:                   item.Cpu,
+		Memory:                item.Memory,
+		RuntimePlatform:       item.RuntimePlatform,
 		ImageRegistry:         item.ImageRegistry,
 		ImageName:             item.ImageName,
 		ImageTag:              item.ImageTag,
@@ -313,11 +377,12 @@ func (r *ImageTaskDefRepository) UnmarkAllDefaults(ctx context.Context) error {
 	// Update each item to remove default status
 	for i := range items {
 		item := &items[i]
+		roleComposite := buildRoleComposite(item.TaskRoleName, item.TaskExecutionRoleName)
 		logArgs := []any{
 			"operation", "DynamoDB.UpdateItem",
 			"table", r.tableName,
 			"image", item.Image,
-			"role_composite", item.RoleComposite,
+			"role_composite", roleComposite,
 		}
 		logArgs = append(logArgs, logger.GetDeadlineInfo(ctx)...)
 		reqLogger.Debug("calling external service", "context", logger.SliceToMap(logArgs))
@@ -325,8 +390,8 @@ func (r *ImageTaskDefRepository) UnmarkAllDefaults(ctx context.Context) error {
 		_, err = r.client.UpdateItem(ctx, &dynamodb.UpdateItemInput{
 			TableName: aws.String(r.tableName),
 			Key: map[string]types.AttributeValue{
-				"image":          &types.AttributeValueMemberS{Value: item.Image},
-				"role_composite": &types.AttributeValueMemberS{Value: item.RoleComposite},
+				"image":         &types.AttributeValueMemberS{Value: item.Image},
+				"composite_key": &types.AttributeValueMemberS{Value: item.CompositeKey},
 			},
 			UpdateExpression: aws.String("SET is_default = :false, updated_at = :now REMOVE is_default_placeholder"),
 			ExpressionAttributeValues: map[string]types.AttributeValue{
@@ -374,11 +439,12 @@ func (r *ImageTaskDefRepository) DeleteImage(ctx context.Context, image string) 
 	// Delete each item
 	for i := range items {
 		item := &items[i]
+		roleComposite := buildRoleComposite(item.TaskRoleName, item.TaskExecutionRoleName)
 		deleteLogArgs := []any{
 			"operation", "DynamoDB.DeleteItem",
 			"table", r.tableName,
 			"image", item.Image,
-			"role_composite", item.RoleComposite,
+			"role_composite", roleComposite,
 		}
 		deleteLogArgs = append(deleteLogArgs, logger.GetDeadlineInfo(ctx)...)
 		reqLogger.Debug("calling external service", "context", logger.SliceToMap(deleteLogArgs))
@@ -386,8 +452,8 @@ func (r *ImageTaskDefRepository) DeleteImage(ctx context.Context, image string) 
 		_, err = r.client.DeleteItem(ctx, &dynamodb.DeleteItemInput{
 			TableName: aws.String(r.tableName),
 			Key: map[string]types.AttributeValue{
-				"image":          &types.AttributeValueMemberS{Value: item.Image},
-				"role_composite": &types.AttributeValueMemberS{Value: item.RoleComposite},
+				"image":         &types.AttributeValueMemberS{Value: item.Image},
+				"composite_key": &types.AttributeValueMemberS{Value: item.CompositeKey},
 			},
 		})
 		if err != nil {
@@ -396,6 +462,84 @@ func (r *ImageTaskDefRepository) DeleteImage(ctx context.Context, image string) 
 	}
 
 	return nil
+}
+
+// GetAnyImageTaskDef retrieves any task definition configuration for a given image.
+// This is useful when you need to find a task definition for an image regardless of
+// its specific CPU/Memory/RuntimePlatform configuration.
+// It queries by image (partition key) and returns the first matching item,
+// preferring the default configuration if available.
+//
+//nolint:funlen // Complex query with preference logic
+func (r *ImageTaskDefRepository) GetAnyImageTaskDef(ctx context.Context, image string) (*api.ImageInfo, error) {
+	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
+
+	logArgs := []any{
+		"operation", "DynamoDB.Query",
+		"table", r.tableName,
+		"image", image,
+	}
+	logArgs = append(logArgs, logger.GetDeadlineInfo(ctx)...)
+	reqLogger.Debug("calling external service", "context", logger.SliceToMap(logArgs))
+
+	result, err := r.client.Query(ctx, &dynamodb.QueryInput{
+		TableName:              aws.String(r.tableName),
+		KeyConditionExpression: aws.String("image = :image"),
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":image": &types.AttributeValueMemberS{Value: image},
+		},
+		Limit: aws.Int32(100), //nolint:mnd // Get up to 100 items to find default if available
+	})
+	if err != nil {
+		return nil, apperrors.ErrInternalError("failed to query image-taskdef mappings", err)
+	}
+
+	if len(result.Items) == 0 {
+		return nil, nil
+	}
+
+	var items []imageTaskDefItem
+	if unmarshalErr := attributevalue.UnmarshalListOfMaps(result.Items, &items); unmarshalErr != nil {
+		return nil, apperrors.ErrInternalError("failed to unmarshal image-taskdef items", unmarshalErr)
+	}
+
+	// Prefer default configuration if available
+	for i := range items {
+		if items[i].isDefault() {
+			item := &items[i]
+			isDefault := true
+			return &api.ImageInfo{
+				Image:                 item.Image,
+				TaskDefinitionName:    item.TaskDefinitionFamily,
+				IsDefault:             &isDefault,
+				TaskRoleName:          item.TaskRoleName,
+				TaskExecutionRoleName: item.TaskExecutionRoleName,
+				Cpu:                   item.Cpu,
+				Memory:                item.Memory,
+				RuntimePlatform:       item.RuntimePlatform,
+				ImageRegistry:         item.ImageRegistry,
+				ImageName:             item.ImageName,
+				ImageTag:              item.ImageTag,
+			}, nil
+		}
+	}
+
+	// If no default found, return the first one
+	item := &items[0]
+	isDefault := item.isDefault()
+	return &api.ImageInfo{
+		Image:                 item.Image,
+		TaskDefinitionName:    item.TaskDefinitionFamily,
+		IsDefault:             &isDefault,
+		TaskRoleName:          item.TaskRoleName,
+		TaskExecutionRoleName: item.TaskExecutionRoleName,
+		Cpu:                   item.Cpu,
+		Memory:                item.Memory,
+		RuntimePlatform:       item.RuntimePlatform,
+		ImageRegistry:         item.ImageRegistry,
+		ImageName:             item.ImageName,
+		ImageTag:              item.ImageTag,
+	}, nil
 }
 
 // GetImagesCount returns the total number of unique image+role combinations.
@@ -430,8 +574,8 @@ func (r *ImageTaskDefRepository) GetUniqueImages(ctx context.Context) ([]string,
 
 	// Deduplicate image names
 	uniqueMap := make(map[string]bool)
-	for _, img := range images {
-		uniqueMap[img.Image] = true
+	for i := range images {
+		uniqueMap[images[i].Image] = true
 	}
 
 	uniqueImages := make([]string, 0, len(uniqueMap))
@@ -471,11 +615,15 @@ func (r *ImageTaskDefRepository) SetImageAsOnlyDefault(
 	logArgs = append(logArgs, logger.GetDeadlineInfo(ctx)...)
 	reqLogger.Debug("calling external service", "context", logger.SliceToMap(logArgs))
 
+	compositeKey := buildCompositeKey(
+		taskRoleName, taskExecutionRoleName, DefaultCPU, DefaultMemory, DefaultRuntimePlatform,
+	)
+
 	_, err := r.client.UpdateItem(ctx, &dynamodb.UpdateItemInput{
 		TableName: aws.String(r.tableName),
 		Key: map[string]types.AttributeValue{
-			"image":          &types.AttributeValueMemberS{Value: image},
-			"role_composite": &types.AttributeValueMemberS{Value: roleComposite},
+			"image":         &types.AttributeValueMemberS{Value: image},
+			"composite_key": &types.AttributeValueMemberS{Value: compositeKey},
 		},
 		UpdateExpression: aws.String("SET is_default = :true, is_default_placeholder = :placeholder, updated_at = :now"),
 		ExpressionAttributeValues: map[string]types.AttributeValue{

@@ -14,12 +14,17 @@ func (s *Service) RegisterImage(
 	isDefault *bool,
 	taskRoleName *string,
 	taskExecutionRoleName *string,
+	cpu *string,
+	memory *string,
+	runtimePlatform *string,
 ) (*api.RegisterImageResponse, error) {
 	if image == "" {
 		return nil, apperrors.ErrBadRequest("image is required", nil)
 	}
 
-	if err := s.runner.RegisterImage(ctx, image, isDefault, taskRoleName, taskExecutionRoleName); err != nil {
+	if err := s.runner.RegisterImage(
+		ctx, image, isDefault, taskRoleName, taskExecutionRoleName, cpu, memory, runtimePlatform,
+	); err != nil {
 		return nil, apperrors.ErrInternalError("failed to register image", err)
 	}
 

@@ -19,9 +19,12 @@ var imagesCmd = &cobra.Command{
 }
 
 var (
-	registerImageIsDefault    bool
-	registerImageTaskRole     string
-	registerImageTaskExecRole string
+	registerImageIsDefault       bool
+	registerImageTaskRole        string
+	registerImageTaskExecRole    string
+	registerImageCPU             string
+	registerImageMemory          string
+	registerImageRuntimePlatform string
 )
 
 var registerImageCmd = &cobra.Command{
@@ -59,6 +62,13 @@ func init() {
 		"task-role", "", "Optional task role name for the image")
 	registerImageCmd.Flags().StringVar(&registerImageTaskExecRole,
 		"task-exec-role", "", "Optional task execution role name for the image")
+	registerImageCmd.Flags().StringVar(&registerImageCPU,
+		"cpu", "", "Optional CPU value (e.g., 256, 1024). Defaults to 256 if not specified")
+	registerImageCmd.Flags().StringVar(&registerImageMemory,
+		"memory", "", "Optional Memory value (e.g., 512, 2048). Defaults to 512 if not specified")
+	registerImageCmd.Flags().StringVar(&registerImageRuntimePlatform,
+		"runtime-platform", "",
+		"Optional runtime platform (e.g., Linux/ARM64, Linux/X86_64). Defaults to Linux/ARM64 if not specified")
 	imagesCmd.AddCommand(registerImageCmd)
 	imagesCmd.AddCommand(listImagesCmd)
 	imagesCmd.AddCommand(unregisterImageCmd)
@@ -88,9 +98,26 @@ func registerImageRun(cmd *cobra.Command, args []string) {
 		taskExecutionRoleName = &registerImageTaskExecRole
 	}
 
+	var cpu *string
+	if cmd.Flags().Changed("cpu") {
+		cpu = &registerImageCPU
+	}
+
+	var memory *string
+	if cmd.Flags().Changed("memory") {
+		memory = &registerImageMemory
+	}
+
+	var runtimePlatform *string
+	if cmd.Flags().Changed("runtime-platform") {
+		runtimePlatform = &registerImageRuntimePlatform
+	}
+
 	c := client.New(cfg, slog.Default())
 	service := NewImagesService(c, NewOutputWrapper())
-	if err = service.RegisterImage(cmd.Context(), image, isDefault, taskRoleName, taskExecutionRoleName); err != nil {
+	if err = service.RegisterImage(
+		cmd.Context(), image, isDefault, taskRoleName, taskExecutionRoleName, cpu, memory, runtimePlatform,
+	); err != nil {
 		output.Errorf(err.Error())
 	}
 }
@@ -141,8 +168,11 @@ func NewImagesService(apiClient client.Interface, outputter OutputInterface) *Im
 // RegisterImage registers a new image
 func (s *ImagesService) RegisterImage(
 	ctx context.Context, image string, isDefault *bool, taskRoleName, taskExecutionRoleName *string,
+	cpu, memory, runtimePlatform *string,
 ) error {
-	resp, err := s.client.RegisterImage(ctx, image, isDefault, taskRoleName, taskExecutionRoleName)
+	resp, err := s.client.RegisterImage(
+		ctx, image, isDefault, taskRoleName, taskExecutionRoleName, cpu, memory, runtimePlatform,
+	)
 	if err != nil {
 		return fmt.Errorf("failed to register image: %w", err)
 	}
@@ -193,7 +223,8 @@ func (s *ImagesService) UnregisterImage(ctx context.Context, image string) error
 // formatImages formats image data into table rows
 func (s *ImagesService) formatImages(images []api.ImageInfo) [][]string {
 	rows := make([][]string, 0, len(images))
-	for _, image := range images {
+	for i := range images {
+		image := &images[i]
 		rows = append(rows, []string{
 			image.Image,
 			strconv.FormatBool(*image.IsDefault),

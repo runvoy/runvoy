@@ -114,7 +114,6 @@ func getAccountID(ctx context.Context, awsCfg *awsStd.Config, log *slog.Logger) 
 	}
 
 	accountID := *output.Account
-	log.Debug("retrieved AWS account ID", "account_id", accountID)
 
 	return accountID, nil
 }

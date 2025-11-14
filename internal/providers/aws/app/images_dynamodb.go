@@ -11,6 +11,7 @@ import (
 	"runvoy/internal/auth"
 	"runvoy/internal/logger"
 	awsConstants "runvoy/internal/providers/aws/constants"
+	"runvoy/internal/providers/aws/database/dynamodb"
 
 	awsStd "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ecs"
@@ -99,6 +100,7 @@ func (e *Runner) registerNewImage(
 	isDefault *bool,
 	taskRoleName, taskExecutionRoleName *string,
 	taskRoleARN, taskExecRoleARN, region string,
+	cpu, memory, runtimePlatform string,
 	reqLogger *slog.Logger,
 ) (taskDefARN, family string, err error) {
 	family = fmt.Sprintf("runvoy-taskdef-%s", auth.GenerateUUID())
@@ -110,6 +112,9 @@ func (e *Runner) registerNewImage(
 		taskRoleARN,
 		taskExecRoleARN,
 		region,
+		cpu,
+		memory,
+		runtimePlatform,
 		reqLogger,
 	)
 	if err != nil {
@@ -137,6 +142,9 @@ func (e *Runner) registerNewImage(
 		imageRef.Tag,
 		taskRoleName,
 		taskExecutionRoleName,
+		cpu,
+		memory,
+		runtimePlatform,
 		family,
 		shouldBeDefault,
 	); putErr != nil {
@@ -146,14 +154,19 @@ func (e *Runner) registerNewImage(
 	return taskDefARN, family, nil
 }
 
-// RegisterImage registers a Docker image with optional custom IAM roles.
+// RegisterImage registers a Docker image with optional custom IAM roles, CPU, Memory, and RuntimePlatform.
 // Creates a new task definition with a unique family name and stores the mapping in DynamoDB.
+//
+//nolint:funlen // Complex registration flow with multiple steps
 func (e *Runner) RegisterImage(
 	ctx context.Context,
 	image string,
 	isDefault *bool,
 	taskRoleName *string,
 	taskExecutionRoleName *string,
+	cpu *string,
+	memory *string,
+	runtimePlatform *string,
 ) error {
 	if e.ecsClient == nil {
 		return fmt.Errorf("ECS client not configured")
@@ -175,7 +188,23 @@ func (e *Runner) RegisterImage(
 
 	taskRoleARN, taskExecRoleARN := e.buildRoleARNs(taskRoleName, taskExecutionRoleName, region)
 
-	existing, err := e.imageRepo.GetImageTaskDef(ctx, image, taskRoleName, taskExecutionRoleName)
+	// Apply defaults for missing values
+	cpuVal := dynamodb.DefaultCPU
+	if cpu != nil && *cpu != "" {
+		cpuVal = *cpu
+	}
+	memoryVal := dynamodb.DefaultMemory
+	if memory != nil && *memory != "" {
+		memoryVal = *memory
+	}
+	runtimePlatformVal := dynamodb.DefaultRuntimePlatform
+	if runtimePlatform != nil && *runtimePlatform != "" {
+		runtimePlatformVal = *runtimePlatform
+	}
+
+	existing, err := e.imageRepo.GetImageTaskDef(
+		ctx, image, taskRoleName, taskExecutionRoleName, cpu, memory, runtimePlatform,
+	)
 	if err != nil {
 		return fmt.Errorf("failed to check existing image-taskdef mapping: %w", err)
 	}
@@ -189,7 +218,9 @@ func (e *Runner) RegisterImage(
 
 	taskDefARN, family, err := e.registerNewImage(
 		ctx, image, isDefault, taskRoleName, taskExecutionRoleName,
-		taskRoleARN, taskExecRoleARN, region, reqLogger,
+		taskRoleARN, taskExecRoleARN, region,
+		cpuVal, memoryVal, runtimePlatformVal,
+		reqLogger,
 	)
 	if err != nil {
 		return err
@@ -204,7 +235,8 @@ func (e *Runner) RegisterImage(
 	return nil
 }
 
-// registerTaskDefinitionWithRoles registers a task definition with the specified roles.
+// registerTaskDefinitionWithRoles registers a task definition with the specified roles,
+// CPU, Memory, and RuntimePlatform.
 //
 //nolint:funlen // Complex AWS API orchestration with registration and tagging
 func (e *Runner) registerTaskDefinitionWithRoles(
@@ -214,9 +246,12 @@ func (e *Runner) registerTaskDefinitionWithRoles(
 	taskRoleARN string,
 	taskExecRoleARN string,
 	region string,
+	cpu, memory, runtimePlatform string,
 	reqLogger *slog.Logger,
 ) (string, error) {
-	registerInput := buildTaskDefinitionInput(family, image, taskExecRoleARN, taskRoleARN, region, e.cfg)
+	registerInput := buildTaskDefinitionInput(
+		family, image, taskExecRoleARN, taskRoleARN, region, cpu, memory, runtimePlatform, e.cfg,
+	)
 
 	logArgs := []any{
 		"operation", "ECS.RegisterTaskDefinition",
@@ -458,14 +493,16 @@ func (e *Runner) GetDefaultImageFromDB(ctx context.Context) (string, error) {
 }
 
 // GetTaskDefinitionARNForImage returns the task definition family name for a specific image from DynamoDB.
-// Uses default roles (from config) to look up the task definition by querying with nil role names.
+// It queries for any configuration of the image (preferring the default configuration if available).
 // Returns just the family name - ECS will automatically use the latest ACTIVE revision when running tasks.
 func (e *Runner) GetTaskDefinitionARNForImage(ctx context.Context, image string) (string, error) {
 	if e.imageRepo == nil {
 		return "", fmt.Errorf("image repository not configured")
 	}
 
-	imageInfo, err := e.imageRepo.GetImageTaskDef(ctx, image, nil, nil)
+	// Use GetAnyImageTaskDef to find any configuration for this image
+	// This is more flexible than requiring exact CPU/Memory/RuntimePlatform match
+	imageInfo, err := e.imageRepo.GetAnyImageTaskDef(ctx, image)
 	if err != nil {
 		return "", fmt.Errorf("failed to get task definition for image: %w", err)
 	}

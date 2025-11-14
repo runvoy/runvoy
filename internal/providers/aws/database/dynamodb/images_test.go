@@ -225,7 +225,11 @@ func TestPutImageTaskDef(t *testing.T) {
 					require.NoError(t, err)
 
 					assert.Equal(t, "nginx:latest", item.Image)
-					assert.Equal(t, "default#default", item.RoleComposite)
+					assert.Equal(t, "default#default#256#512#Linux/ARM64", item.CompositeKey)
+					assert.Equal(t, "default#default", buildRoleComposite(item.TaskRoleName, item.TaskExecutionRoleName))
+					assert.Equal(t, "256", item.Cpu)
+					assert.Equal(t, "512", item.Memory)
+					assert.Equal(t, "Linux/ARM64", item.RuntimePlatform)
 					assert.Equal(t, "nginx", item.ImageName)
 					assert.Equal(t, "latest", item.ImageTag)
 					assert.Equal(t, "runvoy-taskdef-123", item.TaskDefinitionFamily)
@@ -255,7 +259,14 @@ func TestPutImageTaskDef(t *testing.T) {
 					err := attributevalue.UnmarshalMap(params.Item, &item)
 					require.NoError(t, err)
 
-					assert.Equal(t, "custom-task-role#custom-exec-role", item.RoleComposite)
+					assert.Equal(t, "custom-task-role#custom-exec-role#256#512#Linux/ARM64", item.CompositeKey)
+					assert.Equal(
+						t, "custom-task-role#custom-exec-role",
+						buildRoleComposite(item.TaskRoleName, item.TaskExecutionRoleName),
+					)
+					assert.Equal(t, "256", item.Cpu)
+					assert.Equal(t, "512", item.Memory)
+					assert.Equal(t, "Linux/ARM64", item.RuntimePlatform)
 					assert.Nil(t, item.IsDefaultPlaceholder)
 					assert.Equal(t, "custom-task-role", *item.TaskRoleName)
 					assert.Equal(t, "custom-exec-role", *item.TaskExecutionRoleName)
@@ -300,6 +311,9 @@ func TestPutImageTaskDef(t *testing.T) {
 				tt.imageTag,
 				tt.taskRoleName,
 				tt.taskExecutionRoleName,
+				DefaultCPU,
+				DefaultMemory,
+				DefaultRuntimePlatform,
 				tt.taskDefFamily,
 				tt.isDefault,
 			)
@@ -336,7 +350,10 @@ func TestGetImageTaskDef(t *testing.T) {
 					*dynamodb.GetItemOutput, error) {
 					item := &imageTaskDefItem{
 						Image:                "nginx:latest",
-						RoleComposite:        "default#default",
+						CompositeKey:         "default#default#256#512#Linux/ARM64",
+						Cpu:                  "256",
+						Memory:               "512",
+						RuntimePlatform:      "Linux/ARM64",
 						TaskDefinitionFamily: "runvoy-taskdef-123",
 						IsDefaultPlaceholder: aws.String("DEFAULT"),
 						ImageRegistry:        "",
@@ -366,9 +383,12 @@ func TestGetImageTaskDef(t *testing.T) {
 					*dynamodb.GetItemOutput, error) {
 					item := &imageTaskDefItem{
 						Image:                 "myapp:v1",
-						RoleComposite:         "my-task-role#my-exec-role",
+						CompositeKey:          "my-task-role#my-exec-role#256#512#Linux/ARM64",
 						TaskRoleName:          aws.String("my-task-role"),
 						TaskExecutionRoleName: aws.String("my-exec-role"),
+						Cpu:                   "256",
+						Memory:                "512",
+						RuntimePlatform:       "Linux/ARM64",
 						TaskDefinitionFamily:  "runvoy-taskdef-456",
 						ImageRegistry:         "",
 						ImageName:             "myapp",
@@ -419,7 +439,7 @@ func TestGetImageTaskDef(t *testing.T) {
 			}
 
 			repo := NewImageTaskDefRepository(mockClient, "test-table", logger)
-			result, err := repo.GetImageTaskDef(ctx, tt.image, tt.taskRoleName, tt.taskExecutionRoleName)
+			result, err := repo.GetImageTaskDef(ctx, tt.image, tt.taskRoleName, tt.taskExecutionRoleName, nil, nil, nil)
 
 			if tt.expectError {
 				assert.Error(t, err)
@@ -458,14 +478,12 @@ func TestListImages(t *testing.T) {
 					items := []imageTaskDefItem{
 						{
 							Image:                "nginx:latest",
-							RoleComposite:        "default#default",
 							TaskDefinitionFamily: "taskdef-1",
 							ImageName:            "nginx",
 							ImageTag:             "latest",
 						},
 						{
 							Image:                "alpine:3.14",
-							RoleComposite:        "default#default",
 							TaskDefinitionFamily: "taskdef-2",
 							ImageName:            "alpine",
 							ImageTag:             "3.14",
@@ -550,7 +568,6 @@ func TestGetDefaultImage(t *testing.T) {
 					*dynamodb.QueryOutput, error) {
 					item := &imageTaskDefItem{
 						Image:                "nginx:latest",
-						RoleComposite:        "default#default",
 						TaskDefinitionFamily: "taskdef-default",
 						IsDefaultPlaceholder: aws.String("DEFAULT"),
 						ImageName:            "nginx",
@@ -631,8 +648,7 @@ func TestDeleteImage(t *testing.T) {
 				m.queryFunc = func(_ context.Context, _ *dynamodb.QueryInput, _ ...func(*dynamodb.Options)) (
 					*dynamodb.QueryOutput, error) {
 					item := &imageTaskDefItem{
-						Image:         "nginx:latest",
-						RoleComposite: "default#default",
+						Image: "nginx:latest",
 					}
 					av, _ := attributevalue.MarshalMap(item)
 					return &dynamodb.QueryOutput{Items: []map[string]types.AttributeValue{av}}, nil
@@ -652,9 +668,9 @@ func TestDeleteImage(t *testing.T) {
 				m.queryFunc = func(_ context.Context, _ *dynamodb.QueryInput, _ ...func(*dynamodb.Options)) (
 					*dynamodb.QueryOutput, error) {
 					items := []imageTaskDefItem{
-						{Image: "myapp:v1", RoleComposite: "default#default"},
-						{Image: "myapp:v1", RoleComposite: "role1#role2"},
-						{Image: "myapp:v1", RoleComposite: "role3#role4"},
+						{Image: "myapp:v1"},
+						{Image: "myapp:v1", TaskRoleName: aws.String("role1"), TaskExecutionRoleName: aws.String("role2")},
+						{Image: "myapp:v1", TaskRoleName: aws.String("role3"), TaskExecutionRoleName: aws.String("role4")},
 					}
 					var av []map[string]types.AttributeValue
 					for _, item := range items {
@@ -690,8 +706,7 @@ func TestDeleteImage(t *testing.T) {
 				m.queryFunc = func(_ context.Context, _ *dynamodb.QueryInput, _ ...func(*dynamodb.Options)) (
 					*dynamodb.QueryOutput, error) {
 					item := &imageTaskDefItem{
-						Image:         "nginx:latest",
-						RoleComposite: "default#default",
+						Image: "nginx:latest",
 					}
 					av, _ := attributevalue.MarshalMap(item)
 					return &dynamodb.QueryOutput{Items: []map[string]types.AttributeValue{av}}, nil
@@ -740,10 +755,22 @@ func TestGetUniqueImages(t *testing.T) {
 				m.scanFunc = func(_ context.Context, _ *dynamodb.ScanInput, _ ...func(*dynamodb.Options)) (
 					*dynamodb.ScanOutput, error) {
 					items := []imageTaskDefItem{
-						{Image: "nginx:latest", RoleComposite: "default#default", ImageName: "nginx", ImageTag: "latest"},
-						{Image: "nginx:latest", RoleComposite: "role1#role2", ImageName: "nginx", ImageTag: "latest"},
-						{Image: "alpine:3.14", RoleComposite: "default#default", ImageName: "alpine", ImageTag: "3.14"},
-						{Image: "alpine:3.14", RoleComposite: "role3#role4", ImageName: "alpine", ImageTag: "3.14"},
+						{Image: "nginx:latest", ImageName: "nginx", ImageTag: "latest"},
+						{
+							Image:                 "nginx:latest",
+							TaskRoleName:          aws.String("role1"),
+							TaskExecutionRoleName: aws.String("role2"),
+							ImageName:             "nginx",
+							ImageTag:              "latest",
+						},
+						{Image: "alpine:3.14", ImageName: "alpine", ImageTag: "3.14"},
+						{
+							Image:                 "alpine:3.14",
+							TaskRoleName:          aws.String("role3"),
+							TaskExecutionRoleName: aws.String("role4"),
+							ImageName:             "alpine",
+							ImageTag:              "3.14",
+						},
 					}
 					var av []map[string]types.AttributeValue
 					for _, item := range items {
@@ -879,7 +906,6 @@ func TestSetImageAsOnlyDefault(t *testing.T) {
 					// Return one existing default to unmark
 					item := &imageTaskDefItem{
 						Image:                "alpine:3.14",
-						RoleComposite:        "default#default",
 						IsDefaultPlaceholder: aws.String("DEFAULT"),
 					}
 					av, _ := attributevalue.MarshalMap(item)

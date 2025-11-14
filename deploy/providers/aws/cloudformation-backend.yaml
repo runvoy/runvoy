@@ -132,14 +132,14 @@ Resources:
       AttributeDefinitions:
         - AttributeName: image
           AttributeType: S
-        - AttributeName: role_composite
+        - AttributeName: composite_key
           AttributeType: S
         - AttributeName: is_default_placeholder
           AttributeType: S
       KeySchema:
         - AttributeName: image
           KeyType: HASH
-        - AttributeName: role_composite
+        - AttributeName: composite_key
           KeyType: RANGE
       GlobalSecondaryIndexes:
         - IndexName: is_default-index

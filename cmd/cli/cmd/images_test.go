@@ -18,6 +18,7 @@ type mockClientInterfaceForImages struct {
 		image string,
 		isDefault *bool,
 		taskRoleName, taskExecutionRoleName *string,
+		cpu, memory, runtimePlatform *string,
 	) (*api.RegisterImageResponse, error)
 	listImagesFunc      func(ctx context.Context) (*api.ListImagesResponse, error)
 	unregisterImageFunc func(ctx context.Context, image string) (*api.RemoveImageResponse, error)
@@ -25,9 +26,10 @@ type mockClientInterfaceForImages struct {
 
 func (m *mockClientInterfaceForImages) RegisterImage(
 	ctx context.Context, image string, isDefault *bool, taskRoleName, taskExecutionRoleName *string,
+	cpu, memory, runtimePlatform *string,
 ) (*api.RegisterImageResponse, error) {
 	if m.registerImageFunc != nil {
-		return m.registerImageFunc(ctx, image, isDefault, taskRoleName, taskExecutionRoleName)
+		return m.registerImageFunc(ctx, image, isDefault, taskRoleName, taskExecutionRoleName, cpu, memory, runtimePlatform)
 	}
 	return nil, fmt.Errorf("not implemented")
 }
@@ -66,7 +68,7 @@ func TestImagesService_RegisterImage(t *testing.T) {
 			setupMock: func(m *mockClientInterfaceForImages) {
 				m.registerImageFunc = func(
 					_ context.Context, image string, isDefault *bool, taskRoleName,
-					taskExecutionRoleName *string,
+					taskExecutionRoleName *string, _, _, _ *string,
 				) (*api.RegisterImageResponse, error) {
 					assert.Equal(t, "alpine:latest", image)
 					assert.Nil(t, isDefault)
@@ -103,7 +105,7 @@ func TestImagesService_RegisterImage(t *testing.T) {
 			setupMock: func(m *mockClientInterfaceForImages) {
 				m.registerImageFunc = func(
 					_ context.Context, image string, isDefault *bool, taskRoleName,
-					taskExecutionRoleName *string,
+					taskExecutionRoleName *string, _, _, _ *string,
 				) (*api.RegisterImageResponse, error) {
 					assert.Equal(t, "ubuntu:22.04", image)
 					assert.NotNil(t, isDefault)
@@ -138,7 +140,7 @@ func TestImagesService_RegisterImage(t *testing.T) {
 			setupMock: func(m *mockClientInterfaceForImages) {
 				m.registerImageFunc = func(
 					_ context.Context, image string, isDefault *bool, taskRoleName,
-					taskExecutionRoleName *string,
+					taskExecutionRoleName *string, _, _, _ *string,
 				) (*api.RegisterImageResponse, error) {
 					assert.Equal(t, "alpine:latest", image)
 					assert.Nil(t, isDefault)
@@ -169,7 +171,7 @@ func TestImagesService_RegisterImage(t *testing.T) {
 			isDefault: nil,
 			setupMock: func(m *mockClientInterfaceForImages) {
 				m.registerImageFunc = func(
-					_ context.Context, _ string, _ *bool, _, _ *string,
+					_ context.Context, _ string, _ *bool, _, _ *string, _, _, _ *string,
 				) (*api.RegisterImageResponse, error) {
 					return nil, fmt.Errorf("invalid image format")
 				}
@@ -197,7 +199,9 @@ func TestImagesService_RegisterImage(t *testing.T) {
 			mockOutput := &mockOutputInterface{}
 			service := NewImagesService(mockClient, mockOutput)
 
-			err := service.RegisterImage(context.Background(), tt.image, tt.isDefault, tt.taskRoleName, tt.taskExecutionRoleName)
+			err := service.RegisterImage(
+				context.Background(), tt.image, tt.isDefault, tt.taskRoleName, tt.taskExecutionRoleName, nil, nil, nil,
+			)
 
 			if tt.wantErr {
 				assert.Error(t, err)

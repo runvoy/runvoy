@@ -326,10 +326,41 @@ func buildTaskDefinitionTags(image string, isDefault *bool) []ecsTypes.Tag {
 }
 
 // buildTaskDefinitionInput creates the RegisterTaskDefinitionInput for a new task definition.
+// parseRuntimePlatform splits runtime_platform into OS and Architecture for ECS API.
+// Format: OS/ARCH matching ECS format (e.g., "Linux/ARM64", "Linux/X86_64", "WINDOWS_SERVER_2019_CORE/X86_64").
+func parseRuntimePlatform(runtimePlatform string) (osFamily, cpuArch string, err error) {
+	parts := strings.Split(runtimePlatform, "/")
+	if len(parts) != 2 { //nolint:mnd // Runtime platform format is OS/ARCH (2 parts)
+		return "", "", fmt.Errorf("invalid runtime_platform format: expected OS/ARCH, got %s", runtimePlatform)
+	}
+	osFamily = parts[0]
+	cpuArch = parts[1]
+
+	// Validate known architectures
+	const (
+		archX86_64 = "X86_64"
+		archARM64  = "ARM64"
+	)
+	if cpuArch != archX86_64 && cpuArch != archARM64 {
+		return "", "", fmt.Errorf("unsupported architecture: %s (expected X86_64 or ARM64)", cpuArch)
+	}
+
+	return osFamily, cpuArch, nil
+}
+
+// convertOSFamilyToECSEnum converts OS family string to ECS enum.
+// ECS uses uppercase enum values (LINUX, WINDOWS_SERVER_2019_CORE, etc.).
+func convertOSFamilyToECSEnum(osFamily string) ecsTypes.OSFamily {
+	upper := strings.ToUpper(osFamily)
+	return ecsTypes.OSFamily(upper)
+}
+
 //
 //nolint:funlen // Large data structure definition
 func buildTaskDefinitionInput(
-	family, image, taskExecRoleARN, taskRoleARN, region string, cfg *Config,
+	family, image, taskExecRoleARN, taskRoleARN, region string,
+	cpu, memory, runtimePlatform string,
+	cfg *Config,
 ) *ecs.RegisterTaskDefinitionInput {
 	registerInput := &ecs.RegisterTaskDefinitionInput{
 		Family:      awsStd.String(family),
@@ -337,8 +368,8 @@ func buildTaskDefinitionInput(
 		RequiresCompatibilities: []ecsTypes.Compatibility{
 			ecsTypes.CompatibilityFargate,
 		},
-		Cpu:              awsStd.String("256"),
-		Memory:           awsStd.String("512"),
+		Cpu:              awsStd.String(cpu),
+		Memory:           awsStd.String(memory),
 		ExecutionRoleArn: awsStd.String(taskExecRoleARN),
 		EphemeralStorage: &ecsTypes.EphemeralStorage{
 			SizeInGiB: awsConstants.ECSEphemeralStorageSizeGiB,
@@ -412,6 +443,25 @@ func buildTaskDefinitionInput(
 	if taskRoleARN != "" {
 		registerInput.TaskRoleArn = awsStd.String(taskRoleARN)
 	}
+
+	// Parse runtime_platform into OS and Architecture for ECS API
+	osFamily, cpuArch, err := parseRuntimePlatform(runtimePlatform)
+	if err != nil {
+		// This should not happen if validation is done before calling this function
+		// But we'll use defaults as fallback
+		osFamily = "Linux"
+		cpuArch = "ARM64"
+	}
+
+	// Convert OS family string to ECS enum
+	osFamilyEnum := convertOSFamilyToECSEnum(osFamily)
+
+	// Set RuntimePlatform for OS and Architecture
+	registerInput.RuntimePlatform = &ecsTypes.RuntimePlatform{
+		OperatingSystemFamily: osFamilyEnum,
+		CpuArchitecture:       ecsTypes.CPUArchitecture(cpuArch),
+	}
+
 	return registerInput
 }
 
@@ -462,7 +512,10 @@ func RegisterTaskDefinitionForImage(
 		return fmt.Errorf("task execution role ARN is required but not found in config or existing task definitions")
 	}
 
-	registerInput := buildTaskDefinitionInput(family, image, taskExecRoleARN, taskRoleARN, region, cfg)
+	// Use defaults for RegisterTaskDefinitionForImage (legacy function)
+	registerInput := buildTaskDefinitionInput(
+		family, image, taskExecRoleARN, taskRoleARN, region, "256", "512", "Linux/ARM64", cfg,
+	)
 	registerOutput, err := ecsClient.RegisterTaskDefinition(ctx, registerInput)
 	if err != nil {
 		return fmt.Errorf("failed to register task definition: %w", err)
