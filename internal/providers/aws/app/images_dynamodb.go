@@ -28,27 +28,27 @@ func buildRoleARN(roleName *string, accountID, _ string) string {
 // Since each family is only registered once, revision is always 1.
 // This is used for DeregisterTaskDefinition which requires a full ARN with revision.
 // For RunTask, we use just the family name so ECS picks the latest active revision.
-func buildTaskDefinitionARN(family, region, accountID string) string {
-	return fmt.Sprintf("arn:aws:ecs:%s:%s:task-definition/%s:1", region, accountID, family)
+func (e *Runner) buildTaskDefinitionARN(family, region string) string {
+	return fmt.Sprintf("arn:aws:ecs:%s:%s:task-definition/%s:1", region, e.cfg.AccountID, family)
 }
 
 // buildRoleARNs constructs task and execution role ARNs from names or config defaults.
 func (e *Runner) buildRoleARNs(
 	taskRoleName *string,
 	taskExecutionRoleName *string,
-	accountID, region string,
+	region string,
 ) (taskRoleARN, taskExecRoleARN string) {
 	taskRoleARN = ""
 	taskExecRoleARN = e.cfg.DefaultTaskExecRoleARN // Always required
 
 	if taskRoleName != nil && *taskRoleName != "" {
-		taskRoleARN = buildRoleARN(taskRoleName, accountID, region)
+		taskRoleARN = buildRoleARN(taskRoleName, e.cfg.AccountID, region)
 	} else if e.cfg.DefaultTaskRoleARN != "" {
 		taskRoleARN = e.cfg.DefaultTaskRoleARN
 	}
 
 	if taskExecutionRoleName != nil && *taskExecutionRoleName != "" {
-		taskExecRoleARN = buildRoleARN(taskExecutionRoleName, accountID, region)
+		taskExecRoleARN = buildRoleARN(taskExecutionRoleName, e.cfg.AccountID, region)
 	}
 
 	return taskRoleARN, taskExecRoleARN
@@ -97,6 +97,8 @@ func (e *Runner) handleExistingImage(
 }
 
 // registerNewImage handles registration of a new image.
+// Generate a unique task definition family name using UUID
+// Register the task definition with ECS
 func (e *Runner) registerNewImage(
 	ctx context.Context,
 	image string,
@@ -105,10 +107,8 @@ func (e *Runner) registerNewImage(
 	taskRoleARN, taskExecRoleARN, region string,
 	reqLogger *slog.Logger,
 ) (taskDefARN, family string, err error) {
-	// Generate a unique task definition family name using UUID
 	family = fmt.Sprintf("runvoy-taskdef-%s", auth.GenerateUUID())
 
-	// Register the task definition with ECS
 	taskDefARN, err = e.registerTaskDefinitionWithRoles(
 		ctx,
 		family,
@@ -122,23 +122,19 @@ func (e *Runner) registerNewImage(
 		return "", "", fmt.Errorf("failed to register ECS task definition: %w", err)
 	}
 
-	// Determine if this should be the default
 	shouldBeDefault, err := e.determineDefaultStatus(ctx, isDefault)
 	if err != nil {
 		return "", "", err
 	}
 
-	// Handle default status
 	if shouldBeDefault {
 		if unmarkErr := e.imageRepo.UnmarkAllDefaults(ctx); unmarkErr != nil {
 			return "", "", fmt.Errorf("failed to unmark existing defaults: %w", unmarkErr)
 		}
 	}
 
-	// Parse the image reference into components
 	imageRef := ParseImageReference(image)
 
-	// Store the mapping in DynamoDB
 	if putErr := e.imageRepo.PutImageTaskDef(
 		ctx,
 		image,
@@ -183,10 +179,8 @@ func (e *Runner) RegisterImage(
 		return fmt.Errorf("AWS account ID not configured")
 	}
 
-	// Build role ARNs from names, or use defaults from config
-	taskRoleARN, taskExecRoleARN := e.buildRoleARNs(taskRoleName, taskExecutionRoleName, e.cfg.AccountID, region)
+	taskRoleARN, taskExecRoleARN := e.buildRoleARNs(taskRoleName, taskExecutionRoleName, region)
 
-	// Check if this exact combination already exists
 	existing, err := e.imageRepo.GetImageTaskDef(ctx, image, taskRoleName, taskExecutionRoleName)
 	if err != nil {
 		return fmt.Errorf("failed to check existing image-taskdef mapping: %w", err)
@@ -299,7 +293,7 @@ func (e *Runner) RemoveImage(ctx context.Context, image string) error {
 	var taskDefsToDeregister []string
 	for i := range allImages {
 		if allImages[i].Image == image && allImages[i].TaskDefinitionName != "" {
-			taskDefARN := buildTaskDefinitionARN(allImages[i].TaskDefinitionName, region, e.cfg.AccountID)
+			taskDefARN := e.buildTaskDefinitionARN(allImages[i].TaskDefinitionName, region)
 			taskDefsToDeregister = append(taskDefsToDeregister, taskDefARN)
 		}
 	}
