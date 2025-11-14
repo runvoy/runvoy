@@ -9,11 +9,11 @@ import (
 	"strings"
 
 	"runvoy/internal/api"
+	"runvoy/internal/auth"
 	"runvoy/internal/logger"
 
 	awsStd "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ecs"
-	"github.com/google/uuid"
 )
 
 const (
@@ -122,7 +122,7 @@ func (e *Runner) registerNewImage(
 	reqLogger *slog.Logger,
 ) (taskDefARN, family string, err error) {
 	// Generate a unique task definition family name using UUID
-	family = fmt.Sprintf("runvoy-taskdef-%s", uuid.New().String())
+	family = fmt.Sprintf("runvoy-taskdef-%s", auth.GenerateUUID())
 
 	// Register the task definition with ECS
 	taskDefARN, err = e.registerTaskDefinitionWithRoles(

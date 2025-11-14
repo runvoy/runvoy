@@ -227,6 +227,10 @@ const SecretTokenByteSize = 24
 // RequestIDByteSize is the number of random bytes used to generate request IDs
 const RequestIDByteSize = 16
 
+// UUIDByteSize is the number of random bytes used to generate UUIDs
+// 16 bytes = 128 bits, same as a UUID
+const UUIDByteSize = 16
+
 // AWS/CloudWatch constants
 // AWS-specific constants have been moved to internal/providers/aws/constants/
 
