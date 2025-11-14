@@ -262,6 +262,7 @@ func (r *ImageTaskDefRepository) GetImageTaskDef(
 }
 
 // ListImages retrieves all registered images with their task definitions.
+// Deduplicates by image name, preferring the default configuration if available.
 func (r *ImageTaskDefRepository) ListImages(ctx context.Context) ([]api.ImageInfo, error) {
 	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
 
@@ -284,7 +285,24 @@ func (r *ImageTaskDefRepository) ListImages(ctx context.Context) ([]api.ImageInf
 		return nil, apperrors.ErrInternalError("failed to unmarshal image-taskdef items", unmarshalErr)
 	}
 
-	images := make([]api.ImageInfo, 0, len(items))
+	allImages, convertErr := r.convertItemsToImageInfo(items)
+	if convertErr != nil {
+		return nil, convertErr
+	}
+
+	images := r.deduplicateImages(allImages)
+
+	// Sort by image name for consistency
+	sort.Slice(images, func(i, j int) bool {
+		return images[i].Image < images[j].Image
+	})
+
+	return images, nil
+}
+
+// convertItemsToImageInfo converts DynamoDB items to ImageInfo structs.
+func (r *ImageTaskDefRepository) convertItemsToImageInfo(items []imageTaskDefItem) ([]api.ImageInfo, error) {
+	allImages := make([]api.ImageInfo, 0, len(items))
 	for i := range items {
 		item := &items[i]
 		isDefault := item.isDefault()
@@ -299,7 +317,7 @@ func (r *ImageTaskDefRepository) ListImages(ctx context.Context) ([]api.ImageInf
 			return nil, apperrors.ErrInternalError("failed to parse Memory value", parseErr)
 		}
 
-		images = append(images, api.ImageInfo{
+		allImages = append(allImages, api.ImageInfo{
 			Image:                 item.Image,
 			TaskDefinitionName:    item.TaskDefinitionFamily,
 			IsDefault:             &isDefault,
@@ -313,19 +331,33 @@ func (r *ImageTaskDefRepository) ListImages(ctx context.Context) ([]api.ImageInf
 			ImageTag:              item.ImageTag,
 		})
 	}
+	return allImages, nil
+}
 
-	// Sort by image name, then by role composite for consistency
-	sort.Slice(images, func(i, j int) bool {
-		if images[i].Image != images[j].Image {
-			return images[i].Image < images[j].Image
+// deduplicateImages deduplicates images by name, preferring default configuration.
+func (r *ImageTaskDefRepository) deduplicateImages(allImages []api.ImageInfo) []api.ImageInfo {
+	imageMap := make(map[string]api.ImageInfo)
+	for i := range allImages {
+		img := &allImages[i]
+		_, exists := imageMap[img.Image]
+
+		if !exists {
+			// First occurrence of this image
+			imageMap[img.Image] = *img
+		} else if img.IsDefault != nil && *img.IsDefault {
+			// Prefer default configuration
+			imageMap[img.Image] = *img
 		}
-		// Secondary sort by roles
-		roleI := buildRoleComposite(images[i].TaskRoleName, images[i].TaskExecutionRoleName)
-		roleJ := buildRoleComposite(images[j].TaskRoleName, images[j].TaskExecutionRoleName)
-		return roleI < roleJ
-	})
+		// If neither is default, keep the first one (already in map)
+	}
 
-	return images, nil
+	// Convert map to slice
+	images := make([]api.ImageInfo, 0, len(imageMap))
+	for imgName := range imageMap {
+		images = append(images, imageMap[imgName])
+	}
+
+	return images
 }
 
 // GetDefaultImage retrieves the image marked as default.
