@@ -45,6 +45,10 @@ type imageTaskDefItem struct {
 	TaskDefinitionFamily   string  `dynamodbav:"task_definition_family"`
 	IsDefault              bool    `dynamodbav:"is_default"`
 	IsDefaultPlaceholder   *string `dynamodbav:"is_default_placeholder,omitempty"`
+	// Parsed image components
+	ImageRegistry          string  `dynamodbav:"image_registry"`           // Empty = Docker Hub
+	ImageName              string  `dynamodbav:"image_name"`               // e.g., "alpine", "hashicorp/terraform"
+	ImageTag               string  `dynamodbav:"image_tag"`                // e.g., "latest", "1.6"
 	CreatedAt              int64   `dynamodbav:"created_at"`
 	UpdatedAt              int64   `dynamodbav:"updated_at"`
 }
@@ -67,6 +71,9 @@ func buildRoleComposite(taskRoleName, taskExecutionRoleName *string) string {
 func (r *ImageTaskDefRepository) PutImageTaskDef(
 	ctx context.Context,
 	image string,
+	imageRegistry string,
+	imageName string,
+	imageTag string,
 	taskRoleName *string,
 	taskExecutionRoleName *string,
 	taskDefARN string,
@@ -84,6 +91,9 @@ func (r *ImageTaskDefRepository) PutImageTaskDef(
 		TaskDefinitionARN:     taskDefARN,
 		TaskDefinitionFamily:  taskDefFamily,
 		IsDefault:             isDefault,
+		ImageRegistry:         imageRegistry,
+		ImageName:             imageName,
+		ImageTag:              imageTag,
 		CreatedAt:             now,
 		UpdatedAt:             now,
 	}
@@ -168,6 +178,9 @@ func (r *ImageTaskDefRepository) GetImageTaskDef(
 		IsDefault:             &isDefault,
 		TaskRoleName:          item.TaskRoleName,
 		TaskExecutionRoleName: item.TaskExecutionRoleName,
+		ImageRegistry:         item.ImageRegistry,
+		ImageName:             item.ImageName,
+		ImageTag:              item.ImageTag,
 	}, nil
 }
 
@@ -204,6 +217,9 @@ func (r *ImageTaskDefRepository) ListImages(ctx context.Context) ([]api.ImageInf
 			IsDefault:             &isDefault,
 			TaskRoleName:          item.TaskRoleName,
 			TaskExecutionRoleName: item.TaskExecutionRoleName,
+			ImageRegistry:         item.ImageRegistry,
+			ImageName:             item.ImageName,
+			ImageTag:              item.ImageTag,
 		})
 	}
 
@@ -263,6 +279,9 @@ func (r *ImageTaskDefRepository) GetDefaultImage(ctx context.Context) (*api.Imag
 		IsDefault:             &isDefault,
 		TaskRoleName:          item.TaskRoleName,
 		TaskExecutionRoleName: item.TaskExecutionRoleName,
+		ImageRegistry:         item.ImageRegistry,
+		ImageName:             item.ImageName,
+		ImageTag:              item.ImageTag,
 	}, nil
 }
 

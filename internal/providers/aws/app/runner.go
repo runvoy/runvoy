@@ -37,7 +37,7 @@ type Config struct {
 
 // ImageTaskDefRepository defines the interface for image-taskdef mapping operations.
 type ImageTaskDefRepository interface {
-	PutImageTaskDef(ctx context.Context, image string, taskRoleName, taskExecutionRoleName *string, taskDefARN, taskDefFamily string, isDefault bool) error
+	PutImageTaskDef(ctx context.Context, image string, imageRegistry string, imageName string, imageTag string, taskRoleName, taskExecutionRoleName *string, taskDefARN, taskDefFamily string, isDefault bool) error
 	GetImageTaskDef(ctx context.Context, image string, taskRoleName, taskExecutionRoleName *string) (*api.ImageInfo, error)
 	ListImages(ctx context.Context) ([]api.ImageInfo, error)
 	GetDefaultImage(ctx context.Context) (*api.ImageInfo, error)

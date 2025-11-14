@@ -139,10 +139,16 @@ func (e *Runner) RegisterImage(
 		}
 	}
 
+	// Parse the image reference into components
+	imageRef := ParseImageReference(image)
+
 	// Store the mapping in DynamoDB
 	if err := e.imageRepo.PutImageTaskDef(
 		ctx,
 		image,
+		imageRef.Registry,
+		imageRef.Name,
+		imageRef.Tag,
 		taskRoleName,
 		taskExecutionRoleName,
 		taskDefARN,
