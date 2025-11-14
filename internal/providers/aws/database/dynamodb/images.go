@@ -42,8 +42,7 @@ type imageTaskDefItem struct {
 	TaskRoleName          *string `dynamodbav:"task_role_name,omitempty"`
 	TaskExecutionRoleName *string `dynamodbav:"task_execution_role_name,omitempty"`
 	TaskDefinitionFamily  string  `dynamodbav:"task_definition_family"`
-	IsDefault             bool    `dynamodbav:"is_default"`
-	IsDefaultPlaceholder  *string `dynamodbav:"is_default_placeholder,omitempty"`
+	IsDefaultPlaceholder  *string `dynamodbav:"is_default_placeholder,omitempty"` // "DEFAULT" if default, nil otherwise
 	// Parsed image components
 	ImageRegistry string `dynamodbav:"image_registry"` // Empty = Docker Hub
 	ImageName     string `dynamodbav:"image_name"`     // e.g., "alpine", "hashicorp/terraform"
@@ -52,7 +51,15 @@ type imageTaskDefItem struct {
 	UpdatedAt     int64  `dynamodbav:"updated_at"`
 }
 
-const defaultRoleName = "default"
+const (
+	defaultRoleName        = "default"
+	defaultPlaceholderValue = "DEFAULT"
+)
+
+// isDefault derives the boolean default status from the placeholder field.
+func (item *imageTaskDefItem) isDefault() bool {
+	return item.IsDefaultPlaceholder != nil && *item.IsDefaultPlaceholder == defaultPlaceholderValue
+}
 
 // buildRoleComposite creates a composite sort key from role names.
 // Returns "default#default" if both are nil, otherwise "roleName1#roleName2".
@@ -89,7 +96,6 @@ func (r *ImageTaskDefRepository) PutImageTaskDef(
 		TaskRoleName:          taskRoleName,
 		TaskExecutionRoleName: taskExecutionRoleName,
 		TaskDefinitionFamily:  taskDefFamily,
-		IsDefault:             isDefault,
 		ImageRegistry:         imageRegistry,
 		ImageName:             imageName,
 		ImageTag:              imageTag,
@@ -99,7 +105,7 @@ func (r *ImageTaskDefRepository) PutImageTaskDef(
 
 	// Set placeholder for GSI if this is default
 	if isDefault {
-		placeholder := "DEFAULT"
+		placeholder := defaultPlaceholderValue
 		item.IsDefaultPlaceholder = &placeholder
 	}
 
@@ -169,7 +175,7 @@ func (r *ImageTaskDefRepository) GetImageTaskDef(
 		return nil, apperrors.ErrInternalError("failed to unmarshal image-taskdef item", unmarshalErr)
 	}
 
-	isDefault := item.IsDefault
+	isDefault := item.isDefault()
 	return &api.ImageInfo{
 		Image:                 item.Image,
 		TaskDefinitionName:    item.TaskDefinitionFamily,
@@ -208,7 +214,7 @@ func (r *ImageTaskDefRepository) ListImages(ctx context.Context) ([]api.ImageInf
 	images := make([]api.ImageInfo, 0, len(items))
 	for i := range items {
 		item := &items[i]
-		isDefault := item.IsDefault
+		isDefault := item.isDefault()
 		images = append(images, api.ImageInfo{
 			Image:                 item.Image,
 			TaskDefinitionName:    item.TaskDefinitionFamily,
@@ -269,7 +275,7 @@ func (r *ImageTaskDefRepository) GetDefaultImage(ctx context.Context) (*api.Imag
 		return nil, apperrors.ErrInternalError("failed to unmarshal default image item", unmarshalErr)
 	}
 
-	isDefault := item.IsDefault
+	isDefault := item.isDefault()
 	return &api.ImageInfo{
 		Image:                 item.Image,
 		TaskDefinitionName:    item.TaskDefinitionFamily,
