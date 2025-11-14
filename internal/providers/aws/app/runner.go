@@ -120,6 +120,22 @@ type sidecarScriptData struct {
 	HasGitRepo    bool
 }
 
+// injectGitHubTokenIfNeeded modifies a GitHub repository URL to include authentication
+// if GITHUB_TOKEN is available in the user environment variables.
+// Returns the original URL if it's not a GitHub URL or if no token is available.
+func injectGitHubTokenIfNeeded(gitRepo string, userEnv map[string]string) string {
+	if !strings.HasPrefix(gitRepo, "https://github.com/") {
+		return gitRepo
+	}
+
+	token, hasToken := userEnv["GITHUB_TOKEN"]
+	if !hasToken || token == "" {
+		return gitRepo
+	}
+
+	return strings.Replace(gitRepo, "https://", "https://"+token+"@", 1)
+}
+
 // buildSidecarContainerCommand constructs the shell command for the sidecar container.
 // It handles .env file creation from user environment variables and git repository cloning.
 func buildSidecarContainerCommand(hasGitRepo bool) []string {
@@ -256,18 +272,23 @@ func (e *Runner) StartTask( //nolint: funlen
 
 	sidecarEnv := buildSidecarEnvironment(req.Env)
 
+	var authenticatedRepoURL string
 	if hasGitRepo {
 		gitRef := req.GitRef
 		if gitRef == "" {
 			gitRef = constants.DefaultGitRef
 		}
+		authenticatedRepoURL = injectGitHubTokenIfNeeded(req.GitRepo, req.Env)
 		sidecarEnv = append(sidecarEnv,
-			ecsTypes.KeyValuePair{Name: awsStd.String("GIT_REPO"), Value: awsStd.String(req.GitRepo)},
+			ecsTypes.KeyValuePair{Name: awsStd.String("GIT_REPO"), Value: awsStd.String(authenticatedRepoURL)},
 			ecsTypes.KeyValuePair{Name: awsStd.String("GIT_REF"), Value: awsStd.String(gitRef)},
 		)
 		reqLogger.Debug("configured sidecar for git cloning",
 			"git_repo", req.GitRepo,
 			"git_ref", gitRef)
+		if authenticatedRepoURL != req.GitRepo {
+			reqLogger.Debug("using GitHub token for repository authentication")
+		}
 	} else {
 		sidecarEnv = append(sidecarEnv,
 			ecsTypes.KeyValuePair{Name: awsStd.String("GIT_REPO"), Value: awsStd.String("")},
@@ -278,7 +299,7 @@ func (e *Runner) StartTask( //nolint: funlen
 	var repo *gitRepoInfo
 	if hasGitRepo {
 		repo = &gitRepoInfo{
-			RepoURL:  awsStd.String(req.GitRepo),
+			RepoURL:  awsStd.String(authenticatedRepoURL),
 			RepoRef:  awsStd.String(req.GitRef),
 			RepoPath: awsStd.String(req.GitPath),
 		}

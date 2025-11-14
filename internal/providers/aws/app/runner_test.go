@@ -40,6 +40,53 @@ func TestBuildSidecarContainerCommandWithGitRepo(t *testing.T) {
 	assert.Contains(t, script, constants.ProjectName+" sidecar: .env file copied to repo directory")
 }
 
+func TestInjectGitHubTokenIfNeeded(t *testing.T) {
+	tests := []struct {
+		name     string
+		gitRepo  string
+		userEnv  map[string]string
+		expected string
+	}{
+		{
+			name:     "GitHub URL with token",
+			gitRepo:  "https://github.com/owner/repo.git",
+			userEnv:  map[string]string{"GITHUB_TOKEN": "ghp_token123"},
+			expected: "https://ghp_token123@github.com/owner/repo.git",
+		},
+		{
+			name:     "GitHub URL without token",
+			gitRepo:  "https://github.com/owner/repo.git",
+			userEnv:  map[string]string{},
+			expected: "https://github.com/owner/repo.git",
+		},
+		{
+			name:     "GitHub URL with empty token",
+			gitRepo:  "https://github.com/owner/repo.git",
+			userEnv:  map[string]string{"GITHUB_TOKEN": ""},
+			expected: "https://github.com/owner/repo.git",
+		},
+		{
+			name:     "Non-GitHub URL with token",
+			gitRepo:  "https://gitlab.com/owner/repo.git",
+			userEnv:  map[string]string{"GITHUB_TOKEN": "ghp_token123"},
+			expected: "https://gitlab.com/owner/repo.git",
+		},
+		{
+			name:     "GitHub URL with other env vars but no token",
+			gitRepo:  "https://github.com/owner/repo.git",
+			userEnv:  map[string]string{"OTHER_VAR": "value"},
+			expected: "https://github.com/owner/repo.git",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := injectGitHubTokenIfNeeded(tt.gitRepo, tt.userEnv)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
 func TestBuildMainContainerCommandWithoutRepo(t *testing.T) {
 	req := &api.ExecutionRequest{
 		Command: "echo 'hello world'",

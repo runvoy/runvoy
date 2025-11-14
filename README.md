@@ -41,7 +41,7 @@ Runvoy is composed of 3 main parts:
 
 **Key Benefits:**
 
-- **Doesn't _run on your computer_**: The actual commands are executed in remote production-grade environments properly configured for access to secrets and other resources, team member's workstations don't need any special configuration with credentials, environment variables, and so on
+- **_Doesn't_ run on your computer**: The actual commands are executed in remote production-grade environments properly configured for access to secrets and other resources, team member's workstations don't need any special configuration, just `runvoy` CLI and its API key
 - **Complete audit trail**: Every interaction with the backend is logged with user identification. All logs stored in read-only database for auditing purposes (currently only CloudWatch Logs is supported, but with plans to extend support to other cloud services in the future)
 - **Self-hosted, no black magic**: The backend runs in your cloud provider account, you control everything, including the policies and permissions assigned to the containers
 - **Serverless**: No always-running services, just pay for the compute your commands consume (essentially free for infrequent use)
@@ -49,15 +49,19 @@ Runvoy is composed of 3 main parts:
 ## Features
 
 - **API key authentication** - Secure access with hashed API keys (SHA-256)
-- **Flexible container images** - Use any public Docker image (Ubuntu, Python, Node, etc.)
-- **Git cloning** - Automatically clone a (public/private) repository into the container working directory
+- **Customizable container task and execution roles** - Register Docker images with custom task and execution roles to e.g. run Terraform with the right permissions to access AWS resources (currently only AWS ECS is supported)
+- **Automatic git cloning** - Optionally clone a (public or private) Git repository into the container working directory
 - **Native cloud provider logging integration** - Full execution logs and audit trails with request ID tracking
 - **Reusable playbooks** - Store and reuse command execution configurations in YAML files, share with your team to execute commands consistently
 - **Secrets management** - Centralized encrypted secrets with full CRUD from the CLI
 - **Real-time WebSocket streaming** - CLI and web viewer receive live logs over authenticated WebSocket connections
 - **Unix-style output streams** - Separate CLI logs (stderr) from data (stdout) for easy piping and scripting
 - **IaC deployment** - Deploy complete backend infrastructure with IaC templates (currently only AWS CloudFormation is supported, but with plans to extend support to other cloud providers in the future)
-- **RBAC** - Role based access control for the backend API (NOT IMPLEMENTED YET). Runvoy admins define roles and permissions for users, non-admin users can only execute commands / clone repos / select Docker images they are allowed to use
+
+### Roadmap (NOT IMPLEMENTED YET!)
+
+- **RBAC** - Role based access control for the backend API. Runvoy admins define roles and permissions for users, non-admin users can only execute commands / access secrets/ select Docker images they are allowed to
+- **Multi-cloud support** - Backend support for other cloud providers (GCP, etc.)
 
 ## Quick Start
 
@@ -126,7 +130,7 @@ runvoy --help
 ```
 
 ```text
-runvoy - 0.1.0-20251114-112d669
+runvoy - 0.1.0-20251114-540dfe8
 Isolated, repeatable execution environments for your commands
 
 Usage:
