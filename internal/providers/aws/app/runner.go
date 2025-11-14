@@ -44,15 +44,14 @@ type ImageTaskDefRepository interface {
 		imageName string,
 		imageTag string,
 		taskRoleName, taskExecutionRoleName *string,
-		taskDefARN, taskDefFamily string,
+		taskDefFamily string,
 		isDefault bool,
 	) error
 	GetImageTaskDef(
 		ctx context.Context,
 		image string,
 		taskRoleName, taskExecutionRoleName *string,
-	) (*api.ImageInfo, string, error)
-	GetTaskDefARNsForImage(ctx context.Context, image string) ([]string, error)
+	) (*api.ImageInfo, error)
 	ListImages(ctx context.Context) ([]api.ImageInfo, error)
 	GetDefaultImage(ctx context.Context) (*api.ImageInfo, error)
 	UnmarkAllDefaults(ctx context.Context) error

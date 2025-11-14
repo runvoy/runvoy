@@ -41,7 +41,6 @@ type imageTaskDefItem struct {
 	RoleComposite         string  `dynamodbav:"role_composite"`
 	TaskRoleName          *string `dynamodbav:"task_role_name,omitempty"`
 	TaskExecutionRoleName *string `dynamodbav:"task_execution_role_name,omitempty"`
-	TaskDefinitionARN     string  `dynamodbav:"task_definition_arn"`
 	TaskDefinitionFamily  string  `dynamodbav:"task_definition_family"`
 	IsDefault             bool    `dynamodbav:"is_default"`
 	IsDefaultPlaceholder  *string `dynamodbav:"is_default_placeholder,omitempty"`
@@ -78,7 +77,6 @@ func (r *ImageTaskDefRepository) PutImageTaskDef(
 	imageTag string,
 	taskRoleName *string,
 	taskExecutionRoleName *string,
-	taskDefARN string,
 	taskDefFamily string,
 	isDefault bool,
 ) error {
@@ -90,7 +88,6 @@ func (r *ImageTaskDefRepository) PutImageTaskDef(
 		RoleComposite:         buildRoleComposite(taskRoleName, taskExecutionRoleName),
 		TaskRoleName:          taskRoleName,
 		TaskExecutionRoleName: taskExecutionRoleName,
-		TaskDefinitionARN:     taskDefARN,
 		TaskDefinitionFamily:  taskDefFamily,
 		IsDefault:             isDefault,
 		ImageRegistry:         imageRegistry,
@@ -138,7 +135,7 @@ func (r *ImageTaskDefRepository) GetImageTaskDef(
 	image string,
 	taskRoleName *string,
 	taskExecutionRoleName *string,
-) (*api.ImageInfo, string, error) {
+) (*api.ImageInfo, error) {
 	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
 
 	roleComposite := buildRoleComposite(taskRoleName, taskExecutionRoleName)
@@ -160,16 +157,16 @@ func (r *ImageTaskDefRepository) GetImageTaskDef(
 		},
 	})
 	if err != nil {
-		return nil, "", apperrors.ErrInternalError("failed to get image-taskdef mapping", err)
+		return nil, apperrors.ErrInternalError("failed to get image-taskdef mapping", err)
 	}
 
 	if result.Item == nil {
-		return nil, "", nil
+		return nil, nil
 	}
 
 	var item imageTaskDefItem
 	if unmarshalErr := attributevalue.UnmarshalMap(result.Item, &item); unmarshalErr != nil {
-		return nil, "", apperrors.ErrInternalError("failed to unmarshal image-taskdef item", unmarshalErr)
+		return nil, apperrors.ErrInternalError("failed to unmarshal image-taskdef item", unmarshalErr)
 	}
 
 	isDefault := item.IsDefault
@@ -182,7 +179,7 @@ func (r *ImageTaskDefRepository) GetImageTaskDef(
 		ImageRegistry:         item.ImageRegistry,
 		ImageName:             item.ImageName,
 		ImageTag:              item.ImageTag,
-	}, item.TaskDefinitionARN, nil
+	}, nil
 }
 
 // ListImages retrieves all registered images with their task definitions.
@@ -393,42 +390,6 @@ func (r *ImageTaskDefRepository) DeleteImage(ctx context.Context, image string) 
 	}
 
 	return nil
-}
-
-// GetTaskDefARNsForImage returns all task definition ARNs for a specific image.
-func (r *ImageTaskDefRepository) GetTaskDefARNsForImage(ctx context.Context, image string) ([]string, error) {
-	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
-
-	logArgs := []any{
-		"operation", "DynamoDB.Query",
-		"table", r.tableName,
-		"image", image,
-	}
-	logArgs = append(logArgs, logger.GetDeadlineInfo(ctx)...)
-	reqLogger.Debug("calling external service", "context", logger.SliceToMap(logArgs))
-
-	result, err := r.client.Query(ctx, &dynamodb.QueryInput{
-		TableName:              aws.String(r.tableName),
-		KeyConditionExpression: aws.String("image = :image"),
-		ExpressionAttributeValues: map[string]types.AttributeValue{
-			":image": &types.AttributeValueMemberS{Value: image},
-		},
-	})
-	if err != nil {
-		return nil, apperrors.ErrInternalError("failed to query image mappings", err)
-	}
-
-	var items []imageTaskDefItem
-	if unmarshalErr := attributevalue.UnmarshalListOfMaps(result.Items, &items); unmarshalErr != nil {
-		return nil, apperrors.ErrInternalError("failed to unmarshal image items", unmarshalErr)
-	}
-
-	arns := make([]string, 0, len(items))
-	for i := range items {
-		arns = append(arns, items[i].TaskDefinitionARN)
-	}
-
-	return arns, nil
 }
 
 // GetImagesCount returns the total number of unique image+role combinations.

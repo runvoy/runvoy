@@ -40,6 +40,12 @@ func buildRoleARN(roleName *string, accountID, _ string) string {
 	return fmt.Sprintf("arn:aws:iam::%s:role/%s", accountID, *roleName)
 }
 
+// buildTaskDefinitionARN constructs a task definition ARN from family name.
+// Since each family is only registered once, revision is always 1.
+func buildTaskDefinitionARN(family, region, accountID string) string {
+	return fmt.Sprintf("arn:aws:ecs:%s:%s:task-definition/%s:1", region, accountID, family)
+}
+
 // buildRoleARNs constructs task and execution role ARNs from names or config defaults.
 func (e *Runner) buildRoleARNs(
 	taskRoleName *string,
@@ -86,12 +92,10 @@ func (e *Runner) handleExistingImage(
 	isDefault *bool,
 	taskRoleName, taskExecutionRoleName *string,
 	existing *api.ImageInfo,
-	existingARN string,
 	reqLogger *slog.Logger,
 ) error {
 	reqLogger.Debug("image-taskdef mapping already exists", "context", map[string]string{
 		"image":                  image,
-		"task_definition_arn":    existingARN,
 		"task_definition_family": existing.TaskDefinitionName,
 	})
 
@@ -157,7 +161,6 @@ func (e *Runner) registerNewImage(
 		imageRef.Tag,
 		taskRoleName,
 		taskExecutionRoleName,
-		taskDefARN,
 		family,
 		shouldBeDefault,
 	); putErr != nil {
@@ -200,7 +203,7 @@ func (e *Runner) RegisterImage(
 	taskRoleARN, taskExecRoleARN := e.buildRoleARNs(taskRoleName, taskExecutionRoleName, accountID, region)
 
 	// Check if this exact combination already exists
-	existing, existingARN, err := e.imageRepo.GetImageTaskDef(ctx, image, taskRoleName, taskExecutionRoleName)
+	existing, err := e.imageRepo.GetImageTaskDef(ctx, image, taskRoleName, taskExecutionRoleName)
 	if err != nil {
 		return fmt.Errorf("failed to check existing image-taskdef mapping: %w", err)
 	}
@@ -208,7 +211,7 @@ func (e *Runner) RegisterImage(
 	if existing != nil {
 		return e.handleExistingImage(
 			ctx, image, isDefault, taskRoleName, taskExecutionRoleName,
-			existing, existingARN, reqLogger,
+			existing, reqLogger,
 		)
 	}
 
@@ -297,10 +300,26 @@ func (e *Runner) RemoveImage(ctx context.Context, image string) error {
 
 	reqLogger := logger.DeriveRequestLogger(ctx, e.logger)
 
-	// Get all task definition ARNs for this image
-	taskDefsToDeregister, err := e.imageRepo.GetTaskDefARNsForImage(ctx, image)
+	// Extract account ID for ARN construction
+	accountID, err := extractAccountIDFromRoleARN(e.cfg.DefaultTaskExecRoleARN)
 	if err != nil {
-		return fmt.Errorf("failed to get task definitions for image: %w", err)
+		return fmt.Errorf("failed to extract account ID: %w", err)
+	}
+	region := e.cfg.Region
+
+	// Get all task definitions for this image by listing all images and filtering
+	allImages, err := e.imageRepo.ListImages(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to list images: %w", err)
+	}
+
+	// Build ARNs for task definitions that match this image
+	var taskDefsToDeregister []string
+	for i := range allImages {
+		if allImages[i].Image == image && allImages[i].TaskDefinitionName != "" {
+			taskDefARN := buildTaskDefinitionARN(allImages[i].TaskDefinitionName, region, accountID)
+			taskDefsToDeregister = append(taskDefsToDeregister, taskDefARN)
+		}
 	}
 
 	// Deregister all task definitions from ECS
@@ -360,7 +379,7 @@ func (e *Runner) GetTaskDefinitionARNForImage(ctx context.Context, image string)
 	}
 
 	// Query with nil role names to get the default role variant
-	imageInfo, taskDefARN, err := e.imageRepo.GetImageTaskDef(ctx, image, nil, nil)
+	imageInfo, err := e.imageRepo.GetImageTaskDef(ctx, image, nil, nil)
 	if err != nil {
 		return "", fmt.Errorf("failed to get task definition for image: %w", err)
 	}
@@ -369,5 +388,11 @@ func (e *Runner) GetTaskDefinitionARNForImage(ctx context.Context, image string)
 		return "", fmt.Errorf("no task definition found for image: %s", image)
 	}
 
-	return taskDefARN, nil
+	// Build ARN from family name
+	accountID, err := extractAccountIDFromRoleARN(e.cfg.DefaultTaskExecRoleARN)
+	if err != nil {
+		return "", fmt.Errorf("failed to extract account ID: %w", err)
+	}
+
+	return buildTaskDefinitionARN(imageInfo.TaskDefinitionName, e.cfg.Region, accountID), nil
 }
