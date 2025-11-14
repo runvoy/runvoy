@@ -19,9 +19,9 @@ var imagesCmd = &cobra.Command{
 }
 
 var (
-	registerImageIsDefault      bool
-	registerImageTaskRole        string
-	registerImageTaskExecRole    string
+	registerImageIsDefault    bool
+	registerImageTaskRole     string
+	registerImageTaskExecRole string
 )
 
 var registerImageCmd = &cobra.Command{
@@ -139,7 +139,9 @@ func NewImagesService(apiClient client.Interface, outputter OutputInterface) *Im
 }
 
 // RegisterImage registers a new image
-func (s *ImagesService) RegisterImage(ctx context.Context, image string, isDefault *bool, taskRoleName *string, taskExecutionRoleName *string) error {
+func (s *ImagesService) RegisterImage(
+	ctx context.Context, image string, isDefault *bool, taskRoleName, taskExecutionRoleName *string,
+) error {
 	resp, err := s.client.RegisterImage(ctx, image, isDefault, taskRoleName, taskExecutionRoleName)
 	if err != nil {
 		return fmt.Errorf("failed to register image: %w", err)
