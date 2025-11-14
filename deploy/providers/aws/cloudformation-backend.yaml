@@ -429,9 +429,9 @@ Resources:
           PolicyDocument:
             Version: '2012-10-17'
             Statement:
-              # Task definition permissions (scoped to runvoy-image-* family prefix)
-              # Apparently it's not possible to scope those easily, we might have to
-              # find a way to restrict this permission though. TODO
+              # Task definition permissions (scoped to runvoy-* family prefix)
+              # Task definitions can have UUID-based names (e.g., runvoy-docker-library-alpine-latest-68ec6e67)
+              # or image-based names (e.g., runvoy-image-alpine-latest)
               - Effect: Allow
                 Action:
                   - 'ecs:RegisterTaskDefinition'
@@ -446,7 +446,7 @@ Resources:
                   - 'ecs:TagResource'
                   - 'ecs:UntagResource'
                 Resource:
-                  - !Sub 'arn:aws:ecs:${AWS::Region}:${AWS::AccountId}:task-definition/runvoy-image-*'
+                  - !Sub 'arn:aws:ecs:${AWS::Region}:${AWS::AccountId}:task-definition/runvoy-*'
                   - !Sub 'arn:aws:ecs:${AWS::Region}:${AWS::AccountId}:task/${ProjectName}-cluster/*'
               # Task permissions
               # RunTask requires permission on both task definitions and cluster
@@ -454,7 +454,7 @@ Resources:
                 Action:
                   - 'ecs:RunTask'
                 Resource:
-                  - !Sub 'arn:aws:ecs:${AWS::Region}:${AWS::AccountId}:task-definition/runvoy-image-*'
+                  - !Sub 'arn:aws:ecs:${AWS::Region}:${AWS::AccountId}:task-definition/runvoy-*'
                   - !GetAtt ECSCluster.Arn
               - Effect: Allow
                 Action:
