@@ -25,8 +25,9 @@ type Runner interface {
 	KillTask(ctx context.Context, executionID string) error
 	// RegisterImage registers a Docker image as a task definition in the execution platform.
 	// isDefault: if true, explicitly set as default.
-	// If nil or false, becomes default only if no default exists (first image behavior).
-	RegisterImage(ctx context.Context, image string, isDefault *bool) error
+	// taskRoleName: optional custom task role name (if nil, uses default from config).
+	// taskExecutionRoleName: optional custom task execution role name (if nil, uses default from config).
+	RegisterImage(ctx context.Context, image string, isDefault *bool, taskRoleName *string, taskExecutionRoleName *string) error
 	// ListImages lists all registered Docker images.
 	ListImages(ctx context.Context) ([]api.ImageInfo, error)
 	// RemoveImage removes a Docker image and deregisters its task definitions.

@@ -19,6 +19,7 @@ type Config struct {
 	// DynamoDB Tables
 	APIKeysTable              string `mapstructure:"api_keys_table"`
 	ExecutionsTable           string `mapstructure:"executions_table"`
+	ImageTaskDefsTable        string `mapstructure:"image_taskdefs_table"`
 	PendingAPIKeysTable       string `mapstructure:"pending_api_keys_table"`
 	WebSocketConnectionsTable string `mapstructure:"websocket_connections_table"`
 	WebSocketTokensTable      string `mapstructure:"websocket_tokens_table"`
@@ -54,6 +55,7 @@ func BindEnvVars(v *viper.Viper) {
 	_ = v.BindEnv("aws.api_keys_table", "RUNVOY_AWS_API_KEYS_TABLE")
 	_ = v.BindEnv("aws.ecs_cluster", "RUNVOY_AWS_ECS_CLUSTER")
 	_ = v.BindEnv("aws.executions_table", "RUNVOY_AWS_EXECUTIONS_TABLE")
+	_ = v.BindEnv("aws.image_taskdefs_table", "RUNVOY_AWS_IMAGE_TASKDEFS_TABLE")
 	_ = v.BindEnv("aws.log_group", "RUNVOY_AWS_LOG_GROUP")
 	_ = v.BindEnv("aws.pending_api_keys_table", "RUNVOY_AWS_PENDING_API_KEYS_TABLE")
 	_ = v.BindEnv("aws.security_group", "RUNVOY_AWS_SECURITY_GROUP")
@@ -80,6 +82,7 @@ func ValidateOrchestrator(cfg *Config) error {
 		"AWS.APIKeysTable":              cfg.APIKeysTable,
 		"AWS.ECSCluster":                cfg.ECSCluster,
 		"AWS.ExecutionsTable":           cfg.ExecutionsTable,
+		"AWS.ImageTaskDefsTable":        cfg.ImageTaskDefsTable,
 		"AWS.LogGroup":                  cfg.LogGroup,
 		"AWS.SecurityGroup":             cfg.SecurityGroup,
 		"AWS.Subnet1":                   cfg.Subnet1,

@@ -45,6 +45,7 @@ func Initialize(
 	log.Debug("DynamoDB backend configured", "context", map[string]string{
 		"api_keys_table":              cfg.AWS.APIKeysTable,
 		"executions_table":            cfg.AWS.ExecutionsTable,
+		"image_taskdefs_table":        cfg.AWS.ImageTaskDefsTable,
 		"pending_api_keys_table":      cfg.AWS.PendingAPIKeysTable,
 		"websocket_connections_table": cfg.AWS.WebSocketConnectionsTable,
 		"websocket_tokens_table":      cfg.AWS.WebSocketTokensTable,
@@ -59,6 +60,7 @@ func Initialize(
 	executionRepo := dynamoRepo.NewExecutionRepository(dynamoClient, cfg.AWS.ExecutionsTable, log)
 	connectionRepo := dynamoRepo.NewConnectionRepository(dynamoClient, cfg.AWS.WebSocketConnectionsTable, log)
 	tokenRepo := dynamoRepo.NewTokenRepository(dynamoClient, cfg.AWS.WebSocketTokensTable, log)
+	imageTaskDefRepo := dynamoRepo.NewImageTaskDefRepository(dynamoClient, cfg.AWS.ImageTaskDefsTable, log)
 
 	// Create secrets repository with DynamoDB metadata and Parameter Store values
 	dynamoSecretsRepo := dynamoRepo.NewSecretsRepository(dynamoClient, cfg.AWS.SecretsMetadataTable, log)
@@ -76,7 +78,7 @@ func Initialize(
 		Region:          awsCfg.Region,
 		SDKConfig:       &awsCfg,
 	}
-	runner := NewRunner(ecsClient, cwlClient, runnerCfg, log)
+	runner := NewRunner(ecsClient, cwlClient, imageTaskDefRepo, runnerCfg, log)
 	wsManager := awsWebsocket.NewManager(cfg, connectionRepo, tokenRepo, log)
 
 	return &Dependencies{

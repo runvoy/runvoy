@@ -123,6 +123,41 @@ Resources:
         - Key: ManagedBy
           Value: 'cloudformation'
 
+  # DynamoDB Table for Image-TaskDefinition Mappings
+  ImageTaskDefinitionsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub '${ProjectName}-image-taskdefs'
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: image
+          AttributeType: S
+        - AttributeName: role_composite
+          AttributeType: S
+        - AttributeName: is_default_placeholder
+          AttributeType: S
+      KeySchema:
+        - AttributeName: image
+          KeyType: HASH
+        - AttributeName: role_composite
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: is_default-index
+          KeySchema:
+            - AttributeName: is_default_placeholder
+              KeyType: HASH
+            - AttributeName: image
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-image-taskdefs'
+        - Key: Application
+          Value: !Ref ProjectName
+        - Key: ManagedBy
+          Value: 'cloudformation'
+
   # KMS Key for encrypting secrets in e.g. Parameter Store
   SecretsKmsKey:
     Type: AWS::KMS::Key
@@ -459,10 +494,12 @@ Resources:
                   - !GetAtt ExecutionsTable.Arn
                   - !GetAtt PendingAPIKeysTable.Arn
                   - !GetAtt SecretsMetadataTable.Arn
+                  - !GetAtt ImageTaskDefinitionsTable.Arn
                   - !GetAtt WebSocketConnectionsTable.Arn
                   - !GetAtt WebSocketTokensTable.Arn
                   - !Sub '${APIKeysTable.Arn}/index/*'
                   - !Sub '${ExecutionsTable.Arn}/index/*'
+                  - !Sub '${ImageTaskDefinitionsTable.Arn}/index/*'
                   - !Sub '${WebSocketTokensTable.Arn}/index/*'
                   - !Sub '${SecretsMetadataTable.Arn}/index/*'
               - Effect: Allow
@@ -509,6 +546,7 @@ Resources:
           RUNVOY_AWS_API_KEYS_TABLE: !Ref APIKeysTable
           RUNVOY_AWS_ECS_CLUSTER: !Ref ECSCluster
           RUNVOY_AWS_EXECUTIONS_TABLE: !Ref ExecutionsTable
+          RUNVOY_AWS_IMAGE_TASKDEFS_TABLE: !Ref ImageTaskDefinitionsTable
           RUNVOY_AWS_LOG_GROUP: !Ref RunnerLogGroup
           RUNVOY_AWS_PENDING_API_KEYS_TABLE: !Ref PendingAPIKeysTable
           RUNVOY_AWS_SECRETS_METADATA_TABLE: !Ref SecretsMetadataTable

@@ -3,8 +3,10 @@ package api
 
 // RegisterImageRequest represents the request to register a new Docker image
 type RegisterImageRequest struct {
-	Image     string `json:"image"`
-	IsDefault *bool  `json:"is_default,omitempty"`
+	Image                string  `json:"image"`
+	IsDefault            *bool   `json:"is_default,omitempty"`
+	TaskRoleName         *string `json:"task_role_name,omitempty"`
+	TaskExecutionRoleName *string `json:"task_execution_role_name,omitempty"`
 }
 
 // RegisterImageResponse represents the response after registering an image
@@ -26,10 +28,12 @@ type RemoveImageResponse struct {
 
 // ImageInfo represents information about a registered image
 type ImageInfo struct {
-	Image              string `json:"image"`
-	TaskDefinitionARN  string `json:"task_definition_arn,omitempty"`
-	TaskDefinitionName string `json:"task_definition_name,omitempty"`
-	IsDefault          *bool  `json:"is_default,omitempty"`
+	Image                 string  `json:"image"`
+	TaskDefinitionARN     string  `json:"task_definition_arn,omitempty"`
+	TaskDefinitionName    string  `json:"task_definition_name,omitempty"`
+	IsDefault             *bool   `json:"is_default,omitempty"`
+	TaskRoleName          *string `json:"task_role_name,omitempty"`
+	TaskExecutionRoleName *string `json:"task_execution_role_name,omitempty"`
 }
 
 // ListImagesResponse represents the response containing all registered images
