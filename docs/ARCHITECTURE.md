@@ -1077,12 +1077,31 @@ Future enhancements may include server-side filtering and pagination.
    - Task definitions are registered with the specified CPU/memory allocation in ECS
    - Allows cost optimization by assigning appropriate resources per workload type
 
-5. **Comprehensive Test Coverage** - Current test coverage is limited. Areas needing tests:
-   - Event processor logic (status determination)
-   - DynamoDB repository operations
-   - API request/response handling
-   - End-to-end integration tests
-   - Web viewer functionality and API integration
+5. **Comprehensive Test Coverage** - Overall project coverage: **49.8%** (2422/4859 statements)
+
+   **Well-covered packages (>80%):**
+   - `internal/logger`: 98.6%
+   - `internal/errors`: 94.4%
+   - `internal/config/aws`: 97.8%
+   - `internal/constants`: 87.5%
+   - `internal/client/playbooks`: 87.3%
+   - `internal/auth`: 78.6%
+   - `internal/client`: 78.6%
+   - `internal/config`: 78.4%
+
+   **Areas with good coverage (70-80%):**
+   - `internal/app/events`: 80.0%
+   - `internal/client/output`: 75.3%
+   - `internal/providers/aws/events`: 75.0%
+   - `internal/providers/aws/secrets`: 90.6%
+   - `internal/providers/aws/websocket`: 68.2%
+
+   **Areas needing improvement (<70%):**
+   - Event processor logic (status determination) - 0%
+   - DynamoDB repository operations - 49.2%
+   - API request/response handling - 59.6% (server)
+   - End-to-end integration tests - 0%
+   - AWS app integration (task definitions, images) - 39.0%
 
 6. **Request ID in Non-Lambda Environments** - Request ID extraction currently only works in Lambda. Enhancement needed for local server:
    - Generate request IDs in middleware

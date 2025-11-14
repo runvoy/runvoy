@@ -71,7 +71,7 @@ Claim a user's API key using the given token
 Configure local environment with API key and endpoint URL
 
 Configure the local environment with your API key and endpoint URL.
-This creates or updates the configuration file at ~/.runvoy/config.yaml
+This creates or updates the configuration file at [1m~/.runvoy/config.yaml[22m
 
 ### Options
 
