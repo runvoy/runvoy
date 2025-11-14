@@ -29,7 +29,6 @@ type RemoveImageResponse struct {
 // ImageInfo represents information about a registered image
 type ImageInfo struct {
 	Image                 string  `json:"image"`
-	TaskDefinitionARN     string  `json:"task_definition_arn,omitempty"`
 	TaskDefinitionName    string  `json:"task_definition_name,omitempty"`
 	IsDefault             *bool   `json:"is_default,omitempty"`
 	TaskRoleName          *string `json:"task_role_name,omitempty"`

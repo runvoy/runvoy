@@ -79,7 +79,7 @@ func (e *Runner) RegisterImage(
 	}
 
 	// Check if this exact combination already exists
-	existing, err := e.imageRepo.GetImageTaskDef(ctx, image, taskRoleName, taskExecutionRoleName)
+	existing, existingARN, err := e.imageRepo.GetImageTaskDef(ctx, image, taskRoleName, taskExecutionRoleName)
 	if err != nil {
 		return fmt.Errorf("failed to check existing image-taskdef mapping: %w", err)
 	}
@@ -87,7 +87,7 @@ func (e *Runner) RegisterImage(
 	if existing != nil {
 		reqLogger.Debug("image-taskdef mapping already exists", "context", map[string]string{
 			"image":                 image,
-			"task_definition_arn":   existing.TaskDefinitionARN,
+			"task_definition_arn":   existingARN,
 			"task_definition_family": existing.TaskDefinitionName,
 		})
 
@@ -236,17 +236,10 @@ func (e *Runner) RemoveImage(ctx context.Context, image string) error {
 
 	reqLogger := logger.DeriveRequestLogger(ctx, e.logger)
 
-	// Get all task definitions for this image
-	allImages, err := e.imageRepo.ListImages(ctx)
+	// Get all task definition ARNs for this image
+	taskDefsToDeregister, err := e.imageRepo.GetTaskDefARNsForImage(ctx, image)
 	if err != nil {
-		return fmt.Errorf("failed to list images: %w", err)
-	}
-
-	var taskDefsToDeregister []string
-	for _, img := range allImages {
-		if img.Image == image {
-			taskDefsToDeregister = append(taskDefsToDeregister, img.TaskDefinitionARN)
-		}
+		return fmt.Errorf("failed to get task definitions for image: %w", err)
 	}
 
 	// Deregister all task definitions from ECS
@@ -306,7 +299,7 @@ func (e *Runner) GetTaskDefinitionARNForImage(ctx context.Context, image string)
 	}
 
 	// Query with nil role names to get the default role variant
-	imageInfo, err := e.imageRepo.GetImageTaskDef(ctx, image, nil, nil)
+	imageInfo, taskDefARN, err := e.imageRepo.GetImageTaskDef(ctx, image, nil, nil)
 	if err != nil {
 		return "", fmt.Errorf("failed to get task definition for image: %w", err)
 	}
@@ -315,5 +308,5 @@ func (e *Runner) GetTaskDefinitionARNForImage(ctx context.Context, image string)
 		return "", fmt.Errorf("no task definition found for image: %s", image)
 	}
 
-	return imageInfo.TaskDefinitionARN, nil
+	return taskDefARN, nil
 }

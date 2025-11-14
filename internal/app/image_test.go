@@ -64,13 +64,13 @@ func TestRegisterImage(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			runner := &mockRunner{
-				registerImageFunc: func(_ context.Context, _ string, _ *bool) error {
+				registerImageFunc: func(_ context.Context, _ string, _ *bool, _ *string, _ *string) error {
 					return tt.runnerErr
 				},
 			}
 
 			svc := newTestService(nil, nil, runner)
-			resp, err := svc.RegisterImage(ctx, tt.image, tt.isDefault)
+			resp, err := svc.RegisterImage(ctx, tt.image, tt.isDefault, nil, nil)
 
 			if tt.expectErr {
 				require.Error(t, err)

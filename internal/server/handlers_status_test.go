@@ -24,7 +24,7 @@ func (m *mockRunner) KillTask(_ context.Context, _ string) error {
 	return nil
 }
 
-func (m *mockRunner) RegisterImage(_ context.Context, _ string, _ *bool) error {
+func (m *mockRunner) RegisterImage(_ context.Context, _ string, _ *bool, _ *string, _ *string) error {
 	return nil
 }
 

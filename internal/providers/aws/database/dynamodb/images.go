@@ -136,7 +136,7 @@ func (r *ImageTaskDefRepository) GetImageTaskDef(
 	image string,
 	taskRoleName *string,
 	taskExecutionRoleName *string,
-) (*api.ImageInfo, error) {
+) (*api.ImageInfo, string, error) {
 	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
 
 	roleComposite := buildRoleComposite(taskRoleName, taskExecutionRoleName)
@@ -158,22 +158,21 @@ func (r *ImageTaskDefRepository) GetImageTaskDef(
 		},
 	})
 	if err != nil {
-		return nil, apperrors.ErrInternalError("failed to get image-taskdef mapping", err)
+		return nil, "", apperrors.ErrInternalError("failed to get image-taskdef mapping", err)
 	}
 
 	if result.Item == nil {
-		return nil, nil
+		return nil, "", nil
 	}
 
 	var item imageTaskDefItem
 	if err := attributevalue.UnmarshalMap(result.Item, &item); err != nil {
-		return nil, apperrors.ErrInternalError("failed to unmarshal image-taskdef item", err)
+		return nil, "", apperrors.ErrInternalError("failed to unmarshal image-taskdef item", err)
 	}
 
 	isDefault := item.IsDefault
 	return &api.ImageInfo{
 		Image:                 item.Image,
-		TaskDefinitionARN:     item.TaskDefinitionARN,
 		TaskDefinitionName:    item.TaskDefinitionFamily,
 		IsDefault:             &isDefault,
 		TaskRoleName:          item.TaskRoleName,
@@ -181,7 +180,7 @@ func (r *ImageTaskDefRepository) GetImageTaskDef(
 		ImageRegistry:         item.ImageRegistry,
 		ImageName:             item.ImageName,
 		ImageTag:              item.ImageTag,
-	}, nil
+	}, item.TaskDefinitionARN, nil
 }
 
 // ListImages retrieves all registered images with their task definitions.
@@ -212,7 +211,6 @@ func (r *ImageTaskDefRepository) ListImages(ctx context.Context) ([]api.ImageInf
 		isDefault := item.IsDefault
 		images = append(images, api.ImageInfo{
 			Image:                 item.Image,
-			TaskDefinitionARN:     item.TaskDefinitionARN,
 			TaskDefinitionName:    item.TaskDefinitionFamily,
 			IsDefault:             &isDefault,
 			TaskRoleName:          item.TaskRoleName,
@@ -274,7 +272,6 @@ func (r *ImageTaskDefRepository) GetDefaultImage(ctx context.Context) (*api.Imag
 	isDefault := item.IsDefault
 	return &api.ImageInfo{
 		Image:                 item.Image,
-		TaskDefinitionARN:     item.TaskDefinitionARN,
 		TaskDefinitionName:    item.TaskDefinitionFamily,
 		IsDefault:             &isDefault,
 		TaskRoleName:          item.TaskRoleName,
@@ -391,6 +388,42 @@ func (r *ImageTaskDefRepository) DeleteImage(ctx context.Context, image string) 
 	}
 
 	return nil
+}
+
+// GetTaskDefARNsForImage returns all task definition ARNs for a specific image.
+func (r *ImageTaskDefRepository) GetTaskDefARNsForImage(ctx context.Context, image string) ([]string, error) {
+	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
+
+	logArgs := []any{
+		"operation", "DynamoDB.Query",
+		"table", r.tableName,
+		"image", image,
+	}
+	logArgs = append(logArgs, logger.GetDeadlineInfo(ctx)...)
+	reqLogger.Debug("calling external service", "context", logger.SliceToMap(logArgs))
+
+	result, err := r.client.Query(ctx, &dynamodb.QueryInput{
+		TableName:              aws.String(r.tableName),
+		KeyConditionExpression: aws.String("image = :image"),
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":image": &types.AttributeValueMemberS{Value: image},
+		},
+	})
+	if err != nil {
+		return nil, apperrors.ErrInternalError("failed to query image mappings", err)
+	}
+
+	var items []imageTaskDefItem
+	if err := attributevalue.UnmarshalListOfMaps(result.Items, &items); err != nil {
+		return nil, apperrors.ErrInternalError("failed to unmarshal image items", err)
+	}
+
+	arns := make([]string, 0, len(items))
+	for _, item := range items {
+		arns = append(arns, item.TaskDefinitionARN)
+	}
+
+	return arns, nil
 }
 
 // GetImagesCount returns the total number of unique image+role combinations.
