@@ -43,6 +43,10 @@ func (m *mockRunner) ListImages(_ context.Context) ([]api.ImageInfo, error) {
 	}, nil
 }
 
+func (m *mockRunner) GetImage(_ context.Context, _ string) (*api.ImageInfo, error) {
+	return nil, nil
+}
+
 func (m *mockRunner) RemoveImage(_ context.Context, _ string) error {
 	return nil
 }

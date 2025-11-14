@@ -366,6 +366,46 @@ func (r *Router) handleListImages(w http.ResponseWriter, req *http.Request) {
 	_ = json.NewEncoder(w).Encode(resp)
 }
 
+// handleGetImage handles GET /api/v1/images/{image} to get a single registered Docker image
+// The image parameter may contain slashes and colons (e.g.,
+// "ecr-public.us-east-1.amazonaws.com/docker/library/ubuntu:22.04")
+// Uses catch-all route (*) to match paths with slashes
+func (r *Router) handleGetImage(w http.ResponseWriter, req *http.Request) {
+	logger := r.GetLoggerFromContext(req.Context())
+
+	imagePath := strings.TrimPrefix(strings.TrimSpace(chi.URLParam(req, "*")), "/")
+
+	if imagePath == "" {
+		writeErrorResponse(w, http.StatusBadRequest, "invalid image", "image parameter is required")
+		return
+	}
+
+	image, decodeErr := url.PathUnescape(imagePath)
+	if decodeErr != nil {
+		image = imagePath
+	}
+	image = strings.TrimSpace(image)
+	if image == "" {
+		writeErrorResponse(w, http.StatusBadRequest, "invalid image", "image parameter is required")
+		return
+	}
+
+	imageInfo, err := r.svc.GetImage(req.Context(), image)
+	if err != nil {
+		statusCode := apperrors.GetStatusCode(err)
+		errorCode := apperrors.GetErrorCode(err)
+		errorMsg := apperrors.GetErrorMessage(err)
+
+		logger.Debug("failed to get image", "error", err, "status_code", statusCode, "error_code", errorCode)
+
+		writeErrorResponseWithCode(w, statusCode, errorCode, "failed to get image", errorMsg)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(imageInfo)
+}
+
 // handleRemoveImage handles DELETE /api/v1/images/{image} to remove a registered Docker image
 // The image parameter may contain slashes and colons (e.g.,
 // "ecr-public.us-east-1.amazonaws.com/docker/library/ubuntu:22.04")

@@ -27,6 +27,7 @@ type Interface interface {
 		runtimePlatform *string,
 	) (*api.RegisterImageResponse, error)
 	ListImages(ctx context.Context) (*api.ListImagesResponse, error)
+	GetImage(ctx context.Context, image string) (*api.ImageInfo, error)
 	UnregisterImage(ctx context.Context, image string) (*api.RemoveImageResponse, error)
 	CreateSecret(ctx context.Context, req api.CreateSecretRequest) (*api.CreateSecretResponse, error)
 	GetSecret(ctx context.Context, name string) (*api.GetSecretResponse, error)

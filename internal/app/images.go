@@ -46,6 +46,24 @@ func (s *Service) ListImages(ctx context.Context) (*api.ListImagesResponse, erro
 	}, nil
 }
 
+// GetImage returns a single registered Docker image by ID or name.
+func (s *Service) GetImage(ctx context.Context, image string) (*api.ImageInfo, error) {
+	if image == "" {
+		return nil, apperrors.ErrBadRequest("image is required", nil)
+	}
+
+	imageInfo, err := s.runner.GetImage(ctx, image)
+	if err != nil {
+		return nil, apperrors.ErrInternalError("failed to get image", err)
+	}
+
+	if imageInfo == nil {
+		return nil, apperrors.ErrNotFound("image not found", nil)
+	}
+
+	return imageInfo, nil
+}
+
 // RemoveImage removes a Docker image and deregisters its task definitions.
 func (s *Service) RemoveImage(ctx context.Context, image string) error {
 	if image == "" {

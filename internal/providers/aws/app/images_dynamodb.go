@@ -102,7 +102,7 @@ func (e *Runner) registerNewImage(
 	image string,
 	isDefault *bool,
 	taskRoleName, taskExecutionRoleName *string,
-	taskRoleARN, taskExecRoleARN, region string,
+	region string,
 	cpu, memory int,
 	runtimePlatform string,
 	reqLogger *slog.Logger,
@@ -120,6 +120,8 @@ func (e *Runner) registerNewImage(
 	)
 
 	family = sanitizeImageIDForTaskDef(imageID)
+
+	taskRoleARN, taskExecRoleARN := e.buildRoleARNs(taskRoleName, taskExecutionRoleName, region)
 
 	taskDefARN, err = e.registerTaskDefinitionWithRoles(
 		ctx,
@@ -201,8 +203,6 @@ func (e *Runner) RegisterImage(
 		return fmt.Errorf("AWS account ID not configured")
 	}
 
-	taskRoleARN, taskExecRoleARN := e.buildRoleARNs(taskRoleName, taskExecutionRoleName, region)
-
 	// Apply defaults for missing values
 	cpuVal := awsConstants.DefaultCPU
 	if cpu != nil {
@@ -233,7 +233,7 @@ func (e *Runner) RegisterImage(
 
 	taskDefARN, family, err := e.registerNewImage(
 		ctx, image, isDefault, taskRoleName, taskExecutionRoleName,
-		taskRoleARN, taskExecRoleARN, region,
+		region,
 		cpuVal, memoryVal, runtimePlatformVal,
 		reqLogger,
 	)
@@ -540,6 +540,36 @@ func looksLikeImageID(s string) bool {
 		return strings.Contains(beforeHash, ":")
 	}
 	return false
+}
+
+// GetImage retrieves a single Docker image by ID or name.
+// Accepts either an ImageID (e.g., "alpine:latest-a1b2c3d4") or an image name (e.g., "alpine:latest").
+// If ImageID is provided, queries directly by ID. Otherwise, uses GetAnyImageTaskDef to find any configuration.
+func (e *Runner) GetImage(ctx context.Context, image string) (*api.ImageInfo, error) {
+	if e.imageRepo == nil {
+		return nil, fmt.Errorf("image repository not configured")
+	}
+
+	var imageInfo *api.ImageInfo
+	var err error
+
+	if looksLikeImageID(image) {
+		imageInfo, err = e.imageRepo.GetImageTaskDefByID(ctx, image)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get image by ImageID: %w", err)
+		}
+	} else {
+		imageInfo, err = e.imageRepo.GetAnyImageTaskDef(ctx, image)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get image: %w", err)
+		}
+	}
+
+	if imageInfo == nil {
+		return nil, fmt.Errorf("image not found: %s", image)
+	}
+
+	return imageInfo, nil
 }
 
 // GetTaskDefinitionARNForImage returns the task definition family name for a specific image or ImageID.

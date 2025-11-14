@@ -47,6 +47,15 @@ var listImagesCmd = &cobra.Command{
 	Run:   listImagesRun,
 }
 
+var showImageCmd = &cobra.Command{
+	Use:   "show <image>",
+	Short: "Show detailed information about a Docker image",
+	Example: fmt.Sprintf(`  - %s images show alpine:latest
+  - %s images show alpine:latest-a1b2c3d4`, constants.ProjectName, constants.ProjectName),
+	Run:  showImageRun,
+	Args: cobra.ExactArgs(1),
+}
+
 var unregisterImageCmd = &cobra.Command{
 	Use:     "unregister <image>",
 	Short:   "Unregister a Docker image",
@@ -71,6 +80,7 @@ func init() {
 		"Optional runtime platform (e.g., Linux/ARM64, Linux/X86_64). Defaults to Linux/ARM64 if not specified")
 	imagesCmd.AddCommand(registerImageCmd)
 	imagesCmd.AddCommand(listImagesCmd)
+	imagesCmd.AddCommand(showImageCmd)
 	imagesCmd.AddCommand(unregisterImageCmd)
 	rootCmd.AddCommand(imagesCmd)
 }
@@ -142,6 +152,21 @@ func listImagesRun(cmd *cobra.Command, _ []string) {
 	c := client.New(cfg, slog.Default())
 	service := NewImagesService(c, NewOutputWrapper())
 	if err = service.ListImages(cmd.Context()); err != nil {
+		output.Errorf(err.Error())
+	}
+}
+
+func showImageRun(cmd *cobra.Command, args []string) {
+	image := args[0]
+	cfg, err := getConfigFromContext(cmd)
+	if err != nil {
+		output.Errorf("failed to load configuration: %v", err)
+		return
+	}
+
+	c := client.New(cfg, slog.Default())
+	service := NewImagesService(c, NewOutputWrapper())
+	if err = service.ShowImage(cmd.Context(), image); err != nil {
 		output.Errorf(err.Error())
 	}
 }
@@ -219,6 +244,55 @@ func (s *ImagesService) ListImages(ctx context.Context) error {
 	)
 	s.output.Blank()
 	s.output.Successf("Images listed successfully")
+	return nil
+}
+
+// ShowImage shows detailed information about a single image
+func (s *ImagesService) ShowImage(ctx context.Context, image string) error {
+	imageInfo, err := s.client.GetImage(ctx, image)
+	if err != nil {
+		return fmt.Errorf("failed to get image: %w", err)
+	}
+
+	s.output.Blank()
+	s.output.KeyValue("Image ID", imageInfo.ImageID)
+	s.output.KeyValue("Image", imageInfo.Image)
+	if imageInfo.ImageRegistry != "" {
+		s.output.KeyValue("Registry", imageInfo.ImageRegistry)
+	}
+	if imageInfo.ImageName != "" {
+		s.output.KeyValue("Image Name", imageInfo.ImageName)
+	}
+	if imageInfo.ImageTag != "" {
+		s.output.KeyValue("Tag", imageInfo.ImageTag)
+	}
+	if imageInfo.TaskDefinitionName != "" {
+		s.output.KeyValue("Task Definition", imageInfo.TaskDefinitionName)
+	}
+	s.output.KeyValue("CPU", strconv.Itoa(imageInfo.CPU))
+	s.output.KeyValue("Memory", strconv.Itoa(imageInfo.Memory))
+	if imageInfo.RuntimePlatform != "" {
+		s.output.KeyValue("Runtime Platform", imageInfo.RuntimePlatform)
+	} else {
+		s.output.KeyValue("Runtime Platform", "-")
+	}
+	if imageInfo.TaskRoleName != nil && *imageInfo.TaskRoleName != "" {
+		s.output.KeyValue("Task Role", *imageInfo.TaskRoleName)
+	} else {
+		s.output.KeyValue("Task Role", "-")
+	}
+	if imageInfo.TaskExecutionRoleName != nil && *imageInfo.TaskExecutionRoleName != "" {
+		s.output.KeyValue("Task Execution Role", *imageInfo.TaskExecutionRoleName)
+	} else {
+		s.output.KeyValue("Task Execution Role", "-")
+	}
+	defaultStr := strconv.FormatBool(false)
+	if imageInfo.IsDefault != nil && *imageInfo.IsDefault {
+		defaultStr = strconv.FormatBool(true)
+	}
+	s.output.KeyValue("Is Default", defaultStr)
+	s.output.Blank()
+	s.output.Successf("Image information retrieved successfully")
 	return nil
 }
 

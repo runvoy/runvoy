@@ -211,6 +211,10 @@ func (t *testRunner) ListImages(_ context.Context) ([]api.ImageInfo, error) {
 	return []api.ImageInfo{}, nil
 }
 
+func (t *testRunner) GetImage(_ context.Context, _ string) (*api.ImageInfo, error) {
+	return nil, nil
+}
+
 func (t *testRunner) RemoveImage(_ context.Context, _ string) error {
 	return nil
 }

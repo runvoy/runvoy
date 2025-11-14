@@ -62,6 +62,9 @@ func (m *mockClientInterface) ListImages(_ context.Context) (*api.ListImagesResp
 func (m *mockClientInterface) UnregisterImage(_ context.Context, _ string) (*api.RemoveImageResponse, error) {
 	return nil, fmt.Errorf("not implemented")
 }
+func (m *mockClientInterface) GetImage(_ context.Context, _ string) (*api.ImageInfo, error) {
+	return nil, fmt.Errorf("not implemented")
+}
 func (m *mockClientInterface) CreateSecret(
 	_ context.Context,
 	_ api.CreateSecretRequest,

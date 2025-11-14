@@ -40,6 +40,9 @@ type Runner interface {
 	) error
 	// ListImages lists all registered Docker images.
 	ListImages(ctx context.Context) ([]api.ImageInfo, error)
+	// GetImage retrieves a single Docker image by ID or name.
+	// Accepts either an ImageID (e.g., "alpine:latest-a1b2c3d4") or an image name (e.g., "alpine:latest").
+	GetImage(ctx context.Context, image string) (*api.ImageInfo, error)
 	// RemoveImage removes a Docker image and deregisters its task definitions.
 	RemoveImage(ctx context.Context, image string) error
 	// FetchLogsByExecutionID retrieves logs for a specific execution.
