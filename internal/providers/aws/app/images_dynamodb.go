@@ -6,7 +6,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"strings"
 
 	"runvoy/internal/api"
 	"runvoy/internal/auth"
@@ -15,21 +14,6 @@ import (
 	awsStd "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ecs"
 )
-
-const (
-	roleARNMinParts     = 5
-	roleARNAccountIndex = 4
-)
-
-// extractAccountIDFromRoleARN extracts the AWS account ID from a role ARN.
-// Example: arn:aws:iam::123456789012:role/MyRole -> 123456789012
-func extractAccountIDFromRoleARN(roleARN string) (string, error) {
-	parts := strings.Split(roleARN, ":")
-	if len(parts) < roleARNMinParts {
-		return "", fmt.Errorf("invalid role ARN format: %s", roleARN)
-	}
-	return parts[roleARNAccountIndex], nil
-}
 
 // buildRoleARN constructs a full IAM role ARN from a role name and account ID.
 // If roleName is empty/nil, returns empty string.
@@ -195,14 +179,12 @@ func (e *Runner) RegisterImage(
 		return fmt.Errorf("AWS region not configured")
 	}
 
-	// Extract account ID from the default task execution role ARN in config
-	accountID, err := extractAccountIDFromRoleARN(e.cfg.DefaultTaskExecRoleARN)
-	if err != nil {
-		return fmt.Errorf("failed to extract account ID: %w", err)
+	if e.cfg.AccountID == "" {
+		return fmt.Errorf("AWS account ID not configured")
 	}
 
 	// Build role ARNs from names, or use defaults from config
-	taskRoleARN, taskExecRoleARN := e.buildRoleARNs(taskRoleName, taskExecutionRoleName, accountID, region)
+	taskRoleARN, taskExecRoleARN := e.buildRoleARNs(taskRoleName, taskExecutionRoleName, e.cfg.AccountID, region)
 
 	// Check if this exact combination already exists
 	existing, err := e.imageRepo.GetImageTaskDef(ctx, image, taskRoleName, taskExecutionRoleName)
@@ -302,10 +284,8 @@ func (e *Runner) RemoveImage(ctx context.Context, image string) error {
 
 	reqLogger := logger.DeriveRequestLogger(ctx, e.logger)
 
-	// Extract account ID for ARN construction
-	accountID, err := extractAccountIDFromRoleARN(e.cfg.DefaultTaskExecRoleARN)
-	if err != nil {
-		return fmt.Errorf("failed to extract account ID: %w", err)
+	if e.cfg.AccountID == "" {
+		return fmt.Errorf("AWS account ID not configured")
 	}
 	region := e.cfg.Region
 
@@ -319,7 +299,7 @@ func (e *Runner) RemoveImage(ctx context.Context, image string) error {
 	var taskDefsToDeregister []string
 	for i := range allImages {
 		if allImages[i].Image == image && allImages[i].TaskDefinitionName != "" {
-			taskDefARN := buildTaskDefinitionARN(allImages[i].TaskDefinitionName, region, accountID)
+			taskDefARN := buildTaskDefinitionARN(allImages[i].TaskDefinitionName, region, e.cfg.AccountID)
 			taskDefsToDeregister = append(taskDefsToDeregister, taskDefARN)
 		}
 	}

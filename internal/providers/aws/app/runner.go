@@ -32,6 +32,7 @@ type Config struct {
 	DefaultTaskRoleARN     string
 	DefaultTaskExecRoleARN string
 	Region                 string
+	AccountID              string
 	SDKConfig              *awsStd.Config
 }
 

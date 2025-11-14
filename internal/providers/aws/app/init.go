@@ -1,6 +1,8 @@
 package aws
 
 import (
+	"context"
+	"fmt"
 	"log/slog"
 
 	"runvoy/internal/config"
@@ -11,10 +13,12 @@ import (
 	"runvoy/internal/providers/aws/secrets"
 	awsWebsocket "runvoy/internal/providers/aws/websocket"
 
+	awsStd "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/ecs"
 	"github.com/aws/aws-sdk-go-v2/service/ssm"
+	"github.com/aws/aws-sdk-go-v2/service/sts"
 )
 
 // Dependencies bundles the AWS-backed implementations required by the app service.
@@ -31,25 +35,25 @@ type Dependencies struct {
 // Initialize prepares AWS service dependencies for the app package.
 // Wraps the AWS SDK clients in adapters for improved testability.
 func Initialize(
+	ctx context.Context,
 	cfg *config.Config,
 	log *slog.Logger,
 ) (*Dependencies, error) {
 	logger.RegisterContextExtractor(NewLambdaContextExtractor())
 
-	awsCfg := *cfg.AWS.SDKConfig
-	dynamoSDKClient := dynamodb.NewFromConfig(awsCfg)
-	ecsSDKClient := ecs.NewFromConfig(awsCfg)
-	ssmSDKClient := ssm.NewFromConfig(awsCfg)
-	cwlSDKClient := cloudwatchlogs.NewFromConfig(awsCfg)
+	if err := cfg.AWS.LoadSDKConfig(ctx); err != nil {
+		return nil, fmt.Errorf("failed to load AWS SDK config: %w", err)
+	}
 
-	log.Debug("DynamoDB backend configured", "context", map[string]string{
-		"api_keys_table":              cfg.AWS.APIKeysTable,
-		"executions_table":            cfg.AWS.ExecutionsTable,
-		"image_taskdefs_table":        cfg.AWS.ImageTaskDefsTable,
-		"pending_api_keys_table":      cfg.AWS.PendingAPIKeysTable,
-		"websocket_connections_table": cfg.AWS.WebSocketConnectionsTable,
-		"websocket_tokens_table":      cfg.AWS.WebSocketTokensTable,
-	})
+	accountID, err := getAccountID(ctx, cfg.AWS.SDKConfig, log)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get AWS account ID: %w", err)
+	}
+
+	dynamoSDKClient := dynamodb.NewFromConfig(*cfg.AWS.SDKConfig)
+	ecsSDKClient := ecs.NewFromConfig(*cfg.AWS.SDKConfig)
+	ssmSDKClient := ssm.NewFromConfig(*cfg.AWS.SDKConfig)
+	cwlSDKClient := cloudwatchlogs.NewFromConfig(*cfg.AWS.SDKConfig)
 
 	dynamoClient := dynamoRepo.NewClientAdapter(dynamoSDKClient)
 	ecsClient := NewClientAdapter(ecsSDKClient)
@@ -61,9 +65,8 @@ func Initialize(
 	connectionRepo := dynamoRepo.NewConnectionRepository(dynamoClient, cfg.AWS.WebSocketConnectionsTable, log)
 	tokenRepo := dynamoRepo.NewTokenRepository(dynamoClient, cfg.AWS.WebSocketTokensTable, log)
 	imageTaskDefRepo := dynamoRepo.NewImageTaskDefRepository(dynamoClient, cfg.AWS.ImageTaskDefsTable, log)
-
-	// Create secrets repository with DynamoDB metadata and Parameter Store values
 	dynamoSecretsRepo := dynamoRepo.NewSecretsRepository(dynamoClient, cfg.AWS.SecretsMetadataTable, log)
+
 	valueStore := secrets.NewParameterStoreManager(ssmClient, cfg.AWS.SecretsPrefix, cfg.AWS.SecretsKMSKeyARN, log)
 	secretsRepo := awsDatabase.NewSecretsRepository(dynamoSecretsRepo, valueStore, log)
 
@@ -75,8 +78,9 @@ func Initialize(
 		LogGroup:               cfg.AWS.LogGroup,
 		DefaultTaskExecRoleARN: cfg.AWS.DefaultTaskExecRoleARN,
 		DefaultTaskRoleARN:     cfg.AWS.DefaultTaskRoleARN,
-		Region:                 awsCfg.Region,
-		SDKConfig:              &awsCfg,
+		Region:                 cfg.AWS.SDKConfig.Region,
+		AccountID:              accountID,
+		SDKConfig:              cfg.AWS.SDKConfig,
 	}
 	runner := NewRunner(ecsClient, cwlClient, imageTaskDefRepo, runnerCfg, log)
 	wsManager := awsWebsocket.NewManager(cfg, connectionRepo, tokenRepo, log)
@@ -90,4 +94,27 @@ func Initialize(
 		WebSocketManager: wsManager,
 		SecretsRepo:      secretsRepo,
 	}, nil
+}
+
+// getAccountID retrieves the AWS account ID using STS GetCallerIdentity.
+func getAccountID(ctx context.Context, awsCfg *awsStd.Config, log *slog.Logger) (string, error) {
+	stsClient := sts.NewFromConfig(*awsCfg)
+
+	log.Debug("calling external service", "context", map[string]string{
+		"operation": "STS.GetCallerIdentity",
+	})
+
+	output, err := stsClient.GetCallerIdentity(ctx, &sts.GetCallerIdentityInput{})
+	if err != nil {
+		return "", fmt.Errorf("STS GetCallerIdentity failed: %w", err)
+	}
+
+	if output.Account == nil || *output.Account == "" {
+		return "", fmt.Errorf("STS returned empty account ID")
+	}
+
+	accountID := *output.Account
+	log.Debug("retrieved AWS account ID", "account_id", accountID)
+
+	return accountID, nil
 }
