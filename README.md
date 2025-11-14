@@ -25,10 +25,10 @@ Workstations shouldn't be snowflakes that need complex setups, let remote contai
 
 ## Use cases
 
-- run one-off arbitrary commands in remote containers like with `kubectl run` without the need for a Kubernetes cluster (or any other _always-running_ cluster, for that matter)
+- one-off arbitrary commands in remote containers like with `kubectl run` without the need for a Kubernetes cluster (or any other _always-running_ cluster, for that matter)
 - run Terraform "in the cloud" without the need for a Terraform Cloud account (and monthly bill...)
 - share execution logs like in Github Actions without the need for a CI/CD pipeline nor a 3rd party service
-- run commands which require full audit trail and secrets management
+- commands which require full audit trail and secrets management
 - ...
 
 ## Overview
@@ -126,7 +126,7 @@ runvoy --help
 ```
 
 ```text
-runvoy - 0.1.0-20251114-027ad66
+runvoy - 0.1.0-20251114-03baffb
 Isolated, repeatable execution environments for your commands
 
 Usage:

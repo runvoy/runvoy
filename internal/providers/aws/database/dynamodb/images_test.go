@@ -16,56 +16,84 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// mockClient is a mock implementation of the DynamoDB Client interface for testing.
+// mockImageClient is a mock implementation of the DynamoDB Client interface for testing.
 type mockImageClient struct {
-	putItemFunc    func(ctx context.Context, params *dynamodb.PutItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.PutItemOutput, error)
-	getItemFunc    func(ctx context.Context, params *dynamodb.GetItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.GetItemOutput, error)
-	queryFunc      func(ctx context.Context, params *dynamodb.QueryInput, optFns ...func(*dynamodb.Options)) (*dynamodb.QueryOutput, error)
-	updateItemFunc func(ctx context.Context, params *dynamodb.UpdateItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.UpdateItemOutput, error)
-	deleteItemFunc func(ctx context.Context, params *dynamodb.DeleteItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.DeleteItemOutput, error)
-	scanFunc       func(ctx context.Context, params *dynamodb.ScanInput, optFns ...func(*dynamodb.Options)) (*dynamodb.ScanOutput, error)
+	putItemFunc    mockPutItemFunc
+	getItemFunc    mockGetItemFunc
+	queryFunc      mockQueryFunc
+	updateItemFunc mockUpdateItemFunc
+	deleteItemFunc mockDeleteItemFunc
+	scanFunc       mockScanFunc
 }
 
-func (m *mockImageClient) PutItem(ctx context.Context, params *dynamodb.PutItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.PutItemOutput, error) {
+// Type aliases to reduce line length in function signatures
+type mockPutItemFunc func(context.Context, *dynamodb.PutItemInput, ...func(*dynamodb.Options)) (
+	*dynamodb.PutItemOutput, error)
+type mockGetItemFunc func(context.Context, *dynamodb.GetItemInput, ...func(*dynamodb.Options)) (
+	*dynamodb.GetItemOutput, error)
+type mockQueryFunc func(context.Context, *dynamodb.QueryInput, ...func(*dynamodb.Options)) (
+	*dynamodb.QueryOutput, error)
+type mockUpdateItemFunc func(context.Context, *dynamodb.UpdateItemInput, ...func(*dynamodb.Options)) (
+	*dynamodb.UpdateItemOutput, error)
+type mockDeleteItemFunc func(context.Context, *dynamodb.DeleteItemInput, ...func(*dynamodb.Options)) (
+	*dynamodb.DeleteItemOutput, error)
+type mockScanFunc func(context.Context, *dynamodb.ScanInput, ...func(*dynamodb.Options)) (
+	*dynamodb.ScanOutput, error)
+
+func (m *mockImageClient) PutItem(
+	ctx context.Context, params *dynamodb.PutItemInput, optFns ...func(*dynamodb.Options)) (
+	*dynamodb.PutItemOutput, error) {
 	if m.putItemFunc != nil {
 		return m.putItemFunc(ctx, params, optFns...)
 	}
 	return &dynamodb.PutItemOutput{}, nil
 }
 
-func (m *mockImageClient) GetItem(ctx context.Context, params *dynamodb.GetItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.GetItemOutput, error) {
+func (m *mockImageClient) GetItem(
+	ctx context.Context, params *dynamodb.GetItemInput, optFns ...func(*dynamodb.Options)) (
+	*dynamodb.GetItemOutput, error) {
 	if m.getItemFunc != nil {
 		return m.getItemFunc(ctx, params, optFns...)
 	}
 	return &dynamodb.GetItemOutput{}, nil
 }
 
-func (m *mockImageClient) Query(ctx context.Context, params *dynamodb.QueryInput, optFns ...func(*dynamodb.Options)) (*dynamodb.QueryOutput, error) {
+func (m *mockImageClient) Query(
+	ctx context.Context, params *dynamodb.QueryInput, optFns ...func(*dynamodb.Options)) (
+	*dynamodb.QueryOutput, error) {
 	if m.queryFunc != nil {
 		return m.queryFunc(ctx, params, optFns...)
 	}
 	return &dynamodb.QueryOutput{}, nil
 }
 
-func (m *mockImageClient) UpdateItem(ctx context.Context, params *dynamodb.UpdateItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.UpdateItemOutput, error) {
+func (m *mockImageClient) UpdateItem(
+	ctx context.Context, params *dynamodb.UpdateItemInput, optFns ...func(*dynamodb.Options)) (
+	*dynamodb.UpdateItemOutput, error) {
 	if m.updateItemFunc != nil {
 		return m.updateItemFunc(ctx, params, optFns...)
 	}
 	return &dynamodb.UpdateItemOutput{}, nil
 }
 
-func (m *mockImageClient) DeleteItem(ctx context.Context, params *dynamodb.DeleteItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.DeleteItemOutput, error) {
+func (m *mockImageClient) DeleteItem(
+	ctx context.Context, params *dynamodb.DeleteItemInput, optFns ...func(*dynamodb.Options)) (
+	*dynamodb.DeleteItemOutput, error) {
 	if m.deleteItemFunc != nil {
 		return m.deleteItemFunc(ctx, params, optFns...)
 	}
 	return &dynamodb.DeleteItemOutput{}, nil
 }
 
-func (m *mockImageClient) BatchWriteItem(ctx context.Context, params *dynamodb.BatchWriteItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.BatchWriteItemOutput, error) {
+func (m *mockImageClient) BatchWriteItem(
+	_ context.Context, _ *dynamodb.BatchWriteItemInput, _ ...func(*dynamodb.Options)) (
+	*dynamodb.BatchWriteItemOutput, error) {
 	return &dynamodb.BatchWriteItemOutput{}, nil
 }
 
-func (m *mockImageClient) Scan(ctx context.Context, params *dynamodb.ScanInput, optFns ...func(*dynamodb.Options)) (*dynamodb.ScanOutput, error) {
+func (m *mockImageClient) Scan(
+	ctx context.Context, params *dynamodb.ScanInput, optFns ...func(*dynamodb.Options)) (
+	*dynamodb.ScanOutput, error) {
 	if m.scanFunc != nil {
 		return m.scanFunc(ctx, params, optFns...)
 	}
@@ -174,17 +202,19 @@ func TestPutImageTaskDef(t *testing.T) {
 		expectError           bool
 	}{
 		{
-			name:          "successful put with default image",
-			image:         "nginx:latest",
-			imageRegistry: "",
-			imageName:     "nginx",
-			imageTag:      "latest",
-			taskRoleName:  nil,
+			name:                  "successful put with default image",
+			image:                 "nginx:latest",
+			imageRegistry:         "",
+			imageName:             "nginx",
+			imageTag:              "latest",
+			taskRoleName:          nil,
 			taskExecutionRoleName: nil,
-			taskDefFamily: "runvoy-taskdef-123",
-			isDefault:     true,
+			taskDefFamily:         "runvoy-taskdef-123",
+			isDefault:             true,
 			mockSetup: func(m *mockImageClient) {
-				m.putItemFunc = func(ctx context.Context, params *dynamodb.PutItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.PutItemOutput, error) {
+				m.putItemFunc = func(
+					_ context.Context, params *dynamodb.PutItemInput, _ ...func(*dynamodb.Options)) (
+					*dynamodb.PutItemOutput, error) {
 					// Verify the item was marshaled correctly
 					assert.NotNil(t, params.Item)
 					assert.Equal(t, "test-table", *params.TableName)
@@ -208,17 +238,19 @@ func TestPutImageTaskDef(t *testing.T) {
 			expectError: false,
 		},
 		{
-			name:          "successful put with custom roles",
-			image:         "myregistry.com/myapp:v1.0",
-			imageRegistry: "myregistry.com",
-			imageName:     "myapp",
-			imageTag:      "v1.0",
-			taskRoleName:  aws.String("custom-task-role"),
+			name:                  "successful put with custom roles",
+			image:                 "myregistry.com/myapp:v1.0",
+			imageRegistry:         "myregistry.com",
+			imageName:             "myapp",
+			imageTag:              "v1.0",
+			taskRoleName:          aws.String("custom-task-role"),
 			taskExecutionRoleName: aws.String("custom-exec-role"),
-			taskDefFamily: "runvoy-taskdef-456",
-			isDefault:     false,
+			taskDefFamily:         "runvoy-taskdef-456",
+			isDefault:             false,
 			mockSetup: func(m *mockImageClient) {
-				m.putItemFunc = func(ctx context.Context, params *dynamodb.PutItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.PutItemOutput, error) {
+				m.putItemFunc = func(
+					_ context.Context, params *dynamodb.PutItemInput, _ ...func(*dynamodb.Options)) (
+					*dynamodb.PutItemOutput, error) {
 					var item imageTaskDefItem
 					err := attributevalue.UnmarshalMap(params.Item, &item)
 					require.NoError(t, err)
@@ -242,7 +274,9 @@ func TestPutImageTaskDef(t *testing.T) {
 			taskDefFamily: "runvoy-taskdef-789",
 			isDefault:     false,
 			mockSetup: func(m *mockImageClient) {
-				m.putItemFunc = func(ctx context.Context, params *dynamodb.PutItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.PutItemOutput, error) {
+				m.putItemFunc = func(
+					_ context.Context, _ *dynamodb.PutItemInput, _ ...func(*dynamodb.Options)) (
+					*dynamodb.PutItemOutput, error) {
 					return nil, fmt.Errorf("dynamodb error")
 				}
 			},
@@ -297,15 +331,17 @@ func TestGetImageTaskDef(t *testing.T) {
 			name:  "image found with default roles",
 			image: "nginx:latest",
 			mockSetup: func(m *mockImageClient) {
-				m.getItemFunc = func(ctx context.Context, params *dynamodb.GetItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.GetItemOutput, error) {
+				m.getItemFunc = func(
+					_ context.Context, _ *dynamodb.GetItemInput, _ ...func(*dynamodb.Options)) (
+					*dynamodb.GetItemOutput, error) {
 					item := &imageTaskDefItem{
-						Image:                 "nginx:latest",
-						RoleComposite:         "default#default",
-						TaskDefinitionFamily:  "runvoy-taskdef-123",
-						IsDefaultPlaceholder:  aws.String("DEFAULT"),
-						ImageRegistry:         "",
-						ImageName:             "nginx",
-						ImageTag:              "latest",
+						Image:                "nginx:latest",
+						RoleComposite:        "default#default",
+						TaskDefinitionFamily: "runvoy-taskdef-123",
+						IsDefaultPlaceholder: aws.String("DEFAULT"),
+						ImageRegistry:        "",
+						ImageName:            "nginx",
+						ImageTag:             "latest",
 					}
 					av, _ := attributevalue.MarshalMap(item)
 					return &dynamodb.GetItemOutput{Item: av}, nil
@@ -325,7 +361,9 @@ func TestGetImageTaskDef(t *testing.T) {
 			taskRoleName:          aws.String("my-task-role"),
 			taskExecutionRoleName: aws.String("my-exec-role"),
 			mockSetup: func(m *mockImageClient) {
-				m.getItemFunc = func(ctx context.Context, params *dynamodb.GetItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.GetItemOutput, error) {
+				m.getItemFunc = func(
+					_ context.Context, _ *dynamodb.GetItemInput, _ ...func(*dynamodb.Options)) (
+					*dynamodb.GetItemOutput, error) {
 					item := &imageTaskDefItem{
 						Image:                 "myapp:v1",
 						RoleComposite:         "my-task-role#my-exec-role",
@@ -351,7 +389,9 @@ func TestGetImageTaskDef(t *testing.T) {
 			name:  "image not found",
 			image: "nonexistent:latest",
 			mockSetup: func(m *mockImageClient) {
-				m.getItemFunc = func(ctx context.Context, params *dynamodb.GetItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.GetItemOutput, error) {
+				m.getItemFunc = func(
+					_ context.Context, _ *dynamodb.GetItemInput, _ ...func(*dynamodb.Options)) (
+					*dynamodb.GetItemOutput, error) {
 					return &dynamodb.GetItemOutput{Item: nil}, nil
 				}
 			},
@@ -361,7 +401,9 @@ func TestGetImageTaskDef(t *testing.T) {
 			name:  "dynamodb error",
 			image: "nginx:latest",
 			mockSetup: func(m *mockImageClient) {
-				m.getItemFunc = func(ctx context.Context, params *dynamodb.GetItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.GetItemOutput, error) {
+				m.getItemFunc = func(
+					_ context.Context, _ *dynamodb.GetItemInput, _ ...func(*dynamodb.Options)) (
+					*dynamodb.GetItemOutput, error) {
 					return nil, fmt.Errorf("dynamodb error")
 				}
 			},
@@ -411,7 +453,8 @@ func TestListImages(t *testing.T) {
 		{
 			name: "list multiple images",
 			mockSetup: func(m *mockImageClient) {
-				m.scanFunc = func(ctx context.Context, params *dynamodb.ScanInput, optFns ...func(*dynamodb.Options)) (*dynamodb.ScanOutput, error) {
+				m.scanFunc = func(_ context.Context, _ *dynamodb.ScanInput, _ ...func(*dynamodb.Options)) (
+					*dynamodb.ScanOutput, error) {
 					items := []imageTaskDefItem{
 						{
 							Image:                "nginx:latest",
@@ -446,7 +489,8 @@ func TestListImages(t *testing.T) {
 		{
 			name: "empty list",
 			mockSetup: func(m *mockImageClient) {
-				m.scanFunc = func(ctx context.Context, params *dynamodb.ScanInput, optFns ...func(*dynamodb.Options)) (*dynamodb.ScanOutput, error) {
+				m.scanFunc = func(_ context.Context, _ *dynamodb.ScanInput, _ ...func(*dynamodb.Options)) (
+					*dynamodb.ScanOutput, error) {
 					return &dynamodb.ScanOutput{Items: []map[string]types.AttributeValue{}}, nil
 				}
 			},
@@ -457,7 +501,8 @@ func TestListImages(t *testing.T) {
 		{
 			name: "dynamodb error",
 			mockSetup: func(m *mockImageClient) {
-				m.scanFunc = func(ctx context.Context, params *dynamodb.ScanInput, optFns ...func(*dynamodb.Options)) (*dynamodb.ScanOutput, error) {
+				m.scanFunc = func(_ context.Context, _ *dynamodb.ScanInput, _ ...func(*dynamodb.Options)) (
+					*dynamodb.ScanOutput, error) {
 					return nil, fmt.Errorf("scan error")
 				}
 			},
@@ -501,14 +546,15 @@ func TestGetDefaultImage(t *testing.T) {
 		{
 			name: "default image found",
 			mockSetup: func(m *mockImageClient) {
-				m.queryFunc = func(ctx context.Context, params *dynamodb.QueryInput, optFns ...func(*dynamodb.Options)) (*dynamodb.QueryOutput, error) {
+				m.queryFunc = func(_ context.Context, _ *dynamodb.QueryInput, _ ...func(*dynamodb.Options)) (
+					*dynamodb.QueryOutput, error) {
 					item := &imageTaskDefItem{
-						Image:                 "nginx:latest",
-						RoleComposite:         "default#default",
-						TaskDefinitionFamily:  "taskdef-default",
-						IsDefaultPlaceholder:  aws.String("DEFAULT"),
-						ImageName:             "nginx",
-						ImageTag:              "latest",
+						Image:                "nginx:latest",
+						RoleComposite:        "default#default",
+						TaskDefinitionFamily: "taskdef-default",
+						IsDefaultPlaceholder: aws.String("DEFAULT"),
+						ImageName:            "nginx",
+						ImageTag:             "latest",
 					}
 					av, _ := attributevalue.MarshalMap(item)
 					return &dynamodb.QueryOutput{Items: []map[string]types.AttributeValue{av}}, nil
@@ -522,7 +568,8 @@ func TestGetDefaultImage(t *testing.T) {
 		{
 			name: "no default image",
 			mockSetup: func(m *mockImageClient) {
-				m.queryFunc = func(ctx context.Context, params *dynamodb.QueryInput, optFns ...func(*dynamodb.Options)) (*dynamodb.QueryOutput, error) {
+				m.queryFunc = func(_ context.Context, _ *dynamodb.QueryInput, _ ...func(*dynamodb.Options)) (
+					*dynamodb.QueryOutput, error) {
 					return &dynamodb.QueryOutput{Items: []map[string]types.AttributeValue{}}, nil
 				}
 			},
@@ -531,7 +578,8 @@ func TestGetDefaultImage(t *testing.T) {
 		{
 			name: "query error",
 			mockSetup: func(m *mockImageClient) {
-				m.queryFunc = func(ctx context.Context, params *dynamodb.QueryInput, optFns ...func(*dynamodb.Options)) (*dynamodb.QueryOutput, error) {
+				m.queryFunc = func(_ context.Context, _ *dynamodb.QueryInput, _ ...func(*dynamodb.Options)) (
+					*dynamodb.QueryOutput, error) {
 					return nil, fmt.Errorf("query error")
 				}
 			},
@@ -580,7 +628,8 @@ func TestDeleteImage(t *testing.T) {
 			name:  "delete single role combination",
 			image: "nginx:latest",
 			mockSetup: func(m *mockImageClient) {
-				m.queryFunc = func(ctx context.Context, params *dynamodb.QueryInput, optFns ...func(*dynamodb.Options)) (*dynamodb.QueryOutput, error) {
+				m.queryFunc = func(_ context.Context, _ *dynamodb.QueryInput, _ ...func(*dynamodb.Options)) (
+					*dynamodb.QueryOutput, error) {
 					item := &imageTaskDefItem{
 						Image:         "nginx:latest",
 						RoleComposite: "default#default",
@@ -588,7 +637,8 @@ func TestDeleteImage(t *testing.T) {
 					av, _ := attributevalue.MarshalMap(item)
 					return &dynamodb.QueryOutput{Items: []map[string]types.AttributeValue{av}}, nil
 				}
-				m.deleteItemFunc = func(ctx context.Context, params *dynamodb.DeleteItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.DeleteItemOutput, error) {
+				m.deleteItemFunc = func(_ context.Context, params *dynamodb.DeleteItemInput, _ ...func(*dynamodb.Options)) (
+					*dynamodb.DeleteItemOutput, error) {
 					assert.Equal(t, "test-table", *params.TableName)
 					return &dynamodb.DeleteItemOutput{}, nil
 				}
@@ -599,7 +649,8 @@ func TestDeleteImage(t *testing.T) {
 			name:  "delete multiple role combinations",
 			image: "myapp:v1",
 			mockSetup: func(m *mockImageClient) {
-				m.queryFunc = func(ctx context.Context, params *dynamodb.QueryInput, optFns ...func(*dynamodb.Options)) (*dynamodb.QueryOutput, error) {
+				m.queryFunc = func(_ context.Context, _ *dynamodb.QueryInput, _ ...func(*dynamodb.Options)) (
+					*dynamodb.QueryOutput, error) {
 					items := []imageTaskDefItem{
 						{Image: "myapp:v1", RoleComposite: "default#default"},
 						{Image: "myapp:v1", RoleComposite: "role1#role2"},
@@ -613,7 +664,8 @@ func TestDeleteImage(t *testing.T) {
 					return &dynamodb.QueryOutput{Items: av}, nil
 				}
 				deleteCount := 0
-				m.deleteItemFunc = func(ctx context.Context, params *dynamodb.DeleteItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.DeleteItemOutput, error) {
+				m.deleteItemFunc = func(_ context.Context, _ *dynamodb.DeleteItemInput, _ ...func(*dynamodb.Options)) (
+					*dynamodb.DeleteItemOutput, error) {
 					deleteCount++
 					return &dynamodb.DeleteItemOutput{}, nil
 				}
@@ -624,7 +676,8 @@ func TestDeleteImage(t *testing.T) {
 			name:  "query error",
 			image: "nginx:latest",
 			mockSetup: func(m *mockImageClient) {
-				m.queryFunc = func(ctx context.Context, params *dynamodb.QueryInput, optFns ...func(*dynamodb.Options)) (*dynamodb.QueryOutput, error) {
+				m.queryFunc = func(_ context.Context, _ *dynamodb.QueryInput, _ ...func(*dynamodb.Options)) (
+					*dynamodb.QueryOutput, error) {
 					return nil, fmt.Errorf("query failed")
 				}
 			},
@@ -634,7 +687,8 @@ func TestDeleteImage(t *testing.T) {
 			name:  "delete error",
 			image: "nginx:latest",
 			mockSetup: func(m *mockImageClient) {
-				m.queryFunc = func(ctx context.Context, params *dynamodb.QueryInput, optFns ...func(*dynamodb.Options)) (*dynamodb.QueryOutput, error) {
+				m.queryFunc = func(_ context.Context, _ *dynamodb.QueryInput, _ ...func(*dynamodb.Options)) (
+					*dynamodb.QueryOutput, error) {
 					item := &imageTaskDefItem{
 						Image:         "nginx:latest",
 						RoleComposite: "default#default",
@@ -642,7 +696,8 @@ func TestDeleteImage(t *testing.T) {
 					av, _ := attributevalue.MarshalMap(item)
 					return &dynamodb.QueryOutput{Items: []map[string]types.AttributeValue{av}}, nil
 				}
-				m.deleteItemFunc = func(ctx context.Context, params *dynamodb.DeleteItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.DeleteItemOutput, error) {
+				m.deleteItemFunc = func(_ context.Context, _ *dynamodb.DeleteItemInput, _ ...func(*dynamodb.Options)) (
+					*dynamodb.DeleteItemOutput, error) {
 					return nil, fmt.Errorf("delete failed")
 				}
 			},
@@ -682,7 +737,8 @@ func TestGetUniqueImages(t *testing.T) {
 		{
 			name: "deduplicate images across role combinations",
 			mockSetup: func(m *mockImageClient) {
-				m.scanFunc = func(ctx context.Context, params *dynamodb.ScanInput, optFns ...func(*dynamodb.Options)) (*dynamodb.ScanOutput, error) {
+				m.scanFunc = func(_ context.Context, _ *dynamodb.ScanInput, _ ...func(*dynamodb.Options)) (
+					*dynamodb.ScanOutput, error) {
 					items := []imageTaskDefItem{
 						{Image: "nginx:latest", RoleComposite: "default#default", ImageName: "nginx", ImageTag: "latest"},
 						{Image: "nginx:latest", RoleComposite: "role1#role2", ImageName: "nginx", ImageTag: "latest"},
@@ -707,7 +763,8 @@ func TestGetUniqueImages(t *testing.T) {
 		{
 			name: "empty list",
 			mockSetup: func(m *mockImageClient) {
-				m.scanFunc = func(ctx context.Context, params *dynamodb.ScanInput, optFns ...func(*dynamodb.Options)) (*dynamodb.ScanOutput, error) {
+				m.scanFunc = func(_ context.Context, _ *dynamodb.ScanInput, _ ...func(*dynamodb.Options)) (
+					*dynamodb.ScanOutput, error) {
 					return &dynamodb.ScanOutput{Items: []map[string]types.AttributeValue{}}, nil
 				}
 			},
@@ -752,7 +809,8 @@ func TestGetImagesCount(t *testing.T) {
 		{
 			name: "count multiple images",
 			mockSetup: func(m *mockImageClient) {
-				m.scanFunc = func(ctx context.Context, params *dynamodb.ScanInput, optFns ...func(*dynamodb.Options)) (*dynamodb.ScanOutput, error) {
+				m.scanFunc = func(_ context.Context, params *dynamodb.ScanInput, _ ...func(*dynamodb.Options)) (
+					*dynamodb.ScanOutput, error) {
 					assert.Equal(t, types.SelectCount, params.Select)
 					return &dynamodb.ScanOutput{Count: 5}, nil
 				}
@@ -762,7 +820,8 @@ func TestGetImagesCount(t *testing.T) {
 		{
 			name: "empty table",
 			mockSetup: func(m *mockImageClient) {
-				m.scanFunc = func(ctx context.Context, params *dynamodb.ScanInput, optFns ...func(*dynamodb.Options)) (*dynamodb.ScanOutput, error) {
+				m.scanFunc = func(_ context.Context, _ *dynamodb.ScanInput, _ ...func(*dynamodb.Options)) (
+					*dynamodb.ScanOutput, error) {
 					return &dynamodb.ScanOutput{Count: 0}, nil
 				}
 			},
@@ -771,7 +830,8 @@ func TestGetImagesCount(t *testing.T) {
 		{
 			name: "scan error",
 			mockSetup: func(m *mockImageClient) {
-				m.scanFunc = func(ctx context.Context, params *dynamodb.ScanInput, optFns ...func(*dynamodb.Options)) (*dynamodb.ScanOutput, error) {
+				m.scanFunc = func(_ context.Context, _ *dynamodb.ScanInput, _ ...func(*dynamodb.Options)) (
+					*dynamodb.ScanOutput, error) {
 					return nil, fmt.Errorf("scan failed")
 				}
 			},
@@ -814,7 +874,8 @@ func TestSetImageAsOnlyDefault(t *testing.T) {
 			image: "nginx:latest",
 			mockSetup: func(m *mockImageClient) {
 				// Mock UnmarkAllDefaults (Query + UpdateItem for each existing default)
-				m.queryFunc = func(ctx context.Context, params *dynamodb.QueryInput, optFns ...func(*dynamodb.Options)) (*dynamodb.QueryOutput, error) {
+				m.queryFunc = func(_ context.Context, _ *dynamodb.QueryInput, _ ...func(*dynamodb.Options)) (
+					*dynamodb.QueryOutput, error) {
 					// Return one existing default to unmark
 					item := &imageTaskDefItem{
 						Image:                "alpine:3.14",
@@ -824,7 +885,8 @@ func TestSetImageAsOnlyDefault(t *testing.T) {
 					av, _ := attributevalue.MarshalMap(item)
 					return &dynamodb.QueryOutput{Items: []map[string]types.AttributeValue{av}}, nil
 				}
-				m.updateItemFunc = func(ctx context.Context, params *dynamodb.UpdateItemInput, optFns ...func(*dynamodb.Options)) (*dynamodb.UpdateItemOutput, error) {
+				m.updateItemFunc = func(_ context.Context, _ *dynamodb.UpdateItemInput, _ ...func(*dynamodb.Options)) (
+					*dynamodb.UpdateItemOutput, error) {
 					return &dynamodb.UpdateItemOutput{}, nil
 				}
 			},
@@ -834,7 +896,8 @@ func TestSetImageAsOnlyDefault(t *testing.T) {
 			name:  "error unmarking defaults",
 			image: "nginx:latest",
 			mockSetup: func(m *mockImageClient) {
-				m.queryFunc = func(ctx context.Context, params *dynamodb.QueryInput, optFns ...func(*dynamodb.Options)) (*dynamodb.QueryOutput, error) {
+				m.queryFunc = func(_ context.Context, _ *dynamodb.QueryInput, _ ...func(*dynamodb.Options)) (
+					*dynamodb.QueryOutput, error) {
 					return nil, fmt.Errorf("query failed")
 				}
 			},

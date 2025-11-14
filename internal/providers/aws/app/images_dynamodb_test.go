@@ -179,27 +179,28 @@ func (m *mockImageRepo) GetDefaultImage(ctx context.Context) (*api.ImageInfo, er
 	return nil, nil
 }
 
-func (m *mockImageRepo) GetImageTaskDef(ctx context.Context, image string, taskRoleName, taskExecutionRoleName *string) (*api.ImageInfo, error) {
+func (m *mockImageRepo) GetImageTaskDef(_ context.Context, _ string, _, _ *string) (*api.ImageInfo, error) {
 	return nil, nil
 }
 
-func (m *mockImageRepo) PutImageTaskDef(ctx context.Context, image, imageRegistry, imageName, imageTag string, taskRoleName, taskExecutionRoleName *string, taskDefFamily string, isDefault bool) error {
+func (m *mockImageRepo) PutImageTaskDef(
+	_ context.Context, _, _, _, _ string, _, _ *string, _ string, _ bool) error {
 	return nil
 }
 
-func (m *mockImageRepo) ListImages(ctx context.Context) ([]api.ImageInfo, error) {
+func (m *mockImageRepo) ListImages(_ context.Context) ([]api.ImageInfo, error) {
 	return nil, nil
 }
 
-func (m *mockImageRepo) DeleteImage(ctx context.Context, image string) error {
+func (m *mockImageRepo) DeleteImage(_ context.Context, _ string) error {
 	return nil
 }
 
-func (m *mockImageRepo) UnmarkAllDefaults(ctx context.Context) error {
+func (m *mockImageRepo) UnmarkAllDefaults(_ context.Context) error {
 	return nil
 }
 
-func (m *mockImageRepo) SetImageAsOnlyDefault(ctx context.Context, image string, taskRoleName, taskExecutionRoleName *string) error {
+func (m *mockImageRepo) SetImageAsOnlyDefault(_ context.Context, _ string, _, _ *string) error {
 	return nil
 }
 
@@ -227,7 +228,7 @@ func TestRunner_DetermineDefaultStatus(t *testing.T) {
 			name:      "nil and no default exists - should become default",
 			isDefault: nil,
 			mockSetup: func(m *mockImageRepo) {
-				m.getDefaultImageFunc = func(ctx context.Context) (*api.ImageInfo, error) {
+				m.getDefaultImageFunc = func(_ context.Context) (*api.ImageInfo, error) {
 					return nil, nil // No default exists
 				}
 			},
@@ -237,7 +238,7 @@ func TestRunner_DetermineDefaultStatus(t *testing.T) {
 			name:      "nil and default exists - should not become default",
 			isDefault: nil,
 			mockSetup: func(m *mockImageRepo) {
-				m.getDefaultImageFunc = func(ctx context.Context) (*api.ImageInfo, error) {
+				m.getDefaultImageFunc = func(_ context.Context) (*api.ImageInfo, error) {
 					isDefault := true
 					return &api.ImageInfo{
 						Image:     "existing-default:latest",
@@ -251,7 +252,7 @@ func TestRunner_DetermineDefaultStatus(t *testing.T) {
 			name:      "error checking for default",
 			isDefault: nil,
 			mockSetup: func(m *mockImageRepo) {
-				m.getDefaultImageFunc = func(ctx context.Context) (*api.ImageInfo, error) {
+				m.getDefaultImageFunc = func(_ context.Context) (*api.ImageInfo, error) {
 					return nil, assert.AnError
 				}
 			},
