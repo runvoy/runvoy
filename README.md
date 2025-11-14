@@ -27,7 +27,7 @@ Workstations shouldn't be snowflakes that need complex setups, let remote contai
 
 - run one-off arbitrary commands in remote containers like with `kubectl run` without the need for a Kubernetes cluster (or any other _always-running_ cluster, for that matter)
 - run Terraform "in the cloud" without the need for a Terraform Cloud account (and monthly bill...)
-- share execution logs like in Github Actions without the need for a CI/CD pipeline nor a 3rd party service
+- run long-running processes like e.g. test suites and share logs like in Github Actions without the need for a CI/CD pipeline nor a 3rd party service
 - run commands which require full audit trail and secrets management
 - ...
 
@@ -49,14 +49,14 @@ Runvoy is composed of 3 main parts:
 ## Features
 
 - **API key authentication** - Secure access with hashed API keys (SHA-256)
-- **IaC deployment** - Deploy complete backend infrastructure with IaC templates (currently only AWS CloudFormation is supported, but with plans to extend support to other cloud providers in the future)
 - **Flexible container images** - Use any public Docker image (Ubuntu, Python, Node, etc.)
-- **Execution isolation** - Commands run in ephemeral containers
+- **Git cloning** - Automatically clone a (public/private) repository into the container working directory
 - **Native cloud provider logging integration** - Full execution logs and audit trails with request ID tracking
 - **Reusable playbooks** - Store and reuse command execution configurations in YAML files, share with your team to execute commands consistently
 - **Secrets management** - Centralized encrypted secrets with full CRUD from the CLI
 - **Real-time WebSocket streaming** - CLI and web viewer receive live logs over authenticated WebSocket connections
 - **Unix-style output streams** - Separate CLI logs (stderr) from data (stdout) for easy piping and scripting
+- **IaC deployment** - Deploy complete backend infrastructure with IaC templates (currently only AWS CloudFormation is supported, but with plans to extend support to other cloud providers in the future)
 - **RBAC** - Role based access control for the backend API (NOT IMPLEMENTED YET). Runvoy admins define roles and permissions for users, non-admin users can only execute commands / clone repos / select Docker images they are allowed to use
 
 ## Quick Start
