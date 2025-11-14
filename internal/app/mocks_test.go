@@ -222,8 +222,11 @@ type mockRunner struct {
 		image string,
 		isDefault *bool,
 		taskRoleName, taskExecutionRoleName *string,
+		cpu, memory *int,
+		runtimePlatform *string,
 	) error
 	listImagesFunc             func(ctx context.Context) ([]api.ImageInfo, error)
+	getImageFunc               func(ctx context.Context, image string) (*api.ImageInfo, error)
 	removeImageFunc            func(ctx context.Context, image string) error
 	fetchLogsByExecutionIDFunc func(ctx context.Context, executionID string) ([]api.LogEvent, error)
 }
@@ -251,9 +254,11 @@ func (m *mockRunner) RegisterImage(
 	image string,
 	isDefault *bool,
 	taskRoleName, taskExecutionRoleName *string,
+	cpu, memory *int,
+	runtimePlatform *string,
 ) error {
 	if m.registerImageFunc != nil {
-		return m.registerImageFunc(ctx, image, isDefault, taskRoleName, taskExecutionRoleName)
+		return m.registerImageFunc(ctx, image, isDefault, taskRoleName, taskExecutionRoleName, cpu, memory, runtimePlatform)
 	}
 	return nil
 }
@@ -263,6 +268,13 @@ func (m *mockRunner) ListImages(ctx context.Context) ([]api.ImageInfo, error) {
 		return m.listImagesFunc(ctx)
 	}
 	return []api.ImageInfo{}, nil
+}
+
+func (m *mockRunner) GetImage(ctx context.Context, image string) (*api.ImageInfo, error) {
+	if m.getImageFunc != nil {
+		return m.getImageFunc(ctx, image)
+	}
+	return nil, nil
 }
 
 func (m *mockRunner) RemoveImage(ctx context.Context, image string) error {

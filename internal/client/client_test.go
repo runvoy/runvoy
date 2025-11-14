@@ -639,7 +639,7 @@ func TestClient_RegisterImage(t *testing.T) {
 		c := New(cfg, testutil.SilentLogger())
 
 		isDefault := true
-		resp, err := c.RegisterImage(context.Background(), "ubuntu:22.04", &isDefault, nil, nil)
+		resp, err := c.RegisterImage(context.Background(), "ubuntu:22.04", &isDefault, nil, nil, nil, nil, nil)
 
 		require.NoError(t, err)
 		require.NotNil(t, resp)
@@ -668,7 +668,7 @@ func TestClient_RegisterImage(t *testing.T) {
 		}
 		c := New(cfg, testutil.SilentLogger())
 
-		resp, err := c.RegisterImage(context.Background(), "ubuntu:22.04", nil, nil, nil)
+		resp, err := c.RegisterImage(context.Background(), "ubuntu:22.04", nil, nil, nil, nil, nil, nil)
 
 		require.NoError(t, err)
 		require.NotNil(t, resp)
@@ -701,7 +701,7 @@ func TestClient_RegisterImage(t *testing.T) {
 
 		taskRole := "my-task-role"
 		taskExecRole := "my-exec-role"
-		resp, err := c.RegisterImage(context.Background(), "alpine:latest", nil, &taskRole, &taskExecRole)
+		resp, err := c.RegisterImage(context.Background(), "alpine:latest", nil, &taskRole, &taskExecRole, nil, nil, nil)
 
 		require.NoError(t, err)
 		require.NotNil(t, resp)

@@ -58,6 +58,7 @@ func NewRouter(svc *app.Service, requestTimeout time.Duration) *Router {
 		r.With(router.authenticateRequestMiddleware).Route("/images", func(r chi.Router) {
 			r.Post("/register", router.handleRegisterImage)
 			r.Get("/", router.handleListImages)
+			r.Get("/*", router.handleGetImage)
 			r.Delete("/*", router.handleRemoveImage)
 		})
 		r.With(router.authenticateRequestMiddleware).Route("/secrets", func(r chi.Router) {

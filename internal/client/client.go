@@ -302,6 +302,8 @@ func (c *Client) RegisterImage(
 	image string,
 	isDefault *bool,
 	taskRoleName, taskExecutionRoleName *string,
+	cpu, memory *int,
+	runtimePlatform *string,
 ) (*api.RegisterImageResponse, error) {
 	var resp api.RegisterImageResponse
 	err := c.DoJSON(ctx, Request{
@@ -312,6 +314,9 @@ func (c *Client) RegisterImage(
 			IsDefault:             isDefault,
 			TaskRoleName:          taskRoleName,
 			TaskExecutionRoleName: taskExecutionRoleName,
+			CPU:                   cpu,
+			Memory:                memory,
+			RuntimePlatform:       runtimePlatform,
 		},
 	}, &resp)
 	if err != nil {
@@ -326,6 +331,20 @@ func (c *Client) ListImages(ctx context.Context) (*api.ListImagesResponse, error
 	err := c.DoJSON(ctx, Request{
 		Method: "GET",
 		Path:   "/api/v1/images",
+	}, &resp)
+	if err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
+// GetImage retrieves a single container image by ID or name
+func (c *Client) GetImage(ctx context.Context, image string) (*api.ImageInfo, error) {
+	var resp api.ImageInfo
+	encodedImage := url.PathEscape(image)
+	err := c.DoJSON(ctx, Request{
+		Method: "GET",
+		Path:   fmt.Sprintf("/api/v1/images/%s", encodedImage),
 	}, &resp)
 	if err != nil {
 		return nil, err

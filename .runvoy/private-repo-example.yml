@@ -1,6 +1,8 @@
+description: Clone private Runvoy repository and build the CLI
 image: golang:1.24.5-bookworm
 git_repo: https://github.com/runvoy/runvoy.git
 secrets:
   - github-token
 commands:
-  - go test ./...
+  - go build -o runvoy ./cmd/cli
+  - ./runvoy

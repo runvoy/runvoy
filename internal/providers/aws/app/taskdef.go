@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"log/slog"
 	"regexp"
-	"strconv"
 	"strings"
 
 	"runvoy/internal/constants"
+	"runvoy/internal/logger"
 	awsConstants "runvoy/internal/providers/aws/constants"
 
 	awsStd "github.com/aws/aws-sdk-go-v2/aws"
@@ -92,7 +92,7 @@ func listTaskDefinitionsByPrefix(ctx context.Context, ecsClient Client, prefix s
 func GetDefaultImage(
 	ctx context.Context,
 	ecsClient Client,
-	logger *slog.Logger,
+	log *slog.Logger,
 ) (string, error) {
 	familyPrefix := constants.TaskDefinitionFamilyPrefix + "-"
 	taskDefArns, err := listTaskDefinitionsByPrefix(ctx, ecsClient, familyPrefix)
@@ -100,7 +100,7 @@ func GetDefaultImage(
 		return "", err
 	}
 
-	logger.Debug("calling external service", "context", map[string]string{
+	log.Debug("calling external service", "context", map[string]string{
 		"operation":     "ECS.ListTagsForResource",
 		"resource_arns": strings.Join(taskDefArns, ", "),
 	})
@@ -111,7 +111,7 @@ func GetDefaultImage(
 			ResourceArn: awsStd.String(taskDefARN),
 		})
 		if err != nil {
-			logger.Debug("failed to list tags for task definition", "context", map[string]string{
+			log.Debug("failed to list tags for task definition", "context", map[string]string{
 				"arn":   taskDefARN,
 				"error": err.Error(),
 			})
@@ -139,68 +139,13 @@ func GetDefaultImage(
 	return "", nil
 }
 
-// unmarkExistingDefaultImages removes the IsDefault tag from all existing task definitions
-// that have it. This ensures only one image can be marked as default at a time.
-func unmarkExistingDefaultImages(
-	ctx context.Context,
-	ecsClient Client,
-	logger *slog.Logger,
-) error {
-	familyPrefix := constants.TaskDefinitionFamilyPrefix + "-"
-	taskDefArns, err := listTaskDefinitionsByPrefix(ctx, ecsClient, familyPrefix)
-	if err != nil {
-		return err
-	}
-
-	for _, taskDefARN := range taskDefArns {
-		var tagsOutput *ecs.ListTagsForResourceOutput
-		tagsOutput, err = ecsClient.ListTagsForResource(ctx, &ecs.ListTagsForResourceInput{
-			ResourceArn: awsStd.String(taskDefARN),
-		})
-		if err != nil {
-			logger.Warn("failed to list tags for task definition", "context", map[string]string{
-				"arn":   taskDefARN,
-				"error": err.Error(),
-			})
-			continue
-		}
-
-		hasDefaultTag := false
-		for _, tag := range tagsOutput.Tags {
-			if tag.Key != nil && *tag.Key == constants.TaskDefinitionIsDefaultTagKey &&
-				tag.Value != nil && *tag.Value == constants.TaskDefinitionIsDefaultTagValue {
-				hasDefaultTag = true
-				break
-			}
-		}
-
-		if hasDefaultTag {
-			_, err = ecsClient.UntagResource(ctx, &ecs.UntagResourceInput{
-				ResourceArn: awsStd.String(taskDefARN),
-				TagKeys:     []string{constants.TaskDefinitionIsDefaultTagKey},
-			})
-			if err != nil {
-				logger.Warn("failed to remove default tag from task definition", "context", map[string]string{
-					"arn":    taskDefARN,
-					"error":  err.Error(),
-					"tagKey": constants.TaskDefinitionIsDefaultTagKey,
-				})
-			} else {
-				logger.Info("removed default tag from existing task definition", "arn", taskDefARN)
-			}
-		}
-	}
-
-	return nil
-}
-
 // GetTaskDefinitionForImage looks up an existing task definition for the given Docker image.
 // Returns an error if the task definition doesn't exist (does not auto-register).
 func GetTaskDefinitionForImage(
 	ctx context.Context,
 	ecsClient Client,
 	image string,
-	logger *slog.Logger,
+	log *slog.Logger,
 ) (string, error) {
 	family := TaskDefinitionFamilyName(image)
 
@@ -215,7 +160,7 @@ func GetTaskDefinitionForImage(
 
 	if len(listOutput.TaskDefinitionArns) > 0 {
 		latestARN := listOutput.TaskDefinitionArns[len(listOutput.TaskDefinitionArns)-1]
-		logger.Debug("task definition found", "context", map[string]string{
+		log.Debug("task definition found", "context", map[string]string{
 			"family": family,
 			"arn":    latestARN,
 		})
@@ -225,85 +170,6 @@ func GetTaskDefinitionForImage(
 	return "", fmt.Errorf("task definition for image %q not found (family: %s). "+
 		"Image must be registered via /api/v1/images/register",
 		image, family)
-}
-
-// handleDefaultImageTagging handles updating default image tags when registering a new image.
-func handleDefaultImageTagging(
-	ctx context.Context, ecsClient Client, isDefault *bool, existingTaskDefARN string, logger *slog.Logger,
-) error {
-	if isDefault != nil && *isDefault {
-		if err := unmarkExistingDefaultImages(ctx, ecsClient, logger); err != nil {
-			logger.Warn("failed to unmark existing default images, proceeding anyway", "error", err)
-		}
-	} else if existingTaskDefARN != "" {
-		_, err := ecsClient.UntagResource(ctx, &ecs.UntagResourceInput{
-			ResourceArn: awsStd.String(existingTaskDefARN),
-			TagKeys:     []string{constants.TaskDefinitionIsDefaultTagKey},
-		})
-		if err != nil {
-			logger.Debug(
-				"failed to remove default tag from existing task definition (may not have had it)",
-				"arn", existingTaskDefARN,
-				"error", err,
-			)
-		} else {
-			logger.Info("removed default tag from existing task definition", "arn", existingTaskDefARN)
-		}
-	}
-	return nil
-}
-
-// updateExistingTaskDefTags updates tags on an existing task definition.
-func updateExistingTaskDefTags(
-	ctx context.Context, ecsClient Client, taskDefARN, image string,
-	isDefault *bool, family string, logger *slog.Logger,
-) error {
-	tags := buildTaskDefinitionTags(image, isDefault)
-	_, tagErr := ecsClient.TagResource(ctx, &ecs.TagResourceInput{
-		ResourceArn: awsStd.String(taskDefARN),
-		Tags:        tags,
-	})
-	if tagErr != nil {
-		logger.Warn("failed to tag existing task definition", "context", map[string]string{
-			"arn":   taskDefARN,
-			"error": tagErr.Error(),
-		})
-		return fmt.Errorf("failed to update tags on existing task definition: %w", tagErr)
-	}
-	logger.Info("updated tags on existing task definition", "context", map[string]string{
-		"family":     family,
-		"arn":        taskDefARN,
-		"image":      image,
-		"is_default": strconv.FormatBool(isDefault != nil && *isDefault),
-	})
-	return nil
-}
-
-// getRoleARNsFromExistingTaskDef retrieves task role ARNs from an existing task definition
-// if they're not provided in config.
-func getRoleARNsFromExistingTaskDef(
-	ctx context.Context, ecsClient Client, taskExecRoleARN, taskRoleARN string,
-) (execRoleARN, roleARN string) {
-	if taskExecRoleARN == "" || taskRoleARN == "" {
-		allFamilies, err := ecsClient.ListTaskDefinitions(ctx, &ecs.ListTaskDefinitionsInput{
-			MaxResults: awsStd.Int32(1),
-		})
-		if err == nil && len(allFamilies.TaskDefinitionArns) > 0 {
-			var descOutput *ecs.DescribeTaskDefinitionOutput
-			descOutput, err = ecsClient.DescribeTaskDefinition(ctx, &ecs.DescribeTaskDefinitionInput{
-				TaskDefinition: awsStd.String(allFamilies.TaskDefinitionArns[len(allFamilies.TaskDefinitionArns)-1]),
-			})
-			if err == nil && descOutput.TaskDefinition != nil {
-				if taskExecRoleARN == "" && descOutput.TaskDefinition.ExecutionRoleArn != nil {
-					taskExecRoleARN = awsStd.ToString(descOutput.TaskDefinition.ExecutionRoleArn)
-				}
-				if taskRoleARN == "" && descOutput.TaskDefinition.TaskRoleArn != nil {
-					taskRoleARN = awsStd.ToString(descOutput.TaskDefinition.TaskRoleArn)
-				}
-			}
-		}
-	}
-	return taskExecRoleARN, taskRoleARN
 }
 
 // buildTaskDefinitionTags creates the tags to be applied to a task definition.
@@ -326,10 +192,42 @@ func buildTaskDefinitionTags(image string, isDefault *bool) []ecsTypes.Tag {
 }
 
 // buildTaskDefinitionInput creates the RegisterTaskDefinitionInput for a new task definition.
+// parseRuntimePlatform splits runtime_platform into OS and Architecture for ECS API.
+// Format: OS/ARCH matching ECS format (e.g., "Linux/ARM64", "Linux/X86_64", "WINDOWS_SERVER_2019_CORE/X86_64").
+func parseRuntimePlatform(runtimePlatform string) (osFamily, cpuArch string, err error) {
+	parts := strings.Split(runtimePlatform, "/")
+	if len(parts) != 2 { //nolint:mnd // Runtime platform format is OS/ARCH (2 parts)
+		return "", "", fmt.Errorf("invalid runtime_platform format: expected OS/ARCH, got %s", runtimePlatform)
+	}
+	osFamily = parts[0]
+	cpuArch = parts[1]
+
+	// Validate known architectures
+	const (
+		archX86_64 = "X86_64"
+		archARM64  = "ARM64"
+	)
+	if cpuArch != archX86_64 && cpuArch != archARM64 {
+		return "", "", fmt.Errorf("unsupported architecture: %s (expected X86_64 or ARM64)", cpuArch)
+	}
+
+	return osFamily, cpuArch, nil
+}
+
+// convertOSFamilyToECSEnum converts OS family string to ECS enum.
+// ECS uses uppercase enum values (LINUX, WINDOWS_SERVER_2019_CORE, etc.).
+func convertOSFamilyToECSEnum(osFamily string) ecsTypes.OSFamily {
+	upper := strings.ToUpper(osFamily)
+	return ecsTypes.OSFamily(upper)
+}
+
 //
 //nolint:funlen // Large data structure definition
 func buildTaskDefinitionInput(
-	family, image, taskExecRoleARN, taskRoleARN, region string, cfg *Config,
+	ctx context.Context,
+	family, image, taskExecRoleARN, taskRoleARN, region string,
+	cpu, memory, runtimePlatform string,
+	cfg *Config,
 ) *ecs.RegisterTaskDefinitionInput {
 	registerInput := &ecs.RegisterTaskDefinitionInput{
 		Family:      awsStd.String(family),
@@ -337,8 +235,8 @@ func buildTaskDefinitionInput(
 		RequiresCompatibilities: []ecsTypes.Compatibility{
 			ecsTypes.CompatibilityFargate,
 		},
-		Cpu:              awsStd.String("256"),
-		Memory:           awsStd.String("512"),
+		Cpu:              awsStd.String(cpu),
+		Memory:           awsStd.String(memory),
 		ExecutionRoleArn: awsStd.String(taskExecRoleARN),
 		EphemeralStorage: &ecsTypes.EphemeralStorage{
 			SizeInGiB: awsConstants.ECSEphemeralStorageSizeGiB,
@@ -412,88 +310,39 @@ func buildTaskDefinitionInput(
 	if taskRoleARN != "" {
 		registerInput.TaskRoleArn = awsStd.String(taskRoleARN)
 	}
+
+	osFamily, cpuArch, err := parseRuntimePlatform(runtimePlatform)
+	if err != nil {
+		// This should not happen if validation is done before calling this function
+		// But we'll use defaults as fallback
+		osFamily = awsConstants.DefaultRuntimePlatformOSFamily
+		cpuArch = awsConstants.DefaultRuntimePlatformArchitecture
+
+		reqLogger := logger.DeriveRequestLogger(ctx, slog.Default())
+		reqLogger.Warn("failed to parse runtime platform, falling back to defaults", "context",
+			map[string]any{
+				"error":            err,
+				"runtime_platform": runtimePlatform,
+				"os_family":        osFamily,
+				"cpu_arch":         cpuArch,
+			})
+	}
+
+	osFamilyEnum := convertOSFamilyToECSEnum(osFamily)
+
+	registerInput.RuntimePlatform = &ecsTypes.RuntimePlatform{
+		OperatingSystemFamily: osFamilyEnum,
+		CpuArchitecture:       ecsTypes.CPUArchitecture(cpuArch),
+	}
+
 	return registerInput
 }
 
-// RegisterTaskDefinitionForImage registers a new ECS task definition for the given Docker image.
-// The task definition uses the same structure as before (sidecar + runner), but with the specified runner image.
-// The Docker image is stored in a task definition tag for reliable retrieval.
-// If isDefault is true, the image will be tagged as the default image.
-//
-//nolint:funlen // Complex AWS API orchestration
-func RegisterTaskDefinitionForImage(
-	ctx context.Context,
-	ecsClient Client,
-	cfg *Config,
-	image string,
-	isDefault *bool,
-	region string,
-	logger *slog.Logger,
-) error {
-	family := TaskDefinitionFamilyName(image)
-
-	taskDefArns, err := listTaskDefinitionsByPrefix(ctx, ecsClient, family)
-	if err != nil {
-		return err
-	}
-
-	var existingTaskDefARN string
-	if len(taskDefArns) > 0 {
-		existingTaskDefARN = taskDefArns[len(taskDefArns)-1]
-		logger.Debug("task definition already exists", "context", map[string]string{
-			"family": family,
-			"arn":    existingTaskDefARN,
-		})
-	}
-
-	if tagErr := handleDefaultImageTagging(ctx, ecsClient, isDefault, existingTaskDefARN, logger); tagErr != nil {
-		return tagErr
-	}
-
-	if existingTaskDefARN != "" {
-		return updateExistingTaskDefTags(ctx, ecsClient, existingTaskDefARN, image, isDefault, family, logger)
-	}
-
-	taskExecRoleARN, taskRoleARN := getRoleARNsFromExistingTaskDef(
-		ctx, ecsClient, cfg.DefaultTaskExecRoleARN, cfg.DefaultTaskRoleARN,
-	)
-
-	if taskExecRoleARN == "" {
-		return fmt.Errorf("task execution role ARN is required but not found in config or existing task definitions")
-	}
-
-	registerInput := buildTaskDefinitionInput(family, image, taskExecRoleARN, taskRoleARN, region, cfg)
-	registerOutput, err := ecsClient.RegisterTaskDefinition(ctx, registerInput)
-	if err != nil {
-		return fmt.Errorf("failed to register task definition: %w", err)
-	}
-
-	taskDefARN := awsStd.ToString(registerOutput.TaskDefinition.TaskDefinitionArn)
-	tags := buildTaskDefinitionTags(image, isDefault)
-
-	if len(tags) > 0 {
-		_, tagErr := ecsClient.TagResource(ctx, &ecs.TagResourceInput{
-			ResourceArn: awsStd.String(taskDefARN),
-			Tags:        tags,
-		})
-		if tagErr != nil {
-			logger.Warn(
-				"failed to tag task definition (task definition registered successfully)",
-				"arn", taskDefARN,
-				"error", tagErr,
-			)
-		}
-	}
-
-	logger.Info("registered task definition", "family", family, "arn", taskDefARN, "image", image)
-	return nil
-}
-
 // checkIfImageIsDefault checks if the image being removed is marked as default.
-func checkIfImageIsDefault(ctx context.Context, ecsClient Client, family string, logger *slog.Logger) bool {
+func checkIfImageIsDefault(ctx context.Context, ecsClient Client, family string, log *slog.Logger) bool {
 	taskDefArns, err := listTaskDefinitionsByPrefix(ctx, ecsClient, family)
 	if err != nil {
-		logger.Warn("failed to check if image is default before removal", "error", err)
+		log.Warn("failed to check if image is default before removal", "error", err)
 		return false
 	}
 
@@ -515,10 +364,10 @@ func checkIfImageIsDefault(ctx context.Context, ecsClient Client, family string,
 
 // deregisterAllTaskDefRevisions deregisters all active task definition revisions for a given family.
 func deregisterAllTaskDefRevisions(
-	ctx context.Context, ecsClient Client, family, image string, logger *slog.Logger,
+	ctx context.Context, ecsClient Client, family, image string, log *slog.Logger,
 ) error {
 	nextToken := ""
-	logger.Debug("calling external service", "context", map[string]string{
+	log.Debug("calling external service", "context", map[string]string{
 		"operation": "ECS.ListTaskDefinitions",
 		"family":    family,
 		"image":     image,
@@ -542,7 +391,7 @@ func deregisterAllTaskDefRevisions(
 				TaskDefinition: awsStd.String(taskDefARN),
 			})
 			if deregErr != nil {
-				logger.Error("failed to deregister task definition revision", "context", map[string]string{
+				log.Error("failed to deregister task definition revision", "context", map[string]string{
 					"family": family,
 					"image":  image,
 					"arn":    taskDefARN,
@@ -551,7 +400,7 @@ func deregisterAllTaskDefRevisions(
 				return fmt.Errorf("failed to deregister task definition revision: %w", deregErr)
 			}
 
-			logger.Info("deregistered task definition revision", "context", map[string]string{
+			log.Info("deregistered task definition revision", "context", map[string]string{
 				"family": family,
 				"image":  image,
 				"arn":    taskDefARN,
@@ -564,7 +413,7 @@ func deregisterAllTaskDefRevisions(
 		nextToken = *listOutput.NextToken
 	}
 
-	logger.Info("deregistered all task definition revisions", "context", map[string]string{
+	log.Info("deregistered all task definition revisions", "context", map[string]string{
 		"family": family,
 		"image":  image,
 	})
@@ -575,12 +424,12 @@ func deregisterAllTaskDefRevisions(
 //
 //nolint:funlen // Complex AWS API orchestration
 func markLastRemainingImageAsDefault(
-	ctx context.Context, ecsClient Client, family string, logger *slog.Logger,
+	ctx context.Context, ecsClient Client, family string, log *slog.Logger,
 ) error {
 	familyPrefix := constants.TaskDefinitionFamilyPrefix + "-"
 	remainingTaskDefs, err := listTaskDefinitionsByPrefix(ctx, ecsClient, familyPrefix)
 	if err != nil {
-		logger.Warn("failed to list remaining task definitions after removal", "error", err)
+		log.Warn("failed to list remaining task definitions after removal", "error", err)
 		return nil
 	}
 
@@ -590,7 +439,7 @@ func markLastRemainingImageAsDefault(
 			TaskDefinition: awsStd.String(taskDefARN),
 		})
 		if descErr != nil {
-			logger.Error("failed to describe task definition", "context", map[string]string{
+			log.Error("failed to describe task definition", "context", map[string]string{
 				"family": family,
 				"arn":    taskDefARN,
 				"error":  descErr.Error(),
@@ -619,7 +468,7 @@ func markLastRemainingImageAsDefault(
 			lastTaskDefARN = arn
 		}
 
-		logger.Info("only one image remaining after removing default, marking it as default",
+		log.Info("only one image remaining after removing default, marking it as default",
 			"image", lastImage)
 
 		tags := []ecsTypes.Tag{
@@ -638,13 +487,13 @@ func markLastRemainingImageAsDefault(
 			Tags:        tags,
 		})
 		if tagErr != nil {
-			logger.Warn("failed to tag last remaining image as default", "context", map[string]string{
+			log.Warn("failed to tag last remaining image as default", "context", map[string]string{
 				"image": lastImage,
 				"arn":   lastTaskDefARN,
 				"error": tagErr.Error(),
 			})
 		} else {
-			logger.Info("marked last remaining image as default", "context", map[string]string{
+			log.Info("marked last remaining image as default", "context", map[string]string{
 				"image": lastImage,
 				"arn":   lastTaskDefARN,
 			})
@@ -659,18 +508,18 @@ func DeregisterTaskDefinitionsForImage(
 	ctx context.Context,
 	ecsClient Client,
 	image string,
-	logger *slog.Logger,
+	log *slog.Logger,
 ) error {
 	family := TaskDefinitionFamilyName(image)
 
-	wasDefault := checkIfImageIsDefault(ctx, ecsClient, family, logger)
+	wasDefault := checkIfImageIsDefault(ctx, ecsClient, family, log)
 
-	if err := deregisterAllTaskDefRevisions(ctx, ecsClient, family, image, logger); err != nil {
+	if err := deregisterAllTaskDefRevisions(ctx, ecsClient, family, image, log); err != nil {
 		return err
 	}
 
 	if wasDefault {
-		if err := markLastRemainingImageAsDefault(ctx, ecsClient, family, logger); err != nil {
+		if err := markLastRemainingImageAsDefault(ctx, ecsClient, family, log); err != nil {
 			return err
 		}
 	}

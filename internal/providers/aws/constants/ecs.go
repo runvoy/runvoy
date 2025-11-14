@@ -52,3 +52,18 @@ const ECSTaskDefinitionMaxResults = int32(100)
 
 // ECSEphemeralStorageSizeGiB is the ECS ephemeral storage size in GiB
 const ECSEphemeralStorageSizeGiB = 21
+
+// DefaultCPU is the default CPU units for ECS task definitions
+const DefaultCPU = 256
+
+// DefaultMemory is the default memory (in MB) for ECS task definitions
+const DefaultMemory = 512
+
+// DefaultRuntimePlatform is the default runtime platform for ECS task definitions
+const DefaultRuntimePlatform = DefaultRuntimePlatformOSFamily + "/" + DefaultRuntimePlatformArchitecture
+
+// DefaultRuntimePlatformArchitecture is the default architecture for ECS task definitions
+const DefaultRuntimePlatformArchitecture = "ARM64"
+
+// DefaultRuntimePlatformOSFamily is the default OS family for ECS task definitions
+const DefaultRuntimePlatformOSFamily = "Linux"

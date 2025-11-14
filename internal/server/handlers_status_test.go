@@ -29,6 +29,8 @@ func (m *mockRunner) RegisterImage(
 	_ string,
 	_ *bool,
 	_, _ *string,
+	_, _ *int,
+	_ *string,
 ) error {
 	return nil
 }
@@ -39,6 +41,10 @@ func (m *mockRunner) ListImages(_ context.Context) ([]api.ImageInfo, error) {
 			Image: "alpine:latest",
 		},
 	}, nil
+}
+
+func (m *mockRunner) GetImage(_ context.Context, _ string) (*api.ImageInfo, error) {
+	return nil, nil
 }
 
 func (m *mockRunner) RemoveImage(_ context.Context, _ string) error {

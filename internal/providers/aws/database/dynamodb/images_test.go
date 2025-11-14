@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"runvoy/internal/api"
+	awsConstants "runvoy/internal/providers/aws/constants"
 	"runvoy/internal/testutil"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -225,7 +226,11 @@ func TestPutImageTaskDef(t *testing.T) {
 					require.NoError(t, err)
 
 					assert.Equal(t, "nginx:latest", item.Image)
-					assert.Equal(t, "default#default", item.RoleComposite)
+					assert.NotEmpty(t, item.ImageID)
+					assert.Equal(t, "default#default", buildRoleComposite(item.TaskRoleName, item.TaskExecutionRoleName))
+					assert.Equal(t, "256", item.Cpu)
+					assert.Equal(t, "512", item.Memory)
+					assert.Equal(t, "Linux/ARM64", item.RuntimePlatform)
 					assert.Equal(t, "nginx", item.ImageName)
 					assert.Equal(t, "latest", item.ImageTag)
 					assert.Equal(t, "runvoy-taskdef-123", item.TaskDefinitionFamily)
@@ -255,7 +260,14 @@ func TestPutImageTaskDef(t *testing.T) {
 					err := attributevalue.UnmarshalMap(params.Item, &item)
 					require.NoError(t, err)
 
-					assert.Equal(t, "custom-task-role#custom-exec-role", item.RoleComposite)
+					assert.NotEmpty(t, item.ImageID)
+					assert.Equal(
+						t, "custom-task-role#custom-exec-role",
+						buildRoleComposite(item.TaskRoleName, item.TaskExecutionRoleName),
+					)
+					assert.Equal(t, "256", item.Cpu)
+					assert.Equal(t, "512", item.Memory)
+					assert.Equal(t, "Linux/ARM64", item.RuntimePlatform)
 					assert.Nil(t, item.IsDefaultPlaceholder)
 					assert.Equal(t, "custom-task-role", *item.TaskRoleName)
 					assert.Equal(t, "custom-exec-role", *item.TaskExecutionRoleName)
@@ -292,14 +304,28 @@ func TestPutImageTaskDef(t *testing.T) {
 			}
 
 			repo := NewImageTaskDefRepository(mockClient, "test-table", logger)
+			// Generate ImageID for the test
+			imageID := GenerateImageID(
+				tt.imageName,
+				tt.imageTag,
+				awsConstants.DefaultCPU,
+				awsConstants.DefaultMemory,
+				awsConstants.DefaultRuntimePlatform,
+				tt.taskRoleName,
+				tt.taskExecutionRoleName,
+			)
 			err := repo.PutImageTaskDef(
 				ctx,
+				imageID,
 				tt.image,
 				tt.imageRegistry,
 				tt.imageName,
 				tt.imageTag,
 				tt.taskRoleName,
 				tt.taskExecutionRoleName,
+				awsConstants.DefaultCPU,
+				awsConstants.DefaultMemory,
+				awsConstants.DefaultRuntimePlatform,
 				tt.taskDefFamily,
 				tt.isDefault,
 			)
@@ -334,9 +360,13 @@ func TestGetImageTaskDef(t *testing.T) {
 				m.getItemFunc = func(
 					_ context.Context, _ *dynamodb.GetItemInput, _ ...func(*dynamodb.Options)) (
 					*dynamodb.GetItemOutput, error) {
+					imageID := GenerateImageID("nginx", "latest", 256, 512, "Linux/ARM64", nil, nil)
 					item := &imageTaskDefItem{
+						ImageID:              imageID,
 						Image:                "nginx:latest",
-						RoleComposite:        "default#default",
+						Cpu:                  "256",
+						Memory:               "512",
+						RuntimePlatform:      "Linux/ARM64",
 						TaskDefinitionFamily: "runvoy-taskdef-123",
 						IsDefaultPlaceholder: aws.String("DEFAULT"),
 						ImageRegistry:        "",
@@ -348,6 +378,7 @@ func TestGetImageTaskDef(t *testing.T) {
 				}
 			},
 			validateResult: func(t *testing.T, info *api.ImageInfo) {
+				assert.NotEmpty(t, info.ImageID)
 				assert.Equal(t, "nginx:latest", info.Image)
 				assert.Equal(t, "runvoy-taskdef-123", info.TaskDefinitionName)
 				assert.True(t, *info.IsDefault)
@@ -364,11 +395,18 @@ func TestGetImageTaskDef(t *testing.T) {
 				m.getItemFunc = func(
 					_ context.Context, _ *dynamodb.GetItemInput, _ ...func(*dynamodb.Options)) (
 					*dynamodb.GetItemOutput, error) {
+					imageID := GenerateImageID(
+						"myapp", "v1", 256, 512, "Linux/ARM64",
+						aws.String("my-task-role"), aws.String("my-exec-role"),
+					)
 					item := &imageTaskDefItem{
+						ImageID:               imageID,
 						Image:                 "myapp:v1",
-						RoleComposite:         "my-task-role#my-exec-role",
 						TaskRoleName:          aws.String("my-task-role"),
 						TaskExecutionRoleName: aws.String("my-exec-role"),
+						Cpu:                   "256",
+						Memory:                "512",
+						RuntimePlatform:       "Linux/ARM64",
 						TaskDefinitionFamily:  "runvoy-taskdef-456",
 						ImageRegistry:         "",
 						ImageName:             "myapp",
@@ -379,6 +417,7 @@ func TestGetImageTaskDef(t *testing.T) {
 				}
 			},
 			validateResult: func(t *testing.T, info *api.ImageInfo) {
+				assert.NotEmpty(t, info.ImageID)
 				assert.Equal(t, "myapp:v1", info.Image)
 				assert.Equal(t, "my-task-role", *info.TaskRoleName)
 				assert.Equal(t, "my-exec-role", *info.TaskExecutionRoleName)
@@ -419,7 +458,7 @@ func TestGetImageTaskDef(t *testing.T) {
 			}
 
 			repo := NewImageTaskDefRepository(mockClient, "test-table", logger)
-			result, err := repo.GetImageTaskDef(ctx, tt.image, tt.taskRoleName, tt.taskExecutionRoleName)
+			result, err := repo.GetImageTaskDef(ctx, tt.image, tt.taskRoleName, tt.taskExecutionRoleName, nil, nil, nil)
 
 			if tt.expectError {
 				assert.Error(t, err)
@@ -457,18 +496,24 @@ func TestListImages(t *testing.T) {
 					*dynamodb.ScanOutput, error) {
 					items := []imageTaskDefItem{
 						{
+							ImageID:              GenerateImageID("nginx", "latest", 256, 512, "Linux/X86_64", nil, nil),
 							Image:                "nginx:latest",
-							RoleComposite:        "default#default",
 							TaskDefinitionFamily: "taskdef-1",
 							ImageName:            "nginx",
 							ImageTag:             "latest",
+							Cpu:                  "256",
+							Memory:               "512",
+							RuntimePlatform:      "Linux/X86_64",
 						},
 						{
+							ImageID:              GenerateImageID("alpine", "3.14", 256, 512, "Linux/X86_64", nil, nil),
 							Image:                "alpine:3.14",
-							RoleComposite:        "default#default",
 							TaskDefinitionFamily: "taskdef-2",
 							ImageName:            "alpine",
 							ImageTag:             "3.14",
+							Cpu:                  "256",
+							Memory:               "512",
+							RuntimePlatform:      "Linux/X86_64",
 						},
 					}
 					var av []map[string]types.AttributeValue
@@ -549,12 +594,15 @@ func TestGetDefaultImage(t *testing.T) {
 				m.queryFunc = func(_ context.Context, _ *dynamodb.QueryInput, _ ...func(*dynamodb.Options)) (
 					*dynamodb.QueryOutput, error) {
 					item := &imageTaskDefItem{
+						ImageID:              GenerateImageID("nginx", "latest", 256, 512, "Linux/X86_64", nil, nil),
 						Image:                "nginx:latest",
-						RoleComposite:        "default#default",
 						TaskDefinitionFamily: "taskdef-default",
 						IsDefaultPlaceholder: aws.String("DEFAULT"),
 						ImageName:            "nginx",
 						ImageTag:             "latest",
+						Cpu:                  "256",
+						Memory:               "512",
+						RuntimePlatform:      "Linux/X86_64",
 					}
 					av, _ := attributevalue.MarshalMap(item)
 					return &dynamodb.QueryOutput{Items: []map[string]types.AttributeValue{av}}, nil
@@ -628,14 +676,17 @@ func TestDeleteImage(t *testing.T) {
 			name:  "delete single role combination",
 			image: "nginx:latest",
 			mockSetup: func(m *mockImageClient) {
-				m.queryFunc = func(_ context.Context, _ *dynamodb.QueryInput, _ ...func(*dynamodb.Options)) (
-					*dynamodb.QueryOutput, error) {
+				m.scanFunc = func(_ context.Context, _ *dynamodb.ScanInput, _ ...func(*dynamodb.Options)) (
+					*dynamodb.ScanOutput, error) {
 					item := &imageTaskDefItem{
-						Image:         "nginx:latest",
-						RoleComposite: "default#default",
+						ImageID:         GenerateImageID("nginx", "latest", 256, 512, "Linux/X86_64", nil, nil),
+						Image:           "nginx:latest",
+						Cpu:             "256",
+						Memory:          "512",
+						RuntimePlatform: "Linux/X86_64",
 					}
 					av, _ := attributevalue.MarshalMap(item)
-					return &dynamodb.QueryOutput{Items: []map[string]types.AttributeValue{av}}, nil
+					return &dynamodb.ScanOutput{Items: []map[string]types.AttributeValue{av}}, nil
 				}
 				m.deleteItemFunc = func(_ context.Context, params *dynamodb.DeleteItemInput, _ ...func(*dynamodb.Options)) (
 					*dynamodb.DeleteItemOutput, error) {
@@ -649,19 +700,47 @@ func TestDeleteImage(t *testing.T) {
 			name:  "delete multiple role combinations",
 			image: "myapp:v1",
 			mockSetup: func(m *mockImageClient) {
-				m.queryFunc = func(_ context.Context, _ *dynamodb.QueryInput, _ ...func(*dynamodb.Options)) (
-					*dynamodb.QueryOutput, error) {
+				m.scanFunc = func(_ context.Context, _ *dynamodb.ScanInput, _ ...func(*dynamodb.Options)) (
+					*dynamodb.ScanOutput, error) {
 					items := []imageTaskDefItem{
-						{Image: "myapp:v1", RoleComposite: "default#default"},
-						{Image: "myapp:v1", RoleComposite: "role1#role2"},
-						{Image: "myapp:v1", RoleComposite: "role3#role4"},
+						{
+							ImageID:         GenerateImageID("myapp", "v1", 256, 512, "Linux/X86_64", nil, nil),
+							Image:           "myapp:v1",
+							Cpu:             "256",
+							Memory:          "512",
+							RuntimePlatform: "Linux/X86_64",
+						},
+						{
+							ImageID: GenerateImageID(
+								"myapp", "v1", 256, 512, "Linux/X86_64",
+								aws.String("role1"), aws.String("role2"),
+							),
+							Image:                 "myapp:v1",
+							TaskRoleName:          aws.String("role1"),
+							TaskExecutionRoleName: aws.String("role2"),
+							Cpu:                   "256",
+							Memory:                "512",
+							RuntimePlatform:       "Linux/X86_64",
+						},
+						{
+							ImageID: GenerateImageID(
+								"myapp", "v1", 256, 512, "Linux/X86_64",
+								aws.String("role3"), aws.String("role4"),
+							),
+							Image:                 "myapp:v1",
+							TaskRoleName:          aws.String("role3"),
+							TaskExecutionRoleName: aws.String("role4"),
+							Cpu:                   "256",
+							Memory:                "512",
+							RuntimePlatform:       "Linux/X86_64",
+						},
 					}
 					var av []map[string]types.AttributeValue
 					for _, item := range items {
 						itemMap, _ := attributevalue.MarshalMap(&item)
 						av = append(av, itemMap)
 					}
-					return &dynamodb.QueryOutput{Items: av}, nil
+					return &dynamodb.ScanOutput{Items: av}, nil
 				}
 				deleteCount := 0
 				m.deleteItemFunc = func(_ context.Context, _ *dynamodb.DeleteItemInput, _ ...func(*dynamodb.Options)) (
@@ -673,12 +752,23 @@ func TestDeleteImage(t *testing.T) {
 			expectError: false,
 		},
 		{
-			name:  "query error",
+			name:  "image not found (empty result)",
+			image: "nonexistent:latest",
+			mockSetup: func(m *mockImageClient) {
+				m.scanFunc = func(_ context.Context, _ *dynamodb.ScanInput, _ ...func(*dynamodb.Options)) (
+					*dynamodb.ScanOutput, error) {
+					return &dynamodb.ScanOutput{Items: []map[string]types.AttributeValue{}}, nil
+				}
+			},
+			expectError: false,
+		},
+		{
+			name:  "scan error",
 			image: "nginx:latest",
 			mockSetup: func(m *mockImageClient) {
-				m.queryFunc = func(_ context.Context, _ *dynamodb.QueryInput, _ ...func(*dynamodb.Options)) (
-					*dynamodb.QueryOutput, error) {
-					return nil, fmt.Errorf("query failed")
+				m.scanFunc = func(_ context.Context, _ *dynamodb.ScanInput, _ ...func(*dynamodb.Options)) (
+					*dynamodb.ScanOutput, error) {
+					return nil, fmt.Errorf("scan failed")
 				}
 			},
 			expectError: true,
@@ -687,14 +777,17 @@ func TestDeleteImage(t *testing.T) {
 			name:  "delete error",
 			image: "nginx:latest",
 			mockSetup: func(m *mockImageClient) {
-				m.queryFunc = func(_ context.Context, _ *dynamodb.QueryInput, _ ...func(*dynamodb.Options)) (
-					*dynamodb.QueryOutput, error) {
+				m.scanFunc = func(_ context.Context, _ *dynamodb.ScanInput, _ ...func(*dynamodb.Options)) (
+					*dynamodb.ScanOutput, error) {
 					item := &imageTaskDefItem{
-						Image:         "nginx:latest",
-						RoleComposite: "default#default",
+						ImageID:         GenerateImageID("nginx", "latest", 256, 512, "Linux/X86_64", nil, nil),
+						Image:           "nginx:latest",
+						Cpu:             "256",
+						Memory:          "512",
+						RuntimePlatform: "Linux/X86_64",
 					}
 					av, _ := attributevalue.MarshalMap(item)
-					return &dynamodb.QueryOutput{Items: []map[string]types.AttributeValue{av}}, nil
+					return &dynamodb.ScanOutput{Items: []map[string]types.AttributeValue{av}}, nil
 				}
 				m.deleteItemFunc = func(_ context.Context, _ *dynamodb.DeleteItemInput, _ ...func(*dynamodb.Options)) (
 					*dynamodb.DeleteItemOutput, error) {
@@ -740,10 +833,42 @@ func TestGetUniqueImages(t *testing.T) {
 				m.scanFunc = func(_ context.Context, _ *dynamodb.ScanInput, _ ...func(*dynamodb.Options)) (
 					*dynamodb.ScanOutput, error) {
 					items := []imageTaskDefItem{
-						{Image: "nginx:latest", RoleComposite: "default#default", ImageName: "nginx", ImageTag: "latest"},
-						{Image: "nginx:latest", RoleComposite: "role1#role2", ImageName: "nginx", ImageTag: "latest"},
-						{Image: "alpine:3.14", RoleComposite: "default#default", ImageName: "alpine", ImageTag: "3.14"},
-						{Image: "alpine:3.14", RoleComposite: "role3#role4", ImageName: "alpine", ImageTag: "3.14"},
+						{
+							Image:           "nginx:latest",
+							ImageName:       "nginx",
+							ImageTag:        "latest",
+							Cpu:             "256",
+							Memory:          "512",
+							RuntimePlatform: "Linux/X86_64",
+						},
+						{
+							Image:                 "nginx:latest",
+							TaskRoleName:          aws.String("role1"),
+							TaskExecutionRoleName: aws.String("role2"),
+							ImageName:             "nginx",
+							ImageTag:              "latest",
+							Cpu:                   "256",
+							Memory:                "512",
+							RuntimePlatform:       "Linux/X86_64",
+						},
+						{
+							Image:           "alpine:3.14",
+							ImageName:       "alpine",
+							ImageTag:        "3.14",
+							Cpu:             "256",
+							Memory:          "512",
+							RuntimePlatform: "Linux/X86_64",
+						},
+						{
+							Image:                 "alpine:3.14",
+							TaskRoleName:          aws.String("role3"),
+							TaskExecutionRoleName: aws.String("role4"),
+							ImageName:             "alpine",
+							ImageTag:              "3.14",
+							Cpu:                   "256",
+							Memory:                "512",
+							RuntimePlatform:       "Linux/X86_64",
+						},
 					}
 					var av []map[string]types.AttributeValue
 					for _, item := range items {
@@ -878,9 +1003,12 @@ func TestSetImageAsOnlyDefault(t *testing.T) {
 					*dynamodb.QueryOutput, error) {
 					// Return one existing default to unmark
 					item := &imageTaskDefItem{
+						ImageID:              GenerateImageID("alpine", "3.14", 256, 512, "Linux/X86_64", nil, nil),
 						Image:                "alpine:3.14",
-						RoleComposite:        "default#default",
 						IsDefaultPlaceholder: aws.String("DEFAULT"),
+						Cpu:                  "256",
+						Memory:               "512",
+						RuntimePlatform:      "Linux/X86_64",
 					}
 					av, _ := attributevalue.MarshalMap(item)
 					return &dynamodb.QueryOutput{Items: []map[string]types.AttributeValue{av}}, nil

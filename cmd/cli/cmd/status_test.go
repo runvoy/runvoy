@@ -52,7 +52,7 @@ func (m *mockClientInterface) ListUsers(_ context.Context) (*api.ListUsersRespon
 	return nil, fmt.Errorf("not implemented")
 }
 func (m *mockClientInterface) RegisterImage(
-	_ context.Context, _ string, _ *bool, _, _ *string,
+	_ context.Context, _ string, _ *bool, _, _ *string, _, _ *int, _ *string,
 ) (*api.RegisterImageResponse, error) {
 	return nil, fmt.Errorf("not implemented")
 }
@@ -60,6 +60,9 @@ func (m *mockClientInterface) ListImages(_ context.Context) (*api.ListImagesResp
 	return nil, fmt.Errorf("not implemented")
 }
 func (m *mockClientInterface) UnregisterImage(_ context.Context, _ string) (*api.RemoveImageResponse, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+func (m *mockClientInterface) GetImage(_ context.Context, _ string) (*api.ImageInfo, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 func (m *mockClientInterface) CreateSecret(

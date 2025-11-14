@@ -198,6 +198,8 @@ func (t *testRunner) RegisterImage(
 	_ string,
 	_ *bool,
 	_, _ *string,
+	_, _ *int,
+	_ *string,
 ) error {
 	return nil
 }
@@ -207,6 +209,10 @@ func (t *testRunner) ListImages(_ context.Context) ([]api.ImageInfo, error) {
 		return t.listImagesFunc()
 	}
 	return []api.ImageInfo{}, nil
+}
+
+func (t *testRunner) GetImage(_ context.Context, _ string) (*api.ImageInfo, error) {
+	return nil, nil
 }
 
 func (t *testRunner) RemoveImage(_ context.Context, _ string) error {

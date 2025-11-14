@@ -14,12 +14,17 @@ func (s *Service) RegisterImage(
 	isDefault *bool,
 	taskRoleName *string,
 	taskExecutionRoleName *string,
+	cpu *int,
+	memory *int,
+	runtimePlatform *string,
 ) (*api.RegisterImageResponse, error) {
 	if image == "" {
 		return nil, apperrors.ErrBadRequest("image is required", nil)
 	}
 
-	if err := s.runner.RegisterImage(ctx, image, isDefault, taskRoleName, taskExecutionRoleName); err != nil {
+	if err := s.runner.RegisterImage(
+		ctx, image, isDefault, taskRoleName, taskExecutionRoleName, cpu, memory, runtimePlatform,
+	); err != nil {
 		return nil, apperrors.ErrInternalError("failed to register image", err)
 	}
 
@@ -39,6 +44,24 @@ func (s *Service) ListImages(ctx context.Context) (*api.ListImagesResponse, erro
 	return &api.ListImagesResponse{
 		Images: images,
 	}, nil
+}
+
+// GetImage returns a single registered Docker image by ID or name.
+func (s *Service) GetImage(ctx context.Context, image string) (*api.ImageInfo, error) {
+	if image == "" {
+		return nil, apperrors.ErrBadRequest("image is required", nil)
+	}
+
+	imageInfo, err := s.runner.GetImage(ctx, image)
+	if err != nil {
+		return nil, apperrors.ErrInternalError("failed to get image", err)
+	}
+
+	if imageInfo == nil {
+		return nil, apperrors.ErrNotFound("image not found", nil)
+	}
+
+	return imageInfo, nil
 }
 
 // RemoveImage removes a Docker image and deregisters its task definitions.

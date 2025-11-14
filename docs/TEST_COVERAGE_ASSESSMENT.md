@@ -72,13 +72,8 @@ Based on the latest coverage analysis, here's the current state:
 - Functions requiring AWS SDK mocks (ECS client):
   - `listTaskDefinitionsByPrefix`
   - `GetDefaultImage`
-  - `unmarkExistingDefaultImages`
   - `GetTaskDefinitionForImage`
-  - `RegisterTaskDefinitionForImage`
   - `DeregisterTaskDefinitionsForImage`
-  - `handleDefaultImageTagging`
-  - `updateExistingTaskDefTags`
-  - `getRoleARNsFromExistingTaskDef`
   - `checkIfImageIsDefault`
   - `deregisterAllTaskDefRevisions`
   - `markLastRemainingImageAsDefault`
@@ -180,7 +175,7 @@ type ECSClient interface {
 }
 
 // Use interface in code
-func RegisterTaskDefinitionForImage(ctx context.Context, ecsClient ECSClient, ...) error {
+func GetTaskDefinitionForImage(ctx context.Context, ecsClient ECSClient, ...) error {
     // Use ecsClient instead of concrete *ecs.Client
 }
 

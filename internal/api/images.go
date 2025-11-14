@@ -7,6 +7,9 @@ type RegisterImageRequest struct {
 	IsDefault             *bool   `json:"is_default,omitempty"`
 	TaskRoleName          *string `json:"task_role_name,omitempty"`
 	TaskExecutionRoleName *string `json:"task_execution_role_name,omitempty"`
+	CPU                   *int    `json:"cpu,omitempty"`
+	Memory                *int    `json:"memory,omitempty"`
+	RuntimePlatform       *string `json:"runtime_platform,omitempty"`
 }
 
 // RegisterImageResponse represents the response after registering an image
@@ -28,15 +31,18 @@ type RemoveImageResponse struct {
 
 // ImageInfo represents information about a registered image
 type ImageInfo struct {
+	ImageID               string  `json:"image_id"`
 	Image                 string  `json:"image"`
 	TaskDefinitionName    string  `json:"task_definition_name,omitempty"`
 	IsDefault             *bool   `json:"is_default,omitempty"`
 	TaskRoleName          *string `json:"task_role_name,omitempty"`
 	TaskExecutionRoleName *string `json:"task_execution_role_name,omitempty"`
-	// Parsed image components
-	ImageRegistry string `json:"image_registry,omitempty"` // Empty string = Docker Hub
-	ImageName     string `json:"image_name,omitempty"`     // e.g., "alpine", "hashicorp/terraform"
-	ImageTag      string `json:"image_tag,omitempty"`      // e.g., "latest", "1.6"
+	CPU                   int     `json:"cpu,omitempty"`
+	Memory                int     `json:"memory,omitempty"`
+	RuntimePlatform       string  `json:"runtime_platform,omitempty"`
+	ImageRegistry         string  `json:"image_registry,omitempty"`
+	ImageName             string  `json:"image_name,omitempty"`
+	ImageTag              string  `json:"image_tag,omitempty"`
 }
 
 // ListImagesResponse represents the response containing all registered images

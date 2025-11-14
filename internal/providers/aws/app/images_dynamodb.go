@@ -6,11 +6,13 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"regexp"
+	"strings"
 
 	"runvoy/internal/api"
-	"runvoy/internal/auth"
 	"runvoy/internal/logger"
 	awsConstants "runvoy/internal/providers/aws/constants"
+	"runvoy/internal/providers/aws/database/dynamodb"
 
 	awsStd "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ecs"
@@ -91,17 +93,35 @@ func (e *Runner) handleExistingImage(
 }
 
 // registerNewImage handles registration of a new image.
-// It generates a unique task definition family name using UUID, registers the task definition
-// with ECS, and stores the mapping in DynamoDB.
+// It generates a unique ImageID, uses it as the task definition family name (prefixed with "runvoy-"),
+// registers the task definition with ECS, and stores the mapping in DynamoDB.
+//
+//nolint:funlen // Complex registration flow with multiple steps
 func (e *Runner) registerNewImage(
 	ctx context.Context,
 	image string,
 	isDefault *bool,
 	taskRoleName, taskExecutionRoleName *string,
-	taskRoleARN, taskExecRoleARN, region string,
+	region string,
+	cpu, memory int,
+	runtimePlatform string,
 	reqLogger *slog.Logger,
 ) (taskDefARN, family string, err error) {
-	family = fmt.Sprintf("runvoy-taskdef-%s", auth.GenerateUUID())
+	imageRef := ParseImageReference(image)
+
+	imageID := dynamodb.GenerateImageID(
+		imageRef.Name,
+		imageRef.Tag,
+		cpu,
+		memory,
+		runtimePlatform,
+		taskRoleName,
+		taskExecutionRoleName,
+	)
+
+	family = sanitizeImageIDForTaskDef(imageID)
+
+	taskRoleARN, taskExecRoleARN := e.buildRoleARNs(taskRoleName, taskExecutionRoleName, region)
 
 	taskDefARN, err = e.registerTaskDefinitionWithRoles(
 		ctx,
@@ -110,6 +130,9 @@ func (e *Runner) registerNewImage(
 		taskRoleARN,
 		taskExecRoleARN,
 		region,
+		cpu,
+		memory,
+		runtimePlatform,
 		reqLogger,
 	)
 	if err != nil {
@@ -127,16 +150,18 @@ func (e *Runner) registerNewImage(
 		}
 	}
 
-	imageRef := ParseImageReference(image)
-
 	if putErr := e.imageRepo.PutImageTaskDef(
 		ctx,
+		imageID,
 		image,
 		imageRef.Registry,
 		imageRef.Name,
 		imageRef.Tag,
 		taskRoleName,
 		taskExecutionRoleName,
+		cpu,
+		memory,
+		runtimePlatform,
 		family,
 		shouldBeDefault,
 	); putErr != nil {
@@ -146,14 +171,19 @@ func (e *Runner) registerNewImage(
 	return taskDefARN, family, nil
 }
 
-// RegisterImage registers a Docker image with optional custom IAM roles.
+// RegisterImage registers a Docker image with optional custom IAM roles, CPU, Memory, and RuntimePlatform.
 // Creates a new task definition with a unique family name and stores the mapping in DynamoDB.
+//
+//nolint:funlen // Complex registration flow with multiple steps
 func (e *Runner) RegisterImage(
 	ctx context.Context,
 	image string,
 	isDefault *bool,
 	taskRoleName *string,
 	taskExecutionRoleName *string,
+	cpu *int,
+	memory *int,
+	runtimePlatform *string,
 ) error {
 	if e.ecsClient == nil {
 		return fmt.Errorf("ECS client not configured")
@@ -173,9 +203,23 @@ func (e *Runner) RegisterImage(
 		return fmt.Errorf("AWS account ID not configured")
 	}
 
-	taskRoleARN, taskExecRoleARN := e.buildRoleARNs(taskRoleName, taskExecutionRoleName, region)
+	// Apply defaults for missing values
+	cpuVal := awsConstants.DefaultCPU
+	if cpu != nil {
+		cpuVal = *cpu
+	}
+	memoryVal := awsConstants.DefaultMemory
+	if memory != nil {
+		memoryVal = *memory
+	}
+	runtimePlatformVal := awsConstants.DefaultRuntimePlatform
+	if runtimePlatform != nil && *runtimePlatform != "" {
+		runtimePlatformVal = *runtimePlatform
+	}
 
-	existing, err := e.imageRepo.GetImageTaskDef(ctx, image, taskRoleName, taskExecutionRoleName)
+	existing, err := e.imageRepo.GetImageTaskDef(
+		ctx, image, taskRoleName, taskExecutionRoleName, cpu, memory, runtimePlatform,
+	)
 	if err != nil {
 		return fmt.Errorf("failed to check existing image-taskdef mapping: %w", err)
 	}
@@ -189,7 +233,9 @@ func (e *Runner) RegisterImage(
 
 	taskDefARN, family, err := e.registerNewImage(
 		ctx, image, isDefault, taskRoleName, taskExecutionRoleName,
-		taskRoleARN, taskExecRoleARN, region, reqLogger,
+		region,
+		cpuVal, memoryVal, runtimePlatformVal,
+		reqLogger,
 	)
 	if err != nil {
 		return err
@@ -204,7 +250,8 @@ func (e *Runner) RegisterImage(
 	return nil
 }
 
-// registerTaskDefinitionWithRoles registers a task definition with the specified roles.
+// registerTaskDefinitionWithRoles registers a task definition with the specified roles,
+// CPU, Memory, and RuntimePlatform.
 //
 //nolint:funlen // Complex AWS API orchestration with registration and tagging
 func (e *Runner) registerTaskDefinitionWithRoles(
@@ -214,9 +261,15 @@ func (e *Runner) registerTaskDefinitionWithRoles(
 	taskRoleARN string,
 	taskExecRoleARN string,
 	region string,
+	cpu, memory int,
+	runtimePlatform string,
 	reqLogger *slog.Logger,
 ) (string, error) {
-	registerInput := buildTaskDefinitionInput(family, image, taskExecRoleARN, taskRoleARN, region, e.cfg)
+	cpuStr := fmt.Sprintf("%d", cpu)
+	memoryStr := fmt.Sprintf("%d", memory)
+	registerInput := buildTaskDefinitionInput(
+		ctx, family, image, taskExecRoleARN, taskRoleARN, region, cpuStr, memoryStr, runtimePlatform, e.cfg,
+	)
 
 	logArgs := []any{
 		"operation", "ECS.RegisterTaskDefinition",
@@ -259,7 +312,6 @@ func (e *Runner) registerTaskDefinitionWithRoles(
 				"arn", taskDefARN,
 				"error", tagErr,
 			)
-			// Continue even if tagging fails - task definition is still registered
 		} else {
 			reqLogger.Debug("task definition tagged successfully", "arn", taskDefARN)
 		}
@@ -457,17 +509,91 @@ func (e *Runner) GetDefaultImageFromDB(ctx context.Context) (string, error) {
 	return imageInfo.Image, nil
 }
 
-// GetTaskDefinitionARNForImage returns the task definition family name for a specific image from DynamoDB.
-// Uses default roles (from config) to look up the task definition by querying with nil role names.
+// sanitizeImageIDForTaskDef sanitizes an ImageID for use as an ECS task definition family name.
+// ECS task definition family names must match [a-zA-Z0-9_-]+ (no dots or other special chars).
+// Replaces invalid characters (dots, etc.) with hyphens.
+func sanitizeImageIDForTaskDef(imageID string) string {
+	re := regexp.MustCompile(`[^a-zA-Z0-9_-]`)
+	sanitized := re.ReplaceAllString(imageID, "-")
+	re2 := regexp.MustCompile(`-+`)
+	sanitized = re2.ReplaceAllString(sanitized, "-")
+	sanitized = strings.Trim(sanitized, "-")
+	return fmt.Sprintf("runvoy-%s", sanitized)
+}
+
+// looksLikeImageID checks if a string looks like an ImageID format.
+// ImageID format: {name}:{tag}-{8-char-hash}
+func looksLikeImageID(s string) bool {
+	const hashLength = 8
+	lastDashIdx := strings.LastIndex(s, "-")
+	if lastDashIdx == -1 {
+		return false
+	}
+	hashPart := s[lastDashIdx+1:]
+	if len(hashPart) == hashLength {
+		for _, c := range hashPart {
+			if (c < '0' || c > '9') && (c < 'a' || c > 'f') && (c < 'A' || c > 'F') {
+				return false
+			}
+		}
+		beforeHash := s[:lastDashIdx]
+		return strings.Contains(beforeHash, ":")
+	}
+	return false
+}
+
+// GetImage retrieves a single Docker image by ID or name.
+// Accepts either an ImageID (e.g., "alpine:latest-a1b2c3d4") or an image name (e.g., "alpine:latest").
+// If ImageID is provided, queries directly by ID. Otherwise, uses GetAnyImageTaskDef to find any configuration.
+func (e *Runner) GetImage(ctx context.Context, image string) (*api.ImageInfo, error) {
+	if e.imageRepo == nil {
+		return nil, fmt.Errorf("image repository not configured")
+	}
+
+	var imageInfo *api.ImageInfo
+	var err error
+
+	if looksLikeImageID(image) {
+		imageInfo, err = e.imageRepo.GetImageTaskDefByID(ctx, image)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get image by ImageID: %w", err)
+		}
+	} else {
+		imageInfo, err = e.imageRepo.GetAnyImageTaskDef(ctx, image)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get image: %w", err)
+		}
+	}
+
+	if imageInfo == nil {
+		return nil, fmt.Errorf("image not found: %s", image)
+	}
+
+	return imageInfo, nil
+}
+
+// GetTaskDefinitionARNForImage returns the task definition family name for a specific image or ImageID.
+// Accepts either an ImageID (e.g., "alpine:latest-a1b2c3d4") or an image name (e.g., "alpine:latest").
+// If ImageID is provided, queries directly by ID. Otherwise, uses GetAnyImageTaskDef to find any configuration.
 // Returns just the family name - ECS will automatically use the latest ACTIVE revision when running tasks.
 func (e *Runner) GetTaskDefinitionARNForImage(ctx context.Context, image string) (string, error) {
 	if e.imageRepo == nil {
 		return "", fmt.Errorf("image repository not configured")
 	}
 
-	imageInfo, err := e.imageRepo.GetImageTaskDef(ctx, image, nil, nil)
-	if err != nil {
-		return "", fmt.Errorf("failed to get task definition for image: %w", err)
+	var imageInfo *api.ImageInfo
+	var err error
+
+	if looksLikeImageID(image) {
+		imageInfo, err = e.imageRepo.GetImageTaskDefByID(ctx, image)
+		if err != nil {
+			return "", fmt.Errorf("failed to get task definition by ImageID: %w", err)
+		}
+	} else {
+		imageInfo, err = e.imageRepo.GetAnyImageTaskDef(ctx, image)
+		if err != nil {
+			return "", fmt.Errorf("failed to get task definition for image: %w", err)
+		}
 	}
 
 	if imageInfo == nil {
