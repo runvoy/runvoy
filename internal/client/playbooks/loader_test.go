@@ -230,3 +230,9 @@ func TestPlaybookLoader_GetPlaybookDir(t *testing.T) {
 		assert.Equal(t, expectedResolved, actualResolved)
 	})
 }
+
+func TestNewPlaybookLoader(t *testing.T) {
+	loader := NewPlaybookLoader()
+	assert.NotNil(t, loader)
+	assert.IsType(t, &PlaybookLoader{}, loader)
+}
