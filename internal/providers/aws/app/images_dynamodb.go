@@ -109,7 +109,6 @@ func (e *Runner) registerNewImage(
 ) (taskDefARN, family string, err error) {
 	imageRef := ParseImageReference(image)
 
-	// Generate ImageID from configuration
 	imageID := dynamodb.GenerateImageID(
 		imageRef.Name,
 		imageRef.Tag,
@@ -120,9 +119,6 @@ func (e *Runner) registerNewImage(
 		taskExecutionRoleName,
 	)
 
-	// Use ImageID (prefixed with "runvoy-") as task definition family name
-	// Sanitize ImageID to ensure it's valid for ECS task definition family names
-	// ECS family names must match [a-zA-Z0-9_-]+ (no dots allowed)
 	family = sanitizeImageIDForTaskDef(imageID)
 
 	taskDefARN, err = e.registerTaskDefinitionWithRoles(
@@ -208,15 +204,15 @@ func (e *Runner) RegisterImage(
 	taskRoleARN, taskExecRoleARN := e.buildRoleARNs(taskRoleName, taskExecutionRoleName, region)
 
 	// Apply defaults for missing values
-	cpuVal := dynamodb.DefaultCPU
+	cpuVal := awsConstants.DefaultCPU
 	if cpu != nil {
 		cpuVal = *cpu
 	}
-	memoryVal := dynamodb.DefaultMemory
+	memoryVal := awsConstants.DefaultMemory
 	if memory != nil {
 		memoryVal = *memory
 	}
-	runtimePlatformVal := dynamodb.DefaultRuntimePlatform
+	runtimePlatformVal := awsConstants.DefaultRuntimePlatform
 	if runtimePlatform != nil && *runtimePlatform != "" {
 		runtimePlatformVal = *runtimePlatform
 	}
@@ -269,7 +265,6 @@ func (e *Runner) registerTaskDefinitionWithRoles(
 	runtimePlatform string,
 	reqLogger *slog.Logger,
 ) (string, error) {
-	// Convert to strings for ECS API
 	cpuStr := fmt.Sprintf("%d", cpu)
 	memoryStr := fmt.Sprintf("%d", memory)
 	registerInput := buildTaskDefinitionInput(
@@ -317,7 +312,6 @@ func (e *Runner) registerTaskDefinitionWithRoles(
 				"arn", taskDefARN,
 				"error", tagErr,
 			)
-			// Continue even if tagging fails - task definition is still registered
 		} else {
 			reqLogger.Debug("task definition tagged successfully", "arn", taskDefARN)
 		}
@@ -519,45 +513,37 @@ func (e *Runner) GetDefaultImageFromDB(ctx context.Context) (string, error) {
 // ECS task definition family names must match [a-zA-Z0-9_-]+ (no dots or other special chars).
 // Replaces invalid characters (dots, etc.) with hyphens.
 func sanitizeImageIDForTaskDef(imageID string) string {
-	// Replace dots and other invalid characters with hyphens
 	re := regexp.MustCompile(`[^a-zA-Z0-9_-]`)
 	sanitized := re.ReplaceAllString(imageID, "-")
-	// Collapse multiple consecutive hyphens
 	re2 := regexp.MustCompile(`-+`)
 	sanitized = re2.ReplaceAllString(sanitized, "-")
-	// Trim hyphens from edges
 	sanitized = strings.Trim(sanitized, "-")
-	// Prefix with "runvoy-"
 	return fmt.Sprintf("runvoy-%s", sanitized)
 }
 
 // looksLikeImageID checks if a string looks like an ImageID format.
-// ImageID format: {name}-{tag}-{8-char-hash}
+// ImageID format: {name}:{tag}-{8-char-hash}
 func looksLikeImageID(s string) bool {
-	// ImageID should have at least 2 hyphens (name-tag-hash)
-	// and the last part should be 8 characters (hash)
-	const minParts = 3
 	const hashLength = 8
-	parts := strings.Split(s, "-")
-	if len(parts) < minParts {
+	lastDashIdx := strings.LastIndex(s, "-")
+	if lastDashIdx == -1 {
 		return false
 	}
-	// Check if last part looks like a hash (8 hex characters)
-	lastPart := parts[len(parts)-1]
-	if len(lastPart) == hashLength {
-		// Check if it's hexadecimal
-		for _, c := range lastPart {
+	hashPart := s[lastDashIdx+1:]
+	if len(hashPart) == hashLength {
+		for _, c := range hashPart {
 			if (c < '0' || c > '9') && (c < 'a' || c > 'f') && (c < 'A' || c > 'F') {
 				return false
 			}
 		}
-		return true
+		beforeHash := s[:lastDashIdx]
+		return strings.Contains(beforeHash, ":")
 	}
 	return false
 }
 
 // GetTaskDefinitionARNForImage returns the task definition family name for a specific image or ImageID.
-// Accepts either an ImageID (e.g., "alpine-latest-a1b2c3d4") or an image name (e.g., "alpine:latest").
+// Accepts either an ImageID (e.g., "alpine:latest-a1b2c3d4") or an image name (e.g., "alpine:latest").
 // If ImageID is provided, queries directly by ID. Otherwise, uses GetAnyImageTaskDef to find any configuration.
 // Returns just the family name - ECS will automatically use the latest ACTIVE revision when running tasks.
 func (e *Runner) GetTaskDefinitionARNForImage(ctx context.Context, image string) (string, error) {
@@ -568,16 +554,12 @@ func (e *Runner) GetTaskDefinitionARNForImage(ctx context.Context, image string)
 	var imageInfo *api.ImageInfo
 	var err error
 
-	// Check if input looks like an ImageID
 	if looksLikeImageID(image) {
-		// Query by ImageID directly
 		imageInfo, err = e.imageRepo.GetImageTaskDefByID(ctx, image)
 		if err != nil {
 			return "", fmt.Errorf("failed to get task definition by ImageID: %w", err)
 		}
 	} else {
-		// Use GetAnyImageTaskDef to find any configuration for this image
-		// This is more flexible than requiring exact CPU/Memory/RuntimePlatform match
 		imageInfo, err = e.imageRepo.GetAnyImageTaskDef(ctx, image)
 		if err != nil {
 			return "", fmt.Errorf("failed to get task definition for image: %w", err)

@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -17,6 +16,7 @@ import (
 	"runvoy/internal/api"
 	apperrors "runvoy/internal/errors"
 	"runvoy/internal/logger"
+	awsConstants "runvoy/internal/providers/aws/constants"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
@@ -43,36 +43,25 @@ func NewImageTaskDefRepository(client Client, tableName string, log *slog.Logger
 
 // imageTaskDefItem represents the structure stored in DynamoDB.
 type imageTaskDefItem struct {
-	ImageID               string  `dynamodbav:"image_id"` // Partition key
-	Image                 string  `dynamodbav:"image"`    // Regular attribute for queries by image name
+	ImageID               string  `dynamodbav:"image_id"`
+	Image                 string  `dynamodbav:"image"`
 	TaskRoleName          *string `dynamodbav:"task_role_name,omitempty"`
 	TaskExecutionRoleName *string `dynamodbav:"task_execution_role_name,omitempty"`
-	Cpu                   string  `dynamodbav:"cpu"`              //nolint:revive // DynamoDB field name matches schema
-	Memory                string  `dynamodbav:"memory"`           // e.g., "512", "2048"
-	RuntimePlatform       string  `dynamodbav:"runtime_platform"` // e.g., "Linux/ARM64", "Linux/X86_64"
+	Cpu                   string  `dynamodbav:"cpu"` //nolint:revive // DynamoDB field name matches schema
+	Memory                string  `dynamodbav:"memory"`
+	RuntimePlatform       string  `dynamodbav:"runtime_platform"`
 	TaskDefinitionFamily  string  `dynamodbav:"task_definition_family"`
-	IsDefaultPlaceholder  *string `dynamodbav:"is_default_placeholder,omitempty"` // "DEFAULT" if default, nil otherwise
-	// Parsed image components
-	ImageRegistry string `dynamodbav:"image_registry"` // Empty = Docker Hub
-	ImageName     string `dynamodbav:"image_name"`     // e.g., "alpine", "hashicorp/terraform"
-	ImageTag      string `dynamodbav:"image_tag"`      // e.g., "latest", "1.6"
-	CreatedAt     int64  `dynamodbav:"created_at"`
-	UpdatedAt     int64  `dynamodbav:"updated_at"`
+	IsDefaultPlaceholder  *string `dynamodbav:"is_default_placeholder,omitempty"`
+	ImageRegistry         string  `dynamodbav:"image_registry"`
+	ImageName             string  `dynamodbav:"image_name"`
+	ImageTag              string  `dynamodbav:"image_tag"`
+	CreatedAt             int64   `dynamodbav:"created_at"`
+	UpdatedAt             int64   `dynamodbav:"updated_at"`
 }
 
 const (
 	defaultRoleName         = "default"
 	defaultPlaceholderValue = "DEFAULT"
-)
-
-// Default values for new image registrations
-const (
-	// DefaultCPU is the minimum Fargate CPU value (in CPU units)
-	DefaultCPU = 256
-	// DefaultMemory is the minimum Fargate Memory value in MB (compatible with 256 CPU)
-	DefaultMemory = 512
-	// DefaultRuntimePlatform is the default architecture (Graviton2 - better price-performance)
-	DefaultRuntimePlatform = "Linux/ARM64"
 )
 
 // isDefault derives the boolean default status from the placeholder field.
@@ -94,23 +83,9 @@ func buildRoleComposite(taskRoleName, taskExecutionRoleName *string) string {
 	return fmt.Sprintf("%s#%s", taskRole, execRole)
 }
 
-// sanitizeImageNameForID sanitizes an image name for use in ImageID.
-// Replaces invalid characters (/, :, etc.) with hyphens and removes registry.
-func sanitizeImageNameForID(imageName string) string {
-	// Replace invalid characters with hyphens
-	re := regexp.MustCompile(`[^a-zA-Z0-9_-]`)
-	sanitized := re.ReplaceAllString(imageName, "-")
-	// Collapse multiple hyphens
-	re2 := regexp.MustCompile(`-+`)
-	sanitized = re2.ReplaceAllString(sanitized, "-")
-	// Trim hyphens from edges
-	sanitized = strings.Trim(sanitized, "-")
-	return sanitized
-}
-
 // GenerateImageID generates a unique, human-readable ID for an image configuration.
-// Format: {sanitized-image-name}-{tag}-{first-8-chars-of-hash}
-// Example: alpine-latest-a1b2c3d4
+// Format: {imageName}:{tag}-{first-8-chars-of-hash}
+// Example: alpine:latest-a1b2c3d4 or golang:1.24.5-bookworm-19884ca2
 func GenerateImageID(
 	imageName, imageTag string,
 	cpu, memory int,
@@ -118,23 +93,11 @@ func GenerateImageID(
 	taskRoleName, taskExecutionRoleName *string,
 ) string {
 	roleComposite := buildRoleComposite(taskRoleName, taskExecutionRoleName)
-
-	// Create hash input from full configuration
 	hashInput := fmt.Sprintf("%s:%s:%d:%d:%s:%s", imageName, imageTag, cpu, memory, runtimePlatform, roleComposite)
-
-	// Compute SHA256 hash
 	hash := sha256.Sum256([]byte(hashInput))
 	hashStr := fmt.Sprintf("%x", hash)
-
-	// Take first 8 characters of hash
 	shortHash := hashStr[:8]
-
-	// Sanitize image name (remove registry, replace invalid chars)
-	sanitizedName := sanitizeImageNameForID(imageName)
-
-	// Build ID: {sanitized-name}-{tag}-{hash}
-	imageID := fmt.Sprintf("%s-%s-%s", sanitizedName, imageTag, shortHash)
-
+	imageID := fmt.Sprintf("%s:%s-%s", imageName, imageTag, shortHash)
 	return imageID
 }
 
@@ -159,8 +122,6 @@ func (r *ImageTaskDefRepository) PutImageTaskDef(
 	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
 
 	now := time.Now().Unix()
-
-	// Convert to strings for DynamoDB storage
 	cpuStr := fmt.Sprintf("%d", cpu)
 	memoryStr := fmt.Sprintf("%d", memory)
 
@@ -180,7 +141,6 @@ func (r *ImageTaskDefRepository) PutImageTaskDef(
 		UpdatedAt:             now,
 	}
 
-	// Set placeholder for GSI if this is default
 	if isDefault {
 		placeholder := defaultPlaceholderValue
 		item.IsDefaultPlaceholder = &placeholder
@@ -247,18 +207,14 @@ func parseImageReference(image string) (name, tag string) {
 	parts := strings.SplitN(remainder, "/", splitLimit)
 
 	if len(parts) == 1 {
-		// Just a name, no registry
 		name = parts[0]
 	} else {
-		// Check if first part is a registry
 		firstPart := parts[0]
 		if strings.Contains(firstPart, ".") ||
 			strings.Contains(firstPart, ":") ||
 			firstPart == "localhost" {
-			// This is a registry
 			name = parts[1]
 		} else {
-			// This is org/repo format (no registry)
 			name = remainder
 		}
 	}
@@ -276,24 +232,21 @@ func (r *ImageTaskDefRepository) GetImageTaskDef(
 	memory *int,
 	runtimePlatform *string,
 ) (*api.ImageInfo, error) {
-	// Parse image to get name and tag
 	imageName, imageTag := parseImageReference(image)
 
-	// Apply defaults if not provided
-	cpuVal := DefaultCPU
+	cpuVal := awsConstants.DefaultCPU
 	if cpu != nil {
 		cpuVal = *cpu
 	}
-	memoryVal := DefaultMemory
+	memoryVal := awsConstants.DefaultMemory
 	if memory != nil {
 		memoryVal = *memory
 	}
-	runtimePlatformVal := DefaultRuntimePlatform
+	runtimePlatformVal := awsConstants.DefaultRuntimePlatform
 	if runtimePlatform != nil && *runtimePlatform != "" {
 		runtimePlatformVal = *runtimePlatform
 	}
 
-	// Generate ImageID from configuration
 	imageID := GenerateImageID(
 		imageName,
 		imageTag,
@@ -304,7 +257,6 @@ func (r *ImageTaskDefRepository) GetImageTaskDef(
 		taskExecutionRoleName,
 	)
 
-	// Query by ImageID
 	return r.GetImageTaskDefByID(ctx, imageID)
 }
 
@@ -339,7 +291,6 @@ func (r *ImageTaskDefRepository) GetImageTaskDefByID(ctx context.Context, imageI
 		return nil, apperrors.ErrInternalError("failed to unmarshal image-taskdef item", unmarshalErr)
 	}
 
-	// Convert from strings to ints
 	cpuInt, parseErr := strconv.Atoi(item.Cpu)
 	if parseErr != nil {
 		return nil, apperrors.ErrInternalError("failed to parse CPU value", parseErr)
@@ -367,7 +318,6 @@ func (r *ImageTaskDefRepository) GetImageTaskDefByID(ctx context.Context, imageI
 }
 
 // ListImages retrieves all registered images with their task definitions.
-// Shows all configurations (no deduplication).
 func (r *ImageTaskDefRepository) ListImages(ctx context.Context) ([]api.ImageInfo, error) {
 	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
 
@@ -395,7 +345,6 @@ func (r *ImageTaskDefRepository) ListImages(ctx context.Context) ([]api.ImageInf
 		return nil, convertErr
 	}
 
-	// Sort by image name, then by ImageID for consistency
 	sort.Slice(allImages, func(i, j int) bool {
 		if allImages[i].Image != allImages[j].Image {
 			return allImages[i].Image < allImages[j].Image
@@ -413,7 +362,6 @@ func (r *ImageTaskDefRepository) convertItemsToImageInfo(items []imageTaskDefIte
 		item := &items[i]
 		isDefault := item.isDefault()
 
-		// Convert from strings to ints
 		cpuInt, parseErr := strconv.Atoi(item.Cpu)
 		if parseErr != nil {
 			return nil, apperrors.ErrInternalError("failed to parse CPU value", parseErr)
@@ -524,7 +472,6 @@ func (r *ImageTaskDefRepository) UnmarkAllDefaults(ctx context.Context) error {
 		return apperrors.ErrInternalError("failed to unmarshal default image items", unmarshalErr)
 	}
 
-	// Update each item to remove default status
 	for i := range items {
 		item := &items[i]
 		logArgs := []any{
@@ -585,7 +532,6 @@ func (r *ImageTaskDefRepository) DeleteImage(ctx context.Context, image string) 
 		return apperrors.ErrInternalError("failed to unmarshal image items", unmarshalErr)
 	}
 
-	// If no items found, image doesn't exist - return success (idempotent operation)
 	if len(items) == 0 {
 		reqLogger.Debug("image not found, nothing to delete", "context", map[string]string{
 			"image": image,
@@ -593,7 +539,6 @@ func (r *ImageTaskDefRepository) DeleteImage(ctx context.Context, image string) 
 		return nil
 	}
 
-	// Delete each item by image_id
 	for i := range items {
 		item := &items[i]
 		deleteLogArgs := []any{
@@ -611,10 +556,8 @@ func (r *ImageTaskDefRepository) DeleteImage(ctx context.Context, image string) 
 			},
 		})
 		if err != nil {
-			// Check if it's a validation error (item doesn't exist or wrong key schema)
 			var apiErr smithy.APIError
 			if errors.As(err, &apiErr) && apiErr.ErrorCode() == "ValidationException" {
-				// Item might not exist or have wrong schema - log and continue
 				reqLogger.Warn("failed to delete item (may not exist or wrong schema)", "context", map[string]any{
 					"image_id": item.ImageID,
 					"error":    err.Error(),
@@ -629,10 +572,7 @@ func (r *ImageTaskDefRepository) DeleteImage(ctx context.Context, image string) 
 }
 
 // GetAnyImageTaskDef retrieves any task definition configuration for a given image.
-// This is useful when you need to find a task definition for an image regardless of
-// its specific CPU/Memory/RuntimePlatform configuration.
-// It scans by image attribute and returns the first matching item,
-// preferring the default configuration if available.
+// Scans by image attribute and returns the first matching item, preferring the default configuration if available.
 //
 //nolint:funlen // Complex logic with helper function
 func (r *ImageTaskDefRepository) GetAnyImageTaskDef(ctx context.Context, image string) (*api.ImageInfo, error) {
@@ -646,7 +586,6 @@ func (r *ImageTaskDefRepository) GetAnyImageTaskDef(ctx context.Context, image s
 	logArgs = append(logArgs, logger.GetDeadlineInfo(ctx)...)
 	reqLogger.Debug("calling external service", "context", logger.SliceToMap(logArgs))
 
-	// Scan table and filter by image attribute
 	result, err := r.client.Scan(ctx, &dynamodb.ScanInput{
 		TableName:        aws.String(r.tableName),
 		FilterExpression: aws.String("image = :image"),
@@ -668,9 +607,7 @@ func (r *ImageTaskDefRepository) GetAnyImageTaskDef(ctx context.Context, image s
 		return nil, apperrors.ErrInternalError("failed to unmarshal image-taskdef items", unmarshalErr)
 	}
 
-	// Helper function to convert item to ImageInfo
 	convertItem := func(item *imageTaskDefItem) (*api.ImageInfo, error) {
-		// Convert from strings to ints
 		cpuInt, parseErr := strconv.Atoi(item.Cpu)
 		if parseErr != nil {
 			return nil, apperrors.ErrInternalError("failed to parse CPU value", parseErr)
@@ -697,14 +634,12 @@ func (r *ImageTaskDefRepository) GetAnyImageTaskDef(ctx context.Context, image s
 		}, nil
 	}
 
-	// Prefer default configuration if available
 	for i := range items {
 		if items[i].isDefault() {
 			return convertItem(&items[i])
 		}
 	}
 
-	// If no default found, return the first one
 	return convertItem(&items[0])
 }
 
@@ -738,7 +673,6 @@ func (r *ImageTaskDefRepository) GetUniqueImages(ctx context.Context) ([]string,
 		return nil, err
 	}
 
-	// Deduplicate image names
 	uniqueMap := make(map[string]bool)
 	for i := range images {
 		uniqueMap[images[i].Image] = true
@@ -749,7 +683,6 @@ func (r *ImageTaskDefRepository) GetUniqueImages(ctx context.Context) ([]string,
 		uniqueImages = append(uniqueImages, img)
 	}
 
-	// Sort for consistency
 	sort.Strings(uniqueImages)
 
 	return uniqueImages, nil
@@ -763,24 +696,21 @@ func (r *ImageTaskDefRepository) SetImageAsOnlyDefault(
 	taskRoleName *string,
 	taskExecutionRoleName *string,
 ) error {
-	// First, unmark all existing defaults
 	if err := r.UnmarkAllDefaults(ctx); err != nil {
 		return err
 	}
 
-	// Generate ImageID for the default configuration
 	imageName, imageTag := parseImageReference(image)
 	imageID := GenerateImageID(
 		imageName,
 		imageTag,
-		DefaultCPU,
-		DefaultMemory,
-		DefaultRuntimePlatform,
+		awsConstants.DefaultCPU,
+		awsConstants.DefaultMemory,
+		awsConstants.DefaultRuntimePlatform,
 		taskRoleName,
 		taskExecutionRoleName,
 	)
 
-	// Then mark this one as default
 	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
 
 	logArgs := []any{

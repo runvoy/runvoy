@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"runvoy/internal/api"
+	awsConstants "runvoy/internal/providers/aws/constants"
 	"runvoy/internal/testutil"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -307,9 +308,9 @@ func TestPutImageTaskDef(t *testing.T) {
 			imageID := GenerateImageID(
 				tt.imageName,
 				tt.imageTag,
-				DefaultCPU,
-				DefaultMemory,
-				DefaultRuntimePlatform,
+				awsConstants.DefaultCPU,
+				awsConstants.DefaultMemory,
+				awsConstants.DefaultRuntimePlatform,
 				tt.taskRoleName,
 				tt.taskExecutionRoleName,
 			)
@@ -322,9 +323,9 @@ func TestPutImageTaskDef(t *testing.T) {
 				tt.imageTag,
 				tt.taskRoleName,
 				tt.taskExecutionRoleName,
-				DefaultCPU,
-				DefaultMemory,
-				DefaultRuntimePlatform,
+				awsConstants.DefaultCPU,
+				awsConstants.DefaultMemory,
+				awsConstants.DefaultRuntimePlatform,
 				tt.taskDefFamily,
 				tt.isDefault,
 			)

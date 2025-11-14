@@ -7,9 +7,9 @@ type RegisterImageRequest struct {
 	IsDefault             *bool   `json:"is_default,omitempty"`
 	TaskRoleName          *string `json:"task_role_name,omitempty"`
 	TaskExecutionRoleName *string `json:"task_execution_role_name,omitempty"`
-	Cpu                   *int    `json:"cpu,omitempty"`              //nolint:revive // API contract
-	Memory                *int    `json:"memory,omitempty"`           // Memory in MB (e.g., 512, 1024, 2048)
-	RuntimePlatform       *string `json:"runtime_platform,omitempty"` // e.g., "Linux/ARM64", "Linux/X86_64"
+	Cpu                   *int    `json:"cpu,omitempty"` //nolint:revive // API contract
+	Memory                *int    `json:"memory,omitempty"`
+	RuntimePlatform       *string `json:"runtime_platform,omitempty"`
 }
 
 // RegisterImageResponse represents the response after registering an image
@@ -31,19 +31,18 @@ type RemoveImageResponse struct {
 
 // ImageInfo represents information about a registered image
 type ImageInfo struct {
-	ImageID               string  `json:"image_id"` // Unique ID for this configuration
+	ImageID               string  `json:"image_id"`
 	Image                 string  `json:"image"`
 	TaskDefinitionName    string  `json:"task_definition_name,omitempty"`
 	IsDefault             *bool   `json:"is_default,omitempty"`
 	TaskRoleName          *string `json:"task_role_name,omitempty"`
 	TaskExecutionRoleName *string `json:"task_execution_role_name,omitempty"`
-	Cpu                   int     `json:"cpu,omitempty"`              //nolint:revive // API contract
-	Memory                int     `json:"memory,omitempty"`           // Memory in MB (e.g., 512, 1024, 2048)
-	RuntimePlatform       string  `json:"runtime_platform,omitempty"` // e.g., "Linux/ARM64", "Linux/X86_64"
-	// Parsed image components
-	ImageRegistry string `json:"image_registry,omitempty"` // Empty string = Docker Hub
-	ImageName     string `json:"image_name,omitempty"`     // e.g., "alpine", "hashicorp/terraform"
-	ImageTag      string `json:"image_tag,omitempty"`      // e.g., "latest", "1.6"
+	Cpu                   int     `json:"cpu,omitempty"` //nolint:revive // API contract
+	Memory                int     `json:"memory,omitempty"`
+	RuntimePlatform       string  `json:"runtime_platform,omitempty"`
+	ImageRegistry         string  `json:"image_registry,omitempty"`
+	ImageName             string  `json:"image_name,omitempty"`
+	ImageTag              string  `json:"image_tag,omitempty"`
 }
 
 // ListImagesResponse represents the response containing all registered images
