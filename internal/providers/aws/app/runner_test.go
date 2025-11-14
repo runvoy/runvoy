@@ -9,6 +9,7 @@ import (
 	"runvoy/internal/constants"
 	awsConstants "runvoy/internal/providers/aws/constants"
 
+	ecsTypes "github.com/aws/aws-sdk-go-v2/service/ecs/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -186,4 +187,130 @@ func TestValidateTaskStatusForKill(t *testing.T) {
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "task cannot be terminated in current state")
 	})
+}
+
+func TestBuildSidecarEnvironment(t *testing.T) {
+	tests := []struct {
+		name     string
+		userEnv  map[string]string
+		validate func(t *testing.T, env []ecsTypes.KeyValuePair)
+	}{
+		{
+			name:    "empty user environment",
+			userEnv: map[string]string{},
+			validate: func(t *testing.T, env []ecsTypes.KeyValuePair) {
+				// Should have at least RUNVOY_SHARED_VOLUME_PATH
+				assert.Greater(t, len(env), 0)
+			},
+		},
+		{
+			name: "single environment variable",
+			userEnv: map[string]string{
+				"MY_VAR": "my_value",
+			},
+			validate: func(t *testing.T, env []ecsTypes.KeyValuePair) {
+				// Should have RUNVOY_SHARED_VOLUME_PATH + both prefixed and unprefixed versions
+				assert.GreaterOrEqual(t, len(env), 2)
+			},
+		},
+		{
+			name: "multiple environment variables",
+			userEnv: map[string]string{
+				"VAR1": "value1",
+				"VAR2": "value2",
+				"VAR3": "value3",
+			},
+			validate: func(t *testing.T, env []ecsTypes.KeyValuePair) {
+				// Should have: RUNVOY_SHARED_VOLUME_PATH + 3 prefixed + 3 unprefixed
+				assert.GreaterOrEqual(t, len(env), 7)
+			},
+		},
+		{
+			name: "special characters in environment values",
+			userEnv: map[string]string{
+				"GITHUB_TOKEN": "ghp_token123!@#$%",
+				"DB_URL":       "postgres://user:pass@host/db",
+			},
+			validate: func(t *testing.T, env []ecsTypes.KeyValuePair) {
+				assert.GreaterOrEqual(t, len(env), 4)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			env := buildSidecarEnvironment(tt.userEnv)
+			tt.validate(t, env)
+		})
+	}
+}
+
+func TestBuildSidecarEnvironmentVariableNames(t *testing.T) {
+	userEnv := map[string]string{
+		"API_KEY":      "secret-key",
+		"GITHUB_TOKEN": "ghp_token",
+	}
+
+	env := buildSidecarEnvironment(userEnv)
+
+	// Convert to key-value pairs for easier testing
+	envMap := make(map[string]string)
+	for _, pair := range env {
+		key := *pair.Name
+		value := *pair.Value
+		envMap[key] = value
+	}
+
+	// Check for RUNVOY_SHARED_VOLUME_PATH
+	_, hasSharedPath := envMap["RUNVOY_SHARED_VOLUME_PATH"]
+	assert.True(t, hasSharedPath, "should have RUNVOY_SHARED_VOLUME_PATH")
+
+	// Check for prefixed versions
+	_, hasPrefixedKey := envMap["RUNVOY_USER_API_KEY"]
+	assert.True(t, hasPrefixedKey, "should have prefixed RUNVOY_USER_API_KEY")
+
+	// Check for unprefixed versions
+	_, hasUnprefixedKey := envMap["API_KEY"]
+	assert.True(t, hasUnprefixedKey, "should have unprefixed API_KEY")
+}
+
+func TestSanitizeURLForLogging(t *testing.T) {
+	tests := []struct {
+		name     string
+		url      string
+		expected string
+	}{
+		{
+			name:     "URL with credentials in authority",
+			url:      "https://user:pass@github.com/repo",
+			expected: "https://***@github.com/repo",
+		},
+		{
+			name:     "URL with token in authority",
+			url:      "https://token@github.com/repo",
+			expected: "https://***@github.com/repo",
+		},
+		{
+			name:     "URL without credentials",
+			url:      "https://github.com/owner/repo",
+			expected: "https://github.com/owner/repo",
+		},
+		{
+			name:     "empty URL",
+			url:      "",
+			expected: "",
+		},
+		{
+			name:     "HTTP URL with credentials",
+			url:      "http://admin:secret@example.com/path",
+			expected: "http://***@example.com/path",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := sanitizeURLForLogging(tt.url)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
 }
