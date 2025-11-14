@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"maps"
 	"slices"
 	"strings"
 	"time"
@@ -234,96 +235,157 @@ func buildMainContainerCommand(req *api.ExecutionRequest, requestID, image strin
 }
 
 // StartTask triggers an ECS Fargate task and returns identifiers.
-func (e *Runner) StartTask( //nolint: funlen
+func (e *Runner) StartTask(
 	ctx context.Context, userEmail string, req *api.ExecutionRequest) (string, *time.Time, error) {
 	if e.ecsClient == nil {
 		return "", nil, appErrors.ErrInternalError("ECS cli endpoint not configured", nil)
 	}
 
 	reqLogger := logger.DeriveRequestLogger(ctx, e.logger)
-	imageToUse := req.Image
+
+	imageToUse, taskDefARN, err := e.resolveImage(ctx, req, reqLogger)
+	if err != nil {
+		return "", nil, err
+	}
+
+	gitConfig := e.configureGitRepo(ctx, req, reqLogger)
+
+	containerOverrides, mainEnvVars := e.buildContainerOverrides(ctx, req, gitConfig, reqLogger)
+
+	runTaskInput := e.buildRunTaskInput(userEmail, taskDefARN, containerOverrides, gitConfig.HasRepo)
+
+	executionID, createdAt, taskARN, err := e.executeTask(ctx, runTaskInput, imageToUse, reqLogger)
+	if err != nil {
+		return "", nil, err
+	}
+
+	e.logTaskStarted(reqLogger, userEmail, taskARN, executionID, createdAt, req, imageToUse, mainEnvVars)
+	e.tagExecutionID(ctx, taskARN, executionID, reqLogger)
+
+	return executionID, createdAt, nil
+}
+
+// resolveImage determines which image to use and gets its task definition ARN.
+func (e *Runner) resolveImage(
+	ctx context.Context, req *api.ExecutionRequest, reqLogger *slog.Logger,
+) (imageToUse, taskDefARN string, err error) {
+	imageToUse = req.Image
 
 	if imageToUse == "" {
-		defaultImage, err := e.GetDefaultImageFromDB(ctx)
-		if err != nil {
-			return "", nil, appErrors.ErrInternalError("failed to query default image", err)
+		defaultImage, getErr := e.GetDefaultImageFromDB(ctx)
+		if getErr != nil {
+			return "", "", appErrors.ErrInternalError("failed to query default image", getErr)
 		}
 		if defaultImage == "" {
-			return "", nil, appErrors.ErrBadRequest("no image specified and no default image configured", nil)
+			return "", "", appErrors.ErrBadRequest("no image specified and no default image configured", nil)
 		}
 		imageToUse = defaultImage
 		reqLogger.Debug("using default image", "image", imageToUse)
 	}
 
-	taskDefARN, err := e.GetTaskDefinitionARNForImage(ctx, imageToUse)
+	taskDefARN, err = e.GetTaskDefinitionARNForImage(ctx, imageToUse)
 	if err != nil {
-		return "", nil, appErrors.ErrBadRequest("image not registered", err)
+		return "", "", appErrors.ErrBadRequest("image not registered", err)
 	}
 
-	reqLogger.Debug("using task definition for image", "context", map[string]string{
+	reqLogger.Debug("task definition resolved", "context", map[string]string{
 		"image": imageToUse,
 		"arn":   taskDefARN,
 	})
 
-	hasGitRepo := req.GitRepo != ""
+	return
+}
+
+// gitRepoConfig holds the configuration for git repository setup
+type gitRepoConfig struct {
+	HasRepo              bool
+	AuthenticatedRepoURL string
+	Ref                  string
+	Info                 *gitRepoInfo
+}
+
+// configureGitRepo sets up git repository configuration if provided in the request.
+func (e *Runner) configureGitRepo(
+	_ context.Context, req *api.ExecutionRequest, reqLogger *slog.Logger,
+) *gitRepoConfig {
+	config := &gitRepoConfig{HasRepo: req.GitRepo != ""}
+
+	if !config.HasRepo {
+		return config
+	}
+
+	gitRef := req.GitRef
+	if gitRef == "" {
+		gitRef = constants.DefaultGitRef
+	}
+	config.Ref = gitRef
+
+	config.AuthenticatedRepoURL = injectGitHubTokenIfNeeded(req.GitRepo, req.Env)
+
+	config.Info = &gitRepoInfo{
+		RepoURL:  awsStd.String(config.AuthenticatedRepoURL),
+		RepoRef:  awsStd.String(gitRef),
+		RepoPath: awsStd.String(req.GitPath),
+	}
+
+	reqLogger.Debug("git repository configured",
+		"git_repo", req.GitRepo,
+		"git_ref", gitRef)
+	if config.AuthenticatedRepoURL != req.GitRepo {
+		reqLogger.Debug("using GitHub token for repository authentication")
+	}
+
+	return config
+}
+
+// buildContainerOverrides constructs the container overrides for sidecar and main runner containers.
+func (e *Runner) buildContainerOverrides(
+	ctx context.Context, req *api.ExecutionRequest, gitConfig *gitRepoConfig, _ *slog.Logger,
+) ([]ecsTypes.ContainerOverride, []ecsTypes.KeyValuePair) {
 	requestID := logger.GetRequestID(ctx)
-	envVars := []ecsTypes.KeyValuePair{
+
+	mainEnvVars := []ecsTypes.KeyValuePair{
 		{Name: awsStd.String("RUNVOY_COMMAND"), Value: awsStd.String(req.Command)},
 	}
 	for key, value := range req.Env {
-		envVars = append(envVars, ecsTypes.KeyValuePair{
+		mainEnvVars = append(mainEnvVars, ecsTypes.KeyValuePair{
 			Name:  awsStd.String(key),
 			Value: awsStd.String(value),
 		})
 	}
 
 	sidecarEnv := buildSidecarEnvironment(req.Env)
-
-	var authenticatedRepoURL string
-	if hasGitRepo {
-		gitRef := req.GitRef
-		if gitRef == "" {
-			gitRef = constants.DefaultGitRef
-		}
-		authenticatedRepoURL = injectGitHubTokenIfNeeded(req.GitRepo, req.Env)
+	if gitConfig.HasRepo {
 		sidecarEnv = append(sidecarEnv,
-			ecsTypes.KeyValuePair{Name: awsStd.String("GIT_REPO"), Value: awsStd.String(authenticatedRepoURL)},
-			ecsTypes.KeyValuePair{Name: awsStd.String("GIT_REF"), Value: awsStd.String(gitRef)},
+			ecsTypes.KeyValuePair{Name: awsStd.String("GIT_REPO"), Value: awsStd.String(gitConfig.AuthenticatedRepoURL)},
+			ecsTypes.KeyValuePair{Name: awsStd.String("GIT_REF"), Value: awsStd.String(gitConfig.Ref)},
 		)
-		reqLogger.Debug("configured sidecar for git cloning",
-			"git_repo", req.GitRepo,
-			"git_ref", gitRef)
-		if authenticatedRepoURL != req.GitRepo {
-			reqLogger.Debug("using GitHub token for repository authentication")
-		}
 	} else {
 		sidecarEnv = append(sidecarEnv,
 			ecsTypes.KeyValuePair{Name: awsStd.String("GIT_REPO"), Value: awsStd.String("")},
 		)
-		reqLogger.Debug("sidecar configured without git (will exit 0)")
 	}
 
-	var repo *gitRepoInfo
-	if hasGitRepo {
-		repo = &gitRepoInfo{
-			RepoURL:  awsStd.String(authenticatedRepoURL),
-			RepoRef:  awsStd.String(req.GitRef),
-			RepoPath: awsStd.String(req.GitPath),
-		}
-	}
-	containerOverrides := []ecsTypes.ContainerOverride{
+	return []ecsTypes.ContainerOverride{
 		{
 			Name:        awsStd.String(awsConstants.SidecarContainerName),
-			Command:     buildSidecarContainerCommand(hasGitRepo),
+			Command:     buildSidecarContainerCommand(gitConfig.HasRepo),
 			Environment: sidecarEnv,
 		},
 		{
 			Name:        awsStd.String(awsConstants.RunnerContainerName),
-			Command:     buildMainContainerCommand(req, requestID, imageToUse, repo),
-			Environment: envVars,
+			Command:     buildMainContainerCommand(req, requestID, req.Image, gitConfig.Info),
+			Environment: mainEnvVars,
 		},
-	}
+	}, mainEnvVars
+}
 
+// buildRunTaskInput constructs the ECS RunTask input with all necessary configuration.
+func (e *Runner) buildRunTaskInput(
+	userEmail, taskDefARN string,
+	containerOverrides []ecsTypes.ContainerOverride,
+	hasGitRepo bool,
+) *ecs.RunTaskInput {
 	tags := []ecsTypes.Tag{
 		{Key: awsStd.String("UserEmail"), Value: awsStd.String(userEmail)},
 	}
@@ -334,7 +396,7 @@ func (e *Runner) StartTask( //nolint: funlen
 		})
 	}
 
-	runTaskInput := &ecs.RunTaskInput{
+	return &ecs.RunTaskInput{
 		Cluster:        awsStd.String(e.cfg.ECSCluster),
 		TaskDefinition: awsStd.String(taskDefARN),
 		LaunchType:     ecsTypes.LaunchTypeFargate,
@@ -350,45 +412,95 @@ func (e *Runner) StartTask( //nolint: funlen
 		},
 		Tags: tags,
 	}
+}
 
+// executeTask calls the ECS RunTask API and extracts execution identifiers from the response.
+func (e *Runner) executeTask(
+	ctx context.Context,
+	runTaskInput *ecs.RunTaskInput,
+	imageToUse string,
+	reqLogger *slog.Logger,
+) (executionID string, createdAt *time.Time, taskARN string, err error) {
 	logArgs := []any{
 		"operation", "ECS.RunTask",
 		"cluster", e.cfg.ECSCluster,
-		"task_definition", taskDefARN,
+		"task_definition", runTaskInput.TaskDefinition,
 		"image", imageToUse,
-		"container_count", len(containerOverrides),
-		"user_email", userEmail,
-		"has_git_repo", hasGitRepo,
+		"container_count", len(runTaskInput.Overrides.ContainerOverrides),
 	}
 	logArgs = append(logArgs, logger.GetDeadlineInfo(ctx)...)
 	reqLogger.Debug("calling external service", "context", logger.SliceToMap(logArgs))
 
-	var runTaskOutput *ecs.RunTaskOutput
-	runTaskOutput, err = e.ecsClient.RunTask(ctx, runTaskInput)
+	runTaskOutput, err := e.ecsClient.RunTask(ctx, runTaskInput)
 	if err != nil {
-		return "", nil, appErrors.ErrInternalError("failed to start ECS task", err)
+		return "", nil, "", appErrors.ErrInternalError("failed to start ECS task", err)
 	}
 	if len(runTaskOutput.Tasks) == 0 {
-		return "", nil, appErrors.ErrInternalError("no tasks were started", nil)
+		return "", nil, "", appErrors.ErrInternalError("no tasks were started", nil)
 	}
 
 	task := runTaskOutput.Tasks[0]
-	taskARN := awsStd.ToString(task.TaskArn)
+	taskARN = awsStd.ToString(task.TaskArn)
 	executionIDParts := strings.Split(taskARN, "/")
-	executionID := executionIDParts[len(executionIDParts)-1]
-	createdAt := task.CreatedAt
+	executionID = executionIDParts[len(executionIDParts)-1]
+	createdAt = task.CreatedAt
 
-	reqLogger.Info("task started", "context", map[string]string{
+	return executionID, createdAt, taskARN, nil
+}
+
+// logTaskStarted logs the successful task start with request details.
+func (e *Runner) logTaskStarted(
+	reqLogger *slog.Logger,
+	userEmail, taskARN, executionID string,
+	createdAt *time.Time,
+	req *api.ExecutionRequest,
+	imageToUse string,
+	_ []ecsTypes.KeyValuePair,
+) {
+	requestFields := make(map[string]string)
+	if req.Command != "" {
+		requestFields["command"] = req.Command
+	}
+	if imageToUse != "" {
+		requestFields["image"] = imageToUse
+	}
+	if req.GitRepo != "" {
+		requestFields["git_repo"] = req.GitRepo
+	}
+	if req.GitRef != "" {
+		requestFields["git_ref"] = req.GitRef
+	}
+	if req.GitPath != "" {
+		requestFields["git_path"] = req.GitPath
+	}
+	if len(req.Env) > 0 {
+		requestFields["env_keys"] = strings.Join(slices.Collect(maps.Keys(req.Env)), ", ")
+	}
+	if len(req.Secrets) > 0 {
+		requestFields["secrets"] = strings.Join(req.Secrets, ", ")
+	}
+
+	logContext := map[string]any{
+		"user_email":   userEmail,
 		"task_arn":     taskARN,
 		"execution_id": executionID,
 		"created_at":   createdAt.Format(time.RFC3339),
-	})
+	}
+	if len(requestFields) > 0 {
+		logContext["request"] = requestFields
+	}
 
+	reqLogger.Info("task started", "context", logContext)
+}
+
+// tagExecutionID adds an ExecutionID tag to the task (non-critical, logs warning on failure).
+func (e *Runner) tagExecutionID(
+	ctx context.Context, taskARN, executionID string, reqLogger *slog.Logger,
+) {
 	tagLogArgs := []any{
 		"operation", "ECS.TagResource",
 		"task_arn", taskARN,
 		"execution_id", executionID,
-		"created_at", createdAt,
 	}
 	tagLogArgs = append(tagLogArgs, logger.GetDeadlineInfo(ctx)...)
 	reqLogger.Debug("calling external service", "context", logger.SliceToMap(tagLogArgs))
@@ -404,8 +516,6 @@ func (e *Runner) StartTask( //nolint: funlen
 			"task_arn", taskARN,
 			"execution_id", executionID)
 	}
-
-	return executionID, createdAt, nil
 }
 
 // findTaskARNByExecutionID finds the task ARN for a given execution ID by checking both running and stopped tasks.
