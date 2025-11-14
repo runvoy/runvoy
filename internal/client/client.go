@@ -302,7 +302,8 @@ func (c *Client) RegisterImage(
 	image string,
 	isDefault *bool,
 	taskRoleName, taskExecutionRoleName *string,
-	cpu, memory, runtimePlatform *string,
+	cpu, memory *int,
+	runtimePlatform *string,
 ) (*api.RegisterImageResponse, error) {
 	var resp api.RegisterImageResponse
 	err := c.DoJSON(ctx, Request{

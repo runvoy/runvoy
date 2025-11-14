@@ -100,7 +100,8 @@ func (e *Runner) registerNewImage(
 	isDefault *bool,
 	taskRoleName, taskExecutionRoleName *string,
 	taskRoleARN, taskExecRoleARN, region string,
-	cpu, memory, runtimePlatform string,
+	cpu, memory int,
+	runtimePlatform string,
 	reqLogger *slog.Logger,
 ) (taskDefARN, family string, err error) {
 	family = fmt.Sprintf("runvoy-taskdef-%s", auth.GenerateUUID())
@@ -164,8 +165,8 @@ func (e *Runner) RegisterImage(
 	isDefault *bool,
 	taskRoleName *string,
 	taskExecutionRoleName *string,
-	cpu *string,
-	memory *string,
+	cpu *int,
+	memory *int,
 	runtimePlatform *string,
 ) error {
 	if e.ecsClient == nil {
@@ -190,11 +191,11 @@ func (e *Runner) RegisterImage(
 
 	// Apply defaults for missing values
 	cpuVal := dynamodb.DefaultCPU
-	if cpu != nil && *cpu != "" {
+	if cpu != nil {
 		cpuVal = *cpu
 	}
 	memoryVal := dynamodb.DefaultMemory
-	if memory != nil && *memory != "" {
+	if memory != nil {
 		memoryVal = *memory
 	}
 	runtimePlatformVal := dynamodb.DefaultRuntimePlatform
@@ -246,11 +247,15 @@ func (e *Runner) registerTaskDefinitionWithRoles(
 	taskRoleARN string,
 	taskExecRoleARN string,
 	region string,
-	cpu, memory, runtimePlatform string,
+	cpu, memory int,
+	runtimePlatform string,
 	reqLogger *slog.Logger,
 ) (string, error) {
+	// Convert to strings for ECS API
+	cpuStr := fmt.Sprintf("%d", cpu)
+	memoryStr := fmt.Sprintf("%d", memory)
 	registerInput := buildTaskDefinitionInput(
-		family, image, taskExecRoleARN, taskRoleARN, region, cpu, memory, runtimePlatform, e.cfg,
+		family, image, taskExecRoleARN, taskRoleARN, region, cpuStr, memoryStr, runtimePlatform, e.cfg,
 	)
 
 	logArgs := []any{

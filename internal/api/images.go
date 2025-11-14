@@ -7,8 +7,8 @@ type RegisterImageRequest struct {
 	IsDefault             *bool   `json:"is_default,omitempty"`
 	TaskRoleName          *string `json:"task_role_name,omitempty"`
 	TaskExecutionRoleName *string `json:"task_execution_role_name,omitempty"`
-	Cpu                   *string `json:"cpu,omitempty"`              //nolint:revive // API contract
-	Memory                *string `json:"memory,omitempty"`           // e.g., "512", "2048"
+	Cpu                   *int    `json:"cpu,omitempty"`              //nolint:revive // API contract
+	Memory                *int    `json:"memory,omitempty"`           // Memory in MB (e.g., 512, 1024, 2048)
 	RuntimePlatform       *string `json:"runtime_platform,omitempty"` // e.g., "Linux/ARM64", "Linux/X86_64"
 }
 
@@ -36,8 +36,8 @@ type ImageInfo struct {
 	IsDefault             *bool   `json:"is_default,omitempty"`
 	TaskRoleName          *string `json:"task_role_name,omitempty"`
 	TaskExecutionRoleName *string `json:"task_execution_role_name,omitempty"`
-	Cpu                   string  `json:"cpu,omitempty"`              //nolint:revive // API contract
-	Memory                string  `json:"memory,omitempty"`           // e.g., "512"
+	Cpu                   int     `json:"cpu,omitempty"`              //nolint:revive // API contract
+	Memory                int     `json:"memory,omitempty"`           // Memory in MB (e.g., 512, 1024, 2048)
 	RuntimePlatform       string  `json:"runtime_platform,omitempty"` // e.g., "Linux/ARM64", "Linux/X86_64"
 	// Parsed image components
 	ImageRegistry string `json:"image_registry,omitempty"` // Empty string = Docker Hub

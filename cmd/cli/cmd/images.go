@@ -98,14 +98,24 @@ func registerImageRun(cmd *cobra.Command, args []string) {
 		taskExecutionRoleName = &registerImageTaskExecRole
 	}
 
-	var cpu *string
+	var cpu *int
 	if cmd.Flags().Changed("cpu") {
-		cpu = &registerImageCPU
+		cpuVal, parseErr := strconv.Atoi(registerImageCPU)
+		if parseErr != nil {
+			output.Errorf("invalid CPU value: %v (must be a number)", parseErr)
+			return
+		}
+		cpu = &cpuVal
 	}
 
-	var memory *string
+	var memory *int
 	if cmd.Flags().Changed("memory") {
-		memory = &registerImageMemory
+		memoryVal, parseErr := strconv.Atoi(registerImageMemory)
+		if parseErr != nil {
+			output.Errorf("invalid Memory value: %v (must be a number)", parseErr)
+			return
+		}
+		memory = &memoryVal
 	}
 
 	var runtimePlatform *string
@@ -168,7 +178,8 @@ func NewImagesService(apiClient client.Interface, outputter OutputInterface) *Im
 // RegisterImage registers a new image
 func (s *ImagesService) RegisterImage(
 	ctx context.Context, image string, isDefault *bool, taskRoleName, taskExecutionRoleName *string,
-	cpu, memory, runtimePlatform *string,
+	cpu, memory *int,
+	runtimePlatform *string,
 ) error {
 	resp, err := s.client.RegisterImage(
 		ctx, image, isDefault, taskRoleName, taskExecutionRoleName, cpu, memory, runtimePlatform,

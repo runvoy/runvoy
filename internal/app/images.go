@@ -14,8 +14,8 @@ func (s *Service) RegisterImage(
 	isDefault *bool,
 	taskRoleName *string,
 	taskExecutionRoleName *string,
-	cpu *string,
-	memory *string,
+	cpu *int,
+	memory *int,
 	runtimePlatform *string,
 ) (*api.RegisterImageResponse, error) {
 	if image == "" {

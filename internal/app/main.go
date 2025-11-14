@@ -27,15 +27,16 @@ type Runner interface {
 	// isDefault: if true, explicitly set as default.
 	// taskRoleName: optional custom task role name (if nil, uses default from config).
 	// taskExecutionRoleName: optional custom task execution role name (if nil, uses default from config).
-	// cpu: optional CPU value (e.g., "256", "1024"). Defaults to "256" if nil.
-	// memory: optional Memory value (e.g., "512", "2048"). Defaults to "512" if nil.
+	// cpu: optional CPU value (e.g., 256, 1024). Defaults to 256 if nil.
+	// memory: optional Memory value in MB (e.g., 512, 2048). Defaults to 512 if nil.
 	// runtimePlatform: optional runtime platform (e.g., "Linux/ARM64", "Linux/X86_64"). Defaults to "Linux/ARM64" if nil.
 	RegisterImage(
 		ctx context.Context,
 		image string,
 		isDefault *bool,
 		taskRoleName, taskExecutionRoleName *string,
-		cpu, memory, runtimePlatform *string,
+		cpu, memory *int,
+		runtimePlatform *string,
 	) error
 	// ListImages lists all registered Docker images.
 	ListImages(ctx context.Context) ([]api.ImageInfo, error)

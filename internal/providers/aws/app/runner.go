@@ -45,7 +45,8 @@ type ImageTaskDefRepository interface {
 		imageName string,
 		imageTag string,
 		taskRoleName, taskExecutionRoleName *string,
-		cpu, memory, runtimePlatform string,
+		cpu, memory int,
+		runtimePlatform string,
 		taskDefFamily string,
 		isDefault bool,
 	) error
@@ -53,7 +54,8 @@ type ImageTaskDefRepository interface {
 		ctx context.Context,
 		image string,
 		taskRoleName, taskExecutionRoleName *string,
-		cpu, memory, runtimePlatform *string,
+		cpu, memory *int,
+		runtimePlatform *string,
 	) (*api.ImageInfo, error)
 	GetAnyImageTaskDef(ctx context.Context, image string) (*api.ImageInfo, error)
 	ListImages(ctx context.Context) ([]api.ImageInfo, error)

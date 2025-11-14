@@ -65,7 +65,7 @@ func TestRegisterImage(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			runner := &mockRunner{
 				registerImageFunc: func(
-					_ context.Context, _ string, _ *bool, _ *string, _ *string, _ *string, _ *string, _ *string,
+					_ context.Context, _ string, _ *bool, _ *string, _ *string, _ *int, _ *int, _ *string,
 				) error {
 					return tt.runnerErr
 				},

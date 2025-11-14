@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"sort"
+	"strconv"
 	"time"
 
 	"runvoy/internal/api"
@@ -61,10 +62,10 @@ const (
 
 // Default values for new image registrations
 const (
-	// DefaultCPU is the minimum Fargate CPU value
-	DefaultCPU = "256"
-	// DefaultMemory is the minimum Fargate Memory value (compatible with 256 CPU)
-	DefaultMemory = "512"
+	// DefaultCPU is the minimum Fargate CPU value (in CPU units)
+	DefaultCPU = 256
+	// DefaultMemory is the minimum Fargate Memory value in MB (compatible with 256 CPU)
+	DefaultMemory = 512
 	// DefaultRuntimePlatform is the default architecture (Graviton2 - better price-performance)
 	DefaultRuntimePlatform = "Linux/ARM64"
 )
@@ -90,9 +91,9 @@ func buildRoleComposite(taskRoleName, taskExecutionRoleName *string) string {
 
 // buildCompositeKey creates a composite sort key from roles, CPU, Memory, and RuntimePlatform.
 // Format: role_composite#cpu#memory#runtime_platform
-func buildCompositeKey(taskRoleName, taskExecutionRoleName *string, cpu, memory, runtimePlatform string) string {
+func buildCompositeKey(taskRoleName, taskExecutionRoleName *string, cpu, memory int, runtimePlatform string) string {
 	roleComposite := buildRoleComposite(taskRoleName, taskExecutionRoleName)
-	return fmt.Sprintf("%s#%s#%s#%s", roleComposite, cpu, memory, runtimePlatform)
+	return fmt.Sprintf("%s#%d#%d#%s", roleComposite, cpu, memory, runtimePlatform)
 }
 
 // PutImageTaskDef stores or updates an image-taskdef mapping.
@@ -106,8 +107,8 @@ func (r *ImageTaskDefRepository) PutImageTaskDef(
 	imageTag string,
 	taskRoleName *string,
 	taskExecutionRoleName *string,
-	cpu string,
-	memory string,
+	cpu int,
+	memory int,
 	runtimePlatform string,
 	taskDefFamily string,
 	isDefault bool,
@@ -117,13 +118,17 @@ func (r *ImageTaskDefRepository) PutImageTaskDef(
 	now := time.Now().Unix()
 	compositeKey := buildCompositeKey(taskRoleName, taskExecutionRoleName, cpu, memory, runtimePlatform)
 
+	// Convert to strings for DynamoDB storage
+	cpuStr := fmt.Sprintf("%d", cpu)
+	memoryStr := fmt.Sprintf("%d", memory)
+
 	item := &imageTaskDefItem{
 		Image:                 image,
 		CompositeKey:          compositeKey,
 		TaskRoleName:          taskRoleName,
 		TaskExecutionRoleName: taskExecutionRoleName,
-		Cpu:                   cpu,
-		Memory:                memory,
+		Cpu:                   cpuStr,
+		Memory:                memoryStr,
 		RuntimePlatform:       runtimePlatform,
 		TaskDefinitionFamily:  taskDefFamily,
 		ImageRegistry:         imageRegistry,
@@ -176,19 +181,19 @@ func (r *ImageTaskDefRepository) GetImageTaskDef(
 	image string,
 	taskRoleName *string,
 	taskExecutionRoleName *string,
-	cpu *string,
-	memory *string,
+	cpu *int,
+	memory *int,
 	runtimePlatform *string,
 ) (*api.ImageInfo, error) {
 	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
 
 	// Apply defaults if not provided
 	cpuVal := DefaultCPU
-	if cpu != nil && *cpu != "" {
+	if cpu != nil {
 		cpuVal = *cpu
 	}
 	memoryVal := DefaultMemory
-	if memory != nil && *memory != "" {
+	if memory != nil {
 		memoryVal = *memory
 	}
 	runtimePlatformVal := DefaultRuntimePlatform
@@ -230,6 +235,16 @@ func (r *ImageTaskDefRepository) GetImageTaskDef(
 		return nil, apperrors.ErrInternalError("failed to unmarshal image-taskdef item", unmarshalErr)
 	}
 
+	// Convert from strings to ints
+	cpuInt, err := strconv.Atoi(item.Cpu)
+	if err != nil {
+		return nil, apperrors.ErrInternalError("failed to parse CPU value", err)
+	}
+	memoryInt, err := strconv.Atoi(item.Memory)
+	if err != nil {
+		return nil, apperrors.ErrInternalError("failed to parse Memory value", err)
+	}
+
 	isDefault := item.isDefault()
 	return &api.ImageInfo{
 		Image:                 item.Image,
@@ -237,8 +252,8 @@ func (r *ImageTaskDefRepository) GetImageTaskDef(
 		IsDefault:             &isDefault,
 		TaskRoleName:          item.TaskRoleName,
 		TaskExecutionRoleName: item.TaskExecutionRoleName,
-		Cpu:                   item.Cpu,
-		Memory:                item.Memory,
+		Cpu:                   cpuInt,
+		Memory:                memoryInt,
 		RuntimePlatform:       item.RuntimePlatform,
 		ImageRegistry:         item.ImageRegistry,
 		ImageName:             item.ImageName,
@@ -273,14 +288,25 @@ func (r *ImageTaskDefRepository) ListImages(ctx context.Context) ([]api.ImageInf
 	for i := range items {
 		item := &items[i]
 		isDefault := item.isDefault()
+
+		// Convert from strings to ints
+		cpuInt, parseErr := strconv.Atoi(item.Cpu)
+		if parseErr != nil {
+			return nil, apperrors.ErrInternalError("failed to parse CPU value", parseErr)
+		}
+		memoryInt, parseErr := strconv.Atoi(item.Memory)
+		if parseErr != nil {
+			return nil, apperrors.ErrInternalError("failed to parse Memory value", parseErr)
+		}
+
 		images = append(images, api.ImageInfo{
 			Image:                 item.Image,
 			TaskDefinitionName:    item.TaskDefinitionFamily,
 			IsDefault:             &isDefault,
 			TaskRoleName:          item.TaskRoleName,
 			TaskExecutionRoleName: item.TaskExecutionRoleName,
-			Cpu:                   item.Cpu,
-			Memory:                item.Memory,
+			Cpu:                   cpuInt,
+			Memory:                memoryInt,
 			RuntimePlatform:       item.RuntimePlatform,
 			ImageRegistry:         item.ImageRegistry,
 			ImageName:             item.ImageName,
@@ -336,6 +362,16 @@ func (r *ImageTaskDefRepository) GetDefaultImage(ctx context.Context) (*api.Imag
 		return nil, apperrors.ErrInternalError("failed to unmarshal default image item", unmarshalErr)
 	}
 
+	// Convert from strings to ints
+	cpuInt, err := strconv.Atoi(item.Cpu)
+	if err != nil {
+		return nil, apperrors.ErrInternalError("failed to parse CPU value", err)
+	}
+	memoryInt, err := strconv.Atoi(item.Memory)
+	if err != nil {
+		return nil, apperrors.ErrInternalError("failed to parse Memory value", err)
+	}
+
 	isDefault := item.isDefault()
 	return &api.ImageInfo{
 		Image:                 item.Image,
@@ -343,8 +379,8 @@ func (r *ImageTaskDefRepository) GetDefaultImage(ctx context.Context) (*api.Imag
 		IsDefault:             &isDefault,
 		TaskRoleName:          item.TaskRoleName,
 		TaskExecutionRoleName: item.TaskExecutionRoleName,
-		Cpu:                   item.Cpu,
-		Memory:                item.Memory,
+		Cpu:                   cpuInt,
+		Memory:                memoryInt,
 		RuntimePlatform:       item.RuntimePlatform,
 		ImageRegistry:         item.ImageRegistry,
 		ImageName:             item.ImageName,
@@ -503,43 +539,43 @@ func (r *ImageTaskDefRepository) GetAnyImageTaskDef(ctx context.Context, image s
 		return nil, apperrors.ErrInternalError("failed to unmarshal image-taskdef items", unmarshalErr)
 	}
 
+	// Helper function to convert item to ImageInfo
+	convertItem := func(item *imageTaskDefItem) (*api.ImageInfo, error) {
+		// Convert from strings to ints
+		cpuInt, parseErr := strconv.Atoi(item.Cpu)
+		if parseErr != nil {
+			return nil, apperrors.ErrInternalError("failed to parse CPU value", parseErr)
+		}
+		memoryInt, parseErr := strconv.Atoi(item.Memory)
+		if parseErr != nil {
+			return nil, apperrors.ErrInternalError("failed to parse Memory value", parseErr)
+		}
+
+		isDefault := item.isDefault()
+		return &api.ImageInfo{
+			Image:                 item.Image,
+			TaskDefinitionName:    item.TaskDefinitionFamily,
+			IsDefault:             &isDefault,
+			TaskRoleName:          item.TaskRoleName,
+			TaskExecutionRoleName: item.TaskExecutionRoleName,
+			Cpu:                   cpuInt,
+			Memory:                memoryInt,
+			RuntimePlatform:       item.RuntimePlatform,
+			ImageRegistry:         item.ImageRegistry,
+			ImageName:             item.ImageName,
+			ImageTag:              item.ImageTag,
+		}, nil
+	}
+
 	// Prefer default configuration if available
 	for i := range items {
 		if items[i].isDefault() {
-			item := &items[i]
-			isDefault := true
-			return &api.ImageInfo{
-				Image:                 item.Image,
-				TaskDefinitionName:    item.TaskDefinitionFamily,
-				IsDefault:             &isDefault,
-				TaskRoleName:          item.TaskRoleName,
-				TaskExecutionRoleName: item.TaskExecutionRoleName,
-				Cpu:                   item.Cpu,
-				Memory:                item.Memory,
-				RuntimePlatform:       item.RuntimePlatform,
-				ImageRegistry:         item.ImageRegistry,
-				ImageName:             item.ImageName,
-				ImageTag:              item.ImageTag,
-			}, nil
+			return convertItem(&items[i])
 		}
 	}
 
 	// If no default found, return the first one
-	item := &items[0]
-	isDefault := item.isDefault()
-	return &api.ImageInfo{
-		Image:                 item.Image,
-		TaskDefinitionName:    item.TaskDefinitionFamily,
-		IsDefault:             &isDefault,
-		TaskRoleName:          item.TaskRoleName,
-		TaskExecutionRoleName: item.TaskExecutionRoleName,
-		Cpu:                   item.Cpu,
-		Memory:                item.Memory,
-		RuntimePlatform:       item.RuntimePlatform,
-		ImageRegistry:         item.ImageRegistry,
-		ImageName:             item.ImageName,
-		ImageTag:              item.ImageTag,
-	}, nil
+	return convertItem(&items[0])
 }
 
 // GetImagesCount returns the total number of unique image+role combinations.

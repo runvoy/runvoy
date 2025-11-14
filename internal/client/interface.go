@@ -23,7 +23,8 @@ type Interface interface {
 		image string,
 		isDefault *bool,
 		taskRoleName, taskExecutionRoleName *string,
-		cpu, memory, runtimePlatform *string,
+		cpu, memory *int,
+		runtimePlatform *string,
 	) (*api.RegisterImageResponse, error)
 	ListImages(ctx context.Context) (*api.ListImagesResponse, error)
 	UnregisterImage(ctx context.Context, image string) (*api.RemoveImageResponse, error)

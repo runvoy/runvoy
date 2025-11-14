@@ -180,7 +180,7 @@ func (m *mockImageRepo) GetDefaultImage(ctx context.Context) (*api.ImageInfo, er
 }
 
 func (m *mockImageRepo) GetImageTaskDef(
-	_ context.Context, _ string, _, _, _, _, _ *string,
+	_ context.Context, _ string, _, _ *string, _, _ *int, _ *string,
 ) (*api.ImageInfo, error) {
 	return nil, nil
 }
@@ -190,7 +190,7 @@ func (m *mockImageRepo) GetAnyImageTaskDef(_ context.Context, _ string) (*api.Im
 }
 
 func (m *mockImageRepo) PutImageTaskDef(
-	_ context.Context, _, _, _, _ string, _, _ *string, _, _, _ string, _ string, _ bool) error {
+	_ context.Context, _, _, _, _ string, _, _ *string, _, _ int, _ string, _ string, _ bool) error {
 	return nil
 }
 
