@@ -193,7 +193,12 @@ func (t *testRunner) KillTask(_ context.Context, _ string) error {
 	return nil
 }
 
-func (t *testRunner) RegisterImage(_ context.Context, _ string, _ *bool, _ *string, _ *string) error {
+func (t *testRunner) RegisterImage(
+	_ context.Context,
+	_ string,
+	_ *bool,
+	_, _ *string,
+) error {
 	return nil
 }
 

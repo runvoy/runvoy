@@ -6,6 +6,10 @@ import (
 	"strings"
 )
 
+const (
+	dockerHubRegistry = "docker.io"
+)
+
 // ImageReference represents a parsed Docker image reference.
 type ImageReference struct {
 	// Full is the complete image reference as provided
@@ -26,7 +30,8 @@ type ImageReference struct {
 //   - alpine:latest → registry="", name="alpine", tag="latest"
 //   - ubuntu → registry="", name="ubuntu", tag="latest"
 //   - myorg/myapp:v1.0 → registry="", name="myorg/myapp", tag="v1.0"
-//   - 123456.dkr.ecr.us-east-1.amazonaws.com/myapp:v1.0 → registry="123456.dkr.ecr.us-east-1.amazonaws.com", name="myapp", tag="v1.0"
+//   - 123456.dkr.ecr.us-east-1.amazonaws.com/myapp:v1.0 →
+//     registry="123456.dkr.ecr.us-east-1.amazonaws.com", name="myapp", tag="v1.0"
 //   - gcr.io/project/image:tag → registry="gcr.io", name="project/image", tag="tag"
 func ParseImageReference(image string) ImageReference {
 	ref := ImageReference{
@@ -36,20 +41,22 @@ func ParseImageReference(image string) ImageReference {
 
 	// Split on '@' to handle digest references (e.g., image@sha256:...)
 	var remainder string
-	if idx := strings.Index(image, "@"); idx != -1 {
+	idx := strings.Index(image, "@")
+	if idx != -1 {
 		remainder = image[:idx]
 		ref.Tag = image[idx+1:] // Everything after @ is the digest
 	} else {
 		remainder = image
 		// Split on ':' to extract tag
-		if idx := strings.LastIndex(remainder, ":"); idx != -1 {
+		tagIdx := strings.LastIndex(remainder, ":")
+		if tagIdx != -1 {
 			// Check if this is a tag (not a port number in registry)
 			// Port numbers appear before the first slash
 			firstSlash := strings.Index(remainder, "/")
-			if firstSlash == -1 || idx > firstSlash {
+			if firstSlash == -1 || tagIdx > firstSlash {
 				// This is a tag, not a port
-				ref.Tag = remainder[idx+1:]
-				remainder = remainder[:idx]
+				ref.Tag = remainder[tagIdx+1:]
+				remainder = remainder[:tagIdx]
 			}
 		}
 	}
@@ -60,7 +67,8 @@ func ParseImageReference(image string) ImageReference {
 	// 2. Contains a colon (:) - e.g., localhost:5000
 	// 3. Is "localhost"
 
-	parts := strings.SplitN(remainder, "/", 2)
+	const splitLimit = 2
+	parts := strings.SplitN(remainder, "/", splitLimit)
 
 	if len(parts) == 1 {
 		// Just a name, no registry
@@ -70,8 +78,8 @@ func ParseImageReference(image string) ImageReference {
 		// Check if first part is a registry
 		firstPart := parts[0]
 		if strings.Contains(firstPart, ".") ||
-		   strings.Contains(firstPart, ":") ||
-		   firstPart == "localhost" {
+			strings.Contains(firstPart, ":") ||
+			firstPart == "localhost" {
 			// This is a registry
 			ref.Registry = firstPart
 			ref.Name = parts[1]
@@ -89,14 +97,14 @@ func ParseImageReference(image string) ImageReference {
 // Returns "docker.io" for Docker Hub (empty registry), otherwise returns the registry as-is.
 func (r ImageReference) NormalizeRegistry() string {
 	if r.Registry == "" {
-		return "docker.io"
+		return dockerHubRegistry
 	}
 	return r.Registry
 }
 
 // IsDockerHub returns true if the image is from Docker Hub.
 func (r ImageReference) IsDockerHub() bool {
-	return r.Registry == "" || r.Registry == "docker.io" || r.Registry == "index.docker.io"
+	return r.Registry == "" || r.Registry == dockerHubRegistry || r.Registry == "index.docker.io"
 }
 
 // IsECR returns true if the image is from AWS ECR.

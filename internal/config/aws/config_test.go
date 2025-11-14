@@ -77,6 +77,7 @@ func TestValidateOrchestrator(t *testing.T) {
 		cfg := &Config{
 			ECSCluster:                "cluster",
 			ExecutionsTable:           "executions",
+			ImageTaskDefsTable:        "image-taskdefs",
 			LogGroup:                  "logs",
 			SecurityGroup:             "sg",
 			Subnet1:                   "subnet1",
@@ -97,6 +98,7 @@ func TestValidateOrchestrator(t *testing.T) {
 		cfg := &Config{
 			APIKeysTable:              "keys",
 			ExecutionsTable:           "executions",
+			ImageTaskDefsTable:        "image-taskdefs",
 			LogGroup:                  "logs",
 			SecurityGroup:             "sg",
 			Subnet1:                   "subnet1",

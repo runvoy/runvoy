@@ -37,27 +37,29 @@ func NewImageTaskDefRepository(client Client, tableName string, log *slog.Logger
 
 // imageTaskDefItem represents the structure stored in DynamoDB.
 type imageTaskDefItem struct {
-	Image                  string  `dynamodbav:"image"`
-	RoleComposite          string  `dynamodbav:"role_composite"`
-	TaskRoleName           *string `dynamodbav:"task_role_name,omitempty"`
-	TaskExecutionRoleName  *string `dynamodbav:"task_execution_role_name,omitempty"`
-	TaskDefinitionARN      string  `dynamodbav:"task_definition_arn"`
-	TaskDefinitionFamily   string  `dynamodbav:"task_definition_family"`
-	IsDefault              bool    `dynamodbav:"is_default"`
-	IsDefaultPlaceholder   *string `dynamodbav:"is_default_placeholder,omitempty"`
+	Image                 string  `dynamodbav:"image"`
+	RoleComposite         string  `dynamodbav:"role_composite"`
+	TaskRoleName          *string `dynamodbav:"task_role_name,omitempty"`
+	TaskExecutionRoleName *string `dynamodbav:"task_execution_role_name,omitempty"`
+	TaskDefinitionARN     string  `dynamodbav:"task_definition_arn"`
+	TaskDefinitionFamily  string  `dynamodbav:"task_definition_family"`
+	IsDefault             bool    `dynamodbav:"is_default"`
+	IsDefaultPlaceholder  *string `dynamodbav:"is_default_placeholder,omitempty"`
 	// Parsed image components
-	ImageRegistry          string  `dynamodbav:"image_registry"`           // Empty = Docker Hub
-	ImageName              string  `dynamodbav:"image_name"`               // e.g., "alpine", "hashicorp/terraform"
-	ImageTag               string  `dynamodbav:"image_tag"`                // e.g., "latest", "1.6"
-	CreatedAt              int64   `dynamodbav:"created_at"`
-	UpdatedAt              int64   `dynamodbav:"updated_at"`
+	ImageRegistry string `dynamodbav:"image_registry"` // Empty = Docker Hub
+	ImageName     string `dynamodbav:"image_name"`     // e.g., "alpine", "hashicorp/terraform"
+	ImageTag      string `dynamodbav:"image_tag"`      // e.g., "latest", "1.6"
+	CreatedAt     int64  `dynamodbav:"created_at"`
+	UpdatedAt     int64  `dynamodbav:"updated_at"`
 }
+
+const defaultRoleName = "default"
 
 // buildRoleComposite creates a composite sort key from role names.
 // Returns "default#default" if both are nil, otherwise "roleName1#roleName2".
 func buildRoleComposite(taskRoleName, taskExecutionRoleName *string) string {
-	taskRole := "default"
-	execRole := "default"
+	taskRole := defaultRoleName
+	execRole := defaultRoleName
 	if taskRoleName != nil && *taskRoleName != "" {
 		taskRole = *taskRoleName
 	}
@@ -166,8 +168,8 @@ func (r *ImageTaskDefRepository) GetImageTaskDef(
 	}
 
 	var item imageTaskDefItem
-	if err := attributevalue.UnmarshalMap(result.Item, &item); err != nil {
-		return nil, "", apperrors.ErrInternalError("failed to unmarshal image-taskdef item", err)
+	if unmarshalErr := attributevalue.UnmarshalMap(result.Item, &item); unmarshalErr != nil {
+		return nil, "", apperrors.ErrInternalError("failed to unmarshal image-taskdef item", unmarshalErr)
 	}
 
 	isDefault := item.IsDefault
@@ -202,12 +204,13 @@ func (r *ImageTaskDefRepository) ListImages(ctx context.Context) ([]api.ImageInf
 	}
 
 	var items []imageTaskDefItem
-	if err := attributevalue.UnmarshalListOfMaps(result.Items, &items); err != nil {
-		return nil, apperrors.ErrInternalError("failed to unmarshal image-taskdef items", err)
+	if unmarshalErr := attributevalue.UnmarshalListOfMaps(result.Items, &items); unmarshalErr != nil {
+		return nil, apperrors.ErrInternalError("failed to unmarshal image-taskdef items", unmarshalErr)
 	}
 
 	images := make([]api.ImageInfo, 0, len(items))
-	for _, item := range items {
+	for i := range items {
+		item := &items[i]
 		isDefault := item.IsDefault
 		images = append(images, api.ImageInfo{
 			Image:                 item.Image,
@@ -265,8 +268,8 @@ func (r *ImageTaskDefRepository) GetDefaultImage(ctx context.Context) (*api.Imag
 	}
 
 	var item imageTaskDefItem
-	if err := attributevalue.UnmarshalMap(result.Items[0], &item); err != nil {
-		return nil, apperrors.ErrInternalError("failed to unmarshal default image item", err)
+	if unmarshalErr := attributevalue.UnmarshalMap(result.Items[0], &item); unmarshalErr != nil {
+		return nil, apperrors.ErrInternalError("failed to unmarshal default image item", unmarshalErr)
 	}
 
 	isDefault := item.IsDefault
@@ -300,12 +303,13 @@ func (r *ImageTaskDefRepository) UnmarkAllDefaults(ctx context.Context) error {
 	}
 
 	var items []imageTaskDefItem
-	if err := attributevalue.UnmarshalListOfMaps(result.Items, &items); err != nil {
-		return apperrors.ErrInternalError("failed to unmarshal default image items", err)
+	if unmarshalErr := attributevalue.UnmarshalListOfMaps(result.Items, &items); unmarshalErr != nil {
+		return apperrors.ErrInternalError("failed to unmarshal default image items", unmarshalErr)
 	}
 
 	// Update each item to remove default status
-	for _, item := range items {
+	for i := range items {
+		item := &items[i]
 		logArgs := []any{
 			"operation", "DynamoDB.UpdateItem",
 			"table", r.tableName,
@@ -360,20 +364,21 @@ func (r *ImageTaskDefRepository) DeleteImage(ctx context.Context, image string) 
 	}
 
 	var items []imageTaskDefItem
-	if err := attributevalue.UnmarshalListOfMaps(result.Items, &items); err != nil {
-		return apperrors.ErrInternalError("failed to unmarshal image items", err)
+	if unmarshalErr := attributevalue.UnmarshalListOfMaps(result.Items, &items); unmarshalErr != nil {
+		return apperrors.ErrInternalError("failed to unmarshal image items", unmarshalErr)
 	}
 
 	// Delete each item
-	for _, item := range items {
-		logArgs := []any{
+	for i := range items {
+		item := &items[i]
+		deleteLogArgs := []any{
 			"operation", "DynamoDB.DeleteItem",
 			"table", r.tableName,
 			"image", item.Image,
 			"role_composite", item.RoleComposite,
 		}
-		logArgs = append(logArgs, logger.GetDeadlineInfo(ctx)...)
-		reqLogger.Debug("calling external service", "context", logger.SliceToMap(logArgs))
+		deleteLogArgs = append(deleteLogArgs, logger.GetDeadlineInfo(ctx)...)
+		reqLogger.Debug("calling external service", "context", logger.SliceToMap(deleteLogArgs))
 
 		_, err = r.client.DeleteItem(ctx, &dynamodb.DeleteItemInput{
 			TableName: aws.String(r.tableName),
@@ -414,13 +419,13 @@ func (r *ImageTaskDefRepository) GetTaskDefARNsForImage(ctx context.Context, ima
 	}
 
 	var items []imageTaskDefItem
-	if err := attributevalue.UnmarshalListOfMaps(result.Items, &items); err != nil {
-		return nil, apperrors.ErrInternalError("failed to unmarshal image items", err)
+	if unmarshalErr := attributevalue.UnmarshalListOfMaps(result.Items, &items); unmarshalErr != nil {
+		return nil, apperrors.ErrInternalError("failed to unmarshal image items", unmarshalErr)
 	}
 
 	arns := make([]string, 0, len(items))
-	for _, item := range items {
-		arns = append(arns, item.TaskDefinitionARN)
+	for i := range items {
+		arns = append(arns, items[i].TaskDefinitionARN)
 	}
 
 	return arns, nil

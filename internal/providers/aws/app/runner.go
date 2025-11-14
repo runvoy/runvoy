@@ -37,8 +37,21 @@ type Config struct {
 
 // ImageTaskDefRepository defines the interface for image-taskdef mapping operations.
 type ImageTaskDefRepository interface {
-	PutImageTaskDef(ctx context.Context, image string, imageRegistry string, imageName string, imageTag string, taskRoleName, taskExecutionRoleName *string, taskDefARN, taskDefFamily string, isDefault bool) error
-	GetImageTaskDef(ctx context.Context, image string, taskRoleName, taskExecutionRoleName *string) (*api.ImageInfo, string, error)
+	PutImageTaskDef(
+		ctx context.Context,
+		image string,
+		imageRegistry string,
+		imageName string,
+		imageTag string,
+		taskRoleName, taskExecutionRoleName *string,
+		taskDefARN, taskDefFamily string,
+		isDefault bool,
+	) error
+	GetImageTaskDef(
+		ctx context.Context,
+		image string,
+		taskRoleName, taskExecutionRoleName *string,
+	) (*api.ImageInfo, string, error)
 	GetTaskDefARNsForImage(ctx context.Context, image string) ([]string, error)
 	ListImages(ctx context.Context) ([]api.ImageInfo, error)
 	GetDefaultImage(ctx context.Context) (*api.ImageInfo, error)
@@ -57,7 +70,13 @@ type Runner struct {
 }
 
 // NewRunner creates a new AWS ECS runner with the provided configuration.
-func NewRunner(ecsClient Client, cwlClient CloudWatchLogsClient, imageRepo ImageTaskDefRepository, cfg *Config, log *slog.Logger) *Runner {
+func NewRunner(
+	ecsClient Client,
+	cwlClient CloudWatchLogsClient,
+	imageRepo ImageTaskDefRepository,
+	cfg *Config,
+	log *slog.Logger,
+) *Runner {
 	return &Runner{ecsClient: ecsClient, cwlClient: cwlClient, imageRepo: imageRepo, cfg: cfg, logger: log}
 }
 
@@ -360,45 +379,6 @@ func (e *Runner) StartTask( //nolint: funlen
 
 	return executionID, createdAt, nil
 }
-
-
-// describeTaskDef describes a task definition and returns it.
-func describeTaskDef(
-	ctx context.Context, ecsClient Client, taskDefARN string, reqLogger *slog.Logger,
-) (*ecsTypes.TaskDefinition, error) {
-	descOutput, err := ecsClient.DescribeTaskDefinition(ctx, &ecs.DescribeTaskDefinitionInput{
-		TaskDefinition: awsStd.String(taskDefARN),
-	})
-	if err != nil {
-		reqLogger.Error("failed to describe task definition", "context", map[string]string{
-			"operation": "ECS.DescribeTaskDefinition",
-			"arn":       taskDefARN,
-			"error":     err.Error(),
-		})
-		return nil, appErrors.ErrInternalError("failed to describe task definition", err)
-	}
-	if descOutput.TaskDefinition == nil {
-		return nil, appErrors.ErrInternalError("task definition not found", nil)
-	}
-	return descOutput.TaskDefinition, nil
-}
-
-// extractImageFromTaskDef extracts the runner container image from a task definition.
-func extractImageFromTaskDef(taskDef *ecsTypes.TaskDefinition, reqLogger *slog.Logger) string {
-	familyName := awsStd.ToString(taskDef.Family)
-	for i := range taskDef.ContainerDefinitions {
-		container := &taskDef.ContainerDefinitions[i]
-		if container.Name != nil && *container.Name == awsConstants.RunnerContainerName && container.Image != nil {
-			return *container.Image
-		}
-	}
-	reqLogger.Debug("no runner container found in task definition", "container", map[string]string{
-		"family":          familyName,
-		"container_count": fmt.Sprintf("%d", len(taskDef.ContainerDefinitions)),
-	})
-	return ""
-}
-
 
 // findTaskARNByExecutionID finds the task ARN for a given execution ID by checking both running and stopped tasks.
 func (e *Runner) findTaskARNByExecutionID(

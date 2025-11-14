@@ -16,23 +16,155 @@ import (
 	"github.com/google/uuid"
 )
 
+const (
+	roleARNMinParts     = 5
+	roleARNAccountIndex = 4
+)
+
 // extractAccountIDFromRoleARN extracts the AWS account ID from a role ARN.
 // Example: arn:aws:iam::123456789012:role/MyRole -> 123456789012
 func extractAccountIDFromRoleARN(roleARN string) (string, error) {
 	parts := strings.Split(roleARN, ":")
-	if len(parts) < 5 {
+	if len(parts) < roleARNMinParts {
 		return "", fmt.Errorf("invalid role ARN format: %s", roleARN)
 	}
-	return parts[4], nil
+	return parts[roleARNAccountIndex], nil
 }
 
 // buildRoleARN constructs a full IAM role ARN from a role name and account ID.
 // If roleName is empty/nil, returns empty string.
-func buildRoleARN(roleName *string, accountID, region string) string {
+func buildRoleARN(roleName *string, accountID, _ string) string {
 	if roleName == nil || *roleName == "" {
 		return ""
 	}
 	return fmt.Sprintf("arn:aws:iam::%s:role/%s", accountID, *roleName)
+}
+
+// buildRoleARNs constructs task and execution role ARNs from names or config defaults.
+func (e *Runner) buildRoleARNs(
+	taskRoleName *string,
+	taskExecutionRoleName *string,
+	accountID, region string,
+) (taskRoleARN, taskExecRoleARN string) {
+	taskRoleARN = ""
+	taskExecRoleARN = e.cfg.DefaultTaskExecRoleARN // Always required
+
+	if taskRoleName != nil && *taskRoleName != "" {
+		taskRoleARN = buildRoleARN(taskRoleName, accountID, region)
+	} else if e.cfg.DefaultTaskRoleARN != "" {
+		taskRoleARN = e.cfg.DefaultTaskRoleARN
+	}
+
+	if taskExecutionRoleName != nil && *taskExecutionRoleName != "" {
+		taskExecRoleARN = buildRoleARN(taskExecutionRoleName, accountID, region)
+	}
+
+	return taskRoleARN, taskExecRoleARN
+}
+
+// determineDefaultStatus determines if an image should be marked as default.
+func (e *Runner) determineDefaultStatus(
+	ctx context.Context,
+	isDefault *bool,
+) (bool, error) {
+	if isDefault != nil {
+		return *isDefault, nil
+	}
+
+	// Auto-default if no default exists
+	defaultImg, defaultErr := e.imageRepo.GetDefaultImage(ctx)
+	if defaultErr != nil {
+		return false, fmt.Errorf("failed to check for default image: %w", defaultErr)
+	}
+	return defaultImg == nil, nil
+}
+
+// handleExistingImage handles the case when an image already exists.
+func (e *Runner) handleExistingImage(
+	ctx context.Context,
+	image string,
+	isDefault *bool,
+	taskRoleName, taskExecutionRoleName *string,
+	existing *api.ImageInfo,
+	existingARN string,
+	reqLogger *slog.Logger,
+) error {
+	reqLogger.Debug("image-taskdef mapping already exists", "context", map[string]string{
+		"image":                  image,
+		"task_definition_arn":    existingARN,
+		"task_definition_family": existing.TaskDefinitionName,
+	})
+
+	// If isDefault is requested, update the default status
+	shouldBeDefault := isDefault != nil && *isDefault
+	if shouldBeDefault {
+		if setErr := e.imageRepo.SetImageAsOnlyDefault(ctx, image, taskRoleName, taskExecutionRoleName); setErr != nil {
+			return fmt.Errorf("failed to set image as default: %w", setErr)
+		}
+	}
+
+	return nil
+}
+
+// registerNewImage handles registration of a new image.
+func (e *Runner) registerNewImage(
+	ctx context.Context,
+	image string,
+	isDefault *bool,
+	taskRoleName, taskExecutionRoleName *string,
+	taskRoleARN, taskExecRoleARN, region string,
+	reqLogger *slog.Logger,
+) (taskDefARN, family string, err error) {
+	// Generate a unique task definition family name using UUID
+	family = fmt.Sprintf("runvoy-taskdef-%s", uuid.New().String())
+
+	// Register the task definition with ECS
+	taskDefARN, err = e.registerTaskDefinitionWithRoles(
+		ctx,
+		family,
+		image,
+		taskRoleARN,
+		taskExecRoleARN,
+		region,
+		reqLogger,
+	)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to register ECS task definition: %w", err)
+	}
+
+	// Determine if this should be the default
+	shouldBeDefault, err := e.determineDefaultStatus(ctx, isDefault)
+	if err != nil {
+		return "", "", err
+	}
+
+	// Handle default status
+	if shouldBeDefault {
+		if unmarkErr := e.imageRepo.UnmarkAllDefaults(ctx); unmarkErr != nil {
+			return "", "", fmt.Errorf("failed to unmark existing defaults: %w", unmarkErr)
+		}
+	}
+
+	// Parse the image reference into components
+	imageRef := ParseImageReference(image)
+
+	// Store the mapping in DynamoDB
+	if putErr := e.imageRepo.PutImageTaskDef(
+		ctx,
+		image,
+		imageRef.Registry,
+		imageRef.Name,
+		imageRef.Tag,
+		taskRoleName,
+		taskExecutionRoleName,
+		taskDefARN,
+		family,
+		shouldBeDefault,
+	); putErr != nil {
+		return "", "", fmt.Errorf("failed to store image-taskdef mapping: %w", putErr)
+	}
+
+	return taskDefARN, family, nil
 }
 
 // RegisterImage registers a Docker image with optional custom IAM roles.
@@ -65,18 +197,7 @@ func (e *Runner) RegisterImage(
 	}
 
 	// Build role ARNs from names, or use defaults from config
-	taskRoleARN := ""
-	taskExecRoleARN := e.cfg.DefaultTaskExecRoleARN // Always required
-
-	if taskRoleName != nil && *taskRoleName != "" {
-		taskRoleARN = buildRoleARN(taskRoleName, accountID, region)
-	} else if e.cfg.DefaultTaskRoleARN != "" {
-		taskRoleARN = e.cfg.DefaultTaskRoleARN
-	}
-
-	if taskExecutionRoleName != nil && *taskExecutionRoleName != "" {
-		taskExecRoleARN = buildRoleARN(taskExecutionRoleName, accountID, region)
-	}
+	taskRoleARN, taskExecRoleARN := e.buildRoleARNs(taskRoleName, taskExecutionRoleName, accountID, region)
 
 	// Check if this exact combination already exists
 	existing, existingARN, err := e.imageRepo.GetImageTaskDef(ctx, image, taskRoleName, taskExecutionRoleName)
@@ -85,84 +206,24 @@ func (e *Runner) RegisterImage(
 	}
 
 	if existing != nil {
-		reqLogger.Debug("image-taskdef mapping already exists", "context", map[string]string{
-			"image":                 image,
-			"task_definition_arn":   existingARN,
-			"task_definition_family": existing.TaskDefinitionName,
-		})
-
-		// If isDefault is requested, update the default status
-		shouldBeDefault := isDefault != nil && *isDefault
-		if shouldBeDefault {
-			if err := e.imageRepo.SetImageAsOnlyDefault(ctx, image, taskRoleName, taskExecutionRoleName); err != nil {
-				return fmt.Errorf("failed to set image as default: %w", err)
-			}
-		}
-
-		return nil
+		return e.handleExistingImage(
+			ctx, image, isDefault, taskRoleName, taskExecutionRoleName,
+			existing, existingARN, reqLogger,
+		)
 	}
 
-	// Generate a unique task definition family name using UUID
-	family := fmt.Sprintf("runvoy-taskdef-%s", uuid.New().String())
-
-	// Register the task definition with ECS
-	taskDefARN, err := e.registerTaskDefinitionWithRoles(
-		ctx,
-		family,
-		image,
-		taskRoleARN,
-		taskExecRoleARN,
-		region,
-		reqLogger,
+	taskDefARN, family, err := e.registerNewImage(
+		ctx, image, isDefault, taskRoleName, taskExecutionRoleName,
+		taskRoleARN, taskExecRoleARN, region, reqLogger,
 	)
 	if err != nil {
-		return fmt.Errorf("failed to register ECS task definition: %w", err)
-	}
-
-	// Determine if this should be the default
-	shouldBeDefault := false
-	if isDefault != nil {
-		shouldBeDefault = *isDefault
-	} else {
-		// Auto-default if no default exists
-		defaultImg, err := e.imageRepo.GetDefaultImage(ctx)
-		if err != nil {
-			return fmt.Errorf("failed to check for default image: %w", err)
-		}
-		shouldBeDefault = (defaultImg == nil)
-	}
-
-	// Handle default status
-	if shouldBeDefault {
-		if err := e.imageRepo.UnmarkAllDefaults(ctx); err != nil {
-			return fmt.Errorf("failed to unmark existing defaults: %w", err)
-		}
-	}
-
-	// Parse the image reference into components
-	imageRef := ParseImageReference(image)
-
-	// Store the mapping in DynamoDB
-	if err := e.imageRepo.PutImageTaskDef(
-		ctx,
-		image,
-		imageRef.Registry,
-		imageRef.Name,
-		imageRef.Tag,
-		taskRoleName,
-		taskExecutionRoleName,
-		taskDefARN,
-		family,
-		shouldBeDefault,
-	); err != nil {
-		return fmt.Errorf("failed to store image-taskdef mapping: %w", err)
+		return err
 	}
 
 	reqLogger.Info("image registered successfully", "context", map[string]string{
 		"image":                  image,
 		"task_definition_arn":    taskDefARN,
 		"task_definition_family": family,
-		"is_default":             fmt.Sprintf("%t", shouldBeDefault),
 	})
 
 	return nil
@@ -203,7 +264,7 @@ func (e *Runner) registerTaskDefinitionWithRoles(
 	taskDefARN := *output.TaskDefinition.TaskDefinitionArn
 
 	reqLogger.Info("task definition registered", "context", map[string]string{
-		"family":               family,
+		"family":              family,
 		"task_definition_arn": taskDefARN,
 	})
 
@@ -261,12 +322,12 @@ func (e *Runner) RemoveImage(ctx context.Context, image string) error {
 	}
 
 	// Delete all mappings from DynamoDB
-	if err := e.imageRepo.DeleteImage(ctx, image); err != nil {
-		return fmt.Errorf("failed to delete image from repository: %w", err)
+	if deleteErr := e.imageRepo.DeleteImage(ctx, image); deleteErr != nil {
+		return fmt.Errorf("failed to delete image from repository: %w", deleteErr)
 	}
 
 	reqLogger.Info("image removed successfully", "context", map[string]string{
-		"image":                image,
+		"image":                    image,
 		"task_definitions_removed": fmt.Sprintf("%d", len(taskDefsToDeregister)),
 	})
 

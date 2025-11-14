@@ -27,7 +27,12 @@ type Runner interface {
 	// isDefault: if true, explicitly set as default.
 	// taskRoleName: optional custom task role name (if nil, uses default from config).
 	// taskExecutionRoleName: optional custom task execution role name (if nil, uses default from config).
-	RegisterImage(ctx context.Context, image string, isDefault *bool, taskRoleName *string, taskExecutionRoleName *string) error
+	RegisterImage(
+		ctx context.Context,
+		image string,
+		isDefault *bool,
+		taskRoleName, taskExecutionRoleName *string,
+	) error
 	// ListImages lists all registered Docker images.
 	ListImages(ctx context.Context) ([]api.ImageInfo, error)
 	// RemoveImage removes a Docker image and deregisters its task definitions.
