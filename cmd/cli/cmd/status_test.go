@@ -51,7 +51,7 @@ func (m *mockClientInterface) RevokeUser(_ context.Context, _ api.RevokeUserRequ
 func (m *mockClientInterface) ListUsers(_ context.Context) (*api.ListUsersResponse, error) {
 	return nil, fmt.Errorf("not implemented")
 }
-func (m *mockClientInterface) RegisterImage(_ context.Context, _ string, _ *bool) (*api.RegisterImageResponse, error) {
+func (m *mockClientInterface) RegisterImage(_ context.Context, _ string, _ *bool, _ *string, _ *string) (*api.RegisterImageResponse, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 func (m *mockClientInterface) ListImages(_ context.Context) (*api.ListImagesResponse, error) {

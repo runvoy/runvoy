@@ -18,7 +18,7 @@ type Interface interface {
 	CreateUser(ctx context.Context, req api.CreateUserRequest) (*api.CreateUserResponse, error)
 	RevokeUser(ctx context.Context, req api.RevokeUserRequest) (*api.RevokeUserResponse, error)
 	ListUsers(ctx context.Context) (*api.ListUsersResponse, error)
-	RegisterImage(ctx context.Context, image string, isDefault *bool) (*api.RegisterImageResponse, error)
+	RegisterImage(ctx context.Context, image string, isDefault *bool, taskRoleName *string, taskExecutionRoleName *string) (*api.RegisterImageResponse, error)
 	ListImages(ctx context.Context) (*api.ListImagesResponse, error)
 	UnregisterImage(ctx context.Context, image string) (*api.RemoveImageResponse, error)
 	CreateSecret(ctx context.Context, req api.CreateSecretRequest) (*api.CreateSecretResponse, error)

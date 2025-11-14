@@ -639,7 +639,7 @@ func TestClient_RegisterImage(t *testing.T) {
 		c := New(cfg, testutil.SilentLogger())
 
 		isDefault := true
-		resp, err := c.RegisterImage(context.Background(), "ubuntu:22.04", &isDefault)
+		resp, err := c.RegisterImage(context.Background(), "ubuntu:22.04", &isDefault, nil, nil)
 
 		require.NoError(t, err)
 		require.NotNil(t, resp)
@@ -668,10 +668,45 @@ func TestClient_RegisterImage(t *testing.T) {
 		}
 		c := New(cfg, testutil.SilentLogger())
 
-		resp, err := c.RegisterImage(context.Background(), "ubuntu:22.04", nil)
+		resp, err := c.RegisterImage(context.Background(), "ubuntu:22.04", nil, nil, nil)
 
 		require.NoError(t, err)
 		require.NotNil(t, resp)
+	})
+
+	t.Run("register image with task roles", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			var req api.RegisterImageRequest
+			_ = json.NewDecoder(r.Body).Decode(&req)
+			assert.Equal(t, "alpine:latest", req.Image)
+			assert.Nil(t, req.IsDefault)
+			assert.NotNil(t, req.TaskRoleName)
+			assert.Equal(t, "my-task-role", *req.TaskRoleName)
+			assert.NotNil(t, req.TaskExecutionRoleName)
+			assert.Equal(t, "my-exec-role", *req.TaskExecutionRoleName)
+
+			w.WriteHeader(http.StatusOK)
+			_ = json.NewEncoder(w).Encode(api.RegisterImageResponse{
+				Image:   "alpine:latest",
+				Message: "Image registered successfully",
+			})
+		}))
+		defer server.Close()
+
+		cfg := &config.Config{
+			APIEndpoint: server.URL,
+			APIKey:      "test-api-key",
+		}
+		c := New(cfg, testutil.SilentLogger())
+
+		taskRole := "my-task-role"
+		taskExecRole := "my-exec-role"
+		resp, err := c.RegisterImage(context.Background(), "alpine:latest", nil, &taskRole, &taskExecRole)
+
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+		assert.Equal(t, "alpine:latest", resp.Image)
+		assert.Equal(t, "Image registered successfully", resp.Message)
 	})
 }
 
