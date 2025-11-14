@@ -26,9 +26,9 @@ Workstations shouldn't be snowflakes that need complex setups, let remote contai
 ## Use cases
 
 - one-off arbitrary commands in remote containers like with `kubectl run` without the need for a Kubernetes cluster (or any other _always-running_ cluster, for that matter)
-- long-running processes like e.g. test suites and share logs like in Github Actions without the need for a CI/CD pipeline nor a 3rd party service
+- compute-intensive tasks like e.g. test suites: select the proper instance type for the job, tail and/or share execution logs in real time like in GitHub Actions
 - run Terraform "in the cloud" without the need for a Terraform Cloud account (and monthly bill...)
-- commands which require full audit trail and secrets management
+- any commands which execution require full audit trail
 - ...
 
 ## Overview
@@ -61,7 +61,7 @@ Runvoy is composed of 3 main parts:
 ### Roadmap (NOT IMPLEMENTED YET!)
 
 - **RBAC** - Role based access control for the backend API. Runvoy admins define roles and permissions for users, non-admin users can only execute commands / access secrets/ select Docker images they are allowed to
-- **Multi-cloud support** - Backend support for other cloud providers (GCP, etc.)
+- **Multi-cloud support** - Backend support for other execution platforms, cloud providers (GCP, Azure...), Kubernetes, ...
 
 ## Quick Start
 
