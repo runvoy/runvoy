@@ -10,9 +10,11 @@ import (
 	"runvoy/internal/api"
 	"runvoy/internal/auth"
 	"runvoy/internal/logger"
+	awsConstants "runvoy/internal/providers/aws/constants"
 
 	awsStd "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ecs"
+	ecsTypes "github.com/aws/aws-sdk-go-v2/service/ecs/types"
 )
 
 // buildRoleARN constructs a full IAM role ARN from a role name and account ID.
@@ -22,14 +24,6 @@ func buildRoleARN(roleName *string, accountID, _ string) string {
 		return ""
 	}
 	return fmt.Sprintf("arn:aws:iam::%s:role/%s", accountID, *roleName)
-}
-
-// buildTaskDefinitionARN constructs a task definition ARN from family name.
-// Since each family is only registered once, the revision is always 1.
-// This is used for DeregisterTaskDefinition which requires a full ARN with revision.
-// For RunTask, we use just the family name so ECS picks the latest active revision.
-func (e *Runner) buildTaskDefinitionARN(family, region string) string {
-	return fmt.Sprintf("arn:aws:ecs:%s:%s:task-definition/%s:1", region, e.cfg.AccountID, family)
 }
 
 // buildRoleARNs constructs task and execution role ARNs from names or config defaults.
@@ -211,6 +205,8 @@ func (e *Runner) RegisterImage(
 }
 
 // registerTaskDefinitionWithRoles registers a task definition with the specified roles.
+//
+//nolint:funlen // Complex AWS API orchestration with registration and tagging
 func (e *Runner) registerTaskDefinitionWithRoles(
 	ctx context.Context,
 	family string,
@@ -243,6 +239,32 @@ func (e *Runner) registerTaskDefinitionWithRoles(
 
 	taskDefARN := *output.TaskDefinition.TaskDefinitionArn
 
+	tags := buildTaskDefinitionTags(image, nil)
+	if len(tags) > 0 {
+		tagLogArgs := []any{
+			"operation", "ECS.TagResource",
+			"task_definition_arn", taskDefARN,
+			"family", family,
+		}
+		tagLogArgs = append(tagLogArgs, logger.GetDeadlineInfo(ctx)...)
+		reqLogger.Debug("calling external service", "context", logger.SliceToMap(tagLogArgs))
+
+		_, tagErr := e.ecsClient.TagResource(ctx, &ecs.TagResourceInput{
+			ResourceArn: awsStd.String(taskDefARN),
+			Tags:        tags,
+		})
+		if tagErr != nil {
+			reqLogger.Warn(
+				"failed to tag task definition (task definition registered successfully)",
+				"arn", taskDefARN,
+				"error", tagErr,
+			)
+			// Continue even if tagging fails - task definition is still registered
+		} else {
+			reqLogger.Debug("task definition tagged successfully", "arn", taskDefARN)
+		}
+	}
+
 	reqLogger.Info("task definition registered", "context", map[string]string{
 		"family":              family,
 		"task_definition_arn": taskDefARN,
@@ -269,6 +291,8 @@ func (e *Runner) ListImages(ctx context.Context) ([]api.ImageInfo, error) {
 // It also deregisters all associated task definitions from ECS.
 // If deregistration fails for any task definition, it continues to clean up the remaining ones
 // and still removes the mappings from DynamoDB.
+//
+//nolint:gocyclo,funlen // Complex deletion flow with pagination, deregistration, and deletion
 func (e *Runner) RemoveImage(ctx context.Context, image string) error {
 	if e.imageRepo == nil {
 		return fmt.Errorf("image repository not configured")
@@ -282,34 +306,124 @@ func (e *Runner) RemoveImage(ctx context.Context, image string) error {
 	if e.cfg.AccountID == "" {
 		return fmt.Errorf("AWS account ID not configured")
 	}
-	region := e.cfg.Region
 
 	allImages, err := e.imageRepo.ListImages(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to list images: %w", err)
 	}
 
-	var taskDefsToDeregister []string
+	// Collect unique task definition families for this image
+	families := make(map[string]bool)
 	for i := range allImages {
 		if allImages[i].Image == image && allImages[i].TaskDefinitionName != "" {
-			taskDefARN := e.buildTaskDefinitionARN(allImages[i].TaskDefinitionName, region)
-			taskDefsToDeregister = append(taskDefsToDeregister, taskDefARN)
+			families[allImages[i].TaskDefinitionName] = true
 		}
 	}
 
-	for _, taskDefARN := range taskDefsToDeregister {
+	// Deregister all task definition revisions for each family
+	totalDeregistered := 0
+	for family := range families {
+		nextToken := ""
 		logArgs := []any{
-			"operation", "ECS.DeregisterTaskDefinition",
-			"task_definition", taskDefARN,
+			"operation", "ECS.ListTaskDefinitions",
+			"family", family,
+			"image", image,
+			"status", string(ecsTypes.TaskDefinitionStatusActive),
+			"paginated", "true",
 		}
 		logArgs = append(logArgs, logger.GetDeadlineInfo(ctx)...)
 		reqLogger.Debug("calling external service", "context", logger.SliceToMap(logArgs))
 
-		_, deregErr := e.ecsClient.DeregisterTaskDefinition(ctx, &ecs.DeregisterTaskDefinitionInput{
-			TaskDefinition: awsStd.String(taskDefARN),
-		})
-		if deregErr != nil {
-			reqLogger.Warn("failed to deregister task definition", "error", deregErr, "arn", taskDefARN)
+		for {
+			listOutput, listErr := e.ecsClient.ListTaskDefinitions(ctx, &ecs.ListTaskDefinitionsInput{
+				FamilyPrefix: awsStd.String(family),
+				Status:       ecsTypes.TaskDefinitionStatusActive,
+				MaxResults:   awsStd.Int32(awsConstants.ECSTaskDefinitionMaxResults),
+				NextToken:    awsStd.String(nextToken),
+			})
+			if listErr != nil {
+				reqLogger.Warn("failed to list task definitions for family", "error", listErr, "family", family)
+				break
+			}
+
+			// Collect ARNs for batch deletion
+			var taskDefARNsToDelete []string
+			for _, taskDefARN := range listOutput.TaskDefinitionArns {
+				deregLogArgs := []any{
+					"operation", "ECS.DeregisterTaskDefinition",
+					"task_definition", taskDefARN,
+					"family", family,
+				}
+				deregLogArgs = append(deregLogArgs, logger.GetDeadlineInfo(ctx)...)
+				reqLogger.Debug("calling external service", "context", logger.SliceToMap(deregLogArgs))
+
+				_, deregErr := e.ecsClient.DeregisterTaskDefinition(ctx, &ecs.DeregisterTaskDefinitionInput{
+					TaskDefinition: awsStd.String(taskDefARN),
+				})
+				if deregErr != nil {
+					reqLogger.Warn("failed to deregister task definition", "error", deregErr, "arn", taskDefARN, "family", family)
+				} else {
+					taskDefARNsToDelete = append(taskDefARNsToDelete, taskDefARN)
+					totalDeregistered++
+					reqLogger.Info("deregistered task definition revision", "context", map[string]string{
+						"family": family,
+						"image":  image,
+						"arn":    taskDefARN,
+					})
+				}
+			}
+
+			// Delete the deregistered task definitions
+			if len(taskDefARNsToDelete) > 0 {
+				deleteLogArgs := []any{
+					"operation", "ECS.DeleteTaskDefinitions",
+					"task_definitions_count", len(taskDefARNsToDelete),
+					"family", family,
+				}
+				deleteLogArgs = append(deleteLogArgs, logger.GetDeadlineInfo(ctx)...)
+				reqLogger.Debug("calling external service", "context", logger.SliceToMap(deleteLogArgs))
+
+				deleteOutput, deleteErr := e.ecsClient.DeleteTaskDefinitions(ctx, &ecs.DeleteTaskDefinitionsInput{
+					TaskDefinitions: taskDefARNsToDelete,
+				})
+				if deleteErr != nil {
+					reqLogger.Warn(
+						"failed to delete task definitions",
+						"error", deleteErr,
+						"family", family,
+						"count", len(taskDefARNsToDelete),
+					)
+				} else {
+					// Log successful deletions - the output contains deleted task definition ARNs
+					if deleteOutput != nil {
+						// The DeleteTaskDefinitions API returns deleted ARNs in the response
+						// Log each successfully deleted task definition
+						for _, deletedARN := range taskDefARNsToDelete {
+							reqLogger.Info("deleted task definition", "context", map[string]string{
+								"family": family,
+								"image":  image,
+								"arn":    deletedARN,
+							})
+						}
+					}
+					// Log any failures if present
+					if deleteOutput != nil && deleteOutput.Failures != nil && len(deleteOutput.Failures) > 0 {
+						for _, failure := range deleteOutput.Failures {
+							reqLogger.Warn("task definition deletion failed", "context", map[string]string{
+								"family": family,
+								"arn":    awsStd.ToString(failure.Arn),
+								"reason": awsStd.ToString(failure.Reason),
+								"detail": awsStd.ToString(failure.Detail),
+							})
+						}
+					}
+				}
+			}
+
+			if listOutput.NextToken == nil {
+				break
+			}
+			nextToken = *listOutput.NextToken
 		}
 	}
 
@@ -317,9 +431,9 @@ func (e *Runner) RemoveImage(ctx context.Context, image string) error {
 		return fmt.Errorf("failed to delete image from repository: %w", deleteErr)
 	}
 
-	reqLogger.Info("image removed successfully", "context", map[string]string{
+	reqLogger.Info("image removed successfully", "context", map[string]any{
 		"image":                    image,
-		"task_definitions_removed": fmt.Sprintf("%d", len(taskDefsToDeregister)),
+		"task_definitions_removed": totalDeregistered,
 	})
 
 	return nil

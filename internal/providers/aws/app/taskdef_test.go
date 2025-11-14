@@ -154,19 +154,19 @@ func TestBuildTaskDefinitionTags(t *testing.T) {
 			name:      "image without default flag",
 			image:     "ubuntu:22.04",
 			isDefault: nil,
-			expected:  2, // DockerImage and Application tags
+			expected:  3, // DockerImage, Application, and ManagedBy tags
 		},
 		{
 			name:      "image with default flag false",
 			image:     "ubuntu:22.04",
 			isDefault: aws.Bool(false),
-			expected:  2, // DockerImage and Application tags
+			expected:  3, // DockerImage, Application, and ManagedBy tags
 		},
 		{
 			name:      "image with default flag true",
 			image:     "ubuntu:22.04",
 			isDefault: aws.Bool(true),
-			expected:  3, // DockerImage, Application, and IsDefault tags
+			expected:  4, // DockerImage, Application, ManagedBy, and IsDefault tags
 		},
 	}
 
@@ -178,6 +178,7 @@ func TestBuildTaskDefinitionTags(t *testing.T) {
 			// Verify DockerImage tag is always present
 			foundDockerImage := false
 			foundApplication := false
+			foundManagedBy := false
 			foundIsDefault := false
 
 			for _, tag := range tags {
@@ -189,6 +190,9 @@ func TestBuildTaskDefinitionTags(t *testing.T) {
 					case "Application":
 						assert.Equal(t, constants.ProjectName, *tag.Value)
 						foundApplication = true
+					case "ManagedBy":
+						assert.Equal(t, constants.ProjectName+"-orchestrator", *tag.Value)
+						foundManagedBy = true
 					case constants.TaskDefinitionIsDefaultTagKey:
 						if tt.isDefault != nil && *tt.isDefault {
 							assert.Equal(t, constants.TaskDefinitionIsDefaultTagValue, *tag.Value)
@@ -200,6 +204,7 @@ func TestBuildTaskDefinitionTags(t *testing.T) {
 
 			assert.True(t, foundDockerImage, "DockerImage tag should be present")
 			assert.True(t, foundApplication, "Application tag should be present")
+			assert.True(t, foundManagedBy, "ManagedBy tag should be present")
 			if tt.isDefault != nil && *tt.isDefault {
 				assert.True(t, foundIsDefault, "IsDefault tag should be present when isDefault is true")
 			} else {
@@ -274,6 +279,9 @@ type mockECSClient struct {
 	deregisterTaskDefinitionFunc func(
 		context.Context, *ecs.DeregisterTaskDefinitionInput, ...func(*ecs.Options),
 	) (*ecs.DeregisterTaskDefinitionOutput, error)
+	deleteTaskDefinitionsFunc func(
+		context.Context, *ecs.DeleteTaskDefinitionsInput, ...func(*ecs.Options),
+	) (*ecs.DeleteTaskDefinitionsOutput, error)
 	untagResourceFunc func(
 		context.Context, *ecs.UntagResourceInput, ...func(*ecs.Options),
 	) (*ecs.UntagResourceOutput, error)
@@ -387,6 +395,17 @@ func (m *mockECSClient) DeregisterTaskDefinition(
 		return m.deregisterTaskDefinitionFunc(ctx, params, optFns...)
 	}
 	return &ecs.DeregisterTaskDefinitionOutput{}, nil
+}
+
+func (m *mockECSClient) DeleteTaskDefinitions(
+	ctx context.Context,
+	params *ecs.DeleteTaskDefinitionsInput,
+	optFns ...func(*ecs.Options),
+) (*ecs.DeleteTaskDefinitionsOutput, error) {
+	if m.deleteTaskDefinitionsFunc != nil {
+		return m.deleteTaskDefinitionsFunc(ctx, params, optFns...)
+	}
+	return &ecs.DeleteTaskDefinitionsOutput{}, nil
 }
 
 func (m *mockECSClient) UntagResource(

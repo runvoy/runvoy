@@ -93,16 +93,36 @@ func (m *ParameterStoreManager) StoreSecret(ctx context.Context, name, value str
 }
 
 func (m *ParameterStoreManager) parameterTags() []types.Tag {
-	return []types.Tag{
+	standardTags := GetStandardTags()
+	tags := make([]types.Tag, len(standardTags))
+	for i, tag := range standardTags {
+		tags[i] = types.Tag{
+			Key:   aws.String(tag.Key),
+			Value: aws.String(tag.Value),
+		}
+	}
+	return tags
+}
+
+// GetStandardTags returns the standard tags applied to all AWS resources managed by runvoy at runtime.
+// These tags are used for resource identification and management tracking.
+func GetStandardTags() []StandardTag {
+	return []StandardTag{
 		{
-			Key:   aws.String("Application"),
-			Value: aws.String(constants.ProjectName),
+			Key:   "Application",
+			Value: constants.ProjectName,
 		},
 		{
-			Key:   aws.String("ManagedBy"),
-			Value: aws.String(constants.ProjectName + "-orchestrator"),
+			Key:   "ManagedBy",
+			Value: constants.ProjectName + "-orchestrator",
 		},
 	}
+}
+
+// StandardTag represents a standard AWS resource tag as key-value pairs.
+type StandardTag struct {
+	Key   string
+	Value string
 }
 
 // RetrieveSecret retrieves a secret value from AWS Systems Manager Parameter Store.

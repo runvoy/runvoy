@@ -313,11 +313,9 @@ func buildTaskDefinitionTags(image string, isDefault *bool) []ecsTypes.Tag {
 			Key:   awsStd.String(constants.TaskDefinitionDockerImageTagKey),
 			Value: awsStd.String(image),
 		},
-		{
-			Key:   awsStd.String("Application"),
-			Value: awsStd.String(constants.ProjectName),
-		},
 	}
+	// Add standard tags (Application, ManagedBy)
+	tags = append(tags, GetStandardECSTags()...)
 	if isDefault != nil && *isDefault {
 		tags = append(tags, ecsTypes.Tag{
 			Key:   awsStd.String(constants.TaskDefinitionIsDefaultTagKey),

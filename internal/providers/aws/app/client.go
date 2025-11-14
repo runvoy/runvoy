@@ -60,6 +60,11 @@ type Client interface {
 		params *ecs.DeregisterTaskDefinitionInput,
 		optFns ...func(*ecs.Options),
 	) (*ecs.DeregisterTaskDefinitionOutput, error)
+	DeleteTaskDefinitions(
+		ctx context.Context,
+		params *ecs.DeleteTaskDefinitionsInput,
+		optFns ...func(*ecs.Options),
+	) (*ecs.DeleteTaskDefinitionsOutput, error)
 	UntagResource(
 		ctx context.Context,
 		params *ecs.UntagResourceInput,
@@ -166,6 +171,15 @@ func (a *ClientAdapter) DeregisterTaskDefinition(
 	optFns ...func(*ecs.Options),
 ) (*ecs.DeregisterTaskDefinitionOutput, error) {
 	return a.client.DeregisterTaskDefinition(ctx, params, optFns...)
+}
+
+// DeleteTaskDefinitions wraps the AWS SDK DeleteTaskDefinitions operation.
+func (a *ClientAdapter) DeleteTaskDefinitions(
+	ctx context.Context,
+	params *ecs.DeleteTaskDefinitionsInput,
+	optFns ...func(*ecs.Options),
+) (*ecs.DeleteTaskDefinitionsOutput, error) {
+	return a.client.DeleteTaskDefinitions(ctx, params, optFns...)
 }
 
 // UntagResource wraps the AWS SDK UntagResource operation.
