@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"log/slog"
 	"slices"
-	"strconv"
 	"strings"
 	"time"
 
@@ -24,29 +23,61 @@ import (
 
 // Config holds AWS-specific execution configuration.
 type Config struct {
-	ECSCluster      string
-	TaskDefinition  string
-	Subnet1         string
-	Subnet2         string
-	SecurityGroup   string
-	LogGroup        string
-	TaskRoleARN     string
-	TaskExecRoleARN string
-	Region          string
-	SDKConfig       *awsStd.Config
+	ECSCluster             string
+	TaskDefinition         string
+	Subnet1                string
+	Subnet2                string
+	SecurityGroup          string
+	LogGroup               string
+	DefaultTaskRoleARN     string
+	DefaultTaskExecRoleARN string
+	Region                 string
+	AccountID              string
+	SDKConfig              *awsStd.Config
+}
+
+// ImageTaskDefRepository defines the interface for image-taskdef mapping operations.
+type ImageTaskDefRepository interface {
+	PutImageTaskDef(
+		ctx context.Context,
+		image string,
+		imageRegistry string,
+		imageName string,
+		imageTag string,
+		taskRoleName, taskExecutionRoleName *string,
+		taskDefFamily string,
+		isDefault bool,
+	) error
+	GetImageTaskDef(
+		ctx context.Context,
+		image string,
+		taskRoleName, taskExecutionRoleName *string,
+	) (*api.ImageInfo, error)
+	ListImages(ctx context.Context) ([]api.ImageInfo, error)
+	GetDefaultImage(ctx context.Context) (*api.ImageInfo, error)
+	UnmarkAllDefaults(ctx context.Context) error
+	DeleteImage(ctx context.Context, image string) error
+	SetImageAsOnlyDefault(ctx context.Context, image string, taskRoleName, taskExecutionRoleName *string) error
 }
 
 // Runner implements app.Runner for AWS ECS Fargate.
 type Runner struct {
 	ecsClient Client
 	cwlClient CloudWatchLogsClient
+	imageRepo ImageTaskDefRepository
 	cfg       *Config
 	logger    *slog.Logger
 }
 
 // NewRunner creates a new AWS ECS runner with the provided configuration.
-func NewRunner(ecsClient Client, cwlClient CloudWatchLogsClient, cfg *Config, log *slog.Logger) *Runner {
-	return &Runner{ecsClient: ecsClient, cwlClient: cwlClient, cfg: cfg, logger: log}
+func NewRunner(
+	ecsClient Client,
+	cwlClient CloudWatchLogsClient,
+	imageRepo ImageTaskDefRepository,
+	cfg *Config,
+	log *slog.Logger,
+) *Runner {
+	return &Runner{ecsClient: ecsClient, cwlClient: cwlClient, imageRepo: imageRepo, cfg: cfg, logger: log}
 }
 
 // FetchLogsByExecutionID returns CloudWatch log events for the given execution ID.
@@ -190,7 +221,7 @@ func (e *Runner) StartTask( //nolint: funlen
 	imageToUse := req.Image
 
 	if imageToUse == "" {
-		defaultImage, err := GetDefaultImage(ctx, e.ecsClient, reqLogger)
+		defaultImage, err := e.GetDefaultImageFromDB(ctx)
 		if err != nil {
 			return "", nil, appErrors.ErrInternalError("failed to query default image", err)
 		}
@@ -201,7 +232,7 @@ func (e *Runner) StartTask( //nolint: funlen
 		reqLogger.Debug("using default image", "image", imageToUse)
 	}
 
-	taskDefARN, err := GetTaskDefinitionForImage(ctx, e.ecsClient, imageToUse, reqLogger)
+	taskDefARN, err := e.GetTaskDefinitionARNForImage(ctx, imageToUse)
 	if err != nil {
 		return "", nil, appErrors.ErrBadRequest("image not registered", err)
 	}
@@ -347,164 +378,6 @@ func (e *Runner) StartTask( //nolint: funlen
 	}
 
 	return executionID, createdAt, nil
-}
-
-// RegisterImage registers a Docker image and creates the corresponding task definition.
-// isDefault: if true, explicitly set as default.
-// If nil or false, becomes default only if no default exists (first image behavior).
-func (e *Runner) RegisterImage(ctx context.Context, image string, isDefault *bool) error {
-	if e.ecsClient == nil {
-		return fmt.Errorf("ECS client not configured")
-	}
-
-	reqLogger := logger.DeriveRequestLogger(ctx, e.logger)
-
-	region := e.cfg.Region
-	if region == "" {
-		return fmt.Errorf("AWS region not configured")
-	}
-
-	err := RegisterTaskDefinitionForImage(ctx, e.ecsClient, e.cfg, image, isDefault, region, reqLogger)
-	if err != nil {
-		return fmt.Errorf("failed to register task definition: %w", err)
-	}
-
-	return nil
-}
-
-// ListImages lists all registered Docker images.
-func (e *Runner) ListImages(ctx context.Context) ([]api.ImageInfo, error) {
-	if e.ecsClient == nil {
-		return nil, fmt.Errorf("ECS client not configured")
-	}
-
-	reqLogger := logger.DeriveRequestLogger(ctx, e.logger)
-	reqLogger.Debug("calling external service", "context", map[string]string{
-		"operation": "ECS.ListTaskDefinitions",
-		"status":    "active",
-		"paginated": "true",
-	})
-	taskDefArns, err := listTaskDefinitionsByPrefix(ctx, e.ecsClient, constants.TaskDefinitionFamilyPrefix+"-")
-	if err != nil {
-		return nil, err
-	}
-
-	result, err := collectImageInfos(ctx, e.ecsClient, taskDefArns, reqLogger)
-	if err != nil {
-		return nil, err
-	}
-	return result, nil
-}
-
-// describeTaskDef describes a task definition and returns it.
-func describeTaskDef(
-	ctx context.Context, ecsClient Client, taskDefARN string, reqLogger *slog.Logger,
-) (*ecsTypes.TaskDefinition, error) {
-	descOutput, err := ecsClient.DescribeTaskDefinition(ctx, &ecs.DescribeTaskDefinitionInput{
-		TaskDefinition: awsStd.String(taskDefARN),
-	})
-	if err != nil {
-		reqLogger.Error("failed to describe task definition", "context", map[string]string{
-			"operation": "ECS.DescribeTaskDefinition",
-			"arn":       taskDefARN,
-			"error":     err.Error(),
-		})
-		return nil, appErrors.ErrInternalError("failed to describe task definition", err)
-	}
-	if descOutput.TaskDefinition == nil {
-		return nil, appErrors.ErrInternalError("task definition not found", nil)
-	}
-	return descOutput.TaskDefinition, nil
-}
-
-// extractImageFromTaskDef extracts the runner container image from a task definition.
-func extractImageFromTaskDef(taskDef *ecsTypes.TaskDefinition, reqLogger *slog.Logger) string {
-	familyName := awsStd.ToString(taskDef.Family)
-	for i := range taskDef.ContainerDefinitions {
-		container := &taskDef.ContainerDefinitions[i]
-		if container.Name != nil && *container.Name == awsConstants.RunnerContainerName && container.Image != nil {
-			return *container.Image
-		}
-	}
-	reqLogger.Debug("no runner container found in task definition", "container", map[string]string{
-		"family":          familyName,
-		"container_count": fmt.Sprintf("%d", len(taskDef.ContainerDefinitions)),
-	})
-	return ""
-}
-
-// checkIsDefaultTaskDef checks if a task definition is marked as default.
-func checkIsDefaultTaskDef(ctx context.Context, ecsClient Client, taskDefARN string) bool {
-	tagsOutput, err := ecsClient.ListTagsForResource(ctx, &ecs.ListTagsForResourceInput{
-		ResourceArn: awsStd.String(taskDefARN),
-	})
-	if err != nil || tagsOutput == nil {
-		return false
-	}
-	for _, tag := range tagsOutput.Tags {
-		if tag.Key != nil && tag.Value != nil &&
-			*tag.Key == constants.TaskDefinitionIsDefaultTagKey &&
-			*tag.Value == constants.TaskDefinitionIsDefaultTagValue {
-			return true
-		}
-	}
-	return false
-}
-
-// collectImageInfos iterates described ECS task definitions and extracts unique runner image infos.
-func collectImageInfos(
-	ctx context.Context, ecsClient Client, taskDefArns []string, reqLogger *slog.Logger,
-) ([]api.ImageInfo, error) { //nolint:cyclop
-	result := make([]api.ImageInfo, 0)
-	seenImages := make(map[string]bool)
-
-	for _, taskDefARN := range taskDefArns {
-		taskDef, err := describeTaskDef(ctx, ecsClient, taskDefARN, reqLogger)
-		if err != nil {
-			return nil, err
-		}
-
-		image := extractImageFromTaskDef(taskDef, reqLogger)
-		if image == "" || seenImages[image] {
-			continue
-		}
-
-		seenImages[image] = true
-		isDefault := checkIsDefaultTaskDef(ctx, ecsClient, taskDefARN)
-
-		result = append(result, api.ImageInfo{
-			Image:              image,
-			TaskDefinitionARN:  awsStd.ToString(taskDef.TaskDefinitionArn),
-			TaskDefinitionName: awsStd.ToString(taskDef.Family),
-			IsDefault:          awsStd.Bool(isDefault),
-		})
-	}
-
-	for _, imageInfo := range result {
-		reqLogger.Debug("found runner container image", "context", map[string]string{
-			"family":         imageInfo.TaskDefinitionName,
-			"container_name": awsConstants.RunnerContainerName,
-			"image":          imageInfo.Image,
-			"is_default":     strconv.FormatBool(awsStd.ToBool(imageInfo.IsDefault)),
-		})
-	}
-
-	return result, nil
-}
-
-// RemoveImage removes a Docker image and deregisters its task definitions.
-func (e *Runner) RemoveImage(ctx context.Context, image string) error {
-	if e.ecsClient == nil {
-		return fmt.Errorf("ECS client not configured")
-	}
-
-	reqLogger := logger.DeriveRequestLogger(ctx, e.logger)
-
-	if err := DeregisterTaskDefinitionsForImage(ctx, e.ecsClient, image, reqLogger); err != nil {
-		return fmt.Errorf("failed to remove image: %w", err)
-	}
-
-	return nil
 }
 
 // findTaskARNByExecutionID finds the task ARN for a given execution ID by checking both running and stopped tasks.

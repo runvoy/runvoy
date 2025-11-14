@@ -216,8 +216,13 @@ type mockRunner struct {
 		userEmail string,
 		req *api.ExecutionRequest,
 	) (string, *time.Time, error)
-	killTaskFunc               func(ctx context.Context, executionID string) error
-	registerImageFunc          func(ctx context.Context, image string, isDefault *bool) error
+	killTaskFunc      func(ctx context.Context, executionID string) error
+	registerImageFunc func(
+		ctx context.Context,
+		image string,
+		isDefault *bool,
+		taskRoleName, taskExecutionRoleName *string,
+	) error
 	listImagesFunc             func(ctx context.Context) ([]api.ImageInfo, error)
 	removeImageFunc            func(ctx context.Context, image string) error
 	fetchLogsByExecutionIDFunc func(ctx context.Context, executionID string) ([]api.LogEvent, error)
@@ -241,9 +246,14 @@ func (m *mockRunner) KillTask(ctx context.Context, executionID string) error {
 	return nil
 }
 
-func (m *mockRunner) RegisterImage(ctx context.Context, image string, isDefault *bool) error {
+func (m *mockRunner) RegisterImage(
+	ctx context.Context,
+	image string,
+	isDefault *bool,
+	taskRoleName, taskExecutionRoleName *string,
+) error {
 	if m.registerImageFunc != nil {
-		return m.registerImageFunc(ctx, image, isDefault)
+		return m.registerImageFunc(ctx, image, isDefault, taskRoleName, taskExecutionRoleName)
 	}
 	return nil
 }

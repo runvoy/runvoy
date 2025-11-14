@@ -457,7 +457,7 @@ func RegisterTaskDefinitionForImage(
 	}
 
 	taskExecRoleARN, taskRoleARN := getRoleARNsFromExistingTaskDef(
-		ctx, ecsClient, cfg.TaskExecRoleARN, cfg.TaskRoleARN,
+		ctx, ecsClient, cfg.DefaultTaskExecRoleARN, cfg.DefaultTaskRoleARN,
 	)
 
 	if taskExecRoleARN == "" {

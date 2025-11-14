@@ -78,6 +78,7 @@ func TestValidateOrchestrator(t *testing.T) {
 				AWS: &awsconfig.Config{
 					APIKeysTable:              "api-keys",
 					ExecutionsTable:           "executions",
+					ImageTaskDefsTable:        "image-taskdefs",
 					ECSCluster:                "cluster",
 					Subnet1:                   "subnet-1",
 					Subnet2:                   "subnet-2",
@@ -108,6 +109,7 @@ func TestValidateOrchestrator(t *testing.T) {
 				BackendProvider: constants.AWS,
 				AWS: &awsconfig.Config{
 					ExecutionsTable:           "executions",
+					ImageTaskDefsTable:        "image-taskdefs",
 					ECSCluster:                "cluster",
 					Subnet1:                   "subnet-1",
 					Subnet2:                   "subnet-2",
@@ -130,6 +132,7 @@ func TestValidateOrchestrator(t *testing.T) {
 				BackendProvider: constants.AWS,
 				AWS: &awsconfig.Config{
 					APIKeysTable:              "api-keys",
+					ImageTaskDefsTable:        "image-taskdefs",
 					ECSCluster:                "cluster",
 					Subnet1:                   "subnet-1",
 					Subnet2:                   "subnet-2",
@@ -153,6 +156,7 @@ func TestValidateOrchestrator(t *testing.T) {
 				AWS: &awsconfig.Config{
 					APIKeysTable:              "api-keys",
 					ExecutionsTable:           "executions",
+					ImageTaskDefsTable:        "image-taskdefs",
 					Subnet1:                   "subnet-1",
 					Subnet2:                   "subnet-2",
 					SecurityGroup:             "sg-123",
@@ -175,6 +179,7 @@ func TestValidateOrchestrator(t *testing.T) {
 				AWS: &awsconfig.Config{
 					APIKeysTable:              "api-keys",
 					ExecutionsTable:           "executions",
+					ImageTaskDefsTable:        "image-taskdefs",
 					ECSCluster:                "cluster",
 					Subnet2:                   "subnet-2",
 					SecurityGroup:             "sg-123",
@@ -197,6 +202,7 @@ func TestValidateOrchestrator(t *testing.T) {
 				AWS: &awsconfig.Config{
 					APIKeysTable:              "api-keys",
 					ExecutionsTable:           "executions",
+					ImageTaskDefsTable:        "image-taskdefs",
 					ECSCluster:                "cluster",
 					Subnet1:                   "subnet-1",
 					SecurityGroup:             "sg-123",
@@ -219,6 +225,7 @@ func TestValidateOrchestrator(t *testing.T) {
 				AWS: &awsconfig.Config{
 					APIKeysTable:              "api-keys",
 					ExecutionsTable:           "executions",
+					ImageTaskDefsTable:        "image-taskdefs",
 					ECSCluster:                "cluster",
 					Subnet1:                   "subnet-1",
 					Subnet2:                   "subnet-2",
@@ -241,6 +248,7 @@ func TestValidateOrchestrator(t *testing.T) {
 				AWS: &awsconfig.Config{
 					APIKeysTable:              "api-keys",
 					ExecutionsTable:           "executions",
+					ImageTaskDefsTable:        "image-taskdefs",
 					ECSCluster:                "cluster",
 					Subnet1:                   "subnet-1",
 					Subnet2:                   "subnet-2",
@@ -263,6 +271,7 @@ func TestValidateOrchestrator(t *testing.T) {
 				AWS: &awsconfig.Config{
 					APIKeysTable:              "api-keys",
 					ExecutionsTable:           "executions",
+					ImageTaskDefsTable:        "image-taskdefs",
 					ECSCluster:                "cluster",
 					Subnet1:                   "subnet-1",
 					Subnet2:                   "subnet-2",
@@ -285,6 +294,7 @@ func TestValidateOrchestrator(t *testing.T) {
 				AWS: &awsconfig.Config{
 					APIKeysTable:         "api-keys",
 					ExecutionsTable:      "executions",
+					ImageTaskDefsTable:   "image-taskdefs",
 					ECSCluster:           "cluster",
 					Subnet1:              "subnet-1",
 					Subnet2:              "subnet-2",
@@ -307,6 +317,7 @@ func TestValidateOrchestrator(t *testing.T) {
 				AWS: &awsconfig.Config{
 					APIKeysTable:              "api-keys",
 					ExecutionsTable:           "executions",
+					ImageTaskDefsTable:        "image-taskdefs",
 					ECSCluster:                "cluster",
 					Subnet1:                   "subnet-1",
 					Subnet2:                   "subnet-2",
@@ -329,6 +340,7 @@ func TestValidateOrchestrator(t *testing.T) {
 				AWS: &awsconfig.Config{
 					APIKeysTable:              "api-keys",
 					ExecutionsTable:           "executions",
+					ImageTaskDefsTable:        "image-taskdefs",
 					ECSCluster:                "cluster",
 					Subnet1:                   "subnet-1",
 					Subnet2:                   "subnet-2",
@@ -351,6 +363,7 @@ func TestValidateOrchestrator(t *testing.T) {
 				AWS: &awsconfig.Config{
 					APIKeysTable:              "api-keys",
 					ExecutionsTable:           "executions",
+					ImageTaskDefsTable:        "image-taskdefs",
 					ECSCluster:                "cluster",
 					Subnet1:                   "subnet-1",
 					Subnet2:                   "subnet-2",
@@ -463,10 +476,19 @@ func TestValidateEventProcessor(t *testing.T) {
 			cfg: &Config{
 				BackendProvider: constants.AWS,
 				AWS: &awsconfig.Config{
+					APIKeysTable:         "api-keys",
 					ExecutionsTable:      "executions",
+					ImageTaskDefsTable:   "image-taskdefs",
 					ECSCluster:           "cluster",
+					Subnet1:              "subnet-1",
+					Subnet2:              "subnet-2",
+					SecurityGroup:        "sg-123",
+					LogGroup:             "/aws/logs/app",
 					WebSocketAPIEndpoint: "https://example.com",
 					WebSocketTokensTable: "tokens",
+					SecretsMetadataTable: "secrets",
+					SecretsPrefix:        "/runvoy/secrets",
+					SecretsKMSKeyARN:     "arn:aws:kms:us-east-1:123456789012:key/abc",
 				},
 			},
 			wantErr: true,
@@ -549,17 +571,18 @@ func TestConfigStruct(t *testing.T) {
 			Port:        8080,
 			LogLevel:    "INFO",
 			AWS: &awsconfig.Config{
-				APIKeysTable:        "api-keys-table",
-				ExecutionsTable:     "executions-table",
-				PendingAPIKeysTable: "pending-keys-table",
-				ECSCluster:          "test-cluster",
-				TaskDefinition:      "test-task",
-				Subnet1:             "subnet-1",
-				Subnet2:             "subnet-2",
-				SecurityGroup:       "sg-123",
-				LogGroup:            "/aws/ecs/test",
-				TaskExecRoleARN:     "arn:aws:iam::123:role/exec",
-				TaskRoleARN:         "arn:aws:iam::123:role/task",
+				APIKeysTable:           "api-keys-table",
+				ExecutionsTable:        "executions-table",
+				ImageTaskDefsTable:     "image-taskdefs-table",
+				PendingAPIKeysTable:    "pending-keys-table",
+				ECSCluster:             "test-cluster",
+				TaskDefinition:         "test-task",
+				Subnet1:                "subnet-1",
+				Subnet2:                "subnet-2",
+				SecurityGroup:          "sg-123",
+				LogGroup:               "/aws/ecs/test",
+				DefaultTaskExecRoleARN: "arn:aws:iam::123:role/exec",
+				DefaultTaskRoleARN:     "arn:aws:iam::123:role/task",
 			},
 		}
 

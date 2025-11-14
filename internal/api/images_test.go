@@ -106,7 +106,6 @@ func TestImageInfoJSON(t *testing.T) {
 		isDefault := true
 		info := ImageInfo{
 			Image:              "alpine:latest",
-			TaskDefinitionARN:  "arn:aws:ecs:us-east-1:123456789012:task-definition/runvoy:1",
 			TaskDefinitionName: "runvoy",
 			IsDefault:          &isDefault,
 		}
@@ -119,7 +118,6 @@ func TestImageInfoJSON(t *testing.T) {
 		require.NoError(t, err)
 
 		assert.Equal(t, info.Image, unmarshaled.Image)
-		assert.Equal(t, info.TaskDefinitionARN, unmarshaled.TaskDefinitionARN)
 		assert.Equal(t, info.TaskDefinitionName, unmarshaled.TaskDefinitionName)
 		assert.NotNil(t, unmarshaled.IsDefault)
 		assert.Equal(t, *info.IsDefault, *unmarshaled.IsDefault)
