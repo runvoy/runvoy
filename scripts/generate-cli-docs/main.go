@@ -3,7 +3,6 @@ package main
 
 import (
 	"bytes"
-	"errors"
 	"flag"
 	"fmt"
 	"log"
@@ -51,17 +50,23 @@ func generateCLIDocs(outFile string) error {
 	root := cmd.RootCmd()
 	root.DisableAutoGenTag = true
 
+	// Write header
 	if _, headerErr := fmt.Fprintln(file, "# Runvoy CLI Documentation"); headerErr != nil {
 		return fmt.Errorf("writing header: %w", headerErr)
 	}
 
-	introText := "\nThis document contains all available CLI commands, their descriptions, "
-	introText += "flags, and examples."
+	introText := "\nComprehensive guide to all Runvoy CLI commands, options, and usage examples."
 	if _, introErr := fmt.Fprintln(file, introText); introErr != nil {
 		return fmt.Errorf("writing introduction: %w", introErr)
 	}
 
-	docErr := generateDocs(root, file, 2)
+	// Generate table of contents
+	if tocErr := generateTableOfContents(root, file); tocErr != nil {
+		return fmt.Errorf("generating table of contents: %w", tocErr)
+	}
+
+	// Generate documentation for all commands (starting at level 2 for root)
+	docErr := generateDocs(root, file, 1, "")
 	if docErr != nil {
 		return fmt.Errorf("generating documentation: %w", docErr)
 	}
@@ -75,28 +80,87 @@ func generateCLIDocs(outFile string) error {
 	return nil
 }
 
-func generateDocs(cobraCmd *cobra.Command, file *os.File, level int) error {
+func generateTableOfContents(cobraCmd *cobra.Command, file *os.File) error {
+	if _, err := fmt.Fprintln(file, "\n## Commands"); err != nil {
+		return fmt.Errorf("writing table of contents header: %w", err)
+	}
+
+	if _, err := fmt.Fprintln(file); err != nil {
+		return fmt.Errorf("writing blank line: %w", err)
+	}
+
+	// Collect all commands recursively
+	allCommands := collectCommands(cobraCmd, "")
+
+	// Write TOC
+	for _, cmd := range allCommands {
+		if cmd.name == "" { // Skip root
+			continue
+		}
+		indent := strings.Repeat("  ", cmd.depth-1)
+		// Generate anchor from command path: lowercase and replace spaces with hyphens
+		anchor := strings.ToLower(cmd.path)
+		anchor = strings.ReplaceAll(anchor, " ", "-")
+		if _, err := fmt.Fprintf(file, "%s- [%s](#%s)\n", indent, cmd.path, anchor); err != nil {
+			return fmt.Errorf("writing toc entry: %w", err)
+		}
+	}
+
+	return nil
+}
+
+type cmdInfo struct {
+	name  string
+	path  string
+	depth int
+	cmd   *cobra.Command
+}
+
+func collectCommands(cobraCmd *cobra.Command, _ string) []cmdInfo {
+	var results []cmdInfo
+
+	if cobraCmd.IsAvailableCommand() && !cobraCmd.IsAdditionalHelpTopicCommand() {
+		path := cobraCmd.CommandPath()
+		depth := len(strings.Fields(path))
+		results = append(results, cmdInfo{
+			name:  cobraCmd.Name(),
+			path:  path,
+			depth: depth,
+			cmd:   cobraCmd,
+		})
+	}
+
+	// Process subcommands
+	subcommands := cobraCmd.Commands()
+	if len(subcommands) > 0 {
+		sort.Slice(subcommands, func(i, j int) bool {
+			return subcommands[i].Name() < subcommands[j].Name()
+		})
+
+		for _, subCmd := range subcommands {
+			results = append(results, collectCommands(subCmd, "")...)
+		}
+	}
+
+	return results
+}
+
+func generateDocs(cobraCmd *cobra.Command, file *os.File, _ int, _ string) error {
 	if !cobraCmd.IsAvailableCommand() || cobraCmd.IsAdditionalHelpTopicCommand() {
 		return nil
 	}
 
 	commandPath := cobraCmd.CommandPath()
-	headingPrefix := strings.Repeat("#", level)
+	// All commands are at level 2 (##), options are at level 3 (###)
+	commandLevel := 2
+	headingPrefix := strings.Repeat("#", commandLevel)
 
 	if err := writeDocHeader(file, headingPrefix, commandPath, cobraCmd); err != nil {
 		return err
 	}
 
-	// Generate markdown using Cobra's built-in function
-	var buf bytes.Buffer
-	if err := doc.GenMarkdown(cobraCmd, &buf); err != nil {
-		return fmt.Errorf("generating markdown for %s: %w", commandPath, err)
-	}
-
-	markdown := buf.String()
-
-	// Extract and write the Options section from the generated markdown
-	if err := writeOptionsSection(file, markdown); err != nil {
+	// Extract and write options from Cobra (at level 3)
+	if err := writeOptionsSection(file, cobraCmd, 3); err != nil {
 		return err
 	}
 
@@ -112,7 +176,7 @@ func generateDocs(cobraCmd *cobra.Command, file *os.File, level int) error {
 		})
 
 		for _, subCmd := range subcommands {
-			if err := generateDocs(subCmd, file, level+1); err != nil {
+			if err := generateDocs(subCmd, file, commandLevel, commandPath); err != nil {
 				return err
 			}
 		}
@@ -122,6 +186,7 @@ func generateDocs(cobraCmd *cobra.Command, file *os.File, level int) error {
 }
 
 func writeDocHeader(file *os.File, headingPrefix, commandPath string, cobraCmd *cobra.Command) error {
+	// Write heading (anchor is auto-generated from heading text)
 	if _, err := fmt.Fprintf(file, "%s %s\n\n", headingPrefix, commandPath); err != nil {
 		return fmt.Errorf("writing heading: %w", err)
 	}
@@ -147,53 +212,61 @@ func writeDocHeader(file *os.File, headingPrefix, commandPath string, cobraCmd *
 	return nil
 }
 
-func writeOptionsSection(file *os.File, markdown string) error {
+func writeOptionsSection(file *os.File, cobraCmd *cobra.Command, level int) error {
+	// Generate markdown using Cobra's built-in function
+	var buf bytes.Buffer
+	if err := doc.GenMarkdown(cobraCmd, &buf); err != nil {
+		return fmt.Errorf("generating markdown for options: %w", err)
+	}
+
+	markdown := buf.String()
+
+	// Extract only the Options section (both local and inherited flags)
 	if !strings.Contains(markdown, "### Options") {
 		return nil
 	}
 
+	// Find the start of Options section
 	start := strings.Index(markdown, "### Options")
 	if start < 0 {
-		return errors.New("invalid markdown index")
+		return nil
 	}
 
 	optionsSection := markdown[start:]
 
-	// Find the end of the Options section
-	end := findOptionsSectionEnd(optionsSection)
+	// Find the end of the Options section by looking for the next heading
+	end := findSectionEnd(optionsSection)
 	if end > 0 {
 		optionsSection = optionsSection[:end]
 	}
 
-	if optionsSection != "" {
-		if _, err := fmt.Fprint(file, optionsSection); err != nil {
-			return fmt.Errorf("writing options: %w", err)
-		}
-		if _, err := fmt.Fprintln(file); err != nil {
-			return fmt.Errorf("writing newline after options: %w", err)
-		}
+	// Replace the Options heading level with the correct level
+	headingPrefix := strings.Repeat("#", level)
+	optionsSection = strings.Replace(optionsSection, "### Options", headingPrefix+" Options", 1)
+
+	// Write the extracted Options section
+	if _, err := fmt.Fprint(file, optionsSection); err != nil {
+		return fmt.Errorf("writing options: %w", err)
 	}
 
 	return nil
 }
 
-func findOptionsSectionEnd(optionsSection string) int {
-	// Find the end of the Options section
-	end := strings.Index(optionsSection, "\n\n\n### ")
-	if end > 0 {
-		return end
+func findSectionEnd(section string) int {
+	// Look for the next heading (###, ##, or #)
+	patterns := []string{"\\n### See Also", "\\n## ", "\\n### "}
+
+	minIdx := -1
+	for _, pattern := range patterns {
+		// Simple pattern matching without regex
+		searchStr := strings.TrimPrefix(pattern, "\\n")
+		if idx := strings.Index(section[1:], "\n"+searchStr); idx >= 0 {
+			idx++ // account for the search starting at position 1
+			if minIdx < 0 || idx < minIdx {
+				minIdx = idx
+			}
+		}
 	}
 
-	end = strings.Index(optionsSection, "\n\n## ")
-	if end > 0 {
-		return end
-	}
-
-	// If no clear end marker, look for the next heading at same or higher level
-	end = strings.Index(optionsSection, "\n\n### See Also")
-	if end > 0 {
-		return end
-	}
-
-	return 0
+	return minIdx
 }

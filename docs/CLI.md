@@ -1,6 +1,37 @@
 # Runvoy CLI Documentation
 
-This document contains all available CLI commands, their descriptions, flags, and examples.
+Comprehensive guide to all Runvoy CLI commands, options, and usage examples.
+
+## Commands
+
+- [runvoy](#runvoy)
+  - [runvoy claim](#runvoy-claim)
+  - [runvoy configure](#runvoy-configure)
+  - [runvoy images](#runvoy-images)
+    - [runvoy images list](#runvoy-images-list)
+    - [runvoy images register](#runvoy-images-register)
+    - [runvoy images show](#runvoy-images-show)
+    - [runvoy images unregister](#runvoy-images-unregister)
+  - [runvoy kill](#runvoy-kill)
+  - [runvoy list](#runvoy-list)
+  - [runvoy logs](#runvoy-logs)
+  - [runvoy playbook](#runvoy-playbook)
+    - [runvoy playbook list](#runvoy-playbook-list)
+    - [runvoy playbook run](#runvoy-playbook-run)
+    - [runvoy playbook show](#runvoy-playbook-show)
+  - [runvoy run](#runvoy-run)
+  - [runvoy secrets](#runvoy-secrets)
+    - [runvoy secrets create](#runvoy-secrets-create)
+    - [runvoy secrets delete](#runvoy-secrets-delete)
+    - [runvoy secrets get](#runvoy-secrets-get)
+    - [runvoy secrets list](#runvoy-secrets-list)
+    - [runvoy secrets update](#runvoy-secrets-update)
+  - [runvoy status](#runvoy-status)
+  - [runvoy users](#runvoy-users)
+    - [runvoy users create](#runvoy-users-create)
+    - [runvoy users list](#runvoy-users-list)
+    - [runvoy users revoke](#runvoy-users-revoke)
+  - [runvoy version](#runvoy-version)
 ## runvoy
 
 runvoy
@@ -17,24 +48,7 @@ Isolated, repeatable execution environments for your commands
       --verbose          Verbose output
 ```
 
-### SEE ALSO
-
-* [runvoy claim](runvoy_claim.md)	 - Claim a user's API key
-* [runvoy configure](runvoy_configure.md)	 - Configure local environment with API key and endpoint URL
-* [runvoy images](runvoy_images.md)	 - Docker images management commands
-* [runvoy kill](runvoy_kill.md)	 - Kill a running command execution
-* [runvoy list](runvoy_list.md)	 - List executions
-* [runvoy logs](runvoy_logs.md)	 - Get logs for an execution
-* [runvoy playbook](runvoy_playbook.md)	 - Manage and execute playbooks
-* [runvoy run](runvoy_run.md)	 - Run a command
-* [runvoy secrets](runvoy_secrets.md)	 - Secrets management commands
-* [runvoy status](runvoy_status.md)	 - Get the status of a command execution
-* [runvoy users](runvoy_users.md)	 - User management commands
-* [runvoy version](runvoy_version.md)	 - Show the version of the CLI
-
-
-
-### runvoy claim
+## runvoy claim
 
 Claim a user's API key
 
@@ -52,21 +66,7 @@ Claim a user's API key using the given token
   -h, --help   help for claim
 ```
 
-### Options inherited from parent commands
-
-```
-      --debug            Enable debugging logs
-      --timeout string   Timeout for command execution (e.g., 10m, 30s, 1h) (default "10m")
-      --verbose          Verbose output
-```
-
-### SEE ALSO
-
-* [runvoy](runvoy.md)	 - runvoy
-
-
-
-### runvoy configure
+## runvoy configure
 
 Configure local environment with API key and endpoint URL
 
@@ -79,21 +79,7 @@ This creates or updates the configuration file at [1m~/.runvoy/config.yaml[22m
   -h, --help   help for configure
 ```
 
-### Options inherited from parent commands
-
-```
-      --debug            Enable debugging logs
-      --timeout string   Timeout for command execution (e.g., 10m, 30s, 1h) (default "10m")
-      --verbose          Verbose output
-```
-
-### SEE ALSO
-
-* [runvoy](runvoy.md)	 - runvoy
-
-
-
-### runvoy images
+## runvoy images
 
 Docker images management commands
 
@@ -103,25 +89,7 @@ Docker images management commands
   -h, --help   help for images
 ```
 
-### Options inherited from parent commands
-
-```
-      --debug            Enable debugging logs
-      --timeout string   Timeout for command execution (e.g., 10m, 30s, 1h) (default "10m")
-      --verbose          Verbose output
-```
-
-### SEE ALSO
-
-* [runvoy](runvoy.md)	 - runvoy
-* [runvoy images list](runvoy_images_list.md)	 - List all registered Docker images
-* [runvoy images register](runvoy_images_register.md)	 - Register a new Docker image
-* [runvoy images show](runvoy_images_show.md)	 - Show detailed information about a Docker image
-* [runvoy images unregister](runvoy_images_unregister.md)	 - Unregister a Docker image
-
-
-
-#### runvoy images list
+## runvoy images list
 
 List all registered Docker images
 
@@ -131,21 +99,7 @@ List all registered Docker images
   -h, --help   help for list
 ```
 
-### Options inherited from parent commands
-
-```
-      --debug            Enable debugging logs
-      --timeout string   Timeout for command execution (e.g., 10m, 30s, 1h) (default "10m")
-      --verbose          Verbose output
-```
-
-### SEE ALSO
-
-* [runvoy images](runvoy_images.md)	 - Docker images management commands
-
-
-
-#### runvoy images register
+## runvoy images register
 
 Register a new Docker image
 
@@ -169,21 +123,7 @@ Register a new Docker image
       --task-role string          Optional task role name for the image
 ```
 
-### Options inherited from parent commands
-
-```
-      --debug            Enable debugging logs
-      --timeout string   Timeout for command execution (e.g., 10m, 30s, 1h) (default "10m")
-      --verbose          Verbose output
-```
-
-### SEE ALSO
-
-* [runvoy images](runvoy_images.md)	 - Docker images management commands
-
-
-
-#### runvoy images show
+## runvoy images show
 
 Show detailed information about a Docker image
 
@@ -200,21 +140,7 @@ Show detailed information about a Docker image
   -h, --help   help for show
 ```
 
-### Options inherited from parent commands
-
-```
-      --debug            Enable debugging logs
-      --timeout string   Timeout for command execution (e.g., 10m, 30s, 1h) (default "10m")
-      --verbose          Verbose output
-```
-
-### SEE ALSO
-
-* [runvoy images](runvoy_images.md)	 - Docker images management commands
-
-
-
-#### runvoy images unregister
+## runvoy images unregister
 
 Unregister a Docker image
 
@@ -230,21 +156,7 @@ Unregister a Docker image
   -h, --help   help for unregister
 ```
 
-### Options inherited from parent commands
-
-```
-      --debug            Enable debugging logs
-      --timeout string   Timeout for command execution (e.g., 10m, 30s, 1h) (default "10m")
-      --verbose          Verbose output
-```
-
-### SEE ALSO
-
-* [runvoy images](runvoy_images.md)	 - Docker images management commands
-
-
-
-### runvoy kill
+## runvoy kill
 
 Kill a running command execution
 
@@ -254,21 +166,7 @@ Kill a running command execution
   -h, --help   help for kill
 ```
 
-### Options inherited from parent commands
-
-```
-      --debug            Enable debugging logs
-      --timeout string   Timeout for command execution (e.g., 10m, 30s, 1h) (default "10m")
-      --verbose          Verbose output
-```
-
-### SEE ALSO
-
-* [runvoy](runvoy.md)	 - runvoy
-
-
-
-### runvoy list
+## runvoy list
 
 List executions
 
@@ -280,21 +178,7 @@ List all executions present in the runvoy backend
   -h, --help   help for list
 ```
 
-### Options inherited from parent commands
-
-```
-      --debug            Enable debugging logs
-      --timeout string   Timeout for command execution (e.g., 10m, 30s, 1h) (default "10m")
-      --verbose          Verbose output
-```
-
-### SEE ALSO
-
-* [runvoy](runvoy.md)	 - runvoy
-
-
-
-### runvoy logs
+## runvoy logs
 
 Get logs for an execution
 
@@ -304,21 +188,7 @@ Get logs for an execution
   -h, --help   help for logs
 ```
 
-### Options inherited from parent commands
-
-```
-      --debug            Enable debugging logs
-      --timeout string   Timeout for command execution (e.g., 10m, 30s, 1h) (default "10m")
-      --verbose          Verbose output
-```
-
-### SEE ALSO
-
-* [runvoy](runvoy.md)	 - runvoy
-
-
-
-### runvoy playbook
+## runvoy playbook
 
 Manage and execute playbooks
 
@@ -330,24 +200,7 @@ Manage and execute reusable command execution configurations defined in YAML fil
   -h, --help   help for playbook
 ```
 
-### Options inherited from parent commands
-
-```
-      --debug            Enable debugging logs
-      --timeout string   Timeout for command execution (e.g., 10m, 30s, 1h) (default "10m")
-      --verbose          Verbose output
-```
-
-### SEE ALSO
-
-* [runvoy](runvoy.md)	 - runvoy
-* [runvoy playbook list](runvoy_playbook_list.md)	 - List all available playbooks
-* [runvoy playbook run](runvoy_playbook_run.md)	 - Execute a playbook
-* [runvoy playbook show](runvoy_playbook_show.md)	 - Show playbook details
-
-
-
-#### runvoy playbook list
+## runvoy playbook list
 
 List all available playbooks
 
@@ -359,21 +212,7 @@ List all playbooks found in the .runvoy directory
   -h, --help   help for list
 ```
 
-### Options inherited from parent commands
-
-```
-      --debug            Enable debugging logs
-      --timeout string   Timeout for command execution (e.g., 10m, 30s, 1h) (default "10m")
-      --verbose          Verbose output
-```
-
-### SEE ALSO
-
-* [runvoy playbook](runvoy_playbook.md)	 - Manage and execute playbooks
-
-
-
-#### runvoy playbook run
+## runvoy playbook run
 
 Execute a playbook
 
@@ -390,21 +229,7 @@ Execute a playbook with optional flag overrides
       --secret strings    Add additional secrets (merge with playbook secrets)
 ```
 
-### Options inherited from parent commands
-
-```
-      --debug            Enable debugging logs
-      --timeout string   Timeout for command execution (e.g., 10m, 30s, 1h) (default "10m")
-      --verbose          Verbose output
-```
-
-### SEE ALSO
-
-* [runvoy playbook](runvoy_playbook.md)	 - Manage and execute playbooks
-
-
-
-#### runvoy playbook show
+## runvoy playbook show
 
 Show playbook details
 
@@ -416,21 +241,7 @@ Display the full content of a playbook
   -h, --help   help for show
 ```
 
-### Options inherited from parent commands
-
-```
-      --debug            Enable debugging logs
-      --timeout string   Timeout for command execution (e.g., 10m, 30s, 1h) (default "10m")
-      --verbose          Verbose output
-```
-
-### SEE ALSO
-
-* [runvoy playbook](runvoy_playbook.md)	 - Manage and execute playbooks
-
-
-
-### runvoy run
+## runvoy run
 
 Run a command
 
@@ -472,21 +283,7 @@ in the command working directory.
       --secret strings    Secret name to inject (repeatable)
 ```
 
-### Options inherited from parent commands
-
-```
-      --debug            Enable debugging logs
-      --timeout string   Timeout for command execution (e.g., 10m, 30s, 1h) (default "10m")
-      --verbose          Verbose output
-```
-
-### SEE ALSO
-
-* [runvoy](runvoy.md)	 - runvoy
-
-
-
-### runvoy secrets
+## runvoy secrets
 
 Secrets management commands
 
@@ -496,26 +293,7 @@ Secrets management commands
   -h, --help   help for secrets
 ```
 
-### Options inherited from parent commands
-
-```
-      --debug            Enable debugging logs
-      --timeout string   Timeout for command execution (e.g., 10m, 30s, 1h) (default "10m")
-      --verbose          Verbose output
-```
-
-### SEE ALSO
-
-* [runvoy](runvoy.md)	 - runvoy
-* [runvoy secrets create](runvoy_secrets_create.md)	 - Create a new secret
-* [runvoy secrets delete](runvoy_secrets_delete.md)	 - Delete a secret
-* [runvoy secrets get](runvoy_secrets_get.md)	 - Get a secret by name
-* [runvoy secrets list](runvoy_secrets_list.md)	 - List all secrets
-* [runvoy secrets update](runvoy_secrets_update.md)	 - Update a secret
-
-
-
-#### runvoy secrets create
+## runvoy secrets create
 
 Create a new secret
 
@@ -535,21 +313,7 @@ Create a new secret with the given name, key name (environment variable name), a
   -h, --help                 help for create
 ```
 
-### Options inherited from parent commands
-
-```
-      --debug            Enable debugging logs
-      --timeout string   Timeout for command execution (e.g., 10m, 30s, 1h) (default "10m")
-      --verbose          Verbose output
-```
-
-### SEE ALSO
-
-* [runvoy secrets](runvoy_secrets.md)	 - Secrets management commands
-
-
-
-#### runvoy secrets delete
+## runvoy secrets delete
 
 Delete a secret
 
@@ -567,21 +331,7 @@ Delete a secret by its name
   -h, --help   help for delete
 ```
 
-### Options inherited from parent commands
-
-```
-      --debug            Enable debugging logs
-      --timeout string   Timeout for command execution (e.g., 10m, 30s, 1h) (default "10m")
-      --verbose          Verbose output
-```
-
-### SEE ALSO
-
-* [runvoy secrets](runvoy_secrets.md)	 - Secrets management commands
-
-
-
-#### runvoy secrets get
+## runvoy secrets get
 
 Get a secret by name
 
@@ -599,21 +349,7 @@ Retrieve a secret by its name, including its value
   -h, --help   help for get
 ```
 
-### Options inherited from parent commands
-
-```
-      --debug            Enable debugging logs
-      --timeout string   Timeout for command execution (e.g., 10m, 30s, 1h) (default "10m")
-      --verbose          Verbose output
-```
-
-### SEE ALSO
-
-* [runvoy secrets](runvoy_secrets.md)	 - Secrets management commands
-
-
-
-#### runvoy secrets list
+## runvoy secrets list
 
 List all secrets
 
@@ -631,21 +367,7 @@ List all secrets in the system with their basic information
   -h, --help   help for list
 ```
 
-### Options inherited from parent commands
-
-```
-      --debug            Enable debugging logs
-      --timeout string   Timeout for command execution (e.g., 10m, 30s, 1h) (default "10m")
-      --verbose          Verbose output
-```
-
-### SEE ALSO
-
-* [runvoy secrets](runvoy_secrets.md)	 - Secrets management commands
-
-
-
-#### runvoy secrets update
+## runvoy secrets update
 
 Update a secret
 
@@ -667,21 +389,7 @@ Update a secret's metadata (description, key_name) and/or value
       --value string         Secret value to update
 ```
 
-### Options inherited from parent commands
-
-```
-      --debug            Enable debugging logs
-      --timeout string   Timeout for command execution (e.g., 10m, 30s, 1h) (default "10m")
-      --verbose          Verbose output
-```
-
-### SEE ALSO
-
-* [runvoy secrets](runvoy_secrets.md)	 - Secrets management commands
-
-
-
-### runvoy status
+## runvoy status
 
 Get the status of a command execution
 
@@ -691,21 +399,7 @@ Get the status of a command execution
   -h, --help   help for status
 ```
 
-### Options inherited from parent commands
-
-```
-      --debug            Enable debugging logs
-      --timeout string   Timeout for command execution (e.g., 10m, 30s, 1h) (default "10m")
-      --verbose          Verbose output
-```
-
-### SEE ALSO
-
-* [runvoy](runvoy.md)	 - runvoy
-
-
-
-### runvoy users
+## runvoy users
 
 User management commands
 
@@ -715,24 +409,7 @@ User management commands
   -h, --help   help for users
 ```
 
-### Options inherited from parent commands
-
-```
-      --debug            Enable debugging logs
-      --timeout string   Timeout for command execution (e.g., 10m, 30s, 1h) (default "10m")
-      --verbose          Verbose output
-```
-
-### SEE ALSO
-
-* [runvoy](runvoy.md)	 - runvoy
-* [runvoy users create](runvoy_users_create.md)	 - Create a new user
-* [runvoy users list](runvoy_users_list.md)	 - List all users
-* [runvoy users revoke](runvoy_users_revoke.md)	 - Revoke a user's API key
-
-
-
-#### runvoy users create
+## runvoy users create
 
 Create a new user
 
@@ -751,21 +428,7 @@ Create a new user with the given email
   -h, --help   help for create
 ```
 
-### Options inherited from parent commands
-
-```
-      --debug            Enable debugging logs
-      --timeout string   Timeout for command execution (e.g., 10m, 30s, 1h) (default "10m")
-      --verbose          Verbose output
-```
-
-### SEE ALSO
-
-* [runvoy users](runvoy_users.md)	 - User management commands
-
-
-
-#### runvoy users list
+## runvoy users list
 
 List all users
 
@@ -783,21 +446,7 @@ List all users in the system with their basic information
   -h, --help   help for list
 ```
 
-### Options inherited from parent commands
-
-```
-      --debug            Enable debugging logs
-      --timeout string   Timeout for command execution (e.g., 10m, 30s, 1h) (default "10m")
-      --verbose          Verbose output
-```
-
-### SEE ALSO
-
-* [runvoy users](runvoy_users.md)	 - User management commands
-
-
-
-#### runvoy users revoke
+## runvoy users revoke
 
 Revoke a user's API key
 
@@ -807,21 +456,7 @@ Revoke a user's API key
   -h, --help   help for revoke
 ```
 
-### Options inherited from parent commands
-
-```
-      --debug            Enable debugging logs
-      --timeout string   Timeout for command execution (e.g., 10m, 30s, 1h) (default "10m")
-      --verbose          Verbose output
-```
-
-### SEE ALSO
-
-* [runvoy users](runvoy_users.md)	 - User management commands
-
-
-
-### runvoy version
+## runvoy version
 
 Show the version of the CLI
 
@@ -830,18 +465,4 @@ Show the version of the CLI
 ```
   -h, --help   help for version
 ```
-
-### Options inherited from parent commands
-
-```
-      --debug            Enable debugging logs
-      --timeout string   Timeout for command execution (e.g., 10m, 30s, 1h) (default "10m")
-      --verbose          Verbose output
-```
-
-### SEE ALSO
-
-* [runvoy](runvoy.md)	 - runvoy
-
-
 
