@@ -1070,14 +1070,38 @@ Future enhancements may include server-side filtering and pagination.
    - Images are managed via `/api/v1/images` endpoints (admin-only)
    - Executions with unregistered images will fail with a clear error message
 
-4. **Comprehensive Test Coverage** - Current test coverage is limited. Areas needing tests:
+4. **Image CPU and Memory Parameters** - ✅ **IMPLEMENTED** - Custom CPU and memory allocation for images:
+   - Admins can specify CPU and memory when registering images via `/api/v1/images/register`
+   - Parameters are optional with sensible defaults: CPU=256, Memory=512
+   - Runtime platform is customizable (e.g., Linux/ARM64, Linux/X86_64), defaults to Linux/ARM64
+   - Request structure:
+     ```json
+     {
+       "image": "ubuntu:22.04",
+       "cpu": 512,
+       "memory": 1024,
+       "runtime_platform": "Linux/X86_64",
+       "task_role_name": "optional-role",
+       "task_execution_role_name": "optional-exec-role",
+       "is_default": true
+     }
+     ```
+   - CLI flags for image registration:
+     - `--cpu`: Set CPU value (e.g., 256, 512, 1024, 2048, 4096)
+     - `--memory`: Set memory value (e.g., 512, 1024, 2048, 4096, 8192)
+     - `--runtime-platform`: Set runtime platform (e.g., Linux/ARM64, Linux/X86_64)
+   - Image metadata includes CPU, memory, and runtime platform for querying registered images
+   - Task definitions are registered with the specified CPU/memory allocation in ECS
+   - Allows cost optimization by assigning appropriate resources per workload type
+
+5. **Comprehensive Test Coverage** - Current test coverage is limited. Areas needing tests:
    - Event processor logic (status determination)
    - DynamoDB repository operations
    - API request/response handling
    - End-to-end integration tests
    - Web viewer functionality and API integration
 
-5. **Request ID in Non-Lambda Environments** - Request ID extraction currently only works in Lambda. Enhancement needed for local server:
+6. **Request ID in Non-Lambda Environments** - Request ID extraction currently only works in Lambda. Enhancement needed for local server:
    - Generate request IDs in middleware
    - Use X-Request-ID header if present
    - Consistent request tracking across environments
