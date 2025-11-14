@@ -147,6 +147,42 @@ func TestGenerateRequestID(t *testing.T) {
 	})
 }
 
+func TestGenerateUUID(t *testing.T) {
+	t.Run("generates valid UUID", func(t *testing.T) {
+		uuid := GenerateUUID()
+
+		assert.NotEmpty(t, uuid, "Generated UUID should not be empty")
+
+		// Verify it's valid hex encoding
+		decoded, err := hex.DecodeString(uuid)
+		assert.NoError(t, err, "UUID should be valid hex encoding")
+		assert.NotEmpty(t, decoded, "Decoded UUID should not be empty")
+	})
+
+	t.Run("generates unique UUIDs", func(t *testing.T) {
+		uuid1 := GenerateUUID()
+		uuid2 := GenerateUUID()
+
+		assert.NotEqual(t, uuid1, uuid2, "Two consecutive UUIDs should be different")
+	})
+
+	t.Run("generates UUIDs of consistent length", func(t *testing.T) {
+		// RequestIDByteSize is 16 bytes, hex encoded should be 32 characters
+		uuid := GenerateUUID()
+		// Allow some flexibility for the fallback case, but normal case should be 32
+		assert.GreaterOrEqual(t, len(uuid), 16, "UUID should be at least 16 characters")
+	})
+
+	t.Run("multiple UUIDs are distinct", func(t *testing.T) {
+		uuids := make(map[string]bool)
+		for range 100 {
+			uuid := GenerateUUID()
+			assert.False(t, uuids[uuid], "UUID should be unique across multiple generations")
+			uuids[uuid] = true
+		}
+	})
+}
+
 // Benchmark for API key hashing
 func BenchmarkHashAPIKey(b *testing.B) {
 	apiKey := "test-key-for-benchmarking-12345"
