@@ -19,7 +19,7 @@
 
 ---
 
-Deploy once, issue API keys, let your team execute arbitrary (admin) commands safely from their terminals. Share playbooks to execute commands consistently and reliably.
+Deploy once, issue API keys, let your team run arbitrary (admin) applications safely from their terminals. Share playbooks to perform tasks consistently and reliably.
 
 Workstations shouldn't need complex setups, let remote containers execute the actual commands in a secured and reproducible production grade environment.
 
@@ -28,9 +28,9 @@ No more snowflakes, _run envoys_.
 ## Use cases
 
 - AWS CLI commands or any other application based on AWS SDKs (e.g. Terraform) in a remote container with the right permissions to access AWS resources (see [AWS CLI example](.runvoy/aws-cli-example.yml))
-- one-off arbitrary commands in remote containers like with `kubectl run` with automatic (secret) environment variables injection without the need for a Kubernetes cluster (or any other _always-running_ cluster, for that matter). Example: `runvoy run ping <my service ip>`
-- compute-intensive tasks like e.g. test runners: select the proper instance type for the job, tail and/or share execution logs in real time like in GitHub Actions (see [Build Caddy example](.runvoy/build-caddy-example.yml))
-- any commands that execution requires full audit trail
+- one-off arbitrary commands in remote containers like with `kubectl run` without the need for a Kubernetes cluster (or any other _always-running_ cluster, for that matter). Example: `runvoy run ping <my service ip>`
+- resource-intensive tasks like e.g. test runners: select the proper instance type for the job, tail and/or share execution logs in real time like in GitHub Actions (see [Build Caddy example](.runvoy/build-caddy-example.yml))
+- any commands that require a full audit trail
 - ...
 
 ## Overview
@@ -39,7 +39,7 @@ Runvoy is composed of 3 main parts:
 
 - a backend running on your AWS account (with plans to support other cloud providers in the future) which exposes the HTTP API endpoint and interacts with the cloud resources, to be deployed once by a cloud admin
 - a CLI client (`runvoy`) for users to interact with the runvoy REST API
-- a web app client (<https://runvoy.site>, or self hosted), currently supporting only the logs view, with plans to map 1:1 with the CLI commands
+- a web app client (<https://runvoy.site>, or self hosted), currently supporting only the logs view, with plans to map 1:1 to the CLI commands
 
 **Key Benefits:**
 
@@ -135,7 +135,7 @@ runvoy --help
 ```
 
 ```text
-runvoy - 0.1.0-20251115-4281dc0
+runvoy - 0.1.0-20251115-4784d7f
 Isolated, repeatable execution environments for your commands
 
 Usage:
