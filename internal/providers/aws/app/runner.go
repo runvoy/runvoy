@@ -73,6 +73,7 @@ type ImageTaskDefRepository interface {
 type Runner struct {
 	ecsClient Client
 	cwlClient CloudWatchLogsClient
+	iamClient IAMClient
 	imageRepo ImageTaskDefRepository
 	cfg       *Config
 	logger    *slog.Logger
@@ -82,11 +83,19 @@ type Runner struct {
 func NewRunner(
 	ecsClient Client,
 	cwlClient CloudWatchLogsClient,
+	iamClient IAMClient,
 	imageRepo ImageTaskDefRepository,
 	cfg *Config,
 	log *slog.Logger,
 ) *Runner {
-	return &Runner{ecsClient: ecsClient, cwlClient: cwlClient, imageRepo: imageRepo, cfg: cfg, logger: log}
+	return &Runner{
+		ecsClient: ecsClient,
+		cwlClient: cwlClient,
+		iamClient: iamClient,
+		imageRepo: imageRepo,
+		cfg:       cfg,
+		logger:    log,
+	}
 }
 
 // FetchLogsByExecutionID returns CloudWatch log events for the given execution ID.
