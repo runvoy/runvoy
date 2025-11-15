@@ -3,6 +3,7 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -55,7 +56,10 @@ func Load() (*Config, error) {
 	// Try to load config file for CLI
 	if err := loadConfigFile(v); err != nil {
 		// Config file not found is acceptable for services (they use env vars only)
-		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
+		// Check for both viper.ConfigFileNotFoundError and os.ErrNotExist
+		// When SetConfigFile() is used, ReadInConfig() returns os.PathError with os.ErrNotExist
+		var configFileNotFound viper.ConfigFileNotFoundError
+		if !errors.As(err, &configFileNotFound) && !errors.Is(err, os.ErrNotExist) {
 			return nil, fmt.Errorf("error loading config file: %w", err)
 		}
 	}
