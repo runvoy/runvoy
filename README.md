@@ -239,7 +239,7 @@ npm run build
 npm run preview
 ```
 
-The build process creates a `dist/` directory optimized for static file hosting. The webapp is built with SvelteKit using the static adapter, and deployed to S3 via the `deploy-webapp` command in the justfile.
+The build process creates a `dist/` directory optimized for static file hosting. The webapp is built with SvelteKit using the static adapter, and deployed via the `deploy-webapp` command in the justfile.
 
 ### Output Streams and Piping
 
