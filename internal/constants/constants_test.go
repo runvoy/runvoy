@@ -285,29 +285,11 @@ func TestWebURL(t *testing.T) {
 		assert.NotEmpty(t, DefaultWebURL)
 		assert.Contains(t, DefaultWebURL, "http", "Web URL should be an HTTP(S) URL")
 	})
-
-	t.Run("WebviewerURL constant matches default (backward compatibility)", func(t *testing.T) {
-		assert.Equal(t, DefaultWebURL, WebviewerURL,
-			"WebviewerURL should equal DefaultWebURL for backward compatibility")
-	})
 }
 
 func TestClaimURLExpirationMinutes(t *testing.T) {
 	assert.Equal(t, 15, ClaimURLExpirationMinutes)
 	assert.Greater(t, ClaimURLExpirationMinutes, 0, "Expiration should be positive")
-}
-
-func TestClaimEndpointPath(t *testing.T) {
-	assert.Equal(t, "/claim", ClaimEndpointPath)
-	assert.True(t, len(ClaimEndpointPath) > 0, "Endpoint path should not be empty")
-}
-
-func TestTaskDefinitionConstants(t *testing.T) {
-	t.Run("task definition constants are set", func(t *testing.T) {
-		assert.Equal(t, "runvoy-image", TaskDefinitionFamilyPrefix)
-		assert.Equal(t, "IsDefault", TaskDefinitionIsDefaultTagKey)
-		assert.Equal(t, "DockerImage", TaskDefinitionDockerImageTagKey)
-	})
 }
 
 func TestContextKeys(t *testing.T) {

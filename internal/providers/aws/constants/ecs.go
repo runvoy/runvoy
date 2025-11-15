@@ -1,6 +1,8 @@
 // Package constants provides AWS-specific constants for ECS task execution.
 package constants
 
+import "runvoy/internal/constants"
+
 // RunnerContainerName is the ECS container name used for task execution.
 // Must match the container override name passed in the ECS RunTask call.
 const RunnerContainerName = "runner"
@@ -67,3 +69,17 @@ const DefaultRuntimePlatformArchitecture = "ARM64"
 
 // DefaultRuntimePlatformOSFamily is the default OS family for ECS task definitions
 const DefaultRuntimePlatformOSFamily = "Linux"
+
+// TaskDefinitionFamilyPrefix is the prefix for all runvoy task definition families
+// Task definitions are named: {ProjectName}-image-{sanitized-image-name}
+// e.g., "runvoy-image-hashicorp-terraform-1-6" for image "hashicorp/terraform:1.6"
+const TaskDefinitionFamilyPrefix = constants.ProjectName + "-image"
+
+// TaskDefinitionIsDefaultTagKey is the ECS tag key used to mark a task definition as the default image
+const TaskDefinitionIsDefaultTagKey = "IsDefault"
+
+// TaskDefinitionDockerImageTagKey is the ECS tag key used to store the Docker image name for metadata
+const TaskDefinitionDockerImageTagKey = "DockerImage"
+
+// TaskDefinitionIsDefaultTagValue is the tag value used to mark a task definition as the default image
+const TaskDefinitionIsDefaultTagValue = "true"

@@ -40,9 +40,7 @@ func initializeServices(ctx context.Context, log *slog.Logger, oCfg *config.Conf
 
 func startOrchestratorServer(log *slog.Logger, cfg *config.Config, svc *app.Service,
 	serverErrors chan error, wg *sync.WaitGroup) *http.Server {
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		log.Info("starting orchestrator server",
 			"port", cfg.Port,
 			"version", *constants.GetVersion(),
@@ -64,7 +62,7 @@ func startOrchestratorServer(log *slog.Logger, cfg *config.Config, svc *app.Serv
 		if serveErr := srv.ListenAndServe(); serveErr != nil && serveErr != http.ErrServerClosed {
 			serverErrors <- fmt.Errorf("orchestrator server failed: %w", serveErr)
 		}
-	}()
+	})
 
 	router := serverPkg.NewRouter(svc, cfg.RequestTimeout)
 	return &http.Server{
@@ -78,10 +76,7 @@ func startOrchestratorServer(log *slog.Logger, cfg *config.Config, svc *app.Serv
 
 func startAsyncProcessorServer(log *slog.Logger, cfg *config.Config, processor events.Processor,
 	serverErrors chan error, wg *sync.WaitGroup) *http.Server {
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-
+	wg.Go(func() {
 		port := cfg.Port + 1
 		log.Info("starting async processor server",
 			"port", port,
@@ -103,7 +98,7 @@ func startAsyncProcessorServer(log *slog.Logger, cfg *config.Config, processor e
 		if serveErr := srv.ListenAndServe(); serveErr != nil && serveErr != http.ErrServerClosed {
 			serverErrors <- fmt.Errorf("async processor server failed: %w", serveErr)
 		}
-	}()
+	})
 
 	router := server.NewRouter(processor, log)
 	return &http.Server{

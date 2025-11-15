@@ -115,6 +115,12 @@ List all playbooks found in the .runvoy directory
 
 Execute a playbook with optional flag overrides
 
+**Examples**
+
+```bash
+  - runvoy playbook run terraform-plan
+```
+
 **Options**
 
 ```
@@ -129,6 +135,12 @@ Execute a playbook with optional flag overrides
 ## runvoy playbook show
 
 Display the full content of a playbook
+
+**Examples**
+
+```bash
+  - runvoy playbook show terraform-plan
+```
 
 
 ## runvoy run

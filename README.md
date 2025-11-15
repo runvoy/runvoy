@@ -13,7 +13,7 @@
       <img src="https://github.com/runvoy/runvoy/actions/workflows/golangci-lint.yml/badge.svg?event=push&branch=main" alt="Lint">
   </a>
   <a href="https://golang.org" target="_blank">
-      <img src="https://img.shields.io/badge/Go-1.24+-00ADD8?logo=go" alt="Go version">
+      <img src="https://img.shields.io/badge/Go-1.25+-00ADD8?logo=go" alt="Go version">
   </a>
 </p>
 
@@ -132,7 +132,7 @@ runvoy --help
 ```
 
 ```text
-runvoy - 0.1.0-20251115-8ef9759
+runvoy - 0.1.0-20251115-a1f076d
 Isolated, repeatable execution environments for your commands
 
 Usage:

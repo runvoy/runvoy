@@ -17,8 +17,12 @@ func GetVersion() *string {
 // ProjectName is the name of the CLI tool and application
 const ProjectName = "runvoy"
 
+// DefaultWebURL is the default URL of the web application HTML file.
+// This can be overridden via configuration (RUNVOY_WEB_URL env var or config file).
+const DefaultWebURL = "https://runvoy.site/"
+
 // ConfigDirName is the name of the configuration directory in the user's home directory
-const ConfigDirName = ".runvoy"
+const ConfigDirName = "." + ProjectName
 
 // ConfigFileName is the name of the global configuration file
 const ConfigFileName = "config.yaml"
@@ -132,38 +136,8 @@ func CanTransition(from, to ExecutionStatus) bool {
 	return slices.Contains(allowed, to)
 }
 
-// DefaultWebURL is the default URL of the web application HTML file.
-// This can be overridden via configuration (RUNVOY_WEB_URL env var or config file).
-const DefaultWebURL = "https://runvoy.site/"
-
-// WebviewerURL is deprecated. Use config.Config.WebURL or constants.DefaultWebURL instead.
-// Kept for backward compatibility.
-const WebviewerURL = DefaultWebURL
-
 // ClaimURLExpirationMinutes is the number of minutes after which a claim URL expires
 const ClaimURLExpirationMinutes = 15
-
-// ClaimEndpointPath is the HTTP path for claiming API keys
-const ClaimEndpointPath = "/claim"
-
-// TaskDefinitionFamilyPrefix is the prefix for all runvoy task definition families
-// Task definitions are named: {ProjectName}-image-{sanitized-image-name}
-// e.g., "runvoy-image-hashicorp-terraform-1-6" for image "hashicorp/terraform:1.6"
-// This is AWS ECS-specific and should ideally be in internal/providers/aws/constants/,
-// but is kept here as it's used by the core app interface for task definition naming.
-const TaskDefinitionFamilyPrefix = "runvoy-image"
-
-// TaskDefinitionIsDefaultTagKey is the ECS tag key used to mark a task definition as the default image
-// AWS-specific tagging convention.
-const TaskDefinitionIsDefaultTagKey = "IsDefault"
-
-// TaskDefinitionDockerImageTagKey is the ECS tag key used to store the Docker image name for metadata
-// AWS-specific tagging convention.
-const TaskDefinitionDockerImageTagKey = "DockerImage"
-
-// TaskDefinitionIsDefaultTagValue is the tag value used to mark a task definition as the default image
-// AWS-specific tagging convention.
-const TaskDefinitionIsDefaultTagValue = "true"
 
 // StartTimeCtxKeyType is the type for start time context keys
 type StartTimeCtxKeyType string

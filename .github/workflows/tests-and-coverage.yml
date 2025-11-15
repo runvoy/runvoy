@@ -21,6 +21,7 @@ jobs:
         uses: actions/setup-go@v6
         with:
           cache: true
+          go-version: stable
 
       - name: Add just
         uses: extractions/setup-just@v3
@@ -31,4 +32,4 @@ jobs:
       - name: Check coverage threshold
         uses: vladopajic/go-test-coverage@v2
         with:
-            config: .testcoverage.yml
+          config: .testcoverage.yml

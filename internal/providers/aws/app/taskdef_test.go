@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"runvoy/internal/constants"
+	awsConstants "runvoy/internal/providers/aws/constants"
 	"runvoy/internal/testutil"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -80,17 +81,17 @@ func TestTaskDefinitionFamilyName(t *testing.T) {
 		{
 			name:     "simple image",
 			image:    "ubuntu:22.04",
-			expected: constants.TaskDefinitionFamilyPrefix + "-ubuntu-22-04",
+			expected: awsConstants.TaskDefinitionFamilyPrefix + "-ubuntu-22-04",
 		},
 		{
 			name:     "image with slashes",
 			image:    "hashicorp/terraform:1.6",
-			expected: constants.TaskDefinitionFamilyPrefix + "-hashicorp-terraform-1-6",
+			expected: awsConstants.TaskDefinitionFamilyPrefix + "-hashicorp-terraform-1-6",
 		},
 		{
 			name:     "image with registry",
 			image:    "myregistry.com/my-image:latest",
-			expected: constants.TaskDefinitionFamilyPrefix + "-myregistry-com-my-image-latest",
+			expected: awsConstants.TaskDefinitionFamilyPrefix + "-myregistry-com-my-image-latest",
 		},
 	}
 
@@ -110,12 +111,12 @@ func TestExtractImageFromTaskDefFamily(t *testing.T) {
 	}{
 		{
 			name:       "valid family name",
-			familyName: constants.TaskDefinitionFamilyPrefix + "-ubuntu-22-04",
+			familyName: awsConstants.TaskDefinitionFamilyPrefix + "-ubuntu-22-04",
 			expected:   "ubuntu-22-04",
 		},
 		{
 			name:       "family name with slashes",
-			familyName: constants.TaskDefinitionFamilyPrefix + "-hashicorp-terraform-1-6",
+			familyName: awsConstants.TaskDefinitionFamilyPrefix + "-hashicorp-terraform-1-6",
 			expected:   "hashicorp-terraform-1-6",
 		},
 		{
@@ -130,7 +131,7 @@ func TestExtractImageFromTaskDefFamily(t *testing.T) {
 		},
 		{
 			name:       "family name equals prefix",
-			familyName: constants.TaskDefinitionFamilyPrefix,
+			familyName: awsConstants.TaskDefinitionFamilyPrefix,
 			expected:   "",
 		},
 	}
@@ -184,7 +185,7 @@ func TestBuildTaskDefinitionTags(t *testing.T) {
 			for _, tag := range tags {
 				if tag.Key != nil && tag.Value != nil {
 					switch *tag.Key {
-					case constants.TaskDefinitionDockerImageTagKey:
+					case awsConstants.TaskDefinitionDockerImageTagKey:
 						assert.Equal(t, tt.image, *tag.Value)
 						foundDockerImage = true
 					case "Application":
@@ -193,9 +194,9 @@ func TestBuildTaskDefinitionTags(t *testing.T) {
 					case "ManagedBy":
 						assert.Equal(t, constants.ProjectName+"-orchestrator", *tag.Value)
 						foundManagedBy = true
-					case constants.TaskDefinitionIsDefaultTagKey:
+					case awsConstants.TaskDefinitionIsDefaultTagKey:
 						if tt.isDefault != nil && *tt.isDefault {
-							assert.Equal(t, constants.TaskDefinitionIsDefaultTagValue, *tag.Value)
+							assert.Equal(t, awsConstants.TaskDefinitionIsDefaultTagValue, *tag.Value)
 							foundIsDefault = true
 						}
 					}
@@ -228,9 +229,9 @@ func TestBuildTaskDefinitionTags_Values(t *testing.T) {
 		}
 	}
 
-	assert.Equal(t, image, tagMap[constants.TaskDefinitionDockerImageTagKey])
+	assert.Equal(t, image, tagMap[awsConstants.TaskDefinitionDockerImageTagKey])
 	assert.Equal(t, constants.ProjectName, tagMap["Application"])
-	assert.Equal(t, constants.TaskDefinitionIsDefaultTagValue, tagMap[constants.TaskDefinitionIsDefaultTagKey])
+	assert.Equal(t, awsConstants.TaskDefinitionIsDefaultTagValue, tagMap[awsConstants.TaskDefinitionIsDefaultTagKey])
 }
 
 func TestBuildTaskDefinitionTags_ECSCompatible(t *testing.T) {
@@ -530,7 +531,7 @@ func TestGetTaskDefinitionForImage(t *testing.T) {
 				input *ecs.ListTaskDefinitionsInput,
 				_ ...func(*ecs.Options),
 			) (*ecs.ListTaskDefinitionsOutput, error) {
-				familyPrefix := constants.TaskDefinitionFamilyPrefix + "-ubuntu-22-04"
+				familyPrefix := awsConstants.TaskDefinitionFamilyPrefix + "-ubuntu-22-04"
 				assert.Equal(t, familyPrefix, *input.FamilyPrefix)
 				assert.Equal(t, ecsTypes.TaskDefinitionStatusActive, input.Status)
 				assert.Equal(t, int32(1), *input.MaxResults)
@@ -617,11 +618,11 @@ func TestGetDefaultImage(t *testing.T) {
 					return &ecs.ListTagsForResourceOutput{
 						Tags: []ecsTypes.Tag{
 							{
-								Key:   aws.String(constants.TaskDefinitionIsDefaultTagKey),
-								Value: aws.String(constants.TaskDefinitionIsDefaultTagValue),
+								Key:   aws.String(awsConstants.TaskDefinitionIsDefaultTagKey),
+								Value: aws.String(awsConstants.TaskDefinitionIsDefaultTagValue),
 							},
 							{
-								Key:   aws.String(constants.TaskDefinitionDockerImageTagKey),
+								Key:   aws.String(awsConstants.TaskDefinitionDockerImageTagKey),
 								Value: aws.String(expectedImage),
 							},
 						},
@@ -714,11 +715,11 @@ func TestGetDefaultImage(t *testing.T) {
 				return &ecs.ListTagsForResourceOutput{
 					Tags: []ecsTypes.Tag{
 						{
-							Key:   aws.String(constants.TaskDefinitionIsDefaultTagKey),
-							Value: aws.String(constants.TaskDefinitionIsDefaultTagValue),
+							Key:   aws.String(awsConstants.TaskDefinitionIsDefaultTagKey),
+							Value: aws.String(awsConstants.TaskDefinitionIsDefaultTagValue),
 						},
 						{
-							Key:   aws.String(constants.TaskDefinitionDockerImageTagKey),
+							Key:   aws.String(awsConstants.TaskDefinitionDockerImageTagKey),
 							Value: aws.String("ubuntu:22.04"),
 						},
 					},

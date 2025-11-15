@@ -78,6 +78,9 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("error unmarshaling config: %w", err)
 	}
 
+	// Apply defaults for empty values (env vars that were unset may override defaults with empty strings)
+	applyDefaults(&cfg)
+
 	// Validate configuration
 	if err = validate.Struct(&cfg); err != nil {
 		return nil, fmt.Errorf("config validation failed: %w", err)
@@ -123,6 +126,9 @@ func LoadOrchestrator() (*Config, error) {
 		return nil, fmt.Errorf("error unmarshaling orchestrator config: %w", err)
 	}
 
+	// Apply defaults for empty values
+	applyDefaults(&cfg)
+
 	if err := validateOrchestratorConfig(&cfg); err != nil {
 		return nil, err
 	}
@@ -145,6 +151,9 @@ func LoadEventProcessor() (*Config, error) {
 	if err := v.Unmarshal(&cfg); err != nil {
 		return nil, fmt.Errorf("error unmarshaling event processor config: %w", err)
 	}
+
+	// Apply defaults for empty values
+	applyDefaults(&cfg)
 
 	if err := validateEventProcessorConfig(&cfg); err != nil {
 		return nil, err
@@ -249,6 +258,27 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("backend_provider", string(constants.AWS))
 	// TODO: we set DEBUG for development, we should update this to use INFO
 	v.SetDefault("log_level", "DEBUG")
+}
+
+// applyDefaults applies default values to empty fields in the config.
+// This ensures that even if environment variables were unset and Viper bound them
+// to empty strings, we still get the default values.
+func applyDefaults(cfg *Config) {
+	if cfg.WebURL == "" {
+		cfg.WebURL = constants.DefaultWebURL
+	}
+	if cfg.LogLevel == "" {
+		cfg.LogLevel = "DEBUG"
+	}
+	if cfg.BackendProvider == "" {
+		cfg.BackendProvider = constants.AWS
+	}
+	if cfg.Port == 0 {
+		cfg.Port = 56212
+	}
+	if cfg.InitTimeout == 0 {
+		cfg.InitTimeout = constants.DefaultContextTimeout
+	}
 }
 
 func loadConfigFile(v *viper.Viper) error {
