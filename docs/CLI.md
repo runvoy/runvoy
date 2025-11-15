@@ -93,7 +93,7 @@ Kill a running command execution
 
 ## runvoy list
 
-List all executions present in the runvoy backend
+List all command executions present in the runvoy backend
 
 
 ## runvoy logs

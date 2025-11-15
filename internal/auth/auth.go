@@ -31,17 +31,6 @@ func GenerateSecretToken() (string, error) {
 	return base64.URLEncoding.WithPadding(base64.NoPadding).EncodeToString(b), nil
 }
 
-// GenerateRequestID generates a random request ID using crypto/rand.
-// Used for request tracing and logging. Returns a hex-encoded string.
-// If random generation fails, falls back to a time-based identifier.
-func GenerateRequestID() string {
-	b := make([]byte, constants.RequestIDByteSize)
-	if _, err := rand.Read(b); err != nil {
-		return hex.EncodeToString([]byte(time.Now().String()))
-	}
-	return hex.EncodeToString(b)
-}
-
 // GenerateUUID generates a UUID-like identifier using crypto/rand.
 // Returns a hex-encoded string of 32 characters (16 random bytes).
 // Used for generating unique identifiers such as task definition family names.

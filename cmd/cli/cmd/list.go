@@ -16,8 +16,8 @@ const maxCommandLength = 40
 
 var executionsCmd = &cobra.Command{
 	Use:   "list",
-	Short: "List executions",
-	Long:  "List all executions present in the runvoy backend",
+	Short: "List command executions",
+	Long:  "List all command executions present in the runvoy backend",
 	Run:   executionsRun,
 }
 

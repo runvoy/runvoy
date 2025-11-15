@@ -27,7 +27,7 @@ func (r *Router) requestIDMiddleware(next http.Handler) http.Handler {
 		requestID := loggerPkg.ExtractRequestIDFromContext(req.Context())
 
 		if requestID == "" {
-			requestID = auth.GenerateRequestID()
+			requestID = auth.GenerateUUID()
 		}
 
 		ctx := loggerPkg.WithRequestID(req.Context(), requestID)

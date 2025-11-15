@@ -132,7 +132,7 @@ runvoy --help
 ```
 
 ```text
-runvoy - 0.1.0-20251115-4ebd58c
+runvoy - 0.1.0-20251115-8ef9759
 Isolated, repeatable execution environments for your commands
 
 Usage:
@@ -145,7 +145,7 @@ Available Commands:
   help        Help about any command
   images      Docker images management commands
   kill        Kill a running command execution
-  list        List executions
+  list        List command executions
   logs        Get logs for an execution
   playbook    Manage and execute playbooks
   run         Run a command
