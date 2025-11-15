@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"errors"
 
 	"runvoy/internal/api"
 	apperrors "runvoy/internal/errors"
@@ -25,6 +26,10 @@ func (s *Service) RegisterImage(
 	if err := s.runner.RegisterImage(
 		ctx, image, isDefault, taskRoleName, taskExecutionRoleName, cpu, memory, runtimePlatform,
 	); err != nil {
+		var appErr *apperrors.AppError
+		if errors.As(err, &appErr) {
+			return nil, err
+		}
 		return nil, apperrors.ErrInternalError("failed to register image", err)
 	}
 
@@ -38,6 +43,10 @@ func (s *Service) RegisterImage(
 func (s *Service) ListImages(ctx context.Context) (*api.ListImagesResponse, error) {
 	images, err := s.runner.ListImages(ctx)
 	if err != nil {
+		var appErr *apperrors.AppError
+		if errors.As(err, &appErr) {
+			return nil, err
+		}
 		return nil, apperrors.ErrInternalError("failed to list images", err)
 	}
 
@@ -54,6 +63,10 @@ func (s *Service) GetImage(ctx context.Context, image string) (*api.ImageInfo, e
 
 	imageInfo, err := s.runner.GetImage(ctx, image)
 	if err != nil {
+		var appErr *apperrors.AppError
+		if errors.As(err, &appErr) {
+			return nil, err
+		}
 		return nil, apperrors.ErrInternalError("failed to get image", err)
 	}
 
@@ -71,6 +84,10 @@ func (s *Service) RemoveImage(ctx context.Context, image string) error {
 	}
 
 	if err := s.runner.RemoveImage(ctx, image); err != nil {
+		var appErr *apperrors.AppError
+		if errors.As(err, &appErr) {
+			return err
+		}
 		return apperrors.ErrInternalError("failed to remove image", err)
 	}
 

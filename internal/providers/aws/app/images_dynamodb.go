@@ -4,12 +4,14 @@ package aws
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"regexp"
 	"strings"
 
 	"runvoy/internal/api"
+	apperrors "runvoy/internal/errors"
 	"runvoy/internal/logger"
 	awsConstants "runvoy/internal/providers/aws/constants"
 	"runvoy/internal/providers/aws/database/dynamodb"
@@ -17,6 +19,8 @@ import (
 	awsStd "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ecs"
 	ecsTypes "github.com/aws/aws-sdk-go-v2/service/ecs/types"
+	"github.com/aws/aws-sdk-go-v2/service/iam"
+	iamTypes "github.com/aws/aws-sdk-go-v2/service/iam/types"
 )
 
 // buildRoleARN constructs a full IAM role ARN from a role name and account ID.
@@ -171,6 +175,71 @@ func (e *Runner) registerNewImage(
 	return taskDefARN, family, nil
 }
 
+// validateIAMRoles validates that the specified IAM roles exist in AWS.
+// Returns an error if any role does not exist.
+func (e *Runner) validateIAMRoles(
+	ctx context.Context,
+	taskRoleName *string,
+	taskExecutionRoleName *string,
+	region string,
+	reqLogger *slog.Logger,
+) error {
+	if e.iamClient == nil {
+		return fmt.Errorf("IAM client not configured")
+	}
+
+	rolesToValidate := []struct {
+		name *string
+		arn  string
+		kind string
+	}{}
+
+	if taskRoleName != nil && *taskRoleName != "" {
+		taskRoleARN := buildRoleARN(taskRoleName, e.cfg.AccountID, region)
+		rolesToValidate = append(rolesToValidate, struct {
+			name *string
+			arn  string
+			kind string
+		}{taskRoleName, taskRoleARN, "task"})
+	}
+
+	if taskExecutionRoleName != nil && *taskExecutionRoleName != "" {
+		taskExecRoleARN := buildRoleARN(taskExecutionRoleName, e.cfg.AccountID, region)
+		rolesToValidate = append(rolesToValidate, struct {
+			name *string
+			arn  string
+			kind string
+		}{taskExecutionRoleName, taskExecRoleARN, "task execution"})
+	}
+
+	for _, role := range rolesToValidate {
+		roleName := *role.name
+		logArgs := []any{
+			"operation", "IAM.GetRole",
+			"role_name", roleName,
+			"role_kind", role.kind,
+		}
+		logArgs = append(logArgs, logger.GetDeadlineInfo(ctx)...)
+		reqLogger.Debug("validating IAM role", "context", logger.SliceToMap(logArgs))
+
+		_, err := e.iamClient.GetRole(ctx, &iam.GetRoleInput{
+			RoleName: awsStd.String(roleName),
+		})
+		if err != nil {
+			var noSuchEntity *iamTypes.NoSuchEntityException
+			if errors.As(err, &noSuchEntity) {
+				return apperrors.ErrBadRequest(
+					fmt.Sprintf("%s IAM role does not exist: %s", role.kind, roleName),
+					err,
+				)
+			}
+			return fmt.Errorf("failed to validate %s IAM role %s: %w", role.kind, roleName, err)
+		}
+	}
+
+	return nil
+}
+
 // RegisterImage registers a Docker image with optional custom IAM roles, CPU, Memory, and RuntimePlatform.
 // Creates a new task definition with a unique family name and stores the mapping in DynamoDB.
 //
@@ -201,6 +270,11 @@ func (e *Runner) RegisterImage(
 
 	if e.cfg.AccountID == "" {
 		return fmt.Errorf("AWS account ID not configured")
+	}
+
+	// Validate IAM roles exist before proceeding
+	if err := e.validateIAMRoles(ctx, taskRoleName, taskExecutionRoleName, region, reqLogger); err != nil {
+		return err
 	}
 
 	// Apply defaults for missing values
@@ -344,6 +418,10 @@ func (e *Runner) ListImages(ctx context.Context) ([]api.ImageInfo, error) {
 // If deregistration fails for any task definition, it continues to clean up the remaining ones
 // and still removes the mappings from DynamoDB.
 //
+// NOTE: To avoid accidental deletion of multiple image configurations, this function requires
+// the full ImageID (e.g., "alpine:latest-a1b2c3d4") instead of just the image name/tag.
+// Use ListImages to find the specific ImageID you want to remove.
+//
 //nolint:gocyclo,funlen // Complex deletion flow with pagination, deregistration, and deletion
 func (e *Runner) RemoveImage(ctx context.Context, image string) error {
 	if e.imageRepo == nil {
@@ -359,16 +437,59 @@ func (e *Runner) RemoveImage(ctx context.Context, image string) error {
 		return fmt.Errorf("AWS account ID not configured")
 	}
 
-	allImages, err := e.imageRepo.ListImages(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to list images: %w", err)
+	var matchingImages []api.ImageInfo
+
+	if looksLikeImageID(image) {
+		imageInfo, getErr := e.imageRepo.GetImageTaskDefByID(ctx, image)
+		if getErr != nil {
+			return fmt.Errorf("failed to get image by ImageID: %w", getErr)
+		}
+		if imageInfo != nil {
+			matchingImages = []api.ImageInfo{*imageInfo}
+		}
+	} else {
+		// Reject partial image names to avoid accidentally deleting multiple configurations
+		allImages, listErr := e.imageRepo.ListImages(ctx)
+		if listErr != nil {
+			return fmt.Errorf("failed to list images: %w", listErr)
+		}
+
+		matchingImagesByName := []api.ImageInfo{}
+		for i := range allImages {
+			if allImages[i].Image == image && allImages[i].TaskDefinitionName != "" {
+				matchingImagesByName = append(matchingImagesByName, allImages[i])
+			}
+		}
+
+		// If multiple configurations exist for this image, return error with helpful message
+		if len(matchingImagesByName) > 1 {
+			var imageIDs []string
+			for i := range matchingImagesByName {
+				imageIDs = append(imageIDs, matchingImagesByName[i].ImageID)
+			}
+			return apperrors.ErrBadRequest(
+				fmt.Sprintf(
+					"multiple configurations found for image %q. Please specify the exact ImageID to remove. Available ImageIDs: %v",
+					image, imageIDs,
+				),
+				nil,
+			)
+		}
+
+		// Single configuration found - allow deletion
+		if len(matchingImagesByName) == 1 {
+			matchingImages = matchingImagesByName
+		}
 	}
 
-	// Collect unique task definition families for this image
+	if len(matchingImages) == 0 {
+		return apperrors.ErrNotFound("image not found", fmt.Errorf("image %q not found", image))
+	}
+
 	families := make(map[string]bool)
-	for i := range allImages {
-		if allImages[i].Image == image && allImages[i].TaskDefinitionName != "" {
-			families[allImages[i].TaskDefinitionName] = true
+	for i := range matchingImages {
+		if matchingImages[i].TaskDefinitionName != "" {
+			families[matchingImages[i].TaskDefinitionName] = true
 		}
 	}
 

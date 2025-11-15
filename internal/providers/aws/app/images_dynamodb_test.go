@@ -8,6 +8,8 @@ import (
 	"runvoy/internal/testutil"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/iam"
+	iamTypes "github.com/aws/aws-sdk-go-v2/service/iam/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -169,11 +171,11 @@ func TestRunner_BuildRoleARNs(t *testing.T) {
 
 // mockImageRepo is a mock implementation of the image repository for testing
 type mockImageRepo struct {
-	getDefaultImageFunc func(ctx context.Context) (*api.ImageInfo, error)
-	listImagesFunc      func(ctx context.Context) ([]api.ImageInfo, error)
-	deleteImageFunc     func(ctx context.Context, image string) error
-	getAnyImageTaskDef  func(ctx context.Context, image string) (*api.ImageInfo, error)
-	getImageTaskDefByID func(ctx context.Context, imageID string) (*api.ImageInfo, error)
+	getDefaultImageFunc     func(ctx context.Context) (*api.ImageInfo, error)
+	listImagesFunc          func(ctx context.Context) ([]api.ImageInfo, error)
+	deleteImageFunc         func(ctx context.Context, image string) error
+	getAnyImageTaskDefFunc  func(ctx context.Context, image string) (*api.ImageInfo, error)
+	getImageTaskDefByIDFunc func(ctx context.Context, imageID string) (*api.ImageInfo, error)
 }
 
 func (m *mockImageRepo) GetDefaultImage(ctx context.Context) (*api.ImageInfo, error) {
@@ -190,15 +192,15 @@ func (m *mockImageRepo) GetImageTaskDef(
 }
 
 func (m *mockImageRepo) GetImageTaskDefByID(ctx context.Context, imageID string) (*api.ImageInfo, error) {
-	if m.getImageTaskDefByID != nil {
-		return m.getImageTaskDefByID(ctx, imageID)
+	if m.getImageTaskDefByIDFunc != nil {
+		return m.getImageTaskDefByIDFunc(ctx, imageID)
 	}
 	return nil, nil
 }
 
 func (m *mockImageRepo) GetAnyImageTaskDef(ctx context.Context, image string) (*api.ImageInfo, error) {
-	if m.getAnyImageTaskDef != nil {
-		return m.getAnyImageTaskDef(ctx, image)
+	if m.getAnyImageTaskDefFunc != nil {
+		return m.getAnyImageTaskDefFunc(ctx, image)
 	}
 	return nil, nil
 }
@@ -444,17 +446,26 @@ func TestRunner_RemoveImage(t *testing.T) {
 			expectError: false,
 		},
 		{
-			name:  "handles image not found in list",
+			name:  "handles image not found returns ErrNotFound",
 			image: "nonexistent:latest",
 			mockSetup: func(mr *mockImageRepo) {
 				mr.listImagesFunc = func(_ context.Context) ([]api.ImageInfo, error) {
 					return []api.ImageInfo{}, nil
 				}
-				mr.deleteImageFunc = func(_ context.Context, _ string) error {
-					return nil
+			},
+			expectError: true,
+			expectedErr: "image not found",
+		},
+		{
+			name:  "handles ImageID not found returns ErrNotFound",
+			image: "nonexistent:latest-a1b2c3d4",
+			mockSetup: func(mr *mockImageRepo) {
+				mr.getImageTaskDefByIDFunc = func(_ context.Context, _ string) (*api.ImageInfo, error) {
+					return nil, nil
 				}
 			},
-			expectError: false,
+			expectError: true,
+			expectedErr: "image not found",
 		},
 		{
 			name:  "handles repository list error",
@@ -533,7 +544,7 @@ func TestRunner_GetImage(t *testing.T) {
 			name:  "successfully gets image by name",
 			image: "alpine:latest",
 			mockSetup: func(m *mockImageRepo) {
-				m.getAnyImageTaskDef = func(_ context.Context, img string) (*api.ImageInfo, error) {
+				m.getAnyImageTaskDefFunc = func(_ context.Context, img string) (*api.ImageInfo, error) {
 					if img == "alpine:latest" {
 						return &api.ImageInfo{
 							Image:              "alpine:latest",
@@ -553,7 +564,7 @@ func TestRunner_GetImage(t *testing.T) {
 			name:  "successfully gets image by ImageID",
 			image: "alpine:latest-a1b2c3d4",
 			mockSetup: func(m *mockImageRepo) {
-				m.getImageTaskDefByID = func(_ context.Context, imgID string) (*api.ImageInfo, error) {
+				m.getImageTaskDefByIDFunc = func(_ context.Context, imgID string) (*api.ImageInfo, error) {
 					if imgID == "alpine:latest-a1b2c3d4" {
 						return &api.ImageInfo{
 							Image:              "alpine:latest",
@@ -573,7 +584,7 @@ func TestRunner_GetImage(t *testing.T) {
 			name:  "handles image not found",
 			image: "nonexistent:latest",
 			mockSetup: func(m *mockImageRepo) {
-				m.getAnyImageTaskDef = func(_ context.Context, _ string) (*api.ImageInfo, error) {
+				m.getAnyImageTaskDefFunc = func(_ context.Context, _ string) (*api.ImageInfo, error) {
 					return nil, nil
 				}
 			},
@@ -585,7 +596,7 @@ func TestRunner_GetImage(t *testing.T) {
 			name:  "handles repository error for image name",
 			image: "alpine:latest",
 			mockSetup: func(m *mockImageRepo) {
-				m.getAnyImageTaskDef = func(_ context.Context, _ string) (*api.ImageInfo, error) {
+				m.getAnyImageTaskDefFunc = func(_ context.Context, _ string) (*api.ImageInfo, error) {
 					return nil, assert.AnError
 				}
 			},
@@ -597,7 +608,7 @@ func TestRunner_GetImage(t *testing.T) {
 			name:  "handles repository error for ImageID",
 			image: "alpine:latest-a1b2c3d4",
 			mockSetup: func(m *mockImageRepo) {
-				m.getImageTaskDefByID = func(_ context.Context, _ string) (*api.ImageInfo, error) {
+				m.getImageTaskDefByIDFunc = func(_ context.Context, _ string) (*api.ImageInfo, error) {
 					return nil, assert.AnError
 				}
 			},
@@ -652,7 +663,7 @@ func TestRunner_GetTaskDefinitionARNForImage(t *testing.T) {
 			name:  "successfully gets task definition for image name",
 			image: "alpine:latest",
 			mockSetup: func(m *mockImageRepo) {
-				m.getAnyImageTaskDef = func(_ context.Context, _ string) (*api.ImageInfo, error) {
+				m.getAnyImageTaskDefFunc = func(_ context.Context, _ string) (*api.ImageInfo, error) {
 					return &api.ImageInfo{
 						Image:              "alpine:latest",
 						TaskDefinitionName: "runvoy-alpine-latest",
@@ -666,7 +677,7 @@ func TestRunner_GetTaskDefinitionARNForImage(t *testing.T) {
 			name:  "successfully gets task definition for ImageID",
 			image: "alpine:latest-a1b2c3d4",
 			mockSetup: func(m *mockImageRepo) {
-				m.getImageTaskDefByID = func(_ context.Context, _ string) (*api.ImageInfo, error) {
+				m.getImageTaskDefByIDFunc = func(_ context.Context, _ string) (*api.ImageInfo, error) {
 					return &api.ImageInfo{
 						Image:              "alpine:latest",
 						TaskDefinitionName: "runvoy-alpine-latest",
@@ -680,7 +691,7 @@ func TestRunner_GetTaskDefinitionARNForImage(t *testing.T) {
 			name:  "handles task definition not found",
 			image: "nonexistent:latest",
 			mockSetup: func(m *mockImageRepo) {
-				m.getAnyImageTaskDef = func(_ context.Context, _ string) (*api.ImageInfo, error) {
+				m.getAnyImageTaskDefFunc = func(_ context.Context, _ string) (*api.ImageInfo, error) {
 					return nil, nil
 				}
 			},
@@ -692,7 +703,7 @@ func TestRunner_GetTaskDefinitionARNForImage(t *testing.T) {
 			name:  "handles repository error",
 			image: "alpine:latest",
 			mockSetup: func(m *mockImageRepo) {
-				m.getAnyImageTaskDef = func(_ context.Context, _ string) (*api.ImageInfo, error) {
+				m.getAnyImageTaskDefFunc = func(_ context.Context, _ string) (*api.ImageInfo, error) {
 					return nil, assert.AnError
 				}
 			},
@@ -902,6 +913,204 @@ func TestLooksLikeImageID(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			result := looksLikeImageID(tt.input)
 			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+// mockIAMClient is a mock implementation of IAMClient for testing
+type mockIAMClient struct {
+	getRoleFunc func(
+		ctx context.Context,
+		params *iam.GetRoleInput,
+		optFns ...func(*iam.Options),
+	) (*iam.GetRoleOutput, error)
+}
+
+func (m *mockIAMClient) GetRole(
+	ctx context.Context,
+	params *iam.GetRoleInput,
+	optFns ...func(*iam.Options),
+) (*iam.GetRoleOutput, error) {
+	if m.getRoleFunc != nil {
+		return m.getRoleFunc(ctx, params, optFns...)
+	}
+	return &iam.GetRoleOutput{}, nil
+}
+
+func TestRunner_ValidateIAMRoles(t *testing.T) {
+	ctx := testutil.TestContext()
+
+	tests := []struct {
+		name                  string
+		taskRoleName          *string
+		taskExecutionRoleName *string
+		region                string
+		accountID             string
+		mockSetup             func(*mockIAMClient)
+		expectError           bool
+		expectedError         string
+		useNilIAMClient       bool
+	}{
+		{
+			name:                  "both roles nil - no validation needed",
+			taskRoleName:          nil,
+			taskExecutionRoleName: nil,
+			region:                "us-east-1",
+			accountID:             "123456789012",
+			mockSetup:             nil,
+			expectError:           false,
+		},
+		{
+			name:                  "task role exists",
+			taskRoleName:          aws.String("existing-task-role"),
+			taskExecutionRoleName: nil,
+			region:                "us-east-1",
+			accountID:             "123456789012",
+			mockSetup: func(m *mockIAMClient) {
+				m.getRoleFunc = func(
+					_ context.Context,
+					params *iam.GetRoleInput,
+					_ ...func(*iam.Options),
+				) (*iam.GetRoleOutput, error) {
+					if *params.RoleName == "existing-task-role" {
+						return &iam.GetRoleOutput{}, nil
+					}
+					return nil, &iamTypes.NoSuchEntityException{}
+				}
+			},
+			expectError: false,
+		},
+		{
+			name:                  "task execution role exists",
+			taskRoleName:          nil,
+			taskExecutionRoleName: aws.String("existing-exec-role"),
+			region:                "us-east-1",
+			accountID:             "123456789012",
+			mockSetup: func(m *mockIAMClient) {
+				m.getRoleFunc = func(
+					_ context.Context,
+					params *iam.GetRoleInput,
+					_ ...func(*iam.Options),
+				) (*iam.GetRoleOutput, error) {
+					if *params.RoleName == "existing-exec-role" {
+						return &iam.GetRoleOutput{}, nil
+					}
+					return nil, &iamTypes.NoSuchEntityException{}
+				}
+			},
+			expectError: false,
+		},
+		{
+			name:                  "both roles exist",
+			taskRoleName:          aws.String("existing-task-role"),
+			taskExecutionRoleName: aws.String("existing-exec-role"),
+			region:                "us-east-1",
+			accountID:             "123456789012",
+			mockSetup: func(m *mockIAMClient) {
+				m.getRoleFunc = func(
+					_ context.Context,
+					_ *iam.GetRoleInput,
+					_ ...func(*iam.Options),
+				) (*iam.GetRoleOutput, error) {
+					return &iam.GetRoleOutput{}, nil
+				}
+			},
+			expectError: false,
+		},
+		{
+			name:                  "task role does not exist",
+			taskRoleName:          aws.String("nonexistent-task-role"),
+			taskExecutionRoleName: nil,
+			region:                "us-east-1",
+			accountID:             "123456789012",
+			mockSetup: func(m *mockIAMClient) {
+				m.getRoleFunc = func(
+					_ context.Context,
+					_ *iam.GetRoleInput,
+					_ ...func(*iam.Options),
+				) (*iam.GetRoleOutput, error) {
+					return nil, &iamTypes.NoSuchEntityException{}
+				}
+			},
+			expectError:   true,
+			expectedError: "task IAM role does not exist",
+		},
+		{
+			name:                  "task execution role does not exist",
+			taskRoleName:          nil,
+			taskExecutionRoleName: aws.String("nonexistent-exec-role"),
+			region:                "us-east-1",
+			accountID:             "123456789012",
+			mockSetup: func(m *mockIAMClient) {
+				m.getRoleFunc = func(
+					_ context.Context,
+					_ *iam.GetRoleInput,
+					_ ...func(*iam.Options),
+				) (*iam.GetRoleOutput, error) {
+					return nil, &iamTypes.NoSuchEntityException{}
+				}
+			},
+			expectError:   true,
+			expectedError: "task execution IAM role does not exist",
+		},
+		{
+			name:                  "both roles do not exist - task role error first",
+			taskRoleName:          aws.String("nonexistent-task-role"),
+			taskExecutionRoleName: aws.String("nonexistent-exec-role"),
+			region:                "us-east-1",
+			accountID:             "123456789012",
+			mockSetup: func(m *mockIAMClient) {
+				m.getRoleFunc = func(
+					_ context.Context,
+					_ *iam.GetRoleInput,
+					_ ...func(*iam.Options),
+				) (*iam.GetRoleOutput, error) {
+					return nil, &iamTypes.NoSuchEntityException{}
+				}
+			},
+			expectError:   true,
+			expectedError: "task IAM role does not exist",
+		},
+		{
+			name:                  "IAM client not configured",
+			taskRoleName:          aws.String("some-role"),
+			taskExecutionRoleName: nil,
+			region:                "us-east-1",
+			accountID:             "123456789012",
+			mockSetup:             nil,
+			expectError:           true,
+			expectedError:         "IAM client not configured",
+			useNilIAMClient:       true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var iamClient IAMClient
+			if !tt.useNilIAMClient {
+				mockIAM := &mockIAMClient{}
+				if tt.mockSetup != nil {
+					tt.mockSetup(mockIAM)
+				}
+				iamClient = mockIAM
+			}
+
+			runner := &Runner{
+				iamClient: iamClient,
+				cfg: &Config{
+					AccountID: tt.accountID,
+				},
+				logger: testutil.SilentLogger(),
+			}
+
+			err := runner.validateIAMRoles(ctx, tt.taskRoleName, tt.taskExecutionRoleName, tt.region, runner.logger)
+
+			if tt.expectError {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.expectedError)
+			} else {
+				require.NoError(t, err)
+			}
 		})
 	}
 }

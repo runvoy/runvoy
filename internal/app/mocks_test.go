@@ -26,6 +26,7 @@ type mockUserRepository struct {
 	getPendingAPIKeyFunc         func(ctx context.Context, secretToken string) (*api.PendingAPIKey, error)
 	markAsViewedFunc             func(ctx context.Context, secretToken string, ipAddress string) error
 	deletePendingAPIKeyFunc      func(ctx context.Context, secretToken string) error
+	listUsersFunc                func(ctx context.Context) ([]*api.User, error)
 }
 
 func (m *mockUserRepository) CreateUser(ctx context.Context, user *api.User, apiKeyHash string) error {
@@ -111,7 +112,10 @@ func (m *mockUserRepository) DeletePendingAPIKey(ctx context.Context, secretToke
 	return nil
 }
 
-func (m *mockUserRepository) ListUsers(_ context.Context) ([]*api.User, error) {
+func (m *mockUserRepository) ListUsers(ctx context.Context) ([]*api.User, error) {
+	if m.listUsersFunc != nil {
+		return m.listUsersFunc(ctx)
+	}
 	return []*api.User{}, nil
 }
 

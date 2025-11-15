@@ -1,0 +1,614 @@
+package app
+
+import (
+	"context"
+	"errors"
+	"testing"
+	"time"
+
+	"runvoy/internal/api"
+	appErrors "runvoy/internal/errors"
+	"runvoy/internal/testutil"
+
+	"github.com/stretchr/testify/assert"
+)
+
+func TestValidateCreateUserRequest_Success(t *testing.T) {
+	repo := &mockUserRepository{
+		getUserByEmailFunc: func(_ context.Context, _ string) (*api.User, error) {
+			return nil, nil
+		},
+	}
+	logger := testutil.SilentLogger()
+
+	service := NewService(
+		repo,
+		&mockExecutionRepository{},
+		&mockConnectionRepository{},
+		&mockTokenRepository{},
+		nil,
+		logger,
+		"",
+		nil,
+		nil,
+	)
+
+	err := service.validateCreateUserRequest(context.Background(), "user@example.com")
+
+	assert.NoError(t, err)
+}
+
+func TestValidateCreateUserRequest_EmptyEmail(t *testing.T) {
+	logger := testutil.SilentLogger()
+
+	service := NewService(
+		nil,
+		&mockExecutionRepository{},
+		&mockConnectionRepository{},
+		&mockTokenRepository{},
+		nil,
+		logger,
+		"",
+		nil,
+		nil,
+	)
+
+	err := service.validateCreateUserRequest(context.Background(), "")
+
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "email is required")
+}
+
+func TestValidateCreateUserRequest_InvalidEmail(t *testing.T) {
+	logger := testutil.SilentLogger()
+
+	service := NewService(
+		nil,
+		&mockExecutionRepository{},
+		&mockConnectionRepository{},
+		&mockTokenRepository{},
+		nil,
+		logger,
+		"",
+		nil,
+		nil,
+	)
+
+	err := service.validateCreateUserRequest(context.Background(), "not-an-email")
+
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid email address")
+}
+
+func TestValidateCreateUserRequest_UserAlreadyExists(t *testing.T) {
+	repo := &mockUserRepository{
+		getUserByEmailFunc: func(_ context.Context, _ string) (*api.User, error) {
+			return &api.User{Email: "user@example.com"}, nil
+		},
+	}
+	logger := testutil.SilentLogger()
+
+	service := NewService(
+		repo,
+		&mockExecutionRepository{},
+		&mockConnectionRepository{},
+		&mockTokenRepository{},
+		nil,
+		logger,
+		"",
+		nil,
+		nil,
+	)
+
+	err := service.validateCreateUserRequest(context.Background(), "user@example.com")
+
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "user with this email already exists")
+}
+
+func TestValidateCreateUserRequest_RepositoryError(t *testing.T) {
+	repo := &mockUserRepository{
+		getUserByEmailFunc: func(_ context.Context, _ string) (*api.User, error) {
+			return nil, appErrors.ErrDatabaseError("test error", errors.New("db error"))
+		},
+	}
+	logger := testutil.SilentLogger()
+
+	service := NewService(
+		repo,
+		&mockExecutionRepository{},
+		&mockConnectionRepository{},
+		&mockTokenRepository{},
+		nil,
+		logger,
+		"",
+		nil,
+		nil,
+	)
+
+	err := service.validateCreateUserRequest(context.Background(), "user@example.com")
+
+	assert.Error(t, err)
+}
+
+func TestGenerateOrUseAPIKey_ProvidedKey(t *testing.T) {
+	key, err := generateOrUseAPIKey("my-custom-key")
+
+	assert.NoError(t, err)
+	assert.Equal(t, "my-custom-key", key)
+}
+
+func TestGenerateOrUseAPIKey_GenerateNew(t *testing.T) {
+	key, err := generateOrUseAPIKey("")
+
+	assert.NoError(t, err)
+	assert.NotEmpty(t, key)
+	assert.Greater(t, len(key), 10) // Generated keys should be reasonably long
+}
+
+func TestCreatePendingClaim_Success(t *testing.T) {
+	repo := &mockUserRepository{
+		createPendingAPIKeyFunc: func(_ context.Context, _ *api.PendingAPIKey) error {
+			return nil
+		},
+	}
+	logger := testutil.SilentLogger()
+
+	service := NewService(
+		repo,
+		&mockExecutionRepository{},
+		&mockConnectionRepository{},
+		&mockTokenRepository{},
+		nil,
+		logger,
+		"",
+		nil,
+		nil,
+	)
+
+	secretToken, err := service.createPendingClaim(
+		context.Background(),
+		"test-api-key",
+		"user@example.com",
+		"admin@example.com",
+		time.Now().Add(15*time.Minute).Unix(),
+	)
+
+	assert.NoError(t, err)
+	assert.NotEmpty(t, secretToken)
+}
+
+func TestCreatePendingClaim_RepositoryError(t *testing.T) {
+	repo := &mockUserRepository{
+		createPendingAPIKeyFunc: func(_ context.Context, _ *api.PendingAPIKey) error {
+			return appErrors.ErrDatabaseError("test error", errors.New("db error"))
+		},
+	}
+	logger := testutil.SilentLogger()
+
+	service := NewService(
+		repo,
+		&mockExecutionRepository{},
+		&mockConnectionRepository{},
+		&mockTokenRepository{},
+		nil,
+		logger,
+		"",
+		nil,
+		nil,
+	)
+
+	_, err := service.createPendingClaim(
+		context.Background(),
+		"test-api-key",
+		"user@example.com",
+		"admin@example.com",
+		time.Now().Add(15*time.Minute).Unix(),
+	)
+
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to create pending API key")
+}
+
+func TestCreateUser_Success(t *testing.T) {
+	repo := &mockUserRepository{
+		getUserByEmailFunc: func(_ context.Context, _ string) (*api.User, error) {
+			return nil, nil
+		},
+		createUserWithExpirationFunc: func(_ context.Context, _ *api.User, _ string, _ int64) error {
+			return nil
+		},
+		createPendingAPIKeyFunc: func(_ context.Context, _ *api.PendingAPIKey) error {
+			return nil
+		},
+	}
+	logger := testutil.SilentLogger()
+
+	service := NewService(
+		repo,
+		&mockExecutionRepository{},
+		&mockConnectionRepository{},
+		&mockTokenRepository{},
+		nil,
+		logger,
+		"",
+		nil,
+		nil,
+	)
+
+	req := api.CreateUserRequest{Email: "user@example.com"}
+	resp, err := service.CreateUser(context.Background(), req, "admin@example.com")
+
+	assert.NoError(t, err)
+	assert.NotNil(t, resp)
+	assert.Equal(t, "user@example.com", resp.User.Email)
+	assert.NotEmpty(t, resp.ClaimToken)
+}
+
+func TestCreateUser_NoRepository(t *testing.T) {
+	logger := testutil.SilentLogger()
+
+	service := NewService(
+		nil,
+		&mockExecutionRepository{},
+		&mockConnectionRepository{},
+		&mockTokenRepository{},
+		nil,
+		logger,
+		"",
+		nil,
+		nil,
+	)
+
+	req := api.CreateUserRequest{Email: "user@example.com"}
+	_, err := service.CreateUser(context.Background(), req, "admin@example.com")
+
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "user repository not configured")
+}
+
+func TestCreateUser_InvalidEmail(t *testing.T) {
+	logger := testutil.SilentLogger()
+
+	service := NewService(
+		&mockUserRepository{},
+		&mockExecutionRepository{},
+		&mockConnectionRepository{},
+		&mockTokenRepository{},
+		nil,
+		logger,
+		"",
+		nil,
+		nil,
+	)
+
+	req := api.CreateUserRequest{Email: "not-valid"}
+	_, err := service.CreateUser(context.Background(), req, "admin@example.com")
+
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid email address")
+}
+
+func TestCreateUser_CreateUserError(t *testing.T) {
+	repo := &mockUserRepository{
+		getUserByEmailFunc: func(_ context.Context, _ string) (*api.User, error) {
+			return nil, nil
+		},
+		createUserWithExpirationFunc: func(_ context.Context, _ *api.User, _ string, _ int64) error {
+			return appErrors.ErrDatabaseError("test error", errors.New("db error"))
+		},
+	}
+	logger := testutil.SilentLogger()
+
+	service := NewService(
+		repo,
+		&mockExecutionRepository{},
+		&mockConnectionRepository{},
+		&mockTokenRepository{},
+		nil,
+		logger,
+		"",
+		nil,
+		nil,
+	)
+
+	req := api.CreateUserRequest{Email: "user@example.com"}
+	_, err := service.CreateUser(context.Background(), req, "admin@example.com")
+
+	assert.Error(t, err)
+}
+
+func TestClaimAPIKey_Success(t *testing.T) {
+	expiredAt := time.Now().Add(15 * time.Minute).Unix()
+	repo := &mockUserRepository{
+		getPendingAPIKeyFunc: func(_ context.Context, _ string) (*api.PendingAPIKey, error) {
+			return &api.PendingAPIKey{
+				SecretToken: "token",
+				APIKey:      "key",
+				UserEmail:   "user@example.com",
+				ExpiresAt:   expiredAt,
+				Viewed:      false,
+			}, nil
+		},
+		markAsViewedFunc: func(_ context.Context, _ string, _ string) error {
+			return nil
+		},
+		removeExpirationFunc: func(_ context.Context, _ string) error {
+			return nil
+		},
+	}
+	logger := testutil.SilentLogger()
+
+	service := NewService(
+		repo,
+		&mockExecutionRepository{},
+		&mockConnectionRepository{},
+		&mockTokenRepository{},
+		nil,
+		logger,
+		"",
+		nil,
+		nil,
+	)
+
+	resp, err := service.ClaimAPIKey(context.Background(), "token", "192.168.1.1")
+
+	assert.NoError(t, err)
+	assert.NotNil(t, resp)
+	assert.Equal(t, "key", resp.APIKey)
+	assert.Equal(t, "user@example.com", resp.UserEmail)
+}
+
+func TestClaimAPIKey_NoRepository(t *testing.T) {
+	logger := testutil.SilentLogger()
+
+	service := NewService(
+		nil,
+		&mockExecutionRepository{},
+		&mockConnectionRepository{},
+		&mockTokenRepository{},
+		nil,
+		logger,
+		"",
+		nil,
+		nil,
+	)
+
+	_, err := service.ClaimAPIKey(context.Background(), "token", "192.168.1.1")
+
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "user repository not configured")
+}
+
+func TestClaimAPIKey_InvalidToken(t *testing.T) {
+	repo := &mockUserRepository{
+		getPendingAPIKeyFunc: func(_ context.Context, _ string) (*api.PendingAPIKey, error) {
+			return nil, nil
+		},
+	}
+	logger := testutil.SilentLogger()
+
+	service := NewService(
+		repo,
+		&mockExecutionRepository{},
+		&mockConnectionRepository{},
+		&mockTokenRepository{},
+		nil,
+		logger,
+		"",
+		nil,
+		nil,
+	)
+
+	_, err := service.ClaimAPIKey(context.Background(), "invalid-token", "192.168.1.1")
+
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid or expired token")
+}
+
+func TestClaimAPIKey_AlreadyClaimed(t *testing.T) {
+	expiredAt := time.Now().Add(15 * time.Minute).Unix()
+	repo := &mockUserRepository{
+		getPendingAPIKeyFunc: func(_ context.Context, _ string) (*api.PendingAPIKey, error) {
+			return &api.PendingAPIKey{
+				SecretToken: "token",
+				APIKey:      "key",
+				UserEmail:   "user@example.com",
+				ExpiresAt:   expiredAt,
+				Viewed:      true,
+			}, nil
+		},
+	}
+	logger := testutil.SilentLogger()
+
+	service := NewService(
+		repo,
+		&mockExecutionRepository{},
+		&mockConnectionRepository{},
+		&mockTokenRepository{},
+		nil,
+		logger,
+		"",
+		nil,
+		nil,
+	)
+
+	_, err := service.ClaimAPIKey(context.Background(), "token", "192.168.1.1")
+
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "already been claimed")
+}
+
+func TestClaimAPIKey_TokenExpired(t *testing.T) {
+	expiredAt := time.Now().Add(-15 * time.Minute).Unix() // expired 15 minutes ago
+	repo := &mockUserRepository{
+		getPendingAPIKeyFunc: func(_ context.Context, _ string) (*api.PendingAPIKey, error) {
+			return &api.PendingAPIKey{
+				SecretToken: "token",
+				APIKey:      "key",
+				UserEmail:   "user@example.com",
+				ExpiresAt:   expiredAt,
+				Viewed:      false,
+			}, nil
+		},
+	}
+	logger := testutil.SilentLogger()
+
+	service := NewService(
+		repo,
+		&mockExecutionRepository{},
+		&mockConnectionRepository{},
+		&mockTokenRepository{},
+		nil,
+		logger,
+		"",
+		nil,
+		nil,
+	)
+
+	_, err := service.ClaimAPIKey(context.Background(), "token", "192.168.1.1")
+
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "expired")
+}
+
+func TestListUsers_Success(t *testing.T) {
+	repo := &mockUserRepository{
+		listUsersFunc: func(_ context.Context) ([]*api.User, error) {
+			return []*api.User{
+				{Email: "alice@example.com"},
+				{Email: "bob@example.com"},
+			}, nil
+		},
+	}
+	logger := testutil.SilentLogger()
+
+	service := NewService(
+		repo,
+		&mockExecutionRepository{},
+		&mockConnectionRepository{},
+		&mockTokenRepository{},
+		nil,
+		logger,
+		"",
+		nil,
+		nil,
+	)
+
+	resp, err := service.ListUsers(context.Background())
+
+	assert.NoError(t, err)
+	assert.NotNil(t, resp)
+	assert.Len(t, resp.Users, 2)
+	// Verify sorting by email
+	assert.Equal(t, "alice@example.com", resp.Users[0].Email)
+	assert.Equal(t, "bob@example.com", resp.Users[1].Email)
+}
+
+func TestListUsers_Empty(t *testing.T) {
+	repo := &mockUserRepository{
+		listUsersFunc: func(_ context.Context) ([]*api.User, error) {
+			return []*api.User{}, nil
+		},
+	}
+	logger := testutil.SilentLogger()
+
+	service := NewService(
+		repo,
+		&mockExecutionRepository{},
+		&mockConnectionRepository{},
+		&mockTokenRepository{},
+		nil,
+		logger,
+		"",
+		nil,
+		nil,
+	)
+
+	resp, err := service.ListUsers(context.Background())
+
+	assert.NoError(t, err)
+	assert.NotNil(t, resp)
+	assert.Len(t, resp.Users, 0)
+}
+
+func TestListUsers_NoRepository(t *testing.T) {
+	logger := testutil.SilentLogger()
+
+	service := NewService(
+		nil,
+		&mockExecutionRepository{},
+		&mockConnectionRepository{},
+		&mockTokenRepository{},
+		nil,
+		logger,
+		"",
+		nil,
+		nil,
+	)
+
+	_, err := service.ListUsers(context.Background())
+
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "user repository not configured")
+}
+
+func TestListUsers_RepositoryError(t *testing.T) {
+	repo := &mockUserRepository{
+		listUsersFunc: func(_ context.Context) ([]*api.User, error) {
+			return nil, appErrors.ErrDatabaseError("test error", errors.New("db error"))
+		},
+	}
+	logger := testutil.SilentLogger()
+
+	service := NewService(
+		repo,
+		&mockExecutionRepository{},
+		&mockConnectionRepository{},
+		&mockTokenRepository{},
+		nil,
+		logger,
+		"",
+		nil,
+		nil,
+	)
+
+	_, err := service.ListUsers(context.Background())
+
+	assert.Error(t, err)
+}
+
+func TestListUsers_SortingByEmail(t *testing.T) {
+	repo := &mockUserRepository{
+		listUsersFunc: func(_ context.Context) ([]*api.User, error) {
+			return []*api.User{
+				{Email: "zebra@example.com"},
+				{Email: "alice@example.com"},
+				{Email: "charlie@example.com"},
+				{Email: "bob@example.com"},
+			}, nil
+		},
+	}
+	logger := testutil.SilentLogger()
+
+	service := NewService(
+		repo,
+		&mockExecutionRepository{},
+		&mockConnectionRepository{},
+		&mockTokenRepository{},
+		nil,
+		logger,
+		"",
+		nil,
+		nil,
+	)
+
+	resp, err := service.ListUsers(context.Background())
+
+	assert.NoError(t, err)
+	assert.Len(t, resp.Users, 4)
+	assert.Equal(t, "alice@example.com", resp.Users[0].Email)
+	assert.Equal(t, "bob@example.com", resp.Users[1].Email)
+	assert.Equal(t, "charlie@example.com", resp.Users[2].Email)
+	assert.Equal(t, "zebra@example.com", resp.Users[3].Email)
+}
