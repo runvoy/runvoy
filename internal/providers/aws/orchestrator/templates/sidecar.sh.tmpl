@@ -35,7 +35,7 @@ set -e
 apk add --no-cache git
 GIT_REF=${GIT_REF:-{{ .DefaultGitRef }}}
 CLONE_PATH=${RUNVOY_SHARED_VOLUME_PATH}/repo
-echo '### {{ .ProjectName }} sidecar: Cloning ${GIT_REPO} (ref: ${GIT_REF})'
+echo "### {{ .ProjectName }} sidecar: Cloning ${GIT_REPO} (ref: ${GIT_REF})"
 git clone --depth 1 --branch "${GIT_REF}" "${GIT_REPO}" "${CLONE_PATH}"
 echo '### {{ .ProjectName }} sidecar: Clone completed successfully'
 if [ -f "${RUNVOY_SHARED_VOLUME_PATH}/.env" ]; then
