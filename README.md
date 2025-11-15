@@ -132,7 +132,7 @@ runvoy --help
 ```
 
 ```text
-runvoy - 0.1.0-20251115-bbe8f40
+runvoy - 0.1.0-20251115-374ab29
 Isolated, repeatable execution environments for your commands
 
 Usage:
@@ -183,7 +183,7 @@ See [CLI Documentation](docs/CLI.md) for more details.
 
 ### Web Viewer
 
-The web viewer is a minimal, single-page application that provides:
+The web viewer is a SvelteKit-based single-page application that provides:
 
 - **Real-time log streaming** - Automatically get updates from the websocket API in real-time
 - **ANSI color support** - Displays colored terminal output
@@ -213,7 +213,33 @@ The web application URL can be customized via:
 
 If not configured, it defaults to `https://runvoy.site/`.
 
-`just local-dev-webapp` to run the webapp locally, by default it will be available at <http://localhost:5173>
+**Development:**
+
+To run the webapp locally with hot reloading:
+
+```bash
+just local-dev-webapp
+```
+
+The webapp will be available at <http://localhost:5173>
+
+Alternatively, you can use npm commands directly from the `cmd/webapp` directory:
+
+```bash
+# Install dependencies
+npm install
+
+# Start dev server (with hot reload)
+npm run dev
+
+# Build for production (static files)
+npm run build
+
+# Preview production build
+npm run preview
+```
+
+The build process creates a `dist/` directory optimized for static file hosting. The webapp is built with SvelteKit using the static adapter, and deployed to S3 via the `deploy-webapp` command in the justfile.
 
 ### Output Streams and Piping
 
