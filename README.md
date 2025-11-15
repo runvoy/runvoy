@@ -21,7 +21,7 @@
 
 Deploy once, issue API keys, let your team execute arbitrary (admin) commands safely from their terminals. Share playbooks to execute commands consistently and reliably.
 
-Workstations shouldn't be snowflakes that need complex setups, let remote containers (_run envoys..._) execute the actual commands in a secured and reproducible production grade environment.
+Workstations shouldn't be snowflakes that need complex setups, let remote containers execute the actual commands (_run envoys..._) in a secured and reproducible production grade environment.
 
 ## Use cases
 
@@ -35,9 +35,9 @@ Workstations shouldn't be snowflakes that need complex setups, let remote contai
 
 Runvoy is composed of 3 main parts:
 
-- a CLI client (`runvoy`) to interact with the runvoy API
+- a backend running on your AWS account (with plans to support other cloud providers in the future) which exposes the HTTP API endpoint and interacts with the cloud resources, to be deployed once by a cloud admin
+- a CLI client (`runvoy`) for users to interact with the runvoy REST API
 - a web app client (<https://runvoy.site>, or self hosted), currently supporting only the logs view, with plans to map 1:1 with the CLI commands
-- a backend running on your AWS account (with plans to support other cloud providers in the future) which exposes the HTTP API endpoint and interacts with the cloud resources
 
 **Key Benefits:**
 
@@ -62,9 +62,9 @@ Runvoy is composed of 3 main parts:
 
 - **RBAC** - Role based access control for the backend API. Runvoy admins define roles and permissions for users, non-admin users can only execute commands / access secrets/ select Docker images they are allowed to
 - **Multi-cloud support** - Backend support for other execution platforms, cloud providers (GCP, Azure...), Kubernetes, ...
-- Timeouts for command execution
-- Lock management for concurrent command execution
-- Extend Webapp to mirror all CLI commands
+- **Timeouts for command execution** - Send timed SIGTERM to the command execution if it doesn't complete within the timeout period
+- **Lock management for concurrent command execution** - Prevent multiple users from executing the same command concurrently
+- **Webapp - CLI command parity** - Allow users to perform all CLI commands from the webapp
 
 ## Quick Start
 
@@ -133,7 +133,7 @@ runvoy --help
 ```
 
 ```text
-runvoy - 0.1.0-20251115-093f497
+runvoy - 0.1.0-20251115-6c396d6
 Isolated, repeatable execution environments for your commands
 
 Usage:
