@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 
 	"runvoy/internal/api"
@@ -256,18 +257,103 @@ func (r *ExecutionRepository) UpdateExecution(ctx context.Context, execution *ap
 	return nil
 }
 
-// buildStatusMap converts a slice of status strings into a map for efficient lookup.
-func buildStatusMap(statuses []string) map[string]bool {
-	statusMap := make(map[string]bool)
-	for _, s := range statuses {
-		statusMap[s] = true
+const statusAttrName = "status"
+
+// buildStatusFilterExpression builds a DynamoDB FilterExpression for status filtering.
+// Returns the filter expression string and updates the expression attribute names/values maps.
+func buildStatusFilterExpression(
+	statuses []string,
+	exprNames map[string]string,
+	exprValues map[string]types.AttributeValue,
+) string {
+	if len(statuses) == 0 {
+		return ""
 	}
-	return statusMap
+
+	if len(statuses) == 1 {
+		exprNames["#status"] = statusAttrName
+		exprValues[":status"] = &types.AttributeValueMemberS{Value: statuses[0]}
+		return "#status = :status"
+	}
+
+	exprNames["#status"] = statusAttrName
+	placeholders := make([]string, len(statuses))
+	for i, status := range statuses {
+		placeholder := fmt.Sprintf(":status%d", i)
+		exprValues[placeholder] = &types.AttributeValueMemberS{Value: status}
+		placeholders[i] = placeholder
+	}
+
+	return fmt.Sprintf("#status IN (%s)", strings.Join(placeholders, ", "))
+}
+
+// processQueryResults processes DynamoDB query results and appends executions to the slice.
+// Returns true if the limit has been reached, false otherwise.
+func processQueryResults(
+	items []map[string]types.AttributeValue,
+	executions []*api.Execution,
+	limit int,
+) ([]*api.Execution, bool, error) {
+	for _, it := range items {
+		var item executionItem
+		if err := attributevalue.UnmarshalMap(it, &item); err != nil {
+			return nil, false, apperrors.ErrDatabaseError("failed to unmarshal execution", err)
+		}
+
+		executions = append(executions, item.toAPIExecution())
+
+		if len(executions) >= limit {
+			return executions, true, nil
+		}
+	}
+
+	return executions, false, nil
+}
+
+// buildQueryLimit calculates a safe int32 limit value for DynamoDB queries.
+// Multiplies the limit by 2 to account for filtering, with overflow protection.
+func buildQueryLimit(limit int) int32 {
+	const multiplier = 2
+	const maxInt32 = 2147483647
+
+	calculated := int64(limit) * multiplier
+	if calculated > maxInt32 {
+		return int32(maxInt32)
+	}
+
+	return int32(calculated) //nolint:gosec // Safe: checked for overflow above
+}
+
+// buildQueryInput constructs a DynamoDB QueryInput for listing executions.
+func (r *ExecutionRepository) buildQueryInput(
+	filterExpr string,
+	exprNames map[string]string,
+	exprValues map[string]types.AttributeValue,
+	lastKey map[string]types.AttributeValue,
+	limit int,
+) *dynamodb.QueryInput {
+	queryInput := &dynamodb.QueryInput{
+		TableName:                 aws.String(r.tableName),
+		IndexName:                 aws.String("all-started_at"),
+		KeyConditionExpression:    aws.String("#all = :all"),
+		ExpressionAttributeNames:  exprNames,
+		ExpressionAttributeValues: exprValues,
+		ScanIndexForward:          aws.Bool(false), // Sort descending by started_at (newest first)
+		ExclusiveStartKey:         lastKey,
+		Limit:                     aws.Int32(buildQueryLimit(limit)),
+	}
+
+	if filterExpr != "" {
+		queryInput.FilterExpression = aws.String(filterExpr)
+	}
+
+	return queryInput
 }
 
 // ListExecutions queries the executions table using the all-started_at GSI
 // to return execution records sorted by StartedAt descending (newest first).
 // This uses Query instead of Scan for better performance and native sorting by DynamoDB.
+// Status filtering and limiting are handled natively by DynamoDB using FilterExpression and Limit.
 //
 // Parameters:
 //   - limit: maximum number of executions to return
@@ -278,10 +364,18 @@ func (r *ExecutionRepository) ListExecutions(
 	limit int,
 	statuses []string,
 ) ([]*api.Execution, error) {
-	statusMap := buildStatusMap(statuses)
 	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
 	executions := make([]*api.Execution, 0, limit)
 	var lastKey map[string]types.AttributeValue
+
+	exprNames := map[string]string{
+		"#all": "_all",
+	}
+	exprValues := map[string]types.AttributeValue{
+		":all": &types.AttributeValueMemberS{Value: "1"},
+	}
+
+	filterExpr := buildStatusFilterExpression(statuses, exprNames, exprValues)
 
 	reqLogger.Debug("calling external service", "context", map[string]string{
 		"operation": "DynamoDB.Query",
@@ -291,40 +385,21 @@ func (r *ExecutionRepository) ListExecutions(
 	})
 
 	for {
-		out, err := r.client.Query(ctx, &dynamodb.QueryInput{
-			TableName:              aws.String(r.tableName),
-			IndexName:              aws.String("all-started_at"),
-			KeyConditionExpression: aws.String("#all = :all"),
-			ExpressionAttributeNames: map[string]string{
-				"#all": "_all",
-			},
-			ExpressionAttributeValues: map[string]types.AttributeValue{
-				":all": &types.AttributeValueMemberS{Value: "1"},
-			},
-			ScanIndexForward:  aws.Bool(false), // Sort descending by started_at (newest first)
-			ExclusiveStartKey: lastKey,
-		})
+		queryInput := r.buildQueryInput(filterExpr, exprNames, exprValues, lastKey, limit)
+
+		out, err := r.client.Query(ctx, queryInput)
 		if err != nil {
 			return nil, apperrors.ErrDatabaseError("failed to query executions", err)
 		}
 
-		for _, it := range out.Items {
-			var item executionItem
-			if err = attributevalue.UnmarshalMap(it, &item); err != nil {
-				return nil, apperrors.ErrDatabaseError("failed to unmarshal execution", err)
-			}
+		var reachedLimit bool
+		executions, reachedLimit, err = processQueryResults(out.Items, executions, limit)
+		if err != nil {
+			return nil, err
+		}
 
-			// Apply status filter if provided
-			if len(statusMap) > 0 && !statusMap[item.Status] {
-				continue
-			}
-
-			executions = append(executions, item.toAPIExecution())
-
-			// Stop when we've reached the limit
-			if len(executions) >= limit {
-				return executions, nil
-			}
+		if reachedLimit {
+			return executions, nil
 		}
 
 		if len(out.LastEvaluatedKey) == 0 {
