@@ -29,19 +29,21 @@ var playbookListCmd = &cobra.Command{
 }
 
 var playbookShowCmd = &cobra.Command{
-	Use:   "show <name>",
-	Short: "Show playbook details",
-	Long:  "Display the full content of a playbook",
-	Run:   playbookShowRun,
-	Args:  cobra.ExactArgs(1),
+	Use:     "show <name>",
+	Short:   "Show playbook details",
+	Long:    "Display the full content of a playbook",
+	Example: fmt.Sprintf(`  - %s playbook show terraform-plan`, constants.ProjectName),
+	Run:     playbookShowRun,
+	Args:    cobra.ExactArgs(1),
 }
 
 var playbookRunCmd = &cobra.Command{
-	Use:   "run <name>",
-	Short: "Execute a playbook",
-	Long:  "Execute a playbook with optional flag overrides",
-	Run:   playbookRunRun,
-	Args:  cobra.ExactArgs(1),
+	Use:     "run <name>",
+	Short:   "Execute a playbook",
+	Long:    "Execute a playbook with optional flag overrides",
+	Example: fmt.Sprintf(`  - %s playbook run terraform-plan`, constants.ProjectName),
+	Run:     playbookRunRun,
+	Args:    cobra.ExactArgs(1),
 }
 
 func init() {
