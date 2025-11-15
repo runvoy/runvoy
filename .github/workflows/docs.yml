@@ -1,0 +1,34 @@
+# This workflow generates documentation using gomarkdoc and uploads it as an artifact.
+# Might be useful to publish docs as a GitHub Pages site.
+name: Documentation
+
+on:
+  workflow_dispatch:
+
+permissions:
+        contents: read
+
+jobs:
+  docs:
+    name: Generate documentation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - uses: actions/setup-go@v6
+        with:
+          cache: true
+          go-version: stable
+
+      - name: Install gomarkdoc
+        run: go install github.com/princjef/gomarkdoc/cmd/gomarkdoc@latest
+
+      - name: Generate documentation
+        run: gomarkdoc ./... --output gomarkdoc
+
+      - name: Upload documentation
+        uses: actions/upload-artifact@v5
+        with:
+          name: documentation
+          path: gomarkdoc
