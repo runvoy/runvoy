@@ -13,14 +13,22 @@ import (
 	appErrors "runvoy/internal/errors"
 	loggerPkg "runvoy/internal/logger"
 	"runvoy/internal/providers/aws/secrets"
-
-	dynamoRepo "runvoy/internal/providers/aws/database/dynamodb"
 )
+
+// MetadataRepository defines the interface for secret metadata operations.
+type MetadataRepository interface {
+	CreateSecret(ctx context.Context, secret *api.Secret) error
+	GetSecret(ctx context.Context, name string) (*api.Secret, error)
+	ListSecrets(ctx context.Context) ([]*api.Secret, error)
+	UpdateSecretMetadata(ctx context.Context, name, keyName, description, updatedBy string) error
+	DeleteSecret(ctx context.Context, name string) error
+	SecretExists(ctx context.Context, name string) (bool, error)
+}
 
 // SecretsRepository implements database.SecretsRepository for AWS.
 // It coordinates DynamoDB (metadata) and Parameter Store (values) to provide a unified interface.
 type SecretsRepository struct {
-	metadataRepo *dynamoRepo.SecretsRepository
+	metadataRepo MetadataRepository
 	valueStore   secrets.ValueStore
 	logger       *slog.Logger
 }
@@ -30,7 +38,7 @@ var _ database.SecretsRepository = (*SecretsRepository)(nil)
 
 // NewSecretsRepository creates a new AWS secrets repository.
 func NewSecretsRepository(
-	metadataRepo *dynamoRepo.SecretsRepository,
+	metadataRepo MetadataRepository,
 	valueStore secrets.ValueStore,
 	logger *slog.Logger,
 ) *SecretsRepository {
@@ -158,11 +166,12 @@ func (sr *SecretsRepository) UpdateSecret(
 	}
 
 	// Update metadata with merged values
-	if err := sr.metadataRepo.UpdateSecretMetadata(
+	if updateErr := sr.metadataRepo.UpdateSecretMetadata(
 		ctx, secret.Name, keyName, description, secret.UpdatedBy,
-	); err != nil {
-		reqLogger.Error("failed to update secret metadata", "error", err, "name", secret.Name)
-		return appErrors.ErrInternalError("failed to update secret metadata", fmt.Errorf("update secret metadata: %w", err))
+	); updateErr != nil {
+		reqLogger.Error("failed to update secret metadata", "error", updateErr, "name", secret.Name)
+		wrapped := fmt.Errorf("update secret metadata: %w", updateErr)
+		return appErrors.ErrInternalError("failed to update secret metadata", wrapped)
 	}
 
 	return nil
