@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"runvoy/internal/api"
-	"runvoy/internal/app"
+	"runvoy/internal/app/orchestrator"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -15,7 +15,7 @@ import (
 // Router wraps a chi router with service dependencies for handling API requests.
 type Router struct {
 	router *chi.Mux
-	svc    *app.Service
+	svc    *orchestrator.Service
 }
 
 type contextKey string
@@ -29,7 +29,7 @@ const (
 // If requestTimeout is > 0, adds a per-request timeout middleware.
 // If requestTimeout is 0, no timeout middleware is added, allowing the
 // environment (e.g., Lambda with its own timeout) to handle timeouts.
-func NewRouter(svc *app.Service, requestTimeout time.Duration) *Router {
+func NewRouter(svc *orchestrator.Service, requestTimeout time.Duration) *Router {
 	r := chi.NewRouter()
 	router := &Router{
 		router: r,
@@ -121,7 +121,7 @@ func (r *Router) Handler() http.Handler {
 }
 
 // WithContext adds the service to the request context
-func (r *Router) WithContext(ctx context.Context, svc *app.Service) context.Context {
+func (r *Router) WithContext(ctx context.Context, svc *orchestrator.Service) context.Context {
 	return context.WithValue(ctx, serviceContextKey, svc)
 }
 

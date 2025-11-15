@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"runvoy/internal/api"
-	"runvoy/internal/app"
+	"runvoy/internal/app/orchestrator"
 	"runvoy/internal/constants"
 	apperrors "runvoy/internal/errors"
 	"runvoy/internal/testutil"
@@ -228,7 +228,7 @@ func (t *testRunner) FetchLogsByExecutionID(_ context.Context, _ string) ([]api.
 }
 
 func TestHandleHealth(t *testing.T) {
-	svc := app.NewService(
+	svc := orchestrator.NewService(
 		nil,
 		nil,
 		nil,
@@ -256,7 +256,7 @@ func TestHandleRunCommand_Success(t *testing.T) {
 	execRepo := &testExecutionRepository{}
 	runner := &testRunner{}
 
-	svc := app.NewService(
+	svc := orchestrator.NewService(
 		userRepo,
 		execRepo,
 		nil,
@@ -290,7 +290,7 @@ func TestHandleRunCommand_Success(t *testing.T) {
 }
 
 func TestHandleRunCommand_InvalidJSON(t *testing.T) {
-	svc := app.NewService(
+	svc := orchestrator.NewService(
 		&testUserRepository{},
 		nil,
 		nil,
@@ -320,7 +320,7 @@ func TestHandleRunCommand_Unauthorized(t *testing.T) {
 		},
 	}
 
-	svc := app.NewService(
+	svc := orchestrator.NewService(
 		userRepo,
 		nil,
 		nil,
@@ -361,7 +361,7 @@ func TestHandleListExecutions_Success(t *testing.T) {
 		},
 	}
 
-	svc := app.NewService(
+	svc := orchestrator.NewService(
 		&testUserRepository{},
 		execRepo,
 		nil,
@@ -396,7 +396,7 @@ func TestHandleListExecutions_Empty(t *testing.T) {
 		},
 	}
 
-	svc := app.NewService(
+	svc := orchestrator.NewService(
 		&testUserRepository{},
 		execRepo,
 		nil,
@@ -426,7 +426,7 @@ func TestHandleListExecutions_DatabaseError(t *testing.T) {
 		},
 	}
 
-	svc := app.NewService(
+	svc := orchestrator.NewService(
 		&testUserRepository{},
 		execRepo,
 		nil,
@@ -450,7 +450,7 @@ func TestHandleListExecutions_DatabaseError(t *testing.T) {
 }
 
 func TestHandleRegisterImage_Success(t *testing.T) {
-	svc := app.NewService(
+	svc := orchestrator.NewService(
 		&testUserRepository{},
 		nil,
 		nil,
@@ -480,7 +480,7 @@ func TestHandleRegisterImage_Success(t *testing.T) {
 }
 
 func TestHandleRegisterImage_InvalidJSON(t *testing.T) {
-	svc := app.NewService(
+	svc := orchestrator.NewService(
 		&testUserRepository{},
 		nil,
 		nil,
@@ -513,7 +513,7 @@ func TestHandleListImages_Success(t *testing.T) {
 		},
 	}
 
-	svc := app.NewService(
+	svc := orchestrator.NewService(
 		&testUserRepository{},
 		nil,
 		nil,
@@ -544,7 +544,7 @@ func TestHandleListImages_Empty(t *testing.T) {
 		},
 	}
 
-	svc := app.NewService(
+	svc := orchestrator.NewService(
 		&testUserRepository{},
 		nil,
 		nil,
@@ -567,7 +567,7 @@ func TestHandleListImages_Empty(t *testing.T) {
 }
 
 func TestHandleRemoveImage_Success(t *testing.T) {
-	svc := app.NewService(
+	svc := orchestrator.NewService(
 		&testUserRepository{},
 		nil,
 		nil,
@@ -596,7 +596,7 @@ func TestHandleRemoveImage_Success(t *testing.T) {
 }
 
 func TestHandleRemoveImage_NotFound(t *testing.T) {
-	svc := app.NewService(
+	svc := orchestrator.NewService(
 		&testUserRepository{},
 		nil,
 		nil,
@@ -624,7 +624,7 @@ func TestHandleRemoveImage_NotFound(t *testing.T) {
 }
 
 func TestHandleRemoveImage_MissingImage(t *testing.T) {
-	svc := app.NewService(
+	svc := orchestrator.NewService(
 		&testUserRepository{},
 		nil,
 		nil,
@@ -658,7 +658,7 @@ func TestHandleGetImage_Success(t *testing.T) {
 		},
 	}
 
-	svc := app.NewService(
+	svc := orchestrator.NewService(
 		&testUserRepository{},
 		nil,
 		nil,
@@ -689,7 +689,7 @@ func TestHandleGetImage_NotFound(t *testing.T) {
 		},
 	}
 
-	svc := app.NewService(
+	svc := orchestrator.NewService(
 		&testUserRepository{},
 		nil,
 		nil,
@@ -754,7 +754,7 @@ func TestGetClientIP_XForwardedForPrecedence(t *testing.T) {
 
 func TestHandleListUsers_Success(t *testing.T) {
 	userRepo := &testUserRepository{}
-	svc := app.NewService(
+	svc := orchestrator.NewService(
 		userRepo,
 		nil,
 		nil,
@@ -794,7 +794,7 @@ func TestHandleListUsers_Unauthorized(t *testing.T) {
 			return nil, apperrors.ErrInvalidAPIKey(nil)
 		},
 	}
-	svc := app.NewService(
+	svc := orchestrator.NewService(
 		userRepo,
 		nil,
 		nil,
@@ -827,7 +827,7 @@ func TestHandleListUsers_RepositoryError(t *testing.T) {
 			return nil, apperrors.ErrDatabaseError("database error", errors.New("connection failed"))
 		},
 	}
-	svc := app.NewService(
+	svc := orchestrator.NewService(
 		userRepo,
 		nil,
 		nil,
@@ -853,7 +853,7 @@ func TestHandleListUsers_RepositoryError(t *testing.T) {
 // TODO: Add TestHandleCreateUser_Success - requires complex mock setup for admin user and pending keys
 
 func TestHandleCreateUser_InvalidJSON(t *testing.T) {
-	svc := app.NewService(
+	svc := orchestrator.NewService(
 		&testUserRepository{},
 		nil,
 		nil,
@@ -883,7 +883,7 @@ func TestHandleCreateUser_Unauthorized(t *testing.T) {
 		},
 	}
 
-	svc := app.NewService(
+	svc := orchestrator.NewService(
 		userRepo,
 		nil,
 		nil,
@@ -910,7 +910,7 @@ func TestHandleCreateUser_Unauthorized(t *testing.T) {
 
 func TestHandleRevokeUser_Success(t *testing.T) {
 	userRepo := &testUserRepository{}
-	svc := app.NewService(
+	svc := orchestrator.NewService(
 		userRepo,
 		nil,
 		nil,
@@ -940,7 +940,7 @@ func TestHandleRevokeUser_Success(t *testing.T) {
 }
 
 func TestHandleRevokeUser_InvalidJSON(t *testing.T) {
-	svc := app.NewService(
+	svc := orchestrator.NewService(
 		&testUserRepository{},
 		nil,
 		nil,
@@ -964,7 +964,7 @@ func TestHandleRevokeUser_InvalidJSON(t *testing.T) {
 }
 
 func TestHandleGetExecutionLogs_Success(t *testing.T) {
-	svc := app.NewService(
+	svc := orchestrator.NewService(
 		&testUserRepository{},
 		&testExecutionRepository{},
 		nil,
@@ -991,7 +991,7 @@ func TestHandleGetExecutionLogs_Success(t *testing.T) {
 }
 
 func TestHandleGetExecutionLogs_MissingExecutionID(t *testing.T) {
-	svc := app.NewService(
+	svc := orchestrator.NewService(
 		&testUserRepository{},
 		&testExecutionRepository{},
 		nil,
@@ -1016,7 +1016,7 @@ func TestHandleGetExecutionLogs_MissingExecutionID(t *testing.T) {
 
 func TestHandleGetExecutionStatus_Success(t *testing.T) {
 	execRepo := &testExecutionRepository{}
-	svc := app.NewService(
+	svc := orchestrator.NewService(
 		&testUserRepository{},
 		execRepo,
 		nil,
@@ -1043,7 +1043,7 @@ func TestHandleGetExecutionStatus_Success(t *testing.T) {
 }
 
 func TestHandleGetExecutionStatus_MissingExecutionID(t *testing.T) {
-	svc := app.NewService(
+	svc := orchestrator.NewService(
 		&testUserRepository{},
 		&testExecutionRepository{},
 		nil,
@@ -1067,7 +1067,7 @@ func TestHandleGetExecutionStatus_MissingExecutionID(t *testing.T) {
 }
 
 func TestHandleKillExecution_Success(t *testing.T) {
-	svc := app.NewService(
+	svc := orchestrator.NewService(
 		&testUserRepository{},
 		&testExecutionRepository{},
 		nil,
@@ -1106,7 +1106,7 @@ func TestHandleKillExecution_AlreadyTerminated(t *testing.T) {
 		},
 	}
 
-	svc := app.NewService(
+	svc := orchestrator.NewService(
 		&testUserRepository{},
 		execRepo,
 		nil,
@@ -1130,7 +1130,7 @@ func TestHandleKillExecution_AlreadyTerminated(t *testing.T) {
 }
 
 func TestHandleKillExecution_MissingExecutionID(t *testing.T) {
-	svc := app.NewService(
+	svc := orchestrator.NewService(
 		&testUserRepository{},
 		&testExecutionRepository{},
 		nil,

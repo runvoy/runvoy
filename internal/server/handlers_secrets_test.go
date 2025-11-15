@@ -10,7 +10,7 @@ import (
 	"testing"
 
 	"runvoy/internal/api"
-	"runvoy/internal/app"
+	"runvoy/internal/app/orchestrator"
 	"runvoy/internal/constants"
 	apperrors "runvoy/internal/errors"
 	"runvoy/internal/testutil"
@@ -413,14 +413,14 @@ func newTestService(
 	userRepo *testUserRepository,
 	execRepo *testExecutionRepository,
 	secretRepo *testSecretRepository,
-) *app.Service {
+) *orchestrator.Service {
 	logger := testutil.SilentLogger()
 
 	// Create a mock runner that implements the Runner interface
 	mockRunner := &testRunner{}
 	tokenRepo := &testTokenRepository{}
 
-	return app.NewService(
+	return orchestrator.NewService(
 		userRepo,
 		execRepo,
 		nil, // connRepo

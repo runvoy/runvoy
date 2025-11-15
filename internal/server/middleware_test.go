@@ -7,7 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"runvoy/internal/app"
+	"runvoy/internal/app/orchestrator"
 	"runvoy/internal/constants"
 	"runvoy/internal/logger"
 	appAws "runvoy/internal/providers/aws/app"
@@ -33,7 +33,11 @@ func TestRequestIDMiddleware(t *testing.T) {
 		req := httptest.NewRequest("GET", "/test", http.NoBody)
 		rr := httptest.NewRecorder()
 
-		svc := app.NewService(nil, nil, nil, &testTokenRepository{}, nil, testutil.SilentLogger(), constants.AWS, nil, nil)
+		tokenRepo := &testTokenRepository{}
+
+		svc := orchestrator.NewService(nil, nil, nil, tokenRepo, nil,
+
+			testutil.SilentLogger(), constants.AWS, nil, nil)
 		router := &Router{svc: svc}
 		middleware := router.requestIDMiddleware(handler)
 		middleware.ServeHTTP(rr, req)
@@ -67,7 +71,11 @@ func TestRequestIDMiddleware(t *testing.T) {
 		ctx := lambdacontext.NewContext(req.Context(), lc)
 		req = req.WithContext(ctx)
 
-		svc := app.NewService(nil, nil, nil, &testTokenRepository{}, nil, testutil.SilentLogger(), constants.AWS, nil, nil)
+		tokenRepo := &testTokenRepository{}
+
+		svc := orchestrator.NewService(nil, nil, nil, tokenRepo, nil,
+
+			testutil.SilentLogger(), constants.AWS, nil, nil)
 		router := &Router{svc: svc}
 		middleware := router.requestIDMiddleware(lambdaHandler)
 		middleware.ServeHTTP(rr, req)
@@ -94,7 +102,11 @@ func TestRequestIDMiddleware(t *testing.T) {
 		ctx := logger.WithRequestID(req.Context(), "existing-request-id-456")
 		req = req.WithContext(ctx)
 
-		svc := app.NewService(nil, nil, nil, &testTokenRepository{}, nil, testutil.SilentLogger(), constants.AWS, nil, nil)
+		tokenRepo := &testTokenRepository{}
+
+		svc := orchestrator.NewService(nil, nil, nil, tokenRepo, nil,
+
+			testutil.SilentLogger(), constants.AWS, nil, nil)
 		router := &Router{svc: svc}
 		middleware := router.requestIDMiddleware(handler)
 		middleware.ServeHTTP(rr, req)
@@ -129,7 +141,11 @@ func TestRequestIDMiddleware(t *testing.T) {
 		ctx = lambdacontext.NewContext(ctx, lc)
 		req = req.WithContext(ctx)
 
-		svc := app.NewService(nil, nil, nil, &testTokenRepository{}, nil, testutil.SilentLogger(), constants.AWS, nil, nil)
+		tokenRepo := &testTokenRepository{}
+
+		svc := orchestrator.NewService(nil, nil, nil, tokenRepo, nil,
+
+			testutil.SilentLogger(), constants.AWS, nil, nil)
 		router := &Router{svc: svc}
 		middleware := router.requestIDMiddleware(handler)
 		middleware.ServeHTTP(rr, req)

@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"runvoy/internal/app"
+	"runvoy/internal/app/orchestrator"
 	"runvoy/internal/constants"
 	"runvoy/internal/testutil"
 
@@ -16,7 +16,11 @@ import (
 )
 
 func TestNewRouter(t *testing.T) {
-	svc := app.NewService(nil, nil, nil, &testTokenRepository{}, nil, testutil.SilentLogger(), constants.AWS, nil, nil)
+	tokenRepo := &testTokenRepository{}
+
+	svc := orchestrator.NewService(nil, nil, nil, tokenRepo, nil,
+
+		testutil.SilentLogger(), constants.AWS, nil, nil)
 
 	t.Run("creates router without timeout", func(t *testing.T) {
 		router := NewRouter(svc, 0)
@@ -34,7 +38,11 @@ func TestNewRouter(t *testing.T) {
 }
 
 func TestRouter_ChiMux(t *testing.T) {
-	svc := app.NewService(nil, nil, nil, &testTokenRepository{}, nil, testutil.SilentLogger(), constants.AWS, nil, nil)
+	tokenRepo := &testTokenRepository{}
+
+	svc := orchestrator.NewService(nil, nil, nil, tokenRepo, nil,
+
+		testutil.SilentLogger(), constants.AWS, nil, nil)
 	router := NewRouter(svc, 0)
 
 	chiMux := router.ChiMux()
@@ -43,7 +51,11 @@ func TestRouter_ChiMux(t *testing.T) {
 }
 
 func TestRouter_Handler(t *testing.T) {
-	svc := app.NewService(nil, nil, nil, &testTokenRepository{}, nil, testutil.SilentLogger(), constants.AWS, nil, nil)
+	tokenRepo := &testTokenRepository{}
+
+	svc := orchestrator.NewService(nil, nil, nil, tokenRepo, nil,
+
+		testutil.SilentLogger(), constants.AWS, nil, nil)
 	router := NewRouter(svc, 0)
 
 	handler := router.Handler()
@@ -52,8 +64,13 @@ func TestRouter_Handler(t *testing.T) {
 }
 
 func TestRouter_WithContext(t *testing.T) {
-	svc := app.NewService(nil, nil, nil, &testTokenRepository{}, nil, testutil.SilentLogger(), constants.AWS, nil, nil)
-	svc2 := app.NewService(nil, nil, nil, &testTokenRepository{}, nil, testutil.SilentLogger(), constants.AWS, nil, nil)
+	tokenRepo := &testTokenRepository{}
+
+	svc := orchestrator.NewService(nil, nil, nil, tokenRepo, nil,
+		testutil.SilentLogger(), constants.AWS, nil, nil)
+	tokenRepo2 := &testTokenRepository{}
+	svc2 := orchestrator.NewService(nil, nil, nil, tokenRepo2, nil,
+		testutil.SilentLogger(), constants.AWS, nil, nil)
 	router := NewRouter(svc, 0)
 
 	ctx := context.Background()
@@ -64,7 +81,11 @@ func TestRouter_WithContext(t *testing.T) {
 }
 
 func TestRouter_ServeHTTP(t *testing.T) {
-	svc := app.NewService(nil, nil, nil, &testTokenRepository{}, nil, testutil.SilentLogger(), constants.AWS, nil, nil)
+	tokenRepo := &testTokenRepository{}
+
+	svc := orchestrator.NewService(nil, nil, nil, tokenRepo, nil,
+
+		testutil.SilentLogger(), constants.AWS, nil, nil)
 	router := NewRouter(svc, 0)
 
 	req := httptest.NewRequest("GET", "/api/v1/health", http.NoBody)

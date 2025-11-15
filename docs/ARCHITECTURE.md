@@ -69,7 +69,7 @@ internal/providers/aws/app         → AWS-specific Runner implementation (ECS F
 - The `Runner` interface abstracts starting a command execution and returns a stable execution ID and the task creation timestamp.
 - The AWS implementation resides in `internal/providers/aws/app` and encapsulates all ECS- and AWS-specific logic and types.
 - `internal/app/orchestrator/init.go` wires the chosen provider by constructing the appropriate `Runner` and passing it into `Service`.
-- The public API is re-exported via `internal/app.Service` for backward compatibility (see `internal/app.go`).
+- Clients import directly from `internal/app/orchestrator` (not via `internal/app`).
 
 ## Router Architecture
 

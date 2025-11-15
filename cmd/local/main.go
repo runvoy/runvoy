@@ -13,7 +13,7 @@ import (
 	"syscall"
 
 	"runvoy/cmd/local/server"
-	"runvoy/internal/app"
+	"runvoy/internal/app/orchestrator"
 	"runvoy/internal/app/processor"
 	"runvoy/internal/config"
 	"runvoy/internal/constants"
@@ -24,8 +24,8 @@ import (
 const numServers = 2
 
 func initializeServices(ctx context.Context, log *slog.Logger, oCfg *config.Config, eCfg *config.Config,
-) (*app.Service, processor.Processor, error) {
-	svc, err := app.Initialize(ctx, oCfg, log)
+) (*orchestrator.Service, processor.Processor, error) {
+	svc, err := orchestrator.Initialize(ctx, oCfg, log)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to initialize orchestrator service: %w", err)
 	}
@@ -38,7 +38,7 @@ func initializeServices(ctx context.Context, log *slog.Logger, oCfg *config.Conf
 	return svc, proc, nil
 }
 
-func startOrchestratorServer(log *slog.Logger, cfg *config.Config, svc *app.Service,
+func startOrchestratorServer(log *slog.Logger, cfg *config.Config, svc *orchestrator.Service,
 	serverErrors chan error, wg *sync.WaitGroup) *http.Server {
 	wg.Go(func() {
 		log.Info("starting orchestrator server",
