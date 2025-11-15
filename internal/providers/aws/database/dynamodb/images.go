@@ -521,11 +521,102 @@ func (r *ImageTaskDefRepository) UnmarkAllDefaults(ctx context.Context) error {
 	return nil
 }
 
+// findItemsByImageID finds items by ImageID format.
+func (r *ImageTaskDefRepository) findItemsByImageID(ctx context.Context, image string) ([]imageTaskDefItem, error) {
+	imageInfo, getErr := r.GetImageTaskDefByID(ctx, image)
+	if getErr != nil {
+		return nil, apperrors.ErrInternalError("failed to get image by ImageID", getErr)
+	}
+	if imageInfo == nil {
+		return nil, apperrors.ErrNotFound("image not found", fmt.Errorf("image with ImageID %q not found", image))
+	}
+
+	item := &imageTaskDefItem{
+		ImageID:              imageInfo.ImageID,
+		Image:                imageInfo.Image,
+		TaskDefinitionFamily: imageInfo.TaskDefinitionName,
+		ImageName:            imageInfo.ImageName,
+		ImageTag:             imageInfo.ImageTag,
+		Cpu:                  fmt.Sprintf("%d", imageInfo.CPU),
+		Memory:               fmt.Sprintf("%d", imageInfo.Memory),
+		RuntimePlatform:      imageInfo.RuntimePlatform,
+	}
+	if imageInfo.TaskRoleName != nil {
+		item.TaskRoleName = imageInfo.TaskRoleName
+	}
+	if imageInfo.TaskExecutionRoleName != nil {
+		item.TaskExecutionRoleName = imageInfo.TaskExecutionRoleName
+	}
+	return []imageTaskDefItem{*item}, nil
+}
+
+// findItemsByNameTag finds items by matching name:tag components.
+func (r *ImageTaskDefRepository) findItemsByNameTag(ctx context.Context, image string) ([]imageTaskDefItem, error) {
+	queryName, queryTag := parseImageReference(image)
+	queryNameTag := fmt.Sprintf("%s:%s", queryName, queryTag)
+
+	allResult, allScanErr := r.client.Scan(ctx, &dynamodb.ScanInput{
+		TableName: aws.String(r.tableName),
+	})
+	if allScanErr != nil {
+		return nil, apperrors.ErrInternalError("failed to scan image mappings", allScanErr)
+	}
+
+	var allItems []imageTaskDefItem
+	if unmarshalErr := attributevalue.UnmarshalListOfMaps(allResult.Items, &allItems); unmarshalErr != nil {
+		return nil, apperrors.ErrInternalError("failed to unmarshal image items", unmarshalErr)
+	}
+
+	var items []imageTaskDefItem
+	for i := range allItems {
+		storedNameTag := fmt.Sprintf("%s:%s", allItems[i].ImageName, allItems[i].ImageTag)
+		if storedNameTag == queryNameTag {
+			items = append(items, allItems[i])
+		}
+	}
+	return items, nil
+}
+
+// findItemsByImage finds items by exact image match, with fallback to name:tag matching.
+func (r *ImageTaskDefRepository) findItemsByImage(
+	ctx context.Context,
+	reqLogger *slog.Logger,
+	image string,
+) ([]imageTaskDefItem, error) {
+	logArgs := []any{
+		"operation", "DynamoDB.Scan",
+		"table", r.tableName,
+		"image", image,
+	}
+	logArgs = append(logArgs, logger.GetDeadlineInfo(ctx)...)
+	reqLogger.Debug("calling external service", "context", logger.SliceToMap(logArgs))
+
+	result, scanErr := r.client.Scan(ctx, &dynamodb.ScanInput{
+		TableName:        aws.String(r.tableName),
+		FilterExpression: aws.String("image = :image"),
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":image": &types.AttributeValueMemberS{Value: image},
+		},
+	})
+	if scanErr != nil {
+		return nil, apperrors.ErrInternalError("failed to scan image mappings", scanErr)
+	}
+
+	var items []imageTaskDefItem
+	if unmarshalErr := attributevalue.UnmarshalListOfMaps(result.Items, &items); unmarshalErr != nil {
+		return nil, apperrors.ErrInternalError("failed to unmarshal image items", unmarshalErr)
+	}
+
+	if len(items) == 0 {
+		return r.findItemsByNameTag(ctx, image)
+	}
+
+	return items, nil
+}
+
 // DeleteImage removes all task definition mappings for a specific image.
 // Supports exact matching on both the image field and image_id field (for ImageID format).
 // Returns ErrNotFound if no matching images are found.
-//
-//nolint:funlen // Complex error handling for validation errors
 func (r *ImageTaskDefRepository) DeleteImage(ctx context.Context, image string) error {
 	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
 
@@ -533,55 +624,15 @@ func (r *ImageTaskDefRepository) DeleteImage(ctx context.Context, image string) 
 	var err error
 
 	if looksLikeImageID(image) {
-		imageInfo, getErr := r.GetImageTaskDefByID(ctx, image)
-		if getErr != nil {
-			return apperrors.ErrInternalError("failed to get image by ImageID", getErr)
+		items, err = r.findItemsByImageID(ctx, image)
+		if err != nil {
+			return err
 		}
-		if imageInfo == nil {
-			return apperrors.ErrNotFound("image not found", fmt.Errorf("image with ImageID %q not found", image))
-		}
-
-		item := &imageTaskDefItem{
-			ImageID:              imageInfo.ImageID,
-			Image:                imageInfo.Image,
-			TaskDefinitionFamily: imageInfo.TaskDefinitionName,
-			ImageName:            imageInfo.ImageName,
-			ImageTag:             imageInfo.ImageTag,
-			Cpu:                  fmt.Sprintf("%d", imageInfo.CPU),
-			Memory:               fmt.Sprintf("%d", imageInfo.Memory),
-			RuntimePlatform:      imageInfo.RuntimePlatform,
-		}
-		if imageInfo.TaskRoleName != nil {
-			item.TaskRoleName = imageInfo.TaskRoleName
-		}
-		if imageInfo.TaskExecutionRoleName != nil {
-			item.TaskExecutionRoleName = imageInfo.TaskExecutionRoleName
-		}
-		items = []imageTaskDefItem{*item}
 	} else {
-		logArgs := []any{
-			"operation", "DynamoDB.Scan",
-			"table", r.tableName,
-			"image", image,
+		items, err = r.findItemsByImage(ctx, reqLogger, image)
+		if err != nil {
+			return err
 		}
-		logArgs = append(logArgs, logger.GetDeadlineInfo(ctx)...)
-		reqLogger.Debug("calling external service", "context", logger.SliceToMap(logArgs))
-
-		result, scanErr := r.client.Scan(ctx, &dynamodb.ScanInput{
-			TableName:        aws.String(r.tableName),
-			FilterExpression: aws.String("image = :image"),
-			ExpressionAttributeValues: map[string]types.AttributeValue{
-				":image": &types.AttributeValueMemberS{Value: image},
-			},
-		})
-		if scanErr != nil {
-			return apperrors.ErrInternalError("failed to scan image mappings", scanErr)
-		}
-
-		if unmarshalErr := attributevalue.UnmarshalListOfMaps(result.Items, &items); unmarshalErr != nil {
-			return apperrors.ErrInternalError("failed to unmarshal image items", unmarshalErr)
-		}
-
 		if len(items) == 0 {
 			return apperrors.ErrNotFound("image not found", fmt.Errorf("image %q not found", image))
 		}
@@ -620,7 +671,8 @@ func (r *ImageTaskDefRepository) DeleteImage(ctx context.Context, image string) 
 }
 
 // GetAnyImageTaskDef retrieves any task definition configuration for a given image.
-// Scans by image attribute and returns the first matching item, preferring the default configuration if available.
+// Supports flexible matching: tries exact match on full image first, then matches by name:tag components.
+// Returns the first matching item, preferring the default configuration if available.
 //
 //nolint:funlen // Complex logic with helper function
 func (r *ImageTaskDefRepository) GetAnyImageTaskDef(ctx context.Context, image string) (*api.ImageInfo, error) {
@@ -646,13 +698,41 @@ func (r *ImageTaskDefRepository) GetAnyImageTaskDef(ctx context.Context, image s
 		return nil, apperrors.ErrInternalError("failed to scan image-taskdef mappings", err)
 	}
 
-	if len(result.Items) == 0 {
-		return nil, nil
-	}
-
 	var items []imageTaskDefItem
 	if unmarshalErr := attributevalue.UnmarshalListOfMaps(result.Items, &items); unmarshalErr != nil {
 		return nil, apperrors.ErrInternalError("failed to unmarshal image-taskdef items", unmarshalErr)
+	}
+
+	// If no exact match found, try matching by name:tag components
+	if len(items) == 0 {
+		queryName, queryTag := parseImageReference(image)
+		queryNameTag := fmt.Sprintf("%s:%s", queryName, queryTag)
+
+		// Scan all items and match by name:tag
+		allResult, scanErr := r.client.Scan(ctx, &dynamodb.ScanInput{
+			TableName: aws.String(r.tableName),
+			Limit:     aws.Int32(100), //nolint:mnd // Get up to 100 items to find default if available
+		})
+		if scanErr != nil {
+			return nil, apperrors.ErrInternalError("failed to scan image-taskdef mappings", scanErr)
+		}
+
+		var allItems []imageTaskDefItem
+		if unmarshalErr := attributevalue.UnmarshalListOfMaps(allResult.Items, &allItems); unmarshalErr != nil {
+			return nil, apperrors.ErrInternalError("failed to unmarshal image-taskdef items", unmarshalErr)
+		}
+
+		// Filter by name:tag match
+		for i := range allItems {
+			storedNameTag := fmt.Sprintf("%s:%s", allItems[i].ImageName, allItems[i].ImageTag)
+			if storedNameTag == queryNameTag {
+				items = append(items, allItems[i])
+			}
+		}
+
+		if len(items) == 0 {
+			return nil, nil
+		}
 	}
 
 	convertItem := func(item *imageTaskDefItem) (*api.ImageInfo, error) {

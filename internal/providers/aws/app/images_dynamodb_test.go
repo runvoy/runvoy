@@ -428,16 +428,18 @@ func TestRunner_RemoveImage(t *testing.T) {
 		expectedErr string
 	}{
 		{
-			name:  "successfully removes image with no task definitions",
-			image: "alpine:latest",
+			name:  "successfully removes image by exact ImageID",
+			image: "alpine:latest-a1b2c3d4",
 			mockSetup: func(mr *mockImageRepo) {
-				mr.listImagesFunc = func(_ context.Context) ([]api.ImageInfo, error) {
-					return []api.ImageInfo{
-						{
+				mr.getImageTaskDefByIDFunc = func(_ context.Context, imgID string) (*api.ImageInfo, error) {
+					if imgID == "alpine:latest-a1b2c3d4" {
+						return &api.ImageInfo{
+							ImageID:            "alpine:latest-a1b2c3d4",
 							Image:              "alpine:latest",
 							TaskDefinitionName: "runvoy-alpine-latest",
-						},
-					}, nil
+						}, nil
+					}
+					return nil, nil
 				}
 				mr.deleteImageFunc = func(_ context.Context, _ string) error {
 					return nil
@@ -446,15 +448,22 @@ func TestRunner_RemoveImage(t *testing.T) {
 			expectError: false,
 		},
 		{
-			name:  "handles image not found returns ErrNotFound",
-			image: "nonexistent:latest",
-			mockSetup: func(mr *mockImageRepo) {
-				mr.listImagesFunc = func(_ context.Context) ([]api.ImageInfo, error) {
-					return []api.ImageInfo{}, nil
-				}
+			name:  "rejects partial image name - requires exact ImageID",
+			image: "alpine:latest",
+			mockSetup: func(_ *mockImageRepo) {
+				// mockSetup should not be called when rejecting partial names
 			},
 			expectError: true,
-			expectedErr: "image not found",
+			expectedErr: "image unregister requires exact ImageID",
+		},
+		{
+			name:  "rejects org/repo format without hash - requires exact ImageID",
+			image: "myorg/myapp:v1.0",
+			mockSetup: func(_ *mockImageRepo) {
+				// mockSetup should not be called when rejecting partial names
+			},
+			expectError: true,
+			expectedErr: "image unregister requires exact ImageID",
 		},
 		{
 			name:  "handles ImageID not found returns ErrNotFound",
@@ -468,27 +477,29 @@ func TestRunner_RemoveImage(t *testing.T) {
 			expectedErr: "image not found",
 		},
 		{
-			name:  "handles repository list error",
-			image: "alpine:latest",
+			name:  "handles ImageID repository error",
+			image: "alpine:latest-a1b2c3d4",
 			mockSetup: func(mr *mockImageRepo) {
-				mr.listImagesFunc = func(_ context.Context) ([]api.ImageInfo, error) {
+				mr.getImageTaskDefByIDFunc = func(_ context.Context, _ string) (*api.ImageInfo, error) {
 					return nil, assert.AnError
 				}
 			},
 			expectError: true,
-			expectedErr: "failed to list images",
+			expectedErr: "failed to get image by ImageID",
 		},
 		{
 			name:  "handles repository delete error",
-			image: "alpine:latest",
+			image: "alpine:latest-a1b2c3d4",
 			mockSetup: func(mr *mockImageRepo) {
-				mr.listImagesFunc = func(_ context.Context) ([]api.ImageInfo, error) {
-					return []api.ImageInfo{
-						{
+				mr.getImageTaskDefByIDFunc = func(_ context.Context, imgID string) (*api.ImageInfo, error) {
+					if imgID == "alpine:latest-a1b2c3d4" {
+						return &api.ImageInfo{
+							ImageID:            "alpine:latest-a1b2c3d4",
 							Image:              "alpine:latest",
 							TaskDefinitionName: "runvoy-alpine-latest",
-						},
-					}, nil
+						}, nil
+					}
+					return nil, nil
 				}
 				mr.deleteImageFunc = func(_ context.Context, _ string) error {
 					return assert.AnError

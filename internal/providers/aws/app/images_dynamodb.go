@@ -448,38 +448,16 @@ func (e *Runner) RemoveImage(ctx context.Context, image string) error {
 			matchingImages = []api.ImageInfo{*imageInfo}
 		}
 	} else {
-		// Reject partial image names to avoid accidentally deleting multiple configurations
-		allImages, listErr := e.imageRepo.ListImages(ctx)
-		if listErr != nil {
-			return fmt.Errorf("failed to list images: %w", listErr)
-		}
-
-		matchingImagesByName := []api.ImageInfo{}
-		for i := range allImages {
-			if allImages[i].Image == image && allImages[i].TaskDefinitionName != "" {
-				matchingImagesByName = append(matchingImagesByName, allImages[i])
-			}
-		}
-
-		// If multiple configurations exist for this image, return error with helpful message
-		if len(matchingImagesByName) > 1 {
-			var imageIDs []string
-			for i := range matchingImagesByName {
-				imageIDs = append(imageIDs, matchingImagesByName[i].ImageID)
-			}
-			return apperrors.ErrBadRequest(
-				fmt.Sprintf(
-					"multiple configurations found for image %q. Please specify the exact ImageID to remove. Available ImageIDs: %v",
-					image, imageIDs,
-				),
-				nil,
-			)
-		}
-
-		// Single configuration found - allow deletion
-		if len(matchingImagesByName) == 1 {
-			matchingImages = matchingImagesByName
-		}
+		// For unregistering, require the exact ImageID to avoid any ambiguity
+		// This ensures there's no mismatch between what the user intended and what gets deleted
+		return apperrors.ErrBadRequest(
+			fmt.Sprintf(
+				"image unregister requires exact ImageID (e.g., \"alpine:latest-a1b2c3d4\"). "+
+					"Use 'images list' to find the exact ImageID for %q",
+				image,
+			),
+			nil,
+		)
 	}
 
 	if len(matchingImages) == 0 {
@@ -687,7 +665,10 @@ func (e *Runner) GetImage(ctx context.Context, image string) (*api.ImageInfo, er
 	}
 
 	if imageInfo == nil {
-		return nil, fmt.Errorf("image not found: %s", image)
+		return nil, apperrors.ErrNotFound(
+			fmt.Sprintf("image not found: %s", image),
+			nil,
+		)
 	}
 
 	return imageInfo, nil
