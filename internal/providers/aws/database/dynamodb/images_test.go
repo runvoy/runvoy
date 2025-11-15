@@ -101,53 +101,6 @@ func (m *mockImageClient) Scan(
 	return &dynamodb.ScanOutput{}, nil
 }
 
-func TestBuildRoleComposite(t *testing.T) {
-	tests := []struct {
-		name                  string
-		taskRoleName          *string
-		taskExecutionRoleName *string
-		expected              string
-	}{
-		{
-			name:                  "both roles nil",
-			taskRoleName:          nil,
-			taskExecutionRoleName: nil,
-			expected:              "default#default",
-		},
-		{
-			name:                  "both roles empty strings",
-			taskRoleName:          aws.String(""),
-			taskExecutionRoleName: aws.String(""),
-			expected:              "default#default",
-		},
-		{
-			name:                  "only task role specified",
-			taskRoleName:          aws.String("my-task-role"),
-			taskExecutionRoleName: nil,
-			expected:              "my-task-role#default",
-		},
-		{
-			name:                  "only execution role specified",
-			taskRoleName:          nil,
-			taskExecutionRoleName: aws.String("my-exec-role"),
-			expected:              "default#my-exec-role",
-		},
-		{
-			name:                  "both roles specified",
-			taskRoleName:          aws.String("my-task-role"),
-			taskExecutionRoleName: aws.String("my-exec-role"),
-			expected:              "my-task-role#my-exec-role",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := buildRoleComposite(tt.taskRoleName, tt.taskExecutionRoleName)
-			assert.Equal(t, tt.expected, result)
-		})
-	}
-}
-
 func TestImageTaskDefItem_IsDefault(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -227,7 +180,8 @@ func TestPutImageTaskDef(t *testing.T) {
 
 					assert.Equal(t, "nginx:latest", item.Image)
 					assert.NotEmpty(t, item.ImageID)
-					assert.Equal(t, "default#default", buildRoleComposite(item.TaskRoleName, item.TaskExecutionRoleName))
+					assert.Nil(t, item.TaskRoleName)
+					assert.Nil(t, item.TaskExecutionRoleName)
 					assert.Equal(t, "256", item.Cpu)
 					assert.Equal(t, "512", item.Memory)
 					assert.Equal(t, "Linux/ARM64", item.RuntimePlatform)
@@ -261,10 +215,8 @@ func TestPutImageTaskDef(t *testing.T) {
 					require.NoError(t, err)
 
 					assert.NotEmpty(t, item.ImageID)
-					assert.Equal(
-						t, "custom-task-role#custom-exec-role",
-						buildRoleComposite(item.TaskRoleName, item.TaskExecutionRoleName),
-					)
+					assert.Equal(t, "custom-task-role", *item.TaskRoleName)
+					assert.Equal(t, "custom-exec-role", *item.TaskExecutionRoleName)
 					assert.Equal(t, "256", item.Cpu)
 					assert.Equal(t, "512", item.Memory)
 					assert.Equal(t, "Linux/ARM64", item.RuntimePlatform)
