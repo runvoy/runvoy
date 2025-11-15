@@ -46,7 +46,7 @@ func GenerateRequestID() string {
 // Returns a hex-encoded string of 32 characters (16 random bytes).
 // Used for generating unique identifiers such as task definition family names.
 func GenerateUUID() string {
-	b := make([]byte, constants.RequestIDByteSize)
+	b := make([]byte, constants.UUIDByteSize)
 	if _, err := rand.Read(b); err != nil {
 		// Fallback to time-based identifier if random generation fails
 		return hex.EncodeToString([]byte(time.Now().String()))
