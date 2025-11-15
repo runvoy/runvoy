@@ -64,6 +64,7 @@ Runvoy is composed of 3 main parts:
 - **Multi-cloud support** - Backend support for other execution platforms, cloud providers (GCP, Azure...), Kubernetes, ...
 - Timeouts for command execution
 - Lock management for concurrent command execution
+- Extend Webapp to mirror all CLI commands
 
 ## Quick Start
 
