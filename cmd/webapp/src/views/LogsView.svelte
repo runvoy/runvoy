@@ -277,4 +277,24 @@
         color: var(--pico-color-red-500);
         font-weight: bold;
     }
+
+    @media (max-width: 768px) {
+        article {
+            margin-top: 1.5rem;
+        }
+
+        .status-check-error-modal {
+            max-width: 95%;
+        }
+
+        .error-box {
+            padding: 0.875rem 1rem;
+            margin-top: 1.5rem;
+        }
+
+        code {
+            font-size: 0.85em;
+            padding: 0.2rem 0.4rem;
+        }
+    }
 </style>

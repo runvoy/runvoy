@@ -83,4 +83,29 @@
     .status-badge.stopped {
         background-color: #ff9800;
     } /* Orange */
+
+    @media (max-width: 768px) {
+        .status-bar {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 1rem;
+            padding: 0.875rem;
+        }
+
+        .status-item {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 0.25rem;
+            width: 100%;
+        }
+
+        .execution-id {
+            font-size: 0.85em;
+            word-break: break-all;
+        }
+
+        .status-badge {
+            font-size: 0.75em;
+        }
+    }
 </style>

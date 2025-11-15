@@ -58,7 +58,20 @@
 <style>
     .log-controls {
         display: flex;
-        gap: 1rem;
+        gap: 0.75rem;
         margin-bottom: 1rem;
+        flex-wrap: wrap;
+    }
+
+    @media (max-width: 768px) {
+        .log-controls {
+            gap: 0.5rem;
+        }
+
+        .log-controls button {
+            flex: 1 1 auto;
+            min-width: calc(50% - 0.25rem);
+            font-size: 0.875rem;
+        }
     }
 </style>

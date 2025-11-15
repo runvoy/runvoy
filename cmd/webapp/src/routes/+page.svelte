@@ -32,8 +32,6 @@
         if (execId) {
             switchExecution(execId, { updateHistory: false });
             activeView.set(VIEWS.LOGS);
-        } else {
-            document.title = 'runvoy Logs';
         }
     });
 
@@ -50,53 +48,78 @@
     }
 </script>
 
-<ConnectionManager />
-
 <main class="container">
-    <header>
-        <h1>runvoy Console</h1>
-        {#if appVersion}
-            <p class="version">Version {appVersion}</p>
-        {/if}
-
-        <p class="subtitle">
-            <a href="https://github.com/runvoy/runvoy" target="_blank" rel="noopener">
-                View on GitHub
-            </a>
-        </p>
+    <header class="app-header">
+        <div class="header-content">
+            <div class="header-title">
+                <h1>🚀 runvoy</h1>
+                {#if appVersion}
+                    <p class="version">Version {appVersion}</p>
+                {/if}
+                <p class="subtitle">
+                    <a href="https://github.com/runvoy/runvoy" target="_blank" rel="noopener">
+                        View on GitHub
+                    </a>
+                </p>
+            </div>
+            <div class="header-actions">
+                <ConnectionManager />
+            </div>
+        </div>
+        <div class="header-nav">
+            <ViewSwitcher views={navViews} />
+        </div>
     </header>
 
-    <ViewSwitcher views={navViews} />
-
-    {#if $activeView === VIEWS.RUN}
-        <RunView {apiClient} {isConfigured} />
-    {:else if $activeView === VIEWS.LOGS}
-        <LogsView {apiClient} {isConfigured} />
-    {/if}
+    <div class="content-area">
+        {#if $activeView === VIEWS.RUN}
+            <RunView {apiClient} {isConfigured} />
+        {:else if $activeView === VIEWS.LOGS}
+            <LogsView {apiClient} {isConfigured} />
+        {/if}
+    </div>
 </main>
 
 <style>
     main {
-        padding: 2rem;
-        padding-top: 4rem; /* Account for fixed config button */
+        padding: 1rem;
+        max-width: 1200px;
+        margin: 0 auto;
     }
 
-    header {
+    .app-header {
         margin-bottom: 2rem;
+        border-bottom: 1px solid var(--pico-border-color);
+        padding-bottom: 1.5rem;
+    }
+
+    .header-content {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 1.5rem;
+        align-items: start;
+        margin-bottom: 1.5rem;
+    }
+
+    .header-title {
+        min-width: 0;
+    }
+
+    .header-title h1 {
+        margin-bottom: 0.25rem;
+        font-size: 1.75rem;
     }
 
     .version {
-        margin: 0;
+        margin: 0 0 0.25rem 0;
         color: var(--pico-muted-color);
-    }
-
-    h1 {
-        margin-bottom: 0.5rem;
+        font-size: 0.875rem;
     }
 
     .subtitle {
-        margin-top: 0;
+        margin: 0;
         color: var(--pico-muted-color);
+        font-size: 0.875rem;
     }
 
     .subtitle a {
@@ -106,5 +129,38 @@
 
     .subtitle a:hover {
         text-decoration: underline;
+        color: var(--pico-primary);
+    }
+
+    .header-actions {
+        display: flex;
+        align-items: flex-start;
+    }
+
+    .header-nav {
+        margin-top: 1rem;
+    }
+
+    .content-area {
+        min-height: 400px;
+    }
+
+    @media (max-width: 768px) {
+        main {
+            padding: 1rem 0.75rem;
+        }
+
+        .header-content {
+            grid-template-columns: 1fr;
+            gap: 1rem;
+        }
+
+        .header-actions {
+            width: 100%;
+        }
+
+        .header-title h1 {
+            font-size: 1.5rem;
+        }
     }
 </style>

@@ -54,16 +54,28 @@
 
 <style>
     .execution-selector {
-        margin-bottom: 1rem;
+        margin-bottom: 1.5rem;
     }
 
     label {
         display: block;
         margin-bottom: 0.5rem;
+        font-weight: 500;
     }
 
     input {
         width: 100%;
         font-family: 'Monaco', 'Courier New', monospace;
+        font-size: 0.9375rem;
+    }
+
+    @media (max-width: 768px) {
+        .execution-selector {
+            margin-bottom: 1rem;
+        }
+
+        input {
+            font-size: 0.875rem;
+        }
     }
 </style>

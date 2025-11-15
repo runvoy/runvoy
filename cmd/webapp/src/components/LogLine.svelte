@@ -44,4 +44,30 @@
         white-space: pre-wrap;
         word-break: break-all;
     }
+
+    @media (max-width: 768px) {
+        .log-line {
+            font-size: 0.8em;
+            flex-wrap: wrap;
+        }
+
+        .line-number,
+        .timestamp {
+            margin-right: 0.5rem;
+            font-size: 0.9em;
+        }
+
+        .timestamp {
+            min-width: 18ch;
+        }
+
+        .message {
+            width: 100%;
+            margin-top: 0.25rem;
+        }
+
+        .line-number:first-child + .timestamp + .message {
+            margin-top: 0;
+        }
+    }
 </style>

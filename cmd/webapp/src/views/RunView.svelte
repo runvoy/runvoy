@@ -307,6 +307,37 @@
         justify-content: flex-end;
     }
 
+    @media (max-width: 768px) {
+        .info-card {
+            padding: 1rem;
+        }
+
+        .run-form {
+            gap: 1rem;
+        }
+
+        fieldset {
+            padding: 1rem;
+        }
+
+        .advanced-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .env-row {
+            grid-template-columns: 1fr 1fr auto;
+            gap: 0.375rem;
+        }
+
+        .actions {
+            justify-content: stretch;
+        }
+
+        .actions button {
+            width: 100%;
+        }
+    }
+
     .link-button {
         align-self: flex-start;
         border: none;

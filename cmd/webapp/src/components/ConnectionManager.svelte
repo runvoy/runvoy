@@ -118,10 +118,7 @@
 
 <style>
     .config-button {
-        position: fixed;
-        top: 1rem;
-        right: 1rem;
-        z-index: 100;
+        white-space: nowrap;
     }
 
     .modal-backdrop {
@@ -195,5 +192,25 @@
         display: block;
         margin-top: 0.25rem;
         color: var(--pico-muted-color);
+    }
+
+    @media (max-width: 768px) {
+        .modal-content {
+            width: 95%;
+            padding: 1.5rem;
+            max-height: 90vh;
+        }
+
+        .config-button {
+            width: 100%;
+        }
+
+        .button-group {
+            flex-direction: column;
+        }
+
+        .button-group button {
+            width: 100%;
+        }
     }
 </style>

@@ -58,4 +58,15 @@
         min-height: 180px;
         color: var(--pico-muted-color);
     }
+
+    @media (max-width: 768px) {
+        .log-viewer-container {
+            padding: 0.75rem;
+            min-height: 300px;
+        }
+
+        .placeholder {
+            min-height: 250px;
+        }
+    }
 </style>
