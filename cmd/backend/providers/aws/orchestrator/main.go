@@ -6,7 +6,7 @@ import (
 	"context"
 	"os"
 
-	"runvoy/internal/app/orchestrator"
+	"runvoy/internal/backend/orchestrator"
 	"runvoy/internal/config"
 	"runvoy/internal/constants"
 	"runvoy/internal/logger"

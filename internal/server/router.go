@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"runvoy/internal/api"
-	"runvoy/internal/app/orchestrator"
+	"runvoy/internal/backend/orchestrator"
 
 	"github.com/go-chi/chi/v5"
 )

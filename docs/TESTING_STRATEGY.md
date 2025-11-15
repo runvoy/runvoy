@@ -49,7 +49,7 @@ Total Test Functions:  47
    - API key hashing
    - Authentication middleware
 
-3. **Event Processing** (`internal/app/events/`)
+3. **Event Processing** (`internal/backend/events/`)
    - ECS task completion handling
    - Event routing
 
@@ -190,8 +190,8 @@ generate-mocks:
     mockgen -source=internal/database/repository.go \
         -destination=internal/database/mocks/mock_repository.go \
         -package=mocks
-    mockgen -source=internal/app/runner.go \
-        -destination=internal/app/mocks/mock_runner.go \
+    mockgen -source=internal/backend/runner.go \
+        -destination=internal/backend/mocks/mock_runner.go \
         -package=mocks
 ```
 

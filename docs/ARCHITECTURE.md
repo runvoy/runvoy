@@ -62,12 +62,12 @@ runvoy/
 To support multiple cloud platforms, the service layer now depends on an execution provider interface:
 
 ```text
-internal/app/orchestrator.Service         → uses Runner interface (provider-agnostic)
+internal/backend/orchestrator.Service         → uses Runner interface (provider-agnostic)
 internal/providers/aws/orchestrator       → AWS-specific implementation (ECS Fargate)
 ```
 
 **Architecture:**
-- `internal/app/orchestrator/init.go` defines the `Service` type and `Initialize()` function for the core orchestrator
+- `internal/backend/orchestrator/init.go` defines the `Service` type and `Initialize()` function for the core orchestrator
 - `internal/providers/aws/orchestrator/` contains all AWS-specific implementations:
   - `runner.go` - ECS task execution
   - `images_dynamodb.go` - Docker image management
@@ -75,8 +75,8 @@ internal/providers/aws/orchestrator       → AWS-specific implementation (ECS F
   - `logs.go` - CloudWatch logs access
   - `client.go`, `context.go`, `scripts.go`, `tags.go` - AWS SDK adapters and utilities
 - The `Runner` interface abstracts starting a command execution and returns a stable execution ID and the task creation timestamp
-- Clients import directly from `internal/app/orchestrator` (not via `internal/app`)
-- AWS provider is wired in `internal/app/orchestrator/init.go` via `internal/providers/aws/orchestrator.Initialize()`
+- Clients import directly from `internal/backend/orchestrator` (not via `internal/backend`)
+- AWS provider is wired in `internal/backend/orchestrator/init.go` via `internal/providers/aws/orchestrator.Initialize()`
 
 ## Router Architecture
 
@@ -330,7 +330,7 @@ The request ID middleware automatically:
 
 ### Execution Records: Compute Platform, and Request ID
 
-- The service includes the request ID (when available) in execution records created in `internal/app/orchestrator.Service.RunCommand()`.
+- The service includes the request ID (when available) in execution records created in `internal/backend/orchestrator.Service.RunCommand()`.
 - The `request_id` is persisted in DynamoDB via the `internal/providers/aws/database/dynamodb` repository.
 - If a request ID is not present (e.g., non-Lambda environments), the service logs a warning and stores the execution without a `request_id`.
 - The `compute_platform` field in execution records is derived from the configured backend provider at initialization time (e.g., `AWS`) rather than being hardcoded in the service logic.
@@ -353,7 +353,7 @@ The application uses a unified logging approach with structured logging via `log
 - Log level is configurable via `RUNVOY_LOG_LEVEL` environment variable
 
 ### Service-Level Logging
-- Each `Service` instance in `internal/app/orchestrator` contains its own logger instance (`Service.Logger`)
+- Each `Service` instance in `internal/backend/orchestrator` contains its own logger instance (`Service.Logger`)
 - Service methods that receive a `context.Context` derive a request-scoped logger using the Lambda request ID when available: `reqLogger := s.Logger.With("requestID", AwsRequestID)`
 - This keeps logs consistent with router/handler logs and ensures traceability across layers
 
@@ -508,10 +508,10 @@ Designed to be extended for future event types:
 ### Implementation
 
 **Entry Point**: `cmd/backend/providers/aws/processor/main.go`
-- Initializes event processor from `internal/app/processor`
+- Initializes event processor from `internal/backend/processor`
 - Starts Lambda handler
 
-**Event Routing**: `internal/app/processor/backend.go`
+**Event Routing**: `internal/backend/processor/backend.go`
 - Routes events by `detail-type`
 - Ignores unknown event types (log and continue)
 - Extensible switch statement for new handlers
@@ -631,7 +631,7 @@ The platform uses WebSocket connections for real-time log streaming to clients (
 
 **Purpose**: Manages WebSocket connection lifecycle and sends disconnect notifications when executions complete. It is embedded inside the event processor Lambda rather than deployed as a separate Lambda function.
 
-**Implementation**: `internal/app/websocket/manager.go` (interface), `internal/providers/aws/websocket/manager.go` (AWS implementation)
+**Implementation**: `internal/backend/websocket/manager.go` (interface), `internal/providers/aws/websocket/manager.go` (AWS implementation)
 - **`HandleRequest(ctx, rawEvent, logger)`**: Adapts raw Lambda events for the generic processor, routes WebSocket events by route key, and reports whether the event was handled
 
 **Route Keys Handled**:
@@ -889,7 +889,7 @@ All errors are wrapped in `AppError` which includes:
 - Conditional check failures (e.g., user already exists) become `ErrConflict` (409)
 - User not found scenarios return `nil` user (not an error)
 
-**Service Layer (`internal/app`):**
+**Service Layer (`internal/backend`):**
 - Validates input and returns appropriate client errors (400, 401, 404, 409)
 - Propagates database errors as-is (preserving 503 status codes)
 - Maps business logic failures to appropriate error types
@@ -1117,7 +1117,7 @@ Future enhancements may include server-side filtering and pagination.
    - `internal/logger`: 98.6%
    - `internal/errors`: 94.4%
    - `internal/config/aws`: 97.8%
-   - `internal/app/orchestrator`: 87.6% ⬆️ (from 55.7%)
+   - `internal/backend/orchestrator`: 87.6% ⬆️ (from 55.7%)
    - `internal/constants`: 87.5%
    - `internal/client/playbooks`: 87.3%
    - `internal/auth`: 78.6%
@@ -1125,7 +1125,7 @@ Future enhancements may include server-side filtering and pagination.
    - `internal/config`: 78.4%
 
    **Areas with good coverage (70-80%):**
-   - `internal/app/processor`: 80.0%
+   - `internal/backend/processor`: 80.0%
    - `internal/client/output`: 75.3%
    - `internal/providers/aws/processor`: 75.0%
    - `internal/providers/aws/secrets`: 90.6%
@@ -1505,7 +1505,7 @@ The kill endpoint allows users to terminate running executions. This endpoint pr
 - Verifies task status via ECS DescribeTasks before termination
 
 **Implementation Details:**
-- Service layer (`internal/app/main.go`): `KillExecution` validates execution exists and checks status
+- Service layer (`internal/backend/main.go`): `KillExecution` validates execution exists and checks status
 - AWS Runner (`internal/providers/aws/app/runner.go`): `KillTask` finds task via ListTasks, checks status, and calls StopTask
 - ECS task lifecycle statuses (`LastStatus`) are represented by `constants.EcsStatus` typed constants (e.g., `EcsStatusRunning`, `EcsStatusStopped`) to avoid string literals across the codebase
 - Execution status values are represented by `constants.ExecutionStatus` typed constants (e.g., `ExecutionStarting`, `ExecutionRunning`, `ExecutionSucceeded`, `ExecutionFailed`, `ExecutionStopped`, `ExecutionTerminating`) as part of the API contract

@@ -3,7 +3,7 @@
 package lambdaapi
 
 import (
-	"runvoy/internal/app/orchestrator"
+	"runvoy/internal/backend/orchestrator"
 	"runvoy/internal/server"
 	"time"
 

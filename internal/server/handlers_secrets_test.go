@@ -10,7 +10,7 @@ import (
 	"testing"
 
 	"runvoy/internal/api"
-	"runvoy/internal/app/orchestrator"
+	"runvoy/internal/backend/orchestrator"
 	"runvoy/internal/constants"
 	apperrors "runvoy/internal/errors"
 	"runvoy/internal/testutil"

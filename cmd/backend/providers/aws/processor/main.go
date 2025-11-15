@@ -7,7 +7,7 @@ import (
 	"context"
 	"os"
 
-	"runvoy/internal/app/processor"
+	"runvoy/internal/backend/processor"
 	"runvoy/internal/config"
 	"runvoy/internal/constants"
 	"runvoy/internal/logger"

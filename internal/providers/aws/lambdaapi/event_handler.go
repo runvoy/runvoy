@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"runvoy/internal/app/processor"
+	"runvoy/internal/backend/processor"
 
 	"github.com/aws/aws-lambda-go/lambda"
 )

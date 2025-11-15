@@ -13,8 +13,8 @@ import (
 	"syscall"
 
 	"runvoy/cmd/local/server"
-	"runvoy/internal/app/orchestrator"
-	"runvoy/internal/app/processor"
+	"runvoy/internal/backend/orchestrator"
+	"runvoy/internal/backend/processor"
 	"runvoy/internal/config"
 	"runvoy/internal/constants"
 	"runvoy/internal/logger"

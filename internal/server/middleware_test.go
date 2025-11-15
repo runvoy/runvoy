@@ -7,7 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"runvoy/internal/app/orchestrator"
+	"runvoy/internal/backend/orchestrator"
 	"runvoy/internal/constants"
 	"runvoy/internal/logger"
 	awsOrchestrator "runvoy/internal/providers/aws/orchestrator"
