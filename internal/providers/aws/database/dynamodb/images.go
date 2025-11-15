@@ -69,20 +69,6 @@ func (item *imageTaskDefItem) isDefault() bool {
 	return item.IsDefaultPlaceholder != nil && *item.IsDefaultPlaceholder == defaultPlaceholderValue
 }
 
-// buildRoleComposite creates a composite sort key from role names.
-// Returns "default#default" if both are nil, otherwise "roleName1#roleName2".
-func buildRoleComposite(taskRoleName, taskExecutionRoleName *string) string {
-	taskRole := defaultRoleName
-	execRole := defaultRoleName
-	if taskRoleName != nil && *taskRoleName != "" {
-		taskRole = *taskRoleName
-	}
-	if taskExecutionRoleName != nil && *taskExecutionRoleName != "" {
-		execRole = *taskExecutionRoleName
-	}
-	return fmt.Sprintf("%s#%s", taskRole, execRole)
-}
-
 // GenerateImageID generates a unique, human-readable ID for an image configuration.
 // Format: {imageName}:{tag}-{first-8-chars-of-hash}
 // Example: alpine:latest-a1b2c3d4 or golang:1.24.5-bookworm-19884ca2
@@ -92,7 +78,17 @@ func GenerateImageID(
 	runtimePlatform string,
 	taskRoleName, taskExecutionRoleName *string,
 ) string {
-	roleComposite := buildRoleComposite(taskRoleName, taskExecutionRoleName)
+	// Build role composite inline
+	taskRole := defaultRoleName
+	execRole := defaultRoleName
+	if taskRoleName != nil && *taskRoleName != "" {
+		taskRole = *taskRoleName
+	}
+	if taskExecutionRoleName != nil && *taskExecutionRoleName != "" {
+		execRole = *taskExecutionRoleName
+	}
+	roleComposite := fmt.Sprintf("%s#%s", taskRole, execRole)
+
 	hashInput := fmt.Sprintf("%s:%s:%d:%d:%s:%s", imageName, imageTag, cpu, memory, runtimePlatform, roleComposite)
 	hash := sha256.Sum256([]byte(hashInput))
 	hashStr := fmt.Sprintf("%x", hash)
