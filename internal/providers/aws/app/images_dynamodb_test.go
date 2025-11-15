@@ -910,7 +910,11 @@ func TestLooksLikeImageID(t *testing.T) {
 
 // mockIAMClient is a mock implementation of IAMClient for testing
 type mockIAMClient struct {
-	getRoleFunc func(ctx context.Context, params *iam.GetRoleInput, optFns ...func(*iam.Options)) (*iam.GetRoleOutput, error)
+	getRoleFunc func(
+		ctx context.Context,
+		params *iam.GetRoleInput,
+		optFns ...func(*iam.Options),
+	) (*iam.GetRoleOutput, error)
 }
 
 func (m *mockIAMClient) GetRole(
@@ -954,7 +958,11 @@ func TestRunner_ValidateIAMRoles(t *testing.T) {
 			region:                "us-east-1",
 			accountID:             "123456789012",
 			mockSetup: func(m *mockIAMClient) {
-				m.getRoleFunc = func(_ context.Context, params *iam.GetRoleInput, _ ...func(*iam.Options)) (*iam.GetRoleOutput, error) {
+				m.getRoleFunc = func(
+					_ context.Context,
+					params *iam.GetRoleInput,
+					_ ...func(*iam.Options),
+				) (*iam.GetRoleOutput, error) {
 					if *params.RoleName == "existing-task-role" {
 						return &iam.GetRoleOutput{}, nil
 					}
@@ -970,7 +978,11 @@ func TestRunner_ValidateIAMRoles(t *testing.T) {
 			region:                "us-east-1",
 			accountID:             "123456789012",
 			mockSetup: func(m *mockIAMClient) {
-				m.getRoleFunc = func(_ context.Context, params *iam.GetRoleInput, _ ...func(*iam.Options)) (*iam.GetRoleOutput, error) {
+				m.getRoleFunc = func(
+					_ context.Context,
+					params *iam.GetRoleInput,
+					_ ...func(*iam.Options),
+				) (*iam.GetRoleOutput, error) {
 					if *params.RoleName == "existing-exec-role" {
 						return &iam.GetRoleOutput{}, nil
 					}
@@ -986,7 +998,11 @@ func TestRunner_ValidateIAMRoles(t *testing.T) {
 			region:                "us-east-1",
 			accountID:             "123456789012",
 			mockSetup: func(m *mockIAMClient) {
-				m.getRoleFunc = func(_ context.Context, params *iam.GetRoleInput, _ ...func(*iam.Options)) (*iam.GetRoleOutput, error) {
+				m.getRoleFunc = func(
+					_ context.Context,
+					_ *iam.GetRoleInput,
+					_ ...func(*iam.Options),
+				) (*iam.GetRoleOutput, error) {
 					return &iam.GetRoleOutput{}, nil
 				}
 			},
@@ -999,7 +1015,11 @@ func TestRunner_ValidateIAMRoles(t *testing.T) {
 			region:                "us-east-1",
 			accountID:             "123456789012",
 			mockSetup: func(m *mockIAMClient) {
-				m.getRoleFunc = func(_ context.Context, params *iam.GetRoleInput, _ ...func(*iam.Options)) (*iam.GetRoleOutput, error) {
+				m.getRoleFunc = func(
+					_ context.Context,
+					_ *iam.GetRoleInput,
+					_ ...func(*iam.Options),
+				) (*iam.GetRoleOutput, error) {
 					return nil, &iamTypes.NoSuchEntityException{}
 				}
 			},
@@ -1013,7 +1033,11 @@ func TestRunner_ValidateIAMRoles(t *testing.T) {
 			region:                "us-east-1",
 			accountID:             "123456789012",
 			mockSetup: func(m *mockIAMClient) {
-				m.getRoleFunc = func(_ context.Context, params *iam.GetRoleInput, _ ...func(*iam.Options)) (*iam.GetRoleOutput, error) {
+				m.getRoleFunc = func(
+					_ context.Context,
+					_ *iam.GetRoleInput,
+					_ ...func(*iam.Options),
+				) (*iam.GetRoleOutput, error) {
 					return nil, &iamTypes.NoSuchEntityException{}
 				}
 			},
@@ -1027,7 +1051,11 @@ func TestRunner_ValidateIAMRoles(t *testing.T) {
 			region:                "us-east-1",
 			accountID:             "123456789012",
 			mockSetup: func(m *mockIAMClient) {
-				m.getRoleFunc = func(_ context.Context, params *iam.GetRoleInput, _ ...func(*iam.Options)) (*iam.GetRoleOutput, error) {
+				m.getRoleFunc = func(
+					_ context.Context,
+					_ *iam.GetRoleInput,
+					_ ...func(*iam.Options),
+				) (*iam.GetRoleOutput, error) {
 					return nil, &iamTypes.NoSuchEntityException{}
 				}
 			},

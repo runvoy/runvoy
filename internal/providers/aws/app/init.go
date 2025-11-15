@@ -63,16 +63,7 @@ func Initialize(
 	cwlClient := NewCloudWatchLogsClientAdapter(cwlSDKClient)
 	iamClient := NewIAMClientAdapter(iamSDKClient)
 
-	userRepo := dynamoRepo.NewUserRepository(dynamoClient, cfg.AWS.APIKeysTable, cfg.AWS.PendingAPIKeysTable, log)
-	executionRepo := dynamoRepo.NewExecutionRepository(dynamoClient, cfg.AWS.ExecutionsTable, log)
-	connectionRepo := dynamoRepo.NewConnectionRepository(dynamoClient, cfg.AWS.WebSocketConnectionsTable, log)
-	tokenRepo := dynamoRepo.NewTokenRepository(dynamoClient, cfg.AWS.WebSocketTokensTable, log)
-	imageTaskDefRepo := dynamoRepo.NewImageTaskDefRepository(dynamoClient, cfg.AWS.ImageTaskDefsTable, log)
-	dynamoSecretsRepo := dynamoRepo.NewSecretsRepository(dynamoClient, cfg.AWS.SecretsMetadataTable, log)
-
-	valueStore := secrets.NewParameterStoreManager(ssmClient, cfg.AWS.SecretsPrefix, cfg.AWS.SecretsKMSKeyARN, log)
-	secretsRepo := awsDatabase.NewSecretsRepository(dynamoSecretsRepo, valueStore, log)
-
+	repos := createRepositories(dynamoClient, ssmClient, cfg, log)
 	runnerCfg := &Config{
 		ECSCluster:             cfg.AWS.ECSCluster,
 		Subnet1:                cfg.AWS.Subnet1,
@@ -85,18 +76,53 @@ func Initialize(
 		AccountID:              accountID,
 		SDKConfig:              cfg.AWS.SDKConfig,
 	}
-	runner := NewRunner(ecsClient, cwlClient, iamClient, imageTaskDefRepo, runnerCfg, log)
-	wsManager := awsWebsocket.NewManager(cfg, connectionRepo, tokenRepo, log)
+	runner := NewRunner(ecsClient, cwlClient, iamClient, repos.imageTaskDefRepo, runnerCfg, log)
+	wsManager := awsWebsocket.NewManager(cfg, repos.connectionRepo, repos.tokenRepo, log)
 
 	return &Dependencies{
-		UserRepo:         userRepo,
-		ExecutionRepo:    executionRepo,
-		ConnectionRepo:   connectionRepo,
-		TokenRepo:        tokenRepo,
+		UserRepo:         repos.userRepo,
+		ExecutionRepo:    repos.executionRepo,
+		ConnectionRepo:   repos.connectionRepo,
+		TokenRepo:        repos.tokenRepo,
 		Runner:           runner,
 		WebSocketManager: wsManager,
-		SecretsRepo:      secretsRepo,
+		SecretsRepo:      repos.secretsRepo,
 	}, nil
+}
+
+type repositories struct {
+	userRepo         database.UserRepository
+	executionRepo    database.ExecutionRepository
+	connectionRepo   database.ConnectionRepository
+	tokenRepo        database.TokenRepository
+	imageTaskDefRepo ImageTaskDefRepository
+	secretsRepo      database.SecretsRepository
+}
+
+func createRepositories(
+	dynamoClient dynamoRepo.Client,
+	ssmClient secrets.Client,
+	cfg *config.Config,
+	log *slog.Logger,
+) *repositories {
+	userRepo := dynamoRepo.NewUserRepository(dynamoClient, cfg.AWS.APIKeysTable, cfg.AWS.PendingAPIKeysTable, log)
+	executionRepo := dynamoRepo.NewExecutionRepository(dynamoClient, cfg.AWS.ExecutionsTable, log)
+	connectionRepo := dynamoRepo.NewConnectionRepository(dynamoClient, cfg.AWS.WebSocketConnectionsTable, log)
+	tokenRepo := dynamoRepo.NewTokenRepository(dynamoClient, cfg.AWS.WebSocketTokensTable, log)
+	imageTaskDefRepo := dynamoRepo.NewImageTaskDefRepository(dynamoClient, cfg.AWS.ImageTaskDefsTable, log)
+	dynamoSecretsRepo := dynamoRepo.NewSecretsRepository(dynamoClient, cfg.AWS.SecretsMetadataTable, log)
+
+	valueStore := secrets.NewParameterStoreManager(ssmClient, cfg.AWS.SecretsPrefix, cfg.AWS.SecretsKMSKeyARN, log)
+	secretsRepo := awsDatabase.NewSecretsRepository(dynamoSecretsRepo, valueStore, log)
+
+	return &repositories{
+		userRepo:         userRepo,
+		executionRepo:    executionRepo,
+		connectionRepo:   connectionRepo,
+		tokenRepo:        tokenRepo,
+		imageTaskDefRepo: imageTaskDefRepo,
+		secretsRepo:      secretsRepo,
+	}
 }
 
 // getAccountID retrieves the AWS account ID using STS GetCallerIdentity.
