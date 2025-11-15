@@ -132,7 +132,7 @@ func (s *LogsService) fetchLogsWithRetry(ctx context.Context, executionID string
 	const (
 		maxRetries         = 4
 		retryDelay         = 10 * time.Second
-		startingStateDelay = 20 * time.Second
+		startingStateDelay = 30 * time.Second
 	)
 
 	// Smart initial wait: Check execution status first
@@ -142,7 +142,7 @@ func (s *LogsService) fetchLogsWithRetry(ctx context.Context, executionID string
 		s.output.Infof("Execution status: %s", status.Status)
 		if status.Status == string(constants.ExecutionStarting) {
 			s.output.Infof(fmt.Sprintf(
-				"Execution is starting (provisioning takes ~%d seconds)...", int(startingStateDelay.Seconds())))
+				"Execution is starting (logs usually ready after ~%d seconds)...", int(startingStateDelay.Seconds())))
 			s.sleeper.Sleep(startingStateDelay)
 		} else if status.Status == string(constants.ExecutionTerminating) {
 			s.output.Infof("Execution is terminating, waiting for final state...")
