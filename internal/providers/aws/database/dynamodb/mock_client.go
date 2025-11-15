@@ -75,11 +75,13 @@ func (m *MockDynamoDBClient) PutItem(
 		m.Indexes[tableName] = make(map[string]map[string][]map[string]types.AttributeValue)
 	}
 
-	// Extract the partition key value (connection_id for connections table)
-	// Try to find connection_id first, then fall back to first string field
+	// Extract the partition key value
+	// Try common partition key names first, then fall back to first string field
 	partitionKey := ""
 	if connID, ok := params.Item["connection_id"]; ok {
 		partitionKey = getStringValue(connID)
+	} else if secretName, hasSecretName := params.Item["secret_name"]; hasSecretName {
+		partitionKey = getStringValue(secretName)
 	} else {
 		// Fallback: use first string value as partition key
 		for _, v := range params.Item {

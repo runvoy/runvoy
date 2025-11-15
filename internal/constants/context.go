@@ -1,0 +1,14 @@
+// Package constants defines global constants used throughout runvoy.
+package constants
+
+// ConfigCtxKeyType is the type for the config context key
+type ConfigCtxKeyType string
+
+// ConfigCtxKey is the key used to store config in context
+const ConfigCtxKey ConfigCtxKeyType = "config"
+
+// StartTimeCtxKeyType is the type for start time context keys
+type StartTimeCtxKeyType string
+
+// StartTimeCtxKey is the key used to store the start time in context
+const StartTimeCtxKey StartTimeCtxKeyType = "startTime"

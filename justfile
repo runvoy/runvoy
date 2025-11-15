@@ -154,7 +154,7 @@ fmt:
     goimports -w .
 
 # Run all checks (lint + test)
-check: lint test test-coverage lint-webapp
+check: lint test-coverage lint-webapp
 
 # Install pre-commit hook
 install-hook:
