@@ -7,6 +7,7 @@ import (
 
 	"runvoy/internal/client/output"
 	"runvoy/internal/config"
+	"runvoy/internal/constants"
 
 	"github.com/spf13/cobra"
 )
@@ -14,8 +15,8 @@ import (
 var configureCmd = &cobra.Command{
 	Use:   "configure",
 	Short: "Configure local environment with API key and endpoint URL",
-	Long: `Configure the local environment with your API key and endpoint URL.
-This creates or updates the configuration file at ` + output.Bold("~/.runvoy/config.yaml"),
+	Long: fmt.Sprintf(`Configure the local environment with your API key and endpoint URL.
+This creates or updates the configuration file at ~/%s/%s`, constants.ConfigDirName, constants.ConfigFileName),
 	Run: runConfigure,
 }
 
