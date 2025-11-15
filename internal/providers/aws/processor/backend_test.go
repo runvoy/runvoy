@@ -42,7 +42,7 @@ func (m *mockExecutionRepo) CreateExecution(_ context.Context, _ *api.Execution)
 	return nil
 }
 
-func (m *mockExecutionRepo) ListExecutions(_ context.Context) ([]*api.Execution, error) {
+func (m *mockExecutionRepo) ListExecutions(_ context.Context, _ int, _ []string) ([]*api.Execution, error) {
 	return nil, nil
 }
 

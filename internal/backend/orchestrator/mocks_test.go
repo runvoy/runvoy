@@ -116,7 +116,7 @@ type mockExecutionRepository struct {
 	createExecutionFunc func(ctx context.Context, execution *api.Execution) error
 	getExecutionFunc    func(ctx context.Context, executionID string) (*api.Execution, error)
 	updateExecutionFunc func(ctx context.Context, execution *api.Execution) error
-	listExecutionsFunc  func(ctx context.Context) ([]*api.Execution, error)
+	listExecutionsFunc  func(ctx context.Context, limit int, statuses []string) ([]*api.Execution, error)
 }
 
 func (m *mockExecutionRepository) CreateExecution(ctx context.Context, execution *api.Execution) error {
@@ -140,9 +140,13 @@ func (m *mockExecutionRepository) UpdateExecution(ctx context.Context, execution
 	return nil
 }
 
-func (m *mockExecutionRepository) ListExecutions(ctx context.Context) ([]*api.Execution, error) {
+func (m *mockExecutionRepository) ListExecutions(
+	ctx context.Context,
+	limit int,
+	statuses []string,
+) ([]*api.Execution, error) {
 	if m.listExecutionsFunc != nil {
-		return m.listExecutionsFunc(ctx)
+		return m.listExecutionsFunc(ctx, limit, statuses)
 	}
 	return []*api.Execution{}, nil
 }

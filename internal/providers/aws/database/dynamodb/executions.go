@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"runvoy/internal/api"
-	"runvoy/internal/constants"
 	apperrors "runvoy/internal/errors"
 	"runvoy/internal/logger"
 
@@ -257,12 +256,31 @@ func (r *ExecutionRepository) UpdateExecution(ctx context.Context, execution *ap
 	return nil
 }
 
+// buildStatusMap converts a slice of status strings into a map for efficient lookup.
+func buildStatusMap(statuses []string) map[string]bool {
+	statusMap := make(map[string]bool)
+	for _, s := range statuses {
+		statusMap[s] = true
+	}
+	return statusMap
+}
+
 // ListExecutions queries the executions table using the all-started_at GSI
-// to return all execution records sorted by StartedAt descending (newest first).
+// to return execution records sorted by StartedAt descending (newest first).
 // This uses Query instead of Scan for better performance and native sorting by DynamoDB.
-func (r *ExecutionRepository) ListExecutions(ctx context.Context) ([]*api.Execution, error) {
+//
+// Parameters:
+//   - limit: maximum number of executions to return
+//   - statuses: optional slice of execution statuses to filter by.
+//     If empty, all executions are returned.
+func (r *ExecutionRepository) ListExecutions(
+	ctx context.Context,
+	limit int,
+	statuses []string,
+) ([]*api.Execution, error) {
+	statusMap := buildStatusMap(statuses)
 	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
-	executions := make([]*api.Execution, 0, constants.ExecutionsSliceInitialCapacity)
+	executions := make([]*api.Execution, 0, limit)
 	var lastKey map[string]types.AttributeValue
 
 	reqLogger.Debug("calling external service", "context", map[string]string{
@@ -295,7 +313,18 @@ func (r *ExecutionRepository) ListExecutions(ctx context.Context) ([]*api.Execut
 			if err = attributevalue.UnmarshalMap(it, &item); err != nil {
 				return nil, apperrors.ErrDatabaseError("failed to unmarshal execution", err)
 			}
+
+			// Apply status filter if provided
+			if len(statusMap) > 0 && !statusMap[item.Status] {
+				continue
+			}
+
 			executions = append(executions, item.toAPIExecution())
+
+			// Stop when we've reached the limit
+			if len(executions) >= limit {
+				return executions, nil
+			}
 		}
 
 		if len(out.LastEvaluatedKey) == 0 {

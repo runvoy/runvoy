@@ -247,13 +247,19 @@ func (s *Service) KillExecution(ctx context.Context, executionID string) (*api.K
 	}, nil
 }
 
-// ListExecutions returns all executions currently present in the database.
+// ListExecutions returns executions from the database with optional filtering.
+// Parameters:
+//   - limit: maximum number of executions to return
+//   - statuses: optional list of execution statuses to filter by
+//
+// If statuses is provided, only executions matching one of the specified statuses are returned.
+// Results are returned sorted by started_at in descending order (newest first).
 // Fields with no values are omitted in JSON due to omitempty tags on api.Execution.
-func (s *Service) ListExecutions(ctx context.Context) ([]*api.Execution, error) {
+func (s *Service) ListExecutions(ctx context.Context, limit int, statuses []string) ([]*api.Execution, error) {
 	if s.executionRepo == nil {
 		return nil, apperrors.ErrInternalError("execution repository not configured", nil)
 	}
-	executions, err := s.executionRepo.ListExecutions(ctx)
+	executions, err := s.executionRepo.ListExecutions(ctx, limit, statuses)
 	if err != nil {
 		return nil, err
 	}

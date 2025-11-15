@@ -553,10 +553,11 @@ func TestClient_KillExecution(t *testing.T) { //nolint:dupl
 }
 
 func TestClient_ListExecutions(t *testing.T) {
-	t.Run("successful list executions", func(t *testing.T) {
+	t.Run("successful list executions with limit", func(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			assert.Equal(t, "GET", r.Method)
 			assert.Equal(t, "/api/v1/executions", r.URL.Path)
+			assert.Equal(t, "10", r.URL.Query().Get("limit"))
 
 			w.WriteHeader(http.StatusOK)
 			_ = json.NewEncoder(w).Encode([]api.Execution{
@@ -572,13 +573,41 @@ func TestClient_ListExecutions(t *testing.T) {
 		}
 		c := New(cfg, testutil.SilentLogger())
 
-		executions, err := c.ListExecutions(context.Background())
+		executions, err := c.ListExecutions(context.Background(), 10, "")
 
 		require.NoError(t, err)
 		require.NotNil(t, executions)
 		assert.Len(t, executions, 2)
 		assert.Equal(t, "exec-1", executions[0].ExecutionID)
 		assert.Equal(t, "exec-2", executions[1].ExecutionID)
+	})
+
+	t.Run("list executions with status filter", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			assert.Equal(t, "GET", r.Method)
+			assert.Equal(t, "/api/v1/executions", r.URL.Path)
+			assert.Equal(t, "20", r.URL.Query().Get("limit"))
+			assert.Equal(t, "RUNNING,TERMINATING", r.URL.Query().Get("status"))
+
+			w.WriteHeader(http.StatusOK)
+			_ = json.NewEncoder(w).Encode([]api.Execution{
+				{ExecutionID: "exec-1", Status: "RUNNING"},
+			})
+		}))
+		defer server.Close()
+
+		cfg := &config.Config{
+			APIEndpoint: server.URL,
+			APIKey:      "test-api-key",
+		}
+		c := New(cfg, testutil.SilentLogger())
+
+		executions, err := c.ListExecutions(context.Background(), 20, "RUNNING,TERMINATING")
+
+		require.NoError(t, err)
+		require.NotNil(t, executions)
+		assert.Len(t, executions, 1)
+		assert.Equal(t, "exec-1", executions[0].ExecutionID)
 	})
 }
 

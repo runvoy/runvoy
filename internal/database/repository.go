@@ -69,9 +69,13 @@ type ExecutionRepository interface {
 	// UpdateExecution updates an existing execution record.
 	UpdateExecution(ctx context.Context, execution *api.Execution) error
 
-	// ListExecutions returns all executions currently present in the database.
-	// Implementations may choose an efficient retrieval strategy; order is newest first.
-	ListExecutions(ctx context.Context) ([]*api.Execution, error)
+	// ListExecutions returns executions from the database with optional filtering and pagination.
+	// Parameters:
+	//   - limit: maximum number of executions to return
+	//   - statuses: optional slice of execution statuses to filter by.
+	//              If empty, all executions are returned.
+	// Results are ordered newest first.
+	ListExecutions(ctx context.Context, limit int, statuses []string) ([]*api.Execution, error)
 }
 
 // ConnectionRepository defines the interface for WebSocket connection-related database operations.

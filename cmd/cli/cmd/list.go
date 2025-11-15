@@ -4,10 +4,13 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"strings"
+	"time"
+
 	"runvoy/internal/api"
 	"runvoy/internal/client"
 	"runvoy/internal/client/output"
-	"time"
+	"runvoy/internal/constants"
 
 	"github.com/spf13/cobra"
 )
@@ -17,12 +20,41 @@ const maxCommandLength = 40
 var executionsCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List command executions",
-	Long:  "List all command executions present in the runvoy backend",
-	Run:   executionsRun,
+	Long: fmt.Sprintf(
+		`List command executions present in the runvoy backend with optional filtering.
+Show last %d executions and all statuses by default. Use --limit and --status flags to customize the output.`,
+		constants.DefaultExecutionListLimit,
+	),
+	Example: fmt.Sprintf(`  # Show last %d executions
+  - %s list
+
+  # Show last 100 executions
+  - %s list --limit 100
+
+  # Show last 20 executions and filter by RUNNING and SUCCEEDED statuses
+  - %s list --limit 20 --status RUNNING,SUCCEEDED`,
+		constants.DefaultExecutionListLimit,
+		constants.ProjectName, constants.ProjectName, constants.ProjectName),
+	Run: executionsRun,
 }
+
+var (
+	limitFlag  int
+	statusFlag string
+)
 
 func init() {
 	rootCmd.AddCommand(executionsCmd)
+
+	executionsCmd.Flags().IntVar(
+		&limitFlag,
+		"limit",
+		constants.DefaultExecutionListLimit,
+		fmt.Sprintf("maximum number of executions to return (default: %d)",
+			constants.DefaultExecutionListLimit),
+	)
+	executionsCmd.Flags().StringVar(&statusFlag, "status", "",
+		"comma-separated list of execution statuses to filter by (e.g., RUNNING,TERMINATING)")
 }
 
 func executionsRun(cmd *cobra.Command, _ []string) {
@@ -34,7 +66,9 @@ func executionsRun(cmd *cobra.Command, _ []string) {
 
 	c := client.New(cfg, slog.Default())
 	service := NewListService(c, NewOutputWrapper())
-	if err = service.ListExecutions(cmd.Context()); err != nil {
+	// Convert status flag to uppercase to allow case-insensitive input
+	upperStatus := strings.ToUpper(statusFlag)
+	if err = service.ListExecutions(cmd.Context(), limitFlag, upperStatus); err != nil {
 		output.Errorf(err.Error())
 	}
 }
@@ -53,11 +87,15 @@ func NewListService(apiClient client.Interface, outputter OutputInterface) *List
 	}
 }
 
-// ListExecutions lists all executions and displays them in a table format
-func (s *ListService) ListExecutions(ctx context.Context) error {
+// ListExecutions lists executions with optional filtering and displays them in a table format
+func (s *ListService) ListExecutions(ctx context.Context, limit int, statuses string) error {
+	if limit <= 0 {
+		return fmt.Errorf("limit must be a positive integer, got %d", limit)
+	}
+
 	s.output.Infof("Listing executions…")
 
-	execs, err := s.client.ListExecutions(ctx)
+	execs, err := s.client.ListExecutions(ctx, limit, statuses)
 	if err != nil {
 		return fmt.Errorf("failed to list executions: %w", err)
 	}

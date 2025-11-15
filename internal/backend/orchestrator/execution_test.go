@@ -330,13 +330,13 @@ func TestListExecutions(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			execRepo := &mockExecutionRepository{
-				listExecutionsFunc: func(_ context.Context) ([]*api.Execution, error) {
+				listExecutionsFunc: func(_ context.Context, _ int, _ []string) ([]*api.Execution, error) {
 					return tt.mockExecutions, tt.listErr
 				},
 			}
 
 			svc := newTestService(nil, execRepo, nil)
-			executions, err := svc.ListExecutions(ctx)
+			executions, err := svc.ListExecutions(ctx, constants.DefaultExecutionListLimit, []string{})
 
 			if tt.expectErr {
 				require.Error(t, err)

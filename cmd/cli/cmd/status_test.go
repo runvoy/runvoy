@@ -36,7 +36,7 @@ func (m *mockClientInterface) RunCommand(_ context.Context, _ *api.ExecutionRequ
 func (m *mockClientInterface) KillExecution(_ context.Context, _ string) (*api.KillExecutionResponse, error) {
 	return nil, fmt.Errorf("not implemented")
 }
-func (m *mockClientInterface) ListExecutions(_ context.Context) ([]api.Execution, error) {
+func (m *mockClientInterface) ListExecutions(_ context.Context, _ int, _ string) ([]api.Execution, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 func (m *mockClientInterface) ClaimAPIKey(_ context.Context, _ string) (*api.ClaimAPIKeyResponse, error) {

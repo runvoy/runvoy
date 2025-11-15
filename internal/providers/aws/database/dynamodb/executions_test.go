@@ -716,7 +716,7 @@ func TestExecutionRepository_ListExecutions(t *testing.T) {
 		mockClient := NewMockDynamoDBClient()
 		repo := NewExecutionRepository(mockClient, tableName, logger)
 
-		executions, err := repo.ListExecutions(ctx)
+		executions, err := repo.ListExecutions(ctx, 10, []string{})
 
 		require.NoError(t, err)
 		assert.NotNil(t, executions)
@@ -727,7 +727,7 @@ func TestExecutionRepository_ListExecutions(t *testing.T) {
 		mockClient := NewMockDynamoDBClient()
 		repo := NewExecutionRepository(mockClient, tableName, logger)
 
-		executions, err := repo.ListExecutions(ctx)
+		executions, err := repo.ListExecutions(ctx, 10, []string{})
 
 		require.NoError(t, err)
 		assert.NotNil(t, executions)
@@ -739,7 +739,7 @@ func TestExecutionRepository_ListExecutions(t *testing.T) {
 		mockClient.QueryError = fmt.Errorf("database error")
 		repo := NewExecutionRepository(mockClient, tableName, logger)
 
-		executions, err := repo.ListExecutions(ctx)
+		executions, err := repo.ListExecutions(ctx, 10, []string{})
 
 		require.Error(t, err)
 		assert.Nil(t, executions)

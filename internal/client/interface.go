@@ -13,7 +13,7 @@ type Interface interface {
 	GetExecutionStatus(ctx context.Context, executionID string) (*api.ExecutionStatusResponse, error)
 	RunCommand(ctx context.Context, req *api.ExecutionRequest) (*api.ExecutionResponse, error)
 	KillExecution(ctx context.Context, executionID string) (*api.KillExecutionResponse, error)
-	ListExecutions(ctx context.Context) ([]api.Execution, error)
+	ListExecutions(ctx context.Context, limit int, statuses string) ([]api.Execution, error)
 	ClaimAPIKey(ctx context.Context, token string) (*api.ClaimAPIKeyResponse, error)
 	CreateUser(ctx context.Context, req api.CreateUserRequest) (*api.CreateUserResponse, error)
 	RevokeUser(ctx context.Context, req api.RevokeUserRequest) (*api.RevokeUserResponse, error)

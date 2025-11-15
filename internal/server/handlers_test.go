@@ -118,7 +118,7 @@ func (t *testUserRepository) ListUsers(_ context.Context) ([]*api.User, error) {
 }
 
 type testExecutionRepository struct {
-	listExecutionsFunc func() ([]*api.Execution, error)
+	listExecutionsFunc func(limit int, statuses []string) ([]*api.Execution, error)
 	getExecutionFunc   func(ctx context.Context, executionID string) (*api.Execution, error)
 }
 
@@ -144,9 +144,13 @@ func (t *testExecutionRepository) UpdateExecution(_ context.Context, _ *api.Exec
 	return nil
 }
 
-func (t *testExecutionRepository) ListExecutions(_ context.Context) ([]*api.Execution, error) {
+func (t *testExecutionRepository) ListExecutions(
+	_ context.Context,
+	limit int,
+	statuses []string,
+) ([]*api.Execution, error) {
 	if t.listExecutionsFunc != nil {
-		return t.listExecutionsFunc()
+		return t.listExecutionsFunc(limit, statuses)
 	}
 	return []*api.Execution{}, nil
 }
@@ -348,7 +352,7 @@ func TestHandleRunCommand_Unauthorized(t *testing.T) {
 func TestHandleListExecutions_Success(t *testing.T) {
 	now := time.Now()
 	execRepo := &testExecutionRepository{
-		listExecutionsFunc: func() ([]*api.Execution, error) {
+		listExecutionsFunc: func(_ int, _ []string) ([]*api.Execution, error) {
 			return []*api.Execution{
 				{
 					ExecutionID: "exec-1",
@@ -391,7 +395,7 @@ func TestHandleListExecutions_Success(t *testing.T) {
 
 func TestHandleListExecutions_Empty(t *testing.T) {
 	execRepo := &testExecutionRepository{
-		listExecutionsFunc: func() ([]*api.Execution, error) {
+		listExecutionsFunc: func(_ int, _ []string) ([]*api.Execution, error) {
 			return []*api.Execution{}, nil
 		},
 	}
@@ -421,7 +425,7 @@ func TestHandleListExecutions_Empty(t *testing.T) {
 
 func TestHandleListExecutions_DatabaseError(t *testing.T) {
 	execRepo := &testExecutionRepository{
-		listExecutionsFunc: func() ([]*api.Execution, error) {
+		listExecutionsFunc: func(_ int, _ []string) ([]*api.Execution, error) {
 			return nil, errors.New("database connection failed")
 		},
 	}

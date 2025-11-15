@@ -11,6 +11,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"strings"
 
 	"runvoy/internal/api"
 	"runvoy/internal/config"
@@ -45,6 +46,30 @@ type Response struct {
 	Body       []byte
 }
 
+// buildURL constructs the full API URL from path and query string
+func (c *Client) buildURL(path string) (string, error) {
+	// Split path and query string if present
+	var pathPart, queryString string
+	if idx := strings.Index(path, "?"); idx != -1 {
+		pathPart = path[:idx]
+		queryString = path[idx+1:]
+	} else {
+		pathPart = path
+	}
+
+	apiURL, err := url.JoinPath(c.config.APIEndpoint, pathPart)
+	if err != nil {
+		return "", err
+	}
+
+	// Add query string if present
+	if queryString != "" {
+		apiURL = apiURL + "?" + queryString
+	}
+
+	return apiURL, nil
+}
+
 // Do makes an HTTP request to the API
 func (c *Client) Do(ctx context.Context, req Request) (*Response, error) {
 	var bodyReader io.Reader
@@ -56,7 +81,7 @@ func (c *Client) Do(ctx context.Context, req Request) (*Response, error) {
 		bodyReader = bytes.NewBuffer(jsonData)
 	}
 
-	apiURL, err := url.JoinPath(c.config.APIEndpoint, req.Path)
+	apiURL, err := c.buildURL(req.Path)
 	if err != nil {
 		return nil, fmt.Errorf("invalid API endpoint: %w", err)
 	}
@@ -270,12 +295,33 @@ func (c *Client) KillExecution(ctx context.Context, executionID string) (*api.Ki
 	return &resp, nil
 }
 
-// ListExecutions fetches all executions
-func (c *Client) ListExecutions(ctx context.Context) ([]api.Execution, error) {
+// ListExecutions fetches executions with optional filtering and pagination.
+// Parameters:
+//   - limit: maximum number of executions to return
+//   - statuses: comma-separated list of execution statuses to filter by (e.g., "RUNNING,TERMINATING")
+func (c *Client) ListExecutions(ctx context.Context, limit int, statuses string) ([]api.Execution, error) {
 	var resp []api.Execution
-	err := c.DoJSON(ctx, Request{
+
+	// Build the URL properly with query parameters
+	u, err := url.Parse("/api/v1/executions")
+	if err != nil {
+		return nil, err
+	}
+
+	params := url.Values{}
+	if limit > 0 {
+		params.Set("limit", fmt.Sprintf("%d", limit))
+	}
+	if statuses != "" {
+		params.Set("status", statuses)
+	}
+
+	u.RawQuery = params.Encode()
+	path := u.String()
+
+	err = c.DoJSON(ctx, Request{
 		Method: "GET",
-		Path:   "/api/v1/executions",
+		Path:   path,
 	}, &resp)
 	if err != nil {
 		return nil, err

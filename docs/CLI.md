@@ -93,8 +93,29 @@ Kill a running command execution
 
 ## runvoy list
 
-List all command executions present in the runvoy backend
+List command executions present in the runvoy backend with optional filtering.
+Show last 10 executions and all statuses by default. Use --limit and --status flags to customize the output.
 
+**Examples**
+
+```bash
+  # Show last 10 executions
+  - runvoy list
+
+  # Show last 100 executions
+  - runvoy list --limit 100
+
+  # Show last 20 executions and filter by RUNNING and SUCCEEDED statuses
+  - runvoy list --limit 20 --status RUNNING,SUCCEEDED
+```
+
+**Options**
+
+```
+  -h, --help            help for list
+      --limit int       maximum number of executions to return (default: 10) (default 10)
+      --status string   comma-separated list of execution statuses to filter by (e.g., RUNNING,TERMINATING)
+```
 
 ## runvoy logs
 

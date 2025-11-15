@@ -21,6 +21,9 @@ const (
 	ExecutionStopped ExecutionStatus = "STOPPED"
 	// ExecutionTerminating indicates a stop request is in progress
 	ExecutionTerminating ExecutionStatus = "TERMINATING"
+
+	// DefaultExecutionListLimit is the default number of executions returned by the list endpoint
+	DefaultExecutionListLimit = 10
 )
 
 // TerminalExecutionStatuses returns all statuses that represent completed executions
