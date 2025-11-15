@@ -13,14 +13,22 @@ import (
 	appErrors "runvoy/internal/errors"
 	loggerPkg "runvoy/internal/logger"
 	"runvoy/internal/providers/aws/secrets"
-
-	dynamoRepo "runvoy/internal/providers/aws/database/dynamodb"
 )
+
+// MetadataRepository defines the interface for secret metadata operations.
+type MetadataRepository interface {
+	CreateSecret(ctx context.Context, secret *api.Secret) error
+	GetSecret(ctx context.Context, name string) (*api.Secret, error)
+	ListSecrets(ctx context.Context) ([]*api.Secret, error)
+	UpdateSecretMetadata(ctx context.Context, name, keyName, description, updatedBy string) error
+	DeleteSecret(ctx context.Context, name string) error
+	SecretExists(ctx context.Context, name string) (bool, error)
+}
 
 // SecretsRepository implements database.SecretsRepository for AWS.
 // It coordinates DynamoDB (metadata) and Parameter Store (values) to provide a unified interface.
 type SecretsRepository struct {
-	metadataRepo *dynamoRepo.SecretsRepository
+	metadataRepo MetadataRepository
 	valueStore   secrets.ValueStore
 	logger       *slog.Logger
 }
@@ -30,7 +38,7 @@ var _ database.SecretsRepository = (*SecretsRepository)(nil)
 
 // NewSecretsRepository creates a new AWS secrets repository.
 func NewSecretsRepository(
-	metadataRepo *dynamoRepo.SecretsRepository,
+	metadataRepo MetadataRepository,
 	valueStore secrets.ValueStore,
 	logger *slog.Logger,
 ) *SecretsRepository {
@@ -139,12 +147,31 @@ func (sr *SecretsRepository) UpdateSecret(
 		}
 	}
 
-	// Always update metadata (description, keyName, and timestamp)
-	if err := sr.metadataRepo.UpdateSecretMetadata(
-		ctx, secret.Name, secret.KeyName, secret.Description, secret.UpdatedBy,
-	); err != nil {
-		reqLogger.Error("failed to update secret metadata", "error", err, "name", secret.Name)
-		return appErrors.ErrInternalError("failed to update secret metadata", fmt.Errorf("update secret metadata: %w", err))
+	// Get existing secret to preserve metadata that wasn't provided
+	existingSecret, err := sr.metadataRepo.GetSecret(ctx, secret.Name)
+	if err != nil {
+		reqLogger.Error("failed to get existing secret", "error", err, "name", secret.Name)
+		return appErrors.ErrInternalError("failed to get existing secret", fmt.Errorf("get existing secret: %w", err))
+	}
+
+	// Use provided values, or fall back to existing values if not provided
+	keyName := secret.KeyName
+	if keyName == "" {
+		keyName = existingSecret.KeyName
+	}
+
+	description := secret.Description
+	if description == "" {
+		description = existingSecret.Description
+	}
+
+	// Update metadata with merged values
+	if updateErr := sr.metadataRepo.UpdateSecretMetadata(
+		ctx, secret.Name, keyName, description, secret.UpdatedBy,
+	); updateErr != nil {
+		reqLogger.Error("failed to update secret metadata", "error", updateErr, "name", secret.Name)
+		wrapped := fmt.Errorf("update secret metadata: %w", updateErr)
+		return appErrors.ErrInternalError("failed to update secret metadata", wrapped)
 	}
 
 	return nil
