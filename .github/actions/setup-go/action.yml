@@ -1,0 +1,11 @@
+name: 'Setup Go Environment'
+description: 'Set up Go with caching'
+runs:
+  using: 'composite'
+  steps:
+    - name: Set up Go
+      uses: actions/setup-go@v6
+      with:
+        cache: true
+        go-version: stable
+

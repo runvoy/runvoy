@@ -17,11 +17,8 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v5
 
-      - name: Set up Go
-        uses: actions/setup-go@v6
-        with:
-          cache: true
-          go-version: stable
+      - name: Setup Go environment
+        uses: ./.github/actions/setup-go
 
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v9

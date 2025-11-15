@@ -16,10 +16,8 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v5
 
-      - uses: actions/setup-go@v6
-        with:
-          cache: true
-          go-version: stable
+      - name: Setup Go environment
+        uses: ./.github/actions/setup-go
 
       - name: Install gomarkdoc
         run: go install github.com/princjef/gomarkdoc/cmd/gomarkdoc@latest
