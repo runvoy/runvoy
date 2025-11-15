@@ -38,10 +38,11 @@ func Initialize(
 
 		processor, err := processorAws.Initialize(cfg, logger)
 		if err != nil {
-			return nil, fmt.Errorf("failed to initialize AWS backend: %w", err)
+			return nil, fmt.Errorf("failed to initialize event processor AWS backend: %w", err)
 		}
-		logger.Debug(constants.ProjectName + " event processor initialized successfully")
+
 		return processor, nil
+
 	default:
 		return nil, fmt.Errorf("unknown backend provider: %s (supported: %s)", cfg.BackendProvider, constants.AWS)
 	}

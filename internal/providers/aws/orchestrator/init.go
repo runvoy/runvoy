@@ -11,7 +11,7 @@ import (
 	awsDatabase "runvoy/internal/providers/aws/database"
 	dynamoRepo "runvoy/internal/providers/aws/database/dynamodb"
 	"runvoy/internal/providers/aws/secrets"
-	awsWebsocket "runvoy/internal/providers/aws/websocket"
+	"runvoy/internal/providers/aws/websocket"
 
 	awsStd "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs"
@@ -29,13 +29,13 @@ type Dependencies struct {
 	ConnectionRepo   database.ConnectionRepository
 	TokenRepo        database.TokenRepository
 	Runner           *Runner
-	WebSocketManager *awsWebsocket.Manager
+	WebSocketManager *websocket.Manager
 	SecretsRepo      database.SecretsRepository
 }
 
 // Initialize prepares AWS service dependencies for the app package.
 // Wraps the AWS SDK clients in adapters for improved testability.
-func Initialize(
+func Initialize( //nolint:funlen // This is ok, lots of initializations required
 	ctx context.Context,
 	cfg *config.Config,
 	log *slog.Logger,
@@ -77,7 +77,17 @@ func Initialize(
 		SDKConfig:              cfg.AWS.SDKConfig,
 	}
 	runner := NewRunner(ecsClient, cwlClient, iamClient, repos.imageTaskDefRepo, runnerCfg, log)
-	wsManager := awsWebsocket.NewManager(cfg, repos.connectionRepo, repos.tokenRepo, log)
+	wsManager := websocket.Initialize(cfg, repos.connectionRepo, repos.tokenRepo, log)
+
+	log.Debug("AWS orchestrator initialized successfully", "context", map[string]string{
+		"ecs_cluster":                cfg.AWS.ECSCluster,
+		"subnet1":                    cfg.AWS.Subnet1,
+		"subnet2":                    cfg.AWS.Subnet2,
+		"security_group":             cfg.AWS.SecurityGroup,
+		"log_group":                  cfg.AWS.LogGroup,
+		"default_task_exec_role_arn": cfg.AWS.DefaultTaskExecRoleARN,
+		"default_task_role_arn":      cfg.AWS.DefaultTaskRoleARN,
+	})
 
 	return &Dependencies{
 		UserRepo:         repos.userRepo,
@@ -114,6 +124,20 @@ func createRepositories(
 
 	valueStore := secrets.NewParameterStoreManager(ssmClient, cfg.AWS.SecretsPrefix, cfg.AWS.SecretsKMSKeyARN, log)
 	secretsRepo := awsDatabase.NewSecretsRepository(dynamoSecretsRepo, valueStore, log)
+
+	log.Debug("DynamoDB backend configured", "context", map[string]string{
+		"api_keys_table":              cfg.AWS.APIKeysTable,
+		"executions_table":            cfg.AWS.ExecutionsTable,
+		"websocket_connections_table": cfg.AWS.WebSocketConnectionsTable,
+		"websocket_tokens_table":      cfg.AWS.WebSocketTokensTable,
+		"image_taskdefs_table":        cfg.AWS.ImageTaskDefsTable,
+		"secrets_metadata_table":      cfg.AWS.SecretsMetadataTable,
+	})
+
+	log.Debug("SSM Parameter Store secrets backend configured", "context", map[string]string{
+		"secrets_prefix":      cfg.AWS.SecretsPrefix,
+		"secrets_kms_key_arn": cfg.AWS.SecretsKMSKeyARN,
+	})
 
 	return &repositories{
 		userRepo:         userRepo,

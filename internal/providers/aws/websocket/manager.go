@@ -1,6 +1,6 @@
-// Package aws provides AWS-specific WebSocket management implementation for runvoy.
+// Package websocket provides AWS-specific WebSocket management implementation for runvoy.
 // It handles connection lifecycle events via API Gateway and manages WebSocket connections in DynamoDB.
-package aws
+package websocket
 
 import (
 	"context"
@@ -35,8 +35,8 @@ type Manager struct {
 	connectionIDs []string
 }
 
-// NewManager creates a new AWS WebSocket manager.
-func NewManager(
+// Initialize creates a new AWS WebSocket manager.
+func Initialize(
 	cfg *config.Config,
 	connRepo database.ConnectionRepository,
 	tokenRepo database.TokenRepository,

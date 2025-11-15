@@ -36,8 +36,6 @@ func Initialize(
 			return nil, fmt.Errorf("failed to initialize AWS dependencies: %w", err)
 		}
 
-		logger.Debug(constants.ProjectName + " orchestrator initialized successfully")
-
 		return NewService(
 			awsDeps.UserRepo,
 			awsDeps.ExecutionRepo,
