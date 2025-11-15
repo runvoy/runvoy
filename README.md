@@ -21,7 +21,9 @@
 
 Deploy once, issue API keys, let your team execute arbitrary (admin) commands safely from their terminals. Share playbooks to execute commands consistently and reliably.
 
-Workstations shouldn't be snowflakes that need complex setups, let remote containers execute the actual commands (_run envoys..._) in a secured and reproducible production grade environment.
+Workstations shouldn't need complex setups, let remote containers execute the actual commands in a secured and reproducible production grade environment.
+
+No need for snowflakes, __run envoys__...
 
 ## Use cases
 
@@ -133,7 +135,7 @@ runvoy --help
 ```
 
 ```text
-runvoy - 0.1.0-20251115-6c396d6
+runvoy - 0.1.0-20251115-4281dc0
 Isolated, repeatable execution environments for your commands
 
 Usage:
