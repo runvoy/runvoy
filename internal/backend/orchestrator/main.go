@@ -63,7 +63,7 @@ type Service struct {
 	secretsRepo   database.SecretsRepository // Repository for managing secrets
 }
 
-// NOTE: provider-specific configuration has been moved to subpackages (e.g., providers/aws/app).
+// NOTE: provider-specific configuration has been moved to sub packages (e.g., providers/aws/app).
 
 // NewService creates a new service instance.
 // If userRepo is nil, user-related operations will not be available.
