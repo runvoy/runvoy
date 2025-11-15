@@ -418,6 +418,10 @@ func (e *Runner) ListImages(ctx context.Context) ([]api.ImageInfo, error) {
 // If deregistration fails for any task definition, it continues to clean up the remaining ones
 // and still removes the mappings from DynamoDB.
 //
+// NOTE: To avoid accidental deletion of multiple image configurations, this function requires
+// the full ImageID (e.g., "alpine:latest-a1b2c3d4") instead of just the image name/tag.
+// Use ListImages to find the specific ImageID you want to remove.
+//
 //nolint:gocyclo,funlen // Complex deletion flow with pagination, deregistration, and deletion
 func (e *Runner) RemoveImage(ctx context.Context, image string) error {
 	if e.imageRepo == nil {
@@ -444,15 +448,37 @@ func (e *Runner) RemoveImage(ctx context.Context, image string) error {
 			matchingImages = []api.ImageInfo{*imageInfo}
 		}
 	} else {
+		// Reject partial image names to avoid accidentally deleting multiple configurations
 		allImages, listErr := e.imageRepo.ListImages(ctx)
 		if listErr != nil {
 			return fmt.Errorf("failed to list images: %w", listErr)
 		}
 
+		matchingImagesByName := []api.ImageInfo{}
 		for i := range allImages {
 			if allImages[i].Image == image && allImages[i].TaskDefinitionName != "" {
-				matchingImages = append(matchingImages, allImages[i])
+				matchingImagesByName = append(matchingImagesByName, allImages[i])
 			}
+		}
+
+		// If multiple configurations exist for this image, return error with helpful message
+		if len(matchingImagesByName) > 1 {
+			var imageIDs []string
+			for i := range matchingImagesByName {
+				imageIDs = append(imageIDs, matchingImagesByName[i].ImageID)
+			}
+			return apperrors.ErrBadRequest(
+				fmt.Sprintf(
+					"multiple configurations found for image %q. Please specify the exact ImageID to remove. Available ImageIDs: %v",
+					image, imageIDs,
+				),
+				nil,
+			)
+		}
+
+		// Single configuration found - allow deletion
+		if len(matchingImagesByName) == 1 {
+			matchingImages = matchingImagesByName
 		}
 	}
 
