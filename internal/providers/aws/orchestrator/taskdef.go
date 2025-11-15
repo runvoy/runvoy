@@ -1,5 +1,5 @@
-// Package aws provides AWS-specific implementations for runvoy.
-package aws
+// Package orchestrator provides AWS-specific implementations for runvoy orchestrator.
+package orchestrator
 
 import (
 	"context"

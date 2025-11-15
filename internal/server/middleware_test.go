@@ -10,7 +10,7 @@ import (
 	"runvoy/internal/app/orchestrator"
 	"runvoy/internal/constants"
 	"runvoy/internal/logger"
-	appAws "runvoy/internal/providers/aws/app"
+	awsOrchestrator "runvoy/internal/providers/aws/orchestrator"
 	"runvoy/internal/testutil"
 
 	"github.com/aws/aws-lambda-go/lambdacontext"
@@ -50,7 +50,7 @@ func TestRequestIDMiddleware(t *testing.T) {
 	// Test with Lambda context - should use Lambda's request ID
 	t.Run("with lambda context uses lambda request ID", func(t *testing.T) {
 		// Register Lambda context extractor for this test
-		logger.RegisterContextExtractor(appAws.NewLambdaContextExtractor())
+		logger.RegisterContextExtractor(awsOrchestrator.NewLambdaContextExtractor())
 		defer logger.ClearContextExtractors()
 
 		lambdaHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -119,7 +119,7 @@ func TestRequestIDMiddleware(t *testing.T) {
 	// Test priority: existing context ID should take precedence over Lambda ID
 	t.Run("existing context ID takes precedence over lambda ID", func(t *testing.T) {
 		// Register Lambda context extractor for this test
-		logger.RegisterContextExtractor(appAws.NewLambdaContextExtractor())
+		logger.RegisterContextExtractor(awsOrchestrator.NewLambdaContextExtractor())
 		defer logger.ClearContextExtractors()
 
 		handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

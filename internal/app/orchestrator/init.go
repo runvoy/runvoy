@@ -9,7 +9,7 @@ import (
 
 	"runvoy/internal/config"
 	"runvoy/internal/constants"
-	appAws "runvoy/internal/providers/aws/app"
+	awsOrchestrator "runvoy/internal/providers/aws/orchestrator"
 )
 
 // Initialize creates a new Service configured for the specified backend provider.
@@ -31,7 +31,7 @@ func Initialize(
 
 	switch cfg.BackendProvider {
 	case constants.AWS:
-		awsDeps, err := appAws.Initialize(ctx, cfg, logger)
+		awsDeps, err := awsOrchestrator.Initialize(ctx, cfg, logger)
 		if err != nil {
 			return nil, fmt.Errorf("failed to initialize AWS dependencies: %w", err)
 		}

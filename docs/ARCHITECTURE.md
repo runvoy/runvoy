@@ -62,14 +62,21 @@ runvoy/
 To support multiple cloud platforms, the service layer now depends on an execution provider interface:
 
 ```text
-internal/app/orchestrator.Service  → uses Runner interface (provider-agnostic)
-internal/providers/aws/app         → AWS-specific Runner implementation (ECS Fargate)
+internal/app/orchestrator.Service         → uses Runner interface (provider-agnostic)
+internal/providers/aws/orchestrator       → AWS-specific implementation (ECS Fargate)
 ```
 
-- The `Runner` interface abstracts starting a command execution and returns a stable execution ID and the task creation timestamp.
-- The AWS implementation resides in `internal/providers/aws/app` and encapsulates all ECS- and AWS-specific logic and types.
-- `internal/app/orchestrator/init.go` wires the chosen provider by constructing the appropriate `Runner` and passing it into `Service`.
-- Clients import directly from `internal/app/orchestrator` (not via `internal/app`).
+**Architecture:**
+- `internal/app/orchestrator/init.go` defines the `Service` type and `Initialize()` function for the core orchestrator
+- `internal/providers/aws/orchestrator/` contains all AWS-specific implementations:
+  - `runner.go` - ECS task execution
+  - `images_dynamodb.go` - Docker image management
+  - `taskdef.go` - ECS task definitions
+  - `logs.go` - CloudWatch logs access
+  - `client.go`, `context.go`, `scripts.go`, `tags.go` - AWS SDK adapters and utilities
+- The `Runner` interface abstracts starting a command execution and returns a stable execution ID and the task creation timestamp
+- Clients import directly from `internal/app/orchestrator` (not via `internal/app`)
+- AWS provider is wired in `internal/app/orchestrator/init.go` via `internal/providers/aws/orchestrator.Initialize()`
 
 ## Router Architecture
 

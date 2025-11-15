@@ -5,8 +5,8 @@ import (
 
 	"runvoy/internal/config"
 	"runvoy/internal/logger"
-	appAws "runvoy/internal/providers/aws/app"
 	dynamoRepo "runvoy/internal/providers/aws/database/dynamodb"
+	awsOrchestrator "runvoy/internal/providers/aws/orchestrator"
 	websocketAws "runvoy/internal/providers/aws/websocket"
 
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
@@ -18,7 +18,7 @@ func Initialize(
 	cfg *config.Config,
 	log *slog.Logger,
 ) (*Processor, error) {
-	logger.RegisterContextExtractor(appAws.NewLambdaContextExtractor())
+	logger.RegisterContextExtractor(awsOrchestrator.NewLambdaContextExtractor())
 
 	awsCfg := *cfg.AWS.SDKConfig
 	dynamoSDKClient := dynamodb.NewFromConfig(awsCfg)
