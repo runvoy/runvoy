@@ -46,11 +46,11 @@ func (r *Router) handleCreateUser(w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		statusCode := apperrors.GetStatusCode(err)
 		errorCode := apperrors.GetErrorCode(err)
-		errorMsg := apperrors.GetErrorMessage(err)
+		errorDetails := apperrors.GetErrorDetails(err)
 
 		logger.Debug("failed to create user", "error", err, "status_code", statusCode, "error_code", errorCode)
 
-		writeErrorResponseWithCode(w, statusCode, errorCode, "failed to create user", errorMsg)
+		writeErrorResponseWithCode(w, statusCode, errorCode, "failed to create user", errorDetails)
 
 		return
 	}
@@ -73,11 +73,11 @@ func (r *Router) handleRevokeUser(w http.ResponseWriter, req *http.Request) {
 	if err := r.svc.RevokeUser(req.Context(), revokeReq.Email); err != nil {
 		statusCode := apperrors.GetStatusCode(err)
 		errorCode := apperrors.GetErrorCode(err)
-		errorMsg := apperrors.GetErrorMessage(err)
+		errorDetails := apperrors.GetErrorDetails(err)
 
 		logger.Debug("failed to revoke user", "error", err, "status_code", statusCode, "error_code", errorCode)
 
-		writeErrorResponseWithCode(w, statusCode, errorCode, "failed to revoke user", errorMsg)
+		writeErrorResponseWithCode(w, statusCode, errorCode, "failed to revoke user", errorDetails)
 
 		return
 	}
@@ -97,11 +97,11 @@ func (r *Router) handleListUsers(w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		statusCode := apperrors.GetStatusCode(err)
 		errorCode := apperrors.GetErrorCode(err)
-		errorMsg := apperrors.GetErrorMessage(err)
+		errorDetails := apperrors.GetErrorDetails(err)
 
 		logger.Debug("failed to list users", "error", err, "status_code", statusCode, "error_code", errorCode)
 
-		writeErrorResponseWithCode(w, statusCode, errorCode, "failed to list users", errorMsg)
+		writeErrorResponseWithCode(w, statusCode, errorCode, "failed to list users", errorDetails)
 		return
 	}
 
@@ -129,7 +129,7 @@ func (r *Router) handleRunCommand(w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		statusCode := apperrors.GetStatusCode(err)
 		errorCode := apperrors.GetErrorCode(err)
-		errorMsg := apperrors.GetErrorMessage(err)
+		errorDetails := apperrors.GetErrorDetails(err)
 
 		logger.Error("failed to run command", "context", map[string]string{
 			"error":       err.Error(),
@@ -137,7 +137,7 @@ func (r *Router) handleRunCommand(w http.ResponseWriter, req *http.Request) {
 			"error_code":  errorCode,
 		})
 
-		writeErrorResponseWithCode(w, statusCode, errorCode, "failed to run command", errorMsg)
+		writeErrorResponseWithCode(w, statusCode, errorCode, "failed to run command", errorDetails)
 		return
 	}
 
@@ -167,11 +167,11 @@ func (r *Router) handleGetExecutionLogs(w http.ResponseWriter, req *http.Request
 	if err != nil {
 		statusCode := apperrors.GetStatusCode(err)
 		errorCode := apperrors.GetErrorCode(err)
-		errorMsg := apperrors.GetErrorMessage(err)
+		errorDetails := apperrors.GetErrorDetails(err)
 
 		logger.Debug("failed to get execution logs", "error", err, "status_code", statusCode, "error_code", errorCode)
 
-		writeErrorResponseWithCode(w, statusCode, errorCode, "failed to get execution logs", errorMsg)
+		writeErrorResponseWithCode(w, statusCode, errorCode, "failed to get execution logs", errorDetails)
 
 		return
 	}
@@ -194,7 +194,7 @@ func (r *Router) handleGetExecutionStatus(w http.ResponseWriter, req *http.Reque
 	if err != nil {
 		statusCode := apperrors.GetStatusCode(err)
 		errorCode := apperrors.GetErrorCode(err)
-		errorMsg := apperrors.GetErrorMessage(err)
+		errorDetails := apperrors.GetErrorDetails(err)
 
 		logger.Debug("failed to get execution status",
 			"execution_id", executionID,
@@ -205,7 +205,7 @@ func (r *Router) handleGetExecutionStatus(w http.ResponseWriter, req *http.Reque
 		writeErrorResponseWithCode(
 			w, statusCode, errorCode,
 			"failed to get execution status for executionID "+executionID,
-			errorMsg,
+			errorDetails,
 		)
 		return
 	}
@@ -227,17 +227,17 @@ func (r *Router) handleKillExecution(w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		statusCode := apperrors.GetStatusCode(err)
 		errorCode := apperrors.GetErrorCode(err)
-		errorMsg := apperrors.GetErrorMessage(err)
+		errorDetails := apperrors.GetErrorDetails(err)
 
 		logger.Info("failed to kill execution", "context", map[string]any{
-			"execution_id": executionID,
-			"error":        err,
-			"status_code":  statusCode,
-			"error_code":   errorCode,
-			"error_msg":    errorMsg,
+			"execution_id":  executionID,
+			"error":         err,
+			"status_code":   statusCode,
+			"error_code":    errorCode,
+			"error_details": errorDetails,
 		})
 
-		writeErrorResponseWithCode(w, statusCode, errorCode, "failed to kill execution", errorMsg)
+		writeErrorResponseWithCode(w, statusCode, errorCode, "failed to kill execution", errorDetails)
 		return
 	}
 
@@ -258,11 +258,11 @@ func (r *Router) handleListExecutions(w http.ResponseWriter, req *http.Request) 
 	if err != nil {
 		statusCode := apperrors.GetStatusCode(err)
 		errorCode := apperrors.GetErrorCode(err)
-		errorMsg := apperrors.GetErrorMessage(err)
+		errorDetails := apperrors.GetErrorDetails(err)
 
 		logger.Debug("failed to list executions", "error", err, "status_code", statusCode, "error_code", errorCode)
 
-		writeErrorResponseWithCode(w, statusCode, errorCode, "failed to list executions", errorMsg)
+		writeErrorResponseWithCode(w, statusCode, errorCode, "failed to list executions", errorDetails)
 		return
 	}
 
@@ -298,11 +298,11 @@ func (r *Router) handleClaimAPIKey(w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		statusCode := apperrors.GetStatusCode(err)
 		errorCode := apperrors.GetErrorCode(err)
-		errorMsg := apperrors.GetErrorMessage(err)
+		errorDetails := apperrors.GetErrorDetails(err)
 
 		logger.Debug("failed to claim API key", "error", err, "status_code", statusCode, "error_code", errorCode)
 
-		writeErrorResponseWithCode(w, statusCode, errorCode, "failed to claim API key", errorMsg)
+		writeErrorResponseWithCode(w, statusCode, errorCode, "failed to claim API key", errorDetails)
 		return
 	}
 
@@ -334,11 +334,11 @@ func (r *Router) handleRegisterImage(w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		statusCode := apperrors.GetStatusCode(err)
 		errorCode := apperrors.GetErrorCode(err)
-		errorMsg := apperrors.GetErrorMessage(err)
+		errorDetails := apperrors.GetErrorDetails(err)
 
 		logger.Debug("failed to register image", "error", err, "status_code", statusCode, "error_code", errorCode)
 
-		writeErrorResponseWithCode(w, statusCode, errorCode, "failed to register image", errorMsg)
+		writeErrorResponseWithCode(w, statusCode, errorCode, "failed to register image", errorDetails)
 		return
 	}
 
@@ -354,11 +354,11 @@ func (r *Router) handleListImages(w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		statusCode := apperrors.GetStatusCode(err)
 		errorCode := apperrors.GetErrorCode(err)
-		errorMsg := apperrors.GetErrorMessage(err)
+		errorDetails := apperrors.GetErrorDetails(err)
 
 		logger.Debug("failed to list images", "error", err, "status_code", statusCode, "error_code", errorCode)
 
-		writeErrorResponseWithCode(w, statusCode, errorCode, "failed to list images", errorMsg)
+		writeErrorResponseWithCode(w, statusCode, errorCode, "failed to list images", errorDetails)
 		return
 	}
 
@@ -394,11 +394,11 @@ func (r *Router) handleGetImage(w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		statusCode := apperrors.GetStatusCode(err)
 		errorCode := apperrors.GetErrorCode(err)
-		errorMsg := apperrors.GetErrorMessage(err)
+		errorDetails := apperrors.GetErrorDetails(err)
 
 		logger.Debug("failed to get image", "error", err, "status_code", statusCode, "error_code", errorCode)
 
-		writeErrorResponseWithCode(w, statusCode, errorCode, "failed to get image", errorMsg)
+		writeErrorResponseWithCode(w, statusCode, errorCode, "failed to get image", errorDetails)
 		return
 	}
 
@@ -434,11 +434,11 @@ func (r *Router) handleRemoveImage(w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		statusCode := apperrors.GetStatusCode(err)
 		errorCode := apperrors.GetErrorCode(err)
-		errorMsg := apperrors.GetErrorMessage(err)
+		errorDetails := apperrors.GetErrorDetails(err)
 
 		logger.Debug("failed to remove image", "error", err, "status_code", statusCode, "error_code", errorCode)
 
-		writeErrorResponseWithCode(w, statusCode, errorCode, "failed to remove image", errorMsg)
+		writeErrorResponseWithCode(w, statusCode, errorCode, "failed to remove image", errorDetails)
 		return
 	}
 

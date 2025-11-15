@@ -26,7 +26,7 @@ Workstations shouldn't be snowflakes that need complex setups, let remote contai
 ## Use cases
 
 - AWS CLI commands or any other application based on AWS SDKs (e.g. Terraform) in a remote container with the right permissions to access AWS resources (see [AWS CLI example](.runvoy/aws-cli-example.yml))
-- one-off arbitrary commands in remote containers like with `kubectl run` with automatic (secret) environment variables injection without the need for a Kubernetes cluster (or any other _always-running_ cluster, for that matter)
+- one-off arbitrary commands in remote containers like with `kubectl run` with automatic (secret) environment variables injection without the need for a Kubernetes cluster (or any other _always-running_ cluster, for that matter). Example: `runvoy run ping <my service ip>`
 - compute-intensive tasks like e.g. test runners: select the proper instance type for the job, tail and/or share execution logs in real time like in GitHub Actions (see [Build Caddy example](.runvoy/build-caddy-example.yml))
 - any commands that execution requires full audit trail
 - ...
@@ -132,7 +132,7 @@ runvoy --help
 ```
 
 ```text
-runvoy - 0.1.0-20251115-1927bf5
+runvoy - 0.1.0-20251115-1a3fcd0
 Isolated, repeatable execution environments for your commands
 
 Usage:

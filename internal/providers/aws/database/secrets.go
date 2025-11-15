@@ -4,6 +4,8 @@ package database
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"log/slog"
 
 	"runvoy/internal/api"
@@ -57,7 +59,7 @@ func (sr *SecretsRepository) CreateSecret(
 		reqLogger.Error("failed to store secret metadata", "error", err, "name", secret.Name)
 		// Best effort cleanup: try to remove the stored value
 		_ = sr.valueStore.DeleteSecret(ctx, secret.Name)
-		return err
+		return appErrors.ErrInternalError("failed to store secret metadata", fmt.Errorf("create secret metadata: %w", err))
 	}
 
 	return nil
@@ -70,7 +72,12 @@ func (sr *SecretsRepository) GetSecret(ctx context.Context, name string, include
 	// Get the metadata
 	secret, err := sr.metadataRepo.GetSecret(ctx, name)
 	if err != nil {
-		return nil, err
+		// Check if it's a not found error (expected) or a real error
+		var appErr *appErrors.AppError
+		if errors.As(err, &appErr) && appErr.Code == appErrors.ErrCodeSecretNotFound {
+			return nil, err // Pass through not found errors as-is
+		}
+		return nil, appErrors.ErrInternalError("failed to get secret", fmt.Errorf("get secret metadata: %w", err))
 	}
 
 	// Get the value if requested
@@ -94,7 +101,7 @@ func (sr *SecretsRepository) ListSecrets(ctx context.Context, includeValue bool)
 	// Get all metadata
 	secretList, err := sr.metadataRepo.ListSecrets(ctx)
 	if err != nil {
-		return nil, err
+		return nil, appErrors.ErrInternalError("failed to list secrets", fmt.Errorf("list secret metadata: %w", err))
 	}
 
 	if secretList == nil {
@@ -137,7 +144,7 @@ func (sr *SecretsRepository) UpdateSecret(
 		ctx, secret.Name, secret.KeyName, secret.Description, secret.UpdatedBy,
 	); err != nil {
 		reqLogger.Error("failed to update secret metadata", "error", err, "name", secret.Name)
-		return err
+		return appErrors.ErrInternalError("failed to update secret metadata", fmt.Errorf("update secret metadata: %w", err))
 	}
 
 	return nil
@@ -155,7 +162,7 @@ func (sr *SecretsRepository) DeleteSecret(ctx context.Context, name string) erro
 	// Delete the metadata
 	if err := sr.metadataRepo.DeleteSecret(ctx, name); err != nil {
 		reqLogger.Error("failed to delete secret metadata", "error", err, "name", name)
-		return err
+		return appErrors.ErrInternalError("failed to delete secret metadata", fmt.Errorf("delete secret metadata: %w", err))
 	}
 
 	return nil

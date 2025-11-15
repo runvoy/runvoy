@@ -141,7 +141,8 @@ func (r *UserRepository) GetUserByEmail(ctx context.Context, email string) (*api
 
 	var item userItem
 	if unmarshalErr := attributevalue.UnmarshalMap(result.Items[0], &item); unmarshalErr != nil {
-		return nil, unmarshalErr
+		return nil, apperrors.ErrDatabaseError("failed to unmarshal user",
+			fmt.Errorf("unmarshal user item: %w", unmarshalErr))
 	}
 
 	user := &api.User{

@@ -685,6 +685,7 @@ func (e *Runner) KillTask(ctx context.Context, executionID string) error {
 
 	taskARN, err := e.findTaskARNByExecutionID(ctx, executionID, reqLogger)
 	if err != nil {
+		// Error is already wrapped by findTaskARNByExecutionID, pass through
 		return err
 	}
 

@@ -147,7 +147,8 @@ func handleServiceError(w http.ResponseWriter, err error) {
 	var appErr *appErrors.AppError
 
 	if errors.As(err, &appErr) {
-		writeErrorResponse(w, appErr.StatusCode, appErr.Message, "")
+		errorDetails := appErrors.GetErrorDetails(err)
+		writeErrorResponse(w, appErr.StatusCode, appErr.Message, errorDetails)
 		return
 	}
 

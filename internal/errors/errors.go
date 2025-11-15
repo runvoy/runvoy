@@ -172,3 +172,16 @@ func GetErrorMessage(err error) string {
 	}
 	return err.Error()
 }
+
+// GetErrorDetails extracts detailed error information including the underlying cause.
+// Returns the underlying error message if available, otherwise returns the main error message.
+func GetErrorDetails(err error) string {
+	var appErr *AppError
+	if errors.As(err, &appErr) {
+		if appErr.Cause != nil {
+			return appErr.Cause.Error()
+		}
+		return appErr.Message
+	}
+	return err.Error()
+}

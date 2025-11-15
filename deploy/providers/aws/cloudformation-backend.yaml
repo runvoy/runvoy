@@ -471,6 +471,11 @@ Resources:
                 Resource:
                   - !GetAtt TaskExecutionRole.Arn
                   - !GetAtt TaskRole.Arn
+              # Allow passing custom user-created roles for task execution
+              - Effect: Allow
+                Action:
+                  - 'iam:PassRole'
+                Resource: !Sub 'arn:aws:iam::${AWS::AccountId}:role/*'
               - Effect: Allow
                 Action:
                   - 'logs:GetLogEvents'

@@ -29,7 +29,11 @@ func (s *Service) CreateSecret(
 		CreatedBy:   userEmail,
 	}
 	if err := s.secretsRepo.CreateSecret(ctx, secret); err != nil {
-		return err
+		var appErr *apperrors.AppError
+		if errors.As(err, &appErr) {
+			return err // Already wrapped, pass through
+		}
+		return apperrors.ErrInternalError("failed to create secret", fmt.Errorf("create secret: %w", err))
 	}
 	return nil
 }
@@ -68,7 +72,11 @@ func (s *Service) UpdateSecret(
 		UpdatedBy:   userEmail,
 	}
 	if err := s.secretsRepo.UpdateSecret(ctx, secret); err != nil {
-		return err
+		var appErr *apperrors.AppError
+		if errors.As(err, &appErr) {
+			return err // Already wrapped, pass through
+		}
+		return apperrors.ErrInternalError("failed to update secret", fmt.Errorf("update secret: %w", err))
 	}
 	return nil
 }
@@ -78,7 +86,14 @@ func (s *Service) DeleteSecret(ctx context.Context, name string) error {
 	if s.secretsRepo == nil {
 		return apperrors.ErrInternalError("secrets repository not available", fmt.Errorf("secretsRepo is nil"))
 	}
-	return s.secretsRepo.DeleteSecret(ctx, name)
+	if err := s.secretsRepo.DeleteSecret(ctx, name); err != nil {
+		var appErr *apperrors.AppError
+		if errors.As(err, &appErr) {
+			return err // Already wrapped, pass through
+		}
+		return apperrors.ErrInternalError("failed to delete secret", fmt.Errorf("delete secret: %w", err))
+	}
+	return nil
 }
 
 // resolveSecretsForExecution fetches secret values referenced by name and returns a map of env vars.
@@ -115,7 +130,7 @@ func (s *Service) resolveSecretsForExecution(
 			if errors.Is(err, database.ErrSecretNotFound) {
 				return nil, apperrors.ErrBadRequest(fmt.Sprintf("secret %q not found", name), err)
 			}
-			return nil, err
+			return nil, apperrors.ErrInternalError("failed to retrieve secret", fmt.Errorf("get secret %q: %w", name, err))
 		}
 		if secret == nil {
 			return nil, apperrors.ErrBadRequest(fmt.Sprintf("secret %q not found", name), nil)
