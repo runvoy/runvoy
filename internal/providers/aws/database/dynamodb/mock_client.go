@@ -10,6 +10,8 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 )
 
+const executionIDIndexName = "execution_id-index"
+
 // MockDynamoDBClient is a simple in-memory mock implementation of Client for testing.
 // It provides basic support for Put, Get, Query, Update, Delete, and BatchWrite operations.
 type MockDynamoDBClient struct {
@@ -69,20 +71,47 @@ func (m *MockDynamoDBClient) PutItem(
 	if m.Tables[tableName] == nil {
 		m.Tables[tableName] = make(map[string]map[string]map[string]types.AttributeValue)
 	}
+	if m.Indexes[tableName] == nil {
+		m.Indexes[tableName] = make(map[string]map[string][]map[string]types.AttributeValue)
+	}
 
-	// Extract the partition key value (simplified - assumes first key is partition key)
-	var partitionKey string
-	for _, v := range params.Item {
-		partitionKey = getStringValue(v)
-		break
+	// Extract the partition key value (connection_id for connections table)
+	// Try to find connection_id first, then fall back to first string field
+	partitionKey := ""
+	if connID, ok := params.Item["connection_id"]; ok {
+		partitionKey = getStringValue(connID)
+	} else {
+		// Fallback: use first string value as partition key
+		for _, v := range params.Item {
+			partitionKey = getStringValue(v)
+			break
+		}
+	}
+
+	if partitionKey == "" {
+		return nil, fmt.Errorf("failed to extract partition key from item")
 	}
 
 	if m.Tables[tableName][partitionKey] == nil {
 		m.Tables[tableName][partitionKey] = make(map[string]map[string]types.AttributeValue)
 	}
 
+	// Get old item before replacing (to remove from indexes)
+	var oldItem map[string]types.AttributeValue
+	if m.Tables[tableName][partitionKey] != nil && m.Tables[tableName][partitionKey][""] != nil {
+		oldItem = m.Tables[tableName][partitionKey][""]
+	}
+
 	// Store with empty sort key for simplicity
 	m.Tables[tableName][partitionKey][""] = params.Item
+
+	// Remove old item from indexes if it exists
+	if oldItem != nil {
+		m.removeItemFromIndexes(tableName, oldItem)
+	}
+
+	// Index items for GSI queries
+	m.addItemToIndexes(tableName, params.Item)
 
 	return &dynamodb.PutItemOutput{}, nil
 }
@@ -136,9 +165,41 @@ func (m *MockDynamoDBClient) Query(
 		return nil, m.QueryError
 	}
 
-	// Simplified query implementation - returns all items in table
 	tableName := *params.TableName
-	items := m.collectTableItems(tableName)
+	var items []map[string]types.AttributeValue
+
+	// If querying against an index, use the index
+	if params.IndexName != nil {
+		indexName := *params.IndexName
+		if m.Indexes[tableName] != nil && m.Indexes[tableName][indexName] != nil {
+			// Extract key value from ExpressionAttributeValues
+			// For execution_id-index, look for :execution_id in ExpressionAttributeValues
+			var keyValue string
+			if params.ExpressionAttributeValues != nil {
+				if execIDVal, ok := params.ExpressionAttributeValues[":execution_id"]; ok {
+					keyValue = getStringValue(execIDVal)
+				} else {
+					// Try to find any string value as key
+					for _, v := range params.ExpressionAttributeValues {
+						keyValue = getStringValue(v)
+						if keyValue != "" {
+							break
+						}
+					}
+				}
+			}
+
+			if keyValue != "" {
+				if indexItems, exists := m.Indexes[tableName][indexName][keyValue]; exists {
+					items = indexItems
+				}
+			}
+		}
+	} else {
+		// Query against main table - return all items
+		// This is a simplified implementation
+		items = m.collectTableItems(tableName)
+	}
 
 	return &dynamodb.QueryOutput{
 		Items: items,
@@ -209,8 +270,16 @@ func (m *MockDynamoDBClient) DeleteItem(
 		break
 	}
 
+	// Get the item before deleting to remove from indexes
+	var item map[string]types.AttributeValue
 	if m.Tables[tableName] != nil && m.Tables[tableName][partitionKey] != nil {
+		item = m.Tables[tableName][partitionKey][""]
 		delete(m.Tables[tableName][partitionKey], "")
+	}
+
+	// Remove item from indexes
+	if item != nil {
+		m.removeItemFromIndexes(tableName, item)
 	}
 
 	return &dynamodb.DeleteItemOutput{}, nil
@@ -234,16 +303,26 @@ func (m *MockDynamoDBClient) BatchWriteItem(
 	// Process delete requests
 	for tableName, requests := range params.RequestItems {
 		for _, request := range requests {
-			if request.DeleteRequest != nil {
-				var partitionKey string
-				for _, v := range request.DeleteRequest.Key {
-					partitionKey = getStringValue(v)
-					break
-				}
+			if request.DeleteRequest == nil {
+				continue
+			}
 
-				if m.Tables[tableName] != nil && m.Tables[tableName][partitionKey] != nil {
-					delete(m.Tables[tableName][partitionKey], "")
-				}
+			var partitionKey string
+			for _, v := range request.DeleteRequest.Key {
+				partitionKey = getStringValue(v)
+				break
+			}
+
+			// Get the item before deleting to remove from indexes
+			var item map[string]types.AttributeValue
+			if m.Tables[tableName] != nil && m.Tables[tableName][partitionKey] != nil {
+				item = m.Tables[tableName][partitionKey][""]
+				delete(m.Tables[tableName][partitionKey], "")
+			}
+
+			// Remove item from indexes
+			if item != nil {
+				m.removeItemFromIndexes(tableName, item)
 			}
 		}
 	}
@@ -333,4 +412,82 @@ func (m *MockDynamoDBClient) collectTableItems(tableName string) []map[string]ty
 		}
 	}
 	return items
+}
+
+// addItemToIndexes adds an item to all relevant indexes for a table.
+func (m *MockDynamoDBClient) addItemToIndexes(tableName string, item map[string]types.AttributeValue) {
+	if m.Indexes[tableName] == nil {
+		m.Indexes[tableName] = make(map[string]map[string][]map[string]types.AttributeValue)
+	}
+
+	// Index items for GSI queries
+	// For execution_id-index: index by execution_id
+	execID, hasExecID := item["execution_id"]
+	if !hasExecID {
+		return
+	}
+
+	executionID := getStringValue(execID)
+	if executionID == "" {
+		return
+	}
+
+	if m.Indexes[tableName][executionIDIndexName] == nil {
+		m.Indexes[tableName][executionIDIndexName] = make(map[string][]map[string]types.AttributeValue)
+	}
+
+	// Add item to index
+	index := m.Indexes[tableName][executionIDIndexName]
+	index[executionID] = append(index[executionID], item)
+}
+
+// removeItemFromIndexes removes an item from all indexes for a table.
+// It identifies items by connection_id.
+func (m *MockDynamoDBClient) removeItemFromIndexes(tableName string, item map[string]types.AttributeValue) {
+	if m.Indexes[tableName] == nil {
+		return
+	}
+
+	// Extract connection_id from item to identify it
+	connID := ""
+	if connIDVal, ok := item["connection_id"]; ok {
+		connID = getStringValue(connIDVal)
+	}
+	if connID == "" {
+		return
+	}
+
+	// Remove item from execution_id-index
+	if m.Indexes[tableName][executionIDIndexName] == nil {
+		return
+	}
+
+	execIDVal, hasExecID := item["execution_id"]
+	if !hasExecID {
+		return
+	}
+
+	executionID := getStringValue(execIDVal)
+	if executionID == "" {
+		return
+	}
+
+	indexItems, exists := m.Indexes[tableName][executionIDIndexName][executionID]
+	if !exists {
+		return
+	}
+
+	// Find and remove item with matching connection_id
+	for i, indexItem := range indexItems {
+		indexConnIDVal, hasConnID := indexItem["connection_id"]
+		if !hasConnID {
+			continue
+		}
+
+		if getStringValue(indexConnIDVal) == connID {
+			// Remove this item from the slice
+			m.Indexes[tableName][executionIDIndexName][executionID] = append(indexItems[:i], indexItems[i+1:]...)
+			break
+		}
+	}
 }
