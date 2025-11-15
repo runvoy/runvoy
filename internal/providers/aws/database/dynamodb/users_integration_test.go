@@ -30,7 +30,7 @@ func TestUserRepository_CreateUser_WithMock(t *testing.T) {
 	}
 	apiKeyHash := "hashed_key_123"
 
-	err := repo.CreateUser(ctx, user, apiKeyHash)
+	err := repo.CreateUser(ctx, user, apiKeyHash, 0)
 
 	// Verify: Operation succeeded and client was called
 	require.NoError(t, err)
@@ -54,7 +54,7 @@ func TestUserRepository_CreateUser_ErrorHandling(t *testing.T) {
 	}
 	apiKeyHash := "hashed_key_123"
 
-	err := repo.CreateUser(ctx, user, apiKeyHash)
+	err := repo.CreateUser(ctx, user, apiKeyHash, 0)
 
 	// Verify: Error was propagated
 	require.Error(t, err)
@@ -166,7 +166,7 @@ func TestMockClient_CallCounting(t *testing.T) {
 	}
 	apiKeyHash := "hashed_key_123"
 
-	_ = repo.CreateUser(ctx, user, apiKeyHash)
+	_ = repo.CreateUser(ctx, user, apiKeyHash, 0)
 	_, _ = repo.GetUserByEmail(ctx, "test@example.com")
 	_, _ = repo.GetUserByEmail(ctx, "test2@example.com")
 
@@ -197,7 +197,7 @@ func TestMockClient_ClearTables(t *testing.T) {
 		CreatedAt: time.Now(),
 	}
 	apiKeyHash := "hashed_key_123"
-	_ = repo.CreateUser(ctx, user, apiKeyHash)
+	_ = repo.CreateUser(ctx, user, apiKeyHash, 0)
 
 	// Verify data was added
 	assert.NotEmpty(t, mockClient.Tables)

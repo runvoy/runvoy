@@ -14,12 +14,10 @@ import (
 // without changing the business logic layer.
 type UserRepository interface {
 	// CreateUser stores a new user with their hashed API key in the database.
+	// If expiresAtUnix is 0, no TTL is set (permanent user).
+	// If expiresAtUnix is > 0, it sets expires_at for automatic deletion.
 	// Returns an error if the user already exists or if the operation fails.
-	CreateUser(ctx context.Context, user *api.User, apiKeyHash string) error
-
-	// CreateUserWithExpiration stores a new user with their hashed API key and optional TTL.
-	// If expiresAtUnix is 0, no TTL is set. If expiresAtUnix is > 0, it sets expires_at for automatic deletion.
-	CreateUserWithExpiration(ctx context.Context, user *api.User, apiKeyHash string, expiresAtUnix int64) error
+	CreateUser(ctx context.Context, user *api.User, apiKeyHash string, expiresAtUnix int64) error
 
 	// RemoveExpiration removes the expires_at field from a user record, making them permanent.
 	RemoveExpiration(ctx context.Context, email string) error

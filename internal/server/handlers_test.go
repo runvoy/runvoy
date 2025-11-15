@@ -26,11 +26,7 @@ type testUserRepository struct {
 	getUserByEmailFunc   func(email string) (*api.User, error)
 }
 
-func (t *testUserRepository) CreateUser(_ context.Context, _ *api.User, _ string) error {
-	return nil
-}
-
-func (t *testUserRepository) CreateUserWithExpiration(_ context.Context, _ *api.User, _ string, _ int64) error {
+func (t *testUserRepository) CreateUser(_ context.Context, _ *api.User, _ string, _ int64) error {
 	return nil
 }
 

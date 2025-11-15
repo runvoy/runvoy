@@ -15,35 +15,27 @@ import (
 
 // mockUserRepository implements database.UserRepository for testing
 type mockUserRepository struct {
-	createUserFunc               func(ctx context.Context, user *api.User, apiKeyHash string) error
-	createUserWithExpirationFunc func(ctx context.Context, user *api.User, apiKeyHash string, expiresAtUnix int64) error
-	removeExpirationFunc         func(ctx context.Context, email string) error
-	getUserByEmailFunc           func(ctx context.Context, email string) (*api.User, error)
-	getUserByAPIKeyHashFunc      func(ctx context.Context, apiKeyHash string) (*api.User, error)
-	updateLastUsedFunc           func(ctx context.Context, email string) (*time.Time, error)
-	revokeUserFunc               func(ctx context.Context, email string) error
-	createPendingAPIKeyFunc      func(ctx context.Context, pending *api.PendingAPIKey) error
-	getPendingAPIKeyFunc         func(ctx context.Context, secretToken string) (*api.PendingAPIKey, error)
-	markAsViewedFunc             func(ctx context.Context, secretToken string, ipAddress string) error
-	deletePendingAPIKeyFunc      func(ctx context.Context, secretToken string) error
-	listUsersFunc                func(ctx context.Context) ([]*api.User, error)
+	createUserFunc          func(ctx context.Context, user *api.User, apiKeyHash string, expiresAtUnix int64) error
+	removeExpirationFunc    func(ctx context.Context, email string) error
+	getUserByEmailFunc      func(ctx context.Context, email string) (*api.User, error)
+	getUserByAPIKeyHashFunc func(ctx context.Context, apiKeyHash string) (*api.User, error)
+	updateLastUsedFunc      func(ctx context.Context, email string) (*time.Time, error)
+	revokeUserFunc          func(ctx context.Context, email string) error
+	createPendingAPIKeyFunc func(ctx context.Context, pending *api.PendingAPIKey) error
+	getPendingAPIKeyFunc    func(ctx context.Context, secretToken string) (*api.PendingAPIKey, error)
+	markAsViewedFunc        func(ctx context.Context, secretToken string, ipAddress string) error
+	deletePendingAPIKeyFunc func(ctx context.Context, secretToken string) error
+	listUsersFunc           func(ctx context.Context) ([]*api.User, error)
 }
 
-func (m *mockUserRepository) CreateUser(ctx context.Context, user *api.User, apiKeyHash string) error {
-	if m.createUserFunc != nil {
-		return m.createUserFunc(ctx, user, apiKeyHash)
-	}
-	return nil
-}
-
-func (m *mockUserRepository) CreateUserWithExpiration(
+func (m *mockUserRepository) CreateUser(
 	ctx context.Context,
 	user *api.User,
 	apiKeyHash string,
 	expiresAtUnix int64,
 ) error {
-	if m.createUserWithExpirationFunc != nil {
-		return m.createUserWithExpirationFunc(ctx, user, apiKeyHash, expiresAtUnix)
+	if m.createUserFunc != nil {
+		return m.createUserFunc(ctx, user, apiKeyHash, expiresAtUnix)
 	}
 	return nil
 }
