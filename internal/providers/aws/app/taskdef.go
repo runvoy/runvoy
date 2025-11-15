@@ -8,7 +8,6 @@ import (
 	"regexp"
 	"strings"
 
-	"runvoy/internal/constants"
 	"runvoy/internal/logger"
 	awsConstants "runvoy/internal/providers/aws/constants"
 
@@ -35,14 +34,14 @@ func SanitizeImageNameForTaskDef(image string) string {
 // Format: {TaskDefinitionFamilyPrefix}-{sanitized-image-name}
 func TaskDefinitionFamilyName(image string) string {
 	sanitized := SanitizeImageNameForTaskDef(image)
-	return fmt.Sprintf("%s-%s", constants.TaskDefinitionFamilyPrefix, sanitized) // AWS ECS-specific naming
+	return fmt.Sprintf("%s-%s", awsConstants.TaskDefinitionFamilyPrefix, sanitized)
 }
 
 // ExtractImageFromTaskDefFamily extracts the Docker image name from a task definition family name.
 // Returns empty string if the family name doesn't match the expected format.
 // NOTE: This is approximate - images should be read from container definitions or tags, not family names.
 func ExtractImageFromTaskDefFamily(familyName string) string {
-	prefix := constants.TaskDefinitionFamilyPrefix + "-" // AWS ECS-specific naming
+	prefix := awsConstants.TaskDefinitionFamilyPrefix + "-"
 	if !strings.HasPrefix(familyName, prefix) {
 		return ""
 	}
@@ -94,7 +93,7 @@ func GetDefaultImage(
 	ecsClient Client,
 	log *slog.Logger,
 ) (string, error) {
-	familyPrefix := constants.TaskDefinitionFamilyPrefix + "-"
+	familyPrefix := awsConstants.TaskDefinitionFamilyPrefix + "-"
 	taskDefArns, err := listTaskDefinitionsByPrefix(ctx, ecsClient, familyPrefix)
 	if err != nil {
 		return "", err
@@ -122,10 +121,10 @@ func GetDefaultImage(
 		var dockerImage string
 		for _, tag := range tagsOutput.Tags {
 			if tag.Key != nil && tag.Value != nil {
-				if *tag.Key == constants.TaskDefinitionIsDefaultTagKey && *tag.Value == constants.TaskDefinitionIsDefaultTagValue {
+				if *tag.Key == awsConstants.TaskDefinitionIsDefaultTagKey &&
+					*tag.Value == awsConstants.TaskDefinitionIsDefaultTagValue {
 					isDefault = true
-				}
-				if *tag.Key == constants.TaskDefinitionDockerImageTagKey {
+				} else if *tag.Key == awsConstants.TaskDefinitionDockerImageTagKey {
 					dockerImage = *tag.Value
 				}
 			}
@@ -176,7 +175,7 @@ func GetTaskDefinitionForImage(
 func buildTaskDefinitionTags(image string, isDefault *bool) []ecsTypes.Tag {
 	tags := []ecsTypes.Tag{
 		{
-			Key:   awsStd.String(constants.TaskDefinitionDockerImageTagKey),
+			Key:   awsStd.String(awsConstants.TaskDefinitionDockerImageTagKey),
 			Value: awsStd.String(image),
 		},
 	}
@@ -184,8 +183,8 @@ func buildTaskDefinitionTags(image string, isDefault *bool) []ecsTypes.Tag {
 	tags = append(tags, GetStandardECSTags()...)
 	if isDefault != nil && *isDefault {
 		tags = append(tags, ecsTypes.Tag{
-			Key:   awsStd.String(constants.TaskDefinitionIsDefaultTagKey),
-			Value: awsStd.String(constants.TaskDefinitionIsDefaultTagValue),
+			Key:   awsStd.String(awsConstants.TaskDefinitionIsDefaultTagKey),
+			Value: awsStd.String(awsConstants.TaskDefinitionIsDefaultTagValue),
 		})
 	}
 	return tags
@@ -352,8 +351,8 @@ func checkIfImageIsDefault(ctx context.Context, ecsClient Client, family string,
 		})
 		if listErr == nil && tagsOutput != nil {
 			for _, tag := range tagsOutput.Tags {
-				if tag.Key != nil && *tag.Key == constants.TaskDefinitionIsDefaultTagKey &&
-					tag.Value != nil && *tag.Value == constants.TaskDefinitionIsDefaultTagValue {
+				if tag.Key != nil && *tag.Key == awsConstants.TaskDefinitionIsDefaultTagKey &&
+					tag.Value != nil && *tag.Value == awsConstants.TaskDefinitionIsDefaultTagValue {
 					return true
 				}
 			}
@@ -426,7 +425,7 @@ func deregisterAllTaskDefRevisions(
 func markLastRemainingImageAsDefault(
 	ctx context.Context, ecsClient Client, family string, log *slog.Logger,
 ) error {
-	familyPrefix := constants.TaskDefinitionFamilyPrefix + "-"
+	familyPrefix := awsConstants.TaskDefinitionFamilyPrefix + "-"
 	remainingTaskDefs, err := listTaskDefinitionsByPrefix(ctx, ecsClient, familyPrefix)
 	if err != nil {
 		log.Warn("failed to list remaining task definitions after removal", "error", err)
@@ -473,11 +472,11 @@ func markLastRemainingImageAsDefault(
 
 		tags := []ecsTypes.Tag{
 			{
-				Key:   awsStd.String(constants.TaskDefinitionIsDefaultTagKey),
-				Value: awsStd.String(constants.TaskDefinitionIsDefaultTagValue),
+				Key:   awsStd.String(awsConstants.TaskDefinitionIsDefaultTagKey),
+				Value: awsStd.String(awsConstants.TaskDefinitionIsDefaultTagValue),
 			},
 			{
-				Key:   awsStd.String(constants.TaskDefinitionDockerImageTagKey),
+				Key:   awsStd.String(awsConstants.TaskDefinitionDockerImageTagKey),
 				Value: awsStd.String(lastImage),
 			},
 		}
