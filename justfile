@@ -54,7 +54,7 @@ build-orchestrator:
         -o ../../../../../dist/bootstrap
 
 # Build event processor backend service (Lambda function)
-[working-directory: 'cmd/backend/providers/aws/event_processor']
+[working-directory: 'cmd/backend/providers/aws/processor']
 build-event-processor:
     GOARCH=arm64 GOOS=linux go build \
         -ldflags {{build_flags}} \

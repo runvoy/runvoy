@@ -507,7 +507,7 @@ Designed to be extended for future event types:
 
 ### Implementation
 
-**Entry Point**: `cmd/backend/providers/aws/event_processor/main.go`
+**Entry Point**: `cmd/backend/providers/aws/processor/main.go`
 - Initializes event processor from `internal/app/processor`
 - Starts Lambda handler
 
@@ -516,7 +516,7 @@ Designed to be extended for future event types:
 - Ignores unknown event types (log and continue)
 - Extensible switch statement for new handlers
 
-**AWS Provider Implementation**: `internal/providers/aws/events/backend.go`
+**AWS Provider Implementation**: `internal/providers/aws/processor/backend.go`
 - Parses ECS task events
 - Extracts execution ID from task ARN
 - Determines final status from exit code and stop reason
@@ -669,7 +669,7 @@ The platform uses WebSocket connections for real-time log streaming to clients (
 
 When an execution reaches a terminal status (SUCCEEDED, FAILED, STOPPED):
 
-1. **Event Processor** (`internal/providers/aws/events/backend.go`):
+1. **Event Processor** (`internal/providers/aws/processor/backend.go`):
    - Updates execution record in DynamoDB with final status
    - Calls `NotifyExecutionCompletion()`
    - Queries DynamoDB for all connections for the execution ID
@@ -1023,7 +1023,7 @@ For MVP, the streaming log feature uses a **mixed approach**: REST API provides 
 - Best-effort delivery: logs may be dropped if connections fail or buffers overflow
 - Complements the REST API with real-time updates (reduces polling overhead)
 - Available for both RUNNING and completed executions (late-joiners can connect to receive disconnect notification)
-- Failures are logged but do not fail the event processor (see `internal/providers/aws/events/backend.go`)
+- Failures are logged but do not fail the event processor (see `internal/providers/aws/processor/backend.go`)
 
 **Client Behavior (CLI `runvoy logs <executionID>`):**
 1. Fetches entire log history from `/logs` endpoint with retry logic (handles 503 while execution starts)
@@ -1040,7 +1040,7 @@ For MVP, the streaming log feature uses a **mixed approach**: REST API provides 
 - Polls REST endpoint every 5 seconds as fallback if WebSocket unavailable or for catch-up
 - Backlog always accessible regardless of WebSocket state
 
-**Event Processor (`internal/providers/aws/events/backend.go`):**
+**Event Processor (`internal/providers/aws/processor/backend.go`):**
 - Receives CloudWatch Logs batches and forwards to WebSocket connections (best-effort)
 - Connection failures are logged but do not fail processing
 - Sends disconnect notifications to all connected clients when execution completes
@@ -1127,7 +1127,7 @@ Future enhancements may include server-side filtering and pagination.
    **Areas with good coverage (70-80%):**
    - `internal/app/processor`: 80.0%
    - `internal/client/output`: 75.3%
-   - `internal/providers/aws/events`: 75.0%
+   - `internal/providers/aws/processor`: 75.0%
    - `internal/providers/aws/secrets`: 90.6%
    - `internal/providers/aws/websocket`: 68.2%
    - `internal/providers/aws/database/dynamodb`: 68.1% ⬆️ (from 49.2%)
@@ -1154,7 +1154,7 @@ Future enhancements may include server-side filtering and pagination.
       - Error scenario testing, validation edge cases
       - Estimated impact: +2-3 percentage points
 
-   4. **Event Processor Integration** (`internal/providers/aws/events/backend.go`)
+   4. **Event Processor Integration** (`internal/providers/aws/processor/backend.go`)
       - Status determination logic - Currently tested indirectly
       - WebSocket notification flow - 0% coverage
       - Estimated impact: +2-3 percentage points

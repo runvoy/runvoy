@@ -9,7 +9,7 @@ import (
 
 	"runvoy/internal/config"
 	"runvoy/internal/constants"
-	eventsAws "runvoy/internal/providers/aws/events"
+	processorAws "runvoy/internal/providers/aws/processor"
 )
 
 // Initialize creates a new Processor configured for the backend provider specified in cfg.
@@ -36,7 +36,7 @@ func Initialize(
 			return nil, fmt.Errorf("failed to load AWS SDK config: %w", err)
 		}
 
-		processor, err := eventsAws.Initialize(cfg, logger)
+		processor, err := processorAws.Initialize(cfg, logger)
 		if err != nil {
 			return nil, fmt.Errorf("failed to initialize AWS backend: %w", err)
 		}

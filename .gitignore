@@ -41,7 +41,7 @@ dist
 
 # Agents' development dirt
 cmd/runvoy/runvoy
-./event_processor
+./processor
 ./orchestrator
 ./main
 main
