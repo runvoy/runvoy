@@ -57,34 +57,7 @@ func RecreateTaskDefinition(
 
 	taskDefARN := *output.TaskDefinition.TaskDefinitionArn
 
-	var isDefaultPtr *bool
-	if isDefault {
-		isDefaultPtr = awsStd.Bool(true)
-	}
-	tags := BuildTaskDefinitionTags(image, isDefaultPtr)
-	if len(tags) > 0 {
-		tagLogArgs := []any{
-			"operation", "ECS.TagResource",
-			"task_definition_arn", taskDefARN,
-			"family", family,
-		}
-		tagLogArgs = append(tagLogArgs, logger.GetDeadlineInfo(ctx)...)
-		reqLogger.Debug("tagging task definition", "context", logger.SliceToMap(tagLogArgs))
-
-		_, tagErr := ecsClient.TagResource(ctx, &ecs.TagResourceInput{
-			ResourceArn: awsStd.String(taskDefARN),
-			Tags:        tags,
-		})
-		if tagErr != nil {
-			reqLogger.Warn(
-				"failed to tag task definition (task definition registered successfully)",
-				"arn", taskDefARN,
-				"error", tagErr,
-			)
-		} else {
-			reqLogger.Debug("task definition tagged successfully", "arn", taskDefARN)
-		}
-	}
+	tagTaskDefinition(ctx, ecsClient, taskDefARN, family, image, isDefault, reqLogger)
 
 	reqLogger.Info("task definition recreated", "context", map[string]string{
 		"family":              family,
@@ -92,6 +65,47 @@ func RecreateTaskDefinition(
 	})
 
 	return taskDefARN, nil
+}
+
+func tagTaskDefinition(
+	ctx context.Context,
+	ecsClient Client,
+	taskDefARN string,
+	family string,
+	image string,
+	isDefault bool,
+	reqLogger *slog.Logger,
+) {
+	var isDefaultPtr *bool
+	if isDefault {
+		isDefaultPtr = awsStd.Bool(true)
+	}
+	tags := BuildTaskDefinitionTags(image, isDefaultPtr)
+	if len(tags) == 0 {
+		return
+	}
+
+	tagLogArgs := []any{
+		"operation", "ECS.TagResource",
+		"task_definition_arn", taskDefARN,
+		"family", family,
+	}
+	tagLogArgs = append(tagLogArgs, logger.GetDeadlineInfo(ctx)...)
+	reqLogger.Debug("tagging task definition", "context", logger.SliceToMap(tagLogArgs))
+
+	_, tagErr := ecsClient.TagResource(ctx, &ecs.TagResourceInput{
+		ResourceArn: awsStd.String(taskDefARN),
+		Tags:        tags,
+	})
+	if tagErr != nil {
+		reqLogger.Warn(
+			"failed to tag task definition (task definition registered successfully)",
+			"arn", taskDefARN,
+			"error", tagErr,
+		)
+	} else {
+		reqLogger.Debug("task definition tagged successfully", "arn", taskDefARN)
+	}
 }
 
 // UpdateTaskDefinitionTags updates tags on an existing task definition to match expected values.
@@ -118,52 +132,11 @@ func UpdateTaskDefinitionTags(
 		return fmt.Errorf("failed to list tags: %w", err)
 	}
 
-	// Build map of current tags
-	currentTagMap := make(map[string]string)
-	for _, tag := range tagsOutput.Tags {
-		if tag.Key != nil && tag.Value != nil {
-			currentTagMap[*tag.Key] = *tag.Value
-		}
-	}
+	currentTagMap := buildTagMap(tagsOutput.Tags)
+	expectedTagMap := buildTagMap(expectedTags)
 
-	// Build map of expected tags
-	expectedTagMap := make(map[string]string)
-	for _, tag := range expectedTags {
-		if tag.Key != nil && tag.Value != nil {
-			expectedTagMap[*tag.Key] = *tag.Value
-		}
-	}
-
-	// Find tags to add/update
-	tagsToAdd := []ecsTypes.Tag{}
-	for _, tag := range expectedTags {
-		if tag.Key != nil {
-			key := *tag.Key
-			currentValue, exists := currentTagMap[key]
-			expectedValue := ""
-			if tag.Value != nil {
-				expectedValue = *tag.Value
-			}
-			if !exists || currentValue != expectedValue {
-				tagsToAdd = append(tagsToAdd, tag)
-			}
-		}
-	}
-
-	// Find tags to remove (standard tags that shouldn't be there)
-	keysToRemove := []string{}
-	for key := range currentTagMap {
-		// Remove tags that are in current but not in expected (for standard tags)
-		if _, exists := expectedTagMap[key]; !exists {
-			// Only remove standard tags, not custom ones
-			if key == awsConstants.TaskDefinitionDockerImageTagKey ||
-				key == awsConstants.TaskDefinitionIsDefaultTagKey ||
-				key == "Application" ||
-				key == "ManagedBy" {
-				keysToRemove = append(keysToRemove, key)
-			}
-		}
-	}
+	tagsToAdd := findTagsToAdd(expectedTags, currentTagMap)
+	keysToRemove := findTagsToRemove(currentTagMap, expectedTagMap)
 
 	// Update tags
 	if len(tagsToAdd) > 0 {
@@ -191,4 +164,53 @@ func UpdateTaskDefinitionTags(
 	}
 
 	return nil
+}
+
+func buildTagMap(tags []ecsTypes.Tag) map[string]string {
+	tagMap := make(map[string]string)
+	for _, tag := range tags {
+		if tag.Key != nil && tag.Value != nil {
+			tagMap[*tag.Key] = *tag.Value
+		}
+	}
+	return tagMap
+}
+
+func findTagsToAdd(expectedTags []ecsTypes.Tag, currentTagMap map[string]string) []ecsTypes.Tag {
+	tagsToAdd := []ecsTypes.Tag{}
+	for _, tag := range expectedTags {
+		if tag.Key == nil {
+			continue
+		}
+		key := *tag.Key
+		currentValue, exists := currentTagMap[key]
+		expectedValue := ""
+		if tag.Value != nil {
+			expectedValue = *tag.Value
+		}
+		if !exists || currentValue != expectedValue {
+			tagsToAdd = append(tagsToAdd, tag)
+		}
+	}
+	return tagsToAdd
+}
+
+func findTagsToRemove(currentTagMap, expectedTagMap map[string]string) []string {
+	keysToRemove := []string{}
+	for key := range currentTagMap {
+		if _, exists := expectedTagMap[key]; exists {
+			continue
+		}
+		if isStandardTag(key) {
+			keysToRemove = append(keysToRemove, key)
+		}
+	}
+	return keysToRemove
+}
+
+func isStandardTag(key string) bool {
+	return key == awsConstants.TaskDefinitionDockerImageTagKey ||
+		key == awsConstants.TaskDefinitionIsDefaultTagKey ||
+		key == awsConstants.TaskDefinitionApplicationTagKey ||
+		key == awsConstants.TaskDefinitionManagedByTagKey
 }

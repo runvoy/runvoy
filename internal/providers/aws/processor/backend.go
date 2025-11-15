@@ -25,7 +25,7 @@ import (
 type Processor struct {
 	executionRepo    database.ExecutionRepository
 	webSocketManager websocket.Manager
-	healthManager    health.Manager
+	healthManager    health.HealthManager
 	logger           *slog.Logger
 }
 
@@ -33,7 +33,7 @@ type Processor struct {
 func NewProcessor(
 	executionRepo database.ExecutionRepository,
 	webSocketManager websocket.Manager,
-	healthManager health.Manager,
+	healthManager health.HealthManager,
 	log *slog.Logger,
 ) *Processor {
 	return &Processor{
@@ -484,7 +484,7 @@ func (p *Processor) handleScheduledEvent(
 			"ecs_verified":     report.ECSStatus.VerifiedCount,
 			"ecs_recreated":    report.ECSStatus.RecreatedCount,
 			"secrets_verified": report.SecretsStatus.VerifiedCount,
-			"iam_verified":    report.IAMStatus.DefaultRolesVerified,
+			"iam_verified":     report.IAMStatus.DefaultRolesVerified,
 		})
 
 	return nil

@@ -242,6 +242,7 @@ func TestHandleHealth(t *testing.T) {
 		constants.AWS,
 		nil,
 		nil, // SecretsService
+		nil, // healthManager
 	)
 	router := NewRouter(svc, 2*time.Second)
 
@@ -270,6 +271,7 @@ func TestHandleRunCommand_Success(t *testing.T) {
 		constants.AWS,
 		nil,
 		nil, // SecretsService
+		nil, // healthManager
 	)
 	router := NewRouter(svc, 2*time.Second)
 
@@ -304,6 +306,7 @@ func TestHandleRunCommand_InvalidJSON(t *testing.T) {
 		constants.AWS,
 		nil,
 		nil, // SecretsService
+		nil, // healthManager
 	)
 	router := NewRouter(svc, 2*time.Second)
 
@@ -334,6 +337,7 @@ func TestHandleRunCommand_Unauthorized(t *testing.T) {
 		constants.AWS,
 		nil,
 		nil, // SecretsService
+		nil, // healthManager
 	)
 	router := NewRouter(svc, 2*time.Second)
 
@@ -375,6 +379,7 @@ func TestHandleListExecutions_Success(t *testing.T) {
 		constants.AWS,
 		nil,
 		nil, // SecretsService
+		nil, // healthManager
 	)
 	router := NewRouter(svc, 2*time.Second)
 
@@ -410,6 +415,7 @@ func TestHandleListExecutions_Empty(t *testing.T) {
 		constants.AWS,
 		nil,
 		nil, // SecretsService
+		nil, // healthManager
 	)
 	router := NewRouter(svc, 2*time.Second)
 
@@ -440,6 +446,7 @@ func TestHandleListExecutions_DatabaseError(t *testing.T) {
 		constants.AWS,
 		nil,
 		nil, // SecretsService
+		nil, // healthManager
 	)
 	router := NewRouter(svc, 2*time.Second)
 
@@ -464,6 +471,7 @@ func TestHandleRegisterImage_Success(t *testing.T) {
 		constants.AWS,
 		nil,
 		nil, // SecretsService
+		nil, // healthManager
 	)
 	router := NewRouter(svc, 2*time.Second)
 
@@ -494,6 +502,7 @@ func TestHandleRegisterImage_InvalidJSON(t *testing.T) {
 		constants.AWS,
 		nil,
 		nil, // SecretsService
+		nil, // healthManager
 	)
 	router := NewRouter(svc, 2*time.Second)
 
@@ -527,6 +536,7 @@ func TestHandleListImages_Success(t *testing.T) {
 		constants.AWS,
 		nil,
 		nil, // SecretsService
+		nil, // healthManager
 	)
 	router := NewRouter(svc, 2*time.Second)
 
@@ -558,6 +568,7 @@ func TestHandleListImages_Empty(t *testing.T) {
 		constants.AWS,
 		nil,
 		nil, // SecretsService
+		nil, // healthManager
 	)
 	router := NewRouter(svc, 2*time.Second)
 
@@ -581,6 +592,7 @@ func TestHandleRemoveImage_Success(t *testing.T) {
 		constants.AWS,
 		nil,
 		nil, // SecretsService
+		nil, // healthManager
 	)
 	router := NewRouter(svc, 2*time.Second)
 
@@ -614,6 +626,7 @@ func TestHandleRemoveImage_NotFound(t *testing.T) {
 		constants.AWS,
 		nil,
 		nil, // SecretsService
+		nil, // healthManager
 	)
 	router := NewRouter(svc, 2*time.Second)
 
@@ -638,6 +651,7 @@ func TestHandleRemoveImage_MissingImage(t *testing.T) {
 		constants.AWS,
 		nil,
 		nil, // SecretsService
+		nil, // healthManager
 	)
 	router := NewRouter(svc, 2*time.Second)
 
@@ -672,6 +686,7 @@ func TestHandleGetImage_Success(t *testing.T) {
 		constants.AWS,
 		nil,
 		nil, // SecretsService
+		nil, // healthManager
 	)
 	router := NewRouter(svc, 2*time.Second)
 
@@ -703,6 +718,7 @@ func TestHandleGetImage_NotFound(t *testing.T) {
 		constants.AWS,
 		nil,
 		nil, // SecretsService
+		nil, // healthManager
 	)
 	router := NewRouter(svc, 2*time.Second)
 
@@ -768,6 +784,7 @@ func TestHandleListUsers_Success(t *testing.T) {
 		constants.AWS,
 		nil,
 		nil, // SecretsService
+		nil, // healthManager
 	)
 	router := NewRouter(svc, 2*time.Second)
 
@@ -808,6 +825,7 @@ func TestHandleListUsers_Unauthorized(t *testing.T) {
 		constants.AWS,
 		nil,
 		nil, // SecretsService
+		nil, // healthManager
 	)
 	router := NewRouter(svc, 2*time.Second)
 
@@ -841,6 +859,7 @@ func TestHandleListUsers_RepositoryError(t *testing.T) {
 		constants.AWS,
 		nil,
 		nil, // SecretsService
+		nil, // healthManager
 	)
 	router := NewRouter(svc, 2*time.Second)
 
@@ -867,6 +886,7 @@ func TestHandleCreateUser_InvalidJSON(t *testing.T) {
 		constants.AWS,
 		nil,
 		nil, // SecretsService
+		nil, // healthManager
 	)
 	router := NewRouter(svc, 2*time.Second)
 
@@ -897,6 +917,7 @@ func TestHandleCreateUser_Unauthorized(t *testing.T) {
 		constants.AWS,
 		nil,
 		nil, // SecretsService
+		nil, // healthManager
 	)
 	router := NewRouter(svc, 2*time.Second)
 
@@ -924,6 +945,7 @@ func TestHandleRevokeUser_Success(t *testing.T) {
 		constants.AWS,
 		nil,
 		nil, // SecretsService
+		nil, // healthManager
 	)
 	router := NewRouter(svc, 2*time.Second)
 
@@ -954,6 +976,7 @@ func TestHandleRevokeUser_InvalidJSON(t *testing.T) {
 		constants.AWS,
 		nil,
 		nil, // SecretsService
+		nil, // healthManager
 	)
 	router := NewRouter(svc, 2*time.Second)
 
@@ -978,6 +1001,7 @@ func TestHandleGetExecutionLogs_Success(t *testing.T) {
 		constants.AWS,
 		nil,
 		nil, // SecretsService
+		nil, // healthManager
 	)
 	router := NewRouter(svc, 2*time.Second)
 
@@ -1005,6 +1029,7 @@ func TestHandleGetExecutionLogs_MissingExecutionID(t *testing.T) {
 		constants.AWS,
 		nil,
 		nil, // SecretsService
+		nil, // healthManager
 	)
 	router := NewRouter(svc, 2*time.Second)
 
@@ -1030,6 +1055,7 @@ func TestHandleGetExecutionStatus_Success(t *testing.T) {
 		constants.AWS,
 		nil,
 		nil, // SecretsService
+		nil, // healthManager
 	)
 	router := NewRouter(svc, 2*time.Second)
 
@@ -1057,6 +1083,7 @@ func TestHandleGetExecutionStatus_MissingExecutionID(t *testing.T) {
 		constants.AWS,
 		nil,
 		nil, // SecretsService
+		nil, // healthManager
 	)
 	router := NewRouter(svc, 2*time.Second)
 
@@ -1081,6 +1108,7 @@ func TestHandleKillExecution_Success(t *testing.T) {
 		constants.AWS,
 		nil,
 		nil, // SecretsService
+		nil, // healthManager
 	)
 	router := NewRouter(svc, 2*time.Second)
 
@@ -1120,6 +1148,7 @@ func TestHandleKillExecution_AlreadyTerminated(t *testing.T) {
 		constants.AWS,
 		nil,
 		nil, // SecretsService
+		nil, // healthManager
 	)
 	router := NewRouter(svc, 2*time.Second)
 
@@ -1144,6 +1173,7 @@ func TestHandleKillExecution_MissingExecutionID(t *testing.T) {
 		constants.AWS,
 		nil,
 		nil, // SecretsService
+		nil, // healthManager
 	)
 	router := NewRouter(svc, 2*time.Second)
 

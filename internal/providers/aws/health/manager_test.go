@@ -3,14 +3,12 @@
 package health
 
 import (
-	"context"
 	"testing"
+	"time"
 
 	"runvoy/internal/backend/health"
-	"runvoy/internal/testutil"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 // TestManager_Reconcile tests the basic reconciliation flow.
@@ -55,8 +53,9 @@ func TestManager_Reconcile_IAMRoles(t *testing.T) {
 
 // TestHealthReport_Structure tests the health report structure.
 func TestHealthReport_Structure(t *testing.T) {
+	timestamp, _ := time.Parse(time.RFC3339, "2024-01-01T00:00:00Z")
 	report := &health.HealthReport{
-		Timestamp:       testutil.MustParseTime("2024-01-01T00:00:00Z"),
+		Timestamp:       timestamp,
 		ReconciledCount: 0,
 		ErrorCount:      0,
 		Issues:          []health.HealthIssue{},

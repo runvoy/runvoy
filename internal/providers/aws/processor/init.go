@@ -18,7 +18,6 @@ import (
 	"runvoy/internal/providers/aws/websocket"
 
 	awsStd "github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/ecs"
 	"github.com/aws/aws-sdk-go-v2/service/iam"
@@ -61,29 +60,9 @@ func Initialize(
 
 	websocketManager := websocket.Initialize(cfg, connectionRepo, tokenRepo, log)
 
-	// Initialize health manager for scheduled health checks
-	var healthManager health.Manager
-	accountID, err := getAccountID(ctx, &awsCfg, log)
-	if err != nil {
-		log.Warn("failed to get AWS account ID, health manager will not be available", "error", err)
-	} else {
-		healthCfg := &awsHealth.Config{
-			Region:                 cfg.AWS.SDKConfig.Region,
-			AccountID:              accountID,
-			DefaultTaskRoleARN:     cfg.AWS.DefaultTaskRoleARN,
-			DefaultTaskExecRoleARN: cfg.AWS.DefaultTaskExecRoleARN,
-		}
-		healthManager = awsHealth.NewManager(
-			ecsClient,
-			ssmClient,
-			iamClient,
-			imageTaskDefRepo,
-			secretsRepo,
-			healthCfg,
-			cfg.AWS.SecretsPrefix,
-			log,
-		)
-	}
+	healthManager := initializeHealthManager(
+		ctx, &awsCfg, ecsClient, ssmClient, iamClient, imageTaskDefRepo, secretsRepo, cfg, log,
+	)
 
 	log.Debug(fmt.Sprintf("%s %s event processor initialized successfully",
 		constants.ProjectName, cfg.BackendProvider),
@@ -116,4 +95,46 @@ func getAccountID(ctx context.Context, awsCfg *awsStd.Config, log *slog.Logger) 
 	accountID := *output.Account
 
 	return accountID, nil
+}
+
+func initializeHealthManager(
+	ctx context.Context,
+	awsCfg *awsStd.Config,
+	ecsClient orchestrator.Client,
+	ssmClient secrets.Client,
+	iamClient orchestrator.IAMClient,
+	imageTaskDefRepo awsHealth.ImageTaskDefRepository,
+	secretsRepo database.SecretsRepository,
+	cfg *config.Config,
+	log *slog.Logger,
+) health.HealthManager {
+	accountID, err := getAccountID(ctx, awsCfg, log)
+	if err != nil {
+		log.Warn("failed to get AWS account ID, health manager will not be available", "error", err)
+		return nil
+	}
+
+	healthCfg := &awsHealth.Config{
+		Region:                 cfg.AWS.SDKConfig.Region,
+		AccountID:              accountID,
+		DefaultTaskRoleARN:     cfg.AWS.DefaultTaskRoleARN,
+		DefaultTaskExecRoleARN: cfg.AWS.DefaultTaskExecRoleARN,
+	}
+	runnerCfg := &orchestrator.Config{
+		Region:                 cfg.AWS.SDKConfig.Region,
+		DefaultTaskRoleARN:     cfg.AWS.DefaultTaskRoleARN,
+		DefaultTaskExecRoleARN: cfg.AWS.DefaultTaskExecRoleARN,
+	}
+	taskDefRecreat := orchestrator.NewTaskDefRecreatorAdapter(ecsClient, runnerCfg)
+	return awsHealth.NewManager(
+		ecsClient,
+		ssmClient,
+		iamClient,
+		imageTaskDefRepo,
+		taskDefRecreat,
+		secretsRepo,
+		healthCfg,
+		cfg.AWS.SecretsPrefix,
+		log,
+	)
 }

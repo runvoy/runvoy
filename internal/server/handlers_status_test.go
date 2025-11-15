@@ -68,6 +68,7 @@ func TestGetExecutionStatus_Unauthorized(t *testing.T) {
 		constants.AWS,
 		nil,
 		nil, // SecretsService
+		nil, // healthManager
 	)
 	router := NewRouter(svc, 2*time.Second)
 

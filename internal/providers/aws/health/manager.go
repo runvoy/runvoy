@@ -9,28 +9,98 @@ import (
 	"strings"
 	"time"
 
+	"runvoy/internal/api"
 	"runvoy/internal/backend/health"
 	"runvoy/internal/database"
 	"runvoy/internal/logger"
 	awsConstants "runvoy/internal/providers/aws/constants"
-	awsOrchestrator "runvoy/internal/providers/aws/orchestrator"
 	"runvoy/internal/providers/aws/secrets"
 
 	awsStd "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ecs"
 	ecsTypes "github.com/aws/aws-sdk-go-v2/service/ecs/types"
 	"github.com/aws/aws-sdk-go-v2/service/iam"
-	iamTypes "github.com/aws/aws-sdk-go-v2/service/iam/types"
 	"github.com/aws/aws-sdk-go-v2/service/ssm"
 	ssmTypes "github.com/aws/aws-sdk-go-v2/service/ssm/types"
 )
 
+// These interfaces are defined locally to avoid circular dependency with orchestrator package.
+// They match the interfaces in internal/providers/aws/orchestrator.
+
+// ECSClient defines the interface for ECS operations needed by the health manager.
+type ECSClient interface {
+	ListTaskDefinitions(
+		ctx context.Context,
+		params *ecs.ListTaskDefinitionsInput,
+		optFns ...func(*ecs.Options),
+	) (*ecs.ListTaskDefinitionsOutput, error)
+	ListTagsForResource(
+		ctx context.Context,
+		params *ecs.ListTagsForResourceInput,
+		optFns ...func(*ecs.Options),
+	) (*ecs.ListTagsForResourceOutput, error)
+	TagResource(
+		ctx context.Context,
+		params *ecs.TagResourceInput,
+		optFns ...func(*ecs.Options),
+	) (*ecs.TagResourceOutput, error)
+	UntagResource(
+		ctx context.Context,
+		params *ecs.UntagResourceInput,
+		optFns ...func(*ecs.Options),
+	) (*ecs.UntagResourceOutput, error)
+	RegisterTaskDefinition(
+		ctx context.Context,
+		params *ecs.RegisterTaskDefinitionInput,
+		optFns ...func(*ecs.Options),
+	) (*ecs.RegisterTaskDefinitionOutput, error)
+}
+
+// IAMClient defines the interface for IAM operations needed by the health manager.
+type IAMClient interface {
+	GetRole(
+		ctx context.Context,
+		params *iam.GetRoleInput,
+		optFns ...func(*iam.Options),
+	) (*iam.GetRoleOutput, error)
+}
+
+// ImageTaskDefRepository defines the interface for image-taskdef mapping operations.
+type ImageTaskDefRepository interface {
+	ListImages(ctx context.Context) ([]api.ImageInfo, error)
+}
+
+// TaskDefRecreator defines the interface for recreating task definitions.
+// This allows the health manager to recreate task definitions without importing orchestrator.
+type TaskDefRecreator interface {
+	RecreateTaskDefinition(
+		ctx context.Context,
+		family string,
+		image string,
+		taskRoleARN string,
+		taskExecRoleARN string,
+		cpu, memory int,
+		runtimePlatform string,
+		isDefault bool,
+		reqLogger *slog.Logger,
+	) (string, error)
+	BuildTaskDefinitionTags(image string, isDefault *bool) []ecsTypes.Tag
+	UpdateTaskDefinitionTags(
+		ctx context.Context,
+		taskDefARN string,
+		image string,
+		isDefault bool,
+		reqLogger *slog.Logger,
+	) error
+}
+
 // Manager implements the health.HealthManager interface for AWS.
 type Manager struct {
-	ecsClient      awsOrchestrator.Client
+	ecsClient      ECSClient
 	ssmClient      secrets.Client
-	iamClient      awsOrchestrator.IAMClient
-	imageRepo      awsOrchestrator.ImageTaskDefRepository
+	iamClient      IAMClient
+	imageRepo      ImageTaskDefRepository
+	taskDefRecreat TaskDefRecreator
 	secretsRepo    database.SecretsRepository
 	cfg            *Config
 	logger         *slog.Logger
@@ -47,24 +117,26 @@ type Config struct {
 
 // NewManager creates a new AWS health manager.
 func NewManager(
-	ecsClient awsOrchestrator.Client,
+	ecsClient ECSClient,
 	ssmClient secrets.Client,
-	iamClient awsOrchestrator.IAMClient,
-	imageRepo awsOrchestrator.ImageTaskDefRepository,
+	iamClient IAMClient,
+	imageRepo ImageTaskDefRepository,
+	taskDefRecreat TaskDefRecreator,
 	secretsRepo database.SecretsRepository,
 	cfg *Config,
 	secretsPrefix string,
 	log *slog.Logger,
 ) *Manager {
 	return &Manager{
-		ecsClient:     ecsClient,
-		ssmClient:     ssmClient,
-		iamClient:     iamClient,
-		imageRepo:     imageRepo,
-		secretsRepo:   secretsRepo,
-		cfg:           cfg,
-		secretsPrefix: secretsPrefix,
-		logger:        log,
+		ecsClient:      ecsClient,
+		ssmClient:      ssmClient,
+		iamClient:      iamClient,
+		imageRepo:      imageRepo,
+		taskDefRecreat: taskDefRecreat,
+		secretsRepo:    secretsRepo,
+		cfg:            cfg,
+		secretsPrefix:  secretsPrefix,
+		logger:         log,
 	}
 }
 
@@ -140,7 +212,27 @@ func (m *Manager) reconcileECSTaskDefinitions(
 	seenFamilies := make(map[string]bool)
 
 	// Check each image's task definition
-	for _, img := range images {
+	imgIssues := m.checkImageTaskDefinitions(ctx, images, seenFamilies, reqLogger, &status)
+	issues = append(issues, imgIssues...)
+
+	// Find orphaned task definitions (exist in ECS but not in DynamoDB)
+	orphanedIssues := m.findAndReportOrphanedTaskDefinitions(ctx, seenFamilies, reqLogger, &status)
+	issues = append(issues, orphanedIssues...)
+
+	return status, issues, nil
+}
+
+func (m *Manager) checkImageTaskDefinitions(
+	ctx context.Context,
+	images []api.ImageInfo,
+	seenFamilies map[string]bool,
+	reqLogger *slog.Logger,
+	status *health.ECSHealthStatus,
+) []health.HealthIssue {
+	issues := []health.HealthIssue{}
+
+	for i := range images {
+		img := &images[i]
 		family := img.TaskDefinitionName
 		if family == "" {
 			issues = append(issues, health.HealthIssue{
@@ -154,141 +246,162 @@ func (m *Manager) reconcileECSTaskDefinitions(
 		}
 		seenFamilies[family] = true
 
-		// Check if task definition exists
-		listOutput, err := m.ecsClient.ListTaskDefinitions(ctx, &ecs.ListTaskDefinitionsInput{
-			FamilyPrefix: awsStd.String(family),
-			Status:       ecsTypes.TaskDefinitionStatusActive,
-			MaxResults:   awsStd.Int32(1),
-		})
-		if err != nil {
-			issues = append(issues, health.HealthIssue{
+		imgIssues := m.checkTaskDefinition(ctx, img, family, reqLogger, status)
+		issues = append(issues, imgIssues...)
+	}
+
+	return issues
+}
+
+func (m *Manager) checkTaskDefinition(
+	ctx context.Context,
+	img *api.ImageInfo,
+	family string,
+	reqLogger *slog.Logger,
+	status *health.ECSHealthStatus,
+) []health.HealthIssue {
+	listOutput, listErr := m.ecsClient.ListTaskDefinitions(ctx, &ecs.ListTaskDefinitionsInput{
+		FamilyPrefix: awsStd.String(family),
+		Status:       ecsTypes.TaskDefinitionStatusActive,
+		MaxResults:   awsStd.Int32(1),
+	})
+	if listErr != nil {
+		return []health.HealthIssue{
+			{
 				ResourceType: "ecs_task_definition",
 				ResourceID:   family,
 				Severity:     "error",
-				Message:      fmt.Sprintf("Failed to check task definition: %v", err),
+				Message:      fmt.Sprintf("Failed to check task definition: %v", listErr),
 				Action:       "reported",
-			})
-			continue
-		}
-
-		if len(listOutput.TaskDefinitionArns) == 0 {
-			// Task definition missing - recreate it
-			reqLogger.Info("recreating missing task definition", "family", family, "image", img.Image)
-
-			// Build role ARNs
-			taskRoleARN, taskExecRoleARN := m.buildRoleARNs(
-				img.TaskRoleName,
-				img.TaskExecutionRoleName,
-			)
-
-			// Parse CPU and memory
-			cpu := awsConstants.DefaultCPU
-			if img.CPU != nil {
-				cpu = *img.CPU
-			}
-			memory := awsConstants.DefaultMemory
-			if img.Memory != nil {
-				memory = *img.Memory
-			}
-			runtimePlatform := awsConstants.DefaultRuntimePlatform
-			if img.RuntimePlatform != "" {
-				runtimePlatform = img.RuntimePlatform
-			}
-
-			// Create a config for recreation
-			recreationCfg := &awsOrchestrator.Config{
-				Region:                 m.cfg.Region,
-				DefaultTaskRoleARN:     m.cfg.DefaultTaskRoleARN,
-				DefaultTaskExecRoleARN: m.cfg.DefaultTaskExecRoleARN,
-			}
-
-			// Recreate task definition
-			taskDefARN, recreateErr := awsOrchestrator.RecreateTaskDefinition(
-				ctx,
-				m.ecsClient,
-				recreationCfg,
-				family,
-				img.Image,
-				taskRoleARN,
-				taskExecRoleARN,
-				cpu,
-				memory,
-				runtimePlatform,
-				img.IsDefault,
-				reqLogger,
-			)
-			if recreateErr != nil {
-				issues = append(issues, health.HealthIssue{
-					ResourceType: "ecs_task_definition",
-					ResourceID:    family,
-					Severity:      "error",
-					Message:       fmt.Sprintf("Failed to recreate task definition: %v", recreateErr),
-					Action:        "requires_manual_intervention",
-				})
-			} else {
-				status.RecreatedCount++
-				issues = append(issues, health.HealthIssue{
-					ResourceType: "ecs_task_definition",
-					ResourceID:   family,
-					Severity:     "warning",
-					Message:      fmt.Sprintf("Task definition was missing and has been recreated"),
-					Action:       "recreated",
-				})
-				reqLogger.Info("task definition recreated", "family", family, "arn", taskDefARN)
-			}
-		} else {
-			// Task definition exists - verify tags
-			taskDefARN := listOutput.TaskDefinitionArns[len(listOutput.TaskDefinitionArns)-1]
-			tagUpdated, tagErr := m.verifyAndUpdateTaskDefinitionTags(
-				ctx,
-				taskDefARN,
-				family,
-				img.Image,
-				img.IsDefault,
-				reqLogger,
-			)
-			if tagErr != nil {
-				issues = append(issues, health.HealthIssue{
-					ResourceType: "ecs_task_definition",
-					ResourceID:   family,
-					Severity:     "warning",
-					Message:      fmt.Sprintf("Failed to verify/update tags: %v", tagErr),
-					Action:       "reported",
-				})
-			} else if tagUpdated {
-				status.TagUpdatedCount++
-				issues = append(issues, health.HealthIssue{
-					ResourceType: "ecs_task_definition",
-					ResourceID:   family,
-					Severity:     "warning",
-					Message:      "Task definition tags were updated to match DynamoDB state",
-					Action:       "tag_updated",
-				})
-			} else {
-				status.VerifiedCount++
-			}
+			},
 		}
 	}
 
-	// Find orphaned task definitions (exist in ECS but not in DynamoDB)
+	if len(listOutput.TaskDefinitionArns) == 0 {
+		return m.recreateMissingTaskDefinition(ctx, img, family, reqLogger, status)
+	}
+
+	taskDefARN := listOutput.TaskDefinitionArns[len(listOutput.TaskDefinitionArns)-1]
+	return m.verifyTaskDefinitionTags(ctx, img, taskDefARN, family, reqLogger, status)
+}
+
+func (m *Manager) findAndReportOrphanedTaskDefinitions(
+	ctx context.Context,
+	seenFamilies map[string]bool,
+	reqLogger *slog.Logger,
+	status *health.ECSHealthStatus,
+) []health.HealthIssue {
 	orphanedFamilies, orphanErr := m.findOrphanedTaskDefinitions(ctx, seenFamilies, reqLogger)
 	if orphanErr != nil {
 		reqLogger.Warn("failed to find orphaned task definitions", "error", orphanErr)
-	} else {
-		status.OrphanedCount = len(orphanedFamilies)
-		status.OrphanedFamilies = orphanedFamilies
-		for _, family := range orphanedFamilies {
-			issues = append(issues, health.HealthIssue{
+		return []health.HealthIssue{}
+	}
+
+	status.OrphanedCount = len(orphanedFamilies)
+	status.OrphanedFamilies = orphanedFamilies
+
+	issues := make([]health.HealthIssue, 0, len(orphanedFamilies))
+	for _, family := range orphanedFamilies {
+		issues = append(issues, health.HealthIssue{
+			ResourceType: "ecs_task_definition",
+			ResourceID:   family,
+			Severity:     "warning",
+			Message:      "Task definition exists in ECS but not in DynamoDB (orphaned)",
+			Action:       "reported",
+		})
+	}
+
+	return issues
+}
+
+func (m *Manager) recreateMissingTaskDefinition(
+	ctx context.Context,
+	img *api.ImageInfo,
+	family string,
+	reqLogger *slog.Logger,
+	status *health.ECSHealthStatus,
+) []health.HealthIssue {
+	reqLogger.Info("recreating missing task definition", "family", family, "image", img.Image)
+
+	taskRoleARN, taskExecRoleARN := m.buildRoleARNs(img.TaskRoleName, img.TaskExecutionRoleName)
+
+	cpu := img.CPU
+	if cpu == 0 {
+		cpu = awsConstants.DefaultCPU
+	}
+	memory := img.Memory
+	if memory == 0 {
+		memory = awsConstants.DefaultMemory
+	}
+	runtimePlatform := img.RuntimePlatform
+	if runtimePlatform == "" {
+		runtimePlatform = awsConstants.DefaultRuntimePlatform
+	}
+	isDefault := img.IsDefault != nil && *img.IsDefault
+
+	taskDefARN, recreateErr := m.taskDefRecreat.RecreateTaskDefinition(
+		ctx, family, img.Image, taskRoleARN, taskExecRoleARN, cpu, memory, runtimePlatform, isDefault, reqLogger,
+	)
+	if recreateErr != nil {
+		return []health.HealthIssue{
+			{
 				ResourceType: "ecs_task_definition",
 				ResourceID:   family,
-				Severity:     "warning",
-				Message:      fmt.Sprintf("Task definition exists in ECS but not in DynamoDB (orphaned)"),
-				Action:       "reported",
-			})
+				Severity:     "error",
+				Message:      fmt.Sprintf("Failed to recreate task definition: %v", recreateErr),
+				Action:       "requires_manual_intervention",
+			},
 		}
 	}
 
-	return status, issues, nil
+	status.RecreatedCount++
+	reqLogger.Info("task definition recreated", "family", family, "arn", taskDefARN)
+	return []health.HealthIssue{
+		{
+			ResourceType: "ecs_task_definition",
+			ResourceID:   family,
+			Severity:     "warning",
+			Message:      "Task definition was missing and has been recreated",
+			Action:       "recreated",
+		},
+	}
+}
+
+func (m *Manager) verifyTaskDefinitionTags(
+	ctx context.Context,
+	img *api.ImageInfo,
+	taskDefARN string,
+	family string,
+	reqLogger *slog.Logger,
+	status *health.ECSHealthStatus,
+) []health.HealthIssue {
+	isDefault := img.IsDefault != nil && *img.IsDefault
+	tagUpdated, tagErr := m.verifyAndUpdateTaskDefinitionTags(ctx, taskDefARN, family, img.Image, isDefault, reqLogger)
+	if tagErr != nil {
+		return []health.HealthIssue{
+			{
+				ResourceType: "ecs_task_definition",
+				ResourceID:   family,
+				Severity:     "warning",
+				Message:      fmt.Sprintf("Failed to verify/update tags: %v", tagErr),
+				Action:       "reported",
+			},
+		}
+	}
+	if tagUpdated {
+		status.TagUpdatedCount++
+		return []health.HealthIssue{
+			{
+				ResourceType: "ecs_task_definition",
+				ResourceID:   family,
+				Severity:     "warning",
+				Message:      "Task definition tags were updated to match DynamoDB state",
+				Action:       "tag_updated",
+			},
+		}
+	}
+	status.VerifiedCount++
+	return []health.HealthIssue{}
 }
 
 // reconcileSecrets reconciles SSM parameters (secrets) with DynamoDB metadata.
@@ -316,57 +429,8 @@ func (m *Manager) reconcileSecrets(
 		parameterName := m.getParameterName(secret.Name)
 		seenParameters[parameterName] = true
 
-		// Check if parameter exists
-		_, err := m.ssmClient.GetParameter(ctx, &ssm.GetParameterInput{
-			Name:           awsStd.String(parameterName),
-			WithDecryption: awsStd.Bool(false), // Just check existence
-		})
-		if err != nil {
-			// Check if it's a "not found" error
-			if isParameterNotFound(err) {
-				status.MissingCount++
-				issues = append(issues, health.HealthIssue{
-					ResourceType: "ssm_parameter",
-					ResourceID:   secret.Name,
-					Severity:     "error",
-					Message:      fmt.Sprintf("Secret parameter missing in SSM Parameter Store (cannot recreate without value)"),
-					Action:       "requires_manual_intervention",
-				})
-				reqLogger.Warn("secret parameter missing", "name", secret.Name, "parameter", parameterName)
-			} else {
-				issues = append(issues, health.HealthIssue{
-					ResourceType: "ssm_parameter",
-					ResourceID:   secret.Name,
-					Severity:     "error",
-					Message:      fmt.Sprintf("Failed to check parameter: %v", err),
-					Action:       "reported",
-				})
-			}
-			continue
-		}
-
-		// Parameter exists - verify tags
-		tagUpdated, tagErr := m.verifyAndUpdateSecretTags(ctx, parameterName, secret.Name, reqLogger)
-		if tagErr != nil {
-			issues = append(issues, health.HealthIssue{
-				ResourceType: "ssm_parameter",
-				ResourceID:   secret.Name,
-				Severity:     "warning",
-				Message:      fmt.Sprintf("Failed to verify/update tags: %v", tagErr),
-				Action:       "reported",
-			})
-		} else if tagUpdated {
-			status.TagUpdatedCount++
-			issues = append(issues, health.HealthIssue{
-				ResourceType: "ssm_parameter",
-				ResourceID:   secret.Name,
-				Severity:     "warning",
-				Message:      "Secret parameter tags were updated to match DynamoDB state",
-				Action:       "tag_updated",
-			})
-		} else {
-			status.VerifiedCount++
-		}
+		secretIssues := m.checkSecretParameter(ctx, parameterName, secret.Name, reqLogger, &status)
+		issues = append(issues, secretIssues...)
 	}
 
 	// Find orphaned parameters (exist in SSM but not in DynamoDB)
@@ -381,7 +445,7 @@ func (m *Manager) reconcileSecrets(
 				ResourceType: "ssm_parameter",
 				ResourceID:   param,
 				Severity:     "warning",
-				Message:      fmt.Sprintf("Parameter exists in SSM but not in DynamoDB (orphaned)"),
+				Message:      "Parameter exists in SSM but not in DynamoDB (orphaned)",
 				Action:       "reported",
 			})
 		}
@@ -390,85 +454,159 @@ func (m *Manager) reconcileSecrets(
 	return status, issues, nil
 }
 
+func (m *Manager) checkSecretParameter(
+	ctx context.Context,
+	parameterName string,
+	secretName string,
+	reqLogger *slog.Logger,
+	status *health.SecretsHealthStatus,
+) []health.HealthIssue {
+	issues := []health.HealthIssue{}
+
+	// Check if parameter exists
+	_, getParamErr := m.ssmClient.GetParameter(ctx, &ssm.GetParameterInput{
+		Name:           awsStd.String(parameterName),
+		WithDecryption: awsStd.Bool(false), // Just check existence
+	})
+	if getParamErr != nil {
+		if isParameterNotFound(getParamErr) {
+			status.MissingCount++
+			issues = append(issues, health.HealthIssue{
+				ResourceType: "ssm_parameter",
+				ResourceID:   secretName,
+				Severity:     "error",
+				Message:      "Secret parameter missing in SSM Parameter Store (cannot recreate without value)",
+				Action:       "requires_manual_intervention",
+			})
+			reqLogger.Warn("secret parameter missing", "name", secretName, "parameter", parameterName)
+		} else {
+			issues = append(issues, health.HealthIssue{
+				ResourceType: "ssm_parameter",
+				ResourceID:   secretName,
+				Severity:     "error",
+				Message:      fmt.Sprintf("Failed to check parameter: %v", getParamErr),
+				Action:       "reported",
+			})
+		}
+		return issues
+	}
+
+	// Parameter exists - verify tags
+	tagUpdated, tagErr := m.verifyAndUpdateSecretTags(ctx, parameterName, secretName, reqLogger)
+	if tagErr != nil {
+		issues = append(issues, health.HealthIssue{
+			ResourceType: "ssm_parameter",
+			ResourceID:   secretName,
+			Severity:     "warning",
+			Message:      fmt.Sprintf("Failed to verify/update tags: %v", tagErr),
+			Action:       "reported",
+		})
+	} else if tagUpdated {
+		status.TagUpdatedCount++
+		issues = append(issues, health.HealthIssue{
+			ResourceType: "ssm_parameter",
+			ResourceID:   secretName,
+			Severity:     "warning",
+			Message:      "Secret parameter tags were updated to match DynamoDB state",
+			Action:       "tag_updated",
+		})
+	} else {
+		status.VerifiedCount++
+	}
+
+	return issues
+}
+
 // reconcileIAMRoles reconciles IAM roles with DynamoDB metadata.
 func (m *Manager) reconcileIAMRoles(
 	ctx context.Context,
-	reqLogger *slog.Logger,
+	_ *slog.Logger,
 ) (health.IAMHealthStatus, []health.HealthIssue, error) {
 	status := health.IAMHealthStatus{
 		MissingRoles: []string{},
 	}
 	issues := []health.HealthIssue{}
 
-	// Verify default roles
+	defaultIssues := m.verifyDefaultRoles(ctx, &status)
+	issues = append(issues, defaultIssues...)
+
+	customIssues, err := m.verifyCustomRoles(ctx, &status)
+	if err != nil {
+		return status, issues, fmt.Errorf("failed to verify custom roles: %w", err)
+	}
+	issues = append(issues, customIssues...)
+
+	return status, issues, nil
+}
+
+func (m *Manager) verifyDefaultRoles(ctx context.Context, status *health.IAMHealthStatus) []health.HealthIssue {
+	issues := []health.HealthIssue{}
+
 	if m.cfg.DefaultTaskRoleARN != "" {
-		roleName := extractRoleNameFromARN(m.cfg.DefaultTaskRoleARN)
-		_, err := m.iamClient.GetRole(ctx, &iam.GetRoleInput{
-			RoleName: awsStd.String(roleName),
-		})
-		if err != nil {
-			var noSuchEntity *iamTypes.NoSuchEntityException
-			if err != nil && strings.Contains(err.Error(), "NoSuchEntity") {
-				status.MissingRoles = append(status.MissingRoles, m.cfg.DefaultTaskRoleARN)
-				issues = append(issues, health.HealthIssue{
-					ResourceType: "iam_role",
-					ResourceID:   m.cfg.DefaultTaskRoleARN,
-					Severity:     "error",
-					Message:      "Default task role missing (managed by CloudFormation)",
-					Action:       "requires_manual_intervention",
-				})
-			} else {
-				issues = append(issues, health.HealthIssue{
-					ResourceType: "iam_role",
-					ResourceID:   m.cfg.DefaultTaskRoleARN,
-					Severity:     "error",
-					Message:      fmt.Sprintf("Failed to verify default task role: %v", err),
-					Action:       "reported",
-				})
-			}
-		}
+		issues = append(issues, m.verifyRole(ctx, m.cfg.DefaultTaskRoleARN, "Default task role", status)...)
 	}
 
 	if m.cfg.DefaultTaskExecRoleARN != "" {
-		roleName := extractRoleNameFromARN(m.cfg.DefaultTaskExecRoleARN)
-		_, err := m.iamClient.GetRole(ctx, &iam.GetRoleInput{
-			RoleName: awsStd.String(roleName),
-		})
-		if err != nil {
-			var noSuchEntity *iamTypes.NoSuchEntityException
-			if err != nil && strings.Contains(err.Error(), "NoSuchEntity") {
-				status.MissingRoles = append(status.MissingRoles, m.cfg.DefaultTaskExecRoleARN)
-				issues = append(issues, health.HealthIssue{
-					ResourceType: "iam_role",
-					ResourceID:   m.cfg.DefaultTaskExecRoleARN,
-					Severity:     "error",
-					Message:      "Default task execution role missing (managed by CloudFormation)",
-					Action:       "requires_manual_intervention",
-				})
-			} else {
-				issues = append(issues, health.HealthIssue{
-					ResourceType: "iam_role",
-					ResourceID:   m.cfg.DefaultTaskExecRoleARN,
-					Severity:     "error",
-					Message:      fmt.Sprintf("Failed to verify default task execution role: %v", err),
-					Action:       "reported",
-				})
-			}
-		}
+		issues = append(issues, m.verifyRole(ctx, m.cfg.DefaultTaskExecRoleARN, "Default task execution role", status)...)
 	}
 
 	if len(status.MissingRoles) == 0 {
 		status.DefaultRolesVerified = true
 	}
 
-	// Verify custom roles referenced in images
+	return issues
+}
+
+func (m *Manager) verifyRole(
+	ctx context.Context,
+	roleARN string,
+	roleDescription string,
+	status *health.IAMHealthStatus,
+) []health.HealthIssue {
+	roleName := extractRoleNameFromARN(roleARN)
+	_, err := m.iamClient.GetRole(ctx, &iam.GetRoleInput{
+		RoleName: awsStd.String(roleName),
+	})
+	if err == nil {
+		return []health.HealthIssue{}
+	}
+
+	if strings.Contains(err.Error(), "NoSuchEntity") {
+		status.MissingRoles = append(status.MissingRoles, roleARN)
+		return []health.HealthIssue{
+			{
+				ResourceType: "iam_role",
+				ResourceID:   roleARN,
+				Severity:     "error",
+				Message:      fmt.Sprintf("%s missing (managed by CloudFormation)", roleDescription),
+				Action:       "requires_manual_intervention",
+			},
+		}
+	}
+
+	return []health.HealthIssue{
+		{
+			ResourceType: "iam_role",
+			ResourceID:   roleARN,
+			Severity:     "error",
+			Message:      fmt.Sprintf("Failed to verify %s: %v", roleDescription, err),
+			Action:       "reported",
+		},
+	}
+}
+
+func (m *Manager) verifyCustomRoles(
+	ctx context.Context,
+	status *health.IAMHealthStatus,
+) ([]health.HealthIssue, error) {
 	images, err := m.imageRepo.ListImages(ctx)
 	if err != nil {
-		return status, issues, fmt.Errorf("failed to list images: %w", err)
+		return nil, fmt.Errorf("failed to list images: %w", err)
 	}
 
 	customRoles := make(map[string]bool)
-	for _, img := range images {
+	for i := range images {
+		img := &images[i]
 		if img.TaskRoleName != nil && *img.TaskRoleName != "" {
 			customRoles[*img.TaskRoleName] = true
 		}
@@ -478,19 +616,21 @@ func (m *Manager) reconcileIAMRoles(
 	}
 
 	status.CustomRolesTotal = len(customRoles)
+	issues := []health.HealthIssue{}
+
 	for roleName := range customRoles {
 		roleARN := fmt.Sprintf("arn:aws:iam::%s:role/%s", m.cfg.AccountID, roleName)
-		_, err := m.iamClient.GetRole(ctx, &iam.GetRoleInput{
+		_, getRoleErr := m.iamClient.GetRole(ctx, &iam.GetRoleInput{
 			RoleName: awsStd.String(roleName),
 		})
-		if err != nil {
-			if err != nil && strings.Contains(err.Error(), "NoSuchEntity") {
+		if getRoleErr != nil {
+			if strings.Contains(getRoleErr.Error(), "NoSuchEntity") {
 				status.MissingRoles = append(status.MissingRoles, roleARN)
 				issues = append(issues, health.HealthIssue{
 					ResourceType: "iam_role",
 					ResourceID:   roleARN,
 					Severity:     "error",
-					Message:      fmt.Sprintf("Custom IAM role missing (cannot recreate without policies)"),
+					Message:      "Custom IAM role missing (cannot recreate without policies)",
 					Action:       "requires_manual_intervention",
 				})
 			} else {
@@ -498,7 +638,7 @@ func (m *Manager) reconcileIAMRoles(
 					ResourceType: "iam_role",
 					ResourceID:   roleARN,
 					Severity:     "error",
-					Message:      fmt.Sprintf("Failed to verify custom role: %v", err),
+					Message:      fmt.Sprintf("Failed to verify custom role: %v", getRoleErr),
 					Action:       "reported",
 				})
 			}
@@ -507,7 +647,7 @@ func (m *Manager) reconcileIAMRoles(
 		}
 	}
 
-	return status, issues, nil
+	return issues, nil
 }
 
 // Helper functions
@@ -532,7 +672,7 @@ func (m *Manager) buildRoleARNs(taskRoleName, taskExecutionRoleName *string) (ta
 func (m *Manager) verifyAndUpdateTaskDefinitionTags(
 	ctx context.Context,
 	taskDefARN string,
-	family string,
+	_ string,
 	image string,
 	isDefault bool,
 	reqLogger *slog.Logger,
@@ -550,7 +690,7 @@ func (m *Manager) verifyAndUpdateTaskDefinitionTags(
 	if isDefault {
 		isDefaultPtr = awsStd.Bool(true)
 	}
-	expectedTags := awsOrchestrator.BuildTaskDefinitionTags(image, isDefaultPtr)
+	expectedTags := m.taskDefRecreat.BuildTaskDefinitionTags(image, isDefaultPtr)
 
 	// Check if tags match
 	tagsMatch := m.compareTags(tagsOutput.Tags, expectedTags)
@@ -559,7 +699,7 @@ func (m *Manager) verifyAndUpdateTaskDefinitionTags(
 	}
 
 	// Tags don't match - update them
-	err = awsOrchestrator.UpdateTaskDefinitionTags(ctx, m.ecsClient, taskDefARN, image, isDefault, reqLogger)
+	err = m.taskDefRecreat.UpdateTaskDefinitionTags(ctx, taskDefARN, image, isDefault, reqLogger)
 	if err != nil {
 		return false, err
 	}
@@ -567,7 +707,7 @@ func (m *Manager) verifyAndUpdateTaskDefinitionTags(
 	return true, nil
 }
 
-func (m *Manager) compareTags(currentTags []ecsTypes.Tag, expectedTags []ecsTypes.Tag) bool {
+func (m *Manager) compareTags(currentTags, expectedTags []ecsTypes.Tag) bool {
 	currentMap := make(map[string]string)
 	for _, tag := range currentTags {
 		if tag.Key != nil && tag.Value != nil {
@@ -604,7 +744,7 @@ func (m *Manager) compareTags(currentTags []ecsTypes.Tag, expectedTags []ecsType
 func (m *Manager) findOrphanedTaskDefinitions(
 	ctx context.Context,
 	seenFamilies map[string]bool,
-	reqLogger *slog.Logger,
+	_ *slog.Logger,
 ) ([]string, error) {
 	familyPrefix := awsConstants.TaskDefinitionFamilyPrefix + "-"
 	orphaned := []string{}
@@ -718,7 +858,7 @@ func (m *Manager) verifyAndUpdateSecretTags(
 func (m *Manager) findOrphanedParameters(
 	ctx context.Context,
 	seenParameters map[string]bool,
-	reqLogger *slog.Logger,
+	_ *slog.Logger,
 ) ([]string, error) {
 	orphaned := []string{}
 
@@ -733,13 +873,14 @@ func (m *Manager) findOrphanedParameters(
 				},
 			},
 			NextToken:  awsStd.String(nextToken),
-			MaxResults: awsStd.Int32(50),
+			MaxResults: awsStd.Int32(awsConstants.SSMParameterMaxResults),
 		})
 		if err != nil {
 			return orphaned, fmt.Errorf("failed to describe parameters: %w", err)
 		}
 
-		for _, param := range listOutput.Parameters {
+		for i := range listOutput.Parameters {
+			param := &listOutput.Parameters[i]
 			if param.Name != nil {
 				paramName := *param.Name
 				if !seenParameters[paramName] {

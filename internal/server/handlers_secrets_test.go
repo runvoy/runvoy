@@ -430,5 +430,6 @@ func newTestService(
 		constants.AWS,
 		nil, // wsManager
 		secretRepo,
+		nil, // healthManager
 	)
 }

@@ -28,6 +28,7 @@ func TestCreateSecret_Success(t *testing.T) {
 		constants.AWS,
 		nil, // wsManager
 		secretsRepo,
+		nil, // healthManager
 	)
 
 	req := &api.CreateSecretRequest{
@@ -55,6 +56,7 @@ func TestCreateSecret_NoRepository(t *testing.T) {
 		constants.AWS,
 		nil, // wsManager
 		nil, // secretsRepo
+		nil, // healthManager
 	)
 
 	req := &api.CreateSecretRequest{
@@ -87,6 +89,7 @@ func TestCreateSecret_RepositoryError(t *testing.T) {
 		constants.AWS,
 		nil, // wsManager
 		secretsRepo,
+		nil, // healthManager
 	)
 
 	req := &api.CreateSecretRequest{
@@ -124,6 +127,7 @@ func TestGetSecret_Success(t *testing.T) {
 		constants.AWS,
 		nil, // wsManager
 		secretsRepo,
+		nil, // healthManager
 	)
 
 	secret, err := service.GetSecret(context.Background(), "test-secret")
@@ -152,6 +156,7 @@ func TestGetSecret_NotFound(t *testing.T) {
 		constants.AWS,
 		nil, // wsManager
 		secretsRepo,
+		nil, // healthManager
 	)
 
 	secret, err := service.GetSecret(context.Background(), "nonexistent")
@@ -191,6 +196,7 @@ func TestListSecrets_Success(t *testing.T) {
 		constants.AWS,
 		nil, // wsManager
 		secretsRepo,
+		nil, // healthManager
 	)
 
 	secrets, err := service.ListSecrets(context.Background())
@@ -219,6 +225,7 @@ func TestListSecrets_Empty(t *testing.T) {
 		constants.AWS,
 		nil, // wsManager
 		secretsRepo,
+		nil, // healthManager
 	)
 
 	secrets, err := service.ListSecrets(context.Background())
@@ -241,6 +248,7 @@ func TestUpdateSecret_Success(t *testing.T) {
 		constants.AWS,
 		nil, // wsManager
 		secretsRepo,
+		nil, // healthManager
 	)
 
 	req := &api.UpdateSecretRequest{
@@ -272,6 +280,7 @@ func TestUpdateSecret_RepositoryError(t *testing.T) {
 		constants.AWS,
 		nil, // wsManager
 		secretsRepo,
+		nil, // healthManager
 	)
 
 	req := &api.UpdateSecretRequest{
@@ -298,6 +307,7 @@ func TestDeleteSecret_Success(t *testing.T) {
 		constants.AWS,
 		nil, // wsManager
 		secretsRepo,
+		nil, // healthManager
 	)
 
 	err := service.DeleteSecret(context.Background(), "test-secret")
@@ -323,6 +333,7 @@ func TestDeleteSecret_RepositoryError(t *testing.T) {
 		constants.AWS,
 		nil, // wsManager
 		secretsRepo,
+		nil, // healthManager
 	)
 
 	err := service.DeleteSecret(context.Background(), "test-secret")
@@ -362,6 +373,7 @@ func TestResolveSecretsForExecution_Success(t *testing.T) {
 		constants.AWS,
 		nil, // wsManager
 		secretsRepo,
+		nil, // healthManager
 	)
 
 	secretEnvVars, err := service.resolveSecretsForExecution(context.Background(), []string{"secret-1", "secret-2"})
@@ -386,6 +398,7 @@ func TestResolveSecretsForExecution_Empty(t *testing.T) {
 		constants.AWS,
 		nil, // wsManager
 		secretsRepo,
+		nil, // healthManager
 	)
 
 	secretEnvVars, err := service.resolveSecretsForExecution(context.Background(), []string{})
@@ -408,6 +421,7 @@ func TestResolveSecretsForExecution_EmptySecretName(t *testing.T) {
 		constants.AWS,
 		nil, // wsManager
 		secretsRepo,
+		nil, // healthManager
 	)
 
 	secretEnvVars, err := service.resolveSecretsForExecution(context.Background(), []string{"  "})
@@ -441,6 +455,7 @@ func TestResolveSecretsForExecution_DuplicateSecrets(t *testing.T) {
 		constants.AWS,
 		nil, // wsManager
 		secretsRepo,
+		nil, // healthManager
 	)
 
 	// Pass the same secret twice
@@ -474,6 +489,7 @@ func TestResolveSecretsForExecution_SecretNotFound(t *testing.T) {
 		constants.AWS,
 		nil, // wsManager
 		secretsRepo,
+		nil, // healthManager
 	)
 
 	secretEnvVars, err := service.resolveSecretsForExecution(context.Background(), []string{"secret-1"})
@@ -533,6 +549,7 @@ func TestApplyResolvedSecrets(t *testing.T) {
 		constants.AWS,
 		nil, // wsManager
 		nil, // secretsRepo
+		nil, // healthManager
 	)
 
 	for _, tt := range tests {

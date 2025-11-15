@@ -308,7 +308,7 @@ func newTestServiceWithConnRepo(
 	runner *mockRunner,
 ) *Service {
 	logger := testutil.SilentLogger()
-	return NewService(userRepo, execRepo, connRepo, &mockTokenRepository{}, runner, logger, constants.AWS, nil, nil)
+	return NewService(userRepo, execRepo, connRepo, &mockTokenRepository{}, runner, logger, constants.AWS, nil, nil, nil)
 }
 
 // newTestServiceWithSecretsRepo creates a Service with a secrets repository for testing.
@@ -319,7 +319,9 @@ func newTestServiceWithSecretsRepo(
 	secretsRepo database.SecretsRepository,
 ) *Service {
 	logger := testutil.SilentLogger()
-	return NewService(userRepo, execRepo, nil, &mockTokenRepository{}, runner, logger, constants.AWS, nil, secretsRepo)
+	return NewService(
+		userRepo, execRepo, nil, &mockTokenRepository{}, runner, logger, constants.AWS, nil, secretsRepo, nil,
+	)
 }
 
 // mockSecretsRepository implements database.SecretsRepository for testing.
@@ -381,7 +383,7 @@ func newTestServiceWithWebSocketManager(
 	wsManager websocket.Manager,
 ) *Service {
 	logger := testutil.SilentLogger()
-	return NewService(userRepo, execRepo, nil, &mockTokenRepository{}, runner, logger, constants.AWS, wsManager, nil)
+	return NewService(userRepo, execRepo, nil, &mockTokenRepository{}, runner, logger, constants.AWS, wsManager, nil, nil)
 }
 
 // mockWebSocketManager implements websocket.Manager for testing

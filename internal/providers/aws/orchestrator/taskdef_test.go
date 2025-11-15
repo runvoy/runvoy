@@ -173,7 +173,7 @@ func TestBuildTaskDefinitionTags(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tags := buildTaskDefinitionTags(tt.image, tt.isDefault)
+			tags := BuildTaskDefinitionTags(tt.image, tt.isDefault)
 			assert.Len(t, tags, tt.expected)
 
 			// Verify DockerImage tag is always present
@@ -219,7 +219,7 @@ func TestBuildTaskDefinitionTags_Values(t *testing.T) {
 	image := "test-image:1.0"
 	isDefault := aws.Bool(true)
 
-	tags := buildTaskDefinitionTags(image, isDefault)
+	tags := BuildTaskDefinitionTags(image, isDefault)
 
 	// Verify all expected tags are present with correct values
 	tagMap := make(map[string]string)
@@ -239,7 +239,7 @@ func TestBuildTaskDefinitionTags_ECSCompatible(t *testing.T) {
 	image := "ubuntu:22.04"
 	isDefault := aws.Bool(true)
 
-	tags := buildTaskDefinitionTags(image, isDefault)
+	tags := BuildTaskDefinitionTags(image, isDefault)
 
 	for _, tag := range tags {
 		assert.NotNil(t, tag.Key, "Tag key should not be nil")
