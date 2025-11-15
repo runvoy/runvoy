@@ -7,7 +7,7 @@ import (
 	"context"
 	"os"
 
-	"runvoy/internal/app/events"
+	"runvoy/internal/app/processor"
 	"runvoy/internal/config"
 	"runvoy/internal/constants"
 	"runvoy/internal/logger"
@@ -21,7 +21,7 @@ func main() {
 	log := logger.Initialize(constants.Production, cfg.GetLogLevel())
 	ctx, cancel := context.WithTimeout(context.Background(), cfg.InitTimeout)
 
-	processor, err := events.Initialize(ctx, cfg, log)
+	proc, err := processor.Initialize(ctx, cfg, log)
 	cancel()
 	if err != nil {
 		log.Error("failed to initialize event processor", "error", err)
@@ -29,5 +29,5 @@ func main() {
 	}
 
 	log.With("version", *constants.GetVersion()).Debug("starting event processor Lambda handler")
-	lambda.Start(lambdaapi.NewEventProcessorHandler(processor))
+	lambda.Start(lambdaapi.NewEventProcessorHandler(proc))
 }

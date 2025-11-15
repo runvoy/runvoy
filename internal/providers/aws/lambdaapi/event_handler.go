@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"runvoy/internal/app/events"
+	"runvoy/internal/app/processor"
 
 	"github.com/aws/aws-lambda-go/lambda"
 )
@@ -17,12 +17,12 @@ import (
 // It wraps the generic event processor and converts responses to AWS Lambda types,
 // allowing the core processor to remain cloud-provider agnostic while still
 // supporting AWS Lambda's specific response formats.
-func NewEventProcessorHandler(processor events.Processor) lambda.Handler {
+func NewEventProcessorHandler(proc processor.Processor) lambda.Handler {
 	return lambda.NewHandler(func(
 		ctx context.Context,
 		rawEvent *json.RawMessage,
 	) (json.RawMessage, error) {
-		result, err := processor.Handle(ctx, rawEvent)
+		result, err := proc.Handle(ctx, rawEvent)
 		if err != nil {
 			return json.RawMessage(
 				fmt.Sprintf(`{"status_code": %d, "body": %q}`,

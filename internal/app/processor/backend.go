@@ -1,5 +1,5 @@
-// Package events provides event processing interfaces and utilities.
-package events
+// Package processor provides event processing interfaces and utilities.
+package processor
 
 import (
 	"context"

@@ -1,6 +1,6 @@
-// Package app provides the core application logic for runvoy.
-// It initializes and manages the service layer.
-package app
+// Package orchestrator provides the core orchestrator service for runvoy.
+// It initializes and manages command execution and API request handling.
+package orchestrator
 
 import (
 	"context"

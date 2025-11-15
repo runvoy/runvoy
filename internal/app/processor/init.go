@@ -1,5 +1,6 @@
-// Package events provides event processing functionality for cloud provider events.
-package events
+// Package processor provides event processing functionality for cloud provider events.
+// It handles asynchronous events from AWS services like EventBridge, CloudWatch Logs, and WebSocket lifecycle events.
+package processor
 
 import (
 	"context"

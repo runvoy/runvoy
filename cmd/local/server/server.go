@@ -8,14 +8,14 @@ import (
 	"log/slog"
 	"net/http"
 
-	"runvoy/internal/app/events"
+	"runvoy/internal/app/processor"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 )
 
 // NewRouter creates a chi router for the async event processor.
-func NewRouter(processor events.Processor, log *slog.Logger) *chi.Mux {
+func NewRouter(proc processor.Processor, log *slog.Logger) *chi.Mux {
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
 	r.Use(middleware.Logger)
@@ -49,7 +49,7 @@ func NewRouter(processor events.Processor, log *slog.Logger) *chi.Mux {
 			return
 		}
 
-		result, procErr := processor.Handle(req.Context(), &rawEvent)
+		result, procErr := proc.Handle(req.Context(), &rawEvent)
 		if procErr != nil {
 			writeErrorResponse(w, http.StatusInternalServerError, "event processing failed", procErr.Error())
 			return

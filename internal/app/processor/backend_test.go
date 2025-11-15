@@ -1,5 +1,5 @@
 // Package events provides event processing interfaces and utilities.
-package events
+package processor
 
 import (
 	"encoding/json"

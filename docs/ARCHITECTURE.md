@@ -22,6 +22,19 @@ runvoy/
 ├── deploy/
 ├── docs/
 ├── internal/
+│   ├── app/
+│   │   ├── orchestrator/     # Command execution and API orchestration
+│   │   ├── processor/        # Event processing (CloudWatch, ECS, WebSocket)
+│   │   └── websocket/        # WebSocket connection management
+│   ├── providers/            # Cloud provider implementations (AWS)
+│   ├── server/               # HTTP routing and handlers
+│   ├── auth/                 # Authentication logic
+│   ├── client/               # CLI client implementations
+│   ├── config/               # Configuration loading
+│   ├── constants/            # Constants and typed definitions
+│   ├── errors/               # Error types and handling
+│   ├── logger/               # Logging utilities
+│   └── ...                   # Other internal packages
 ├── scripts/
 ```
 
@@ -29,7 +42,14 @@ runvoy/
 - `cmd/`: main entry points for the various application (CLI, local dev server, provider-specific lambdas, etc.)
 - `deploy/`: infrastructure as code grouped by provider (CloudFormation templates, etc.).
 - `docs/`: project documentation (architecture, testing strategy, etc.).
-- `internal/`: core logic of the runvoy application (business logic, API, database, etc.)
+- `internal/`: core logic of the runvoy application:
+  - `app/`: main application container with subcomponents:
+    - `orchestrator/`: synchronous API request handling and command execution orchestration
+    - `processor/`: asynchronous event processing from AWS services (EventBridge, CloudWatch Logs, WebSocket lifecycle)
+    - `websocket/`: WebSocket connection management and message routing (used by both orchestrator and processor)
+  - `providers/`: cloud provider-specific implementations (currently AWS)
+  - `server/`: HTTP routing, middleware, and handlers for the API
+  - Other packages: authentication, client libraries, configuration, logging, error handling, etc.
 - `scripts/`: scripts for the runvoy application development and deployment
 
 ## Services
@@ -42,13 +62,14 @@ runvoy/
 To support multiple cloud platforms, the service layer now depends on an execution provider interface:
 
 ```text
-internal/app.Service           → uses Runner interface (provider-agnostic)
-internal/providers/aws/app     → AWS-specific Runner implementation (ECS Fargate)
+internal/app/orchestrator.Service  → uses Runner interface (provider-agnostic)
+internal/providers/aws/app         → AWS-specific Runner implementation (ECS Fargate)
 ```
 
 - The `Runner` interface abstracts starting a command execution and returns a stable execution ID and the task creation timestamp.
 - The AWS implementation resides in `internal/providers/aws/app` and encapsulates all ECS- and AWS-specific logic and types.
-- `internal/app/init.go` wires the chosen provider by constructing the appropriate `Runner` and passing it into `Service`.
+- `internal/app/orchestrator/init.go` wires the chosen provider by constructing the appropriate `Runner` and passing it into `Service`.
+- The public API is re-exported via `internal/app.Service` for backward compatibility (see `internal/app.go`).
 
 ## Router Architecture
 
@@ -302,7 +323,7 @@ The request ID middleware automatically:
 
 ### Execution Records: Compute Platform, and Request ID
 
-- The service includes the request ID (when available) in execution records created in `internal/app.Service.RunCommand()`.
+- The service includes the request ID (when available) in execution records created in `internal/app/orchestrator.Service.RunCommand()`.
 - The `request_id` is persisted in DynamoDB via the `internal/providers/aws/database/dynamodb` repository.
 - If a request ID is not present (e.g., non-Lambda environments), the service logs a warning and stores the execution without a `request_id`.
 - The `compute_platform` field in execution records is derived from the configured backend provider at initialization time (e.g., `AWS`) rather than being hardcoded in the service logic.
@@ -325,7 +346,7 @@ The application uses a unified logging approach with structured logging via `log
 - Log level is configurable via `RUNVOY_LOG_LEVEL` environment variable
 
 ### Service-Level Logging
-- Each `Service` instance contains its own logger instance (`Service.Logger`)
+- Each `Service` instance in `internal/app/orchestrator` contains its own logger instance (`Service.Logger`)
 - Service methods that receive a `context.Context` derive a request-scoped logger using the Lambda request ID when available: `reqLogger := s.Logger.With("requestID", AwsRequestID)`
 - This keeps logs consistent with router/handler logs and ensures traceability across layers
 
@@ -480,15 +501,15 @@ Designed to be extended for future event types:
 ### Implementation
 
 **Entry Point**: `cmd/backend/providers/aws/event_processor/main.go`
-- Initializes event processor
+- Initializes event processor from `internal/app/processor`
 - Starts Lambda handler
 
-**Event Routing**: `internal/providers/aws/events/backend.go`
+**Event Routing**: `internal/app/processor/backend.go`
 - Routes events by `detail-type`
 - Ignores unknown event types (log and continue)
 - Extensible switch statement for new handlers
 
-**ECS Handler**: `internal/providers/aws/events/backend.go`
+**AWS Provider Implementation**: `internal/providers/aws/events/backend.go`
 - Parses ECS task events
 - Extracts execution ID from task ARN
 - Determines final status from exit code and stop reason
@@ -1089,7 +1110,7 @@ Future enhancements may include server-side filtering and pagination.
    - `internal/logger`: 98.6%
    - `internal/errors`: 94.4%
    - `internal/config/aws`: 97.8%
-   - `internal/app`: 87.6% ⬆️ (from 55.7%)
+   - `internal/app/orchestrator`: 87.6% ⬆️ (from 55.7%)
    - `internal/constants`: 87.5%
    - `internal/client/playbooks`: 87.3%
    - `internal/auth`: 78.6%
@@ -1097,7 +1118,7 @@ Future enhancements may include server-side filtering and pagination.
    - `internal/config`: 78.4%
 
    **Areas with good coverage (70-80%):**
-   - `internal/app/events`: 80.0%
+   - `internal/app/processor`: 80.0%
    - `internal/client/output`: 75.3%
    - `internal/providers/aws/events`: 75.0%
    - `internal/providers/aws/secrets`: 90.6%

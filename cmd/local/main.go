@@ -14,7 +14,7 @@ import (
 
 	"runvoy/cmd/local/server"
 	"runvoy/internal/app"
-	"runvoy/internal/app/events"
+	"runvoy/internal/app/processor"
 	"runvoy/internal/config"
 	"runvoy/internal/constants"
 	"runvoy/internal/logger"
@@ -24,18 +24,18 @@ import (
 const numServers = 2
 
 func initializeServices(ctx context.Context, log *slog.Logger, oCfg *config.Config, eCfg *config.Config,
-) (*app.Service, events.Processor, error) {
+) (*app.Service, processor.Processor, error) {
 	svc, err := app.Initialize(ctx, oCfg, log)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to initialize orchestrator service: %w", err)
 	}
 
-	processor, err := events.Initialize(ctx, eCfg, log)
+	proc, err := processor.Initialize(ctx, eCfg, log)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to initialize event processor: %w", err)
 	}
 
-	return svc, processor, nil
+	return svc, proc, nil
 }
 
 func startOrchestratorServer(log *slog.Logger, cfg *config.Config, svc *app.Service,
@@ -74,7 +74,7 @@ func startOrchestratorServer(log *slog.Logger, cfg *config.Config, svc *app.Serv
 	}
 }
 
-func startAsyncProcessorServer(log *slog.Logger, cfg *config.Config, processor events.Processor,
+func startAsyncProcessorServer(log *slog.Logger, cfg *config.Config, proc processor.Processor,
 	serverErrors chan error, wg *sync.WaitGroup) *http.Server {
 	wg.Go(func() {
 		port := cfg.Port + 1
@@ -87,7 +87,7 @@ func startAsyncProcessorServer(log *slog.Logger, cfg *config.Config, processor e
 			"url", fmt.Sprintf("http://localhost:%d/process", port),
 		)
 
-		router := server.NewRouter(processor, log)
+		router := server.NewRouter(proc, log)
 		srv := &http.Server{
 			Addr:         fmt.Sprintf(":%d", port),
 			Handler:      router,
@@ -100,7 +100,7 @@ func startAsyncProcessorServer(log *slog.Logger, cfg *config.Config, processor e
 		}
 	})
 
-	router := server.NewRouter(processor, log)
+	router := server.NewRouter(proc, log)
 	return &http.Server{
 		Addr:         fmt.Sprintf(":%d", cfg.Port),
 		Handler:      router,
@@ -157,7 +157,7 @@ func main() {
 	log := logger.Initialize(constants.Development, orchestratorCfg.GetLogLevel())
 
 	ctx, cancel := context.WithTimeout(context.Background(), orchestratorCfg.InitTimeout)
-	svc, processor, initErr := initializeServices(ctx, log, orchestratorCfg, eventProcessorCfg)
+	svc, proc, initErr := initializeServices(ctx, log, orchestratorCfg, eventProcessorCfg)
 	cancel()
 	if initErr != nil {
 		log.Error("initialization failed", "error", initErr)
@@ -169,7 +169,7 @@ func main() {
 	var wg sync.WaitGroup
 
 	orchestratorServer := startOrchestratorServer(log, orchestratorCfg, svc, serverErrors, &wg)
-	asyncServer := startAsyncProcessorServer(log, eventProcessorCfg, processor, serverErrors, &wg)
+	asyncServer := startAsyncProcessorServer(log, eventProcessorCfg, proc, serverErrors, &wg)
 
 	// Wait for interrupt signal or server error
 	quit := make(chan os.Signal, 1)

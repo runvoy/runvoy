@@ -67,7 +67,7 @@ Runvoy is composed of 3 main parts:
 
 ## Quick Start
 
-### CLI Users (requires Go 1.24 or later)
+### CLI Users (requires Go 1.25 or later)
 
 Install the CLI
 
@@ -89,7 +89,7 @@ and a download page to get the latest release from the [releases page](https://g
 
 Requirements:
 
-- Go 1.24 or later
+- Go 1.25 or later
 - [just](https://github.com/casey/just) command runner installed
 - AWS credentials configured in your shell environment (see [AWS credentials configuration](https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-configure.html))
 
@@ -132,7 +132,7 @@ runvoy --help
 ```
 
 ```text
-runvoy - 0.1.0-20251115-67e001a
+runvoy - 0.1.0-20251115-b7e55b6
 Isolated, repeatable execution environments for your commands
 
 Usage:
@@ -258,7 +258,7 @@ This separation enables clean automation and integration with other Unix tools w
 
 ### Prerequisites for Development
 
-- Go 1.24 or later
+- Go 1.25 or later
 - [just](https://github.com/casey/just) command runner
 - AWS credentials configured in your shell environment
 
