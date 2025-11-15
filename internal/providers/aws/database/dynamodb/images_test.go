@@ -681,6 +681,8 @@ func TestDeleteImage(t *testing.T) {
 					item := &imageTaskDefItem{
 						ImageID:         GenerateImageID("nginx", "latest", 256, 512, "Linux/X86_64", nil, nil),
 						Image:           "nginx:latest",
+						ImageName:       "nginx",
+						ImageTag:        "latest",
 						Cpu:             "256",
 						Memory:          "512",
 						RuntimePlatform: "Linux/X86_64",
@@ -752,7 +754,7 @@ func TestDeleteImage(t *testing.T) {
 			expectError: false,
 		},
 		{
-			name:  "image not found (empty result)",
+			name:  "image not found returns ErrNotFound",
 			image: "nonexistent:latest",
 			mockSetup: func(m *mockImageClient) {
 				m.scanFunc = func(_ context.Context, _ *dynamodb.ScanInput, _ ...func(*dynamodb.Options)) (
@@ -760,7 +762,18 @@ func TestDeleteImage(t *testing.T) {
 					return &dynamodb.ScanOutput{Items: []map[string]types.AttributeValue{}}, nil
 				}
 			},
-			expectError: false,
+			expectError: true,
+		},
+		{
+			name:  "ImageID not found returns ErrNotFound",
+			image: "nonexistent:latest-a1b2c3d4",
+			mockSetup: func(m *mockImageClient) {
+				m.getItemFunc = func(_ context.Context, _ *dynamodb.GetItemInput, _ ...func(*dynamodb.Options)) (
+					*dynamodb.GetItemOutput, error) {
+					return &dynamodb.GetItemOutput{Item: nil}, nil
+				}
+			},
+			expectError: true,
 		},
 		{
 			name:  "scan error",
@@ -997,21 +1010,19 @@ func TestGetAnyImageTaskDef(t *testing.T) {
 		validateFn  func(*testing.T, *api.ImageInfo)
 	}{
 		{
-			name:  "matches by ImageName and ImageTag (debian/debian:latest matches debian/debian:latest-f755d736)",
-			image: "debian/debian:latest",
+			name:  "matches by exact image string",
+			image: "nginx:latest",
 			mockSetup: func(m *mockImageClient) {
 				m.scanFunc = func(_ context.Context, params *dynamodb.ScanInput, _ ...func(*dynamodb.Options)) (
 					*dynamodb.ScanOutput, error) {
-					// Verify filter expression matches by ImageName and ImageTag
-					assert.Contains(t, *params.FilterExpression, "image_name = :image_name AND image_tag = :image_tag")
-					assert.NotNil(t, params.ExpressionAttributeValues[":image_name"])
-					assert.NotNil(t, params.ExpressionAttributeValues[":image_tag"])
+					assert.Contains(t, *params.FilterExpression, "image = :image")
+					assert.NotNil(t, params.ExpressionAttributeValues[":image"])
 
 					item := &imageTaskDefItem{
-						ImageID:              "debian/debian:latest-f755d736",
-						Image:                "debian/debian:latest-f755d736",
-						TaskDefinitionFamily: "runvoy-debian-debian-latest-f755d736",
-						ImageName:            "debian/debian",
+						ImageID:              "nginx:latest-a1b2c3d4",
+						Image:                "nginx:latest",
+						TaskDefinitionFamily: "runvoy-nginx-latest-a1b2c3d4",
+						ImageName:            "nginx",
 						ImageTag:             "latest",
 						Cpu:                  "256",
 						Memory:               "512",
@@ -1023,11 +1034,11 @@ func TestGetAnyImageTaskDef(t *testing.T) {
 				}
 			},
 			validateFn: func(t *testing.T, info *api.ImageInfo) {
-				assert.Equal(t, "debian/debian:latest-f755d736", info.ImageID)
-				assert.Equal(t, "debian/debian:latest-f755d736", info.Image)
-				assert.Equal(t, "debian/debian", info.ImageName)
+				assert.Equal(t, "nginx:latest-a1b2c3d4", info.ImageID)
+				assert.Equal(t, "nginx:latest", info.Image)
+				assert.Equal(t, "nginx", info.ImageName)
 				assert.Equal(t, "latest", info.ImageTag)
-				assert.Equal(t, "runvoy-debian-debian-latest-f755d736", info.TaskDefinitionName)
+				assert.Equal(t, "runvoy-nginx-latest-a1b2c3d4", info.TaskDefinitionName)
 			},
 		},
 		{
@@ -1072,48 +1083,6 @@ func TestGetAnyImageTaskDef(t *testing.T) {
 			validateFn: func(t *testing.T, info *api.ImageInfo) {
 				assert.Equal(t, "alpine:latest-f755d736", info.ImageID)
 				assert.True(t, *info.IsDefault)
-			},
-		},
-		{
-			name:  "selects most recent when no default exists",
-			image: "nginx:latest",
-			mockSetup: func(m *mockImageClient) {
-				m.scanFunc = func(_ context.Context, _ *dynamodb.ScanInput, _ ...func(*dynamodb.Options)) (
-					*dynamodb.ScanOutput, error) {
-					items := []imageTaskDefItem{
-						{
-							ImageID:              "nginx:latest-older",
-							Image:                "nginx:latest-older",
-							TaskDefinitionFamily: "runvoy-nginx-latest-older",
-							ImageName:            "nginx",
-							ImageTag:             "latest",
-							Cpu:                  "256",
-							Memory:               "512",
-							RuntimePlatform:      "Linux/X86_64",
-							CreatedAt:            1234567890,
-						},
-						{
-							ImageID:              "nginx:latest-newer",
-							Image:                "nginx:latest-newer",
-							TaskDefinitionFamily: "runvoy-nginx-latest-newer",
-							ImageName:            "nginx",
-							ImageTag:             "latest",
-							Cpu:                  "256",
-							Memory:               "512",
-							RuntimePlatform:      "Linux/X86_64",
-							CreatedAt:            1234567892,
-						},
-					}
-					var av []map[string]types.AttributeValue
-					for _, item := range items {
-						itemMap, _ := attributevalue.MarshalMap(&item)
-						av = append(av, itemMap)
-					}
-					return &dynamodb.ScanOutput{Items: av}, nil
-				}
-			},
-			validateFn: func(t *testing.T, info *api.ImageInfo) {
-				assert.Equal(t, "nginx:latest-newer", info.ImageID)
 			},
 		},
 		{

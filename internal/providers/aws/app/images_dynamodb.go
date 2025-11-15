@@ -11,7 +11,7 @@ import (
 	"strings"
 
 	"runvoy/internal/api"
-	appErrors "runvoy/internal/errors"
+	apperrors "runvoy/internal/errors"
 	"runvoy/internal/logger"
 	awsConstants "runvoy/internal/providers/aws/constants"
 	"runvoy/internal/providers/aws/database/dynamodb"
@@ -228,7 +228,7 @@ func (e *Runner) validateIAMRoles(
 		if err != nil {
 			var noSuchEntity *iamTypes.NoSuchEntityException
 			if errors.As(err, &noSuchEntity) {
-				return appErrors.ErrBadRequest(
+				return apperrors.ErrBadRequest(
 					fmt.Sprintf("%s IAM role does not exist: %s", role.kind, roleName),
 					err,
 				)
@@ -433,16 +433,37 @@ func (e *Runner) RemoveImage(ctx context.Context, image string) error {
 		return fmt.Errorf("AWS account ID not configured")
 	}
 
-	allImages, err := e.imageRepo.ListImages(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to list images: %w", err)
+	var matchingImages []api.ImageInfo
+
+	if looksLikeImageID(image) {
+		imageInfo, getErr := e.imageRepo.GetImageTaskDefByID(ctx, image)
+		if getErr != nil {
+			return fmt.Errorf("failed to get image by ImageID: %w", getErr)
+		}
+		if imageInfo != nil {
+			matchingImages = []api.ImageInfo{*imageInfo}
+		}
+	} else {
+		allImages, listErr := e.imageRepo.ListImages(ctx)
+		if listErr != nil {
+			return fmt.Errorf("failed to list images: %w", listErr)
+		}
+
+		for i := range allImages {
+			if allImages[i].Image == image && allImages[i].TaskDefinitionName != "" {
+				matchingImages = append(matchingImages, allImages[i])
+			}
+		}
 	}
 
-	// Collect unique task definition families for this image
+	if len(matchingImages) == 0 {
+		return apperrors.ErrNotFound("image not found", fmt.Errorf("image %q not found", image))
+	}
+
 	families := make(map[string]bool)
-	for i := range allImages {
-		if allImages[i].Image == image && allImages[i].TaskDefinitionName != "" {
-			families[allImages[i].TaskDefinitionName] = true
+	for i := range matchingImages {
+		if matchingImages[i].TaskDefinitionName != "" {
+			families[matchingImages[i].TaskDefinitionName] = true
 		}
 	}
 
