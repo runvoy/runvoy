@@ -238,3 +238,126 @@ func TestConnectionRepositoryWithContext(t *testing.T) {
 		assert.Equal(t, context.Canceled, ctx.Err())
 	})
 }
+
+// Tests for DeleteConnections
+func TestCreateConnection_Success(t *testing.T) {
+	client := NewMockDynamoDBClient()
+	logger := testutil.SilentLogger()
+	repo := NewConnectionRepository(client, "connections-table", logger)
+
+	connection := &api.WebSocketConnection{
+		ConnectionID:         "conn-123",
+		ExecutionID:          "exec-456",
+		Functionality:        "logs",
+		ExpiresAt:            time.Now().Add(1 * time.Hour).Unix(),
+		ClientIP:             "192.168.1.1",
+		Token:                "ws_token_123",
+		UserEmail:            "user@example.com",
+		TokenRequestClientIP: "192.168.1.2",
+	}
+
+	err := repo.CreateConnection(context.Background(), connection)
+
+	assert.NoError(t, err)
+	assert.Equal(t, 1, client.PutItemCalls)
+}
+
+func TestDeleteConnections_Success(t *testing.T) {
+	client := NewMockDynamoDBClient()
+	logger := testutil.SilentLogger()
+	repo := NewConnectionRepository(client, "connections-table", logger)
+
+	connectionIDs := []string{"conn-1", "conn-2", "conn-3"}
+
+	deletedCount, err := repo.DeleteConnections(context.Background(), connectionIDs)
+
+	assert.NoError(t, err)
+	assert.Equal(t, 3, deletedCount)
+	assert.Equal(t, 1, client.BatchWriteItemCalls)
+}
+
+func TestDeleteConnections_Empty(t *testing.T) {
+	client := NewMockDynamoDBClient()
+	logger := testutil.SilentLogger()
+	repo := NewConnectionRepository(client, "connections-table", logger)
+
+	connectionIDs := []string{}
+
+	deletedCount, err := repo.DeleteConnections(context.Background(), connectionIDs)
+
+	assert.NoError(t, err)
+	assert.Equal(t, 0, deletedCount)
+	assert.Equal(t, 0, client.BatchWriteItemCalls)
+}
+
+func TestDeleteConnections_LargeBatch(t *testing.T) {
+	client := NewMockDynamoDBClient()
+	logger := testutil.SilentLogger()
+	repo := NewConnectionRepository(client, "connections-table", logger)
+
+	// Create 60 connection IDs to test batching (should require 3 batches of 25)
+	connectionIDs := make([]string, 60)
+	for i := range 60 {
+		connectionIDs[i] = "conn-" + string(rune(i))
+	}
+
+	deletedCount, err := repo.DeleteConnections(context.Background(), connectionIDs)
+
+	assert.NoError(t, err)
+	assert.Equal(t, 60, deletedCount)
+	assert.Equal(t, 3, client.BatchWriteItemCalls) // 3 batches needed for 60 items
+}
+
+func TestGetConnectionsByExecutionID_Success(t *testing.T) {
+	client := NewMockDynamoDBClient()
+	logger := testutil.SilentLogger()
+	repo := NewConnectionRepository(client, "connections-table", logger)
+
+	// Create some connections
+	connections := []api.WebSocketConnection{
+		{
+			ConnectionID:         "conn-1",
+			ExecutionID:          "exec-123",
+			Functionality:        "logs",
+			ExpiresAt:            time.Now().Add(1 * time.Hour).Unix(),
+			ClientIP:             "192.168.1.1",
+			Token:                "token-1",
+			UserEmail:            "user@example.com",
+			TokenRequestClientIP: "192.168.1.2",
+		},
+		{
+			ConnectionID:         "conn-2",
+			ExecutionID:          "exec-123",
+			Functionality:        "logs",
+			ExpiresAt:            time.Now().Add(1 * time.Hour).Unix(),
+			ClientIP:             "192.168.1.3",
+			Token:                "token-2",
+			UserEmail:            "user@example.com",
+			TokenRequestClientIP: "192.168.1.4",
+		},
+	}
+
+	for i := range connections {
+		err := repo.CreateConnection(context.Background(), &connections[i])
+		require.NoError(t, err)
+	}
+
+	// Query by execution ID
+	retrieved, err := repo.GetConnectionsByExecutionID(context.Background(), "exec-123")
+
+	assert.NoError(t, err)
+	assert.GreaterOrEqual(t, len(retrieved), 2)
+	assert.Equal(t, 1, client.QueryCalls)
+}
+
+func TestGetConnectionsByExecutionID_NoResults(t *testing.T) {
+	client := NewMockDynamoDBClient()
+	logger := testutil.SilentLogger()
+	repo := NewConnectionRepository(client, "connections-table", logger)
+
+	// Query for non-existent execution
+	retrieved, err := repo.GetConnectionsByExecutionID(context.Background(), "nonexistent-exec")
+
+	assert.NoError(t, err)
+	assert.Len(t, retrieved, 0)
+}
