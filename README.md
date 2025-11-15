@@ -19,7 +19,7 @@
 
 ---
 
-Deploy once, issue API keys, let your team execute arbitrary (admin) commands safely from their terminals. Share playbooks with your team to execute commands consistently and reliably.
+Deploy once, issue API keys, let your team execute arbitrary (admin) commands safely from their terminals. Share playbooks to execute commands consistently and reliably.
 
 Workstations shouldn't be snowflakes that need complex setups, let remote containers (_run envoys..._) execute the actual commands in a secured and reproducible production grade environment.
 
