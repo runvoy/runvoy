@@ -10,6 +10,7 @@ import (
 	"runvoy/internal/logger"
 	awsDatabase "runvoy/internal/providers/aws/database"
 	dynamoRepo "runvoy/internal/providers/aws/database/dynamodb"
+	awsHealth "runvoy/internal/providers/aws/health"
 	"runvoy/internal/providers/aws/secrets"
 	"runvoy/internal/providers/aws/websocket"
 
@@ -31,6 +32,7 @@ type Dependencies struct {
 	Runner           *Runner
 	WebSocketManager *websocket.Manager
 	SecretsRepo      database.SecretsRepository
+	HealthManager    *awsHealth.Manager
 }
 
 // Initialize prepares AWS service dependencies for the app package.
@@ -79,6 +81,23 @@ func Initialize( //nolint:funlen // This is ok, lots of initializations required
 	runner := NewRunner(ecsClient, cwlClient, iamClient, repos.imageTaskDefRepo, runnerCfg, log)
 	wsManager := websocket.Initialize(cfg, repos.connectionRepo, repos.tokenRepo, log)
 
+	healthCfg := &awsHealth.Config{
+		Region:                 cfg.AWS.SDKConfig.Region,
+		AccountID:              accountID,
+		DefaultTaskRoleARN:     cfg.AWS.DefaultTaskRoleARN,
+		DefaultTaskExecRoleARN: cfg.AWS.DefaultTaskExecRoleARN,
+	}
+	healthManager := awsHealth.NewManager(
+		ecsClient,
+		ssmClient,
+		iamClient,
+		repos.imageTaskDefRepo,
+		repos.secretsRepo,
+		healthCfg,
+		cfg.AWS.SecretsPrefix,
+		log,
+	)
+
 	log.Debug("AWS orchestrator initialized successfully", "context", map[string]string{
 		"ecs_cluster":                cfg.AWS.ECSCluster,
 		"subnet1":                    cfg.AWS.Subnet1,
@@ -97,6 +116,7 @@ func Initialize( //nolint:funlen // This is ok, lots of initializations required
 		Runner:           runner,
 		WebSocketManager: wsManager,
 		SecretsRepo:      repos.secretsRepo,
+		HealthManager:    healthManager,
 	}, nil
 }
 

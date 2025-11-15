@@ -29,6 +29,16 @@ type Client interface {
 		params *ssm.DeleteParameterInput,
 		optFns ...func(*ssm.Options),
 	) (*ssm.DeleteParameterOutput, error)
+	ListTagsForResource(
+		ctx context.Context,
+		params *ssm.ListTagsForResourceInput,
+		optFns ...func(*ssm.Options),
+	) (*ssm.ListTagsForResourceOutput, error)
+	DescribeParameters(
+		ctx context.Context,
+		params *ssm.DescribeParametersInput,
+		optFns ...func(*ssm.Options),
+	) (*ssm.DescribeParametersOutput, error)
 }
 
 // ClientAdapter wraps the AWS SDK SSM client to implement Client interface.
@@ -76,4 +86,22 @@ func (a *ClientAdapter) DeleteParameter(
 	optFns ...func(*ssm.Options),
 ) (*ssm.DeleteParameterOutput, error) {
 	return a.client.DeleteParameter(ctx, params, optFns...)
+}
+
+// ListTagsForResource wraps the AWS SDK ListTagsForResource operation.
+func (a *ClientAdapter) ListTagsForResource(
+	ctx context.Context,
+	params *ssm.ListTagsForResourceInput,
+	optFns ...func(*ssm.Options),
+) (*ssm.ListTagsForResourceOutput, error) {
+	return a.client.ListTagsForResource(ctx, params, optFns...)
+}
+
+// DescribeParameters wraps the AWS SDK DescribeParameters operation.
+func (a *ClientAdapter) DescribeParameters(
+	ctx context.Context,
+	params *ssm.DescribeParametersInput,
+	optFns ...func(*ssm.Options),
+) (*ssm.DescribeParametersOutput, error) {
+	return a.client.DescribeParameters(ctx, params, optFns...)
 }

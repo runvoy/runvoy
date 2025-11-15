@@ -46,6 +46,7 @@ func Initialize(
 			cfg.BackendProvider,
 			awsDeps.WebSocketManager,
 			awsDeps.SecretsRepo,
+			awsDeps.HealthManager,
 		), nil
 
 	default:

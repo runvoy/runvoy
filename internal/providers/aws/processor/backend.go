@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"runvoy/internal/api"
+	"runvoy/internal/backend/health"
 	"runvoy/internal/backend/websocket"
 	"runvoy/internal/constants"
 	"runvoy/internal/database"
@@ -20,10 +21,11 @@ import (
 )
 
 // Processor implements the events.Processor interface for AWS.
-// It handles CloudWatch events, CloudWatch Logs, and API Gateway WebSocket events.
+// It handles CloudWatch events, CloudWatch Logs, API Gateway WebSocket events, and scheduled events.
 type Processor struct {
 	executionRepo    database.ExecutionRepository
 	webSocketManager websocket.Manager
+	healthManager    health.Manager
 	logger           *slog.Logger
 }
 
@@ -31,11 +33,13 @@ type Processor struct {
 func NewProcessor(
 	executionRepo database.ExecutionRepository,
 	webSocketManager websocket.Manager,
+	healthManager health.Manager,
 	log *slog.Logger,
 ) *Processor {
 	return &Processor{
 		executionRepo:    executionRepo,
 		webSocketManager: webSocketManager,
+		healthManager:    healthManager,
 		logger:           log,
 	}
 }
@@ -104,6 +108,8 @@ func (p *Processor) handleCloudEvent(
 	switch cwEvent.DetailType {
 	case "ECS Task State Change":
 		return true, p.handleECSTaskEvent(ctx, &cwEvent, reqLogger)
+	case "Scheduled Event":
+		return true, p.handleScheduledEvent(ctx, &cwEvent, reqLogger)
 	default:
 		reqLogger.Warn("ignoring unhandled CloudWatch event detail type",
 			"context", map[string]string{
@@ -444,4 +450,42 @@ func parseTaskTimes(
 	}
 
 	return startedAt, stoppedAt, durationSeconds, nil
+}
+
+// handleScheduledEvent processes EventBridge scheduled events (cron-like).
+// This handler invokes the health manager reconciliation.
+func (p *Processor) handleScheduledEvent(
+	ctx context.Context,
+	event *events.CloudWatchEvent,
+	reqLogger *slog.Logger,
+) error {
+	if p.healthManager == nil {
+		reqLogger.Warn("health manager not available, skipping scheduled health check")
+		return nil
+	}
+
+	reqLogger.Info("processing scheduled health check event",
+		"context", map[string]string{
+			"source":      event.Source,
+			"detail_type": event.DetailType,
+		})
+
+	report, err := p.healthManager.Reconcile(ctx)
+	if err != nil {
+		reqLogger.Error("health reconciliation failed", "error", err)
+		return fmt.Errorf("health reconciliation failed: %w", err)
+	}
+
+	reqLogger.Info("health reconciliation completed",
+		"context", map[string]any{
+			"reconciled_count": report.ReconciledCount,
+			"error_count":      report.ErrorCount,
+			"total_issues":     len(report.Issues),
+			"ecs_verified":     report.ECSStatus.VerifiedCount,
+			"ecs_recreated":    report.ECSStatus.RecreatedCount,
+			"secrets_verified": report.SecretsStatus.VerifiedCount,
+			"iam_verified":    report.IAMStatus.DefaultRolesVerified,
+		})
+
+	return nil
 }

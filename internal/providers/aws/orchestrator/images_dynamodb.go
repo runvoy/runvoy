@@ -366,7 +366,7 @@ func (e *Runner) registerTaskDefinitionWithRoles(
 
 	taskDefARN := *output.TaskDefinition.TaskDefinitionArn
 
-	tags := buildTaskDefinitionTags(image, nil)
+	tags := BuildTaskDefinitionTags(image, nil)
 	if len(tags) > 0 {
 		tagLogArgs := []any{
 			"operation", "ECS.TagResource",

@@ -171,8 +171,9 @@ func GetTaskDefinitionForImage(
 		image, family)
 }
 
-// buildTaskDefinitionTags creates the tags to be applied to a task definition.
-func buildTaskDefinitionTags(image string, isDefault *bool) []ecsTypes.Tag {
+// BuildTaskDefinitionTags creates the tags to be applied to a task definition.
+// This function is exported for use by the health manager.
+func BuildTaskDefinitionTags(image string, isDefault *bool) []ecsTypes.Tag {
 	tags := []ecsTypes.Tag{
 		{
 			Key:   awsStd.String(awsConstants.TaskDefinitionDockerImageTagKey),
