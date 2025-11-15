@@ -215,7 +215,7 @@ func TestCreateUser_Success(t *testing.T) {
 		getUserByEmailFunc: func(_ context.Context, _ string) (*api.User, error) {
 			return nil, nil
 		},
-		createUserWithExpirationFunc: func(_ context.Context, _ *api.User, _ string, _ int64) error {
+		createUserFunc: func(_ context.Context, _ *api.User, _ string, _ int64) error {
 			return nil
 		},
 		createPendingAPIKeyFunc: func(_ context.Context, _ *api.PendingAPIKey) error {
@@ -294,7 +294,7 @@ func TestCreateUser_CreateUserError(t *testing.T) {
 		getUserByEmailFunc: func(_ context.Context, _ string) (*api.User, error) {
 			return nil, nil
 		},
-		createUserWithExpirationFunc: func(_ context.Context, _ *api.User, _ string, _ int64) error {
+		createUserFunc: func(_ context.Context, _ *api.User, _ string, _ int64) error {
 			return appErrors.ErrDatabaseError("test error", errors.New("db error"))
 		},
 	}

@@ -101,7 +101,7 @@ func (s *Service) CreateUser(
 
 	expiresAt := time.Now().Add(constants.ClaimURLExpirationMinutes * time.Minute).Unix()
 
-	if err = s.userRepo.CreateUserWithExpiration(ctx, user, apiKeyHash, expiresAt); err != nil {
+	if err = s.userRepo.CreateUser(ctx, user, apiKeyHash, expiresAt); err != nil {
 		return nil, apperrors.ErrDatabaseError("failed to create user", err)
 	}
 

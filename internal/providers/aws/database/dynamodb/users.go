@@ -52,13 +52,9 @@ type userItem struct {
 }
 
 // CreateUser stores a new user with their hashed API key in DynamoDB.
-func (r *UserRepository) CreateUser(ctx context.Context, user *api.User, apiKeyHash string) error {
-	return r.CreateUserWithExpiration(ctx, user, apiKeyHash, 0)
-}
-
-// CreateUserWithExpiration stores a new user with their hashed API key and optional TTL in DynamoDB.
-// If expiresAtUnix is 0, no TTL is set. If expiresAtUnix is > 0, it sets the expires_at field for automatic deletion.
-func (r *UserRepository) CreateUserWithExpiration(
+// If expiresAtUnix is 0, no TTL is set (permanent user).
+// If expiresAtUnix is > 0, it sets the expires_at field for automatic deletion.
+func (r *UserRepository) CreateUser(
 	ctx context.Context,
 	user *api.User,
 	apiKeyHash string,
