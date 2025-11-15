@@ -320,7 +320,6 @@ func (e *Runner) StartTask(
 	}
 
 	e.logTaskStarted(reqLogger, userEmail, taskARN, executionID, createdAt, req, imageToUse, mainEnvVars)
-	e.tagExecutionID(ctx, taskARN, executionID, reqLogger)
 
 	return executionID, createdAt, nil
 }
@@ -551,31 +550,6 @@ func (e *Runner) logTaskStarted(
 	}
 
 	reqLogger.Info("task started", "context", logContext)
-}
-
-// tagExecutionID adds an ExecutionID tag to the task (non-critical, logs warning on failure).
-func (e *Runner) tagExecutionID(
-	ctx context.Context, taskARN, executionID string, reqLogger *slog.Logger,
-) {
-	tagLogArgs := []any{
-		"operation", "ECS.TagResource",
-		"task_arn", taskARN,
-		"execution_id", executionID,
-	}
-	tagLogArgs = append(tagLogArgs, logger.GetDeadlineInfo(ctx)...)
-	reqLogger.Debug("calling external service", "context", logger.SliceToMap(tagLogArgs))
-
-	_, tagErr := e.ecsClient.TagResource(ctx, &ecs.TagResourceInput{
-		ResourceArn: awsStd.String(taskARN),
-		Tags:        []ecsTypes.Tag{{Key: awsStd.String("ExecutionID"), Value: awsStd.String(executionID)}},
-	})
-	if tagErr != nil {
-		reqLogger.Warn(
-			"failed to add ExecutionID tag to task",
-			"error", tagErr,
-			"task_arn", taskARN,
-			"execution_id", executionID)
-	}
 }
 
 // findTaskARNByExecutionID finds the task ARN for a given execution ID by checking both running and stopped tasks.

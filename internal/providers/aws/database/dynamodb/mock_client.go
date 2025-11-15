@@ -17,6 +17,9 @@ const executionIDIndexName = "execution_id-index"
 type MockDynamoDBClient struct {
 	mu sync.RWMutex
 
+	// partitionKeys maps table name to its partition key attribute name
+	partitionKeys map[string]string
+
 	// Tables maps table name -> partition key -> sort key -> item
 	// For tables without sort key, use empty string as sort key
 	Tables map[string]map[string]map[string]map[string]types.AttributeValue
@@ -47,13 +50,23 @@ type MockDynamoDBClient struct {
 // NewMockDynamoDBClient creates a new mock DynamoDB client for testing.
 func NewMockDynamoDBClient() *MockDynamoDBClient {
 	return &MockDynamoDBClient{
+		// Partition keys for known tables. For unknown tables, will infer from item.
+		partitionKeys: map[string]string{
+			"api_key_hash":  "api_key_hash",
+			"secret_token":  "secret_token",
+			"connection_id": "connection_id",
+			"execution_id":  "execution_id",
+			"token":         "token",
+			"secret_name":   "secret_name",
+			"image_id":      "image_id",
+		},
 		Tables:  make(map[string]map[string]map[string]map[string]types.AttributeValue),
 		Indexes: make(map[string]map[string]map[string][]map[string]types.AttributeValue),
 	}
 }
 
 // PutItem stores an item in the mock table.
-func (m *MockDynamoDBClient) PutItem(
+func (m *MockDynamoDBClient) PutItem( //nolint:funlen // This is ok, lots of operations required
 	_ context.Context,
 	params *dynamodb.PutItemInput,
 	_ ...func(*dynamodb.Options),
@@ -75,18 +88,23 @@ func (m *MockDynamoDBClient) PutItem(
 		m.Indexes[tableName] = make(map[string]map[string][]map[string]types.AttributeValue)
 	}
 
-	// Extract the partition key value
-	// Try common partition key names first, then fall back to first string field
 	partitionKey := ""
-	if connID, ok := params.Item["connection_id"]; ok {
-		partitionKey = getStringValue(connID)
-	} else if secretName, hasSecretName := params.Item["secret_name"]; hasSecretName {
-		partitionKey = getStringValue(secretName)
-	} else {
-		// Fallback: use first string value as partition key
+	for knownKey := range m.partitionKeys {
+		if keyVal, ok := params.Item[knownKey]; ok {
+			partitionKey = getStringValue(keyVal)
+			if partitionKey != "" {
+				break
+			}
+		}
+	}
+
+	// Fallback: use first string value as partition key
+	if partitionKey == "" {
 		for _, v := range params.Item {
 			partitionKey = getStringValue(v)
-			break
+			if partitionKey != "" {
+				break
+			}
 		}
 	}
 
@@ -104,15 +122,12 @@ func (m *MockDynamoDBClient) PutItem(
 		oldItem = m.Tables[tableName][partitionKey][""]
 	}
 
-	// Store with empty sort key for simplicity
 	m.Tables[tableName][partitionKey][""] = params.Item
 
-	// Remove old item from indexes if it exists
 	if oldItem != nil {
 		m.removeItemFromIndexes(tableName, oldItem)
 	}
 
-	// Index items for GSI queries
 	m.addItemToIndexes(tableName, params.Item)
 
 	return &dynamodb.PutItemOutput{}, nil
