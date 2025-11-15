@@ -204,9 +204,9 @@ func TestLogsService_SmartPolling_StartingState(t *testing.T) {
 		logsError         error
 	}{
 		{
-			name:              "waits 20 seconds for STARTING state",
+			name:              "waits 30 seconds for STARTING state",
 			executionStatus:   "STARTING",
-			expectedSleepTime: 20 * time.Second,
+			expectedSleepTime: 30 * time.Second,
 			logsError:         nil,
 		},
 		{

@@ -1077,12 +1077,19 @@ Future enhancements may include server-side filtering and pagination.
    - Task definitions are registered with the specified CPU/memory allocation in ECS
    - Allows cost optimization by assigning appropriate resources per workload type
 
-5. **Comprehensive Test Coverage** - Overall project coverage: **49.8%** (2422/4859 statements)
+5. **Comprehensive Test Coverage** - Overall project coverage: **56.4%** (2774/4917 statements)
+
+   **Latest Session Improvements (November 2025):**
+   - Created 61 new test cases across app service layer
+   - App service layer: 55.7% → 87.6% (+31.9 percentage points)
+   - DynamoDB package: 49.2% → 68.1% (+18.9 percentage points)
+   - Overall improvement: 54.6% → 56.4% (+1.8 percentage points)
 
    **Well-covered packages (>80%):**
    - `internal/logger`: 98.6%
    - `internal/errors`: 94.4%
    - `internal/config/aws`: 97.8%
+   - `internal/app`: 87.6% ⬆️ (from 55.7%)
    - `internal/constants`: 87.5%
    - `internal/client/playbooks`: 87.3%
    - `internal/auth`: 78.6%
@@ -1095,13 +1102,34 @@ Future enhancements may include server-side filtering and pagination.
    - `internal/providers/aws/events`: 75.0%
    - `internal/providers/aws/secrets`: 90.6%
    - `internal/providers/aws/websocket`: 68.2%
+   - `internal/providers/aws/database/dynamodb`: 68.1% ⬆️ (from 49.2%)
 
    **Areas needing improvement (<70%):**
-   - Event processor logic (status determination) - 0%
-   - DynamoDB repository operations - 49.2%
-   - API request/response handling - 59.6% (server)
-   - End-to-end integration tests - 0%
-   - AWS app integration (task definitions, images) - 39.0%
+   - AWS app integration (task definitions, images) - 42.4%
+   - Server/HTTP handlers - 72.9% (good coverage, can be improved further)
+   - CLI command implementations - mostly 0% (not in priority for backend)
+   - Event processor/orchestrator main functions - 0% (entry points only)
+
+   **Next High-Impact Priorities for Coverage Extension:**
+   1. **AWS App Image Registration** (`internal/providers/aws/app/images*.go`)
+      - `handleExistingImage`, `registerNewImage` - 0% coverage
+      - `ImageParser` methods - Some have 0% coverage
+      - Estimated impact: +5-10 percentage points to overall coverage
+
+   2. **DynamoDB User Repository** (`internal/providers/aws/database/dynamodb/users.go`)
+      - GetUserByAPIKeyHash, GetUserByEmail - 0% coverage
+      - CreateUser, UpdateLastUsed, RevokeUser - 0% coverage
+      - Estimated impact: +3-5 percentage points to overall coverage
+
+   3. **Server/Handler Layer Enhancement** (`internal/server/handlers.go`)
+      - Currently at 72.9%, can reach 80%+ with additional edge case tests
+      - Error scenario testing, validation edge cases
+      - Estimated impact: +2-3 percentage points
+
+   4. **Event Processor Integration** (`internal/providers/aws/events/backend.go`)
+      - Status determination logic - Currently tested indirectly
+      - WebSocket notification flow - 0% coverage
+      - Estimated impact: +2-3 percentage points
 
 ### Implemented and Working
 

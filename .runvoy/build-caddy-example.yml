@@ -1,0 +1,8 @@
+description: Test building Caddy binary
+image: golang:1.25.4
+git_repo: https://github.com/caddyserver/caddy.git
+git_ref: master
+git_path: cmd/caddy/
+commands:
+  - go build
+  - ./caddy version
