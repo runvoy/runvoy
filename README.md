@@ -23,7 +23,7 @@ Deploy once, issue API keys, let your team execute arbitrary (admin) commands sa
 
 Workstations shouldn't need complex setups, let remote containers execute the actual commands in a secured and reproducible production grade environment.
 
-No need for snowflakes, __run envoys__...
+No more snowflakes, _run envoys_.
 
 ## Use cases
 
