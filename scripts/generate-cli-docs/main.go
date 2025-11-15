@@ -191,6 +191,11 @@ func writeDocHeader(file *os.File, headingPrefix, commandPath string, cobraCmd *
 		return fmt.Errorf("writing heading: %w", err)
 	}
 
+	// Skip description for root command
+	if commandPath == "runvoy" {
+		return nil
+	}
+
 	if cobraCmd.Short != "" {
 		if _, err := fmt.Fprintf(file, "%s\n\n", cobraCmd.Short); err != nil {
 			return fmt.Errorf("writing short description: %w", err)
@@ -238,6 +243,22 @@ func writeOptionsSection(file *os.File, cobraCmd *cobra.Command, level int) erro
 	end := findSectionEnd(optionsSection)
 	if end > 0 {
 		optionsSection = optionsSection[:end]
+	}
+
+	// Count the number of options by counting lines that start with dashes
+	// Split the options section into lines and count those starting with '-' or spaces followed by '-'
+	lines := strings.Split(optionsSection, "\n")
+	optionCount := 0
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "-") {
+			optionCount++
+		}
+	}
+
+	// Skip writing if only one option exists (which is always -h)
+	if optionCount <= 1 {
+		return nil
 	}
 
 	// Replace the Options heading level with the correct level

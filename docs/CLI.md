@@ -34,11 +34,6 @@ Comprehensive guide to all Runvoy CLI commands, options, and usage examples.
   - [runvoy version](#runvoy-version)
 ## runvoy
 
-runvoy
-
-runvoy - 0.0.0-development
-Isolated, repeatable execution environments for your commands
-
 ### Options
 
 ```
@@ -60,44 +55,24 @@ Claim a user's API key using the given token
   - runvoy claim 1234567890
 ```
 
-### Options
-
-```
-  -h, --help   help for claim
-```
 
 ## runvoy configure
 
 Configure local environment with API key and endpoint URL
 
 Configure the local environment with your API key and endpoint URL.
-This creates or updates the configuration file at [1m~/.runvoy/config.yaml[22m
+This creates or updates the configuration file at ~/.runvoy/config.yaml
 
-### Options
-
-```
-  -h, --help   help for configure
-```
 
 ## runvoy images
 
 Docker images management commands
 
-### Options
-
-```
-  -h, --help   help for images
-```
 
 ## runvoy images list
 
 List all registered Docker images
 
-### Options
-
-```
-  -h, --help   help for list
-```
 
 ## runvoy images register
 
@@ -134,11 +109,6 @@ Show detailed information about a Docker image
   - runvoy images show alpine:latest-a1b2c3d4
 ```
 
-### Options
-
-```
-  -h, --help   help for show
-```
 
 ## runvoy images unregister
 
@@ -150,21 +120,11 @@ Unregister a Docker image
   - runvoy images unregister alpine:latest
 ```
 
-### Options
-
-```
-  -h, --help   help for unregister
-```
 
 ## runvoy kill
 
 Kill a running command execution
 
-### Options
-
-```
-  -h, --help   help for kill
-```
 
 ## runvoy list
 
@@ -172,21 +132,11 @@ List executions
 
 List all executions present in the runvoy backend
 
-### Options
-
-```
-  -h, --help   help for list
-```
 
 ## runvoy logs
 
 Get logs for an execution
 
-### Options
-
-```
-  -h, --help   help for logs
-```
 
 ## runvoy playbook
 
@@ -194,11 +144,6 @@ Manage and execute playbooks
 
 Manage and execute reusable command execution configurations defined in YAML files
 
-### Options
-
-```
-  -h, --help   help for playbook
-```
 
 ## runvoy playbook list
 
@@ -206,11 +151,6 @@ List all available playbooks
 
 List all playbooks found in the .runvoy directory
 
-### Options
-
-```
-  -h, --help   help for list
-```
 
 ## runvoy playbook run
 
@@ -235,11 +175,6 @@ Show playbook details
 
 Display the full content of a playbook
 
-### Options
-
-```
-  -h, --help   help for show
-```
 
 ## runvoy run
 
@@ -287,11 +222,6 @@ in the command working directory.
 
 Secrets management commands
 
-### Options
-
-```
-  -h, --help   help for secrets
-```
 
 ## runvoy secrets create
 
@@ -325,11 +255,6 @@ Delete a secret by its name
   - runvoy secrets delete github-token
 ```
 
-### Options
-
-```
-  -h, --help   help for delete
-```
 
 ## runvoy secrets get
 
@@ -343,11 +268,6 @@ Retrieve a secret by its name, including its value
   - runvoy secrets get github-token
 ```
 
-### Options
-
-```
-  -h, --help   help for get
-```
 
 ## runvoy secrets list
 
@@ -361,11 +281,6 @@ List all secrets in the system with their basic information
   - runvoy secrets list
 ```
 
-### Options
-
-```
-  -h, --help   help for list
-```
 
 ## runvoy secrets update
 
@@ -393,21 +308,11 @@ Update a secret's metadata (description, key_name) and/or value
 
 Get the status of a command execution
 
-### Options
-
-```
-  -h, --help   help for status
-```
 
 ## runvoy users
 
 User management commands
 
-### Options
-
-```
-  -h, --help   help for users
-```
 
 ## runvoy users create
 
@@ -422,11 +327,6 @@ Create a new user with the given email
   - runvoy users create bob@another-example.com
 ```
 
-### Options
-
-```
-  -h, --help   help for create
-```
 
 ## runvoy users list
 
@@ -440,29 +340,14 @@ List all users in the system with their basic information
   - runvoy users list
 ```
 
-### Options
-
-```
-  -h, --help   help for list
-```
 
 ## runvoy users revoke
 
 Revoke a user's API key
 
-### Options
-
-```
-  -h, --help   help for revoke
-```
 
 ## runvoy version
 
 Show the version of the CLI
 
-### Options
-
-```
-  -h, --help   help for version
-```
 
