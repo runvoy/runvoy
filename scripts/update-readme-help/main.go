@@ -59,15 +59,7 @@ func generateHelpSection(helpOutput string) string {
 	b.WriteString("```\n\n")
 	b.WriteString("```text\n")
 	b.WriteString(helpOutput)
-	b.WriteString("\n```\n\n")
-	b.WriteString("For more details about a specific command, use:\n\n")
-	b.WriteString("```bash\n")
-	b.WriteString("runvoy [command] --help\n")
-	b.WriteString("```\n\n")
-	b.WriteString("For example, to see all user management commands:\n\n")
-	b.WriteString("```bash\n")
-	b.WriteString("runvoy users --help\n")
-	b.WriteString("```\n")
+	b.WriteString("\n```\n")
 	return b.String()
 }
 

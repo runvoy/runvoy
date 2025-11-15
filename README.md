@@ -132,7 +132,7 @@ runvoy --help
 ```
 
 ```text
-runvoy - 0.1.0-20251115-c1abf0a
+runvoy - 0.1.0-20251115-ee695dd
 Isolated, repeatable execution environments for your commands
 
 Usage:
@@ -163,23 +163,48 @@ Flags:
 Use "runvoy [command] --help" for more information about a command.
 ```
 
-For more details about a specific command, use:
-
-```bash
-runvoy [command] --help
-```
-
-For example, to see all user management commands:
-
-```bash
-runvoy users --help
-```
-
 <!-- CLI_HELP_END -->
 
-### CLI commands
+See [CLI commands Documentation](docs/CLI.md) for more details.
 
-See [CLI Documentation](docs/CLI.md) for more details.
+### Output Streams and Piping
+
+runvoy follows Unix conventions by separating informational messages from data output, making it easy to pipe commands and script automation workflows:
+
+- **stderr (standard error)**: Runtime messages, progress indicators, and logs
+  - Informational messages (→, ✓, ⚠, ✗)
+  - Progress spinners and status updates
+  - Headers and UI formatting
+
+- **stdout (standard output)**: Actual data from API responses
+  - Tables, lists, and structured data
+  - Raw output for piping to other tools
+
+**Examples:**
+
+```bash
+# Hide informational messages, show only data
+runvoy list 2>/dev/null
+
+# Hide data, show only logs/status messages
+runvoy list >/dev/null
+
+# Pipe data to another command (jq, grep, etc.)
+runvoy list 2>/dev/null | grep "RUNNING"
+
+# Redirect logs and data to separate files
+runvoy list 2>status.log >executions.txt
+
+# Pipe between runvoy commands
+runvoy command1 2>/dev/null | runvoy command2
+
+# Use in scripts with proper error handling
+if runvoy status $EXEC_ID 2>/dev/null | grep -q "SUCCEEDED"; then
+  echo "Execution succeeded"
+fi
+```
+
+This separation enables clean automation and integration with other Unix tools without mixing informational output with parseable data.
 
 ### Web Viewer
 
@@ -241,46 +266,13 @@ npm run preview
 
 The build process creates a `dist/` directory optimized for static file hosting. The webapp is built with SvelteKit using the static adapter, and deployed via the `deploy-webapp` command in the justfile.
 
-### Output Streams and Piping
+## Architecture
 
-runvoy follows Unix conventions by separating informational messages from data output, making it easy to pipe commands and script automation workflows:
-
-- **stderr (standard error)**: Runtime messages, progress indicators, and logs
-  - Informational messages (→, ✓, ⚠, ✗)
-  - Progress spinners and status updates
-  - Headers and UI formatting
-
-- **stdout (standard output)**: Actual data from API responses
-  - Tables, lists, and structured data
-  - Raw output for piping to other tools
-
-**Examples:**
-
-```bash
-# Hide informational messages, show only data
-runvoy list 2>/dev/null
-
-# Hide data, show only logs/status messages
-runvoy list >/dev/null
-
-# Pipe data to another command (jq, grep, etc.)
-runvoy list 2>/dev/null | grep "RUNNING"
-
-# Redirect logs and data to separate files
-runvoy list 2>status.log >executions.txt
-
-# Pipe between runvoy commands
-runvoy command1 2>/dev/null | runvoy command2
-
-# Use in scripts with proper error handling
-if runvoy status $EXEC_ID 2>/dev/null | grep -q "SUCCEEDED"; then
-  echo "Execution succeeded"
-fi
-```
-
-This separation enables clean automation and integration with other Unix tools without mixing informational output with parseable data.
+For detailed architecture information, see [ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## Development
+
+The repository ships with a `justfile` to streamline common build, deploy, and QA flows. Run `just --list` to see all available commands.
 
 ### Prerequisites for Development
 
@@ -391,30 +383,3 @@ just update-readme-help
 # Clean build artifacts
 just clean
 ```
-
-For more information about the development workflow, see [Development with `just`](#development-with-just).
-
-## Architecture
-
-For detailed architecture information, see [ARCHITECTURE.md](docs/ARCHITECTURE.md).
-
-### Development with `just`
-
-The repository ships with a `justfile` to streamline common build, deploy, and QA flows. Run `just --list` to see all available commands. The default recipe (`just runvoy`) rebuilds the CLI before running any arguments you pass through, so you can quickly exercise commands locally:
-
-```bash
-# equivalent to: go build ./cmd/cli && ./bin/runvoy logs <id>
-just runvoy logs <execution-id>
-```
-
-Key targets, grouped by workflow:
-
-- **Build & run**: `just build` (all binaries), `just build-cli`, `just build-local`, `just run-local` (local HTTP server with freshly built binary)
-- **Deploy artifacts**: `just deploy` (all), `just deploy-orchestrator`, `just deploy-event-processor`, `just deploy-webviewer`
-- **Quality gates**: `just test`, `just test-coverage`, `just lint`, `just lint-fix`, `just fmt`, `just check`, `just clean`
-- **Environment setup**: `just dev-setup`, `just install-hook`
-- **Infrastructure helpers**: `just create-lambda-bucket`, `just update-backend-infra`, `just destroy-backend-infra`
-- **Operational tooling**: `just seed-admin-user`, `just local-dev-server` (hot reloading)
-- **Miscellaneous**: `just record-demo` (captures CLI demo as cast and GIF)
-
-All commands honor the environment variables described in the `justfile`; AWS credentials and profiles must already be configured in your shell.
