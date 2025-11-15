@@ -572,25 +572,33 @@ func (r *ImageTaskDefRepository) DeleteImage(ctx context.Context, image string) 
 }
 
 // GetAnyImageTaskDef retrieves any task definition configuration for a given image.
-// Scans by image attribute and returns the first matching item, preferring the default configuration if available.
+// Matches by ImageName and ImageTag instead of exact image string, allowing queries like
+// "debian/debian:latest" to match stored ImageIDs like "debian/debian:latest-f755d736".
+// Parses the provided image reference to extract name and tag, then queries DynamoDB
+// for all matching records. Selection is deterministic: first returns the default
+// configuration if one exists, otherwise returns the most recently created configuration.
 //
 //nolint:funlen // Complex logic with helper function
 func (r *ImageTaskDefRepository) GetAnyImageTaskDef(ctx context.Context, image string) (*api.ImageInfo, error) {
 	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
 
+	imageName, imageTag := parseImageReference(image)
+
 	logArgs := []any{
 		"operation", "DynamoDB.Scan",
 		"table", r.tableName,
-		"image", image,
+		"image_name", imageName,
+		"image_tag", imageTag,
 	}
 	logArgs = append(logArgs, logger.GetDeadlineInfo(ctx)...)
 	reqLogger.Debug("calling external service", "context", logger.SliceToMap(logArgs))
 
 	result, err := r.client.Scan(ctx, &dynamodb.ScanInput{
 		TableName:        aws.String(r.tableName),
-		FilterExpression: aws.String("image = :image"),
+		FilterExpression: aws.String("image_name = :image_name AND image_tag = :image_tag"),
 		ExpressionAttributeValues: map[string]types.AttributeValue{
-			":image": &types.AttributeValueMemberS{Value: image},
+			":image_name": &types.AttributeValueMemberS{Value: imageName},
+			":image_tag":  &types.AttributeValueMemberS{Value: imageTag},
 		},
 		Limit: aws.Int32(100), //nolint:mnd // Get up to 100 items to find default if available
 	})
@@ -639,6 +647,10 @@ func (r *ImageTaskDefRepository) GetAnyImageTaskDef(ctx context.Context, image s
 			return convertItem(&items[i])
 		}
 	}
+
+	sort.Slice(items, func(i, j int) bool {
+		return items[i].CreatedAt > items[j].CreatedAt
+	})
 
 	return convertItem(&items[0])
 }
