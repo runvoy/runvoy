@@ -6,10 +6,10 @@
     <em>Run arbitrary commands on remote ephemeral containers.</em>
 </p>
 <p align="center">
-  <a href="https://github.com/runvoy/runvoy/actions?query=workflow%3Atests+event%3Apush+branch%3Amain" target="_blank">
-      <img src="https://github.com/runvoy/runvoy/actions/workflows/ci.yml/badge.svg?event=push&branch=main" alt="Tests">
+  <a href="https://github.com/runvoy/runvoy/actions/workflows/tests-and-coverage.yml" target="_blank">
+      <img src="https://github.com/runvoy/runvoy/actions/workflows/tests-and-coverage.yml/badge.svg?event=push&branch=main" alt="Tests">
   </a>
-  <a href="https://github.com/runvoy/runvoy/actions?query=workflow%3Agolangci-lint+event%3Apush+branch%3Amain" target="_blank">
+  <a href="https://github.com/runvoy/runvoy/actions/workflows/golangci-lint.yml" target="_blank">
       <img src="https://github.com/runvoy/runvoy/actions/workflows/golangci-lint.yml/badge.svg?event=push&branch=main" alt="Lint">
   </a>
   <a href="https://golang.org" target="_blank">
@@ -130,7 +130,7 @@ runvoy --help
 ```
 
 ```text
-runvoy - 0.1.0-20251115-ab7c477
+runvoy - 0.1.0-20251115-89d226f
 Isolated, repeatable execution environments for your commands
 
 Usage:
