@@ -139,9 +139,27 @@ func (sr *SecretsRepository) UpdateSecret(
 		}
 	}
 
-	// Always update metadata (description, keyName, and timestamp)
+	// Get existing secret to preserve metadata that wasn't provided
+	existingSecret, err := sr.metadataRepo.GetSecret(ctx, secret.Name)
+	if err != nil {
+		reqLogger.Error("failed to get existing secret", "error", err, "name", secret.Name)
+		return appErrors.ErrInternalError("failed to get existing secret", fmt.Errorf("get existing secret: %w", err))
+	}
+
+	// Use provided values, or fall back to existing values if not provided
+	keyName := secret.KeyName
+	if keyName == "" {
+		keyName = existingSecret.KeyName
+	}
+
+	description := secret.Description
+	if description == "" {
+		description = existingSecret.Description
+	}
+
+	// Update metadata with merged values
 	if err := sr.metadataRepo.UpdateSecretMetadata(
-		ctx, secret.Name, secret.KeyName, secret.Description, secret.UpdatedBy,
+		ctx, secret.Name, keyName, description, secret.UpdatedBy,
 	); err != nil {
 		reqLogger.Error("failed to update secret metadata", "error", err, "name", secret.Name)
 		return appErrors.ErrInternalError("failed to update secret metadata", fmt.Errorf("update secret metadata: %w", err))
