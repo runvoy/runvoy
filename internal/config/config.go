@@ -190,17 +190,28 @@ func Save(config *Config) error {
 	}
 
 	configFilePath := filepath.Join(configDir, constants.ConfigFileName)
+	return saveToPath(config, configFilePath)
+}
+
+// saveToPath saves the configuration to the specified file path.
+// Creates the directory if it doesn't exist and sets appropriate file permissions.
+func saveToPath(config *Config, configFilePath string) error {
+	configDir := filepath.Dir(configFilePath)
+
+	if err := os.MkdirAll(configDir, constants.ConfigDirPermissions); err != nil {
+		return fmt.Errorf("error creating config directory: %w", err)
+	}
 
 	v := viper.New()
 	v.Set("api_endpoint", config.APIEndpoint)
 	v.Set("api_key", config.APIKey)
 	v.Set("web_url", config.WebURL)
 
-	if err = v.WriteConfigAs(configFilePath); err != nil {
+	if err := v.WriteConfigAs(configFilePath); err != nil {
 		return fmt.Errorf("error writing config file: %w", err)
 	}
 
-	if err = os.Chmod(configFilePath, constants.ConfigFilePermissions); err != nil {
+	if err := os.Chmod(configFilePath, constants.ConfigFilePermissions); err != nil {
 		return fmt.Errorf("error setting config file permissions: %w", err)
 	}
 

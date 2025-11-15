@@ -3,11 +3,13 @@ package config
 import (
 	"log/slog"
 	"os"
+	"path/filepath"
 	"testing"
 
 	awsconfig "runvoy/internal/config/aws"
 	"runvoy/internal/constants"
 
+	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -808,11 +810,8 @@ func TestLoadCLIWithoutConfigFile(t *testing.T) {
 // TestSaveAndLoad tests Save() and that saved config can be loaded
 func TestSaveAndLoad(t *testing.T) {
 	// Create temporary directory for test config
-	_ = t.TempDir()
-
-	// Temporarily override config path by setting environment variable
-	originalHomeDir := os.Getenv("HOME")
-	defer func() { _ = os.Setenv("HOME", originalHomeDir) }()
+	tempDir := t.TempDir()
+	configFilePath := filepath.Join(tempDir, constants.ConfigFileName)
 
 	// Create test config
 	testConfig := &Config{
@@ -821,14 +820,29 @@ func TestSaveAndLoad(t *testing.T) {
 		WebURL:      "https://test.runvoy.site",
 	}
 
-	// Test Save with error handling
-	// Note: Save uses os.user.Current() and actual file I/O, so we test the logic paths
-	// but actual file writing is integration behavior
-	err := Save(testConfig)
-	if err != nil {
-		// This is expected in test environments without proper permissions
-		t.Logf("Save() failed as expected in test environment: %v", err)
-	}
+	// Save to temporary file path instead of real config file
+	err := saveToPath(testConfig, configFilePath)
+	require.NoError(t, err, "saveToPath should succeed with temp file")
+
+	// Verify the file was created
+	_, err = os.Stat(configFilePath)
+	require.NoError(t, err, "config file should exist after save")
+
+	// Verify we can load the saved config
+	v := viper.New()
+	v.SetConfigFile(configFilePath)
+	v.SetConfigType("yaml")
+	err = v.ReadInConfig()
+	require.NoError(t, err, "should be able to read saved config file")
+
+	var loadedConfig Config
+	err = v.Unmarshal(&loadedConfig)
+	require.NoError(t, err, "should be able to unmarshal saved config")
+
+	// Verify loaded config matches saved config
+	assert.Equal(t, testConfig.APIEndpoint, loadedConfig.APIEndpoint)
+	assert.Equal(t, testConfig.APIKey, loadedConfig.APIKey)
+	assert.Equal(t, testConfig.WebURL, loadedConfig.WebURL)
 }
 
 // TestGetLogLevelDefaults tests GetLogLevel() returns INFO for invalid levels
