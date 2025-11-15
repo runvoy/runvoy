@@ -21,14 +21,14 @@
 
 Deploy once, issue API keys, let your team execute arbitrary (admin) commands safely from their terminals. Share playbooks with your team to execute commands consistently and reliably.
 
-Workstations shouldn't be snowflakes that need complex setups, let remote containers (_run envoys..._) execute the actual commands in a privileged, production grade environment.
+Workstations shouldn't be snowflakes that need complex setups, let remote containers (_run envoys..._) execute the actual commands in a secured and reproducible production grade environment.
 
 ## Use cases
 
-- one-off arbitrary commands in remote containers like with `kubectl run` without the need for a Kubernetes cluster (or any other _always-running_ cluster, for that matter)
-- compute-intensive tasks like e.g. test suites: select the proper instance type for the job, tail and/or share execution logs in real time like in GitHub Actions
-- dev team that runs Terraform from a shared repository without the need for a Terraform Cloud account (and monthly bill...)
-- any commands which execution require full audit trail
+- AWS CLI commands or any other application based on AWS SDKs (e.g. Terraform) in a remote container with the right permissions to access AWS resources (see [AWS CLI example](.runvoy/aws-cli-example.yml))
+- one-off arbitrary commands in remote containers like with `kubectl run` with automatic (secret) environment variables injection without the need for a Kubernetes cluster (or any other _always-running_ cluster, for that matter)
+- compute-intensive tasks like e.g. test runners: select the proper instance type for the job, tail and/or share execution logs in real time like in GitHub Actions (see [Build Caddy example](.runvoy/build-caddy-example.yml))
+- any commands that execution requires full audit trail
 - ...
 
 ## Overview
@@ -52,7 +52,7 @@ Runvoy is composed of 3 main parts:
 - **Customizable container task and execution roles** - Register Docker images with custom task and execution roles to e.g. run Terraform with the right permissions to access AWS resources (currently only AWS ECS is supported)
 - **Automatic git cloning** - Optionally clone a (public or private) Git repository into the container working directory
 - **Native cloud provider logging integration** - Full execution logs and audit trails with request ID tracking
-- **Reusable playbooks** - Store and reuse command execution configurations in YAML files, share with your team to execute commands consistently
+- **Reusable playbooks** - Store and reuse command execution configurations in YAML files, commit to a repository and share with your team to execute commands consistently (see [Terraform example](.runvoy/terraform-example.yml))
 - **Secrets management** - Centralized encrypted secrets with full CRUD from the CLI
 - **Real-time WebSocket streaming** - CLI and web viewer receive live logs over authenticated WebSocket connections
 - **Unix-style output streams** - Separate CLI logs (stderr) from data (stdout) for easy piping and scripting
@@ -62,6 +62,8 @@ Runvoy is composed of 3 main parts:
 
 - **RBAC** - Role based access control for the backend API. Runvoy admins define roles and permissions for users, non-admin users can only execute commands / access secrets/ select Docker images they are allowed to
 - **Multi-cloud support** - Backend support for other execution platforms, cloud providers (GCP, Azure...), Kubernetes, ...
+- Timeouts for command execution
+- Lock management for concurrent command execution
 
 ## Quick Start
 
@@ -130,7 +132,7 @@ runvoy --help
 ```
 
 ```text
-runvoy - 0.1.0-20251115-63085a0
+runvoy - 0.1.0-20251115-4ebd58c
 Isolated, repeatable execution environments for your commands
 
 Usage:

@@ -1,0 +1,42 @@
+# To have it work you need to create an image with a valid IAM role to be assumed by the ECS task, example:
+#
+# runvoy images register --task-role RunvoyTestingPolicyForS3 public.ecr.aws/amazonlinux/amazonlinux:latest
+#
+# The role trust policy might need to look like the following:
+# {
+#     "Version": "2012-10-17",
+#     "Statement": [
+#         {
+#             "Sid": "Statement1",
+#             "Effect": "Allow",
+#             "Principal": {
+#                 "Service": "ecs-tasks.amazonaws.com"
+#             },
+#             "Action": "sts:AssumeRole"
+#         }
+#     ]
+# }
+#
+# For this test we've been using the following policy (AmazonS3ReadOnlyAccess):
+# {
+#     "Version": "2012-10-17",
+#     "Statement": [
+#         {
+#             "Effect": "Allow",
+#             "Action": [
+#                 "s3:Get*",
+#                 "s3:List*",
+#                 "s3:Describe*",
+#                 "s3-object-lambda:Get*",
+#                 "s3-object-lambda:List*"
+#             ],
+#             "Resource": "*"
+#         }
+#     ]
+# }
+description: Test S3 access with AWS CLI
+image: amazonlinux/amazonlinux:latest
+commands:
+  - yum install -y awscli >/dev/null
+  - aws --version
+  - aws s3 ls
