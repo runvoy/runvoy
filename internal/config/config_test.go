@@ -914,7 +914,9 @@ func TestLoadOrchestratorEnvironmentVariables(t *testing.T) {
 	endpoint := "https://test.execute-api.us-east-1.amazonaws.com/production"
 	_ = os.Setenv("RUNVOY_AWS_WEBSOCKET_API_ENDPOINT", endpoint)
 	_ = os.Setenv("RUNVOY_AWS_WEBSOCKET_CONNECTIONS_TABLE", "test-websocket-connections")
+	_ = os.Setenv("RUNVOY_AWS_WEBSOCKET_TOKENS_TABLE", "test-websocket-tokens")
 	_ = os.Setenv("RUNVOY_AWS_SECRETS_METADATA_TABLE", "test-secrets-metadata")
+	_ = os.Setenv("RUNVOY_AWS_SECRETS_KMS_KEY_ARN", "arn:aws:kms:us-east-1:123456789012:key/abc")
 
 	cfg, err := LoadOrchestrator()
 	require.NoError(t, err, "LoadOrchestrator should succeed with required env vars")
@@ -938,6 +940,7 @@ func TestLoadEventProcessorEnvironmentVariables(t *testing.T) {
 		"RUNVOY_AWS_LOG_GROUP":                   os.Getenv("RUNVOY_AWS_LOG_GROUP"),
 		"RUNVOY_AWS_WEBSOCKET_API_ENDPOINT":      os.Getenv("RUNVOY_AWS_WEBSOCKET_API_ENDPOINT"),
 		"RUNVOY_AWS_WEBSOCKET_CONNECTIONS_TABLE": os.Getenv("RUNVOY_AWS_WEBSOCKET_CONNECTIONS_TABLE"),
+		"RUNVOY_AWS_WEBSOCKET_TOKENS_TABLE":      os.Getenv("RUNVOY_AWS_WEBSOCKET_TOKENS_TABLE"),
 	}
 
 	defer func() {
@@ -964,6 +967,7 @@ func TestLoadEventProcessorEnvironmentVariables(t *testing.T) {
 	epEndpoint := "https://test.execute-api.us-east-1.amazonaws.com/production"
 	_ = os.Setenv("RUNVOY_AWS_WEBSOCKET_API_ENDPOINT", epEndpoint)
 	_ = os.Setenv("RUNVOY_AWS_WEBSOCKET_CONNECTIONS_TABLE", "test-websocket-connections")
+	_ = os.Setenv("RUNVOY_AWS_WEBSOCKET_TOKENS_TABLE", "test-websocket-tokens")
 
 	cfg, err := LoadEventProcessor()
 	require.NoError(t, err, "LoadEventProcessor should succeed with required env vars")
