@@ -121,15 +121,15 @@ func initializeHealthManager(
 		DefaultTaskRoleARN:     cfg.AWS.DefaultTaskRoleARN,
 		DefaultTaskExecRoleARN: cfg.AWS.DefaultTaskExecRoleARN,
 		LogGroup:               cfg.AWS.LogGroup,
+		SecretsPrefix:          cfg.AWS.SecretsPrefix,
 	}
-	return awsHealth.NewManager(
+	return awsHealth.Initialize(
 		ecsClient,
 		ssmClient,
 		iamClient,
 		imageTaskDefRepo,
 		secretsRepo,
 		healthCfg,
-		cfg.AWS.SecretsPrefix,
 		log,
 	)
 }

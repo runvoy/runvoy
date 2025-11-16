@@ -88,15 +88,15 @@ func Initialize( //nolint:funlen // This is ok, lots of initializations required
 		DefaultTaskRoleARN:     cfg.AWS.DefaultTaskRoleARN,
 		DefaultTaskExecRoleARN: cfg.AWS.DefaultTaskExecRoleARN,
 		LogGroup:               cfg.AWS.LogGroup,
+		SecretsPrefix:          cfg.AWS.SecretsPrefix,
 	}
-	healthManager := awsHealth.NewManager(
+	healthManager := awsHealth.Initialize(
 		ecsClient,
 		ssmClient,
 		iamClient,
 		repos.imageTaskDefRepo,
 		repos.secretsRepo,
 		healthCfg,
-		cfg.AWS.SecretsPrefix,
 		log,
 	)
 

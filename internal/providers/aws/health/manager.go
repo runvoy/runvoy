@@ -40,17 +40,17 @@ type Config struct {
 	DefaultTaskRoleARN     string
 	DefaultTaskExecRoleARN string
 	LogGroup               string
+	SecretsPrefix          string
 }
 
-// NewManager creates a new AWS health manager.
-func NewManager(
+// Initialize creates a new AWS health manager.
+func Initialize(
 	ecsClient awsClient.ECSClient,
 	ssmClient secrets.Client,
 	iamClient awsClient.IAMClient,
 	imageRepo ImageTaskDefRepository,
 	secretsRepo database.SecretsRepository,
 	cfg *Config,
-	secretsPrefix string,
 	log *slog.Logger,
 ) *Manager {
 	return &Manager{
@@ -60,7 +60,7 @@ func NewManager(
 		imageRepo:     imageRepo,
 		secretsRepo:   secretsRepo,
 		cfg:           cfg,
-		secretsPrefix: secretsPrefix,
+		secretsPrefix: cfg.SecretsPrefix,
 		logger:        log,
 	}
 }
