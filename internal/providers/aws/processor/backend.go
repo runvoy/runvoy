@@ -452,9 +452,14 @@ func parseTaskTimes(
 	return startedAt, stoppedAt, durationSeconds, nil
 }
 
+// scheduledHealthEventDetail is the expected payload for scheduled health check events.
+type scheduledHealthEventDetail struct {
+	RunvoyEvent string `json:"runvoy_event"`
+}
+
 // handleScheduledEvent processes EventBridge scheduled events (cron-like).
-// This handler invokes the health manager reconciliation.
-func (p *Processor) handleScheduledEvent(
+// This handler validates the payload and invokes the health manager reconciliation.
+func (p *Processor) handleScheduledEvent( //nolint:funlen // This is ok, lots of validation required
 	ctx context.Context,
 	event *events.CloudWatchEvent,
 	reqLogger *slog.Logger,
@@ -464,10 +469,44 @@ func (p *Processor) handleScheduledEvent(
 		return nil
 	}
 
+	if event.Source != "aws.events" {
+		reqLogger.Warn("ignoring scheduled event from unexpected source",
+			"context", map[string]string{
+				"source":      event.Source,
+				"detail_type": event.DetailType,
+			},
+		)
+		return nil
+	}
+
+	var detail scheduledHealthEventDetail
+	if err := json.Unmarshal(event.Detail, &detail); err != nil {
+		reqLogger.Warn("ignoring scheduled event with invalid detail payload",
+			"error", err,
+			"context", map[string]string{
+				"source":      event.Source,
+				"detail_type": event.DetailType,
+			},
+		)
+		return nil
+	}
+
+	if detail.RunvoyEvent != "health_reconcile" {
+		reqLogger.Warn("ignoring scheduled event with unexpected runvoy_event value",
+			"context", map[string]string{
+				"source":       event.Source,
+				"detail_type":  event.DetailType,
+				"runvoy_event": detail.RunvoyEvent,
+			},
+		)
+		return nil
+	}
+
 	reqLogger.Info("processing scheduled health check event",
 		"context", map[string]string{
-			"source":      event.Source,
-			"detail_type": event.DetailType,
+			"source":       event.Source,
+			"detail_type":  event.DetailType,
+			"runvoy_event": detail.RunvoyEvent,
 		})
 
 	report, err := p.healthManager.Reconcile(ctx)

@@ -674,7 +674,7 @@ The `Report` contains:
 ### Scheduled Execution
 
 Health reconciliation can be triggered:
-1. **Scheduled**: Via EventBridge scheduled events (cron-like) - configured in CloudFormation
+1. **Scheduled**: Via EventBridge scheduled events (cron-like) - configured in CloudFormation. Scheduled events must provide a JSON payload with `{"runvoy_event": "health_reconcile"}` so the processor can safely distinguish runvoy health checks from other scheduled invocations.
 2. **Manual**: Via orchestrator `ReconcileResources()` method (future API endpoint)
 
 ### Design Decisions
