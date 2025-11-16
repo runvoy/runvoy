@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 
+	"runvoy/internal/constants"
 	"runvoy/internal/logger"
 	awsClient "runvoy/internal/providers/aws/client"
 	awsConstants "runvoy/internal/providers/aws/constants"
@@ -212,6 +213,6 @@ func findTagsToRemove(currentTagMap, expectedTagMap map[string]string) []string 
 func isStandardTag(key string) bool {
 	return key == awsConstants.TaskDefinitionDockerImageTagKey ||
 		key == awsConstants.TaskDefinitionIsDefaultTagKey ||
-		key == awsConstants.TaskDefinitionApplicationTagKey ||
-		key == awsConstants.TaskDefinitionManagedByTagKey
+		key == constants.ResourceApplicationTagKey ||
+		key == constants.ResourceManagedByTagKey
 }
