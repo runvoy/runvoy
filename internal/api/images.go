@@ -43,6 +43,7 @@ type ImageInfo struct {
 	ImageRegistry         string  `json:"image_registry,omitempty"`
 	ImageName             string  `json:"image_name,omitempty"`
 	ImageTag              string  `json:"image_tag,omitempty"`
+	RegisteredBy          string  `json:"registered_by,omitempty"`
 }
 
 // ListImagesResponse represents the response containing all registered images

@@ -45,6 +45,7 @@ func NewUserRepository(
 type userItem struct {
 	APIKeyHash string    `dynamodbav:"api_key_hash"`
 	UserEmail  string    `dynamodbav:"user_email"`
+	Role       string    `dynamodbav:"role"`
 	CreatedAt  time.Time `dynamodbav:"created_at"`
 	LastUsed   time.Time `dynamodbav:"last_used,omitempty"`
 	Revoked    bool      `dynamodbav:"revoked"`
@@ -66,6 +67,7 @@ func (r *UserRepository) CreateUser(
 	item := userItem{
 		APIKeyHash: apiKeyHash,
 		UserEmail:  user.Email,
+		Role:       user.Role,
 		CreatedAt:  user.CreatedAt,
 		Revoked:    false,
 	}
@@ -147,6 +149,7 @@ func (r *UserRepository) GetUserByEmail(ctx context.Context, email string) (*api
 
 	user := &api.User{
 		Email:     item.UserEmail,
+		Role:      item.Role,
 		CreatedAt: item.CreatedAt,
 		Revoked:   item.Revoked,
 		// Note: APIKey is intentionally omitted for security
@@ -196,6 +199,7 @@ func (r *UserRepository) GetUserByAPIKeyHash(ctx context.Context, apiKeyHash str
 
 	user := &api.User{
 		Email:     item.UserEmail,
+		Role:      item.Role,
 		CreatedAt: item.CreatedAt,
 		Revoked:   item.Revoked,
 	}
@@ -591,6 +595,7 @@ func (r *UserRepository) ListUsers(ctx context.Context) ([]*api.User, error) {
 
 		user := &api.User{
 			Email:     dbUserItem.UserEmail,
+			Role:      dbUserItem.Role,
 			CreatedAt: dbUserItem.CreatedAt,
 			Revoked:   dbUserItem.Revoked,
 			// Note: APIKey and APIKeyHash are intentionally omitted for security
