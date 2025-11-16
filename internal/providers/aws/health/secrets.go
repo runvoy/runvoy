@@ -199,7 +199,7 @@ func (m *Manager) findOrphanedParameters(
 			ParameterFilters: []ssmTypes.ParameterStringFilter{
 				{
 					Key:    awsStd.String("Path"),
-					Option: awsStd.String("BeginsWith"),
+					Option: awsStd.String("Recursive"),
 					Values: []string{m.secretsPrefix},
 				},
 			},
