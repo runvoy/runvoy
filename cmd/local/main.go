@@ -41,7 +41,7 @@ func initializeServices(ctx context.Context, log *slog.Logger, oCfg *config.Conf
 func startOrchestratorServer(log *slog.Logger, cfg *config.Config, svc *orchestrator.Service,
 	serverErrors chan error, wg *sync.WaitGroup) *http.Server {
 	wg.Go(func() {
-		log.Info("starting orchestrator server",
+		log.Info(fmt.Sprintf("starting %s orchestrator server", constants.ProjectName),
 			"port", cfg.Port,
 			"version", *constants.GetVersion(),
 			"log_level", cfg.LogLevel,
@@ -78,7 +78,7 @@ func startAsyncProcessorServer(log *slog.Logger, cfg *config.Config, proc proces
 	serverErrors chan error, wg *sync.WaitGroup) *http.Server {
 	wg.Go(func() {
 		port := cfg.Port + 1
-		log.Info("starting async processor server",
+		log.Info(fmt.Sprintf("starting %s async processor server", constants.ProjectName),
 			"port", port,
 			"version", *constants.GetVersion(),
 			"log_level", cfg.LogLevel,

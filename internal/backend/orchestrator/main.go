@@ -114,8 +114,8 @@ func NewService(
 	}
 
 	log.Debug("casbin authorization enforcer initialized successfully")
-	log.Debug(fmt.Sprintf("%s orchestrator service initialized successfully", svc.Provider))
-
+	log.Debug(fmt.Sprintf("%s %s orchestrator initialized successfully",
+		constants.ProjectName, svc.Provider))
 	return svc, nil
 }
 
