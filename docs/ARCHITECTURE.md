@@ -328,6 +328,63 @@ The request ID middleware automatically:
 - Adds the request ID to the request context for use by handlers
 - Falls back gracefully when not running in Lambda environment
 
+### Authorization and Access Control
+
+runvoy uses **Casbin-based Role-Based Access Control (RBAC)** to enforce authorization across all API endpoints. This is layered on top of authentication to ensure users can only perform actions they are explicitly permitted to do.
+
+#### Role Definitions
+
+Four predefined roles control access to different resources:
+
+1. **Admin**: Full access to all resources and operations
+2. **Operator**: Can manage images, secrets, and execute commands; cannot manage users
+3. **Developer**: Can create and manage their own resources; can execute commands
+4. **Viewer**: Read-only access to resources
+
+#### Authorization Enforcement Points
+
+**Endpoint-Level Authorization:**
+- All protected API endpoints check authorization before processing requests
+- Enforces role-based permissions via Casbin RBAC model
+- Returns `403 Forbidden` with `FORBIDDEN` error code when access is denied
+- Returns `401 Unauthorized` with `UNAUTHORIZED` error code when unauthenticated
+
+**Resource-Level Authorization (Special Case: `/api/v1/run` Endpoint):**
+- The execution endpoint (`POST /api/v1/run`) validates access to all referenced resources before starting an execution:
+  - **Image Access**: User must have read permission on `/api/images` to use a specified image
+  - **Secret Access**: User must have read permission on `/api/secrets` for each secret referenced
+- This ensures users cannot execute with resources they don't have access to
+- Validation happens in the service layer via `ValidateExecutionResourceAccess()` method, before task submission
+
+#### Resource Ownership
+
+For fine-grained access control, resources track ownership:
+- **Secrets**: Creator is marked as owner when created
+- **Executions**: Executor is marked as owner when started
+- Owners can access their resources with full permissions via the resource-owner (g2) matcher in Casbin
+- Ownership mappings are in-memory (reset on service restart)
+
+#### Authorization Data Flow
+
+1. **Initialization**: At service startup, all user roles are loaded from the database into the Casbin enforcer
+2. **Request Processing**:
+   - Authentication middleware validates API key and adds user to context
+   - Handler calls `authorizeRequest()` to check general endpoint permission
+   - For `/run` endpoint: Service validates access to specific resources (image, secrets) via `ValidateExecutionResourceAccess()`
+3. **Access Denied**: Request is rejected with appropriate HTTP status and error code
+4. **Resource Creation**: Ownership mappings are automatically created for new secrets and executions
+
+#### Casbin Model and Policies
+
+The RBAC model is defined in `internal/auth/authorization/casbin/model.conf` with:
+- **Request Definition**: `(subject, object, action)` - e.g., `(user@example.com, /api/images, read)`
+- **Role Definition**: Two grouping relationships:
+  - `g`: User-to-role mapping (e.g., `user@example.com` has role `role:admin`)
+  - `g2`: Resource-to-owner mapping (e.g., `secret:secret-123` is owned by `user@example.com`)
+- **Matcher**: Allows access if user has required role OR if user is the resource owner
+
+Policies are embedded in the binary at build time from `internal/auth/authorization/casbin/policy.csv`.
+
 ### Execution Records: Compute Platform, and Request ID
 
 - The service includes the request ID (when available) in execution records created in `internal/backend/orchestrator.Service.RunCommand()`.

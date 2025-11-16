@@ -46,6 +46,7 @@ const (
 	// Client error codes
 	ErrCodeInvalidRequest = "INVALID_REQUEST"
 	ErrCodeUnauthorized   = "UNAUTHORIZED"
+	ErrCodeForbidden      = "FORBIDDEN"
 	ErrCodeNotFound       = "NOT_FOUND"
 	ErrCodeConflict       = "CONFLICT"
 	ErrCodeSecretNotFound = "SECRET_NOT_FOUND"
@@ -90,6 +91,11 @@ func NewServerError(statusCode int, code, message string, cause error) *AppError
 // ErrUnauthorized creates an unauthorized error (401).
 func ErrUnauthorized(message string, cause error) *AppError {
 	return NewClientError(http.StatusUnauthorized, ErrCodeUnauthorized, message, cause)
+}
+
+// ErrForbidden creates a forbidden error (403).
+func ErrForbidden(message string, cause error) *AppError {
+	return NewClientError(http.StatusForbidden, ErrCodeForbidden, message, cause)
 }
 
 // ErrInvalidAPIKey creates an invalid API key error (401).

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"slices"
+	"strings"
 	"time"
 
 	"runvoy/internal/api"
@@ -11,6 +12,63 @@ import (
 	apperrors "runvoy/internal/errors"
 	"runvoy/internal/logger"
 )
+
+// ValidateExecutionResourceAccess checks if a user can access all resources required for execution.
+// Validates access to the image and all secrets referenced in the execution request.
+// Returns an error if the user lacks access to any required resource.
+func (s *Service) ValidateExecutionResourceAccess(
+	userEmail string,
+	req *api.ExecutionRequest,
+) error {
+	enforcer := s.GetEnforcer()
+	if enforcer == nil {
+		return nil
+	}
+
+	if image := strings.TrimSpace(req.Image); image != "" {
+		allowed, err := enforcer.Enforce(userEmail, "/api/images", "read")
+		if err != nil {
+			return apperrors.ErrInternalError(
+				"failed to validate image access",
+				fmt.Errorf("enforcement error: %w", err),
+			)
+		}
+		if !allowed {
+			return apperrors.ErrForbidden(
+				fmt.Sprintf(
+					"you do not have permission to execute with image %q",
+					image,
+				),
+				nil,
+			)
+		}
+	}
+
+	for _, secretName := range req.Secrets {
+		name := strings.TrimSpace(secretName)
+		if name == "" {
+			continue
+		}
+		allowed, err := enforcer.Enforce(userEmail, "/api/secrets", "read")
+		if err != nil {
+			return apperrors.ErrInternalError(
+				"failed to validate secret access",
+				fmt.Errorf("enforcement error for secret %q: %w", name, err),
+			)
+		}
+		if !allowed {
+			return apperrors.ErrForbidden(
+				fmt.Sprintf(
+					"you do not have permission to use secret %q",
+					name,
+				),
+				nil,
+			)
+		}
+	}
+
+	return nil
+}
 
 // RunCommand starts a provider-specific task and records the execution.
 // Resolve secret references to environment variables before starting the task.
@@ -26,6 +84,10 @@ func (s *Service) RunCommand(
 
 	if req.Command == "" {
 		return nil, apperrors.ErrBadRequest("command is required", nil)
+	}
+
+	if err := s.ValidateExecutionResourceAccess(userEmail, req); err != nil {
+		return nil, err
 	}
 
 	secretEnvVars, err := s.resolveSecretsForExecution(ctx, req.Secrets)
