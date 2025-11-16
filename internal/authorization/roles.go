@@ -1,5 +1,7 @@
 package authorization
 
+import "slices"
+
 // Role constants for Casbin role-based access control.
 // These correspond to the roles defined in casbin/policy.csv.
 const (
@@ -46,10 +48,5 @@ func ValidRoles() []string {
 
 // IsValidRole checks if a role name is valid.
 func IsValidRole(role string) bool {
-	for _, validRole := range ValidRoles() {
-		if role == validRole {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(ValidRoles(), role)
 }

@@ -36,7 +36,8 @@ func NewEnforcer(modelPath, policyPath string, logger *slog.Logger) (*Enforcer, 
 // Returns true if the action is allowed, false otherwise.
 //
 // Example usage:
-//   allowed, err := e.Enforce("user@example.com", "/api/secrets/secret-123", "read")
+//
+//	allowed, err := e.Enforce("user@example.com", "/api/secrets/secret-123", "read")
 func (e *Enforcer) Enforce(subject, object, action string) (bool, error) {
 	allowed, err := e.enforcer.Enforce(subject, object, action)
 	if err != nil {
@@ -52,7 +53,8 @@ func (e *Enforcer) Enforce(subject, object, action string) (bool, error) {
 // The role should be in the format "role:admin", "role:operator", etc.
 //
 // Example usage:
-//   err := e.AddRoleForUser("user@example.com", "role:developer")
+//
+//	err := e.AddRoleForUser("user@example.com", "role:developer")
 func (e *Enforcer) AddRoleForUser(user, role string) error {
 	added, err := e.enforcer.AddGroupingPolicy(user, role)
 	if err != nil {
@@ -70,7 +72,8 @@ func (e *Enforcer) AddRoleForUser(user, role string) error {
 // RemoveRoleForUser removes a role from a user.
 //
 // Example usage:
-//   err := e.RemoveRoleForUser("user@example.com", "role:developer")
+//
+//	err := e.RemoveRoleForUser("user@example.com", "role:developer")
 func (e *Enforcer) RemoveRoleForUser(user, role string) error {
 	removed, err := e.enforcer.RemoveGroupingPolicy(user, role)
 	if err != nil {
@@ -89,7 +92,8 @@ func (e *Enforcer) RemoveRoleForUser(user, role string) error {
 // This allows the owner to access their own resources.
 //
 // Example usage:
-//   err := e.AddOwnershipForResource("secret:secret-123", "user@example.com")
+//
+//	err := e.AddOwnershipForResource("secret:secret-123", "user@example.com")
 func (e *Enforcer) AddOwnershipForResource(resourceID, ownerEmail string) error {
 	added, err := e.enforcer.AddGroupingPolicy(resourceID, ownerEmail)
 	if err != nil {
@@ -107,7 +111,8 @@ func (e *Enforcer) AddOwnershipForResource(resourceID, ownerEmail string) error 
 // RemoveOwnershipForResource removes ownership mapping for a resource.
 //
 // Example usage:
-//   err := e.RemoveOwnershipForResource("secret:secret-123", "user@example.com")
+//
+//	err := e.RemoveOwnershipForResource("secret:secret-123", "user@example.com")
 func (e *Enforcer) RemoveOwnershipForResource(resourceID, ownerEmail string) error {
 	removed, err := e.enforcer.RemoveGroupingPolicy(resourceID, ownerEmail)
 	if err != nil {
@@ -126,11 +131,12 @@ func (e *Enforcer) RemoveOwnershipForResource(resourceID, ownerEmail string) err
 // This is typically called at startup to initialize the enforcer with current user roles.
 //
 // Example usage:
-//   roles := map[string]string{
-//     "admin@example.com": "role:admin",
-//     "dev@example.com": "role:developer",
-//   }
-//   err := e.LoadRolesForUsers(roles)
+//
+//	roles := map[string]string{
+//	  "admin@example.com": "role:admin",
+//	  "dev@example.com": "role:developer",
+//	}
+//	err := e.LoadRolesForUsers(roles)
 func (e *Enforcer) LoadRolesForUsers(userRoles map[string]string) error {
 	for user, role := range userRoles {
 		if err := e.AddRoleForUser(user, role); err != nil {
@@ -146,11 +152,12 @@ func (e *Enforcer) LoadRolesForUsers(userRoles map[string]string) error {
 // This is typically called at startup to initialize the enforcer with current ownerships.
 //
 // Example usage:
-//   ownerships := map[string]string{
-//     "secret:secret-123": "user@example.com",
-//     "execution:exec-456": "user@example.com",
-//   }
-//   err := e.LoadResourceOwnerships(ownerships)
+//
+//	ownerships := map[string]string{
+//	  "secret:secret-123": "user@example.com",
+//	  "execution:exec-456": "user@example.com",
+//	}
+//	err := e.LoadResourceOwnerships(ownerships)
 func (e *Enforcer) LoadResourceOwnerships(ownerships map[string]string) error {
 	for resourceID, ownerEmail := range ownerships {
 		if err := e.AddOwnershipForResource(resourceID, ownerEmail); err != nil {
