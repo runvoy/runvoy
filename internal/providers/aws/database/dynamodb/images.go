@@ -55,6 +55,7 @@ type imageTaskDefItem struct {
 	ImageRegistry         string  `dynamodbav:"image_registry"`
 	ImageName             string  `dynamodbav:"image_name"`
 	ImageTag              string  `dynamodbav:"image_tag"`
+	RegisteredBy          string  `dynamodbav:"registered_by,omitempty"` // Email of user who registered the image
 	CreatedAt             int64   `dynamodbav:"created_at"`
 	UpdatedAt             int64   `dynamodbav:"updated_at"`
 }
@@ -331,6 +332,7 @@ func (r *ImageTaskDefRepository) GetImageTaskDefByID(ctx context.Context, imageI
 		ImageRegistry:         item.ImageRegistry,
 		ImageName:             item.ImageName,
 		ImageTag:              item.ImageTag,
+		RegisteredBy:          item.RegisteredBy,
 	}, nil
 }
 
@@ -464,6 +466,7 @@ func (r *ImageTaskDefRepository) GetDefaultImage(ctx context.Context) (*api.Imag
 		ImageRegistry:         item.ImageRegistry,
 		ImageName:             item.ImageName,
 		ImageTag:              item.ImageTag,
+		RegisteredBy:          item.RegisteredBy,
 	}, nil
 }
 

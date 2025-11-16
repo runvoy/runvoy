@@ -19,6 +19,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/ssm v1.67.2
 	github.com/aws/aws-sdk-go-v2/service/sts v1.40.2
 	github.com/aws/smithy-go v1.23.2
+	github.com/casbin/casbin/v2 v2.100.0
 	github.com/fatih/color v1.18.0
 	github.com/go-chi/chi/v5 v5.2.3
 	github.com/go-playground/validator/v10 v10.28.0
