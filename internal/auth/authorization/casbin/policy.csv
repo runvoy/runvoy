@@ -20,7 +20,7 @@ p, role:developer, /api/secrets/*, create, allow
 p, role:developer, /api/secrets/*, delete, allow
 p, role:developer, /api/secrets/*, read, allow
 p, role:developer, /api/secrets/*, update, allow
-p, role:viewer, /api/executions/*, read, allow
+p, role:viewer, /api/executions, read, allow
 p, owner, /api/executions/:id, *, allow
 p, owner, /api/images/:id, delete, allow
 p, owner, /api/secrets/:id, *, allow
