@@ -88,6 +88,10 @@ func (m *mockClientInterface) DeleteSecret(_ context.Context, _ string) (*api.De
 	return nil, fmt.Errorf("not implemented")
 }
 
+func (m *mockClientInterface) ReconcileHealth(_ context.Context) (*api.HealthReconcileResponse, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
 // mockOutputInterface is a manual mock for testing
 type mockOutputInterface struct {
 	calls []call

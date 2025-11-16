@@ -235,6 +235,20 @@ func (c *Client) RunCommand(ctx context.Context, req *api.ExecutionRequest) (*ap
 	return &resp, nil
 }
 
+// ReconcileHealth triggers a full health reconciliation on the server.
+// Requires authentication and returns a reconciliation report.
+func (c *Client) ReconcileHealth(ctx context.Context) (*api.HealthReconcileResponse, error) {
+	var resp api.HealthReconcileResponse
+	err := c.DoJSON(ctx, Request{
+		Method: "POST",
+		Path:   "/api/v1/health/reconcile",
+	}, &resp)
+	if err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
 // GetLogs gets the logs for an execution
 // The response includes a WebSocketURL field for streaming logs if WebSocket is configured
 func (c *Client) GetLogs(ctx context.Context, executionID string) (*api.LogsResponse, error) {

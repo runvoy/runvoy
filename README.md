@@ -135,7 +135,7 @@ runvoy --help
 ```
 
 ```text
-runvoy - 0.1.0-20251116-54a202f
+runvoy - 0.1.0-20251116-577243c
 Isolated, repeatable execution environments for your commands
 
 Usage:
@@ -145,6 +145,7 @@ Available Commands:
   claim       Claim a user's API key
   completion  Generate the autocompletion script for the specified shell
   configure   Configure local environment with API key and endpoint URL
+  health      Health and reconciliation commands
   help        Help about any command
   images      Docker images management commands
   kill        Kill a running command execution

@@ -9,6 +9,8 @@ import (
 
 // Interface defines the API client interface for dependency injection and testing
 type Interface interface {
+	// Health
+	ReconcileHealth(ctx context.Context) (*api.HealthReconcileResponse, error)
 	GetLogs(ctx context.Context, executionID string) (*api.LogsResponse, error)
 	GetExecutionStatus(ctx context.Context, executionID string) (*api.ExecutionStatusResponse, error)
 	RunCommand(ctx context.Context, req *api.ExecutionRequest) (*api.ExecutionResponse, error)

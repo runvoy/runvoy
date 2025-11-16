@@ -29,6 +29,22 @@ Configure the local environment with your API key and endpoint URL.
 This creates or updates the configuration file at ~/.runvoy/config.yaml
 
 
+## runvoy health
+
+Health and reconciliation commands
+
+
+## runvoy health reconcile
+
+Trigger a full health reconciliation across managed resources and display a report
+
+**Examples**
+
+```bash
+  - runvoy health reconcile
+```
+
+
 ## runvoy images
 
 Docker images management commands
