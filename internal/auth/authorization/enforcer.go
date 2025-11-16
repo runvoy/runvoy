@@ -3,10 +3,15 @@
 package authorization
 
 import (
+	"bufio"
 	"fmt"
+	"io/fs"
 	"log/slog"
+	"strings"
 
 	"github.com/casbin/casbin/v2"
+	"github.com/casbin/casbin/v2/model"
+	"github.com/casbin/casbin/v2/persist"
 )
 
 // Enforcer wraps the Casbin enforcer with additional functionality.
@@ -15,18 +20,83 @@ type Enforcer struct {
 	logger   *slog.Logger
 }
 
-// NewEnforcer creates a new Casbin enforcer with the specified model and policy files.
-// The modelPath should point to the Casbin model configuration file (e.g.,
-// "internal/auth/authorization/casbin/model.conf").
-// The policyPath should point to the Casbin policy CSV file (e.g.,
-// "internal/auth/authorization/casbin/policy.csv").
-func NewEnforcer(modelPath, policyPath string, logger *slog.Logger) (*Enforcer, error) {
-	enforcer, err := casbin.NewEnforcer(modelPath, policyPath)
+// embeddedAdapter is a custom Casbin adapter that reads from an embedded filesystem.
+type embeddedAdapter struct {
+	modelFS  fs.FS
+	pathBase string
+}
+
+// NewEmbeddedAdapter creates a new adapter for reading Casbin config from an embedded filesystem.
+func NewEmbeddedAdapter(fsys fs.FS, pathBase string) persist.Adapter {
+	return &embeddedAdapter{
+		modelFS:  fsys,
+		pathBase: pathBase,
+	}
+}
+
+// LoadPolicy loads the policy from the embedded filesystem.
+func (a *embeddedAdapter) LoadPolicy(m model.Model) error {
+	policyPath := strings.TrimPrefix(a.pathBase, "casbin/") + "policy.csv"
+	data, err := fs.ReadFile(a.modelFS, a.pathBase+policyPath)
+	if err != nil {
+		return fmt.Errorf("failed to read policy file: %w", err)
+	}
+
+	scanner := bufio.NewScanner(strings.NewReader(string(data)))
+	for scanner.Scan() {
+		line := scanner.Text()
+		if lineErr := persist.LoadPolicyLine(line, m); lineErr != nil {
+			return fmt.Errorf("failed to load policy line: %w", lineErr)
+		}
+	}
+
+	return nil
+}
+
+func (a *embeddedAdapter) SavePolicy(_ model.Model) error {
+	return fmt.Errorf("SavePolicy not supported for embedded adapter")
+}
+
+func (a *embeddedAdapter) AddPolicy(_, _ string, _ []string) error {
+	return fmt.Errorf("AddPolicy not supported for embedded adapter")
+}
+
+func (a *embeddedAdapter) RemovePolicy(_, _ string, _ []string) error {
+	return fmt.Errorf("RemovePolicy not supported for embedded adapter")
+}
+
+func (a *embeddedAdapter) RemoveFilteredPolicy(_, _ string, _ int, _ ...string) error {
+	return fmt.Errorf("RemoveFilteredPolicy not supported for embedded adapter")
+}
+
+func (a *embeddedAdapter) UpdatePolicy(_, _ string, _, _ []string) error {
+	return fmt.Errorf("UpdatePolicy not supported for embedded adapter")
+}
+
+func (a *embeddedAdapter) UpdateFilteredPolicies(_, _ string, _ [][]string, _ int, _ ...string) error {
+	return fmt.Errorf("UpdateFilteredPolicies not supported for embedded adapter")
+}
+
+// NewEnforcer creates a new Casbin enforcer using embedded Casbin configuration files.
+// The model and policy are embedded in the binary at build time, so no filesystem access is required.
+func NewEnforcer(logger *slog.Logger) (*Enforcer, error) {
+	modelBytes, err := CasbinFS.ReadFile("casbin/model.conf")
+	if err != nil {
+		return nil, fmt.Errorf("failed to read embedded casbin model: %w", err)
+	}
+
+	m, err := model.NewModelFromString(string(modelBytes))
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse casbin model: %w", err)
+	}
+
+	adapter := NewEmbeddedAdapter(CasbinFS, "casbin/")
+	enforcer, err := casbin.NewEnforcer(m, adapter)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create casbin authorization enforcer: %w", err)
 	}
 
-	logger.Debug("casbin authorization enforcer initialized", "model", modelPath, "policy", policyPath)
+	logger.Debug("casbin authorization enforcer initialized")
 
 	return &Enforcer{
 		enforcer: enforcer,

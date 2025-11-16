@@ -102,11 +102,8 @@ func Initialize( //nolint:funlen // This is ok, lots of initializations required
 	)
 
 	// Initialize Casbin enforcer for authorization
-	enforcer, err := authorization.NewEnforcer(
-		"internal/auth/casbin/model.conf",
-		"internal/auth/casbin/policy.csv",
-		log,
-	)
+	// The enforcer uses embedded configuration files, so no filesystem access is required
+	enforcer, err := authorization.NewEnforcer(log)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize authorization enforcer: %w", err)
 	}
