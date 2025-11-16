@@ -79,6 +79,14 @@ const DefaultRuntimePlatformOSFamily = "Linux"
 // DefaultRuntimePlatform is the default runtime platform for ECS task definitions
 const DefaultRuntimePlatform = DefaultRuntimePlatformOSFamily + "/" + DefaultRuntimePlatformArchitecture
 
+// SupportedRuntimePlatformArches returns the list of supported ECS runtime CPU architectures.
+func SupportedRuntimePlatformArches() []string {
+	return []string{
+		RuntimePlatformArchX8664,
+		RuntimePlatformArchARM64,
+	}
+}
+
 // TaskDefinitionFamilyPrefix is the prefix for all runvoy task definition families
 // Task definitions are named: {ProjectName}-image-{sanitized-image-name}
 // e.g., "runvoy-image-hashicorp-terraform-1-6" for image "hashicorp/terraform:1.6"

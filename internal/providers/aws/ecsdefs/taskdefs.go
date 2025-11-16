@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"slices"
 	"strings"
 
 	"runvoy/internal/constants"
@@ -272,9 +273,14 @@ func parseRuntimePlatform(runtimePlatform string) (osFamily, cpuArch string, err
 	osFamily = parts[0]
 	cpuArch = parts[1]
 
-	// Validate known architectures
-	if cpuArch != awsConstants.RuntimePlatformArchX8664 && cpuArch != awsConstants.RuntimePlatformArchARM64 {
-		return "", "", fmt.Errorf("unsupported architecture: %s (expected X86_64 or ARM64)", cpuArch)
+	if osFamily != awsConstants.DefaultRuntimePlatformOSFamily {
+		return "", "", fmt.Errorf("unsupported OS family: %s (expected %s)",
+			osFamily, awsConstants.DefaultRuntimePlatformOSFamily)
+	}
+
+	if !slices.Contains(awsConstants.SupportedRuntimePlatformArches(), cpuArch) {
+		return "", "", fmt.Errorf("unsupported architecture: %s (expected %s)",
+			cpuArch, strings.Join(awsConstants.SupportedRuntimePlatformArches(), ", "))
 	}
 
 	return osFamily, cpuArch, nil
