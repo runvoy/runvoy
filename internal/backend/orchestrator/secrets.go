@@ -35,6 +35,16 @@ func (s *Service) CreateSecret(
 		}
 		return apperrors.ErrInternalError("failed to create secret", fmt.Errorf("create secret: %w", err))
 	}
+
+	enforcer := s.GetEnforcer()
+	if enforcer != nil {
+		resourceID := fmt.Sprintf("secret:%s", req.Name)
+		if err := enforcer.AddOwnershipForResource(resourceID, userEmail); err != nil {
+			s.Logger.Error("failed to add ownership for secret", "error", err, "resource", resourceID, "owner", userEmail)
+			// Log but don't fail - ownership is nice-to-have for fine-grained access control
+		}
+	}
+
 	return nil
 }
 
@@ -93,6 +103,10 @@ func (s *Service) DeleteSecret(ctx context.Context, name string) error {
 		}
 		return apperrors.ErrInternalError("failed to delete secret", fmt.Errorf("delete secret: %w", err))
 	}
+
+	// Note: Ownership mappings are cleaned up at service restart since they're only in-memory.
+	// For future persistence, implement cleanup here via a method on the enforcer.
+
 	return nil
 }
 

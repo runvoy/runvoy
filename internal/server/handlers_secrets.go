@@ -13,6 +13,7 @@ import (
 
 // handleCreateSecret handles POST /api/v1/secrets
 func (r *Router) handleCreateSecret(w http.ResponseWriter, req *http.Request) {
+	logger := r.GetLoggerFromContext(req.Context())
 	var createReq api.CreateSecretRequest
 	if err := json.NewDecoder(req.Body).Decode(&createReq); err != nil {
 		writeErrorResponse(w, http.StatusBadRequest, "invalid request body", err.Error())
@@ -22,6 +23,11 @@ func (r *Router) handleCreateSecret(w http.ResponseWriter, req *http.Request) {
 	user, ok := r.getUserFromContext(req)
 	if !ok {
 		writeErrorResponse(w, http.StatusUnauthorized, "Unauthorized", "user not found in context")
+		return
+	}
+
+	if !r.authorizeRequest(logger, user.Email, "/api/secrets", "create") {
+		writeErrorResponse(w, http.StatusForbidden, "Forbidden", "you do not have permission to create secrets")
 		return
 	}
 
@@ -38,15 +44,21 @@ func (r *Router) handleCreateSecret(w http.ResponseWriter, req *http.Request) {
 
 // handleGetSecret handles GET /api/v1/secrets/{name}
 func (r *Router) handleGetSecret(w http.ResponseWriter, req *http.Request) {
+	logger := r.GetLoggerFromContext(req.Context())
 	name := chi.URLParam(req, "name")
 	if name == "" {
 		writeErrorResponse(w, http.StatusBadRequest, "secret name is required", "")
 		return
 	}
 
-	_, ok := r.getUserFromContext(req)
+	user, ok := r.getUserFromContext(req)
 	if !ok {
 		writeErrorResponse(w, http.StatusUnauthorized, "Unauthorized", "user not found in context")
+		return
+	}
+
+	if !r.authorizeRequest(logger, user.Email, "/api/secrets", "read") {
+		writeErrorResponse(w, http.StatusForbidden, "Forbidden", "you do not have permission to read secrets")
 		return
 	}
 
@@ -64,9 +76,16 @@ func (r *Router) handleGetSecret(w http.ResponseWriter, req *http.Request) {
 
 // handleListSecrets handles GET /api/v1/secrets
 func (r *Router) handleListSecrets(w http.ResponseWriter, req *http.Request) {
-	_, ok := r.getUserFromContext(req)
+	logger := r.GetLoggerFromContext(req.Context())
+
+	user, ok := r.getUserFromContext(req)
 	if !ok {
 		writeErrorResponse(w, http.StatusUnauthorized, "Unauthorized", "user not found in context")
+		return
+	}
+
+	if !r.authorizeRequest(logger, user.Email, "/api/secrets", "read") {
+		writeErrorResponse(w, http.StatusForbidden, "Forbidden", "you do not have permission to list secrets")
 		return
 	}
 
@@ -86,6 +105,7 @@ func (r *Router) handleListSecrets(w http.ResponseWriter, req *http.Request) {
 // handleUpdateSecret handles PUT /api/v1/secrets/{name}
 // Updates secret metadata (description) and/or value in a single request.
 func (r *Router) handleUpdateSecret(w http.ResponseWriter, req *http.Request) {
+	logger := r.GetLoggerFromContext(req.Context())
 	name := chi.URLParam(req, "name")
 	if name == "" {
 		writeErrorResponse(w, http.StatusBadRequest, "secret name is required", "")
@@ -104,6 +124,11 @@ func (r *Router) handleUpdateSecret(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	if !r.authorizeRequest(logger, user.Email, "/api/secrets", "update") {
+		writeErrorResponse(w, http.StatusForbidden, "Forbidden", "you do not have permission to update secrets")
+		return
+	}
+
 	if err := r.svc.UpdateSecret(req.Context(), name, &updateReq, user.Email); err != nil {
 		handleServiceError(w, err)
 		return
@@ -117,15 +142,21 @@ func (r *Router) handleUpdateSecret(w http.ResponseWriter, req *http.Request) {
 
 // handleDeleteSecret handles DELETE /api/v1/secrets/{name}
 func (r *Router) handleDeleteSecret(w http.ResponseWriter, req *http.Request) {
+	logger := r.GetLoggerFromContext(req.Context())
 	name := chi.URLParam(req, "name")
 	if name == "" {
 		writeErrorResponse(w, http.StatusBadRequest, "secret name is required", "")
 		return
 	}
 
-	_, ok := r.getUserFromContext(req)
+	user, ok := r.getUserFromContext(req)
 	if !ok {
 		writeErrorResponse(w, http.StatusUnauthorized, "Unauthorized", "user not found in context")
+		return
+	}
+
+	if !r.authorizeRequest(logger, user.Email, "/api/secrets", "delete") {
+		writeErrorResponse(w, http.StatusForbidden, "Forbidden", "you do not have permission to delete secrets")
 		return
 	}
 

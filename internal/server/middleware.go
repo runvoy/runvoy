@@ -117,6 +117,38 @@ func handleAuthError(w http.ResponseWriter, err error) {
 	writeErrorResponseWithCode(w, statusCode, errorCode, messagePrefix, errorMsg)
 }
 
+// authorizeRequest checks if a user can perform an action on a resource.
+// Returns true if allowed, false if denied.
+// If enforcer is nil, returns true (no authorization enforcement).
+func (r *Router) authorizeRequest(logger *slog.Logger, userEmail, resourceObject, action string) bool {
+	enforcer := r.svc.GetEnforcer()
+	if enforcer == nil {
+		return true
+	}
+
+	allowed, err := enforcer.Enforce(userEmail, resourceObject, action)
+	if err != nil {
+		logger.Error("authorization check error", "context", map[string]string{
+			"error":    err.Error(),
+			"user":     userEmail,
+			"resource": resourceObject,
+			"action":   action,
+		})
+		return false
+	}
+
+	if !allowed {
+		logger.Warn("authorization denied", "context", map[string]string{
+			"user":     userEmail,
+			"resource": resourceObject,
+			"action":   action,
+		})
+		return false
+	}
+
+	return true
+}
+
 // updateLastUsedAsync updates the user's last_used timestamp asynchronously.
 func (r *Router) updateLastUsedAsync(user *api.User, requestID string, logger *slog.Logger) *sync.WaitGroup {
 	var wg sync.WaitGroup

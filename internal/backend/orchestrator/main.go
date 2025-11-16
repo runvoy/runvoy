@@ -152,3 +152,9 @@ func (s *Service) loadUserRoles(ctx context.Context) error {
 
 	return nil
 }
+
+// GetEnforcer returns the Casbin enforcer for authorization checks.
+// May be nil if authorization is not configured.
+func (s *Service) GetEnforcer() *authorization.Enforcer {
+	return s.enforcer
+}

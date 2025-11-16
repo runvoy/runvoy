@@ -93,6 +93,20 @@ func (s *Service) recordExecution(
 		return fmt.Errorf("failed to create execution record, but task has been accepted by the provider: %w", err)
 	}
 
+	enforcer := s.GetEnforcer()
+	if enforcer != nil {
+		resourceID := fmt.Sprintf("execution:%s", executionID)
+		if err := enforcer.AddOwnershipForResource(resourceID, userEmail); err != nil {
+			reqLogger.Error("failed to add ownership for execution", "context", map[string]string{
+				"execution_id": executionID,
+				"error":        err.Error(),
+				"resource":     resourceID,
+				"owner":        userEmail,
+			})
+			// Log but don't fail - ownership is nice-to-have for fine-grained access control
+		}
+	}
+
 	return nil
 }
 

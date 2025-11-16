@@ -25,6 +25,48 @@ func (r *Router) getUserFromContext(req *http.Request) (*api.User, bool) {
 	return user, ok && user != nil
 }
 
+// handleListWithAuth handles the common pattern for list operations with authorization.
+// Checks user authentication, authorization, calls the service method, and writes response.
+func (r *Router) handleListWithAuth(
+	w http.ResponseWriter,
+	req *http.Request,
+	resource string,
+	denialMsg string,
+	serviceCall func() (any, error),
+	operationName string,
+) {
+	logger := r.GetLoggerFromContext(req.Context())
+
+	user, ok := r.getUserFromContext(req)
+	if !ok {
+		writeErrorResponse(w, http.StatusUnauthorized, "Unauthorized", "user not found in context")
+		return
+	}
+
+	if !r.authorizeRequest(logger, user.Email, resource, "read") {
+		writeErrorResponse(w, http.StatusForbidden, "Forbidden", denialMsg)
+		return
+	}
+
+	resp, err := serviceCall()
+	if err != nil {
+		statusCode := apperrors.GetStatusCode(err)
+		errorCode := apperrors.GetErrorCode(err)
+		errorDetails := apperrors.GetErrorDetails(err)
+
+		logger.Debug("failed to "+operationName,
+			"error", err,
+			"status_code", statusCode,
+			"error_code", errorCode)
+
+		writeErrorResponseWithCode(w, statusCode, errorCode, "failed to "+operationName, errorDetails)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(resp)
+}
+
 // handleCreateUser handles POST /api/v1/users to create a new user with an API key
 func (r *Router) handleCreateUser(w http.ResponseWriter, req *http.Request) {
 	logger := r.GetLoggerFromContext(req.Context())
@@ -40,6 +82,11 @@ func (r *Router) handleCreateUser(w http.ResponseWriter, req *http.Request) {
 	user, ok := r.getUserFromContext(req)
 	if !ok {
 		writeErrorResponse(w, http.StatusUnauthorized, "Unauthorized", "user not found in context")
+		return
+	}
+
+	if !r.authorizeRequest(logger, user.Email, "/api/users", "create") {
+		writeErrorResponse(w, http.StatusForbidden, "Forbidden", "you do not have permission to create users")
 		return
 	}
 
@@ -71,6 +118,17 @@ func (r *Router) handleRevokeUser(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	user, ok := r.getUserFromContext(req)
+	if !ok {
+		writeErrorResponse(w, http.StatusUnauthorized, "Unauthorized", "user not found in context")
+		return
+	}
+
+	if !r.authorizeRequest(logger, user.Email, "/api/users", "delete") {
+		writeErrorResponse(w, http.StatusForbidden, "Forbidden", "you do not have permission to revoke users")
+		return
+	}
+
 	if err := r.svc.RevokeUser(req.Context(), revokeReq.Email); err != nil {
 		statusCode := apperrors.GetStatusCode(err)
 		errorCode := apperrors.GetErrorCode(err)
@@ -92,22 +150,9 @@ func (r *Router) handleRevokeUser(w http.ResponseWriter, req *http.Request) {
 
 // handleListUsers handles GET /api/v1/users to list all users
 func (r *Router) handleListUsers(w http.ResponseWriter, req *http.Request) {
-	logger := r.GetLoggerFromContext(req.Context())
-
-	resp, err := r.svc.ListUsers(req.Context())
-	if err != nil {
-		statusCode := apperrors.GetStatusCode(err)
-		errorCode := apperrors.GetErrorCode(err)
-		errorDetails := apperrors.GetErrorDetails(err)
-
-		logger.Debug("failed to list users", "error", err, "status_code", statusCode, "error_code", errorCode)
-
-		writeErrorResponseWithCode(w, statusCode, errorCode, "failed to list users", errorDetails)
-		return
-	}
-
-	w.WriteHeader(http.StatusOK)
-	_ = json.NewEncoder(w).Encode(resp)
+	r.handleListWithAuth(w, req, "/api/users", "you do not have permission to list users",
+		func() (any, error) { return r.svc.ListUsers(req.Context()) },
+		"list users")
 }
 
 // handleRunCommand handles POST /api/v1/run to execute a command in an ephemeral container
@@ -123,6 +168,11 @@ func (r *Router) handleRunCommand(w http.ResponseWriter, req *http.Request) {
 	var execReq api.ExecutionRequest
 	if err := json.NewDecoder(req.Body).Decode(&execReq); err != nil {
 		writeErrorResponse(w, http.StatusBadRequest, "invalid request body", err.Error())
+		return
+	}
+
+	if !r.authorizeRequest(logger, user.Email, "/api/run", "execute") {
+		writeErrorResponse(w, http.StatusForbidden, "Forbidden", "you do not have permission to execute commands")
 		return
 	}
 
@@ -162,6 +212,11 @@ func (r *Router) handleGetExecutionLogs(w http.ResponseWriter, req *http.Request
 		return
 	}
 
+	if !r.authorizeRequest(logger, user.Email, "/api/executions", "read") {
+		writeErrorResponse(w, http.StatusForbidden, "Forbidden", "you do not have permission to read execution logs")
+		return
+	}
+
 	clientIP := getClientIP(req)
 
 	resp, err := r.svc.GetLogsByExecutionID(req.Context(), executionID, &user.Email, &clientIP)
@@ -188,6 +243,17 @@ func (r *Router) handleGetExecutionStatus(w http.ResponseWriter, req *http.Reque
 	executionID := strings.TrimSpace(chi.URLParam(req, "executionID"))
 	if executionID == "" {
 		writeErrorResponse(w, http.StatusBadRequest, "invalid execution id", "executionID is required")
+		return
+	}
+
+	user, ok := r.getUserFromContext(req)
+	if !ok {
+		writeErrorResponse(w, http.StatusUnauthorized, "Unauthorized", "user not found in context")
+		return
+	}
+
+	if !r.authorizeRequest(logger, user.Email, "/api/executions", "read") {
+		writeErrorResponse(w, http.StatusForbidden, "Forbidden", "you do not have permission to read execution status")
 		return
 	}
 
@@ -221,6 +287,17 @@ func (r *Router) handleKillExecution(w http.ResponseWriter, req *http.Request) {
 	executionID := strings.TrimSpace(chi.URLParam(req, "executionID"))
 	if executionID == "" {
 		writeErrorResponse(w, http.StatusBadRequest, "invalid execution id", "executionID is required")
+		return
+	}
+
+	user, ok := r.getUserFromContext(req)
+	if !ok {
+		writeErrorResponse(w, http.StatusUnauthorized, "Unauthorized", "user not found in context")
+		return
+	}
+
+	if !r.authorizeRequest(logger, user.Email, "/api/executions", "kill") {
+		writeErrorResponse(w, http.StatusForbidden, "Forbidden", "you do not have permission to kill executions")
 		return
 	}
 
@@ -385,6 +462,17 @@ func (r *Router) handleRegisterImage(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	user, ok := r.getUserFromContext(req)
+	if !ok {
+		writeErrorResponse(w, http.StatusUnauthorized, "Unauthorized", "user not found in context")
+		return
+	}
+
+	if !r.authorizeRequest(logger, user.Email, "/api/images", "create") {
+		writeErrorResponse(w, http.StatusForbidden, "Forbidden", "you do not have permission to register images")
+		return
+	}
+
 	resp, err := r.svc.RegisterImage(
 		req.Context(),
 		registerReq.Image,
@@ -412,22 +500,9 @@ func (r *Router) handleRegisterImage(w http.ResponseWriter, req *http.Request) {
 
 // handleListImages handles GET /api/v1/images to list all registered Docker images
 func (r *Router) handleListImages(w http.ResponseWriter, req *http.Request) {
-	logger := r.GetLoggerFromContext(req.Context())
-
-	resp, err := r.svc.ListImages(req.Context())
-	if err != nil {
-		statusCode := apperrors.GetStatusCode(err)
-		errorCode := apperrors.GetErrorCode(err)
-		errorDetails := apperrors.GetErrorDetails(err)
-
-		logger.Debug("failed to list images", "error", err, "status_code", statusCode, "error_code", errorCode)
-
-		writeErrorResponseWithCode(w, statusCode, errorCode, "failed to list images", errorDetails)
-		return
-	}
-
-	w.WriteHeader(http.StatusOK)
-	_ = json.NewEncoder(w).Encode(resp)
+	r.handleListWithAuth(w, req, "/api/images", "you do not have permission to list images",
+		func() (any, error) { return r.svc.ListImages(req.Context()) },
+		"list images")
 }
 
 // handleGetImage handles GET /api/v1/images/{image} to get a single registered Docker image
@@ -436,6 +511,17 @@ func (r *Router) handleListImages(w http.ResponseWriter, req *http.Request) {
 // Uses catch-all route (*) to match paths with slashes
 func (r *Router) handleGetImage(w http.ResponseWriter, req *http.Request) {
 	logger := r.GetLoggerFromContext(req.Context())
+
+	user, ok := r.getUserFromContext(req)
+	if !ok {
+		writeErrorResponse(w, http.StatusUnauthorized, "Unauthorized", "user not found in context")
+		return
+	}
+
+	if !r.authorizeRequest(logger, user.Email, "/api/images", "read") {
+		writeErrorResponse(w, http.StatusForbidden, "Forbidden", "you do not have permission to read images")
+		return
+	}
 
 	imagePath := strings.TrimPrefix(strings.TrimSpace(chi.URLParam(req, "*")), "/")
 
@@ -476,6 +562,17 @@ func (r *Router) handleGetImage(w http.ResponseWriter, req *http.Request) {
 // Uses catch-all route (*) to match paths with slashes
 func (r *Router) handleRemoveImage(w http.ResponseWriter, req *http.Request) {
 	logger := r.GetLoggerFromContext(req.Context())
+
+	user, ok := r.getUserFromContext(req)
+	if !ok {
+		writeErrorResponse(w, http.StatusUnauthorized, "Unauthorized", "user not found in context")
+		return
+	}
+
+	if !r.authorizeRequest(logger, user.Email, "/api/images", "delete") {
+		writeErrorResponse(w, http.StatusForbidden, "Forbidden", "you do not have permission to remove images")
+		return
+	}
 
 	imagePath := strings.TrimPrefix(strings.TrimSpace(chi.URLParam(req, "*")), "/")
 
