@@ -335,8 +335,8 @@ func (e *Runner) registerTaskDefinitionWithRoles(
 	image string,
 	taskRoleARN string,
 	taskExecRoleARN string,
-	_ string,
-	_, _ int,
+	region string,
+	cpu, memory int,
 	runtimePlatform string,
 	reqLogger *slog.Logger,
 ) (string, error) {
@@ -346,6 +346,9 @@ func (e *Runner) registerTaskDefinitionWithRoles(
 		image,
 		taskExecRoleARN,
 		taskRoleARN,
+		region,
+		cpu,
+		memory,
 		runtimePlatform,
 		e.cfg,
 	)

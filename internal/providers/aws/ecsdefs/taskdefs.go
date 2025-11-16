@@ -23,6 +23,7 @@ import (
 // TaskDefinitionConfig contains configuration needed to build task definitions.
 type TaskDefinitionConfig struct {
 	LogGroup string
+	Region   string
 }
 
 // BuildTaskDefinitionTags creates the tags to be applied to a task definition.
@@ -71,7 +72,16 @@ func RecreateTaskDefinition(
 	cpuStr := fmt.Sprintf("%d", cpu)
 	memoryStr := fmt.Sprintf("%d", memory)
 	registerInput := BuildTaskDefinitionInputForConfig(
-		ctx, family, image, taskExecRoleARN, taskRoleARN, cfg.LogGroup, cpuStr, memoryStr, runtimePlatform,
+		ctx,
+		family,
+		image,
+		taskExecRoleARN,
+		taskRoleARN,
+		cfg.LogGroup,
+		cfg.Region,
+		cpuStr,
+		memoryStr,
+		runtimePlatform,
 	)
 
 	logArgs := []any{
@@ -285,7 +295,7 @@ func convertOSFamilyToECSEnum(osFamily string) ecsTypes.OSFamily {
 //nolint:funlen // Large data structure definition
 func BuildTaskDefinitionInputForConfig(
 	ctx context.Context,
-	family, image, taskExecRoleARN, taskRoleARN, logGroup string,
+	family, image, taskExecRoleARN, taskRoleARN, logGroup, region string,
 	cpu, memory, runtimePlatform string,
 ) *ecs.RegisterTaskDefinitionInput {
 	registerInput := &ecs.RegisterTaskDefinitionInput{
@@ -326,7 +336,7 @@ func BuildTaskDefinitionInputForConfig(
 					LogDriver: ecsTypes.LogDriverAwslogs,
 					Options: map[string]string{
 						"awslogs-group":         logGroup,
-						"awslogs-region":        "", // region is resolved from the task at runtime
+						"awslogs-region":        region,
 						"awslogs-stream-prefix": awsConstants.LogStreamPrefix,
 					},
 				},
@@ -359,7 +369,7 @@ func BuildTaskDefinitionInputForConfig(
 					LogDriver: ecsTypes.LogDriverAwslogs,
 					Options: map[string]string{
 						"awslogs-group":         logGroup,
-						"awslogs-region":        "", // region is resolved from the task at runtime
+						"awslogs-region":        region,
 						"awslogs-stream-prefix": awsConstants.LogStreamPrefix,
 					},
 				},

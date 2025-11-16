@@ -172,15 +172,16 @@ func GetTaskDefinitionForImage(
 		image, family)
 }
 
-// BuildTaskDefinitionInput is a thin wrapper around the shared ecsdefs helper
-// that keeps the orchestrator code focused on higher-level orchestration.
+// BuildTaskDefinitionInput creates the ECS RegisterTaskDefinitionInput for a new task definition.
 func BuildTaskDefinitionInput(
 	ctx context.Context,
-	family, image, taskExecRoleARN, taskRoleARN, runtimePlatform string,
+	family, image, taskExecRoleARN, taskRoleARN, region string,
+	cpu, memory int,
+	runtimePlatform string,
 	cfg *Config,
 ) *ecs.RegisterTaskDefinitionInput {
-	cpuStr := fmt.Sprintf("%d", awsConstants.DefaultCPU)
-	memoryStr := fmt.Sprintf("%d", awsConstants.DefaultMemory)
+	cpuStr := fmt.Sprintf("%d", cpu)
+	memoryStr := fmt.Sprintf("%d", memory)
 
 	return ecsdefs.BuildTaskDefinitionInputForConfig(
 		ctx,
@@ -189,6 +190,7 @@ func BuildTaskDefinitionInput(
 		taskExecRoleARN,
 		taskRoleARN,
 		cfg.LogGroup,
+		region,
 		cpuStr,
 		memoryStr,
 		runtimePlatform,
