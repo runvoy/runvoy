@@ -492,6 +492,7 @@ The platform uses a dedicated **event processor Lambda** to handle asynchronous 
 7. **WebSocket Disconnect Notification**: When execution reaches a terminal status, the event processor reuses the WebSocket manager to notify connected clients and clean up connections without invoking a separate Lambda
 8. **CloudWatch Logs Streaming**: CloudWatch Logs subscription events deliver batched runner log entries; the processor converts them to `api.LogEvent` records and pushes each entry to active WebSocket connections
 9. **WebSocket Lifecycle**: `$connect` and `$disconnect` routes from API Gateway are handled in-process to authenticate clients, persist connection metadata, and fan out disconnect messages
+10. **Scheduled Health Checks**: EventBridge scheduled events trigger health reconciliation to verify and repair inconsistencies between DynamoDB metadata and AWS resources
 
 ### Event Types
 
@@ -578,11 +579,120 @@ Execution status values are defined as typed constants in `internal/constants/co
 ### CloudFormation Resources
 
 - **`EventProcessorFunction`**: Lambda function for event processing and WebSocket lifecycle handling
+
+## Health Manager Architecture
+
+The health manager provides automated reconciliation of resources between DynamoDB metadata and actual AWS services. It ensures consistency across ECS task definitions, SSM parameters (secrets), and IAM roles.
+
+### Purpose
+
+Resources managed by runvoy are stored in two places:
+1. **DynamoDB**: Metadata about images, secrets, and their configurations
+2. **AWS Services**: Actual resources (ECS task definitions, SSM parameters, IAM roles)
+
+The health manager periodically checks for inconsistencies and repairs them when possible:
+- **Recreatable resources** (ECS task definitions): Automatically recreated from DynamoDB metadata
+- **Non-recreatable resources** (SSM parameters without values, missing IAM roles): Reported as errors requiring manual intervention
+- **Orphaned resources**: Resources that exist in AWS but not in DynamoDB are reported but not deleted
+
+### Components
+
+1. **Health Manager Interface** (`internal/backend/health/health.go`):
+   - Defines `health.Manager` interface with `Reconcile(ctx) (*health.Report, error)` method
+   - Provider-agnostic interface similar to `websocket.Manager` pattern
+   - `Report` structure contains comprehensive status for ECS, secrets, and IAM
+
+2. **AWS Health Manager** (`internal/providers/aws/health/manager.go`):
+   - Implements health checks for ECS task definitions, SSM parameters, and IAM roles
+   - Recreates missing ECS task definitions using stored metadata
+   - Updates tags to match DynamoDB state
+   - Reports orphaned resources and errors
+
+3. **Task Definition Recreation** (`internal/providers/aws/ecsdefs`):
+   - Shared ECS task definition utilities decoupled from orchestrator
+   - `RecreateTaskDefinition()`: Recreates a task definition from metadata
+   - `UpdateTaskDefinitionTags()`: Updates tags to match expected state
+
+4. **Orchestrator Integration** (`internal/backend/orchestrator/health.go`):
+   - `ReconcileResources()` method on orchestrator Service
+   - Allows synchronous execution via API (future API endpoint)
+
+5. **Event Processor Integration** (`internal/providers/aws/processor/backend.go`):
+   - Handler for EventBridge scheduled events (cron-like)
+   - Invokes health manager reconciliation automatically
+
+### Reconciliation Strategy
+
+#### ECS Task Definitions
+
+- For each image in DynamoDB:
+  - Verify task definition exists in ECS (via family name)
+  - If missing: Recreate using stored metadata (image, CPU, memory, roles, runtime platform)
+  - Verify tags match (IsDefault, DockerImage, Application, ManagedBy)
+  - If tags differ: Update tags to match DynamoDB state
+- Scan ECS for orphaned task definitions (family matches `runvoy-image-*` but not in DynamoDB)
+  - Report orphans (don't delete automatically to avoid data loss)
+
+#### SSM Parameters (Secrets)
+
+- For each secret in DynamoDB:
+  - Verify parameter exists in SSM Parameter Store
+  - If missing: **Error** (cannot recreate without value)
+  - Verify tags match (Application, ManagedBy)
+  - If tags differ: Update tags
+- Scan SSM for orphaned parameters (under secrets prefix but not in DynamoDB)
+  - Report orphans (don't delete automatically)
+
+#### IAM Roles
+
+- Verify default roles exist (`DefaultTaskRoleARN`, `DefaultTaskExecRoleARN`)
+  - If missing: **Error** (managed by CloudFormation)
+- For each image in DynamoDB:
+  - If `task_role_name` specified: Verify role exists
+  - If `task_execution_role_name` specified: Verify role exists
+  - If missing: **Error** (cannot recreate without policies)
+
+### Error Handling
+
+- **Recreatable resources** (ECS task definitions): Recreate and continue
+- **Non-recreatable resources** (SSM parameters without values, missing IAM roles): Return error in report
+- **Secret access errors**: Already handled in `SecretsRepository.RetrieveSecret`, but health check marks as unhealthy
+- Collect all errors and return comprehensive report
+
+### Health Report Structure
+
+The `Report` contains:
+
+- `Timestamp`: When the reconciliation ran
+- `ECSStatus`: Counts of verified, recreated, tag-updated, and orphaned task definitions
+- `SecretsStatus`: Counts of verified, tag-updated, missing, and orphaned parameters
+- `IAMStatus`: Verification status for default and custom roles
+- `Issues`: Array of `Issue` objects with resource type, ID, severity, message, and action taken
+- `ReconciledCount`: Total number of resources reconciled (recreated + tag updates)
+- `ErrorCount`: Total number of errors found
+
+### Scheduled Execution
+
+Health reconciliation can be triggered:
+1. **Scheduled**: Via EventBridge scheduled events (cron-like) - configured in CloudFormation. Scheduled events must provide a JSON payload with `{"runvoy_event": "health_reconcile"}` so the processor can safely distinguish runvoy health checks from other scheduled invocations.
+2. **Manual**: Via orchestrator `ReconcileResources()` method (future API endpoint)
+
+### Design Decisions
+
+1. **Shared access pattern**: Health manager is accessed from both orchestrator and event processor, similar to `websocket.Manager`
+2. **Recreation logic reuse**: Task definition registration logic extracted to reusable functions
+3. **No automatic deletion**: Orphaned resources are reported but not deleted to prevent data loss
+4. **Comprehensive error reporting**: All issues collected and returned in structured report
+5. **Idempotent operations**: Health checks can run multiple times safely
+
+### CloudFormation Resources
+
 - **`EventProcessorRole`**: IAM role with DynamoDB, ECS, and API Gateway Management API permissions
 - **`EventProcessorLogGroup`**: CloudWatch Logs for event processor
 - **`TaskCompletionEventRule`**: EventBridge rule filtering ECS task completions
 - **`EventProcessorEventPermission`**: Permission for EventBridge to invoke Lambda
 - **`EventProcessorLogsPermission`**: Allows CloudWatch Logs to invoke the event processor
+- **`HealthCheckEventRule`**: EventBridge scheduled rule for periodic health reconciliation (optional, to be added)
 - **`RunnerLogsSubscription`**: Subscribes ECS runner logs (filtered to the `runner` container streams) to the event processor for real-time processing
 - **`SecretsMetadataTable`**: DynamoDB table tracking metadata for managed secrets (name, description, env var binding, audit timestamps)
 - **`SecretsKmsKey`**: KMS key dedicated to encrypting secret payloads stored as SecureString parameters

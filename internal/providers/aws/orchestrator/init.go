@@ -8,18 +8,19 @@ import (
 	"runvoy/internal/config"
 	"runvoy/internal/database"
 	"runvoy/internal/logger"
+	awsClient "runvoy/internal/providers/aws/client"
 	awsDatabase "runvoy/internal/providers/aws/database"
 	dynamoRepo "runvoy/internal/providers/aws/database/dynamodb"
+	awsHealth "runvoy/internal/providers/aws/health"
+	"runvoy/internal/providers/aws/identity"
 	"runvoy/internal/providers/aws/secrets"
 	"runvoy/internal/providers/aws/websocket"
 
-	awsStd "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/ecs"
 	"github.com/aws/aws-sdk-go-v2/service/iam"
 	"github.com/aws/aws-sdk-go-v2/service/ssm"
-	"github.com/aws/aws-sdk-go-v2/service/sts"
 )
 
 // Dependencies bundles the AWS-backed implementations required by the app service.
@@ -31,6 +32,7 @@ type Dependencies struct {
 	Runner           *Runner
 	WebSocketManager *websocket.Manager
 	SecretsRepo      database.SecretsRepository
+	HealthManager    *awsHealth.Manager
 }
 
 // Initialize prepares AWS service dependencies for the app package.
@@ -46,7 +48,7 @@ func Initialize( //nolint:funlen // This is ok, lots of initializations required
 		return nil, fmt.Errorf("failed to load AWS SDK config: %w", err)
 	}
 
-	accountID, err := getAccountID(ctx, cfg.AWS.SDKConfig, log)
+	accountID, err := identity.GetAccountID(ctx, cfg.AWS.SDKConfig, log)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get AWS account ID: %w", err)
 	}
@@ -58,10 +60,10 @@ func Initialize( //nolint:funlen // This is ok, lots of initializations required
 	iamSDKClient := iam.NewFromConfig(*cfg.AWS.SDKConfig)
 
 	dynamoClient := dynamoRepo.NewClientAdapter(dynamoSDKClient)
-	ecsClient := NewClientAdapter(ecsSDKClient)
+	ecsClient := awsClient.NewECSClientAdapter(ecsSDKClient)
 	ssmClient := secrets.NewClientAdapter(ssmSDKClient)
 	cwlClient := NewCloudWatchLogsClientAdapter(cwlSDKClient)
-	iamClient := NewIAMClientAdapter(iamSDKClient)
+	iamClient := awsClient.NewIAMClientAdapter(iamSDKClient)
 
 	repos := createRepositories(dynamoClient, ssmClient, cfg, log)
 	runnerCfg := &Config{
@@ -78,6 +80,24 @@ func Initialize( //nolint:funlen // This is ok, lots of initializations required
 	}
 	runner := NewRunner(ecsClient, cwlClient, iamClient, repos.imageTaskDefRepo, runnerCfg, log)
 	wsManager := websocket.Initialize(cfg, repos.connectionRepo, repos.tokenRepo, log)
+
+	healthCfg := &awsHealth.Config{
+		Region:                 cfg.AWS.SDKConfig.Region,
+		AccountID:              accountID,
+		DefaultTaskRoleARN:     cfg.AWS.DefaultTaskRoleARN,
+		DefaultTaskExecRoleARN: cfg.AWS.DefaultTaskExecRoleARN,
+		LogGroup:               cfg.AWS.LogGroup,
+		SecretsPrefix:          cfg.AWS.SecretsPrefix,
+	}
+	healthManager := awsHealth.Initialize(
+		ecsClient,
+		ssmClient,
+		iamClient,
+		repos.imageTaskDefRepo,
+		repos.secretsRepo,
+		healthCfg,
+		log,
+	)
 
 	log.Debug("AWS orchestrator initialized successfully", "context", map[string]string{
 		"ecs_cluster":                cfg.AWS.ECSCluster,
@@ -97,6 +117,7 @@ func Initialize( //nolint:funlen // This is ok, lots of initializations required
 		Runner:           runner,
 		WebSocketManager: wsManager,
 		SecretsRepo:      repos.secretsRepo,
+		HealthManager:    healthManager,
 	}, nil
 }
 
@@ -147,26 +168,4 @@ func createRepositories(
 		imageTaskDefRepo: imageTaskDefRepo,
 		secretsRepo:      secretsRepo,
 	}
-}
-
-// getAccountID retrieves the AWS account ID using STS GetCallerIdentity.
-func getAccountID(ctx context.Context, awsCfg *awsStd.Config, log *slog.Logger) (string, error) {
-	stsClient := sts.NewFromConfig(*awsCfg)
-
-	log.Debug("calling external service", "context", map[string]string{
-		"operation": "STS.GetCallerIdentity",
-	})
-
-	output, err := stsClient.GetCallerIdentity(ctx, &sts.GetCallerIdentityInput{})
-	if err != nil {
-		return "", fmt.Errorf("STS GetCallerIdentity failed: %w", err)
-	}
-
-	if output.Account == nil || *output.Account == "" {
-		return "", fmt.Errorf("STS returned empty account ID")
-	}
-
-	accountID := *output.Account
-
-	return accountID, nil
 }

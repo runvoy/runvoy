@@ -50,6 +50,7 @@ func NewRouter(svc *orchestrator.Service, requestTimeout time.Duration) *Router 
 		r.Get("/health", router.handleHealth)
 
 		// authenticated routes
+		r.With(router.authenticateRequestMiddleware).Post("/health/reconcile", router.handleReconcileHealth)
 		r.With(router.authenticateRequestMiddleware).Route("/users", func(r chi.Router) {
 			r.Get("/", router.handleListUsers)
 			r.Post("/create", router.handleCreateUser)

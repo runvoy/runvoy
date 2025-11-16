@@ -16,6 +16,7 @@ import (
 	"runvoy/internal/constants"
 	appErrors "runvoy/internal/errors"
 	"runvoy/internal/logger"
+	awsClient "runvoy/internal/providers/aws/client"
 	awsConstants "runvoy/internal/providers/aws/constants"
 
 	awsStd "github.com/aws/aws-sdk-go-v2/aws"
@@ -71,9 +72,9 @@ type ImageTaskDefRepository interface {
 
 // Runner implements app.Runner for AWS ECS Fargate.
 type Runner struct {
-	ecsClient Client
+	ecsClient awsClient.ECSClient
 	cwlClient CloudWatchLogsClient
-	iamClient IAMClient
+	iamClient awsClient.IAMClient
 	imageRepo ImageTaskDefRepository
 	cfg       *Config
 	logger    *slog.Logger
@@ -81,9 +82,9 @@ type Runner struct {
 
 // NewRunner creates a new AWS ECS runner with the provided configuration.
 func NewRunner(
-	ecsClient Client,
+	ecsClient awsClient.ECSClient,
 	cwlClient CloudWatchLogsClient,
-	iamClient IAMClient,
+	iamClient awsClient.IAMClient,
 	imageRepo ImageTaskDefRepository,
 	cfg *Config,
 	log *slog.Logger,

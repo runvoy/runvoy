@@ -125,6 +125,12 @@ type mockClient struct {
 	deleteParameterFunc func(
 		context.Context, *ssm.DeleteParameterInput, ...func(*ssm.Options),
 	) (*ssm.DeleteParameterOutput, error)
+	listTagsForResourceFunc func(
+		context.Context, *ssm.ListTagsForResourceInput, ...func(*ssm.Options),
+	) (*ssm.ListTagsForResourceOutput, error)
+	describeParametersFunc func(
+		context.Context, *ssm.DescribeParametersInput, ...func(*ssm.Options),
+	) (*ssm.DescribeParametersOutput, error)
 }
 
 func (m *mockClient) PutParameter(
@@ -169,6 +175,28 @@ func (m *mockClient) DeleteParameter(
 		return m.deleteParameterFunc(ctx, params, optFns...)
 	}
 	return &ssm.DeleteParameterOutput{}, nil
+}
+
+func (m *mockClient) ListTagsForResource(
+	ctx context.Context,
+	params *ssm.ListTagsForResourceInput,
+	optFns ...func(*ssm.Options),
+) (*ssm.ListTagsForResourceOutput, error) {
+	if m.listTagsForResourceFunc != nil {
+		return m.listTagsForResourceFunc(ctx, params, optFns...)
+	}
+	return &ssm.ListTagsForResourceOutput{}, nil
+}
+
+func (m *mockClient) DescribeParameters(
+	ctx context.Context,
+	params *ssm.DescribeParametersInput,
+	optFns ...func(*ssm.Options),
+) (*ssm.DescribeParametersOutput, error) {
+	if m.describeParametersFunc != nil {
+		return m.describeParametersFunc(ctx, params, optFns...)
+	}
+	return &ssm.DescribeParametersOutput{}, nil
 }
 
 func TestStoreSecret(t *testing.T) {

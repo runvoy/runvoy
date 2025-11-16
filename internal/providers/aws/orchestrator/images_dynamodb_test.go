@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"runvoy/internal/api"
+	awsClient "runvoy/internal/providers/aws/client"
 	"runvoy/internal/testutil"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -1097,7 +1098,7 @@ func TestRunner_ValidateIAMRoles(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var iamClient IAMClient
+			var iamClient awsClient.IAMClient
 			if !tt.useNilIAMClient {
 				mockIAM := &mockIAMClient{}
 				if tt.mockSetup != nil {

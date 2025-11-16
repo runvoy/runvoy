@@ -8,8 +8,9 @@ import (
 	"regexp"
 	"strings"
 
-	"runvoy/internal/logger"
+	awsClient "runvoy/internal/providers/aws/client"
 	awsConstants "runvoy/internal/providers/aws/constants"
+	"runvoy/internal/providers/aws/ecsdefs"
 
 	awsStd "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ecs"
@@ -53,7 +54,7 @@ func ExtractImageFromTaskDefFamily(familyName string) string {
 // It handles pagination internally and filters by checking the task definition family name (extracted from ARN).
 // This is necessary because the FamilyPrefix parameter in ListTaskDefinitions doesn't work as expected
 // for prefix matching - it requires exact family match rather than prefix matching.
-func listTaskDefinitionsByPrefix(ctx context.Context, ecsClient Client, prefix string) ([]string, error) {
+func listTaskDefinitionsByPrefix(ctx context.Context, ecsClient awsClient.ECSClient, prefix string) ([]string, error) {
 	nextToken := ""
 	var taskDefArns []string
 
@@ -90,7 +91,7 @@ func listTaskDefinitionsByPrefix(ctx context.Context, ecsClient Client, prefix s
 // Returns empty string if no default image is found.
 func GetDefaultImage(
 	ctx context.Context,
-	ecsClient Client,
+	ecsClient awsClient.ECSClient,
 	log *slog.Logger,
 ) (string, error) {
 	familyPrefix := awsConstants.TaskDefinitionFamilyPrefix + "-"
@@ -142,7 +143,7 @@ func GetDefaultImage(
 // Returns an error if the task definition doesn't exist (does not auto-register).
 func GetTaskDefinitionForImage(
 	ctx context.Context,
-	ecsClient Client,
+	ecsClient awsClient.ECSClient,
 	image string,
 	log *slog.Logger,
 ) (string, error) {
@@ -171,174 +172,33 @@ func GetTaskDefinitionForImage(
 		image, family)
 }
 
-// buildTaskDefinitionTags creates the tags to be applied to a task definition.
-func buildTaskDefinitionTags(image string, isDefault *bool) []ecsTypes.Tag {
-	tags := []ecsTypes.Tag{
-		{
-			Key:   awsStd.String(awsConstants.TaskDefinitionDockerImageTagKey),
-			Value: awsStd.String(image),
-		},
-	}
-	// Add standard tags (Application, ManagedBy)
-	tags = append(tags, GetStandardECSTags()...)
-	if isDefault != nil && *isDefault {
-		tags = append(tags, ecsTypes.Tag{
-			Key:   awsStd.String(awsConstants.TaskDefinitionIsDefaultTagKey),
-			Value: awsStd.String(awsConstants.TaskDefinitionIsDefaultTagValue),
-		})
-	}
-	return tags
-}
-
-// buildTaskDefinitionInput creates the RegisterTaskDefinitionInput for a new task definition.
-// parseRuntimePlatform splits runtime_platform into OS and Architecture for ECS API.
-// Format: OS/ARCH matching ECS format (e.g., "Linux/ARM64", "Linux/X86_64", "WINDOWS_SERVER_2019_CORE/X86_64").
-func parseRuntimePlatform(runtimePlatform string) (osFamily, cpuArch string, err error) {
-	parts := strings.Split(runtimePlatform, "/")
-	if len(parts) != 2 { //nolint:mnd // Runtime platform format is OS/ARCH (2 parts)
-		return "", "", fmt.Errorf("invalid runtime_platform format: expected OS/ARCH, got %s", runtimePlatform)
-	}
-	osFamily = parts[0]
-	cpuArch = parts[1]
-
-	// Validate known architectures
-	const (
-		archX86_64 = "X86_64"
-		archARM64  = "ARM64"
-	)
-	if cpuArch != archX86_64 && cpuArch != archARM64 {
-		return "", "", fmt.Errorf("unsupported architecture: %s (expected X86_64 or ARM64)", cpuArch)
-	}
-
-	return osFamily, cpuArch, nil
-}
-
-// convertOSFamilyToECSEnum converts OS family string to ECS enum.
-// ECS uses uppercase enum values (LINUX, WINDOWS_SERVER_2019_CORE, etc.).
-func convertOSFamilyToECSEnum(osFamily string) ecsTypes.OSFamily {
-	upper := strings.ToUpper(osFamily)
-	return ecsTypes.OSFamily(upper)
-}
-
-//
-//nolint:funlen // Large data structure definition
-func buildTaskDefinitionInput(
+// BuildTaskDefinitionInput creates the ECS RegisterTaskDefinitionInput for a new task definition.
+func BuildTaskDefinitionInput(
 	ctx context.Context,
 	family, image, taskExecRoleARN, taskRoleARN, region string,
-	cpu, memory, runtimePlatform string,
+	cpu, memory int,
+	runtimePlatform string,
 	cfg *Config,
 ) *ecs.RegisterTaskDefinitionInput {
-	registerInput := &ecs.RegisterTaskDefinitionInput{
-		Family:      awsStd.String(family),
-		NetworkMode: ecsTypes.NetworkModeAwsvpc,
-		RequiresCompatibilities: []ecsTypes.Compatibility{
-			ecsTypes.CompatibilityFargate,
-		},
-		Cpu:              awsStd.String(cpu),
-		Memory:           awsStd.String(memory),
-		ExecutionRoleArn: awsStd.String(taskExecRoleARN),
-		EphemeralStorage: &ecsTypes.EphemeralStorage{
-			SizeInGiB: awsConstants.ECSEphemeralStorageSizeGiB,
-		},
-		Volumes: []ecsTypes.Volume{
-			{
-				Name: awsStd.String(awsConstants.SharedVolumeName),
-			},
-		},
-		ContainerDefinitions: []ecsTypes.ContainerDefinition{
-			// Sidecar container
-			{
-				Name:      awsStd.String(awsConstants.SidecarContainerName),
-				Image:     awsStd.String("public.ecr.aws/docker/library/alpine:latest"),
-				Essential: awsStd.Bool(false),
-				Command: []string{
-					"/bin/sh",
-					"-c",
-					"echo \"This task definition is a template. Command will be overridden at runtime.\"",
-				},
-				MountPoints: []ecsTypes.MountPoint{
-					{
-						ContainerPath: awsStd.String(awsConstants.SharedVolumePath),
-						SourceVolume:  awsStd.String(awsConstants.SharedVolumeName),
-					},
-				},
-				LogConfiguration: &ecsTypes.LogConfiguration{
-					LogDriver: ecsTypes.LogDriverAwslogs,
-					Options: map[string]string{
-						"awslogs-group":         cfg.LogGroup,
-						"awslogs-region":        region,
-						"awslogs-stream-prefix": awsConstants.LogStreamPrefix,
-					},
-				},
-			},
+	cpuStr := fmt.Sprintf("%d", cpu)
+	memoryStr := fmt.Sprintf("%d", memory)
 
-			// Runner container
-			{
-				Name:      awsStd.String(awsConstants.RunnerContainerName),
-				Image:     awsStd.String(image),
-				Essential: awsStd.Bool(true),
-				DependsOn: []ecsTypes.ContainerDependency{
-					{
-						ContainerName: awsStd.String(awsConstants.SidecarContainerName),
-						Condition:     ecsTypes.ContainerConditionSuccess,
-					},
-				},
-				Command: []string{
-					"/bin/sh",
-					"-c",
-					"echo \"This task definition is a template. Command will be overridden at runtime.\"",
-				},
-				WorkingDirectory: awsStd.String(awsConstants.SharedVolumePath),
-				MountPoints: []ecsTypes.MountPoint{
-					{
-						ContainerPath: awsStd.String(awsConstants.SharedVolumePath),
-						SourceVolume:  awsStd.String(awsConstants.SharedVolumeName),
-					},
-				},
-				LogConfiguration: &ecsTypes.LogConfiguration{
-					LogDriver: ecsTypes.LogDriverAwslogs,
-					Options: map[string]string{
-						"awslogs-group":         cfg.LogGroup,
-						"awslogs-region":        region,
-						"awslogs-stream-prefix": awsConstants.LogStreamPrefix,
-					},
-				},
-			},
-		},
-	}
-	if taskRoleARN != "" {
-		registerInput.TaskRoleArn = awsStd.String(taskRoleARN)
-	}
-
-	osFamily, cpuArch, err := parseRuntimePlatform(runtimePlatform)
-	if err != nil {
-		// This should not happen if validation is done before calling this function
-		// But we'll use defaults as fallback
-		osFamily = awsConstants.DefaultRuntimePlatformOSFamily
-		cpuArch = awsConstants.DefaultRuntimePlatformArchitecture
-
-		reqLogger := logger.DeriveRequestLogger(ctx, slog.Default())
-		reqLogger.Warn("failed to parse runtime platform, falling back to defaults", "context",
-			map[string]any{
-				"error":            err,
-				"runtime_platform": runtimePlatform,
-				"os_family":        osFamily,
-				"cpu_arch":         cpuArch,
-			})
-	}
-
-	osFamilyEnum := convertOSFamilyToECSEnum(osFamily)
-
-	registerInput.RuntimePlatform = &ecsTypes.RuntimePlatform{
-		OperatingSystemFamily: osFamilyEnum,
-		CpuArchitecture:       ecsTypes.CPUArchitecture(cpuArch),
-	}
-
-	return registerInput
+	return ecsdefs.BuildTaskDefinitionInputForConfig(
+		ctx,
+		family,
+		image,
+		taskExecRoleARN,
+		taskRoleARN,
+		cfg.LogGroup,
+		region,
+		cpuStr,
+		memoryStr,
+		runtimePlatform,
+	)
 }
 
 // checkIfImageIsDefault checks if the image being removed is marked as default.
-func checkIfImageIsDefault(ctx context.Context, ecsClient Client, family string, log *slog.Logger) bool {
+func checkIfImageIsDefault(ctx context.Context, ecsClient awsClient.ECSClient, family string, log *slog.Logger) bool {
 	taskDefArns, err := listTaskDefinitionsByPrefix(ctx, ecsClient, family)
 	if err != nil {
 		log.Warn("failed to check if image is default before removal", "error", err)
@@ -363,7 +223,7 @@ func checkIfImageIsDefault(ctx context.Context, ecsClient Client, family string,
 
 // deregisterAllTaskDefRevisions deregisters all active task definition revisions for a given family.
 func deregisterAllTaskDefRevisions(
-	ctx context.Context, ecsClient Client, family, image string, log *slog.Logger,
+	ctx context.Context, ecsClient awsClient.ECSClient, family, image string, log *slog.Logger,
 ) error {
 	nextToken := ""
 	log.Debug("calling external service", "context", map[string]string{
@@ -423,7 +283,7 @@ func deregisterAllTaskDefRevisions(
 //
 //nolint:funlen // Complex AWS API orchestration
 func markLastRemainingImageAsDefault(
-	ctx context.Context, ecsClient Client, family string, log *slog.Logger,
+	ctx context.Context, ecsClient awsClient.ECSClient, family string, log *slog.Logger,
 ) error {
 	familyPrefix := awsConstants.TaskDefinitionFamilyPrefix + "-"
 	remainingTaskDefs, err := listTaskDefinitionsByPrefix(ctx, ecsClient, familyPrefix)
@@ -505,7 +365,7 @@ func markLastRemainingImageAsDefault(
 // If the removed image was the default and only one image remains, that image becomes the new default.
 func DeregisterTaskDefinitionsForImage(
 	ctx context.Context,
-	ecsClient Client,
+	ecsClient awsClient.ECSClient,
 	image string,
 	log *slog.Logger,
 ) error {

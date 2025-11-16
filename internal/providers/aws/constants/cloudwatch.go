@@ -1,4 +1,4 @@
-// Package constants provides AWS-specific constants for CloudWatch logging.
+// Package constants provides AWS-specific constants for CloudWatch logging and events.
 package constants
 
 // CloudWatchLogsDescribeLimit is the limit for CloudWatch Logs DescribeLogStreams API
@@ -6,3 +6,7 @@ const CloudWatchLogsDescribeLimit = int32(50)
 
 // CloudWatchLogsEventsLimit is the limit for CloudWatch Logs GetLogEvents API
 const CloudWatchLogsEventsLimit = int32(10000)
+
+// ScheduledEventHealthReconcile is the expected runvoy_event payload value
+// for EventBridge scheduled events that trigger health reconciliation.
+const ScheduledEventHealthReconcile = "health_reconcile"

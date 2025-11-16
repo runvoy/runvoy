@@ -33,6 +33,7 @@ func TestGetImage_Success(t *testing.T) {
 		"",
 		nil,
 		nil,
+		nil,
 	)
 
 	imageInfo, err := service.GetImage(context.Background(), "alpine:latest")
@@ -61,6 +62,7 @@ func TestGetImage_NotFound(t *testing.T) {
 		"",
 		nil,
 		nil,
+		nil,
 	)
 
 	_, err := service.GetImage(context.Background(), "nonexistent:latest")
@@ -80,6 +82,7 @@ func TestGetImage_EmptyImageName(t *testing.T) {
 		&mockRunner{},
 		logger,
 		"",
+		nil,
 		nil,
 		nil,
 	)
@@ -108,6 +111,7 @@ func TestGetImage_RunnerError(t *testing.T) {
 		"",
 		nil,
 		nil,
+		nil,
 	)
 
 	_, err := service.GetImage(context.Background(), "alpine:latest")
@@ -131,6 +135,7 @@ func TestGetImage_RunnerGenericError(t *testing.T) {
 		runner,
 		logger,
 		"",
+		nil,
 		nil,
 		nil,
 	)
@@ -159,6 +164,7 @@ func TestRemoveImage_Success(t *testing.T) {
 		"",
 		nil,
 		nil,
+		nil,
 	)
 
 	err := service.RemoveImage(context.Background(), "alpine:latest")
@@ -177,6 +183,7 @@ func TestRemoveImage_EmptyImageName(t *testing.T) {
 		&mockRunner{},
 		logger,
 		"",
+		nil,
 		nil,
 		nil,
 	)
@@ -205,6 +212,7 @@ func TestRemoveImage_RunnerError(t *testing.T) {
 		"",
 		nil,
 		nil,
+		nil,
 	)
 
 	err := service.RemoveImage(context.Background(), "nonexistent:latest")
@@ -229,6 +237,7 @@ func TestRemoveImage_RunnerGenericError(t *testing.T) {
 		runner,
 		logger,
 		"",
+		nil,
 		nil,
 		nil,
 	)
@@ -260,6 +269,7 @@ func TestListImages_Success(t *testing.T) {
 		"",
 		nil,
 		nil,
+		nil,
 	)
 
 	resp, err := service.ListImages(context.Background())
@@ -289,6 +299,7 @@ func TestListImages_Empty(t *testing.T) {
 		"",
 		nil,
 		nil,
+		nil,
 	)
 
 	resp, err := service.ListImages(context.Background())
@@ -316,6 +327,7 @@ func TestListImages_RunnerError(t *testing.T) {
 		"",
 		nil,
 		nil,
+		nil,
 	)
 
 	_, err := service.ListImages(context.Background())
@@ -339,6 +351,7 @@ func TestListImages_RunnerGenericError(t *testing.T) {
 		runner,
 		logger,
 		"",
+		nil,
 		nil,
 		nil,
 	)
@@ -367,6 +380,7 @@ func TestRegisterImage_Success(t *testing.T) {
 		"",
 		nil,
 		nil,
+		nil,
 	)
 
 	resp, err := service.RegisterImage(context.Background(), "alpine:latest", nil, nil, nil, nil, nil, nil)
@@ -388,6 +402,7 @@ func TestRegisterImage_EmptyImageName(t *testing.T) {
 		&mockRunner{},
 		logger,
 		"",
+		nil,
 		nil,
 		nil,
 	)
@@ -416,6 +431,7 @@ func TestRegisterImage_RunnerError(t *testing.T) {
 		"",
 		nil,
 		nil,
+		nil,
 	)
 
 	_, err := service.RegisterImage(context.Background(), "invalid:image", nil, nil, nil, nil, nil, nil)
@@ -440,6 +456,7 @@ func TestRegisterImage_RunnerGenericError(t *testing.T) {
 		runner,
 		logger,
 		"",
+		nil,
 		nil,
 		nil,
 	)
