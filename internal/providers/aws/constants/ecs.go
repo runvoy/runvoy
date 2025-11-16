@@ -67,9 +67,6 @@ const RuntimePlatformArchX8664 = "X86_64"
 // RuntimePlatformArchARM64 is the ARM64 architecture for ECS runtime platform
 const RuntimePlatformArchARM64 = "ARM64"
 
-// RuntimePlatformPartsCount is the expected number of parts in runtime_platform string (OS/ARCH)
-const RuntimePlatformPartsCount = 2
-
 // DefaultRuntimePlatformArchitecture is the default architecture for ECS task definitions
 const DefaultRuntimePlatformArchitecture = RuntimePlatformArchARM64
 
