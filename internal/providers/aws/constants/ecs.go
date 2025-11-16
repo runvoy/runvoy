@@ -79,11 +79,11 @@ const DefaultRuntimePlatformOSFamily = "Linux"
 // DefaultRuntimePlatform is the default runtime platform for ECS task definitions
 const DefaultRuntimePlatform = DefaultRuntimePlatformOSFamily + "/" + DefaultRuntimePlatformArchitecture
 
-// SupportedRuntimePlatformArches returns the list of supported ECS runtime CPU architectures.
-func SupportedRuntimePlatformArches() []string {
+// SupportedRuntimePlatforms returns the list of supported ECS runtime platforms.
+func SupportedRuntimePlatforms() []string {
 	return []string{
-		RuntimePlatformArchX8664,
-		RuntimePlatformArchARM64,
+		DefaultRuntimePlatformOSFamily + "/" + RuntimePlatformArchX8664,
+		DefaultRuntimePlatformOSFamily + "/" + RuntimePlatformArchARM64,
 	}
 }
 
