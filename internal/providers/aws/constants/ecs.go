@@ -61,14 +61,23 @@ const DefaultCPU = 256
 // DefaultMemory is the default memory (in MB) for ECS task definitions
 const DefaultMemory = 512
 
-// DefaultRuntimePlatform is the default runtime platform for ECS task definitions
-const DefaultRuntimePlatform = DefaultRuntimePlatformOSFamily + "/" + DefaultRuntimePlatformArchitecture
+// RuntimePlatformArchX8664 is the x86_64 architecture for ECS runtime platform
+const RuntimePlatformArchX8664 = "X86_64"
+
+// RuntimePlatformArchARM64 is the ARM64 architecture for ECS runtime platform
+const RuntimePlatformArchARM64 = "ARM64"
+
+// RuntimePlatformPartsCount is the expected number of parts in runtime_platform string (OS/ARCH)
+const RuntimePlatformPartsCount = 2
 
 // DefaultRuntimePlatformArchitecture is the default architecture for ECS task definitions
-const DefaultRuntimePlatformArchitecture = "ARM64"
+const DefaultRuntimePlatformArchitecture = RuntimePlatformArchARM64
 
 // DefaultRuntimePlatformOSFamily is the default OS family for ECS task definitions
 const DefaultRuntimePlatformOSFamily = "Linux"
+
+// DefaultRuntimePlatform is the default runtime platform for ECS task definitions
+const DefaultRuntimePlatform = DefaultRuntimePlatformOSFamily + "/" + DefaultRuntimePlatformArchitecture
 
 // TaskDefinitionFamilyPrefix is the prefix for all runvoy task definition families
 // Task definitions are named: {ProjectName}-image-{sanitized-image-name}

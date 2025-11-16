@@ -266,18 +266,14 @@ func isStandardTag(key string) bool {
 // Format: OS/ARCH matching ECS format (e.g., "Linux/ARM64", "Linux/X86_64").
 func parseRuntimePlatform(runtimePlatform string) (osFamily, cpuArch string, err error) {
 	parts := strings.Split(runtimePlatform, "/")
-	if len(parts) != 2 { //nolint:mnd // Runtime platform format is OS/ARCH (2 parts)
+	if len(parts) != awsConstants.RuntimePlatformPartsCount {
 		return "", "", fmt.Errorf("invalid runtime_platform format: expected OS/ARCH, got %s", runtimePlatform)
 	}
 	osFamily = parts[0]
 	cpuArch = parts[1]
 
 	// Validate known architectures
-	const (
-		archX86_64 = "X86_64"
-		archARM64  = "ARM64"
-	)
-	if cpuArch != archX86_64 && cpuArch != archARM64 {
+	if cpuArch != awsConstants.RuntimePlatformArchX8664 && cpuArch != awsConstants.RuntimePlatformArchARM64 {
 		return "", "", fmt.Errorf("unsupported architecture: %s (expected X86_64 or ARM64)", cpuArch)
 	}
 
