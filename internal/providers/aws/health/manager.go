@@ -46,7 +46,7 @@ type TaskDefRecreator interface {
 	) error
 }
 
-// Manager implements the health.HealthManager interface for AWS.
+// Manager implements the health.Manager interface for AWS.
 type Manager struct {
 	ecsClient      awsClient.ECSClient
 	ssmClient      secrets.Client
