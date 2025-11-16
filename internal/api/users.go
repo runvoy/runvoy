@@ -9,7 +9,7 @@ import (
 type User struct {
 	Email     string     `json:"email"`
 	APIKey    string     `json:"api_key,omitempty"`
-	Role      string     `json:"role"` // admin, operator, developer, viewer
+	Role      string     `json:"role"`
 	CreatedAt time.Time  `json:"created_at"`
 	Revoked   bool       `json:"revoked"`
 	LastUsed  *time.Time `json:"last_used,omitempty"`

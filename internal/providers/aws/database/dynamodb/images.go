@@ -55,7 +55,7 @@ type imageTaskDefItem struct {
 	ImageRegistry         string  `dynamodbav:"image_registry"`
 	ImageName             string  `dynamodbav:"image_name"`
 	ImageTag              string  `dynamodbav:"image_tag"`
-	RegisteredBy          string  `dynamodbav:"registered_by,omitempty"` // Email of user who registered the image
+	RegisteredBy          string  `dynamodbav:"registered_by,omitempty"`
 	CreatedAt             int64   `dynamodbav:"created_at"`
 	UpdatedAt             int64   `dynamodbav:"updated_at"`
 }

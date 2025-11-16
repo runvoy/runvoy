@@ -16,15 +16,17 @@ type Enforcer struct {
 }
 
 // NewEnforcer creates a new Casbin enforcer with the specified model and policy files.
-// The modelPath should point to the Casbin model configuration file (e.g., "internal/auth/casbin/model.conf").
-// The policyPath should point to the Casbin policy CSV file (e.g., "internal/auth/casbin/policy.csv").
+// The modelPath should point to the Casbin model configuration file (e.g.,
+// "internal/auth/authorization/casbin/model.conf").
+// The policyPath should point to the Casbin policy CSV file (e.g.,
+// "internal/auth/authorization/casbin/policy.csv").
 func NewEnforcer(modelPath, policyPath string, logger *slog.Logger) (*Enforcer, error) {
 	enforcer, err := casbin.NewEnforcer(modelPath, policyPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create casbin enforcer: %w", err)
+		return nil, fmt.Errorf("failed to create casbin authorization enforcer: %w", err)
 	}
 
-	logger.Info("casbin enforcer initialized", "model", modelPath, "policy", policyPath)
+	logger.Debug("casbin authorization enforcer initialized", "model", modelPath, "policy", policyPath)
 
 	return &Enforcer{
 		enforcer: enforcer,

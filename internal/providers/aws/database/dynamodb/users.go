@@ -45,7 +45,7 @@ func NewUserRepository(
 type userItem struct {
 	APIKeyHash string    `dynamodbav:"api_key_hash"`
 	UserEmail  string    `dynamodbav:"user_email"`
-	Role       string    `dynamodbav:"role"` // admin, operator, developer, viewer
+	Role       string    `dynamodbav:"role"`
 	CreatedAt  time.Time `dynamodbav:"created_at"`
 	LastUsed   time.Time `dynamodbav:"last_used,omitempty"`
 	Revoked    bool      `dynamodbav:"revoked"`
