@@ -87,14 +87,13 @@ func Initialize( //nolint:funlen // This is ok, lots of initializations required
 		AccountID:              accountID,
 		DefaultTaskRoleARN:     cfg.AWS.DefaultTaskRoleARN,
 		DefaultTaskExecRoleARN: cfg.AWS.DefaultTaskExecRoleARN,
+		LogGroup:               cfg.AWS.LogGroup,
 	}
-	taskDefRecreat := NewTaskDefRecreatorAdapter(ecsClient, runnerCfg)
 	healthManager := awsHealth.NewManager(
 		ecsClient,
 		ssmClient,
 		iamClient,
 		repos.imageTaskDefRepo,
-		taskDefRecreat,
 		repos.secretsRepo,
 		healthCfg,
 		cfg.AWS.SecretsPrefix,

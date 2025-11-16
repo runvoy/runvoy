@@ -15,6 +15,7 @@ import (
 	"runvoy/internal/logger"
 	awsConstants "runvoy/internal/providers/aws/constants"
 	"runvoy/internal/providers/aws/database/dynamodb"
+	"runvoy/internal/providers/aws/ecsdefs"
 
 	awsStd "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ecs"
@@ -334,15 +335,19 @@ func (e *Runner) registerTaskDefinitionWithRoles(
 	image string,
 	taskRoleARN string,
 	taskExecRoleARN string,
-	region string,
-	cpu, memory int,
+	_ string,
+	_, _ int,
 	runtimePlatform string,
 	reqLogger *slog.Logger,
 ) (string, error) {
-	cpuStr := fmt.Sprintf("%d", cpu)
-	memoryStr := fmt.Sprintf("%d", memory)
-	registerInput := buildTaskDefinitionInput(
-		ctx, family, image, taskExecRoleARN, taskRoleARN, region, cpuStr, memoryStr, runtimePlatform, e.cfg,
+	registerInput := BuildTaskDefinitionInput(
+		ctx,
+		family,
+		image,
+		taskExecRoleARN,
+		taskRoleARN,
+		runtimePlatform,
+		e.cfg,
 	)
 
 	logArgs := []any{
@@ -366,7 +371,7 @@ func (e *Runner) registerTaskDefinitionWithRoles(
 
 	taskDefARN := *output.TaskDefinition.TaskDefinitionArn
 
-	tags := BuildTaskDefinitionTags(image, nil)
+	tags := ecsdefs.BuildTaskDefinitionTags(image, nil)
 	if len(tags) > 0 {
 		tagLogArgs := []any{
 			"operation", "ECS.TagResource",

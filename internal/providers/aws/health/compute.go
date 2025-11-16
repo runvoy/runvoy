@@ -9,6 +9,7 @@ import (
 	"runvoy/internal/api"
 	"runvoy/internal/backend/health"
 	awsConstants "runvoy/internal/providers/aws/constants"
+	"runvoy/internal/providers/aws/ecsdefs"
 	"runvoy/internal/providers/aws/secrets"
 
 	awsStd "github.com/aws/aws-sdk-go-v2/aws"
@@ -143,24 +144,25 @@ func (m *Manager) recreateMissingTaskDefinition(
 ) []health.Issue {
 	reqLogger.Info("recreating missing task definition", "family", family, "image", img.Image)
 
-	taskRoleARN, taskExecRoleARN := m.buildRoleARNs(img.TaskRoleName, img.TaskExecutionRoleName)
+	params := m.buildTaskDefParams(img)
 
-	cpu := img.CPU
-	if cpu == 0 {
-		cpu = awsConstants.DefaultCPU
+	taskDefCfg := &ecsdefs.TaskDefinitionConfig{
+		LogGroup: m.cfg.LogGroup,
 	}
-	memory := img.Memory
-	if memory == 0 {
-		memory = awsConstants.DefaultMemory
-	}
-	runtimePlatform := img.RuntimePlatform
-	if runtimePlatform == "" {
-		runtimePlatform = awsConstants.DefaultRuntimePlatform
-	}
-	isDefault := img.IsDefault != nil && *img.IsDefault
 
-	taskDefARN, recreateErr := m.taskDefRecreat.RecreateTaskDefinition(
-		ctx, family, img.Image, taskRoleARN, taskExecRoleARN, cpu, memory, runtimePlatform, isDefault, reqLogger,
+	taskDefARN, recreateErr := ecsdefs.RecreateTaskDefinition(
+		ctx,
+		m.ecsClient,
+		taskDefCfg,
+		family,
+		img.Image,
+		params.taskRoleARN,
+		params.taskExecRoleARN,
+		params.cpu,
+		params.memory,
+		params.runtimePlatform,
+		params.isDefault,
+		reqLogger,
 	)
 	if recreateErr != nil {
 		return []health.Issue{
@@ -184,6 +186,42 @@ func (m *Manager) recreateMissingTaskDefinition(
 			Message:      "Task definition was missing and has been recreated",
 			Action:       "recreated",
 		},
+	}
+}
+
+type taskDefParams struct {
+	taskRoleARN     string
+	taskExecRoleARN string
+	cpu             int
+	memory          int
+	runtimePlatform string
+	isDefault       bool
+}
+
+func (m *Manager) buildTaskDefParams(img *api.ImageInfo) taskDefParams {
+	taskRoleARN, taskExecRoleARN := m.buildRoleARNs(img.TaskRoleName, img.TaskExecutionRoleName)
+
+	cpu := img.CPU
+	if cpu == 0 {
+		cpu = awsConstants.DefaultCPU
+	}
+	memory := img.Memory
+	if memory == 0 {
+		memory = awsConstants.DefaultMemory
+	}
+	runtimePlatform := img.RuntimePlatform
+	if runtimePlatform == "" {
+		runtimePlatform = awsConstants.DefaultRuntimePlatform
+	}
+	isDefault := img.IsDefault != nil && *img.IsDefault
+
+	return taskDefParams{
+		taskRoleARN:     taskRoleARN,
+		taskExecRoleARN: taskExecRoleARN,
+		cpu:             cpu,
+		memory:          memory,
+		runtimePlatform: runtimePlatform,
+		isDefault:       isDefault,
 	}
 }
 
@@ -285,14 +323,14 @@ func (m *Manager) verifyAndUpdateTaskDefinitionTags(
 	if isDefault {
 		isDefaultPtr = awsStd.Bool(true)
 	}
-	expectedTags := m.taskDefRecreat.BuildTaskDefinitionTags(image, isDefaultPtr)
+	expectedTags := ecsdefs.BuildTaskDefinitionTags(image, isDefaultPtr)
 
 	tagsMatch := m.compareTags(tagsOutput.Tags, expectedTags)
 	if tagsMatch {
 		return false, nil
 	}
 
-	err = m.taskDefRecreat.UpdateTaskDefinitionTags(ctx, taskDefARN, image, isDefault, reqLogger)
+	err = ecsdefs.UpdateTaskDefinitionTags(ctx, m.ecsClient, taskDefARN, image, isDefault, reqLogger)
 	if err != nil {
 		return false, err
 	}

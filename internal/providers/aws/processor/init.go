@@ -14,7 +14,7 @@ import (
 	awsDatabase "runvoy/internal/providers/aws/database"
 	dynamoRepo "runvoy/internal/providers/aws/database/dynamodb"
 	awsHealth "runvoy/internal/providers/aws/health"
-	"runvoy/internal/providers/aws/orchestrator"
+	awsOrchestrator "runvoy/internal/providers/aws/orchestrator"
 	"runvoy/internal/providers/aws/secrets"
 	"runvoy/internal/providers/aws/websocket"
 
@@ -33,7 +33,7 @@ func Initialize(
 	cfg *config.Config,
 	log *slog.Logger,
 ) (*Processor, error) {
-	logger.RegisterContextExtractor(orchestrator.NewLambdaContextExtractor())
+	logger.RegisterContextExtractor(awsOrchestrator.NewLambdaContextExtractor())
 
 	if err := cfg.AWS.LoadSDKConfig(ctx); err != nil {
 		return nil, fmt.Errorf("failed to load AWS SDK config: %w", err)
@@ -120,19 +120,13 @@ func initializeHealthManager(
 		AccountID:              accountID,
 		DefaultTaskRoleARN:     cfg.AWS.DefaultTaskRoleARN,
 		DefaultTaskExecRoleARN: cfg.AWS.DefaultTaskExecRoleARN,
+		LogGroup:               cfg.AWS.LogGroup,
 	}
-	runnerCfg := &orchestrator.Config{
-		Region:                 cfg.AWS.SDKConfig.Region,
-		DefaultTaskRoleARN:     cfg.AWS.DefaultTaskRoleARN,
-		DefaultTaskExecRoleARN: cfg.AWS.DefaultTaskExecRoleARN,
-	}
-	taskDefRecreat := orchestrator.NewTaskDefRecreatorAdapter(ecsClient, runnerCfg)
 	return awsHealth.NewManager(
 		ecsClient,
 		ssmClient,
 		iamClient,
 		imageTaskDefRepo,
-		taskDefRecreat,
 		secretsRepo,
 		healthCfg,
 		cfg.AWS.SecretsPrefix,

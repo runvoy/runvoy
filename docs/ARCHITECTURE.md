@@ -608,8 +608,8 @@ The health manager periodically checks for inconsistencies and repairs them when
    - Updates tags to match DynamoDB state
    - Reports orphaned resources and errors
 
-3. **Task Definition Recreation** (`internal/providers/aws/orchestrator/taskdef_recreation.go`):
-   - Extracted reusable functions for task definition recreation
+3. **Task Definition Recreation** (`internal/providers/aws/ecsdefs`):
+   - Shared ECS task definition utilities decoupled from orchestrator
    - `RecreateTaskDefinition()`: Recreates a task definition from metadata
    - `UpdateTaskDefinitionTags()`: Updates tags to match expected state
 

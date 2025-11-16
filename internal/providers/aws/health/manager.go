@@ -14,8 +14,6 @@ import (
 	"runvoy/internal/logger"
 	awsClient "runvoy/internal/providers/aws/client"
 	"runvoy/internal/providers/aws/secrets"
-
-	ecsTypes "github.com/aws/aws-sdk-go-v2/service/ecs/types"
 )
 
 // ImageTaskDefRepository defines the interface for image-taskdef mapping operations.
@@ -23,40 +21,16 @@ type ImageTaskDefRepository interface {
 	ListImages(ctx context.Context) ([]api.ImageInfo, error)
 }
 
-// TaskDefRecreator defines the interface for recreating task definitions.
-type TaskDefRecreator interface {
-	RecreateTaskDefinition(
-		ctx context.Context,
-		family string,
-		image string,
-		taskRoleARN string,
-		taskExecRoleARN string,
-		cpu, memory int,
-		runtimePlatform string,
-		isDefault bool,
-		reqLogger *slog.Logger,
-	) (string, error)
-	BuildTaskDefinitionTags(image string, isDefault *bool) []ecsTypes.Tag
-	UpdateTaskDefinitionTags(
-		ctx context.Context,
-		taskDefARN string,
-		image string,
-		isDefault bool,
-		reqLogger *slog.Logger,
-	) error
-}
-
 // Manager implements the health.Manager interface for AWS.
 type Manager struct {
-	ecsClient      awsClient.ECSClient
-	ssmClient      secrets.Client
-	iamClient      awsClient.IAMClient
-	imageRepo      ImageTaskDefRepository
-	taskDefRecreat TaskDefRecreator
-	secretsRepo    database.SecretsRepository
-	cfg            *Config
-	logger         *slog.Logger
-	secretsPrefix  string
+	ecsClient     awsClient.ECSClient
+	ssmClient     secrets.Client
+	iamClient     awsClient.IAMClient
+	imageRepo     ImageTaskDefRepository
+	secretsRepo   database.SecretsRepository
+	cfg           *Config
+	logger        *slog.Logger
+	secretsPrefix string
 }
 
 // Config holds AWS-specific configuration for the health manager.
@@ -65,6 +39,7 @@ type Config struct {
 	AccountID              string
 	DefaultTaskRoleARN     string
 	DefaultTaskExecRoleARN string
+	LogGroup               string
 }
 
 // NewManager creates a new AWS health manager.
@@ -73,22 +48,20 @@ func NewManager(
 	ssmClient secrets.Client,
 	iamClient awsClient.IAMClient,
 	imageRepo ImageTaskDefRepository,
-	taskDefRecreat TaskDefRecreator,
 	secretsRepo database.SecretsRepository,
 	cfg *Config,
 	secretsPrefix string,
 	log *slog.Logger,
 ) *Manager {
 	return &Manager{
-		ecsClient:      ecsClient,
-		ssmClient:      ssmClient,
-		iamClient:      iamClient,
-		imageRepo:      imageRepo,
-		taskDefRecreat: taskDefRecreat,
-		secretsRepo:    secretsRepo,
-		cfg:            cfg,
-		secretsPrefix:  secretsPrefix,
-		logger:         log,
+		ecsClient:     ecsClient,
+		ssmClient:     ssmClient,
+		iamClient:     iamClient,
+		imageRepo:     imageRepo,
+		secretsRepo:   secretsRepo,
+		cfg:           cfg,
+		secretsPrefix: secretsPrefix,
+		logger:        log,
 	}
 }
 
