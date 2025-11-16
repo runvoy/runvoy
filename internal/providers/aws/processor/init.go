@@ -14,6 +14,7 @@ import (
 	awsDatabase "runvoy/internal/providers/aws/database"
 	dynamoRepo "runvoy/internal/providers/aws/database/dynamodb"
 	awsHealth "runvoy/internal/providers/aws/health"
+	"runvoy/internal/providers/aws/identity"
 	awsOrchestrator "runvoy/internal/providers/aws/orchestrator"
 	"runvoy/internal/providers/aws/secrets"
 	"runvoy/internal/providers/aws/websocket"
@@ -23,7 +24,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/ecs"
 	"github.com/aws/aws-sdk-go-v2/service/iam"
 	"github.com/aws/aws-sdk-go-v2/service/ssm"
-	"github.com/aws/aws-sdk-go-v2/service/sts"
 )
 
 // Initialize constructs an AWS-backed event processor with all required dependencies.
@@ -76,28 +76,6 @@ func Initialize(
 	return NewProcessor(executionRepo, websocketManager, healthManager, log), nil
 }
 
-// getAccountID retrieves the AWS account ID using STS GetCallerIdentity.
-func getAccountID(ctx context.Context, awsCfg *awsStd.Config, log *slog.Logger) (string, error) {
-	stsClient := sts.NewFromConfig(*awsCfg)
-
-	log.Debug("calling external service", "context", map[string]string{
-		"operation": "STS.GetCallerIdentity",
-	})
-
-	output, err := stsClient.GetCallerIdentity(ctx, &sts.GetCallerIdentityInput{})
-	if err != nil {
-		return "", fmt.Errorf("STS GetCallerIdentity failed: %w", err)
-	}
-
-	if output.Account == nil || *output.Account == "" {
-		return "", fmt.Errorf("STS returned empty account ID")
-	}
-
-	accountID := *output.Account
-
-	return accountID, nil
-}
-
 func initializeHealthManager(
 	ctx context.Context,
 	awsCfg *awsStd.Config,
@@ -109,7 +87,7 @@ func initializeHealthManager(
 	cfg *config.Config,
 	log *slog.Logger,
 ) health.Manager {
-	accountID, err := getAccountID(ctx, awsCfg, log)
+	accountID, err := identity.GetAccountID(ctx, awsCfg, log)
 	if err != nil {
 		log.Warn("failed to get AWS account ID, health manager will not be available", "error", err)
 		return nil

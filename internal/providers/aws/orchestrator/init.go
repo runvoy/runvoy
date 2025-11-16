@@ -12,16 +12,15 @@ import (
 	awsDatabase "runvoy/internal/providers/aws/database"
 	dynamoRepo "runvoy/internal/providers/aws/database/dynamodb"
 	awsHealth "runvoy/internal/providers/aws/health"
+	"runvoy/internal/providers/aws/identity"
 	"runvoy/internal/providers/aws/secrets"
 	"runvoy/internal/providers/aws/websocket"
 
-	awsStd "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/ecs"
 	"github.com/aws/aws-sdk-go-v2/service/iam"
 	"github.com/aws/aws-sdk-go-v2/service/ssm"
-	"github.com/aws/aws-sdk-go-v2/service/sts"
 )
 
 // Dependencies bundles the AWS-backed implementations required by the app service.
@@ -49,7 +48,7 @@ func Initialize( //nolint:funlen // This is ok, lots of initializations required
 		return nil, fmt.Errorf("failed to load AWS SDK config: %w", err)
 	}
 
-	accountID, err := getAccountID(ctx, cfg.AWS.SDKConfig, log)
+	accountID, err := identity.GetAccountID(ctx, cfg.AWS.SDKConfig, log)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get AWS account ID: %w", err)
 	}
@@ -169,26 +168,4 @@ func createRepositories(
 		imageTaskDefRepo: imageTaskDefRepo,
 		secretsRepo:      secretsRepo,
 	}
-}
-
-// getAccountID retrieves the AWS account ID using STS GetCallerIdentity.
-func getAccountID(ctx context.Context, awsCfg *awsStd.Config, log *slog.Logger) (string, error) {
-	stsClient := sts.NewFromConfig(*awsCfg)
-
-	log.Debug("calling external service", "context", map[string]string{
-		"operation": "STS.GetCallerIdentity",
-	})
-
-	output, err := stsClient.GetCallerIdentity(ctx, &sts.GetCallerIdentityInput{})
-	if err != nil {
-		return "", fmt.Errorf("STS GetCallerIdentity failed: %w", err)
-	}
-
-	if output.Account == nil || *output.Account == "" {
-		return "", fmt.Errorf("STS returned empty account ID")
-	}
-
-	accountID := *output.Account
-
-	return accountID, nil
 }
