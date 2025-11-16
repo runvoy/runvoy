@@ -510,7 +510,14 @@ Resources:
                   - 'ssm:GetParameter'
                   - 'ssm:GetParameters'
                   - 'ssm:GetParametersByPath'
+                  - 'ssm:ListTagsForResource'
+                  - 'ssm:AddTagsToResource'
+                  - 'ssm:RemoveTagsFromResource'
                 Resource: !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${ProjectName}/*'
+              - Effect: Allow
+                Action:
+                  - 'iam:GetRole'
+                Resource: !Sub 'arn:aws:iam::${AWS::AccountId}:role/*'
               - Effect: Allow
                 Action:
                   - 'kms:Encrypt'
