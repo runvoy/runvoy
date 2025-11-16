@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 
-	"runvoy/internal/authorization"
+	"runvoy/internal/auth/authorization"
 	"runvoy/internal/config"
 	"runvoy/internal/database"
 	"runvoy/internal/logger"

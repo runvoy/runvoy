@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"runvoy/internal/api"
-	"runvoy/internal/authorization"
+	"runvoy/internal/auth/authorization"
 	"runvoy/internal/backend/health"
 	"runvoy/internal/backend/websocket"
 	"runvoy/internal/constants"
