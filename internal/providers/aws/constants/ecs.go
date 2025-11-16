@@ -84,8 +84,10 @@ const TaskDefinitionDockerImageTagKey = "DockerImage"
 // TaskDefinitionIsDefaultTagValue is the tag value used to mark a task definition as the default image
 const TaskDefinitionIsDefaultTagValue = "true"
 
-// TaskDefinitionApplicationTagKey is the ECS tag key for Application
-const TaskDefinitionApplicationTagKey = "Application"
+// TaskDefinitionApplicationTagKey is the ECS tag key for Application.
+// This is an alias for the generic ResourceApplicationTagKey constant.
+const TaskDefinitionApplicationTagKey = constants.ResourceApplicationTagKey
 
-// TaskDefinitionManagedByTagKey is the ECS tag key for ManagedBy
-const TaskDefinitionManagedByTagKey = "ManagedBy"
+// TaskDefinitionManagedByTagKey is the ECS tag key for ManagedBy.
+// This is an alias for the generic ResourceManagedByTagKey constant.
+const TaskDefinitionManagedByTagKey = constants.ResourceManagedByTagKey

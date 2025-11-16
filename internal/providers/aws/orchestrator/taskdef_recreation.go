@@ -8,6 +8,7 @@ import (
 	"log/slog"
 
 	"runvoy/internal/logger"
+	awsClient "runvoy/internal/providers/aws/client"
 	awsConstants "runvoy/internal/providers/aws/constants"
 
 	awsStd "github.com/aws/aws-sdk-go-v2/aws"
@@ -19,7 +20,7 @@ import (
 // This function is used by the health manager to restore missing task definitions.
 func RecreateTaskDefinition(
 	ctx context.Context,
-	ecsClient Client,
+	ecsClient awsClient.ECSClient,
 	cfg *Config,
 	family string,
 	image string,
@@ -69,7 +70,7 @@ func RecreateTaskDefinition(
 
 func tagTaskDefinition(
 	ctx context.Context,
-	ecsClient Client,
+	ecsClient awsClient.ECSClient,
 	taskDefARN string,
 	family string,
 	image string,
@@ -112,7 +113,7 @@ func tagTaskDefinition(
 // This function is exported for use by the health manager.
 func UpdateTaskDefinitionTags(
 	ctx context.Context,
-	ecsClient Client,
+	ecsClient awsClient.ECSClient,
 	taskDefARN string,
 	image string,
 	isDefault bool,

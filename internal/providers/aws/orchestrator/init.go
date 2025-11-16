@@ -8,6 +8,7 @@ import (
 	"runvoy/internal/config"
 	"runvoy/internal/database"
 	"runvoy/internal/logger"
+	awsClient "runvoy/internal/providers/aws/client"
 	awsDatabase "runvoy/internal/providers/aws/database"
 	dynamoRepo "runvoy/internal/providers/aws/database/dynamodb"
 	awsHealth "runvoy/internal/providers/aws/health"
@@ -60,10 +61,10 @@ func Initialize( //nolint:funlen // This is ok, lots of initializations required
 	iamSDKClient := iam.NewFromConfig(*cfg.AWS.SDKConfig)
 
 	dynamoClient := dynamoRepo.NewClientAdapter(dynamoSDKClient)
-	ecsClient := NewClientAdapter(ecsSDKClient)
+	ecsClient := awsClient.NewECSClientAdapter(ecsSDKClient)
 	ssmClient := secrets.NewClientAdapter(ssmSDKClient)
 	cwlClient := NewCloudWatchLogsClientAdapter(cwlSDKClient)
-	iamClient := NewIAMClientAdapter(iamSDKClient)
+	iamClient := awsClient.NewIAMClientAdapter(iamSDKClient)
 
 	repos := createRepositories(dynamoClient, ssmClient, cfg, log)
 	runnerCfg := &Config{

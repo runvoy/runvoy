@@ -6,18 +6,20 @@ import (
 	"context"
 	"log/slog"
 
+	awsClient "runvoy/internal/providers/aws/client"
+
 	ecsTypes "github.com/aws/aws-sdk-go-v2/service/ecs/types"
 )
 
 // TaskDefRecreatorAdapter adapts orchestrator functions for use by the health manager.
 // This breaks the circular dependency between health and orchestrator packages.
 type TaskDefRecreatorAdapter struct {
-	ecsClient Client
+	ecsClient awsClient.ECSClient
 	cfg       *Config
 }
 
 // NewTaskDefRecreatorAdapter creates a new adapter for task definition recreation.
-func NewTaskDefRecreatorAdapter(ecsClient Client, cfg *Config) *TaskDefRecreatorAdapter {
+func NewTaskDefRecreatorAdapter(ecsClient awsClient.ECSClient, cfg *Config) *TaskDefRecreatorAdapter {
 	return &TaskDefRecreatorAdapter{
 		ecsClient: ecsClient,
 		cfg:       cfg,

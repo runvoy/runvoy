@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"runvoy/internal/logger"
+	awsClient "runvoy/internal/providers/aws/client"
 	awsConstants "runvoy/internal/providers/aws/constants"
 
 	awsStd "github.com/aws/aws-sdk-go-v2/aws"
@@ -53,7 +54,7 @@ func ExtractImageFromTaskDefFamily(familyName string) string {
 // It handles pagination internally and filters by checking the task definition family name (extracted from ARN).
 // This is necessary because the FamilyPrefix parameter in ListTaskDefinitions doesn't work as expected
 // for prefix matching - it requires exact family match rather than prefix matching.
-func listTaskDefinitionsByPrefix(ctx context.Context, ecsClient Client, prefix string) ([]string, error) {
+func listTaskDefinitionsByPrefix(ctx context.Context, ecsClient awsClient.ECSClient, prefix string) ([]string, error) {
 	nextToken := ""
 	var taskDefArns []string
 
@@ -90,7 +91,7 @@ func listTaskDefinitionsByPrefix(ctx context.Context, ecsClient Client, prefix s
 // Returns empty string if no default image is found.
 func GetDefaultImage(
 	ctx context.Context,
-	ecsClient Client,
+	ecsClient awsClient.ECSClient,
 	log *slog.Logger,
 ) (string, error) {
 	familyPrefix := awsConstants.TaskDefinitionFamilyPrefix + "-"
@@ -142,7 +143,7 @@ func GetDefaultImage(
 // Returns an error if the task definition doesn't exist (does not auto-register).
 func GetTaskDefinitionForImage(
 	ctx context.Context,
-	ecsClient Client,
+	ecsClient awsClient.ECSClient,
 	image string,
 	log *slog.Logger,
 ) (string, error) {
@@ -339,7 +340,7 @@ func buildTaskDefinitionInput(
 }
 
 // checkIfImageIsDefault checks if the image being removed is marked as default.
-func checkIfImageIsDefault(ctx context.Context, ecsClient Client, family string, log *slog.Logger) bool {
+func checkIfImageIsDefault(ctx context.Context, ecsClient awsClient.ECSClient, family string, log *slog.Logger) bool {
 	taskDefArns, err := listTaskDefinitionsByPrefix(ctx, ecsClient, family)
 	if err != nil {
 		log.Warn("failed to check if image is default before removal", "error", err)
@@ -364,7 +365,7 @@ func checkIfImageIsDefault(ctx context.Context, ecsClient Client, family string,
 
 // deregisterAllTaskDefRevisions deregisters all active task definition revisions for a given family.
 func deregisterAllTaskDefRevisions(
-	ctx context.Context, ecsClient Client, family, image string, log *slog.Logger,
+	ctx context.Context, ecsClient awsClient.ECSClient, family, image string, log *slog.Logger,
 ) error {
 	nextToken := ""
 	log.Debug("calling external service", "context", map[string]string{
@@ -424,7 +425,7 @@ func deregisterAllTaskDefRevisions(
 //
 //nolint:funlen // Complex AWS API orchestration
 func markLastRemainingImageAsDefault(
-	ctx context.Context, ecsClient Client, family string, log *slog.Logger,
+	ctx context.Context, ecsClient awsClient.ECSClient, family string, log *slog.Logger,
 ) error {
 	familyPrefix := awsConstants.TaskDefinitionFamilyPrefix + "-"
 	remainingTaskDefs, err := listTaskDefinitionsByPrefix(ctx, ecsClient, familyPrefix)
@@ -506,7 +507,7 @@ func markLastRemainingImageAsDefault(
 // If the removed image was the default and only one image remains, that image becomes the new default.
 func DeregisterTaskDefinitionsForImage(
 	ctx context.Context,
-	ecsClient Client,
+	ecsClient awsClient.ECSClient,
 	image string,
 	log *slog.Logger,
 ) error {

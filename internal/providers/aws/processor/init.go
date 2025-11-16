@@ -10,6 +10,7 @@ import (
 	"runvoy/internal/constants"
 	"runvoy/internal/database"
 	"runvoy/internal/logger"
+	awsClient "runvoy/internal/providers/aws/client"
 	awsDatabase "runvoy/internal/providers/aws/database"
 	dynamoRepo "runvoy/internal/providers/aws/database/dynamodb"
 	awsHealth "runvoy/internal/providers/aws/health"
@@ -45,9 +46,9 @@ func Initialize(
 	iamSDKClient := iam.NewFromConfig(awsCfg)
 
 	dynamoClient := dynamoRepo.NewClientAdapter(dynamoSDKClient)
-	ecsClient := orchestrator.NewClientAdapter(ecsSDKClient)
+	ecsClient := awsClient.NewECSClientAdapter(ecsSDKClient)
 	ssmClient := secrets.NewClientAdapter(ssmSDKClient)
-	iamClient := orchestrator.NewIAMClientAdapter(iamSDKClient)
+	iamClient := awsClient.NewIAMClientAdapter(iamSDKClient)
 
 	executionRepo := dynamoRepo.NewExecutionRepository(dynamoClient, cfg.AWS.ExecutionsTable, log)
 	connectionRepo := dynamoRepo.NewConnectionRepository(dynamoClient, cfg.AWS.WebSocketConnectionsTable, log)
@@ -100,9 +101,9 @@ func getAccountID(ctx context.Context, awsCfg *awsStd.Config, log *slog.Logger) 
 func initializeHealthManager(
 	ctx context.Context,
 	awsCfg *awsStd.Config,
-	ecsClient orchestrator.Client,
+	ecsClient awsClient.ECSClient,
 	ssmClient secrets.Client,
-	iamClient orchestrator.IAMClient,
+	iamClient awsClient.IAMClient,
 	imageTaskDefRepo awsHealth.ImageTaskDefRepository,
 	secretsRepo database.SecretsRepository,
 	cfg *config.Config,
