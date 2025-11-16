@@ -69,6 +69,7 @@ func TestGetExecutionStatus_Unauthorized(t *testing.T) {
 		nil,
 		nil, // SecretsService
 		nil, // healthManager
+		nil,
 	)
 	router := NewRouter(svc, 2*time.Second)
 

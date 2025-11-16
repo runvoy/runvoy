@@ -47,6 +47,7 @@ func Initialize(
 			awsDeps.WebSocketManager,
 			awsDeps.SecretsRepo,
 			awsDeps.HealthManager,
+			awsDeps.Enforcer,
 		), nil
 
 	default:

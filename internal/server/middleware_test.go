@@ -37,7 +37,7 @@ func TestRequestIDMiddleware(t *testing.T) {
 
 		svc := orchestrator.NewService(nil, nil, nil, tokenRepo, nil,
 
-			testutil.SilentLogger(), constants.AWS, nil, nil, nil)
+			testutil.SilentLogger(), constants.AWS, nil, nil, nil, nil)
 		router := &Router{svc: svc}
 		middleware := router.requestIDMiddleware(handler)
 		middleware.ServeHTTP(rr, req)
@@ -75,7 +75,7 @@ func TestRequestIDMiddleware(t *testing.T) {
 
 		svc := orchestrator.NewService(nil, nil, nil, tokenRepo, nil,
 
-			testutil.SilentLogger(), constants.AWS, nil, nil, nil)
+			testutil.SilentLogger(), constants.AWS, nil, nil, nil, nil)
 		router := &Router{svc: svc}
 		middleware := router.requestIDMiddleware(lambdaHandler)
 		middleware.ServeHTTP(rr, req)
@@ -106,7 +106,7 @@ func TestRequestIDMiddleware(t *testing.T) {
 
 		svc := orchestrator.NewService(nil, nil, nil, tokenRepo, nil,
 
-			testutil.SilentLogger(), constants.AWS, nil, nil, nil)
+			testutil.SilentLogger(), constants.AWS, nil, nil, nil, nil)
 		router := &Router{svc: svc}
 		middleware := router.requestIDMiddleware(handler)
 		middleware.ServeHTTP(rr, req)
@@ -145,7 +145,7 @@ func TestRequestIDMiddleware(t *testing.T) {
 
 		svc := orchestrator.NewService(nil, nil, nil, tokenRepo, nil,
 
-			testutil.SilentLogger(), constants.AWS, nil, nil, nil)
+			testutil.SilentLogger(), constants.AWS, nil, nil, nil, nil)
 		router := &Router{svc: svc}
 		middleware := router.requestIDMiddleware(handler)
 		middleware.ServeHTTP(rr, req)
