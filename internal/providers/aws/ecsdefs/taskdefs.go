@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"slices"
 	"strings"
 
 	"runvoy/internal/constants"
@@ -264,24 +265,14 @@ func isStandardTag(key string) bool {
 
 // parseRuntimePlatform splits runtime_platform into OS and Architecture for ECS API.
 // Format: OS/ARCH matching ECS format (e.g., "Linux/ARM64", "Linux/X86_64").
+// Returns error if runtime platform is not supported.
 func parseRuntimePlatform(runtimePlatform string) (osFamily, cpuArch string, err error) {
+	if !slices.Contains(awsConstants.SupportedRuntimePlatforms(), runtimePlatform) {
+		return "", "", fmt.Errorf("unsupported runtime platform: %s (supported: %s)",
+			runtimePlatform, strings.Join(awsConstants.SupportedRuntimePlatforms(), ", "))
+	}
 	parts := strings.Split(runtimePlatform, "/")
-	if len(parts) != 2 { //nolint:mnd // Runtime platform format is OS/ARCH (2 parts)
-		return "", "", fmt.Errorf("invalid runtime_platform format: expected OS/ARCH, got %s", runtimePlatform)
-	}
-	osFamily = parts[0]
-	cpuArch = parts[1]
-
-	// Validate known architectures
-	const (
-		archX86_64 = "X86_64"
-		archARM64  = "ARM64"
-	)
-	if cpuArch != archX86_64 && cpuArch != archARM64 {
-		return "", "", fmt.Errorf("unsupported architecture: %s (expected X86_64 or ARM64)", cpuArch)
-	}
-
-	return osFamily, cpuArch, nil
+	return parts[0], parts[1], nil
 }
 
 // convertOSFamilyToECSEnum converts OS family string to ECS enum.
