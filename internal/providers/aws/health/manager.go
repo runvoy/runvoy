@@ -6,8 +6,10 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"sync"
 	"time"
 
+	"golang.org/x/sync/errgroup"
 	"runvoy/internal/api"
 	"runvoy/internal/backend/health"
 	"runvoy/internal/database"
@@ -75,26 +77,73 @@ func (m *Manager) Reconcile(ctx context.Context) (*health.Report, error) {
 		Issues:    []health.Issue{},
 	}
 
-	computeStatus, computeIssues, err := m.reconcileECSTaskDefinitions(ctx, reqLogger)
-	if err != nil {
-		return nil, fmt.Errorf("failed to reconcile ECS task definitions: %w", err)
+	// Variables to hold results from parallel reconciliation tasks
+	var (
+		computeStatus   health.ComputeStatus
+		computeIssues   []health.Issue
+		secretsStatus   health.SecretsStatus
+		secretsIssues   []health.Issue
+		identityStatus  health.IdentityStatus
+		identityIssues  []health.Issue
+		mu              sync.Mutex
+	)
+
+	// Run reconciliation tasks in parallel using errgroup
+	g, gCtx := errgroup.WithContext(ctx)
+
+	// Reconcile ECS task definitions
+	g.Go(func() error {
+		status, issues, err := m.reconcileECSTaskDefinitions(gCtx, reqLogger)
+		if err != nil {
+			return fmt.Errorf("failed to reconcile ECS task definitions: %w", err)
+		}
+		mu.Lock()
+		computeStatus = status
+		computeIssues = issues
+		mu.Unlock()
+		return nil
+	})
+
+	// Reconcile secrets
+	g.Go(func() error {
+		status, issues, err := m.reconcileSecrets(gCtx, reqLogger)
+		if err != nil {
+			return fmt.Errorf("failed to reconcile secrets: %w", err)
+		}
+		mu.Lock()
+		secretsStatus = status
+		secretsIssues = issues
+		mu.Unlock()
+		return nil
+	})
+
+	// Reconcile IAM roles
+	g.Go(func() error {
+		status, issues, err := m.reconcileIAMRoles(gCtx, reqLogger)
+		if err != nil {
+			return fmt.Errorf("failed to reconcile IAM roles: %w", err)
+		}
+		mu.Lock()
+		identityStatus = status
+		identityIssues = issues
+		mu.Unlock()
+		return nil
+	})
+
+	// Wait for all reconciliation tasks to complete
+	if err := g.Wait(); err != nil {
+		return nil, err
 	}
+
+	// Aggregate results into the report
 	report.ComputeStatus = computeStatus
 	report.Issues = append(report.Issues, computeIssues...)
 	report.ReconciledCount += computeStatus.RecreatedCount + computeStatus.TagUpdatedCount
 
-	secretsStatus, secretsIssues, err := m.reconcileSecrets(ctx, reqLogger)
-	if err != nil {
-		return nil, fmt.Errorf("failed to reconcile secrets: %w", err)
-	}
 	report.SecretsStatus = secretsStatus
 	report.Issues = append(report.Issues, secretsIssues...)
 	report.ReconciledCount += secretsStatus.TagUpdatedCount
 
-	identityStatus, identityIssues, err := m.reconcileIAMRoles(ctx, reqLogger)
-	if err != nil {
-		return nil, fmt.Errorf("failed to reconcile IAM roles: %w", err)
-	}
 	report.IdentityStatus = identityStatus
 	report.Issues = append(report.Issues, identityIssues...)
 
