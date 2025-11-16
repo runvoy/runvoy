@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"runvoy/internal/api"
+	"runvoy/internal/authorization"
 	"runvoy/internal/backend/health"
 	"runvoy/internal/backend/websocket"
 	"runvoy/internal/constants"
@@ -63,6 +64,7 @@ type Service struct {
 	wsManager     websocket.Manager          // WebSocket manager for generating URLs and managing connections
 	secretsRepo   database.SecretsRepository // Repository for managing secrets
 	healthManager health.Manager             // Health manager for resource reconciliation
+	enforcer      *authorization.Enforcer    // Casbin enforcer for authorization
 }
 
 // NOTE: provider-specific configuration has been moved to sub packages (e.g., providers/aws/app).
@@ -73,6 +75,7 @@ type Service struct {
 // If wsManager is nil, WebSocket URL generation will be skipped.
 // If secretsRepo is nil, secrets operations will not be available.
 // If healthManager is nil, health reconciliation will not be available.
+// If enforcer is nil, authorization will not be available.
 func NewService(
 	userRepo database.UserRepository,
 	executionRepo database.ExecutionRepository,
@@ -83,7 +86,8 @@ func NewService(
 	provider constants.BackendProvider,
 	wsManager websocket.Manager,
 	secretsRepo database.SecretsRepository,
-	healthManager health.Manager) *Service {
+	healthManager health.Manager,
+	enforcer *authorization.Enforcer) *Service {
 	return &Service{
 		userRepo:      userRepo,
 		executionRepo: executionRepo,
@@ -95,5 +99,6 @@ func NewService(
 		wsManager:     wsManager,
 		secretsRepo:   secretsRepo,
 		healthManager: healthManager,
+		enforcer:      enforcer,
 	}
 }

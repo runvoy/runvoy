@@ -431,5 +431,6 @@ func newTestService(
 		nil, // wsManager
 		secretRepo,
 		nil, // healthManager
+		nil,
 	)
 }
