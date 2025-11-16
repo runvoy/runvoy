@@ -459,7 +459,7 @@ type scheduledEventDetail struct {
 
 // handleScheduledEvent processes EventBridge scheduled events (cron-like).
 // This handler validates the payload and invokes the event handler.
-func (p *Processor) handleScheduledEvent( //nolint:funlen // This is ok, lots of validation required
+func (p *Processor) handleScheduledEvent(
 	ctx context.Context,
 	event *events.CloudWatchEvent,
 	reqLogger *slog.Logger,
@@ -491,24 +491,18 @@ func (p *Processor) handleScheduledEvent( //nolint:funlen // This is ok, lots of
 		return nil
 	}
 
-	if detail.RunvoyEvent != awsConstants.ScheduledEventHealthReconcile {
-		reqLogger.Warn("ignoring scheduled event with unexpected runvoy_event value",
-			"context", map[string]string{
-				"source":       event.Source,
-				"detail_type":  event.DetailType,
-				"runvoy_event": detail.RunvoyEvent,
-			},
-		)
-		return nil
+	switch detail.RunvoyEvent {
+	case awsConstants.ScheduledEventHealthReconcile:
+		return p.handleHealthReconcileScheduledEvent(ctx, reqLogger)
+	default:
+		return fmt.Errorf("unexpected runvoy_event value: %s", detail.RunvoyEvent)
 	}
+}
 
-	reqLogger.Info("processing scheduled event",
-		"context", map[string]string{
-			"source":       event.Source,
-			"detail_type":  event.DetailType,
-			"runvoy_event": detail.RunvoyEvent,
-		})
-
+func (p *Processor) handleHealthReconcileScheduledEvent(
+	ctx context.Context,
+	reqLogger *slog.Logger,
+) error {
 	report, err := p.healthManager.Reconcile(ctx)
 	if err != nil {
 		reqLogger.Error("health reconciliation failed", "error", err)
