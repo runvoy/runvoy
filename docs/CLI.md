@@ -308,15 +308,21 @@ User management commands
 
 ## runvoy users create
 
-Create a new user with the given email
+Create a new user with the given email and role
 
 **Examples**
 
 ```bash
-  - runvoy users create alice@example.com
-  - runvoy users create bob@another-example.com
+  - runvoy users create alice@example.com --role viewer
+  - runvoy users create bob@another-example.com --role developer
 ```
 
+**Options**
+
+```
+  -h, --help          help for create
+      --role string   User role (admin, operator, developer, or viewer)
+```
 
 ## runvoy users list
 

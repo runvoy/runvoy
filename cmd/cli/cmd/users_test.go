@@ -58,9 +58,11 @@ func TestUsersService_CreateUser(t *testing.T) {
 			setupMock: func(m *mockClientInterfaceForUsers) {
 				m.createUserFunc = func(_ context.Context, req api.CreateUserRequest) (*api.CreateUserResponse, error) {
 					assert.Equal(t, "alice@example.com", req.Email)
+					assert.Equal(t, "viewer", req.Role)
 					return &api.CreateUserResponse{
 						User: &api.User{
 							Email:     "alice@example.com",
+							Role:      "viewer",
 							CreatedAt: time.Now(),
 						},
 						ClaimToken: "token-123",
@@ -73,6 +75,7 @@ func TestUsersService_CreateUser(t *testing.T) {
 				hasSuccess := false
 				hasKeyValue := false
 				hasWarning := false
+				hasRole := false
 				for _, call := range m.calls {
 					if call.method == "Infof" {
 						hasInfof = true
@@ -81,8 +84,11 @@ func TestUsersService_CreateUser(t *testing.T) {
 						hasSuccess = true
 					}
 					if call.method == "KeyValue" && len(call.args) >= 2 {
-						if call.args[0] == "Email" || call.args[0] == "Claim Token" {
+						if call.args[0] == "Email" || call.args[0] == "Claim Token" || call.args[0] == "Role" {
 							hasKeyValue = true
+						}
+						if call.args[0] == "Role" {
+							hasRole = true
 						}
 					}
 					if call.method == "Warningf" {
@@ -92,6 +98,7 @@ func TestUsersService_CreateUser(t *testing.T) {
 				assert.True(t, hasInfof, "Expected Infof call")
 				assert.True(t, hasSuccess, "Expected Successf call")
 				assert.True(t, hasKeyValue, "Expected KeyValue calls")
+				assert.True(t, hasRole, "Expected Role KeyValue call")
 				assert.True(t, hasWarning, "Expected Warningf calls for token info")
 			},
 		},
@@ -127,7 +134,7 @@ func TestUsersService_CreateUser(t *testing.T) {
 			mockOutput := &mockOutputInterface{}
 			service := NewUsersService(mockClient, mockOutput)
 
-			err := service.CreateUser(context.Background(), tt.email)
+			err := service.CreateUser(context.Background(), tt.email, "viewer")
 
 			if tt.wantErr {
 				assert.Error(t, err)

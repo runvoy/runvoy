@@ -9,18 +9,28 @@ import (
 
 	"runvoy/internal/api"
 	"runvoy/internal/auth"
+	"runvoy/internal/auth/authorization"
 	"runvoy/internal/constants"
 	apperrors "runvoy/internal/errors"
 )
 
-// validateCreateUserRequest validates the email in the create user request.
-func (s *Service) validateCreateUserRequest(ctx context.Context, email string) error {
+// validateCreateUserRequest validates the email and role in the create user request.
+func (s *Service) validateCreateUserRequest(ctx context.Context, email, role string) error {
 	if email == "" {
 		return apperrors.ErrBadRequest("email is required", nil)
 	}
 
 	if _, err := mail.ParseAddress(email); err != nil {
 		return apperrors.ErrBadRequest("invalid email address", err)
+	}
+
+	if role == "" {
+		return apperrors.ErrBadRequest("role is required", nil)
+	}
+
+	if !authorization.IsValidRole(role) {
+		validRoles := strings.Join(authorization.ValidRoles(), ", ")
+		return apperrors.ErrBadRequest("invalid role, must be one of: "+validRoles, nil)
 	}
 
 	existingUser, err := s.userRepo.GetUserByEmail(ctx, email)
@@ -75,6 +85,7 @@ func (s *Service) createPendingClaim(
 
 // CreateUser creates a new user with an API key and returns a claim token.
 // If no API key is provided in the request, one will be generated.
+// Requires a valid role to be specified in the request.
 func (s *Service) CreateUser(
 	ctx context.Context, req api.CreateUserRequest, createdByEmail string,
 ) (*api.CreateUserResponse, error) {
@@ -82,7 +93,7 @@ func (s *Service) CreateUser(
 		return nil, apperrors.ErrInternalError("user repository not configured", nil)
 	}
 
-	if err := s.validateCreateUserRequest(ctx, req.Email); err != nil {
+	if err := s.validateCreateUserRequest(ctx, req.Email, req.Role); err != nil {
 		return nil, err
 	}
 
@@ -95,6 +106,7 @@ func (s *Service) CreateUser(
 
 	user := &api.User{
 		Email:     req.Email,
+		Role:      req.Role,
 		CreatedAt: time.Now().UTC(),
 		Revoked:   false,
 	}

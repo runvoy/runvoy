@@ -25,6 +25,7 @@ func TestUserRepository_CreateUser_WithMock(t *testing.T) {
 	ctx := context.Background()
 	user := &api.User{
 		Email:     "test@example.com",
+		Role:      "viewer",
 		CreatedAt: time.Now(),
 		Revoked:   false,
 	}
@@ -49,6 +50,7 @@ func TestUserRepository_CreateUser_ErrorHandling(t *testing.T) {
 	ctx := context.Background()
 	user := &api.User{
 		Email:     "test@example.com",
+		Role:      "viewer",
 		CreatedAt: time.Now(),
 		Revoked:   false,
 	}
@@ -162,6 +164,7 @@ func TestMockClient_CallCounting(t *testing.T) {
 	// Perform multiple operations
 	user := &api.User{
 		Email:     "test@example.com",
+		Role:      "viewer",
 		CreatedAt: time.Now(),
 	}
 	apiKeyHash := "hashed_key_123"
@@ -194,6 +197,7 @@ func TestMockClient_ClearTables(t *testing.T) {
 
 	user := &api.User{
 		Email:     "test@example.com",
+		Role:      "viewer",
 		CreatedAt: time.Now(),
 	}
 	apiKeyHash := "hashed_key_123"

@@ -72,16 +72,20 @@ var usersCmd = &cobra.Command{
 }
 
 var createUserCmd = &cobra.Command{
-	Use:   "create <email>",
+	Use:   "create <email> --role <role>",
 	Short: "Create a new user",
-	Long:  `Create a new user with the given email`,
-	Example: fmt.Sprintf(`  - %s users create alice@example.com
-  - %s users create bob@another-example.com`, constants.ProjectName, constants.ProjectName),
+	Long:  `Create a new user with the given email and role`,
+	Example: fmt.Sprintf(`  - %s users create alice@example.com --role viewer
+  - %s users create bob@another-example.com --role developer`, constants.ProjectName, constants.ProjectName),
 	Run:  runCreateUser,
 	Args: cobra.ExactArgs(1),
 }
 
+var userRole string
+
 func init() {
+	createUserCmd.Flags().StringVar(&userRole, "role", "", "User role (admin, operator, developer, or viewer)")
+	_ = createUserCmd.MarkFlagRequired("role")
 	usersCmd.AddCommand(createUserCmd)
 	rootCmd.AddCommand(usersCmd)
 }
@@ -96,7 +100,7 @@ func runCreateUser(cmd *cobra.Command, args []string) {
 
 	c := client.New(cfg, slog.Default())
 	service := NewUsersService(c, NewOutputWrapper())
-	if err = service.CreateUser(cmd.Context(), email); err != nil {
+	if err = service.CreateUser(cmd.Context(), email, userRole); err != nil {
 		output.Errorf(err.Error())
 	}
 }
@@ -115,12 +119,13 @@ func NewUsersService(apiClient client.Interface, outputter OutputInterface) *Use
 	}
 }
 
-// CreateUser creates a new user with the given email
-func (s *UsersService) CreateUser(ctx context.Context, email string) error {
-	s.output.Infof("Creating user with email %s...", email)
+// CreateUser creates a new user with the given email and role
+func (s *UsersService) CreateUser(ctx context.Context, email, role string) error {
+	s.output.Infof("Creating user with email %s and role %s...", email, role)
 
 	resp, err := s.client.CreateUser(ctx, api.CreateUserRequest{
 		Email: email,
+		Role:  role,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to create user: %w", err)
@@ -128,6 +133,7 @@ func (s *UsersService) CreateUser(ctx context.Context, email string) error {
 
 	s.output.Successf("User created successfully")
 	s.output.KeyValue("Email", resp.User.Email)
+	s.output.KeyValue("Role", resp.User.Role)
 	s.output.KeyValue("Claim Token", resp.ClaimToken)
 	s.output.Blank()
 	s.output.Infof(

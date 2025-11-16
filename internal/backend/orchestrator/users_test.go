@@ -35,7 +35,7 @@ func TestValidateCreateUserRequest_Success(t *testing.T) {
 		nil, // enforcer
 	)
 
-	err := service.validateCreateUserRequest(context.Background(), "user@example.com")
+	err := service.validateCreateUserRequest(context.Background(), "user@example.com", "viewer")
 
 	assert.NoError(t, err)
 }
@@ -57,7 +57,7 @@ func TestValidateCreateUserRequest_EmptyEmail(t *testing.T) {
 		nil, // enforcer
 	)
 
-	err := service.validateCreateUserRequest(context.Background(), "")
+	err := service.validateCreateUserRequest(context.Background(), "", "viewer")
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "email is required")
@@ -80,7 +80,7 @@ func TestValidateCreateUserRequest_InvalidEmail(t *testing.T) {
 		nil, // enforcer
 	)
 
-	err := service.validateCreateUserRequest(context.Background(), "not-an-email")
+	err := service.validateCreateUserRequest(context.Background(), "not-an-email", "viewer")
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid email address")
@@ -108,7 +108,7 @@ func TestValidateCreateUserRequest_UserAlreadyExists(t *testing.T) {
 		nil, // enforcer
 	)
 
-	err := service.validateCreateUserRequest(context.Background(), "user@example.com")
+	err := service.validateCreateUserRequest(context.Background(), "user@example.com", "viewer")
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "user with this email already exists")
@@ -136,9 +136,59 @@ func TestValidateCreateUserRequest_RepositoryError(t *testing.T) {
 		nil, // enforcer
 	)
 
-	err := service.validateCreateUserRequest(context.Background(), "user@example.com")
+	err := service.validateCreateUserRequest(context.Background(), "user@example.com", "viewer")
 
 	assert.Error(t, err)
+}
+
+func TestValidateCreateUserRequest_EmptyRole(t *testing.T) {
+	logger := testutil.SilentLogger()
+
+	service := NewService(
+		nil,
+		&mockExecutionRepository{},
+		&mockConnectionRepository{},
+		&mockTokenRepository{},
+		nil,
+		logger,
+		"",
+		nil,
+		nil,
+		nil, // healthManager
+		nil, // enforcer
+	)
+
+	err := service.validateCreateUserRequest(context.Background(), "user@example.com", "")
+
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "role is required")
+}
+
+func TestValidateCreateUserRequest_InvalidRole(t *testing.T) {
+	logger := testutil.SilentLogger()
+
+	service := NewService(
+		nil,
+		&mockExecutionRepository{},
+		&mockConnectionRepository{},
+		&mockTokenRepository{},
+		nil,
+		logger,
+		"",
+		nil,
+		nil,
+		nil, // healthManager
+		nil, // enforcer
+	)
+
+	err := service.validateCreateUserRequest(context.Background(), "user@example.com", "superuser")
+
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid role")
+	assert.Contains(t, err.Error(), "admin")
+	assert.Contains(t, err.Error(), "operator")
+	assert.Contains(t, err.Error(), "developer")
+	assert.Contains(t, err.Error(), "viewer")
 }
 
 func TestGenerateOrUseAPIKey_ProvidedKey(t *testing.T) {
@@ -252,12 +302,13 @@ func TestCreateUser_Success(t *testing.T) {
 		nil, // enforcer
 	)
 
-	req := api.CreateUserRequest{Email: "user@example.com"}
+	req := api.CreateUserRequest{Email: "user@example.com", Role: "viewer"}
 	resp, err := service.CreateUser(context.Background(), req, "admin@example.com")
 
 	assert.NoError(t, err)
 	assert.NotNil(t, resp)
 	assert.Equal(t, "user@example.com", resp.User.Email)
+	assert.Equal(t, "viewer", resp.User.Role)
 	assert.NotEmpty(t, resp.ClaimToken)
 }
 
@@ -302,7 +353,7 @@ func TestCreateUser_InvalidEmail(t *testing.T) {
 		nil, // enforcer
 	)
 
-	req := api.CreateUserRequest{Email: "not-valid"}
+	req := api.CreateUserRequest{Email: "not-valid", Role: "viewer"}
 	_, err := service.CreateUser(context.Background(), req, "admin@example.com")
 
 	assert.Error(t, err)
@@ -334,10 +385,58 @@ func TestCreateUser_CreateUserError(t *testing.T) {
 		nil, // enforcer
 	)
 
-	req := api.CreateUserRequest{Email: "user@example.com"}
+	req := api.CreateUserRequest{Email: "user@example.com", Role: "viewer"}
 	_, err := service.CreateUser(context.Background(), req, "admin@example.com")
 
 	assert.Error(t, err)
+}
+
+func TestCreateUser_MissingRole(t *testing.T) {
+	logger := testutil.SilentLogger()
+
+	service := NewService(
+		&mockUserRepository{},
+		&mockExecutionRepository{},
+		&mockConnectionRepository{},
+		&mockTokenRepository{},
+		nil,
+		logger,
+		"",
+		nil,
+		nil,
+		nil, // healthManager
+		nil, // enforcer
+	)
+
+	req := api.CreateUserRequest{Email: "user@example.com", Role: ""}
+	_, err := service.CreateUser(context.Background(), req, "admin@example.com")
+
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "role is required")
+}
+
+func TestCreateUser_InvalidRole(t *testing.T) {
+	logger := testutil.SilentLogger()
+
+	service := NewService(
+		&mockUserRepository{},
+		&mockExecutionRepository{},
+		&mockConnectionRepository{},
+		&mockTokenRepository{},
+		nil,
+		logger,
+		"",
+		nil,
+		nil,
+		nil, // healthManager
+		nil, // enforcer
+	)
+
+	req := api.CreateUserRequest{Email: "user@example.com", Role: "superadmin"}
+	_, err := service.CreateUser(context.Background(), req, "admin@example.com")
+
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid role")
 }
 
 func TestClaimAPIKey_Success(t *testing.T) {
