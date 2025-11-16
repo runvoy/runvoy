@@ -326,12 +326,13 @@ func (r *Router) handleReconcileHealth(w http.ResponseWriter, req *http.Request)
 	}
 
 	if report == nil {
-		writeErrorResponse(w, http.StatusInternalServerError, "health report is nil", "health reconciliation returned no report")
+		writeErrorResponse(w, http.StatusInternalServerError,
+			"health report is nil", "health reconciliation returned no report")
 		return
 	}
 
 	response := struct {
-		Status string        `json:"status"`
+		Status string         `json:"status"`
 		Report *health.Report `json:"report"`
 	}{
 		Status: "ok",
