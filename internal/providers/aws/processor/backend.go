@@ -480,7 +480,7 @@ func (p *Processor) handleScheduledEvent(
 		"context", map[string]any{
 			"reconciled_count":  report.ReconciledCount,
 			"error_count":       report.ErrorCount,
-			"total_issues":      len(report.Issues),
+			"issues":            report.Issues,
 			"compute_verified":  report.ComputeStatus.VerifiedCount,
 			"compute_recreated": report.ComputeStatus.RecreatedCount,
 			"secrets_verified":  report.SecretsStatus.VerifiedCount,
