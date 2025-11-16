@@ -32,6 +32,7 @@ func TestValidateCreateUserRequest_Success(t *testing.T) {
 		nil,
 		nil,
 		nil, // healthManager
+		nil, // enforcer
 	)
 
 	err := service.validateCreateUserRequest(context.Background(), "user@example.com")
@@ -53,6 +54,7 @@ func TestValidateCreateUserRequest_EmptyEmail(t *testing.T) {
 		nil,
 		nil,
 		nil, // healthManager
+		nil, // enforcer
 	)
 
 	err := service.validateCreateUserRequest(context.Background(), "")
@@ -75,6 +77,7 @@ func TestValidateCreateUserRequest_InvalidEmail(t *testing.T) {
 		nil,
 		nil,
 		nil, // healthManager
+		nil, // enforcer
 	)
 
 	err := service.validateCreateUserRequest(context.Background(), "not-an-email")
@@ -102,6 +105,7 @@ func TestValidateCreateUserRequest_UserAlreadyExists(t *testing.T) {
 		nil,
 		nil,
 		nil, // healthManager
+		nil, // enforcer
 	)
 
 	err := service.validateCreateUserRequest(context.Background(), "user@example.com")
@@ -129,6 +133,7 @@ func TestValidateCreateUserRequest_RepositoryError(t *testing.T) {
 		nil,
 		nil,
 		nil, // healthManager
+		nil, // enforcer
 	)
 
 	err := service.validateCreateUserRequest(context.Background(), "user@example.com")
@@ -170,6 +175,7 @@ func TestCreatePendingClaim_Success(t *testing.T) {
 		nil,
 		nil,
 		nil, // healthManager
+		nil, // enforcer
 	)
 
 	secretToken, err := service.createPendingClaim(
@@ -203,6 +209,7 @@ func TestCreatePendingClaim_RepositoryError(t *testing.T) {
 		nil,
 		nil,
 		nil, // healthManager
+		nil, // enforcer
 	)
 
 	_, err := service.createPendingClaim(
@@ -242,6 +249,7 @@ func TestCreateUser_Success(t *testing.T) {
 		nil,
 		nil,
 		nil, // healthManager
+		nil, // enforcer
 	)
 
 	req := api.CreateUserRequest{Email: "user@example.com"}
@@ -267,6 +275,7 @@ func TestCreateUser_NoRepository(t *testing.T) {
 		nil,
 		nil,
 		nil, // healthManager
+		nil, // enforcer
 	)
 
 	req := api.CreateUserRequest{Email: "user@example.com"}
@@ -290,6 +299,7 @@ func TestCreateUser_InvalidEmail(t *testing.T) {
 		nil,
 		nil,
 		nil, // healthManager
+		nil, // enforcer
 	)
 
 	req := api.CreateUserRequest{Email: "not-valid"}
@@ -321,6 +331,7 @@ func TestCreateUser_CreateUserError(t *testing.T) {
 		nil,
 		nil,
 		nil, // healthManager
+		nil, // enforcer
 	)
 
 	req := api.CreateUserRequest{Email: "user@example.com"}
@@ -361,6 +372,7 @@ func TestClaimAPIKey_Success(t *testing.T) {
 		nil,
 		nil,
 		nil, // healthManager
+		nil, // enforcer
 	)
 
 	resp, err := service.ClaimAPIKey(context.Background(), "token", "192.168.1.1")
@@ -385,6 +397,7 @@ func TestClaimAPIKey_NoRepository(t *testing.T) {
 		nil,
 		nil,
 		nil, // healthManager
+		nil, // enforcer
 	)
 
 	_, err := service.ClaimAPIKey(context.Background(), "token", "192.168.1.1")
@@ -412,6 +425,7 @@ func TestClaimAPIKey_InvalidToken(t *testing.T) {
 		nil,
 		nil,
 		nil, // healthManager
+		nil, // enforcer
 	)
 
 	_, err := service.ClaimAPIKey(context.Background(), "invalid-token", "192.168.1.1")
@@ -446,6 +460,7 @@ func TestClaimAPIKey_AlreadyClaimed(t *testing.T) {
 		nil,
 		nil,
 		nil, // healthManager
+		nil, // enforcer
 	)
 
 	_, err := service.ClaimAPIKey(context.Background(), "token", "192.168.1.1")
@@ -480,6 +495,7 @@ func TestClaimAPIKey_TokenExpired(t *testing.T) {
 		nil,
 		nil,
 		nil, // healthManager
+		nil, // enforcer
 	)
 
 	_, err := service.ClaimAPIKey(context.Background(), "token", "192.168.1.1")
@@ -510,6 +526,7 @@ func TestListUsers_Success(t *testing.T) {
 		nil,
 		nil,
 		nil, // healthManager
+		nil, // enforcer
 	)
 
 	resp, err := service.ListUsers(context.Background())
@@ -541,6 +558,7 @@ func TestListUsers_Empty(t *testing.T) {
 		nil,
 		nil,
 		nil, // healthManager
+		nil, // enforcer
 	)
 
 	resp, err := service.ListUsers(context.Background())
@@ -564,6 +582,7 @@ func TestListUsers_NoRepository(t *testing.T) {
 		nil,
 		nil,
 		nil, // healthManager
+		nil, // enforcer
 	)
 
 	_, err := service.ListUsers(context.Background())
@@ -591,6 +610,7 @@ func TestListUsers_RepositoryError(t *testing.T) {
 		nil,
 		nil,
 		nil, // healthManager
+		nil, // enforcer
 	)
 
 	_, err := service.ListUsers(context.Background())
@@ -622,6 +642,7 @@ func TestListUsers_SortingByEmail(t *testing.T) {
 		nil,
 		nil,
 		nil, // healthManager
+		nil, // enforcer
 	)
 
 	resp, err := service.ListUsers(context.Background())
