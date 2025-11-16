@@ -3,11 +3,21 @@
 package authorization
 
 import (
+	_ "embed"
+	"encoding/csv"
 	"fmt"
 	"log/slog"
+	"strings"
 
 	"github.com/casbin/casbin/v2"
+	"github.com/casbin/casbin/v2/model"
 )
+
+//go:embed ../casbin/model.conf
+var modelConfig string
+
+//go:embed ../casbin/policy.csv
+var policyConfig string
 
 // Enforcer wraps the Casbin enforcer with additional functionality.
 type Enforcer struct {
@@ -15,23 +25,92 @@ type Enforcer struct {
 	logger   *slog.Logger
 }
 
-// NewEnforcer creates a new Casbin enforcer with the specified model and policy files.
-// The modelPath should point to the Casbin model configuration file (e.g.,
-// "internal/auth/authorization/casbin/model.conf").
-// The policyPath should point to the Casbin policy CSV file (e.g.,
-// "internal/auth/authorization/casbin/policy.csv").
-func NewEnforcer(modelPath, policyPath string, logger *slog.Logger) (*Enforcer, error) {
-	enforcer, err := casbin.NewEnforcer(modelPath, policyPath)
+// NewEnforcer creates a new Casbin enforcer with embedded model and policy configurations.
+// The model and policy are embedded into the binary at compile time, making the enforcer
+// portable and suitable for Lambda deployments.
+func NewEnforcer(logger *slog.Logger) (*Enforcer, error) {
+	// Create model from embedded configuration string
+	m, err := model.NewModelFromString(modelConfig)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create casbin authorization enforcer: %w", err)
+		return nil, fmt.Errorf("failed to create casbin model from embedded config: %w", err)
 	}
 
-	logger.Debug("casbin authorization enforcer initialized", "model", modelPath, "policy", policyPath)
+	// Create enforcer with model (no file adapter - policies loaded in-memory)
+	e, err := casbin.NewEnforcer(m)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create casbin enforcer: %w", err)
+	}
+
+	// Load policies from embedded CSV
+	if err := loadPoliciesFromCSV(e, policyConfig); err != nil {
+		return nil, fmt.Errorf("failed to load policies from embedded CSV: %w", err)
+	}
+
+	logger.Debug("casbin authorization enforcer initialized with embedded configuration")
 
 	return &Enforcer{
-		enforcer: enforcer,
+		enforcer: e,
 		logger:   logger,
 	}, nil
+}
+
+// loadPoliciesFromCSV parses the embedded policy CSV and loads policies into the enforcer.
+func loadPoliciesFromCSV(e *casbin.Enforcer, csvContent string) error {
+	reader := csv.NewReader(strings.NewReader(csvContent))
+	reader.TrimLeadingSpace = true
+
+	records, err := reader.ReadAll()
+	if err != nil {
+		return fmt.Errorf("failed to parse policy CSV: %w", err)
+	}
+
+	for i, record := range records {
+		if len(record) == 0 {
+			continue // Skip empty lines
+		}
+
+		// Skip comment lines
+		if strings.HasPrefix(strings.TrimSpace(record[0]), "#") {
+			continue
+		}
+
+		// Policy format: p, role:admin, /api/*, *, allow
+		// Grouping format: g, user@example.com, role:admin
+		policyType := strings.TrimSpace(record[0])
+
+		switch policyType {
+		case "p":
+			// Standard policy: p, sub, obj, act, eft
+			if len(record) < 5 {
+				return fmt.Errorf("invalid policy at line %d: expected at least 5 fields, got %d", i+1, len(record))
+			}
+			params := make([]string, len(record)-1)
+			for j := 1; j < len(record); j++ {
+				params[j-1] = strings.TrimSpace(record[j])
+			}
+			if _, err := e.AddPolicy(params); err != nil {
+				return fmt.Errorf("failed to add policy at line %d: %w", i+1, err)
+			}
+
+		case "g", "g2":
+			// Grouping policy: g, member, role or g2, resource, owner
+			if len(record) < 3 {
+				return fmt.Errorf("invalid grouping policy at line %d: expected at least 3 fields, got %d", i+1, len(record))
+			}
+			params := make([]string, len(record)-1)
+			for j := 1; j < len(record); j++ {
+				params[j-1] = strings.TrimSpace(record[j])
+			}
+			if _, err := e.AddNamedGroupingPolicy(policyType, params); err != nil {
+				return fmt.Errorf("failed to add grouping policy at line %d: %w", i+1, err)
+			}
+
+		default:
+			return fmt.Errorf("unknown policy type '%s' at line %d", policyType, i+1)
+		}
+	}
+
+	return nil
 }
 
 // Enforce checks if a subject (user) can perform an action on an object (resource).
