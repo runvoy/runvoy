@@ -120,11 +120,13 @@ func handleAuthError(w http.ResponseWriter, err error) {
 // authorizeRequest checks if a user can perform an action on a resource.
 // Returns true if allowed, false if denied.
 // If enforcer is nil, returns true (no authorization enforcement).
-func (r *Router) authorizeRequest(logger *slog.Logger, userEmail, resourceObject, action string) bool {
+func (r *Router) authorizeRequest(ctx context.Context, userEmail, resourceObject, action string) bool {
 	enforcer := r.svc.GetEnforcer()
 	if enforcer == nil {
 		return true
 	}
+
+	logger := r.GetLoggerFromContext(ctx)
 
 	allowed, err := enforcer.Enforce(userEmail, resourceObject, action)
 	if err != nil {

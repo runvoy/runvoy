@@ -43,7 +43,7 @@ func (r *Router) handleListWithAuth(
 		return
 	}
 
-	if !r.authorizeRequest(logger, user.Email, resource, "read") {
+	if !r.authorizeRequest(req.Context(), user.Email, resource, "read") {
 		writeErrorResponse(w, http.StatusForbidden, "Forbidden", denialMsg)
 		return
 	}
@@ -85,7 +85,7 @@ func (r *Router) handleCreateUser(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	if !r.authorizeRequest(logger, user.Email, "/api/users", "create") {
+	if !r.authorizeRequest(req.Context(), user.Email, "/api/users", "create") {
 		writeErrorResponse(w, http.StatusForbidden, "Forbidden", "you do not have permission to create users")
 		return
 	}
@@ -124,7 +124,7 @@ func (r *Router) handleRevokeUser(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	if !r.authorizeRequest(logger, user.Email, "/api/users", "delete") {
+	if !r.authorizeRequest(req.Context(), user.Email, "/api/users", "delete") {
 		writeErrorResponse(w, http.StatusForbidden, "Forbidden", "you do not have permission to revoke users")
 		return
 	}
@@ -171,7 +171,7 @@ func (r *Router) handleRunCommand(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	if !r.authorizeRequest(logger, user.Email, "/api/run", "execute") {
+	if !r.authorizeRequest(req.Context(), user.Email, "/api/run", "execute") {
 		writeErrorResponse(w, http.StatusForbidden, "Forbidden", "you do not have permission to execute commands")
 		return
 	}
@@ -212,7 +212,7 @@ func (r *Router) handleGetExecutionLogs(w http.ResponseWriter, req *http.Request
 		return
 	}
 
-	if !r.authorizeRequest(logger, user.Email, "/api/executions", "read") {
+	if !r.authorizeRequest(req.Context(), user.Email, "/api/executions", "read") {
 		writeErrorResponse(w, http.StatusForbidden, "Forbidden", "you do not have permission to read execution logs")
 		return
 	}
@@ -252,7 +252,7 @@ func (r *Router) handleGetExecutionStatus(w http.ResponseWriter, req *http.Reque
 		return
 	}
 
-	if !r.authorizeRequest(logger, user.Email, "/api/executions", "read") {
+	if !r.authorizeRequest(req.Context(), user.Email, "/api/executions", "read") {
 		writeErrorResponse(w, http.StatusForbidden, "Forbidden", "you do not have permission to read execution status")
 		return
 	}
@@ -296,7 +296,7 @@ func (r *Router) handleKillExecution(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	if !r.authorizeRequest(logger, user.Email, "/api/executions", "kill") {
+	if !r.authorizeRequest(req.Context(), user.Email, "/api/executions", "kill") {
 		writeErrorResponse(w, http.StatusForbidden, "Forbidden", "you do not have permission to kill executions")
 		return
 	}
@@ -386,6 +386,18 @@ func (r *Router) handleHealth(w http.ResponseWriter, _ *http.Request) {
 // handleReconcileHealth triggers a full health reconciliation across managed resources.
 // It requires authentication and is intended for admin/maintenance use.
 func (r *Router) handleReconcileHealth(w http.ResponseWriter, req *http.Request) {
+	user, ok := r.getUserFromContext(req)
+	if !ok {
+		writeErrorResponse(w, http.StatusUnauthorized, "Unauthorized", "user not found in context")
+		return
+	}
+
+	if !r.authorizeRequest(req.Context(), user.Email, "/api/health/reconcile", "execute") {
+		writeErrorResponse(w, http.StatusForbidden, "Forbidden",
+			"you do not have permission to reconcile health")
+		return
+	}
+
 	report, err := r.svc.ReconcileResources(req.Context())
 	if err != nil {
 		statusCode := apperrors.GetStatusCode(err)
@@ -468,7 +480,7 @@ func (r *Router) handleRegisterImage(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	if !r.authorizeRequest(logger, user.Email, "/api/images", "create") {
+	if !r.authorizeRequest(req.Context(), user.Email, "/api/images", "create") {
 		writeErrorResponse(w, http.StatusForbidden, "Forbidden", "you do not have permission to register images")
 		return
 	}
@@ -518,7 +530,7 @@ func (r *Router) handleGetImage(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	if !r.authorizeRequest(logger, user.Email, "/api/images", "read") {
+	if !r.authorizeRequest(req.Context(), user.Email, "/api/images", "read") {
 		writeErrorResponse(w, http.StatusForbidden, "Forbidden", "you do not have permission to read images")
 		return
 	}
@@ -569,7 +581,7 @@ func (r *Router) handleRemoveImage(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	if !r.authorizeRequest(logger, user.Email, "/api/images", "delete") {
+	if !r.authorizeRequest(req.Context(), user.Email, "/api/images", "delete") {
 		writeErrorResponse(w, http.StatusForbidden, "Forbidden", "you do not have permission to remove images")
 		return
 	}

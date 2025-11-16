@@ -3,6 +3,7 @@ p, role:operator, /api/executions/*, create, allow
 p, role:operator, /api/executions/*, execute, allow
 p, role:operator, /api/executions/*, kill, allow
 p, role:operator, /api/executions/*, read, allow
+p, role:operator, /api/health/reconcile, execute, allow
 p, role:operator, /api/images/*, create, allow
 p, role:operator, /api/images/*, delete, allow
 p, role:operator, /api/images/*, read, allow
