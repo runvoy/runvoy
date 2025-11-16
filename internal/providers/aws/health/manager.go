@@ -13,6 +13,7 @@ import (
 	"runvoy/internal/backend/health"
 	"runvoy/internal/database"
 	"runvoy/internal/logger"
+	awsClient "runvoy/internal/providers/aws/client"
 	awsConstants "runvoy/internal/providers/aws/constants"
 	"runvoy/internal/providers/aws/secrets"
 
@@ -24,54 +25,12 @@ import (
 	ssmTypes "github.com/aws/aws-sdk-go-v2/service/ssm/types"
 )
 
-// These interfaces are defined locally to avoid circular dependency with orchestrator package.
-// They match the interfaces in internal/providers/aws/orchestrator.
-
-// ECSClient defines the interface for ECS operations needed by the health manager.
-type ECSClient interface {
-	ListTaskDefinitions(
-		ctx context.Context,
-		params *ecs.ListTaskDefinitionsInput,
-		optFns ...func(*ecs.Options),
-	) (*ecs.ListTaskDefinitionsOutput, error)
-	ListTagsForResource(
-		ctx context.Context,
-		params *ecs.ListTagsForResourceInput,
-		optFns ...func(*ecs.Options),
-	) (*ecs.ListTagsForResourceOutput, error)
-	TagResource(
-		ctx context.Context,
-		params *ecs.TagResourceInput,
-		optFns ...func(*ecs.Options),
-	) (*ecs.TagResourceOutput, error)
-	UntagResource(
-		ctx context.Context,
-		params *ecs.UntagResourceInput,
-		optFns ...func(*ecs.Options),
-	) (*ecs.UntagResourceOutput, error)
-	RegisterTaskDefinition(
-		ctx context.Context,
-		params *ecs.RegisterTaskDefinitionInput,
-		optFns ...func(*ecs.Options),
-	) (*ecs.RegisterTaskDefinitionOutput, error)
-}
-
-// IAMClient defines the interface for IAM operations needed by the health manager.
-type IAMClient interface {
-	GetRole(
-		ctx context.Context,
-		params *iam.GetRoleInput,
-		optFns ...func(*iam.Options),
-	) (*iam.GetRoleOutput, error)
-}
-
 // ImageTaskDefRepository defines the interface for image-taskdef mapping operations.
 type ImageTaskDefRepository interface {
 	ListImages(ctx context.Context) ([]api.ImageInfo, error)
 }
 
 // TaskDefRecreator defines the interface for recreating task definitions.
-// This allows the health manager to recreate task definitions without importing orchestrator.
 type TaskDefRecreator interface {
 	RecreateTaskDefinition(
 		ctx context.Context,
@@ -96,9 +55,9 @@ type TaskDefRecreator interface {
 
 // Manager implements the health.HealthManager interface for AWS.
 type Manager struct {
-	ecsClient      ECSClient
+	ecsClient      awsClient.ECSClient
 	ssmClient      secrets.Client
-	iamClient      IAMClient
+	iamClient      awsClient.IAMClient
 	imageRepo      ImageTaskDefRepository
 	taskDefRecreat TaskDefRecreator
 	secretsRepo    database.SecretsRepository
@@ -117,9 +76,9 @@ type Config struct {
 
 // NewManager creates a new AWS health manager.
 func NewManager(
-	ecsClient ECSClient,
+	ecsClient awsClient.ECSClient,
 	ssmClient secrets.Client,
-	iamClient IAMClient,
+	iamClient awsClient.IAMClient,
 	imageRepo ImageTaskDefRepository,
 	taskDefRecreat TaskDefRecreator,
 	secretsRepo database.SecretsRepository,
