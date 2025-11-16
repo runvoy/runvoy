@@ -452,20 +452,20 @@ func parseTaskTimes(
 	return startedAt, stoppedAt, durationSeconds, nil
 }
 
-// scheduledHealthEventDetail is the expected payload for scheduled health check events.
-type scheduledHealthEventDetail struct {
+// scheduledEventDetail is the expected payload for scheduled events.
+type scheduledEventDetail struct {
 	RunvoyEvent string `json:"runvoy_event"`
 }
 
 // handleScheduledEvent processes EventBridge scheduled events (cron-like).
-// This handler validates the payload and invokes the health manager reconciliation.
+// This handler validates the payload and invokes the event handler.
 func (p *Processor) handleScheduledEvent( //nolint:funlen // This is ok, lots of validation required
 	ctx context.Context,
 	event *events.CloudWatchEvent,
 	reqLogger *slog.Logger,
 ) error {
 	if p.healthManager == nil {
-		reqLogger.Warn("health manager not available, skipping scheduled health check")
+		reqLogger.Warn("event handler not available, skipping scheduled event")
 		return nil
 	}
 
@@ -479,7 +479,7 @@ func (p *Processor) handleScheduledEvent( //nolint:funlen // This is ok, lots of
 		return nil
 	}
 
-	var detail scheduledHealthEventDetail
+	var detail scheduledEventDetail
 	if err := json.Unmarshal(event.Detail, &detail); err != nil {
 		reqLogger.Warn("ignoring scheduled event with invalid detail payload",
 			"error", err,
@@ -491,7 +491,7 @@ func (p *Processor) handleScheduledEvent( //nolint:funlen // This is ok, lots of
 		return nil
 	}
 
-	if detail.RunvoyEvent != "health_reconcile" {
+	if detail.RunvoyEvent != awsConstants.ScheduledEventHealthReconcile {
 		reqLogger.Warn("ignoring scheduled event with unexpected runvoy_event value",
 			"context", map[string]string{
 				"source":       event.Source,
@@ -502,7 +502,7 @@ func (p *Processor) handleScheduledEvent( //nolint:funlen // This is ok, lots of
 		return nil
 	}
 
-	reqLogger.Info("processing scheduled health check event",
+	reqLogger.Info("processing scheduled event",
 		"context", map[string]string{
 			"source":       event.Source,
 			"detail_type":  event.DetailType,
