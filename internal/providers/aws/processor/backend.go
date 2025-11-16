@@ -25,7 +25,7 @@ import (
 type Processor struct {
 	executionRepo    database.ExecutionRepository
 	webSocketManager websocket.Manager
-	healthManager    health.HealthManager
+	healthManager    health.Manager
 	logger           *slog.Logger
 }
 
@@ -33,7 +33,7 @@ type Processor struct {
 func NewProcessor(
 	executionRepo database.ExecutionRepository,
 	webSocketManager websocket.Manager,
-	healthManager health.HealthManager,
+	healthManager health.Manager,
 	log *slog.Logger,
 ) *Processor {
 	return &Processor{

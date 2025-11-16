@@ -62,7 +62,7 @@ type Service struct {
 	Provider      constants.BackendProvider
 	wsManager     websocket.Manager          // WebSocket manager for generating URLs and managing connections
 	secretsRepo   database.SecretsRepository // Repository for managing secrets
-	healthManager health.HealthManager       // Health manager for resource reconciliation
+	healthManager health.Manager             // Health manager for resource reconciliation
 }
 
 // NOTE: provider-specific configuration has been moved to sub packages (e.g., providers/aws/app).
@@ -83,7 +83,7 @@ func NewService(
 	provider constants.BackendProvider,
 	wsManager websocket.Manager,
 	secretsRepo database.SecretsRepository,
-	healthManager health.HealthManager) *Service {
+	healthManager health.Manager) *Service {
 	return &Service{
 		userRepo:      userRepo,
 		executionRepo: executionRepo,

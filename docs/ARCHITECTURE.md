@@ -598,9 +598,9 @@ The health manager periodically checks for inconsistencies and repairs them when
 ### Components
 
 1. **Health Manager Interface** (`internal/backend/health/health.go`):
-   - Defines `HealthManager` interface with `Reconcile(ctx) (*HealthReport, error)` method
+   - Defines `health.Manager` interface with `Reconcile(ctx) (*health.Report, error)` method
    - Provider-agnostic interface similar to `websocket.Manager` pattern
-   - `HealthReport` structure contains comprehensive status for ECS, secrets, and IAM
+   - `Report` structure contains comprehensive status for ECS, secrets, and IAM
 
 2. **AWS Health Manager** (`internal/providers/aws/health/manager.go`):
    - Implements health checks for ECS task definitions, SSM parameters, and IAM roles
@@ -661,12 +661,13 @@ The health manager periodically checks for inconsistencies and repairs them when
 
 ### Health Report Structure
 
-The `HealthReport` contains:
+The `Report` contains:
+
 - `Timestamp`: When the reconciliation ran
 - `ECSStatus`: Counts of verified, recreated, tag-updated, and orphaned task definitions
 - `SecretsStatus`: Counts of verified, tag-updated, missing, and orphaned parameters
 - `IAMStatus`: Verification status for default and custom roles
-- `Issues`: Array of `HealthIssue` objects with resource type, ID, severity, message, and action taken
+- `Issues`: Array of `Issue` objects with resource type, ID, severity, message, and action taken
 - `ReconciledCount`: Total number of resources reconciled (recreated + tag updates)
 - `ErrorCount`: Total number of errors found
 

@@ -7,22 +7,22 @@ import (
 	"time"
 )
 
-// HealthManager defines the interface for health checks and resource reconciliation.
+// Manager defines the interface for health checks and resource reconciliation.
 // Different cloud providers can implement this interface to support their specific infrastructure.
-type HealthManager interface { //nolint:revive // HealthManager is the established name for this interface
+type Manager interface {
 	// Reconcile checks and repairs inconsistencies between DynamoDB metadata and actual AWS resources.
 	// It verifies ECS task definitions, SSM parameters (secrets), and IAM roles.
 	// Returns a comprehensive health report with all issues found and actions taken.
-	Reconcile(ctx context.Context) (*HealthReport, error)
+	Reconcile(ctx context.Context) (*Report, error)
 }
 
-// HealthReport contains the results of a health reconciliation run.
-type HealthReport struct { //nolint:revive // HealthReport is the established name for this type
+// Report contains the results of a health reconciliation run.
+type Report struct {
 	Timestamp       time.Time
 	ECSStatus       ECSHealthStatus
 	SecretsStatus   SecretsHealthStatus
 	IAMStatus       IAMHealthStatus
-	Issues          []HealthIssue
+	Issues          []Issue
 	ReconciledCount int
 	ErrorCount      int
 }
@@ -55,8 +55,8 @@ type IAMHealthStatus struct {
 	MissingRoles         []string
 }
 
-// HealthIssue represents a single health issue found during reconciliation.
-type HealthIssue struct { //nolint:revive // HealthIssue is the established name for this type
+// Issue represents a single health issue found during reconciliation.
+type Issue struct {
 	ResourceType string // "ecs_task_definition", "ssm_parameter", "iam_role"
 	ResourceID   string
 	Severity     string // "error", "warning"

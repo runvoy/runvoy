@@ -10,7 +10,7 @@ import (
 
 // ReconcileResources performs health reconciliation for all resources.
 // This method allows synchronous execution via API (future API endpoint).
-func (s *Service) ReconcileResources(ctx context.Context) (*health.HealthReport, error) {
+func (s *Service) ReconcileResources(ctx context.Context) (*health.Report, error) {
 	if s.healthManager == nil {
 		return nil, ErrHealthManagerNotAvailable
 	}

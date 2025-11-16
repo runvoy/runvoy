@@ -51,14 +51,14 @@ func TestManager_Reconcile_IAMRoles(t *testing.T) {
 	// - Successful verification
 }
 
-// TestHealthReport_Structure tests the health report structure.
-func TestHealthReport_Structure(t *testing.T) {
+// TestReport_Structure tests the health report structure.
+func TestReport_Structure(t *testing.T) {
 	timestamp, _ := time.Parse(time.RFC3339, "2024-01-01T00:00:00Z")
-	report := &health.HealthReport{
+	report := &health.Report{
 		Timestamp:       timestamp,
 		ReconciledCount: 0,
 		ErrorCount:      0,
-		Issues:          []health.HealthIssue{},
+		Issues:          []health.Issue{},
 	}
 
 	assert.NotNil(t, report)
@@ -67,9 +67,9 @@ func TestHealthReport_Structure(t *testing.T) {
 	assert.Equal(t, 0, len(report.Issues))
 }
 
-// TestHealthIssue_Structure tests the health issue structure.
-func TestHealthIssue_Structure(t *testing.T) {
-	issue := health.HealthIssue{
+// TestIssue_Structure tests the health issue structure.
+func TestIssue_Structure(t *testing.T) {
+	issue := health.Issue{
 		ResourceType: "ecs_task_definition",
 		ResourceID:   "test-family",
 		Severity:     "warning",

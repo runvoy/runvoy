@@ -107,7 +107,7 @@ func initializeHealthManager(
 	secretsRepo database.SecretsRepository,
 	cfg *config.Config,
 	log *slog.Logger,
-) health.HealthManager {
+) health.Manager {
 	accountID, err := getAccountID(ctx, awsCfg, log)
 	if err != nil {
 		log.Warn("failed to get AWS account ID, health manager will not be available", "error", err)
