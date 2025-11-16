@@ -478,13 +478,13 @@ func (p *Processor) handleScheduledEvent(
 
 	reqLogger.Info("health reconciliation completed",
 		"context", map[string]any{
-			"reconciled_count": report.ReconciledCount,
-			"error_count":      report.ErrorCount,
-			"total_issues":     len(report.Issues),
-			"ecs_verified":     report.ECSStatus.VerifiedCount,
-			"ecs_recreated":    report.ECSStatus.RecreatedCount,
-			"secrets_verified": report.SecretsStatus.VerifiedCount,
-			"iam_verified":     report.IAMStatus.DefaultRolesVerified,
+			"reconciled_count":  report.ReconciledCount,
+			"error_count":       report.ErrorCount,
+			"total_issues":      len(report.Issues),
+			"compute_verified":  report.ComputeStatus.VerifiedCount,
+			"compute_recreated": report.ComputeStatus.RecreatedCount,
+			"secrets_verified":  report.SecretsStatus.VerifiedCount,
+			"identity_verified": report.IdentityStatus.DefaultRolesVerified,
 		})
 
 	return nil

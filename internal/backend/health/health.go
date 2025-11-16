@@ -1,5 +1,5 @@
 // Package health provides health management functionality for runvoy.
-// It defines the interface for reconciling resources between DynamoDB and AWS services.
+// It defines the interface for reconciling resources between metadata storage and cloud provider services.
 package health
 
 import (
@@ -10,8 +10,8 @@ import (
 // Manager defines the interface for health checks and resource reconciliation.
 // Different cloud providers can implement this interface to support their specific infrastructure.
 type Manager interface {
-	// Reconcile checks and repairs inconsistencies between DynamoDB metadata and actual AWS resources.
-	// It verifies ECS task definitions, SSM parameters (secrets), and IAM roles.
+	// Reconcile checks and repairs inconsistencies between metadata storage and actual cloud resources.
+	// It verifies compute resources (e.g., task definitions, containers), secrets, and identity/access resources.
 	// Returns a comprehensive health report with all issues found and actions taken.
 	Reconcile(ctx context.Context) (*Report, error)
 }
@@ -19,25 +19,25 @@ type Manager interface {
 // Report contains the results of a health reconciliation run.
 type Report struct {
 	Timestamp       time.Time
-	ECSStatus       ECSHealthStatus
+	ComputeStatus   ComputeHealthStatus
 	SecretsStatus   SecretsHealthStatus
-	IAMStatus       IAMHealthStatus
+	IdentityStatus  IdentityHealthStatus
 	Issues          []Issue
 	ReconciledCount int
 	ErrorCount      int
 }
 
-// ECSHealthStatus contains the health status for ECS task definitions.
-type ECSHealthStatus struct {
-	TotalImages      int
-	VerifiedCount    int
-	RecreatedCount   int
-	TagUpdatedCount  int
-	OrphanedCount    int
-	OrphanedFamilies []string
+// ComputeHealthStatus contains the health status for compute resources (e.g., containers, task definitions).
+type ComputeHealthStatus struct {
+	TotalResources    int
+	VerifiedCount     int
+	RecreatedCount    int
+	TagUpdatedCount   int
+	OrphanedCount     int
+	OrphanedResources []string
 }
 
-// SecretsHealthStatus contains the health status for SSM parameters (secrets).
+// SecretsHealthStatus contains the health status for secrets/parameters.
 type SecretsHealthStatus struct {
 	TotalSecrets       int
 	VerifiedCount      int
@@ -47,8 +47,8 @@ type SecretsHealthStatus struct {
 	OrphanedParameters []string
 }
 
-// IAMHealthStatus contains the health status for IAM roles.
-type IAMHealthStatus struct {
+// IdentityHealthStatus contains the health status for identity and access management resources.
+type IdentityHealthStatus struct {
 	DefaultRolesVerified bool
 	CustomRolesVerified  int
 	CustomRolesTotal     int
@@ -57,7 +57,7 @@ type IAMHealthStatus struct {
 
 // Issue represents a single health issue found during reconciliation.
 type Issue struct {
-	ResourceType string // "ecs_task_definition", "ssm_parameter", "iam_role"
+	ResourceType string // Provider-specific resource type (e.g., "ecs_task_definition", "cloud_run_service")
 	ResourceID   string
 	Severity     string // "error", "warning"
 	Message      string

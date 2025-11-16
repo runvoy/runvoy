@@ -110,13 +110,13 @@ func (m *Manager) Reconcile(ctx context.Context) (*health.Report, error) {
 	}
 
 	// Reconcile ECS task definitions
-	ecsStatus, ecsIssues, err := m.reconcileECSTaskDefinitions(ctx, reqLogger)
+	computeStatus, computeIssues, err := m.reconcileECSTaskDefinitions(ctx, reqLogger)
 	if err != nil {
 		return nil, fmt.Errorf("failed to reconcile ECS task definitions: %w", err)
 	}
-	report.ECSStatus = ecsStatus
-	report.Issues = append(report.Issues, ecsIssues...)
-	report.ReconciledCount += ecsStatus.RecreatedCount + ecsStatus.TagUpdatedCount
+	report.ComputeStatus = computeStatus
+	report.Issues = append(report.Issues, computeIssues...)
+	report.ReconciledCount += computeStatus.RecreatedCount + computeStatus.TagUpdatedCount
 
 	// Reconcile SSM parameters (secrets)
 	secretsStatus, secretsIssues, err := m.reconcileSecrets(ctx, reqLogger)
@@ -128,12 +128,12 @@ func (m *Manager) Reconcile(ctx context.Context) (*health.Report, error) {
 	report.ReconciledCount += secretsStatus.TagUpdatedCount
 
 	// Reconcile IAM roles
-	iamStatus, iamIssues, err := m.reconcileIAMRoles(ctx, reqLogger)
+	identityStatus, identityIssues, err := m.reconcileIAMRoles(ctx, reqLogger)
 	if err != nil {
 		return nil, fmt.Errorf("failed to reconcile IAM roles: %w", err)
 	}
-	report.IAMStatus = iamStatus
-	report.Issues = append(report.Issues, iamIssues...)
+	report.IdentityStatus = identityStatus
+	report.Issues = append(report.Issues, identityIssues...)
 
 	// Count errors
 	for _, issue := range report.Issues {
@@ -154,9 +154,9 @@ func (m *Manager) Reconcile(ctx context.Context) (*health.Report, error) {
 func (m *Manager) reconcileECSTaskDefinitions(
 	ctx context.Context,
 	reqLogger *slog.Logger,
-) (health.ECSHealthStatus, []health.Issue, error) {
-	status := health.ECSHealthStatus{
-		OrphanedFamilies: []string{},
+) (health.ComputeHealthStatus, []health.Issue, error) {
+	status := health.ComputeHealthStatus{
+		OrphanedResources: []string{},
 	}
 	issues := []health.Issue{}
 
@@ -165,7 +165,7 @@ func (m *Manager) reconcileECSTaskDefinitions(
 	if err != nil {
 		return status, issues, fmt.Errorf("failed to list images: %w", err)
 	}
-	status.TotalImages = len(images)
+	status.TotalResources = len(images)
 
 	// Track families we've seen
 	seenFamilies := make(map[string]bool)
@@ -186,7 +186,7 @@ func (m *Manager) checkImageTaskDefinitions(
 	images []api.ImageInfo,
 	seenFamilies map[string]bool,
 	reqLogger *slog.Logger,
-	status *health.ECSHealthStatus,
+	status *health.ComputeHealthStatus,
 ) []health.Issue {
 	issues := []health.Issue{}
 
@@ -217,7 +217,7 @@ func (m *Manager) checkTaskDefinition(
 	img *api.ImageInfo,
 	family string,
 	reqLogger *slog.Logger,
-	status *health.ECSHealthStatus,
+	status *health.ComputeHealthStatus,
 ) []health.Issue {
 	listOutput, listErr := m.ecsClient.ListTaskDefinitions(ctx, &ecs.ListTaskDefinitionsInput{
 		FamilyPrefix: awsStd.String(family),
@@ -248,7 +248,7 @@ func (m *Manager) findAndReportOrphanedTaskDefinitions(
 	ctx context.Context,
 	seenFamilies map[string]bool,
 	reqLogger *slog.Logger,
-	status *health.ECSHealthStatus,
+	status *health.ComputeHealthStatus,
 ) []health.Issue {
 	orphanedFamilies, orphanErr := m.findOrphanedTaskDefinitions(ctx, seenFamilies, reqLogger)
 	if orphanErr != nil {
@@ -257,7 +257,7 @@ func (m *Manager) findAndReportOrphanedTaskDefinitions(
 	}
 
 	status.OrphanedCount = len(orphanedFamilies)
-	status.OrphanedFamilies = orphanedFamilies
+	status.OrphanedResources = orphanedFamilies
 
 	issues := make([]health.Issue, 0, len(orphanedFamilies))
 	for _, family := range orphanedFamilies {
@@ -278,7 +278,7 @@ func (m *Manager) recreateMissingTaskDefinition(
 	img *api.ImageInfo,
 	family string,
 	reqLogger *slog.Logger,
-	status *health.ECSHealthStatus,
+	status *health.ComputeHealthStatus,
 ) []health.Issue {
 	reqLogger.Info("recreating missing task definition", "family", family, "image", img.Image)
 
@@ -332,7 +332,7 @@ func (m *Manager) verifyTaskDefinitionTags(
 	taskDefARN string,
 	family string,
 	reqLogger *slog.Logger,
-	status *health.ECSHealthStatus,
+	status *health.ComputeHealthStatus,
 ) []health.Issue {
 	isDefault := img.IsDefault != nil && *img.IsDefault
 	tagUpdated, tagErr := m.verifyAndUpdateTaskDefinitionTags(ctx, taskDefARN, family, img.Image, isDefault, reqLogger)
@@ -480,8 +480,8 @@ func (m *Manager) checkSecretParameter(
 func (m *Manager) reconcileIAMRoles(
 	ctx context.Context,
 	_ *slog.Logger,
-) (health.IAMHealthStatus, []health.Issue, error) {
-	status := health.IAMHealthStatus{
+) (health.IdentityHealthStatus, []health.Issue, error) {
+	status := health.IdentityHealthStatus{
 		MissingRoles: []string{},
 	}
 	issues := []health.Issue{}
@@ -498,7 +498,7 @@ func (m *Manager) reconcileIAMRoles(
 	return status, issues, nil
 }
 
-func (m *Manager) verifyDefaultRoles(ctx context.Context, status *health.IAMHealthStatus) []health.Issue {
+func (m *Manager) verifyDefaultRoles(ctx context.Context, status *health.IdentityHealthStatus) []health.Issue {
 	issues := []health.Issue{}
 
 	if m.cfg.DefaultTaskRoleARN != "" {
@@ -520,7 +520,7 @@ func (m *Manager) verifyRole(
 	ctx context.Context,
 	roleARN string,
 	roleDescription string,
-	status *health.IAMHealthStatus,
+	status *health.IdentityHealthStatus,
 ) []health.Issue {
 	roleName := extractRoleNameFromARN(roleARN)
 	_, err := m.iamClient.GetRole(ctx, &iam.GetRoleInput{
@@ -556,7 +556,7 @@ func (m *Manager) verifyRole(
 
 func (m *Manager) verifyCustomRoles(
 	ctx context.Context,
-	status *health.IAMHealthStatus,
+	status *health.IdentityHealthStatus,
 ) ([]health.Issue, error) {
 	images, err := m.imageRepo.ListImages(ctx)
 	if err != nil {
