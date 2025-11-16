@@ -11,6 +11,7 @@ import (
 	"runvoy/internal/testutil"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestValidateCreateUserRequest_Success(t *testing.T) {
@@ -21,7 +22,7 @@ func TestValidateCreateUserRequest_Success(t *testing.T) {
 	}
 	logger := testutil.SilentLogger()
 
-	service := NewService(
+	service, err := NewService(
 		repo,
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
@@ -34,8 +35,9 @@ func TestValidateCreateUserRequest_Success(t *testing.T) {
 		nil, // healthManager
 		nil, // enforcer
 	)
+	require.NoError(t, err)
 
-	err := service.validateCreateUserRequest(context.Background(), "user@example.com", "viewer")
+	err = service.validateCreateUserRequest(context.Background(), "user@example.com", "viewer")
 
 	assert.NoError(t, err)
 }
@@ -43,7 +45,7 @@ func TestValidateCreateUserRequest_Success(t *testing.T) {
 func TestValidateCreateUserRequest_EmptyEmail(t *testing.T) {
 	logger := testutil.SilentLogger()
 
-	service := NewService(
+	service, err := NewService(
 		nil,
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
@@ -56,8 +58,9 @@ func TestValidateCreateUserRequest_EmptyEmail(t *testing.T) {
 		nil, // healthManager
 		nil, // enforcer
 	)
+	require.NoError(t, err)
 
-	err := service.validateCreateUserRequest(context.Background(), "", "viewer")
+	err = service.validateCreateUserRequest(context.Background(), "", "viewer")
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "email is required")
@@ -66,7 +69,7 @@ func TestValidateCreateUserRequest_EmptyEmail(t *testing.T) {
 func TestValidateCreateUserRequest_InvalidEmail(t *testing.T) {
 	logger := testutil.SilentLogger()
 
-	service := NewService(
+	service, err := NewService(
 		nil,
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
@@ -79,8 +82,9 @@ func TestValidateCreateUserRequest_InvalidEmail(t *testing.T) {
 		nil, // healthManager
 		nil, // enforcer
 	)
+	require.NoError(t, err)
 
-	err := service.validateCreateUserRequest(context.Background(), "not-an-email", "viewer")
+	err = service.validateCreateUserRequest(context.Background(), "not-an-email", "viewer")
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid email address")
@@ -94,7 +98,7 @@ func TestValidateCreateUserRequest_UserAlreadyExists(t *testing.T) {
 	}
 	logger := testutil.SilentLogger()
 
-	service := NewService(
+	service, err := NewService(
 		repo,
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
@@ -107,8 +111,9 @@ func TestValidateCreateUserRequest_UserAlreadyExists(t *testing.T) {
 		nil, // healthManager
 		nil, // enforcer
 	)
+	require.NoError(t, err)
 
-	err := service.validateCreateUserRequest(context.Background(), "user@example.com", "viewer")
+	err = service.validateCreateUserRequest(context.Background(), "user@example.com", "viewer")
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "user with this email already exists")
@@ -122,7 +127,7 @@ func TestValidateCreateUserRequest_RepositoryError(t *testing.T) {
 	}
 	logger := testutil.SilentLogger()
 
-	service := NewService(
+	service, err := NewService(
 		repo,
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
@@ -135,8 +140,9 @@ func TestValidateCreateUserRequest_RepositoryError(t *testing.T) {
 		nil, // healthManager
 		nil, // enforcer
 	)
+	require.NoError(t, err)
 
-	err := service.validateCreateUserRequest(context.Background(), "user@example.com", "viewer")
+	err = service.validateCreateUserRequest(context.Background(), "user@example.com", "viewer")
 
 	assert.Error(t, err)
 }
@@ -144,7 +150,7 @@ func TestValidateCreateUserRequest_RepositoryError(t *testing.T) {
 func TestValidateCreateUserRequest_EmptyRole(t *testing.T) {
 	logger := testutil.SilentLogger()
 
-	service := NewService(
+	service, err := NewService(
 		nil,
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
@@ -157,8 +163,9 @@ func TestValidateCreateUserRequest_EmptyRole(t *testing.T) {
 		nil, // healthManager
 		nil, // enforcer
 	)
+	require.NoError(t, err)
 
-	err := service.validateCreateUserRequest(context.Background(), "user@example.com", "")
+	err = service.validateCreateUserRequest(context.Background(), "user@example.com", "")
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "role is required")
@@ -167,7 +174,7 @@ func TestValidateCreateUserRequest_EmptyRole(t *testing.T) {
 func TestValidateCreateUserRequest_InvalidRole(t *testing.T) {
 	logger := testutil.SilentLogger()
 
-	service := NewService(
+	service, err := NewService(
 		nil,
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
@@ -180,8 +187,9 @@ func TestValidateCreateUserRequest_InvalidRole(t *testing.T) {
 		nil, // healthManager
 		nil, // enforcer
 	)
+	require.NoError(t, err)
 
-	err := service.validateCreateUserRequest(context.Background(), "user@example.com", "superuser")
+	err = service.validateCreateUserRequest(context.Background(), "user@example.com", "superuser")
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid role")
@@ -214,7 +222,7 @@ func TestCreatePendingClaim_Success(t *testing.T) {
 	}
 	logger := testutil.SilentLogger()
 
-	service := NewService(
+	service, err := NewService(
 		repo,
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
@@ -227,6 +235,7 @@ func TestCreatePendingClaim_Success(t *testing.T) {
 		nil, // healthManager
 		nil, // enforcer
 	)
+	require.NoError(t, err)
 
 	secretToken, err := service.createPendingClaim(
 		context.Background(),
@@ -248,7 +257,7 @@ func TestCreatePendingClaim_RepositoryError(t *testing.T) {
 	}
 	logger := testutil.SilentLogger()
 
-	service := NewService(
+	service, err := NewService(
 		repo,
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
@@ -261,8 +270,9 @@ func TestCreatePendingClaim_RepositoryError(t *testing.T) {
 		nil, // healthManager
 		nil, // enforcer
 	)
+	require.NoError(t, err)
 
-	_, err := service.createPendingClaim(
+	_, err = service.createPendingClaim(
 		context.Background(),
 		"test-api-key",
 		"user@example.com",
@@ -288,7 +298,7 @@ func TestCreateUser_Success(t *testing.T) {
 	}
 	logger := testutil.SilentLogger()
 
-	service := NewService(
+	service, err := NewService(
 		repo,
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
@@ -301,6 +311,7 @@ func TestCreateUser_Success(t *testing.T) {
 		nil, // healthManager
 		nil, // enforcer
 	)
+	require.NoError(t, err)
 
 	req := api.CreateUserRequest{Email: "user@example.com", Role: "viewer"}
 	resp, err := service.CreateUser(context.Background(), req, "admin@example.com")
@@ -315,7 +326,7 @@ func TestCreateUser_Success(t *testing.T) {
 func TestCreateUser_NoRepository(t *testing.T) {
 	logger := testutil.SilentLogger()
 
-	service := NewService(
+	service, err := NewService(
 		nil,
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
@@ -328,9 +339,10 @@ func TestCreateUser_NoRepository(t *testing.T) {
 		nil, // healthManager
 		nil, // enforcer
 	)
+	require.NoError(t, err)
 
 	req := api.CreateUserRequest{Email: "user@example.com"}
-	_, err := service.CreateUser(context.Background(), req, "admin@example.com")
+	_, err = service.CreateUser(context.Background(), req, "admin@example.com")
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "user repository not configured")
@@ -339,7 +351,7 @@ func TestCreateUser_NoRepository(t *testing.T) {
 func TestCreateUser_InvalidEmail(t *testing.T) {
 	logger := testutil.SilentLogger()
 
-	service := NewService(
+	service, err := NewService(
 		&mockUserRepository{},
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
@@ -352,9 +364,10 @@ func TestCreateUser_InvalidEmail(t *testing.T) {
 		nil, // healthManager
 		nil, // enforcer
 	)
+	require.NoError(t, err)
 
 	req := api.CreateUserRequest{Email: "not-valid", Role: "viewer"}
-	_, err := service.CreateUser(context.Background(), req, "admin@example.com")
+	_, err = service.CreateUser(context.Background(), req, "admin@example.com")
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid email address")
@@ -371,7 +384,7 @@ func TestCreateUser_CreateUserError(t *testing.T) {
 	}
 	logger := testutil.SilentLogger()
 
-	service := NewService(
+	service, err := NewService(
 		repo,
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
@@ -384,9 +397,10 @@ func TestCreateUser_CreateUserError(t *testing.T) {
 		nil, // healthManager
 		nil, // enforcer
 	)
+	require.NoError(t, err)
 
 	req := api.CreateUserRequest{Email: "user@example.com", Role: "viewer"}
-	_, err := service.CreateUser(context.Background(), req, "admin@example.com")
+	_, err = service.CreateUser(context.Background(), req, "admin@example.com")
 
 	assert.Error(t, err)
 }
@@ -394,7 +408,7 @@ func TestCreateUser_CreateUserError(t *testing.T) {
 func TestCreateUser_MissingRole(t *testing.T) {
 	logger := testutil.SilentLogger()
 
-	service := NewService(
+	service, err := NewService(
 		&mockUserRepository{},
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
@@ -407,9 +421,10 @@ func TestCreateUser_MissingRole(t *testing.T) {
 		nil, // healthManager
 		nil, // enforcer
 	)
+	require.NoError(t, err)
 
 	req := api.CreateUserRequest{Email: "user@example.com", Role: ""}
-	_, err := service.CreateUser(context.Background(), req, "admin@example.com")
+	_, err = service.CreateUser(context.Background(), req, "admin@example.com")
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "role is required")
@@ -418,7 +433,7 @@ func TestCreateUser_MissingRole(t *testing.T) {
 func TestCreateUser_InvalidRole(t *testing.T) {
 	logger := testutil.SilentLogger()
 
-	service := NewService(
+	service, err := NewService(
 		&mockUserRepository{},
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
@@ -431,9 +446,10 @@ func TestCreateUser_InvalidRole(t *testing.T) {
 		nil, // healthManager
 		nil, // enforcer
 	)
+	require.NoError(t, err)
 
 	req := api.CreateUserRequest{Email: "user@example.com", Role: "superadmin"}
-	_, err := service.CreateUser(context.Background(), req, "admin@example.com")
+	_, err = service.CreateUser(context.Background(), req, "admin@example.com")
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid role")
@@ -460,7 +476,7 @@ func TestClaimAPIKey_Success(t *testing.T) {
 	}
 	logger := testutil.SilentLogger()
 
-	service := NewService(
+	service, err := NewService(
 		repo,
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
@@ -473,6 +489,7 @@ func TestClaimAPIKey_Success(t *testing.T) {
 		nil, // healthManager
 		nil, // enforcer
 	)
+	require.NoError(t, err)
 
 	resp, err := service.ClaimAPIKey(context.Background(), "token", "192.168.1.1")
 
@@ -485,7 +502,7 @@ func TestClaimAPIKey_Success(t *testing.T) {
 func TestClaimAPIKey_NoRepository(t *testing.T) {
 	logger := testutil.SilentLogger()
 
-	service := NewService(
+	service, err := NewService(
 		nil,
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
@@ -498,8 +515,9 @@ func TestClaimAPIKey_NoRepository(t *testing.T) {
 		nil, // healthManager
 		nil, // enforcer
 	)
+	require.NoError(t, err)
 
-	_, err := service.ClaimAPIKey(context.Background(), "token", "192.168.1.1")
+	_, err = service.ClaimAPIKey(context.Background(), "token", "192.168.1.1")
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "user repository not configured")
@@ -513,7 +531,7 @@ func TestClaimAPIKey_InvalidToken(t *testing.T) {
 	}
 	logger := testutil.SilentLogger()
 
-	service := NewService(
+	service, err := NewService(
 		repo,
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
@@ -526,8 +544,9 @@ func TestClaimAPIKey_InvalidToken(t *testing.T) {
 		nil, // healthManager
 		nil, // enforcer
 	)
+	require.NoError(t, err)
 
-	_, err := service.ClaimAPIKey(context.Background(), "invalid-token", "192.168.1.1")
+	_, err = service.ClaimAPIKey(context.Background(), "invalid-token", "192.168.1.1")
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid or expired token")
@@ -548,7 +567,7 @@ func TestClaimAPIKey_AlreadyClaimed(t *testing.T) {
 	}
 	logger := testutil.SilentLogger()
 
-	service := NewService(
+	service, err := NewService(
 		repo,
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
@@ -561,8 +580,9 @@ func TestClaimAPIKey_AlreadyClaimed(t *testing.T) {
 		nil, // healthManager
 		nil, // enforcer
 	)
+	require.NoError(t, err)
 
-	_, err := service.ClaimAPIKey(context.Background(), "token", "192.168.1.1")
+	_, err = service.ClaimAPIKey(context.Background(), "token", "192.168.1.1")
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "already been claimed")
@@ -583,7 +603,7 @@ func TestClaimAPIKey_TokenExpired(t *testing.T) {
 	}
 	logger := testutil.SilentLogger()
 
-	service := NewService(
+	service, err := NewService(
 		repo,
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
@@ -596,8 +616,9 @@ func TestClaimAPIKey_TokenExpired(t *testing.T) {
 		nil, // healthManager
 		nil, // enforcer
 	)
+	require.NoError(t, err)
 
-	_, err := service.ClaimAPIKey(context.Background(), "token", "192.168.1.1")
+	_, err = service.ClaimAPIKey(context.Background(), "token", "192.168.1.1")
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "expired")
@@ -614,7 +635,7 @@ func TestListUsers_Success(t *testing.T) {
 	}
 	logger := testutil.SilentLogger()
 
-	service := NewService(
+	service, err := NewService(
 		repo,
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
@@ -627,6 +648,7 @@ func TestListUsers_Success(t *testing.T) {
 		nil, // healthManager
 		nil, // enforcer
 	)
+	require.NoError(t, err)
 
 	resp, err := service.ListUsers(context.Background())
 
@@ -646,7 +668,7 @@ func TestListUsers_Empty(t *testing.T) {
 	}
 	logger := testutil.SilentLogger()
 
-	service := NewService(
+	service, err := NewService(
 		repo,
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
@@ -659,6 +681,7 @@ func TestListUsers_Empty(t *testing.T) {
 		nil, // healthManager
 		nil, // enforcer
 	)
+	require.NoError(t, err)
 
 	resp, err := service.ListUsers(context.Background())
 
@@ -670,7 +693,7 @@ func TestListUsers_Empty(t *testing.T) {
 func TestListUsers_NoRepository(t *testing.T) {
 	logger := testutil.SilentLogger()
 
-	service := NewService(
+	service, err := NewService(
 		nil,
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
@@ -683,8 +706,9 @@ func TestListUsers_NoRepository(t *testing.T) {
 		nil, // healthManager
 		nil, // enforcer
 	)
+	require.NoError(t, err)
 
-	_, err := service.ListUsers(context.Background())
+	_, err = service.ListUsers(context.Background())
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "user repository not configured")
@@ -698,7 +722,7 @@ func TestListUsers_RepositoryError(t *testing.T) {
 	}
 	logger := testutil.SilentLogger()
 
-	service := NewService(
+	service, err := NewService(
 		repo,
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
@@ -711,8 +735,9 @@ func TestListUsers_RepositoryError(t *testing.T) {
 		nil, // healthManager
 		nil, // enforcer
 	)
+	require.NoError(t, err)
 
-	_, err := service.ListUsers(context.Background())
+	_, err = service.ListUsers(context.Background())
 
 	assert.Error(t, err)
 }
@@ -730,7 +755,7 @@ func TestListUsers_SortingByEmail(t *testing.T) {
 	}
 	logger := testutil.SilentLogger()
 
-	service := NewService(
+	service, err := NewService(
 		repo,
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
@@ -743,6 +768,7 @@ func TestListUsers_SortingByEmail(t *testing.T) {
 		nil, // healthManager
 		nil, // enforcer
 	)
+	require.NoError(t, err)
 
 	resp, err := service.ListUsers(context.Background())
 

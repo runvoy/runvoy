@@ -16,6 +16,7 @@ import (
 	"runvoy/internal/testutil"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // Mock secret repository for testing
@@ -69,7 +70,7 @@ func TestHandleCreateSecret_Success(t *testing.T) {
 	execRepo := &testExecutionRepository{}
 	secretRepo := &testSecretRepository{}
 
-	svc := newTestService(userRepo, execRepo, secretRepo)
+	svc := newTestService(t, userRepo, execRepo, secretRepo)
 	router := NewRouter(svc, 30*1000)
 
 	createReq := api.CreateSecretRequest{
@@ -103,7 +104,7 @@ func TestHandleCreateSecret_InvalidRequestBody(t *testing.T) {
 	execRepo := &testExecutionRepository{}
 	secretRepo := &testSecretRepository{}
 
-	svc := newTestService(userRepo, execRepo, secretRepo)
+	svc := newTestService(t, userRepo, execRepo, secretRepo)
 	router := NewRouter(svc, 30*1000)
 
 	req := httptest.NewRequest("POST", "/api/v1/secrets", bytes.NewReader([]byte("invalid json")))
@@ -125,7 +126,7 @@ func TestHandleCreateSecret_ServiceError(t *testing.T) {
 		},
 	}
 
-	svc := newTestService(userRepo, execRepo, secretRepo)
+	svc := newTestService(t, userRepo, execRepo, secretRepo)
 	router := NewRouter(svc, 30*1000)
 
 	createReq := api.CreateSecretRequest{
@@ -158,7 +159,7 @@ func TestHandleGetSecret_Success(t *testing.T) {
 		},
 	}
 
-	svc := newTestService(userRepo, execRepo, secretRepo)
+	svc := newTestService(t, userRepo, execRepo, secretRepo)
 	router := NewRouter(svc, 30*1000)
 
 	req := httptest.NewRequest("GET", "/api/v1/secrets/my-secret", http.NoBody)
@@ -185,7 +186,7 @@ func TestHandleGetSecret_NotFound(t *testing.T) {
 		},
 	}
 
-	svc := newTestService(userRepo, execRepo, secretRepo)
+	svc := newTestService(t, userRepo, execRepo, secretRepo)
 	router := NewRouter(svc, 30*1000)
 
 	req := httptest.NewRequest("GET", "/api/v1/secrets/nonexistent", http.NoBody)
@@ -210,7 +211,7 @@ func TestHandleListSecrets_Success(t *testing.T) {
 		},
 	}
 
-	svc := newTestService(userRepo, execRepo, secretRepo)
+	svc := newTestService(t, userRepo, execRepo, secretRepo)
 	router := NewRouter(svc, 30*1000)
 
 	req := httptest.NewRequest("GET", "/api/v1/secrets", http.NoBody)
@@ -237,7 +238,7 @@ func TestHandleListSecrets_Empty(t *testing.T) {
 		},
 	}
 
-	svc := newTestService(userRepo, execRepo, secretRepo)
+	svc := newTestService(t, userRepo, execRepo, secretRepo)
 	router := NewRouter(svc, 30*1000)
 
 	req := httptest.NewRequest("GET", "/api/v1/secrets", http.NoBody)
@@ -263,7 +264,7 @@ func TestHandleListSecrets_ServiceError(t *testing.T) {
 		},
 	}
 
-	svc := newTestService(userRepo, execRepo, secretRepo)
+	svc := newTestService(t, userRepo, execRepo, secretRepo)
 	router := NewRouter(svc, 30*1000)
 
 	req := httptest.NewRequest("GET", "/api/v1/secrets", http.NoBody)
@@ -285,7 +286,7 @@ func TestHandleUpdateSecret_Success(t *testing.T) {
 		},
 	}
 
-	svc := newTestService(userRepo, execRepo, secretRepo)
+	svc := newTestService(t, userRepo, execRepo, secretRepo)
 	router := NewRouter(svc, 30*1000)
 
 	updateReq := api.UpdateSecretRequest{
@@ -313,7 +314,7 @@ func TestHandleUpdateSecret_InvalidBody(t *testing.T) {
 	execRepo := &testExecutionRepository{}
 	secretRepo := &testSecretRepository{}
 
-	svc := newTestService(userRepo, execRepo, secretRepo)
+	svc := newTestService(t, userRepo, execRepo, secretRepo)
 	router := NewRouter(svc, 30*1000)
 
 	req := httptest.NewRequest("PUT", "/api/v1/secrets/my-secret", bytes.NewReader([]byte("invalid json")))
@@ -335,7 +336,7 @@ func TestHandleUpdateSecret_NotFound(t *testing.T) {
 		},
 	}
 
-	svc := newTestService(userRepo, execRepo, secretRepo)
+	svc := newTestService(t, userRepo, execRepo, secretRepo)
 	router := NewRouter(svc, 30*1000)
 
 	updateReq := api.UpdateSecretRequest{
@@ -362,7 +363,7 @@ func TestHandleDeleteSecret_Success(t *testing.T) {
 		},
 	}
 
-	svc := newTestService(userRepo, execRepo, secretRepo)
+	svc := newTestService(t, userRepo, execRepo, secretRepo)
 	router := NewRouter(svc, 30*1000)
 
 	req := httptest.NewRequest("DELETE", "/api/v1/secrets/my-secret", http.NoBody)
@@ -389,7 +390,7 @@ func TestHandleDeleteSecret_NotFound(t *testing.T) {
 		},
 	}
 
-	svc := newTestService(userRepo, execRepo, secretRepo)
+	svc := newTestService(t, userRepo, execRepo, secretRepo)
 	router := NewRouter(svc, 30*1000)
 
 	req := httptest.NewRequest("DELETE", "/api/v1/secrets/nonexistent", http.NoBody)
@@ -410,6 +411,7 @@ func addAuthToRequest(req *http.Request) *http.Request {
 
 // Create a test service with the given repositories
 func newTestService(
+	t *testing.T,
 	userRepo *testUserRepository,
 	execRepo *testExecutionRepository,
 	secretRepo *testSecretRepository,
@@ -420,7 +422,7 @@ func newTestService(
 	mockRunner := &testRunner{}
 	tokenRepo := &testTokenRepository{}
 
-	return orchestrator.NewService(
+	svc, err := orchestrator.NewService(
 		userRepo,
 		execRepo,
 		nil, // connRepo
@@ -433,4 +435,6 @@ func newTestService(
 		nil, // healthManager
 		nil,
 	)
+	require.NoError(t, err)
+	return svc
 }

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log/slog"
 
-	"runvoy/internal/auth/authorization"
 	"runvoy/internal/config"
 	"runvoy/internal/database"
 	"runvoy/internal/logger"
@@ -34,7 +33,6 @@ type Dependencies struct {
 	WebSocketManager *websocket.Manager
 	SecretsRepo      database.SecretsRepository
 	HealthManager    *awsHealth.Manager
-	Enforcer         *authorization.Enforcer
 }
 
 // Initialize prepares AWS service dependencies for the app package.
@@ -101,23 +99,6 @@ func Initialize( //nolint:funlen // This is ok, lots of initializations required
 		log,
 	)
 
-	// Initialize Casbin enforcer for authorization
-	// The enforcer uses embedded configuration files, so no filesystem access is required
-	enforcer, err := authorization.NewEnforcer(log)
-	if err != nil {
-		return nil, fmt.Errorf("failed to initialize authorization enforcer: %w", err)
-	}
-
-	log.Debug("AWS orchestrator initialized successfully", "context", map[string]string{
-		"ecs_cluster":                cfg.AWS.ECSCluster,
-		"subnet1":                    cfg.AWS.Subnet1,
-		"subnet2":                    cfg.AWS.Subnet2,
-		"security_group":             cfg.AWS.SecurityGroup,
-		"log_group":                  cfg.AWS.LogGroup,
-		"default_task_exec_role_arn": cfg.AWS.DefaultTaskExecRoleARN,
-		"default_task_role_arn":      cfg.AWS.DefaultTaskRoleARN,
-	})
-
 	return &Dependencies{
 		UserRepo:         repos.userRepo,
 		ExecutionRepo:    repos.executionRepo,
@@ -127,7 +108,6 @@ func Initialize( //nolint:funlen // This is ok, lots of initializations required
 		WebSocketManager: wsManager,
 		SecretsRepo:      repos.secretsRepo,
 		HealthManager:    healthManager,
-		Enforcer:         enforcer,
 	}, nil
 }
 

@@ -11,6 +11,8 @@ import (
 	"runvoy/internal/backend/orchestrator"
 	"runvoy/internal/constants"
 	"runvoy/internal/testutil"
+
+	"github.com/stretchr/testify/require"
 )
 
 // mockRunner implements the app.Runner interface for testing
@@ -58,7 +60,7 @@ func (m *mockRunner) FetchLogsByExecutionID(_ context.Context, _ string) ([]api.
 // Test that the status endpoint exists and requires authentication
 func TestGetExecutionStatus_Unauthorized(t *testing.T) {
 	// Build a minimal service with nil repos; we won't reach the handler due to auth
-	svc := orchestrator.NewService(
+	svc, err := orchestrator.NewService(
 		nil,
 		nil,
 		nil,
@@ -71,6 +73,7 @@ func TestGetExecutionStatus_Unauthorized(t *testing.T) {
 		nil, // healthManager
 		nil,
 	)
+	require.NoError(t, err)
 	router := NewRouter(svc, 2*time.Second)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/executions/exec-123/status", http.NoBody)

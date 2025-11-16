@@ -17,6 +17,7 @@ import (
 	"runvoy/internal/testutil"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // Test mocks for repositories and runner
@@ -232,7 +233,7 @@ func (t *testRunner) FetchLogsByExecutionID(_ context.Context, _ string) ([]api.
 }
 
 func TestHandleHealth(t *testing.T) {
-	svc := orchestrator.NewService(
+	svc, err := orchestrator.NewService(
 		nil,
 		nil,
 		nil,
@@ -245,6 +246,7 @@ func TestHandleHealth(t *testing.T) {
 		nil, // healthManager
 		nil,
 	)
+	require.NoError(t, err)
 	router := NewRouter(svc, 2*time.Second)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/health", http.NoBody)
@@ -262,7 +264,7 @@ func TestHandleRunCommand_Success(t *testing.T) {
 	execRepo := &testExecutionRepository{}
 	runner := &testRunner{}
 
-	svc := orchestrator.NewService(
+	svc, err := orchestrator.NewService(
 		userRepo,
 		execRepo,
 		nil,
@@ -275,6 +277,7 @@ func TestHandleRunCommand_Success(t *testing.T) {
 		nil, // healthManager
 		nil,
 	)
+	require.NoError(t, err)
 	router := NewRouter(svc, 2*time.Second)
 
 	reqBody := api.ExecutionRequest{
@@ -291,14 +294,14 @@ func TestHandleRunCommand_Success(t *testing.T) {
 	assert.Equal(t, http.StatusAccepted, resp.Code)
 
 	var execResp api.ExecutionResponse
-	err := json.NewDecoder(resp.Body).Decode(&execResp)
-	assert.NoError(t, err)
+	decodeErr := json.NewDecoder(resp.Body).Decode(&execResp)
+	assert.NoError(t, decodeErr)
 	assert.NotEmpty(t, execResp.ExecutionID)
 	assert.Equal(t, string(constants.ExecutionStarting), execResp.Status)
 }
 
 func TestHandleRunCommand_InvalidJSON(t *testing.T) {
-	svc := orchestrator.NewService(
+	svc, err := orchestrator.NewService(
 		&testUserRepository{},
 		nil,
 		nil,
@@ -311,6 +314,7 @@ func TestHandleRunCommand_InvalidJSON(t *testing.T) {
 		nil, // healthManager
 		nil,
 	)
+	require.NoError(t, err)
 	router := NewRouter(svc, 2*time.Second)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/run", bytes.NewReader([]byte("invalid json")))
@@ -323,14 +327,14 @@ func TestHandleRunCommand_InvalidJSON(t *testing.T) {
 	assert.Contains(t, resp.Body.String(), "invalid request body")
 }
 
-func TestHandleRunCommand_Unauthorized(t *testing.T) {
+func testUnauthorizedRequest(t *testing.T, method, endpoint string, reqBody any) {
 	userRepo := &testUserRepository{
 		authenticateUserFunc: func(_ string) (*api.User, error) {
 			return nil, apperrors.ErrInvalidAPIKey(nil)
 		},
 	}
 
-	svc := orchestrator.NewService(
+	svc, err := orchestrator.NewService(
 		userRepo,
 		nil,
 		nil,
@@ -343,18 +347,22 @@ func TestHandleRunCommand_Unauthorized(t *testing.T) {
 		nil, // healthManager
 		nil,
 	)
+	require.NoError(t, err)
 	router := NewRouter(svc, 2*time.Second)
 
-	reqBody := api.ExecutionRequest{Command: "echo hello"}
 	body, _ := json.Marshal(reqBody)
 
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/run", bytes.NewReader(body))
+	req := httptest.NewRequest(method, endpoint, bytes.NewReader(body))
 	req.Header.Set("X-API-Key", "invalid-key")
 
 	resp := httptest.NewRecorder()
 	router.ServeHTTP(resp, req)
 
 	assert.Equal(t, http.StatusUnauthorized, resp.Code)
+}
+
+func TestHandleRunCommand_Unauthorized(t *testing.T) {
+	testUnauthorizedRequest(t, http.MethodPost, "/api/v1/run", api.ExecutionRequest{Command: "echo hello"})
 }
 
 func TestHandleListExecutions_Success(t *testing.T) {
@@ -373,7 +381,7 @@ func TestHandleListExecutions_Success(t *testing.T) {
 		},
 	}
 
-	svc := orchestrator.NewService(
+	svc, err := orchestrator.NewService(
 		&testUserRepository{},
 		execRepo,
 		nil,
@@ -386,6 +394,7 @@ func TestHandleListExecutions_Success(t *testing.T) {
 		nil, // healthManager
 		nil,
 	)
+	require.NoError(t, err)
 	router := NewRouter(svc, 2*time.Second)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/executions", http.NoBody)
@@ -397,8 +406,8 @@ func TestHandleListExecutions_Success(t *testing.T) {
 	assert.Equal(t, http.StatusOK, resp.Code)
 
 	var executions []*api.Execution
-	err := json.NewDecoder(resp.Body).Decode(&executions)
-	assert.NoError(t, err)
+	decodeErr := json.NewDecoder(resp.Body).Decode(&executions)
+	assert.NoError(t, decodeErr)
 	assert.Len(t, executions, 1)
 	assert.Equal(t, "exec-1", executions[0].ExecutionID)
 }
@@ -410,7 +419,7 @@ func TestHandleListExecutions_Empty(t *testing.T) {
 		},
 	}
 
-	svc := orchestrator.NewService(
+	svc, err := orchestrator.NewService(
 		&testUserRepository{},
 		execRepo,
 		nil,
@@ -423,6 +432,7 @@ func TestHandleListExecutions_Empty(t *testing.T) {
 		nil, // healthManager
 		nil,
 	)
+	require.NoError(t, err)
 	router := NewRouter(svc, 2*time.Second)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/executions", http.NoBody)
@@ -442,7 +452,7 @@ func TestHandleListExecutions_DatabaseError(t *testing.T) {
 		},
 	}
 
-	svc := orchestrator.NewService(
+	svc, err := orchestrator.NewService(
 		&testUserRepository{},
 		execRepo,
 		nil,
@@ -455,6 +465,7 @@ func TestHandleListExecutions_DatabaseError(t *testing.T) {
 		nil, // healthManager
 		nil,
 	)
+	require.NoError(t, err)
 	router := NewRouter(svc, 2*time.Second)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/executions", http.NoBody)
@@ -468,7 +479,7 @@ func TestHandleListExecutions_DatabaseError(t *testing.T) {
 }
 
 func TestHandleRegisterImage_Success(t *testing.T) {
-	svc := orchestrator.NewService(
+	svc, err := orchestrator.NewService(
 		&testUserRepository{},
 		nil,
 		nil,
@@ -481,6 +492,7 @@ func TestHandleRegisterImage_Success(t *testing.T) {
 		nil, // healthManager
 		nil,
 	)
+	require.NoError(t, err)
 	router := NewRouter(svc, 2*time.Second)
 
 	reqBody := api.RegisterImageRequest{
@@ -500,7 +512,7 @@ func TestHandleRegisterImage_Success(t *testing.T) {
 }
 
 func TestHandleRegisterImage_InvalidJSON(t *testing.T) {
-	svc := orchestrator.NewService(
+	svc, err := orchestrator.NewService(
 		&testUserRepository{},
 		nil,
 		nil,
@@ -513,6 +525,7 @@ func TestHandleRegisterImage_InvalidJSON(t *testing.T) {
 		nil, // healthManager
 		nil,
 	)
+	require.NoError(t, err)
 	router := NewRouter(svc, 2*time.Second)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/images/register", bytes.NewReader([]byte("invalid json")))
@@ -535,7 +548,7 @@ func TestHandleListImages_Success(t *testing.T) {
 		},
 	}
 
-	svc := orchestrator.NewService(
+	svc, err := orchestrator.NewService(
 		&testUserRepository{},
 		nil,
 		nil,
@@ -548,6 +561,7 @@ func TestHandleListImages_Success(t *testing.T) {
 		nil, // healthManager
 		nil,
 	)
+	require.NoError(t, err)
 	router := NewRouter(svc, 2*time.Second)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/images", http.NoBody)
@@ -568,7 +582,7 @@ func TestHandleListImages_Empty(t *testing.T) {
 		},
 	}
 
-	svc := orchestrator.NewService(
+	svc, err := orchestrator.NewService(
 		&testUserRepository{},
 		nil,
 		nil,
@@ -581,6 +595,7 @@ func TestHandleListImages_Empty(t *testing.T) {
 		nil, // healthManager
 		nil,
 	)
+	require.NoError(t, err)
 	router := NewRouter(svc, 2*time.Second)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/images", http.NoBody)
@@ -593,7 +608,7 @@ func TestHandleListImages_Empty(t *testing.T) {
 }
 
 func TestHandleRemoveImage_Success(t *testing.T) {
-	svc := orchestrator.NewService(
+	svc, err := orchestrator.NewService(
 		&testUserRepository{},
 		nil,
 		nil,
@@ -606,6 +621,7 @@ func TestHandleRemoveImage_Success(t *testing.T) {
 		nil, // healthManager
 		nil,
 	)
+	require.NoError(t, err)
 	router := NewRouter(svc, 2*time.Second)
 
 	reqBody := api.RemoveImageRequest{
@@ -624,7 +640,7 @@ func TestHandleRemoveImage_Success(t *testing.T) {
 }
 
 func TestHandleRemoveImage_NotFound(t *testing.T) {
-	svc := orchestrator.NewService(
+	svc, err := orchestrator.NewService(
 		&testUserRepository{},
 		nil,
 		nil,
@@ -641,6 +657,7 @@ func TestHandleRemoveImage_NotFound(t *testing.T) {
 		nil, // healthManager
 		nil,
 	)
+	require.NoError(t, err)
 	router := NewRouter(svc, 2*time.Second)
 
 	req := httptest.NewRequest(http.MethodDelete, "/api/v1/images/nonexistent:latest", http.NoBody)
@@ -654,7 +671,7 @@ func TestHandleRemoveImage_NotFound(t *testing.T) {
 }
 
 func TestHandleRemoveImage_MissingImage(t *testing.T) {
-	svc := orchestrator.NewService(
+	svc, err := orchestrator.NewService(
 		&testUserRepository{},
 		nil,
 		nil,
@@ -667,6 +684,7 @@ func TestHandleRemoveImage_MissingImage(t *testing.T) {
 		nil, // healthManager
 		nil,
 	)
+	require.NoError(t, err)
 	router := NewRouter(svc, 2*time.Second)
 
 	// DELETE request without image path parameter
@@ -690,7 +708,7 @@ func TestHandleGetImage_Success(t *testing.T) {
 		},
 	}
 
-	svc := orchestrator.NewService(
+	svc, err := orchestrator.NewService(
 		&testUserRepository{},
 		nil,
 		nil,
@@ -703,6 +721,7 @@ func TestHandleGetImage_Success(t *testing.T) {
 		nil, // healthManager
 		nil,
 	)
+	require.NoError(t, err)
 	router := NewRouter(svc, 2*time.Second)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/images/alpine:latest", http.NoBody)
@@ -723,7 +742,7 @@ func TestHandleGetImage_NotFound(t *testing.T) {
 		},
 	}
 
-	svc := orchestrator.NewService(
+	svc, err := orchestrator.NewService(
 		&testUserRepository{},
 		nil,
 		nil,
@@ -736,6 +755,7 @@ func TestHandleGetImage_NotFound(t *testing.T) {
 		nil, // healthManager
 		nil,
 	)
+	require.NoError(t, err)
 	router := NewRouter(svc, 2*time.Second)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/images/nonexistent:latest", http.NoBody)
@@ -790,7 +810,7 @@ func TestGetClientIP_XForwardedForPrecedence(t *testing.T) {
 
 func TestHandleListUsers_Success(t *testing.T) {
 	userRepo := &testUserRepository{}
-	svc := orchestrator.NewService(
+	svc, err := orchestrator.NewService(
 		userRepo,
 		nil,
 		nil,
@@ -803,6 +823,7 @@ func TestHandleListUsers_Success(t *testing.T) {
 		nil, // healthManager
 		nil,
 	)
+	require.NoError(t, err)
 	router := NewRouter(svc, 2*time.Second)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/users/", http.NoBody)
@@ -814,8 +835,8 @@ func TestHandleListUsers_Success(t *testing.T) {
 	assert.Equal(t, http.StatusOK, resp.Code)
 
 	var listResp api.ListUsersResponse
-	err := json.NewDecoder(resp.Body).Decode(&listResp)
-	assert.NoError(t, err)
+	decodeErr := json.NewDecoder(resp.Body).Decode(&listResp)
+	assert.NoError(t, decodeErr)
 	assert.Len(t, listResp.Users, 3)
 	// Verify users are sorted by email in ascending order
 	assert.Equal(t, "alice@example.com", listResp.Users[0].Email)
@@ -832,7 +853,7 @@ func TestHandleListUsers_Unauthorized(t *testing.T) {
 			return nil, apperrors.ErrInvalidAPIKey(nil)
 		},
 	}
-	svc := orchestrator.NewService(
+	svc, err := orchestrator.NewService(
 		userRepo,
 		nil,
 		nil,
@@ -845,6 +866,7 @@ func TestHandleListUsers_Unauthorized(t *testing.T) {
 		nil, // healthManager
 		nil,
 	)
+	require.NoError(t, err)
 	router := NewRouter(svc, 2*time.Second)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/users/", http.NoBody)
@@ -856,8 +878,8 @@ func TestHandleListUsers_Unauthorized(t *testing.T) {
 	assert.Equal(t, http.StatusUnauthorized, resp.Code)
 
 	var errResp api.ErrorResponse
-	err := json.NewDecoder(resp.Body).Decode(&errResp)
-	assert.NoError(t, err)
+	decodeErr := json.NewDecoder(resp.Body).Decode(&errResp)
+	assert.NoError(t, decodeErr)
 	assert.Equal(t, "Unauthorized", errResp.Error)
 }
 
@@ -867,7 +889,7 @@ func TestHandleListUsers_RepositoryError(t *testing.T) {
 			return nil, apperrors.ErrDatabaseError("database error", errors.New("connection failed"))
 		},
 	}
-	svc := orchestrator.NewService(
+	svc, err := orchestrator.NewService(
 		userRepo,
 		nil,
 		nil,
@@ -880,6 +902,7 @@ func TestHandleListUsers_RepositoryError(t *testing.T) {
 		nil, // healthManager
 		nil,
 	)
+	require.NoError(t, err)
 	router := NewRouter(svc, 2*time.Second)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/users/", http.NoBody)
@@ -895,7 +918,7 @@ func TestHandleListUsers_RepositoryError(t *testing.T) {
 // TODO: Add TestHandleCreateUser_Success - requires complex mock setup for admin user and pending keys
 
 func TestHandleCreateUser_InvalidJSON(t *testing.T) {
-	svc := orchestrator.NewService(
+	svc, err := orchestrator.NewService(
 		&testUserRepository{},
 		nil,
 		nil,
@@ -908,6 +931,7 @@ func TestHandleCreateUser_InvalidJSON(t *testing.T) {
 		nil, // healthManager
 		nil,
 	)
+	require.NoError(t, err)
 	router := NewRouter(svc, 2*time.Second)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/users/create", bytes.NewReader([]byte("invalid json")))
@@ -921,42 +945,17 @@ func TestHandleCreateUser_InvalidJSON(t *testing.T) {
 }
 
 func TestHandleCreateUser_Unauthorized(t *testing.T) {
-	userRepo := &testUserRepository{
-		authenticateUserFunc: func(_ string) (*api.User, error) {
-			return nil, apperrors.ErrInvalidAPIKey(nil)
-		},
-	}
-
-	svc := orchestrator.NewService(
-		userRepo,
-		nil,
-		nil,
-		&testTokenRepository{},
-		&testRunner{},
-		testutil.SilentLogger(),
-		constants.AWS,
-		nil,
-		nil, // SecretsService
-		nil, // healthManager
-		nil,
+	testUnauthorizedRequest(
+		t,
+		http.MethodPost,
+		"/api/v1/users/create",
+		api.CreateUserRequest{Email: "newuser@example.com"},
 	)
-	router := NewRouter(svc, 2*time.Second)
-
-	reqBody := api.CreateUserRequest{Email: "newuser@example.com"}
-	body, _ := json.Marshal(reqBody)
-
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/users/create", bytes.NewReader(body))
-	req.Header.Set("X-API-Key", "invalid-key")
-
-	resp := httptest.NewRecorder()
-	router.ServeHTTP(resp, req)
-
-	assert.Equal(t, http.StatusUnauthorized, resp.Code)
 }
 
 func TestHandleRevokeUser_Success(t *testing.T) {
 	userRepo := &testUserRepository{}
-	svc := orchestrator.NewService(
+	svc, err := orchestrator.NewService(
 		userRepo,
 		nil,
 		nil,
@@ -969,6 +968,7 @@ func TestHandleRevokeUser_Success(t *testing.T) {
 		nil, // healthManager
 		nil,
 	)
+	require.NoError(t, err)
 	router := NewRouter(svc, 2*time.Second)
 
 	reqBody := api.RevokeUserRequest{
@@ -988,7 +988,7 @@ func TestHandleRevokeUser_Success(t *testing.T) {
 }
 
 func TestHandleRevokeUser_InvalidJSON(t *testing.T) {
-	svc := orchestrator.NewService(
+	svc, err := orchestrator.NewService(
 		&testUserRepository{},
 		nil,
 		nil,
@@ -1001,6 +1001,7 @@ func TestHandleRevokeUser_InvalidJSON(t *testing.T) {
 		nil, // healthManager
 		nil,
 	)
+	require.NoError(t, err)
 	router := NewRouter(svc, 2*time.Second)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/users/revoke", bytes.NewReader([]byte("invalid json")))
@@ -1014,7 +1015,7 @@ func TestHandleRevokeUser_InvalidJSON(t *testing.T) {
 }
 
 func TestHandleGetExecutionLogs_Success(t *testing.T) {
-	svc := orchestrator.NewService(
+	svc, err := orchestrator.NewService(
 		&testUserRepository{},
 		&testExecutionRepository{},
 		nil,
@@ -1027,6 +1028,7 @@ func TestHandleGetExecutionLogs_Success(t *testing.T) {
 		nil, // healthManager
 		nil,
 	)
+	require.NoError(t, err)
 	router := NewRouter(svc, 2*time.Second)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/executions/exec-123/logs", http.NoBody)
@@ -1038,12 +1040,12 @@ func TestHandleGetExecutionLogs_Success(t *testing.T) {
 	assert.Equal(t, http.StatusOK, resp.Code)
 
 	var logsResp api.LogsResponse
-	err := json.NewDecoder(resp.Body).Decode(&logsResp)
-	assert.NoError(t, err)
+	decodeErr := json.NewDecoder(resp.Body).Decode(&logsResp)
+	assert.NoError(t, decodeErr)
 }
 
 func TestHandleGetExecutionLogs_MissingExecutionID(t *testing.T) {
-	svc := orchestrator.NewService(
+	svc, err := orchestrator.NewService(
 		&testUserRepository{},
 		&testExecutionRepository{},
 		nil,
@@ -1056,6 +1058,7 @@ func TestHandleGetExecutionLogs_MissingExecutionID(t *testing.T) {
 		nil, // healthManager
 		nil,
 	)
+	require.NoError(t, err)
 	router := NewRouter(svc, 2*time.Second)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/executions//logs", http.NoBody)
@@ -1070,7 +1073,7 @@ func TestHandleGetExecutionLogs_MissingExecutionID(t *testing.T) {
 
 func TestHandleGetExecutionStatus_Success(t *testing.T) {
 	execRepo := &testExecutionRepository{}
-	svc := orchestrator.NewService(
+	svc, err := orchestrator.NewService(
 		&testUserRepository{},
 		execRepo,
 		nil,
@@ -1083,6 +1086,7 @@ func TestHandleGetExecutionStatus_Success(t *testing.T) {
 		nil, // healthManager
 		nil,
 	)
+	require.NoError(t, err)
 	router := NewRouter(svc, 2*time.Second)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/executions/exec-123/status", http.NoBody)
@@ -1094,12 +1098,12 @@ func TestHandleGetExecutionStatus_Success(t *testing.T) {
 	assert.Equal(t, http.StatusOK, resp.Code)
 
 	var statusResp api.ExecutionStatusResponse
-	err := json.NewDecoder(resp.Body).Decode(&statusResp)
-	assert.NoError(t, err)
+	decodeErr := json.NewDecoder(resp.Body).Decode(&statusResp)
+	assert.NoError(t, decodeErr)
 }
 
 func TestHandleGetExecutionStatus_MissingExecutionID(t *testing.T) {
-	svc := orchestrator.NewService(
+	svc, err := orchestrator.NewService(
 		&testUserRepository{},
 		&testExecutionRepository{},
 		nil,
@@ -1112,6 +1116,7 @@ func TestHandleGetExecutionStatus_MissingExecutionID(t *testing.T) {
 		nil, // healthManager
 		nil,
 	)
+	require.NoError(t, err)
 	router := NewRouter(svc, 2*time.Second)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/executions//status", http.NoBody)
@@ -1125,7 +1130,7 @@ func TestHandleGetExecutionStatus_MissingExecutionID(t *testing.T) {
 }
 
 func TestHandleKillExecution_Success(t *testing.T) {
-	svc := orchestrator.NewService(
+	svc, err := orchestrator.NewService(
 		&testUserRepository{},
 		&testExecutionRepository{},
 		nil,
@@ -1138,6 +1143,7 @@ func TestHandleKillExecution_Success(t *testing.T) {
 		nil, // healthManager
 		nil,
 	)
+	require.NoError(t, err)
 	router := NewRouter(svc, 2*time.Second)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/executions/exec-123/kill", http.NoBody)
@@ -1149,8 +1155,8 @@ func TestHandleKillExecution_Success(t *testing.T) {
 	assert.Equal(t, http.StatusOK, resp.Code)
 
 	var killResp api.KillExecutionResponse
-	err := json.NewDecoder(resp.Body).Decode(&killResp)
-	assert.NoError(t, err)
+	decodeErr := json.NewDecoder(resp.Body).Decode(&killResp)
+	assert.NoError(t, decodeErr)
 	assert.Equal(t, "exec-123", killResp.ExecutionID)
 	assert.Contains(t, killResp.Message, "termination initiated")
 }
@@ -1166,7 +1172,7 @@ func TestHandleKillExecution_AlreadyTerminated(t *testing.T) {
 		},
 	}
 
-	svc := orchestrator.NewService(
+	svc, err := orchestrator.NewService(
 		&testUserRepository{},
 		execRepo,
 		nil,
@@ -1179,6 +1185,7 @@ func TestHandleKillExecution_AlreadyTerminated(t *testing.T) {
 		nil, // healthManager
 		nil,
 	)
+	require.NoError(t, err)
 	router := NewRouter(svc, 2*time.Second)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/executions/exec-456/kill", http.NoBody)
@@ -1192,7 +1199,7 @@ func TestHandleKillExecution_AlreadyTerminated(t *testing.T) {
 }
 
 func TestHandleKillExecution_MissingExecutionID(t *testing.T) {
-	svc := orchestrator.NewService(
+	svc, err := orchestrator.NewService(
 		&testUserRepository{},
 		&testExecutionRepository{},
 		nil,
@@ -1205,6 +1212,7 @@ func TestHandleKillExecution_MissingExecutionID(t *testing.T) {
 		nil, // healthManager
 		nil,
 	)
+	require.NoError(t, err)
 	router := NewRouter(svc, 2*time.Second)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/executions//kill", http.NoBody)

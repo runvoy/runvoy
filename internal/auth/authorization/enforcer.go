@@ -16,17 +16,20 @@ import (
 
 // Enforcer wraps the Casbin enforcer with additional functionality.
 type Enforcer struct {
-	enforcer *casbin.Enforcer
+	enforcer casbin.IEnforcer
 	logger   *slog.Logger
 }
 
-// embeddedAdapter is a custom Casbin adapter that reads from an embedded filesystem.
+// embeddedAdapter is a custom Casbin adapter that reads from an embedded filesystem
+// and supports in-memory policy additions during runtime (without persisting back to the embedded file).
 type embeddedAdapter struct {
 	modelFS  fs.FS
 	pathBase string
 }
 
 // NewEmbeddedAdapter creates a new adapter for reading Casbin config from an embedded filesystem.
+// The adapter supports in-memory policy modifications at runtime but does not persist changes
+// back to the embedded files, as they are read-only.
 func NewEmbeddedAdapter(fsys fs.FS, pathBase string) persist.Adapter {
 	return &embeddedAdapter{
 		modelFS:  fsys,
@@ -53,28 +56,37 @@ func (a *embeddedAdapter) LoadPolicy(m model.Model) error {
 	return nil
 }
 
+// SavePolicy is a no-op for the embedded adapter as it doesn't persist changes.
+// Casbin calls this after policy modifications, but we don't need to persist back to the embedded files.
 func (a *embeddedAdapter) SavePolicy(_ model.Model) error {
-	return fmt.Errorf("SavePolicy not supported for embedded adapter")
+	return nil
 }
 
+// AddPolicy is a no-op for the embedded adapter. Changes are kept in Casbin's in-memory model
+// but not persisted back to the embedded policy file (which is read-only).
 func (a *embeddedAdapter) AddPolicy(_, _ string, _ []string) error {
-	return fmt.Errorf("AddPolicy not supported for embedded adapter")
+	return nil
 }
 
+// RemovePolicy is a no-op for the embedded adapter. Changes are kept in Casbin's in-memory model
+// but not persisted back to the embedded policy file.
 func (a *embeddedAdapter) RemovePolicy(_, _ string, _ []string) error {
-	return fmt.Errorf("RemovePolicy not supported for embedded adapter")
+	return nil
 }
 
+// RemoveFilteredPolicy is a no-op for the embedded adapter. Changes are kept in Casbin's in-memory model.
 func (a *embeddedAdapter) RemoveFilteredPolicy(_, _ string, _ int, _ ...string) error {
-	return fmt.Errorf("RemoveFilteredPolicy not supported for embedded adapter")
+	return nil
 }
 
+// UpdatePolicy is a no-op for the embedded adapter. Changes are kept in Casbin's in-memory model.
 func (a *embeddedAdapter) UpdatePolicy(_, _ string, _, _ []string) error {
-	return fmt.Errorf("UpdatePolicy not supported for embedded adapter")
+	return nil
 }
 
+// UpdateFilteredPolicies is a no-op for the embedded adapter. Changes are kept in Casbin's in-memory model.
 func (a *embeddedAdapter) UpdateFilteredPolicies(_, _ string, _ [][]string, _ int, _ ...string) error {
-	return fmt.Errorf("UpdateFilteredPolicies not supported for embedded adapter")
+	return nil
 }
 
 // NewEnforcer creates a new Casbin enforcer using embedded Casbin configuration files.
@@ -91,12 +103,12 @@ func NewEnforcer(logger *slog.Logger) (*Enforcer, error) {
 	}
 
 	adapter := NewEmbeddedAdapter(CasbinFS, "casbin/")
-	enforcer, err := casbin.NewEnforcer(m, adapter)
+	enforcer, err := casbin.NewSyncedEnforcer(m, adapter)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create casbin authorization enforcer: %w", err)
 	}
 
-	logger.Debug("casbin authorization enforcer initialized")
+	logger.Debug("initializing casbin authorization enforcer")
 
 	return &Enforcer{
 		enforcer: enforcer,
@@ -122,13 +134,19 @@ func (e *Enforcer) Enforce(subject, object, action string) (bool, error) {
 }
 
 // AddRoleForUser assigns a role to a user.
-// The role should be in the format "role:admin", "role:operator", etc.
+// Returns an error if the role is invalid or empty.
 //
 // Example usage:
 //
-//	err := e.AddRoleForUser("user@example.com", "role:developer")
-func (e *Enforcer) AddRoleForUser(user, role string) error {
-	added, err := e.enforcer.AddGroupingPolicy(user, role)
+//	err := e.AddRoleForUser("user@example.com", RoleDeveloper)
+func (e *Enforcer) AddRoleForUser(user string, role Role) error {
+	if !role.Valid() {
+		return fmt.Errorf("invalid role for user %s: %s (valid roles: %s)",
+			user, role, strings.Join(ValidRoles(), ", "))
+	}
+
+	formattedRole := FormatRole(role)
+	added, err := e.enforcer.AddGroupingPolicy(user, formattedRole)
 	if err != nil {
 		return fmt.Errorf("failed to add role for user: %w", err)
 	}
@@ -137,7 +155,7 @@ func (e *Enforcer) AddRoleForUser(user, role string) error {
 		return nil
 	}
 
-	e.logger.Info("role added for user", "user", user, "role", role)
+	e.logger.Debug("role added for user", "user", user, "role", role)
 	return nil
 }
 
@@ -201,22 +219,27 @@ func (e *Enforcer) RemoveOwnershipForResource(resourceID, ownerEmail string) err
 
 // LoadRolesForUsers loads role assignments for multiple users into the enforcer.
 // This is typically called at startup to initialize the enforcer with current user roles.
+// The roleStr values should be valid role names (admin, operator, developer, viewer).
 //
 // Example usage:
 //
 //	roles := map[string]string{
-//	  "admin@example.com": "role:admin",
-//	  "dev@example.com": "role:developer",
+//	  "admin@example.com": "admin",
+//	  "dev@example.com": "developer",
 //	}
 //	err := e.LoadRolesForUsers(roles)
 func (e *Enforcer) LoadRolesForUsers(userRoles map[string]string) error {
-	for user, role := range userRoles {
-		if err := e.AddRoleForUser(user, role); err != nil {
+	for user, roleStr := range userRoles {
+		role, err := NewRole(roleStr)
+		if err != nil {
 			return fmt.Errorf("failed to load role for user %s: %w", user, err)
+		}
+		if addErr := e.AddRoleForUser(user, role); addErr != nil {
+			return fmt.Errorf("failed to add role for user %s to enforcer: %w", user, addErr)
 		}
 	}
 
-	e.logger.Info("loaded user roles", "count", len(userRoles))
+	e.logger.Debug("loaded user roles", "count", len(userRoles))
 	return nil
 }
 

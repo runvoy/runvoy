@@ -18,7 +18,7 @@ func TestCreateSecret_Success(t *testing.T) {
 	secretsRepo := &mockSecretsRepository{}
 	logger := testutil.SilentLogger()
 
-	service := NewService(
+	service, err := NewService(
 		&mockUserRepository{},
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
@@ -31,6 +31,9 @@ func TestCreateSecret_Success(t *testing.T) {
 		nil, // healthManager
 		nil, // enforcer
 	)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	req := &api.CreateSecretRequest{
 		Name:        "test-secret",
@@ -39,15 +42,15 @@ func TestCreateSecret_Success(t *testing.T) {
 		Value:       "secret-value",
 	}
 
-	err := service.CreateSecret(context.Background(), req, "user@example.com")
+	createErr := service.CreateSecret(context.Background(), req, "user@example.com")
 
-	assert.NoError(t, err)
+	assert.NoError(t, createErr)
 }
 
 func TestCreateSecret_NoRepository(t *testing.T) {
 	logger := testutil.SilentLogger()
 
-	service := NewService(
+	service, err := NewService(
 		&mockUserRepository{},
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
@@ -60,6 +63,9 @@ func TestCreateSecret_NoRepository(t *testing.T) {
 		nil, // healthManager
 		nil, // enforcer
 	)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	req := &api.CreateSecretRequest{
 		Name:    "test-secret",
@@ -67,10 +73,10 @@ func TestCreateSecret_NoRepository(t *testing.T) {
 		Value:   "secret-value",
 	}
 
-	err := service.CreateSecret(context.Background(), req, "user@example.com")
+	createErr := service.CreateSecret(context.Background(), req, "user@example.com")
 
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "secrets repository not available")
+	assert.Error(t, createErr)
+	assert.Contains(t, createErr.Error(), "secrets repository not available")
 }
 
 func TestCreateSecret_RepositoryError(t *testing.T) {
@@ -81,7 +87,7 @@ func TestCreateSecret_RepositoryError(t *testing.T) {
 	}
 	logger := testutil.SilentLogger()
 
-	service := NewService(
+	service, err := NewService(
 		&mockUserRepository{},
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
@@ -94,6 +100,9 @@ func TestCreateSecret_RepositoryError(t *testing.T) {
 		nil, // healthManager
 		nil, // enforcer
 	)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	req := &api.CreateSecretRequest{
 		Name:    "test-secret",
@@ -101,9 +110,9 @@ func TestCreateSecret_RepositoryError(t *testing.T) {
 		Value:   "secret-value",
 	}
 
-	err := service.CreateSecret(context.Background(), req, "user@example.com")
+	createErr := service.CreateSecret(context.Background(), req, "user@example.com")
 
-	assert.Error(t, err)
+	assert.Error(t, createErr)
 }
 
 func TestGetSecret_Success(t *testing.T) {
@@ -120,7 +129,7 @@ func TestGetSecret_Success(t *testing.T) {
 	}
 	logger := testutil.SilentLogger()
 
-	service := NewService(
+	service, err := NewService(
 		&mockUserRepository{},
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
@@ -133,6 +142,7 @@ func TestGetSecret_Success(t *testing.T) {
 		nil, // healthManager
 		nil, // enforcer
 	)
+	require.NoError(t, err)
 
 	secret, err := service.GetSecret(context.Background(), "test-secret")
 
@@ -150,7 +160,7 @@ func TestGetSecret_NotFound(t *testing.T) {
 	}
 	logger := testutil.SilentLogger()
 
-	service := NewService(
+	service, err := NewService(
 		&mockUserRepository{},
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
@@ -163,6 +173,7 @@ func TestGetSecret_NotFound(t *testing.T) {
 		nil, // healthManager
 		nil, // enforcer
 	)
+	require.NoError(t, err)
 
 	secret, err := service.GetSecret(context.Background(), "nonexistent")
 
@@ -191,7 +202,7 @@ func TestListSecrets_Success(t *testing.T) {
 	}
 	logger := testutil.SilentLogger()
 
-	service := NewService(
+	service, err := NewService(
 		&mockUserRepository{},
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
@@ -204,6 +215,7 @@ func TestListSecrets_Success(t *testing.T) {
 		nil, // healthManager
 		nil, // enforcer
 	)
+	require.NoError(t, err)
 
 	secrets, err := service.ListSecrets(context.Background())
 
@@ -221,7 +233,7 @@ func TestListSecrets_Empty(t *testing.T) {
 	}
 	logger := testutil.SilentLogger()
 
-	service := NewService(
+	service, err := NewService(
 		&mockUserRepository{},
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
@@ -234,6 +246,7 @@ func TestListSecrets_Empty(t *testing.T) {
 		nil, // healthManager
 		nil, // enforcer
 	)
+	require.NoError(t, err)
 
 	secrets, err := service.ListSecrets(context.Background())
 
@@ -245,7 +258,7 @@ func TestUpdateSecret_Success(t *testing.T) {
 	secretsRepo := &mockSecretsRepository{}
 	logger := testutil.SilentLogger()
 
-	service := NewService(
+	service, err := NewService(
 		&mockUserRepository{},
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
@@ -258,6 +271,9 @@ func TestUpdateSecret_Success(t *testing.T) {
 		nil, // healthManager
 		nil, // enforcer
 	)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	req := &api.UpdateSecretRequest{
 		KeyName:     "UPDATED_KEY",
@@ -265,9 +281,9 @@ func TestUpdateSecret_Success(t *testing.T) {
 		Value:       "new-value",
 	}
 
-	err := service.UpdateSecret(context.Background(), "test-secret", req, "user@example.com")
+	updateErr := service.UpdateSecret(context.Background(), "test-secret", req, "user@example.com")
 
-	assert.NoError(t, err)
+	assert.NoError(t, updateErr)
 }
 
 func TestUpdateSecret_RepositoryError(t *testing.T) {
@@ -278,7 +294,7 @@ func TestUpdateSecret_RepositoryError(t *testing.T) {
 	}
 	logger := testutil.SilentLogger()
 
-	service := NewService(
+	service, err := NewService(
 		&mockUserRepository{},
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
@@ -291,22 +307,25 @@ func TestUpdateSecret_RepositoryError(t *testing.T) {
 		nil, // healthManager
 		nil, // enforcer
 	)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	req := &api.UpdateSecretRequest{
 		KeyName: "UPDATED_KEY",
 		Value:   "new-value",
 	}
 
-	err := service.UpdateSecret(context.Background(), "test-secret", req, "user@example.com")
+	updateErr := service.UpdateSecret(context.Background(), "test-secret", req, "user@example.com")
 
-	assert.Error(t, err)
+	assert.Error(t, updateErr)
 }
 
 func TestDeleteSecret_Success(t *testing.T) {
 	secretsRepo := &mockSecretsRepository{}
 	logger := testutil.SilentLogger()
 
-	service := NewService(
+	service, err := NewService(
 		&mockUserRepository{},
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
@@ -319,10 +338,13 @@ func TestDeleteSecret_Success(t *testing.T) {
 		nil, // healthManager
 		nil, // enforcer
 	)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	err := service.DeleteSecret(context.Background(), "test-secret")
+	deleteErr := service.DeleteSecret(context.Background(), "test-secret")
 
-	assert.NoError(t, err)
+	assert.NoError(t, deleteErr)
 }
 
 func TestDeleteSecret_RepositoryError(t *testing.T) {
@@ -333,7 +355,7 @@ func TestDeleteSecret_RepositoryError(t *testing.T) {
 	}
 	logger := testutil.SilentLogger()
 
-	service := NewService(
+	service, err := NewService(
 		&mockUserRepository{},
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
@@ -346,10 +368,13 @@ func TestDeleteSecret_RepositoryError(t *testing.T) {
 		nil, // healthManager
 		nil, // enforcer
 	)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	err := service.DeleteSecret(context.Background(), "test-secret")
+	deleteErr := service.DeleteSecret(context.Background(), "test-secret")
 
-	assert.Error(t, err)
+	assert.Error(t, deleteErr)
 }
 
 func TestResolveSecretsForExecution_Success(t *testing.T) {
@@ -374,7 +399,7 @@ func TestResolveSecretsForExecution_Success(t *testing.T) {
 	}
 	logger := testutil.SilentLogger()
 
-	service := NewService(
+	service, err := NewService(
 		&mockUserRepository{},
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
@@ -387,6 +412,7 @@ func TestResolveSecretsForExecution_Success(t *testing.T) {
 		nil, // healthManager
 		nil, // enforcer
 	)
+	require.NoError(t, err)
 
 	secretEnvVars, err := service.resolveSecretsForExecution(context.Background(), []string{"secret-1", "secret-2"})
 
@@ -400,7 +426,7 @@ func TestResolveSecretsForExecution_Empty(t *testing.T) {
 	secretsRepo := &mockSecretsRepository{}
 	logger := testutil.SilentLogger()
 
-	service := NewService(
+	service, err := NewService(
 		&mockUserRepository{},
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
@@ -413,6 +439,7 @@ func TestResolveSecretsForExecution_Empty(t *testing.T) {
 		nil, // healthManager
 		nil, // enforcer
 	)
+	require.NoError(t, err)
 
 	secretEnvVars, err := service.resolveSecretsForExecution(context.Background(), []string{})
 
@@ -424,7 +451,7 @@ func TestResolveSecretsForExecution_EmptySecretName(t *testing.T) {
 	secretsRepo := &mockSecretsRepository{}
 	logger := testutil.SilentLogger()
 
-	service := NewService(
+	service, err := NewService(
 		&mockUserRepository{},
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
@@ -437,6 +464,7 @@ func TestResolveSecretsForExecution_EmptySecretName(t *testing.T) {
 		nil, // healthManager
 		nil, // enforcer
 	)
+	require.NoError(t, err)
 
 	secretEnvVars, err := service.resolveSecretsForExecution(context.Background(), []string{"  "})
 
@@ -459,7 +487,7 @@ func TestResolveSecretsForExecution_DuplicateSecrets(t *testing.T) {
 	}
 	logger := testutil.SilentLogger()
 
-	service := NewService(
+	service, err := NewService(
 		&mockUserRepository{},
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
@@ -472,6 +500,7 @@ func TestResolveSecretsForExecution_DuplicateSecrets(t *testing.T) {
 		nil, // healthManager
 		nil, // enforcer
 	)
+	require.NoError(t, err)
 
 	// Pass the same secret twice
 	secretEnvVars, err := service.resolveSecretsForExecution(
@@ -494,7 +523,7 @@ func TestResolveSecretsForExecution_SecretNotFound(t *testing.T) {
 	}
 	logger := testutil.SilentLogger()
 
-	service := NewService(
+	service, err := NewService(
 		&mockUserRepository{},
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
@@ -507,6 +536,7 @@ func TestResolveSecretsForExecution_SecretNotFound(t *testing.T) {
 		nil, // healthManager
 		nil, // enforcer
 	)
+	require.NoError(t, err)
 
 	secretEnvVars, err := service.resolveSecretsForExecution(context.Background(), []string{"secret-1"})
 
@@ -555,7 +585,7 @@ func TestApplyResolvedSecrets(t *testing.T) {
 	}
 
 	logger := testutil.SilentLogger()
-	service := NewService(
+	service, err := NewService(
 		&mockUserRepository{},
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
@@ -568,6 +598,9 @@ func TestApplyResolvedSecrets(t *testing.T) {
 		nil, // healthManager
 		nil, // enforcer
 	)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

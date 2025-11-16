@@ -1,21 +1,29 @@
 package authorization
 
-import "slices"
+import (
+	"fmt"
+	"slices"
+	"strings"
+)
+
+// Role is a typed string representing a user role in the authorization system.
+// Valid roles: admin, operator, developer, viewer
+type Role string
 
 // Role constants for Casbin role-based access control.
 // These correspond to the roles defined in casbin/policy.csv.
 const (
 	// RoleAdmin has full access to all resources and operations.
-	RoleAdmin = "admin"
+	RoleAdmin Role = "admin"
 
 	// RoleOperator can manage images, secrets, and executions but cannot manage users.
-	RoleOperator = "operator"
+	RoleOperator Role = "operator"
 
 	// RoleDeveloper can create and manage their own resources and execute commands.
-	RoleDeveloper = "developer"
+	RoleDeveloper Role = "developer"
 
 	// RoleViewer has read-only access to executions.
-	RoleViewer = "viewer"
+	RoleViewer Role = "viewer"
 )
 
 // Action constants for Casbin enforcement.
@@ -29,10 +37,34 @@ const (
 	ActionKill    = "kill"
 )
 
-// FormatRole converts a role name to the Casbin role format.
-// Example: FormatRole("admin") returns "role:admin"
-func FormatRole(role string) string {
-	return "role:" + role
+// NewRole creates a new Role from a string, validating it against known roles.
+// Returns an error if the role string is empty or not a valid role.
+func NewRole(roleStr string) (Role, error) {
+	if roleStr == "" {
+		return "", fmt.Errorf("role cannot be empty")
+	}
+	role := Role(roleStr)
+	if !role.Valid() {
+		return "", fmt.Errorf("invalid role: %s (valid roles: %s)",
+			roleStr, strings.Join(ValidRoles(), ", "))
+	}
+	return role, nil
+}
+
+// Valid checks if the role is a valid known role.
+func (r Role) Valid() bool {
+	return slices.Contains([]Role{RoleAdmin, RoleOperator, RoleDeveloper, RoleViewer}, r)
+}
+
+// String returns the string representation of the role.
+func (r Role) String() string {
+	return string(r)
+}
+
+// FormatRole converts a role to the Casbin role format.
+// Example: FormatRole(RoleAdmin) returns "role:admin"
+func FormatRole(role Role) string {
+	return "role:" + role.String()
 }
 
 // FormatResourceID converts a resource type and ID to the Casbin resource format.
@@ -41,12 +73,13 @@ func FormatResourceID(resourceType, resourceID string) string {
 	return resourceType + ":" + resourceID
 }
 
-// ValidRoles returns a list of all valid role names.
+// ValidRoles returns a list of all valid role names as strings.
 func ValidRoles() []string {
-	return []string{RoleAdmin, RoleOperator, RoleDeveloper, RoleViewer}
+	return []string{RoleAdmin.String(), RoleOperator.String(), RoleDeveloper.String(), RoleViewer.String()}
 }
 
-// IsValidRole checks if a role name is valid.
-func IsValidRole(role string) bool {
-	return slices.Contains(ValidRoles(), role)
+// IsValidRole checks if a role name string is valid.
+func IsValidRole(roleStr string) bool {
+	role := Role(roleStr)
+	return role.Valid()
 }

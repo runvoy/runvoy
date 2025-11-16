@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 
+	"runvoy/internal/auth/authorization"
 	"runvoy/internal/config"
 	"runvoy/internal/constants"
 	awsOrchestrator "runvoy/internal/providers/aws/orchestrator"
@@ -15,6 +16,7 @@ import (
 // Initialize creates a new Service configured for the specified backend provider.
 // It returns an error if the context is canceled, timed out, or if an unknown provider is specified.
 // Callers should handle errors and potentially panic if initialization fails during startup.
+// Also initializes the Casbin enforcer for authorization.
 //
 // Supported cloud providers:
 //   - "aws": Uses DynamoDB for storage, Fargate for execution
@@ -29,14 +31,19 @@ func Initialize(
 		"init_timeout", cfg.InitTimeout.String(),
 	)
 
+	enforcer, err := authorization.NewEnforcer(logger)
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize authorization enforcer: %w", err)
+	}
+
 	switch cfg.BackendProvider {
 	case constants.AWS:
-		awsDeps, err := awsOrchestrator.Initialize(ctx, cfg, logger)
-		if err != nil {
-			return nil, fmt.Errorf("failed to initialize AWS dependencies: %w", err)
+		awsDeps, initErr := awsOrchestrator.Initialize(ctx, cfg, logger)
+		if initErr != nil {
+			return nil, fmt.Errorf("failed to initialize AWS dependencies: %w", initErr)
 		}
 
-		return NewService(
+		svc, svcErr := NewService(
 			awsDeps.UserRepo,
 			awsDeps.ExecutionRepo,
 			awsDeps.ConnectionRepo,
@@ -47,8 +54,12 @@ func Initialize(
 			awsDeps.WebSocketManager,
 			awsDeps.SecretsRepo,
 			awsDeps.HealthManager,
-			awsDeps.Enforcer,
-		), nil
+			enforcer,
+		)
+		if svcErr != nil {
+			return nil, fmt.Errorf("failed to initialize service: %w", svcErr)
+		}
+		return svc, nil
 
 	default:
 		return nil, fmt.Errorf("unknown backend provider: %s (supported: %s)", cfg.BackendProvider, constants.AWS)

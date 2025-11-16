@@ -35,9 +35,11 @@ func TestRequestIDMiddleware(t *testing.T) {
 
 		tokenRepo := &testTokenRepository{}
 
-		svc := orchestrator.NewService(nil, nil, nil, tokenRepo, nil,
-
+		svc, err := orchestrator.NewService(nil, nil, nil, tokenRepo, nil,
 			testutil.SilentLogger(), constants.AWS, nil, nil, nil, nil)
+		if err != nil {
+			t.Fatalf("failed to create service: %v", err)
+		}
 		router := &Router{svc: svc}
 		middleware := router.requestIDMiddleware(handler)
 		middleware.ServeHTTP(rr, req)
@@ -73,9 +75,11 @@ func TestRequestIDMiddleware(t *testing.T) {
 
 		tokenRepo := &testTokenRepository{}
 
-		svc := orchestrator.NewService(nil, nil, nil, tokenRepo, nil,
-
+		svc, err := orchestrator.NewService(nil, nil, nil, tokenRepo, nil,
 			testutil.SilentLogger(), constants.AWS, nil, nil, nil, nil)
+		if err != nil {
+			t.Fatalf("failed to create service: %v", err)
+		}
 		router := &Router{svc: svc}
 		middleware := router.requestIDMiddleware(lambdaHandler)
 		middleware.ServeHTTP(rr, req)
@@ -104,9 +108,11 @@ func TestRequestIDMiddleware(t *testing.T) {
 
 		tokenRepo := &testTokenRepository{}
 
-		svc := orchestrator.NewService(nil, nil, nil, tokenRepo, nil,
-
+		svc, err := orchestrator.NewService(nil, nil, nil, tokenRepo, nil,
 			testutil.SilentLogger(), constants.AWS, nil, nil, nil, nil)
+		if err != nil {
+			t.Fatalf("failed to create service: %v", err)
+		}
 		router := &Router{svc: svc}
 		middleware := router.requestIDMiddleware(handler)
 		middleware.ServeHTTP(rr, req)
@@ -143,9 +149,11 @@ func TestRequestIDMiddleware(t *testing.T) {
 
 		tokenRepo := &testTokenRepository{}
 
-		svc := orchestrator.NewService(nil, nil, nil, tokenRepo, nil,
-
+		svc, err := orchestrator.NewService(nil, nil, nil, tokenRepo, nil,
 			testutil.SilentLogger(), constants.AWS, nil, nil, nil, nil)
+		if err != nil {
+			t.Fatalf("failed to create service: %v", err)
+		}
 		router := &Router{svc: svc}
 		middleware := router.requestIDMiddleware(handler)
 		middleware.ServeHTTP(rr, req)

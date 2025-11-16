@@ -2,6 +2,8 @@ package orchestrator
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"log/slog"
 	"time"
 
@@ -11,6 +13,8 @@ import (
 	"runvoy/internal/backend/websocket"
 	"runvoy/internal/constants"
 	"runvoy/internal/database"
+
+	"golang.org/x/sync/errgroup"
 )
 
 // Runner abstracts provider-specific command execution (e.g., AWS ECS, GCP, etc.).
@@ -69,7 +73,8 @@ type Service struct {
 
 // NOTE: provider-specific configuration has been moved to sub packages (e.g., providers/aws/app).
 
-// NewService creates a new service instance.
+// NewService creates a new service instance and initializes the enforcer with user roles from the database.
+// Returns an error if the enforcer is configured but user roles cannot be loaded (critical initialization failure).
 // If userRepo is nil, user-related operations will not be available.
 // This allows the service to work without database dependencies for simple operations.
 // If wsManager is nil, WebSocket URL generation will be skipped.
@@ -87,8 +92,8 @@ func NewService(
 	wsManager websocket.Manager,
 	secretsRepo database.SecretsRepository,
 	healthManager health.Manager,
-	enforcer *authorization.Enforcer) *Service {
-	return &Service{
+	enforcer *authorization.Enforcer) (*Service, error) {
+	svc := &Service{
 		userRepo:      userRepo,
 		executionRepo: executionRepo,
 		connRepo:      connRepo,
@@ -101,4 +106,49 @@ func NewService(
 		healthManager: healthManager,
 		enforcer:      enforcer,
 	}
+
+	if enforcer != nil && userRepo != nil {
+		if err := svc.loadUserRoles(context.Background()); err != nil {
+			return nil, err
+		}
+	}
+
+	log.Debug("casbin authorization enforcer initialized successfully")
+	log.Debug(fmt.Sprintf("%s orchestrator service initialized successfully", svc.Provider))
+
+	return svc, nil
+}
+
+// loadUserRoles populates the Casbin enforcer with all user roles from the database.
+// Returns an error if any role is invalid or fails to load (critical initialization failure).
+func (s *Service) loadUserRoles(ctx context.Context) error {
+	users, err := s.userRepo.ListUsers(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to load users for enforcer initialization: %w", err)
+	}
+
+	g, _ := errgroup.WithContext(ctx)
+
+	for _, user := range users {
+		g.Go(func() error {
+			role, roleErr := authorization.NewRole(user.Role)
+			if roleErr != nil {
+				s.Logger.Error("user has invalid role", "user", user.Email, "role", user.Role, "error", roleErr)
+				return fmt.Errorf("user %s has invalid role: %w", user.Email, roleErr)
+			}
+
+			if addErr := s.enforcer.AddRoleForUser(user.Email, role); addErr != nil {
+				s.Logger.Error("failed to add role for user to enforcer", "user", user.Email, "role", user.Role, "error", addErr)
+				return fmt.Errorf("failed to add role for user %s to enforcer: %w", user.Email, addErr)
+			}
+
+			return nil
+		})
+	}
+
+	if waitErr := g.Wait(); waitErr != nil {
+		return errors.New("failed to load user roles into enforcer")
+	}
+
+	return nil
 }
