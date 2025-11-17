@@ -96,13 +96,8 @@ func (t *testUserRepository) DeletePendingAPIKey(_ context.Context, _ string) er
 func (t *testUserRepository) ListUsers(_ context.Context) ([]*api.User, error) {
 	lastUsed1 := time.Now().Add(-1 * time.Hour)
 	lastUsed3 := time.Now().Add(-12 * time.Hour)
+	// Return users sorted by email (as the database now does)
 	return []*api.User{
-		{
-			Email:     "charlie@example.com",
-			CreatedAt: time.Now().Add(-24 * time.Hour),
-			Revoked:   false,
-			LastUsed:  &lastUsed1,
-		},
 		{
 			Email:     "alice@example.com",
 			CreatedAt: time.Now().Add(-48 * time.Hour),
@@ -114,6 +109,12 @@ func (t *testUserRepository) ListUsers(_ context.Context) ([]*api.User, error) {
 			CreatedAt: time.Now().Add(-36 * time.Hour),
 			Revoked:   false,
 			LastUsed:  &lastUsed3,
+		},
+		{
+			Email:     "charlie@example.com",
+			CreatedAt: time.Now().Add(-24 * time.Hour),
+			Revoked:   false,
+			LastUsed:  &lastUsed1,
 		},
 	}, nil
 }

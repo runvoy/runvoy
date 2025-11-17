@@ -12,22 +12,15 @@ import (
 	"runvoy/internal/auth"
 	"runvoy/internal/config"
 	"runvoy/internal/constants"
+	"runvoy/internal/providers/aws/database/dynamodb"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation"
-	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
+	awsdynamodb "github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 )
-
-type userItem struct {
-	APIKeyHash string    `dynamodbav:"api_key_hash"`
-	UserEmail  string    `dynamodbav:"user_email"`
-	Role       string    `dynamodbav:"role"`
-	CreatedAt  time.Time `dynamodbav:"created_at"`
-	Revoked    bool      `dynamodbav:"revoked"`
-}
 
 func setupAPIKeyAndConfig() (cfg *config.Config, apiKey, apiKeyHash string) {
 	var err error
@@ -50,7 +43,7 @@ func setupAPIKeyAndConfig() (cfg *config.Config, apiKey, apiKeyHash string) {
 	return cfg, apiKey, apiKeyHash
 }
 
-func seedAdminUser(ctx context.Context, dynamoClient *dynamodb.Client, tableName, adminEmail, apiKeyHash string) {
+func seedAdminUser(ctx context.Context, dynamoClient *awsdynamodb.Client, tableName, adminEmail, apiKeyHash string) {
 	existingUser, err := checkUserExists(ctx, dynamoClient, tableName, adminEmail)
 	if err != nil {
 		log.Fatalf("error: failed to check if admin user exists: %v", err)
@@ -59,12 +52,13 @@ func seedAdminUser(ctx context.Context, dynamoClient *dynamodb.Client, tableName
 		log.Fatalf("error: admin user %s already exists in DynamoDB", adminEmail)
 	}
 
-	item := userItem{
+	item := dynamodb.UserItem{
 		APIKeyHash: apiKeyHash,
 		UserEmail:  adminEmail,
 		Role:       "admin",
 		CreatedAt:  time.Now().UTC(),
 		Revoked:    false,
+		All:        "USER", // Constant partition key for GSI to enable sorted queries
 	}
 
 	av, err := attributevalue.MarshalMap(item)
@@ -74,7 +68,7 @@ func seedAdminUser(ctx context.Context, dynamoClient *dynamodb.Client, tableName
 
 	log.Printf("seeding admin user %s into table %s...", adminEmail, tableName)
 
-	_, err = dynamoClient.PutItem(ctx, &dynamodb.PutItemInput{
+	_, err = dynamoClient.PutItem(ctx, &awsdynamodb.PutItemInput{
 		TableName:           aws.String(tableName),
 		Item:                av,
 		ConditionExpression: aws.String("attribute_not_exists(api_key_hash)"),
@@ -115,7 +109,7 @@ func main() {
 		log.Fatalf("error: failed to resolve API keys table name from CloudFormation outputs: %v", err)
 	}
 
-	dynamoClient := dynamodb.NewFromConfig(awsCfg)
+	dynamoClient := awsdynamodb.NewFromConfig(awsCfg)
 	seedAdminUser(context.Background(), dynamoClient, tableName, adminEmail, apiKeyHash)
 
 	if err = config.Save(cfg); err != nil {
@@ -128,8 +122,8 @@ func main() {
 	log.Println("config file saved")
 }
 
-func checkUserExists(ctx context.Context, client *dynamodb.Client, tableName, email string) (bool, error) {
-	result, err := client.Query(ctx, &dynamodb.QueryInput{
+func checkUserExists(ctx context.Context, client *awsdynamodb.Client, tableName, email string) (bool, error) {
+	result, err := client.Query(ctx, &awsdynamodb.QueryInput{
 		TableName:              aws.String(tableName),
 		IndexName:              aws.String("user_email-index"),
 		KeyConditionExpression: aws.String("user_email = :email"),
