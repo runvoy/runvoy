@@ -21,18 +21,18 @@ type Config struct {
 	ExecutionsTable           string `mapstructure:"executions_table"`
 	ImageTaskDefsTable        string `mapstructure:"image_taskdefs_table"`
 	PendingAPIKeysTable       string `mapstructure:"pending_api_keys_table"`
+	SecretsMetadataTable      string `mapstructure:"secrets_metadata_table"`
 	WebSocketConnectionsTable string `mapstructure:"websocket_connections_table"`
 	WebSocketTokensTable      string `mapstructure:"websocket_tokens_table"`
-	SecretsMetadataTable      string `mapstructure:"secrets_metadata_table"`
 
 	// ECS Configuration
+	DefaultTaskExecRoleARN string `mapstructure:"default_task_exec_role_arn"`
+	DefaultTaskRoleARN     string `mapstructure:"default_task_role_arn"`
 	ECSCluster             string `mapstructure:"ecs_cluster"`
 	SecurityGroup          string `mapstructure:"security_group"`
 	Subnet1                string `mapstructure:"subnet_1"`
 	Subnet2                string `mapstructure:"subnet_2"`
 	TaskDefinition         string `mapstructure:"task_definition"`
-	DefaultTaskExecRoleARN string `mapstructure:"default_task_exec_role_arn"`
-	DefaultTaskRoleARN     string `mapstructure:"default_task_role_arn"`
 
 	// CloudWatch Logs
 	LogGroup string `mapstructure:"log_group"`
@@ -53,23 +53,23 @@ func BindEnvVars(v *viper.Viper) {
 	v.SetDefault("aws.secrets_prefix", awsConstants.SecretsPrefix)
 
 	_ = v.BindEnv("aws.api_keys_table", "RUNVOY_AWS_API_KEYS_TABLE")
+	_ = v.BindEnv("aws.default_task_exec_role_arn", "RUNVOY_AWS_DEFAULT_TASK_EXEC_ROLE_ARN")
+	_ = v.BindEnv("aws.default_task_role_arn", "RUNVOY_AWS_DEFAULT_TASK_ROLE_ARN")
 	_ = v.BindEnv("aws.ecs_cluster", "RUNVOY_AWS_ECS_CLUSTER")
 	_ = v.BindEnv("aws.executions_table", "RUNVOY_AWS_EXECUTIONS_TABLE")
 	_ = v.BindEnv("aws.image_taskdefs_table", "RUNVOY_AWS_IMAGE_TASKDEFS_TABLE")
 	_ = v.BindEnv("aws.log_group", "RUNVOY_AWS_LOG_GROUP")
 	_ = v.BindEnv("aws.pending_api_keys_table", "RUNVOY_AWS_PENDING_API_KEYS_TABLE")
+	_ = v.BindEnv("aws.secrets_kms_key_arn", "RUNVOY_AWS_SECRETS_KMS_KEY_ARN")
+	_ = v.BindEnv("aws.secrets_metadata_table", "RUNVOY_AWS_SECRETS_METADATA_TABLE")
+	_ = v.BindEnv("aws.secrets_prefix", "RUNVOY_AWS_SECRETS_PREFIX")
 	_ = v.BindEnv("aws.security_group", "RUNVOY_AWS_SECURITY_GROUP")
 	_ = v.BindEnv("aws.subnet_1", "RUNVOY_AWS_SUBNET_1")
 	_ = v.BindEnv("aws.subnet_2", "RUNVOY_AWS_SUBNET_2")
 	_ = v.BindEnv("aws.task_definition", "RUNVOY_AWS_TASK_DEFINITION")
-	_ = v.BindEnv("aws.default_task_exec_role_arn", "RUNVOY_AWS_DEFAULT_TASK_EXEC_ROLE_ARN")
-	_ = v.BindEnv("aws.default_task_role_arn", "RUNVOY_AWS_DEFAULT_TASK_ROLE_ARN")
 	_ = v.BindEnv("aws.websocket_api_endpoint", "RUNVOY_AWS_WEBSOCKET_API_ENDPOINT")
 	_ = v.BindEnv("aws.websocket_connections_table", "RUNVOY_AWS_WEBSOCKET_CONNECTIONS_TABLE")
 	_ = v.BindEnv("aws.websocket_tokens_table", "RUNVOY_AWS_WEBSOCKET_TOKENS_TABLE")
-	_ = v.BindEnv("aws.secrets_metadata_table", "RUNVOY_AWS_SECRETS_METADATA_TABLE")
-	_ = v.BindEnv("aws.secrets_prefix", "RUNVOY_AWS_SECRETS_PREFIX")
-	_ = v.BindEnv("aws.secrets_kms_key_arn", "RUNVOY_AWS_SECRETS_KMS_KEY_ARN")
 }
 
 // ValidateOrchestrator validates required AWS fields for the orchestrator service.
@@ -84,15 +84,15 @@ func ValidateOrchestrator(cfg *Config) error {
 		"AWS.ExecutionsTable":           cfg.ExecutionsTable,
 		"AWS.ImageTaskDefsTable":        cfg.ImageTaskDefsTable,
 		"AWS.LogGroup":                  cfg.LogGroup,
+		"AWS.SecretsKMSKeyARN":          cfg.SecretsKMSKeyARN,
+		"AWS.SecretsMetadataTable":      cfg.SecretsMetadataTable,
+		"AWS.SecretsPrefix":             cfg.SecretsPrefix,
 		"AWS.SecurityGroup":             cfg.SecurityGroup,
 		"AWS.Subnet1":                   cfg.Subnet1,
 		"AWS.Subnet2":                   cfg.Subnet2,
 		"AWS.WebSocketAPIEndpoint":      cfg.WebSocketAPIEndpoint,
 		"AWS.WebSocketConnectionsTable": cfg.WebSocketConnectionsTable,
 		"AWS.WebSocketTokensTable":      cfg.WebSocketTokensTable,
-		"AWS.SecretsMetadataTable":      cfg.SecretsMetadataTable,
-		"AWS.SecretsPrefix":             cfg.SecretsPrefix,
-		"AWS.SecretsKMSKeyARN":          cfg.SecretsKMSKeyARN,
 	}
 
 	for field, value := range required {
@@ -111,8 +111,15 @@ func ValidateEventProcessor(cfg *Config) error {
 	}
 
 	required := map[string]string{
+		"AWS.DefaultTaskExecRoleARN":    cfg.DefaultTaskExecRoleARN,
+		"AWS.DefaultTaskRoleARN":        cfg.DefaultTaskRoleARN,
 		"AWS.ECSCluster":                cfg.ECSCluster,
 		"AWS.ExecutionsTable":           cfg.ExecutionsTable,
+		"AWS.ImageTaskDefsTable":        cfg.ImageTaskDefsTable,
+		"AWS.LogGroup":                  cfg.LogGroup,
+		"AWS.SecretsKMSKeyARN":          cfg.SecretsKMSKeyARN,
+		"AWS.SecretsMetadataTable":      cfg.SecretsMetadataTable,
+		"AWS.SecretsPrefix":             cfg.SecretsPrefix,
 		"AWS.WebSocketAPIEndpoint":      cfg.WebSocketAPIEndpoint,
 		"AWS.WebSocketConnectionsTable": cfg.WebSocketConnectionsTable,
 		"AWS.WebSocketTokensTable":      cfg.WebSocketTokensTable,

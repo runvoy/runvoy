@@ -430,6 +430,13 @@ func TestValidateEventProcessor(t *testing.T) {
 				AWS: &awsconfig.Config{
 					ExecutionsTable:           "executions",
 					ECSCluster:                "cluster",
+					ImageTaskDefsTable:        "image-taskdefs",
+					SecretsMetadataTable:      "secrets",
+					LogGroup:                  "/aws/logs/app",
+					DefaultTaskExecRoleARN:    "arn:aws:iam::123456789012:role/exec-role",
+					DefaultTaskRoleARN:        "arn:aws:iam::123456789012:role/task-role",
+					SecretsPrefix:             "/runvoy/secrets",
+					SecretsKMSKeyARN:          "arn:aws:kms:us-east-1:123456789012:key/abc",
 					WebSocketConnectionsTable: "connections",
 					WebSocketAPIEndpoint:      "wss://example.com",
 					WebSocketTokensTable:      "tokens",
@@ -452,6 +459,13 @@ func TestValidateEventProcessor(t *testing.T) {
 				BackendProvider: constants.AWS,
 				AWS: &awsconfig.Config{
 					ECSCluster:                "cluster",
+					ImageTaskDefsTable:        "image-taskdefs",
+					SecretsMetadataTable:      "secrets",
+					LogGroup:                  "/aws/logs/app",
+					DefaultTaskExecRoleARN:    "arn:aws:iam::123456789012:role/exec-role",
+					DefaultTaskRoleARN:        "arn:aws:iam::123456789012:role/task-role",
+					SecretsPrefix:             "/runvoy/secrets",
+					SecretsKMSKeyARN:          "arn:aws:kms:us-east-1:123456789012:key/abc",
 					WebSocketConnectionsTable: "connections",
 					WebSocketAPIEndpoint:      "https://example.com",
 					WebSocketTokensTable:      "tokens",
@@ -466,6 +480,13 @@ func TestValidateEventProcessor(t *testing.T) {
 				BackendProvider: constants.AWS,
 				AWS: &awsconfig.Config{
 					ExecutionsTable:           "executions",
+					ImageTaskDefsTable:        "image-taskdefs",
+					SecretsMetadataTable:      "secrets",
+					LogGroup:                  "/aws/logs/app",
+					DefaultTaskExecRoleARN:    "arn:aws:iam::123456789012:role/exec-role",
+					DefaultTaskRoleARN:        "arn:aws:iam::123456789012:role/task-role",
+					SecretsPrefix:             "/runvoy/secrets",
+					SecretsKMSKeyARN:          "arn:aws:kms:us-east-1:123456789012:key/abc",
 					WebSocketConnectionsTable: "connections",
 					WebSocketAPIEndpoint:      "https://example.com",
 					WebSocketTokensTable:      "tokens",
@@ -479,19 +500,21 @@ func TestValidateEventProcessor(t *testing.T) {
 			cfg: &Config{
 				BackendProvider: constants.AWS,
 				AWS: &awsconfig.Config{
-					APIKeysTable:         "api-keys",
-					ExecutionsTable:      "executions",
-					ImageTaskDefsTable:   "image-taskdefs",
-					ECSCluster:           "cluster",
-					Subnet1:              "subnet-1",
-					Subnet2:              "subnet-2",
-					SecurityGroup:        "sg-123",
-					LogGroup:             "/aws/logs/app",
-					WebSocketAPIEndpoint: "https://example.com",
-					WebSocketTokensTable: "tokens",
-					SecretsMetadataTable: "secrets",
-					SecretsPrefix:        "/runvoy/secrets",
-					SecretsKMSKeyARN:     "arn:aws:kms:us-east-1:123456789012:key/abc",
+					APIKeysTable:           "api-keys",
+					ExecutionsTable:        "executions",
+					ImageTaskDefsTable:     "image-taskdefs",
+					ECSCluster:             "cluster",
+					Subnet1:                "subnet-1",
+					Subnet2:                "subnet-2",
+					SecurityGroup:          "sg-123",
+					LogGroup:               "/aws/logs/app",
+					DefaultTaskExecRoleARN: "arn:aws:iam::123456789012:role/exec-role",
+					DefaultTaskRoleARN:     "arn:aws:iam::123456789012:role/task-role",
+					WebSocketAPIEndpoint:   "https://example.com",
+					WebSocketTokensTable:   "tokens",
+					SecretsMetadataTable:   "secrets",
+					SecretsPrefix:          "/runvoy/secrets",
+					SecretsKMSKeyARN:       "arn:aws:kms:us-east-1:123456789012:key/abc",
 				},
 			},
 			wantErr: true,
@@ -504,6 +527,13 @@ func TestValidateEventProcessor(t *testing.T) {
 				AWS: &awsconfig.Config{
 					ExecutionsTable:           "executions",
 					ECSCluster:                "cluster",
+					ImageTaskDefsTable:        "image-taskdefs",
+					SecretsMetadataTable:      "secrets",
+					LogGroup:                  "/aws/logs/app",
+					DefaultTaskExecRoleARN:    "arn:aws:iam::123456789012:role/exec-role",
+					DefaultTaskRoleARN:        "arn:aws:iam::123456789012:role/task-role",
+					SecretsPrefix:             "/runvoy/secrets",
+					SecretsKMSKeyARN:          "arn:aws:kms:us-east-1:123456789012:key/abc",
 					WebSocketConnectionsTable: "connections",
 					WebSocketTokensTable:      "tokens",
 				},
@@ -523,6 +553,13 @@ func TestValidateEventProcessor(t *testing.T) {
 				AWS: &awsconfig.Config{
 					ExecutionsTable:           "executions",
 					ECSCluster:                "cluster",
+					ImageTaskDefsTable:        "image-taskdefs",
+					SecretsMetadataTable:      "secrets",
+					LogGroup:                  "/aws/logs/app",
+					DefaultTaskExecRoleARN:    "arn:aws:iam::123456789012:role/exec-role",
+					DefaultTaskRoleARN:        "arn:aws:iam::123456789012:role/task-role",
+					SecretsPrefix:             "/runvoy/secrets",
+					SecretsKMSKeyARN:          "arn:aws:kms:us-east-1:123456789012:key/abc",
 					WebSocketConnectionsTable: "connections",
 					WebSocketAPIEndpoint:      "example.com",
 					WebSocketTokensTable:      "tokens",
@@ -538,6 +575,13 @@ func TestValidateEventProcessor(t *testing.T) {
 				AWS: &awsconfig.Config{
 					ExecutionsTable:           "executions",
 					ECSCluster:                "cluster",
+					ImageTaskDefsTable:        "image-taskdefs",
+					SecretsMetadataTable:      "secrets",
+					LogGroup:                  "/aws/logs/app",
+					DefaultTaskExecRoleARN:    "arn:aws:iam::123456789012:role/exec-role",
+					DefaultTaskRoleARN:        "arn:aws:iam::123456789012:role/task-role",
+					SecretsPrefix:             "/runvoy/secrets",
+					SecretsKMSKeyARN:          "arn:aws:kms:us-east-1:123456789012:key/abc",
 					WebSocketConnectionsTable: "connections",
 					WebSocketAPIEndpoint:      "https://example.com",
 				},
@@ -977,7 +1021,13 @@ func TestLoadEventProcessorEnvironmentVariables(t *testing.T) {
 	_ = os.Setenv("RUNVOY_BACKEND_PROVIDER", "AWS")
 	_ = os.Setenv("RUNVOY_AWS_EXECUTIONS_TABLE", "test-executions")
 	_ = os.Setenv("RUNVOY_AWS_ECS_CLUSTER", "test-cluster")
+	_ = os.Setenv("RUNVOY_AWS_IMAGE_TASKDEFS_TABLE", "test-image-taskdefs")
+	_ = os.Setenv("RUNVOY_AWS_SECRETS_METADATA_TABLE", "test-secrets-metadata")
 	_ = os.Setenv("RUNVOY_AWS_LOG_GROUP", "/aws/ecs/runvoy-test")
+	_ = os.Setenv("RUNVOY_AWS_DEFAULT_TASK_EXEC_ROLE_ARN", "arn:aws:iam::123456789012:role/exec-role")
+	_ = os.Setenv("RUNVOY_AWS_DEFAULT_TASK_ROLE_ARN", "arn:aws:iam::123456789012:role/task-role")
+	_ = os.Setenv("RUNVOY_AWS_SECRETS_PREFIX", "/runvoy/secrets")
+	_ = os.Setenv("RUNVOY_AWS_SECRETS_KMS_KEY_ARN", "arn:aws:kms:us-east-1:123456789012:key/abc")
 	epEndpoint := "https://test.execute-api.us-east-1.amazonaws.com/production"
 	_ = os.Setenv("RUNVOY_AWS_WEBSOCKET_API_ENDPOINT", epEndpoint)
 	_ = os.Setenv("RUNVOY_AWS_WEBSOCKET_CONNECTIONS_TABLE", "test-websocket-connections")
