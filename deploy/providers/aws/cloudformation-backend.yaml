@@ -754,9 +754,10 @@ Resources:
               - Effect: Allow
                 Action:
                   - 'ssm:GetParameter'
+                  - 'ssm:GetParameters'
                   - 'ssm:ListTagsForResource'
                   - 'ssm:AddTagsToResource'
-                Resource: !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/runvoy/secrets/*'
+                Resource: !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${ProjectName}/secrets/*'
               - Effect: Allow
                 Action:
                   - 'iam:GetRole'
