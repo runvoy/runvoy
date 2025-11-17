@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"runvoy/internal/api"
+	"runvoy/internal/auth/authorization"
 	"runvoy/internal/database"
 	apperrors "runvoy/internal/errors"
 	"runvoy/internal/logger"
@@ -38,7 +39,7 @@ func (s *Service) CreateSecret(
 
 	enforcer := s.GetEnforcer()
 	if enforcer != nil {
-		resourceID := fmt.Sprintf("secret:%s", req.Name)
+		resourceID := authorization.FormatResourceID("secret", req.Name)
 		if err := enforcer.AddOwnershipForResource(resourceID, userEmail); err != nil {
 			s.Logger.Error("failed to add ownership for secret", "error", err, "resource", resourceID, "owner", userEmail)
 			// Log but don't fail - ownership is nice-to-have for fine-grained access control
@@ -96,12 +97,44 @@ func (s *Service) DeleteSecret(ctx context.Context, name string) error {
 	if s.secretsRepo == nil {
 		return apperrors.ErrInternalError("secrets repository not available", fmt.Errorf("secretsRepo is nil"))
 	}
-	if err := s.secretsRepo.DeleteSecret(ctx, name); err != nil {
-		var appErr *apperrors.AppError
-		if errors.As(err, &appErr) {
-			return err // Already wrapped, pass through
+
+	var (
+		resourceID string
+		ownerEmail string
+	)
+	if s.enforcer != nil {
+		resourceID = authorization.FormatResourceID("secret", name)
+		secret, fetchErr := s.secretsRepo.GetSecret(ctx, name, false)
+		if fetchErr != nil {
+			var appErr *apperrors.AppError
+			if errors.As(fetchErr, &appErr) {
+				return fetchErr
+			}
+			return apperrors.ErrInternalError("failed to load secret metadata", fmt.Errorf("get secret: %w", fetchErr))
 		}
-		return apperrors.ErrInternalError("failed to delete secret", fmt.Errorf("delete secret: %w", err))
+		if secret != nil && secret.CreatedBy != "" {
+			ownerEmail = secret.CreatedBy
+			if removeErr := s.enforcer.RemoveOwnershipForResource(resourceID, ownerEmail); removeErr != nil {
+				return apperrors.ErrInternalError("failed to remove secret ownership from authorization enforcer", removeErr)
+			}
+		}
+	}
+
+	if deleteErr := s.secretsRepo.DeleteSecret(ctx, name); deleteErr != nil {
+		if ownerEmail != "" && s.enforcer != nil {
+			if addErr := s.enforcer.AddOwnershipForResource(resourceID, ownerEmail); addErr != nil {
+				s.Logger.Error("failed to restore secret ownership after delete error",
+					"error", addErr,
+					"resource", resourceID,
+					"owner", ownerEmail,
+				)
+			}
+		}
+		var appErr *apperrors.AppError
+		if errors.As(deleteErr, &appErr) {
+			return deleteErr // Already wrapped, pass through
+		}
+		return apperrors.ErrInternalError("failed to delete secret", fmt.Errorf("delete secret: %w", deleteErr))
 	}
 
 	return nil

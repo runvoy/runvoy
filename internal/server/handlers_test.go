@@ -41,6 +41,7 @@ func (t *testUserRepository) GetUserByEmail(_ context.Context, email string) (*a
 		return t.getUserByEmailFunc(email)
 	}
 	return &api.User{
+		Role:    authorization.RoleViewer.String(),
 		Email:   email,
 		Revoked: false,
 	}, nil

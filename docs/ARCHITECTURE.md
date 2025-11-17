@@ -359,10 +359,10 @@ Four predefined roles control access to different resources:
 #### Resource Ownership
 
 For fine-grained access control, resources track ownership:
-- **Secrets**: Creator is marked as owner when created (write-time updates)
-- **Executions**: Executor ownership is hydrated at startup only (executions are short-lived and not re-synced post-creation)
-- Owners can access their resources with full permissions via the resource-owner (g2) matcher in Casbin
-- Ownership mappings are hydrated at startup from the database; only secrets update the mapping during runtime
+- **Secrets**: The creator is marked as owner during creation, and ownership entries are removed when a secret is deleted (runtime updates keep the enforcer in sync).
+- **Executions**: Executor ownerships are hydrated at startup and immediately recorded every time a new execution record is created.
+- Owners can access their resources with full permissions via the resource-owner (g2) matcher in Casbin.
+- Ownership mappings hydrate at startup and are refreshed continuously as secrets/executions change so long-lived processes stay accurate, even outside Lambda.
 
 #### Authorization Data Flow
 
@@ -372,7 +372,9 @@ For fine-grained access control, resources track ownership:
    - Handler calls `authorizeRequest()` to check general endpoint permission
    - For `/run` endpoint: Service validates access to specific resources (image, secrets) via `ValidateExecutionResourceAccess()`
 3. **Access Denied**: Request is rejected with appropriate HTTP status and error code
-4. **Resource Creation**: Ownership mappings are automatically created for new secrets; execution ownership relies on boot-time hydration
+4. **Runtime Sync**:
+   - User role assignments are pushed to the enforcer when users are created or revoked.
+   - Ownership mappings are updated live for both secrets (create/delete) and executions (creation), removing the need to rely on process restarts.
 
 #### Casbin Model and Policies
 

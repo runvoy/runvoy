@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"runvoy/internal/api"
+	"runvoy/internal/auth/authorization"
 	appErrors "runvoy/internal/errors"
 	"runvoy/internal/testutil"
 
@@ -453,6 +454,141 @@ func TestCreateUser_InvalidRole(t *testing.T) {
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid role")
+}
+
+func TestCreateUser_SyncsRoleWithEnforcer(t *testing.T) {
+	repo := &mockUserRepository{
+		getUserByEmailFunc: func(_ context.Context, _ string) (*api.User, error) {
+			return nil, nil
+		},
+		createUserFunc: func(_ context.Context, _ *api.User, _ string, _ int64) error {
+			return nil
+		},
+		createPendingAPIKeyFunc: func(_ context.Context, _ *api.PendingAPIKey) error {
+			return nil
+		},
+	}
+
+	service, enforcer := newTestServiceWithEnforcer(
+		repo,
+		&mockExecutionRepository{},
+		nil,
+		nil,
+	)
+
+	req := api.CreateUserRequest{Email: "new-user@example.com", Role: "viewer"}
+	resp, err := service.CreateUser(context.Background(), req, "admin@example.com")
+
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+
+	roles, err := enforcer.GetRolesForUser(req.Email)
+	require.NoError(t, err)
+
+	viewerRole, err := authorization.NewRole(req.Role)
+	require.NoError(t, err)
+	assert.Contains(t, roles, authorization.FormatRole(viewerRole))
+}
+
+func TestCreateUser_PendingClaimFailureRollsBackEnforcer(t *testing.T) {
+	revokeCalled := 0
+	repo := &mockUserRepository{
+		getUserByEmailFunc: func(_ context.Context, _ string) (*api.User, error) {
+			return nil, nil
+		},
+		createUserFunc: func(_ context.Context, _ *api.User, _ string, _ int64) error {
+			return nil
+		},
+		createPendingAPIKeyFunc: func(_ context.Context, _ *api.PendingAPIKey) error {
+			return appErrors.ErrDatabaseError("pending failure", errors.New("db error"))
+		},
+		revokeUserFunc: func(_ context.Context, _ string) error {
+			revokeCalled++
+			return nil
+		},
+	}
+
+	service, enforcer := newTestServiceWithEnforcer(
+		repo,
+		&mockExecutionRepository{},
+		nil,
+		nil,
+	)
+
+	req := api.CreateUserRequest{Email: "rollback@example.com", Role: "viewer"}
+	_, err := service.CreateUser(context.Background(), req, "admin@example.com")
+
+	require.Error(t, err)
+	assert.Equal(t, 1, revokeCalled)
+
+	roles, getErr := enforcer.GetRolesForUser(req.Email)
+	require.NoError(t, getErr)
+	assert.Empty(t, roles)
+}
+
+func TestRevokeUser_RemovesRoleFromEnforcer(t *testing.T) {
+	userEmail := "viewer@example.com"
+	repo := &mockUserRepository{
+		getUserByEmailFunc: func(_ context.Context, _ string) (*api.User, error) {
+			return &api.User{Email: userEmail, Role: "viewer"}, nil
+		},
+		revokeUserFunc: func(_ context.Context, _ string) error {
+			return nil
+		},
+		listUsersFunc: func(_ context.Context) ([]*api.User, error) {
+			return []*api.User{
+				{Email: userEmail, Role: "viewer"},
+			}, nil
+		},
+	}
+
+	service, enforcer := newTestServiceWithEnforcer(
+		repo,
+		&mockExecutionRepository{},
+		nil,
+		nil,
+	)
+
+	err := service.RevokeUser(context.Background(), userEmail)
+	require.NoError(t, err)
+
+	roles, getErr := enforcer.GetRolesForUser(userEmail)
+	require.NoError(t, getErr)
+	assert.Empty(t, roles)
+}
+
+func TestRevokeUser_RestoresRoleOnFailure(t *testing.T) {
+	userEmail := "viewer@example.com"
+	repo := &mockUserRepository{
+		getUserByEmailFunc: func(_ context.Context, _ string) (*api.User, error) {
+			return &api.User{Email: userEmail, Role: "viewer"}, nil
+		},
+		revokeUserFunc: func(_ context.Context, _ string) error {
+			return appErrors.ErrDatabaseError("revoke failed", errors.New("db error"))
+		},
+		listUsersFunc: func(_ context.Context) ([]*api.User, error) {
+			return []*api.User{
+				{Email: userEmail, Role: "viewer"},
+			}, nil
+		},
+	}
+
+	service, enforcer := newTestServiceWithEnforcer(
+		repo,
+		&mockExecutionRepository{},
+		nil,
+		nil,
+	)
+
+	err := service.RevokeUser(context.Background(), userEmail)
+	require.Error(t, err)
+
+	roles, getErr := enforcer.GetRolesForUser(userEmail)
+	require.NoError(t, getErr)
+
+	viewerRole, roleErr := authorization.NewRole("viewer")
+	require.NoError(t, roleErr)
+	assert.Contains(t, roles, authorization.FormatRole(viewerRole))
 }
 
 func TestClaimAPIKey_Success(t *testing.T) {

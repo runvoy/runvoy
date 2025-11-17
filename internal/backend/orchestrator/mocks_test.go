@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"runvoy/internal/api"
+	"runvoy/internal/auth/authorization"
 	"runvoy/internal/backend/websocket"
 	"runvoy/internal/constants"
 	"runvoy/internal/database"
@@ -318,6 +319,53 @@ func newTestServiceWithConnRepo(
 }
 
 // newTestServiceWithSecretsRepo creates a Service with a secrets repository for testing.
+func newTestServiceWithEnforcer(
+	userRepo *mockUserRepository,
+	execRepo *mockExecutionRepository,
+	runner *mockRunner,
+	secretsRepo database.SecretsRepository,
+) (*Service, *authorization.Enforcer) {
+	logger := testutil.SilentLogger()
+	enforcer, err := authorization.NewEnforcer(logger)
+	if err != nil {
+		panic(err)
+	}
+
+	var userRepoIface database.UserRepository
+	if userRepo != nil {
+		userRepoIface = userRepo
+	}
+
+	var execRepoIface database.ExecutionRepository
+	if execRepo != nil {
+		execRepoIface = execRepo
+	}
+
+	var runnerIface Runner
+	if runner != nil {
+		runnerIface = runner
+	}
+
+	svc, err := NewService(
+		context.Background(),
+		userRepoIface,
+		execRepoIface,
+		nil,
+		&mockTokenRepository{},
+		runnerIface,
+		logger,
+		constants.AWS,
+		nil,
+		secretsRepo,
+		nil,
+		enforcer,
+	)
+	if err != nil {
+		panic(err)
+	}
+	return svc, enforcer
+}
+
 func newTestServiceWithSecretsRepo(
 	userRepo *mockUserRepository,
 	execRepo *mockExecutionRepository,
@@ -325,8 +373,35 @@ func newTestServiceWithSecretsRepo(
 	secretsRepo database.SecretsRepository,
 ) *Service {
 	logger := testutil.SilentLogger()
-	svc, err := NewService(context.Background(),
-		userRepo, execRepo, nil, &mockTokenRepository{}, runner, logger, constants.AWS, nil, secretsRepo, nil, nil,
+
+	var userRepoIface database.UserRepository
+	if userRepo != nil {
+		userRepoIface = userRepo
+	}
+
+	var execRepoIface database.ExecutionRepository
+	if execRepo != nil {
+		execRepoIface = execRepo
+	}
+
+	var runnerIface Runner
+	if runner != nil {
+		runnerIface = runner
+	}
+
+	svc, err := NewService(
+		context.Background(),
+		userRepoIface,
+		execRepoIface,
+		nil,
+		&mockTokenRepository{},
+		runnerIface,
+		logger,
+		constants.AWS,
+		nil,
+		secretsRepo,
+		nil,
+		nil,
 	)
 	if err != nil {
 		panic(err)

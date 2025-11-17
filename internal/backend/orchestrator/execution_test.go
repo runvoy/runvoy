@@ -10,6 +10,7 @@ import (
 
 	"runvoy/internal/api"
 	"runvoy/internal/auth"
+	"runvoy/internal/auth/authorization"
 	"runvoy/internal/backend/websocket"
 	"runvoy/internal/constants"
 	"runvoy/internal/database"
@@ -181,6 +182,32 @@ func TestRunCommand_WithSecrets(t *testing.T) {
 	assert.Equal(t, dbSecretValue, capturedEnv["DB_PASSWORD"])
 	assert.Equal(t, "value", capturedEnv["USER_DEFINED"])
 	assert.Equal(t, string(constants.ExecutionStarting), resp.Status)
+}
+
+func TestRunCommand_AddsExecutionOwnership(t *testing.T) {
+	ctx := context.Background()
+	execRepo := &mockExecutionRepository{}
+	runner := &mockRunner{
+		startTaskFunc: func(_ context.Context, _ string, _ *api.ExecutionRequest) (string, *time.Time, error) {
+			return "exec-ownership", timePtr(time.Now()), nil
+		},
+	}
+
+	service, enforcer := newTestServiceWithEnforcer(
+		nil,
+		execRepo,
+		runner,
+		nil,
+	)
+
+	req := api.ExecutionRequest{Command: "echo hello"}
+	_, err := service.RunCommand(ctx, "owner@example.com", &req)
+	require.NoError(t, err)
+
+	resourceID := authorization.FormatResourceID("execution", "exec-ownership")
+	hasOwnership, checkErr := enforcer.HasOwnershipForResource(resourceID, "owner@example.com")
+	require.NoError(t, checkErr)
+	assert.True(t, hasOwnership)
 }
 
 func TestGetExecutionStatus(t *testing.T) {

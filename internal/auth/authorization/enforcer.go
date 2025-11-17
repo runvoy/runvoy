@@ -185,7 +185,7 @@ func (e *Enforcer) RemoveRoleForUser(user, role string) error {
 //
 //	err := e.AddOwnershipForResource("secret:secret-123", "user@example.com")
 func (e *Enforcer) AddOwnershipForResource(resourceID, ownerEmail string) error {
-	added, err := e.enforcer.AddGroupingPolicy(resourceID, ownerEmail)
+	added, err := e.enforcer.AddNamedGroupingPolicy("g2", resourceID, ownerEmail)
 	if err != nil {
 		return fmt.Errorf("failed to add ownership for resource: %w", err)
 	}
@@ -200,7 +200,7 @@ func (e *Enforcer) AddOwnershipForResource(resourceID, ownerEmail string) error 
 
 // RemoveOwnershipForResource removes ownership mapping for a resource.
 func (e *Enforcer) RemoveOwnershipForResource(resourceID, ownerEmail string) error {
-	removed, err := e.enforcer.RemoveGroupingPolicy(resourceID, ownerEmail)
+	removed, err := e.enforcer.RemoveNamedGroupingPolicy("g2", resourceID, ownerEmail)
 	if err != nil {
 		return fmt.Errorf("failed to remove ownership for resource: %w", err)
 	}
@@ -216,8 +216,7 @@ func (e *Enforcer) RemoveOwnershipForResource(resourceID, ownerEmail string) err
 // RemoveAllOwnershipsForResource removes every ownership mapping for the given resource identifier.
 // This is useful when deleting a resource without knowing its owner ahead of time.
 func (e *Enforcer) RemoveAllOwnershipsForResource(resourceID string) error {
-	_, err := e.enforcer.RemoveFilteredNamedGroupingPolicy("g2", 0, resourceID)
-	if err != nil {
+	if _, err := e.enforcer.RemoveFilteredNamedGroupingPolicy("g2", 0, resourceID); err != nil {
 		return fmt.Errorf("failed to remove ownerships for resource %s: %w", resourceID, err)
 	}
 	e.logger.Debug("ownerships removed for resource", "resource", resourceID)

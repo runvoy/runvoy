@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"runvoy/internal/api"
+	"runvoy/internal/auth/authorization"
 	"runvoy/internal/constants"
 	appErrors "runvoy/internal/errors"
 	"runvoy/internal/testutil"
@@ -375,6 +376,111 @@ func TestDeleteSecret_RepositoryError(t *testing.T) {
 	deleteErr := service.DeleteSecret(context.Background(), "test-secret")
 
 	assert.Error(t, deleteErr)
+}
+
+func TestDeleteSecret_RemovesOwnershipFromEnforcer(t *testing.T) {
+	ctx := context.Background()
+	secrets := map[string]*api.Secret{}
+	secretsRepo := &mockSecretsRepository{
+		createSecretFunc: func(_ context.Context, secret *api.Secret) error {
+			secrets[secret.Name] = secret
+			return nil
+		},
+		getSecretFunc: func(_ context.Context, name string, _ bool) (*api.Secret, error) {
+			if secret, ok := secrets[name]; ok {
+				secretCopy := *secret
+				return &secretCopy, nil
+			}
+			return nil, nil
+		},
+		deleteSecretFunc: func(_ context.Context, name string) error {
+			if _, ok := secrets[name]; !ok {
+				return appErrors.ErrNotFound("secret not found", nil)
+			}
+			delete(secrets, name)
+			return nil
+		},
+	}
+
+	service, enforcer := newTestServiceWithEnforcer(
+		&mockUserRepository{},
+		&mockExecutionRepository{},
+		nil,
+		secretsRepo,
+	)
+
+	req := &api.CreateSecretRequest{
+		Name:    "ownership-secret",
+		KeyName: "SECRET_KEY",
+		Value:   "super-secret",
+	}
+
+	err := service.CreateSecret(ctx, req, "creator@example.com")
+	require.NoError(t, err)
+
+	resourceID := authorization.FormatResourceID("secret", req.Name)
+	hasOwnership, checkErr := enforcer.HasOwnershipForResource(resourceID, "creator@example.com")
+	require.NoError(t, checkErr)
+	assert.True(t, hasOwnership)
+
+	deleteErr := service.DeleteSecret(ctx, req.Name)
+	require.NoError(t, deleteErr)
+
+	hasOwnership, checkErr = enforcer.HasOwnershipForResource(resourceID, "creator@example.com")
+	require.NoError(t, checkErr)
+	assert.False(t, hasOwnership)
+}
+
+func TestDeleteSecret_RestoresOwnershipOnFailure(t *testing.T) {
+	ctx := context.Background()
+	secrets := map[string]*api.Secret{}
+	secretsRepo := &mockSecretsRepository{
+		createSecretFunc: func(_ context.Context, secret *api.Secret) error {
+			secrets[secret.Name] = secret
+			return nil
+		},
+		getSecretFunc: func(_ context.Context, name string, _ bool) (*api.Secret, error) {
+			if secret, ok := secrets[name]; ok {
+				secretCopy := *secret
+				return &secretCopy, nil
+			}
+			return nil, nil
+		},
+		deleteSecretFunc: func(_ context.Context, name string) error {
+			if _, ok := secrets[name]; !ok {
+				return appErrors.ErrNotFound("secret not found", nil)
+			}
+			return appErrors.ErrDatabaseError("delete failed", errors.New("db error"))
+		},
+	}
+
+	service, enforcer := newTestServiceWithEnforcer(
+		&mockUserRepository{},
+		&mockExecutionRepository{},
+		nil,
+		secretsRepo,
+	)
+
+	req := &api.CreateSecretRequest{
+		Name:    "restore-secret",
+		KeyName: "SECRET_KEY",
+		Value:   "super-secret",
+	}
+
+	err := service.CreateSecret(ctx, req, "creator@example.com")
+	require.NoError(t, err)
+
+	resourceID := authorization.FormatResourceID("secret", req.Name)
+	hasOwnership, checkErr := enforcer.HasOwnershipForResource(resourceID, "creator@example.com")
+	require.NoError(t, checkErr)
+	assert.True(t, hasOwnership)
+
+	deleteErr := service.DeleteSecret(ctx, req.Name)
+	require.Error(t, deleteErr)
+
+	hasOwnership, checkErr = enforcer.HasOwnershipForResource(resourceID, "creator@example.com")
+	require.NoError(t, checkErr)
+	assert.True(t, hasOwnership)
 }
 
 func TestResolveSecretsForExecution_Success(t *testing.T) {
