@@ -62,7 +62,7 @@ func Initialize( //nolint:funlen // This is ok, lots of initializations required
 	dynamoClient := dynamoRepo.NewClientAdapter(dynamoSDKClient)
 	ecsClient := awsClient.NewECSClientAdapter(ecsSDKClient)
 	ssmClient := secrets.NewClientAdapter(ssmSDKClient)
-	cwlClient := NewCloudWatchLogsClientAdapter(cwlSDKClient)
+	cwlClient := awsClient.NewCloudWatchLogsClientAdapter(cwlSDKClient)
 	iamClient := awsClient.NewIAMClientAdapter(iamSDKClient)
 
 	repos := createRepositories(dynamoClient, ssmClient, cfg, log)

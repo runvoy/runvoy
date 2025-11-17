@@ -73,7 +73,7 @@ type ImageTaskDefRepository interface {
 // Runner implements app.Runner for AWS ECS Fargate.
 type Runner struct {
 	ecsClient awsClient.ECSClient
-	cwlClient CloudWatchLogsClient
+	cwlClient awsClient.CloudWatchLogsClient
 	iamClient awsClient.IAMClient
 	imageRepo ImageTaskDefRepository
 	cfg       *Config
@@ -83,7 +83,7 @@ type Runner struct {
 // NewRunner creates a new AWS ECS runner with the provided configuration.
 func NewRunner(
 	ecsClient awsClient.ECSClient,
-	cwlClient CloudWatchLogsClient,
+	cwlClient awsClient.CloudWatchLogsClient,
 	iamClient awsClient.IAMClient,
 	imageRepo ImageTaskDefRepository,
 	cfg *Config,
