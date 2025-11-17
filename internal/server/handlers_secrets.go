@@ -25,7 +25,7 @@ func (r *Router) handleCreateSecret(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	if !r.authorizeRequest(req.Context(), user.Email, "/api/secrets", "create") {
+	if !r.authorizeRequest(req.Context(), user.Email, req.URL.Path, "create") {
 		writeErrorResponse(w, http.StatusForbidden, "Forbidden", "you do not have permission to create secrets")
 		return
 	}
@@ -55,7 +55,7 @@ func (r *Router) handleGetSecret(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	if !r.authorizeRequest(req.Context(), user.Email, "/api/secrets", "read") {
+	if !r.authorizeRequest(req.Context(), user.Email, req.URL.Path, "read") {
 		writeErrorResponse(w, http.StatusForbidden, "Forbidden", "you do not have permission to read secrets")
 		return
 	}
@@ -80,7 +80,7 @@ func (r *Router) handleListSecrets(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	if !r.authorizeRequest(req.Context(), user.Email, "/api/secrets", "read") {
+	if !r.authorizeRequest(req.Context(), user.Email, req.URL.Path, "read") {
 		writeErrorResponse(w, http.StatusForbidden, "Forbidden", "you do not have permission to list secrets")
 		return
 	}
@@ -119,7 +119,7 @@ func (r *Router) handleUpdateSecret(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	if !r.authorizeRequest(req.Context(), user.Email, "/api/secrets", "update") {
+	if !r.authorizeRequest(req.Context(), user.Email, req.URL.Path, "update") {
 		writeErrorResponse(w, http.StatusForbidden, "Forbidden", "you do not have permission to update secrets")
 		return
 	}
@@ -149,7 +149,7 @@ func (r *Router) handleDeleteSecret(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	if !r.authorizeRequest(req.Context(), user.Email, "/api/secrets", "delete") {
+	if !r.authorizeRequest(req.Context(), user.Email, req.URL.Path, "delete") {
 		writeErrorResponse(w, http.StatusForbidden, "Forbidden", "you do not have permission to delete secrets")
 		return
 	}

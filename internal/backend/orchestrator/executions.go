@@ -26,7 +26,8 @@ func (s *Service) ValidateExecutionResourceAccess(
 	}
 
 	if image := strings.TrimSpace(req.Image); image != "" {
-		allowed, err := enforcer.Enforce(userEmail, "/api/images", "read")
+		imagePath := fmt.Sprintf("/api/v1/images/%s", image)
+		allowed, err := enforcer.Enforce(userEmail, imagePath, "read")
 		if err != nil {
 			return apperrors.ErrInternalError(
 				"failed to validate image access",
@@ -49,7 +50,9 @@ func (s *Service) ValidateExecutionResourceAccess(
 		if name == "" {
 			continue
 		}
-		allowed, err := enforcer.Enforce(userEmail, "/api/secrets", "read")
+
+		secretPath := fmt.Sprintf("/api/v1/secrets/%s", name)
+		allowed, err := enforcer.Enforce(userEmail, secretPath, "read")
 		if err != nil {
 			return apperrors.ErrInternalError(
 				"failed to validate secret access",

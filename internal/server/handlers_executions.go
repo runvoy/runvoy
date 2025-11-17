@@ -154,7 +154,7 @@ func (r *Router) handleKillExecution(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	if !r.authorizeRequest(req.Context(), user.Email, "/api/executions", "kill") {
+	if !r.authorizeRequest(req.Context(), user.Email, req.URL.Path, "kill") {
 		writeErrorResponse(w, http.StatusForbidden, "Forbidden", "you do not have permission to kill executions")
 		return
 	}
