@@ -4,11 +4,25 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"slices"
 	"strings"
 
+	"runvoy/internal/api"
 	"runvoy/internal/auth/authorization"
 	"runvoy/internal/backend/health"
 )
+
+const (
+	minPolicyLength = 2
+	resourceIDParts = 2
+)
+
+func capitalizeFirst(s string) string {
+	if s == "" {
+		return s
+	}
+	return strings.ToUpper(s[:1]) + s[1:]
+}
 
 func (m *Manager) reconcileCasbin(
 	ctx context.Context,
@@ -51,227 +65,170 @@ func (m *Manager) reconcileCasbin(
 
 func (m *Manager) checkUserRoles(
 	ctx context.Context,
-	reqLogger *slog.Logger,
+	_ *slog.Logger,
 	status *health.CasbinHealthStatus,
 ) ([]health.Issue, error) {
-	issues := []health.Issue{}
-
-	users, err := m.userRepo.ListUsers(ctx)
-	if err != nil {
-		return issues, fmt.Errorf("failed to list users: %w", err)
+	users, listErr := m.userRepo.ListUsers(ctx)
+	if listErr != nil {
+		return nil, fmt.Errorf("failed to list users: %w", listErr)
 	}
 
 	status.TotalUsersChecked = len(users)
 
+	issues := []health.Issue{}
 	for _, user := range users {
-		if user == nil {
-			continue
-		}
-
-		if user.Email == "" {
-			issues = append(issues, health.Issue{
-				ResourceType: "user",
-				ResourceID:   "unknown",
-				Severity:     "error",
-				Message:      "User has empty email field",
-				Action:       "reported",
-			})
-			continue
-		}
-
-		if user.Role == "" {
-			status.UsersWithMissingRoles = append(status.UsersWithMissingRoles, user.Email)
-			issues = append(issues, health.Issue{
-				ResourceType: "user",
-				ResourceID:   user.Email,
-				Severity:     "error",
-				Message:      fmt.Sprintf("User %s has empty role field (required for Casbin)", user.Email),
-				Action:       "reported",
-			})
-			continue
-		}
-
-		if !authorization.IsValidRole(user.Role) {
-			status.UsersWithInvalidRoles = append(status.UsersWithInvalidRoles, user.Email)
-			issues = append(issues, health.Issue{
-				ResourceType: "user",
-				ResourceID:   user.Email,
-				Severity:     "error",
-				Message:      fmt.Sprintf("User %s has invalid role %q (required for Casbin)", user.Email, user.Role),
-				Action:       "reported",
-			})
-			continue
-		}
-
-		roles, err := m.enforcer.GetRolesForUser(user.Email)
-		if err != nil {
-			issues = append(issues, health.Issue{
-				ResourceType: "user",
-				ResourceID:   user.Email,
-				Severity:     "error",
-				Message:      fmt.Sprintf("Failed to check Casbin roles for user %s: %v", user.Email, err),
-				Action:       "reported",
-			})
-			continue
-		}
-
-		expectedRole := authorization.FormatRole(authorization.Role(user.Role))
-		hasRole := false
-		for _, role := range roles {
-			if role == expectedRole {
-				hasRole = true
-				break
-			}
-		}
-
-		if !hasRole {
-			status.UsersWithMissingRoles = append(status.UsersWithMissingRoles, user.Email)
-			issues = append(issues, health.Issue{
-				ResourceType: "user",
-				ResourceID:   user.Email,
-				Severity:     "error",
-				Message:      fmt.Sprintf("User %s has role %q in database but not in Casbin enforcer", user.Email, user.Role),
-				Action:       "reported",
-			})
-		}
+		userIssues := m.checkSingleUserRole(user, status)
+		issues = append(issues, userIssues...)
 	}
 
 	return issues, nil
 }
 
+func (m *Manager) checkSingleUserRole(
+	user *api.User,
+	status *health.CasbinHealthStatus,
+) []health.Issue {
+	if user == nil {
+		return nil
+	}
+
+	email := user.Email
+	if email == "" {
+		return m.createEmptyEmailIssue()
+	}
+
+	role := user.Role
+	if role == "" {
+		return m.createEmptyRoleIssue(email, status)
+	}
+
+	if !authorization.IsValidRole(role) {
+		return m.createInvalidRoleIssue(email, role, status)
+	}
+
+	return m.checkUserRoleInEnforcer(email, role, status)
+}
+
+func (m *Manager) createEmptyEmailIssue() []health.Issue {
+	return []health.Issue{{
+		ResourceType: "user",
+		ResourceID:   "unknown",
+		Severity:     "error",
+		Message:      "User has empty email field",
+		Action:       "reported",
+	}}
+}
+
+func (m *Manager) createEmptyRoleIssue(
+	email string,
+	status *health.CasbinHealthStatus,
+) []health.Issue {
+	status.UsersWithMissingRoles = append(status.UsersWithMissingRoles, email)
+	return []health.Issue{{
+		ResourceType: "user",
+		ResourceID:   email,
+		Severity:     "error",
+		Message:      fmt.Sprintf("User %s has empty role field (required for Casbin)", email),
+		Action:       "reported",
+	}}
+}
+
+func (m *Manager) createInvalidRoleIssue(
+	email, role string,
+	status *health.CasbinHealthStatus,
+) []health.Issue {
+	status.UsersWithInvalidRoles = append(status.UsersWithInvalidRoles, email)
+	return []health.Issue{{
+		ResourceType: "user",
+		ResourceID:   email,
+		Severity:     "error",
+		Message:      fmt.Sprintf("User %s has invalid role %q (required for Casbin)", email, role),
+		Action:       "reported",
+	}}
+}
+
+func (m *Manager) checkUserRoleInEnforcer(
+	email, role string,
+	status *health.CasbinHealthStatus,
+) []health.Issue {
+	roles, rolesErr := m.enforcer.GetRolesForUser(email)
+	if rolesErr != nil {
+		return []health.Issue{{
+			ResourceType: "user",
+			ResourceID:   email,
+			Severity:     "error",
+			Message: fmt.Sprintf(
+				"Failed to check Casbin roles for user %s: %v",
+				email, rolesErr,
+			),
+			Action: "reported",
+		}}
+	}
+
+	expectedRole := authorization.FormatRole(authorization.Role(role))
+	hasRole := slices.Contains(roles, expectedRole)
+
+	if !hasRole {
+		status.UsersWithMissingRoles = append(status.UsersWithMissingRoles, email)
+		return []health.Issue{{
+			ResourceType: "user",
+			ResourceID:   email,
+			Severity:     "error",
+			Message: fmt.Sprintf(
+				"User %s has role %q in database but not in Casbin enforcer",
+				email, role,
+			),
+			Action: "reported",
+		}}
+	}
+
+	return nil
+}
+
 func (m *Manager) checkResourceOwnership(
 	ctx context.Context,
-	reqLogger *slog.Logger,
+	_ *slog.Logger,
 	status *health.CasbinHealthStatus,
 ) ([]health.Issue, error) {
 	issues := []health.Issue{}
 	resourceCount := 0
 
 	if m.secretsRepo != nil {
-		secrets, err := m.secretsRepo.ListSecrets(ctx, false)
-		if err != nil {
-			return issues, fmt.Errorf("failed to list secrets: %w", err)
+		secrets, secretsErr := m.secretsRepo.ListSecrets(ctx, false)
+		if secretsErr != nil {
+			return issues, fmt.Errorf("failed to list secrets: %w", secretsErr)
 		}
 
 		for _, secret := range secrets {
 			resourceCount++
-			if secret == nil || secret.Name == "" {
-				continue
-			}
-
-			if secret.CreatedBy == "" {
-				resourceID := authorization.FormatResourceID("secret", secret.Name)
-				status.ResourcesWithMissingOwners = append(status.ResourcesWithMissingOwners, resourceID)
-				issues = append(issues, health.Issue{
-					ResourceType: "secret",
-					ResourceID:   secret.Name,
-					Severity:     "error",
-					Message:      fmt.Sprintf("Secret %s has empty CreatedBy field (required for Casbin ownership)", secret.Name),
-					Action:       "reported",
-				})
-				continue
-			}
-
-			resourceID := authorization.FormatResourceID("secret", secret.Name)
-			hasOwnership, err := m.enforcer.HasOwnershipForResource(resourceID, secret.CreatedBy)
-			if err != nil {
-				issues = append(issues, health.Issue{
-					ResourceType: "secret",
-					ResourceID:   secret.Name,
-					Severity:     "error",
-					Message:      fmt.Sprintf("Failed to check Casbin ownership for secret %s: %v", secret.Name, err),
-					Action:       "reported",
-				})
-				continue
-			}
-
-			if !hasOwnership {
-				status.MissingOwnerships = append(status.MissingOwnerships, resourceID)
-				issues = append(issues, health.Issue{
-					ResourceType: "secret",
-					ResourceID:   secret.Name,
-					Severity:     "error",
-					Message:      fmt.Sprintf("Secret %s has owner %s in database but not in Casbin enforcer", secret.Name, secret.CreatedBy),
-					Action:       "reported",
-				})
-			}
+			secretIssues := m.checkSecretOwnership(secret, status)
+			issues = append(issues, secretIssues...)
 		}
 	}
 
 	if m.executionRepo != nil {
-		executions, err := m.executionRepo.ListExecutions(ctx, 0, nil)
-		if err != nil {
-			return issues, fmt.Errorf("failed to list executions: %w", err)
+		executions, execErr := m.executionRepo.ListExecutions(ctx, 0, nil)
+		if execErr != nil {
+			return issues, fmt.Errorf("failed to list executions: %w", execErr)
 		}
 
 		for _, execution := range executions {
 			resourceCount++
-			if execution == nil || execution.ExecutionID == "" {
-				continue
-			}
-
-			if execution.UserEmail == "" {
-				resourceID := authorization.FormatResourceID("execution", execution.ExecutionID)
-				status.ResourcesWithMissingOwners = append(status.ResourcesWithMissingOwners, resourceID)
-				issues = append(issues, health.Issue{
-					ResourceType: "execution",
-					ResourceID:   execution.ExecutionID,
-					Severity:     "error",
-					Message:      fmt.Sprintf("Execution %s has empty UserEmail field (required for Casbin ownership)", execution.ExecutionID),
-					Action:       "reported",
-				})
-				continue
-			}
-
-			resourceID := authorization.FormatResourceID("execution", execution.ExecutionID)
-			hasOwnership, err := m.enforcer.HasOwnershipForResource(resourceID, execution.UserEmail)
-			if err != nil {
-				issues = append(issues, health.Issue{
-					ResourceType: "execution",
-					ResourceID:   execution.ExecutionID,
-					Severity:     "error",
-					Message:      fmt.Sprintf("Failed to check Casbin ownership for execution %s: %v", execution.ExecutionID, err),
-					Action:       "reported",
-				})
-				continue
-			}
-
-			if !hasOwnership {
-				status.MissingOwnerships = append(status.MissingOwnerships, resourceID)
-				issues = append(issues, health.Issue{
-					ResourceType: "execution",
-					ResourceID:   execution.ExecutionID,
-					Severity:     "error",
-					Message:      fmt.Sprintf("Execution %s has owner %s in database but not in Casbin enforcer", execution.ExecutionID, execution.UserEmail),
-					Action:       "reported",
-				})
-			}
+			execIssues := m.checkExecutionOwnership(execution, status)
+			issues = append(issues, execIssues...)
 		}
 	}
 
 	if m.imageRepo != nil {
-		images, err := m.imageRepo.ListImages(ctx)
-		if err != nil {
-			return issues, fmt.Errorf("failed to list images: %w", err)
+		images, imagesErr := m.imageRepo.ListImages(ctx)
+		if imagesErr != nil {
+			return issues, fmt.Errorf("failed to list images: %w", imagesErr)
 		}
 
-		for _, image := range images {
+		for i := range images {
 			resourceCount++
-			if image.ImageID == "" {
-				continue
-			}
-
-			if image.RegisteredBy == "" {
-				resourceID := authorization.FormatResourceID("image", image.ImageID)
-				status.ResourcesWithMissingOwners = append(status.ResourcesWithMissingOwners, resourceID)
-				issues = append(issues, health.Issue{
-					ResourceType: "image",
-					ResourceID:   image.ImageID,
-					Severity:     "warning",
-					Message:      fmt.Sprintf("Image %s has empty RegisteredBy field (may affect Casbin ownership)", image.ImageID),
-					Action:       "reported",
-				})
-			}
+			imageIssues := m.checkImageOwnership(&images[i], status)
+			issues = append(issues, imageIssues...)
 		}
 	}
 
@@ -279,20 +236,157 @@ func (m *Manager) checkResourceOwnership(
 	return issues, nil
 }
 
-func (m *Manager) checkOrphanedOwnerships(
-	ctx context.Context,
-	reqLogger *slog.Logger,
+func (m *Manager) checkSecretOwnership(
+	secret *api.Secret,
 	status *health.CasbinHealthStatus,
-) ([]health.Issue, error) {
-	issues := []health.Issue{}
-
-	if m.enforcer == nil || m.userRepo == nil {
-		return issues, nil
+) []health.Issue {
+	if secret == nil || secret.Name == "" {
+		return nil
 	}
 
-	users, err := m.userRepo.ListUsers(ctx)
-	if err != nil {
-		return issues, fmt.Errorf("failed to list users for orphaned ownership check: %w", err)
+	return m.checkResourceOwnershipGeneric(
+		"secret",
+		secret.Name,
+		secret.CreatedBy,
+		status,
+	)
+}
+
+func (m *Manager) checkExecutionOwnership(
+	execution *api.Execution,
+	status *health.CasbinHealthStatus,
+) []health.Issue {
+	if execution == nil || execution.ExecutionID == "" {
+		return nil
+	}
+
+	return m.checkResourceOwnershipGeneric(
+		"execution",
+		execution.ExecutionID,
+		execution.UserEmail,
+		status,
+	)
+}
+
+func (m *Manager) checkResourceOwnershipGeneric(
+	resourceType, resourceID, ownerEmail string,
+	status *health.CasbinHealthStatus,
+) []health.Issue {
+	if ownerEmail == "" {
+		formattedID := authorization.FormatResourceID(resourceType, resourceID)
+		status.ResourcesWithMissingOwners = append(
+			status.ResourcesWithMissingOwners, formattedID,
+		)
+		return []health.Issue{{
+			ResourceType: resourceType,
+			ResourceID:   resourceID,
+			Severity:     "error",
+			Message: fmt.Sprintf(
+				"%s %s has empty owner field (required for Casbin ownership)",
+				capitalizeFirst(resourceType), resourceID,
+			),
+			Action: "reported",
+		}}
+	}
+
+	formattedID := authorization.FormatResourceID(resourceType, resourceID)
+	hasOwnership, checkErr := m.enforcer.HasOwnershipForResource(formattedID, ownerEmail)
+	if checkErr != nil {
+		return []health.Issue{{
+			ResourceType: resourceType,
+			ResourceID:   resourceID,
+			Severity:     "error",
+			Message: fmt.Sprintf(
+				"Failed to check Casbin ownership for %s %s: %v",
+				resourceType, resourceID, checkErr,
+			),
+			Action: "reported",
+		}}
+	}
+
+	if !hasOwnership {
+		status.MissingOwnerships = append(status.MissingOwnerships, formattedID)
+		return []health.Issue{{
+			ResourceType: resourceType,
+			ResourceID:   resourceID,
+			Severity:     "error",
+			Message: fmt.Sprintf(
+				"%s %s has owner %s in database but not in Casbin enforcer",
+				capitalizeFirst(resourceType), resourceID, ownerEmail,
+			),
+			Action: "reported",
+		}}
+	}
+
+	return nil
+}
+
+func (m *Manager) checkImageOwnership(
+	image *api.ImageInfo,
+	status *health.CasbinHealthStatus,
+) []health.Issue {
+	if image.ImageID == "" {
+		return nil
+	}
+
+	if image.RegisteredBy == "" {
+		resourceID := authorization.FormatResourceID("image", image.ImageID)
+		status.ResourcesWithMissingOwners = append(
+			status.ResourcesWithMissingOwners, resourceID,
+		)
+		return []health.Issue{{
+			ResourceType: "image",
+			ResourceID:   image.ImageID,
+			Severity:     "warning",
+			Message: fmt.Sprintf(
+				"Image %s has empty RegisteredBy field (may affect Casbin ownership)",
+				image.ImageID,
+			),
+			Action: "reported",
+		}}
+	}
+
+	return nil
+}
+
+func (m *Manager) checkOrphanedOwnerships(
+	ctx context.Context,
+	_ *slog.Logger,
+	status *health.CasbinHealthStatus,
+) ([]health.Issue, error) {
+	if m.enforcer == nil || m.userRepo == nil {
+		return nil, nil
+	}
+
+	resourceMaps, mapsErr := m.buildResourceMaps(ctx)
+	if mapsErr != nil {
+		return nil, mapsErr
+	}
+
+	policies, policiesErr := m.enforcer.GetAllNamedGroupingPolicies("g2")
+	if policiesErr != nil {
+		return nil, fmt.Errorf("failed to get Casbin g2 policies: %w", policiesErr)
+	}
+
+	issues := []health.Issue{}
+	for _, policy := range policies {
+		policyIssues := m.checkPolicyOrphaned(policy, resourceMaps, status)
+		issues = append(issues, policyIssues...)
+	}
+
+	return issues, nil
+}
+
+type resourceMaps struct {
+	userMap      map[string]bool
+	secretMap    map[string]bool
+	executionMap map[string]bool
+}
+
+func (m *Manager) buildResourceMaps(ctx context.Context) (*resourceMaps, error) {
+	users, usersErr := m.userRepo.ListUsers(ctx)
+	if usersErr != nil {
+		return nil, fmt.Errorf("failed to list users for orphaned ownership check: %w", usersErr)
 	}
 
 	userMap := make(map[string]bool)
@@ -302,9 +396,9 @@ func (m *Manager) checkOrphanedOwnerships(
 		}
 	}
 
-	secrets, err := m.secretsRepo.ListSecrets(ctx, false)
-	if err != nil {
-		return issues, fmt.Errorf("failed to list secrets for orphaned ownership check: %w", err)
+	secrets, secretsErr := m.secretsRepo.ListSecrets(ctx, false)
+	if secretsErr != nil {
+		return nil, fmt.Errorf("failed to list secrets for orphaned ownership check: %w", secretsErr)
 	}
 
 	secretMap := make(map[string]bool)
@@ -314,9 +408,9 @@ func (m *Manager) checkOrphanedOwnerships(
 		}
 	}
 
-	executions, err := m.executionRepo.ListExecutions(ctx, 0, nil)
-	if err != nil {
-		return issues, fmt.Errorf("failed to list executions for orphaned ownership check: %w", err)
+	executions, execErr := m.executionRepo.ListExecutions(ctx, 0, nil)
+	if execErr != nil {
+		return nil, fmt.Errorf("failed to list executions for orphaned ownership check: %w", execErr)
 	}
 
 	executionMap := make(map[string]bool)
@@ -326,68 +420,106 @@ func (m *Manager) checkOrphanedOwnerships(
 		}
 	}
 
-	if m.enforcer == nil {
-		return issues, nil
+	return &resourceMaps{
+		userMap:      userMap,
+		secretMap:    secretMap,
+		executionMap: executionMap,
+	}, nil
+}
+
+func (m *Manager) checkPolicyOrphaned(
+	policy []string,
+	maps *resourceMaps,
+	status *health.CasbinHealthStatus,
+) []health.Issue {
+	if len(policy) < minPolicyLength {
+		return nil
 	}
 
-	allGroupingPolicies, err := m.enforcer.GetAllNamedGroupingPolicies("g2")
-	if err != nil {
-		return issues, fmt.Errorf("failed to get Casbin g2 policies: %w", err)
+	resourceID := policy[0]
+	ownerEmail := policy[1]
+
+	if !maps.userMap[ownerEmail] {
+		status.OrphanedOwnerships = append(
+			status.OrphanedOwnerships,
+			fmt.Sprintf("%s -> %s", resourceID, ownerEmail),
+		)
+		return []health.Issue{{
+			ResourceType: "casbin_ownership",
+			ResourceID:   resourceID,
+			Severity:     "error",
+			Message: fmt.Sprintf(
+				"Casbin ownership %s -> %s is orphaned: owner user does not exist",
+				resourceID, ownerEmail,
+			),
+			Action: "reported",
+		}}
 	}
 
-	for _, policy := range allGroupingPolicies {
-		if len(policy) < 2 {
-			continue
-		}
-
-		resourceID := policy[0]
-		ownerEmail := policy[1]
-
-		if !userMap[ownerEmail] {
-			status.OrphanedOwnerships = append(status.OrphanedOwnerships, fmt.Sprintf("%s -> %s", resourceID, ownerEmail))
-			issues = append(issues, health.Issue{
-				ResourceType: "casbin_ownership",
-				ResourceID:   resourceID,
-				Severity:     "error",
-				Message:      fmt.Sprintf("Casbin ownership %s -> %s is orphaned: owner user does not exist", resourceID, ownerEmail),
-				Action:       "reported",
-			})
-			continue
-		}
-
-		parts := strings.Split(resourceID, ":")
-		if len(parts) != 2 {
-			continue
-		}
-
-		resourceType := parts[0]
-		resourceName := parts[1]
-
-		switch resourceType {
-		case "secret":
-			if !secretMap[resourceName] {
-				status.OrphanedOwnerships = append(status.OrphanedOwnerships, fmt.Sprintf("%s -> %s", resourceID, ownerEmail))
-				issues = append(issues, health.Issue{
-					ResourceType: "casbin_ownership",
-					ResourceID:   resourceID,
-					Severity:     "error",
-					Message:      fmt.Sprintf("Casbin ownership %s -> %s is orphaned: secret resource does not exist", resourceID, ownerEmail),
-					Action:       "reported",
-				})
-			}
-		case "execution":
-			if !executionMap[resourceName] {
-				status.OrphanedOwnerships = append(status.OrphanedOwnerships, fmt.Sprintf("%s -> %s", resourceID, ownerEmail))
-				issues = append(issues, health.Issue{
-					ResourceType: "casbin_ownership",
-					ResourceID:   resourceID,
-					Severity:     "error",
-					Message:      fmt.Sprintf("Casbin ownership %s -> %s is orphaned: execution resource does not exist", resourceID, ownerEmail),
-					Action:       "reported",
-				})
-			}
-		}
+	parts := strings.Split(resourceID, ":")
+	if len(parts) != resourceIDParts {
+		return nil
 	}
 
-	return issues, nil
+	resourceType := parts[0]
+	resourceName := parts[1]
+
+	switch resourceType {
+	case "secret":
+		return m.checkSecretOrphaned(resourceID, resourceName, ownerEmail, maps, status)
+	case "execution":
+		return m.checkExecutionOrphaned(resourceID, resourceName, ownerEmail, maps, status)
+	default:
+		return nil
+	}
+}
+
+func (m *Manager) checkSecretOrphaned(
+	resourceID, resourceName, ownerEmail string,
+	maps *resourceMaps,
+	status *health.CasbinHealthStatus,
+) []health.Issue {
+	if maps.secretMap[resourceName] {
+		return nil
+	}
+
+	status.OrphanedOwnerships = append(
+		status.OrphanedOwnerships,
+		fmt.Sprintf("%s -> %s", resourceID, ownerEmail),
+	)
+	return []health.Issue{{
+		ResourceType: "casbin_ownership",
+		ResourceID:   resourceID,
+		Severity:     "error",
+		Message: fmt.Sprintf(
+			"Casbin ownership %s -> %s is orphaned: secret resource does not exist",
+			resourceID, ownerEmail,
+		),
+		Action: "reported",
+	}}
+}
+
+func (m *Manager) checkExecutionOrphaned(
+	resourceID, resourceName, ownerEmail string,
+	maps *resourceMaps,
+	status *health.CasbinHealthStatus,
+) []health.Issue {
+	if maps.executionMap[resourceName] {
+		return nil
+	}
+
+	status.OrphanedOwnerships = append(
+		status.OrphanedOwnerships,
+		fmt.Sprintf("%s -> %s", resourceID, ownerEmail),
+	)
+	return []health.Issue{{
+		ResourceType: "casbin_ownership",
+		ResourceID:   resourceID,
+		Severity:     "error",
+		Message: fmt.Sprintf(
+			"Casbin ownership %s -> %s is orphaned: execution resource does not exist",
+			resourceID, ownerEmail,
+		),
+		Action: "reported",
+	}}
 }
