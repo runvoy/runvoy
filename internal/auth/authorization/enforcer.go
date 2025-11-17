@@ -213,6 +213,26 @@ func (e *Enforcer) RemoveOwnershipForResource(resourceID, ownerEmail string) err
 	return nil
 }
 
+// RemoveAllOwnershipsForResource removes every ownership mapping for the given resource identifier.
+// This is useful when deleting a resource without knowing its owner ahead of time.
+func (e *Enforcer) RemoveAllOwnershipsForResource(resourceID string) error {
+	_, err := e.enforcer.RemoveFilteredNamedGroupingPolicy("g2", 0, resourceID)
+	if err != nil {
+		return fmt.Errorf("failed to remove ownerships for resource %s: %w", resourceID, err)
+	}
+	e.logger.Debug("ownerships removed for resource", "resource", resourceID)
+	return nil
+}
+
+// HasOwnershipForResource checks if the provided user currently owns the resource.
+func (e *Enforcer) HasOwnershipForResource(resourceID, ownerEmail string) (bool, error) {
+	hasOwnership, err := e.enforcer.HasNamedGroupingPolicy("g2", resourceID, ownerEmail)
+	if err != nil {
+		return false, fmt.Errorf("failed to check ownership for resource %s: %w", resourceID, err)
+	}
+	return hasOwnership, nil
+}
+
 // LoadResourceOwnerships loads resource ownership mappings into the enforcer.
 func (e *Enforcer) LoadResourceOwnerships(ownerships map[string]string) error {
 	for resourceID, ownerEmail := range ownerships {
