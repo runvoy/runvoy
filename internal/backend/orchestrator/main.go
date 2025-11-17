@@ -128,19 +128,15 @@ func NewService(
 }
 
 // loadUserRoles populates the Casbin enforcer with all user roles from the database.
-// This is best-effort; errors are logged but don't fail initialization.
+// Returns an error if user loading fails or if any enforcer operation fails.
 // This function should only be called when userRepo is non-nil.
-//
-//nolint:unparam // ctx is used when calling ListUsers
 func (s *Service) loadUserRoles(ctx context.Context) error {
 	if s.userRepo == nil {
 		return nil
 	}
 	users, err := s.userRepo.ListUsers(ctx)
 	if err != nil {
-		s.Logger.Warn("failed to load users for enforcer initialization, skipping role loading", "error", err)
-		// Don't fail initialization if user loading fails - this is best-effort
-		return nil
+		return fmt.Errorf("failed to load users for enforcer initialization: %w", err)
 	}
 
 	g, _ := errgroup.WithContext(ctx)
@@ -155,48 +151,32 @@ func (s *Service) loadUserRoles(ctx context.Context) error {
 
 			role, roleErr := authorization.NewRole(user.Role)
 			if roleErr != nil {
-				s.Logger.Warn("user has invalid role, skipping", "context", map[string]string{
-					"user":  user.Email,
-					"role":  user.Role,
-					"error": roleErr.Error(),
-				})
-				// Don't fail initialization for invalid roles, just log and continue
-				return nil
+				return fmt.Errorf("user %s has invalid role %q: %w", user.Email, user.Role, roleErr)
 			}
 
 			if addErr := s.enforcer.AddRoleForUser(user.Email, role); addErr != nil {
-				s.Logger.Warn("failed to add role for user to enforcer, skipping", "context", map[string]string{
-					"user":  user.Email,
-					"role":  user.Role,
-					"error": addErr.Error(),
-				})
-				// Don't fail initialization for enforcer errors, just log and continue
-				return nil
+				return fmt.Errorf("failed to add role %q for user %s to enforcer: %w", user.Role, user.Email, addErr)
 			}
 
 			return nil
 		})
 	}
 
-	// Wait for all goroutines to complete
-	// Errors are logged but don't fail initialization (best-effort)
-	_ = g.Wait()
+	if waitErr := g.Wait(); waitErr != nil {
+		return fmt.Errorf("failed to load user roles into enforcer: %w", waitErr)
+	}
 
 	return nil
 }
 
 // loadResourceOwnerships hydrates the enforcer with resource ownership mappings for secrets and executions.
-// This is best-effort; errors loading ownerships are logged but don't fail initialization.
-//
-//nolint:unparam // ctx is used when calling hydrateSecretOwnerships and hydrateExecutionOwnerships
+// Returns an error if any ownership loading fails.
 func (s *Service) loadResourceOwnerships(ctx context.Context) error {
 	if err := s.hydrateSecretOwnerships(ctx); err != nil {
-		s.Logger.Warn("failed to load secret ownerships during initialization", "error", err)
-		// Don't fail initialization if ownership loading fails
+		return fmt.Errorf("failed to load secret ownerships: %w", err)
 	}
 	if err := s.hydrateExecutionOwnerships(ctx); err != nil {
-		s.Logger.Warn("failed to load execution ownerships during initialization", "error", err)
-		// Don't fail initialization if ownership loading fails
+		return fmt.Errorf("failed to load execution ownerships: %w", err)
 	}
 
 	return nil
@@ -246,11 +226,6 @@ func (s *Service) hydrateExecutionOwnerships(ctx context.Context) error {
 		g.Go(func() error {
 			resourceID := fmt.Sprintf("execution:%s", execution.ExecutionID)
 			if addErr := s.enforcer.AddOwnershipForResource(resourceID, execution.UserEmail); addErr != nil {
-				s.Logger.Error("failed to add ownership for execution to enforcer", "context", map[string]string{
-					"execution_id": execution.ExecutionID,
-					"user":         execution.UserEmail,
-					"error":        addErr.Error(),
-				})
 				return fmt.Errorf("failed to add ownership for execution %s: %w", execution.ExecutionID, addErr)
 			}
 

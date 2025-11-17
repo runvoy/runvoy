@@ -184,19 +184,26 @@ func TestGetSecret_NotFound(t *testing.T) {
 
 func TestListSecrets_Success(t *testing.T) {
 	secretsRepo := &mockSecretsRepository{
-		listSecretsFunc: func(_ context.Context, _ bool) ([]*api.Secret, error) {
+		listSecretsFunc: func(_ context.Context, includeValue bool) ([]*api.Secret, error) {
+			// During initialization, includeValue is false. Return empty list to avoid ownership loading.
+			// During actual ListSecrets call, includeValue is true. Return the test secrets.
+			if !includeValue {
+				return []*api.Secret{}, nil
+			}
 			return []*api.Secret{
 				{
 					Name:        "secret-1",
 					KeyName:     "KEY_1",
 					Description: "First secret",
 					Value:       "value1",
+					CreatedBy:   "user@example.com",
 				},
 				{
 					Name:        "secret-2",
 					KeyName:     "KEY_2",
 					Description: "Second secret",
 					Value:       "value2",
+					CreatedBy:   "user@example.com",
 				},
 			}, nil
 		},

@@ -40,8 +40,15 @@ func (s *Service) CreateSecret(
 	enforcer := s.GetEnforcer()
 	resourceID := authorization.FormatResourceID("secret", req.Name)
 	if err := enforcer.AddOwnershipForResource(resourceID, userEmail); err != nil {
-		s.Logger.Error("failed to add ownership for secret", "error", err, "resource", resourceID, "owner", userEmail)
-		// Log but don't fail - ownership is nice-to-have for fine-grained access control
+		// Rollback secret creation if enforcer update fails
+		if deleteErr := s.secretsRepo.DeleteSecret(ctx, req.Name); deleteErr != nil {
+			s.Logger.Error("failed to rollback secret creation after enforcer error",
+				"error", deleteErr,
+				"resource", resourceID,
+				"owner", userEmail,
+			)
+		}
+		return apperrors.ErrInternalError("failed to add secret ownership to authorization enforcer", err)
 	}
 
 	return nil
@@ -115,13 +122,10 @@ func (s *Service) DeleteSecret(ctx context.Context, name string) error {
 	}
 
 	if deleteErr := s.secretsRepo.DeleteSecret(ctx, name); deleteErr != nil {
+		// Rollback: restore ownership if delete failed
 		if ownerEmail != "" {
 			if addErr := s.enforcer.AddOwnershipForResource(resourceID, ownerEmail); addErr != nil {
-				s.Logger.Error("failed to restore secret ownership after delete error",
-					"error", addErr,
-					"resource", resourceID,
-					"owner", ownerEmail,
-				)
+				return apperrors.ErrInternalError("failed to restore secret ownership after delete error", addErr)
 			}
 		}
 		var appErr *apperrors.AppError

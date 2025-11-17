@@ -357,7 +357,12 @@ func TestListExecutions(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			execRepo := &mockExecutionRepository{
-				listExecutionsFunc: func(_ context.Context, _ int, _ []string) ([]*api.Execution, error) {
+				listExecutionsFunc: func(_ context.Context, limit int, _ []string) ([]*api.Execution, error) {
+					// During initialization, limit is 0 (load all for ownership). Allow that to succeed.
+					// During actual ListExecutions call, limit is non-zero, so return the test error.
+					if limit == 0 {
+						return []*api.Execution{}, nil
+					}
 					return tt.mockExecutions, tt.listErr
 				},
 			}

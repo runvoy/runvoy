@@ -851,8 +851,15 @@ func TestListUsers_NoRepository(t *testing.T) {
 }
 
 func TestListUsers_RepositoryError(t *testing.T) {
+	initCallCount := 0
 	repo := &mockUserRepository{
 		listUsersFunc: func(_ context.Context) ([]*api.User, error) {
+			initCallCount++
+			// During initialization (first call), return success to allow service creation.
+			// During actual ListUsers call (second call), return error.
+			if initCallCount == 1 {
+				return []*api.User{}, nil
+			}
 			return nil, appErrors.ErrDatabaseError("test error", errors.New("db error"))
 		},
 	}
