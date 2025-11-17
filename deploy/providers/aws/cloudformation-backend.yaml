@@ -24,6 +24,8 @@ Resources:
           AttributeType: S
         - AttributeName: user_email
           AttributeType: S
+        - AttributeName: _all
+          AttributeType: S
       KeySchema:
         - AttributeName: api_key_hash
           KeyType: HASH
@@ -32,6 +34,14 @@ Resources:
           KeySchema:
             - AttributeName: user_email
               KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+        - IndexName: all-user_email
+          KeySchema:
+            - AttributeName: _all
+              KeyType: HASH
+            - AttributeName: user_email
+              KeyType: RANGE
           Projection:
             ProjectionType: ALL
       TimeToLiveSpecification:

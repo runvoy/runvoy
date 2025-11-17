@@ -50,6 +50,7 @@ type userItem struct {
 	LastUsed   time.Time `dynamodbav:"last_used,omitempty"`
 	Revoked    bool      `dynamodbav:"revoked"`
 	ExpiresAt  int64     `dynamodbav:"expires_at,omitempty"` // Unix timestamp for TTL
+	All        string    `dynamodbav:"_all"`                 // Constant partition key for listing all users
 }
 
 // CreateUser stores a new user with their hashed API key in DynamoDB.
@@ -70,6 +71,7 @@ func (r *UserRepository) CreateUser(
 		Role:       user.Role,
 		CreatedAt:  user.CreatedAt,
 		Revoked:    false,
+		All:        "USER", // Constant partition key for GSI to enable sorted queries
 	}
 
 	// Only set ExpiresAt if provided
@@ -566,20 +568,32 @@ func (r *UserRepository) DeletePendingAPIKey(ctx context.Context, secretToken st
 	return nil
 }
 
-// ListUsers returns all users in the system (excluding API key hashes for security).
+// ListUsers returns all users in the system sorted by email (excluding API key hashes for security).
+// Uses the all-user_email GSI to retrieve users in sorted order directly from DynamoDB.
 func (r *UserRepository) ListUsers(ctx context.Context) ([]*api.User, error) {
 	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
 
-	// Log before calling DynamoDB Scan
+	// Log before calling DynamoDB Query
 	logArgs := []any{
-		"operation", "DynamoDB.Scan",
+		"operation", "DynamoDB.Query",
 		"table", r.tableName,
+		"index", "all-user_email",
 	}
 	logArgs = append(logArgs, logger.GetDeadlineInfo(ctx)...)
 	reqLogger.Debug("calling external service", "context", logger.SliceToMap(logArgs))
 
-	result, err := r.client.Scan(ctx, &dynamodb.ScanInput{
-		TableName: aws.String(r.tableName),
+	// Query the all-user_email GSI to get users sorted by email
+	result, err := r.client.Query(ctx, &dynamodb.QueryInput{
+		TableName:              aws.String(r.tableName),
+		IndexName:              aws.String("all-user_email"),
+		KeyConditionExpression: aws.String("#all = :user"),
+		ExpressionAttributeNames: map[string]string{
+			"#all": "_all",
+		},
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":user": &types.AttributeValueMemberS{Value: "USER"},
+		},
+		ScanIndexForward: aws.Bool(true), // Sort ascending by user_email (the range key)
 	})
 	if err != nil {
 		return nil, apperrors.ErrDatabaseError("failed to list users", err)
