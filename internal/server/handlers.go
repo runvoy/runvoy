@@ -36,6 +36,7 @@ func (r *Router) handleListWithAuth(
 		return
 	}
 
+//TODO refactor authRequest to accept request as argument
 	if !r.authorizeRequest(req.Context(), user.Email, req.URL.Path, "read") {
 		writeErrorResponse(w, http.StatusForbidden, "Forbidden", denialMsg)
 		return
