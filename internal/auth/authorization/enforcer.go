@@ -283,3 +283,12 @@ func (e *Enforcer) GetRolesForUser(user string) ([]string, error) {
 	}
 	return roles, nil
 }
+
+// GetAllNamedGroupingPolicies returns all grouping policies for the given policy type (e.g., "g2" for ownership).
+func (e *Enforcer) GetAllNamedGroupingPolicies(ptype string) ([][]string, error) {
+	policies, err := e.enforcer.GetNamedGroupingPolicy(ptype)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get named grouping policies for %s: %w", ptype, err)
+	}
+	return policies, nil
+}

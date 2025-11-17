@@ -95,6 +95,9 @@ func Initialize( //nolint:funlen // This is ok, lots of initializations required
 		iamClient,
 		repos.imageTaskDefRepo,
 		repos.secretsRepo,
+		repos.userRepo,
+		repos.executionRepo,
+		nil,
 		healthCfg,
 		log,
 	)

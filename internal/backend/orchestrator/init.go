@@ -43,6 +43,14 @@ func Initialize(
 			return nil, fmt.Errorf("failed to initialize AWS dependencies: %w", initErr)
 		}
 
+		if awsDeps.HealthManager != nil {
+			awsDeps.HealthManager.SetCasbinDependencies(
+				awsDeps.UserRepo,
+				awsDeps.ExecutionRepo,
+				enforcer,
+			)
+		}
+
 		svc, svcErr := NewService(
 			ctx,
 			awsDeps.UserRepo,
