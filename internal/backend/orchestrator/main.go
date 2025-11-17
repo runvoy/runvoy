@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"reflect"
 	"time"
 
 	"runvoy/internal/api"
@@ -95,6 +94,10 @@ func NewService(
 	secretsRepo database.SecretsRepository,
 	healthManager health.Manager,
 	enforcer *authorization.Enforcer) (*Service, error) {
+	if enforcer == nil {
+		return nil, fmt.Errorf("enforcer is required and cannot be nil")
+	}
+
 	svc := &Service{
 		userRepo:      userRepo,
 		executionRepo: executionRepo,
@@ -110,7 +113,6 @@ func NewService(
 	}
 
 	if userRepo != nil {
-		// Only load user roles if userRepo is actually usable (not a typed nil)
 		if err := svc.loadUserRoles(ctx); err != nil {
 			return nil, err
 		}
@@ -132,12 +134,6 @@ func NewService(
 //nolint:unparam // ctx is used when calling ListUsers
 func (s *Service) loadUserRoles(ctx context.Context) error {
 	if s.userRepo == nil {
-		return nil
-	}
-	// Handle typed nil: when userRepo is a nil pointer inside an interface,
-	// the interface itself is not nil, but method calls will panic.
-	// Use reflection to check if the underlying value is actually nil.
-	if reflect.ValueOf(s.userRepo).IsNil() {
 		return nil
 	}
 	users, err := s.userRepo.ListUsers(ctx)
@@ -232,11 +228,6 @@ func (s *Service) hydrateSecretOwnerships(ctx context.Context) error {
 
 func (s *Service) hydrateExecutionOwnerships(ctx context.Context) error {
 	if s.executionRepo == nil {
-		return nil
-	}
-	// Handle typed nil: when executionRepo is a nil pointer inside an interface,
-	// the interface itself is not nil, but method calls will panic.
-	if reflect.ValueOf(s.executionRepo).IsNil() {
 		return nil
 	}
 

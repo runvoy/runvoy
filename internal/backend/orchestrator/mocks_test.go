@@ -309,20 +309,37 @@ func newPermissiveEnforcer() *authorization.Enforcer {
 }
 
 // newTestService creates a Service with mocks for testing
+// Converts typed nils to untyped nil interfaces to avoid typed nil issues.
 func newTestService(
 	userRepo *mockUserRepository,
 	execRepo *mockExecutionRepository,
 	runner *mockRunner,
 ) *Service {
-	return newTestServiceWithConnRepo(userRepo, execRepo, nil, runner)
+	var userRepoIface database.UserRepository
+	if userRepo != nil {
+		userRepoIface = userRepo
+	}
+
+	var execRepoIface database.ExecutionRepository
+	if execRepo != nil {
+		execRepoIface = execRepo
+	}
+
+	var runnerIface Runner
+	if runner != nil {
+		runnerIface = runner
+	}
+
+	return newTestServiceWithConnRepo(userRepoIface, execRepoIface, nil, runnerIface)
 }
 
 // newTestServiceWithConnRepo creates a Service with connection repo mock for testing
+// Accepts interface types to avoid typed nil issues.
 func newTestServiceWithConnRepo(
-	userRepo *mockUserRepository,
-	execRepo *mockExecutionRepository,
-	connRepo *mockConnectionRepository,
-	runner *mockRunner,
+	userRepo database.UserRepository,
+	execRepo database.ExecutionRepository,
+	connRepo database.ConnectionRepository,
+	runner Runner,
 ) *Service {
 	logger := testutil.SilentLogger()
 	svc, err := NewService(
@@ -479,6 +496,7 @@ func (m *mockSecretsRepository) DeleteSecret(ctx context.Context, name string) e
 }
 
 // newTestServiceWithWebSocketManager creates a Service with websocket manager for testing
+// Converts typed nils to untyped nil interfaces to avoid typed nil issues.
 func newTestServiceWithWebSocketManager(
 	userRepo *mockUserRepository,
 	execRepo *mockExecutionRepository,
@@ -486,9 +504,25 @@ func newTestServiceWithWebSocketManager(
 	wsManager websocket.Manager,
 ) *Service {
 	logger := testutil.SilentLogger()
+
+	var userRepoIface database.UserRepository
+	if userRepo != nil {
+		userRepoIface = userRepo
+	}
+
+	var execRepoIface database.ExecutionRepository
+	if execRepo != nil {
+		execRepoIface = execRepo
+	}
+
+	var runnerIface Runner
+	if runner != nil {
+		runnerIface = runner
+	}
+
 	svc, err := NewService(
 		context.Background(),
-		userRepo, execRepo, nil, &mockTokenRepository{}, runner, logger, constants.AWS,
+		userRepoIface, execRepoIface, nil, &mockTokenRepository{}, runnerIface, logger, constants.AWS,
 		wsManager, nil, nil, newPermissiveEnforcer(),
 	)
 	if err != nil {

@@ -6,11 +6,21 @@ import (
 	"testing"
 
 	"runvoy/internal/api"
+	"runvoy/internal/auth/authorization"
 	apperrors "runvoy/internal/errors"
 	"runvoy/internal/testutil"
 
 	"github.com/stretchr/testify/assert"
 )
+
+// newTestEnforcer creates a test enforcer for image tests
+func newTestEnforcer(t *testing.T) *authorization.Enforcer {
+	enf, err := authorization.NewEnforcer(testutil.SilentLogger())
+	if err != nil {
+		t.Fatal(err)
+	}
+	return enf
+}
 
 func TestGetImage_Success(t *testing.T) {
 	runner := &mockRunner{
@@ -22,6 +32,7 @@ func TestGetImage_Success(t *testing.T) {
 		},
 	}
 	logger := testutil.SilentLogger()
+	enforcer := newTestEnforcer(t)
 
 	service, err := NewService(context.Background(),
 		&mockUserRepository{},
@@ -34,7 +45,7 @@ func TestGetImage_Success(t *testing.T) {
 		nil,
 		nil,
 		nil,
-		nil,
+		enforcer,
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -55,6 +66,7 @@ func TestGetImage_NotFound(t *testing.T) {
 		},
 	}
 	logger := testutil.SilentLogger()
+	enforcer := newTestEnforcer(t)
 
 	service, err := NewService(context.Background(),
 		&mockUserRepository{},
@@ -67,7 +79,7 @@ func TestGetImage_NotFound(t *testing.T) {
 		nil,
 		nil,
 		nil,
-		nil,
+		enforcer,
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -81,6 +93,7 @@ func TestGetImage_NotFound(t *testing.T) {
 
 func TestGetImage_EmptyImageName(t *testing.T) {
 	logger := testutil.SilentLogger()
+	enforcer := newTestEnforcer(t)
 
 	service, err := NewService(context.Background(),
 		&mockUserRepository{},
@@ -93,7 +106,7 @@ func TestGetImage_EmptyImageName(t *testing.T) {
 		nil,
 		nil,
 		nil,
-		nil,
+		enforcer,
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -112,6 +125,7 @@ func TestGetImage_RunnerError(t *testing.T) {
 		},
 	}
 	logger := testutil.SilentLogger()
+	enforcer := newTestEnforcer(t)
 
 	service, err := NewService(context.Background(),
 		&mockUserRepository{},
@@ -124,7 +138,7 @@ func TestGetImage_RunnerError(t *testing.T) {
 		nil,
 		nil,
 		nil,
-		nil,
+		enforcer,
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -144,6 +158,7 @@ func TestGetImage_RunnerGenericError(t *testing.T) {
 		},
 	}
 	logger := testutil.SilentLogger()
+	enforcer := newTestEnforcer(t)
 
 	service, err := NewService(context.Background(),
 		&mockUserRepository{},
@@ -156,7 +171,7 @@ func TestGetImage_RunnerGenericError(t *testing.T) {
 		nil,
 		nil,
 		nil,
-		nil,
+		enforcer,
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -176,6 +191,7 @@ func TestRemoveImage_Success(t *testing.T) {
 		},
 	}
 	logger := testutil.SilentLogger()
+	enforcer := newTestEnforcer(t)
 
 	service, err := NewService(context.Background(),
 		&mockUserRepository{},
@@ -188,7 +204,7 @@ func TestRemoveImage_Success(t *testing.T) {
 		nil,
 		nil,
 		nil,
-		nil,
+		enforcer,
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -206,6 +222,7 @@ func TestRemoveImage_EmptyImageName(t *testing.T) {
 		},
 	}
 	logger := testutil.SilentLogger()
+	enforcer := newTestEnforcer(t)
 
 	service, err := NewService(context.Background(),
 		&mockUserRepository{},
@@ -218,7 +235,7 @@ func TestRemoveImage_EmptyImageName(t *testing.T) {
 		nil,
 		nil,
 		nil,
-		nil,
+		enforcer,
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -237,6 +254,7 @@ func TestRemoveImage_RunnerError(t *testing.T) {
 		},
 	}
 	logger := testutil.SilentLogger()
+	enforcer := newTestEnforcer(t)
 
 	service, err := NewService(context.Background(),
 		&mockUserRepository{},
@@ -249,7 +267,7 @@ func TestRemoveImage_RunnerError(t *testing.T) {
 		nil,
 		nil,
 		nil,
-		nil,
+		enforcer,
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -269,6 +287,7 @@ func TestRemoveImage_RunnerGenericError(t *testing.T) {
 		},
 	}
 	logger := testutil.SilentLogger()
+	enforcer := newTestEnforcer(t)
 
 	service, err := NewService(context.Background(),
 		&mockUserRepository{},
@@ -281,7 +300,7 @@ func TestRemoveImage_RunnerGenericError(t *testing.T) {
 		nil,
 		nil,
 		nil,
-		nil,
+		enforcer,
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -304,6 +323,7 @@ func TestListImages_Success(t *testing.T) {
 		},
 	}
 	logger := testutil.SilentLogger()
+	enforcer := newTestEnforcer(t)
 
 	service, err := NewService(context.Background(),
 		&mockUserRepository{},
@@ -316,7 +336,7 @@ func TestListImages_Success(t *testing.T) {
 		nil,
 		nil,
 		nil,
-		nil,
+		enforcer,
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -337,6 +357,7 @@ func TestListImages_Empty(t *testing.T) {
 		},
 	}
 	logger := testutil.SilentLogger()
+	enforcer := newTestEnforcer(t)
 
 	service, err := NewService(context.Background(),
 		&mockUserRepository{},
@@ -349,7 +370,7 @@ func TestListImages_Empty(t *testing.T) {
 		nil,
 		nil,
 		nil,
-		nil,
+		enforcer,
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -368,6 +389,7 @@ func TestListImages_RunnerError(t *testing.T) {
 		},
 	}
 	logger := testutil.SilentLogger()
+	enforcer := newTestEnforcer(t)
 
 	service, err := NewService(context.Background(),
 		&mockUserRepository{},
@@ -380,7 +402,7 @@ func TestListImages_RunnerError(t *testing.T) {
 		nil,
 		nil,
 		nil,
-		nil,
+		enforcer,
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -400,6 +422,7 @@ func TestListImages_RunnerGenericError(t *testing.T) {
 		},
 	}
 	logger := testutil.SilentLogger()
+	enforcer := newTestEnforcer(t)
 
 	service, err := NewService(context.Background(),
 		&mockUserRepository{},
@@ -412,7 +435,7 @@ func TestListImages_RunnerGenericError(t *testing.T) {
 		nil,
 		nil,
 		nil,
-		nil,
+		enforcer,
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -432,6 +455,7 @@ func TestRegisterImage_Success(t *testing.T) {
 		},
 	}
 	logger := testutil.SilentLogger()
+	enforcer := newTestEnforcer(t)
 
 	service, err := NewService(context.Background(),
 		&mockUserRepository{},
@@ -444,7 +468,7 @@ func TestRegisterImage_Success(t *testing.T) {
 		nil,
 		nil,
 		nil,
-		nil,
+		enforcer,
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -463,6 +487,7 @@ func TestRegisterImage_EmptyImageName(t *testing.T) {
 		},
 	}
 	logger := testutil.SilentLogger()
+	enforcer := newTestEnforcer(t)
 
 	service, err := NewService(context.Background(),
 		&mockUserRepository{},
@@ -475,7 +500,7 @@ func TestRegisterImage_EmptyImageName(t *testing.T) {
 		nil,
 		nil,
 		nil,
-		nil,
+		enforcer,
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -494,6 +519,7 @@ func TestRegisterImage_RunnerError(t *testing.T) {
 		},
 	}
 	logger := testutil.SilentLogger()
+	enforcer := newTestEnforcer(t)
 
 	service, err := NewService(context.Background(),
 		&mockUserRepository{},
@@ -506,7 +532,7 @@ func TestRegisterImage_RunnerError(t *testing.T) {
 		nil,
 		nil,
 		nil,
-		nil,
+		enforcer,
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -526,6 +552,7 @@ func TestRegisterImage_RunnerGenericError(t *testing.T) {
 		},
 	}
 	logger := testutil.SilentLogger()
+	enforcer := newTestEnforcer(t)
 
 	service, err := NewService(context.Background(),
 		&mockUserRepository{},
@@ -538,7 +565,7 @@ func TestRegisterImage_RunnerGenericError(t *testing.T) {
 		nil,
 		nil,
 		nil,
-		nil,
+		enforcer,
 	)
 	if err != nil {
 		t.Fatal(err)
