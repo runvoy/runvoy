@@ -115,7 +115,9 @@ func NewService(
 	if err := svc.loadResourceOwnerships(ctx); err != nil {
 		return nil, err
 	}
-
+	if err := svc.hydrateImageOwnerships(ctx); err != nil {
+		return nil, err
+	}
 	log.Debug("casbin authorization enforcer initialized successfully")
 	log.Debug(fmt.Sprintf("%s %s orchestrator initialized successfully",
 		constants.ProjectName, svc.Provider))
@@ -216,6 +218,32 @@ func (s *Service) hydrateExecutionOwnerships(ctx context.Context) error {
 
 	if waitErr := g.Wait(); waitErr != nil {
 		return fmt.Errorf("failed to load execution ownerships into enforcer: %w", waitErr)
+	}
+
+	return nil
+}
+
+func (s *Service) hydrateImageOwnerships(ctx context.Context) error {
+	if s.runner == nil {
+		return nil
+	}
+
+	images, err := s.runner.ListImages(ctx)
+	if err != nil {
+		s.Logger.Warn("failed to load images for enforcer initialization, continuing without image ownership hydration",
+			"error", err)
+		return nil
+	}
+
+	for i := range images {
+		if images[i].ImageID == "" || images[i].RegisteredBy == "" {
+			continue
+		}
+
+		resourceID := authorization.FormatResourceID("image", images[i].ImageID)
+		if addErr := s.enforcer.AddOwnershipForResource(resourceID, images[i].RegisteredBy); addErr != nil {
+			return fmt.Errorf("failed to add ownership for image %s: %w", images[i].ImageID, addErr)
+		}
 	}
 
 	return nil
