@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"runvoy/internal/api"
 	"runvoy/internal/backend/orchestrator"
@@ -205,8 +206,8 @@ func TestHandleListSecrets_Success(t *testing.T) {
 	secretRepo := &testSecretRepository{
 		listSecretsFunc: func(_ context.Context, _ bool) ([]*api.Secret, error) {
 			return []*api.Secret{
-				{Name: "secret1", Description: "First secret"},
-				{Name: "secret2", Description: "Second secret"},
+				{Name: "secret1", Description: "First secret", CreatedBy: "user@example.com"},
+				{Name: "secret2", Description: "Second secret", CreatedBy: "user@example.com"},
 			}, nil
 		},
 	}
@@ -259,7 +260,13 @@ func TestHandleListSecrets_ServiceError(t *testing.T) {
 	userRepo := &testUserRepository{}
 	execRepo := &testExecutionRepository{}
 	secretRepo := &testSecretRepository{
-		listSecretsFunc: func(_ context.Context, _ bool) ([]*api.Secret, error) {
+		// Return empty list during initialization (no error)
+		listSecretsFunc: func(_ context.Context, includeValue bool) ([]*api.Secret, error) {
+			// During initialization, includeValue is false, so return empty list
+			if !includeValue {
+				return []*api.Secret{}, nil
+			}
+			// During handler call, includeValue is true, so return error
 			return nil, apperrors.ErrDatabaseError("database connection failed", errors.New("connection timeout"))
 		},
 	}
@@ -421,9 +428,15 @@ func newTestService(
 	// Create a mock runner that implements the Runner interface
 	mockRunner := &testRunner{}
 	tokenRepo := &testTokenRepository{}
+	enforcer := newPermissiveTestEnforcer(t)
+
+	// Use a user repository with roles for enforcer initialization
+	userRepoWithRoles := &testUserRepositoryWithRolesForSecrets{
+		originalRepo: userRepo,
+	}
 
 	svc, err := orchestrator.NewService(context.Background(),
-		userRepo,
+		userRepoWithRoles,
 		execRepo,
 		nil, // connRepo
 		tokenRepo,
@@ -433,8 +446,69 @@ func newTestService(
 		nil, // wsManager
 		secretRepo,
 		nil, // healthManager
-		nil,
+		enforcer,
 	)
 	require.NoError(t, err)
 	return svc
+}
+
+// testUserRepositoryWithRolesForSecrets wraps a testUserRepository and adds ListUsers with roles
+// for enforcer initialization while preserving other test behavior
+type testUserRepositoryWithRolesForSecrets struct {
+	originalRepo *testUserRepository
+}
+
+func (t *testUserRepositoryWithRolesForSecrets) CreateUser(
+	ctx context.Context, user *api.User, key string, exp int64) error {
+	return t.originalRepo.CreateUser(ctx, user, key, exp)
+}
+
+func (t *testUserRepositoryWithRolesForSecrets) RemoveExpiration(ctx context.Context, email string) error {
+	return t.originalRepo.RemoveExpiration(ctx, email)
+}
+
+func (t *testUserRepositoryWithRolesForSecrets) GetUserByEmail(ctx context.Context, email string) (*api.User, error) {
+	return t.originalRepo.GetUserByEmail(ctx, email)
+}
+
+func (t *testUserRepositoryWithRolesForSecrets) GetUserByAPIKeyHash(
+	ctx context.Context, hash string) (*api.User, error) {
+	return t.originalRepo.GetUserByAPIKeyHash(ctx, hash)
+}
+
+func (t *testUserRepositoryWithRolesForSecrets) UpdateLastUsed(ctx context.Context, email string) (*time.Time, error) {
+	return t.originalRepo.UpdateLastUsed(ctx, email)
+}
+
+func (t *testUserRepositoryWithRolesForSecrets) RevokeUser(ctx context.Context, email string) error {
+	return t.originalRepo.RevokeUser(ctx, email)
+}
+
+func (t *testUserRepositoryWithRolesForSecrets) CreatePendingAPIKey(ctx context.Context, key *api.PendingAPIKey) error {
+	return t.originalRepo.CreatePendingAPIKey(ctx, key)
+}
+
+func (t *testUserRepositoryWithRolesForSecrets) GetPendingAPIKey(
+	ctx context.Context, token string) (*api.PendingAPIKey, error) {
+	return t.originalRepo.GetPendingAPIKey(ctx, token)
+}
+
+func (t *testUserRepositoryWithRolesForSecrets) MarkAsViewed(ctx context.Context, token, ip string) error {
+	return t.originalRepo.MarkAsViewed(ctx, token, ip)
+}
+
+func (t *testUserRepositoryWithRolesForSecrets) DeletePendingAPIKey(ctx context.Context, token string) error {
+	return t.originalRepo.DeletePendingAPIKey(ctx, token)
+}
+
+func (t *testUserRepositoryWithRolesForSecrets) ListUsers(_ context.Context) ([]*api.User, error) {
+	// Return users with valid roles for enforcer initialization
+	return []*api.User{
+		{
+			Email:     "user@example.com",
+			Role:      "admin",
+			CreatedAt: time.Now().Add(-24 * time.Hour),
+			Revoked:   false,
+		},
+	}, nil
 }

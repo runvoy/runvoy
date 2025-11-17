@@ -7,8 +7,10 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"runvoy/internal/api"
+	"runvoy/internal/auth/authorization"
 	"runvoy/internal/backend/orchestrator"
 	"runvoy/internal/constants"
 	apperrors "runvoy/internal/errors"
@@ -18,16 +20,37 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// Helper to create request with user context
+// Helper to create request with user context and logger
 func createAuthenticatedRequest(method, path string, user *api.User) *http.Request {
 	req := httptest.NewRequest(method, path, http.NoBody)
 	ctx := context.WithValue(req.Context(), userContextKey, user)
+	// Add logger to context so GetLoggerFromContext works
+	logger := testutil.SilentLogger()
+	ctx = context.WithValue(ctx, loggerContextKey, logger)
 	return req.WithContext(ctx)
+}
+
+// newPermissiveTestEnforcer creates a test enforcer that allows all access.
+// This is useful for tests that need authorization to pass but don't test authorization logic.
+// It assigns admin role to a wildcard user pattern to allow all access.
+func newPermissiveTestEnforcer(t *testing.T) *authorization.Enforcer {
+	// Use the real NewEnforcer to create a proper enforcer
+	enf, err := authorization.NewEnforcer(testutil.SilentLogger())
+	require.NoError(t, err)
+
+	// Assign admin role to a wildcard pattern - this should allow all users
+	// We'll assign admin to a common test user email pattern
+	err = enf.AddRoleForUser("admin@example.com", authorization.RoleAdmin)
+	require.NoError(t, err)
+	err = enf.AddRoleForUser("user@example.com", authorization.RoleAdmin)
+	require.NoError(t, err)
+
+	return enf
 }
 
 // TestAuthorizeRequest tests the authorization helper function with nil enforcer
 func TestAuthorizeRequest(t *testing.T) {
-	t.Run("with nil enforcer allows access", func(t *testing.T) {
+	t.Run("with nil enforcer denies access", func(t *testing.T) {
 		svc, _ := orchestrator.NewService(context.Background(),
 			&testUserRepository{},
 			nil,
@@ -44,11 +67,11 @@ func TestAuthorizeRequest(t *testing.T) {
 
 		router := &Router{svc: svc}
 
-		// With nil enforcer (authorization not configured), should allow
+		// With nil enforcer (authorization not configured), should deny (fail secure)
 		user := &api.User{Email: "user@example.com"}
 		req := createAuthenticatedRequest("GET", "/api/test", user)
 		allowed := router.authorizeRequest(req, "read")
-		assert.True(t, allowed)
+		assert.False(t, allowed)
 	})
 }
 
@@ -204,8 +227,10 @@ func TestValidateExecutionResourceAccess(t *testing.T) {
 
 // TestHandleListUsersWithAuthorization tests list users with authorization checks
 func TestHandleListUsersWithAuthorization(t *testing.T) {
-	userRepo := &testUserRepository{}
-	svc, _ := orchestrator.NewService(context.Background(),
+	// Create a user repository that returns users with valid roles
+	userRepo := &testUserRepositoryWithRoles{}
+	enforcer := newPermissiveTestEnforcer(t)
+	svc, err := orchestrator.NewService(context.Background(),
 		userRepo,
 		nil,
 		nil,
@@ -216,10 +241,12 @@ func TestHandleListUsersWithAuthorization(t *testing.T) {
 		nil,
 		nil,
 		nil,
-		nil,
+		enforcer,
 	)
+	require.NoError(t, err)
+	require.NotNil(t, svc)
 
-	router := &Router{svc: svc}
+	router := NewRouter(svc, 30*time.Second)
 
 	user := &api.User{Email: "admin@example.com"}
 	req := createAuthenticatedRequest("GET", "/api/v1/users", user)
@@ -229,8 +256,8 @@ func TestHandleListUsersWithAuthorization(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 	var resp api.ListUsersResponse
-	err := json.NewDecoder(w.Body).Decode(&resp)
-	require.NoError(t, err)
+	decodeErr := json.NewDecoder(w.Body).Decode(&resp)
+	require.NoError(t, decodeErr)
 	assert.NotEmpty(t, resp.Users)
 }
 
@@ -266,9 +293,10 @@ func TestHandleListUsersUnauthenticated(t *testing.T) {
 func TestHandleRunCommandStructure(t *testing.T) {
 	runner := &testRunner{}
 	executionRepo := &testExecutionRepository{}
-	userRepo := &testUserRepository{}
+	userRepo := &testUserRepositoryWithRoles{}
+	enforcer := newPermissiveTestEnforcer(t)
 
-	svc, _ := orchestrator.NewService(context.Background(),
+	svc, err := orchestrator.NewService(context.Background(),
 		userRepo,
 		executionRepo,
 		nil,
@@ -279,10 +307,12 @@ func TestHandleRunCommandStructure(t *testing.T) {
 		nil,
 		nil,
 		nil,
-		nil,
+		enforcer,
 	)
+	require.NoError(t, err)
+	require.NotNil(t, svc)
 
-	router := &Router{svc: svc}
+	router := NewRouter(svc, 30*time.Second)
 
 	user := &api.User{Email: "user@example.com"}
 
@@ -338,9 +368,9 @@ func TestErrorCodeUnauthorized(t *testing.T) {
 // For now, the TestAuthorizeRequest and TestValidateExecutionResourceAccess
 // tests verify the enforcement mechanism works when an enforcer is configured.
 
-// TestGracefulDegradationWithNilEnforcer verifies that when no enforcer is configured,
-// authorization checks allow access (graceful degradation for backwards compatibility)
-func TestGracefulDegradationWithNilEnforcer(t *testing.T) {
+// TestFailSecureWithNilEnforcer verifies that when no enforcer is configured,
+// authorization checks deny access (fail secure behavior)
+func TestFailSecureWithNilEnforcer(t *testing.T) {
 	svc, _ := orchestrator.NewService(context.Background(),
 		&testUserRepository{},
 		nil,
@@ -371,11 +401,11 @@ func TestGracefulDegradationWithNilEnforcer(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// With nil enforcer, all access should be allowed (graceful degradation)
+			// With nil enforcer, all access should be denied (fail secure)
 			user := &api.User{Email: tt.userEmail}
 			req := createAuthenticatedRequest("GET", tt.resource, user)
 			allowed := router.authorizeRequest(req, tt.action)
-			assert.True(t, allowed, "should allow access when enforcer is nil")
+			assert.False(t, allowed, "should deny access when enforcer is nil")
 		})
 	}
 }
@@ -411,4 +441,67 @@ func TestRoleBasedAccessExpectations(t *testing.T) {
 	assert.Contains(t, rolePermissions, "operator", "operator role should be defined")
 	assert.Contains(t, rolePermissions, "developer", "developer role should be defined")
 	assert.Contains(t, rolePermissions, "viewer", "viewer role should be defined")
+}
+
+// testUserRepositoryWithRoles is a test user repository that returns users with valid roles
+// for testing with enforcer initialization
+type testUserRepositoryWithRoles struct{}
+
+func (t *testUserRepositoryWithRoles) CreateUser(_ context.Context, _ *api.User, _ string, _ int64) error {
+	return nil
+}
+
+func (t *testUserRepositoryWithRoles) RemoveExpiration(_ context.Context, _ string) error {
+	return nil
+}
+
+func (t *testUserRepositoryWithRoles) GetUserByEmail(_ context.Context, _ string) (*api.User, error) {
+	return nil, nil
+}
+
+func (t *testUserRepositoryWithRoles) GetUserByAPIKeyHash(_ context.Context, _ string) (*api.User, error) {
+	return nil, nil
+}
+
+func (t *testUserRepositoryWithRoles) UpdateLastUsed(_ context.Context, _ string) (*time.Time, error) {
+	now := time.Now()
+	return &now, nil
+}
+
+func (t *testUserRepositoryWithRoles) RevokeUser(_ context.Context, _ string) error {
+	return nil
+}
+
+func (t *testUserRepositoryWithRoles) CreatePendingAPIKey(_ context.Context, _ *api.PendingAPIKey) error {
+	return nil
+}
+
+func (t *testUserRepositoryWithRoles) GetPendingAPIKey(_ context.Context, _ string) (*api.PendingAPIKey, error) {
+	return nil, nil
+}
+
+func (t *testUserRepositoryWithRoles) MarkAsViewed(_ context.Context, _, _ string) error {
+	return nil
+}
+
+func (t *testUserRepositoryWithRoles) DeletePendingAPIKey(_ context.Context, _ string) error {
+	return nil
+}
+
+func (t *testUserRepositoryWithRoles) ListUsers(_ context.Context) ([]*api.User, error) {
+	// Return users with valid roles so enforcer initialization succeeds
+	return []*api.User{
+		{
+			Email:     "admin@example.com",
+			Role:      "admin",
+			CreatedAt: time.Now().Add(-48 * time.Hour),
+			Revoked:   false,
+		},
+		{
+			Email:     "user@example.com",
+			Role:      "admin",
+			CreatedAt: time.Now().Add(-24 * time.Hour),
+			Revoked:   false,
+		},
+	}, nil
 }

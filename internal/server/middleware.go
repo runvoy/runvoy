@@ -120,7 +120,6 @@ func handleAuthError(w http.ResponseWriter, err error) {
 // authorizeRequest checks if a user can perform an action on a resource.
 // Returns true if allowed, false if denied.
 // If user is not found in context, returns false (not authorized).
-// If enforcer is nil, returns true (no authorization enforcement - graceful degradation).
 func (r *Router) authorizeRequest(req *http.Request, action string) bool {
 	ctx := req.Context()
 	logger := r.GetLoggerFromContext(ctx)
@@ -136,7 +135,11 @@ func (r *Router) authorizeRequest(req *http.Request, action string) bool {
 
 	enforcer := r.svc.GetEnforcer()
 	if enforcer == nil {
-		return true
+		logger.Error("authorization denied: enforcer not found", "context", map[string]string{
+			"resource": req.URL.Path,
+			"action":   action,
+		})
+		return false
 	}
 
 	resourceObject := req.URL.Path
