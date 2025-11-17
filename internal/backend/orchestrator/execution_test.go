@@ -10,6 +10,7 @@ import (
 
 	"runvoy/internal/api"
 	"runvoy/internal/auth"
+	"runvoy/internal/auth/authorization"
 	"runvoy/internal/backend/websocket"
 	"runvoy/internal/constants"
 	"runvoy/internal/database"
@@ -183,6 +184,32 @@ func TestRunCommand_WithSecrets(t *testing.T) {
 	assert.Equal(t, string(constants.ExecutionStarting), resp.Status)
 }
 
+func TestRunCommand_AddsExecutionOwnership(t *testing.T) {
+	ctx := context.Background()
+	execRepo := &mockExecutionRepository{}
+	runner := &mockRunner{
+		startTaskFunc: func(_ context.Context, _ string, _ *api.ExecutionRequest) (string, *time.Time, error) {
+			return "exec-ownership", timePtr(time.Now()), nil
+		},
+	}
+
+	service, enforcer := newTestServiceWithEnforcer(
+		nil,
+		execRepo,
+		runner,
+		nil,
+	)
+
+	req := api.ExecutionRequest{Command: "echo hello"}
+	_, err := service.RunCommand(ctx, "owner@example.com", &req)
+	require.NoError(t, err)
+
+	resourceID := authorization.FormatResourceID("execution", "exec-ownership")
+	hasOwnership, checkErr := enforcer.HasOwnershipForResource(resourceID, "owner@example.com")
+	require.NoError(t, checkErr)
+	assert.True(t, hasOwnership)
+}
+
 func TestGetExecutionStatus(t *testing.T) {
 	ctx := context.Background()
 	now := time.Now()
@@ -330,7 +357,12 @@ func TestListExecutions(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			execRepo := &mockExecutionRepository{
-				listExecutionsFunc: func(_ context.Context, _ int, _ []string) ([]*api.Execution, error) {
+				listExecutionsFunc: func(_ context.Context, limit int, _ []string) ([]*api.Execution, error) {
+					// During initialization, limit is 0 (load all for ownership). Allow that to succeed.
+					// During actual ListExecutions call, limit is non-zero, so return the test error.
+					if limit == 0 {
+						return []*api.Execution{}, nil
+					}
 					return tt.mockExecutions, tt.listErr
 				},
 			}

@@ -48,9 +48,10 @@ func newPermissiveTestEnforcer(t *testing.T) *authorization.Enforcer {
 	return enf
 }
 
-// TestAuthorizeRequest tests the authorization helper function with nil enforcer
+// TestAuthorizeRequest tests the authorization helper function.
+// Note: enforcer is now required, so we use a permissive test enforcer.
 func TestAuthorizeRequest(t *testing.T) {
-	t.Run("with nil enforcer denies access", func(t *testing.T) {
+	t.Run("with permissive enforcer allows access", func(t *testing.T) {
 		svc, _ := orchestrator.NewService(context.Background(),
 			&testUserRepository{},
 			nil,
@@ -62,16 +63,16 @@ func TestAuthorizeRequest(t *testing.T) {
 			nil,
 			nil,
 			nil,
-			nil,
+			newPermissiveTestEnforcer(t),
 		)
 
 		router := &Router{svc: svc}
 
-		// With nil enforcer (authorization not configured), should deny (fail secure)
+		// With permissive enforcer, should allow access
 		user := &api.User{Email: "user@example.com"}
-		req := createAuthenticatedRequest("GET", "/api/test", user)
+		req := createAuthenticatedRequest("GET", "/api/v1/users", user)
 		allowed := router.authorizeRequest(req, "read")
-		assert.False(t, allowed)
+		assert.True(t, allowed)
 	})
 }
 
@@ -89,7 +90,7 @@ func TestHandleCreateUserAuthorizationDenied(t *testing.T) {
 		nil,
 		nil,
 		nil,
-		nil,
+		newPermissiveTestEnforcer(t),
 	)
 
 	router := &Router{svc: svc}
@@ -209,7 +210,7 @@ func TestValidateExecutionResourceAccess(t *testing.T) {
 				nil,
 				nil,
 				nil,
-				nil,
+				newPermissiveTestEnforcer(t),
 			)
 
 			req := &api.ExecutionRequest{
@@ -275,7 +276,7 @@ func TestHandleListUsersUnauthenticated(t *testing.T) {
 		nil,
 		nil,
 		nil,
-		nil,
+		newPermissiveTestEnforcer(t),
 	)
 
 	router := &Router{svc: svc}
@@ -368,47 +369,8 @@ func TestErrorCodeUnauthorized(t *testing.T) {
 // For now, the TestAuthorizeRequest and TestValidateExecutionResourceAccess
 // tests verify the enforcement mechanism works when an enforcer is configured.
 
-// TestFailSecureWithNilEnforcer verifies that when no enforcer is configured,
-// authorization checks deny access (fail secure behavior)
-func TestFailSecureWithNilEnforcer(t *testing.T) {
-	svc, _ := orchestrator.NewService(context.Background(),
-		&testUserRepository{},
-		nil,
-		nil,
-		&testTokenRepository{},
-		nil,
-		testutil.SilentLogger(),
-		constants.AWS,
-		nil,
-		nil,
-		nil,
-		nil,
-	)
-
-	router := &Router{svc: svc}
-
-	tests := []struct {
-		name      string
-		userEmail string
-		resource  string
-		action    string
-	}{
-		{"arbitrary user with any resource and action", "user@example.com", "/api/users", "create"},
-		{"arbitrary user with image resource", "user@example.com", "/api/images", "delete"},
-		{"arbitrary user with secret resource", "user@example.com", "/api/secrets", "update"},
-		{"arbitrary user with execution resource", "user@example.com", "/api/executions", "execute"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// With nil enforcer, all access should be denied (fail secure)
-			user := &api.User{Email: tt.userEmail}
-			req := createAuthenticatedRequest("GET", tt.resource, user)
-			allowed := router.authorizeRequest(req, tt.action)
-			assert.False(t, allowed, "should deny access when enforcer is nil")
-		})
-	}
-}
+// TestFailSecureWithNilEnforcer is removed because enforcer is now required.
+// All services must have a non-nil enforcer; use a permissive test enforcer in tests if needed.
 
 // TestRoleBasedAccessExpectations documents the expected role-based access patterns
 // when a properly configured Casbin enforcer is in place (see policy.csv for details)

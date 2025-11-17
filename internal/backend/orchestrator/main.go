@@ -80,7 +80,7 @@ type Service struct {
 // If wsManager is nil, WebSocket URL generation will be skipped.
 // If secretsRepo is nil, secrets operations will not be available.
 // If healthManager is nil, health reconciliation will not be available.
-// If enforcer is nil, authorization will not be available.
+// enforcer must be non-nil; use a permissive test enforcer in tests if needed.
 func NewService(
 	ctx context.Context,
 	userRepo database.UserRepository,
@@ -94,6 +94,10 @@ func NewService(
 	secretsRepo database.SecretsRepository,
 	healthManager health.Manager,
 	enforcer *authorization.Enforcer) (*Service, error) {
+	if enforcer == nil {
+		return nil, fmt.Errorf("enforcer is required and cannot be nil")
+	}
+
 	svc := &Service{
 		userRepo:      userRepo,
 		executionRepo: executionRepo,
@@ -108,15 +112,13 @@ func NewService(
 		enforcer:      enforcer,
 	}
 
-	if enforcer != nil {
-		if userRepo != nil {
-			if err := svc.loadUserRoles(ctx); err != nil {
-				return nil, err
-			}
-		}
-		if err := svc.loadResourceOwnerships(ctx); err != nil {
+	if userRepo != nil {
+		if err := svc.loadUserRoles(ctx); err != nil {
 			return nil, err
 		}
+	}
+	if err := svc.loadResourceOwnerships(ctx); err != nil {
+		return nil, err
 	}
 
 	log.Debug("casbin authorization enforcer initialized successfully")
@@ -126,8 +128,12 @@ func NewService(
 }
 
 // loadUserRoles populates the Casbin enforcer with all user roles from the database.
-// Returns an error if any role is invalid or fails to load (critical initialization failure).
+// Returns an error if user loading fails or if any enforcer operation fails.
+// This function should only be called when userRepo is non-nil.
 func (s *Service) loadUserRoles(ctx context.Context) error {
+	if s.userRepo == nil {
+		return nil
+	}
 	users, err := s.userRepo.ListUsers(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to load users for enforcer initialization: %w", err)
@@ -139,21 +145,11 @@ func (s *Service) loadUserRoles(ctx context.Context) error {
 		g.Go(func() error {
 			role, roleErr := authorization.NewRole(user.Role)
 			if roleErr != nil {
-				s.Logger.Error("user has invalid role", "context", map[string]string{
-					"user":  user.Email,
-					"role":  user.Role,
-					"error": roleErr.Error(),
-				})
-				return fmt.Errorf("user %s has invalid role: %w", user.Email, roleErr)
+				return fmt.Errorf("user %s has invalid role %q: %w", user.Email, user.Role, roleErr)
 			}
 
 			if addErr := s.enforcer.AddRoleForUser(user.Email, role); addErr != nil {
-				s.Logger.Error("failed to add role for user to enforcer", "context", map[string]string{
-					"user":  user.Email,
-					"role":  user.Role,
-					"error": addErr.Error(),
-				})
-				return fmt.Errorf("failed to add role for user %s to enforcer: %w", user.Email, addErr)
+				return fmt.Errorf("failed to add role %q for user %s to enforcer: %w", user.Role, user.Email, addErr)
 			}
 
 			return nil
@@ -168,16 +164,13 @@ func (s *Service) loadUserRoles(ctx context.Context) error {
 }
 
 // loadResourceOwnerships hydrates the enforcer with resource ownership mappings for secrets and executions.
+// Returns an error if any ownership loading fails.
 func (s *Service) loadResourceOwnerships(ctx context.Context) error {
-	if s.enforcer == nil {
-		return nil
-	}
-
 	if err := s.hydrateSecretOwnerships(ctx); err != nil {
-		return err
+		return fmt.Errorf("failed to load secret ownerships: %w", err)
 	}
 	if err := s.hydrateExecutionOwnerships(ctx); err != nil {
-		return err
+		return fmt.Errorf("failed to load execution ownerships: %w", err)
 	}
 
 	return nil
@@ -227,11 +220,6 @@ func (s *Service) hydrateExecutionOwnerships(ctx context.Context) error {
 		g.Go(func() error {
 			resourceID := fmt.Sprintf("execution:%s", execution.ExecutionID)
 			if addErr := s.enforcer.AddOwnershipForResource(resourceID, execution.UserEmail); addErr != nil {
-				s.Logger.Error("failed to add ownership for execution to enforcer", "context", map[string]string{
-					"execution_id": execution.ExecutionID,
-					"user":         execution.UserEmail,
-					"error":        addErr.Error(),
-				})
 				return fmt.Errorf("failed to add ownership for execution %s: %w", execution.ExecutionID, addErr)
 			}
 
@@ -247,7 +235,6 @@ func (s *Service) hydrateExecutionOwnerships(ctx context.Context) error {
 }
 
 // GetEnforcer returns the Casbin enforcer for authorization checks.
-// May be nil if authorization is not configured.
 func (s *Service) GetEnforcer() *authorization.Enforcer {
 	return s.enforcer
 }

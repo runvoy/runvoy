@@ -71,7 +71,7 @@ func TestGetExecutionStatus_Unauthorized(t *testing.T) {
 		nil,
 		nil, // SecretsService
 		nil, // healthManager
-		nil,
+		newPermissiveTestEnforcerForHandlers(t),
 	)
 	require.NoError(t, err)
 	router := NewRouter(svc, 2*time.Second)

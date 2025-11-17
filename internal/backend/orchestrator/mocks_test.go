@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"runvoy/internal/api"
+	"runvoy/internal/auth/authorization"
 	"runvoy/internal/backend/websocket"
 	"runvoy/internal/constants"
 	"runvoy/internal/database"
@@ -291,25 +292,60 @@ func (m *mockRunner) FetchLogsByExecutionID(ctx context.Context, executionID str
 	return []api.LogEvent{}, nil
 }
 
+// newPermissiveEnforcer creates a test enforcer that allows all access.
+// This is useful for tests that need authorization to pass but don't test authorization logic.
+func newPermissiveEnforcer() *authorization.Enforcer {
+	enf, err := authorization.NewEnforcer(testutil.SilentLogger())
+	if err != nil {
+		panic(err)
+	}
+	// Assign admin role to common test user emails to allow all access
+	_ = enf.AddRoleForUser("admin@example.com", authorization.RoleAdmin)
+	_ = enf.AddRoleForUser("user@example.com", authorization.RoleAdmin)
+	_ = enf.AddRoleForUser("alice@example.com", authorization.RoleAdmin)
+	_ = enf.AddRoleForUser("bob@example.com", authorization.RoleAdmin)
+	_ = enf.AddRoleForUser("charlie@example.com", authorization.RoleAdmin)
+	return enf
+}
+
 // newTestService creates a Service with mocks for testing
+// Converts typed nils to untyped nil interfaces to avoid typed nil issues.
 func newTestService(
 	userRepo *mockUserRepository,
 	execRepo *mockExecutionRepository,
 	runner *mockRunner,
 ) *Service {
-	return newTestServiceWithConnRepo(userRepo, execRepo, nil, runner)
+	var userRepoIface database.UserRepository
+	if userRepo != nil {
+		userRepoIface = userRepo
+	}
+
+	var execRepoIface database.ExecutionRepository
+	if execRepo != nil {
+		execRepoIface = execRepo
+	}
+
+	var runnerIface Runner
+	if runner != nil {
+		runnerIface = runner
+	}
+
+	return newTestServiceWithConnRepo(userRepoIface, execRepoIface, nil, runnerIface)
 }
 
 // newTestServiceWithConnRepo creates a Service with connection repo mock for testing
+// Accepts interface types to avoid typed nil issues.
 func newTestServiceWithConnRepo(
-	userRepo *mockUserRepository,
-	execRepo *mockExecutionRepository,
-	connRepo *mockConnectionRepository,
-	runner *mockRunner,
+	userRepo database.UserRepository,
+	execRepo database.ExecutionRepository,
+	connRepo database.ConnectionRepository,
+	runner Runner,
 ) *Service {
 	logger := testutil.SilentLogger()
-	svc, err := NewService(context.Background(),
-		userRepo, execRepo, connRepo, &mockTokenRepository{}, runner, logger, constants.AWS, nil, nil, nil, nil,
+	svc, err := NewService(
+		context.Background(),
+		userRepo, execRepo, connRepo, &mockTokenRepository{}, runner, logger, constants.AWS,
+		nil, nil, nil, newPermissiveEnforcer(),
 	)
 	if err != nil {
 		panic(err)
@@ -318,6 +354,53 @@ func newTestServiceWithConnRepo(
 }
 
 // newTestServiceWithSecretsRepo creates a Service with a secrets repository for testing.
+func newTestServiceWithEnforcer(
+	userRepo *mockUserRepository,
+	execRepo *mockExecutionRepository,
+	runner *mockRunner,
+	secretsRepo database.SecretsRepository,
+) (*Service, *authorization.Enforcer) {
+	logger := testutil.SilentLogger()
+	enforcer, err := authorization.NewEnforcer(logger)
+	if err != nil {
+		panic(err)
+	}
+
+	var userRepoIface database.UserRepository
+	if userRepo != nil {
+		userRepoIface = userRepo
+	}
+
+	var execRepoIface database.ExecutionRepository
+	if execRepo != nil {
+		execRepoIface = execRepo
+	}
+
+	var runnerIface Runner
+	if runner != nil {
+		runnerIface = runner
+	}
+
+	svc, err := NewService(
+		context.Background(),
+		userRepoIface,
+		execRepoIface,
+		nil,
+		&mockTokenRepository{},
+		runnerIface,
+		logger,
+		constants.AWS,
+		nil,
+		secretsRepo,
+		nil,
+		enforcer,
+	)
+	if err != nil {
+		panic(err)
+	}
+	return svc, enforcer
+}
+
 func newTestServiceWithSecretsRepo(
 	userRepo *mockUserRepository,
 	execRepo *mockExecutionRepository,
@@ -325,8 +408,35 @@ func newTestServiceWithSecretsRepo(
 	secretsRepo database.SecretsRepository,
 ) *Service {
 	logger := testutil.SilentLogger()
-	svc, err := NewService(context.Background(),
-		userRepo, execRepo, nil, &mockTokenRepository{}, runner, logger, constants.AWS, nil, secretsRepo, nil, nil,
+
+	var userRepoIface database.UserRepository
+	if userRepo != nil {
+		userRepoIface = userRepo
+	}
+
+	var execRepoIface database.ExecutionRepository
+	if execRepo != nil {
+		execRepoIface = execRepo
+	}
+
+	var runnerIface Runner
+	if runner != nil {
+		runnerIface = runner
+	}
+
+	svc, err := NewService(
+		context.Background(),
+		userRepoIface,
+		execRepoIface,
+		nil,
+		&mockTokenRepository{},
+		runnerIface,
+		logger,
+		constants.AWS,
+		nil,
+		secretsRepo,
+		nil,
+		newPermissiveEnforcer(),
 	)
 	if err != nil {
 		panic(err)
@@ -386,6 +496,7 @@ func (m *mockSecretsRepository) DeleteSecret(ctx context.Context, name string) e
 }
 
 // newTestServiceWithWebSocketManager creates a Service with websocket manager for testing
+// Converts typed nils to untyped nil interfaces to avoid typed nil issues.
 func newTestServiceWithWebSocketManager(
 	userRepo *mockUserRepository,
 	execRepo *mockExecutionRepository,
@@ -393,8 +504,26 @@ func newTestServiceWithWebSocketManager(
 	wsManager websocket.Manager,
 ) *Service {
 	logger := testutil.SilentLogger()
-	svc, err := NewService(context.Background(),
-		userRepo, execRepo, nil, &mockTokenRepository{}, runner, logger, constants.AWS, wsManager, nil, nil, nil,
+
+	var userRepoIface database.UserRepository
+	if userRepo != nil {
+		userRepoIface = userRepo
+	}
+
+	var execRepoIface database.ExecutionRepository
+	if execRepo != nil {
+		execRepoIface = execRepo
+	}
+
+	var runnerIface Runner
+	if runner != nil {
+		runnerIface = runner
+	}
+
+	svc, err := NewService(
+		context.Background(),
+		userRepoIface, execRepoIface, nil, &mockTokenRepository{}, runnerIface, logger, constants.AWS,
+		wsManager, nil, nil, newPermissiveEnforcer(),
 	)
 	if err != nil {
 		panic(err)

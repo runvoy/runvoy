@@ -41,6 +41,7 @@ func (t *testUserRepository) GetUserByEmail(_ context.Context, email string) (*a
 		return t.getUserByEmailFunc(email)
 	}
 	return &api.User{
+		Role:    authorization.RoleViewer.String(),
 		Email:   email,
 		Revoked: false,
 	}, nil
@@ -270,7 +271,7 @@ func TestHandleHealth(t *testing.T) {
 		nil,
 		nil, // SecretsService
 		nil, // healthManager
-		nil,
+		newPermissiveTestEnforcerForHandlers(t),
 	)
 	require.NoError(t, err)
 	router := NewRouter(svc, 2*time.Second)
@@ -339,7 +340,7 @@ func TestHandleRunCommand_InvalidJSON(t *testing.T) {
 		nil,
 		nil, // SecretsService
 		nil, // healthManager
-		nil,
+		newPermissiveTestEnforcerForHandlers(t),
 	)
 	require.NoError(t, err)
 	router := NewRouter(svc, 2*time.Second)
@@ -372,7 +373,7 @@ func testUnauthorizedRequest(t *testing.T, method, endpoint string, reqBody any)
 		nil,
 		nil, // SecretsService
 		nil, // healthManager
-		nil,
+		newPermissiveTestEnforcerForHandlers(t),
 	)
 	require.NoError(t, err)
 	router := NewRouter(svc, 2*time.Second)
@@ -946,7 +947,7 @@ func TestHandleListUsers_Unauthorized(t *testing.T) {
 		nil,
 		nil, // SecretsService
 		nil, // healthManager
-		nil,
+		newPermissiveTestEnforcerForHandlers(t),
 	)
 	require.NoError(t, err)
 	router := NewRouter(svc, 2*time.Second)
@@ -982,7 +983,7 @@ func TestHandleListUsers_RepositoryError(t *testing.T) {
 		nil,
 		nil, // SecretsService
 		nil, // healthManager
-		nil,
+		newPermissiveTestEnforcerForHandlers(t),
 	)
 	require.NoError(t, err)
 	router := NewRouter(svc, 2*time.Second)
@@ -1115,7 +1116,7 @@ func TestHandleCreateUser_InvalidJSON(t *testing.T) {
 		nil,
 		nil, // SecretsService
 		nil, // healthManager
-		nil,
+		newPermissiveTestEnforcerForHandlers(t),
 	)
 	require.NoError(t, err)
 	router := NewRouter(svc, 2*time.Second)
@@ -1186,7 +1187,7 @@ func TestHandleRevokeUser_InvalidJSON(t *testing.T) {
 		nil,
 		nil, // SecretsService
 		nil, // healthManager
-		nil,
+		newPermissiveTestEnforcerForHandlers(t),
 	)
 	require.NoError(t, err)
 	router := NewRouter(svc, 2*time.Second)
@@ -1283,7 +1284,7 @@ func TestHandleRevokeUser_Unauthorized(t *testing.T) {
 		nil,
 		nil, // SecretsService
 		nil, // healthManager
-		nil,
+		newPermissiveTestEnforcerForHandlers(t),
 	)
 	require.NoError(t, err)
 	router := NewRouter(svc, 2*time.Second)
@@ -1345,7 +1346,7 @@ func TestHandleGetExecutionLogs_MissingExecutionID(t *testing.T) {
 		nil,
 		nil, // SecretsService
 		nil, // healthManager
-		nil,
+		newPermissiveTestEnforcerForHandlers(t),
 	)
 	require.NoError(t, err)
 	router := NewRouter(svc, 2*time.Second)
@@ -1404,7 +1405,7 @@ func TestHandleGetExecutionStatus_MissingExecutionID(t *testing.T) {
 		nil,
 		nil, // SecretsService
 		nil, // healthManager
-		nil,
+		newPermissiveTestEnforcerForHandlers(t),
 	)
 	require.NoError(t, err)
 	router := NewRouter(svc, 2*time.Second)
@@ -1502,7 +1503,7 @@ func TestHandleKillExecution_MissingExecutionID(t *testing.T) {
 		nil,
 		nil, // SecretsService
 		nil, // healthManager
-		nil,
+		newPermissiveTestEnforcerForHandlers(t),
 	)
 	require.NoError(t, err)
 	router := NewRouter(svc, 2*time.Second)
@@ -1531,7 +1532,7 @@ func TestHandleClaimAPIKey_Success(t *testing.T) {
 		nil,
 		nil, // SecretsService
 		nil, // healthManager
-		nil,
+		newPermissiveTestEnforcerForHandlers(t),
 	)
 	require.NoError(t, err)
 	router := NewRouter(svc, 2*time.Second)
@@ -1563,7 +1564,7 @@ func TestHandleClaimAPIKey_EmptyToken(t *testing.T) {
 		nil,
 		nil, // SecretsService
 		nil, // healthManager
-		nil,
+		newPermissiveTestEnforcerForHandlers(t),
 	)
 	require.NoError(t, err)
 	router := NewRouter(svc, 2*time.Second)
@@ -1590,7 +1591,7 @@ func TestHandleClaimAPIKey_TokenWithWhitespace(t *testing.T) {
 		nil,
 		nil, // SecretsService
 		nil, // healthManager
-		nil,
+		newPermissiveTestEnforcerForHandlers(t),
 	)
 	require.NoError(t, err)
 	router := NewRouter(svc, 2*time.Second)
@@ -1617,7 +1618,7 @@ func TestHandleClaimAPIKey_TokenNotFound(t *testing.T) {
 		nil,
 		nil, // SecretsService
 		nil, // healthManager
-		nil,
+		newPermissiveTestEnforcerForHandlers(t),
 	)
 	require.NoError(t, err)
 	router := NewRouter(svc, 2*time.Second)
@@ -1645,7 +1646,7 @@ func TestHandleReconcileHealth_Unauthenticated(t *testing.T) {
 		nil,
 		nil, // SecretsService
 		nil, // healthManager
-		nil,
+		newPermissiveTestEnforcerForHandlers(t),
 	)
 	require.NoError(t, err)
 	router := NewRouter(svc, 2*time.Second)
@@ -1705,7 +1706,7 @@ func TestHandleRemoveImage_Unauthorized(t *testing.T) {
 		nil,
 		nil,
 		nil,
-		nil,
+		newPermissiveTestEnforcerForHandlers(t),
 	)
 	require.NoError(t, err)
 	router := NewRouter(svc, 2*time.Second)
@@ -1732,7 +1733,7 @@ func TestHandleRegisterImage_Unauthorized(t *testing.T) {
 		nil,
 		nil,
 		nil,
-		nil,
+		newPermissiveTestEnforcerForHandlers(t),
 	)
 	require.NoError(t, err)
 	router := NewRouter(svc, 2*time.Second)
@@ -1762,7 +1763,7 @@ func TestHandleGetImage_Unauthorized(t *testing.T) {
 		nil,
 		nil,
 		nil,
-		nil,
+		newPermissiveTestEnforcerForHandlers(t),
 	)
 	require.NoError(t, err)
 	router := NewRouter(svc, 2*time.Second)
@@ -1791,7 +1792,7 @@ func TestHandleKillExecution_Unauthorized(t *testing.T) {
 		nil,
 		nil,
 		nil,
-		nil,
+		newPermissiveTestEnforcerForHandlers(t),
 	)
 	require.NoError(t, err)
 	router := NewRouter(svc, 2*time.Second)
@@ -1818,7 +1819,7 @@ func TestHandleGetExecutionLogs_Unauthorized(t *testing.T) {
 		nil,
 		nil,
 		nil,
-		nil,
+		newPermissiveTestEnforcerForHandlers(t),
 	)
 	require.NoError(t, err)
 	router := NewRouter(svc, 2*time.Second)
@@ -1845,7 +1846,7 @@ func TestHandleGetExecutionStatus_Unauthorized(t *testing.T) {
 		nil,
 		nil,
 		nil,
-		nil,
+		newPermissiveTestEnforcerForHandlers(t),
 	)
 	require.NoError(t, err)
 	router := NewRouter(svc, 2*time.Second)

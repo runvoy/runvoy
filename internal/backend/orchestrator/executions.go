@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"runvoy/internal/api"
+	"runvoy/internal/auth/authorization"
 	"runvoy/internal/constants"
 	apperrors "runvoy/internal/errors"
 	"runvoy/internal/logger"
@@ -21,9 +22,6 @@ func (s *Service) ValidateExecutionResourceAccess(
 	req *api.ExecutionRequest,
 ) error {
 	enforcer := s.GetEnforcer()
-	if enforcer == nil {
-		return nil
-	}
 
 	if image := strings.TrimSpace(req.Image); image != "" {
 		imagePath := fmt.Sprintf("/api/v1/images/%s", image)
@@ -156,6 +154,15 @@ func (s *Service) recordExecution(
 			},
 		)
 		return fmt.Errorf("failed to create execution record, but task has been accepted by the provider: %w", err)
+	}
+
+	if err := s.addExecutionOwnershipToEnforcer(executionID, userEmail); err != nil {
+		reqLogger.Error("failed to synchronize execution ownership with enforcer", "context", map[string]string{
+			"execution_id": executionID,
+			"user":         userEmail,
+			"error":        err.Error(),
+		})
+		return fmt.Errorf("failed to synchronize execution ownership: %w", err)
 	}
 
 	return nil
@@ -329,4 +336,13 @@ func (s *Service) ListExecutions(ctx context.Context, limit int, statuses []stri
 		return nil, err
 	}
 	return executions, nil
+}
+
+func (s *Service) addExecutionOwnershipToEnforcer(executionID, ownerEmail string) error {
+	resourceID := authorization.FormatResourceID("execution", executionID)
+	if err := s.enforcer.AddOwnershipForResource(resourceID, ownerEmail); err != nil {
+		return fmt.Errorf("failed to add ownership for execution %s: %w", executionID, err)
+	}
+
+	return nil
 }
