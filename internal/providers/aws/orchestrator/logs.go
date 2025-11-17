@@ -10,6 +10,7 @@ import (
 	"runvoy/internal/api"
 	appErrors "runvoy/internal/errors"
 	"runvoy/internal/logger"
+	awsClient "runvoy/internal/providers/aws/client"
 	awsConstants "runvoy/internal/providers/aws/constants"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -20,7 +21,7 @@ import (
 // verifyLogStreamExists checks if the log stream exists and returns an error if it doesn't
 func verifyLogStreamExists(
 	ctx context.Context,
-	cwl CloudWatchLogsClient,
+	cwl awsClient.CloudWatchLogsClient,
 	logGroup, stream, executionID string,
 	reqLogger *slog.Logger,
 ) error {
@@ -55,7 +56,7 @@ func verifyLogStreamExists(
 // for the provided log group and stream. It returns the aggregated sorted by timestamp
 // events or an error.
 func getAllLogEvents(ctx context.Context,
-	cwl CloudWatchLogsClient, logGroup string, stream string) ([]api.LogEvent, error) {
+	cwl awsClient.CloudWatchLogsClient, logGroup string, stream string) ([]api.LogEvent, error) {
 	var events []api.LogEvent
 	var nextToken *string
 	pageCount := 0
