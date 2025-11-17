@@ -3,6 +3,7 @@ package api
 
 import (
 	"encoding/json"
+	"runvoy/internal/constants"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -106,7 +107,7 @@ func TestImageInfoJSON(t *testing.T) {
 		isDefault := true
 		info := ImageInfo{
 			Image:              "alpine:latest",
-			TaskDefinitionName: "runvoy",
+			TaskDefinitionName: constants.ProjectName,
 			IsDefault:          &isDefault,
 		}
 

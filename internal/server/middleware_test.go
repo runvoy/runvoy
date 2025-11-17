@@ -35,8 +35,20 @@ func TestRequestIDMiddleware(t *testing.T) {
 
 		tokenRepo := &testTokenRepository{}
 
-		svc, err := orchestrator.NewService(context.Background(), nil, nil, nil, tokenRepo, nil,
-			testutil.SilentLogger(), constants.AWS, nil, nil, nil, newPermissiveTestEnforcerForHandlers(t))
+		svc, err := orchestrator.NewService(
+			context.Background(),
+			&testUserRepository{},
+			&testExecutionRepository{},
+			nil,
+			tokenRepo,
+			nil,
+			testutil.SilentLogger(),
+			constants.AWS,
+			nil,
+			nil,
+			nil,
+			newPermissiveTestEnforcerForHandlers(t),
+		)
 		if err != nil {
 			t.Fatalf("failed to create service: %v", err)
 		}
@@ -75,8 +87,20 @@ func TestRequestIDMiddleware(t *testing.T) {
 
 		tokenRepo := &testTokenRepository{}
 
-		svc, err := orchestrator.NewService(context.Background(), nil, nil, nil, tokenRepo, nil,
-			testutil.SilentLogger(), constants.AWS, nil, nil, nil, newPermissiveTestEnforcerForHandlers(t))
+		svc, err := orchestrator.NewService(
+			context.Background(),
+			&testUserRepository{},
+			&testExecutionRepository{},
+			nil,
+			tokenRepo,
+			nil,
+			testutil.SilentLogger(),
+			constants.AWS,
+			nil,
+			nil,
+			nil,
+			newPermissiveTestEnforcerForHandlers(t),
+		)
 		if err != nil {
 			t.Fatalf("failed to create service: %v", err)
 		}
@@ -108,8 +132,20 @@ func TestRequestIDMiddleware(t *testing.T) {
 
 		tokenRepo := &testTokenRepository{}
 
-		svc, err := orchestrator.NewService(context.Background(), nil, nil, nil, tokenRepo, nil,
-			testutil.SilentLogger(), constants.AWS, nil, nil, nil, newPermissiveTestEnforcerForHandlers(t))
+		svc, err := orchestrator.NewService(
+			context.Background(),
+			&testUserRepository{},
+			&testExecutionRepository{},
+			nil,
+			tokenRepo,
+			nil,
+			testutil.SilentLogger(),
+			constants.AWS,
+			nil,
+			nil,
+			nil,
+			newPermissiveTestEnforcerForHandlers(t),
+		)
 		if err != nil {
 			t.Fatalf("failed to create service: %v", err)
 		}
@@ -149,8 +185,20 @@ func TestRequestIDMiddleware(t *testing.T) {
 
 		tokenRepo := &testTokenRepository{}
 
-		svc, err := orchestrator.NewService(context.Background(), nil, nil, nil, tokenRepo, nil,
-			testutil.SilentLogger(), constants.AWS, nil, nil, nil, newPermissiveTestEnforcerForHandlers(t))
+		svc, err := orchestrator.NewService(
+			context.Background(),
+			&testUserRepository{},
+			&testExecutionRepository{},
+			nil,
+			tokenRepo,
+			nil,
+			testutil.SilentLogger(),
+			constants.AWS,
+			nil,
+			nil,
+			nil,
+			newPermissiveTestEnforcerForHandlers(t),
+		)
 		if err != nil {
 			t.Fatalf("failed to create service: %v", err)
 		}

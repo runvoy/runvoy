@@ -12,8 +12,11 @@ import (
 
 	"runvoy/internal/api"
 	"runvoy/internal/auth/authorization"
+	"runvoy/internal/backend/health"
 	"runvoy/internal/backend/orchestrator"
+	"runvoy/internal/backend/websocket"
 	"runvoy/internal/constants"
+	"runvoy/internal/database"
 	apperrors "runvoy/internal/errors"
 	"runvoy/internal/testutil"
 
@@ -259,21 +262,46 @@ func (t *testRunner) FetchLogsByExecutionID(_ context.Context, _ string) ([]api.
 	return []api.LogEvent{}, nil
 }
 
-func TestHandleHealth(t *testing.T) {
-	svc, err := orchestrator.NewService(context.Background(),
-		nil,
-		nil,
-		nil,
+// newTestOrchestratorService creates an orchestrator service with default test repositories.
+// All required repositories (userRepo, executionRepo) are provided by default.
+// Optional repositories can be overridden by passing non-nil values.
+func newTestOrchestratorService(
+	t *testing.T,
+	userRepo *testUserRepository,
+	execRepo *testExecutionRepository,
+	connRepo database.ConnectionRepository, //nolint:unparam // kept for API consistency
+	runner orchestrator.Runner,
+	wsManager websocket.Manager, //nolint:unparam // kept for API consistency
+	secretsRepo database.SecretsRepository, //nolint:unparam // kept for API consistency
+	healthManager health.Manager, //nolint:unparam // kept for API consistency
+) *orchestrator.Service {
+	if userRepo == nil {
+		userRepo = &testUserRepository{}
+	}
+	if execRepo == nil {
+		execRepo = &testExecutionRepository{}
+	}
+
+	svc, err := orchestrator.NewService(
+		context.Background(),
+		userRepo,
+		execRepo,
+		connRepo,
 		&testTokenRepository{},
-		&testRunner{},
+		runner,
 		testutil.SilentLogger(),
 		constants.AWS,
-		nil,
-		nil, // SecretsService
-		nil, // healthManager
+		wsManager,
+		secretsRepo,
+		healthManager,
 		newPermissiveTestEnforcerForHandlers(t),
 	)
 	require.NoError(t, err)
+	return svc
+}
+
+func TestHandleHealth(t *testing.T) {
+	svc := newTestOrchestratorService(t, nil, nil, nil, &testRunner{}, nil, nil, nil)
 	router := NewRouter(svc, 2*time.Second)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/health", http.NoBody)
@@ -290,22 +318,8 @@ func TestHandleRunCommand_Success(t *testing.T) {
 	userRepo := &testUserRepository{}
 	execRepo := &testExecutionRepository{}
 	runner := &testRunner{}
-	enforcer := newPermissiveTestEnforcerForHandlers(t)
 
-	svc, err := orchestrator.NewService(context.Background(),
-		userRepo,
-		execRepo,
-		nil,
-		&testTokenRepository{},
-		runner,
-		testutil.SilentLogger(),
-		constants.AWS,
-		nil,
-		nil, // SecretsService
-		nil, // healthManager
-		enforcer,
-	)
-	require.NoError(t, err)
+	svc := newTestOrchestratorService(t, userRepo, execRepo, nil, runner, nil, nil, nil)
 	router := NewRouter(svc, 2*time.Second)
 
 	reqBody := api.ExecutionRequest{
@@ -329,20 +343,7 @@ func TestHandleRunCommand_Success(t *testing.T) {
 }
 
 func TestHandleRunCommand_InvalidJSON(t *testing.T) {
-	svc, err := orchestrator.NewService(context.Background(),
-		&testUserRepository{},
-		nil,
-		nil,
-		&testTokenRepository{},
-		&testRunner{},
-		testutil.SilentLogger(),
-		constants.AWS,
-		nil,
-		nil, // SecretsService
-		nil, // healthManager
-		newPermissiveTestEnforcerForHandlers(t),
-	)
-	require.NoError(t, err)
+	svc := newTestOrchestratorService(t, nil, nil, nil, &testRunner{}, nil, nil, nil)
 	router := NewRouter(svc, 2*time.Second)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/run", bytes.NewReader([]byte("invalid json")))
@@ -361,21 +362,9 @@ func testUnauthorizedRequest(t *testing.T, method, endpoint string, reqBody any)
 			return nil, apperrors.ErrInvalidAPIKey(nil)
 		},
 	}
+	execRepo := &testExecutionRepository{}
 
-	svc, err := orchestrator.NewService(context.Background(),
-		userRepo,
-		nil,
-		nil,
-		&testTokenRepository{},
-		&testRunner{},
-		testutil.SilentLogger(),
-		constants.AWS,
-		nil,
-		nil, // SecretsService
-		nil, // healthManager
-		newPermissiveTestEnforcerForHandlers(t),
-	)
-	require.NoError(t, err)
+	svc := newTestOrchestratorService(t, userRepo, execRepo, nil, &testRunner{}, nil, nil, nil)
 	router := NewRouter(svc, 2*time.Second)
 
 	body, _ := json.Marshal(reqBody)
@@ -408,22 +397,7 @@ func TestHandleListExecutions_Success(t *testing.T) {
 			}, nil
 		},
 	}
-	enforcer := newPermissiveTestEnforcerForHandlers(t)
-
-	svc, err := orchestrator.NewService(context.Background(),
-		&testUserRepository{},
-		execRepo,
-		nil,
-		&testTokenRepository{},
-		&testRunner{},
-		testutil.SilentLogger(),
-		constants.AWS,
-		nil,
-		nil, // SecretsService
-		nil, // healthManager
-		enforcer,
-	)
-	require.NoError(t, err)
+	svc := newTestOrchestratorService(t, &testUserRepository{}, execRepo, nil, &testRunner{}, nil, nil, nil)
 	router := NewRouter(svc, 2*time.Second)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/executions", http.NoBody)
@@ -447,22 +421,7 @@ func TestHandleListExecutions_Empty(t *testing.T) {
 			return []*api.Execution{}, nil
 		},
 	}
-	enforcer := newPermissiveTestEnforcerForHandlers(t)
-
-	svc, err := orchestrator.NewService(context.Background(),
-		&testUserRepository{},
-		execRepo,
-		nil,
-		&testTokenRepository{},
-		&testRunner{},
-		testutil.SilentLogger(),
-		constants.AWS,
-		nil,
-		nil, // SecretsService
-		nil, // healthManager
-		enforcer,
-	)
-	require.NoError(t, err)
+	svc := newTestOrchestratorService(t, &testUserRepository{}, execRepo, nil, &testRunner{}, nil, nil, nil)
 	router := NewRouter(svc, 2*time.Second)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/executions", http.NoBody)
@@ -483,22 +442,7 @@ func TestHandleListExecutions_LimitZero(t *testing.T) {
 			return []*api.Execution{}, nil
 		},
 	}
-	enforcer := newPermissiveTestEnforcerForHandlers(t)
-
-	svc, err := orchestrator.NewService(context.Background(),
-		&testUserRepository{},
-		execRepo,
-		nil,
-		&testTokenRepository{},
-		&testRunner{},
-		testutil.SilentLogger(),
-		constants.AWS,
-		nil,
-		nil, // SecretsService
-		nil, // healthManager
-		enforcer,
-	)
-	require.NoError(t, err)
+	svc := newTestOrchestratorService(t, &testUserRepository{}, execRepo, nil, &testRunner{}, nil, nil, nil)
 	router := NewRouter(svc, 2*time.Second)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/executions?limit=0", http.NoBody)
@@ -523,22 +467,7 @@ func TestHandleListExecutions_DatabaseError(t *testing.T) {
 			return nil, errors.New("database connection failed")
 		},
 	}
-	enforcer := newPermissiveTestEnforcerForHandlers(t)
-
-	svc, err := orchestrator.NewService(context.Background(),
-		&testUserRepository{},
-		execRepo,
-		nil,
-		&testTokenRepository{},
-		&testRunner{},
-		testutil.SilentLogger(),
-		constants.AWS,
-		nil,
-		nil, // SecretsService
-		nil, // healthManager
-		enforcer,
-	)
-	require.NoError(t, err)
+	svc := newTestOrchestratorService(t, &testUserRepository{}, execRepo, nil, &testRunner{}, nil, nil, nil)
 	router := NewRouter(svc, 2*time.Second)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/executions", http.NoBody)
@@ -552,21 +481,7 @@ func TestHandleListExecutions_DatabaseError(t *testing.T) {
 }
 
 func TestHandleRegisterImage_Success(t *testing.T) {
-	enforcer := newPermissiveTestEnforcerForHandlers(t)
-	svc, err := orchestrator.NewService(context.Background(),
-		&testUserRepository{},
-		nil,
-		nil,
-		&testTokenRepository{},
-		&testRunner{},
-		testutil.SilentLogger(),
-		constants.AWS,
-		nil,
-		nil, // SecretsService
-		nil, // healthManager
-		enforcer,
-	)
-	require.NoError(t, err)
+	svc := newTestOrchestratorService(t, nil, nil, nil, &testRunner{}, nil, nil, nil)
 	router := NewRouter(svc, 2*time.Second)
 
 	reqBody := api.RegisterImageRequest{
@@ -586,21 +501,7 @@ func TestHandleRegisterImage_Success(t *testing.T) {
 }
 
 func TestHandleRegisterImage_InvalidJSON(t *testing.T) {
-	enforcer := newPermissiveTestEnforcerForHandlers(t)
-	svc, err := orchestrator.NewService(context.Background(),
-		&testUserRepository{},
-		nil,
-		nil,
-		&testTokenRepository{},
-		&testRunner{},
-		testutil.SilentLogger(),
-		constants.AWS,
-		nil,
-		nil, // SecretsService
-		nil, // healthManager
-		enforcer,
-	)
-	require.NoError(t, err)
+	svc := newTestOrchestratorService(t, nil, nil, nil, &testRunner{}, nil, nil, nil)
 	router := NewRouter(svc, 2*time.Second)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/images/register", bytes.NewReader([]byte("invalid json")))
@@ -622,22 +523,7 @@ func TestHandleListImages_Success(t *testing.T) {
 			}, nil
 		},
 	}
-	enforcer := newPermissiveTestEnforcerForHandlers(t)
-
-	svc, err := orchestrator.NewService(context.Background(),
-		&testUserRepository{},
-		nil,
-		nil,
-		&testTokenRepository{},
-		runner,
-		testutil.SilentLogger(),
-		constants.AWS,
-		nil,
-		nil, // SecretsService
-		nil, // healthManager
-		enforcer,
-	)
-	require.NoError(t, err)
+	svc := newTestOrchestratorService(t, nil, nil, nil, runner, nil, nil, nil)
 	router := NewRouter(svc, 2*time.Second)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/images", http.NoBody)
@@ -657,22 +543,7 @@ func TestHandleListImages_Empty(t *testing.T) {
 			return []api.ImageInfo{}, nil
 		},
 	}
-	enforcer := newPermissiveTestEnforcerForHandlers(t)
-
-	svc, err := orchestrator.NewService(context.Background(),
-		&testUserRepository{},
-		nil,
-		nil,
-		&testTokenRepository{},
-		runner,
-		testutil.SilentLogger(),
-		constants.AWS,
-		nil,
-		nil, // SecretsService
-		nil, // healthManager
-		enforcer,
-	)
-	require.NoError(t, err)
+	svc := newTestOrchestratorService(t, nil, nil, nil, runner, nil, nil, nil)
 	router := NewRouter(svc, 2*time.Second)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/images", http.NoBody)
@@ -685,21 +556,7 @@ func TestHandleListImages_Empty(t *testing.T) {
 }
 
 func TestHandleRemoveImage_Success(t *testing.T) {
-	enforcer := newPermissiveTestEnforcerForHandlers(t)
-	svc, err := orchestrator.NewService(context.Background(),
-		&testUserRepository{},
-		nil,
-		nil,
-		&testTokenRepository{},
-		&testRunner{},
-		testutil.SilentLogger(),
-		constants.AWS,
-		nil,
-		nil, // SecretsService
-		nil, // healthManager
-		enforcer,
-	)
-	require.NoError(t, err)
+	svc := newTestOrchestratorService(t, nil, nil, nil, &testRunner{}, nil, nil, nil)
 	router := NewRouter(svc, 2*time.Second)
 
 	reqBody := api.RemoveImageRequest{
@@ -718,25 +575,11 @@ func TestHandleRemoveImage_Success(t *testing.T) {
 }
 
 func TestHandleRemoveImage_NotFound(t *testing.T) {
-	enforcer := newPermissiveTestEnforcerForHandlers(t)
-	svc, err := orchestrator.NewService(context.Background(),
-		&testUserRepository{},
-		nil,
-		nil,
-		&testTokenRepository{},
-		&testRunner{
-			removeImageFunc: func(_ context.Context, _ string) error {
-				return apperrors.ErrNotFound("image not found", nil)
-			},
+	svc := newTestOrchestratorService(t, nil, nil, nil, &testRunner{
+		removeImageFunc: func(_ context.Context, _ string) error {
+			return apperrors.ErrNotFound("image not found", nil)
 		},
-		testutil.SilentLogger(),
-		constants.AWS,
-		nil,
-		nil, // SecretsService
-		nil, // healthManager
-		enforcer,
-	)
-	require.NoError(t, err)
+	}, nil, nil, nil)
 	router := NewRouter(svc, 2*time.Second)
 
 	req := httptest.NewRequest(http.MethodDelete, "/api/v1/images/nonexistent:latest", http.NoBody)
@@ -750,21 +593,7 @@ func TestHandleRemoveImage_NotFound(t *testing.T) {
 }
 
 func TestHandleRemoveImage_MissingImage(t *testing.T) {
-	enforcer := newPermissiveTestEnforcerForHandlers(t)
-	svc, err := orchestrator.NewService(context.Background(),
-		&testUserRepository{},
-		nil,
-		nil,
-		&testTokenRepository{},
-		&testRunner{},
-		testutil.SilentLogger(),
-		constants.AWS,
-		nil,
-		nil, // SecretsService
-		nil, // healthManager
-		enforcer,
-	)
-	require.NoError(t, err)
+	svc := newTestOrchestratorService(t, nil, nil, nil, &testRunner{}, nil, nil, nil)
 	router := NewRouter(svc, 2*time.Second)
 
 	// DELETE request without image path parameter
@@ -787,22 +616,7 @@ func TestHandleGetImage_Success(t *testing.T) {
 			}, nil
 		},
 	}
-	enforcer := newPermissiveTestEnforcerForHandlers(t)
-
-	svc, err := orchestrator.NewService(context.Background(),
-		&testUserRepository{},
-		nil,
-		nil,
-		&testTokenRepository{},
-		runner,
-		testutil.SilentLogger(),
-		constants.AWS,
-		nil,
-		nil, // SecretsService
-		nil, // healthManager
-		enforcer,
-	)
-	require.NoError(t, err)
+	svc := newTestOrchestratorService(t, nil, nil, nil, runner, nil, nil, nil)
 	router := NewRouter(svc, 2*time.Second)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/images/alpine:latest", http.NoBody)
@@ -822,22 +636,7 @@ func TestHandleGetImage_NotFound(t *testing.T) {
 			return nil, errors.New("image not found")
 		},
 	}
-	enforcer := newPermissiveTestEnforcerForHandlers(t)
-
-	svc, err := orchestrator.NewService(context.Background(),
-		&testUserRepository{},
-		nil,
-		nil,
-		&testTokenRepository{},
-		runner,
-		testutil.SilentLogger(),
-		constants.AWS,
-		nil,
-		nil, // SecretsService
-		nil, // healthManager
-		enforcer,
-	)
-	require.NoError(t, err)
+	svc := newTestOrchestratorService(t, nil, nil, nil, runner, nil, nil, nil)
 	router := NewRouter(svc, 2*time.Second)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/images/nonexistent:latest", http.NoBody)
@@ -892,21 +691,8 @@ func TestGetClientIP_XForwardedForPrecedence(t *testing.T) {
 
 func TestHandleListUsers_Success(t *testing.T) {
 	userRepo := &testUserRepository{}
-	enforcer := newPermissiveTestEnforcerForHandlers(t)
-	svc, err := orchestrator.NewService(context.Background(),
-		userRepo,
-		nil,
-		nil,
-		&testTokenRepository{},
-		&testRunner{},
-		testutil.SilentLogger(),
-		constants.AWS,
-		nil,
-		nil, // SecretsService
-		nil, // healthManager
-		enforcer,
-	)
-	require.NoError(t, err)
+	execRepo := &testExecutionRepository{}
+	svc := newTestOrchestratorService(t, userRepo, execRepo, nil, &testRunner{}, nil, nil, nil)
 	router := NewRouter(svc, 2*time.Second)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/users/", http.NoBody)
@@ -936,20 +722,8 @@ func TestHandleListUsers_Unauthorized(t *testing.T) {
 			return nil, apperrors.ErrInvalidAPIKey(nil)
 		},
 	}
-	svc, err := orchestrator.NewService(context.Background(),
-		userRepo,
-		nil,
-		nil,
-		&testTokenRepository{},
-		&testRunner{},
-		testutil.SilentLogger(),
-		constants.AWS,
-		nil,
-		nil, // SecretsService
-		nil, // healthManager
-		newPermissiveTestEnforcerForHandlers(t),
-	)
-	require.NoError(t, err)
+	execRepo := &testExecutionRepository{}
+	svc := newTestOrchestratorService(t, userRepo, execRepo, nil, &testRunner{}, nil, nil, nil)
 	router := NewRouter(svc, 2*time.Second)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/users/", http.NoBody)
@@ -972,20 +746,8 @@ func TestHandleListUsers_RepositoryError(t *testing.T) {
 			return nil, apperrors.ErrDatabaseError("database error", errors.New("connection failed"))
 		},
 	}
-	svc, err := orchestrator.NewService(context.Background(),
-		userRepo,
-		nil,
-		nil,
-		&testTokenRepository{},
-		&testRunner{},
-		testutil.SilentLogger(),
-		constants.AWS,
-		nil,
-		nil, // SecretsService
-		nil, // healthManager
-		newPermissiveTestEnforcerForHandlers(t),
-	)
-	require.NoError(t, err)
+	execRepo := &testExecutionRepository{}
+	svc := newTestOrchestratorService(t, userRepo, execRepo, nil, &testRunner{}, nil, nil, nil)
 	router := NewRouter(svc, 2*time.Second)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/users/", http.NoBody)
@@ -1001,21 +763,8 @@ func TestHandleListUsers_RepositoryError(t *testing.T) {
 // TestHandleCreateUser_Success tests successful user creation with API key claim token
 func TestHandleCreateUser_Success(t *testing.T) {
 	userRepo := &testUserRepository{}
-	enforcer := newPermissiveTestEnforcerForHandlers(t)
-	svc, err := orchestrator.NewService(context.Background(),
-		userRepo,
-		nil,
-		nil,
-		&testTokenRepository{},
-		nil,
-		testutil.SilentLogger(),
-		constants.AWS,
-		nil,
-		nil, // SecretsService
-		nil, // healthManager
-		enforcer,
-	)
-	require.NoError(t, err)
+	execRepo := &testExecutionRepository{}
+	svc := newTestOrchestratorService(t, userRepo, execRepo, nil, nil, nil, nil, nil)
 	router := NewRouter(svc, 2*time.Second)
 
 	createReq := api.CreateUserRequest{
@@ -1037,21 +786,7 @@ func TestHandleCreateUser_Success(t *testing.T) {
 
 // TestHandleCreateUser_MissingEmail tests validation of required email field
 func TestHandleCreateUser_MissingEmail(t *testing.T) {
-	enforcer := newPermissiveTestEnforcerForHandlers(t)
-	svc, err := orchestrator.NewService(context.Background(),
-		&testUserRepository{},
-		nil,
-		nil,
-		&testTokenRepository{},
-		nil,
-		testutil.SilentLogger(),
-		constants.AWS,
-		nil,
-		nil, // SecretsService
-		nil, // healthManager
-		enforcer,
-	)
-	require.NoError(t, err)
+	svc := newTestOrchestratorService(t, nil, nil, nil, nil, nil, nil, nil)
 	router := NewRouter(svc, 2*time.Second)
 
 	createReq := api.CreateUserRequest{
@@ -1071,21 +806,7 @@ func TestHandleCreateUser_MissingEmail(t *testing.T) {
 
 // TestHandleCreateUser_InvalidRole tests invalid role validation
 func TestHandleCreateUser_InvalidRole(t *testing.T) {
-	enforcer := newPermissiveTestEnforcerForHandlers(t)
-	svc, err := orchestrator.NewService(context.Background(),
-		&testUserRepository{},
-		nil,
-		nil,
-		&testTokenRepository{},
-		nil,
-		testutil.SilentLogger(),
-		constants.AWS,
-		nil,
-		nil, // SecretsService
-		nil, // healthManager
-		enforcer,
-	)
-	require.NoError(t, err)
+	svc := newTestOrchestratorService(t, nil, nil, nil, nil, nil, nil, nil)
 	router := NewRouter(svc, 2*time.Second)
 
 	createReq := api.CreateUserRequest{
@@ -1105,20 +826,7 @@ func TestHandleCreateUser_InvalidRole(t *testing.T) {
 }
 
 func TestHandleCreateUser_InvalidJSON(t *testing.T) {
-	svc, err := orchestrator.NewService(context.Background(),
-		&testUserRepository{},
-		nil,
-		nil,
-		&testTokenRepository{},
-		&testRunner{},
-		testutil.SilentLogger(),
-		constants.AWS,
-		nil,
-		nil, // SecretsService
-		nil, // healthManager
-		newPermissiveTestEnforcerForHandlers(t),
-	)
-	require.NoError(t, err)
+	svc := newTestOrchestratorService(t, nil, nil, nil, &testRunner{}, nil, nil, nil)
 	router := NewRouter(svc, 2*time.Second)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/users/create", bytes.NewReader([]byte("invalid json")))
@@ -1142,21 +850,8 @@ func TestHandleCreateUser_Unauthorized(t *testing.T) {
 
 func TestHandleRevokeUser_Success(t *testing.T) {
 	userRepo := &testUserRepository{}
-	enforcer := newPermissiveTestEnforcerForHandlers(t)
-	svc, err := orchestrator.NewService(context.Background(),
-		userRepo,
-		nil,
-		nil,
-		&testTokenRepository{},
-		&testRunner{},
-		testutil.SilentLogger(),
-		constants.AWS,
-		nil,
-		nil, // SecretsService
-		nil, // healthManager
-		enforcer,
-	)
-	require.NoError(t, err)
+	execRepo := &testExecutionRepository{}
+	svc := newTestOrchestratorService(t, userRepo, execRepo, nil, &testRunner{}, nil, nil, nil)
 	router := NewRouter(svc, 2*time.Second)
 
 	reqBody := api.RevokeUserRequest{
@@ -1176,20 +871,7 @@ func TestHandleRevokeUser_Success(t *testing.T) {
 }
 
 func TestHandleRevokeUser_InvalidJSON(t *testing.T) {
-	svc, err := orchestrator.NewService(context.Background(),
-		&testUserRepository{},
-		nil,
-		nil,
-		&testTokenRepository{},
-		&testRunner{},
-		testutil.SilentLogger(),
-		constants.AWS,
-		nil,
-		nil, // SecretsService
-		nil, // healthManager
-		newPermissiveTestEnforcerForHandlers(t),
-	)
-	require.NoError(t, err)
+	svc := newTestOrchestratorService(t, nil, nil, nil, &testRunner{}, nil, nil, nil)
 	router := NewRouter(svc, 2*time.Second)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/users/revoke", bytes.NewReader([]byte("invalid json")))
@@ -1204,21 +886,7 @@ func TestHandleRevokeUser_InvalidJSON(t *testing.T) {
 
 // TestHandleRevokeUser_MissingEmail tests validation when email is missing
 func TestHandleRevokeUser_MissingEmail(t *testing.T) {
-	enforcer := newPermissiveTestEnforcerForHandlers(t)
-	svc, err := orchestrator.NewService(context.Background(),
-		&testUserRepository{},
-		nil,
-		nil,
-		&testTokenRepository{},
-		nil,
-		testutil.SilentLogger(),
-		constants.AWS,
-		nil,
-		nil, // SecretsService
-		nil, // healthManager
-		enforcer,
-	)
-	require.NoError(t, err)
+	svc := newTestOrchestratorService(t, nil, nil, nil, nil, nil, nil, nil)
 	router := NewRouter(svc, 2*time.Second)
 
 	reqBody := api.RevokeUserRequest{
@@ -1238,21 +906,8 @@ func TestHandleRevokeUser_MissingEmail(t *testing.T) {
 // TestHandleRevokeUser_NotFound tests when user doesn't exist
 func TestHandleRevokeUser_NotFound(t *testing.T) {
 	userRepo := &testUserRepository{}
-	enforcer := newPermissiveTestEnforcerForHandlers(t)
-	svc, err := orchestrator.NewService(context.Background(),
-		userRepo,
-		nil,
-		nil,
-		&testTokenRepository{},
-		nil,
-		testutil.SilentLogger(),
-		constants.AWS,
-		nil,
-		nil, // SecretsService
-		nil, // healthManager
-		enforcer,
-	)
-	require.NoError(t, err)
+	execRepo := &testExecutionRepository{}
+	svc := newTestOrchestratorService(t, userRepo, execRepo, nil, nil, nil, nil, nil)
 	router := NewRouter(svc, 2*time.Second)
 
 	reqBody := api.RevokeUserRequest{
@@ -1275,7 +930,7 @@ func TestHandleRevokeUser_NotFound(t *testing.T) {
 func TestHandleRevokeUser_Unauthorized(t *testing.T) {
 	svc, err := orchestrator.NewService(context.Background(),
 		&testUserRepository{},
-		nil,
+		&testExecutionRepository{},
 		nil,
 		&testTokenRepository{},
 		nil,
@@ -1304,21 +959,7 @@ func TestHandleRevokeUser_Unauthorized(t *testing.T) {
 }
 
 func TestHandleGetExecutionLogs_Success(t *testing.T) {
-	enforcer := newPermissiveTestEnforcerForHandlers(t)
-	svc, err := orchestrator.NewService(context.Background(),
-		&testUserRepository{},
-		&testExecutionRepository{},
-		nil,
-		&testTokenRepository{},
-		&testRunner{},
-		testutil.SilentLogger(),
-		constants.AWS,
-		nil,
-		nil, // SecretsService
-		nil, // healthManager
-		enforcer,
-	)
-	require.NoError(t, err)
+	svc := newTestOrchestratorService(t, nil, nil, nil, &testRunner{}, nil, nil, nil)
 	router := NewRouter(svc, 2*time.Second)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/executions/exec-123/logs", http.NoBody)
@@ -1335,20 +976,7 @@ func TestHandleGetExecutionLogs_Success(t *testing.T) {
 }
 
 func TestHandleGetExecutionLogs_MissingExecutionID(t *testing.T) {
-	svc, err := orchestrator.NewService(context.Background(),
-		&testUserRepository{},
-		&testExecutionRepository{},
-		nil,
-		&testTokenRepository{},
-		&testRunner{},
-		testutil.SilentLogger(),
-		constants.AWS,
-		nil,
-		nil, // SecretsService
-		nil, // healthManager
-		newPermissiveTestEnforcerForHandlers(t),
-	)
-	require.NoError(t, err)
+	svc := newTestOrchestratorService(t, nil, nil, nil, &testRunner{}, nil, nil, nil)
 	router := NewRouter(svc, 2*time.Second)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/executions//logs", http.NoBody)
@@ -1394,20 +1022,7 @@ func TestHandleGetExecutionStatus_Success(t *testing.T) {
 }
 
 func TestHandleGetExecutionStatus_MissingExecutionID(t *testing.T) {
-	svc, err := orchestrator.NewService(context.Background(),
-		&testUserRepository{},
-		&testExecutionRepository{},
-		nil,
-		&testTokenRepository{},
-		&testRunner{},
-		testutil.SilentLogger(),
-		constants.AWS,
-		nil,
-		nil, // SecretsService
-		nil, // healthManager
-		newPermissiveTestEnforcerForHandlers(t),
-	)
-	require.NoError(t, err)
+	svc := newTestOrchestratorService(t, nil, nil, nil, &testRunner{}, nil, nil, nil)
 	router := NewRouter(svc, 2*time.Second)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/executions//status", http.NoBody)
@@ -1421,21 +1036,7 @@ func TestHandleGetExecutionStatus_MissingExecutionID(t *testing.T) {
 }
 
 func TestHandleKillExecution_Success(t *testing.T) {
-	enforcer := newPermissiveTestEnforcerForHandlers(t)
-	svc, err := orchestrator.NewService(context.Background(),
-		&testUserRepository{},
-		&testExecutionRepository{},
-		nil,
-		&testTokenRepository{},
-		&testRunner{},
-		testutil.SilentLogger(),
-		constants.AWS,
-		nil,
-		nil, // SecretsService
-		nil, // healthManager
-		enforcer,
-	)
-	require.NoError(t, err)
+	svc := newTestOrchestratorService(t, nil, nil, nil, &testRunner{}, nil, nil, nil)
 	router := NewRouter(svc, 2*time.Second)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/executions/exec-123/kill", http.NoBody)
@@ -1463,22 +1064,7 @@ func TestHandleKillExecution_AlreadyTerminated(t *testing.T) {
 			}, nil
 		},
 	}
-	enforcer := newPermissiveTestEnforcerForHandlers(t)
-
-	svc, err := orchestrator.NewService(context.Background(),
-		&testUserRepository{},
-		execRepo,
-		nil,
-		&testTokenRepository{},
-		&testRunner{},
-		testutil.SilentLogger(),
-		constants.AWS,
-		nil,
-		nil, // SecretsService
-		nil, // healthManager
-		enforcer,
-	)
-	require.NoError(t, err)
+	svc := newTestOrchestratorService(t, &testUserRepository{}, execRepo, nil, &testRunner{}, nil, nil, nil)
 	router := NewRouter(svc, 2*time.Second)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/executions/exec-456/kill", http.NoBody)
@@ -1492,20 +1078,7 @@ func TestHandleKillExecution_AlreadyTerminated(t *testing.T) {
 }
 
 func TestHandleKillExecution_MissingExecutionID(t *testing.T) {
-	svc, err := orchestrator.NewService(context.Background(),
-		&testUserRepository{},
-		&testExecutionRepository{},
-		nil,
-		&testTokenRepository{},
-		&testRunner{},
-		testutil.SilentLogger(),
-		constants.AWS,
-		nil,
-		nil, // SecretsService
-		nil, // healthManager
-		newPermissiveTestEnforcerForHandlers(t),
-	)
-	require.NoError(t, err)
+	svc := newTestOrchestratorService(t, nil, nil, nil, &testRunner{}, nil, nil, nil)
 	router := NewRouter(svc, 2*time.Second)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/executions//kill", http.NoBody)
@@ -1521,20 +1094,8 @@ func TestHandleKillExecution_MissingExecutionID(t *testing.T) {
 // TestHandleClaimAPIKey_Success tests successful API key claim
 func TestHandleClaimAPIKey_Success(t *testing.T) {
 	userRepo := &testUserRepository{}
-	svc, err := orchestrator.NewService(context.Background(),
-		userRepo,
-		nil,
-		nil,
-		&testTokenRepository{},
-		nil,
-		testutil.SilentLogger(),
-		constants.AWS,
-		nil,
-		nil, // SecretsService
-		nil, // healthManager
-		newPermissiveTestEnforcerForHandlers(t),
-	)
-	require.NoError(t, err)
+	execRepo := &testExecutionRepository{}
+	svc := newTestOrchestratorService(t, userRepo, execRepo, nil, nil, nil, nil, nil)
 	router := NewRouter(svc, 2*time.Second)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/claim/valid-token", http.NoBody)
@@ -1544,7 +1105,7 @@ func TestHandleClaimAPIKey_Success(t *testing.T) {
 	assert.Equal(t, http.StatusOK, resp.Code)
 
 	var claimResp api.ClaimAPIKeyResponse
-	err = json.NewDecoder(resp.Body).Decode(&claimResp)
+	err := json.NewDecoder(resp.Body).Decode(&claimResp)
 	require.NoError(t, err)
 	assert.Equal(t, "test-api-key", claimResp.APIKey)
 	assert.Equal(t, "user@example.com", claimResp.UserEmail)
@@ -1553,20 +1114,8 @@ func TestHandleClaimAPIKey_Success(t *testing.T) {
 // TestHandleClaimAPIKey_EmptyToken tests empty token validation
 func TestHandleClaimAPIKey_EmptyToken(t *testing.T) {
 	userRepo := &testUserRepository{}
-	svc, err := orchestrator.NewService(context.Background(),
-		userRepo,
-		nil,
-		nil,
-		&testTokenRepository{},
-		nil,
-		testutil.SilentLogger(),
-		constants.AWS,
-		nil,
-		nil, // SecretsService
-		nil, // healthManager
-		newPermissiveTestEnforcerForHandlers(t),
-	)
-	require.NoError(t, err)
+	execRepo := &testExecutionRepository{}
+	svc := newTestOrchestratorService(t, userRepo, execRepo, nil, nil, nil, nil, nil)
 	router := NewRouter(svc, 2*time.Second)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/claim/", http.NoBody)
@@ -1580,20 +1129,8 @@ func TestHandleClaimAPIKey_EmptyToken(t *testing.T) {
 // TestHandleClaimAPIKey_TokenWithWhitespace tests whitespace trimming
 func TestHandleClaimAPIKey_TokenWithWhitespace(t *testing.T) {
 	userRepo := &testUserRepository{}
-	svc, err := orchestrator.NewService(context.Background(),
-		userRepo,
-		nil,
-		nil,
-		&testTokenRepository{},
-		nil,
-		testutil.SilentLogger(),
-		constants.AWS,
-		nil,
-		nil, // SecretsService
-		nil, // healthManager
-		newPermissiveTestEnforcerForHandlers(t),
-	)
-	require.NoError(t, err)
+	execRepo := &testExecutionRepository{}
+	svc := newTestOrchestratorService(t, userRepo, execRepo, nil, nil, nil, nil, nil)
 	router := NewRouter(svc, 2*time.Second)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/claim/valid-token", http.NoBody)
@@ -1607,20 +1144,8 @@ func TestHandleClaimAPIKey_TokenWithWhitespace(t *testing.T) {
 // TestHandleClaimAPIKey_TokenNotFound tests invalid/not found token
 func TestHandleClaimAPIKey_TokenNotFound(t *testing.T) {
 	userRepo := &testUserRepository{}
-	svc, err := orchestrator.NewService(context.Background(),
-		userRepo,
-		nil,
-		nil,
-		&testTokenRepository{},
-		nil,
-		testutil.SilentLogger(),
-		constants.AWS,
-		nil,
-		nil, // SecretsService
-		nil, // healthManager
-		newPermissiveTestEnforcerForHandlers(t),
-	)
-	require.NoError(t, err)
+	execRepo := &testExecutionRepository{}
+	svc := newTestOrchestratorService(t, userRepo, execRepo, nil, nil, nil, nil, nil)
 	router := NewRouter(svc, 2*time.Second)
 
 	// Test with invalid token should result in 404
@@ -1637,7 +1162,7 @@ func TestHandleClaimAPIKey_TokenNotFound(t *testing.T) {
 func TestHandleReconcileHealth_Unauthenticated(t *testing.T) {
 	svc, err := orchestrator.NewService(context.Background(),
 		&testUserRepository{},
-		nil,
+		&testExecutionRepository{},
 		nil,
 		&testTokenRepository{},
 		nil,
@@ -1662,21 +1187,8 @@ func TestHandleReconcileHealth_Unauthenticated(t *testing.T) {
 // TestHandleReconcileHealth_Authenticated tests health reconciliation with authentication
 func TestHandleReconcileHealth_Authenticated(t *testing.T) {
 	userRepo := &testUserRepository{}
-	enforcer := newPermissiveTestEnforcerForHandlers(t)
-	svc, err := orchestrator.NewService(context.Background(),
-		userRepo,
-		nil,
-		nil,
-		&testTokenRepository{},
-		nil,
-		testutil.SilentLogger(),
-		constants.AWS,
-		nil,
-		nil, // SecretsService
-		nil, // healthManager
-		enforcer,
-	)
-	require.NoError(t, err)
+	execRepo := &testExecutionRepository{}
+	svc := newTestOrchestratorService(t, userRepo, execRepo, nil, nil, nil, nil, nil)
 	router := NewRouter(svc, 2*time.Second)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/health/reconcile", http.NoBody)
@@ -1697,7 +1209,7 @@ func TestHandleReconcileHealth_Authenticated(t *testing.T) {
 func TestHandleRemoveImage_Unauthorized(t *testing.T) {
 	svc, err := orchestrator.NewService(context.Background(),
 		&testUserRepository{},
-		nil,
+		&testExecutionRepository{},
 		nil,
 		&testTokenRepository{},
 		nil,
@@ -1724,7 +1236,7 @@ func TestHandleRemoveImage_Unauthorized(t *testing.T) {
 func TestHandleRegisterImage_Unauthorized(t *testing.T) {
 	svc, err := orchestrator.NewService(context.Background(),
 		&testUserRepository{},
-		nil,
+		&testExecutionRepository{},
 		nil,
 		&testTokenRepository{},
 		nil,
@@ -1754,7 +1266,7 @@ func TestHandleRegisterImage_Unauthorized(t *testing.T) {
 func TestHandleGetImage_Unauthorized(t *testing.T) {
 	svc, err := orchestrator.NewService(context.Background(),
 		&testUserRepository{},
-		nil,
+		&testExecutionRepository{},
 		nil,
 		&testTokenRepository{},
 		nil,
@@ -1783,7 +1295,7 @@ func TestHandleGetImage_Unauthorized(t *testing.T) {
 func TestHandleKillExecution_Unauthorized(t *testing.T) {
 	svc, err := orchestrator.NewService(context.Background(),
 		&testUserRepository{},
-		nil,
+		&testExecutionRepository{},
 		nil,
 		&testTokenRepository{},
 		nil,
@@ -1810,7 +1322,7 @@ func TestHandleKillExecution_Unauthorized(t *testing.T) {
 func TestHandleGetExecutionLogs_Unauthorized(t *testing.T) {
 	svc, err := orchestrator.NewService(context.Background(),
 		&testUserRepository{},
-		nil,
+		&testExecutionRepository{},
 		nil,
 		&testTokenRepository{},
 		nil,
@@ -1837,7 +1349,7 @@ func TestHandleGetExecutionLogs_Unauthorized(t *testing.T) {
 func TestHandleGetExecutionStatus_Unauthorized(t *testing.T) {
 	svc, err := orchestrator.NewService(context.Background(),
 		&testUserRepository{},
-		nil,
+		&testExecutionRepository{},
 		nil,
 		&testTokenRepository{},
 		nil,
@@ -1862,21 +1374,7 @@ func TestHandleGetExecutionStatus_Unauthorized(t *testing.T) {
 
 // TestHandleRunCommand_WithValidCommand tests run command with valid request
 func TestHandleRunCommand_WithValidCommand(t *testing.T) {
-	enforcer := newPermissiveTestEnforcerForHandlers(t)
-	svc, err := orchestrator.NewService(context.Background(),
-		&testUserRepository{},
-		nil,
-		nil,
-		&testTokenRepository{},
-		&testRunner{},
-		testutil.SilentLogger(),
-		constants.AWS,
-		nil,
-		nil,
-		nil,
-		enforcer,
-	)
-	require.NoError(t, err)
+	svc := newTestOrchestratorService(t, nil, nil, nil, &testRunner{}, nil, nil, nil)
 	router := NewRouter(svc, 2*time.Second)
 
 	execReq := api.ExecutionRequest{Command: "echo hello"}

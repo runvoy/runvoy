@@ -54,7 +54,7 @@ func TestAuthorizeRequest(t *testing.T) {
 	t.Run("with permissive enforcer allows access", func(t *testing.T) {
 		svc, _ := orchestrator.NewService(context.Background(),
 			&testUserRepository{},
-			nil,
+			&testExecutionRepository{},
 			nil,
 			&testTokenRepository{},
 			nil,
@@ -81,7 +81,7 @@ func TestHandleCreateUserAuthorizationDenied(t *testing.T) {
 	userRepo := &testUserRepository{}
 	svc, _ := orchestrator.NewService(context.Background(),
 		userRepo,
-		nil,
+		&testExecutionRepository{},
 		nil,
 		&testTokenRepository{},
 		nil,
@@ -201,7 +201,7 @@ func TestValidateExecutionResourceAccess(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			svc, _ := orchestrator.NewService(context.Background(),
 				&testUserRepository{},
-				nil,
+				&testExecutionRepository{},
 				nil,
 				&testTokenRepository{},
 				nil,
@@ -233,7 +233,7 @@ func TestHandleListUsersWithAuthorization(t *testing.T) {
 	enforcer := newPermissiveTestEnforcer(t)
 	svc, err := orchestrator.NewService(context.Background(),
 		userRepo,
-		nil,
+		&testExecutionRepository{},
 		nil,
 		&testTokenRepository{},
 		nil,
@@ -267,7 +267,7 @@ func TestHandleListUsersUnauthenticated(t *testing.T) {
 	userRepo := &testUserRepository{}
 	svc, _ := orchestrator.NewService(context.Background(),
 		userRepo,
-		nil,
+		&testExecutionRepository{},
 		nil,
 		&testTokenRepository{},
 		nil,
@@ -550,7 +550,7 @@ func TestListEndpointAuthorization(t *testing.T) {
 
 			svc, err := orchestrator.NewService(context.Background(),
 				&testUserRepository{},
-				nil,
+				&testExecutionRepository{},
 				nil,
 				&testTokenRepository{},
 				nil,
@@ -650,7 +650,7 @@ func TestResourceSpecificEndpointAuthorization(t *testing.T) {
 
 			svc, err := orchestrator.NewService(context.Background(),
 				&testUserRepository{},
-				nil,
+				&testExecutionRepository{},
 				nil,
 				&testTokenRepository{},
 				nil,

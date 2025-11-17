@@ -61,8 +61,8 @@ func (m *mockRunner) FetchLogsByExecutionID(_ context.Context, _ string) ([]api.
 func TestGetExecutionStatus_Unauthorized(t *testing.T) {
 	// Build a minimal service with nil repos; we won't reach the handler due to auth
 	svc, err := orchestrator.NewService(context.Background(),
-		nil,
-		nil,
+		&testUserRepository{},
+		&testExecutionRepository{},
 		nil,
 		&testTokenRepository{},
 		&mockRunner{},

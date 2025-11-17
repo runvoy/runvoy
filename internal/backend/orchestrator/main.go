@@ -75,12 +75,10 @@ type Service struct {
 
 // NewService creates a new service instance and initializes the enforcer with user roles from the database.
 // Returns an error if the enforcer is configured but user roles cannot be loaded (critical initialization failure).
-// If userRepo is nil, user-related operations will not be available.
-// This allows the service to work without database dependencies for simple operations.
+// Core repositories (userRepo, executionRepo) and enforcer are required for initialization and must be non-nil.
 // If wsManager is nil, WebSocket URL generation will be skipped.
 // If secretsRepo is nil, secrets operations will not be available.
 // If healthManager is nil, health reconciliation will not be available.
-// enforcer must be non-nil; use a permissive test enforcer in tests if needed.
 func NewService(
 	ctx context.Context,
 	userRepo database.UserRepository,
@@ -94,10 +92,6 @@ func NewService(
 	secretsRepo database.SecretsRepository,
 	healthManager health.Manager,
 	enforcer *authorization.Enforcer) (*Service, error) {
-	if enforcer == nil {
-		return nil, fmt.Errorf("enforcer is required and cannot be nil")
-	}
-
 	svc := &Service{
 		userRepo:      userRepo,
 		executionRepo: executionRepo,
@@ -112,10 +106,8 @@ func NewService(
 		enforcer:      enforcer,
 	}
 
-	if userRepo != nil {
-		if err := svc.loadUserRoles(ctx); err != nil {
-			return nil, err
-		}
+	if err := svc.loadUserRoles(ctx); err != nil {
+		return nil, err
 	}
 	if err := svc.loadResourceOwnerships(ctx); err != nil {
 		return nil, err
@@ -129,11 +121,7 @@ func NewService(
 
 // loadUserRoles populates the Casbin enforcer with all user roles from the database.
 // Returns an error if user loading fails or if any enforcer operation fails.
-// This function should only be called when userRepo is non-nil.
 func (s *Service) loadUserRoles(ctx context.Context) error {
-	if s.userRepo == nil {
-		return nil
-	}
 	users, err := s.userRepo.ListUsers(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to load users for enforcer initialization: %w", err)
@@ -201,10 +189,6 @@ func (s *Service) hydrateSecretOwnerships(ctx context.Context) error {
 }
 
 func (s *Service) hydrateExecutionOwnerships(ctx context.Context) error {
-	if s.executionRepo == nil {
-		return nil
-	}
-
 	executions, err := s.executionRepo.ListExecutions(ctx, 0, nil)
 	if err != nil {
 		return fmt.Errorf("failed to load executions for enforcer initialization: %w", err)

@@ -308,24 +308,24 @@ func newPermissiveEnforcer() *authorization.Enforcer {
 	return enf
 }
 
-// newTestService creates a Service with mocks for testing
-// Converts typed nils to untyped nil interfaces to avoid typed nil issues.
+// newTestService creates a Service with mocks for testing.
+// All repositories are required (non-nil). Use no-op mocks by passing nil for unused repositories.
 func newTestService(
 	userRepo *mockUserRepository,
 	execRepo *mockExecutionRepository,
 	runner *mockRunner,
 ) *Service {
-	var userRepoIface database.UserRepository
+	userRepoIface := database.UserRepository(&mockUserRepository{})
 	if userRepo != nil {
 		userRepoIface = userRepo
 	}
 
-	var execRepoIface database.ExecutionRepository
+	execRepoIface := database.ExecutionRepository(&mockExecutionRepository{})
 	if execRepo != nil {
 		execRepoIface = execRepo
 	}
 
-	var runnerIface Runner
+	runnerIface := Runner(&mockRunner{})
 	if runner != nil {
 		runnerIface = runner
 	}
@@ -354,6 +354,7 @@ func newTestServiceWithConnRepo(
 }
 
 // newTestServiceWithSecretsRepo creates a Service with a secrets repository for testing.
+// All repositories are required (non-nil). Use no-op mocks by passing nil for unused repositories.
 func newTestServiceWithEnforcer(
 	userRepo *mockUserRepository,
 	execRepo *mockExecutionRepository,
@@ -366,17 +367,17 @@ func newTestServiceWithEnforcer(
 		panic(err)
 	}
 
-	var userRepoIface database.UserRepository
+	userRepoIface := database.UserRepository(&mockUserRepository{})
 	if userRepo != nil {
 		userRepoIface = userRepo
 	}
 
-	var execRepoIface database.ExecutionRepository
+	execRepoIface := database.ExecutionRepository(&mockExecutionRepository{})
 	if execRepo != nil {
 		execRepoIface = execRepo
 	}
 
-	var runnerIface Runner
+	runnerIface := Runner(&mockRunner{})
 	if runner != nil {
 		runnerIface = runner
 	}
@@ -409,17 +410,17 @@ func newTestServiceWithSecretsRepo(
 ) *Service {
 	logger := testutil.SilentLogger()
 
-	var userRepoIface database.UserRepository
+	userRepoIface := database.UserRepository(&mockUserRepository{})
 	if userRepo != nil {
 		userRepoIface = userRepo
 	}
 
-	var execRepoIface database.ExecutionRepository
+	execRepoIface := database.ExecutionRepository(&mockExecutionRepository{})
 	if execRepo != nil {
 		execRepoIface = execRepo
 	}
 
-	var runnerIface Runner
+	runnerIface := Runner(&mockRunner{})
 	if runner != nil {
 		runnerIface = runner
 	}
@@ -495,8 +496,8 @@ func (m *mockSecretsRepository) DeleteSecret(ctx context.Context, name string) e
 	return nil
 }
 
-// newTestServiceWithWebSocketManager creates a Service with websocket manager for testing
-// Converts typed nils to untyped nil interfaces to avoid typed nil issues.
+// newTestServiceWithWebSocketManager creates a Service with websocket manager for testing.
+// All repositories are required (non-nil). Use no-op mocks by passing nil for unused repositories.
 func newTestServiceWithWebSocketManager(
 	userRepo *mockUserRepository,
 	execRepo *mockExecutionRepository,
@@ -505,17 +506,17 @@ func newTestServiceWithWebSocketManager(
 ) *Service {
 	logger := testutil.SilentLogger()
 
-	var userRepoIface database.UserRepository
+	userRepoIface := database.UserRepository(&mockUserRepository{})
 	if userRepo != nil {
 		userRepoIface = userRepo
 	}
 
-	var execRepoIface database.ExecutionRepository
+	execRepoIface := database.ExecutionRepository(&mockExecutionRepository{})
 	if execRepo != nil {
 		execRepoIface = execRepo
 	}
 
-	var runnerIface Runner
+	runnerIface := Runner(&mockRunner{})
 	if runner != nil {
 		runnerIface = runner
 	}

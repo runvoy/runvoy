@@ -47,7 +47,7 @@ func TestValidateCreateUserRequest_EmptyEmail(t *testing.T) {
 	logger := testutil.SilentLogger()
 
 	service, err := NewService(context.Background(),
-		nil,
+		&mockUserRepository{},
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
 		&mockTokenRepository{},
@@ -71,7 +71,7 @@ func TestValidateCreateUserRequest_InvalidEmail(t *testing.T) {
 	logger := testutil.SilentLogger()
 
 	service, err := NewService(context.Background(),
-		nil,
+		&mockUserRepository{},
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
 		&mockTokenRepository{},
@@ -152,7 +152,7 @@ func TestValidateCreateUserRequest_EmptyRole(t *testing.T) {
 	logger := testutil.SilentLogger()
 
 	service, err := NewService(context.Background(),
-		nil,
+		&mockUserRepository{},
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
 		&mockTokenRepository{},
@@ -176,7 +176,7 @@ func TestValidateCreateUserRequest_InvalidRole(t *testing.T) {
 	logger := testutil.SilentLogger()
 
 	service, err := NewService(context.Background(),
-		nil,
+		&mockUserRepository{},
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
 		&mockTokenRepository{},
@@ -322,31 +322,6 @@ func TestCreateUser_Success(t *testing.T) {
 	assert.Equal(t, "user@example.com", resp.User.Email)
 	assert.Equal(t, "viewer", resp.User.Role)
 	assert.NotEmpty(t, resp.ClaimToken)
-}
-
-func TestCreateUser_NoRepository(t *testing.T) {
-	logger := testutil.SilentLogger()
-
-	service, err := NewService(context.Background(),
-		nil,
-		&mockExecutionRepository{},
-		&mockConnectionRepository{},
-		&mockTokenRepository{},
-		nil,
-		logger,
-		"",
-		nil,
-		nil,
-		nil, // healthManager
-		newPermissiveEnforcer(),
-	)
-	require.NoError(t, err)
-
-	req := api.CreateUserRequest{Email: "user@example.com"}
-	_, err = service.CreateUser(context.Background(), req, "admin@example.com")
-
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "user repository not configured")
 }
 
 func TestCreateUser_InvalidEmail(t *testing.T) {
@@ -635,30 +610,6 @@ func TestClaimAPIKey_Success(t *testing.T) {
 	assert.Equal(t, "user@example.com", resp.UserEmail)
 }
 
-func TestClaimAPIKey_NoRepository(t *testing.T) {
-	logger := testutil.SilentLogger()
-
-	service, err := NewService(context.Background(),
-		nil,
-		&mockExecutionRepository{},
-		&mockConnectionRepository{},
-		&mockTokenRepository{},
-		nil,
-		logger,
-		"",
-		nil,
-		nil,
-		nil, // healthManager
-		newPermissiveEnforcer(),
-	)
-	require.NoError(t, err)
-
-	_, err = service.ClaimAPIKey(context.Background(), "token", "192.168.1.1")
-
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "user repository not configured")
-}
-
 func TestClaimAPIKey_InvalidToken(t *testing.T) {
 	repo := &mockUserRepository{
 		getPendingAPIKeyFunc: func(_ context.Context, _ string) (*api.PendingAPIKey, error) {
@@ -824,30 +775,6 @@ func TestListUsers_Empty(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, resp)
 	assert.Len(t, resp.Users, 0)
-}
-
-func TestListUsers_NoRepository(t *testing.T) {
-	logger := testutil.SilentLogger()
-
-	service, err := NewService(context.Background(),
-		nil,
-		&mockExecutionRepository{},
-		&mockConnectionRepository{},
-		&mockTokenRepository{},
-		nil,
-		logger,
-		"",
-		nil,
-		nil,
-		nil, // healthManager
-		newPermissiveEnforcer(),
-	)
-	require.NoError(t, err)
-
-	_, err = service.ListUsers(context.Background())
-
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "user repository not configured")
 }
 
 func TestListUsers_RepositoryError(t *testing.T) {
