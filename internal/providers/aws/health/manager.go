@@ -12,6 +12,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"runvoy/internal/api"
+	"runvoy/internal/auth/authorization"
 	"runvoy/internal/backend/health"
 	"runvoy/internal/database"
 	"runvoy/internal/logger"
@@ -31,6 +32,9 @@ type Manager struct {
 	iamClient     awsClient.IAMClient
 	imageRepo     ImageTaskDefRepository
 	secretsRepo   database.SecretsRepository
+	userRepo      database.UserRepository
+	executionRepo database.ExecutionRepository
+	enforcer      *authorization.Enforcer
 	cfg           *Config
 	logger        *slog.Logger
 	secretsPrefix string
@@ -53,6 +57,9 @@ func Initialize(
 	iamClient awsClient.IAMClient,
 	imageRepo ImageTaskDefRepository,
 	secretsRepo database.SecretsRepository,
+	userRepo database.UserRepository,
+	executionRepo database.ExecutionRepository,
+	enforcer *authorization.Enforcer,
 	cfg *Config,
 	log *slog.Logger,
 ) *Manager {
@@ -62,10 +69,25 @@ func Initialize(
 		iamClient:     iamClient,
 		imageRepo:     imageRepo,
 		secretsRepo:   secretsRepo,
+		userRepo:      userRepo,
+		executionRepo: executionRepo,
+		enforcer:      enforcer,
 		cfg:           cfg,
 		secretsPrefix: cfg.SecretsPrefix,
 		logger:        log,
 	}
+}
+
+// SetCasbinDependencies sets the Casbin-related dependencies for the health manager.
+// This allows the enforcer to be set after initialization when it becomes available.
+func (m *Manager) SetCasbinDependencies(
+	userRepo database.UserRepository,
+	executionRepo database.ExecutionRepository,
+	enforcer *authorization.Enforcer,
+) {
+	m.userRepo = userRepo
+	m.executionRepo = executionRepo
+	m.enforcer = enforcer
 }
 
 // Reconcile performs health checks and reconciliation for ECS task definitions, SSM parameters, and IAM roles.
@@ -94,6 +116,9 @@ func (m *Manager) Reconcile(ctx context.Context) (*health.Report, error) {
 	report.IdentityStatus = res.identityStatus
 	report.Issues = append(report.Issues, res.identityIssues...)
 
+	report.AuthorizerStatus = res.casbinStatus
+	report.Issues = append(report.Issues, res.casbinIssues...)
+
 	for _, issue := range report.Issues {
 		if issue.Severity == "error" {
 			report.ErrorCount++
@@ -116,6 +141,8 @@ type reconciliationResults struct {
 	secretsIssues  []health.Issue
 	identityStatus health.IdentityHealthStatus
 	identityIssues []health.Issue
+	casbinStatus   health.AuthorizerHealthStatus
+	casbinIssues   []health.Issue
 }
 
 // runAllReconciliations executes compute, secrets, and identity reconciliations in parallel.
@@ -123,56 +150,97 @@ func (m *Manager) runAllReconciliations(
 	ctx context.Context,
 	reqLogger *slog.Logger,
 ) (reconciliationResults, error) {
-	var computeStatus health.ComputeHealthStatus
-	var computeIssues []health.Issue
-	var secretsStatus health.SecretsHealthStatus
-	var secretsIssues []health.Issue
-	var identityStatus health.IdentityHealthStatus
-	var identityIssues []health.Issue
 	var mu sync.Mutex
+	var res reconciliationResults
 	g, gCtx := errgroup.WithContext(ctx)
+
+	m.runComputeReconciliation(gCtx, g, reqLogger, &mu, &res)
+	m.runSecretsReconciliation(gCtx, g, reqLogger, &mu, &res)
+	m.runIdentityReconciliation(gCtx, g, reqLogger, &mu, &res)
+	m.runCasbinReconciliation(gCtx, g, reqLogger, &mu, &res)
+
+	if err := g.Wait(); err != nil {
+		return reconciliationResults{}, err
+	}
+	return res, nil
+}
+
+func (m *Manager) runComputeReconciliation(
+	ctx context.Context,
+	g *errgroup.Group,
+	reqLogger *slog.Logger,
+	mu *sync.Mutex,
+	res *reconciliationResults,
+) {
 	g.Go(func() error {
-		status, issues, err := m.reconcileECSTaskDefinitions(gCtx, reqLogger)
+		status, issues, err := m.reconcileECSTaskDefinitions(ctx, reqLogger)
 		if err != nil {
 			return fmt.Errorf("failed to reconcile ECS task definitions: %w", err)
 		}
 		mu.Lock()
-		computeStatus = status
-		computeIssues = issues
+		res.computeStatus = status
+		res.computeIssues = issues
 		mu.Unlock()
 		return nil
 	})
+}
+
+func (m *Manager) runSecretsReconciliation(
+	ctx context.Context,
+	g *errgroup.Group,
+	reqLogger *slog.Logger,
+	mu *sync.Mutex,
+	res *reconciliationResults,
+) {
 	g.Go(func() error {
-		status, issues, err := m.reconcileSecrets(gCtx, reqLogger)
+		status, issues, err := m.reconcileSecrets(ctx, reqLogger)
 		if err != nil {
 			return fmt.Errorf("failed to reconcile secrets: %w", err)
 		}
 		mu.Lock()
-		secretsStatus = status
-		secretsIssues = issues
+		res.secretsStatus = status
+		res.secretsIssues = issues
 		mu.Unlock()
 		return nil
 	})
+}
+
+func (m *Manager) runIdentityReconciliation(
+	ctx context.Context,
+	g *errgroup.Group,
+	reqLogger *slog.Logger,
+	mu *sync.Mutex,
+	res *reconciliationResults,
+) {
 	g.Go(func() error {
-		status, issues, err := m.reconcileIAMRoles(gCtx, reqLogger)
+		status, issues, err := m.reconcileIAMRoles(ctx, reqLogger)
 		if err != nil {
 			return fmt.Errorf("failed to reconcile IAM roles: %w", err)
 		}
 		mu.Lock()
-		identityStatus = status
-		identityIssues = issues
+		res.identityStatus = status
+		res.identityIssues = issues
 		mu.Unlock()
 		return nil
 	})
-	if err := g.Wait(); err != nil {
-		return reconciliationResults{}, err
-	}
-	return reconciliationResults{
-		computeStatus:  computeStatus,
-		computeIssues:  computeIssues,
-		secretsStatus:  secretsStatus,
-		secretsIssues:  secretsIssues,
-		identityStatus: identityStatus,
-		identityIssues: identityIssues,
-	}, nil
+}
+
+func (m *Manager) runCasbinReconciliation(
+	ctx context.Context,
+	g *errgroup.Group,
+	reqLogger *slog.Logger,
+	mu *sync.Mutex,
+	res *reconciliationResults,
+) {
+	g.Go(func() error {
+		status, issues, err := m.reconcileCasbin(ctx, reqLogger)
+		if err != nil {
+			return fmt.Errorf("failed to reconcile Casbin: %w", err)
+		}
+		mu.Lock()
+		res.casbinStatus = status
+		res.casbinIssues = issues
+		mu.Unlock()
+		return nil
+	})
 }

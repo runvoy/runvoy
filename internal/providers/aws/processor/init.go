@@ -107,6 +107,9 @@ func initializeHealthManager(
 		iamClient,
 		imageTaskDefRepo,
 		secretsRepo,
+		nil,
+		nil,
+		nil,
 		healthCfg,
 		log,
 	)

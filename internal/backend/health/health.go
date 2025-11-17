@@ -18,13 +18,14 @@ type Manager interface {
 
 // Report contains the results of a health reconciliation run.
 type Report struct {
-	Timestamp       time.Time
-	ComputeStatus   ComputeHealthStatus
-	SecretsStatus   SecretsHealthStatus
-	IdentityStatus  IdentityHealthStatus
-	Issues          []Issue
-	ReconciledCount int
-	ErrorCount      int
+	Timestamp        time.Time
+	ComputeStatus    ComputeHealthStatus
+	SecretsStatus    SecretsHealthStatus
+	IdentityStatus   IdentityHealthStatus
+	AuthorizerStatus AuthorizerHealthStatus
+	Issues           []Issue
+	ReconciledCount  int
+	ErrorCount       int
 }
 
 // ComputeHealthStatus contains the health status for compute resources (e.g., containers, task definitions).
@@ -53,6 +54,17 @@ type IdentityHealthStatus struct {
 	CustomRolesVerified  int
 	CustomRolesTotal     int
 	MissingRoles         []string
+}
+
+// AuthorizerHealthStatus contains the health status for authorization data.
+type AuthorizerHealthStatus struct {
+	UsersWithInvalidRoles      []string
+	UsersWithMissingRoles      []string
+	ResourcesWithMissingOwners []string
+	OrphanedOwnerships         []string
+	MissingOwnerships          []string
+	TotalUsersChecked          int
+	TotalResourcesChecked      int
 }
 
 // Issue represents a single health issue found during reconciliation.

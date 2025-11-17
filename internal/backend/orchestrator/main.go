@@ -68,7 +68,7 @@ type Service struct {
 	wsManager     websocket.Manager          // WebSocket manager for generating URLs and managing connections
 	secretsRepo   database.SecretsRepository // Repository for managing secrets
 	healthManager health.Manager             // Health manager for resource reconciliation
-	enforcer      *authorization.Enforcer    // Casbin enforcer for authorization
+	enforcer      *authorization.Enforcer    // Enforcer for authorization
 }
 
 // NOTE: provider-specific configuration has been moved to sub packages (e.g., providers/aws/app).
