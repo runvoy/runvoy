@@ -749,8 +749,11 @@ Resources:
                 Resource: '*'
               - Effect: Allow
                 Action:
-                  - 'ssm:GetParameter'
                   - 'ssm:DescribeParameters'
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - 'ssm:GetParameter'
                   - 'ssm:ListTagsForResource'
                   - 'ssm:AddTagsToResource'
                 Resource: !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/runvoy/secrets/*'
