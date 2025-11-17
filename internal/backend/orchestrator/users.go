@@ -3,7 +3,6 @@ package orchestrator
 import (
 	"context"
 	"net/mail"
-	"slices"
 	"strings"
 	"time"
 
@@ -247,9 +246,9 @@ func (s *Service) RevokeUser(ctx context.Context, email string) error {
 	return nil
 }
 
-// ListUsers returns all users in the system (excluding API key hashes for security).
+// ListUsers returns all users in the system sorted by email (excluding API key hashes for security).
 // Returns an error if the user repository is not configured or if the query fails.
-// Sort by email ascending.
+// Sorting is delegated to the repository implementation (e.g., DynamoDB GSI).
 func (s *Service) ListUsers(ctx context.Context) (*api.ListUsersResponse, error) {
 	if s.userRepo == nil {
 		return nil, apperrors.ErrInternalError("user repository not configured", nil)
@@ -259,10 +258,6 @@ func (s *Service) ListUsers(ctx context.Context) (*api.ListUsersResponse, error)
 	if err != nil {
 		return nil, err
 	}
-
-	slices.SortFunc(users, func(a, b *api.User) int {
-		return strings.Compare(a.Email, b.Email)
-	})
 
 	return &api.ListUsersResponse{
 		Users: users,

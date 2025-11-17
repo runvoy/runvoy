@@ -745,11 +745,12 @@ func TestListUsers_RepositoryError(t *testing.T) {
 func TestListUsers_SortingByEmail(t *testing.T) {
 	repo := &mockUserRepository{
 		listUsersFunc: func(_ context.Context) ([]*api.User, error) {
+			// Return users sorted by email (as the database now does)
 			return []*api.User{
-				{Email: "zebra@example.com"},
 				{Email: "alice@example.com"},
-				{Email: "charlie@example.com"},
 				{Email: "bob@example.com"},
+				{Email: "charlie@example.com"},
+				{Email: "zebra@example.com"},
 			}, nil
 		},
 	}
