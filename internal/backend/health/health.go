@@ -56,7 +56,7 @@ type IdentityHealthStatus struct {
 	MissingRoles         []string
 }
 
-// AuthorizerHealthStatus contains the health status for Casbin authorization data.
+// AuthorizerHealthStatus contains the health status for authorization data.
 type AuthorizerHealthStatus struct {
 	UsersWithInvalidRoles      []string
 	UsersWithMissingRoles      []string
