@@ -22,7 +22,7 @@ type Report struct {
 	ComputeStatus   ComputeHealthStatus
 	SecretsStatus   SecretsHealthStatus
 	IdentityStatus  IdentityHealthStatus
-	CasbinStatus    CasbinHealthStatus
+	CasbinStatus    AuthorizerHealthStatus
 	Issues          []Issue
 	ReconciledCount int
 	ErrorCount      int
@@ -56,8 +56,8 @@ type IdentityHealthStatus struct {
 	MissingRoles         []string
 }
 
-// CasbinHealthStatus contains the health status for Casbin authorization data.
-type CasbinHealthStatus struct {
+// AuthorizerHealthStatus contains the health status for Casbin authorization data.
+type AuthorizerHealthStatus struct {
 	UsersWithInvalidRoles      []string
 	UsersWithMissingRoles      []string
 	ResourcesWithMissingOwners []string

@@ -141,7 +141,7 @@ type reconciliationResults struct {
 	secretsIssues  []health.Issue
 	identityStatus health.IdentityHealthStatus
 	identityIssues []health.Issue
-	casbinStatus   health.CasbinHealthStatus
+	casbinStatus   health.AuthorizerHealthStatus
 	casbinIssues   []health.Issue
 }
 
