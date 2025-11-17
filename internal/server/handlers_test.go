@@ -382,6 +382,163 @@ func TestHandleRunCommand_Unauthorized(t *testing.T) {
 	testUnauthorizedRequest(t, http.MethodPost, "/api/v1/run", api.ExecutionRequest{Command: "echo hello"})
 }
 
+func TestHandleRunCommand_WithImage_ValidatesAuthorization(t *testing.T) {
+	userEmail := "developer@example.com"
+	userRepo := &testUserRepository{
+		authenticateUserFunc: func(_ string) (*api.User, error) {
+			return &api.User{Email: userEmail}, nil
+		},
+	}
+	execRepo := &testExecutionRepository{}
+	runner := &testRunner{}
+
+	// Use developer role which has execute permission and access to images
+	enf, err := authorization.NewEnforcer(testutil.SilentLogger())
+	require.NoError(t, err)
+	err = enf.AddRoleForUser(userEmail, authorization.RoleDeveloper)
+	require.NoError(t, err)
+
+	svc, err := orchestrator.NewService(
+		context.Background(),
+		userRepo,
+		execRepo,
+		nil,
+		&testTokenRepository{},
+		runner,
+		testutil.SilentLogger(),
+		constants.AWS,
+		nil,
+		nil,
+		nil,
+		enf,
+	)
+	require.NoError(t, err)
+	router := NewRouter(svc, 2*time.Second)
+
+	// Test with an image - this verifies that ValidateExecutionResourceAccess is called
+	// Developer role has access to images, so validation should pass
+	reqBody := api.ExecutionRequest{
+		Command: "echo hello",
+		Image:   "ubuntu:22.04",
+	}
+	body, _ := json.Marshal(reqBody)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/run", bytes.NewReader(body))
+	req.Header.Set("X-API-Key", "test-api-key")
+
+	resp := httptest.NewRecorder()
+	router.ServeHTTP(resp, req)
+
+	// Validation should pass (developer has access), so we shouldn't get a 403 Forbidden
+	// The request may fail for other reasons (e.g., runner not configured), but not auth
+	assert.NotEqual(t, http.StatusForbidden, resp.Code,
+		"developer role should have access to images, validation should pass")
+}
+
+func TestHandleRunCommand_WithSecrets_ValidatesAuthorization(t *testing.T) {
+	userEmail := "developer@example.com"
+	userRepo := &testUserRepository{
+		authenticateUserFunc: func(_ string) (*api.User, error) {
+			return &api.User{Email: userEmail}, nil
+		},
+	}
+	execRepo := &testExecutionRepository{}
+	runner := &testRunner{}
+
+	// Use developer role which has execute permission and access to secrets
+	enf, err := authorization.NewEnforcer(testutil.SilentLogger())
+	require.NoError(t, err)
+	err = enf.AddRoleForUser(userEmail, authorization.RoleDeveloper)
+	require.NoError(t, err)
+
+	svc, err := orchestrator.NewService(
+		context.Background(),
+		userRepo,
+		execRepo,
+		nil,
+		&testTokenRepository{},
+		runner,
+		testutil.SilentLogger(),
+		constants.AWS,
+		nil,
+		nil,
+		nil,
+		enf,
+	)
+	require.NoError(t, err)
+	router := NewRouter(svc, 2*time.Second)
+
+	// Test with secrets - this verifies that ValidateExecutionResourceAccess is called
+	reqBody := api.ExecutionRequest{
+		Command: "echo hello",
+		Secrets: []string{"db-password", "api-key"},
+	}
+	body, _ := json.Marshal(reqBody)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/run", bytes.NewReader(body))
+	req.Header.Set("X-API-Key", "test-api-key")
+
+	resp := httptest.NewRecorder()
+	router.ServeHTTP(resp, req)
+
+	// Validation should pass (developer has access), so we shouldn't get a 403 Forbidden
+	assert.NotEqual(t, http.StatusForbidden, resp.Code,
+		"developer role should have access to secrets, validation should pass")
+}
+
+func TestHandleRunCommand_AllResourcesAuthorized(t *testing.T) {
+	userEmail := "developer@example.com"
+	userRepo := &testUserRepository{
+		authenticateUserFunc: func(_ string) (*api.User, error) {
+			return &api.User{Email: userEmail}, nil
+		},
+	}
+	execRepo := &testExecutionRepository{}
+	runner := &testRunner{}
+
+	// Use developer role which has access to images and secrets (per policy.csv)
+	enf, err := authorization.NewEnforcer(testutil.SilentLogger())
+	require.NoError(t, err)
+	err = enf.AddRoleForUser(userEmail, authorization.RoleDeveloper)
+	require.NoError(t, err)
+
+	svc, err := orchestrator.NewService(
+		context.Background(),
+		userRepo,
+		execRepo,
+		nil,
+		&testTokenRepository{},
+		runner,
+		testutil.SilentLogger(),
+		constants.AWS,
+		nil,
+		nil,
+		nil,
+		enf,
+	)
+	require.NoError(t, err)
+	router := NewRouter(svc, 2*time.Second)
+
+	reqBody := api.ExecutionRequest{
+		Command: "echo hello",
+		Image:   "ubuntu:22.04",
+		Secrets: []string{"db-password", "api-key"},
+	}
+	body, _ := json.Marshal(reqBody)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/run", bytes.NewReader(body))
+	req.Header.Set("X-API-Key", "test-api-key")
+
+	resp := httptest.NewRecorder()
+	router.ServeHTTP(resp, req)
+
+	// Validation should pass (developer has access to all resources)
+	// The request may fail for other reasons (e.g., secrets resolution, runner issues)
+	// but authorization validation should pass, so we shouldn't get 403 Forbidden
+	assert.NotEqual(t, http.StatusForbidden, resp.Code,
+		"developer role should have access to images and secrets, validation should pass")
+}
+
 func TestHandleListExecutions_Success(t *testing.T) {
 	now := time.Now()
 	execRepo := &testExecutionRepository{

@@ -29,6 +29,21 @@ func (r *Router) handleRunCommand(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	if err := r.svc.ValidateExecutionResourceAccess(user.Email, &execReq); err != nil {
+		statusCode := apperrors.GetStatusCode(err)
+		errorCode := apperrors.GetErrorCode(err)
+		errorDetails := apperrors.GetErrorDetails(err)
+
+		logger.Error("authorization denied for execution resources", "context", map[string]string{
+			"error":       err.Error(),
+			"status_code": strconv.Itoa(statusCode),
+			"error_code":  errorCode,
+		})
+
+		writeErrorResponseWithCode(w, statusCode, errorCode, "forbidden", errorDetails)
+		return
+	}
+
 	resp, err := r.svc.RunCommand(req.Context(), user.Email, &execReq)
 	if err != nil {
 		statusCode := apperrors.GetStatusCode(err)

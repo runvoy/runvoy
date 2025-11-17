@@ -50,7 +50,7 @@ func (s *Service) ValidateExecutionResourceAccess(
 		}
 
 		secretPath := fmt.Sprintf("/api/v1/secrets/%s", name)
-		allowed, err := enforcer.Enforce(userEmail, secretPath, "read")
+		allowed, err := enforcer.Enforce(userEmail, secretPath, authorization.ActionRead)
 		if err != nil {
 			return apperrors.ErrInternalError(
 				"failed to validate secret access",
@@ -85,10 +85,6 @@ func (s *Service) RunCommand(
 
 	if req.Command == "" {
 		return nil, apperrors.ErrBadRequest("command is required", nil)
-	}
-
-	if err := s.ValidateExecutionResourceAccess(userEmail, req); err != nil {
-		return nil, err
 	}
 
 	secretEnvVars, err := s.resolveSecretsForExecution(ctx, req.Secrets)

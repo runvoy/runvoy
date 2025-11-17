@@ -362,7 +362,7 @@ Four predefined roles control access to different resources:
   - **Image Access**: User must have read permission on `/api/images` to use a specified image
   - **Secret Access**: User must have read permission on `/api/secrets` for each secret referenced
 - This ensures users cannot execute with resources they don't have access to
-- Validation happens in the service layer via `ValidateExecutionResourceAccess()` method, before task submission
+- Validation happens in the handler layer via `ValidateExecutionResourceAccess()` method, before calling the service
 
 #### Resource Ownership
 
@@ -379,7 +379,7 @@ For fine-grained access control, resources track ownership:
    - Authentication middleware validates API key and adds user to context
    - Authorization middleware automatically maps HTTP method + path to action and checks permission via Casbin
    - If authorized, request proceeds to handler; if denied, request is rejected with `403 Forbidden`
-   - For `/run` endpoint: After general `execute` permission check in middleware, service layer validates access to specific resources (image, secrets) via `ValidateExecutionResourceAccess()`
+   - For `/run` endpoint: After general `execute` permission check in middleware, handler layer validates access to specific resources (image, secrets) via `ValidateExecutionResourceAccess()`
 3. **Access Denied**: Request is rejected at middleware level with appropriate HTTP status and error code before handlers are invoked
 4. **Runtime Sync**:
    - User role assignments are pushed to the enforcer when users are created or revoked.
