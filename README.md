@@ -53,6 +53,7 @@ Runvoy is composed of 3 main parts:
 - **API key authentication** - Secure access with hashed API keys (SHA-256)
 - **Customizable container task and execution roles** - Register Docker images with custom task and execution roles to e.g. run Terraform with the right permissions to access AWS resources (currently only AWS ECS is supported)
 - **Automatic git cloning** - Optionally clone a (public or private) Git repository into the container working directory
+- **RBAC** - Role based access control for the backend API. Runvoy admins define roles and permissions for users, non-admin users can only execute commands / access secrets/ select Docker images they are allowed to
 - **Native cloud provider logging integration** - Full execution logs and audit trails with request ID tracking
 - **Reusable playbooks** - Store and reuse command execution configurations in YAML files, commit to a repository and share with your team to execute commands consistently (see [Terraform example](.runvoy/terraform-example.yml))
 - **Secrets management** - Centralized encrypted secrets with full CRUD from the CLI
@@ -62,7 +63,6 @@ Runvoy is composed of 3 main parts:
 
 ### Roadmap (NOT IMPLEMENTED YET!)
 
-- **RBAC** - Role based access control for the backend API. Runvoy admins define roles and permissions for users, non-admin users can only execute commands / access secrets/ select Docker images they are allowed to
 - **Multi-cloud support** - Backend support for other execution platforms, cloud providers (GCP, Azure...), Kubernetes, ...
 - **Timeouts for command execution** - Send timed SIGTERM to the command execution if it doesn't complete within the timeout period
 - **Lock management for concurrent command execution** - Prevent multiple users from executing the same command concurrently
@@ -135,7 +135,7 @@ runvoy --help
 ```
 
 ```text
-runvoy - 0.1.0-20251116-3cdecf7
+runvoy - 0.1.0-20251117-3c14b5f
 Isolated, repeatable execution environments for your commands
 
 Usage:
