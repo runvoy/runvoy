@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"runvoy/internal/api"
+	"runvoy/internal/auth/authorization"
 	"runvoy/internal/backend/orchestrator"
 	"runvoy/internal/constants"
 	apperrors "runvoy/internal/errors"
@@ -98,27 +99,49 @@ func (t *testUserRepository) DeletePendingAPIKey(_ context.Context, _ string) er
 func (t *testUserRepository) ListUsers(_ context.Context) ([]*api.User, error) {
 	lastUsed1 := time.Now().Add(-1 * time.Hour)
 	lastUsed3 := time.Now().Add(-12 * time.Hour)
-	// Return users sorted by email (as the database now does)
+	// Return users sorted by email (as the database now does) with valid roles
 	return []*api.User{
 		{
 			Email:     "alice@example.com",
+			Role:      "admin",
 			CreatedAt: time.Now().Add(-48 * time.Hour),
 			Revoked:   true,
 			LastUsed:  nil,
 		},
 		{
 			Email:     "bob@example.com",
+			Role:      "admin",
 			CreatedAt: time.Now().Add(-36 * time.Hour),
 			Revoked:   false,
 			LastUsed:  &lastUsed3,
 		},
 		{
 			Email:     "charlie@example.com",
+			Role:      "admin",
 			CreatedAt: time.Now().Add(-24 * time.Hour),
 			Revoked:   false,
 			LastUsed:  &lastUsed1,
 		},
 	}, nil
+}
+
+// newPermissiveTestEnforcerForHandlers creates a test enforcer that allows all access.
+func newPermissiveTestEnforcerForHandlers(t *testing.T) *authorization.Enforcer {
+	enf, err := authorization.NewEnforcer(testutil.SilentLogger())
+	require.NoError(t, err)
+
+	err = enf.AddRoleForUser("admin@example.com", authorization.RoleAdmin)
+	require.NoError(t, err)
+	err = enf.AddRoleForUser("user@example.com", authorization.RoleAdmin)
+	require.NoError(t, err)
+	err = enf.AddRoleForUser("alice@example.com", authorization.RoleAdmin)
+	require.NoError(t, err)
+	err = enf.AddRoleForUser("bob@example.com", authorization.RoleAdmin)
+	require.NoError(t, err)
+	err = enf.AddRoleForUser("charlie@example.com", authorization.RoleAdmin)
+	require.NoError(t, err)
+
+	return enf
 }
 
 type testExecutionRepository struct {
@@ -266,6 +289,7 @@ func TestHandleRunCommand_Success(t *testing.T) {
 	userRepo := &testUserRepository{}
 	execRepo := &testExecutionRepository{}
 	runner := &testRunner{}
+	enforcer := newPermissiveTestEnforcerForHandlers(t)
 
 	svc, err := orchestrator.NewService(context.Background(),
 		userRepo,
@@ -278,7 +302,7 @@ func TestHandleRunCommand_Success(t *testing.T) {
 		nil,
 		nil, // SecretsService
 		nil, // healthManager
-		nil,
+		enforcer,
 	)
 	require.NoError(t, err)
 	router := NewRouter(svc, 2*time.Second)
@@ -383,6 +407,7 @@ func TestHandleListExecutions_Success(t *testing.T) {
 			}, nil
 		},
 	}
+	enforcer := newPermissiveTestEnforcerForHandlers(t)
 
 	svc, err := orchestrator.NewService(context.Background(),
 		&testUserRepository{},
@@ -395,7 +420,7 @@ func TestHandleListExecutions_Success(t *testing.T) {
 		nil,
 		nil, // SecretsService
 		nil, // healthManager
-		nil,
+		enforcer,
 	)
 	require.NoError(t, err)
 	router := NewRouter(svc, 2*time.Second)
@@ -421,6 +446,7 @@ func TestHandleListExecutions_Empty(t *testing.T) {
 			return []*api.Execution{}, nil
 		},
 	}
+	enforcer := newPermissiveTestEnforcerForHandlers(t)
 
 	svc, err := orchestrator.NewService(context.Background(),
 		&testUserRepository{},
@@ -433,7 +459,7 @@ func TestHandleListExecutions_Empty(t *testing.T) {
 		nil,
 		nil, // SecretsService
 		nil, // healthManager
-		nil,
+		enforcer,
 	)
 	require.NoError(t, err)
 	router := NewRouter(svc, 2*time.Second)
@@ -456,6 +482,7 @@ func TestHandleListExecutions_LimitZero(t *testing.T) {
 			return []*api.Execution{}, nil
 		},
 	}
+	enforcer := newPermissiveTestEnforcerForHandlers(t)
 
 	svc, err := orchestrator.NewService(context.Background(),
 		&testUserRepository{},
@@ -468,7 +495,7 @@ func TestHandleListExecutions_LimitZero(t *testing.T) {
 		nil,
 		nil, // SecretsService
 		nil, // healthManager
-		nil,
+		enforcer,
 	)
 	require.NoError(t, err)
 	router := NewRouter(svc, 2*time.Second)
@@ -484,11 +511,18 @@ func TestHandleListExecutions_LimitZero(t *testing.T) {
 }
 
 func TestHandleListExecutions_DatabaseError(t *testing.T) {
+	// Create a repository that returns empty list during initialization but error during handler call
 	execRepo := &testExecutionRepository{
-		listExecutionsFunc: func(_ int, _ []string) ([]*api.Execution, error) {
+		listExecutionsFunc: func(limit int, statuses []string) ([]*api.Execution, error) {
+			// During initialization, limit is 0 and statuses is nil, so return empty list
+			if limit == 0 && statuses == nil {
+				return []*api.Execution{}, nil
+			}
+			// During handler call, return error
 			return nil, errors.New("database connection failed")
 		},
 	}
+	enforcer := newPermissiveTestEnforcerForHandlers(t)
 
 	svc, err := orchestrator.NewService(context.Background(),
 		&testUserRepository{},
@@ -501,7 +535,7 @@ func TestHandleListExecutions_DatabaseError(t *testing.T) {
 		nil,
 		nil, // SecretsService
 		nil, // healthManager
-		nil,
+		enforcer,
 	)
 	require.NoError(t, err)
 	router := NewRouter(svc, 2*time.Second)
@@ -517,6 +551,7 @@ func TestHandleListExecutions_DatabaseError(t *testing.T) {
 }
 
 func TestHandleRegisterImage_Success(t *testing.T) {
+	enforcer := newPermissiveTestEnforcerForHandlers(t)
 	svc, err := orchestrator.NewService(context.Background(),
 		&testUserRepository{},
 		nil,
@@ -528,7 +563,7 @@ func TestHandleRegisterImage_Success(t *testing.T) {
 		nil,
 		nil, // SecretsService
 		nil, // healthManager
-		nil,
+		enforcer,
 	)
 	require.NoError(t, err)
 	router := NewRouter(svc, 2*time.Second)
@@ -550,6 +585,7 @@ func TestHandleRegisterImage_Success(t *testing.T) {
 }
 
 func TestHandleRegisterImage_InvalidJSON(t *testing.T) {
+	enforcer := newPermissiveTestEnforcerForHandlers(t)
 	svc, err := orchestrator.NewService(context.Background(),
 		&testUserRepository{},
 		nil,
@@ -561,7 +597,7 @@ func TestHandleRegisterImage_InvalidJSON(t *testing.T) {
 		nil,
 		nil, // SecretsService
 		nil, // healthManager
-		nil,
+		enforcer,
 	)
 	require.NoError(t, err)
 	router := NewRouter(svc, 2*time.Second)
@@ -585,6 +621,7 @@ func TestHandleListImages_Success(t *testing.T) {
 			}, nil
 		},
 	}
+	enforcer := newPermissiveTestEnforcerForHandlers(t)
 
 	svc, err := orchestrator.NewService(context.Background(),
 		&testUserRepository{},
@@ -597,7 +634,7 @@ func TestHandleListImages_Success(t *testing.T) {
 		nil,
 		nil, // SecretsService
 		nil, // healthManager
-		nil,
+		enforcer,
 	)
 	require.NoError(t, err)
 	router := NewRouter(svc, 2*time.Second)
@@ -619,6 +656,7 @@ func TestHandleListImages_Empty(t *testing.T) {
 			return []api.ImageInfo{}, nil
 		},
 	}
+	enforcer := newPermissiveTestEnforcerForHandlers(t)
 
 	svc, err := orchestrator.NewService(context.Background(),
 		&testUserRepository{},
@@ -631,7 +669,7 @@ func TestHandleListImages_Empty(t *testing.T) {
 		nil,
 		nil, // SecretsService
 		nil, // healthManager
-		nil,
+		enforcer,
 	)
 	require.NoError(t, err)
 	router := NewRouter(svc, 2*time.Second)
@@ -646,6 +684,7 @@ func TestHandleListImages_Empty(t *testing.T) {
 }
 
 func TestHandleRemoveImage_Success(t *testing.T) {
+	enforcer := newPermissiveTestEnforcerForHandlers(t)
 	svc, err := orchestrator.NewService(context.Background(),
 		&testUserRepository{},
 		nil,
@@ -657,7 +696,7 @@ func TestHandleRemoveImage_Success(t *testing.T) {
 		nil,
 		nil, // SecretsService
 		nil, // healthManager
-		nil,
+		enforcer,
 	)
 	require.NoError(t, err)
 	router := NewRouter(svc, 2*time.Second)
@@ -678,6 +717,7 @@ func TestHandleRemoveImage_Success(t *testing.T) {
 }
 
 func TestHandleRemoveImage_NotFound(t *testing.T) {
+	enforcer := newPermissiveTestEnforcerForHandlers(t)
 	svc, err := orchestrator.NewService(context.Background(),
 		&testUserRepository{},
 		nil,
@@ -693,7 +733,7 @@ func TestHandleRemoveImage_NotFound(t *testing.T) {
 		nil,
 		nil, // SecretsService
 		nil, // healthManager
-		nil,
+		enforcer,
 	)
 	require.NoError(t, err)
 	router := NewRouter(svc, 2*time.Second)
@@ -709,6 +749,7 @@ func TestHandleRemoveImage_NotFound(t *testing.T) {
 }
 
 func TestHandleRemoveImage_MissingImage(t *testing.T) {
+	enforcer := newPermissiveTestEnforcerForHandlers(t)
 	svc, err := orchestrator.NewService(context.Background(),
 		&testUserRepository{},
 		nil,
@@ -720,7 +761,7 @@ func TestHandleRemoveImage_MissingImage(t *testing.T) {
 		nil,
 		nil, // SecretsService
 		nil, // healthManager
-		nil,
+		enforcer,
 	)
 	require.NoError(t, err)
 	router := NewRouter(svc, 2*time.Second)
@@ -745,6 +786,7 @@ func TestHandleGetImage_Success(t *testing.T) {
 			}, nil
 		},
 	}
+	enforcer := newPermissiveTestEnforcerForHandlers(t)
 
 	svc, err := orchestrator.NewService(context.Background(),
 		&testUserRepository{},
@@ -757,7 +799,7 @@ func TestHandleGetImage_Success(t *testing.T) {
 		nil,
 		nil, // SecretsService
 		nil, // healthManager
-		nil,
+		enforcer,
 	)
 	require.NoError(t, err)
 	router := NewRouter(svc, 2*time.Second)
@@ -779,6 +821,7 @@ func TestHandleGetImage_NotFound(t *testing.T) {
 			return nil, errors.New("image not found")
 		},
 	}
+	enforcer := newPermissiveTestEnforcerForHandlers(t)
 
 	svc, err := orchestrator.NewService(context.Background(),
 		&testUserRepository{},
@@ -791,7 +834,7 @@ func TestHandleGetImage_NotFound(t *testing.T) {
 		nil,
 		nil, // SecretsService
 		nil, // healthManager
-		nil,
+		enforcer,
 	)
 	require.NoError(t, err)
 	router := NewRouter(svc, 2*time.Second)
@@ -848,6 +891,7 @@ func TestGetClientIP_XForwardedForPrecedence(t *testing.T) {
 
 func TestHandleListUsers_Success(t *testing.T) {
 	userRepo := &testUserRepository{}
+	enforcer := newPermissiveTestEnforcerForHandlers(t)
 	svc, err := orchestrator.NewService(context.Background(),
 		userRepo,
 		nil,
@@ -859,7 +903,7 @@ func TestHandleListUsers_Success(t *testing.T) {
 		nil,
 		nil, // SecretsService
 		nil, // healthManager
-		nil,
+		enforcer,
 	)
 	require.NoError(t, err)
 	router := NewRouter(svc, 2*time.Second)
@@ -956,6 +1000,7 @@ func TestHandleListUsers_RepositoryError(t *testing.T) {
 // TestHandleCreateUser_Success tests successful user creation with API key claim token
 func TestHandleCreateUser_Success(t *testing.T) {
 	userRepo := &testUserRepository{}
+	enforcer := newPermissiveTestEnforcerForHandlers(t)
 	svc, err := orchestrator.NewService(context.Background(),
 		userRepo,
 		nil,
@@ -967,7 +1012,7 @@ func TestHandleCreateUser_Success(t *testing.T) {
 		nil,
 		nil, // SecretsService
 		nil, // healthManager
-		nil,
+		enforcer,
 	)
 	require.NoError(t, err)
 	router := NewRouter(svc, 2*time.Second)
@@ -991,6 +1036,7 @@ func TestHandleCreateUser_Success(t *testing.T) {
 
 // TestHandleCreateUser_MissingEmail tests validation of required email field
 func TestHandleCreateUser_MissingEmail(t *testing.T) {
+	enforcer := newPermissiveTestEnforcerForHandlers(t)
 	svc, err := orchestrator.NewService(context.Background(),
 		&testUserRepository{},
 		nil,
@@ -1002,7 +1048,7 @@ func TestHandleCreateUser_MissingEmail(t *testing.T) {
 		nil,
 		nil, // SecretsService
 		nil, // healthManager
-		nil,
+		enforcer,
 	)
 	require.NoError(t, err)
 	router := NewRouter(svc, 2*time.Second)
@@ -1024,6 +1070,7 @@ func TestHandleCreateUser_MissingEmail(t *testing.T) {
 
 // TestHandleCreateUser_InvalidRole tests invalid role validation
 func TestHandleCreateUser_InvalidRole(t *testing.T) {
+	enforcer := newPermissiveTestEnforcerForHandlers(t)
 	svc, err := orchestrator.NewService(context.Background(),
 		&testUserRepository{},
 		nil,
@@ -1035,7 +1082,7 @@ func TestHandleCreateUser_InvalidRole(t *testing.T) {
 		nil,
 		nil, // SecretsService
 		nil, // healthManager
-		nil,
+		enforcer,
 	)
 	require.NoError(t, err)
 	router := NewRouter(svc, 2*time.Second)
@@ -1094,6 +1141,7 @@ func TestHandleCreateUser_Unauthorized(t *testing.T) {
 
 func TestHandleRevokeUser_Success(t *testing.T) {
 	userRepo := &testUserRepository{}
+	enforcer := newPermissiveTestEnforcerForHandlers(t)
 	svc, err := orchestrator.NewService(context.Background(),
 		userRepo,
 		nil,
@@ -1105,7 +1153,7 @@ func TestHandleRevokeUser_Success(t *testing.T) {
 		nil,
 		nil, // SecretsService
 		nil, // healthManager
-		nil,
+		enforcer,
 	)
 	require.NoError(t, err)
 	router := NewRouter(svc, 2*time.Second)
@@ -1155,6 +1203,7 @@ func TestHandleRevokeUser_InvalidJSON(t *testing.T) {
 
 // TestHandleRevokeUser_MissingEmail tests validation when email is missing
 func TestHandleRevokeUser_MissingEmail(t *testing.T) {
+	enforcer := newPermissiveTestEnforcerForHandlers(t)
 	svc, err := orchestrator.NewService(context.Background(),
 		&testUserRepository{},
 		nil,
@@ -1166,7 +1215,7 @@ func TestHandleRevokeUser_MissingEmail(t *testing.T) {
 		nil,
 		nil, // SecretsService
 		nil, // healthManager
-		nil,
+		enforcer,
 	)
 	require.NoError(t, err)
 	router := NewRouter(svc, 2*time.Second)
@@ -1188,6 +1237,7 @@ func TestHandleRevokeUser_MissingEmail(t *testing.T) {
 // TestHandleRevokeUser_NotFound tests when user doesn't exist
 func TestHandleRevokeUser_NotFound(t *testing.T) {
 	userRepo := &testUserRepository{}
+	enforcer := newPermissiveTestEnforcerForHandlers(t)
 	svc, err := orchestrator.NewService(context.Background(),
 		userRepo,
 		nil,
@@ -1199,7 +1249,7 @@ func TestHandleRevokeUser_NotFound(t *testing.T) {
 		nil,
 		nil, // SecretsService
 		nil, // healthManager
-		nil,
+		enforcer,
 	)
 	require.NoError(t, err)
 	router := NewRouter(svc, 2*time.Second)
@@ -1253,6 +1303,7 @@ func TestHandleRevokeUser_Unauthorized(t *testing.T) {
 }
 
 func TestHandleGetExecutionLogs_Success(t *testing.T) {
+	enforcer := newPermissiveTestEnforcerForHandlers(t)
 	svc, err := orchestrator.NewService(context.Background(),
 		&testUserRepository{},
 		&testExecutionRepository{},
@@ -1264,7 +1315,7 @@ func TestHandleGetExecutionLogs_Success(t *testing.T) {
 		nil,
 		nil, // SecretsService
 		nil, // healthManager
-		nil,
+		enforcer,
 	)
 	require.NoError(t, err)
 	router := NewRouter(svc, 2*time.Second)
@@ -1311,6 +1362,7 @@ func TestHandleGetExecutionLogs_MissingExecutionID(t *testing.T) {
 
 func TestHandleGetExecutionStatus_Success(t *testing.T) {
 	execRepo := &testExecutionRepository{}
+	enforcer := newPermissiveTestEnforcerForHandlers(t)
 	svc, err := orchestrator.NewService(context.Background(),
 		&testUserRepository{},
 		execRepo,
@@ -1322,7 +1374,7 @@ func TestHandleGetExecutionStatus_Success(t *testing.T) {
 		nil,
 		nil, // SecretsService
 		nil, // healthManager
-		nil,
+		enforcer,
 	)
 	require.NoError(t, err)
 	router := NewRouter(svc, 2*time.Second)
@@ -1368,6 +1420,7 @@ func TestHandleGetExecutionStatus_MissingExecutionID(t *testing.T) {
 }
 
 func TestHandleKillExecution_Success(t *testing.T) {
+	enforcer := newPermissiveTestEnforcerForHandlers(t)
 	svc, err := orchestrator.NewService(context.Background(),
 		&testUserRepository{},
 		&testExecutionRepository{},
@@ -1379,7 +1432,7 @@ func TestHandleKillExecution_Success(t *testing.T) {
 		nil,
 		nil, // SecretsService
 		nil, // healthManager
-		nil,
+		enforcer,
 	)
 	require.NoError(t, err)
 	router := NewRouter(svc, 2*time.Second)
@@ -1409,6 +1462,7 @@ func TestHandleKillExecution_AlreadyTerminated(t *testing.T) {
 			}, nil
 		},
 	}
+	enforcer := newPermissiveTestEnforcerForHandlers(t)
 
 	svc, err := orchestrator.NewService(context.Background(),
 		&testUserRepository{},
@@ -1421,7 +1475,7 @@ func TestHandleKillExecution_AlreadyTerminated(t *testing.T) {
 		nil,
 		nil, // SecretsService
 		nil, // healthManager
-		nil,
+		enforcer,
 	)
 	require.NoError(t, err)
 	router := NewRouter(svc, 2*time.Second)
@@ -1607,6 +1661,7 @@ func TestHandleReconcileHealth_Unauthenticated(t *testing.T) {
 // TestHandleReconcileHealth_Authenticated tests health reconciliation with authentication
 func TestHandleReconcileHealth_Authenticated(t *testing.T) {
 	userRepo := &testUserRepository{}
+	enforcer := newPermissiveTestEnforcerForHandlers(t)
 	svc, err := orchestrator.NewService(context.Background(),
 		userRepo,
 		nil,
@@ -1618,7 +1673,7 @@ func TestHandleReconcileHealth_Authenticated(t *testing.T) {
 		nil,
 		nil, // SecretsService
 		nil, // healthManager
-		nil,
+		enforcer,
 	)
 	require.NoError(t, err)
 	router := NewRouter(svc, 2*time.Second)
@@ -1806,6 +1861,7 @@ func TestHandleGetExecutionStatus_Unauthorized(t *testing.T) {
 
 // TestHandleRunCommand_WithValidCommand tests run command with valid request
 func TestHandleRunCommand_WithValidCommand(t *testing.T) {
+	enforcer := newPermissiveTestEnforcerForHandlers(t)
 	svc, err := orchestrator.NewService(context.Background(),
 		&testUserRepository{},
 		nil,
@@ -1817,7 +1873,7 @@ func TestHandleRunCommand_WithValidCommand(t *testing.T) {
 		nil,
 		nil,
 		nil,
-		nil,
+		enforcer,
 	)
 	require.NoError(t, err)
 	router := NewRouter(svc, 2*time.Second)
