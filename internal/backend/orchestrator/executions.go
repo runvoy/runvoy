@@ -22,9 +22,6 @@ func (s *Service) ValidateExecutionResourceAccess(
 	req *api.ExecutionRequest,
 ) error {
 	enforcer := s.GetEnforcer()
-	if enforcer == nil {
-		return nil
-	}
 
 	if image := strings.TrimSpace(req.Image); image != "" {
 		imagePath := fmt.Sprintf("/api/v1/images/%s", image)
@@ -342,10 +339,6 @@ func (s *Service) ListExecutions(ctx context.Context, limit int, statuses []stri
 }
 
 func (s *Service) addExecutionOwnershipToEnforcer(executionID, ownerEmail string) error {
-	if s.enforcer == nil {
-		return nil
-	}
-
 	resourceID := authorization.FormatResourceID("execution", executionID)
 	if err := s.enforcer.AddOwnershipForResource(resourceID, ownerEmail); err != nil {
 		return fmt.Errorf("failed to add ownership for execution %s: %w", executionID, err)

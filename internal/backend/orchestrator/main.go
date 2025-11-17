@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"reflect"
 	"time"
 
 	"runvoy/internal/api"
@@ -80,7 +81,7 @@ type Service struct {
 // If wsManager is nil, WebSocket URL generation will be skipped.
 // If secretsRepo is nil, secrets operations will not be available.
 // If healthManager is nil, health reconciliation will not be available.
-// If enforcer is nil, authorization will not be available.
+// enforcer must be non-nil; use a permissive test enforcer in tests if needed.
 func NewService(
 	ctx context.Context,
 	userRepo database.UserRepository,
@@ -108,15 +109,14 @@ func NewService(
 		enforcer:      enforcer,
 	}
 
-	if enforcer != nil {
-		if userRepo != nil {
-			if err := svc.loadUserRoles(ctx); err != nil {
-				return nil, err
-			}
-		}
-		if err := svc.loadResourceOwnerships(ctx); err != nil {
+	if userRepo != nil {
+		// Only load user roles if userRepo is actually usable (not a typed nil)
+		if err := svc.loadUserRoles(ctx); err != nil {
 			return nil, err
 		}
+	}
+	if err := svc.loadResourceOwnerships(ctx); err != nil {
+		return nil, err
 	}
 
 	log.Debug("casbin authorization enforcer initialized successfully")
@@ -126,58 +126,81 @@ func NewService(
 }
 
 // loadUserRoles populates the Casbin enforcer with all user roles from the database.
-// Returns an error if any role is invalid or fails to load (critical initialization failure).
+// This is best-effort; errors are logged but don't fail initialization.
+// This function should only be called when userRepo is non-nil.
+//
+//nolint:unparam // ctx is used when calling ListUsers
 func (s *Service) loadUserRoles(ctx context.Context) error {
+	if s.userRepo == nil {
+		return nil
+	}
+	// Handle typed nil: when userRepo is a nil pointer inside an interface,
+	// the interface itself is not nil, but method calls will panic.
+	// Use reflection to check if the underlying value is actually nil.
+	if reflect.ValueOf(s.userRepo).IsNil() {
+		return nil
+	}
 	users, err := s.userRepo.ListUsers(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to load users for enforcer initialization: %w", err)
+		s.Logger.Warn("failed to load users for enforcer initialization, skipping role loading", "error", err)
+		// Don't fail initialization if user loading fails - this is best-effort
+		return nil
 	}
 
 	g, _ := errgroup.WithContext(ctx)
 
 	for _, user := range users {
 		g.Go(func() error {
+			// Skip users without roles
+			if user.Role == "" {
+				s.Logger.Debug("skipping user without role", "user", user.Email)
+				return nil
+			}
+
 			role, roleErr := authorization.NewRole(user.Role)
 			if roleErr != nil {
-				s.Logger.Error("user has invalid role", "context", map[string]string{
+				s.Logger.Warn("user has invalid role, skipping", "context", map[string]string{
 					"user":  user.Email,
 					"role":  user.Role,
 					"error": roleErr.Error(),
 				})
-				return fmt.Errorf("user %s has invalid role: %w", user.Email, roleErr)
+				// Don't fail initialization for invalid roles, just log and continue
+				return nil
 			}
 
 			if addErr := s.enforcer.AddRoleForUser(user.Email, role); addErr != nil {
-				s.Logger.Error("failed to add role for user to enforcer", "context", map[string]string{
+				s.Logger.Warn("failed to add role for user to enforcer, skipping", "context", map[string]string{
 					"user":  user.Email,
 					"role":  user.Role,
 					"error": addErr.Error(),
 				})
-				return fmt.Errorf("failed to add role for user %s to enforcer: %w", user.Email, addErr)
+				// Don't fail initialization for enforcer errors, just log and continue
+				return nil
 			}
 
 			return nil
 		})
 	}
 
-	if waitErr := g.Wait(); waitErr != nil {
-		return errors.New("failed to load user roles into enforcer")
-	}
+	// Wait for all goroutines to complete
+	// Errors are logged but don't fail initialization (best-effort)
+	_ = g.Wait()
 
 	return nil
 }
 
 // loadResourceOwnerships hydrates the enforcer with resource ownership mappings for secrets and executions.
+// This is best-effort; errors loading ownerships are logged but don't fail initialization.
+//
+//nolint:unparam // ctx is used when calling hydrateSecretOwnerships and hydrateExecutionOwnerships
 func (s *Service) loadResourceOwnerships(ctx context.Context) error {
-	if s.enforcer == nil {
-		return nil
-	}
-
 	if err := s.hydrateSecretOwnerships(ctx); err != nil {
-		return err
+		s.Logger.Warn("failed to load secret ownerships during initialization", "error", err)
+		// Don't fail initialization if ownership loading fails
 	}
 	if err := s.hydrateExecutionOwnerships(ctx); err != nil {
-		return err
+		s.Logger.Warn("failed to load execution ownerships during initialization", "error", err)
+		// Don't fail initialization if ownership loading fails
 	}
 
 	return nil
@@ -209,6 +232,11 @@ func (s *Service) hydrateSecretOwnerships(ctx context.Context) error {
 
 func (s *Service) hydrateExecutionOwnerships(ctx context.Context) error {
 	if s.executionRepo == nil {
+		return nil
+	}
+	// Handle typed nil: when executionRepo is a nil pointer inside an interface,
+	// the interface itself is not nil, but method calls will panic.
+	if reflect.ValueOf(s.executionRepo).IsNil() {
 		return nil
 	}
 
@@ -247,7 +275,6 @@ func (s *Service) hydrateExecutionOwnerships(ctx context.Context) error {
 }
 
 // GetEnforcer returns the Casbin enforcer for authorization checks.
-// May be nil if authorization is not configured.
 func (s *Service) GetEnforcer() *authorization.Enforcer {
 	return s.enforcer
 }

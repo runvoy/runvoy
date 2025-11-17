@@ -134,14 +134,6 @@ func (r *Router) authorizeRequest(req *http.Request, action string) bool {
 	}
 
 	enforcer := r.svc.GetEnforcer()
-	if enforcer == nil {
-		logger.Error("authorization denied: enforcer not found", "context", map[string]string{
-			"resource": req.URL.Path,
-			"action":   action,
-		})
-		return false
-	}
-
 	resourceObject := req.URL.Path
 	userEmail := user.Email
 

@@ -292,6 +292,22 @@ func (m *mockRunner) FetchLogsByExecutionID(ctx context.Context, executionID str
 	return []api.LogEvent{}, nil
 }
 
+// newPermissiveEnforcer creates a test enforcer that allows all access.
+// This is useful for tests that need authorization to pass but don't test authorization logic.
+func newPermissiveEnforcer() *authorization.Enforcer {
+	enf, err := authorization.NewEnforcer(testutil.SilentLogger())
+	if err != nil {
+		panic(err)
+	}
+	// Assign admin role to common test user emails to allow all access
+	_ = enf.AddRoleForUser("admin@example.com", authorization.RoleAdmin)
+	_ = enf.AddRoleForUser("user@example.com", authorization.RoleAdmin)
+	_ = enf.AddRoleForUser("alice@example.com", authorization.RoleAdmin)
+	_ = enf.AddRoleForUser("bob@example.com", authorization.RoleAdmin)
+	_ = enf.AddRoleForUser("charlie@example.com", authorization.RoleAdmin)
+	return enf
+}
+
 // newTestService creates a Service with mocks for testing
 func newTestService(
 	userRepo *mockUserRepository,
@@ -309,8 +325,10 @@ func newTestServiceWithConnRepo(
 	runner *mockRunner,
 ) *Service {
 	logger := testutil.SilentLogger()
-	svc, err := NewService(context.Background(),
-		userRepo, execRepo, connRepo, &mockTokenRepository{}, runner, logger, constants.AWS, nil, nil, nil, nil,
+	svc, err := NewService(
+		context.Background(),
+		userRepo, execRepo, connRepo, &mockTokenRepository{}, runner, logger, constants.AWS,
+		nil, nil, nil, newPermissiveEnforcer(),
 	)
 	if err != nil {
 		panic(err)
@@ -401,7 +419,7 @@ func newTestServiceWithSecretsRepo(
 		nil,
 		secretsRepo,
 		nil,
-		nil,
+		newPermissiveEnforcer(),
 	)
 	if err != nil {
 		panic(err)
@@ -468,8 +486,10 @@ func newTestServiceWithWebSocketManager(
 	wsManager websocket.Manager,
 ) *Service {
 	logger := testutil.SilentLogger()
-	svc, err := NewService(context.Background(),
-		userRepo, execRepo, nil, &mockTokenRepository{}, runner, logger, constants.AWS, wsManager, nil, nil, nil,
+	svc, err := NewService(
+		context.Background(),
+		userRepo, execRepo, nil, &mockTokenRepository{}, runner, logger, constants.AWS,
+		wsManager, nil, nil, newPermissiveEnforcer(),
 	)
 	if err != nil {
 		panic(err)

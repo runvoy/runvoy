@@ -30,7 +30,7 @@ func TestCreateSecret_Success(t *testing.T) {
 		nil, // wsManager
 		secretsRepo,
 		nil, // healthManager
-		nil, // enforcer
+		newPermissiveEnforcer(),
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -62,7 +62,7 @@ func TestCreateSecret_NoRepository(t *testing.T) {
 		nil, // wsManager
 		nil, // secretsRepo
 		nil, // healthManager
-		nil, // enforcer
+		newPermissiveEnforcer(),
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -99,7 +99,7 @@ func TestCreateSecret_RepositoryError(t *testing.T) {
 		nil, // wsManager
 		secretsRepo,
 		nil, // healthManager
-		nil, // enforcer
+		newPermissiveEnforcer(),
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -141,7 +141,7 @@ func TestGetSecret_Success(t *testing.T) {
 		nil, // wsManager
 		secretsRepo,
 		nil, // healthManager
-		nil, // enforcer
+		newPermissiveEnforcer(),
 	)
 	require.NoError(t, err)
 
@@ -172,7 +172,7 @@ func TestGetSecret_NotFound(t *testing.T) {
 		nil, // wsManager
 		secretsRepo,
 		nil, // healthManager
-		nil, // enforcer
+		newPermissiveEnforcer(),
 	)
 	require.NoError(t, err)
 
@@ -214,7 +214,7 @@ func TestListSecrets_Success(t *testing.T) {
 		nil, // wsManager
 		secretsRepo,
 		nil, // healthManager
-		nil, // enforcer
+		newPermissiveEnforcer(),
 	)
 	require.NoError(t, err)
 
@@ -245,7 +245,7 @@ func TestListSecrets_Empty(t *testing.T) {
 		nil, // wsManager
 		secretsRepo,
 		nil, // healthManager
-		nil, // enforcer
+		newPermissiveEnforcer(),
 	)
 	require.NoError(t, err)
 
@@ -270,7 +270,7 @@ func TestUpdateSecret_Success(t *testing.T) {
 		nil, // wsManager
 		secretsRepo,
 		nil, // healthManager
-		nil, // enforcer
+		newPermissiveEnforcer(),
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -306,7 +306,7 @@ func TestUpdateSecret_RepositoryError(t *testing.T) {
 		nil, // wsManager
 		secretsRepo,
 		nil, // healthManager
-		nil, // enforcer
+		newPermissiveEnforcer(),
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -337,7 +337,7 @@ func TestDeleteSecret_Success(t *testing.T) {
 		nil, // wsManager
 		secretsRepo,
 		nil, // healthManager
-		nil, // enforcer
+		newPermissiveEnforcer(),
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -367,7 +367,7 @@ func TestDeleteSecret_RepositoryError(t *testing.T) {
 		nil, // wsManager
 		secretsRepo,
 		nil, // healthManager
-		nil, // enforcer
+		newPermissiveEnforcer(),
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -516,7 +516,7 @@ func TestResolveSecretsForExecution_Success(t *testing.T) {
 		nil, // wsManager
 		secretsRepo,
 		nil, // healthManager
-		nil, // enforcer
+		newPermissiveEnforcer(),
 	)
 	require.NoError(t, err)
 
@@ -543,7 +543,7 @@ func TestResolveSecretsForExecution_Empty(t *testing.T) {
 		nil, // wsManager
 		secretsRepo,
 		nil, // healthManager
-		nil, // enforcer
+		newPermissiveEnforcer(),
 	)
 	require.NoError(t, err)
 
@@ -568,7 +568,7 @@ func TestResolveSecretsForExecution_EmptySecretName(t *testing.T) {
 		nil, // wsManager
 		secretsRepo,
 		nil, // healthManager
-		nil, // enforcer
+		newPermissiveEnforcer(),
 	)
 	require.NoError(t, err)
 
@@ -604,7 +604,7 @@ func TestResolveSecretsForExecution_DuplicateSecrets(t *testing.T) {
 		nil, // wsManager
 		secretsRepo,
 		nil, // healthManager
-		nil, // enforcer
+		newPermissiveEnforcer(),
 	)
 	require.NoError(t, err)
 
@@ -640,7 +640,7 @@ func TestResolveSecretsForExecution_SecretNotFound(t *testing.T) {
 		nil, // wsManager
 		secretsRepo,
 		nil, // healthManager
-		nil, // enforcer
+		newPermissiveEnforcer(),
 	)
 	require.NoError(t, err)
 
@@ -702,7 +702,7 @@ func TestApplyResolvedSecrets(t *testing.T) {
 		nil, // wsManager
 		nil, // secretsRepo
 		nil, // healthManager
-		nil, // enforcer
+		newPermissiveEnforcer(),
 	)
 	if err != nil {
 		t.Fatal(err)

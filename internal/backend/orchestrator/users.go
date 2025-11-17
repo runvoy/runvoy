@@ -255,8 +255,11 @@ func (s *Service) RevokeUser(ctx context.Context, email string) error {
 		return apperrors.ErrNotFound("user not found", nil)
 	}
 
-	if removeErr := s.removeRoleForUserFromEnforcer(email, user.Role); removeErr != nil {
-		return apperrors.ErrInternalError("failed to remove user role from authorization enforcer", removeErr)
+	// Only remove role from enforcer if the user has a role
+	if user.Role != "" {
+		if removeErr := s.removeRoleForUserFromEnforcer(email, user.Role); removeErr != nil {
+			return apperrors.ErrInternalError("failed to remove user role from authorization enforcer", removeErr)
+		}
 	}
 
 	if revokeErr := s.userRepo.RevokeUser(ctx, email); revokeErr != nil {
@@ -308,10 +311,6 @@ func (s *Service) syncUserRoleAfterCreate(ctx context.Context, email, role strin
 }
 
 func (s *Service) addRoleForUserToEnforcer(email, roleStr string) error {
-	if s.enforcer == nil {
-		return nil
-	}
-
 	role, err := authorization.NewRole(roleStr)
 	if err != nil {
 		return fmt.Errorf("invalid role %q for user %s: %w", roleStr, email, err)
@@ -325,10 +324,6 @@ func (s *Service) addRoleForUserToEnforcer(email, roleStr string) error {
 }
 
 func (s *Service) removeRoleForUserFromEnforcer(email, roleStr string) error {
-	if s.enforcer == nil {
-		return nil
-	}
-
 	role, err := authorization.NewRole(roleStr)
 	if err != nil {
 		return fmt.Errorf("invalid role %q for user %s: %w", roleStr, email, err)
