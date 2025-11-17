@@ -399,12 +399,12 @@ func TestRoleConstants(t *testing.T) {
 
 // TestActionConstants tests that action constants have expected values
 func TestActionConstants(t *testing.T) {
-	assert.Equal(t, "create", ActionCreate)
-	assert.Equal(t, "read", ActionRead)
-	assert.Equal(t, "update", ActionUpdate)
-	assert.Equal(t, "delete", ActionDelete)
-	assert.Equal(t, "execute", ActionExecute)
-	assert.Equal(t, "kill", ActionKill)
+	assert.Equal(t, Action("create"), ActionCreate)
+	assert.Equal(t, Action("read"), ActionRead)
+	assert.Equal(t, Action("update"), ActionUpdate)
+	assert.Equal(t, Action("delete"), ActionDelete)
+	assert.Equal(t, Action("execute"), ActionExecute)
+	assert.Equal(t, Action("kill"), ActionKill)
 }
 
 // TestRoleCreationAndValidation is an integration test showing typical usage patterns

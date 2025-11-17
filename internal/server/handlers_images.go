@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"runvoy/internal/api"
+	"runvoy/internal/auth/authorization"
 	apperrors "runvoy/internal/errors"
 
 	"github.com/go-chi/chi/v5"
@@ -22,7 +23,7 @@ func (r *Router) handleRegisterImage(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	if !r.authorizeRequest(req, "create") {
+	if !r.authorizeRequest(req, authorization.ActionCreate) {
 		writeErrorResponse(w, http.StatusForbidden, "Forbidden", "you do not have permission to register images")
 		return
 	}
