@@ -167,13 +167,13 @@ func (r *Router) updateLastUsedAsync(user *api.User, requestID string, logger *s
 		if user.LastUsed != nil {
 			userLogData["previous_last_used"] = user.LastUsed.Format(time.RFC3339)
 		}
-		logger.Debug("updating user's last_used timestamp (async)", "user", userLogData)
+		logger.Debug("updating user's last_used timestamp (async)", "context", userLogData)
 
 		newLastUsed, err := r.svc.UpdateUserLastUsed(ctx, email)
 		if err != nil {
-			logger.Error("failed to update user's last_used timestamp", "error", map[string]any{
+			logger.Error("failed to update user's last_used timestamp", "context", map[string]any{
 				"error": err,
-				"user": map[string]any{
+				"user": map[string]string{
 					"email": email,
 				},
 			})
@@ -185,7 +185,7 @@ func (r *Router) updateLastUsedAsync(user *api.User, requestID string, logger *s
 			if user.LastUsed != nil {
 				successLogData["previous_last_used"] = user.LastUsed.Format(time.RFC3339)
 			}
-			logger.Debug("user's last_used timestamp updated successfully", "user", successLogData)
+			logger.Debug("user's last_used timestamp updated successfully", "context", successLogData)
 		}
 	}(user.Email, requestID)
 	return &wg
