@@ -220,6 +220,7 @@ func (s *Service) hydrateExecutionOwnerships(ctx context.Context) error {
 	g, _ := errgroup.WithContext(ctx)
 
 	for _, execution := range executions {
+  // TODO WE SHOULD RETURN ERR HERE
 		if execution == nil || execution.ExecutionID == "" || execution.UserEmail == "" {
 			continue
 		}
