@@ -40,9 +40,9 @@ func NewUserRepository(
 	}
 }
 
-// UserItem represents the structure stored in DynamoDB.
+// userItem represents the structure stored in DynamoDB.
 // This keeps the database schema separate from the API types.
-type UserItem struct {
+type userItem struct {
 	APIKeyHash string    `dynamodbav:"api_key_hash"`
 	UserEmail  string    `dynamodbav:"user_email"`
 	Role       string    `dynamodbav:"role"`
@@ -65,7 +65,7 @@ func (r *UserRepository) CreateUser(
 	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
 
 	// Create the item to store
-	item := UserItem{
+	item := userItem{
 		APIKeyHash: apiKeyHash,
 		UserEmail:  user.Email,
 		Role:       user.Role,
@@ -143,7 +143,7 @@ func (r *UserRepository) GetUserByEmail(ctx context.Context, email string) (*api
 		return nil, nil
 	}
 
-	var item UserItem
+	var item userItem
 	if unmarshalErr := attributevalue.UnmarshalMap(result.Items[0], &item); unmarshalErr != nil {
 		return nil, apperrors.ErrDatabaseError("failed to unmarshal user",
 			fmt.Errorf("unmarshal user item: %w", unmarshalErr))
@@ -194,7 +194,7 @@ func (r *UserRepository) GetUserByAPIKeyHash(ctx context.Context, apiKeyHash str
 		return nil, nil
 	}
 
-	var item UserItem
+	var item userItem
 	if unmarshalErr := attributevalue.UnmarshalMap(result.Item, &item); unmarshalErr != nil {
 		return nil, unmarshalErr
 	}
@@ -601,7 +601,7 @@ func (r *UserRepository) ListUsers(ctx context.Context) ([]*api.User, error) {
 
 	users := make([]*api.User, 0, len(result.Items))
 	for _, item := range result.Items {
-		var dbUserItem UserItem
+		var dbUserItem userItem
 		if err = attributevalue.UnmarshalMap(item, &dbUserItem); err != nil {
 			reqLogger.Warn("failed to unmarshal user item", "error", err)
 			continue
