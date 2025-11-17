@@ -143,12 +143,6 @@ func (s *Service) loadUserRoles(ctx context.Context) error {
 
 	for _, user := range users {
 		g.Go(func() error {
-			// Skip users without roles
-			if user.Role == "" {
-				s.Logger.Debug("skipping user without role", "user", user.Email)
-				return nil
-			}
-
 			role, roleErr := authorization.NewRole(user.Role)
 			if roleErr != nil {
 				return fmt.Errorf("user %s has invalid role %q: %w", user.Email, user.Role, roleErr)
@@ -163,7 +157,7 @@ func (s *Service) loadUserRoles(ctx context.Context) error {
 	}
 
 	if waitErr := g.Wait(); waitErr != nil {
-		return fmt.Errorf("failed to load user roles into enforcer: %w", waitErr)
+		return errors.New("failed to load user roles into enforcer")
 	}
 
 	return nil

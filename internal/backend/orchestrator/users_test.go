@@ -764,8 +764,8 @@ func TestListUsers_Success(t *testing.T) {
 	repo := &mockUserRepository{
 		listUsersFunc: func(_ context.Context) ([]*api.User, error) {
 			return []*api.User{
-				{Email: "alice@example.com"},
-				{Email: "bob@example.com"},
+				{Email: "alice@example.com", Role: "admin"},
+				{Email: "bob@example.com", Role: "developer"},
 			}, nil
 		},
 	}
@@ -890,10 +890,10 @@ func TestListUsers_SortingByEmail(t *testing.T) {
 		listUsersFunc: func(_ context.Context) ([]*api.User, error) {
 			// Return users sorted by email (as the database now does)
 			return []*api.User{
-				{Email: "alice@example.com"},
-				{Email: "bob@example.com"},
-				{Email: "charlie@example.com"},
-				{Email: "zebra@example.com"},
+				{Email: "alice@example.com", Role: "admin"},
+				{Email: "bob@example.com", Role: "developer"},
+				{Email: "charlie@example.com", Role: "viewer"},
+				{Email: "zebra@example.com", Role: "operator"},
 			}, nil
 		},
 	}
