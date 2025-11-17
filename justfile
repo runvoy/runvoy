@@ -218,7 +218,7 @@ seed-admin-user email stack_name:
 
 # Run local development server with hot reloading
 local-dev-server:
-    reflex -r '\.go$' -s -- go run -ldflags {{build_flags}} ./cmd/local
+    reflex -r '\.(go|csv|env)$' -s -- go run -ldflags {{build_flags}} ./cmd/local
 
 # Update README.md with latest CLI help output
 # This ensures the README stays in sync with CLI commands

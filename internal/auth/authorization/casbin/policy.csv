@@ -14,6 +14,8 @@ p, role:operator, /api/v1/secrets/*, create, allow
 p, role:operator, /api/v1/secrets/*, delete, allow
 p, role:operator, /api/v1/secrets/*, read, allow
 p, role:operator, /api/v1/secrets/*, update, allow
+p, role:operator, /api/v1/users/, read, allow
+p, role:operator, /api/v1/users/*, read, allow
 p, role:developer, /api/v1/executions/*, create, allow
 p, role:developer, /api/v1/executions/*, execute, allow
 p, role:developer, /api/v1/executions/*, kill, allow
@@ -32,5 +34,8 @@ p, owner, /api/v1/executions/:id, *, allow
 p, owner, /api/v1/images/:id, delete, allow
 p, owner, /api/v1/secrets/:id, *, allow
 p, role:developer, /api/v1/users/*, *, deny
-p, role:operator, /api/v1/users/*, *, deny
+p, role:operator, /api/v1/users/, write, allow
+p, role:operator, /api/v1/users/*, create, allow
+p, role:operator, /api/v1/users/*, delete, allow
+p, role:operator, /api/v1/users/*, update, allow
 p, role:viewer, /api/v1/users/*, *, deny
