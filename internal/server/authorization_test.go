@@ -405,6 +405,274 @@ func TestRoleBasedAccessExpectations(t *testing.T) {
 	assert.Contains(t, rolePermissions, "viewer", "viewer role should be defined")
 }
 
+// newTestEnforcerWithRole creates a test enforcer with a specific role assigned to a user.
+// This allows testing role-based authorization with the actual Casbin policies.
+func newTestEnforcerWithRole(t *testing.T, userEmail string, role authorization.Role) *authorization.Enforcer {
+	enf, err := authorization.NewEnforcer(testutil.SilentLogger())
+	require.NoError(t, err)
+
+	err = enf.AddRoleForUser(userEmail, role)
+	require.NoError(t, err)
+
+	return enf
+}
+
+// TestListEndpointAuthorization tests that list endpoints (without /*) are properly authorized
+// for each role. This ensures we don't have the same issue where keyMatch2 patterns don't match
+// list endpoints that lack a trailing path segment.
+func TestListEndpointAuthorization(t *testing.T) {
+	tests := []struct {
+		name        string
+		role        authorization.Role
+		userEmail   string
+		endpoint    string
+		action      string
+		shouldAllow bool
+		description string
+	}{
+		// Admin role - should have access to all list endpoints
+		{
+			name:        "admin can list images",
+			role:        authorization.RoleAdmin,
+			userEmail:   "admin@test.com",
+			endpoint:    "/api/v1/images",
+			action:      "read",
+			shouldAllow: true,
+			description: "admin should have access to list images endpoint",
+		},
+		{
+			name:        "admin can list secrets",
+			role:        authorization.RoleAdmin,
+			userEmail:   "admin@test.com",
+			endpoint:    "/api/v1/secrets",
+			action:      "read",
+			shouldAllow: true,
+			description: "admin should have access to list secrets endpoint",
+		},
+		{
+			name:        "admin can list executions",
+			role:        authorization.RoleAdmin,
+			userEmail:   "admin@test.com",
+			endpoint:    "/api/v1/executions",
+			action:      "read",
+			shouldAllow: true,
+			description: "admin should have access to list executions endpoint",
+		},
+		// Operator role - should have access to images, secrets, and executions list endpoints
+		{
+			name:        "operator can list images",
+			role:        authorization.RoleOperator,
+			userEmail:   "operator@test.com",
+			endpoint:    "/api/v1/images",
+			action:      "read",
+			shouldAllow: true,
+			description: "operator should have access to list images endpoint",
+		},
+		{
+			name:        "operator can list secrets",
+			role:        authorization.RoleOperator,
+			userEmail:   "operator@test.com",
+			endpoint:    "/api/v1/secrets",
+			action:      "read",
+			shouldAllow: true,
+			description: "operator should have access to list secrets endpoint",
+		},
+		{
+			name:        "operator can list executions",
+			role:        authorization.RoleOperator,
+			userEmail:   "operator@test.com",
+			endpoint:    "/api/v1/executions",
+			action:      "read",
+			shouldAllow: true,
+			description: "operator should have access to list executions endpoint",
+		},
+		// Developer role - should have access to images, secrets, and executions list endpoints
+		{
+			name:        "developer can list images",
+			role:        authorization.RoleDeveloper,
+			userEmail:   "developer@test.com",
+			endpoint:    "/api/v1/images",
+			action:      "read",
+			shouldAllow: true,
+			description: "developer should have access to list images endpoint",
+		},
+		{
+			name:        "developer can list secrets",
+			role:        authorization.RoleDeveloper,
+			userEmail:   "developer@test.com",
+			endpoint:    "/api/v1/secrets",
+			action:      "read",
+			shouldAllow: true,
+			description: "developer should have access to list secrets endpoint",
+		},
+		{
+			name:        "developer can list executions",
+			role:        authorization.RoleDeveloper,
+			userEmail:   "developer@test.com",
+			endpoint:    "/api/v1/executions",
+			action:      "read",
+			shouldAllow: true,
+			description: "developer should have access to list executions endpoint",
+		},
+		// Viewer role - should only have access to executions list endpoint
+		{
+			name:        "viewer can list executions",
+			role:        authorization.RoleViewer,
+			userEmail:   "viewer@test.com",
+			endpoint:    "/api/v1/executions",
+			action:      "read",
+			shouldAllow: true,
+			description: "viewer should have access to list executions endpoint",
+		},
+		{
+			name:        "viewer cannot list images",
+			role:        authorization.RoleViewer,
+			userEmail:   "viewer@test.com",
+			endpoint:    "/api/v1/images",
+			action:      "read",
+			shouldAllow: false,
+			description: "viewer should not have access to list images endpoint",
+		},
+		{
+			name:        "viewer cannot list secrets",
+			role:        authorization.RoleViewer,
+			userEmail:   "viewer@test.com",
+			endpoint:    "/api/v1/secrets",
+			action:      "read",
+			shouldAllow: false,
+			description: "viewer should not have access to list secrets endpoint",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			enforcer := newTestEnforcerWithRole(t, tt.userEmail, tt.role)
+
+			svc, err := orchestrator.NewService(context.Background(),
+				&testUserRepository{},
+				nil,
+				nil,
+				&testTokenRepository{},
+				nil,
+				testutil.SilentLogger(),
+				constants.AWS,
+				nil,
+				nil,
+				nil,
+				enforcer,
+			)
+			require.NoError(t, err)
+
+			router := &Router{svc: svc}
+			user := &api.User{Email: tt.userEmail}
+			req := createAuthenticatedRequest("GET", tt.endpoint, user)
+
+			allowed := router.authorizeRequest(req, tt.action)
+			assert.Equal(t, tt.shouldAllow, allowed, tt.description)
+		})
+	}
+}
+
+// TestResourceSpecificEndpointAuthorization tests that resource-specific endpoints (with /*)
+// are properly authorized. This complements the list endpoint tests to ensure both patterns work.
+func TestResourceSpecificEndpointAuthorization(t *testing.T) {
+	tests := []struct {
+		name        string
+		role        authorization.Role
+		userEmail   string
+		endpoint    string
+		action      string
+		shouldAllow bool
+		description string
+	}{
+		// Operator role - should have access to specific image resources
+		{
+			name:        "operator can read specific image",
+			role:        authorization.RoleOperator,
+			userEmail:   "operator@test.com",
+			endpoint:    "/api/v1/images/alpine:latest",
+			action:      "read",
+			shouldAllow: true,
+			description: "operator should have access to read specific image",
+		},
+		{
+			name:        "operator can create image",
+			role:        authorization.RoleOperator,
+			userEmail:   "operator@test.com",
+			endpoint:    "/api/v1/images/ubuntu:22.04",
+			action:      "create",
+			shouldAllow: true,
+			description: "operator should have access to create image",
+		},
+		{
+			name:        "operator can delete image",
+			role:        authorization.RoleOperator,
+			userEmail:   "operator@test.com",
+			endpoint:    "/api/v1/images/alpine:latest",
+			action:      "delete",
+			shouldAllow: true,
+			description: "operator should have access to delete image",
+		},
+		// Developer role - should have read access to specific images
+		{
+			name:        "developer can read specific image",
+			role:        authorization.RoleDeveloper,
+			userEmail:   "developer@test.com",
+			endpoint:    "/api/v1/images/alpine:latest",
+			action:      "read",
+			shouldAllow: true,
+			description: "developer should have access to read specific image",
+		},
+		{
+			name:        "developer cannot create image",
+			role:        authorization.RoleDeveloper,
+			userEmail:   "developer@test.com",
+			endpoint:    "/api/v1/images/ubuntu:22.04",
+			action:      "create",
+			shouldAllow: false,
+			description: "developer should not have access to create image",
+		},
+		// Viewer role - should not have access to specific images
+		{
+			name:        "viewer cannot read specific image",
+			role:        authorization.RoleViewer,
+			userEmail:   "viewer@test.com",
+			endpoint:    "/api/v1/images/alpine:latest",
+			action:      "read",
+			shouldAllow: false,
+			description: "viewer should not have access to read specific image",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			enforcer := newTestEnforcerWithRole(t, tt.userEmail, tt.role)
+
+			svc, err := orchestrator.NewService(context.Background(),
+				&testUserRepository{},
+				nil,
+				nil,
+				&testTokenRepository{},
+				nil,
+				testutil.SilentLogger(),
+				constants.AWS,
+				nil,
+				nil,
+				nil,
+				enforcer,
+			)
+			require.NoError(t, err)
+
+			router := &Router{svc: svc}
+			user := &api.User{Email: tt.userEmail}
+			req := createAuthenticatedRequest("GET", tt.endpoint, user)
+
+			allowed := router.authorizeRequest(req, tt.action)
+			assert.Equal(t, tt.shouldAllow, allowed, tt.description)
+		})
+	}
+}
+
 // testUserRepositoryWithRoles is a test user repository that returns users with valid roles
 // for testing with enforcer initialization
 type testUserRepositoryWithRoles struct{}
