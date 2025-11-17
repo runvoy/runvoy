@@ -9,6 +9,7 @@ import (
 
 	"runvoy/internal/api"
 	"runvoy/internal/auth"
+	"runvoy/internal/auth/authorization"
 	"runvoy/internal/constants"
 	apperrors "runvoy/internal/errors"
 	loggerPkg "runvoy/internal/logger"
@@ -120,13 +121,13 @@ func handleAuthError(w http.ResponseWriter, err error) {
 // authorizeRequest checks if a user can perform an action on a resource.
 // Returns true if allowed, false if denied.
 // If user is not found in context, returns false (not authorized).
-func (r *Router) authorizeRequest(req *http.Request, action string) bool {
+func (r *Router) authorizeRequest(req *http.Request, action authorization.Action) bool {
 	ctx := req.Context()
 	logger := r.GetLoggerFromContext(ctx)
 
 	user, ok := r.getUserFromContext(req)
 	if !ok {
-		logger.Warn("authorization denied: user not found in context", "context", map[string]string{
+		logger.Warn("authorization denied: user not found in context", "context", map[string]any{
 			"resource": req.URL.Path,
 			"action":   action,
 		})
@@ -139,8 +140,8 @@ func (r *Router) authorizeRequest(req *http.Request, action string) bool {
 
 	allowed, err := enforcer.Enforce(userEmail, resourceObject, action)
 	if err != nil {
-		logger.Error("authorization check error", "context", map[string]string{
-			"error":    err.Error(),
+		logger.Error("authorization check error", "context", map[string]any{
+			"error":    err,
 			"user":     userEmail,
 			"resource": resourceObject,
 			"action":   action,
@@ -149,7 +150,7 @@ func (r *Router) authorizeRequest(req *http.Request, action string) bool {
 	}
 
 	if !allowed {
-		logger.Warn("authorization denied", "context", map[string]string{
+		logger.Warn("authorization denied", "context", map[string]any{
 			"user":     userEmail,
 			"resource": resourceObject,
 			"action":   action,

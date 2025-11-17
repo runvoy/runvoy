@@ -122,10 +122,15 @@ func NewEnforcer(logger *slog.Logger) (*Enforcer, error) {
 // Example usage:
 //
 //	allowed, err := e.Enforce("user@example.com", "/api/secrets/secret-123", "read")
-func (e *Enforcer) Enforce(subject, object, action string) (bool, error) {
-	allowed, err := e.enforcer.Enforce(subject, object, action)
+func (e *Enforcer) Enforce(subject, object string, action Action) (bool, error) {
+	allowed, err := e.enforcer.Enforce(subject, object, string(action))
 	if err != nil {
-		e.logger.Error("casbin enforcement error", "subject", subject, "object", object, "action", action, "error", err)
+		e.logger.Error("casbin enforcement error", "context", map[string]any{
+			"subject": subject,
+			"object":  object,
+			"action":  action,
+			"error":   err,
+		})
 		return false, fmt.Errorf("casbin enforcement failed: %w", err)
 	}
 

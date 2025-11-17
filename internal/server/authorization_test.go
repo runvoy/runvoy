@@ -426,7 +426,7 @@ func TestListEndpointAuthorization(t *testing.T) {
 		role        authorization.Role
 		userEmail   string
 		endpoint    string
-		action      string
+		action      authorization.Action
 		shouldAllow bool
 		description string
 	}{
@@ -436,7 +436,7 @@ func TestListEndpointAuthorization(t *testing.T) {
 			role:        authorization.RoleAdmin,
 			userEmail:   "admin@test.com",
 			endpoint:    "/api/v1/images",
-			action:      "read",
+			action:      authorization.ActionRead,
 			shouldAllow: true,
 			description: "admin should have access to list images endpoint",
 		},
@@ -445,7 +445,7 @@ func TestListEndpointAuthorization(t *testing.T) {
 			role:        authorization.RoleAdmin,
 			userEmail:   "admin@test.com",
 			endpoint:    "/api/v1/secrets",
-			action:      "read",
+			action:      authorization.ActionRead,
 			shouldAllow: true,
 			description: "admin should have access to list secrets endpoint",
 		},
@@ -454,7 +454,7 @@ func TestListEndpointAuthorization(t *testing.T) {
 			role:        authorization.RoleAdmin,
 			userEmail:   "admin@test.com",
 			endpoint:    "/api/v1/executions",
-			action:      "read",
+			action:      authorization.ActionRead,
 			shouldAllow: true,
 			description: "admin should have access to list executions endpoint",
 		},
@@ -464,7 +464,7 @@ func TestListEndpointAuthorization(t *testing.T) {
 			role:        authorization.RoleOperator,
 			userEmail:   "operator@test.com",
 			endpoint:    "/api/v1/images",
-			action:      "read",
+			action:      authorization.ActionRead,
 			shouldAllow: true,
 			description: "operator should have access to list images endpoint",
 		},
@@ -473,7 +473,7 @@ func TestListEndpointAuthorization(t *testing.T) {
 			role:        authorization.RoleOperator,
 			userEmail:   "operator@test.com",
 			endpoint:    "/api/v1/secrets",
-			action:      "read",
+			action:      authorization.ActionRead,
 			shouldAllow: true,
 			description: "operator should have access to list secrets endpoint",
 		},
@@ -482,7 +482,7 @@ func TestListEndpointAuthorization(t *testing.T) {
 			role:        authorization.RoleOperator,
 			userEmail:   "operator@test.com",
 			endpoint:    "/api/v1/executions",
-			action:      "read",
+			action:      authorization.ActionRead,
 			shouldAllow: true,
 			description: "operator should have access to list executions endpoint",
 		},
@@ -492,7 +492,7 @@ func TestListEndpointAuthorization(t *testing.T) {
 			role:        authorization.RoleDeveloper,
 			userEmail:   "developer@test.com",
 			endpoint:    "/api/v1/images",
-			action:      "read",
+			action:      authorization.ActionRead,
 			shouldAllow: true,
 			description: "developer should have access to list images endpoint",
 		},
@@ -501,7 +501,7 @@ func TestListEndpointAuthorization(t *testing.T) {
 			role:        authorization.RoleDeveloper,
 			userEmail:   "developer@test.com",
 			endpoint:    "/api/v1/secrets",
-			action:      "read",
+			action:      authorization.ActionRead,
 			shouldAllow: true,
 			description: "developer should have access to list secrets endpoint",
 		},
@@ -510,7 +510,7 @@ func TestListEndpointAuthorization(t *testing.T) {
 			role:        authorization.RoleDeveloper,
 			userEmail:   "developer@test.com",
 			endpoint:    "/api/v1/executions",
-			action:      "read",
+			action:      authorization.ActionRead,
 			shouldAllow: true,
 			description: "developer should have access to list executions endpoint",
 		},
@@ -520,7 +520,7 @@ func TestListEndpointAuthorization(t *testing.T) {
 			role:        authorization.RoleViewer,
 			userEmail:   "viewer@test.com",
 			endpoint:    "/api/v1/executions",
-			action:      "read",
+			action:      authorization.ActionRead,
 			shouldAllow: true,
 			description: "viewer should have access to list executions endpoint",
 		},
@@ -529,7 +529,7 @@ func TestListEndpointAuthorization(t *testing.T) {
 			role:        authorization.RoleViewer,
 			userEmail:   "viewer@test.com",
 			endpoint:    "/api/v1/images",
-			action:      "read",
+			action:      authorization.ActionRead,
 			shouldAllow: false,
 			description: "viewer should not have access to list images endpoint",
 		},
@@ -538,7 +538,7 @@ func TestListEndpointAuthorization(t *testing.T) {
 			role:        authorization.RoleViewer,
 			userEmail:   "viewer@test.com",
 			endpoint:    "/api/v1/secrets",
-			action:      "read",
+			action:      authorization.ActionRead,
 			shouldAllow: false,
 			description: "viewer should not have access to list secrets endpoint",
 		},
@@ -581,7 +581,7 @@ func TestResourceSpecificEndpointAuthorization(t *testing.T) {
 		role        authorization.Role
 		userEmail   string
 		endpoint    string
-		action      string
+		action      authorization.Action
 		shouldAllow bool
 		description string
 	}{
@@ -591,7 +591,7 @@ func TestResourceSpecificEndpointAuthorization(t *testing.T) {
 			role:        authorization.RoleOperator,
 			userEmail:   "operator@test.com",
 			endpoint:    "/api/v1/images/alpine:latest",
-			action:      "read",
+			action:      authorization.ActionRead,
 			shouldAllow: true,
 			description: "operator should have access to read specific image",
 		},
@@ -600,7 +600,7 @@ func TestResourceSpecificEndpointAuthorization(t *testing.T) {
 			role:        authorization.RoleOperator,
 			userEmail:   "operator@test.com",
 			endpoint:    "/api/v1/images/ubuntu:22.04",
-			action:      "create",
+			action:      authorization.ActionCreate,
 			shouldAllow: true,
 			description: "operator should have access to create image",
 		},
@@ -609,7 +609,7 @@ func TestResourceSpecificEndpointAuthorization(t *testing.T) {
 			role:        authorization.RoleOperator,
 			userEmail:   "operator@test.com",
 			endpoint:    "/api/v1/images/alpine:latest",
-			action:      "delete",
+			action:      authorization.ActionDelete,
 			shouldAllow: true,
 			description: "operator should have access to delete image",
 		},
@@ -619,7 +619,7 @@ func TestResourceSpecificEndpointAuthorization(t *testing.T) {
 			role:        authorization.RoleDeveloper,
 			userEmail:   "developer@test.com",
 			endpoint:    "/api/v1/images/alpine:latest",
-			action:      "read",
+			action:      authorization.ActionRead,
 			shouldAllow: true,
 			description: "developer should have access to read specific image",
 		},
@@ -628,7 +628,7 @@ func TestResourceSpecificEndpointAuthorization(t *testing.T) {
 			role:        authorization.RoleDeveloper,
 			userEmail:   "developer@test.com",
 			endpoint:    "/api/v1/images/ubuntu:22.04",
-			action:      "create",
+			action:      authorization.ActionCreate,
 			shouldAllow: false,
 			description: "developer should not have access to create image",
 		},
@@ -638,7 +638,7 @@ func TestResourceSpecificEndpointAuthorization(t *testing.T) {
 			role:        authorization.RoleViewer,
 			userEmail:   "viewer@test.com",
 			endpoint:    "/api/v1/images/alpine:latest",
-			action:      "read",
+			action:      authorization.ActionRead,
 			shouldAllow: false,
 			description: "viewer should not have access to read specific image",
 		},

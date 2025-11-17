@@ -25,7 +25,7 @@ func (s *Service) ValidateExecutionResourceAccess(
 
 	if image := strings.TrimSpace(req.Image); image != "" {
 		imagePath := fmt.Sprintf("/api/v1/images/%s", image)
-		allowed, err := enforcer.Enforce(userEmail, imagePath, "read")
+		allowed, err := enforcer.Enforce(userEmail, imagePath, authorization.ActionRead)
 		if err != nil {
 			return apperrors.ErrInternalError(
 				"failed to validate image access",

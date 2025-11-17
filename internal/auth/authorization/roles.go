@@ -26,15 +26,18 @@ const (
 	RoleViewer Role = "viewer"
 )
 
+// Action is a typed string representing an action in the authorization system.
+type Action string
+
 // Action constants for Casbin enforcement.
 // These correspond to the HTTP methods mapped to CRUD actions.
 const (
-	ActionCreate  = "create"
-	ActionRead    = "read"
-	ActionUpdate  = "update"
-	ActionDelete  = "delete"
-	ActionExecute = "execute"
-	ActionKill    = "kill"
+	ActionCreate  Action = "create"
+	ActionRead    Action = "read"
+	ActionUpdate  Action = "update"
+	ActionDelete  Action = "delete"
+	ActionExecute Action = "execute"
+	ActionKill    Action = "kill"
 )
 
 // NewRole creates a new Role from a string, validating it against known roles.
