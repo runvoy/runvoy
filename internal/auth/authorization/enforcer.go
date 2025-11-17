@@ -1,5 +1,5 @@
 // Package authorization provides Casbin-based authorization enforcement for runvoy.
-// It implements role-based access control (RBAC) with resource ownership.
+// It implements role-based access control (RBAC) with resource ownership support.
 package authorization
 
 import (
@@ -199,10 +199,6 @@ func (e *Enforcer) AddOwnershipForResource(resourceID, ownerEmail string) error 
 }
 
 // RemoveOwnershipForResource removes ownership mapping for a resource.
-//
-// Example usage:
-//
-//	err := e.RemoveOwnershipForResource("secret:secret-123", "user@example.com")
 func (e *Enforcer) RemoveOwnershipForResource(resourceID, ownerEmail string) error {
 	removed, err := e.enforcer.RemoveGroupingPolicy(resourceID, ownerEmail)
 	if err != nil {
@@ -214,6 +210,18 @@ func (e *Enforcer) RemoveOwnershipForResource(resourceID, ownerEmail string) err
 	}
 
 	e.logger.Debug("ownership removed for resource", "resource", resourceID, "owner", ownerEmail)
+	return nil
+}
+
+// LoadResourceOwnerships loads resource ownership mappings into the enforcer.
+func (e *Enforcer) LoadResourceOwnerships(ownerships map[string]string) error {
+	for resourceID, ownerEmail := range ownerships {
+		if err := e.AddOwnershipForResource(resourceID, ownerEmail); err != nil {
+			return fmt.Errorf("failed to load ownership for resource %s: %w", resourceID, err)
+		}
+	}
+
+	e.logger.Info("loaded resource ownerships", "count", len(ownerships))
 	return nil
 }
 
@@ -240,27 +248,6 @@ func (e *Enforcer) LoadRolesForUsers(userRoles map[string]string) error {
 	}
 
 	e.logger.Debug("loaded user roles", "count", len(userRoles))
-	return nil
-}
-
-// LoadResourceOwnerships loads resource ownership mappings into the enforcer.
-// This is typically called at startup to initialize the enforcer with current ownerships.
-//
-// Example usage:
-//
-//	ownerships := map[string]string{
-//	  "secret:secret-123": "user@example.com",
-//	  "execution:exec-456": "user@example.com",
-//	}
-//	err := e.LoadResourceOwnerships(ownerships)
-func (e *Enforcer) LoadResourceOwnerships(ownerships map[string]string) error {
-	for resourceID, ownerEmail := range ownerships {
-		if err := e.AddOwnershipForResource(resourceID, ownerEmail); err != nil {
-			return fmt.Errorf("failed to load ownership for resource %s: %w", resourceID, err)
-		}
-	}
-
-	e.logger.Info("loaded resource ownerships", "count", len(ownerships))
 	return nil
 }
 

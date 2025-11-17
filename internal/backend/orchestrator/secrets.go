@@ -104,9 +104,6 @@ func (s *Service) DeleteSecret(ctx context.Context, name string) error {
 		return apperrors.ErrInternalError("failed to delete secret", fmt.Errorf("delete secret: %w", err))
 	}
 
-	// Note: Ownership mappings are cleaned up at service restart since they're only in-memory.
-	// For future persistence, implement cleanup here via a method on the enforcer.
-
 	return nil
 }
 

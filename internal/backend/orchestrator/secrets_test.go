@@ -18,7 +18,7 @@ func TestCreateSecret_Success(t *testing.T) {
 	secretsRepo := &mockSecretsRepository{}
 	logger := testutil.SilentLogger()
 
-	service, err := NewService(
+	service, err := NewService(context.Background(),
 		&mockUserRepository{},
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
@@ -50,7 +50,7 @@ func TestCreateSecret_Success(t *testing.T) {
 func TestCreateSecret_NoRepository(t *testing.T) {
 	logger := testutil.SilentLogger()
 
-	service, err := NewService(
+	service, err := NewService(context.Background(),
 		&mockUserRepository{},
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
@@ -87,7 +87,7 @@ func TestCreateSecret_RepositoryError(t *testing.T) {
 	}
 	logger := testutil.SilentLogger()
 
-	service, err := NewService(
+	service, err := NewService(context.Background(),
 		&mockUserRepository{},
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
@@ -129,7 +129,7 @@ func TestGetSecret_Success(t *testing.T) {
 	}
 	logger := testutil.SilentLogger()
 
-	service, err := NewService(
+	service, err := NewService(context.Background(),
 		&mockUserRepository{},
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
@@ -160,7 +160,7 @@ func TestGetSecret_NotFound(t *testing.T) {
 	}
 	logger := testutil.SilentLogger()
 
-	service, err := NewService(
+	service, err := NewService(context.Background(),
 		&mockUserRepository{},
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
@@ -202,7 +202,7 @@ func TestListSecrets_Success(t *testing.T) {
 	}
 	logger := testutil.SilentLogger()
 
-	service, err := NewService(
+	service, err := NewService(context.Background(),
 		&mockUserRepository{},
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
@@ -233,7 +233,7 @@ func TestListSecrets_Empty(t *testing.T) {
 	}
 	logger := testutil.SilentLogger()
 
-	service, err := NewService(
+	service, err := NewService(context.Background(),
 		&mockUserRepository{},
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
@@ -258,7 +258,7 @@ func TestUpdateSecret_Success(t *testing.T) {
 	secretsRepo := &mockSecretsRepository{}
 	logger := testutil.SilentLogger()
 
-	service, err := NewService(
+	service, err := NewService(context.Background(),
 		&mockUserRepository{},
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
@@ -294,7 +294,7 @@ func TestUpdateSecret_RepositoryError(t *testing.T) {
 	}
 	logger := testutil.SilentLogger()
 
-	service, err := NewService(
+	service, err := NewService(context.Background(),
 		&mockUserRepository{},
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
@@ -325,7 +325,7 @@ func TestDeleteSecret_Success(t *testing.T) {
 	secretsRepo := &mockSecretsRepository{}
 	logger := testutil.SilentLogger()
 
-	service, err := NewService(
+	service, err := NewService(context.Background(),
 		&mockUserRepository{},
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
@@ -355,7 +355,7 @@ func TestDeleteSecret_RepositoryError(t *testing.T) {
 	}
 	logger := testutil.SilentLogger()
 
-	service, err := NewService(
+	service, err := NewService(context.Background(),
 		&mockUserRepository{},
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
@@ -399,7 +399,7 @@ func TestResolveSecretsForExecution_Success(t *testing.T) {
 	}
 	logger := testutil.SilentLogger()
 
-	service, err := NewService(
+	service, err := NewService(context.Background(),
 		&mockUserRepository{},
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
@@ -426,7 +426,7 @@ func TestResolveSecretsForExecution_Empty(t *testing.T) {
 	secretsRepo := &mockSecretsRepository{}
 	logger := testutil.SilentLogger()
 
-	service, err := NewService(
+	service, err := NewService(context.Background(),
 		&mockUserRepository{},
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
@@ -451,7 +451,7 @@ func TestResolveSecretsForExecution_EmptySecretName(t *testing.T) {
 	secretsRepo := &mockSecretsRepository{}
 	logger := testutil.SilentLogger()
 
-	service, err := NewService(
+	service, err := NewService(context.Background(),
 		&mockUserRepository{},
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
@@ -487,7 +487,7 @@ func TestResolveSecretsForExecution_DuplicateSecrets(t *testing.T) {
 	}
 	logger := testutil.SilentLogger()
 
-	service, err := NewService(
+	service, err := NewService(context.Background(),
 		&mockUserRepository{},
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
@@ -523,7 +523,7 @@ func TestResolveSecretsForExecution_SecretNotFound(t *testing.T) {
 	}
 	logger := testutil.SilentLogger()
 
-	service, err := NewService(
+	service, err := NewService(context.Background(),
 		&mockUserRepository{},
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
@@ -585,7 +585,7 @@ func TestApplyResolvedSecrets(t *testing.T) {
 	}
 
 	logger := testutil.SilentLogger()
-	service, err := NewService(
+	service, err := NewService(context.Background(),
 		&mockUserRepository{},
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},

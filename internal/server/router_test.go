@@ -18,7 +18,7 @@ import (
 func TestNewRouter(t *testing.T) {
 	tokenRepo := &testTokenRepository{}
 
-	svc, err := orchestrator.NewService(nil, nil, nil, tokenRepo, nil,
+	svc, err := orchestrator.NewService(context.Background(), nil, nil, nil, tokenRepo, nil,
 		testutil.SilentLogger(), constants.AWS, nil, nil, nil, nil)
 	require.NoError(t, err)
 
@@ -40,7 +40,7 @@ func TestNewRouter(t *testing.T) {
 func TestRouter_ChiMux(t *testing.T) {
 	tokenRepo := &testTokenRepository{}
 
-	svc, err := orchestrator.NewService(nil, nil, nil, tokenRepo, nil,
+	svc, err := orchestrator.NewService(context.Background(), nil, nil, nil, tokenRepo, nil,
 		testutil.SilentLogger(), constants.AWS, nil, nil, nil, nil)
 	require.NoError(t, err)
 	router := NewRouter(svc, 0)
@@ -53,7 +53,7 @@ func TestRouter_ChiMux(t *testing.T) {
 func TestRouter_Handler(t *testing.T) {
 	tokenRepo := &testTokenRepository{}
 
-	svc, err := orchestrator.NewService(nil, nil, nil, tokenRepo, nil,
+	svc, err := orchestrator.NewService(context.Background(), nil, nil, nil, tokenRepo, nil,
 		testutil.SilentLogger(), constants.AWS, nil, nil, nil, nil)
 	require.NoError(t, err)
 	router := NewRouter(svc, 0)
@@ -66,11 +66,11 @@ func TestRouter_Handler(t *testing.T) {
 func TestRouter_WithContext(t *testing.T) {
 	tokenRepo := &testTokenRepository{}
 
-	svc, err := orchestrator.NewService(nil, nil, nil, tokenRepo, nil,
+	svc, err := orchestrator.NewService(context.Background(), nil, nil, nil, tokenRepo, nil,
 		testutil.SilentLogger(), constants.AWS, nil, nil, nil, nil)
 	require.NoError(t, err)
 	tokenRepo2 := &testTokenRepository{}
-	svc2, err := orchestrator.NewService(nil, nil, nil, tokenRepo2, nil,
+	svc2, err := orchestrator.NewService(context.Background(), nil, nil, nil, tokenRepo2, nil,
 		testutil.SilentLogger(), constants.AWS, nil, nil, nil, nil)
 	require.NoError(t, err)
 	router := NewRouter(svc, 0)
@@ -85,7 +85,7 @@ func TestRouter_WithContext(t *testing.T) {
 func TestRouter_ServeHTTP(t *testing.T) {
 	tokenRepo := &testTokenRepository{}
 
-	svc, err := orchestrator.NewService(nil, nil, nil, tokenRepo, nil,
+	svc, err := orchestrator.NewService(context.Background(), nil, nil, nil, tokenRepo, nil,
 		testutil.SilentLogger(), constants.AWS, nil, nil, nil, nil)
 	require.NoError(t, err)
 	router := NewRouter(svc, 0)

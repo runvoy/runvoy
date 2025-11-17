@@ -422,7 +422,7 @@ func newTestService(
 	mockRunner := &testRunner{}
 	tokenRepo := &testTokenRepository{}
 
-	svc, err := orchestrator.NewService(
+	svc, err := orchestrator.NewService(context.Background(),
 		userRepo,
 		execRepo,
 		nil, // connRepo

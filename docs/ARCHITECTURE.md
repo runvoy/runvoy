@@ -359,10 +359,10 @@ Four predefined roles control access to different resources:
 #### Resource Ownership
 
 For fine-grained access control, resources track ownership:
-- **Secrets**: Creator is marked as owner when created
-- **Executions**: Executor is marked as owner when started
+- **Secrets**: Creator is marked as owner when created (write-time updates)
+- **Executions**: Executor ownership is hydrated at startup only (executions are short-lived and not re-synced post-creation)
 - Owners can access their resources with full permissions via the resource-owner (g2) matcher in Casbin
-- Ownership mappings are in-memory (reset on service restart)
+- Ownership mappings are hydrated at startup from the database; only secrets update the mapping during runtime
 
 #### Authorization Data Flow
 
@@ -372,7 +372,7 @@ For fine-grained access control, resources track ownership:
    - Handler calls `authorizeRequest()` to check general endpoint permission
    - For `/run` endpoint: Service validates access to specific resources (image, secrets) via `ValidateExecutionResourceAccess()`
 3. **Access Denied**: Request is rejected with appropriate HTTP status and error code
-4. **Resource Creation**: Ownership mappings are automatically created for new secrets and executions
+4. **Resource Creation**: Ownership mappings are automatically created for new secrets; execution ownership relies on boot-time hydration
 
 #### Casbin Model and Policies
 

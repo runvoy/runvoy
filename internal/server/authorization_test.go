@@ -28,7 +28,7 @@ func createAuthenticatedRequest(method, path string, user *api.User) *http.Reque
 // TestAuthorizeRequest tests the authorization helper function with nil enforcer
 func TestAuthorizeRequest(t *testing.T) {
 	t.Run("with nil enforcer allows access", func(t *testing.T) {
-		svc, _ := orchestrator.NewService(
+		svc, _ := orchestrator.NewService(context.Background(),
 			&testUserRepository{},
 			nil,
 			nil,
@@ -53,7 +53,7 @@ func TestAuthorizeRequest(t *testing.T) {
 // TestHandleCreateUserAuthorizationDenied tests authorization denial on user creation
 func TestHandleCreateUserAuthorizationDenied(t *testing.T) {
 	userRepo := &testUserRepository{}
-	svc, _ := orchestrator.NewService(
+	svc, _ := orchestrator.NewService(context.Background(),
 		userRepo,
 		nil,
 		nil,
@@ -173,7 +173,7 @@ func TestValidateExecutionResourceAccess(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc, _ := orchestrator.NewService(
+			svc, _ := orchestrator.NewService(context.Background(),
 				&testUserRepository{},
 				nil,
 				nil,
@@ -203,7 +203,7 @@ func TestValidateExecutionResourceAccess(t *testing.T) {
 // TestHandleListUsersWithAuthorization tests list users with authorization checks
 func TestHandleListUsersWithAuthorization(t *testing.T) {
 	userRepo := &testUserRepository{}
-	svc, _ := orchestrator.NewService(
+	svc, _ := orchestrator.NewService(context.Background(),
 		userRepo,
 		nil,
 		nil,
@@ -235,7 +235,7 @@ func TestHandleListUsersWithAuthorization(t *testing.T) {
 // TestHandleListUsersUnauthenticated tests unauthorized access
 func TestHandleListUsersUnauthenticated(t *testing.T) {
 	userRepo := &testUserRepository{}
-	svc, _ := orchestrator.NewService(
+	svc, _ := orchestrator.NewService(context.Background(),
 		userRepo,
 		nil,
 		nil,
@@ -266,7 +266,7 @@ func TestHandleRunCommandStructure(t *testing.T) {
 	executionRepo := &testExecutionRepository{}
 	userRepo := &testUserRepository{}
 
-	svc, _ := orchestrator.NewService(
+	svc, _ := orchestrator.NewService(context.Background(),
 		userRepo,
 		executionRepo,
 		nil,
@@ -339,7 +339,7 @@ func TestErrorCodeUnauthorized(t *testing.T) {
 // TestGracefulDegradationWithNilEnforcer verifies that when no enforcer is configured,
 // authorization checks allow access (graceful degradation for backwards compatibility)
 func TestGracefulDegradationWithNilEnforcer(t *testing.T) {
-	svc, _ := orchestrator.NewService(
+	svc, _ := orchestrator.NewService(context.Background(),
 		&testUserRepository{},
 		nil,
 		nil,

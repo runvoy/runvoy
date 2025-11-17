@@ -308,7 +308,7 @@ func newTestServiceWithConnRepo(
 	runner *mockRunner,
 ) *Service {
 	logger := testutil.SilentLogger()
-	svc, err := NewService(
+	svc, err := NewService(context.Background(),
 		userRepo, execRepo, connRepo, &mockTokenRepository{}, runner, logger, constants.AWS, nil, nil, nil, nil,
 	)
 	if err != nil {
@@ -325,7 +325,7 @@ func newTestServiceWithSecretsRepo(
 	secretsRepo database.SecretsRepository,
 ) *Service {
 	logger := testutil.SilentLogger()
-	svc, err := NewService(
+	svc, err := NewService(context.Background(),
 		userRepo, execRepo, nil, &mockTokenRepository{}, runner, logger, constants.AWS, nil, secretsRepo, nil, nil,
 	)
 	if err != nil {
@@ -393,7 +393,7 @@ func newTestServiceWithWebSocketManager(
 	wsManager websocket.Manager,
 ) *Service {
 	logger := testutil.SilentLogger()
-	svc, err := NewService(
+	svc, err := NewService(context.Background(),
 		userRepo, execRepo, nil, &mockTokenRepository{}, runner, logger, constants.AWS, wsManager, nil, nil, nil,
 	)
 	if err != nil {

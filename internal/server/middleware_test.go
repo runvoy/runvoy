@@ -35,7 +35,7 @@ func TestRequestIDMiddleware(t *testing.T) {
 
 		tokenRepo := &testTokenRepository{}
 
-		svc, err := orchestrator.NewService(nil, nil, nil, tokenRepo, nil,
+		svc, err := orchestrator.NewService(context.Background(), nil, nil, nil, tokenRepo, nil,
 			testutil.SilentLogger(), constants.AWS, nil, nil, nil, nil)
 		if err != nil {
 			t.Fatalf("failed to create service: %v", err)
@@ -75,7 +75,7 @@ func TestRequestIDMiddleware(t *testing.T) {
 
 		tokenRepo := &testTokenRepository{}
 
-		svc, err := orchestrator.NewService(nil, nil, nil, tokenRepo, nil,
+		svc, err := orchestrator.NewService(context.Background(), nil, nil, nil, tokenRepo, nil,
 			testutil.SilentLogger(), constants.AWS, nil, nil, nil, nil)
 		if err != nil {
 			t.Fatalf("failed to create service: %v", err)
@@ -108,7 +108,7 @@ func TestRequestIDMiddleware(t *testing.T) {
 
 		tokenRepo := &testTokenRepository{}
 
-		svc, err := orchestrator.NewService(nil, nil, nil, tokenRepo, nil,
+		svc, err := orchestrator.NewService(context.Background(), nil, nil, nil, tokenRepo, nil,
 			testutil.SilentLogger(), constants.AWS, nil, nil, nil, nil)
 		if err != nil {
 			t.Fatalf("failed to create service: %v", err)
@@ -149,7 +149,7 @@ func TestRequestIDMiddleware(t *testing.T) {
 
 		tokenRepo := &testTokenRepository{}
 
-		svc, err := orchestrator.NewService(nil, nil, nil, tokenRepo, nil,
+		svc, err := orchestrator.NewService(context.Background(), nil, nil, nil, tokenRepo, nil,
 			testutil.SilentLogger(), constants.AWS, nil, nil, nil, nil)
 		if err != nil {
 			t.Fatalf("failed to create service: %v", err)

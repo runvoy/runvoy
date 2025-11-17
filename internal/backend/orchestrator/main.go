@@ -82,6 +82,7 @@ type Service struct {
 // If healthManager is nil, health reconciliation will not be available.
 // If enforcer is nil, authorization will not be available.
 func NewService(
+	ctx context.Context,
 	userRepo database.UserRepository,
 	executionRepo database.ExecutionRepository,
 	connRepo database.ConnectionRepository,
@@ -107,8 +108,13 @@ func NewService(
 		enforcer:      enforcer,
 	}
 
-	if enforcer != nil && userRepo != nil {
-		if err := svc.loadUserRoles(context.Background()); err != nil {
+	if enforcer != nil {
+		if userRepo != nil {
+			if err := svc.loadUserRoles(ctx); err != nil {
+				return nil, err
+			}
+		}
+		if err := svc.loadResourceOwnerships(ctx); err != nil {
 			return nil, err
 		}
 	}
@@ -133,12 +139,20 @@ func (s *Service) loadUserRoles(ctx context.Context) error {
 		g.Go(func() error {
 			role, roleErr := authorization.NewRole(user.Role)
 			if roleErr != nil {
-				s.Logger.Error("user has invalid role", "user", user.Email, "role", user.Role, "error", roleErr)
+				s.Logger.Error("user has invalid role", "context", map[string]string{
+					"user":  user.Email,
+					"role":  user.Role,
+					"error": roleErr.Error(),
+				})
 				return fmt.Errorf("user %s has invalid role: %w", user.Email, roleErr)
 			}
 
 			if addErr := s.enforcer.AddRoleForUser(user.Email, role); addErr != nil {
-				s.Logger.Error("failed to add role for user to enforcer", "user", user.Email, "role", user.Role, "error", addErr)
+				s.Logger.Error("failed to add role for user to enforcer", "context", map[string]string{
+					"user":  user.Email,
+					"role":  user.Role,
+					"error": addErr.Error(),
+				})
 				return fmt.Errorf("failed to add role for user %s to enforcer: %w", user.Email, addErr)
 			}
 
@@ -148,6 +162,86 @@ func (s *Service) loadUserRoles(ctx context.Context) error {
 
 	if waitErr := g.Wait(); waitErr != nil {
 		return errors.New("failed to load user roles into enforcer")
+	}
+
+	return nil
+}
+
+// loadResourceOwnerships hydrates the enforcer with resource ownership mappings for secrets and executions.
+func (s *Service) loadResourceOwnerships(ctx context.Context) error {
+	if s.enforcer == nil {
+		return nil
+	}
+
+	if err := s.hydrateSecretOwnerships(ctx); err != nil {
+		return err
+	}
+	if err := s.hydrateExecutionOwnerships(ctx); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *Service) hydrateSecretOwnerships(ctx context.Context) error {
+	if s.secretsRepo == nil {
+		return nil
+	}
+
+	secrets, err := s.secretsRepo.ListSecrets(ctx, false)
+	if err != nil {
+		return fmt.Errorf("failed to load secrets for enforcer initialization: %w", err)
+	}
+
+	for _, secret := range secrets {
+		if secret == nil || secret.Name == "" || secret.CreatedBy == "" {
+			continue
+		}
+
+		resourceID := fmt.Sprintf("secret:%s", secret.Name)
+		if addErr := s.enforcer.AddOwnershipForResource(resourceID, secret.CreatedBy); addErr != nil {
+			return fmt.Errorf("failed to add ownership for secret %s: %w", secret.Name, addErr)
+		}
+	}
+
+	return nil
+}
+
+func (s *Service) hydrateExecutionOwnerships(ctx context.Context) error {
+	if s.executionRepo == nil {
+		return nil
+	}
+
+	// TODO: use pagination, we want to load all executions
+	executions, err := s.executionRepo.ListExecutions(ctx, constants.DefaultExecutionListLimit, nil)
+	if err != nil {
+		return fmt.Errorf("failed to load executions for enforcer initialization: %w", err)
+	}
+
+	g, _ := errgroup.WithContext(ctx)
+
+	for _, execution := range executions {
+		if execution == nil || execution.ExecutionID == "" || execution.UserEmail == "" {
+			continue
+		}
+
+		g.Go(func() error {
+			resourceID := fmt.Sprintf("execution:%s", execution.ExecutionID)
+			if addErr := s.enforcer.AddOwnershipForResource(resourceID, execution.UserEmail); addErr != nil {
+				s.Logger.Error("failed to add ownership for execution to enforcer", "context", map[string]string{
+					"execution_id": execution.ExecutionID,
+					"user":         execution.UserEmail,
+					"error":        addErr.Error(),
+				})
+				return fmt.Errorf("failed to add ownership for execution %s: %w", execution.ExecutionID, addErr)
+			}
+
+			return nil
+		})
+	}
+
+	if waitErr := g.Wait(); waitErr != nil {
+		return errors.New("failed to load execution ownerships into enforcer")
 	}
 
 	return nil

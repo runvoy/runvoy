@@ -22,7 +22,7 @@ func TestValidateCreateUserRequest_Success(t *testing.T) {
 	}
 	logger := testutil.SilentLogger()
 
-	service, err := NewService(
+	service, err := NewService(context.Background(),
 		repo,
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
@@ -45,7 +45,7 @@ func TestValidateCreateUserRequest_Success(t *testing.T) {
 func TestValidateCreateUserRequest_EmptyEmail(t *testing.T) {
 	logger := testutil.SilentLogger()
 
-	service, err := NewService(
+	service, err := NewService(context.Background(),
 		nil,
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
@@ -69,7 +69,7 @@ func TestValidateCreateUserRequest_EmptyEmail(t *testing.T) {
 func TestValidateCreateUserRequest_InvalidEmail(t *testing.T) {
 	logger := testutil.SilentLogger()
 
-	service, err := NewService(
+	service, err := NewService(context.Background(),
 		nil,
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
@@ -98,7 +98,7 @@ func TestValidateCreateUserRequest_UserAlreadyExists(t *testing.T) {
 	}
 	logger := testutil.SilentLogger()
 
-	service, err := NewService(
+	service, err := NewService(context.Background(),
 		repo,
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
@@ -127,7 +127,7 @@ func TestValidateCreateUserRequest_RepositoryError(t *testing.T) {
 	}
 	logger := testutil.SilentLogger()
 
-	service, err := NewService(
+	service, err := NewService(context.Background(),
 		repo,
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
@@ -150,7 +150,7 @@ func TestValidateCreateUserRequest_RepositoryError(t *testing.T) {
 func TestValidateCreateUserRequest_EmptyRole(t *testing.T) {
 	logger := testutil.SilentLogger()
 
-	service, err := NewService(
+	service, err := NewService(context.Background(),
 		nil,
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
@@ -174,7 +174,7 @@ func TestValidateCreateUserRequest_EmptyRole(t *testing.T) {
 func TestValidateCreateUserRequest_InvalidRole(t *testing.T) {
 	logger := testutil.SilentLogger()
 
-	service, err := NewService(
+	service, err := NewService(context.Background(),
 		nil,
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
@@ -222,7 +222,7 @@ func TestCreatePendingClaim_Success(t *testing.T) {
 	}
 	logger := testutil.SilentLogger()
 
-	service, err := NewService(
+	service, err := NewService(context.Background(),
 		repo,
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
@@ -257,7 +257,7 @@ func TestCreatePendingClaim_RepositoryError(t *testing.T) {
 	}
 	logger := testutil.SilentLogger()
 
-	service, err := NewService(
+	service, err := NewService(context.Background(),
 		repo,
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
@@ -298,7 +298,7 @@ func TestCreateUser_Success(t *testing.T) {
 	}
 	logger := testutil.SilentLogger()
 
-	service, err := NewService(
+	service, err := NewService(context.Background(),
 		repo,
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
@@ -326,7 +326,7 @@ func TestCreateUser_Success(t *testing.T) {
 func TestCreateUser_NoRepository(t *testing.T) {
 	logger := testutil.SilentLogger()
 
-	service, err := NewService(
+	service, err := NewService(context.Background(),
 		nil,
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
@@ -351,7 +351,7 @@ func TestCreateUser_NoRepository(t *testing.T) {
 func TestCreateUser_InvalidEmail(t *testing.T) {
 	logger := testutil.SilentLogger()
 
-	service, err := NewService(
+	service, err := NewService(context.Background(),
 		&mockUserRepository{},
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
@@ -384,7 +384,7 @@ func TestCreateUser_CreateUserError(t *testing.T) {
 	}
 	logger := testutil.SilentLogger()
 
-	service, err := NewService(
+	service, err := NewService(context.Background(),
 		repo,
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
@@ -408,7 +408,7 @@ func TestCreateUser_CreateUserError(t *testing.T) {
 func TestCreateUser_MissingRole(t *testing.T) {
 	logger := testutil.SilentLogger()
 
-	service, err := NewService(
+	service, err := NewService(context.Background(),
 		&mockUserRepository{},
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
@@ -433,7 +433,7 @@ func TestCreateUser_MissingRole(t *testing.T) {
 func TestCreateUser_InvalidRole(t *testing.T) {
 	logger := testutil.SilentLogger()
 
-	service, err := NewService(
+	service, err := NewService(context.Background(),
 		&mockUserRepository{},
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
@@ -476,7 +476,7 @@ func TestClaimAPIKey_Success(t *testing.T) {
 	}
 	logger := testutil.SilentLogger()
 
-	service, err := NewService(
+	service, err := NewService(context.Background(),
 		repo,
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
@@ -502,7 +502,7 @@ func TestClaimAPIKey_Success(t *testing.T) {
 func TestClaimAPIKey_NoRepository(t *testing.T) {
 	logger := testutil.SilentLogger()
 
-	service, err := NewService(
+	service, err := NewService(context.Background(),
 		nil,
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
@@ -531,7 +531,7 @@ func TestClaimAPIKey_InvalidToken(t *testing.T) {
 	}
 	logger := testutil.SilentLogger()
 
-	service, err := NewService(
+	service, err := NewService(context.Background(),
 		repo,
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
@@ -567,7 +567,7 @@ func TestClaimAPIKey_AlreadyClaimed(t *testing.T) {
 	}
 	logger := testutil.SilentLogger()
 
-	service, err := NewService(
+	service, err := NewService(context.Background(),
 		repo,
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
@@ -603,7 +603,7 @@ func TestClaimAPIKey_TokenExpired(t *testing.T) {
 	}
 	logger := testutil.SilentLogger()
 
-	service, err := NewService(
+	service, err := NewService(context.Background(),
 		repo,
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
@@ -635,7 +635,7 @@ func TestListUsers_Success(t *testing.T) {
 	}
 	logger := testutil.SilentLogger()
 
-	service, err := NewService(
+	service, err := NewService(context.Background(),
 		repo,
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
@@ -668,7 +668,7 @@ func TestListUsers_Empty(t *testing.T) {
 	}
 	logger := testutil.SilentLogger()
 
-	service, err := NewService(
+	service, err := NewService(context.Background(),
 		repo,
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
@@ -693,7 +693,7 @@ func TestListUsers_Empty(t *testing.T) {
 func TestListUsers_NoRepository(t *testing.T) {
 	logger := testutil.SilentLogger()
 
-	service, err := NewService(
+	service, err := NewService(context.Background(),
 		nil,
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
@@ -722,7 +722,7 @@ func TestListUsers_RepositoryError(t *testing.T) {
 	}
 	logger := testutil.SilentLogger()
 
-	service, err := NewService(
+	service, err := NewService(context.Background(),
 		repo,
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
@@ -756,7 +756,7 @@ func TestListUsers_SortingByEmail(t *testing.T) {
 	}
 	logger := testutil.SilentLogger()
 
-	service, err := NewService(
+	service, err := NewService(context.Background(),
 		repo,
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},

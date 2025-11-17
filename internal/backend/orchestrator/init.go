@@ -44,6 +44,7 @@ func Initialize(
 		}
 
 		svc, svcErr := NewService(
+			ctx,
 			awsDeps.UserRepo,
 			awsDeps.ExecutionRepo,
 			awsDeps.ConnectionRepo,

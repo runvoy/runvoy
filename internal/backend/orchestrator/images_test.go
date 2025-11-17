@@ -23,7 +23,7 @@ func TestGetImage_Success(t *testing.T) {
 	}
 	logger := testutil.SilentLogger()
 
-	service, err := NewService(
+	service, err := NewService(context.Background(),
 		&mockUserRepository{},
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
@@ -56,7 +56,7 @@ func TestGetImage_NotFound(t *testing.T) {
 	}
 	logger := testutil.SilentLogger()
 
-	service, err := NewService(
+	service, err := NewService(context.Background(),
 		&mockUserRepository{},
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
@@ -82,7 +82,7 @@ func TestGetImage_NotFound(t *testing.T) {
 func TestGetImage_EmptyImageName(t *testing.T) {
 	logger := testutil.SilentLogger()
 
-	service, err := NewService(
+	service, err := NewService(context.Background(),
 		&mockUserRepository{},
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
@@ -113,7 +113,7 @@ func TestGetImage_RunnerError(t *testing.T) {
 	}
 	logger := testutil.SilentLogger()
 
-	service, err := NewService(
+	service, err := NewService(context.Background(),
 		&mockUserRepository{},
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
@@ -145,7 +145,7 @@ func TestGetImage_RunnerGenericError(t *testing.T) {
 	}
 	logger := testutil.SilentLogger()
 
-	service, err := NewService(
+	service, err := NewService(context.Background(),
 		&mockUserRepository{},
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
@@ -177,7 +177,7 @@ func TestRemoveImage_Success(t *testing.T) {
 	}
 	logger := testutil.SilentLogger()
 
-	service, err := NewService(
+	service, err := NewService(context.Background(),
 		&mockUserRepository{},
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
@@ -207,7 +207,7 @@ func TestRemoveImage_EmptyImageName(t *testing.T) {
 	}
 	logger := testutil.SilentLogger()
 
-	service, err := NewService(
+	service, err := NewService(context.Background(),
 		&mockUserRepository{},
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
@@ -238,7 +238,7 @@ func TestRemoveImage_RunnerError(t *testing.T) {
 	}
 	logger := testutil.SilentLogger()
 
-	service, err := NewService(
+	service, err := NewService(context.Background(),
 		&mockUserRepository{},
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
@@ -270,7 +270,7 @@ func TestRemoveImage_RunnerGenericError(t *testing.T) {
 	}
 	logger := testutil.SilentLogger()
 
-	service, err := NewService(
+	service, err := NewService(context.Background(),
 		&mockUserRepository{},
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
@@ -305,7 +305,7 @@ func TestListImages_Success(t *testing.T) {
 	}
 	logger := testutil.SilentLogger()
 
-	service, err := NewService(
+	service, err := NewService(context.Background(),
 		&mockUserRepository{},
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
@@ -338,7 +338,7 @@ func TestListImages_Empty(t *testing.T) {
 	}
 	logger := testutil.SilentLogger()
 
-	service, err := NewService(
+	service, err := NewService(context.Background(),
 		&mockUserRepository{},
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
@@ -369,7 +369,7 @@ func TestListImages_RunnerError(t *testing.T) {
 	}
 	logger := testutil.SilentLogger()
 
-	service, err := NewService(
+	service, err := NewService(context.Background(),
 		&mockUserRepository{},
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
@@ -401,7 +401,7 @@ func TestListImages_RunnerGenericError(t *testing.T) {
 	}
 	logger := testutil.SilentLogger()
 
-	service, err := NewService(
+	service, err := NewService(context.Background(),
 		&mockUserRepository{},
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
@@ -433,7 +433,7 @@ func TestRegisterImage_Success(t *testing.T) {
 	}
 	logger := testutil.SilentLogger()
 
-	service, err := NewService(
+	service, err := NewService(context.Background(),
 		&mockUserRepository{},
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
@@ -464,7 +464,7 @@ func TestRegisterImage_EmptyImageName(t *testing.T) {
 	}
 	logger := testutil.SilentLogger()
 
-	service, err := NewService(
+	service, err := NewService(context.Background(),
 		&mockUserRepository{},
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
@@ -495,7 +495,7 @@ func TestRegisterImage_RunnerError(t *testing.T) {
 	}
 	logger := testutil.SilentLogger()
 
-	service, err := NewService(
+	service, err := NewService(context.Background(),
 		&mockUserRepository{},
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
@@ -527,7 +527,7 @@ func TestRegisterImage_RunnerGenericError(t *testing.T) {
 	}
 	logger := testutil.SilentLogger()
 
-	service, err := NewService(
+	service, err := NewService(context.Background(),
 		&mockUserRepository{},
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},

@@ -60,7 +60,7 @@ func (m *mockRunner) FetchLogsByExecutionID(_ context.Context, _ string) ([]api.
 // Test that the status endpoint exists and requires authentication
 func TestGetExecutionStatus_Unauthorized(t *testing.T) {
 	// Build a minimal service with nil repos; we won't reach the handler due to auth
-	svc, err := orchestrator.NewService(
+	svc, err := orchestrator.NewService(context.Background(),
 		nil,
 		nil,
 		nil,
