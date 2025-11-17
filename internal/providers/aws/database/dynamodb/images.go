@@ -115,6 +115,7 @@ func (r *ImageTaskDefRepository) PutImageTaskDef(
 	runtimePlatform string,
 	taskDefFamily string,
 	isDefault bool,
+	registeredBy string,
 ) error {
 	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
 
@@ -134,6 +135,7 @@ func (r *ImageTaskDefRepository) PutImageTaskDef(
 		ImageRegistry:         imageRegistry,
 		ImageName:             imageName,
 		ImageTag:              imageTag,
+		RegisteredBy:          registeredBy,
 		CreatedAt:             now,
 		UpdatedAt:             now,
 	}

@@ -280,6 +280,7 @@ func TestPutImageTaskDef(t *testing.T) {
 				awsConstants.DefaultRuntimePlatform,
 				tt.taskDefFamily,
 				tt.isDefault,
+				"test@example.com",
 			)
 
 			if tt.expectError {

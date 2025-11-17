@@ -65,14 +65,17 @@ func TestRegisterImage(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			runner := &mockRunner{
 				registerImageFunc: func(
-					_ context.Context, _ string, _ *bool, _ *string, _ *string, _ *int, _ *int, _ *string,
-				) error {
-					return tt.runnerErr
+					_ context.Context, _ string, _ *bool, _ *string, _ *string, _ *int, _ *int, _ *string, _ string,
+				) (*api.ImageInfo, error) {
+					return nil, tt.runnerErr
 				},
 			}
 
 			svc := newTestService(nil, nil, runner)
-			resp, err := svc.RegisterImage(ctx, tt.image, tt.isDefault, nil, nil, nil, nil, nil)
+			resp, err := svc.RegisterImage(ctx, &api.RegisterImageRequest{
+				Image:     tt.image,
+				IsDefault: tt.isDefault,
+			}, "test@example.com")
 
 			if tt.expectErr {
 				require.Error(t, err)

@@ -207,7 +207,7 @@ func (m *mockImageRepo) GetAnyImageTaskDef(ctx context.Context, image string) (*
 }
 
 func (m *mockImageRepo) PutImageTaskDef(
-	_ context.Context, _ string, _, _, _, _ string, _, _ *string, _, _ int, _ string, _ string, _ bool) error {
+	_ context.Context, _ string, _, _, _, _ string, _, _ *string, _, _ int, _ string, _ string, _ bool, _ string) error {
 	return nil
 }
 

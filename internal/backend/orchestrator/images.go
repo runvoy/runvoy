@@ -5,27 +5,38 @@ import (
 	"errors"
 
 	"runvoy/internal/api"
+	"runvoy/internal/auth/authorization"
 	apperrors "runvoy/internal/errors"
 )
 
 // RegisterImage registers a Docker image and creates the corresponding task definition.
 func (s *Service) RegisterImage(
 	ctx context.Context,
-	image string,
-	isDefault *bool,
-	taskRoleName *string,
-	taskExecutionRoleName *string,
-	cpu *int,
-	memory *int,
-	runtimePlatform *string,
+	req *api.RegisterImageRequest,
+	ownerEmail string,
 ) (*api.RegisterImageResponse, error) {
-	if image == "" {
+	if req == nil {
+		return nil, apperrors.ErrBadRequest("request is required", nil)
+	}
+	if req.Image == "" {
 		return nil, apperrors.ErrBadRequest("image is required", nil)
 	}
+	if ownerEmail == "" {
+		return nil, apperrors.ErrBadRequest("owner email is required", nil)
+	}
 
-	if err := s.runner.RegisterImage(
-		ctx, image, isDefault, taskRoleName, taskExecutionRoleName, cpu, memory, runtimePlatform,
-	); err != nil {
+	imageInfo, err := s.runner.RegisterImage(
+		ctx,
+		req.Image,
+		req.IsDefault,
+		req.TaskRoleName,
+		req.TaskExecutionRoleName,
+		req.CPU,
+		req.Memory,
+		req.RuntimePlatform,
+		ownerEmail,
+	)
+	if err != nil {
 		var appErr *apperrors.AppError
 		if errors.As(err, &appErr) {
 			return nil, err
@@ -33,8 +44,13 @@ func (s *Service) RegisterImage(
 		return nil, apperrors.ErrInternalError("failed to register image", err)
 	}
 
+	resourceID := authorization.FormatResourceID("image", imageInfo.ImageID)
+	if err := s.enforcer.AddOwnershipForResource(resourceID, ownerEmail); err != nil {
+		return nil, apperrors.ErrInternalError("failed to add image ownership to authorization enforcer", err)
+	}
+
 	return &api.RegisterImageResponse{
-		Image:   image,
+		Image:   req.Image,
 		Message: "Image registered successfully",
 	}, nil
 }

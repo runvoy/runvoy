@@ -81,7 +81,7 @@ func (e *Runner) handleExistingImage(
 	taskRoleName, taskExecutionRoleName *string,
 	existing *api.ImageInfo,
 	reqLogger *slog.Logger,
-) error {
+) (*api.ImageInfo, error) {
 	reqLogger.Debug("image-taskdef mapping already exists", "context", map[string]string{
 		"image":                  image,
 		"task_definition_family": existing.TaskDefinitionName,
@@ -90,11 +90,11 @@ func (e *Runner) handleExistingImage(
 	shouldBeDefault := isDefault != nil && *isDefault
 	if shouldBeDefault {
 		if setErr := e.imageRepo.SetImageAsOnlyDefault(ctx, image, taskRoleName, taskExecutionRoleName); setErr != nil {
-			return fmt.Errorf("failed to set image as default: %w", setErr)
+			return nil, fmt.Errorf("failed to set image as default: %w", setErr)
 		}
 	}
 
-	return nil
+	return existing, nil
 }
 
 // registerNewImage handles registration of a new image.
@@ -110,11 +110,12 @@ func (e *Runner) registerNewImage(
 	region string,
 	cpu, memory int,
 	runtimePlatform string,
+	ownerEmail string,
 	reqLogger *slog.Logger,
-) (taskDefARN, family string, err error) {
+) (imageID, taskDefARN, family string, err error) {
 	imageRef := ParseImageReference(image)
 
-	imageID := dynamodb.GenerateImageID(
+	imageID = dynamodb.GenerateImageID(
 		imageRef.Name,
 		imageRef.Tag,
 		cpu,
@@ -141,17 +142,17 @@ func (e *Runner) registerNewImage(
 		reqLogger,
 	)
 	if err != nil {
-		return "", "", fmt.Errorf("failed to register ECS task definition: %w", err)
+		return "", "", "", fmt.Errorf("failed to register ECS task definition: %w", err)
 	}
 
 	shouldBeDefault, err := e.determineDefaultStatus(ctx, isDefault)
 	if err != nil {
-		return "", "", err
+		return "", "", "", err
 	}
 
 	if shouldBeDefault {
 		if unmarkErr := e.imageRepo.UnmarkAllDefaults(ctx); unmarkErr != nil {
-			return "", "", fmt.Errorf("failed to unmark existing defaults: %w", unmarkErr)
+			return "", "", "", fmt.Errorf("failed to unmark existing defaults: %w", unmarkErr)
 		}
 	}
 
@@ -169,11 +170,12 @@ func (e *Runner) registerNewImage(
 		runtimePlatform,
 		family,
 		shouldBeDefault,
+		ownerEmail,
 	); putErr != nil {
-		return "", "", fmt.Errorf("failed to store image-taskdef mapping: %w", putErr)
+		return "", "", "", fmt.Errorf("failed to store image-taskdef mapping: %w", putErr)
 	}
 
-	return taskDefARN, family, nil
+	return imageID, taskDefARN, family, nil
 }
 
 // validateIAMRoles validates that the specified IAM roles exist in AWS.
@@ -254,28 +256,29 @@ func (e *Runner) RegisterImage(
 	cpu *int,
 	memory *int,
 	runtimePlatform *string,
-) error {
+	ownerEmail string,
+) (*api.ImageInfo, error) {
 	if e.ecsClient == nil {
-		return fmt.Errorf("ECS client not configured")
+		return nil, fmt.Errorf("ECS client not configured")
 	}
 	if e.imageRepo == nil {
-		return fmt.Errorf("image repository not configured")
+		return nil, fmt.Errorf("image repository not configured")
 	}
 
 	reqLogger := logger.DeriveRequestLogger(ctx, e.logger)
 
 	region := e.cfg.Region
 	if region == "" {
-		return fmt.Errorf("AWS region not configured")
+		return nil, fmt.Errorf("AWS region not configured")
 	}
 
 	if e.cfg.AccountID == "" {
-		return fmt.Errorf("AWS account ID not configured")
+		return nil, fmt.Errorf("AWS account ID not configured")
 	}
 
 	// Validate IAM roles exist before proceeding
 	if err := e.validateIAMRoles(ctx, taskRoleName, taskExecutionRoleName, region, reqLogger); err != nil {
-		return err
+		return nil, err
 	}
 
 	// Apply defaults for missing values
@@ -296,7 +299,7 @@ func (e *Runner) RegisterImage(
 		ctx, image, taskRoleName, taskExecutionRoleName, cpu, memory, runtimePlatform,
 	)
 	if err != nil {
-		return fmt.Errorf("failed to check existing image-taskdef mapping: %w", err)
+		return nil, fmt.Errorf("failed to check existing image-taskdef mapping: %w", err)
 	}
 
 	if existing != nil {
@@ -306,14 +309,15 @@ func (e *Runner) RegisterImage(
 		)
 	}
 
-	taskDefARN, family, err := e.registerNewImage(
+	imageID, taskDefARN, family, err := e.registerNewImage(
 		ctx, image, isDefault, taskRoleName, taskExecutionRoleName,
 		region,
 		cpuVal, memoryVal, runtimePlatformVal,
+		ownerEmail,
 		reqLogger,
 	)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	reqLogger.Info("image registered successfully", "context", map[string]string{
@@ -322,7 +326,15 @@ func (e *Runner) RegisterImage(
 		"task_definition_family": family,
 	})
 
-	return nil
+	imageInfo, err := e.imageRepo.GetImageTaskDefByID(ctx, imageID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to retrieve registered image: %w", err)
+	}
+	if imageInfo == nil {
+		return nil, fmt.Errorf("registered image not found: %s", imageID)
+	}
+
+	return imageInfo, nil
 }
 
 // registerTaskDefinitionWithRoles registers a task definition with the specified roles,

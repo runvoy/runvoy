@@ -233,8 +233,12 @@ func (t *testRunner) RegisterImage(
 	_, _ *string,
 	_, _ *int,
 	_ *string,
-) error {
-	return nil
+	_ string,
+) (*api.ImageInfo, error) {
+	return &api.ImageInfo{
+		ImageID: "test-image-id",
+		Image:   "alpine:latest",
+	}, nil
 }
 
 func (t *testRunner) ListImages(_ context.Context) ([]api.ImageInfo, error) {
