@@ -630,14 +630,21 @@ Resources:
           Value: !Ref ProjectName
         - Key: ManagedBy
           Value: 'cloudformation'
-      Environment:
-        Variables:
-          RUNVOY_AWS_EXECUTIONS_TABLE: !Ref ExecutionsTable
-          RUNVOY_AWS_ECS_CLUSTER: !Ref ECSCluster
-          RUNVOY_AWS_WEBSOCKET_CONNECTIONS_TABLE: !Ref WebSocketConnectionsTable
-          RUNVOY_AWS_WEBSOCKET_TOKENS_TABLE: !Ref WebSocketTokensTable
-          RUNVOY_AWS_WEBSOCKET_API_ENDPOINT: !Sub '${WebSocketApi.ApiId}.execute-api.${AWS::Region}.amazonaws.com/production'
-          RUNVOY_LOG_LEVEL: !Ref 'AWS::NoValue'
+        Environment:
+          Variables:
+            RUNVOY_AWS_EXECUTIONS_TABLE: !Ref ExecutionsTable
+            RUNVOY_AWS_ECS_CLUSTER: !Ref ECSCluster
+            RUNVOY_AWS_IMAGE_TASKDEFS_TABLE: !Ref ImageTaskDefinitionsTable
+            RUNVOY_AWS_SECRETS_METADATA_TABLE: !Ref SecretsMetadataTable
+            RUNVOY_AWS_LOG_GROUP: !Ref RunnerLogGroup
+            RUNVOY_AWS_DEFAULT_TASK_EXEC_ROLE_ARN: !GetAtt TaskExecutionRole.Arn
+            RUNVOY_AWS_DEFAULT_TASK_ROLE_ARN: !GetAtt TaskRole.Arn
+            RUNVOY_AWS_SECRETS_PREFIX: '/runvoy/secrets'
+            RUNVOY_AWS_SECRETS_KMS_KEY_ARN: !GetAtt SecretsKmsKey.Arn
+            RUNVOY_AWS_WEBSOCKET_CONNECTIONS_TABLE: !Ref WebSocketConnectionsTable
+            RUNVOY_AWS_WEBSOCKET_TOKENS_TABLE: !Ref WebSocketTokensTable
+            RUNVOY_AWS_WEBSOCKET_API_ENDPOINT: !Sub '${WebSocketApi.ApiId}.execute-api.${AWS::Region}.amazonaws.com/production'
+            RUNVOY_LOG_LEVEL: !Ref 'AWS::NoValue'
 
   # Allow CloudWatch Logs to invoke the event processor
   EventProcessorLogsPermission:
@@ -716,6 +723,46 @@ Resources:
                 Action:
                   - 'execute-api:ManageConnections'
                 Resource: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${WebSocketApi.ApiId}/production/POST/@connections/*'
+              - Effect: Allow
+                Action:
+                  - 'dynamodb:GetItem'
+                  - 'dynamodb:Query'
+                  - 'dynamodb:Scan'
+                Resource:
+                  - !GetAtt ImageTaskDefinitionsTable.Arn
+                  - !Sub '${ImageTaskDefinitionsTable.Arn}/index/*'
+              - Effect: Allow
+                Action:
+                  - 'dynamodb:GetItem'
+                  - 'dynamodb:Query'
+                  - 'dynamodb:Scan'
+                Resource:
+                  - !GetAtt SecretsMetadataTable.Arn
+                  - !Sub '${SecretsMetadataTable.Arn}/index/*'
+              - Effect: Allow
+                Action:
+                  - 'ecs:ListTaskDefinitions'
+                  - 'ecs:RegisterTaskDefinition'
+                  - 'ecs:TagResource'
+                  - 'ecs:ListTagsForResource'
+                  - 'ecs:UntagResource'
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - 'ssm:GetParameter'
+                  - 'ssm:DescribeParameters'
+                  - 'ssm:ListTagsForResource'
+                  - 'ssm:AddTagsToResource'
+                Resource: !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/runvoy/secrets/*'
+              - Effect: Allow
+                Action:
+                  - 'iam:GetRole'
+                Resource: !Sub 'arn:aws:iam::${AWS::AccountId}:role/*'
+              - Effect: Allow
+                Action:
+                  - 'kms:Decrypt'
+                  - 'kms:DescribeKey'
+                Resource: !GetAtt SecretsKmsKey.Arn
 
   # EventBridge Rule for ECS Task State Changes
   TaskCompletionEventRule:

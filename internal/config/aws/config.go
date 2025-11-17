@@ -113,6 +113,13 @@ func ValidateEventProcessor(cfg *Config) error {
 	required := map[string]string{
 		"AWS.ECSCluster":                cfg.ECSCluster,
 		"AWS.ExecutionsTable":           cfg.ExecutionsTable,
+		"AWS.ImageTaskDefsTable":        cfg.ImageTaskDefsTable,
+		"AWS.SecretsMetadataTable":      cfg.SecretsMetadataTable,
+		"AWS.LogGroup":                  cfg.LogGroup,
+		"AWS.DefaultTaskExecRoleARN":    cfg.DefaultTaskExecRoleARN,
+		"AWS.DefaultTaskRoleARN":        cfg.DefaultTaskRoleARN,
+		"AWS.SecretsPrefix":             cfg.SecretsPrefix,
+		"AWS.SecretsKMSKeyARN":          cfg.SecretsKMSKeyARN,
 		"AWS.WebSocketAPIEndpoint":      cfg.WebSocketAPIEndpoint,
 		"AWS.WebSocketConnectionsTable": cfg.WebSocketConnectionsTable,
 		"AWS.WebSocketTokensTable":      cfg.WebSocketTokensTable,
