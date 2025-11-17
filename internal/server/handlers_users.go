@@ -24,11 +24,6 @@ func (r *Router) handleCreateUser(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	if !r.authorizeRequest(req, "create") {
-		writeErrorResponse(w, http.StatusForbidden, "Forbidden", "you do not have permission to create users")
-		return
-	}
-
 	resp, err := r.svc.CreateUser(req.Context(), createReq, user.Email)
 	if err != nil {
 		statusCode := apperrors.GetStatusCode(err)
@@ -52,11 +47,6 @@ func (r *Router) handleRevokeUser(w http.ResponseWriter, req *http.Request) {
 
 	if err := json.NewDecoder(req.Body).Decode(&revokeReq); err != nil {
 		writeErrorResponse(w, http.StatusBadRequest, "Invalid request body", err.Error())
-		return
-	}
-
-	if !r.authorizeRequest(req, "delete") {
-		writeErrorResponse(w, http.StatusForbidden, "Forbidden", "you do not have permission to revoke users")
 		return
 	}
 

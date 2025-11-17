@@ -29,7 +29,7 @@ const (
 // If requestTimeout is > 0, adds a per-request timeout middleware.
 // If requestTimeout is 0, no timeout middleware is added, allowing the
 // environment (e.g., Lambda with its own timeout) to handle timeouts.
-func NewRouter(svc *orchestrator.Service, requestTimeout time.Duration) *Router {
+func NewRouter(svc *orchestrator.Service, requestTimeout time.Duration) *Router { //nolint: funlen
 	r := chi.NewRouter()
 	router := &Router{
 		router: r,
@@ -49,34 +49,56 @@ func NewRouter(svc *orchestrator.Service, requestTimeout time.Duration) *Router 
 		r.Get("/claim/{token}", router.handleClaimAPIKey)
 		r.Get("/health", router.handleHealth)
 
-		// authenticated routes
-		r.With(router.authenticateRequestMiddleware).Post("/health/reconcile", router.handleReconcileHealth)
-		r.With(router.authenticateRequestMiddleware).Route("/users", func(r chi.Router) {
+		// authenticated routes - apply auth middleware chain
+		r.With(
+			router.authenticateRequestMiddleware,
+			router.authorizeRequestMiddleware,
+		).Post("/health/reconcile", router.handleReconcileHealth)
+
+		r.With(
+			router.authenticateRequestMiddleware,
+			router.authorizeRequestMiddleware,
+		).Route("/users", func(r chi.Router) {
 			r.Get("/", router.handleListUsers)
 			r.Post("/create", router.handleCreateUser)
 			r.Post("/revoke", router.handleRevokeUser)
 		})
-		r.With(router.authenticateRequestMiddleware).Route("/images", func(r chi.Router) {
+
+		r.With(
+			router.authenticateRequestMiddleware,
+			router.authorizeRequestMiddleware,
+		).Route("/images", func(r chi.Router) {
 			r.Post("/register", router.handleRegisterImage)
 			r.Get("/", router.handleListImages)
 			r.Get("/*", router.handleGetImage)
 			r.Delete("/*", router.handleRemoveImage)
 		})
-		r.With(router.authenticateRequestMiddleware).Route("/secrets", func(r chi.Router) {
+
+		r.With(
+			router.authenticateRequestMiddleware,
+			router.authorizeRequestMiddleware,
+		).Route("/secrets", func(r chi.Router) {
 			r.Get("/", router.handleListSecrets)
 			r.Post("/", router.handleCreateSecret)
 			r.Get("/{name}", router.handleGetSecret)
 			r.Put("/{name}", router.handleUpdateSecret)
 			r.Delete("/{name}", router.handleDeleteSecret)
 		})
-		r.With(router.authenticateRequestMiddleware).Post("/run", router.handleRunCommand)
-		r.With(router.authenticateRequestMiddleware).Get("/executions", router.handleListExecutions)
-		r.With(router.authenticateRequestMiddleware).Get("/executions/{executionID}/logs",
-			router.handleGetExecutionLogs)
-		r.With(router.authenticateRequestMiddleware).Get("/executions/{executionID}/status",
-			router.handleGetExecutionStatus)
-		r.With(router.authenticateRequestMiddleware).Post("/executions/{executionID}/kill",
-			router.handleKillExecution)
+
+		r.With(
+			router.authenticateRequestMiddleware,
+			router.authorizeRequestMiddleware,
+		).Post("/run", router.handleRunCommand)
+
+		r.With(
+			router.authenticateRequestMiddleware,
+			router.authorizeRequestMiddleware,
+		).Route("/executions", func(r chi.Router) {
+			r.Get("/", router.handleListExecutions)
+			r.Get("/{executionID}/logs", router.handleGetExecutionLogs)
+			r.Get("/{executionID}/status", router.handleGetExecutionStatus)
+			r.Delete("/{executionID}/kill", router.handleKillExecution)
+		})
 	})
 
 	return router

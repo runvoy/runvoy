@@ -25,11 +25,6 @@ func (r *Router) handleCreateSecret(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	if !r.authorizeRequest(req, "create") {
-		writeErrorResponse(w, http.StatusForbidden, "Forbidden", "you do not have permission to create secrets")
-		return
-	}
-
 	if err := r.svc.CreateSecret(req.Context(), &createReq, user.Email); err != nil {
 		handleServiceError(w, err)
 		return
@@ -49,11 +44,6 @@ func (r *Router) handleGetSecret(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	if !r.authorizeRequest(req, "read") {
-		writeErrorResponse(w, http.StatusForbidden, "Forbidden", "you do not have permission to read secrets")
-		return
-	}
-
 	secret, err := r.svc.GetSecret(req.Context(), name)
 	if err != nil {
 		handleServiceError(w, err)
@@ -68,11 +58,6 @@ func (r *Router) handleGetSecret(w http.ResponseWriter, req *http.Request) {
 
 // handleListSecrets handles GET /api/v1/secrets
 func (r *Router) handleListSecrets(w http.ResponseWriter, req *http.Request) {
-	if !r.authorizeRequest(req, "read") {
-		writeErrorResponse(w, http.StatusForbidden, "Forbidden", "you do not have permission to list secrets")
-		return
-	}
-
 	secrets, err := r.svc.ListSecrets(req.Context())
 	if err != nil {
 		handleServiceError(w, err)
@@ -107,11 +92,6 @@ func (r *Router) handleUpdateSecret(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	if !r.authorizeRequest(req, "update") {
-		writeErrorResponse(w, http.StatusForbidden, "Forbidden", "you do not have permission to update secrets")
-		return
-	}
-
 	if err := r.svc.UpdateSecret(req.Context(), name, &updateReq, user.Email); err != nil {
 		handleServiceError(w, err)
 		return
@@ -128,11 +108,6 @@ func (r *Router) handleDeleteSecret(w http.ResponseWriter, req *http.Request) {
 	name := chi.URLParam(req, "name")
 	if name == "" {
 		writeErrorResponse(w, http.StatusBadRequest, "secret name is required", "")
-		return
-	}
-
-	if !r.authorizeRequest(req, "delete") {
-		writeErrorResponse(w, http.StatusForbidden, "Forbidden", "you do not have permission to delete secrets")
 		return
 	}
 

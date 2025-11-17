@@ -19,27 +19,16 @@ func (r *Router) getUserFromContext(req *http.Request) (*api.User, bool) {
 	return user, ok && user != nil
 }
 
-// handleListWithAuth handles the common pattern for list operations with authorization.
-// Checks user authentication, authorization, calls the service method, and writes response.
+// handleListWithAuth handles the common pattern for list operations.
+// Authorization is handled by middleware, so this just calls the service and writes the response.
 func (r *Router) handleListWithAuth(
 	w http.ResponseWriter,
 	req *http.Request,
-	denialMsg string,
+	_ string, // denialMsg - no longer used, kept for API compatibility
 	serviceCall func() (any, error),
 	operationName string,
 ) {
 	logger := r.GetLoggerFromContext(req.Context())
-
-	_, ok := r.getUserFromContext(req)
-	if !ok {
-		writeErrorResponse(w, http.StatusUnauthorized, "Unauthorized", "user not found in context")
-		return
-	}
-
-	if !r.authorizeRequest(req, "read") {
-		writeErrorResponse(w, http.StatusForbidden, "Forbidden", denialMsg)
-		return
-	}
 
 	resp, err := serviceCall()
 	if err != nil {

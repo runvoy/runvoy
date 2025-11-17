@@ -262,34 +262,6 @@ func TestHandleListUsersWithAuthorization(t *testing.T) {
 	assert.NotEmpty(t, resp.Users)
 }
 
-// TestHandleListUsersUnauthenticated tests unauthorized access
-func TestHandleListUsersUnauthenticated(t *testing.T) {
-	userRepo := &testUserRepository{}
-	svc, _ := orchestrator.NewService(context.Background(),
-		userRepo,
-		&testExecutionRepository{},
-		nil,
-		&testTokenRepository{},
-		nil,
-		testutil.SilentLogger(),
-		constants.AWS,
-		nil,
-		nil,
-		nil,
-		newPermissiveTestEnforcer(t),
-	)
-
-	router := &Router{svc: svc}
-
-	// Request without authenticated user
-	req := httptest.NewRequest("GET", "/api/v1/users", http.NoBody)
-
-	w := httptest.NewRecorder()
-	router.handleListUsers(w, req)
-
-	assert.Equal(t, http.StatusUnauthorized, w.Code)
-}
-
 // TestHandleRunCommandStructure tests the run command handler structure
 func TestHandleRunCommandStructure(t *testing.T) {
 	runner := &testRunner{}

@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"sync"
@@ -275,4 +276,54 @@ func (r *Router) GetLoggerFromContext(ctx context.Context) *slog.Logger {
 	}
 
 	return r.svc.Logger
+}
+
+// getActionFromRequest maps HTTP method and path to an authorization action.
+// This is only called for authenticated routes, so no need to check for public routes.
+func (r *Router) getActionFromRequest(method, path string) authorization.Action {
+	// Special cases based on path
+	switch path {
+	case "/api/v1/run":
+		if method == http.MethodPost {
+			return authorization.ActionExecute
+		}
+	case "/api/v1/health/reconcile":
+		if method == http.MethodPost {
+			return authorization.ActionExecute
+		}
+	}
+
+	// Standard HTTP method to action mapping
+	switch method {
+	case http.MethodGet:
+		return authorization.ActionRead
+	case http.MethodPost:
+		return authorization.ActionCreate
+	case http.MethodPut:
+		return authorization.ActionUpdate
+	case http.MethodDelete:
+		return authorization.ActionDelete
+	default:
+		// Fallback for unexpected methods
+		return authorization.ActionRead
+	}
+}
+
+// authorizeRequestMiddleware checks authorization for authenticated routes.
+// It should be applied after authenticateRequestMiddleware.
+// The /run endpoint gets general execute permission here; resource-level checks
+// (images/secrets) happen in the service layer via ValidateExecutionResourceAccess.
+func (r *Router) authorizeRequestMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		action := r.getActionFromRequest(req.Method, req.URL.Path)
+
+		if !r.authorizeRequest(req, action) {
+			// Generate a generic denial message based on action
+			denialMsg := fmt.Sprintf("you do not have permission to %s this resource", action)
+			writeErrorResponse(w, http.StatusForbidden, "Forbidden", denialMsg)
+			return
+		}
+
+		next.ServeHTTP(w, req)
+	})
 }

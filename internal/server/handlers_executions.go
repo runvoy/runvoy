@@ -29,11 +29,6 @@ func (r *Router) handleRunCommand(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	if !r.authorizeRequest(req, "execute") {
-		writeErrorResponse(w, http.StatusForbidden, "Forbidden", "you do not have permission to execute commands")
-		return
-	}
-
 	resp, err := r.svc.RunCommand(req.Context(), user.Email, &execReq)
 	if err != nil {
 		statusCode := apperrors.GetStatusCode(err)
@@ -70,11 +65,6 @@ func (r *Router) handleGetExecutionLogs(w http.ResponseWriter, req *http.Request
 		return
 	}
 
-	if !r.authorizeRequest(req, "read") {
-		writeErrorResponse(w, http.StatusForbidden, "Forbidden", "you do not have permission to read execution logs")
-		return
-	}
-
 	clientIP := getClientIP(req)
 
 	resp, err := r.svc.GetLogsByExecutionID(req.Context(), executionID, &user.Email, &clientIP)
@@ -103,11 +93,6 @@ func (r *Router) handleGetExecutionStatus(w http.ResponseWriter, req *http.Reque
 		return
 	}
 
-	if !r.authorizeRequest(req, "read") {
-		writeErrorResponse(w, http.StatusForbidden, "Forbidden", "you do not have permission to read execution status")
-		return
-	}
-
 	resp, err := r.svc.GetExecutionStatus(req.Context(), executionID)
 	if err != nil {
 		statusCode := apperrors.GetStatusCode(err)
@@ -132,18 +117,13 @@ func (r *Router) handleGetExecutionStatus(w http.ResponseWriter, req *http.Reque
 	_ = json.NewEncoder(w).Encode(resp)
 }
 
-// handleKillExecution handles POST /api/v1/executions/{executionID}/kill to terminate a running execution.
+// handleKillExecution handles DELETE /api/v1/executions/{executionID}/kill to terminate a running execution.
 func (r *Router) handleKillExecution(w http.ResponseWriter, req *http.Request) {
 	logger := r.GetLoggerFromContext(req.Context())
 
 	executionID := strings.TrimSpace(chi.URLParam(req, "executionID"))
 	if executionID == "" {
 		writeErrorResponse(w, http.StatusBadRequest, "invalid execution id", "executionID is required")
-		return
-	}
-
-	if !r.authorizeRequest(req, "kill") {
-		writeErrorResponse(w, http.StatusForbidden, "Forbidden", "you do not have permission to kill executions")
 		return
 	}
 

@@ -1,7 +1,7 @@
 p, role:admin, /api/v1/*, *, allow
 p, role:operator, /api/v1/executions/*, create, allow
 p, role:operator, /api/v1/executions/*, execute, allow
-p, role:operator, /api/v1/executions/*, kill, allow
+p, role:operator, /api/v1/executions/*, delete, allow
 p, role:operator, /api/v1/executions, read, allow
 p, role:operator, /api/v1/executions/*, read, allow
 p, role:operator, /api/v1/health/reconcile, execute, allow
@@ -19,7 +19,7 @@ p, role:operator, /api/v1/users/, read, allow
 p, role:operator, /api/v1/users/*, read, allow
 p, role:developer, /api/v1/executions/*, create, allow
 p, role:developer, /api/v1/executions/*, execute, allow
-p, role:developer, /api/v1/executions/*, kill, allow
+p, role:developer, /api/v1/executions/*, delete, allow
 p, role:developer, /api/v1/executions, read, allow
 p, role:developer, /api/v1/executions/*, read, allow
 p, role:developer, /api/v1/images, read, allow

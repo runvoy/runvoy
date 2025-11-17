@@ -22,12 +22,6 @@ func (r *Router) handleHealth(w http.ResponseWriter, _ *http.Request) {
 // handleReconcileHealth triggers a full health reconciliation across managed resources.
 // It requires authentication and is intended for admin/maintenance use.
 func (r *Router) handleReconcileHealth(w http.ResponseWriter, req *http.Request) {
-	if !r.authorizeRequest(req, "execute") {
-		writeErrorResponse(w, http.StatusForbidden, "Forbidden",
-			"you do not have permission to reconcile health")
-		return
-	}
-
 	report, err := r.svc.ReconcileResources(req.Context())
 	if err != nil {
 		statusCode := apperrors.GetStatusCode(err)

@@ -106,7 +106,7 @@ POST   /api/v1/run                      - Start an execution
 GET    /api/v1/executions               - List executions (queried via DynamoDB GSI)
 GET    /api/v1/executions/{id}/logs     - Fetch execution logs (CloudWatch + API GW powered websocket)
 GET    /api/v1/executions/{id}/status   - Get execution status (RUNNING/SUCCEEDED/FAILED/STOPPED)
-POST   /api/v1/executions/{id}/kill     - Terminate a running execution
+DELETE /api/v1/executions/{id}/kill     - Terminate a running execution
 GET    /api/v1/claim/{token}            - Claim a pending API key (public, no auth required)
 ```
 
@@ -312,7 +312,8 @@ The router uses a middleware stack for cross-cutting concerns:
 1. **Content-Type Middleware**: Sets `Content-Type: application/json` for all responses
 2. **Request ID Middleware**: Extracts AWS Lambda request ID and adds it to logging context
 3. **Authentication Middleware**: Validates API keys and adds user context
-4. **Request Logging Middleware**: Logs incoming requests and their responses with method, path, status code, and duration
+4. **Authorization Middleware**: Enforces role-based access control via Casbin before handlers are invoked
+5. **Request Logging Middleware**: Logs incoming requests and their responses with method, path, status code, and duration
 
 **Authentication Middleware Error Handling:**
 - Invalid API key → 401 Unauthorized (INVALID_API_KEY)
@@ -343,11 +344,18 @@ Four predefined roles control access to different resources:
 
 #### Authorization Enforcement Points
 
-**Endpoint-Level Authorization:**
-- All protected API endpoints check authorization before processing requests
+**Middleware-Based Authorization:**
+- Authorization is enforced at the middleware level, before handlers are invoked
+- The authorization middleware automatically maps HTTP methods and paths to authorization actions:
+  - `GET` → `read` action
+  - `POST` → `create` action (except special cases)
+  - `PUT` → `update` action
+  - `DELETE` → `delete` action
+  - Special cases: `/api/v1/run` (POST → `execute`), `/api/v1/health/reconcile` (POST → `execute`)
 - Enforces role-based permissions via Casbin RBAC model
 - Returns `403 Forbidden` with `FORBIDDEN` error code when access is denied
 - Returns `401 Unauthorized` with `UNAUTHORIZED` error code when unauthenticated
+- Handlers no longer need to check authorization; it's handled centrally by middleware
 
 **Resource-Level Authorization (Special Case: `/api/v1/run` Endpoint):**
 - The execution endpoint (`POST /api/v1/run`) validates access to all referenced resources before starting an execution:
@@ -369,9 +377,10 @@ For fine-grained access control, resources track ownership:
 1. **Initialization**: At service startup, all user roles are loaded from the database into the Casbin enforcer
 2. **Request Processing**:
    - Authentication middleware validates API key and adds user to context
-   - Handler calls `authorizeRequest()` to check general endpoint permission
-   - For `/run` endpoint: Service validates access to specific resources (image, secrets) via `ValidateExecutionResourceAccess()`
-3. **Access Denied**: Request is rejected with appropriate HTTP status and error code
+   - Authorization middleware automatically maps HTTP method + path to action and checks permission via Casbin
+   - If authorized, request proceeds to handler; if denied, request is rejected with `403 Forbidden`
+   - For `/run` endpoint: After general `execute` permission check in middleware, service layer validates access to specific resources (image, secrets) via `ValidateExecutionResourceAccess()`
+3. **Access Denied**: Request is rejected at middleware level with appropriate HTTP status and error code before handlers are invoked
 4. **Runtime Sync**:
    - User role assignments are pushed to the enforcer when users are created or revoked.
    - Ownership mappings are updated live for both secrets (create/delete) and executions (creation), removing the need to rely on process restarts.
@@ -1638,14 +1647,14 @@ The `run` command executes commands remotely via the orchestrator Lambda.
 
 **Note:** Execution completion is tracked automatically by the event processor Lambda.
 
-## Execution Termination (`POST /api/v1/executions/{id}/kill`)
+## Execution Termination (`DELETE /api/v1/executions/{id}/kill`)
 
 The kill endpoint allows users to terminate running executions. This endpoint provides safe termination by validating that executions exist in the database and checking task status before termination.
 
-**Implementation:** `internal/server/handlers.go` → `handleKillExecution`
+**Implementation:** `internal/server/handlers_executions.go` → `handleKillExecution`
 
 **Request Flow:**
-1. User sends POST request to `/api/v1/executions/{executionID}/kill`
+1. User sends DELETE request to `/api/v1/executions/{executionID}/kill`
 2. Orchestrator Lambda:
    - Validates API key
    - Verifies execution exists in the database (returns 404 if not found)

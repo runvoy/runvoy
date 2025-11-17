@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"runvoy/internal/api"
-	"runvoy/internal/auth/authorization"
 	apperrors "runvoy/internal/errors"
 
 	"github.com/go-chi/chi/v5"
@@ -20,11 +19,6 @@ func (r *Router) handleRegisterImage(w http.ResponseWriter, req *http.Request) {
 
 	if err := json.NewDecoder(req.Body).Decode(&registerReq); err != nil {
 		writeErrorResponse(w, http.StatusBadRequest, "invalid request body", err.Error())
-		return
-	}
-
-	if !r.authorizeRequest(req, authorization.ActionCreate) {
-		writeErrorResponse(w, http.StatusForbidden, "Forbidden", "you do not have permission to register images")
 		return
 	}
 
@@ -65,11 +59,6 @@ func (r *Router) handleListImages(w http.ResponseWriter, req *http.Request) {
 func (r *Router) handleGetImage(w http.ResponseWriter, req *http.Request) {
 	logger := r.GetLoggerFromContext(req.Context())
 
-	if !r.authorizeRequest(req, "read") {
-		writeErrorResponse(w, http.StatusForbidden, "Forbidden", "you do not have permission to read images")
-		return
-	}
-
 	imagePath := strings.TrimPrefix(strings.TrimSpace(chi.URLParam(req, "*")), "/")
 	if imagePath == "" {
 		writeErrorResponse(w, http.StatusBadRequest, "invalid image", "image parameter is required")
@@ -106,11 +95,6 @@ func (r *Router) handleGetImage(w http.ResponseWriter, req *http.Request) {
 // The image parameter may contain slashes and colons and uses a catch-all (*) route to match paths with slashes.
 func (r *Router) handleRemoveImage(w http.ResponseWriter, req *http.Request) {
 	logger := r.GetLoggerFromContext(req.Context())
-
-	if !r.authorizeRequest(req, "delete") {
-		writeErrorResponse(w, http.StatusForbidden, "Forbidden", "you do not have permission to remove images")
-		return
-	}
 
 	imagePath := strings.TrimPrefix(strings.TrimSpace(chi.URLParam(req, "*")), "/")
 	if imagePath == "" {
