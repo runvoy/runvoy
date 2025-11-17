@@ -450,7 +450,10 @@ func TestListImages_RunnerGenericError(t *testing.T) {
 
 func TestRegisterImage_Success(t *testing.T) {
 	runner := &mockRunner{
-		registerImageFunc: func(_ context.Context, _ string, _ *bool, _ *string, _ *string, _ *int, _ *int, _ *string, _ string) (*api.ImageInfo, error) {
+		registerImageFunc: func(
+			_ context.Context, _ string, _ *bool, _ *string, _ *string,
+			_ *int, _ *int, _ *string, _ string,
+		) (*api.ImageInfo, error) {
 			return &api.ImageInfo{
 				ImageID: "alpine:latest-test",
 				Image:   "alpine:latest",
@@ -487,7 +490,10 @@ func TestRegisterImage_Success(t *testing.T) {
 
 func TestRegisterImage_EmptyImageName(t *testing.T) {
 	runner := &mockRunner{
-		registerImageFunc: func(_ context.Context, _ string, _ *bool, _ *string, _ *string, _ *int, _ *int, _ *string, _ string) (*api.ImageInfo, error) {
+		registerImageFunc: func(
+			_ context.Context, _ string, _ *bool, _ *string, _ *string,
+			_ *int, _ *int, _ *string, _ string,
+		) (*api.ImageInfo, error) {
 			return &api.ImageInfo{}, nil
 		},
 	}
@@ -521,7 +527,10 @@ func TestRegisterImage_EmptyImageName(t *testing.T) {
 
 func TestRegisterImage_RunnerError(t *testing.T) {
 	runner := &mockRunner{
-		registerImageFunc: func(_ context.Context, _ string, _ *bool, _ *string, _ *string, _ *int, _ *int, _ *string, _ string) (*api.ImageInfo, error) {
+		registerImageFunc: func(
+			_ context.Context, _ string, _ *bool, _ *string, _ *string,
+			_ *int, _ *int, _ *string, _ string,
+		) (*api.ImageInfo, error) {
 			return nil, apperrors.ErrInternalError("runner error", nil)
 		},
 	}
@@ -556,7 +565,10 @@ func TestRegisterImage_RunnerError(t *testing.T) {
 
 func TestRegisterImage_RunnerGenericError(t *testing.T) {
 	runner := &mockRunner{
-		registerImageFunc: func(_ context.Context, _ string, _ *bool, _ *string, _ *string, _ *int, _ *int, _ *string, _ string) (*api.ImageInfo, error) {
+		registerImageFunc: func(
+			_ context.Context, _ string, _ *bool, _ *string, _ *string,
+			_ *int, _ *int, _ *string, _ string,
+		) (*api.ImageInfo, error) {
 			return nil, errors.New("some runner error")
 		},
 	}

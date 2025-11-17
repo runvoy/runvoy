@@ -65,9 +65,15 @@ func TestRegisterImage(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			runner := &mockRunner{
 				registerImageFunc: func(
-					_ context.Context, _ string, _ *bool, _ *string, _ *string, _ *int, _ *int, _ *string, _ string,
+					_ context.Context, image string, _ *bool, _ *string, _ *string, _ *int, _ *int, _ *string, _ string,
 				) (*api.ImageInfo, error) {
-					return nil, tt.runnerErr
+					if tt.runnerErr != nil {
+						return nil, tt.runnerErr
+					}
+					return &api.ImageInfo{
+						ImageID: image + "-test-id",
+						Image:   image,
+					}, nil
 				},
 			}
 

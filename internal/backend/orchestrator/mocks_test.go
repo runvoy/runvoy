@@ -261,7 +261,10 @@ func (m *mockRunner) RegisterImage(
 	ownerEmail string,
 ) (*api.ImageInfo, error) {
 	if m.registerImageFunc != nil {
-		return m.registerImageFunc(ctx, image, isDefault, taskRoleName, taskExecutionRoleName, cpu, memory, runtimePlatform, ownerEmail)
+		return m.registerImageFunc(
+			ctx, image, isDefault, taskRoleName, taskExecutionRoleName,
+			cpu, memory, runtimePlatform, ownerEmail,
+		)
 	}
 	return &api.ImageInfo{
 		ImageID: "test-image-id",

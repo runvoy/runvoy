@@ -45,8 +45,8 @@ func (s *Service) RegisterImage(
 	}
 
 	resourceID := authorization.FormatResourceID("image", imageInfo.ImageID)
-	if err := s.enforcer.AddOwnershipForResource(resourceID, ownerEmail); err != nil {
-		return nil, apperrors.ErrInternalError("failed to add image ownership to authorization enforcer", err)
+	if addErr := s.enforcer.AddOwnershipForResource(resourceID, ownerEmail); addErr != nil {
+		return nil, apperrors.ErrInternalError("failed to add image ownership to authorization enforcer", addErr)
 	}
 
 	return &api.RegisterImageResponse{
