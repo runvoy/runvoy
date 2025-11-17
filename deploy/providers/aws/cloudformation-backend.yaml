@@ -748,6 +748,28 @@ Resources:
       Principal: events.amazonaws.com
       SourceArn: !GetAtt TaskCompletionEventRule.Arn
 
+  # EventBridge Scheduled Rule for Health Reconciliation
+  HealthReconcileEventRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub '${ProjectName}-health-reconcile'
+      Description: 'Periodic health reconciliation for runvoy resources'
+      State: ENABLED
+      ScheduleExpression: 'rate(1 hour)'
+      Targets:
+        - Arn: !GetAtt EventProcessorFunction.Arn
+          Id: HealthReconcileTarget
+          Input: '{"detail-type":"Scheduled Event","source":"aws.events","detail":{"runvoy_event":"health_reconcile"}}'
+
+  # Permission for Health Reconcile Scheduled Rule to invoke Event Processor Lambda
+  HealthReconcileEventPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref EventProcessorFunction
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt HealthReconcileEventRule.Arn
+
   # Permission for API Gateway to invoke Event Processor Lambda (WebSocket events)
   EventProcessorApiPermission:
     Type: AWS::Lambda::Permission
