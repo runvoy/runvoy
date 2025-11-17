@@ -24,7 +24,7 @@ func (r *Router) handleCreateUser(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	if !r.authorizeRequest(req.Context(), user.Email, req.URL.Path, "create") {
+	if !r.authorizeRequest(req, "create") {
 		writeErrorResponse(w, http.StatusForbidden, "Forbidden", "you do not have permission to create users")
 		return
 	}
@@ -55,13 +55,7 @@ func (r *Router) handleRevokeUser(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	user, ok := r.getUserFromContext(req)
-	if !ok {
-		writeErrorResponse(w, http.StatusUnauthorized, "Unauthorized", "user not found in context")
-		return
-	}
-
-	if !r.authorizeRequest(req.Context(), user.Email, req.URL.Path, "delete") {
+	if !r.authorizeRequest(req, "delete") {
 		writeErrorResponse(w, http.StatusForbidden, "Forbidden", "you do not have permission to revoke users")
 		return
 	}

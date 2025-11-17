@@ -22,13 +22,7 @@ func (r *Router) handleRegisterImage(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	user, ok := r.getUserFromContext(req)
-	if !ok {
-		writeErrorResponse(w, http.StatusUnauthorized, "Unauthorized", "user not found in context")
-		return
-	}
-
-	if !r.authorizeRequest(req.Context(), user.Email, req.URL.Path, "create") {
+	if !r.authorizeRequest(req, "create") {
 		writeErrorResponse(w, http.StatusForbidden, "Forbidden", "you do not have permission to register images")
 		return
 	}
@@ -70,13 +64,7 @@ func (r *Router) handleListImages(w http.ResponseWriter, req *http.Request) {
 func (r *Router) handleGetImage(w http.ResponseWriter, req *http.Request) {
 	logger := r.GetLoggerFromContext(req.Context())
 
-	user, ok := r.getUserFromContext(req)
-	if !ok {
-		writeErrorResponse(w, http.StatusUnauthorized, "Unauthorized", "user not found in context")
-		return
-	}
-
-	if !r.authorizeRequest(req.Context(), user.Email, req.URL.Path, "read") {
+	if !r.authorizeRequest(req, "read") {
 		writeErrorResponse(w, http.StatusForbidden, "Forbidden", "you do not have permission to read images")
 		return
 	}
@@ -118,13 +106,7 @@ func (r *Router) handleGetImage(w http.ResponseWriter, req *http.Request) {
 func (r *Router) handleRemoveImage(w http.ResponseWriter, req *http.Request) {
 	logger := r.GetLoggerFromContext(req.Context())
 
-	user, ok := r.getUserFromContext(req)
-	if !ok {
-		writeErrorResponse(w, http.StatusUnauthorized, "Unauthorized", "user not found in context")
-		return
-	}
-
-	if !r.authorizeRequest(req.Context(), user.Email, req.URL.Path, "delete") {
+	if !r.authorizeRequest(req, "delete") {
 		writeErrorResponse(w, http.StatusForbidden, "Forbidden", "you do not have permission to remove images")
 		return
 	}

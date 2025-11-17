@@ -45,7 +45,9 @@ func TestAuthorizeRequest(t *testing.T) {
 		router := &Router{svc: svc}
 
 		// With nil enforcer (authorization not configured), should allow
-		allowed := router.authorizeRequest(context.Background(), "user@example.com", "/api/test", "read")
+		user := &api.User{Email: "user@example.com"}
+		req := createAuthenticatedRequest("GET", "/api/test", user)
+		allowed := router.authorizeRequest(req, "read")
 		assert.True(t, allowed)
 	})
 }
@@ -370,7 +372,9 @@ func TestGracefulDegradationWithNilEnforcer(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// With nil enforcer, all access should be allowed (graceful degradation)
-			allowed := router.authorizeRequest(context.Background(), tt.userEmail, tt.resource, tt.action)
+			user := &api.User{Email: tt.userEmail}
+			req := createAuthenticatedRequest("GET", tt.resource, user)
+			allowed := router.authorizeRequest(req, tt.action)
 			assert.True(t, allowed, "should allow access when enforcer is nil")
 		})
 	}

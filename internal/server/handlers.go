@@ -30,14 +30,13 @@ func (r *Router) handleListWithAuth(
 ) {
 	logger := r.GetLoggerFromContext(req.Context())
 
-	user, ok := r.getUserFromContext(req)
+	_, ok := r.getUserFromContext(req)
 	if !ok {
 		writeErrorResponse(w, http.StatusUnauthorized, "Unauthorized", "user not found in context")
 		return
 	}
 
-//TODO refactor authRequest to accept request as argument
-	if !r.authorizeRequest(req.Context(), user.Email, req.URL.Path, "read") {
+	if !r.authorizeRequest(req, "read") {
 		writeErrorResponse(w, http.StatusForbidden, "Forbidden", denialMsg)
 		return
 	}

@@ -29,7 +29,7 @@ func (r *Router) handleRunCommand(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	if !r.authorizeRequest(req.Context(), user.Email, req.URL.Path, "execute") {
+	if !r.authorizeRequest(req, "execute") {
 		writeErrorResponse(w, http.StatusForbidden, "Forbidden", "you do not have permission to execute commands")
 		return
 	}
@@ -70,7 +70,7 @@ func (r *Router) handleGetExecutionLogs(w http.ResponseWriter, req *http.Request
 		return
 	}
 
-	if !r.authorizeRequest(req.Context(), user.Email, req.URL.Path, "read") {
+	if !r.authorizeRequest(req, "read") {
 		writeErrorResponse(w, http.StatusForbidden, "Forbidden", "you do not have permission to read execution logs")
 		return
 	}
@@ -103,13 +103,7 @@ func (r *Router) handleGetExecutionStatus(w http.ResponseWriter, req *http.Reque
 		return
 	}
 
-	user, ok := r.getUserFromContext(req)
-	if !ok {
-		writeErrorResponse(w, http.StatusUnauthorized, "Unauthorized", "user not found in context")
-		return
-	}
-
-	if !r.authorizeRequest(req.Context(), user.Email, req.URL.Path, "read") {
+	if !r.authorizeRequest(req, "read") {
 		writeErrorResponse(w, http.StatusForbidden, "Forbidden", "you do not have permission to read execution status")
 		return
 	}
@@ -148,13 +142,7 @@ func (r *Router) handleKillExecution(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	user, ok := r.getUserFromContext(req)
-	if !ok {
-		writeErrorResponse(w, http.StatusUnauthorized, "Unauthorized", "user not found in context")
-		return
-	}
-
-	if !r.authorizeRequest(req.Context(), user.Email, req.URL.Path, "kill") {
+	if !r.authorizeRequest(req, "kill") {
 		writeErrorResponse(w, http.StatusForbidden, "Forbidden", "you do not have permission to kill executions")
 		return
 	}

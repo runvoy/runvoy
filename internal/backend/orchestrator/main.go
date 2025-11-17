@@ -195,7 +195,7 @@ func (s *Service) hydrateSecretOwnerships(ctx context.Context) error {
 
 	for _, secret := range secrets {
 		if secret == nil || secret.Name == "" || secret.CreatedBy == "" {
-			continue
+			return errors.New("secret is nil or missing required fields")
 		}
 
 		resourceID := fmt.Sprintf("secret:%s", secret.Name)
@@ -221,7 +221,7 @@ func (s *Service) hydrateExecutionOwnerships(ctx context.Context) error {
 
 	for _, execution := range executions {
 		if execution == nil || execution.ExecutionID == "" || execution.UserEmail == "" {
-			continue
+			return errors.New("execution is nil or missing required fields")
 		}
 
 		g.Go(func() error {
