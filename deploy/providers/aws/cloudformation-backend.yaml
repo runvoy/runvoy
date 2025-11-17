@@ -741,7 +741,16 @@ Resources:
                   - !Sub '${SecretsMetadataTable.Arn}/index/*'
               - Effect: Allow
                 Action:
+                  - 'dynamodb:GetItem'
+                  - 'dynamodb:Query'
+                  - 'dynamodb:Scan'
+                Resource:
+                  - !GetAtt APIKeysTable.Arn
+                  - !Sub '${APIKeysTable.Arn}/index/*'
+              - Effect: Allow
+                Action:
                   - 'ecs:ListTaskDefinitions'
+                  - 'ecs:DescribeTaskDefinition'
                   - 'ecs:RegisterTaskDefinition'
                   - 'ecs:TagResource'
                   - 'ecs:ListTagsForResource'
@@ -755,8 +764,10 @@ Resources:
                 Action:
                   - 'ssm:GetParameter'
                   - 'ssm:GetParameters'
+                  - 'ssm:GetParametersByPath'
                   - 'ssm:ListTagsForResource'
                   - 'ssm:AddTagsToResource'
+                  - 'ssm:RemoveTagsFromResource'
                 Resource: !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${ProjectName}/secrets/*'
               - Effect: Allow
                 Action:
