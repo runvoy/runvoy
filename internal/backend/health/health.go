@@ -18,14 +18,14 @@ type Manager interface {
 
 // Report contains the results of a health reconciliation run.
 type Report struct {
-	Timestamp       time.Time
-	ComputeStatus   ComputeHealthStatus
-	SecretsStatus   SecretsHealthStatus
-	IdentityStatus  IdentityHealthStatus
-	CasbinStatus    AuthorizerHealthStatus
-	Issues          []Issue
-	ReconciledCount int
-	ErrorCount      int
+	Timestamp        time.Time
+	ComputeStatus    ComputeHealthStatus
+	SecretsStatus    SecretsHealthStatus
+	IdentityStatus   IdentityHealthStatus
+	AuthorizerStatus AuthorizerHealthStatus
+	Issues           []Issue
+	ReconciledCount  int
+	ErrorCount       int
 }
 
 // ComputeHealthStatus contains the health status for compute resources (e.g., containers, task definitions).

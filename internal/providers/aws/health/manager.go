@@ -116,7 +116,7 @@ func (m *Manager) Reconcile(ctx context.Context) (*health.Report, error) {
 	report.IdentityStatus = res.identityStatus
 	report.Issues = append(report.Issues, res.identityIssues...)
 
-	report.CasbinStatus = res.casbinStatus
+	report.AuthorizerStatus = res.casbinStatus
 	report.Issues = append(report.Issues, res.casbinIssues...)
 
 	for _, issue := range report.Issues {
