@@ -328,26 +328,29 @@ func (r *Router) handleKillExecution(w http.ResponseWriter, req *http.Request) {
 
 // handleListExecutions handles GET /api/v1/executions to list executions with optional filtering.
 // Query parameters:
-//   - limit: maximum number of executions to return (default: 10)
+//   - limit: maximum number of executions to return (default: 10, use 0 to return all)
 //   - status: comma-separated list of execution statuses to filter by (e.g., "RUNNING,TERMINATING")
 //
 // Example: GET /api/v1/executions?limit=20&status=RUNNING,TERMINATING
 func (r *Router) handleListExecutions(w http.ResponseWriter, req *http.Request) {
 	logger := r.GetLoggerFromContext(req.Context())
 
-	// Parse query parameters
 	limit := constants.DefaultExecutionListLimit
 	if limitParam := req.URL.Query().Get("limit"); limitParam != "" {
-		if parsedLimit, err := strconv.Atoi(limitParam); err == nil && parsedLimit > 0 {
-			limit = parsedLimit
-		} else {
+		parsedLimit, err := strconv.Atoi(limitParam)
+		if err != nil {
 			logger.Debug("invalid limit parameter", "error", err, "limit", limitParam)
 			writeErrorResponseWithCode(w, http.StatusBadRequest, "invalid_request", "invalid limit parameter", "")
 			return
 		}
+		if parsedLimit < 0 {
+			logger.Debug("invalid limit parameter", "error", "limit must be >= 0", "limit", limitParam)
+			writeErrorResponseWithCode(w, http.StatusBadRequest, "invalid_request", "invalid limit parameter", "")
+			return
+		}
+		limit = parsedLimit
 	}
 
-	// Parse status filters
 	var statuses []string
 	if statusParam := req.URL.Query().Get("status"); statusParam != "" {
 		statuses = strings.Split(statusParam, ",")

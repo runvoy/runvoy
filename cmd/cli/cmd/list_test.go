@@ -31,12 +31,14 @@ func (m *mockClientInterfaceForList) ListExecutions(
 func TestListService_ListExecutions(t *testing.T) {
 	tests := []struct {
 		name         string
+		limit        int
 		setupMock    func(*mockClientInterfaceForList)
 		wantErr      bool
 		verifyOutput func(*testing.T, *mockOutputInterface)
 	}{
 		{
-			name: "successfully lists executions",
+			name:  "successfully lists executions",
+			limit: 10,
 			setupMock: func(m *mockClientInterfaceForList) {
 				m.listExecutionsFunc = func(_ context.Context, _ int, _ string) ([]api.Execution, error) {
 					now := time.Now()
@@ -82,7 +84,8 @@ func TestListService_ListExecutions(t *testing.T) {
 			},
 		},
 		{
-			name: "handles empty execution list",
+			name:  "handles empty execution list",
+			limit: 10,
 			setupMock: func(m *mockClientInterfaceForList) {
 				m.listExecutionsFunc = func(_ context.Context, _ int, _ string) ([]api.Execution, error) {
 					return []api.Execution{}, nil
@@ -105,7 +108,8 @@ func TestListService_ListExecutions(t *testing.T) {
 			},
 		},
 		{
-			name: "handles client error",
+			name:  "handles client error",
+			limit: 10,
 			setupMock: func(m *mockClientInterfaceForList) {
 				m.listExecutionsFunc = func(_ context.Context, _ int, _ string) ([]api.Execution, error) {
 					return nil, fmt.Errorf("network error")
@@ -129,7 +133,8 @@ func TestListService_ListExecutions(t *testing.T) {
 			},
 		},
 		{
-			name: "formats long commands correctly",
+			name:  "formats long commands correctly",
+			limit: 10,
 			setupMock: func(m *mockClientInterfaceForList) {
 				m.listExecutionsFunc = func(_ context.Context, _ int, _ string) ([]api.Execution, error) {
 					longCommand := "this is a very long command that exceeds the maximum command length limit and should be truncated"
@@ -159,7 +164,8 @@ func TestListService_ListExecutions(t *testing.T) {
 			},
 		},
 		{
-			name: "formats executions with completed and duration",
+			name:  "formats executions with completed and duration",
+			limit: 10,
 			setupMock: func(m *mockClientInterfaceForList) {
 				m.listExecutionsFunc = func(_ context.Context, _ int, _ string) ([]api.Execution, error) {
 					started := time.Now().Add(-10 * time.Minute)
@@ -194,7 +200,8 @@ func TestListService_ListExecutions(t *testing.T) {
 			},
 		},
 		{
-			name: "formats executions without completed time",
+			name:  "formats executions without completed time",
+			limit: 10,
 			setupMock: func(m *mockClientInterfaceForList) {
 				m.listExecutionsFunc = func(_ context.Context, _ int, _ string) ([]api.Execution, error) {
 					return []api.Execution{
@@ -222,6 +229,22 @@ func TestListService_ListExecutions(t *testing.T) {
 				}
 			},
 		},
+		{
+			name:  "allows zero limit",
+			limit: 0,
+			setupMock: func(m *mockClientInterfaceForList) {
+				m.listExecutionsFunc = func(_ context.Context, limit int, _ string) ([]api.Execution, error) {
+					assert.Equal(t, 0, limit)
+					return []api.Execution{}, nil
+				}
+			},
+			wantErr: false,
+		},
+		{
+			name:    "rejects negative limit",
+			limit:   -1,
+			wantErr: true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -229,12 +252,14 @@ func TestListService_ListExecutions(t *testing.T) {
 			mockClient := &mockClientInterfaceForList{
 				mockClientInterface: &mockClientInterface{},
 			}
-			tt.setupMock(mockClient)
+			if tt.setupMock != nil {
+				tt.setupMock(mockClient)
+			}
 
 			mockOutput := &mockOutputInterface{}
 			service := NewListService(mockClient, mockOutput)
 
-			err := service.ListExecutions(context.Background(), 10, "")
+			err := service.ListExecutions(context.Background(), tt.limit, "")
 
 			if tt.wantErr {
 				assert.Error(t, err)

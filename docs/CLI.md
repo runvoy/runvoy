@@ -129,7 +129,7 @@ Show last 10 executions and all statuses by default. Use --limit and --status fl
 
 ```
   -h, --help            help for list
-      --limit int       maximum number of executions to return (default: 10) (default 10)
+      --limit int       maximum number of executions to return (default: 10, use 0 for all) (default 10)
       --status string   comma-separated list of execution statuses to filter by (e.g., RUNNING,TERMINATING)
 ```
 

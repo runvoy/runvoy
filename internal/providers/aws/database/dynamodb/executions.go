@@ -13,6 +13,7 @@ import (
 	"runvoy/internal/api"
 	apperrors "runvoy/internal/errors"
 	"runvoy/internal/logger"
+	awsconstants "runvoy/internal/providers/aws/constants"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
@@ -302,7 +303,7 @@ func processQueryResults(
 
 		executions = append(executions, item.toAPIExecution())
 
-		if len(executions) >= limit {
+		if limit > 0 && len(executions) >= limit {
 			return executions, true, nil
 		}
 	}
@@ -340,7 +341,10 @@ func (r *ExecutionRepository) buildQueryInput(
 		ExpressionAttributeValues: exprValues,
 		ScanIndexForward:          aws.Bool(false), // Sort descending by started_at (newest first)
 		ExclusiveStartKey:         lastKey,
-		Limit:                     aws.Int32(buildQueryLimit(limit)),
+	}
+
+	if limit > 0 {
+		queryInput.Limit = aws.Int32(buildQueryLimit(limit))
 	}
 
 	if filterExpr != "" {
@@ -356,7 +360,7 @@ func (r *ExecutionRepository) buildQueryInput(
 // Status filtering and limiting are handled natively by DynamoDB using FilterExpression and Limit.
 //
 // Parameters:
-//   - limit: maximum number of executions to return
+//   - limit: maximum number of executions to return. Use 0 to return all executions.
 //   - statuses: optional slice of execution statuses to filter by.
 //     If empty, all executions are returned.
 func (r *ExecutionRepository) ListExecutions(
@@ -365,7 +369,11 @@ func (r *ExecutionRepository) ListExecutions(
 	statuses []string,
 ) ([]*api.Execution, error) {
 	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
-	executions := make([]*api.Execution, 0, limit)
+	initialCapacity := limit
+	if initialCapacity <= 0 {
+		initialCapacity = awsconstants.DefaultExecutionListCapacity
+	}
+	executions := make([]*api.Execution, 0, initialCapacity)
 	var lastKey map[string]types.AttributeValue
 
 	exprNames := map[string]string{

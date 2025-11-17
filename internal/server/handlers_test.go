@@ -446,6 +446,41 @@ func TestHandleListExecutions_Empty(t *testing.T) {
 	assert.Contains(t, resp.Body.String(), "[]")
 }
 
+func TestHandleListExecutions_LimitZero(t *testing.T) {
+	capturedLimit := -1
+	execRepo := &testExecutionRepository{
+		listExecutionsFunc: func(limit int, _ []string) ([]*api.Execution, error) {
+			capturedLimit = limit
+			return []*api.Execution{}, nil
+		},
+	}
+
+	svc, err := orchestrator.NewService(context.Background(),
+		&testUserRepository{},
+		execRepo,
+		nil,
+		&testTokenRepository{},
+		&testRunner{},
+		testutil.SilentLogger(),
+		constants.AWS,
+		nil,
+		nil, // SecretsService
+		nil, // healthManager
+		nil,
+	)
+	require.NoError(t, err)
+	router := NewRouter(svc, 2*time.Second)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/executions?limit=0", http.NoBody)
+	req.Header.Set("X-API-Key", "test-api-key")
+
+	resp := httptest.NewRecorder()
+	router.ServeHTTP(resp, req)
+
+	assert.Equal(t, http.StatusOK, resp.Code)
+	assert.Equal(t, 0, capturedLimit)
+}
+
 func TestHandleListExecutions_DatabaseError(t *testing.T) {
 	execRepo := &testExecutionRepository{
 		listExecutionsFunc: func(_ int, _ []string) ([]*api.Execution, error) {

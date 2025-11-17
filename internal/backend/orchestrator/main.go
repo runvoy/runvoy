@@ -212,8 +212,7 @@ func (s *Service) hydrateExecutionOwnerships(ctx context.Context) error {
 		return nil
 	}
 
-	// TODO: use pagination, we want to load all executions
-	executions, err := s.executionRepo.ListExecutions(ctx, constants.DefaultExecutionListLimit, nil)
+	executions, err := s.executionRepo.ListExecutions(ctx, 0, nil)
 	if err != nil {
 		return fmt.Errorf("failed to load executions for enforcer initialization: %w", err)
 	}
@@ -241,7 +240,7 @@ func (s *Service) hydrateExecutionOwnerships(ctx context.Context) error {
 	}
 
 	if waitErr := g.Wait(); waitErr != nil {
-		return errors.New("failed to load execution ownerships into enforcer")
+		return fmt.Errorf("failed to load execution ownerships into enforcer: %w", waitErr)
 	}
 
 	return nil

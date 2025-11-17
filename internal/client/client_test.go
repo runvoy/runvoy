@@ -609,6 +609,33 @@ func TestClient_ListExecutions(t *testing.T) {
 		assert.Len(t, executions, 1)
 		assert.Equal(t, "exec-1", executions[0].ExecutionID)
 	})
+
+	t.Run("list executions with unlimited limit", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			assert.Equal(t, "GET", r.Method)
+			assert.Equal(t, "/api/v1/executions", r.URL.Path)
+			assert.Equal(t, "0", r.URL.Query().Get("limit"))
+
+			w.WriteHeader(http.StatusOK)
+			_ = json.NewEncoder(w).Encode([]api.Execution{
+				{ExecutionID: "exec-1", Status: "SUCCEEDED"},
+			})
+		}))
+		defer server.Close()
+
+		cfg := &config.Config{
+			APIEndpoint: server.URL,
+			APIKey:      "test-api-key",
+		}
+		c := New(cfg, testutil.SilentLogger())
+
+		executions, err := c.ListExecutions(context.Background(), 0, "")
+
+		require.NoError(t, err)
+		require.NotNil(t, executions)
+		assert.Len(t, executions, 1)
+		assert.Equal(t, "exec-1", executions[0].ExecutionID)
+	})
 }
 
 func TestClient_ClaimAPIKey(t *testing.T) {

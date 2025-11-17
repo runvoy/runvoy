@@ -71,7 +71,7 @@ type ExecutionRepository interface {
 
 	// ListExecutions returns executions from the database with optional filtering and pagination.
 	// Parameters:
-	//   - limit: maximum number of executions to return
+	//   - limit: maximum number of executions to return. Use 0 to fetch all executions.
 	//   - statuses: optional slice of execution statuses to filter by.
 	//              If empty, all executions are returned.
 	// Results are ordered newest first.

@@ -50,7 +50,7 @@ func init() {
 		&limitFlag,
 		"limit",
 		constants.DefaultExecutionListLimit,
-		fmt.Sprintf("maximum number of executions to return (default: %d)",
+		fmt.Sprintf("maximum number of executions to return (default: %d, use 0 for all)",
 			constants.DefaultExecutionListLimit),
 	)
 	executionsCmd.Flags().StringVar(&statusFlag, "status", "",
@@ -89,8 +89,8 @@ func NewListService(apiClient client.Interface, outputter OutputInterface) *List
 
 // ListExecutions lists executions with optional filtering and displays them in a table format
 func (s *ListService) ListExecutions(ctx context.Context, limit int, statuses string) error {
-	if limit <= 0 {
-		return fmt.Errorf("limit must be a positive integer, got %d", limit)
+	if limit < 0 {
+		return fmt.Errorf("limit must be zero or a positive integer, got %d", limit)
 	}
 
 	s.output.Infof("Listing executions…")

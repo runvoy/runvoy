@@ -746,3 +746,43 @@ func TestExecutionRepository_ListExecutions(t *testing.T) {
 		assert.Contains(t, err.Error(), "failed to query executions")
 	})
 }
+
+func TestBuildQueryInput_NoLimitWhenZero(t *testing.T) {
+	logger := testutil.SilentLogger()
+	repo := NewExecutionRepository(nil, "test-table", logger)
+
+	exprNames := map[string]string{
+		"#all": "_all",
+	}
+	exprValues := map[string]types.AttributeValue{
+		":all": &types.AttributeValueMemberS{Value: "1"},
+	}
+
+	input := repo.buildQueryInput("", exprNames, exprValues, nil, 0)
+
+	require.NotNil(t, input)
+	assert.Nil(t, input.Limit)
+}
+
+func TestProcessQueryResults_UnboundedLimit(t *testing.T) {
+	item := executionItem{
+		ExecutionID: "exec-1",
+		StartedAt:   time.Now().Unix(),
+		UserEmail:   "user@example.com",
+		Command:     "echo hello",
+		Status:      "SUCCEEDED",
+	}
+
+	av, err := attributevalue.MarshalMap(item)
+	require.NoError(t, err)
+
+	executions, reachedLimit, procErr := processQueryResults(
+		[]map[string]types.AttributeValue{av, av},
+		make([]*api.Execution, 0),
+		0,
+	)
+
+	require.NoError(t, procErr)
+	assert.False(t, reachedLimit)
+	assert.Len(t, executions, 2)
+}

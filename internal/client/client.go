@@ -311,7 +311,7 @@ func (c *Client) KillExecution(ctx context.Context, executionID string) (*api.Ki
 
 // ListExecutions fetches executions with optional filtering and pagination.
 // Parameters:
-//   - limit: maximum number of executions to return
+//   - limit: maximum number of executions to return (0 returns all)
 //   - statuses: comma-separated list of execution statuses to filter by (e.g., "RUNNING,TERMINATING")
 func (c *Client) ListExecutions(ctx context.Context, limit int, statuses string) ([]api.Execution, error) {
 	var resp []api.Execution
@@ -323,7 +323,7 @@ func (c *Client) ListExecutions(ctx context.Context, limit int, statuses string)
 	}
 
 	params := url.Values{}
-	if limit > 0 {
+	if limit >= 0 {
 		params.Set("limit", fmt.Sprintf("%d", limit))
 	}
 	if statuses != "" {
