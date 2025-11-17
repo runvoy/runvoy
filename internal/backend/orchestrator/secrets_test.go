@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"runvoy/internal/api"
+	"runvoy/internal/auth/authorization"
 	"runvoy/internal/constants"
 	appErrors "runvoy/internal/errors"
 	"runvoy/internal/testutil"
@@ -29,7 +30,7 @@ func TestCreateSecret_Success(t *testing.T) {
 		nil, // wsManager
 		secretsRepo,
 		nil, // healthManager
-		nil, // enforcer
+		newPermissiveEnforcer(),
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -61,7 +62,7 @@ func TestCreateSecret_NoRepository(t *testing.T) {
 		nil, // wsManager
 		nil, // secretsRepo
 		nil, // healthManager
-		nil, // enforcer
+		newPermissiveEnforcer(),
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -98,7 +99,7 @@ func TestCreateSecret_RepositoryError(t *testing.T) {
 		nil, // wsManager
 		secretsRepo,
 		nil, // healthManager
-		nil, // enforcer
+		newPermissiveEnforcer(),
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -140,7 +141,7 @@ func TestGetSecret_Success(t *testing.T) {
 		nil, // wsManager
 		secretsRepo,
 		nil, // healthManager
-		nil, // enforcer
+		newPermissiveEnforcer(),
 	)
 	require.NoError(t, err)
 
@@ -171,7 +172,7 @@ func TestGetSecret_NotFound(t *testing.T) {
 		nil, // wsManager
 		secretsRepo,
 		nil, // healthManager
-		nil, // enforcer
+		newPermissiveEnforcer(),
 	)
 	require.NoError(t, err)
 
@@ -183,19 +184,26 @@ func TestGetSecret_NotFound(t *testing.T) {
 
 func TestListSecrets_Success(t *testing.T) {
 	secretsRepo := &mockSecretsRepository{
-		listSecretsFunc: func(_ context.Context, _ bool) ([]*api.Secret, error) {
+		listSecretsFunc: func(_ context.Context, includeValue bool) ([]*api.Secret, error) {
+			// During initialization, includeValue is false. Return empty list to avoid ownership loading.
+			// During actual ListSecrets call, includeValue is true. Return the test secrets.
+			if !includeValue {
+				return []*api.Secret{}, nil
+			}
 			return []*api.Secret{
 				{
 					Name:        "secret-1",
 					KeyName:     "KEY_1",
 					Description: "First secret",
 					Value:       "value1",
+					CreatedBy:   "user@example.com",
 				},
 				{
 					Name:        "secret-2",
 					KeyName:     "KEY_2",
 					Description: "Second secret",
 					Value:       "value2",
+					CreatedBy:   "user@example.com",
 				},
 			}, nil
 		},
@@ -213,7 +221,7 @@ func TestListSecrets_Success(t *testing.T) {
 		nil, // wsManager
 		secretsRepo,
 		nil, // healthManager
-		nil, // enforcer
+		newPermissiveEnforcer(),
 	)
 	require.NoError(t, err)
 
@@ -244,7 +252,7 @@ func TestListSecrets_Empty(t *testing.T) {
 		nil, // wsManager
 		secretsRepo,
 		nil, // healthManager
-		nil, // enforcer
+		newPermissiveEnforcer(),
 	)
 	require.NoError(t, err)
 
@@ -269,7 +277,7 @@ func TestUpdateSecret_Success(t *testing.T) {
 		nil, // wsManager
 		secretsRepo,
 		nil, // healthManager
-		nil, // enforcer
+		newPermissiveEnforcer(),
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -305,7 +313,7 @@ func TestUpdateSecret_RepositoryError(t *testing.T) {
 		nil, // wsManager
 		secretsRepo,
 		nil, // healthManager
-		nil, // enforcer
+		newPermissiveEnforcer(),
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -336,7 +344,7 @@ func TestDeleteSecret_Success(t *testing.T) {
 		nil, // wsManager
 		secretsRepo,
 		nil, // healthManager
-		nil, // enforcer
+		newPermissiveEnforcer(),
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -366,7 +374,7 @@ func TestDeleteSecret_RepositoryError(t *testing.T) {
 		nil, // wsManager
 		secretsRepo,
 		nil, // healthManager
-		nil, // enforcer
+		newPermissiveEnforcer(),
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -375,6 +383,111 @@ func TestDeleteSecret_RepositoryError(t *testing.T) {
 	deleteErr := service.DeleteSecret(context.Background(), "test-secret")
 
 	assert.Error(t, deleteErr)
+}
+
+func TestDeleteSecret_RemovesOwnershipFromEnforcer(t *testing.T) {
+	ctx := context.Background()
+	secrets := map[string]*api.Secret{}
+	secretsRepo := &mockSecretsRepository{
+		createSecretFunc: func(_ context.Context, secret *api.Secret) error {
+			secrets[secret.Name] = secret
+			return nil
+		},
+		getSecretFunc: func(_ context.Context, name string, _ bool) (*api.Secret, error) {
+			if secret, ok := secrets[name]; ok {
+				secretCopy := *secret
+				return &secretCopy, nil
+			}
+			return nil, nil
+		},
+		deleteSecretFunc: func(_ context.Context, name string) error {
+			if _, ok := secrets[name]; !ok {
+				return appErrors.ErrNotFound("secret not found", nil)
+			}
+			delete(secrets, name)
+			return nil
+		},
+	}
+
+	service, enforcer := newTestServiceWithEnforcer(
+		&mockUserRepository{},
+		&mockExecutionRepository{},
+		nil,
+		secretsRepo,
+	)
+
+	req := &api.CreateSecretRequest{
+		Name:    "ownership-secret",
+		KeyName: "SECRET_KEY",
+		Value:   "super-secret",
+	}
+
+	err := service.CreateSecret(ctx, req, "creator@example.com")
+	require.NoError(t, err)
+
+	resourceID := authorization.FormatResourceID("secret", req.Name)
+	hasOwnership, checkErr := enforcer.HasOwnershipForResource(resourceID, "creator@example.com")
+	require.NoError(t, checkErr)
+	assert.True(t, hasOwnership)
+
+	deleteErr := service.DeleteSecret(ctx, req.Name)
+	require.NoError(t, deleteErr)
+
+	hasOwnership, checkErr = enforcer.HasOwnershipForResource(resourceID, "creator@example.com")
+	require.NoError(t, checkErr)
+	assert.False(t, hasOwnership)
+}
+
+func TestDeleteSecret_RestoresOwnershipOnFailure(t *testing.T) {
+	ctx := context.Background()
+	secrets := map[string]*api.Secret{}
+	secretsRepo := &mockSecretsRepository{
+		createSecretFunc: func(_ context.Context, secret *api.Secret) error {
+			secrets[secret.Name] = secret
+			return nil
+		},
+		getSecretFunc: func(_ context.Context, name string, _ bool) (*api.Secret, error) {
+			if secret, ok := secrets[name]; ok {
+				secretCopy := *secret
+				return &secretCopy, nil
+			}
+			return nil, nil
+		},
+		deleteSecretFunc: func(_ context.Context, name string) error {
+			if _, ok := secrets[name]; !ok {
+				return appErrors.ErrNotFound("secret not found", nil)
+			}
+			return appErrors.ErrDatabaseError("delete failed", errors.New("db error"))
+		},
+	}
+
+	service, enforcer := newTestServiceWithEnforcer(
+		&mockUserRepository{},
+		&mockExecutionRepository{},
+		nil,
+		secretsRepo,
+	)
+
+	req := &api.CreateSecretRequest{
+		Name:    "restore-secret",
+		KeyName: "SECRET_KEY",
+		Value:   "super-secret",
+	}
+
+	err := service.CreateSecret(ctx, req, "creator@example.com")
+	require.NoError(t, err)
+
+	resourceID := authorization.FormatResourceID("secret", req.Name)
+	hasOwnership, checkErr := enforcer.HasOwnershipForResource(resourceID, "creator@example.com")
+	require.NoError(t, checkErr)
+	assert.True(t, hasOwnership)
+
+	deleteErr := service.DeleteSecret(ctx, req.Name)
+	require.Error(t, deleteErr)
+
+	hasOwnership, checkErr = enforcer.HasOwnershipForResource(resourceID, "creator@example.com")
+	require.NoError(t, checkErr)
+	assert.True(t, hasOwnership)
 }
 
 func TestResolveSecretsForExecution_Success(t *testing.T) {
@@ -410,7 +523,7 @@ func TestResolveSecretsForExecution_Success(t *testing.T) {
 		nil, // wsManager
 		secretsRepo,
 		nil, // healthManager
-		nil, // enforcer
+		newPermissiveEnforcer(),
 	)
 	require.NoError(t, err)
 
@@ -437,7 +550,7 @@ func TestResolveSecretsForExecution_Empty(t *testing.T) {
 		nil, // wsManager
 		secretsRepo,
 		nil, // healthManager
-		nil, // enforcer
+		newPermissiveEnforcer(),
 	)
 	require.NoError(t, err)
 
@@ -462,7 +575,7 @@ func TestResolveSecretsForExecution_EmptySecretName(t *testing.T) {
 		nil, // wsManager
 		secretsRepo,
 		nil, // healthManager
-		nil, // enforcer
+		newPermissiveEnforcer(),
 	)
 	require.NoError(t, err)
 
@@ -498,7 +611,7 @@ func TestResolveSecretsForExecution_DuplicateSecrets(t *testing.T) {
 		nil, // wsManager
 		secretsRepo,
 		nil, // healthManager
-		nil, // enforcer
+		newPermissiveEnforcer(),
 	)
 	require.NoError(t, err)
 
@@ -534,7 +647,7 @@ func TestResolveSecretsForExecution_SecretNotFound(t *testing.T) {
 		nil, // wsManager
 		secretsRepo,
 		nil, // healthManager
-		nil, // enforcer
+		newPermissiveEnforcer(),
 	)
 	require.NoError(t, err)
 
@@ -596,7 +709,7 @@ func TestApplyResolvedSecrets(t *testing.T) {
 		nil, // wsManager
 		nil, // secretsRepo
 		nil, // healthManager
-		nil, // enforcer
+		newPermissiveEnforcer(),
 	)
 	if err != nil {
 		t.Fatal(err)

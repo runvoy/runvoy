@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"runvoy/internal/api"
+	"runvoy/internal/auth/authorization"
 	appErrors "runvoy/internal/errors"
 	"runvoy/internal/testutil"
 
@@ -33,7 +34,7 @@ func TestValidateCreateUserRequest_Success(t *testing.T) {
 		nil,
 		nil,
 		nil, // healthManager
-		nil, // enforcer
+		newPermissiveEnforcer(),
 	)
 	require.NoError(t, err)
 
@@ -56,7 +57,7 @@ func TestValidateCreateUserRequest_EmptyEmail(t *testing.T) {
 		nil,
 		nil,
 		nil, // healthManager
-		nil, // enforcer
+		newPermissiveEnforcer(),
 	)
 	require.NoError(t, err)
 
@@ -80,7 +81,7 @@ func TestValidateCreateUserRequest_InvalidEmail(t *testing.T) {
 		nil,
 		nil,
 		nil, // healthManager
-		nil, // enforcer
+		newPermissiveEnforcer(),
 	)
 	require.NoError(t, err)
 
@@ -109,7 +110,7 @@ func TestValidateCreateUserRequest_UserAlreadyExists(t *testing.T) {
 		nil,
 		nil,
 		nil, // healthManager
-		nil, // enforcer
+		newPermissiveEnforcer(),
 	)
 	require.NoError(t, err)
 
@@ -138,7 +139,7 @@ func TestValidateCreateUserRequest_RepositoryError(t *testing.T) {
 		nil,
 		nil,
 		nil, // healthManager
-		nil, // enforcer
+		newPermissiveEnforcer(),
 	)
 	require.NoError(t, err)
 
@@ -161,7 +162,7 @@ func TestValidateCreateUserRequest_EmptyRole(t *testing.T) {
 		nil,
 		nil,
 		nil, // healthManager
-		nil, // enforcer
+		newPermissiveEnforcer(),
 	)
 	require.NoError(t, err)
 
@@ -185,7 +186,7 @@ func TestValidateCreateUserRequest_InvalidRole(t *testing.T) {
 		nil,
 		nil,
 		nil, // healthManager
-		nil, // enforcer
+		newPermissiveEnforcer(),
 	)
 	require.NoError(t, err)
 
@@ -233,7 +234,7 @@ func TestCreatePendingClaim_Success(t *testing.T) {
 		nil,
 		nil,
 		nil, // healthManager
-		nil, // enforcer
+		newPermissiveEnforcer(),
 	)
 	require.NoError(t, err)
 
@@ -268,7 +269,7 @@ func TestCreatePendingClaim_RepositoryError(t *testing.T) {
 		nil,
 		nil,
 		nil, // healthManager
-		nil, // enforcer
+		newPermissiveEnforcer(),
 	)
 	require.NoError(t, err)
 
@@ -309,7 +310,7 @@ func TestCreateUser_Success(t *testing.T) {
 		nil,
 		nil,
 		nil, // healthManager
-		nil, // enforcer
+		newPermissiveEnforcer(),
 	)
 	require.NoError(t, err)
 
@@ -337,7 +338,7 @@ func TestCreateUser_NoRepository(t *testing.T) {
 		nil,
 		nil,
 		nil, // healthManager
-		nil, // enforcer
+		newPermissiveEnforcer(),
 	)
 	require.NoError(t, err)
 
@@ -362,7 +363,7 @@ func TestCreateUser_InvalidEmail(t *testing.T) {
 		nil,
 		nil,
 		nil, // healthManager
-		nil, // enforcer
+		newPermissiveEnforcer(),
 	)
 	require.NoError(t, err)
 
@@ -395,7 +396,7 @@ func TestCreateUser_CreateUserError(t *testing.T) {
 		nil,
 		nil,
 		nil, // healthManager
-		nil, // enforcer
+		newPermissiveEnforcer(),
 	)
 	require.NoError(t, err)
 
@@ -419,7 +420,7 @@ func TestCreateUser_MissingRole(t *testing.T) {
 		nil,
 		nil,
 		nil, // healthManager
-		nil, // enforcer
+		newPermissiveEnforcer(),
 	)
 	require.NoError(t, err)
 
@@ -444,7 +445,7 @@ func TestCreateUser_InvalidRole(t *testing.T) {
 		nil,
 		nil,
 		nil, // healthManager
-		nil, // enforcer
+		newPermissiveEnforcer(),
 	)
 	require.NoError(t, err)
 
@@ -453,6 +454,141 @@ func TestCreateUser_InvalidRole(t *testing.T) {
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid role")
+}
+
+func TestCreateUser_SyncsRoleWithEnforcer(t *testing.T) {
+	repo := &mockUserRepository{
+		getUserByEmailFunc: func(_ context.Context, _ string) (*api.User, error) {
+			return nil, nil
+		},
+		createUserFunc: func(_ context.Context, _ *api.User, _ string, _ int64) error {
+			return nil
+		},
+		createPendingAPIKeyFunc: func(_ context.Context, _ *api.PendingAPIKey) error {
+			return nil
+		},
+	}
+
+	service, enforcer := newTestServiceWithEnforcer(
+		repo,
+		&mockExecutionRepository{},
+		nil,
+		nil,
+	)
+
+	req := api.CreateUserRequest{Email: "new-user@example.com", Role: "viewer"}
+	resp, err := service.CreateUser(context.Background(), req, "admin@example.com")
+
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+
+	roles, err := enforcer.GetRolesForUser(req.Email)
+	require.NoError(t, err)
+
+	viewerRole, err := authorization.NewRole(req.Role)
+	require.NoError(t, err)
+	assert.Contains(t, roles, authorization.FormatRole(viewerRole))
+}
+
+func TestCreateUser_PendingClaimFailureRollsBackEnforcer(t *testing.T) {
+	revokeCalled := 0
+	repo := &mockUserRepository{
+		getUserByEmailFunc: func(_ context.Context, _ string) (*api.User, error) {
+			return nil, nil
+		},
+		createUserFunc: func(_ context.Context, _ *api.User, _ string, _ int64) error {
+			return nil
+		},
+		createPendingAPIKeyFunc: func(_ context.Context, _ *api.PendingAPIKey) error {
+			return appErrors.ErrDatabaseError("pending failure", errors.New("db error"))
+		},
+		revokeUserFunc: func(_ context.Context, _ string) error {
+			revokeCalled++
+			return nil
+		},
+	}
+
+	service, enforcer := newTestServiceWithEnforcer(
+		repo,
+		&mockExecutionRepository{},
+		nil,
+		nil,
+	)
+
+	req := api.CreateUserRequest{Email: "rollback@example.com", Role: "viewer"}
+	_, err := service.CreateUser(context.Background(), req, "admin@example.com")
+
+	require.Error(t, err)
+	assert.Equal(t, 1, revokeCalled)
+
+	roles, getErr := enforcer.GetRolesForUser(req.Email)
+	require.NoError(t, getErr)
+	assert.Empty(t, roles)
+}
+
+func TestRevokeUser_RemovesRoleFromEnforcer(t *testing.T) {
+	userEmail := "viewer@example.com"
+	repo := &mockUserRepository{
+		getUserByEmailFunc: func(_ context.Context, _ string) (*api.User, error) {
+			return &api.User{Email: userEmail, Role: "viewer"}, nil
+		},
+		revokeUserFunc: func(_ context.Context, _ string) error {
+			return nil
+		},
+		listUsersFunc: func(_ context.Context) ([]*api.User, error) {
+			return []*api.User{
+				{Email: userEmail, Role: "viewer"},
+			}, nil
+		},
+	}
+
+	service, enforcer := newTestServiceWithEnforcer(
+		repo,
+		&mockExecutionRepository{},
+		nil,
+		nil,
+	)
+
+	err := service.RevokeUser(context.Background(), userEmail)
+	require.NoError(t, err)
+
+	roles, getErr := enforcer.GetRolesForUser(userEmail)
+	require.NoError(t, getErr)
+	assert.Empty(t, roles)
+}
+
+func TestRevokeUser_RestoresRoleOnFailure(t *testing.T) {
+	userEmail := "viewer@example.com"
+	repo := &mockUserRepository{
+		getUserByEmailFunc: func(_ context.Context, _ string) (*api.User, error) {
+			return &api.User{Email: userEmail, Role: "viewer"}, nil
+		},
+		revokeUserFunc: func(_ context.Context, _ string) error {
+			return appErrors.ErrDatabaseError("revoke failed", errors.New("db error"))
+		},
+		listUsersFunc: func(_ context.Context) ([]*api.User, error) {
+			return []*api.User{
+				{Email: userEmail, Role: "viewer"},
+			}, nil
+		},
+	}
+
+	service, enforcer := newTestServiceWithEnforcer(
+		repo,
+		&mockExecutionRepository{},
+		nil,
+		nil,
+	)
+
+	err := service.RevokeUser(context.Background(), userEmail)
+	require.Error(t, err)
+
+	roles, getErr := enforcer.GetRolesForUser(userEmail)
+	require.NoError(t, getErr)
+
+	viewerRole, roleErr := authorization.NewRole("viewer")
+	require.NoError(t, roleErr)
+	assert.Contains(t, roles, authorization.FormatRole(viewerRole))
 }
 
 func TestClaimAPIKey_Success(t *testing.T) {
@@ -487,7 +623,7 @@ func TestClaimAPIKey_Success(t *testing.T) {
 		nil,
 		nil,
 		nil, // healthManager
-		nil, // enforcer
+		newPermissiveEnforcer(),
 	)
 	require.NoError(t, err)
 
@@ -513,7 +649,7 @@ func TestClaimAPIKey_NoRepository(t *testing.T) {
 		nil,
 		nil,
 		nil, // healthManager
-		nil, // enforcer
+		newPermissiveEnforcer(),
 	)
 	require.NoError(t, err)
 
@@ -542,7 +678,7 @@ func TestClaimAPIKey_InvalidToken(t *testing.T) {
 		nil,
 		nil,
 		nil, // healthManager
-		nil, // enforcer
+		newPermissiveEnforcer(),
 	)
 	require.NoError(t, err)
 
@@ -578,7 +714,7 @@ func TestClaimAPIKey_AlreadyClaimed(t *testing.T) {
 		nil,
 		nil,
 		nil, // healthManager
-		nil, // enforcer
+		newPermissiveEnforcer(),
 	)
 	require.NoError(t, err)
 
@@ -614,7 +750,7 @@ func TestClaimAPIKey_TokenExpired(t *testing.T) {
 		nil,
 		nil,
 		nil, // healthManager
-		nil, // enforcer
+		newPermissiveEnforcer(),
 	)
 	require.NoError(t, err)
 
@@ -628,8 +764,8 @@ func TestListUsers_Success(t *testing.T) {
 	repo := &mockUserRepository{
 		listUsersFunc: func(_ context.Context) ([]*api.User, error) {
 			return []*api.User{
-				{Email: "alice@example.com"},
-				{Email: "bob@example.com"},
+				{Email: "alice@example.com", Role: "admin"},
+				{Email: "bob@example.com", Role: "developer"},
 			}, nil
 		},
 	}
@@ -646,7 +782,7 @@ func TestListUsers_Success(t *testing.T) {
 		nil,
 		nil,
 		nil, // healthManager
-		nil, // enforcer
+		newPermissiveEnforcer(),
 	)
 	require.NoError(t, err)
 
@@ -679,7 +815,7 @@ func TestListUsers_Empty(t *testing.T) {
 		nil,
 		nil,
 		nil, // healthManager
-		nil, // enforcer
+		newPermissiveEnforcer(),
 	)
 	require.NoError(t, err)
 
@@ -704,7 +840,7 @@ func TestListUsers_NoRepository(t *testing.T) {
 		nil,
 		nil,
 		nil, // healthManager
-		nil, // enforcer
+		newPermissiveEnforcer(),
 	)
 	require.NoError(t, err)
 
@@ -715,8 +851,15 @@ func TestListUsers_NoRepository(t *testing.T) {
 }
 
 func TestListUsers_RepositoryError(t *testing.T) {
+	initCallCount := 0
 	repo := &mockUserRepository{
 		listUsersFunc: func(_ context.Context) ([]*api.User, error) {
+			initCallCount++
+			// During initialization (first call), return success to allow service creation.
+			// During actual ListUsers call (second call), return error.
+			if initCallCount == 1 {
+				return []*api.User{}, nil
+			}
 			return nil, appErrors.ErrDatabaseError("test error", errors.New("db error"))
 		},
 	}
@@ -733,7 +876,7 @@ func TestListUsers_RepositoryError(t *testing.T) {
 		nil,
 		nil,
 		nil, // healthManager
-		nil, // enforcer
+		newPermissiveEnforcer(),
 	)
 	require.NoError(t, err)
 
@@ -747,10 +890,10 @@ func TestListUsers_SortingByEmail(t *testing.T) {
 		listUsersFunc: func(_ context.Context) ([]*api.User, error) {
 			// Return users sorted by email (as the database now does)
 			return []*api.User{
-				{Email: "alice@example.com"},
-				{Email: "bob@example.com"},
-				{Email: "charlie@example.com"},
-				{Email: "zebra@example.com"},
+				{Email: "alice@example.com", Role: "admin"},
+				{Email: "bob@example.com", Role: "developer"},
+				{Email: "charlie@example.com", Role: "viewer"},
+				{Email: "zebra@example.com", Role: "operator"},
 			}, nil
 		},
 	}
@@ -767,7 +910,7 @@ func TestListUsers_SortingByEmail(t *testing.T) {
 		nil,
 		nil,
 		nil, // healthManager
-		nil, // enforcer
+		newPermissiveEnforcer(),
 	)
 	require.NoError(t, err)
 
