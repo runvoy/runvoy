@@ -156,6 +156,7 @@ func TestHandleGetSecret_Success(t *testing.T) {
 				Value:       "secret-value",
 				Description: "Test secret",
 				KeyName:     "TEST_KEY",
+				OwnedBy:     []string{"user@example.com"},
 			}, nil
 		},
 	}
@@ -176,6 +177,7 @@ func TestHandleGetSecret_Success(t *testing.T) {
 	_ = json.NewDecoder(w.Body).Decode(&resp)
 	assert.Equal(t, "my-secret", resp.Secret.Name)
 	assert.Equal(t, "secret-value", resp.Secret.Value)
+	assert.Equal(t, []string{"user@example.com"}, resp.Secret.OwnedBy)
 }
 
 func TestHandleGetSecret_NotFound(t *testing.T) {

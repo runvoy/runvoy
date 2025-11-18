@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 
 	"runvoy/internal/api"
@@ -266,6 +267,11 @@ func (s *SecretsService) GetSecret(ctx context.Context, name string) error {
 		s.output.KeyValue("Value", secret.Value)
 	}
 	s.output.KeyValue("Created By", secret.CreatedBy)
+	if len(secret.OwnedBy) > 0 {
+		s.output.KeyValue("Owned By", strings.Join(secret.OwnedBy, ", "))
+	} else {
+		s.output.KeyValue("Owned By", "-")
+	}
 	s.output.KeyValue("Created At", secret.CreatedAt.UTC().Format(time.DateTime))
 	s.output.KeyValue("Updated By", secret.UpdatedBy)
 	s.output.KeyValue("Updated At", secret.UpdatedAt.UTC().Format(time.DateTime))

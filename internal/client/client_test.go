@@ -908,6 +908,7 @@ func TestClient_GetSecret(t *testing.T) {
 					Description: "GitHub API token",
 					Value:       "ghp_xxxxx",
 					CreatedBy:   "alice@example.com",
+					OwnedBy:     []string{"alice@example.com"},
 					CreatedAt:   time.Now().UTC(),
 					UpdatedBy:   "alice@example.com",
 					UpdatedAt:   time.Now().UTC(),
