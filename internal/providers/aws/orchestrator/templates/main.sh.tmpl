@@ -1,7 +1,7 @@
 set -e
 
 printf '### {{ .ProjectName }} runner execution started by requestID => %s\n' "{{ .RequestID }}"
-printf '### Docker image => %s\n' "{{ .Image }}"
+printf '### Image ID => %s\n' "{{ .Image }}"
 
 {{- if .Repo }}
 cd {{ .Repo.WorkDir }}

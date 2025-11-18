@@ -15,16 +15,18 @@ import (
 )
 
 // ValidateExecutionResourceAccess checks if a user can access all resources required for execution.
-// Validates access to the image and all secrets referenced in the execution request.
+// The resolvedImage parameter contains the image that was resolved from the request and will be validated.
+// All secrets referenced in the execution request are also validated for access.
 // Returns an error if the user lacks access to any required resource.
 func (s *Service) ValidateExecutionResourceAccess(
 	userEmail string,
 	req *api.ExecutionRequest,
+	resolvedImage *api.ImageInfo,
 ) error {
 	enforcer := s.GetEnforcer()
 
-	if image := strings.TrimSpace(req.Image); image != "" {
-		imagePath := fmt.Sprintf("/api/v1/images/%s", image)
+	if resolvedImage != nil {
+		imagePath := fmt.Sprintf("/api/v1/images/%s", resolvedImage.ImageID)
 		allowed, err := enforcer.Enforce(userEmail, imagePath, authorization.ActionRead)
 		if err != nil {
 			return apperrors.ErrInternalError(
@@ -35,8 +37,9 @@ func (s *Service) ValidateExecutionResourceAccess(
 		if !allowed {
 			return apperrors.ErrForbidden(
 				fmt.Sprintf(
-					"you do not have permission to execute with image %q",
-					image,
+					"you do not have permission to execute with image %q (resolved to %s)",
+					req.Image,
+					resolvedImage.ImageID,
 				),
 				nil,
 			)
@@ -72,15 +75,22 @@ func (s *Service) ValidateExecutionResourceAccess(
 }
 
 // RunCommand starts a provider-specific task and records the execution.
-// Resolve secret references to environment variables before starting the task.
-// Set execution status to STARTING after the task has been accepted by the provider.
+// The resolvedImage parameter contains the validated image that will be used for execution.
+// The request's Image field is replaced with the imageID before passing to the runner.
+// Secret references are resolved to environment variables before starting the task.
+// Execution status is set to STARTING after the task has been accepted by the provider.
 func (s *Service) RunCommand(
 	ctx context.Context,
 	userEmail string,
 	req *api.ExecutionRequest,
+	resolvedImage *api.ImageInfo,
 ) (*api.ExecutionResponse, error) {
 	if req.Command == "" {
 		return nil, apperrors.ErrBadRequest("command is required", nil)
+	}
+
+	if resolvedImage != nil {
+		req.Image = resolvedImage.ImageID
 	}
 
 	secretEnvVars, err := s.resolveSecretsForExecution(ctx, req.Secrets)
@@ -103,6 +113,7 @@ func (s *Service) RunCommand(
 	return &api.ExecutionResponse{
 		ExecutionID: executionID,
 		Status:      string(constants.ExecutionStarting),
+		ImageID:     resolvedImage.ImageID,
 	}, nil
 }
 

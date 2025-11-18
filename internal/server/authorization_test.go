@@ -199,12 +199,28 @@ func TestValidateExecutionResourceAccess(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			runner := &testRunner{
+				getImageFunc: func(image string) (*api.ImageInfo, error) {
+					if image == "" || image == "ubuntu:22.04" {
+						isDefault := image == ""
+						return &api.ImageInfo{
+							ImageID:   "ubuntu:22.04-a1b2c3d4",
+							Image:     "ubuntu:22.04",
+							ImageName: "ubuntu",
+							ImageTag:  "22.04",
+							IsDefault: &isDefault,
+						}, nil
+					}
+					return nil, nil
+				},
+			}
+
 			svc, _ := orchestrator.NewService(context.Background(),
 				&testUserRepository{},
 				&testExecutionRepository{},
 				nil,
 				&testTokenRepository{},
-				&testRunner{},
+				runner,
 				testutil.SilentLogger(),
 				constants.AWS,
 				nil,
@@ -219,9 +235,17 @@ func TestValidateExecutionResourceAccess(t *testing.T) {
 				Secrets: tt.secrets,
 			}
 
-			// Test without enforcer (should allow)
-			err := svc.ValidateExecutionResourceAccess("user@example.com", req)
-			assert.NoError(t, err, "should allow when enforcer is nil")
+			// Resolve image if specified
+			var resolvedImage *api.ImageInfo
+			if tt.image != "" {
+				var err error
+				resolvedImage, err = svc.ResolveImage(context.Background(), tt.image)
+				assert.NoError(t, err, "should resolve image")
+			}
+
+			// Test with permissive enforcer (should allow based on test expectations)
+			err := svc.ValidateExecutionResourceAccess("user@example.com", req, resolvedImage)
+			assert.NoError(t, err, "should allow when enforcer is permissive")
 		})
 	}
 }
@@ -264,7 +288,20 @@ func TestHandleListUsersWithAuthorization(t *testing.T) {
 
 // TestHandleRunCommandStructure tests the run command handler structure
 func TestHandleRunCommandStructure(t *testing.T) {
-	runner := &testRunner{}
+	runner := &testRunner{
+		getImageFunc: func(image string) (*api.ImageInfo, error) {
+			// When no image is specified, return a default image
+			if image == "" {
+				isDefault := true
+				return &api.ImageInfo{
+					ImageID:   "default-image-id",
+					Image:     "default-image",
+					IsDefault: &isDefault,
+				}, nil
+			}
+			return nil, nil
+		},
+	}
 	executionRepo := &testExecutionRepository{}
 	userRepo := &testUserRepositoryWithRoles{}
 	enforcer := newPermissiveTestEnforcer(t)

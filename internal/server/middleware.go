@@ -300,7 +300,7 @@ func (r *Router) getActionFromRequest(method string) authorization.Action {
 // authorizeRequestMiddleware checks authorization for authenticated routes.
 // It should be applied after authenticateRequestMiddleware.
 // The /run endpoint gets general create permission here; resource-level checks
-// (images/secrets) happen in the handler layer via ValidateExecutionResourceAccess.
+// (resolved images/secrets) happen in the handler layer via ResolveImage and ValidateExecutionResourceAccess.
 func (r *Router) authorizeRequestMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		action := r.getActionFromRequest(req.Method)

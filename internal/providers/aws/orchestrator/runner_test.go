@@ -103,7 +103,7 @@ func TestBuildMainContainerCommandWithoutRepo(t *testing.T) {
 		fmt.Sprintf("printf '### %s runner execution started by requestID => %%s\\n' \"request-123\"", constants.ProjectName),
 	)
 
-	assert.Contains(t, commandScript, "printf '### Docker image => %s\\n' \"ubuntu:22.04\"")
+	assert.Contains(t, commandScript, "printf '### Image ID => %s\\n' \"ubuntu:22.04\"")
 	assert.Contains(
 		t,
 		commandScript,

@@ -128,3 +128,40 @@ func (s *Service) RemoveImage(ctx context.Context, image string) error {
 
 	return nil
 }
+
+// ResolveImage resolves a user-provided image string to a specific ImageInfo.
+// If image string is empty, returns the default image.
+// This centralizes image resolution logic for authorization and execution.
+func (s *Service) ResolveImage(ctx context.Context, image string) (*api.ImageInfo, error) {
+	// If no image specified, use default
+	if image == "" {
+		imageInfo, err := s.runner.GetImage(ctx, "")
+		if err != nil {
+			var appErr *appErrors.AppError
+			if errors.As(err, &appErr) {
+				return nil, err
+			}
+			return nil, appErrors.ErrInternalError("failed to get default image", err)
+		}
+		if imageInfo == nil {
+			return nil, appErrors.ErrBadRequest("no image specified and no default image configured", nil)
+		}
+		return imageInfo, nil
+	}
+
+	// Resolve the provided image string
+	imageInfo, err := s.runner.GetImage(ctx, image)
+	if err != nil {
+		var appErr *appErrors.AppError
+		if errors.As(err, &appErr) {
+			return nil, err
+		}
+		return nil, appErrors.ErrInternalError("failed to resolve image", err)
+	}
+
+	if imageInfo == nil {
+		return nil, appErrors.ErrBadRequest("image not registered", nil)
+	}
+
+	return imageInfo, nil
+}

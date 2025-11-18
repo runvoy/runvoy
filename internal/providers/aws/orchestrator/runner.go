@@ -326,7 +326,9 @@ func (e *Runner) StartTask(
 	return executionID, createdAt, nil
 }
 
-// resolveImage determines which image to use and gets its task definition ARN.
+// resolveImage retrieves the task definition ARN for the given imageID.
+// The req.Image field contains an imageID that was resolved and validated by the service layer.
+// If empty, falls back to the default image as a safety measure.
 func (e *Runner) resolveImage(
 	ctx context.Context, req *api.ExecutionRequest, reqLogger *slog.Logger,
 ) (imageToUse, taskDefARN string, err error) {
@@ -350,8 +352,8 @@ func (e *Runner) resolveImage(
 	}
 
 	reqLogger.Debug("task definition resolved", "context", map[string]string{
-		"image": imageToUse,
-		"arn":   taskDefARN,
+		"image_id": imageToUse,
+		"arn":      taskDefARN,
 	})
 
 	return
