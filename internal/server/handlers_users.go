@@ -25,7 +25,7 @@ func (r *Router) handleCreateUser(w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		statusCode, errorCode, errorDetails := extractErrorInfo(err)
 
-		logger.Debug("failed to create user", "error", err, "status_code", statusCode, "error_code", errorCode)
+		logger.Error("failed to create user", "error", err, "status_code", statusCode, "error_code", errorCode)
 
 		writeErrorResponseWithCode(w, statusCode, errorCode, "failed to create user", errorDetails)
 		return
@@ -47,7 +47,7 @@ func (r *Router) handleRevokeUser(w http.ResponseWriter, req *http.Request) {
 	if err := r.svc.RevokeUser(req.Context(), revokeReq.Email); err != nil {
 		statusCode, errorCode, errorDetails := extractErrorInfo(err)
 
-		logger.Debug("failed to revoke user", "error", err, "status_code", statusCode, "error_code", errorCode)
+		logger.Error("failed to revoke user", "error", err, "status_code", statusCode, "error_code", errorCode)
 
 		writeErrorResponseWithCode(w, statusCode, errorCode, "failed to revoke user", errorDetails)
 		return

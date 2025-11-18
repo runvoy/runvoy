@@ -29,7 +29,7 @@ func (r *Router) handleRegisterImage(w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		statusCode, errorCode, errorDetails := extractErrorInfo(err)
 
-		logger.Debug("failed to register image", "error", err, "status_code", statusCode, "error_code", errorCode)
+		logger.Error("failed to register image", "error", err, "status_code", statusCode, "error_code", errorCode)
 
 		writeErrorResponseWithCode(w, statusCode, errorCode, "failed to register image", errorDetails)
 		return
@@ -60,7 +60,7 @@ func (r *Router) handleGetImage(w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		statusCode, errorCode, errorDetails := extractErrorInfo(err)
 
-		logger.Debug("failed to get image", "error", err, "status_code", statusCode, "error_code", errorCode)
+		logger.Error("failed to get image", "error", err, "status_code", statusCode, "error_code", errorCode)
 
 		writeErrorResponseWithCode(w, statusCode, errorCode, "failed to get image", errorDetails)
 		return
@@ -84,7 +84,7 @@ func (r *Router) handleRemoveImage(w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		statusCode, errorCode, errorDetails := extractErrorInfo(err)
 
-		logger.Debug("failed to remove image", "error", err, "status_code", statusCode, "error_code", errorCode)
+		logger.Error("failed to remove image", "error", err, "status_code", statusCode, "error_code", errorCode)
 
 		writeErrorResponseWithCode(w, statusCode, errorCode, "failed to remove image", errorDetails)
 		return

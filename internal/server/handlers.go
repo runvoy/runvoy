@@ -32,7 +32,7 @@ func (r *Router) handleListWithAuth(
 	if err != nil {
 		statusCode, errorCode, errorDetails := extractErrorInfo(err)
 
-		logger.Debug("failed to "+operationName,
+		logger.Error("failed to "+operationName,
 			"error", err,
 			"status_code", statusCode,
 			"error_code", errorCode)

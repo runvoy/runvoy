@@ -24,7 +24,7 @@ func (r *Router) handleClaimAPIKey(w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		statusCode, errorCode, errorDetails := extractErrorInfo(err)
 
-		logger.Debug("failed to claim API key", "error", err, "status_code", statusCode, "error_code", errorCode)
+		logger.Error("failed to claim API key", "error", err, "status_code", statusCode, "error_code", errorCode)
 
 		writeErrorResponseWithCode(w, statusCode, errorCode, "failed to claim API key", errorDetails)
 		return

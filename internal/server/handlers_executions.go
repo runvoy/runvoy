@@ -30,12 +30,11 @@ func (r *Router) handleRunCommand(w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		statusCode, errorCode, errorDetails := extractErrorInfo(err)
 
-		logger.Error("failed to resolve image", "context", map[string]string{
-			"error":       err.Error(),
-			"status_code": strconv.Itoa(statusCode),
-			"error_code":  errorCode,
-			"image":       execReq.Image,
-		})
+		logger.Error("failed to resolve image",
+			"error", err,
+			"status_code", statusCode,
+			"error_code", errorCode,
+			"image", execReq.Image)
 
 		writeErrorResponseWithCode(w, statusCode, errorCode, "failed to resolve image", errorDetails)
 		return
@@ -44,11 +43,10 @@ func (r *Router) handleRunCommand(w http.ResponseWriter, req *http.Request) {
 	if accessErr := r.svc.ValidateExecutionResourceAccess(user.Email, &execReq, resolvedImage); accessErr != nil {
 		statusCode, errorCode, errorDetails := extractErrorInfo(accessErr)
 
-		logger.Error("authorization denied for execution resources", "context", map[string]string{
-			"error":       accessErr.Error(),
-			"status_code": strconv.Itoa(statusCode),
-			"error_code":  errorCode,
-		})
+		logger.Error("authorization denied for execution resources",
+			"error", accessErr,
+			"status_code", statusCode,
+			"error_code", errorCode)
 
 		writeErrorResponseWithCode(w, statusCode, errorCode, "forbidden", errorDetails)
 		return
@@ -58,11 +56,7 @@ func (r *Router) handleRunCommand(w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		statusCode, errorCode, errorDetails := extractErrorInfo(err)
 
-		logger.Error("failed to run command", "context", map[string]string{
-			"error":       err.Error(),
-			"status_code": strconv.Itoa(statusCode),
-			"error_code":  errorCode,
-		})
+		logger.Error("failed to run command", "error", err, "status_code", statusCode, "error_code", errorCode)
 
 		writeErrorResponseWithCode(w, statusCode, errorCode, "failed to run command", errorDetails)
 		return
@@ -92,7 +86,7 @@ func (r *Router) handleGetExecutionLogs(w http.ResponseWriter, req *http.Request
 	if err != nil {
 		statusCode, errorCode, errorDetails := extractErrorInfo(err)
 
-		logger.Debug("failed to get execution logs", "error", err, "status_code", statusCode, "error_code", errorCode)
+		logger.Error("failed to get execution logs", "error", err, "status_code", statusCode, "error_code", errorCode)
 
 		writeErrorResponseWithCode(w, statusCode, errorCode, "failed to get execution logs", errorDetails)
 		return
@@ -115,7 +109,7 @@ func (r *Router) handleGetExecutionStatus(w http.ResponseWriter, req *http.Reque
 	if err != nil {
 		statusCode, errorCode, errorDetails := extractErrorInfo(err)
 
-		logger.Debug("failed to get execution status",
+		logger.Error("failed to get execution status",
 			"execution_id", executionID,
 			"error", err,
 			"status_code", statusCode,
@@ -146,13 +140,12 @@ func (r *Router) handleKillExecution(w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		statusCode, errorCode, errorDetails := extractErrorInfo(err)
 
-		logger.Info("failed to kill execution", "context", map[string]any{
-			"execution_id":  executionID,
-			"error":         err,
-			"status_code":   statusCode,
-			"error_code":    errorCode,
-			"error_details": errorDetails,
-		})
+		logger.Info("failed to kill execution",
+			"execution_id", executionID,
+			"error", err,
+			"status_code", statusCode,
+			"error_code", errorCode,
+			"error_details", errorDetails)
 
 		writeErrorResponseWithCode(w, statusCode, errorCode, "failed to kill execution", errorDetails)
 		return
@@ -204,7 +197,7 @@ func (r *Router) handleListExecutions(w http.ResponseWriter, req *http.Request) 
 	if err != nil {
 		statusCode, errorCode, errorDetails := extractErrorInfo(err)
 
-		logger.Debug("failed to list executions", "error", err, "status_code", statusCode, "error_code", errorCode)
+		logger.Error("failed to list executions", "error", err, "status_code", statusCode, "error_code", errorCode)
 
 		writeErrorResponseWithCode(w, statusCode, errorCode, "failed to list executions", errorDetails)
 		return
