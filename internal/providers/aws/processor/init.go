@@ -20,7 +20,6 @@ import (
 	"runvoy/internal/providers/aws/secrets"
 	"runvoy/internal/providers/aws/websocket"
 
-	awsStd "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/ecs"
 	"github.com/aws/aws-sdk-go-v2/service/iam"
@@ -40,6 +39,10 @@ func Initialize(
 	if err := cfg.AWS.LoadSDKConfig(ctx); err != nil {
 		return nil, fmt.Errorf("failed to load AWS SDK config: %w", err)
 	}
+	accountID, identityErr := identity.GetAccountID(ctx, cfg.AWS.SDKConfig, log)
+	if identityErr != nil {
+		return nil, fmt.Errorf("failed to get AWS account ID: %w", identityErr)
+	}
 
 	awsCfg := *cfg.AWS.SDKConfig
 	dynamoSDKClient := dynamodb.NewFromConfig(awsCfg)
@@ -51,15 +54,23 @@ func Initialize(
 	repos := awsDatabase.CreateRepositories(dynamoClient, ssmClient, cfg, log)
 	websocketManager := websocket.Initialize(cfg, repos.ConnectionRepo, repos.TokenRepo, log)
 
-	ecsClient := awsClient.NewECSClientAdapter(ecs.NewFromConfig(awsCfg))
-	iamClient := awsClient.NewIAMClientAdapter(iam.NewFromConfig(awsCfg))
+	if err := authorization.HydrateEnforcer(
+		ctx,
+		enforcer,
+		repos.UserRepo,
+		repos.ExecutionRepo,
+		repos.SecretsRepo,
+		repos.ImageTaskDefRepo,
+		log,
+	); err != nil {
+		return nil, fmt.Errorf("failed to hydrate enforcer: %w", err)
+	}
 
 	healthManager := initializeHealthManager(
-		ctx,
-		&awsCfg,
-		ecsClient,
+		accountID,
+		awsClient.NewECSClientAdapter(ecs.NewFromConfig(awsCfg)),
 		ssmClient,
-		iamClient,
+		awsClient.NewIAMClientAdapter(iam.NewFromConfig(awsCfg)),
 		repos.ImageTaskDefRepo,
 		repos.SecretsRepo,
 		repos.UserRepo,
@@ -68,12 +79,6 @@ func Initialize(
 		cfg,
 		log,
 	)
-
-	if healthManager != nil {
-		if awsHealthManager, ok := healthManager.(*awsHealth.Manager); ok {
-			awsHealthManager.SetCasbinDependencies(repos.UserRepo, repos.ExecutionRepo, enforcer)
-		}
-	}
 
 	log.Debug(fmt.Sprintf("%s %s event processor initialized successfully",
 		constants.ProjectName, cfg.BackendProvider),
@@ -87,8 +92,7 @@ func Initialize(
 }
 
 func initializeHealthManager(
-	ctx context.Context,
-	awsCfg *awsStd.Config,
+	accountID string,
 	ecsClient awsClient.ECSClient,
 	ssmClient secrets.Client,
 	iamClient awsClient.IAMClient,
@@ -100,12 +104,6 @@ func initializeHealthManager(
 	cfg *config.Config,
 	log *slog.Logger,
 ) health.Manager {
-	accountID, err := identity.GetAccountID(ctx, awsCfg, log)
-	if err != nil {
-		log.Warn("failed to get AWS account ID, health manager will not be available", "error", err)
-		return nil
-	}
-
 	healthCfg := &awsHealth.Config{
 		Region:                 cfg.AWS.SDKConfig.Region,
 		AccountID:              accountID,

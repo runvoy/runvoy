@@ -2,7 +2,6 @@ package orchestrator
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log/slog"
 	"time"
@@ -13,8 +12,6 @@ import (
 	"runvoy/internal/backend/websocket"
 	"runvoy/internal/constants"
 	"runvoy/internal/database"
-
-	"golang.org/x/sync/errgroup"
 )
 
 // Runner abstracts provider-specific command execution (e.g., AWS ECS, GCP, etc.).
@@ -108,149 +105,22 @@ func NewService(
 		enforcer:      enforcer,
 	}
 
-	if err := svc.loadUserRoles(ctx); err != nil {
-		return nil, err
-	}
-	if err := svc.loadResourceOwnerships(ctx); err != nil {
-		return nil, err
+	if err := authorization.HydrateEnforcer(
+		ctx,
+		enforcer,
+		userRepo,
+		executionRepo,
+		secretsRepo,
+		runner,
+		log,
+	); err != nil {
+		return nil, fmt.Errorf("failed to hydrate enforcer: %w", err)
 	}
 
 	log.Debug("casbin authorization enforcer initialized successfully")
 	log.Debug(fmt.Sprintf("%s %s orchestrator initialized successfully",
 		constants.ProjectName, svc.Provider))
 	return svc, nil
-}
-
-// loadUserRoles populates the Casbin enforcer with all user roles from the database.
-// Returns an error if user loading fails or if any enforcer operation fails.
-func (s *Service) loadUserRoles(ctx context.Context) error {
-	users, err := s.userRepo.ListUsers(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to load users for enforcer initialization: %w", err)
-	}
-
-	g, _ := errgroup.WithContext(ctx)
-
-	for _, user := range users {
-		g.Go(func() error {
-			role, roleErr := authorization.NewRole(user.Role)
-			if roleErr != nil {
-				return fmt.Errorf("user %s has invalid role %q: %w", user.Email, user.Role, roleErr)
-			}
-
-			if addErr := s.enforcer.AddRoleForUser(user.Email, role); addErr != nil {
-				return fmt.Errorf("failed to add role %q for user %s to enforcer: %w", user.Role, user.Email, addErr)
-			}
-
-			return nil
-		})
-	}
-
-	if waitErr := g.Wait(); waitErr != nil {
-		return errors.New("failed to load user roles into enforcer")
-	}
-
-	return nil
-}
-
-// loadResourceOwnerships hydrates the enforcer with resource ownership mappings for secrets, executions, and images.
-// Returns an error if any ownership loading fails.
-func (s *Service) loadResourceOwnerships(ctx context.Context) error {
-	if err := s.hydrateSecretOwnerships(ctx); err != nil {
-		return fmt.Errorf("failed to load secret ownerships: %w", err)
-	}
-	if err := s.hydrateExecutionOwnerships(ctx); err != nil {
-		return fmt.Errorf("failed to load execution ownerships: %w", err)
-	}
-	if err := s.hydrateImageOwnerships(ctx); err != nil {
-		return fmt.Errorf("failed to load image ownerships: %w", err)
-	}
-
-	return nil
-}
-
-func (s *Service) hydrateSecretOwnerships(ctx context.Context) error {
-	secrets, err := s.secretsRepo.ListSecrets(ctx, false)
-	if err != nil {
-		return fmt.Errorf("failed to load secrets for enforcer initialization: %w", err)
-	}
-
-	for _, secret := range secrets {
-		if secret == nil || secret.Name == "" || secret.CreatedBy == "" {
-			return errors.New("secret is nil or missing required fields")
-		}
-
-		resourceID := fmt.Sprintf("secret:%s", secret.Name)
-		for _, owner := range secret.OwnedBy {
-			if addErr := s.enforcer.AddOwnershipForResource(resourceID, owner); addErr != nil {
-				return fmt.Errorf("failed to add ownership for secret %s: %w", secret.Name, addErr)
-			}
-		}
-	}
-
-	return nil
-}
-
-func (s *Service) hydrateExecutionOwnerships(ctx context.Context) error {
-	executions, err := s.executionRepo.ListExecutions(ctx, 0, nil)
-	if err != nil {
-		return fmt.Errorf("failed to load executions for enforcer initialization: %w", err)
-	}
-
-	g, _ := errgroup.WithContext(ctx)
-
-	for _, execution := range executions {
-		if execution == nil || execution.ExecutionID == "" || execution.CreatedBy == "" {
-			return errors.New("execution is nil or missing required fields")
-		}
-
-		g.Go(func() error {
-			resourceID := fmt.Sprintf("execution:%s", execution.ExecutionID)
-			for _, owner := range execution.OwnedBy {
-				if addErr := s.enforcer.AddOwnershipForResource(resourceID, owner); addErr != nil {
-					return fmt.Errorf("failed to add ownership for execution %s: %w", execution.ExecutionID, addErr)
-				}
-			}
-			return nil
-		})
-	}
-
-	if waitErr := g.Wait(); waitErr != nil {
-		return fmt.Errorf("failed to load execution ownerships into enforcer: %w", waitErr)
-	}
-
-	return nil
-}
-
-func (s *Service) hydrateImageOwnerships(ctx context.Context) error {
-	images, err := s.runner.ListImages(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to load images for enforcer initialization: %w", err)
-	}
-
-	g, _ := errgroup.WithContext(ctx)
-
-	for i := range images {
-		if images[i].ImageID == "" || images[i].CreatedBy == "" {
-			return errors.New("image is missing required fields")
-		}
-
-		g.Go(func() error {
-			resourceID := fmt.Sprintf("image:%s", images[i].ImageID)
-			for _, owner := range images[i].OwnedBy {
-				if addErr := s.enforcer.AddOwnershipForResource(resourceID, owner); addErr != nil {
-					return fmt.Errorf("failed to add ownership for image %s: %w", images[i].ImageID, addErr)
-				}
-			}
-			return nil
-		})
-	}
-
-	if waitErr := g.Wait(); waitErr != nil {
-		return fmt.Errorf("failed to load image ownerships into enforcer: %w", waitErr)
-	}
-
-	return nil
 }
 
 // GetEnforcer returns the Casbin enforcer for authorization checks.
