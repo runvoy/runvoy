@@ -632,9 +632,11 @@ Resources:
           Value: 'cloudformation'
       Environment:
         Variables:
+          RUNVOY_AWS_API_KEYS_TABLE: !Ref APIKeysTable
           RUNVOY_AWS_EXECUTIONS_TABLE: !Ref ExecutionsTable
           RUNVOY_AWS_ECS_CLUSTER: !Ref ECSCluster
           RUNVOY_AWS_IMAGE_TASKDEFS_TABLE: !Ref ImageTaskDefinitionsTable
+          RUNVOY_AWS_PENDING_API_KEYS_TABLE: !Ref PendingAPIKeysTable
           RUNVOY_AWS_SECRETS_METADATA_TABLE: !Ref SecretsMetadataTable
           RUNVOY_AWS_LOG_GROUP: !Ref RunnerLogGroup
           RUNVOY_AWS_DEFAULT_TASK_EXEC_ROLE_ARN: !GetAtt TaskExecutionRole.Arn
@@ -702,6 +704,13 @@ Resources:
                 Resource:
                   - !GetAtt ExecutionsTable.Arn
                   - !Sub '${ExecutionsTable.Arn}/index/*'
+              - Effect: Allow
+                Action:
+                  - 'dynamodb:Query'
+                  - 'dynamodb:Scan'
+                Resource:
+                  - !GetAtt APIKeysTable.Arn
+                  - !Sub '${APIKeysTable.Arn}/index/*'
               - Effect: Allow
                 Action:
                   - 'ecs:DescribeTasks'
