@@ -326,17 +326,15 @@ func (e *Runner) StartTask(
 	return executionID, createdAt, nil
 }
 
-// resolveImage gets the task definition ARN for an imageID.
-// The image resolution (tag to imageID) now happens in the service layer before authorization.
-// req.Image should contain the imageID at this point (set by RunCommand in the service).
+// resolveImage retrieves the task definition ARN for the given imageID.
+// The req.Image field contains an imageID that was resolved and validated by the service layer.
+// If empty, falls back to the default image as a safety measure.
 func (e *Runner) resolveImage(
 	ctx context.Context, req *api.ExecutionRequest, reqLogger *slog.Logger,
 ) (imageToUse, taskDefARN string, err error) {
 	imageToUse = req.Image
 
 	if imageToUse == "" {
-		// This should not happen as image resolution is done in service layer
-		// But keep fallback for safety
 		defaultImage, getErr := e.GetDefaultImageFromDB(ctx)
 		if getErr != nil {
 			return "", "", appErrors.ErrInternalError("failed to query default image", getErr)
@@ -348,7 +346,6 @@ func (e *Runner) resolveImage(
 		reqLogger.Debug("using default image", "image", imageToUse)
 	}
 
-	// imageToUse should be an imageID at this point
 	taskDefARN, err = e.GetTaskDefinitionARNForImage(ctx, imageToUse)
 	if err != nil {
 		return "", "", appErrors.ErrBadRequest("image not registered", err)

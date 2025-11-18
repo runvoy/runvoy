@@ -15,9 +15,9 @@ import (
 )
 
 // ValidateExecutionResourceAccess checks if a user can access all resources required for execution.
-// Validates access to the resolved image and all secrets referenced in the execution request.
+// The resolvedImage parameter contains the image that was resolved from the request and will be validated.
+// All secrets referenced in the execution request are also validated for access.
 // Returns an error if the user lacks access to any required resource.
-// resolvedImage: the resolved ImageInfo (can be nil if no image specified and no default configured)
 func (s *Service) ValidateExecutionResourceAccess(
 	userEmail string,
 	req *api.ExecutionRequest,
@@ -26,7 +26,6 @@ func (s *Service) ValidateExecutionResourceAccess(
 	enforcer := s.GetEnforcer()
 
 	if resolvedImage != nil {
-		// Validate access using the resolved imageID, not the user-provided string
 		imagePath := fmt.Sprintf("/api/v1/images/%s", resolvedImage.ImageID)
 		allowed, err := enforcer.Enforce(userEmail, imagePath, authorization.ActionRead)
 		if err != nil {
@@ -76,9 +75,10 @@ func (s *Service) ValidateExecutionResourceAccess(
 }
 
 // RunCommand starts a provider-specific task and records the execution.
-// Resolves the image early, validates authorization, and resolves secret references.
-// Set execution status to STARTING after the task has been accepted by the provider.
-// resolvedImage: pre-resolved ImageInfo from the handler (already authorized)
+// The resolvedImage parameter contains the validated image that will be used for execution.
+// The request's Image field is replaced with the imageID before passing to the runner.
+// Secret references are resolved to environment variables before starting the task.
+// Execution status is set to STARTING after the task has been accepted by the provider.
 func (s *Service) RunCommand(
 	ctx context.Context,
 	userEmail string,
@@ -89,7 +89,6 @@ func (s *Service) RunCommand(
 		return nil, apperrors.ErrBadRequest("command is required", nil)
 	}
 
-	// Replace req.Image with resolved imageID for runner
 	if resolvedImage != nil {
 		req.Image = resolvedImage.ImageID
 	}

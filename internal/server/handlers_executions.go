@@ -14,6 +14,8 @@ import (
 )
 
 // handleRunCommand handles POST /api/v1/run to execute a command in an ephemeral container.
+// The handler resolves the requested image to a specific imageID, validates the user has access
+// to that image and any requested secrets, then starts the execution task.
 func (r *Router) handleRunCommand(w http.ResponseWriter, req *http.Request) {
 	logger := r.GetLoggerFromContext(req.Context())
 
@@ -29,7 +31,6 @@ func (r *Router) handleRunCommand(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	// Resolve image early before authorization
 	resolvedImage, err := r.svc.ResolveImage(req.Context(), execReq.Image)
 	if err != nil {
 		statusCode := apperrors.GetStatusCode(err)
@@ -47,7 +48,6 @@ func (r *Router) handleRunCommand(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	// Validate access to resolved image
 	if err := r.svc.ValidateExecutionResourceAccess(user.Email, &execReq, resolvedImage); err != nil {
 		statusCode := apperrors.GetStatusCode(err)
 		errorCode := apperrors.GetErrorCode(err)
@@ -63,7 +63,6 @@ func (r *Router) handleRunCommand(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	// Run command with resolved image
 	resp, err := r.svc.RunCommand(req.Context(), user.Email, &execReq, resolvedImage)
 	if err != nil {
 		statusCode := apperrors.GetStatusCode(err)
