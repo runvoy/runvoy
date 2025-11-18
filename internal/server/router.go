@@ -29,7 +29,11 @@ const (
 // If requestTimeout is > 0, adds a per-request timeout middleware.
 // If requestTimeout is 0, no timeout middleware is added, allowing the
 // environment (e.g., Lambda with its own timeout) to handle timeouts.
-func NewRouter(svc *orchestrator.Service, requestTimeout time.Duration) *Router { //nolint: funlen
+func NewRouter( //nolint: funlen
+	svc *orchestrator.Service,
+	requestTimeout time.Duration,
+	allowedOrigins []string,
+) *Router {
 	r := chi.NewRouter()
 	router := &Router{
 		router: r,
@@ -39,7 +43,7 @@ func NewRouter(svc *orchestrator.Service, requestTimeout time.Duration) *Router 
 	if requestTimeout > 0 {
 		r.Use(router.requestTimeoutMiddleware(requestTimeout))
 	}
-	r.Use(corsMiddleware)
+	r.Use(corsMiddleware(allowedOrigins))
 	r.Use(setContentTypeJSONMiddleware)
 	r.Use(router.requestIDMiddleware)
 	r.Use(router.requestLoggingMiddleware)

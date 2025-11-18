@@ -5,6 +5,16 @@ package constants
 // This can be overridden via configuration (RUNVOY_WEB_URL env var or config file).
 const DefaultWebURL = "https://runvoy.site/"
 
+// LocalDevelopmentURL is the default URL of the local development server.
+const LocalDevelopmentURL = "http://localhost:5173/"
+
+// DefaultCORSAllowedOrigins is the default list of allowed CORS origins.
+// Defaults to the web application URL and local development URL.
+var DefaultCORSAllowedOrigins = []string{
+	DefaultWebURL,
+	LocalDevelopmentURL,
+}
+
 // ConfigDirName is the name of the configuration directory in the user's home directory
 const ConfigDirName = "." + ProjectName
 

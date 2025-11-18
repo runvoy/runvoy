@@ -72,7 +72,7 @@ func TestHandleCreateSecret_Success(t *testing.T) {
 	secretRepo := &testSecretRepository{}
 
 	svc := newTestService(t, userRepo, execRepo, secretRepo)
-	router := NewRouter(svc, 30*1000)
+	router := NewRouter(svc, 30*1000, constants.DefaultCORSAllowedOrigins)
 
 	createReq := api.CreateSecretRequest{
 		Name:        "test-secret",
@@ -106,7 +106,7 @@ func TestHandleCreateSecret_InvalidRequestBody(t *testing.T) {
 	secretRepo := &testSecretRepository{}
 
 	svc := newTestService(t, userRepo, execRepo, secretRepo)
-	router := NewRouter(svc, 30*1000)
+	router := NewRouter(svc, 30*1000, constants.DefaultCORSAllowedOrigins)
 
 	req := httptest.NewRequest("POST", "/api/v1/secrets", bytes.NewReader([]byte("invalid json")))
 	req = addAuthToRequest(req)
@@ -128,7 +128,7 @@ func TestHandleCreateSecret_ServiceError(t *testing.T) {
 	}
 
 	svc := newTestService(t, userRepo, execRepo, secretRepo)
-	router := NewRouter(svc, 30*1000)
+	router := NewRouter(svc, 30*1000, constants.DefaultCORSAllowedOrigins)
 
 	createReq := api.CreateSecretRequest{
 		Name:  "test-secret",
@@ -162,7 +162,7 @@ func TestHandleGetSecret_Success(t *testing.T) {
 	}
 
 	svc := newTestService(t, userRepo, execRepo, secretRepo)
-	router := NewRouter(svc, 30*1000)
+	router := NewRouter(svc, 30*1000, constants.DefaultCORSAllowedOrigins)
 
 	req := httptest.NewRequest("GET", "/api/v1/secrets/my-secret", http.NoBody)
 	req = addAuthToRequest(req)
@@ -190,7 +190,7 @@ func TestHandleGetSecret_NotFound(t *testing.T) {
 	}
 
 	svc := newTestService(t, userRepo, execRepo, secretRepo)
-	router := NewRouter(svc, 30*1000)
+	router := NewRouter(svc, 30*1000, constants.DefaultCORSAllowedOrigins)
 
 	req := httptest.NewRequest("GET", "/api/v1/secrets/nonexistent", http.NoBody)
 	req = addAuthToRequest(req)
@@ -215,7 +215,7 @@ func TestHandleListSecrets_Success(t *testing.T) {
 	}
 
 	svc := newTestService(t, userRepo, execRepo, secretRepo)
-	router := NewRouter(svc, 30*1000)
+	router := NewRouter(svc, 30*1000, constants.DefaultCORSAllowedOrigins)
 
 	req := httptest.NewRequest("GET", "/api/v1/secrets", http.NoBody)
 	req = addAuthToRequest(req)
@@ -242,7 +242,7 @@ func TestHandleListSecrets_Empty(t *testing.T) {
 	}
 
 	svc := newTestService(t, userRepo, execRepo, secretRepo)
-	router := NewRouter(svc, 30*1000)
+	router := NewRouter(svc, 30*1000, constants.DefaultCORSAllowedOrigins)
 
 	req := httptest.NewRequest("GET", "/api/v1/secrets", http.NoBody)
 	req = addAuthToRequest(req)
@@ -274,7 +274,7 @@ func TestHandleListSecrets_ServiceError(t *testing.T) {
 	}
 
 	svc := newTestService(t, userRepo, execRepo, secretRepo)
-	router := NewRouter(svc, 30*1000)
+	router := NewRouter(svc, 30*1000, constants.DefaultCORSAllowedOrigins)
 
 	req := httptest.NewRequest("GET", "/api/v1/secrets", http.NoBody)
 	req = addAuthToRequest(req)
@@ -296,7 +296,7 @@ func TestHandleUpdateSecret_Success(t *testing.T) {
 	}
 
 	svc := newTestService(t, userRepo, execRepo, secretRepo)
-	router := NewRouter(svc, 30*1000)
+	router := NewRouter(svc, 30*1000, constants.DefaultCORSAllowedOrigins)
 
 	updateReq := api.UpdateSecretRequest{
 		Value:       "updated-value",
@@ -324,7 +324,7 @@ func TestHandleUpdateSecret_InvalidBody(t *testing.T) {
 	secretRepo := &testSecretRepository{}
 
 	svc := newTestService(t, userRepo, execRepo, secretRepo)
-	router := NewRouter(svc, 30*1000)
+	router := NewRouter(svc, 30*1000, constants.DefaultCORSAllowedOrigins)
 
 	req := httptest.NewRequest("PUT", "/api/v1/secrets/my-secret", bytes.NewReader([]byte("invalid json")))
 	req = addAuthToRequest(req)
@@ -346,7 +346,7 @@ func TestHandleUpdateSecret_NotFound(t *testing.T) {
 	}
 
 	svc := newTestService(t, userRepo, execRepo, secretRepo)
-	router := NewRouter(svc, 30*1000)
+	router := NewRouter(svc, 30*1000, constants.DefaultCORSAllowedOrigins)
 
 	updateReq := api.UpdateSecretRequest{
 		Value: "updated-value",
@@ -373,7 +373,7 @@ func TestHandleDeleteSecret_Success(t *testing.T) {
 	}
 
 	svc := newTestService(t, userRepo, execRepo, secretRepo)
-	router := NewRouter(svc, 30*1000)
+	router := NewRouter(svc, 30*1000, constants.DefaultCORSAllowedOrigins)
 
 	req := httptest.NewRequest("DELETE", "/api/v1/secrets/my-secret", http.NoBody)
 	req = addAuthToRequest(req)
@@ -400,7 +400,7 @@ func TestHandleDeleteSecret_NotFound(t *testing.T) {
 	}
 
 	svc := newTestService(t, userRepo, execRepo, secretRepo)
-	router := NewRouter(svc, 30*1000)
+	router := NewRouter(svc, 30*1000, constants.DefaultCORSAllowedOrigins)
 
 	req := httptest.NewRequest("DELETE", "/api/v1/secrets/nonexistent", http.NoBody)
 	req = addAuthToRequest(req)

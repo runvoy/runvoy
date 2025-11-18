@@ -78,7 +78,7 @@ func TestGetExecutionStatus_Unauthorized(t *testing.T) {
 		newPermissiveTestEnforcerForHandlers(t),
 	)
 	require.NoError(t, err)
-	router := NewRouter(svc, 2*time.Second)
+	router := NewRouter(svc, 2*time.Second, constants.DefaultCORSAllowedOrigins)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/executions/exec-123/status", http.NoBody)
 	// No X-API-Key header set

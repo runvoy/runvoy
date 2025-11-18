@@ -51,7 +51,7 @@ func startOrchestratorServer(log *slog.Logger, cfg *config.Config, svc *orchestr
 			"url", fmt.Sprintf("http://localhost:%d/api/v1/health", cfg.Port),
 		)
 
-		router := serverPkg.NewRouter(svc, cfg.RequestTimeout)
+		router := serverPkg.NewRouter(svc, cfg.RequestTimeout, cfg.CORSAllowedOrigins)
 		srv := &http.Server{
 			Addr:         fmt.Sprintf(":%d", cfg.Port),
 			Handler:      router.Handler(),
@@ -64,7 +64,7 @@ func startOrchestratorServer(log *slog.Logger, cfg *config.Config, svc *orchestr
 		}
 	})
 
-	router := serverPkg.NewRouter(svc, cfg.RequestTimeout)
+	router := serverPkg.NewRouter(svc, cfg.RequestTimeout, cfg.CORSAllowedOrigins)
 	return &http.Server{
 		Addr:         fmt.Sprintf(":%d", cfg.Port),
 		Handler:      router.Handler(),

@@ -271,7 +271,7 @@ func TestHandleListUsersWithAuthorization(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, svc)
 
-	router := NewRouter(svc, 30*time.Second)
+	router := NewRouter(svc, 30*time.Second, constants.DefaultCORSAllowedOrigins)
 
 	user := &api.User{Email: "admin@example.com"}
 	req := createAuthenticatedRequest("GET", "/api/v1/users", user)
@@ -322,7 +322,7 @@ func TestHandleRunCommandStructure(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, svc)
 
-	router := NewRouter(svc, 30*time.Second)
+	router := NewRouter(svc, 30*time.Second, constants.DefaultCORSAllowedOrigins)
 
 	user := &api.User{Email: "user@example.com"}
 

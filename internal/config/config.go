@@ -29,11 +29,12 @@ type Config struct {
 	WebURL      string `mapstructure:"web_url" yaml:"web_url" validate:"omitempty,url"`
 
 	// Backend Service Configuration
-	BackendProvider constants.BackendProvider `mapstructure:"backend_provider" yaml:"backend_provider"`
-	InitTimeout     time.Duration             `mapstructure:"init_timeout"`
-	LogLevel        string                    `mapstructure:"log_level"`
-	Port            int                       `mapstructure:"port" validate:"omitempty"`
-	RequestTimeout  time.Duration             `mapstructure:"request_timeout"`
+	BackendProvider    constants.BackendProvider `mapstructure:"backend_provider" yaml:"backend_provider"`
+	InitTimeout        time.Duration             `mapstructure:"init_timeout"`
+	LogLevel           string                    `mapstructure:"log_level"`
+	Port               int                       `mapstructure:"port" validate:"omitempty"`
+	RequestTimeout     time.Duration             `mapstructure:"request_timeout"`
+	CORSAllowedOrigins []string                  `mapstructure:"cors_allowed_origins" yaml:"cors_allowed_origins"`
 
 	// Provider-specific configurations
 	AWS *awsconfig.Config `mapstructure:"aws" yaml:"aws,omitempty"`
@@ -77,6 +78,9 @@ func Load() (*Config, error) {
 	if err = v.Unmarshal(&cfg); err != nil {
 		return nil, fmt.Errorf("error unmarshaling config: %w", err)
 	}
+
+	// Handle comma-separated string slices from environment variables
+	normalizeStringSlice(&cfg.CORSAllowedOrigins)
 
 	// Apply defaults for empty values (env vars that were unset may override defaults with empty strings)
 	applyDefaults(&cfg)
@@ -126,6 +130,9 @@ func LoadOrchestrator() (*Config, error) {
 		return nil, fmt.Errorf("error unmarshaling orchestrator config: %w", err)
 	}
 
+	// Handle comma-separated string slices from environment variables
+	normalizeStringSlice(&cfg.CORSAllowedOrigins)
+
 	// Apply defaults for empty values
 	applyDefaults(&cfg)
 
@@ -151,6 +158,9 @@ func LoadEventProcessor() (*Config, error) {
 	if err := v.Unmarshal(&cfg); err != nil {
 		return nil, fmt.Errorf("error unmarshaling event processor config: %w", err)
 	}
+
+	// Handle comma-separated string slices from environment variables
+	normalizeStringSlice(&cfg.CORSAllowedOrigins)
 
 	// Apply defaults for empty values
 	applyDefaults(&cfg)
@@ -256,6 +266,7 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("init_timeout", "10s")
 	v.SetDefault("web_url", constants.DefaultWebURL)
 	v.SetDefault("backend_provider", string(constants.AWS))
+	v.SetDefault("cors_allowed_origins", constants.DefaultCORSAllowedOrigins)
 	// TODO: we set DEBUG for development, we should update this to use INFO
 	v.SetDefault("log_level", "DEBUG")
 }
@@ -278,6 +289,9 @@ func applyDefaults(cfg *Config) {
 	}
 	if cfg.InitTimeout == 0 {
 		cfg.InitTimeout = constants.DefaultContextTimeout
+	}
+	if len(cfg.CORSAllowedOrigins) == 0 {
+		cfg.CORSAllowedOrigins = constants.DefaultCORSAllowedOrigins
 	}
 }
 
@@ -308,6 +322,7 @@ func bindEnvVars(v *viper.Viper) {
 	_ = v.BindEnv("log_level", "RUNVOY_LOG_LEVEL")
 	_ = v.BindEnv("request_timeout", "RUNVOY_REQUEST_TIMEOUT")
 	_ = v.BindEnv("web_url", "RUNVOY_WEB_URL")
+	_ = v.BindEnv("cors_allowed_origins", "RUNVOY_CORS_ALLOWED_ORIGINS")
 
 	// Bind provider-specific environment variables
 	awsconfig.BindEnvVars(v)
@@ -338,4 +353,27 @@ func normalizeBackendProvider(provider constants.BackendProvider) constants.Back
 		return ""
 	}
 	return constants.BackendProvider(strings.ToUpper(normalized))
+}
+
+// normalizeStringSlice handles comma-separated string slices from environment variables.
+// If the slice has a single element containing commas, it splits it into multiple elements.
+// This is needed because Viper doesn't automatically split comma-separated env vars into slices.
+func normalizeStringSlice(slice *[]string) {
+	if len(*slice) == 1 {
+		value := strings.TrimSpace((*slice)[0])
+		// Check if the value contains commas, suggesting it's a comma-separated list from env var
+		if strings.Contains(value, ",") {
+			parts := strings.Split(value, ",")
+			result := make([]string, 0, len(parts))
+			for _, part := range parts {
+				trimmed := strings.TrimSpace(part)
+				if trimmed != "" {
+					result = append(result, trimmed)
+				}
+			}
+			if len(result) > 0 {
+				*slice = result
+			}
+		}
+	}
 }

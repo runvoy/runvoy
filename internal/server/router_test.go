@@ -35,14 +35,14 @@ func TestNewRouter(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("creates router without timeout", func(t *testing.T) {
-		router := NewRouter(svc, 0)
+		router := NewRouter(svc, 0, constants.DefaultCORSAllowedOrigins)
 		assert.NotNil(t, router)
 		assert.NotNil(t, router.router)
 		assert.Equal(t, svc, router.svc)
 	})
 
 	t.Run("creates router with timeout", func(t *testing.T) {
-		router := NewRouter(svc, 5*time.Second)
+		router := NewRouter(svc, 5*time.Second, constants.DefaultCORSAllowedOrigins)
 		assert.NotNil(t, router)
 		assert.NotNil(t, router.router)
 		assert.Equal(t, svc, router.svc)
@@ -67,7 +67,7 @@ func TestRouter_ChiMux(t *testing.T) {
 		newPermissiveTestEnforcerForHandlers(t),
 	)
 	require.NoError(t, err)
-	router := NewRouter(svc, 0)
+	router := NewRouter(svc, 0, constants.DefaultCORSAllowedOrigins)
 
 	chiMux := router.ChiMux()
 	assert.NotNil(t, chiMux)
@@ -92,7 +92,7 @@ func TestRouter_Handler(t *testing.T) {
 		newPermissiveTestEnforcerForHandlers(t),
 	)
 	require.NoError(t, err)
-	router := NewRouter(svc, 0)
+	router := NewRouter(svc, 0, constants.DefaultCORSAllowedOrigins)
 
 	handler := router.Handler()
 	assert.NotNil(t, handler)
@@ -133,7 +133,7 @@ func TestRouter_WithContext(t *testing.T) {
 		newPermissiveTestEnforcerForHandlers(t),
 	)
 	require.NoError(t, err)
-	router := NewRouter(svc, 0)
+	router := NewRouter(svc, 0, constants.DefaultCORSAllowedOrigins)
 
 	ctx := context.Background()
 	newCtx := router.WithContext(ctx, svc2)
@@ -160,7 +160,7 @@ func TestRouter_ServeHTTP(t *testing.T) {
 		newPermissiveTestEnforcerForHandlers(t),
 	)
 	require.NoError(t, err)
-	router := NewRouter(svc, 0)
+	router := NewRouter(svc, 0, constants.DefaultCORSAllowedOrigins)
 
 	req := httptest.NewRequest("GET", "/api/v1/health", http.NoBody)
 	rr := httptest.NewRecorder()

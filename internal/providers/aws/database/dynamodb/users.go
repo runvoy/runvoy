@@ -5,6 +5,7 @@ import (
 	stderrors "errors"
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 
 	"runvoy/internal/api"
@@ -164,13 +165,13 @@ func (r *UserRepository) GetUserByEmail(ctx context.Context, email string) (*api
 
 // GetUserByAPIKeyHash retrieves a user by their hashed API key (primary key).
 func (r *UserRepository) GetUserByAPIKeyHash(ctx context.Context, apiKeyHash string) (*api.User, error) {
+	const maxHashLength = 8
 	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
 
-	// Log before calling DynamoDB GetItem
 	logArgs := []any{
 		"operation", "DynamoDB.GetItem",
 		"table", r.tableName,
-		"api_key_hash", apiKeyHash,
+		"api_key_hash", fmt.Sprintf("%s%s", apiKeyHash[:maxHashLength], strings.Repeat("*", len(apiKeyHash)-maxHashLength)),
 	}
 	logArgs = append(logArgs, logger.GetDeadlineInfo(ctx)...)
 	reqLogger.Debug("calling external service", "context", logger.SliceToMap(logArgs))

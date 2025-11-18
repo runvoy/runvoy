@@ -28,6 +28,6 @@ func main() {
 	}
 
 	log.With("version", *constants.GetVersion()).Debug("starting orchestrator Lambda handler")
-	handler := lambdaapi.NewHandler(svc, cfg.RequestTimeout)
+	handler := lambdaapi.NewHandler(svc, cfg.RequestTimeout, cfg.CORSAllowedOrigins)
 	lambda.Start(handler)
 }

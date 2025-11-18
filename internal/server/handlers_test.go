@@ -338,7 +338,7 @@ func newTestOrchestratorService(
 
 func TestHandleHealth(t *testing.T) {
 	svc := newTestOrchestratorService(t, nil, nil, nil, &testRunner{}, nil, nil, nil)
-	router := NewRouter(svc, 2*time.Second)
+	router := NewRouter(svc, 2*time.Second, constants.DefaultCORSAllowedOrigins)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/health", http.NoBody)
 	resp := httptest.NewRecorder()
@@ -369,7 +369,7 @@ func TestHandleRunCommand_Success(t *testing.T) {
 	}
 
 	svc := newTestOrchestratorService(t, userRepo, execRepo, nil, runner, nil, nil, nil)
-	router := NewRouter(svc, 2*time.Second)
+	router := NewRouter(svc, 2*time.Second, constants.DefaultCORSAllowedOrigins)
 
 	reqBody := api.ExecutionRequest{
 		Command: "echo hello",
@@ -393,7 +393,7 @@ func TestHandleRunCommand_Success(t *testing.T) {
 
 func TestHandleRunCommand_InvalidJSON(t *testing.T) {
 	svc := newTestOrchestratorService(t, nil, nil, nil, &testRunner{}, nil, nil, nil)
-	router := NewRouter(svc, 2*time.Second)
+	router := NewRouter(svc, 2*time.Second, constants.DefaultCORSAllowedOrigins)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/run", bytes.NewReader([]byte("invalid json")))
 	req.Header.Set("X-API-Key", "test-api-key")
@@ -414,7 +414,7 @@ func testUnauthorizedRequest(t *testing.T, method, endpoint string, reqBody any)
 	execRepo := &testExecutionRepository{}
 
 	svc := newTestOrchestratorService(t, userRepo, execRepo, nil, &testRunner{}, nil, nil, nil)
-	router := NewRouter(svc, 2*time.Second)
+	router := NewRouter(svc, 2*time.Second, constants.DefaultCORSAllowedOrigins)
 
 	body, _ := json.Marshal(reqBody)
 
@@ -476,7 +476,7 @@ func TestHandleRunCommand_WithImage_ValidatesAuthorization(t *testing.T) {
 		enf,
 	)
 	require.NoError(t, err)
-	router := NewRouter(svc, 2*time.Second)
+	router := NewRouter(svc, 2*time.Second, constants.DefaultCORSAllowedOrigins)
 
 	// Test with an image - this verifies that ValidateExecutionResourceAccess is called
 	// Developer role has access to images, so validation should pass
@@ -529,7 +529,7 @@ func TestHandleRunCommand_WithSecrets_ValidatesAuthorization(t *testing.T) {
 		enf,
 	)
 	require.NoError(t, err)
-	router := NewRouter(svc, 2*time.Second)
+	router := NewRouter(svc, 2*time.Second, constants.DefaultCORSAllowedOrigins)
 
 	// Test with secrets - this verifies that ValidateExecutionResourceAccess is called
 	reqBody := api.ExecutionRequest{
@@ -594,7 +594,7 @@ func TestHandleRunCommand_AllResourcesAuthorized(t *testing.T) {
 		enf,
 	)
 	require.NoError(t, err)
-	router := NewRouter(svc, 2*time.Second)
+	router := NewRouter(svc, 2*time.Second, constants.DefaultCORSAllowedOrigins)
 
 	reqBody := api.ExecutionRequest{
 		Command: "echo hello",
@@ -633,7 +633,7 @@ func TestHandleListExecutions_Success(t *testing.T) {
 		},
 	}
 	svc := newTestOrchestratorService(t, &testUserRepository{}, execRepo, nil, &testRunner{}, nil, nil, nil)
-	router := NewRouter(svc, 2*time.Second)
+	router := NewRouter(svc, 2*time.Second, constants.DefaultCORSAllowedOrigins)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/executions", http.NoBody)
 	req.Header.Set("X-API-Key", "test-api-key")
@@ -657,7 +657,7 @@ func TestHandleListExecutions_Empty(t *testing.T) {
 		},
 	}
 	svc := newTestOrchestratorService(t, &testUserRepository{}, execRepo, nil, &testRunner{}, nil, nil, nil)
-	router := NewRouter(svc, 2*time.Second)
+	router := NewRouter(svc, 2*time.Second, constants.DefaultCORSAllowedOrigins)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/executions", http.NoBody)
 	req.Header.Set("X-API-Key", "test-api-key")
@@ -678,7 +678,7 @@ func TestHandleListExecutions_LimitZero(t *testing.T) {
 		},
 	}
 	svc := newTestOrchestratorService(t, &testUserRepository{}, execRepo, nil, &testRunner{}, nil, nil, nil)
-	router := NewRouter(svc, 2*time.Second)
+	router := NewRouter(svc, 2*time.Second, constants.DefaultCORSAllowedOrigins)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/executions?limit=0", http.NoBody)
 	req.Header.Set("X-API-Key", "test-api-key")
@@ -703,7 +703,7 @@ func TestHandleListExecutions_DatabaseError(t *testing.T) {
 		},
 	}
 	svc := newTestOrchestratorService(t, &testUserRepository{}, execRepo, nil, &testRunner{}, nil, nil, nil)
-	router := NewRouter(svc, 2*time.Second)
+	router := NewRouter(svc, 2*time.Second, constants.DefaultCORSAllowedOrigins)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/executions", http.NoBody)
 	req.Header.Set("X-API-Key", "test-api-key")
@@ -717,7 +717,7 @@ func TestHandleListExecutions_DatabaseError(t *testing.T) {
 
 func TestHandleRegisterImage_Success(t *testing.T) {
 	svc := newTestOrchestratorService(t, nil, nil, nil, &testRunner{}, nil, nil, nil)
-	router := NewRouter(svc, 2*time.Second)
+	router := NewRouter(svc, 2*time.Second, constants.DefaultCORSAllowedOrigins)
 
 	reqBody := api.RegisterImageRequest{
 		Image: "alpine:latest",
@@ -737,7 +737,7 @@ func TestHandleRegisterImage_Success(t *testing.T) {
 
 func TestHandleRegisterImage_InvalidJSON(t *testing.T) {
 	svc := newTestOrchestratorService(t, nil, nil, nil, &testRunner{}, nil, nil, nil)
-	router := NewRouter(svc, 2*time.Second)
+	router := NewRouter(svc, 2*time.Second, constants.DefaultCORSAllowedOrigins)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/images/register", bytes.NewReader([]byte("invalid json")))
 	req.Header.Set("X-API-Key", "test-api-key")
@@ -759,7 +759,7 @@ func TestHandleListImages_Success(t *testing.T) {
 		},
 	}
 	svc := newTestOrchestratorService(t, nil, nil, nil, runner, nil, nil, nil)
-	router := NewRouter(svc, 2*time.Second)
+	router := NewRouter(svc, 2*time.Second, constants.DefaultCORSAllowedOrigins)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/images", http.NoBody)
 	req.Header.Set("X-API-Key", "test-api-key")
@@ -779,7 +779,7 @@ func TestHandleListImages_Empty(t *testing.T) {
 		},
 	}
 	svc := newTestOrchestratorService(t, nil, nil, nil, runner, nil, nil, nil)
-	router := NewRouter(svc, 2*time.Second)
+	router := NewRouter(svc, 2*time.Second, constants.DefaultCORSAllowedOrigins)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/images", http.NoBody)
 	req.Header.Set("X-API-Key", "test-api-key")
@@ -792,7 +792,7 @@ func TestHandleListImages_Empty(t *testing.T) {
 
 func TestHandleRemoveImage_Success(t *testing.T) {
 	svc := newTestOrchestratorService(t, nil, nil, nil, &testRunner{}, nil, nil, nil)
-	router := NewRouter(svc, 2*time.Second)
+	router := NewRouter(svc, 2*time.Second, constants.DefaultCORSAllowedOrigins)
 
 	reqBody := api.RemoveImageRequest{
 		Image: "alpine:latest",
@@ -815,7 +815,7 @@ func TestHandleRemoveImage_NotFound(t *testing.T) {
 			return apperrors.ErrNotFound("image not found", nil)
 		},
 	}, nil, nil, nil)
-	router := NewRouter(svc, 2*time.Second)
+	router := NewRouter(svc, 2*time.Second, constants.DefaultCORSAllowedOrigins)
 
 	req := httptest.NewRequest(http.MethodDelete, "/api/v1/images/nonexistent:latest", http.NoBody)
 	req.Header.Set("X-API-Key", "test-api-key")
@@ -829,7 +829,7 @@ func TestHandleRemoveImage_NotFound(t *testing.T) {
 
 func TestHandleRemoveImage_MissingImage(t *testing.T) {
 	svc := newTestOrchestratorService(t, nil, nil, nil, &testRunner{}, nil, nil, nil)
-	router := NewRouter(svc, 2*time.Second)
+	router := NewRouter(svc, 2*time.Second, constants.DefaultCORSAllowedOrigins)
 
 	// DELETE request without image path parameter
 	req := httptest.NewRequest(http.MethodDelete, "/api/v1/images/", http.NoBody)
@@ -852,7 +852,7 @@ func TestHandleGetImage_Success(t *testing.T) {
 		},
 	}
 	svc := newTestOrchestratorService(t, nil, nil, nil, runner, nil, nil, nil)
-	router := NewRouter(svc, 2*time.Second)
+	router := NewRouter(svc, 2*time.Second, constants.DefaultCORSAllowedOrigins)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/images/alpine:latest", http.NoBody)
 	req.Header.Set("X-API-Key", "test-api-key")
@@ -872,7 +872,7 @@ func TestHandleGetImage_NotFound(t *testing.T) {
 		},
 	}
 	svc := newTestOrchestratorService(t, nil, nil, nil, runner, nil, nil, nil)
-	router := NewRouter(svc, 2*time.Second)
+	router := NewRouter(svc, 2*time.Second, constants.DefaultCORSAllowedOrigins)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/images/nonexistent:latest", http.NoBody)
 	req.Header.Set("X-API-Key", "test-api-key")
@@ -928,7 +928,7 @@ func TestHandleListUsers_Success(t *testing.T) {
 	userRepo := &testUserRepository{}
 	execRepo := &testExecutionRepository{}
 	svc := newTestOrchestratorService(t, userRepo, execRepo, nil, &testRunner{}, nil, nil, nil)
-	router := NewRouter(svc, 2*time.Second)
+	router := NewRouter(svc, 2*time.Second, constants.DefaultCORSAllowedOrigins)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/users/", http.NoBody)
 	req.Header.Set("X-API-Key", "test-api-key")
@@ -959,7 +959,7 @@ func TestHandleListUsers_Unauthorized(t *testing.T) {
 	}
 	execRepo := &testExecutionRepository{}
 	svc := newTestOrchestratorService(t, userRepo, execRepo, nil, &testRunner{}, nil, nil, nil)
-	router := NewRouter(svc, 2*time.Second)
+	router := NewRouter(svc, 2*time.Second, constants.DefaultCORSAllowedOrigins)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/users/", http.NoBody)
 	req.Header.Set("X-API-Key", "invalid-api-key")
@@ -983,7 +983,7 @@ func TestHandleListUsers_RepositoryError(t *testing.T) {
 	}
 	execRepo := &testExecutionRepository{}
 	svc := newTestOrchestratorService(t, userRepo, execRepo, nil, &testRunner{}, nil, nil, nil)
-	router := NewRouter(svc, 2*time.Second)
+	router := NewRouter(svc, 2*time.Second, constants.DefaultCORSAllowedOrigins)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/users/", http.NoBody)
 	req.Header.Set("X-API-Key", "test-api-key")
@@ -1000,7 +1000,7 @@ func TestHandleCreateUser_Success(t *testing.T) {
 	userRepo := &testUserRepository{}
 	execRepo := &testExecutionRepository{}
 	svc := newTestOrchestratorService(t, userRepo, execRepo, nil, nil, nil, nil, nil)
-	router := NewRouter(svc, 2*time.Second)
+	router := NewRouter(svc, 2*time.Second, constants.DefaultCORSAllowedOrigins)
 
 	createReq := api.CreateUserRequest{
 		Email: "brandnewuser123@example.com",
@@ -1022,7 +1022,7 @@ func TestHandleCreateUser_Success(t *testing.T) {
 // TestHandleCreateUser_MissingEmail tests validation of required email field
 func TestHandleCreateUser_MissingEmail(t *testing.T) {
 	svc := newTestOrchestratorService(t, nil, nil, nil, nil, nil, nil, nil)
-	router := NewRouter(svc, 2*time.Second)
+	router := NewRouter(svc, 2*time.Second, constants.DefaultCORSAllowedOrigins)
 
 	createReq := api.CreateUserRequest{
 		Email: "",
@@ -1042,7 +1042,7 @@ func TestHandleCreateUser_MissingEmail(t *testing.T) {
 // TestHandleCreateUser_InvalidRole tests invalid role validation
 func TestHandleCreateUser_InvalidRole(t *testing.T) {
 	svc := newTestOrchestratorService(t, nil, nil, nil, nil, nil, nil, nil)
-	router := NewRouter(svc, 2*time.Second)
+	router := NewRouter(svc, 2*time.Second, constants.DefaultCORSAllowedOrigins)
 
 	createReq := api.CreateUserRequest{
 		Email: "newuser@example.com",
@@ -1062,7 +1062,7 @@ func TestHandleCreateUser_InvalidRole(t *testing.T) {
 
 func TestHandleCreateUser_InvalidJSON(t *testing.T) {
 	svc := newTestOrchestratorService(t, nil, nil, nil, &testRunner{}, nil, nil, nil)
-	router := NewRouter(svc, 2*time.Second)
+	router := NewRouter(svc, 2*time.Second, constants.DefaultCORSAllowedOrigins)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/users/create", bytes.NewReader([]byte("invalid json")))
 	req.Header.Set("X-API-Key", "test-api-key")
@@ -1087,7 +1087,7 @@ func TestHandleRevokeUser_Success(t *testing.T) {
 	userRepo := &testUserRepository{}
 	execRepo := &testExecutionRepository{}
 	svc := newTestOrchestratorService(t, userRepo, execRepo, nil, &testRunner{}, nil, nil, nil)
-	router := NewRouter(svc, 2*time.Second)
+	router := NewRouter(svc, 2*time.Second, constants.DefaultCORSAllowedOrigins)
 
 	reqBody := api.RevokeUserRequest{
 		Email: "user@example.com",
@@ -1107,7 +1107,7 @@ func TestHandleRevokeUser_Success(t *testing.T) {
 
 func TestHandleRevokeUser_InvalidJSON(t *testing.T) {
 	svc := newTestOrchestratorService(t, nil, nil, nil, &testRunner{}, nil, nil, nil)
-	router := NewRouter(svc, 2*time.Second)
+	router := NewRouter(svc, 2*time.Second, constants.DefaultCORSAllowedOrigins)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/users/revoke", bytes.NewReader([]byte("invalid json")))
 	req.Header.Set("X-API-Key", "test-api-key")
@@ -1122,7 +1122,7 @@ func TestHandleRevokeUser_InvalidJSON(t *testing.T) {
 // TestHandleRevokeUser_MissingEmail tests validation when email is missing
 func TestHandleRevokeUser_MissingEmail(t *testing.T) {
 	svc := newTestOrchestratorService(t, nil, nil, nil, nil, nil, nil, nil)
-	router := NewRouter(svc, 2*time.Second)
+	router := NewRouter(svc, 2*time.Second, constants.DefaultCORSAllowedOrigins)
 
 	reqBody := api.RevokeUserRequest{
 		Email: "",
@@ -1143,7 +1143,7 @@ func TestHandleRevokeUser_NotFound(t *testing.T) {
 	userRepo := &testUserRepository{}
 	execRepo := &testExecutionRepository{}
 	svc := newTestOrchestratorService(t, userRepo, execRepo, nil, nil, nil, nil, nil)
-	router := NewRouter(svc, 2*time.Second)
+	router := NewRouter(svc, 2*time.Second, constants.DefaultCORSAllowedOrigins)
 
 	reqBody := api.RevokeUserRequest{
 		Email: "nonexistent@example.com",
@@ -1177,7 +1177,7 @@ func TestHandleRevokeUser_Unauthorized(t *testing.T) {
 		newPermissiveTestEnforcerForHandlers(t),
 	)
 	require.NoError(t, err)
-	router := NewRouter(svc, 2*time.Second)
+	router := NewRouter(svc, 2*time.Second, constants.DefaultCORSAllowedOrigins)
 
 	reqBody := api.RevokeUserRequest{
 		Email: "user@example.com",
@@ -1195,7 +1195,7 @@ func TestHandleRevokeUser_Unauthorized(t *testing.T) {
 
 func TestHandleGetExecutionLogs_Success(t *testing.T) {
 	svc := newTestOrchestratorService(t, nil, nil, nil, &testRunner{}, nil, nil, nil)
-	router := NewRouter(svc, 2*time.Second)
+	router := NewRouter(svc, 2*time.Second, constants.DefaultCORSAllowedOrigins)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/executions/exec-123/logs", http.NoBody)
 	req.Header.Set("X-API-Key", "test-api-key")
@@ -1212,7 +1212,7 @@ func TestHandleGetExecutionLogs_Success(t *testing.T) {
 
 func TestHandleGetExecutionLogs_MissingExecutionID(t *testing.T) {
 	svc := newTestOrchestratorService(t, nil, nil, nil, &testRunner{}, nil, nil, nil)
-	router := NewRouter(svc, 2*time.Second)
+	router := NewRouter(svc, 2*time.Second, constants.DefaultCORSAllowedOrigins)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/executions//logs", http.NoBody)
 	req.Header.Set("X-API-Key", "test-api-key")
@@ -1241,7 +1241,7 @@ func TestHandleGetExecutionStatus_Success(t *testing.T) {
 		enforcer,
 	)
 	require.NoError(t, err)
-	router := NewRouter(svc, 2*time.Second)
+	router := NewRouter(svc, 2*time.Second, constants.DefaultCORSAllowedOrigins)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/executions/exec-123/status", http.NoBody)
 	req.Header.Set("X-API-Key", "test-api-key")
@@ -1258,7 +1258,7 @@ func TestHandleGetExecutionStatus_Success(t *testing.T) {
 
 func TestHandleGetExecutionStatus_MissingExecutionID(t *testing.T) {
 	svc := newTestOrchestratorService(t, nil, nil, nil, &testRunner{}, nil, nil, nil)
-	router := NewRouter(svc, 2*time.Second)
+	router := NewRouter(svc, 2*time.Second, constants.DefaultCORSAllowedOrigins)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/executions//status", http.NoBody)
 	req.Header.Set("X-API-Key", "test-api-key")
@@ -1272,7 +1272,7 @@ func TestHandleGetExecutionStatus_MissingExecutionID(t *testing.T) {
 
 func TestHandleKillExecution_Success(t *testing.T) {
 	svc := newTestOrchestratorService(t, nil, nil, nil, &testRunner{}, nil, nil, nil)
-	router := NewRouter(svc, 2*time.Second)
+	router := NewRouter(svc, 2*time.Second, constants.DefaultCORSAllowedOrigins)
 
 	req := httptest.NewRequest(http.MethodDelete, "/api/v1/executions/exec-123/kill", http.NoBody)
 	req.Header.Set("X-API-Key", "test-api-key")
@@ -1300,7 +1300,7 @@ func TestHandleKillExecution_AlreadyTerminated(t *testing.T) {
 		},
 	}
 	svc := newTestOrchestratorService(t, &testUserRepository{}, execRepo, nil, &testRunner{}, nil, nil, nil)
-	router := NewRouter(svc, 2*time.Second)
+	router := NewRouter(svc, 2*time.Second, constants.DefaultCORSAllowedOrigins)
 
 	req := httptest.NewRequest(http.MethodDelete, "/api/v1/executions/exec-456/kill", http.NoBody)
 	req.Header.Set("X-API-Key", "test-api-key")
@@ -1314,7 +1314,7 @@ func TestHandleKillExecution_AlreadyTerminated(t *testing.T) {
 
 func TestHandleKillExecution_MissingExecutionID(t *testing.T) {
 	svc := newTestOrchestratorService(t, nil, nil, nil, &testRunner{}, nil, nil, nil)
-	router := NewRouter(svc, 2*time.Second)
+	router := NewRouter(svc, 2*time.Second, constants.DefaultCORSAllowedOrigins)
 
 	req := httptest.NewRequest(http.MethodDelete, "/api/v1/executions//kill", http.NoBody)
 	req.Header.Set("X-API-Key", "test-api-key")
@@ -1331,7 +1331,7 @@ func TestHandleClaimAPIKey_Success(t *testing.T) {
 	userRepo := &testUserRepository{}
 	execRepo := &testExecutionRepository{}
 	svc := newTestOrchestratorService(t, userRepo, execRepo, nil, nil, nil, nil, nil)
-	router := NewRouter(svc, 2*time.Second)
+	router := NewRouter(svc, 2*time.Second, constants.DefaultCORSAllowedOrigins)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/claim/valid-token", http.NoBody)
 	resp := httptest.NewRecorder()
@@ -1351,7 +1351,7 @@ func TestHandleClaimAPIKey_EmptyToken(t *testing.T) {
 	userRepo := &testUserRepository{}
 	execRepo := &testExecutionRepository{}
 	svc := newTestOrchestratorService(t, userRepo, execRepo, nil, nil, nil, nil, nil)
-	router := NewRouter(svc, 2*time.Second)
+	router := NewRouter(svc, 2*time.Second, constants.DefaultCORSAllowedOrigins)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/claim/", http.NoBody)
 	resp := httptest.NewRecorder()
@@ -1366,7 +1366,7 @@ func TestHandleClaimAPIKey_TokenWithWhitespace(t *testing.T) {
 	userRepo := &testUserRepository{}
 	execRepo := &testExecutionRepository{}
 	svc := newTestOrchestratorService(t, userRepo, execRepo, nil, nil, nil, nil, nil)
-	router := NewRouter(svc, 2*time.Second)
+	router := NewRouter(svc, 2*time.Second, constants.DefaultCORSAllowedOrigins)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/claim/valid-token", http.NoBody)
 	resp := httptest.NewRecorder()
@@ -1381,7 +1381,7 @@ func TestHandleClaimAPIKey_TokenNotFound(t *testing.T) {
 	userRepo := &testUserRepository{}
 	execRepo := &testExecutionRepository{}
 	svc := newTestOrchestratorService(t, userRepo, execRepo, nil, nil, nil, nil, nil)
-	router := NewRouter(svc, 2*time.Second)
+	router := NewRouter(svc, 2*time.Second, constants.DefaultCORSAllowedOrigins)
 
 	// Test with invalid token should result in 404
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/claim/invalid-token", http.NoBody)
@@ -1409,7 +1409,7 @@ func TestHandleReconcileHealth_Unauthenticated(t *testing.T) {
 		newPermissiveTestEnforcerForHandlers(t),
 	)
 	require.NoError(t, err)
-	router := NewRouter(svc, 2*time.Second)
+	router := NewRouter(svc, 2*time.Second, constants.DefaultCORSAllowedOrigins)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/health/reconcile", http.NoBody)
 	resp := httptest.NewRecorder()
@@ -1424,7 +1424,7 @@ func TestHandleReconcileHealth_Authenticated(t *testing.T) {
 	userRepo := &testUserRepository{}
 	execRepo := &testExecutionRepository{}
 	svc := newTestOrchestratorService(t, userRepo, execRepo, nil, nil, nil, nil, &testHealthManager{})
-	router := NewRouter(svc, 2*time.Second)
+	router := NewRouter(svc, 2*time.Second, constants.DefaultCORSAllowedOrigins)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/health/reconcile", http.NoBody)
 	req.Header.Set("X-API-Key", "test-api-key")
@@ -1456,7 +1456,7 @@ func TestHandleRemoveImage_Unauthorized(t *testing.T) {
 		newPermissiveTestEnforcerForHandlers(t),
 	)
 	require.NoError(t, err)
-	router := NewRouter(svc, 2*time.Second)
+	router := NewRouter(svc, 2*time.Second, constants.DefaultCORSAllowedOrigins)
 
 	req := httptest.NewRequest(http.MethodDelete, "/api/v1/images/ubuntu:22.04", http.NoBody)
 	// No API key
@@ -1483,7 +1483,7 @@ func TestHandleRegisterImage_Unauthorized(t *testing.T) {
 		newPermissiveTestEnforcerForHandlers(t),
 	)
 	require.NoError(t, err)
-	router := NewRouter(svc, 2*time.Second)
+	router := NewRouter(svc, 2*time.Second, constants.DefaultCORSAllowedOrigins)
 
 	regReq := api.RegisterImageRequest{Image: "alpine:latest"}
 	body, _ := json.Marshal(regReq)
@@ -1513,7 +1513,7 @@ func TestHandleGetImage_Unauthorized(t *testing.T) {
 		newPermissiveTestEnforcerForHandlers(t),
 	)
 	require.NoError(t, err)
-	router := NewRouter(svc, 2*time.Second)
+	router := NewRouter(svc, 2*time.Second, constants.DefaultCORSAllowedOrigins)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/images/ubuntu:22.04", http.NoBody)
 	// No API key
@@ -1542,7 +1542,7 @@ func TestHandleKillExecution_Unauthorized(t *testing.T) {
 		newPermissiveTestEnforcerForHandlers(t),
 	)
 	require.NoError(t, err)
-	router := NewRouter(svc, 2*time.Second)
+	router := NewRouter(svc, 2*time.Second, constants.DefaultCORSAllowedOrigins)
 
 	req := httptest.NewRequest(http.MethodDelete, "/api/v1/executions/exec-123/kill", http.NoBody)
 	// No API key
@@ -1569,7 +1569,7 @@ func TestHandleGetExecutionLogs_Unauthorized(t *testing.T) {
 		newPermissiveTestEnforcerForHandlers(t),
 	)
 	require.NoError(t, err)
-	router := NewRouter(svc, 2*time.Second)
+	router := NewRouter(svc, 2*time.Second, constants.DefaultCORSAllowedOrigins)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/executions/exec-123/logs", http.NoBody)
 	// No API key
@@ -1596,7 +1596,7 @@ func TestHandleGetExecutionStatus_Unauthorized(t *testing.T) {
 		newPermissiveTestEnforcerForHandlers(t),
 	)
 	require.NoError(t, err)
-	router := NewRouter(svc, 2*time.Second)
+	router := NewRouter(svc, 2*time.Second, constants.DefaultCORSAllowedOrigins)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/executions/exec-123/status", http.NoBody)
 	// No API key
@@ -1624,7 +1624,7 @@ func TestHandleRunCommand_WithValidCommand(t *testing.T) {
 		},
 	}
 	svc := newTestOrchestratorService(t, nil, nil, nil, runner, nil, nil, nil)
-	router := NewRouter(svc, 2*time.Second)
+	router := NewRouter(svc, 2*time.Second, constants.DefaultCORSAllowedOrigins)
 
 	execReq := api.ExecutionRequest{Command: "echo hello"}
 	body, _ := json.Marshal(execReq)
