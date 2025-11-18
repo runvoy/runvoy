@@ -105,14 +105,12 @@ func NewService(
 		enforcer:      enforcer,
 	}
 
-	if err := authorization.HydrateEnforcer(
+	if err := enforcer.Hydrate(
 		ctx,
-		enforcer,
 		userRepo,
 		executionRepo,
 		secretsRepo,
 		runner,
-		log,
 	); err != nil {
 		return nil, fmt.Errorf("failed to hydrate enforcer: %w", err)
 	}

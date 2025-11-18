@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
 
 	"golang.org/x/sync/errgroup"
 
@@ -18,34 +17,29 @@ type ImageRepository interface {
 	ListImages(ctx context.Context) ([]api.ImageInfo, error)
 }
 
-// HydrateEnforcer loads all user roles and resource ownerships into the Casbin enforcer.
+// Hydrate loads all user roles and resource ownerships into the Casbin enforcer.
 // This should be called during initialization to populate the enforcer with current data.
-func HydrateEnforcer(
+func (e *Enforcer) Hydrate(
 	ctx context.Context,
-	enforcer *Enforcer,
 	userRepo database.UserRepository,
 	executionRepo database.ExecutionRepository,
 	secretsRepo database.SecretsRepository,
 	imageRepo ImageRepository,
-	logger *slog.Logger,
 ) error {
-	if err := loadUserRoles(ctx, enforcer, userRepo, logger); err != nil {
+	if err := e.loadUserRoles(ctx, userRepo); err != nil {
 		return fmt.Errorf("failed to load user roles: %w", err)
 	}
 
-	if err := loadResourceOwnerships(ctx, enforcer, executionRepo, secretsRepo, imageRepo, logger); err != nil {
+	if err := e.loadResourceOwnerships(ctx, executionRepo, secretsRepo, imageRepo); err != nil {
 		return fmt.Errorf("failed to load resource ownerships: %w", err)
 	}
 
-	logger.Debug("casbin authorization enforcer hydrated successfully")
 	return nil
 }
 
-func loadUserRoles(
+func (e *Enforcer) loadUserRoles(
 	ctx context.Context,
-	enforcer *Enforcer,
 	userRepo database.UserRepository,
-	_ *slog.Logger,
 ) error {
 	users, err := userRepo.ListUsers(ctx)
 	if err != nil {
@@ -65,7 +59,7 @@ func loadUserRoles(
 				return fmt.Errorf("user %s has invalid role %q: %w", user.Email, user.Role, roleErr)
 			}
 
-			if addErr := enforcer.AddRoleForUser(user.Email, role); addErr != nil {
+			if addErr := e.AddRoleForUser(user.Email, role); addErr != nil {
 				return fmt.Errorf("failed to add role %q for user %s: %w", user.Role, user.Email, addErr)
 			}
 
@@ -80,24 +74,22 @@ func loadUserRoles(
 	return nil
 }
 
-func loadResourceOwnerships(
+func (e *Enforcer) loadResourceOwnerships(
 	ctx context.Context,
-	enforcer *Enforcer,
 	executionRepo database.ExecutionRepository,
 	secretsRepo database.SecretsRepository,
 	imageRepo ImageRepository,
-	_ *slog.Logger,
 ) error {
-	if err := loadSecretOwnerships(ctx, enforcer, secretsRepo); err != nil {
+	if err := e.loadSecretOwnerships(ctx, secretsRepo); err != nil {
 		return fmt.Errorf("failed to load secret ownerships: %w", err)
 	}
 
-	if err := loadExecutionOwnerships(ctx, enforcer, executionRepo); err != nil {
+	if err := e.loadExecutionOwnerships(ctx, executionRepo); err != nil {
 		return fmt.Errorf("failed to load execution ownerships: %w", err)
 	}
 
 	if imageRepo != nil {
-		if err := loadImageOwnerships(ctx, enforcer, imageRepo); err != nil {
+		if err := e.loadImageOwnerships(ctx, imageRepo); err != nil {
 			return fmt.Errorf("failed to load image ownerships: %w", err)
 		}
 	}
@@ -105,9 +97,8 @@ func loadResourceOwnerships(
 	return nil
 }
 
-func loadSecretOwnerships(
+func (e *Enforcer) loadSecretOwnerships(
 	ctx context.Context,
-	enforcer *Enforcer,
 	secretsRepo database.SecretsRepository,
 ) error {
 	secrets, err := secretsRepo.ListSecrets(ctx, false)
@@ -122,7 +113,7 @@ func loadSecretOwnerships(
 
 		resourceID := FormatResourceID("secret", secret.Name)
 		for _, owner := range secret.OwnedBy {
-			if addErr := enforcer.AddOwnershipForResource(resourceID, owner); addErr != nil {
+			if addErr := e.AddOwnershipForResource(resourceID, owner); addErr != nil {
 				return fmt.Errorf("failed to add ownership for secret %s: %w", secret.Name, addErr)
 			}
 		}
@@ -131,9 +122,8 @@ func loadSecretOwnerships(
 	return nil
 }
 
-func loadExecutionOwnerships(
+func (e *Enforcer) loadExecutionOwnerships(
 	ctx context.Context,
-	enforcer *Enforcer,
 	executionRepo database.ExecutionRepository,
 ) error {
 	executions, err := executionRepo.ListExecutions(ctx, 0, nil)
@@ -151,7 +141,7 @@ func loadExecutionOwnerships(
 
 			resourceID := FormatResourceID("execution", execution.ExecutionID)
 			for _, owner := range execution.OwnedBy {
-				if addErr := enforcer.AddOwnershipForResource(resourceID, owner); addErr != nil {
+				if addErr := e.AddOwnershipForResource(resourceID, owner); addErr != nil {
 					return fmt.Errorf("failed to add ownership for execution %s: %w", execution.ExecutionID, addErr)
 				}
 			}
@@ -166,9 +156,8 @@ func loadExecutionOwnerships(
 	return nil
 }
 
-func loadImageOwnerships(
+func (e *Enforcer) loadImageOwnerships(
 	ctx context.Context,
-	enforcer *Enforcer,
 	imageRepo ImageRepository,
 ) error {
 	images, err := imageRepo.ListImages(ctx)
@@ -186,7 +175,7 @@ func loadImageOwnerships(
 
 			resourceID := FormatResourceID("image", images[i].ImageID)
 			for _, owner := range images[i].OwnedBy {
-				if addErr := enforcer.AddOwnershipForResource(resourceID, owner); addErr != nil {
+				if addErr := e.AddOwnershipForResource(resourceID, owner); addErr != nil {
 					return fmt.Errorf("failed to add ownership for image %s: %w", images[i].ImageID, addErr)
 				}
 			}

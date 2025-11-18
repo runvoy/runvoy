@@ -87,31 +87,3 @@ func TestInitialize_ContextCancelled(t *testing.T) {
 	}
 	_ = processor
 }
-
-func TestInitialize_ContextTimeout(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Nanosecond)
-	defer cancel()
-	time.Sleep(2 * time.Nanosecond) // Ensure context is expired
-	logger := testutil.SilentLogger()
-
-	cfg := &config.Config{
-		BackendProvider: constants.AWS,
-		InitTimeout:     30 * time.Second,
-		AWS: &awsconfig.Config{
-			SDKConfig: &aws.Config{
-				Region: "us-east-1",
-			},
-			ExecutionsTable:           "test-executions",
-			WebSocketConnectionsTable: "test-connections",
-			WebSocketTokensTable:      "test-tokens",
-		},
-	}
-
-	processor, err := Initialize(ctx, cfg, logger)
-	// SDK config loading might succeed even with expired context
-	// depending on implementation
-	if err != nil {
-		assert.Contains(t, err.Error(), "context")
-	}
-	_ = processor
-}

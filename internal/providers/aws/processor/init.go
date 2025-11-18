@@ -54,14 +54,12 @@ func Initialize(
 	repos := awsDatabase.CreateRepositories(dynamoClient, ssmClient, cfg, log)
 	websocketManager := websocket.Initialize(cfg, repos.ConnectionRepo, repos.TokenRepo, log)
 
-	if err := authorization.HydrateEnforcer(
+	if err := enforcer.Hydrate(
 		ctx,
-		enforcer,
 		repos.UserRepo,
 		repos.ExecutionRepo,
 		repos.SecretsRepo,
 		repos.ImageTaskDefRepo,
-		log,
 	); err != nil {
 		return nil, fmt.Errorf("failed to hydrate enforcer: %w", err)
 	}
