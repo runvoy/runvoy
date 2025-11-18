@@ -225,7 +225,7 @@ type mockRunner struct {
 		taskRoleName, taskExecutionRoleName *string,
 		cpu, memory *int,
 		runtimePlatform *string,
-		registeredBy string,
+		createdBy string,
 	) error
 	listImagesFunc             func(ctx context.Context) ([]api.ImageInfo, error)
 	getImageFunc               func(ctx context.Context, image string) (*api.ImageInfo, error)
@@ -258,12 +258,12 @@ func (m *mockRunner) RegisterImage(
 	taskRoleName, taskExecutionRoleName *string,
 	cpu, memory *int,
 	runtimePlatform *string,
-	registeredBy string,
+	createdBy string,
 ) error {
 	if m.registerImageFunc != nil {
 		return m.registerImageFunc(
 			ctx, image, isDefault, taskRoleName, taskExecutionRoleName,
-			cpu, memory, runtimePlatform, registeredBy,
+			cpu, memory, runtimePlatform, createdBy,
 		)
 	}
 	return nil

@@ -12,7 +12,7 @@ import (
 func (s *Service) RegisterImage(
 	ctx context.Context,
 	req *api.RegisterImageRequest,
-	registeredBy string,
+	createdBy string,
 ) (*api.RegisterImageResponse, error) {
 	if req == nil {
 		return nil, appErrors.ErrBadRequest("request is required", nil)
@@ -22,8 +22,8 @@ func (s *Service) RegisterImage(
 		return nil, appErrors.ErrBadRequest("image is required", nil)
 	}
 
-	if registeredBy == "" {
-		return nil, appErrors.ErrBadRequest("registeredBy is required", nil)
+	if createdBy == "" {
+		return nil, appErrors.ErrBadRequest("createdBy is required", nil)
 	}
 
 	if err := s.runner.RegisterImage(
@@ -35,7 +35,7 @@ func (s *Service) RegisterImage(
 		req.CPU,
 		req.Memory,
 		req.RuntimePlatform,
-		registeredBy,
+		createdBy,
 	); err != nil {
 		var appErr *appErrors.AppError
 		if errors.As(err, &appErr) {

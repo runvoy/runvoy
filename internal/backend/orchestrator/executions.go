@@ -124,7 +124,8 @@ func (s *Service) recordExecution(
 	requestID := logger.GetRequestID(ctx)
 	execution := &api.Execution{
 		ExecutionID:     executionID,
-		UserEmail:       userEmail,
+		CreatedBy:       userEmail,
+		OwnedBy:         []string{userEmail},
 		Command:         req.Command,
 		StartedAt:       startedAt,
 		Status:          string(status),
@@ -148,7 +149,7 @@ func (s *Service) recordExecution(
 		return fmt.Errorf("failed to create execution record, but task has been accepted by the provider: %w", err)
 	}
 
-	if err := s.addExecutionOwnershipToEnforcer(executionID, userEmail); err != nil {
+	if err := s.addExecutionOwnershipToEnforcer(executionID, execution.OwnedBy); err != nil {
 		reqLogger.Error("failed to synchronize execution ownership with enforcer", "context", map[string]string{
 			"execution_id": executionID,
 			"user":         userEmail,
@@ -318,11 +319,12 @@ func (s *Service) ListExecutions(ctx context.Context, limit int, statuses []stri
 	return executions, nil
 }
 
-func (s *Service) addExecutionOwnershipToEnforcer(executionID, ownerEmail string) error {
+func (s *Service) addExecutionOwnershipToEnforcer(executionID string, ownedBy []string) error {
 	resourceID := authorization.FormatResourceID("execution", executionID)
-	if err := s.enforcer.AddOwnershipForResource(resourceID, ownerEmail); err != nil {
-		return fmt.Errorf("failed to add ownership for execution %s: %w", executionID, err)
+	for _, owner := range ownedBy {
+		if err := s.enforcer.AddOwnershipForResource(resourceID, owner); err != nil {
+			return fmt.Errorf("failed to add ownership for execution %s: %w", executionID, err)
+		}
 	}
-
 	return nil
 }

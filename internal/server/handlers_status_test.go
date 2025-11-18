@@ -41,9 +41,10 @@ func (m *mockRunner) RegisterImage(
 func (m *mockRunner) ListImages(_ context.Context) ([]api.ImageInfo, error) {
 	return []api.ImageInfo{
 		{
-			Image:        "alpine:latest",
-			ImageID:      "alpine:latest",
-			RegisteredBy: "test@example.com",
+			Image:     "alpine:latest",
+			ImageID:   "alpine:latest",
+			CreatedBy: "test@example.com",
+			OwnedBy:   []string{"user@example.com"},
 		},
 	}, nil
 }

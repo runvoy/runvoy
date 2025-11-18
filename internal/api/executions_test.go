@@ -149,7 +149,8 @@ func TestExecutionJSON(t *testing.T) {
 		now := time.Now()
 		exec := Execution{
 			ExecutionID:     "exec-123",
-			UserEmail:       "user@example.com",
+			CreatedBy:       "user@example.com",
+			OwnedBy:         []string{"user@example.com"},
 			Command:         "echo hello",
 			StartedAt:       now,
 			CompletedAt:     &now,
@@ -169,7 +170,7 @@ func TestExecutionJSON(t *testing.T) {
 		require.NoError(t, err)
 
 		assert.Equal(t, exec.ExecutionID, unmarshaled.ExecutionID)
-		assert.Equal(t, exec.UserEmail, unmarshaled.UserEmail)
+		assert.Equal(t, exec.CreatedBy, unmarshaled.CreatedBy)
 		assert.Equal(t, exec.Command, unmarshaled.Command)
 		assert.Equal(t, exec.Status, unmarshaled.Status)
 		assert.Equal(t, exec.ExitCode, unmarshaled.ExitCode)
@@ -180,7 +181,8 @@ func TestExecutionJSON(t *testing.T) {
 		now := time.Now()
 		exec := Execution{
 			ExecutionID: "exec-123",
-			UserEmail:   "user@example.com",
+			CreatedBy:   "user@example.com",
+			OwnedBy:     []string{"user@example.com"},
 			Command:     "echo hello",
 			StartedAt:   now,
 			CompletedAt: nil,

@@ -25,6 +25,7 @@ func (s *Service) CreateSecret(
 		Description: req.Description,
 		Value:       req.Value,
 		CreatedBy:   userEmail,
+		OwnedBy:     []string{userEmail},
 	}
 	if err := s.secretsRepo.CreateSecret(ctx, secret); err != nil {
 		var appErr *apperrors.AppError
@@ -36,16 +37,18 @@ func (s *Service) CreateSecret(
 
 	enforcer := s.GetEnforcer()
 	resourceID := authorization.FormatResourceID("secret", req.Name)
-	if err := enforcer.AddOwnershipForResource(resourceID, userEmail); err != nil {
-		// Rollback secret creation if enforcer update fails
-		if deleteErr := s.secretsRepo.DeleteSecret(ctx, req.Name); deleteErr != nil {
-			s.Logger.Error("failed to rollback secret creation after enforcer error",
-				"error", deleteErr,
-				"resource", resourceID,
-				"owner", userEmail,
-			)
+	for _, owner := range secret.OwnedBy {
+		if err := enforcer.AddOwnershipForResource(resourceID, owner); err != nil {
+			// Rollback secret creation if enforcer update fails
+			if deleteErr := s.secretsRepo.DeleteSecret(ctx, req.Name); deleteErr != nil {
+				s.Logger.Error("failed to rollback secret creation after enforcer error",
+					"error", deleteErr,
+					"resource", resourceID,
+					"owner", owner,
+				)
+			}
+			return apperrors.ErrInternalError("failed to add secret ownership to authorization enforcer", err)
 		}
-		return apperrors.ErrInternalError("failed to add secret ownership to authorization enforcer", err)
 	}
 
 	return nil
@@ -97,17 +100,19 @@ func (s *Service) DeleteSecret(ctx context.Context, name string) error {
 		return apperrors.ErrInternalError("failed to load secret metadata", fmt.Errorf("get secret: %w", fetchErr))
 	}
 
-	var ownerEmail string
-	if secret != nil && secret.CreatedBy != "" {
-		ownerEmail = secret.CreatedBy
-		if removeErr := s.enforcer.RemoveOwnershipForResource(resourceID, ownerEmail); removeErr != nil {
-			return apperrors.ErrInternalError("failed to remove secret ownership from authorization enforcer", removeErr)
+	var ownerEmails []string
+	if secret != nil && len(secret.OwnedBy) > 0 {
+		ownerEmails = secret.OwnedBy
+		for _, ownerEmail := range ownerEmails {
+			if removeErr := s.enforcer.RemoveOwnershipForResource(resourceID, ownerEmail); removeErr != nil {
+				return apperrors.ErrInternalError("failed to remove secret ownership from authorization enforcer", removeErr)
+			}
 		}
 	}
 
 	if deleteErr := s.secretsRepo.DeleteSecret(ctx, name); deleteErr != nil {
 		// Rollback: restore ownership if delete failed
-		if ownerEmail != "" {
+		for _, ownerEmail := range ownerEmails {
 			if addErr := s.enforcer.AddOwnershipForResource(resourceID, ownerEmail); addErr != nil {
 				return apperrors.ErrInternalError("failed to restore secret ownership after delete error", addErr)
 			}

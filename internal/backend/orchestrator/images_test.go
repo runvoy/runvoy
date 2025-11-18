@@ -318,8 +318,10 @@ func TestListImages_Success(t *testing.T) {
 	runner := &mockRunner{
 		listImagesFunc: func(_ context.Context) ([]api.ImageInfo, error) {
 			return []api.ImageInfo{
-				{Image: "alpine:latest", ImageID: "alpine:latest", RegisteredBy: "test@example.com", CPU: 256},
-				{Image: "ubuntu:20.04", ImageID: "ubuntu:20.04", RegisteredBy: "test@example.com", CPU: 512},
+				{Image: "alpine:latest", ImageID: "alpine:latest", CreatedBy: "test@example.com",
+					OwnedBy: []string{"user@example.com"}},
+				{Image: "ubuntu:20.04", ImageID: "ubuntu:20.04", CreatedBy: "test@example.com",
+					OwnedBy: []string{"user@example.com"}},
 			}, nil
 		},
 	}
@@ -619,7 +621,7 @@ func TestRegisterImage_RunnerGenericError(t *testing.T) {
 	assert.True(t, errors.As(registerErr, &appErr))
 }
 
-func TestRegisterImage_EmptyRegisteredBy(t *testing.T) {
+func TestRegisterImage_EmptyCreatedBy(t *testing.T) {
 	runner := &mockRunner{
 		registerImageFunc: func(
 			_ context.Context, _ string, _ *bool, _ *string, _ *string,
@@ -657,7 +659,7 @@ func TestRegisterImage_EmptyRegisteredBy(t *testing.T) {
 	assert.Error(t, registerErr)
 	var appErr *apperrors.AppError
 	assert.True(t, errors.As(registerErr, &appErr))
-	assert.Contains(t, registerErr.Error(), "registeredBy is required")
+	assert.Contains(t, registerErr.Error(), "createdBy is required")
 	assert.Equal(t, apperrors.ErrCodeInvalidRequest, apperrors.GetErrorCode(registerErr))
 	assert.Equal(t, http.StatusBadRequest, apperrors.GetStatusCode(registerErr))
 }

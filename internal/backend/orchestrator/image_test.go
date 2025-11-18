@@ -108,8 +108,10 @@ func TestListImages(t *testing.T) {
 		{
 			name: "successful list with images",
 			mockImages: []api.ImageInfo{
-				{Image: "alpine:latest", ImageID: "alpine:latest", RegisteredBy: "test@example.com", IsDefault: boolPtr(true)},
-				{Image: "ubuntu:22.04", ImageID: "ubuntu:22.04", RegisteredBy: "test@example.com", IsDefault: boolPtr(false)},
+				{Image: "alpine:latest", ImageID: "alpine:latest", CreatedBy: "test@example.com",
+					OwnedBy: []string{"user@example.com"}},
+				{Image: "ubuntu:22.04", ImageID: "ubuntu:22.04", CreatedBy: "test@example.com",
+					OwnedBy: []string{"user@example.com"}},
 			},
 			runnerErr: nil,
 			expectErr: false,

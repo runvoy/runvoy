@@ -243,6 +243,7 @@ func (m *Manager) checkSecretOwnership(
 		"secret",
 		secret.Name,
 		secret.CreatedBy,
+		secret.OwnedBy,
 		status,
 	)
 }
@@ -258,16 +259,19 @@ func (m *Manager) checkExecutionOwnership(
 	return m.checkResourceOwnershipGeneric(
 		"execution",
 		execution.ExecutionID,
-		execution.UserEmail,
+		execution.CreatedBy,
+		execution.OwnedBy,
 		status,
 	)
 }
 
+//nolint:funlen // Validates multiple owners, requires iteration logic
 func (m *Manager) checkResourceOwnershipGeneric(
-	resourceType, resourceID, ownerEmail string,
+	resourceType, resourceID, createdBy string,
+	ownedBy []string,
 	status *health.AuthorizerHealthStatus,
 ) []health.Issue {
-	if ownerEmail == "" {
+	if createdBy == "" {
 		formattedID := authorization.FormatResourceID(resourceType, resourceID)
 		status.ResourcesWithMissingOwners = append(
 			status.ResourcesWithMissingOwners, formattedID,
@@ -277,7 +281,24 @@ func (m *Manager) checkResourceOwnershipGeneric(
 			ResourceID:   resourceID,
 			Severity:     "error",
 			Message: fmt.Sprintf(
-				"%s %s has empty owner field (required for Casbin ownership)",
+				"%s %s has empty created_by field (required for Casbin ownership)",
+				capitalizeFirst(resourceType), resourceID,
+			),
+			Action: "reported",
+		}}
+	}
+
+	if len(ownedBy) == 0 {
+		formattedID := authorization.FormatResourceID(resourceType, resourceID)
+		status.ResourcesWithMissingOwners = append(
+			status.ResourcesWithMissingOwners, formattedID,
+		)
+		return []health.Issue{{
+			ResourceType: resourceType,
+			ResourceID:   resourceID,
+			Severity:     "error",
+			Message: fmt.Sprintf(
+				"%s %s has empty owned_by list (required for Casbin ownership)",
 				capitalizeFirst(resourceType), resourceID,
 			),
 			Action: "reported",
@@ -285,35 +306,39 @@ func (m *Manager) checkResourceOwnershipGeneric(
 	}
 
 	formattedID := authorization.FormatResourceID(resourceType, resourceID)
-	hasOwnership, checkErr := m.enforcer.HasOwnershipForResource(formattedID, ownerEmail)
-	if checkErr != nil {
-		return []health.Issue{{
-			ResourceType: resourceType,
-			ResourceID:   resourceID,
-			Severity:     "error",
-			Message: fmt.Sprintf(
-				"Failed to check Casbin ownership for %s %s: %v",
-				resourceType, resourceID, checkErr,
-			),
-			Action: "reported",
-		}}
+	issues := []health.Issue{}
+	for _, owner := range ownedBy {
+		hasOwnership, checkErr := m.enforcer.HasOwnershipForResource(formattedID, owner)
+		if checkErr != nil {
+			issues = append(issues, health.Issue{
+				ResourceType: resourceType,
+				ResourceID:   resourceID,
+				Severity:     "error",
+				Message: fmt.Sprintf(
+					"Failed to check Casbin ownership for %s %s (owner %s): %v",
+					resourceType, resourceID, owner, checkErr,
+				),
+				Action: "reported",
+			})
+			continue
+		}
+
+		if !hasOwnership {
+			status.MissingOwnerships = append(status.MissingOwnerships, formattedID)
+			issues = append(issues, health.Issue{
+				ResourceType: resourceType,
+				ResourceID:   resourceID,
+				Severity:     "error",
+				Message: fmt.Sprintf(
+					"%s %s has owner %s in database but not in Casbin enforcer",
+					capitalizeFirst(resourceType), resourceID, owner,
+				),
+				Action: "reported",
+			})
+		}
 	}
 
-	if !hasOwnership {
-		status.MissingOwnerships = append(status.MissingOwnerships, formattedID)
-		return []health.Issue{{
-			ResourceType: resourceType,
-			ResourceID:   resourceID,
-			Severity:     "error",
-			Message: fmt.Sprintf(
-				"%s %s has owner %s in database but not in Casbin enforcer",
-				capitalizeFirst(resourceType), resourceID, ownerEmail,
-			),
-			Action: "reported",
-		}}
-	}
-
-	return nil
+	return issues
 }
 
 func (m *Manager) checkImageOwnership(
@@ -324,24 +349,13 @@ func (m *Manager) checkImageOwnership(
 		return nil
 	}
 
-	if image.RegisteredBy == "" {
-		resourceID := authorization.FormatResourceID("image", image.ImageID)
-		status.ResourcesWithMissingOwners = append(
-			status.ResourcesWithMissingOwners, resourceID,
-		)
-		return []health.Issue{{
-			ResourceType: "image",
-			ResourceID:   image.ImageID,
-			Severity:     "warning",
-			Message: fmt.Sprintf(
-				"Image %s has empty RegisteredBy field (may affect Casbin ownership)",
-				image.ImageID,
-			),
-			Action: "reported",
-		}}
-	}
-
-	return nil
+	return m.checkResourceOwnershipGeneric(
+		"image",
+		image.ImageID,
+		image.CreatedBy,
+		image.OwnedBy,
+		status,
+	)
 }
 
 func (m *Manager) checkOrphanedOwnerships(

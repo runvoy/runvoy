@@ -13,6 +13,7 @@ type Secret struct {
 	Description string    `json:"description,omitempty"`
 	Value       string    `json:"value,omitempty"`
 	CreatedBy   string    `json:"created_by"`
+	OwnedBy     []string  `json:"owned_by"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
 	UpdatedBy   string    `json:"updated_by"`

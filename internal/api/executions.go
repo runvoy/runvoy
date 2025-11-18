@@ -44,7 +44,8 @@ type KillExecutionResponse struct {
 // Execution represents an execution record
 type Execution struct {
 	ExecutionID     string     `json:"execution_id"`
-	UserEmail       string     `json:"user_email"`
+	CreatedBy       string     `json:"created_by"`
+	OwnedBy         []string   `json:"owned_by"`
 	Command         string     `json:"command"`
 	StartedAt       time.Time  `json:"started_at"`
 	CompletedAt     *time.Time `json:"completed_at,omitempty"`

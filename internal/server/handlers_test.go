@@ -164,7 +164,8 @@ func (t *testExecutionRepository) GetExecution(ctx context.Context, executionID 
 	now := time.Now()
 	return &api.Execution{
 		ExecutionID: executionID,
-		UserEmail:   "user@example.com",
+		CreatedBy:   "user@example.com",
+		OwnedBy:     []string{"user@example.com"},
 		Command:     "echo hello",
 		Status:      string(constants.ExecutionRunning),
 		StartedAt:   now,
@@ -581,7 +582,8 @@ func TestHandleListExecutions_Success(t *testing.T) {
 			return []*api.Execution{
 				{
 					ExecutionID: "exec-1",
-					UserEmail:   "user@example.com",
+					CreatedBy:   "user@example.com",
+					OwnedBy:     []string{"user@example.com"},
 					Command:     "echo hello",
 					Status:      string(constants.ExecutionRunning),
 					StartedAt:   now,
@@ -710,8 +712,8 @@ func TestHandleListImages_Success(t *testing.T) {
 	runner := &testRunner{
 		listImagesFunc: func() ([]api.ImageInfo, error) {
 			return []api.ImageInfo{
-				{Image: "alpine:latest", ImageID: "alpine:latest", RegisteredBy: "test@example.com"},
-				{Image: "ubuntu:22.04", ImageID: "ubuntu:22.04", RegisteredBy: "test@example.com"},
+				{Image: "alpine:latest", ImageID: "alpine:latest", CreatedBy: "test@example.com"},
+				{Image: "ubuntu:22.04", ImageID: "ubuntu:22.04", CreatedBy: "test@example.com"},
 			}, nil
 		},
 	}

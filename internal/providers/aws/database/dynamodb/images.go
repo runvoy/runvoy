@@ -43,21 +43,22 @@ func NewImageTaskDefRepository(client Client, tableName string, log *slog.Logger
 
 // imageTaskDefItem represents the structure stored in DynamoDB.
 type imageTaskDefItem struct {
-	ImageID               string  `dynamodbav:"image_id"`
-	Image                 string  `dynamodbav:"image"`
-	TaskRoleName          *string `dynamodbav:"task_role_name,omitempty"`
-	TaskExecutionRoleName *string `dynamodbav:"task_execution_role_name,omitempty"`
-	Cpu                   string  `dynamodbav:"cpu"` //nolint:revive // DynamoDB field name matches schema
-	Memory                string  `dynamodbav:"memory"`
-	RuntimePlatform       string  `dynamodbav:"runtime_platform"`
-	TaskDefinitionFamily  string  `dynamodbav:"task_definition_family"`
-	IsDefaultPlaceholder  *string `dynamodbav:"is_default_placeholder,omitempty"`
-	ImageRegistry         string  `dynamodbav:"image_registry"`
-	ImageName             string  `dynamodbav:"image_name"`
-	ImageTag              string  `dynamodbav:"image_tag"`
-	RegisteredBy          string  `dynamodbav:"registered_by,omitempty"`
-	CreatedAt             int64   `dynamodbav:"created_at"`
-	UpdatedAt             int64   `dynamodbav:"updated_at"`
+	ImageID               string   `dynamodbav:"image_id"`
+	Image                 string   `dynamodbav:"image"`
+	TaskRoleName          *string  `dynamodbav:"task_role_name,omitempty"`
+	TaskExecutionRoleName *string  `dynamodbav:"task_execution_role_name,omitempty"`
+	Cpu                   string   `dynamodbav:"cpu"` //nolint:revive // DynamoDB field name matches schema
+	Memory                string   `dynamodbav:"memory"`
+	RuntimePlatform       string   `dynamodbav:"runtime_platform"`
+	TaskDefinitionFamily  string   `dynamodbav:"task_definition_family"`
+	IsDefaultPlaceholder  *string  `dynamodbav:"is_default_placeholder,omitempty"`
+	ImageRegistry         string   `dynamodbav:"image_registry"`
+	ImageName             string   `dynamodbav:"image_name"`
+	ImageTag              string   `dynamodbav:"image_tag"`
+	CreatedBy             string   `dynamodbav:"created_by,omitempty"`
+	OwnedBy               []string `dynamodbav:"owned_by"`
+	CreatedAt             int64    `dynamodbav:"created_at"`
+	UpdatedAt             int64    `dynamodbav:"updated_at"`
 }
 
 const (
@@ -115,7 +116,7 @@ func (r *ImageTaskDefRepository) PutImageTaskDef(
 	runtimePlatform string,
 	taskDefFamily string,
 	isDefault bool,
-	registeredBy string,
+	createdBy string,
 ) error {
 	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
 
@@ -135,7 +136,8 @@ func (r *ImageTaskDefRepository) PutImageTaskDef(
 		ImageRegistry:         imageRegistry,
 		ImageName:             imageName,
 		ImageTag:              imageTag,
-		RegisteredBy:          registeredBy,
+		CreatedBy:             createdBy,
+		OwnedBy:               []string{createdBy},
 		CreatedAt:             now,
 		UpdatedAt:             now,
 	}
@@ -334,7 +336,8 @@ func (r *ImageTaskDefRepository) GetImageTaskDefByID(ctx context.Context, imageI
 		ImageRegistry:         item.ImageRegistry,
 		ImageName:             item.ImageName,
 		ImageTag:              item.ImageTag,
-		RegisteredBy:          item.RegisteredBy,
+		CreatedBy:             item.CreatedBy,
+		OwnedBy:               item.OwnedBy,
 	}, nil
 }
 
@@ -405,7 +408,8 @@ func (r *ImageTaskDefRepository) convertItemsToImageInfo(items []imageTaskDefIte
 			ImageRegistry:         item.ImageRegistry,
 			ImageName:             item.ImageName,
 			ImageTag:              item.ImageTag,
-			RegisteredBy:          item.RegisteredBy,
+			CreatedBy:             item.CreatedBy,
+			OwnedBy:               item.OwnedBy,
 		})
 	}
 	return allImages, nil
@@ -469,7 +473,8 @@ func (r *ImageTaskDefRepository) GetDefaultImage(ctx context.Context) (*api.Imag
 		ImageRegistry:         item.ImageRegistry,
 		ImageName:             item.ImageName,
 		ImageTag:              item.ImageTag,
-		RegisteredBy:          item.RegisteredBy,
+		CreatedBy:             item.CreatedBy,
+		OwnedBy:               item.OwnedBy,
 	}, nil
 }
 
@@ -761,7 +766,8 @@ func (r *ImageTaskDefRepository) GetAnyImageTaskDef(ctx context.Context, image s
 			ImageRegistry:         item.ImageRegistry,
 			ImageName:             item.ImageName,
 			ImageTag:              item.ImageTag,
-			RegisteredBy:          item.RegisteredBy,
+			CreatedBy:             item.CreatedBy,
+			OwnedBy:               item.OwnedBy,
 		}, nil
 	}
 

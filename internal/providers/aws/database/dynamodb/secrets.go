@@ -41,6 +41,7 @@ type secretItem struct {
 	KeyName     string    `dynamodbav:"key_name"`    // Environment variable name
 	Description string    `dynamodbav:"description"`
 	CreatedBy   string    `dynamodbav:"created_by"`
+	OwnedBy     []string  `dynamodbav:"owned_by"`
 	CreatedAt   time.Time `dynamodbav:"created_at"`
 	UpdatedAt   time.Time `dynamodbav:"updated_at"`
 	UpdatedBy   string    `dynamodbav:"updated_by"`
@@ -53,6 +54,7 @@ func (si *secretItem) toAPISecret() *api.Secret {
 		KeyName:     si.KeyName,
 		Description: si.Description,
 		CreatedBy:   si.CreatedBy,
+		OwnedBy:     si.OwnedBy,
 		CreatedAt:   si.CreatedAt,
 		UpdatedAt:   si.UpdatedAt,
 		UpdatedBy:   si.UpdatedBy,
