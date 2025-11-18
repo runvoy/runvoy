@@ -168,10 +168,19 @@ func (r *UserRepository) GetUserByAPIKeyHash(ctx context.Context, apiKeyHash str
 	const maxHashLength = 8
 	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
 
+	var maskedHash string
+	if apiKeyHash == "" {
+		maskedHash = "<empty>"
+	} else if len(apiKeyHash) <= maxHashLength {
+		maskedHash = apiKeyHash
+	} else {
+		maskedHash = fmt.Sprintf("%s%s", apiKeyHash[:maxHashLength], strings.Repeat("*", len(apiKeyHash)-maxHashLength))
+	}
+
 	logArgs := []any{
 		"operation", "DynamoDB.GetItem",
 		"table", r.tableName,
-		"api_key_hash", fmt.Sprintf("%s%s", apiKeyHash[:maxHashLength], strings.Repeat("*", len(apiKeyHash)-maxHashLength)),
+		"api_key_hash", maskedHash,
 	}
 	logArgs = append(logArgs, logger.GetDeadlineInfo(ctx)...)
 	reqLogger.Debug("calling external service", "context", logger.SliceToMap(logArgs))

@@ -238,6 +238,19 @@ func TestHandleConnect(t *testing.T) {
 			mockCreateErr:      fmt.Errorf("create failed"),
 			expectedStatusCode: http.StatusInternalServerError,
 		},
+		{
+			name: "execution ID mismatch",
+			req: events.APIGatewayWebsocketProxyRequest{
+				RequestContext: events.APIGatewayWebsocketProxyRequestContext{
+					ConnectionID: "real-conn-id",
+				},
+				QueryStringParameters: map[string]string{
+					"execution_id": "exec-456",
+					"token":        validToken,
+				},
+			},
+			expectedStatusCode: http.StatusForbidden,
+		},
 	}
 
 	for _, tt := range tests {

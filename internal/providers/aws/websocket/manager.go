@@ -251,6 +251,16 @@ func (m *Manager) fetchWebSocketToken(
 		}
 	}
 
+	if wsToken.ExecutionID != executionID {
+		reqLogger.Warn("execution ID mismatch in websocket token",
+			"token_execution_id", wsToken.ExecutionID,
+			"request_execution_id", executionID)
+		return nil, &events.APIGatewayProxyResponse{
+			StatusCode: http.StatusForbidden,
+			Body:       "Token is not valid for this execution",
+		}
+	}
+
 	return wsToken, nil
 }
 
