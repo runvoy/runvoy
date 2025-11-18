@@ -30,13 +30,7 @@ func (r *Router) handleRegisterImage(w http.ResponseWriter, req *http.Request) {
 
 	resp, err := r.svc.RegisterImage(
 		req.Context(),
-		registerReq.Image,
-		registerReq.IsDefault,
-		registerReq.TaskRoleName,
-		registerReq.TaskExecutionRoleName,
-		registerReq.CPU,
-		registerReq.Memory,
-		registerReq.RuntimePlatform,
+		&registerReq,
 		user.Email,
 	)
 	if err != nil {

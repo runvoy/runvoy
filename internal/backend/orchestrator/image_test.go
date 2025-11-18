@@ -72,7 +72,14 @@ func TestRegisterImage(t *testing.T) {
 			}
 
 			svc := newTestService(nil, nil, runner)
-			resp, err := svc.RegisterImage(ctx, tt.image, tt.isDefault, nil, nil, nil, nil, nil, "test@example.com")
+			resp, err := svc.RegisterImage(
+				ctx,
+				&api.RegisterImageRequest{
+					Image:     tt.image,
+					IsDefault: tt.isDefault,
+				},
+				"test@example.com",
+			)
 
 			if tt.expectErr {
 				require.Error(t, err)

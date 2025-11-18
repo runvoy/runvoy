@@ -11,16 +11,14 @@ import (
 // RegisterImage registers a Docker image and creates the corresponding task definition.
 func (s *Service) RegisterImage(
 	ctx context.Context,
-	image string,
-	isDefault *bool,
-	taskRoleName *string,
-	taskExecutionRoleName *string,
-	cpu *int,
-	memory *int,
-	runtimePlatform *string,
+	req *api.RegisterImageRequest,
 	registeredBy string,
 ) (*api.RegisterImageResponse, error) {
-	if image == "" {
+	if req == nil {
+		return nil, apperrors.ErrBadRequest("request is required", nil)
+	}
+
+	if req.Image == "" {
 		return nil, apperrors.ErrBadRequest("image is required", nil)
 	}
 
@@ -29,7 +27,15 @@ func (s *Service) RegisterImage(
 	}
 
 	if err := s.runner.RegisterImage(
-		ctx, image, isDefault, taskRoleName, taskExecutionRoleName, cpu, memory, runtimePlatform, registeredBy,
+		ctx,
+		req.Image,
+		req.IsDefault,
+		req.TaskRoleName,
+		req.TaskExecutionRoleName,
+		req.CPU,
+		req.Memory,
+		req.RuntimePlatform,
+		registeredBy,
 	); err != nil {
 		var appErr *apperrors.AppError
 		if errors.As(err, &appErr) {
@@ -39,7 +45,7 @@ func (s *Service) RegisterImage(
 	}
 
 	return &api.RegisterImageResponse{
-		Image:   image,
+		Image:   req.Image,
 		Message: "Image registered successfully",
 	}, nil
 }
