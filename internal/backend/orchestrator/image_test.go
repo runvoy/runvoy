@@ -101,8 +101,8 @@ func TestListImages(t *testing.T) {
 		{
 			name: "successful list with images",
 			mockImages: []api.ImageInfo{
-				{Image: "alpine:latest", IsDefault: boolPtr(true)},
-				{Image: "ubuntu:22.04", IsDefault: boolPtr(false)},
+				{Image: "alpine:latest", ImageID: "alpine:latest", RegisteredBy: "test@example.com", IsDefault: boolPtr(true)},
+				{Image: "ubuntu:22.04", ImageID: "ubuntu:22.04", RegisteredBy: "test@example.com", IsDefault: boolPtr(false)},
 			},
 			runnerErr: nil,
 			expectErr: false,
@@ -124,8 +124,14 @@ func TestListImages(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			callCount := 0
 			runner := &mockRunner{
 				listImagesFunc: func(_ context.Context) ([]api.ImageInfo, error) {
+					callCount++
+					// For error cases, return empty list during initialization, error on test call
+					if tt.expectErr && callCount == 1 {
+						return []api.ImageInfo{}, nil
+					}
 					return tt.mockImages, tt.runnerErr
 				},
 			}

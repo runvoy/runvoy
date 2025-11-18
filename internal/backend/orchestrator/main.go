@@ -231,15 +231,15 @@ func (s *Service) hydrateImageOwnerships(ctx context.Context) error {
 
 	g, _ := errgroup.WithContext(ctx)
 
-	for _, image := range images {
-		if image.ImageID == "" || image.RegisteredBy == "" {
+	for i := range images {
+		if images[i].ImageID == "" || images[i].RegisteredBy == "" {
 			return errors.New("image is missing required fields")
 		}
 
 		g.Go(func() error {
-			resourceID := fmt.Sprintf("image:%s", image.ImageID)
-			if addErr := s.enforcer.AddOwnershipForResource(resourceID, image.RegisteredBy); addErr != nil {
-				return fmt.Errorf("failed to add ownership for image %s: %w", image.ImageID, addErr)
+			resourceID := fmt.Sprintf("image:%s", images[i].ImageID)
+			if addErr := s.enforcer.AddOwnershipForResource(resourceID, images[i].RegisteredBy); addErr != nil {
+				return fmt.Errorf("failed to add ownership for image %s: %w", images[i].ImageID, addErr)
 			}
 
 			return nil
