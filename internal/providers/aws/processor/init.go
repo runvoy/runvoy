@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 
+	"runvoy/internal/auth/authorization"
 	"runvoy/internal/backend/health"
 	"runvoy/internal/config"
 	"runvoy/internal/constants"
@@ -31,6 +32,7 @@ import (
 func Initialize(
 	ctx context.Context,
 	cfg *config.Config,
+	enforcer *authorization.Enforcer,
 	log *slog.Logger,
 ) (*Processor, error) {
 	logger.RegisterContextExtractor(awsOrchestrator.NewLambdaContextExtractor())
@@ -41,30 +43,37 @@ func Initialize(
 
 	awsCfg := *cfg.AWS.SDKConfig
 	dynamoSDKClient := dynamodb.NewFromConfig(awsCfg)
-	ecsSDKClient := ecs.NewFromConfig(awsCfg)
 	ssmSDKClient := ssm.NewFromConfig(awsCfg)
-	iamSDKClient := iam.NewFromConfig(awsCfg)
 
 	dynamoClient := dynamoRepo.NewClientAdapter(dynamoSDKClient)
-	ecsClient := awsClient.NewECSClientAdapter(ecsSDKClient)
 	ssmClient := secrets.NewClientAdapter(ssmSDKClient)
-	iamClient := awsClient.NewIAMClientAdapter(iamSDKClient)
 
-	userRepo := dynamoRepo.NewUserRepository(dynamoClient, cfg.AWS.APIKeysTable, cfg.AWS.PendingAPIKeysTable, log)
-	executionRepo := dynamoRepo.NewExecutionRepository(dynamoClient, cfg.AWS.ExecutionsTable, log)
-	connectionRepo := dynamoRepo.NewConnectionRepository(dynamoClient, cfg.AWS.WebSocketConnectionsTable, log)
-	tokenRepo := dynamoRepo.NewTokenRepository(dynamoClient, cfg.AWS.WebSocketTokensTable, log)
-	imageTaskDefRepo := dynamoRepo.NewImageTaskDefRepository(dynamoClient, cfg.AWS.ImageTaskDefsTable, log)
-	dynamoSecretsRepo := dynamoRepo.NewSecretsRepository(dynamoClient, cfg.AWS.SecretsMetadataTable, log)
+	repos := awsDatabase.CreateRepositories(dynamoClient, ssmClient, cfg, log)
+	websocketManager := websocket.Initialize(cfg, repos.ConnectionRepo, repos.TokenRepo, log)
 
-	valueStore := secrets.NewParameterStoreManager(ssmClient, cfg.AWS.SecretsPrefix, cfg.AWS.SecretsKMSKeyARN, log)
-	secretsRepo := awsDatabase.NewSecretsRepository(dynamoSecretsRepo, valueStore, log)
-
-	websocketManager := websocket.Initialize(cfg, connectionRepo, tokenRepo, log)
+	ecsClient := awsClient.NewECSClientAdapter(ecs.NewFromConfig(awsCfg))
+	iamClient := awsClient.NewIAMClientAdapter(iam.NewFromConfig(awsCfg))
 
 	healthManager := initializeHealthManager(
-		ctx, &awsCfg, ecsClient, ssmClient, iamClient, imageTaskDefRepo, secretsRepo, userRepo, executionRepo, cfg, log,
+		ctx,
+		&awsCfg,
+		ecsClient,
+		ssmClient,
+		iamClient,
+		repos.ImageTaskDefRepo,
+		repos.SecretsRepo,
+		repos.UserRepo,
+		repos.ExecutionRepo,
+		enforcer,
+		cfg,
+		log,
 	)
+
+	if healthManager != nil {
+		if awsHealthManager, ok := healthManager.(*awsHealth.Manager); ok {
+			awsHealthManager.SetCasbinDependencies(repos.UserRepo, repos.ExecutionRepo, enforcer)
+		}
+	}
 
 	log.Debug(fmt.Sprintf("%s %s event processor initialized successfully",
 		constants.ProjectName, cfg.BackendProvider),
@@ -74,7 +83,7 @@ func Initialize(
 			"websocket_tokens_table":      cfg.AWS.WebSocketTokensTable,
 		})
 
-	return NewProcessor(executionRepo, websocketManager, healthManager, log), nil
+	return NewProcessor(repos.ExecutionRepo, websocketManager, healthManager, log), nil
 }
 
 func initializeHealthManager(
@@ -87,6 +96,7 @@ func initializeHealthManager(
 	secretsRepo database.SecretsRepository,
 	userRepo database.UserRepository,
 	executionRepo database.ExecutionRepository,
+	enforcer *authorization.Enforcer,
 	cfg *config.Config,
 	log *slog.Logger,
 ) health.Manager {
@@ -112,7 +122,7 @@ func initializeHealthManager(
 		secretsRepo,
 		userRepo,
 		executionRepo,
-		nil,
+		enforcer,
 		healthCfg,
 		log,
 	)

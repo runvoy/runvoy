@@ -65,7 +65,7 @@ func Initialize( //nolint:funlen // This is ok, lots of initializations required
 	cwlClient := awsClient.NewCloudWatchLogsClientAdapter(cwlSDKClient)
 	iamClient := awsClient.NewIAMClientAdapter(iamSDKClient)
 
-	repos := createRepositories(dynamoClient, ssmClient, cfg, log)
+	repos := awsDatabase.CreateRepositories(dynamoClient, ssmClient, cfg, log)
 	runnerCfg := &Config{
 		ECSCluster:             cfg.AWS.ECSCluster,
 		Subnet1:                cfg.AWS.Subnet1,
@@ -78,8 +78,8 @@ func Initialize( //nolint:funlen // This is ok, lots of initializations required
 		AccountID:              accountID,
 		SDKConfig:              cfg.AWS.SDKConfig,
 	}
-	runner := NewRunner(ecsClient, cwlClient, iamClient, repos.imageTaskDefRepo, runnerCfg, log)
-	wsManager := websocket.Initialize(cfg, repos.connectionRepo, repos.tokenRepo, log)
+	runner := NewRunner(ecsClient, cwlClient, iamClient, repos.ImageTaskDefRepo, runnerCfg, log)
+	wsManager := websocket.Initialize(cfg, repos.ConnectionRepo, repos.TokenRepo, log)
 
 	healthCfg := &awsHealth.Config{
 		Region:                 cfg.AWS.SDKConfig.Region,
@@ -93,72 +93,23 @@ func Initialize( //nolint:funlen // This is ok, lots of initializations required
 		ecsClient,
 		ssmClient,
 		iamClient,
-		repos.imageTaskDefRepo,
-		repos.secretsRepo,
-		repos.userRepo,
-		repos.executionRepo,
+		repos.ImageTaskDefRepo,
+		repos.SecretsRepo,
+		repos.UserRepo,
+		repos.ExecutionRepo,
 		nil,
 		healthCfg,
 		log,
 	)
 
 	return &Dependencies{
-		UserRepo:         repos.userRepo,
-		ExecutionRepo:    repos.executionRepo,
-		ConnectionRepo:   repos.connectionRepo,
-		TokenRepo:        repos.tokenRepo,
+		UserRepo:         repos.UserRepo,
+		ExecutionRepo:    repos.ExecutionRepo,
+		ConnectionRepo:   repos.ConnectionRepo,
+		TokenRepo:        repos.TokenRepo,
 		Runner:           runner,
 		WebSocketManager: wsManager,
-		SecretsRepo:      repos.secretsRepo,
+		SecretsRepo:      repos.SecretsRepo,
 		HealthManager:    healthManager,
 	}, nil
-}
-
-type repositories struct {
-	userRepo         database.UserRepository
-	executionRepo    database.ExecutionRepository
-	connectionRepo   database.ConnectionRepository
-	tokenRepo        database.TokenRepository
-	imageTaskDefRepo ImageTaskDefRepository
-	secretsRepo      database.SecretsRepository
-}
-
-func createRepositories(
-	dynamoClient dynamoRepo.Client,
-	ssmClient secrets.Client,
-	cfg *config.Config,
-	log *slog.Logger,
-) *repositories {
-	userRepo := dynamoRepo.NewUserRepository(dynamoClient, cfg.AWS.APIKeysTable, cfg.AWS.PendingAPIKeysTable, log)
-	executionRepo := dynamoRepo.NewExecutionRepository(dynamoClient, cfg.AWS.ExecutionsTable, log)
-	connectionRepo := dynamoRepo.NewConnectionRepository(dynamoClient, cfg.AWS.WebSocketConnectionsTable, log)
-	tokenRepo := dynamoRepo.NewTokenRepository(dynamoClient, cfg.AWS.WebSocketTokensTable, log)
-	imageTaskDefRepo := dynamoRepo.NewImageTaskDefRepository(dynamoClient, cfg.AWS.ImageTaskDefsTable, log)
-	dynamoSecretsRepo := dynamoRepo.NewSecretsRepository(dynamoClient, cfg.AWS.SecretsMetadataTable, log)
-
-	valueStore := secrets.NewParameterStoreManager(ssmClient, cfg.AWS.SecretsPrefix, cfg.AWS.SecretsKMSKeyARN, log)
-	secretsRepo := awsDatabase.NewSecretsRepository(dynamoSecretsRepo, valueStore, log)
-
-	log.Debug("DynamoDB backend configured", "context", map[string]string{
-		"api_keys_table":              cfg.AWS.APIKeysTable,
-		"executions_table":            cfg.AWS.ExecutionsTable,
-		"websocket_connections_table": cfg.AWS.WebSocketConnectionsTable,
-		"websocket_tokens_table":      cfg.AWS.WebSocketTokensTable,
-		"image_taskdefs_table":        cfg.AWS.ImageTaskDefsTable,
-		"secrets_metadata_table":      cfg.AWS.SecretsMetadataTable,
-	})
-
-	log.Debug("SSM Parameter Store secrets backend configured", "context", map[string]string{
-		"secrets_prefix":      cfg.AWS.SecretsPrefix,
-		"secrets_kms_key_arn": cfg.AWS.SecretsKMSKeyARN,
-	})
-
-	return &repositories{
-		userRepo:         userRepo,
-		executionRepo:    executionRepo,
-		connectionRepo:   connectionRepo,
-		tokenRepo:        tokenRepo,
-		imageTaskDefRepo: imageTaskDefRepo,
-		secretsRepo:      secretsRepo,
-	}
 }

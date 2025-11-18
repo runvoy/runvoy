@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 
+	"runvoy/internal/auth/authorization"
 	"runvoy/internal/config"
 	"runvoy/internal/constants"
 	processorAws "runvoy/internal/providers/aws/processor"
@@ -15,6 +16,7 @@ import (
 // Initialize creates a new Processor configured for the backend provider specified in cfg.
 // It returns an error if the context is canceled, timed out, or if an unknown provider is specified.
 // Callers should handle errors and potentially panic if initialization fails during startup.
+// Also initializes the Casbin enforcer for authorization.
 //
 // Supported cloud providers:
 //   - "aws": Uses CloudWatch events for ECS task state changes and API Gateway for WebSocket events
@@ -30,15 +32,20 @@ func Initialize(
 		"init_timeout", cfg.InitTimeout.String(),
 	)
 
+	enforcer, err := authorization.NewEnforcer(logger)
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize authorization enforcer: %w", err)
+	}
+
 	switch cfg.BackendProvider {
 	case constants.AWS:
-		if err := cfg.AWS.LoadSDKConfig(ctx); err != nil {
-			return nil, fmt.Errorf("failed to load AWS SDK config: %w", err)
+		if sdkErr := cfg.AWS.LoadSDKConfig(ctx); sdkErr != nil {
+			return nil, fmt.Errorf("failed to load AWS SDK config: %w", sdkErr)
 		}
 
-		processor, err := processorAws.Initialize(ctx, cfg, logger)
-		if err != nil {
-			return nil, fmt.Errorf("failed to initialize event processor AWS backend: %w", err)
+		processor, initErr := processorAws.Initialize(ctx, cfg, enforcer, logger)
+		if initErr != nil {
+			return nil, fmt.Errorf("failed to initialize event processor AWS backend: %w", initErr)
 		}
 
 		return processor, nil
