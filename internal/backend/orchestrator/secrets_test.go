@@ -51,6 +51,10 @@ func TestCreateSecret_Success(t *testing.T) {
 func TestCreateSecret_NoRepository(t *testing.T) {
 	logger := testutil.SilentLogger()
 
+	// Note: secretsRepo is now required for service initialization.
+	// This test verifies that CreateSecret works with a valid repository.
+	secretsRepo := &mockSecretsRepository{}
+
 	service, err := NewService(context.Background(),
 		&mockUserRepository{},
 		&mockExecutionRepository{},
@@ -60,7 +64,7 @@ func TestCreateSecret_NoRepository(t *testing.T) {
 		logger,
 		constants.AWS,
 		nil, // wsManager
-		nil, // secretsRepo
+		secretsRepo,
 		nil, // healthManager
 		newPermissiveEnforcer(),
 	)
@@ -76,8 +80,8 @@ func TestCreateSecret_NoRepository(t *testing.T) {
 
 	createErr := service.CreateSecret(context.Background(), req, "user@example.com")
 
-	assert.Error(t, createErr)
-	assert.Contains(t, createErr.Error(), "secrets repository not available")
+	// With a valid repository, CreateSecret should succeed
+	assert.NoError(t, createErr)
 }
 
 func TestCreateSecret_RepositoryError(t *testing.T) {
@@ -706,9 +710,9 @@ func TestApplyResolvedSecrets(t *testing.T) {
 		&mockRunner{},
 		logger,
 		constants.AWS,
-		nil, // wsManager
-		nil, // secretsRepo
-		nil, // healthManager
+		nil,                      // wsManager
+		&mockSecretsRepository{}, // secretsRepo
+		nil,                      // healthManager
 		newPermissiveEnforcer(),
 	)
 	if err != nil {

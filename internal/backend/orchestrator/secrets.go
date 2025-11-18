@@ -19,9 +19,6 @@ func (s *Service) CreateSecret(
 	req *api.CreateSecretRequest,
 	userEmail string,
 ) error {
-	if s.secretsRepo == nil {
-		return apperrors.ErrInternalError("secrets repository not available", fmt.Errorf("secretsRepo is nil"))
-	}
 	secret := &api.Secret{
 		Name:        req.Name,
 		KeyName:     req.KeyName,
@@ -56,17 +53,11 @@ func (s *Service) CreateSecret(
 
 // GetSecret retrieves a secret's metadata and value by name.
 func (s *Service) GetSecret(ctx context.Context, name string) (*api.Secret, error) {
-	if s.secretsRepo == nil {
-		return nil, apperrors.ErrInternalError("secrets repository not available", fmt.Errorf("secretsRepo is nil"))
-	}
 	return s.secretsRepo.GetSecret(ctx, name, true)
 }
 
 // ListSecrets retrieves all secrets with values.
 func (s *Service) ListSecrets(ctx context.Context) ([]*api.Secret, error) {
-	if s.secretsRepo == nil {
-		return nil, apperrors.ErrInternalError("secrets repository not available", fmt.Errorf("secretsRepo is nil"))
-	}
 	return s.secretsRepo.ListSecrets(ctx, true)
 }
 
@@ -77,9 +68,6 @@ func (s *Service) UpdateSecret(
 	req *api.UpdateSecretRequest,
 	userEmail string,
 ) error {
-	if s.secretsRepo == nil {
-		return apperrors.ErrInternalError("secrets repository not available", fmt.Errorf("secretsRepo is nil"))
-	}
 	secret := &api.Secret{
 		Name:        name,
 		Description: req.Description,
@@ -99,10 +87,6 @@ func (s *Service) UpdateSecret(
 
 // DeleteSecret deletes a secret and its value.
 func (s *Service) DeleteSecret(ctx context.Context, name string) error {
-	if s.secretsRepo == nil {
-		return apperrors.ErrInternalError("secrets repository not available", fmt.Errorf("secretsRepo is nil"))
-	}
-
 	resourceID := authorization.FormatResourceID("secret", name)
 	secret, fetchErr := s.secretsRepo.GetSecret(ctx, name, false)
 	if fetchErr != nil {
@@ -147,10 +131,6 @@ func (s *Service) resolveSecretsForExecution(
 ) (map[string]string, error) {
 	if len(secretNames) == 0 {
 		return nil, nil
-	}
-
-	if s.secretsRepo == nil {
-		return nil, apperrors.ErrInternalError("secrets repository not available", fmt.Errorf("secretsRepo is nil"))
 	}
 
 	reqLogger := logger.DeriveRequestLogger(ctx, s.Logger)

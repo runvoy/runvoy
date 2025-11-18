@@ -200,6 +200,34 @@ func (t *testTokenRepository) DeleteToken(_ context.Context, _ string) error {
 	return nil
 }
 
+type testSecretsRepository struct{}
+
+func (t *testSecretsRepository) CreateSecret(_ context.Context, _ *api.Secret) error {
+	return nil
+}
+
+func (t *testSecretsRepository) GetSecret(_ context.Context, _ string, _ bool) (*api.Secret, error) {
+	return nil, nil
+}
+
+func (t *testSecretsRepository) ListSecrets(_ context.Context, _ bool) ([]*api.Secret, error) {
+	return []*api.Secret{}, nil
+}
+
+func (t *testSecretsRepository) UpdateSecret(_ context.Context, _ *api.Secret) error {
+	return nil
+}
+
+func (t *testSecretsRepository) DeleteSecret(_ context.Context, _ string) error {
+	return nil
+}
+
+type testHealthManager struct{}
+
+func (t *testHealthManager) Reconcile(_ context.Context) (*health.Report, error) {
+	return &health.Report{}, nil
+}
+
 type testRunner struct {
 	runCommandFunc  func(userEmail string, req *api.ExecutionRequest) (*time.Time, error)
 	listImagesFunc  func() ([]api.ImageInfo, error)
@@ -274,7 +302,7 @@ func newTestOrchestratorService(
 	runner orchestrator.Runner,
 	wsManager websocket.Manager, //nolint:unparam // kept for API consistency
 	secretsRepo database.SecretsRepository, //nolint:unparam // kept for API consistency
-	healthManager health.Manager, //nolint:unparam // kept for API consistency
+	healthManager health.Manager,
 ) *orchestrator.Service {
 	if userRepo == nil {
 		userRepo = &testUserRepository{}
@@ -284,6 +312,9 @@ func newTestOrchestratorService(
 	}
 	if runner == nil {
 		runner = &testRunner{}
+	}
+	if secretsRepo == nil {
+		secretsRepo = &testSecretsRepository{}
 	}
 
 	svc, err := orchestrator.NewService(
@@ -412,7 +443,7 @@ func TestHandleRunCommand_WithImage_ValidatesAuthorization(t *testing.T) {
 		testutil.SilentLogger(),
 		constants.AWS,
 		nil,
-		nil,
+		&testSecretsRepository{},
 		nil,
 		enf,
 	)
@@ -465,7 +496,7 @@ func TestHandleRunCommand_WithSecrets_ValidatesAuthorization(t *testing.T) {
 		testutil.SilentLogger(),
 		constants.AWS,
 		nil,
-		nil,
+		&testSecretsRepository{},
 		nil,
 		enf,
 	)
@@ -516,7 +547,7 @@ func TestHandleRunCommand_AllResourcesAuthorized(t *testing.T) {
 		testutil.SilentLogger(),
 		constants.AWS,
 		nil,
-		nil,
+		&testSecretsRepository{},
 		nil,
 		enf,
 	)
@@ -1098,8 +1129,8 @@ func TestHandleRevokeUser_Unauthorized(t *testing.T) {
 		testutil.SilentLogger(),
 		constants.AWS,
 		nil,
-		nil, // SecretsService
-		nil, // healthManager
+		&testSecretsRepository{}, // SecretsService
+		nil,                      // healthManager
 		newPermissiveTestEnforcerForHandlers(t),
 	)
 	require.NoError(t, err)
@@ -1162,8 +1193,8 @@ func TestHandleGetExecutionStatus_Success(t *testing.T) {
 		testutil.SilentLogger(),
 		constants.AWS,
 		nil,
-		nil, // SecretsService
-		nil, // healthManager
+		&testSecretsRepository{}, // SecretsService
+		nil,                      // healthManager
 		enforcer,
 	)
 	require.NoError(t, err)
@@ -1330,8 +1361,8 @@ func TestHandleReconcileHealth_Unauthenticated(t *testing.T) {
 		testutil.SilentLogger(),
 		constants.AWS,
 		nil,
-		nil, // SecretsService
-		nil, // healthManager
+		&testSecretsRepository{}, // SecretsService
+		nil,                      // healthManager
 		newPermissiveTestEnforcerForHandlers(t),
 	)
 	require.NoError(t, err)
@@ -1349,7 +1380,7 @@ func TestHandleReconcileHealth_Unauthenticated(t *testing.T) {
 func TestHandleReconcileHealth_Authenticated(t *testing.T) {
 	userRepo := &testUserRepository{}
 	execRepo := &testExecutionRepository{}
-	svc := newTestOrchestratorService(t, userRepo, execRepo, nil, nil, nil, nil, nil)
+	svc := newTestOrchestratorService(t, userRepo, execRepo, nil, nil, nil, nil, &testHealthManager{})
 	router := NewRouter(svc, 2*time.Second)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/health/reconcile", http.NoBody)
@@ -1377,7 +1408,7 @@ func TestHandleRemoveImage_Unauthorized(t *testing.T) {
 		testutil.SilentLogger(),
 		constants.AWS,
 		nil,
-		nil,
+		&testSecretsRepository{},
 		nil,
 		newPermissiveTestEnforcerForHandlers(t),
 	)
@@ -1404,7 +1435,7 @@ func TestHandleRegisterImage_Unauthorized(t *testing.T) {
 		testutil.SilentLogger(),
 		constants.AWS,
 		nil,
-		nil,
+		&testSecretsRepository{},
 		nil,
 		newPermissiveTestEnforcerForHandlers(t),
 	)
@@ -1434,7 +1465,7 @@ func TestHandleGetImage_Unauthorized(t *testing.T) {
 		testutil.SilentLogger(),
 		constants.AWS,
 		nil,
-		nil,
+		&testSecretsRepository{},
 		nil,
 		newPermissiveTestEnforcerForHandlers(t),
 	)
@@ -1463,7 +1494,7 @@ func TestHandleKillExecution_Unauthorized(t *testing.T) {
 		testutil.SilentLogger(),
 		constants.AWS,
 		nil,
-		nil,
+		&testSecretsRepository{},
 		nil,
 		newPermissiveTestEnforcerForHandlers(t),
 	)
@@ -1490,7 +1521,7 @@ func TestHandleGetExecutionLogs_Unauthorized(t *testing.T) {
 		testutil.SilentLogger(),
 		constants.AWS,
 		nil,
-		nil,
+		&testSecretsRepository{},
 		nil,
 		newPermissiveTestEnforcerForHandlers(t),
 	)
@@ -1517,7 +1548,7 @@ func TestHandleGetExecutionStatus_Unauthorized(t *testing.T) {
 		testutil.SilentLogger(),
 		constants.AWS,
 		nil,
-		nil,
+		&testSecretsRepository{},
 		nil,
 		newPermissiveTestEnforcerForHandlers(t),
 	)

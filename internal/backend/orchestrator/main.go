@@ -170,10 +170,6 @@ func (s *Service) loadResourceOwnerships(ctx context.Context) error {
 }
 
 func (s *Service) hydrateSecretOwnerships(ctx context.Context) error {
-	if s.secretsRepo == nil {
-		return nil
-	}
-
 	secrets, err := s.secretsRepo.ListSecrets(ctx, false)
 	if err != nil {
 		return fmt.Errorf("failed to load secrets for enforcer initialization: %w", err)

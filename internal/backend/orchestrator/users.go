@@ -89,10 +89,6 @@ func (s *Service) createPendingClaim(
 func (s *Service) CreateUser(
 	ctx context.Context, req api.CreateUserRequest, createdByEmail string,
 ) (*api.CreateUserResponse, error) {
-	if s.userRepo == nil {
-		return nil, apperrors.ErrInternalError("user repository not configured", nil)
-	}
-
 	if err := s.validateCreateUserRequest(ctx, req.Email, req.Role); err != nil {
 		return nil, err
 	}
@@ -151,10 +147,6 @@ func (s *Service) ClaimAPIKey(
 	secretToken string,
 	ipAddress string,
 ) (*api.ClaimAPIKeyResponse, error) {
-	if s.userRepo == nil {
-		return nil, apperrors.ErrInternalError("user repository not configured", nil)
-	}
-
 	// Retrieve pending key
 	pending, err := s.userRepo.GetPendingAPIKey(ctx, secretToken)
 	if err != nil {
@@ -197,10 +189,6 @@ func (s *Service) ClaimAPIKey(
 // AuthenticateUser verifies an API key and returns the associated user.
 // Returns appropriate errors for invalid API keys, revoked keys, or server errors.
 func (s *Service) AuthenticateUser(ctx context.Context, apiKey string) (*api.User, error) {
-	if s.userRepo == nil {
-		return nil, apperrors.ErrInternalError("user repository not configured", nil)
-	}
-
 	if apiKey == "" {
 		return nil, apperrors.ErrBadRequest("API key is required", nil)
 	}
@@ -226,9 +214,6 @@ func (s *Service) AuthenticateUser(ctx context.Context, apiKey string) (*api.Use
 // UpdateUserLastUsed updates the user's last_used timestamp after successful authentication.
 // This is a best-effort operation; callers may choose to log failures without failing the request.
 func (s *Service) UpdateUserLastUsed(ctx context.Context, email string) (*time.Time, error) {
-	if s.userRepo == nil {
-		return nil, apperrors.ErrInternalError("user repository not configured", nil)
-	}
 	if email == "" {
 		return nil, apperrors.ErrBadRequest("email is required", nil)
 	}
@@ -238,10 +223,6 @@ func (s *Service) UpdateUserLastUsed(ctx context.Context, email string) (*time.T
 // RevokeUser marks a user's API key as revoked.
 // Returns an error if the user does not exist or revocation fails.
 func (s *Service) RevokeUser(ctx context.Context, email string) error {
-	if s.userRepo == nil {
-		return apperrors.ErrInternalError("user repository not configured", nil)
-	}
-
 	if email == "" {
 		return apperrors.ErrBadRequest("email is required", nil)
 	}
@@ -279,13 +260,9 @@ func (s *Service) RevokeUser(ctx context.Context, email string) error {
 }
 
 // ListUsers returns all users in the system sorted by email (excluding API key hashes for security).
-// Returns an error if the user repository is not configured or if the query fails.
+// Returns an error if the query fails.
 // Sorting is delegated to the repository implementation (e.g., DynamoDB GSI).
 func (s *Service) ListUsers(ctx context.Context) (*api.ListUsersResponse, error) {
-	if s.userRepo == nil {
-		return nil, apperrors.ErrInternalError("user repository not configured", nil)
-	}
-
 	users, err := s.userRepo.ListUsers(ctx)
 	if err != nil {
 		return nil, err

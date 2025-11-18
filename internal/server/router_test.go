@@ -28,7 +28,7 @@ func TestNewRouter(t *testing.T) {
 		testutil.SilentLogger(),
 		constants.AWS,
 		nil,
-		nil,
+		&testSecretsRepository{},
 		nil,
 		newPermissiveTestEnforcerForHandlers(t),
 	)
@@ -62,7 +62,7 @@ func TestRouter_ChiMux(t *testing.T) {
 		testutil.SilentLogger(),
 		constants.AWS,
 		nil,
-		nil,
+		&testSecretsRepository{},
 		nil,
 		newPermissiveTestEnforcerForHandlers(t),
 	)
@@ -87,7 +87,7 @@ func TestRouter_Handler(t *testing.T) {
 		testutil.SilentLogger(),
 		constants.AWS,
 		nil,
-		nil,
+		&testSecretsRepository{},
 		nil,
 		newPermissiveTestEnforcerForHandlers(t),
 	)
@@ -112,7 +112,7 @@ func TestRouter_WithContext(t *testing.T) {
 		testutil.SilentLogger(),
 		constants.AWS,
 		nil,
-		nil,
+		&testSecretsRepository{},
 		nil,
 		newPermissiveTestEnforcerForHandlers(t),
 	)
@@ -128,7 +128,7 @@ func TestRouter_WithContext(t *testing.T) {
 		testutil.SilentLogger(),
 		constants.AWS,
 		nil,
-		nil,
+		&testSecretsRepository{},
 		nil,
 		newPermissiveTestEnforcerForHandlers(t),
 	)
@@ -155,7 +155,7 @@ func TestRouter_ServeHTTP(t *testing.T) {
 		testutil.SilentLogger(),
 		constants.AWS,
 		nil,
-		nil,
+		&testSecretsRepository{},
 		nil,
 		newPermissiveTestEnforcerForHandlers(t),
 	)

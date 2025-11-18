@@ -61,7 +61,7 @@ func TestAuthorizeRequest(t *testing.T) {
 			testutil.SilentLogger(),
 			constants.AWS,
 			nil,
-			nil,
+			&testSecretsRepository{},
 			nil,
 			newPermissiveTestEnforcer(t),
 		)
@@ -88,7 +88,7 @@ func TestHandleCreateUserAuthorizationDenied(t *testing.T) {
 		testutil.SilentLogger(),
 		constants.AWS,
 		nil,
-		nil,
+		&testSecretsRepository{},
 		nil,
 		newPermissiveTestEnforcer(t),
 	)
@@ -208,7 +208,7 @@ func TestValidateExecutionResourceAccess(t *testing.T) {
 				testutil.SilentLogger(),
 				constants.AWS,
 				nil,
-				nil,
+				&testSecretsRepository{},
 				nil,
 				newPermissiveTestEnforcer(t),
 			)
@@ -240,7 +240,7 @@ func TestHandleListUsersWithAuthorization(t *testing.T) {
 		testutil.SilentLogger(),
 		constants.AWS,
 		nil,
-		nil,
+		&testSecretsRepository{},
 		nil,
 		enforcer,
 	)
@@ -278,7 +278,7 @@ func TestHandleRunCommandStructure(t *testing.T) {
 		testutil.SilentLogger(),
 		constants.AWS,
 		nil,
-		nil,
+		&testSecretsRepository{},
 		nil,
 		enforcer,
 	)
@@ -529,7 +529,7 @@ func TestListEndpointAuthorization(t *testing.T) {
 				testutil.SilentLogger(),
 				constants.AWS,
 				nil,
-				nil,
+				&testSecretsRepository{},
 				nil,
 				enforcer,
 			)
@@ -629,7 +629,7 @@ func TestResourceSpecificEndpointAuthorization(t *testing.T) {
 				testutil.SilentLogger(),
 				constants.AWS,
 				nil,
-				nil,
+				&testSecretsRepository{},
 				nil,
 				enforcer,
 			)

@@ -79,10 +79,6 @@ func (s *Service) RunCommand(
 	userEmail string,
 	req *api.ExecutionRequest,
 ) (*api.ExecutionResponse, error) {
-	if s.executionRepo == nil {
-		return nil, apperrors.ErrInternalError("execution repository not configured", nil)
-	}
-
 	if req.Command == "" {
 		return nil, apperrors.ErrBadRequest("command is required", nil)
 	}
@@ -176,9 +172,6 @@ func (s *Service) GetLogsByExecutionID(
 	userEmail *string,
 	clientIPAtCreationTime *string,
 ) (*api.LogsResponse, error) {
-	if s.executionRepo == nil {
-		return nil, apperrors.ErrInternalError("execution repository not configured", nil)
-	}
 	if executionID == "" {
 		return nil, apperrors.ErrBadRequest("executionID is required", nil)
 	}
@@ -216,9 +209,6 @@ func (s *Service) GetLogsByExecutionID(
 
 // GetExecutionStatus returns the current status and metadata for a given execution ID.
 func (s *Service) GetExecutionStatus(ctx context.Context, executionID string) (*api.ExecutionStatusResponse, error) {
-	if s.executionRepo == nil {
-		return nil, apperrors.ErrInternalError("execution repository not configured", nil)
-	}
 	if executionID == "" {
 		return nil, apperrors.ErrBadRequest("executionID is required", nil)
 	}
@@ -258,9 +248,6 @@ func (s *Service) GetExecutionStatus(ctx context.Context, executionID string) (*
 //
 // Returns an error if the execution is not found or termination fails.
 func (s *Service) KillExecution(ctx context.Context, executionID string) (*api.KillExecutionResponse, error) {
-	if s.executionRepo == nil {
-		return nil, apperrors.ErrInternalError("execution repository not configured", nil)
-	}
 	if executionID == "" {
 		return nil, apperrors.ErrBadRequest("executionID is required", nil)
 	}
@@ -324,9 +311,6 @@ func (s *Service) KillExecution(ctx context.Context, executionID string) (*api.K
 // Results are returned sorted by started_at in descending order (newest first).
 // Fields with no values are omitted in JSON due to omitempty tags on api.Execution.
 func (s *Service) ListExecutions(ctx context.Context, limit int, statuses []string) ([]*api.Execution, error) {
-	if s.executionRepo == nil {
-		return nil, apperrors.ErrInternalError("execution repository not configured", nil)
-	}
 	executions, err := s.executionRepo.ListExecutions(ctx, limit, statuses)
 	if err != nil {
 		return nil, err

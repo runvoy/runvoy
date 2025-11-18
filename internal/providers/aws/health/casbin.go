@@ -349,10 +349,6 @@ func (m *Manager) checkOrphanedOwnerships(
 	_ *slog.Logger,
 	status *health.AuthorizerHealthStatus,
 ) ([]health.Issue, error) {
-	if m.enforcer == nil || m.userRepo == nil {
-		return nil, nil
-	}
-
 	resourceMaps, mapsErr := m.buildResourceMaps(ctx)
 	if mapsErr != nil {
 		return nil, mapsErr

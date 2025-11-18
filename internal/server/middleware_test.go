@@ -45,7 +45,7 @@ func TestRequestIDMiddleware(t *testing.T) {
 			testutil.SilentLogger(),
 			constants.AWS,
 			nil,
-			nil,
+			&testSecretsRepository{},
 			nil,
 			newPermissiveTestEnforcerForHandlers(t),
 		)
@@ -97,7 +97,7 @@ func TestRequestIDMiddleware(t *testing.T) {
 			testutil.SilentLogger(),
 			constants.AWS,
 			nil,
-			nil,
+			&testSecretsRepository{},
 			nil,
 			newPermissiveTestEnforcerForHandlers(t),
 		)
@@ -142,7 +142,7 @@ func TestRequestIDMiddleware(t *testing.T) {
 			testutil.SilentLogger(),
 			constants.AWS,
 			nil,
-			nil,
+			&testSecretsRepository{},
 			nil,
 			newPermissiveTestEnforcerForHandlers(t),
 		)
@@ -195,7 +195,7 @@ func TestRequestIDMiddleware(t *testing.T) {
 			testutil.SilentLogger(),
 			constants.AWS,
 			nil,
-			nil,
+			&testSecretsRepository{},
 			nil,
 			newPermissiveTestEnforcerForHandlers(t),
 		)

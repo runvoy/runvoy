@@ -44,7 +44,7 @@ func TestGetImage_Success(t *testing.T) {
 		logger,
 		"",
 		nil,
-		nil,
+		&mockSecretsRepository{},
 		nil,
 		enforcer,
 	)
@@ -78,7 +78,7 @@ func TestGetImage_NotFound(t *testing.T) {
 		logger,
 		"",
 		nil,
-		nil,
+		&mockSecretsRepository{},
 		nil,
 		enforcer,
 	)
@@ -105,7 +105,7 @@ func TestGetImage_EmptyImageName(t *testing.T) {
 		logger,
 		"",
 		nil,
-		nil,
+		&mockSecretsRepository{},
 		nil,
 		enforcer,
 	)
@@ -137,7 +137,7 @@ func TestGetImage_RunnerError(t *testing.T) {
 		logger,
 		"",
 		nil,
-		nil,
+		&mockSecretsRepository{},
 		nil,
 		enforcer,
 	)
@@ -170,7 +170,7 @@ func TestGetImage_RunnerGenericError(t *testing.T) {
 		logger,
 		"",
 		nil,
-		nil,
+		&mockSecretsRepository{},
 		nil,
 		enforcer,
 	)
@@ -203,7 +203,7 @@ func TestRemoveImage_Success(t *testing.T) {
 		logger,
 		"",
 		nil,
-		nil,
+		&mockSecretsRepository{},
 		nil,
 		enforcer,
 	)
@@ -234,7 +234,7 @@ func TestRemoveImage_EmptyImageName(t *testing.T) {
 		logger,
 		"",
 		nil,
-		nil,
+		&mockSecretsRepository{},
 		nil,
 		enforcer,
 	)
@@ -266,7 +266,7 @@ func TestRemoveImage_RunnerError(t *testing.T) {
 		logger,
 		"",
 		nil,
-		nil,
+		&mockSecretsRepository{},
 		nil,
 		enforcer,
 	)
@@ -299,7 +299,7 @@ func TestRemoveImage_RunnerGenericError(t *testing.T) {
 		logger,
 		"",
 		nil,
-		nil,
+		&mockSecretsRepository{},
 		nil,
 		enforcer,
 	)
@@ -335,7 +335,7 @@ func TestListImages_Success(t *testing.T) {
 		logger,
 		"",
 		nil,
-		nil,
+		&mockSecretsRepository{},
 		nil,
 		enforcer,
 	)
@@ -369,7 +369,7 @@ func TestListImages_Empty(t *testing.T) {
 		logger,
 		"",
 		nil,
-		nil,
+		&mockSecretsRepository{},
 		nil,
 		enforcer,
 	)
@@ -407,7 +407,7 @@ func TestListImages_RunnerError(t *testing.T) {
 		logger,
 		"",
 		nil,
-		nil,
+		&mockSecretsRepository{},
 		nil,
 		enforcer,
 	)
@@ -446,7 +446,7 @@ func TestListImages_RunnerGenericError(t *testing.T) {
 		logger,
 		"",
 		nil,
-		nil,
+		&mockSecretsRepository{},
 		nil,
 		enforcer,
 	)
@@ -482,7 +482,7 @@ func TestRegisterImage_Success(t *testing.T) {
 		logger,
 		"",
 		nil,
-		nil,
+		&mockSecretsRepository{},
 		nil,
 		enforcer,
 	)
@@ -521,7 +521,7 @@ func TestRegisterImage_EmptyImageName(t *testing.T) {
 		logger,
 		"",
 		nil,
-		nil,
+		&mockSecretsRepository{},
 		nil,
 		enforcer,
 	)
@@ -560,7 +560,7 @@ func TestRegisterImage_RunnerError(t *testing.T) {
 		logger,
 		"",
 		nil,
-		nil,
+		&mockSecretsRepository{},
 		nil,
 		enforcer,
 	)
@@ -600,7 +600,7 @@ func TestRegisterImage_RunnerGenericError(t *testing.T) {
 		logger,
 		"",
 		nil,
-		nil,
+		&mockSecretsRepository{},
 		nil,
 		enforcer,
 	)
@@ -640,7 +640,7 @@ func TestRegisterImage_EmptyRegisteredBy(t *testing.T) {
 		logger,
 		"",
 		nil,
-		nil,
+		&mockSecretsRepository{},
 		nil,
 		enforcer,
 	)
@@ -683,7 +683,7 @@ func TestRegisterImage_NilRequest(t *testing.T) {
 		logger,
 		"",
 		nil,
-		nil,
+		&mockSecretsRepository{},
 		nil,
 		enforcer,
 	)

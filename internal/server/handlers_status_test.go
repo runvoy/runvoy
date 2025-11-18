@@ -72,8 +72,8 @@ func TestGetExecutionStatus_Unauthorized(t *testing.T) {
 		testutil.SilentLogger(),
 		constants.AWS,
 		nil,
-		nil, // SecretsService
-		nil, // healthManager
+		&testSecretsRepository{}, // SecretsService
+		nil,                      // healthManager
 		newPermissiveTestEnforcerForHandlers(t),
 	)
 	require.NoError(t, err)
