@@ -353,7 +353,20 @@ func TestHandleHealth(t *testing.T) {
 func TestHandleRunCommand_Success(t *testing.T) {
 	userRepo := &testUserRepository{}
 	execRepo := &testExecutionRepository{}
-	runner := &testRunner{}
+	runner := &testRunner{
+		getImageFunc: func(image string) (*api.ImageInfo, error) {
+			// When no image is specified, return a default image
+			if image == "" {
+				isDefault := true
+				return &api.ImageInfo{
+					ImageID:   "default-image-id",
+					Image:     "default-image",
+					IsDefault: &isDefault,
+				}, nil
+			}
+			return nil, nil
+		},
+	}
 
 	svc := newTestOrchestratorService(t, userRepo, execRepo, nil, runner, nil, nil, nil)
 	router := NewRouter(svc, 2*time.Second)
@@ -1596,7 +1609,21 @@ func TestHandleGetExecutionStatus_Unauthorized(t *testing.T) {
 
 // TestHandleRunCommand_WithValidCommand tests run command with valid request
 func TestHandleRunCommand_WithValidCommand(t *testing.T) {
-	svc := newTestOrchestratorService(t, nil, nil, nil, &testRunner{}, nil, nil, nil)
+	runner := &testRunner{
+		getImageFunc: func(image string) (*api.ImageInfo, error) {
+			// When no image is specified, return a default image
+			if image == "" {
+				isDefault := true
+				return &api.ImageInfo{
+					ImageID:   "default-image-id",
+					Image:     "default-image",
+					IsDefault: &isDefault,
+				}, nil
+			}
+			return nil, nil
+		},
+	}
+	svc := newTestOrchestratorService(t, nil, nil, nil, runner, nil, nil, nil)
 	router := NewRouter(svc, 2*time.Second)
 
 	execReq := api.ExecutionRequest{Command: "echo hello"}

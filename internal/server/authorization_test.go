@@ -288,7 +288,20 @@ func TestHandleListUsersWithAuthorization(t *testing.T) {
 
 // TestHandleRunCommandStructure tests the run command handler structure
 func TestHandleRunCommandStructure(t *testing.T) {
-	runner := &testRunner{}
+	runner := &testRunner{
+		getImageFunc: func(image string) (*api.ImageInfo, error) {
+			// When no image is specified, return a default image
+			if image == "" {
+				isDefault := true
+				return &api.ImageInfo{
+					ImageID:   "default-image-id",
+					Image:     "default-image",
+					IsDefault: &isDefault,
+				}, nil
+			}
+			return nil, nil
+		},
+	}
 	executionRepo := &testExecutionRepository{}
 	userRepo := &testUserRepositoryWithRoles{}
 	enforcer := newPermissiveTestEnforcer(t)

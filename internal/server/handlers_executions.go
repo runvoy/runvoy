@@ -16,7 +16,7 @@ import (
 // handleRunCommand handles POST /api/v1/run to execute a command in an ephemeral container.
 // The handler resolves the requested image to a specific imageID, validates the user has access
 // to that image and any requested secrets, then starts the execution task.
-func (r *Router) handleRunCommand(w http.ResponseWriter, req *http.Request) {
+func (r *Router) handleRunCommand(w http.ResponseWriter, req *http.Request) { //nolint:funlen
 	logger := r.GetLoggerFromContext(req.Context())
 
 	user, ok := r.getUserFromContext(req)
@@ -48,13 +48,13 @@ func (r *Router) handleRunCommand(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	if err := r.svc.ValidateExecutionResourceAccess(user.Email, &execReq, resolvedImage); err != nil {
-		statusCode := apperrors.GetStatusCode(err)
-		errorCode := apperrors.GetErrorCode(err)
-		errorDetails := apperrors.GetErrorDetails(err)
+	if accessErr := r.svc.ValidateExecutionResourceAccess(user.Email, &execReq, resolvedImage); accessErr != nil {
+		statusCode := apperrors.GetStatusCode(accessErr)
+		errorCode := apperrors.GetErrorCode(accessErr)
+		errorDetails := apperrors.GetErrorDetails(accessErr)
 
 		logger.Error("authorization denied for execution resources", "context", map[string]string{
-			"error":       err.Error(),
+			"error":       accessErr.Error(),
 			"status_code": strconv.Itoa(statusCode),
 			"error_code":  errorCode,
 		})

@@ -103,7 +103,12 @@ func TestRunCommand(t *testing.T) {
 			}
 
 			svc := newTestService(nil, execRepo, runner)
-			resp, err := svc.RunCommand(ctx, tt.userEmail, &tt.req, nil)
+			// Create a default resolvedImage for tests that don't specify an image
+			resolvedImage := &api.ImageInfo{
+				ImageID: "default-image-id",
+				Image:   "default-image",
+			}
+			resp, err := svc.RunCommand(ctx, tt.userEmail, &tt.req, resolvedImage)
 
 			if tt.expectErr {
 				require.Error(t, err)
@@ -172,7 +177,11 @@ func TestRunCommand_WithSecrets(t *testing.T) {
 		Secrets: []string{"github-token", "db-password", "github-token"},
 	}
 
-	resp, err := svc.RunCommand(ctx, "user@example.com", &req, nil)
+	resolvedImage := &api.ImageInfo{
+		ImageID: "default-image-id",
+		Image:   "default-image",
+	}
+	resp, err := svc.RunCommand(ctx, "user@example.com", &req, resolvedImage)
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 
@@ -201,7 +210,11 @@ func TestRunCommand_AddsExecutionOwnership(t *testing.T) {
 	)
 
 	req := api.ExecutionRequest{Command: "echo hello"}
-	_, err := service.RunCommand(ctx, "owner@example.com", &req, nil)
+	resolvedImage := &api.ImageInfo{
+		ImageID: "default-image-id",
+		Image:   "default-image",
+	}
+	_, err := service.RunCommand(ctx, "owner@example.com", &req, resolvedImage)
 	require.NoError(t, err)
 
 	resourceID := authorization.FormatResourceID("execution", "exec-ownership")
