@@ -37,11 +37,6 @@ func (m *Manager) reconcileCasbin(
 	}
 	issues := []health.Issue{}
 
-	if m.userRepo == nil || m.enforcer == nil {
-		reqLogger.Debug("skipping Casbin reconciliation: userRepo or enforcer not available")
-		return status, issues, nil
-	}
-
 	userIssues, err := m.checkUserRoles(ctx, reqLogger, &status)
 	if err != nil {
 		return status, issues, fmt.Errorf("failed to check user roles: %w", err)
