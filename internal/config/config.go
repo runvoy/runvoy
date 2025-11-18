@@ -267,7 +267,8 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("web_url", constants.DefaultWebURL)
 	v.SetDefault("backend_provider", string(constants.AWS))
 	v.SetDefault("cors_allowed_origins", constants.DefaultCORSAllowedOrigins)
-	v.SetDefault("log_level", "INFO")
+	// TODO: we set DEBUG for development, we should update this to use INFO
+	v.SetDefault("log_level", "DEBUG")
 }
 
 // applyDefaults applies default values to empty fields in the config.
