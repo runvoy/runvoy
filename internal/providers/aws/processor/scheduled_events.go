@@ -63,7 +63,11 @@ func (p *Processor) handleHealthReconcileScheduledEvent(
 		return fmt.Errorf("health reconciliation failed: %w", err)
 	}
 
-	reqLogger.Info("health reconciliation completed",
+	logLevel := reqLogger.Info
+	if report.ErrorCount > 0 {
+		logLevel = reqLogger.Warn
+	}
+	logLevel("health reconciliation completed",
 		"context", map[string]any{
 			"reconciled_count":  report.ReconciledCount,
 			"error_count":       report.ErrorCount,
