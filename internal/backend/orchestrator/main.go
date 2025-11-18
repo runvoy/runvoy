@@ -153,7 +153,7 @@ func (s *Service) loadUserRoles(ctx context.Context) error {
 	return nil
 }
 
-// loadResourceOwnerships hydrates the enforcer with resource ownership mappings for secrets and executions.
+// loadResourceOwnerships hydrates the enforcer with resource ownership mappings for secrets, executions, and images.
 // Returns an error if any ownership loading fails.
 func (s *Service) loadResourceOwnerships(ctx context.Context) error {
 	if err := s.hydrateSecretOwnerships(ctx); err != nil {
@@ -161,6 +161,9 @@ func (s *Service) loadResourceOwnerships(ctx context.Context) error {
 	}
 	if err := s.hydrateExecutionOwnerships(ctx); err != nil {
 		return fmt.Errorf("failed to load execution ownerships: %w", err)
+	}
+	if err := s.hydrateImageOwnerships(ctx); err != nil {
+		return fmt.Errorf("failed to load image ownerships: %w", err)
 	}
 
 	return nil
@@ -215,6 +218,36 @@ func (s *Service) hydrateExecutionOwnerships(ctx context.Context) error {
 
 	if waitErr := g.Wait(); waitErr != nil {
 		return fmt.Errorf("failed to load execution ownerships into enforcer: %w", waitErr)
+	}
+
+	return nil
+}
+
+func (s *Service) hydrateImageOwnerships(ctx context.Context) error {
+	images, err := s.runner.ListImages(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to load images for enforcer initialization: %w", err)
+	}
+
+	g, _ := errgroup.WithContext(ctx)
+
+	for _, image := range images {
+		if image.ImageID == "" || image.RegisteredBy == "" {
+			return errors.New("image is missing required fields")
+		}
+
+		g.Go(func() error {
+			resourceID := fmt.Sprintf("image:%s", image.ImageID)
+			if addErr := s.enforcer.AddOwnershipForResource(resourceID, image.RegisteredBy); addErr != nil {
+				return fmt.Errorf("failed to add ownership for image %s: %w", image.ImageID, addErr)
+			}
+
+			return nil
+		})
+	}
+
+	if waitErr := g.Wait(); waitErr != nil {
+		return fmt.Errorf("failed to load image ownerships into enforcer: %w", waitErr)
 	}
 
 	return nil
