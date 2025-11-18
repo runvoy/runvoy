@@ -11,7 +11,7 @@ p, role:operator, /api/v1/images/*, delete, allow
 p, role:operator, /api/v1/images/*, read, allow
 p, role:operator, /api/v1/run, execute, allow
 p, role:operator, /api/v1/secrets, read, allow
-p, role:operator, /api/v1/secrets/*, create, allow
+p, role:operator, /api/v1/secrets, create, allow
 p, role:operator, /api/v1/secrets/*, delete, allow
 p, role:operator, /api/v1/secrets/*, read, allow
 p, role:operator, /api/v1/secrets/*, update, allow
@@ -26,7 +26,7 @@ p, role:developer, /api/v1/images, read, allow
 p, role:developer, /api/v1/images/*, read, allow
 p, role:developer, /api/v1/run, execute, allow
 p, role:developer, /api/v1/secrets, read, allow
-p, role:developer, /api/v1/secrets/*, create, allow
+p, role:developer, /api/v1/secrets, create, allow
 p, role:developer, /api/v1/secrets/*, delete, allow
 p, role:developer, /api/v1/secrets/*, read, allow
 p, role:developer, /api/v1/secrets/*, update, allow
