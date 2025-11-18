@@ -37,6 +37,7 @@ const (
 	ActionUpdate Action = "update"
 	ActionDelete Action = "delete"
 	ActionKill   Action = "kill"
+	ActionUse    Action = "use"
 )
 
 // NewRole creates a new Role from a string, validating it against known roles.

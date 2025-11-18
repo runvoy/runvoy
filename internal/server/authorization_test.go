@@ -136,7 +136,7 @@ func TestValidateExecutionResourceAccess(t *testing.T) {
 			name:  "image access allowed - allow",
 			image: "ubuntu:22.04",
 			enforceFunc: func(_, object, action string) (bool, error) {
-				if object == "/api/images" && action == "read" {
+				if object == "/api/v1/images/ubuntu:22.04-a1b2c3d4" && action == "use" {
 					return true, nil
 				}
 				return false, nil
@@ -147,7 +147,7 @@ func TestValidateExecutionResourceAccess(t *testing.T) {
 			name:  "image access denied - error",
 			image: "ubuntu:22.04",
 			enforceFunc: func(_, object, action string) (bool, error) {
-				if object == "/api/images" && action == "read" {
+				if object == "/api/v1/images/ubuntu:22.04-a1b2c3d4" && action == "use" {
 					return false, nil
 				}
 				return false, nil
@@ -159,7 +159,7 @@ func TestValidateExecutionResourceAccess(t *testing.T) {
 			name:    "secret access allowed - allow",
 			secrets: []string{"db-password"},
 			enforceFunc: func(_, object, action string) (bool, error) {
-				if object == "/api/secrets" && action == "read" {
+				if object == "/api/v1/secrets/db-password" && action == "use" {
 					return true, nil
 				}
 				return false, nil
@@ -170,7 +170,7 @@ func TestValidateExecutionResourceAccess(t *testing.T) {
 			name:    "secret access denied - error",
 			secrets: []string{"api-key"},
 			enforceFunc: func(_, object, action string) (bool, error) {
-				if object == "/api/secrets" && action == "read" {
+				if object == "/api/v1/secrets/api-key" && action == "use" {
 					return false, nil
 				}
 				return false, nil
@@ -495,24 +495,24 @@ func TestListEndpointAuthorization(t *testing.T) {
 			shouldAllow: true,
 			description: "operator should have access to list executions endpoint",
 		},
-		// Developer role - should have access to images, secrets, and executions list endpoints
+		// Developer role - should have access to executions list endpoint, but not images/secrets (only "use" permission)
 		{
-			name:        "developer can list images",
+			name:        "developer cannot list images",
 			role:        authorization.RoleDeveloper,
 			userEmail:   "developer@test.com",
 			endpoint:    "/api/v1/images",
 			action:      authorization.ActionRead,
-			shouldAllow: true,
-			description: "developer should have access to list images endpoint",
+			shouldAllow: false,
+			description: "developer should not have access to list images endpoint (only use permission)",
 		},
 		{
-			name:        "developer can list secrets",
+			name:        "developer cannot list secrets",
 			role:        authorization.RoleDeveloper,
 			userEmail:   "developer@test.com",
 			endpoint:    "/api/v1/secrets",
 			action:      authorization.ActionRead,
-			shouldAllow: true,
-			description: "developer should have access to list secrets endpoint",
+			shouldAllow: false,
+			description: "developer should not have access to list secrets endpoint (only use permission)",
 		},
 		{
 			name:        "developer can list executions",
@@ -622,15 +622,15 @@ func TestResourceSpecificEndpointAuthorization(t *testing.T) {
 			shouldAllow: true,
 			description: "operator should have access to delete image",
 		},
-		// Developer role - should have read access to specific images
+		// Developer role - should not have read access to specific images (only "use" permission)
 		{
-			name:        "developer can read specific image",
+			name:        "developer cannot read specific image",
 			role:        authorization.RoleDeveloper,
 			userEmail:   "developer@test.com",
 			endpoint:    "/api/v1/images/alpine:latest",
 			action:      authorization.ActionRead,
-			shouldAllow: true,
-			description: "developer should have access to read specific image",
+			shouldAllow: false,
+			description: "developer should not have access to read specific image (only use permission)",
 		},
 		{
 			name:        "developer cannot create image",

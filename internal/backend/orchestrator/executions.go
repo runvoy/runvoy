@@ -27,7 +27,7 @@ func (s *Service) ValidateExecutionResourceAccess(
 
 	if resolvedImage != nil {
 		imagePath := fmt.Sprintf("/api/v1/images/%s", resolvedImage.ImageID)
-		allowed, err := enforcer.Enforce(userEmail, imagePath, authorization.ActionRead)
+		allowed, err := enforcer.Enforce(userEmail, imagePath, authorization.ActionUse)
 		if err != nil {
 			return apperrors.ErrInternalError(
 				"failed to validate image access",
@@ -53,7 +53,7 @@ func (s *Service) ValidateExecutionResourceAccess(
 		}
 
 		secretPath := fmt.Sprintf("/api/v1/secrets/%s", name)
-		allowed, err := enforcer.Enforce(userEmail, secretPath, authorization.ActionRead)
+		allowed, err := enforcer.Enforce(userEmail, secretPath, authorization.ActionUse)
 		if err != nil {
 			return apperrors.ErrInternalError(
 				"failed to validate secret access",

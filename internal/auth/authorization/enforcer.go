@@ -134,7 +134,13 @@ func (e *Enforcer) Enforce(subject, object string, action Action) (bool, error) 
 		return false, fmt.Errorf("casbin enforcement failed: %w", err)
 	}
 
-	e.logger.Debug("casbin enforcement result", "subject", subject, "object", object, "action", action, "allowed", allowed)
+	e.logger.Debug("casbin enforcement result", "context",
+		map[string]any{
+			"subject": subject,
+			"object":  object,
+			"action":  action,
+			"allowed": allowed,
+		})
 	return allowed, nil
 }
 

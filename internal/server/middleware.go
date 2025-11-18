@@ -281,7 +281,6 @@ func (r *Router) GetLoggerFromContext(ctx context.Context) *slog.Logger {
 // getActionFromRequest maps HTTP method and path to an authorization action.
 // This is only called for authenticated routes, so no need to check for public routes.
 func (r *Router) getActionFromRequest(method string) authorization.Action {
-	// Standard HTTP method to action mapping
 	switch method {
 	case http.MethodGet:
 		return authorization.ActionRead
