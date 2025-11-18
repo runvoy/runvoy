@@ -3,6 +3,7 @@ package orchestrator
 import (
 	"context"
 	"errors"
+	"net/http"
 	"testing"
 
 	"runvoy/internal/api"
@@ -450,7 +451,10 @@ func TestListImages_RunnerGenericError(t *testing.T) {
 
 func TestRegisterImage_Success(t *testing.T) {
 	runner := &mockRunner{
-		registerImageFunc: func(_ context.Context, _ string, _ *bool, _ *string, _ *string, _ *int, _ *int, _ *string) error {
+		registerImageFunc: func(
+			_ context.Context, _ string, _ *bool, _ *string, _ *string,
+			_ *int, _ *int, _ *string, _ string,
+		) error {
 			return nil
 		},
 	}
@@ -474,7 +478,9 @@ func TestRegisterImage_Success(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	resp, registerErr := service.RegisterImage(context.Background(), "alpine:latest", nil, nil, nil, nil, nil, nil)
+	resp, registerErr := service.RegisterImage(
+		context.Background(), "alpine:latest", nil, nil, nil, nil, nil, nil, "test@example.com",
+	)
 
 	assert.NoError(t, registerErr)
 	assert.NotNil(t, resp)
@@ -482,7 +488,10 @@ func TestRegisterImage_Success(t *testing.T) {
 
 func TestRegisterImage_EmptyImageName(t *testing.T) {
 	runner := &mockRunner{
-		registerImageFunc: func(_ context.Context, _ string, _ *bool, _ *string, _ *string, _ *int, _ *int, _ *string) error {
+		registerImageFunc: func(
+			_ context.Context, _ string, _ *bool, _ *string, _ *string,
+			_ *int, _ *int, _ *string, _ string,
+		) error {
 			return nil
 		},
 	}
@@ -506,7 +515,7 @@ func TestRegisterImage_EmptyImageName(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, registerErr := service.RegisterImage(context.Background(), "", nil, nil, nil, nil, nil, nil)
+	_, registerErr := service.RegisterImage(context.Background(), "", nil, nil, nil, nil, nil, nil, "test@example.com")
 
 	assert.Error(t, registerErr)
 	assert.Contains(t, registerErr.Error(), "image is required")
@@ -514,7 +523,10 @@ func TestRegisterImage_EmptyImageName(t *testing.T) {
 
 func TestRegisterImage_RunnerError(t *testing.T) {
 	runner := &mockRunner{
-		registerImageFunc: func(_ context.Context, _ string, _ *bool, _ *string, _ *string, _ *int, _ *int, _ *string) error {
+		registerImageFunc: func(
+			_ context.Context, _ string, _ *bool, _ *string, _ *string,
+			_ *int, _ *int, _ *string, _ string,
+		) error {
 			return apperrors.ErrInternalError("runner error", nil)
 		},
 	}
@@ -538,7 +550,9 @@ func TestRegisterImage_RunnerError(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, registerErr := service.RegisterImage(context.Background(), "invalid:image", nil, nil, nil, nil, nil, nil)
+	_, registerErr := service.RegisterImage(
+		context.Background(), "invalid:image", nil, nil, nil, nil, nil, nil, "test@example.com",
+	)
 
 	assert.Error(t, registerErr)
 	var appErr *apperrors.AppError
@@ -547,7 +561,10 @@ func TestRegisterImage_RunnerError(t *testing.T) {
 
 func TestRegisterImage_RunnerGenericError(t *testing.T) {
 	runner := &mockRunner{
-		registerImageFunc: func(_ context.Context, _ string, _ *bool, _ *string, _ *string, _ *int, _ *int, _ *string) error {
+		registerImageFunc: func(
+			_ context.Context, _ string, _ *bool, _ *string, _ *string,
+			_ *int, _ *int, _ *string, _ string,
+		) error {
 			return errors.New("some runner error")
 		},
 	}
@@ -571,9 +588,50 @@ func TestRegisterImage_RunnerGenericError(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, registerErr := service.RegisterImage(context.Background(), "alpine:latest", nil, nil, nil, nil, nil, nil)
+	_, registerErr := service.RegisterImage(
+		context.Background(), "alpine:latest", nil, nil, nil, nil, nil, nil, "test@example.com",
+	)
 
 	assert.Error(t, registerErr)
 	var appErr *apperrors.AppError
 	assert.True(t, errors.As(registerErr, &appErr))
+}
+
+func TestRegisterImage_EmptyRegisteredBy(t *testing.T) {
+	runner := &mockRunner{
+		registerImageFunc: func(
+			_ context.Context, _ string, _ *bool, _ *string, _ *string,
+			_ *int, _ *int, _ *string, _ string,
+		) error {
+			return nil
+		},
+	}
+	logger := testutil.SilentLogger()
+	enforcer := newTestEnforcer(t)
+
+	service, err := NewService(context.Background(),
+		&mockUserRepository{},
+		&mockExecutionRepository{},
+		&mockConnectionRepository{},
+		&mockTokenRepository{},
+		runner,
+		logger,
+		"",
+		nil,
+		nil,
+		nil,
+		enforcer,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, registerErr := service.RegisterImage(context.Background(), "alpine:latest", nil, nil, nil, nil, nil, nil, "")
+
+	assert.Error(t, registerErr)
+	var appErr *apperrors.AppError
+	assert.True(t, errors.As(registerErr, &appErr))
+	assert.Contains(t, registerErr.Error(), "registeredBy is required")
+	assert.Equal(t, apperrors.ErrCodeInvalidRequest, apperrors.GetErrorCode(registerErr))
+	assert.Equal(t, http.StatusBadRequest, apperrors.GetStatusCode(registerErr))
 }

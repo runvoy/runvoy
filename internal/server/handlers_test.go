@@ -233,6 +233,7 @@ func (t *testRunner) RegisterImage(
 	_, _ *string,
 	_, _ *int,
 	_ *string,
+	_ string,
 ) error {
 	return nil
 }

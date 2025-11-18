@@ -18,13 +18,18 @@ func (s *Service) RegisterImage(
 	cpu *int,
 	memory *int,
 	runtimePlatform *string,
+	registeredBy string,
 ) (*api.RegisterImageResponse, error) {
 	if image == "" {
 		return nil, apperrors.ErrBadRequest("image is required", nil)
 	}
 
+	if registeredBy == "" {
+		return nil, apperrors.ErrBadRequest("registeredBy is required", nil)
+	}
+
 	if err := s.runner.RegisterImage(
-		ctx, image, isDefault, taskRoleName, taskExecutionRoleName, cpu, memory, runtimePlatform,
+		ctx, image, isDefault, taskRoleName, taskExecutionRoleName, cpu, memory, runtimePlatform, registeredBy,
 	); err != nil {
 		var appErr *apperrors.AppError
 		if errors.As(err, &appErr) {

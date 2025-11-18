@@ -36,6 +36,7 @@ type Runner interface {
 	// cpu: optional CPU value (e.g., 256, 1024). Defaults to 256 if nil.
 	// memory: optional Memory value in MB (e.g., 512, 2048). Defaults to 512 if nil.
 	// runtimePlatform: optional runtime platform (e.g., "Linux/ARM64", "Linux/X86_64"). Defaults to "Linux/ARM64" if nil.
+	// registeredBy: email of the user registering the image.
 	RegisterImage(
 		ctx context.Context,
 		image string,
@@ -43,6 +44,7 @@ type Runner interface {
 		taskRoleName, taskExecutionRoleName *string,
 		cpu, memory *int,
 		runtimePlatform *string,
+		registeredBy string,
 	) error
 	// ListImages lists all registered Docker images.
 	ListImages(ctx context.Context) ([]api.ImageInfo, error)

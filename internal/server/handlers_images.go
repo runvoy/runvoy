@@ -22,6 +22,12 @@ func (r *Router) handleRegisterImage(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	user, ok := r.getUserFromContext(req)
+	if !ok {
+		writeErrorResponse(w, http.StatusUnauthorized, "Unauthorized", "user not found in context")
+		return
+	}
+
 	resp, err := r.svc.RegisterImage(
 		req.Context(),
 		registerReq.Image,
@@ -31,6 +37,7 @@ func (r *Router) handleRegisterImage(w http.ResponseWriter, req *http.Request) {
 		registerReq.CPU,
 		registerReq.Memory,
 		registerReq.RuntimePlatform,
+		user.Email,
 	)
 	if err != nil {
 		statusCode := apperrors.GetStatusCode(err)

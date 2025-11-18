@@ -110,6 +110,7 @@ func (e *Runner) registerNewImage(
 	region string,
 	cpu, memory int,
 	runtimePlatform string,
+	registeredBy string,
 	reqLogger *slog.Logger,
 ) (taskDefARN, family string, err error) {
 	imageRef := ParseImageReference(image)
@@ -169,6 +170,7 @@ func (e *Runner) registerNewImage(
 		runtimePlatform,
 		family,
 		shouldBeDefault,
+		registeredBy,
 	); putErr != nil {
 		return "", "", fmt.Errorf("failed to store image-taskdef mapping: %w", putErr)
 	}
@@ -254,6 +256,7 @@ func (e *Runner) RegisterImage(
 	cpu *int,
 	memory *int,
 	runtimePlatform *string,
+	registeredBy string,
 ) error {
 	if e.ecsClient == nil {
 		return fmt.Errorf("ECS client not configured")
@@ -310,6 +313,7 @@ func (e *Runner) RegisterImage(
 		ctx, image, isDefault, taskRoleName, taskExecutionRoleName,
 		region,
 		cpuVal, memoryVal, runtimePlatformVal,
+		registeredBy,
 		reqLogger,
 	)
 	if err != nil {
@@ -399,7 +403,7 @@ func (e *Runner) registerTaskDefinitionWithRoles(
 		}
 	}
 
-	reqLogger.Info("task definition registered", "context", map[string]string{
+	reqLogger.Debug("task definition registered", "context", map[string]string{
 		"family":              family,
 		"task_definition_arn": taskDefARN,
 	})
@@ -524,7 +528,7 @@ func (e *Runner) RemoveImage(ctx context.Context, image string) error {
 				} else {
 					taskDefARNsToDelete = append(taskDefARNsToDelete, taskDefARN)
 					totalDeregistered++
-					reqLogger.Info("deregistered task definition revision", "context", map[string]string{
+					reqLogger.Debug("deregistered task definition revision", "context", map[string]string{
 						"family": family,
 						"image":  image,
 						"arn":    taskDefARN,
@@ -558,7 +562,7 @@ func (e *Runner) RemoveImage(ctx context.Context, image string) error {
 						// The DeleteTaskDefinitions API returns deleted ARNs in the response
 						// Log each successfully deleted task definition
 						for _, deletedARN := range taskDefARNsToDelete {
-							reqLogger.Info("deleted task definition", "context", map[string]string{
+							reqLogger.Debug("deleted task definition", "context", map[string]string{
 								"family": family,
 								"image":  image,
 								"arn":    deletedARN,

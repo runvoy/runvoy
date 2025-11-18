@@ -53,6 +53,7 @@ type ImageTaskDefRepository interface {
 		runtimePlatform string,
 		taskDefFamily string,
 		isDefault bool,
+		registeredBy string,
 	) error
 	GetImageTaskDef(
 		ctx context.Context,
