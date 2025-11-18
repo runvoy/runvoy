@@ -2,11 +2,10 @@ package server
 
 import (
 	"encoding/json"
-	"errors"
 	"net/http"
 
 	"runvoy/internal/api"
-	appErrors "runvoy/internal/errors"
+	apperrors "runvoy/internal/errors"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -14,14 +13,12 @@ import (
 // handleCreateSecret handles POST /api/v1/secrets
 func (r *Router) handleCreateSecret(w http.ResponseWriter, req *http.Request) {
 	var createReq api.CreateSecretRequest
-	if err := json.NewDecoder(req.Body).Decode(&createReq); err != nil {
-		writeErrorResponse(w, http.StatusBadRequest, "invalid request body", err.Error())
+	if err := decodeRequestBody(w, req, &createReq); err != nil {
 		return
 	}
 
-	user, ok := r.getUserFromContext(req)
+	user, ok := r.requireAuthenticatedUser(w, req)
 	if !ok {
-		writeErrorResponse(w, http.StatusUnauthorized, "Unauthorized", "user not found in context")
 		return
 	}
 
@@ -81,14 +78,12 @@ func (r *Router) handleUpdateSecret(w http.ResponseWriter, req *http.Request) {
 	}
 
 	var updateReq api.UpdateSecretRequest
-	if err := json.NewDecoder(req.Body).Decode(&updateReq); err != nil {
-		writeErrorResponse(w, http.StatusBadRequest, "invalid request body", err.Error())
+	if err := decodeRequestBody(w, req, &updateReq); err != nil {
 		return
 	}
 
-	user, ok := r.getUserFromContext(req)
+	user, ok := r.requireAuthenticatedUser(w, req)
 	if !ok {
-		writeErrorResponse(w, http.StatusUnauthorized, "Unauthorized", "user not found in context")
 		return
 	}
 
@@ -126,13 +121,10 @@ func (r *Router) handleDeleteSecret(w http.ResponseWriter, req *http.Request) {
 
 // handleServiceError converts service layer errors to HTTP responses
 func handleServiceError(w http.ResponseWriter, err error) {
-	var appErr *appErrors.AppError
-
-	if errors.As(err, &appErr) {
-		errorDetails := appErrors.GetErrorDetails(err)
-		writeErrorResponse(w, appErr.StatusCode, appErr.Message, errorDetails)
-		return
+	statusCode, errorCode, errorDetails := extractErrorInfo(err)
+	errorMsg := apperrors.GetErrorMessage(err)
+	if errorMsg == "" {
+		errorMsg = "Internal server error"
 	}
-
-	writeErrorResponse(w, http.StatusInternalServerError, "Internal server error", err.Error())
+	writeErrorResponseWithCode(w, statusCode, errorCode, errorMsg, errorDetails)
 }

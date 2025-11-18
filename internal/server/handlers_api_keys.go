@@ -5,8 +5,6 @@ import (
 	"net/http"
 	"strings"
 
-	apperrors "runvoy/internal/errors"
-
 	"github.com/go-chi/chi/v5"
 )
 
@@ -24,9 +22,7 @@ func (r *Router) handleClaimAPIKey(w http.ResponseWriter, req *http.Request) {
 
 	claimResp, err := r.svc.ClaimAPIKey(req.Context(), secretToken, ipAddress)
 	if err != nil {
-		statusCode := apperrors.GetStatusCode(err)
-		errorCode := apperrors.GetErrorCode(err)
-		errorDetails := apperrors.GetErrorDetails(err)
+		statusCode, errorCode, errorDetails := extractErrorInfo(err)
 
 		logger.Debug("failed to claim API key", "error", err, "status_code", statusCode, "error_code", errorCode)
 

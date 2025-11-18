@@ -7,7 +7,6 @@ import (
 	"runvoy/internal/api"
 	"runvoy/internal/backend/health"
 	"runvoy/internal/constants"
-	apperrors "runvoy/internal/errors"
 )
 
 // handleHealth returns a simple health check response.
@@ -24,9 +23,7 @@ func (r *Router) handleHealth(w http.ResponseWriter, _ *http.Request) {
 func (r *Router) handleReconcileHealth(w http.ResponseWriter, req *http.Request) {
 	report, err := r.svc.ReconcileResources(req.Context())
 	if err != nil {
-		statusCode := apperrors.GetStatusCode(err)
-		errorCode := apperrors.GetErrorCode(err)
-		errorDetails := apperrors.GetErrorDetails(err)
+		statusCode, errorCode, errorDetails := extractErrorInfo(err)
 
 		writeErrorResponseWithCode(
 			w,
