@@ -8,56 +8,45 @@ import (
 
 	"runvoy/internal/api"
 	"runvoy/internal/constants"
-	apperrors "runvoy/internal/errors"
-
-	"github.com/go-chi/chi/v5"
 )
 
 // handleRunCommand handles POST /api/v1/run to execute a command in an ephemeral container.
 // The handler resolves the requested image to a specific imageID, validates the user has access
 // to that image and any requested secrets, then starts the execution task.
-func (r *Router) handleRunCommand(w http.ResponseWriter, req *http.Request) { //nolint:funlen
+func (r *Router) handleRunCommand(w http.ResponseWriter, req *http.Request) {
 	logger := r.GetLoggerFromContext(req.Context())
 
-	user, ok := r.getUserFromContext(req)
+	user, ok := r.requireAuthenticatedUser(w, req)
 	if !ok {
-		writeErrorResponse(w, http.StatusUnauthorized, "Unauthorized", "user not found in context")
 		return
 	}
 
 	var execReq api.ExecutionRequest
-	if err := json.NewDecoder(req.Body).Decode(&execReq); err != nil {
-		writeErrorResponse(w, http.StatusBadRequest, "invalid request body", err.Error())
+	if err := decodeRequestBody(w, req, &execReq); err != nil {
 		return
 	}
 
 	resolvedImage, err := r.svc.ResolveImage(req.Context(), execReq.Image)
 	if err != nil {
-		statusCode := apperrors.GetStatusCode(err)
-		errorCode := apperrors.GetErrorCode(err)
-		errorDetails := apperrors.GetErrorDetails(err)
+		statusCode, errorCode, errorDetails := extractErrorInfo(err)
 
-		logger.Error("failed to resolve image", "context", map[string]string{
-			"error":       err.Error(),
-			"status_code": strconv.Itoa(statusCode),
-			"error_code":  errorCode,
-			"image":       execReq.Image,
-		})
+		logger.Error("failed to resolve image",
+			"error", err,
+			"status_code", statusCode,
+			"error_code", errorCode,
+			"image", execReq.Image)
 
 		writeErrorResponseWithCode(w, statusCode, errorCode, "failed to resolve image", errorDetails)
 		return
 	}
 
 	if accessErr := r.svc.ValidateExecutionResourceAccess(user.Email, &execReq, resolvedImage); accessErr != nil {
-		statusCode := apperrors.GetStatusCode(accessErr)
-		errorCode := apperrors.GetErrorCode(accessErr)
-		errorDetails := apperrors.GetErrorDetails(accessErr)
+		statusCode, errorCode, errorDetails := extractErrorInfo(accessErr)
 
-		logger.Error("authorization denied for execution resources", "context", map[string]string{
-			"error":       accessErr.Error(),
-			"status_code": strconv.Itoa(statusCode),
-			"error_code":  errorCode,
-		})
+		logger.Error("authorization denied for execution resources",
+			"error", accessErr,
+			"status_code", statusCode,
+			"error_code", errorCode)
 
 		writeErrorResponseWithCode(w, statusCode, errorCode, "forbidden", errorDetails)
 		return
@@ -65,15 +54,9 @@ func (r *Router) handleRunCommand(w http.ResponseWriter, req *http.Request) { //
 
 	resp, err := r.svc.RunCommand(req.Context(), user.Email, &execReq, resolvedImage)
 	if err != nil {
-		statusCode := apperrors.GetStatusCode(err)
-		errorCode := apperrors.GetErrorCode(err)
-		errorDetails := apperrors.GetErrorDetails(err)
+		statusCode, errorCode, errorDetails := extractErrorInfo(err)
 
-		logger.Error("failed to run command", "context", map[string]string{
-			"error":       err.Error(),
-			"status_code": strconv.Itoa(statusCode),
-			"error_code":  errorCode,
-		})
+		logger.Error("failed to run command", "error", err, "status_code", statusCode, "error_code", errorCode)
 
 		writeErrorResponseWithCode(w, statusCode, errorCode, "failed to run command", errorDetails)
 		return
@@ -87,15 +70,13 @@ func (r *Router) handleRunCommand(w http.ResponseWriter, req *http.Request) { //
 func (r *Router) handleGetExecutionLogs(w http.ResponseWriter, req *http.Request) {
 	logger := r.GetLoggerFromContext(req.Context())
 
-	executionID := strings.TrimSpace(chi.URLParam(req, "executionID"))
-	if executionID == "" {
-		writeErrorResponse(w, http.StatusBadRequest, "invalid execution id", "executionID is required")
+	executionID, ok := getRequiredURLParam(w, req, "executionID")
+	if !ok {
 		return
 	}
 
-	user, ok := r.getUserFromContext(req)
+	user, ok := r.requireAuthenticatedUser(w, req)
 	if !ok {
-		writeErrorResponse(w, http.StatusUnauthorized, "Unauthorized", "user not found in context")
 		return
 	}
 
@@ -103,11 +84,9 @@ func (r *Router) handleGetExecutionLogs(w http.ResponseWriter, req *http.Request
 
 	resp, err := r.svc.GetLogsByExecutionID(req.Context(), executionID, &user.Email, &clientIP)
 	if err != nil {
-		statusCode := apperrors.GetStatusCode(err)
-		errorCode := apperrors.GetErrorCode(err)
-		errorDetails := apperrors.GetErrorDetails(err)
+		statusCode, errorCode, errorDetails := extractErrorInfo(err)
 
-		logger.Debug("failed to get execution logs", "error", err, "status_code", statusCode, "error_code", errorCode)
+		logger.Error("failed to get execution logs", "error", err, "status_code", statusCode, "error_code", errorCode)
 
 		writeErrorResponseWithCode(w, statusCode, errorCode, "failed to get execution logs", errorDetails)
 		return
@@ -121,19 +100,16 @@ func (r *Router) handleGetExecutionLogs(w http.ResponseWriter, req *http.Request
 func (r *Router) handleGetExecutionStatus(w http.ResponseWriter, req *http.Request) {
 	logger := r.GetLoggerFromContext(req.Context())
 
-	executionID := strings.TrimSpace(chi.URLParam(req, "executionID"))
-	if executionID == "" {
-		writeErrorResponse(w, http.StatusBadRequest, "invalid execution id", "executionID is required")
+	executionID, ok := getRequiredURLParam(w, req, "executionID")
+	if !ok {
 		return
 	}
 
 	resp, err := r.svc.GetExecutionStatus(req.Context(), executionID)
 	if err != nil {
-		statusCode := apperrors.GetStatusCode(err)
-		errorCode := apperrors.GetErrorCode(err)
-		errorDetails := apperrors.GetErrorDetails(err)
+		statusCode, errorCode, errorDetails := extractErrorInfo(err)
 
-		logger.Debug("failed to get execution status",
+		logger.Error("failed to get execution status",
 			"execution_id", executionID,
 			"error", err,
 			"status_code", statusCode,
@@ -155,25 +131,21 @@ func (r *Router) handleGetExecutionStatus(w http.ResponseWriter, req *http.Reque
 func (r *Router) handleKillExecution(w http.ResponseWriter, req *http.Request) {
 	logger := r.GetLoggerFromContext(req.Context())
 
-	executionID := strings.TrimSpace(chi.URLParam(req, "executionID"))
-	if executionID == "" {
-		writeErrorResponse(w, http.StatusBadRequest, "invalid execution id", "executionID is required")
+	executionID, ok := getRequiredURLParam(w, req, "executionID")
+	if !ok {
 		return
 	}
 
 	resp, err := r.svc.KillExecution(req.Context(), executionID)
 	if err != nil {
-		statusCode := apperrors.GetStatusCode(err)
-		errorCode := apperrors.GetErrorCode(err)
-		errorDetails := apperrors.GetErrorDetails(err)
+		statusCode, errorCode, errorDetails := extractErrorInfo(err)
 
-		logger.Info("failed to kill execution", "context", map[string]any{
-			"execution_id":  executionID,
-			"error":         err,
-			"status_code":   statusCode,
-			"error_code":    errorCode,
-			"error_details": errorDetails,
-		})
+		logger.Info("failed to kill execution",
+			"execution_id", executionID,
+			"error", err,
+			"status_code", statusCode,
+			"error_code", errorCode,
+			"error_details", errorDetails)
 
 		writeErrorResponseWithCode(w, statusCode, errorCode, "failed to kill execution", errorDetails)
 		return
@@ -223,11 +195,9 @@ func (r *Router) handleListExecutions(w http.ResponseWriter, req *http.Request) 
 
 	executions, err := r.svc.ListExecutions(req.Context(), limit, statuses)
 	if err != nil {
-		statusCode := apperrors.GetStatusCode(err)
-		errorCode := apperrors.GetErrorCode(err)
-		errorDetails := apperrors.GetErrorDetails(err)
+		statusCode, errorCode, errorDetails := extractErrorInfo(err)
 
-		logger.Debug("failed to list executions", "error", err, "status_code", statusCode, "error_code", errorCode)
+		logger.Error("failed to list executions", "error", err, "status_code", statusCode, "error_code", errorCode)
 
 		writeErrorResponseWithCode(w, statusCode, errorCode, "failed to list executions", errorDetails)
 		return

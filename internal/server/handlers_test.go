@@ -1116,7 +1116,7 @@ func TestHandleRevokeUser_InvalidJSON(t *testing.T) {
 	router.ServeHTTP(resp, req)
 
 	assert.Equal(t, http.StatusBadRequest, resp.Code)
-	assert.Contains(t, resp.Body.String(), "Invalid request body")
+	assert.Contains(t, resp.Body.String(), "invalid request body")
 }
 
 // TestHandleRevokeUser_MissingEmail tests validation when email is missing

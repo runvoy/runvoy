@@ -3,13 +3,8 @@ package server
 import (
 	"encoding/json"
 	"net/http"
-	"net/url"
-	"strings"
 
 	"runvoy/internal/api"
-	apperrors "runvoy/internal/errors"
-
-	"github.com/go-chi/chi/v5"
 )
 
 // handleRegisterImage handles POST /api/v1/images/register to register a new Docker image.
@@ -17,14 +12,12 @@ func (r *Router) handleRegisterImage(w http.ResponseWriter, req *http.Request) {
 	logger := r.GetLoggerFromContext(req.Context())
 	var registerReq api.RegisterImageRequest
 
-	if err := json.NewDecoder(req.Body).Decode(&registerReq); err != nil {
-		writeErrorResponse(w, http.StatusBadRequest, "invalid request body", err.Error())
+	if err := decodeRequestBody(w, req, &registerReq); err != nil {
 		return
 	}
 
-	user, ok := r.getUserFromContext(req)
+	user, ok := r.requireAuthenticatedUser(w, req)
 	if !ok {
-		writeErrorResponse(w, http.StatusUnauthorized, "Unauthorized", "user not found in context")
 		return
 	}
 
@@ -34,11 +27,9 @@ func (r *Router) handleRegisterImage(w http.ResponseWriter, req *http.Request) {
 		user.Email,
 	)
 	if err != nil {
-		statusCode := apperrors.GetStatusCode(err)
-		errorCode := apperrors.GetErrorCode(err)
-		errorDetails := apperrors.GetErrorDetails(err)
+		statusCode, errorCode, errorDetails := extractErrorInfo(err)
 
-		logger.Debug("failed to register image", "error", err, "status_code", statusCode, "error_code", errorCode)
+		logger.Error("failed to register image", "error", err, "status_code", statusCode, "error_code", errorCode)
 
 		writeErrorResponseWithCode(w, statusCode, errorCode, "failed to register image", errorDetails)
 		return
@@ -50,7 +41,7 @@ func (r *Router) handleRegisterImage(w http.ResponseWriter, req *http.Request) {
 
 // handleListImages handles GET /api/v1/images to list all registered Docker images.
 func (r *Router) handleListImages(w http.ResponseWriter, req *http.Request) {
-	r.handleListWithAuth(w, req, "you do not have permission to list images",
+	r.handleListWithAuth(w, req,
 		func() (any, error) { return r.svc.ListImages(req.Context()) },
 		"list images")
 }
@@ -60,29 +51,16 @@ func (r *Router) handleListImages(w http.ResponseWriter, req *http.Request) {
 func (r *Router) handleGetImage(w http.ResponseWriter, req *http.Request) {
 	logger := r.GetLoggerFromContext(req.Context())
 
-	imagePath := strings.TrimPrefix(strings.TrimSpace(chi.URLParam(req, "*")), "/")
-	if imagePath == "" {
-		writeErrorResponse(w, http.StatusBadRequest, "invalid image", "image parameter is required")
-		return
-	}
-
-	image, decodeErr := url.PathUnescape(imagePath)
-	if decodeErr != nil {
-		image = imagePath
-	}
-	image = strings.TrimSpace(image)
-	if image == "" {
-		writeErrorResponse(w, http.StatusBadRequest, "invalid image", "image parameter is required")
+	image, ok := getImagePath(w, req)
+	if !ok {
 		return
 	}
 
 	imageInfo, err := r.svc.GetImage(req.Context(), image)
 	if err != nil {
-		statusCode := apperrors.GetStatusCode(err)
-		errorCode := apperrors.GetErrorCode(err)
-		errorDetails := apperrors.GetErrorDetails(err)
+		statusCode, errorCode, errorDetails := extractErrorInfo(err)
 
-		logger.Debug("failed to get image", "error", err, "status_code", statusCode, "error_code", errorCode)
+		logger.Error("failed to get image", "error", err, "status_code", statusCode, "error_code", errorCode)
 
 		writeErrorResponseWithCode(w, statusCode, errorCode, "failed to get image", errorDetails)
 		return
@@ -97,29 +75,16 @@ func (r *Router) handleGetImage(w http.ResponseWriter, req *http.Request) {
 func (r *Router) handleRemoveImage(w http.ResponseWriter, req *http.Request) {
 	logger := r.GetLoggerFromContext(req.Context())
 
-	imagePath := strings.TrimPrefix(strings.TrimSpace(chi.URLParam(req, "*")), "/")
-	if imagePath == "" {
-		writeErrorResponse(w, http.StatusBadRequest, "invalid image", "image parameter is required")
-		return
-	}
-
-	image, decodeErr := url.PathUnescape(imagePath)
-	if decodeErr != nil {
-		image = imagePath
-	}
-	image = strings.TrimSpace(image)
-	if image == "" {
-		writeErrorResponse(w, http.StatusBadRequest, "invalid image", "image parameter is required")
+	image, ok := getImagePath(w, req)
+	if !ok {
 		return
 	}
 
 	err := r.svc.RemoveImage(req.Context(), image)
 	if err != nil {
-		statusCode := apperrors.GetStatusCode(err)
-		errorCode := apperrors.GetErrorCode(err)
-		errorDetails := apperrors.GetErrorDetails(err)
+		statusCode, errorCode, errorDetails := extractErrorInfo(err)
 
-		logger.Debug("failed to remove image", "error", err, "status_code", statusCode, "error_code", errorCode)
+		logger.Error("failed to remove image", "error", err, "status_code", statusCode, "error_code", errorCode)
 
 		writeErrorResponseWithCode(w, statusCode, errorCode, "failed to remove image", errorDetails)
 		return

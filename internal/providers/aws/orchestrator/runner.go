@@ -484,15 +484,12 @@ func (e *Runner) executeTask(
 	imageToUse string,
 	reqLogger *slog.Logger,
 ) (executionID string, createdAt *time.Time, taskARN string, err error) {
-	logArgs := []any{
-		"operation", "ECS.RunTask",
-		"cluster", e.cfg.ECSCluster,
-		"task_definition", runTaskInput.TaskDefinition,
-		"image", imageToUse,
-		"container_count", len(runTaskInput.Overrides.ContainerOverrides),
-	}
-	logArgs = append(logArgs, logger.GetDeadlineInfo(ctx)...)
-	reqLogger.Debug("calling external service", "context", logger.SliceToMap(logArgs))
+	logAWSAPICall(ctx, reqLogger, "ECS.RunTask", map[string]any{
+		"cluster":         e.cfg.ECSCluster,
+		"task_definition": runTaskInput.TaskDefinition,
+		"image":           imageToUse,
+		"container_count": len(runTaskInput.Overrides.ContainerOverrides),
+	})
 
 	runTaskOutput, err := e.ecsClient.RunTask(ctx, runTaskInput)
 	if err != nil {
@@ -509,6 +506,16 @@ func (e *Runner) executeTask(
 	createdAt = task.CreatedAt
 
 	return executionID, createdAt, taskARN, nil
+}
+
+// logAWSAPICall logs an AWS API call with standardized format including operation name and context.
+func logAWSAPICall(ctx context.Context, reqLogger *slog.Logger, operation string, contextFields map[string]any) {
+	logArgs := []any{"operation", operation}
+	for k, v := range contextFields {
+		logArgs = append(logArgs, k, v)
+	}
+	logArgs = append(logArgs, logger.GetDeadlineInfo(ctx)...)
+	reqLogger.Debug("calling external service", "context", logger.SliceToMap(logArgs))
 }
 
 // logTaskStarted logs the successful task start with request details.
@@ -667,33 +674,28 @@ func (e *Runner) KillTask(ctx context.Context, executionID string) error {
 		return err
 	}
 
-	describeLogArgs := []any{
-		"operation", "ECS.DescribeTasks",
-		"cluster", e.cfg.ECSCluster,
-		"task_arn", taskARN,
-		"execution_id", executionID,
-	}
-	describeLogArgs = append(describeLogArgs, logger.GetDeadlineInfo(ctx)...)
-	reqLogger.Debug("calling external service", "context", logger.SliceToMap(describeLogArgs))
+	logAWSAPICall(ctx, reqLogger, "ECS.DescribeTasks", map[string]any{
+		"cluster":      e.cfg.ECSCluster,
+		"task_arn":     taskARN,
+		"execution_id": executionID,
+	})
 
 	describeOutput, err := e.ecsClient.DescribeTasks(ctx, &ecs.DescribeTasksInput{
 		Cluster: awsStd.String(e.cfg.ECSCluster),
 		Tasks:   []string{taskARN},
 	})
 	if err != nil {
-		reqLogger.Error("failed to describe task", "context", map[string]string{
-			"error":        err.Error(),
-			"execution_id": executionID,
-			"task_arn":     taskARN,
-		})
+		reqLogger.Error("failed to describe task",
+			"error", err,
+			"execution_id", executionID,
+			"task_arn", taskARN)
 		return appErrors.ErrInternalError("failed to describe task", err)
 	}
 
 	if len(describeOutput.Tasks) == 0 {
-		reqLogger.Error("task not found", "context", map[string]string{
-			"execution_id": executionID,
-			"task_arn":     taskARN,
-		})
+		reqLogger.Error("task not found",
+			"execution_id", executionID,
+			"task_arn", taskARN)
 		return appErrors.ErrNotFound("task not found", nil)
 	}
 
@@ -705,15 +707,12 @@ func (e *Runner) KillTask(ctx context.Context, executionID string) error {
 		return validateErr
 	}
 
-	stopLogArgs := []any{
-		"operation", "ECS.StopTask",
-		"cluster", e.cfg.ECSCluster,
-		"task_arn", taskARN,
-		"execution_id", executionID,
-		"current_status", currentStatus,
-	}
-	stopLogArgs = append(stopLogArgs, logger.GetDeadlineInfo(ctx)...)
-	reqLogger.Debug("calling external service", "context", logger.SliceToMap(stopLogArgs))
+	logAWSAPICall(ctx, reqLogger, "ECS.StopTask", map[string]any{
+		"cluster":        e.cfg.ECSCluster,
+		"task_arn":       taskARN,
+		"execution_id":   executionID,
+		"current_status": currentStatus,
+	})
 
 	stopOutput, err := e.ecsClient.StopTask(ctx, &ecs.StopTaskInput{
 		Cluster: awsStd.String(e.cfg.ECSCluster),

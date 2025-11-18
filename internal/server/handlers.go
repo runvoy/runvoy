@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"runvoy/internal/api"
-	apperrors "runvoy/internal/errors"
 )
 
 // getUserFromContext extracts the authenticated user from request context
@@ -24,7 +23,6 @@ func (r *Router) getUserFromContext(req *http.Request) (*api.User, bool) {
 func (r *Router) handleListWithAuth(
 	w http.ResponseWriter,
 	req *http.Request,
-	_ string, // denialMsg - no longer used, kept for API compatibility
 	serviceCall func() (any, error),
 	operationName string,
 ) {
@@ -32,11 +30,9 @@ func (r *Router) handleListWithAuth(
 
 	resp, err := serviceCall()
 	if err != nil {
-		statusCode := apperrors.GetStatusCode(err)
-		errorCode := apperrors.GetErrorCode(err)
-		errorDetails := apperrors.GetErrorDetails(err)
+		statusCode, errorCode, errorDetails := extractErrorInfo(err)
 
-		logger.Debug("failed to "+operationName,
+		logger.Error("failed to "+operationName,
 			"error", err,
 			"status_code", statusCode,
 			"error_code", errorCode)

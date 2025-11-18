@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"time"
 
+	"runvoy/internal/client"
 	"runvoy/internal/client/output"
 	"runvoy/internal/config"
 	"runvoy/internal/constants"
@@ -159,6 +160,21 @@ func getConfigFromContext(cmd *cobra.Command) (*config.Config, error) {
 		return nil, fmt.Errorf("config not found in context")
 	}
 	return cfg, nil
+}
+
+// executeWithClient consolidates the common pattern of loading config, creating a client,
+// and executing a function with the client. It handles error reporting consistently.
+func executeWithClient(cmd *cobra.Command, fn func(ctx context.Context, c client.Interface) error) {
+	cfg, err := getConfigFromContext(cmd)
+	if err != nil {
+		output.Errorf("failed to load configuration: %v", err)
+		return
+	}
+
+	c := client.New(cfg, slog.Default())
+	if err = fn(cmd.Context(), c); err != nil {
+		output.Errorf(err.Error())
+	}
 }
 
 func getStartTimeFromContext(cmd *cobra.Command) time.Time {

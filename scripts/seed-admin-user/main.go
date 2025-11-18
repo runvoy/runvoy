@@ -1,5 +1,5 @@
-// TODO: this is a temporary script to seed the admin user into the database.
-// Most probably overkill and needs some cleanup but not urgent for now, it does the job.
+// seed-admin-user is a utility script to seed the admin user into the database.
+// This script is intentionally kept for operational purposes (initial setup, recovery, etc.).
 package main
 
 import (

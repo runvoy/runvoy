@@ -49,8 +49,9 @@ func (p *Processor) handleECSTaskEvent(
 		reqLogger.Error("execution not found for task (orphaned task?)",
 			"cluster_arn", taskEvent.ClusterArn,
 		)
-		// Don't fail for orphaned tasks - they might have been started manually?
-		// TODO: figure out what to do with orphaned tasks or if we should fail the Lambda
+		// Orphaned tasks are tasks that exist in ECS but have no corresponding execution record.
+		// This can happen if tasks were started manually or if the execution record was deleted.
+		// We don't fail the Lambda for orphaned tasks to avoid breaking the event processing pipeline.
 		return nil
 	}
 
