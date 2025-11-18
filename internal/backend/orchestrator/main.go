@@ -36,7 +36,7 @@ type Runner interface {
 	// cpu: optional CPU value (e.g., 256, 1024). Defaults to 256 if nil.
 	// memory: optional Memory value in MB (e.g., 512, 2048). Defaults to 512 if nil.
 	// runtimePlatform: optional runtime platform (e.g., "Linux/ARM64", "Linux/X86_64"). Defaults to "Linux/ARM64" if nil.
-	// registeredBy: email of the user registering the image.
+	// createdBy: email of the user registering the image.
 	RegisterImage(
 		ctx context.Context,
 		image string,
@@ -44,7 +44,7 @@ type Runner interface {
 		taskRoleName, taskExecutionRoleName *string,
 		cpu, memory *int,
 		runtimePlatform *string,
-		registeredBy string,
+		createdBy string,
 	) error
 	// ListImages lists all registered Docker images.
 	ListImages(ctx context.Context) ([]api.ImageInfo, error)
@@ -153,7 +153,7 @@ func (s *Service) loadUserRoles(ctx context.Context) error {
 	return nil
 }
 
-// loadResourceOwnerships hydrates the enforcer with resource ownership mappings for secrets and executions.
+// loadResourceOwnerships hydrates the enforcer with resource ownership mappings for secrets, executions, and images.
 // Returns an error if any ownership loading fails.
 func (s *Service) loadResourceOwnerships(ctx context.Context) error {
 	if err := s.hydrateSecretOwnerships(ctx); err != nil {
@@ -162,15 +162,14 @@ func (s *Service) loadResourceOwnerships(ctx context.Context) error {
 	if err := s.hydrateExecutionOwnerships(ctx); err != nil {
 		return fmt.Errorf("failed to load execution ownerships: %w", err)
 	}
+	if err := s.hydrateImageOwnerships(ctx); err != nil {
+		return fmt.Errorf("failed to load image ownerships: %w", err)
+	}
 
 	return nil
 }
 
 func (s *Service) hydrateSecretOwnerships(ctx context.Context) error {
-	if s.secretsRepo == nil {
-		return nil
-	}
-
 	secrets, err := s.secretsRepo.ListSecrets(ctx, false)
 	if err != nil {
 		return fmt.Errorf("failed to load secrets for enforcer initialization: %w", err)
@@ -182,8 +181,10 @@ func (s *Service) hydrateSecretOwnerships(ctx context.Context) error {
 		}
 
 		resourceID := fmt.Sprintf("secret:%s", secret.Name)
-		if addErr := s.enforcer.AddOwnershipForResource(resourceID, secret.CreatedBy); addErr != nil {
-			return fmt.Errorf("failed to add ownership for secret %s: %w", secret.Name, addErr)
+		for _, owner := range secret.OwnedBy {
+			if addErr := s.enforcer.AddOwnershipForResource(resourceID, owner); addErr != nil {
+				return fmt.Errorf("failed to add ownership for secret %s: %w", secret.Name, addErr)
+			}
 		}
 	}
 
@@ -199,22 +200,54 @@ func (s *Service) hydrateExecutionOwnerships(ctx context.Context) error {
 	g, _ := errgroup.WithContext(ctx)
 
 	for _, execution := range executions {
-		if execution == nil || execution.ExecutionID == "" || execution.UserEmail == "" {
+		if execution == nil || execution.ExecutionID == "" || execution.CreatedBy == "" {
 			return errors.New("execution is nil or missing required fields")
 		}
 
 		g.Go(func() error {
 			resourceID := fmt.Sprintf("execution:%s", execution.ExecutionID)
-			if addErr := s.enforcer.AddOwnershipForResource(resourceID, execution.UserEmail); addErr != nil {
-				return fmt.Errorf("failed to add ownership for execution %s: %w", execution.ExecutionID, addErr)
+			for _, owner := range execution.OwnedBy {
+				if addErr := s.enforcer.AddOwnershipForResource(resourceID, owner); addErr != nil {
+					return fmt.Errorf("failed to add ownership for execution %s: %w", execution.ExecutionID, addErr)
+				}
 			}
-
 			return nil
 		})
 	}
 
 	if waitErr := g.Wait(); waitErr != nil {
 		return fmt.Errorf("failed to load execution ownerships into enforcer: %w", waitErr)
+	}
+
+	return nil
+}
+
+func (s *Service) hydrateImageOwnerships(ctx context.Context) error {
+	images, err := s.runner.ListImages(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to load images for enforcer initialization: %w", err)
+	}
+
+	g, _ := errgroup.WithContext(ctx)
+
+	for i := range images {
+		if images[i].ImageID == "" || images[i].CreatedBy == "" {
+			return errors.New("image is missing required fields")
+		}
+
+		g.Go(func() error {
+			resourceID := fmt.Sprintf("image:%s", images[i].ImageID)
+			for _, owner := range images[i].OwnedBy {
+				if addErr := s.enforcer.AddOwnershipForResource(resourceID, owner); addErr != nil {
+					return fmt.Errorf("failed to add ownership for image %s: %w", images[i].ImageID, addErr)
+				}
+			}
+			return nil
+		})
+	}
+
+	if waitErr := g.Wait(); waitErr != nil {
+		return fmt.Errorf("failed to load image ownerships into enforcer: %w", waitErr)
 	}
 
 	return nil

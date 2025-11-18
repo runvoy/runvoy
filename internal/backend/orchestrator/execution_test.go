@@ -229,7 +229,8 @@ func TestGetExecutionStatus(t *testing.T) {
 			executionID: "exec-123",
 			mockExecution: &api.Execution{
 				ExecutionID: "exec-123",
-				UserEmail:   "user@example.com",
+				CreatedBy:   "user@example.com",
+				OwnedBy:     []string{"user@example.com"},
 				Command:     "echo hello",
 				Status:      string(constants.ExecutionRunning),
 				StartedAt:   now,
@@ -243,7 +244,8 @@ func TestGetExecutionStatus(t *testing.T) {
 			executionID: "exec-456",
 			mockExecution: &api.Execution{
 				ExecutionID: "exec-456",
-				UserEmail:   "user@example.com",
+				CreatedBy:   "user@example.com",
+				OwnedBy:     []string{"user@example.com"},
 				Command:     "echo hello",
 				Status:      string(constants.ExecutionSucceeded),
 				StartedAt:   now,
@@ -325,14 +327,16 @@ func TestListExecutions(t *testing.T) {
 			mockExecutions: []*api.Execution{
 				{
 					ExecutionID: "exec-1",
-					UserEmail:   "user1@example.com",
+					CreatedBy:   "user1@example.com",
+					OwnedBy:     []string{"user@example.com"},
 					Command:     "echo hello",
 					Status:      string(constants.ExecutionRunning),
 					StartedAt:   now,
 				},
 				{
 					ExecutionID: "exec-2",
-					UserEmail:   "user2@example.com",
+					CreatedBy:   "user2@example.com",
+					OwnedBy:     []string{"user@example.com"},
 					Command:     "echo world",
 					Status:      string(constants.ExecutionSucceeded),
 					StartedAt:   now,

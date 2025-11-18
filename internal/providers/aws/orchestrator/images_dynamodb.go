@@ -110,7 +110,7 @@ func (e *Runner) registerNewImage(
 	region string,
 	cpu, memory int,
 	runtimePlatform string,
-	registeredBy string,
+	createdBy string,
 	reqLogger *slog.Logger,
 ) (taskDefARN, family string, err error) {
 	imageRef := ParseImageReference(image)
@@ -171,7 +171,7 @@ func (e *Runner) registerNewImage(
 		runtimePlatform,
 		family,
 		shouldBeDefault,
-		registeredBy,
+		createdBy,
 	); putErr != nil {
 		return "", "", fmt.Errorf("failed to store image-taskdef mapping: %w", putErr)
 	}
@@ -257,7 +257,7 @@ func (e *Runner) RegisterImage(
 	cpu *int,
 	memory *int,
 	runtimePlatform *string,
-	registeredBy string,
+	createdBy string,
 ) error {
 	if e.ecsClient == nil {
 		return fmt.Errorf("ECS client not configured")
@@ -314,7 +314,7 @@ func (e *Runner) RegisterImage(
 		ctx, image, isDefault, taskRoleName, taskExecutionRoleName,
 		region,
 		cpuVal, memoryVal, runtimePlatformVal,
-		registeredBy,
+		createdBy,
 		reqLogger,
 	)
 	if err != nil {

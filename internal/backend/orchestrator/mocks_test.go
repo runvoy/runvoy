@@ -225,7 +225,7 @@ type mockRunner struct {
 		taskRoleName, taskExecutionRoleName *string,
 		cpu, memory *int,
 		runtimePlatform *string,
-		registeredBy string,
+		createdBy string,
 	) error
 	listImagesFunc             func(ctx context.Context) ([]api.ImageInfo, error)
 	getImageFunc               func(ctx context.Context, image string) (*api.ImageInfo, error)
@@ -258,12 +258,12 @@ func (m *mockRunner) RegisterImage(
 	taskRoleName, taskExecutionRoleName *string,
 	cpu, memory *int,
 	runtimePlatform *string,
-	registeredBy string,
+	createdBy string,
 ) error {
 	if m.registerImageFunc != nil {
 		return m.registerImageFunc(
 			ctx, image, isDefault, taskRoleName, taskExecutionRoleName,
-			cpu, memory, runtimePlatform, registeredBy,
+			cpu, memory, runtimePlatform, createdBy,
 		)
 	}
 	return nil
@@ -350,7 +350,7 @@ func newTestServiceWithConnRepo(
 	svc, err := NewService(
 		context.Background(),
 		userRepo, execRepo, connRepo, &mockTokenRepository{}, runner, logger, constants.AWS,
-		nil, nil, nil, newPermissiveEnforcer(),
+		nil, &mockSecretsRepository{}, nil, newPermissiveEnforcer(),
 	)
 	if err != nil {
 		panic(err)
@@ -387,6 +387,11 @@ func newTestServiceWithEnforcer(
 		runnerIface = runner
 	}
 
+	secretsRepoIface := database.SecretsRepository(&mockSecretsRepository{})
+	if secretsRepo != nil {
+		secretsRepoIface = secretsRepo
+	}
+
 	svc, err := NewService(
 		context.Background(),
 		userRepoIface,
@@ -397,7 +402,7 @@ func newTestServiceWithEnforcer(
 		logger,
 		constants.AWS,
 		nil,
-		secretsRepo,
+		secretsRepoIface,
 		nil,
 		enforcer,
 	)
@@ -529,7 +534,7 @@ func newTestServiceWithWebSocketManager(
 	svc, err := NewService(
 		context.Background(),
 		userRepoIface, execRepoIface, nil, &mockTokenRepository{}, runnerIface, logger, constants.AWS,
-		wsManager, nil, nil, newPermissiveEnforcer(),
+		wsManager, &mockSecretsRepository{}, nil, newPermissiveEnforcer(),
 	)
 	if err != nil {
 		panic(err)

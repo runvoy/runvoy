@@ -41,7 +41,10 @@ func (m *mockRunner) RegisterImage(
 func (m *mockRunner) ListImages(_ context.Context) ([]api.ImageInfo, error) {
 	return []api.ImageInfo{
 		{
-			Image: "alpine:latest",
+			Image:     "alpine:latest",
+			ImageID:   "alpine:latest",
+			CreatedBy: "test@example.com",
+			OwnedBy:   []string{"user@example.com"},
 		},
 	}, nil
 }
@@ -70,8 +73,8 @@ func TestGetExecutionStatus_Unauthorized(t *testing.T) {
 		testutil.SilentLogger(),
 		constants.AWS,
 		nil,
-		nil, // SecretsService
-		nil, // healthManager
+		&testSecretsRepository{}, // SecretsService
+		nil,                      // healthManager
 		newPermissiveTestEnforcerForHandlers(t),
 	)
 	require.NoError(t, err)

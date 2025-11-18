@@ -5,41 +5,71 @@ import (
 	"errors"
 
 	"runvoy/internal/api"
-	apperrors "runvoy/internal/errors"
+	"runvoy/internal/auth/authorization"
+	appErrors "runvoy/internal/errors"
 )
 
 // RegisterImage registers a Docker image and creates the corresponding task definition.
+// After successful registration, ownership is synced to the Casbin enforcer to maintain
+// consistency with the database. If ownership sync fails, an error is logged but
+// registration succeeds; ownership will be synced during the next hydration cycle or
+// health reconcile.
 func (s *Service) RegisterImage(
 	ctx context.Context,
-	image string,
-	isDefault *bool,
-	taskRoleName *string,
-	taskExecutionRoleName *string,
-	cpu *int,
-	memory *int,
-	runtimePlatform *string,
-	registeredBy string,
+	req *api.RegisterImageRequest,
+	createdBy string,
 ) (*api.RegisterImageResponse, error) {
-	if image == "" {
-		return nil, apperrors.ErrBadRequest("image is required", nil)
+	if req == nil {
+		return nil, appErrors.ErrBadRequest("request is required", nil)
 	}
 
-	if registeredBy == "" {
-		return nil, apperrors.ErrBadRequest("registeredBy is required", nil)
+	if req.Image == "" {
+		return nil, appErrors.ErrBadRequest("image is required", nil)
+	}
+
+	if createdBy == "" {
+		return nil, appErrors.ErrBadRequest("createdBy is required", nil)
 	}
 
 	if err := s.runner.RegisterImage(
-		ctx, image, isDefault, taskRoleName, taskExecutionRoleName, cpu, memory, runtimePlatform, registeredBy,
+		ctx,
+		req.Image,
+		req.IsDefault,
+		req.TaskRoleName,
+		req.TaskExecutionRoleName,
+		req.CPU,
+		req.Memory,
+		req.RuntimePlatform,
+		createdBy,
 	); err != nil {
-		var appErr *apperrors.AppError
+		var appErr *appErrors.AppError
 		if errors.As(err, &appErr) {
 			return nil, err
 		}
-		return nil, apperrors.ErrInternalError("failed to register image", err)
+		return nil, appErrors.ErrInternalError("failed to register image", err)
+	}
+
+	imageInfo, getErr := s.runner.GetImage(ctx, req.Image)
+	if getErr != nil {
+		s.Logger.Error("failed to get image info after registration for ownership sync",
+			"image", req.Image,
+			"error", getErr,
+		)
+	} else if imageInfo != nil && imageInfo.ImageID != "" {
+		resourceID := authorization.FormatResourceID("image", imageInfo.ImageID)
+		for _, owner := range imageInfo.OwnedBy {
+			if syncErr := s.enforcer.AddOwnershipForResource(resourceID, owner); syncErr != nil {
+				s.Logger.Error("failed to sync image ownership to enforcer after registration",
+					"image_id", imageInfo.ImageID,
+					"owner", owner,
+					"error", syncErr,
+				)
+			}
+		}
 	}
 
 	return &api.RegisterImageResponse{
-		Image:   image,
+		Image:   req.Image,
 		Message: "Image registered successfully",
 	}, nil
 }
@@ -48,11 +78,11 @@ func (s *Service) RegisterImage(
 func (s *Service) ListImages(ctx context.Context) (*api.ListImagesResponse, error) {
 	images, err := s.runner.ListImages(ctx)
 	if err != nil {
-		var appErr *apperrors.AppError
+		var appErr *appErrors.AppError
 		if errors.As(err, &appErr) {
 			return nil, err
 		}
-		return nil, apperrors.ErrInternalError("failed to list images", err)
+		return nil, appErrors.ErrInternalError("failed to list images", err)
 	}
 
 	return &api.ListImagesResponse{
@@ -63,20 +93,20 @@ func (s *Service) ListImages(ctx context.Context) (*api.ListImagesResponse, erro
 // GetImage returns a single registered Docker image by ID or name.
 func (s *Service) GetImage(ctx context.Context, image string) (*api.ImageInfo, error) {
 	if image == "" {
-		return nil, apperrors.ErrBadRequest("image is required", nil)
+		return nil, appErrors.ErrBadRequest("image is required", nil)
 	}
 
 	imageInfo, err := s.runner.GetImage(ctx, image)
 	if err != nil {
-		var appErr *apperrors.AppError
+		var appErr *appErrors.AppError
 		if errors.As(err, &appErr) {
 			return nil, err
 		}
-		return nil, apperrors.ErrInternalError("failed to get image", err)
+		return nil, appErrors.ErrInternalError("failed to get image", err)
 	}
 
 	if imageInfo == nil {
-		return nil, apperrors.ErrNotFound("image not found", nil)
+		return nil, appErrors.ErrNotFound("image not found", nil)
 	}
 
 	return imageInfo, nil
@@ -85,15 +115,15 @@ func (s *Service) GetImage(ctx context.Context, image string) (*api.ImageInfo, e
 // RemoveImage removes a Docker image and deregisters its task definitions.
 func (s *Service) RemoveImage(ctx context.Context, image string) error {
 	if image == "" {
-		return apperrors.ErrBadRequest("image is required", nil)
+		return appErrors.ErrBadRequest("image is required", nil)
 	}
 
 	if err := s.runner.RemoveImage(ctx, image); err != nil {
-		var appErr *apperrors.AppError
+		var appErr *appErrors.AppError
 		if errors.As(err, &appErr) {
 			return err
 		}
-		return apperrors.ErrInternalError("failed to remove image", err)
+		return appErrors.ErrInternalError("failed to remove image", err)
 	}
 
 	return nil

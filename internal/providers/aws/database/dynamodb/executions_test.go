@@ -27,7 +27,8 @@ func TestToExecutionItem(t *testing.T) {
 			name: "complete execution with all fields",
 			execution: &api.Execution{
 				ExecutionID:     "exec-123",
-				UserEmail:       "user@example.com",
+				CreatedBy:       "user@example.com",
+				OwnedBy:         []string{"user@example.com"},
 				Command:         "echo hello",
 				StartedAt:       now,
 				CompletedAt:     &completed,
@@ -43,7 +44,8 @@ func TestToExecutionItem(t *testing.T) {
 			name: "minimal execution",
 			execution: &api.Execution{
 				ExecutionID: "exec-minimal",
-				UserEmail:   "user@example.com",
+				CreatedBy:   "user@example.com",
+				OwnedBy:     []string{"user@example.com"},
 				Command:     "ls",
 				StartedAt:   now,
 				Status:      "RUNNING",
@@ -56,7 +58,7 @@ func TestToExecutionItem(t *testing.T) {
 			item := toExecutionItem(tt.execution)
 
 			assert.Equal(t, tt.execution.ExecutionID, item.ExecutionID)
-			assert.Equal(t, tt.execution.UserEmail, item.UserEmail)
+			assert.Equal(t, tt.execution.CreatedBy, item.CreatedBy)
 			assert.Equal(t, tt.execution.Command, item.Command)
 			assert.Equal(t, tt.execution.StartedAt.Unix(), item.StartedAt)
 			if tt.execution.CompletedAt != nil {
@@ -87,7 +89,8 @@ func TestExecutionItem_ToAPIExecution(t *testing.T) {
 			name: "complete execution item",
 			item: &executionItem{
 				ExecutionID:     "exec-123",
-				UserEmail:       "user@example.com",
+				CreatedBy:       "user@example.com",
+				OwnedBy:         []string{"user@example.com"},
 				Command:         "echo hello",
 				StartedAt:       nowUnix,
 				CompletedAt:     &completedUnix,
@@ -103,7 +106,8 @@ func TestExecutionItem_ToAPIExecution(t *testing.T) {
 			name: "minimal execution item",
 			item: &executionItem{
 				ExecutionID: "exec-minimal",
-				UserEmail:   "user@example.com",
+				CreatedBy:   "user@example.com",
+				OwnedBy:     []string{"user@example.com"},
 				Command:     "ls",
 				StartedAt:   nowUnix,
 				Status:      "RUNNING",
@@ -116,7 +120,7 @@ func TestExecutionItem_ToAPIExecution(t *testing.T) {
 			execution := tt.item.toAPIExecution()
 
 			assert.Equal(t, tt.item.ExecutionID, execution.ExecutionID)
-			assert.Equal(t, tt.item.UserEmail, execution.UserEmail)
+			assert.Equal(t, tt.item.CreatedBy, execution.CreatedBy)
 			assert.Equal(t, tt.item.Command, execution.Command)
 			assert.Equal(t, tt.item.StartedAt, execution.StartedAt.Unix())
 			if tt.item.CompletedAt != nil {
@@ -140,7 +144,8 @@ func TestRoundTripConversion(t *testing.T) {
 
 	original := &api.Execution{
 		ExecutionID:     "exec-roundtrip",
-		UserEmail:       "user@example.com",
+		CreatedBy:       "user@example.com",
+		OwnedBy:         []string{"user@example.com"},
 		Command:         "echo test",
 		StartedAt:       now,
 		CompletedAt:     &completed,
@@ -157,7 +162,7 @@ func TestRoundTripConversion(t *testing.T) {
 	result := item.toAPIExecution()
 
 	assert.Equal(t, original.ExecutionID, result.ExecutionID)
-	assert.Equal(t, original.UserEmail, result.UserEmail)
+	assert.Equal(t, original.CreatedBy, result.CreatedBy)
 	assert.Equal(t, original.Command, result.Command)
 	assert.Equal(t, original.StartedAt.Unix(), result.StartedAt.Unix())
 	assert.Equal(t, original.Status, result.Status)
@@ -186,7 +191,8 @@ func TestConversionEdgeCases(t *testing.T) {
 	t.Run("nil CompletedAt", func(t *testing.T) {
 		exec := &api.Execution{
 			ExecutionID: "exec-1",
-			UserEmail:   "user@example.com",
+			CreatedBy:   "user@example.com",
+			OwnedBy:     []string{"user@example.com"},
 			Command:     "test",
 			StartedAt:   time.Now(),
 			CompletedAt: nil,
@@ -203,7 +209,8 @@ func TestConversionEdgeCases(t *testing.T) {
 	t.Run("zero ExitCode", func(t *testing.T) {
 		exec := &api.Execution{
 			ExecutionID: "exec-2",
-			UserEmail:   "user@example.com",
+			CreatedBy:   "user@example.com",
+			OwnedBy:     []string{"user@example.com"},
 			Command:     "test",
 			StartedAt:   time.Now(),
 			Status:      "SUCCEEDED",
@@ -220,7 +227,8 @@ func TestConversionEdgeCases(t *testing.T) {
 	t.Run("non-zero ExitCode", func(t *testing.T) {
 		exec := &api.Execution{
 			ExecutionID: "exec-3",
-			UserEmail:   "user@example.com",
+			CreatedBy:   "user@example.com",
+			OwnedBy:     []string{"user@example.com"},
 			Command:     "test",
 			StartedAt:   time.Now(),
 			Status:      "FAILED",
@@ -237,7 +245,8 @@ func TestConversionEdgeCases(t *testing.T) {
 	t.Run("empty optional fields", func(t *testing.T) {
 		exec := &api.Execution{
 			ExecutionID: "exec-4",
-			UserEmail:   "user@example.com",
+			CreatedBy:   "user@example.com",
+			OwnedBy:     []string{"user@example.com"},
 			Command:     "test",
 			StartedAt:   time.Now(),
 			Status:      "RUNNING",
@@ -259,7 +268,8 @@ func TestExecutionItemDynamoDBTags(t *testing.T) {
 		item := &executionItem{
 			ExecutionID:     "test-123",
 			StartedAt:       time.Now().Unix(),
-			UserEmail:       "user@example.com",
+			CreatedBy:       "user@example.com",
+			OwnedBy:         []string{"user@example.com"},
 			Command:         "echo test",
 			Status:          "RUNNING",
 			LogStreamName:   "log-stream",
@@ -280,7 +290,8 @@ func BenchmarkToExecutionItem(b *testing.B) {
 	completed := now.Add(5 * time.Minute)
 	exec := &api.Execution{
 		ExecutionID:     "exec-bench",
-		UserEmail:       "user@example.com",
+		CreatedBy:       "user@example.com",
+		OwnedBy:         []string{"user@example.com"},
 		Command:         "echo benchmark",
 		StartedAt:       now,
 		CompletedAt:     &completed,
@@ -302,7 +313,8 @@ func BenchmarkToAPIExecution(b *testing.B) {
 	completedUnix := time.Now().Add(5 * time.Minute).Unix()
 	item := &executionItem{
 		ExecutionID:     "exec-bench",
-		UserEmail:       "user@example.com",
+		CreatedBy:       "user@example.com",
+		OwnedBy:         []string{"user@example.com"},
 		Command:         "echo benchmark",
 		StartedAt:       nowUnix,
 		CompletedAt:     &completedUnix,
@@ -501,7 +513,8 @@ func TestExecutionRepository_CreateExecution(t *testing.T) {
 		execution := &api.Execution{
 			ExecutionID: "exec-123",
 			StartedAt:   time.Now(),
-			UserEmail:   "user@example.com",
+			CreatedBy:   "user@example.com",
+			OwnedBy:     []string{"user@example.com"},
 			Command:     "echo hello",
 			Status:      "RUNNING",
 		}
@@ -519,7 +532,8 @@ func TestExecutionRepository_CreateExecution(t *testing.T) {
 		execution := &api.Execution{
 			ExecutionID: "exec-123",
 			StartedAt:   time.Now(),
-			UserEmail:   "user@example.com",
+			CreatedBy:   "user@example.com",
+			OwnedBy:     []string{"user@example.com"},
 			Command:     "echo hello",
 			Status:      "RUNNING",
 		}
@@ -545,7 +559,8 @@ func TestExecutionRepository_CreateExecution(t *testing.T) {
 		execution := &api.Execution{
 			ExecutionID: "exec-123",
 			StartedAt:   time.Now(),
-			UserEmail:   "user@example.com",
+			CreatedBy:   "user@example.com",
+			OwnedBy:     []string{"user@example.com"},
 			Command:     "echo hello",
 			Status:      "RUNNING",
 		}
@@ -581,7 +596,8 @@ func TestExecutionRepository_GetExecution(t *testing.T) {
 		executionItem := toExecutionItem(&api.Execution{
 			ExecutionID: "exec-123",
 			StartedAt:   now,
-			UserEmail:   "user@example.com",
+			CreatedBy:   "user@example.com",
+			OwnedBy:     []string{"user@example.com"},
 			Command:     "echo hello",
 			Status:      "RUNNING",
 		})
@@ -597,7 +613,7 @@ func TestExecutionRepository_GetExecution(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, result)
 		assert.Equal(t, "exec-123", result.ExecutionID)
-		assert.Equal(t, "user@example.com", result.UserEmail)
+		assert.Equal(t, "user@example.com", result.CreatedBy)
 		assert.Equal(t, "echo hello", result.Command)
 		assert.Equal(t, 1, mockClient.GetItemCalls)
 	})
@@ -657,7 +673,8 @@ func TestExecutionRepository_UpdateExecution(t *testing.T) {
 		execution := &api.Execution{
 			ExecutionID:     "exec-123",
 			StartedAt:       now,
-			UserEmail:       "user@example.com",
+			CreatedBy:       "user@example.com",
+			OwnedBy:         []string{"user@example.com"},
 			Command:         "echo hello",
 			Status:          "SUCCEEDED",
 			CompletedAt:     &completed,
@@ -768,7 +785,8 @@ func TestProcessQueryResults_UnboundedLimit(t *testing.T) {
 	item := executionItem{
 		ExecutionID: "exec-1",
 		StartedAt:   time.Now().Unix(),
-		UserEmail:   "user@example.com",
+		CreatedBy:   "user@example.com",
+		OwnedBy:     []string{"user@example.com"},
 		Command:     "echo hello",
 		Status:      "SUCCEEDED",
 	}

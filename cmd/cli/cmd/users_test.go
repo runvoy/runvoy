@@ -264,8 +264,8 @@ func TestUsersService_ListUsers(t *testing.T) {
 				for _, call := range m.calls {
 					if call.method == "Table" && len(call.args) >= 2 {
 						rows := call.args[1].([][]string)
-						if len(rows) > 0 && len(rows[0]) >= 2 {
-							status := rows[0][1] // Status column
+						if len(rows) > 0 && len(rows[0]) >= 3 {
+							status := rows[0][2] // Status column (Email=0, Role=1, Status=2)
 							assert.Equal(t, "Revoked", status, "Revoked user should show Revoked status")
 						}
 					}

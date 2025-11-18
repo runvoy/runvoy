@@ -69,7 +69,8 @@ func NewExecutionBuilder() *ExecutionBuilder {
 			Command:     "echo 'test'",
 			Status:      "pending",
 			StartedAt:   time.Now().UTC(),
-			UserEmail:   "test@example.com",
+			CreatedBy:   "test@example.com",
+			OwnedBy:     []string{"test@example.com"},
 		},
 	}
 }
@@ -92,9 +93,10 @@ func (b *ExecutionBuilder) WithStatus(status string) *ExecutionBuilder {
 	return b
 }
 
-// WithUserEmail sets the user email.
-func (b *ExecutionBuilder) WithUserEmail(email string) *ExecutionBuilder {
-	b.execution.UserEmail = email
+// WithCreatedBy sets the creator email.
+func (b *ExecutionBuilder) WithCreatedBy(email string) *ExecutionBuilder {
+	b.execution.CreatedBy = email
+	b.execution.OwnedBy = []string{email}
 	return b
 }
 

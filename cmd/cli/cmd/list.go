@@ -146,7 +146,7 @@ func (s *ListService) formatExecutions(execs []api.Execution) [][]string {
 			s.output.Bold(e.ExecutionID),
 			e.Status,
 			command,
-			e.UserEmail,
+			e.CreatedBy,
 			started,
 			completed,
 			duration,

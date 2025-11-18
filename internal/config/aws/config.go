@@ -84,6 +84,7 @@ func ValidateOrchestrator(cfg *Config) error {
 		"AWS.ExecutionsTable":           cfg.ExecutionsTable,
 		"AWS.ImageTaskDefsTable":        cfg.ImageTaskDefsTable,
 		"AWS.LogGroup":                  cfg.LogGroup,
+		"AWS.PendingAPIKeysTable":       cfg.PendingAPIKeysTable,
 		"AWS.SecretsKMSKeyARN":          cfg.SecretsKMSKeyARN,
 		"AWS.SecretsMetadataTable":      cfg.SecretsMetadataTable,
 		"AWS.SecretsPrefix":             cfg.SecretsPrefix,
@@ -111,12 +112,14 @@ func ValidateEventProcessor(cfg *Config) error {
 	}
 
 	required := map[string]string{
+		"AWS.APIKeysTable":              cfg.APIKeysTable,
 		"AWS.DefaultTaskExecRoleARN":    cfg.DefaultTaskExecRoleARN,
 		"AWS.DefaultTaskRoleARN":        cfg.DefaultTaskRoleARN,
 		"AWS.ECSCluster":                cfg.ECSCluster,
 		"AWS.ExecutionsTable":           cfg.ExecutionsTable,
 		"AWS.ImageTaskDefsTable":        cfg.ImageTaskDefsTable,
 		"AWS.LogGroup":                  cfg.LogGroup,
+		"AWS.PendingAPIKeysTable":       cfg.PendingAPIKeysTable,
 		"AWS.SecretsKMSKeyARN":          cfg.SecretsKMSKeyARN,
 		"AWS.SecretsMetadataTable":      cfg.SecretsMetadataTable,
 		"AWS.SecretsPrefix":             cfg.SecretsPrefix,

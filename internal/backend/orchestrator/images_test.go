@@ -44,7 +44,7 @@ func TestGetImage_Success(t *testing.T) {
 		logger,
 		"",
 		nil,
-		nil,
+		&mockSecretsRepository{},
 		nil,
 		enforcer,
 	)
@@ -78,7 +78,7 @@ func TestGetImage_NotFound(t *testing.T) {
 		logger,
 		"",
 		nil,
-		nil,
+		&mockSecretsRepository{},
 		nil,
 		enforcer,
 	)
@@ -105,7 +105,7 @@ func TestGetImage_EmptyImageName(t *testing.T) {
 		logger,
 		"",
 		nil,
-		nil,
+		&mockSecretsRepository{},
 		nil,
 		enforcer,
 	)
@@ -137,7 +137,7 @@ func TestGetImage_RunnerError(t *testing.T) {
 		logger,
 		"",
 		nil,
-		nil,
+		&mockSecretsRepository{},
 		nil,
 		enforcer,
 	)
@@ -170,7 +170,7 @@ func TestGetImage_RunnerGenericError(t *testing.T) {
 		logger,
 		"",
 		nil,
-		nil,
+		&mockSecretsRepository{},
 		nil,
 		enforcer,
 	)
@@ -203,7 +203,7 @@ func TestRemoveImage_Success(t *testing.T) {
 		logger,
 		"",
 		nil,
-		nil,
+		&mockSecretsRepository{},
 		nil,
 		enforcer,
 	)
@@ -234,7 +234,7 @@ func TestRemoveImage_EmptyImageName(t *testing.T) {
 		logger,
 		"",
 		nil,
-		nil,
+		&mockSecretsRepository{},
 		nil,
 		enforcer,
 	)
@@ -266,7 +266,7 @@ func TestRemoveImage_RunnerError(t *testing.T) {
 		logger,
 		"",
 		nil,
-		nil,
+		&mockSecretsRepository{},
 		nil,
 		enforcer,
 	)
@@ -299,7 +299,7 @@ func TestRemoveImage_RunnerGenericError(t *testing.T) {
 		logger,
 		"",
 		nil,
-		nil,
+		&mockSecretsRepository{},
 		nil,
 		enforcer,
 	)
@@ -318,8 +318,10 @@ func TestListImages_Success(t *testing.T) {
 	runner := &mockRunner{
 		listImagesFunc: func(_ context.Context) ([]api.ImageInfo, error) {
 			return []api.ImageInfo{
-				{Image: "alpine:latest", CPU: 256},
-				{Image: "ubuntu:20.04", CPU: 512},
+				{Image: "alpine:latest", ImageID: "alpine:latest", CreatedBy: "test@example.com",
+					OwnedBy: []string{"user@example.com"}},
+				{Image: "ubuntu:20.04", ImageID: "ubuntu:20.04", CreatedBy: "test@example.com",
+					OwnedBy: []string{"user@example.com"}},
 			}, nil
 		},
 	}
@@ -335,7 +337,7 @@ func TestListImages_Success(t *testing.T) {
 		logger,
 		"",
 		nil,
-		nil,
+		&mockSecretsRepository{},
 		nil,
 		enforcer,
 	)
@@ -369,7 +371,7 @@ func TestListImages_Empty(t *testing.T) {
 		logger,
 		"",
 		nil,
-		nil,
+		&mockSecretsRepository{},
 		nil,
 		enforcer,
 	)
@@ -384,8 +386,14 @@ func TestListImages_Empty(t *testing.T) {
 }
 
 func TestListImages_RunnerError(t *testing.T) {
+	callCount := 0
 	runner := &mockRunner{
 		listImagesFunc: func(_ context.Context) ([]api.ImageInfo, error) {
+			callCount++
+			// Return empty list during initialization, error on test call
+			if callCount == 1 {
+				return []api.ImageInfo{}, nil
+			}
 			return nil, apperrors.ErrInternalError("runner error", nil)
 		},
 	}
@@ -401,7 +409,7 @@ func TestListImages_RunnerError(t *testing.T) {
 		logger,
 		"",
 		nil,
-		nil,
+		&mockSecretsRepository{},
 		nil,
 		enforcer,
 	)
@@ -417,8 +425,14 @@ func TestListImages_RunnerError(t *testing.T) {
 }
 
 func TestListImages_RunnerGenericError(t *testing.T) {
+	callCount := 0
 	runner := &mockRunner{
 		listImagesFunc: func(_ context.Context) ([]api.ImageInfo, error) {
+			callCount++
+			// Return empty list during initialization, error on test call
+			if callCount == 1 {
+				return []api.ImageInfo{}, nil
+			}
 			return nil, errors.New("some runner error")
 		},
 	}
@@ -434,7 +448,7 @@ func TestListImages_RunnerGenericError(t *testing.T) {
 		logger,
 		"",
 		nil,
-		nil,
+		&mockSecretsRepository{},
 		nil,
 		enforcer,
 	)
@@ -470,7 +484,7 @@ func TestRegisterImage_Success(t *testing.T) {
 		logger,
 		"",
 		nil,
-		nil,
+		&mockSecretsRepository{},
 		nil,
 		enforcer,
 	)
@@ -479,7 +493,9 @@ func TestRegisterImage_Success(t *testing.T) {
 	}
 
 	resp, registerErr := service.RegisterImage(
-		context.Background(), "alpine:latest", nil, nil, nil, nil, nil, nil, "test@example.com",
+		context.Background(),
+		&api.RegisterImageRequest{Image: "alpine:latest"},
+		"test@example.com",
 	)
 
 	assert.NoError(t, registerErr)
@@ -507,7 +523,7 @@ func TestRegisterImage_EmptyImageName(t *testing.T) {
 		logger,
 		"",
 		nil,
-		nil,
+		&mockSecretsRepository{},
 		nil,
 		enforcer,
 	)
@@ -515,7 +531,11 @@ func TestRegisterImage_EmptyImageName(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, registerErr := service.RegisterImage(context.Background(), "", nil, nil, nil, nil, nil, nil, "test@example.com")
+	_, registerErr := service.RegisterImage(
+		context.Background(),
+		&api.RegisterImageRequest{Image: ""},
+		"test@example.com",
+	)
 
 	assert.Error(t, registerErr)
 	assert.Contains(t, registerErr.Error(), "image is required")
@@ -542,7 +562,7 @@ func TestRegisterImage_RunnerError(t *testing.T) {
 		logger,
 		"",
 		nil,
-		nil,
+		&mockSecretsRepository{},
 		nil,
 		enforcer,
 	)
@@ -551,7 +571,9 @@ func TestRegisterImage_RunnerError(t *testing.T) {
 	}
 
 	_, registerErr := service.RegisterImage(
-		context.Background(), "invalid:image", nil, nil, nil, nil, nil, nil, "test@example.com",
+		context.Background(),
+		&api.RegisterImageRequest{Image: "invalid:image"},
+		"test@example.com",
 	)
 
 	assert.Error(t, registerErr)
@@ -580,7 +602,7 @@ func TestRegisterImage_RunnerGenericError(t *testing.T) {
 		logger,
 		"",
 		nil,
-		nil,
+		&mockSecretsRepository{},
 		nil,
 		enforcer,
 	)
@@ -589,7 +611,9 @@ func TestRegisterImage_RunnerGenericError(t *testing.T) {
 	}
 
 	_, registerErr := service.RegisterImage(
-		context.Background(), "alpine:latest", nil, nil, nil, nil, nil, nil, "test@example.com",
+		context.Background(),
+		&api.RegisterImageRequest{Image: "alpine:latest"},
+		"test@example.com",
 	)
 
 	assert.Error(t, registerErr)
@@ -597,7 +621,7 @@ func TestRegisterImage_RunnerGenericError(t *testing.T) {
 	assert.True(t, errors.As(registerErr, &appErr))
 }
 
-func TestRegisterImage_EmptyRegisteredBy(t *testing.T) {
+func TestRegisterImage_EmptyCreatedBy(t *testing.T) {
 	runner := &mockRunner{
 		registerImageFunc: func(
 			_ context.Context, _ string, _ *bool, _ *string, _ *string,
@@ -618,7 +642,7 @@ func TestRegisterImage_EmptyRegisteredBy(t *testing.T) {
 		logger,
 		"",
 		nil,
-		nil,
+		&mockSecretsRepository{},
 		nil,
 		enforcer,
 	)
@@ -626,12 +650,59 @@ func TestRegisterImage_EmptyRegisteredBy(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, registerErr := service.RegisterImage(context.Background(), "alpine:latest", nil, nil, nil, nil, nil, nil, "")
+	_, registerErr := service.RegisterImage(
+		context.Background(),
+		&api.RegisterImageRequest{Image: "alpine:latest"},
+		"",
+	)
 
 	assert.Error(t, registerErr)
 	var appErr *apperrors.AppError
 	assert.True(t, errors.As(registerErr, &appErr))
-	assert.Contains(t, registerErr.Error(), "registeredBy is required")
+	assert.Contains(t, registerErr.Error(), "createdBy is required")
+	assert.Equal(t, apperrors.ErrCodeInvalidRequest, apperrors.GetErrorCode(registerErr))
+	assert.Equal(t, http.StatusBadRequest, apperrors.GetStatusCode(registerErr))
+}
+
+func TestRegisterImage_NilRequest(t *testing.T) {
+	runner := &mockRunner{
+		registerImageFunc: func(
+			_ context.Context, _ string, _ *bool, _ *string, _ *string,
+			_ *int, _ *int, _ *string, _ string,
+		) error {
+			return nil
+		},
+	}
+	logger := testutil.SilentLogger()
+	enforcer := newTestEnforcer(t)
+
+	service, err := NewService(context.Background(),
+		&mockUserRepository{},
+		&mockExecutionRepository{},
+		&mockConnectionRepository{},
+		&mockTokenRepository{},
+		runner,
+		logger,
+		"",
+		nil,
+		&mockSecretsRepository{},
+		nil,
+		enforcer,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, registerErr := service.RegisterImage(
+		context.Background(),
+		nil,
+		"test@example.com",
+	)
+
+	assert.Error(t, registerErr)
+	var appErr *apperrors.AppError
+	assert.True(t, errors.As(registerErr, &appErr))
+	assert.Contains(t, registerErr.Error(), "request is required")
 	assert.Equal(t, apperrors.ErrCodeInvalidRequest, apperrors.GetErrorCode(registerErr))
 	assert.Equal(t, http.StatusBadRequest, apperrors.GetStatusCode(registerErr))
 }

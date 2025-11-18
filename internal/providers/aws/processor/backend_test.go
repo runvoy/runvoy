@@ -266,7 +266,8 @@ func TestHandleECSTaskCompletion_Success(t *testing.T) {
 	exitCode := 0
 	execution := &api.Execution{
 		ExecutionID: "test-exec-123",
-		UserEmail:   "user@example.com",
+		CreatedBy:   "user@example.com",
+		OwnedBy:     []string{"user@example.com"},
 		Command:     "echo hello",
 		Status:      string(constants.ExecutionRunning),
 		StartedAt:   startTime,
@@ -424,7 +425,8 @@ func TestHandleECSTaskCompletion_MissingStartedAt(t *testing.T) {
 	exitCode := 0
 	execution := &api.Execution{
 		ExecutionID: "test-exec-123",
-		UserEmail:   "user@example.com",
+		CreatedBy:   "user@example.com",
+		OwnedBy:     []string{"user@example.com"},
 		Command:     "echo hello",
 		Status:      string(constants.ExecutionRunning),
 		StartedAt:   startTime,

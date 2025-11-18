@@ -72,7 +72,14 @@ func TestRegisterImage(t *testing.T) {
 			}
 
 			svc := newTestService(nil, nil, runner)
-			resp, err := svc.RegisterImage(ctx, tt.image, tt.isDefault, nil, nil, nil, nil, nil, "test@example.com")
+			resp, err := svc.RegisterImage(
+				ctx,
+				&api.RegisterImageRequest{
+					Image:     tt.image,
+					IsDefault: tt.isDefault,
+				},
+				"test@example.com",
+			)
 
 			if tt.expectErr {
 				require.Error(t, err)
@@ -101,8 +108,10 @@ func TestListImages(t *testing.T) {
 		{
 			name: "successful list with images",
 			mockImages: []api.ImageInfo{
-				{Image: "alpine:latest", IsDefault: boolPtr(true)},
-				{Image: "ubuntu:22.04", IsDefault: boolPtr(false)},
+				{Image: "alpine:latest", ImageID: "alpine:latest", CreatedBy: "test@example.com",
+					OwnedBy: []string{"user@example.com"}},
+				{Image: "ubuntu:22.04", ImageID: "ubuntu:22.04", CreatedBy: "test@example.com",
+					OwnedBy: []string{"user@example.com"}},
 			},
 			runnerErr: nil,
 			expectErr: false,
@@ -124,8 +133,14 @@ func TestListImages(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			callCount := 0
 			runner := &mockRunner{
 				listImagesFunc: func(_ context.Context) ([]api.ImageInfo, error) {
+					callCount++
+					// For error cases, return empty list during initialization, error on test call
+					if tt.expectErr && callCount == 1 {
+						return []api.ImageInfo{}, nil
+					}
 					return tt.mockImages, tt.runnerErr
 				},
 			}

@@ -94,7 +94,8 @@ func TestExecutionRepository_CreateExecution_WithMock(t *testing.T) {
 	execution := &api.Execution{
 		ExecutionID: "exec-123",
 		StartedAt:   time.Now(),
-		UserEmail:   "test@example.com",
+		CreatedBy:   "test@example.com",
+		OwnedBy:     []string{"user@example.com"},
 		Command:     "echo hello",
 		Status:      "running",
 	}

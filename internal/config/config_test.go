@@ -80,6 +80,7 @@ func TestValidateOrchestrator(t *testing.T) {
 				BackendProvider: constants.AWS,
 				AWS: &awsconfig.Config{
 					APIKeysTable:              "api-keys",
+					PendingAPIKeysTable:       "pending-api-keys",
 					ExecutionsTable:           "executions",
 					ImageTaskDefsTable:        "image-taskdefs",
 					ECSCluster:                "cluster",
@@ -111,6 +112,7 @@ func TestValidateOrchestrator(t *testing.T) {
 			cfg: &Config{
 				BackendProvider: constants.AWS,
 				AWS: &awsconfig.Config{
+					PendingAPIKeysTable:       "pending-api-keys",
 					ExecutionsTable:           "executions",
 					ImageTaskDefsTable:        "image-taskdefs",
 					ECSCluster:                "cluster",
@@ -135,6 +137,7 @@ func TestValidateOrchestrator(t *testing.T) {
 				BackendProvider: constants.AWS,
 				AWS: &awsconfig.Config{
 					APIKeysTable:              "api-keys",
+					PendingAPIKeysTable:       "pending-api-keys",
 					ImageTaskDefsTable:        "image-taskdefs",
 					ECSCluster:                "cluster",
 					Subnet1:                   "subnet-1",
@@ -158,6 +161,7 @@ func TestValidateOrchestrator(t *testing.T) {
 				BackendProvider: constants.AWS,
 				AWS: &awsconfig.Config{
 					APIKeysTable:              "api-keys",
+					PendingAPIKeysTable:       "pending-api-keys",
 					ExecutionsTable:           "executions",
 					ImageTaskDefsTable:        "image-taskdefs",
 					Subnet1:                   "subnet-1",
@@ -181,6 +185,7 @@ func TestValidateOrchestrator(t *testing.T) {
 				BackendProvider: constants.AWS,
 				AWS: &awsconfig.Config{
 					APIKeysTable:              "api-keys",
+					PendingAPIKeysTable:       "pending-api-keys",
 					ExecutionsTable:           "executions",
 					ImageTaskDefsTable:        "image-taskdefs",
 					ECSCluster:                "cluster",
@@ -204,6 +209,7 @@ func TestValidateOrchestrator(t *testing.T) {
 				BackendProvider: constants.AWS,
 				AWS: &awsconfig.Config{
 					APIKeysTable:              "api-keys",
+					PendingAPIKeysTable:       "pending-api-keys",
 					ExecutionsTable:           "executions",
 					ImageTaskDefsTable:        "image-taskdefs",
 					ECSCluster:                "cluster",
@@ -227,6 +233,7 @@ func TestValidateOrchestrator(t *testing.T) {
 				BackendProvider: constants.AWS,
 				AWS: &awsconfig.Config{
 					APIKeysTable:              "api-keys",
+					PendingAPIKeysTable:       "pending-api-keys",
 					ExecutionsTable:           "executions",
 					ImageTaskDefsTable:        "image-taskdefs",
 					ECSCluster:                "cluster",
@@ -250,6 +257,7 @@ func TestValidateOrchestrator(t *testing.T) {
 				BackendProvider: constants.AWS,
 				AWS: &awsconfig.Config{
 					APIKeysTable:              "api-keys",
+					PendingAPIKeysTable:       "pending-api-keys",
 					ExecutionsTable:           "executions",
 					ImageTaskDefsTable:        "image-taskdefs",
 					ECSCluster:                "cluster",
@@ -273,6 +281,7 @@ func TestValidateOrchestrator(t *testing.T) {
 				BackendProvider: constants.AWS,
 				AWS: &awsconfig.Config{
 					APIKeysTable:              "api-keys",
+					PendingAPIKeysTable:       "pending-api-keys",
 					ExecutionsTable:           "executions",
 					ImageTaskDefsTable:        "image-taskdefs",
 					ECSCluster:                "cluster",
@@ -296,18 +305,19 @@ func TestValidateOrchestrator(t *testing.T) {
 				BackendProvider: constants.AWS,
 				AWS: &awsconfig.Config{
 					APIKeysTable:         "api-keys",
+					ECSCluster:           "cluster",
 					ExecutionsTable:      "executions",
 					ImageTaskDefsTable:   "image-taskdefs",
-					ECSCluster:           "cluster",
-					Subnet1:              "subnet-1",
-					Subnet2:              "subnet-2",
-					SecurityGroup:        "sg-123",
 					LogGroup:             "/aws/logs/app",
-					WebSocketAPIEndpoint: "https://example.execute-api.us-east-1.amazonaws.com/production",
-					WebSocketTokensTable: "tokens",
+					PendingAPIKeysTable:  "pending-api-keys",
+					SecretsKMSKeyARN:     "arn:aws:kms:us-east-1:123456789012:key/abc",
 					SecretsMetadataTable: "secrets",
 					SecretsPrefix:        "/runvoy/secrets",
-					SecretsKMSKeyARN:     "arn:aws:kms:us-east-1:123456789012:key/abc",
+					SecurityGroup:        "sg-123",
+					Subnet1:              "subnet-1",
+					Subnet2:              "subnet-2",
+					WebSocketAPIEndpoint: "https://example.execute-api.us-east-1.amazonaws.com/production",
+					WebSocketTokensTable: "tokens",
 				},
 			},
 			wantErr: true,
@@ -319,6 +329,7 @@ func TestValidateOrchestrator(t *testing.T) {
 				BackendProvider: constants.AWS,
 				AWS: &awsconfig.Config{
 					APIKeysTable:              "api-keys",
+					PendingAPIKeysTable:       "pending-api-keys",
 					ExecutionsTable:           "executions",
 					ImageTaskDefsTable:        "image-taskdefs",
 					ECSCluster:                "cluster",
@@ -337,11 +348,36 @@ func TestValidateOrchestrator(t *testing.T) {
 			errMsg:  "WebSocketTokensTable cannot be empty",
 		},
 		{
+			name: "missing PendingAPIKeysTable",
+			cfg: &Config{
+				BackendProvider: constants.AWS,
+				AWS: &awsconfig.Config{
+					APIKeysTable:              "api-keys",
+					ExecutionsTable:           "executions",
+					ImageTaskDefsTable:        "image-taskdefs",
+					ECSCluster:                "cluster",
+					Subnet1:                   "subnet-1",
+					Subnet2:                   "subnet-2",
+					SecurityGroup:             "sg-123",
+					LogGroup:                  "/aws/logs/app",
+					WebSocketAPIEndpoint:      "https://example.execute-api.us-east-1.amazonaws.com/production",
+					WebSocketConnectionsTable: "connections",
+					WebSocketTokensTable:      "tokens",
+					SecretsMetadataTable:      "secrets",
+					SecretsPrefix:             "/runvoy/secrets",
+					SecretsKMSKeyARN:          "arn:aws:kms:us-east-1:123456789012:key/abc",
+				},
+			},
+			wantErr: true,
+			errMsg:  "PendingAPIKeysTable cannot be empty",
+		},
+		{
 			name: "missing SecretsMetadataTable",
 			cfg: &Config{
 				BackendProvider: constants.AWS,
 				AWS: &awsconfig.Config{
 					APIKeysTable:              "api-keys",
+					PendingAPIKeysTable:       "pending-api-keys",
 					ExecutionsTable:           "executions",
 					ImageTaskDefsTable:        "image-taskdefs",
 					ECSCluster:                "cluster",
@@ -365,6 +401,7 @@ func TestValidateOrchestrator(t *testing.T) {
 				BackendProvider: constants.AWS,
 				AWS: &awsconfig.Config{
 					APIKeysTable:              "api-keys",
+					PendingAPIKeysTable:       "pending-api-keys",
 					ExecutionsTable:           "executions",
 					ImageTaskDefsTable:        "image-taskdefs",
 					ECSCluster:                "cluster",
@@ -428,6 +465,8 @@ func TestValidateEventProcessor(t *testing.T) {
 			cfg: &Config{
 				BackendProvider: constants.AWS,
 				AWS: &awsconfig.Config{
+					APIKeysTable:              "api-keys",
+					PendingAPIKeysTable:       "pending-api-keys",
 					ExecutionsTable:           "executions",
 					ECSCluster:                "cluster",
 					ImageTaskDefsTable:        "image-taskdefs",
@@ -458,6 +497,8 @@ func TestValidateEventProcessor(t *testing.T) {
 			cfg: &Config{
 				BackendProvider: constants.AWS,
 				AWS: &awsconfig.Config{
+					APIKeysTable:              "api-keys",
+					PendingAPIKeysTable:       "pending-api-keys",
 					ECSCluster:                "cluster",
 					ImageTaskDefsTable:        "image-taskdefs",
 					SecretsMetadataTable:      "secrets",
@@ -479,6 +520,8 @@ func TestValidateEventProcessor(t *testing.T) {
 			cfg: &Config{
 				BackendProvider: constants.AWS,
 				AWS: &awsconfig.Config{
+					APIKeysTable:              "api-keys",
+					PendingAPIKeysTable:       "pending-api-keys",
 					ExecutionsTable:           "executions",
 					ImageTaskDefsTable:        "image-taskdefs",
 					SecretsMetadataTable:      "secrets",
@@ -501,6 +544,7 @@ func TestValidateEventProcessor(t *testing.T) {
 				BackendProvider: constants.AWS,
 				AWS: &awsconfig.Config{
 					APIKeysTable:           "api-keys",
+					PendingAPIKeysTable:    "pending-api-keys",
 					ExecutionsTable:        "executions",
 					ImageTaskDefsTable:     "image-taskdefs",
 					ECSCluster:             "cluster",
@@ -525,6 +569,8 @@ func TestValidateEventProcessor(t *testing.T) {
 			cfg: &Config{
 				BackendProvider: constants.AWS,
 				AWS: &awsconfig.Config{
+					APIKeysTable:              "api-keys",
+					PendingAPIKeysTable:       "pending-api-keys",
 					ExecutionsTable:           "executions",
 					ECSCluster:                "cluster",
 					ImageTaskDefsTable:        "image-taskdefs",
@@ -551,6 +597,8 @@ func TestValidateEventProcessor(t *testing.T) {
 			cfg: &Config{
 				BackendProvider: constants.AWS,
 				AWS: &awsconfig.Config{
+					APIKeysTable:              "api-keys",
+					PendingAPIKeysTable:       "pending-api-keys",
 					ExecutionsTable:           "executions",
 					ECSCluster:                "cluster",
 					ImageTaskDefsTable:        "image-taskdefs",
@@ -573,6 +621,8 @@ func TestValidateEventProcessor(t *testing.T) {
 			cfg: &Config{
 				BackendProvider: constants.AWS,
 				AWS: &awsconfig.Config{
+					APIKeysTable:              "api-keys",
+					PendingAPIKeysTable:       "pending-api-keys",
 					ExecutionsTable:           "executions",
 					ECSCluster:                "cluster",
 					ImageTaskDefsTable:        "image-taskdefs",
@@ -993,6 +1043,8 @@ func TestLoadEventProcessorEnvironmentVariables(t *testing.T) {
 	// Save original env vars
 	originalVars := map[string]string{
 		"RUNVOY_BACKEND_PROVIDER":                os.Getenv("RUNVOY_BACKEND_PROVIDER"),
+		"RUNVOY_AWS_API_KEYS_TABLE":              os.Getenv("RUNVOY_AWS_API_KEYS_TABLE"),
+		"RUNVOY_AWS_PENDING_API_KEYS_TABLE":      os.Getenv("RUNVOY_AWS_PENDING_API_KEYS_TABLE"),
 		"RUNVOY_AWS_EXECUTIONS_TABLE":            os.Getenv("RUNVOY_AWS_EXECUTIONS_TABLE"),
 		"RUNVOY_AWS_ECS_CLUSTER":                 os.Getenv("RUNVOY_AWS_ECS_CLUSTER"),
 		"RUNVOY_AWS_LOG_GROUP":                   os.Getenv("RUNVOY_AWS_LOG_GROUP"),
@@ -1019,6 +1071,8 @@ func TestLoadEventProcessorEnvironmentVariables(t *testing.T) {
 
 	// Set minimal required env vars for event processor
 	_ = os.Setenv("RUNVOY_BACKEND_PROVIDER", "AWS")
+	_ = os.Setenv("RUNVOY_AWS_API_KEYS_TABLE", "test-api-keys")
+	_ = os.Setenv("RUNVOY_AWS_PENDING_API_KEYS_TABLE", "test-pending-api-keys")
 	_ = os.Setenv("RUNVOY_AWS_EXECUTIONS_TABLE", "test-executions")
 	_ = os.Setenv("RUNVOY_AWS_ECS_CLUSTER", "test-cluster")
 	_ = os.Setenv("RUNVOY_AWS_IMAGE_TASKDEFS_TABLE", "test-image-taskdefs")

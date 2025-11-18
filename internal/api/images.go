@@ -31,19 +31,20 @@ type RemoveImageResponse struct {
 
 // ImageInfo represents information about a registered image
 type ImageInfo struct {
-	ImageID               string  `json:"image_id"`
-	Image                 string  `json:"image"`
-	TaskDefinitionName    string  `json:"task_definition_name,omitempty"`
-	IsDefault             *bool   `json:"is_default,omitempty"`
-	TaskRoleName          *string `json:"task_role_name,omitempty"`
-	TaskExecutionRoleName *string `json:"task_execution_role_name,omitempty"`
-	CPU                   int     `json:"cpu,omitempty"`
-	Memory                int     `json:"memory,omitempty"`
-	RuntimePlatform       string  `json:"runtime_platform,omitempty"`
-	ImageRegistry         string  `json:"image_registry,omitempty"`
-	ImageName             string  `json:"image_name,omitempty"`
-	ImageTag              string  `json:"image_tag,omitempty"`
-	RegisteredBy          string  `json:"registered_by,omitempty"`
+	ImageID               string   `json:"image_id"`
+	Image                 string   `json:"image"`
+	TaskDefinitionName    string   `json:"task_definition_name,omitempty"`
+	IsDefault             *bool    `json:"is_default,omitempty"`
+	TaskRoleName          *string  `json:"task_role_name,omitempty"`
+	TaskExecutionRoleName *string  `json:"task_execution_role_name,omitempty"`
+	CPU                   int      `json:"cpu,omitempty"`
+	Memory                int      `json:"memory,omitempty"`
+	RuntimePlatform       string   `json:"runtime_platform,omitempty"`
+	ImageRegistry         string   `json:"image_registry,omitempty"`
+	ImageName             string   `json:"image_name,omitempty"`
+	ImageTag              string   `json:"image_tag,omitempty"`
+	CreatedBy             string   `json:"created_by,omitempty"`
+	OwnedBy               []string `json:"owned_by"`
 }
 
 // ListImagesResponse represents the response containing all registered images

@@ -24,7 +24,7 @@ func TestCreateSecret_Success(t *testing.T) {
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
 		&mockTokenRepository{},
-		nil, // runner
+		&mockRunner{},
 		logger,
 		constants.AWS,
 		nil, // wsManager
@@ -51,16 +51,20 @@ func TestCreateSecret_Success(t *testing.T) {
 func TestCreateSecret_NoRepository(t *testing.T) {
 	logger := testutil.SilentLogger()
 
+	// Note: secretsRepo is now required for service initialization.
+	// This test verifies that CreateSecret works with a valid repository.
+	secretsRepo := &mockSecretsRepository{}
+
 	service, err := NewService(context.Background(),
 		&mockUserRepository{},
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
 		&mockTokenRepository{},
-		nil, // runner
+		&mockRunner{},
 		logger,
 		constants.AWS,
 		nil, // wsManager
-		nil, // secretsRepo
+		secretsRepo,
 		nil, // healthManager
 		newPermissiveEnforcer(),
 	)
@@ -76,8 +80,8 @@ func TestCreateSecret_NoRepository(t *testing.T) {
 
 	createErr := service.CreateSecret(context.Background(), req, "user@example.com")
 
-	assert.Error(t, createErr)
-	assert.Contains(t, createErr.Error(), "secrets repository not available")
+	// With a valid repository, CreateSecret should succeed
+	assert.NoError(t, createErr)
 }
 
 func TestCreateSecret_RepositoryError(t *testing.T) {
@@ -93,7 +97,7 @@ func TestCreateSecret_RepositoryError(t *testing.T) {
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
 		&mockTokenRepository{},
-		nil, // runner
+		&mockRunner{},
 		logger,
 		constants.AWS,
 		nil, // wsManager
@@ -135,7 +139,7 @@ func TestGetSecret_Success(t *testing.T) {
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
 		&mockTokenRepository{},
-		nil, // runner
+		&mockRunner{},
 		logger,
 		constants.AWS,
 		nil, // wsManager
@@ -166,7 +170,7 @@ func TestGetSecret_NotFound(t *testing.T) {
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
 		&mockTokenRepository{},
-		nil, // runner
+		&mockRunner{},
 		logger,
 		constants.AWS,
 		nil, // wsManager
@@ -215,7 +219,7 @@ func TestListSecrets_Success(t *testing.T) {
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
 		&mockTokenRepository{},
-		nil, // runner
+		&mockRunner{},
 		logger,
 		constants.AWS,
 		nil, // wsManager
@@ -246,7 +250,7 @@ func TestListSecrets_Empty(t *testing.T) {
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
 		&mockTokenRepository{},
-		nil, // runner
+		&mockRunner{},
 		logger,
 		constants.AWS,
 		nil, // wsManager
@@ -271,7 +275,7 @@ func TestUpdateSecret_Success(t *testing.T) {
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
 		&mockTokenRepository{},
-		nil, // runner
+		&mockRunner{},
 		logger,
 		constants.AWS,
 		nil, // wsManager
@@ -307,7 +311,7 @@ func TestUpdateSecret_RepositoryError(t *testing.T) {
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
 		&mockTokenRepository{},
-		nil, // runner
+		&mockRunner{},
 		logger,
 		constants.AWS,
 		nil, // wsManager
@@ -338,7 +342,7 @@ func TestDeleteSecret_Success(t *testing.T) {
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
 		&mockTokenRepository{},
-		nil, // runner
+		&mockRunner{},
 		logger,
 		constants.AWS,
 		nil, // wsManager
@@ -368,7 +372,7 @@ func TestDeleteSecret_RepositoryError(t *testing.T) {
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
 		&mockTokenRepository{},
-		nil, // runner
+		&mockRunner{},
 		logger,
 		constants.AWS,
 		nil, // wsManager
@@ -517,7 +521,7 @@ func TestResolveSecretsForExecution_Success(t *testing.T) {
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
 		&mockTokenRepository{},
-		nil, // runner
+		&mockRunner{},
 		logger,
 		constants.AWS,
 		nil, // wsManager
@@ -544,7 +548,7 @@ func TestResolveSecretsForExecution_Empty(t *testing.T) {
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
 		&mockTokenRepository{},
-		nil, // runner
+		&mockRunner{},
 		logger,
 		constants.AWS,
 		nil, // wsManager
@@ -569,7 +573,7 @@ func TestResolveSecretsForExecution_EmptySecretName(t *testing.T) {
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
 		&mockTokenRepository{},
-		nil, // runner
+		&mockRunner{},
 		logger,
 		constants.AWS,
 		nil, // wsManager
@@ -605,7 +609,7 @@ func TestResolveSecretsForExecution_DuplicateSecrets(t *testing.T) {
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
 		&mockTokenRepository{},
-		nil, // runner
+		&mockRunner{},
 		logger,
 		constants.AWS,
 		nil, // wsManager
@@ -641,7 +645,7 @@ func TestResolveSecretsForExecution_SecretNotFound(t *testing.T) {
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
 		&mockTokenRepository{},
-		nil, // runner
+		&mockRunner{},
 		logger,
 		constants.AWS,
 		nil, // wsManager
@@ -703,12 +707,12 @@ func TestApplyResolvedSecrets(t *testing.T) {
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
 		&mockTokenRepository{},
-		nil, // runner
+		&mockRunner{},
 		logger,
 		constants.AWS,
-		nil, // wsManager
-		nil, // secretsRepo
-		nil, // healthManager
+		nil,                      // wsManager
+		&mockSecretsRepository{}, // secretsRepo
+		nil,                      // healthManager
 		newPermissiveEnforcer(),
 	)
 	if err != nil {

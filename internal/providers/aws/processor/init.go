@@ -50,6 +50,7 @@ func Initialize(
 	ssmClient := secrets.NewClientAdapter(ssmSDKClient)
 	iamClient := awsClient.NewIAMClientAdapter(iamSDKClient)
 
+	userRepo := dynamoRepo.NewUserRepository(dynamoClient, cfg.AWS.APIKeysTable, cfg.AWS.PendingAPIKeysTable, log)
 	executionRepo := dynamoRepo.NewExecutionRepository(dynamoClient, cfg.AWS.ExecutionsTable, log)
 	connectionRepo := dynamoRepo.NewConnectionRepository(dynamoClient, cfg.AWS.WebSocketConnectionsTable, log)
 	tokenRepo := dynamoRepo.NewTokenRepository(dynamoClient, cfg.AWS.WebSocketTokensTable, log)
@@ -62,7 +63,7 @@ func Initialize(
 	websocketManager := websocket.Initialize(cfg, connectionRepo, tokenRepo, log)
 
 	healthManager := initializeHealthManager(
-		ctx, &awsCfg, ecsClient, ssmClient, iamClient, imageTaskDefRepo, secretsRepo, cfg, log,
+		ctx, &awsCfg, ecsClient, ssmClient, iamClient, imageTaskDefRepo, secretsRepo, userRepo, executionRepo, cfg, log,
 	)
 
 	log.Debug(fmt.Sprintf("%s %s event processor initialized successfully",
@@ -84,6 +85,8 @@ func initializeHealthManager(
 	iamClient awsClient.IAMClient,
 	imageTaskDefRepo awsHealth.ImageTaskDefRepository,
 	secretsRepo database.SecretsRepository,
+	userRepo database.UserRepository,
+	executionRepo database.ExecutionRepository,
 	cfg *config.Config,
 	log *slog.Logger,
 ) health.Manager {
@@ -107,8 +110,8 @@ func initializeHealthManager(
 		iamClient,
 		imageTaskDefRepo,
 		secretsRepo,
-		nil,
-		nil,
+		userRepo,
+		executionRepo,
 		nil,
 		healthCfg,
 		log,

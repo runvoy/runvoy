@@ -42,17 +42,18 @@ func NewExecutionRepository(client Client, tableName string, log *slog.Logger) *
 // StartedAt is stored as a Unix timestamp (number) as the sort key to avoid timestamp serialization issues.
 // CompletedAt is also stored as a Unix timestamp (number) to maintain consistency.
 type executionItem struct {
-	ExecutionID     string `dynamodbav:"execution_id"`
-	StartedAt       int64  `dynamodbav:"started_at"`
-	UserEmail       string `dynamodbav:"user_email"`
-	Command         string `dynamodbav:"command"`
-	Status          string `dynamodbav:"status"`
-	CompletedAt     *int64 `dynamodbav:"completed_at,omitempty"`
-	ExitCode        int    `dynamodbav:"exit_code,omitempty"`
-	DurationSecs    int    `dynamodbav:"duration_seconds,omitempty"`
-	LogStreamName   string `dynamodbav:"log_stream_name,omitempty"`
-	RequestID       string `dynamodbav:"request_id,omitempty"`
-	ComputePlatform string `dynamodbav:"compute_platform,omitempty"`
+	ExecutionID     string   `dynamodbav:"execution_id"`
+	StartedAt       int64    `dynamodbav:"started_at"`
+	CreatedBy       string   `dynamodbav:"created_by"`
+	OwnedBy         []string `dynamodbav:"owned_by"`
+	Command         string   `dynamodbav:"command"`
+	Status          string   `dynamodbav:"status"`
+	CompletedAt     *int64   `dynamodbav:"completed_at,omitempty"`
+	ExitCode        int      `dynamodbav:"exit_code,omitempty"`
+	DurationSecs    int      `dynamodbav:"duration_seconds,omitempty"`
+	LogStreamName   string   `dynamodbav:"log_stream_name,omitempty"`
+	RequestID       string   `dynamodbav:"request_id,omitempty"`
+	ComputePlatform string   `dynamodbav:"compute_platform,omitempty"`
 }
 
 // toExecutionItem converts an api.Execution to an executionItem.
@@ -60,7 +61,8 @@ func toExecutionItem(e *api.Execution) *executionItem {
 	item := &executionItem{
 		ExecutionID:     e.ExecutionID,
 		StartedAt:       e.StartedAt.Unix(),
-		UserEmail:       e.UserEmail,
+		CreatedBy:       e.CreatedBy,
+		OwnedBy:         e.OwnedBy,
 		Command:         e.Command,
 		Status:          e.Status,
 		ExitCode:        e.ExitCode,
@@ -81,7 +83,8 @@ func (e *executionItem) toAPIExecution() *api.Execution {
 	exec := &api.Execution{
 		ExecutionID:     e.ExecutionID,
 		StartedAt:       time.Unix(e.StartedAt, 0).UTC(),
-		UserEmail:       e.UserEmail,
+		CreatedBy:       e.CreatedBy,
+		OwnedBy:         e.OwnedBy,
 		Command:         e.Command,
 		Status:          e.Status,
 		ExitCode:        e.ExitCode,
@@ -114,7 +117,7 @@ func (r *ExecutionRepository) CreateExecution(ctx context.Context, execution *ap
 		"operation":    "DynamoDB.PutItem",
 		"table":        r.tableName,
 		"execution_id": execution.ExecutionID,
-		"user_email":   execution.UserEmail,
+		"created_by":   execution.CreatedBy,
 		"status":       execution.Status,
 	})
 

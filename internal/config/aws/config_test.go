@@ -100,6 +100,7 @@ func TestValidateOrchestrator(t *testing.T) {
 	t.Run("missing ECSCluster", func(t *testing.T) {
 		cfg := &Config{
 			APIKeysTable:              "keys",
+			PendingAPIKeysTable:       "pending-keys",
 			ExecutionsTable:           "executions",
 			ImageTaskDefsTable:        "image-taskdefs",
 			LogGroup:                  "logs",
@@ -121,6 +122,7 @@ func TestValidateOrchestrator(t *testing.T) {
 	t.Run("valid config", func(t *testing.T) {
 		cfg := &Config{
 			APIKeysTable:              "keys",
+			PendingAPIKeysTable:       "pending-keys",
 			ECSCluster:                "cluster",
 			ExecutionsTable:           "executions",
 			ImageTaskDefsTable:        "image-taskdefs",
@@ -159,6 +161,8 @@ func TestValidateEventProcessor(t *testing.T) {
 
 	t.Run("missing ECSCluster", func(t *testing.T) {
 		cfg := &Config{
+			APIKeysTable:              "api-keys",
+			PendingAPIKeysTable:       "pending-api-keys",
 			ExecutionsTable:           "executions",
 			ImageTaskDefsTable:        "image-taskdefs",
 			SecretsMetadataTable:      "secrets",
@@ -178,6 +182,8 @@ func TestValidateEventProcessor(t *testing.T) {
 
 	t.Run("missing ExecutionsTable", func(t *testing.T) {
 		cfg := &Config{
+			APIKeysTable:              "api-keys",
+			PendingAPIKeysTable:       "pending-api-keys",
 			ECSCluster:                "cluster",
 			ImageTaskDefsTable:        "image-taskdefs",
 			SecretsMetadataTable:      "secrets",
@@ -197,6 +203,8 @@ func TestValidateEventProcessor(t *testing.T) {
 
 	t.Run("valid config and normalization", func(t *testing.T) {
 		cfg := &Config{
+			APIKeysTable:              "api-keys",
+			PendingAPIKeysTable:       "pending-api-keys",
 			ECSCluster:                "cluster",
 			ExecutionsTable:           "executions",
 			ImageTaskDefsTable:        "image-taskdefs",
@@ -218,6 +226,8 @@ func TestValidateEventProcessor(t *testing.T) {
 
 	t.Run("endpoint already normalized", func(t *testing.T) {
 		cfg := &Config{
+			APIKeysTable:              "api-keys",
+			PendingAPIKeysTable:       "pending-api-keys",
 			ECSCluster:                "cluster",
 			ExecutionsTable:           "executions",
 			ImageTaskDefsTable:        "image-taskdefs",

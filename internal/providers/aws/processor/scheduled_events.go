@@ -23,11 +23,6 @@ func (p *Processor) handleScheduledEvent(
 	event *events.CloudWatchEvent,
 	reqLogger *slog.Logger,
 ) error {
-	if p.healthManager == nil {
-		reqLogger.Warn("event handler not available, skipping scheduled event")
-		return nil
-	}
-
 	if event.Source != "aws.events" {
 		reqLogger.Warn("ignoring scheduled event from unexpected source",
 			"context", map[string]string{

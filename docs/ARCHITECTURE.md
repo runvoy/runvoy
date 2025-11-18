@@ -366,8 +366,10 @@ Four predefined roles control access to different resources:
 #### Resource Ownership
 
 For fine-grained access control, resources track ownership:
-- **Secrets**: The creator is marked as owner during creation, and ownership entries are removed when a secret is deleted (runtime updates keep the enforcer in sync).
-- **Executions**: Executor ownerships are hydrated at startup and immediately recorded every time a new execution record is created.
+- **Secrets**: The creator is marked as owner during creation (`created_by`), and the `owned_by` list is initialized with the creator. Ownership entries are removed when a secret is deleted (runtime updates keep the enforcer in sync).
+- **Executions**: The executor is marked as creator (`created_by`), and the `owned_by` list is initialized with the creator. Ownerships are hydrated at startup and immediately recorded every time a new execution record is created.
+- **Images**: The user who registers an image is marked as creator (`created_by`), and the `owned_by` list is initialized with the creator.
+- All resources maintain a `created_by` field (immutable, set at creation) and an `owned_by` list (can be modified to add/remove owners).
 - Owners can access their resources with full permissions via the resource-owner (g2) matcher in Casbin.
 - Ownership mappings hydrate at startup and are refreshed continuously as secrets/executions change so long-lived processes stay accurate, even outside Lambda.
 
@@ -771,7 +773,7 @@ Runvoy includes a first-party secrets store so admins can centralize credentials
 
 ### Components
 
-- **Metadata repository (`SecretsMetadataTable`)**: DynamoDB table keyed by `secret_name`. Stores the environment variable binding (`key_name`), description, and audit fields (`created_by`, `created_at`, `updated_by`, `updated_at`). Conditional writes prevent accidental overwrites.
+- **Metadata repository (`SecretsMetadataTable`)**: DynamoDB table keyed by `secret_name`. Stores the environment variable binding (`key_name`), description, ownership fields (`created_by`, `owned_by`), and audit fields (`created_at`, `updated_by`, `updated_at`). Conditional writes prevent accidental overwrites.
 - **Value store (Parameter Store)**: Secrets are persisted under the configurable prefix (default `/runvoy/secrets/{name}`) using SecureString entries encrypted with `SecretsKmsKey`. Every rotation creates a new Parameter Store version while the CLI/API always surfaces the latest value.
 - **Dedicated KMS key**: CloudFormation provisions a scoped CMK and alias for secrets. Lambda execution roles have permission to encrypt/decrypt with this key only for the configured prefix.
 
@@ -1801,7 +1803,8 @@ Stores execution records for all command runs.
 - `execution_id` (String) - Primary key, unique execution identifier
 - `started_at` (Number) - Unix timestamp when execution started (used as sort key in GSI)
 - `_all` (String) - Constant value ("1") used as partition key in `all-started_at` GSI for querying all executions
-- `user_email` (String) - Email of the user who ran the execution
+- `created_by` (String) - Email of the user who created/ran the execution
+- `owned_by` (List of Strings) - List of user emails who own this execution (includes creator)
 - `command` (String) - The command that was executed
 - `lock_name` (String, optional) - Lock name if specified
 - `completed_at` (String, optional) - ISO 8601 timestamp when execution completed
