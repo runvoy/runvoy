@@ -13,7 +13,7 @@ import (
 	"runvoy/internal/auth/authorization"
 	"runvoy/internal/backend/orchestrator"
 	"runvoy/internal/constants"
-	apperrors "runvoy/internal/errors"
+	appErrors "runvoy/internal/errors"
 	"runvoy/internal/testutil"
 
 	"github.com/stretchr/testify/assert"
@@ -306,17 +306,17 @@ func TestHandleRunCommandStructure(t *testing.T) {
 
 // TestErrorCodeForbidden tests that 403 Forbidden is properly returned
 func TestErrorCodeForbidden(t *testing.T) {
-	err := apperrors.ErrForbidden("access denied", nil)
+	err := appErrors.ErrForbidden("access denied", nil)
 	assert.Equal(t, http.StatusForbidden, err.StatusCode)
-	assert.Equal(t, apperrors.ErrCodeForbidden, err.Code)
+	assert.Equal(t, appErrors.ErrCodeForbidden, err.Code)
 	assert.Equal(t, "access denied", err.Message)
 }
 
 // TestErrorCodeUnauthorized tests that 401 Unauthorized is properly returned
 func TestErrorCodeUnauthorized(t *testing.T) {
-	err := apperrors.ErrUnauthorized("not authenticated", nil)
+	err := appErrors.ErrUnauthorized("not authenticated", nil)
 	assert.Equal(t, http.StatusUnauthorized, err.StatusCode)
-	assert.Equal(t, apperrors.ErrCodeUnauthorized, err.Code)
+	assert.Equal(t, appErrors.ErrCodeUnauthorized, err.Code)
 }
 
 // Role-based Authorization Tests
