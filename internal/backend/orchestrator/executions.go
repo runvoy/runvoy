@@ -15,16 +15,19 @@ import (
 )
 
 // ValidateExecutionResourceAccess checks if a user can access all resources required for execution.
-// Validates access to the image and all secrets referenced in the execution request.
+// Validates access to the resolved image and all secrets referenced in the execution request.
 // Returns an error if the user lacks access to any required resource.
+// resolvedImage: the resolved ImageInfo (can be nil if no image specified and no default configured)
 func (s *Service) ValidateExecutionResourceAccess(
 	userEmail string,
 	req *api.ExecutionRequest,
+	resolvedImage *api.ImageInfo,
 ) error {
 	enforcer := s.GetEnforcer()
 
-	if image := strings.TrimSpace(req.Image); image != "" {
-		imagePath := fmt.Sprintf("/api/v1/images/%s", image)
+	if resolvedImage != nil {
+		// Validate access using the resolved imageID, not the user-provided string
+		imagePath := fmt.Sprintf("/api/v1/images/%s", resolvedImage.ImageID)
 		allowed, err := enforcer.Enforce(userEmail, imagePath, authorization.ActionRead)
 		if err != nil {
 			return apperrors.ErrInternalError(
@@ -35,8 +38,9 @@ func (s *Service) ValidateExecutionResourceAccess(
 		if !allowed {
 			return apperrors.ErrForbidden(
 				fmt.Sprintf(
-					"you do not have permission to execute with image %q",
-					image,
+					"you do not have permission to execute with image %q (resolved to %s)",
+					req.Image,
+					resolvedImage.ImageID,
 				),
 				nil,
 			)
@@ -72,15 +76,25 @@ func (s *Service) ValidateExecutionResourceAccess(
 }
 
 // RunCommand starts a provider-specific task and records the execution.
-// Resolve secret references to environment variables before starting the task.
+// Resolves the image early, validates authorization, and resolves secret references.
 // Set execution status to STARTING after the task has been accepted by the provider.
+// resolvedImage: pre-resolved ImageInfo from the handler (already authorized)
 func (s *Service) RunCommand(
 	ctx context.Context,
 	userEmail string,
 	req *api.ExecutionRequest,
+	resolvedImage *api.ImageInfo,
 ) (*api.ExecutionResponse, error) {
 	if req.Command == "" {
 		return nil, apperrors.ErrBadRequest("command is required", nil)
+	}
+
+	// Store original user-provided image string
+	originalImage := req.Image
+
+	// Replace req.Image with resolved imageID for runner
+	if resolvedImage != nil {
+		req.Image = resolvedImage.ImageID
 	}
 
 	secretEnvVars, err := s.resolveSecretsForExecution(ctx, req.Secrets)
@@ -100,10 +114,23 @@ func (s *Service) RunCommand(
 		return nil, fmt.Errorf("failed to record execution: %w", execErr)
 	}
 
-	return &api.ExecutionResponse{
+	response := &api.ExecutionResponse{
 		ExecutionID: executionID,
 		Status:      string(constants.ExecutionStarting),
-	}, nil
+	}
+
+	// Add resolved image info to response
+	if resolvedImage != nil {
+		response.ResolvedImageID = resolvedImage.ImageID
+		response.ResolvedImageName = resolvedImage.ImageName
+		response.ResolvedImageTag = resolvedImage.ImageTag
+		response.ResolvedImage = resolvedImage.Image
+	} else if originalImage != "" {
+		// If user provided an image but it wasn't resolved, include what they provided
+		response.ResolvedImage = originalImage
+	}
+
+	return response, nil
 }
 
 func (s *Service) recordExecution(

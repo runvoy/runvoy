@@ -29,7 +29,26 @@ func (r *Router) handleRunCommand(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	if err := r.svc.ValidateExecutionResourceAccess(user.Email, &execReq); err != nil {
+	// Resolve image early before authorization
+	resolvedImage, err := r.svc.ResolveImage(req.Context(), execReq.Image)
+	if err != nil {
+		statusCode := apperrors.GetStatusCode(err)
+		errorCode := apperrors.GetErrorCode(err)
+		errorDetails := apperrors.GetErrorDetails(err)
+
+		logger.Error("failed to resolve image", "context", map[string]string{
+			"error":       err.Error(),
+			"status_code": strconv.Itoa(statusCode),
+			"error_code":  errorCode,
+			"image":       execReq.Image,
+		})
+
+		writeErrorResponseWithCode(w, statusCode, errorCode, "failed to resolve image", errorDetails)
+		return
+	}
+
+	// Validate access to resolved image
+	if err := r.svc.ValidateExecutionResourceAccess(user.Email, &execReq, resolvedImage); err != nil {
 		statusCode := apperrors.GetStatusCode(err)
 		errorCode := apperrors.GetErrorCode(err)
 		errorDetails := apperrors.GetErrorDetails(err)
@@ -44,7 +63,8 @@ func (r *Router) handleRunCommand(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	resp, err := r.svc.RunCommand(req.Context(), user.Email, &execReq)
+	// Run command with resolved image
+	resp, err := r.svc.RunCommand(req.Context(), user.Email, &execReq, resolvedImage)
 	if err != nil {
 		statusCode := apperrors.GetStatusCode(err)
 		errorCode := apperrors.GetErrorCode(err)

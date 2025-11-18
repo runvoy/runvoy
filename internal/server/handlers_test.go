@@ -426,7 +426,21 @@ func TestHandleRunCommand_WithImage_ValidatesAuthorization(t *testing.T) {
 		},
 	}
 	execRepo := &testExecutionRepository{}
-	runner := &testRunner{}
+	runner := &testRunner{
+		getImageFunc: func(image string) (*api.ImageInfo, error) {
+			if image == "" || image == "ubuntu:22.04" {
+				isDefault := false
+				return &api.ImageInfo{
+					ImageID:   "ubuntu:22.04-a1b2c3d4",
+					Image:     "ubuntu:22.04",
+					ImageName: "ubuntu",
+					ImageTag:  "22.04",
+					IsDefault: &isDefault,
+				}, nil
+			}
+			return nil, nil
+		},
+	}
 
 	// Use developer role which has execute permission and access to images
 	enf, err := authorization.NewEnforcer(testutil.SilentLogger())
@@ -530,7 +544,21 @@ func TestHandleRunCommand_AllResourcesAuthorized(t *testing.T) {
 		},
 	}
 	execRepo := &testExecutionRepository{}
-	runner := &testRunner{}
+	runner := &testRunner{
+		getImageFunc: func(image string) (*api.ImageInfo, error) {
+			if image == "" || image == "python:3.9" {
+				isDefault := false
+				return &api.ImageInfo{
+					ImageID:   "python:3.9-a1b2c3d4",
+					Image:     "python:3.9",
+					ImageName: "python",
+					ImageTag:  "3.9",
+					IsDefault: &isDefault,
+				}, nil
+			}
+			return nil, nil
+		},
+	}
 
 	// Use developer role which has access to images and secrets (per policy.csv)
 	enf, err := authorization.NewEnforcer(testutil.SilentLogger())
