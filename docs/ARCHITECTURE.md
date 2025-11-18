@@ -348,10 +348,9 @@ Four predefined roles control access to different resources:
 - Authorization is enforced at the middleware level, before handlers are invoked
 - The authorization middleware automatically maps HTTP methods and paths to authorization actions:
   - `GET` → `read` action
-  - `POST` → `create` action (except special cases)
+  - `POST` → `create` action
   - `PUT` → `update` action
   - `DELETE` → `delete` action
-  - Special cases: `/api/v1/run` (POST → `execute`), `/api/v1/health/reconcile` (POST → `execute`)
 - Enforces role-based permissions via Casbin RBAC model
 - Returns `403 Forbidden` with `FORBIDDEN` error code when access is denied
 - Returns `401 Unauthorized` with `UNAUTHORIZED` error code when unauthenticated
@@ -379,7 +378,7 @@ For fine-grained access control, resources track ownership:
    - Authentication middleware validates API key and adds user to context
    - Authorization middleware automatically maps HTTP method + path to action and checks permission via Casbin
    - If authorized, request proceeds to handler; if denied, request is rejected with `403 Forbidden`
-   - For `/run` endpoint: After general `execute` permission check in middleware, handler layer validates access to specific resources (image, secrets) via `ValidateExecutionResourceAccess()`
+   - For `/run` endpoint: After general `create` permission check in middleware, handler layer validates access to specific resources (image, secrets) via `ValidateExecutionResourceAccess()`
 3. **Access Denied**: Request is rejected at middleware level with appropriate HTTP status and error code before handlers are invoked
 4. **Runtime Sync**:
    - User role assignments are pushed to the enforcer when users are created or revoked.
