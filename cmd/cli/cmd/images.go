@@ -3,7 +3,6 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"runvoy/internal/api"
 	"runvoy/internal/client"
 	"runvoy/internal/client/output"
@@ -92,11 +91,6 @@ func init() {
 
 func registerImageRun(cmd *cobra.Command, args []string) {
 	image := args[0]
-	cfg, err := getConfigFromContext(cmd)
-	if err != nil {
-		output.Errorf("failed to load configuration: %v", err)
-		return
-	}
 
 	var isDefault *bool
 	if cmd.Flags().Changed("set-default") {
@@ -138,57 +132,33 @@ func registerImageRun(cmd *cobra.Command, args []string) {
 		runtimePlatform = &registerImageRuntimePlatform
 	}
 
-	c := client.New(cfg, slog.Default())
-	service := NewImagesService(c, NewOutputWrapper())
-	if err = service.RegisterImage(
-		cmd.Context(), image, isDefault, taskRoleName, taskExecutionRoleName, cpu, memory, runtimePlatform,
-	); err != nil {
-		output.Errorf(err.Error())
-	}
+	executeWithClient(cmd, func(ctx context.Context, c client.Interface) error {
+		service := NewImagesService(c, NewOutputWrapper())
+		return service.RegisterImage(ctx, image, isDefault, taskRoleName, taskExecutionRoleName, cpu, memory, runtimePlatform)
+	})
 }
 
 func listImagesRun(cmd *cobra.Command, _ []string) {
-	cfg, err := getConfigFromContext(cmd)
-	if err != nil {
-		output.Errorf("failed to load configuration: %v", err)
-		return
-	}
-
-	c := client.New(cfg, slog.Default())
-	service := NewImagesService(c, NewOutputWrapper())
-	if err = service.ListImages(cmd.Context()); err != nil {
-		output.Errorf(err.Error())
-	}
+	executeWithClient(cmd, func(ctx context.Context, c client.Interface) error {
+		service := NewImagesService(c, NewOutputWrapper())
+		return service.ListImages(ctx)
+	})
 }
 
 func showImageRun(cmd *cobra.Command, args []string) {
 	image := args[0]
-	cfg, err := getConfigFromContext(cmd)
-	if err != nil {
-		output.Errorf("failed to load configuration: %v", err)
-		return
-	}
-
-	c := client.New(cfg, slog.Default())
-	service := NewImagesService(c, NewOutputWrapper())
-	if err = service.ShowImage(cmd.Context(), image); err != nil {
-		output.Errorf(err.Error())
-	}
+	executeWithClient(cmd, func(ctx context.Context, c client.Interface) error {
+		service := NewImagesService(c, NewOutputWrapper())
+		return service.ShowImage(ctx, image)
+	})
 }
 
 func unregisterImageRun(cmd *cobra.Command, args []string) {
 	image := args[0]
-	cfg, err := getConfigFromContext(cmd)
-	if err != nil {
-		output.Errorf("failed to load configuration: %v", err)
-		return
-	}
-
-	c := client.New(cfg, slog.Default())
-	service := NewImagesService(c, NewOutputWrapper())
-	if err = service.UnregisterImage(cmd.Context(), image); err != nil {
-		output.Errorf(err.Error())
-	}
+	executeWithClient(cmd, func(ctx context.Context, c client.Interface) error {
+		service := NewImagesService(c, NewOutputWrapper())
+		return service.UnregisterImage(ctx, image)
+	})
 }
 
 // ImagesService handles image management logic

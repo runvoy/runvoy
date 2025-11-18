@@ -3,12 +3,10 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"time"
 
 	"runvoy/internal/api"
 	"runvoy/internal/client"
-	"runvoy/internal/client/output"
 	"runvoy/internal/constants"
 
 	"github.com/spf13/cobra"
@@ -27,17 +25,10 @@ func init() {
 }
 
 func runListUsers(cmd *cobra.Command, _ []string) {
-	cfg, err := getConfigFromContext(cmd)
-	if err != nil {
-		output.Errorf("failed to load configuration: %v", err)
-		return
-	}
-
-	c := client.New(cfg, slog.Default())
-	service := NewUsersService(c, NewOutputWrapper())
-	if err = service.ListUsers(cmd.Context()); err != nil {
-		output.Errorf(err.Error())
-	}
+	executeWithClient(cmd, func(ctx context.Context, c client.Interface) error {
+		service := NewUsersService(c, NewOutputWrapper())
+		return service.ListUsers(ctx)
+	})
 }
 
 var revokeUserCmd = &cobra.Command{
@@ -48,18 +39,11 @@ var revokeUserCmd = &cobra.Command{
 }
 
 func runRevokeUser(cmd *cobra.Command, args []string) {
-	cfg, err := getConfigFromContext(cmd)
-	if err != nil {
-		output.Errorf("failed to load configuration: %v", err)
-		return
-	}
 	email := args[0]
-
-	c := client.New(cfg, slog.Default())
-	service := NewUsersService(c, NewOutputWrapper())
-	if err = service.RevokeUser(cmd.Context(), email); err != nil {
-		output.Errorf(err.Error())
-	}
+	executeWithClient(cmd, func(ctx context.Context, c client.Interface) error {
+		service := NewUsersService(c, NewOutputWrapper())
+		return service.RevokeUser(ctx, email)
+	})
 }
 
 func init() {
@@ -91,18 +75,11 @@ func init() {
 }
 
 func runCreateUser(cmd *cobra.Command, args []string) {
-	cfg, err := getConfigFromContext(cmd)
-	if err != nil {
-		output.Errorf("failed to load configuration: %v", err)
-		return
-	}
 	email := args[0]
-
-	c := client.New(cfg, slog.Default())
-	service := NewUsersService(c, NewOutputWrapper())
-	if err = service.CreateUser(cmd.Context(), email, userRole); err != nil {
-		output.Errorf(err.Error())
-	}
+	executeWithClient(cmd, func(ctx context.Context, c client.Interface) error {
+		service := NewUsersService(c, NewOutputWrapper())
+		return service.CreateUser(ctx, email, userRole)
+	})
 }
 
 // UsersService handles user management logic

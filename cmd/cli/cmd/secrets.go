@@ -3,13 +3,11 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"strings"
 	"time"
 
 	"runvoy/internal/api"
 	"runvoy/internal/client"
-	"runvoy/internal/client/output"
 	"runvoy/internal/constants"
 
 	"github.com/spf13/cobra"
@@ -45,20 +43,13 @@ func init() {
 }
 
 func runCreateSecret(cmd *cobra.Command, args []string) {
-	cfg, err := getConfigFromContext(cmd)
-	if err != nil {
-		output.Errorf("failed to load configuration: %v", err)
-		return
-	}
 	name := args[0]
 	keyName := args[1]
 	value := args[2]
-
-	c := client.New(cfg, slog.Default())
-	service := NewSecretsService(c, NewOutputWrapper())
-	if err = service.CreateSecret(cmd.Context(), name, keyName, value, createSecretDescription); err != nil {
-		output.Errorf(err.Error())
-	}
+	executeWithClient(cmd, func(ctx context.Context, c client.Interface) error {
+		service := NewSecretsService(c, NewOutputWrapper())
+		return service.CreateSecret(ctx, name, keyName, value, createSecretDescription)
+	})
 }
 
 var getSecretCmd = &cobra.Command{
@@ -75,18 +66,11 @@ func init() {
 }
 
 func runGetSecret(cmd *cobra.Command, args []string) {
-	cfg, err := getConfigFromContext(cmd)
-	if err != nil {
-		output.Errorf("failed to load configuration: %v", err)
-		return
-	}
 	name := args[0]
-
-	c := client.New(cfg, slog.Default())
-	service := NewSecretsService(c, NewOutputWrapper())
-	if err = service.GetSecret(cmd.Context(), name); err != nil {
-		output.Errorf(err.Error())
-	}
+	executeWithClient(cmd, func(ctx context.Context, c client.Interface) error {
+		service := NewSecretsService(c, NewOutputWrapper())
+		return service.GetSecret(ctx, name)
+	})
 }
 
 var listSecretsCmd = &cobra.Command{
@@ -102,17 +86,10 @@ func init() {
 }
 
 func runListSecrets(cmd *cobra.Command, _ []string) {
-	cfg, err := getConfigFromContext(cmd)
-	if err != nil {
-		output.Errorf("failed to load configuration: %v", err)
-		return
-	}
-
-	c := client.New(cfg, slog.Default())
-	service := NewSecretsService(c, NewOutputWrapper())
-	if err = service.ListSecrets(cmd.Context()); err != nil {
-		output.Errorf(err.Error())
-	}
+	executeWithClient(cmd, func(ctx context.Context, c client.Interface) error {
+		service := NewSecretsService(c, NewOutputWrapper())
+		return service.ListSecrets(ctx)
+	})
 }
 
 var updateSecretCmd = &cobra.Command{
@@ -151,24 +128,11 @@ func init() {
 }
 
 func runUpdateSecret(cmd *cobra.Command, args []string) {
-	cfg, err := getConfigFromContext(cmd)
-	if err != nil {
-		output.Errorf("failed to load configuration: %v", err)
-		return
-	}
 	name := args[0]
-
-	c := client.New(cfg, slog.Default())
-	service := NewSecretsService(c, NewOutputWrapper())
-	if err = service.UpdateSecret(
-		cmd.Context(),
-		name,
-		updateSecretKeyName,
-		updateSecretValue,
-		updateSecretDescription,
-	); err != nil {
-		output.Errorf(err.Error())
-	}
+	executeWithClient(cmd, func(ctx context.Context, c client.Interface) error {
+		service := NewSecretsService(c, NewOutputWrapper())
+		return service.UpdateSecret(ctx, name, updateSecretKeyName, updateSecretValue, updateSecretDescription)
+	})
 }
 
 var deleteSecretCmd = &cobra.Command{
@@ -185,18 +149,11 @@ func init() {
 }
 
 func runDeleteSecret(cmd *cobra.Command, args []string) {
-	cfg, err := getConfigFromContext(cmd)
-	if err != nil {
-		output.Errorf("failed to load configuration: %v", err)
-		return
-	}
 	name := args[0]
-
-	c := client.New(cfg, slog.Default())
-	service := NewSecretsService(c, NewOutputWrapper())
-	if err = service.DeleteSecret(cmd.Context(), name); err != nil {
-		output.Errorf(err.Error())
-	}
+	executeWithClient(cmd, func(ctx context.Context, c client.Interface) error {
+		service := NewSecretsService(c, NewOutputWrapper())
+		return service.DeleteSecret(ctx, name)
+	})
 }
 
 // SecretsService handles secrets management logic
