@@ -129,6 +129,11 @@ func (e *Runner) registerNewImage(
 
 	taskRoleARN, taskExecRoleARN := e.buildRoleARNs(taskRoleName, taskExecutionRoleName, region)
 
+	shouldBeDefault, err := e.determineDefaultStatus(ctx, isDefault)
+	if err != nil {
+		return "", "", err
+	}
+
 	taskDefARN, err = e.registerTaskDefinitionWithRoles(
 		ctx,
 		family,
@@ -139,15 +144,11 @@ func (e *Runner) registerNewImage(
 		cpu,
 		memory,
 		runtimePlatform,
+		shouldBeDefault,
 		reqLogger,
 	)
 	if err != nil {
 		return "", "", fmt.Errorf("failed to register ECS task definition: %w", err)
-	}
-
-	shouldBeDefault, err := e.determineDefaultStatus(ctx, isDefault)
-	if err != nil {
-		return "", "", err
 	}
 
 	if shouldBeDefault {
@@ -342,6 +343,7 @@ func (e *Runner) registerTaskDefinitionWithRoles(
 	region string,
 	cpu, memory int,
 	runtimePlatform string,
+	isDefault bool,
 	reqLogger *slog.Logger,
 ) (string, error) {
 	registerInput := BuildTaskDefinitionInput(
@@ -378,7 +380,11 @@ func (e *Runner) registerTaskDefinitionWithRoles(
 
 	taskDefARN := *output.TaskDefinition.TaskDefinitionArn
 
-	tags := ecsdefs.BuildTaskDefinitionTags(image, nil)
+	var isDefaultPtr *bool
+	if isDefault {
+		isDefaultPtr = awsStd.Bool(true)
+	}
+	tags := ecsdefs.BuildTaskDefinitionTags(image, isDefaultPtr)
 	if len(tags) > 0 {
 		tagLogArgs := []any{
 			"operation", "ECS.TagResource",
