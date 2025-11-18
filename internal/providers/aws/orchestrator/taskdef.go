@@ -280,8 +280,6 @@ func deregisterAllTaskDefRevisions(
 }
 
 // markLastRemainingImageAsDefault marks the last remaining image as default if needed.
-//
-//nolint:funlen // Complex AWS API orchestration
 func markLastRemainingImageAsDefault(
 	ctx context.Context, ecsClient awsClient.ECSClient, family string, log *slog.Logger,
 ) error {
@@ -292,33 +290,7 @@ func markLastRemainingImageAsDefault(
 		return nil
 	}
 
-	remainingImages := make(map[string]string)
-	for _, taskDefARN := range remainingTaskDefs {
-		descOutput, descErr := ecsClient.DescribeTaskDefinition(ctx, &ecs.DescribeTaskDefinitionInput{
-			TaskDefinition: awsStd.String(taskDefARN),
-		})
-		if descErr != nil {
-			log.Error("failed to describe task definition", "context", map[string]string{
-				"family": family,
-				"arn":    taskDefARN,
-				"error":  descErr.Error(),
-			})
-			continue
-		}
-
-		if descOutput.TaskDefinition == nil {
-			continue
-		}
-
-		for i := range descOutput.TaskDefinition.ContainerDefinitions {
-			container := &descOutput.TaskDefinition.ContainerDefinitions[i]
-			if container.Name != nil && *container.Name == awsConstants.RunnerContainerName && container.Image != nil {
-				remainingImages[*container.Image] = taskDefARN
-				break
-			}
-		}
-	}
-
+	remainingImages := extractRemainingImages(ctx, ecsClient, remainingTaskDefs, family, log)
 	if len(remainingImages) == 1 {
 		var lastImage string
 		var lastTaskDefARN string
@@ -330,35 +302,102 @@ func markLastRemainingImageAsDefault(
 		log.Info("only one image remaining after removing default, marking it as default",
 			"image", lastImage)
 
-		tags := []ecsTypes.Tag{
-			{
-				Key:   awsStd.String(awsConstants.TaskDefinitionIsDefaultTagKey),
-				Value: awsStd.String(awsConstants.TaskDefinitionIsDefaultTagValue),
-			},
-			{
-				Key:   awsStd.String(awsConstants.TaskDefinitionDockerImageTagKey),
-				Value: awsStd.String(lastImage),
-			},
-		}
-
-		_, tagErr := ecsClient.TagResource(ctx, &ecs.TagResourceInput{
-			ResourceArn: awsStd.String(lastTaskDefARN),
-			Tags:        tags,
-		})
-		if tagErr != nil {
-			log.Warn("failed to tag last remaining image as default", "context", map[string]string{
-				"image": lastImage,
-				"arn":   lastTaskDefARN,
-				"error": tagErr.Error(),
-			})
-		} else {
-			log.Info("marked last remaining image as default", "context", map[string]string{
-				"image": lastImage,
-				"arn":   lastTaskDefARN,
-			})
-		}
+		tagImageAsDefault(ctx, ecsClient, lastImage, lastTaskDefARN, log)
 	}
 	return nil
+}
+
+// extractRemainingImages extracts image-to-task-definition mappings from the given task definition ARNs.
+// Returns a map of image names to task definition ARNs.
+func extractRemainingImages(
+	ctx context.Context,
+	ecsClient awsClient.ECSClient,
+	taskDefARNs []string,
+	family string,
+	log *slog.Logger,
+) map[string]string {
+	remainingImages := make(map[string]string)
+	for _, taskDefARN := range taskDefARNs {
+		image, err := extractImageFromTaskDefinition(ctx, ecsClient, taskDefARN, family, log)
+		if err != nil {
+			continue
+		}
+		if image != "" {
+			remainingImages[image] = taskDefARN
+		}
+	}
+	return remainingImages
+}
+
+// extractImageFromTaskDefinition extracts the runner container image from a task definition.
+// Returns the image name and nil error on success, or empty string and error on failure.
+func extractImageFromTaskDefinition(
+	ctx context.Context,
+	ecsClient awsClient.ECSClient,
+	taskDefARN string,
+	family string,
+	log *slog.Logger,
+) (string, error) {
+	descOutput, err := ecsClient.DescribeTaskDefinition(ctx, &ecs.DescribeTaskDefinitionInput{
+		TaskDefinition: awsStd.String(taskDefARN),
+	})
+	if err != nil {
+		log.Error("failed to describe task definition", "context", map[string]string{
+			"family": family,
+			"arn":    taskDefARN,
+			"error":  err.Error(),
+		})
+		return "", err
+	}
+
+	if descOutput.TaskDefinition == nil {
+		return "", nil
+	}
+
+	for i := range descOutput.TaskDefinition.ContainerDefinitions {
+		container := &descOutput.TaskDefinition.ContainerDefinitions[i]
+		if container.Name != nil && *container.Name == awsConstants.RunnerContainerName && container.Image != nil {
+			return *container.Image, nil
+		}
+	}
+	return "", nil
+}
+
+// tagImageAsDefault tags a task definition as the default image.
+func tagImageAsDefault(
+	ctx context.Context,
+	ecsClient awsClient.ECSClient,
+	image string,
+	taskDefARN string,
+	log *slog.Logger,
+) {
+	tags := []ecsTypes.Tag{
+		{
+			Key:   awsStd.String(awsConstants.TaskDefinitionIsDefaultTagKey),
+			Value: awsStd.String(awsConstants.TaskDefinitionIsDefaultTagValue),
+		},
+		{
+			Key:   awsStd.String(awsConstants.TaskDefinitionDockerImageTagKey),
+			Value: awsStd.String(image),
+		},
+	}
+
+	_, err := ecsClient.TagResource(ctx, &ecs.TagResourceInput{
+		ResourceArn: awsStd.String(taskDefARN),
+		Tags:        tags,
+	})
+	if err != nil {
+		log.Warn("failed to tag last remaining image as default", "context", map[string]string{
+			"image": image,
+			"arn":   taskDefARN,
+			"error": err.Error(),
+		})
+	} else {
+		log.Info("marked last remaining image as default", "context", map[string]string{
+			"image": image,
+			"arn":   taskDefARN,
+		})
+	}
 }
 
 // DeregisterTaskDefinitionsForImage deregisters all task definition revisions for a given image.

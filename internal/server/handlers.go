@@ -23,7 +23,6 @@ func (r *Router) getUserFromContext(req *http.Request) (*api.User, bool) {
 func (r *Router) handleListWithAuth(
 	w http.ResponseWriter,
 	req *http.Request,
-	_ string, // denialMsg - no longer used, kept for API compatibility
 	serviceCall func() (any, error),
 	operationName string,
 ) {

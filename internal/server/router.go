@@ -29,7 +29,7 @@ const (
 // If requestTimeout is > 0, adds a per-request timeout middleware.
 // If requestTimeout is 0, no timeout middleware is added, allowing the
 // environment (e.g., Lambda with its own timeout) to handle timeouts.
-func NewRouter( //nolint: funlen
+func NewRouter(
 	svc *orchestrator.Service,
 	requestTimeout time.Duration,
 	allowedOrigins []string,
@@ -49,60 +49,8 @@ func NewRouter( //nolint: funlen
 	r.Use(router.requestLoggingMiddleware)
 
 	r.Route("/api/v1", func(r chi.Router) {
-		// public routes
-		r.Get("/claim/{token}", router.handleClaimAPIKey)
-		r.Get("/health", router.handleHealth)
-
-		// authenticated routes - apply auth middleware chain
-		r.With(
-			router.authenticateRequestMiddleware,
-			router.authorizeRequestMiddleware,
-		).Post("/health/reconcile", router.handleReconcileHealth)
-
-		r.With(
-			router.authenticateRequestMiddleware,
-			router.authorizeRequestMiddleware,
-		).Route("/users", func(r chi.Router) {
-			r.Get("/", router.handleListUsers)
-			r.Post("/create", router.handleCreateUser)
-			r.Post("/revoke", router.handleRevokeUser)
-		})
-
-		r.With(
-			router.authenticateRequestMiddleware,
-			router.authorizeRequestMiddleware,
-		).Route("/images", func(r chi.Router) {
-			r.Post("/register", router.handleRegisterImage)
-			r.Get("/", router.handleListImages)
-			r.Get("/*", router.handleGetImage)
-			r.Delete("/*", router.handleRemoveImage)
-		})
-
-		r.With(
-			router.authenticateRequestMiddleware,
-			router.authorizeRequestMiddleware,
-		).Route("/secrets", func(r chi.Router) {
-			r.Get("/", router.handleListSecrets)
-			r.Post("/", router.handleCreateSecret)
-			r.Get("/{name}", router.handleGetSecret)
-			r.Put("/{name}", router.handleUpdateSecret)
-			r.Delete("/{name}", router.handleDeleteSecret)
-		})
-
-		r.With(
-			router.authenticateRequestMiddleware,
-			router.authorizeRequestMiddleware,
-		).Post("/run", router.handleRunCommand)
-
-		r.With(
-			router.authenticateRequestMiddleware,
-			router.authorizeRequestMiddleware,
-		).Route("/executions", func(r chi.Router) {
-			r.Get("/", router.handleListExecutions)
-			r.Get("/{executionID}/logs", router.handleGetExecutionLogs)
-			r.Get("/{executionID}/status", router.handleGetExecutionStatus)
-			r.Delete("/{executionID}/kill", router.handleKillExecution)
-		})
+		router.registerPublicRoutes(r)
+		router.registerAuthenticatedRoutes(r)
 	})
 
 	return router
@@ -172,4 +120,66 @@ func writeErrorResponseWithCode(w http.ResponseWriter, statusCode int, code, mes
 		resp.Code = code
 	}
 	_ = json.NewEncoder(w).Encode(resp)
+}
+
+// registerPublicRoutes registers public routes that don't require authentication.
+func (r *Router) registerPublicRoutes(router chi.Router) {
+	router.Get("/claim/{token}", r.handleClaimAPIKey)
+	router.Get("/health", r.handleHealth)
+}
+
+// registerAuthenticatedRoutes registers routes that require authentication and authorization.
+func (r *Router) registerAuthenticatedRoutes(router chi.Router) {
+	authMiddleware := router.With(
+		r.authenticateRequestMiddleware,
+		r.authorizeRequestMiddleware,
+	)
+
+	authMiddleware.Post("/health/reconcile", r.handleReconcileHealth)
+	authMiddleware.Post("/run", r.handleRunCommand)
+
+	r.registerUsersRoutes(authMiddleware)
+	r.registerImagesRoutes(authMiddleware)
+	r.registerSecretsRoutes(authMiddleware)
+	r.registerExecutionsRoutes(authMiddleware)
+}
+
+// registerUsersRoutes registers user management routes.
+func (r *Router) registerUsersRoutes(router chi.Router) {
+	router.Route("/users", func(route chi.Router) {
+		route.Get("/", r.handleListUsers)
+		route.Post("/create", r.handleCreateUser)
+		route.Post("/revoke", r.handleRevokeUser)
+	})
+}
+
+// registerImagesRoutes registers image management routes.
+func (r *Router) registerImagesRoutes(router chi.Router) {
+	router.Route("/images", func(route chi.Router) {
+		route.Post("/register", r.handleRegisterImage)
+		route.Get("/", r.handleListImages)
+		route.Get("/*", r.handleGetImage)
+		route.Delete("/*", r.handleRemoveImage)
+	})
+}
+
+// registerSecretsRoutes registers secret management routes.
+func (r *Router) registerSecretsRoutes(router chi.Router) {
+	router.Route("/secrets", func(route chi.Router) {
+		route.Get("/", r.handleListSecrets)
+		route.Post("/", r.handleCreateSecret)
+		route.Get("/{name}", r.handleGetSecret)
+		route.Put("/{name}", r.handleUpdateSecret)
+		route.Delete("/{name}", r.handleDeleteSecret)
+	})
+}
+
+// registerExecutionsRoutes registers execution management routes.
+func (r *Router) registerExecutionsRoutes(router chi.Router) {
+	router.Route("/executions", func(route chi.Router) {
+		route.Get("/", r.handleListExecutions)
+		route.Get("/{executionID}/logs", r.handleGetExecutionLogs)
+		route.Get("/{executionID}/status", r.handleGetExecutionStatus)
+		route.Delete("/{executionID}/kill", r.handleKillExecution)
+	})
 }

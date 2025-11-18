@@ -62,7 +62,7 @@ func (r *Router) handleRevokeUser(w http.ResponseWriter, req *http.Request) {
 
 // handleListUsers handles GET /api/v1/users to list all users.
 func (r *Router) handleListUsers(w http.ResponseWriter, req *http.Request) {
-	r.handleListWithAuth(w, req, "you do not have permission to list users",
+	r.handleListWithAuth(w, req,
 		func() (any, error) { return r.svc.ListUsers(req.Context()) },
 		"list users")
 }

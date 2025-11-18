@@ -41,7 +41,7 @@ func (r *Router) handleRegisterImage(w http.ResponseWriter, req *http.Request) {
 
 // handleListImages handles GET /api/v1/images to list all registered Docker images.
 func (r *Router) handleListImages(w http.ResponseWriter, req *http.Request) {
-	r.handleListWithAuth(w, req, "you do not have permission to list images",
+	r.handleListWithAuth(w, req,
 		func() (any, error) { return r.svc.ListImages(req.Context()) },
 		"list images")
 }
