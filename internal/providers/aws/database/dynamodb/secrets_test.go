@@ -38,6 +38,7 @@ func TestCreateSecret_Success(t *testing.T) {
 		KeyName:     "GITHUB_TOKEN",
 		Description: "GitHub personal access token",
 		CreatedBy:   "admin@example.com",
+		OwnedBy:     []string{"admin@example.com"},
 	}
 
 	err := repo.CreateSecret(context.Background(), secret)
@@ -59,6 +60,7 @@ func TestCreateSecret_ClientError(t *testing.T) {
 		Name:      "test-secret",
 		KeyName:   "TEST_KEY",
 		CreatedBy: "admin@example.com",
+		OwnedBy:   []string{"admin@example.com"},
 	}
 
 	err := repo.CreateSecret(context.Background(), secret)
@@ -78,11 +80,51 @@ func TestGetSecret_Success(t *testing.T) {
 		KeyName:     "TEST_KEY",
 		Description: "Test description",
 		CreatedBy:   "admin@example.com",
+		OwnedBy:     []string{"admin@example.com"},
 	})
 	assert.NoError(t, err)
 
 	// Verify the put was called
 	assert.Equal(t, 1, client.PutItemCalls)
+}
+
+func TestCreateSecret_OwnedByRoundTrip(t *testing.T) {
+	client := NewMockDynamoDBClient()
+	logger := testutil.SilentLogger()
+	repo := NewSecretsRepository(client, "secrets-table", logger)
+
+	// Manually set up the table structure with a secret item
+	// This works around the mock's limitation in key extraction
+	tableName := "secrets-table"
+	if client.Tables[tableName] == nil {
+		client.Tables[tableName] = make(map[string]map[string]map[string]types.AttributeValue)
+	}
+	if client.Tables[tableName]["test-secret"] == nil {
+		client.Tables[tableName]["test-secret"] = make(map[string]map[string]types.AttributeValue)
+	}
+
+	original := &api.Secret{
+		Name:        "test-secret",
+		KeyName:     "TEST_KEY",
+		Description: "Test description",
+		CreatedBy:   "admin@example.com",
+		OwnedBy:     []string{"admin@example.com", "user2@example.com"},
+	}
+
+	err := repo.CreateSecret(context.Background(), original)
+	require.NoError(t, err)
+
+	// Retrieve the secret
+	retrieved, err := repo.GetSecret(context.Background(), "test-secret")
+	require.NoError(t, err)
+	require.NotNil(t, retrieved)
+
+	// Verify OwnedBy is correctly stored and retrieved
+	assert.Equal(t, original.Name, retrieved.Name)
+	assert.Equal(t, original.KeyName, retrieved.KeyName)
+	assert.Equal(t, original.CreatedBy, retrieved.CreatedBy)
+	assert.Equal(t, original.OwnedBy, retrieved.OwnedBy)
+	assert.Equal(t, []string{"admin@example.com", "user2@example.com"}, retrieved.OwnedBy)
 }
 
 func TestGetSecret_NotFound(t *testing.T) {
@@ -122,6 +164,7 @@ func TestListSecrets_Success(t *testing.T) {
 		KeyName:     "GITHUB_TOKEN",
 		Description: "GitHub token",
 		CreatedBy:   "admin@example.com",
+		OwnedBy:     []string{"admin@example.com"},
 	})
 	assert.NoError(t, err)
 
@@ -130,6 +173,7 @@ func TestListSecrets_Success(t *testing.T) {
 		KeyName:     "DB_PASSWORD",
 		Description: "Database password",
 		CreatedBy:   "admin@example.com",
+		OwnedBy:     []string{"admin@example.com"},
 	})
 	assert.NoError(t, err)
 
@@ -224,6 +268,7 @@ func TestDeleteSecret_Success(t *testing.T) {
 		KeyName:     "GITHUB_TOKEN",
 		Description: "GitHub token",
 		CreatedBy:   "admin@example.com",
+		OwnedBy:     []string{"admin@example.com"},
 	})
 	require.NoError(t, err)
 

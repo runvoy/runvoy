@@ -71,6 +71,7 @@ func (r *SecretsRepository) CreateSecret(ctx context.Context, secret *api.Secret
 		KeyName:     secret.KeyName,
 		Description: secret.Description,
 		CreatedBy:   secret.CreatedBy,
+		OwnedBy:     secret.OwnedBy,
 		CreatedAt:   now,
 		UpdatedAt:   now,
 		UpdatedBy:   secret.CreatedBy,
