@@ -176,51 +176,73 @@ func (r *ImageTaskDefRepository) PutImageTaskDef(
 	return nil
 }
 
-// parseImageReference parses a Docker image reference into name and tag.
+// parseImageReference parses an image reference into name and tag.
 // This is a simplified version to avoid import cycles.
 func parseImageReference(image string) (name, tag string) {
 	tag = "latest" // Default tag
 
-	// Split on '@' to handle digest references
-	var remainder string
-	idx := strings.Index(image, "@")
-	if idx != -1 {
-		remainder = image[:idx]
-		tag = image[idx+1:] // Everything after @ is the digest
-	} else {
-		remainder = image
-		// Split on ':' to extract tag
-		tagIdx := strings.LastIndex(remainder, ":")
-		if tagIdx != -1 {
-			// Check if this is a tag (not a port number in registry)
-			firstSlash := strings.Index(remainder, "/")
-			if firstSlash == -1 || tagIdx > firstSlash {
-				// This is a tag, not a port
-				tag = remainder[tagIdx+1:]
-				remainder = remainder[:tagIdx]
-			}
-		}
+	remainder, extractedTag := extractTagFromImage(image)
+	if extractedTag != "" {
+		tag = extractedTag
 	}
 
-	// Now remainder is registry/name or just name
-	// Extract name (everything after the first slash if it contains a registry)
+	name = extractNameFromRemainder(remainder)
+	return name, tag
+}
+
+// extractTagFromImage extracts the tag/digest from an image reference.
+// Returns the remainder (image without tag) and the extracted tag.
+func extractTagFromImage(image string) (remainder, tag string) {
+	// Split on '@' to handle digest references
+	idx := strings.Index(image, "@")
+	if idx != -1 {
+		return image[:idx], image[idx+1:] // Everything after @ is the digest
+	}
+
+	// Split on ':' to extract tag
+	remainder = image
+	tagIdx := strings.LastIndex(remainder, ":")
+	if tagIdx == -1 {
+		return remainder, ""
+	}
+
+	// Check if this is a tag (not a port number in registry)
+	if isTagReference(remainder, tagIdx) {
+		return remainder[:tagIdx], remainder[tagIdx+1:]
+	}
+
+	return remainder, ""
+}
+
+// isTagReference determines if a ':' at the given index represents a tag or a port number.
+func isTagReference(remainder string, tagIdx int) bool {
+	firstSlash := strings.Index(remainder, "/")
+	return firstSlash == -1 || tagIdx > firstSlash
+}
+
+// extractNameFromRemainder extracts the image name from a remainder string.
+// Handles both registry/name format and plain name format.
+func extractNameFromRemainder(remainder string) string {
 	const splitLimit = 2
 	parts := strings.SplitN(remainder, "/", splitLimit)
 
 	if len(parts) == 1 {
-		name = parts[0]
-	} else {
-		firstPart := parts[0]
-		if strings.Contains(firstPart, ".") ||
-			strings.Contains(firstPart, ":") ||
-			firstPart == "localhost" {
-			name = parts[1]
-		} else {
-			name = remainder
-		}
+		return parts[0]
 	}
 
-	return name, tag
+	firstPart := parts[0]
+	if isRegistryPrefix(firstPart) {
+		return parts[1]
+	}
+
+	return remainder
+}
+
+// isRegistryPrefix determines if the first part of an image reference is a registry prefix.
+func isRegistryPrefix(firstPart string) bool {
+	return strings.Contains(firstPart, ".") ||
+		strings.Contains(firstPart, ":") ||
+		firstPart == "localhost"
 }
 
 // looksLikeImageID checks if a string looks like an ImageID format.

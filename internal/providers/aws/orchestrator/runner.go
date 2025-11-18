@@ -685,19 +685,17 @@ func (e *Runner) KillTask(ctx context.Context, executionID string) error {
 		Tasks:   []string{taskARN},
 	})
 	if err != nil {
-		reqLogger.Error("failed to describe task", "context", map[string]string{
-			"error":        err.Error(),
-			"execution_id": executionID,
-			"task_arn":     taskARN,
-		})
+		reqLogger.Error("failed to describe task",
+			"error", err,
+			"execution_id", executionID,
+			"task_arn", taskARN)
 		return appErrors.ErrInternalError("failed to describe task", err)
 	}
 
 	if len(describeOutput.Tasks) == 0 {
-		reqLogger.Error("task not found", "context", map[string]string{
-			"execution_id": executionID,
-			"task_arn":     taskARN,
-		})
+		reqLogger.Error("task not found",
+			"execution_id", executionID,
+			"task_arn", taskARN)
 		return appErrors.ErrNotFound("task not found", nil)
 	}
 
