@@ -57,7 +57,11 @@ List all registered Docker images
 
 ## runvoy images register
 
-Register a new Docker image
+Register a new Docker image.
+
+NOTICE: The image will be registered with the current user as the owner
+and there'll be no validation on the Docker image existence in the registry
+nor the ability for the task executor to pull the image correctly.
 
 **Examples**
 
