@@ -24,7 +24,7 @@ type ExecutionResponse struct {
 	ExecutionID string `json:"execution_id"`
 	LogURL      string `json:"log_url"`
 	Status      string `json:"status"`
-	ImageID     string `json:"image_id,omitempty"`
+	ImageID     string `json:"image_id"`
 }
 
 // ExecutionStatusResponse represents the current status of an execution

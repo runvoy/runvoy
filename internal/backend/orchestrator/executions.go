@@ -111,17 +111,11 @@ func (s *Service) RunCommand(
 		return nil, fmt.Errorf("failed to record execution: %w", execErr)
 	}
 
-	response := &api.ExecutionResponse{
+	return &api.ExecutionResponse{
 		ExecutionID: executionID,
 		Status:      string(constants.ExecutionStarting),
-	}
-
-	// Add imageID to response
-	if resolvedImage != nil {
-		response.ImageID = resolvedImage.ImageID
-	}
-
-	return response, nil
+		ImageID:     resolvedImage.ImageID,
+	}, nil
 }
 
 func (s *Service) recordExecution(
