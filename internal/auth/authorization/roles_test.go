@@ -403,7 +403,6 @@ func TestActionConstants(t *testing.T) {
 	assert.Equal(t, Action("read"), ActionRead)
 	assert.Equal(t, Action("update"), ActionUpdate)
 	assert.Equal(t, Action("delete"), ActionDelete)
-	assert.Equal(t, Action("execute"), ActionExecute)
 	assert.Equal(t, Action("kill"), ActionKill)
 }
 

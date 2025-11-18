@@ -32,12 +32,11 @@ type Action string
 // Action constants for Casbin enforcement.
 // These correspond to the HTTP methods mapped to CRUD actions.
 const (
-	ActionCreate  Action = "create"
-	ActionRead    Action = "read"
-	ActionUpdate  Action = "update"
-	ActionDelete  Action = "delete"
-	ActionExecute Action = "execute"
-	ActionKill    Action = "kill"
+	ActionCreate Action = "create"
+	ActionRead   Action = "read"
+	ActionUpdate Action = "update"
+	ActionDelete Action = "delete"
+	ActionKill   Action = "kill"
 )
 
 // NewRole creates a new Role from a string, validating it against known roles.
