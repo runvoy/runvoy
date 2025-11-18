@@ -116,9 +116,9 @@ func (s *Service) RunCommand(
 		Status:      string(constants.ExecutionStarting),
 	}
 
-	// Add resolved imageID to response
+	// Add imageID to response
 	if resolvedImage != nil {
-		response.ResolvedImageID = resolvedImage.ImageID
+		response.ImageID = resolvedImage.ImageID
 	}
 
 	return response, nil
