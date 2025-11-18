@@ -168,6 +168,7 @@ func (s *UsersService) ListUsers(ctx context.Context) error {
 	s.output.Table(
 		[]string{
 			"Email",
+			"Role",
 			"Status",
 			"Created (UTC)",
 			"Last Used (UTC)",
@@ -213,6 +214,7 @@ func (s *UsersService) formatUsers(users []*api.User) [][]string {
 
 		rows = append(rows, []string{
 			s.output.Bold(u.Email),
+			u.Role,
 			status,
 			createdAt,
 			lastUsed,

@@ -1,9 +1,9 @@
 description: Test terraform playbook
-image: debian/debian:latest
+image: docker/library/debian:latest
 git_repo: https://github.com/runvoy/terraform-example.git
 env:
   TERRAFORM_VERSION: 1.13.5
-  TF_VAR_injected_variable: whatever_value
+  TF_VAR_injected_variable: injected_via_playbook
 commands:
   - apt-get update >/dev/null
   - apt-get install -y unzip wget >/dev/null
