@@ -169,8 +169,8 @@ func (s *RunService) ExecuteCommand(ctx context.Context, req *ExecuteCommandRequ
 	s.output.Successf("Command execution started successfully")
 	s.output.KeyValue("Execution ID", s.output.Cyan(resp.ExecutionID))
 	s.output.KeyValue("Status", resp.Status)
-	if req.Image != "" {
-		s.output.KeyValue("Image", s.output.Cyan(req.Image))
+	if resp.ImageID != "" {
+		s.output.KeyValue("Image ID", s.output.Cyan(resp.ImageID))
 	}
 
 	// Stream logs similar to the logs command

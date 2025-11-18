@@ -53,6 +53,7 @@ func TestRunService_ExecuteCommand(t *testing.T) {
 					return &api.ExecutionResponse{
 						ExecutionID: "exec-123",
 						Status:      "pending",
+						ImageID:     "alpine:latest-a1b2c3d4",
 					}, nil
 				}
 				m.getLogsFunc = func(_ context.Context, executionID string) (*api.LogsResponse, error) {
@@ -93,6 +94,7 @@ func TestRunService_ExecuteCommand(t *testing.T) {
 					return &api.ExecutionResponse{
 						ExecutionID: "exec-456",
 						Status:      "pending",
+						ImageID:     "alpine:latest-a1b2c3d4",
 					}, nil
 				}
 				m.getLogsFunc = func(_ context.Context, executionID string) (*api.LogsResponse, error) {
@@ -131,6 +133,7 @@ func TestRunService_ExecuteCommand(t *testing.T) {
 					return &api.ExecutionResponse{
 						ExecutionID: "exec-789",
 						Status:      "pending",
+						ImageID:     "alpine:latest-a1b2c3d4",
 					}, nil
 				}
 				m.getLogsFunc = func(_ context.Context, executionID string) (*api.LogsResponse, error) {
@@ -155,7 +158,7 @@ func TestRunService_ExecuteCommand(t *testing.T) {
 			},
 		},
 		{
-			name: "displays image when specified",
+			name: "displays image ID when specified",
 			request: ExecuteCommandRequest{
 				Command: "terraform plan",
 				Image:   "hashicorp/terraform:latest",
@@ -167,6 +170,7 @@ func TestRunService_ExecuteCommand(t *testing.T) {
 					return &api.ExecutionResponse{
 						ExecutionID: "exec-abc",
 						Status:      "pending",
+						ImageID:     "hashicorp/terraform:latest-a1b2c3d4",
 					}, nil
 				}
 				m.getLogsFunc = func(_ context.Context, executionID string) (*api.LogsResponse, error) {
@@ -178,15 +182,50 @@ func TestRunService_ExecuteCommand(t *testing.T) {
 			},
 			wantErr: false,
 			verifyOutput: func(t *testing.T, m *mockOutputInterface) {
-				hasImage := false
+				hasImageID := false
 				for _, call := range m.calls {
 					if call.method == "KeyValue" && len(call.args) >= 2 {
-						if call.args[0] == "Image" {
-							hasImage = true
+						if call.args[0] == "Image ID" {
+							hasImageID = true
 						}
 					}
 				}
-				assert.True(t, hasImage, "Should display image")
+				assert.True(t, hasImageID, "Should display image ID")
+			},
+		},
+		{
+			name: "displays resolved image ID when no image specified",
+			request: ExecuteCommandRequest{
+				Command: "echo test",
+				WebURL:  "https://logs.example.com",
+			},
+			setupMock: func(m *mockClientInterfaceForRun) {
+				m.runCommandFunc = func(_ context.Context, req *api.ExecutionRequest) (*api.ExecutionResponse, error) {
+					assert.Equal(t, "", req.Image)
+					return &api.ExecutionResponse{
+						ExecutionID: "exec-default",
+						Status:      "pending",
+						ImageID:     "alpine:latest-b1c2d3e4",
+					}, nil
+				}
+				m.getLogsFunc = func(_ context.Context, executionID string) (*api.LogsResponse, error) {
+					return &api.LogsResponse{
+						ExecutionID: executionID,
+						Events:      []api.LogEvent{},
+					}, nil
+				}
+			},
+			wantErr: false,
+			verifyOutput: func(t *testing.T, m *mockOutputInterface) {
+				hasImageID := false
+				for _, call := range m.calls {
+					if call.method == "KeyValue" && len(call.args) >= 2 {
+						if call.args[0] == "Image ID" {
+							hasImageID = true
+						}
+					}
+				}
+				assert.True(t, hasImageID, "Should display resolved image ID")
 			},
 		},
 		{
@@ -225,6 +264,7 @@ func TestRunService_ExecuteCommand(t *testing.T) {
 					return &api.ExecutionResponse{
 						ExecutionID: "exec-xyz",
 						Status:      "pending",
+						ImageID:     "alpine:latest-a1b2c3d4",
 					}, nil
 				}
 				m.getLogsFunc = func(_ context.Context, executionID string) (*api.LogsResponse, error) {
@@ -250,6 +290,7 @@ func TestRunService_ExecuteCommand(t *testing.T) {
 					return &api.ExecutionResponse{
 						ExecutionID: "exec-final",
 						Status:      "pending",
+						ImageID:     "alpine:latest-a1b2c3d4",
 					}, nil
 				}
 				m.getLogsFunc = func(_ context.Context, executionID string) (*api.LogsResponse, error) {
@@ -285,6 +326,7 @@ func TestRunService_ExecuteCommand(t *testing.T) {
 					return &api.ExecutionResponse{
 						ExecutionID: "exec-secrets",
 						Status:      "pending",
+						ImageID:     "alpine:latest-a1b2c3d4",
 					}, nil
 				}
 				m.getLogsFunc = func(_ context.Context, executionID string) (*api.LogsResponse, error) {

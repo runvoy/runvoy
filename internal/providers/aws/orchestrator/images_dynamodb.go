@@ -662,9 +662,22 @@ func looksLikeImageID(s string) bool {
 // GetImage retrieves a single Docker image by ID or name.
 // Accepts either an ImageID (e.g., "alpine:latest-a1b2c3d4") or an image name (e.g., "alpine:latest").
 // If ImageID is provided, queries directly by ID. Otherwise, uses GetAnyImageTaskDef to find any configuration.
+// If image is empty, returns the default image if one is configured.
 func (e *Runner) GetImage(ctx context.Context, image string) (*api.ImageInfo, error) {
 	if e.imageRepo == nil {
 		return nil, fmt.Errorf("image repository not configured")
+	}
+
+	// If no image specified, try to get the default image
+	if image == "" {
+		imageInfo, err := e.imageRepo.GetDefaultImage(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get default image: %w", err)
+		}
+		if imageInfo == nil {
+			return nil, apperrors.ErrBadRequest("no image specified and no default image configured", nil)
+		}
+		return imageInfo, nil
 	}
 
 	var imageInfo *api.ImageInfo

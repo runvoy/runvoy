@@ -628,6 +628,49 @@ func TestRunner_GetImage(t *testing.T) {
 			expectErr:   true,
 			expectedErr: "failed to get image by ImageID",
 		},
+		{
+			name:  "returns default image when image is empty",
+			image: "",
+			mockSetup: func(m *mockImageRepo) {
+				m.getDefaultImageFunc = func(_ context.Context) (*api.ImageInfo, error) {
+					isDefault := true
+					return &api.ImageInfo{
+						Image:              "alpine:latest",
+						TaskDefinitionName: "runvoy-alpine-latest",
+						IsDefault:          &isDefault,
+					}, nil
+				}
+			},
+			expected: &api.ImageInfo{
+				Image:              "alpine:latest",
+				TaskDefinitionName: "runvoy-alpine-latest",
+			},
+			expectErr: false,
+		},
+		{
+			name:  "returns error when image is empty and no default image configured",
+			image: "",
+			mockSetup: func(m *mockImageRepo) {
+				m.getDefaultImageFunc = func(_ context.Context) (*api.ImageInfo, error) {
+					return nil, nil
+				}
+			},
+			expected:    nil,
+			expectErr:   true,
+			expectedErr: "no image specified and no default image configured",
+		},
+		{
+			name:  "handles repository error when getting default image",
+			image: "",
+			mockSetup: func(m *mockImageRepo) {
+				m.getDefaultImageFunc = func(_ context.Context) (*api.ImageInfo, error) {
+					return nil, assert.AnError
+				}
+			},
+			expected:    nil,
+			expectErr:   true,
+			expectedErr: "failed to get default image",
+		},
 	}
 
 	for _, tt := range tests {
