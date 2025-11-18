@@ -30,6 +30,11 @@ var (
 var registerImageCmd = &cobra.Command{
 	Use:   "register <image>",
 	Short: "Register a new Docker image",
+	Long: `Register a new Docker image.
+
+NOTICE: The image will be registered with the current user as the owner
+and there'll be no validation on the Docker image existence in the registry
+nor the ability for the task executor to pull the image correctly.`,
 	Example: fmt.Sprintf(`  - %s images register alpine:latest
   - %s images register ecr-public.us-east-1.amazonaws.com/docker/library/ubuntu:22.04
   - %s images register ubuntu:22.04 --set-default`,
