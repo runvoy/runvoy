@@ -89,9 +89,6 @@ func (s *Service) RunCommand(
 		return nil, apperrors.ErrBadRequest("command is required", nil)
 	}
 
-	// Store original user-provided image string
-	originalImage := req.Image
-
 	// Replace req.Image with resolved imageID for runner
 	if resolvedImage != nil {
 		req.Image = resolvedImage.ImageID
@@ -119,15 +116,9 @@ func (s *Service) RunCommand(
 		Status:      string(constants.ExecutionStarting),
 	}
 
-	// Add resolved image info to response
+	// Add resolved imageID to response
 	if resolvedImage != nil {
 		response.ResolvedImageID = resolvedImage.ImageID
-		response.ResolvedImageName = resolvedImage.ImageName
-		response.ResolvedImageTag = resolvedImage.ImageTag
-		response.ResolvedImage = resolvedImage.Image
-	} else if originalImage != "" {
-		// If user provided an image but it wasn't resolved, include what they provided
-		response.ResolvedImage = originalImage
 	}
 
 	return response, nil

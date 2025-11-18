@@ -21,13 +21,10 @@ type ExecutionRequest struct {
 
 // ExecutionResponse represents the response to an execution request
 type ExecutionResponse struct {
-	ExecutionID        string `json:"execution_id"`
-	LogURL             string `json:"log_url"`
-	Status             string `json:"status"`
-	ResolvedImageID    string `json:"resolved_image_id,omitempty"`
-	ResolvedImageName  string `json:"resolved_image_name,omitempty"`
-	ResolvedImageTag   string `json:"resolved_image_tag,omitempty"`
-	ResolvedImage      string `json:"resolved_image,omitempty"`
+	ExecutionID     string `json:"execution_id"`
+	LogURL          string `json:"log_url"`
+	Status          string `json:"status"`
+	ResolvedImageID string `json:"resolved_image_id,omitempty"`
 }
 
 // ExecutionStatusResponse represents the current status of an execution
