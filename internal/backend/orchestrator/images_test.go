@@ -318,8 +318,8 @@ func TestListImages_Success(t *testing.T) {
 	runner := &mockRunner{
 		listImagesFunc: func(_ context.Context) ([]api.ImageInfo, error) {
 			return []api.ImageInfo{
-				{Image: "alpine:latest", CPU: 256},
-				{Image: "ubuntu:20.04", CPU: 512},
+				{Image: "alpine:latest", ImageID: "alpine:latest", RegisteredBy: "test@example.com", CPU: 256},
+				{Image: "ubuntu:20.04", ImageID: "ubuntu:20.04", RegisteredBy: "test@example.com", CPU: 512},
 			}, nil
 		},
 	}
@@ -384,8 +384,14 @@ func TestListImages_Empty(t *testing.T) {
 }
 
 func TestListImages_RunnerError(t *testing.T) {
+	callCount := 0
 	runner := &mockRunner{
 		listImagesFunc: func(_ context.Context) ([]api.ImageInfo, error) {
+			callCount++
+			// Return empty list during initialization, error on test call
+			if callCount == 1 {
+				return []api.ImageInfo{}, nil
+			}
 			return nil, apperrors.ErrInternalError("runner error", nil)
 		},
 	}
@@ -417,8 +423,14 @@ func TestListImages_RunnerError(t *testing.T) {
 }
 
 func TestListImages_RunnerGenericError(t *testing.T) {
+	callCount := 0
 	runner := &mockRunner{
 		listImagesFunc: func(_ context.Context) ([]api.ImageInfo, error) {
+			callCount++
+			// Return empty list during initialization, error on test call
+			if callCount == 1 {
+				return []api.ImageInfo{}, nil
+			}
 			return nil, errors.New("some runner error")
 		},
 	}
