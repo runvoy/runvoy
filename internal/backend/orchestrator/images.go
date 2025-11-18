@@ -5,10 +5,15 @@ import (
 	"errors"
 
 	"runvoy/internal/api"
+	"runvoy/internal/auth/authorization"
 	appErrors "runvoy/internal/errors"
 )
 
 // RegisterImage registers a Docker image and creates the corresponding task definition.
+// After successful registration, ownership is synced to the Casbin enforcer to maintain
+// consistency with the database. If ownership sync fails, an error is logged but
+// registration succeeds; ownership will be synced during the next hydration cycle or
+// health reconcile.
 func (s *Service) RegisterImage(
 	ctx context.Context,
 	req *api.RegisterImageRequest,
@@ -42,6 +47,25 @@ func (s *Service) RegisterImage(
 			return nil, err
 		}
 		return nil, appErrors.ErrInternalError("failed to register image", err)
+	}
+
+	imageInfo, getErr := s.runner.GetImage(ctx, req.Image)
+	if getErr != nil {
+		s.Logger.Error("failed to get image info after registration for ownership sync",
+			"image", req.Image,
+			"error", getErr,
+		)
+	} else if imageInfo != nil && imageInfo.ImageID != "" {
+		resourceID := authorization.FormatResourceID("image", imageInfo.ImageID)
+		for _, owner := range imageInfo.OwnedBy {
+			if syncErr := s.enforcer.AddOwnershipForResource(resourceID, owner); syncErr != nil {
+				s.Logger.Error("failed to sync image ownership to enforcer after registration",
+					"image_id", imageInfo.ImageID,
+					"owner", owner,
+					"error", syncErr,
+				)
+			}
+		}
 	}
 
 	return &api.RegisterImageResponse{

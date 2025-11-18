@@ -447,6 +447,7 @@ Resources:
                   - 'ecs:RegisterTaskDefinition'
                   - 'ecs:DescribeTaskDefinition'
                   - 'ecs:DeregisterTaskDefinition'
+                  - 'ecs:DeleteTaskDefinitions'
                   - 'ecs:ListTaskDefinitions'
                 Resource: '*'
               # Tagging permissions for task definitions and tasks
@@ -761,6 +762,8 @@ Resources:
                   - 'ecs:ListTaskDefinitions'
                   - 'ecs:DescribeTaskDefinition'
                   - 'ecs:RegisterTaskDefinition'
+                  - 'ecs:DeregisterTaskDefinition'
+                  - 'ecs:DeleteTaskDefinitions'
                   - 'ecs:TagResource'
                   - 'ecs:ListTagsForResource'
                   - 'ecs:UntagResource'
