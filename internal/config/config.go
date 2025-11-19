@@ -14,6 +14,7 @@ import (
 
 	awsconfig "runvoy/internal/config/aws"
 	"runvoy/internal/constants"
+	awsConstants "runvoy/internal/providers/aws/constants"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/spf13/viper"
@@ -256,6 +257,21 @@ func (c *Config) GetLogLevel() slog.Level {
 		return slog.LevelInfo
 	}
 	return level
+}
+
+// GetDefaultStackName returns the default infrastructure stack name.
+// Returns the configured value or the default if not set.
+func (c *Config) GetDefaultStackName() string {
+	if c.AWS != nil && c.AWS.InfraDefaultStackName != "" {
+		return c.AWS.InfraDefaultStackName
+	}
+	return awsConstants.DefaultInfraStackName
+}
+
+// GetProviderIdentifier returns the lowercase provider identifier string.
+// For AWS, returns "aws".
+func (c *Config) GetProviderIdentifier() string {
+	return strings.ToLower(string(c.BackendProvider))
 }
 
 // Helper functions

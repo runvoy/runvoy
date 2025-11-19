@@ -44,6 +44,9 @@ type Config struct {
 	SecretsPrefix    string `mapstructure:"secrets_prefix"`
 	SecretsKMSKeyARN string `mapstructure:"secrets_kms_key_arn"`
 
+	// Infrastructure defaults
+	InfraDefaultStackName string `mapstructure:"infra_default_stack_name" yaml:"infra_default_stack_name"`
+
 	// AWS SDK Configuration (credentials, region, etc.)
 	SDKConfig *aws.Config `mapstructure:"-"`
 }
@@ -51,6 +54,7 @@ type Config struct {
 // BindEnvVars binds AWS-specific environment variables to the provided Viper instance.
 func BindEnvVars(v *viper.Viper) {
 	v.SetDefault("aws.secrets_prefix", awsConstants.SecretsPrefix)
+	v.SetDefault("aws.infra_default_stack_name", awsConstants.DefaultInfraStackName)
 
 	_ = v.BindEnv("aws.api_keys_table", "RUNVOY_AWS_API_KEYS_TABLE")
 	_ = v.BindEnv("aws.default_task_exec_role_arn", "RUNVOY_AWS_DEFAULT_TASK_EXEC_ROLE_ARN")
@@ -70,6 +74,7 @@ func BindEnvVars(v *viper.Viper) {
 	_ = v.BindEnv("aws.websocket_api_endpoint", "RUNVOY_AWS_WEBSOCKET_API_ENDPOINT")
 	_ = v.BindEnv("aws.websocket_connections_table", "RUNVOY_AWS_WEBSOCKET_CONNECTIONS_TABLE")
 	_ = v.BindEnv("aws.websocket_tokens_table", "RUNVOY_AWS_WEBSOCKET_TOKENS_TABLE")
+	_ = v.BindEnv("aws.infra_default_stack_name", "RUNVOY_AWS_INFRA_DEFAULT_STACK_NAME")
 }
 
 // ValidateOrchestrator validates required AWS fields for the orchestrator service.
@@ -159,4 +164,21 @@ func (c *Config) LoadSDKConfig(ctx context.Context) error {
 	}
 	c.SDKConfig = &awsCfg
 	return nil
+}
+
+// NormalizeVersion strips any 'v' prefix from the version string.
+// S3 paths use versions without the 'v' prefix (e.g., "0.1.0" not "v0.1.0").
+func NormalizeVersion(version string) string {
+	return strings.TrimPrefix(version, "v")
+}
+
+// BuildTemplateURL builds the S3 HTTPS URL for the CloudFormation template.
+// The version is normalized to remove any 'v' prefix before building the URL.
+func BuildTemplateURL(version string) string {
+	normalizedVersion := NormalizeVersion(version)
+	return fmt.Sprintf("https://%s.s3.%s.amazonaws.com/%s/%s",
+		awsConstants.ReleasesBucket,
+		awsConstants.ReleasesBucketRegion,
+		normalizedVersion,
+		awsConstants.CloudFormationTemplateFile)
 }

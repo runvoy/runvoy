@@ -106,6 +106,52 @@ Unregister a Docker image
 ```
 
 
+## runvoy infra
+
+Commands for applying and managing backend infrastructure.
+
+
+## runvoy infra apply
+
+Apply or update the backend infrastructure.
+
+By default, this command uses the official template from the releases bucket
+for the current CLI version. You can override this with a custom template URL
+or a local file path.
+
+Examples:
+  # Apply using default template and version
+  runvoy infra apply --stack-name my-stack
+
+  # Apply a specific version
+  runvoy infra apply --stack-name my-stack --version 1.2.3
+
+  # Apply with custom template from S3
+  runvoy infra apply --stack-name my-stack --template https://my-bucket.s3.amazonaws.com/template.yaml
+
+  # Apply with local template file
+  runvoy infra apply --stack-name my-stack --template ./my-template.yaml
+
+  # Apply with custom parameters
+  runvoy infra apply --stack-name my-stack --parameter ProjectName=myproject --parameter LambdaCodeBucket=my-bucket
+
+  # Apply and automatically configure CLI
+  runvoy infra apply --stack-name my-stack --configure
+
+**Options**
+
+```
+      --configure           Automatically configure CLI with the applied endpoint after successful application
+  -h, --help                help for apply
+      --parameter strings   Stack parameter in KEY=VALUE format (can be specified multiple times)
+      --provider string     Cloud provider (currently supported: aws) (default "aws")
+      --region string       Provider region. Uses provider default if not specified
+      --stack-name string   Infrastructure stack name (default "runvoy-backend")
+      --template string     Template URL or local file path. If not specified, uses the official template
+      --version string      Release version to apply. Defaults to CLI version
+      --wait                Wait for stack operation to complete (default true)
+```
+
 ## runvoy kill
 
 Kill a running command execution
