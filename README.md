@@ -33,9 +33,38 @@ No more snowflakes, _run envoys_.
 - any commands that require a full audit trail
 - ...
 
+## Example
+
+```text
+runvoy run "uname -a"
+
+🚀 runvoy run
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+→ Running command: uname -a
+✓ Command execution started successfully
+  Execution ID: 010adbfb34374116b47c8d0faab2befa
+  Status: STARTING
+  Image ID: amazonlinux/amazonlinux:latest-d7ba6332
+→ Execution status: STARTING
+→ Execution is starting (logs usually ready after ~30 seconds)...
+→ Connecting to log stream...
+✓ Connected to log stream. Press Ctrl+C to exit.
+
+Line  Timestamp (UTC)      Message
+────  ───────────────────  ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+1     2025-11-19 17:30:54  ### runvoy runner execution started by requestID => f59378e3-01ed-4b44-a315-618951e048aa
+2     2025-11-19 17:30:54  ### Image ID => amazonlinux/amazonlinux:latest-d7ba6332
+3     2025-11-19 17:30:54  ### runvoy command => uname -a
+4     2025-11-19 17:30:54  Linux ip-172-20-1-130.us-east-2.compute.internal 5.10.245-241.978.amzn2.aarch64 #1 SMP Fri Oct 31 17:59:47 UTC 2025 aarch64 aarch64 aarch64 GNU/Linux
+
+→ Execution completed. Closing connection...
+→ WebSocket connection closed
+→ View logs in web viewer: https://runvoy.site/?execution_id=010adbfb34374116b47c8d0faab2befa
+```
+
 ## Overview
 
-Runvoy is composed of 3 main parts:
+Runvoy is composed of 3 main parts (see [#architecture](#architecture) for more details):
 
 - a backend running on your AWS account (with plans to support other cloud providers in the future) which exposes the HTTP API endpoint and interacts with the cloud resources, to be deployed once by a cloud admin
 - a CLI client (`runvoy`) for users to interact with the runvoy REST API
@@ -64,6 +93,7 @@ Runvoy is composed of 3 main parts:
 ### Roadmap (NOT IMPLEMENTED YET!)
 
 - **Multi-cloud support** - Backend support for other execution platforms, cloud providers (GCP, Azure...), Kubernetes, ...
+- **Robust log streaming** - Right now log streaming is lossy, more robust streaming mechanism on top of CloudWatch Logs is needed.
 - **Timeouts for command execution** - Send timed SIGTERM to the command execution if it doesn't complete within the timeout period
 - **Lock management for concurrent command execution** - Prevent multiple users from executing the same command concurrently
 - **Webapp - CLI command parity** - Allow users to perform all CLI commands from the webapp
@@ -136,7 +166,7 @@ runvoy --help
 ```
 
 ```text
-runvoy - v0.1.0-20251119-e8b484b
+runvoy - v0.1.0-20251119-7a0dcd7
 Isolated, repeatable execution environments for your commands
 
 Usage:
@@ -307,131 +337,10 @@ For almost all my carer as a software engineer I frequently found myself in situ
 
 I've also always been fascinated by the idea of "thin clients" and delegating the heavy lifting and security concerns to the server while keeping the client simple and easy to use and setup: just "log in" and run the commands you're allowed to run, the server takes care of the rest.
 
-The final piece of the puzzle was probably AWS launching Lambda and with that the "Serverless" concept of "pay for what you use" and "you only pay for what you use".
+The final piece of the puzzle was probably AWS launching Lambda and with that the _serverless_ concept of "you only pay for what you use" which meanwhile has become a commodity in the (cloud) computing world.
 
-Truth is: I love to build things in Go and I thought this would be a great opportunity to build something that not only I would find useful.
+Full disclosure: I love to build things in Go and I thought this would be a great opportunity to build something that not only I would find useful.
 
 ## Development
 
-The repository ships with a `justfile` to streamline common build, deploy, and QA flows. Run `just --list` to see all available commands.
-
-### Prerequisites for Development
-
-- Go 1.25 or later
-- [just](https://github.com/casey/just) command runner
-- AWS credentials configured in your shell environment
-
-### Environment Configuration
-
-The `.env` file is automatically created when you run `just init` or `just local-dev-sync`. The `local-dev-sync` command syncs environment variables from the runvoy-orchestrator Lambda function to your local `.env` file for development.
-
-### Environment Setup
-
-First-time setup for new developers:
-
-```bash
-# Install dependencies and development tools
-just dev-setup
-
-# Install pre-commit hook
-just install-hook
-
-# Sync Lambda environment variables to local .env file
-just local-dev-sync
-```
-
-### Local Development Workflow
-
-**Run the local development server:**
-
-```bash
-# Build and run local server (rebuilds on each restart)
-just run-local
-
-# Run local server with hot reloading (rebuilds automatically on file changes)
-just local-dev-server
-```
-
-**Sync environment variables from AWS:**
-
-```bash
-# Fetch current environment variables from runvoy-orchestrator Lambda and save to .env
-just local-dev-sync
-```
-
-**Run tests and quality checks:**
-
-```bash
-# Run all tests
-just test
-
-# Run tests with coverage report
-just test-coverage
-
-# Lint code
-just lint
-
-# Format code
-just fmt
-
-# Run both lint and tests
-just check
-```
-
-**Build and deploy:**
-
-```bash
-# Build all binaries (CLI, orchestrator, event processor, local server)
-just build
-
-# Deploy all services
-just deploy
-
-# Deploy backend
-just deploy-backend
-
-# Deploy webapp
-just deploy-webapp
-
-# Or deploy individual services
-just deploy-orchestrator
-just deploy-event-processor
-just deploy-webapp
-```
-
-**Infrastructure management:**
-
-```bash
-# Initialize complete backend infrastructure
-just init
-
-# Create/update backend infrastructure
-just create-backend-infra
-
-# Destroy backend infrastructure
-just destroy-backend-infra
-```
-
-**Other useful commands:**
-
-```bash
-# Seed admin user in AWS DynamoDB
-just seed-admin-user admin@example.com runvoy-backend
-
-# Update README with latest CLI help output
-just update-readme-help
-
-# Clean build artifacts
-just clean
-```
-
-## Release
-
-To release a new version:
-
-1. bump the version in [VERSION](./VERSION)
-2. update the [CHANGELOG](./CHANGELOG.md) with the new version and changelog entries
-3. commit the changes
-4. run `just release` (create a GitHub release and upload the binaries to S3 bucket via Goreleaser)
-
-NOTE: we might want to add a GitHub Actions workflow to automate the release process: <https://goreleaser.com/ci/actions/>
+For development setup, workflow, and contributing guidelines, see [CONTRIBUTING.md](CONTRIBUTING.md).

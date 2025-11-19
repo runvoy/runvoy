@@ -63,6 +63,14 @@ This project adheres to a code of conduct that all contributors are expected to 
 
 ## Development Setup
 
+The repository ships with a `justfile` to streamline common build, deploy, and QA flows. Run `just --list` to see all available commands.
+
+### Prerequisites for Development
+
+- Go 1.25 or later
+- [just](https://github.com/casey/just) command runner
+- AWS credentials configured in your shell environment
+
 ### Project Structure
 
 ```
@@ -86,6 +94,25 @@ runvoy/
 └── scripts/               # Utility scripts
 ```
 
+### Environment Configuration
+
+The `.env` file is automatically created when you run `just init` or `just local-dev-sync`. The `local-dev-sync` command syncs environment variables from the runvoy-orchestrator Lambda function to your local `.env` file for development.
+
+### Environment Setup
+
+First-time setup for new developers:
+
+```bash
+# Install dependencies and development tools
+just dev-setup
+
+# Install pre-commit hook
+just install-hook
+
+# Sync Lambda environment variables to local .env file
+just local-dev-sync
+```
+
 ### Common Commands
 
 The project uses `just` for all development tasks. See all available commands:
@@ -94,26 +121,83 @@ The project uses `just` for all development tasks. See all available commands:
 just --list
 ```
 
-**Essential commands:**
+**Local Development Workflow:**
 
 ```bash
-# Run tests and linting
-just check
+# Build and run local server (rebuilds on each restart)
+just run-local
 
-# Run tests with coverage
+# Run local server with hot reloading (rebuilds automatically on file changes)
+just local-dev-server
+
+# Sync environment variables from AWS
+just local-dev-sync
+```
+
+**Testing and Quality Checks:**
+
+```bash
+# Run all tests
+just test
+
+# Run tests with coverage report
 just test-coverage
 
-# Build all binaries
-just build
-
-# Run local development server
-just local-dev-server
+# Lint code
+just lint
 
 # Format code
 just fmt
 
-# Lint code
-just lint
+# Run both lint and tests
+just check
+```
+
+**Build and Deploy:**
+
+```bash
+# Build all binaries (CLI, orchestrator, event processor, local server)
+just build
+
+# Deploy all services
+just deploy
+
+# Deploy backend
+just deploy-backend
+
+# Deploy webapp
+just deploy-webapp
+
+# Or deploy individual services
+just deploy-orchestrator
+just deploy-event-processor
+just deploy-webapp
+```
+
+**Infrastructure Management:**
+
+```bash
+# Initialize complete backend infrastructure
+just init
+
+# Create/update backend infrastructure
+just create-backend-infra
+
+# Destroy backend infrastructure
+just destroy-backend-infra
+```
+
+**Other Useful Commands:**
+
+```bash
+# Seed admin user in AWS DynamoDB
+just seed-admin-user admin@example.com runvoy-backend
+
+# Update README with latest CLI help output
+just update-readme-help
+
+# Clean build artifacts
+just clean
 ```
 
 ## Development Workflow
@@ -425,3 +509,13 @@ Closes #123
 
 Thank you for contributing to Runvoy! 🚀
 
+## Release process
+
+To release a new version:
+
+1. bump the version in [VERSION](./VERSION)
+2. update the [CHANGELOG](./CHANGELOG.md) with the new version and changelog entries
+3. commit the changes
+4. run `just release` (create a GitHub release and upload the binaries to S3 bucket via Goreleaser)
+
+NOTE: we might want to add a GitHub Actions workflow to automate the release process: <https://goreleaser.com/ci/actions/>
