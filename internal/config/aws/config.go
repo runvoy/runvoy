@@ -174,11 +174,16 @@ func NormalizeVersion(version string) string {
 
 // BuildTemplateURL builds the S3 HTTPS URL for the CloudFormation template.
 // The version is normalized to remove any 'v' prefix before building the URL.
-func BuildTemplateURL(version string) string {
+// If region is empty, defaults to the ReleasesBucketRegion constant.
+func BuildTemplateURL(version, region string) string {
 	normalizedVersion := NormalizeVersion(version)
+	if region == "" {
+		region = awsConstants.ReleasesBucketRegion
+	}
+	bucketName := fmt.Sprintf("runvoy-releases-%s", region)
 	return fmt.Sprintf("https://%s.s3.%s.amazonaws.com/%s/%s",
-		awsConstants.ReleasesBucket,
-		awsConstants.ReleasesBucketRegion,
+		bucketName,
+		region,
 		normalizedVersion,
 		awsConstants.CloudFormationTemplateFile)
 }

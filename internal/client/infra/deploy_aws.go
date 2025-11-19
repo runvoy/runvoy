@@ -12,6 +12,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation/types"
 
 	awscfg "runvoy/internal/config/aws"
+	awsConstants "runvoy/internal/providers/aws/constants"
 )
 
 const (
@@ -90,21 +91,49 @@ func (d *AWSDeployer) GetRegion() string {
 	return d.region
 }
 
+// validateRegionForDefaultTemplate validates the region if using the default template.
+func (d *AWSDeployer) validateRegionForDefaultTemplate(template string) error {
+	if template == "" {
+		if err := awsConstants.ValidateRegion(d.region); err != nil {
+			return fmt.Errorf("region validation failed: %w", err)
+		}
+	}
+	return nil
+}
+
+// executeStackOperation creates or updates the stack and handles errors.
+func (d *AWSDeployer) executeStackOperation(
+	ctx context.Context,
+	stackExists bool,
+	stackName string,
+	templateSource *TemplateSource,
+	cfnParams []types.Parameter,
+	result *DeployResult,
+) error {
+	if stackExists {
+		result.OperationType = "UPDATE"
+		return d.updateStack(ctx, stackName, templateSource, cfnParams)
+	}
+	result.OperationType = "CREATE"
+	return d.createStack(ctx, stackName, templateSource, cfnParams)
+}
+
 // Deploy deploys or updates the CloudFormation stack
 func (d *AWSDeployer) Deploy(ctx context.Context, opts *DeployOptions) (*DeployResult, error) {
-	// Resolve template
-	templateSource, err := resolveAWSTemplate(opts.Template, opts.Version)
+	if err := d.validateRegionForDefaultTemplate(opts.Template); err != nil {
+		return nil, err
+	}
+
+	templateSource, err := resolveAWSTemplate(opts.Template, opts.Version, d.region)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve template: %w", err)
 	}
 
-	// Parse parameters to CloudFormation format
 	cfnParams, err := d.parseParametersToCFN(opts.Parameters, opts.Version)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse parameters: %w", err)
 	}
 
-	// Check if stack exists
 	stackExists, err := d.CheckStackExists(ctx, opts.StackName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check stack status: %w", err)
@@ -115,17 +144,8 @@ func (d *AWSDeployer) Deploy(ctx context.Context, opts *DeployOptions) (*DeployR
 		Outputs:   make(map[string]string),
 	}
 
-	// Create or update stack
-	if stackExists {
-		result.OperationType = "UPDATE"
-		err = d.updateStack(ctx, opts.StackName, templateSource, cfnParams)
-	} else {
-		result.OperationType = "CREATE"
-		err = d.createStack(ctx, opts.StackName, templateSource, cfnParams)
-	}
-
+	err = d.executeStackOperation(ctx, stackExists, opts.StackName, templateSource, cfnParams, result)
 	if err != nil {
-		// Check if it's a "no updates" error
 		if strings.Contains(err.Error(), "No updates are to be performed") {
 			result.NoChanges = true
 			result.Status = "NO_CHANGES"
@@ -139,17 +159,14 @@ func (d *AWSDeployer) Deploy(ctx context.Context, opts *DeployOptions) (*DeployR
 		return result, nil
 	}
 
-	// Wait for stack operation to complete
 	finalStatus, err := d.waitForStackOperation(ctx, opts.StackName)
 	if err != nil {
 		return nil, fmt.Errorf("stack operation failed: %w", err)
 	}
 	result.Status = finalStatus
 
-	// Get stack outputs
 	outputs, err := d.GetStackOutputs(ctx, opts.StackName)
 	if err != nil {
-		// Don't fail, just return without outputs
 		return result, nil
 	}
 	result.Outputs = outputs
@@ -161,7 +178,6 @@ func (d *AWSDeployer) Deploy(ctx context.Context, opts *DeployOptions) (*DeployR
 func (d *AWSDeployer) parseParametersToCFN(params []string, version string) ([]types.Parameter, error) {
 	paramMap := make(map[string]string)
 
-	// Parse user-provided parameters
 	for _, param := range params {
 		parts := strings.SplitN(param, "=", parameterSplitParts)
 		if len(parts) != parameterSplitParts {
@@ -171,18 +187,14 @@ func (d *AWSDeployer) parseParametersToCFN(params []string, version string) ([]t
 		paramMap[parts[0]] = parts[1]
 	}
 
-	// Inject default LambdaCodeBucket if not provided
 	if _, exists := paramMap["LambdaCodeBucket"]; !exists {
 		paramMap["LambdaCodeBucket"] = fmt.Sprintf("runvoy-releases-%s", d.region)
 	}
 
-	// Inject default ReleaseVersion if not provided
 	if _, exists := paramMap["ReleaseVersion"]; !exists && version != "" {
-		// Normalize version (remove 'v' prefix) to match S3 path format
 		paramMap["ReleaseVersion"] = awscfg.NormalizeVersion(version)
 	}
 
-	// Convert to CloudFormation parameter types
 	var cfnParams []types.Parameter
 	for key, value := range paramMap {
 		cfnParams = append(cfnParams, types.Parameter{
@@ -200,7 +212,6 @@ func (d *AWSDeployer) CheckStackExists(ctx context.Context, stackName string) (b
 		StackName: aws.String(stackName),
 	})
 	if err != nil {
-		// Check if it's a "stack does not exist" error
 		if strings.Contains(err.Error(), "does not exist") {
 			return false, nil
 		}
@@ -280,7 +291,6 @@ func (d *AWSDeployer) waitForStackOperation(ctx context.Context, stackName strin
 				return "", err
 			}
 
-			// Check for completion states
 			switch types.StackStatus(status) {
 			case types.StackStatusCreateComplete, types.StackStatusUpdateComplete:
 				return status, nil
@@ -288,7 +298,6 @@ func (d *AWSDeployer) waitForStackOperation(ctx context.Context, stackName strin
 				types.StackStatusRollbackFailed, types.StackStatusUpdateRollbackComplete,
 				types.StackStatusUpdateRollbackFailed, types.StackStatusDeleteComplete,
 				types.StackStatusDeleteFailed, types.StackStatusUpdateFailed:
-				// Get detailed failure information from stack events
 				failureDetails := d.getFailedResourceEvents(ctx, stackName)
 				if failureDetails != "" {
 					return status, fmt.Errorf(
@@ -304,7 +313,6 @@ func (d *AWSDeployer) waitForStackOperation(ctx context.Context, stackName strin
 				types.StackStatusReviewInProgress, types.StackStatusImportInProgress,
 				types.StackStatusImportComplete, types.StackStatusImportRollbackInProgress,
 				types.StackStatusImportRollbackFailed, types.StackStatusImportRollbackComplete:
-				// Still in progress, continue polling
 			}
 		}
 	}
@@ -345,7 +353,6 @@ func (d *AWSDeployer) getFailedResourceEvents(ctx context.Context, stackName str
 	var failures []string
 	for i := range result.StackEvents {
 		event := &result.StackEvents[i]
-		// Look for failed resource statuses
 		status := string(event.ResourceStatus)
 		if strings.Contains(status, "FAILED") ||
 			(strings.Contains(status, "ROLLBACK") && event.ResourceStatusReason != nil) {
@@ -400,7 +407,6 @@ func (d *AWSDeployer) Destroy(ctx context.Context, opts *DestroyOptions) (*Destr
 		StackName: opts.StackName,
 	}
 
-	// Check if stack exists
 	stackExists, err := d.CheckStackExists(ctx, opts.StackName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check stack status: %w", err)
@@ -412,7 +418,6 @@ func (d *AWSDeployer) Destroy(ctx context.Context, opts *DestroyOptions) (*Destr
 		return result, nil
 	}
 
-	// Delete the stack
 	err = d.deleteStack(ctx, opts.StackName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to delete stack: %w", err)
@@ -423,7 +428,6 @@ func (d *AWSDeployer) Destroy(ctx context.Context, opts *DestroyOptions) (*Destr
 		return result, nil
 	}
 
-	// Wait for stack deletion to complete
 	finalStatus, err := d.waitForStackDeletion(ctx, opts.StackName)
 	if err != nil {
 		return nil, fmt.Errorf("stack deletion failed: %w", err)
@@ -457,19 +461,16 @@ func (d *AWSDeployer) waitForStackDeletion(ctx context.Context, stackName string
 		case <-ticker.C:
 			status, statusReason, err := d.getStackStatus(ctx, stackName)
 			if err != nil {
-				// If stack doesn't exist, deletion is complete
 				if strings.Contains(err.Error(), "does not exist") {
 					return "DELETE_COMPLETE", nil
 				}
 				return "", err
 			}
 
-			// Check for completion states
 			switch types.StackStatus(status) {
 			case types.StackStatusDeleteComplete:
 				return status, nil
 			case types.StackStatusDeleteFailed:
-				// Get detailed failure information from stack events
 				failureDetails := d.getFailedResourceEvents(ctx, stackName)
 				if failureDetails != "" {
 					return status, fmt.Errorf(
@@ -478,7 +479,6 @@ func (d *AWSDeployer) waitForStackDeletion(ctx context.Context, stackName string
 				}
 				return status, fmt.Errorf("stack deletion failed with status %s: %s", status, statusReason)
 			case types.StackStatusDeleteInProgress:
-				// Still in progress, continue polling
 			case types.StackStatusCreateInProgress, types.StackStatusCreateFailed, types.StackStatusCreateComplete,
 				types.StackStatusRollbackInProgress, types.StackStatusRollbackFailed, types.StackStatusRollbackComplete,
 				types.StackStatusUpdateInProgress, types.StackStatusUpdateCompleteCleanupInProgress,
@@ -488,7 +488,6 @@ func (d *AWSDeployer) waitForStackDeletion(ctx context.Context, stackName string
 				types.StackStatusReviewInProgress, types.StackStatusImportInProgress,
 				types.StackStatusImportComplete, types.StackStatusImportRollbackInProgress,
 				types.StackStatusImportRollbackFailed, types.StackStatusImportRollbackComplete:
-				// Unexpected status during deletion (these are create/update/import statuses)
 				return status, fmt.Errorf("unexpected stack status during deletion: %s", status)
 			}
 		}

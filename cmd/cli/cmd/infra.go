@@ -153,7 +153,7 @@ func infraApplyRun(cmd *cobra.Command, _ []string) {
 	}
 
 	// Resolve template for display purposes
-	templateSource, err := infra.ResolveTemplate(infraApplyProvider, infraApplyTemplate, version)
+	templateSource, err := infra.ResolveTemplate(infraApplyProvider, infraApplyTemplate, version, applier.GetRegion())
 	if err != nil {
 		output.Fatalf("failed to resolve template: %v", err)
 	}

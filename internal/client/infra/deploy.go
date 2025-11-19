@@ -86,22 +86,23 @@ func NewDeployer(ctx context.Context, provider, region string) (Deployer, error)
 
 // ResolveTemplate determines the template source from the given input.
 // Returns a TemplateSource with either URL or Body populated.
-func ResolveTemplate(provider, template, version string) (*TemplateSource, error) {
+// region is the provider region to use for building default template URLs.
+func ResolveTemplate(provider, template, version, region string) (*TemplateSource, error) {
 	providerLower := strings.ToLower(provider)
 	awsProvider := strings.ToLower(string(constants.AWS))
 	switch providerLower {
 	case awsProvider:
-		return resolveAWSTemplate(template, version)
+		return resolveAWSTemplate(template, version, region)
 	default:
 		return nil, fmt.Errorf("unsupported provider: %s", provider)
 	}
 }
 
 // resolveAWSTemplate resolves template for AWS provider
-func resolveAWSTemplate(template, version string) (*TemplateSource, error) {
+func resolveAWSTemplate(template, version, region string) (*TemplateSource, error) {
 	if template == "" {
 		// Use default S3 URL with region
-		url := awsconfig.BuildTemplateURL(version)
+		url := awsconfig.BuildTemplateURL(version, region)
 		return &TemplateSource{URL: url}, nil
 	}
 

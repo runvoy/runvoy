@@ -9,8 +9,7 @@ Parameters:
 
   ReplicationTargetRegions:
     Type: CommaDelimitedList
-    Default: 'us-west-1,us-west-2,eu-west-1,ap-southeast-1,ap-northeast-1'
-    Description: Comma-separated list of regions to replicate to
+    Description: Comma-separated list of regions to replicate to (excludes primary region us-east-1)
 
 Resources:
   # IAM role for S3 replication
@@ -75,8 +74,20 @@ Resources:
             Statement:
               - Effect: Allow
                 Action:
+                  - 's3:ListAllMyBuckets'
+                Resource: '*'
+              - Effect: Allow
+                Action:
                   - 's3:PutReplicationConfiguration'
-                Resource: !Sub 'arn:aws:s3:::${ProjectName}-releases-*'
+                  - 's3:GetReplicationConfiguration'
+                  - 's3:DeleteReplicationConfiguration'
+                  - 's3:HeadBucket'
+                  - 's3:GetBucketVersioning'
+                  - 's3:GetBucketLocation'
+                  - 's3:ListBucket'
+                Resource:
+                  - !Sub 'arn:aws:s3:::${ProjectName}-releases-*'
+                  - !Sub 'arn:aws:s3:::${ProjectName}-releases-*/*'
               - Effect: Allow
                 Action:
                   - 'iam:PassRole'
@@ -85,25 +96,100 @@ Resources:
   ReplicationLambda:
     Type: AWS::Lambda::Function
     Properties:
+      FunctionName: !Sub '${ProjectName}-replication-lambda'
       Runtime: python3.11
       Role: !GetAtt ReplicationLambdaRole.Arn
       Handler: index.handler
+      Timeout: 300
       Code:
         ZipFile: |
           import json
           import boto3
-          import cfnresponse
+          import urllib.request
+          import urllib.error
 
-          s3_client = boto3.client('s3')
+          def send_response(event, context, response_status, response_data, physical_resource_id=None):
+              response_url = event['ResponseURL']
+              response_body = json.dumps({
+                  'Status': response_status,
+                  'Reason': f'See the details in CloudWatch Log Stream: {context.log_stream_name}',
+                  'PhysicalResourceId': physical_resource_id or context.log_stream_name,
+                  'StackId': event['StackId'],
+                  'RequestId': event['RequestId'],
+                  'LogicalResourceId': event['LogicalResourceId'],
+                  'Data': response_data
+              }).encode('utf-8')
+
+              req = urllib.request.Request(
+                  response_url,
+                  data=response_body,
+                  headers={'Content-Length': str(len(response_body))},
+                  method='PUT'
+              )
+
+              try:
+                  with urllib.request.urlopen(req) as response:
+                      pass
+              except urllib.error.HTTPError as e:
+                  print(f'Failed to send response: HTTP {e.code} {e.reason}')
+              except Exception as e:
+                  print(f'Failed to send response: {str(e)}')
 
           def handler(event, context):
               try:
+                  request_type = event['RequestType']
                   project_name = event['ResourceProperties']['ProjectName']
                   primary_region = event['ResourceProperties']['PrimaryRegion']
                   target_regions = event['ResourceProperties']['TargetRegions'].split(',')
                   role_arn = event['ResourceProperties']['RoleArn']
 
                   bucket_name = f'{project_name}-releases-{primary_region}'
+
+                  s3_client = boto3.client('s3', region_name=primary_region)
+
+                  if request_type == 'Delete':
+                      try:
+                          s3_client.delete_bucket_replication(Bucket=bucket_name)
+                          print(f'Deleted replication configuration for {bucket_name}')
+                      except s3_client.exceptions.NoSuchBucket:
+                          print(f'Bucket {bucket_name} does not exist, skipping replication deletion')
+                      except Exception as e:
+                          print(f'Error deleting replication config (may not exist): {str(e)}')
+                      send_response(event, context, 'SUCCESS', {}, bucket_name)
+                      return
+
+                  # Verify primary bucket exists using GetBucketLocation (more reliable)
+                  try:
+                      location = s3_client.get_bucket_location(Bucket=bucket_name)
+                      print(f'Primary bucket {bucket_name} exists in region {location.get("LocationConstraint", "us-east-1")}')
+                  except s3_client.exceptions.ClientError as e:
+                      error_code = e.response['Error']['Code']
+                      if error_code == '404' or error_code == 'NoSuchBucket':
+                          raise Exception(f'Primary bucket {bucket_name} does not exist. Please create it first.')
+                      elif error_code == '403' or error_code == 'AccessDenied':
+                          raise Exception(f'Access denied when checking primary bucket {bucket_name}. Check IAM permissions for s3:GetBucketLocation and s3:HeadBucket on bucket arn:aws:s3:::{bucket_name}.')
+                      raise Exception(f'Error checking primary bucket {bucket_name}: {error_code} - {e.response.get("Error", {}).get("Message", str(e))}')
+
+                  # Verify target buckets exist
+                  for region in target_regions:
+                      target_bucket = f'{project_name}-releases-{region}'
+                      target_s3 = boto3.client('s3', region_name=region)
+                      try:
+                          # Try GetBucketLocation first as it's more reliable for cross-region checks
+                          try:
+                              location = target_s3.get_bucket_location(Bucket=target_bucket)
+                              print(f'Target bucket {target_bucket} exists in region {location.get("LocationConstraint", "us-east-1")}')
+                          except target_s3.exceptions.ClientError:
+                              # Fallback to head_bucket if GetBucketLocation fails
+                              target_s3.head_bucket(Bucket=target_bucket)
+                              print(f'Target bucket {target_bucket} exists')
+                      except target_s3.exceptions.ClientError as e:
+                          error_code = e.response['Error']['Code']
+                          if error_code == '404':
+                              raise Exception(f'Target bucket {target_bucket} does not exist. Please create it first.')
+                          elif error_code == '403':
+                              raise Exception(f'Access denied when checking target bucket {target_bucket}. Check IAM permissions for s3:HeadBucket and s3:GetBucketLocation on bucket.')
+                          raise Exception(f'Error checking target bucket {target_bucket}: {error_code} - {e.response.get("Error", {}).get("Message", str(e))}')
 
                   # Build replication rules
                   rules = []
@@ -120,18 +206,7 @@ Resources:
                           },
                           'Destination': {
                               'Bucket': f'arn:aws:s3:::{project_name}-releases-{region}',
-                              'ReplicationTime': {
-                                  'Status': 'Enabled',
-                                  'Time': {
-                                      'Minutes': 15
-                                  }
-                              },
-                              'Metrics': {
-                                  'Status': 'Enabled',
-                                  'EventThreshold': {
-                                      'Minutes': 15
-                                  }
-                              }
+                              'StorageClass': 'STANDARD'
                           }
                       })
 
@@ -141,18 +216,22 @@ Resources:
                       'Rules': rules
                   }
 
+                  print(f'Configuring replication for {bucket_name} to {len(target_regions)} regions')
                   s3_client.put_bucket_replication(
                       Bucket=bucket_name,
                       ReplicationConfiguration=replication_config
                   )
 
-                  cfnresponse.send(event, context, cfnresponse.SUCCESS, {
-                      'Message': f'Replication configured for {bucket_name}'
-                  })
+                  message = f'Replication configured for {bucket_name} to {", ".join(target_regions)}'
+                  print(message)
+                  send_response(event, context, 'SUCCESS', {
+                      'Message': message
+                  }, bucket_name)
               except Exception as e:
-                  print(f'Error: {str(e)}')
-                  cfnresponse.send(event, context, cfnresponse.FAILED, {
-                      'Message': str(e)
+                  error_msg = str(e)
+                  print(f'Error: {error_msg}')
+                  send_response(event, context, 'FAILED', {
+                      'Message': error_msg
                   })
 
 Outputs:

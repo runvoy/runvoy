@@ -1,6 +1,61 @@
 // Package constants provides AWS-specific constants for infrastructure deployment.
 package constants
 
+import (
+	"fmt"
+	"slices"
+	"strings"
+)
+
+// rawReleaseRegions contains the comma-separated list of AWS regions for releases.
+// This value is injected at build time via ldflags.
+var rawReleaseRegions = "" // Updated by build system at build time
+
+// GetReleaseRegions returns a slice of supported AWS regions for releases.
+// The regions are parsed from the comma-separated string injected at build time.
+func GetReleaseRegions() []string {
+	if rawReleaseRegions == "" {
+		return []string{}
+	}
+
+	regions := strings.Split(rawReleaseRegions, ",")
+	// Trim whitespace from each region
+	result := make([]string, 0, len(regions))
+	for _, r := range regions {
+		trimmed := strings.TrimSpace(r)
+		if trimmed != "" {
+			result = append(result, trimmed)
+		}
+	}
+	return result
+}
+
+// ValidateRegion validates that the given region is in the supported regions list.
+// Returns an error if the region is not supported, or if no regions are configured.
+func ValidateRegion(region string) error {
+	if region == "" {
+		return fmt.Errorf("region cannot be empty")
+	}
+
+	supportedRegions := GetReleaseRegions()
+	if len(supportedRegions) == 0 {
+		// If no regions configured at build time, skip validation
+		// (e.g., during development or if regions flag wasn't set)
+		return nil
+	}
+
+	region = strings.TrimSpace(region)
+	if slices.Contains(supportedRegions, region) {
+		return nil
+	}
+
+	return fmt.Errorf(
+		"region %q is not supported. Supported regions: %s",
+		region,
+		strings.Join(supportedRegions, ", "),
+	)
+}
+
 const (
 	// DefaultInfraStackName is the default CloudFormation stack name for AWS infra deployments
 	DefaultInfraStackName = "runvoy-backend"

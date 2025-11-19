@@ -2,6 +2,7 @@
 set dotenv-load
 
 # Variables
+regions := "us-east-1 us-east-2 us-west-1 us-west-2 ap-south-1 ap-northeast-1 ap-northeast-2 ap-northeast-3 ap-southeast-1 ap-southeast-2 ca-central-1 eu-central-1 eu-west-1 eu-west-2 eu-west-3 eu-north-1 eu-south-1 sa-east-1"
 bucket := env('RUNVOY_RELEASES_BUCKET', 'runvoy-releases-us-east-1')
 stack_name := env('RUNVOY_CLOUDFORMATION_BACKEND_STACK', 'runvoy-backend')
 admin_email := env('RUNVOY_ADMIN_EMAIL', 'admin@runvoy.site')
@@ -9,8 +10,13 @@ version := trim(read('VERSION'))
 git_short_hash := trim(`git rev-parse --short HEAD`)
 build_date := datetime_utc('%Y%m%d')
 build_flags_x := '-X=runvoy/internal/constants.version='
+build_flags_regions := '-X=runvoy/internal/providers/aws/constants.rawReleaseRegions='
 build_version := version + '-' + build_date + '-' + git_short_hash
-build_flags := build_flags_x + build_version
+# Convert space-separated regions to comma-separated for ldflags (spaces cause issues)
+regions_comma := replace(regions, ' ', ',')
+# Replication target regions: all regions except us-east-1 (the primary region)
+replication_target_regions := replace(replace(regions_comma, ',us-east-1', ''), 'us-east-1,', '')
+build_flags := build_flags_x + build_version + ' ' + build_flags_regions + regions_comma
 
 # Aliases
 alias r := runvoy
@@ -43,28 +49,28 @@ deploy-frontend: deploy-webapp
 [working-directory: 'cmd/cli']
 build-cli:
     go build \
-        -ldflags {{build_flags}} \
+        -ldflags '{{build_flags}}' \
         -o ../../bin/runvoy
 
 # Build orchestrator backend service (Lambda function)
 [working-directory: 'cmd/backend/providers/aws/orchestrator']
 build-orchestrator:
     GOARCH=arm64 GOOS=linux go build \
-        -ldflags {{build_flags}} \
+        -ldflags '{{build_flags}}' \
         -o ../../../../../dist/bootstrap
 
 # Build event processor backend service (Lambda function)
 [working-directory: 'cmd/backend/providers/aws/processor']
 build-event-processor:
     GOARCH=arm64 GOOS=linux go build \
-        -ldflags {{build_flags}} \
+        -ldflags '{{build_flags}}' \
         -o ../../../../../dist/bootstrap
 
 # Build local development server
 [working-directory: 'cmd/local']
 build-local:
     go build \
-        -ldflags {{build_flags}} \
+        -ldflags '{{build_flags}}' \
         -o ../../bin/local
 
 # Build orchestrator zip file
@@ -174,7 +180,7 @@ setup-stackset-prerequisites:
         --capabilities CAPABILITY_NAMED_IAM
 
 # Create releases bucket with multi-region replication
-create-releases-bucket: setup-stackset-prerequisites
+s: setup-stackset-prerequisites
     aws cloudformation create-stack-set \
         --stack-set-name runvoy-releases-bucket \
         --template-body file://deploy/providers/aws/runvoy-bucket.yaml
@@ -182,7 +188,7 @@ create-releases-bucket: setup-stackset-prerequisites
     aws cloudformation create-stack-instances \
         --stack-set-name runvoy-releases-bucket \
         --accounts 587453114450 \
-        --regions us-east-1 us-west-1 us-west-2 eu-west-1 ap-southeast-1 ap-northeast-1
+        --regions {{regions}}
 
     @echo "Waiting for all stack instances to complete in all regions..."
     @while [ $(aws cloudformation list-stack-instances \
@@ -201,7 +207,8 @@ create-releases-bucket: setup-stackset-prerequisites
     aws cloudformation deploy \
         --stack-name runvoy-releases-bucket-replication \
         --template-file deploy/providers/aws/runvoy-bucket-replication.yaml \
-        --capabilities CAPABILITY_NAMED_IAM
+        --capabilities CAPABILITY_NAMED_IAM \
+        --parameter-overrides ReplicationTargetRegions="{{replication_target_regions}}"
 
 # Create/update backend infrastructure via cloudformation
 create-backend-infra:
@@ -250,7 +257,7 @@ seed-admin-user email stack_name:
 
 # Run local development server with hot reloading
 local-dev-server:
-    reflex -r '\.(go|csv|env)$' -s -- go run -ldflags {{build_flags}} ./cmd/local
+    reflex -r '\.(go|csv|env)$' -s -- go run -ldflags '{{build_flags}}' ./cmd/local
 
 # Update README.md with latest CLI help output
 # This ensures the README stays in sync with CLI commands
@@ -328,3 +335,7 @@ release-snapshot:
 # Tag HEAD with current version
 tag-current-version:
     git tag {{version}}
+
+# Empty and delete buckets
+delete-buckets *ARGS:
+    go run scripts/delete-s3-buckets/*.go {{ARGS}}

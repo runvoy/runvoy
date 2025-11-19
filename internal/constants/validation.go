@@ -19,5 +19,9 @@ const ExpectedArgsSeedAdminUser = 3
 // ExpectedArgsTruncateDynamoDBTable is the expected number of arguments for truncate-dynamodb-table script
 const ExpectedArgsTruncateDynamoDBTable = 2
 
+// MinimumArgsDeleteS3Buckets is the minimum number of arguments for delete-s3-buckets script
+// (script name + at least 1 bucket)
+const MinimumArgsDeleteS3Buckets = 2
+
 // MinimumArgsUpdateReadmeHelp is the minimum number of arguments for update-readme-help script
 const MinimumArgsUpdateReadmeHelp = 2
