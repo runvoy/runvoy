@@ -307,3 +307,105 @@ func TestResponseWriter(t *testing.T) {
 		}
 	})
 }
+
+func TestCorsMiddleware(t *testing.T) {
+	tokenRepo := &testTokenRepository{}
+
+	svc, err := orchestrator.NewService(
+		context.Background(),
+		&testUserRepository{},
+		&testExecutionRepository{},
+		nil,
+		tokenRepo,
+		&testRunner{},
+		testutil.SilentLogger(),
+		constants.AWS,
+		nil,
+		&testSecretsRepository{},
+		nil,
+		newPermissiveTestEnforcerForHandlers(t),
+	)
+	if err != nil {
+		t.Fatalf("failed to create service: %v", err)
+	}
+
+	t.Run("allows origin without trailing slash when configured with trailing slash", func(t *testing.T) {
+		allowedOrigins := []string{"https://runvoy.site/"}
+		router := NewRouter(svc, 0, allowedOrigins)
+
+		req := httptest.NewRequest("GET", "/api/v1/health", http.NoBody)
+		req.Header.Set("Origin", "https://runvoy.site")
+		rr := httptest.NewRecorder()
+
+		router.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusOK {
+			t.Errorf("Expected status 200, got %d", rr.Code)
+		}
+		accessControlOrigin := rr.Header().Get("Access-Control-Allow-Origin")
+		if accessControlOrigin != "https://runvoy.site" {
+			t.Errorf("Expected Access-Control-Allow-Origin 'https://runvoy.site', got '%s'", accessControlOrigin)
+		}
+	})
+
+	t.Run("allows origin with trailing slash when configured without trailing slash", func(t *testing.T) {
+		allowedOrigins := []string{"https://runvoy.site"}
+		router := NewRouter(svc, 0, allowedOrigins)
+
+		req := httptest.NewRequest("GET", "/api/v1/health", http.NoBody)
+		req.Header.Set("Origin", "https://runvoy.site/")
+		rr := httptest.NewRecorder()
+
+		router.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusOK {
+			t.Errorf("Expected status 200, got %d", rr.Code)
+		}
+		accessControlOrigin := rr.Header().Get("Access-Control-Allow-Origin")
+		if accessControlOrigin != "https://runvoy.site/" {
+			t.Errorf("Expected Access-Control-Allow-Origin 'https://runvoy.site/', got '%s'", accessControlOrigin)
+		}
+	})
+
+	t.Run("rejects origin not in allowed list", func(t *testing.T) {
+		allowedOrigins := []string{"https://runvoy.site"}
+		router := NewRouter(svc, 0, allowedOrigins)
+
+		req := httptest.NewRequest("GET", "/api/v1/health", http.NoBody)
+		req.Header.Set("Origin", "https://evil.com")
+		rr := httptest.NewRecorder()
+
+		router.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusOK {
+			t.Errorf("Expected status 200, got %d", rr.Code)
+		}
+		accessControlOrigin := rr.Header().Get("Access-Control-Allow-Origin")
+		if accessControlOrigin != "" {
+			t.Errorf("Expected empty Access-Control-Allow-Origin, got '%s'", accessControlOrigin)
+		}
+	})
+
+	t.Run("handles OPTIONS preflight request", func(t *testing.T) {
+		allowedOrigins := []string{"https://runvoy.site"}
+		router := NewRouter(svc, 0, allowedOrigins)
+
+		req := httptest.NewRequest("OPTIONS", "/api/v1/health", http.NoBody)
+		req.Header.Set("Origin", "https://runvoy.site")
+		rr := httptest.NewRecorder()
+
+		router.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusOK {
+			t.Errorf("Expected status 200, got %d", rr.Code)
+		}
+		accessControlOrigin := rr.Header().Get("Access-Control-Allow-Origin")
+		if accessControlOrigin != "https://runvoy.site" {
+			t.Errorf("Expected Access-Control-Allow-Origin 'https://runvoy.site', got '%s'", accessControlOrigin)
+		}
+		accessControlMethods := rr.Header().Get("Access-Control-Allow-Methods")
+		if accessControlMethods == "" {
+			t.Error("Expected Access-Control-Allow-Methods header to be set")
+		}
+	})
+}

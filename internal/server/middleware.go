@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 	"slices"
+	"strings"
 	"sync"
 	"time"
 
@@ -66,14 +67,25 @@ func (r *Router) requestTimeoutMiddleware(timeout time.Duration) func(http.Handl
 	}
 }
 
+// normalizeOrigin removes trailing slashes from an origin URL for comparison
+func normalizeOrigin(origin string) string {
+	return strings.TrimSuffix(origin, "/")
+}
+
 // corsMiddleware handles CORS headers for cross-origin requests
+// Normalizes allowed origins once at middleware creation time to avoid repeated string operations.
 func corsMiddleware(allowedOrigins []string) func(http.Handler) http.Handler {
+	normalizedAllowedOrigins := make([]string, len(allowedOrigins))
+	for i, origin := range allowedOrigins {
+		normalizedAllowedOrigins[i] = normalizeOrigin(origin)
+	}
+
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 			origin := req.Header.Get("Origin")
 			if origin != "" {
-				// Check if the origin is in the allowed list
-				allowed := slices.Contains(allowedOrigins, origin)
+				normalizedOrigin := normalizeOrigin(origin)
+				allowed := slices.Contains(normalizedAllowedOrigins, normalizedOrigin)
 				if allowed {
 					w.Header().Set("Access-Control-Allow-Origin", origin)
 				}
