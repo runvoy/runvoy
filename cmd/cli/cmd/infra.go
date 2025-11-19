@@ -25,8 +25,8 @@ var (
 // infraCmd is the parent command for infrastructure operations
 var infraCmd = &cobra.Command{
 	Use:   "infra",
-	Short: "Manage runvoy infrastructure",
-	Long:  "Commands for applying and managing runvoy backend infrastructure.",
+	Short: "Infrastructure management commands",
+	Long:  "Commands for applying and managing backend infrastructure.",
 }
 
 // infraApplyCmd applies the runvoy backend using CloudFormation
@@ -41,22 +41,22 @@ or a local file path.
 
 Examples:
   # Apply using default template and version
-  %s infra apply --stack-name my-runvoy
+  %s infra apply --stack-name my-stack
 
   # Apply a specific version
-  %s infra apply --stack-name my-runvoy --version 0.3.3
+  %s infra apply --stack-name my-stack --version 0.3.3
 
   # Apply with custom template from S3
-  %s infra apply --stack-name my-runvoy --template https://my-bucket.s3.amazonaws.com/template.yaml
+  %s infra apply --stack-name my-stack --template https://my-bucket.s3.amazonaws.com/template.yaml
 
   # Apply with local template file
-  %s infra apply --stack-name my-runvoy --template ./my-template.yaml
+  %s infra apply --stack-name my-stack --template ./my-template.yaml
 
   # Apply with custom parameters
-  %s infra apply --stack-name my-runvoy --parameter ProjectName=myproject --parameter LambdaCodeBucket=my-bucket
+  %s infra apply --stack-name my-stack --parameter ProjectName=myproject --parameter LambdaCodeBucket=my-bucket
 
   # Apply and automatically configure CLI
-  %s infra apply --stack-name my-runvoy --configure`,
+  %s infra apply --stack-name my-stack --configure`,
 		constants.ProjectName,
 		constants.ProjectName,
 		constants.ProjectName,
@@ -83,7 +83,7 @@ func init() {
 	infraApplyCmd.Flags().StringVar(&infraApplyStackName, "stack-name", defaultStackName,
 		"Infrastructure stack name")
 	infraApplyCmd.Flags().StringVar(&infraApplyTemplate, "template", "",
-		"Template URL or local file path. If not specified, uses the official template from runvoy-releases")
+		"Template URL or local file path. If not specified, uses the official template")
 	infraApplyCmd.Flags().StringVar(&infraApplyVersion, "version", "",
 		"Release version to apply. Defaults to CLI version")
 	infraApplyCmd.Flags().StringSliceVar(&infraApplyParameters, "parameter", []string{},
@@ -118,7 +118,7 @@ func infraApplyRun(cmd *cobra.Command, _ []string) {
 	}
 
 	// Display application info
-	output.Infof("Applying runvoy infrastructure")
+	output.Infof("Applying infrastructure changes")
 	output.KeyValue("Provider", infraApplyProvider)
 	output.KeyValue("Stack name", infraApplyStackName)
 	output.KeyValue("Version", version)
