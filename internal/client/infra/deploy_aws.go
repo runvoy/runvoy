@@ -6,8 +6,6 @@ import (
 	"strings"
 	"time"
 
-	"runvoy/internal/constants"
-
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation"
@@ -15,6 +13,11 @@ import (
 )
 
 const (
+	// AWS-specific defaults for releases bucket
+	awsReleasesBucket             = "runvoy-releases"
+	awsReleasesBucketRegion       = "us-east-2"
+	awsCloudFormationTemplateFile = "cloudformation-backend.yaml"
+
 	awsStackPollInterval     = 5 * time.Second
 	awsStackOperationTimeout = 30 * time.Minute
 )
