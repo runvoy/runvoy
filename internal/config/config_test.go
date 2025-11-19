@@ -982,6 +982,7 @@ func TestLoadOrchestratorEnvironmentVariables(t *testing.T) {
 	originalVars := map[string]string{
 		"RUNVOY_BACKEND_PROVIDER":                os.Getenv("RUNVOY_BACKEND_PROVIDER"),
 		"RUNVOY_AWS_API_KEYS_TABLE":              os.Getenv("RUNVOY_AWS_API_KEYS_TABLE"),
+		"RUNVOY_AWS_PENDING_API_KEYS_TABLE":      os.Getenv("RUNVOY_AWS_PENDING_API_KEYS_TABLE"),
 		"RUNVOY_AWS_EXECUTIONS_TABLE":            os.Getenv("RUNVOY_AWS_EXECUTIONS_TABLE"),
 		"RUNVOY_AWS_ECS_CLUSTER":                 os.Getenv("RUNVOY_AWS_ECS_CLUSTER"),
 		"RUNVOY_AWS_LOG_GROUP":                   os.Getenv("RUNVOY_AWS_LOG_GROUP"),
@@ -1012,6 +1013,7 @@ func TestLoadOrchestratorEnvironmentVariables(t *testing.T) {
 	// Set minimal required env vars for orchestrator
 	_ = os.Setenv("RUNVOY_BACKEND_PROVIDER", "AWS")
 	_ = os.Setenv("RUNVOY_AWS_API_KEYS_TABLE", "test-api-keys")
+	_ = os.Setenv("RUNVOY_AWS_PENDING_API_KEYS_TABLE", "test-pending-api-keys")
 	_ = os.Setenv("RUNVOY_AWS_EXECUTIONS_TABLE", "test-executions")
 	_ = os.Setenv("RUNVOY_AWS_IMAGE_TASKDEFS_TABLE", "test-image-taskdefs")
 	_ = os.Setenv("RUNVOY_AWS_ECS_CLUSTER", "test-cluster")
