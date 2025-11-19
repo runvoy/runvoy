@@ -13,11 +13,6 @@ import (
 )
 
 const (
-	// AWS-specific defaults for releases bucket
-	awsReleasesBucket             = "runvoy-releases"
-	awsReleasesBucketRegion       = "us-east-2"
-	awsCloudFormationTemplateFile = "cloudformation-backend.yaml"
-
 	awsStackPollInterval     = 5 * time.Second
 	awsStackOperationTimeout = 30 * time.Minute
 )

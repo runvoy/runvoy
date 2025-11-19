@@ -165,3 +165,20 @@ func (c *Config) LoadSDKConfig(ctx context.Context) error {
 	c.SDKConfig = &awsCfg
 	return nil
 }
+
+// NormalizeVersion strips any 'v' prefix from the version string.
+// S3 paths use versions without the 'v' prefix (e.g., "0.1.0" not "v0.1.0").
+func NormalizeVersion(version string) string {
+	return strings.TrimPrefix(version, "v")
+}
+
+// BuildTemplateURL builds the S3 HTTPS URL for the CloudFormation template.
+// The version is normalized to remove any 'v' prefix before building the URL.
+func BuildTemplateURL(version string) string {
+	normalizedVersion := NormalizeVersion(version)
+	return fmt.Sprintf("https://%s.s3.%s.amazonaws.com/%s/%s",
+		awsConstants.ReleasesBucket,
+		awsConstants.ReleasesBucketRegion,
+		normalizedVersion,
+		awsConstants.CloudFormationTemplateFile)
+}
