@@ -8,8 +8,6 @@ import (
 	"runvoy/internal/config"
 	"runvoy/internal/constants"
 
-	awsconfig "github.com/aws/aws-sdk-go-v2/config"
-	"github.com/aws/aws-sdk-go-v2/service/cloudformation"
 	"github.com/spf13/cobra"
 )
 
@@ -22,23 +20,24 @@ var (
 	infraDeployWait       bool
 	infraDeployConfigure  bool
 	infraDeployRegion     string
+	infraDeployProvider   string
 )
 
 // infraCmd is the parent command for infrastructure operations
 var infraCmd = &cobra.Command{
 	Use:   "infra",
 	Short: "Manage runvoy infrastructure",
-	Long:  "Commands for deploying and managing runvoy backend infrastructure on AWS.",
+	Long:  "Commands for deploying and managing runvoy backend infrastructure.",
 }
 
 // infraDeployCmd deploys the runvoy backend using CloudFormation
 var infraDeployCmd = &cobra.Command{
 	Use:   "deploy",
 	Short: "Deploy runvoy backend infrastructure",
-	Long: `Deploy or update the runvoy backend infrastructure using AWS CloudFormation.
+	Long: `Deploy or update the runvoy backend infrastructure.
 
-By default, this command uses the official CloudFormation template from the runvoy-releases
-S3 bucket for the current CLI version. You can override this with a custom template URL
+By default, this command uses the official template from the runvoy-releases
+bucket for the current CLI version. You can override this with a custom template URL
 or a local file path.
 
 Examples:
@@ -67,20 +66,22 @@ func init() {
 	infraCmd.AddCommand(infraDeployCmd)
 
 	// Define flags for infra deploy
+	infraDeployCmd.Flags().StringVar(&infraDeployProvider, "provider", infra.ProviderAWS,
+		"Cloud provider (currently supported: aws)")
 	infraDeployCmd.Flags().StringVar(&infraDeployStackName, "stack-name", infra.DefaultStackName,
-		"CloudFormation stack name")
+		"Infrastructure stack name")
 	infraDeployCmd.Flags().StringVar(&infraDeployTemplate, "template", "",
-		"Template URL (S3 HTTPS URL) or local file path. If not specified, uses the official template from runvoy-releases bucket")
+		"Template URL or local file path. If not specified, uses the official template from runvoy-releases")
 	infraDeployCmd.Flags().StringVar(&infraDeployVersion, "version", "",
 		"Release version to deploy. Defaults to CLI version")
 	infraDeployCmd.Flags().StringSliceVar(&infraDeployParameters, "parameter", []string{},
-		"CloudFormation parameter in KEY=VALUE format (can be specified multiple times)")
+		"Stack parameter in KEY=VALUE format (can be specified multiple times)")
 	infraDeployCmd.Flags().BoolVar(&infraDeployWait, "wait", true,
 		"Wait for stack operation to complete")
 	infraDeployCmd.Flags().BoolVar(&infraDeployConfigure, "configure", false,
 		"Automatically configure CLI with the deployed endpoint after successful deployment")
 	infraDeployCmd.Flags().StringVar(&infraDeployRegion, "region", "",
-		"AWS region. Uses AWS SDK default if not specified")
+		"Provider region. Uses provider default if not specified")
 }
 
 func infraDeployRun(cmd *cobra.Command, _ []string) error {
@@ -92,29 +93,21 @@ func infraDeployRun(cmd *cobra.Command, _ []string) error {
 		version = *constants.GetVersion()
 	}
 
-	// Load AWS configuration
-	var awsOpts []func(*awsconfig.LoadOptions) error
-	if infraDeployRegion != "" {
-		awsOpts = append(awsOpts, awsconfig.WithRegion(infraDeployRegion))
-	}
-
-	awsCfg, err := awsconfig.LoadDefaultConfig(ctx, awsOpts...)
+	// Create deployer for the specified provider
+	deployer, err := infra.NewDeployer(ctx, infraDeployProvider, infraDeployRegion)
 	if err != nil {
-		return fmt.Errorf("failed to load AWS configuration: %w", err)
+		return fmt.Errorf("failed to initialize deployer: %w", err)
 	}
-
-	// Create CloudFormation client and service
-	cfnClient := cloudformation.NewFromConfig(awsCfg)
-	service := infra.NewDeployService(cfnClient)
 
 	// Resolve template for display purposes
-	templateSource, err := infra.ResolveTemplate(infraDeployTemplate, version)
+	templateSource, err := infra.ResolveTemplate(infraDeployProvider, infraDeployTemplate, version)
 	if err != nil {
 		return fmt.Errorf("failed to resolve template: %w", err)
 	}
 
 	// Display deployment info
 	output.Infof("Deploying runvoy infrastructure")
+	output.KeyValue("Provider", infraDeployProvider)
 	output.KeyValue("Stack name", infraDeployStackName)
 	output.KeyValue("Version", version)
 	if templateSource.URL != "" {
@@ -122,7 +115,7 @@ func infraDeployRun(cmd *cobra.Command, _ []string) error {
 	} else {
 		output.KeyValue("Template", "local file")
 	}
-	output.KeyValue("Region", awsCfg.Region)
+	output.KeyValue("Region", deployer.GetRegion())
 	output.Blank()
 
 	// Prepare deploy options
@@ -132,10 +125,11 @@ func infraDeployRun(cmd *cobra.Command, _ []string) error {
 		Version:    version,
 		Parameters: infraDeployParameters,
 		Wait:       infraDeployWait,
+		Region:     infraDeployRegion,
 	}
 
 	// Show operation type before starting
-	stackExists, err := service.CheckStackExists(ctx, infraDeployStackName)
+	stackExists, err := deployer.CheckStackExists(ctx, infraDeployStackName)
 	if err != nil {
 		return fmt.Errorf("failed to check stack status: %w", err)
 	}
@@ -147,7 +141,7 @@ func infraDeployRun(cmd *cobra.Command, _ []string) error {
 	}
 
 	// Deploy the stack
-	result, err := service.Deploy(ctx, opts)
+	result, err := deployer.Deploy(ctx, opts)
 	if err != nil {
 		return err
 	}
@@ -159,7 +153,7 @@ func infraDeployRun(cmd *cobra.Command, _ []string) error {
 	}
 
 	if result.Status == "IN_PROGRESS" {
-		output.Successf("Stack %s initiated. Use AWS Console or CLI to monitor progress.", result.OperationType)
+		output.Successf("Stack %s initiated. Use cloud console or CLI to monitor progress.", result.OperationType)
 		return nil
 	}
 
