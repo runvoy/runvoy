@@ -108,47 +108,47 @@ Unregister a Docker image
 
 ## runvoy infra
 
-Commands for deploying and managing runvoy backend infrastructure.
+Commands for applying and managing runvoy backend infrastructure.
 
 
-## runvoy infra deploy
+## runvoy infra apply
 
-Deploy or update the runvoy backend infrastructure.
+Apply or update the backend infrastructure.
 
-By default, this command uses the official template from the runvoy-releases
-bucket for the current CLI version. You can override this with a custom template URL
+By default, this command uses the official template from the releases bucket
+for the current CLI version. You can override this with a custom template URL
 or a local file path.
 
 Examples:
-  # Deploy using default template and version
-  runvoy infra deploy --stack-name my-runvoy
+  # Apply using default template and version
+  runvoy infra apply --stack-name my-runvoy
 
-  # Deploy a specific version
-  runvoy infra deploy --stack-name my-runvoy --version 0.3.3
+  # Apply a specific version
+  runvoy infra apply --stack-name my-runvoy --version 0.3.3
 
-  # Deploy with custom template from S3
-  runvoy infra deploy --stack-name my-runvoy --template https://my-bucket.s3.amazonaws.com/template.yaml
+  # Apply with custom template from S3
+  runvoy infra apply --stack-name my-runvoy --template https://my-bucket.s3.amazonaws.com/template.yaml
 
-  # Deploy with local template file
-  runvoy infra deploy --stack-name my-runvoy --template ./my-template.yaml
+  # Apply with local template file
+  runvoy infra apply --stack-name my-runvoy --template ./my-template.yaml
 
-  # Deploy with custom parameters
-  runvoy infra deploy --stack-name my-runvoy --parameter ProjectName=myproject --parameter LambdaCodeBucket=my-bucket
+  # Apply with custom parameters
+  runvoy infra apply --stack-name my-runvoy --parameter ProjectName=myproject --parameter LambdaCodeBucket=my-bucket
 
-  # Deploy and automatically configure CLI
-  runvoy infra deploy --stack-name my-runvoy --configure
+  # Apply and automatically configure CLI
+  runvoy infra apply --stack-name my-runvoy --configure
 
 **Options**
 
 ```
-      --configure           Automatically configure CLI with the deployed endpoint after successful deployment
-  -h, --help                help for deploy
+      --configure           Automatically configure CLI with the applied endpoint after successful application
+  -h, --help                help for apply
       --parameter strings   Stack parameter in KEY=VALUE format (can be specified multiple times)
       --provider string     Cloud provider (currently supported: aws) (default "aws")
       --region string       Provider region. Uses provider default if not specified
       --stack-name string   Infrastructure stack name (default "runvoy")
       --template string     Template URL or local file path. If not specified, uses the official template from runvoy-releases
-      --version string      Release version to deploy. Defaults to CLI version
+      --version string      Release version to apply. Defaults to CLI version
       --wait                Wait for stack operation to complete (default true)
 ```
 

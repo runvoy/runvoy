@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-
 	"runvoy/internal/client/infra"
 	"runvoy/internal/client/output"
 	"runvoy/internal/config"
@@ -12,126 +11,132 @@ import (
 )
 
 var (
-	// infra deploy flags
-	infraDeployStackName  string
-	infraDeployTemplate   string
-	infraDeployVersion    string
-	infraDeployParameters []string
-	infraDeployWait       bool
-	infraDeployConfigure  bool
-	infraDeployRegion     string
-	infraDeployProvider   string
+	// infra apply flags
+	infraApplyStackName  string
+	infraApplyTemplate   string
+	infraApplyVersion    string
+	infraApplyParameters []string
+	infraApplyWait       bool
+	infraApplyConfigure  bool
+	infraApplyRegion     string
+	infraApplyProvider   string
 )
 
 // infraCmd is the parent command for infrastructure operations
 var infraCmd = &cobra.Command{
 	Use:   "infra",
 	Short: "Manage runvoy infrastructure",
-	Long:  "Commands for deploying and managing runvoy backend infrastructure.",
+	Long:  "Commands for applying and managing runvoy backend infrastructure.",
 }
 
-// infraDeployCmd deploys the runvoy backend using CloudFormation
-var infraDeployCmd = &cobra.Command{
-	Use:   "deploy",
-	Short: "Deploy runvoy backend infrastructure",
-	Long: `Deploy or update the runvoy backend infrastructure.
+// infraApplyCmd applies the runvoy backend using CloudFormation
+var infraApplyCmd = &cobra.Command{
+	Use:   "apply",
+	Short: "Apply backend infrastructure",
+	Long: fmt.Sprintf(`Apply or update the backend infrastructure.
 
-By default, this command uses the official template from the runvoy-releases
-bucket for the current CLI version. You can override this with a custom template URL
+By default, this command uses the official template from the releases bucket
+for the current CLI version. You can override this with a custom template URL
 or a local file path.
 
 Examples:
-  # Deploy using default template and version
-  runvoy infra deploy --stack-name my-runvoy
+  # Apply using default template and version
+  %s infra apply --stack-name my-runvoy
 
-  # Deploy a specific version
-  runvoy infra deploy --stack-name my-runvoy --version 0.3.3
+  # Apply a specific version
+  %s infra apply --stack-name my-runvoy --version 0.3.3
 
-  # Deploy with custom template from S3
-  runvoy infra deploy --stack-name my-runvoy --template https://my-bucket.s3.amazonaws.com/template.yaml
+  # Apply with custom template from S3
+  %s infra apply --stack-name my-runvoy --template https://my-bucket.s3.amazonaws.com/template.yaml
 
-  # Deploy with local template file
-  runvoy infra deploy --stack-name my-runvoy --template ./my-template.yaml
+  # Apply with local template file
+  %s infra apply --stack-name my-runvoy --template ./my-template.yaml
 
-  # Deploy with custom parameters
-  runvoy infra deploy --stack-name my-runvoy --parameter ProjectName=myproject --parameter LambdaCodeBucket=my-bucket
+  # Apply with custom parameters
+  %s infra apply --stack-name my-runvoy --parameter ProjectName=myproject --parameter LambdaCodeBucket=my-bucket
 
-  # Deploy and automatically configure CLI
-  runvoy infra deploy --stack-name my-runvoy --configure`,
-	RunE: infraDeployRun,
+  # Apply and automatically configure CLI
+  %s infra apply --stack-name my-runvoy --configure`,
+		constants.ProjectName,
+		constants.ProjectName,
+		constants.ProjectName,
+		constants.ProjectName,
+		constants.ProjectName,
+		constants.ProjectName),
+	Run: infraApplyRun,
 }
 
 func init() {
 	rootCmd.AddCommand(infraCmd)
-	infraCmd.AddCommand(infraDeployCmd)
+	infraCmd.AddCommand(infraApplyCmd)
 
-	// Define flags for infra deploy
-	infraDeployCmd.Flags().StringVar(&infraDeployProvider, "provider", infra.ProviderAWS,
+	// Define flags for infra apply
+	infraApplyCmd.Flags().StringVar(&infraApplyProvider, "provider", infra.ProviderAWS,
 		"Cloud provider (currently supported: aws)")
-	infraDeployCmd.Flags().StringVar(&infraDeployStackName, "stack-name", infra.DefaultStackName,
+	infraApplyCmd.Flags().StringVar(&infraApplyStackName, "stack-name", infra.DefaultStackName,
 		"Infrastructure stack name")
-	infraDeployCmd.Flags().StringVar(&infraDeployTemplate, "template", "",
+	infraApplyCmd.Flags().StringVar(&infraApplyTemplate, "template", "",
 		"Template URL or local file path. If not specified, uses the official template from runvoy-releases")
-	infraDeployCmd.Flags().StringVar(&infraDeployVersion, "version", "",
-		"Release version to deploy. Defaults to CLI version")
-	infraDeployCmd.Flags().StringSliceVar(&infraDeployParameters, "parameter", []string{},
+	infraApplyCmd.Flags().StringVar(&infraApplyVersion, "version", "",
+		"Release version to apply. Defaults to CLI version")
+	infraApplyCmd.Flags().StringSliceVar(&infraApplyParameters, "parameter", []string{},
 		"Stack parameter in KEY=VALUE format (can be specified multiple times)")
-	infraDeployCmd.Flags().BoolVar(&infraDeployWait, "wait", true,
+	infraApplyCmd.Flags().BoolVar(&infraApplyWait, "wait", true,
 		"Wait for stack operation to complete")
-	infraDeployCmd.Flags().BoolVar(&infraDeployConfigure, "configure", false,
-		"Automatically configure CLI with the deployed endpoint after successful deployment")
-	infraDeployCmd.Flags().StringVar(&infraDeployRegion, "region", "",
+	infraApplyCmd.Flags().BoolVar(&infraApplyConfigure, "configure", false,
+		"Automatically configure CLI with the applied endpoint after successful application")
+	infraApplyCmd.Flags().StringVar(&infraApplyRegion, "region", "",
 		"Provider region. Uses provider default if not specified")
 }
 
-func infraDeployRun(cmd *cobra.Command, _ []string) error {
+func infraApplyRun(cmd *cobra.Command, _ []string) {
 	ctx := cmd.Context()
 
 	// Determine version to use
-	version := infraDeployVersion
+	version := infraApplyVersion
 	if version == "" {
 		version = *constants.GetVersion()
 	}
 
-	// Create deployer for the specified provider
-	deployer, err := infra.NewDeployer(ctx, infraDeployProvider, infraDeployRegion)
+	// Create applier for the specified provider
+	applier, err := infra.NewDeployer(ctx, infraApplyProvider, infraApplyRegion)
 	if err != nil {
-		return fmt.Errorf("failed to initialize deployer: %w", err)
+		output.Fatalf("failed to initialize applier: %v", err)
 	}
 
 	// Resolve template for display purposes
-	templateSource, err := infra.ResolveTemplate(infraDeployProvider, infraDeployTemplate, version)
+	templateSource, err := infra.ResolveTemplate(infraApplyProvider, infraApplyTemplate, version)
 	if err != nil {
-		return fmt.Errorf("failed to resolve template: %w", err)
+		output.Fatalf("failed to resolve template: %v", err)
 	}
 
-	// Display deployment info
-	output.Infof("Deploying runvoy infrastructure")
-	output.KeyValue("Provider", infraDeployProvider)
-	output.KeyValue("Stack name", infraDeployStackName)
+	// Display application info
+	output.Infof("Applying runvoy infrastructure")
+	output.KeyValue("Provider", infraApplyProvider)
+	output.KeyValue("Stack name", infraApplyStackName)
 	output.KeyValue("Version", version)
 	if templateSource.URL != "" {
 		output.KeyValue("Template URL", templateSource.URL)
 	} else {
 		output.KeyValue("Template", "local file")
 	}
-	output.KeyValue("Region", deployer.GetRegion())
+	output.KeyValue("Region", applier.GetRegion())
 	output.Blank()
 
-	// Prepare deploy options
+	// Prepare apply options
 	opts := &infra.DeployOptions{
-		StackName:  infraDeployStackName,
-		Template:   infraDeployTemplate,
+		StackName:  infraApplyStackName,
+		Template:   infraApplyTemplate,
 		Version:    version,
-		Parameters: infraDeployParameters,
-		Wait:       infraDeployWait,
-		Region:     infraDeployRegion,
+		Parameters: infraApplyParameters,
+		Wait:       infraApplyWait,
+		Region:     infraApplyRegion,
 	}
 
 	// Show operation type before starting
-	stackExists, err := deployer.CheckStackExists(ctx, infraDeployStackName)
+	stackExists, err := applier.CheckStackExists(ctx, infraApplyStackName)
 	if err != nil {
-		return fmt.Errorf("failed to check stack status: %w", err)
+		output.Fatalf("failed to check stack status: %v", err)
 	}
 
 	if stackExists {
@@ -140,25 +145,25 @@ func infraDeployRun(cmd *cobra.Command, _ []string) error {
 		output.Infof("Creating new stack...")
 	}
 
-	// Deploy the stack
-	result, err := deployer.Deploy(ctx, opts)
+	// Apply the stack
+	result, err := applier.Deploy(ctx, opts)
 	if err != nil {
-		return err
+		output.Fatalf("failed to apply stack: %v", err)
 	}
 
-	return handleDeployResult(result, infraDeployConfigure)
+	handleApplyResult(result, infraApplyConfigure)
 }
 
-// handleDeployResult handles the result of a deployment operation
-func handleDeployResult(result *infra.DeployResult, configure bool) error {
+// handleApplyResult handles the result of an application operation
+func handleApplyResult(result *infra.DeployResult, configure bool) {
 	if result.NoChanges {
 		output.Successf("Stack is already up to date")
-		return nil
+		return
 	}
 
 	if result.Status == "IN_PROGRESS" {
 		output.Successf("Stack %s initiated. Use cloud console or CLI to monitor progress.", result.OperationType)
-		return nil
+		return
 	}
 
 	output.Successf("Stack operation completed with status: %s", result.Status)
@@ -184,8 +189,6 @@ func handleDeployResult(result *infra.DeployResult, configure bool) error {
 			output.Warningf("APIEndpoint not found in stack outputs, cannot configure CLI")
 		}
 	}
-
-	return nil
 }
 
 // configureEndpoint updates the CLI configuration with the API endpoint
