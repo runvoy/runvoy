@@ -9,15 +9,10 @@ import (
 	"strings"
 
 	awsconfig "runvoy/internal/config/aws"
+	"runvoy/internal/constants"
 )
 
 const (
-	// DefaultStackName is the default CloudFormation stack name
-	DefaultStackName = "runvoy-backend"
-
-	// ProviderAWS is the AWS provider identifier
-	ProviderAWS = "aws"
-
 	// parameterSplitParts is the expected number of parts when splitting a KEY=VALUE parameter
 	parameterSplitParts = 2
 )
@@ -63,19 +58,23 @@ type Deployer interface {
 // NewDeployer creates a Deployer for the specified provider.
 // Currently supports: "aws"
 func NewDeployer(ctx context.Context, provider, region string) (Deployer, error) {
-	switch strings.ToLower(provider) {
-	case ProviderAWS:
+	providerLower := strings.ToLower(provider)
+	awsProvider := strings.ToLower(string(constants.AWS))
+	switch providerLower {
+	case awsProvider:
 		return NewAWSDeployer(ctx, region)
 	default:
-		return nil, fmt.Errorf("unsupported provider: %s (supported: %s)", provider, ProviderAWS)
+		return nil, fmt.Errorf("unsupported provider: %s (supported: %s)", provider, awsProvider)
 	}
 }
 
 // ResolveTemplate determines the template source from the given input.
 // Returns a TemplateSource with either URL or Body populated.
 func ResolveTemplate(provider, template, version string) (*TemplateSource, error) {
-	switch strings.ToLower(provider) {
-	case ProviderAWS:
+	providerLower := strings.ToLower(provider)
+	awsProvider := strings.ToLower(string(constants.AWS))
+	switch providerLower {
+	case awsProvider:
 		return resolveAWSTemplate(template, version)
 	default:
 		return nil, fmt.Errorf("unsupported provider: %s", provider)

@@ -268,6 +268,12 @@ func (c *Config) GetDefaultStackName() string {
 	return awsConstants.DefaultInfraStackName
 }
 
+// GetProviderIdentifier returns the lowercase provider identifier string.
+// For AWS, returns "aws".
+func (c *Config) GetProviderIdentifier() string {
+	return strings.ToLower(string(c.BackendProvider))
+}
+
 // Helper functions
 
 func setDefaults(v *viper.Viper) {

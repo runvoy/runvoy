@@ -76,9 +76,10 @@ func init() {
 	}
 
 	defaultStackName := cfg.GetDefaultStackName()
+	defaultProvider := cfg.GetProviderIdentifier()
 
 	// Define flags for infra apply
-	infraApplyCmd.Flags().StringVar(&infraApplyProvider, "provider", infra.ProviderAWS,
+	infraApplyCmd.Flags().StringVar(&infraApplyProvider, "provider", defaultProvider,
 		"Cloud provider (currently supported: aws)")
 	infraApplyCmd.Flags().StringVar(&infraApplyStackName, "stack-name", defaultStackName,
 		"Infrastructure stack name")
