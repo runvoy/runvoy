@@ -44,7 +44,7 @@ Examples:
   %s infra apply --stack-name my-stack
 
   # Apply a specific version
-  %s infra apply --stack-name my-stack --version 0.3.3
+  %s infra apply --stack-name my-stack --version 1.2.3
 
   # Apply with custom template from S3
   %s infra apply --stack-name my-stack --template https://my-bucket.s3.amazonaws.com/template.yaml
