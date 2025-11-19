@@ -368,7 +368,7 @@ Resources:
   TaskExecutionRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: !Sub '${ProjectName}-task-execution-role'
+      RoleName: !Sub '${ProjectName}-task-execution-role-${AWS::Region}'
       Tags:
         - Key: Name
           Value: !Sub '${ProjectName}-task-execution-role'
@@ -390,7 +390,7 @@ Resources:
   TaskRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: !Sub '${ProjectName}-task-role'
+      RoleName: !Sub '${ProjectName}-task-role-${AWS::Region}'
       Tags:
         - Key: Name
           Value: !Sub '${ProjectName}-task-role'
@@ -422,7 +422,7 @@ Resources:
   LambdaExecutionRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: !Sub '${ProjectName}-lambda-role'
+      RoleName: !Sub '${ProjectName}-lambda-role-${AWS::Region}'
       Tags:
         - Key: Name
           Value: !Sub '${ProjectName}-lambda-role'
@@ -679,7 +679,7 @@ Resources:
   EventProcessorRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: !Sub '${ProjectName}-event-processor-role'
+      RoleName: !Sub '${ProjectName}-event-processor-role-${AWS::Region}'
       Tags:
         - Key: Name
           Value: !Sub '${ProjectName}-event-processor-role'
