@@ -67,26 +67,19 @@ Runvoy is composed of 3 main parts:
 - **Timeouts for command execution** - Send timed SIGTERM to the command execution if it doesn't complete within the timeout period
 - **Lock management for concurrent command execution** - Prevent multiple users from executing the same command concurrently
 - **Webapp - CLI command parity** - Allow users to perform all CLI commands from the webapp
+- **Homebrew package manager support** - Add Homebrew installation support for the CLI
 
 ## Quick Start
 
-### CLI Users (requires Go 1.25 or later)
+### CLI Users
 
-Install the CLI
-
-```bash
-go build -o $(go env GOPATH)/bin/runvoy ./cmd/cli
-```
-
-then run `runvoy configure` to configure the CLI with the endpoint URL given by your admin.
-
-NOTE: this is a temporary solution until we have a proper release process, install will probably look something like this:
+Download the latest release from the [releases page](https://github.com/runvoy/runvoy/releases), e.g.
 
 ```bash
-go install github.com/runvoy/runvoy@latest
+curl -L -o runvoy-cli-linux-arm64.tar.gz https://github.com/runvoy/runvoy/releases/download/v0.1.0/runvoy_linux_amd64.tar.gz
+tar -xzf runvoy_linux_amd64.tar.gz
+mv runvoy_linux_amd64/runvoy $(go env GOPATH)/bin/runvoy
 ```
-
-and a download page to get the latest release from the [releases page](https://github.com/runvoy/runvoy/releases) for users without Go installed.
 
 ### Admin user
 
@@ -135,7 +128,7 @@ runvoy --help
 ```
 
 ```text
-runvoy - v0.1.0-20251119-8b6e14e
+runvoy - v0.1.0-20251119-67f0e4a
 Isolated, repeatable execution environments for your commands
 
 Usage:
@@ -387,3 +380,14 @@ just update-readme-help
 # Clean build artifacts
 just clean
 ```
+
+## Release
+
+To release a new version:
+
+1. bump the version in [VERSION](./VERSION)
+2. update the [CHANGELOG](./CHANGELOG.md) with the new version and changelog entries
+3. commit the changes
+4. run `just release` (create a GitHub release and upload the binaries to S3 bucket via Goreleaser)
+
+NOTE: we might want to add a GitHub Actions workflow to automate the release process: <https://goreleaser.com/ci/actions/>
