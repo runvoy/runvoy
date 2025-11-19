@@ -12,6 +12,9 @@
   <a href="https://github.com/runvoy/runvoy/actions/workflows/golangci-lint.yml" target="_blank">
       <img src="https://github.com/runvoy/runvoy/actions/workflows/golangci-lint.yml/badge.svg?event=push&branch=main" alt="Lint">
   </a>
+  <a href="https://codecov.io/github/runvoy/runvoy" >
+      <img src="https://codecov.io/github/runvoy/runvoy/graph/badge.svg?token=Q673GMB33N"/>
+  </a>
   <a href="https://golang.org" target="_blank">
       <img src="https://img.shields.io/badge/Go-1.25+-00ADD8?logo=go" alt="Go version">
   </a>
@@ -166,7 +169,7 @@ runvoy --help
 ```
 
 ```text
-runvoy - v0.1.0-20251119-35faee2
+runvoy - v0.1.0-20251119-1a3139d
 Isolated, repeatable execution environments for your commands
 
 Usage:

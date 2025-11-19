@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: read
+  id-token: write
 
 jobs:
   tests:
@@ -34,5 +35,5 @@ jobs:
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v5
         with:
+          use_oidc: true
           files: ./coverage.out
-          token: ${{ secrets.CODECOV_TOKEN }}
