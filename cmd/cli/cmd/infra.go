@@ -119,7 +119,7 @@ func infraDeployRun(cmd *cobra.Command, _ []string) error {
 	output.Blank()
 
 	// Prepare deploy options
-	opts := infra.DeployOptions{
+	opts := &infra.DeployOptions{
 		StackName:  infraDeployStackName,
 		Template:   infraDeployTemplate,
 		Version:    version,
@@ -146,7 +146,11 @@ func infraDeployRun(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 
-	// Handle result
+	return handleDeployResult(result, infraDeployConfigure)
+}
+
+// handleDeployResult handles the result of a deployment operation
+func handleDeployResult(result *infra.DeployResult, configure bool) error {
 	if result.NoChanges {
 		output.Successf("Stack is already up to date")
 		return nil
@@ -159,7 +163,6 @@ func infraDeployRun(cmd *cobra.Command, _ []string) error {
 
 	output.Successf("Stack operation completed with status: %s", result.Status)
 
-	// Display stack outputs
 	if len(result.Outputs) > 0 {
 		output.Blank()
 		output.Infof("Stack outputs:")
@@ -168,11 +171,11 @@ func infraDeployRun(cmd *cobra.Command, _ []string) error {
 		}
 	}
 
-	// Configure CLI if requested
-	if infraDeployConfigure {
+	if configure {
 		if endpoint, ok := result.Outputs["APIEndpoint"]; ok {
-			if err := configureEndpoint(endpoint); err != nil {
-				output.Warningf("Failed to configure CLI: %v", err)
+			configErr := configureEndpoint(endpoint)
+			if configErr != nil {
+				output.Warningf("Failed to configure CLI: %v", configErr)
 			} else {
 				output.Blank()
 				output.Successf("CLI configured with API endpoint: %s", endpoint)

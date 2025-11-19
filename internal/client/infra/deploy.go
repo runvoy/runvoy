@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 )
 
@@ -14,6 +15,9 @@ const (
 
 	// ProviderAWS is the AWS provider identifier
 	ProviderAWS = "aws"
+
+	// parameterSplitParts is the expected number of parts when splitting a KEY=VALUE parameter
+	parameterSplitParts = 2
 )
 
 // DeployOptions contains all options for deploying infrastructure
@@ -45,7 +49,7 @@ type TemplateSource struct {
 // Different cloud providers implement this interface.
 type Deployer interface {
 	// Deploy deploys or updates infrastructure
-	Deploy(ctx context.Context, opts DeployOptions) (*DeployResult, error)
+	Deploy(ctx context.Context, opts *DeployOptions) (*DeployResult, error)
 	// CheckStackExists checks if the infrastructure stack exists
 	CheckStackExists(ctx context.Context, stackName string) (bool, error)
 	// GetStackOutputs retrieves outputs from a deployed stack
@@ -56,7 +60,7 @@ type Deployer interface {
 
 // NewDeployer creates a Deployer for the specified provider.
 // Currently supports: "aws"
-func NewDeployer(ctx context.Context, provider string, region string) (Deployer, error) {
+func NewDeployer(ctx context.Context, provider, region string) (Deployer, error) {
 	switch strings.ToLower(provider) {
 	case ProviderAWS:
 		return NewAWSDeployer(ctx, region)
@@ -91,10 +95,10 @@ func resolveAWSTemplate(template, version string) (*TemplateSource, error) {
 	}
 
 	// Check if it's an S3 URI (starts with s3://)
-	if strings.HasPrefix(template, "s3://") {
+	if s3Path, ok := strings.CutPrefix(template, "s3://"); ok {
 		// Convert s3://bucket/key to https://bucket.s3.amazonaws.com/key
-		parts := strings.SplitN(strings.TrimPrefix(template, "s3://"), "/", 2)
-		if len(parts) < 2 {
+		parts := strings.SplitN(s3Path, "/", parameterSplitParts)
+		if len(parts) < parameterSplitParts {
 			return nil, fmt.Errorf("invalid S3 URI: %s", template)
 		}
 		bucket := parts[0]
@@ -104,7 +108,8 @@ func resolveAWSTemplate(template, version string) (*TemplateSource, error) {
 	}
 
 	// Treat as local file
-	content, err := os.ReadFile(template)
+	cleanPath := filepath.Clean(template)
+	content, err := os.ReadFile(cleanPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read template file: %w", err)
 	}
@@ -117,8 +122,8 @@ func ParseParameters(params []string) (map[string]string, error) {
 	result := make(map[string]string)
 
 	for _, param := range params {
-		parts := strings.SplitN(param, "=", 2)
-		if len(parts) != 2 {
+		parts := strings.SplitN(param, "=", parameterSplitParts)
+		if len(parts) != parameterSplitParts {
 			return nil, fmt.Errorf("invalid parameter format: %s (expected KEY=VALUE)", param)
 		}
 		result[parts[0]] = parts[1]

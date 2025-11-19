@@ -75,10 +75,22 @@ Runvoy is composed of 3 main parts:
 
 Download the latest release from the [releases page](https://github.com/runvoy/runvoy/releases), e.g.
 
+For Linux:
+
 ```bash
 curl -L -o runvoy-cli-linux-arm64.tar.gz https://github.com/runvoy/runvoy/releases/download/v0.1.0/runvoy_linux_amd64.tar.gz
 tar -xzf runvoy_linux_amd64.tar.gz
 mv runvoy_linux_amd64/runvoy $(go env GOPATH)/bin/runvoy
+```
+
+For macOS:
+
+```bash
+curl -L -o runvoy_linux_amd64.tar.gz https://github.com/runvoy/runvoy/releases/download/v0.1.0/runvoy_darwin_arm64.tar.gz
+tar -xzf runvoy_darwin_arm64.tar.gz
+xattr -dr com.apple.quarantine runvoy_darwin_arm64/runvoy
+codesign -s - --deep --force runvoy_darwin_arm64/runvoy
+mv runvoy_darwin_arm64/runvoy $(go env GOPATH)/bin/runvoy
 ```
 
 ### Admin user
@@ -128,7 +140,7 @@ runvoy --help
 ```
 
 ```text
-runvoy - v0.1.0-20251119-67f0e4a
+runvoy - v0.1.0-20251119-6da7428
 Isolated, repeatable execution environments for your commands
 
 Usage:
@@ -141,6 +153,7 @@ Available Commands:
   health      Health and reconciliation commands
   help        Help about any command
   images      Docker images management commands
+  infra       Manage runvoy infrastructure
   kill        Kill a running command execution
   list        List command executions
   logs        Get logs for an execution

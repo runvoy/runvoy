@@ -22,9 +22,21 @@ const (
 // CloudFormationClient defines the interface for CloudFormation operations.
 // This interface enables mocking for unit tests.
 type CloudFormationClient interface {
-	DescribeStacks(ctx context.Context, params *cloudformation.DescribeStacksInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DescribeStacksOutput, error)
-	CreateStack(ctx context.Context, params *cloudformation.CreateStackInput, optFns ...func(*cloudformation.Options)) (*cloudformation.CreateStackOutput, error)
-	UpdateStack(ctx context.Context, params *cloudformation.UpdateStackInput, optFns ...func(*cloudformation.Options)) (*cloudformation.UpdateStackOutput, error)
+	DescribeStacks(
+		ctx context.Context,
+		params *cloudformation.DescribeStacksInput,
+		optFns ...func(*cloudformation.Options),
+	) (*cloudformation.DescribeStacksOutput, error)
+	CreateStack(
+		ctx context.Context,
+		params *cloudformation.CreateStackInput,
+		optFns ...func(*cloudformation.Options),
+	) (*cloudformation.CreateStackOutput, error)
+	UpdateStack(
+		ctx context.Context,
+		params *cloudformation.UpdateStackInput,
+		optFns ...func(*cloudformation.Options),
+	) (*cloudformation.UpdateStackOutput, error)
 }
 
 // AWSDeployer implements Deployer for AWS CloudFormation
@@ -68,7 +80,7 @@ func (d *AWSDeployer) GetRegion() string {
 }
 
 // Deploy deploys or updates the CloudFormation stack
-func (d *AWSDeployer) Deploy(ctx context.Context, opts DeployOptions) (*DeployResult, error) {
+func (d *AWSDeployer) Deploy(ctx context.Context, opts *DeployOptions) (*DeployResult, error) {
 	// Resolve template
 	templateSource, err := resolveAWSTemplate(opts.Template, opts.Version)
 	if err != nil {
@@ -139,8 +151,8 @@ func (d *AWSDeployer) parseParametersToCFN(params []string) ([]types.Parameter, 
 	var cfnParams []types.Parameter
 
 	for _, param := range params {
-		parts := strings.SplitN(param, "=", 2)
-		if len(parts) != 2 {
+		parts := strings.SplitN(param, "=", parameterSplitParts)
+		if len(parts) != parameterSplitParts {
 			return nil, fmt.Errorf("invalid parameter format: %s (expected KEY=VALUE)", param)
 		}
 
@@ -169,7 +181,12 @@ func (d *AWSDeployer) CheckStackExists(ctx context.Context, stackName string) (b
 }
 
 // createStack creates a new CloudFormation stack
-func (d *AWSDeployer) createStack(ctx context.Context, stackName string, template *TemplateSource, params []types.Parameter) error {
+func (d *AWSDeployer) createStack(
+	ctx context.Context,
+	stackName string,
+	template *TemplateSource,
+	params []types.Parameter,
+) error {
 	input := &cloudformation.CreateStackInput{
 		StackName:    aws.String(stackName),
 		Parameters:   params,
@@ -193,7 +210,12 @@ func (d *AWSDeployer) createStack(ctx context.Context, stackName string, templat
 }
 
 // updateStack updates an existing CloudFormation stack
-func (d *AWSDeployer) updateStack(ctx context.Context, stackName string, template *TemplateSource, params []types.Parameter) error {
+func (d *AWSDeployer) updateStack(
+	ctx context.Context,
+	stackName string,
+	template *TemplateSource,
+	params []types.Parameter,
+) error {
 	input := &cloudformation.UpdateStackInput{
 		StackName:    aws.String(stackName),
 		Parameters:   params,
@@ -236,34 +258,43 @@ func (d *AWSDeployer) waitForStackOperation(ctx context.Context, stackName strin
 			case types.StackStatusCreateFailed, types.StackStatusRollbackComplete,
 				types.StackStatusRollbackFailed, types.StackStatusUpdateRollbackComplete,
 				types.StackStatusUpdateRollbackFailed, types.StackStatusDeleteComplete,
-				types.StackStatusDeleteFailed:
+				types.StackStatusDeleteFailed, types.StackStatusUpdateFailed:
 				return status, fmt.Errorf("stack operation failed with status %s: %s", status, statusReason)
+			case types.StackStatusCreateInProgress, types.StackStatusRollbackInProgress,
+				types.StackStatusDeleteInProgress, types.StackStatusUpdateInProgress,
+				types.StackStatusUpdateCompleteCleanupInProgress,
+				types.StackStatusUpdateRollbackInProgress,
+				types.StackStatusUpdateRollbackCompleteCleanupInProgress,
+				types.StackStatusReviewInProgress, types.StackStatusImportInProgress,
+				types.StackStatusImportComplete, types.StackStatusImportRollbackInProgress,
+				types.StackStatusImportRollbackFailed, types.StackStatusImportRollbackComplete:
+				// Still in progress, continue polling
 			}
-			// Still in progress, continue polling
 		}
 	}
 }
 
 // getStackStatus returns the current status of a stack
-func (d *AWSDeployer) getStackStatus(ctx context.Context, stackName string) (string, string, error) {
+func (d *AWSDeployer) getStackStatus(ctx context.Context, stackName string) (status, reason string, err error) {
 	result, err := d.client.DescribeStacks(ctx, &cloudformation.DescribeStacksInput{
 		StackName: aws.String(stackName),
 	})
 	if err != nil {
-		return "", "", err
+		return
 	}
 
 	if len(result.Stacks) == 0 {
-		return "", "", fmt.Errorf("stack not found")
+		err = fmt.Errorf("stack not found")
+		return
 	}
 
-	status := string(result.Stacks[0].StackStatus)
-	reason := ""
+	status = string(result.Stacks[0].StackStatus)
+	reason = ""
 	if result.Stacks[0].StackStatusReason != nil {
 		reason = *result.Stacks[0].StackStatusReason
 	}
 
-	return status, reason, nil
+	return
 }
 
 // GetStackOutputs retrieves the outputs from a CloudFormation stack
