@@ -29,6 +29,8 @@ type testUserRepository struct {
 	authenticateUserFunc func(apiKeyHash string) (*api.User, error)
 	updateLastUsedFunc   func(email string) error
 	getUserByEmailFunc   func(email string) (*api.User, error)
+	getPendingAPIKeyFunc func(ctx context.Context, secretToken string) (*api.PendingAPIKey, error)
+	markAsViewedFunc     func(ctx context.Context, secretToken string, ipAddress string) error
 }
 
 func (t *testUserRepository) CreateUser(_ context.Context, _ *api.User, _ string, _ int64) error {
@@ -79,7 +81,10 @@ func (t *testUserRepository) CreatePendingAPIKey(_ context.Context, _ *api.Pendi
 	return nil
 }
 
-func (t *testUserRepository) GetPendingAPIKey(_ context.Context, secretToken string) (*api.PendingAPIKey, error) {
+func (t *testUserRepository) GetPendingAPIKey(ctx context.Context, secretToken string) (*api.PendingAPIKey, error) {
+	if t.getPendingAPIKeyFunc != nil {
+		return t.getPendingAPIKeyFunc(ctx, secretToken)
+	}
 	now := time.Now()
 	expiresAt := now.Add(24 * time.Hour).Unix() // Valid for 24 hours
 	return &api.PendingAPIKey{
@@ -92,7 +97,10 @@ func (t *testUserRepository) GetPendingAPIKey(_ context.Context, secretToken str
 	}, nil
 }
 
-func (t *testUserRepository) MarkAsViewed(_ context.Context, _, _ string) error {
+func (t *testUserRepository) MarkAsViewed(ctx context.Context, secretToken, ipAddress string) error {
+	if t.markAsViewedFunc != nil {
+		return t.markAsViewedFunc(ctx, secretToken, ipAddress)
+	}
 	return nil
 }
 
@@ -1638,4 +1646,102 @@ func TestHandleRunCommand_WithValidCommand(t *testing.T) {
 	// Should process the request
 	assert.True(t, resp.Code == http.StatusAccepted || resp.Code == http.StatusInternalServerError,
 		"should handle run command")
+}
+
+// TestHandleClaimAPIKey_AlreadyClaimed tests claiming a key that was already claimed
+func TestHandleClaimAPIKey_AlreadyClaimed(t *testing.T) {
+	userRepo := &testUserRepository{
+		getPendingAPIKeyFunc: func(_ context.Context, _ string) (*api.PendingAPIKey, error) {
+			now := time.Now()
+			expiresAt := now.Add(24 * time.Hour).Unix()
+			return &api.PendingAPIKey{
+				SecretToken: "token",
+				APIKey:      "key",
+				UserEmail:   "user@example.com",
+				CreatedBy:   "admin@example.com",
+				CreatedAt:   now,
+				ExpiresAt:   expiresAt,
+				Viewed:      true, // Already viewed/claimed
+			}, nil
+		},
+	}
+	svc := newTestOrchestratorService(t, userRepo, nil, nil, nil, nil, nil, nil)
+	router := NewRouter(svc, 2*time.Second, constants.DefaultCORSAllowedOrigins)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/claim/already-claimed", http.NoBody)
+	resp := httptest.NewRecorder()
+	router.ServeHTTP(resp, req)
+
+	assert.Equal(t, http.StatusConflict, resp.Code)
+	var errResp api.ErrorResponse
+	err := json.Unmarshal(resp.Body.Bytes(), &errResp)
+	require.NoError(t, err)
+	assert.Contains(t, errResp.Details, "already been claimed")
+}
+
+// TestHandleClaimAPIKey_ExpiredToken tests claiming with expired token
+func TestHandleClaimAPIKey_ExpiredToken(t *testing.T) {
+	userRepo := &testUserRepository{
+		getPendingAPIKeyFunc: func(_ context.Context, _ string) (*api.PendingAPIKey, error) {
+			now := time.Now()
+			expiresAt := now.Add(-1 * time.Hour).Unix() // Expired 1 hour ago
+			return &api.PendingAPIKey{
+				SecretToken: "token",
+				APIKey:      "key",
+				UserEmail:   "user@example.com",
+				CreatedBy:   "admin@example.com",
+				CreatedAt:   now,
+				ExpiresAt:   expiresAt,
+				Viewed:      false,
+			}, nil
+		},
+	}
+	svc := newTestOrchestratorService(t, userRepo, nil, nil, nil, nil, nil, nil)
+	router := NewRouter(svc, 2*time.Second, constants.DefaultCORSAllowedOrigins)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/claim/expired-token", http.NoBody)
+	resp := httptest.NewRecorder()
+	router.ServeHTTP(resp, req)
+
+	assert.Equal(t, http.StatusNotFound, resp.Code)
+	var errResp api.ErrorResponse
+	err := json.Unmarshal(resp.Body.Bytes(), &errResp)
+	require.NoError(t, err)
+	assert.Contains(t, errResp.Details, "token has expired")
+}
+
+// TestHandleClaimAPIKey_GetPendingKeyError tests database error when retrieving pending key
+func TestHandleClaimAPIKey_GetPendingKeyError(t *testing.T) {
+	userRepo := &testUserRepository{
+		getPendingAPIKeyFunc: func(_ context.Context, _ string) (*api.PendingAPIKey, error) {
+			return nil, apperrors.ErrDatabaseError("failed to retrieve pending key", nil)
+		},
+	}
+	svc := newTestOrchestratorService(t, userRepo, nil, nil, nil, nil, nil, nil)
+	router := NewRouter(svc, 2*time.Second, constants.DefaultCORSAllowedOrigins)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/claim/token", http.NoBody)
+	resp := httptest.NewRecorder()
+	router.ServeHTTP(resp, req)
+
+	// Database errors return 503 Service Unavailable
+	assert.Equal(t, http.StatusServiceUnavailable, resp.Code)
+}
+
+// TestHandleClaimAPIKey_MarkAsViewedError tests error when marking key as viewed
+func TestHandleClaimAPIKey_MarkAsViewedError(t *testing.T) {
+	userRepo := &testUserRepository{
+		markAsViewedFunc: func(_ context.Context, _, _ string) error {
+			return apperrors.ErrDatabaseError("failed to mark as viewed", nil)
+		},
+	}
+	svc := newTestOrchestratorService(t, userRepo, nil, nil, nil, nil, nil, nil)
+	router := NewRouter(svc, 2*time.Second, constants.DefaultCORSAllowedOrigins)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/claim/token", http.NoBody)
+	resp := httptest.NewRecorder()
+	router.ServeHTTP(resp, req)
+
+	// Database errors return 503 Service Unavailable
+	assert.Equal(t, http.StatusServiceUnavailable, resp.Code)
 }

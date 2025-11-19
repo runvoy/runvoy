@@ -10,6 +10,8 @@ import (
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation"
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation/types"
+
+	awscfg "runvoy/internal/config/aws"
 )
 
 const (
@@ -97,7 +99,7 @@ func (d *AWSDeployer) Deploy(ctx context.Context, opts *DeployOptions) (*DeployR
 	}
 
 	// Parse parameters to CloudFormation format
-	cfnParams, err := d.parseParametersToCFN(opts.Parameters)
+	cfnParams, err := d.parseParametersToCFN(opts.Parameters, opts.Version)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse parameters: %w", err)
 	}
@@ -156,7 +158,7 @@ func (d *AWSDeployer) Deploy(ctx context.Context, opts *DeployOptions) (*DeployR
 }
 
 // parseParametersToCFN converts string parameters to CloudFormation parameter types
-func (d *AWSDeployer) parseParametersToCFN(params []string) ([]types.Parameter, error) {
+func (d *AWSDeployer) parseParametersToCFN(params []string, version string) ([]types.Parameter, error) {
 	paramMap := make(map[string]string)
 
 	// Parse user-provided parameters
@@ -172,6 +174,12 @@ func (d *AWSDeployer) parseParametersToCFN(params []string) ([]types.Parameter, 
 	// Inject default LambdaCodeBucket if not provided
 	if _, exists := paramMap["LambdaCodeBucket"]; !exists {
 		paramMap["LambdaCodeBucket"] = fmt.Sprintf("runvoy-releases-%s", d.region)
+	}
+
+	// Inject default ReleaseVersion if not provided
+	if _, exists := paramMap["ReleaseVersion"]; !exists && version != "" {
+		// Normalize version (remove 'v' prefix) to match S3 path format
+		paramMap["ReleaseVersion"] = awscfg.NormalizeVersion(version)
 	}
 
 	// Convert to CloudFormation parameter types

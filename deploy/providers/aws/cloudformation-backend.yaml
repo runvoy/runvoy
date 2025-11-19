@@ -13,7 +13,6 @@ Parameters:
 
   ReleaseVersion:
     Type: String
-    Default: 0.1.0
     Description: Version of the released artifacts
 
 Resources:

@@ -50,6 +50,7 @@ func (m *mockExecutionRepo) ListExecutions(_ context.Context, _ int, _ []string)
 type mockWebSocketHandler struct {
 	handleRequestFunc             func(ctx context.Context, rawEvent *json.RawMessage, logger *slog.Logger) (bool, error)
 	notifyExecutionCompletionFunc func(ctx context.Context, executionID *string) error
+	sendLogsFunc                  func(ctx context.Context, executionID *string, logs []api.LogEvent) error
 }
 
 func (m *mockWebSocketHandler) HandleRequest(
@@ -67,7 +68,11 @@ func (m *mockWebSocketHandler) NotifyExecutionCompletion(ctx context.Context, ex
 	return nil
 }
 
-func (m *mockWebSocketHandler) SendLogsToExecution(_ context.Context, _ *string, _ []api.LogEvent) error {
+func (m *mockWebSocketHandler) SendLogsToExecution(
+	ctx context.Context, executionID *string, logs []api.LogEvent) error {
+	if m.sendLogsFunc != nil {
+		return m.sendLogsFunc(ctx, executionID, logs)
+	}
 	return nil
 }
 
@@ -1046,4 +1051,71 @@ func TestHandleEventJSON(t *testing.T) {
 // Helper function to create int pointers
 func intPtr(i int) *int {
 	return &i
+}
+
+// TestHandleLogsEvent_InvalidBase64 tests handling of invalid base64 data
+func TestHandleLogsEvent_InvalidBase64(t *testing.T) {
+	ctx := context.Background()
+	logger := testutil.SilentLogger()
+
+	mockRepo := &mockExecutionRepo{}
+	wsManager := &mockWebSocketHandler{}
+	processor := NewProcessor(mockRepo, wsManager, nil, logger)
+
+	logsEvent := events.CloudwatchLogsEvent{
+		AWSLogs: events.CloudwatchLogsRawData{
+			Data: "invalid-base64-data!!!",
+		},
+	}
+
+	eventJSON, _ := json.Marshal(logsEvent)
+	rawEvent := json.RawMessage(eventJSON)
+
+	// Should handle event but fail on parse
+	handled, err := processor.handleLogsEvent(ctx, &rawEvent, logger)
+	assert.Error(t, err)
+	assert.True(t, handled) // Returns true even when Parse() fails
+}
+
+// TestHandleLogsEvent_UnmarshalError tests handling of invalid JSON
+func TestHandleLogsEvent_UnmarshalError(t *testing.T) {
+	ctx := context.Background()
+	logger := testutil.SilentLogger()
+
+	mockRepo := &mockExecutionRepo{}
+	wsManager := &mockWebSocketHandler{}
+	processor := NewProcessor(mockRepo, wsManager, nil, logger)
+
+	// Invalid JSON event
+	rawEvent := json.RawMessage(`{invalid json}`)
+
+	handled, err := processor.handleLogsEvent(ctx, &rawEvent, logger)
+	// Should return early without error on unmarshal failure
+	assert.NoError(t, err)
+	assert.False(t, handled)
+}
+
+// TestHandleLogsEvent_EmptyData tests handling of empty logs data
+func TestHandleLogsEvent_EmptyData(t *testing.T) {
+	ctx := context.Background()
+	logger := testutil.SilentLogger()
+
+	mockRepo := &mockExecutionRepo{}
+	wsManager := &mockWebSocketHandler{}
+	processor := NewProcessor(mockRepo, wsManager, nil, logger)
+
+	// Empty data field
+	logsEvent := events.CloudwatchLogsEvent{
+		AWSLogs: events.CloudwatchLogsRawData{
+			Data: "",
+		},
+	}
+
+	eventJSON, _ := json.Marshal(logsEvent)
+	rawEvent := json.RawMessage(eventJSON)
+
+	// Should handle early return for empty data
+	handled, err := processor.handleLogsEvent(ctx, &rawEvent, logger)
+	assert.NoError(t, err)
+	assert.False(t, handled)
 }
