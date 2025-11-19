@@ -1,0 +1,161 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'runvoy - S3 cross-region replication setup (deploy to primary region only)'
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: runvoy
+    Description: Name prefix for resources
+
+  ReplicationTargetRegions:
+    Type: CommaDelimitedList
+    Default: 'us-west-1,us-west-2,eu-west-1,ap-southeast-1,ap-northeast-1'
+    Description: Comma-separated list of regions to replicate to
+
+Resources:
+  # IAM role for S3 replication
+  ReplicationRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: s3.amazonaws.com
+            Action: 'sts:AssumeRole'
+      Policies:
+        - PolicyName: S3ReplicationPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 's3:GetReplicationConfiguration'
+                  - 's3:ListBucket'
+                Resource: !Sub 'arn:aws:s3:::${ProjectName}-releases-${AWS::Region}'
+              - Effect: Allow
+                Action:
+                  - 's3:GetObjectVersionForReplication'
+                  - 's3:GetObjectVersionAcl'
+                Resource: !Sub 'arn:aws:s3:::${ProjectName}-releases-${AWS::Region}/*'
+              - Effect: Allow
+                Action:
+                  - 's3:ReplicateObject'
+                  - 's3:ReplicateDelete'
+                Resource: !Sub 'arn:aws:s3:::${ProjectName}-releases-*/*'
+
+  # Apply replication configuration to the primary bucket
+  ApplyReplicationConfiguration:
+    Type: AWS::CloudFormation::CustomResource
+    Properties:
+      ServiceToken: !GetAtt ReplicationLambda.Arn
+      ProjectName: !Ref ProjectName
+      PrimaryRegion: !Ref 'AWS::Region'
+      TargetRegions: !Join [',', !Ref ReplicationTargetRegions]
+      RoleArn: !GetAtt ReplicationRole.Arn
+
+  # Lambda function to configure replication
+  ReplicationLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: S3ReplicationConfigPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 's3:PutReplicationConfiguration'
+                Resource: !Sub 'arn:aws:s3:::${ProjectName}-releases-*'
+              - Effect: Allow
+                Action:
+                  - 'iam:PassRole'
+                Resource: !GetAtt ReplicationRole.Arn
+
+  ReplicationLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      Runtime: python3.11
+      Role: !GetAtt ReplicationLambdaRole.Arn
+      Handler: index.handler
+      Code:
+        ZipFile: |
+          import json
+          import boto3
+          import cfnresponse
+
+          s3_client = boto3.client('s3')
+
+          def handler(event, context):
+              try:
+                  project_name = event['ResourceProperties']['ProjectName']
+                  primary_region = event['ResourceProperties']['PrimaryRegion']
+                  target_regions = event['ResourceProperties']['TargetRegions'].split(',')
+                  role_arn = event['ResourceProperties']['RoleArn']
+
+                  bucket_name = f'{project_name}-releases-{primary_region}'
+
+                  # Build replication rules
+                  rules = []
+                  for idx, region in enumerate(target_regions, start=1):
+                      rules.append({
+                          'ID': f'ReplicateTo{region.replace("-", "")}',
+                          'Status': 'Enabled',
+                          'Priority': idx,
+                          'DeleteMarkerReplication': {
+                              'Status': 'Enabled'
+                          },
+                          'Filter': {
+                              'Prefix': ''
+                          },
+                          'Destination': {
+                              'Bucket': f'arn:aws:s3:::{project_name}-releases-{region}',
+                              'ReplicationTime': {
+                                  'Status': 'Enabled',
+                                  'Time': {
+                                      'Minutes': 15
+                                  }
+                              },
+                              'Metrics': {
+                                  'Status': 'Enabled',
+                                  'EventThreshold': {
+                                      'Minutes': 15
+                                  }
+                              }
+                          }
+                      })
+
+                  # Apply replication configuration
+                  replication_config = {
+                      'Role': role_arn,
+                      'Rules': rules
+                  }
+
+                  s3_client.put_bucket_replication(
+                      Bucket=bucket_name,
+                      ReplicationConfiguration=replication_config
+                  )
+
+                  cfnresponse.send(event, context, cfnresponse.SUCCESS, {
+                      'Message': f'Replication configured for {bucket_name}'
+                  })
+              except Exception as e:
+                  print(f'Error: {str(e)}')
+                  cfnresponse.send(event, context, cfnresponse.FAILED, {
+                      'Message': str(e)
+                  })
+
+Outputs:
+  ReplicationStatus:
+    Description: Status of replication configuration
+    Value: !Sub 'Replication configured for ${ProjectName}-releases-${AWS::Region} to ${AWS::Region}'

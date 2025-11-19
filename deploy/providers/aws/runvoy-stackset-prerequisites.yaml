@@ -1,0 +1,46 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'CloudFormation StackSet prerequisites - IAM roles for administration and execution'
+
+Resources:
+  # IAM role that allows CloudFormation to administer StackSets
+  StackSetAdministrationRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: AWSCloudFormationStackSetAdministrationRole
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: cloudformation.amazonaws.com
+            Action: 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AdministratorAccess
+
+  # IAM role that allows the administration role to execute stack operations
+  StackSetExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: AWSCloudFormationStackSetExecutionRole
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: !GetAtt StackSetAdministrationRole.Arn
+            Action: 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AdministratorAccess
+
+Outputs:
+  StackSetAdministrationRoleArn:
+    Description: ARN of the StackSet administration role
+    Value: !GetAtt StackSetAdministrationRole.Arn
+    Export:
+      Name: StackSetAdministrationRoleArn
+
+  StackSetExecutionRoleArn:
+    Description: ARN of the StackSet execution role
+    Value: !GetAtt StackSetExecutionRole.Arn
+    Export:
+      Name: StackSetExecutionRoleArn

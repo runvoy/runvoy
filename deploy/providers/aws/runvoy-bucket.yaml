@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'runvoy - releases bucket (public-read)'
+Description: 'runvoy - releases bucket with multi-region replication (public-read)'
 
 Parameters:
   ProjectName:
@@ -8,12 +8,15 @@ Parameters:
     Description: Name prefix for resources
 
 Resources:
-  # S3 bucket for releases (public-read)
+
+  # S3 bucket for releases (regional)
+  # Deploy this template to all regions via CloudFormation StackSets
+  # After all buckets exist, replication can be configured via a separate template
   ReleasesBucket:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: !Sub '${ProjectName}-releases'
-      # Enable versioning for release history
+      BucketName: !Sub '${ProjectName}-releases-${AWS::Region}'
+      # Enable versioning for replication and release history
       VersioningConfiguration:
         Status: Enabled
       # Enable public access for releases
@@ -24,7 +27,7 @@ Resources:
         RestrictPublicBuckets: false
       Tags:
         - Key: Name
-          Value: !Sub '${ProjectName}-releases'
+          Value: !Sub '${ProjectName}-releases-${AWS::Region}'
         - Key: Application
           Value: !Ref ProjectName
         - Key: ManagedBy
@@ -49,20 +52,27 @@ Resources:
 
 Outputs:
   BucketName:
-    Description: S3 bucket name for releases
+    Description: Regional S3 bucket name for releases
     Value: !Ref ReleasesBucket
     Export:
-      Name: !Sub '${ProjectName}-releases'
+      Name: !Sub '${ProjectName}-releases-${AWS::Region}'
 
   BucketArn:
     Description: S3 bucket ARN
     Value: !GetAtt ReleasesBucket.Arn
+    Export:
+      Name: !Sub '${ProjectName}-releases-arn-${AWS::Region}'
 
   BucketURL:
-    Description: Public URL for releases (s3://)
+    Description: S3 URI for Lambda function code (use in CloudFormation)
     Value: !Sub 's3://${ReleasesBucket}/'
+    Export:
+      Name: !Sub '${ProjectName}-releases-url-${AWS::Region}'
 
   BucketHTTPSURL:
-    Description: Public HTTPS URL for releases (https://)
+    Description: HTTPS URL for public access to releases
     Value: !Sub 'https://${ReleasesBucket}.s3.${AWS::Region}.amazonaws.com/'
+    Export:
+      Name: !Sub '${ProjectName}-releases-https-${AWS::Region}'
+
 

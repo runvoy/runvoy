@@ -86,7 +86,7 @@ archives:
 # Set AWS_REGION environment variable for the S3 region
 blobs:
   - provider: s3
-    bucket: runvoy-releases
+    bucket: runvoy-releases-us-east-1
     region: "{{ .Env.AWS_REGION }}"
     directory: "{{ .Version }}"
     ids:

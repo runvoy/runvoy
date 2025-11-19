@@ -165,11 +165,42 @@ install-hook:
 pre-commit: check test-coverage
     git add coverage.html coverage.out README.md
 
-# Create lambda bucket
-create-lambda-bucket:
+# Setup CloudFormation StackSet prerequisites (run once)
+setup-stackset-prerequisites:
     aws cloudformation deploy \
-        --stack-name runvoy-releases-bucket \
-        --template-file deploy/providers/aws/runvoy-bucket.yaml
+        --stack-name runvoy-stackset-prerequisites \
+        --template-file deploy/providers/aws/runvoy-stackset-prerequisites.yaml \
+        --capabilities CAPABILITY_NAMED_IAM
+
+# Create releases bucket with multi-region replication
+create-releases-bucket: setup-stackset-prerequisites
+    aws cloudformation create-stack-set \
+        --stack-set-name runvoy-releases-bucket \
+        --template-body file://deploy/providers/aws/runvoy-bucket.yaml
+
+    aws cloudformation create-stack-instances \
+        --stack-set-name runvoy-releases-bucket \
+        --accounts 587453114450 \
+        --regions us-east-1 us-west-1 us-west-2 eu-west-1 ap-southeast-1 ap-northeast-1
+
+    @echo "Waiting for all stack instances to complete in all regions..."
+    @while [ $(aws cloudformation list-stack-instances \
+        --stack-set-name runvoy-releases-bucket \
+        --query "length(Summaries[?Status != 'CURRENT'])" \
+        --output text) -gt 0 ]; do \
+        pending=$(aws cloudformation list-stack-instances \
+            --stack-set-name runvoy-releases-bucket \
+            --query "length(Summaries[?Status != 'CURRENT'])" \
+            --output text); \
+        echo "Still waiting... ($pending stacks pending)"; \
+        sleep 10; \
+    done
+    @echo "All stack instances completed!"
+
+    aws cloudformation deploy \
+        --stack-name runvoy-releases-bucket-replication \
+        --template-file deploy/providers/aws/runvoy-bucket-replication.yaml \
+        --capabilities CAPABILITY_NAMED_IAM
 
 # Create/update backend infrastructure via cloudformation
 create-backend-infra:
