@@ -124,7 +124,7 @@ Examples:
   runvoy infra apply --stack-name my-runvoy
 
   # Apply a specific version
-  runvoy infra apply --stack-name my-runvoy --version 0.3.3
+  runvoy infra apply --stack-name my-runvoy --version 6.6.6
 
   # Apply with custom template from S3
   runvoy infra apply --stack-name my-runvoy --template https://my-bucket.s3.amazonaws.com/template.yaml
