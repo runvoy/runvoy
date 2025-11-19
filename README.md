@@ -105,7 +105,7 @@ runvoy infra apply --configure --seed-admin-user admin@example.com
 
 #### Creating a new user
 
-The admin API key and endpoint are automatically configured in `~/.runvoy/config.yaml` after running `runvoy infra apply --configure`. You can start using runvoy immediately:
+The admin API key and endpoint are automatically configured in `~/.runvoy/config.yaml` after running the above command. You can start using runvoy immediately:
 
 ```bash
 runvoy run "echo hello world"
@@ -136,7 +136,7 @@ runvoy --help
 ```
 
 ```text
-runvoy - v0.1.0-20251119-21469d4
+runvoy - v0.1.0-20251119-e595225
 Isolated, repeatable execution environments for your commands
 
 Usage:

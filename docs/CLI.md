@@ -139,20 +139,24 @@ or a local file path.
 
   # Apply and automatically configure CLI
   runvoy infra apply --stack-name my-stack --configure
+
+  # Apply, configure CLI, and seed admin user
+  runvoy infra apply --stack-name my-stack --configure --seed-admin-user admin@example.com
 ```
 
 **Options**
 
 ```
-      --configure           Automatically configure CLI with the applied endpoint after successful application
-  -h, --help                help for apply
-      --parameter strings   Stack parameter in KEY=VALUE format (can be specified multiple times)
-      --provider string     Cloud provider (currently supported: aws) (default "aws")
-      --region string       Provider region. Uses provider default if not specified
-      --stack-name string   Infrastructure stack name (default "runvoy-backend")
-      --template string     Template URL or local file path. If not specified, uses the official template
-      --version string      Release version to apply. Defaults to CLI version
-      --wait                Wait for stack operation to complete (default true)
+      --configure                Automatically configure CLI with the applied endpoint after successful application
+  -h, --help                     help for apply
+      --parameter strings        Stack parameter in KEY=VALUE format (can be specified multiple times)
+      --provider string          Cloud provider (currently supported: aws) (default "aws")
+      --region string            Provider region. Uses provider default if not specified
+      --seed-admin-user string   Email address for the admin user to seed into DynamoDB after successful deployment
+      --stack-name string        Infrastructure stack name (default "runvoy-backend")
+      --template string          Template URL or local file path. If not specified, uses the official template
+      --version string           Release version to apply. Defaults to CLI version
+      --wait                     Wait for stack operation to complete (default true)
 ```
 
 ## runvoy infra destroy

@@ -1,7 +1,9 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
+
 	"runvoy/internal/client/infra"
 	"runvoy/internal/client/output"
 	"runvoy/internal/config"
@@ -12,14 +14,15 @@ import (
 
 var (
 	// infra apply flags
-	infraApplyStackName  string
-	infraApplyTemplate   string
-	infraApplyVersion    string
-	infraApplyParameters []string
-	infraApplyWait       bool
-	infraApplyConfigure  bool
-	infraApplyRegion     string
-	infraApplyProvider   string
+	infraApplyStackName     string
+	infraApplyTemplate      string
+	infraApplyVersion       string
+	infraApplyParameters    []string
+	infraApplyWait          bool
+	infraApplyConfigure     bool
+	infraApplyRegion        string
+	infraApplyProvider      string
+	infraApplySeedAdminUser string
 
 	// infra destroy flags
 	infraDestroyStackName string
@@ -57,7 +60,10 @@ or a local file path.`,
 			"  %s infra apply --stack-name my-stack --parameter ProjectName=myproject "+
 			"--parameter LambdaCodeBucket=my-bucket\n\n"+
 			"  # Apply and automatically configure CLI\n"+
-			"  %s infra apply --stack-name my-stack --configure",
+			"  %s infra apply --stack-name my-stack --configure\n\n"+
+			"  # Apply, configure CLI, and seed admin user\n"+
+			"  %s infra apply --stack-name my-stack --configure --seed-admin-user admin@example.com",
+		constants.ProjectName,
 		constants.ProjectName,
 		constants.ProjectName,
 		constants.ProjectName,
@@ -117,6 +123,8 @@ func init() {
 		"Automatically configure CLI with the applied endpoint after successful application")
 	infraApplyCmd.Flags().StringVar(&infraApplyRegion, "region", "",
 		"Provider region. Uses provider default if not specified")
+	infraApplyCmd.Flags().StringVar(&infraApplySeedAdminUser, "seed-admin-user", "",
+		"Email address for the admin user to seed into DynamoDB after successful deployment")
 
 	// Define flags for infra destroy
 	infraDestroyCmd.Flags().StringVar(&infraDestroyProvider, "provider", defaultProvider,
@@ -191,11 +199,16 @@ func infraApplyRun(cmd *cobra.Command, _ []string) {
 		output.Fatalf("failed to apply stack: %v", err)
 	}
 
-	handleApplyResult(result, infraApplyConfigure)
+	handleApplyResult(
+		result,
+		infraApplyConfigure,
+		infraApplySeedAdminUser,
+		infraApplyRegion,
+	)
 }
 
 // handleApplyResult handles the result of an application operation
-func handleApplyResult(result *infra.DeployResult, configure bool) {
+func handleApplyResult(result *infra.DeployResult, configure bool, seedAdminUserEmail, region string) {
 	if result.NoChanges {
 		output.Successf("Stack is already up to date")
 		return
@@ -230,6 +243,16 @@ func handleApplyResult(result *infra.DeployResult, configure bool) {
 			output.Warningf("APIEndpoint not found in stack outputs, cannot configure CLI")
 		}
 	}
+
+	if seedAdminUserEmail != "" {
+		ctx := context.Background()
+		if err := seedAdminUser(ctx, seedAdminUserEmail, region, result.Outputs); err != nil {
+			output.Warningf("Failed to seed admin user: %v", err)
+		} else {
+			output.Blank()
+			output.Successf("Admin user %s seeded successfully", seedAdminUserEmail)
+		}
+	}
 }
 
 // configureEndpoint updates the CLI configuration with the API endpoint
@@ -246,6 +269,46 @@ func configureEndpoint(endpoint string) error {
 	}
 
 	return config.Save(cfg)
+}
+
+// seedAdminUser seeds an admin user into the database
+func seedAdminUser(ctx context.Context, adminEmail, region string, stackOutputs map[string]string) error {
+	tableName, ok := stackOutputs["APIKeysTableName"]
+	if !ok {
+		return fmt.Errorf("APIKeysTableName not found in stack outputs")
+	}
+
+	apiKey, err := infra.SeedAdminUser(ctx, adminEmail, region, tableName)
+	if err != nil {
+		return err
+	}
+
+	err = saveAPIKeyToConfig(apiKey)
+	if err != nil {
+		return err
+	}
+
+	output.Infof("API key saved to config file")
+	return nil
+}
+
+// saveAPIKeyToConfig saves the API key to the config file
+func saveAPIKeyToConfig(apiKey string) error {
+	cfg, err := config.Load()
+	if err != nil {
+		cfg = &config.Config{
+			APIKey:      apiKey,
+			APIEndpoint: "",
+		}
+	} else {
+		cfg.APIKey = apiKey
+	}
+
+	if err = config.Save(cfg); err != nil {
+		return fmt.Errorf("failed to save config file: %w", err)
+	}
+
+	return nil
 }
 
 func infraDestroyRun(cmd *cobra.Command, _ []string) {
