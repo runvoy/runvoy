@@ -76,11 +76,11 @@ build-orchestrator-zip: build-orchestrator
 # Deploy orchestrator lambda function
 [working-directory: 'dist']
 deploy-orchestrator: build-orchestrator-zip
-    aws s3 cp bootstrap.zip s3://{{bucket}}/bootstrap.zip
+    aws s3 cp bootstrap.zip s3://{{bucket}}/0.0.0-development/runvoy-orchestrator.zip
     aws lambda update-function-code \
         --function-name runvoy-orchestrator \
         --s3-bucket {{bucket}} \
-        --s3-key bootstrap.zip > /dev/null
+        --s3-key 0.0.0-development/runvoy-orchestrator.zip > /dev/null
     aws lambda wait function-updated --function-name runvoy-orchestrator
 
 # Build event processor zip file
@@ -92,11 +92,11 @@ build-event-processor-zip: build-event-processor
 # Deploy event processor lambda function
 [working-directory: 'dist']
 deploy-event-processor: build-event-processor-zip
-    aws s3 cp event-processor.zip s3://{{bucket}}/event-processor.zip
+    aws s3 cp event-processor.zip s3://{{bucket}}/0.0.0-development/runvoy-event-processor.zip
     aws lambda update-function-code \
         --function-name runvoy-event-processor \
         --s3-bucket {{bucket}} \
-        --s3-key event-processor.zip > /dev/null
+        --s3-key 0.0.0-development/runvoy-event-processor.zip > /dev/null
     aws lambda wait function-updated --function-name runvoy-event-processor
 
 # Deploy webapp to S3
@@ -282,3 +282,23 @@ setup-axiom-logging:
 # Helper to truncate a DynamoDB table
 truncate-dynamodb-table table_name:
     go run scripts/truncate-dynamodb-table/main.go {{table_name}}
+
+# Reset CloudFormation backend template to original
+reset-cloudformation-backend-template:
+    mv deploy/providers/aws/cloudformation-backend.yaml.bak deploy/providers/aws/cloudformation-backend.yaml
+
+# Release binaries using goreleaser + deploy webapp
+release: tag-current-version
+    goreleaser release --clean
+    just deploy-webapp
+    just reset-cloudformation-backend-template
+
+# Test goreleaser configuration (snapshot build, no release)
+# Creates a snapshot build without creating a GitHub release
+release-snapshot:
+    goreleaser release --snapshot --clean
+    just reset-cloudformation-backend-template
+
+# Tag HEAD with current version
+tag-current-version:
+    git tag {{version}}

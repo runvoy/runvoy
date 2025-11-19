@@ -1,0 +1,121 @@
+version: 2
+project_name: runvoy
+
+before:
+  hooks:
+    - "sed -i.bak 's/Default: 0.0.0-development/Default: {{ .Version }}/g' deploy/providers/aws/cloudformation-backend.yaml"
+
+builds:
+  - id: cli
+    main: ./cmd/cli
+    binary: runvoy
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    goarm:
+      - "7" # for armv7
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w
+      - -X=runvoy/internal/constants.version={{.Version}}
+    env:
+      - CGO_ENABLED=0
+
+  # Orchestrator Lambda function (Linux ARM64 only)
+  - id: orchestrator
+    main: ./cmd/backend/providers/aws/orchestrator
+    binary: bootstrap
+    goos:
+      - linux
+    goarch:
+      - arm64
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w
+      - -X=runvoy/internal/constants.version={{.Version}}
+    env:
+      - CGO_ENABLED=0
+
+  # Event processor Lambda function (Linux ARM64 only)
+  - id: event-processor
+    main: ./cmd/backend/providers/aws/processor
+    binary: bootstrap
+    goos:
+      - linux
+    goarch:
+      - arm64
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w
+      - -X=runvoy/internal/constants.version={{.Version}}
+    env:
+      - CGO_ENABLED=0
+
+# Archive configuration
+archives:
+  - id: cli
+    ids:
+      - cli
+    name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}{{ if .Arm }}v{{ .Arm }}{{ end }}"
+    files:
+      - README.md
+      - LICENSE
+
+  - id: orchestrator-lambda
+    ids:
+      - orchestrator
+    formats:
+      - zip
+    name_template: "{{ .ProjectName }}-orchestrator"
+
+  - id: event-processor-lambda
+    ids:
+      - event-processor
+    formats:
+      - zip
+    name_template: "{{ .ProjectName }}-event-processor"
+
+# Upload Lambda zip files to S3
+# Set AWS_REGION environment variable for the S3 region
+blobs:
+  - provider: s3
+    bucket: runvoy-releases
+    region: "{{ .Env.AWS_REGION }}"
+    directory: "{{ .Version }}"
+    ids:
+      - orchestrator-lambda
+      - event-processor-lambda
+    extra_files:
+      - glob: deploy/providers/aws/cloudformation-backend.yaml
+
+checksum:
+  name_template: "{{ .ProjectName }}_{{ .Version }}_checksums.txt"
+  algorithm: sha256
+
+release:
+  github:
+    owner: runvoy
+    name: runvoy
+  mode: replace
+  ids:
+    - cli
+  extra_files:
+    - glob: deploy/providers/aws/cloudformation-backend.yaml
+  header: |
+    ## {{ .ProjectName }} {{ .Version }}
+
+    See [CHANGELOG.md](CHANGELOG.md) for details.
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"

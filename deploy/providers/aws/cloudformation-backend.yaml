@@ -10,7 +10,12 @@ Parameters:
   LambdaCodeBucket:
     Type: String
     Default: runvoy-releases
-    Description: S3 bucket name containing Lambda deployment package
+    Description: S3 bucket name containing Lambda released artifacts
+
+  ReleaseVersion:
+    Type: String
+    Default: 0.3.3
+    Description: Version of the released artifacts
 
 Resources:
   # DynamoDB Table for API Keys
@@ -549,7 +554,7 @@ Resources:
       Handler: bootstrap
       Code:
         S3Bucket: !Ref LambdaCodeBucket
-        S3Key: bootstrap.zip
+        S3Key: !Sub '${ReleaseVersion}/${ProjectName}-orchestrator.zip'
       Timeout: 30
       Architectures:
         - arm64
@@ -620,7 +625,7 @@ Resources:
       Handler: bootstrap-event-processor
       Code:
         S3Bucket: !Ref LambdaCodeBucket
-        S3Key: event-processor.zip
+        S3Key: !Sub '${ReleaseVersion}/${ProjectName}-event-processor.zip'
       Timeout: 10
       Architectures:
         - arm64
