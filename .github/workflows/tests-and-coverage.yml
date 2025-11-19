@@ -30,3 +30,9 @@ jobs:
         uses: vladopajic/go-test-coverage@v2
         with:
           config: .testcoverage.yml
+
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          files: ./coverage.out
+          token: ${{ secrets.CODECOV_TOKEN }}
