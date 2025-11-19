@@ -136,7 +136,7 @@ runvoy --help
 ```
 
 ```text
-runvoy - v0.1.0-20251119-e595225
+runvoy - v0.1.0-20251119-9637323
 Isolated, repeatable execution environments for your commands
 
 Usage:
@@ -274,7 +274,42 @@ The build process creates a `dist/` directory optimized for static file hosting.
 
 ## Architecture
 
+```text
+┌─────────────────┐          ┌─────────────────┐
+│   CLI Client    │          │   Web Viewer    │
+│   (runvoy)      │          │  (browser)      │
+└────────┬────────┘          └────────┬────────┘
+         │                            │
+         │  HTTPS (REST API)          │  HTTPS (REST API)
+         │  WebSocket (logs)          │  WebSocket (logs)
+         │                            │
+         └────────────┬───────────────┘
+                      │
+         ┌────────────▼─────────────────────────┐
+         │     AWS Backend                      │
+         │                                      │
+         │  • Lambda Functions (Orchestrator,   │
+         │    Event Processor)                  │
+         │  • DynamoDB (metadata storage)       │
+         │  • ECS Fargate (command execution)   │
+         │  • CloudWatch Logs (execution logs)  │
+         │  • EventBridge (event routing)       │
+         │  • API Gateway WebSocket (real-time) │
+         │  • SSM Parameter Store (secrets)     │
+         └──────────────────────────────────────┘
+```
+
 For detailed architecture information, see [ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
+## Why Runvoy?
+
+For almost all my carer as a software engineer I frequently found myself in situations where I was an admin in need of a way to run commands and more importantly to allow my team members to run some of the same commands without me being in the way.
+
+I've also always been fascinated by the idea of "thin clients" and delegating the heavy lifting and security concerns to the server while keeping the client simple and easy to use and setup: just "log in" and run the commands you're allowed to run, the server takes care of the rest.
+
+The final piece of the puzzle was probably AWS launching Lambda and with that the "Serverless" concept of "pay for what you use" and "you only pay for what you use".
+
+Truth is: I love to build things in Go and I thought this would be a great opportunity to build something that not only I would find useful.
 
 ## Development
 
