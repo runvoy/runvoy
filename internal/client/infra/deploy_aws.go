@@ -30,6 +30,11 @@ type CloudFormationClient interface {
 		params *cloudformation.DescribeStacksInput,
 		optFns ...func(*cloudformation.Options),
 	) (*cloudformation.DescribeStacksOutput, error)
+	DescribeStackEvents(
+		ctx context.Context,
+		params *cloudformation.DescribeStackEventsInput,
+		optFns ...func(*cloudformation.Options),
+	) (*cloudformation.DescribeStackEventsOutput, error)
 	CreateStack(
 		ctx context.Context,
 		params *cloudformation.CreateStackInput,
@@ -262,6 +267,11 @@ func (d *AWSDeployer) waitForStackOperation(ctx context.Context, stackName strin
 				types.StackStatusRollbackFailed, types.StackStatusUpdateRollbackComplete,
 				types.StackStatusUpdateRollbackFailed, types.StackStatusDeleteComplete,
 				types.StackStatusDeleteFailed, types.StackStatusUpdateFailed:
+				// Get detailed failure information from stack events
+				failureDetails := d.getFailedResourceEvents(ctx, stackName)
+				if failureDetails != "" {
+					return status, fmt.Errorf("stack operation failed with status %s: %s\n\nResource failures:\n%s", status, statusReason, failureDetails)
+				}
 				return status, fmt.Errorf("stack operation failed with status %s: %s", status, statusReason)
 			case types.StackStatusCreateInProgress, types.StackStatusRollbackInProgress,
 				types.StackStatusDeleteInProgress, types.StackStatusUpdateInProgress,
@@ -298,6 +308,43 @@ func (d *AWSDeployer) getStackStatus(ctx context.Context, stackName string) (sta
 	}
 
 	return
+}
+
+// getFailedResourceEvents retrieves detailed failure information from stack events
+func (d *AWSDeployer) getFailedResourceEvents(ctx context.Context, stackName string) string {
+	result, err := d.client.DescribeStackEvents(ctx, &cloudformation.DescribeStackEventsInput{
+		StackName: aws.String(stackName),
+	})
+	if err != nil {
+		return ""
+	}
+
+	var failures []string
+	for _, event := range result.StackEvents {
+		// Look for failed resource statuses
+		status := string(event.ResourceStatus)
+		if strings.Contains(status, "FAILED") ||
+			(strings.Contains(status, "ROLLBACK") && event.ResourceStatusReason != nil) {
+			if event.ResourceStatusReason != nil && *event.ResourceStatusReason != "" {
+				resourceID := ""
+				if event.LogicalResourceId != nil {
+					resourceID = *event.LogicalResourceId
+				}
+				resourceType := ""
+				if event.ResourceType != nil {
+					resourceType = *event.ResourceType
+				}
+				failures = append(failures, fmt.Sprintf("  - %s (%s): %s",
+					resourceID, resourceType, *event.ResourceStatusReason))
+			}
+		}
+	}
+
+	if len(failures) == 0 {
+		return ""
+	}
+
+	return strings.Join(failures, "\n")
 }
 
 // GetStackOutputs retrieves the outputs from a CloudFormation stack
