@@ -119,7 +119,9 @@ By default, this command uses the official template from the releases bucket
 for the current CLI version. You can override this with a custom template URL
 or a local file path.
 
-Examples:
+**Examples**
+
+```bash
   # Apply using default template and version
   runvoy infra apply --stack-name my-stack
 
@@ -137,6 +139,7 @@ Examples:
 
   # Apply and automatically configure CLI
   runvoy infra apply --stack-name my-stack --configure
+```
 
 **Options**
 
@@ -150,6 +153,33 @@ Examples:
       --template string     Template URL or local file path. If not specified, uses the official template
       --version string      Release version to apply. Defaults to CLI version
       --wait                Wait for stack operation to complete (default true)
+```
+
+## runvoy infra destroy
+
+Destroy the backend infrastructure stack.
+
+This command will delete all resources created by the apply command, including
+the CloudFormation stack and all associated AWS resources.
+
+**Examples**
+
+```bash
+  # Destroy infrastructure stack
+  runvoy infra destroy --stack-name my-stack
+
+  # Destroy without waiting for completion
+  runvoy infra destroy --stack-name my-stack --wait=false
+```
+
+**Options**
+
+```
+  -h, --help                help for destroy
+      --provider string     Cloud provider (currently supported: aws) (default "aws")
+      --region string       Provider region. Uses provider default if not specified
+      --stack-name string   Infrastructure stack name (default "runvoy-backend")
+      --wait                Wait for stack deletion to complete (default true)
 ```
 
 ## runvoy kill

@@ -36,6 +36,20 @@ type DeployResult struct {
 	NoChanges     bool // True if stack was already up to date
 }
 
+// DestroyOptions contains all options for destroying infrastructure
+type DestroyOptions struct {
+	StackName string
+	Wait      bool   // Wait for completion
+	Region    string // Provider region (optional)
+}
+
+// DestroyResult contains the result of a destroy operation
+type DestroyResult struct {
+	StackName string
+	Status    string
+	NotFound  bool // True if stack was already deleted
+}
+
 // TemplateSource represents the resolved template source
 type TemplateSource struct {
 	URL  string // For remote templates (S3/HTTPS)
@@ -47,6 +61,8 @@ type TemplateSource struct {
 type Deployer interface {
 	// Deploy deploys or updates infrastructure
 	Deploy(ctx context.Context, opts *DeployOptions) (*DeployResult, error)
+	// Destroy destroys infrastructure
+	Destroy(ctx context.Context, opts *DestroyOptions) (*DestroyResult, error)
 	// CheckStackExists checks if the infrastructure stack exists
 	CheckStackExists(ctx context.Context, stackName string) (bool, error)
 	// GetStackOutputs retrieves outputs from a deployed stack

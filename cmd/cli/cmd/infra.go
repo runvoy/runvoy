@@ -20,6 +20,12 @@ var (
 	infraApplyConfigure  bool
 	infraApplyRegion     string
 	infraApplyProvider   string
+
+	// infra destroy flags
+	infraDestroyStackName string
+	infraDestroyWait      bool
+	infraDestroyRegion    string
+	infraDestroyProvider  string
 )
 
 // infraCmd is the parent command for infrastructure operations
@@ -33,42 +39,58 @@ var infraCmd = &cobra.Command{
 var infraApplyCmd = &cobra.Command{
 	Use:   "apply",
 	Short: "Apply backend infrastructure",
-	Long: fmt.Sprintf(`Apply or update the backend infrastructure.
+	Long: `Apply or update the backend infrastructure.
 
 By default, this command uses the official template from the releases bucket
 for the current CLI version. You can override this with a custom template URL
-or a local file path.
-
-Examples:
-  # Apply using default template and version
-  %s infra apply --stack-name my-stack
-
-  # Apply a specific version
-  %s infra apply --stack-name my-stack --version 1.2.3
-
-  # Apply with custom template from S3
-  %s infra apply --stack-name my-stack --template https://my-bucket.s3.amazonaws.com/template.yaml
-
-  # Apply with local template file
-  %s infra apply --stack-name my-stack --template ./my-template.yaml
-
-  # Apply with custom parameters
-  %s infra apply --stack-name my-stack --parameter ProjectName=myproject --parameter LambdaCodeBucket=my-bucket
-
-  # Apply and automatically configure CLI
-  %s infra apply --stack-name my-stack --configure`,
+or a local file path.`,
+	Example: fmt.Sprintf(
+		"  # Apply using default template and version\n"+
+			"  %s infra apply --stack-name my-stack\n\n"+
+			"  # Apply a specific version\n"+
+			"  %s infra apply --stack-name my-stack --version 1.2.3\n\n"+
+			"  # Apply with custom template from S3\n"+
+			"  %s infra apply --stack-name my-stack --template https://my-bucket.s3.amazonaws.com/template.yaml\n\n"+
+			"  # Apply with local template file\n"+
+			"  %s infra apply --stack-name my-stack --template ./my-template.yaml\n\n"+
+			"  # Apply with custom parameters\n"+
+			"  %s infra apply --stack-name my-stack --parameter ProjectName=myproject "+
+			"--parameter LambdaCodeBucket=my-bucket\n\n"+
+			"  # Apply and automatically configure CLI\n"+
+			"  %s infra apply --stack-name my-stack --configure",
 		constants.ProjectName,
 		constants.ProjectName,
 		constants.ProjectName,
 		constants.ProjectName,
 		constants.ProjectName,
-		constants.ProjectName),
+		constants.ProjectName,
+	),
 	Run: infraApplyRun,
+}
+
+// infraDestroyCmd destroys the runvoy backend infrastructure
+var infraDestroyCmd = &cobra.Command{
+	Use:   "destroy",
+	Short: "Destroy backend infrastructure",
+	Long: `Destroy the backend infrastructure stack.
+
+This command will delete all resources created by the apply command, including
+the CloudFormation stack and all associated AWS resources.`,
+	Example: fmt.Sprintf(
+		"  # Destroy infrastructure stack\n"+
+			"  %s infra destroy --stack-name my-stack\n\n"+
+			"  # Destroy without waiting for completion\n"+
+			"  %s infra destroy --stack-name my-stack --wait=false",
+		constants.ProjectName,
+		constants.ProjectName,
+	),
+	Run: infraDestroyRun,
 }
 
 func init() {
 	rootCmd.AddCommand(infraCmd)
 	infraCmd.AddCommand(infraApplyCmd)
+	infraCmd.AddCommand(infraDestroyCmd)
 
 	cfg, err := config.Load()
 	if err != nil {
@@ -94,6 +116,16 @@ func init() {
 	infraApplyCmd.Flags().BoolVar(&infraApplyConfigure, "configure", false,
 		"Automatically configure CLI with the applied endpoint after successful application")
 	infraApplyCmd.Flags().StringVar(&infraApplyRegion, "region", "",
+		"Provider region. Uses provider default if not specified")
+
+	// Define flags for infra destroy
+	infraDestroyCmd.Flags().StringVar(&infraDestroyProvider, "provider", defaultProvider,
+		"Cloud provider (currently supported: aws)")
+	infraDestroyCmd.Flags().StringVar(&infraDestroyStackName, "stack-name", defaultStackName,
+		"Infrastructure stack name")
+	infraDestroyCmd.Flags().BoolVar(&infraDestroyWait, "wait", true,
+		"Wait for stack deletion to complete")
+	infraDestroyCmd.Flags().StringVar(&infraDestroyRegion, "region", "",
 		"Provider region. Uses provider default if not specified")
 }
 
@@ -169,7 +201,8 @@ func handleApplyResult(result *infra.DeployResult, configure bool) {
 		return
 	}
 
-	if result.Status == "IN_PROGRESS" {
+	const stackStatusInProgress = "IN_PROGRESS"
+	if result.Status == stackStatusInProgress {
 		output.Successf("Stack %s initiated. Use cloud console or CLI to monitor progress.", result.OperationType)
 		return
 	}
@@ -213,4 +246,68 @@ func configureEndpoint(endpoint string) error {
 	}
 
 	return config.Save(cfg)
+}
+
+func infraDestroyRun(cmd *cobra.Command, _ []string) {
+	ctx := cmd.Context()
+
+	// Create deployer for the specified provider
+	applier, err := infra.NewDeployer(ctx, infraDestroyProvider, infraDestroyRegion)
+	if err != nil {
+		output.Fatalf("failed to initialize deployer: %v", err)
+	}
+
+	// Display destruction info
+	output.Infof("Destroying infrastructure")
+	output.KeyValue("Provider", infraDestroyProvider)
+	output.KeyValue("Stack name", infraDestroyStackName)
+	output.KeyValue("Region", applier.GetRegion())
+	output.Blank()
+
+	// Check if stack exists
+	stackExists, err := applier.CheckStackExists(ctx, infraDestroyStackName)
+	if err != nil {
+		output.Fatalf("failed to check stack status: %v", err)
+	}
+
+	if !stackExists {
+		output.Successf("Stack does not exist, nothing to destroy")
+		return
+	}
+
+	// Prepare destroy options
+	opts := &infra.DestroyOptions{
+		StackName: infraDestroyStackName,
+		Wait:      infraDestroyWait,
+		Region:    infraDestroyRegion,
+	}
+
+	// Destroy the stack
+	result, err := applier.Destroy(ctx, opts)
+	if err != nil {
+		output.Fatalf("failed to destroy stack: %v", err)
+	}
+
+	handleDestroyResult(result)
+}
+
+// handleDestroyResult handles the result of a destroy operation
+func handleDestroyResult(result *infra.DestroyResult) {
+	if result.NotFound {
+		output.Successf("Stack was already deleted")
+		return
+	}
+
+	const stackStatusInProgress = "IN_PROGRESS"
+	if result.Status == stackStatusInProgress {
+		output.Successf("Stack deletion initiated. Use cloud console or CLI to monitor progress.")
+		return
+	}
+
+	if result.Status == "DELETE_COMPLETE" {
+		output.Successf("Stack successfully destroyed")
+		return
+	}
+
+	output.Successf("Stack deletion completed with status: %s", result.Status)
 }

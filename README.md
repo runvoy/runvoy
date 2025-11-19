@@ -71,8 +71,6 @@ Runvoy is composed of 3 main parts:
 
 ## Quick Start
 
-### CLI Users
-
 Download the latest release from the [releases page](https://github.com/runvoy/runvoy/releases), e.g.
 
 For Linux:
@@ -93,23 +91,21 @@ codesign -s - --deep --force runvoy_darwin_arm64/runvoy
 mv runvoy_darwin_arm64/runvoy $(go env GOPATH)/bin/runvoy
 ```
 
-### Admin user
+### Deploying the backend infrastructure
 
 Requirements:
 
-- Go 1.25 or later
-- [just](https://github.com/casey/just) command runner installed
 - AWS credentials configured in your shell environment (see [AWS credentials configuration](https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-configure.html))
 
 This will bootstrap the backend infrastructure and seed the admin user:
 
 ```bash
-just init
+runvoy infra apply --configure --seed-admin-user admin@example.com
 ```
 
-#### User Onboarding
+#### Creating a new user
 
-The admin API key and endpoint are automatically configured in `~/.runvoy/config.yaml` after running `just init`. You can start using runvoy immediately:
+The admin API key and endpoint are automatically configured in `~/.runvoy/config.yaml` after running `runvoy infra apply --configure`. You can start using runvoy immediately:
 
 ```bash
 runvoy run "echo hello world"
@@ -140,7 +136,7 @@ runvoy --help
 ```
 
 ```text
-runvoy - v0.1.0-20251119-55b4ac8
+runvoy - v0.1.0-20251119-21469d4
 Isolated, repeatable execution environments for your commands
 
 Usage:

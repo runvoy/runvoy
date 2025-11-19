@@ -15,6 +15,7 @@ import (
 const (
 	awsStackPollInterval     = 5 * time.Second
 	awsStackOperationTimeout = 30 * time.Minute
+	stackStatusInProgress    = "IN_PROGRESS"
 )
 
 // CloudFormationClient defines the interface for CloudFormation operations.
@@ -40,6 +41,11 @@ type CloudFormationClient interface {
 		params *cloudformation.UpdateStackInput,
 		optFns ...func(*cloudformation.Options),
 	) (*cloudformation.UpdateStackOutput, error)
+	DeleteStack(
+		ctx context.Context,
+		params *cloudformation.DeleteStackInput,
+		optFns ...func(*cloudformation.Options),
+	) (*cloudformation.DeleteStackOutput, error)
 }
 
 // AWSDeployer implements Deployer for AWS CloudFormation
@@ -127,7 +133,7 @@ func (d *AWSDeployer) Deploy(ctx context.Context, opts *DeployOptions) (*DeployR
 	}
 
 	if !opts.Wait {
-		result.Status = "IN_PROGRESS"
+		result.Status = stackStatusInProgress
 		return result, nil
 	}
 
@@ -366,4 +372,105 @@ func (d *AWSDeployer) GetStackOutputs(ctx context.Context, stackName string) (ma
 	}
 
 	return outputs, nil
+}
+
+// Destroy destroys the CloudFormation stack
+func (d *AWSDeployer) Destroy(ctx context.Context, opts *DestroyOptions) (*DestroyResult, error) {
+	result := &DestroyResult{
+		StackName: opts.StackName,
+	}
+
+	// Check if stack exists
+	stackExists, err := d.CheckStackExists(ctx, opts.StackName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check stack status: %w", err)
+	}
+
+	if !stackExists {
+		result.NotFound = true
+		result.Status = "NOT_FOUND"
+		return result, nil
+	}
+
+	// Delete the stack
+	err = d.deleteStack(ctx, opts.StackName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to delete stack: %w", err)
+	}
+
+	if !opts.Wait {
+		result.Status = stackStatusInProgress
+		return result, nil
+	}
+
+	// Wait for stack deletion to complete
+	finalStatus, err := d.waitForStackDeletion(ctx, opts.StackName)
+	if err != nil {
+		return nil, fmt.Errorf("stack deletion failed: %w", err)
+	}
+	result.Status = finalStatus
+
+	return result, nil
+}
+
+// deleteStack deletes a CloudFormation stack
+func (d *AWSDeployer) deleteStack(ctx context.Context, stackName string) error {
+	_, err := d.client.DeleteStack(ctx, &cloudformation.DeleteStackInput{
+		StackName: aws.String(stackName),
+	})
+	return err
+}
+
+// waitForStackDeletion waits for a stack deletion to complete
+func (d *AWSDeployer) waitForStackDeletion(ctx context.Context, stackName string) (string, error) {
+	ticker := time.NewTicker(awsStackPollInterval)
+	defer ticker.Stop()
+
+	timeout := time.After(awsStackOperationTimeout)
+
+	for {
+		select {
+		case <-ctx.Done():
+			return "", ctx.Err()
+		case <-timeout:
+			return "", fmt.Errorf("timeout waiting for stack deletion")
+		case <-ticker.C:
+			status, statusReason, err := d.getStackStatus(ctx, stackName)
+			if err != nil {
+				// If stack doesn't exist, deletion is complete
+				if strings.Contains(err.Error(), "does not exist") {
+					return "DELETE_COMPLETE", nil
+				}
+				return "", err
+			}
+
+			// Check for completion states
+			switch types.StackStatus(status) {
+			case types.StackStatusDeleteComplete:
+				return status, nil
+			case types.StackStatusDeleteFailed:
+				// Get detailed failure information from stack events
+				failureDetails := d.getFailedResourceEvents(ctx, stackName)
+				if failureDetails != "" {
+					return status, fmt.Errorf(
+						"stack deletion failed with status %s: %s\n\nResource failures:\n%s",
+						status, statusReason, failureDetails)
+				}
+				return status, fmt.Errorf("stack deletion failed with status %s: %s", status, statusReason)
+			case types.StackStatusDeleteInProgress:
+				// Still in progress, continue polling
+			case types.StackStatusCreateInProgress, types.StackStatusCreateFailed, types.StackStatusCreateComplete,
+				types.StackStatusRollbackInProgress, types.StackStatusRollbackFailed, types.StackStatusRollbackComplete,
+				types.StackStatusUpdateInProgress, types.StackStatusUpdateCompleteCleanupInProgress,
+				types.StackStatusUpdateComplete, types.StackStatusUpdateFailed,
+				types.StackStatusUpdateRollbackInProgress, types.StackStatusUpdateRollbackFailed,
+				types.StackStatusUpdateRollbackCompleteCleanupInProgress, types.StackStatusUpdateRollbackComplete,
+				types.StackStatusReviewInProgress, types.StackStatusImportInProgress,
+				types.StackStatusImportComplete, types.StackStatusImportRollbackInProgress,
+				types.StackStatusImportRollbackFailed, types.StackStatusImportRollbackComplete:
+				// Unexpected status during deletion (these are create/update/import statuses)
+				return status, fmt.Errorf("unexpected stack status during deletion: %s", status)
+			}
+		}
+	}
 }
