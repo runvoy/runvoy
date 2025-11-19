@@ -108,7 +108,7 @@ Unregister a Docker image
 
 ## runvoy infra
 
-Commands for applying and managing runvoy backend infrastructure.
+Commands for applying and managing backend infrastructure.
 
 
 ## runvoy infra apply
@@ -121,22 +121,22 @@ or a local file path.
 
 Examples:
   # Apply using default template and version
-  runvoy infra apply --stack-name my-runvoy
+  runvoy infra apply --stack-name my-stack
 
   # Apply a specific version
-  runvoy infra apply --stack-name my-runvoy --version 6.6.6
+  runvoy infra apply --stack-name my-stack --version 1.2.3
 
   # Apply with custom template from S3
-  runvoy infra apply --stack-name my-runvoy --template https://my-bucket.s3.amazonaws.com/template.yaml
+  runvoy infra apply --stack-name my-stack --template https://my-bucket.s3.amazonaws.com/template.yaml
 
   # Apply with local template file
-  runvoy infra apply --stack-name my-runvoy --template ./my-template.yaml
+  runvoy infra apply --stack-name my-stack --template ./my-template.yaml
 
   # Apply with custom parameters
-  runvoy infra apply --stack-name my-runvoy --parameter ProjectName=myproject --parameter LambdaCodeBucket=my-bucket
+  runvoy infra apply --stack-name my-stack --parameter ProjectName=myproject --parameter LambdaCodeBucket=my-bucket
 
   # Apply and automatically configure CLI
-  runvoy infra apply --stack-name my-runvoy --configure
+  runvoy infra apply --stack-name my-stack --configure
 
 **Options**
 
@@ -146,8 +146,8 @@ Examples:
       --parameter strings   Stack parameter in KEY=VALUE format (can be specified multiple times)
       --provider string     Cloud provider (currently supported: aws) (default "aws")
       --region string       Provider region. Uses provider default if not specified
-      --stack-name string   Infrastructure stack name (default "runvoy")
-      --template string     Template URL or local file path. If not specified, uses the official template from runvoy-releases
+      --stack-name string   Infrastructure stack name (default "runvoy-backend")
+      --template string     Template URL or local file path. If not specified, uses the official template
       --version string      Release version to apply. Defaults to CLI version
       --wait                Wait for stack operation to complete (default true)
 ```

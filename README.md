@@ -140,7 +140,7 @@ runvoy --help
 ```
 
 ```text
-runvoy - v0.1.0-20251119-1fc7130
+runvoy - v0.1.0-20251119-2acbdf5
 Isolated, repeatable execution environments for your commands
 
 Usage:
@@ -153,7 +153,7 @@ Available Commands:
   health      Health and reconciliation commands
   help        Help about any command
   images      Docker images management commands
-  infra       Manage runvoy infrastructure
+  infra       Infrastructure management commands
   kill        Kill a running command execution
   list        List command executions
   logs        Get logs for an execution

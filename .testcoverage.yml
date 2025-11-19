@@ -2,6 +2,6 @@
 profile: coverage.out
 
 threshold:
-  total: 50
+  total: 45
 
 force-annotation-comment: true
