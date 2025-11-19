@@ -76,7 +76,7 @@ Runvoy is composed of 3 main parts (see [#architecture](#architecture) for more 
 **Key Benefits:**
 
 - **_Doesn't_ run on your computer**: The actual commands are executed in remote production-grade environments properly configured for access to secrets and other resources, team member's workstations don't need any special configuration, just `runvoy` CLI and its API key
-- **Complete audit trail**: Every interaction with the backend is logged with user identification. All logs stored in read-only database for auditing purposes (currently only CloudWatch Logs is supported, but with plans to extend support to other cloud services in the future)
+- **Complete audit trail**: Every interaction with the backend is logged with user identification. All logs stored in append-only database for auditing purposes (currently only CloudWatch Logs is supported, but with plans to extend support to other cloud services in the future)
 - **Self-hosted, no black magic**: The backend runs in your cloud provider account, you control everything, including the policies and permissions assigned to the containers
 - **Serverless**: No always-running services, just pay for the compute your commands consume (essentially free for infrequent use)
 
@@ -169,7 +169,7 @@ runvoy --help
 ```
 
 ```text
-runvoy - v0.1.0-20251119-1a3139d
+runvoy - v0.1.0-20251119-bd4e374
 Isolated, repeatable execution environments for your commands
 
 Usage:
@@ -346,4 +346,4 @@ Full disclosure: I love to build things in Go and I thought this would be a grea
 
 ## Development
 
-For development setup, workflow, and contributing guidelines, see [CONTRIBUTING.md](CONTRIBUTING.md).
+For development setup, workflow, and contributing guidelines, see [CONTRIBUTING.md](CONTRIBUTING.md) and [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
