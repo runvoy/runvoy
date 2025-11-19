@@ -265,7 +265,9 @@ func (d *AWSDeployer) waitForStackOperation(ctx context.Context, stackName strin
 				// Get detailed failure information from stack events
 				failureDetails := d.getFailedResourceEvents(ctx, stackName)
 				if failureDetails != "" {
-					return status, fmt.Errorf("stack operation failed with status %s: %s\n\nResource failures:\n%s", status, statusReason, failureDetails)
+					return status, fmt.Errorf(
+						"stack operation failed with status %s: %s\n\nResource failures:\n%s",
+						status, statusReason, failureDetails)
 				}
 				return status, fmt.Errorf("stack operation failed with status %s: %s", status, statusReason)
 			case types.StackStatusCreateInProgress, types.StackStatusRollbackInProgress,
@@ -315,7 +317,8 @@ func (d *AWSDeployer) getFailedResourceEvents(ctx context.Context, stackName str
 	}
 
 	var failures []string
-	for _, event := range result.StackEvents {
+	for i := range result.StackEvents {
+		event := &result.StackEvents[i]
 		// Look for failed resource statuses
 		status := string(event.ResourceStatus)
 		if strings.Contains(status, "FAILED") ||
