@@ -125,11 +125,6 @@ func (m *Manager) Reconcile(ctx context.Context) (*health.Report, error) {
 		}
 	}
 
-	reqLogger.Info("health reconciliation completed",
-		"reconciled_count", report.ReconciledCount,
-		"error_count", report.ErrorCount,
-		"total_issues", len(report.Issues))
-
 	return report, nil
 }
 
