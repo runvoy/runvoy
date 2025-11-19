@@ -3,8 +3,8 @@ package testutil
 
 import (
 	"context"
+	"io"
 	"log/slog"
-	"os"
 	"time"
 
 	"runvoy/internal/api"
@@ -147,7 +147,7 @@ func TestLogger() *slog.Logger {
 
 // SilentLogger creates a logger that discards all output.
 func SilentLogger() *slog.Logger {
-	return slog.New(slog.NewTextHandler(os.NewFile(0, os.DevNull), &slog.HandlerOptions{
+	return slog.New(slog.NewTextHandler(io.Discard, &slog.HandlerOptions{
 		Level: slog.LevelError + 1, // Suppress all logs
 	}))
 }
