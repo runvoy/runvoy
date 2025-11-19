@@ -5,7 +5,6 @@ import (
 	"runvoy/internal/client/infra"
 	"runvoy/internal/client/output"
 	"runvoy/internal/config"
-	awsConstants "runvoy/internal/providers/aws/constants"
 	"runvoy/internal/constants"
 
 	"github.com/spf13/cobra"
@@ -71,11 +70,13 @@ func init() {
 	rootCmd.AddCommand(infraCmd)
 	infraCmd.AddCommand(infraApplyCmd)
 
-	// Load config to get default stack name, fallback to constant if config doesn't exist
-	defaultStackName := awsConstants.DefaultInfraStackName
-	if cfg, err := config.Load(); err == nil {
-		defaultStackName = cfg.GetDefaultStackName()
+	cfg, err := config.Load()
+	if err != nil {
+
+		output.Fatalf("failed to load config: %v", err)
 	}
+
+	defaultStackName := cfg.GetDefaultStackName()
 
 	// Define flags for infra apply
 	infraApplyCmd.Flags().StringVar(&infraApplyProvider, "provider", infra.ProviderAWS,
