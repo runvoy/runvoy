@@ -9,12 +9,11 @@ Parameters:
 
   LambdaCodeBucket:
     Type: String
-    Default: runvoy-releases-us-east-1
     Description: S3 bucket name containing Lambda released artifacts
 
   ReleaseVersion:
     Type: String
-    Default: 0.0.0-development
+    Default: 0.1.0
     Description: Version of the released artifacts
 
 Resources:

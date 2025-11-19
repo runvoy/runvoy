@@ -157,17 +157,29 @@ func (d *AWSDeployer) Deploy(ctx context.Context, opts *DeployOptions) (*DeployR
 
 // parseParametersToCFN converts string parameters to CloudFormation parameter types
 func (d *AWSDeployer) parseParametersToCFN(params []string) ([]types.Parameter, error) {
-	var cfnParams []types.Parameter
+	paramMap := make(map[string]string)
 
+	// Parse user-provided parameters
 	for _, param := range params {
 		parts := strings.SplitN(param, "=", parameterSplitParts)
 		if len(parts) != parameterSplitParts {
 			return nil, fmt.Errorf("invalid parameter format: %s (expected KEY=VALUE)", param)
 		}
 
+		paramMap[parts[0]] = parts[1]
+	}
+
+	// Inject default LambdaCodeBucket if not provided
+	if _, exists := paramMap["LambdaCodeBucket"]; !exists {
+		paramMap["LambdaCodeBucket"] = fmt.Sprintf("runvoy-releases-%s", d.region)
+	}
+
+	// Convert to CloudFormation parameter types
+	var cfnParams []types.Parameter
+	for key, value := range paramMap {
 		cfnParams = append(cfnParams, types.Parameter{
-			ParameterKey:   aws.String(parts[0]),
-			ParameterValue: aws.String(parts[1]),
+			ParameterKey:   aws.String(key),
+			ParameterValue: aws.String(value),
 		})
 	}
 

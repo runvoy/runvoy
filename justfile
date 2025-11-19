@@ -2,7 +2,7 @@
 set dotenv-load
 
 # Variables
-bucket := env('RUNVOY_RELEASES_BUCKET', 'runvoy-releases')
+bucket := env('RUNVOY_RELEASES_BUCKET', 'runvoy-releases-us-east-1')
 stack_name := env('RUNVOY_CLOUDFORMATION_BACKEND_STACK', 'runvoy-backend')
 admin_email := env('RUNVOY_ADMIN_EMAIL', 'admin@runvoy.site')
 version := trim(read('VERSION'))
@@ -125,6 +125,7 @@ test-coverage: gen-coverage
 clean:
     rm -rf bin/ dist/ coverage.out coverage.html
     go clean
+    git clean -f .
 
 # Development setup
 dev-setup: dev-setup-webapp
