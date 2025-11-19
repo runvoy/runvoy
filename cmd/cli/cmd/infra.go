@@ -72,7 +72,6 @@ func init() {
 
 	cfg, err := config.Load()
 	if err != nil {
-
 		output.Fatalf("failed to load config: %v", err)
 	}
 
