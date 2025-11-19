@@ -1,10 +1,6 @@
 version: 2
 project_name: runvoy
 
-before:
-  hooks:
-    - "sed -i.bak 's/Default: 0.0.0-development/Default: {{ .Version }}/g' deploy/providers/aws/cloudformation-backend.yaml"
-
 builds:
   - id: cli
     main: ./cmd/cli

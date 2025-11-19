@@ -315,21 +315,15 @@ setup-axiom-logging:
 truncate-dynamodb-table table_name:
     go run scripts/truncate-dynamodb-table/main.go {{table_name}}
 
-# Reset CloudFormation backend template to original
-reset-cloudformation-backend-template:
-    mv deploy/providers/aws/cloudformation-backend.yaml.bak deploy/providers/aws/cloudformation-backend.yaml
-
 # Release binaries using goreleaser + deploy webapp
 release: tag-current-version
     goreleaser release --clean
     just deploy-webapp
-    just reset-cloudformation-backend-template
 
 # Test goreleaser configuration (snapshot build, no release)
 # Creates a snapshot build without creating a GitHub release
 release-snapshot:
     goreleaser release --snapshot --clean
-    just reset-cloudformation-backend-template
 
 # Tag HEAD with current version
 tag-current-version:
