@@ -7,6 +7,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"runvoy/internal/constants"
 )
 
 const (
@@ -83,9 +85,9 @@ func ResolveTemplate(provider, template, version string) (*TemplateSource, error
 // resolveAWSTemplate resolves template for AWS provider
 func resolveAWSTemplate(template, version string) (*TemplateSource, error) {
 	if template == "" {
-		// Use default S3 URL
-		url := fmt.Sprintf("https://%s.s3.amazonaws.com/%s/%s",
-			awsDefaultS3Bucket, version, awsTemplateFileName)
+		// Use default S3 URL with region
+		url := fmt.Sprintf("https://%s.s3.%s.amazonaws.com/%s/%s",
+			constants.ReleasesBucket, constants.ReleasesBucketRegion, version, constants.CloudFormationTemplateFile)
 		return &TemplateSource{URL: url}, nil
 	}
 
