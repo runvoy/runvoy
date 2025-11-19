@@ -5,6 +5,7 @@ import (
 	"runvoy/internal/client/infra"
 	"runvoy/internal/client/output"
 	"runvoy/internal/config"
+	awsConstants "runvoy/internal/providers/aws/constants"
 	"runvoy/internal/constants"
 
 	"github.com/spf13/cobra"
@@ -70,10 +71,16 @@ func init() {
 	rootCmd.AddCommand(infraCmd)
 	infraCmd.AddCommand(infraApplyCmd)
 
+	// Load config to get default stack name, fallback to constant if config doesn't exist
+	defaultStackName := awsConstants.DefaultInfraStackName
+	if cfg, err := config.Load(); err == nil {
+		defaultStackName = cfg.GetDefaultStackName()
+	}
+
 	// Define flags for infra apply
 	infraApplyCmd.Flags().StringVar(&infraApplyProvider, "provider", infra.ProviderAWS,
 		"Cloud provider (currently supported: aws)")
-	infraApplyCmd.Flags().StringVar(&infraApplyStackName, "stack-name", infra.DefaultStackName,
+	infraApplyCmd.Flags().StringVar(&infraApplyStackName, "stack-name", defaultStackName,
 		"Infrastructure stack name")
 	infraApplyCmd.Flags().StringVar(&infraApplyTemplate, "template", "",
 		"Template URL or local file path. If not specified, uses the official template from runvoy-releases")

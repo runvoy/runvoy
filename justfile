@@ -123,7 +123,7 @@ test-coverage: gen-coverage
 
 # Clean build artifacts
 clean:
-    rm -rf bin/ coverage.out coverage.html
+    rm -rf bin/ dist/ coverage.out coverage.html
     go clean
 
 # Development setup

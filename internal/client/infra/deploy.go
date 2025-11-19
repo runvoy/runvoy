@@ -11,7 +11,7 @@ import (
 
 const (
 	// DefaultStackName is the default CloudFormation stack name
-	DefaultStackName = "runvoy"
+	DefaultStackName = "runvoy-backend"
 
 	// ProviderAWS is the AWS provider identifier
 	ProviderAWS = "aws"
