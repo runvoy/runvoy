@@ -19,7 +19,10 @@
       <img src="https://img.shields.io/badge/Go-1.25+-00ADD8?logo=go" alt="Go version">
   </a>
   <a href="https://runvoy.github.io" target="_blank">
-      <img src="https://img.shields.io/badge/%F0%9F%9A%80%20Runvoy%20Docs-green" alt="Runvoy Docs">
+      <img src="https://img.shields.io/badge/%F0%9F%9A%80%20Docs-orange" alt="Runvoy Docs">
+  </a>
+  <a href="https://runvoy.site" target="_blank">
+      <img src="https://img.shields.io/badge/%F0%9F%9A%80%20Webapp-blue" alt="Runvoy Webapp">
   </a>
 
 </p>
@@ -178,7 +181,7 @@ runvoy --help
 ```
 
 ```text
-runvoy - v0.2.0-20251120-c3f3867
+runvoy - v0.2.0-20251120-24411c7
 Isolated, repeatable execution environments for your commands
 
 Usage:
