@@ -14,43 +14,85 @@ import (
 )
 
 // mockCloudFormationClient is a mock implementation of CloudFormationClient
+//
+//nolint:dupl // Mock struct must match interface signature
 type mockCloudFormationClient struct {
-	describeStacksFunc       func(ctx context.Context, params *cloudformation.DescribeStacksInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DescribeStacksOutput, error)
-	describeStackEventsFunc  func(ctx context.Context, params *cloudformation.DescribeStackEventsInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DescribeStackEventsOutput, error)
-	createStackFunc          func(ctx context.Context, params *cloudformation.CreateStackInput, optFns ...func(*cloudformation.Options)) (*cloudformation.CreateStackOutput, error)
-	updateStackFunc          func(ctx context.Context, params *cloudformation.UpdateStackInput, optFns ...func(*cloudformation.Options)) (*cloudformation.UpdateStackOutput, error)
-	deleteStackFunc          func(ctx context.Context, params *cloudformation.DeleteStackInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DeleteStackOutput, error)
+	describeStacksFunc func(
+		ctx context.Context,
+		params *cloudformation.DescribeStacksInput,
+		optFns ...func(*cloudformation.Options),
+	) (*cloudformation.DescribeStacksOutput, error)
+	describeStackEventsFunc func(
+		ctx context.Context,
+		params *cloudformation.DescribeStackEventsInput,
+		optFns ...func(*cloudformation.Options),
+	) (*cloudformation.DescribeStackEventsOutput, error)
+	createStackFunc func(
+		ctx context.Context,
+		params *cloudformation.CreateStackInput,
+		optFns ...func(*cloudformation.Options),
+	) (*cloudformation.CreateStackOutput, error)
+	updateStackFunc func(
+		ctx context.Context,
+		params *cloudformation.UpdateStackInput,
+		optFns ...func(*cloudformation.Options),
+	) (*cloudformation.UpdateStackOutput, error)
+	deleteStackFunc func(
+		ctx context.Context,
+		params *cloudformation.DeleteStackInput,
+		optFns ...func(*cloudformation.Options),
+	) (*cloudformation.DeleteStackOutput, error)
 }
 
-func (m *mockCloudFormationClient) DescribeStacks(ctx context.Context, params *cloudformation.DescribeStacksInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DescribeStacksOutput, error) {
+func (m *mockCloudFormationClient) DescribeStacks(
+	ctx context.Context,
+	params *cloudformation.DescribeStacksInput,
+	optFns ...func(*cloudformation.Options),
+) (*cloudformation.DescribeStacksOutput, error) {
 	if m.describeStacksFunc != nil {
 		return m.describeStacksFunc(ctx, params, optFns...)
 	}
 	return nil, errors.New("not implemented")
 }
 
-func (m *mockCloudFormationClient) DescribeStackEvents(ctx context.Context, params *cloudformation.DescribeStackEventsInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DescribeStackEventsOutput, error) {
+func (m *mockCloudFormationClient) DescribeStackEvents(
+	ctx context.Context,
+	params *cloudformation.DescribeStackEventsInput,
+	optFns ...func(*cloudformation.Options),
+) (*cloudformation.DescribeStackEventsOutput, error) {
 	if m.describeStackEventsFunc != nil {
 		return m.describeStackEventsFunc(ctx, params, optFns...)
 	}
 	return nil, errors.New("not implemented")
 }
 
-func (m *mockCloudFormationClient) CreateStack(ctx context.Context, params *cloudformation.CreateStackInput, optFns ...func(*cloudformation.Options)) (*cloudformation.CreateStackOutput, error) {
+func (m *mockCloudFormationClient) CreateStack(
+	ctx context.Context,
+	params *cloudformation.CreateStackInput,
+	optFns ...func(*cloudformation.Options),
+) (*cloudformation.CreateStackOutput, error) {
 	if m.createStackFunc != nil {
 		return m.createStackFunc(ctx, params, optFns...)
 	}
 	return nil, errors.New("not implemented")
 }
 
-func (m *mockCloudFormationClient) UpdateStack(ctx context.Context, params *cloudformation.UpdateStackInput, optFns ...func(*cloudformation.Options)) (*cloudformation.UpdateStackOutput, error) {
+func (m *mockCloudFormationClient) UpdateStack(
+	ctx context.Context,
+	params *cloudformation.UpdateStackInput,
+	optFns ...func(*cloudformation.Options),
+) (*cloudformation.UpdateStackOutput, error) {
 	if m.updateStackFunc != nil {
 		return m.updateStackFunc(ctx, params, optFns...)
 	}
 	return nil, errors.New("not implemented")
 }
 
-func (m *mockCloudFormationClient) DeleteStack(ctx context.Context, params *cloudformation.DeleteStackInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DeleteStackOutput, error) {
+func (m *mockCloudFormationClient) DeleteStack(
+	ctx context.Context,
+	params *cloudformation.DeleteStackInput,
+	optFns ...func(*cloudformation.Options),
+) (*cloudformation.DeleteStackOutput, error) {
 	if m.deleteStackFunc != nil {
 		return m.deleteStackFunc(ctx, params, optFns...)
 	}
@@ -73,7 +115,11 @@ func TestNewAWSDeployerWithClient(t *testing.T) {
 func TestAWSDeployer_CheckStackExists(t *testing.T) {
 	t.Run("stack exists", func(t *testing.T) {
 		mockClient := &mockCloudFormationClient{
-			describeStacksFunc: func(ctx context.Context, params *cloudformation.DescribeStacksInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DescribeStacksOutput, error) {
+			describeStacksFunc: func(
+				_ context.Context,
+				params *cloudformation.DescribeStacksInput,
+				_ ...func(*cloudformation.Options),
+			) (*cloudformation.DescribeStacksOutput, error) {
 				return &cloudformation.DescribeStacksOutput{
 					Stacks: []types.Stack{
 						{
@@ -94,7 +140,11 @@ func TestAWSDeployer_CheckStackExists(t *testing.T) {
 
 	t.Run("stack does not exist", func(t *testing.T) {
 		mockClient := &mockCloudFormationClient{
-			describeStacksFunc: func(ctx context.Context, params *cloudformation.DescribeStacksInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DescribeStacksOutput, error) {
+			describeStacksFunc: func(
+				_ context.Context,
+				_ *cloudformation.DescribeStacksInput,
+				_ ...func(*cloudformation.Options),
+			) (*cloudformation.DescribeStacksOutput, error) {
 				return nil, errors.New("Stack with id test-stack does not exist")
 			},
 		}
@@ -108,7 +158,11 @@ func TestAWSDeployer_CheckStackExists(t *testing.T) {
 
 	t.Run("error checking stack", func(t *testing.T) {
 		mockClient := &mockCloudFormationClient{
-			describeStacksFunc: func(ctx context.Context, params *cloudformation.DescribeStacksInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DescribeStacksOutput, error) {
+			describeStacksFunc: func(
+				_ context.Context,
+				_ *cloudformation.DescribeStacksInput,
+				_ ...func(*cloudformation.Options),
+			) (*cloudformation.DescribeStacksOutput, error) {
 				return nil, errors.New("AWS API error")
 			},
 		}
@@ -125,7 +179,11 @@ func TestAWSDeployer_CheckStackExists(t *testing.T) {
 func TestAWSDeployer_GetStackOutputs(t *testing.T) {
 	t.Run("successful output retrieval", func(t *testing.T) {
 		mockClient := &mockCloudFormationClient{
-			describeStacksFunc: func(ctx context.Context, params *cloudformation.DescribeStacksInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DescribeStacksOutput, error) {
+			describeStacksFunc: func(
+				_ context.Context,
+				params *cloudformation.DescribeStacksInput,
+				_ ...func(*cloudformation.Options),
+			) (*cloudformation.DescribeStacksOutput, error) {
 				return &cloudformation.DescribeStacksOutput{
 					Stacks: []types.Stack{
 						{
@@ -158,7 +216,11 @@ func TestAWSDeployer_GetStackOutputs(t *testing.T) {
 
 	t.Run("stack not found", func(t *testing.T) {
 		mockClient := &mockCloudFormationClient{
-			describeStacksFunc: func(ctx context.Context, params *cloudformation.DescribeStacksInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DescribeStacksOutput, error) {
+			describeStacksFunc: func(
+				_ context.Context,
+				_ *cloudformation.DescribeStacksInput,
+				_ ...func(*cloudformation.Options),
+			) (*cloudformation.DescribeStacksOutput, error) {
 				return nil, errors.New("stack does not exist")
 			},
 		}
@@ -172,7 +234,11 @@ func TestAWSDeployer_GetStackOutputs(t *testing.T) {
 
 	t.Run("empty outputs", func(t *testing.T) {
 		mockClient := &mockCloudFormationClient{
-			describeStacksFunc: func(ctx context.Context, params *cloudformation.DescribeStacksInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DescribeStacksOutput, error) {
+			describeStacksFunc: func(
+				_ context.Context,
+				params *cloudformation.DescribeStacksInput,
+				_ ...func(*cloudformation.Options),
+			) (*cloudformation.DescribeStacksOutput, error) {
 				return &cloudformation.DescribeStacksOutput{
 					Stacks: []types.Stack{
 						{
@@ -194,7 +260,11 @@ func TestAWSDeployer_GetStackOutputs(t *testing.T) {
 
 	t.Run("no stacks in response", func(t *testing.T) {
 		mockClient := &mockCloudFormationClient{
-			describeStacksFunc: func(ctx context.Context, params *cloudformation.DescribeStacksInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DescribeStacksOutput, error) {
+			describeStacksFunc: func(
+				_ context.Context,
+				_ *cloudformation.DescribeStacksInput,
+				_ ...func(*cloudformation.Options),
+			) (*cloudformation.DescribeStacksOutput, error) {
 				return &cloudformation.DescribeStacksOutput{
 					Stacks: []types.Stack{},
 				}, nil
@@ -308,10 +378,18 @@ func TestAWSDeployer_parseParametersToCFN(t *testing.T) {
 func TestAWSDeployer_Deploy_NoWait(t *testing.T) {
 	t.Run("create stack without waiting", func(t *testing.T) {
 		mockClient := &mockCloudFormationClient{
-			describeStacksFunc: func(ctx context.Context, params *cloudformation.DescribeStacksInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DescribeStacksOutput, error) {
+			describeStacksFunc: func(
+				_ context.Context,
+				_ *cloudformation.DescribeStacksInput,
+				_ ...func(*cloudformation.Options),
+			) (*cloudformation.DescribeStacksOutput, error) {
 				return nil, errors.New("does not exist")
 			},
-			createStackFunc: func(ctx context.Context, params *cloudformation.CreateStackInput, optFns ...func(*cloudformation.Options)) (*cloudformation.CreateStackOutput, error) {
+			createStackFunc: func(
+				_ context.Context,
+				_ *cloudformation.CreateStackInput,
+				_ ...func(*cloudformation.Options),
+			) (*cloudformation.CreateStackOutput, error) {
 				return &cloudformation.CreateStackOutput{
 					StackId: aws.String("arn:aws:cloudformation:us-east-1:123456789012:stack/test-stack/12345"),
 				}, nil
@@ -339,7 +417,11 @@ func TestAWSDeployer_Deploy_NoWait(t *testing.T) {
 
 	t.Run("update stack without waiting", func(t *testing.T) {
 		mockClient := &mockCloudFormationClient{
-			describeStacksFunc: func(ctx context.Context, params *cloudformation.DescribeStacksInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DescribeStacksOutput, error) {
+			describeStacksFunc: func(
+				_ context.Context,
+				params *cloudformation.DescribeStacksInput,
+				_ ...func(*cloudformation.Options),
+			) (*cloudformation.DescribeStacksOutput, error) {
 				return &cloudformation.DescribeStacksOutput{
 					Stacks: []types.Stack{
 						{
@@ -349,7 +431,11 @@ func TestAWSDeployer_Deploy_NoWait(t *testing.T) {
 					},
 				}, nil
 			},
-			updateStackFunc: func(ctx context.Context, params *cloudformation.UpdateStackInput, optFns ...func(*cloudformation.Options)) (*cloudformation.UpdateStackOutput, error) {
+			updateStackFunc: func(
+				_ context.Context,
+				_ *cloudformation.UpdateStackInput,
+				_ ...func(*cloudformation.Options),
+			) (*cloudformation.UpdateStackOutput, error) {
 				return &cloudformation.UpdateStackOutput{
 					StackId: aws.String("arn:aws:cloudformation:us-east-1:123456789012:stack/test-stack/12345"),
 				}, nil
@@ -377,7 +463,11 @@ func TestAWSDeployer_Deploy_NoWait(t *testing.T) {
 
 	t.Run("no changes to perform", func(t *testing.T) {
 		mockClient := &mockCloudFormationClient{
-			describeStacksFunc: func(ctx context.Context, params *cloudformation.DescribeStacksInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DescribeStacksOutput, error) {
+			describeStacksFunc: func(
+				_ context.Context,
+				params *cloudformation.DescribeStacksInput,
+				_ ...func(*cloudformation.Options),
+			) (*cloudformation.DescribeStacksOutput, error) {
 				return &cloudformation.DescribeStacksOutput{
 					Stacks: []types.Stack{
 						{
@@ -387,7 +477,11 @@ func TestAWSDeployer_Deploy_NoWait(t *testing.T) {
 					},
 				}, nil
 			},
-			updateStackFunc: func(ctx context.Context, params *cloudformation.UpdateStackInput, optFns ...func(*cloudformation.Options)) (*cloudformation.UpdateStackOutput, error) {
+			updateStackFunc: func(
+				_ context.Context,
+				_ *cloudformation.UpdateStackInput,
+				_ ...func(*cloudformation.Options),
+			) (*cloudformation.UpdateStackOutput, error) {
 				return nil, errors.New("No updates are to be performed")
 			},
 		}
@@ -415,7 +509,11 @@ func TestAWSDeployer_Deploy_NoWait(t *testing.T) {
 func TestAWSDeployer_Destroy(t *testing.T) {
 	t.Run("destroy existing stack without waiting", func(t *testing.T) {
 		mockClient := &mockCloudFormationClient{
-			describeStacksFunc: func(ctx context.Context, params *cloudformation.DescribeStacksInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DescribeStacksOutput, error) {
+			describeStacksFunc: func(
+				_ context.Context,
+				params *cloudformation.DescribeStacksInput,
+				_ ...func(*cloudformation.Options),
+			) (*cloudformation.DescribeStacksOutput, error) {
 				return &cloudformation.DescribeStacksOutput{
 					Stacks: []types.Stack{
 						{
@@ -425,7 +523,11 @@ func TestAWSDeployer_Destroy(t *testing.T) {
 					},
 				}, nil
 			},
-			deleteStackFunc: func(ctx context.Context, params *cloudformation.DeleteStackInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DeleteStackOutput, error) {
+			deleteStackFunc: func(
+				_ context.Context,
+				_ *cloudformation.DeleteStackInput,
+				_ ...func(*cloudformation.Options),
+			) (*cloudformation.DeleteStackOutput, error) {
 				return &cloudformation.DeleteStackOutput{}, nil
 			},
 		}
@@ -447,7 +549,11 @@ func TestAWSDeployer_Destroy(t *testing.T) {
 
 	t.Run("destroy non-existent stack", func(t *testing.T) {
 		mockClient := &mockCloudFormationClient{
-			describeStacksFunc: func(ctx context.Context, params *cloudformation.DescribeStacksInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DescribeStacksOutput, error) {
+			describeStacksFunc: func(
+				_ context.Context,
+				_ *cloudformation.DescribeStacksInput,
+				_ ...func(*cloudformation.Options),
+			) (*cloudformation.DescribeStacksOutput, error) {
 				return nil, errors.New("does not exist")
 			},
 		}
@@ -469,7 +575,11 @@ func TestAWSDeployer_Destroy(t *testing.T) {
 
 	t.Run("error during deletion", func(t *testing.T) {
 		mockClient := &mockCloudFormationClient{
-			describeStacksFunc: func(ctx context.Context, params *cloudformation.DescribeStacksInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DescribeStacksOutput, error) {
+			describeStacksFunc: func(
+				_ context.Context,
+				params *cloudformation.DescribeStacksInput,
+				_ ...func(*cloudformation.Options),
+			) (*cloudformation.DescribeStacksOutput, error) {
 				return &cloudformation.DescribeStacksOutput{
 					Stacks: []types.Stack{
 						{
@@ -479,7 +589,11 @@ func TestAWSDeployer_Destroy(t *testing.T) {
 					},
 				}, nil
 			},
-			deleteStackFunc: func(ctx context.Context, params *cloudformation.DeleteStackInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DeleteStackOutput, error) {
+			deleteStackFunc: func(
+				_ context.Context,
+				_ *cloudformation.DeleteStackInput,
+				_ ...func(*cloudformation.Options),
+			) (*cloudformation.DeleteStackOutput, error) {
 				return nil, errors.New("deletion failed")
 			},
 		}
@@ -502,7 +616,11 @@ func TestAWSDeployer_CreateUpdateStack(t *testing.T) {
 	t.Run("create stack with URL template", func(t *testing.T) {
 		var capturedInput *cloudformation.CreateStackInput
 		mockClient := &mockCloudFormationClient{
-			createStackFunc: func(ctx context.Context, params *cloudformation.CreateStackInput, optFns ...func(*cloudformation.Options)) (*cloudformation.CreateStackOutput, error) {
+			createStackFunc: func(
+				_ context.Context,
+				params *cloudformation.CreateStackInput,
+				_ ...func(*cloudformation.Options),
+			) (*cloudformation.CreateStackOutput, error) {
 				capturedInput = params
 				return &cloudformation.CreateStackOutput{
 					StackId: aws.String("stack-id"),
@@ -527,22 +645,23 @@ func TestAWSDeployer_CreateUpdateStack(t *testing.T) {
 		assert.Contains(t, capturedInput.Capabilities, types.CapabilityCapabilityNamedIam)
 	})
 
+	//nolint:dupl // Similar test structure for create and update operations
 	t.Run("create stack with body template", func(t *testing.T) {
 		var capturedInput *cloudformation.CreateStackInput
 		mockClient := &mockCloudFormationClient{
-			createStackFunc: func(ctx context.Context, params *cloudformation.CreateStackInput, optFns ...func(*cloudformation.Options)) (*cloudformation.CreateStackOutput, error) {
+			createStackFunc: func(
+				_ context.Context,
+				params *cloudformation.CreateStackInput,
+				_ ...func(*cloudformation.Options),
+			) (*cloudformation.CreateStackOutput, error) {
 				capturedInput = params
-				return &cloudformation.CreateStackOutput{
-					StackId: aws.String("stack-id"),
-				}, nil
+				return &cloudformation.CreateStackOutput{StackId: aws.String("stack-id")}, nil
 			},
 		}
 
 		deployer := NewAWSDeployerWithClient(mockClient, "us-east-1")
 		template := &TemplateSource{Body: "template body content"}
-		params := []types.Parameter{}
-
-		err := deployer.createStack(context.Background(), "test-stack", template, params)
+		err := deployer.createStack(context.Background(), "test-stack", template, []types.Parameter{})
 
 		require.NoError(t, err)
 		require.NotNil(t, capturedInput)
@@ -554,7 +673,11 @@ func TestAWSDeployer_CreateUpdateStack(t *testing.T) {
 	t.Run("update stack with URL template", func(t *testing.T) {
 		var capturedInput *cloudformation.UpdateStackInput
 		mockClient := &mockCloudFormationClient{
-			updateStackFunc: func(ctx context.Context, params *cloudformation.UpdateStackInput, optFns ...func(*cloudformation.Options)) (*cloudformation.UpdateStackOutput, error) {
+			updateStackFunc: func(
+				_ context.Context,
+				params *cloudformation.UpdateStackInput,
+				_ ...func(*cloudformation.Options),
+			) (*cloudformation.UpdateStackOutput, error) {
 				capturedInput = params
 				return &cloudformation.UpdateStackOutput{
 					StackId: aws.String("stack-id"),
@@ -578,22 +701,23 @@ func TestAWSDeployer_CreateUpdateStack(t *testing.T) {
 		assert.Len(t, capturedInput.Parameters, 1)
 	})
 
+	//nolint:dupl // Similar test structure for create and update operations
 	t.Run("update stack with body template", func(t *testing.T) {
 		var capturedInput *cloudformation.UpdateStackInput
 		mockClient := &mockCloudFormationClient{
-			updateStackFunc: func(ctx context.Context, params *cloudformation.UpdateStackInput, optFns ...func(*cloudformation.Options)) (*cloudformation.UpdateStackOutput, error) {
+			updateStackFunc: func(
+				_ context.Context,
+				params *cloudformation.UpdateStackInput,
+				_ ...func(*cloudformation.Options),
+			) (*cloudformation.UpdateStackOutput, error) {
 				capturedInput = params
-				return &cloudformation.UpdateStackOutput{
-					StackId: aws.String("stack-id"),
-				}, nil
+				return &cloudformation.UpdateStackOutput{StackId: aws.String("stack-id")}, nil
 			},
 		}
 
 		deployer := NewAWSDeployerWithClient(mockClient, "us-east-1")
 		template := &TemplateSource{Body: "updated template body"}
-		params := []types.Parameter{}
-
-		err := deployer.updateStack(context.Background(), "test-stack", template, params)
+		err := deployer.updateStack(context.Background(), "test-stack", template, []types.Parameter{})
 
 		require.NoError(t, err)
 		require.NotNil(t, capturedInput)
@@ -606,12 +730,16 @@ func TestAWSDeployer_CreateUpdateStack(t *testing.T) {
 func TestAWSDeployer_GetStackStatus(t *testing.T) {
 	t.Run("successful status retrieval", func(t *testing.T) {
 		mockClient := &mockCloudFormationClient{
-			describeStacksFunc: func(ctx context.Context, params *cloudformation.DescribeStacksInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DescribeStacksOutput, error) {
+			describeStacksFunc: func(
+				_ context.Context,
+				params *cloudformation.DescribeStacksInput,
+				_ ...func(*cloudformation.Options),
+			) (*cloudformation.DescribeStacksOutput, error) {
 				return &cloudformation.DescribeStacksOutput{
 					Stacks: []types.Stack{
 						{
-							StackName:        params.StackName,
-							StackStatus:      types.StackStatusCreateComplete,
+							StackName:         params.StackName,
+							StackStatus:       types.StackStatusCreateComplete,
 							StackStatusReason: aws.String("Stack created successfully"),
 						},
 					},
@@ -629,7 +757,11 @@ func TestAWSDeployer_GetStackStatus(t *testing.T) {
 
 	t.Run("stack not found", func(t *testing.T) {
 		mockClient := &mockCloudFormationClient{
-			describeStacksFunc: func(ctx context.Context, params *cloudformation.DescribeStacksInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DescribeStacksOutput, error) {
+			describeStacksFunc: func(
+				_ context.Context,
+				_ *cloudformation.DescribeStacksInput,
+				_ ...func(*cloudformation.Options),
+			) (*cloudformation.DescribeStacksOutput, error) {
 				return &cloudformation.DescribeStacksOutput{
 					Stacks: []types.Stack{},
 				}, nil
@@ -647,7 +779,11 @@ func TestAWSDeployer_GetStackStatus(t *testing.T) {
 
 	t.Run("status without reason", func(t *testing.T) {
 		mockClient := &mockCloudFormationClient{
-			describeStacksFunc: func(ctx context.Context, params *cloudformation.DescribeStacksInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DescribeStacksOutput, error) {
+			describeStacksFunc: func(
+				_ context.Context,
+				params *cloudformation.DescribeStacksInput,
+				_ ...func(*cloudformation.Options),
+			) (*cloudformation.DescribeStacksOutput, error) {
 				return &cloudformation.DescribeStacksOutput{
 					Stacks: []types.Stack{
 						{
@@ -671,7 +807,11 @@ func TestAWSDeployer_GetStackStatus(t *testing.T) {
 func TestAWSDeployer_GetFailedResourceEvents(t *testing.T) {
 	t.Run("retrieves failure events", func(t *testing.T) {
 		mockClient := &mockCloudFormationClient{
-			describeStackEventsFunc: func(ctx context.Context, params *cloudformation.DescribeStackEventsInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DescribeStackEventsOutput, error) {
+			describeStackEventsFunc: func(
+				_ context.Context,
+				_ *cloudformation.DescribeStackEventsInput,
+				_ ...func(*cloudformation.Options),
+			) (*cloudformation.DescribeStackEventsOutput, error) {
 				return &cloudformation.DescribeStackEventsOutput{
 					StackEvents: []types.StackEvent{
 						{
@@ -702,7 +842,11 @@ func TestAWSDeployer_GetFailedResourceEvents(t *testing.T) {
 
 	t.Run("no failure events", func(t *testing.T) {
 		mockClient := &mockCloudFormationClient{
-			describeStackEventsFunc: func(ctx context.Context, params *cloudformation.DescribeStackEventsInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DescribeStackEventsOutput, error) {
+			describeStackEventsFunc: func(
+				_ context.Context,
+				_ *cloudformation.DescribeStackEventsInput,
+				_ ...func(*cloudformation.Options),
+			) (*cloudformation.DescribeStackEventsOutput, error) {
 				return &cloudformation.DescribeStackEventsOutput{
 					StackEvents: []types.StackEvent{
 						{
@@ -723,7 +867,11 @@ func TestAWSDeployer_GetFailedResourceEvents(t *testing.T) {
 
 	t.Run("error fetching events", func(t *testing.T) {
 		mockClient := &mockCloudFormationClient{
-			describeStackEventsFunc: func(ctx context.Context, params *cloudformation.DescribeStackEventsInput, optFns ...func(*cloudformation.Options)) (*cloudformation.DescribeStackEventsOutput, error) {
+			describeStackEventsFunc: func(
+				_ context.Context,
+				_ *cloudformation.DescribeStackEventsInput,
+				_ ...func(*cloudformation.Options),
+			) (*cloudformation.DescribeStackEventsOutput, error) {
 				return nil, fmt.Errorf("API error")
 			},
 		}

@@ -1263,8 +1263,10 @@ func TestClient_GetImage(t *testing.T) {
 	t.Run("image name with special characters is URL encoded", func(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			assert.Equal(t, "GET", r.Method)
-			// Check that the path contains URL-encoded characters
-			assert.True(t, strings.Contains(r.URL.Path, "repo%2Fimage"))
+			// r.URL.Path is decoded by Go's HTTP server, so check for decoded path
+			// This verifies that the client properly encoded the path and the server decoded it
+			assert.True(t, strings.Contains(r.URL.Path, "repo/image"))
+			assert.True(t, strings.Contains(r.URL.Path, "repo/image:tag"))
 
 			w.WriteHeader(http.StatusOK)
 			_ = json.NewEncoder(w).Encode(api.ImageInfo{

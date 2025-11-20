@@ -169,11 +169,9 @@ func TestSeedAdminUser_TableNameValidation(t *testing.T) {
 			if tc.expectErr != "" {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), tc.expectErr)
-			} else {
+			} else if err != nil {
 				// Should fail at AWS configuration step, not validation
-				if err != nil {
-					assert.NotContains(t, err.Error(), "table name is required")
-				}
+				assert.NotContains(t, err.Error(), "table name is required")
 			}
 		})
 	}
