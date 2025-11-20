@@ -17,6 +17,11 @@ type ExecutionRequest struct {
 	GitRepo string `json:"git_repo,omitempty"` // Git repository URL (e.g., "https://github.com/user/repo.git")
 	GitRef  string `json:"git_ref,omitempty"`  // Git branch, tag, or commit SHA (default: "main")
 	GitPath string `json:"git_path,omitempty"` // Working directory within the cloned repo (default: ".")
+
+	// SecretVarNames contains the environment variable names that should be treated as secrets.
+	// This is populated by the service layer after resolving secrets from the Secrets field.
+	// It includes both explicitly resolved secrets and pattern-detected sensitive variables.
+	SecretVarNames []string `json:"-"` // Not serialized in API responses
 }
 
 // ExecutionResponse represents the response to an execution request

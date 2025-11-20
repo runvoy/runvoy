@@ -11,6 +11,7 @@ import (
 	"runvoy/internal/database"
 	apperrors "runvoy/internal/errors"
 	"runvoy/internal/logger"
+	"runvoy/internal/secrets"
 )
 
 // CreateSecret creates a new secret with the given name, description, key name, and value.
@@ -180,18 +181,30 @@ func (s *Service) resolveSecretsForExecution(
 	return secretEnvVars, nil
 }
 
+// applyResolvedSecrets merges resolved secrets into the request environment and populates
+// SecretVarNames with both explicitly resolved and pattern-detected secret variable names.
 func (s *Service) applyResolvedSecrets(req *api.ExecutionRequest, secretEnvVars map[string]string) {
-	if req == nil || len(secretEnvVars) == 0 {
+	if req == nil {
 		return
 	}
 
-	if req.Env == nil {
-		req.Env = make(map[string]string, len(secretEnvVars))
+	knownSecretVarNames := make([]string, 0, len(secretEnvVars))
+	for key := range secretEnvVars {
+		knownSecretVarNames = append(knownSecretVarNames, key)
 	}
-	for key, value := range secretEnvVars {
-		if _, exists := req.Env[key]; exists {
-			continue
+
+	if len(secretEnvVars) > 0 {
+		if req.Env == nil {
+			req.Env = make(map[string]string, len(secretEnvVars))
 		}
-		req.Env[key] = value
+		for key, value := range secretEnvVars {
+			if _, exists := req.Env[key]; exists {
+				continue
+			}
+			req.Env[key] = value
+		}
 	}
+
+	detectedSecretVarNames := secrets.GetSecretVariableNames(req.Env)
+	req.SecretVarNames = secrets.MergeSecretVarNames(knownSecretVarNames, detectedSecretVarNames)
 }

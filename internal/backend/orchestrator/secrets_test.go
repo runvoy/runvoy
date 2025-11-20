@@ -664,40 +664,60 @@ func TestResolveSecretsForExecution_SecretNotFound(t *testing.T) {
 
 func TestApplyResolvedSecrets(t *testing.T) {
 	tests := []struct {
-		name          string
-		req           *api.ExecutionRequest
-		secretEnvVars map[string]string
-		expectedEnv   map[string]string
+		name                   string
+		req                    *api.ExecutionRequest
+		secretEnvVars          map[string]string
+		expectedEnv            map[string]string
+		expectedSecretVarNames []string
 	}{
 		{
-			name:          "apply to empty env",
-			req:           &api.ExecutionRequest{},
-			secretEnvVars: map[string]string{"KEY1": "value1", "KEY2": "value2"},
-			expectedEnv:   map[string]string{"KEY1": "value1", "KEY2": "value2"},
+			name:                   "apply to empty env",
+			req:                    &api.ExecutionRequest{},
+			secretEnvVars:          map[string]string{"KEY1": "value1", "KEY2": "value2"},
+			expectedEnv:            map[string]string{"KEY1": "value1", "KEY2": "value2"},
+			expectedSecretVarNames: []string{"KEY1", "KEY2"},
 		},
 		{
-			name:          "apply to existing env without conflicts",
-			req:           &api.ExecutionRequest{Env: map[string]string{"KEY3": "value3"}},
-			secretEnvVars: map[string]string{"KEY1": "value1"},
-			expectedEnv:   map[string]string{"KEY1": "value1", "KEY3": "value3"},
+			name:                   "apply to existing env without conflicts",
+			req:                    &api.ExecutionRequest{Env: map[string]string{"KEY3": "value3"}},
+			secretEnvVars:          map[string]string{"KEY1": "value1"},
+			expectedEnv:            map[string]string{"KEY1": "value1", "KEY3": "value3"},
+			expectedSecretVarNames: []string{"KEY1"},
 		},
 		{
-			name:          "skip conflicting env vars",
-			req:           &api.ExecutionRequest{Env: map[string]string{"KEY1": "existing"}},
-			secretEnvVars: map[string]string{"KEY1": "secret"},
-			expectedEnv:   map[string]string{"KEY1": "existing"},
+			name:                   "skip conflicting env vars",
+			req:                    &api.ExecutionRequest{Env: map[string]string{"KEY1": "existing"}},
+			secretEnvVars:          map[string]string{"KEY1": "secret"},
+			expectedEnv:            map[string]string{"KEY1": "existing"},
+			expectedSecretVarNames: []string{"KEY1"},
 		},
 		{
-			name:          "nil request",
-			req:           nil,
-			secretEnvVars: map[string]string{"KEY1": "value1"},
-			expectedEnv:   nil,
+			name:                   "nil request",
+			req:                    nil,
+			secretEnvVars:          map[string]string{"KEY1": "value1"},
+			expectedEnv:            nil,
+			expectedSecretVarNames: nil,
 		},
 		{
-			name:          "empty secrets",
-			req:           &api.ExecutionRequest{},
-			secretEnvVars: map[string]string{},
-			expectedEnv:   nil,
+			name:                   "empty secrets",
+			req:                    &api.ExecutionRequest{},
+			secretEnvVars:          map[string]string{},
+			expectedEnv:            nil,
+			expectedSecretVarNames: []string{},
+		},
+		{
+			name:                   "pattern detection for API_KEY",
+			req:                    &api.ExecutionRequest{Env: map[string]string{"MY_API_KEY": "key123"}},
+			secretEnvVars:          map[string]string{},
+			expectedEnv:            map[string]string{"MY_API_KEY": "key123"},
+			expectedSecretVarNames: []string{"MY_API_KEY"},
+		},
+		{
+			name:                   "combine known and pattern-detected secrets",
+			req:                    &api.ExecutionRequest{Env: map[string]string{"GITHUB_TOKEN": "token123"}},
+			secretEnvVars:          map[string]string{"DB_PASSWORD": "secret"},
+			expectedEnv:            map[string]string{"GITHUB_TOKEN": "token123", "DB_PASSWORD": "secret"},
+			expectedSecretVarNames: []string{"DB_PASSWORD", "GITHUB_TOKEN"},
 		},
 	}
 
@@ -730,6 +750,20 @@ func TestApplyResolvedSecrets(t *testing.T) {
 			} else {
 				require.NotNil(t, tt.req)
 				assert.Equal(t, tt.expectedEnv, tt.req.Env)
+			}
+
+			// Verify SecretVarNames is populated correctly
+			if tt.req == nil {
+				// Nothing to check for nil request
+				return
+			}
+
+			if tt.expectedSecretVarNames == nil {
+				assert.Nil(t, tt.req.SecretVarNames)
+			} else {
+				// Sort both slices for comparison since order may vary
+				assert.ElementsMatch(t, tt.expectedSecretVarNames, tt.req.SecretVarNames,
+					"SecretVarNames should contain expected secret variable names")
 			}
 		})
 	}

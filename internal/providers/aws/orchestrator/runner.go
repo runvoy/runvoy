@@ -142,36 +142,6 @@ type sidecarScriptData struct {
 	AllVarNames    []string
 }
 
-// getSecretVariableNames returns a list of variable names that should be treated as secrets.
-// These variables will be processed without exposing their values in logs.
-func getSecretVariableNames(userEnv map[string]string) []string {
-	secretNames := []string{}
-	secretPatterns := []string{
-		"GITHUB_SECRET",
-		"GITHUB_TOKEN",
-		"SECRET",
-		"TOKEN",
-		"PASSWORD",
-		"API_KEY",
-		"API_SECRET",
-		"PRIVATE_KEY",
-		"ACCESS_KEY",
-		"SECRET_KEY",
-	}
-
-	for key := range userEnv {
-		upperKey := strings.ToUpper(key)
-		for _, pattern := range secretPatterns {
-			if strings.Contains(upperKey, pattern) {
-				secretNames = append(secretNames, key)
-				break
-			}
-		}
-	}
-
-	return secretNames
-}
-
 // sanitizeURLForLogging removes authentication tokens from URLs for safe logging.
 // Replaces patterns like "https://token@host" with "https://***@host".
 func sanitizeURLForLogging(url string) string {
@@ -198,8 +168,7 @@ func injectGitHubTokenIfNeeded(gitRepo string, userEnv map[string]string) string
 
 // buildSidecarContainerCommand constructs the shell command for the sidecar container.
 // It handles .env file creation from user environment variables and git repository cloning.
-func buildSidecarContainerCommand(hasGitRepo bool, userEnv map[string]string) []string {
-	secretVarNames := getSecretVariableNames(userEnv)
+func buildSidecarContainerCommand(hasGitRepo bool, userEnv map[string]string, secretVarNames []string) []string {
 	allVarNames := make([]string, 0, len(userEnv))
 	for key := range userEnv {
 		allVarNames = append(allVarNames, key)
@@ -432,7 +401,7 @@ func (e *Runner) buildContainerOverrides(
 	return []ecsTypes.ContainerOverride{
 		{
 			Name:        awsStd.String(awsConstants.SidecarContainerName),
-			Command:     buildSidecarContainerCommand(gitConfig.HasRepo, req.Env),
+			Command:     buildSidecarContainerCommand(gitConfig.HasRepo, req.Env, req.SecretVarNames),
 			Environment: sidecarEnv,
 		},
 		{

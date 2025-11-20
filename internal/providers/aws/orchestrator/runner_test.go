@@ -15,7 +15,7 @@ import (
 )
 
 func TestBuildSidecarContainerCommandWithoutGitRepo(t *testing.T) {
-	cmd := buildSidecarContainerCommand(false, map[string]string{})
+	cmd := buildSidecarContainerCommand(false, map[string]string{}, []string{})
 
 	require.Len(t, cmd, 3, "expected shell command with interpreter and script")
 	assert.Equal(t, "/bin/sh", cmd[0])
@@ -30,7 +30,7 @@ func TestBuildSidecarContainerCommandWithoutGitRepo(t *testing.T) {
 }
 
 func TestBuildSidecarContainerCommandWithGitRepo(t *testing.T) {
-	cmd := buildSidecarContainerCommand(true, map[string]string{})
+	cmd := buildSidecarContainerCommand(true, map[string]string{}, []string{})
 
 	require.Len(t, cmd, 3)
 	script := cmd[2]
