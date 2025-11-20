@@ -95,11 +95,7 @@
 </main>
 
 <style>
-    main {
-        padding: 1rem;
-        max-width: 1200px;
-        margin: 0 auto;
-    }
+    /* Pico's .container class on main element handles max-width and centering */
 
     .app-header {
         margin-bottom: 2rem;
@@ -160,10 +156,6 @@
     }
 
     @media (max-width: 768px) {
-        main {
-            padding: 1rem 0.75rem;
-        }
-
         .header-content {
             grid-template-columns: 1fr;
             gap: 1rem;

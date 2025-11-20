@@ -257,14 +257,12 @@
         border: 1px solid var(--pico-card-border-color);
         border-radius: var(--pico-border-radius);
         padding: 1.5rem;
-        max-width: 600px;
     }
 
     .run-form {
         display: flex;
         flex-direction: column;
         gap: 1.5rem;
-        max-width: 720px;
     }
 
     fieldset {

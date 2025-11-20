@@ -150,8 +150,6 @@
         border: 1px solid var(--pico-card-border-color);
         border-radius: var(--pico-border-radius);
         padding: 2rem;
-        max-width: 700px;
-        margin: 2rem auto;
     }
 
     header {
@@ -330,7 +328,6 @@
     @media (max-width: 768px) {
         .settings-card {
             padding: 1.5rem;
-            margin: 1rem;
         }
 
         .info-group {
