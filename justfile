@@ -19,14 +19,14 @@ replication_target_regions := replace(replace(regions_comma, ',us-east-1', ''), 
 build_flags := build_flags_x + build_version + ' ' + build_flags_regions + regions_comma
 
 # Import subfiles
-import 'just/build.just'
-import 'just/deploy.just'
-import 'just/test.just'
-import 'just/dev.just'
-import 'just/lint.just'
-import 'just/infra.just'
-import 'just/release.just'
-import 'just/utils.just'
+import '.justfiles/build.just'
+import '.justfiles/deploy.just'
+import '.justfiles/test.just'
+import '.justfiles/dev.just'
+import '.justfiles/lint.just'
+import '.justfiles/infra.just'
+import '.justfiles/release.just'
+import '.justfiles/utils.just'
 
 # Aliases
 alias r := runvoy
