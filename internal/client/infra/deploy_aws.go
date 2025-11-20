@@ -23,6 +23,8 @@ const (
 
 // CloudFormationClient defines the interface for CloudFormation operations.
 // This interface enables mocking for unit tests.
+//
+//nolint:dupl // Interface signature duplicated in test mock
 type CloudFormationClient interface {
 	DescribeStacks(
 		ctx context.Context,
