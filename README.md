@@ -174,7 +174,7 @@ runvoy --help
 ```
 
 ```text
-runvoy - v0.2.0-20251120-81b6d27
+runvoy - v0.2.0-20251120-6bbcd71
 Isolated, repeatable execution environments for your commands
 
 Usage:
@@ -287,7 +287,7 @@ If not configured, it defaults to `https://runvoy.site/`.
 To run the webapp locally with hot reloading:
 
 ```bash
-just local-dev-webapp
+just dev-webapp
 ```
 
 The webapp will be available at <http://localhost:5173>

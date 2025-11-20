@@ -1,14 +1,14 @@
 # AWS Infrastructure recipes
 
 # Setup CloudFormation StackSet prerequisites (run once)
-setup-stackset-prerequisites:
+create-stackset-prerequisites:
     aws cloudformation deploy \
         --stack-name runvoy-stackset-prerequisites \
         --template-file deploy/providers/aws/runvoy-stackset-prerequisites.yaml \
         --capabilities CAPABILITY_NAMED_IAM
 
 # Create releases bucket with multi-region replication
-setup-releases-bucket: setup-stackset-prerequisites
+create-releases-buckets: create-stackset-prerequisites
     aws cloudformation create-stack-set \
         --stack-set-name runvoy-releases-bucket \
         --template-body file://deploy/providers/aws/runvoy-bucket.yaml
@@ -69,11 +69,6 @@ init: create-backend-infra deploy
     @echo "You can also list all registered images:"
     @echo "  runvoy images list"
     @echo ""
-
-# Destroy lambda bucket
-destroy-lambda-bucket:
-    aws s3 rm s3://{{bucket}} --recursive
-    aws s3 rb s3://{{bucket}}
 
 # Create/update config file with API endpoint from CloudFormation stack
 create-config-file stack_name:

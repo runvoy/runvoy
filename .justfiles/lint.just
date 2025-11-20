@@ -18,6 +18,3 @@ fmt:
 lint-webapp:
     npx prettier --check src/**/*.{js,svelte}
     npx eslint src --ext .js,.svelte
-
-# Run all checks (lint + test)
-check: lint test-coverage lint-webapp

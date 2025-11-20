@@ -12,3 +12,6 @@ gen-coverage:
 test-coverage: gen-coverage
     go tool cover -html=coverage.out -o coverage.html
     go-test-coverage --config .testcoverage.yml
+
+# Run all checks (lint + test)
+check: lint test-coverage lint-webapp

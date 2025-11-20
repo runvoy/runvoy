@@ -11,10 +11,6 @@ install-hook:
     printf "just update-readme-help check\n" > .git/hooks/pre-commit
     chmod +x .git/hooks/pre-commit
 
-# pre-commit hook commands to run when the pre-commit hook is triggered
-pre-commit: check test-coverage
-    git add coverage.html coverage.out README.md
-
 # Update README.md with latest CLI help output
 # This ensures the README stays in sync with CLI commands
 update-readme-help: build-cli

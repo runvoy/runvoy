@@ -58,7 +58,7 @@ This project adheres to a code of conduct that all contributors are expected to 
    # Copy example env file (if available)
    cp .env.example .env
    # Or sync from AWS Lambda for local development
-   just local-dev-sync
+   just dev-sync
    ```
 
 ## Development Setup
@@ -96,7 +96,7 @@ runvoy/
 
 ### Environment Configuration
 
-The `.env` file is automatically created when you run `just init` or `just local-dev-sync`. The `local-dev-sync` command syncs environment variables from the runvoy-orchestrator Lambda function to your local `.env` file for development.
+The `.env` file is automatically created when you run `just init` or `just dev-sync`. The `dev-sync` command syncs environment variables from the runvoy-orchestrator Lambda function to your local `.env` file for development.
 
 ### Environment Setup
 
@@ -110,7 +110,7 @@ just dev-setup
 just install-hook
 
 # Sync Lambda environment variables to local .env file
-just local-dev-sync
+just dev-sync
 ```
 
 ### Common Commands
@@ -125,13 +125,13 @@ just --list
 
 ```bash
 # Build and run local server (rebuilds on each restart)
-just run-local
+just dev-run
 
 # Run local server with hot reloading (rebuilds automatically on file changes)
-just local-dev-server
+just dev-server
 
 # Sync environment variables from AWS
-just local-dev-sync
+just dev-sync
 ```
 
 **Testing and Quality Checks:**
@@ -234,7 +234,7 @@ just check
 
 ```bash
 # Start local development server
-just local-dev-server
+just dev-server
 
 # In another terminal, test with the CLI
 just runvoy --help
