@@ -22,17 +22,11 @@ var DefaultSecretPatterns = []string{
 // that should be treated as secrets based on pattern matching.
 // These variables will be processed without exposing their values in logs.
 func GetSecretVariableNames(env map[string]string) []string {
-	return GetSecretVariableNamesWithPatterns(env, DefaultSecretPatterns)
-}
-
-// GetSecretVariableNamesWithPatterns returns a list of variable names that match
-// any of the provided patterns. Pattern matching is case-insensitive.
-func GetSecretVariableNamesWithPatterns(env map[string]string, patterns []string) []string {
 	secretNames := []string{}
 
 	for key := range env {
 		upperKey := strings.ToUpper(key)
-		for _, pattern := range patterns {
+		for _, pattern := range DefaultSecretPatterns {
 			if strings.Contains(upperKey, pattern) {
 				secretNames = append(secretNames, key)
 				break

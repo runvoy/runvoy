@@ -99,41 +99,6 @@ func TestGetSecretVariableNames(t *testing.T) {
 	}
 }
 
-func TestGetSecretVariableNamesWithPatterns(t *testing.T) {
-	tests := []struct {
-		name     string
-		env      map[string]string
-		patterns []string
-		expected []string
-	}{
-		{
-			name:     "empty patterns",
-			env:      map[string]string{"API_KEY": "key"},
-			patterns: []string{},
-			expected: []string{},
-		},
-		{
-			name:     "custom pattern",
-			env:      map[string]string{"MY_CREDENTIAL": "cred", "OTHER": "val"},
-			patterns: []string{"CREDENTIAL"},
-			expected: []string{"MY_CREDENTIAL"},
-		},
-		{
-			name:     "multiple custom patterns",
-			env:      map[string]string{"AUTH_CERT": "cert", "DB_CONN": "conn", "LOG_LEVEL": "info"},
-			patterns: []string{"CERT", "CONN"},
-			expected: []string{"AUTH_CERT", "DB_CONN"},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := GetSecretVariableNamesWithPatterns(tt.env, tt.patterns)
-			assert.ElementsMatch(t, tt.expected, result)
-		})
-	}
-}
-
 func TestMergeSecretVarNames(t *testing.T) {
 	tests := []struct {
 		name     string
