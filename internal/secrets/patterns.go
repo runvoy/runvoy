@@ -6,16 +6,16 @@ import "strings"
 // DefaultSecretPatterns contains the default patterns used to identify
 // environment variable names that should be treated as secrets.
 var DefaultSecretPatterns = []string{
-	"GITHUB_SECRET",
-	"GITHUB_TOKEN",
-	"SECRET",
-	"TOKEN",
-	"PASSWORD",
+	"ACCESS_KEY",
 	"API_KEY",
 	"API_SECRET",
+	"GITHUB_SECRET",
+	"GITHUB_TOKEN",
+	"PASSWORD",
 	"PRIVATE_KEY",
-	"ACCESS_KEY",
 	"SECRET_KEY",
+	"SECRET",
+	"TOKEN",
 }
 
 // GetSecretVariableNames returns a list of variable names from the given environment

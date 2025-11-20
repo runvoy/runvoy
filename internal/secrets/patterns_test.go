@@ -185,5 +185,5 @@ func TestDefaultSecretPatterns(t *testing.T) {
 		"SECRET_KEY",
 	}
 
-	assert.Equal(t, expectedPatterns, DefaultSecretPatterns)
+	assert.ElementsMatch(t, expectedPatterns, DefaultSecretPatterns)
 }
