@@ -8,7 +8,7 @@ export default [
   js.configs.recommended,
   ...sveltePlugin.configs['flat/recommended'],
   {
-    ignores: ['node_modules', 'dist', 'package-lock.json', '.svelte-kit']
+    ignores: ['node_modules', 'dist', 'package-lock.json', '.svelte-kit', '**/*.test.ts', '**/*.test.svelte', '**/*.spec.ts', '**/*.spec.svelte']
   },
   {
     files: ['**/*.ts'],
