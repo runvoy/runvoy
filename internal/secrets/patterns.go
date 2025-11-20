@@ -46,7 +46,7 @@ func GetSecretVariableNamesWithPatterns(env map[string]string, patterns []string
 // MergeSecretVarNames merges known secret variable names with pattern-detected ones,
 // removing duplicates. This allows combining explicitly known secrets with
 // pattern-based detection for comprehensive coverage.
-func MergeSecretVarNames(known []string, detected []string) []string {
+func MergeSecretVarNames(known, detected []string) []string {
 	seen := make(map[string]struct{}, len(known)+len(detected))
 	result := make([]string, 0, len(known)+len(detected))
 
