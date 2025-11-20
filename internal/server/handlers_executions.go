@@ -127,7 +127,7 @@ func (r *Router) handleGetExecutionStatus(w http.ResponseWriter, req *http.Reque
 	_ = json.NewEncoder(w).Encode(resp)
 }
 
-// handleKillExecution handles DELETE /api/v1/executions/{executionID}/kill to terminate a running execution.
+// handleKillExecution handles DELETE /api/v1/executions/{executionID} to terminate a running execution.
 func (r *Router) handleKillExecution(w http.ResponseWriter, req *http.Request) {
 	logger := r.GetLoggerFromContext(req.Context())
 

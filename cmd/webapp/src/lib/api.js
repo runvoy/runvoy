@@ -88,9 +88,9 @@ export class APIClient {
      * @returns {Promise<Object>} Kill response
      */
     async killExecution(executionId) {
-        const url = `${this.endpoint}/api/v1/executions/${executionId}/kill`;
+        const url = `${this.endpoint}/api/v1/executions/${executionId}`;
         const response = await fetch(url, {
-            method: 'POST',
+            method: 'DELETE',
             headers: {
                 'X-API-Key': this.apiKey
             }

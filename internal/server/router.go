@@ -180,6 +180,6 @@ func (r *Router) registerExecutionsRoutes(router chi.Router) {
 		route.Get("/", r.handleListExecutions)
 		route.Get("/{executionID}/logs", r.handleGetExecutionLogs)
 		route.Get("/{executionID}/status", r.handleGetExecutionStatus)
-		route.Delete("/{executionID}/kill", r.handleKillExecution)
+		route.Delete("/{executionID}", r.handleKillExecution)
 	})
 }

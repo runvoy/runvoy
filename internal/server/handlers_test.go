@@ -1282,7 +1282,7 @@ func TestHandleKillExecution_Success(t *testing.T) {
 	svc := newTestOrchestratorService(t, nil, nil, nil, &testRunner{}, nil, nil, nil)
 	router := NewRouter(svc, 2*time.Second, constants.DefaultCORSAllowedOrigins)
 
-	req := httptest.NewRequest(http.MethodDelete, "/api/v1/executions/exec-123/kill", http.NoBody)
+	req := httptest.NewRequest(http.MethodDelete, "/api/v1/executions/exec-123", http.NoBody)
 	req.Header.Set("X-API-Key", "test-api-key")
 
 	resp := httptest.NewRecorder()
@@ -1310,7 +1310,7 @@ func TestHandleKillExecution_AlreadyTerminated(t *testing.T) {
 	svc := newTestOrchestratorService(t, &testUserRepository{}, execRepo, nil, &testRunner{}, nil, nil, nil)
 	router := NewRouter(svc, 2*time.Second, constants.DefaultCORSAllowedOrigins)
 
-	req := httptest.NewRequest(http.MethodDelete, "/api/v1/executions/exec-456/kill", http.NoBody)
+	req := httptest.NewRequest(http.MethodDelete, "/api/v1/executions/exec-456", http.NoBody)
 	req.Header.Set("X-API-Key", "test-api-key")
 
 	resp := httptest.NewRecorder()
@@ -1324,7 +1324,7 @@ func TestHandleKillExecution_MissingExecutionID(t *testing.T) {
 	svc := newTestOrchestratorService(t, nil, nil, nil, &testRunner{}, nil, nil, nil)
 	router := NewRouter(svc, 2*time.Second, constants.DefaultCORSAllowedOrigins)
 
-	req := httptest.NewRequest(http.MethodDelete, "/api/v1/executions//kill", http.NoBody)
+	req := httptest.NewRequest(http.MethodDelete, "/api/v1/executions/", http.NoBody)
 	req.Header.Set("X-API-Key", "test-api-key")
 
 	resp := httptest.NewRecorder()
@@ -1552,7 +1552,7 @@ func TestHandleKillExecution_Unauthorized(t *testing.T) {
 	require.NoError(t, err)
 	router := NewRouter(svc, 2*time.Second, constants.DefaultCORSAllowedOrigins)
 
-	req := httptest.NewRequest(http.MethodDelete, "/api/v1/executions/exec-123/kill", http.NoBody)
+	req := httptest.NewRequest(http.MethodDelete, "/api/v1/executions/exec-123", http.NoBody)
 	// No API key
 
 	resp := httptest.NewRecorder()
