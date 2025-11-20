@@ -52,3 +52,7 @@ truncate-dynamodb-table table_name:
 # Empty and delete buckets
 delete-buckets *ARGS:
     go run scripts/delete-s3-buckets/*.go {{ARGS}}
+
+# Cleanup old branches
+cleanup-branches:
+    git branch | grep -v '^\* main' | xargs git branch -D
