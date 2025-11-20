@@ -1,6 +1,8 @@
 module runvoy
 
-go 1.25.0
+go 1.25.0.0
+
+toolchain go1.24.7
 
 require (
 	github.com/akrylysov/algnhsa v1.1.0
@@ -16,6 +18,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/ecs v1.67.4
 	github.com/aws/aws-sdk-go-v2/service/iam v1.50.2
 	github.com/aws/aws-sdk-go-v2/service/lambda v1.81.3
+	github.com/aws/aws-sdk-go-v2/service/s3 v1.91.1
 	github.com/aws/aws-sdk-go-v2/service/ssm v1.67.2
 	github.com/aws/aws-sdk-go-v2/service/sts v1.40.2
 	github.com/aws/smithy-go v1.23.2
@@ -46,7 +49,6 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/internal/endpoint-discovery v1.11.13 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.13.14 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.19.14 // indirect
-	github.com/aws/aws-sdk-go-v2/service/s3 v1.91.1 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sso v1.30.3 // indirect
 	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.35.7 // indirect
 	github.com/bmatcuk/doublestar/v4 v4.9.1 // indirect
