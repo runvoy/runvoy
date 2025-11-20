@@ -30,7 +30,6 @@ import 'just/utils.just'
 
 # Aliases
 alias r := runvoy
-alias s := setup-releases-bucket
 
 ## Commands
 # Build the CLI binary and run it with the given arguments
