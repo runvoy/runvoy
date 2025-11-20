@@ -1,0 +1,234 @@
+<script lang="ts">
+    import { apiEndpoint, apiKey } from '../stores/config';
+    import type { ClaimAPIKeyResponse } from '../types/api';
+
+    let token = '';
+    let isLoading = false;
+    let error = '';
+    let success = false;
+    let claimResult: ClaimAPIKeyResponse | null = null;
+
+    async function handleClaim(): Promise<void> {
+        error = '';
+        success = false;
+        claimResult = null;
+
+        if (!token.trim()) {
+            error = 'Please enter an invitation token';
+            return;
+        }
+
+        if (!$apiEndpoint) {
+            error = 'Please configure the API endpoint first';
+            return;
+        }
+
+        isLoading = true;
+        try {
+            // Create a temporary client without auth for the claim endpoint
+            const tempClient = new (await import('../lib/api')).default($apiEndpoint, '');
+            const result = await tempClient.claimAPIKey(token.trim());
+            claimResult = result;
+            success = true;
+
+            // Auto-save the API key
+            apiKey.set(result.api_key);
+
+            // Clear the token field
+            token = '';
+        } catch (err: any) {
+            error = err.details?.error || err.message || 'Failed to claim API key';
+        } finally {
+            isLoading = false;
+        }
+    }
+
+    function handleKeyPress(event: KeyboardEvent): void {
+        if (event.key === 'Enter' && !isLoading) {
+            handleClaim();
+        }
+    }
+</script>
+
+<article class="claim-card">
+    <header>
+        <h2>🔑 Claim API Key</h2>
+        <p>Use your invitation token to claim a new API key</p>
+    </header>
+
+    {#if success && claimResult}
+        <div class="success-message" role="status">
+            <h3>✅ API Key Claimed!</h3>
+            <p>
+                <strong>Email:</strong>
+                {claimResult.user_email}
+            </p>
+            {#if claimResult.message}
+                <p><strong>Message:</strong> {claimResult.message}</p>
+            {/if}
+            <p class="note">Your API key has been automatically saved to the configuration.</p>
+        </div>
+    {:else}
+        <div class="form-container">
+            {#if error}
+                <div class="error-message" role="alert">
+                    {error}
+                </div>
+            {/if}
+
+            <label for="token-input">
+                <strong>Invitation Token:</strong>
+                <textarea
+                    id="token-input"
+                    bind:value={token}
+                    on:keypress={handleKeyPress}
+                    placeholder="Paste your invitation token here..."
+                    rows="4"
+                    disabled={isLoading}
+                />
+            </label>
+
+            <div class="actions">
+                <button on:click={handleClaim} disabled={isLoading || !token.trim()}>
+                    {isLoading ? 'Claiming...' : 'Claim Key'}
+                </button>
+            </div>
+
+            <div class="info-box">
+                <p>
+                    <strong>ℹ️ How it works:</strong> Paste the invitation token you received from your
+                    administrator. We'll exchange it for an API key that will be saved to your local
+                    browser storage.
+                </p>
+            </div>
+        </div>
+    {/if}
+</article>
+
+<style>
+    .claim-card {
+        background: var(--pico-card-background-color);
+        border: 1px solid var(--pico-card-border-color);
+        border-radius: var(--pico-border-radius);
+        padding: 2rem;
+        max-width: 600px;
+        margin: 2rem auto;
+    }
+
+    header {
+        margin-bottom: 1.5rem;
+    }
+
+    header h2 {
+        margin: 0 0 0.5rem 0;
+    }
+
+    header p {
+        margin: 0;
+        color: var(--pico-muted-color);
+    }
+
+    .form-container {
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+    }
+
+    label {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    label strong {
+        font-weight: 600;
+    }
+
+    textarea {
+        font-family: 'Monaco', 'Courier New', monospace;
+        font-size: 0.9rem;
+        padding: 0.75rem;
+        border: 1px solid var(--pico-border-color);
+        border-radius: var(--pico-border-radius);
+        background: var(--pico-form-element-background-color);
+        color: inherit;
+    }
+
+    textarea:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+
+    .error-message {
+        background-color: #ffebee;
+        border: 1px solid #f44336;
+        color: #c62828;
+        padding: 1rem;
+        border-radius: var(--pico-border-radius);
+    }
+
+    .success-message {
+        background-color: #e8f5e9;
+        border: 1px solid #4caf50;
+        color: #2e7d32;
+        padding: 1rem;
+        border-radius: var(--pico-border-radius);
+    }
+
+    .success-message h3 {
+        margin-top: 0;
+        margin-bottom: 0.5rem;
+    }
+
+    .success-message p {
+        margin: 0.5rem 0;
+    }
+
+    .success-message .note {
+        font-size: 0.9rem;
+        color: #1b5e20;
+        margin-top: 1rem;
+        padding-top: 1rem;
+        border-top: 1px solid #4caf50;
+    }
+
+    .actions {
+        display: flex;
+        gap: 1rem;
+    }
+
+    button {
+        flex: 1;
+        padding: 0.75rem 1rem;
+        font-weight: 600;
+    }
+
+    button:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+
+    .info-box {
+        background-color: var(--pico-card-background-color);
+        border: 1px solid var(--pico-border-color);
+        border-radius: var(--pico-border-radius);
+        padding: 1rem;
+        font-size: 0.9rem;
+    }
+
+    .info-box p {
+        margin: 0;
+        color: var(--pico-muted-color);
+    }
+
+    @media (max-width: 768px) {
+        .claim-card {
+            padding: 1.5rem;
+            margin: 1rem;
+        }
+
+        textarea {
+            font-size: 0.85rem;
+        }
+    }
+</style>

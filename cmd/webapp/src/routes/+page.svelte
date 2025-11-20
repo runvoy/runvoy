@@ -8,6 +8,8 @@
     import ViewSwitcher from '../components/ViewSwitcher.svelte';
     import RunView from '../views/RunView.svelte';
     import LogsView from '../views/LogsView.svelte';
+    import ClaimView from '../views/ClaimView.svelte';
+    import SettingsView from '../views/SettingsView.svelte';
 
     import '../styles/global.css';
 
@@ -23,7 +25,9 @@
 
     const views: NavView[] = [
         { id: VIEWS.RUN, label: 'Run Command' },
-        { id: VIEWS.LOGS, label: 'Logs' }
+        { id: VIEWS.CLAIM, label: 'Claim Key' },
+        { id: VIEWS.LOGS, label: 'Logs' },
+        { id: VIEWS.SETTINGS, label: 'Settings' }
     ];
     let navViews: NavView[] = views;
 
@@ -80,8 +84,12 @@
     <div class="content-area">
         {#if $activeView === VIEWS.RUN}
             <RunView {apiClient} {isConfigured} />
+        {:else if $activeView === VIEWS.CLAIM}
+            <ClaimView {apiClient} />
         {:else if $activeView === VIEWS.LOGS}
             <LogsView {apiClient} {isConfigured} />
+        {:else if $activeView === VIEWS.SETTINGS}
+            <SettingsView />
         {/if}
     </div>
 </main>

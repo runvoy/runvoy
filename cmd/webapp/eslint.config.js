@@ -38,6 +38,9 @@ export default [
         Blob: 'readonly',
         WebSocket: 'readonly',
         fetch: 'readonly',
+        navigator: 'readonly',
+        alert: 'readonly',
+        confirm: 'readonly',
         console: 'readonly'
       }
     },
@@ -84,6 +87,9 @@ export default [
         Blob: 'readonly',
         WebSocket: 'readonly',
         fetch: 'readonly',
+        navigator: 'readonly',
+        alert: 'readonly',
+        confirm: 'readonly',
         console: 'readonly'
       }
     },

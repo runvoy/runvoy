@@ -63,6 +63,12 @@ export interface ApiError extends Error {
     };
 }
 
+export interface ClaimAPIKeyResponse {
+    api_key: string;
+    user_email: string;
+    message?: string;
+}
+
 export interface APIClientConfig {
     endpoint: string;
     apiKey: string;

@@ -8,6 +8,7 @@ import type {
     ExecutionStatusResponse,
     KillExecutionResponse,
     ListExecutionsResponse,
+    ClaimAPIKeyResponse,
     ApiError
 } from '../types/api';
 
@@ -122,6 +123,24 @@ export class APIClient {
                 'X-API-Key': this.apiKey
             }
         });
+
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            const error = new Error(errorData.details || `HTTP ${response.status}`) as ApiError;
+            error.status = response.status;
+            error.details = errorData;
+            throw error;
+        }
+
+        return response.json();
+    }
+
+    /**
+     * Claim an API key with an invitation token
+     */
+    async claimAPIKey(token: string): Promise<ClaimAPIKeyResponse> {
+        const url = `${this.endpoint}/api/v1/claim/${token}`;
+        const response = await fetch(url);
 
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));

@@ -1,7 +1,10 @@
 <script lang="ts">
-    import { executionId, executionStatus, startedAt } from '../stores/execution';
+    import { executionId, executionStatus, startedAt, isCompleted } from '../stores/execution';
+
+    export let onKill: (() => void) | null = null;
 
     const DEFAULT_STATUS = 'LOADING';
+    let isKilling = false;
 
     $: statusClass = $executionStatus ? $executionStatus.toLowerCase() : 'loading';
     $: formattedStartedAt = (() => {
@@ -18,6 +21,18 @@
 
         return date.toLocaleString();
     })();
+
+    async function handleKill(): Promise<void> {
+        if (!onKill) return;
+        isKilling = true;
+        try {
+            await onKill();
+        } finally {
+            isKilling = false;
+        }
+    }
+
+    $: canKill = !$isCompleted && !isKilling;
 </script>
 
 <div class="status-bar">
@@ -33,6 +48,18 @@
         <strong>Execution ID:</strong>
         <code class="execution-id">{$executionId}</code>
     </div>
+    {#if onKill && !$isCompleted}
+        <div class="status-item actions">
+            <button
+                class="kill-button"
+                on:click={handleKill}
+                disabled={!canKill}
+                title="Stop this execution"
+            >
+                {isKilling ? '⏹️ Stopping...' : '⏹️ Stop'}
+            </button>
+        </div>
+    {/if}
 </div>
 
 <style>
@@ -83,6 +110,30 @@
     .status-badge.stopped {
         background-color: #ff9800;
     } /* Orange */
+
+    .status-item.actions {
+        margin-left: auto;
+    }
+
+    .kill-button {
+        padding: 0.5rem 1rem;
+        background-color: #f44336;
+        color: white;
+        border: none;
+        border-radius: var(--pico-border-radius);
+        cursor: pointer;
+        font-weight: 600;
+        transition: background-color 0.15s ease;
+    }
+
+    .kill-button:hover:not(:disabled) {
+        background-color: #d32f2f;
+    }
+
+    .kill-button:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
 
     @media (max-width: 768px) {
         .status-bar {

@@ -34,6 +34,22 @@
     let websocketURL: string | null = null;
     const TERMINAL_STATES = ['SUCCEEDED', 'FAILED', 'STOPPED'];
 
+    async function handleKillExecution(): Promise<void> {
+        const id = get(executionId);
+        if (!apiClient || !id) {
+            return;
+        }
+
+        try {
+            await apiClient.killExecution(id);
+            // Refetch logs to get updated status
+            await fetchLogs();
+        } catch (error) {
+            const err = error as ApiError;
+            errorMessage = err.details?.error || err.message || 'Failed to stop execution';
+        }
+    }
+
     function deriveStartedAtFromLogs(events: LogEvent[] = []): string | null {
         if (!Array.isArray(events) || events.length === 0) {
             return null;
@@ -229,7 +245,7 @@
     </article>
 {:else}
     <section>
-        <StatusBar />
+        <StatusBar onKill={handleKillExecution} />
         <WebSocketStatus />
         <LogControls />
         <LogViewer />
