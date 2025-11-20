@@ -283,7 +283,8 @@ func seedAdminUser(ctx context.Context, adminEmail, region string, stackOutputs 
 		return err
 	}
 
-	err = saveAPIKeyToConfig(apiKey)
+	endpoint := stackOutputs["APIEndpoint"]
+	err = saveAPIKeyToConfig(apiKey, endpoint)
 	if err != nil {
 		return err
 	}
@@ -293,15 +294,21 @@ func seedAdminUser(ctx context.Context, adminEmail, region string, stackOutputs 
 }
 
 // saveAPIKeyToConfig saves the API key to the config file
-func saveAPIKeyToConfig(apiKey string) error {
+// It preserves the existing endpoint if set, or uses the provided endpoint if the config doesn't have one
+func saveAPIKeyToConfig(apiKey, endpoint string) error {
 	cfg, err := config.Load()
 	if err != nil {
+		// Config doesn't exist yet, create a new one
 		cfg = &config.Config{
 			APIKey:      apiKey,
-			APIEndpoint: "",
+			APIEndpoint: endpoint,
 		}
 	} else {
+		// Preserve existing endpoint if set, otherwise use the provided one
 		cfg.APIKey = apiKey
+		if cfg.APIEndpoint == "" && endpoint != "" {
+			cfg.APIEndpoint = endpoint
+		}
 	}
 
 	if err = config.Save(cfg); err != nil {
