@@ -3,6 +3,7 @@ package authorization
 import (
 	"log/slog"
 	"os"
+	"slices"
 	"testing"
 )
 
@@ -116,9 +117,9 @@ func TestAddRoleForUser(t *testing.T) {
 				}
 
 				// Verify role was added
-				roles, err := e.GetRolesForUser(tt.user)
-				if err != nil {
-					t.Fatalf("GetRolesForUser() failed: %v", err)
+				roles, verifyErr := e.GetRolesForUser(tt.user)
+				if verifyErr != nil {
+					t.Fatalf("GetRolesForUser() failed: %v", verifyErr)
 				}
 				expectedRole := FormatRole(tt.role)
 				if !containsString(roles, expectedRole) {
@@ -183,9 +184,9 @@ func TestRemoveRoleForUser(t *testing.T) {
 				}
 
 				// Verify role was removed
-				roles, err := e.GetRolesForUser(tt.user)
-				if err != nil {
-					t.Fatalf("GetRolesForUser() failed: %v", err)
+				roles, verifyErr := e.GetRolesForUser(tt.user)
+				if verifyErr != nil {
+					t.Fatalf("GetRolesForUser() failed: %v", verifyErr)
 				}
 				if containsString(roles, tt.roleToRemove) {
 					t.Errorf("GetRolesForUser() = %v, should not contain %q", roles, tt.roleToRemove)
@@ -301,9 +302,9 @@ func TestAddOwnershipForResource(t *testing.T) {
 				}
 
 				// Verify ownership was added
-				hasOwnership, err := e.HasOwnershipForResource(tt.resourceID, tt.ownerEmail)
-				if err != nil {
-					t.Fatalf("HasOwnershipForResource() failed: %v", err)
+				hasOwnership, verifyErr := e.HasOwnershipForResource(tt.resourceID, tt.ownerEmail)
+				if verifyErr != nil {
+					t.Fatalf("HasOwnershipForResource() failed: %v", verifyErr)
 				}
 				if !hasOwnership {
 					t.Errorf("HasOwnershipForResource() = false, want true")
@@ -359,9 +360,9 @@ func TestRemoveOwnershipForResource(t *testing.T) {
 				}
 
 				// Verify ownership was removed
-				hasOwnership, err := e.HasOwnershipForResource(tt.resourceID, tt.ownerEmail)
-				if err != nil {
-					t.Fatalf("HasOwnershipForResource() failed: %v", err)
+				hasOwnership, verifyErr := e.HasOwnershipForResource(tt.resourceID, tt.ownerEmail)
+				if verifyErr != nil {
+					t.Fatalf("HasOwnershipForResource() failed: %v", verifyErr)
 				}
 				if hasOwnership {
 					t.Errorf("HasOwnershipForResource() = true, want false")
@@ -402,9 +403,9 @@ func TestRemoveAllOwnershipsForResource(t *testing.T) {
 
 	// Verify all ownerships are gone
 	for _, owner := range owners {
-		hasOwnership, err := e.HasOwnershipForResource(resourceID, owner)
-		if err != nil {
-			t.Fatalf("HasOwnershipForResource() failed: %v", err)
+		hasOwnership, verifyErr := e.HasOwnershipForResource(resourceID, owner)
+		if verifyErr != nil {
+			t.Fatalf("HasOwnershipForResource() failed: %v", verifyErr)
 		}
 		if hasOwnership {
 			t.Errorf("Ownership still exists for %s after removal", owner)
@@ -494,9 +495,9 @@ func TestLoadRolesForUsers(t *testing.T) {
 
 				// Verify all roles were loaded
 				for user, roleStr := range tt.userRoles {
-					roles, err := e.GetRolesForUser(user)
-					if err != nil {
-						t.Fatalf("GetRolesForUser(%s) failed: %v", user, err)
+					roles, verifyErr := e.GetRolesForUser(user)
+					if verifyErr != nil {
+						t.Fatalf("GetRolesForUser(%s) failed: %v", user, verifyErr)
 					}
 					expectedRole := "role:" + roleStr
 					if !containsString(roles, expectedRole) {
@@ -526,9 +527,9 @@ func TestLoadResourceOwnerships(t *testing.T) {
 
 	// Verify all ownerships were loaded
 	for resourceID, ownerEmail := range ownerships {
-		hasOwnership, err := e.HasOwnershipForResource(resourceID, ownerEmail)
-		if err != nil {
-			t.Fatalf("HasOwnershipForResource(%s, %s) failed: %v", resourceID, ownerEmail, err)
+		hasOwnership, verifyErr := e.HasOwnershipForResource(resourceID, ownerEmail)
+		if verifyErr != nil {
+			t.Fatalf("HasOwnershipForResource(%s, %s) failed: %v", resourceID, ownerEmail, verifyErr)
 		}
 		if !hasOwnership {
 			t.Errorf("HasOwnershipForResource(%s, %s) = false, want true", resourceID, ownerEmail)
@@ -690,7 +691,7 @@ func TestEnforce(t *testing.T) {
 
 // Helper functions
 func contains(s, substr string) bool {
-	return len(s) > 0 && len(substr) > 0 && (s == substr || len(s) >= len(substr) && containsSubstring(s, substr))
+	return s != "" && substr != "" && (s == substr || len(s) >= len(substr) && containsSubstring(s, substr))
 }
 
 func containsSubstring(s, substr string) bool {
@@ -703,19 +704,14 @@ func containsSubstring(s, substr string) bool {
 }
 
 func containsString(slice []string, str string) bool {
-	for _, s := range slice {
-		if s == str {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(slice, str)
 }
 
 // Benchmarks
 func BenchmarkNewEnforcer(b *testing.B) {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for b.Loop() {
 		_, _ = NewEnforcer(logger)
 	}
 }
@@ -725,8 +721,7 @@ func BenchmarkEnforce(b *testing.B) {
 	enforcer, _ := NewEnforcer(logger)
 	_ = enforcer.AddRoleForUser("user@example.com", RoleAdmin)
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_, _ = enforcer.Enforce("user@example.com", "/api/v1/secrets/test", ActionRead)
 	}
 }
@@ -735,8 +730,7 @@ func BenchmarkAddRoleForUser(b *testing.B) {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
 	enforcer, _ := NewEnforcer(logger)
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_ = enforcer.AddRoleForUser("user@example.com", RoleAdmin)
 	}
 }
@@ -745,8 +739,7 @@ func BenchmarkAddOwnershipForResource(b *testing.B) {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
 	enforcer, _ := NewEnforcer(logger)
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_ = enforcer.AddOwnershipForResource("secret:test", "owner@example.com")
 	}
 }

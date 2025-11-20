@@ -18,50 +18,50 @@ type mockUserRepository struct {
 	err   error
 }
 
-func (m *mockUserRepository) CreateUser(ctx context.Context, user *api.User, apiKeyHash string, expiresAtUnix int64) error {
+func (m *mockUserRepository) CreateUser(_ context.Context, _ *api.User, _ string, _ int64) error {
 	return errors.New("not implemented")
 }
 
-func (m *mockUserRepository) RemoveExpiration(ctx context.Context, email string) error {
+func (m *mockUserRepository) RemoveExpiration(_ context.Context, _ string) error {
 	return errors.New("not implemented")
 }
 
-func (m *mockUserRepository) GetUserByEmail(ctx context.Context, email string) (*api.User, error) {
+func (m *mockUserRepository) GetUserByEmail(_ context.Context, _ string) (*api.User, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (m *mockUserRepository) GetUserByAPIKeyHash(ctx context.Context, apiKeyHash string) (*api.User, error) {
+func (m *mockUserRepository) GetUserByAPIKeyHash(_ context.Context, _ string) (*api.User, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (m *mockUserRepository) UpdateLastUsed(ctx context.Context, email string) (*time.Time, error) {
+func (m *mockUserRepository) UpdateLastUsed(_ context.Context, _ string) (*time.Time, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (m *mockUserRepository) RevokeUser(ctx context.Context, email string) error {
+func (m *mockUserRepository) RevokeUser(_ context.Context, _ string) error {
 	return errors.New("not implemented")
 }
 
-func (m *mockUserRepository) ListUsers(ctx context.Context) ([]*api.User, error) {
+func (m *mockUserRepository) ListUsers(_ context.Context) ([]*api.User, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
 	return m.users, nil
 }
 
-func (m *mockUserRepository) CreatePendingAPIKey(ctx context.Context, pending *api.PendingAPIKey) error {
+func (m *mockUserRepository) CreatePendingAPIKey(_ context.Context, _ *api.PendingAPIKey) error {
 	return errors.New("not implemented")
 }
 
-func (m *mockUserRepository) GetPendingAPIKey(ctx context.Context, claimToken string) (*api.PendingAPIKey, error) {
+func (m *mockUserRepository) GetPendingAPIKey(_ context.Context, _ string) (*api.PendingAPIKey, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (m *mockUserRepository) DeletePendingAPIKey(ctx context.Context, claimToken string) error {
+func (m *mockUserRepository) DeletePendingAPIKey(_ context.Context, _ string) error {
 	return errors.New("not implemented")
 }
 
-func (m *mockUserRepository) MarkAsViewed(ctx context.Context, email, viewer string) error {
+func (m *mockUserRepository) MarkAsViewed(_ context.Context, _, _ string) error {
 	return errors.New("not implemented")
 }
 
@@ -70,19 +70,19 @@ type mockExecutionRepository struct {
 	err        error
 }
 
-func (m *mockExecutionRepository) CreateExecution(ctx context.Context, execution *api.Execution) error {
+func (m *mockExecutionRepository) CreateExecution(_ context.Context, _ *api.Execution) error {
 	return errors.New("not implemented")
 }
 
-func (m *mockExecutionRepository) GetExecution(ctx context.Context, executionID string) (*api.Execution, error) {
+func (m *mockExecutionRepository) GetExecution(_ context.Context, _ string) (*api.Execution, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (m *mockExecutionRepository) UpdateExecution(ctx context.Context, execution *api.Execution) error {
+func (m *mockExecutionRepository) UpdateExecution(_ context.Context, _ *api.Execution) error {
 	return errors.New("not implemented")
 }
 
-func (m *mockExecutionRepository) ListExecutions(ctx context.Context, limit int, statuses []string) ([]*api.Execution, error) {
+func (m *mockExecutionRepository) ListExecutions(_ context.Context, _ int, _ []string) ([]*api.Execution, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
@@ -94,26 +94,26 @@ type mockSecretsRepository struct {
 	err     error
 }
 
-func (m *mockSecretsRepository) CreateSecret(ctx context.Context, secret *api.Secret) error {
+func (m *mockSecretsRepository) CreateSecret(_ context.Context, _ *api.Secret) error {
 	return errors.New("not implemented")
 }
 
-func (m *mockSecretsRepository) GetSecret(ctx context.Context, name string, includeValue bool) (*api.Secret, error) {
+func (m *mockSecretsRepository) GetSecret(_ context.Context, _ string, _ bool) (*api.Secret, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (m *mockSecretsRepository) ListSecrets(ctx context.Context, includeValue bool) ([]*api.Secret, error) {
+func (m *mockSecretsRepository) ListSecrets(_ context.Context, _ bool) ([]*api.Secret, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
 	return m.secrets, nil
 }
 
-func (m *mockSecretsRepository) UpdateSecret(ctx context.Context, secret *api.Secret) error {
+func (m *mockSecretsRepository) UpdateSecret(_ context.Context, _ *api.Secret) error {
 	return errors.New("not implemented")
 }
 
-func (m *mockSecretsRepository) DeleteSecret(ctx context.Context, name string) error {
+func (m *mockSecretsRepository) DeleteSecret(_ context.Context, _ string) error {
 	return errors.New("not implemented")
 }
 
@@ -122,7 +122,7 @@ type mockImageRepository struct {
 	err    error
 }
 
-func (m *mockImageRepository) ListImages(ctx context.Context) ([]api.ImageInfo, error) {
+func (m *mockImageRepository) ListImages(_ context.Context) ([]api.ImageInfo, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
@@ -354,9 +354,9 @@ func TestLoadUserRoles(t *testing.T) {
 				// Verify roles were loaded
 				for _, user := range tt.users {
 					if user != nil && user.Email != "" {
-						roles, err := e.GetRolesForUser(user.Email)
-						if err != nil {
-							t.Fatalf("GetRolesForUser(%s) failed: %v", user.Email, err)
+						roles, verifyErr := e.GetRolesForUser(user.Email)
+						if verifyErr != nil {
+							t.Fatalf("GetRolesForUser(%s) failed: %v", user.Email, verifyErr)
 						}
 						expectedRole := "role:" + user.Role
 						if !containsString(roles, expectedRole) {
@@ -369,201 +369,332 @@ func TestLoadUserRoles(t *testing.T) {
 	}
 }
 
+type ownershipTestConfig struct {
+	name      string
+	repoError error
+	wantError bool
+	errorMsg  string
+	setup     func() (*Enforcer, error)
+	verify    func(*testing.T, *Enforcer)
+}
+
+func newTestEnforcer() (*Enforcer, error) {
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
+	return NewEnforcer(logger)
+}
+
+func runOwnershipTests(t *testing.T, tests []ownershipTestConfig, funcName string) {
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			e, loadErr := tt.setup()
+			if e == nil {
+				if loadErr == nil {
+					t.Fatalf("setup returned nil enforcer and nil error")
+				}
+				t.Fatalf("NewEnforcer() failed: %v", loadErr)
+			}
+
+			if tt.wantError {
+				if loadErr == nil {
+					t.Errorf("%s() error = nil, want error containing %q", funcName, tt.errorMsg)
+				} else if tt.errorMsg != "" && !contains(loadErr.Error(), tt.errorMsg) {
+					t.Errorf("%s() error = %v, want error containing %q", funcName, loadErr, tt.errorMsg)
+				}
+			} else {
+				if loadErr != nil {
+					t.Errorf("%s() error = %v, want nil", funcName, loadErr)
+				}
+				tt.verify(t, e)
+			}
+		})
+	}
+}
+
+//nolint:dupl // Test functions are similar but test different types (secrets vs executions)
 func TestLoadSecretOwnerships(t *testing.T) {
-	tests := []struct {
-		name      string
-		secrets   []*api.Secret
-		repoError error
-		wantError bool
-		errorMsg  string
-	}{
+	runOwnershipTests(t, []ownershipTestConfig{
 		{
-			name: "load valid secrets",
-			secrets: []*api.Secret{
-				{Name: "db-password", CreatedBy: "admin@example.com", OwnedBy: []string{"admin@example.com"}},
-				{Name: "api-key", CreatedBy: "dev@example.com", OwnedBy: []string{"dev@example.com", "admin@example.com"}},
-			},
+			name:      "load valid secrets",
+			repoError: nil,
 			wantError: false,
+			setup: func() (*Enforcer, error) {
+				e, err := newTestEnforcer()
+				if err != nil {
+					return nil, err
+				}
+				secretsRepo := &mockSecretsRepository{
+					secrets: []*api.Secret{
+						{Name: "db-password", CreatedBy: "admin@example.com", OwnedBy: []string{"admin@example.com"}},
+						{Name: "api-key", CreatedBy: "dev@example.com", OwnedBy: []string{"dev@example.com", "admin@example.com"}},
+					},
+				}
+				loadErr := e.loadSecretOwnerships(context.Background(), secretsRepo)
+				return e, loadErr
+			},
+			verify: func(t *testing.T, e *Enforcer) {
+				secrets := []*api.Secret{
+					{Name: "db-password", CreatedBy: "admin@example.com", OwnedBy: []string{"admin@example.com"}},
+					{Name: "api-key", CreatedBy: "dev@example.com", OwnedBy: []string{"dev@example.com", "admin@example.com"}},
+				}
+				verifySecretOwnerships(t, e, secrets)
+			},
 		},
 		{
 			name:      "empty secrets list",
-			secrets:   []*api.Secret{},
+			repoError: nil,
 			wantError: false,
+			setup: func() (*Enforcer, error) {
+				e, err := newTestEnforcer()
+				if err != nil {
+					return nil, err
+				}
+				secretsRepo := &mockSecretsRepository{secrets: []*api.Secret{}}
+				loadErr := e.loadSecretOwnerships(context.Background(), secretsRepo)
+				return e, loadErr
+			},
+			verify: func(*testing.T, *Enforcer) {},
 		},
 		{
 			name:      "repo error",
 			repoError: errors.New("secrets repo failed"),
 			wantError: true,
 			errorMsg:  "failed to load secrets",
+			setup: func() (*Enforcer, error) {
+				e, err := newTestEnforcer()
+				if err != nil {
+					return nil, err
+				}
+				secretsRepo := &mockSecretsRepository{err: errors.New("secrets repo failed")}
+				loadErr := e.loadSecretOwnerships(context.Background(), secretsRepo)
+				return e, loadErr
+			},
+			verify: func(*testing.T, *Enforcer) {},
 		},
 		{
-			name: "secret with empty name",
-			secrets: []*api.Secret{
-				{Name: "", CreatedBy: "admin@example.com", OwnedBy: []string{"admin@example.com"}},
-			},
+			name:      "secret with empty name",
+			repoError: nil,
 			wantError: true,
 			errorMsg:  "missing required fields",
+			setup: func() (*Enforcer, error) {
+				e, err := newTestEnforcer()
+				if err != nil {
+					return nil, err
+				}
+				secretsRepo := &mockSecretsRepository{
+					secrets: []*api.Secret{
+						{Name: "", CreatedBy: "admin@example.com", OwnedBy: []string{"admin@example.com"}},
+					},
+				}
+				loadErr := e.loadSecretOwnerships(context.Background(), secretsRepo)
+				return e, loadErr
+			},
+			verify: func(*testing.T, *Enforcer) {},
 		},
 		{
-			name: "secret with empty created by",
-			secrets: []*api.Secret{
-				{Name: "test", CreatedBy: "", OwnedBy: []string{"admin@example.com"}},
-			},
+			name:      "secret with empty created by",
+			repoError: nil,
 			wantError: true,
 			errorMsg:  "missing required fields",
+			setup: func() (*Enforcer, error) {
+				e, err := newTestEnforcer()
+				if err != nil {
+					return nil, err
+				}
+				secretsRepo := &mockSecretsRepository{
+					secrets: []*api.Secret{
+						{Name: "test", CreatedBy: "", OwnedBy: []string{"admin@example.com"}},
+					},
+				}
+				loadErr := e.loadSecretOwnerships(context.Background(), secretsRepo)
+				return e, loadErr
+			},
+			verify: func(*testing.T, *Enforcer) {},
 		},
 		{
-			name: "nil secret in list",
-			secrets: []*api.Secret{
-				nil,
-			},
+			name:      "nil secret in list",
+			repoError: nil,
 			wantError: true,
 			errorMsg:  "secret is nil",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
-			e, err := NewEnforcer(logger)
-			if err != nil {
-				t.Fatalf("NewEnforcer() failed: %v", err)
-			}
-
-			secretsRepo := &mockSecretsRepository{
-				secrets: tt.secrets,
-				err:     tt.repoError,
-			}
-
-			err = e.loadSecretOwnerships(context.Background(), secretsRepo)
-
-			if tt.wantError {
-				if err == nil {
-					t.Errorf("loadSecretOwnerships() error = nil, want error containing %q", tt.errorMsg)
-				} else if tt.errorMsg != "" && !contains(err.Error(), tt.errorMsg) {
-					t.Errorf("loadSecretOwnerships() error = %v, want error containing %q", err, tt.errorMsg)
-				}
-			} else {
+			setup: func() (*Enforcer, error) {
+				e, err := newTestEnforcer()
 				if err != nil {
-					t.Errorf("loadSecretOwnerships() error = %v, want nil", err)
+					return nil, err
 				}
+				secretsRepo := &mockSecretsRepository{secrets: []*api.Secret{nil}}
+				loadErr := e.loadSecretOwnerships(context.Background(), secretsRepo)
+				return e, loadErr
+			},
+			verify: func(*testing.T, *Enforcer) {},
+		},
+	}, "loadSecretOwnerships")
+}
 
-				// Verify ownerships were loaded
-				for _, secret := range tt.secrets {
-					if secret != nil && secret.Name != "" {
-						resourceID := FormatResourceID("secret", secret.Name)
-						for _, owner := range secret.OwnedBy {
-							hasOwnership, err := e.HasOwnershipForResource(resourceID, owner)
-							if err != nil {
-								t.Fatalf("HasOwnershipForResource(%s, %s) failed: %v", resourceID, owner, err)
-							}
-							if !hasOwnership {
-								t.Errorf("HasOwnershipForResource(%s, %s) = false, want true", resourceID, owner)
-							}
-						}
-					}
+func verifySecretOwnerships(t *testing.T, e *Enforcer, secrets []*api.Secret) {
+	for _, secret := range secrets {
+		if secret != nil && secret.Name != "" {
+			resourceID := FormatResourceID("secret", secret.Name)
+			for _, owner := range secret.OwnedBy {
+				hasOwner, verifyErr := e.HasOwnershipForResource(resourceID, owner)
+				if verifyErr != nil {
+					t.Fatalf("HasOwnershipForResource(%s, %s) failed: %v", resourceID, owner, verifyErr)
+				}
+				if !hasOwner {
+					t.Errorf("HasOwnershipForResource(%s, %s) = false, want true", resourceID, owner)
 				}
 			}
-		})
+		}
 	}
 }
 
+//nolint:dupl // Test functions are similar but test different types (secrets vs executions)
 func TestLoadExecutionOwnerships(t *testing.T) {
-	tests := []struct {
-		name       string
-		executions []*api.Execution
-		repoError  error
-		wantError  bool
-		errorMsg   string
-	}{
+	runOwnershipTests(t, []ownershipTestConfig{
 		{
-			name: "load valid executions",
-			executions: []*api.Execution{
-				{ExecutionID: "exec-1", CreatedBy: "dev@example.com", OwnedBy: []string{"dev@example.com"}},
-				{ExecutionID: "exec-2", CreatedBy: "admin@example.com", OwnedBy: []string{"admin@example.com", "dev@example.com"}},
-			},
+			name:      "load valid executions",
+			repoError: nil,
 			wantError: false,
+			setup: func() (*Enforcer, error) {
+				e, err := newTestEnforcer()
+				if err != nil {
+					return nil, err
+				}
+				executionRepo := &mockExecutionRepository{
+					executions: []*api.Execution{
+						{
+							ExecutionID: "exec-1",
+							CreatedBy:   "dev@example.com",
+							OwnedBy:     []string{"dev@example.com"},
+						},
+						{
+							ExecutionID: "exec-2",
+							CreatedBy:   "admin@example.com",
+							OwnedBy:     []string{"admin@example.com", "dev@example.com"},
+						},
+					},
+				}
+				loadErr := e.loadExecutionOwnerships(context.Background(), executionRepo)
+				return e, loadErr
+			},
+			verify: func(t *testing.T, e *Enforcer) {
+				executions := []*api.Execution{
+					{
+						ExecutionID: "exec-1",
+						CreatedBy:   "dev@example.com",
+						OwnedBy:     []string{"dev@example.com"},
+					},
+					{
+						ExecutionID: "exec-2",
+						CreatedBy:   "admin@example.com",
+						OwnedBy:     []string{"admin@example.com", "dev@example.com"},
+					},
+				}
+				verifyExecutionOwnerships(t, e, executions)
+			},
 		},
 		{
-			name:       "empty executions list",
-			executions: []*api.Execution{},
-			wantError:  false,
+			name:      "empty executions list",
+			repoError: nil,
+			wantError: false,
+			setup: func() (*Enforcer, error) {
+				e, err := newTestEnforcer()
+				if err != nil {
+					return nil, err
+				}
+				executionRepo := &mockExecutionRepository{executions: []*api.Execution{}}
+				loadErr := e.loadExecutionOwnerships(context.Background(), executionRepo)
+				return e, loadErr
+			},
+			verify: func(*testing.T, *Enforcer) {},
 		},
 		{
 			name:      "repo error",
 			repoError: errors.New("executions repo failed"),
 			wantError: true,
 			errorMsg:  "failed to load executions",
+			setup: func() (*Enforcer, error) {
+				e, err := newTestEnforcer()
+				if err != nil {
+					return nil, err
+				}
+				executionRepo := &mockExecutionRepository{err: errors.New("executions repo failed")}
+				loadErr := e.loadExecutionOwnerships(context.Background(), executionRepo)
+				return e, loadErr
+			},
+			verify: func(*testing.T, *Enforcer) {},
 		},
 		{
-			name: "execution with empty ID",
-			executions: []*api.Execution{
-				{ExecutionID: "", CreatedBy: "dev@example.com", OwnedBy: []string{"dev@example.com"}},
-			},
+			name:      "execution with empty ID",
+			repoError: nil,
 			wantError: true,
 			errorMsg:  "missing required fields",
+			setup: func() (*Enforcer, error) {
+				e, err := newTestEnforcer()
+				if err != nil {
+					return nil, err
+				}
+				executionRepo := &mockExecutionRepository{
+					executions: []*api.Execution{
+						{ExecutionID: "", CreatedBy: "dev@example.com", OwnedBy: []string{"dev@example.com"}},
+					},
+				}
+				loadErr := e.loadExecutionOwnerships(context.Background(), executionRepo)
+				return e, loadErr
+			},
+			verify: func(*testing.T, *Enforcer) {},
 		},
 		{
-			name: "execution with empty created by",
-			executions: []*api.Execution{
-				{ExecutionID: "exec-1", CreatedBy: "", OwnedBy: []string{"dev@example.com"}},
-			},
+			name:      "execution with empty created by",
+			repoError: nil,
 			wantError: true,
 			errorMsg:  "missing required fields",
+			setup: func() (*Enforcer, error) {
+				e, err := newTestEnforcer()
+				if err != nil {
+					return nil, err
+				}
+				executionRepo := &mockExecutionRepository{
+					executions: []*api.Execution{
+						{ExecutionID: "exec-1", CreatedBy: "", OwnedBy: []string{"dev@example.com"}},
+					},
+				}
+				loadErr := e.loadExecutionOwnerships(context.Background(), executionRepo)
+				return e, loadErr
+			},
+			verify: func(*testing.T, *Enforcer) {},
 		},
 		{
-			name: "nil execution in list",
-			executions: []*api.Execution{
-				nil,
-			},
+			name:      "nil execution in list",
+			repoError: nil,
 			wantError: true,
 			errorMsg:  "execution is nil",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
-			e, err := NewEnforcer(logger)
-			if err != nil {
-				t.Fatalf("NewEnforcer() failed: %v", err)
-			}
-
-			executionRepo := &mockExecutionRepository{
-				executions: tt.executions,
-				err:        tt.repoError,
-			}
-
-			err = e.loadExecutionOwnerships(context.Background(), executionRepo)
-
-			if tt.wantError {
-				if err == nil {
-					t.Errorf("loadExecutionOwnerships() error = nil, want error containing %q", tt.errorMsg)
-				} else if tt.errorMsg != "" && !contains(err.Error(), tt.errorMsg) {
-					t.Errorf("loadExecutionOwnerships() error = %v, want error containing %q", err, tt.errorMsg)
-				}
-			} else {
+			setup: func() (*Enforcer, error) {
+				e, err := newTestEnforcer()
 				if err != nil {
-					t.Errorf("loadExecutionOwnerships() error = %v, want nil", err)
+					return nil, err
 				}
+				executionRepo := &mockExecutionRepository{executions: []*api.Execution{nil}}
+				loadErr := e.loadExecutionOwnerships(context.Background(), executionRepo)
+				return e, loadErr
+			},
+			verify: func(*testing.T, *Enforcer) {},
+		},
+	}, "loadExecutionOwnerships")
+}
 
-				// Verify ownerships were loaded
-				for _, execution := range tt.executions {
-					if execution != nil && execution.ExecutionID != "" {
-						resourceID := FormatResourceID("execution", execution.ExecutionID)
-						for _, owner := range execution.OwnedBy {
-							hasOwnership, err := e.HasOwnershipForResource(resourceID, owner)
-							if err != nil {
-								t.Fatalf("HasOwnershipForResource(%s, %s) failed: %v", resourceID, owner, err)
-							}
-							if !hasOwnership {
-								t.Errorf("HasOwnershipForResource(%s, %s) = false, want true", resourceID, owner)
-							}
-						}
-					}
+func verifyExecutionOwnerships(t *testing.T, e *Enforcer, executions []*api.Execution) {
+	for _, execution := range executions {
+		if execution != nil && execution.ExecutionID != "" {
+			resourceID := FormatResourceID("execution", execution.ExecutionID)
+			for _, owner := range execution.OwnedBy {
+				hasOwner, verifyErr := e.HasOwnershipForResource(resourceID, owner)
+				if verifyErr != nil {
+					t.Fatalf("HasOwnershipForResource(%s, %s) failed: %v", resourceID, owner, verifyErr)
+				}
+				if !hasOwner {
+					t.Errorf("HasOwnershipForResource(%s, %s) = false, want true", resourceID, owner)
 				}
 			}
-		})
+		}
 	}
 }
 
@@ -643,9 +774,9 @@ func TestLoadImageOwnerships(t *testing.T) {
 					if image.ImageID != "" {
 						resourceID := FormatResourceID("image", image.ImageID)
 						for _, owner := range image.OwnedBy {
-							hasOwnership, err := e.HasOwnershipForResource(resourceID, owner)
-							if err != nil {
-								t.Fatalf("HasOwnershipForResource(%s, %s) failed: %v", resourceID, owner, err)
+							hasOwnership, verifyErr := e.HasOwnershipForResource(resourceID, owner)
+							if verifyErr != nil {
+								t.Fatalf("HasOwnershipForResource(%s, %s) failed: %v", resourceID, owner, verifyErr)
 							}
 							if !hasOwnership {
 								t.Errorf("HasOwnershipForResource(%s, %s) = false, want true", resourceID, owner)
@@ -699,9 +830,9 @@ func TestLoadResourceOwnershipsFromRepos(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		hasOwnership, err := e.HasOwnershipForResource(tc.resourceID, tc.owner)
-		if err != nil {
-			t.Fatalf("HasOwnershipForResource(%s, %s) failed: %v", tc.resourceID, tc.owner, err)
+		hasOwnership, verifyErr := e.HasOwnershipForResource(tc.resourceID, tc.owner)
+		if verifyErr != nil {
+			t.Fatalf("HasOwnershipForResource(%s, %s) failed: %v", tc.resourceID, tc.owner, verifyErr)
 		}
 		if !hasOwnership {
 			t.Errorf("HasOwnershipForResource(%s, %s) = false, want true", tc.resourceID, tc.owner)

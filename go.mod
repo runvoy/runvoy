@@ -1,8 +1,6 @@
 module runvoy
 
-go 1.25.0.0
-
-toolchain go1.24.7
+go 1.25.0
 
 require (
 	github.com/akrylysov/algnhsa v1.1.0
