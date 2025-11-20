@@ -2,6 +2,8 @@
  * Execution state management utilities
  */
 import { get } from 'svelte/store';
+import { pushState } from '$app/navigation';
+import { resolve } from '$app/paths';
 import { executionId } from '../stores/execution';
 import { logEvents, logsRetryCount } from '../stores/logs';
 import { cachedWebSocketURL, websocketConnection } from '../stores/websocket';
@@ -55,8 +57,9 @@ export function switchExecution(
     if (updateHistory && typeof window !== 'undefined') {
         const urlParams = new URLSearchParams(window.location.search);
         urlParams.set('execution_id', trimmedId);
-        const newUrl = `${window.location.pathname}?${urlParams.toString()}`;
-        window.history.pushState({ executionId: trimmedId }, '', newUrl);
+        const resolvedPath = resolve(window.location.pathname);
+        const newUrl = `${resolvedPath}?${urlParams.toString()}`;
+        pushState(resolve(newUrl), { state: { executionId: trimmedId } });
     }
 }
 
@@ -80,9 +83,8 @@ export function clearExecution({ updateHistory = true }: ClearExecutionOptions =
         const urlParams = new URLSearchParams(window.location.search);
         urlParams.delete('execution_id');
         const newQuery = urlParams.toString();
-        const newUrl = newQuery
-            ? `${window.location.pathname}?${newQuery}`
-            : window.location.pathname;
-        window.history.pushState({}, '', newUrl);
+        const resolvedPath = resolve(window.location.pathname);
+        const newUrl = newQuery ? `${resolvedPath}?${newQuery}` : resolvedPath;
+        pushState(resolve(newUrl));
     }
 }

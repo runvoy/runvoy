@@ -1,6 +1,7 @@
 <script lang="ts">
     import { apiEndpoint, apiKey } from '../stores/config';
     import type { ClaimAPIKeyResponse } from '../types/api';
+    import APIClient from '../lib/api';
 
     let token = '';
     let isLoading = false;
@@ -26,7 +27,7 @@
         isLoading = true;
         try {
             // Create a temporary client without auth for the claim endpoint
-            const tempClient = new (await import('../lib/api')).default($apiEndpoint, '');
+            const tempClient = new APIClient($apiEndpoint, '');
             const result = await tempClient.claimAPIKey(token.trim());
             claimResult = result;
             success = true;
