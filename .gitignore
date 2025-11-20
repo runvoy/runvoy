@@ -48,3 +48,6 @@ main
 
 # Local Netlify folder
 .netlify
+
+# MkDocs site
+site/

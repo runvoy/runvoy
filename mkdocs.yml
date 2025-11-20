@@ -1,0 +1,13 @@
+site_name: Runvoy Docs
+site_url: https://runvoy.github.io
+use_directory_urls: false
+
+nav:
+  - Home: index.md
+  - Architecture: ARCHITECTURE.md
+  - CLI: CLI.md
+  - Contributing: CONTRIBUTING.md
+  - Testing: TESTING_STRATEGY.md
+  - Testing Quick Start: TESTING_QUICKSTART.md
+  - Testing Examples: TESTING_EXAMPLES.md
+  - Testing Strategy: TESTING_STRATEGY.md
