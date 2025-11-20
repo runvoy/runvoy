@@ -2,7 +2,7 @@
 
 # Clean build artifacts
 clean:
-    rm -rf bin/ dist/ coverage.out coverage.html
+    rm -rf bin/ dist/ site/ coverage.out coverage.html
     go clean
     git clean -f .
 
