@@ -1,6 +1,6 @@
 <h1 align="center">
     <p><strong>🚀 Runvoy</strong></p>
-    <p>serverless command execution platform</p>
+    <p>serverless command executions</p>
 </h1>
 <p align="center">
     <em>Run arbitrary commands on remote ephemeral containers.</em>
@@ -95,7 +95,7 @@ Runvoy is composed of 3 main parts (see [#architecture](#architecture) for more 
 
 ### Roadmap (NOT IMPLEMENTED YET!)
 
-- **Multi-cloud support** - Backend support for other execution platforms, cloud providers (GCP, Azure...), or even other compute platforms like Kubernetes if it makes sense
+- **Multi-cloud support** - Backend support for other cloud providers (GCP, Azure...) or even compute platforms like Kubernetes if it makes sense
 - **Robust log streaming** - Right now log streaming is lossy, more robust streaming mechanism on top of CloudWatch Logs is needed.
 - **Timeouts for command execution** - Send timed SIGTERM to the command execution if it doesn't complete within the timeout period
 - **Lock management for concurrent command execution** - Prevent multiple users from executing the same command concurrently
