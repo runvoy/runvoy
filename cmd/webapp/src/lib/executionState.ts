@@ -1,24 +1,34 @@
+/**
+ * Execution state management utilities
+ */
 import { get } from 'svelte/store';
-import { executionId } from '../stores/execution.js';
-import { logEvents, logsRetryCount } from '../stores/logs.js';
-import { cachedWebSocketURL, websocketConnection } from '../stores/websocket.js';
-import { disconnectWebSocket } from './websocket.js';
-import { activeView, VIEWS } from '../stores/ui.js';
+import { executionId } from '../stores/execution';
+import { logEvents, logsRetryCount } from '../stores/logs';
+import { cachedWebSocketURL, websocketConnection } from '../stores/websocket';
+import { disconnectWebSocket } from './websocket';
+import { activeView, VIEWS } from '../stores/ui';
 
-function resetExecutionData() {
+function resetExecutionData(): void {
     logEvents.set([]);
     logsRetryCount.set(0);
     cachedWebSocketURL.set(null);
 }
 
-function updateDocumentTitle(id) {
+function updateDocumentTitle(id: string | null): void {
     if (typeof document === 'undefined') {
         return;
     }
     document.title = id ? `runvoy Logs - ${id}` : 'runvoy Logs';
 }
 
-export function switchExecution(newExecutionId, { updateHistory = true } = {}) {
+interface SwitchExecutionOptions {
+    updateHistory?: boolean;
+}
+
+export function switchExecution(
+    newExecutionId: string,
+    { updateHistory = true }: SwitchExecutionOptions = {}
+): void {
     const trimmedId = (newExecutionId || '').trim();
     if (!trimmedId) {
         clearExecution({ updateHistory });
@@ -50,7 +60,11 @@ export function switchExecution(newExecutionId, { updateHistory = true } = {}) {
     }
 }
 
-export function clearExecution({ updateHistory = true } = {}) {
+interface ClearExecutionOptions {
+    updateHistory?: boolean;
+}
+
+export function clearExecution({ updateHistory = true }: ClearExecutionOptions = {}): void {
     const activeSocket = get(websocketConnection);
     if (activeSocket) {
         activeSocket.close();

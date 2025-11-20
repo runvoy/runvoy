@@ -1,14 +1,26 @@
-import { websocketConnection, isConnecting, connectionError } from '../stores/websocket.js';
-import { logEvents } from '../stores/logs.js';
-import { isCompleted } from '../stores/execution.js';
+/**
+ * WebSocket connection handler for real-time log streaming
+ */
+import { websocketConnection, isConnecting, connectionError } from '../stores/websocket';
+import { logEvents } from '../stores/logs';
+import { isCompleted } from '../stores/execution';
+import type { LogEvent } from '../types/stores';
 
-let socket = null;
+interface WebSocketMessage {
+    type?: string;
+    message?: string;
+    timestamp?: number;
+    reason?: string;
+    [key: string]: unknown;
+}
+
+let socket: WebSocket | null = null;
 
 /**
  * Connects to the WebSocket server
- * @param {string} url - The WebSocket URL to connect to
+ * @param url - The WebSocket URL to connect to
  */
-export function connectWebSocket(url) {
+export function connectWebSocket(url: string): void {
     if (socket && socket.readyState === WebSocket.OPEN) {
         return;
     }
@@ -28,16 +40,16 @@ export function connectWebSocket(url) {
 
     websocketConnection.set(socket);
 
-    socket.onopen = () => {
+    socket.onopen = (): void => {
         // eslint-disable-next-line no-console
         console.log('WebSocket connected');
         isConnecting.set(false);
         connectionError.set(null);
     };
 
-    socket.onmessage = (event) => {
+    socket.onmessage = (event: MessageEvent): void => {
         try {
-            const message = JSON.parse(event.data);
+            const message: WebSocketMessage = JSON.parse(event.data);
 
             // Handle disconnect messages
             if (message.type === 'disconnect') {
@@ -56,7 +68,7 @@ export function connectWebSocket(url) {
 
             // Handle log events (messages with a message property and timestamp)
             if (message.message && message.timestamp !== undefined) {
-                logEvents.update((events) => {
+                logEvents.update((events: LogEvent[]): LogEvent[] => {
                     // Avoid duplicates by checking timestamp (primary key)
                     if (events.some((e) => e.timestamp === message.timestamp)) {
                         return events;
@@ -65,7 +77,11 @@ export function connectWebSocket(url) {
                     // Assign a new line number
                     const nextLine =
                         events.length > 0 ? Math.max(...events.map((e) => e.line)) + 1 : 1;
-                    const eventWithLine = { ...message, line: nextLine };
+                    const eventWithLine: LogEvent = {
+                        message: message.message as string,
+                        timestamp: message.timestamp as number,
+                        line: nextLine
+                    };
 
                     return [...events, eventWithLine];
                 });
@@ -76,14 +92,14 @@ export function connectWebSocket(url) {
         }
     };
 
-    socket.onerror = (error) => {
+    socket.onerror = (): void => {
         // eslint-disable-next-line no-console
-        console.error('WebSocket error:', error);
+        console.error('WebSocket error');
         connectionError.set('WebSocket connection failed.');
         isConnecting.set(false);
     };
 
-    socket.onclose = (event) => {
+    socket.onclose = (event: CloseEvent): void => {
         // eslint-disable-next-line no-console
         console.log('WebSocket disconnected:', event.reason);
         isConnecting.set(false);
@@ -98,7 +114,7 @@ export function connectWebSocket(url) {
 /**
  * Disconnects the WebSocket connection
  */
-export function disconnectWebSocket() {
+export function disconnectWebSocket(): void {
     if (socket) {
         socket.close(1000, 'User disconnected');
         socket = null;

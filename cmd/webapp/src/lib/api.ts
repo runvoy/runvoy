@@ -1,18 +1,29 @@
 /**
  * API Client for runvoy backend
  */
+import type {
+    RunCommandPayload,
+    RunCommandResponse,
+    LogsResponse,
+    ExecutionStatusResponse,
+    KillExecutionResponse,
+    ListExecutionsResponse,
+    ApiError
+} from '../types/api';
+
 export class APIClient {
-    constructor(endpoint, apiKey) {
+    endpoint: string;
+    apiKey: string;
+
+    constructor(endpoint: string, apiKey: string) {
         this.endpoint = endpoint;
         this.apiKey = apiKey;
     }
 
     /**
      * Execute a command via the runvoy backend
-     * @param {Object} payload - Execution request payload
-     * @returns {Promise<Object>} Execution response containing execution_id and status
      */
-    async runCommand(payload) {
+    async runCommand(payload: RunCommandPayload): Promise<RunCommandResponse> {
         const url = `${this.endpoint}/api/v1/run`;
         const response = await fetch(url, {
             method: 'POST',
@@ -25,7 +36,7 @@ export class APIClient {
 
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            const error = new Error(errorData.details || `HTTP ${response.status}`);
+            const error = new Error(errorData.details || `HTTP ${response.status}`) as ApiError;
             error.status = response.status;
             error.details = errorData;
             throw error;
@@ -36,10 +47,8 @@ export class APIClient {
 
     /**
      * Fetch logs for an execution
-     * @param {string} executionId - Execution ID
-     * @returns {Promise<Object>} Logs response with events and websocket_url
      */
-    async getLogs(executionId) {
+    async getLogs(executionId: string): Promise<LogsResponse> {
         const url = `${this.endpoint}/api/v1/executions/${executionId}/logs`;
         const response = await fetch(url, {
             headers: {
@@ -49,7 +58,7 @@ export class APIClient {
 
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            const error = new Error(errorData.details || `HTTP ${response.status}`);
+            const error = new Error(errorData.details || `HTTP ${response.status}`) as ApiError;
             error.status = response.status;
             error.details = errorData;
             throw error;
@@ -60,10 +69,8 @@ export class APIClient {
 
     /**
      * Get execution status
-     * @param {string} executionId - Execution ID
-     * @returns {Promise<Object>} Status response with execution_id, status, started_at, etc.
      */
-    async getExecutionStatus(executionId) {
+    async getExecutionStatus(executionId: string): Promise<ExecutionStatusResponse> {
         const url = `${this.endpoint}/api/v1/executions/${executionId}/status`;
         const response = await fetch(url, {
             headers: {
@@ -73,7 +80,7 @@ export class APIClient {
 
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            const error = new Error(errorData.details || `HTTP ${response.status}`);
+            const error = new Error(errorData.details || `HTTP ${response.status}`) as ApiError;
             error.status = response.status;
             error.details = errorData;
             throw error;
@@ -84,10 +91,8 @@ export class APIClient {
 
     /**
      * Kill a running execution
-     * @param {string} executionId - Execution ID
-     * @returns {Promise<Object>} Kill response
      */
-    async killExecution(executionId) {
+    async killExecution(executionId: string): Promise<KillExecutionResponse> {
         const url = `${this.endpoint}/api/v1/executions/${executionId}`;
         const response = await fetch(url, {
             method: 'DELETE',
@@ -98,7 +103,7 @@ export class APIClient {
 
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            const error = new Error(errorData.details || `HTTP ${response.status}`);
+            const error = new Error(errorData.details || `HTTP ${response.status}`) as ApiError;
             error.status = response.status;
             error.details = errorData;
             throw error;
@@ -109,9 +114,8 @@ export class APIClient {
 
     /**
      * List all executions
-     * @returns {Promise<Array>} Array of executions
      */
-    async listExecutions() {
+    async listExecutions(): Promise<ListExecutionsResponse> {
         const url = `${this.endpoint}/api/v1/executions`;
         const response = await fetch(url, {
             headers: {
@@ -121,7 +125,7 @@ export class APIClient {
 
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            const error = new Error(errorData.details || `HTTP ${response.status}`);
+            const error = new Error(errorData.details || `HTTP ${response.status}`) as ApiError;
             error.status = response.status;
             error.details = errorData;
             throw error;

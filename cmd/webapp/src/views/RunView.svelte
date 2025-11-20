@@ -1,8 +1,11 @@
-<script>
-    import { activeView, VIEWS } from '../stores/ui.js';
-    import { switchExecution } from '../lib/executionState.js';
+<script lang="ts">
+    import { activeView, VIEWS } from '../stores/ui';
+    import { switchExecution } from '../lib/executionState';
+    import type APIClient from '../lib/api';
+    import type { RunCommandPayload } from '../types/api';
+    import type { EnvRow } from '../types/stores';
 
-    export let apiClient = null;
+    export let apiClient: APIClient | null = null;
     export let isConfigured = false;
 
     let command = '';
@@ -11,14 +14,14 @@
     let gitRepo = '';
     let gitRef = '';
     let gitPath = '';
-    let envRows = [];
+    let envRows: EnvRow[] = [];
     let showAdvanced = false;
     let isSubmitting = false;
     let errorMessage = '';
 
     let envRowCounter = 0;
 
-    function createEnvRow() {
+    function createEnvRow(): EnvRow {
         envRowCounter += 1;
         return { id: envRowCounter, key: '', value: '' };
     }
@@ -27,15 +30,15 @@
         envRows = [createEnvRow()];
     }
 
-    function addEnvRow() {
+    function addEnvRow(): void {
         envRows = [...envRows, createEnvRow()];
     }
 
-    function updateEnvRow(id, field, value) {
+    function updateEnvRow(id: number, field: string, value: string): void {
         envRows = envRows.map((row) => (row.id === id ? { ...row, [field]: value } : row));
     }
 
-    function removeEnvRow(id) {
+    function removeEnvRow(id: number): void {
         if (envRows.length === 1) {
             envRows = [createEnvRow()];
             return;
@@ -43,19 +46,22 @@
         envRows = envRows.filter((row) => row.id !== id);
     }
 
-    function buildEnvObject() {
-        return envRows.reduce((acc, row) => {
-            const key = row.key.trim();
-            if (!key) {
+    function buildEnvObject(): Record<string, string> {
+        return envRows.reduce(
+            (acc, row) => {
+                const key = row.key.trim();
+                if (!key) {
+                    return acc;
+                }
+                acc[key] = row.value;
                 return acc;
-            }
-            acc[key] = row.value;
-            return acc;
-        }, {});
+            },
+            {} as Record<string, string>
+        );
     }
 
-    function buildPayload() {
-        const payload = {
+    function buildPayload(): RunCommandPayload {
+        const payload: RunCommandPayload = {
             command: command.trim()
         };
 
@@ -86,7 +92,7 @@
         return payload;
     }
 
-    async function handleSubmit() {
+    async function handleSubmit(): Promise<void> {
         errorMessage = '';
 
         if (!isConfigured || !apiClient) {
@@ -106,7 +112,8 @@
             switchExecution(response.execution_id);
             activeView.set(VIEWS.LOGS);
         } catch (error) {
-            errorMessage = error.details?.error || error.message || 'Failed to start command';
+            const err = error as any;
+            errorMessage = err.details?.error || err.message || 'Failed to start command';
         } finally {
             isSubmitting = false;
         }

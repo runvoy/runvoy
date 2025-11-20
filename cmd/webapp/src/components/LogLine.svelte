@@ -1,8 +1,9 @@
-<script>
-    import { showMetadata } from '../stores/logs.js';
-    import { parseAnsi, formatTimestamp } from '../lib/ansi.js';
+<script lang="ts">
+    import { showMetadata } from '../stores/logs';
+    import { parseAnsi, formatTimestamp } from '../lib/ansi';
+    import type { LogEvent } from '../types/stores';
 
-    export let event;
+    export let event: LogEvent;
 
     $: formattedTimestamp = formatTimestamp(event.timestamp);
     $: ansiHtml = parseAnsi(event.message);

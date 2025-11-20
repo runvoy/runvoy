@@ -1,12 +1,12 @@
-<script>
-    import { logEvents } from '../stores/logs.js';
+<script lang="ts">
+    import { logEvents } from '../stores/logs';
     import LogLine from './LogLine.svelte';
     import { afterUpdate } from 'svelte';
 
-    let container;
+    let container: HTMLDivElement | undefined;
     let autoScroll = true;
 
-    function handleScroll() {
+    function handleScroll(): void {
         if (!container) return;
         // A little tolerance for scroll position
         const isScrolledToBottom =

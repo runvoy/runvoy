@@ -1,6 +1,6 @@
-<script>
-    import { isConnecting, connectionError, websocketConnection } from '../stores/websocket.js';
-    import { isCompleted } from '../stores/execution.js';
+<script lang="ts">
+    import { isConnecting, connectionError, websocketConnection } from '../stores/websocket';
+    import { isCompleted } from '../stores/execution';
 
     $: statusText = (() => {
         if ($isCompleted) return 'Execution finished';

@@ -1,5 +1,5 @@
-<script>
-    import { apiEndpoint, apiKey } from '../stores/config.js';
+<script lang="ts">
+    import { apiEndpoint, apiKey } from '../stores/config';
 
     let showModal = false;
     let endpointInput = $apiEndpoint || '';
@@ -9,19 +9,19 @@
     // Show masked key if already set
     $: displayKey = $apiKey ? '••••••••' : '';
 
-    function openModal() {
+    function openModal(): void {
         showModal = true;
         endpointInput = $apiEndpoint || '';
         keyInput = '';
         errorMessage = '';
     }
 
-    function closeModal() {
+    function closeModal(): void {
         showModal = false;
         errorMessage = '';
     }
 
-    function saveCredentials() {
+    function saveCredentials(): void {
         const endpoint = endpointInput.trim();
         const key = keyInput;
 
@@ -53,9 +53,10 @@
         window.dispatchEvent(new CustomEvent('credentials-updated'));
     }
 
-    function handleModalClick(event) {
+    function handleModalClick(event: MouseEvent): void {
+        const target = event.target as HTMLElement;
         // Close modal if clicking the backdrop
-        if (event.target.classList.contains('modal-backdrop')) {
+        if (target.classList.contains('modal-backdrop')) {
             closeModal();
         }
     }

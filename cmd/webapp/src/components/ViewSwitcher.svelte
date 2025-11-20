@@ -1,13 +1,19 @@
-<script>
-    import { activeView } from '../stores/ui.js';
+<script lang="ts">
+    import { activeView } from '../stores/ui';
 
-    export let views = [];
+    interface View {
+        id: string;
+        label: string;
+        disabled?: boolean;
+    }
 
-    function selectView(view) {
+    export let views: View[] = [];
+
+    function selectView(view: View): void {
         if (view.disabled) {
             return;
         }
-        activeView.set(view.id);
+        activeView.set(view.id as any);
     }
 </script>
 

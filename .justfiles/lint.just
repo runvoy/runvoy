@@ -16,5 +16,5 @@ fmt:
 # Lint/prettify webapp
 [working-directory: 'cmd/webapp']
 lint-webapp:
-    npx prettier --check src/**/*.{js,svelte}
-    npx eslint src --ext .js,.svelte
+    npx prettier --check src/**/*.{ts,svelte}
+    npx eslint src --ext .ts,.svelte

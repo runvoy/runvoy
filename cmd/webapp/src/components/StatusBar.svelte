@@ -1,5 +1,5 @@
-<script>
-    import { executionId, executionStatus, startedAt } from '../stores/execution.js';
+<script lang="ts">
+    import { executionId, executionStatus, startedAt } from '../stores/execution';
 
     const DEFAULT_STATUS = 'LOADING';
 

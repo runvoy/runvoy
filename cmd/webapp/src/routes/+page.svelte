@@ -1,9 +1,9 @@
-<script>
+<script lang="ts">
     import { onMount } from 'svelte';
-    import { apiEndpoint, apiKey } from '../stores/config.js';
-    import { activeView, VIEWS } from '../stores/ui.js';
-    import APIClient from '../lib/api.js';
-    import { switchExecution } from '../lib/executionState.js';
+    import { apiEndpoint, apiKey } from '../stores/config';
+    import { activeView, VIEWS } from '../stores/ui';
+    import APIClient from '../lib/api';
+    import { switchExecution } from '../lib/executionState';
     import ConnectionManager from '../components/ConnectionManager.svelte';
     import ViewSwitcher from '../components/ViewSwitcher.svelte';
     import RunView from '../views/RunView.svelte';
@@ -11,15 +11,21 @@
 
     import '../styles/global.css';
 
+    interface NavView {
+        id: string;
+        label: string;
+        disabled?: boolean;
+    }
+
     const appVersion = import.meta.env.VITE_RUNVOY_VERSION || '';
-    let apiClient = null;
+    let apiClient: APIClient | null = null;
     let isConfigured = false;
 
-    const views = [
+    const views: NavView[] = [
         { id: VIEWS.RUN, label: 'Run Command' },
         { id: VIEWS.LOGS, label: 'Logs' }
     ];
-    let navViews = views;
+    let navViews: NavView[] = views;
 
     onMount(() => {
         if (typeof window === 'undefined') {

@@ -1,21 +1,21 @@
-<script>
-    import { showMetadata, logEvents } from '../stores/logs.js';
-    import { executionId } from '../stores/execution.js';
-    import { disconnectWebSocket, connectWebSocket } from '../lib/websocket.js';
-    import { cachedWebSocketURL } from '../stores/websocket.js';
-    import { formatTimestamp } from '../lib/ansi.js';
+<script lang="ts">
+    import { showMetadata, logEvents } from '../stores/logs';
+    import { executionId } from '../stores/execution';
+    import { disconnectWebSocket, connectWebSocket } from '../lib/websocket';
+    import { cachedWebSocketURL } from '../stores/websocket';
+    import { formatTimestamp } from '../lib/ansi';
 
     let isPaused = false;
 
-    function toggleMetadata() {
+    function toggleMetadata(): void {
         showMetadata.update((v) => !v);
     }
 
-    function clearLogs() {
+    function clearLogs(): void {
         logEvents.set([]);
     }
 
-    function downloadLogs() {
+    function downloadLogs(): void {
         const content = $logEvents
             .map((e) => `[${formatTimestamp(e.timestamp)}] ${e.message}`)
             .join('\n');
@@ -30,7 +30,7 @@
         URL.revokeObjectURL(url);
     }
 
-    function togglePause() {
+    function togglePause(): void {
         isPaused = !isPaused;
         if (isPaused) {
             disconnectWebSocket();

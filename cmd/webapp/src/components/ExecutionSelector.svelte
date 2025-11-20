@@ -1,19 +1,19 @@
-<script>
-    import { executionId } from '../stores/execution.js';
-    import { switchExecution, clearExecution } from '../lib/executionState.js';
+<script lang="ts">
+    import { executionId } from '../stores/execution';
+    import { switchExecution, clearExecution } from '../lib/executionState';
 
     let inputValue = $executionId || '';
 
     // Update input when store changes (e.g., from URL on mount)
     $: inputValue = $executionId || '';
 
-    function handleKeyPress(event) {
+    function handleKeyPress(event: KeyboardEvent): void {
         if (event.key === 'Enter') {
             switchExecution(inputValue.trim());
         }
     }
 
-    function handleBlur() {
+    function handleBlur(): void {
         const newId = inputValue.trim();
         if (newId && newId !== $executionId) {
             switchExecution(newId);

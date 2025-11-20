@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
     import { onDestroy, onMount } from 'svelte';
     import { get } from 'svelte/store';
 
@@ -7,38 +7,41 @@
     import WebSocketStatus from '../components/WebSocketStatus.svelte';
     import LogControls from '../components/LogControls.svelte';
     import LogViewer from '../components/LogViewer.svelte';
-    import { executionId, executionStatus, startedAt, isCompleted } from '../stores/execution.js';
+    import { executionId, executionStatus, startedAt, isCompleted } from '../stores/execution';
     import {
         logEvents,
         logsRetryCount,
         MAX_LOGS_RETRIES,
         LOGS_RETRY_DELAY,
         STARTING_STATE_DELAY
-    } from '../stores/logs.js';
-    import { cachedWebSocketURL } from '../stores/websocket.js';
-    import { connectWebSocket, disconnectWebSocket } from '../lib/websocket.js';
+    } from '../stores/logs';
+    import { cachedWebSocketURL } from '../stores/websocket';
+    import { connectWebSocket, disconnectWebSocket } from '../lib/websocket';
+    import type APIClient from '../lib/api';
+    import type { LogEvent } from '../types/stores';
+    import type { ApiError } from '../types/api';
 
-    export let apiClient = null;
+    export let apiClient: APIClient | null = null;
     export let isConfigured = false;
     // Allow delay override for testing (e.g., set to 0 in tests to avoid waiting)
-    export let delayFn = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+    export let delayFn = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
     let errorMessage = '';
     let showStatusCheckErrorModal = false;
     let statusCheckErrorMessage = '';
-    let fetchLogsTimer;
-    let currentExecutionId = null;
-    let websocketURL = null;
+    let fetchLogsTimer: ReturnType<typeof setTimeout> | undefined;
+    let currentExecutionId: string | null = null;
+    let websocketURL: string | null = null;
     const TERMINAL_STATES = ['SUCCEEDED', 'FAILED', 'STOPPED'];
 
-    function deriveStartedAtFromLogs(events = []) {
+    function deriveStartedAtFromLogs(events: LogEvent[] = []): string | null {
         if (!Array.isArray(events) || events.length === 0) {
             return null;
         }
 
         const timestamps = events
             .map((event) => event.timestamp)
-            .filter((ts) => typeof ts === 'number' && !Number.isNaN(ts));
+            .filter((ts: number) => typeof ts === 'number' && !Number.isNaN(ts));
 
         if (timestamps.length === 0) {
             return null;
@@ -48,7 +51,7 @@
         return new Date(earliestTimestamp).toISOString();
     }
 
-    async function fetchLogs() {
+    async function fetchLogs(): Promise<void> {
         const id = get(executionId);
         if (!apiClient || !id) {
             return;
@@ -74,17 +77,16 @@
             }
         } catch (statusError) {
             // If status check fails, proceed with normal retry logic
+            const err = statusError as ApiError;
             statusCheckErrorMessage =
-                statusError?.details?.error ||
-                statusError?.message ||
-                'Failed to check execution status.';
+                err?.details?.error || err?.message || 'Failed to check execution status.';
             showStatusCheckErrorModal = true;
         }
 
         try {
             const response = await apiClient.getLogs(id);
             const events = response.events || [];
-            const eventsWithLines = events.map((event, index) => ({
+            const eventsWithLines: LogEvent[] = events.map((event, index) => ({
                 ...event,
                 line: index + 1
             }));
@@ -110,15 +112,16 @@
             }
         } catch (error) {
             const retryCount = get(logsRetryCount);
+            const err = error as ApiError;
             // 503 Service Unavailable indicates log stream doesn't exist yet (execution starting)
             // Retry with exponential backoff as the stream may become available soon
-            if (error.status === 503 && retryCount < MAX_LOGS_RETRIES) {
+            if (err.status === 503 && retryCount < MAX_LOGS_RETRIES) {
                 const attempt = retryCount + 1;
                 errorMessage = `Logs not available yet, retrying... (${attempt}/${MAX_LOGS_RETRIES})`;
                 logsRetryCount.set(attempt);
                 fetchLogsTimer = setTimeout(fetchLogs, LOGS_RETRY_DELAY);
             } else {
-                errorMessage = error.details?.error || error.message || 'Failed to fetch logs';
+                errorMessage = err.details?.error || err.message || 'Failed to fetch logs';
                 logEvents.set([]);
             }
         }

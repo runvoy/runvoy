@@ -1,8 +1,12 @@
+/**
+ * Logs state store
+ */
 import { writable } from 'svelte/store';
+import type { LogEvent } from '../types/stores';
 
-export const logEvents = writable([]);
-export const logsRetryCount = writable(0);
-export const showMetadata = writable(true);
+export const logEvents = writable<LogEvent[]>([]);
+export const logsRetryCount = writable<number>(0);
+export const showMetadata = writable<boolean>(true);
 
 // Constants for retry logic
 export const MAX_LOGS_RETRIES = 3;
