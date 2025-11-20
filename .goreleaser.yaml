@@ -103,8 +103,6 @@ release:
   mode: replace
   ids:
     - cli
-  extra_files:
-    - glob: deploy/providers/aws/cloudformation-backend.yaml
   header: |
     ## {{ .ProjectName }} {{ .Version }}
 
