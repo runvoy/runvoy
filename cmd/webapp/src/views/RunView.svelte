@@ -131,125 +131,135 @@
 {:else}
     <article class="run-card">
         <form on:submit|preventDefault={handleSubmit} class="run-form">
-        <fieldset>
-            <legend>Command</legend>
-            <label for="command-input">
-                Command to execute
-                <textarea
-                    id="command-input"
-                    rows="4"
-                    placeholder="e.g. make test"
-                    bind:value={command}
-                    required
-                    spellcheck="false"
-                ></textarea>
-            </label>
-        </fieldset>
-
-        <button
-            class="link-button"
-            type="button"
-            on:click={() => (showAdvanced = !showAdvanced)}
-            aria-expanded={showAdvanced}
-        >
-            {showAdvanced ? 'Hide advanced options' : 'Show advanced options'}
-        </button>
-
-        {#if showAdvanced}
-            <fieldset class="advanced-grid">
-                <legend>Execution options</legend>
-                <label for="image-input">
-                    Docker image
-                    <input
-                        id="image-input"
-                        type="text"
-                        placeholder="Optional image override"
-                        bind:value={image}
-                    />
-                </label>
-
-                <label for="timeout-input">
-                    Timeout (seconds)
-                    <input
-                        id="timeout-input"
-                        type="number"
-                        min="1"
-                        inputmode="numeric"
-                        placeholder="Optional"
-                        bind:value={timeout}
-                    />
-                </label>
-            </fieldset>
-
-            <fieldset class="advanced-grid">
-                <legend>Git repository (optional)</legend>
-                <label for="git-repo-input">
-                    Repository URL
-                    <input
-                        id="git-repo-input"
-                        type="url"
-                        placeholder="https://github.com/runvoy/runvoy"
-                        bind:value={gitRepo}
-                    />
-                </label>
-
-                <label for="git-ref-input">
-                    Git ref
-                    <input id="git-ref-input" type="text" placeholder="main" bind:value={gitRef} />
-                </label>
-
-                <label for="git-path-input">
-                    Working directory
-                    <input id="git-path-input" type="text" placeholder="." bind:value={gitPath} />
-                </label>
-            </fieldset>
-
             <fieldset>
-                <legend>Environment variables</legend>
-                <div class="env-grid">
-                    {#each envRows as row (row.id)}
-                        <div class="env-row">
-                            <input
-                                type="text"
-                                placeholder="KEY"
-                                value={row.key}
-                                on:input={(event) =>
-                                    updateEnvRow(row.id, 'key', event.target.value)}
-                            />
-                            <input
-                                type="text"
-                                placeholder="value"
-                                value={row.value}
-                                on:input={(event) =>
-                                    updateEnvRow(row.id, 'value', event.target.value)}
-                            />
-                            <button
-                                type="button"
-                                class="icon-button"
-                                on:click={() => removeEnvRow(row.id)}
-                                aria-label="Remove environment variable"
-                            >
-                                ✕
-                            </button>
-                        </div>
-                    {/each}
-                </div>
-                <button type="button" class="secondary" on:click={addEnvRow}>
-                    Add environment variable
-                </button>
+                <legend>Command</legend>
+                <label for="command-input">
+                    Command to execute
+                    <textarea
+                        id="command-input"
+                        rows="4"
+                        placeholder="e.g. make test"
+                        bind:value={command}
+                        required
+                        spellcheck="false"
+                    ></textarea>
+                </label>
             </fieldset>
-        {/if}
 
-        {#if errorMessage}
-            <p class="error-text" role="alert">{errorMessage}</p>
-        {/if}
-
-        <div class="actions">
-            <button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? 'Starting...' : 'Run command'}
+            <button
+                class="link-button"
+                type="button"
+                on:click={() => (showAdvanced = !showAdvanced)}
+                aria-expanded={showAdvanced}
+            >
+                {showAdvanced ? 'Hide advanced options' : 'Show advanced options'}
             </button>
-        </div>
-    </form>
+
+            {#if showAdvanced}
+                <fieldset class="advanced-grid">
+                    <legend>Execution options</legend>
+                    <label for="image-input">
+                        Docker image
+                        <input
+                            id="image-input"
+                            type="text"
+                            placeholder="Optional image override"
+                            bind:value={image}
+                        />
+                    </label>
+
+                    <label for="timeout-input">
+                        Timeout (seconds)
+                        <input
+                            id="timeout-input"
+                            type="number"
+                            min="1"
+                            inputmode="numeric"
+                            placeholder="Optional"
+                            bind:value={timeout}
+                        />
+                    </label>
+                </fieldset>
+
+                <fieldset class="advanced-grid">
+                    <legend>Git repository (optional)</legend>
+                    <label for="git-repo-input">
+                        Repository URL
+                        <input
+                            id="git-repo-input"
+                            type="url"
+                            placeholder="https://github.com/runvoy/runvoy"
+                            bind:value={gitRepo}
+                        />
+                    </label>
+
+                    <label for="git-ref-input">
+                        Git ref
+                        <input
+                            id="git-ref-input"
+                            type="text"
+                            placeholder="main"
+                            bind:value={gitRef}
+                        />
+                    </label>
+
+                    <label for="git-path-input">
+                        Working directory
+                        <input
+                            id="git-path-input"
+                            type="text"
+                            placeholder="."
+                            bind:value={gitPath}
+                        />
+                    </label>
+                </fieldset>
+
+                <fieldset>
+                    <legend>Environment variables</legend>
+                    <div class="env-grid">
+                        {#each envRows as row (row.id)}
+                            <div class="env-row">
+                                <input
+                                    type="text"
+                                    placeholder="KEY"
+                                    value={row.key}
+                                    on:input={(event) =>
+                                        updateEnvRow(row.id, 'key', event.target.value)}
+                                />
+                                <input
+                                    type="text"
+                                    placeholder="value"
+                                    value={row.value}
+                                    on:input={(event) =>
+                                        updateEnvRow(row.id, 'value', event.target.value)}
+                                />
+                                <button
+                                    type="button"
+                                    class="icon-button"
+                                    on:click={() => removeEnvRow(row.id)}
+                                    aria-label="Remove environment variable"
+                                >
+                                    ✕
+                                </button>
+                            </div>
+                        {/each}
+                    </div>
+                    <button type="button" class="secondary" on:click={addEnvRow}>
+                        Add environment variable
+                    </button>
+                </fieldset>
+            {/if}
+
+            {#if errorMessage}
+                <p class="error-text" role="alert">{errorMessage}</p>
+            {/if}
+
+            <div class="actions">
+                <button type="submit" disabled={isSubmitting}>
+                    {isSubmitting ? 'Starting...' : 'Run command'}
+                </button>
+            </div>
+        </form>
     </article>
 {/if}
 

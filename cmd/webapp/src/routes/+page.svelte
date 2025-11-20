@@ -62,10 +62,12 @@
     <header class="app-header">
         <div class="header-content">
             <div class="header-title">
-                <h1>🚀 runvoy</h1>
-                {#if appVersion}
-                    <p class="version">Version {appVersion}</p>
-                {/if}
+                <h1>
+                    🚀 runvoy
+                    {#if appVersion}
+                        <span class="version">{appVersion}</span>
+                    {/if}
+                </h1>
                 <p class="subtitle">
                     <a href="https://github.com/runvoy/runvoy" target="_blank" rel="noopener">
                         View on GitHub
@@ -121,9 +123,10 @@
     }
 
     .version {
-        margin: 0 0 0.25rem 0;
         color: var(--pico-muted-color);
-        font-size: 0.875rem;
+        font-size: 0.75rem;
+        font-weight: normal;
+        margin-left: 0.5rem;
     }
 
     .subtitle {

@@ -23,7 +23,7 @@ dev-server:
 # Run local development webapp
 [working-directory: 'cmd/webapp']
 dev-webapp:
-    npx vite
+    VITE_RUNVOY_VERSION={{build_version}} npx vite
 
 # Sync Lambda environment variables to local .env file for development
 dev-sync:
