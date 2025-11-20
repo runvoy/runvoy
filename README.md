@@ -145,6 +145,7 @@ runvoy infra apply --configure --region eu-west-1 --seed-admin-user admin@exampl
 The admin API key and endpoint are automatically configured in `~/.runvoy/config.yaml` after running the above command. You can start using runvoy immediately:
 
 ```bash
+runvoy images register public.ecr.aws/docker/library/alpine:latest
 runvoy run "echo hello world"
 ```
 
@@ -173,7 +174,7 @@ runvoy --help
 ```
 
 ```text
-runvoy - v0.2.0-20251120-533bc75
+runvoy - v0.2.0-20251120-9294ed8
 Isolated, repeatable execution environments for your commands
 
 Usage:
