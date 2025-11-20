@@ -522,7 +522,7 @@ func TestClient_GetExecutionStatus(t *testing.T) {
 	})
 }
 
-func TestClient_KillExecution(t *testing.T) { //nolint:dupl
+func TestClient_KillExecution(t *testing.T) {
 	t.Run("successful execution kill", func(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			assert.Equal(t, "DELETE", r.Method)
@@ -797,7 +797,7 @@ func TestClient_ListImages(t *testing.T) {
 	})
 }
 
-func TestClient_UnregisterImage(t *testing.T) { //nolint:dupl
+func TestClient_UnregisterImage(t *testing.T) {
 	t.Run("successful image unregistration", func(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			assert.Equal(t, "DELETE", r.Method)

@@ -1324,7 +1324,8 @@ func TestHandleKillExecution_MissingExecutionID(t *testing.T) {
 	svc := newTestOrchestratorService(t, nil, nil, nil, &testRunner{}, nil, nil, nil)
 	router := NewRouter(svc, 2*time.Second, constants.DefaultCORSAllowedOrigins)
 
-	req := httptest.NewRequest(http.MethodDelete, "/api/v1/executions/", http.NoBody)
+	// Use URL-encoded space so route matches but executionID is empty after trimming
+	req := httptest.NewRequest(http.MethodDelete, "/api/v1/executions/%20", http.NoBody)
 	req.Header.Set("X-API-Key", "test-api-key")
 
 	resp := httptest.NewRecorder()
