@@ -1,4 +1,4 @@
-// Package main provides a utility to update the README.md with the latest CLI help output.
+// Package main provides a utility to update the README.md with the latest CLI help output and version.
 package main
 
 import (
@@ -13,9 +13,12 @@ import (
 	"runvoy/internal/constants"
 )
 
-const startMarker = "<!-- CLI_HELP_START -->"
-const endMarker = "<!-- CLI_HELP_END -->"
+const cliHelpStartMarker = "<!-- CLI_HELP_START -->"
+const cliHelpEndMarker = "<!-- CLI_HELP_END -->"
+const versionExamplesStartMarker = "<!-- VERSION_EXAMPLES_START -->"
+const versionExamplesEndMarker = "<!-- VERSION_EXAMPLES_END -->"
 const readmePath = "README.md"
+const versionPath = "VERSION"
 
 func main() {
 	if len(os.Args) < constants.MinimumArgsUpdateReadmeHelp {
@@ -34,11 +37,18 @@ func main() {
 
 	helpSection := generateHelpSection(helpOutput)
 
-	if err = updateREADME(readmePath, helpSection); err != nil {
+	version, err := readVersion(versionPath)
+	if err != nil {
+		log.Fatalf("error reading version: %s", err)
+	}
+
+	versionExamplesSection := generateVersionExamplesSection(version)
+
+	if err = updateREADME(readmePath, helpSection, versionExamplesSection); err != nil {
 		log.Fatalf("error updating %s: %s", readmePath, err)
 	}
 
-	log.Printf("updated %s with latest CLI help output", readmePath)
+	log.Printf("updated %s with latest CLI help output and version", readmePath)
 }
 
 func captureHelpOutput(cliBinary string) (string, error) {
@@ -63,7 +73,44 @@ func generateHelpSection(helpOutput string) string {
 	return b.String()
 }
 
-func updateREADME(readmePath, helpSection string) error {
+func generateVersionExamplesSection(version string) string {
+	var b strings.Builder
+	b.WriteString("For Linux:\n\n")
+	b.WriteString("```bash\n")
+	linuxURL := fmt.Sprintf(
+		"curl -L -o runvoy-cli-linux-arm64.tar.gz "+
+			"https://github.com/runvoy/runvoy/releases/download/%s/runvoy_linux_amd64.tar.gz\n",
+		version,
+	)
+	b.WriteString(linuxURL)
+	b.WriteString("tar -xzf runvoy_linux_amd64.tar.gz\n")
+	b.WriteString("mv runvoy_linux_amd64/runvoy $(go env GOPATH)/bin/runvoy\n")
+	b.WriteString("```\n\n")
+	b.WriteString("For macOS:\n\n")
+	b.WriteString("```bash\n")
+	macosURL := fmt.Sprintf(
+		"curl -L -o runvoy_linux_amd64.tar.gz "+
+			"https://github.com/runvoy/runvoy/releases/download/%s/runvoy_darwin_arm64.tar.gz\n",
+		version,
+	)
+	b.WriteString(macosURL)
+	b.WriteString("tar -xzf runvoy_darwin_arm64.tar.gz\n")
+	b.WriteString("xattr -dr com.apple.quarantine runvoy_darwin_arm64/runvoy\n")
+	b.WriteString("codesign -s - --deep --force runvoy_darwin_arm64/runvoy\n")
+	b.WriteString("mv runvoy_darwin_arm64/runvoy $(go env GOPATH)/bin/runvoy\n")
+	b.WriteString("```\n")
+	return b.String()
+}
+
+func readVersion(versionPath string) (string, error) {
+	content, err := os.ReadFile(versionPath) //nolint:gosec // G304: VERSION path is a constant
+	if err != nil {
+		return "", fmt.Errorf("failed to read %s: %w", versionPath, err)
+	}
+	return strings.TrimSpace(string(content)), nil
+}
+
+func updateREADME(readmePath, helpSection, versionExamplesSection string) error {
 	content, err := os.ReadFile(readmePath) //nolint:gosec // G304: README.md path is a constant
 	if err != nil {
 		return fmt.Errorf("failed to read %s: %w", readmePath, err)
@@ -71,21 +118,39 @@ func updateREADME(readmePath, helpSection string) error {
 
 	contentStr := string(content)
 
-	if !strings.Contains(contentStr, startMarker) || !strings.Contains(contentStr, endMarker) {
+	// Update CLI help section
+	if !strings.Contains(contentStr, cliHelpStartMarker) || !strings.Contains(contentStr, cliHelpEndMarker) {
 		return fmt.Errorf("could not find %s and %s markers in %s",
-			startMarker, endMarker, readmePath,
+			cliHelpStartMarker, cliHelpEndMarker, readmePath,
 		)
 	}
 
-	// Replace content between markers using regex
+	// Replace content between CLI help markers using regex
 	// Use (?s) flag to make . match newlines
-	pattern := regexp.MustCompile(
-		`(?s)` + regexp.QuoteMeta(startMarker) + `.*?` + regexp.QuoteMeta(endMarker),
+	cliHelpPattern := regexp.MustCompile(
+		`(?s)` + regexp.QuoteMeta(cliHelpStartMarker) + `.*?` + regexp.QuoteMeta(cliHelpEndMarker),
 	)
-	replacement := startMarker + "\n" + helpSection + "\n" + endMarker
-	newContent := pattern.ReplaceAllString(contentStr, replacement)
+	cliHelpReplacement := cliHelpStartMarker + "\n" + helpSection + "\n" + cliHelpEndMarker
+	contentStr = cliHelpPattern.ReplaceAllString(contentStr, cliHelpReplacement)
 
-	if err = os.WriteFile(readmePath, []byte(newContent), constants.ConfigFilePermissions); err != nil {
+	// Update version examples section
+	if !strings.Contains(contentStr, versionExamplesStartMarker) ||
+		!strings.Contains(contentStr, versionExamplesEndMarker) {
+		return fmt.Errorf("could not find %s and %s markers in %s",
+			versionExamplesStartMarker, versionExamplesEndMarker, readmePath,
+		)
+	}
+
+	// Replace version examples between markers using regex
+	// Use (?s) flag to make . match newlines
+	versionExamplesPattern := regexp.MustCompile(
+		`(?s)` + regexp.QuoteMeta(versionExamplesStartMarker) + `.*?` + regexp.QuoteMeta(versionExamplesEndMarker),
+	)
+	versionExamplesReplacement := versionExamplesStartMarker + "\n" +
+		versionExamplesSection + "\n" + versionExamplesEndMarker
+	contentStr = versionExamplesPattern.ReplaceAllString(contentStr, versionExamplesReplacement)
+
+	if err = os.WriteFile(readmePath, []byte(contentStr), constants.ConfigFilePermissions); err != nil {
 		return fmt.Errorf("failed to write %s: %w", readmePath, err)
 	}
 

@@ -84,7 +84,7 @@ Runvoy is composed of 3 main parts (see [#architecture](#architecture) for more 
 
 - **API key authentication** - Secure access with hashed API keys (SHA-256)
 - **Customizable container task and execution roles** - Register Docker images with custom task and execution roles to e.g. run Terraform with the right permissions to access AWS resources (currently only AWS ECS is supported)
-- **Automatic git cloning** - Optionally clone a (public or private) Git repository into the container working directory
+- **Automatic git cloning** - Optionally clone a (public or private) Git repository into the container working directory (see [Build Caddy example](.runvoy/build-caddy-example.yml))
 - **User access management** - Role based and ownership access control for the backend API. Runvoy admins define roles and permissions for users, non-admin users can only access secrets / select Docker images / see logs of executions they are allowed to
 - **Native cloud provider logging integration** - Full execution logs and audit trails with request ID tracking
 - **Reusable playbooks** - Store and reuse command execution configurations in YAML files, commit to a repository and share with your team to execute commands consistently (see [Terraform example](.runvoy/terraform-example.yml))
@@ -95,7 +95,7 @@ Runvoy is composed of 3 main parts (see [#architecture](#architecture) for more 
 
 ### Roadmap (NOT IMPLEMENTED YET!)
 
-- **Multi-cloud support** - Backend support for other execution platforms, cloud providers (GCP, Azure...), Kubernetes, ...
+- **Multi-cloud support** - Backend support for other execution platforms, cloud providers (GCP, Azure...), or even other compute platforms like Kubernetes if it makes sense
 - **Robust log streaming** - Right now log streaming is lossy, more robust streaming mechanism on top of CloudWatch Logs is needed.
 - **Timeouts for command execution** - Send timed SIGTERM to the command execution if it doesn't complete within the timeout period
 - **Lock management for concurrent command execution** - Prevent multiple users from executing the same command concurrently
@@ -106,10 +106,11 @@ Runvoy is composed of 3 main parts (see [#architecture](#architecture) for more 
 
 Download the latest release from the [releases page](https://github.com/runvoy/runvoy/releases), e.g.
 
+<!-- VERSION_EXAMPLES_START -->
 For Linux:
 
 ```bash
-curl -L -o runvoy-cli-linux-arm64.tar.gz https://github.com/runvoy/runvoy/releases/download/v0.1.0/runvoy_linux_amd64.tar.gz
+curl -L -o runvoy-cli-linux-arm64.tar.gz https://github.com/runvoy/runvoy/releases/download/v0.2.0/runvoy_linux_amd64.tar.gz
 tar -xzf runvoy_linux_amd64.tar.gz
 mv runvoy_linux_amd64/runvoy $(go env GOPATH)/bin/runvoy
 ```
@@ -117,12 +118,14 @@ mv runvoy_linux_amd64/runvoy $(go env GOPATH)/bin/runvoy
 For macOS:
 
 ```bash
-curl -L -o runvoy_linux_amd64.tar.gz https://github.com/runvoy/runvoy/releases/download/v0.1.0/runvoy_darwin_arm64.tar.gz
+curl -L -o runvoy_linux_amd64.tar.gz https://github.com/runvoy/runvoy/releases/download/v0.2.0/runvoy_darwin_arm64.tar.gz
 tar -xzf runvoy_darwin_arm64.tar.gz
 xattr -dr com.apple.quarantine runvoy_darwin_arm64/runvoy
 codesign -s - --deep --force runvoy_darwin_arm64/runvoy
 mv runvoy_darwin_arm64/runvoy $(go env GOPATH)/bin/runvoy
 ```
+
+<!-- VERSION_EXAMPLES_END -->
 
 ### Deploying the backend infrastructure
 
@@ -133,7 +136,7 @@ Requirements:
 This will bootstrap the backend infrastructure and seed the admin user:
 
 ```bash
-runvoy infra apply --configure --seed-admin-user admin@example.com
+runvoy infra apply --configure --region eu-west-1 --seed-admin-user admin@example.com
 ```
 
 #### Creating a new user
@@ -169,7 +172,7 @@ runvoy --help
 ```
 
 ```text
-runvoy - v0.2.0-20251120-4928b0b
+runvoy - v0.2.0-20251120-1ea2532
 Isolated, repeatable execution environments for your commands
 
 Usage:
