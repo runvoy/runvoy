@@ -280,8 +280,8 @@ func (c *Client) GetExecutionStatus(ctx context.Context, executionID string) (*a
 // Returns nil response if the execution was already terminated (204 No Content)
 func (c *Client) KillExecution(ctx context.Context, executionID string) (*api.KillExecutionResponse, error) {
 	httpReq := Request{
-		Method: "POST",
-		Path:   fmt.Sprintf("/api/v1/executions/%s/kill", executionID),
+		Method: "DELETE",
+		Path:   fmt.Sprintf("/api/v1/executions/%s", executionID),
 	}
 
 	httpResp, err := c.Do(ctx, httpReq)

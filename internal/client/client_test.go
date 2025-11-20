@@ -522,29 +522,27 @@ func TestClient_GetExecutionStatus(t *testing.T) {
 	})
 }
 
-func TestClient_KillExecution(t *testing.T) { //nolint:dupl
+func TestClient_KillExecution(t *testing.T) {
 	t.Run("successful execution kill", func(t *testing.T) {
-		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			assert.Equal(t, "POST", r.Method)
-			assert.True(t, strings.HasPrefix(r.URL.Path, "/api/v1/executions/"))
-			assert.True(t, strings.HasSuffix(r.URL.Path, "/kill"))
+		handler := func(w http.ResponseWriter, r *http.Request) {
+			assert.Equal(t, "DELETE", r.Method)
+			assert.Equal(t, "/api/v1/executions/exec-123", r.URL.Path)
 
 			w.WriteHeader(http.StatusOK)
 			_ = json.NewEncoder(w).Encode(api.KillExecutionResponse{
 				ExecutionID: "exec-123",
 				Message:     "Execution kill started successfully",
 			})
-		}))
+		}
+		server := httptest.NewServer(http.HandlerFunc(handler))
 		defer server.Close()
 
-		cfg := &config.Config{
+		c := New(&config.Config{
 			APIEndpoint: server.URL,
 			APIKey:      "test-api-key",
-		}
-		c := New(cfg, testutil.SilentLogger())
+		}, testutil.SilentLogger())
 
 		resp, err := c.KillExecution(context.Background(), "exec-123")
-
 		require.NoError(t, err)
 		require.NotNil(t, resp)
 		assert.Equal(t, "exec-123", resp.ExecutionID)
@@ -798,7 +796,7 @@ func TestClient_ListImages(t *testing.T) {
 	})
 }
 
-func TestClient_UnregisterImage(t *testing.T) { //nolint:dupl
+func TestClient_UnregisterImage(t *testing.T) {
 	t.Run("successful image unregistration", func(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			assert.Equal(t, "DELETE", r.Method)
@@ -1293,9 +1291,8 @@ func TestClient_GetImage(t *testing.T) {
 func TestClient_KillExecution_NoContent(t *testing.T) {
 	t.Run("execution already terminated returns nil", func(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			assert.Equal(t, "POST", r.Method)
-			assert.True(t, strings.HasPrefix(r.URL.Path, "/api/v1/executions/"))
-			assert.True(t, strings.HasSuffix(r.URL.Path, "/kill"))
+			assert.Equal(t, "DELETE", r.Method)
+			assert.Equal(t, "/api/v1/executions/exec-already-done", r.URL.Path)
 
 			// Return 204 No Content for already terminated execution
 			w.WriteHeader(http.StatusNoContent)
