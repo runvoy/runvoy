@@ -92,6 +92,7 @@ Runvoy is composed of 3 main parts (see [#architecture](#architecture) for more 
 - **Real-time WebSocket streaming** - CLI and web viewer receive live logs over authenticated WebSocket connections
 - **Unix-style output streams** - Separate CLI logs (stderr) from data (stdout) for easy piping and scripting
 - **IaC deployment** - Deploy complete backend infrastructure with IaC templates (currently only AWS CloudFormation is supported, but with plans to extend support to other cloud providers in the future)
+- **Single multi-platform binary deployment** - Download a single binary (tarball is ~ 6MB) and run it directly from the command line, no need to install any other dependencies
 
 ### Roadmap (NOT IMPLEMENTED YET!)
 
@@ -172,7 +173,7 @@ runvoy --help
 ```
 
 ```text
-runvoy - v0.2.0-20251120-baef362
+runvoy - v0.2.0-20251120-533bc75
 Isolated, repeatable execution environments for your commands
 
 Usage:
