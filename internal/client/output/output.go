@@ -336,6 +336,7 @@ func (s *Spinner) Stop() {
 	if !s.running {
 		return
 	}
+	s.running = false
 	s.done <- true
 	_, _ = fmt.Fprint(Stderr, "\r"+strings.Repeat(" ", len(s.message)+10)+"\r") //nolint:mnd
 }

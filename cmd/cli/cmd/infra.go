@@ -138,27 +138,21 @@ func init() {
 }
 
 func infraApplyRun(cmd *cobra.Command, _ []string) {
-	ctx := cmd.Context()
-
-	// Determine version to use
 	version := infraApplyVersion
 	if version == "" {
 		version = *constants.GetVersion()
 	}
 
-	// Create applier for the specified provider
-	applier, err := infra.NewDeployer(ctx, infraApplyProvider, infraApplyRegion)
+	applier, err := infra.NewDeployer(cmd.Context(), infraApplyProvider, infraApplyRegion)
 	if err != nil {
 		output.Fatalf("failed to initialize applier: %v", err)
 	}
 
-	// Resolve template for display purposes
 	templateSource, err := infra.ResolveTemplate(infraApplyProvider, infraApplyTemplate, version, applier.GetRegion())
 	if err != nil {
 		output.Fatalf("failed to resolve template: %v", err)
 	}
 
-	// Display application info
 	output.Infof("Applying infrastructure changes")
 	output.KeyValue("Provider", infraApplyProvider)
 	output.KeyValue("Stack name", infraApplyStackName)
@@ -171,7 +165,6 @@ func infraApplyRun(cmd *cobra.Command, _ []string) {
 	output.KeyValue("Region", applier.GetRegion())
 	output.Blank()
 
-	// Prepare apply options
 	opts := &infra.DeployOptions{
 		StackName:  infraApplyStackName,
 		Template:   infraApplyTemplate,
@@ -181,46 +174,57 @@ func infraApplyRun(cmd *cobra.Command, _ []string) {
 		Region:     infraApplyRegion,
 	}
 
-	// Show operation type before starting
-	stackExists, err := applier.CheckStackExists(ctx, infraApplyStackName)
+	stackExists, err := applier.CheckStackExists(cmd.Context(), infraApplyStackName)
 	if err != nil {
 		output.Fatalf("failed to check stack status: %v", err)
 	}
 
+	msg := "Creating new stack..."
 	if stackExists {
-		output.Infof("Updating existing stack...")
-	} else {
-		output.Infof("Creating new stack...")
+		msg = "Updating existing stack..."
 	}
+	spinner := output.NewSpinner(msg)
+	spinner.Start()
 
-	// Apply the stack
-	result, err := applier.Deploy(ctx, opts)
+	result, err := applier.Deploy(cmd.Context(), opts)
 	if err != nil {
-		output.Fatalf("failed to apply stack: %v", err)
+		spinner.Error("Failed to apply stack")
+		output.Fatalf(err.Error())
 	}
 
 	handleApplyResult(
 		result,
-		infraApplyConfigure,
-		infraApplySeedAdminUser,
+		spinner,
+		infraApplyConfigure, infraApplySeedAdminUser,
 		infraApplyRegion,
 	)
 }
 
 // handleApplyResult handles the result of an application operation
-func handleApplyResult(result *infra.DeployResult, configure bool, seedAdminUserEmail, region string) {
+func handleApplyResult(
+	result *infra.DeployResult,
+	spinner *output.Spinner,
+	configure bool,
+	seedAdminUserEmail,
+	region string,
+) {
 	if result.NoChanges {
-		output.Successf("Stack is already up to date")
+		spinner.Success("Stack is already up to date")
 		return
 	}
 
 	const stackStatusInProgress = "IN_PROGRESS"
 	if result.Status == stackStatusInProgress {
-		output.Successf("Stack %s initiated. Use cloud console or CLI to monitor progress.", result.OperationType)
+		spinner.Success(
+			fmt.Sprintf(
+				"Stack %s initiated. Use cloud console or CLI to monitor progress.",
+				result.OperationType,
+			),
+		)
 		return
 	}
 
-	output.Successf("Stack operation completed with status: %s", result.Status)
+	spinner.Success("Stack operation completed with status: " + result.Status)
 
 	if len(result.Outputs) > 0 {
 		output.Blank()
@@ -321,20 +325,17 @@ func saveAPIKeyToConfig(apiKey, endpoint string) error {
 func infraDestroyRun(cmd *cobra.Command, _ []string) {
 	ctx := cmd.Context()
 
-	// Create deployer for the specified provider
 	applier, err := infra.NewDeployer(ctx, infraDestroyProvider, infraDestroyRegion)
 	if err != nil {
 		output.Fatalf("failed to initialize deployer: %v", err)
 	}
 
-	// Display destruction info
 	output.Infof("Destroying infrastructure")
 	output.KeyValue("Provider", infraDestroyProvider)
 	output.KeyValue("Stack name", infraDestroyStackName)
 	output.KeyValue("Region", applier.GetRegion())
 	output.Blank()
 
-	// Check if stack exists
 	stackExists, err := applier.CheckStackExists(ctx, infraDestroyStackName)
 	if err != nil {
 		output.Fatalf("failed to check stack status: %v", err)
@@ -345,39 +346,41 @@ func infraDestroyRun(cmd *cobra.Command, _ []string) {
 		return
 	}
 
-	// Prepare destroy options
 	opts := &infra.DestroyOptions{
 		StackName: infraDestroyStackName,
 		Wait:      infraDestroyWait,
 		Region:    infraDestroyRegion,
 	}
 
-	// Destroy the stack
+	spinner := output.NewSpinner("Destroying stack...")
+	spinner.Start()
+
 	result, err := applier.Destroy(ctx, opts)
 	if err != nil {
-		output.Fatalf("failed to destroy stack: %v", err)
+		spinner.Error("Failed to destroy stack")
+		output.Fatalf(err.Error())
 	}
 
-	handleDestroyResult(result)
+	handleDestroyResult(result, spinner)
 }
 
 // handleDestroyResult handles the result of a destroy operation
-func handleDestroyResult(result *infra.DestroyResult) {
+func handleDestroyResult(result *infra.DestroyResult, spinner *output.Spinner) {
 	if result.NotFound {
-		output.Successf("Stack was already deleted")
+		spinner.Success("Stack was already deleted")
 		return
 	}
 
 	const stackStatusInProgress = "IN_PROGRESS"
 	if result.Status == stackStatusInProgress {
-		output.Successf("Stack deletion initiated. Use cloud console or CLI to monitor progress.")
+		spinner.Success("Stack deletion initiated. Use cloud console or CLI to monitor progress.")
 		return
 	}
 
 	if result.Status == "DELETE_COMPLETE" {
-		output.Successf("Stack successfully destroyed")
+		spinner.Success("Stack successfully destroyed")
 		return
 	}
 
-	output.Successf("Stack deletion completed with status: %s", result.Status)
+	spinner.Success("Stack deletion completed with status: " + result.Status)
 }
