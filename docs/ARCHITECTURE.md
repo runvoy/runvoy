@@ -115,7 +115,7 @@ DELETE /api/v1/secrets/{name}              - Delete a secret (auth)
 GET    /api/v1/executions                  - List executions (auth)
 GET    /api/v1/executions/{id}/logs        - Fetch execution logs (auth)
 GET    /api/v1/executions/{id}/status      - Get execution status (auth)
-DELETE /api/v1/executions/{id}/kill        - Terminate a running execution (auth)
+DELETE /api/v1/executions/{id}             - Terminate a running execution (auth)
 ```
 
 Both Lambda and local HTTP server use identical routing logic, ensuring development/production parity.
