@@ -129,7 +129,8 @@
         </p>
     </article>
 {:else}
-    <form on:submit|preventDefault={handleSubmit} class="run-form">
+    <article class="run-card">
+        <form on:submit|preventDefault={handleSubmit} class="run-form">
         <fieldset>
             <legend>Command</legend>
             <label for="command-input">
@@ -249,6 +250,7 @@
             </button>
         </div>
     </form>
+    </article>
 {/if}
 
 <style>
@@ -257,6 +259,13 @@
         border: 1px solid var(--pico-card-border-color);
         border-radius: var(--pico-border-radius);
         padding: 1.5rem;
+    }
+
+    .run-card {
+        background: var(--pico-card-background-color);
+        border: 1px solid var(--pico-card-border-color);
+        border-radius: var(--pico-border-radius);
+        padding: 2rem;
     }
 
     .run-form {
@@ -313,8 +322,9 @@
     }
 
     @media (max-width: 768px) {
-        .info-card {
-            padding: 1rem;
+        .info-card,
+        .run-card {
+            padding: 1.5rem;
         }
 
         .run-form {

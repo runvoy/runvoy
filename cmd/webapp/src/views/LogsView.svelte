@@ -244,17 +244,24 @@
         </p>
     </article>
 {:else}
-    <section>
+    <article class="logs-card">
         <StatusBar onKill={handleKillExecution} />
         <WebSocketStatus />
         <LogControls />
         <LogViewer />
-    </section>
+    </article>
 {/if}
 
 <style>
     article {
         margin-top: 2rem;
+    }
+
+    .logs-card {
+        background: var(--pico-card-background-color);
+        border: 1px solid var(--pico-card-border-color);
+        border-radius: var(--pico-border-radius);
+        padding: 2rem;
     }
 
     .status-check-error-modal {
@@ -300,6 +307,10 @@
     @media (max-width: 768px) {
         article {
             margin-top: 1.5rem;
+        }
+
+        .logs-card {
+            padding: 1.5rem;
         }
 
         .status-check-error-modal {
