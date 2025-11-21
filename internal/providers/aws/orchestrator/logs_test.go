@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	appErrors "runvoy/internal/errors"
 	awsConstants "runvoy/internal/providers/aws/constants"
@@ -476,24 +477,39 @@ func TestDiscoverLogGroups(t *testing.T) {
 func TestTransformBackendLogsResults(t *testing.T) {
 	runner := &Runner{}
 
-	t.Run("transforms CloudWatch Logs Insights results", func(t *testing.T) {
+	t.Run("parses JSON message timestamps", func(t *testing.T) {
 		results := [][]cwlTypes.ResultField{
 			{
 				{Field: aws.String("@timestamp"), Value: aws.String("2025-11-21T16:40:00Z")},
-				{Field: aws.String("@message"), Value: aws.String("Request started")},
-			},
-			{
-				{Field: aws.String("@timestamp"), Value: aws.String("2025-11-21T16:40:01Z")},
-				{Field: aws.String("@message"), Value: aws.String("Request completed")},
+				{Field: aws.String("@message"), Value: aws.String(
+					`{"time":"2025-11-21T16:40:01.123456789Z","level":"INFO","msg":"Request started"}`)},
 			},
 		}
 
 		logs := runner.transformBackendLogsResults(results)
-		require.Len(t, logs, 2)
-		assert.Equal(t, "Request started", logs[0].Message)
-		assert.Equal(t, "Request completed", logs[1].Message)
+		require.Len(t, logs, 1)
+		assert.Equal(t, `{"time":"2025-11-21T16:40:01.123456789Z","level":"INFO","msg":"Request started"}`, logs[0].Message)
+		// Timestamp should come from message JSON, not CloudWatch @timestamp
 		assert.Greater(t, logs[0].Timestamp, int64(0))
-		assert.Greater(t, logs[1].Timestamp, int64(0))
+		// Verify it parsed the correct time (2025-11-21T16:40:01.123456789Z)
+		expectedTime := time.Date(2025, 11, 21, 16, 40, 1, 123456789, time.UTC)
+		assert.Equal(t, expectedTime.UnixMilli(), logs[0].Timestamp)
+	})
+
+	t.Run("falls back to CloudWatch timestamp for non-JSON messages", func(t *testing.T) {
+		results := [][]cwlTypes.ResultField{
+			{
+				{Field: aws.String("@timestamp"), Value: aws.String("2025-11-21T16:40:00.500Z")},
+				{Field: aws.String("@message"), Value: aws.String("Plain text message")},
+			},
+		}
+
+		logs := runner.transformBackendLogsResults(results)
+		require.Len(t, logs, 1)
+		assert.Equal(t, "Plain text message", logs[0].Message)
+		// Timestamp should come from CloudWatch @timestamp
+		expectedTime := time.Date(2025, 11, 21, 16, 40, 0, 500000000, time.UTC)
+		assert.Equal(t, expectedTime.UnixMilli(), logs[0].Timestamp)
 	})
 
 	t.Run("handles empty results", func(t *testing.T) {
@@ -516,19 +532,32 @@ func TestTransformBackendLogsResults(t *testing.T) {
 		assert.Equal(t, "Test message", logs[0].Message)
 	})
 
-	t.Run("handles invalid timestamp format gracefully", func(t *testing.T) {
+	t.Run("handles missing timestamp gracefully", func(t *testing.T) {
 		results := [][]cwlTypes.ResultField{
 			{
-				{Field: aws.String("@timestamp"), Value: aws.String("invalid-timestamp")},
-				{Field: aws.String("@message"), Value: aws.String("Test message")},
+				{Field: aws.String("@message"), Value: aws.String("Test message with no timestamp")},
 			},
 		}
 
 		logs := runner.transformBackendLogsResults(results)
 		require.Len(t, logs, 1)
-		assert.Equal(t, "Test message", logs[0].Message)
-		// Timestamp should be 0 due to parse error
+		assert.Equal(t, "Test message with no timestamp", logs[0].Message)
+		// Timestamp should be 0 when not available
 		assert.Equal(t, int64(0), logs[0].Timestamp)
+	})
+
+	t.Run("handles JSON without time field", func(t *testing.T) {
+		results := [][]cwlTypes.ResultField{
+			{
+				{Field: aws.String("@timestamp"), Value: aws.String("2025-11-21T16:40:00Z")},
+				{Field: aws.String("@message"), Value: aws.String(`{"msg":"no time field"}`)},
+			},
+		}
+
+		logs := runner.transformBackendLogsResults(results)
+		require.Len(t, logs, 1)
+		// Falls back to CloudWatch timestamp
+		assert.Greater(t, logs[0].Timestamp, int64(0))
 	})
 }
 

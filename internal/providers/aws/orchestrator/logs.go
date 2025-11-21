@@ -2,6 +2,7 @@ package orchestrator
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -104,6 +105,11 @@ func (r *Runner) FetchBackendLogs(ctx context.Context, requestID string) ([]api.
 		return nil, err
 	}
 
+	// We give some headroom for CloudWatch Logs Insights query to be ready
+	// This is a workaround for the fact that the query is not immediately ready
+	// and we need to wait for it to be ready before we can get the results
+	time.Sleep(time.Duration(awsConstants.CloudWatchLogsQueryInitialDelaySeconds) * time.Second)
+
 	queryOutput, err := r.pollBackendLogsQuery(ctx, reqLogger, queryID)
 	if err != nil {
 		return nil, err
@@ -195,7 +201,9 @@ func (r *Runner) pollBackendLogsQuery(
 ) (*cloudwatchlogs.GetQueryResultsOutput, error) {
 	var queryOutput *cloudwatchlogs.GetQueryResultsOutput
 	for i := range awsConstants.CloudWatchLogsQueryMaxAttempts {
-		time.Sleep(time.Duration(awsConstants.CloudWatchLogsQueryPollIntervalMs) * time.Millisecond)
+		if i > 0 {
+			time.Sleep(time.Duration(awsConstants.CloudWatchLogsQueryPollIntervalMs) * time.Millisecond)
+		}
 
 		getResultsArgs := []any{
 			"operation", "CloudWatchLogs.GetQueryResults",
@@ -235,13 +243,16 @@ func (r *Runner) pollBackendLogsQuery(
 	return queryOutput, nil
 }
 
-// transformBackendLogsResults transforms CloudWatch Logs Insights results to LogEvent format
+// transformBackendLogsResults transforms CloudWatch Logs Insights results to LogEvent format.
+// Attempts to extract timestamps from JSON-formatted log messages first, then falls back
+// to CloudWatch's @timestamp field if message parsing fails.
 func (r *Runner) transformBackendLogsResults(
 	results [][]cwlTypes.ResultField,
 ) []api.LogEvent {
 	logs := make([]api.LogEvent, 0, len(results))
 	for _, result := range results {
 		logEntry := api.LogEvent{}
+		var cloudwatchTimestamp string
 
 		for _, field := range result {
 			fieldName := aws.ToString(field.Field)
@@ -249,16 +260,64 @@ func (r *Runner) transformBackendLogsResults(
 
 			switch fieldName {
 			case "@timestamp":
-				t, parseErr := time.Parse(time.RFC3339, fieldValue)
-				if parseErr == nil {
-					logEntry.Timestamp = t.UnixMilli()
-				}
+				cloudwatchTimestamp = fieldValue
 			case "@message":
 				logEntry.Message = fieldValue
 			}
 		}
 
+		// Try to parse timestamp from message JSON first (preferred)
+		if !parseMessageTimestamp(&logEntry, logEntry.Message) {
+			// Fall back to CloudWatch @timestamp if message parsing fails
+			parseCloudWatchTimestamp(&logEntry, cloudwatchTimestamp)
+		}
+
 		logs = append(logs, logEntry)
 	}
 	return logs
+}
+
+// parseMessageTimestamp extracts the timestamp from JSON-formatted log messages.
+// Expected format: {"time":"2025-11-21T01:00:24.951407774Z",...}
+// Returns true if successfully parsed, false otherwise.
+func parseMessageTimestamp(logEntry *api.LogEvent, message string) bool {
+	var jsonMsg map[string]any
+	if err := json.Unmarshal([]byte(message), &jsonMsg); err != nil {
+		return false // Not JSON, will try CloudWatch timestamp instead
+	}
+
+	timeStr, ok := jsonMsg["time"].(string)
+	if !ok {
+		return false
+	}
+
+	// CloudWatch logs use RFC3339Nano format
+	t, err := time.Parse(time.RFC3339Nano, timeStr)
+	if err != nil {
+		return false
+	}
+
+	logEntry.Timestamp = t.UnixMilli()
+	return true
+}
+
+// parseCloudWatchTimestamp parses the @timestamp field from CloudWatch Logs Insights.
+// Handles both RFC3339 and RFC3339Nano formats.
+func parseCloudWatchTimestamp(logEntry *api.LogEvent, timestamp string) {
+	if timestamp == "" {
+		return
+	}
+
+	// Try RFC3339Nano first (most common from CloudWatch)
+	t, err := time.Parse(time.RFC3339Nano, timestamp)
+	if err == nil {
+		logEntry.Timestamp = t.UnixMilli()
+		return
+	}
+
+	// Fall back to RFC3339
+	t, err = time.Parse(time.RFC3339, timestamp)
+	if err == nil {
+		logEntry.Timestamp = t.UnixMilli()
+	}
 }
