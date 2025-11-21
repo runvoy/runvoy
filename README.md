@@ -6,11 +6,11 @@
     <em>Run arbitrary commands on remote ephemeral containers — no complex setup required.</em>
 </p>
 <p align="center">
-  <a href="https://github.com/runvoy/runvoy/actions/workflows/tests-and-coverage.yml" target="_blank">
-      <img src="https://github.com/runvoy/runvoy/actions/workflows/tests-and-coverage.yml/badge.svg?event=push&branch=main" alt="Tests">
+  <a href="https://github.com/runvoy/runvoy/actions/workflows/tests-and-coverage-go.yml" target="_blank">
+      <img src="https://github.com/runvoy/runvoy/actions/workflows/tests-and-coverage-go.yml/badge.svg?event=push&branch=main" alt="Tests (Go)">
   </a>
-  <a href="https://github.com/runvoy/runvoy/actions/workflows/golangci-lint.yml" target="_blank">
-      <img src="https://github.com/runvoy/runvoy/actions/workflows/golangci-lint.yml/badge.svg?event=push&branch=main" alt="Lint">
+  <a href="https://github.com/runvoy/runvoy/actions/workflows/tests-and-coverage-svelte.yml" target="_blank">
+      <img src="https://github.com/runvoy/runvoy/actions/workflows/tests-and-coverage-svelte.yml/badge.svg?event=push&branch=main" alt="Tests (Svelte)">
   </a>
   <a href="https://codecov.io/github/runvoy/runvoy" >
       <img src="https://codecov.io/github/runvoy/runvoy/graph/badge.svg?token=Q673GMB33N"/>
@@ -184,7 +184,7 @@ runvoy --help
 ```
 
 ```text
-runvoy - v0.2.0-20251121-5eff974
+runvoy - v0.2.0-20251121-7fca01a
 Isolated, repeatable execution environments for your commands
 
 Usage:
