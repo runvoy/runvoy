@@ -7,6 +7,9 @@ const CloudWatchLogsDescribeLimit = int32(50)
 // CloudWatchLogsEventsLimit is the limit for CloudWatch Logs GetLogEvents API
 const CloudWatchLogsEventsLimit = int32(10000)
 
+// LogGroupPrefix is the prefix for all runvoy Lambda log groups
+const LogGroupPrefix = "/aws/lambda/runvoy-"
+
 // ScheduledEventHealthReconcile is the expected runvoy_event payload value
 // for EventBridge scheduled events that trigger health reconciliation.
 const ScheduledEventHealthReconcile = "health_reconcile"

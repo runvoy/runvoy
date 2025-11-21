@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log/slog"
 	"slices"
-	"strings"
 	"time"
 
 	"runvoy/internal/api"
@@ -122,19 +121,24 @@ func (r *Runner) FetchBackendLogs(ctx context.Context, requestID string) (*api.B
 	}, nil
 }
 
-// startBackendLogsQuery starts a CloudWatch Logs Insights query across orchestrator and event processor Lambda logs
+// startBackendLogsQuery starts a CloudWatch Logs Insights query across all runvoy Lambda logs
 func (r *Runner) startBackendLogsQuery(
 	ctx context.Context,
 	log *slog.Logger,
 	requestID string,
 ) (string, error) {
+	logGroups, err := r.discoverLogGroups(ctx, log)
+	if err != nil {
+		return "", err
+	}
+
+	if len(logGroups) == 0 {
+		return "", appErrors.ErrServiceUnavailable("no Lambda log groups found matching prefix", nil)
+	}
+
 	queryString := fmt.Sprintf(`fields @timestamp, @message
 		| filter %s = "%s"
 		| sort @timestamp asc`, constants.RequestIDLogField, requestID)
-
-	logGroups := []string{r.cfg.LogGroup}
-	eventProcessorLogGroup := deriveEventProcessorLogGroup(r.cfg.LogGroup)
-	logGroups = append(logGroups, eventProcessorLogGroup)
 
 	startQueryArgs := []any{
 		"operation", "CloudWatchLogs.StartQuery",
@@ -147,7 +151,7 @@ func (r *Runner) startBackendLogsQuery(
 	startOutput, err := r.cwlClient.StartQuery(ctx, &cloudwatchlogs.StartQueryInput{
 		LogGroupNames: logGroups,
 		QueryString:   aws.String(queryString),
-		StartTime:     aws.Int64(0), // Search all historical logs
+		StartTime:     aws.Int64(0),
 		EndTime:       aws.Int64(time.Now().Unix()),
 	})
 	if err != nil {
@@ -159,14 +163,31 @@ func (r *Runner) startBackendLogsQuery(
 	return queryID, nil
 }
 
-// deriveEventProcessorLogGroup derives the event processor log group name from the orchestrator log group
-// Example: /aws/lambda/myapp-orchestrator -> /aws/lambda/myapp-event-processor
-func deriveEventProcessorLogGroup(orchestratorLogGroup string) string {
-	if base, ok := strings.CutSuffix(orchestratorLogGroup, "-orchestrator"); ok {
-		return base + "-event-processor"
+// discoverLogGroups discovers all log groups matching the runvoy Lambda prefix
+func (r *Runner) discoverLogGroups(ctx context.Context, _ *slog.Logger) ([]string, error) {
+	logGroups := []string{}
+	var nextToken *string
+
+	for {
+		out, err := r.cwlClient.DescribeLogGroups(ctx, &cloudwatchlogs.DescribeLogGroupsInput{
+			LogGroupNamePrefix: aws.String(awsConstants.LogGroupPrefix),
+			NextToken:          nextToken,
+		})
+		if err != nil {
+			return nil, appErrors.ErrInternalError("failed to discover log groups", err)
+		}
+
+		for i := range out.LogGroups {
+			logGroups = append(logGroups, aws.ToString(out.LogGroups[i].LogGroupName))
+		}
+
+		if out.NextToken == nil {
+			break
+		}
+		nextToken = out.NextToken
 	}
-	// Fallback: append -event-processor
-	return orchestratorLogGroup + "-event-processor"
+
+	return logGroups, nil
 }
 
 // pollBackendLogsQuery polls for CloudWatch Logs Insights query results

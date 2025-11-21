@@ -18,6 +18,11 @@ import (
 
 // Mock CloudWatch Logs client for testing
 type mockCloudWatchLogsClient struct {
+	describeLogGroupsFunc func(
+		ctx context.Context,
+		params *cloudwatchlogs.DescribeLogGroupsInput,
+		optFns ...func(*cloudwatchlogs.Options),
+	) (*cloudwatchlogs.DescribeLogGroupsOutput, error)
 	describeLogStreamsFunc func(
 		ctx context.Context,
 		params *cloudwatchlogs.DescribeLogStreamsInput,
@@ -38,6 +43,17 @@ type mockCloudWatchLogsClient struct {
 		params *cloudwatchlogs.GetQueryResultsInput,
 		optFns ...func(*cloudwatchlogs.Options),
 	) (*cloudwatchlogs.GetQueryResultsOutput, error)
+}
+
+func (m *mockCloudWatchLogsClient) DescribeLogGroups(
+	_ context.Context,
+	params *cloudwatchlogs.DescribeLogGroupsInput,
+	optFns ...func(*cloudwatchlogs.Options),
+) (*cloudwatchlogs.DescribeLogGroupsOutput, error) {
+	if m.describeLogGroupsFunc != nil {
+		return m.describeLogGroupsFunc(context.Background(), params, optFns...)
+	}
+	return &cloudwatchlogs.DescribeLogGroupsOutput{}, nil
 }
 
 func (m *mockCloudWatchLogsClient) DescribeLogStreams(
