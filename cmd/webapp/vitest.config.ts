@@ -2,6 +2,7 @@ import { defineConfig } from 'vitest/config';
 import { sveltekit } from '@sveltejs/kit/vite';
 
 export default defineConfig({
+	// @ts-expect-error - SvelteKit plugin type mismatch due to vite version differences between vite and vitest's bundled vite
 	plugins: [sveltekit()],
 	test: {
 		globals: true,
@@ -18,17 +19,12 @@ export default defineConfig({
 				'src/**/*.d.ts'
 			],
 			// Enforce minimum coverage thresholds
-			// Fails tests if coverage drops below these percentages
-			lines: 70,
-			functions: 70,
-			branches: 60,
-			statements: 70,
-			// Check coverage for each file individually
-			perFile: true,
-			// Skip coverage for files in these paths
-			skipFull: false,
-			// Show which files are below thresholds
-			reportOnFailure: true
+			thresholds: {
+				lines: 70,
+				functions: 70,
+				branches: 60,
+				statements: 70
+			}
 		}
 	}
 });

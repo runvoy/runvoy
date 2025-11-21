@@ -234,22 +234,20 @@ describe('APIClient', () => {
 
     describe('listExecutions', () => {
         it('should fetch list of executions', async () => {
-            const mockResponse = {
-                executions: [
-                    {
-                        execution_id: 'exec-1',
-                        status: 'SUCCEEDED',
-                        started_at: '2025-01-01T00:00:00Z',
-                        exit_code: 0
-                    },
-                    {
-                        execution_id: 'exec-2',
-                        status: 'FAILED',
-                        started_at: '2025-01-01T00:05:00Z',
-                        exit_code: 1
-                    }
-                ]
-            };
+            const mockResponse = [
+                {
+                    execution_id: 'exec-1',
+                    status: 'SUCCEEDED',
+                    started_at: '2025-01-01T00:00:00Z',
+                    exit_code: 0
+                },
+                {
+                    execution_id: 'exec-2',
+                    status: 'FAILED',
+                    started_at: '2025-01-01T00:05:00Z',
+                    exit_code: 1
+                }
+            ];
 
             vi.mocked(global.fetch).mockResolvedValueOnce({
                 ok: true,
@@ -264,7 +262,7 @@ describe('APIClient', () => {
                 }
             });
             expect(result).toEqual(mockResponse);
-            expect(result.executions).toHaveLength(2);
+            expect(result).toHaveLength(2);
         });
 
         it('should throw error when listExecutions fails', async () => {

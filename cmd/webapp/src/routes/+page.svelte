@@ -11,8 +11,12 @@
     import LogsView from '../views/LogsView.svelte';
     import ClaimView from '../views/ClaimView.svelte';
     import SettingsView from '../views/SettingsView.svelte';
+    import ListExecutionsView from '../views/ListExecutionsView.svelte';
 
     import '../styles/global.css';
+
+    // SvelteKit automatically passes params to route components
+    export const params = undefined;
 
     interface NavView {
         id: string;
@@ -26,6 +30,7 @@
 
     const views: NavView[] = [
         { id: VIEWS.RUN, label: 'Run Command' },
+        { id: VIEWS.LIST, label: 'Executions' },
         { id: VIEWS.CLAIM, label: 'Claim Key' },
         { id: VIEWS.LOGS, label: 'Logs' },
         { id: VIEWS.SETTINGS, label: 'Settings' }
@@ -34,6 +39,7 @@
 
     const viewComponents: Record<string, ComponentType> = {
         [VIEWS.RUN]: RunView,
+        [VIEWS.LIST]: ListExecutionsView,
         [VIEWS.CLAIM]: ClaimView,
         [VIEWS.LOGS]: LogsView,
         [VIEWS.SETTINGS]: SettingsView
@@ -58,7 +64,9 @@
     $: isConfigured = Boolean(apiClient);
 
     $: navViews = views.map((view) =>
-        view.id === VIEWS.LOGS ? { ...view, disabled: !isConfigured } : view
+        view.id === VIEWS.LOGS || view.id === VIEWS.LIST
+            ? { ...view, disabled: !isConfigured }
+            : view
     );
 
     $: if (!isConfigured) {
@@ -68,7 +76,9 @@
     $: currentComponent = viewComponents[$activeView] || RunView;
 
     $: componentProps =
-        $activeView === VIEWS.RUN || $activeView === VIEWS.LOGS ? { apiClient, isConfigured } : {};
+        $activeView === VIEWS.RUN || $activeView === VIEWS.LOGS || $activeView === VIEWS.LIST
+            ? { apiClient, isConfigured }
+            : {};
 </script>
 
 <main class="container">

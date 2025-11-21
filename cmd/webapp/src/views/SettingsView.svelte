@@ -1,6 +1,10 @@
 <script lang="ts">
     import { apiEndpoint, apiKey } from '../stores/config';
 
+    // These props are passed by parent component but not used in this view
+    export const apiClient = undefined;
+    export const isConfigured = undefined;
+
     const appVersion = import.meta.env.VITE_RUNVOY_VERSION || 'unknown';
 
     let showApiKey = false;

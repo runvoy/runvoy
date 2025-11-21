@@ -7,7 +7,8 @@ export const VIEWS = {
     LOGS: 'logs',
     RUN: 'run',
     CLAIM: 'claim',
-    SETTINGS: 'settings'
+    SETTINGS: 'settings',
+    LIST: 'list'
 } as const;
 
 export type ViewName = (typeof VIEWS)[keyof typeof VIEWS];

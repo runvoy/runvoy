@@ -43,9 +43,7 @@ export interface KillExecutionResponse {
     status: string;
 }
 
-export interface ListExecutionsResponse {
-    executions: Execution[];
-}
+export type ListExecutionsResponse = Execution[];
 
 export interface Execution {
     execution_id: string;

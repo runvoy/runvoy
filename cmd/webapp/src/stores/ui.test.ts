@@ -14,11 +14,12 @@ describe('UI Store', () => {
             expect(VIEWS.RUN).toBe('run');
             expect(VIEWS.CLAIM).toBe('claim');
             expect(VIEWS.SETTINGS).toBe('settings');
+            expect(VIEWS.LIST).toBe('list');
         });
 
-        it('should have four view types', () => {
+        it('should have five view types', () => {
             const viewNames = Object.keys(VIEWS);
-            expect(viewNames).toHaveLength(4);
+            expect(viewNames).toHaveLength(5);
         });
 
         it('should contain correct property names', () => {
@@ -26,6 +27,7 @@ describe('UI Store', () => {
             expect(Object.keys(VIEWS)).toContain('RUN');
             expect(Object.keys(VIEWS)).toContain('CLAIM');
             expect(Object.keys(VIEWS)).toContain('SETTINGS');
+            expect(Object.keys(VIEWS)).toContain('LIST');
         });
     });
 
@@ -50,8 +52,13 @@ describe('UI Store', () => {
             expect(get(activeView)).toBe(VIEWS.SETTINGS);
         });
 
+        it('should switch to LIST view', () => {
+            activeView.set(VIEWS.LIST);
+            expect(get(activeView)).toBe(VIEWS.LIST);
+        });
+
         it('should accept string values matching view types', () => {
-            const views: ViewName[] = ['logs', 'run', 'claim', 'settings'];
+            const views: ViewName[] = ['logs', 'run', 'claim', 'settings', 'list'];
 
             views.forEach((view) => {
                 activeView.set(view);
@@ -60,7 +67,7 @@ describe('UI Store', () => {
         });
 
         it('should allow switching between all views', () => {
-            const viewOrder = [VIEWS.RUN, VIEWS.LOGS, VIEWS.CLAIM, VIEWS.SETTINGS];
+            const viewOrder = [VIEWS.RUN, VIEWS.LOGS, VIEWS.CLAIM, VIEWS.SETTINGS, VIEWS.LIST];
 
             viewOrder.forEach((view) => {
                 activeView.set(view);
