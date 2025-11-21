@@ -181,7 +181,7 @@ runvoy --help
 ```
 
 ```text
-runvoy - v0.2.0-20251121-8292ce9
+runvoy - v0.2.0-20251121-d3068c5
 Isolated, repeatable execution environments for your commands
 
 Usage:
@@ -320,7 +320,7 @@ For detailed architecture information, see [ARCHITECTURE.md](docs/ARCHITECTURE.m
 
 ## Why Runvoy?
 
-For almost all my carer as a software engineer I frequently found myself in situations where I was an admin in need of a way to run commands and more importantly to allow my team members to run some of the same commands without me being in the way.
+As a software engineer I frequently found myself in situations where I was an admin in need of a way to run commands and more importantly to allow my team members to run some of the same commands without me being in the way.
 
 I've also always been fascinated by the idea of "thin clients" and delegating the heavy lifting and security concerns to the server while keeping the client simple and easy to use and setup: just "log in" and run the commands you're allowed to run, the server takes care of the rest.
 
