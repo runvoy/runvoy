@@ -13,6 +13,11 @@ fmt:
     go fmt ./...
     goimports -w .
 
+# Type check webapp TypeScript
+[working-directory: 'cmd/webapp']
+type-check-webapp:
+    npm run check
+
 # Lint/prettify webapp
 [working-directory: 'cmd/webapp']
 lint-webapp:

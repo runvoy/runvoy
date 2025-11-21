@@ -223,15 +223,23 @@
                                     type="text"
                                     placeholder="KEY"
                                     value={row.key}
-                                    on:input={(event) =>
-                                        updateEnvRow(row.id, 'key', event.target.value)}
+                                    on:input={(event) => {
+                                        const target = event.currentTarget;
+                                        if (target) {
+                                            updateEnvRow(row.id, 'key', target.value);
+                                        }
+                                    }}
                                 />
                                 <input
                                     type="text"
                                     placeholder="value"
                                     value={row.value}
-                                    on:input={(event) =>
-                                        updateEnvRow(row.id, 'value', event.target.value)}
+                                    on:input={(event) => {
+                                        const target = event.currentTarget;
+                                        if (target) {
+                                            updateEnvRow(row.id, 'value', target.value);
+                                        }
+                                    }}
                                 />
                                 <button
                                     type="button"

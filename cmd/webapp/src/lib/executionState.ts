@@ -57,9 +57,9 @@ export function switchExecution(
     if (updateHistory && typeof window !== 'undefined') {
         const urlParams = new URLSearchParams(window.location.search);
         urlParams.set('execution_id', trimmedId);
-        const resolvedPath = resolve(window.location.pathname);
+        const resolvedPath = resolve(window.location.pathname, {});
         const newUrl = `${resolvedPath}?${urlParams.toString()}`;
-        pushState(resolve(newUrl), { state: { executionId: trimmedId } });
+        pushState(resolve(newUrl, {}), { state: { executionId: trimmedId } });
     }
 }
 
@@ -83,8 +83,8 @@ export function clearExecution({ updateHistory = true }: ClearExecutionOptions =
         const urlParams = new URLSearchParams(window.location.search);
         urlParams.delete('execution_id');
         const newQuery = urlParams.toString();
-        const resolvedPath = resolve(window.location.pathname);
+        const resolvedPath = resolve(window.location.pathname, {});
         const newUrl = newQuery ? `${resolvedPath}?${newQuery}` : resolvedPath;
-        pushState(resolve(newUrl));
+        pushState(resolve(newUrl, {}), {});
     }
 }

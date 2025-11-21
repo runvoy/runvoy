@@ -20,6 +20,7 @@ export interface RunCommandResponse {
 export interface LogsResponse {
     events: LogEvent[];
     websocket_url: string;
+    status: string;
 }
 
 export interface LogEvent {

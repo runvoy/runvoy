@@ -56,5 +56,5 @@ build-lambda-zip lambda-name:
 
 # Build webapp
 [working-directory: 'cmd/webapp']
-build-webapp: lint-webapp
+build-webapp: type-check-webapp lint-webapp
     VITE_RUNVOY_VERSION={{build_version}} npx vite build

@@ -19,7 +19,7 @@
     import { connectWebSocket, disconnectWebSocket } from '../lib/websocket';
     import type APIClient from '../lib/api';
     import type { LogEvent } from '../types/stores';
-    import type { ApiError } from '../types/api';
+    import type { ApiError, ExecutionStatusResponse } from '../types/api';
 
     export let apiClient: APIClient | null = null;
     export let isConfigured = false;
@@ -78,12 +78,13 @@
 
         // Smart initial wait: Check execution status first
         // If STARTING or TERMINATING, wait before first log poll to avoid unnecessary 503s
+        let statusResponse: ExecutionStatusResponse | null = null;
         try {
-            const statusResponse = await apiClient.getExecutionStatus(id);
+            statusResponse = await apiClient.getExecutionStatus(id);
             const status = statusResponse.status || 'UNKNOWN';
 
             if (status === 'STARTING') {
-                errorMessage = 'Execution is starting (provisioning takes ~20 seconds)...';
+                errorMessage = 'Execution is starting (logs usually ready in ~30 seconds)...';
                 await delayFn(STARTING_STATE_DELAY);
                 errorMessage = ''; // Clear the message after waiting
             } else if (status === 'TERMINATING') {
@@ -113,10 +114,10 @@
             const status = response.status || 'UNKNOWN';
             executionStatus.set(status);
 
-            if (response.started_at) {
-                startedAt.set(response.started_at);
+            if (statusResponse?.started_at) {
+                startedAt.set(statusResponse.started_at);
             } else {
-                const derivedStartedAt = deriveStartedAtFromLogs(events);
+                const derivedStartedAt = deriveStartedAtFromLogs(eventsWithLines);
                 startedAt.set(derivedStartedAt);
             }
 

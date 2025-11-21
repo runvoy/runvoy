@@ -87,7 +87,7 @@
         {#if $activeView === VIEWS.RUN}
             <RunView {apiClient} {isConfigured} />
         {:else if $activeView === VIEWS.CLAIM}
-            <ClaimView {apiClient} />
+            <ClaimView />
         {:else if $activeView === VIEWS.LOGS}
             <LogsView {apiClient} {isConfigured} />
         {:else if $activeView === VIEWS.SETTINGS}

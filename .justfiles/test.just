@@ -14,4 +14,4 @@ test-coverage: gen-coverage
     go-test-coverage --config .testcoverage.yml
 
 # Run all checks (lint + test)
-check: lint test-coverage lint-webapp
+check: lint test-coverage type-check-webapp lint-webapp
