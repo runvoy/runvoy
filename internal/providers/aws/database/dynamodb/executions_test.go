@@ -466,7 +466,8 @@ func TestBuildUpdateExpression(t *testing.T) {
 				ExitCode:            0,
 				ModifiedByRequestID: "req-modify-789",
 			},
-			expectedUpdateExpr: "SET #status = :status, exit_code = :exit_code, modified_by_request_id = :modified_by_request_id",
+			expectedUpdateExpr: "SET #status = :status, exit_code = :exit_code," +
+				" modified_by_request_id = :modified_by_request_id",
 			expectedExprNames: map[string]string{
 				"#status": "status",
 			},
@@ -490,8 +491,11 @@ func TestBuildUpdateExpression(t *testing.T) {
 			expectedExprNames: map[string]string{
 				"#status": "status",
 			},
-			expectedExprValueKeys: []string{":status", ":completed_at", ":exit_code", ":duration_seconds", ":log_stream_name", ":modified_by_request_id"},
-			wantErr:               false,
+			expectedExprValueKeys: []string{
+				":status", ":completed_at", ":exit_code", ":duration_seconds",
+				":log_stream_name", ":modified_by_request_id",
+			},
+			wantErr: false,
 		},
 	}
 
