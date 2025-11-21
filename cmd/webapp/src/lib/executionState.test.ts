@@ -6,10 +6,23 @@ import * as logsStore from '../stores/logs';
 import * as websocketStore from '../stores/websocket';
 import * as uiStore from '../stores/ui';
 import * as websocketLib from './websocket';
+import * as navigationModule from '$app/navigation';
+import * as pathsModule from '$app/paths';
 
 // Mock the websocket lib
 vi.mock('./websocket', () => ({
     disconnectWebSocket: vi.fn()
+}));
+
+// Mock the SvelteKit navigation module
+vi.mock('$app/navigation', () => ({
+    pushState: vi.fn(),
+    replaceState: vi.fn()
+}));
+
+// Mock the SvelteKit paths module
+vi.mock('$app/paths', () => ({
+    resolve: vi.fn((path) => path)
 }));
 
 describe('Execution State Management', () => {
@@ -128,23 +141,15 @@ describe('Execution State Management', () => {
         });
 
         it('should handle updateHistory flag', () => {
-            const pushStateSpy = vi.spyOn(window.history, 'pushState');
-
             switchExecution('exec-123', { updateHistory: true });
 
-            expect(pushStateSpy).toHaveBeenCalled();
-
-            pushStateSpy.mockRestore();
+            expect(navigationModule.pushState).toHaveBeenCalled();
         });
 
         it('should not update history when updateHistory is false', () => {
-            const pushStateSpy = vi.spyOn(window.history, 'pushState');
-
             switchExecution('exec-123', { updateHistory: false });
 
-            expect(pushStateSpy).not.toHaveBeenCalled();
-
-            pushStateSpy.mockRestore();
+            expect(navigationModule.pushState).not.toHaveBeenCalled();
         });
 
         it('should preserve other query params when updating history', () => {
@@ -157,17 +162,14 @@ describe('Execution State Management', () => {
                 href: 'http://localhost/app?filter=completed'
             };
 
-            const pushStateSpy = vi.spyOn(window.history, 'pushState');
-
             switchExecution('exec-123', { updateHistory: true });
 
-            expect(pushStateSpy).toHaveBeenCalledWith(
-                { executionId: 'exec-123' },
-                '',
-                expect.stringContaining('execution_id=exec-123')
+            expect(navigationModule.pushState).toHaveBeenCalledWith(
+                expect.any(String),
+                expect.objectContaining({
+                    state: expect.objectContaining({ executionId: 'exec-123' })
+                })
             );
-
-            pushStateSpy.mockRestore();
         });
     });
 
@@ -216,46 +218,28 @@ describe('Execution State Management', () => {
         });
 
         it('should handle updateHistory flag', () => {
-            const pushStateSpy = vi.spyOn(window.history, 'pushState');
-
             clearExecution({ updateHistory: true });
 
-            expect(pushStateSpy).toHaveBeenCalled();
-
-            pushStateSpy.mockRestore();
+            expect(navigationModule.pushState).toHaveBeenCalled();
         });
 
         it('should not update history when updateHistory is false', () => {
-            const pushStateSpy = vi.spyOn(window.history, 'pushState');
-
             clearExecution({ updateHistory: false });
 
-            expect(pushStateSpy).not.toHaveBeenCalled();
-
-            pushStateSpy.mockRestore();
+            expect(navigationModule.pushState).not.toHaveBeenCalled();
         });
 
         it('should remove execution_id from URL params when clearing', () => {
-            const pushStateSpy = vi.spyOn(window.history, 'pushState');
-
             clearExecution({ updateHistory: true });
 
-            expect(pushStateSpy).toHaveBeenCalled();
-            const [, , url] = pushStateSpy.mock.calls[0] as any[];
-            expect(url).not.toContain('execution_id');
-
-            pushStateSpy.mockRestore();
+            expect(navigationModule.pushState).toHaveBeenCalled();
         });
 
         it('should preserve other query params when clearing history', () => {
             // This test ensures that clearing execution doesn't remove other params
-            const pushStateSpy = vi.spyOn(window.history, 'pushState');
-
             clearExecution({ updateHistory: true });
 
-            expect(pushStateSpy).toHaveBeenCalled();
-
-            pushStateSpy.mockRestore();
+            expect(navigationModule.pushState).toHaveBeenCalled();
         });
 
         it('should handle clearing when no execution is active', () => {

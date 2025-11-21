@@ -13,5 +13,10 @@ test-coverage: gen-coverage
     go tool cover -html=coverage.out -o coverage.html
     go-test-coverage --config .testcoverage.yml
 
+# Run webapp tests
+[working-directory: 'cmd/webapp']
+test-webapp: type-check-webapp lint-webapp
+    npm run test
+
 # Run all checks (lint + test)
-check: lint test-coverage type-check-webapp lint-webapp
+check: lint test-coverage test-webapp
