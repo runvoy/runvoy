@@ -90,13 +90,13 @@ Runvoy is composed of 3 main parts (see [#architecture](#architecture) for more 
 ## Features
 
 - **API key authentication** - Secure access with hashed API keys (SHA-256)
-- **Customizable container task and execution roles** - Register Docker images with custom task and execution roles to e.g. run Terraform with the right permissions to access AWS resources (currently only AWS ECS is supported)
-- **Automatic git cloning** - Optionally clone a (public or private) Git repository into the container working directory (see [Build Caddy example](.runvoy/build-caddy-example.yml))
 - **User access management** - Role based and ownership access control for the backend API. Runvoy admins define roles and permissions for users, non-admin users can only access secrets / select Docker images / see logs of executions they are allowed to
+- **Customizable container task and execution roles** - Register Docker images with custom task and execution roles to e.g. run Terraform with the right permissions to access AWS resources (currently only AWS ECS is supported)
 - **Native cloud provider logging integration** - Full execution logs and audit trails with request ID tracking
 - **Reusable playbooks** - Store and reuse command execution configurations in YAML files, commit to a repository and share with your team to execute commands consistently (see [Terraform example](.runvoy/terraform-example.yml))
 - **Secrets management** - Centralized encrypted secrets with full CRUD from the CLI
 - **Real-time WebSocket streaming** - CLI and web viewer receive live logs over authenticated WebSocket connections
+- **Automatic Git cloning** - Optionally clone a (private) Git repository into the container working directory (see [Build Caddy example](.runvoy/build-caddy-example.yml))
 - **Unix-style output streams** - Separate CLI logs (stderr) from data (stdout) for easy piping and scripting
 - **IaC deployment** - Deploy complete backend infrastructure with IaC templates (currently only AWS CloudFormation is supported, but with plans to extend support to other cloud providers in the future)
 - **Single multi-platform binary deployment** - Download a single binary (tarball is ~ 6MB) and run it directly from the command line, no need to install any other dependencies
@@ -120,7 +120,7 @@ For Linux:
 ```bash
 curl -L -o runvoy-cli-linux-arm64.tar.gz https://github.com/runvoy/runvoy/releases/download/v0.2.0/runvoy_linux_amd64.tar.gz
 tar -xzf runvoy_linux_amd64.tar.gz
-mv runvoy_linux_amd64/runvoy $(go env GOPATH)/bin/runvoy
+sudo mv runvoy_linux_amd64/runvoy /usr/local/bin/runvoy
 ```
 
 For macOS:
@@ -130,7 +130,7 @@ curl -L -o runvoy_linux_amd64.tar.gz https://github.com/runvoy/runvoy/releases/d
 tar -xzf runvoy_darwin_arm64.tar.gz
 xattr -dr com.apple.quarantine runvoy_darwin_arm64/runvoy
 codesign -s - --deep --force runvoy_darwin_arm64/runvoy
-mv runvoy_darwin_arm64/runvoy $(go env GOPATH)/bin/runvoy
+sudo mv runvoy_darwin_arm64/runvoy /usr/local/bin/runvoy
 ```
 
 <!-- VERSION_EXAMPLES_END -->
@@ -181,7 +181,7 @@ runvoy --help
 ```
 
 ```text
-runvoy - v0.2.0-20251121-4d068cc
+runvoy - v0.2.0-20251121-667820e
 Isolated, repeatable execution environments for your commands
 
 Usage:
@@ -358,4 +358,4 @@ Full disclosure: I love to build things in Go and I thought this would be a grea
 
 ## Development
 
-For development setup, workflow, and contributing guidelines, see [CONTRIBUTING.md](CONTRIBUTING.md) and [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
+For development setup, workflow, and contributing guidelines, see [CONTRIBUTING](CONTRIBUTING.md) and [CODE OF CONDUCT](CODE_OF_CONDUCT.md).

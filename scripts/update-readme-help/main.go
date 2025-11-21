@@ -84,7 +84,7 @@ func generateVersionExamplesSection(version string) string {
 	)
 	b.WriteString(linuxURL)
 	b.WriteString("tar -xzf runvoy_linux_amd64.tar.gz\n")
-	b.WriteString("mv runvoy_linux_amd64/runvoy $(go env GOPATH)/bin/runvoy\n")
+	b.WriteString("sudo mv runvoy_linux_amd64/runvoy /usr/local/bin/runvoy\n")
 	b.WriteString("```\n\n")
 	b.WriteString("For macOS:\n\n")
 	b.WriteString("```bash\n")
@@ -97,7 +97,7 @@ func generateVersionExamplesSection(version string) string {
 	b.WriteString("tar -xzf runvoy_darwin_arm64.tar.gz\n")
 	b.WriteString("xattr -dr com.apple.quarantine runvoy_darwin_arm64/runvoy\n")
 	b.WriteString("codesign -s - --deep --force runvoy_darwin_arm64/runvoy\n")
-	b.WriteString("mv runvoy_darwin_arm64/runvoy $(go env GOPATH)/bin/runvoy\n")
+	b.WriteString("sudo mv runvoy_darwin_arm64/runvoy /usr/local/bin/runvoy\n")
 	b.WriteString("```\n")
 	return b.String()
 }

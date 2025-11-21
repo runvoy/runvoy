@@ -19,7 +19,7 @@ Thank you for your interest in contributing to Runvoy! This document provides gu
 
 ## Code of Conduct
 
-This project adheres to a code of conduct that all contributors are expected to follow. Please be respectful, inclusive, and collaborative in all interactions.
+This project adheres to a [code of conduct](CODE_OF_CONDUCT.md) that all contributors are expected to follow. Please be respectful, inclusive, and collaborative in all interactions.
 
 ## Getting Started
 
