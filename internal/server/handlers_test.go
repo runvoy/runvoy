@@ -303,7 +303,7 @@ func (t *testRunner) FetchLogsByExecutionID(_ context.Context, _ string) ([]api.
 func (t *testRunner) FetchBackendLogs(_ context.Context, requestID string) (*api.BackendLogsResponse, error) {
 	return &api.BackendLogsResponse{
 		RequestID: requestID,
-		Logs:      []api.BackendLog{},
+		Logs:      []api.LogEvent{},
 		Status:    "Complete",
 	}, nil
 }

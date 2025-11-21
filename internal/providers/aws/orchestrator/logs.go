@@ -172,9 +172,9 @@ func (r *Runner) FetchBackendLogs(ctx context.Context, requestID string) (*api.B
 		"result_count", len(queryOutput.Results))
 
 	// Transform results to API format
-	logs := make([]api.BackendLog, 0, len(queryOutput.Results))
+	logs := make([]api.LogEvent, 0, len(queryOutput.Results))
 	for _, result := range queryOutput.Results {
-		logEntry := api.BackendLog{
+		logEntry := api.LogEvent{
 			Fields: make(map[string]string),
 		}
 

@@ -70,16 +70,10 @@ type BackendLogsRequest struct {
 }
 
 // BackendLogsResponse represents the response from a backend logs query
+// Contains LogEvents from backend infrastructure (Lambda, API Gateway, etc)
+// Distinct from ExecutionLogs which come from user command execution in containers
 type BackendLogsResponse struct {
-	RequestID string       `json:"request_id"`
-	Logs      []BackendLog `json:"logs"`
-	Status    string       `json:"status"`
-}
-
-// BackendLog represents a single log entry from backend infrastructure (Lambda/API Gateway/etc)
-// These are distinct from ExecutionLogs which come from user command execution in containers
-type BackendLog struct {
-	Timestamp int64             `json:"timestamp"`
-	Message   string            `json:"message"`
-	Fields    map[string]string `json:"fields,omitempty"`
+	RequestID string     `json:"request_id"`
+	Logs      []LogEvent `json:"logs"`
+	Status    string     `json:"status"`
 }

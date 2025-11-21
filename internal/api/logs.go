@@ -1,12 +1,15 @@
 // Package api defines the API types and structures used across runvoy.
 package api
 
-// LogEvent represents a single log event.
+// LogEvent represents a single log event from either execution or backend logs.
+// ExecutionLogs: events from user command execution in containers (ECS tasks)
+// BackendLogs: events from backend infrastructure (Lambda, API Gateway, etc)
 // Events are ordered by timestamp. Clients should sort by timestamp
 // and compute line numbers as needed for display purposes.
 type LogEvent struct {
-	Timestamp int64  `json:"timestamp"` // Unix timestamp in milliseconds
-	Message   string `json:"message"`   // The actual log message text
+	Timestamp int64             `json:"timestamp"`        // Unix timestamp in milliseconds
+	Message   string            `json:"message"`          // The actual log message text
+	Fields    map[string]string `json:"fields,omitempty"` // CloudWatch Logs Insights query fields (backend logs only)
 }
 
 // LogsResponse contains all log events for an execution
