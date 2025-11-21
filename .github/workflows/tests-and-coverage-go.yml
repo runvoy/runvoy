@@ -1,4 +1,4 @@
-name: Unit Tests and Coverage
+name: Tests and Coverage (Go)
 
 on:
   pull_request:
