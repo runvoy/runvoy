@@ -72,11 +72,11 @@ Line  Timestamp (UTC)      Message
 → View logs in web viewer: https://runvoy.site/?execution_id=010adbfb34374116b47c8d0faab2befa
 ```
 
-## 💡 Why Runvoy?
+## 💡 What is Runvoy?
 
 **Runvoy is composed of 3 main parts** (see [Architecture](#architecture) for details):
 
-- 🖥️ **Backend** — Runs on your AWS account (multi-cloud support coming soon), exposes the HTTP API, and orchestrates cloud resources. Deploy once as a cloud admin.
+- 🖥️ **Backend** — Runs on your AWS account (multi-cloud support planned), exposes the HTTP API, and orchestrates cloud resources. Deploy once as a cloud admin.
 - ⌨️ **CLI client** — The `runvoy` command-line tool for interacting with the REST API
 - 🌐 **Web app** — Visit [runvoy.site](https://runvoy.site) or self-host. Currently supports log viewing with full CLI parity coming soon.
 
@@ -184,7 +184,7 @@ runvoy --help
 ```
 
 ```text
-runvoy - v0.2.0-20251121-35fae7a
+runvoy - v0.2.0-20251121-8daf026
 Isolated, repeatable execution environments for your commands
 
 Usage:
@@ -329,10 +329,10 @@ I've always been fascinated by "thin clients" — delegating heavy lifting and s
 
 The final piece fell into place with AWS Lambda and the _serverless_ revolution: **"you only pay for what you use"** is now a commodity in cloud computing. 💰
 
-**Full disclosure:** I love building things in Go, and this felt like the perfect opportunity to create something genuinely useful — not just for me, but for teams everywhere. 🛠️
+**Full disclosure:** I love building applications in Go, and this felt like the perfect opportunity to create something genuinely useful — not just for me and my colleagues, but for teams everywhere. 🛠️
 
 ## 🤝 Development
 
 For development setup, workflow, and contributing guidelines, see [CONTRIBUTING](CONTRIBUTING.md) and [CODE OF CONDUCT](CODE_OF_CONDUCT.md).
 
-We welcome contributions! 🎉
+Contributions welcome! 🎉
