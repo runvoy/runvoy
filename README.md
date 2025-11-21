@@ -181,7 +181,7 @@ runvoy --help
 ```
 
 ```text
-runvoy - v0.2.0-20251121-3d5bcf0
+runvoy - v0.2.0-20251121-12be6a1
 Isolated, repeatable execution environments for your commands
 
 Usage:
@@ -288,34 +288,6 @@ The web application URL can be customized via:
 - Config file (`~/.runvoy/config.yaml`): `web_url` field
 
 If not configured, it defaults to `https://runvoy.site/`.
-
-**Development:**
-
-To run the webapp locally with hot reloading:
-
-```bash
-just dev-webapp
-```
-
-The webapp will be available at <http://localhost:5173>
-
-Alternatively, you can use npm commands directly from the `cmd/webapp` directory:
-
-```bash
-# Install dependencies
-npm install
-
-# Start dev server (with hot reload)
-npm run dev
-
-# Build for production (static files)
-npm run build
-
-# Preview production build
-npm run preview
-```
-
-The build process creates a `dist/` directory optimized for static file hosting. The webapp is built with SvelteKit using the static adapter, and deployed via the `deploy-webapp` command in the justfile.
 
 ## Architecture
 
