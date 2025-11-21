@@ -1,5 +1,8 @@
 <script lang="ts">
+    import { onMount } from 'svelte';
     import { apiEndpoint, apiKey } from '../stores/config';
+    import { APIClient } from '../lib/api';
+    import type { HealthResponse } from '../types/api';
 
     // These props are passed by parent component but not used in this view
     export const apiClient = undefined;
@@ -8,6 +11,35 @@
     const appVersion = import.meta.env.VITE_RUNVOY_VERSION || 'unknown';
 
     let showApiKey = false;
+    let backendHealth: HealthResponse | null = null;
+    let healthError: string | null = null;
+    let loadingHealth = false;
+
+    async function fetchBackendHealth(): Promise<void> {
+        const endpoint = $apiEndpoint;
+        const key = $apiKey;
+
+        if (!endpoint || !key) {
+            return;
+        }
+
+        loadingHealth = true;
+        healthError = null;
+
+        try {
+            const client = new APIClient(endpoint, key);
+            backendHealth = await client.getHealth();
+        } catch (error) {
+            console.error('Failed to fetch backend health:', error);
+            healthError = error instanceof Error ? error.message : 'Failed to fetch backend health';
+        } finally {
+            loadingHealth = false;
+        }
+    }
+
+    onMount(() => {
+        fetchBackendHealth();
+    });
 
     function toggleApiKeyVisibility(): void {
         showApiKey = !showApiKey;
@@ -22,6 +54,8 @@
             apiEndpoint.set(null);
             apiKey.set(null);
             showApiKey = false;
+            backendHealth = null;
+            healthError = null;
         }
     }
 
@@ -31,6 +65,11 @@
             // Could show a toast notification here
             alert('Copied to clipboard!');
         });
+    }
+
+    // Re-fetch health when API configuration changes
+    $: if ($apiEndpoint && $apiKey) {
+        fetchBackendHealth();
     }
 </script>
 
@@ -46,8 +85,25 @@
             <span class="value">runvoy Webapp</span>
         </div>
         <div class="info-group">
-            <div class="label">Version:</div>
+            <div class="label">Webapp Version:</div>
             <span class="value">{appVersion}</span>
+        </div>
+        <div class="info-group">
+            <div class="label">Backend Version:</div>
+            {#if loadingHealth}
+                <span class="value muted">Loading...</span>
+            {:else if healthError}
+                <span class="value error" title={healthError}>
+                    Failed to fetch
+                </span>
+            {:else if backendHealth}
+                <span class="value">{backendHealth.version}</span>
+                <span class="status-badge configured" title="Backend is healthy">
+                    {backendHealth.status}
+                </span>
+            {:else}
+                <span class="value empty">Not connected</span>
+            {/if}
         </div>
     </section>
 
@@ -205,6 +261,15 @@
     .value.empty {
         color: var(--pico-muted-color);
         font-style: italic;
+    }
+
+    .value.muted {
+        color: var(--pico-muted-color);
+    }
+
+    .value.error {
+        color: #c62828;
+        cursor: help;
     }
 
     .value-with-action {
