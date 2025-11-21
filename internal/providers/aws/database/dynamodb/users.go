@@ -18,6 +18,10 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 )
 
+const (
+	updateExprModifiedByRequestID = ", modified_by_request_id = :request_id"
+)
+
 // UserRepository implements the database.UserRepository interface using DynamoDB.
 type UserRepository struct {
 	client           Client
@@ -50,7 +54,7 @@ type userItem struct {
 	CreatedAt           time.Time `dynamodbav:"created_at"`
 	LastUsed            time.Time `dynamodbav:"last_used,omitempty"`
 	Revoked             bool      `dynamodbav:"revoked"`
-	ExpiresAt           int64     `dynamodbav:"expires_at,omitempty"`           // Unix timestamp for TTL
+	ExpiresAt           int64     `dynamodbav:"expires_at,omitempty"` // Unix timestamp for TTL
 	CreatedByRequestID  string    `dynamodbav:"created_by_request_id,omitempty"`
 	ModifiedByRequestID string    `dynamodbav:"modified_by_request_id,omitempty"`
 	All                 string    `dynamodbav:"_all"` // Constant partition key for listing all users
@@ -302,13 +306,13 @@ func (r *UserRepository) UpdateLastUsed(ctx context.Context, email string) (*tim
 	// Extract request ID from context and set it if available
 	requestID := logger.GetRequestID(ctx)
 	if requestID != "" {
-		updateExpr += ", modified_by_request_id = :request_id"
+		updateExpr += updateExprModifiedByRequestID
 		exprValues[":request_id"] = &types.AttributeValueMemberS{Value: requestID}
 	}
 
 	_, err = r.client.UpdateItem(ctx, &dynamodb.UpdateItemInput{
-		TableName:                 aws.String(r.tableName),
-		Key:                       map[string]types.AttributeValue{
+		TableName: aws.String(r.tableName),
+		Key: map[string]types.AttributeValue{
 			"api_key_hash": &types.AttributeValueMemberS{Value: apiKeyHash},
 		},
 		UpdateExpression:          aws.String(updateExpr),
@@ -348,13 +352,13 @@ func (r *UserRepository) RevokeUser(ctx context.Context, email string) error {
 	// Extract request ID from context and set it if available
 	requestID := logger.GetRequestID(ctx)
 	if requestID != "" {
-		updateExpr += ", modified_by_request_id = :request_id"
+		updateExpr += updateExprModifiedByRequestID
 		exprValues[":request_id"] = &types.AttributeValueMemberS{Value: requestID}
 	}
 
 	_, err = r.client.UpdateItem(ctx, &dynamodb.UpdateItemInput{
-		TableName:                 aws.String(r.tableName),
-		Key:                       map[string]types.AttributeValue{
+		TableName: aws.String(r.tableName),
+		Key: map[string]types.AttributeValue{
 			"api_key_hash": &types.AttributeValueMemberS{Value: apiKeyHash},
 		},
 		UpdateExpression:          aws.String(updateExpr),

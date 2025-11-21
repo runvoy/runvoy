@@ -148,18 +148,18 @@ func TestExecutionJSON(t *testing.T) {
 	t.Run("marshal and unmarshal completed execution", func(t *testing.T) {
 		now := time.Now()
 		exec := Execution{
-			ExecutionID:         "exec-123",
-			CreatedBy:           "user@example.com",
-			OwnedBy:             []string{"user@example.com"},
-			Command:             "echo hello",
-			StartedAt:           now,
-			CompletedAt:         &now,
-			Status:              "completed",
-			ExitCode:            0,
-			DurationSeconds:     5,
-			LogStreamName:       "stream-123",
-			CreatedByRequestID:  "req-123",
-			ComputePlatform:     "aws",
+			ExecutionID:        "exec-123",
+			CreatedBy:          "user@example.com",
+			OwnedBy:            []string{"user@example.com"},
+			Command:            "echo hello",
+			StartedAt:          now,
+			CompletedAt:        &now,
+			Status:             "completed",
+			ExitCode:           0,
+			DurationSeconds:    5,
+			LogStreamName:      "stream-123",
+			CreatedByRequestID: "req-123",
+			ComputePlatform:    "aws",
 		}
 
 		data, err := json.Marshal(exec)

@@ -26,18 +26,18 @@ func TestToExecutionItem(t *testing.T) {
 		{
 			name: "complete execution with all fields",
 			execution: &api.Execution{
-				ExecutionID:         "exec-123",
-				CreatedBy:           "user@example.com",
-				OwnedBy:             []string{"user@example.com"},
-				Command:             "echo hello",
-				StartedAt:           now,
-				CompletedAt:         &completed,
-				Status:              "SUCCEEDED",
-				ExitCode:            0,
-				DurationSeconds:     300,
-				LogStreamName:       "ecs/task/123",
-				CreatedByRequestID:  "req-456",
-				ComputePlatform:     "AWS",
+				ExecutionID:        "exec-123",
+				CreatedBy:          "user@example.com",
+				OwnedBy:            []string{"user@example.com"},
+				Command:            "echo hello",
+				StartedAt:          now,
+				CompletedAt:        &completed,
+				Status:             "SUCCEEDED",
+				ExitCode:           0,
+				DurationSeconds:    300,
+				LogStreamName:      "ecs/task/123",
+				CreatedByRequestID: "req-456",
+				ComputePlatform:    "AWS",
 			},
 		},
 		{
@@ -88,18 +88,18 @@ func TestExecutionItem_ToAPIExecution(t *testing.T) {
 		{
 			name: "complete execution item",
 			item: &executionItem{
-				ExecutionID:         "exec-123",
-				CreatedBy:           "user@example.com",
-				OwnedBy:             []string{"user@example.com"},
-				Command:             "echo hello",
-				StartedAt:           nowUnix,
-				CompletedAt:         &completedUnix,
-				Status:              "SUCCEEDED",
-				ExitCode:            0,
-				DurationSecs:        300,
-				LogStreamName:       "ecs/task/123",
-				CreatedByRequestID:  "req-456",
-				ComputePlatform:     "AWS",
+				ExecutionID:        "exec-123",
+				CreatedBy:          "user@example.com",
+				OwnedBy:            []string{"user@example.com"},
+				Command:            "echo hello",
+				StartedAt:          nowUnix,
+				CompletedAt:        &completedUnix,
+				Status:             "SUCCEEDED",
+				ExitCode:           0,
+				DurationSecs:       300,
+				LogStreamName:      "ecs/task/123",
+				CreatedByRequestID: "req-456",
+				ComputePlatform:    "AWS",
 			},
 		},
 		{
@@ -144,18 +144,18 @@ func TestRoundTripConversion(t *testing.T) {
 	completed := now.Add(5 * time.Minute)
 
 	original := &api.Execution{
-		ExecutionID:         "exec-roundtrip",
-		CreatedBy:           "user@example.com",
-		OwnedBy:             []string{"user@example.com"},
-		Command:             "echo test",
-		StartedAt:           now,
-		CompletedAt:         &completed,
-		Status:              "SUCCEEDED",
-		ExitCode:            42,
-		DurationSeconds:     150,
-		LogStreamName:       "logs/stream",
-		CreatedByRequestID:  "req-789",
-		ComputePlatform:     "AWS",
+		ExecutionID:        "exec-roundtrip",
+		CreatedBy:          "user@example.com",
+		OwnedBy:            []string{"user@example.com"},
+		Command:            "echo test",
+		StartedAt:          now,
+		CompletedAt:        &completed,
+		Status:             "SUCCEEDED",
+		ExitCode:           42,
+		DurationSeconds:    150,
+		LogStreamName:      "logs/stream",
+		CreatedByRequestID: "req-789",
+		ComputePlatform:    "AWS",
 	}
 
 	// Convert to item and back
@@ -268,15 +268,15 @@ func TestExecutionItemDynamoDBTags(t *testing.T) {
 		// This test ensures the dynamodbav tags are correctly set
 		// by attempting to marshal/unmarshal
 		item := &executionItem{
-			ExecutionID:         "test-123",
-			StartedAt:           time.Now().Unix(),
-			CreatedBy:           "user@example.com",
-			OwnedBy:             []string{"user@example.com"},
-			Command:             "echo test",
-			Status:              "RUNNING",
-			LogStreamName:       "log-stream",
-			CreatedByRequestID:  "req-123",
-			ComputePlatform:     "AWS",
+			ExecutionID:        "test-123",
+			StartedAt:          time.Now().Unix(),
+			CreatedBy:          "user@example.com",
+			OwnedBy:            []string{"user@example.com"},
+			Command:            "echo test",
+			Status:             "RUNNING",
+			LogStreamName:      "log-stream",
+			CreatedByRequestID: "req-123",
+			ComputePlatform:    "AWS",
 		}
 
 		// If tags are correct, this should not panic
@@ -291,18 +291,18 @@ func BenchmarkToExecutionItem(b *testing.B) {
 	now := time.Now()
 	completed := now.Add(5 * time.Minute)
 	exec := &api.Execution{
-		ExecutionID:         "exec-bench",
-		CreatedBy:           "user@example.com",
-		OwnedBy:             []string{"user@example.com"},
-		Command:             "echo benchmark",
-		StartedAt:           now,
-		CompletedAt:         &completed,
-		Status:              "SUCCEEDED",
-		ExitCode:            0,
-		DurationSeconds:     300,
-		LogStreamName:       "logs/bench",
-		CreatedByRequestID:  "req-bench",
-		ComputePlatform:     "AWS",
+		ExecutionID:        "exec-bench",
+		CreatedBy:          "user@example.com",
+		OwnedBy:            []string{"user@example.com"},
+		Command:            "echo benchmark",
+		StartedAt:          now,
+		CompletedAt:        &completed,
+		Status:             "SUCCEEDED",
+		ExitCode:           0,
+		DurationSeconds:    300,
+		LogStreamName:      "logs/bench",
+		CreatedByRequestID: "req-bench",
+		ComputePlatform:    "AWS",
 	}
 
 	for b.Loop() {
@@ -314,18 +314,18 @@ func BenchmarkToAPIExecution(b *testing.B) {
 	nowUnix := time.Now().Unix()
 	completedUnix := time.Now().Add(5 * time.Minute).Unix()
 	item := &executionItem{
-		ExecutionID:         "exec-bench",
-		CreatedBy:           "user@example.com",
-		OwnedBy:             []string{"user@example.com"},
-		Command:             "echo benchmark",
-		StartedAt:           nowUnix,
-		CompletedAt:         &completedUnix,
-		Status:              "SUCCEEDED",
-		ExitCode:            0,
-		DurationSecs:        300,
-		LogStreamName:       "logs/bench",
-		CreatedByRequestID:  "req-bench",
-		ComputePlatform:     "AWS",
+		ExecutionID:        "exec-bench",
+		CreatedBy:          "user@example.com",
+		OwnedBy:            []string{"user@example.com"},
+		Command:            "echo benchmark",
+		StartedAt:          nowUnix,
+		CompletedAt:        &completedUnix,
+		Status:             "SUCCEEDED",
+		ExitCode:           0,
+		DurationSecs:       300,
+		LogStreamName:      "logs/bench",
+		CreatedByRequestID: "req-bench",
+		ComputePlatform:    "AWS",
 	}
 
 	for b.Loop() {
