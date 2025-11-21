@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"slices"
+	"strings"
 	"time"
 
 	"runvoy/internal/api"
@@ -121,7 +122,7 @@ func (r *Runner) FetchBackendLogs(ctx context.Context, requestID string) (*api.B
 	}, nil
 }
 
-// startBackendLogsQuery starts a CloudWatch Logs Insights query
+// startBackendLogsQuery starts a CloudWatch Logs Insights query across orchestrator and event processor Lambda logs
 func (r *Runner) startBackendLogsQuery(
 	ctx context.Context,
 	log *slog.Logger,
@@ -133,27 +134,42 @@ func (r *Runner) startBackendLogsQuery(
 		| filter %s = "%s"
 		| sort @timestamp asc`, constants.RequestIDLogField, requestID)
 
+	// Build list of log groups: orchestrator and event processor
+	logGroups := []string{r.cfg.LogGroup}
+	eventProcessorLogGroup := deriveEventProcessorLogGroup(r.cfg.LogGroup)
+	logGroups = append(logGroups, eventProcessorLogGroup)
+
 	startQueryArgs := []any{
 		"operation", "CloudWatchLogs.StartQuery",
-		"log_group", r.cfg.LogGroup,
+		"log_groups", logGroups,
 		"request_id", requestID,
 	}
 	startQueryArgs = append(startQueryArgs, logger.GetDeadlineInfo(ctx)...)
 	log.Debug("starting CloudWatch Logs Insights query", "context", logger.SliceToMap(startQueryArgs))
 
 	startOutput, err := r.cwlClient.StartQuery(ctx, &cloudwatchlogs.StartQueryInput{
-		LogGroupName: aws.String(r.cfg.LogGroup),
-		QueryString:  aws.String(queryString),
-		StartTime:    aws.Int64(0), // Search all historical logs
-		EndTime:      aws.Int64(time.Now().Unix()),
+		LogGroupNames: logGroups,
+		QueryString:   aws.String(queryString),
+		StartTime:     aws.Int64(0), // Search all historical logs
+		EndTime:       aws.Int64(time.Now().Unix()),
 	})
 	if err != nil {
 		return "", appErrors.ErrInternalError("failed to start CloudWatch Logs Insights query", err)
 	}
 
 	queryID := aws.ToString(startOutput.QueryId)
-	log.Info("CloudWatch Logs Insights query started", "query_id", queryID)
+	log.Info("CloudWatch Logs Insights query started", "query_id", queryID, "log_groups", logGroups)
 	return queryID, nil
+}
+
+// deriveEventProcessorLogGroup derives the event processor log group name from the orchestrator log group
+// Example: /aws/lambda/myapp-orchestrator -> /aws/lambda/myapp-event-processor
+func deriveEventProcessorLogGroup(orchestratorLogGroup string) string {
+	if base, ok := strings.CutSuffix(orchestratorLogGroup, "-orchestrator"); ok {
+		return base + "-event-processor"
+	}
+	// Fallback: append -event-processor
+	return orchestratorLogGroup + "-event-processor"
 }
 
 // pollBackendLogsQuery polls for CloudWatch Logs Insights query results
