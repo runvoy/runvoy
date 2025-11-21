@@ -1,6 +1,6 @@
 <h1 align="center">
     <p><strong>🚀 Runvoy</strong></p>
-    <p>⚡️ An extremely fast serverless command runner</p>
+    <p>self-hosted serverless command runner</p>
 </h1>
 <p align="center">
     <em>Run arbitrary commands on remote ephemeral containers — no complex setup required.</em>
@@ -29,9 +29,9 @@
 
 ---
 
-**Deploy once, issue API keys, and let your team run arbitrary (admin) applications safely from their terminals.** Share playbooks to perform tasks consistently and reliably — no more manual runbooks or tribal knowledge. 📚
+**Deploy once, issue API keys, and let your team run arbitrary (admin) applications safely from their terminals.** Share playbooks to perform common tasks consistently and reliably.
 
-Workstations shouldn't need complex setups. Let remote containers execute commands in a secured and reproducible production-grade environment. ☁️
+Workstations shouldn't need complex setups. Let remote containers execute commands in a secured and reproducible production-grade environment.
 
 **No more snowflakes, _run envoys_.** ✨
 
@@ -175,7 +175,7 @@ to create a new user account for a team member. This will generate a claim token
 ## 📖 Usage
 
 <!-- CLI_HELP_START -->
-### 💻 Available Commands
+### Available Commands
 
 To see all available commands and their descriptions:
 
@@ -184,7 +184,7 @@ runvoy --help
 ```
 
 ```text
-runvoy - v0.2.0-20251121-e094d11
+runvoy - v0.2.0-20251121-35fae7a
 Isolated, repeatable execution environments for your commands
 
 Usage:
