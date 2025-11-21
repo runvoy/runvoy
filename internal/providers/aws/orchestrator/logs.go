@@ -131,8 +131,7 @@ func (r *Runner) startBackendLogsQuery(
 	// Query structured logs by the request_id field
 	queryString := fmt.Sprintf(`fields @timestamp, @message
 		| filter %s = "%s"
-		| sort @timestamp asc
-		| limit 10000`, constants.RequestIDLogField, requestID)
+		| sort @timestamp asc`, constants.RequestIDLogField, requestID)
 
 	startQueryArgs := []any{
 		"operation", "CloudWatchLogs.StartQuery",
