@@ -132,11 +132,7 @@
                 </a>
             </li>
             <li>
-                <a
-                    href="https://github.com/runvoy/runvoy/blob/main/README.md"
-                    target="_blank"
-                    rel="noopener"
-                >
+                <a href="https://runvoy.github.io/" target="_blank" rel="noopener">
                     Documentation
                 </a>
             </li>
