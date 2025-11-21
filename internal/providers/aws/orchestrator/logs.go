@@ -119,6 +119,7 @@ func (r *Runner) FetchBackendLogs(ctx context.Context, requestID string) (*api.B
 }
 
 // startBackendLogsQuery starts a CloudWatch Logs Insights query across all runvoy Lambda logs
+// Searches for all log entries matching the request ID and returns the query ID or an error if the query fails.
 func (r *Runner) startBackendLogsQuery(
 	ctx context.Context,
 	log *slog.Logger,
