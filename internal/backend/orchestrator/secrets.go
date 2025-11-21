@@ -20,13 +20,18 @@ func (s *Service) CreateSecret(
 	req *api.CreateSecretRequest,
 	userEmail string,
 ) error {
+	// Extract request ID from context
+	requestID := logger.GetRequestID(ctx)
+
 	secret := &api.Secret{
-		Name:        req.Name,
-		KeyName:     req.KeyName,
-		Description: req.Description,
-		Value:       req.Value,
-		CreatedBy:   userEmail,
-		OwnedBy:     []string{userEmail},
+		Name:                req.Name,
+		KeyName:             req.KeyName,
+		Description:         req.Description,
+		Value:               req.Value,
+		CreatedBy:           userEmail,
+		OwnedBy:             []string{userEmail},
+		CreatedByRequestID:  requestID,
+		ModifiedByRequestID: requestID,
 	}
 	if err := s.secretsRepo.CreateSecret(ctx, secret); err != nil {
 		var appErr *apperrors.AppError
@@ -72,12 +77,16 @@ func (s *Service) UpdateSecret(
 	req *api.UpdateSecretRequest,
 	userEmail string,
 ) error {
+	// Extract request ID from context
+	requestID := logger.GetRequestID(ctx)
+
 	secret := &api.Secret{
-		Name:        name,
-		Description: req.Description,
-		KeyName:     req.KeyName,
-		Value:       req.Value,
-		UpdatedBy:   userEmail,
+		Name:                name,
+		Description:         req.Description,
+		KeyName:             req.KeyName,
+		Value:               req.Value,
+		UpdatedBy:           userEmail,
+		ModifiedByRequestID: requestID,
 	}
 	if err := s.secretsRepo.UpdateSecret(ctx, secret); err != nil {
 		var appErr *apperrors.AppError

@@ -59,6 +59,8 @@ type imageTaskDefItem struct {
 	OwnedBy               []string `dynamodbav:"owned_by"`
 	CreatedAt             int64    `dynamodbav:"created_at"`
 	UpdatedAt             int64    `dynamodbav:"updated_at"`
+	CreatedByRequestID    string   `dynamodbav:"created_by_request_id,omitempty"`
+	ModifiedByRequestID   string   `dynamodbav:"modified_by_request_id,omitempty"`
 }
 
 const (
@@ -124,6 +126,13 @@ func (r *ImageTaskDefRepository) PutImageTaskDef(
 	cpuStr := fmt.Sprintf("%d", cpu)
 	memoryStr := fmt.Sprintf("%d", memory)
 
+	// Extract request ID from context
+	requestID := logger.GetRequestID(ctx)
+
+	// Check if image already exists to determine if this is a create or update
+	existingImage, err := r.GetImageTaskDefByID(ctx, imageID)
+	isUpdate := existingImage != nil && err == nil
+
 	item := &imageTaskDefItem{
 		ImageID:               imageID,
 		Image:                 image,
@@ -138,8 +147,26 @@ func (r *ImageTaskDefRepository) PutImageTaskDef(
 		ImageTag:              imageTag,
 		CreatedBy:             createdBy,
 		OwnedBy:               []string{createdBy},
-		CreatedAt:             now,
 		UpdatedAt:             now,
+	}
+
+	if isUpdate {
+		// For updates, preserve the original CreatedAt and CreatedByRequestID
+		if existingImage != nil {
+			item.CreatedAt = existingImage.CreatedAt.Unix()
+			item.CreatedByRequestID = existingImage.CreatedByRequestID
+		}
+		// Set ModifiedByRequestID for updates
+		if requestID != "" {
+			item.ModifiedByRequestID = requestID
+		}
+	} else {
+		// For new images, set CreatedAt and CreatedByRequestID
+		item.CreatedAt = now
+		if requestID != "" {
+			item.CreatedByRequestID = requestID
+			item.ModifiedByRequestID = requestID
+		}
 	}
 
 	if isDefault {
@@ -304,6 +331,40 @@ func (r *ImageTaskDefRepository) GetImageTaskDef(
 	return r.GetImageTaskDefByID(ctx, imageID)
 }
 
+// convertItemToImageInfo converts an imageTaskDefItem to an api.ImageInfo.
+func (r *ImageTaskDefRepository) convertItemToImageInfo(item *imageTaskDefItem) (*api.ImageInfo, error) {
+	cpuInt, parseErr := strconv.Atoi(item.Cpu)
+	if parseErr != nil {
+		return nil, apperrors.ErrInternalError("failed to parse CPU value", parseErr)
+	}
+	memoryInt, parseErr := strconv.Atoi(item.Memory)
+	if parseErr != nil {
+		return nil, apperrors.ErrInternalError("failed to parse Memory value", parseErr)
+	}
+
+	isDefault := item.isDefault()
+	createdAt := time.Unix(item.CreatedAt, 0).UTC()
+	return &api.ImageInfo{
+		ImageID:               item.ImageID,
+		Image:                 item.Image,
+		TaskDefinitionName:    item.TaskDefinitionFamily,
+		IsDefault:             &isDefault,
+		TaskRoleName:          item.TaskRoleName,
+		TaskExecutionRoleName: item.TaskExecutionRoleName,
+		CPU:                   cpuInt,
+		Memory:                memoryInt,
+		RuntimePlatform:       item.RuntimePlatform,
+		ImageRegistry:         item.ImageRegistry,
+		ImageName:             item.ImageName,
+		ImageTag:              item.ImageTag,
+		CreatedBy:             item.CreatedBy,
+		OwnedBy:               item.OwnedBy,
+		CreatedAt:             createdAt,
+		CreatedByRequestID:    item.CreatedByRequestID,
+		ModifiedByRequestID:   item.ModifiedByRequestID,
+	}, nil
+}
+
 // GetImageTaskDefByID retrieves an image-taskdef mapping by ImageID.
 func (r *ImageTaskDefRepository) GetImageTaskDefByID(ctx context.Context, imageID string) (*api.ImageInfo, error) {
 	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
@@ -335,32 +396,7 @@ func (r *ImageTaskDefRepository) GetImageTaskDefByID(ctx context.Context, imageI
 		return nil, apperrors.ErrInternalError("failed to unmarshal image-taskdef item", unmarshalErr)
 	}
 
-	cpuInt, parseErr := strconv.Atoi(item.Cpu)
-	if parseErr != nil {
-		return nil, apperrors.ErrInternalError("failed to parse CPU value", parseErr)
-	}
-	memoryInt, parseErr := strconv.Atoi(item.Memory)
-	if parseErr != nil {
-		return nil, apperrors.ErrInternalError("failed to parse Memory value", parseErr)
-	}
-
-	isDefault := item.isDefault()
-	return &api.ImageInfo{
-		ImageID:               item.ImageID,
-		Image:                 item.Image,
-		TaskDefinitionName:    item.TaskDefinitionFamily,
-		IsDefault:             &isDefault,
-		TaskRoleName:          item.TaskRoleName,
-		TaskExecutionRoleName: item.TaskExecutionRoleName,
-		CPU:                   cpuInt,
-		Memory:                memoryInt,
-		RuntimePlatform:       item.RuntimePlatform,
-		ImageRegistry:         item.ImageRegistry,
-		ImageName:             item.ImageName,
-		ImageTag:              item.ImageTag,
-		CreatedBy:             item.CreatedBy,
-		OwnedBy:               item.OwnedBy,
-	}, nil
+	return r.convertItemToImageInfo(&item)
 }
 
 // ListImages retrieves all registered images with their task definitions.
@@ -417,6 +453,7 @@ func (r *ImageTaskDefRepository) convertItemsToImageInfo(items []imageTaskDefIte
 			return nil, apperrors.ErrInternalError("failed to parse Memory value", parseErr)
 		}
 
+		createdAt := time.Unix(item.CreatedAt, 0).UTC()
 		allImages = append(allImages, api.ImageInfo{
 			ImageID:               item.ImageID,
 			Image:                 item.Image,
@@ -432,6 +469,9 @@ func (r *ImageTaskDefRepository) convertItemsToImageInfo(items []imageTaskDefIte
 			ImageTag:              item.ImageTag,
 			CreatedBy:             item.CreatedBy,
 			OwnedBy:               item.OwnedBy,
+			CreatedAt:             createdAt,
+			CreatedByRequestID:    item.CreatedByRequestID,
+			ModifiedByRequestID:   item.ModifiedByRequestID,
 		})
 	}
 	return allImages, nil
@@ -471,33 +511,7 @@ func (r *ImageTaskDefRepository) GetDefaultImage(ctx context.Context) (*api.Imag
 		return nil, apperrors.ErrInternalError("failed to unmarshal default image item", unmarshalErr)
 	}
 
-	// Convert from strings to ints
-	cpuInt, err := strconv.Atoi(item.Cpu)
-	if err != nil {
-		return nil, apperrors.ErrInternalError("failed to parse CPU value", err)
-	}
-	memoryInt, err := strconv.Atoi(item.Memory)
-	if err != nil {
-		return nil, apperrors.ErrInternalError("failed to parse Memory value", err)
-	}
-
-	isDefault := item.isDefault()
-	return &api.ImageInfo{
-		ImageID:               item.ImageID,
-		Image:                 item.Image,
-		TaskDefinitionName:    item.TaskDefinitionFamily,
-		IsDefault:             &isDefault,
-		TaskRoleName:          item.TaskRoleName,
-		TaskExecutionRoleName: item.TaskExecutionRoleName,
-		CPU:                   cpuInt,
-		Memory:                memoryInt,
-		RuntimePlatform:       item.RuntimePlatform,
-		ImageRegistry:         item.ImageRegistry,
-		ImageName:             item.ImageName,
-		ImageTag:              item.ImageTag,
-		CreatedBy:             item.CreatedBy,
-		OwnedBy:               item.OwnedBy,
-	}, nil
+	return r.convertItemToImageInfo(&item)
 }
 
 // UnmarkAllDefaults removes the default flag from all images.
@@ -764,42 +778,13 @@ func (r *ImageTaskDefRepository) GetAnyImageTaskDef(ctx context.Context, image s
 		}
 	}
 
-	convertItem := func(item *imageTaskDefItem) (*api.ImageInfo, error) {
-		cpuInt, parseErr := strconv.Atoi(item.Cpu)
-		if parseErr != nil {
-			return nil, apperrors.ErrInternalError("failed to parse CPU value", parseErr)
-		}
-		memoryInt, parseErr := strconv.Atoi(item.Memory)
-		if parseErr != nil {
-			return nil, apperrors.ErrInternalError("failed to parse Memory value", parseErr)
-		}
-
-		isDefault := item.isDefault()
-		return &api.ImageInfo{
-			ImageID:               item.ImageID,
-			Image:                 item.Image,
-			TaskDefinitionName:    item.TaskDefinitionFamily,
-			IsDefault:             &isDefault,
-			TaskRoleName:          item.TaskRoleName,
-			TaskExecutionRoleName: item.TaskExecutionRoleName,
-			CPU:                   cpuInt,
-			Memory:                memoryInt,
-			RuntimePlatform:       item.RuntimePlatform,
-			ImageRegistry:         item.ImageRegistry,
-			ImageName:             item.ImageName,
-			ImageTag:              item.ImageTag,
-			CreatedBy:             item.CreatedBy,
-			OwnedBy:               item.OwnedBy,
-		}, nil
-	}
-
 	for i := range items {
 		if items[i].isDefault() {
-			return convertItem(&items[i])
+			return r.convertItemToImageInfo(&items[i])
 		}
 	}
 
-	return convertItem(&items[0])
+	return r.convertItemToImageInfo(&items[0])
 }
 
 // GetImagesCount returns the total number of unique image+role combinations.

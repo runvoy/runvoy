@@ -75,6 +75,9 @@ func checkAndCreateUser(ctx context.Context, repo *dynamodb.UserRepository, admi
 		Role:      "admin",
 		CreatedAt: time.Now().UTC(),
 		Revoked:   false,
+		// Seeded admin user has no request ID since it's created outside the normal request flow
+		CreatedByRequestID:  "",
+		ModifiedByRequestID: "",
 	}
 
 	createErr := repo.CreateUser(ctx, user, apiKeyHash, 0)

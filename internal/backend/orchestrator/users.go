@@ -12,6 +12,7 @@ import (
 	"runvoy/internal/auth/authorization"
 	"runvoy/internal/constants"
 	apperrors "runvoy/internal/errors"
+	"runvoy/internal/logger"
 )
 
 // validateCreateUserRequest validates the email and role in the create user request.
@@ -100,11 +101,16 @@ func (s *Service) CreateUser(
 
 	apiKeyHash := auth.HashAPIKey(apiKey)
 
+	// Extract request ID from context
+	requestID := logger.GetRequestID(ctx)
+
 	user := &api.User{
-		Email:     req.Email,
-		Role:      req.Role,
-		CreatedAt: time.Now().UTC(),
-		Revoked:   false,
+		Email:               req.Email,
+		Role:                req.Role,
+		CreatedAt:           time.Now().UTC(),
+		Revoked:             false,
+		CreatedByRequestID:  requestID,
+		ModifiedByRequestID: requestID,
 	}
 
 	expiresAt := time.Now().Add(constants.ClaimURLExpirationMinutes * time.Minute).Unix()

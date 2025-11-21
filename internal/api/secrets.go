@@ -8,15 +8,17 @@ import (
 
 // Secret represents a secret with its metadata and optionally its value
 type Secret struct {
-	Name        string    `json:"name"`     // Internal identifier for the secret
-	KeyName     string    `json:"key_name"` // Environment variable name (e.g., GITHUB_TOKEN)
-	Description string    `json:"description,omitempty"`
-	Value       string    `json:"value,omitempty"`
-	CreatedBy   string    `json:"created_by"`
-	OwnedBy     []string  `json:"owned_by"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
-	UpdatedBy   string    `json:"updated_by"`
+	Name                string    `json:"name"`     // Internal identifier for the secret
+	KeyName             string    `json:"key_name"` // Environment variable name (e.g., GITHUB_TOKEN)
+	Description         string    `json:"description,omitempty"`
+	Value               string    `json:"value,omitempty"`
+	CreatedBy           string    `json:"created_by"`
+	OwnedBy             []string  `json:"owned_by"`
+	CreatedAt           time.Time `json:"created_at"`
+	UpdatedAt           time.Time `json:"updated_at"`
+	UpdatedBy           string    `json:"updated_by"`
+	CreatedByRequestID  string    `json:"created_by_request_id"`
+	ModifiedByRequestID string    `json:"modified_by_request_id"`
 }
 
 // CreateSecretRequest represents the request to create a new secret

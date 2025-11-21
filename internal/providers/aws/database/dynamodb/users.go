@@ -18,6 +18,10 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 )
 
+const (
+	updateExprModifiedByRequestID = ", modified_by_request_id = :request_id"
+)
+
 // UserRepository implements the database.UserRepository interface using DynamoDB.
 type UserRepository struct {
 	client           Client
@@ -44,14 +48,16 @@ func NewUserRepository(
 // userItem represents the structure stored in DynamoDB.
 // This keeps the database schema separate from the API types.
 type userItem struct {
-	APIKeyHash string    `dynamodbav:"api_key_hash"`
-	UserEmail  string    `dynamodbav:"user_email"`
-	Role       string    `dynamodbav:"role"`
-	CreatedAt  time.Time `dynamodbav:"created_at"`
-	LastUsed   time.Time `dynamodbav:"last_used,omitempty"`
-	Revoked    bool      `dynamodbav:"revoked"`
-	ExpiresAt  int64     `dynamodbav:"expires_at,omitempty"` // Unix timestamp for TTL
-	All        string    `dynamodbav:"_all"`                 // Constant partition key for listing all users
+	APIKeyHash          string    `dynamodbav:"api_key_hash"`
+	UserEmail           string    `dynamodbav:"user_email"`
+	Role                string    `dynamodbav:"role"`
+	CreatedAt           time.Time `dynamodbav:"created_at"`
+	LastUsed            time.Time `dynamodbav:"last_used,omitempty"`
+	Revoked             bool      `dynamodbav:"revoked"`
+	ExpiresAt           int64     `dynamodbav:"expires_at,omitempty"` // Unix timestamp for TTL
+	CreatedByRequestID  string    `dynamodbav:"created_by_request_id,omitempty"`
+	ModifiedByRequestID string    `dynamodbav:"modified_by_request_id,omitempty"`
+	All                 string    `dynamodbav:"_all"` // Constant partition key for listing all users
 }
 
 // CreateUser stores a new user with their hashed API key in DynamoDB.
@@ -67,12 +73,14 @@ func (r *UserRepository) CreateUser(
 
 	// Create the item to store
 	item := userItem{
-		APIKeyHash: apiKeyHash,
-		UserEmail:  user.Email,
-		Role:       user.Role,
-		CreatedAt:  user.CreatedAt,
-		Revoked:    false,
-		All:        "USER", // Constant partition key for GSI to enable sorted queries
+		APIKeyHash:          apiKeyHash,
+		UserEmail:           user.Email,
+		Role:                user.Role,
+		CreatedAt:           user.CreatedAt,
+		Revoked:             false,
+		CreatedByRequestID:  user.CreatedByRequestID,
+		ModifiedByRequestID: user.ModifiedByRequestID,
+		All:                 "USER", // Constant partition key for GSI to enable sorted queries
 	}
 
 	// Only set ExpiresAt if provided
@@ -151,10 +159,12 @@ func (r *UserRepository) GetUserByEmail(ctx context.Context, email string) (*api
 	}
 
 	user := &api.User{
-		Email:     item.UserEmail,
-		Role:      item.Role,
-		CreatedAt: item.CreatedAt,
-		Revoked:   item.Revoked,
+		Email:               item.UserEmail,
+		Role:                item.Role,
+		CreatedAt:           item.CreatedAt,
+		Revoked:             item.Revoked,
+		CreatedByRequestID:  item.CreatedByRequestID,
+		ModifiedByRequestID: item.ModifiedByRequestID,
 		// Note: APIKey is intentionally omitted for security
 	}
 	if !item.LastUsed.IsZero() {
@@ -210,10 +220,12 @@ func (r *UserRepository) GetUserByAPIKeyHash(ctx context.Context, apiKeyHash str
 	}
 
 	user := &api.User{
-		Email:     item.UserEmail,
-		Role:      item.Role,
-		CreatedAt: item.CreatedAt,
-		Revoked:   item.Revoked,
+		Email:               item.UserEmail,
+		Role:                item.Role,
+		CreatedAt:           item.CreatedAt,
+		Revoked:             item.Revoked,
+		CreatedByRequestID:  item.CreatedByRequestID,
+		ModifiedByRequestID: item.ModifiedByRequestID,
 	}
 	if !item.LastUsed.IsZero() {
 		user.LastUsed = &item.LastUsed
@@ -286,15 +298,25 @@ func (r *UserRepository) UpdateLastUsed(ctx context.Context, email string) (*tim
 	updateLogArgs = append(updateLogArgs, logger.GetDeadlineInfo(ctx)...)
 	reqLogger.Debug("calling external service", "context", logger.SliceToMap(updateLogArgs))
 
+	updateExpr := "SET last_used = :now"
+	exprValues := map[string]types.AttributeValue{
+		":now": &types.AttributeValueMemberS{Value: now.Format(time.RFC3339Nano)},
+	}
+
+	// Extract request ID from context and set it if available
+	requestID := logger.GetRequestID(ctx)
+	if requestID != "" {
+		updateExpr += updateExprModifiedByRequestID
+		exprValues[":request_id"] = &types.AttributeValueMemberS{Value: requestID}
+	}
+
 	_, err = r.client.UpdateItem(ctx, &dynamodb.UpdateItemInput{
 		TableName: aws.String(r.tableName),
 		Key: map[string]types.AttributeValue{
 			"api_key_hash": &types.AttributeValueMemberS{Value: apiKeyHash},
 		},
-		UpdateExpression: aws.String("SET last_used = :now"),
-		ExpressionAttributeValues: map[string]types.AttributeValue{
-			":now": &types.AttributeValueMemberS{
-				Value: now.Format(time.RFC3339Nano)}},
+		UpdateExpression:          aws.String(updateExpr),
+		ExpressionAttributeValues: exprValues,
 	})
 	if err != nil {
 		return nil, apperrors.ErrDatabaseError("failed to update last_used", err)
@@ -322,15 +344,25 @@ func (r *UserRepository) RevokeUser(ctx context.Context, email string) error {
 	updateLogArgs = append(updateLogArgs, logger.GetDeadlineInfo(ctx)...)
 	reqLogger.Debug("calling external service", "context", logger.SliceToMap(updateLogArgs))
 
+	updateExpr := "SET revoked = :revoked"
+	exprValues := map[string]types.AttributeValue{
+		":revoked": &types.AttributeValueMemberBOOL{Value: true},
+	}
+
+	// Extract request ID from context and set it if available
+	requestID := logger.GetRequestID(ctx)
+	if requestID != "" {
+		updateExpr += updateExprModifiedByRequestID
+		exprValues[":request_id"] = &types.AttributeValueMemberS{Value: requestID}
+	}
+
 	_, err = r.client.UpdateItem(ctx, &dynamodb.UpdateItemInput{
 		TableName: aws.String(r.tableName),
 		Key: map[string]types.AttributeValue{
 			"api_key_hash": &types.AttributeValueMemberS{Value: apiKeyHash},
 		},
-		UpdateExpression: aws.String("SET revoked = :revoked"),
-		ExpressionAttributeValues: map[string]types.AttributeValue{
-			":revoked": &types.AttributeValueMemberBOOL{Value: true},
-		},
+		UpdateExpression:          aws.String(updateExpr),
+		ExpressionAttributeValues: exprValues,
 	})
 
 	if err != nil {
@@ -618,10 +650,12 @@ func (r *UserRepository) ListUsers(ctx context.Context) ([]*api.User, error) {
 		}
 
 		user := &api.User{
-			Email:     dbUserItem.UserEmail,
-			Role:      dbUserItem.Role,
-			CreatedAt: dbUserItem.CreatedAt,
-			Revoked:   dbUserItem.Revoked,
+			Email:               dbUserItem.UserEmail,
+			Role:                dbUserItem.Role,
+			CreatedAt:           dbUserItem.CreatedAt,
+			Revoked:             dbUserItem.Revoked,
+			CreatedByRequestID:  dbUserItem.CreatedByRequestID,
+			ModifiedByRequestID: dbUserItem.ModifiedByRequestID,
 			// Note: APIKey and APIKeyHash are intentionally omitted for security
 		}
 		if !dbUserItem.LastUsed.IsZero() {

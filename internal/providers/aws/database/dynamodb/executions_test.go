@@ -26,18 +26,19 @@ func TestToExecutionItem(t *testing.T) {
 		{
 			name: "complete execution with all fields",
 			execution: &api.Execution{
-				ExecutionID:     "exec-123",
-				CreatedBy:       "user@example.com",
-				OwnedBy:         []string{"user@example.com"},
-				Command:         "echo hello",
-				StartedAt:       now,
-				CompletedAt:     &completed,
-				Status:          "SUCCEEDED",
-				ExitCode:        0,
-				DurationSeconds: 300,
-				LogStreamName:   "ecs/task/123",
-				RequestID:       "req-456",
-				ComputePlatform: "AWS",
+				ExecutionID:         "exec-123",
+				CreatedBy:           "user@example.com",
+				OwnedBy:             []string{"user@example.com"},
+				Command:             "echo hello",
+				StartedAt:           now,
+				CompletedAt:         &completed,
+				Status:              "SUCCEEDED",
+				ExitCode:            0,
+				DurationSeconds:     300,
+				LogStreamName:       "ecs/task/123",
+				CreatedByRequestID:  "req-456",
+				ModifiedByRequestID: "req-789",
+				ComputePlatform:     "AWS",
 			},
 		},
 		{
@@ -71,7 +72,8 @@ func TestToExecutionItem(t *testing.T) {
 			assert.Equal(t, tt.execution.ExitCode, item.ExitCode)
 			assert.Equal(t, tt.execution.DurationSeconds, item.DurationSecs)
 			assert.Equal(t, tt.execution.LogStreamName, item.LogStreamName)
-			assert.Equal(t, tt.execution.RequestID, item.RequestID)
+			assert.Equal(t, tt.execution.CreatedByRequestID, item.CreatedByRequestID)
+			assert.Equal(t, tt.execution.ModifiedByRequestID, item.ModifiedByRequestID)
 			assert.Equal(t, tt.execution.ComputePlatform, item.ComputePlatform)
 		})
 	}
@@ -88,18 +90,19 @@ func TestExecutionItem_ToAPIExecution(t *testing.T) {
 		{
 			name: "complete execution item",
 			item: &executionItem{
-				ExecutionID:     "exec-123",
-				CreatedBy:       "user@example.com",
-				OwnedBy:         []string{"user@example.com"},
-				Command:         "echo hello",
-				StartedAt:       nowUnix,
-				CompletedAt:     &completedUnix,
-				Status:          "SUCCEEDED",
-				ExitCode:        0,
-				DurationSecs:    300,
-				LogStreamName:   "ecs/task/123",
-				RequestID:       "req-456",
-				ComputePlatform: "AWS",
+				ExecutionID:         "exec-123",
+				CreatedBy:           "user@example.com",
+				OwnedBy:             []string{"user@example.com"},
+				Command:             "echo hello",
+				StartedAt:           nowUnix,
+				CompletedAt:         &completedUnix,
+				Status:              "SUCCEEDED",
+				ExitCode:            0,
+				DurationSecs:        300,
+				LogStreamName:       "ecs/task/123",
+				CreatedByRequestID:  "req-456",
+				ModifiedByRequestID: "req-789",
+				ComputePlatform:     "AWS",
 			},
 		},
 		{
@@ -133,6 +136,8 @@ func TestExecutionItem_ToAPIExecution(t *testing.T) {
 			assert.Equal(t, tt.item.ExitCode, execution.ExitCode)
 			assert.Equal(t, tt.item.DurationSecs, execution.DurationSeconds)
 			assert.Equal(t, tt.item.LogStreamName, execution.LogStreamName)
+			assert.Equal(t, tt.item.CreatedByRequestID, execution.CreatedByRequestID)
+			assert.Equal(t, tt.item.ModifiedByRequestID, execution.ModifiedByRequestID)
 			assert.Equal(t, tt.item.ComputePlatform, execution.ComputePlatform)
 		})
 	}
@@ -143,18 +148,19 @@ func TestRoundTripConversion(t *testing.T) {
 	completed := now.Add(5 * time.Minute)
 
 	original := &api.Execution{
-		ExecutionID:     "exec-roundtrip",
-		CreatedBy:       "user@example.com",
-		OwnedBy:         []string{"user@example.com"},
-		Command:         "echo test",
-		StartedAt:       now,
-		CompletedAt:     &completed,
-		Status:          "SUCCEEDED",
-		ExitCode:        42,
-		DurationSeconds: 150,
-		LogStreamName:   "logs/stream",
-		RequestID:       "req-789",
-		ComputePlatform: "AWS",
+		ExecutionID:         "exec-roundtrip",
+		CreatedBy:           "user@example.com",
+		OwnedBy:             []string{"user@example.com"},
+		Command:             "echo test",
+		StartedAt:           now,
+		CompletedAt:         &completed,
+		Status:              "SUCCEEDED",
+		ExitCode:            42,
+		DurationSeconds:     150,
+		LogStreamName:       "logs/stream",
+		CreatedByRequestID:  "req-789",
+		ModifiedByRequestID: "req-abc",
+		ComputePlatform:     "AWS",
 	}
 
 	// Convert to item and back
@@ -169,6 +175,8 @@ func TestRoundTripConversion(t *testing.T) {
 	assert.Equal(t, original.ExitCode, result.ExitCode)
 	assert.Equal(t, original.DurationSeconds, result.DurationSeconds)
 	assert.Equal(t, original.LogStreamName, result.LogStreamName)
+	assert.Equal(t, original.CreatedByRequestID, result.CreatedByRequestID)
+	assert.Equal(t, original.ModifiedByRequestID, result.ModifiedByRequestID)
 	assert.Equal(t, original.ComputePlatform, result.ComputePlatform)
 
 	require.NotNil(t, result.CompletedAt)
@@ -244,20 +252,20 @@ func TestConversionEdgeCases(t *testing.T) {
 
 	t.Run("empty optional fields", func(t *testing.T) {
 		exec := &api.Execution{
-			ExecutionID: "exec-4",
-			CreatedBy:   "user@example.com",
-			OwnedBy:     []string{"user@example.com"},
-			Command:     "test",
-			StartedAt:   time.Now(),
-			Status:      "RUNNING",
-			RequestID:   "",
+			ExecutionID:        "exec-4",
+			CreatedBy:          "user@example.com",
+			OwnedBy:            []string{"user@example.com"},
+			Command:            "test",
+			StartedAt:          time.Now(),
+			Status:             "RUNNING",
+			CreatedByRequestID: "",
 		}
 
 		item := toExecutionItem(exec)
-		assert.Empty(t, item.RequestID)
+		assert.Empty(t, item.CreatedByRequestID)
 
 		result := item.toAPIExecution()
-		assert.Empty(t, result.RequestID)
+		assert.Empty(t, result.CreatedByRequestID)
 	})
 }
 
@@ -266,15 +274,15 @@ func TestExecutionItemDynamoDBTags(t *testing.T) {
 		// This test ensures the dynamodbav tags are correctly set
 		// by attempting to marshal/unmarshal
 		item := &executionItem{
-			ExecutionID:     "test-123",
-			StartedAt:       time.Now().Unix(),
-			CreatedBy:       "user@example.com",
-			OwnedBy:         []string{"user@example.com"},
-			Command:         "echo test",
-			Status:          "RUNNING",
-			LogStreamName:   "log-stream",
-			RequestID:       "req-123",
-			ComputePlatform: "AWS",
+			ExecutionID:        "test-123",
+			StartedAt:          time.Now().Unix(),
+			CreatedBy:          "user@example.com",
+			OwnedBy:            []string{"user@example.com"},
+			Command:            "echo test",
+			Status:             "RUNNING",
+			LogStreamName:      "log-stream",
+			CreatedByRequestID: "req-123",
+			ComputePlatform:    "AWS",
 		}
 
 		// If tags are correct, this should not panic
@@ -289,18 +297,18 @@ func BenchmarkToExecutionItem(b *testing.B) {
 	now := time.Now()
 	completed := now.Add(5 * time.Minute)
 	exec := &api.Execution{
-		ExecutionID:     "exec-bench",
-		CreatedBy:       "user@example.com",
-		OwnedBy:         []string{"user@example.com"},
-		Command:         "echo benchmark",
-		StartedAt:       now,
-		CompletedAt:     &completed,
-		Status:          "SUCCEEDED",
-		ExitCode:        0,
-		DurationSeconds: 300,
-		LogStreamName:   "logs/bench",
-		RequestID:       "req-bench",
-		ComputePlatform: "AWS",
+		ExecutionID:        "exec-bench",
+		CreatedBy:          "user@example.com",
+		OwnedBy:            []string{"user@example.com"},
+		Command:            "echo benchmark",
+		StartedAt:          now,
+		CompletedAt:        &completed,
+		Status:             "SUCCEEDED",
+		ExitCode:           0,
+		DurationSeconds:    300,
+		LogStreamName:      "logs/bench",
+		CreatedByRequestID: "req-bench",
+		ComputePlatform:    "AWS",
 	}
 
 	for b.Loop() {
@@ -312,18 +320,18 @@ func BenchmarkToAPIExecution(b *testing.B) {
 	nowUnix := time.Now().Unix()
 	completedUnix := time.Now().Add(5 * time.Minute).Unix()
 	item := &executionItem{
-		ExecutionID:     "exec-bench",
-		CreatedBy:       "user@example.com",
-		OwnedBy:         []string{"user@example.com"},
-		Command:         "echo benchmark",
-		StartedAt:       nowUnix,
-		CompletedAt:     &completedUnix,
-		Status:          "SUCCEEDED",
-		ExitCode:        0,
-		DurationSecs:    300,
-		LogStreamName:   "logs/bench",
-		RequestID:       "req-bench",
-		ComputePlatform: "AWS",
+		ExecutionID:        "exec-bench",
+		CreatedBy:          "user@example.com",
+		OwnedBy:            []string{"user@example.com"},
+		Command:            "echo benchmark",
+		StartedAt:          nowUnix,
+		CompletedAt:        &completedUnix,
+		Status:             "SUCCEEDED",
+		ExitCode:           0,
+		DurationSecs:       300,
+		LogStreamName:      "logs/bench",
+		CreatedByRequestID: "req-bench",
+		ComputePlatform:    "AWS",
 	}
 
 	for b.Loop() {
@@ -450,6 +458,45 @@ func TestBuildUpdateExpression(t *testing.T) {
 			expectedExprValueKeys: []string{":status", ":exit_code", ":log_stream_name"},
 			wantErr:               false,
 		},
+		{
+			name: "execution with ModifiedByRequestID",
+			execution: &api.Execution{
+				ExecutionID:         "exec-6",
+				Status:              "SUCCEEDED",
+				ExitCode:            0,
+				ModifiedByRequestID: "req-modify-789",
+			},
+			expectedUpdateExpr: "SET #status = :status, exit_code = :exit_code," +
+				" modified_by_request_id = :modified_by_request_id",
+			expectedExprNames: map[string]string{
+				"#status": "status",
+			},
+			expectedExprValueKeys: []string{":status", ":exit_code", ":modified_by_request_id"},
+			wantErr:               false,
+		},
+		{
+			name: "execution with all fields including ModifiedByRequestID",
+			execution: &api.Execution{
+				ExecutionID:         "exec-7",
+				Status:              "SUCCEEDED",
+				CompletedAt:         &completed,
+				ExitCode:            0,
+				DurationSeconds:     300,
+				LogStreamName:       "ecs/task/456",
+				ModifiedByRequestID: "req-complete-xyz",
+			},
+			expectedUpdateExpr: "SET #status = :status, completed_at = :completed_at, " +
+				"exit_code = :exit_code, duration_seconds = :duration_seconds, " +
+				"log_stream_name = :log_stream_name, modified_by_request_id = :modified_by_request_id",
+			expectedExprNames: map[string]string{
+				"#status": "status",
+			},
+			expectedExprValueKeys: []string{
+				":status", ":completed_at", ":exit_code", ":duration_seconds",
+				":log_stream_name", ":modified_by_request_id",
+			},
+			wantErr: false,
+		},
 	}
 
 	for _, tt := range tests {
@@ -496,6 +543,13 @@ func TestBuildUpdateExpression(t *testing.T) {
 				require.True(t, hasLogStream)
 				assert.IsType(t, &types.AttributeValueMemberS{}, logStreamVal)
 				assert.Equal(t, tt.execution.LogStreamName, logStreamVal.(*types.AttributeValueMemberS).Value)
+			}
+
+			if tt.execution.ModifiedByRequestID != "" {
+				modifiedByRequestIDVal, hasModifiedByRequestID := exprValues[":modified_by_request_id"]
+				require.True(t, hasModifiedByRequestID)
+				assert.IsType(t, &types.AttributeValueMemberS{}, modifiedByRequestIDVal)
+				assert.Equal(t, tt.execution.ModifiedByRequestID, modifiedByRequestIDVal.(*types.AttributeValueMemberS).Value)
 			}
 		})
 	}
@@ -803,4 +857,126 @@ func TestProcessQueryResults_UnboundedLimit(t *testing.T) {
 	require.NoError(t, procErr)
 	assert.False(t, reachedLimit)
 	assert.Len(t, executions, 2)
+}
+
+// Request ID Tracking Tests
+func TestRequestIDTracking(t *testing.T) {
+	t.Run("CreatedByRequestID and ModifiedByRequestID preserved in conversion", func(t *testing.T) {
+		now := time.Now()
+		execution := &api.Execution{
+			ExecutionID:         "exec-req-test",
+			CreatedBy:           "user@example.com",
+			OwnedBy:             []string{"user@example.com"},
+			Command:             "echo test",
+			StartedAt:           now,
+			Status:              "RUNNING",
+			CreatedByRequestID:  "req-create-123",
+			ModifiedByRequestID: "req-modify-456",
+		}
+
+		// Convert to DynamoDB item
+		item := toExecutionItem(execution)
+		assert.Equal(t, "req-create-123", item.CreatedByRequestID)
+		assert.Equal(t, "req-modify-456", item.ModifiedByRequestID)
+
+		// Convert back to API
+		result := item.toAPIExecution()
+		assert.Equal(t, "req-create-123", result.CreatedByRequestID)
+		assert.Equal(t, "req-modify-456", result.ModifiedByRequestID)
+	})
+
+	t.Run("empty request IDs are preserved", func(t *testing.T) {
+		now := time.Now()
+		execution := &api.Execution{
+			ExecutionID:         "exec-empty-req",
+			CreatedBy:           "user@example.com",
+			OwnedBy:             []string{"user@example.com"},
+			Command:             "echo test",
+			StartedAt:           now,
+			Status:              "RUNNING",
+			CreatedByRequestID:  "",
+			ModifiedByRequestID: "",
+		}
+
+		item := toExecutionItem(execution)
+		assert.Empty(t, item.CreatedByRequestID)
+		assert.Empty(t, item.ModifiedByRequestID)
+
+		result := item.toAPIExecution()
+		assert.Empty(t, result.CreatedByRequestID)
+		assert.Empty(t, result.ModifiedByRequestID)
+	})
+
+	t.Run("ModifiedByRequestID included in update expression when present", func(t *testing.T) {
+		execution := &api.Execution{
+			ExecutionID:         "exec-update",
+			Status:              "SUCCEEDED",
+			ExitCode:            0,
+			ModifiedByRequestID: "req-update-789",
+		}
+
+		updateExpr, _, exprValues := buildUpdateExpression(execution)
+
+		assert.Contains(t, updateExpr, "modified_by_request_id = :modified_by_request_id")
+		assert.Contains(t, exprValues, ":modified_by_request_id")
+
+		modifiedVal, ok := exprValues[":modified_by_request_id"]
+		require.True(t, ok)
+		assert.IsType(t, &types.AttributeValueMemberS{}, modifiedVal)
+		assert.Equal(t, "req-update-789", modifiedVal.(*types.AttributeValueMemberS).Value)
+	})
+
+	t.Run("ModifiedByRequestID omitted from update expression when empty", func(t *testing.T) {
+		execution := &api.Execution{
+			ExecutionID:         "exec-no-update",
+			Status:              "SUCCEEDED",
+			ExitCode:            0,
+			ModifiedByRequestID: "",
+		}
+
+		updateExpr, _, exprValues := buildUpdateExpression(execution)
+
+		assert.NotContains(t, updateExpr, "modified_by_request_id")
+		assert.NotContains(t, exprValues, ":modified_by_request_id")
+	})
+
+	t.Run("both CreatedByRequestID and ModifiedByRequestID can be different", func(t *testing.T) {
+		now := time.Now()
+		execution := &api.Execution{
+			ExecutionID:         "exec-diff-req",
+			CreatedBy:           "user@example.com",
+			OwnedBy:             []string{"user@example.com"},
+			Command:             "echo test",
+			StartedAt:           now,
+			Status:              "RUNNING",
+			CreatedByRequestID:  "req-original-abc",
+			ModifiedByRequestID: "req-updated-xyz",
+		}
+
+		item := toExecutionItem(execution)
+
+		assert.NotEqual(t, item.CreatedByRequestID, item.ModifiedByRequestID)
+		assert.Equal(t, "req-original-abc", item.CreatedByRequestID)
+		assert.Equal(t, "req-updated-xyz", item.ModifiedByRequestID)
+	})
+
+	t.Run("both CreatedByRequestID and ModifiedByRequestID can be the same", func(t *testing.T) {
+		now := time.Now()
+		execution := &api.Execution{
+			ExecutionID:         "exec-same-req",
+			CreatedBy:           "user@example.com",
+			OwnedBy:             []string{"user@example.com"},
+			Command:             "echo test",
+			StartedAt:           now,
+			Status:              "RUNNING",
+			CreatedByRequestID:  "req-same-123",
+			ModifiedByRequestID: "req-same-123",
+		}
+
+		item := toExecutionItem(execution)
+
+		assert.Equal(t, item.CreatedByRequestID, item.ModifiedByRequestID)
+		assert.Equal(t, "req-same-123", item.CreatedByRequestID)
+		assert.Equal(t, "req-same-123", item.ModifiedByRequestID)
+	})
 }

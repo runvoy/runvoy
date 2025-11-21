@@ -37,27 +37,31 @@ func NewSecretsRepository(client Client, tableName string, log *slog.Logger) *Se
 // secretItem represents the structure stored in DynamoDB.
 // This keeps the database schema separate from the API types.
 type secretItem struct {
-	SecretName  string    `dynamodbav:"secret_name"` // Partition key
-	KeyName     string    `dynamodbav:"key_name"`    // Environment variable name
-	Description string    `dynamodbav:"description"`
-	CreatedBy   string    `dynamodbav:"created_by"`
-	OwnedBy     []string  `dynamodbav:"owned_by"`
-	CreatedAt   time.Time `dynamodbav:"created_at"`
-	UpdatedAt   time.Time `dynamodbav:"updated_at"`
-	UpdatedBy   string    `dynamodbav:"updated_by"`
+	SecretName          string    `dynamodbav:"secret_name"` // Partition key
+	KeyName             string    `dynamodbav:"key_name"`    // Environment variable name
+	Description         string    `dynamodbav:"description"`
+	CreatedBy           string    `dynamodbav:"created_by"`
+	OwnedBy             []string  `dynamodbav:"owned_by"`
+	CreatedAt           time.Time `dynamodbav:"created_at"`
+	UpdatedAt           time.Time `dynamodbav:"updated_at"`
+	UpdatedBy           string    `dynamodbav:"updated_by"`
+	CreatedByRequestID  string    `dynamodbav:"created_by_request_id,omitempty"`
+	ModifiedByRequestID string    `dynamodbav:"modified_by_request_id,omitempty"`
 }
 
 // toAPISecret converts a secretItem to an API Secret
 func (si *secretItem) toAPISecret() *api.Secret {
 	return &api.Secret{
-		Name:        si.SecretName,
-		KeyName:     si.KeyName,
-		Description: si.Description,
-		CreatedBy:   si.CreatedBy,
-		OwnedBy:     si.OwnedBy,
-		CreatedAt:   si.CreatedAt,
-		UpdatedAt:   si.UpdatedAt,
-		UpdatedBy:   si.UpdatedBy,
+		Name:                si.SecretName,
+		KeyName:             si.KeyName,
+		Description:         si.Description,
+		CreatedBy:           si.CreatedBy,
+		OwnedBy:             si.OwnedBy,
+		CreatedAt:           si.CreatedAt,
+		UpdatedAt:           si.UpdatedAt,
+		UpdatedBy:           si.UpdatedBy,
+		CreatedByRequestID:  si.CreatedByRequestID,
+		ModifiedByRequestID: si.ModifiedByRequestID,
 	}
 }
 
@@ -67,14 +71,16 @@ func (r *SecretsRepository) CreateSecret(ctx context.Context, secret *api.Secret
 
 	now := time.Now().UTC()
 	item := secretItem{
-		SecretName:  secret.Name,
-		KeyName:     secret.KeyName,
-		Description: secret.Description,
-		CreatedBy:   secret.CreatedBy,
-		OwnedBy:     secret.OwnedBy,
-		CreatedAt:   now,
-		UpdatedAt:   now,
-		UpdatedBy:   secret.CreatedBy,
+		SecretName:          secret.Name,
+		KeyName:             secret.KeyName,
+		Description:         secret.Description,
+		CreatedBy:           secret.CreatedBy,
+		OwnedBy:             secret.OwnedBy,
+		CreatedAt:           now,
+		UpdatedAt:           now,
+		UpdatedBy:           secret.CreatedBy,
+		CreatedByRequestID:  secret.CreatedByRequestID,
+		ModifiedByRequestID: secret.ModifiedByRequestID,
 	}
 
 	av, err := attributevalue.MarshalMap(item)
@@ -159,16 +165,13 @@ func (r *SecretsRepository) ListSecrets(ctx context.Context) ([]*api.Secret, err
 	return secrets, nil
 }
 
-// UpdateSecretMetadata updates a secret's metadata (description and keyName) in DynamoDB.
-func (r *SecretsRepository) UpdateSecretMetadata(
-	ctx context.Context,
-	name, keyName, description, updatedBy string,
-) error {
-	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
-
-	now := time.Now().UTC()
-
-	updateExpr := expression.NewBuilder().
+// buildUpdateExpression builds an update expression for secret metadata updates.
+func (r *SecretsRepository) buildUpdateExpression(
+	keyName, description, updatedBy string,
+	now time.Time,
+	requestID string,
+) (expression.Expression, error) {
+	updateBuilder := expression.NewBuilder().
 		WithUpdate(
 			expression.Set(
 				expression.Name("key_name"), expression.Value(keyName),
@@ -184,7 +187,40 @@ func (r *SecretsRepository) UpdateSecretMetadata(
 				),
 		)
 
-	expr, err := updateExpr.Build()
+	if requestID != "" {
+		updateBuilder = updateBuilder.WithUpdate(
+			expression.Set(
+				expression.Name("key_name"), expression.Value(keyName),
+			).
+				Set(
+					expression.Name("description"), expression.Value(description),
+				).
+				Set(
+					expression.Name("updated_at"), expression.Value(now),
+				).
+				Set(
+					expression.Name("updated_by"), expression.Value(updatedBy),
+				).
+				Set(
+					expression.Name("modified_by_request_id"), expression.Value(requestID),
+				),
+		)
+	}
+
+	return updateBuilder.Build()
+}
+
+// UpdateSecretMetadata updates a secret's metadata (description and keyName) in DynamoDB.
+func (r *SecretsRepository) UpdateSecretMetadata(
+	ctx context.Context,
+	name, keyName, description, updatedBy string,
+) error {
+	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
+
+	now := time.Now().UTC()
+	requestID := logger.GetRequestID(ctx)
+
+	expr, err := r.buildUpdateExpression(keyName, description, updatedBy, now, requestID)
 	if err != nil {
 		reqLogger.Error("failed to build update expression", "error", err)
 		return appErrors.ErrInternalError("failed to build update", err)

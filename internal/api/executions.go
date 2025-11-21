@@ -49,16 +49,17 @@ type KillExecutionResponse struct {
 
 // Execution represents an execution record
 type Execution struct {
-	ExecutionID     string     `json:"execution_id"`
-	CreatedBy       string     `json:"created_by"`
-	OwnedBy         []string   `json:"owned_by"`
-	Command         string     `json:"command"`
-	StartedAt       time.Time  `json:"started_at"`
-	CompletedAt     *time.Time `json:"completed_at,omitempty"`
-	Status          string     `json:"status"`
-	ExitCode        int        `json:"exit_code"`
-	DurationSeconds int        `json:"duration_seconds,omitempty"`
-	LogStreamName   string     `json:"log_stream_name,omitempty"`
-	RequestID       string     `json:"request_id,omitempty"`
-	ComputePlatform string     `json:"cloud,omitempty"`
+	ExecutionID         string     `json:"execution_id"`
+	CreatedBy           string     `json:"created_by"`
+	OwnedBy             []string   `json:"owned_by"`
+	Command             string     `json:"command"`
+	StartedAt           time.Time  `json:"started_at"`
+	CompletedAt         *time.Time `json:"completed_at,omitempty"`
+	Status              string     `json:"status"`
+	ExitCode            int        `json:"exit_code"`
+	DurationSeconds     int        `json:"duration_seconds,omitempty"`
+	LogStreamName       string     `json:"log_stream_name,omitempty"`
+	CreatedByRequestID  string     `json:"created_by_request_id"`
+	ModifiedByRequestID string     `json:"modified_by_request_id"`
+	ComputePlatform     string     `json:"cloud,omitempty"`
 }
