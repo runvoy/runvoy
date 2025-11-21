@@ -68,6 +68,11 @@ export interface ClaimAPIKeyResponse {
     message?: string;
 }
 
+export interface HealthResponse {
+    status: string;
+    version: string;
+}
+
 export interface APIClientConfig {
     endpoint: string;
     apiKey: string;

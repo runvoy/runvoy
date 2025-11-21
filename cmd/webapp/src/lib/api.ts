@@ -9,6 +9,7 @@ import type {
     KillExecutionResponse,
     ListExecutionsResponse,
     ClaimAPIKeyResponse,
+    HealthResponse,
     ApiError
 } from '../types/api';
 
@@ -158,6 +159,24 @@ export class APIClient {
      */
     async claimAPIKey(token: string): Promise<ClaimAPIKeyResponse> {
         const url = this.joinUrl(this.endpoint, 'api/v1/claim', token);
+        const response = await fetch(url);
+
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            const error = new Error(errorData.details || `HTTP ${response.status}`) as ApiError;
+            error.status = response.status;
+            error.details = errorData;
+            throw error;
+        }
+
+        return response.json();
+    }
+
+    /**
+     * Get backend health status and version
+     */
+    async getHealth(): Promise<HealthResponse> {
+        const url = this.joinUrl(this.endpoint, 'api/v1/health');
         const response = await fetch(url);
 
         if (!response.ok) {
