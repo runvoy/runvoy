@@ -1,7 +1,10 @@
 // Package constants provides AWS-specific constants for CloudWatch logging and events.
 package constants
 
-import "runvoy/internal/constants"
+import (
+	"runvoy/internal/constants"
+	"time"
+)
 
 // CloudWatchLogsDescribeLimit is the limit for CloudWatch Logs DescribeLogStreams API
 const CloudWatchLogsDescribeLimit = int32(50)
@@ -16,13 +19,13 @@ const LogGroupPrefix = "/aws/lambda/" + constants.ProjectName
 // for CloudWatch Logs Insights query results
 const CloudWatchLogsQueryMaxAttempts = 30
 
-// CloudWatchLogsQueryPollIntervalMs is the polling interval in milliseconds
+// CloudWatchLogsQueryPollInterval is the polling interval in milliseconds
 // for checking CloudWatch Logs Insights query results
-const CloudWatchLogsQueryPollIntervalMs = 1000
+const CloudWatchLogsQueryPollInterval = time.Second
 
-// CloudWatchLogsQueryInitialDelaySeconds is the initial delay in seconds
+// CloudWatchLogsQueryInitialDelay is the initial delay in seconds
 // to allow CloudWatch Logs Insights query to become ready before polling
-const CloudWatchLogsQueryInitialDelaySeconds = 10
+const CloudWatchLogsQueryInitialDelay = 10 * time.Second
 
 // ScheduledEventHealthReconcile is the expected runvoy_event payload value
 // for EventBridge scheduled events that trigger health reconciliation.

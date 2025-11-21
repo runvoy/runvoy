@@ -108,7 +108,7 @@ func (r *Runner) FetchBackendLogs(ctx context.Context, requestID string) ([]api.
 	// We give some headroom for CloudWatch Logs Insights query to be ready
 	// This is a workaround for the fact that the query is not immediately ready
 	// and we need to wait for it to be ready before we can get the results
-	time.Sleep(time.Duration(awsConstants.CloudWatchLogsQueryInitialDelaySeconds) * time.Second)
+	time.Sleep(awsConstants.CloudWatchLogsQueryInitialDelay)
 
 	queryOutput, err := r.pollBackendLogsQuery(ctx, reqLogger, queryID)
 	if err != nil {
@@ -202,7 +202,7 @@ func (r *Runner) pollBackendLogsQuery(
 	var queryOutput *cloudwatchlogs.GetQueryResultsOutput
 	for i := range awsConstants.CloudWatchLogsQueryMaxAttempts {
 		if i > 0 {
-			time.Sleep(time.Duration(awsConstants.CloudWatchLogsQueryPollIntervalMs) * time.Millisecond)
+			time.Sleep(awsConstants.CloudWatchLogsQueryPollInterval)
 		}
 
 		getResultsArgs := []any{
