@@ -222,7 +222,7 @@ func (s *Service) GetLogsByExecutionID(
 
 // FetchBackendLogs retrieves backend infrastructure logs for the provided requestID.
 // Returns logs from backend services for debugging and tracing.
-func (s *Service) FetchBackendLogs(ctx context.Context, requestID string) (*api.BackendLogsResponse, error) {
+func (s *Service) FetchBackendLogs(ctx context.Context, requestID string) ([]api.LogEvent, error) {
 	if requestID == "" {
 		return nil, apperrors.ErrBadRequest("requestID is required", nil)
 	}

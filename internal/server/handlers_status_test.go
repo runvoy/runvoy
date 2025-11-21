@@ -61,11 +61,8 @@ func (m *mockRunner) FetchLogsByExecutionID(_ context.Context, _ string) ([]api.
 	return []api.LogEvent{}, nil
 }
 
-func (m *mockRunner) FetchBackendLogs(_ context.Context, requestID string) (*api.BackendLogsResponse, error) {
-	return &api.BackendLogsResponse{
-		RequestID: requestID,
-		Logs:      []api.LogEvent{},
-	}, nil
+func (m *mockRunner) FetchBackendLogs(_ context.Context, _ string) ([]api.LogEvent, error) {
+	return []api.LogEvent{}, nil
 }
 
 // Test that the status endpoint exists and requires authentication

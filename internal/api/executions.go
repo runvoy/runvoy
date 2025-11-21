@@ -63,16 +63,3 @@ type Execution struct {
 	ModifiedByRequestID string     `json:"modified_by_request_id"`
 	ComputePlatform     string     `json:"cloud,omitempty"`
 }
-
-// BackendLogsRequest represents a request to query backend logs by request ID
-type BackendLogsRequest struct {
-	RequestID string `json:"request_id"`
-}
-
-// BackendLogsResponse represents the response from a backend logs query
-// Contains LogEvents from backend infrastructure
-// Distinct from ExecutionLogs which come from user command execution in containers
-type BackendLogsResponse struct {
-	RequestID string     `json:"request_id"`
-	Logs      []LogEvent `json:"logs"`
-}

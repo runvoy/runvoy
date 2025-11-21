@@ -112,7 +112,7 @@ func (r *Router) handleGetBackendLogsTrace(w http.ResponseWriter, req *http.Requ
 		return
 	}
 
-	resp, err := r.svc.FetchBackendLogs(req.Context(), requestID)
+	logs, err := r.svc.FetchBackendLogs(req.Context(), requestID)
 	if err != nil {
 		statusCode, errorCode, errorDetails := extractErrorInfo(err)
 
@@ -129,11 +129,11 @@ func (r *Router) handleGetBackendLogsTrace(w http.ResponseWriter, req *http.Requ
 
 	logger.Info("backend logs query completed", "context", map[string]any{
 		"request_id": requestID,
-		"log_count":  len(resp.Logs),
+		"log_count":  len(logs),
 	})
 
 	w.WriteHeader(http.StatusOK)
-	_ = json.NewEncoder(w).Encode(resp)
+	_ = json.NewEncoder(w).Encode(logs)
 }
 
 // handleGetExecutionStatus handles GET /api/v1/executions/{executionID}/status to fetch execution status.

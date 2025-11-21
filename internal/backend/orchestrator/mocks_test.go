@@ -231,7 +231,7 @@ type mockRunner struct {
 	getImageFunc               func(ctx context.Context, image string) (*api.ImageInfo, error)
 	removeImageFunc            func(ctx context.Context, image string) error
 	fetchLogsByExecutionIDFunc func(ctx context.Context, executionID string) ([]api.LogEvent, error)
-	fetchBackendLogsFunc       func(ctx context.Context, requestID string) (*api.BackendLogsResponse, error)
+	fetchBackendLogsFunc       func(ctx context.Context, requestID string) ([]api.LogEvent, error)
 }
 
 func (m *mockRunner) StartTask(
@@ -298,14 +298,11 @@ func (m *mockRunner) FetchLogsByExecutionID(ctx context.Context, executionID str
 	return []api.LogEvent{}, nil
 }
 
-func (m *mockRunner) FetchBackendLogs(ctx context.Context, requestID string) (*api.BackendLogsResponse, error) {
+func (m *mockRunner) FetchBackendLogs(ctx context.Context, requestID string) ([]api.LogEvent, error) {
 	if m.fetchBackendLogsFunc != nil {
 		return m.fetchBackendLogsFunc(ctx, requestID)
 	}
-	return &api.BackendLogsResponse{
-		RequestID: requestID,
-		Logs:      []api.LogEvent{},
-	}, nil
+	return []api.LogEvent{}, nil
 }
 
 // newPermissiveEnforcer creates a test enforcer that allows all access.

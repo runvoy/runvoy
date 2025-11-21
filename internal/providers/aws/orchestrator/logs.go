@@ -96,7 +96,7 @@ func getAllLogEvents(ctx context.Context,
 
 // FetchBackendLogs retrieves backend infrastructure logs using CloudWatch Logs Insights
 // Queries logs from Lambda execution for debugging and tracing
-func (r *Runner) FetchBackendLogs(ctx context.Context, requestID string) (*api.BackendLogsResponse, error) {
+func (r *Runner) FetchBackendLogs(ctx context.Context, requestID string) ([]api.LogEvent, error) {
 	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
 
 	queryID, err := r.startBackendLogsQuery(ctx, reqLogger, requestID)
@@ -111,10 +111,7 @@ func (r *Runner) FetchBackendLogs(ctx context.Context, requestID string) (*api.B
 
 	logs := r.transformBackendLogsResults(queryOutput.Results)
 
-	return &api.BackendLogsResponse{
-		RequestID: requestID,
-		Logs:      logs,
-	}, nil
+	return logs, nil
 }
 
 // startBackendLogsQuery starts a CloudWatch Logs Insights query across all runvoy Lambda logs

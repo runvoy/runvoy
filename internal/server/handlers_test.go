@@ -300,11 +300,8 @@ func (t *testRunner) FetchLogsByExecutionID(_ context.Context, _ string) ([]api.
 	return []api.LogEvent{}, nil
 }
 
-func (t *testRunner) FetchBackendLogs(_ context.Context, requestID string) (*api.BackendLogsResponse, error) {
-	return &api.BackendLogsResponse{
-		RequestID: requestID,
-		Logs:      []api.LogEvent{},
-	}, nil
+func (t *testRunner) FetchBackendLogs(_ context.Context, _ string) ([]api.LogEvent, error) {
+	return []api.LogEvent{}, nil
 }
 
 // newTestOrchestratorService creates an orchestrator service with default test repositories.
