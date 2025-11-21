@@ -70,7 +70,7 @@ type BackendLogsRequest struct {
 }
 
 // BackendLogsResponse represents the response from a backend logs query
-// Contains LogEvents from backend infrastructure (Lambda, API Gateway, etc)
+// Contains LogEvents from backend infrastructure
 // Distinct from ExecutionLogs which come from user command execution in containers
 type BackendLogsResponse struct {
 	RequestID string     `json:"request_id"`

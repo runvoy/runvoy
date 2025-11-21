@@ -98,7 +98,7 @@ func (r *Router) handleGetExecutionLogs(w http.ResponseWriter, req *http.Request
 
 // handleGetBackendLogs handles GET /api/v1/logs/backend to query backend infrastructure logs by request ID.
 // This endpoint is restricted to administrators only.
-// Returns logs from backend services (Lambda, API Gateway, etc) for debugging and tracing.
+// Returns logs from backend services for debugging and tracing.
 func (r *Router) handleGetBackendLogs(w http.ResponseWriter, req *http.Request) {
 	logger := r.GetLoggerFromContext(req.Context())
 
