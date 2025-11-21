@@ -156,7 +156,10 @@ func (r *Runner) startBackendLogsQuery(
 	}
 
 	queryID := aws.ToString(startOutput.QueryId)
-	log.Info("CloudWatch Logs Insights query started", "query_id", queryID, "log_groups", logGroups)
+	log.Debug("CloudWatch Logs Insights query started", "context", map[string]any{
+		"query_id":   queryID,
+		"log_groups": logGroups,
+	})
 	return queryID, nil
 }
 
@@ -228,7 +231,7 @@ func (r *Runner) pollBackendLogsQuery(
 		return nil, appErrors.ErrServiceUnavailable("CloudWatch Logs Insights query timed out", nil)
 	}
 
-	log.Info("CloudWatch Logs Insights query completed",
+	log.Debug("CloudWatch Logs Insights query completed",
 		"query_id", queryID,
 		"result_count", len(queryOutput.Results))
 

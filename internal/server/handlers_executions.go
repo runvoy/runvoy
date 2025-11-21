@@ -138,9 +138,10 @@ func (r *Router) handleGetBackendLogs(w http.ResponseWriter, req *http.Request) 
 		return
 	}
 
-	logger.Info("backend logs query completed",
-		"request_id", requestID,
-		"log_count", len(resp.Logs))
+	logger.Info("backend logs query completed", "context", map[string]any{
+		"request_id": requestID,
+		"log_count":  len(resp.Logs),
+	})
 
 	w.WriteHeader(http.StatusOK)
 	_ = json.NewEncoder(w).Encode(resp)
