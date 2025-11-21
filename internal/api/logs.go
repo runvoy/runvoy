@@ -7,9 +7,8 @@ package api
 // Events are ordered by timestamp. Clients should sort by timestamp
 // and compute line numbers as needed for display purposes.
 type LogEvent struct {
-	Timestamp int64             `json:"timestamp"`        // Unix timestamp in milliseconds
-	Message   string            `json:"message"`          // The actual log message text
-	Fields    map[string]string `json:"fields,omitempty"` // CloudWatch Logs Insights query fields (backend logs only)
+	Timestamp int64  `json:"timestamp"` // Unix timestamp in milliseconds
+	Message   string `json:"message"`   // The actual log message text
 }
 
 // LogsResponse contains all log events for an execution

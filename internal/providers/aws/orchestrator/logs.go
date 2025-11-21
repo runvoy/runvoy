@@ -174,9 +174,7 @@ func (r *Runner) FetchBackendLogs(ctx context.Context, requestID string) (*api.B
 	// Transform results to API format
 	logs := make([]api.LogEvent, 0, len(queryOutput.Results))
 	for _, result := range queryOutput.Results {
-		logEntry := api.LogEvent{
-			Fields: make(map[string]string),
-		}
+		logEntry := api.LogEvent{}
 
 		for _, field := range result {
 			fieldName := aws.ToString(field.Field)
@@ -191,8 +189,6 @@ func (r *Runner) FetchBackendLogs(ctx context.Context, requestID string) (*api.B
 				}
 			case "@message":
 				logEntry.Message = fieldValue
-			default:
-				logEntry.Fields[fieldName] = fieldValue
 			}
 		}
 
