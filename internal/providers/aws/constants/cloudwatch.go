@@ -1,6 +1,8 @@
 // Package constants provides AWS-specific constants for CloudWatch logging and events.
 package constants
 
+import "runvoy/internal/constants"
+
 // CloudWatchLogsDescribeLimit is the limit for CloudWatch Logs DescribeLogStreams API
 const CloudWatchLogsDescribeLimit = int32(50)
 
@@ -8,7 +10,7 @@ const CloudWatchLogsDescribeLimit = int32(50)
 const CloudWatchLogsEventsLimit = int32(10000)
 
 // LogGroupPrefix is the prefix for all runvoy Lambda log groups
-const LogGroupPrefix = "/aws/lambda/runvoy-"
+const LogGroupPrefix = "/aws/lambda/" + constants.ProjectName + "-"
 
 // ScheduledEventHealthReconcile is the expected runvoy_event payload value
 // for EventBridge scheduled events that trigger health reconciliation.
