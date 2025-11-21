@@ -12,3 +12,6 @@ type StartTimeCtxKeyType string
 
 // StartTimeCtxKey is the key used to store the start time in context
 const StartTimeCtxKey StartTimeCtxKeyType = "startTime"
+
+// RequestIDLogField is the field name used for request ID in log entries
+const RequestIDLogField = "request_id"

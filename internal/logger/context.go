@@ -6,6 +6,8 @@ import (
 	"context"
 	"log/slog"
 	"time"
+
+	"runvoy/internal/constants"
 )
 
 type contextKey string
@@ -81,18 +83,23 @@ func ExtractRequestIDFromContext(ctx context.Context) string {
 // WithRequestID, then tries all registered ContextExtractors in order.
 // This allows supporting multiple providers (AWS Lambda, HTTP servers, etc.)
 // without hardcoding provider-specific logic.
+//
+// IMPORTANT: The requestID field is always added at the root level of the log entry
+// (never nested in a "context" object). This ensures we can  query logs by requestID
+// directly using e.g. filter requestID = "value".
+// Do NOT add requestID to any "context" map objects in log calls.
 func DeriveRequestLogger(ctx context.Context, base *slog.Logger) *slog.Logger {
 	if base == nil {
 		return slog.Default()
 	}
 
 	if requestID := GetRequestID(ctx); requestID != "" {
-		return base.With("requestID", requestID)
+		return base.With(constants.RequestIDLogField, requestID)
 	}
 
 	for _, extractor := range contextExtractors {
 		if requestID, found := extractor.ExtractRequestID(ctx); found && requestID != "" {
-			return base.With("requestID", requestID)
+			return base.With(constants.RequestIDLogField, requestID)
 		}
 	}
 

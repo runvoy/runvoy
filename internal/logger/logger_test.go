@@ -3,6 +3,7 @@ package logger
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"log/slog"
 	"testing"
 	"time"
@@ -204,11 +205,17 @@ func TestDeriveRequestLogger(t *testing.T) {
 		ctx := context.WithValue(context.Background(), requestIDContextKey, "req-123")
 
 		logger := DeriveRequestLogger(ctx, baseLogger)
-		logger.Info("test message")
+		logger.Info("test message", "context", map[string]string{"key": "value"})
 
 		output := buf.String()
 		assert.Contains(t, output, "req-123", "Output should contain request ID")
 		assert.Contains(t, output, "test message")
+		// Verify requestID is at root level, not nested in context object
+		var logEntry map[string]any
+		err := json.Unmarshal([]byte(output), &logEntry)
+		require.NoError(t, err)
+		assert.Equal(t, "req-123", logEntry[constants.RequestIDLogField], "request_id should be at root level")
+		assert.NotContains(t, logEntry, "context.request_id", "request_id should not be nested in context")
 	})
 
 	t.Run("context with AWS Lambda request ID", func(t *testing.T) {

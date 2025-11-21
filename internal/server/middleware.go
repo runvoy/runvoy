@@ -35,7 +35,7 @@ func (r *Router) requestIDMiddleware(next http.Handler) http.Handler {
 		}
 
 		ctx := loggerPkg.WithRequestID(req.Context(), requestID)
-		log := r.svc.Logger.With("requestID", requestID)
+		log := r.svc.Logger.With(constants.RequestIDLogField, requestID)
 		ctx = context.WithValue(ctx, loggerContextKey, log)
 
 		next.ServeHTTP(w, req.WithContext(ctx))

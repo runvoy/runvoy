@@ -260,7 +260,7 @@ The application uses a unified logging approach with structured logging via `log
 ### Service-Level Logging
 
 - Each `Service` instance in `internal/backend/orchestrator` contains its own logger instance (`Service.Logger`)
-- Service methods that receive a `context.Context` derive a request-scoped logger using the Lambda request ID when available: `reqLogger := s.Logger.With("requestID", AwsRequestID)`
+- Service methods that receive a `context.Context` derive a request-scoped logger using the Lambda request ID when available: `reqLogger := s.Logger.With("request_id", AwsRequestID)`
 - This keeps logs consistent with router/handler logs and ensures traceability across layers
 
 ### Request-Scoped Logging
