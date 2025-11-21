@@ -142,6 +142,7 @@ func (r *Router) registerAuthenticatedRoutes(router chi.Router) {
 	r.registerImagesRoutes(authMiddleware)
 	r.registerSecretsRoutes(authMiddleware)
 	r.registerExecutionsRoutes(authMiddleware)
+	r.registerBackendLogsTraceRoutes(authMiddleware)
 }
 
 // registerUsersRoutes registers user management routes.
@@ -181,5 +182,12 @@ func (r *Router) registerExecutionsRoutes(router chi.Router) {
 		route.Get("/{executionID}/logs", r.handleGetExecutionLogs)
 		route.Get("/{executionID}/status", r.handleGetExecutionStatus)
 		route.Delete("/{executionID}", r.handleKillExecution)
+	})
+}
+
+// registerBackendLogsTraceRoutes registers backend log tracing routes.
+func (r *Router) registerBackendLogsTraceRoutes(router chi.Router) {
+	router.Route("/trace", func(route chi.Router) {
+		route.Get("/{requestID}", r.handleGetBackendLogsTrace)
 	})
 }

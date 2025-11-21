@@ -184,7 +184,7 @@ runvoy --help
 ```
 
 ```text
-runvoy - v0.2.0-20251121-03ca77f
+runvoy - v0.2.0-20251121-9486153
 Isolated, repeatable execution environments for your commands
 
 Usage:
@@ -319,7 +319,7 @@ If not configured, it defaults to `https://runvoy.site/`.
          └──────────────────────────────────────┘
 ```
 
-For detailed architecture information, see [ARCHITECTURE.md](docs/ARCHITECTURE.md).
+For detailed architecture information, see [ARCHITECTURE](docs/ARCHITECTURE.md).
 
 ## 💭 The Story Behind Runvoy
 

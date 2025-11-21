@@ -220,6 +220,16 @@ func (s *Service) GetLogsByExecutionID(
 	}, nil
 }
 
+// FetchBackendLogs retrieves backend infrastructure logs for the provided requestID.
+// Returns logs from backend services for debugging and tracing.
+func (s *Service) FetchBackendLogs(ctx context.Context, requestID string) ([]api.LogEvent, error) {
+	if requestID == "" {
+		return nil, apperrors.ErrBadRequest("requestID is required", nil)
+	}
+
+	return s.runner.FetchBackendLogs(ctx, requestID)
+}
+
 // GetExecutionStatus returns the current status and metadata for a given execution ID.
 func (s *Service) GetExecutionStatus(ctx context.Context, executionID string) (*api.ExecutionStatusResponse, error) {
 	if executionID == "" {

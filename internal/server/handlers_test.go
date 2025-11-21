@@ -238,10 +238,11 @@ func (t *testHealthManager) Reconcile(_ context.Context) (*health.Report, error)
 }
 
 type testRunner struct {
-	runCommandFunc  func(userEmail string, req *api.ExecutionRequest) (*time.Time, error)
-	listImagesFunc  func() ([]api.ImageInfo, error)
-	getImageFunc    func(image string) (*api.ImageInfo, error)
-	removeImageFunc func(ctx context.Context, image string) error
+	runCommandFunc       func(userEmail string, req *api.ExecutionRequest) (*time.Time, error)
+	listImagesFunc       func() ([]api.ImageInfo, error)
+	getImageFunc         func(image string) (*api.ImageInfo, error)
+	removeImageFunc      func(ctx context.Context, image string) error
+	fetchBackendLogsFunc func(ctx context.Context, requestID string) ([]api.LogEvent, error)
 }
 
 func (t *testRunner) StartTask(
@@ -297,6 +298,13 @@ func (t *testRunner) RemoveImage(ctx context.Context, image string) error {
 }
 
 func (t *testRunner) FetchLogsByExecutionID(_ context.Context, _ string) ([]api.LogEvent, error) {
+	return []api.LogEvent{}, nil
+}
+
+func (t *testRunner) FetchBackendLogs(ctx context.Context, requestID string) ([]api.LogEvent, error) {
+	if t.fetchBackendLogsFunc != nil {
+		return t.fetchBackendLogsFunc(ctx, requestID)
+	}
 	return []api.LogEvent{}, nil
 }
 
@@ -1745,4 +1753,128 @@ func TestHandleClaimAPIKey_MarkAsViewedError(t *testing.T) {
 
 	// Database errors return 503 Service Unavailable
 	assert.Equal(t, http.StatusServiceUnavailable, resp.Code)
+}
+
+// TestGetBackendLogs_Success tests successful backend logs retrieval
+func TestGetBackendLogs_Success(t *testing.T) {
+	userRepo := &testUserRepository{
+		getUserByEmailFunc: func(email string) (*api.User, error) {
+			return &api.User{Email: email, Role: "role:admin"}, nil
+		},
+	}
+
+	runner := &testRunner{
+		fetchBackendLogsFunc: func(_ context.Context, _ string) ([]api.LogEvent, error) {
+			return []api.LogEvent{
+				{Timestamp: 1000, Message: "Log 1"},
+				{Timestamp: 2000, Message: "Log 2"},
+			}, nil
+		},
+	}
+
+	svc := newTestOrchestratorService(t, userRepo, nil, nil, runner, nil, nil, nil)
+	router := NewRouter(svc, 2*time.Second, constants.DefaultCORSAllowedOrigins)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/trace/aws-request-id", http.NoBody)
+	req.Header.Set("X-API-Key", "test-key")
+	resp := httptest.NewRecorder()
+	router.ServeHTTP(resp, req)
+
+	assert.Equal(t, http.StatusOK, resp.Code)
+	var logs []api.LogEvent
+	err := json.Unmarshal(resp.Body.Bytes(), &logs)
+	require.NoError(t, err)
+	require.Len(t, logs, 2)
+	assert.Equal(t, "Log 1", logs[0].Message)
+	assert.Equal(t, "Log 2", logs[1].Message)
+}
+
+// TestGetBackendLogs_MissingRequestID tests error when requestID is missing
+func TestGetBackendLogs_MissingRequestID(t *testing.T) {
+	userRepo := &testUserRepository{
+		getUserByEmailFunc: func(email string) (*api.User, error) {
+			return &api.User{Email: email, Role: "role:admin"}, nil
+		},
+	}
+
+	svc := newTestOrchestratorService(t, userRepo, nil, nil, &testRunner{}, nil, nil, nil)
+	router := NewRouter(svc, 2*time.Second, constants.DefaultCORSAllowedOrigins)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/trace/", http.NoBody)
+	req.Header.Set("X-API-Key", "test-key")
+	resp := httptest.NewRecorder()
+	router.ServeHTTP(resp, req)
+
+	// Route doesn't match so we get 404
+	assert.Equal(t, http.StatusNotFound, resp.Code)
+}
+
+// TestGetBackendLogs_ServiceError tests error from service layer
+func TestGetBackendLogs_ServiceError(t *testing.T) {
+	userRepo := &testUserRepository{
+		getUserByEmailFunc: func(email string) (*api.User, error) {
+			return &api.User{Email: email, Role: "role:admin"}, nil
+		},
+	}
+
+	runner := &testRunner{
+		fetchBackendLogsFunc: func(_ context.Context, _ string) ([]api.LogEvent, error) {
+			return nil, apperrors.ErrServiceUnavailable("no log groups found", nil)
+		},
+	}
+
+	svc := newTestOrchestratorService(t, userRepo, nil, nil, runner, nil, nil, nil)
+	router := NewRouter(svc, 2*time.Second, constants.DefaultCORSAllowedOrigins)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/trace/aws-request-id", http.NoBody)
+	req.Header.Set("X-API-Key", "test-key")
+	resp := httptest.NewRecorder()
+	router.ServeHTTP(resp, req)
+
+	assert.Equal(t, http.StatusServiceUnavailable, resp.Code)
+	var errResp api.ErrorResponse
+	err := json.Unmarshal(resp.Body.Bytes(), &errResp)
+	require.NoError(t, err)
+	assert.Equal(t, "SERVICE_UNAVAILABLE", errResp.Code)
+}
+
+// TestGetBackendLogs_NoLogs tests empty logs result
+func TestGetBackendLogs_NoLogs(t *testing.T) {
+	userRepo := &testUserRepository{
+		getUserByEmailFunc: func(email string) (*api.User, error) {
+			return &api.User{Email: email, Role: "role:admin"}, nil
+		},
+	}
+
+	runner := &testRunner{
+		fetchBackendLogsFunc: func(_ context.Context, _ string) ([]api.LogEvent, error) {
+			return []api.LogEvent{}, nil
+		},
+	}
+
+	svc := newTestOrchestratorService(t, userRepo, nil, nil, runner, nil, nil, nil)
+	router := NewRouter(svc, 2*time.Second, constants.DefaultCORSAllowedOrigins)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/trace/aws-request-id", http.NoBody)
+	req.Header.Set("X-API-Key", "test-key")
+	resp := httptest.NewRecorder()
+	router.ServeHTTP(resp, req)
+
+	assert.Equal(t, http.StatusOK, resp.Code)
+	var logs []api.LogEvent
+	err := json.Unmarshal(resp.Body.Bytes(), &logs)
+	require.NoError(t, err)
+	require.Len(t, logs, 0)
+}
+
+// TestGetBackendLogs_Unauthorized tests unauthorized access
+func TestGetBackendLogs_Unauthorized(t *testing.T) {
+	svc := newTestOrchestratorService(t, &testUserRepository{}, nil, nil, &testRunner{}, nil, nil, nil)
+	router := NewRouter(svc, 2*time.Second, constants.DefaultCORSAllowedOrigins)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/trace/aws-request-id", http.NoBody)
+	resp := httptest.NewRecorder()
+	router.ServeHTTP(resp, req)
+
+	assert.Equal(t, http.StatusUnauthorized, resp.Code)
 }
