@@ -221,8 +221,7 @@ func (s *Service) GetLogsByExecutionID(
 }
 
 // FetchBackendLogs retrieves backend infrastructure logs for the provided requestID.
-// This endpoint is restricted to administrators only.
-// Returns logs from backend services like Lambda, API Gateway, etc for debugging and tracing.
+// Returns logs from backend services for debugging and tracing.
 func (s *Service) FetchBackendLogs(ctx context.Context, requestID string) (*api.BackendLogsResponse, error) {
 	if requestID == "" {
 		return nil, apperrors.ErrBadRequest("requestID is required", nil)
