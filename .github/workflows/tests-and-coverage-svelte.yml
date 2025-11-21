@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   tests:
-    name: run
+    name: Tests and Coverage (Svelte)
     runs-on: ubuntu-latest
     defaults:
       run:
