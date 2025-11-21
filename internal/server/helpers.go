@@ -77,3 +77,34 @@ func getImagePath(w http.ResponseWriter, req *http.Request) (string, bool) {
 	}
 	return image, true
 }
+
+// handleAndLogError logs an error and writes a standardized error response.
+// Extracts HTTP status code, error code, and error details from the error,
+// logs them with context, and writes a formatted error response.
+// Use this for all service call failures in handlers.
+//
+// Example:
+//
+//	if err := r.svc.DeleteSecret(req.Context(), name); err != nil {
+//	    r.handleAndLogError(w, req, err, "delete secret")
+//	    return
+//	}
+func (r *Router) handleAndLogError(
+	w http.ResponseWriter,
+	req *http.Request,
+	err error,
+	operationName string,
+) {
+	logger := r.GetLoggerFromContext(req.Context())
+	statusCode, errorCode, errorDetails := extractErrorInfo(err)
+
+	logger.Error(
+		"operation failed",
+		"operation", operationName,
+		"error", err,
+		"status_code", statusCode,
+		"error_code", errorCode,
+	)
+
+	writeErrorResponseWithCode(w, statusCode, errorCode, "failed to "+operationName, errorDetails)
+}

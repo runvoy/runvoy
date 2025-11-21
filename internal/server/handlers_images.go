@@ -9,7 +9,6 @@ import (
 
 // handleRegisterImage handles POST /api/v1/images/register to register a new Docker image.
 func (r *Router) handleRegisterImage(w http.ResponseWriter, req *http.Request) {
-	logger := r.GetLoggerFromContext(req.Context())
 	var registerReq api.RegisterImageRequest
 
 	if err := decodeRequestBody(w, req, &registerReq); err != nil {
@@ -27,11 +26,7 @@ func (r *Router) handleRegisterImage(w http.ResponseWriter, req *http.Request) {
 		user.Email,
 	)
 	if err != nil {
-		statusCode, errorCode, errorDetails := extractErrorInfo(err)
-
-		logger.Error("failed to register image", "error", err, "status_code", statusCode, "error_code", errorCode)
-
-		writeErrorResponseWithCode(w, statusCode, errorCode, "failed to register image", errorDetails)
+		r.handleAndLogError(w, req, err, "register image")
 		return
 	}
 
@@ -49,8 +44,6 @@ func (r *Router) handleListImages(w http.ResponseWriter, req *http.Request) {
 // handleGetImage handles GET /api/v1/images/{image} to get a single registered Docker image.
 // The image parameter may contain slashes and colons and uses a catch-all (*) route to match paths with slashes.
 func (r *Router) handleGetImage(w http.ResponseWriter, req *http.Request) {
-	logger := r.GetLoggerFromContext(req.Context())
-
 	image, ok := getImagePath(w, req)
 	if !ok {
 		return
@@ -58,11 +51,7 @@ func (r *Router) handleGetImage(w http.ResponseWriter, req *http.Request) {
 
 	imageInfo, err := r.svc.GetImage(req.Context(), image)
 	if err != nil {
-		statusCode, errorCode, errorDetails := extractErrorInfo(err)
-
-		logger.Error("failed to get image", "error", err, "status_code", statusCode, "error_code", errorCode)
-
-		writeErrorResponseWithCode(w, statusCode, errorCode, "failed to get image", errorDetails)
+		r.handleAndLogError(w, req, err, "get image")
 		return
 	}
 
@@ -73,8 +62,6 @@ func (r *Router) handleGetImage(w http.ResponseWriter, req *http.Request) {
 // handleRemoveImage handles DELETE /api/v1/images/{image} to remove a registered Docker image.
 // The image parameter may contain slashes and colons and uses a catch-all (*) route to match paths with slashes.
 func (r *Router) handleRemoveImage(w http.ResponseWriter, req *http.Request) {
-	logger := r.GetLoggerFromContext(req.Context())
-
 	image, ok := getImagePath(w, req)
 	if !ok {
 		return
@@ -82,11 +69,7 @@ func (r *Router) handleRemoveImage(w http.ResponseWriter, req *http.Request) {
 
 	err := r.svc.RemoveImage(req.Context(), image)
 	if err != nil {
-		statusCode, errorCode, errorDetails := extractErrorInfo(err)
-
-		logger.Error("failed to remove image", "error", err, "status_code", statusCode, "error_code", errorCode)
-
-		writeErrorResponseWithCode(w, statusCode, errorCode, "failed to remove image", errorDetails)
+		r.handleAndLogError(w, req, err, "remove image")
 		return
 	}
 

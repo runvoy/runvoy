@@ -6,8 +6,6 @@ import (
 
 	"runvoy/internal/api"
 	apperrors "runvoy/internal/errors"
-
-	"github.com/go-chi/chi/v5"
 )
 
 // handleCreateSecret handles POST /api/v1/secrets
@@ -35,9 +33,8 @@ func (r *Router) handleCreateSecret(w http.ResponseWriter, req *http.Request) {
 
 // handleGetSecret handles GET /api/v1/secrets/{name}
 func (r *Router) handleGetSecret(w http.ResponseWriter, req *http.Request) {
-	name := chi.URLParam(req, "name")
-	if name == "" {
-		writeErrorResponse(w, http.StatusBadRequest, "secret name is required", "")
+	name, ok := getRequiredURLParam(w, req, "name")
+	if !ok {
 		return
 	}
 
@@ -71,9 +68,8 @@ func (r *Router) handleListSecrets(w http.ResponseWriter, req *http.Request) {
 // handleUpdateSecret handles PUT /api/v1/secrets/{name}
 // Updates secret metadata (description) and/or value in a single request.
 func (r *Router) handleUpdateSecret(w http.ResponseWriter, req *http.Request) {
-	name := chi.URLParam(req, "name")
-	if name == "" {
-		writeErrorResponse(w, http.StatusBadRequest, "secret name is required", "")
+	name, ok := getRequiredURLParam(w, req, "name")
+	if !ok {
 		return
 	}
 
@@ -82,8 +78,8 @@ func (r *Router) handleUpdateSecret(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	user, ok := r.requireAuthenticatedUser(w, req)
-	if !ok {
+	user, authOk := r.requireAuthenticatedUser(w, req)
+	if !authOk {
 		return
 	}
 
@@ -100,9 +96,8 @@ func (r *Router) handleUpdateSecret(w http.ResponseWriter, req *http.Request) {
 
 // handleDeleteSecret handles DELETE /api/v1/secrets/{name}
 func (r *Router) handleDeleteSecret(w http.ResponseWriter, req *http.Request) {
-	name := chi.URLParam(req, "name")
-	if name == "" {
-		writeErrorResponse(w, http.StatusBadRequest, "secret name is required", "")
+	name, ok := getRequiredURLParam(w, req, "name")
+	if !ok {
 		return
 	}
 
