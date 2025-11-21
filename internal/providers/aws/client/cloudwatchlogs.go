@@ -19,6 +19,16 @@ type CloudWatchLogsClient interface {
 		params *cloudwatchlogs.GetLogEventsInput,
 		optFns ...func(*cloudwatchlogs.Options),
 	) (*cloudwatchlogs.GetLogEventsOutput, error)
+	StartQuery(
+		ctx context.Context,
+		params *cloudwatchlogs.StartQueryInput,
+		optFns ...func(*cloudwatchlogs.Options),
+	) (*cloudwatchlogs.StartQueryOutput, error)
+	GetQueryResults(
+		ctx context.Context,
+		params *cloudwatchlogs.GetQueryResultsInput,
+		optFns ...func(*cloudwatchlogs.Options),
+	) (*cloudwatchlogs.GetQueryResultsOutput, error)
 }
 
 // CloudWatchLogsClientAdapter wraps the AWS SDK CloudWatch Logs client to implement CloudWatchLogsClient interface.
@@ -48,4 +58,22 @@ func (a *CloudWatchLogsClientAdapter) GetLogEvents(
 	optFns ...func(*cloudwatchlogs.Options),
 ) (*cloudwatchlogs.GetLogEventsOutput, error) {
 	return a.client.GetLogEvents(ctx, params, optFns...)
+}
+
+// StartQuery wraps the AWS SDK StartQuery operation for CloudWatch Logs Insights.
+func (a *CloudWatchLogsClientAdapter) StartQuery(
+	ctx context.Context,
+	params *cloudwatchlogs.StartQueryInput,
+	optFns ...func(*cloudwatchlogs.Options),
+) (*cloudwatchlogs.StartQueryOutput, error) {
+	return a.client.StartQuery(ctx, params, optFns...)
+}
+
+// GetQueryResults wraps the AWS SDK GetQueryResults operation for CloudWatch Logs Insights.
+func (a *CloudWatchLogsClientAdapter) GetQueryResults(
+	ctx context.Context,
+	params *cloudwatchlogs.GetQueryResultsInput,
+	optFns ...func(*cloudwatchlogs.Options),
+) (*cloudwatchlogs.GetQueryResultsOutput, error) {
+	return a.client.GetQueryResults(ctx, params, optFns...)
 }

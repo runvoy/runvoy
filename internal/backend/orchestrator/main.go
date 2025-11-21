@@ -53,6 +53,9 @@ type Runner interface {
 	// FetchLogsByExecutionID retrieves logs for a specific execution.
 	// Returns empty slice if logs are not available or not supported by the provider.
 	FetchLogsByExecutionID(ctx context.Context, executionID string) ([]api.LogEvent, error)
+	// QueryLogsByRequestID queries CloudWatch Logs Insights for logs matching the provided requestID.
+	// Returns logs from all executions that have the specified requestID.
+	QueryLogsByRequestID(ctx context.Context, requestID string) (*api.LogsInsightsResponse, error)
 }
 
 // Service provides the core business logic for command execution and user management.

@@ -91,3 +91,110 @@ func getAllLogEvents(ctx context.Context,
 	}
 	return events, nil
 }
+
+// QueryLogsByRequestID queries CloudWatch Logs Insights for logs matching the provided requestID
+func (r *Runner) QueryLogsByRequestID(ctx context.Context, requestID string) (*api.LogsInsightsResponse, error) {
+	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
+
+	// Build the CloudWatch Logs Insights query
+	queryString := fmt.Sprintf(`fields @timestamp, @message, @logStream
+		| filter @message like /%s/
+		| sort @timestamp asc
+		| limit 10000`, requestID)
+
+	// Start the query
+	startQueryArgs := []any{
+		"operation", "CloudWatchLogs.StartQuery",
+		"log_group", r.cfg.LogGroup,
+		"request_id", requestID,
+	}
+	startQueryArgs = append(startQueryArgs, logger.GetDeadlineInfo(ctx)...)
+	reqLogger.Debug("starting CloudWatch Logs Insights query", "context", logger.SliceToMap(startQueryArgs))
+
+	startOutput, err := r.cwlClient.StartQuery(ctx, &cloudwatchlogs.StartQueryInput{
+		LogGroupName: aws.String(r.cfg.LogGroup),
+		QueryString:  aws.String(queryString),
+		StartTime:    aws.Int64(time.Now().Add(-24 * time.Hour).Unix()), // Last 24 hours
+		EndTime:      aws.Int64(time.Now().Unix()),
+	})
+	if err != nil {
+		return nil, appErrors.ErrInternalError("failed to start CloudWatch Logs Insights query", err)
+	}
+
+	queryID := aws.ToString(startOutput.QueryId)
+	reqLogger.Info("CloudWatch Logs Insights query started", "query_id", queryID)
+
+	// Poll for query results
+	var queryOutput *cloudwatchlogs.GetQueryResultsOutput
+	maxAttempts := 30
+	for i := 0; i < maxAttempts; i++ {
+		time.Sleep(500 * time.Millisecond)
+
+		getResultsArgs := []any{
+			"operation", "CloudWatchLogs.GetQueryResults",
+			"query_id", queryID,
+			"attempt", i + 1,
+		}
+		getResultsArgs = append(getResultsArgs, logger.GetDeadlineInfo(ctx)...)
+		reqLogger.Debug("polling for query results", "context", logger.SliceToMap(getResultsArgs))
+
+		queryOutput, err = r.cwlClient.GetQueryResults(ctx, &cloudwatchlogs.GetQueryResultsInput{
+			QueryId: aws.String(queryID),
+		})
+		if err != nil {
+			return nil, appErrors.ErrInternalError("failed to get CloudWatch Logs Insights query results", err)
+		}
+
+		if queryOutput.Status == cwlTypes.QueryStatusComplete {
+			break
+		}
+
+		if queryOutput.Status == cwlTypes.QueryStatusFailed ||
+			queryOutput.Status == cwlTypes.QueryStatusCancelled {
+			return nil, appErrors.ErrInternalError(
+				fmt.Sprintf("CloudWatch Logs Insights query failed with status: %s", queryOutput.Status), nil)
+		}
+	}
+
+	if queryOutput.Status != cwlTypes.QueryStatusComplete {
+		return nil, appErrors.ErrServiceUnavailable("CloudWatch Logs Insights query timed out", nil)
+	}
+
+	reqLogger.Info("CloudWatch Logs Insights query completed",
+		"query_id", queryID,
+		"result_count", len(queryOutput.Results))
+
+	// Transform results to API format
+	logs := make([]api.LogInsightLog, 0, len(queryOutput.Results))
+	for _, result := range queryOutput.Results {
+		logEntry := api.LogInsightLog{
+			Fields: make(map[string]string),
+		}
+
+		for _, field := range result {
+			fieldName := aws.ToString(field.Field)
+			fieldValue := aws.ToString(field.Value)
+
+			switch fieldName {
+			case "@timestamp":
+				// Parse timestamp
+				t, err := time.Parse(time.RFC3339, fieldValue)
+				if err == nil {
+					logEntry.Timestamp = t.UnixMilli()
+				}
+			case "@message":
+				logEntry.Message = fieldValue
+			default:
+				logEntry.Fields[fieldName] = fieldValue
+			}
+		}
+
+		logs = append(logs, logEntry)
+	}
+
+	return &api.LogsInsightsResponse{
+		RequestID: requestID,
+		Logs:      logs,
+		Status:    string(queryOutput.Status),
+	}, nil
+}

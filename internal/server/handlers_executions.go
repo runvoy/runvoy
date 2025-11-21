@@ -96,6 +96,54 @@ func (r *Router) handleGetExecutionLogs(w http.ResponseWriter, req *http.Request
 	_ = json.NewEncoder(w).Encode(resp)
 }
 
+// handleQueryLogsByRequestID handles POST /api/v1/logs/insights to query CloudWatch Logs Insights by requestID.
+// This endpoint is restricted to administrators only.
+func (r *Router) handleQueryLogsByRequestID(w http.ResponseWriter, req *http.Request) {
+	logger := r.GetLoggerFromContext(req.Context())
+
+	user, ok := r.requireAuthenticatedUser(w, req)
+	if !ok {
+		return
+	}
+
+	// Check if user is admin
+	if user.Role != "admin" {
+		logger.Warn("non-admin user attempted to access logs insights endpoint",
+			"user_email", user.Email,
+			"user_role", user.Role)
+		writeErrorResponse(w, http.StatusForbidden,
+			"Forbidden",
+			"admin access required for logs insights endpoint")
+		return
+	}
+
+	var logsReq api.LogsInsightsRequest
+	if err := decodeRequestBody(w, req, &logsReq); err != nil {
+		return
+	}
+
+	resp, err := r.svc.QueryLogsByRequestID(req.Context(), logsReq.RequestID)
+	if err != nil {
+		statusCode, errorCode, errorDetails := extractErrorInfo(err)
+
+		logger.Error("failed to query logs insights",
+			"request_id", logsReq.RequestID,
+			"error", err,
+			"status_code", statusCode,
+			"error_code", errorCode)
+
+		writeErrorResponseWithCode(w, statusCode, errorCode, "failed to query logs insights", errorDetails)
+		return
+	}
+
+	logger.Info("logs insights query completed",
+		"request_id", logsReq.RequestID,
+		"log_count", len(resp.Logs))
+
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(resp)
+}
+
 // handleGetExecutionStatus handles GET /api/v1/executions/{executionID}/status to fetch execution status.
 func (r *Router) handleGetExecutionStatus(w http.ResponseWriter, req *http.Request) {
 	logger := r.GetLoggerFromContext(req.Context())

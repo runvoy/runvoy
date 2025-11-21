@@ -63,3 +63,22 @@ type Execution struct {
 	ModifiedByRequestID string     `json:"modified_by_request_id"`
 	ComputePlatform     string     `json:"cloud,omitempty"`
 }
+
+// LogsInsightsRequest represents a request to query CloudWatch Logs Insights
+type LogsInsightsRequest struct {
+	RequestID string `json:"request_id"`
+}
+
+// LogsInsightsResponse represents the response from CloudWatch Logs Insights query
+type LogsInsightsResponse struct {
+	RequestID string          `json:"request_id"`
+	Logs      []LogInsightLog `json:"logs"`
+	Status    string          `json:"status"`
+}
+
+// LogInsightLog represents a single log entry from CloudWatch Logs Insights
+type LogInsightLog struct {
+	Timestamp int64             `json:"timestamp"`
+	Message   string            `json:"message"`
+	Fields    map[string]string `json:"fields,omitempty"`
+}
