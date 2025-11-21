@@ -220,15 +220,15 @@ func (s *Service) GetLogsByExecutionID(
 	}, nil
 }
 
-// QueryLogsByRequestID queries execution traces for logs matching the provided requestID.
-// This endpoint is restricted to administrators only and returns logs from all executions
-// that have the specified requestID.
-func (s *Service) QueryLogsByRequestID(ctx context.Context, requestID string) (*api.TraceResponse, error) {
+// FetchBackendLogs retrieves backend infrastructure logs for the provided requestID.
+// This endpoint is restricted to administrators only.
+// Returns logs from backend services like Lambda, API Gateway, etc for debugging and tracing.
+func (s *Service) FetchBackendLogs(ctx context.Context, requestID string) (*api.BackendLogsResponse, error) {
 	if requestID == "" {
 		return nil, apperrors.ErrBadRequest("requestID is required", nil)
 	}
 
-	return s.runner.QueryLogsByRequestID(ctx, requestID)
+	return s.runner.FetchBackendLogs(ctx, requestID)
 }
 
 // GetExecutionStatus returns the current status and metadata for a given execution ID.

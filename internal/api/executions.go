@@ -64,20 +64,21 @@ type Execution struct {
 	ComputePlatform     string     `json:"cloud,omitempty"`
 }
 
-// TraceRequest represents a request to query execution traces by request ID
-type TraceRequest struct {
+// BackendLogsRequest represents a request to query backend logs by request ID
+type BackendLogsRequest struct {
 	RequestID string `json:"request_id"`
 }
 
-// TraceResponse represents the response from a trace query
-type TraceResponse struct {
-	RequestID string     `json:"request_id"`
-	Logs      []TraceLog `json:"logs"`
-	Status    string     `json:"status"`
+// BackendLogsResponse represents the response from a backend logs query
+type BackendLogsResponse struct {
+	RequestID string       `json:"request_id"`
+	Logs      []BackendLog `json:"logs"`
+	Status    string       `json:"status"`
 }
 
-// TraceLog represents a single log entry in a trace
-type TraceLog struct {
+// BackendLog represents a single log entry from backend infrastructure (Lambda/API Gateway/etc)
+// These are distinct from ExecutionLogs which come from user command execution in containers
+type BackendLog struct {
 	Timestamp int64             `json:"timestamp"`
 	Message   string            `json:"message"`
 	Fields    map[string]string `json:"fields,omitempty"`

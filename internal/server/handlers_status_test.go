@@ -61,10 +61,10 @@ func (m *mockRunner) FetchLogsByExecutionID(_ context.Context, _ string) ([]api.
 	return []api.LogEvent{}, nil
 }
 
-func (m *mockRunner) QueryLogsByRequestID(_ context.Context, requestID string) (*api.TraceResponse, error) {
-	return &api.TraceResponse{
+func (m *mockRunner) FetchBackendLogs(_ context.Context, requestID string) (*api.BackendLogsResponse, error) {
+	return &api.BackendLogsResponse{
 		RequestID: requestID,
-		Logs:      []api.TraceLog{},
+		Logs:      []api.BackendLog{},
 		Status:    "Complete",
 	}, nil
 }

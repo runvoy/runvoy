@@ -231,7 +231,7 @@ type mockRunner struct {
 	getImageFunc               func(ctx context.Context, image string) (*api.ImageInfo, error)
 	removeImageFunc            func(ctx context.Context, image string) error
 	fetchLogsByExecutionIDFunc func(ctx context.Context, executionID string) ([]api.LogEvent, error)
-	queryLogsByRequestIDFunc   func(ctx context.Context, requestID string) (*api.TraceResponse, error)
+	fetchBackendLogsFunc       func(ctx context.Context, requestID string) (*api.BackendLogsResponse, error)
 }
 
 func (m *mockRunner) StartTask(
@@ -298,13 +298,13 @@ func (m *mockRunner) FetchLogsByExecutionID(ctx context.Context, executionID str
 	return []api.LogEvent{}, nil
 }
 
-func (m *mockRunner) QueryLogsByRequestID(ctx context.Context, requestID string) (*api.TraceResponse, error) {
-	if m.queryLogsByRequestIDFunc != nil {
-		return m.queryLogsByRequestIDFunc(ctx, requestID)
+func (m *mockRunner) FetchBackendLogs(ctx context.Context, requestID string) (*api.BackendLogsResponse, error) {
+	if m.fetchBackendLogsFunc != nil {
+		return m.fetchBackendLogsFunc(ctx, requestID)
 	}
-	return &api.TraceResponse{
+	return &api.BackendLogsResponse{
 		RequestID: requestID,
-		Logs:      []api.TraceLog{},
+		Logs:      []api.BackendLog{},
 		Status:    "Complete",
 	}, nil
 }

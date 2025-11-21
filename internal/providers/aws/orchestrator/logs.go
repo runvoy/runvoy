@@ -93,10 +93,11 @@ func getAllLogEvents(ctx context.Context,
 	return events, nil
 }
 
-// QueryLogsByRequestID queries execution traces by request ID using CloudWatch Logs Insights
+// FetchBackendLogs retrieves backend infrastructure logs using CloudWatch Logs Insights
+// Queries logs from Lambda execution and API Gateway for debugging and tracing
 //
 //nolint:funlen // Complex AWS Logs Insights query with multiple steps is inherently longer
-func (r *Runner) QueryLogsByRequestID(ctx context.Context, requestID string) (*api.TraceResponse, error) {
+func (r *Runner) FetchBackendLogs(ctx context.Context, requestID string) (*api.BackendLogsResponse, error) {
 	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
 
 	// Build the CloudWatch Logs Insights query
@@ -171,9 +172,9 @@ func (r *Runner) QueryLogsByRequestID(ctx context.Context, requestID string) (*a
 		"result_count", len(queryOutput.Results))
 
 	// Transform results to API format
-	logs := make([]api.TraceLog, 0, len(queryOutput.Results))
+	logs := make([]api.BackendLog, 0, len(queryOutput.Results))
 	for _, result := range queryOutput.Results {
-		logEntry := api.TraceLog{
+		logEntry := api.BackendLog{
 			Fields: make(map[string]string),
 		}
 
@@ -198,7 +199,7 @@ func (r *Runner) QueryLogsByRequestID(ctx context.Context, requestID string) (*a
 		logs = append(logs, logEntry)
 	}
 
-	return &api.TraceResponse{
+	return &api.BackendLogsResponse{
 		RequestID: requestID,
 		Logs:      logs,
 		Status:    string(queryOutput.Status),

@@ -96,9 +96,10 @@ func (r *Router) handleGetExecutionLogs(w http.ResponseWriter, req *http.Request
 	_ = json.NewEncoder(w).Encode(resp)
 }
 
-// handleGetTrace handles GET /api/v1/trace to query execution traces by request ID.
+// handleGetBackendLogs handles GET /api/v1/logs/backend to query backend infrastructure logs by request ID.
 // This endpoint is restricted to administrators only.
-func (r *Router) handleGetTrace(w http.ResponseWriter, req *http.Request) {
+// Returns logs from backend services (Lambda, API Gateway, etc) for debugging and tracing.
+func (r *Router) handleGetBackendLogs(w http.ResponseWriter, req *http.Request) {
 	logger := r.GetLoggerFromContext(req.Context())
 
 	user, ok := r.requireAuthenticatedUser(w, req)
@@ -108,12 +109,12 @@ func (r *Router) handleGetTrace(w http.ResponseWriter, req *http.Request) {
 
 	// Check if user is admin
 	if user.Role != "admin" {
-		logger.Warn("non-admin user attempted to access trace endpoint",
+		logger.Warn("non-admin user attempted to access backend logs endpoint",
 			"user_email", user.Email,
 			"user_role", user.Role)
 		writeErrorResponse(w, http.StatusForbidden,
 			"Forbidden",
-			"admin access required for trace endpoint")
+			"admin access required for backend logs endpoint")
 		return
 	}
 
@@ -123,21 +124,21 @@ func (r *Router) handleGetTrace(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	resp, err := r.svc.QueryLogsByRequestID(req.Context(), requestID)
+	resp, err := r.svc.FetchBackendLogs(req.Context(), requestID)
 	if err != nil {
 		statusCode, errorCode, errorDetails := extractErrorInfo(err)
 
-		logger.Error("failed to query trace",
+		logger.Error("failed to fetch backend logs",
 			"request_id", requestID,
 			"error", err,
 			"status_code", statusCode,
 			"error_code", errorCode)
 
-		writeErrorResponseWithCode(w, statusCode, errorCode, "failed to query trace", errorDetails)
+		writeErrorResponseWithCode(w, statusCode, errorCode, "failed to fetch backend logs", errorDetails)
 		return
 	}
 
-	logger.Info("trace query completed",
+	logger.Info("backend logs query completed",
 		"request_id", requestID,
 		"log_count", len(resp.Logs))
 

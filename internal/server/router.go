@@ -142,7 +142,7 @@ func (r *Router) registerAuthenticatedRoutes(router chi.Router) {
 	r.registerImagesRoutes(authMiddleware)
 	r.registerSecretsRoutes(authMiddleware)
 	r.registerExecutionsRoutes(authMiddleware)
-	r.registerTraceRoutes(authMiddleware)
+	r.registerBackendLogsRoutes(authMiddleware)
 }
 
 // registerUsersRoutes registers user management routes.
@@ -185,7 +185,9 @@ func (r *Router) registerExecutionsRoutes(router chi.Router) {
 	})
 }
 
-// registerTraceRoutes registers trace query routes.
-func (r *Router) registerTraceRoutes(router chi.Router) {
-	router.Get("/trace", r.handleGetTrace)
+// registerBackendLogsRoutes registers backend logs query routes.
+func (r *Router) registerBackendLogsRoutes(router chi.Router) {
+	router.Route("/logs", func(route chi.Router) {
+		route.Get("/backend", r.handleGetBackendLogs)
+	})
 }
