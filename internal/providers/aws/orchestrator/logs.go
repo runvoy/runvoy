@@ -95,25 +95,50 @@ func getAllLogEvents(ctx context.Context,
 
 // FetchBackendLogs retrieves backend infrastructure logs using CloudWatch Logs Insights
 // Queries logs from Lambda execution and API Gateway for debugging and tracing
-//
-//nolint:funlen // Complex AWS Logs Insights query with multiple steps is inherently longer
 func (r *Runner) FetchBackendLogs(ctx context.Context, requestID string) (*api.BackendLogsResponse, error) {
 	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
 
+	// Start the query
+	queryID, err := r.startBackendLogsQuery(ctx, reqLogger, requestID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Poll for results
+	queryOutput, err := r.pollBackendLogsQuery(ctx, reqLogger, queryID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Transform results to API format
+	logs := r.transformBackendLogsResults(queryOutput.Results)
+
+	return &api.BackendLogsResponse{
+		RequestID: requestID,
+		Logs:      logs,
+		Status:    string(queryOutput.Status),
+	}, nil
+}
+
+// startBackendLogsQuery starts a CloudWatch Logs Insights query
+func (r *Runner) startBackendLogsQuery(
+	ctx context.Context,
+	log *slog.Logger,
+	requestID string,
+) (string, error) {
 	// Build the CloudWatch Logs Insights query
 	queryString := fmt.Sprintf(`fields @timestamp, @message, @logStream
 		| filter @message like /%s/
 		| sort @timestamp asc
 		| limit 10000`, requestID)
 
-	// Start the query
 	startQueryArgs := []any{
 		"operation", "CloudWatchLogs.StartQuery",
 		"log_group", r.cfg.LogGroup,
 		"request_id", requestID,
 	}
 	startQueryArgs = append(startQueryArgs, logger.GetDeadlineInfo(ctx)...)
-	reqLogger.Debug("starting CloudWatch Logs Insights query", "context", logger.SliceToMap(startQueryArgs))
+	log.Debug("starting CloudWatch Logs Insights query", "context", logger.SliceToMap(startQueryArgs))
 
 	startOutput, err := r.cwlClient.StartQuery(ctx, &cloudwatchlogs.StartQueryInput{
 		LogGroupName: aws.String(r.cfg.LogGroup),
@@ -122,18 +147,26 @@ func (r *Runner) FetchBackendLogs(ctx context.Context, requestID string) (*api.B
 		EndTime:      aws.Int64(time.Now().Unix()),
 	})
 	if err != nil {
-		return nil, appErrors.ErrInternalError("failed to start CloudWatch Logs Insights query", err)
+		return "", appErrors.ErrInternalError("failed to start CloudWatch Logs Insights query", err)
 	}
 
 	queryID := aws.ToString(startOutput.QueryId)
-	reqLogger.Info("CloudWatch Logs Insights query started", "query_id", queryID)
+	log.Info("CloudWatch Logs Insights query started", "query_id", queryID)
+	return queryID, nil
+}
 
-	// Poll for query results
-	var queryOutput *cloudwatchlogs.GetQueryResultsOutput
+// pollBackendLogsQuery polls for CloudWatch Logs Insights query results
+func (r *Runner) pollBackendLogsQuery(
+	ctx context.Context,
+	log *slog.Logger,
+	queryID string,
+) (*cloudwatchlogs.GetQueryResultsOutput, error) {
 	const (
 		maxQueryAttempts    = 30
 		queryPollIntervalMs = 500
 	)
+
+	var queryOutput *cloudwatchlogs.GetQueryResultsOutput
 	for i := range maxQueryAttempts {
 		time.Sleep(time.Duration(queryPollIntervalMs) * time.Millisecond)
 
@@ -143,8 +176,9 @@ func (r *Runner) FetchBackendLogs(ctx context.Context, requestID string) (*api.B
 			"attempt", i + 1,
 		}
 		getResultsArgs = append(getResultsArgs, logger.GetDeadlineInfo(ctx)...)
-		reqLogger.Debug("polling for query results", "context", logger.SliceToMap(getResultsArgs))
+		log.Debug("polling for query results", "context", logger.SliceToMap(getResultsArgs))
 
+		var err error
 		queryOutput, err = r.cwlClient.GetQueryResults(ctx, &cloudwatchlogs.GetQueryResultsInput{
 			QueryId: aws.String(queryID),
 		})
@@ -167,13 +201,19 @@ func (r *Runner) FetchBackendLogs(ctx context.Context, requestID string) (*api.B
 		return nil, appErrors.ErrServiceUnavailable("CloudWatch Logs Insights query timed out", nil)
 	}
 
-	reqLogger.Info("CloudWatch Logs Insights query completed",
+	log.Info("CloudWatch Logs Insights query completed",
 		"query_id", queryID,
 		"result_count", len(queryOutput.Results))
 
-	// Transform results to API format
-	logs := make([]api.LogEvent, 0, len(queryOutput.Results))
-	for _, result := range queryOutput.Results {
+	return queryOutput, nil
+}
+
+// transformBackendLogsResults transforms CloudWatch Logs Insights results to LogEvent format
+func (r *Runner) transformBackendLogsResults(
+	results [][]cwlTypes.ResultField,
+) []api.LogEvent {
+	logs := make([]api.LogEvent, 0, len(results))
+	for _, result := range results {
 		logEntry := api.LogEvent{}
 
 		for _, field := range result {
@@ -194,10 +234,5 @@ func (r *Runner) FetchBackendLogs(ctx context.Context, requestID string) (*api.B
 
 		logs = append(logs, logEntry)
 	}
-
-	return &api.BackendLogsResponse{
-		RequestID: requestID,
-		Logs:      logs,
-		Status:    string(queryOutput.Status),
-	}, nil
+	return logs
 }
