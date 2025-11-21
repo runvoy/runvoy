@@ -1,5 +1,6 @@
 <script lang="ts">
     import { onMount } from 'svelte';
+    import type { ComponentType } from 'svelte';
     import { apiEndpoint, apiKey } from '../stores/config';
     import { activeView, VIEWS } from '../stores/ui';
     import APIClient from '../lib/api';
@@ -31,6 +32,13 @@
     ];
     let navViews: NavView[] = views;
 
+    const viewComponents: Record<string, ComponentType> = {
+        [VIEWS.RUN]: RunView,
+        [VIEWS.CLAIM]: ClaimView,
+        [VIEWS.LOGS]: LogsView,
+        [VIEWS.SETTINGS]: SettingsView
+    };
+
     onMount(() => {
         if (typeof window === 'undefined') {
             return;
@@ -56,6 +64,11 @@
     $: if (!isConfigured) {
         activeView.set(VIEWS.RUN);
     }
+
+    $: currentComponent = viewComponents[$activeView] || RunView;
+
+    $: componentProps =
+        $activeView === VIEWS.RUN || $activeView === VIEWS.LOGS ? { apiClient, isConfigured } : {};
 </script>
 
 <main class="container">
@@ -84,15 +97,7 @@
     </header>
 
     <div class="content-area">
-        {#if $activeView === VIEWS.RUN}
-            <RunView {apiClient} {isConfigured} />
-        {:else if $activeView === VIEWS.CLAIM}
-            <ClaimView />
-        {:else if $activeView === VIEWS.LOGS}
-            <LogsView {apiClient} {isConfigured} />
-        {:else if $activeView === VIEWS.SETTINGS}
-            <SettingsView />
-        {/if}
+        <svelte:component this={currentComponent} {...componentProps} />
     </div>
 </main>
 
