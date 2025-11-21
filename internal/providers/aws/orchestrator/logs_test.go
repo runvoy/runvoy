@@ -373,3 +373,297 @@ func TestBuildLogStreamName(t *testing.T) {
 	assert.NotEmpty(t, stream)
 	assert.Contains(t, stream, executionID)
 }
+
+func TestDiscoverLogGroups(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("single page of log groups", func(t *testing.T) {
+		mock := &mockCloudWatchLogsClient{
+			describeLogGroupsFunc: func(
+				_ context.Context,
+				_ *cloudwatchlogs.DescribeLogGroupsInput,
+				_ ...func(*cloudwatchlogs.Options),
+			) (*cloudwatchlogs.DescribeLogGroupsOutput, error) {
+				return &cloudwatchlogs.DescribeLogGroupsOutput{
+					LogGroups: []cwlTypes.LogGroup{
+						{LogGroupName: aws.String("/aws/lambda/runvoy-orchestrator")},
+						{LogGroupName: aws.String("/aws/lambda/runvoy-processor")},
+					},
+				}, nil
+			},
+		}
+
+		runner := &Runner{cwlClient: mock, logger: testutil.SilentLogger()}
+		groups, err := runner.discoverLogGroups(ctx, testutil.SilentLogger())
+		require.NoError(t, err)
+		require.Len(t, groups, 2)
+		assert.Contains(t, groups, "/aws/lambda/runvoy-orchestrator")
+		assert.Contains(t, groups, "/aws/lambda/runvoy-processor")
+	})
+
+	t.Run("multiple pages of log groups", func(t *testing.T) {
+		pageCount := 0
+		token1 := "next-token-1"
+		mock := &mockCloudWatchLogsClient{
+			describeLogGroupsFunc: func(
+				_ context.Context,
+				_ *cloudwatchlogs.DescribeLogGroupsInput,
+				_ ...func(*cloudwatchlogs.Options),
+			) (*cloudwatchlogs.DescribeLogGroupsOutput, error) {
+				pageCount++
+				switch pageCount {
+				case 1:
+					return &cloudwatchlogs.DescribeLogGroupsOutput{
+						LogGroups: []cwlTypes.LogGroup{
+							{LogGroupName: aws.String("/aws/lambda/runvoy-orchestrator")},
+						},
+						NextToken: aws.String(token1),
+					}, nil
+				default:
+					return &cloudwatchlogs.DescribeLogGroupsOutput{
+						LogGroups: []cwlTypes.LogGroup{
+							{LogGroupName: aws.String("/aws/lambda/runvoy-processor")},
+						},
+					}, nil
+				}
+			},
+		}
+
+		runner := &Runner{cwlClient: mock, logger: testutil.SilentLogger()}
+		groups, err := runner.discoverLogGroups(ctx, testutil.SilentLogger())
+		require.NoError(t, err)
+		require.Len(t, groups, 2)
+		assert.Equal(t, 2, pageCount)
+	})
+
+	t.Run("no log groups found", func(t *testing.T) {
+		mock := &mockCloudWatchLogsClient{
+			describeLogGroupsFunc: func(
+				_ context.Context,
+				_ *cloudwatchlogs.DescribeLogGroupsInput,
+				_ ...func(*cloudwatchlogs.Options),
+			) (*cloudwatchlogs.DescribeLogGroupsOutput, error) {
+				return &cloudwatchlogs.DescribeLogGroupsOutput{
+					LogGroups: []cwlTypes.LogGroup{},
+				}, nil
+			},
+		}
+
+		runner := &Runner{cwlClient: mock, logger: testutil.SilentLogger()}
+		groups, err := runner.discoverLogGroups(ctx, testutil.SilentLogger())
+		require.NoError(t, err)
+		require.Len(t, groups, 0)
+	})
+
+	t.Run("describe log groups fails", func(t *testing.T) {
+		mock := &mockCloudWatchLogsClient{
+			describeLogGroupsFunc: func(
+				_ context.Context,
+				_ *cloudwatchlogs.DescribeLogGroupsInput,
+				_ ...func(*cloudwatchlogs.Options),
+			) (*cloudwatchlogs.DescribeLogGroupsOutput, error) {
+				return nil, errors.New("AWS API error")
+			},
+		}
+
+		runner := &Runner{cwlClient: mock, logger: testutil.SilentLogger()}
+		groups, err := runner.discoverLogGroups(ctx, testutil.SilentLogger())
+		require.Error(t, err)
+		assert.Nil(t, groups)
+	})
+}
+
+func TestTransformBackendLogsResults(t *testing.T) {
+	runner := &Runner{}
+
+	t.Run("transforms CloudWatch Logs Insights results", func(t *testing.T) {
+		results := [][]cwlTypes.ResultField{
+			{
+				{Field: aws.String("@timestamp"), Value: aws.String("2025-11-21T16:40:00Z")},
+				{Field: aws.String("@message"), Value: aws.String("Request started")},
+			},
+			{
+				{Field: aws.String("@timestamp"), Value: aws.String("2025-11-21T16:40:01Z")},
+				{Field: aws.String("@message"), Value: aws.String("Request completed")},
+			},
+		}
+
+		logs := runner.transformBackendLogsResults(results)
+		require.Len(t, logs, 2)
+		assert.Equal(t, "Request started", logs[0].Message)
+		assert.Equal(t, "Request completed", logs[1].Message)
+		assert.Greater(t, logs[0].Timestamp, int64(0))
+		assert.Greater(t, logs[1].Timestamp, int64(0))
+	})
+
+	t.Run("handles empty results", func(t *testing.T) {
+		results := [][]cwlTypes.ResultField{}
+		logs := runner.transformBackendLogsResults(results)
+		require.Len(t, logs, 0)
+	})
+
+	t.Run("ignores unknown fields", func(t *testing.T) {
+		results := [][]cwlTypes.ResultField{
+			{
+				{Field: aws.String("@timestamp"), Value: aws.String("2025-11-21T16:40:00Z")},
+				{Field: aws.String("@message"), Value: aws.String("Test message")},
+				{Field: aws.String("custom_field"), Value: aws.String("ignored")},
+			},
+		}
+
+		logs := runner.transformBackendLogsResults(results)
+		require.Len(t, logs, 1)
+		assert.Equal(t, "Test message", logs[0].Message)
+	})
+
+	t.Run("handles invalid timestamp format gracefully", func(t *testing.T) {
+		results := [][]cwlTypes.ResultField{
+			{
+				{Field: aws.String("@timestamp"), Value: aws.String("invalid-timestamp")},
+				{Field: aws.String("@message"), Value: aws.String("Test message")},
+			},
+		}
+
+		logs := runner.transformBackendLogsResults(results)
+		require.Len(t, logs, 1)
+		assert.Equal(t, "Test message", logs[0].Message)
+		// Timestamp should be 0 due to parse error
+		assert.Equal(t, int64(0), logs[0].Timestamp)
+	})
+}
+
+type mockLogsClientOpts struct {
+	describeErr       error
+	noLogGroups       bool
+	startQueryErr     error
+	getResultsStatus  cwlTypes.QueryStatus
+	getResultsErr     error
+	getResultsResults [][]cwlTypes.ResultField
+}
+
+func createMockLogsClient(opts *mockLogsClientOpts) *mockCloudWatchLogsClient {
+	return &mockCloudWatchLogsClient{
+		describeLogGroupsFunc: func(
+			_ context.Context,
+			_ *cloudwatchlogs.DescribeLogGroupsInput,
+			_ ...func(*cloudwatchlogs.Options),
+		) (*cloudwatchlogs.DescribeLogGroupsOutput, error) {
+			if opts.describeErr != nil {
+				return nil, opts.describeErr
+			}
+			if opts.noLogGroups {
+				return &cloudwatchlogs.DescribeLogGroupsOutput{
+					LogGroups: []cwlTypes.LogGroup{},
+				}, nil
+			}
+			return &cloudwatchlogs.DescribeLogGroupsOutput{
+				LogGroups: []cwlTypes.LogGroup{
+					{LogGroupName: aws.String("/aws/lambda/runvoy-orchestrator")},
+				},
+			}, nil
+		},
+		startQueryFunc: func(
+			_ context.Context,
+			_ *cloudwatchlogs.StartQueryInput,
+			_ ...func(*cloudwatchlogs.Options),
+		) (*cloudwatchlogs.StartQueryOutput, error) {
+			if opts.startQueryErr != nil {
+				return nil, opts.startQueryErr
+			}
+			return &cloudwatchlogs.StartQueryOutput{
+				QueryId: aws.String("query-123"),
+			}, nil
+		},
+		getQueryResultsFunc: func(
+			_ context.Context,
+			_ *cloudwatchlogs.GetQueryResultsInput,
+			_ ...func(*cloudwatchlogs.Options),
+		) (*cloudwatchlogs.GetQueryResultsOutput, error) {
+			if opts.getResultsErr != nil {
+				return nil, opts.getResultsErr
+			}
+			return &cloudwatchlogs.GetQueryResultsOutput{
+				Status:  opts.getResultsStatus,
+				Results: opts.getResultsResults,
+			}, nil
+		},
+	}
+}
+
+func TestFetchBackendLogs(t *testing.T) {
+	ctx := context.Background()
+	requestID := "aws-request-id-12345"
+
+	t.Run("successful query returns logs", func(t *testing.T) {
+		mock := createMockLogsClient(&mockLogsClientOpts{
+			getResultsStatus: cwlTypes.QueryStatusComplete,
+			getResultsResults: [][]cwlTypes.ResultField{
+				{
+					{Field: aws.String("@timestamp"), Value: aws.String("2025-11-21T16:40:00Z")},
+					{Field: aws.String("@message"), Value: aws.String("Log entry 1")},
+				},
+			},
+		})
+
+		runner := &Runner{cwlClient: mock, logger: testutil.SilentLogger()}
+		logs, err := runner.FetchBackendLogs(ctx, requestID)
+		require.NoError(t, err)
+		require.Len(t, logs, 1)
+		assert.Equal(t, "Log entry 1", logs[0].Message)
+	})
+
+	t.Run("log group discovery fails", func(t *testing.T) {
+		mock := createMockLogsClient(&mockLogsClientOpts{
+			describeErr: errors.New("AWS API error"),
+		})
+
+		runner := &Runner{cwlClient: mock, logger: testutil.SilentLogger()}
+		logs, err := runner.FetchBackendLogs(ctx, requestID)
+		require.Error(t, err)
+		assert.Nil(t, logs)
+	})
+
+	t.Run("no log groups found", func(t *testing.T) {
+		mock := createMockLogsClient(&mockLogsClientOpts{
+			noLogGroups: true,
+		})
+
+		runner := &Runner{cwlClient: mock, logger: testutil.SilentLogger()}
+		logs, err := runner.FetchBackendLogs(ctx, requestID)
+		require.Error(t, err)
+		assert.Nil(t, logs)
+	})
+
+	t.Run("start query fails", func(t *testing.T) {
+		mock := createMockLogsClient(&mockLogsClientOpts{
+			startQueryErr: errors.New("failed to start query"),
+		})
+
+		runner := &Runner{cwlClient: mock, logger: testutil.SilentLogger()}
+		logs, err := runner.FetchBackendLogs(ctx, requestID)
+		require.Error(t, err)
+		assert.Nil(t, logs)
+	})
+
+	t.Run("query polling times out", func(t *testing.T) {
+		mock := createMockLogsClient(&mockLogsClientOpts{
+			getResultsStatus: cwlTypes.QueryStatusRunning,
+		})
+
+		runner := &Runner{cwlClient: mock, logger: testutil.SilentLogger()}
+		logs, err := runner.FetchBackendLogs(ctx, requestID)
+		require.Error(t, err)
+		assert.Nil(t, logs)
+	})
+
+	t.Run("query fails with failed status", func(t *testing.T) {
+		mock := createMockLogsClient(&mockLogsClientOpts{
+			getResultsStatus: cwlTypes.QueryStatusFailed,
+		})
+
+		runner := &Runner{cwlClient: mock, logger: testutil.SilentLogger()}
+		logs, err := runner.FetchBackendLogs(ctx, requestID)
+		require.Error(t, err)
+		assert.Nil(t, logs)
+	})
+}

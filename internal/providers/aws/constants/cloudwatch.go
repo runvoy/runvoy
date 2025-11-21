@@ -14,11 +14,11 @@ const LogGroupPrefix = "/aws/lambda/" + constants.ProjectName
 
 // CloudWatchLogsQueryMaxAttempts is the maximum number of polling attempts
 // for CloudWatch Logs Insights query results
-const CloudWatchLogsQueryMaxAttempts = 30
+const CloudWatchLogsQueryMaxAttempts = 50
 
 // CloudWatchLogsQueryPollIntervalMs is the polling interval in milliseconds
 // for checking CloudWatch Logs Insights query results
-const CloudWatchLogsQueryPollIntervalMs = 500
+const CloudWatchLogsQueryPollIntervalMs = 1000
 
 // ScheduledEventHealthReconcile is the expected runvoy_event payload value
 // for EventBridge scheduled events that trigger health reconciliation.
