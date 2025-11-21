@@ -107,7 +107,7 @@ func (p *Processor) updateExecutionToRunning(
 	execution.CompletedAt = nil
 
 	// Extract request ID from context and set ModifiedByRequestID
-	requestID := logger.GetRequestID(ctx)
+	requestID := logger.ExtractRequestIDFromContext(ctx)
 	if requestID != "" {
 		execution.ModifiedByRequestID = requestID
 	}
@@ -162,7 +162,7 @@ func (p *Processor) finalizeExecutionFromTaskEvent(
 	execution.DurationSeconds = durationSeconds
 
 	// Extract request ID from context and set ModifiedByRequestID
-	requestID := logger.GetRequestID(ctx)
+	requestID := logger.ExtractRequestIDFromContext(ctx)
 	if requestID != "" {
 		execution.ModifiedByRequestID = requestID
 	}

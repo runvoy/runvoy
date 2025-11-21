@@ -132,7 +132,7 @@ func (s *Service) recordExecution(
 		startedAt = createdAt.UTC()
 	}
 
-	requestID := logger.GetRequestID(ctx)
+	requestID := logger.ExtractRequestIDFromContext(ctx)
 	execution := &api.Execution{
 		ExecutionID:         executionID,
 		CreatedBy:           userEmail,
@@ -305,7 +305,7 @@ func (s *Service) KillExecution(ctx context.Context, executionID string) (*api.K
 	execution.CompletedAt = nil
 
 	// Extract request ID from context and set ModifiedByRequestID
-	requestID := logger.GetRequestID(ctx)
+	requestID := logger.ExtractRequestIDFromContext(ctx)
 	if requestID != "" {
 		execution.ModifiedByRequestID = requestID
 	}
