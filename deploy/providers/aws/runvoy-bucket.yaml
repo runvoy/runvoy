@@ -25,6 +25,13 @@ Resources:
         BlockPublicPolicy: false
         IgnorePublicAcls: false
         RestrictPublicBuckets: false
+      # Lifecycle rule to delete development files
+      LifecycleConfiguration:
+        Rules:
+          - Id: DeleteDevelopmentFiles
+            Status: Enabled
+            Prefix: '0.0.0-development/'
+            ExpirationInDays: 7
       Tags:
         - Key: Name
           Value: !Sub '${ProjectName}-releases-${AWS::Region}'

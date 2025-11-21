@@ -3,6 +3,7 @@
 # Setup CloudFormation StackSet prerequisites (run once)
 create-stackset-prerequisites:
     aws cloudformation deploy \
+        --region us-east-1 \
         --stack-name runvoy-stackset-prerequisites \
         --template-file deploy/providers/aws/runvoy-stackset-prerequisites.yaml \
         --capabilities CAPABILITY_NAMED_IAM
@@ -10,20 +11,24 @@ create-stackset-prerequisites:
 # Create releases bucket with multi-region replication
 create-releases-buckets: create-stackset-prerequisites
     aws cloudformation create-stack-set \
+        --region us-east-1 \
         --stack-set-name runvoy-releases-bucket \
         --template-body file://deploy/providers/aws/runvoy-bucket.yaml
 
     aws cloudformation create-stack-instances \
+        --region us-east-1 \
         --stack-set-name runvoy-releases-bucket \
         --accounts 587453114450 \
         --regions {{regions}}
 
     @echo "Waiting for all stack instances to complete in all regions..."
     @while [ $(aws cloudformation list-stack-instances \
+        --region us-east-1 \
         --stack-set-name runvoy-releases-bucket \
         --query "length(Summaries[?Status != 'CURRENT'])" \
         --output text) -gt 0 ]; do \
         pending=$(aws cloudformation list-stack-instances \
+            --region us-east-1 \
             --stack-set-name runvoy-releases-bucket \
             --query "length(Summaries[?Status != 'CURRENT'])" \
             --output text); \
@@ -33,6 +38,7 @@ create-releases-buckets: create-stackset-prerequisites
     @echo "All stack instances completed!"
 
     aws cloudformation deploy \
+        --region us-east-1 \
         --stack-name runvoy-releases-bucket-replication \
         --template-file deploy/providers/aws/runvoy-bucket-replication.yaml \
         --capabilities CAPABILITY_NAMED_IAM \
