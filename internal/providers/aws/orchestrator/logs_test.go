@@ -28,6 +28,16 @@ type mockCloudWatchLogsClient struct {
 		params *cloudwatchlogs.GetLogEventsInput,
 		optFns ...func(*cloudwatchlogs.Options),
 	) (*cloudwatchlogs.GetLogEventsOutput, error)
+	startQueryFunc func(
+		ctx context.Context,
+		params *cloudwatchlogs.StartQueryInput,
+		optFns ...func(*cloudwatchlogs.Options),
+	) (*cloudwatchlogs.StartQueryOutput, error)
+	getQueryResultsFunc func(
+		ctx context.Context,
+		params *cloudwatchlogs.GetQueryResultsInput,
+		optFns ...func(*cloudwatchlogs.Options),
+	) (*cloudwatchlogs.GetQueryResultsOutput, error)
 }
 
 func (m *mockCloudWatchLogsClient) DescribeLogStreams(
@@ -50,6 +60,28 @@ func (m *mockCloudWatchLogsClient) GetLogEvents(
 		return m.getLogEventsFunc(context.Background(), params, optFns...)
 	}
 	return &cloudwatchlogs.GetLogEventsOutput{}, nil
+}
+
+func (m *mockCloudWatchLogsClient) StartQuery(
+	_ context.Context,
+	params *cloudwatchlogs.StartQueryInput,
+	optFns ...func(*cloudwatchlogs.Options),
+) (*cloudwatchlogs.StartQueryOutput, error) {
+	if m.startQueryFunc != nil {
+		return m.startQueryFunc(context.Background(), params, optFns...)
+	}
+	return &cloudwatchlogs.StartQueryOutput{}, nil
+}
+
+func (m *mockCloudWatchLogsClient) GetQueryResults(
+	_ context.Context,
+	params *cloudwatchlogs.GetQueryResultsInput,
+	optFns ...func(*cloudwatchlogs.Options),
+) (*cloudwatchlogs.GetQueryResultsOutput, error) {
+	if m.getQueryResultsFunc != nil {
+		return m.getQueryResultsFunc(context.Background(), params, optFns...)
+	}
+	return &cloudwatchlogs.GetQueryResultsOutput{}, nil
 }
 
 func TestVerifyLogStreamExists(t *testing.T) {

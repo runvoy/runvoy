@@ -300,6 +300,14 @@ func (t *testRunner) FetchLogsByExecutionID(_ context.Context, _ string) ([]api.
 	return []api.LogEvent{}, nil
 }
 
+func (t *testRunner) QueryLogsByRequestID(_ context.Context, requestID string) (*api.TraceResponse, error) {
+	return &api.TraceResponse{
+		RequestID: requestID,
+		Logs:      []api.TraceLog{},
+		Status:    "Complete",
+	}, nil
+}
+
 // newTestOrchestratorService creates an orchestrator service with default test repositories.
 // All required repositories (userRepo, executionRepo) are provided by default.
 // Optional repositories can be overridden by passing non-nil values.

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"slices"
+	"time"
 
 	"runvoy/internal/api"
 	appErrors "runvoy/internal/errors"
@@ -92,8 +93,10 @@ func getAllLogEvents(ctx context.Context,
 	return events, nil
 }
 
-// QueryLogsByRequestID queries CloudWatch Logs Insights for logs matching the provided requestID
-func (r *Runner) QueryLogsByRequestID(ctx context.Context, requestID string) (*api.LogsInsightsResponse, error) {
+// QueryLogsByRequestID queries execution traces by request ID using CloudWatch Logs Insights
+//
+//nolint:funlen // Complex AWS Logs Insights query with multiple steps is inherently longer
+func (r *Runner) QueryLogsByRequestID(ctx context.Context, requestID string) (*api.TraceResponse, error) {
 	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
 
 	// Build the CloudWatch Logs Insights query
@@ -126,9 +129,12 @@ func (r *Runner) QueryLogsByRequestID(ctx context.Context, requestID string) (*a
 
 	// Poll for query results
 	var queryOutput *cloudwatchlogs.GetQueryResultsOutput
-	maxAttempts := 30
-	for i := 0; i < maxAttempts; i++ {
-		time.Sleep(500 * time.Millisecond)
+	const (
+		maxQueryAttempts    = 30
+		queryPollIntervalMs = 500
+	)
+	for i := range maxQueryAttempts {
+		time.Sleep(time.Duration(queryPollIntervalMs) * time.Millisecond)
 
 		getResultsArgs := []any{
 			"operation", "CloudWatchLogs.GetQueryResults",
@@ -165,9 +171,9 @@ func (r *Runner) QueryLogsByRequestID(ctx context.Context, requestID string) (*a
 		"result_count", len(queryOutput.Results))
 
 	// Transform results to API format
-	logs := make([]api.LogInsightLog, 0, len(queryOutput.Results))
+	logs := make([]api.TraceLog, 0, len(queryOutput.Results))
 	for _, result := range queryOutput.Results {
-		logEntry := api.LogInsightLog{
+		logEntry := api.TraceLog{
 			Fields: make(map[string]string),
 		}
 
@@ -178,8 +184,8 @@ func (r *Runner) QueryLogsByRequestID(ctx context.Context, requestID string) (*a
 			switch fieldName {
 			case "@timestamp":
 				// Parse timestamp
-				t, err := time.Parse(time.RFC3339, fieldValue)
-				if err == nil {
+				t, parseErr := time.Parse(time.RFC3339, fieldValue)
+				if parseErr == nil {
 					logEntry.Timestamp = t.UnixMilli()
 				}
 			case "@message":
@@ -192,7 +198,7 @@ func (r *Runner) QueryLogsByRequestID(ctx context.Context, requestID string) (*a
 		logs = append(logs, logEntry)
 	}
 
-	return &api.LogsInsightsResponse{
+	return &api.TraceResponse{
 		RequestID: requestID,
 		Logs:      logs,
 		Status:    string(queryOutput.Status),

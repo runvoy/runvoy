@@ -96,9 +96,9 @@ func (r *Router) handleGetExecutionLogs(w http.ResponseWriter, req *http.Request
 	_ = json.NewEncoder(w).Encode(resp)
 }
 
-// handleQueryLogsByRequestID handles POST /api/v1/logs/insights to query CloudWatch Logs Insights by requestID.
+// handleGetTrace handles GET /api/v1/trace to query execution traces by request ID.
 // This endpoint is restricted to administrators only.
-func (r *Router) handleQueryLogsByRequestID(w http.ResponseWriter, req *http.Request) {
+func (r *Router) handleGetTrace(w http.ResponseWriter, req *http.Request) {
 	logger := r.GetLoggerFromContext(req.Context())
 
 	user, ok := r.requireAuthenticatedUser(w, req)
@@ -108,36 +108,37 @@ func (r *Router) handleQueryLogsByRequestID(w http.ResponseWriter, req *http.Req
 
 	// Check if user is admin
 	if user.Role != "admin" {
-		logger.Warn("non-admin user attempted to access logs insights endpoint",
+		logger.Warn("non-admin user attempted to access trace endpoint",
 			"user_email", user.Email,
 			"user_role", user.Role)
 		writeErrorResponse(w, http.StatusForbidden,
 			"Forbidden",
-			"admin access required for logs insights endpoint")
+			"admin access required for trace endpoint")
 		return
 	}
 
-	var logsReq api.LogsInsightsRequest
-	if err := decodeRequestBody(w, req, &logsReq); err != nil {
+	requestID := req.URL.Query().Get("request_id")
+	if requestID == "" {
+		writeErrorResponse(w, http.StatusBadRequest, "invalid request", "request_id query parameter is required")
 		return
 	}
 
-	resp, err := r.svc.QueryLogsByRequestID(req.Context(), logsReq.RequestID)
+	resp, err := r.svc.QueryLogsByRequestID(req.Context(), requestID)
 	if err != nil {
 		statusCode, errorCode, errorDetails := extractErrorInfo(err)
 
-		logger.Error("failed to query logs insights",
-			"request_id", logsReq.RequestID,
+		logger.Error("failed to query trace",
+			"request_id", requestID,
 			"error", err,
 			"status_code", statusCode,
 			"error_code", errorCode)
 
-		writeErrorResponseWithCode(w, statusCode, errorCode, "failed to query logs insights", errorDetails)
+		writeErrorResponseWithCode(w, statusCode, errorCode, "failed to query trace", errorDetails)
 		return
 	}
 
-	logger.Info("logs insights query completed",
-		"request_id", logsReq.RequestID,
+	logger.Info("trace query completed",
+		"request_id", requestID,
 		"log_count", len(resp.Logs))
 
 	w.WriteHeader(http.StatusOK)

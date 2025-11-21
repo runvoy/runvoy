@@ -220,10 +220,10 @@ func (s *Service) GetLogsByExecutionID(
 	}, nil
 }
 
-// QueryLogsByRequestID queries CloudWatch Logs Insights for logs matching the provided requestID.
+// QueryLogsByRequestID queries execution traces for logs matching the provided requestID.
 // This endpoint is restricted to administrators only and returns logs from all executions
 // that have the specified requestID.
-func (s *Service) QueryLogsByRequestID(ctx context.Context, requestID string) (*api.LogsInsightsResponse, error) {
+func (s *Service) QueryLogsByRequestID(ctx context.Context, requestID string) (*api.TraceResponse, error) {
 	if requestID == "" {
 		return nil, apperrors.ErrBadRequest("requestID is required", nil)
 	}

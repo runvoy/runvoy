@@ -61,6 +61,14 @@ func (m *mockRunner) FetchLogsByExecutionID(_ context.Context, _ string) ([]api.
 	return []api.LogEvent{}, nil
 }
 
+func (m *mockRunner) QueryLogsByRequestID(_ context.Context, requestID string) (*api.TraceResponse, error) {
+	return &api.TraceResponse{
+		RequestID: requestID,
+		Logs:      []api.TraceLog{},
+		Status:    "Complete",
+	}, nil
+}
+
 // Test that the status endpoint exists and requires authentication
 func TestGetExecutionStatus_Unauthorized(t *testing.T) {
 	// Build a minimal service with nil repos; we won't reach the handler due to auth
