@@ -97,26 +97,10 @@ func (r *Router) handleGetExecutionLogs(w http.ResponseWriter, req *http.Request
 }
 
 // handleGetBackendLogs handles GET /api/v1/logs/backend to query backend infrastructure logs by request ID.
-// This endpoint is restricted to administrators only.
+// Authorization is enforced via Casbin policies (admin role required).
 // Returns logs from backend services for debugging and tracing.
 func (r *Router) handleGetBackendLogs(w http.ResponseWriter, req *http.Request) {
 	logger := r.GetLoggerFromContext(req.Context())
-
-	user, ok := r.requireAuthenticatedUser(w, req)
-	if !ok {
-		return
-	}
-
-	// Check if user is admin
-	if user.Role != "admin" {
-		logger.Warn("non-admin user attempted to access backend logs endpoint",
-			"user_email", user.Email,
-			"user_role", user.Role)
-		writeErrorResponse(w, http.StatusForbidden,
-			"Forbidden",
-			"admin access required for backend logs endpoint")
-		return
-	}
 
 	requestID := req.URL.Query().Get("request_id")
 	if requestID == "" {
