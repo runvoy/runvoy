@@ -8,6 +8,7 @@ import (
 
 	"runvoy/internal/api"
 	"runvoy/internal/constants"
+	"runvoy/internal/errors"
 )
 
 // handleRunCommand handles POST /api/v1/run to execute a command in an ephemeral container.
@@ -86,7 +87,12 @@ func (r *Router) handleGetExecutionLogs(w http.ResponseWriter, req *http.Request
 	if err != nil {
 		statusCode, errorCode, errorDetails := extractErrorInfo(err)
 
-		logger.Error("failed to get execution logs", "error", err, "status_code", statusCode, "error_code", errorCode)
+		logger.Error("failed to get execution logs", "context", map[string]any{
+			"execution_id": executionID,
+			"error":        err,
+			"status_code":  statusCode,
+			"error_code":   errorCode,
+		})
 
 		writeErrorResponseWithCode(w, statusCode, errorCode, "failed to get execution logs", errorDetails)
 		return
@@ -96,15 +102,13 @@ func (r *Router) handleGetExecutionLogs(w http.ResponseWriter, req *http.Request
 	_ = json.NewEncoder(w).Encode(resp)
 }
 
-// handleGetBackendLogs handles GET /api/v1/logs/backend to query backend infrastructure logs by request ID.
-// Authorization is enforced via Casbin policies (admin role required).
-// Returns logs from backend services for debugging and tracing.
-func (r *Router) handleGetBackendLogs(w http.ResponseWriter, req *http.Request) {
+// handleGetBackendLogsTrace handles GET /api/v1/trace/{requestID} to query backend infrastructure logs by request ID.
+func (r *Router) handleGetBackendLogsTrace(w http.ResponseWriter, req *http.Request) {
 	logger := r.GetLoggerFromContext(req.Context())
 
-	requestID := req.URL.Query().Get("request_id")
-	if requestID == "" {
-		writeErrorResponse(w, http.StatusBadRequest, "invalid request", "request_id query parameter is required")
+	requestID, ok := getRequiredURLParam(w, req, "requestID")
+	if !ok {
+		writeErrorResponseWithCode(w, http.StatusBadRequest, errors.ErrCodeInvalidRequest, "requestID is required", "")
 		return
 	}
 
@@ -112,11 +116,12 @@ func (r *Router) handleGetBackendLogs(w http.ResponseWriter, req *http.Request) 
 	if err != nil {
 		statusCode, errorCode, errorDetails := extractErrorInfo(err)
 
-		logger.Error("failed to fetch backend logs",
-			"request_id", requestID,
-			"error", err,
-			"status_code", statusCode,
-			"error_code", errorCode)
+		logger.Error("failed to fetch backend logs", "context", map[string]any{
+			"request_id":  requestID,
+			"error":       err,
+			"status_code": statusCode,
+			"error_code":  errorCode,
+		})
 
 		writeErrorResponseWithCode(w, statusCode, errorCode, "failed to fetch backend logs", errorDetails)
 		return
@@ -175,12 +180,13 @@ func (r *Router) handleKillExecution(w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		statusCode, errorCode, errorDetails := extractErrorInfo(err)
 
-		logger.Info("failed to kill execution",
-			"execution_id", executionID,
-			"error", err,
-			"status_code", statusCode,
-			"error_code", errorCode,
-			"error_details", errorDetails)
+		logger.Error("failed to kill execution",
+			"context", map[string]any{
+				"execution_id": executionID,
+				"error":        err,
+				"status_code":  statusCode,
+				"error_code":   errorCode,
+			})
 
 		writeErrorResponseWithCode(w, statusCode, errorCode, "failed to kill execution", errorDetails)
 		return
@@ -208,12 +214,18 @@ func (r *Router) handleListExecutions(w http.ResponseWriter, req *http.Request) 
 	if limitParam := req.URL.Query().Get("limit"); limitParam != "" {
 		parsedLimit, err := strconv.Atoi(limitParam)
 		if err != nil {
-			logger.Debug("invalid limit parameter", "error", err, "limit", limitParam)
+			logger.Debug("invalid limit parameter", "context", map[string]any{
+				"error": err,
+				"limit": limitParam,
+			})
 			writeErrorResponseWithCode(w, http.StatusBadRequest, "invalid_request", "invalid limit parameter", "")
 			return
 		}
 		if parsedLimit < 0 {
-			logger.Debug("invalid limit parameter", "error", "limit must be >= 0", "limit", limitParam)
+			logger.Debug("invalid limit parameter", "context", map[string]any{
+				"error": "limit must be >= 0",
+				"limit": limitParam,
+			})
 			writeErrorResponseWithCode(w, http.StatusBadRequest, "invalid_request", "invalid limit parameter", "")
 			return
 		}
@@ -232,7 +244,11 @@ func (r *Router) handleListExecutions(w http.ResponseWriter, req *http.Request) 
 	if err != nil {
 		statusCode, errorCode, errorDetails := extractErrorInfo(err)
 
-		logger.Error("failed to list executions", "error", err, "status_code", statusCode, "error_code", errorCode)
+		logger.Error("failed to list executions", "context", map[string]any{
+			"error":       err,
+			"status_code": statusCode,
+			"error_code":  errorCode,
+		})
 
 		writeErrorResponseWithCode(w, statusCode, errorCode, "failed to list executions", errorDetails)
 		return
