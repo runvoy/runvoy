@@ -40,14 +40,19 @@ build-local:
 # Build orchestrator zip file
 [working-directory: 'dist']
 build-orchestrator-zip: build-orchestrator
-    rm -f bootstrap.zip
-    zip bootstrap.zip bootstrap
+    just build-lambda-zip runvoy-orchestrator
 
 # Build event processor zip file
 [working-directory: 'dist']
 build-event-processor-zip: build-event-processor
-    rm -f event-processor.zip
-    zip event-processor.zip bootstrap
+    just build-lambda-zip runvoy-event-processor
+
+# Build lambda zip file
+[working-directory: 'dist']
+build-lambda-zip lambda-name:
+    rm -f {{lambda-name}}.zip
+    zip {{lambda-name}}.zip bootstrap
+    rm -f bootstrap
 
 # Build webapp
 [working-directory: 'cmd/webapp']
