@@ -30,7 +30,6 @@
             const client = new APIClient(endpoint, key);
             backendHealth = await client.getHealth();
         } catch (error) {
-            console.error('Failed to fetch backend health:', error);
             healthError = error instanceof Error ? error.message : 'Failed to fetch backend health';
         } finally {
             loadingHealth = false;
@@ -93,9 +92,7 @@
             {#if loadingHealth}
                 <span class="value muted">Loading...</span>
             {:else if healthError}
-                <span class="value error" title={healthError}>
-                    Failed to fetch
-                </span>
+                <span class="value error" title={healthError}> Failed to fetch </span>
             {:else if backendHealth}
                 <span class="value">{backendHealth.version}</span>
                 <span class="status-badge configured" title="Backend is healthy">
