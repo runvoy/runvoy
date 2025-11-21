@@ -75,5 +75,4 @@ type BackendLogsRequest struct {
 type BackendLogsResponse struct {
 	RequestID string     `json:"request_id"`
 	Logs      []LogEvent `json:"logs"`
-	Status    string     `json:"status"`
 }

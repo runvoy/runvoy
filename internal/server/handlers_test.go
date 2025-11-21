@@ -304,7 +304,6 @@ func (t *testRunner) FetchBackendLogs(_ context.Context, requestID string) (*api
 	return &api.BackendLogsResponse{
 		RequestID: requestID,
 		Logs:      []api.LogEvent{},
-		Status:    "Complete",
 	}, nil
 }
 

@@ -305,7 +305,6 @@ func (m *mockRunner) FetchBackendLogs(ctx context.Context, requestID string) (*a
 	return &api.BackendLogsResponse{
 		RequestID: requestID,
 		Logs:      []api.LogEvent{},
-		Status:    "Complete",
 	}, nil
 }
 

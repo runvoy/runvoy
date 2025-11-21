@@ -114,7 +114,6 @@ func (r *Runner) FetchBackendLogs(ctx context.Context, requestID string) (*api.B
 	return &api.BackendLogsResponse{
 		RequestID: requestID,
 		Logs:      logs,
-		Status:    string(queryOutput.Status),
 	}, nil
 }
 
