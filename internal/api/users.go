@@ -7,12 +7,14 @@ import (
 
 // User represents a user in the system
 type User struct {
-	Email     string     `json:"email"`
-	APIKey    string     `json:"api_key,omitempty"`
-	Role      string     `json:"role"`
-	CreatedAt time.Time  `json:"created_at"`
-	Revoked   bool       `json:"revoked"`
-	LastUsed  *time.Time `json:"last_used,omitempty"`
+	Email               string     `json:"email"`
+	APIKey              string     `json:"api_key,omitempty"`
+	Role                string     `json:"role"`
+	CreatedAt           time.Time  `json:"created_at"`
+	Revoked             bool       `json:"revoked"`
+	LastUsed            *time.Time `json:"last_used,omitempty"`
+	CreatedByRequestID  string     `json:"created_by_request_id"`
+	ModifiedByRequestID string     `json:"modified_by_request_id"`
 }
 
 // CreateUserRequest represents the request to create a new user
