@@ -75,7 +75,7 @@ func generateHelpSection(helpOutput string) string {
 
 func generateVersionExamplesSection(version string) string {
 	var b strings.Builder
-	b.WriteString("For Linux:\n\n")
+	b.WriteString("- **Linux example:**\n\n")
 	b.WriteString("```bash\n")
 	linuxURL := fmt.Sprintf(
 		"curl -L -o runvoy-cli-linux-arm64.tar.gz "+
@@ -86,7 +86,7 @@ func generateVersionExamplesSection(version string) string {
 	b.WriteString("tar -xzf runvoy_linux_amd64.tar.gz\n")
 	b.WriteString("sudo mv runvoy_linux_amd64/runvoy /usr/local/bin/runvoy\n")
 	b.WriteString("```\n\n")
-	b.WriteString("For macOS:\n\n")
+	b.WriteString("- **macOS example:**\n\n")
 	b.WriteString("```bash\n")
 	macosURL := fmt.Sprintf(
 		"curl -L -o runvoy_linux_amd64.tar.gz "+

@@ -39,7 +39,7 @@ Workstations shouldn't need complex setups. Let remote containers execute comman
 
 - ☁️ **Cloud CLI operations** — AWS CLI, Terraform, or any SDK-based tools in remote containers with proper permissions ([AWS CLI example](.runvoy/aws-cli-example.yml))
 - ⚙️ **One-off commands** — Run arbitrary commands like `kubectl run` without maintaining an always-running cluster. Example: `runvoy run ping <my service ip>`
-- 🏗️ **Resource-intensive tasks** — Test runners, builds, and heavy workloads with the right instance type. Tail and share logs in real-time like GitHub Actions ([Build Caddy example](.runvoy/build-caddy-example.yml))
+- 🏗️ **Resource-intensive tasks** — Builds, test runners and any other heavy workload which require a specific instance type. Tail and share logs in real-time like GitHub Actions ([Build Caddy example](.runvoy/build-caddy-example.yml))
 - 📝 **Audit-required operations** — Any command that needs a complete audit trail with user identification
 - 🔐 **Secure operations** — Execute commands with secrets without exposing them to local workstations
 
@@ -74,7 +74,7 @@ Line  Timestamp (UTC)      Message
 
 ## 💡 What is Runvoy?
 
-**Runvoy is composed of 3 main parts** (see [Architecture](#architecture) for details):
+**Runvoy is composed of 3 main parts** (see [Architecture](#%EF%B8%8F-architecture) for details):
 
 - 🖥️ **Backend** — Runs on your AWS account (multi-cloud support planned), exposes the HTTP API, and orchestrates cloud resources. Deploy once as a cloud admin.
 - ⌨️ **CLI client** — The `runvoy` command-line tool for interacting with the REST API
@@ -106,7 +106,7 @@ Line  Timestamp (UTC)      Message
 
 ### 🚧 Roadmap
 
-- 🌍 **Multi-cloud support** — GCP, Azure, and potentially Kubernetes for compute
+- 🌍 **Multi-cloud support** — GCP, Azure...
 - 📡 **Robust log streaming** — More reliable streaming mechanism (current implementation is lossy)
 - ⏱️ **Execution timeouts** — Automatic SIGTERM for commands exceeding timeout
 - 🔒 **Lock management** — Prevent concurrent execution conflicts
@@ -118,7 +118,7 @@ Line  Timestamp (UTC)      Message
 Download the latest release from the [releases page](https://github.com/runvoy/runvoy/releases):
 
 <!-- VERSION_EXAMPLES_START -->
-For Linux:
+- **Linux example:**
 
 ```bash
 curl -L -o runvoy-cli-linux-arm64.tar.gz https://github.com/runvoy/runvoy/releases/download/v0.2.0/runvoy_linux_amd64.tar.gz
@@ -126,7 +126,7 @@ tar -xzf runvoy_linux_amd64.tar.gz
 sudo mv runvoy_linux_amd64/runvoy /usr/local/bin/runvoy
 ```
 
-For macOS:
+- **macOS example:**
 
 ```bash
 curl -L -o runvoy_linux_amd64.tar.gz https://github.com/runvoy/runvoy/releases/download/v0.2.0/runvoy_darwin_arm64.tar.gz
@@ -184,7 +184,7 @@ runvoy --help
 ```
 
 ```text
-runvoy - v0.2.0-20251121-7fca01a
+runvoy - v0.2.0-20251121-03ca77f
 Isolated, repeatable execution environments for your commands
 
 Usage:
