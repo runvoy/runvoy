@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"runvoy/internal/client"
 	"runvoy/internal/client/output"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -54,21 +55,22 @@ func NewTraceService(apiClient client.Interface, outputter OutputInterface) *Tra
 
 // DisplayBackendLogs retrieves and displays backend infrastructure logs for a request ID
 func (s *TraceService) DisplayBackendLogs(ctx context.Context, requestID string) error {
-	s.output.Infof("Fetching backend logs for request: %s", requestID)
+	spinner := output.NewSpinner(fmt.Sprintf("Fetching backend logs for request: %s", requestID))
+	spinner.Start()
+	defer spinner.Stop()
 
 	logs, err := s.client.FetchBackendLogs(ctx, requestID)
 	if err != nil {
+		spinner.Error("Failed to fetch backend logs")
 		return fmt.Errorf("failed to fetch backend logs: %w", err)
 	}
 
 	if len(logs) == 0 {
-		s.output.Warningf("No logs found for request: %s", requestID)
+		spinner.Success("No logs found for request")
 		return nil
 	}
 
-	s.output.Blank()
-	s.output.Successf("Retrieved %d log entries", len(logs))
-	s.output.Blank()
+	spinner.Success(fmt.Sprintf("Retrieved %d log entries", len(logs)))
 
 	// Display logs in table format
 	headers := []string{"Timestamp", "Message"}
@@ -77,7 +79,8 @@ func (s *TraceService) DisplayBackendLogs(ctx context.Context, requestID string)
 	for _, log := range logs {
 		// Convert milliseconds since epoch to readable timestamp
 		timestamp := time.UnixMilli(log.Timestamp).UTC().Format(time.RFC3339Nano)
-		rows = append(rows, []string{timestamp, log.Message})
+		message := strings.TrimRight(log.Message, "\r\n")
+		rows = append(rows, []string{timestamp, message})
 	}
 
 	s.output.Table(headers, rows)
