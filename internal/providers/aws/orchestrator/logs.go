@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"runvoy/internal/api"
+	"runvoy/internal/constants"
 	appErrors "runvoy/internal/errors"
 	"runvoy/internal/logger"
 	awsClient "runvoy/internal/providers/aws/client"
@@ -127,10 +128,11 @@ func (r *Runner) startBackendLogsQuery(
 	requestID string,
 ) (string, error) {
 	// Build the CloudWatch Logs Insights query
-	queryString := fmt.Sprintf(`fields @timestamp, @message, @logStream
-		| filter @message like /%s/
+	// Query structured logs by the request_id field
+	queryString := fmt.Sprintf(`fields @timestamp, @message
+		| filter %s = "%s"
 		| sort @timestamp asc
-		| limit 10000`, requestID)
+		| limit 10000`, constants.RequestIDLogField, requestID)
 
 	startQueryArgs := []any{
 		"operation", "CloudWatchLogs.StartQuery",
