@@ -11,8 +11,6 @@ import (
 type Interface interface {
 	// Health
 	ReconcileHealth(ctx context.Context) (*api.HealthReconcileResponse, error)
-	// GetLogs retrieves execution logs (output from user command in containers).
-	// Distinct from backend logs which come from Lambda/API Gateway infrastructure.
 	GetLogs(ctx context.Context, executionID string) (*api.LogsResponse, error)
 	GetExecutionStatus(ctx context.Context, executionID string) (*api.ExecutionStatusResponse, error)
 	RunCommand(ctx context.Context, req *api.ExecutionRequest) (*api.ExecutionResponse, error)
