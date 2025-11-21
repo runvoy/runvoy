@@ -128,13 +128,10 @@ func (r *Runner) startBackendLogsQuery(
 	log *slog.Logger,
 	requestID string,
 ) (string, error) {
-	// Build the CloudWatch Logs Insights query
-	// Query structured logs by the request_id field
 	queryString := fmt.Sprintf(`fields @timestamp, @message
 		| filter %s = "%s"
 		| sort @timestamp asc`, constants.RequestIDLogField, requestID)
 
-	// Build list of log groups: orchestrator and event processor
 	logGroups := []string{r.cfg.LogGroup}
 	eventProcessorLogGroup := deriveEventProcessorLogGroup(r.cfg.LogGroup)
 	logGroups = append(logGroups, eventProcessorLogGroup)
@@ -239,7 +236,6 @@ func (r *Runner) transformBackendLogsResults(
 
 			switch fieldName {
 			case "@timestamp":
-				// Parse timestamp
 				t, parseErr := time.Parse(time.RFC3339, fieldValue)
 				if parseErr == nil {
 					logEntry.Timestamp = t.UnixMilli()
