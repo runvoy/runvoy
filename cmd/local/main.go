@@ -11,6 +11,7 @@ import (
 	"os/signal"
 	"sync"
 	"syscall"
+	"time"
 
 	"runvoy/cmd/local/server"
 	"runvoy/internal/backend/orchestrator"
@@ -163,6 +164,11 @@ func main() {
 		log.Error("initialization failed", "error", initErr)
 		os.Exit(1)
 	}
+
+	// After initialization completes, set request timeout to 1 minute for all requests
+	// This ensures requests use a proper timeout separate from the initialization timeout
+	orchestratorCfg.RequestTimeout = time.Minute
+	eventProcessorCfg.RequestTimeout = time.Minute
 
 	// Start both servers
 	serverErrors := make(chan error, numServers)
