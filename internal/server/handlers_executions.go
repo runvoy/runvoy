@@ -138,8 +138,6 @@ func (r *Router) handleGetBackendLogsTrace(w http.ResponseWriter, req *http.Requ
 
 // handleGetExecutionStatus handles GET /api/v1/executions/{executionID}/status to fetch execution status.
 func (r *Router) handleGetExecutionStatus(w http.ResponseWriter, req *http.Request) {
-	logger := r.GetLoggerFromContext(req.Context())
-
 	executionID, ok := getRequiredURLParam(w, req, "executionID")
 	if !ok {
 		return
@@ -147,6 +145,7 @@ func (r *Router) handleGetExecutionStatus(w http.ResponseWriter, req *http.Reque
 
 	resp, err := r.svc.GetExecutionStatus(req.Context(), executionID)
 	if err != nil {
+		logger := r.GetLoggerFromContext(req.Context())
 		statusCode, errorCode, errorDetails := extractErrorInfo(err)
 
 		logger.Error("failed to get execution status",
