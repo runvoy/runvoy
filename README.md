@@ -1,9 +1,9 @@
 <h1 align="center">
     <p><strong>🚀 Runvoy</strong></p>
-    <p>serverless command runner</p>
+    <p>⚡️ An extremely fast serverless command runner</p>
 </h1>
 <p align="center">
-    <em>Run arbitrary commands on remote ephemeral containers.</em>
+    <em>Run arbitrary commands on remote ephemeral containers — no complex setup required.</em>
 </p>
 <p align="center">
   <a href="https://github.com/runvoy/runvoy/actions/workflows/tests-and-coverage.yml" target="_blank">
@@ -29,19 +29,19 @@
 
 ---
 
-Deploy once, issue API keys, let your team run arbitrary (admin) applications safely from their terminals. Share playbooks to perform tasks consistently and reliably.
+**Deploy once, issue API keys, and let your team run arbitrary (admin) applications safely from their terminals.** Share playbooks to perform tasks consistently and reliably — no more manual runbooks or tribal knowledge. 📚
 
-Workstations shouldn't need complex setups, let remote containers execute the actual commands in a secured and reproducible production grade environment.
+Workstations shouldn't need complex setups. Let remote containers execute commands in a secured and reproducible production-grade environment. ☁️
 
-No more snowflakes, _run envoys_.
+**No more snowflakes, _run envoys_.** ✨
 
-## Use cases
+## 🎯 Use cases
 
-- AWS CLI commands or any other application based on AWS SDKs (e.g. Terraform) in a remote container with the right permissions to access AWS resources (see [AWS CLI example](.runvoy/aws-cli-example.yml))
-- one-off arbitrary commands like with `kubectl run` without the need for a Kubernetes cluster (or any other _always-running_ cluster, for that matter). Example: `runvoy run ping <my service ip>`
-- resource-intensive tasks like e.g. test runners: select the proper instance type for the job, tail and/or share execution logs in real time like in GitHub Actions (see [Build Caddy example](.runvoy/build-caddy-example.yml))
-- any commands that require a full audit trail
-- ...
+- ☁️ **Cloud CLI operations** — AWS CLI, Terraform, or any SDK-based tools in remote containers with proper permissions ([AWS CLI example](.runvoy/aws-cli-example.yml))
+- ⚙️ **One-off commands** — Run arbitrary commands like `kubectl run` without maintaining an always-running cluster. Example: `runvoy run ping <my service ip>`
+- 🏗️ **Resource-intensive tasks** — Test runners, builds, and heavy workloads with the right instance type. Tail and share logs in real-time like GitHub Actions ([Build Caddy example](.runvoy/build-caddy-example.yml))
+- 📝 **Audit-required operations** — Any command that needs a complete audit trail with user identification
+- 🔐 **Secure operations** — Execute commands with secrets without exposing them to local workstations
 
 ## Example
 
@@ -72,47 +72,50 @@ Line  Timestamp (UTC)      Message
 → View logs in web viewer: https://runvoy.site/?execution_id=010adbfb34374116b47c8d0faab2befa
 ```
 
-## Overview
+## 💡 Why Runvoy?
 
-Runvoy is composed of 3 main parts (see [#architecture](#architecture) for more details):
+**Runvoy is composed of 3 main parts** (see [Architecture](#architecture) for details):
 
-- a backend running on your AWS account (with plans to support other cloud providers in the future) which exposes the HTTP API endpoint and interacts with the cloud resources, to be deployed once by a cloud admin
-- a CLI client (`runvoy`) for users to interact with the runvoy REST API
-- a web app client (<https://runvoy.site>, or self hosted), currently supporting only the logs view, with plans to map 1:1 to the CLI commands
+- 🖥️ **Backend** — Runs on your AWS account (multi-cloud support coming soon), exposes the HTTP API, and orchestrates cloud resources. Deploy once as a cloud admin.
+- ⌨️ **CLI client** — The `runvoy` command-line tool for interacting with the REST API
+- 🌐 **Web app** — Visit [runvoy.site](https://runvoy.site) or self-host. Currently supports log viewing with full CLI parity coming soon.
 
-**Key Benefits:**
+## ✨ Key Benefits
 
-- **_Doesn't_ run on your computer**: The actual commands are executed in remote production-grade environments properly configured for access to secrets and other resources, team member's workstations don't need any special configuration, just `runvoy` CLI and its API key
-- **Complete audit trail**: Every interaction with the backend is logged with user identification. All logs stored in append-only database for auditing purposes (currently only CloudWatch Logs is supported, but with plans to extend support to other cloud services in the future)
-- **Self-hosted, no black magic**: The backend runs in your cloud provider account, you control everything, including the policies and permissions assigned to the containers
-- **Serverless**: No always-running services, just pay for the compute your commands consume (essentially free for infrequent use)
+- 🖥️ **_Doesn't_ run on your computer** — Commands execute in remote production-grade environments with proper secrets access. Team members only need the `runvoy` CLI and an API key — no complex workstation setup required.
 
-## Features
+- 📊 **Complete audit trail** — Every backend interaction is logged with user identification. All logs stored in append-only database for compliance (CloudWatch Logs supported, more providers coming).
 
-- **API key authentication** - Secure access with hashed API keys (SHA-256)
-- **User access management** - Role based and ownership access control for the backend API. Runvoy admins define roles and permissions for users, non-admin users can only access secrets / select Docker images / see logs of executions they are allowed to
-- **Customizable container task and execution roles** - Register Docker images with custom task and execution roles to e.g. run Terraform with the right permissions to access AWS resources (currently only AWS ECS is supported)
-- **Native cloud provider logging integration** - Full execution logs and audit trails with request ID tracking
-- **Reusable playbooks** - Store and reuse command execution configurations in YAML files, commit to a repository and share with your team to execute commands consistently (see [Terraform example](.runvoy/terraform-example.yml))
-- **Secrets management** - Centralized encrypted secrets with full CRUD from the CLI
-- **Real-time WebSocket streaming** - CLI and web viewer receive live logs over authenticated WebSocket connections
-- **Automatic Git cloning** - Optionally clone a (private) Git repository into the container working directory (see [Build Caddy example](.runvoy/build-caddy-example.yml))
-- **Unix-style output streams** - Separate CLI logs (stderr) from data (stdout) for easy piping and scripting
-- **IaC deployment** - Deploy complete backend infrastructure with IaC templates (currently only AWS CloudFormation is supported, but with plans to extend support to other cloud providers in the future)
-- **Single multi-platform binary deployment** - Download a single binary (tarball is ~ 6MB) and run it directly from the command line, no need to install any other dependencies
+- 🔓 **Self-hosted, no black magic** — The backend runs in _your_ cloud account. You control everything: policies, permissions, and data.
 
-### Roadmap (NOT IMPLEMENTED YET!)
+- 💰 **Serverless** — No always-running services. Pay only for the compute your commands consume (essentially free for infrequent use).
 
-- **Multi-cloud support** - Backend support for other cloud providers (GCP, Azure...) or even compute platforms like Kubernetes if it makes sense
-- **Robust log streaming** - Right now log streaming is lossy, more robust streaming mechanism on top of CloudWatch Logs is needed.
-- **Timeouts for command execution** - Send timed SIGTERM to the command execution if it doesn't complete within the timeout period
-- **Lock management for concurrent command execution** - Prevent multiple users from executing the same command concurrently
-- **Webapp - CLI command parity** - Allow users to perform all CLI commands from the webapp
-- **Homebrew package manager support** - Add Homebrew installation support for the CLI
+## 🎨 Features
 
-## Quick Start
+- 🔑 **API key authentication** — Secure access with SHA-256 hashed API keys
+- 👥 **User access management** — Role-based and ownership access control. Admins define permissions; users access only what they're allowed to
+- 🐳 **Customizable container roles** — Register Docker images with custom IAM roles for proper AWS resource access (ECS support, more coming soon)
+- 📋 **Native cloud logging** — Full execution logs and audit trails with request ID tracking
+- 📖 **Reusable playbooks** — Store command configs in YAML, commit them, and share with your team for consistent execution ([Terraform example](.runvoy/terraform-example.yml))
+- 🔐 **Secrets management** — Centralized encrypted secrets with full CRUD operations from the CLI
+- ⚡️ **Real-time WebSocket streaming** — Live logs delivered to CLI and web viewer via authenticated WebSocket connections
+- 🔗 **Automatic Git cloning** — Clone private Git repos directly into container working directory ([Build Caddy example](.runvoy/build-caddy-example.yml))
+- 🔧 **Unix-style output streams** — Separate CLI logs (stderr) from data (stdout) for easy piping and scripting
+- 🏗️ **IaC deployment** — Deploy complete backend infrastructure with CloudFormation (multi-cloud support coming)
+- 📦 **Single binary** — Download one ~6MB binary and run it. No dependencies, no installation hassle.
 
-Download the latest release from the [releases page](https://github.com/runvoy/runvoy/releases), e.g.
+### 🚧 Roadmap
+
+- 🌍 **Multi-cloud support** — GCP, Azure, and potentially Kubernetes for compute
+- 📡 **Robust log streaming** — More reliable streaming mechanism (current implementation is lossy)
+- ⏱️ **Execution timeouts** — Automatic SIGTERM for commands exceeding timeout
+- 🔒 **Lock management** — Prevent concurrent execution conflicts
+- 🌐 **Full webapp parity** — All CLI commands available in the web interface
+- 🍺 **Homebrew support** — Native installation via Homebrew package manager
+
+## ⚡️ Quick Start
+
+Download the latest release from the [releases page](https://github.com/runvoy/runvoy/releases):
 
 <!-- VERSION_EXAMPLES_START -->
 For Linux:
@@ -135,21 +138,21 @@ sudo mv runvoy_darwin_arm64/runvoy /usr/local/bin/runvoy
 
 <!-- VERSION_EXAMPLES_END -->
 
-### Deploying the backend infrastructure
+### 🏗️ Deploying the backend infrastructure
 
-Requirements:
+**Requirements:**
 
-- AWS credentials configured in your shell environment (see [AWS credentials configuration](https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-configure.html))
+- AWS credentials configured in your shell environment ([AWS credentials docs](https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-configure.html))
 
-This will bootstrap the backend infrastructure and seed the admin user:
+Bootstrap the backend infrastructure and seed the admin user:
 
 ```bash
 runvoy infra apply --configure --region eu-west-1 --seed-admin-user admin@example.com
 ```
 
-#### Creating a new user
+#### 👤 Creating a new user
 
-The admin API key and endpoint are automatically configured in `~/.runvoy/config.yaml` after running the above command. You can start using runvoy immediately:
+The admin API key and endpoint are automatically configured in `~/.runvoy/config.yaml` after deployment. Start using runvoy immediately:
 
 ```bash
 runvoy images register public.ecr.aws/docker/library/alpine:latest
@@ -169,10 +172,10 @@ to create a new user account for a team member. This will generate a claim token
 - ⏱  Claim tokens expire after 15 minutes
 - 👁  Each token can only be used once
 
-## Usage
+## 📖 Usage
 
 <!-- CLI_HELP_START -->
-### Available Commands
+### 💻 Available Commands
 
 To see all available commands and their descriptions:
 
@@ -218,9 +221,9 @@ Use "runvoy [command] --help" for more information about a command.
 
 See [CLI commands Documentation](docs/CLI.md) for more details.
 
-### Output Streams and Piping
+### 🔧 Output Streams and Piping
 
-runvoy follows Unix conventions by separating informational messages from data output, making it easy to pipe commands and script automation workflows:
+Runvoy follows Unix conventions by separating informational messages from data output, making it easy to pipe commands and script automation workflows:
 
 - **stderr (standard error)**: Runtime messages, progress indicators, and logs
   - Informational messages (→, ✓, ⚠, ✗)
@@ -257,7 +260,7 @@ fi
 
 This separation enables clean automation and integration with other Unix tools without mixing informational output with parseable data.
 
-### Web Viewer
+### 🌐 Web Viewer
 
 The web viewer is a SvelteKit-based single-page application that provides:
 
@@ -289,7 +292,7 @@ The web application URL can be customized via:
 
 If not configured, it defaults to `https://runvoy.site/`.
 
-## Architecture
+## 🏛️ Architecture
 
 ```text
 ┌─────────────────┐          ┌─────────────────┐
@@ -318,16 +321,18 @@ If not configured, it defaults to `https://runvoy.site/`.
 
 For detailed architecture information, see [ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
-## Why Runvoy?
+## 💭 The Story Behind Runvoy
 
-As a software engineer I frequently found myself in situations where I was an admin in need of a way to run commands and more importantly to allow my team members to run some of the same commands without me being in the way.
+As a software engineer, I frequently found myself needing to run admin commands — and more importantly, **enabling my team to run those same commands without becoming a bottleneck**. 🚧
 
-I've also always been fascinated by the idea of "thin clients" and delegating the heavy lifting and security concerns to the server while keeping the client simple and easy to use and setup: just "log in" and run the commands you're allowed to run, the server takes care of the rest.
+I've always been fascinated by "thin clients" — delegating heavy lifting and security concerns to the server while keeping the client simple. Just "log in" and run the commands you're authorized to run. The server handles the rest. ✨
 
-The final piece of the puzzle was probably AWS launching Lambda and with that the _serverless_ concept of "you only pay for what you use" which meanwhile has become a commodity in the (cloud) computing world.
+The final piece fell into place with AWS Lambda and the _serverless_ revolution: **"you only pay for what you use"** is now a commodity in cloud computing. 💰
 
-Full disclosure: I love to build things in Go and I thought this would be a great opportunity to build something that not only I would find useful.
+**Full disclosure:** I love building things in Go, and this felt like the perfect opportunity to create something genuinely useful — not just for me, but for teams everywhere. 🛠️
 
-## Development
+## 🤝 Development
 
 For development setup, workflow, and contributing guidelines, see [CONTRIBUTING](CONTRIBUTING.md) and [CODE OF CONDUCT](CODE_OF_CONDUCT.md).
+
+We welcome contributions! 🎉
