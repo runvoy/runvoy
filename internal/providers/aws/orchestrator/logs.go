@@ -144,7 +144,7 @@ func (r *Runner) startBackendLogsQuery(
 	startOutput, err := r.cwlClient.StartQuery(ctx, &cloudwatchlogs.StartQueryInput{
 		LogGroupName: aws.String(r.cfg.LogGroup),
 		QueryString:  aws.String(queryString),
-		StartTime:    aws.Int64(time.Now().Add(-24 * time.Hour).Unix()), // Last 24 hours
+		StartTime:    aws.Int64(0), // Search all historical logs
 		EndTime:      aws.Int64(time.Now().Unix()),
 	})
 	if err != nil {
