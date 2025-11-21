@@ -492,10 +492,22 @@ Resources:
                 Resource: !Sub 'arn:aws:iam::${AWS::AccountId}:role/*'
               - Effect: Allow
                 Action:
+                  - 'logs:DescribeLogGroups'
+                Resource: '*'
+              - Effect: Allow
+                Action:
                   - 'logs:GetLogEvents'
                   - 'logs:FilterLogEvents'
                   - 'logs:DescribeLogStreams'
                 Resource: !GetAtt RunnerLogGroup.Arn
+              - Effect: Allow
+                Action:
+                  - 'logs:StartQuery'
+                  - 'logs:GetQueryResults'
+                Resource:
+                  - !GetAtt RunnerLogGroup.Arn
+                  - !GetAtt LambdaLogGroup.Arn
+                  - !GetAtt EventProcessorLogGroup.Arn
               - Effect: Allow
                 Action:
                   - 'dynamodb:GetItem'
