@@ -134,14 +134,15 @@ func (s *Service) recordExecution(
 
 	requestID := logger.GetRequestID(ctx)
 	execution := &api.Execution{
-		ExecutionID:     executionID,
-		CreatedBy:       userEmail,
-		OwnedBy:         []string{userEmail},
-		Command:         req.Command,
-		StartedAt:       startedAt,
-		Status:          string(status),
-		RequestID:       requestID,
-		ComputePlatform: string(s.Provider),
+		ExecutionID:         executionID,
+		CreatedBy:           userEmail,
+		OwnedBy:             []string{userEmail},
+		Command:             req.Command,
+		StartedAt:           startedAt,
+		Status:              string(status),
+		CreatedByRequestID:  requestID,
+		ModifiedByRequestID: requestID,
+		ComputePlatform:     string(s.Provider),
 	}
 
 	if requestID == "" {
@@ -292,6 +293,12 @@ func (s *Service) KillExecution(ctx context.Context, executionID string) (*api.K
 
 	execution.Status = string(targetStatus)
 	execution.CompletedAt = nil
+
+	// Extract request ID from context and set ModifiedByRequestID
+	requestID := logger.GetRequestID(ctx)
+	if requestID != "" {
+		execution.ModifiedByRequestID = requestID
+	}
 
 	if updateErr := s.executionRepo.UpdateExecution(ctx, execution); updateErr != nil {
 		reqLogger.Error("failed to update execution status", "context", map[string]string{

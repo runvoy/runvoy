@@ -9,6 +9,7 @@ import (
 
 	"runvoy/internal/api"
 	"runvoy/internal/constants"
+	"runvoy/internal/logger"
 	awsConstants "runvoy/internal/providers/aws/constants"
 
 	"github.com/aws/aws-lambda-go/events"
@@ -105,6 +106,12 @@ func (p *Processor) updateExecutionToRunning(
 	execution.Status = string(targetStatus)
 	execution.CompletedAt = nil
 
+	// Extract request ID from context and set ModifiedByRequestID
+	requestID := logger.GetRequestID(ctx)
+	if requestID != "" {
+		execution.ModifiedByRequestID = requestID
+	}
+
 	if err := p.executionRepo.UpdateExecution(ctx, execution); err != nil {
 		reqLogger.Error("failed to update execution status to "+string(targetStatus),
 			"error", err,
@@ -153,6 +160,12 @@ func (p *Processor) finalizeExecutionFromTaskEvent(
 	execution.ExitCode = exitCode
 	execution.CompletedAt = &stoppedAt
 	execution.DurationSeconds = durationSeconds
+
+	// Extract request ID from context and set ModifiedByRequestID
+	requestID := logger.GetRequestID(ctx)
+	if requestID != "" {
+		execution.ModifiedByRequestID = requestID
+	}
 
 	if err = p.executionRepo.UpdateExecution(ctx, execution); err != nil {
 		reqLogger.Error("failed to update execution", "error", err)
