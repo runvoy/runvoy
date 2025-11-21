@@ -506,8 +506,7 @@ Resources:
                   - 'logs:GetQueryResults'
                 Resource:
                   - !GetAtt RunnerLogGroup.Arn
-                  - !GetAtt LambdaLogGroup.Arn
-                  - !GetAtt EventProcessorLogGroup.Arn
+                  - !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${ProjectName}*'
               - Effect: Allow
                 Action:
                   - 'dynamodb:GetItem'
