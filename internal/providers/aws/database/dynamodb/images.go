@@ -59,6 +59,8 @@ type imageTaskDefItem struct {
 	OwnedBy               []string `dynamodbav:"owned_by"`
 	CreatedAt             int64    `dynamodbav:"created_at"`
 	UpdatedAt             int64    `dynamodbav:"updated_at"`
+	CreatedByRequestID    string   `dynamodbav:"created_by_request_id,omitempty"`
+	ModifiedByRequestID   string   `dynamodbav:"modified_by_request_id,omitempty"`
 }
 
 const (
@@ -124,6 +126,13 @@ func (r *ImageTaskDefRepository) PutImageTaskDef(
 	cpuStr := fmt.Sprintf("%d", cpu)
 	memoryStr := fmt.Sprintf("%d", memory)
 
+	// Extract request ID from context
+	requestID := logger.GetRequestID(ctx)
+
+	// Check if image already exists to determine if this is a create or update
+	existingImage, err := r.GetImageTaskDefByID(ctx, imageID)
+	isUpdate := existingImage != nil && err == nil
+
 	item := &imageTaskDefItem{
 		ImageID:               imageID,
 		Image:                 image,
@@ -138,8 +147,26 @@ func (r *ImageTaskDefRepository) PutImageTaskDef(
 		ImageTag:              imageTag,
 		CreatedBy:             createdBy,
 		OwnedBy:               []string{createdBy},
-		CreatedAt:             now,
 		UpdatedAt:             now,
+	}
+
+	if isUpdate {
+		// For updates, preserve the original CreatedAt and CreatedByRequestID
+		if existingImage != nil {
+			item.CreatedAt = existingImage.CreatedAt.Unix()
+			item.CreatedByRequestID = existingImage.CreatedByRequestID
+		}
+		// Set ModifiedByRequestID for updates
+		if requestID != "" {
+			item.ModifiedByRequestID = requestID
+		}
+	} else {
+		// For new images, set CreatedAt and CreatedByRequestID
+		item.CreatedAt = now
+		if requestID != "" {
+			item.CreatedByRequestID = requestID
+			item.ModifiedByRequestID = requestID
+		}
 	}
 
 	if isDefault {
@@ -345,6 +372,7 @@ func (r *ImageTaskDefRepository) GetImageTaskDefByID(ctx context.Context, imageI
 	}
 
 	isDefault := item.isDefault()
+	createdAt := time.Unix(item.CreatedAt, 0).UTC()
 	return &api.ImageInfo{
 		ImageID:               item.ImageID,
 		Image:                 item.Image,
@@ -360,6 +388,9 @@ func (r *ImageTaskDefRepository) GetImageTaskDefByID(ctx context.Context, imageI
 		ImageTag:              item.ImageTag,
 		CreatedBy:             item.CreatedBy,
 		OwnedBy:               item.OwnedBy,
+		CreatedAt:             createdAt,
+		CreatedByRequestID:    item.CreatedByRequestID,
+		ModifiedByRequestID:   item.ModifiedByRequestID,
 	}, nil
 }
 
@@ -417,6 +448,7 @@ func (r *ImageTaskDefRepository) convertItemsToImageInfo(items []imageTaskDefIte
 			return nil, apperrors.ErrInternalError("failed to parse Memory value", parseErr)
 		}
 
+		createdAt := time.Unix(item.CreatedAt, 0).UTC()
 		allImages = append(allImages, api.ImageInfo{
 			ImageID:               item.ImageID,
 			Image:                 item.Image,
@@ -432,6 +464,9 @@ func (r *ImageTaskDefRepository) convertItemsToImageInfo(items []imageTaskDefIte
 			ImageTag:              item.ImageTag,
 			CreatedBy:             item.CreatedBy,
 			OwnedBy:               item.OwnedBy,
+			CreatedAt:             createdAt,
+			CreatedByRequestID:    item.CreatedByRequestID,
+			ModifiedByRequestID:   item.ModifiedByRequestID,
 		})
 	}
 	return allImages, nil
@@ -482,6 +517,7 @@ func (r *ImageTaskDefRepository) GetDefaultImage(ctx context.Context) (*api.Imag
 	}
 
 	isDefault := item.isDefault()
+	createdAt := time.Unix(item.CreatedAt, 0).UTC()
 	return &api.ImageInfo{
 		ImageID:               item.ImageID,
 		Image:                 item.Image,
@@ -497,6 +533,9 @@ func (r *ImageTaskDefRepository) GetDefaultImage(ctx context.Context) (*api.Imag
 		ImageTag:              item.ImageTag,
 		CreatedBy:             item.CreatedBy,
 		OwnedBy:               item.OwnedBy,
+		CreatedAt:             createdAt,
+		CreatedByRequestID:    item.CreatedByRequestID,
+		ModifiedByRequestID:   item.ModifiedByRequestID,
 	}, nil
 }
 
@@ -775,6 +814,7 @@ func (r *ImageTaskDefRepository) GetAnyImageTaskDef(ctx context.Context, image s
 		}
 
 		isDefault := item.isDefault()
+		createdAt := time.Unix(item.CreatedAt, 0).UTC()
 		return &api.ImageInfo{
 			ImageID:               item.ImageID,
 			Image:                 item.Image,
@@ -790,6 +830,9 @@ func (r *ImageTaskDefRepository) GetAnyImageTaskDef(ctx context.Context, image s
 			ImageTag:              item.ImageTag,
 			CreatedBy:             item.CreatedBy,
 			OwnedBy:               item.OwnedBy,
+			CreatedAt:             createdAt,
+			CreatedByRequestID:    item.CreatedByRequestID,
+			ModifiedByRequestID:   item.ModifiedByRequestID,
 		}, nil
 	}
 

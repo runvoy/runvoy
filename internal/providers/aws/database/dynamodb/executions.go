@@ -42,34 +42,36 @@ func NewExecutionRepository(client Client, tableName string, log *slog.Logger) *
 // StartedAt is stored as a Unix timestamp (number) as the sort key to avoid timestamp serialization issues.
 // CompletedAt is also stored as a Unix timestamp (number) to maintain consistency.
 type executionItem struct {
-	ExecutionID     string   `dynamodbav:"execution_id"`
-	StartedAt       int64    `dynamodbav:"started_at"`
-	CreatedBy       string   `dynamodbav:"created_by"`
-	OwnedBy         []string `dynamodbav:"owned_by"`
-	Command         string   `dynamodbav:"command"`
-	Status          string   `dynamodbav:"status"`
-	CompletedAt     *int64   `dynamodbav:"completed_at,omitempty"`
-	ExitCode        int      `dynamodbav:"exit_code,omitempty"`
-	DurationSecs    int      `dynamodbav:"duration_seconds,omitempty"`
-	LogStreamName   string   `dynamodbav:"log_stream_name,omitempty"`
-	RequestID       string   `dynamodbav:"request_id,omitempty"`
-	ComputePlatform string   `dynamodbav:"compute_platform,omitempty"`
+	ExecutionID         string   `dynamodbav:"execution_id"`
+	StartedAt           int64    `dynamodbav:"started_at"`
+	CreatedBy           string   `dynamodbav:"created_by"`
+	OwnedBy             []string `dynamodbav:"owned_by"`
+	Command             string   `dynamodbav:"command"`
+	Status              string   `dynamodbav:"status"`
+	CompletedAt         *int64   `dynamodbav:"completed_at,omitempty"`
+	ExitCode            int      `dynamodbav:"exit_code,omitempty"`
+	DurationSecs        int      `dynamodbav:"duration_seconds,omitempty"`
+	LogStreamName       string   `dynamodbav:"log_stream_name,omitempty"`
+	CreatedByRequestID  string   `dynamodbav:"created_by_request_id,omitempty"`
+	ModifiedByRequestID string   `dynamodbav:"modified_by_request_id,omitempty"`
+	ComputePlatform     string   `dynamodbav:"compute_platform,omitempty"`
 }
 
 // toExecutionItem converts an api.Execution to an executionItem.
 func toExecutionItem(e *api.Execution) *executionItem {
 	item := &executionItem{
-		ExecutionID:     e.ExecutionID,
-		StartedAt:       e.StartedAt.Unix(),
-		CreatedBy:       e.CreatedBy,
-		OwnedBy:         e.OwnedBy,
-		Command:         e.Command,
-		Status:          e.Status,
-		ExitCode:        e.ExitCode,
-		DurationSecs:    e.DurationSeconds,
-		LogStreamName:   e.LogStreamName,
-		RequestID:       e.RequestID,
-		ComputePlatform: e.ComputePlatform,
+		ExecutionID:         e.ExecutionID,
+		StartedAt:           e.StartedAt.Unix(),
+		CreatedBy:           e.CreatedBy,
+		OwnedBy:             e.OwnedBy,
+		Command:             e.Command,
+		Status:              e.Status,
+		ExitCode:            e.ExitCode,
+		DurationSecs:        e.DurationSeconds,
+		LogStreamName:       e.LogStreamName,
+		CreatedByRequestID:  e.CreatedByRequestID,
+		ModifiedByRequestID: e.ModifiedByRequestID,
+		ComputePlatform:     e.ComputePlatform,
 	}
 	if e.CompletedAt != nil {
 		completedAt := e.CompletedAt.Unix()
@@ -81,16 +83,18 @@ func toExecutionItem(e *api.Execution) *executionItem {
 // toAPIExecution converts an executionItem to an api.Execution.
 func (e *executionItem) toAPIExecution() *api.Execution {
 	exec := &api.Execution{
-		ExecutionID:     e.ExecutionID,
-		StartedAt:       time.Unix(e.StartedAt, 0).UTC(),
-		CreatedBy:       e.CreatedBy,
-		OwnedBy:         e.OwnedBy,
-		Command:         e.Command,
-		Status:          e.Status,
-		ExitCode:        e.ExitCode,
-		DurationSeconds: e.DurationSecs,
-		LogStreamName:   e.LogStreamName,
-		ComputePlatform: e.ComputePlatform,
+		ExecutionID:         e.ExecutionID,
+		StartedAt:           time.Unix(e.StartedAt, 0).UTC(),
+		CreatedBy:           e.CreatedBy,
+		OwnedBy:             e.OwnedBy,
+		Command:             e.Command,
+		Status:              e.Status,
+		ExitCode:            e.ExitCode,
+		DurationSeconds:     e.DurationSecs,
+		LogStreamName:       e.LogStreamName,
+		CreatedByRequestID:  e.CreatedByRequestID,
+		ModifiedByRequestID: e.ModifiedByRequestID,
+		ComputePlatform:     e.ComputePlatform,
 	}
 	if e.CompletedAt != nil {
 		completedAt := time.Unix(*e.CompletedAt, 0).UTC()
@@ -210,6 +214,11 @@ func buildUpdateExpression(
 	if execution.LogStreamName != "" {
 		updateExpr += ", log_stream_name = :log_stream_name"
 		exprAttrValues[":log_stream_name"] = &types.AttributeValueMemberS{Value: execution.LogStreamName}
+	}
+
+	if execution.ModifiedByRequestID != "" {
+		updateExpr += ", modified_by_request_id = :modified_by_request_id"
+		exprAttrValues[":modified_by_request_id"] = &types.AttributeValueMemberS{Value: execution.ModifiedByRequestID}
 	}
 
 	return updateExpr, exprNames, exprAttrValues

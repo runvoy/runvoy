@@ -37,27 +37,31 @@ func NewSecretsRepository(client Client, tableName string, log *slog.Logger) *Se
 // secretItem represents the structure stored in DynamoDB.
 // This keeps the database schema separate from the API types.
 type secretItem struct {
-	SecretName  string    `dynamodbav:"secret_name"` // Partition key
-	KeyName     string    `dynamodbav:"key_name"`    // Environment variable name
-	Description string    `dynamodbav:"description"`
-	CreatedBy   string    `dynamodbav:"created_by"`
-	OwnedBy     []string  `dynamodbav:"owned_by"`
-	CreatedAt   time.Time `dynamodbav:"created_at"`
-	UpdatedAt   time.Time `dynamodbav:"updated_at"`
-	UpdatedBy   string    `dynamodbav:"updated_by"`
+	SecretName          string    `dynamodbav:"secret_name"` // Partition key
+	KeyName             string    `dynamodbav:"key_name"`    // Environment variable name
+	Description         string    `dynamodbav:"description"`
+	CreatedBy           string    `dynamodbav:"created_by"`
+	OwnedBy             []string  `dynamodbav:"owned_by"`
+	CreatedAt           time.Time `dynamodbav:"created_at"`
+	UpdatedAt           time.Time `dynamodbav:"updated_at"`
+	UpdatedBy           string    `dynamodbav:"updated_by"`
+	CreatedByRequestID  string    `dynamodbav:"created_by_request_id,omitempty"`
+	ModifiedByRequestID string    `dynamodbav:"modified_by_request_id,omitempty"`
 }
 
 // toAPISecret converts a secretItem to an API Secret
 func (si *secretItem) toAPISecret() *api.Secret {
 	return &api.Secret{
-		Name:        si.SecretName,
-		KeyName:     si.KeyName,
-		Description: si.Description,
-		CreatedBy:   si.CreatedBy,
-		OwnedBy:     si.OwnedBy,
-		CreatedAt:   si.CreatedAt,
-		UpdatedAt:   si.UpdatedAt,
-		UpdatedBy:   si.UpdatedBy,
+		Name:                si.SecretName,
+		KeyName:             si.KeyName,
+		Description:         si.Description,
+		CreatedBy:           si.CreatedBy,
+		OwnedBy:             si.OwnedBy,
+		CreatedAt:           si.CreatedAt,
+		UpdatedAt:           si.UpdatedAt,
+		UpdatedBy:           si.UpdatedBy,
+		CreatedByRequestID:  si.CreatedByRequestID,
+		ModifiedByRequestID: si.ModifiedByRequestID,
 	}
 }
 
@@ -67,14 +71,16 @@ func (r *SecretsRepository) CreateSecret(ctx context.Context, secret *api.Secret
 
 	now := time.Now().UTC()
 	item := secretItem{
-		SecretName:  secret.Name,
-		KeyName:     secret.KeyName,
-		Description: secret.Description,
-		CreatedBy:   secret.CreatedBy,
-		OwnedBy:     secret.OwnedBy,
-		CreatedAt:   now,
-		UpdatedAt:   now,
-		UpdatedBy:   secret.CreatedBy,
+		SecretName:          secret.Name,
+		KeyName:             secret.KeyName,
+		Description:         secret.Description,
+		CreatedBy:           secret.CreatedBy,
+		OwnedBy:             secret.OwnedBy,
+		CreatedAt:           now,
+		UpdatedAt:           now,
+		UpdatedBy:           secret.CreatedBy,
+		CreatedByRequestID:  secret.CreatedByRequestID,
+		ModifiedByRequestID: secret.ModifiedByRequestID,
 	}
 
 	av, err := attributevalue.MarshalMap(item)
@@ -168,7 +174,7 @@ func (r *SecretsRepository) UpdateSecretMetadata(
 
 	now := time.Now().UTC()
 
-	updateExpr := expression.NewBuilder().
+	updateBuilder := expression.NewBuilder().
 		WithUpdate(
 			expression.Set(
 				expression.Name("key_name"), expression.Value(keyName),
@@ -184,7 +190,30 @@ func (r *SecretsRepository) UpdateSecretMetadata(
 				),
 		)
 
-	expr, err := updateExpr.Build()
+	// Extract request ID from context and set it if available
+	requestID := logger.GetRequestID(ctx)
+	if requestID != "" {
+		updateBuilder = expression.NewBuilder().
+			WithUpdate(
+				expression.Set(
+					expression.Name("key_name"), expression.Value(keyName),
+				).
+					Set(
+						expression.Name("description"), expression.Value(description),
+					).
+					Set(
+						expression.Name("updated_at"), expression.Value(now),
+					).
+					Set(
+						expression.Name("updated_by"), expression.Value(updatedBy),
+					).
+					Set(
+						expression.Name("modified_by_request_id"), expression.Value(requestID),
+					),
+			)
+	}
+
+	expr, err := updateBuilder.Build()
 	if err != nil {
 		reqLogger.Error("failed to build update expression", "error", err)
 		return appErrors.ErrInternalError("failed to build update", err)
