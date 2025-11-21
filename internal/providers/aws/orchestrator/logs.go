@@ -95,23 +95,20 @@ func getAllLogEvents(ctx context.Context,
 }
 
 // FetchBackendLogs retrieves backend infrastructure logs using CloudWatch Logs Insights
-// Queries logs from Lambda execution and API Gateway for debugging and tracing
+// Queries logs from Lambda execution for debugging and tracing
 func (r *Runner) FetchBackendLogs(ctx context.Context, requestID string) (*api.BackendLogsResponse, error) {
 	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
 
-	// Start the query
 	queryID, err := r.startBackendLogsQuery(ctx, reqLogger, requestID)
 	if err != nil {
 		return nil, err
 	}
 
-	// Poll for results
 	queryOutput, err := r.pollBackendLogsQuery(ctx, reqLogger, queryID)
 	if err != nil {
 		return nil, err
 	}
 
-	// Transform results to API format
 	logs := r.transformBackendLogsResults(queryOutput.Results)
 
 	return &api.BackendLogsResponse{
@@ -196,14 +193,9 @@ func (r *Runner) pollBackendLogsQuery(
 	log *slog.Logger,
 	queryID string,
 ) (*cloudwatchlogs.GetQueryResultsOutput, error) {
-	const (
-		maxQueryAttempts    = 30
-		queryPollIntervalMs = 500
-	)
-
 	var queryOutput *cloudwatchlogs.GetQueryResultsOutput
-	for i := range maxQueryAttempts {
-		time.Sleep(time.Duration(queryPollIntervalMs) * time.Millisecond)
+	for i := range awsConstants.CloudWatchLogsQueryMaxAttempts {
+		time.Sleep(time.Duration(awsConstants.CloudWatchLogsQueryPollIntervalMs) * time.Millisecond)
 
 		getResultsArgs := []any{
 			"operation", "CloudWatchLogs.GetQueryResults",
