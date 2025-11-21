@@ -25,6 +25,10 @@ func (m *mockClientInterfaceForKill) KillExecution(
 	return nil, fmt.Errorf("not implemented")
 }
 
+func (m *mockClientInterfaceForKill) FetchBackendLogs(_ context.Context, _ string) ([]api.LogEvent, error) {
+	return nil, nil
+}
+
 func TestKillService_KillExecution(t *testing.T) {
 	tests := []struct {
 		name         string

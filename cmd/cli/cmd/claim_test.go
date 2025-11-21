@@ -24,6 +24,10 @@ func (m *mockClientInterfaceForClaim) ClaimAPIKey(ctx context.Context, token str
 	return nil, fmt.Errorf("not implemented")
 }
 
+func (m *mockClientInterfaceForClaim) FetchBackendLogs(_ context.Context, _ string) ([]api.LogEvent, error) {
+	return nil, nil
+}
+
 // mockConfigSaver is a mock for ConfigSaver interface
 type mockConfigSaver struct {
 	saveFunc func(cfg *config.Config) error

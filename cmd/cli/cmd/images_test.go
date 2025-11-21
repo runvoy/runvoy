@@ -52,6 +52,10 @@ func (m *mockClientInterfaceForImages) UnregisterImage(
 	return nil, fmt.Errorf("not implemented")
 }
 
+func (m *mockClientInterfaceForImages) FetchBackendLogs(_ context.Context, _ string) ([]api.LogEvent, error) {
+	return nil, nil
+}
+
 func TestImagesService_RegisterImage(t *testing.T) {
 	tests := []struct {
 		name                  string

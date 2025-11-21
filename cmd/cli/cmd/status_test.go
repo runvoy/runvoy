@@ -92,6 +92,10 @@ func (m *mockClientInterface) ReconcileHealth(_ context.Context) (*api.HealthRec
 	return nil, fmt.Errorf("not implemented")
 }
 
+func (m *mockClientInterface) FetchBackendLogs(_ context.Context, _ string) ([]api.LogEvent, error) {
+	return nil, nil
+}
+
 // mockOutputInterface is a manual mock for testing
 type mockOutputInterface struct {
 	calls []call

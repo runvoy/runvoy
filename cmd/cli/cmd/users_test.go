@@ -44,6 +44,10 @@ func (m *mockClientInterfaceForUsers) RevokeUser(
 	return nil, fmt.Errorf("not implemented")
 }
 
+func (m *mockClientInterfaceForUsers) FetchBackendLogs(_ context.Context, _ string) ([]api.LogEvent, error) {
+	return nil, nil
+}
+
 func TestUsersService_CreateUser(t *testing.T) {
 	tests := []struct {
 		name         string

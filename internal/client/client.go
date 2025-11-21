@@ -263,6 +263,19 @@ func (c *Client) GetLogs(ctx context.Context, executionID string) (*api.LogsResp
 	return &resp, nil
 }
 
+// FetchBackendLogs fetches backend infrastructure logs for a request ID
+func (c *Client) FetchBackendLogs(ctx context.Context, requestID string) ([]api.LogEvent, error) {
+	var resp []api.LogEvent
+	err := c.DoJSON(ctx, Request{
+		Method: "GET",
+		Path:   fmt.Sprintf("/api/v1/trace/%s", requestID),
+	}, &resp)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
 // GetExecutionStatus gets the status of an execution
 func (c *Client) GetExecutionStatus(ctx context.Context, executionID string) (*api.ExecutionStatusResponse, error) {
 	var resp api.ExecutionStatusResponse

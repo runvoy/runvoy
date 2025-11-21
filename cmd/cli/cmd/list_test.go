@@ -28,6 +28,10 @@ func (m *mockClientInterfaceForList) ListExecutions(
 	return nil, fmt.Errorf("not implemented")
 }
 
+func (m *mockClientInterfaceForList) FetchBackendLogs(_ context.Context, _ string) ([]api.LogEvent, error) {
+	return nil, nil
+}
+
 func TestListService_ListExecutions(t *testing.T) {
 	tests := []struct {
 		name         string

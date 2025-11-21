@@ -34,6 +34,10 @@ func (m *mockClientInterfaceForRun) GetLogs(ctx context.Context, executionID str
 	return nil, fmt.Errorf("not implemented")
 }
 
+func (m *mockClientInterfaceForRun) FetchBackendLogs(_ context.Context, _ string) ([]api.LogEvent, error) {
+	return nil, nil
+}
+
 func TestRunService_ExecuteCommand(t *testing.T) {
 	tests := []struct {
 		name         string

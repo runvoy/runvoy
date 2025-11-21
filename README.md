@@ -184,7 +184,7 @@ runvoy --help
 ```
 
 ```text
-runvoy - v0.2.0-20251121-9486153
+runvoy - v0.2.0-20251121-1b6dfb6
 Isolated, repeatable execution environments for your commands
 
 Usage:
@@ -205,6 +205,7 @@ Available Commands:
   run         Run a command
   secrets     Secrets management commands
   status      Get the status of a command execution
+  trace       Get backend logs for a given request ID
   users       User management commands
   version     Show the version of the CLI
 

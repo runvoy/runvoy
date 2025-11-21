@@ -385,6 +385,17 @@ Update a secret's metadata (description, key_name) and/or value
 Get the status of a command execution
 
 
+## runvoy trace
+
+Get backend logs for a given request ID
+
+**Examples**
+
+```bash
+  runvoy trace c2584f31-f753-4a07-9556-ed79dc36a10b
+```
+
+
 ## runvoy users
 
 User management commands

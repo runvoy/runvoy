@@ -12,6 +12,7 @@ type Interface interface {
 	// Health
 	ReconcileHealth(ctx context.Context) (*api.HealthReconcileResponse, error)
 	GetLogs(ctx context.Context, executionID string) (*api.LogsResponse, error)
+	FetchBackendLogs(ctx context.Context, requestID string) ([]api.LogEvent, error)
 	GetExecutionStatus(ctx context.Context, executionID string) (*api.ExecutionStatusResponse, error)
 	RunCommand(ctx context.Context, req *api.ExecutionRequest) (*api.ExecutionResponse, error)
 	KillExecution(ctx context.Context, executionID string) (*api.KillExecutionResponse, error)
