@@ -17,7 +17,7 @@ graph TB
 
         subgraph "Lambda Functions"
             Orchestrator[Orchestrator Lambda<br/>- API Requests<br/>- Task Management]
-            EventProc[Event Processor Lambda<br/>- Task Events<br/>- Log Streaming<br/>- WebSocket Management]
+            EventProc[Event Processor Lambda<br/>- Task Events<br/>- Log Streaming<br/>- WebSocket Management<br/>- Health Reconciliation]
         end
 
         subgraph "Compute"
@@ -31,8 +31,9 @@ graph TB
         end
 
         subgraph "Event Routing"
-            EventBridge[EventBridge<br/>- Task Completion<br/>- Health Reconciliation]
+            EventBridge[EventBridge<br/>- Task Completion Events<br/>- Scheduled Rules]
             CWLogs[CloudWatch Logs<br/>Subscription]
+            ScheduledRule[Hourly Cron Rule<br/>Health Reconciliation]
         end
 
         subgraph "Security"
@@ -57,13 +58,17 @@ graph TB
     ECS -->|Task Completion Event| EventBridge
     ECS -->|Use| IAM
 
-    EventBridge -->|Invoke| EventProc
+    EventBridge -->|Task Events| EventProc
+    ScheduledRule -->|Hourly Trigger| EventProc
     CW -->|Log Subscription| CWLogs
     CWLogs -->|Invoke| EventProc
 
     EventProc -->|Update Status| DynamoDB
     EventProc -->|Push Logs| WSAPI
-    EventProc -->|Reconcile Resources| ECS
+    EventProc -->|Reconcile Resources<br/>Verify & Repair| ECS
+    EventProc -->|Verify Metadata| DynamoDB
+    EventProc -->|Verify Roles| IAM
+    EventProc -->|Verify Secrets| SSM
 
     SSM -->|Encrypted with| KMS
 
@@ -71,6 +76,7 @@ graph TB
     style EventProc fill:#e1f5ff
     style ECS fill:#ffe1e1
     style DynamoDB fill:#e1ffe1
+    style ScheduledRule fill:#fff3e0
 ```
 
 ## Folder Structure
