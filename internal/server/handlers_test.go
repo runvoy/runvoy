@@ -137,6 +137,10 @@ func (t *testUserRepository) ListUsers(_ context.Context) ([]*api.User, error) {
 	}, nil
 }
 
+func (t *testUserRepository) GetUsersByRequestID(_ context.Context, _ string) ([]*api.User, error) {
+	return []*api.User{}, nil
+}
+
 // newPermissiveTestEnforcerForHandlers creates a test enforcer that allows all access.
 func newPermissiveTestEnforcerForHandlers(t *testing.T) *authorization.Enforcer {
 	enf, err := authorization.NewEnforcer(testutil.SilentLogger())
@@ -195,6 +199,10 @@ func (t *testExecutionRepository) ListExecutions(
 	return []*api.Execution{}, nil
 }
 
+func (t *testExecutionRepository) GetExecutionsByRequestID(_ context.Context, _ string) ([]*api.Execution, error) {
+	return []*api.Execution{}, nil
+}
+
 type testTokenRepository struct{}
 
 func (t *testTokenRepository) CreateToken(_ context.Context, _ *api.WebSocketToken) error {
@@ -231,6 +239,10 @@ func (t *testSecretsRepository) DeleteSecret(_ context.Context, _ string) error 
 	return nil
 }
 
+func (t *testSecretsRepository) GetSecretsByRequestID(_ context.Context, _ string) ([]*api.Secret, error) {
+	return []*api.Secret{}, nil
+}
+
 type testHealthManager struct{}
 
 func (t *testHealthManager) Reconcile(_ context.Context) (*health.Report, error) {
@@ -238,11 +250,12 @@ func (t *testHealthManager) Reconcile(_ context.Context) (*health.Report, error)
 }
 
 type testRunner struct {
-	runCommandFunc       func(userEmail string, req *api.ExecutionRequest) (*time.Time, error)
-	listImagesFunc       func() ([]api.ImageInfo, error)
-	getImageFunc         func(image string) (*api.ImageInfo, error)
-	removeImageFunc      func(ctx context.Context, image string) error
-	fetchBackendLogsFunc func(ctx context.Context, requestID string) ([]api.LogEvent, error)
+	runCommandFunc            func(userEmail string, req *api.ExecutionRequest) (*time.Time, error)
+	listImagesFunc            func() ([]api.ImageInfo, error)
+	getImageFunc              func(image string) (*api.ImageInfo, error)
+	removeImageFunc           func(ctx context.Context, image string) error
+	fetchBackendLogsFunc      func(ctx context.Context, requestID string) ([]api.LogEvent, error)
+	getImagesByRequestIDFunc  func(ctx context.Context, requestID string) ([]api.ImageInfo, error)
 }
 
 func (t *testRunner) StartTask(
@@ -306,6 +319,13 @@ func (t *testRunner) FetchBackendLogs(ctx context.Context, requestID string) ([]
 		return t.fetchBackendLogsFunc(ctx, requestID)
 	}
 	return []api.LogEvent{}, nil
+}
+
+func (t *testRunner) GetImagesByRequestID(ctx context.Context, requestID string) ([]api.ImageInfo, error) {
+	if t.getImagesByRequestIDFunc != nil {
+		return t.getImagesByRequestIDFunc(ctx, requestID)
+	}
+	return []api.ImageInfo{}, nil
 }
 
 // newTestOrchestratorService creates an orchestrator service with default test repositories.
@@ -1781,12 +1801,12 @@ func TestGetBackendLogs_Success(t *testing.T) {
 	router.ServeHTTP(resp, req)
 
 	assert.Equal(t, http.StatusOK, resp.Code)
-	var logs []api.LogEvent
-	err := json.Unmarshal(resp.Body.Bytes(), &logs)
+	var trace api.TraceResponse
+	err := json.Unmarshal(resp.Body.Bytes(), &trace)
 	require.NoError(t, err)
-	require.Len(t, logs, 2)
-	assert.Equal(t, "Log 1", logs[0].Message)
-	assert.Equal(t, "Log 2", logs[1].Message)
+	require.Len(t, trace.Logs, 2)
+	assert.Equal(t, "Log 1", trace.Logs[0].Message)
+	assert.Equal(t, "Log 2", trace.Logs[1].Message)
 }
 
 // TestGetBackendLogs_MissingRequestID tests error when requestID is missing
@@ -1861,10 +1881,10 @@ func TestGetBackendLogs_NoLogs(t *testing.T) {
 	router.ServeHTTP(resp, req)
 
 	assert.Equal(t, http.StatusOK, resp.Code)
-	var logs []api.LogEvent
-	err := json.Unmarshal(resp.Body.Bytes(), &logs)
+	var trace api.TraceResponse
+	err := json.Unmarshal(resp.Body.Bytes(), &trace)
 	require.NoError(t, err)
-	require.Len(t, logs, 0)
+	require.Len(t, trace.Logs, 0)
 }
 
 // TestGetBackendLogs_Unauthorized tests unauthorized access

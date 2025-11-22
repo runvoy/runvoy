@@ -20,3 +20,20 @@ type LogsResponse struct {
 	// WebSocket URL for streaming logs (only provided if execution is RUNNING)
 	WebSocketURL string `json:"websocket_url,omitempty"`
 }
+
+// TraceResponse contains logs and related resources for a request ID
+type TraceResponse struct {
+	// Logs retrieved from backend infrastructure
+	Logs []LogEvent `json:"logs"`
+
+	// Related resources associated with this request ID
+	RelatedResources RelatedResources `json:"related_resources"`
+}
+
+// RelatedResources contains all resources associated with a request ID
+type RelatedResources struct {
+	Executions []*Execution `json:"executions,omitempty"`
+	Secrets    []*Secret    `json:"secrets,omitempty"`
+	Users      []*User      `json:"users,omitempty"`
+	Images     []ImageInfo  `json:"images,omitempty"`
+}

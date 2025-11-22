@@ -431,6 +431,22 @@ func (e *Runner) ListImages(ctx context.Context) ([]api.ImageInfo, error) {
 	return images, nil
 }
 
+// GetImagesByRequestID retrieves all images created or modified by a specific request ID.
+func (e *Runner) GetImagesByRequestID(ctx context.Context, requestID string) ([]api.ImageInfo, error) {
+	if e.imageRepo == nil {
+		return nil, fmt.Errorf("image repository not configured")
+	}
+
+	e.logger.Debug("getting images by request ID", "request_id", requestID)
+
+	images, err := e.imageRepo.GetImagesByRequestID(ctx, requestID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get images by request ID: %w", err)
+	}
+
+	return images, nil
+}
+
 // RemoveImage removes a Docker image and all its task definition variants from DynamoDB.
 // It also deregisters all associated task definitions from ECS.
 // If deregistration fails for any task definition, it continues to clean up the remaining ones

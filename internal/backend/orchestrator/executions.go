@@ -230,6 +230,69 @@ func (s *Service) FetchBackendLogs(ctx context.Context, requestID string) ([]api
 	return s.runner.FetchBackendLogs(ctx, requestID)
 }
 
+// FetchTrace retrieves backend logs and related resources for a request ID.
+func (s *Service) FetchTrace(ctx context.Context, requestID string) (*api.TraceResponse, error) {
+	if requestID == "" {
+		return nil, apperrors.ErrBadRequest("requestID is required", nil)
+	}
+
+	// Fetch logs from backend
+	logs, err := s.runner.FetchBackendLogs(ctx, requestID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Fetch related resources concurrently
+	var (
+		executions []*api.Execution
+		secrets    []*api.Secret
+		users      []*api.User
+		images     []api.ImageInfo
+	)
+
+	// Fetch executions by request ID
+	if s.executionRepo != nil {
+		executions, err = s.executionRepo.GetExecutionsByRequestID(ctx, requestID)
+		if err != nil {
+			s.Logger.Warn("failed to fetch executions by request ID", "error", err, "request_id", requestID)
+		}
+	}
+
+	// Fetch secrets by request ID
+	if s.secretsRepo != nil {
+		secrets, err = s.secretsRepo.GetSecretsByRequestID(ctx, requestID)
+		if err != nil {
+			s.Logger.Warn("failed to fetch secrets by request ID", "error", err, "request_id", requestID)
+		}
+	}
+
+	// Fetch users by request ID
+	if s.userRepo != nil {
+		users, err = s.userRepo.GetUsersByRequestID(ctx, requestID)
+		if err != nil {
+			s.Logger.Warn("failed to fetch users by request ID", "error", err, "request_id", requestID)
+		}
+	}
+
+	// Fetch images by request ID
+	if s.runner != nil {
+		images, err = s.runner.GetImagesByRequestID(ctx, requestID)
+		if err != nil {
+			s.Logger.Warn("failed to fetch images by request ID", "error", err, "request_id", requestID)
+		}
+	}
+
+	return &api.TraceResponse{
+		Logs: logs,
+		RelatedResources: api.RelatedResources{
+			Executions: executions,
+			Secrets:    secrets,
+			Users:      users,
+			Images:     images,
+		},
+	}, nil
+}
+
 // GetExecutionStatus returns the current status and metadata for a given execution ID.
 func (s *Service) GetExecutionStatus(ctx context.Context, executionID string) (*api.ExecutionStatusResponse, error) {
 	if executionID == "" {

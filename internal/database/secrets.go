@@ -43,4 +43,7 @@ type SecretsRepository interface {
 	// DeleteSecret removes a secret from storage.
 	// Returns an error if the secret is not found.
 	DeleteSecret(ctx context.Context, name string) error
+
+	// GetSecretsByRequestID retrieves all secrets created or modified by a specific request ID.
+	GetSecretsByRequestID(ctx context.Context, requestID string) ([]*api.Secret, error)
 }

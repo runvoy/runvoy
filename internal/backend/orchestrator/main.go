@@ -61,6 +61,9 @@ type Runner interface {
 	// FetchBackendLogs retrieves logs from the backend services for the provided requestID.
 	// Returns logs from the backend services for debugging and tracing.
 	FetchBackendLogs(ctx context.Context, requestID string) ([]api.LogEvent, error)
+
+	// GetImagesByRequestID retrieves all images created or modified by a specific request ID.
+	GetImagesByRequestID(ctx context.Context, requestID string) ([]api.ImageInfo, error)
 }
 
 // Service provides the core business logic for command execution and user management.
