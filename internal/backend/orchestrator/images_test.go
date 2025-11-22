@@ -8,6 +8,8 @@ import (
 
 	"runvoy/internal/api"
 	"runvoy/internal/auth/authorization"
+	"runvoy/internal/backend/health"
+	"runvoy/internal/constants"
 	apperrors "runvoy/internal/errors"
 	"runvoy/internal/testutil"
 
@@ -23,6 +25,45 @@ func newTestEnforcer(t *testing.T) *authorization.Enforcer {
 	return enf
 }
 
+// newImageTestService creates a Service for image testing with a custom runner.
+// The runner parameter implements all 4 interfaces (TaskManager, ImageRegistry, LogManager, ObservabilityManager).
+func newImageTestService(t *testing.T, runner *mockRunner) *Service {
+	taskManager := TaskManager(runner)
+	imageRegistry := ImageRegistry(runner)
+	logManager := LogManager(runner)
+	observabilityManager := ObservabilityManager(runner)
+
+	svc, err := NewService(
+		context.Background(),
+		&mockUserRepository{},
+		&mockExecutionRepository{},
+		&mockConnectionRepository{},
+		&mockTokenRepository{},
+		&mockImageRepository{},
+		taskManager,
+		imageRegistry,
+		logManager,
+		observabilityManager,
+		testutil.SilentLogger(),
+		constants.AWS,
+		&mockWebSocketManager{},
+		&mockSecretsRepository{},
+		&mockHealthManager{},
+		newTestEnforcer(t),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return svc
+}
+
+// mockHealthManager implements health.Manager for testing
+type mockHealthManager struct{}
+
+func (m *mockHealthManager) Reconcile(_ context.Context) (*health.Report, error) {
+	return &health.Report{}, nil
+}
+
 func TestGetImage_Success(t *testing.T) {
 	runner := &mockRunner{
 		getImageFunc: func(_ context.Context, image string) (*api.ImageInfo, error) {
@@ -32,29 +73,7 @@ func TestGetImage_Success(t *testing.T) {
 			}, nil
 		},
 	}
-	logger := testutil.SilentLogger()
-	enforcer := newTestEnforcer(t)
-
-	service, err := NewService(context.Background(),
-		&mockUserRepository{},
-		&mockExecutionRepository{},
-		&mockConnectionRepository{},
-		&mockTokenRepository{},
-		&mockImageRepository{},
-		runner, // TaskManager
-		runner, // ImageRegistry
-		runner, // LogManager
-		runner, // ObservabilityManager
-		logger,
-		"",
-		nil,
-		&mockSecretsRepository{},
-		nil,
-		enforcer,
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
+	service := newImageTestService(t, runner)
 
 	imageInfo, imageErr := service.GetImage(context.Background(), "alpine:latest")
 
@@ -70,29 +89,7 @@ func TestGetImage_NotFound(t *testing.T) {
 			return nil, nil
 		},
 	}
-	logger := testutil.SilentLogger()
-	enforcer := newTestEnforcer(t)
-
-	service, err := NewService(context.Background(),
-		&mockUserRepository{},
-		&mockExecutionRepository{},
-		&mockConnectionRepository{},
-		&mockTokenRepository{},
-		&mockImageRepository{},
-		runner, // TaskManager
-		runner, // ImageRegistry
-		runner, // LogManager
-		runner, // ObservabilityManager
-		logger,
-		"",
-		nil,
-		&mockSecretsRepository{},
-		nil,
-		enforcer,
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
+	service := newImageTestService(t, runner)
 
 	_, imageErr := service.GetImage(context.Background(), "nonexistent:latest")
 
@@ -101,30 +98,8 @@ func TestGetImage_NotFound(t *testing.T) {
 }
 
 func TestGetImage_EmptyImageName(t *testing.T) {
-	logger := testutil.SilentLogger()
-	enforcer := newTestEnforcer(t)
-
 	runner := &mockRunner{}
-	service, err := NewService(context.Background(),
-		&mockUserRepository{},
-		&mockExecutionRepository{},
-		&mockConnectionRepository{},
-		&mockTokenRepository{},
-		&mockImageRepository{},
-		runner, // TaskManager
-		runner, // ImageRegistry
-		runner, // LogManager
-		runner, // ObservabilityManager
-		logger,
-		"",
-		nil,
-		&mockSecretsRepository{},
-		nil,
-		enforcer,
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
+	service := newImageTestService(t, runner)
 
 	_, imageErr := service.GetImage(context.Background(), "")
 
@@ -138,29 +113,7 @@ func TestGetImage_RunnerError(t *testing.T) {
 			return nil, apperrors.ErrInternalError("runner error", nil)
 		},
 	}
-	logger := testutil.SilentLogger()
-	enforcer := newTestEnforcer(t)
-
-	service, err := NewService(context.Background(),
-		&mockUserRepository{},
-		&mockExecutionRepository{},
-		&mockConnectionRepository{},
-		&mockTokenRepository{},
-		&mockImageRepository{},
-		runner, // TaskManager
-		runner, // ImageRegistry
-		runner, // LogManager
-		runner, // ObservabilityManager
-		logger,
-		"",
-		nil,
-		&mockSecretsRepository{},
-		nil,
-		enforcer,
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
+	service := newImageTestService(t, runner)
 
 	_, imageErr := service.GetImage(context.Background(), "alpine:latest")
 
@@ -175,29 +128,7 @@ func TestGetImage_RunnerGenericError(t *testing.T) {
 			return nil, errors.New("some runner error")
 		},
 	}
-	logger := testutil.SilentLogger()
-	enforcer := newTestEnforcer(t)
-
-	service, err := NewService(context.Background(),
-		&mockUserRepository{},
-		&mockExecutionRepository{},
-		&mockConnectionRepository{},
-		&mockTokenRepository{},
-		&mockImageRepository{},
-		runner, // TaskManager
-		runner, // ImageRegistry
-		runner, // LogManager
-		runner, // ObservabilityManager
-		logger,
-		"",
-		nil,
-		&mockSecretsRepository{},
-		nil,
-		enforcer,
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
+	service := newImageTestService(t, runner)
 
 	_, imageErr := service.GetImage(context.Background(), "alpine:latest")
 
@@ -212,29 +143,7 @@ func TestRemoveImage_Success(t *testing.T) {
 			return nil
 		},
 	}
-	logger := testutil.SilentLogger()
-	enforcer := newTestEnforcer(t)
-
-	service, err := NewService(context.Background(),
-		&mockUserRepository{},
-		&mockExecutionRepository{},
-		&mockConnectionRepository{},
-		&mockTokenRepository{},
-		&mockImageRepository{},
-		runner, // TaskManager
-		runner, // ImageRegistry
-		runner, // LogManager
-		runner, // ObservabilityManager
-		logger,
-		"",
-		nil,
-		&mockSecretsRepository{},
-		nil,
-		enforcer,
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
+	service := newImageTestService(t, runner)
 
 	removeErr := service.RemoveImage(context.Background(), "alpine:latest")
 
@@ -247,29 +156,7 @@ func TestRemoveImage_EmptyImageName(t *testing.T) {
 			return nil
 		},
 	}
-	logger := testutil.SilentLogger()
-	enforcer := newTestEnforcer(t)
-
-	service, err := NewService(context.Background(),
-		&mockUserRepository{},
-		&mockExecutionRepository{},
-		&mockConnectionRepository{},
-		&mockTokenRepository{},
-		&mockImageRepository{},
-		runner, // TaskManager
-		runner, // ImageRegistry
-		runner, // LogManager
-		runner, // ObservabilityManager
-		logger,
-		"",
-		nil,
-		&mockSecretsRepository{},
-		nil,
-		enforcer,
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
+	service := newImageTestService(t, runner)
 
 	removeErr := service.RemoveImage(context.Background(), "")
 
@@ -283,29 +170,7 @@ func TestRemoveImage_RunnerError(t *testing.T) {
 			return apperrors.ErrInternalError("runner error", nil)
 		},
 	}
-	logger := testutil.SilentLogger()
-	enforcer := newTestEnforcer(t)
-
-	service, err := NewService(context.Background(),
-		&mockUserRepository{},
-		&mockExecutionRepository{},
-		&mockConnectionRepository{},
-		&mockTokenRepository{},
-		&mockImageRepository{},
-		runner, // TaskManager
-		runner, // ImageRegistry
-		runner, // LogManager
-		runner, // ObservabilityManager
-		logger,
-		"",
-		nil,
-		&mockSecretsRepository{},
-		nil,
-		enforcer,
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
+	service := newImageTestService(t, runner)
 
 	removeErr := service.RemoveImage(context.Background(), "nonexistent:latest")
 
@@ -320,29 +185,7 @@ func TestRemoveImage_RunnerGenericError(t *testing.T) {
 			return errors.New("some runner error")
 		},
 	}
-	logger := testutil.SilentLogger()
-	enforcer := newTestEnforcer(t)
-
-	service, err := NewService(context.Background(),
-		&mockUserRepository{},
-		&mockExecutionRepository{},
-		&mockConnectionRepository{},
-		&mockTokenRepository{},
-		&mockImageRepository{},
-		runner, // TaskManager
-		runner, // ImageRegistry
-		runner, // LogManager
-		runner, // ObservabilityManager
-		logger,
-		"",
-		nil,
-		&mockSecretsRepository{},
-		nil,
-		enforcer,
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
+	service := newImageTestService(t, runner)
 
 	removeErr := service.RemoveImage(context.Background(), "alpine:latest")
 
@@ -362,29 +205,7 @@ func TestListImages_Success(t *testing.T) {
 			}, nil
 		},
 	}
-	logger := testutil.SilentLogger()
-	enforcer := newTestEnforcer(t)
-
-	service, err := NewService(context.Background(),
-		&mockUserRepository{},
-		&mockExecutionRepository{},
-		&mockConnectionRepository{},
-		&mockTokenRepository{},
-		&mockImageRepository{},
-		runner, // TaskManager
-		runner, // ImageRegistry
-		runner, // LogManager
-		runner, // ObservabilityManager
-		logger,
-		"",
-		nil,
-		&mockSecretsRepository{},
-		nil,
-		enforcer,
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
+	service := newImageTestService(t, runner)
 
 	resp, listErr := service.ListImages(context.Background())
 
@@ -400,29 +221,7 @@ func TestListImages_Empty(t *testing.T) {
 			return []api.ImageInfo{}, nil
 		},
 	}
-	logger := testutil.SilentLogger()
-	enforcer := newTestEnforcer(t)
-
-	service, err := NewService(context.Background(),
-		&mockUserRepository{},
-		&mockExecutionRepository{},
-		&mockConnectionRepository{},
-		&mockTokenRepository{},
-		&mockImageRepository{},
-		runner, // TaskManager
-		runner, // ImageRegistry
-		runner, // LogManager
-		runner, // ObservabilityManager
-		logger,
-		"",
-		nil,
-		&mockSecretsRepository{},
-		nil,
-		enforcer,
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
+	service := newImageTestService(t, runner)
 
 	resp, listErr := service.ListImages(context.Background())
 
@@ -442,29 +241,7 @@ func TestListImages_RunnerError(t *testing.T) {
 			return nil, apperrors.ErrInternalError("runner error", nil)
 		},
 	}
-	logger := testutil.SilentLogger()
-	enforcer := newTestEnforcer(t)
-
-	service, err := NewService(context.Background(),
-		&mockUserRepository{},
-		&mockExecutionRepository{},
-		&mockConnectionRepository{},
-		&mockTokenRepository{},
-		&mockImageRepository{},
-		runner, // TaskManager
-		runner, // ImageRegistry
-		runner, // LogManager
-		runner, // ObservabilityManager
-		logger,
-		"",
-		nil,
-		&mockSecretsRepository{},
-		nil,
-		enforcer,
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
+	service := newImageTestService(t, runner)
 
 	_, listErr := service.ListImages(context.Background())
 
@@ -485,29 +262,7 @@ func TestListImages_RunnerGenericError(t *testing.T) {
 			return nil, errors.New("some runner error")
 		},
 	}
-	logger := testutil.SilentLogger()
-	enforcer := newTestEnforcer(t)
-
-	service, err := NewService(context.Background(),
-		&mockUserRepository{},
-		&mockExecutionRepository{},
-		&mockConnectionRepository{},
-		&mockTokenRepository{},
-		&mockImageRepository{},
-		runner, // TaskManager
-		runner, // ImageRegistry
-		runner, // LogManager
-		runner, // ObservabilityManager
-		logger,
-		"",
-		nil,
-		&mockSecretsRepository{},
-		nil,
-		enforcer,
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
+	service := newImageTestService(t, runner)
 
 	_, listErr := service.ListImages(context.Background())
 
@@ -525,29 +280,7 @@ func TestRegisterImage_Success(t *testing.T) {
 			return nil
 		},
 	}
-	logger := testutil.SilentLogger()
-	enforcer := newTestEnforcer(t)
-
-	service, err := NewService(context.Background(),
-		&mockUserRepository{},
-		&mockExecutionRepository{},
-		&mockConnectionRepository{},
-		&mockTokenRepository{},
-		&mockImageRepository{},
-		runner, // TaskManager
-		runner, // ImageRegistry
-		runner, // LogManager
-		runner, // ObservabilityManager
-		logger,
-		"",
-		nil,
-		&mockSecretsRepository{},
-		nil,
-		enforcer,
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
+	service := newImageTestService(t, runner)
 
 	resp, registerErr := service.RegisterImage(
 		context.Background(),
@@ -568,29 +301,7 @@ func TestRegisterImage_EmptyImageName(t *testing.T) {
 			return nil
 		},
 	}
-	logger := testutil.SilentLogger()
-	enforcer := newTestEnforcer(t)
-
-	service, err := NewService(context.Background(),
-		&mockUserRepository{},
-		&mockExecutionRepository{},
-		&mockConnectionRepository{},
-		&mockTokenRepository{},
-		&mockImageRepository{},
-		runner, // TaskManager
-		runner, // ImageRegistry
-		runner, // LogManager
-		runner, // ObservabilityManager
-		logger,
-		"",
-		nil,
-		&mockSecretsRepository{},
-		nil,
-		enforcer,
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
+	service := newImageTestService(t, runner)
 
 	_, registerErr := service.RegisterImage(
 		context.Background(),
@@ -611,29 +322,7 @@ func TestRegisterImage_RunnerError(t *testing.T) {
 			return apperrors.ErrInternalError("runner error", nil)
 		},
 	}
-	logger := testutil.SilentLogger()
-	enforcer := newTestEnforcer(t)
-
-	service, err := NewService(context.Background(),
-		&mockUserRepository{},
-		&mockExecutionRepository{},
-		&mockConnectionRepository{},
-		&mockTokenRepository{},
-		&mockImageRepository{},
-		runner, // TaskManager
-		runner, // ImageRegistry
-		runner, // LogManager
-		runner, // ObservabilityManager
-		logger,
-		"",
-		nil,
-		&mockSecretsRepository{},
-		nil,
-		enforcer,
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
+	service := newImageTestService(t, runner)
 
 	_, registerErr := service.RegisterImage(
 		context.Background(),
@@ -655,29 +344,7 @@ func TestRegisterImage_RunnerGenericError(t *testing.T) {
 			return errors.New("some runner error")
 		},
 	}
-	logger := testutil.SilentLogger()
-	enforcer := newTestEnforcer(t)
-
-	service, err := NewService(context.Background(),
-		&mockUserRepository{},
-		&mockExecutionRepository{},
-		&mockConnectionRepository{},
-		&mockTokenRepository{},
-		&mockImageRepository{},
-		runner, // TaskManager
-		runner, // ImageRegistry
-		runner, // LogManager
-		runner, // ObservabilityManager
-		logger,
-		"",
-		nil,
-		&mockSecretsRepository{},
-		nil,
-		enforcer,
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
+	service := newImageTestService(t, runner)
 
 	_, registerErr := service.RegisterImage(
 		context.Background(),
@@ -699,29 +366,7 @@ func TestRegisterImage_EmptyCreatedBy(t *testing.T) {
 			return nil
 		},
 	}
-	logger := testutil.SilentLogger()
-	enforcer := newTestEnforcer(t)
-
-	service, err := NewService(context.Background(),
-		&mockUserRepository{},
-		&mockExecutionRepository{},
-		&mockConnectionRepository{},
-		&mockTokenRepository{},
-		&mockImageRepository{},
-		runner, // TaskManager
-		runner, // ImageRegistry
-		runner, // LogManager
-		runner, // ObservabilityManager
-		logger,
-		"",
-		nil,
-		&mockSecretsRepository{},
-		nil,
-		enforcer,
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
+	service := newImageTestService(t, runner)
 
 	_, registerErr := service.RegisterImage(
 		context.Background(),
@@ -746,29 +391,7 @@ func TestRegisterImage_NilRequest(t *testing.T) {
 			return nil
 		},
 	}
-	logger := testutil.SilentLogger()
-	enforcer := newTestEnforcer(t)
-
-	service, err := NewService(context.Background(),
-		&mockUserRepository{},
-		&mockExecutionRepository{},
-		&mockConnectionRepository{},
-		&mockTokenRepository{},
-		&mockImageRepository{},
-		runner, // TaskManager
-		runner, // ImageRegistry
-		runner, // LogManager
-		runner, // ObservabilityManager
-		logger,
-		"",
-		nil,
-		&mockSecretsRepository{},
-		nil,
-		enforcer,
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
+	service := newImageTestService(t, runner)
 
 	_, registerErr := service.RegisterImage(
 		context.Background(),

@@ -73,7 +73,7 @@ type LogManager interface {
 // This interface is for platform debugging and observability, separate from user execution logs.
 type ObservabilityManager interface {
 	// FetchBackendLogs retrieves logs from the backend services for the provided requestID.
-	// Returns logs from the backend services (e.g., Lambda functions) for debugging and tracing.
+	// Returns logs from the backend services for debugging and tracing.
 	FetchBackendLogs(ctx context.Context, requestID string) ([]api.LogEvent, error)
 }
 
