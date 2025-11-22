@@ -44,9 +44,6 @@ type RuntimeConfig struct {
 	// Platform specifies the OS and architecture (e.g., "linux/amd64", "linux/arm64")
 	// All providers support these standard platform strings
 	Platform *string
-
-	// Architecture is the CPU architecture (deprecated in favor of Platform)
-	Architecture *string
 }
 
 // PermissionConfig abstracts execution permissions across providers.
