@@ -11,6 +11,7 @@ import (
 	"runvoy/internal/config"
 	"runvoy/internal/constants"
 	"runvoy/internal/database"
+	awsHealth "runvoy/internal/providers/aws/health"
 	awsOrchestrator "runvoy/internal/providers/aws/orchestrator"
 )
 
@@ -22,7 +23,7 @@ import (
 // Supported cloud providers:
 //   - "aws": Uses DynamoDB for storage, Fargate for execution
 //   - "gcp": (future) E.g. using Google Cloud Run and Firestore for storage
-func Initialize(
+func Initialize( //nolint:funlen // This is ok, initialization functions are naturally long
 	ctx context.Context,
 	cfg *config.Config,
 	logger *slog.Logger) (*Service, error) {
@@ -45,11 +46,15 @@ func Initialize(
 		}
 
 		if awsDeps.HealthManager != nil {
-			awsDeps.HealthManager.SetCasbinDependencies(
-				awsDeps.UserRepo,
-				awsDeps.ExecutionRepo,
-				enforcer,
-			)
+			// Type assert to concrete type to access SetCasbinDependencies method
+			// This is provider-specific initialization that happens after the enforcer is created
+			if awsHealthManager, ok := awsDeps.HealthManager.(*awsHealth.Manager); ok {
+				awsHealthManager.SetCasbinDependencies(
+					awsDeps.UserRepo,
+					awsDeps.ExecutionRepo,
+					enforcer,
+				)
+			}
 		}
 
 		repos := database.Repositories{

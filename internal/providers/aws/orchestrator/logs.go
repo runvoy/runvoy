@@ -97,7 +97,7 @@ func getAllLogEvents(ctx context.Context,
 
 // FetchBackendLogs retrieves backend infrastructure logs using CloudWatch Logs Insights
 // Queries logs from Lambda execution for debugging and tracing
-func (r *Runner) FetchBackendLogs(ctx context.Context, requestID string) ([]api.LogEvent, error) {
+func (r *Provider) FetchBackendLogs(ctx context.Context, requestID string) ([]api.LogEvent, error) {
 	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
 
 	queryID, err := r.startBackendLogsQuery(ctx, reqLogger, requestID)
@@ -122,7 +122,7 @@ func (r *Runner) FetchBackendLogs(ctx context.Context, requestID string) ([]api.
 
 // startBackendLogsQuery starts a CloudWatch Logs Insights query across all runvoy Lambda logs
 // Searches for all log entries matching the request ID and returns the query ID or an error if the query fails.
-func (r *Runner) startBackendLogsQuery(
+func (r *Provider) startBackendLogsQuery(
 	ctx context.Context,
 	log *slog.Logger,
 	requestID string,
@@ -167,7 +167,7 @@ func (r *Runner) startBackendLogsQuery(
 }
 
 // discoverLogGroups discovers all log groups matching the runvoy Lambda prefix
-func (r *Runner) discoverLogGroups(ctx context.Context, _ *slog.Logger) ([]string, error) {
+func (r *Provider) discoverLogGroups(ctx context.Context, _ *slog.Logger) ([]string, error) {
 	logGroups := []string{}
 	var nextToken *string
 
@@ -194,7 +194,7 @@ func (r *Runner) discoverLogGroups(ctx context.Context, _ *slog.Logger) ([]strin
 }
 
 // pollBackendLogsQuery polls for CloudWatch Logs Insights query results
-func (r *Runner) pollBackendLogsQuery(
+func (r *Provider) pollBackendLogsQuery(
 	ctx context.Context,
 	log *slog.Logger,
 	queryID string,
@@ -246,7 +246,7 @@ func (r *Runner) pollBackendLogsQuery(
 // transformBackendLogsResults transforms CloudWatch Logs Insights results to LogEvent format.
 // Attempts to extract timestamps from JSON-formatted log messages first, then falls back
 // to CloudWatch's @timestamp field if message parsing fails.
-func (r *Runner) transformBackendLogsResults(
+func (r *Provider) transformBackendLogsResults(
 	results [][]cwlTypes.ResultField,
 ) []api.LogEvent {
 	logs := make([]api.LogEvent, 0, len(results))

@@ -72,13 +72,13 @@ type ImageTaskDefRepository interface {
 	GetImagesByRequestID(ctx context.Context, requestID string) ([]api.ImageInfo, error)
 }
 
-// Runner provides AWS ECS Fargate implementations for the orchestrator interfaces.
+// Provider provides AWS ECS Fargate implementations for the orchestrator interfaces.
 // It implements:
 //   - TaskManager: Task lifecycle management via ECS
 //   - ImageRegistry: Docker image registration via ECS task definitions and DynamoDB
 //   - LogManager: Execution log retrieval via CloudWatch Logs
 //   - ObservabilityManager: Backend infrastructure log retrieval via CloudWatch Logs Insights
-type Runner struct {
+type Provider struct {
 	ecsClient awsClient.ECSClient
 	cwlClient awsClient.CloudWatchLogsClient
 	iamClient awsClient.IAMClient
@@ -87,16 +87,16 @@ type Runner struct {
 	logger    *slog.Logger
 }
 
-// NewRunner creates a new AWS ECS runner with the provided configuration.
-func NewRunner(
+// NewProvider creates a new AWS ECS provider with the provided configuration.
+func NewProvider(
 	ecsClient awsClient.ECSClient,
 	cwlClient awsClient.CloudWatchLogsClient,
 	iamClient awsClient.IAMClient,
 	imageRepo ImageTaskDefRepository,
 	cfg *Config,
 	log *slog.Logger,
-) *Runner {
-	return &Runner{
+) *Provider {
+	return &Provider{
 		ecsClient: ecsClient,
 		cwlClient: cwlClient,
 		iamClient: iamClient,
@@ -107,7 +107,7 @@ func NewRunner(
 }
 
 // FetchLogsByExecutionID returns CloudWatch log events for the given execution ID.
-func (e *Runner) FetchLogsByExecutionID(ctx context.Context, executionID string) ([]api.LogEvent, error) {
+func (e *Provider) FetchLogsByExecutionID(ctx context.Context, executionID string) ([]api.LogEvent, error) {
 	if executionID == "" {
 		return nil, appErrors.ErrBadRequest("executionID is required", nil)
 	}
@@ -272,7 +272,7 @@ func buildMainContainerCommand(req *api.ExecutionRequest, requestID, image strin
 }
 
 // StartTask triggers an ECS Fargate task and returns identifiers.
-func (e *Runner) StartTask(
+func (e *Provider) StartTask(
 	ctx context.Context, userEmail string, req *api.ExecutionRequest) (string, *time.Time, error) {
 	if e.ecsClient == nil {
 		return "", nil, appErrors.ErrInternalError("ECS cli endpoint not configured", nil)
@@ -304,7 +304,7 @@ func (e *Runner) StartTask(
 // resolveImage retrieves the task definition ARN for the given imageID.
 // The req.Image field contains an imageID that was resolved and validated by the service layer.
 // If empty, falls back to the default image as a safety measure.
-func (e *Runner) resolveImage(
+func (e *Provider) resolveImage(
 	ctx context.Context, req *api.ExecutionRequest, reqLogger *slog.Logger,
 ) (imageToUse, taskDefARN string, err error) {
 	imageToUse = req.Image
@@ -343,7 +343,7 @@ type gitRepoConfig struct {
 }
 
 // configureGitRepo sets up git repository configuration if provided in the request.
-func (e *Runner) configureGitRepo(
+func (e *Provider) configureGitRepo(
 	_ context.Context, req *api.ExecutionRequest, reqLogger *slog.Logger,
 ) *gitRepoConfig {
 	config := &gitRepoConfig{HasRepo: req.GitRepo != ""}
@@ -377,7 +377,7 @@ func (e *Runner) configureGitRepo(
 }
 
 // buildContainerOverrides constructs the container overrides for sidecar and main runner containers.
-func (e *Runner) buildContainerOverrides(
+func (e *Provider) buildContainerOverrides(
 	ctx context.Context, req *api.ExecutionRequest, gitConfig *gitRepoConfig, _ *slog.Logger,
 ) ([]ecsTypes.ContainerOverride, []ecsTypes.KeyValuePair) {
 	requestID := logger.GetRequestID(ctx)
@@ -419,7 +419,7 @@ func (e *Runner) buildContainerOverrides(
 }
 
 // buildRunTaskInput constructs the ECS RunTask input with all necessary configuration.
-func (e *Runner) buildRunTaskInput(
+func (e *Provider) buildRunTaskInput(
 	userEmail, taskDefARN string,
 	containerOverrides []ecsTypes.ContainerOverride,
 	hasGitRepo bool,
@@ -453,7 +453,7 @@ func (e *Runner) buildRunTaskInput(
 }
 
 // executeTask calls the ECS RunTask API and extracts execution identifiers from the response.
-func (e *Runner) executeTask(
+func (e *Provider) executeTask(
 	ctx context.Context,
 	runTaskInput *ecs.RunTaskInput,
 	imageToUse string,
@@ -494,7 +494,7 @@ func logAWSAPICall(ctx context.Context, reqLogger *slog.Logger, operation string
 }
 
 // logTaskStarted logs the successful task start with request details.
-func (e *Runner) logTaskStarted(
+func (e *Provider) logTaskStarted(
 	reqLogger *slog.Logger,
 	userEmail, taskARN, executionID string,
 	createdAt *time.Time,
@@ -539,7 +539,7 @@ func (e *Runner) logTaskStarted(
 }
 
 // findTaskARNByExecutionID finds the task ARN for a given execution ID by checking both running and stopped tasks.
-func (e *Runner) findTaskARNByExecutionID(
+func (e *Provider) findTaskARNByExecutionID(
 	ctx context.Context, executionID string, reqLogger *slog.Logger,
 ) (string, error) {
 	listLogArgs := []any{
@@ -636,7 +636,7 @@ func validateTaskStatusForKill(currentStatus string) error {
 // Returns an error if the task is already terminated or not found.
 //
 //nolint:funlen // Complex AWS API orchestration
-func (e *Runner) KillTask(ctx context.Context, executionID string) error {
+func (e *Provider) KillTask(ctx context.Context, executionID string) error {
 	if e.ecsClient == nil {
 		return appErrors.ErrInternalError("ECS client not configured", nil)
 	}
