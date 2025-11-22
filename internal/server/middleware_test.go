@@ -413,4 +413,43 @@ func TestCorsMiddleware(t *testing.T) {
 			t.Error("Expected Access-Control-Allow-Methods header to be set")
 		}
 	})
+
+	t.Run("allows all origins when wildcard is configured", func(t *testing.T) {
+		allowedOrigins := []string{"*"}
+		router := NewRouter(svc, 0, allowedOrigins)
+
+		testOrigin := "https://6921dbf211316ed7d40a7984--tranquil-toffee-07b637.netlify.app"
+		req := httptest.NewRequest("GET", "/api/v1/health", http.NoBody)
+		req.Header.Set("Origin", testOrigin)
+		rr := httptest.NewRecorder()
+
+		router.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusOK {
+			t.Errorf("Expected status 200, got %d", rr.Code)
+		}
+		accessControlOrigin := rr.Header().Get("Access-Control-Allow-Origin")
+		if accessControlOrigin != testOrigin {
+			t.Errorf("Expected Access-Control-Allow-Origin '%s', got '%s'", testOrigin, accessControlOrigin)
+		}
+	})
+
+	t.Run("allows all origins when wildcard is in list with other origins", func(t *testing.T) {
+		allowedOrigins := []string{"https://runvoy.site", "*"}
+		router := NewRouter(svc, 0, allowedOrigins)
+
+		req := httptest.NewRequest("GET", "/api/v1/health", http.NoBody)
+		req.Header.Set("Origin", "https://any-origin.com")
+		rr := httptest.NewRecorder()
+
+		router.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusOK {
+			t.Errorf("Expected status 200, got %d", rr.Code)
+		}
+		accessControlOrigin := rr.Header().Get("Access-Control-Allow-Origin")
+		if accessControlOrigin != "https://any-origin.com" {
+			t.Errorf("Expected Access-Control-Allow-Origin 'https://any-origin.com', got '%s'", accessControlOrigin)
+		}
+	})
 }

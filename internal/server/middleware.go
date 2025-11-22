@@ -74,10 +74,16 @@ func normalizeOrigin(origin string) string {
 
 // corsMiddleware handles CORS headers for cross-origin requests
 // Normalizes allowed origins once at middleware creation time to avoid repeated string operations.
+// Supports "*" as a wildcard to allow all origins.
 func corsMiddleware(allowedOrigins []string) func(http.Handler) http.Handler {
 	normalizedAllowedOrigins := make([]string, len(allowedOrigins))
+	allowAllOrigins := false
 	for i, origin := range allowedOrigins {
-		normalizedAllowedOrigins[i] = normalizeOrigin(origin)
+		normalized := normalizeOrigin(origin)
+		if normalized == "*" {
+			allowAllOrigins = true
+		}
+		normalizedAllowedOrigins[i] = normalized
 	}
 
 	return func(next http.Handler) http.Handler {
@@ -85,7 +91,7 @@ func corsMiddleware(allowedOrigins []string) func(http.Handler) http.Handler {
 			origin := req.Header.Get("Origin")
 			if origin != "" {
 				normalizedOrigin := normalizeOrigin(origin)
-				allowed := slices.Contains(normalizedAllowedOrigins, normalizedOrigin)
+				allowed := allowAllOrigins || slices.Contains(normalizedAllowedOrigins, normalizedOrigin)
 				if allowed {
 					w.Header().Set("Access-Control-Allow-Origin", origin)
 				}
