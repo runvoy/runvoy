@@ -249,7 +249,8 @@ func (s *Service) FetchTrace(ctx context.Context, requestID string) (*api.TraceR
 	eg.Go(func() error {
 		fetchedLogs, logsErr := s.runner.FetchBackendLogs(egCtx, requestID)
 		if logsErr != nil {
-			s.Logger.Error("failed to fetch backend logs", "context", map[string]any{
+			reqLogger := logger.DeriveRequestLogger(egCtx, s.Logger)
+			reqLogger.Error("failed to fetch backend logs", "context", map[string]any{
 				"request_id": requestID,
 				"error":      logsErr,
 			})
@@ -266,7 +267,8 @@ func (s *Service) FetchTrace(ctx context.Context, requestID string) (*api.TraceR
 	})
 
 	if err := eg.Wait(); err != nil {
-		s.Logger.Error("failed to fetch trace", "context", map[string]any{
+		reqLogger := logger.DeriveRequestLogger(ctx, s.Logger)
+		reqLogger.Error("failed to fetch trace", "context", map[string]any{
 			"request_id": requestID,
 			"error":      err,
 		})

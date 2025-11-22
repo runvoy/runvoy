@@ -47,7 +47,8 @@ func (s *Service) CreateSecret(
 		if err := enforcer.AddOwnershipForResource(resourceID, owner); err != nil {
 			// Rollback secret creation if enforcer update fails
 			if deleteErr := s.secretsRepo.DeleteSecret(ctx, req.Name); deleteErr != nil {
-				s.Logger.Error("failed to rollback secret creation after enforcer error",
+				reqLogger := logger.DeriveRequestLogger(ctx, s.Logger)
+				reqLogger.Error("failed to rollback secret creation after enforcer error",
 					"error", deleteErr,
 					"resource", resourceID,
 					"owner", owner,
