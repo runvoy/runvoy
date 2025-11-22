@@ -1,13 +1,13 @@
 # Deployment recipes
 
 # Deploy all binaries
-deploy: deploy-backend deploy-frontend
+deploy: deploy-backend deploy-development-frontend
 
 # Deploy backend binaries
 deploy-backend: deploy-orchestrator deploy-event-processor
 
-# Deploy webapp
-deploy-frontend: deploy-webapp
+# Deploy development webapp
+deploy-development-frontend: deploy-development-webapp
 
 # Deploy orchestrator lambda function
 [working-directory: 'dist']
@@ -36,7 +36,12 @@ deploy-lambda lambda-name:
 
     aws lambda wait function-updated --function-name {{lambda-name}}
 
-# Deploy webapp to S3
+# Deploy development webapp to S3
 [working-directory: 'cmd/webapp']
-deploy-webapp: build-webapp
+deploy-development-webapp: build-development-webapp
+    netlify deploy --no-build --dir dist
+
+# Deploy production webapp to S3
+[working-directory: 'cmd/webapp']
+deploy-production-webapp: build-production-webapp
     netlify deploy --no-build --dir dist --prod

@@ -3,7 +3,7 @@
 # Release binaries using goreleaser + deploy webapp
 release: tag-current-version
     goreleaser release --clean
-    just deploy-webapp
+    just deploy-production-webapp
 
 # Test goreleaser configuration (snapshot build, no release)
 # Creates a snapshot build without creating a GitHub release

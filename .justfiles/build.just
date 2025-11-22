@@ -7,7 +7,7 @@ build: build-cli build-local build-backend build-frontend
 build-backend: build-orchestrator build-event-processor
 
 # Build frontend binary
-build-frontend: build-webapp
+build-frontend: build-development-webapp
 
 # Build CLI client
 [working-directory: 'cmd/cli']
@@ -54,7 +54,12 @@ build-lambda-zip lambda-name:
     zip {{lambda-name}}.zip bootstrap
     rm -f bootstrap
 
-# Build webapp
+# Build development webapp
 [working-directory: 'cmd/webapp']
-build-webapp: type-check-webapp lint-webapp
+build-development-webapp: type-check-webapp lint-webapp
     VITE_RUNVOY_VERSION={{build_version}} npx vite build
+
+# Build production webapp
+[working-directory: 'cmd/webapp']
+build-production-webapp: type-check-webapp lint-webapp
+    VITE_RUNVOY_VERSION={{version}} npx vite build
