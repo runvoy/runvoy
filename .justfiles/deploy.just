@@ -24,7 +24,6 @@ deploy-event-processor: build-event-processor-zip
 [working-directory: 'dist']
 deploy-lambda lambda-name:
     aws s3 cp {{lambda-name}}.zip s3://{{bucket}}/0.0.0-development/{{lambda-name}}-{{build_version}}.zip
-    sleep 10 # Wait for the bucket replication to complete
 
     aws s3api wait object-exists \
         --bucket runvoy-releases-{{region}} \
