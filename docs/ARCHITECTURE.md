@@ -409,87 +409,112 @@ The application uses a unified logging approach with structured logging via `log
 
 ## System Architecture
 
-```text
-┌─────────────────────────────────────────────────────────────────┐
-│                         AWS Account                              │
-│                                                                  │
-│  ┌──────────────┐                                               │
-│  │ Lambda       │◄─────── HTTPS Function URL with X-API-Key    │
-│  │ Function URL │         header                                │
-│  └──────┬───────┘                                               │
-│         │                                                        │
-│  ┌──────▼───────────┐                                          │
-│  │ Lambda           │                                           │
-│  │ (Orchestrator)   │                                           │
-│  │                  │                                           │
-│  │ - Validate API   │         ┌──────────────┐                │
-│  │   key            │────────►│ DynamoDB     │                │
-│  │ - Check lock     │         │ - API Keys   │                │
-│  │ - Start ECS task │         │ - Locks      │                │
-│  │ - Record exec    │         │ - Executions │                │
-│  └──────┬───────────┘         └──────┬───────┘                │
-│         │
-│         │
-│  ┌──────▼───────────┐
-│  │ ECS Fargate      │
-│  │                  │
-│  │ Containers:      │
-│  │ - Sidecar: git   │
-│  │   clone/setup    │
-│  │ - Runner: exec   │
-│  │ - Stream logs    │
-│  │                  │                                           │
-│  │ Task Role:       │                                           │
-│  │ - AWS perms for  │         ┌──────────────┐                │
-│  │   actual work    │────────►│ CloudWatch   │                │
-│  └──────┬───────────┘         │ Logs         │                │
-│         │                      └──────────────┘                │
-│         │ Task stops                                            │
-│         │                                                        │
-│  ┌──────▼───────────┐                                          │
-│  │ EventBridge      │                                           │
-│  │ Rule             │                                           │
-│  │ - ECS Task State │                                           │
-│  │   Change         │                                           │
-│  │ - Filter STOPPED │                                           │
-│  └──────┬───────────┘                                          │
-│         │ Event                                                 │
-│         │                                                        │
-│  ┌──────▼───────────┐                                          │
-│  │ Lambda           │                                           │
-│  │ (Event           │                                           │
-│  │  Processor)      │                                           │
-│  │                  │                                           │
-│  │ - Route event    │────────────────────────────────────────┘│
-│  │ - Extract data   │                                           │
-│  │ - Update exec    │                                           │
-│  └──────────────────┘                                          │
-│                                                                  │
-│  ┌──────────────────────────────────────────┐                 │
-│  │ Web Viewer (S3-hosted)                   │                 │
-│  │ - Single HTML file with embedded JS/CSS  │                 │
-│  │ - Real-time log streaming (5s polling)   │                 │
-│  │ - ANSI color support for terminal output │                 │
-│  │ - Status tracking and metadata display   │                 │
-│  │ - LocalStorage-based authentication      │                 │
-│  │ - Pico.css styling framework             │                 │
-│  └──────────────────────────────────────────┘                 │
-└─────────────────────────────────────────────────────────────────┘
+The following diagram illustrates the complete system architecture with all AWS services, data flows, and client interactions:
 
-┌─────────────────┐
-│ Users           │
-│                 │
-│ - CLI with API  │
-│   key (no AWS   │
-│   credentials)  │
-│                 │
-│ - Web browser   │
-│   for viewing   │
-│   logs          │
-└─────────────────┘
+```mermaid
+graph TB
+    subgraph Clients["Users"]
+        CLI["🖥️ CLI Client<br/>(with API Key)"]
+        Browser["🌐 Web Browser<br/>(with API Key)"]
+    end
+
+    subgraph AWS["AWS Account"]
+        subgraph API["API Layer"]
+            FunctionURL["Lambda Function URL<br/>(HTTPS Entry Point)"]
+            WebSocketAPI["API Gateway<br/>WebSocket API"]
+        end
+
+        subgraph Compute["Compute"]
+            Orchestrator["⚡ Orchestrator Lambda<br/>- Validate API key<br/>- Check resource locks<br/>- Start ECS tasks<br/>- Record executions"]
+            EventProc["⚡ Event Processor Lambda<br/>- Route ECS events<br/>- Process CloudWatch logs<br/>- Handle WebSocket lifecycle<br/>- Trigger health checks"]
+            ECS["🐳 ECS Fargate<br/>- Sidecar: git setup<br/>- Runner: execute command<br/>- Stream stdout/stderr"]
+        end
+
+        subgraph Storage["Storage & Data"]
+            DDB["📦 DynamoDB<br/>- API Keys<br/>- Executions<br/>- Images<br/>- Secrets Metadata<br/>- WebSocket Connections"]
+            CW["📋 CloudWatch Logs<br/>- Container output<br/>- Execution logs"]
+            SSM["🔐 Parameter Store<br/>- Secret values<br/>Encrypted with KMS"]
+        end
+
+        subgraph Events["Event Routing"]
+            EventBridge["🎯 EventBridge<br/>- ECS task completions<br/>- Health check schedules<br/>- CW log subscriptions"]
+        end
+
+        subgraph Security["Security"]
+            IAM["🔑 IAM Roles<br/>- Task roles<br/>- Exec roles"]
+            KMS["🔐 KMS Key<br/>- Encrypt secrets"]
+        end
+    end
+
+    subgraph External["External / Client-Hosted"]
+        WebViewer["🌍 Web Viewer<br/>(S3-hosted or external)<br/>- Real-time log streaming<br/>- ANSI color support<br/>- Status tracking<br/>- LocalStorage auth"]
+    end
+
+    %% Client connections
+    CLI -->|HTTPS + X-API-Key| FunctionURL
+    Browser -->|HTTPS + X-API-Key| FunctionURL
+    CLI -->|WebSocket| WebSocketAPI
+    Browser -->|WebSocket| WebSocketAPI
+
+    %% API Layer routing
+    FunctionURL --> Orchestrator
+    WebSocketAPI --> EventProc
+
+    %% Orchestrator data flows
+    Orchestrator -->|Read/Write| DDB
+    Orchestrator -->|Start tasks| ECS
+    Orchestrator -->|Write secrets| SSM
+    Orchestrator -->|Query| DDB
+
+    %% ECS execution
+    ECS -->|Stream logs| CW
+    ECS -->|Task completion| EventBridge
+    ECS -->|Task role| IAM
+
+    %% Event processing
+    EventBridge -->|Invoke with<br/>task events| EventProc
+    CW -->|Subscription| EventProc
+    EventProc -->|Update status<br/>Update locks| DDB
+    EventProc -->|Push logs to<br/>connections| WebSocketAPI
+    EventProc -->|Health<br/>reconciliation| ECS
+
+    %% Client access to logs and status
+    DDB -->|Query connections| EventProc
+    DDB -->|Store WebSocket<br/>connection metadata| DDB
+
+    %% Security integration
+    SSM -->|Encrypted with| KMS
+    DDB -->|Encrypted with| KMS
+    IAM -->|Assume role| Orchestrator
+    IAM -->|Assume role| EventProc
+    IAM -->|Assume role| ECS
+
+    %% Web viewer access
+    Browser -->|View logs via| WebViewer
+    WebViewer -->|Poll status| FunctionURL
+    WebViewer -->|Stream logs via| WebSocketAPI
+
+    %% Styling
+    style Orchestrator fill:#e1f5ff
+    style EventProc fill:#e1f5ff
+    style ECS fill:#ffe1e1
+    style DDB fill:#e1ffe1
+    style WebSocketAPI fill:#fff3e0
+    style EventBridge fill:#fff3e0
+    style FunctionURL fill:#f3e5f5
+    style Clients fill:#fce4ec
+    style External fill:#e0f2f1
 ```
 
-**Note:** For brevity the diagram omits the API Gateway WebSocket path. In production, CloudWatch Logs invoke the event processor, which relays batched log events to CLI and web viewer clients over the WebSocket API.
+**Key Data Flows:**
+
+1. **Command Execution**: CLI/Browser → Function URL → Orchestrator → DynamoDB (store execution) → ECS (start task)
+2. **Log Streaming**: ECS → CloudWatch Logs → (subscription) → Event Processor → WebSocket API → CLI/Browser
+3. **Task Completion**: ECS → EventBridge → Event Processor → DynamoDB (update status) → WebSocket (notify clients)
+4. **Secret Management**: Orchestrator ↔ DynamoDB (metadata) ↔ Parameter Store (encrypted values)
+5. **Health Reconciliation**: EventBridge (scheduled) → Event Processor → ECS/DynamoDB/IAM (verify & repair)
+
+**Note:** The system uses two Lambda functions (Orchestrator and Event Processor) to separate synchronous API requests from asynchronous event handling, enabling independent scaling and clear separation of concerns.
 
 ### Execution Flow Sequence
 
