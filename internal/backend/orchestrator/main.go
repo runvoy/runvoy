@@ -140,26 +140,12 @@ func NewService(
 		enforcer:             enforcer,
 	}
 
-	// For backwards compatibility with enforcer.Hydrate, create a temporary runner struct
-	// This will be refactored when enforcer is updated to use specific interfaces
-	tempRunner := struct {
-		TaskManager
-		ImageRegistry
-		LogManager
-		ObservabilityManager
-	}{
-		TaskManager:          taskManager,
-		ImageRegistry:        imageRegistry,
-		LogManager:           logManager,
-		ObservabilityManager: observabilityManager,
-	}
-
 	if err := enforcer.Hydrate(
 		ctx,
 		userRepo,
 		executionRepo,
 		secretsRepo,
-		tempRunner,
+		imageRegistry,
 	); err != nil {
 		return nil, fmt.Errorf("failed to hydrate enforcer: %w", err)
 	}
