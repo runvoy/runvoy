@@ -109,3 +109,9 @@ type TokenRepository interface {
 	// DeleteToken removes a token from the database (used after validation or explicit cleanup).
 	DeleteToken(ctx context.Context, tokenValue string) error
 }
+
+// ImageRepository defines the interface for image metadata storage operations.
+type ImageRepository interface {
+	// GetImagesByRequestID retrieves all images created or modified by a specific request ID.
+	GetImagesByRequestID(ctx context.Context, requestID string) ([]api.ImageInfo, error)
+}

@@ -369,7 +369,7 @@ func newTestServiceWithConnRepo(
 	logger := testutil.SilentLogger()
 	svc, err := NewService(
 		context.Background(),
-		userRepo, execRepo, connRepo, &mockTokenRepository{}, runner, logger, constants.AWS,
+		userRepo, execRepo, connRepo, &mockTokenRepository{}, &mockImageRepository{}, runner, logger, constants.AWS,
 		nil, &mockSecretsRepository{}, nil, newPermissiveEnforcer(),
 	)
 	if err != nil {
@@ -418,6 +418,7 @@ func newTestServiceWithEnforcer(
 		execRepoIface,
 		nil,
 		&mockTokenRepository{},
+		&mockImageRepository{},
 		runnerIface,
 		logger,
 		constants.AWS,
@@ -461,6 +462,7 @@ func newTestServiceWithSecretsRepo(
 		execRepoIface,
 		nil,
 		&mockTokenRepository{},
+		&mockImageRepository{},
 		runnerIface,
 		logger,
 		constants.AWS,
@@ -530,6 +532,13 @@ func (m *mockSecretsRepository) GetSecretsByRequestID(_ context.Context, _ strin
 	return []*api.Secret{}, nil
 }
 
+// mockImageRepository implements database.ImageRepository for testing
+type mockImageRepository struct{}
+
+func (m *mockImageRepository) GetImagesByRequestID(_ context.Context, _ string) ([]api.ImageInfo, error) {
+	return []api.ImageInfo{}, nil
+}
+
 // newTestServiceWithWebSocketManager creates a Service with websocket manager for testing.
 // All repositories are required (non-nil). Use no-op mocks by passing nil for unused repositories.
 func newTestServiceWithWebSocketManager(
@@ -557,7 +566,7 @@ func newTestServiceWithWebSocketManager(
 
 	svc, err := NewService(
 		context.Background(),
-		userRepoIface, execRepoIface, nil, &mockTokenRepository{}, runnerIface, logger, constants.AWS,
+		userRepoIface, execRepoIface, nil, &mockTokenRepository{}, &mockImageRepository{}, runnerIface, logger, constants.AWS,
 		wsManager, &mockSecretsRepository{}, nil, newPermissiveEnforcer(),
 	)
 	if err != nil {

@@ -446,6 +446,7 @@ func newTestService(
 		execRepo,
 		nil, // connRepo
 		tokenRepo,
+		&testImageRepository{},
 		mockRunner,
 		logger,
 		constants.AWS,

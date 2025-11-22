@@ -5,7 +5,10 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"sync"
 	"time"
+
+	"golang.org/x/sync/errgroup"
 
 	"runvoy/internal/api"
 	"runvoy/internal/auth/authorization"
@@ -236,61 +239,139 @@ func (s *Service) FetchTrace(ctx context.Context, requestID string) (*api.TraceR
 		return nil, apperrors.ErrBadRequest("requestID is required", nil)
 	}
 
-	// Fetch logs from backend
 	logs, err := s.runner.FetchBackendLogs(ctx, requestID)
 	if err != nil {
 		return nil, err
 	}
 
-	// Fetch related resources concurrently
+	resources := s.fetchTraceRelatedResources(ctx, requestID)
+
+	return &api.TraceResponse{
+		Logs:             logs,
+		RelatedResources: resources,
+	}, nil
+}
+
+func (s *Service) fetchTraceRelatedResources(ctx context.Context, requestID string) api.RelatedResources {
 	var (
 		executions []*api.Execution
 		secrets    []*api.Secret
 		users      []*api.User
 		images     []api.ImageInfo
+		mu         sync.Mutex
 	)
 
-	// Fetch executions by request ID
-	if s.executionRepo != nil {
-		executions, err = s.executionRepo.GetExecutionsByRequestID(ctx, requestID)
-		if err != nil {
-			s.Logger.Warn("failed to fetch executions by request ID", "error", err, "request_id", requestID)
-		}
+	eg, egCtx := errgroup.WithContext(ctx)
+
+	s.fetchExecutionsByRequestID(egCtx, eg, requestID, &mu, &executions)
+	s.fetchSecretsByRequestID(egCtx, eg, requestID, &mu, &secrets)
+	s.fetchUsersByRequestID(egCtx, eg, requestID, &mu, &users)
+	s.fetchImagesByRequestID(egCtx, eg, requestID, &mu, &images)
+
+	_ = eg.Wait()
+
+	return api.RelatedResources{
+		Executions: executions,
+		Secrets:    secrets,
+		Users:      users,
+		Images:     images,
+	}
+}
+
+func (s *Service) fetchExecutionsByRequestID(
+	ctx context.Context,
+	eg *errgroup.Group,
+	requestID string,
+	mu *sync.Mutex,
+	result *[]*api.Execution,
+) {
+	if s.executionRepo == nil {
+		return
 	}
 
-	// Fetch secrets by request ID
-	if s.secretsRepo != nil {
-		secrets, err = s.secretsRepo.GetSecretsByRequestID(ctx, requestID)
-		if err != nil {
-			s.Logger.Warn("failed to fetch secrets by request ID", "error", err, "request_id", requestID)
+	eg.Go(func() error {
+		execs, execErr := s.executionRepo.GetExecutionsByRequestID(ctx, requestID)
+		if execErr != nil {
+			s.Logger.Warn("failed to fetch executions by request ID", "error", execErr, "request_id", requestID)
+			return nil
 		}
+		mu.Lock()
+		*result = execs
+		mu.Unlock()
+		return nil
+	})
+}
+
+func (s *Service) fetchSecretsByRequestID(
+	ctx context.Context,
+	eg *errgroup.Group,
+	requestID string,
+	mu *sync.Mutex,
+	result *[]*api.Secret,
+) {
+	if s.secretsRepo == nil {
+		return
 	}
 
-	// Fetch users by request ID
-	if s.userRepo != nil {
-		users, err = s.userRepo.GetUsersByRequestID(ctx, requestID)
-		if err != nil {
-			s.Logger.Warn("failed to fetch users by request ID", "error", err, "request_id", requestID)
+	eg.Go(func() error {
+		secs, secErr := s.secretsRepo.GetSecretsByRequestID(ctx, requestID)
+		if secErr != nil {
+			s.Logger.Warn("failed to fetch secrets by request ID", "error", secErr, "request_id", requestID)
+			return nil
 		}
+		mu.Lock()
+		*result = secs
+		mu.Unlock()
+		return nil
+	})
+}
+
+func (s *Service) fetchUsersByRequestID(
+	ctx context.Context,
+	eg *errgroup.Group,
+	requestID string,
+	mu *sync.Mutex,
+	result *[]*api.User,
+) {
+	if s.userRepo == nil {
+		return
 	}
 
-	// Fetch images by request ID
-	if s.runner != nil {
-		images, err = s.runner.GetImagesByRequestID(ctx, requestID)
-		if err != nil {
-			s.Logger.Warn("failed to fetch images by request ID", "error", err, "request_id", requestID)
+	eg.Go(func() error {
+		usrs, userErr := s.userRepo.GetUsersByRequestID(ctx, requestID)
+		if userErr != nil {
+			s.Logger.Warn("failed to fetch users by request ID", "error", userErr, "request_id", requestID)
+			return nil
 		}
+		mu.Lock()
+		*result = usrs
+		mu.Unlock()
+		return nil
+	})
+}
+
+func (s *Service) fetchImagesByRequestID(
+	ctx context.Context,
+	eg *errgroup.Group,
+	requestID string,
+	mu *sync.Mutex,
+	result *[]api.ImageInfo,
+) {
+	if s.imageRepo == nil {
+		return
 	}
 
-	return &api.TraceResponse{
-		Logs: logs,
-		RelatedResources: api.RelatedResources{
-			Executions: executions,
-			Secrets:    secrets,
-			Users:      users,
-			Images:     images,
-		},
-	}, nil
+	eg.Go(func() error {
+		imgs, imgErr := s.imageRepo.GetImagesByRequestID(ctx, requestID)
+		if imgErr != nil {
+			s.Logger.Warn("failed to fetch images by request ID", "error", imgErr, "request_id", requestID)
+			return nil
+		}
+		mu.Lock()
+		*result = imgs
+		mu.Unlock()
+		return nil
+	})
 }
 
 // GetExecutionStatus returns the current status and metadata for a given execution ID.
@@ -367,7 +448,6 @@ func (s *Service) KillExecution(ctx context.Context, executionID string) (*api.K
 	execution.Status = string(targetStatus)
 	execution.CompletedAt = nil
 
-	// Extract request ID from context and set ModifiedByRequestID
 	requestID := logger.ExtractRequestIDFromContext(ctx)
 	if requestID != "" {
 		execution.ModifiedByRequestID = requestID

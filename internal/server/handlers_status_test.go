@@ -77,6 +77,7 @@ func TestGetExecutionStatus_Unauthorized(t *testing.T) {
 		&testExecutionRepository{},
 		nil,
 		&testTokenRepository{},
+		&testImageRepository{},
 		&mockRunner{},
 		testutil.SilentLogger(),
 		constants.AWS,
