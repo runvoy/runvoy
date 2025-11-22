@@ -1,20 +1,5 @@
 # runvoy Architecture
 
-## Overview
-
-runvoy is a centralized execution runner that allows teams to run infrastructure commands without sharing credentials. An admin deploys runvoy once to the company's cloud provider account, then issues API keys to team members who can execute commands safely with full audit trails.
-
-## Design Principles
-
-1. **Centralized Execution, Distributed Access**: One deployment per company, multiple users with API keys
-2. **No Credential Sharing**: Team members never see AWS credentials
-3. **Complete Audit Trail**: Every execution logged with user identification
-4. **Safe Stateful Operations**: Automatic locking prevents concurrent operations on shared resources
-5. **Self-Service**: Team members don't wait for admins to run commands
-6. **Extensible Authorization**: Architecture supports fine-grained permissions (to be added later)
-
-## High-Level Architecture
-
 The following diagram shows the major components and their interactions:
 
 ```mermaid
