@@ -9,7 +9,6 @@ import { VIEWS } from '../stores/ui';
 // Use vi.hoisted to create variables that can be used in mocks
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const mocks = vi.hoisted(() => {
-    // @ts-expect-error - require is available in test environment
     const { writable } = require('svelte/store');
     return {
         mockPageStore: writable({

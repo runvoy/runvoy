@@ -13,7 +13,10 @@
     $: isConfigured = Boolean(apiClient);
 
     onMount(() => {
-        const execId = $page.url.searchParams.get('execution_id') || $page.url.searchParams.get('executionId');
+        const execId =
+            $page.url.searchParams.get('execution_id') ||
+            $page.url.searchParams.get('executionId') ||
+            $page.url.searchParams.get('executionID');
 
         if (execId) {
             switchExecution(execId, { updateHistory: false });
@@ -22,7 +25,10 @@
 
     // Also handle query param changes
     $: {
-        const execId = $page.url.searchParams.get('execution_id') || $page.url.searchParams.get('executionId');
+        const execId =
+            $page.url.searchParams.get('execution_id') ||
+            $page.url.searchParams.get('executionId') ||
+            $page.url.searchParams.get('executionID');
         if (execId) {
             switchExecution(execId, { updateHistory: false });
         }

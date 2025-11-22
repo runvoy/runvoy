@@ -22,26 +22,30 @@
         return viewRoutes[viewId] || '/';
     }
 
-    function isActive(viewId: string): boolean {
+    function isActive(viewId: string, pathname: string): boolean {
         const route = viewRoutes[viewId];
         if (!route) return false;
 
         // Check if current path matches the route
         if (route === '/') {
-            return $page.url.pathname === '/';
+            return pathname === '/';
         }
-        return $page.url.pathname.startsWith(route);
+        return pathname.startsWith(route);
     }
+
+    // Reactive variable to track current pathname
+    $: currentPathname = $page.url.pathname;
 </script>
 
 <nav class="view-switcher" aria-label="View selection">
     {#each views as view (view.id)}
+        {@const active = isActive(view.id, currentPathname)}
         <a
             href={getViewRoute(view.id)}
-            class:active={isActive(view.id)}
+            class:active
             class:disabled={view.disabled}
             aria-disabled={view.disabled}
-            aria-current={isActive(view.id) ? 'page' : undefined}
+            aria-current={active ? 'page' : undefined}
             on:click={(e) => {
                 if (view.disabled) {
                     e.preventDefault();

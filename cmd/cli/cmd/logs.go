@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
 	"regexp"
@@ -349,6 +350,24 @@ func (s *LogsService) printLogLine(lineNumber int, log api.LogEvent) {
 
 // printWebviewerURL prints the web application URL
 func (s *LogsService) printWebviewerURL(webURL, executionID string) {
-	s.output.Infof("View logs in web viewer: %s?execution_id=%s",
-		webURL, s.output.Cyan(executionID))
+	baseURL, err := url.Parse(webURL)
+	if err != nil {
+		// Fallback to simple string concatenation if URL parsing fails
+		urlStr := fmt.Sprintf("%s/logs?execution_id=%s", webURL, executionID)
+		s.output.Infof("View logs in web viewer: %s", s.output.Cyan(urlStr))
+		return
+	}
+
+	// Join the path with /logs, handling trailing slashes properly
+	joinedPath, err := url.JoinPath(baseURL.Path, "logs")
+	if err != nil {
+		// Fallback to simple string concatenation if path joining fails
+		urlStr := fmt.Sprintf("%s/logs?execution_id=%s", webURL, executionID)
+		s.output.Infof("View logs in web viewer: %s", s.output.Cyan(urlStr))
+		return
+	}
+	baseURL.Path = joinedPath
+	baseURL.RawQuery = fmt.Sprintf("execution_id=%s", url.QueryEscape(executionID))
+
+	s.output.Infof("View logs in web viewer: %s", s.output.Cyan(baseURL.String()))
 }

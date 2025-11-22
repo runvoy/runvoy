@@ -1,6 +1,5 @@
 <script lang="ts">
-    import { activeView, VIEWS } from '../stores/ui';
-    import { switchExecution } from '../lib/executionState';
+    import { goto } from '$app/navigation';
     import type APIClient from '../lib/api';
     import type { RunCommandPayload } from '../types/api';
     import type { EnvRow } from '../types/stores';
@@ -109,8 +108,10 @@
         try {
             const payload = buildPayload();
             const response = await apiClient.runCommand(payload);
-            switchExecution(response.execution_id);
-            activeView.set(VIEWS.LOGS);
+            const executionId = response.execution_id;
+            if (executionId) {
+                goto(`/logs?executionID=${encodeURIComponent(executionId)}`);
+            }
         } catch (error) {
             const err = error as any;
             errorMessage = err.details?.error || err.message || 'Failed to start command';
