@@ -46,7 +46,7 @@ func (e *Enforcer) loadUserRoles(
 		return fmt.Errorf("failed to load users: %w", err)
 	}
 
-	g, _ := errgroup.WithContext(ctx)
+	g, egCtx := errgroup.WithContext(ctx)
 
 	for _, user := range users {
 		g.Go(func() error {
@@ -59,7 +59,7 @@ func (e *Enforcer) loadUserRoles(
 				return fmt.Errorf("user %s has invalid role %q: %w", user.Email, user.Role, roleErr)
 			}
 
-			if addErr := e.AddRoleForUser(user.Email, role); addErr != nil {
+			if addErr := e.AddRoleForUser(egCtx, user.Email, role); addErr != nil {
 				return fmt.Errorf("failed to add role %q for user %s: %w", user.Role, user.Email, addErr)
 			}
 
@@ -113,7 +113,7 @@ func (e *Enforcer) loadSecretOwnerships(
 
 		resourceID := FormatResourceID("secret", secret.Name)
 		for _, owner := range secret.OwnedBy {
-			if addErr := e.AddOwnershipForResource(resourceID, owner); addErr != nil {
+			if addErr := e.AddOwnershipForResource(ctx, resourceID, owner); addErr != nil {
 				return fmt.Errorf("failed to add ownership for secret %s: %w", secret.Name, addErr)
 			}
 		}
@@ -131,7 +131,7 @@ func (e *Enforcer) loadExecutionOwnerships(
 		return fmt.Errorf("failed to load executions: %w", err)
 	}
 
-	g, _ := errgroup.WithContext(ctx)
+	g, egCtx := errgroup.WithContext(ctx)
 
 	for _, execution := range executions {
 		g.Go(func() error {
@@ -141,7 +141,7 @@ func (e *Enforcer) loadExecutionOwnerships(
 
 			resourceID := FormatResourceID("execution", execution.ExecutionID)
 			for _, owner := range execution.OwnedBy {
-				if addErr := e.AddOwnershipForResource(resourceID, owner); addErr != nil {
+				if addErr := e.AddOwnershipForResource(egCtx, resourceID, owner); addErr != nil {
 					return fmt.Errorf("failed to add ownership for execution %s: %w", execution.ExecutionID, addErr)
 				}
 			}
@@ -165,7 +165,7 @@ func (e *Enforcer) loadImageOwnerships(
 		return fmt.Errorf("failed to load images: %w", err)
 	}
 
-	g, _ := errgroup.WithContext(ctx)
+	g, egCtx := errgroup.WithContext(ctx)
 
 	for i := range images {
 		g.Go(func() error {
@@ -175,7 +175,7 @@ func (e *Enforcer) loadImageOwnerships(
 
 			resourceID := FormatResourceID("image", images[i].ImageID)
 			for _, owner := range images[i].OwnedBy {
-				if addErr := e.AddOwnershipForResource(resourceID, owner); addErr != nil {
+				if addErr := e.AddOwnershipForResource(egCtx, resourceID, owner); addErr != nil {
 					return fmt.Errorf("failed to add ownership for image %s: %w", images[i].ImageID, addErr)
 				}
 			}

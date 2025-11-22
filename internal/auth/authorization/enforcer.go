@@ -4,6 +4,7 @@ package authorization
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"io/fs"
 	"log/slog"
@@ -12,6 +13,8 @@ import (
 	"github.com/casbin/casbin/v2"
 	"github.com/casbin/casbin/v2/model"
 	"github.com/casbin/casbin/v2/persist"
+
+	"runvoy/internal/logger"
 )
 
 // Enforcer wraps the Casbin enforcer with additional functionality.
@@ -121,11 +124,13 @@ func NewEnforcer(logger *slog.Logger) (*Enforcer, error) {
 //
 // Example usage:
 //
-//	allowed, err := e.Enforce("user@example.com", "/api/secrets/secret-123", "read")
-func (e *Enforcer) Enforce(subject, object string, action Action) (bool, error) {
+//	allowed, err := e.Enforce(ctx, "user@example.com", "/api/secrets/secret-123", "read")
+func (e *Enforcer) Enforce(ctx context.Context, subject, object string, action Action) (bool, error) {
+	reqLogger := logger.DeriveRequestLogger(ctx, e.logger)
+
 	allowed, err := e.enforcer.Enforce(subject, object, string(action))
 	if err != nil {
-		e.logger.Error("casbin enforcement error", "context", map[string]any{
+		reqLogger.Error("casbin enforcement error", "context", map[string]any{
 			"subject": subject,
 			"object":  object,
 			"action":  action,
@@ -134,7 +139,7 @@ func (e *Enforcer) Enforce(subject, object string, action Action) (bool, error) 
 		return false, fmt.Errorf("casbin enforcement failed: %w", err)
 	}
 
-	e.logger.Debug("casbin enforcement result", "context",
+	reqLogger.Debug("casbin enforcement result", "context",
 		map[string]any{
 			"subject": subject,
 			"object":  object,
@@ -149,8 +154,10 @@ func (e *Enforcer) Enforce(subject, object string, action Action) (bool, error) 
 //
 // Example usage:
 //
-//	err := e.AddRoleForUser("user@example.com", RoleDeveloper)
-func (e *Enforcer) AddRoleForUser(user string, role Role) error {
+//	err := e.AddRoleForUser(ctx, "user@example.com", RoleDeveloper)
+func (e *Enforcer) AddRoleForUser(ctx context.Context, user string, role Role) error {
+	reqLogger := logger.DeriveRequestLogger(ctx, e.logger)
+
 	if !role.Valid() {
 		return fmt.Errorf("invalid role for user %s: %s (valid roles: %s)",
 			user, role, strings.Join(ValidRoles(), ", "))
@@ -162,11 +169,11 @@ func (e *Enforcer) AddRoleForUser(user string, role Role) error {
 		return fmt.Errorf("failed to add role for user: %w", err)
 	}
 	if !added {
-		e.logger.Debug("role already exists for user", "user", user, "role", role)
+		reqLogger.Debug("role already exists for user", "user", user, "role", role)
 		return nil
 	}
 
-	e.logger.Debug("role added for user", "user", user, "role", role)
+	reqLogger.Debug("role added for user", "user", user, "role", role)
 	return nil
 }
 
@@ -174,18 +181,20 @@ func (e *Enforcer) AddRoleForUser(user string, role Role) error {
 //
 // Example usage:
 //
-//	err := e.RemoveRoleForUser("user@example.com", "role:developer")
-func (e *Enforcer) RemoveRoleForUser(user, role string) error {
+//	err := e.RemoveRoleForUser(ctx, "user@example.com", "role:developer")
+func (e *Enforcer) RemoveRoleForUser(ctx context.Context, user, role string) error {
+	reqLogger := logger.DeriveRequestLogger(ctx, e.logger)
+
 	removed, err := e.enforcer.RemoveGroupingPolicy(user, role)
 	if err != nil {
 		return fmt.Errorf("failed to remove role for user: %w", err)
 	}
 	if !removed {
-		e.logger.Debug("role did not exist for user", "user", user, "role", role)
+		reqLogger.Debug("role did not exist for user", "user", user, "role", role)
 		return nil
 	}
 
-	e.logger.Info("role removed for user", "user", user, "role", role)
+	reqLogger.Info("role removed for user", "user", user, "role", role)
 	return nil
 }
 
@@ -194,43 +203,49 @@ func (e *Enforcer) RemoveRoleForUser(user, role string) error {
 //
 // Example usage:
 //
-//	err := e.AddOwnershipForResource("secret:secret-123", "user@example.com")
-func (e *Enforcer) AddOwnershipForResource(resourceID, ownerEmail string) error {
+//	err := e.AddOwnershipForResource(ctx, "secret:secret-123", "user@example.com")
+func (e *Enforcer) AddOwnershipForResource(ctx context.Context, resourceID, ownerEmail string) error {
+	reqLogger := logger.DeriveRequestLogger(ctx, e.logger)
+
 	added, err := e.enforcer.AddNamedGroupingPolicy("g2", resourceID, ownerEmail)
 	if err != nil {
 		return fmt.Errorf("failed to add ownership for resource: %w", err)
 	}
 	if !added {
-		e.logger.Debug("ownership already exists for resource", "resource", resourceID, "owner", ownerEmail)
+		reqLogger.Debug("ownership already exists for resource", "resource", resourceID, "owner", ownerEmail)
 		return nil
 	}
 
-	e.logger.Debug("ownership added for resource", "resource", resourceID, "owner", ownerEmail)
+	reqLogger.Debug("ownership added for resource", "resource", resourceID, "owner", ownerEmail)
 	return nil
 }
 
 // RemoveOwnershipForResource removes ownership mapping for a resource.
-func (e *Enforcer) RemoveOwnershipForResource(resourceID, ownerEmail string) error {
+func (e *Enforcer) RemoveOwnershipForResource(ctx context.Context, resourceID, ownerEmail string) error {
+	reqLogger := logger.DeriveRequestLogger(ctx, e.logger)
+
 	removed, err := e.enforcer.RemoveNamedGroupingPolicy("g2", resourceID, ownerEmail)
 	if err != nil {
 		return fmt.Errorf("failed to remove ownership for resource: %w", err)
 	}
 	if !removed {
-		e.logger.Debug("ownership did not exist for resource", "resource", resourceID, "owner", ownerEmail)
+		reqLogger.Debug("ownership did not exist for resource", "resource", resourceID, "owner", ownerEmail)
 		return nil
 	}
 
-	e.logger.Debug("ownership removed for resource", "resource", resourceID, "owner", ownerEmail)
+	reqLogger.Debug("ownership removed for resource", "resource", resourceID, "owner", ownerEmail)
 	return nil
 }
 
 // RemoveAllOwnershipsForResource removes every ownership mapping for the given resource identifier.
 // This is useful when deleting a resource without knowing its owner ahead of time.
-func (e *Enforcer) RemoveAllOwnershipsForResource(resourceID string) error {
+func (e *Enforcer) RemoveAllOwnershipsForResource(ctx context.Context, resourceID string) error {
+	reqLogger := logger.DeriveRequestLogger(ctx, e.logger)
+
 	if _, err := e.enforcer.RemoveFilteredNamedGroupingPolicy("g2", 0, resourceID); err != nil {
 		return fmt.Errorf("failed to remove ownerships for resource %s: %w", resourceID, err)
 	}
-	e.logger.Debug("ownerships removed for resource", "resource", resourceID)
+	reqLogger.Debug("ownerships removed for resource", "resource", resourceID)
 	return nil
 }
 
@@ -244,14 +259,16 @@ func (e *Enforcer) HasOwnershipForResource(resourceID, ownerEmail string) (bool,
 }
 
 // LoadResourceOwnerships loads resource ownership mappings into the enforcer.
-func (e *Enforcer) LoadResourceOwnerships(ownerships map[string]string) error {
+func (e *Enforcer) LoadResourceOwnerships(ctx context.Context, ownerships map[string]string) error {
+	reqLogger := logger.DeriveRequestLogger(ctx, e.logger)
+
 	for resourceID, ownerEmail := range ownerships {
-		if err := e.AddOwnershipForResource(resourceID, ownerEmail); err != nil {
+		if err := e.AddOwnershipForResource(ctx, resourceID, ownerEmail); err != nil {
 			return fmt.Errorf("failed to load ownership for resource %s: %w", resourceID, err)
 		}
 	}
 
-	e.logger.Info("loaded resource ownerships", "count", len(ownerships))
+	reqLogger.Info("loaded resource ownerships", "count", len(ownerships))
 	return nil
 }
 
@@ -265,19 +282,21 @@ func (e *Enforcer) LoadResourceOwnerships(ownerships map[string]string) error {
 //	  "admin@example.com": "admin",
 //	  "dev@example.com": "developer",
 //	}
-//	err := e.LoadRolesForUsers(roles)
-func (e *Enforcer) LoadRolesForUsers(userRoles map[string]string) error {
+//	err := e.LoadRolesForUsers(ctx, roles)
+func (e *Enforcer) LoadRolesForUsers(ctx context.Context, userRoles map[string]string) error {
+	reqLogger := logger.DeriveRequestLogger(ctx, e.logger)
+
 	for user, roleStr := range userRoles {
 		role, err := NewRole(roleStr)
 		if err != nil {
 			return fmt.Errorf("failed to load role for user %s: %w", user, err)
 		}
-		if addErr := e.AddRoleForUser(user, role); addErr != nil {
+		if addErr := e.AddRoleForUser(ctx, user, role); addErr != nil {
 			return fmt.Errorf("failed to add role for user %s to enforcer: %w", user, addErr)
 		}
 	}
 
-	e.logger.Debug("loaded user roles", "count", len(userRoles))
+	reqLogger.Debug("loaded user roles", "count", len(userRoles))
 	return nil
 }
 

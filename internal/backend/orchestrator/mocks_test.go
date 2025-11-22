@@ -325,11 +325,11 @@ func newPermissiveEnforcer() *authorization.Enforcer {
 		panic(err)
 	}
 	// Assign admin role to common test user emails to allow all access
-	_ = enf.AddRoleForUser("admin@example.com", authorization.RoleAdmin)
-	_ = enf.AddRoleForUser("user@example.com", authorization.RoleAdmin)
-	_ = enf.AddRoleForUser("alice@example.com", authorization.RoleAdmin)
-	_ = enf.AddRoleForUser("bob@example.com", authorization.RoleAdmin)
-	_ = enf.AddRoleForUser("charlie@example.com", authorization.RoleAdmin)
+	_ = enf.AddRoleForUser(context.Background(), "admin@example.com", authorization.RoleAdmin)
+	_ = enf.AddRoleForUser(context.Background(), "user@example.com", authorization.RoleAdmin)
+	_ = enf.AddRoleForUser(context.Background(), "alice@example.com", authorization.RoleAdmin)
+	_ = enf.AddRoleForUser(context.Background(), "bob@example.com", authorization.RoleAdmin)
+	_ = enf.AddRoleForUser(context.Background(), "charlie@example.com", authorization.RoleAdmin)
 	return enf
 }
 

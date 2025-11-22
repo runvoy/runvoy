@@ -41,9 +41,9 @@ func newPermissiveTestEnforcer(t *testing.T) *authorization.Enforcer {
 
 	// Assign admin role to a wildcard pattern - this should allow all users
 	// We'll assign admin to a common test user email pattern
-	err = enf.AddRoleForUser("admin@example.com", authorization.RoleAdmin)
+	err = enf.AddRoleForUser(context.Background(), "admin@example.com", authorization.RoleAdmin)
 	require.NoError(t, err)
-	err = enf.AddRoleForUser("user@example.com", authorization.RoleAdmin)
+	err = enf.AddRoleForUser(context.Background(), "user@example.com", authorization.RoleAdmin)
 	require.NoError(t, err)
 
 	return enf
@@ -483,7 +483,7 @@ func newTestEnforcerWithRole(t *testing.T, userEmail string, role authorization.
 	enf, err := authorization.NewEnforcer(testutil.SilentLogger())
 	require.NoError(t, err)
 
-	err = enf.AddRoleForUser(userEmail, role)
+	err = enf.AddRoleForUser(context.Background(), userEmail, role)
 	require.NoError(t, err)
 
 	return enf

@@ -60,7 +60,7 @@ func (s *Service) RegisterImage(
 	} else if imageInfo != nil && imageInfo.ImageID != "" {
 		resourceID := authorization.FormatResourceID("image", imageInfo.ImageID)
 		for _, owner := range imageInfo.OwnedBy {
-			if syncErr := s.enforcer.AddOwnershipForResource(resourceID, owner); syncErr != nil {
+			if syncErr := s.enforcer.AddOwnershipForResource(ctx, resourceID, owner); syncErr != nil {
 				reqLogger := logger.DeriveRequestLogger(ctx, s.Logger)
 				reqLogger.Error("failed to sync image ownership to enforcer after registration",
 					"image_id", imageInfo.ImageID,
