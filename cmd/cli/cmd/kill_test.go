@@ -25,7 +25,7 @@ func (m *mockClientInterfaceForKill) KillExecution(
 	return nil, fmt.Errorf("not implemented")
 }
 
-func (m *mockClientInterfaceForKill) FetchBackendLogs(_ context.Context, _ string) ([]api.LogEvent, error) {
+func (m *mockClientInterfaceForKill) FetchBackendLogs(_ context.Context, _ string) (*api.TraceResponse, error) {
 	return nil, nil
 }
 

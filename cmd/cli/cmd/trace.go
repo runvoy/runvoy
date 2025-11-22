@@ -54,6 +54,8 @@ func NewTraceService(apiClient client.Interface, outputter OutputInterface) *Tra
 }
 
 // DisplayBackendLogs retrieves and displays backend infrastructure logs and related resources for a request ID
+//
+//nolint:gocyclo,funlen
 func (s *TraceService) DisplayBackendLogs(ctx context.Context, requestID string) error {
 	spinner := output.NewSpinner(fmt.Sprintf("Fetching trace for request: %s", requestID))
 	spinner.Start()
@@ -166,7 +168,8 @@ func (s *TraceService) DisplayBackendLogs(ctx context.Context, requestID string)
 		headers := []string{"Image ID", "Image", "Created By", "Created At"}
 		rows := make([][]string, 0, len(trace.RelatedResources.Images))
 
-		for _, img := range trace.RelatedResources.Images {
+		for i := range trace.RelatedResources.Images {
+			img := trace.RelatedResources.Images[i]
 			rows = append(rows, []string{
 				img.ImageID,
 				img.Image,

@@ -69,6 +69,7 @@ type ImageTaskDefRepository interface {
 	UnmarkAllDefaults(ctx context.Context) error
 	DeleteImage(ctx context.Context, image string) error
 	SetImageAsOnlyDefault(ctx context.Context, image string, taskRoleName, taskExecutionRoleName *string) error
+	GetImagesByRequestID(ctx context.Context, requestID string) ([]api.ImageInfo, error)
 }
 
 // Runner implements app.Runner for AWS ECS Fargate.

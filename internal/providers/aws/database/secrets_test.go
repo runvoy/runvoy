@@ -43,7 +43,7 @@ func (m *mockMetadataRepository) CreateSecret(_ context.Context, secret *api.Sec
 	return nil
 }
 
-func (m *mockMetadataRepository) GetSecret(_ context.Context, name string) (*api.Secret, error) {
+func (m *mockMetadataRepository) GetSecret(_ context.Context, name string, _ bool) (*api.Secret, error) {
 	if m.getErr != nil {
 		return nil, m.getErr
 	}
@@ -56,7 +56,7 @@ func (m *mockMetadataRepository) GetSecret(_ context.Context, name string) (*api
 	return &secretCopy, nil
 }
 
-func (m *mockMetadataRepository) ListSecrets(_ context.Context) ([]*api.Secret, error) {
+func (m *mockMetadataRepository) ListSecrets(_ context.Context, _ bool) ([]*api.Secret, error) {
 	if m.listErr != nil {
 		return nil, m.listErr
 	}
@@ -175,7 +175,7 @@ func TestUpdateSecret_PreservesMetadataWhenNotProvided(t *testing.T) {
 		require.NoError(t, updateErr)
 
 		// Verify the metadata was preserved
-		retrieved, getErr := metadataRepo.GetSecret(context.Background(), "test-secret")
+		retrieved, getErr := metadataRepo.GetSecret(context.Background(), "test-secret", false)
 		require.NoError(t, getErr)
 		assert.Equal(t, "ORIGINAL_KEY", retrieved.KeyName, "KeyName should be preserved")
 		assert.Equal(t, "Original description", retrieved.Description, "Description should be preserved")
@@ -199,7 +199,7 @@ func TestUpdateSecret_PreservesMetadataWhenNotProvided(t *testing.T) {
 		require.NoError(t, updateErr)
 
 		// Verify the metadata
-		retrieved, getErr := metadataRepo.GetSecret(context.Background(), "test-secret")
+		retrieved, getErr := metadataRepo.GetSecret(context.Background(), "test-secret", false)
 		require.NoError(t, getErr)
 		assert.Equal(t, "ORIGINAL_KEY", retrieved.KeyName, "KeyName should be preserved")
 		assert.Equal(t, "New description", retrieved.Description, "Description should be updated")
@@ -218,7 +218,7 @@ func TestUpdateSecret_PreservesMetadataWhenNotProvided(t *testing.T) {
 		require.NoError(t, updateErr)
 
 		// Verify the metadata
-		retrieved, getErr := metadataRepo.GetSecret(context.Background(), "test-secret")
+		retrieved, getErr := metadataRepo.GetSecret(context.Background(), "test-secret", false)
 		require.NoError(t, getErr)
 		assert.Equal(t, "NEW_KEY", retrieved.KeyName, "KeyName should be updated")
 		assert.Equal(t, "New description", retrieved.Description, "Description should be preserved from previous update")
@@ -238,7 +238,7 @@ func TestUpdateSecret_PreservesMetadataWhenNotProvided(t *testing.T) {
 		require.NoError(t, updateErr)
 
 		// Verify the metadata
-		retrieved, getErr := metadataRepo.GetSecret(context.Background(), "test-secret")
+		retrieved, getErr := metadataRepo.GetSecret(context.Background(), "test-secret", false)
 		require.NoError(t, getErr)
 		assert.Equal(t, "COMPLETE_KEY", retrieved.KeyName)
 		assert.Equal(t, "Complete description", retrieved.Description)
@@ -281,7 +281,7 @@ func TestUpdateSecret_ValueUpdateError(t *testing.T) {
 	assert.Error(t, err)
 
 	// Metadata should not be updated when value update fails
-	retrieved, err := metadataRepo.GetSecret(context.Background(), "test-secret")
+	retrieved, err := metadataRepo.GetSecret(context.Background(), "test-secret", false)
 	require.NoError(t, err)
 	assert.Equal(t, "admin@example.com", retrieved.UpdatedBy, "Metadata should not be updated when value update fails")
 }

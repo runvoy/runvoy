@@ -112,6 +112,10 @@ func (m *mockUserRepository) ListUsers(ctx context.Context) ([]*api.User, error)
 	return []*api.User{}, nil
 }
 
+func (m *mockUserRepository) GetUsersByRequestID(_ context.Context, _ string) ([]*api.User, error) {
+	return []*api.User{}, nil
+}
+
 // mockExecutionRepository implements database.ExecutionRepository for testing
 type mockExecutionRepository struct {
 	createExecutionFunc func(ctx context.Context, execution *api.Execution) error
@@ -149,6 +153,10 @@ func (m *mockExecutionRepository) ListExecutions(
 	if m.listExecutionsFunc != nil {
 		return m.listExecutionsFunc(ctx, limit, statuses)
 	}
+	return []*api.Execution{}, nil
+}
+
+func (m *mockExecutionRepository) GetExecutionsByRequestID(_ context.Context, _ string) ([]*api.Execution, error) {
 	return []*api.Execution{}, nil
 }
 
@@ -303,6 +311,10 @@ func (m *mockRunner) FetchBackendLogs(ctx context.Context, requestID string) ([]
 		return m.fetchBackendLogsFunc(ctx, requestID)
 	}
 	return []api.LogEvent{}, nil
+}
+
+func (m *mockRunner) GetImagesByRequestID(_ context.Context, _ string) ([]api.ImageInfo, error) {
+	return []api.ImageInfo{}, nil
 }
 
 // newPermissiveEnforcer creates a test enforcer that allows all access.
@@ -512,6 +524,10 @@ func (m *mockSecretsRepository) DeleteSecret(ctx context.Context, name string) e
 		return m.deleteSecretFunc(ctx, name)
 	}
 	return nil
+}
+
+func (m *mockSecretsRepository) GetSecretsByRequestID(_ context.Context, _ string) ([]*api.Secret, error) {
+	return []*api.Secret{}, nil
 }
 
 // newTestServiceWithWebSocketManager creates a Service with websocket manager for testing.

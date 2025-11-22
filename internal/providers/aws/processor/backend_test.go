@@ -46,6 +46,10 @@ func (m *mockExecutionRepo) ListExecutions(_ context.Context, _ int, _ []string)
 	return nil, nil
 }
 
+func (m *mockExecutionRepo) GetExecutionsByRequestID(_ context.Context, _ string) ([]*api.Execution, error) {
+	return nil, nil
+}
+
 // Mock WebSocket handler for testing
 type mockWebSocketHandler struct {
 	handleRequestFunc             func(ctx context.Context, rawEvent *json.RawMessage, logger *slog.Logger) (bool, error)

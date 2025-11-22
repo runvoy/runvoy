@@ -28,7 +28,7 @@ func (m *mockClientInterfaceForList) ListExecutions(
 	return nil, fmt.Errorf("not implemented")
 }
 
-func (m *mockClientInterfaceForList) FetchBackendLogs(_ context.Context, _ string) ([]api.LogEvent, error) {
+func (m *mockClientInterfaceForList) FetchBackendLogs(_ context.Context, _ string) (*api.TraceResponse, error) {
 	return nil, nil
 }
 

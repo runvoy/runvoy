@@ -432,7 +432,9 @@ func (r *ExecutionRepository) ListExecutions(
 }
 
 // GetExecutionsByRequestID retrieves all executions created or modified by a specific request ID.
-func (r *ExecutionRepository) GetExecutionsByRequestID(ctx context.Context, requestID string) ([]*api.Execution, error) {
+func (r *ExecutionRepository) GetExecutionsByRequestID(
+	ctx context.Context, requestID string,
+) ([]*api.Execution, error) {
 	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
 
 	logArgs := []any{

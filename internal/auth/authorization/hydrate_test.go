@@ -65,6 +65,10 @@ func (m *mockUserRepository) MarkAsViewed(_ context.Context, _, _ string) error 
 	return errors.New("not implemented")
 }
 
+func (m *mockUserRepository) GetUsersByRequestID(_ context.Context, _ string) ([]*api.User, error) {
+	return nil, errors.New("not implemented")
+}
+
 type mockExecutionRepository struct {
 	executions []*api.Execution
 	err        error
@@ -87,6 +91,10 @@ func (m *mockExecutionRepository) ListExecutions(_ context.Context, _ int, _ []s
 		return nil, m.err
 	}
 	return m.executions, nil
+}
+
+func (m *mockExecutionRepository) GetExecutionsByRequestID(_ context.Context, _ string) ([]*api.Execution, error) {
+	return nil, errors.New("not implemented")
 }
 
 type mockSecretsRepository struct {
@@ -115,6 +123,10 @@ func (m *mockSecretsRepository) UpdateSecret(_ context.Context, _ *api.Secret) e
 
 func (m *mockSecretsRepository) DeleteSecret(_ context.Context, _ string) error {
 	return errors.New("not implemented")
+}
+
+func (m *mockSecretsRepository) GetSecretsByRequestID(_ context.Context, _ string) ([]*api.Secret, error) {
+	return nil, errors.New("not implemented")
 }
 
 type mockImageRepository struct {

@@ -115,7 +115,7 @@ func TestCreateSecret_OwnedByRoundTrip(t *testing.T) {
 	require.NoError(t, err)
 
 	// Retrieve the secret
-	retrieved, err := repo.GetSecret(context.Background(), "test-secret")
+	retrieved, err := repo.GetSecret(context.Background(), "test-secret", true)
 	require.NoError(t, err)
 	require.NotNil(t, retrieved)
 
@@ -132,7 +132,7 @@ func TestGetSecret_NotFound(t *testing.T) {
 	logger := testutil.SilentLogger()
 	repo := NewSecretsRepository(client, "secrets-table", logger)
 
-	retrieved, err := repo.GetSecret(context.Background(), "nonexistent")
+	retrieved, err := repo.GetSecret(context.Background(), "nonexistent", false)
 
 	assert.Equal(t, database.ErrSecretNotFound, err)
 	assert.Nil(t, retrieved)
@@ -147,7 +147,7 @@ func TestGetSecret_ClientError(t *testing.T) {
 
 	repo := NewSecretsRepository(client, "secrets-table", logger)
 
-	_, err := repo.GetSecret(context.Background(), "some-secret")
+	_, err := repo.GetSecret(context.Background(), "some-secret", false)
 
 	assert.Error(t, err)
 	assert.NotEqual(t, database.ErrSecretNotFound, err)
@@ -178,7 +178,7 @@ func TestListSecrets_Success(t *testing.T) {
 	assert.NoError(t, err)
 
 	// List all secrets
-	retrieved, err := repo.ListSecrets(context.Background())
+	retrieved, err := repo.ListSecrets(context.Background(), true)
 
 	assert.NoError(t, err)
 	assert.GreaterOrEqual(t, len(retrieved), 2)
@@ -197,7 +197,7 @@ func TestListSecrets_Empty(t *testing.T) {
 	logger := testutil.SilentLogger()
 	repo := NewSecretsRepository(client, "secrets-table", logger)
 
-	retrieved, err := repo.ListSecrets(context.Background())
+	retrieved, err := repo.ListSecrets(context.Background(), true)
 
 	assert.NoError(t, err)
 	assert.Len(t, retrieved, 0)
@@ -212,7 +212,7 @@ func TestListSecrets_ScanError(t *testing.T) {
 
 	repo := NewSecretsRepository(client, "secrets-table", logger)
 
-	_, err := repo.ListSecrets(context.Background())
+	_, err := repo.ListSecrets(context.Background(), true)
 
 	assert.Error(t, err)
 }

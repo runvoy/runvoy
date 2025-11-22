@@ -63,7 +63,7 @@ func (m *mockClientInterfaceForSecrets) DeleteSecret(
 	return nil, fmt.Errorf("not implemented")
 }
 
-func (m *mockClientInterfaceForSecrets) FetchBackendLogs(_ context.Context, _ string) ([]api.LogEvent, error) {
+func (m *mockClientInterfaceForSecrets) FetchBackendLogs(_ context.Context, _ string) (*api.TraceResponse, error) {
 	return nil, nil
 }
 

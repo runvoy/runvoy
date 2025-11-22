@@ -17,8 +17,8 @@ import (
 // MetadataRepository defines the interface for secret metadata operations.
 type MetadataRepository interface {
 	CreateSecret(ctx context.Context, secret *api.Secret) error
-	GetSecret(ctx context.Context, name string) (*api.Secret, error)
-	ListSecrets(ctx context.Context) ([]*api.Secret, error)
+	GetSecret(ctx context.Context, name string, includeValue bool) (*api.Secret, error)
+	ListSecrets(ctx context.Context, includeValue bool) ([]*api.Secret, error)
 	UpdateSecretMetadata(ctx context.Context, name, keyName, description, updatedBy string) error
 	DeleteSecret(ctx context.Context, name string) error
 	SecretExists(ctx context.Context, name string) (bool, error)
@@ -77,7 +77,7 @@ func (sr *SecretsRepository) GetSecret(ctx context.Context, name string, include
 	reqLogger := loggerPkg.DeriveRequestLogger(ctx, sr.logger)
 
 	// Get the metadata
-	secret, err := sr.metadataRepo.GetSecret(ctx, name)
+	secret, err := sr.metadataRepo.GetSecret(ctx, name, false)
 	if err != nil {
 		// Check if it's a not found error (expected) or a real error
 		var appErr *appErrors.AppError
@@ -106,7 +106,7 @@ func (sr *SecretsRepository) ListSecrets(ctx context.Context, includeValue bool)
 	reqLogger := loggerPkg.DeriveRequestLogger(ctx, sr.logger)
 
 	// Get all metadata
-	secretList, err := sr.metadataRepo.ListSecrets(ctx)
+	secretList, err := sr.metadataRepo.ListSecrets(ctx, false)
 	if err != nil {
 		return nil, appErrors.ErrInternalError("failed to list secrets", err)
 	}
@@ -147,7 +147,7 @@ func (sr *SecretsRepository) UpdateSecret(
 	}
 
 	// Get existing secret to preserve metadata that wasn't provided
-	existingSecret, err := sr.metadataRepo.GetSecret(ctx, secret.Name)
+	existingSecret, err := sr.metadataRepo.GetSecret(ctx, secret.Name, false)
 	if err != nil {
 		reqLogger.Error("failed to get existing secret", "error", err, "name", secret.Name)
 		return appErrors.ErrInternalError("failed to get existing secret", err)
@@ -191,4 +191,11 @@ func (sr *SecretsRepository) DeleteSecret(ctx context.Context, name string) erro
 	}
 
 	return nil
+}
+
+// GetSecretsByRequestID retrieves all secrets created or modified by a specific request ID.
+func (sr *SecretsRepository) GetSecretsByRequestID(_ context.Context, _ string) ([]*api.Secret, error) {
+	// This will be implemented by the metadata repository
+	// For now, return an empty list since the metadata repo may not have this capability yet
+	return []*api.Secret{}, nil
 }

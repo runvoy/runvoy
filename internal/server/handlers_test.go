@@ -250,12 +250,12 @@ func (t *testHealthManager) Reconcile(_ context.Context) (*health.Report, error)
 }
 
 type testRunner struct {
-	runCommandFunc            func(userEmail string, req *api.ExecutionRequest) (*time.Time, error)
-	listImagesFunc            func() ([]api.ImageInfo, error)
-	getImageFunc              func(image string) (*api.ImageInfo, error)
-	removeImageFunc           func(ctx context.Context, image string) error
-	fetchBackendLogsFunc      func(ctx context.Context, requestID string) ([]api.LogEvent, error)
-	getImagesByRequestIDFunc  func(ctx context.Context, requestID string) ([]api.ImageInfo, error)
+	runCommandFunc           func(userEmail string, req *api.ExecutionRequest) (*time.Time, error)
+	listImagesFunc           func() ([]api.ImageInfo, error)
+	getImageFunc             func(image string) (*api.ImageInfo, error)
+	removeImageFunc          func(ctx context.Context, image string) error
+	fetchBackendLogsFunc     func(ctx context.Context, requestID string) ([]api.LogEvent, error)
+	getImagesByRequestIDFunc func(ctx context.Context, requestID string) ([]api.ImageInfo, error)
 }
 
 func (t *testRunner) StartTask(

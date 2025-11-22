@@ -102,7 +102,8 @@ func (r *Router) handleGetExecutionLogs(w http.ResponseWriter, req *http.Request
 	_ = json.NewEncoder(w).Encode(resp)
 }
 
-// handleGetBackendLogsTrace handles GET /api/v1/trace/{requestID} to query backend infrastructure logs and related resources by request ID.
+// handleGetBackendLogsTrace handles GET /api/v1/trace/{requestID} to query
+// backend infrastructure logs and related resources by request ID.
 func (r *Router) handleGetBackendLogsTrace(w http.ResponseWriter, req *http.Request) {
 	logger := r.GetLoggerFromContext(req.Context())
 
@@ -128,12 +129,12 @@ func (r *Router) handleGetBackendLogsTrace(w http.ResponseWriter, req *http.Requ
 	}
 
 	logger.Info("trace query completed", "context", map[string]any{
-		"request_id":        requestID,
-		"log_count":         len(trace.Logs),
-		"executions_count":  len(trace.RelatedResources.Executions),
-		"secrets_count":     len(trace.RelatedResources.Secrets),
-		"users_count":       len(trace.RelatedResources.Users),
-		"images_count":      len(trace.RelatedResources.Images),
+		"request_id":       requestID,
+		"log_count":        len(trace.Logs),
+		"executions_count": len(trace.RelatedResources.Executions),
+		"secrets_count":    len(trace.RelatedResources.Secrets),
+		"users_count":      len(trace.RelatedResources.Users),
+		"images_count":     len(trace.RelatedResources.Images),
 	})
 
 	w.WriteHeader(http.StatusOK)

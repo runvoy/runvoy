@@ -744,3 +744,7 @@ func (t *testUserRepositoryWithRoles) ListUsers(_ context.Context) ([]*api.User,
 		},
 	}, nil
 }
+
+func (t *testUserRepositoryWithRoles) GetUsersByRequestID(_ context.Context, _ string) ([]*api.User, error) {
+	return []*api.User{}, nil
+}

@@ -92,7 +92,7 @@ func (m *mockClientInterface) ReconcileHealth(_ context.Context) (*api.HealthRec
 	return nil, fmt.Errorf("not implemented")
 }
 
-func (m *mockClientInterface) FetchBackendLogs(_ context.Context, _ string) ([]api.LogEvent, error) {
+func (m *mockClientInterface) FetchBackendLogs(_ context.Context, _ string) (*api.TraceResponse, error) {
 	return nil, nil
 }
 
