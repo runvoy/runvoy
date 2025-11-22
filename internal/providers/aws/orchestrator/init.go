@@ -24,13 +24,14 @@ import (
 )
 
 // Dependencies bundles the AWS-backed implementations required by the app service.
+// Provider implements TaskManager, ImageRegistry, LogManager, and ObservabilityManager interfaces.
 type Dependencies struct {
 	UserRepo         database.UserRepository
 	ExecutionRepo    database.ExecutionRepository
 	ConnectionRepo   database.ConnectionRepository
 	TokenRepo        database.TokenRepository
 	ImageRepo        database.ImageRepository
-	Runner           *Runner
+	Provider         *Runner // Implements TaskManager, ImageRegistry, LogManager, ObservabilityManager
 	WebSocketManager *websocket.Manager
 	SecretsRepo      database.SecretsRepository
 	HealthManager    *awsHealth.Manager
@@ -109,7 +110,7 @@ func Initialize( //nolint:funlen // This is ok, lots of initializations required
 		ConnectionRepo:   repos.ConnectionRepo,
 		TokenRepo:        repos.TokenRepo,
 		ImageRepo:        repos.ImageTaskDefRepo,
-		Runner:           runner,
+		Provider:         runner,
 		WebSocketManager: wsManager,
 		SecretsRepo:      repos.SecretsRepo,
 		HealthManager:    healthManager,

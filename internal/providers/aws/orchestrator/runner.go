@@ -72,8 +72,8 @@ type ImageTaskDefRepository interface {
 	GetImagesByRequestID(ctx context.Context, requestID string) ([]api.ImageInfo, error)
 }
 
-// Runner implements the orchestrator.Runner interface for AWS ECS Fargate.
-// It provides implementations for:
+// Runner provides AWS ECS Fargate implementations for the orchestrator interfaces.
+// It implements:
 //   - TaskManager: Task lifecycle management via ECS
 //   - ImageRegistry: Docker image registration via ECS task definitions and DynamoDB
 //   - LogManager: Execution log retrieval via CloudWatch Logs
