@@ -6,7 +6,6 @@ Thank you for your interest in contributing to Runvoy! This document provides gu
 
 - [Code of Conduct](#code-of-conduct)
 - [Getting Started](#getting-started)
-- [Project Structure](#project-structure)
 - [Development Workflow](#development-workflow)
 - [Coding Standards](#coding-standards)
 - [Testing Requirements](#testing-requirements)
