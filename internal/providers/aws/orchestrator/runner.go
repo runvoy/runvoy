@@ -72,7 +72,12 @@ type ImageTaskDefRepository interface {
 	GetImagesByRequestID(ctx context.Context, requestID string) ([]api.ImageInfo, error)
 }
 
-// Runner implements app.Runner for AWS ECS Fargate.
+// Runner implements the orchestrator.Runner interface for AWS ECS Fargate.
+// It provides implementations for:
+//   - TaskExecutor: Task lifecycle management via ECS
+//   - ImageRegistry: Docker image registration via ECS task definitions and DynamoDB
+//   - LogAggregator: Execution log retrieval via CloudWatch Logs
+//   - BackendObservability: Backend infrastructure log retrieval via CloudWatch Logs Insights
 type Runner struct {
 	ecsClient awsClient.ECSClient
 	cwlClient awsClient.CloudWatchLogsClient
