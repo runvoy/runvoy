@@ -4,7 +4,7 @@
 
 The orchestrator now uses four focused interfaces instead of a monolithic Runner interface:
 
-- **TaskExecutor**: Task lifecycle management
+- **TaskManager**: Task lifecycle management
 - **ImageRegistry**: Image registration and configuration
 - **LogAggregator**: Execution log retrieval
 - **BackendObservability**: Infrastructure log retrieval
@@ -17,7 +17,7 @@ This separation improves testability, enables multi-provider support (GCP Cloud 
 
 ```go
 // Core task execution
-type TaskExecutor interface {
+type TaskManager interface {
     StartTask(ctx, userEmail, *ExecutionRequest) (executionID, *time.Time, error)
     KillTask(ctx, executionID) error
 }
@@ -48,7 +48,7 @@ The `orchestrator.Service` now holds separate interface fields:
 
 ```go
 type Service struct {
-    taskExecutor        TaskExecutor
+    taskManager         TaskManager
     imageRegistry       ImageRegistry
     logAggregator       LogAggregator
     backendObservability BackendObservability
@@ -58,7 +58,7 @@ type Service struct {
 
 Access via methods:
 ```go
-service.TaskExecutor().StartTask(...)
+service.TaskManager().StartTask(...)
 service.ImageRegistry().ListImages(...)
 service.LogAggregator().FetchLogsByExecutionID(...)
 service.BackendObservability().FetchBackendLogs(...)
@@ -126,7 +126,7 @@ type Runner struct {
     logger    *slog.Logger
 }
 
-// Implements TaskExecutor
+// Implements TaskManager
 func (r *Runner) StartTask(...) (string, *time.Time, error) { ... }
 func (r *Runner) KillTask(...) error { ... }
 
@@ -194,17 +194,17 @@ Mock only what you need:
 
 ```go
 // Before: Must mock entire Runner (9 methods)
-// After: Mock only TaskExecutor (2 methods)
-type mockTaskExecutor struct {
+// After: Mock only TaskManager (2 methods)
+type mockTaskManager struct {
     startTaskFunc func(context.Context, string, *api.ExecutionRequest) (string, *time.Time, error)
     killTaskFunc  func(context.Context, string) error
 }
 
-func (m *mockTaskExecutor) StartTask(ctx context.Context, email string, req *api.ExecutionRequest) (string, *time.Time, error) {
+func (m *mockTaskManager) StartTask(ctx context.Context, email string, req *api.ExecutionRequest) (string, *time.Time, error) {
     return m.startTaskFunc(ctx, email, req)
 }
 
-func (m *mockTaskExecutor) KillTask(ctx context.Context, execID string) error {
+func (m *mockTaskManager) KillTask(ctx context.Context, execID string) error {
     return m.killTaskFunc(ctx, execID)
 }
 ```
@@ -214,7 +214,7 @@ func (m *mockTaskExecutor) KillTask(ctx context.Context, execID string) error {
 Each interface can evolve independently:
 
 ```go
-// Add streaming logs without touching TaskExecutor
+// Add streaming logs without touching TaskManager
 type LogAggregator interface {
     FetchLogsByExecutionID(ctx, executionID) ([]LogEvent, error)
     StreamLogs(ctx, executionID) (<-chan LogEvent, error) // NEW
@@ -227,7 +227,7 @@ Use different providers for different concerns:
 
 ```go
 service := orchestrator.NewService(
-    taskExecutor:        gcpExecutor,        // Run tasks on GCP
+    taskManager:         gcpExecutor,        // Run tasks on GCP
     imageRegistry:       awsImageRegistry,   // Store images in AWS
     logAggregator:       gcpLogAggregator,   // Fetch logs from GCP
     backendObservability: awsObservability,  // Monitor AWS backend
@@ -259,7 +259,7 @@ go test ./internal/providers/aws/orchestrator/... -v
 If migrating from code that used the old unified Runner interface:
 
 1. **Update imports**: Ensure you're importing the correct orchestrator package
-2. **Use Service accessors**: Call `service.TaskExecutor()`, `service.ImageRegistry()`, etc.
+2. **Use Service accessors**: Call `service.TaskManager()`, `service.ImageRegistry()`, etc.
 3. **Update constructors**: `NewService` now takes 4 separate interface parameters
 
 Example:
@@ -273,7 +273,7 @@ service := orchestrator.NewService(..., runner, ...)
 awsRunner := aws.NewRunner(...)
 service := orchestrator.NewService(
     ...,
-    awsRunner, // TaskExecutor
+    awsRunner, // TaskManager
     awsRunner, // ImageRegistry
     awsRunner, // LogAggregator
     awsRunner, // BackendObservability

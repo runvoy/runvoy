@@ -32,7 +32,7 @@ func (s *Service) RegisterImage(
 		return nil, appErrors.ErrBadRequest("createdBy is required", nil)
 	}
 
-	if err := s.runner.RegisterImage(
+	if err := s.imageRegistry.RegisterImage(
 		ctx,
 		req.Image,
 		req.IsDefault,
@@ -50,7 +50,7 @@ func (s *Service) RegisterImage(
 		return nil, appErrors.ErrInternalError("failed to register image", err)
 	}
 
-	imageInfo, getErr := s.runner.GetImage(ctx, req.Image)
+	imageInfo, getErr := s.imageRegistry.GetImage(ctx, req.Image)
 	if getErr != nil {
 		reqLogger := logger.DeriveRequestLogger(ctx, s.Logger)
 		reqLogger.Error("failed to get image info after registration for ownership sync",
@@ -79,7 +79,7 @@ func (s *Service) RegisterImage(
 
 // ListImages returns all registered Docker images.
 func (s *Service) ListImages(ctx context.Context) (*api.ListImagesResponse, error) {
-	images, err := s.runner.ListImages(ctx)
+	images, err := s.imageRegistry.ListImages(ctx)
 	if err != nil {
 		var appErr *appErrors.AppError
 		if errors.As(err, &appErr) {
@@ -99,7 +99,7 @@ func (s *Service) GetImage(ctx context.Context, image string) (*api.ImageInfo, e
 		return nil, appErrors.ErrBadRequest("image is required", nil)
 	}
 
-	imageInfo, err := s.runner.GetImage(ctx, image)
+	imageInfo, err := s.imageRegistry.GetImage(ctx, image)
 	if err != nil {
 		var appErr *appErrors.AppError
 		if errors.As(err, &appErr) {
@@ -121,7 +121,7 @@ func (s *Service) RemoveImage(ctx context.Context, image string) error {
 		return appErrors.ErrBadRequest("image is required", nil)
 	}
 
-	if err := s.runner.RemoveImage(ctx, image); err != nil {
+	if err := s.imageRegistry.RemoveImage(ctx, image); err != nil {
 		var appErr *appErrors.AppError
 		if errors.As(err, &appErr) {
 			return err
@@ -138,7 +138,7 @@ func (s *Service) RemoveImage(ctx context.Context, image string) error {
 func (s *Service) ResolveImage(ctx context.Context, image string) (*api.ImageInfo, error) {
 	// If no image specified, use default
 	if image == "" {
-		imageInfo, err := s.runner.GetImage(ctx, "")
+		imageInfo, err := s.imageRegistry.GetImage(ctx, "")
 		if err != nil {
 			var appErr *appErrors.AppError
 			if errors.As(err, &appErr) {
@@ -153,7 +153,7 @@ func (s *Service) ResolveImage(ctx context.Context, image string) (*api.ImageInf
 	}
 
 	// Resolve the provided image string
-	imageInfo, err := s.runner.GetImage(ctx, image)
+	imageInfo, err := s.imageRegistry.GetImage(ctx, image)
 	if err != nil {
 		var appErr *appErrors.AppError
 		if errors.As(err, &appErr) {

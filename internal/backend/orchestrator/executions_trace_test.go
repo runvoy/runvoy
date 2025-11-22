@@ -57,7 +57,7 @@ func TestFetchTrace_WithBackendLogError(t *testing.T) {
 		nil,
 		tokenRepo,
 		imageRepo,
-		runner, // TaskExecutor
+		runner, // TaskManager
 		runner, // ImageRegistry
 		runner, // LogAggregator
 		runner, // BackendObservability
@@ -107,7 +107,7 @@ func TestFetchTrace_ConcurrentFetching(t *testing.T) {
 		nil,
 		&minimalTokenRepository{},
 		&minimalImageRepository{},
-		runner, // TaskExecutor
+		runner, // TaskManager
 		runner, // ImageRegistry
 		runner, // LogAggregator
 		runner, // BackendObservability
@@ -146,7 +146,7 @@ func TestFetchTrace_ResourceFetchError(t *testing.T) {
 		nil,
 		&minimalTokenRepository{},
 		&minimalImageRepository{},
-		runner, // TaskExecutor
+		runner, // TaskManager
 		runner, // ImageRegistry
 		runner, // LogAggregator
 		runner, // BackendObservability

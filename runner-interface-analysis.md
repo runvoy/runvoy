@@ -35,8 +35,8 @@ type Runner interface {
 Four focused interfaces replace the monolithic Runner:
 
 ```go
-// TaskExecutor - Task lifecycle management
-type TaskExecutor interface {
+// TaskManager - Task lifecycle management
+type TaskManager interface {
     StartTask(ctx, userEmail, *ExecutionRequest) (executionID, *time.Time, error)
     KillTask(ctx, executionID) error
 }
@@ -64,7 +64,7 @@ Service structure updated:
 
 ```go
 type Service struct {
-    taskExecutor        TaskExecutor
+    taskManager         TaskManager
     imageRegistry       ImageRegistry
     logAggregator       LogAggregator
     backendObservability BackendObservability
@@ -159,7 +159,7 @@ These serve different purposes:
 
 Split the monolithic interface into four focused interfaces, each with a single responsibility:
 
-**TaskExecutor** - 2 methods
+**TaskManager** - 2 methods
 - `StartTask()`: Trigger task execution
 - `KillTask()`: Terminate running task
 
@@ -228,7 +228,7 @@ This abstraction allows the same ImageConfig to work across AWS, GCP, and Azure 
 
 The refactoring has been successfully implemented:
 
-1. ✅ **Four Focused Interfaces** - TaskExecutor, ImageRegistry, LogAggregator, BackendObservability
+1. ✅ **Four Focused Interfaces** - TaskManager, ImageRegistry, LogAggregator, BackendObservability
 2. ✅ **Provider-Agnostic Configuration** - ImageConfig with ResourceConfig, RuntimeConfig, PermissionConfig
 3. ✅ **Service Restructured** - Separate fields for each interface instead of monolithic runner
 4. ✅ **AWS Implementation Updated** - Implements all four interfaces
@@ -286,7 +286,7 @@ func (e *ACIExecutor) KillTask(...) { /* Delete Container Group */ }
 **Mixed Provider Deployments**
 ```go
 service := orchestrator.NewService(
-    taskExecutor: gcpExecutor,        // Run on GCP
+    taskManager:  gcpExecutor,        // Run on GCP
     imageRegistry: awsImageRegistry,  // Store in AWS
     logAggregator: gcpLogAggregator,  // GCP logs
     backendObservability: awsObs,     // Monitor AWS

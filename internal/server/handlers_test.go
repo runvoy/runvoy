@@ -367,7 +367,7 @@ func newTestOrchestratorService(
 		connRepo,
 		&testTokenRepository{},
 		&testImageRepository{},
-		runner, // TaskExecutor
+		runner, // TaskManager
 		runner, // ImageRegistry
 		runner, // LogAggregator
 		runner, // BackendObservability
@@ -514,7 +514,7 @@ func TestHandleRunCommand_WithImage_ValidatesAuthorization(t *testing.T) {
 		nil,
 		&testTokenRepository{},
 		&testImageRepository{},
-		runner, // TaskExecutor
+		runner, // TaskManager
 		runner, // ImageRegistry
 		runner, // LogAggregator
 		runner, // BackendObservability
@@ -571,7 +571,7 @@ func TestHandleRunCommand_WithSecrets_ValidatesAuthorization(t *testing.T) {
 		nil,
 		&testTokenRepository{},
 		&testImageRepository{},
-		runner, // TaskExecutor
+		runner, // TaskManager
 		runner, // ImageRegistry
 		runner, // LogAggregator
 		runner, // BackendObservability
@@ -640,7 +640,7 @@ func TestHandleRunCommand_AllResourcesAuthorized(t *testing.T) {
 		nil,
 		&testTokenRepository{},
 		&testImageRepository{},
-		runner, // TaskExecutor
+		runner, // TaskManager
 		runner, // ImageRegistry
 		runner, // LogAggregator
 		runner, // BackendObservability

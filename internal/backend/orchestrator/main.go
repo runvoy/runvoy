@@ -14,9 +14,9 @@ import (
 	"runvoy/internal/database"
 )
 
-// TaskExecutor abstracts provider-specific task execution (e.g., AWS ECS, GCP Cloud Run, Azure Container Instances).
+// TaskManager abstracts provider-specific task execution (e.g., AWS ECS, GCP Cloud Run, Azure Container Instances).
 // This interface handles the core responsibility of running and managing task lifecycles.
-type TaskExecutor interface {
+type TaskManager interface {
 	// StartTask triggers an execution on the underlying platform and returns
 	// a stable executionID and the task creation timestamp.
 	// The createdAt timestamp comes from the provider (e.g., ECS CreatedAt) when available.
@@ -84,7 +84,7 @@ type Service struct {
 	connRepo            database.ConnectionRepository
 	tokenRepo           database.TokenRepository
 	imageRepo           database.ImageRepository
-	taskExecutor        TaskExecutor
+	taskManager         TaskManager
 	imageRegistry       ImageRegistry
 	logAggregator       LogAggregator
 	backendObservability BackendObservability
@@ -112,7 +112,7 @@ func NewService(
 	connRepo database.ConnectionRepository,
 	tokenRepo database.TokenRepository,
 	imageRepo database.ImageRepository,
-	taskExecutor TaskExecutor,
+	taskManager TaskManager,
 	imageRegistry ImageRegistry,
 	logAggregator LogAggregator,
 	backendObservability BackendObservability,
@@ -128,7 +128,7 @@ func NewService(
 		connRepo:            connRepo,
 		tokenRepo:           tokenRepo,
 		imageRepo:           imageRepo,
-		taskExecutor:        taskExecutor,
+		taskManager:         taskManager,
 		imageRegistry:       imageRegistry,
 		logAggregator:       logAggregator,
 		backendObservability: backendObservability,
@@ -143,14 +143,14 @@ func NewService(
 	// For backwards compatibility with enforcer.Hydrate, create a temporary runner interface
 	// This will be refactored when enforcer is updated to use specific interfaces
 	type runner interface {
-		TaskExecutor
+		TaskManager
 		ImageRegistry
 	}
 	tempRunner := struct {
-		TaskExecutor
+		TaskManager
 		ImageRegistry
 	}{
-		TaskExecutor:  taskExecutor,
+		TaskManager:   taskManager,
 		ImageRegistry: imageRegistry,
 	}
 
@@ -175,9 +175,9 @@ func (s *Service) GetEnforcer() *authorization.Enforcer {
 	return s.enforcer
 }
 
-// TaskExecutor returns the task execution interface.
-func (s *Service) TaskExecutor() TaskExecutor {
-	return s.taskExecutor
+// TaskManager returns the task execution interface.
+func (s *Service) TaskManager() TaskManager {
+	return s.taskManager
 }
 
 // ImageRegistry returns the image management interface.

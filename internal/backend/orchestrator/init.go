@@ -58,7 +58,7 @@ func Initialize(
 			awsDeps.ConnectionRepo,
 			awsDeps.TokenRepo,
 			awsDeps.ImageRepo,
-			awsDeps.Runner, // TaskExecutor
+			awsDeps.Runner, // TaskManager
 			awsDeps.Runner, // ImageRegistry
 			awsDeps.Runner, // LogAggregator
 			awsDeps.Runner, // BackendObservability

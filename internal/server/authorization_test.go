@@ -223,7 +223,7 @@ func TestValidateExecutionResourceAccess(t *testing.T) {
 				nil,
 				&testTokenRepository{},
 				&testImageRepository{},
-				runner, // TaskExecutor
+				runner, // TaskManager
 		runner, // ImageRegistry
 		runner, // LogAggregator
 		runner, // BackendObservability
@@ -319,7 +319,7 @@ func TestHandleRunCommandStructure(t *testing.T) {
 		nil,
 		&testTokenRepository{},
 		&testImageRepository{},
-		runner, // TaskExecutor
+		runner, // TaskManager
 		runner, // ImageRegistry
 		runner, // LogAggregator
 		runner, // BackendObservability

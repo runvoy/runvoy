@@ -41,7 +41,7 @@ func TestGetImage_Success(t *testing.T) {
 		&mockConnectionRepository{},
 		&mockTokenRepository{},
 		&mockImageRepository{},
-		runner, // TaskExecutor
+		runner, // TaskManager
 		runner, // ImageRegistry
 		runner, // LogAggregator
 		runner, // BackendObservability
@@ -79,7 +79,7 @@ func TestGetImage_NotFound(t *testing.T) {
 		&mockConnectionRepository{},
 		&mockTokenRepository{},
 		&mockImageRepository{},
-		runner, // TaskExecutor
+		runner, // TaskManager
 		runner, // ImageRegistry
 		runner, // LogAggregator
 		runner, // BackendObservability
@@ -143,7 +143,7 @@ func TestGetImage_RunnerError(t *testing.T) {
 		&mockConnectionRepository{},
 		&mockTokenRepository{},
 		&mockImageRepository{},
-		runner, // TaskExecutor
+		runner, // TaskManager
 		runner, // ImageRegistry
 		runner, // LogAggregator
 		runner, // BackendObservability
@@ -180,7 +180,7 @@ func TestGetImage_RunnerGenericError(t *testing.T) {
 		&mockConnectionRepository{},
 		&mockTokenRepository{},
 		&mockImageRepository{},
-		runner, // TaskExecutor
+		runner, // TaskManager
 		runner, // ImageRegistry
 		runner, // LogAggregator
 		runner, // BackendObservability
@@ -217,7 +217,7 @@ func TestRemoveImage_Success(t *testing.T) {
 		&mockConnectionRepository{},
 		&mockTokenRepository{},
 		&mockImageRepository{},
-		runner, // TaskExecutor
+		runner, // TaskManager
 		runner, // ImageRegistry
 		runner, // LogAggregator
 		runner, // BackendObservability
@@ -252,7 +252,7 @@ func TestRemoveImage_EmptyImageName(t *testing.T) {
 		&mockConnectionRepository{},
 		&mockTokenRepository{},
 		&mockImageRepository{},
-		runner, // TaskExecutor
+		runner, // TaskManager
 		runner, // ImageRegistry
 		runner, // LogAggregator
 		runner, // BackendObservability
@@ -288,7 +288,7 @@ func TestRemoveImage_RunnerError(t *testing.T) {
 		&mockConnectionRepository{},
 		&mockTokenRepository{},
 		&mockImageRepository{},
-		runner, // TaskExecutor
+		runner, // TaskManager
 		runner, // ImageRegistry
 		runner, // LogAggregator
 		runner, // BackendObservability
@@ -325,7 +325,7 @@ func TestRemoveImage_RunnerGenericError(t *testing.T) {
 		&mockConnectionRepository{},
 		&mockTokenRepository{},
 		&mockImageRepository{},
-		runner, // TaskExecutor
+		runner, // TaskManager
 		runner, // ImageRegistry
 		runner, // LogAggregator
 		runner, // BackendObservability
@@ -367,7 +367,7 @@ func TestListImages_Success(t *testing.T) {
 		&mockConnectionRepository{},
 		&mockTokenRepository{},
 		&mockImageRepository{},
-		runner, // TaskExecutor
+		runner, // TaskManager
 		runner, // ImageRegistry
 		runner, // LogAggregator
 		runner, // BackendObservability
@@ -405,7 +405,7 @@ func TestListImages_Empty(t *testing.T) {
 		&mockConnectionRepository{},
 		&mockTokenRepository{},
 		&mockImageRepository{},
-		runner, // TaskExecutor
+		runner, // TaskManager
 		runner, // ImageRegistry
 		runner, // LogAggregator
 		runner, // BackendObservability
@@ -447,7 +447,7 @@ func TestListImages_RunnerError(t *testing.T) {
 		&mockConnectionRepository{},
 		&mockTokenRepository{},
 		&mockImageRepository{},
-		runner, // TaskExecutor
+		runner, // TaskManager
 		runner, // ImageRegistry
 		runner, // LogAggregator
 		runner, // BackendObservability
@@ -490,7 +490,7 @@ func TestListImages_RunnerGenericError(t *testing.T) {
 		&mockConnectionRepository{},
 		&mockTokenRepository{},
 		&mockImageRepository{},
-		runner, // TaskExecutor
+		runner, // TaskManager
 		runner, // ImageRegistry
 		runner, // LogAggregator
 		runner, // BackendObservability
@@ -530,7 +530,7 @@ func TestRegisterImage_Success(t *testing.T) {
 		&mockConnectionRepository{},
 		&mockTokenRepository{},
 		&mockImageRepository{},
-		runner, // TaskExecutor
+		runner, // TaskManager
 		runner, // ImageRegistry
 		runner, // LogAggregator
 		runner, // BackendObservability
@@ -573,7 +573,7 @@ func TestRegisterImage_EmptyImageName(t *testing.T) {
 		&mockConnectionRepository{},
 		&mockTokenRepository{},
 		&mockImageRepository{},
-		runner, // TaskExecutor
+		runner, // TaskManager
 		runner, // ImageRegistry
 		runner, // LogAggregator
 		runner, // BackendObservability
@@ -616,7 +616,7 @@ func TestRegisterImage_RunnerError(t *testing.T) {
 		&mockConnectionRepository{},
 		&mockTokenRepository{},
 		&mockImageRepository{},
-		runner, // TaskExecutor
+		runner, // TaskManager
 		runner, // ImageRegistry
 		runner, // LogAggregator
 		runner, // BackendObservability
@@ -660,7 +660,7 @@ func TestRegisterImage_RunnerGenericError(t *testing.T) {
 		&mockConnectionRepository{},
 		&mockTokenRepository{},
 		&mockImageRepository{},
-		runner, // TaskExecutor
+		runner, // TaskManager
 		runner, // ImageRegistry
 		runner, // LogAggregator
 		runner, // BackendObservability
@@ -704,7 +704,7 @@ func TestRegisterImage_EmptyCreatedBy(t *testing.T) {
 		&mockConnectionRepository{},
 		&mockTokenRepository{},
 		&mockImageRepository{},
-		runner, // TaskExecutor
+		runner, // TaskManager
 		runner, // ImageRegistry
 		runner, // LogAggregator
 		runner, // BackendObservability
@@ -751,7 +751,7 @@ func TestRegisterImage_NilRequest(t *testing.T) {
 		&mockConnectionRepository{},
 		&mockTokenRepository{},
 		&mockImageRepository{},
-		runner, // TaskExecutor
+		runner, // TaskManager
 		runner, // ImageRegistry
 		runner, // LogAggregator
 		runner, // BackendObservability

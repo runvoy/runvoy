@@ -102,7 +102,7 @@ func (s *Service) RunCommand(
 	}
 	s.applyResolvedSecrets(req, secretEnvVars)
 
-	executionID, createdAt, err := s.runner.StartTask(ctx, userEmail, req)
+	executionID, createdAt, err := s.taskManager.StartTask(ctx, userEmail, req)
 	if err != nil {
 		return nil, err
 	}
@@ -200,7 +200,7 @@ func (s *Service) GetLogsByExecutionID(
 		return nil, apperrors.ErrNotFound("execution not found", nil)
 	}
 
-	events, err := s.runner.FetchLogsByExecutionID(ctx, executionID)
+	events, err := s.logAggregator.FetchLogsByExecutionID(ctx, executionID)
 	if err != nil {
 		return nil, err
 	}
@@ -230,7 +230,7 @@ func (s *Service) FetchBackendLogs(ctx context.Context, requestID string) ([]api
 		return nil, apperrors.ErrBadRequest("requestID is required", nil)
 	}
 
-	return s.runner.FetchBackendLogs(ctx, requestID)
+	return s.backendObservability.FetchBackendLogs(ctx, requestID)
 }
 
 // FetchTrace retrieves backend logs and related resources for a request ID.
@@ -247,7 +247,7 @@ func (s *Service) FetchTrace(ctx context.Context, requestID string) (*api.TraceR
 	eg, egCtx := errgroup.WithContext(ctx)
 
 	eg.Go(func() error {
-		fetchedLogs, logsErr := s.runner.FetchBackendLogs(egCtx, requestID)
+		fetchedLogs, logsErr := s.backendObservability.FetchBackendLogs(egCtx, requestID)
 		if logsErr != nil {
 			reqLogger := logger.DeriveRequestLogger(egCtx, s.Logger)
 			reqLogger.Error("failed to fetch backend logs", "context", map[string]any{
@@ -475,7 +475,7 @@ func (s *Service) KillExecution(ctx context.Context, executionID string) (*api.K
 		return nil, nil
 	}
 
-	if killErr := s.runner.KillTask(ctx, executionID); killErr != nil {
+	if killErr := s.taskManager.KillTask(ctx, executionID); killErr != nil {
 		return nil, killErr
 	}
 
