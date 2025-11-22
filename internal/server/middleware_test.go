@@ -327,6 +327,7 @@ func TestResponseWriter(t *testing.T) {
 func TestCorsMiddleware(t *testing.T) {
 	tokenRepo := &testTokenRepository{}
 
+	runner := &testRunner{}
 	svc, err := orchestrator.NewService(
 		context.Background(),
 		&testUserRepository{},
@@ -334,7 +335,10 @@ func TestCorsMiddleware(t *testing.T) {
 		nil,
 		tokenRepo,
 		&testImageRepository{},
-		&testRunner{},
+		runner, // TaskManager
+		runner, // ImageRegistry
+		runner, // LogManager
+		runner, // ObservabilityManager
 		testutil.SilentLogger(),
 		constants.AWS,
 		nil,

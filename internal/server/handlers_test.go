@@ -1297,13 +1297,17 @@ func TestHandleGetExecutionLogs_MissingExecutionID(t *testing.T) {
 func TestHandleGetExecutionStatus_Success(t *testing.T) {
 	execRepo := &testExecutionRepository{}
 	enforcer := newPermissiveTestEnforcerForHandlers(t)
+	runner := &testRunner{}
 	svc, err := orchestrator.NewService(context.Background(),
 		&testUserRepository{},
 		execRepo,
 		nil,
 		&testTokenRepository{},
 		&testImageRepository{},
-		&testRunner{},
+		runner, // TaskManager
+		runner, // ImageRegistry
+		runner, // LogManager
+		runner, // ObservabilityManager
 		testutil.SilentLogger(),
 		constants.AWS,
 		nil,

@@ -22,6 +22,7 @@ func TestValidateCreateUserRequest_Success(t *testing.T) {
 		},
 	}
 	logger := testutil.SilentLogger()
+	runner := &mockRunner{}
 
 	service, err := NewService(context.Background(),
 		repo,
@@ -29,7 +30,10 @@ func TestValidateCreateUserRequest_Success(t *testing.T) {
 		&mockConnectionRepository{},
 		&mockTokenRepository{},
 		&mockImageRepository{},
-		&mockRunner{},
+		runner, // TaskManager
+		runner, // ImageRegistry
+		runner, // LogManager
+		runner, // ObservabilityManager
 		logger,
 		"",
 		nil,
@@ -46,6 +50,7 @@ func TestValidateCreateUserRequest_Success(t *testing.T) {
 
 func TestValidateCreateUserRequest_EmptyEmail(t *testing.T) {
 	logger := testutil.SilentLogger()
+	runner := &mockRunner{}
 
 	service, err := NewService(context.Background(),
 		&mockUserRepository{},
@@ -53,7 +58,10 @@ func TestValidateCreateUserRequest_EmptyEmail(t *testing.T) {
 		&mockConnectionRepository{},
 		&mockTokenRepository{},
 		&mockImageRepository{},
-		&mockRunner{},
+		runner, // TaskManager
+		runner, // ImageRegistry
+		runner, // LogManager
+		runner, // ObservabilityManager
 		logger,
 		"",
 		nil,
@@ -71,6 +79,7 @@ func TestValidateCreateUserRequest_EmptyEmail(t *testing.T) {
 
 func TestValidateCreateUserRequest_InvalidEmail(t *testing.T) {
 	logger := testutil.SilentLogger()
+	runner := &mockRunner{}
 
 	service, err := NewService(context.Background(),
 		&mockUserRepository{},
@@ -78,7 +87,10 @@ func TestValidateCreateUserRequest_InvalidEmail(t *testing.T) {
 		&mockConnectionRepository{},
 		&mockTokenRepository{},
 		&mockImageRepository{},
-		&mockRunner{},
+		runner, // TaskManager
+		runner, // ImageRegistry
+		runner, // LogManager
+		runner, // ObservabilityManager
 		logger,
 		"",
 		nil,
@@ -101,6 +113,7 @@ func TestValidateCreateUserRequest_UserAlreadyExists(t *testing.T) {
 		},
 	}
 	logger := testutil.SilentLogger()
+	runner := &mockRunner{}
 
 	service, err := NewService(context.Background(),
 		repo,
@@ -108,7 +121,10 @@ func TestValidateCreateUserRequest_UserAlreadyExists(t *testing.T) {
 		&mockConnectionRepository{},
 		&mockTokenRepository{},
 		&mockImageRepository{},
-		&mockRunner{},
+		runner, // TaskManager
+		runner, // ImageRegistry
+		runner, // LogManager
+		runner, // ObservabilityManager
 		logger,
 		"",
 		nil,
@@ -131,6 +147,7 @@ func TestValidateCreateUserRequest_RepositoryError(t *testing.T) {
 		},
 	}
 	logger := testutil.SilentLogger()
+	runner := &mockRunner{}
 
 	service, err := NewService(context.Background(),
 		repo,
@@ -138,7 +155,10 @@ func TestValidateCreateUserRequest_RepositoryError(t *testing.T) {
 		&mockConnectionRepository{},
 		&mockTokenRepository{},
 		&mockImageRepository{},
-		&mockRunner{},
+		runner, // TaskManager
+		runner, // ImageRegistry
+		runner, // LogManager
+		runner, // ObservabilityManager
 		logger,
 		"",
 		nil,
@@ -155,6 +175,7 @@ func TestValidateCreateUserRequest_RepositoryError(t *testing.T) {
 
 func TestValidateCreateUserRequest_EmptyRole(t *testing.T) {
 	logger := testutil.SilentLogger()
+	runner := &mockRunner{}
 
 	service, err := NewService(context.Background(),
 		&mockUserRepository{},
@@ -162,7 +183,10 @@ func TestValidateCreateUserRequest_EmptyRole(t *testing.T) {
 		&mockConnectionRepository{},
 		&mockTokenRepository{},
 		&mockImageRepository{},
-		&mockRunner{},
+		runner, // TaskManager
+		runner, // ImageRegistry
+		runner, // LogManager
+		runner, // ObservabilityManager
 		logger,
 		"",
 		nil,
@@ -180,6 +204,7 @@ func TestValidateCreateUserRequest_EmptyRole(t *testing.T) {
 
 func TestValidateCreateUserRequest_InvalidRole(t *testing.T) {
 	logger := testutil.SilentLogger()
+	runner := &mockRunner{}
 
 	service, err := NewService(context.Background(),
 		&mockUserRepository{},
@@ -187,7 +212,10 @@ func TestValidateCreateUserRequest_InvalidRole(t *testing.T) {
 		&mockConnectionRepository{},
 		&mockTokenRepository{},
 		&mockImageRepository{},
-		&mockRunner{},
+		runner, // TaskManager
+		runner, // ImageRegistry
+		runner, // LogManager
+		runner, // ObservabilityManager
 		logger,
 		"",
 		nil,
@@ -229,6 +257,7 @@ func TestCreatePendingClaim_Success(t *testing.T) {
 		},
 	}
 	logger := testutil.SilentLogger()
+	runner := &mockRunner{}
 
 	service, err := NewService(context.Background(),
 		repo,
@@ -236,7 +265,10 @@ func TestCreatePendingClaim_Success(t *testing.T) {
 		&mockConnectionRepository{},
 		&mockTokenRepository{},
 		&mockImageRepository{},
-		&mockRunner{},
+		runner, // TaskManager
+		runner, // ImageRegistry
+		runner, // LogManager
+		runner, // ObservabilityManager
 		logger,
 		"",
 		nil,
@@ -265,6 +297,7 @@ func TestCreatePendingClaim_RepositoryError(t *testing.T) {
 		},
 	}
 	logger := testutil.SilentLogger()
+	runner := &mockRunner{}
 
 	service, err := NewService(context.Background(),
 		repo,
@@ -272,7 +305,10 @@ func TestCreatePendingClaim_RepositoryError(t *testing.T) {
 		&mockConnectionRepository{},
 		&mockTokenRepository{},
 		&mockImageRepository{},
-		&mockRunner{},
+		runner, // TaskManager
+		runner, // ImageRegistry
+		runner, // LogManager
+		runner, // ObservabilityManager
 		logger,
 		"",
 		nil,
@@ -307,6 +343,7 @@ func TestCreateUser_Success(t *testing.T) {
 		},
 	}
 	logger := testutil.SilentLogger()
+	runner := &mockRunner{}
 
 	service, err := NewService(context.Background(),
 		repo,
@@ -314,7 +351,10 @@ func TestCreateUser_Success(t *testing.T) {
 		&mockConnectionRepository{},
 		&mockTokenRepository{},
 		&mockImageRepository{},
-		&mockRunner{},
+		runner, // TaskManager
+		runner, // ImageRegistry
+		runner, // LogManager
+		runner, // ObservabilityManager
 		logger,
 		"",
 		nil,
@@ -336,6 +376,7 @@ func TestCreateUser_Success(t *testing.T) {
 
 func TestCreateUser_InvalidEmail(t *testing.T) {
 	logger := testutil.SilentLogger()
+	runner := &mockRunner{}
 
 	service, err := NewService(context.Background(),
 		&mockUserRepository{},
@@ -343,7 +384,10 @@ func TestCreateUser_InvalidEmail(t *testing.T) {
 		&mockConnectionRepository{},
 		&mockTokenRepository{},
 		&mockImageRepository{},
-		&mockRunner{},
+		runner, // TaskManager
+		runner, // ImageRegistry
+		runner, // LogManager
+		runner, // ObservabilityManager
 		logger,
 		"",
 		nil,
@@ -370,6 +414,7 @@ func TestCreateUser_CreateUserError(t *testing.T) {
 		},
 	}
 	logger := testutil.SilentLogger()
+	runner := &mockRunner{}
 
 	service, err := NewService(context.Background(),
 		repo,
@@ -377,7 +422,10 @@ func TestCreateUser_CreateUserError(t *testing.T) {
 		&mockConnectionRepository{},
 		&mockTokenRepository{},
 		&mockImageRepository{},
-		&mockRunner{},
+		runner, // TaskManager
+		runner, // ImageRegistry
+		runner, // LogManager
+		runner, // ObservabilityManager
 		logger,
 		"",
 		nil,
@@ -395,6 +443,7 @@ func TestCreateUser_CreateUserError(t *testing.T) {
 
 func TestCreateUser_MissingRole(t *testing.T) {
 	logger := testutil.SilentLogger()
+	runner := &mockRunner{}
 
 	service, err := NewService(context.Background(),
 		&mockUserRepository{},
@@ -402,7 +451,10 @@ func TestCreateUser_MissingRole(t *testing.T) {
 		&mockConnectionRepository{},
 		&mockTokenRepository{},
 		&mockImageRepository{},
-		&mockRunner{},
+		runner, // TaskManager
+		runner, // ImageRegistry
+		runner, // LogManager
+		runner, // ObservabilityManager
 		logger,
 		"",
 		nil,
@@ -421,6 +473,7 @@ func TestCreateUser_MissingRole(t *testing.T) {
 
 func TestCreateUser_InvalidRole(t *testing.T) {
 	logger := testutil.SilentLogger()
+	runner := &mockRunner{}
 
 	service, err := NewService(context.Background(),
 		&mockUserRepository{},
@@ -428,7 +481,10 @@ func TestCreateUser_InvalidRole(t *testing.T) {
 		&mockConnectionRepository{},
 		&mockTokenRepository{},
 		&mockImageRepository{},
-		&mockRunner{},
+		runner, // TaskManager
+		runner, // ImageRegistry
+		runner, // LogManager
+		runner, // ObservabilityManager
 		logger,
 		"",
 		nil,
@@ -600,6 +656,7 @@ func TestClaimAPIKey_Success(t *testing.T) {
 		},
 	}
 	logger := testutil.SilentLogger()
+	runner := &mockRunner{}
 
 	service, err := NewService(context.Background(),
 		repo,
@@ -607,7 +664,10 @@ func TestClaimAPIKey_Success(t *testing.T) {
 		&mockConnectionRepository{},
 		&mockTokenRepository{},
 		&mockImageRepository{},
-		&mockRunner{},
+		runner, // TaskManager
+		runner, // ImageRegistry
+		runner, // LogManager
+		runner, // ObservabilityManager
 		logger,
 		"",
 		nil,
@@ -632,6 +692,7 @@ func TestClaimAPIKey_InvalidToken(t *testing.T) {
 		},
 	}
 	logger := testutil.SilentLogger()
+	runner := &mockRunner{}
 
 	service, err := NewService(context.Background(),
 		repo,
@@ -639,7 +700,10 @@ func TestClaimAPIKey_InvalidToken(t *testing.T) {
 		&mockConnectionRepository{},
 		&mockTokenRepository{},
 		&mockImageRepository{},
-		&mockRunner{},
+		runner, // TaskManager
+		runner, // ImageRegistry
+		runner, // LogManager
+		runner, // ObservabilityManager
 		logger,
 		"",
 		nil,
@@ -669,6 +733,7 @@ func TestClaimAPIKey_AlreadyClaimed(t *testing.T) {
 		},
 	}
 	logger := testutil.SilentLogger()
+	runner := &mockRunner{}
 
 	service, err := NewService(context.Background(),
 		repo,
@@ -676,7 +741,10 @@ func TestClaimAPIKey_AlreadyClaimed(t *testing.T) {
 		&mockConnectionRepository{},
 		&mockTokenRepository{},
 		&mockImageRepository{},
-		&mockRunner{},
+		runner, // TaskManager
+		runner, // ImageRegistry
+		runner, // LogManager
+		runner, // ObservabilityManager
 		logger,
 		"",
 		nil,
@@ -706,6 +774,7 @@ func TestClaimAPIKey_TokenExpired(t *testing.T) {
 		},
 	}
 	logger := testutil.SilentLogger()
+	runner := &mockRunner{}
 
 	service, err := NewService(context.Background(),
 		repo,
@@ -713,7 +782,10 @@ func TestClaimAPIKey_TokenExpired(t *testing.T) {
 		&mockConnectionRepository{},
 		&mockTokenRepository{},
 		&mockImageRepository{},
-		&mockRunner{},
+		runner, // TaskManager
+		runner, // ImageRegistry
+		runner, // LogManager
+		runner, // ObservabilityManager
 		logger,
 		"",
 		nil,
@@ -739,6 +811,7 @@ func TestListUsers_Success(t *testing.T) {
 		},
 	}
 	logger := testutil.SilentLogger()
+	runner := &mockRunner{}
 
 	service, err := NewService(context.Background(),
 		repo,
@@ -746,7 +819,10 @@ func TestListUsers_Success(t *testing.T) {
 		&mockConnectionRepository{},
 		&mockTokenRepository{},
 		&mockImageRepository{},
-		&mockRunner{},
+		runner, // TaskManager
+		runner, // ImageRegistry
+		runner, // LogManager
+		runner, // ObservabilityManager
 		logger,
 		"",
 		nil,
@@ -773,6 +849,7 @@ func TestListUsers_Empty(t *testing.T) {
 		},
 	}
 	logger := testutil.SilentLogger()
+	runner := &mockRunner{}
 
 	service, err := NewService(context.Background(),
 		repo,
@@ -780,7 +857,10 @@ func TestListUsers_Empty(t *testing.T) {
 		&mockConnectionRepository{},
 		&mockTokenRepository{},
 		&mockImageRepository{},
-		&mockRunner{},
+		runner, // TaskManager
+		runner, // ImageRegistry
+		runner, // LogManager
+		runner, // ObservabilityManager
 		logger,
 		"",
 		nil,
@@ -811,6 +891,7 @@ func TestListUsers_RepositoryError(t *testing.T) {
 		},
 	}
 	logger := testutil.SilentLogger()
+	runner := &mockRunner{}
 
 	service, err := NewService(context.Background(),
 		repo,
@@ -818,7 +899,10 @@ func TestListUsers_RepositoryError(t *testing.T) {
 		&mockConnectionRepository{},
 		&mockTokenRepository{},
 		&mockImageRepository{},
-		&mockRunner{},
+		runner, // TaskManager
+		runner, // ImageRegistry
+		runner, // LogManager
+		runner, // ObservabilityManager
 		logger,
 		"",
 		nil,
@@ -846,6 +930,7 @@ func TestListUsers_SortingByEmail(t *testing.T) {
 		},
 	}
 	logger := testutil.SilentLogger()
+	runner := &mockRunner{}
 
 	service, err := NewService(context.Background(),
 		repo,
@@ -853,7 +938,10 @@ func TestListUsers_SortingByEmail(t *testing.T) {
 		&mockConnectionRepository{},
 		&mockTokenRepository{},
 		&mockImageRepository{},
-		&mockRunner{},
+		runner, // TaskManager
+		runner, // ImageRegistry
+		runner, // LogManager
+		runner, // ObservabilityManager
 		logger,
 		"",
 		nil,

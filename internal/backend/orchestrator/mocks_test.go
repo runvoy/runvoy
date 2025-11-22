@@ -362,7 +362,10 @@ func newTestService(
 		observabilityManager = runner
 	}
 
-	return newTestServiceWithConnRepo(userRepoIface, execRepoIface, nil, taskManager, imageRegistry, logManager, observabilityManager)
+	return newTestServiceWithConnRepo(
+		userRepoIface, execRepoIface, nil,
+		taskManager, imageRegistry, logManager, observabilityManager,
+	)
 }
 
 // newTestServiceWithConnRepo creates a Service with connection repo mock for testing

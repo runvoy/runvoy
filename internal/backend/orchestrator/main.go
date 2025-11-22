@@ -79,21 +79,21 @@ type ObservabilityManager interface {
 
 // Service provides the core business logic for command execution and user management.
 type Service struct {
-	userRepo            database.UserRepository
-	executionRepo       database.ExecutionRepository
-	connRepo            database.ConnectionRepository
-	tokenRepo           database.TokenRepository
-	imageRepo           database.ImageRepository
-	taskManager         TaskManager
-	imageRegistry       ImageRegistry
+	userRepo             database.UserRepository
+	executionRepo        database.ExecutionRepository
+	connRepo             database.ConnectionRepository
+	tokenRepo            database.TokenRepository
+	imageRepo            database.ImageRepository
+	taskManager          TaskManager
+	imageRegistry        ImageRegistry
 	logManager           LogManager
 	observabilityManager ObservabilityManager
-	Logger              *slog.Logger
-	Provider            constants.BackendProvider
-	wsManager           websocket.Manager          // WebSocket manager for generating URLs and managing connections
-	secretsRepo         database.SecretsRepository // Repository for managing secrets
-	healthManager       health.Manager             // Health manager for resource reconciliation
-	enforcer            *authorization.Enforcer    // Enforcer for authorization
+	Logger               *slog.Logger
+	Provider             constants.BackendProvider
+	wsManager            websocket.Manager          // WebSocket manager for generating URLs and managing connections
+	secretsRepo          database.SecretsRepository // Repository for managing secrets
+	healthManager        health.Manager             // Health manager for resource reconciliation
+	enforcer             *authorization.Enforcer    // Enforcer for authorization
 }
 
 // NOTE: provider-specific configuration has been moved to sub packages (e.g., providers/aws/app).
@@ -123,31 +123,25 @@ func NewService(
 	healthManager health.Manager,
 	enforcer *authorization.Enforcer) (*Service, error) {
 	svc := &Service{
-		userRepo:            userRepo,
-		executionRepo:       executionRepo,
-		connRepo:            connRepo,
-		tokenRepo:           tokenRepo,
-		imageRepo:           imageRepo,
-		taskManager:         taskManager,
-		imageRegistry:       imageRegistry,
+		userRepo:             userRepo,
+		executionRepo:        executionRepo,
+		connRepo:             connRepo,
+		tokenRepo:            tokenRepo,
+		imageRepo:            imageRepo,
+		taskManager:          taskManager,
+		imageRegistry:        imageRegistry,
 		logManager:           logManager,
 		observabilityManager: observabilityManager,
-		Logger:              log,
-		Provider:            provider,
-		wsManager:           wsManager,
-		secretsRepo:         secretsRepo,
-		healthManager:       healthManager,
-		enforcer:            enforcer,
+		Logger:               log,
+		Provider:             provider,
+		wsManager:            wsManager,
+		secretsRepo:          secretsRepo,
+		healthManager:        healthManager,
+		enforcer:             enforcer,
 	}
 
-	// For backwards compatibility with enforcer.Hydrate, create a temporary runner interface
+	// For backwards compatibility with enforcer.Hydrate, create a temporary runner struct
 	// This will be refactored when enforcer is updated to use specific interfaces
-	type runner interface {
-		TaskManager
-		ImageRegistry
-		LogManager
-		ObservabilityManager
-	}
 	tempRunner := struct {
 		TaskManager
 		ImageRegistry
@@ -155,9 +149,9 @@ func NewService(
 		ObservabilityManager
 	}{
 		TaskManager:          taskManager,
-		ImageRegistry:         imageRegistry,
-		LogManager:            logManager,
-		ObservabilityManager:  observabilityManager,
+		ImageRegistry:        imageRegistry,
+		LogManager:           logManager,
+		ObservabilityManager: observabilityManager,
 	}
 
 	if err := enforcer.Hydrate(

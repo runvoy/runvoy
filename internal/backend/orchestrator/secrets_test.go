@@ -19,13 +19,17 @@ func TestCreateSecret_Success(t *testing.T) {
 	secretsRepo := &mockSecretsRepository{}
 	logger := testutil.SilentLogger()
 
+	runner := &mockRunner{}
 	service, err := NewService(context.Background(),
 		&mockUserRepository{},
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
 		&mockTokenRepository{},
 		&mockImageRepository{},
-		&mockRunner{},
+		runner, // TaskManager
+		runner, // ImageRegistry
+		runner, // LogManager
+		runner, // ObservabilityManager
 		logger,
 		constants.AWS,
 		nil, // wsManager
@@ -56,13 +60,17 @@ func TestCreateSecret_NoRepository(t *testing.T) {
 	// This test verifies that CreateSecret works with a valid repository.
 	secretsRepo := &mockSecretsRepository{}
 
+	runner := &mockRunner{}
 	service, err := NewService(context.Background(),
 		&mockUserRepository{},
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
 		&mockTokenRepository{},
 		&mockImageRepository{},
-		&mockRunner{},
+		runner, // TaskManager
+		runner, // ImageRegistry
+		runner, // LogManager
+		runner, // ObservabilityManager
 		logger,
 		constants.AWS,
 		nil, // wsManager
@@ -94,13 +102,17 @@ func TestCreateSecret_RepositoryError(t *testing.T) {
 	}
 	logger := testutil.SilentLogger()
 
+	runner := &mockRunner{}
 	service, err := NewService(context.Background(),
 		&mockUserRepository{},
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
 		&mockTokenRepository{},
 		&mockImageRepository{},
-		&mockRunner{},
+		runner, // TaskManager
+		runner, // ImageRegistry
+		runner, // LogManager
+		runner, // ObservabilityManager
 		logger,
 		constants.AWS,
 		nil, // wsManager
@@ -137,13 +149,17 @@ func TestGetSecret_Success(t *testing.T) {
 	}
 	logger := testutil.SilentLogger()
 
+	runner := &mockRunner{}
 	service, err := NewService(context.Background(),
 		&mockUserRepository{},
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
 		&mockTokenRepository{},
 		&mockImageRepository{},
-		&mockRunner{},
+		runner, // TaskManager
+		runner, // ImageRegistry
+		runner, // LogManager
+		runner, // ObservabilityManager
 		logger,
 		constants.AWS,
 		nil, // wsManager
@@ -169,13 +185,17 @@ func TestGetSecret_NotFound(t *testing.T) {
 	}
 	logger := testutil.SilentLogger()
 
+	runner := &mockRunner{}
 	service, err := NewService(context.Background(),
 		&mockUserRepository{},
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
 		&mockTokenRepository{},
 		&mockImageRepository{},
-		&mockRunner{},
+		runner, // TaskManager
+		runner, // ImageRegistry
+		runner, // LogManager
+		runner, // ObservabilityManager
 		logger,
 		constants.AWS,
 		nil, // wsManager
@@ -219,13 +239,17 @@ func TestListSecrets_Success(t *testing.T) {
 	}
 	logger := testutil.SilentLogger()
 
+	runner := &mockRunner{}
 	service, err := NewService(context.Background(),
 		&mockUserRepository{},
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
 		&mockTokenRepository{},
 		&mockImageRepository{},
-		&mockRunner{},
+		runner, // TaskManager
+		runner, // ImageRegistry
+		runner, // LogManager
+		runner, // ObservabilityManager
 		logger,
 		constants.AWS,
 		nil, // wsManager
@@ -251,13 +275,17 @@ func TestListSecrets_Empty(t *testing.T) {
 	}
 	logger := testutil.SilentLogger()
 
+	runner := &mockRunner{}
 	service, err := NewService(context.Background(),
 		&mockUserRepository{},
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
 		&mockTokenRepository{},
 		&mockImageRepository{},
-		&mockRunner{},
+		runner, // TaskManager
+		runner, // ImageRegistry
+		runner, // LogManager
+		runner, // ObservabilityManager
 		logger,
 		constants.AWS,
 		nil, // wsManager
@@ -277,13 +305,17 @@ func TestUpdateSecret_Success(t *testing.T) {
 	secretsRepo := &mockSecretsRepository{}
 	logger := testutil.SilentLogger()
 
+	runner := &mockRunner{}
 	service, err := NewService(context.Background(),
 		&mockUserRepository{},
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
 		&mockTokenRepository{},
 		&mockImageRepository{},
-		&mockRunner{},
+		runner, // TaskManager
+		runner, // ImageRegistry
+		runner, // LogManager
+		runner, // ObservabilityManager
 		logger,
 		constants.AWS,
 		nil, // wsManager
@@ -314,13 +346,17 @@ func TestUpdateSecret_RepositoryError(t *testing.T) {
 	}
 	logger := testutil.SilentLogger()
 
+	runner := &mockRunner{}
 	service, err := NewService(context.Background(),
 		&mockUserRepository{},
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
 		&mockTokenRepository{},
 		&mockImageRepository{},
-		&mockRunner{},
+		runner, // TaskManager
+		runner, // ImageRegistry
+		runner, // LogManager
+		runner, // ObservabilityManager
 		logger,
 		constants.AWS,
 		nil, // wsManager
@@ -346,13 +382,17 @@ func TestDeleteSecret_Success(t *testing.T) {
 	secretsRepo := &mockSecretsRepository{}
 	logger := testutil.SilentLogger()
 
+	runner := &mockRunner{}
 	service, err := NewService(context.Background(),
 		&mockUserRepository{},
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
 		&mockTokenRepository{},
 		&mockImageRepository{},
-		&mockRunner{},
+		runner, // TaskManager
+		runner, // ImageRegistry
+		runner, // LogManager
+		runner, // ObservabilityManager
 		logger,
 		constants.AWS,
 		nil, // wsManager
@@ -377,13 +417,17 @@ func TestDeleteSecret_RepositoryError(t *testing.T) {
 	}
 	logger := testutil.SilentLogger()
 
+	runner := &mockRunner{}
 	service, err := NewService(context.Background(),
 		&mockUserRepository{},
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
 		&mockTokenRepository{},
 		&mockImageRepository{},
-		&mockRunner{},
+		runner, // TaskManager
+		runner, // ImageRegistry
+		runner, // LogManager
+		runner, // ObservabilityManager
 		logger,
 		constants.AWS,
 		nil, // wsManager
@@ -527,13 +571,17 @@ func TestResolveSecretsForExecution_Success(t *testing.T) {
 	}
 	logger := testutil.SilentLogger()
 
+	runner := &mockRunner{}
 	service, err := NewService(context.Background(),
 		&mockUserRepository{},
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
 		&mockTokenRepository{},
 		&mockImageRepository{},
-		&mockRunner{},
+		runner, // TaskManager
+		runner, // ImageRegistry
+		runner, // LogManager
+		runner, // ObservabilityManager
 		logger,
 		constants.AWS,
 		nil, // wsManager
@@ -555,13 +603,17 @@ func TestResolveSecretsForExecution_Empty(t *testing.T) {
 	secretsRepo := &mockSecretsRepository{}
 	logger := testutil.SilentLogger()
 
+	runner := &mockRunner{}
 	service, err := NewService(context.Background(),
 		&mockUserRepository{},
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
 		&mockTokenRepository{},
 		&mockImageRepository{},
-		&mockRunner{},
+		runner, // TaskManager
+		runner, // ImageRegistry
+		runner, // LogManager
+		runner, // ObservabilityManager
 		logger,
 		constants.AWS,
 		nil, // wsManager
@@ -581,13 +633,17 @@ func TestResolveSecretsForExecution_EmptySecretName(t *testing.T) {
 	secretsRepo := &mockSecretsRepository{}
 	logger := testutil.SilentLogger()
 
+	runner := &mockRunner{}
 	service, err := NewService(context.Background(),
 		&mockUserRepository{},
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
 		&mockTokenRepository{},
 		&mockImageRepository{},
-		&mockRunner{},
+		runner, // TaskManager
+		runner, // ImageRegistry
+		runner, // LogManager
+		runner, // ObservabilityManager
 		logger,
 		constants.AWS,
 		nil, // wsManager
@@ -618,13 +674,17 @@ func TestResolveSecretsForExecution_DuplicateSecrets(t *testing.T) {
 	}
 	logger := testutil.SilentLogger()
 
+	runner := &mockRunner{}
 	service, err := NewService(context.Background(),
 		&mockUserRepository{},
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
 		&mockTokenRepository{},
 		&mockImageRepository{},
-		&mockRunner{},
+		runner, // TaskManager
+		runner, // ImageRegistry
+		runner, // LogManager
+		runner, // ObservabilityManager
 		logger,
 		constants.AWS,
 		nil, // wsManager
@@ -655,13 +715,17 @@ func TestResolveSecretsForExecution_SecretNotFound(t *testing.T) {
 	}
 	logger := testutil.SilentLogger()
 
+	runner := &mockRunner{}
 	service, err := NewService(context.Background(),
 		&mockUserRepository{},
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
 		&mockTokenRepository{},
 		&mockImageRepository{},
-		&mockRunner{},
+		runner, // TaskManager
+		runner, // ImageRegistry
+		runner, // LogManager
+		runner, // ObservabilityManager
 		logger,
 		constants.AWS,
 		nil, // wsManager
@@ -738,13 +802,17 @@ func TestApplyResolvedSecrets(t *testing.T) {
 	}
 
 	logger := testutil.SilentLogger()
+	runner := &mockRunner{}
 	service, err := NewService(context.Background(),
 		&mockUserRepository{},
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
 		&mockTokenRepository{},
 		&mockImageRepository{},
-		&mockRunner{},
+		runner, // TaskManager
+		runner, // ImageRegistry
+		runner, // LogManager
+		runner, // ObservabilityManager
 		logger,
 		constants.AWS,
 		nil,                      // wsManager

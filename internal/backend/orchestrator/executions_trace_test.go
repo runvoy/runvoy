@@ -369,13 +369,17 @@ func (r *minimalSecretsRepository) GetSecretsByRequestID(_ context.Context, _ st
 }
 
 func newTraceTestService(t *testing.T) *Service {
+	runner := &traceMinimalRunner{}
 	svc, err := NewService(context.Background(),
 		&minimalUserRepository{},
 		&minimalExecutionRepository{},
 		nil,
 		&minimalTokenRepository{},
 		&minimalImageRepository{},
-		&traceMinimalRunner{},
+		runner, // TaskManager
+		runner, // ImageRegistry
+		runner, // LogManager
+		runner, // ObservabilityManager
 		testutil.SilentLogger(),
 		constants.AWS,
 		nil,

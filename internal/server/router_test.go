@@ -134,6 +134,7 @@ func TestRouter_WithContext(t *testing.T) {
 	)
 	require.NoError(t, err)
 	tokenRepo2 := &testTokenRepository{}
+	runner2 := &testRunner{}
 	svc2, err := orchestrator.NewService(
 		context.Background(),
 		&testUserRepository{},
@@ -141,7 +142,10 @@ func TestRouter_WithContext(t *testing.T) {
 		nil,
 		tokenRepo2,
 		&testImageRepository{},
-		&testRunner{},
+		runner2, // TaskManager
+		runner2, // ImageRegistry
+		runner2, // LogManager
+		runner2, // ObservabilityManager
 		testutil.SilentLogger(),
 		constants.AWS,
 		nil,

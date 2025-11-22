@@ -104,13 +104,17 @@ func TestGetImage_EmptyImageName(t *testing.T) {
 	logger := testutil.SilentLogger()
 	enforcer := newTestEnforcer(t)
 
+	runner := &mockRunner{}
 	service, err := NewService(context.Background(),
 		&mockUserRepository{},
 		&mockExecutionRepository{},
 		&mockConnectionRepository{},
 		&mockTokenRepository{},
 		&mockImageRepository{},
-		&mockRunner{},
+		runner, // TaskManager
+		runner, // ImageRegistry
+		runner, // LogManager
+		runner, // ObservabilityManager
 		logger,
 		"",
 		nil,
