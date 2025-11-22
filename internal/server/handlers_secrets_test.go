@@ -66,6 +66,10 @@ func (t *testSecretRepository) DeleteSecret(ctx context.Context, name string) er
 	return nil
 }
 
+func (t *testSecretRepository) GetSecretsByRequestID(_ context.Context, _ string) ([]*api.Secret, error) {
+	return []*api.Secret{}, nil
+}
+
 func TestHandleCreateSecret_Success(t *testing.T) {
 	userRepo := &testUserRepository{}
 	execRepo := &testExecutionRepository{}
@@ -442,6 +446,7 @@ func newTestService(
 		execRepo,
 		nil, // connRepo
 		tokenRepo,
+		&testImageRepository{},
 		mockRunner,
 		logger,
 		constants.AWS,
@@ -513,4 +518,10 @@ func (t *testUserRepositoryWithRolesForSecrets) ListUsers(_ context.Context) ([]
 			Revoked:   false,
 		},
 	}, nil
+}
+
+func (t *testUserRepositoryWithRolesForSecrets) GetUsersByRequestID(
+	ctx context.Context, requestID string,
+) ([]*api.User, error) {
+	return t.originalRepo.GetUsersByRequestID(ctx, requestID)
 }

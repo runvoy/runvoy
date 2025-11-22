@@ -102,7 +102,8 @@ func (r *Router) handleGetExecutionLogs(w http.ResponseWriter, req *http.Request
 	_ = json.NewEncoder(w).Encode(resp)
 }
 
-// handleGetBackendLogsTrace handles GET /api/v1/trace/{requestID} to query backend infrastructure logs by request ID.
+// handleGetBackendLogsTrace handles GET /api/v1/trace/{requestID} to query
+// backend infrastructure logs and related resources by request ID.
 func (r *Router) handleGetBackendLogsTrace(w http.ResponseWriter, req *http.Request) {
 	logger := r.GetLoggerFromContext(req.Context())
 
@@ -112,28 +113,32 @@ func (r *Router) handleGetBackendLogsTrace(w http.ResponseWriter, req *http.Requ
 		return
 	}
 
-	logs, err := r.svc.FetchBackendLogs(req.Context(), requestID)
+	trace, err := r.svc.FetchTrace(req.Context(), requestID)
 	if err != nil {
 		statusCode, errorCode, errorDetails := extractErrorInfo(err)
 
-		logger.Error("failed to fetch backend logs", "context", map[string]any{
+		logger.Error("failed to fetch trace", "context", map[string]any{
 			"request_id":  requestID,
 			"error":       err,
 			"status_code": statusCode,
 			"error_code":  errorCode,
 		})
 
-		writeErrorResponseWithCode(w, statusCode, errorCode, "failed to fetch backend logs", errorDetails)
+		writeErrorResponseWithCode(w, statusCode, errorCode, "failed to fetch trace", errorDetails)
 		return
 	}
 
-	logger.Info("backend logs query completed", "context", map[string]any{
-		"request_id": requestID,
-		"log_count":  len(logs),
+	logger.Info("trace query completed", "context", map[string]any{
+		"request_id":       requestID,
+		"log_count":        len(trace.Logs),
+		"executions_count": len(trace.RelatedResources.Executions),
+		"secrets_count":    len(trace.RelatedResources.Secrets),
+		"users_count":      len(trace.RelatedResources.Users),
+		"images_count":     len(trace.RelatedResources.Images),
 	})
 
 	w.WriteHeader(http.StatusOK)
-	_ = json.NewEncoder(w).Encode(logs)
+	_ = json.NewEncoder(w).Encode(trace)
 }
 
 // handleGetExecutionStatus handles GET /api/v1/executions/{executionID}/status to fetch execution status.

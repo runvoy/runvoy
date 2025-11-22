@@ -52,7 +52,7 @@ func (m *mockClientInterfaceForImages) UnregisterImage(
 	return nil, fmt.Errorf("not implemented")
 }
 
-func (m *mockClientInterfaceForImages) FetchBackendLogs(_ context.Context, _ string) ([]api.LogEvent, error) {
+func (m *mockClientInterfaceForImages) FetchBackendLogs(_ context.Context, _ string) (*api.TraceResponse, error) {
 	return nil, nil
 }
 

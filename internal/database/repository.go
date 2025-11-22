@@ -56,6 +56,9 @@ type UserRepository interface {
 	// ListUsers returns all users in the system (excluding API key hashes for security).
 	// Used by admins to view all users and their basic information.
 	ListUsers(ctx context.Context) ([]*api.User, error)
+
+	// GetUsersByRequestID retrieves all users created or modified by a specific request ID.
+	GetUsersByRequestID(ctx context.Context, requestID string) ([]*api.User, error)
 }
 
 // ExecutionRepository defines the interface for execution-related database operations.
@@ -76,6 +79,9 @@ type ExecutionRepository interface {
 	//              If empty, all executions are returned.
 	// Results are ordered newest first.
 	ListExecutions(ctx context.Context, limit int, statuses []string) ([]*api.Execution, error)
+
+	// GetExecutionsByRequestID retrieves all executions created or modified by a specific request ID.
+	GetExecutionsByRequestID(ctx context.Context, requestID string) ([]*api.Execution, error)
 }
 
 // ConnectionRepository defines the interface for WebSocket connection-related database operations.
@@ -102,4 +108,10 @@ type TokenRepository interface {
 
 	// DeleteToken removes a token from the database (used after validation or explicit cleanup).
 	DeleteToken(ctx context.Context, tokenValue string) error
+}
+
+// ImageRepository defines the interface for image metadata storage operations.
+type ImageRepository interface {
+	// GetImagesByRequestID retrieves all images created or modified by a specific request ID.
+	GetImagesByRequestID(ctx context.Context, requestID string) ([]api.ImageInfo, error)
 }

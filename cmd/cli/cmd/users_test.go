@@ -44,7 +44,7 @@ func (m *mockClientInterfaceForUsers) RevokeUser(
 	return nil, fmt.Errorf("not implemented")
 }
 
-func (m *mockClientInterfaceForUsers) FetchBackendLogs(_ context.Context, _ string) ([]api.LogEvent, error) {
+func (m *mockClientInterfaceForUsers) FetchBackendLogs(_ context.Context, _ string) (*api.TraceResponse, error) {
 	return nil, nil
 }
 

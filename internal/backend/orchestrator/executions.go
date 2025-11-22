@@ -5,7 +5,10 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"sync"
 	"time"
+
+	"golang.org/x/sync/errgroup"
 
 	"runvoy/internal/api"
 	"runvoy/internal/auth/authorization"
@@ -230,6 +233,181 @@ func (s *Service) FetchBackendLogs(ctx context.Context, requestID string) ([]api
 	return s.runner.FetchBackendLogs(ctx, requestID)
 }
 
+// FetchTrace retrieves backend logs and related resources for a request ID.
+func (s *Service) FetchTrace(ctx context.Context, requestID string) (*api.TraceResponse, error) {
+	if requestID == "" {
+		return nil, apperrors.ErrBadRequest("requestID is required", nil)
+	}
+
+	var (
+		logs      []api.LogEvent
+		resources api.RelatedResources
+	)
+
+	eg, egCtx := errgroup.WithContext(ctx)
+
+	eg.Go(func() error {
+		fetchedLogs, logsErr := s.runner.FetchBackendLogs(egCtx, requestID)
+		if logsErr != nil {
+			reqLogger := logger.DeriveRequestLogger(egCtx, s.Logger)
+			reqLogger.Error("failed to fetch backend logs", "context", map[string]any{
+				"request_id": requestID,
+				"error":      logsErr,
+			})
+			return logsErr
+		}
+		logs = fetchedLogs
+		return nil
+	})
+
+	eg.Go(func() error {
+		var resourcesErr error
+		resources, resourcesErr = s.fetchTraceRelatedResources(egCtx, requestID)
+		return resourcesErr
+	})
+
+	if err := eg.Wait(); err != nil {
+		reqLogger := logger.DeriveRequestLogger(ctx, s.Logger)
+		reqLogger.Error("failed to fetch trace", "context", map[string]any{
+			"request_id": requestID,
+			"error":      err,
+		})
+		return nil, apperrors.ErrServiceUnavailable("failed to fetch trace", err)
+	}
+
+	return &api.TraceResponse{
+		Logs:             logs,
+		RelatedResources: resources,
+	}, nil
+}
+
+func (s *Service) fetchTraceRelatedResources(
+	ctx context.Context,
+	requestID string,
+) (api.RelatedResources, error) {
+	var (
+		executions []*api.Execution
+		secrets    []*api.Secret
+		users      []*api.User
+		images     []api.ImageInfo
+		mu         sync.Mutex
+	)
+
+	eg, egCtx := errgroup.WithContext(ctx)
+
+	s.fetchExecutionsByRequestID(egCtx, eg, requestID, &mu, &executions)
+	s.fetchSecretsByRequestID(egCtx, eg, requestID, &mu, &secrets)
+	s.fetchUsersByRequestID(egCtx, eg, requestID, &mu, &users)
+	s.fetchImagesByRequestID(egCtx, eg, requestID, &mu, &images)
+
+	if err := eg.Wait(); err != nil {
+		return api.RelatedResources{}, err
+	}
+
+	return api.RelatedResources{
+		Executions: executions,
+		Secrets:    secrets,
+		Users:      users,
+		Images:     images,
+	}, nil
+}
+
+func (s *Service) fetchExecutionsByRequestID(
+	ctx context.Context,
+	eg *errgroup.Group,
+	requestID string,
+	mu *sync.Mutex,
+	result *[]*api.Execution,
+) {
+	eg.Go(func() error {
+		execs, execErr := s.executionRepo.GetExecutionsByRequestID(ctx, requestID)
+		if execErr != nil {
+			reqLogger := logger.DeriveRequestLogger(ctx, s.Logger)
+			reqLogger.Error("failed to fetch executions by request ID", "context", map[string]any{
+				"request_id": requestID,
+				"error":      execErr,
+			})
+			return execErr
+		}
+		mu.Lock()
+		*result = execs
+		mu.Unlock()
+		return nil
+	})
+}
+
+func (s *Service) fetchSecretsByRequestID(
+	ctx context.Context,
+	eg *errgroup.Group,
+	requestID string,
+	mu *sync.Mutex,
+	result *[]*api.Secret,
+) {
+	eg.Go(func() error {
+		secs, secErr := s.secretsRepo.GetSecretsByRequestID(ctx, requestID)
+		if secErr != nil {
+			reqLogger := logger.DeriveRequestLogger(ctx, s.Logger)
+			reqLogger.Error("failed to fetch secrets by request ID", "context", map[string]any{
+				"request_id": requestID,
+				"error":      secErr,
+			})
+			return secErr
+		}
+		mu.Lock()
+		*result = secs
+		mu.Unlock()
+		return nil
+	})
+}
+
+func (s *Service) fetchUsersByRequestID(
+	ctx context.Context,
+	eg *errgroup.Group,
+	requestID string,
+	mu *sync.Mutex,
+	result *[]*api.User,
+) {
+	eg.Go(func() error {
+		usrs, userErr := s.userRepo.GetUsersByRequestID(ctx, requestID)
+		if userErr != nil {
+			reqLogger := logger.DeriveRequestLogger(ctx, s.Logger)
+			reqLogger.Error("failed to fetch users by request ID", "context", map[string]any{
+				"request_id": requestID,
+				"error":      userErr,
+			})
+			return userErr
+		}
+		mu.Lock()
+		*result = usrs
+		mu.Unlock()
+		return nil
+	})
+}
+
+func (s *Service) fetchImagesByRequestID(
+	ctx context.Context,
+	eg *errgroup.Group,
+	requestID string,
+	mu *sync.Mutex,
+	result *[]api.ImageInfo,
+) {
+	eg.Go(func() error {
+		imgs, imgErr := s.imageRepo.GetImagesByRequestID(ctx, requestID)
+		if imgErr != nil {
+			reqLogger := logger.DeriveRequestLogger(ctx, s.Logger)
+			reqLogger.Error("failed to fetch images by request ID", "context", map[string]any{
+				"request_id": requestID,
+				"error":      imgErr,
+			})
+			return imgErr
+		}
+		mu.Lock()
+		*result = imgs
+		mu.Unlock()
+		return nil
+	})
+}
+
 // GetExecutionStatus returns the current status and metadata for a given execution ID.
 func (s *Service) GetExecutionStatus(ctx context.Context, executionID string) (*api.ExecutionStatusResponse, error) {
 	if executionID == "" {
@@ -304,7 +482,6 @@ func (s *Service) KillExecution(ctx context.Context, executionID string) (*api.K
 	execution.Status = string(targetStatus)
 	execution.CompletedAt = nil
 
-	// Extract request ID from context and set ModifiedByRequestID
 	requestID := logger.ExtractRequestIDFromContext(ctx)
 	if requestID != "" {
 		execution.ModifiedByRequestID = requestID

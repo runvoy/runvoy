@@ -233,6 +233,10 @@ func (m *mockImageRepo) SetImageAsOnlyDefault(_ context.Context, _ string, _, _ 
 	return nil
 }
 
+func (m *mockImageRepo) GetImagesByRequestID(_ context.Context, _ string) ([]api.ImageInfo, error) {
+	return []api.ImageInfo{}, nil
+}
+
 func TestRunner_DetermineDefaultStatus(t *testing.T) {
 	ctx := testutil.TestContext()
 

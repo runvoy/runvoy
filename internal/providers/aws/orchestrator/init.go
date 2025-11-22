@@ -29,6 +29,7 @@ type Dependencies struct {
 	ExecutionRepo    database.ExecutionRepository
 	ConnectionRepo   database.ConnectionRepository
 	TokenRepo        database.TokenRepository
+	ImageRepo        database.ImageRepository
 	Runner           *Runner
 	WebSocketManager *websocket.Manager
 	SecretsRepo      database.SecretsRepository
@@ -107,6 +108,7 @@ func Initialize( //nolint:funlen // This is ok, lots of initializations required
 		ExecutionRepo:    repos.ExecutionRepo,
 		ConnectionRepo:   repos.ConnectionRepo,
 		TokenRepo:        repos.TokenRepo,
+		ImageRepo:        repos.ImageTaskDefRepo,
 		Runner:           runner,
 		WebSocketManager: wsManager,
 		SecretsRepo:      repos.SecretsRepo,

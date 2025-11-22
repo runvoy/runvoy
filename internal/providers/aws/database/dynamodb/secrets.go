@@ -165,6 +165,45 @@ func (r *SecretsRepository) ListSecrets(ctx context.Context) ([]*api.Secret, err
 	return secrets, nil
 }
 
+// GetSecretsByRequestID retrieves all secrets created or modified by a specific request ID.
+func (r *SecretsRepository) GetSecretsByRequestID(ctx context.Context, requestID string) ([]*api.Secret, error) {
+	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
+
+	logArgs := []any{
+		"operation", "DynamoDB.Scan",
+		"table", r.tableName,
+		"request_id", requestID,
+	}
+	logArgs = append(logArgs, logger.GetDeadlineInfo(ctx)...)
+	reqLogger.Debug("calling external service", "context", logger.SliceToMap(logArgs))
+
+	// Scan with filter expression to find secrets where created_by_request_id OR modified_by_request_id matches
+	result, err := r.client.Scan(ctx, &dynamodb.ScanInput{
+		TableName:        aws.String(r.tableName),
+		FilterExpression: aws.String("created_by_request_id = :request_id OR modified_by_request_id = :request_id"),
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":request_id": &types.AttributeValueMemberS{Value: requestID},
+		},
+	})
+	if err != nil {
+		reqLogger.Error("failed to scan secrets by request ID", "error", err)
+		return nil, appErrors.ErrInternalError("failed to get secrets by request ID", err)
+	}
+
+	var items []secretItem
+	if err = attributevalue.UnmarshalListOfMaps(result.Items, &items); err != nil {
+		reqLogger.Error("failed to unmarshal secret items", "error", err)
+		return nil, appErrors.ErrInternalError("failed to unmarshal secrets", err)
+	}
+
+	secrets := make([]*api.Secret, 0, len(items))
+	for i := range items {
+		secrets = append(secrets, items[i].toAPISecret())
+	}
+
+	return secrets, nil
+}
+
 // buildUpdateExpression builds an update expression for secret metadata updates.
 func (r *SecretsRepository) buildUpdateExpression(
 	keyName, description, updatedBy string,

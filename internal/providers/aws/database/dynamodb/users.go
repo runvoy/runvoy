@@ -666,3 +666,52 @@ func (r *UserRepository) ListUsers(ctx context.Context) ([]*api.User, error) {
 
 	return users, nil
 }
+
+// GetUsersByRequestID retrieves all users created or modified by a specific request ID.
+func (r *UserRepository) GetUsersByRequestID(ctx context.Context, requestID string) ([]*api.User, error) {
+	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
+
+	logArgs := []any{
+		"operation", "DynamoDB.Scan",
+		"table", r.tableName,
+		"request_id", requestID,
+	}
+	logArgs = append(logArgs, logger.GetDeadlineInfo(ctx)...)
+	reqLogger.Debug("calling external service", "context", logger.SliceToMap(logArgs))
+
+	// Scan with filter expression to find users where created_by_request_id OR modified_by_request_id matches
+	result, err := r.client.Scan(ctx, &dynamodb.ScanInput{
+		TableName:        aws.String(r.tableName),
+		FilterExpression: aws.String("created_by_request_id = :request_id OR modified_by_request_id = :request_id"),
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":request_id": &types.AttributeValueMemberS{Value: requestID},
+		},
+	})
+	if err != nil {
+		return nil, apperrors.ErrDatabaseError("failed to scan users by request ID", err)
+	}
+
+	users := make([]*api.User, 0, len(result.Items))
+	for _, item := range result.Items {
+		var dbUserItem userItem
+		if err = attributevalue.UnmarshalMap(item, &dbUserItem); err != nil {
+			reqLogger.Warn("failed to unmarshal user item", "error", err)
+			continue
+		}
+
+		user := &api.User{
+			Email:               dbUserItem.UserEmail,
+			Role:                dbUserItem.Role,
+			CreatedAt:           dbUserItem.CreatedAt,
+			Revoked:             dbUserItem.Revoked,
+			CreatedByRequestID:  dbUserItem.CreatedByRequestID,
+			ModifiedByRequestID: dbUserItem.ModifiedByRequestID,
+		}
+		if !dbUserItem.LastUsed.IsZero() {
+			user.LastUsed = &dbUserItem.LastUsed
+		}
+		users = append(users, user)
+	}
+
+	return users, nil
+}

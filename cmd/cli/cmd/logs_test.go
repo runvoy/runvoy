@@ -46,7 +46,7 @@ func (m *mockClientInterfaceForLogs) GetExecutionStatus(
 	return nil, fmt.Errorf("not implemented")
 }
 
-func (m *mockClientInterfaceForLogs) FetchBackendLogs(_ context.Context, _ string) ([]api.LogEvent, error) {
+func (m *mockClientInterfaceForLogs) FetchBackendLogs(_ context.Context, _ string) (*api.TraceResponse, error) {
 	return nil, nil
 }
 

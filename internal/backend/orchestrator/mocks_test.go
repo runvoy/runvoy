@@ -112,6 +112,10 @@ func (m *mockUserRepository) ListUsers(ctx context.Context) ([]*api.User, error)
 	return []*api.User{}, nil
 }
 
+func (m *mockUserRepository) GetUsersByRequestID(_ context.Context, _ string) ([]*api.User, error) {
+	return []*api.User{}, nil
+}
+
 // mockExecutionRepository implements database.ExecutionRepository for testing
 type mockExecutionRepository struct {
 	createExecutionFunc func(ctx context.Context, execution *api.Execution) error
@@ -149,6 +153,10 @@ func (m *mockExecutionRepository) ListExecutions(
 	if m.listExecutionsFunc != nil {
 		return m.listExecutionsFunc(ctx, limit, statuses)
 	}
+	return []*api.Execution{}, nil
+}
+
+func (m *mockExecutionRepository) GetExecutionsByRequestID(_ context.Context, _ string) ([]*api.Execution, error) {
 	return []*api.Execution{}, nil
 }
 
@@ -305,6 +313,10 @@ func (m *mockRunner) FetchBackendLogs(ctx context.Context, requestID string) ([]
 	return []api.LogEvent{}, nil
 }
 
+func (m *mockRunner) GetImagesByRequestID(_ context.Context, _ string) ([]api.ImageInfo, error) {
+	return []api.ImageInfo{}, nil
+}
+
 // newPermissiveEnforcer creates a test enforcer that allows all access.
 // This is useful for tests that need authorization to pass but don't test authorization logic.
 func newPermissiveEnforcer() *authorization.Enforcer {
@@ -357,7 +369,7 @@ func newTestServiceWithConnRepo(
 	logger := testutil.SilentLogger()
 	svc, err := NewService(
 		context.Background(),
-		userRepo, execRepo, connRepo, &mockTokenRepository{}, runner, logger, constants.AWS,
+		userRepo, execRepo, connRepo, &mockTokenRepository{}, &mockImageRepository{}, runner, logger, constants.AWS,
 		nil, &mockSecretsRepository{}, nil, newPermissiveEnforcer(),
 	)
 	if err != nil {
@@ -406,6 +418,7 @@ func newTestServiceWithEnforcer(
 		execRepoIface,
 		nil,
 		&mockTokenRepository{},
+		&mockImageRepository{},
 		runnerIface,
 		logger,
 		constants.AWS,
@@ -449,6 +462,7 @@ func newTestServiceWithSecretsRepo(
 		execRepoIface,
 		nil,
 		&mockTokenRepository{},
+		&mockImageRepository{},
 		runnerIface,
 		logger,
 		constants.AWS,
@@ -514,6 +528,17 @@ func (m *mockSecretsRepository) DeleteSecret(ctx context.Context, name string) e
 	return nil
 }
 
+func (m *mockSecretsRepository) GetSecretsByRequestID(_ context.Context, _ string) ([]*api.Secret, error) {
+	return []*api.Secret{}, nil
+}
+
+// mockImageRepository implements database.ImageRepository for testing
+type mockImageRepository struct{}
+
+func (m *mockImageRepository) GetImagesByRequestID(_ context.Context, _ string) ([]api.ImageInfo, error) {
+	return []api.ImageInfo{}, nil
+}
+
 // newTestServiceWithWebSocketManager creates a Service with websocket manager for testing.
 // All repositories are required (non-nil). Use no-op mocks by passing nil for unused repositories.
 func newTestServiceWithWebSocketManager(
@@ -541,7 +566,7 @@ func newTestServiceWithWebSocketManager(
 
 	svc, err := NewService(
 		context.Background(),
-		userRepoIface, execRepoIface, nil, &mockTokenRepository{}, runnerIface, logger, constants.AWS,
+		userRepoIface, execRepoIface, nil, &mockTokenRepository{}, &mockImageRepository{}, runnerIface, logger, constants.AWS,
 		wsManager, &mockSecretsRepository{}, nil, newPermissiveEnforcer(),
 	)
 	if err != nil {

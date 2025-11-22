@@ -387,7 +387,7 @@ Get the status of a command execution
 
 ## runvoy trace
 
-Get backend logs for a given request ID
+Get backend logs and related resources for a given request ID
 
 **Examples**
 

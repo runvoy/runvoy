@@ -57,6 +57,7 @@ func TestAuthorizeRequest(t *testing.T) {
 			&testExecutionRepository{},
 			nil,
 			&testTokenRepository{},
+			&testImageRepository{},
 			&testRunner{},
 			testutil.SilentLogger(),
 			constants.AWS,
@@ -84,6 +85,7 @@ func TestHandleCreateUserAuthorizationDenied(t *testing.T) {
 		&testExecutionRepository{},
 		nil,
 		&testTokenRepository{},
+		&testImageRepository{},
 		&testRunner{},
 		testutil.SilentLogger(),
 		constants.AWS,
@@ -220,6 +222,7 @@ func TestValidateExecutionResourceAccess(t *testing.T) {
 				&testExecutionRepository{},
 				nil,
 				&testTokenRepository{},
+				&testImageRepository{},
 				runner,
 				testutil.SilentLogger(),
 				constants.AWS,
@@ -260,6 +263,7 @@ func TestHandleListUsersWithAuthorization(t *testing.T) {
 		&testExecutionRepository{},
 		nil,
 		&testTokenRepository{},
+		&testImageRepository{},
 		&testRunner{},
 		testutil.SilentLogger(),
 		constants.AWS,
@@ -311,6 +315,7 @@ func TestHandleRunCommandStructure(t *testing.T) {
 		executionRepo,
 		nil,
 		&testTokenRepository{},
+		&testImageRepository{},
 		runner,
 		testutil.SilentLogger(),
 		constants.AWS,
@@ -562,6 +567,7 @@ func TestListEndpointAuthorization(t *testing.T) {
 				&testExecutionRepository{},
 				nil,
 				&testTokenRepository{},
+				&testImageRepository{},
 				&testRunner{},
 				testutil.SilentLogger(),
 				constants.AWS,
@@ -662,6 +668,7 @@ func TestResourceSpecificEndpointAuthorization(t *testing.T) {
 				&testExecutionRepository{},
 				nil,
 				&testTokenRepository{},
+				&testImageRepository{},
 				&testRunner{},
 				testutil.SilentLogger(),
 				constants.AWS,
@@ -743,4 +750,8 @@ func (t *testUserRepositoryWithRoles) ListUsers(_ context.Context) ([]*api.User,
 			Revoked:   false,
 		},
 	}, nil
+}
+
+func (t *testUserRepositoryWithRoles) GetUsersByRequestID(_ context.Context, _ string) ([]*api.User, error) {
+	return []*api.User{}, nil
 }

@@ -57,6 +57,7 @@ func Initialize(
 			awsDeps.ExecutionRepo,
 			awsDeps.ConnectionRepo,
 			awsDeps.TokenRepo,
+			awsDeps.ImageRepo,
 			awsDeps.Runner,
 			logger,
 			cfg.BackendProvider,

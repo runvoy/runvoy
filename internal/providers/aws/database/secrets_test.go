@@ -100,6 +100,16 @@ func (m *mockMetadataRepository) SecretExists(_ context.Context, name string) (b
 	return exists, nil
 }
 
+func (m *mockMetadataRepository) GetSecretsByRequestID(_ context.Context, _ string) ([]*api.Secret, error) {
+	// Return all secrets for testing purposes
+	list := make([]*api.Secret, 0, len(m.secrets))
+	for _, s := range m.secrets {
+		secretCopy := *s
+		list = append(list, &secretCopy)
+	}
+	return list, nil
+}
+
 // mockValueStore is a mock implementation of the ValueStore interface
 type mockValueStore struct {
 	values      map[string]string

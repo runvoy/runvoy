@@ -126,14 +126,16 @@ func (s *Service) CreateUser(
 	secretToken, err := s.createPendingClaim(ctx, apiKey, req.Email, createdByEmail, expiresAt)
 	if err != nil {
 		if removeErr := s.removeRoleForUserFromEnforcer(req.Email, req.Role); removeErr != nil {
-			s.Logger.Error("failed to remove user role after pending claim failure", "context", map[string]string{
+			reqLogger := logger.DeriveRequestLogger(ctx, s.Logger)
+			reqLogger.Error("failed to remove user role after pending claim failure", "context", map[string]string{
 				"user":  req.Email,
 				"role":  req.Role,
 				"error": removeErr.Error(),
 			})
 		}
 		if revokeErr := s.userRepo.RevokeUser(ctx, req.Email); revokeErr != nil {
-			s.Logger.Error("failed to revoke user after pending claim failure", "context", map[string]string{
+			reqLogger := logger.DeriveRequestLogger(ctx, s.Logger)
+			reqLogger.Error("failed to revoke user after pending claim failure", "context", map[string]string{
 				"user":  req.Email,
 				"error": revokeErr.Error(),
 			})
@@ -182,7 +184,8 @@ func (s *Service) ClaimAPIKey(
 	// Remove expiration from user record (make user permanent)
 	if removeErr := s.userRepo.RemoveExpiration(ctx, pending.UserEmail); removeErr != nil {
 		// Log error but don't fail the claim - user already exists and can authenticate
-		s.Logger.Error("failed to remove expiration from user record", "error", removeErr, "email", pending.UserEmail)
+		reqLogger := logger.DeriveRequestLogger(ctx, s.Logger)
+		reqLogger.Error("failed to remove expiration from user record", "error", removeErr, "email", pending.UserEmail)
 	}
 
 	return &api.ClaimAPIKeyResponse{
@@ -252,7 +255,8 @@ func (s *Service) RevokeUser(ctx context.Context, email string) error {
 	if revokeErr := s.userRepo.RevokeUser(ctx, email); revokeErr != nil {
 		// Attempt to restore the role to avoid leaving the enforcer without the user mapping.
 		if restoreErr := s.addRoleForUserToEnforcer(email, user.Role); restoreErr != nil {
-			s.Logger.Error("failed to restore user role after revoke failure", "context", map[string]string{
+			reqLogger := logger.DeriveRequestLogger(ctx, s.Logger)
+			reqLogger.Error("failed to restore user role after revoke failure", "context", map[string]string{
 				"user":          email,
 				"restore_error": restoreErr.Error(),
 				"revoke_error":  revokeErr.Error(),
@@ -282,7 +286,8 @@ func (s *Service) ListUsers(ctx context.Context) (*api.ListUsersResponse, error)
 func (s *Service) syncUserRoleAfterCreate(ctx context.Context, email, role string) error {
 	if err := s.addRoleForUserToEnforcer(email, role); err != nil {
 		if revokeErr := s.userRepo.RevokeUser(ctx, email); revokeErr != nil {
-			s.Logger.Error("failed to revoke user after enforcer sync failure", "context", map[string]string{
+			reqLogger := logger.DeriveRequestLogger(ctx, s.Logger)
+			reqLogger.Error("failed to revoke user after enforcer sync failure", "context", map[string]string{
 				"user":  email,
 				"error": revokeErr.Error(),
 			})

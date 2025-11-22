@@ -69,6 +69,7 @@ type Service struct {
 	executionRepo database.ExecutionRepository
 	connRepo      database.ConnectionRepository
 	tokenRepo     database.TokenRepository
+	imageRepo     database.ImageRepository
 	runner        Runner
 	Logger        *slog.Logger
 	Provider      constants.BackendProvider
@@ -85,6 +86,7 @@ type Service struct {
 // Core repositories (userRepo, executionRepo) and enforcer are required for initialization and must be non-nil.
 // If wsManager is nil, WebSocket URL generation will be skipped.
 // If secretsRepo is nil, secrets operations will not be available.
+// If imageRepo is nil, image-by-request-ID queries will not be available.
 // If healthManager is nil, health reconciliation will not be available.
 func NewService(
 	ctx context.Context,
@@ -92,6 +94,7 @@ func NewService(
 	executionRepo database.ExecutionRepository,
 	connRepo database.ConnectionRepository,
 	tokenRepo database.TokenRepository,
+	imageRepo database.ImageRepository,
 	runner Runner,
 	log *slog.Logger,
 	provider constants.BackendProvider,
@@ -104,6 +107,7 @@ func NewService(
 		executionRepo: executionRepo,
 		connRepo:      connRepo,
 		tokenRepo:     tokenRepo,
+		imageRepo:     imageRepo,
 		runner:        runner,
 		Logger:        log,
 		Provider:      provider,

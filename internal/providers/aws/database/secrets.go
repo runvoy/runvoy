@@ -22,6 +22,7 @@ type MetadataRepository interface {
 	UpdateSecretMetadata(ctx context.Context, name, keyName, description, updatedBy string) error
 	DeleteSecret(ctx context.Context, name string) error
 	SecretExists(ctx context.Context, name string) (bool, error)
+	GetSecretsByRequestID(ctx context.Context, requestID string) ([]*api.Secret, error)
 }
 
 // SecretsRepository implements database.SecretsRepository for AWS.
@@ -191,4 +192,9 @@ func (sr *SecretsRepository) DeleteSecret(ctx context.Context, name string) erro
 	}
 
 	return nil
+}
+
+// GetSecretsByRequestID retrieves all secrets created or modified by a specific request ID.
+func (sr *SecretsRepository) GetSecretsByRequestID(ctx context.Context, requestID string) ([]*api.Secret, error) {
+	return sr.metadataRepo.GetSecretsByRequestID(ctx, requestID)
 }
