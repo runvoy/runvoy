@@ -6,9 +6,7 @@ import (
 	"log/slog"
 
 	"runvoy/internal/auth/authorization"
-	"runvoy/internal/backend/health"
-	"runvoy/internal/backend/orchestrator/contract"
-	"runvoy/internal/backend/websocket"
+	"runvoy/internal/backend/contract"
 	"runvoy/internal/constants"
 	"runvoy/internal/database"
 )
@@ -22,9 +20,9 @@ type Service struct {
 	observabilityManager contract.ObservabilityManager
 	Logger               *slog.Logger
 	Provider             constants.BackendProvider
-	wsManager            websocket.Manager       // WebSocket manager for generating URLs and managing connections
-	healthManager        health.Manager          // Health manager for resource reconciliation
-	enforcer             *authorization.Enforcer // Enforcer for authorization
+	wsManager            contract.WebSocketManager // WebSocket manager for generating URLs and managing connections
+	healthManager        contract.HealthManager    // Health manager for resource reconciliation
+	enforcer             *authorization.Enforcer   // Enforcer for authorization
 }
 
 // NOTE: provider-specific configuration has been moved to sub packages (e.g., providers/aws/app).
@@ -45,8 +43,8 @@ func NewService(
 	observabilityManager contract.ObservabilityManager,
 	log *slog.Logger,
 	provider constants.BackendProvider,
-	wsManager websocket.Manager,
-	healthManager health.Manager,
+	wsManager contract.WebSocketManager,
+	healthManager contract.HealthManager,
 	enforcer *authorization.Enforcer) (*Service, error) {
 	svc := &Service{
 		repos:                *repos,

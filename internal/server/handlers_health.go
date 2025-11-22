@@ -5,7 +5,7 @@ import (
 	"net/http"
 
 	"runvoy/internal/api"
-	"runvoy/internal/backend/health"
+	"runvoy/internal/backend/contract"
 	"runvoy/internal/constants"
 )
 
@@ -42,8 +42,8 @@ func (r *Router) handleReconcileHealth(w http.ResponseWriter, req *http.Request)
 	}
 
 	response := struct {
-		Status string         `json:"status"`
-		Report *health.Report `json:"report"`
+		Status string                 `json:"status"`
+		Report *contract.HealthReport `json:"report"`
 	}{
 		Status: "ok",
 		Report: report,

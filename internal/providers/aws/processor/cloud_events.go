@@ -6,8 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 
-	"runvoy/internal/backend/health"
-	"runvoy/internal/backend/websocket"
+	"runvoy/internal/backend/contract"
 	"runvoy/internal/database"
 	"runvoy/internal/logger"
 
@@ -18,16 +17,16 @@ import (
 // It handles CloudWatch events, CloudWatch Logs, API Gateway WebSocket events, and scheduled events.
 type Processor struct {
 	executionRepo    database.ExecutionRepository
-	webSocketManager websocket.Manager
-	healthManager    health.Manager
+	webSocketManager contract.WebSocketManager
+	healthManager    contract.HealthManager
 	logger           *slog.Logger
 }
 
 // NewProcessor creates a new AWS event processor.
 func NewProcessor(
 	executionRepo database.ExecutionRepository,
-	webSocketManager websocket.Manager,
-	healthManager health.Manager,
+	webSocketManager contract.WebSocketManager,
+	healthManager contract.HealthManager,
 	log *slog.Logger,
 ) *Processor {
 	return &Processor{

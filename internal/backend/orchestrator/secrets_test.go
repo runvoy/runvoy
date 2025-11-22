@@ -7,7 +7,7 @@ import (
 
 	"runvoy/internal/api"
 	"runvoy/internal/auth/authorization"
-	"runvoy/internal/backend/orchestrator/contract"
+	"runvoy/internal/backend/contract"
 	"runvoy/internal/constants"
 	"runvoy/internal/database"
 	appErrors "runvoy/internal/errors"

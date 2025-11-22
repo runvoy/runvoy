@@ -10,9 +10,7 @@ import (
 
 	"runvoy/internal/api"
 	"runvoy/internal/auth/authorization"
-	"runvoy/internal/backend/health"
-	"runvoy/internal/backend/orchestrator/contract"
-	"runvoy/internal/backend/websocket"
+	"runvoy/internal/backend/contract"
 	"runvoy/internal/constants"
 	"runvoy/internal/database"
 	appErrors "runvoy/internal/errors"
@@ -357,8 +355,8 @@ func (m *minimalWebSocketManager) SendLogsToExecution(
 
 type minimalHealthManager struct{}
 
-func (m *minimalHealthManager) Reconcile(_ context.Context) (*health.Report, error) {
-	return &health.Report{}, nil
+func (m *minimalHealthManager) Reconcile(_ context.Context) (*contract.HealthReport, error) {
+	return &contract.HealthReport{}, nil
 }
 
 // newTraceTestService creates a Service for trace testing with minimal mocks.
@@ -432,8 +430,8 @@ type traceTestServiceConfig struct {
 	tokenRepo     database.TokenRepository
 	imageRepo     database.ImageRepository
 	secretsRepo   database.SecretsRepository
-	wsManager     websocket.Manager
-	healthManager health.Manager
+	wsManager     contract.WebSocketManager
+	healthManager contract.HealthManager
 }
 
 type traceTestServiceOption func(*traceTestServiceConfig)

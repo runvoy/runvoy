@@ -8,8 +8,7 @@ import (
 
 	"runvoy/internal/api"
 	"runvoy/internal/auth/authorization"
-	"runvoy/internal/backend/orchestrator/contract"
-	"runvoy/internal/backend/websocket"
+	"runvoy/internal/backend/contract"
 	"runvoy/internal/constants"
 	"runvoy/internal/database"
 	"runvoy/internal/testutil"
@@ -595,7 +594,7 @@ func newTestServiceWithWebSocketManager(
 	userRepo *mockUserRepository,
 	execRepo *mockExecutionRepository,
 	runner *mockRunner,
-	wsManager websocket.Manager,
+	wsManager contract.WebSocketManager,
 ) *Service {
 	logger := testutil.SilentLogger()
 
@@ -641,7 +640,7 @@ func newTestServiceWithWebSocketManager(
 	return svc
 }
 
-// mockWebSocketManager implements websocket.Manager for testing
+// mockWebSocketManager implements contract.WebSocketManager for testing
 type mockWebSocketManager struct {
 	generateWebSocketURLFunc func(
 		ctx context.Context,

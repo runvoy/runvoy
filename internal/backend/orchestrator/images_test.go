@@ -8,8 +8,7 @@ import (
 
 	"runvoy/internal/api"
 	"runvoy/internal/auth/authorization"
-	"runvoy/internal/backend/health"
-	"runvoy/internal/backend/orchestrator/contract"
+	"runvoy/internal/backend/contract"
 	"runvoy/internal/constants"
 	"runvoy/internal/database"
 	apperrors "runvoy/internal/errors"
@@ -62,11 +61,11 @@ func newImageTestService(t *testing.T, runner *mockRunner) *Service {
 	return svc
 }
 
-// mockHealthManager implements health.Manager for testing
+// mockHealthManager implements contract.HealthManager for testing
 type mockHealthManager struct{}
 
-func (m *mockHealthManager) Reconcile(_ context.Context) (*health.Report, error) {
-	return &health.Report{}, nil
+func (m *mockHealthManager) Reconcile(_ context.Context) (*contract.HealthReport, error) {
+	return &contract.HealthReport{}, nil
 }
 
 func TestGetImage_Success(t *testing.T) {

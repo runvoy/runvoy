@@ -12,10 +12,8 @@ import (
 
 	"runvoy/internal/api"
 	"runvoy/internal/auth/authorization"
-	"runvoy/internal/backend/health"
+	"runvoy/internal/backend/contract"
 	"runvoy/internal/backend/orchestrator"
-	"runvoy/internal/backend/orchestrator/contract"
-	"runvoy/internal/backend/websocket"
 	"runvoy/internal/constants"
 	"runvoy/internal/database"
 	apperrors "runvoy/internal/errors"
@@ -252,8 +250,8 @@ func (t *testImageRepository) GetImagesByRequestID(_ context.Context, _ string) 
 
 type testHealthManager struct{}
 
-func (t *testHealthManager) Reconcile(_ context.Context) (*health.Report, error) {
-	return &health.Report{}, nil
+func (t *testHealthManager) Reconcile(_ context.Context) (*contract.HealthReport, error) {
+	return &contract.HealthReport{}, nil
 }
 
 type testRunner struct {
@@ -345,9 +343,9 @@ func newTestOrchestratorService(
 	execRepo *testExecutionRepository,
 	connRepo database.ConnectionRepository, //nolint:unparam // kept for API consistency
 	runner *testRunner,
-	wsManager websocket.Manager, //nolint:unparam // kept for API consistency
+	wsManager contract.WebSocketManager, //nolint:unparam // kept for API consistency
 	secretsRepo database.SecretsRepository, //nolint:unparam // kept for API consistency
-	healthManager health.Manager,
+	healthManager contract.HealthManager,
 ) *orchestrator.Service {
 	if userRepo == nil {
 		userRepo = &testUserRepository{}

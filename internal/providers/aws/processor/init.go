@@ -6,7 +6,7 @@ import (
 	"log/slog"
 
 	"runvoy/internal/auth/authorization"
-	"runvoy/internal/backend/health"
+	"runvoy/internal/backend/contract"
 	"runvoy/internal/config"
 	"runvoy/internal/constants"
 	"runvoy/internal/database"
@@ -101,7 +101,7 @@ func initializeHealthManager(
 	enforcer *authorization.Enforcer,
 	cfg *config.Config,
 	log *slog.Logger,
-) health.Manager {
+) contract.HealthManager {
 	healthCfg := &awsHealth.Config{
 		Region:                 cfg.AWS.SDKConfig.Region,
 		AccountID:              accountID,

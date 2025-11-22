@@ -5,11 +5,11 @@ package orchestrator
 import (
 	"context"
 
-	"runvoy/internal/backend/health"
+	"runvoy/internal/backend/contract"
 )
 
 // ReconcileResources performs health reconciliation for all resources.
 // This method allows synchronous execution via API.
-func (s *Service) ReconcileResources(ctx context.Context) (*health.Report, error) {
+func (s *Service) ReconcileResources(ctx context.Context) (*contract.HealthReport, error) {
 	return s.healthManager.Reconcile(ctx)
 }

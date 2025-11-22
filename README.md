@@ -102,7 +102,7 @@ Line  Timestamp (UTC)      Message
 - 🔗 **Automatic Git cloning** — Clone private Git repos directly into container working directory ([Build Caddy example](.runvoy/build-caddy-example.yml))
 - 🔧 **Unix-style output streams** — Separate CLI logs (stderr) from data (stdout) for easy piping and scripting
 - 🏗️ **IaC deployment** — Deploy complete backend infrastructure with CloudFormation (multi-cloud support coming)
-- 📦 **Single binary** — Download one ~6MB binary and run it. No dependencies, no installation hassle.
+- 📦 **Single binary** — Download one ~6MB compressed binary, unzip it and run it. No dependencies, no installation hassle. Available for Linux, macOS and Windows.
 
 ### 🚧 Roadmap
 
@@ -184,7 +184,7 @@ runvoy --help
 ```
 
 ```text
-runvoy - v0.2.0-20251122-675329a
+runvoy - v0.2.0-20251122-25a52f6
 Isolated, repeatable execution environments for your commands
 
 Usage:

@@ -5,9 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 
-	"runvoy/internal/backend/health"
-	"runvoy/internal/backend/orchestrator/contract"
-	"runvoy/internal/backend/websocket"
+	"runvoy/internal/backend/contract"
 	"runvoy/internal/config"
 	"runvoy/internal/database"
 	"runvoy/internal/logger"
@@ -37,9 +35,9 @@ type Dependencies struct {
 	ImageRegistry        contract.ImageRegistry
 	LogManager           contract.LogManager
 	ObservabilityManager contract.ObservabilityManager
-	WebSocketManager     websocket.Manager
+	WebSocketManager     contract.WebSocketManager
 	SecretsRepo          database.SecretsRepository
-	HealthManager        health.Manager
+	HealthManager        contract.HealthManager
 }
 
 // Initialize prepares AWS service dependencies for the app package.
