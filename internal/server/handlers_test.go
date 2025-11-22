@@ -367,7 +367,10 @@ func newTestOrchestratorService(
 		connRepo,
 		&testTokenRepository{},
 		&testImageRepository{},
-		runner,
+		runner, // TaskExecutor
+		runner, // ImageRegistry
+		runner, // LogAggregator
+		runner, // BackendObservability
 		testutil.SilentLogger(),
 		constants.AWS,
 		wsManager,
@@ -511,7 +514,10 @@ func TestHandleRunCommand_WithImage_ValidatesAuthorization(t *testing.T) {
 		nil,
 		&testTokenRepository{},
 		&testImageRepository{},
-		runner,
+		runner, // TaskExecutor
+		runner, // ImageRegistry
+		runner, // LogAggregator
+		runner, // BackendObservability
 		testutil.SilentLogger(),
 		constants.AWS,
 		nil,
@@ -565,7 +571,10 @@ func TestHandleRunCommand_WithSecrets_ValidatesAuthorization(t *testing.T) {
 		nil,
 		&testTokenRepository{},
 		&testImageRepository{},
-		runner,
+		runner, // TaskExecutor
+		runner, // ImageRegistry
+		runner, // LogAggregator
+		runner, // BackendObservability
 		testutil.SilentLogger(),
 		constants.AWS,
 		nil,
@@ -631,7 +640,10 @@ func TestHandleRunCommand_AllResourcesAuthorized(t *testing.T) {
 		nil,
 		&testTokenRepository{},
 		&testImageRepository{},
-		runner,
+		runner, // TaskExecutor
+		runner, // ImageRegistry
+		runner, // LogAggregator
+		runner, // BackendObservability
 		testutil.SilentLogger(),
 		constants.AWS,
 		nil,

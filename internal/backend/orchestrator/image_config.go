@@ -26,12 +26,15 @@ type ImageConfig struct {
 // Different providers have different granularities and limits:
 // - AWS ECS: CPU in units (256, 512, 1024, etc.), Memory in MB
 // - GCP Cloud Run: CPU in millicores, Memory in MB/GB
-// - Kubernetes: CPU in millicores, Memory in Mi/Gi
+// - Azure Container Instances: CPU cores (0.5, 1, 2, 4), Memory in GB
 type ResourceConfig struct {
-	// CPU in provider-specific units. For AWS ECS: 256, 512, 1024, 2048, 4096
+	// CPU in provider-specific units:
+	// - AWS ECS: 256, 512, 1024, 2048, 4096 (CPU units)
+	// - GCP Cloud Run: 1000, 2000, 4000 (millicores)
+	// - Azure ACI: 1, 2, 4 (CPU cores)
 	CPU *int
 
-	// Memory in MB
+	// Memory in MB (will be converted to provider-specific units)
 	Memory *int
 }
 
@@ -39,9 +42,10 @@ type ResourceConfig struct {
 // Abstracts provider-specific runtime platform specifications.
 type RuntimeConfig struct {
 	// Platform specifies the OS and architecture (e.g., "linux/amd64", "linux/arm64")
+	// All providers support these standard platform strings
 	Platform *string
 
-	// Architecture is deprecated in favor of Platform, but kept for backwards compatibility
+	// Architecture is the CPU architecture (deprecated in favor of Platform)
 	Architecture *string
 }
 
@@ -49,83 +53,14 @@ type RuntimeConfig struct {
 // Different providers handle permissions differently:
 // - AWS: TaskRole (app permissions) and TaskExecutionRole (infrastructure permissions)
 // - GCP: Service Account
-// - Kubernetes: ServiceAccount
+// - Azure: Managed Identity
 type PermissionConfig struct {
 	// TaskRole grants permissions to the running task/container
-	// AWS: IAM role name, GCP: service account email
+	// AWS: IAM role name, GCP: service account email, Azure: managed identity client ID
 	TaskRole *string
 
 	// ExecutionRole grants permissions to infrastructure to start the task
 	// AWS-specific: IAM role for ECS to pull images, write logs, etc.
+	// Not used by GCP or Azure
 	ExecutionRole *string
-}
-
-// ToLegacyParams converts ImageConfig to the legacy RegisterImage parameters
-// for backwards compatibility with existing code.
-func (c *ImageConfig) ToLegacyParams() (
-	image string,
-	isDefault *bool,
-	taskRoleName, taskExecutionRoleName *string,
-	cpu, memory *int,
-	runtimePlatform *string,
-	createdBy string,
-) {
-	image = c.Image
-	isDefault = c.IsDefault
-	createdBy = c.RegisteredBy
-
-	if c.Resources != nil {
-		cpu = c.Resources.CPU
-		memory = c.Resources.Memory
-	}
-
-	if c.Runtime != nil {
-		runtimePlatform = c.Runtime.Platform
-	}
-
-	if c.Permissions != nil {
-		taskRoleName = c.Permissions.TaskRole
-		taskExecutionRoleName = c.Permissions.ExecutionRole
-	}
-
-	return
-}
-
-// FromLegacyParams creates an ImageConfig from legacy RegisterImage parameters
-// for backwards compatibility.
-func FromLegacyParams(
-	image string,
-	isDefault *bool,
-	taskRoleName, taskExecutionRoleName *string,
-	cpu, memory *int,
-	runtimePlatform *string,
-	createdBy string,
-) *ImageConfig {
-	config := &ImageConfig{
-		Image:        image,
-		IsDefault:    isDefault,
-		RegisteredBy: createdBy,
-	}
-
-	if cpu != nil || memory != nil {
-		config.Resources = &ResourceConfig{
-			CPU:    cpu,
-			Memory: memory,
-		}
-	}
-
-	if runtimePlatform != nil {
-		config.Runtime = &RuntimeConfig{
-			Platform: runtimePlatform,
-		}
-	}
-
-	if taskRoleName != nil || taskExecutionRoleName != nil {
-		config.Permissions = &PermissionConfig{
-			TaskRole:      taskRoleName,
-			ExecutionRole: taskExecutionRoleName,
-		}
-	}
-
-	return config
 }

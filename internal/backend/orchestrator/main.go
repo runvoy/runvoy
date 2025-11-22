@@ -14,7 +14,7 @@ import (
 	"runvoy/internal/database"
 )
 
-// TaskExecutor abstracts provider-specific task execution (e.g., AWS ECS, GCP Cloud Run, Kubernetes).
+// TaskExecutor abstracts provider-specific task execution (e.g., AWS ECS, GCP Cloud Run, Azure Container Instances).
 // This interface handles the core responsibility of running and managing task lifecycles.
 type TaskExecutor interface {
 	// StartTask triggers an execution on the underlying platform and returns
@@ -77,30 +77,23 @@ type BackendObservability interface {
 	FetchBackendLogs(ctx context.Context, requestID string) ([]api.LogEvent, error)
 }
 
-// Runner abstracts provider-specific command execution (e.g., AWS ECS, GCP, etc.).
-// Deprecated: Use TaskExecutor, ImageRegistry, LogAggregator, and BackendObservability instead.
-// This interface will be removed in a future version to better separate concerns.
-type Runner interface {
-	TaskExecutor
-	ImageRegistry
-	LogAggregator
-	BackendObservability
-}
-
 // Service provides the core business logic for command execution and user management.
 type Service struct {
-	userRepo      database.UserRepository
-	executionRepo database.ExecutionRepository
-	connRepo      database.ConnectionRepository
-	tokenRepo     database.TokenRepository
-	imageRepo     database.ImageRepository
-	runner        Runner
-	Logger        *slog.Logger
-	Provider      constants.BackendProvider
-	wsManager     websocket.Manager          // WebSocket manager for generating URLs and managing connections
-	secretsRepo   database.SecretsRepository // Repository for managing secrets
-	healthManager health.Manager             // Health manager for resource reconciliation
-	enforcer      *authorization.Enforcer    // Enforcer for authorization
+	userRepo            database.UserRepository
+	executionRepo       database.ExecutionRepository
+	connRepo            database.ConnectionRepository
+	tokenRepo           database.TokenRepository
+	imageRepo           database.ImageRepository
+	taskExecutor        TaskExecutor
+	imageRegistry       ImageRegistry
+	logAggregator       LogAggregator
+	backendObservability BackendObservability
+	Logger              *slog.Logger
+	Provider            constants.BackendProvider
+	wsManager           websocket.Manager          // WebSocket manager for generating URLs and managing connections
+	secretsRepo         database.SecretsRepository // Repository for managing secrets
+	healthManager       health.Manager             // Health manager for resource reconciliation
+	enforcer            *authorization.Enforcer    // Enforcer for authorization
 }
 
 // NOTE: provider-specific configuration has been moved to sub packages (e.g., providers/aws/app).
@@ -119,7 +112,10 @@ func NewService(
 	connRepo database.ConnectionRepository,
 	tokenRepo database.TokenRepository,
 	imageRepo database.ImageRepository,
-	runner Runner,
+	taskExecutor TaskExecutor,
+	imageRegistry ImageRegistry,
+	logAggregator LogAggregator,
+	backendObservability BackendObservability,
 	log *slog.Logger,
 	provider constants.BackendProvider,
 	wsManager websocket.Manager,
@@ -127,18 +123,35 @@ func NewService(
 	healthManager health.Manager,
 	enforcer *authorization.Enforcer) (*Service, error) {
 	svc := &Service{
-		userRepo:      userRepo,
-		executionRepo: executionRepo,
-		connRepo:      connRepo,
-		tokenRepo:     tokenRepo,
-		imageRepo:     imageRepo,
-		runner:        runner,
-		Logger:        log,
-		Provider:      provider,
-		wsManager:     wsManager,
-		secretsRepo:   secretsRepo,
-		healthManager: healthManager,
-		enforcer:      enforcer,
+		userRepo:            userRepo,
+		executionRepo:       executionRepo,
+		connRepo:            connRepo,
+		tokenRepo:           tokenRepo,
+		imageRepo:           imageRepo,
+		taskExecutor:        taskExecutor,
+		imageRegistry:       imageRegistry,
+		logAggregator:       logAggregator,
+		backendObservability: backendObservability,
+		Logger:              log,
+		Provider:            provider,
+		wsManager:           wsManager,
+		secretsRepo:         secretsRepo,
+		healthManager:       healthManager,
+		enforcer:            enforcer,
+	}
+
+	// For backwards compatibility with enforcer.Hydrate, create a temporary runner interface
+	// This will be refactored when enforcer is updated to use specific interfaces
+	type runner interface {
+		TaskExecutor
+		ImageRegistry
+	}
+	tempRunner := struct {
+		TaskExecutor
+		ImageRegistry
+	}{
+		TaskExecutor:  taskExecutor,
+		ImageRegistry: imageRegistry,
 	}
 
 	if err := enforcer.Hydrate(
@@ -146,7 +159,7 @@ func NewService(
 		userRepo,
 		executionRepo,
 		secretsRepo,
-		runner,
+		tempRunner,
 	); err != nil {
 		return nil, fmt.Errorf("failed to hydrate enforcer: %w", err)
 	}
@@ -163,25 +176,21 @@ func (s *Service) GetEnforcer() *authorization.Enforcer {
 }
 
 // TaskExecutor returns the task execution interface.
-// Use this instead of accessing runner directly to prepare for future interface separation.
 func (s *Service) TaskExecutor() TaskExecutor {
-	return s.runner
+	return s.taskExecutor
 }
 
 // ImageRegistry returns the image management interface.
-// Use this instead of accessing runner directly to prepare for future interface separation.
 func (s *Service) ImageRegistry() ImageRegistry {
-	return s.runner
+	return s.imageRegistry
 }
 
 // LogAggregator returns the log aggregation interface.
-// Use this instead of accessing runner directly to prepare for future interface separation.
 func (s *Service) LogAggregator() LogAggregator {
-	return s.runner
+	return s.logAggregator
 }
 
 // BackendObservability returns the backend observability interface.
-// Use this instead of accessing runner directly to prepare for future interface separation.
 func (s *Service) BackendObservability() BackendObservability {
-	return s.runner
+	return s.backendObservability
 }

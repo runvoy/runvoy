@@ -1,19 +1,19 @@
-# Runner Interface Refactoring Migration Guide
+# Runner Interface Refactoring Guide
 
 ## Overview
 
-The `Runner` interface has been refactored to separate concerns into focused, cohesive interfaces:
+The orchestrator now uses four focused interfaces instead of a monolithic Runner interface:
 
 - **TaskExecutor**: Task lifecycle management
 - **ImageRegistry**: Image registration and configuration
 - **LogAggregator**: Execution log retrieval
 - **BackendObservability**: Infrastructure log retrieval
 
-The original `Runner` interface remains for backwards compatibility but is marked as deprecated.
+This separation improves testability, enables multi-provider support (GCP Cloud Run, Azure Container Instances), and reduces coupling between concerns.
 
-## Changes Summary
+## Architecture
 
-### New Interfaces (internal/backend/orchestrator/main.go)
+### Focused Interfaces (internal/backend/orchestrator/main.go)
 
 ```go
 // Core task execution
@@ -40,17 +40,31 @@ type LogAggregator interface {
 type BackendObservability interface {
     FetchBackendLogs(ctx, requestID) ([]LogEvent, error)
 }
+```
 
-// Deprecated: Use specific interfaces above
-type Runner interface {
-    TaskExecutor
-    ImageRegistry
-    LogAggregator
-    BackendObservability
+### Service Structure
+
+The `orchestrator.Service` now holds separate interface fields:
+
+```go
+type Service struct {
+    taskExecutor        TaskExecutor
+    imageRegistry       ImageRegistry
+    logAggregator       LogAggregator
+    backendObservability BackendObservability
+    // ... other fields
 }
 ```
 
-### New Configuration Types (internal/backend/orchestrator/image_config.go)
+Access via methods:
+```go
+service.TaskExecutor().StartTask(...)
+service.ImageRegistry().ListImages(...)
+service.LogAggregator().FetchLogsByExecutionID(...)
+service.BackendObservability().FetchBackendLogs(...)
+```
+
+### Provider-Agnostic Configuration (internal/backend/orchestrator/image_config.go)
 
 ```go
 type ImageConfig struct {
@@ -63,153 +77,208 @@ type ImageConfig struct {
 }
 
 type ResourceConfig struct {
-    CPU    *int  // Provider-specific units
-    Memory *int  // MB
+    CPU    *int  // Provider-specific units (see docs)
+    Memory *int  // MB (converted to provider units)
 }
 
 type RuntimeConfig struct {
-    Platform     *string  // "linux/amd64", "linux/arm64"
-    Architecture *string  // Deprecated, use Platform
+    Platform *string  // "linux/amd64", "linux/arm64"
 }
 
 type PermissionConfig struct {
     TaskRole      *string  // App permissions
-    ExecutionRole *string  // Infrastructure permissions (AWS-specific)
+    ExecutionRole *string  // Infrastructure permissions (AWS-only)
 }
 ```
 
-Helper functions for backwards compatibility:
-- `ImageConfig.ToLegacyParams()` - Convert to old RegisterImage parameters
-- `FromLegacyParams()` - Create ImageConfig from old parameters
+## Multi-Provider Support
 
-### Service Updates
+### CPU/Memory Mapping
 
-Added accessor methods to orchestrator.Service:
+Each provider interprets resource values differently:
 
-```go
-func (s *Service) TaskExecutor() TaskExecutor
-func (s *Service) ImageRegistry() ImageRegistry
-func (s *Service) LogAggregator() LogAggregator
-func (s *Service) BackendObservability() BackendObservability
-```
+| Provider | CPU Unit | CPU Example | Memory Unit | Memory Example |
+|----------|----------|-------------|-------------|----------------|
+| AWS ECS | ECS units | 256, 512, 1024, 2048 | MB | 512, 1024, 2048 |
+| GCP Cloud Run | Millicores | 1000, 2000, 4000 | MB/GB | 512, 1024, 2048 |
+| Azure ACI | Cores | 1, 2, 4 | GB | 0.5, 1, 2, 4 |
 
-## Migration Paths
+### Permission Mapping
 
-### Option 1: No Changes (Recommended for now)
+| Provider | TaskRole | ExecutionRole |
+|----------|----------|---------------|
+| AWS ECS | IAM role name | IAM execution role |
+| GCP Cloud Run | Service account email | (not used) |
+| Azure ACI | Managed identity client ID | (not used) |
 
-Continue using the `Runner` interface as-is. All existing code continues to work.
+## Implementation Examples
 
-```go
-// Existing code - no changes needed
-executionID, createdAt, err := service.runner.StartTask(ctx, userEmail, req)
-```
-
-### Option 2: Gradual Migration
-
-Update new code to use specific interfaces through Service accessor methods:
+### AWS ECS Implementation
 
 ```go
-// New code - use specific interfaces
-executionID, createdAt, err := service.TaskExecutor().StartTask(ctx, userEmail, req)
-
-images, err := service.ImageRegistry().ListImages(ctx)
-
-logs, err := service.LogAggregator().FetchLogsByExecutionID(ctx, execID)
-
-backendLogs, err := service.BackendObservability().FetchBackendLogs(ctx, reqID)
-```
-
-### Option 3: Use ImageConfig (Future)
-
-For image registration, eventually migrate to using ImageConfig:
-
-```go
-// Current approach (still works)
-err := service.runner.RegisterImage(ctx, image, &isDefault,
-    &taskRole, &execRole, &cpu, &memory, &platform, createdBy)
-
-// Future approach (not yet implemented in API layer)
-config := &orchestrator.ImageConfig{
-    Image: image,
-    IsDefault: &isDefault,
-    Resources: &orchestrator.ResourceConfig{
-        CPU:    &cpu,
-        Memory: &memory,
-    },
-    Runtime: &orchestrator.RuntimeConfig{
-        Platform: &platform,
-    },
-    Permissions: &orchestrator.PermissionConfig{
-        TaskRole:      &taskRole,
-        ExecutionRole: &execRole,
-    },
-    RegisteredBy: createdBy,
+// internal/providers/aws/orchestrator/runner.go
+type Runner struct {
+    ecsClient awsClient.ECSClient
+    cwlClient awsClient.CloudWatchLogsClient
+    iamClient awsClient.IAMClient
+    imageRepo ImageTaskDefRepository
+    cfg       *Config
+    logger    *slog.Logger
 }
-err := service.ImageRegistry().RegisterImageWithConfig(ctx, config)
+
+// Implements TaskExecutor
+func (r *Runner) StartTask(...) (string, *time.Time, error) { ... }
+func (r *Runner) KillTask(...) error { ... }
+
+// Implements ImageRegistry
+func (r *Runner) RegisterImage(...) error { ... }
+func (r *Runner) ListImages(...) ([]api.ImageInfo, error) { ... }
+func (r *Runner) GetImage(...) (*api.ImageInfo, error) { ... }
+func (r *Runner) RemoveImage(...) error { ... }
+
+// Implements LogAggregator
+func (r *Runner) FetchLogsByExecutionID(...) ([]api.LogEvent, error) { ... }
+
+// Implements BackendObservability
+func (r *Runner) FetchBackendLogs(...) ([]api.LogEvent, error) { ... }
+```
+
+### Future GCP Cloud Run Implementation
+
+```go
+// internal/providers/gcp/orchestrator/runner.go
+type CloudRunExecutor struct {
+    client     *run.ServicesClient
+    logger     *slog.Logger
+    projectID  string
+    region     string
+}
+
+func (e *CloudRunExecutor) StartTask(...) (string, *time.Time, error) {
+    // Create Cloud Run Job execution
+    // Map ExecutionRequest to Cloud Run Job spec
+    // Return execution ID from Cloud Run
+}
+
+func (e *CloudRunExecutor) KillTask(...) error {
+    // Cancel running Cloud Run Job execution
+}
+```
+
+### Future Azure Container Instances Implementation
+
+```go
+// internal/providers/azure/orchestrator/executor.go
+type ACIExecutor struct {
+    client         *armcontainerinstance.ContainerGroupsClient
+    logger         *slog.Logger
+    subscriptionID string
+    resourceGroup  string
+}
+
+func (e *ACIExecutor) StartTask(...) (string, *time.Time, error) {
+    // Create Container Group
+    // Map ExecutionRequest to ACI Container spec
+    // Return container group name as execution ID
+}
+
+func (e *ACIExecutor) KillTask(...) error {
+    // Delete Container Group
+}
 ```
 
 ## Benefits
 
-### Testability
+### 1. Testability
 Mock only what you need:
-```go
-// Before: Must mock entire Runner interface (9 methods)
-type mockRunner struct { ... }
 
-// After: Mock only what you need
-type mockTaskExecutor struct { ... }  // 2 methods
-type mockImageRegistry struct { ... } // 4 methods
+```go
+// Before: Must mock entire Runner (9 methods)
+// After: Mock only TaskExecutor (2 methods)
+type mockTaskExecutor struct {
+    startTaskFunc func(context.Context, string, *api.ExecutionRequest) (string, *time.Time, error)
+    killTaskFunc  func(context.Context, string) error
+}
+
+func (m *mockTaskExecutor) StartTask(ctx context.Context, email string, req *api.ExecutionRequest) (string, *time.Time, error) {
+    return m.startTaskFunc(ctx, email, req)
+}
+
+func (m *mockTaskExecutor) KillTask(ctx context.Context, execID string) error {
+    return m.killTaskFunc(ctx, execID)
+}
 ```
 
-### Separation of Concerns
-- Task execution is independent of image management
-- Log aggregation is separate from task execution
-- Backend observability is isolated from user-facing operations
+### 2. Independent Interface Evolution
 
-### Future Provider Support
-Each interface can have different implementations:
+Each interface can evolve independently:
+
 ```go
-// AWS implementations
-awsExecutor := aws.NewTaskExecutor(...)
-awsRegistry := aws.NewImageRegistry(...)
+// Add streaming logs without touching TaskExecutor
+type LogAggregator interface {
+    FetchLogsByExecutionID(ctx, executionID) ([]LogEvent, error)
+    StreamLogs(ctx, executionID) (<-chan LogEvent, error) // NEW
+}
+```
 
-// GCP implementations (future)
-gcpExecutor := gcp.NewCloudRunExecutor(...)
-gcpRegistry := gcp.NewImageRegistry(...)
+### 3. Mix-and-Match Providers
 
-// Mix and match
+Use different providers for different concerns:
+
+```go
 service := orchestrator.NewService(
-    taskExecutor: gcpExecutor,
-    imageRegistry: awsRegistry,  // Still use AWS for image storage
+    taskExecutor:        gcpExecutor,        // Run tasks on GCP
+    imageRegistry:       awsImageRegistry,   // Store images in AWS
+    logAggregator:       gcpLogAggregator,   // Fetch logs from GCP
+    backendObservability: awsObservability,  // Monitor AWS backend
     ...
 )
 ```
 
+### 4. Clear Separation of Concerns
+
+- **Execution** is independent of **image management**
+- **User logs** are separate from **infrastructure logs**
+- Each component has a single, well-defined responsibility
+
 ## Testing
 
-Run the test suite to ensure compatibility:
+Run the test suite to verify changes:
 
 ```bash
-# Test orchestrator interfaces
+# Run all checks (linting, formatting, tests)
+just check
+
+# Test specific packages
 go test ./internal/backend/orchestrator/... -v
-
-# Test AWS implementation
 go test ./internal/providers/aws/orchestrator/... -v
-
-# Test ImageConfig conversions
-go test ./internal/backend/orchestrator/ -run TestImageConfig -v
 ```
 
-## Timeline
+## Migration from Previous Code
 
-- **Phase 1 (Current)**: New interfaces available, old Runner interface deprecated but functional
-- **Phase 2**: Update API handlers to use specific interfaces via Service accessors
-- **Phase 3**: Introduce ImageConfig-based API (optional parameter in RegisterImage)
-- **Phase 4**: Remove deprecated Runner interface (breaking change, major version bump)
+If migrating from code that used the old unified Runner interface:
 
-## Questions?
+1. **Update imports**: Ensure you're importing the correct orchestrator package
+2. **Use Service accessors**: Call `service.TaskExecutor()`, `service.ImageRegistry()`, etc.
+3. **Update constructors**: `NewService` now takes 4 separate interface parameters
 
-For questions or issues with migration, please:
-1. Check the Runner Interface Analysis document
-2. Review test examples in `internal/backend/orchestrator/image_config_test.go`
-3. Consult the AWS implementation in `internal/providers/aws/orchestrator/runner.go`
+Example:
+
+```go
+// Before
+runner := aws.NewRunner(...)
+service := orchestrator.NewService(..., runner, ...)
+
+// After
+awsRunner := aws.NewRunner(...)
+service := orchestrator.NewService(
+    ...,
+    awsRunner, // TaskExecutor
+    awsRunner, // ImageRegistry
+    awsRunner, // LogAggregator
+    awsRunner, // BackendObservability
+    ...
+)
+```
+
+The AWS Runner implements all four interfaces, so you pass the same instance four times until you implement separate providers.
