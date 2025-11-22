@@ -96,7 +96,8 @@ export default [
     rules: {
       'svelte/valid-compile': 'error',
       'svelte/no-at-debug-tags': 'warn',
-      'svelte/no-at-html-tags': 'warn'
+      'svelte/no-at-html-tags': 'warn',
+      'svelte/no-navigation-without-resolve': 'off' // Using static adapter with SPA mode, no base path needed
     }
   },
   {
