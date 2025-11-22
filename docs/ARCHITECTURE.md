@@ -13,6 +13,81 @@ runvoy is a centralized execution runner that allows teams to run infrastructure
 5. **Self-Service**: Team members don't wait for admins to run commands
 6. **Extensible Authorization**: Architecture supports fine-grained permissions (to be added later)
 
+## High-Level Architecture
+
+The following diagram shows the major components and their interactions:
+
+```mermaid
+graph TB
+    subgraph "Clients"
+        CLI[CLI Client]
+        WebApp[Web Viewer]
+    end
+
+    subgraph "AWS Infrastructure"
+        subgraph "API Layer"
+            APIGW[API Gateway<br/>Function URL]
+            WSAPI[WebSocket API]
+        end
+
+        subgraph "Lambda Functions"
+            Orchestrator[Orchestrator Lambda<br/>- API Requests<br/>- Task Management]
+            EventProc[Event Processor Lambda<br/>- Task Events<br/>- Log Streaming<br/>- WebSocket Management]
+        end
+
+        subgraph "Compute"
+            ECS[ECS Fargate<br/>- Sidecar Container<br/>- Runner Container]
+        end
+
+        subgraph "Storage"
+            DynamoDB[(DynamoDB<br/>- API Keys<br/>- Executions<br/>- Images<br/>- Secrets Metadata<br/>- WebSocket Connections)]
+            SSM[Parameter Store<br/>- Secret Values]
+            CW[CloudWatch Logs<br/>- Execution Logs]
+        end
+
+        subgraph "Event Routing"
+            EventBridge[EventBridge<br/>- Task Completion<br/>- Health Reconciliation]
+            CWLogs[CloudWatch Logs<br/>Subscription]
+        end
+
+        subgraph "Security"
+            IAM[IAM Roles<br/>- Task Roles<br/>- Execution Roles]
+            KMS[KMS<br/>- Secrets Encryption]
+        end
+    end
+
+    CLI -->|HTTPS + API Key| APIGW
+    WebApp -->|HTTPS + API Key| APIGW
+    CLI -->|WebSocket| WSAPI
+    WebApp -->|WebSocket| WSAPI
+
+    APIGW --> Orchestrator
+    WSAPI --> EventProc
+
+    Orchestrator -->|Read/Write| DynamoDB
+    Orchestrator -->|Start Tasks| ECS
+    Orchestrator -->|Store Secrets| SSM
+
+    ECS -->|Stream Logs| CW
+    ECS -->|Task Completion Event| EventBridge
+    ECS -->|Use| IAM
+
+    EventBridge -->|Invoke| EventProc
+    CW -->|Log Subscription| CWLogs
+    CWLogs -->|Invoke| EventProc
+
+    EventProc -->|Update Status| DynamoDB
+    EventProc -->|Push Logs| WSAPI
+    EventProc -->|Reconcile Resources| ECS
+
+    SSM -->|Encrypted with| KMS
+
+    style Orchestrator fill:#e1f5ff
+    style EventProc fill:#e1f5ff
+    style ECS fill:#ffe1e1
+    style DynamoDB fill:#e1ffe1
+```
+
 ## Folder Structure
 
 ```text
@@ -221,6 +296,46 @@ For fine-grained access control, resources track ownership:
    - User role assignments are pushed to the enforcer when users are created or revoked.
    - Ownership mappings are updated live for both secrets (create/delete) and executions (creation), removing the need to rely on process restarts.
 
+The following diagram illustrates the complete authorization flow:
+
+```mermaid
+flowchart TD
+    Start([Incoming API Request]) --> Auth{Authentication<br/>Middleware}
+    Auth -->|Invalid/Revoked| Unauth[Return 401<br/>UNAUTHORIZED]
+    Auth -->|Valid API Key| LoadUser[Load User Context<br/>from DynamoDB]
+    LoadUser --> Authz{Authorization<br/>Middleware}
+
+    Authz --> MapAction[Map HTTP Method to Action<br/>GET→read, POST→create<br/>PUT→update, DELETE→delete]
+    MapAction --> CasbinCheck{Casbin Enforcer<br/>Check Permission}
+
+    CasbinCheck -->|Check Role| RoleMatch{User has<br/>required role?}
+    CasbinCheck -->|Check Ownership| OwnerMatch{User owns<br/>resource?}
+
+    RoleMatch -->|Yes| Authorized[Authorized]
+    OwnerMatch -->|Yes| Authorized
+    RoleMatch -->|No| CheckOwner{Check<br/>Ownership?}
+    CheckOwner -->|Yes| OwnerMatch
+    CheckOwner -->|No| Forbidden[Return 403<br/>FORBIDDEN]
+    OwnerMatch -->|No| Forbidden
+
+    Authorized --> IsRunEndpoint{Is /api/v1/run<br/>endpoint?}
+    IsRunEndpoint -->|No| Handler[Proceed to Handler]
+    IsRunEndpoint -->|Yes| ValidateResources[Validate Resource Access<br/>- Check image access<br/>- Check secrets access]
+
+    ValidateResources -->|All Accessible| Handler
+    ValidateResources -->|Access Denied| Forbidden
+
+    Handler --> Success[Return 200/201<br/>SUCCESS]
+
+    style Auth fill:#e1f5ff
+    style Authz fill:#e1f5ff
+    style CasbinCheck fill:#ffe1e1
+    style Authorized fill:#e1ffe1
+    style Forbidden fill:#ffe1e1
+    style Unauth fill:#ffe1e1
+    style Success fill:#e1ffe1
+```
+
 #### Casbin Model and Policies
 
 The RBAC model is defined in `internal/auth/authorization/casbin/model.conf` with:
@@ -375,6 +490,85 @@ The application uses a unified logging approach with structured logging via `log
 ```
 
 **Note:** For brevity the diagram omits the API Gateway WebSocket path. In production, CloudWatch Logs invoke the event processor, which relays batched log events to CLI and web viewer clients over the WebSocket API.
+
+### Execution Flow Sequence
+
+The following sequence diagram shows the complete execution lifecycle from command submission to completion:
+
+```mermaid
+sequenceDiagram
+    actor User
+    participant CLI as CLI/WebApp
+    participant APIGW as API Gateway
+    participant Orch as Orchestrator Lambda
+    participant DB as DynamoDB
+    participant ECS as ECS Fargate
+    participant CW as CloudWatch Logs
+    participant EB as EventBridge
+    participant EP as Event Processor
+    participant WS as WebSocket API
+
+    %% Command Execution
+    User->>CLI: Execute command
+    CLI->>APIGW: POST /api/v1/run<br/>(X-API-Key header)
+    APIGW->>Orch: Invoke with request
+
+    %% Authentication & Authorization
+    Orch->>DB: Validate API key
+    DB-->>Orch: User context
+    Orch->>Orch: Check RBAC permissions
+    Orch->>Orch: Validate resource access<br/>(image, secrets)
+
+    %% Task Start
+    Orch->>DB: Create execution record<br/>(status: STARTING)
+    Orch->>ECS: Start Fargate task<br/>(sidecar + runner)
+    ECS-->>Orch: Task ARN + started_at
+    Orch->>DB: Update execution<br/>(task_arn, status: RUNNING)
+    Orch-->>CLI: Execution ID + status
+    CLI-->>User: Display execution ID
+
+    %% WebSocket Connection for Logs
+    CLI->>APIGW: GET /api/v1/executions/{id}/logs
+    APIGW->>Orch: Get logs endpoint
+    Orch->>DB: Create WebSocket token
+    Orch-->>CLI: WebSocket URL + token
+    CLI->>WS: Connect (with token)
+    WS->>EP: $connect event
+    EP->>DB: Store connection<br/>(connection_id, execution_id)
+    WS-->>CLI: Connection established
+
+    %% Task Execution
+    activate ECS
+    ECS->>ECS: Sidecar: git clone,<br/>setup .env
+    ECS->>ECS: Runner: execute command
+    ECS->>CW: Stream logs
+    CW->>EP: CloudWatch Logs subscription
+    EP->>EP: Parse log events
+    EP->>DB: Query connections<br/>for execution_id
+    DB-->>EP: Active connections
+    EP->>WS: Send log events
+    WS-->>CLI: Real-time logs
+    CLI-->>User: Display logs
+
+    %% Task Completion
+    ECS->>ECS: Command completes<br/>(exit code)
+    deactivate ECS
+    ECS->>EB: Task State Change event<br/>(STOPPED)
+    EB->>EP: Invoke with task event
+    EP->>EP: Extract execution_id,<br/>exit_code, timestamps
+    EP->>EP: Determine status<br/>(SUCCEEDED/FAILED/STOPPED)
+    EP->>DB: Update execution<br/>(status, exit_code, duration)
+
+    %% WebSocket Cleanup
+    EP->>DB: Query connections<br/>for execution_id
+    DB-->>EP: Active connections
+    EP->>WS: Send disconnect notification
+    WS-->>CLI: Disconnect message<br/>(execution_completed)
+    CLI->>WS: Close connection
+    WS->>EP: $disconnect event
+    EP->>DB: Delete connection records
+    CLI-->>User: Execution completed<br/>(final status)
+```
 
 ## Event Processor Architecture
 
