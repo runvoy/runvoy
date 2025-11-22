@@ -239,12 +239,42 @@ func (s *Service) FetchTrace(ctx context.Context, requestID string) (*api.TraceR
 		return nil, apperrors.ErrBadRequest("requestID is required", nil)
 	}
 
-	logs, err := s.runner.FetchBackendLogs(ctx, requestID)
-	if err != nil {
-		return nil, err
-	}
+	var (
+		logs      []api.LogEvent
+		resources api.RelatedResources
+		mu        sync.Mutex
+	)
 
-	resources := s.fetchTraceRelatedResources(ctx, requestID)
+	eg, egCtx := errgroup.WithContext(ctx)
+
+	eg.Go(func() error {
+		fetchedLogs, logsErr := s.runner.FetchBackendLogs(egCtx, requestID)
+		if logsErr != nil {
+			s.Logger.Error("failed to fetch backend logs", "context", map[string]any{
+				"request_id": requestID,
+				"error":      logsErr,
+			})
+			return logsErr
+		}
+		mu.Lock()
+		logs = fetchedLogs
+		mu.Unlock()
+		return nil
+	})
+
+	eg.Go(func() error {
+		var resourcesErr error
+		resources, resourcesErr = s.fetchTraceRelatedResources(egCtx, requestID)
+		return resourcesErr
+	})
+
+	if err := eg.Wait(); err != nil {
+		s.Logger.Error("failed to fetch trace", "context", map[string]any{
+			"request_id": requestID,
+			"error":      err,
+		})
+		return nil, apperrors.ErrServiceUnavailable("failed to fetch trace", err)
+	}
 
 	return &api.TraceResponse{
 		Logs:             logs,
@@ -252,7 +282,7 @@ func (s *Service) FetchTrace(ctx context.Context, requestID string) (*api.TraceR
 	}, nil
 }
 
-func (s *Service) fetchTraceRelatedResources(ctx context.Context, requestID string) api.RelatedResources {
+func (s *Service) fetchTraceRelatedResources(ctx context.Context, requestID string) (api.RelatedResources, error) {
 	var (
 		executions []*api.Execution
 		secrets    []*api.Secret
@@ -268,14 +298,16 @@ func (s *Service) fetchTraceRelatedResources(ctx context.Context, requestID stri
 	s.fetchUsersByRequestID(egCtx, eg, requestID, &mu, &users)
 	s.fetchImagesByRequestID(egCtx, eg, requestID, &mu, &images)
 
-	_ = eg.Wait()
+	if err := eg.Wait(); err != nil {
+		return api.RelatedResources{}, err
+	}
 
 	return api.RelatedResources{
 		Executions: executions,
 		Secrets:    secrets,
 		Users:      users,
 		Images:     images,
-	}
+	}, nil
 }
 
 func (s *Service) fetchExecutionsByRequestID(
@@ -285,15 +317,15 @@ func (s *Service) fetchExecutionsByRequestID(
 	mu *sync.Mutex,
 	result *[]*api.Execution,
 ) {
-	if s.executionRepo == nil {
-		return
-	}
-
 	eg.Go(func() error {
 		execs, execErr := s.executionRepo.GetExecutionsByRequestID(ctx, requestID)
 		if execErr != nil {
-			s.Logger.Warn("failed to fetch executions by request ID", "error", execErr, "request_id", requestID)
-			return nil
+			reqLogger := logger.DeriveRequestLogger(ctx, s.Logger)
+			reqLogger.Error("failed to fetch executions by request ID", "context", map[string]any{
+				"request_id": requestID,
+				"error":      execErr,
+			})
+			return execErr
 		}
 		mu.Lock()
 		*result = execs
@@ -309,15 +341,15 @@ func (s *Service) fetchSecretsByRequestID(
 	mu *sync.Mutex,
 	result *[]*api.Secret,
 ) {
-	if s.secretsRepo == nil {
-		return
-	}
-
 	eg.Go(func() error {
 		secs, secErr := s.secretsRepo.GetSecretsByRequestID(ctx, requestID)
 		if secErr != nil {
-			s.Logger.Warn("failed to fetch secrets by request ID", "error", secErr, "request_id", requestID)
-			return nil
+			reqLogger := logger.DeriveRequestLogger(ctx, s.Logger)
+			reqLogger.Error("failed to fetch secrets by request ID", "context", map[string]any{
+				"request_id": requestID,
+				"error":      secErr,
+			})
+			return secErr
 		}
 		mu.Lock()
 		*result = secs
@@ -333,15 +365,15 @@ func (s *Service) fetchUsersByRequestID(
 	mu *sync.Mutex,
 	result *[]*api.User,
 ) {
-	if s.userRepo == nil {
-		return
-	}
-
 	eg.Go(func() error {
 		usrs, userErr := s.userRepo.GetUsersByRequestID(ctx, requestID)
 		if userErr != nil {
-			s.Logger.Warn("failed to fetch users by request ID", "error", userErr, "request_id", requestID)
-			return nil
+			reqLogger := logger.DeriveRequestLogger(ctx, s.Logger)
+			reqLogger.Error("failed to fetch users by request ID", "context", map[string]any{
+				"request_id": requestID,
+				"error":      userErr,
+			})
+			return userErr
 		}
 		mu.Lock()
 		*result = usrs
@@ -357,15 +389,15 @@ func (s *Service) fetchImagesByRequestID(
 	mu *sync.Mutex,
 	result *[]api.ImageInfo,
 ) {
-	if s.imageRepo == nil {
-		return
-	}
-
 	eg.Go(func() error {
 		imgs, imgErr := s.imageRepo.GetImagesByRequestID(ctx, requestID)
 		if imgErr != nil {
-			s.Logger.Warn("failed to fetch images by request ID", "error", imgErr, "request_id", requestID)
-			return nil
+			reqLogger := logger.DeriveRequestLogger(ctx, s.Logger)
+			reqLogger.Error("failed to fetch images by request ID", "context", map[string]any{
+				"request_id": requestID,
+				"error":      imgErr,
+			})
+			return imgErr
 		}
 		mu.Lock()
 		*result = imgs
