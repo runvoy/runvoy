@@ -154,7 +154,7 @@ func (s *Service) recordExecution(
 		)
 	}
 
-	if err := s.executionRepo.CreateExecution(ctx, execution); err != nil {
+	if err := s.repos.Execution.CreateExecution(ctx, execution); err != nil {
 		reqLogger.Error("failed to create execution record, but task has been accepted by the provider",
 			"context", map[string]string{
 				"execution_id": executionID,
@@ -192,7 +192,7 @@ func (s *Service) GetLogsByExecutionID(
 		return nil, apperrors.ErrBadRequest("executionID is required", nil)
 	}
 
-	execution, err := s.executionRepo.GetExecution(ctx, executionID)
+	execution, err := s.repos.Execution.GetExecution(ctx, executionID)
 	if err != nil {
 		return nil, err
 	}
@@ -320,7 +320,7 @@ func (s *Service) fetchExecutionsByRequestID(
 	result *[]*api.Execution,
 ) {
 	eg.Go(func() error {
-		execs, execErr := s.executionRepo.GetExecutionsByRequestID(ctx, requestID)
+		execs, execErr := s.repos.Execution.GetExecutionsByRequestID(ctx, requestID)
 		if execErr != nil {
 			reqLogger := logger.DeriveRequestLogger(ctx, s.Logger)
 			reqLogger.Error("failed to fetch executions by request ID", "context", map[string]any{
@@ -344,7 +344,7 @@ func (s *Service) fetchSecretsByRequestID(
 	result *[]*api.Secret,
 ) {
 	eg.Go(func() error {
-		secs, secErr := s.secretsRepo.GetSecretsByRequestID(ctx, requestID)
+		secs, secErr := s.repos.Secrets.GetSecretsByRequestID(ctx, requestID)
 		if secErr != nil {
 			reqLogger := logger.DeriveRequestLogger(ctx, s.Logger)
 			reqLogger.Error("failed to fetch secrets by request ID", "context", map[string]any{
@@ -368,7 +368,7 @@ func (s *Service) fetchUsersByRequestID(
 	result *[]*api.User,
 ) {
 	eg.Go(func() error {
-		usrs, userErr := s.userRepo.GetUsersByRequestID(ctx, requestID)
+		usrs, userErr := s.repos.User.GetUsersByRequestID(ctx, requestID)
 		if userErr != nil {
 			reqLogger := logger.DeriveRequestLogger(ctx, s.Logger)
 			reqLogger.Error("failed to fetch users by request ID", "context", map[string]any{
@@ -392,7 +392,7 @@ func (s *Service) fetchImagesByRequestID(
 	result *[]api.ImageInfo,
 ) {
 	eg.Go(func() error {
-		imgs, imgErr := s.imageRepo.GetImagesByRequestID(ctx, requestID)
+		imgs, imgErr := s.repos.Image.GetImagesByRequestID(ctx, requestID)
 		if imgErr != nil {
 			reqLogger := logger.DeriveRequestLogger(ctx, s.Logger)
 			reqLogger.Error("failed to fetch images by request ID", "context", map[string]any{
@@ -414,7 +414,7 @@ func (s *Service) GetExecutionStatus(ctx context.Context, executionID string) (*
 		return nil, apperrors.ErrBadRequest("executionID is required", nil)
 	}
 
-	execution, err := s.executionRepo.GetExecution(ctx, executionID)
+	execution, err := s.repos.Execution.GetExecution(ctx, executionID)
 	if err != nil {
 		return nil, err
 	}
@@ -455,7 +455,7 @@ func (s *Service) KillExecution(ctx context.Context, executionID string) (*api.K
 
 	reqLogger := logger.DeriveRequestLogger(ctx, s.Logger)
 
-	execution, err := s.executionRepo.GetExecution(ctx, executionID)
+	execution, err := s.repos.Execution.GetExecution(ctx, executionID)
 	if err != nil {
 		return nil, err
 	}
@@ -487,7 +487,7 @@ func (s *Service) KillExecution(ctx context.Context, executionID string) (*api.K
 		execution.ModifiedByRequestID = requestID
 	}
 
-	if updateErr := s.executionRepo.UpdateExecution(ctx, execution); updateErr != nil {
+	if updateErr := s.repos.Execution.UpdateExecution(ctx, execution); updateErr != nil {
 		reqLogger.Error("failed to update execution status", "context", map[string]string{
 			"execution_id": executionID,
 			"status":       execution.Status,
@@ -517,7 +517,7 @@ func (s *Service) KillExecution(ctx context.Context, executionID string) (*api.K
 // Results are returned sorted by started_at in descending order (newest first).
 // Fields with no values are omitted in JSON due to omitempty tags on api.Execution.
 func (s *Service) ListExecutions(ctx context.Context, limit int, statuses []string) ([]*api.Execution, error) {
-	executions, err := s.executionRepo.ListExecutions(ctx, limit, statuses)
+	executions, err := s.repos.Execution.ListExecutions(ctx, limit, statuses)
 	if err != nil {
 		return nil, err
 	}

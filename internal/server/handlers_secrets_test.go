@@ -13,6 +13,7 @@ import (
 	"runvoy/internal/api"
 	"runvoy/internal/backend/orchestrator"
 	"runvoy/internal/constants"
+	"runvoy/internal/database"
 	apperrors "runvoy/internal/errors"
 	"runvoy/internal/testutil"
 
@@ -441,12 +442,16 @@ func newTestService(
 		originalRepo: userRepo,
 	}
 
+	repos := database.Repositories{
+		User:       userRepoWithRoles,
+		Execution:  execRepo,
+		Connection: nil,
+		Token:      tokenRepo,
+		Image:      &testImageRepository{},
+		Secrets:    secretRepo,
+	}
 	svc, err := orchestrator.NewService(context.Background(),
-		userRepoWithRoles,
-		execRepo,
-		nil, // connRepo
-		tokenRepo,
-		&testImageRepository{},
+		&repos,
 		mockRunner, // TaskManager
 		mockRunner, // ImageRegistry
 		mockRunner, // LogManager
@@ -454,7 +459,6 @@ func newTestService(
 		logger,
 		constants.AWS,
 		nil, // wsManager
-		secretRepo,
 		nil, // healthManager
 		enforcer,
 	)

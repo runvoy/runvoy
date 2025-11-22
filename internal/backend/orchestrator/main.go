@@ -15,39 +15,30 @@ import (
 
 // Service provides the core business logic for command execution and user management.
 type Service struct {
-	userRepo             database.UserRepository
-	executionRepo        database.ExecutionRepository
-	connRepo             database.ConnectionRepository
-	tokenRepo            database.TokenRepository
-	imageRepo            database.ImageRepository
+	repos                database.Repositories
 	taskManager          contract.TaskManager
 	imageRegistry        contract.ImageRegistry
 	logManager           contract.LogManager
 	observabilityManager contract.ObservabilityManager
 	Logger               *slog.Logger
 	Provider             constants.BackendProvider
-	wsManager            websocket.Manager          // WebSocket manager for generating URLs and managing connections
-	secretsRepo          database.SecretsRepository // Repository for managing secrets
-	healthManager        health.Manager             // Health manager for resource reconciliation
-	enforcer             *authorization.Enforcer    // Enforcer for authorization
+	wsManager            websocket.Manager       // WebSocket manager for generating URLs and managing connections
+	healthManager        health.Manager          // Health manager for resource reconciliation
+	enforcer             *authorization.Enforcer // Enforcer for authorization
 }
 
 // NOTE: provider-specific configuration has been moved to sub packages (e.g., providers/aws/app).
 
 // NewService creates a new service instance and initializes the enforcer with user roles from the database.
 // Returns an error if the enforcer is configured but user roles cannot be loaded (critical initialization failure).
-// Core repositories (userRepo, executionRepo) and enforcer are required for initialization and must be non-nil.
+// Core repositories (repos.User, repos.Execution) and enforcer are required for initialization and must be non-nil.
 // If wsManager is nil, WebSocket URL generation will be skipped.
-// If secretsRepo is nil, secrets operations will not be available.
-// If imageRepo is nil, image-by-request-ID queries will not be available.
+// If repos.Secrets is nil, secrets operations will not be available.
+// If repos.Image is nil, image-by-request-ID queries will not be available.
 // If healthManager is nil, health reconciliation will not be available.
 func NewService(
 	ctx context.Context,
-	userRepo database.UserRepository,
-	executionRepo database.ExecutionRepository,
-	connRepo database.ConnectionRepository,
-	tokenRepo database.TokenRepository,
-	imageRepo database.ImageRepository,
+	repos *database.Repositories,
 	taskManager contract.TaskManager,
 	imageRegistry contract.ImageRegistry,
 	logManager contract.LogManager,
@@ -55,15 +46,10 @@ func NewService(
 	log *slog.Logger,
 	provider constants.BackendProvider,
 	wsManager websocket.Manager,
-	secretsRepo database.SecretsRepository,
 	healthManager health.Manager,
 	enforcer *authorization.Enforcer) (*Service, error) {
 	svc := &Service{
-		userRepo:             userRepo,
-		executionRepo:        executionRepo,
-		connRepo:             connRepo,
-		tokenRepo:            tokenRepo,
-		imageRepo:            imageRepo,
+		repos:                *repos,
 		taskManager:          taskManager,
 		imageRegistry:        imageRegistry,
 		logManager:           logManager,
@@ -71,16 +57,15 @@ func NewService(
 		Logger:               log,
 		Provider:             provider,
 		wsManager:            wsManager,
-		secretsRepo:          secretsRepo,
 		healthManager:        healthManager,
 		enforcer:             enforcer,
 	}
 
 	if err := enforcer.Hydrate(
 		ctx,
-		userRepo,
-		executionRepo,
-		secretsRepo,
+		repos.User,
+		repos.Execution,
+		repos.Secrets,
 		imageRegistry,
 	); err != nil {
 		return nil, fmt.Errorf("failed to hydrate enforcer: %w", err)

@@ -381,12 +381,20 @@ func newTestServiceWithConnRepo(
 	observabilityManager contract.ObservabilityManager,
 ) *Service {
 	logger := testutil.SilentLogger()
+	repos := database.Repositories{
+		User:       userRepo,
+		Execution:  execRepo,
+		Connection: connRepo,
+		Token:      &mockTokenRepository{},
+		Image:      &mockImageRepository{},
+		Secrets:    &mockSecretsRepository{},
+	}
 	svc, err := NewService(
 		context.Background(),
-		userRepo, execRepo, connRepo, &mockTokenRepository{}, &mockImageRepository{},
+		&repos,
 		taskManager, imageRegistry, logManager, observabilityManager,
 		logger, constants.AWS,
-		nil, &mockSecretsRepository{}, nil, newPermissiveEnforcer(),
+		nil, nil, newPermissiveEnforcer(),
 	)
 	if err != nil {
 		panic(err)
@@ -435,13 +443,17 @@ func newTestServiceWithEnforcer(
 		secretsRepoIface = secretsRepo
 	}
 
+	repos := database.Repositories{
+		User:       userRepoIface,
+		Execution:  execRepoIface,
+		Connection: nil,
+		Token:      &mockTokenRepository{},
+		Image:      &mockImageRepository{},
+		Secrets:    secretsRepoIface,
+	}
 	svc, err := NewService(
 		context.Background(),
-		userRepoIface,
-		execRepoIface,
-		nil,
-		&mockTokenRepository{},
-		&mockImageRepository{},
+		&repos,
 		taskManager,
 		imageRegistry,
 		logManager,
@@ -449,7 +461,6 @@ func newTestServiceWithEnforcer(
 		logger,
 		constants.AWS,
 		nil,
-		secretsRepoIface,
 		nil,
 		enforcer,
 	)
@@ -488,13 +499,17 @@ func newTestServiceWithSecretsRepo(
 		observabilityManager = runner
 	}
 
+	repos := database.Repositories{
+		User:       userRepoIface,
+		Execution:  execRepoIface,
+		Connection: nil,
+		Token:      &mockTokenRepository{},
+		Image:      &mockImageRepository{},
+		Secrets:    secretsRepo,
+	}
 	svc, err := NewService(
 		context.Background(),
-		userRepoIface,
-		execRepoIface,
-		nil,
-		&mockTokenRepository{},
-		&mockImageRepository{},
+		&repos,
 		taskManager,
 		imageRegistry,
 		logManager,
@@ -502,7 +517,6 @@ func newTestServiceWithSecretsRepo(
 		logger,
 		constants.AWS,
 		nil,
-		secretsRepo,
 		nil,
 		newPermissiveEnforcer(),
 	)
@@ -606,12 +620,20 @@ func newTestServiceWithWebSocketManager(
 		observabilityManager = runner
 	}
 
+	repos := database.Repositories{
+		User:       userRepoIface,
+		Execution:  execRepoIface,
+		Connection: nil,
+		Token:      &mockTokenRepository{},
+		Image:      &mockImageRepository{},
+		Secrets:    &mockSecretsRepository{},
+	}
 	svc, err := NewService(
 		context.Background(),
-		userRepoIface, execRepoIface, nil, &mockTokenRepository{}, &mockImageRepository{},
+		&repos,
 		taskManager, imageRegistry, logManager, observabilityManager,
 		logger, constants.AWS,
-		wsManager, &mockSecretsRepository{}, nil, newPermissiveEnforcer(),
+		wsManager, nil, newPermissiveEnforcer(),
 	)
 	if err != nil {
 		panic(err)

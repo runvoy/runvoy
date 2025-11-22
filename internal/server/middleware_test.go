@@ -9,6 +9,7 @@ import (
 
 	"runvoy/internal/backend/orchestrator"
 	"runvoy/internal/constants"
+	"runvoy/internal/database"
 	"runvoy/internal/logger"
 	awsOrchestrator "runvoy/internal/providers/aws/orchestrator"
 	"runvoy/internal/testutil"
@@ -35,13 +36,17 @@ func TestRequestIDMiddleware(t *testing.T) {
 
 		tokenRepo := &testTokenRepository{}
 
+		repos := database.Repositories{
+			User:       &testUserRepository{},
+			Execution:  &testExecutionRepository{},
+			Connection: nil,
+			Token:      tokenRepo,
+			Image:      &testImageRepository{},
+			Secrets:    &testSecretsRepository{},
+		}
 		svc, err := orchestrator.NewService(
 			context.Background(),
-			&testUserRepository{},
-			&testExecutionRepository{},
-			nil,
-			tokenRepo,
-			&testImageRepository{},
+			&repos,
 			&testRunner{}, // TaskManager
 			&testRunner{}, // ImageRegistry
 			&testRunner{}, // LogManager
@@ -49,7 +54,6 @@ func TestRequestIDMiddleware(t *testing.T) {
 			testutil.SilentLogger(),
 			constants.AWS,
 			nil,
-			&testSecretsRepository{},
 			nil,
 			newPermissiveTestEnforcerForHandlers(t),
 		)
@@ -91,13 +95,17 @@ func TestRequestIDMiddleware(t *testing.T) {
 
 		tokenRepo := &testTokenRepository{}
 
+		repos := database.Repositories{
+			User:       &testUserRepository{},
+			Execution:  &testExecutionRepository{},
+			Connection: nil,
+			Token:      tokenRepo,
+			Image:      &testImageRepository{},
+			Secrets:    &testSecretsRepository{},
+		}
 		svc, err := orchestrator.NewService(
 			context.Background(),
-			&testUserRepository{},
-			&testExecutionRepository{},
-			nil,
-			tokenRepo,
-			&testImageRepository{},
+			&repos,
 			&testRunner{}, // TaskManager
 			&testRunner{}, // ImageRegistry
 			&testRunner{}, // LogManager
@@ -105,7 +113,6 @@ func TestRequestIDMiddleware(t *testing.T) {
 			testutil.SilentLogger(),
 			constants.AWS,
 			nil,
-			&testSecretsRepository{},
 			nil,
 			newPermissiveTestEnforcerForHandlers(t),
 		)
@@ -140,13 +147,17 @@ func TestRequestIDMiddleware(t *testing.T) {
 
 		tokenRepo := &testTokenRepository{}
 
+		repos := database.Repositories{
+			User:       &testUserRepository{},
+			Execution:  &testExecutionRepository{},
+			Connection: nil,
+			Token:      tokenRepo,
+			Image:      &testImageRepository{},
+			Secrets:    &testSecretsRepository{},
+		}
 		svc, err := orchestrator.NewService(
 			context.Background(),
-			&testUserRepository{},
-			&testExecutionRepository{},
-			nil,
-			tokenRepo,
-			&testImageRepository{},
+			&repos,
 			&testRunner{}, // TaskManager
 			&testRunner{}, // ImageRegistry
 			&testRunner{}, // LogManager
@@ -154,7 +165,6 @@ func TestRequestIDMiddleware(t *testing.T) {
 			testutil.SilentLogger(),
 			constants.AWS,
 			nil,
-			&testSecretsRepository{},
 			nil,
 			newPermissiveTestEnforcerForHandlers(t),
 		)
@@ -197,13 +207,17 @@ func TestRequestIDMiddleware(t *testing.T) {
 
 		tokenRepo := &testTokenRepository{}
 
+		repos := database.Repositories{
+			User:       &testUserRepository{},
+			Execution:  &testExecutionRepository{},
+			Connection: nil,
+			Token:      tokenRepo,
+			Image:      &testImageRepository{},
+			Secrets:    &testSecretsRepository{},
+		}
 		svc, err := orchestrator.NewService(
 			context.Background(),
-			&testUserRepository{},
-			&testExecutionRepository{},
-			nil,
-			tokenRepo,
-			&testImageRepository{},
+			&repos,
 			&testRunner{}, // TaskManager
 			&testRunner{}, // ImageRegistry
 			&testRunner{}, // LogManager
@@ -211,7 +225,6 @@ func TestRequestIDMiddleware(t *testing.T) {
 			testutil.SilentLogger(),
 			constants.AWS,
 			nil,
-			&testSecretsRepository{},
 			nil,
 			newPermissiveTestEnforcerForHandlers(t),
 		)
@@ -328,13 +341,17 @@ func TestCorsMiddleware(t *testing.T) {
 	tokenRepo := &testTokenRepository{}
 
 	runner := &testRunner{}
+	repos := database.Repositories{
+		User:       &testUserRepository{},
+		Execution:  &testExecutionRepository{},
+		Connection: nil,
+		Token:      tokenRepo,
+		Image:      &testImageRepository{},
+		Secrets:    &testSecretsRepository{},
+	}
 	svc, err := orchestrator.NewService(
 		context.Background(),
-		&testUserRepository{},
-		&testExecutionRepository{},
-		nil,
-		tokenRepo,
-		&testImageRepository{},
+		&repos,
 		runner, // TaskManager
 		runner, // ImageRegistry
 		runner, // LogManager
@@ -342,7 +359,6 @@ func TestCorsMiddleware(t *testing.T) {
 		testutil.SilentLogger(),
 		constants.AWS,
 		nil,
-		&testSecretsRepository{},
 		nil,
 		newPermissiveTestEnforcerForHandlers(t),
 	)

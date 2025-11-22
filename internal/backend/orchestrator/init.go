@@ -10,6 +10,7 @@ import (
 	"runvoy/internal/auth/authorization"
 	"runvoy/internal/config"
 	"runvoy/internal/constants"
+	"runvoy/internal/database"
 	awsOrchestrator "runvoy/internal/providers/aws/orchestrator"
 )
 
@@ -51,13 +52,18 @@ func Initialize(
 			)
 		}
 
+		repos := database.Repositories{
+			User:       awsDeps.UserRepo,
+			Execution:  awsDeps.ExecutionRepo,
+			Connection: awsDeps.ConnectionRepo,
+			Token:      awsDeps.TokenRepo,
+			Image:      awsDeps.ImageRepo,
+			Secrets:    awsDeps.SecretsRepo,
+		}
+
 		svc, svcErr := NewService(
 			ctx,
-			awsDeps.UserRepo,
-			awsDeps.ExecutionRepo,
-			awsDeps.ConnectionRepo,
-			awsDeps.TokenRepo,
-			awsDeps.ImageRepo,
+			&repos,
 			awsDeps.TaskManager,
 			awsDeps.ImageRegistry,
 			awsDeps.LogManager,
@@ -65,7 +71,6 @@ func Initialize(
 			logger,
 			cfg.BackendProvider,
 			awsDeps.WebSocketManager,
-			awsDeps.SecretsRepo,
 			awsDeps.HealthManager,
 			enforcer,
 		)

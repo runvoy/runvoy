@@ -11,6 +11,7 @@ import (
 	"runvoy/internal/backend/health"
 	"runvoy/internal/backend/orchestrator/contract"
 	"runvoy/internal/constants"
+	"runvoy/internal/database"
 	apperrors "runvoy/internal/errors"
 	"runvoy/internal/testutil"
 
@@ -34,13 +35,17 @@ func newImageTestService(t *testing.T, runner *mockRunner) *Service {
 	logManager := contract.LogManager(runner)
 	observabilityManager := contract.ObservabilityManager(runner)
 
+	repos := database.Repositories{
+		User:       &mockUserRepository{},
+		Execution:  &mockExecutionRepository{},
+		Connection: &mockConnectionRepository{},
+		Token:      &mockTokenRepository{},
+		Image:      &mockImageRepository{},
+		Secrets:    &mockSecretsRepository{},
+	}
 	svc, err := NewService(
 		context.Background(),
-		&mockUserRepository{},
-		&mockExecutionRepository{},
-		&mockConnectionRepository{},
-		&mockTokenRepository{},
-		&mockImageRepository{},
+		&repos,
 		taskManager,
 		imageRegistry,
 		logManager,
@@ -48,7 +53,6 @@ func newImageTestService(t *testing.T, runner *mockRunner) *Service {
 		testutil.SilentLogger(),
 		constants.AWS,
 		&mockWebSocketManager{},
-		&mockSecretsRepository{},
 		&mockHealthManager{},
 		newTestEnforcer(t),
 	)

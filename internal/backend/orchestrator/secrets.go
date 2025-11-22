@@ -33,7 +33,7 @@ func (s *Service) CreateSecret(
 		CreatedByRequestID:  requestID,
 		ModifiedByRequestID: requestID,
 	}
-	if err := s.secretsRepo.CreateSecret(ctx, secret); err != nil {
+	if err := s.repos.Secrets.CreateSecret(ctx, secret); err != nil {
 		var appErr *apperrors.AppError
 		if errors.As(err, &appErr) {
 			return err // Already wrapped, pass through
@@ -46,7 +46,7 @@ func (s *Service) CreateSecret(
 	for _, owner := range secret.OwnedBy {
 		if err := enforcer.AddOwnershipForResource(resourceID, owner); err != nil {
 			// Rollback secret creation if enforcer update fails
-			if deleteErr := s.secretsRepo.DeleteSecret(ctx, req.Name); deleteErr != nil {
+			if deleteErr := s.repos.Secrets.DeleteSecret(ctx, req.Name); deleteErr != nil {
 				reqLogger := logger.DeriveRequestLogger(ctx, s.Logger)
 				reqLogger.Error("failed to rollback secret creation after enforcer error",
 					"error", deleteErr,
@@ -63,12 +63,12 @@ func (s *Service) CreateSecret(
 
 // GetSecret retrieves a secret's metadata and value by name.
 func (s *Service) GetSecret(ctx context.Context, name string) (*api.Secret, error) {
-	return s.secretsRepo.GetSecret(ctx, name, true)
+	return s.repos.Secrets.GetSecret(ctx, name, true)
 }
 
 // ListSecrets retrieves all secrets with values.
 func (s *Service) ListSecrets(ctx context.Context) ([]*api.Secret, error) {
-	return s.secretsRepo.ListSecrets(ctx, true)
+	return s.repos.Secrets.ListSecrets(ctx, true)
 }
 
 // UpdateSecret updates a secret (metadata and/or value).
@@ -89,7 +89,7 @@ func (s *Service) UpdateSecret(
 		UpdatedBy:           userEmail,
 		ModifiedByRequestID: requestID,
 	}
-	if err := s.secretsRepo.UpdateSecret(ctx, secret); err != nil {
+	if err := s.repos.Secrets.UpdateSecret(ctx, secret); err != nil {
 		var appErr *apperrors.AppError
 		if errors.As(err, &appErr) {
 			return err // Already wrapped, pass through
@@ -102,7 +102,7 @@ func (s *Service) UpdateSecret(
 // DeleteSecret deletes a secret and its value.
 func (s *Service) DeleteSecret(ctx context.Context, name string) error {
 	resourceID := authorization.FormatResourceID("secret", name)
-	secret, fetchErr := s.secretsRepo.GetSecret(ctx, name, false)
+	secret, fetchErr := s.repos.Secrets.GetSecret(ctx, name, false)
 	if fetchErr != nil {
 		var appErr *apperrors.AppError
 		if errors.As(fetchErr, &appErr) {
@@ -121,7 +121,7 @@ func (s *Service) DeleteSecret(ctx context.Context, name string) error {
 		}
 	}
 
-	if deleteErr := s.secretsRepo.DeleteSecret(ctx, name); deleteErr != nil {
+	if deleteErr := s.repos.Secrets.DeleteSecret(ctx, name); deleteErr != nil {
 		// Rollback: restore ownership if delete failed
 		for _, ownerEmail := range ownerEmails {
 			if addErr := s.enforcer.AddOwnershipForResource(resourceID, ownerEmail); addErr != nil {
@@ -163,7 +163,7 @@ func (s *Service) resolveSecretsForExecution(
 		}
 		seen[name] = struct{}{}
 
-		secret, err := s.secretsRepo.GetSecret(ctx, name, true)
+		secret, err := s.repos.Secrets.GetSecret(ctx, name, true)
 		if err != nil {
 			if errors.Is(err, database.ErrSecretNotFound) {
 				return nil, apperrors.ErrBadRequest(fmt.Sprintf("secret %q not found", name), err)

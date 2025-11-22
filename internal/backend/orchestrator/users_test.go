@@ -8,6 +8,7 @@ import (
 
 	"runvoy/internal/api"
 	"runvoy/internal/auth/authorization"
+	"runvoy/internal/database"
 	appErrors "runvoy/internal/errors"
 	"runvoy/internal/testutil"
 
@@ -24,12 +25,16 @@ func TestValidateCreateUserRequest_Success(t *testing.T) {
 	logger := testutil.SilentLogger()
 	runner := &mockRunner{}
 
+	repos := database.Repositories{
+		User:       repo,
+		Execution:  &mockExecutionRepository{},
+		Connection: &mockConnectionRepository{},
+		Token:      &mockTokenRepository{},
+		Image:      &mockImageRepository{},
+		Secrets:    &mockSecretsRepository{},
+	}
 	service, err := NewService(context.Background(),
-		repo,
-		&mockExecutionRepository{},
-		&mockConnectionRepository{},
-		&mockTokenRepository{},
-		&mockImageRepository{},
+		&repos,
 		runner, // TaskManager
 		runner, // ImageRegistry
 		runner, // LogManager
@@ -37,7 +42,6 @@ func TestValidateCreateUserRequest_Success(t *testing.T) {
 		logger,
 		"",
 		nil,
-		&mockSecretsRepository{},
 		nil, // healthManager
 		newPermissiveEnforcer(),
 	)
@@ -52,12 +56,16 @@ func TestValidateCreateUserRequest_EmptyEmail(t *testing.T) {
 	logger := testutil.SilentLogger()
 	runner := &mockRunner{}
 
+	repos := database.Repositories{
+		User:       &mockUserRepository{},
+		Execution:  &mockExecutionRepository{},
+		Connection: &mockConnectionRepository{},
+		Token:      &mockTokenRepository{},
+		Image:      &mockImageRepository{},
+		Secrets:    &mockSecretsRepository{},
+	}
 	service, err := NewService(context.Background(),
-		&mockUserRepository{},
-		&mockExecutionRepository{},
-		&mockConnectionRepository{},
-		&mockTokenRepository{},
-		&mockImageRepository{},
+		&repos,
 		runner, // TaskManager
 		runner, // ImageRegistry
 		runner, // LogManager
@@ -65,7 +73,6 @@ func TestValidateCreateUserRequest_EmptyEmail(t *testing.T) {
 		logger,
 		"",
 		nil,
-		&mockSecretsRepository{},
 		nil, // healthManager
 		newPermissiveEnforcer(),
 	)
@@ -81,12 +88,16 @@ func TestValidateCreateUserRequest_InvalidEmail(t *testing.T) {
 	logger := testutil.SilentLogger()
 	runner := &mockRunner{}
 
+	repos := database.Repositories{
+		User:       &mockUserRepository{},
+		Execution:  &mockExecutionRepository{},
+		Connection: &mockConnectionRepository{},
+		Token:      &mockTokenRepository{},
+		Image:      &mockImageRepository{},
+		Secrets:    &mockSecretsRepository{},
+	}
 	service, err := NewService(context.Background(),
-		&mockUserRepository{},
-		&mockExecutionRepository{},
-		&mockConnectionRepository{},
-		&mockTokenRepository{},
-		&mockImageRepository{},
+		&repos,
 		runner, // TaskManager
 		runner, // ImageRegistry
 		runner, // LogManager
@@ -94,7 +105,6 @@ func TestValidateCreateUserRequest_InvalidEmail(t *testing.T) {
 		logger,
 		"",
 		nil,
-		&mockSecretsRepository{},
 		nil, // healthManager
 		newPermissiveEnforcer(),
 	)
@@ -115,12 +125,16 @@ func TestValidateCreateUserRequest_UserAlreadyExists(t *testing.T) {
 	logger := testutil.SilentLogger()
 	runner := &mockRunner{}
 
+	repos := database.Repositories{
+		User:       repo,
+		Execution:  &mockExecutionRepository{},
+		Connection: &mockConnectionRepository{},
+		Token:      &mockTokenRepository{},
+		Image:      &mockImageRepository{},
+		Secrets:    &mockSecretsRepository{},
+	}
 	service, err := NewService(context.Background(),
-		repo,
-		&mockExecutionRepository{},
-		&mockConnectionRepository{},
-		&mockTokenRepository{},
-		&mockImageRepository{},
+		&repos,
 		runner, // TaskManager
 		runner, // ImageRegistry
 		runner, // LogManager
@@ -128,7 +142,6 @@ func TestValidateCreateUserRequest_UserAlreadyExists(t *testing.T) {
 		logger,
 		"",
 		nil,
-		&mockSecretsRepository{},
 		nil, // healthManager
 		newPermissiveEnforcer(),
 	)
@@ -149,12 +162,16 @@ func TestValidateCreateUserRequest_RepositoryError(t *testing.T) {
 	logger := testutil.SilentLogger()
 	runner := &mockRunner{}
 
+	repos := database.Repositories{
+		User:       repo,
+		Execution:  &mockExecutionRepository{},
+		Connection: &mockConnectionRepository{},
+		Token:      &mockTokenRepository{},
+		Image:      &mockImageRepository{},
+		Secrets:    &mockSecretsRepository{},
+	}
 	service, err := NewService(context.Background(),
-		repo,
-		&mockExecutionRepository{},
-		&mockConnectionRepository{},
-		&mockTokenRepository{},
-		&mockImageRepository{},
+		&repos,
 		runner, // TaskManager
 		runner, // ImageRegistry
 		runner, // LogManager
@@ -162,7 +179,6 @@ func TestValidateCreateUserRequest_RepositoryError(t *testing.T) {
 		logger,
 		"",
 		nil,
-		&mockSecretsRepository{},
 		nil, // healthManager
 		newPermissiveEnforcer(),
 	)
@@ -177,12 +193,16 @@ func TestValidateCreateUserRequest_EmptyRole(t *testing.T) {
 	logger := testutil.SilentLogger()
 	runner := &mockRunner{}
 
+	repos := database.Repositories{
+		User:       &mockUserRepository{},
+		Execution:  &mockExecutionRepository{},
+		Connection: &mockConnectionRepository{},
+		Token:      &mockTokenRepository{},
+		Image:      &mockImageRepository{},
+		Secrets:    &mockSecretsRepository{},
+	}
 	service, err := NewService(context.Background(),
-		&mockUserRepository{},
-		&mockExecutionRepository{},
-		&mockConnectionRepository{},
-		&mockTokenRepository{},
-		&mockImageRepository{},
+		&repos,
 		runner, // TaskManager
 		runner, // ImageRegistry
 		runner, // LogManager
@@ -190,7 +210,6 @@ func TestValidateCreateUserRequest_EmptyRole(t *testing.T) {
 		logger,
 		"",
 		nil,
-		&mockSecretsRepository{},
 		nil, // healthManager
 		newPermissiveEnforcer(),
 	)
@@ -206,12 +225,16 @@ func TestValidateCreateUserRequest_InvalidRole(t *testing.T) {
 	logger := testutil.SilentLogger()
 	runner := &mockRunner{}
 
+	repos := database.Repositories{
+		User:       &mockUserRepository{},
+		Execution:  &mockExecutionRepository{},
+		Connection: &mockConnectionRepository{},
+		Token:      &mockTokenRepository{},
+		Image:      &mockImageRepository{},
+		Secrets:    &mockSecretsRepository{},
+	}
 	service, err := NewService(context.Background(),
-		&mockUserRepository{},
-		&mockExecutionRepository{},
-		&mockConnectionRepository{},
-		&mockTokenRepository{},
-		&mockImageRepository{},
+		&repos,
 		runner, // TaskManager
 		runner, // ImageRegistry
 		runner, // LogManager
@@ -219,7 +242,6 @@ func TestValidateCreateUserRequest_InvalidRole(t *testing.T) {
 		logger,
 		"",
 		nil,
-		&mockSecretsRepository{},
 		nil, // healthManager
 		newPermissiveEnforcer(),
 	)
@@ -259,12 +281,16 @@ func TestCreatePendingClaim_Success(t *testing.T) {
 	logger := testutil.SilentLogger()
 	runner := &mockRunner{}
 
+	repos := database.Repositories{
+		User:       repo,
+		Execution:  &mockExecutionRepository{},
+		Connection: &mockConnectionRepository{},
+		Token:      &mockTokenRepository{},
+		Image:      &mockImageRepository{},
+		Secrets:    &mockSecretsRepository{},
+	}
 	service, err := NewService(context.Background(),
-		repo,
-		&mockExecutionRepository{},
-		&mockConnectionRepository{},
-		&mockTokenRepository{},
-		&mockImageRepository{},
+		&repos,
 		runner, // TaskManager
 		runner, // ImageRegistry
 		runner, // LogManager
@@ -272,7 +298,6 @@ func TestCreatePendingClaim_Success(t *testing.T) {
 		logger,
 		"",
 		nil,
-		&mockSecretsRepository{},
 		nil, // healthManager
 		newPermissiveEnforcer(),
 	)
@@ -299,12 +324,16 @@ func TestCreatePendingClaim_RepositoryError(t *testing.T) {
 	logger := testutil.SilentLogger()
 	runner := &mockRunner{}
 
+	repos := database.Repositories{
+		User:       repo,
+		Execution:  &mockExecutionRepository{},
+		Connection: &mockConnectionRepository{},
+		Token:      &mockTokenRepository{},
+		Image:      &mockImageRepository{},
+		Secrets:    &mockSecretsRepository{},
+	}
 	service, err := NewService(context.Background(),
-		repo,
-		&mockExecutionRepository{},
-		&mockConnectionRepository{},
-		&mockTokenRepository{},
-		&mockImageRepository{},
+		&repos,
 		runner, // TaskManager
 		runner, // ImageRegistry
 		runner, // LogManager
@@ -312,7 +341,6 @@ func TestCreatePendingClaim_RepositoryError(t *testing.T) {
 		logger,
 		"",
 		nil,
-		&mockSecretsRepository{},
 		nil, // healthManager
 		newPermissiveEnforcer(),
 	)
@@ -345,12 +373,16 @@ func TestCreateUser_Success(t *testing.T) {
 	logger := testutil.SilentLogger()
 	runner := &mockRunner{}
 
+	repos := database.Repositories{
+		User:       repo,
+		Execution:  &mockExecutionRepository{},
+		Connection: &mockConnectionRepository{},
+		Token:      &mockTokenRepository{},
+		Image:      &mockImageRepository{},
+		Secrets:    &mockSecretsRepository{},
+	}
 	service, err := NewService(context.Background(),
-		repo,
-		&mockExecutionRepository{},
-		&mockConnectionRepository{},
-		&mockTokenRepository{},
-		&mockImageRepository{},
+		&repos,
 		runner, // TaskManager
 		runner, // ImageRegistry
 		runner, // LogManager
@@ -358,7 +390,6 @@ func TestCreateUser_Success(t *testing.T) {
 		logger,
 		"",
 		nil,
-		&mockSecretsRepository{},
 		nil, // healthManager
 		newPermissiveEnforcer(),
 	)
@@ -378,12 +409,16 @@ func TestCreateUser_InvalidEmail(t *testing.T) {
 	logger := testutil.SilentLogger()
 	runner := &mockRunner{}
 
+	repos := database.Repositories{
+		User:       &mockUserRepository{},
+		Execution:  &mockExecutionRepository{},
+		Connection: &mockConnectionRepository{},
+		Token:      &mockTokenRepository{},
+		Image:      &mockImageRepository{},
+		Secrets:    &mockSecretsRepository{},
+	}
 	service, err := NewService(context.Background(),
-		&mockUserRepository{},
-		&mockExecutionRepository{},
-		&mockConnectionRepository{},
-		&mockTokenRepository{},
-		&mockImageRepository{},
+		&repos,
 		runner, // TaskManager
 		runner, // ImageRegistry
 		runner, // LogManager
@@ -391,7 +426,6 @@ func TestCreateUser_InvalidEmail(t *testing.T) {
 		logger,
 		"",
 		nil,
-		&mockSecretsRepository{},
 		nil, // healthManager
 		newPermissiveEnforcer(),
 	)
@@ -416,12 +450,16 @@ func TestCreateUser_CreateUserError(t *testing.T) {
 	logger := testutil.SilentLogger()
 	runner := &mockRunner{}
 
+	repos := database.Repositories{
+		User:       repo,
+		Execution:  &mockExecutionRepository{},
+		Connection: &mockConnectionRepository{},
+		Token:      &mockTokenRepository{},
+		Image:      &mockImageRepository{},
+		Secrets:    &mockSecretsRepository{},
+	}
 	service, err := NewService(context.Background(),
-		repo,
-		&mockExecutionRepository{},
-		&mockConnectionRepository{},
-		&mockTokenRepository{},
-		&mockImageRepository{},
+		&repos,
 		runner, // TaskManager
 		runner, // ImageRegistry
 		runner, // LogManager
@@ -429,7 +467,6 @@ func TestCreateUser_CreateUserError(t *testing.T) {
 		logger,
 		"",
 		nil,
-		&mockSecretsRepository{},
 		nil, // healthManager
 		newPermissiveEnforcer(),
 	)
@@ -445,12 +482,16 @@ func TestCreateUser_MissingRole(t *testing.T) {
 	logger := testutil.SilentLogger()
 	runner := &mockRunner{}
 
+	repos := database.Repositories{
+		User:       &mockUserRepository{},
+		Execution:  &mockExecutionRepository{},
+		Connection: &mockConnectionRepository{},
+		Token:      &mockTokenRepository{},
+		Image:      &mockImageRepository{},
+		Secrets:    &mockSecretsRepository{},
+	}
 	service, err := NewService(context.Background(),
-		&mockUserRepository{},
-		&mockExecutionRepository{},
-		&mockConnectionRepository{},
-		&mockTokenRepository{},
-		&mockImageRepository{},
+		&repos,
 		runner, // TaskManager
 		runner, // ImageRegistry
 		runner, // LogManager
@@ -458,7 +499,6 @@ func TestCreateUser_MissingRole(t *testing.T) {
 		logger,
 		"",
 		nil,
-		&mockSecretsRepository{},
 		nil, // healthManager
 		newPermissiveEnforcer(),
 	)
@@ -475,12 +515,16 @@ func TestCreateUser_InvalidRole(t *testing.T) {
 	logger := testutil.SilentLogger()
 	runner := &mockRunner{}
 
+	repos := database.Repositories{
+		User:       &mockUserRepository{},
+		Execution:  &mockExecutionRepository{},
+		Connection: &mockConnectionRepository{},
+		Token:      &mockTokenRepository{},
+		Image:      &mockImageRepository{},
+		Secrets:    &mockSecretsRepository{},
+	}
 	service, err := NewService(context.Background(),
-		&mockUserRepository{},
-		&mockExecutionRepository{},
-		&mockConnectionRepository{},
-		&mockTokenRepository{},
-		&mockImageRepository{},
+		&repos,
 		runner, // TaskManager
 		runner, // ImageRegistry
 		runner, // LogManager
@@ -488,7 +532,6 @@ func TestCreateUser_InvalidRole(t *testing.T) {
 		logger,
 		"",
 		nil,
-		&mockSecretsRepository{},
 		nil, // healthManager
 		newPermissiveEnforcer(),
 	)
@@ -658,12 +701,16 @@ func TestClaimAPIKey_Success(t *testing.T) {
 	logger := testutil.SilentLogger()
 	runner := &mockRunner{}
 
+	repos := database.Repositories{
+		User:       repo,
+		Execution:  &mockExecutionRepository{},
+		Connection: &mockConnectionRepository{},
+		Token:      &mockTokenRepository{},
+		Image:      &mockImageRepository{},
+		Secrets:    &mockSecretsRepository{},
+	}
 	service, err := NewService(context.Background(),
-		repo,
-		&mockExecutionRepository{},
-		&mockConnectionRepository{},
-		&mockTokenRepository{},
-		&mockImageRepository{},
+		&repos,
 		runner, // TaskManager
 		runner, // ImageRegistry
 		runner, // LogManager
@@ -671,7 +718,6 @@ func TestClaimAPIKey_Success(t *testing.T) {
 		logger,
 		"",
 		nil,
-		&mockSecretsRepository{},
 		nil, // healthManager
 		newPermissiveEnforcer(),
 	)
@@ -694,12 +740,16 @@ func TestClaimAPIKey_InvalidToken(t *testing.T) {
 	logger := testutil.SilentLogger()
 	runner := &mockRunner{}
 
+	repos := database.Repositories{
+		User:       repo,
+		Execution:  &mockExecutionRepository{},
+		Connection: &mockConnectionRepository{},
+		Token:      &mockTokenRepository{},
+		Image:      &mockImageRepository{},
+		Secrets:    &mockSecretsRepository{},
+	}
 	service, err := NewService(context.Background(),
-		repo,
-		&mockExecutionRepository{},
-		&mockConnectionRepository{},
-		&mockTokenRepository{},
-		&mockImageRepository{},
+		&repos,
 		runner, // TaskManager
 		runner, // ImageRegistry
 		runner, // LogManager
@@ -707,7 +757,6 @@ func TestClaimAPIKey_InvalidToken(t *testing.T) {
 		logger,
 		"",
 		nil,
-		&mockSecretsRepository{},
 		nil, // healthManager
 		newPermissiveEnforcer(),
 	)
@@ -735,12 +784,16 @@ func TestClaimAPIKey_AlreadyClaimed(t *testing.T) {
 	logger := testutil.SilentLogger()
 	runner := &mockRunner{}
 
+	repos := database.Repositories{
+		User:       repo,
+		Execution:  &mockExecutionRepository{},
+		Connection: &mockConnectionRepository{},
+		Token:      &mockTokenRepository{},
+		Image:      &mockImageRepository{},
+		Secrets:    &mockSecretsRepository{},
+	}
 	service, err := NewService(context.Background(),
-		repo,
-		&mockExecutionRepository{},
-		&mockConnectionRepository{},
-		&mockTokenRepository{},
-		&mockImageRepository{},
+		&repos,
 		runner, // TaskManager
 		runner, // ImageRegistry
 		runner, // LogManager
@@ -748,7 +801,6 @@ func TestClaimAPIKey_AlreadyClaimed(t *testing.T) {
 		logger,
 		"",
 		nil,
-		&mockSecretsRepository{},
 		nil, // healthManager
 		newPermissiveEnforcer(),
 	)
@@ -776,12 +828,16 @@ func TestClaimAPIKey_TokenExpired(t *testing.T) {
 	logger := testutil.SilentLogger()
 	runner := &mockRunner{}
 
+	repos := database.Repositories{
+		User:       repo,
+		Execution:  &mockExecutionRepository{},
+		Connection: &mockConnectionRepository{},
+		Token:      &mockTokenRepository{},
+		Image:      &mockImageRepository{},
+		Secrets:    &mockSecretsRepository{},
+	}
 	service, err := NewService(context.Background(),
-		repo,
-		&mockExecutionRepository{},
-		&mockConnectionRepository{},
-		&mockTokenRepository{},
-		&mockImageRepository{},
+		&repos,
 		runner, // TaskManager
 		runner, // ImageRegistry
 		runner, // LogManager
@@ -789,7 +845,6 @@ func TestClaimAPIKey_TokenExpired(t *testing.T) {
 		logger,
 		"",
 		nil,
-		&mockSecretsRepository{},
 		nil, // healthManager
 		newPermissiveEnforcer(),
 	)
@@ -813,12 +868,16 @@ func TestListUsers_Success(t *testing.T) {
 	logger := testutil.SilentLogger()
 	runner := &mockRunner{}
 
+	repos := database.Repositories{
+		User:       repo,
+		Execution:  &mockExecutionRepository{},
+		Connection: &mockConnectionRepository{},
+		Token:      &mockTokenRepository{},
+		Image:      &mockImageRepository{},
+		Secrets:    &mockSecretsRepository{},
+	}
 	service, err := NewService(context.Background(),
-		repo,
-		&mockExecutionRepository{},
-		&mockConnectionRepository{},
-		&mockTokenRepository{},
-		&mockImageRepository{},
+		&repos,
 		runner, // TaskManager
 		runner, // ImageRegistry
 		runner, // LogManager
@@ -826,7 +885,6 @@ func TestListUsers_Success(t *testing.T) {
 		logger,
 		"",
 		nil,
-		&mockSecretsRepository{},
 		nil, // healthManager
 		newPermissiveEnforcer(),
 	)
@@ -851,12 +909,16 @@ func TestListUsers_Empty(t *testing.T) {
 	logger := testutil.SilentLogger()
 	runner := &mockRunner{}
 
+	repos := database.Repositories{
+		User:       repo,
+		Execution:  &mockExecutionRepository{},
+		Connection: &mockConnectionRepository{},
+		Token:      &mockTokenRepository{},
+		Image:      &mockImageRepository{},
+		Secrets:    &mockSecretsRepository{},
+	}
 	service, err := NewService(context.Background(),
-		repo,
-		&mockExecutionRepository{},
-		&mockConnectionRepository{},
-		&mockTokenRepository{},
-		&mockImageRepository{},
+		&repos,
 		runner, // TaskManager
 		runner, // ImageRegistry
 		runner, // LogManager
@@ -864,7 +926,6 @@ func TestListUsers_Empty(t *testing.T) {
 		logger,
 		"",
 		nil,
-		&mockSecretsRepository{},
 		nil, // healthManager
 		newPermissiveEnforcer(),
 	)
@@ -893,12 +954,16 @@ func TestListUsers_RepositoryError(t *testing.T) {
 	logger := testutil.SilentLogger()
 	runner := &mockRunner{}
 
+	repos := database.Repositories{
+		User:       repo,
+		Execution:  &mockExecutionRepository{},
+		Connection: &mockConnectionRepository{},
+		Token:      &mockTokenRepository{},
+		Image:      &mockImageRepository{},
+		Secrets:    &mockSecretsRepository{},
+	}
 	service, err := NewService(context.Background(),
-		repo,
-		&mockExecutionRepository{},
-		&mockConnectionRepository{},
-		&mockTokenRepository{},
-		&mockImageRepository{},
+		&repos,
 		runner, // TaskManager
 		runner, // ImageRegistry
 		runner, // LogManager
@@ -906,7 +971,6 @@ func TestListUsers_RepositoryError(t *testing.T) {
 		logger,
 		"",
 		nil,
-		&mockSecretsRepository{},
 		nil, // healthManager
 		newPermissiveEnforcer(),
 	)
@@ -932,12 +996,16 @@ func TestListUsers_SortingByEmail(t *testing.T) {
 	logger := testutil.SilentLogger()
 	runner := &mockRunner{}
 
+	repos := database.Repositories{
+		User:       repo,
+		Execution:  &mockExecutionRepository{},
+		Connection: &mockConnectionRepository{},
+		Token:      &mockTokenRepository{},
+		Image:      &mockImageRepository{},
+		Secrets:    &mockSecretsRepository{},
+	}
 	service, err := NewService(context.Background(),
-		repo,
-		&mockExecutionRepository{},
-		&mockConnectionRepository{},
-		&mockTokenRepository{},
-		&mockImageRepository{},
+		&repos,
 		runner, // TaskManager
 		runner, // ImageRegistry
 		runner, // LogManager
@@ -945,7 +1013,6 @@ func TestListUsers_SortingByEmail(t *testing.T) {
 		logger,
 		"",
 		nil,
-		&mockSecretsRepository{},
 		nil, // healthManager
 		newPermissiveEnforcer(),
 	)

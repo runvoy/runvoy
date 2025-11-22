@@ -34,7 +34,7 @@ func (s *Service) validateCreateUserRequest(ctx context.Context, email, role str
 		return apperrors.ErrBadRequest("invalid role, must be one of: "+validRoles, nil)
 	}
 
-	existingUser, err := s.userRepo.GetUserByEmail(ctx, email)
+	existingUser, err := s.repos.User.GetUserByEmail(ctx, email)
 	if err != nil {
 		return err
 	}
@@ -77,7 +77,7 @@ func (s *Service) createPendingClaim(
 		Viewed:      false,
 	}
 
-	if err = s.userRepo.CreatePendingAPIKey(ctx, pending); err != nil {
+	if err = s.repos.User.CreatePendingAPIKey(ctx, pending); err != nil {
 		return "", apperrors.ErrDatabaseError("failed to create pending API key", err)
 	}
 
@@ -115,7 +115,7 @@ func (s *Service) CreateUser(
 
 	expiresAt := time.Now().Add(constants.ClaimURLExpirationMinutes * time.Minute).Unix()
 
-	if err = s.userRepo.CreateUser(ctx, user, apiKeyHash, expiresAt); err != nil {
+	if err = s.repos.User.CreateUser(ctx, user, apiKeyHash, expiresAt); err != nil {
 		return nil, apperrors.ErrDatabaseError("failed to create user", err)
 	}
 
@@ -133,7 +133,7 @@ func (s *Service) CreateUser(
 				"error": removeErr.Error(),
 			})
 		}
-		if revokeErr := s.userRepo.RevokeUser(ctx, req.Email); revokeErr != nil {
+		if revokeErr := s.repos.User.RevokeUser(ctx, req.Email); revokeErr != nil {
 			reqLogger := logger.DeriveRequestLogger(ctx, s.Logger)
 			reqLogger.Error("failed to revoke user after pending claim failure", "context", map[string]string{
 				"user":  req.Email,
@@ -156,7 +156,7 @@ func (s *Service) ClaimAPIKey(
 	ipAddress string,
 ) (*api.ClaimAPIKeyResponse, error) {
 	// Retrieve pending key
-	pending, err := s.userRepo.GetPendingAPIKey(ctx, secretToken)
+	pending, err := s.repos.User.GetPendingAPIKey(ctx, secretToken)
 	if err != nil {
 		return nil, apperrors.ErrDatabaseError("failed to retrieve pending key", err)
 	}
@@ -177,12 +177,12 @@ func (s *Service) ClaimAPIKey(
 	}
 
 	// Mark as viewed atomically
-	if markErr := s.userRepo.MarkAsViewed(ctx, secretToken, ipAddress); markErr != nil {
+	if markErr := s.repos.User.MarkAsViewed(ctx, secretToken, ipAddress); markErr != nil {
 		return nil, markErr
 	}
 
 	// Remove expiration from user record (make user permanent)
-	if removeErr := s.userRepo.RemoveExpiration(ctx, pending.UserEmail); removeErr != nil {
+	if removeErr := s.repos.User.RemoveExpiration(ctx, pending.UserEmail); removeErr != nil {
 		// Log error but don't fail the claim - user already exists and can authenticate
 		reqLogger := logger.DeriveRequestLogger(ctx, s.Logger)
 		reqLogger.Error("failed to remove expiration from user record", "error", removeErr, "email", pending.UserEmail)
@@ -204,7 +204,7 @@ func (s *Service) AuthenticateUser(ctx context.Context, apiKey string) (*api.Use
 
 	apiKeyHash := auth.HashAPIKey(apiKey)
 
-	user, err := s.userRepo.GetUserByAPIKeyHash(ctx, apiKeyHash)
+	user, err := s.repos.User.GetUserByAPIKeyHash(ctx, apiKeyHash)
 	if err != nil {
 		return nil, err
 	}
@@ -226,7 +226,7 @@ func (s *Service) UpdateUserLastUsed(ctx context.Context, email string) (*time.T
 	if email == "" {
 		return nil, apperrors.ErrBadRequest("email is required", nil)
 	}
-	return s.userRepo.UpdateLastUsed(ctx, email)
+	return s.repos.User.UpdateLastUsed(ctx, email)
 }
 
 // RevokeUser marks a user's API key as revoked.
@@ -236,7 +236,7 @@ func (s *Service) RevokeUser(ctx context.Context, email string) error {
 		return apperrors.ErrBadRequest("email is required", nil)
 	}
 
-	user, err := s.userRepo.GetUserByEmail(ctx, email)
+	user, err := s.repos.User.GetUserByEmail(ctx, email)
 	if err != nil {
 		// Propagate database errors as-is
 		return err
@@ -252,7 +252,7 @@ func (s *Service) RevokeUser(ctx context.Context, email string) error {
 		}
 	}
 
-	if revokeErr := s.userRepo.RevokeUser(ctx, email); revokeErr != nil {
+	if revokeErr := s.repos.User.RevokeUser(ctx, email); revokeErr != nil {
 		// Attempt to restore the role to avoid leaving the enforcer without the user mapping.
 		if restoreErr := s.addRoleForUserToEnforcer(email, user.Role); restoreErr != nil {
 			reqLogger := logger.DeriveRequestLogger(ctx, s.Logger)
@@ -273,7 +273,7 @@ func (s *Service) RevokeUser(ctx context.Context, email string) error {
 // Returns an error if the query fails.
 // Sorting is delegated to the repository implementation (e.g., DynamoDB GSI).
 func (s *Service) ListUsers(ctx context.Context) (*api.ListUsersResponse, error) {
-	users, err := s.userRepo.ListUsers(ctx)
+	users, err := s.repos.User.ListUsers(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -285,7 +285,7 @@ func (s *Service) ListUsers(ctx context.Context) (*api.ListUsersResponse, error)
 
 func (s *Service) syncUserRoleAfterCreate(ctx context.Context, email, role string) error {
 	if err := s.addRoleForUserToEnforcer(email, role); err != nil {
-		if revokeErr := s.userRepo.RevokeUser(ctx, email); revokeErr != nil {
+		if revokeErr := s.repos.User.RevokeUser(ctx, email); revokeErr != nil {
 			reqLogger := logger.DeriveRequestLogger(ctx, s.Logger)
 			reqLogger.Error("failed to revoke user after enforcer sync failure", "context", map[string]string{
 				"user":  email,

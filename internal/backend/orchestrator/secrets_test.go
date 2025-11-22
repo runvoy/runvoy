@@ -30,13 +30,17 @@ func newSecretsTestService(t *testing.T, runner *mockRunner, secretsRepo databas
 		secretsRepo = &mockSecretsRepository{}
 	}
 
+	repos := database.Repositories{
+		User:       &mockUserRepository{},
+		Execution:  &mockExecutionRepository{},
+		Connection: &mockConnectionRepository{},
+		Token:      &mockTokenRepository{},
+		Image:      &mockImageRepository{},
+		Secrets:    secretsRepo,
+	}
 	svc, err := NewService(
 		context.Background(),
-		&mockUserRepository{},
-		&mockExecutionRepository{},
-		&mockConnectionRepository{},
-		&mockTokenRepository{},
-		&mockImageRepository{},
+		&repos,
 		taskManager,
 		imageRegistry,
 		logManager,
@@ -44,7 +48,6 @@ func newSecretsTestService(t *testing.T, runner *mockRunner, secretsRepo databas
 		testutil.SilentLogger(),
 		constants.AWS,
 		&mockWebSocketManager{},
-		secretsRepo,
 		&mockHealthManager{},
 		newPermissiveEnforcer(),
 	)

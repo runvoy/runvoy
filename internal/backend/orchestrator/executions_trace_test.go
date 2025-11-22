@@ -400,13 +400,17 @@ func newTraceTestServiceWithRunner(
 		opt(cfg)
 	}
 
+	repos := database.Repositories{
+		User:       cfg.userRepo,
+		Execution:  cfg.execRepo,
+		Connection: cfg.connRepo,
+		Token:      cfg.tokenRepo,
+		Image:      cfg.imageRepo,
+		Secrets:    cfg.secretsRepo,
+	}
 	svc, err := NewService(
 		context.Background(),
-		cfg.userRepo,
-		cfg.execRepo,
-		cfg.connRepo,
-		cfg.tokenRepo,
-		cfg.imageRepo,
+		&repos,
 		taskManager,
 		imageRegistry,
 		logManager,
@@ -414,7 +418,6 @@ func newTraceTestServiceWithRunner(
 		testutil.SilentLogger(),
 		constants.AWS,
 		cfg.wsManager,
-		cfg.secretsRepo,
 		cfg.healthManager,
 		newTraceTestEnforcer(t),
 	)
