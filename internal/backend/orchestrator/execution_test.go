@@ -205,10 +205,7 @@ func TestRunCommand_AddsExecutionOwnership(t *testing.T) {
 	service, enforcer := newTestServiceWithEnforcer(
 		nil,
 		execRepo,
-		runner, // TaskManager
-		runner, // ImageRegistry
-		runner, // LogManager
-		runner, // ObservabilityManager
+		runner,
 		nil,
 	)
 
