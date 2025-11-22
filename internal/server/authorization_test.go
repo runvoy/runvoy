@@ -58,7 +58,10 @@ func TestAuthorizeRequest(t *testing.T) {
 			nil,
 			&testTokenRepository{},
 			&testImageRepository{},
-			&testRunner{},
+			&testRunner{}, // TaskManager
+			&testRunner{}, // ImageRegistry
+			&testRunner{}, // LogManager
+			&testRunner{}, // ObservabilityManager
 			testutil.SilentLogger(),
 			constants.AWS,
 			nil,
@@ -86,7 +89,10 @@ func TestHandleCreateUserAuthorizationDenied(t *testing.T) {
 		nil,
 		&testTokenRepository{},
 		&testImageRepository{},
-		&testRunner{},
+		&testRunner{}, // TaskManager
+		&testRunner{}, // ImageRegistry
+		&testRunner{}, // LogManager
+		&testRunner{}, // ObservabilityManager
 		testutil.SilentLogger(),
 		constants.AWS,
 		nil,
@@ -224,7 +230,7 @@ func TestValidateExecutionResourceAccess(t *testing.T) {
 				&testTokenRepository{},
 				&testImageRepository{},
 				runner, // TaskManager
-		runner, // ImageRegistry
+				runner, // ImageRegistry
 				runner, // LogManager
 				runner, // ObservabilityManager
 				testutil.SilentLogger(),
@@ -267,7 +273,10 @@ func TestHandleListUsersWithAuthorization(t *testing.T) {
 		nil,
 		&testTokenRepository{},
 		&testImageRepository{},
-		&testRunner{},
+		&testRunner{}, // TaskManager
+		&testRunner{}, // ImageRegistry
+		&testRunner{}, // LogManager
+		&testRunner{}, // ObservabilityManager
 		testutil.SilentLogger(),
 		constants.AWS,
 		nil,
@@ -321,8 +330,8 @@ func TestHandleRunCommandStructure(t *testing.T) {
 		&testImageRepository{},
 		runner, // TaskManager
 		runner, // ImageRegistry
-				runner, // LogManager
-				runner, // ObservabilityManager
+		runner, // LogManager
+		runner, // ObservabilityManager
 		testutil.SilentLogger(),
 		constants.AWS,
 		nil,
@@ -574,7 +583,10 @@ func TestListEndpointAuthorization(t *testing.T) {
 				nil,
 				&testTokenRepository{},
 				&testImageRepository{},
-				&testRunner{},
+				&testRunner{}, // TaskManager
+				&testRunner{}, // ImageRegistry
+				&testRunner{}, // LogManager
+				&testRunner{}, // ObservabilityManager
 				testutil.SilentLogger(),
 				constants.AWS,
 				nil,
@@ -675,7 +687,10 @@ func TestResourceSpecificEndpointAuthorization(t *testing.T) {
 				nil,
 				&testTokenRepository{},
 				&testImageRepository{},
-				&testRunner{},
+				&testRunner{}, // TaskManager
+				&testRunner{}, // ImageRegistry
+				&testRunner{}, // LogManager
+				&testRunner{}, // ObservabilityManager
 				testutil.SilentLogger(),
 				constants.AWS,
 				nil,

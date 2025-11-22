@@ -25,7 +25,10 @@ func TestNewRouter(t *testing.T) {
 		nil,
 		tokenRepo,
 		&testImageRepository{},
-		&testRunner{},
+		&testRunner{}, // TaskManager
+		&testRunner{}, // ImageRegistry
+		&testRunner{}, // LogManager
+		&testRunner{}, // ObservabilityManager
 		testutil.SilentLogger(),
 		constants.AWS,
 		nil,
@@ -60,7 +63,10 @@ func TestRouter_ChiMux(t *testing.T) {
 		nil,
 		tokenRepo,
 		&testImageRepository{},
-		&testRunner{},
+		&testRunner{}, // TaskManager
+		&testRunner{}, // ImageRegistry
+		&testRunner{}, // LogManager
+		&testRunner{}, // ObservabilityManager
 		testutil.SilentLogger(),
 		constants.AWS,
 		nil,
@@ -86,7 +92,10 @@ func TestRouter_Handler(t *testing.T) {
 		nil,
 		tokenRepo,
 		&testImageRepository{},
-		&testRunner{},
+		&testRunner{}, // TaskManager
+		&testRunner{}, // ImageRegistry
+		&testRunner{}, // LogManager
+		&testRunner{}, // ObservabilityManager
 		testutil.SilentLogger(),
 		constants.AWS,
 		nil,
@@ -112,7 +121,10 @@ func TestRouter_WithContext(t *testing.T) {
 		nil,
 		tokenRepo,
 		&testImageRepository{},
-		&testRunner{},
+		&testRunner{}, // TaskManager
+		&testRunner{}, // ImageRegistry
+		&testRunner{}, // LogManager
+		&testRunner{}, // ObservabilityManager
 		testutil.SilentLogger(),
 		constants.AWS,
 		nil,
@@ -157,7 +169,10 @@ func TestRouter_ServeHTTP(t *testing.T) {
 		nil,
 		tokenRepo,
 		&testImageRepository{},
-		&testRunner{},
+		&testRunner{}, // TaskManager
+		&testRunner{}, // ImageRegistry
+		&testRunner{}, // LogManager
+		&testRunner{}, // ObservabilityManager
 		testutil.SilentLogger(),
 		constants.AWS,
 		nil,

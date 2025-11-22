@@ -42,7 +42,10 @@ func TestRequestIDMiddleware(t *testing.T) {
 			nil,
 			tokenRepo,
 			&testImageRepository{},
-			&testRunner{},
+			&testRunner{}, // TaskManager
+			&testRunner{}, // ImageRegistry
+			&testRunner{}, // LogManager
+			&testRunner{}, // ObservabilityManager
 			testutil.SilentLogger(),
 			constants.AWS,
 			nil,
@@ -95,7 +98,10 @@ func TestRequestIDMiddleware(t *testing.T) {
 			nil,
 			tokenRepo,
 			&testImageRepository{},
-			&testRunner{},
+			&testRunner{}, // TaskManager
+			&testRunner{}, // ImageRegistry
+			&testRunner{}, // LogManager
+			&testRunner{}, // ObservabilityManager
 			testutil.SilentLogger(),
 			constants.AWS,
 			nil,
@@ -141,7 +147,10 @@ func TestRequestIDMiddleware(t *testing.T) {
 			nil,
 			tokenRepo,
 			&testImageRepository{},
-			&testRunner{},
+			&testRunner{}, // TaskManager
+			&testRunner{}, // ImageRegistry
+			&testRunner{}, // LogManager
+			&testRunner{}, // ObservabilityManager
 			testutil.SilentLogger(),
 			constants.AWS,
 			nil,
@@ -195,7 +204,10 @@ func TestRequestIDMiddleware(t *testing.T) {
 			nil,
 			tokenRepo,
 			&testImageRepository{},
-			&testRunner{},
+			&testRunner{}, // TaskManager
+			&testRunner{}, // ImageRegistry
+			&testRunner{}, // LogManager
+			&testRunner{}, // ObservabilityManager
 			testutil.SilentLogger(),
 			constants.AWS,
 			nil,

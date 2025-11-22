@@ -337,12 +337,13 @@ func (t *testRunner) GetImagesByRequestID(ctx context.Context, requestID string)
 // newTestOrchestratorService creates an orchestrator service with default test repositories.
 // All required repositories (userRepo, executionRepo) are provided by default.
 // Optional repositories can be overridden by passing non-nil values.
+// The runner parameter implements all 4 interfaces (TaskManager, ImageRegistry, LogManager, ObservabilityManager).
 func newTestOrchestratorService(
 	t *testing.T,
 	userRepo *testUserRepository,
 	execRepo *testExecutionRepository,
 	connRepo database.ConnectionRepository, //nolint:unparam // kept for API consistency
-	runner orchestrator.Runner,
+	runner *testRunner,
 	wsManager websocket.Manager, //nolint:unparam // kept for API consistency
 	secretsRepo database.SecretsRepository, //nolint:unparam // kept for API consistency
 	healthManager health.Manager,
@@ -353,8 +354,15 @@ func newTestOrchestratorService(
 	if execRepo == nil {
 		execRepo = &testExecutionRepository{}
 	}
-	if runner == nil {
-		runner = &testRunner{}
+	var taskManager orchestrator.TaskManager = &testRunner{}
+	var imageRegistry orchestrator.ImageRegistry = &testRunner{}
+	var logManager orchestrator.LogManager = &testRunner{}
+	var observabilityManager orchestrator.ObservabilityManager = &testRunner{}
+	if runner != nil {
+		taskManager = runner
+		imageRegistry = runner
+		logManager = runner
+		observabilityManager = runner
 	}
 	if secretsRepo == nil {
 		secretsRepo = &testSecretsRepository{}
@@ -367,10 +375,10 @@ func newTestOrchestratorService(
 		connRepo,
 		&testTokenRepository{},
 		&testImageRepository{},
-		runner, // TaskManager
-		runner, // ImageRegistry
-		runner, // LogManager
-		runner, // ObservabilityManager
+		taskManager,
+		imageRegistry,
+		logManager,
+		observabilityManager,
 		testutil.SilentLogger(),
 		constants.AWS,
 		wsManager,
@@ -1227,7 +1235,10 @@ func TestHandleRevokeUser_Unauthorized(t *testing.T) {
 		nil,
 		&testTokenRepository{},
 		&testImageRepository{},
-		&testRunner{},
+		&testRunner{}, // TaskManager
+		&testRunner{}, // ImageRegistry
+		&testRunner{}, // LogManager
+		&testRunner{}, // ObservabilityManager
 		testutil.SilentLogger(),
 		constants.AWS,
 		nil,
@@ -1462,7 +1473,10 @@ func TestHandleReconcileHealth_Unauthenticated(t *testing.T) {
 		nil,
 		&testTokenRepository{},
 		&testImageRepository{},
-		&testRunner{},
+		&testRunner{}, // TaskManager
+		&testRunner{}, // ImageRegistry
+		&testRunner{}, // LogManager
+		&testRunner{}, // ObservabilityManager
 		testutil.SilentLogger(),
 		constants.AWS,
 		nil,
@@ -1510,7 +1524,10 @@ func TestHandleRemoveImage_Unauthorized(t *testing.T) {
 		nil,
 		&testTokenRepository{},
 		&testImageRepository{},
-		&testRunner{},
+		&testRunner{}, // TaskManager
+		&testRunner{}, // ImageRegistry
+		&testRunner{}, // LogManager
+		&testRunner{}, // ObservabilityManager
 		testutil.SilentLogger(),
 		constants.AWS,
 		nil,
@@ -1538,7 +1555,10 @@ func TestHandleRegisterImage_Unauthorized(t *testing.T) {
 		nil,
 		&testTokenRepository{},
 		&testImageRepository{},
-		&testRunner{},
+		&testRunner{}, // TaskManager
+		&testRunner{}, // ImageRegistry
+		&testRunner{}, // LogManager
+		&testRunner{}, // ObservabilityManager
 		testutil.SilentLogger(),
 		constants.AWS,
 		nil,
@@ -1569,7 +1589,10 @@ func TestHandleGetImage_Unauthorized(t *testing.T) {
 		nil,
 		&testTokenRepository{},
 		&testImageRepository{},
-		&testRunner{},
+		&testRunner{}, // TaskManager
+		&testRunner{}, // ImageRegistry
+		&testRunner{}, // LogManager
+		&testRunner{}, // ObservabilityManager
 		testutil.SilentLogger(),
 		constants.AWS,
 		nil,
@@ -1599,7 +1622,10 @@ func TestHandleKillExecution_Unauthorized(t *testing.T) {
 		nil,
 		&testTokenRepository{},
 		&testImageRepository{},
-		&testRunner{},
+		&testRunner{}, // TaskManager
+		&testRunner{}, // ImageRegistry
+		&testRunner{}, // LogManager
+		&testRunner{}, // ObservabilityManager
 		testutil.SilentLogger(),
 		constants.AWS,
 		nil,
@@ -1627,7 +1653,10 @@ func TestHandleGetExecutionLogs_Unauthorized(t *testing.T) {
 		nil,
 		&testTokenRepository{},
 		&testImageRepository{},
-		&testRunner{},
+		&testRunner{}, // TaskManager
+		&testRunner{}, // ImageRegistry
+		&testRunner{}, // LogManager
+		&testRunner{}, // ObservabilityManager
 		testutil.SilentLogger(),
 		constants.AWS,
 		nil,
@@ -1655,7 +1684,10 @@ func TestHandleGetExecutionStatus_Unauthorized(t *testing.T) {
 		nil,
 		&testTokenRepository{},
 		&testImageRepository{},
-		&testRunner{},
+		&testRunner{}, // TaskManager
+		&testRunner{}, // ImageRegistry
+		&testRunner{}, // LogManager
+		&testRunner{}, // ObservabilityManager
 		testutil.SilentLogger(),
 		constants.AWS,
 		nil,

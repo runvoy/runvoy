@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// mockRunner implements the app.Runner interface for testing
+// mockRunner implements TaskManager, ImageRegistry, LogManager, and ObservabilityManager interfaces for testing
 type mockRunner struct{}
 
 func (m *mockRunner) StartTask(_ context.Context, _ string, _ *api.ExecutionRequest) (string, *time.Time, error) {
@@ -78,7 +78,10 @@ func TestGetExecutionStatus_Unauthorized(t *testing.T) {
 		nil,
 		&testTokenRepository{},
 		&testImageRepository{},
-		&mockRunner{},
+		&mockRunner{}, // TaskManager
+		&mockRunner{}, // ImageRegistry
+		&mockRunner{}, // LogManager
+		&mockRunner{}, // ObservabilityManager
 		testutil.SilentLogger(),
 		constants.AWS,
 		nil,

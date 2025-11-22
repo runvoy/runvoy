@@ -431,7 +431,7 @@ func newTestService(
 ) *orchestrator.Service {
 	logger := testutil.SilentLogger()
 
-	// Create a mock runner that implements the Runner interface
+	// Create a mock runner that implements all 4 interfaces (TaskManager, ImageRegistry, LogManager, ObservabilityManager)
 	mockRunner := &testRunner{}
 	tokenRepo := &testTokenRepository{}
 	enforcer := newPermissiveTestEnforcer(t)
@@ -447,7 +447,10 @@ func newTestService(
 		nil, // connRepo
 		tokenRepo,
 		&testImageRepository{},
-		mockRunner,
+		mockRunner, // TaskManager
+		mockRunner, // ImageRegistry
+		mockRunner, // LogManager
+		mockRunner, // ObservabilityManager
 		logger,
 		constants.AWS,
 		nil, // wsManager
