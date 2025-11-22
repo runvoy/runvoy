@@ -51,6 +51,11 @@ func Initialize(
 			)
 		}
 
+		taskManager := TaskManager(awsDeps.Runner)
+		imageRegistry := ImageRegistry(awsDeps.Runner)
+		logManager := LogManager(awsDeps.Runner)
+		observabilityManager := ObservabilityManager(awsDeps.Runner)
+
 		svc, svcErr := NewService(
 			ctx,
 			awsDeps.UserRepo,
@@ -58,10 +63,10 @@ func Initialize(
 			awsDeps.ConnectionRepo,
 			awsDeps.TokenRepo,
 			awsDeps.ImageRepo,
-			awsDeps.Runner, // TaskManager
-			awsDeps.Runner, // ImageRegistry
-			awsDeps.Runner, // LogManager
-			awsDeps.Runner, // ObservabilityManager
+			taskManager,
+			imageRegistry,
+			logManager,
+			observabilityManager,
 			logger,
 			cfg.BackendProvider,
 			awsDeps.WebSocketManager,
