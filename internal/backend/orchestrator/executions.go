@@ -200,7 +200,7 @@ func (s *Service) GetLogsByExecutionID(
 		return nil, apperrors.ErrNotFound("execution not found", nil)
 	}
 
-	events, err := s.logAggregator.FetchLogsByExecutionID(ctx, executionID)
+	events, err := s.logManager.FetchLogsByExecutionID(ctx, executionID)
 	if err != nil {
 		return nil, err
 	}
@@ -230,7 +230,7 @@ func (s *Service) FetchBackendLogs(ctx context.Context, requestID string) ([]api
 		return nil, apperrors.ErrBadRequest("requestID is required", nil)
 	}
 
-	return s.backendObservability.FetchBackendLogs(ctx, requestID)
+	return s.observabilityManager.FetchBackendLogs(ctx, requestID)
 }
 
 // FetchTrace retrieves backend logs and related resources for a request ID.
@@ -247,7 +247,7 @@ func (s *Service) FetchTrace(ctx context.Context, requestID string) (*api.TraceR
 	eg, egCtx := errgroup.WithContext(ctx)
 
 	eg.Go(func() error {
-		fetchedLogs, logsErr := s.backendObservability.FetchBackendLogs(egCtx, requestID)
+		fetchedLogs, logsErr := s.observabilityManager.FetchBackendLogs(egCtx, requestID)
 		if logsErr != nil {
 			reqLogger := logger.DeriveRequestLogger(egCtx, s.Logger)
 			reqLogger.Error("failed to fetch backend logs", "context", map[string]any{

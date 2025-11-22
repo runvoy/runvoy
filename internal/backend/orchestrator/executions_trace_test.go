@@ -59,8 +59,8 @@ func TestFetchTrace_WithBackendLogError(t *testing.T) {
 		imageRepo,
 		runner, // TaskManager
 		runner, // ImageRegistry
-		runner, // LogAggregator
-		runner, // BackendObservability
+		runner, // LogManager
+		runner, // ObservabilityManager
 		testutil.SilentLogger(),
 		constants.AWS,
 		nil,
@@ -109,8 +109,8 @@ func TestFetchTrace_ConcurrentFetching(t *testing.T) {
 		&minimalImageRepository{},
 		runner, // TaskManager
 		runner, // ImageRegistry
-		runner, // LogAggregator
-		runner, // BackendObservability
+		runner, // LogManager
+		runner, // ObservabilityManager
 		testutil.SilentLogger(),
 		constants.AWS,
 		nil,
@@ -148,8 +148,8 @@ func TestFetchTrace_ResourceFetchError(t *testing.T) {
 		&minimalImageRepository{},
 		runner, // TaskManager
 		runner, // ImageRegistry
-		runner, // LogAggregator
-		runner, // BackendObservability
+		runner, // LogManager
+		runner, // ObservabilityManager
 		testutil.SilentLogger(),
 		constants.AWS,
 		nil,

@@ -49,13 +49,13 @@ type ImageRegistry interface {
     RemoveImage(ctx, image) error
 }
 
-// LogAggregator - Execution logs
-type LogAggregator interface {
+// LogManager - Execution logs
+type LogManager interface {
     FetchLogsByExecutionID(ctx, executionID) ([]LogEvent, error)
 }
 
-// BackendObservability - Infrastructure logs
-type BackendObservability interface {
+// ObservabilityManager - Infrastructure logs
+type ObservabilityManager interface {
     FetchBackendLogs(ctx, requestID) ([]LogEvent, error)
 }
 ```
@@ -66,8 +66,8 @@ Service structure updated:
 type Service struct {
     taskManager         TaskManager
     imageRegistry       ImageRegistry
-    logAggregator       LogAggregator
-    backendObservability BackendObservability
+    logManager           LogManager
+    observabilityManager ObservabilityManager
     // ... other fields
 }
 ```
@@ -169,10 +169,10 @@ Split the monolithic interface into four focused interfaces, each with a single 
 - `GetImage()`: Retrieve single image by ID/name
 - `RemoveImage()`: Deregister image and cleanup
 
-**LogAggregator** - 1 method
+**LogManager** - 1 method
 - `FetchLogsByExecutionID()`: Retrieve execution logs
 
-**BackendObservability** - 1 method
+**ObservabilityManager** - 1 method
 - `FetchBackendLogs()`: Retrieve infrastructure logs
 
 **Benefits Achieved:**
@@ -228,7 +228,7 @@ This abstraction allows the same ImageConfig to work across AWS, GCP, and Azure 
 
 The refactoring has been successfully implemented:
 
-1. ✅ **Four Focused Interfaces** - TaskManager, ImageRegistry, LogAggregator, BackendObservability
+1. ✅ **Four Focused Interfaces** - TaskManager, ImageRegistry, LogManager, ObservabilityManager
 2. ✅ **Provider-Agnostic Configuration** - ImageConfig with ResourceConfig, RuntimeConfig, PermissionConfig
 3. ✅ **Service Restructured** - Separate fields for each interface instead of monolithic runner
 4. ✅ **AWS Implementation Updated** - Implements all four interfaces
@@ -288,8 +288,8 @@ func (e *ACIExecutor) KillTask(...) { /* Delete Container Group */ }
 service := orchestrator.NewService(
     taskManager:  gcpExecutor,        // Run on GCP
     imageRegistry: awsImageRegistry,  // Store in AWS
-    logAggregator: gcpLogAggregator,  // GCP logs
-    backendObservability: awsObs,     // Monitor AWS
+    logManager:          gcpLogManager,  // GCP logs
+    observabilityManager: awsObs,        // Monitor AWS
     ...
 )
 ```

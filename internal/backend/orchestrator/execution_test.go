@@ -207,8 +207,8 @@ func TestRunCommand_AddsExecutionOwnership(t *testing.T) {
 		execRepo,
 		runner, // TaskManager
 		runner, // ImageRegistry
-		runner, // LogAggregator
-		runner, // BackendObservability
+		runner, // LogManager
+		runner, // ObservabilityManager
 		nil,
 	)
 

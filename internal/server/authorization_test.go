@@ -225,8 +225,8 @@ func TestValidateExecutionResourceAccess(t *testing.T) {
 				&testImageRepository{},
 				runner, // TaskManager
 		runner, // ImageRegistry
-		runner, // LogAggregator
-		runner, // BackendObservability
+				runner, // LogManager
+				runner, // ObservabilityManager
 				testutil.SilentLogger(),
 				constants.AWS,
 				nil,
@@ -321,8 +321,8 @@ func TestHandleRunCommandStructure(t *testing.T) {
 		&testImageRepository{},
 		runner, // TaskManager
 		runner, // ImageRegistry
-		runner, // LogAggregator
-		runner, // BackendObservability
+				runner, // LogManager
+				runner, // ObservabilityManager
 		testutil.SilentLogger(),
 		constants.AWS,
 		nil,

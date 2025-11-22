@@ -43,8 +43,8 @@ func TestGetImage_Success(t *testing.T) {
 		&mockImageRepository{},
 		runner, // TaskManager
 		runner, // ImageRegistry
-		runner, // LogAggregator
-		runner, // BackendObservability
+		runner, // LogManager
+		runner, // ObservabilityManager
 		logger,
 		"",
 		nil,
@@ -81,8 +81,8 @@ func TestGetImage_NotFound(t *testing.T) {
 		&mockImageRepository{},
 		runner, // TaskManager
 		runner, // ImageRegistry
-		runner, // LogAggregator
-		runner, // BackendObservability
+		runner, // LogManager
+		runner, // ObservabilityManager
 		logger,
 		"",
 		nil,
@@ -145,8 +145,8 @@ func TestGetImage_RunnerError(t *testing.T) {
 		&mockImageRepository{},
 		runner, // TaskManager
 		runner, // ImageRegistry
-		runner, // LogAggregator
-		runner, // BackendObservability
+		runner, // LogManager
+		runner, // ObservabilityManager
 		logger,
 		"",
 		nil,
@@ -182,8 +182,8 @@ func TestGetImage_RunnerGenericError(t *testing.T) {
 		&mockImageRepository{},
 		runner, // TaskManager
 		runner, // ImageRegistry
-		runner, // LogAggregator
-		runner, // BackendObservability
+		runner, // LogManager
+		runner, // ObservabilityManager
 		logger,
 		"",
 		nil,
@@ -219,8 +219,8 @@ func TestRemoveImage_Success(t *testing.T) {
 		&mockImageRepository{},
 		runner, // TaskManager
 		runner, // ImageRegistry
-		runner, // LogAggregator
-		runner, // BackendObservability
+		runner, // LogManager
+		runner, // ObservabilityManager
 		logger,
 		"",
 		nil,
@@ -254,8 +254,8 @@ func TestRemoveImage_EmptyImageName(t *testing.T) {
 		&mockImageRepository{},
 		runner, // TaskManager
 		runner, // ImageRegistry
-		runner, // LogAggregator
-		runner, // BackendObservability
+		runner, // LogManager
+		runner, // ObservabilityManager
 		logger,
 		"",
 		nil,
@@ -290,8 +290,8 @@ func TestRemoveImage_RunnerError(t *testing.T) {
 		&mockImageRepository{},
 		runner, // TaskManager
 		runner, // ImageRegistry
-		runner, // LogAggregator
-		runner, // BackendObservability
+		runner, // LogManager
+		runner, // ObservabilityManager
 		logger,
 		"",
 		nil,
@@ -327,8 +327,8 @@ func TestRemoveImage_RunnerGenericError(t *testing.T) {
 		&mockImageRepository{},
 		runner, // TaskManager
 		runner, // ImageRegistry
-		runner, // LogAggregator
-		runner, // BackendObservability
+		runner, // LogManager
+		runner, // ObservabilityManager
 		logger,
 		"",
 		nil,
@@ -369,8 +369,8 @@ func TestListImages_Success(t *testing.T) {
 		&mockImageRepository{},
 		runner, // TaskManager
 		runner, // ImageRegistry
-		runner, // LogAggregator
-		runner, // BackendObservability
+		runner, // LogManager
+		runner, // ObservabilityManager
 		logger,
 		"",
 		nil,
@@ -407,8 +407,8 @@ func TestListImages_Empty(t *testing.T) {
 		&mockImageRepository{},
 		runner, // TaskManager
 		runner, // ImageRegistry
-		runner, // LogAggregator
-		runner, // BackendObservability
+		runner, // LogManager
+		runner, // ObservabilityManager
 		logger,
 		"",
 		nil,
@@ -449,8 +449,8 @@ func TestListImages_RunnerError(t *testing.T) {
 		&mockImageRepository{},
 		runner, // TaskManager
 		runner, // ImageRegistry
-		runner, // LogAggregator
-		runner, // BackendObservability
+		runner, // LogManager
+		runner, // ObservabilityManager
 		logger,
 		"",
 		nil,
@@ -492,8 +492,8 @@ func TestListImages_RunnerGenericError(t *testing.T) {
 		&mockImageRepository{},
 		runner, // TaskManager
 		runner, // ImageRegistry
-		runner, // LogAggregator
-		runner, // BackendObservability
+		runner, // LogManager
+		runner, // ObservabilityManager
 		logger,
 		"",
 		nil,
@@ -532,8 +532,8 @@ func TestRegisterImage_Success(t *testing.T) {
 		&mockImageRepository{},
 		runner, // TaskManager
 		runner, // ImageRegistry
-		runner, // LogAggregator
-		runner, // BackendObservability
+		runner, // LogManager
+		runner, // ObservabilityManager
 		logger,
 		"",
 		nil,
@@ -575,8 +575,8 @@ func TestRegisterImage_EmptyImageName(t *testing.T) {
 		&mockImageRepository{},
 		runner, // TaskManager
 		runner, // ImageRegistry
-		runner, // LogAggregator
-		runner, // BackendObservability
+		runner, // LogManager
+		runner, // ObservabilityManager
 		logger,
 		"",
 		nil,
@@ -618,8 +618,8 @@ func TestRegisterImage_RunnerError(t *testing.T) {
 		&mockImageRepository{},
 		runner, // TaskManager
 		runner, // ImageRegistry
-		runner, // LogAggregator
-		runner, // BackendObservability
+		runner, // LogManager
+		runner, // ObservabilityManager
 		logger,
 		"",
 		nil,
@@ -662,8 +662,8 @@ func TestRegisterImage_RunnerGenericError(t *testing.T) {
 		&mockImageRepository{},
 		runner, // TaskManager
 		runner, // ImageRegistry
-		runner, // LogAggregator
-		runner, // BackendObservability
+		runner, // LogManager
+		runner, // ObservabilityManager
 		logger,
 		"",
 		nil,
@@ -706,8 +706,8 @@ func TestRegisterImage_EmptyCreatedBy(t *testing.T) {
 		&mockImageRepository{},
 		runner, // TaskManager
 		runner, // ImageRegistry
-		runner, // LogAggregator
-		runner, // BackendObservability
+		runner, // LogManager
+		runner, // ObservabilityManager
 		logger,
 		"",
 		nil,
@@ -753,8 +753,8 @@ func TestRegisterImage_NilRequest(t *testing.T) {
 		&mockImageRepository{},
 		runner, // TaskManager
 		runner, // ImageRegistry
-		runner, // LogAggregator
-		runner, // BackendObservability
+		runner, // LogManager
+		runner, // ObservabilityManager
 		logger,
 		"",
 		nil,

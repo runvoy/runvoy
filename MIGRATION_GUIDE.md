@@ -6,8 +6,8 @@ The orchestrator now uses four focused interfaces instead of a monolithic Runner
 
 - **TaskManager**: Task lifecycle management
 - **ImageRegistry**: Image registration and configuration
-- **LogAggregator**: Execution log retrieval
-- **BackendObservability**: Infrastructure log retrieval
+- **LogManager**: Execution log retrieval
+- **ObservabilityManager**: Infrastructure log retrieval
 
 This separation improves testability, enables multi-provider support (GCP Cloud Run, Azure Container Instances), and reduces coupling between concerns.
 
@@ -32,12 +32,12 @@ type ImageRegistry interface {
 }
 
 // Execution logs
-type LogAggregator interface {
+type LogManager interface {
     FetchLogsByExecutionID(ctx, executionID) ([]LogEvent, error)
 }
 
 // Infrastructure logs
-type BackendObservability interface {
+type ObservabilityManager interface {
     FetchBackendLogs(ctx, requestID) ([]LogEvent, error)
 }
 ```
@@ -50,8 +50,8 @@ The `orchestrator.Service` now holds separate interface fields:
 type Service struct {
     taskManager         TaskManager
     imageRegistry       ImageRegistry
-    logAggregator       LogAggregator
-    backendObservability BackendObservability
+    logManager           LogManager
+    observabilityManager ObservabilityManager
     // ... other fields
 }
 ```
@@ -60,8 +60,8 @@ Access via methods:
 ```go
 service.TaskManager().StartTask(...)
 service.ImageRegistry().ListImages(...)
-service.LogAggregator().FetchLogsByExecutionID(...)
-service.BackendObservability().FetchBackendLogs(...)
+service.LogManager().FetchLogsByExecutionID(...)
+service.ObservabilityManager().FetchBackendLogs(...)
 ```
 
 ### Provider-Agnostic Configuration (internal/backend/orchestrator/image_config.go)
@@ -136,10 +136,10 @@ func (r *Runner) ListImages(...) ([]api.ImageInfo, error) { ... }
 func (r *Runner) GetImage(...) (*api.ImageInfo, error) { ... }
 func (r *Runner) RemoveImage(...) error { ... }
 
-// Implements LogAggregator
+// Implements LogManager
 func (r *Runner) FetchLogsByExecutionID(...) ([]api.LogEvent, error) { ... }
 
-// Implements BackendObservability
+// Implements ObservabilityManager
 func (r *Runner) FetchBackendLogs(...) ([]api.LogEvent, error) { ... }
 ```
 
@@ -215,7 +215,7 @@ Each interface can evolve independently:
 
 ```go
 // Add streaming logs without touching TaskManager
-type LogAggregator interface {
+type LogManager interface {
     FetchLogsByExecutionID(ctx, executionID) ([]LogEvent, error)
     StreamLogs(ctx, executionID) (<-chan LogEvent, error) // NEW
 }
@@ -229,8 +229,8 @@ Use different providers for different concerns:
 service := orchestrator.NewService(
     taskManager:         gcpExecutor,        // Run tasks on GCP
     imageRegistry:       awsImageRegistry,   // Store images in AWS
-    logAggregator:       gcpLogAggregator,   // Fetch logs from GCP
-    backendObservability: awsObservability,  // Monitor AWS backend
+    logManager:          gcpLogManager,      // Fetch logs from GCP
+    observabilityManager: awsObservability,  // Monitor AWS backend
     ...
 )
 ```
@@ -259,7 +259,7 @@ go test ./internal/providers/aws/orchestrator/... -v
 If migrating from code that used the old unified Runner interface:
 
 1. **Update imports**: Ensure you're importing the correct orchestrator package
-2. **Use Service accessors**: Call `service.TaskManager()`, `service.ImageRegistry()`, etc.
+2. **Use Service accessors**: Call `service.TaskManager()`, `service.ImageRegistry()`, `service.LogManager()`, `service.ObservabilityManager()`, etc.
 3. **Update constructors**: `NewService` now takes 4 separate interface parameters
 
 Example:
@@ -275,8 +275,8 @@ service := orchestrator.NewService(
     ...,
     awsRunner, // TaskManager
     awsRunner, // ImageRegistry
-    awsRunner, // LogAggregator
-    awsRunner, // BackendObservability
+    awsRunner, // LogManager
+    awsRunner, // ObservabilityManager
     ...
 )
 ```

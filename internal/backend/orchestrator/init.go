@@ -60,8 +60,8 @@ func Initialize(
 			awsDeps.ImageRepo,
 			awsDeps.Runner, // TaskManager
 			awsDeps.Runner, // ImageRegistry
-			awsDeps.Runner, // LogAggregator
-			awsDeps.Runner, // BackendObservability
+			awsDeps.Runner, // LogManager
+			awsDeps.Runner, // ObservabilityManager
 			logger,
 			cfg.BackendProvider,
 			awsDeps.WebSocketManager,
