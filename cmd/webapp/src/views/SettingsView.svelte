@@ -1,12 +1,11 @@
 <script lang="ts">
     import { onMount } from 'svelte';
     import { apiEndpoint, apiKey } from '../stores/config';
-    import { APIClient } from '../lib/api';
+    import APIClient from '../lib/api';
     import type { HealthResponse } from '../types/api';
 
-    // These props are passed by parent component but not used in this view
-    export const apiClient = undefined;
-    export const isConfigured = undefined;
+    export let apiClient: APIClient | null = null;
+    export let isConfigured = false;
 
     const appVersion = import.meta.env.VITE_RUNVOY_VERSION || 'unknown';
 
@@ -16,10 +15,7 @@
     let loadingHealth = false;
 
     async function fetchBackendHealth(): Promise<void> {
-        const endpoint = $apiEndpoint;
-        const key = $apiKey;
-
-        if (!endpoint || !key) {
+        if (!apiClient) {
             return;
         }
 
@@ -27,8 +23,7 @@
         healthError = null;
 
         try {
-            const client = new APIClient(endpoint, key);
-            backendHealth = await client.getHealth();
+            backendHealth = await apiClient.getHealth();
         } catch (error) {
             healthError = error instanceof Error ? error.message : 'Failed to fetch backend health';
         } finally {
@@ -67,7 +62,7 @@
     }
 
     // Re-fetch health when API configuration changes
-    $: if ($apiEndpoint && $apiKey) {
+    $: if (apiClient && isConfigured) {
         fetchBackendHealth();
     }
 </script>
