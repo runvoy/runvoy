@@ -11,7 +11,7 @@ import (
 	"runvoy/internal/api"
 	"runvoy/internal/auth/authorization"
 	"runvoy/internal/backend/health"
-	"runvoy/internal/backend/orchestrator/interfaces"
+	"runvoy/internal/backend/orchestrator/contract"
 	"runvoy/internal/backend/websocket"
 	"runvoy/internal/constants"
 	"runvoy/internal/database"
@@ -373,17 +373,17 @@ func newTraceTestService(t *testing.T) *Service {
 func newTraceTestServiceWithRunner(
 	t *testing.T,
 	runner interface {
-		interfaces.TaskManager
-		interfaces.ImageRegistry
-		interfaces.LogManager
-		interfaces.ObservabilityManager
+		contract.TaskManager
+		contract.ImageRegistry
+		contract.LogManager
+		contract.ObservabilityManager
 	},
 	opts ...traceTestServiceOption,
 ) *Service {
-	taskManager, _ := runner.(interfaces.TaskManager)
-	imageRegistry, _ := runner.(interfaces.ImageRegistry)
-	logManager, _ := runner.(interfaces.LogManager)
-	observabilityManager, _ := runner.(interfaces.ObservabilityManager)
+	taskManager, _ := runner.(contract.TaskManager)
+	imageRegistry, _ := runner.(contract.ImageRegistry)
+	logManager, _ := runner.(contract.LogManager)
+	observabilityManager, _ := runner.(contract.ObservabilityManager)
 
 	cfg := &traceTestServiceConfig{
 		userRepo:      &minimalUserRepository{},

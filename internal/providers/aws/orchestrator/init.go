@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 
-	"runvoy/internal/backend/orchestrator/interfaces"
+	"runvoy/internal/backend/orchestrator/contract"
 	"runvoy/internal/config"
 	"runvoy/internal/database"
 	"runvoy/internal/logger"
@@ -31,10 +31,10 @@ type Dependencies struct {
 	ConnectionRepo       database.ConnectionRepository
 	TokenRepo            database.TokenRepository
 	ImageRepo            database.ImageRepository
-	TaskManager          interfaces.TaskManager
-	ImageRegistry        interfaces.ImageRegistry
-	LogManager           interfaces.LogManager
-	ObservabilityManager interfaces.ObservabilityManager
+	TaskManager          contract.TaskManager
+	ImageRegistry        contract.ImageRegistry
+	LogManager           contract.LogManager
+	ObservabilityManager contract.ObservabilityManager
 	WebSocketManager     *websocket.Manager
 	SecretsRepo          database.SecretsRepository
 	HealthManager        *awsHealth.Manager

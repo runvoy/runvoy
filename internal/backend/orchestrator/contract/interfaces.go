@@ -1,9 +1,7 @@
-// Package interfaces defines the core orchestrator interfaces for provider implementations.
+// Package contract defines the core orchestrator interfaces that providers must implement.
 // These interfaces are separated into their own package to avoid circular dependencies
 // between the orchestrator service and provider implementations.
-//
-//nolint:revive // Package name "interfaces" is descriptive and commonly used for interface definitions
-package interfaces
+package contract
 
 import (
 	"context"

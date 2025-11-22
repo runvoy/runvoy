@@ -14,7 +14,7 @@ import (
 	"runvoy/internal/auth/authorization"
 	"runvoy/internal/backend/health"
 	"runvoy/internal/backend/orchestrator"
-	"runvoy/internal/backend/orchestrator/interfaces"
+	"runvoy/internal/backend/orchestrator/contract"
 	"runvoy/internal/backend/websocket"
 	"runvoy/internal/constants"
 	"runvoy/internal/database"
@@ -355,10 +355,10 @@ func newTestOrchestratorService(
 	if execRepo == nil {
 		execRepo = &testExecutionRepository{}
 	}
-	var taskManager interfaces.TaskManager = &testRunner{}
-	var imageRegistry interfaces.ImageRegistry = &testRunner{}
-	var logManager interfaces.LogManager = &testRunner{}
-	var observabilityManager interfaces.ObservabilityManager = &testRunner{}
+	var taskManager contract.TaskManager = &testRunner{}
+	var imageRegistry contract.ImageRegistry = &testRunner{}
+	var logManager contract.LogManager = &testRunner{}
+	var observabilityManager contract.ObservabilityManager = &testRunner{}
 	if runner != nil {
 		taskManager = runner
 		imageRegistry = runner

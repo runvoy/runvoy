@@ -8,7 +8,7 @@ import (
 
 	"runvoy/internal/api"
 	"runvoy/internal/auth/authorization"
-	"runvoy/internal/backend/orchestrator/interfaces"
+	"runvoy/internal/backend/orchestrator/contract"
 	"runvoy/internal/backend/websocket"
 	"runvoy/internal/constants"
 	"runvoy/internal/database"
@@ -352,10 +352,10 @@ func newTestService(
 		execRepoIface = execRepo
 	}
 
-	var taskManager interfaces.TaskManager = &mockRunner{}
-	var imageRegistry interfaces.ImageRegistry = &mockRunner{}
-	var logManager interfaces.LogManager = &mockRunner{}
-	var observabilityManager interfaces.ObservabilityManager = &mockRunner{}
+	var taskManager contract.TaskManager = &mockRunner{}
+	var imageRegistry contract.ImageRegistry = &mockRunner{}
+	var logManager contract.LogManager = &mockRunner{}
+	var observabilityManager contract.ObservabilityManager = &mockRunner{}
 	if runner != nil {
 		taskManager = runner
 		imageRegistry = runner
@@ -375,10 +375,10 @@ func newTestServiceWithConnRepo(
 	userRepo database.UserRepository,
 	execRepo database.ExecutionRepository,
 	connRepo database.ConnectionRepository,
-	taskManager interfaces.TaskManager,
-	imageRegistry interfaces.ImageRegistry,
-	logManager interfaces.LogManager,
-	observabilityManager interfaces.ObservabilityManager,
+	taskManager contract.TaskManager,
+	imageRegistry contract.ImageRegistry,
+	logManager contract.LogManager,
+	observabilityManager contract.ObservabilityManager,
 ) *Service {
 	logger := testutil.SilentLogger()
 	svc, err := NewService(
@@ -419,10 +419,10 @@ func newTestServiceWithEnforcer(
 		execRepoIface = execRepo
 	}
 
-	var taskManager interfaces.TaskManager = &mockRunner{}
-	var imageRegistry interfaces.ImageRegistry = &mockRunner{}
-	var logManager interfaces.LogManager = &mockRunner{}
-	var observabilityManager interfaces.ObservabilityManager = &mockRunner{}
+	var taskManager contract.TaskManager = &mockRunner{}
+	var imageRegistry contract.ImageRegistry = &mockRunner{}
+	var logManager contract.LogManager = &mockRunner{}
+	var observabilityManager contract.ObservabilityManager = &mockRunner{}
 	if runner != nil {
 		taskManager = runner
 		imageRegistry = runner
@@ -477,10 +477,10 @@ func newTestServiceWithSecretsRepo(
 		execRepoIface = execRepo
 	}
 
-	var taskManager interfaces.TaskManager = &mockRunner{}
-	var imageRegistry interfaces.ImageRegistry = &mockRunner{}
-	var logManager interfaces.LogManager = &mockRunner{}
-	var observabilityManager interfaces.ObservabilityManager = &mockRunner{}
+	var taskManager contract.TaskManager = &mockRunner{}
+	var imageRegistry contract.ImageRegistry = &mockRunner{}
+	var logManager contract.LogManager = &mockRunner{}
+	var observabilityManager contract.ObservabilityManager = &mockRunner{}
 	if runner != nil {
 		taskManager = runner
 		imageRegistry = runner
@@ -595,10 +595,10 @@ func newTestServiceWithWebSocketManager(
 		execRepoIface = execRepo
 	}
 
-	var taskManager interfaces.TaskManager = &mockRunner{}
-	var imageRegistry interfaces.ImageRegistry = &mockRunner{}
-	var logManager interfaces.LogManager = &mockRunner{}
-	var observabilityManager interfaces.ObservabilityManager = &mockRunner{}
+	var taskManager contract.TaskManager = &mockRunner{}
+	var imageRegistry contract.ImageRegistry = &mockRunner{}
+	var logManager contract.LogManager = &mockRunner{}
+	var observabilityManager contract.ObservabilityManager = &mockRunner{}
 	if runner != nil {
 		taskManager = runner
 		imageRegistry = runner

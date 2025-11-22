@@ -9,7 +9,7 @@ import (
 	"runvoy/internal/api"
 	"runvoy/internal/auth/authorization"
 	"runvoy/internal/backend/health"
-	"runvoy/internal/backend/orchestrator/interfaces"
+	"runvoy/internal/backend/orchestrator/contract"
 	"runvoy/internal/constants"
 	apperrors "runvoy/internal/errors"
 	"runvoy/internal/testutil"
@@ -29,10 +29,10 @@ func newTestEnforcer(t *testing.T) *authorization.Enforcer {
 // newImageTestService creates a Service for image testing with a custom runner.
 // The runner parameter implements all 4 interfaces (TaskManager, ImageRegistry, LogManager, ObservabilityManager).
 func newImageTestService(t *testing.T, runner *mockRunner) *Service {
-	taskManager := interfaces.TaskManager(runner)
-	imageRegistry := interfaces.ImageRegistry(runner)
-	logManager := interfaces.LogManager(runner)
-	observabilityManager := interfaces.ObservabilityManager(runner)
+	taskManager := contract.TaskManager(runner)
+	imageRegistry := contract.ImageRegistry(runner)
+	logManager := contract.LogManager(runner)
+	observabilityManager := contract.ObservabilityManager(runner)
 
 	svc, err := NewService(
 		context.Background(),

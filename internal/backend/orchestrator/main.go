@@ -7,7 +7,7 @@ import (
 
 	"runvoy/internal/auth/authorization"
 	"runvoy/internal/backend/health"
-	"runvoy/internal/backend/orchestrator/interfaces"
+	"runvoy/internal/backend/orchestrator/contract"
 	"runvoy/internal/backend/websocket"
 	"runvoy/internal/constants"
 	"runvoy/internal/database"
@@ -20,10 +20,10 @@ type Service struct {
 	connRepo             database.ConnectionRepository
 	tokenRepo            database.TokenRepository
 	imageRepo            database.ImageRepository
-	taskManager          interfaces.TaskManager
-	imageRegistry        interfaces.ImageRegistry
-	logManager           interfaces.LogManager
-	observabilityManager interfaces.ObservabilityManager
+	taskManager          contract.TaskManager
+	imageRegistry        contract.ImageRegistry
+	logManager           contract.LogManager
+	observabilityManager contract.ObservabilityManager
 	Logger               *slog.Logger
 	Provider             constants.BackendProvider
 	wsManager            websocket.Manager          // WebSocket manager for generating URLs and managing connections
@@ -48,10 +48,10 @@ func NewService(
 	connRepo database.ConnectionRepository,
 	tokenRepo database.TokenRepository,
 	imageRepo database.ImageRepository,
-	taskManager interfaces.TaskManager,
-	imageRegistry interfaces.ImageRegistry,
-	logManager interfaces.LogManager,
-	observabilityManager interfaces.ObservabilityManager,
+	taskManager contract.TaskManager,
+	imageRegistry contract.ImageRegistry,
+	logManager contract.LogManager,
+	observabilityManager contract.ObservabilityManager,
 	log *slog.Logger,
 	provider constants.BackendProvider,
 	wsManager websocket.Manager,
@@ -98,21 +98,21 @@ func (s *Service) GetEnforcer() *authorization.Enforcer {
 }
 
 // TaskManager returns the task execution interface.
-func (s *Service) TaskManager() interfaces.TaskManager {
+func (s *Service) TaskManager() contract.TaskManager {
 	return s.taskManager
 }
 
 // ImageRegistry returns the image management interface.
-func (s *Service) ImageRegistry() interfaces.ImageRegistry {
+func (s *Service) ImageRegistry() contract.ImageRegistry {
 	return s.imageRegistry
 }
 
 // LogManager returns the log management interface.
-func (s *Service) LogManager() interfaces.LogManager {
+func (s *Service) LogManager() contract.LogManager {
 	return s.logManager
 }
 
 // ObservabilityManager returns the observability interface.
-func (s *Service) ObservabilityManager() interfaces.ObservabilityManager {
+func (s *Service) ObservabilityManager() contract.ObservabilityManager {
 	return s.observabilityManager
 }
