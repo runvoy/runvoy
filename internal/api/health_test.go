@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -12,9 +13,9 @@ func TestHealthReconcileResponseJSON(t *testing.T) {
 	t.Run("marshal and unmarshal full response", func(t *testing.T) {
 		resp := HealthReconcileResponse{
 			Status: "completed",
-			Report: &HealthReconcileReport{
-				Timestamp: "2024-01-15T10:30:00Z",
-				ComputeStatus: HealthReconcileComputeStatus{
+			Report: &HealthReport{
+				Timestamp: time.Date(2024, 1, 15, 10, 30, 0, 0, time.UTC),
+				ComputeStatus: ComputeHealthStatus{
 					TotalResources:    10,
 					VerifiedCount:     8,
 					RecreatedCount:    1,
@@ -22,7 +23,7 @@ func TestHealthReconcileResponseJSON(t *testing.T) {
 					OrphanedCount:     0,
 					OrphanedResources: []string{},
 				},
-				SecretsStatus: HealthReconcileSecretsStatus{
+				SecretsStatus: SecretsHealthStatus{
 					TotalSecrets:       5,
 					VerifiedCount:      4,
 					TagUpdatedCount:    1,
@@ -30,13 +31,13 @@ func TestHealthReconcileResponseJSON(t *testing.T) {
 					OrphanedCount:      0,
 					OrphanedParameters: []string{},
 				},
-				IdentityStatus: HealthReconcileIdentityStatus{
+				IdentityStatus: IdentityHealthStatus{
 					DefaultRolesVerified: true,
 					CustomRolesVerified:  3,
 					CustomRolesTotal:     3,
 					MissingRoles:         []string{},
 				},
-				Issues:          []HealthReconcileIssue{},
+				Issues:          []HealthIssue{},
 				ReconciledCount: 15,
 				ErrorCount:      0,
 			},
@@ -76,7 +77,7 @@ func TestHealthReconcileResponseJSON(t *testing.T) {
 
 func TestHealthReconcileComputeStatusJSON(t *testing.T) {
 	t.Run("marshal and unmarshal", func(t *testing.T) {
-		status := HealthReconcileComputeStatus{
+		status := ComputeHealthStatus{
 			TotalResources:    100,
 			VerifiedCount:     90,
 			RecreatedCount:    5,
@@ -88,7 +89,7 @@ func TestHealthReconcileComputeStatusJSON(t *testing.T) {
 		data, err := json.Marshal(status)
 		require.NoError(t, err)
 
-		var unmarshaled HealthReconcileComputeStatus
+		var unmarshaled ComputeHealthStatus
 		err = json.Unmarshal(data, &unmarshaled)
 		require.NoError(t, err)
 
@@ -101,7 +102,7 @@ func TestHealthReconcileComputeStatusJSON(t *testing.T) {
 	})
 
 	t.Run("json field names", func(t *testing.T) {
-		status := HealthReconcileComputeStatus{
+		status := ComputeHealthStatus{
 			TotalResources:    10,
 			OrphanedResources: []string{"resource-1"},
 		}
@@ -119,7 +120,7 @@ func TestHealthReconcileComputeStatusJSON(t *testing.T) {
 
 func TestHealthReconcileSecretsStatusJSON(t *testing.T) {
 	t.Run("marshal and unmarshal", func(t *testing.T) {
-		status := HealthReconcileSecretsStatus{
+		status := SecretsHealthStatus{
 			TotalSecrets:       20,
 			VerifiedCount:      18,
 			TagUpdatedCount:    1,
@@ -131,7 +132,7 @@ func TestHealthReconcileSecretsStatusJSON(t *testing.T) {
 		data, err := json.Marshal(status)
 		require.NoError(t, err)
 
-		var unmarshaled HealthReconcileSecretsStatus
+		var unmarshaled SecretsHealthStatus
 		err = json.Unmarshal(data, &unmarshaled)
 		require.NoError(t, err)
 
@@ -142,7 +143,7 @@ func TestHealthReconcileSecretsStatusJSON(t *testing.T) {
 	})
 
 	t.Run("json field names", func(t *testing.T) {
-		status := HealthReconcileSecretsStatus{
+		status := SecretsHealthStatus{
 			TotalSecrets:       5,
 			OrphanedParameters: []string{"param-1"},
 		}
@@ -158,7 +159,7 @@ func TestHealthReconcileSecretsStatusJSON(t *testing.T) {
 
 func TestHealthReconcileIdentityStatusJSON(t *testing.T) {
 	t.Run("marshal and unmarshal", func(t *testing.T) {
-		status := HealthReconcileIdentityStatus{
+		status := IdentityHealthStatus{
 			DefaultRolesVerified: true,
 			CustomRolesVerified:  5,
 			CustomRolesTotal:     6,
@@ -168,7 +169,7 @@ func TestHealthReconcileIdentityStatusJSON(t *testing.T) {
 		data, err := json.Marshal(status)
 		require.NoError(t, err)
 
-		var unmarshaled HealthReconcileIdentityStatus
+		var unmarshaled IdentityHealthStatus
 		err = json.Unmarshal(data, &unmarshaled)
 		require.NoError(t, err)
 
@@ -179,7 +180,7 @@ func TestHealthReconcileIdentityStatusJSON(t *testing.T) {
 	})
 
 	t.Run("json field names", func(t *testing.T) {
-		status := HealthReconcileIdentityStatus{
+		status := IdentityHealthStatus{
 			DefaultRolesVerified: false,
 			MissingRoles:         []string{"role-1"},
 		}
@@ -196,7 +197,7 @@ func TestHealthReconcileIdentityStatusJSON(t *testing.T) {
 
 func TestHealthReconcileIssueJSON(t *testing.T) {
 	t.Run("marshal and unmarshal", func(t *testing.T) {
-		issue := HealthReconcileIssue{
+		issue := HealthIssue{
 			ResourceType: "ECS_TASK",
 			ResourceID:   "task-12345",
 			Severity:     "warning",
@@ -207,7 +208,7 @@ func TestHealthReconcileIssueJSON(t *testing.T) {
 		data, err := json.Marshal(issue)
 		require.NoError(t, err)
 
-		var unmarshaled HealthReconcileIssue
+		var unmarshaled HealthIssue
 		err = json.Unmarshal(data, &unmarshaled)
 		require.NoError(t, err)
 
@@ -219,7 +220,7 @@ func TestHealthReconcileIssueJSON(t *testing.T) {
 	})
 
 	t.Run("json field names", func(t *testing.T) {
-		issue := HealthReconcileIssue{
+		issue := HealthIssue{
 			ResourceType: "SECRET",
 			ResourceID:   "secret-1",
 			Severity:     "error",
@@ -239,22 +240,22 @@ func TestHealthReconcileIssueJSON(t *testing.T) {
 	})
 }
 
-func TestHealthReconcileReportJSON(t *testing.T) {
+func TestHealthReportJSON(t *testing.T) {
 	t.Run("marshal and unmarshal with issues", func(t *testing.T) {
-		report := HealthReconcileReport{
-			Timestamp: "2024-01-15T10:30:00Z",
-			ComputeStatus: HealthReconcileComputeStatus{
+		report := HealthReport{
+			Timestamp: time.Date(2024, 1, 15, 10, 30, 0, 0, time.UTC),
+			ComputeStatus: ComputeHealthStatus{
 				TotalResources: 5,
 				VerifiedCount:  4,
 			},
-			SecretsStatus: HealthReconcileSecretsStatus{
+			SecretsStatus: SecretsHealthStatus{
 				TotalSecrets:  3,
 				VerifiedCount: 3,
 			},
-			IdentityStatus: HealthReconcileIdentityStatus{
+			IdentityStatus: IdentityHealthStatus{
 				DefaultRolesVerified: true,
 			},
-			Issues: []HealthReconcileIssue{
+			Issues: []HealthIssue{
 				{
 					ResourceType: "COMPUTE",
 					ResourceID:   "task-1",
@@ -270,7 +271,7 @@ func TestHealthReconcileReportJSON(t *testing.T) {
 		data, err := json.Marshal(report)
 		require.NoError(t, err)
 
-		var unmarshaled HealthReconcileReport
+		var unmarshaled HealthReport
 		err = json.Unmarshal(data, &unmarshaled)
 		require.NoError(t, err)
 

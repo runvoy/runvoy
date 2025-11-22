@@ -67,7 +67,7 @@ func runHealthReconcile(cmd *cobra.Command, _ []string) {
 	output.Successf("Health reconciliation completed")
 }
 
-func printComputeReport(r *api.HealthReconcileReport) {
+func printComputeReport(r *api.HealthReport) {
 	output.Subheader("Compute")
 	output.KeyValue("Total", fmt.Sprintf("%d", r.ComputeStatus.TotalResources))
 	output.KeyValue("Verified", fmt.Sprintf("%d", r.ComputeStatus.VerifiedCount))
@@ -79,7 +79,7 @@ func printComputeReport(r *api.HealthReconcileReport) {
 	output.Blank()
 }
 
-func printSecretsReport(r *api.HealthReconcileReport) {
+func printSecretsReport(r *api.HealthReport) {
 	output.Subheader("Secrets")
 	output.KeyValue("Total", fmt.Sprintf("%d", r.SecretsStatus.TotalSecrets))
 	output.KeyValue("Verified", fmt.Sprintf("%d", r.SecretsStatus.VerifiedCount))
@@ -91,7 +91,7 @@ func printSecretsReport(r *api.HealthReconcileReport) {
 	output.Blank()
 }
 
-func printIdentityReport(r *api.HealthReconcileReport) {
+func printIdentityReport(r *api.HealthReport) {
 	output.Subheader("Identity")
 	output.KeyValue("Default Roles Verified", fmt.Sprintf("%t", r.IdentityStatus.DefaultRolesVerified))
 	customRoles := fmt.Sprintf("%d/%d",
@@ -101,7 +101,7 @@ func printIdentityReport(r *api.HealthReconcileReport) {
 	output.Blank()
 }
 
-func printIssuesTable(r *api.HealthReconcileReport) {
+func printIssuesTable(r *api.HealthReport) {
 	if len(r.Issues) == 0 {
 		return
 	}

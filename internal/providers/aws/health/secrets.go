@@ -6,7 +6,7 @@ import (
 	"log/slog"
 	"strings"
 
-	"runvoy/internal/backend/contract"
+	"runvoy/internal/api"
 	awsConstants "runvoy/internal/providers/aws/constants"
 	"runvoy/internal/providers/aws/secrets"
 
@@ -18,11 +18,11 @@ import (
 func (m *Manager) reconcileSecrets(
 	ctx context.Context,
 	reqLogger *slog.Logger,
-) (contract.SecretsHealthStatus, []contract.HealthIssue, error) {
-	status := contract.SecretsHealthStatus{
+) (api.SecretsHealthStatus, []api.HealthIssue, error) {
+	status := api.SecretsHealthStatus{
 		OrphanedParameters: []string{},
 	}
-	issues := []contract.HealthIssue{}
+	issues := []api.HealthIssue{}
 
 	secretsList, err := m.secretsRepo.ListSecrets(ctx, false)
 	if err != nil {
@@ -47,7 +47,7 @@ func (m *Manager) reconcileSecrets(
 		status.OrphanedCount = len(orphanedParams)
 		status.OrphanedParameters = orphanedParams
 		for _, param := range orphanedParams {
-			issues = append(issues, contract.HealthIssue{
+			issues = append(issues, api.HealthIssue{
 				ResourceType: "ssm_parameter",
 				ResourceID:   param,
 				Severity:     "warning",
@@ -65,9 +65,9 @@ func (m *Manager) checkSecretParameter(
 	parameterName string,
 	secretName string,
 	reqLogger *slog.Logger,
-	status *contract.SecretsHealthStatus,
-) []contract.HealthIssue {
-	issues := []contract.HealthIssue{}
+	status *api.SecretsHealthStatus,
+) []api.HealthIssue {
+	issues := []api.HealthIssue{}
 
 	_, getParamErr := m.ssmClient.GetParameter(ctx, &ssm.GetParameterInput{
 		Name:           awsStd.String(parameterName),
@@ -76,7 +76,7 @@ func (m *Manager) checkSecretParameter(
 	if getParamErr != nil {
 		if isParameterNotFound(getParamErr) {
 			status.MissingCount++
-			issues = append(issues, contract.HealthIssue{
+			issues = append(issues, api.HealthIssue{
 				ResourceType: "ssm_parameter",
 				ResourceID:   secretName,
 				Severity:     "error",
@@ -85,7 +85,7 @@ func (m *Manager) checkSecretParameter(
 			})
 			reqLogger.Warn("secret parameter missing", "name", secretName, "parameter", parameterName)
 		} else {
-			issues = append(issues, contract.HealthIssue{
+			issues = append(issues, api.HealthIssue{
 				ResourceType: "ssm_parameter",
 				ResourceID:   secretName,
 				Severity:     "error",
@@ -98,7 +98,7 @@ func (m *Manager) checkSecretParameter(
 
 	tagUpdated, tagErr := m.verifyAndUpdateSecretTags(ctx, parameterName, secretName, reqLogger)
 	if tagErr != nil {
-		issues = append(issues, contract.HealthIssue{
+		issues = append(issues, api.HealthIssue{
 			ResourceType: "ssm_parameter",
 			ResourceID:   secretName,
 			Severity:     "warning",
@@ -107,7 +107,7 @@ func (m *Manager) checkSecretParameter(
 		})
 	} else if tagUpdated {
 		status.TagUpdatedCount++
-		issues = append(issues, contract.HealthIssue{
+		issues = append(issues, api.HealthIssue{
 			ResourceType: "ssm_parameter",
 			ResourceID:   secretName,
 			Severity:     "warning",

@@ -623,6 +623,17 @@ func TestFetchBackendLogs(t *testing.T) {
 	ctx := context.Background()
 	requestID := "aws-request-id-12345"
 
+	// Use shorter delays for tests to speed up execution
+	testProvider := func(mock *mockCloudWatchLogsClient) *Provider {
+		return &Provider{
+			cwlClient:             mock,
+			logger:                testutil.SilentLogger(),
+			testQueryInitialDelay: 10 * time.Millisecond,
+			testQueryPollInterval: 10 * time.Millisecond,
+			testQueryMaxAttempts:  3,
+		}
+	}
+
 	t.Run("successful query returns logs", func(t *testing.T) {
 		mock := createMockLogsClient(&mockLogsClientOpts{
 			getResultsStatus: cwlTypes.QueryStatusComplete,
@@ -634,7 +645,7 @@ func TestFetchBackendLogs(t *testing.T) {
 			},
 		})
 
-		provider := &Provider{cwlClient: mock, logger: testutil.SilentLogger()}
+		provider := testProvider(mock)
 		logs, err := provider.FetchBackendLogs(ctx, requestID)
 		require.NoError(t, err)
 		require.Len(t, logs, 1)
@@ -646,7 +657,7 @@ func TestFetchBackendLogs(t *testing.T) {
 			describeErr: errors.New("AWS API error"),
 		})
 
-		provider := &Provider{cwlClient: mock, logger: testutil.SilentLogger()}
+		provider := testProvider(mock)
 		logs, err := provider.FetchBackendLogs(ctx, requestID)
 		require.Error(t, err)
 		assert.Nil(t, logs)
@@ -657,7 +668,7 @@ func TestFetchBackendLogs(t *testing.T) {
 			noLogGroups: true,
 		})
 
-		provider := &Provider{cwlClient: mock, logger: testutil.SilentLogger()}
+		provider := testProvider(mock)
 		logs, err := provider.FetchBackendLogs(ctx, requestID)
 		require.Error(t, err)
 		assert.Nil(t, logs)
@@ -668,7 +679,7 @@ func TestFetchBackendLogs(t *testing.T) {
 			startQueryErr: errors.New("failed to start query"),
 		})
 
-		provider := &Provider{cwlClient: mock, logger: testutil.SilentLogger()}
+		provider := testProvider(mock)
 		logs, err := provider.FetchBackendLogs(ctx, requestID)
 		require.Error(t, err)
 		assert.Nil(t, logs)
@@ -679,7 +690,7 @@ func TestFetchBackendLogs(t *testing.T) {
 			getResultsStatus: cwlTypes.QueryStatusRunning,
 		})
 
-		provider := &Provider{cwlClient: mock, logger: testutil.SilentLogger()}
+		provider := testProvider(mock)
 		logs, err := provider.FetchBackendLogs(ctx, requestID)
 		require.Error(t, err)
 		assert.Nil(t, logs)
@@ -690,7 +701,7 @@ func TestFetchBackendLogs(t *testing.T) {
 			getResultsStatus: cwlTypes.QueryStatusFailed,
 		})
 
-		provider := &Provider{cwlClient: mock, logger: testutil.SilentLogger()}
+		provider := testProvider(mock)
 		logs, err := provider.FetchBackendLogs(ctx, requestID)
 		require.Error(t, err)
 		assert.Nil(t, logs)

@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"runvoy/internal/api"
-	"runvoy/internal/backend/contract"
 	awsConstants "runvoy/internal/providers/aws/constants"
 	"runvoy/internal/providers/aws/ecsdefs"
 	"runvoy/internal/providers/aws/secrets"
@@ -20,11 +19,11 @@ import (
 func (m *Manager) reconcileECSTaskDefinitions(
 	ctx context.Context,
 	reqLogger *slog.Logger,
-) (contract.ComputeHealthStatus, []contract.HealthIssue, error) {
-	status := contract.ComputeHealthStatus{
+) (api.ComputeHealthStatus, []api.HealthIssue, error) {
+	status := api.ComputeHealthStatus{
 		OrphanedResources: []string{},
 	}
-	issues := []contract.HealthIssue{}
+	issues := []api.HealthIssue{}
 
 	images, err := m.imageRepo.ListImages(ctx)
 	if err != nil {
@@ -48,15 +47,15 @@ func (m *Manager) checkImageTaskDefinitions(
 	images []api.ImageInfo,
 	seenFamilies map[string]bool,
 	reqLogger *slog.Logger,
-	status *contract.ComputeHealthStatus,
-) []contract.HealthIssue {
-	issues := []contract.HealthIssue{}
+	status *api.ComputeHealthStatus,
+) []api.HealthIssue {
+	issues := []api.HealthIssue{}
 
 	for i := range images {
 		img := &images[i]
 		family := img.TaskDefinitionName
 		if family == "" {
-			issues = append(issues, contract.HealthIssue{
+			issues = append(issues, api.HealthIssue{
 				ResourceType: "ecs_task_definition",
 				ResourceID:   img.ImageID,
 				Severity:     "warning",
@@ -79,15 +78,15 @@ func (m *Manager) checkTaskDefinition(
 	img *api.ImageInfo,
 	family string,
 	reqLogger *slog.Logger,
-	status *contract.ComputeHealthStatus,
-) []contract.HealthIssue {
+	status *api.ComputeHealthStatus,
+) []api.HealthIssue {
 	listOutput, listErr := m.ecsClient.ListTaskDefinitions(ctx, &ecs.ListTaskDefinitionsInput{
 		FamilyPrefix: awsStd.String(family),
 		Status:       ecsTypes.TaskDefinitionStatusActive,
 		MaxResults:   awsStd.Int32(1),
 	})
 	if listErr != nil {
-		return []contract.HealthIssue{
+		return []api.HealthIssue{
 			{
 				ResourceType: "ecs_task_definition",
 				ResourceID:   family,
@@ -110,20 +109,20 @@ func (m *Manager) findAndReportOrphanedTaskDefinitions(
 	ctx context.Context,
 	seenFamilies map[string]bool,
 	reqLogger *slog.Logger,
-	status *contract.ComputeHealthStatus,
-) []contract.HealthIssue {
+	status *api.ComputeHealthStatus,
+) []api.HealthIssue {
 	orphanedFamilies, orphanErr := m.findOrphanedTaskDefinitions(ctx, seenFamilies, reqLogger)
 	if orphanErr != nil {
 		reqLogger.Warn("failed to find orphaned task definitions", "error", orphanErr)
-		return []contract.HealthIssue{}
+		return []api.HealthIssue{}
 	}
 
 	status.OrphanedCount = len(orphanedFamilies)
 	status.OrphanedResources = orphanedFamilies
 
-	issues := make([]contract.HealthIssue, 0, len(orphanedFamilies))
+	issues := make([]api.HealthIssue, 0, len(orphanedFamilies))
 	for _, family := range orphanedFamilies {
-		issues = append(issues, contract.HealthIssue{
+		issues = append(issues, api.HealthIssue{
 			ResourceType: "ecs_task_definition",
 			ResourceID:   family,
 			Severity:     "warning",
@@ -140,8 +139,8 @@ func (m *Manager) recreateMissingTaskDefinition(
 	img *api.ImageInfo,
 	family string,
 	reqLogger *slog.Logger,
-	status *contract.ComputeHealthStatus,
-) []contract.HealthIssue {
+	status *api.ComputeHealthStatus,
+) []api.HealthIssue {
 	reqLogger.Info("recreating missing task definition", "family", family, "image", img.Image)
 
 	params := m.buildTaskDefParams(img)
@@ -165,7 +164,7 @@ func (m *Manager) recreateMissingTaskDefinition(
 		reqLogger,
 	)
 	if recreateErr != nil {
-		return []contract.HealthIssue{
+		return []api.HealthIssue{
 			{
 				ResourceType: "ecs_task_definition",
 				ResourceID:   family,
@@ -178,7 +177,7 @@ func (m *Manager) recreateMissingTaskDefinition(
 
 	status.RecreatedCount++
 	reqLogger.Info("task definition recreated", "family", family, "arn", taskDefARN)
-	return []contract.HealthIssue{
+	return []api.HealthIssue{
 		{
 			ResourceType: "ecs_task_definition",
 			ResourceID:   family,
@@ -231,12 +230,12 @@ func (m *Manager) verifyTaskDefinitionTags(
 	taskDefARN string,
 	family string,
 	reqLogger *slog.Logger,
-	status *contract.ComputeHealthStatus,
-) []contract.HealthIssue {
+	status *api.ComputeHealthStatus,
+) []api.HealthIssue {
 	isDefault := img.IsDefault != nil && *img.IsDefault
 	tagUpdated, tagErr := m.verifyAndUpdateTaskDefinitionTags(ctx, taskDefARN, family, img.Image, isDefault, reqLogger)
 	if tagErr != nil {
-		return []contract.HealthIssue{
+		return []api.HealthIssue{
 			{
 				ResourceType: "ecs_task_definition",
 				ResourceID:   family,
@@ -248,7 +247,7 @@ func (m *Manager) verifyTaskDefinitionTags(
 	}
 	if tagUpdated {
 		status.TagUpdatedCount++
-		return []contract.HealthIssue{
+		return []api.HealthIssue{
 			{
 				ResourceType: "ecs_task_definition",
 				ResourceID:   family,
@@ -259,7 +258,7 @@ func (m *Manager) verifyTaskDefinitionTags(
 		}
 	}
 	status.VerifiedCount++
-	return []contract.HealthIssue{}
+	return []api.HealthIssue{}
 }
 
 func (m *Manager) findOrphanedTaskDefinitions(

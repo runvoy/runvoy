@@ -355,8 +355,8 @@ func (m *minimalWebSocketManager) SendLogsToExecution(
 
 type minimalHealthManager struct{}
 
-func (m *minimalHealthManager) Reconcile(_ context.Context) (*contract.HealthReport, error) {
-	return &contract.HealthReport{}, nil
+func (m *minimalHealthManager) Reconcile(_ context.Context) (*api.HealthReport, error) {
+	return &api.HealthReport{}, nil
 }
 
 // newTraceTestService creates a Service for trace testing with minimal mocks.

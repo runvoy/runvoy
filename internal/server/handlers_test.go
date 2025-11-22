@@ -250,8 +250,8 @@ func (t *testImageRepository) GetImagesByRequestID(_ context.Context, _ string) 
 
 type testHealthManager struct{}
 
-func (t *testHealthManager) Reconcile(_ context.Context) (*contract.HealthReport, error) {
-	return &contract.HealthReport{}, nil
+func (t *testHealthManager) Reconcile(_ context.Context) (*api.HealthReport, error) {
+	return &api.HealthReport{}, nil
 }
 
 type testRunner struct {

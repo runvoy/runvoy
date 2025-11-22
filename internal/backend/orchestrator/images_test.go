@@ -64,8 +64,8 @@ func newImageTestService(t *testing.T, runner *mockRunner) *Service {
 // mockHealthManager implements contract.HealthManager for testing
 type mockHealthManager struct{}
 
-func (m *mockHealthManager) Reconcile(_ context.Context) (*contract.HealthReport, error) {
-	return &contract.HealthReport{}, nil
+func (m *mockHealthManager) Reconcile(_ context.Context) (*api.HealthReport, error) {
+	return &api.HealthReport{}, nil
 }
 
 func TestGetImage_Success(t *testing.T) {

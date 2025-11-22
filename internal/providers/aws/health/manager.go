@@ -13,7 +13,6 @@ import (
 
 	"runvoy/internal/api"
 	"runvoy/internal/auth/authorization"
-	"runvoy/internal/backend/contract"
 	"runvoy/internal/database"
 	"runvoy/internal/logger"
 	awsClient "runvoy/internal/providers/aws/client"
@@ -91,13 +90,13 @@ func (m *Manager) SetCasbinDependencies(
 }
 
 // Reconcile performs health checks and reconciliation for ECS task definitions, SSM parameters, and IAM roles.
-func (m *Manager) Reconcile(ctx context.Context) (*contract.HealthReport, error) {
+func (m *Manager) Reconcile(ctx context.Context) (*api.HealthReport, error) {
 	reqLogger := logger.DeriveRequestLogger(ctx, m.logger)
 	reqLogger.Info("starting health reconciliation")
 
-	report := &contract.HealthReport{
+	report := &api.HealthReport{
 		Timestamp: time.Now(),
-		Issues:    []contract.HealthIssue{},
+		Issues:    []api.HealthIssue{},
 	}
 
 	res, err := m.runAllReconciliations(ctx, reqLogger)
@@ -130,14 +129,14 @@ func (m *Manager) Reconcile(ctx context.Context) (*contract.HealthReport, error)
 
 // reconciliationResults groups the results of all reconciliation tasks.
 type reconciliationResults struct {
-	computeStatus  contract.ComputeHealthStatus
-	computeIssues  []contract.HealthIssue
-	secretsStatus  contract.SecretsHealthStatus
-	secretsIssues  []contract.HealthIssue
-	identityStatus contract.IdentityHealthStatus
-	identityIssues []contract.HealthIssue
-	casbinStatus   contract.AuthorizerHealthStatus
-	casbinIssues   []contract.HealthIssue
+	computeStatus  api.ComputeHealthStatus
+	computeIssues  []api.HealthIssue
+	secretsStatus  api.SecretsHealthStatus
+	secretsIssues  []api.HealthIssue
+	identityStatus api.IdentityHealthStatus
+	identityIssues []api.HealthIssue
+	casbinStatus   api.AuthorizerHealthStatus
+	casbinIssues   []api.HealthIssue
 }
 
 // runAllReconciliations executes compute, secrets, and identity reconciliations in parallel.

@@ -85,6 +85,13 @@ type Provider struct {
 	imageRepo ImageTaskDefRepository
 	cfg       *Config
 	logger    *slog.Logger
+	// Test-only: configurable delays for testing (used in logs.go)
+
+	testQueryInitialDelay time.Duration
+
+	testQueryPollInterval time.Duration
+
+	testQueryMaxAttempts int
 }
 
 // NewProvider creates a new AWS ECS provider with the provided configuration.

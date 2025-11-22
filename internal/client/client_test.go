@@ -1150,9 +1150,9 @@ func TestClient_ReconcileHealth(t *testing.T) {
 			w.WriteHeader(http.StatusOK)
 			_ = json.NewEncoder(w).Encode(api.HealthReconcileResponse{
 				Status: "completed",
-				Report: &api.HealthReconcileReport{
-					Timestamp: "2024-01-15T10:30:00Z",
-					ComputeStatus: api.HealthReconcileComputeStatus{
+				Report: &api.HealthReport{
+					Timestamp: time.Date(2024, 1, 15, 10, 30, 0, 0, time.UTC),
+					ComputeStatus: api.ComputeHealthStatus{
 						TotalResources:  5,
 						VerifiedCount:   4,
 						RecreatedCount:  1,

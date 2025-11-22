@@ -95,6 +95,30 @@ func getAllLogEvents(ctx context.Context,
 	return events, nil
 }
 
+// getQueryInitialDelay returns the configured initial delay or the default
+func (r *Provider) getQueryInitialDelay() time.Duration {
+	if r.testQueryInitialDelay > 0 {
+		return r.testQueryInitialDelay
+	}
+	return awsConstants.CloudWatchLogsQueryInitialDelay
+}
+
+// getQueryPollInterval returns the configured poll interval or the default
+func (r *Provider) getQueryPollInterval() time.Duration {
+	if r.testQueryPollInterval > 0 {
+		return r.testQueryPollInterval
+	}
+	return awsConstants.CloudWatchLogsQueryPollInterval
+}
+
+// getQueryMaxAttempts returns the configured max attempts or the default
+func (r *Provider) getQueryMaxAttempts() int {
+	if r.testQueryMaxAttempts > 0 {
+		return r.testQueryMaxAttempts
+	}
+	return awsConstants.CloudWatchLogsQueryMaxAttempts
+}
+
 // FetchBackendLogs retrieves backend infrastructure logs using CloudWatch Logs Insights
 // Queries logs from Lambda execution for debugging and tracing
 func (r *Provider) FetchBackendLogs(ctx context.Context, requestID string) ([]api.LogEvent, error) {
@@ -108,7 +132,7 @@ func (r *Provider) FetchBackendLogs(ctx context.Context, requestID string) ([]ap
 	// We give some headroom for CloudWatch Logs Insights query to be ready
 	// This is a workaround for the fact that the query is not immediately ready
 	// and we need to wait for it to be ready before we can get the results
-	time.Sleep(awsConstants.CloudWatchLogsQueryInitialDelay)
+	time.Sleep(r.getQueryInitialDelay())
 
 	queryOutput, err := r.pollBackendLogsQuery(ctx, reqLogger, queryID)
 	if err != nil {
@@ -200,9 +224,11 @@ func (r *Provider) pollBackendLogsQuery(
 	queryID string,
 ) (*cloudwatchlogs.GetQueryResultsOutput, error) {
 	var queryOutput *cloudwatchlogs.GetQueryResultsOutput
-	for i := range awsConstants.CloudWatchLogsQueryMaxAttempts {
+	maxAttempts := r.getQueryMaxAttempts()
+	pollInterval := r.getQueryPollInterval()
+	for i := range maxAttempts {
 		if i > 0 {
-			time.Sleep(awsConstants.CloudWatchLogsQueryPollInterval)
+			time.Sleep(pollInterval)
 		}
 
 		getResultsArgs := []any{

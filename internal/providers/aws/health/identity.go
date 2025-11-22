@@ -6,7 +6,7 @@ import (
 	"log/slog"
 	"strings"
 
-	"runvoy/internal/backend/contract"
+	"runvoy/internal/api"
 
 	awsStd "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/iam"
@@ -15,11 +15,11 @@ import (
 func (m *Manager) reconcileIAMRoles(
 	ctx context.Context,
 	_ *slog.Logger,
-) (contract.IdentityHealthStatus, []contract.HealthIssue, error) {
-	status := contract.IdentityHealthStatus{
+) (api.IdentityHealthStatus, []api.HealthIssue, error) {
+	status := api.IdentityHealthStatus{
 		MissingRoles: []string{},
 	}
-	issues := []contract.HealthIssue{}
+	issues := []api.HealthIssue{}
 
 	defaultIssues := m.verifyDefaultRoles(ctx, &status)
 	issues = append(issues, defaultIssues...)
@@ -34,8 +34,8 @@ func (m *Manager) reconcileIAMRoles(
 }
 
 func (m *Manager) verifyDefaultRoles(
-	ctx context.Context, status *contract.IdentityHealthStatus) []contract.HealthIssue {
-	issues := []contract.HealthIssue{}
+	ctx context.Context, status *api.IdentityHealthStatus) []api.HealthIssue {
+	issues := []api.HealthIssue{}
 
 	if m.cfg.DefaultTaskRoleARN != "" {
 		issues = append(issues, m.verifyRole(ctx, m.cfg.DefaultTaskRoleARN, "Default task role", status)...)
@@ -56,19 +56,19 @@ func (m *Manager) verifyRole(
 	ctx context.Context,
 	roleARN string,
 	roleDescription string,
-	status *contract.IdentityHealthStatus,
-) []contract.HealthIssue {
+	status *api.IdentityHealthStatus,
+) []api.HealthIssue {
 	roleName := extractRoleNameFromARN(roleARN)
 	_, err := m.iamClient.GetRole(ctx, &iam.GetRoleInput{
 		RoleName: awsStd.String(roleName),
 	})
 	if err == nil {
-		return []contract.HealthIssue{}
+		return []api.HealthIssue{}
 	}
 
 	if strings.Contains(err.Error(), "NoSuchEntity") {
 		status.MissingRoles = append(status.MissingRoles, roleARN)
-		return []contract.HealthIssue{
+		return []api.HealthIssue{
 			{
 				ResourceType: "iam_role",
 				ResourceID:   roleARN,
@@ -79,7 +79,7 @@ func (m *Manager) verifyRole(
 		}
 	}
 
-	return []contract.HealthIssue{
+	return []api.HealthIssue{
 		{
 			ResourceType: "iam_role",
 			ResourceID:   roleARN,
@@ -92,8 +92,8 @@ func (m *Manager) verifyRole(
 
 func (m *Manager) verifyCustomRoles(
 	ctx context.Context,
-	status *contract.IdentityHealthStatus,
-) ([]contract.HealthIssue, error) {
+	status *api.IdentityHealthStatus,
+) ([]api.HealthIssue, error) {
 	images, err := m.imageRepo.ListImages(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list images: %w", err)
@@ -111,7 +111,7 @@ func (m *Manager) verifyCustomRoles(
 	}
 
 	status.CustomRolesTotal = len(customRoles)
-	issues := []contract.HealthIssue{}
+	issues := []api.HealthIssue{}
 
 	for roleName := range customRoles {
 		roleARN := fmt.Sprintf("arn:aws:iam::%s:role/%s", m.cfg.AccountID, roleName)
@@ -121,7 +121,7 @@ func (m *Manager) verifyCustomRoles(
 		if getRoleErr != nil {
 			if strings.Contains(getRoleErr.Error(), "NoSuchEntity") {
 				status.MissingRoles = append(status.MissingRoles, roleARN)
-				issues = append(issues, contract.HealthIssue{
+				issues = append(issues, api.HealthIssue{
 					ResourceType: "iam_role",
 					ResourceID:   roleARN,
 					Severity:     "error",
@@ -129,7 +129,7 @@ func (m *Manager) verifyCustomRoles(
 					Action:       "requires_manual_intervention",
 				})
 			} else {
-				issues = append(issues, contract.HealthIssue{
+				issues = append(issues, api.HealthIssue{
 					ResourceType: "iam_role",
 					ResourceID:   roleARN,
 					Severity:     "error",
