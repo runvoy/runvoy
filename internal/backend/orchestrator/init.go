@@ -10,6 +10,7 @@ import (
 	"runvoy/internal/auth/authorization"
 	"runvoy/internal/config"
 	"runvoy/internal/constants"
+	"runvoy/internal/database"
 	awsOrchestrator "runvoy/internal/providers/aws/orchestrator"
 )
 
@@ -38,31 +39,30 @@ func Initialize(
 
 	switch cfg.BackendProvider {
 	case constants.AWS:
-		awsDeps, initErr := awsOrchestrator.Initialize(ctx, cfg, logger)
+		awsDeps, initErr := awsOrchestrator.Initialize(ctx, cfg, logger, enforcer)
 		if initErr != nil {
 			return nil, fmt.Errorf("failed to initialize AWS dependencies: %w", initErr)
 		}
 
-		if awsDeps.HealthManager != nil {
-			awsDeps.HealthManager.SetCasbinDependencies(
-				awsDeps.UserRepo,
-				awsDeps.ExecutionRepo,
-				enforcer,
-			)
+		repos := database.Repositories{
+			User:       awsDeps.UserRepo,
+			Execution:  awsDeps.ExecutionRepo,
+			Connection: awsDeps.ConnectionRepo,
+			Token:      awsDeps.TokenRepo,
+			Image:      awsDeps.ImageRepo,
+			Secrets:    awsDeps.SecretsRepo,
 		}
 
 		svc, svcErr := NewService(
 			ctx,
-			awsDeps.UserRepo,
-			awsDeps.ExecutionRepo,
-			awsDeps.ConnectionRepo,
-			awsDeps.TokenRepo,
-			awsDeps.ImageRepo,
-			awsDeps.Runner,
+			&repos,
+			awsDeps.TaskManager,
+			awsDeps.ImageRegistry,
+			awsDeps.LogManager,
+			awsDeps.ObservabilityManager,
 			logger,
 			cfg.BackendProvider,
 			awsDeps.WebSocketManager,
-			awsDeps.SecretsRepo,
 			awsDeps.HealthManager,
 			enforcer,
 		)

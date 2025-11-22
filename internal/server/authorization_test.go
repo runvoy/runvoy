@@ -13,6 +13,7 @@ import (
 	"runvoy/internal/auth/authorization"
 	"runvoy/internal/backend/orchestrator"
 	"runvoy/internal/constants"
+	"runvoy/internal/database"
 	appErrors "runvoy/internal/errors"
 	"runvoy/internal/testutil"
 
@@ -52,17 +53,23 @@ func newPermissiveTestEnforcer(t *testing.T) *authorization.Enforcer {
 // Note: enforcer is now required, so we use a permissive test enforcer.
 func TestAuthorizeRequest(t *testing.T) {
 	t.Run("with permissive enforcer allows access", func(t *testing.T) {
+		repos := database.Repositories{
+			User:       &testUserRepository{},
+			Execution:  &testExecutionRepository{},
+			Connection: nil,
+			Token:      &testTokenRepository{},
+			Image:      &testImageRepository{},
+			Secrets:    &testSecretsRepository{},
+		}
 		svc, _ := orchestrator.NewService(context.Background(),
-			&testUserRepository{},
-			&testExecutionRepository{},
-			nil,
-			&testTokenRepository{},
-			&testImageRepository{},
-			&testRunner{},
+			&repos,
+			&testRunner{}, // TaskManager
+			&testRunner{}, // ImageRegistry
+			&testRunner{}, // LogManager
+			&testRunner{}, // ObservabilityManager
 			testutil.SilentLogger(),
 			constants.AWS,
 			nil,
-			&testSecretsRepository{},
 			nil,
 			newPermissiveTestEnforcer(t),
 		)
@@ -80,17 +87,23 @@ func TestAuthorizeRequest(t *testing.T) {
 // TestHandleCreateUserAuthorizationDenied tests authorization denial on user creation
 func TestHandleCreateUserAuthorizationDenied(t *testing.T) {
 	userRepo := &testUserRepository{}
+	repos := database.Repositories{
+		User:       userRepo,
+		Execution:  &testExecutionRepository{},
+		Connection: nil,
+		Token:      &testTokenRepository{},
+		Image:      &testImageRepository{},
+		Secrets:    &testSecretsRepository{},
+	}
 	svc, _ := orchestrator.NewService(context.Background(),
-		userRepo,
-		&testExecutionRepository{},
-		nil,
-		&testTokenRepository{},
-		&testImageRepository{},
-		&testRunner{},
+		&repos,
+		&testRunner{}, // TaskManager
+		&testRunner{}, // ImageRegistry
+		&testRunner{}, // LogManager
+		&testRunner{}, // ObservabilityManager
 		testutil.SilentLogger(),
 		constants.AWS,
 		nil,
-		&testSecretsRepository{},
 		nil,
 		newPermissiveTestEnforcer(t),
 	)
@@ -217,17 +230,23 @@ func TestValidateExecutionResourceAccess(t *testing.T) {
 				},
 			}
 
+			repos := database.Repositories{
+				User:       &testUserRepository{},
+				Execution:  &testExecutionRepository{},
+				Connection: nil,
+				Token:      &testTokenRepository{},
+				Image:      &testImageRepository{},
+				Secrets:    &testSecretsRepository{},
+			}
 			svc, _ := orchestrator.NewService(context.Background(),
-				&testUserRepository{},
-				&testExecutionRepository{},
-				nil,
-				&testTokenRepository{},
-				&testImageRepository{},
-				runner,
+				&repos,
+				runner, // TaskManager
+				runner, // ImageRegistry
+				runner, // LogManager
+				runner, // ObservabilityManager
 				testutil.SilentLogger(),
 				constants.AWS,
 				nil,
-				&testSecretsRepository{},
 				nil,
 				newPermissiveTestEnforcer(t),
 			)
@@ -258,17 +277,23 @@ func TestHandleListUsersWithAuthorization(t *testing.T) {
 	// Create a user repository that returns users with valid roles
 	userRepo := &testUserRepositoryWithRoles{}
 	enforcer := newPermissiveTestEnforcer(t)
+	repos := database.Repositories{
+		User:       userRepo,
+		Execution:  &testExecutionRepository{},
+		Connection: nil,
+		Token:      &testTokenRepository{},
+		Image:      &testImageRepository{},
+		Secrets:    &testSecretsRepository{},
+	}
 	svc, err := orchestrator.NewService(context.Background(),
-		userRepo,
-		&testExecutionRepository{},
-		nil,
-		&testTokenRepository{},
-		&testImageRepository{},
-		&testRunner{},
+		&repos,
+		&testRunner{}, // TaskManager
+		&testRunner{}, // ImageRegistry
+		&testRunner{}, // LogManager
+		&testRunner{}, // ObservabilityManager
 		testutil.SilentLogger(),
 		constants.AWS,
 		nil,
-		&testSecretsRepository{},
 		nil,
 		enforcer,
 	)
@@ -310,17 +335,23 @@ func TestHandleRunCommandStructure(t *testing.T) {
 	userRepo := &testUserRepositoryWithRoles{}
 	enforcer := newPermissiveTestEnforcer(t)
 
+	repos := database.Repositories{
+		User:       userRepo,
+		Execution:  executionRepo,
+		Connection: nil,
+		Token:      &testTokenRepository{},
+		Image:      &testImageRepository{},
+		Secrets:    &testSecretsRepository{},
+	}
 	svc, err := orchestrator.NewService(context.Background(),
-		userRepo,
-		executionRepo,
-		nil,
-		&testTokenRepository{},
-		&testImageRepository{},
-		runner,
+		&repos,
+		runner, // TaskManager
+		runner, // ImageRegistry
+		runner, // LogManager
+		runner, // ObservabilityManager
 		testutil.SilentLogger(),
 		constants.AWS,
 		nil,
-		&testSecretsRepository{},
 		nil,
 		enforcer,
 	)
@@ -417,6 +448,33 @@ func TestRoleBasedAccessExpectations(t *testing.T) {
 	assert.Contains(t, rolePermissions, "operator", "operator role should be defined")
 	assert.Contains(t, rolePermissions, "developer", "developer role should be defined")
 	assert.Contains(t, rolePermissions, "viewer", "viewer role should be defined")
+}
+
+// newTestRouterWithEnforcer creates a router with a service and enforcer for authorization testing.
+// This helper eliminates duplication in authorization tests.
+func newTestRouterWithEnforcer(t *testing.T, enforcer *authorization.Enforcer) *Router {
+	repos := database.Repositories{
+		User:       &testUserRepository{},
+		Execution:  &testExecutionRepository{},
+		Connection: nil,
+		Token:      &testTokenRepository{},
+		Image:      &testImageRepository{},
+		Secrets:    &testSecretsRepository{},
+	}
+	svc, err := orchestrator.NewService(context.Background(),
+		&repos,
+		&testRunner{}, // TaskManager
+		&testRunner{}, // ImageRegistry
+		&testRunner{}, // LogManager
+		&testRunner{}, // ObservabilityManager
+		testutil.SilentLogger(),
+		constants.AWS,
+		nil,
+		nil,
+		enforcer,
+	)
+	require.NoError(t, err)
+	return &Router{svc: svc}
 }
 
 // newTestEnforcerWithRole creates a test enforcer with a specific role assigned to a user.
@@ -561,24 +619,8 @@ func TestListEndpointAuthorization(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			enforcer := newTestEnforcerWithRole(t, tt.userEmail, tt.role)
+			router := newTestRouterWithEnforcer(t, enforcer)
 
-			svc, err := orchestrator.NewService(context.Background(),
-				&testUserRepository{},
-				&testExecutionRepository{},
-				nil,
-				&testTokenRepository{},
-				&testImageRepository{},
-				&testRunner{},
-				testutil.SilentLogger(),
-				constants.AWS,
-				nil,
-				&testSecretsRepository{},
-				nil,
-				enforcer,
-			)
-			require.NoError(t, err)
-
-			router := &Router{svc: svc}
 			user := &api.User{Email: tt.userEmail}
 			req := createAuthenticatedRequest("GET", tt.endpoint, user)
 
@@ -662,24 +704,8 @@ func TestResourceSpecificEndpointAuthorization(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			enforcer := newTestEnforcerWithRole(t, tt.userEmail, tt.role)
+			router := newTestRouterWithEnforcer(t, enforcer)
 
-			svc, err := orchestrator.NewService(context.Background(),
-				&testUserRepository{},
-				&testExecutionRepository{},
-				nil,
-				&testTokenRepository{},
-				&testImageRepository{},
-				&testRunner{},
-				testutil.SilentLogger(),
-				constants.AWS,
-				nil,
-				&testSecretsRepository{},
-				nil,
-				enforcer,
-			)
-			require.NoError(t, err)
-
-			router := &Router{svc: svc}
 			user := &api.User{Email: tt.userEmail}
 			req := createAuthenticatedRequest("GET", tt.endpoint, user)
 

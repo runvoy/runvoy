@@ -95,9 +95,33 @@ func getAllLogEvents(ctx context.Context,
 	return events, nil
 }
 
+// getQueryInitialDelay returns the configured initial delay or the default
+func (r *Provider) getQueryInitialDelay() time.Duration {
+	if r.testQueryInitialDelay > 0 {
+		return r.testQueryInitialDelay
+	}
+	return awsConstants.CloudWatchLogsQueryInitialDelay
+}
+
+// getQueryPollInterval returns the configured poll interval or the default
+func (r *Provider) getQueryPollInterval() time.Duration {
+	if r.testQueryPollInterval > 0 {
+		return r.testQueryPollInterval
+	}
+	return awsConstants.CloudWatchLogsQueryPollInterval
+}
+
+// getQueryMaxAttempts returns the configured max attempts or the default
+func (r *Provider) getQueryMaxAttempts() int {
+	if r.testQueryMaxAttempts > 0 {
+		return r.testQueryMaxAttempts
+	}
+	return awsConstants.CloudWatchLogsQueryMaxAttempts
+}
+
 // FetchBackendLogs retrieves backend infrastructure logs using CloudWatch Logs Insights
 // Queries logs from Lambda execution for debugging and tracing
-func (r *Runner) FetchBackendLogs(ctx context.Context, requestID string) ([]api.LogEvent, error) {
+func (r *Provider) FetchBackendLogs(ctx context.Context, requestID string) ([]api.LogEvent, error) {
 	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
 
 	queryID, err := r.startBackendLogsQuery(ctx, reqLogger, requestID)
@@ -108,7 +132,7 @@ func (r *Runner) FetchBackendLogs(ctx context.Context, requestID string) ([]api.
 	// We give some headroom for CloudWatch Logs Insights query to be ready
 	// This is a workaround for the fact that the query is not immediately ready
 	// and we need to wait for it to be ready before we can get the results
-	time.Sleep(awsConstants.CloudWatchLogsQueryInitialDelay)
+	time.Sleep(r.getQueryInitialDelay())
 
 	queryOutput, err := r.pollBackendLogsQuery(ctx, reqLogger, queryID)
 	if err != nil {
@@ -122,7 +146,7 @@ func (r *Runner) FetchBackendLogs(ctx context.Context, requestID string) ([]api.
 
 // startBackendLogsQuery starts a CloudWatch Logs Insights query across all runvoy Lambda logs
 // Searches for all log entries matching the request ID and returns the query ID or an error if the query fails.
-func (r *Runner) startBackendLogsQuery(
+func (r *Provider) startBackendLogsQuery(
 	ctx context.Context,
 	log *slog.Logger,
 	requestID string,
@@ -167,7 +191,7 @@ func (r *Runner) startBackendLogsQuery(
 }
 
 // discoverLogGroups discovers all log groups matching the runvoy Lambda prefix
-func (r *Runner) discoverLogGroups(ctx context.Context, _ *slog.Logger) ([]string, error) {
+func (r *Provider) discoverLogGroups(ctx context.Context, _ *slog.Logger) ([]string, error) {
 	logGroups := []string{}
 	var nextToken *string
 
@@ -194,15 +218,17 @@ func (r *Runner) discoverLogGroups(ctx context.Context, _ *slog.Logger) ([]strin
 }
 
 // pollBackendLogsQuery polls for CloudWatch Logs Insights query results
-func (r *Runner) pollBackendLogsQuery(
+func (r *Provider) pollBackendLogsQuery(
 	ctx context.Context,
 	log *slog.Logger,
 	queryID string,
 ) (*cloudwatchlogs.GetQueryResultsOutput, error) {
 	var queryOutput *cloudwatchlogs.GetQueryResultsOutput
-	for i := range awsConstants.CloudWatchLogsQueryMaxAttempts {
+	maxAttempts := r.getQueryMaxAttempts()
+	pollInterval := r.getQueryPollInterval()
+	for i := range maxAttempts {
 		if i > 0 {
-			time.Sleep(awsConstants.CloudWatchLogsQueryPollInterval)
+			time.Sleep(pollInterval)
 		}
 
 		getResultsArgs := []any{
@@ -246,7 +272,7 @@ func (r *Runner) pollBackendLogsQuery(
 // transformBackendLogsResults transforms CloudWatch Logs Insights results to LogEvent format.
 // Attempts to extract timestamps from JSON-formatted log messages first, then falls back
 // to CloudWatch's @timestamp field if message parsing fails.
-func (r *Runner) transformBackendLogsResults(
+func (r *Provider) transformBackendLogsResults(
 	results [][]cwlTypes.ResultField,
 ) []api.LogEvent {
 	logs := make([]api.LogEvent, 0, len(results))

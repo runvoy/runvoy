@@ -10,12 +10,13 @@ import (
 	"runvoy/internal/api"
 	"runvoy/internal/backend/orchestrator"
 	"runvoy/internal/constants"
+	"runvoy/internal/database"
 	"runvoy/internal/testutil"
 
 	"github.com/stretchr/testify/require"
 )
 
-// mockRunner implements the app.Runner interface for testing
+// mockRunner implements TaskManager, ImageRegistry, LogManager, and ObservabilityManager interfaces for testing
 type mockRunner struct{}
 
 func (m *mockRunner) StartTask(_ context.Context, _ string, _ *api.ExecutionRequest) (string, *time.Time, error) {
@@ -72,18 +73,24 @@ func (m *mockRunner) GetImagesByRequestID(_ context.Context, _ string) ([]api.Im
 // Test that the status endpoint exists and requires authentication
 func TestGetExecutionStatus_Unauthorized(t *testing.T) {
 	// Build a minimal service with nil repos; we won't reach the handler due to auth
+	repos := database.Repositories{
+		User:       &testUserRepository{},
+		Execution:  &testExecutionRepository{},
+		Connection: nil,
+		Token:      &testTokenRepository{},
+		Image:      &testImageRepository{},
+		Secrets:    &testSecretsRepository{},
+	}
 	svc, err := orchestrator.NewService(context.Background(),
-		&testUserRepository{},
-		&testExecutionRepository{},
-		nil,
-		&testTokenRepository{},
-		&testImageRepository{},
-		&mockRunner{},
+		&repos,
+		&mockRunner{}, // TaskManager
+		&mockRunner{}, // ImageRegistry
+		&mockRunner{}, // LogManager
+		&mockRunner{}, // ObservabilityManager
 		testutil.SilentLogger(),
 		constants.AWS,
 		nil,
-		&testSecretsRepository{}, // SecretsService
-		nil,                      // healthManager
+		nil,
 		newPermissiveTestEnforcerForHandlers(t),
 	)
 	require.NoError(t, err)

@@ -12,9 +12,8 @@ import (
 
 	"runvoy/internal/api"
 	"runvoy/internal/auth/authorization"
-	"runvoy/internal/backend/health"
+	"runvoy/internal/backend/contract"
 	"runvoy/internal/backend/orchestrator"
-	"runvoy/internal/backend/websocket"
 	"runvoy/internal/constants"
 	"runvoy/internal/database"
 	apperrors "runvoy/internal/errors"
@@ -251,8 +250,8 @@ func (t *testImageRepository) GetImagesByRequestID(_ context.Context, _ string) 
 
 type testHealthManager struct{}
 
-func (t *testHealthManager) Reconcile(_ context.Context) (*health.Report, error) {
-	return &health.Report{}, nil
+func (t *testHealthManager) Reconcile(_ context.Context) (*api.HealthReport, error) {
+	return &api.HealthReport{}, nil
 }
 
 type testRunner struct {
@@ -337,15 +336,16 @@ func (t *testRunner) GetImagesByRequestID(ctx context.Context, requestID string)
 // newTestOrchestratorService creates an orchestrator service with default test repositories.
 // All required repositories (userRepo, executionRepo) are provided by default.
 // Optional repositories can be overridden by passing non-nil values.
+// The runner parameter implements all 4 interfaces (TaskManager, ImageRegistry, LogManager, ObservabilityManager).
 func newTestOrchestratorService(
 	t *testing.T,
 	userRepo *testUserRepository,
 	execRepo *testExecutionRepository,
 	connRepo database.ConnectionRepository, //nolint:unparam // kept for API consistency
-	runner orchestrator.Runner,
-	wsManager websocket.Manager, //nolint:unparam // kept for API consistency
+	runner *testRunner,
+	wsManager contract.WebSocketManager, //nolint:unparam // kept for API consistency
 	secretsRepo database.SecretsRepository, //nolint:unparam // kept for API consistency
-	healthManager health.Manager,
+	healthManager contract.HealthManager,
 ) *orchestrator.Service {
 	if userRepo == nil {
 		userRepo = &testUserRepository{}
@@ -353,30 +353,70 @@ func newTestOrchestratorService(
 	if execRepo == nil {
 		execRepo = &testExecutionRepository{}
 	}
-	if runner == nil {
-		runner = &testRunner{}
+	var taskManager contract.TaskManager = &testRunner{}
+	var imageRegistry contract.ImageRegistry = &testRunner{}
+	var logManager contract.LogManager = &testRunner{}
+	var observabilityManager contract.ObservabilityManager = &testRunner{}
+	if runner != nil {
+		taskManager = runner
+		imageRegistry = runner
+		logManager = runner
+		observabilityManager = runner
 	}
 	if secretsRepo == nil {
 		secretsRepo = &testSecretsRepository{}
 	}
 
+	repos := database.Repositories{
+		User:       userRepo,
+		Execution:  execRepo,
+		Connection: connRepo,
+		Token:      &testTokenRepository{},
+		Image:      &testImageRepository{},
+		Secrets:    secretsRepo,
+	}
 	svc, err := orchestrator.NewService(
 		context.Background(),
-		userRepo,
-		execRepo,
-		connRepo,
-		&testTokenRepository{},
-		&testImageRepository{},
-		runner,
+		&repos,
+		taskManager,
+		imageRegistry,
+		logManager,
+		observabilityManager,
 		testutil.SilentLogger(),
 		constants.AWS,
 		wsManager,
-		secretsRepo,
 		healthManager,
 		newPermissiveTestEnforcerForHandlers(t),
 	)
 	require.NoError(t, err)
 	return svc
+}
+
+// newTestRouterForUnauthorized creates a router for testing unauthorized access.
+// All unauthorized tests use the same service setup, so this helper eliminates duplication.
+func newTestRouterForUnauthorized(t *testing.T) *Router {
+	repos := database.Repositories{
+		User:       &testUserRepository{},
+		Execution:  &testExecutionRepository{},
+		Connection: nil,
+		Token:      &testTokenRepository{},
+		Image:      &testImageRepository{},
+		Secrets:    &testSecretsRepository{},
+	}
+	svc, err := orchestrator.NewService(context.Background(),
+		&repos,
+		&testRunner{}, // TaskManager
+		&testRunner{}, // ImageRegistry
+		&testRunner{}, // LogManager
+		&testRunner{}, // ObservabilityManager
+		testutil.SilentLogger(),
+		constants.AWS,
+		nil,
+		nil,
+		newPermissiveTestEnforcerForHandlers(t),
+	)
+	require.NoError(t, err)
+	return NewRouter(svc, 2*time.Second, constants.DefaultCORSAllowedOrigins)
 }
 
 func TestHandleHealth(t *testing.T) {
@@ -504,18 +544,24 @@ func TestHandleRunCommand_WithImage_ValidatesAuthorization(t *testing.T) {
 	err = enf.AddRoleForUser(userEmail, authorization.RoleDeveloper)
 	require.NoError(t, err)
 
+	repos := database.Repositories{
+		User:       userRepo,
+		Execution:  execRepo,
+		Connection: nil,
+		Token:      &testTokenRepository{},
+		Image:      &testImageRepository{},
+		Secrets:    &testSecretsRepository{},
+	}
 	svc, err := orchestrator.NewService(
 		context.Background(),
-		userRepo,
-		execRepo,
-		nil,
-		&testTokenRepository{},
-		&testImageRepository{},
-		runner,
+		&repos,
+		runner, // TaskManager
+		runner, // ImageRegistry
+		runner, // LogManager
+		runner, // ObservabilityManager
 		testutil.SilentLogger(),
 		constants.AWS,
 		nil,
-		&testSecretsRepository{},
 		nil,
 		enf,
 	)
@@ -558,18 +604,24 @@ func TestHandleRunCommand_WithSecrets_ValidatesAuthorization(t *testing.T) {
 	err = enf.AddRoleForUser(userEmail, authorization.RoleDeveloper)
 	require.NoError(t, err)
 
+	repos := database.Repositories{
+		User:       userRepo,
+		Execution:  execRepo,
+		Connection: nil,
+		Token:      &testTokenRepository{},
+		Image:      &testImageRepository{},
+		Secrets:    &testSecretsRepository{},
+	}
 	svc, err := orchestrator.NewService(
 		context.Background(),
-		userRepo,
-		execRepo,
-		nil,
-		&testTokenRepository{},
-		&testImageRepository{},
-		runner,
+		&repos,
+		runner, // TaskManager
+		runner, // ImageRegistry
+		runner, // LogManager
+		runner, // ObservabilityManager
 		testutil.SilentLogger(),
 		constants.AWS,
 		nil,
-		&testSecretsRepository{},
 		nil,
 		enf,
 	)
@@ -624,18 +676,24 @@ func TestHandleRunCommand_AllResourcesAuthorized(t *testing.T) {
 	err = enf.AddRoleForUser(userEmail, authorization.RoleDeveloper)
 	require.NoError(t, err)
 
+	repos := database.Repositories{
+		User:       userRepo,
+		Execution:  execRepo,
+		Connection: nil,
+		Token:      &testTokenRepository{},
+		Image:      &testImageRepository{},
+		Secrets:    &testSecretsRepository{},
+	}
 	svc, err := orchestrator.NewService(
 		context.Background(),
-		userRepo,
-		execRepo,
-		nil,
-		&testTokenRepository{},
-		&testImageRepository{},
-		runner,
+		&repos,
+		runner, // TaskManager
+		runner, // ImageRegistry
+		runner, // LogManager
+		runner, // ObservabilityManager
 		testutil.SilentLogger(),
 		constants.AWS,
 		nil,
-		&testSecretsRepository{},
 		nil,
 		enf,
 	)
@@ -1209,22 +1267,7 @@ func TestHandleRevokeUser_NotFound(t *testing.T) {
 
 // TestHandleRevokeUser_Unauthorized tests that revoke requires authentication
 func TestHandleRevokeUser_Unauthorized(t *testing.T) {
-	svc, err := orchestrator.NewService(context.Background(),
-		&testUserRepository{},
-		&testExecutionRepository{},
-		nil,
-		&testTokenRepository{},
-		&testImageRepository{},
-		&testRunner{},
-		testutil.SilentLogger(),
-		constants.AWS,
-		nil,
-		&testSecretsRepository{}, // SecretsService
-		nil,                      // healthManager
-		newPermissiveTestEnforcerForHandlers(t),
-	)
-	require.NoError(t, err)
-	router := NewRouter(svc, 2*time.Second, constants.DefaultCORSAllowedOrigins)
+	router := newTestRouterForUnauthorized(t)
 
 	reqBody := api.RevokeUserRequest{
 		Email: "user@example.com",
@@ -1274,18 +1317,25 @@ func TestHandleGetExecutionLogs_MissingExecutionID(t *testing.T) {
 func TestHandleGetExecutionStatus_Success(t *testing.T) {
 	execRepo := &testExecutionRepository{}
 	enforcer := newPermissiveTestEnforcerForHandlers(t)
+	runner := &testRunner{}
+	repos := database.Repositories{
+		User:       &testUserRepository{},
+		Execution:  execRepo,
+		Connection: nil,
+		Token:      &testTokenRepository{},
+		Image:      &testImageRepository{},
+		Secrets:    &testSecretsRepository{},
+	}
 	svc, err := orchestrator.NewService(context.Background(),
-		&testUserRepository{},
-		execRepo,
-		nil,
-		&testTokenRepository{},
-		&testImageRepository{},
-		&testRunner{},
+		&repos,
+		runner, // TaskManager
+		runner, // ImageRegistry
+		runner, // LogManager
+		runner, // ObservabilityManager
 		testutil.SilentLogger(),
 		constants.AWS,
 		nil,
-		&testSecretsRepository{}, // SecretsService
-		nil,                      // healthManager
+		nil,
 		enforcer,
 	)
 	require.NoError(t, err)
@@ -1444,18 +1494,24 @@ func TestHandleClaimAPIKey_TokenNotFound(t *testing.T) {
 
 // TestHandleReconcileHealth_Unauthenticated tests that reconcile requires auth
 func TestHandleReconcileHealth_Unauthenticated(t *testing.T) {
+	repos := database.Repositories{
+		User:       &testUserRepository{},
+		Execution:  &testExecutionRepository{},
+		Connection: nil,
+		Token:      &testTokenRepository{},
+		Image:      &testImageRepository{},
+		Secrets:    &testSecretsRepository{},
+	}
 	svc, err := orchestrator.NewService(context.Background(),
-		&testUserRepository{},
-		&testExecutionRepository{},
-		nil,
-		&testTokenRepository{},
-		&testImageRepository{},
-		&testRunner{},
+		&repos,
+		&testRunner{}, // TaskManager
+		&testRunner{}, // ImageRegistry
+		&testRunner{}, // LogManager
+		&testRunner{}, // ObservabilityManager
 		testutil.SilentLogger(),
 		constants.AWS,
 		nil,
-		&testSecretsRepository{}, // SecretsService
-		nil,                      // healthManager
+		nil,
 		newPermissiveTestEnforcerForHandlers(t),
 	)
 	require.NoError(t, err)
@@ -1492,22 +1548,7 @@ func TestHandleReconcileHealth_Authenticated(t *testing.T) {
 
 // TestHandleRemoveImage_Unauthorized tests that remove image requires auth
 func TestHandleRemoveImage_Unauthorized(t *testing.T) {
-	svc, err := orchestrator.NewService(context.Background(),
-		&testUserRepository{},
-		&testExecutionRepository{},
-		nil,
-		&testTokenRepository{},
-		&testImageRepository{},
-		&testRunner{},
-		testutil.SilentLogger(),
-		constants.AWS,
-		nil,
-		&testSecretsRepository{},
-		nil,
-		newPermissiveTestEnforcerForHandlers(t),
-	)
-	require.NoError(t, err)
-	router := NewRouter(svc, 2*time.Second, constants.DefaultCORSAllowedOrigins)
+	router := newTestRouterForUnauthorized(t)
 
 	req := httptest.NewRequest(http.MethodDelete, "/api/v1/images/ubuntu:22.04", http.NoBody)
 	// No API key
@@ -1520,22 +1561,7 @@ func TestHandleRemoveImage_Unauthorized(t *testing.T) {
 
 // TestHandleRegisterImage_Unauthorized tests that register image requires auth
 func TestHandleRegisterImage_Unauthorized(t *testing.T) {
-	svc, err := orchestrator.NewService(context.Background(),
-		&testUserRepository{},
-		&testExecutionRepository{},
-		nil,
-		&testTokenRepository{},
-		&testImageRepository{},
-		&testRunner{},
-		testutil.SilentLogger(),
-		constants.AWS,
-		nil,
-		&testSecretsRepository{},
-		nil,
-		newPermissiveTestEnforcerForHandlers(t),
-	)
-	require.NoError(t, err)
-	router := NewRouter(svc, 2*time.Second, constants.DefaultCORSAllowedOrigins)
+	router := newTestRouterForUnauthorized(t)
 
 	regReq := api.RegisterImageRequest{Image: "alpine:latest"}
 	body, _ := json.Marshal(regReq)
@@ -1551,22 +1577,7 @@ func TestHandleRegisterImage_Unauthorized(t *testing.T) {
 
 // TestHandleGetImage_Unauthorized tests that get image requires auth
 func TestHandleGetImage_Unauthorized(t *testing.T) {
-	svc, err := orchestrator.NewService(context.Background(),
-		&testUserRepository{},
-		&testExecutionRepository{},
-		nil,
-		&testTokenRepository{},
-		&testImageRepository{},
-		&testRunner{},
-		testutil.SilentLogger(),
-		constants.AWS,
-		nil,
-		&testSecretsRepository{},
-		nil,
-		newPermissiveTestEnforcerForHandlers(t),
-	)
-	require.NoError(t, err)
-	router := NewRouter(svc, 2*time.Second, constants.DefaultCORSAllowedOrigins)
+	router := newTestRouterForUnauthorized(t)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/images/ubuntu:22.04", http.NoBody)
 	// No API key
@@ -1581,22 +1592,7 @@ func TestHandleGetImage_Unauthorized(t *testing.T) {
 
 // TestHandleKillExecution_Unauthorized tests that kill requires auth
 func TestHandleKillExecution_Unauthorized(t *testing.T) {
-	svc, err := orchestrator.NewService(context.Background(),
-		&testUserRepository{},
-		&testExecutionRepository{},
-		nil,
-		&testTokenRepository{},
-		&testImageRepository{},
-		&testRunner{},
-		testutil.SilentLogger(),
-		constants.AWS,
-		nil,
-		&testSecretsRepository{},
-		nil,
-		newPermissiveTestEnforcerForHandlers(t),
-	)
-	require.NoError(t, err)
-	router := NewRouter(svc, 2*time.Second, constants.DefaultCORSAllowedOrigins)
+	router := newTestRouterForUnauthorized(t)
 
 	req := httptest.NewRequest(http.MethodDelete, "/api/v1/executions/exec-123", http.NoBody)
 	// No API key
@@ -1609,22 +1605,7 @@ func TestHandleKillExecution_Unauthorized(t *testing.T) {
 
 // TestHandleGetExecutionLogs_Unauthorized tests that logs require auth
 func TestHandleGetExecutionLogs_Unauthorized(t *testing.T) {
-	svc, err := orchestrator.NewService(context.Background(),
-		&testUserRepository{},
-		&testExecutionRepository{},
-		nil,
-		&testTokenRepository{},
-		&testImageRepository{},
-		&testRunner{},
-		testutil.SilentLogger(),
-		constants.AWS,
-		nil,
-		&testSecretsRepository{},
-		nil,
-		newPermissiveTestEnforcerForHandlers(t),
-	)
-	require.NoError(t, err)
-	router := NewRouter(svc, 2*time.Second, constants.DefaultCORSAllowedOrigins)
+	router := newTestRouterForUnauthorized(t)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/executions/exec-123/logs", http.NoBody)
 	// No API key
@@ -1637,22 +1618,7 @@ func TestHandleGetExecutionLogs_Unauthorized(t *testing.T) {
 
 // TestHandleGetExecutionStatus_Unauthorized tests that status requires auth
 func TestHandleGetExecutionStatus_Unauthorized(t *testing.T) {
-	svc, err := orchestrator.NewService(context.Background(),
-		&testUserRepository{},
-		&testExecutionRepository{},
-		nil,
-		&testTokenRepository{},
-		&testImageRepository{},
-		&testRunner{},
-		testutil.SilentLogger(),
-		constants.AWS,
-		nil,
-		&testSecretsRepository{},
-		nil,
-		newPermissiveTestEnforcerForHandlers(t),
-	)
-	require.NoError(t, err)
-	router := NewRouter(svc, 2*time.Second, constants.DefaultCORSAllowedOrigins)
+	router := newTestRouterForUnauthorized(t)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/executions/exec-123/status", http.NoBody)
 	// No API key

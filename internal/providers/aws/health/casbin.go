@@ -9,7 +9,6 @@ import (
 
 	"runvoy/internal/api"
 	"runvoy/internal/auth/authorization"
-	"runvoy/internal/backend/health"
 )
 
 const (
@@ -27,15 +26,15 @@ func capitalizeFirst(s string) string {
 func (m *Manager) reconcileCasbin(
 	ctx context.Context,
 	reqLogger *slog.Logger,
-) (health.AuthorizerHealthStatus, []health.Issue, error) {
-	status := health.AuthorizerHealthStatus{
+) (api.AuthorizerHealthStatus, []api.HealthIssue, error) {
+	status := api.AuthorizerHealthStatus{
 		UsersWithInvalidRoles:      []string{},
 		UsersWithMissingRoles:      []string{},
 		ResourcesWithMissingOwners: []string{},
 		OrphanedOwnerships:         []string{},
 		MissingOwnerships:          []string{},
 	}
-	issues := []health.Issue{}
+	issues := []api.HealthIssue{}
 
 	userIssues, err := m.checkUserRoles(ctx, reqLogger, &status)
 	if err != nil {
@@ -61,8 +60,8 @@ func (m *Manager) reconcileCasbin(
 func (m *Manager) checkUserRoles(
 	ctx context.Context,
 	_ *slog.Logger,
-	status *health.AuthorizerHealthStatus,
-) ([]health.Issue, error) {
+	status *api.AuthorizerHealthStatus,
+) ([]api.HealthIssue, error) {
 	users, listErr := m.userRepo.ListUsers(ctx)
 	if listErr != nil {
 		return nil, fmt.Errorf("failed to list users: %w", listErr)
@@ -70,7 +69,7 @@ func (m *Manager) checkUserRoles(
 
 	status.TotalUsersChecked = len(users)
 
-	issues := []health.Issue{}
+	issues := []api.HealthIssue{}
 	for _, user := range users {
 		userIssues := m.checkSingleUserRole(user, status)
 		issues = append(issues, userIssues...)
@@ -81,8 +80,8 @@ func (m *Manager) checkUserRoles(
 
 func (m *Manager) checkSingleUserRole(
 	user *api.User,
-	status *health.AuthorizerHealthStatus,
-) []health.Issue {
+	status *api.AuthorizerHealthStatus,
+) []api.HealthIssue {
 	if user == nil {
 		return nil
 	}
@@ -104,8 +103,8 @@ func (m *Manager) checkSingleUserRole(
 	return m.checkUserRoleInEnforcer(email, role, status)
 }
 
-func (m *Manager) createEmptyEmailIssue() []health.Issue {
-	return []health.Issue{{
+func (m *Manager) createEmptyEmailIssue() []api.HealthIssue {
+	return []api.HealthIssue{{
 		ResourceType: "user",
 		ResourceID:   "unknown",
 		Severity:     "error",
@@ -116,10 +115,10 @@ func (m *Manager) createEmptyEmailIssue() []health.Issue {
 
 func (m *Manager) createEmptyRoleIssue(
 	email string,
-	status *health.AuthorizerHealthStatus,
-) []health.Issue {
+	status *api.AuthorizerHealthStatus,
+) []api.HealthIssue {
 	status.UsersWithMissingRoles = append(status.UsersWithMissingRoles, email)
-	return []health.Issue{{
+	return []api.HealthIssue{{
 		ResourceType: "user",
 		ResourceID:   email,
 		Severity:     "error",
@@ -130,10 +129,10 @@ func (m *Manager) createEmptyRoleIssue(
 
 func (m *Manager) createInvalidRoleIssue(
 	email, role string,
-	status *health.AuthorizerHealthStatus,
-) []health.Issue {
+	status *api.AuthorizerHealthStatus,
+) []api.HealthIssue {
 	status.UsersWithInvalidRoles = append(status.UsersWithInvalidRoles, email)
-	return []health.Issue{{
+	return []api.HealthIssue{{
 		ResourceType: "user",
 		ResourceID:   email,
 		Severity:     "error",
@@ -144,11 +143,11 @@ func (m *Manager) createInvalidRoleIssue(
 
 func (m *Manager) checkUserRoleInEnforcer(
 	email, role string,
-	status *health.AuthorizerHealthStatus,
-) []health.Issue {
+	status *api.AuthorizerHealthStatus,
+) []api.HealthIssue {
 	roles, rolesErr := m.enforcer.GetRolesForUser(email)
 	if rolesErr != nil {
-		return []health.Issue{{
+		return []api.HealthIssue{{
 			ResourceType: "user",
 			ResourceID:   email,
 			Severity:     "error",
@@ -165,7 +164,7 @@ func (m *Manager) checkUserRoleInEnforcer(
 
 	if !hasRole {
 		status.UsersWithMissingRoles = append(status.UsersWithMissingRoles, email)
-		return []health.Issue{{
+		return []api.HealthIssue{{
 			ResourceType: "user",
 			ResourceID:   email,
 			Severity:     "error",
@@ -183,9 +182,9 @@ func (m *Manager) checkUserRoleInEnforcer(
 func (m *Manager) checkResourceOwnership(
 	ctx context.Context,
 	_ *slog.Logger,
-	status *health.AuthorizerHealthStatus,
-) ([]health.Issue, error) {
-	issues := []health.Issue{}
+	status *api.AuthorizerHealthStatus,
+) ([]api.HealthIssue, error) {
+	issues := []api.HealthIssue{}
 	resourceCount := 0
 
 	if m.secretsRepo != nil {
@@ -233,8 +232,8 @@ func (m *Manager) checkResourceOwnership(
 
 func (m *Manager) checkSecretOwnership(
 	secret *api.Secret,
-	status *health.AuthorizerHealthStatus,
-) []health.Issue {
+	status *api.AuthorizerHealthStatus,
+) []api.HealthIssue {
 	if secret == nil || secret.Name == "" {
 		return nil
 	}
@@ -250,8 +249,8 @@ func (m *Manager) checkSecretOwnership(
 
 func (m *Manager) checkExecutionOwnership(
 	execution *api.Execution,
-	status *health.AuthorizerHealthStatus,
-) []health.Issue {
+	status *api.AuthorizerHealthStatus,
+) []api.HealthIssue {
 	if execution == nil || execution.ExecutionID == "" {
 		return nil
 	}
@@ -269,14 +268,14 @@ func (m *Manager) checkExecutionOwnership(
 func (m *Manager) checkResourceOwnershipGeneric(
 	resourceType, resourceID, createdBy string,
 	ownedBy []string,
-	status *health.AuthorizerHealthStatus,
-) []health.Issue {
+	status *api.AuthorizerHealthStatus,
+) []api.HealthIssue {
 	if createdBy == "" {
 		formattedID := authorization.FormatResourceID(resourceType, resourceID)
 		status.ResourcesWithMissingOwners = append(
 			status.ResourcesWithMissingOwners, formattedID,
 		)
-		return []health.Issue{{
+		return []api.HealthIssue{{
 			ResourceType: resourceType,
 			ResourceID:   resourceID,
 			Severity:     "error",
@@ -293,7 +292,7 @@ func (m *Manager) checkResourceOwnershipGeneric(
 		status.ResourcesWithMissingOwners = append(
 			status.ResourcesWithMissingOwners, formattedID,
 		)
-		return []health.Issue{{
+		return []api.HealthIssue{{
 			ResourceType: resourceType,
 			ResourceID:   resourceID,
 			Severity:     "error",
@@ -306,11 +305,11 @@ func (m *Manager) checkResourceOwnershipGeneric(
 	}
 
 	formattedID := authorization.FormatResourceID(resourceType, resourceID)
-	issues := []health.Issue{}
+	issues := []api.HealthIssue{}
 	for _, owner := range ownedBy {
 		hasOwnership, checkErr := m.enforcer.HasOwnershipForResource(formattedID, owner)
 		if checkErr != nil {
-			issues = append(issues, health.Issue{
+			issues = append(issues, api.HealthIssue{
 				ResourceType: resourceType,
 				ResourceID:   resourceID,
 				Severity:     "error",
@@ -325,7 +324,7 @@ func (m *Manager) checkResourceOwnershipGeneric(
 
 		if !hasOwnership {
 			status.MissingOwnerships = append(status.MissingOwnerships, formattedID)
-			issues = append(issues, health.Issue{
+			issues = append(issues, api.HealthIssue{
 				ResourceType: resourceType,
 				ResourceID:   resourceID,
 				Severity:     "error",
@@ -343,8 +342,8 @@ func (m *Manager) checkResourceOwnershipGeneric(
 
 func (m *Manager) checkImageOwnership(
 	image *api.ImageInfo,
-	status *health.AuthorizerHealthStatus,
-) []health.Issue {
+	status *api.AuthorizerHealthStatus,
+) []api.HealthIssue {
 	if image.ImageID == "" {
 		return nil
 	}
@@ -361,8 +360,8 @@ func (m *Manager) checkImageOwnership(
 func (m *Manager) checkOrphanedOwnerships(
 	ctx context.Context,
 	_ *slog.Logger,
-	status *health.AuthorizerHealthStatus,
-) ([]health.Issue, error) {
+	status *api.AuthorizerHealthStatus,
+) ([]api.HealthIssue, error) {
 	resourceMaps, mapsErr := m.buildResourceMaps(ctx)
 	if mapsErr != nil {
 		return nil, mapsErr
@@ -373,7 +372,7 @@ func (m *Manager) checkOrphanedOwnerships(
 		return nil, fmt.Errorf("failed to get Casbin g2 policies: %w", policiesErr)
 	}
 
-	issues := []health.Issue{}
+	issues := []api.HealthIssue{}
 	for _, policy := range policies {
 		policyIssues := m.checkPolicyOrphaned(policy, resourceMaps, status)
 		issues = append(issues, policyIssues...)
@@ -435,8 +434,8 @@ func (m *Manager) buildResourceMaps(ctx context.Context) (*resourceMaps, error) 
 func (m *Manager) checkPolicyOrphaned(
 	policy []string,
 	maps *resourceMaps,
-	status *health.AuthorizerHealthStatus,
-) []health.Issue {
+	status *api.AuthorizerHealthStatus,
+) []api.HealthIssue {
 	if len(policy) < minPolicyLength {
 		return nil
 	}
@@ -449,7 +448,7 @@ func (m *Manager) checkPolicyOrphaned(
 			status.OrphanedOwnerships,
 			fmt.Sprintf("%s -> %s", resourceID, ownerEmail),
 		)
-		return []health.Issue{{
+		return []api.HealthIssue{{
 			ResourceType: "casbin_ownership",
 			ResourceID:   resourceID,
 			Severity:     "error",
@@ -482,8 +481,8 @@ func (m *Manager) checkPolicyOrphaned(
 func (m *Manager) checkSecretOrphaned(
 	resourceID, resourceName, ownerEmail string,
 	maps *resourceMaps,
-	status *health.AuthorizerHealthStatus,
-) []health.Issue {
+	status *api.AuthorizerHealthStatus,
+) []api.HealthIssue {
 	if maps.secretMap[resourceName] {
 		return nil
 	}
@@ -492,7 +491,7 @@ func (m *Manager) checkSecretOrphaned(
 		status.OrphanedOwnerships,
 		fmt.Sprintf("%s -> %s", resourceID, ownerEmail),
 	)
-	return []health.Issue{{
+	return []api.HealthIssue{{
 		ResourceType: "casbin_ownership",
 		ResourceID:   resourceID,
 		Severity:     "error",
@@ -507,8 +506,8 @@ func (m *Manager) checkSecretOrphaned(
 func (m *Manager) checkExecutionOrphaned(
 	resourceID, resourceName, ownerEmail string,
 	maps *resourceMaps,
-	status *health.AuthorizerHealthStatus,
-) []health.Issue {
+	status *api.AuthorizerHealthStatus,
+) []api.HealthIssue {
 	if maps.executionMap[resourceName] {
 		return nil
 	}
@@ -517,7 +516,7 @@ func (m *Manager) checkExecutionOrphaned(
 		status.OrphanedOwnerships,
 		fmt.Sprintf("%s -> %s", resourceID, ownerEmail),
 	)
-	return []health.Issue{{
+	return []api.HealthIssue{{
 		ResourceType: "casbin_ownership",
 		ResourceID:   resourceID,
 		Severity:     "error",

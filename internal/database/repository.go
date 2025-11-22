@@ -115,3 +115,15 @@ type ImageRepository interface {
 	// GetImagesByRequestID retrieves all images created or modified by a specific request ID.
 	GetImagesByRequestID(ctx context.Context, requestID string) ([]api.ImageInfo, error)
 }
+
+// Repositories groups all database repository interfaces together.
+// This struct is used to pass repositories as a cohesive unit while maintaining
+// explicit access to individual repositories in service methods.
+type Repositories struct {
+	User       UserRepository
+	Execution  ExecutionRepository
+	Connection ConnectionRepository
+	Token      TokenRepository
+	Image      ImageRepository
+	Secrets    SecretsRepository
+}

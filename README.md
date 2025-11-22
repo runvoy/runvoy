@@ -102,7 +102,7 @@ Line  Timestamp (UTC)      Message
 - 🔗 **Automatic Git cloning** — Clone private Git repos directly into container working directory ([Build Caddy example](.runvoy/build-caddy-example.yml))
 - 🔧 **Unix-style output streams** — Separate CLI logs (stderr) from data (stdout) for easy piping and scripting
 - 🏗️ **IaC deployment** — Deploy complete backend infrastructure with CloudFormation (multi-cloud support coming)
-- 📦 **Single binary** — Download one ~6MB binary and run it. No dependencies, no installation hassle.
+- 📦 **Single binary** — Download one ~6MB compressed binary, unzip it and run it. No dependencies, no installation hassle. Available for Linux, macOS and Windows.
 
 ### 🚧 Roadmap
 
@@ -135,6 +135,8 @@ xattr -dr com.apple.quarantine runvoy_darwin_arm64/runvoy
 codesign -s - --deep --force runvoy_darwin_arm64/runvoy
 sudo mv runvoy_darwin_arm64/runvoy /usr/local/bin/runvoy
 ```
+
+- **Windows:** Download the `runvoy_windows_x86_64.tar.gz` file from https://github.com/runvoy/runvoy/releases/download/v0.2.0/runvoy_windows_x86_64.tar.gz. Extract the archive using a tool like 7-Zip or Windows' built-in tar support (Windows 10+). Copy the `runvoy.exe` file to a location in your PATH (such as `C:\Program Files\runvoy\`) and add that directory to your system PATH environment variable.
 
 <!-- VERSION_EXAMPLES_END -->
 
@@ -184,7 +186,7 @@ runvoy --help
 ```
 
 ```text
-runvoy - v0.2.0-20251122-fc7aa46
+runvoy - v0.2.0-20251122-9f94bce
 Isolated, repeatable execution environments for your commands
 
 Usage:

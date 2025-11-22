@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log/slog"
 
+	"runvoy/internal/auth/authorization"
+	"runvoy/internal/backend/contract"
 	"runvoy/internal/config"
 	"runvoy/internal/database"
 	"runvoy/internal/logger"
@@ -14,7 +16,7 @@ import (
 	awsHealth "runvoy/internal/providers/aws/health"
 	"runvoy/internal/providers/aws/identity"
 	"runvoy/internal/providers/aws/secrets"
-	"runvoy/internal/providers/aws/websocket"
+	awsWebsocket "runvoy/internal/providers/aws/websocket"
 
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
@@ -25,15 +27,18 @@ import (
 
 // Dependencies bundles the AWS-backed implementations required by the app service.
 type Dependencies struct {
-	UserRepo         database.UserRepository
-	ExecutionRepo    database.ExecutionRepository
-	ConnectionRepo   database.ConnectionRepository
-	TokenRepo        database.TokenRepository
-	ImageRepo        database.ImageRepository
-	Runner           *Runner
-	WebSocketManager *websocket.Manager
-	SecretsRepo      database.SecretsRepository
-	HealthManager    *awsHealth.Manager
+	UserRepo             database.UserRepository
+	ExecutionRepo        database.ExecutionRepository
+	ConnectionRepo       database.ConnectionRepository
+	TokenRepo            database.TokenRepository
+	ImageRepo            database.ImageRepository
+	TaskManager          contract.TaskManager
+	ImageRegistry        contract.ImageRegistry
+	LogManager           contract.LogManager
+	ObservabilityManager contract.ObservabilityManager
+	WebSocketManager     contract.WebSocketManager
+	SecretsRepo          database.SecretsRepository
+	HealthManager        contract.HealthManager
 }
 
 // Initialize prepares AWS service dependencies for the app package.
@@ -42,6 +47,7 @@ func Initialize( //nolint:funlen // This is ok, lots of initializations required
 	ctx context.Context,
 	cfg *config.Config,
 	log *slog.Logger,
+	enforcer *authorization.Enforcer,
 ) (*Dependencies, error) {
 	logger.RegisterContextExtractor(NewLambdaContextExtractor())
 
@@ -67,7 +73,7 @@ func Initialize( //nolint:funlen // This is ok, lots of initializations required
 	iamClient := awsClient.NewIAMClientAdapter(iamSDKClient)
 
 	repos := awsDatabase.CreateRepositories(dynamoClient, ssmClient, cfg, log)
-	runnerCfg := &Config{
+	providerCfg := &Config{
 		ECSCluster:             cfg.AWS.ECSCluster,
 		Subnet1:                cfg.AWS.Subnet1,
 		Subnet2:                cfg.AWS.Subnet2,
@@ -79,8 +85,10 @@ func Initialize( //nolint:funlen // This is ok, lots of initializations required
 		AccountID:              accountID,
 		SDKConfig:              cfg.AWS.SDKConfig,
 	}
-	runner := NewRunner(ecsClient, cwlClient, iamClient, repos.ImageTaskDefRepo, runnerCfg, log)
-	wsManager := websocket.Initialize(cfg, repos.ConnectionRepo, repos.TokenRepo, log)
+	// Provider implements all 4 orchestrator interfaces (TaskManager, ImageRegistry, LogManager, ObservabilityManager).
+	// We assign the same instance to each interface field to maintain explicit interface types in Dependencies.
+	provider := NewProvider(ecsClient, cwlClient, iamClient, repos.ImageTaskDefRepo, providerCfg, log)
+	wsManager := awsWebsocket.Initialize(cfg, repos.ConnectionRepo, repos.TokenRepo, log)
 
 	healthCfg := &awsHealth.Config{
 		Region:                 cfg.AWS.SDKConfig.Region,
@@ -98,20 +106,23 @@ func Initialize( //nolint:funlen // This is ok, lots of initializations required
 		repos.SecretsRepo,
 		repos.UserRepo,
 		repos.ExecutionRepo,
-		nil,
+		enforcer,
 		healthCfg,
 		log,
 	)
 
 	return &Dependencies{
-		UserRepo:         repos.UserRepo,
-		ExecutionRepo:    repos.ExecutionRepo,
-		ConnectionRepo:   repos.ConnectionRepo,
-		TokenRepo:        repos.TokenRepo,
-		ImageRepo:        repos.ImageTaskDefRepo,
-		Runner:           runner,
-		WebSocketManager: wsManager,
-		SecretsRepo:      repos.SecretsRepo,
-		HealthManager:    healthManager,
+		UserRepo:             repos.UserRepo,
+		ExecutionRepo:        repos.ExecutionRepo,
+		ConnectionRepo:       repos.ConnectionRepo,
+		TokenRepo:            repos.TokenRepo,
+		ImageRepo:            repos.ImageTaskDefRepo,
+		TaskManager:          provider,
+		ImageRegistry:        provider,
+		LogManager:           provider,
+		ObservabilityManager: provider,
+		WebSocketManager:     wsManager,
+		SecretsRepo:          repos.SecretsRepo,
+		HealthManager:        healthManager,
 	}, nil
 }

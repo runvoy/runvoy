@@ -35,7 +35,7 @@ func buildRoleARN(roleName *string, accountID, _ string) string {
 
 // buildRoleARNs constructs task and execution role ARNs from names or config defaults.
 // The execution role ARN is always required and defaults to DefaultTaskExecRoleARN from config.
-func (e *Runner) buildRoleARNs(
+func (e *Provider) buildRoleARNs(
 	taskRoleName *string,
 	taskExecutionRoleName *string,
 	region string,
@@ -58,7 +58,7 @@ func (e *Runner) buildRoleARNs(
 
 // determineDefaultStatus determines if an image should be marked as default.
 // If isDefault is nil, it automatically marks the image as default if no default image exists.
-func (e *Runner) determineDefaultStatus(
+func (e *Provider) determineDefaultStatus(
 	ctx context.Context,
 	isDefault *bool,
 ) (bool, error) {
@@ -74,7 +74,7 @@ func (e *Runner) determineDefaultStatus(
 }
 
 // handleExistingImage handles the case when an image already exists.
-func (e *Runner) handleExistingImage(
+func (e *Provider) handleExistingImage(
 	ctx context.Context,
 	image string,
 	isDefault *bool,
@@ -102,7 +102,7 @@ func (e *Runner) handleExistingImage(
 // registers the task definition with ECS, and stores the mapping in DynamoDB.
 //
 //nolint:funlen // Complex registration flow with multiple steps
-func (e *Runner) registerNewImage(
+func (e *Provider) registerNewImage(
 	ctx context.Context,
 	image string,
 	isDefault *bool,
@@ -181,7 +181,7 @@ func (e *Runner) registerNewImage(
 
 // validateIAMRoles validates that the specified IAM roles exist in AWS.
 // Returns an error if any role does not exist.
-func (e *Runner) validateIAMRoles(
+func (e *Provider) validateIAMRoles(
 	ctx context.Context,
 	taskRoleName *string,
 	taskExecutionRoleName *string,
@@ -248,7 +248,7 @@ func (e *Runner) validateIAMRoles(
 // Creates a new task definition with a unique family name and stores the mapping in DynamoDB.
 //
 //nolint:funlen // Complex registration flow with multiple steps
-func (e *Runner) RegisterImage(
+func (e *Provider) RegisterImage(
 	ctx context.Context,
 	image string,
 	isDefault *bool,
@@ -334,7 +334,7 @@ func (e *Runner) RegisterImage(
 // CPU, Memory, and RuntimePlatform.
 //
 //nolint:funlen // Complex AWS API orchestration with registration and tagging
-func (e *Runner) registerTaskDefinitionWithRoles(
+func (e *Provider) registerTaskDefinitionWithRoles(
 	ctx context.Context,
 	family string,
 	image string,
@@ -418,7 +418,7 @@ func (e *Runner) registerTaskDefinitionWithRoles(
 }
 
 // ListImages lists all registered Docker images from DynamoDB.
-func (e *Runner) ListImages(ctx context.Context) ([]api.ImageInfo, error) {
+func (e *Provider) ListImages(ctx context.Context) ([]api.ImageInfo, error) {
 	if e.imageRepo == nil {
 		return nil, fmt.Errorf("image repository not configured")
 	}
@@ -432,7 +432,7 @@ func (e *Runner) ListImages(ctx context.Context) ([]api.ImageInfo, error) {
 }
 
 // GetImagesByRequestID retrieves all images created or modified by a specific request ID.
-func (e *Runner) GetImagesByRequestID(ctx context.Context, requestID string) ([]api.ImageInfo, error) {
+func (e *Provider) GetImagesByRequestID(ctx context.Context, requestID string) ([]api.ImageInfo, error) {
 	if e.imageRepo == nil {
 		return nil, fmt.Errorf("image repository not configured")
 	}
@@ -457,7 +457,7 @@ func (e *Runner) GetImagesByRequestID(ctx context.Context, requestID string) ([]
 // Use ListImages to find the specific ImageID you want to remove.
 //
 //nolint:gocyclo,funlen // Complex deletion flow with pagination, deregistration, and deletion
-func (e *Runner) RemoveImage(ctx context.Context, image string) error {
+func (e *Provider) RemoveImage(ctx context.Context, image string) error {
 	if e.imageRepo == nil {
 		return fmt.Errorf("image repository not configured")
 	}
@@ -625,7 +625,7 @@ func (e *Runner) RemoveImage(ctx context.Context, image string) error {
 }
 
 // GetDefaultImageFromDB returns the default Docker image from DynamoDB.
-func (e *Runner) GetDefaultImageFromDB(ctx context.Context) (string, error) {
+func (e *Provider) GetDefaultImageFromDB(ctx context.Context) (string, error) {
 	if e.imageRepo == nil {
 		return "", fmt.Errorf("image repository not configured")
 	}
@@ -679,7 +679,7 @@ func looksLikeImageID(s string) bool {
 // Accepts either an ImageID (e.g., "alpine:latest-a1b2c3d4") or an image name (e.g., "alpine:latest").
 // If ImageID is provided, queries directly by ID. Otherwise, uses GetAnyImageTaskDef to find any configuration.
 // If image is empty, returns the default image if one is configured.
-func (e *Runner) GetImage(ctx context.Context, image string) (*api.ImageInfo, error) {
+func (e *Provider) GetImage(ctx context.Context, image string) (*api.ImageInfo, error) {
 	if e.imageRepo == nil {
 		return nil, fmt.Errorf("image repository not configured")
 	}
@@ -725,7 +725,7 @@ func (e *Runner) GetImage(ctx context.Context, image string) (*api.ImageInfo, er
 // Accepts either an ImageID (e.g., "alpine:latest-a1b2c3d4") or an image name (e.g., "alpine:latest").
 // If ImageID is provided, queries directly by ID. Otherwise, uses GetAnyImageTaskDef to find any configuration.
 // Returns just the family name - ECS will automatically use the latest ACTIVE revision when running tasks.
-func (e *Runner) GetTaskDefinitionARNForImage(ctx context.Context, image string) (string, error) {
+func (e *Provider) GetTaskDefinitionARNForImage(ctx context.Context, image string) (string, error) {
 	if e.imageRepo == nil {
 		return "", fmt.Errorf("image repository not configured")
 	}

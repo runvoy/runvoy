@@ -8,7 +8,7 @@ import (
 
 	"runvoy/internal/api"
 	"runvoy/internal/auth/authorization"
-	"runvoy/internal/backend/websocket"
+	"runvoy/internal/backend/contract"
 	"runvoy/internal/constants"
 	"runvoy/internal/database"
 	"runvoy/internal/testutil"
@@ -218,7 +218,7 @@ func (m *mockTokenRepository) DeleteToken(ctx context.Context, tokenValue string
 	return nil
 }
 
-// mockRunner implements Runner interface for testing
+// mockRunner implements TaskManager, ImageRegistry, LogManager, and ObservabilityManager interfaces for testing
 type mockRunner struct {
 	startTaskFunc func(
 		ctx context.Context,
@@ -335,6 +335,7 @@ func newPermissiveEnforcer() *authorization.Enforcer {
 
 // newTestService creates a Service with mocks for testing.
 // All repositories are required (non-nil). Use no-op mocks by passing nil for unused repositories.
+// The runner parameter implements all 4 interfaces (TaskManager, ImageRegistry, LogManager, ObservabilityManager).
 func newTestService(
 	userRepo *mockUserRepository,
 	execRepo *mockExecutionRepository,
@@ -350,12 +351,21 @@ func newTestService(
 		execRepoIface = execRepo
 	}
 
-	runnerIface := Runner(&mockRunner{})
+	var taskManager contract.TaskManager = &mockRunner{}
+	var imageRegistry contract.ImageRegistry = &mockRunner{}
+	var logManager contract.LogManager = &mockRunner{}
+	var observabilityManager contract.ObservabilityManager = &mockRunner{}
 	if runner != nil {
-		runnerIface = runner
+		taskManager = runner
+		imageRegistry = runner
+		logManager = runner
+		observabilityManager = runner
 	}
 
-	return newTestServiceWithConnRepo(userRepoIface, execRepoIface, nil, runnerIface)
+	return newTestServiceWithConnRepo(
+		userRepoIface, execRepoIface, nil,
+		taskManager, imageRegistry, logManager, observabilityManager,
+	)
 }
 
 // newTestServiceWithConnRepo creates a Service with connection repo mock for testing
@@ -364,13 +374,26 @@ func newTestServiceWithConnRepo(
 	userRepo database.UserRepository,
 	execRepo database.ExecutionRepository,
 	connRepo database.ConnectionRepository,
-	runner Runner,
+	taskManager contract.TaskManager,
+	imageRegistry contract.ImageRegistry,
+	logManager contract.LogManager,
+	observabilityManager contract.ObservabilityManager,
 ) *Service {
 	logger := testutil.SilentLogger()
+	repos := database.Repositories{
+		User:       userRepo,
+		Execution:  execRepo,
+		Connection: connRepo,
+		Token:      &mockTokenRepository{},
+		Image:      &mockImageRepository{},
+		Secrets:    &mockSecretsRepository{},
+	}
 	svc, err := NewService(
 		context.Background(),
-		userRepo, execRepo, connRepo, &mockTokenRepository{}, &mockImageRepository{}, runner, logger, constants.AWS,
-		nil, &mockSecretsRepository{}, nil, newPermissiveEnforcer(),
+		&repos,
+		taskManager, imageRegistry, logManager, observabilityManager,
+		logger, constants.AWS,
+		nil, nil, newPermissiveEnforcer(),
 	)
 	if err != nil {
 		panic(err)
@@ -380,6 +403,7 @@ func newTestServiceWithConnRepo(
 
 // newTestServiceWithSecretsRepo creates a Service with a secrets repository for testing.
 // All repositories are required (non-nil). Use no-op mocks by passing nil for unused repositories.
+// The runner parameter implements all 4 interfaces (TaskManager, ImageRegistry, LogManager, ObservabilityManager).
 func newTestServiceWithEnforcer(
 	userRepo *mockUserRepository,
 	execRepo *mockExecutionRepository,
@@ -402,9 +426,15 @@ func newTestServiceWithEnforcer(
 		execRepoIface = execRepo
 	}
 
-	runnerIface := Runner(&mockRunner{})
+	var taskManager contract.TaskManager = &mockRunner{}
+	var imageRegistry contract.ImageRegistry = &mockRunner{}
+	var logManager contract.LogManager = &mockRunner{}
+	var observabilityManager contract.ObservabilityManager = &mockRunner{}
 	if runner != nil {
-		runnerIface = runner
+		taskManager = runner
+		imageRegistry = runner
+		logManager = runner
+		observabilityManager = runner
 	}
 
 	secretsRepoIface := database.SecretsRepository(&mockSecretsRepository{})
@@ -412,18 +442,24 @@ func newTestServiceWithEnforcer(
 		secretsRepoIface = secretsRepo
 	}
 
+	repos := database.Repositories{
+		User:       userRepoIface,
+		Execution:  execRepoIface,
+		Connection: nil,
+		Token:      &mockTokenRepository{},
+		Image:      &mockImageRepository{},
+		Secrets:    secretsRepoIface,
+	}
 	svc, err := NewService(
 		context.Background(),
-		userRepoIface,
-		execRepoIface,
-		nil,
-		&mockTokenRepository{},
-		&mockImageRepository{},
-		runnerIface,
+		&repos,
+		taskManager,
+		imageRegistry,
+		logManager,
+		observabilityManager,
 		logger,
 		constants.AWS,
 		nil,
-		secretsRepoIface,
 		nil,
 		enforcer,
 	)
@@ -451,23 +487,35 @@ func newTestServiceWithSecretsRepo(
 		execRepoIface = execRepo
 	}
 
-	runnerIface := Runner(&mockRunner{})
+	var taskManager contract.TaskManager = &mockRunner{}
+	var imageRegistry contract.ImageRegistry = &mockRunner{}
+	var logManager contract.LogManager = &mockRunner{}
+	var observabilityManager contract.ObservabilityManager = &mockRunner{}
 	if runner != nil {
-		runnerIface = runner
+		taskManager = runner
+		imageRegistry = runner
+		logManager = runner
+		observabilityManager = runner
 	}
 
+	repos := database.Repositories{
+		User:       userRepoIface,
+		Execution:  execRepoIface,
+		Connection: nil,
+		Token:      &mockTokenRepository{},
+		Image:      &mockImageRepository{},
+		Secrets:    secretsRepo,
+	}
 	svc, err := NewService(
 		context.Background(),
-		userRepoIface,
-		execRepoIface,
-		nil,
-		&mockTokenRepository{},
-		&mockImageRepository{},
-		runnerIface,
+		&repos,
+		taskManager,
+		imageRegistry,
+		logManager,
+		observabilityManager,
 		logger,
 		constants.AWS,
 		nil,
-		secretsRepo,
 		nil,
 		newPermissiveEnforcer(),
 	)
@@ -541,11 +589,12 @@ func (m *mockImageRepository) GetImagesByRequestID(_ context.Context, _ string) 
 
 // newTestServiceWithWebSocketManager creates a Service with websocket manager for testing.
 // All repositories are required (non-nil). Use no-op mocks by passing nil for unused repositories.
+// The runner parameter implements all 4 interfaces (TaskManager, ImageRegistry, LogManager, ObservabilityManager).
 func newTestServiceWithWebSocketManager(
 	userRepo *mockUserRepository,
 	execRepo *mockExecutionRepository,
 	runner *mockRunner,
-	wsManager websocket.Manager,
+	wsManager contract.WebSocketManager,
 ) *Service {
 	logger := testutil.SilentLogger()
 
@@ -559,15 +608,31 @@ func newTestServiceWithWebSocketManager(
 		execRepoIface = execRepo
 	}
 
-	runnerIface := Runner(&mockRunner{})
+	var taskManager contract.TaskManager = &mockRunner{}
+	var imageRegistry contract.ImageRegistry = &mockRunner{}
+	var logManager contract.LogManager = &mockRunner{}
+	var observabilityManager contract.ObservabilityManager = &mockRunner{}
 	if runner != nil {
-		runnerIface = runner
+		taskManager = runner
+		imageRegistry = runner
+		logManager = runner
+		observabilityManager = runner
 	}
 
+	repos := database.Repositories{
+		User:       userRepoIface,
+		Execution:  execRepoIface,
+		Connection: nil,
+		Token:      &mockTokenRepository{},
+		Image:      &mockImageRepository{},
+		Secrets:    &mockSecretsRepository{},
+	}
 	svc, err := NewService(
 		context.Background(),
-		userRepoIface, execRepoIface, nil, &mockTokenRepository{}, &mockImageRepository{}, runnerIface, logger, constants.AWS,
-		wsManager, &mockSecretsRepository{}, nil, newPermissiveEnforcer(),
+		&repos,
+		taskManager, imageRegistry, logManager, observabilityManager,
+		logger, constants.AWS,
+		wsManager, nil, newPermissiveEnforcer(),
 	)
 	if err != nil {
 		panic(err)
@@ -575,7 +640,7 @@ func newTestServiceWithWebSocketManager(
 	return svc
 }
 
-// mockWebSocketManager implements websocket.Manager for testing
+// mockWebSocketManager implements contract.WebSocketManager for testing
 type mockWebSocketManager struct {
 	generateWebSocketURLFunc func(
 		ctx context.Context,

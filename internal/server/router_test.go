@@ -9,6 +9,7 @@ import (
 
 	"runvoy/internal/backend/orchestrator"
 	"runvoy/internal/constants"
+	"runvoy/internal/database"
 	"runvoy/internal/testutil"
 
 	"github.com/stretchr/testify/assert"
@@ -18,18 +19,24 @@ import (
 func TestNewRouter(t *testing.T) {
 	tokenRepo := &testTokenRepository{}
 
+	repos := database.Repositories{
+		User:       &testUserRepository{},
+		Execution:  &testExecutionRepository{},
+		Connection: nil,
+		Token:      tokenRepo,
+		Image:      &testImageRepository{},
+		Secrets:    &testSecretsRepository{},
+	}
 	svc, err := orchestrator.NewService(
 		context.Background(),
-		&testUserRepository{},
-		&testExecutionRepository{},
-		nil,
-		tokenRepo,
-		&testImageRepository{},
-		&testRunner{},
+		&repos,
+		&testRunner{}, // TaskManager
+		&testRunner{}, // ImageRegistry
+		&testRunner{}, // LogManager
+		&testRunner{}, // ObservabilityManager
 		testutil.SilentLogger(),
 		constants.AWS,
 		nil,
-		&testSecretsRepository{},
 		nil,
 		newPermissiveTestEnforcerForHandlers(t),
 	)
@@ -53,18 +60,24 @@ func TestNewRouter(t *testing.T) {
 func TestRouter_ChiMux(t *testing.T) {
 	tokenRepo := &testTokenRepository{}
 
+	repos := database.Repositories{
+		User:       &testUserRepository{},
+		Execution:  &testExecutionRepository{},
+		Connection: nil,
+		Token:      tokenRepo,
+		Image:      &testImageRepository{},
+		Secrets:    &testSecretsRepository{},
+	}
 	svc, err := orchestrator.NewService(
 		context.Background(),
-		&testUserRepository{},
-		&testExecutionRepository{},
-		nil,
-		tokenRepo,
-		&testImageRepository{},
-		&testRunner{},
+		&repos,
+		&testRunner{}, // TaskManager
+		&testRunner{}, // ImageRegistry
+		&testRunner{}, // LogManager
+		&testRunner{}, // ObservabilityManager
 		testutil.SilentLogger(),
 		constants.AWS,
 		nil,
-		&testSecretsRepository{},
 		nil,
 		newPermissiveTestEnforcerForHandlers(t),
 	)
@@ -79,18 +92,24 @@ func TestRouter_ChiMux(t *testing.T) {
 func TestRouter_Handler(t *testing.T) {
 	tokenRepo := &testTokenRepository{}
 
+	repos := database.Repositories{
+		User:       &testUserRepository{},
+		Execution:  &testExecutionRepository{},
+		Connection: nil,
+		Token:      tokenRepo,
+		Image:      &testImageRepository{},
+		Secrets:    &testSecretsRepository{},
+	}
 	svc, err := orchestrator.NewService(
 		context.Background(),
-		&testUserRepository{},
-		&testExecutionRepository{},
-		nil,
-		tokenRepo,
-		&testImageRepository{},
-		&testRunner{},
+		&repos,
+		&testRunner{}, // TaskManager
+		&testRunner{}, // ImageRegistry
+		&testRunner{}, // LogManager
+		&testRunner{}, // ObservabilityManager
 		testutil.SilentLogger(),
 		constants.AWS,
 		nil,
-		&testSecretsRepository{},
 		nil,
 		newPermissiveTestEnforcerForHandlers(t),
 	)
@@ -105,35 +124,48 @@ func TestRouter_Handler(t *testing.T) {
 func TestRouter_WithContext(t *testing.T) {
 	tokenRepo := &testTokenRepository{}
 
+	repos := database.Repositories{
+		User:       &testUserRepository{},
+		Execution:  &testExecutionRepository{},
+		Connection: nil,
+		Token:      tokenRepo,
+		Image:      &testImageRepository{},
+		Secrets:    &testSecretsRepository{},
+	}
 	svc, err := orchestrator.NewService(
 		context.Background(),
-		&testUserRepository{},
-		&testExecutionRepository{},
-		nil,
-		tokenRepo,
-		&testImageRepository{},
-		&testRunner{},
+		&repos,
+		&testRunner{}, // TaskManager
+		&testRunner{}, // ImageRegistry
+		&testRunner{}, // LogManager
+		&testRunner{}, // ObservabilityManager
 		testutil.SilentLogger(),
 		constants.AWS,
 		nil,
-		&testSecretsRepository{},
 		nil,
 		newPermissiveTestEnforcerForHandlers(t),
 	)
 	require.NoError(t, err)
 	tokenRepo2 := &testTokenRepository{}
+	runner2 := &testRunner{}
+	repos2 := database.Repositories{
+		User:       &testUserRepository{},
+		Execution:  &testExecutionRepository{},
+		Connection: nil,
+		Token:      tokenRepo2,
+		Image:      &testImageRepository{},
+		Secrets:    &testSecretsRepository{},
+	}
 	svc2, err := orchestrator.NewService(
 		context.Background(),
-		&testUserRepository{},
-		&testExecutionRepository{},
-		nil,
-		tokenRepo2,
-		&testImageRepository{},
-		&testRunner{},
+		&repos2,
+		runner2, // TaskManager
+		runner2, // ImageRegistry
+		runner2, // LogManager
+		runner2, // ObservabilityManager
 		testutil.SilentLogger(),
 		constants.AWS,
 		nil,
-		&testSecretsRepository{},
 		nil,
 		newPermissiveTestEnforcerForHandlers(t),
 	)
@@ -150,18 +182,24 @@ func TestRouter_WithContext(t *testing.T) {
 func TestRouter_ServeHTTP(t *testing.T) {
 	tokenRepo := &testTokenRepository{}
 
+	repos := database.Repositories{
+		User:       &testUserRepository{},
+		Execution:  &testExecutionRepository{},
+		Connection: nil,
+		Token:      tokenRepo,
+		Image:      &testImageRepository{},
+		Secrets:    &testSecretsRepository{},
+	}
 	svc, err := orchestrator.NewService(
 		context.Background(),
-		&testUserRepository{},
-		&testExecutionRepository{},
-		nil,
-		tokenRepo,
-		&testImageRepository{},
-		&testRunner{},
+		&repos,
+		&testRunner{}, // TaskManager
+		&testRunner{}, // ImageRegistry
+		&testRunner{}, // LogManager
+		&testRunner{}, // ObservabilityManager
 		testutil.SilentLogger(),
 		constants.AWS,
 		nil,
-		&testSecretsRepository{},
 		nil,
 		newPermissiveTestEnforcerForHandlers(t),
 	)

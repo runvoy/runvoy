@@ -61,7 +61,7 @@ func TestBuildRoleARN(t *testing.T) {
 	}
 }
 
-func TestRunner_BuildRoleARNs(t *testing.T) {
+func TestProvider_BuildRoleARNs(t *testing.T) {
 	tests := []struct {
 		name                  string
 		cfg                   Config
@@ -153,12 +153,12 @@ func TestRunner_BuildRoleARNs(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			runner := &Runner{
+			provider := &Provider{
 				cfg:    &tt.cfg,
 				logger: testutil.SilentLogger(),
 			}
 
-			taskRoleARN, taskExecRoleARN := runner.buildRoleARNs(
+			taskRoleARN, taskExecRoleARN := provider.buildRoleARNs(
 				tt.taskRoleName,
 				tt.taskExecutionRoleName,
 				tt.region,
@@ -237,7 +237,7 @@ func (m *mockImageRepo) GetImagesByRequestID(_ context.Context, _ string) ([]api
 	return []api.ImageInfo{}, nil
 }
 
-func TestRunner_DetermineDefaultStatus(t *testing.T) {
+func TestProvider_DetermineDefaultStatus(t *testing.T) {
 	ctx := testutil.TestContext()
 
 	tests := []struct {
@@ -300,12 +300,12 @@ func TestRunner_DetermineDefaultStatus(t *testing.T) {
 				tt.mockSetup(mockRepo)
 			}
 
-			runner := &Runner{
+			provider := &Provider{
 				imageRepo: mockRepo,
 				logger:    testutil.SilentLogger(),
 			}
 
-			result, err := runner.determineDefaultStatus(ctx, tt.isDefault)
+			result, err := provider.determineDefaultStatus(ctx, tt.isDefault)
 
 			if tt.expectError {
 				assert.Error(t, err)
@@ -317,7 +317,7 @@ func TestRunner_DetermineDefaultStatus(t *testing.T) {
 	}
 }
 
-func TestRunner_ListImages(t *testing.T) {
+func TestProvider_ListImages(t *testing.T) {
 	ctx := testutil.TestContext()
 
 	tests := []struct {
@@ -396,12 +396,12 @@ func TestRunner_ListImages(t *testing.T) {
 				tt.mockSetup(mockRepo)
 			}
 
-			runner := &Runner{
+			provider := &Provider{
 				imageRepo: mockRepo,
 				logger:    testutil.SilentLogger(),
 			}
 
-			images, err := runner.ListImages(ctx)
+			images, err := provider.ListImages(ctx)
 
 			if tt.expectError {
 				assert.Error(t, err)
@@ -422,7 +422,7 @@ func TestRunner_ListImages(t *testing.T) {
 	}
 }
 
-func TestRunner_RemoveImage(t *testing.T) {
+func TestProvider_RemoveImage(t *testing.T) {
 	ctx := testutil.TestContext()
 
 	tests := []struct {
@@ -524,14 +524,14 @@ func TestRunner_RemoveImage(t *testing.T) {
 				tt.mockSetup(mockRepo)
 			}
 
-			runner := &Runner{
+			provider := &Provider{
 				imageRepo: mockRepo,
 				ecsClient: mockECS,
 				cfg:       &Config{AccountID: "123456789012"},
 				logger:    testutil.SilentLogger(),
 			}
 
-			err := runner.RemoveImage(ctx, tt.image)
+			err := provider.RemoveImage(ctx, tt.image)
 
 			if tt.expectError {
 				assert.Error(t, err)
@@ -545,7 +545,7 @@ func TestRunner_RemoveImage(t *testing.T) {
 	}
 }
 
-func TestRunner_GetImage(t *testing.T) {
+func TestProvider_GetImage(t *testing.T) {
 	ctx := testutil.TestContext()
 
 	tests := []struct {
@@ -684,12 +684,12 @@ func TestRunner_GetImage(t *testing.T) {
 				tt.mockSetup(mockRepo)
 			}
 
-			runner := &Runner{
+			provider := &Provider{
 				imageRepo: mockRepo,
 				logger:    testutil.SilentLogger(),
 			}
 
-			imageInfo, err := runner.GetImage(ctx, tt.image)
+			imageInfo, err := provider.GetImage(ctx, tt.image)
 
 			if tt.expectErr {
 				assert.Error(t, err)
@@ -707,7 +707,7 @@ func TestRunner_GetImage(t *testing.T) {
 	}
 }
 
-func TestRunner_GetTaskDefinitionARNForImage(t *testing.T) {
+func TestProvider_GetTaskDefinitionARNForImage(t *testing.T) {
 	ctx := testutil.TestContext()
 
 	tests := []struct {
@@ -779,12 +779,12 @@ func TestRunner_GetTaskDefinitionARNForImage(t *testing.T) {
 				tt.mockSetup(mockRepo)
 			}
 
-			runner := &Runner{
+			provider := &Provider{
 				imageRepo: mockRepo,
 				logger:    testutil.SilentLogger(),
 			}
 
-			taskDef, err := runner.GetTaskDefinitionARNForImage(ctx, tt.image)
+			taskDef, err := provider.GetTaskDefinitionARNForImage(ctx, tt.image)
 
 			if tt.expectError {
 				assert.Error(t, err)
@@ -800,7 +800,7 @@ func TestRunner_GetTaskDefinitionARNForImage(t *testing.T) {
 	}
 }
 
-func TestRunner_GetDefaultImageFromDB(t *testing.T) {
+func TestProvider_GetDefaultImageFromDB(t *testing.T) {
 	ctx := testutil.TestContext()
 
 	tests := []struct {
@@ -854,12 +854,12 @@ func TestRunner_GetDefaultImageFromDB(t *testing.T) {
 				tt.mockSetup(mockRepo)
 			}
 
-			runner := &Runner{
+			provider := &Provider{
 				imageRepo: mockRepo,
 				logger:    testutil.SilentLogger(),
 			}
 
-			image, err := runner.GetDefaultImageFromDB(ctx)
+			image, err := provider.GetDefaultImageFromDB(ctx)
 
 			if tt.expectError {
 				assert.Error(t, err)
@@ -996,7 +996,7 @@ func (m *mockIAMClient) GetRole(
 	return &iam.GetRoleOutput{}, nil
 }
 
-func TestRunner_ValidateIAMRoles(t *testing.T) {
+func TestProvider_ValidateIAMRoles(t *testing.T) {
 	ctx := testutil.TestContext()
 
 	tests := []struct {
@@ -1154,7 +1154,7 @@ func TestRunner_ValidateIAMRoles(t *testing.T) {
 				iamClient = mockIAM
 			}
 
-			runner := &Runner{
+			provider := &Provider{
 				iamClient: iamClient,
 				cfg: &Config{
 					AccountID: tt.accountID,
@@ -1162,7 +1162,7 @@ func TestRunner_ValidateIAMRoles(t *testing.T) {
 				logger: testutil.SilentLogger(),
 			}
 
-			err := runner.validateIAMRoles(ctx, tt.taskRoleName, tt.taskExecutionRoleName, tt.region, runner.logger)
+			err := provider.validateIAMRoles(ctx, tt.taskRoleName, tt.taskExecutionRoleName, tt.region, provider.logger)
 
 			if tt.expectError {
 				require.Error(t, err)

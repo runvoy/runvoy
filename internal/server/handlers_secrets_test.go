@@ -13,6 +13,7 @@ import (
 	"runvoy/internal/api"
 	"runvoy/internal/backend/orchestrator"
 	"runvoy/internal/constants"
+	"runvoy/internal/database"
 	apperrors "runvoy/internal/errors"
 	"runvoy/internal/testutil"
 
@@ -431,7 +432,7 @@ func newTestService(
 ) *orchestrator.Service {
 	logger := testutil.SilentLogger()
 
-	// Create a mock runner that implements the Runner interface
+	// Create a mock runner that implements all 4 interfaces (TaskManager, ImageRegistry, LogManager, ObservabilityManager)
 	mockRunner := &testRunner{}
 	tokenRepo := &testTokenRepository{}
 	enforcer := newPermissiveTestEnforcer(t)
@@ -441,17 +442,23 @@ func newTestService(
 		originalRepo: userRepo,
 	}
 
+	repos := database.Repositories{
+		User:       userRepoWithRoles,
+		Execution:  execRepo,
+		Connection: nil,
+		Token:      tokenRepo,
+		Image:      &testImageRepository{},
+		Secrets:    secretRepo,
+	}
 	svc, err := orchestrator.NewService(context.Background(),
-		userRepoWithRoles,
-		execRepo,
-		nil, // connRepo
-		tokenRepo,
-		&testImageRepository{},
-		mockRunner,
+		&repos,
+		mockRunner, // TaskManager
+		mockRunner, // ImageRegistry
+		mockRunner, // LogManager
+		mockRunner, // ObservabilityManager
 		logger,
 		constants.AWS,
 		nil, // wsManager
-		secretRepo,
 		nil, // healthManager
 		enforcer,
 	)

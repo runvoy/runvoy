@@ -11,7 +11,7 @@ import (
 	"runvoy/internal/api"
 	"runvoy/internal/auth"
 	"runvoy/internal/auth/authorization"
-	"runvoy/internal/backend/websocket"
+	"runvoy/internal/backend/contract"
 	"runvoy/internal/constants"
 	"runvoy/internal/database"
 	apperrors "runvoy/internal/errors"
@@ -782,7 +782,7 @@ func TestGetLogsByExecutionID_WebSocketToken(t *testing.T) {
 			}
 
 			// Create mock websocket manager if base URL is provided
-			var wsManager websocket.Manager
+			var wsManager contract.WebSocketManager
 			if tt.websocketBaseURL != "" {
 				wsManager = &mockWebSocketManager{
 					generateWebSocketURLFunc: func(
@@ -826,7 +826,7 @@ func TestGetLogsByExecutionID_WebSocketToken(t *testing.T) {
 			}
 
 			svc := newTestServiceWithWebSocketManager(nil, execRepo, runner, wsManager)
-			svc.tokenRepo = tokenRepo
+			svc.repos.Token = tokenRepo
 
 			email := "test@example.com"
 			clientIP := "192.168.1.1"
@@ -929,7 +929,7 @@ func TestGetLogsByExecutionID_TokenUniqueness(t *testing.T) {
 	}
 
 	svc := newTestServiceWithWebSocketManager(nil, execRepo, runner, wsManager)
-	svc.tokenRepo = tokenRepo
+	svc.repos.Token = tokenRepo
 
 	// Call GetLogsByExecutionID multiple times and verify tokens are unique
 	for range 3 {

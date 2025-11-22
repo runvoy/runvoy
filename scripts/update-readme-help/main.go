@@ -98,7 +98,19 @@ func generateVersionExamplesSection(version string) string {
 	b.WriteString("xattr -dr com.apple.quarantine runvoy_darwin_arm64/runvoy\n")
 	b.WriteString("codesign -s - --deep --force runvoy_darwin_arm64/runvoy\n")
 	b.WriteString("sudo mv runvoy_darwin_arm64/runvoy /usr/local/bin/runvoy\n")
-	b.WriteString("```\n")
+	b.WriteString("```\n\n")
+	b.WriteString("- **Windows:** Download the `runvoy_windows_x86_64.tar.gz` file from ")
+	windowsURL := fmt.Sprintf(
+		"https://github.com/runvoy/runvoy/releases/download/%s/runvoy_windows_x86_64.tar.gz",
+		version,
+	)
+	b.WriteString(windowsURL)
+	b.WriteString(
+		". Extract the archive using a tool like 7-Zip or Windows' built-in tar support (Windows 10+). " +
+			"Copy the `runvoy.exe` file to a location in your PATH " +
+			"(such as `C:\\Program Files\\runvoy\\`) and add that directory to your " +
+			"system PATH environment variable.\n",
+	)
 	return b.String()
 }
 

@@ -2,13 +2,17 @@ package orchestrator
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"log/slog"
 	"testing"
 	"time"
 
 	"runvoy/internal/api"
 	"runvoy/internal/auth/authorization"
+	"runvoy/internal/backend/contract"
 	"runvoy/internal/constants"
+	"runvoy/internal/database"
 	appErrors "runvoy/internal/errors"
 	"runvoy/internal/testutil"
 
@@ -44,28 +48,7 @@ func TestFetchTrace_WithBackendLogError(t *testing.T) {
 	runner := &traceMinimalRunner{
 		backendLogsErr: appErrors.ErrServiceUnavailable("backend unavailable", nil),
 	}
-
-	userRepo := &minimalUserRepository{}
-	execRepo := &minimalExecutionRepository{}
-	tokenRepo := &minimalTokenRepository{}
-	imageRepo := &minimalImageRepository{}
-	secretsRepo := &minimalSecretsRepository{}
-
-	svc, err := NewService(context.Background(),
-		userRepo,
-		execRepo,
-		nil,
-		tokenRepo,
-		imageRepo,
-		runner,
-		testutil.SilentLogger(),
-		constants.AWS,
-		nil,
-		secretsRepo,
-		nil,
-		newTraceTestEnforcer(t),
-	)
-	require.NoError(t, err)
+	svc := newTraceTestServiceWithRunner(t, runner)
 
 	trace, err := svc.FetchTrace(context.Background(), "test-request-id")
 
@@ -98,21 +81,7 @@ func TestFetchTrace_ConcurrentFetching(t *testing.T) {
 		},
 	}
 
-	svc, err := NewService(context.Background(),
-		&minimalUserRepository{},
-		execRepo,
-		nil,
-		&minimalTokenRepository{},
-		&minimalImageRepository{},
-		runner,
-		testutil.SilentLogger(),
-		constants.AWS,
-		nil,
-		&minimalSecretsRepository{},
-		nil,
-		newTraceTestEnforcer(t),
-	)
-	require.NoError(t, err)
+	svc := newTraceTestServiceWithRunner(t, runner, withExecutionRepo(execRepo))
 
 	start := time.Now()
 	trace, err := svc.FetchTrace(context.Background(), requestID)
@@ -129,26 +98,11 @@ func TestFetchTrace_ConcurrentFetching(t *testing.T) {
 
 func TestFetchTrace_ResourceFetchError(t *testing.T) {
 	runner := &traceMinimalRunner{}
-
 	execRepo := &minimalExecutionRepositoryWithError{
 		err: appErrors.ErrInternalError("database error", errors.New("connection lost")),
 	}
 
-	svc, err := NewService(context.Background(),
-		&minimalUserRepository{},
-		execRepo,
-		nil,
-		&minimalTokenRepository{},
-		&minimalImageRepository{},
-		runner,
-		testutil.SilentLogger(),
-		constants.AWS,
-		nil,
-		&minimalSecretsRepository{},
-		nil,
-		newTraceTestEnforcer(t),
-	)
-	require.NoError(t, err)
+	svc := newTraceTestServiceWithRunner(t, runner, withExecutionRepo(execRepo))
 
 	trace, err := svc.FetchTrace(context.Background(), "test-request-id")
 
@@ -313,6 +267,22 @@ func (r *minimalExecutionRepositoryWithError) GetExecutionsByRequestID(
 	return nil, r.err
 }
 
+type minimalConnectionRepository struct{}
+
+func (r *minimalConnectionRepository) CreateConnection(_ context.Context, _ *api.WebSocketConnection) error {
+	return nil
+}
+
+func (r *minimalConnectionRepository) DeleteConnections(_ context.Context, _ []string) (int, error) {
+	return 0, nil
+}
+
+func (r *minimalConnectionRepository) GetConnectionsByExecutionID(
+	_ context.Context, _ string,
+) ([]*api.WebSocketConnection, error) {
+	return nil, nil
+}
+
 type minimalTokenRepository struct{}
 
 func (r *minimalTokenRepository) CreateToken(_ context.Context, _ *api.WebSocketToken) error {
@@ -359,23 +329,117 @@ func (r *minimalSecretsRepository) GetSecretsByRequestID(_ context.Context, _ st
 	return nil, nil
 }
 
+type minimalWebSocketManager struct{}
+
+func (m *minimalWebSocketManager) GenerateWebSocketURL(
+	_ context.Context, _ string, _ *string, _ *string,
+) string {
+	return ""
+}
+
+func (m *minimalWebSocketManager) HandleRequest(
+	_ context.Context, _ *json.RawMessage, _ *slog.Logger,
+) (bool, error) {
+	return false, nil
+}
+
+func (m *minimalWebSocketManager) NotifyExecutionCompletion(_ context.Context, _ *string) error {
+	return nil
+}
+
+func (m *minimalWebSocketManager) SendLogsToExecution(
+	_ context.Context, _ *string, _ []api.LogEvent,
+) error {
+	return nil
+}
+
+type minimalHealthManager struct{}
+
+func (m *minimalHealthManager) Reconcile(_ context.Context) (*api.HealthReport, error) {
+	return &api.HealthReport{}, nil
+}
+
+// newTraceTestService creates a Service for trace testing with minimal mocks.
+// The runner parameter implements all 4 interfaces (TaskManager, ImageRegistry, LogManager, ObservabilityManager).
 func newTraceTestService(t *testing.T) *Service {
-	svc, err := NewService(context.Background(),
-		&minimalUserRepository{},
-		&minimalExecutionRepository{},
-		nil,
-		&minimalTokenRepository{},
-		&minimalImageRepository{},
-		&traceMinimalRunner{},
+	return newTraceTestServiceWithRunner(t, &traceMinimalRunner{})
+}
+
+// newTraceTestServiceWithRunner creates a Service for trace testing with a custom runner.
+// The runner parameter implements all 4 interfaces (TaskManager, ImageRegistry, LogManager, ObservabilityManager).
+// Optional repositories can be provided to override defaults.
+func newTraceTestServiceWithRunner(
+	t *testing.T,
+	runner interface {
+		contract.TaskManager
+		contract.ImageRegistry
+		contract.LogManager
+		contract.ObservabilityManager
+	},
+	opts ...traceTestServiceOption,
+) *Service {
+	taskManager, _ := runner.(contract.TaskManager)
+	imageRegistry, _ := runner.(contract.ImageRegistry)
+	logManager, _ := runner.(contract.LogManager)
+	observabilityManager, _ := runner.(contract.ObservabilityManager)
+
+	cfg := &traceTestServiceConfig{
+		userRepo:      &minimalUserRepository{},
+		execRepo:      &minimalExecutionRepository{},
+		connRepo:      &minimalConnectionRepository{},
+		tokenRepo:     &minimalTokenRepository{},
+		imageRepo:     &minimalImageRepository{},
+		secretsRepo:   &minimalSecretsRepository{},
+		wsManager:     &minimalWebSocketManager{},
+		healthManager: &minimalHealthManager{},
+	}
+
+	for _, opt := range opts {
+		opt(cfg)
+	}
+
+	repos := database.Repositories{
+		User:       cfg.userRepo,
+		Execution:  cfg.execRepo,
+		Connection: cfg.connRepo,
+		Token:      cfg.tokenRepo,
+		Image:      cfg.imageRepo,
+		Secrets:    cfg.secretsRepo,
+	}
+	svc, err := NewService(
+		context.Background(),
+		&repos,
+		taskManager,
+		imageRegistry,
+		logManager,
+		observabilityManager,
 		testutil.SilentLogger(),
 		constants.AWS,
-		nil,
-		&minimalSecretsRepository{},
-		nil,
+		cfg.wsManager,
+		cfg.healthManager,
 		newTraceTestEnforcer(t),
 	)
 	require.NoError(t, err)
 	return svc
+}
+
+type traceTestServiceConfig struct {
+	userRepo      database.UserRepository
+	execRepo      database.ExecutionRepository
+	connRepo      database.ConnectionRepository
+	tokenRepo     database.TokenRepository
+	imageRepo     database.ImageRepository
+	secretsRepo   database.SecretsRepository
+	wsManager     contract.WebSocketManager
+	healthManager contract.HealthManager
+}
+
+type traceTestServiceOption func(*traceTestServiceConfig)
+
+func withExecutionRepo(repo database.ExecutionRepository) traceTestServiceOption {
+	return func(cfg *traceTestServiceConfig) {
+		cfg.execRepo = repo
+	}
 }
 
 func newTraceTestEnforcer(t *testing.T) *authorization.Enforcer {
