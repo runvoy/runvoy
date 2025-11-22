@@ -12,6 +12,7 @@ import (
 	"regexp"
 	"runvoy/internal/api"
 	"runvoy/internal/client"
+	"runvoy/internal/client/infra"
 	"runvoy/internal/client/output"
 	"runvoy/internal/constants"
 	apperrors "runvoy/internal/errors"
@@ -349,6 +350,6 @@ func (s *LogsService) printLogLine(lineNumber int, log api.LogEvent) {
 
 // printWebviewerURL prints the web application URL
 func (s *LogsService) printWebviewerURL(webURL, executionID string) {
-	s.output.Infof("View logs in web viewer: %s?execution_id=%s",
-		webURL, s.output.Cyan(executionID))
+	urlStr := infra.BuildLogsURL(webURL, executionID)
+	s.output.Infof("View logs in web viewer: %s", s.output.Cyan(urlStr))
 }

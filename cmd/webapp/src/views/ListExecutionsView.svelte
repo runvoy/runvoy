@@ -1,6 +1,5 @@
 <script lang="ts">
-    import { activeView, VIEWS } from '../stores/ui';
-    import { switchExecution } from '../lib/executionState';
+    import { goto } from '$app/navigation';
     import type APIClient from '../lib/api';
     import type { Execution, ApiError } from '../types/api';
 
@@ -44,8 +43,10 @@
     }
 
     function handleViewExecution(execution: Execution): void {
-        switchExecution(execution.execution_id);
-        activeView.set(VIEWS.LOGS);
+        const executionId = execution.execution_id;
+        if (executionId) {
+            goto(`/logs?executionID=${encodeURIComponent(executionId)}`);
+        }
     }
 
     function formatDate(dateString: string | undefined): string {

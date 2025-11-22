@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { activeView } from '../stores/ui';
+    import { page } from '$app/stores';
 
     interface View {
         id: string;
@@ -9,25 +9,51 @@
 
     export let views: View[] = [];
 
-    function selectView(view: View): void {
-        if (view.disabled) {
-            return;
-        }
-        activeView.set(view.id as any);
+    // Map view IDs to routes
+    const viewRoutes: Record<string, string> = {
+        run: '/',
+        logs: '/logs',
+        list: '/executions',
+        claim: '/claim',
+        settings: '/settings'
+    };
+
+    function getViewRoute(viewId: string): string {
+        return viewRoutes[viewId] || '/';
     }
+
+    function isActive(viewId: string, pathname: string): boolean {
+        const route = viewRoutes[viewId];
+        if (!route) return false;
+
+        // Check if current path matches the route
+        if (route === '/') {
+            return pathname === '/';
+        }
+        return pathname.startsWith(route);
+    }
+
+    // Reactive variable to track current pathname
+    $: currentPathname = $page.url.pathname;
 </script>
 
 <nav class="view-switcher" aria-label="View selection">
     {#each views as view (view.id)}
-        <button
-            type="button"
-            class:active={$activeView === view.id}
+        {@const active = isActive(view.id, currentPathname)}
+        <a
+            href={getViewRoute(view.id)}
+            class:active
             class:disabled={view.disabled}
-            disabled={view.disabled}
-            on:click={() => selectView(view)}
+            aria-disabled={view.disabled}
+            aria-current={active ? 'page' : undefined}
+            on:click={(e) => {
+                if (view.disabled) {
+                    e.preventDefault();
+                }
+            }}
         >
             {view.label}
-        </button>
+        </a>
     {/each}
 </nav>
 
@@ -39,7 +65,7 @@
         align-items: center;
     }
 
-    button {
+    a {
         border-radius: var(--pico-border-radius);
         padding: 0.5rem 1rem;
         border: 1px solid var(--pico-border-color);
@@ -53,33 +79,36 @@
             color 0.15s ease,
             border-color 0.15s ease;
         white-space: nowrap;
+        text-decoration: none;
+        display: inline-block;
     }
 
-    button:hover:not(.disabled):not(.active) {
+    a:hover:not(.disabled):not(.active) {
         border-color: var(--pico-primary);
         color: var(--pico-primary);
         background: var(--pico-primary-background);
     }
 
-    button.active {
+    a.active {
         background: var(--pico-primary);
         color: var(--pico-primary-inverse);
         border-color: var(--pico-primary);
     }
 
-    button.disabled {
+    a.disabled {
         opacity: 0.5;
         cursor: not-allowed;
         border-style: dashed;
+        pointer-events: none;
     }
 
-    button.disabled:hover {
+    a.disabled:hover {
         border-color: var(--pico-border-color);
         color: inherit;
         background: transparent;
     }
 
-    button:focus-visible {
+    a:focus-visible {
         outline: 2px solid var(--pico-primary);
         outline-offset: 2px;
     }
@@ -89,7 +118,7 @@
             gap: 0.375rem;
         }
 
-        button {
+        a {
             padding: 0.45rem 0.875rem;
             font-size: 0.875rem;
         }

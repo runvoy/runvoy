@@ -3,11 +3,18 @@
     import type { ClaimAPIKeyResponse } from '../types/api';
     import APIClient from '../lib/api';
 
+    export let apiClient: APIClient | null = null;
+    export let isConfigured = false;
+
     let token = '';
     let isLoading = false;
     let error = '';
     let success = false;
     let claimResult: ClaimAPIKeyResponse | null = null;
+
+    // Check if endpoint is available (claim only needs endpoint, not API key)
+    // If isConfigured is true, we definitely have endpoint; otherwise check directly
+    $: hasEndpoint = isConfigured || Boolean(apiClient?.endpoint || $apiEndpoint);
 
     async function handleClaim(): Promise<void> {
         error = '';
@@ -19,7 +26,8 @@
             return;
         }
 
-        if (!$apiEndpoint) {
+        const endpoint = apiClient?.endpoint || $apiEndpoint;
+        if (!endpoint) {
             error = 'Please configure the API endpoint first';
             return;
         }
@@ -27,7 +35,7 @@
         isLoading = true;
         try {
             // Create a temporary client without auth for the claim endpoint
-            const tempClient = new APIClient($apiEndpoint, '');
+            const tempClient = new APIClient(endpoint, '');
             const result = await tempClient.claimAPIKey(token.trim());
             claimResult = result;
             success = true;
@@ -90,7 +98,10 @@
             </label>
 
             <div class="actions">
-                <button on:click={handleClaim} disabled={isLoading || !token.trim()}>
+                <button
+                    on:click={handleClaim}
+                    disabled={isLoading || !token.trim() || !hasEndpoint}
+                >
                     {isLoading ? 'Claiming...' : 'Claim Key'}
                 </button>
             </div>

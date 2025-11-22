@@ -1,7 +1,7 @@
 <script lang="ts">
-    import RunView from '../views/RunView.svelte';
-    import { apiEndpoint, apiKey } from '../stores/config';
-    import APIClient from '../lib/api';
+    import SettingsView from '../../views/SettingsView.svelte';
+    import { apiEndpoint, apiKey } from '../../stores/config';
+    import APIClient from '../../lib/api';
 
     let apiClient: APIClient | null = null;
     let isConfigured = false;
@@ -10,4 +10,4 @@
     $: isConfigured = Boolean(apiClient);
 </script>
 
-<RunView {apiClient} {isConfigured} />
+<SettingsView {apiClient} {isConfigured} />
