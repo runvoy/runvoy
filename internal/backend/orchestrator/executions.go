@@ -242,7 +242,6 @@ func (s *Service) FetchTrace(ctx context.Context, requestID string) (*api.TraceR
 	var (
 		logs      []api.LogEvent
 		resources api.RelatedResources
-		mu        sync.Mutex
 	)
 
 	eg, egCtx := errgroup.WithContext(ctx)
@@ -256,15 +255,13 @@ func (s *Service) FetchTrace(ctx context.Context, requestID string) (*api.TraceR
 			})
 			return logsErr
 		}
-		mu.Lock()
 		logs = fetchedLogs
-		mu.Unlock()
 		return nil
 	})
 
 	eg.Go(func() error {
 		var resourcesErr error
-		resources, resourcesErr = s.fetchTraceRelatedResources(egCtx, requestID, &mu)
+		resources, resourcesErr = s.fetchTraceRelatedResources(egCtx, requestID)
 		return resourcesErr
 	})
 
@@ -285,21 +282,21 @@ func (s *Service) FetchTrace(ctx context.Context, requestID string) (*api.TraceR
 func (s *Service) fetchTraceRelatedResources(
 	ctx context.Context,
 	requestID string,
-	mu *sync.Mutex,
 ) (api.RelatedResources, error) {
 	var (
 		executions []*api.Execution
 		secrets    []*api.Secret
 		users      []*api.User
 		images     []api.ImageInfo
+		mu         sync.Mutex
 	)
 
 	eg, egCtx := errgroup.WithContext(ctx)
 
-	s.fetchExecutionsByRequestID(egCtx, eg, requestID, mu, &executions)
-	s.fetchSecretsByRequestID(egCtx, eg, requestID, mu, &secrets)
-	s.fetchUsersByRequestID(egCtx, eg, requestID, mu, &users)
-	s.fetchImagesByRequestID(egCtx, eg, requestID, mu, &images)
+	s.fetchExecutionsByRequestID(egCtx, eg, requestID, &mu, &executions)
+	s.fetchSecretsByRequestID(egCtx, eg, requestID, &mu, &secrets)
+	s.fetchUsersByRequestID(egCtx, eg, requestID, &mu, &users)
+	s.fetchImagesByRequestID(egCtx, eg, requestID, &mu, &images)
 
 	if err := eg.Wait(); err != nil {
 		return api.RelatedResources{}, err
