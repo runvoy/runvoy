@@ -6,7 +6,6 @@ Thank you for your interest in contributing to Runvoy! This document provides gu
 
 - [Code of Conduct](#code-of-conduct)
 - [Getting Started](#getting-started)
-- [Project Structure](#project-structure)
 - [Development Workflow](#development-workflow)
 - [Coding Standards](#coding-standards)
 - [Testing Requirements](#testing-requirements)
@@ -170,29 +169,6 @@ just update-readme-help
 
 # Generate CLI documentation
 just generate-cli-docs
-```
-
-## Project Structure
-
-```
-runvoy/
-├── cmd/                    # Application entry points
-│   ├── cli/               # CLI client
-│   ├── backend/           # Lambda functions
-│   ├── local/             # Local dev server
-│   └── webapp/            # Web application
-├── internal/              # Private application code
-│   ├── api/              # API types and handlers
-│   ├── auth/             # Authentication & authorization
-│   ├── backend/          # Core business logic
-│   ├── client/           # CLI client libraries
-│   ├── config/           # Configuration management
-│   ├── database/         # Database interfaces
-│   ├── providers/        # Cloud provider implementations
-│   └── server/           # HTTP server components
-├── docs/                  # Documentation
-├── deploy/                # Infrastructure as Code
-└── scripts/               # Utility scripts
 ```
 
 ## Development Workflow
@@ -376,6 +352,7 @@ Use clear, descriptive commit messages:
 
 <body>
 
+-- 
 <footer>
 ```
 
@@ -388,6 +365,7 @@ Use clear, descriptive commit messages:
 - `refactor`: Code refactoring (no behavior change)
 - `chore`: Maintenance tasks, dependencies, etc.
 - `style`: Formatting, whitespace, etc.
+- `tool`: changes to internal dev tools (just, scripts, etc)
 
 ### Examples
 
@@ -497,7 +475,7 @@ To release a new version:
 
 1. Bump the version in [VERSION](./VERSION)
 2. Update the [CHANGELOG](./CHANGELOG.md) with the new version and changelog entries
-3. Commit the changes
+3. Commit and push the changes
 4. Run `just release` (creates a GitHub release and uploads binaries to S3 via Goreleaser)
 
 > **Note:** We might want to add a GitHub Actions workflow to automate the release process: <https://goreleaser.com/ci/actions/>
