@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 
+	"runvoy/internal/backend/orchestrator/interfaces"
 	"runvoy/internal/config"
 	"runvoy/internal/database"
 	"runvoy/internal/logger"
@@ -24,17 +25,19 @@ import (
 )
 
 // Dependencies bundles the AWS-backed implementations required by the app service.
-// Provider implements TaskManager, ImageRegistry, LogManager, and ObservabilityManager interfaces.
 type Dependencies struct {
-	UserRepo         database.UserRepository
-	ExecutionRepo    database.ExecutionRepository
-	ConnectionRepo   database.ConnectionRepository
-	TokenRepo        database.TokenRepository
-	ImageRepo        database.ImageRepository
-	Provider         *Runner // Implements TaskManager, ImageRegistry, LogManager, ObservabilityManager
-	WebSocketManager *websocket.Manager
-	SecretsRepo      database.SecretsRepository
-	HealthManager    *awsHealth.Manager
+	UserRepo             database.UserRepository
+	ExecutionRepo        database.ExecutionRepository
+	ConnectionRepo       database.ConnectionRepository
+	TokenRepo            database.TokenRepository
+	ImageRepo            database.ImageRepository
+	TaskManager          interfaces.TaskManager
+	ImageRegistry        interfaces.ImageRegistry
+	LogManager           interfaces.LogManager
+	ObservabilityManager interfaces.ObservabilityManager
+	WebSocketManager     *websocket.Manager
+	SecretsRepo          database.SecretsRepository
+	HealthManager        *awsHealth.Manager
 }
 
 // Initialize prepares AWS service dependencies for the app package.
@@ -105,14 +108,17 @@ func Initialize( //nolint:funlen // This is ok, lots of initializations required
 	)
 
 	return &Dependencies{
-		UserRepo:         repos.UserRepo,
-		ExecutionRepo:    repos.ExecutionRepo,
-		ConnectionRepo:   repos.ConnectionRepo,
-		TokenRepo:        repos.TokenRepo,
-		ImageRepo:        repos.ImageTaskDefRepo,
-		Provider:         runner,
-		WebSocketManager: wsManager,
-		SecretsRepo:      repos.SecretsRepo,
-		HealthManager:    healthManager,
+		UserRepo:             repos.UserRepo,
+		ExecutionRepo:        repos.ExecutionRepo,
+		ConnectionRepo:       repos.ConnectionRepo,
+		TokenRepo:            repos.TokenRepo,
+		ImageRepo:            repos.ImageTaskDefRepo,
+		TaskManager:          runner,
+		ImageRegistry:        runner,
+		LogManager:           runner,
+		ObservabilityManager: runner,
+		WebSocketManager:     wsManager,
+		SecretsRepo:          repos.SecretsRepo,
+		HealthManager:        healthManager,
 	}, nil
 }

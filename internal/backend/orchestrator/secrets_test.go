@@ -7,6 +7,7 @@ import (
 
 	"runvoy/internal/api"
 	"runvoy/internal/auth/authorization"
+	"runvoy/internal/backend/orchestrator/interfaces"
 	"runvoy/internal/constants"
 	"runvoy/internal/database"
 	appErrors "runvoy/internal/errors"
@@ -20,10 +21,10 @@ import (
 // The runner parameter implements all 4 interfaces (TaskManager, ImageRegistry, LogManager, ObservabilityManager).
 // If secretsRepo is nil, a default mockSecretsRepository will be used.
 func newSecretsTestService(t *testing.T, runner *mockRunner, secretsRepo database.SecretsRepository) *Service {
-	taskManager := TaskManager(runner)
-	imageRegistry := ImageRegistry(runner)
-	logManager := LogManager(runner)
-	observabilityManager := ObservabilityManager(runner)
+	taskManager := interfaces.TaskManager(runner)
+	imageRegistry := interfaces.ImageRegistry(runner)
+	logManager := interfaces.LogManager(runner)
+	observabilityManager := interfaces.ObservabilityManager(runner)
 
 	if secretsRepo == nil {
 		secretsRepo = &mockSecretsRepository{}
