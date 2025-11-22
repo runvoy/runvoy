@@ -110,7 +110,7 @@ func (r *SecretsRepository) CreateSecret(ctx context.Context, secret *api.Secret
 }
 
 // GetSecret retrieves a secret's metadata by name from DynamoDB.
-func (r *SecretsRepository) GetSecret(ctx context.Context, name string, _ bool) (*api.Secret, error) {
+func (r *SecretsRepository) GetSecret(ctx context.Context, name string) (*api.Secret, error) {
 	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
 
 	result, err := r.client.GetItem(ctx, &dynamodb.GetItemInput{
@@ -139,7 +139,7 @@ func (r *SecretsRepository) GetSecret(ctx context.Context, name string, _ bool) 
 }
 
 // ListSecrets retrieves all secrets.
-func (r *SecretsRepository) ListSecrets(ctx context.Context, _ bool) ([]*api.Secret, error) {
+func (r *SecretsRepository) ListSecrets(ctx context.Context) ([]*api.Secret, error) {
 	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
 
 	result, err := r.client.Scan(ctx, &dynamodb.ScanInput{

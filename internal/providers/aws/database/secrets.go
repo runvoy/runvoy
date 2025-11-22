@@ -17,8 +17,8 @@ import (
 // MetadataRepository defines the interface for secret metadata operations.
 type MetadataRepository interface {
 	CreateSecret(ctx context.Context, secret *api.Secret) error
-	GetSecret(ctx context.Context, name string, includeValue bool) (*api.Secret, error)
-	ListSecrets(ctx context.Context, includeValue bool) ([]*api.Secret, error)
+	GetSecret(ctx context.Context, name string) (*api.Secret, error)
+	ListSecrets(ctx context.Context) ([]*api.Secret, error)
 	UpdateSecretMetadata(ctx context.Context, name, keyName, description, updatedBy string) error
 	DeleteSecret(ctx context.Context, name string) error
 	SecretExists(ctx context.Context, name string) (bool, error)
@@ -77,7 +77,7 @@ func (sr *SecretsRepository) GetSecret(ctx context.Context, name string, include
 	reqLogger := loggerPkg.DeriveRequestLogger(ctx, sr.logger)
 
 	// Get the metadata
-	secret, err := sr.metadataRepo.GetSecret(ctx, name, false)
+	secret, err := sr.metadataRepo.GetSecret(ctx, name)
 	if err != nil {
 		// Check if it's a not found error (expected) or a real error
 		var appErr *appErrors.AppError
@@ -106,7 +106,7 @@ func (sr *SecretsRepository) ListSecrets(ctx context.Context, includeValue bool)
 	reqLogger := loggerPkg.DeriveRequestLogger(ctx, sr.logger)
 
 	// Get all metadata
-	secretList, err := sr.metadataRepo.ListSecrets(ctx, false)
+	secretList, err := sr.metadataRepo.ListSecrets(ctx)
 	if err != nil {
 		return nil, appErrors.ErrInternalError("failed to list secrets", err)
 	}
@@ -147,7 +147,7 @@ func (sr *SecretsRepository) UpdateSecret(
 	}
 
 	// Get existing secret to preserve metadata that wasn't provided
-	existingSecret, err := sr.metadataRepo.GetSecret(ctx, secret.Name, false)
+	existingSecret, err := sr.metadataRepo.GetSecret(ctx, secret.Name)
 	if err != nil {
 		reqLogger.Error("failed to get existing secret", "error", err, "name", secret.Name)
 		return appErrors.ErrInternalError("failed to get existing secret", err)
