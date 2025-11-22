@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 
+	"runvoy/internal/auth/authorization"
 	"runvoy/internal/backend/contract"
 	"runvoy/internal/config"
 	"runvoy/internal/database"
@@ -46,6 +47,7 @@ func Initialize( //nolint:funlen // This is ok, lots of initializations required
 	ctx context.Context,
 	cfg *config.Config,
 	log *slog.Logger,
+	enforcer *authorization.Enforcer,
 ) (*Dependencies, error) {
 	logger.RegisterContextExtractor(NewLambdaContextExtractor())
 
@@ -104,7 +106,7 @@ func Initialize( //nolint:funlen // This is ok, lots of initializations required
 		repos.SecretsRepo,
 		repos.UserRepo,
 		repos.ExecutionRepo,
-		nil,
+		enforcer,
 		healthCfg,
 		log,
 	)
