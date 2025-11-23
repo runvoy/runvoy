@@ -85,9 +85,13 @@ func Initialize( //nolint:funlen // This is ok, lots of initializations required
 		AccountID:              accountID,
 		SDKConfig:              cfg.AWS.SDKConfig,
 	}
-	// Provider implements all 4 orchestrator interfaces (TaskManager, ImageRegistry, LogManager, ObservabilityManager).
-	// We assign the same instance to each interface field to maintain explicit interface types in Dependencies.
-	provider := NewProvider(ecsClient, cwlClient, iamClient, repos.ImageTaskDefRepo, providerCfg, log)
+
+	// Create specialized manager implementations for each interface
+	taskManager := NewTaskManager(ecsClient, repos.ImageTaskDefRepo, providerCfg, log)
+	imageManager := NewImageManager(ecsClient, iamClient, repos.ImageTaskDefRepo, providerCfg, log)
+	logManager := NewLogManager(cwlClient, providerCfg, log)
+	observabilityManager := NewObservabilityManager(cwlClient, log)
+
 	wsManager := awsWebsocket.Initialize(cfg, repos.ConnectionRepo, repos.TokenRepo, log)
 
 	healthCfg := &awsHealth.Config{
@@ -117,10 +121,10 @@ func Initialize( //nolint:funlen // This is ok, lots of initializations required
 		ConnectionRepo:       repos.ConnectionRepo,
 		TokenRepo:            repos.TokenRepo,
 		ImageRepo:            repos.ImageTaskDefRepo,
-		TaskManager:          provider,
-		ImageRegistry:        provider,
-		LogManager:           provider,
-		ObservabilityManager: provider,
+		TaskManager:          taskManager,
+		ImageRegistry:        imageManager,
+		LogManager:           logManager,
+		ObservabilityManager: observabilityManager,
 		WebSocketManager:     wsManager,
 		SecretsRepo:          repos.SecretsRepo,
 		HealthManager:        healthManager,

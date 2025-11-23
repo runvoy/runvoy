@@ -13,6 +13,7 @@ import (
 	"runvoy/internal/api"
 	apperrors "runvoy/internal/errors"
 	"runvoy/internal/logger"
+	awsClient "runvoy/internal/providers/aws/client"
 	awsConstants "runvoy/internal/providers/aws/constants"
 	"runvoy/internal/providers/aws/database/dynamodb"
 	"runvoy/internal/providers/aws/ecsdefs"
@@ -35,6 +36,29 @@ func buildRoleARN(roleName *string, accountID, _ string) string {
 
 // buildRoleARNs constructs task and execution role ARNs from names or config defaults.
 // The execution role ARN is always required and defaults to DefaultTaskExecRoleARN from config.
+func (m *ImageManagerImpl) buildRoleARNs(
+	taskRoleName *string,
+	taskExecutionRoleName *string,
+	region string,
+) (taskRoleARN, taskExecRoleARN string) {
+	taskRoleARN = ""
+	taskExecRoleARN = m.cfg.DefaultTaskExecRoleARN
+
+	if taskRoleName != nil && *taskRoleName != "" {
+		taskRoleARN = buildRoleARN(taskRoleName, m.cfg.AccountID, region)
+	} else if m.cfg.DefaultTaskRoleARN != "" {
+		taskRoleARN = m.cfg.DefaultTaskRoleARN
+	}
+
+	if taskExecutionRoleName != nil && *taskExecutionRoleName != "" {
+		taskExecRoleARN = buildRoleARN(taskExecutionRoleName, m.cfg.AccountID, region)
+	}
+
+	return taskRoleARN, taskExecRoleARN
+}
+
+// buildRoleARNs constructs task and execution role ARNs from names or config defaults (Provider version).
+// DEPRECATED: Use ImageManagerImpl.buildRoleARNs instead.
 func (e *Provider) buildRoleARNs(
 	taskRoleName *string,
 	taskExecutionRoleName *string,
