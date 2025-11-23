@@ -1123,3 +1123,204 @@ func TestHandleLogsEvent_EmptyData(t *testing.T) {
 	assert.NoError(t, err)
 	assert.False(t, handled)
 }
+
+func TestHandleScheduledEvent_HealthReconcile(t *testing.T) {
+	ctx := context.Background()
+	logger := testutil.SilentLogger()
+
+	reconcileCalled := false
+	mockHealthManager := &mockHealthManager{
+		reconcileFunc: func(_ context.Context) (*api.HealthReport, error) {
+			reconcileCalled = true
+			return &api.HealthReport{
+				ReconciledCount: 5,
+				ErrorCount:      0,
+			}, nil
+		},
+	}
+
+	mockRepo := &mockExecutionRepo{}
+	wsManager := &mockWebSocketHandler{}
+	processor := NewProcessor(mockRepo, wsManager, mockHealthManager, logger)
+
+	event := events.CloudWatchEvent{
+		DetailType: "Scheduled Event",
+		Source:     "aws.events",
+		Detail:     json.RawMessage(`{"runvoy_event": "health_reconcile"}`),
+	}
+
+	eventJSON, _ := json.Marshal(event)
+	rawEvent := json.RawMessage(eventJSON)
+
+	// Route through handleCloudEvent
+	handled, err := processor.handleCloudEvent(ctx, &rawEvent, logger)
+	assert.NoError(t, err)
+	assert.True(t, handled)
+	assert.True(t, reconcileCalled, "health reconcile should have been called")
+}
+
+func TestHandleScheduledEvent_InvalidSource(t *testing.T) {
+	ctx := context.Background()
+	logger := testutil.SilentLogger()
+
+	reconcileCalled := false
+	mockHealthManager := &mockHealthManager{
+		reconcileFunc: func(_ context.Context) (*api.HealthReport, error) {
+			reconcileCalled = true
+			return nil, nil
+		},
+	}
+
+	mockRepo := &mockExecutionRepo{}
+	wsManager := &mockWebSocketHandler{}
+	processor := NewProcessor(mockRepo, wsManager, mockHealthManager, logger)
+
+	event := events.CloudWatchEvent{
+		DetailType: "Scheduled Event",
+		Source:     "custom.source", // Not aws.events
+		Detail:     json.RawMessage(`{"runvoy_event": "health_reconcile"}`),
+	}
+
+	eventJSON, _ := json.Marshal(event)
+	rawEvent := json.RawMessage(eventJSON)
+
+	// Should ignore events from unexpected sources
+	handled, err := processor.handleCloudEvent(ctx, &rawEvent, logger)
+	assert.NoError(t, err)
+	assert.True(t, handled)
+	assert.False(t, reconcileCalled, "health reconcile should not be called for invalid source")
+}
+
+func TestHandleScheduledEvent_MissingRunvoyEvent(t *testing.T) {
+	ctx := context.Background()
+	logger := testutil.SilentLogger()
+
+	reconcileCalled := false
+	mockHealthManager := &mockHealthManager{
+		reconcileFunc: func(_ context.Context) (*api.HealthReport, error) {
+			reconcileCalled = true
+			return nil, nil
+		},
+	}
+
+	mockRepo := &mockExecutionRepo{}
+	wsManager := &mockWebSocketHandler{}
+	processor := NewProcessor(mockRepo, wsManager, mockHealthManager, logger)
+
+	// Test with valid JSON but missing runvoy_event field (will be empty string)
+	event := events.CloudWatchEvent{
+		DetailType: "Scheduled Event",
+		Source:     "aws.events",
+		Detail:     json.RawMessage(`{"invalid": "payload"}`), // Missing runvoy_event
+	}
+
+	eventJSON, _ := json.Marshal(event)
+	rawEvent := json.RawMessage(eventJSON)
+
+	// Should return error for missing runvoy_event (empty string)
+	handled, err := processor.handleCloudEvent(ctx, &rawEvent, logger)
+	assert.Error(t, err)
+	assert.True(t, handled)
+	assert.Contains(t, err.Error(), "unexpected runvoy_event value")
+	assert.False(t, reconcileCalled, "health reconcile should not be called for missing runvoy_event")
+}
+
+func TestHandleScheduledEvent_UnknownEventType(t *testing.T) {
+	ctx := context.Background()
+	logger := testutil.SilentLogger()
+
+	mockHealthManager := &mockHealthManager{}
+	mockRepo := &mockExecutionRepo{}
+	wsManager := &mockWebSocketHandler{}
+	processor := NewProcessor(mockRepo, wsManager, mockHealthManager, logger)
+
+	event := events.CloudWatchEvent{
+		DetailType: "Scheduled Event",
+		Source:     "aws.events",
+		Detail:     json.RawMessage(`{"runvoy_event": "unknown_event_type"}`),
+	}
+
+	eventJSON, _ := json.Marshal(event)
+	rawEvent := json.RawMessage(eventJSON)
+
+	// Should return error for unknown event type
+	handled, err := processor.handleCloudEvent(ctx, &rawEvent, logger)
+	assert.Error(t, err)
+	assert.True(t, handled)
+	assert.Contains(t, err.Error(), "unexpected runvoy_event value")
+}
+
+func TestHandleScheduledEvent_HealthReconcileError(t *testing.T) {
+	ctx := context.Background()
+	logger := testutil.SilentLogger()
+
+	mockHealthManager := &mockHealthManager{
+		reconcileFunc: func(_ context.Context) (*api.HealthReport, error) {
+			return nil, fmt.Errorf("reconciliation failed")
+		},
+	}
+
+	mockRepo := &mockExecutionRepo{}
+	wsManager := &mockWebSocketHandler{}
+	processor := NewProcessor(mockRepo, wsManager, mockHealthManager, logger)
+
+	event := events.CloudWatchEvent{
+		DetailType: "Scheduled Event",
+		Source:     "aws.events",
+		Detail:     json.RawMessage(`{"runvoy_event": "health_reconcile"}`),
+	}
+
+	eventJSON, _ := json.Marshal(event)
+	rawEvent := json.RawMessage(eventJSON)
+
+	// Should propagate reconciliation errors
+	handled, err := processor.handleCloudEvent(ctx, &rawEvent, logger)
+	assert.Error(t, err)
+	assert.True(t, handled)
+	assert.Contains(t, err.Error(), "health reconciliation failed")
+}
+
+func TestHandleScheduledEvent_HealthReconcileWithErrors(t *testing.T) {
+	ctx := context.Background()
+	logger := testutil.SilentLogger()
+
+	mockHealthManager := &mockHealthManager{
+		reconcileFunc: func(_ context.Context) (*api.HealthReport, error) {
+			return &api.HealthReport{
+				ReconciledCount: 3,
+				ErrorCount:      2,
+				Issues:          []api.HealthIssue{{Message: "issue1"}, {Message: "issue2"}},
+			}, nil
+		},
+	}
+
+	mockRepo := &mockExecutionRepo{}
+	wsManager := &mockWebSocketHandler{}
+	processor := NewProcessor(mockRepo, wsManager, mockHealthManager, logger)
+
+	event := events.CloudWatchEvent{
+		DetailType: "Scheduled Event",
+		Source:     "aws.events",
+		Detail:     json.RawMessage(`{"runvoy_event": "health_reconcile"}`),
+	}
+
+	eventJSON, _ := json.Marshal(event)
+	rawEvent := json.RawMessage(eventJSON)
+
+	// Should handle reconciliation with errors (non-fatal)
+	handled, err := processor.handleCloudEvent(ctx, &rawEvent, logger)
+	assert.NoError(t, err)
+	assert.True(t, handled)
+}
+
+// mockHealthManager implements contract.HealthManager for testing
+type mockHealthManager struct {
+	reconcileFunc func(ctx context.Context) (*api.HealthReport, error)
+}
+
+func (m *mockHealthManager) Reconcile(ctx context.Context) (*api.HealthReport, error) {
+	if m.reconcileFunc != nil {
+		return m.reconcileFunc(ctx)
+	}
+	return &api.HealthReport{}, nil
+}
