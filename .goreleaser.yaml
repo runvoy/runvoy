@@ -19,6 +19,7 @@ builds:
     ldflags:
       - -s -w
       - -X=runvoy/internal/constants.version={{.Version}}
+      - -X=runvoy/internal/providers/aws/constants.rawReleaseRegions={{.Env.REGIONS_COMMA_SEPARATED}}
     env:
       - CGO_ENABLED=0
 
@@ -107,6 +108,8 @@ release:
     ## {{ .ProjectName }} {{ .Version }}
 
     See [CHANGELOG.md](CHANGELOG.md) for details.
+  extra_files:
+    - glob: deploy/providers/aws/cloudformation-backend.yaml
 
 changelog:
   sort: asc

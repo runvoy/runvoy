@@ -146,12 +146,17 @@ sudo mv runvoy_darwin_arm64/runvoy /usr/local/bin/runvoy
 
 **Requirements:**
 
-- AWS credentials configured in your shell environment ([AWS CLI settings docs](https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-configure.html))
+AWS credentials and region needs to be configured in your shell environment ([AWS CLI settings docs](https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-configure.html)), the user needs to have the `AdministratorAccess` and `AmazonECS_FullAccess` policies:
+
+- [AdministratorAccess](https://us-east-1.console.aws.amazon.com/iam/home?region=us-west-2#/policies/details/arn%3Aaws%3Aiam%3A%3Aaws%3Apolicy%2FAdministratorAccess)
+- [AmazonECS_FullAccess](https://us-east-1.console.aws.amazon.com/iam/home?region=us-west-2#/policies/details/arn%3Aaws%3Aiam%3A%3Aaws%3Apolicy%2FAmazonECS_FullAccess)
+
+You can review the full list of resources and permissions required for the backend infrastructure in the released [cloudformation-backend.yaml](https://github.com/runvoy/runvoy/releases/download/v0.2.0/cloudformation-backend.yaml) file
 
 Bootstrap the backend infrastructure and seed the admin user:
 
 ```bash
-runvoy infra apply --configure --region eu-west-1 --seed-admin-user admin@example.com
+runvoy infra apply --configure --seed-admin-user admin@example.com
 ```
 
 #### 👤 Creating a new user
@@ -191,7 +196,7 @@ runvoy --help
 ```
 
 ```text
-runvoy - v0.2.0-20251123-0b8b5db
+runvoy - v0.2.0-20251123-1bd39c5
 Isolated, repeatable execution environments for your commands
 
 Usage:
