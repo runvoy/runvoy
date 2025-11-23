@@ -40,7 +40,7 @@ Workstations shouldn't need complex setups. Let remote containers execute comman
 - ☁️ **Cloud CLI operations** — AWS CLI, Terraform, Ansible, or any SDK-based tools in remote containers with proper permissions ([AWS CLI example](.runvoy/aws-cli-example.yml))
 - ⚙️ **One-off commands** — Run arbitrary commands like `kubectl run` without maintaining an always-running cluster. Example: `runvoy run ping <my service ip>`
 - 🏗️ **Resource-intensive tasks** — Builds, test runners and any other heavy workload which require a specific instance type. Tail and share logs in real-time like GitHub Actions ([Build Caddy example](.runvoy/build-caddy-example.yml))
-- 🐢 **Long-running tasks** — Run commands that may take a long time to complete like schema changes, data migrations. Example: `runvoy run "psql -h db.example.com -U postgres -d mydatabase -c "\COPY users FROM '/data/users.csv' WITH (FORMAT csv, HEADER true);"`
+- 🐢 **Long-running tasks** — Commands that may take a long time to complete like schema changes, data migrations, dump/restore operations, etc. ([PostgreSQL restore example](.runvoy/pg-restore-example.yml))
 - 📝 **Audit-required operations** — Any command that needs a complete audit trail with user identification
 - 🔐 **Secure operations** — Execute commands with secrets without exposing them to local workstations
 
@@ -196,7 +196,7 @@ runvoy --help
 ```
 
 ```text
-runvoy - v0.2.0-20251123-1bd39c5
+runvoy - v0.2.0-20251123-1f1a5f9
 Isolated, repeatable execution environments for your commands
 
 Usage:

@@ -1,0 +1,11 @@
+description: Restore a Postgres dump from an S3 bucket
+image: amazonlinux/amazonlinux:latest
+env:
+  BUCKET_NAME: my-bucket
+  PG_DATABASE: mydatabase
+  PG_DUMP_FILE: my-database.dump.sql
+  PG_HOST: db.example.com
+  PG_USER: postgres
+commands:
+  - yum install -y postgresql16 awscli >/dev/null
+  - aws s3 cp s3://${BUCKET_NAME}/${PG_DUMP_FILE} - | psql -h ${PG_HOST} -U ${PG_USER} -d ${PG_DATABASE}
