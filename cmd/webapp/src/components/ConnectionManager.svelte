@@ -84,7 +84,6 @@
                         type="text"
                         bind:value={endpointInput}
                         placeholder="https://api.runvoy.example.com"
-                        required
                     />
                     <small>The base URL of your runvoy API server</small>
                 </label>
