@@ -343,53 +343,108 @@ If you add a new CLI command:
 
 ## Commit Messages
 
+This project follows the [Conventional Commits v1.0.0 specification](https://www.conventionalcommits.org/en/v1.0.0/).
+
 ### Format
 
-Use clear, descriptive commit messages:
+Commit messages must follow this structure:
 
 ```
-<type>: <subject>
+<type>[optional scope]: <description>
 
-<body>
+[optional body]
 
--- 
-<footer>
+[optional footer(s)]
 ```
 
 ### Types
 
-- `feat`: New feature
-- `fix`: Bug fix
+The following types are used in this project:
+
+**Required types (Conventional Commits spec):**
+- `feat`: A new feature (correlates with MINOR in semantic versioning)
+- `fix`: A bug fix (correlates with PATCH in semantic versioning)
+
+**Additional types (based on Angular convention):**
 - `docs`: Documentation changes
 - `test`: Test additions or changes
 - `refactor`: Code refactoring (no behavior change)
 - `chore`: Maintenance tasks, dependencies, etc.
 - `style`: Formatting, whitespace, etc.
-- `tool`: changes to internal dev tools (just, scripts, etc)
+- `perf`: Performance improvements
+- `ci`: CI/CD pipeline changes
+- `build`: Build system or dependencies changes
+- `tool`: Changes to internal dev tools (just, scripts, etc)
+
+### Scope
+
+A scope may be provided to specify the context of the change. It should be a noun describing a section of the codebase, enclosed in parentheses:
+
+```
+feat(cli): add support for custom timeout per execution
+fix(auth): handle missing CloudWatch log streams gracefully
+docs(architecture): update diagram with simplified component list
+```
+
+Common scopes: `cli`, `api`, `auth`, `orchestrator`, `webapp`, `infra`
+
+### Breaking Changes
+
+Breaking changes must be indicated in the commit message. There are two ways to do this:
+
+1. Add `!` after the type/scope: `feat!: remove deprecated API endpoints`
+2. Add `BREAKING CHANGE:` in the footer:
+   ```
+   feat: allow config object to extend other configs
+
+   BREAKING CHANGE: `extends` key in config file is now used for extending other config files
+   ```
+
+Commits with `BREAKING CHANGE` (regardless of type) correlate with MAJOR in semantic versioning.
 
 ### Examples
 
+**Simple feature:**
 ```
 feat: add support for custom timeout per execution
+```
+
+**Feature with scope and body:**
+```
+feat(cli): add support for custom timeout per execution
 
 Allow users to specify execution timeout via CLI flag or API parameter.
 Defaults to 10 minutes if not specified.
-
-Fixes #123
 ```
 
+**Bug fix with scope:**
 ```
-fix: handle missing CloudWatch log streams gracefully
+fix(auth): handle missing CloudWatch log streams gracefully
 
 Return 503 Service Unavailable instead of 500 when log stream doesn't
 exist yet, allowing clients to retry.
 ```
 
+**Documentation update:**
 ```
-docs: update architecture diagram with simplified component list
+docs(architecture): update diagram with simplified component list
 
 Simplified the AWS backend section to list technologies instead of
 detailed flow diagram for better readability.
+```
+
+**Breaking change:**
+```
+feat(api)!: remove support for v1 API endpoints
+
+BREAKING CHANGE: v1 API endpoints have been removed. All clients must migrate to v2 API.
+```
+
+**With issue reference in footer:**
+```
+fix(cli): prevent panic when config file is missing
+
+Fixes #123
 ```
 
 ## Pull Request Process
