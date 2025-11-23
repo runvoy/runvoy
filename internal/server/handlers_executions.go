@@ -41,7 +41,7 @@ func (r *Router) handleRunCommand(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	if accessErr := r.svc.ValidateExecutionResourceAccess(user.Email, &execReq, resolvedImage); accessErr != nil {
+	if accessErr := r.svc.ValidateExecutionResourceAccess(req.Context(), user.Email, &execReq, resolvedImage); accessErr != nil {
 		statusCode, errorCode, errorDetails := extractErrorInfo(accessErr)
 
 		logger.Error("authorization denied for execution resources",

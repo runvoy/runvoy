@@ -397,7 +397,7 @@ func TestRemoveAllOwnershipsForResource(t *testing.T) {
 	}
 
 	// Remove all ownerships
-	err := e.RemoveAllOwnershipsForResource(resourceID)
+	err := e.RemoveAllOwnershipsForResource(context.Background(), resourceID)
 	if err != nil {
 		t.Fatalf("RemoveAllOwnershipsForResource() error = %v, want nil", err)
 	}

@@ -266,7 +266,7 @@ func TestValidateExecutionResourceAccess(t *testing.T) {
 			}
 
 			// Test with permissive enforcer (should allow based on test expectations)
-			err := svc.ValidateExecutionResourceAccess("user@example.com", req, resolvedImage)
+			err := svc.ValidateExecutionResourceAccess(context.Background(), "user@example.com", req, resolvedImage)
 			assert.NoError(t, err, "should allow when enforcer is permissive")
 		})
 	}

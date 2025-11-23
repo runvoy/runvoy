@@ -22,6 +22,7 @@ import (
 // All secrets referenced in the execution request are also validated for access.
 // Returns an error if the user lacks access to any required resource.
 func (s *Service) ValidateExecutionResourceAccess(
+	ctx context.Context,
 	userEmail string,
 	req *api.ExecutionRequest,
 	resolvedImage *api.ImageInfo,
@@ -30,7 +31,7 @@ func (s *Service) ValidateExecutionResourceAccess(
 
 	if resolvedImage != nil {
 		imagePath := fmt.Sprintf("/api/v1/images/%s", resolvedImage.ImageID)
-		allowed, err := enforcer.Enforce(userEmail, imagePath, authorization.ActionUse)
+		allowed, err := enforcer.Enforce(ctx, userEmail, imagePath, authorization.ActionUse)
 		if err != nil {
 			return apperrors.ErrInternalError(
 				"failed to validate image access",
@@ -56,7 +57,7 @@ func (s *Service) ValidateExecutionResourceAccess(
 		}
 
 		secretPath := fmt.Sprintf("/api/v1/secrets/%s", name)
-		allowed, err := enforcer.Enforce(userEmail, secretPath, authorization.ActionUse)
+		allowed, err := enforcer.Enforce(ctx, userEmail, secretPath, authorization.ActionUse)
 		if err != nil {
 			return apperrors.ErrInternalError(
 				"failed to validate secret access",
