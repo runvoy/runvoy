@@ -176,6 +176,13 @@ func TestErrUnauthorized(t *testing.T) {
 	assert.Equal(t, http.StatusUnauthorized, err.StatusCode)
 }
 
+func TestErrForbidden(t *testing.T) {
+	err := ErrForbidden("access forbidden", nil)
+	assert.Equal(t, ErrCodeForbidden, err.Code)
+	assert.Equal(t, "access forbidden", err.Message)
+	assert.Equal(t, http.StatusForbidden, err.StatusCode)
+}
+
 func TestErrInvalidAPIKey(t *testing.T) {
 	err := ErrInvalidAPIKey(nil)
 	assert.Equal(t, ErrCodeInvalidAPIKey, err.Code)
@@ -230,6 +237,20 @@ func TestErrServiceUnavailable(t *testing.T) {
 	assert.Equal(t, ErrCodeServiceUnavailable, err.Code)
 	assert.Equal(t, "resource not ready yet", err.Message)
 	assert.Equal(t, http.StatusServiceUnavailable, err.StatusCode)
+}
+
+func TestErrSecretNotFound(t *testing.T) {
+	err := ErrSecretNotFound("secret not found", nil)
+	assert.Equal(t, ErrCodeSecretNotFound, err.Code)
+	assert.Equal(t, "secret not found", err.Message)
+	assert.Equal(t, http.StatusNotFound, err.StatusCode)
+}
+
+func TestErrSecretAlreadyExists(t *testing.T) {
+	err := ErrSecretAlreadyExists("secret already exists", nil)
+	assert.Equal(t, ErrCodeSecretExists, err.Code)
+	assert.Equal(t, "secret already exists", err.Message)
+	assert.Equal(t, http.StatusConflict, err.StatusCode)
 }
 
 func TestGetStatusCode(t *testing.T) {
@@ -320,6 +341,42 @@ func TestGetErrorMessage(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := GetErrorMessage(tt.err)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestGetErrorDetails(t *testing.T) {
+	tests := []struct {
+		name     string
+		err      error
+		expected string
+	}{
+		{
+			name:     "AppError with cause returns cause message",
+			err:      ErrNotFound("resource not found", errors.New("underlying cause")),
+			expected: "underlying cause",
+		},
+		{
+			name:     "AppError without cause returns main message",
+			err:      ErrNotFound("resource not found", nil),
+			expected: "resource not found",
+		},
+		{
+			name:     "wrapped AppError with cause returns cause message",
+			err:      errors.Join(ErrBadRequest("bad input", errors.New("validation failed")), errors.New("other")),
+			expected: "validation failed",
+		},
+		{
+			name:     "non-AppError returns error string",
+			err:      errors.New("generic error"),
+			expected: "generic error",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := GetErrorDetails(tt.err)
 			assert.Equal(t, tt.expected, result)
 		})
 	}

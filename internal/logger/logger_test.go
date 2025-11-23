@@ -372,6 +372,51 @@ func (m *mockContextExtractor) ExtractRequestID(_ context.Context) (string, bool
 	return m.requestID, m.shouldFind
 }
 
+func TestRegisterContextExtractor(t *testing.T) {
+	t.Run("registers extractor and appends to list", func(t *testing.T) {
+		// Save and restore original extractors
+		originalExtractors := contextExtractors
+		defer func() { contextExtractors = originalExtractors }()
+
+		ClearContextExtractors()
+
+		extractor1 := &mockContextExtractor{requestID: "ext1", shouldFind: true}
+		extractor2 := &mockContextExtractor{requestID: "ext2", shouldFind: true}
+
+		RegisterContextExtractor(extractor1)
+		RegisterContextExtractor(extractor2)
+
+		// Verify both extractors are registered
+		require.Len(t, contextExtractors, 2)
+		assert.Equal(t, extractor1, contextExtractors[0])
+		assert.Equal(t, extractor2, contextExtractors[1])
+	})
+}
+
+func TestClearContextExtractors(t *testing.T) {
+	t.Run("clears all registered extractors", func(t *testing.T) {
+		// Save and restore original extractors
+		originalExtractors := contextExtractors
+		defer func() { contextExtractors = originalExtractors }()
+
+		// Register some extractors
+		extractor1 := &mockContextExtractor{requestID: "ext1", shouldFind: true}
+		extractor2 := &mockContextExtractor{requestID: "ext2", shouldFind: true}
+		RegisterContextExtractor(extractor1)
+		RegisterContextExtractor(extractor2)
+
+		// Verify extractors are registered
+		require.Len(t, contextExtractors, 2)
+
+		// Clear extractors
+		ClearContextExtractors()
+
+		// Verify extractors are cleared
+		assert.Nil(t, contextExtractors)
+		assert.Len(t, contextExtractors, 0)
+	})
+}
+
 func TestContextExtractor(t *testing.T) {
 	t.Run("custom extractor can be registered and used", func(t *testing.T) {
 		// Save and restore original extractors

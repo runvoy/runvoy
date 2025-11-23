@@ -849,6 +849,65 @@ func TestNormalizeBackendProvider(t *testing.T) {
 	}
 }
 
+func TestNormalizeStringSlice(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    []string
+		expected []string
+	}{
+		{
+			name:     "empty slice",
+			input:    []string{},
+			expected: []string{},
+		},
+		{
+			name:     "single element without comma",
+			input:    []string{"value1"},
+			expected: []string{"value1"},
+		},
+		{
+			name:     "single element with comma-separated values",
+			input:    []string{"value1,value2,value3"},
+			expected: []string{"value1", "value2", "value3"},
+		},
+		{
+			name:     "single element with comma and spaces",
+			input:    []string{"value1, value2 , value3"},
+			expected: []string{"value1", "value2", "value3"},
+		},
+		{
+			name:     "single element with empty values in comma list",
+			input:    []string{"value1,,value2, ,value3"},
+			expected: []string{"value1", "value2", "value3"},
+		},
+		{
+			name:     "multiple elements (not normalized)",
+			input:    []string{"value1", "value2", "value3"},
+			expected: []string{"value1", "value2", "value3"},
+		},
+		{
+			name:     "single element with only commas",
+			input:    []string{",,,"},
+			expected: []string{",,,"}, // Function only splits if comma-separated values exist
+		},
+		{
+			name:     "single element with whitespace only",
+			input:    []string{"   "},
+			expected: []string{"   "},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create a copy to avoid modifying the original
+			input := make([]string, len(tt.input))
+			copy(input, tt.input)
+			normalizeStringSlice(&input)
+			assert.Equal(t, tt.expected, input)
+		})
+	}
+}
+
 // TestLoadWithEnvironmentVariables tests Load() with environment variables
 func TestLoadWithEnvironmentVariables(t *testing.T) {
 	// Save original env vars
