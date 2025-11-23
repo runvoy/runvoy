@@ -550,6 +550,10 @@ Resources:
                   - !Sub '${SecretsMetadataTable.Arn}/index/*'
               - Effect: Allow
                 Action:
+                  - 'ssm:DescribeParameters'
+                Resource: '*'
+              - Effect: Allow
+                Action:
                   - 'ssm:PutParameter'
                   - 'ssm:DeleteParameter'
                   - 'ssm:GetParameter'
