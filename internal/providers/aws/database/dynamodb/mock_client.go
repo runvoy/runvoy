@@ -456,6 +456,32 @@ func (m *MockDynamoDBClient) addItemToIndexes(tableName string, item map[string]
 	// Add item to index
 	index := m.Indexes[tableName][executionIDIndexName]
 	index[executionID] = append(index[executionID], item)
+
+	// For created_by_request_id-index: index by created_by_request_id (sparse index)
+	if createdByRequestIDVal, hasCreatedByRequestID := item["created_by_request_id"]; hasCreatedByRequestID {
+		createdByRequestID := getStringValue(createdByRequestIDVal)
+		if createdByRequestID != "" {
+			indexName := "created_by_request_id-index"
+			if m.Indexes[tableName][indexName] == nil {
+				m.Indexes[tableName][indexName] = make(map[string][]map[string]types.AttributeValue)
+			}
+			createdIndex := m.Indexes[tableName][indexName]
+			createdIndex[createdByRequestID] = append(createdIndex[createdByRequestID], item)
+		}
+	}
+
+	// For modified_by_request_id-index: index by modified_by_request_id (sparse index)
+	if modifiedByRequestIDVal, hasModifiedByRequestID := item["modified_by_request_id"]; hasModifiedByRequestID {
+		modifiedByRequestID := getStringValue(modifiedByRequestIDVal)
+		if modifiedByRequestID != "" {
+			indexName := "modified_by_request_id-index"
+			if m.Indexes[tableName][indexName] == nil {
+				m.Indexes[tableName][indexName] = make(map[string][]map[string]types.AttributeValue)
+			}
+			modifiedIndex := m.Indexes[tableName][indexName]
+			modifiedIndex[modifiedByRequestID] = append(modifiedIndex[modifiedByRequestID], item)
+		}
+	}
 }
 
 // removeItemFromIndexes removes an item from all indexes for a table.

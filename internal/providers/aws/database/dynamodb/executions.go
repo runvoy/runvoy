@@ -21,6 +21,13 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 )
 
+const (
+	createdByRequestIDIndexName  = "created_by_request_id-index"
+	modifiedByRequestIDIndexName = "modified_by_request_id-index"
+	createdByRequestIDAttrName   = "created_by_request_id"
+	modifiedByRequestIDAttrName  = "modified_by_request_id"
+)
+
 // ExecutionRepository implements the database.ExecutionRepository interface using DynamoDB.
 type ExecutionRepository struct {
 	client    Client
@@ -431,41 +438,105 @@ func (r *ExecutionRepository) ListExecutions(
 	return executions, nil
 }
 
+// queryExecutionsByRequestIDIndex queries a GSI by request ID and returns all matching executions.
+func (r *ExecutionRepository) queryExecutionsByRequestIDIndex(
+	ctx context.Context,
+	indexName string,
+	requestID string,
+) ([]*api.Execution, error) {
+	executions := make([]*api.Execution, 0)
+	var lastKey map[string]types.AttributeValue
+
+	var attributeName string
+	switch indexName {
+	case createdByRequestIDIndexName:
+		attributeName = createdByRequestIDAttrName
+	case modifiedByRequestIDIndexName:
+		attributeName = modifiedByRequestIDAttrName
+	default:
+		return nil, apperrors.ErrDatabaseError(
+			fmt.Sprintf("unknown index name: %s", indexName), nil)
+	}
+
+	exprNames := map[string]string{
+		"#request_id": attributeName,
+	}
+	exprValues := map[string]types.AttributeValue{
+		":request_id": &types.AttributeValueMemberS{Value: requestID},
+	}
+
+	for {
+		queryInput := &dynamodb.QueryInput{
+			TableName:                 aws.String(r.tableName),
+			IndexName:                 aws.String(indexName),
+			KeyConditionExpression:    aws.String("#request_id = :request_id"),
+			ExpressionAttributeNames:  exprNames,
+			ExpressionAttributeValues: exprValues,
+			ScanIndexForward:          aws.Bool(false),
+			ExclusiveStartKey:         lastKey,
+		}
+
+		result, err := r.client.Query(ctx, queryInput)
+		if err != nil {
+			return nil, apperrors.ErrDatabaseError(
+				fmt.Sprintf("failed to query executions by request ID from %s", indexName), err)
+		}
+
+		for _, item := range result.Items {
+			var execItem executionItem
+			if err = attributevalue.UnmarshalMap(item, &execItem); err != nil {
+				return nil, apperrors.ErrDatabaseError("failed to unmarshal execution item", err)
+			}
+			executions = append(executions, execItem.toAPIExecution())
+		}
+
+		if len(result.LastEvaluatedKey) == 0 {
+			break
+		}
+		lastKey = result.LastEvaluatedKey
+	}
+
+	return executions, nil
+}
+
 // GetExecutionsByRequestID retrieves all executions created or modified by a specific request ID.
+// This uses Query operations on two GSIs (created_by_request_id-index and modified_by_request_id-index)
+// instead of Scan for better performance.
 func (r *ExecutionRepository) GetExecutionsByRequestID(
 	ctx context.Context, requestID string,
 ) ([]*api.Execution, error) {
 	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
 
 	logArgs := []any{
-		"operation", "DynamoDB.Scan",
+		"operation", "DynamoDB.Query",
 		"table", r.tableName,
 		"request_id", requestID,
+		"indexes", []string{createdByRequestIDIndexName, modifiedByRequestIDIndexName},
 	}
 	logArgs = append(logArgs, logger.GetDeadlineInfo(ctx)...)
 	reqLogger.Debug("calling external service", "context", logger.SliceToMap(logArgs))
 
-	// Scan with filter expression to find executions where created_by_request_id OR modified_by_request_id matches
-	result, err := r.client.Scan(ctx, &dynamodb.ScanInput{
-		TableName:        aws.String(r.tableName),
-		FilterExpression: aws.String("created_by_request_id = :request_id OR modified_by_request_id = :request_id"),
-		ExpressionAttributeValues: map[string]types.AttributeValue{
-			":request_id": &types.AttributeValueMemberS{Value: requestID},
-		},
-	})
+	createdExecutions, err := r.queryExecutionsByRequestIDIndex(ctx, createdByRequestIDIndexName, requestID)
 	if err != nil {
-		return nil, apperrors.ErrDatabaseError("failed to scan executions by request ID", err)
+		return nil, err
 	}
 
-	executions := make([]*api.Execution, 0, len(result.Items))
-	for _, item := range result.Items {
-		var execItem executionItem
-		if err = attributevalue.UnmarshalMap(item, &execItem); err != nil {
-			reqLogger.Warn("failed to unmarshal execution item", "error", err)
-			continue
-		}
+	modifiedExecutions, err := r.queryExecutionsByRequestIDIndex(ctx, modifiedByRequestIDIndexName, requestID)
+	if err != nil {
+		return nil, err
+	}
 
-		executions = append(executions, execItem.toAPIExecution())
+	executionMap := make(map[string]*api.Execution)
+	for _, exec := range createdExecutions {
+		executionMap[exec.ExecutionID] = exec
+	}
+	for _, exec := range modifiedExecutions {
+		executionMap[exec.ExecutionID] = exec
+	}
+
+	executions := make([]*api.Execution, 0, len(executionMap))
+	for _, exec := range executionMap {
+		executions = append(executions, exec)
 	}
 
 	return executions, nil

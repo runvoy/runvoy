@@ -71,6 +71,10 @@ Resources:
           AttributeType: N
         - AttributeName: _all
           AttributeType: S
+        - AttributeName: created_by_request_id
+          AttributeType: S
+        - AttributeName: modified_by_request_id
+          AttributeType: S
       KeySchema:
         - AttributeName: execution_id
           KeyType: HASH
@@ -78,6 +82,22 @@ Resources:
         - IndexName: all-started_at
           KeySchema:
             - AttributeName: _all
+              KeyType: HASH
+            - AttributeName: started_at
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+        - IndexName: created_by_request_id-index
+          KeySchema:
+            - AttributeName: created_by_request_id
+              KeyType: HASH
+            - AttributeName: started_at
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+        - IndexName: modified_by_request_id-index
+          KeySchema:
+            - AttributeName: modified_by_request_id
               KeyType: HASH
             - AttributeName: started_at
               KeyType: RANGE
