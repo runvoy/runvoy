@@ -138,14 +138,14 @@ codesign -s - --deep --force runvoy_darwin_arm64/runvoy
 sudo mv runvoy_darwin_arm64/runvoy /usr/local/bin/runvoy
 ```
 
-- **Windows:** Download the archive from https://github.com/runvoy/runvoy/releases/download/v0.2.0/runvoy_windows_amd64.tar.gz. Extract the `runvoy.exe` file from the archive using a tool like 7-Zip
+- **Windows:** Download the archive from the [release page](https://github.com/runvoy/runvoy/releases/download/v0.2.0/runvoy_windows_amd64.tar.gz). Extract the `runvoy.exe` file from the archive using a tool like 7-Zip
 <!-- VERSION_EXAMPLES_END -->
 
 ### 🏗️ Deploying the backend infrastructure
 
 **Requirements:**
 
-- AWS credentials configured in your shell environment ([AWS credentials docs](https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-configure.html))
+- AWS credentials configured in your shell environment ([AWS CLI settings docs](https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-configure.html))
 
 Bootstrap the backend infrastructure and seed the admin user:
 
@@ -158,14 +158,17 @@ runvoy infra apply --configure --region eu-west-1 --seed-admin-user admin@exampl
 The admin API key and endpoint are automatically configured in `~/.runvoy/config.yaml` after deployment. Start using runvoy immediately:
 
 ```bash
+# Register one image to be used as default, pick any image from any public registry
 runvoy images register public.ecr.aws/docker/library/alpine:latest
+
+# Run a test command
 runvoy run "echo hello world"
 ```
 
 or
 
 ```bash
-runvoy users create <email>
+runvoy users create <email> --role developer # or admin, operator, viewer
 ```
 
 to create a new user account for a team member. This will generate a claim token that the user can use to claim their API key.
@@ -187,7 +190,7 @@ runvoy --help
 ```
 
 ```text
-runvoy - v0.2.0-20251123-c647807
+runvoy - v0.2.0-20251123-5260629
 Isolated, repeatable execution environments for your commands
 
 Usage:

@@ -99,9 +99,9 @@ func generateVersionExamplesSection(version string) string {
 	b.WriteString("codesign -s - --deep --force runvoy_darwin_arm64/runvoy\n")
 	b.WriteString("sudo mv runvoy_darwin_arm64/runvoy /usr/local/bin/runvoy\n")
 	b.WriteString("```\n\n")
-	b.WriteString("- **Windows:** Download the archive from ")
+	b.WriteString("- **Windows:** Download the archive from the [release page]")
 	windowsURL := fmt.Sprintf(
-		"https://github.com/runvoy/runvoy/releases/download/%s/runvoy_windows_amd64.tar.gz",
+		"(https://github.com/runvoy/runvoy/releases/download/%s/runvoy_windows_amd64.tar.gz)",
 		version,
 	)
 	b.WriteString(windowsURL)
