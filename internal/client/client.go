@@ -70,17 +70,55 @@ func (c *Client) buildURL(path string) (string, error) {
 	return apiURL, nil
 }
 
+// prepareRequestBody prepares the request body as an io.Reader if Body is provided
+func (c *Client) prepareRequestBody(body any) (io.Reader, error) {
+	if body == nil {
+		return nil, nil
+	}
+	jsonData, err := json.Marshal(body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request body: %w", err)
+	}
+	return bytes.NewBuffer(jsonData), nil
+}
+
+// createHTTPRequest creates an http.Request with headers set
+func (c *Client) createHTTPRequest(
+	ctx context.Context, method, apiURL string, bodyReader io.Reader,
+) (*http.Request, error) {
+	httpReq, err := http.NewRequestWithContext(ctx, method, apiURL, bodyReader)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	httpReq.Header.Set(constants.ContentTypeHeader, "application/json")
+	httpReq.Header.Set(constants.APIKeyHeader, c.config.APIKey)
+	return httpReq, nil
+}
+
+// logRequest logs the outgoing HTTP request with relevant details
+func (c *Client) logRequest(ctx context.Context, reqLogger *slog.Logger, method, apiURL string, body any) {
+	logArgs := []any{
+		"operation", "HTTP.Request",
+		"method", method,
+		"url", apiURL,
+	}
+	if body != nil {
+		bodyBytes, _ := json.Marshal(body)
+		logArgs = append(logArgs, "hasBody", true, "bodySize", len(bodyBytes))
+	} else {
+		logArgs = append(logArgs, "hasBody", false)
+	}
+	logArgs = append(logArgs, logger.GetDeadlineInfo(ctx)...)
+	reqLogger.Debug("calling external service", logArgs...)
+}
+
 // Do makes an HTTP request to the API
 func (c *Client) Do(ctx context.Context, req Request) (*Response, error) {
 	reqLogger := logger.DeriveRequestLogger(ctx, c.logger)
 
-	var bodyReader io.Reader
-	if req.Body != nil {
-		jsonData, err := json.Marshal(req.Body)
-		if err != nil {
-			return nil, fmt.Errorf("failed to marshal request body: %w", err)
-		}
-		bodyReader = bytes.NewBuffer(jsonData)
+	bodyReader, err := c.prepareRequestBody(req.Body)
+	if err != nil {
+		return nil, err
 	}
 
 	apiURL, err := c.buildURL(req.Path)
@@ -88,28 +126,12 @@ func (c *Client) Do(ctx context.Context, req Request) (*Response, error) {
 		return nil, fmt.Errorf("invalid API endpoint: %w", err)
 	}
 
-	httpReq, err := http.NewRequestWithContext(ctx, req.Method, apiURL, bodyReader)
+	httpReq, err := c.createHTTPRequest(ctx, req.Method, apiURL, bodyReader)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
+		return nil, err
 	}
 
-	httpReq.Header.Set(constants.ContentTypeHeader, "application/json")
-	httpReq.Header.Set(constants.APIKeyHeader, c.config.APIKey)
-
-	// Log before making HTTP request with deadline info
-	logArgs := []any{
-		"operation", "HTTP.Request",
-		"method", req.Method,
-		"url", apiURL,
-	}
-	if req.Body != nil {
-		bodyBytes, _ := json.Marshal(req.Body)
-		logArgs = append(logArgs, "hasBody", true, "bodySize", len(bodyBytes))
-	} else {
-		logArgs = append(logArgs, "hasBody", false)
-	}
-	logArgs = append(logArgs, logger.GetDeadlineInfo(ctx)...)
-	reqLogger.Debug("calling external service", logArgs...)
+	c.logRequest(ctx, reqLogger, req.Method, apiURL, req.Body)
 
 	httpClient := &http.Client{}
 	resp, err := httpClient.Do(httpReq)
@@ -125,7 +147,6 @@ func (c *Client) Do(ctx context.Context, req Request) (*Response, error) {
 		return nil, fmt.Errorf("failed to read response: %w", err)
 	}
 
-	// Log response summary
 	reqLogger.Debug("received HTTP response",
 		"status", resp.StatusCode,
 		"bodySize", len(body),

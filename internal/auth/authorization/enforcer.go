@@ -94,7 +94,7 @@ func (a *embeddedAdapter) UpdateFilteredPolicies(_, _ string, _ [][]string, _ in
 
 // NewEnforcer creates a new Casbin enforcer using embedded Casbin configuration files.
 // The model and policy are embedded in the binary at build time, so no filesystem access is required.
-func NewEnforcer(logger *slog.Logger) (*Enforcer, error) {
+func NewEnforcer(log *slog.Logger) (*Enforcer, error) {
 	modelBytes, err := CasbinFS.ReadFile("casbin/model.conf")
 	if err != nil {
 		return nil, fmt.Errorf("failed to read embedded casbin model: %w", err)
@@ -111,11 +111,11 @@ func NewEnforcer(logger *slog.Logger) (*Enforcer, error) {
 		return nil, fmt.Errorf("failed to create casbin authorization enforcer: %w", err)
 	}
 
-	logger.Debug("initializing casbin authorization enforcer")
+	log.Debug("initializing casbin authorization enforcer")
 
 	return &Enforcer{
 		enforcer: enforcer,
-		logger:   logger,
+		logger:   log,
 	}, nil
 }
 
