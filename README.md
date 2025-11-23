@@ -37,7 +37,7 @@ Workstations shouldn't need complex setups. Let remote containers execute comman
 
 ## 🎯 Use cases
 
-- ☁️ **Cloud CLI operations** — AWS CLI, Terraform, or any SDK-based tools in remote containers with proper permissions ([AWS CLI example](.runvoy/aws-cli-example.yml))
+- ☁️ **Cloud CLI operations** — AWS CLI, Terraform, Ansible, or any SDK-based tools in remote containers with proper permissions ([AWS CLI example](.runvoy/aws-cli-example.yml))
 - ⚙️ **One-off commands** — Run arbitrary commands like `kubectl run` without maintaining an always-running cluster. Example: `runvoy run ping <my service ip>`
 - 🏗️ **Resource-intensive tasks** — Builds, test runners and any other heavy workload which require a specific instance type. Tail and share logs in real-time like GitHub Actions ([Build Caddy example](.runvoy/build-caddy-example.yml))
 - 📝 **Audit-required operations** — Any command that needs a complete audit trail with user identification
@@ -96,7 +96,7 @@ Refer to [Architecture](docs/ARCHITECTURE.md) for details.
 
 - 🔑 **API key authentication** — Secure access with SHA-256 hashed API keys
 - 👥 **User access management** — Role-based and ownership access control. Admins define permissions; users access only what they're allowed to
-- 🐳 **Customizable container roles** — Register Docker images with custom IAM roles for proper AWS resource access (ECS support, more coming soon)
+- 🐳 **Customizable container roles** — Register Docker images with custom roles for proper resource access (AWS ECS+IAM support, more coming soon)
 - 📋 **Native cloud logging** — Full execution logs and audit trails with request ID tracking
 - 📖 **Reusable playbooks** — Store command configs in YAML, commit them, and share with your team for consistent execution ([Terraform example](.runvoy/terraform-example.yml))
 - 🔐 **Secrets management** — Centralized encrypted secrets with full CRUD operations from the CLI
