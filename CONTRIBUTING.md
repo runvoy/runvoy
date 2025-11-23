@@ -35,27 +35,32 @@ This project adheres to a [code of conduct](CODE_OF_CONDUCT.md) that all contrib
 1. **Fork the repository** on GitHub
 
 2. **Clone your fork:**
+
    ```bash
    git clone https://github.com/YOUR_USERNAME/runvoy.git
    cd runvoy
    ```
 
 3. **Add upstream remote:**
+
    ```bash
    git remote add upstream https://github.com/runvoy/runvoy.git
    ```
 
 4. **Install development dependencies:**
+
    ```bash
    just dev-setup
    ```
 
 5. **Install pre-commit hooks:**
+
    ```bash
    just install-hook
    ```
 
 6. **Sync environment variables from AWS:**
+
    ```bash
    # Syncs environment variables from the runvoy-orchestrator Lambda function
    just dev-sync
@@ -66,6 +71,7 @@ This project adheres to a [code of conduct](CODE_OF_CONDUCT.md) that all contrib
 The repository uses `just` for all development tasks. Run `just --list` to see all available commands.
 
 **Development:**
+
 ```bash
 # Run local server with hot reloading (rebuilds automatically on file changes)
 just dev-server
@@ -109,6 +115,7 @@ npm run preview
 The build process creates a `dist/` directory optimized for static file hosting. The webapp is built with SvelteKit using the static adapter, and deployed via the `deploy-production-webapp` command in the justfile.
 
 **Testing and Quality:**
+
 ```bash
 # Run both linting and tests (also runs automatically on commit)
 just check
@@ -127,6 +134,7 @@ just fmt
 ```
 
 **Build:**
+
 ```bash
 # Build all binaries (CLI, orchestrator, event processor, local server)
 just build
@@ -136,6 +144,7 @@ just clean
 ```
 
 **Deploy:**
+
 ```bash
 # Deploy all services
 just deploy
@@ -148,6 +157,7 @@ just deploy-production-webapp
 ```
 
 **Infrastructure:**
+
 ```bash
 # Initialize complete backend infrastructure
 just init
@@ -160,6 +170,7 @@ just destroy-backend-infra
 ```
 
 **Utilities:**
+
 ```bash
 # Seed admin user in AWS DynamoDB
 just seed-admin-user admin@example.com runvoy-backend
@@ -241,11 +252,13 @@ Then create a Pull Request on GitHub.
 ### Code Style
 
 1. **Run formatters:**
+
    ```bash
    just fmt
    ```
 
 2. **Follow linting rules:**
+
    ```bash
    just lint
    ```
@@ -347,9 +360,9 @@ This project follows the [Conventional Commits v1.0.0 specification](https://www
 
 ### Format
 
-Commit messages must follow this structure:
+Commit messages should follow this structure:
 
-```
+```text
 <type>[optional scope]: <description>
 
 [optional body]
@@ -362,10 +375,12 @@ Commit messages must follow this structure:
 The following types are used in this project:
 
 **Required types (Conventional Commits spec):**
+
 - `feat`: A new feature (correlates with MINOR in semantic versioning)
 - `fix`: A bug fix (correlates with PATCH in semantic versioning)
 
 **Additional types (based on Angular convention):**
+
 - `docs`: Documentation changes
 - `test`: Test additions or changes
 - `refactor`: Code refactoring (no behavior change)
@@ -380,7 +395,7 @@ The following types are used in this project:
 
 A scope may be provided to specify the context of the change. It should be a noun describing a section of the codebase, enclosed in parentheses:
 
-```
+```text
 feat(cli): add support for custom timeout per execution
 fix(auth): handle missing CloudWatch log streams gracefully
 docs(architecture): update diagram with simplified component list
@@ -394,7 +409,8 @@ Breaking changes must be indicated in the commit message. There are two ways to 
 
 1. Add `!` after the type/scope: `feat!: remove deprecated API endpoints`
 2. Add `BREAKING CHANGE:` in the footer:
-   ```
+
+   ```text
    feat: allow config object to extend other configs
 
    BREAKING CHANGE: `extends` key in config file is now used for extending other config files
@@ -405,12 +421,14 @@ Commits with `BREAKING CHANGE` (regardless of type) correlate with MAJOR in sema
 ### Examples
 
 **Simple feature:**
+
 ```
 feat: add support for custom timeout per execution
 ```
 
 **Feature with scope and body:**
-```
+
+```text
 feat(cli): add support for custom timeout per execution
 
 Allow users to specify execution timeout via CLI flag or API parameter.
@@ -418,7 +436,8 @@ Defaults to 10 minutes if not specified.
 ```
 
 **Bug fix with scope:**
-```
+
+```text
 fix(auth): handle missing CloudWatch log streams gracefully
 
 Return 503 Service Unavailable instead of 500 when log stream doesn't
@@ -426,7 +445,8 @@ exist yet, allowing clients to retry.
 ```
 
 **Documentation update:**
-```
+
+```text
 docs(architecture): update diagram with simplified component list
 
 Simplified the AWS backend section to list technologies instead of
@@ -434,14 +454,12 @@ detailed flow diagram for better readability.
 ```
 
 **Breaking change:**
-```
-feat(api)!: remove support for v1 API endpoints
 
-BREAKING CHANGE: v1 API endpoints have been removed. All clients must migrate to v2 API.
-```
+Currently still in heavy development and APIs not yet stable, no need to mark breaking changes with `!` or `BREAKING CHANGE:` in footer
 
 **With issue reference in footer:**
-```
+
+```text
 fix(cli): prevent panic when config file is missing
 
 Fixes #123

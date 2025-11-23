@@ -12,7 +12,7 @@
   - Required types: `feat` (new feature), `fix` (bug fix)
   - Additional types: `docs`, `test`, `refactor`, `chore`, `style`, `perf`, `ci`, `build`, `tool`
   - Use scopes to provide context: `feat(cli):`, `fix(auth):`, `docs(architecture):`
-  - Mark breaking changes with `!` or `BREAKING CHANGE:` in footer
+  - Currently still in heavy development, no need to mark breaking changes with `!` or `BREAKING CHANGE:` in footer
 - The project is beta quality, no need to keep backward compatibility in mind, we can break things as we go
 - Don't comment code inline unless strictly necessary or to disambiguate code, prefer main function documentation and/or function signature comments
 - For each change, verify that [README.md](README.md), [CONTRIBUTING.md](CONTRIBUTING.md) and [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) are up to date, if not update them
