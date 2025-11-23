@@ -85,14 +85,14 @@ graph TB
 runvoy/
 ├── .github/                  # GitHub Actions workflows and configurations
 ├── .justfiles/               # Just command recipes
-├── .runvoy/                  # Local runvoy configuration
+├── .runvoy/                  # Runvoy playbooks examples
 ├── cmd/
 │   ├── backend/              # Backend Lambda entry points
 │   ├── cli/                  # CLI application
 │   ├── local/                # Local development server
 │   └── webapp/               # Web viewer application
 ├── deploy/
-│   ├── axiom/                # Axiom logging integration
+│   ├── axiom/                # Axiom logging integration (development only)
 │   └── providers/            # Provider-specific infrastructure (AWS)
 ├── docs/
 ├── internal/
@@ -102,7 +102,7 @@ runvoy/
 │   │   ├── contract/         # Provider-agnostic interfaces
 │   │   ├── health/           # Health check and reconciliation
 │   │   ├── orchestrator/     # Command execution and API orchestration
-│   │   ├── processor/        # Event processing (CloudWatch, ECS, WebSocket)
+│   │   ├── processor/        # Asynchronous event processing
 │   │   └── websocket/        # WebSocket connection management
 │   ├── client/               # CLI client implementations
 │   ├── config/               # Configuration loading
@@ -119,14 +119,14 @@ runvoy/
 
 - `.github/`: GitHub Actions workflows and configurations for CI/CD.
 - `.justfiles/`: Just command recipes for development tasks.
-- `.runvoy/`: Local runvoy configuration directory.
+- `.runvoy/`: Runvoy playbooks examples.
 - `cmd/`: main entry points for the various applications:
   - `backend/`: Backend Lambda functions (orchestrator and processor)
   - `cli/`: CLI application for interacting with the platform
   - `local/`: Local development server for testing without AWS
   - `webapp/`: Web viewer for visualizing execution logs
 - `deploy/`: infrastructure as code grouped by provider:
-  - `axiom/`: Axiom logging integration resources
+  - `axiom/`: Axiom logging integration resources (development only)
   - `providers/`: Provider-specific infrastructure (CloudFormation templates for AWS)
 - `docs/`: project documentation (architecture, testing strategy, etc.).
 - `internal/`: core logic of the runvoy application:
@@ -136,8 +136,8 @@ runvoy/
     - `contract/`: provider-agnostic interfaces for backend implementations
     - `health/`: health check and resource reconciliation
     - `orchestrator/`: synchronous API request handling and command execution orchestration
-    - `processor/`: asynchronous event processing from AWS services (EventBridge, CloudWatch Logs, WebSocket lifecycle)
-    - `websocket/`: WebSocket connection management and message routing (used by both orchestrator and processor)
+    - `processor/`: asynchronous event processing
+    - `websocket/`: WebSocket connection management and message routing
   - `client/`: HTTP client implementations for CLI commands
   - `config/`: configuration loading and management
   - `constants/`: typed constants and definitions used across the application
@@ -161,8 +161,8 @@ To support multiple cloud platforms, the service layer uses a set of provider-ag
 
 ```text
 internal/backend/orchestrator.Service → uses contract interfaces (provider-agnostic)
-internal/backend/contract              → defines all backend provider interfaces
-internal/providers/aws/orchestrator     → AWS-specific implementation (ECS Fargate)
+internal/backend/contract             → defines all backend provider interfaces
+internal/providers/aws/orchestrator   → AWS-specific implementation (AWS ECS Fargate)
 ```
 
 **Architecture:**
