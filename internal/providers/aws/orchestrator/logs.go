@@ -161,8 +161,8 @@ func (r *Provider) startBackendLogsQuery(
 	}
 
 	queryString := fmt.Sprintf(`fields @timestamp, @message
-		| filter %s = "%s"
-		| sort @timestamp asc`, constants.RequestIDLogField, requestID)
+| filter %s = "%s"
+| sort @timestamp asc`, constants.RequestIDLogField, requestID)
 
 	startQueryArgs := []any{
 		"operation", "CloudWatchLogs.StartQuery",
