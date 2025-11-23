@@ -277,7 +277,7 @@ Then create a Pull Request on GitHub.
 
 - **README.md auto-update sections** - Don't edit sections between `<!-- CLI_HELP_START -->` and `<!-- CLI_HELP_END -->` markers manually
 - **docs/CLI.md** - Auto-generated, don't edit directly. Run `just generate-cli-docs` to update
-- **Breaking changes** - The project is pre-alpha, but still document significant API changes
+- **Breaking changes** - Currently still in heavy development and APIs not yet stable, no need to mark breaking changes with `!` or `BREAKING CHANGE:` in footer
 
 ## Testing Requirements
 
