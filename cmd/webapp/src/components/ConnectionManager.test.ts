@@ -315,7 +315,9 @@ describe('ConnectionManager', () => {
             await fireEvent.click(screen.getByText('⚙️ Configure API'));
 
             const endpointInput = screen.getByLabelText(/API Endpoint:/);
-            await fireEvent.input(endpointInput, { target: { value: 'https://api.example.com/runvoy/v1' } });
+            await fireEvent.input(endpointInput, {
+                target: { value: 'https://api.example.com/runvoy/v1' }
+            });
 
             const saveButton = screen.getByText('Save');
             await fireEvent.click(saveButton);
@@ -330,7 +332,9 @@ describe('ConnectionManager', () => {
             await fireEvent.click(screen.getByText('⚙️ Configure API'));
 
             const endpointInput = screen.getByLabelText(/API Endpoint:/);
-            await fireEvent.input(endpointInput, { target: { value: '  https://api.example.com  ' } });
+            await fireEvent.input(endpointInput, {
+                target: { value: '  https://api.example.com  ' }
+            });
 
             const saveButton = screen.getByText('Save');
             await fireEvent.click(saveButton);
@@ -351,7 +355,9 @@ describe('ConnectionManager', () => {
             // Change only the endpoint, leave the masked API key
             const endpointInput = screen.getByLabelText(/API Endpoint:/);
             await fireEvent.input(endpointInput, { target: { value: '' } });
-            await fireEvent.input(endpointInput, { target: { value: 'https://new-api.example.com' } });
+            await fireEvent.input(endpointInput, {
+                target: { value: 'https://new-api.example.com' }
+            });
 
             const saveButton = screen.getByText('Save');
             await fireEvent.click(saveButton);
@@ -461,7 +467,9 @@ describe('ConnectionManager', () => {
 
             const endpointInput = screen.getByLabelText(/API Endpoint:/);
             await fireEvent.input(endpointInput, { target: { value: '' } });
-            await fireEvent.input(endpointInput, { target: { value: 'https://new-api.example.com' } });
+            await fireEvent.input(endpointInput, {
+                target: { value: 'https://new-api.example.com' }
+            });
 
             const apiKeyInput = screen.getByLabelText(/API Key \(optional\):/);
             await fireEvent.input(apiKeyInput, { target: { value: 'new-key-456' } });

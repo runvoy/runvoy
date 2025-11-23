@@ -1,13 +1,15 @@
 <script lang="ts">
     import { apiEndpoint, apiKey } from '../stores/config';
 
+    const MASKED_API_KEY_PLACEHOLDER = '••••••••';
+
     let showModal = false;
     let endpointInput = $apiEndpoint || '';
     let keyInput = '';
     let errorMessage = '';
 
     // Show masked key if already set
-    $: displayKey = $apiKey ? '••••••••' : '';
+    $: displayKey = $apiKey ? MASKED_API_KEY_PLACEHOLDER : '';
 
     function openModal(): void {
         showModal = true;
@@ -42,7 +44,7 @@
         apiEndpoint.set(endpoint);
 
         // Save API key only if provided and not the masked placeholder
-        if (key && key !== '••••••••') {
+        if (key && key !== MASKED_API_KEY_PLACEHOLDER) {
             apiKey.set(key);
         }
 
@@ -96,7 +98,10 @@
                         bind:value={keyInput}
                         placeholder={displayKey || 'Enter API key (or claim one later)'}
                     />
-                    <small>Your runvoy API key for authentication. Leave empty to claim one using an invitation token.</small>
+                    <small
+                        >Your runvoy API key for authentication. Leave empty to claim one using an
+                        invitation token.</small
+                    >
                 </label>
 
                 <div class="button-group">
