@@ -998,6 +998,135 @@ func TestSaveAndLoad(t *testing.T) {
 	assert.Equal(t, testConfig.WebURL, loadedConfig.WebURL)
 }
 
+func TestSaveToPath(t *testing.T) {
+	t.Run("creates directory if it doesn't exist", func(t *testing.T) {
+		tempDir := t.TempDir()
+		configDir := filepath.Join(tempDir, "subdir", "nested")
+		configFilePath := filepath.Join(configDir, constants.ConfigFileName)
+
+		testConfig := &Config{
+			APIEndpoint: "https://api.example.com",
+			APIKey:      "test-key",
+		}
+
+		err := saveToPath(testConfig, configFilePath)
+		require.NoError(t, err, "saveToPath should create nested directories")
+
+		// Verify directory was created
+		_, err = os.Stat(configDir)
+		require.NoError(t, err, "config directory should exist")
+
+		// Verify file was created
+		_, err = os.Stat(configFilePath)
+		require.NoError(t, err, "config file should exist")
+	})
+
+	t.Run("saves all config fields correctly", func(t *testing.T) {
+		tempDir := t.TempDir()
+		configFilePath := filepath.Join(tempDir, constants.ConfigFileName)
+
+		testConfig := &Config{
+			APIEndpoint: "https://api.example.com",
+			APIKey:      "secret-key-123",
+			WebURL:      "https://app.example.com",
+		}
+
+		err := saveToPath(testConfig, configFilePath)
+		require.NoError(t, err)
+
+		// Load and verify
+		v := viper.New()
+		v.SetConfigFile(configFilePath)
+		v.SetConfigType("yaml")
+		err = v.ReadInConfig()
+		require.NoError(t, err)
+
+		var loadedConfig Config
+		err = v.Unmarshal(&loadedConfig)
+		require.NoError(t, err)
+
+		assert.Equal(t, testConfig.APIEndpoint, loadedConfig.APIEndpoint)
+		assert.Equal(t, testConfig.APIKey, loadedConfig.APIKey)
+		assert.Equal(t, testConfig.WebURL, loadedConfig.WebURL)
+	})
+
+	t.Run("overwrites existing file", func(t *testing.T) {
+		tempDir := t.TempDir()
+		configFilePath := filepath.Join(tempDir, constants.ConfigFileName)
+
+		// Create initial config
+		initialConfig := &Config{
+			APIEndpoint: "https://old.example.com",
+			APIKey:      "old-key",
+		}
+		err := saveToPath(initialConfig, configFilePath)
+		require.NoError(t, err)
+
+		// Overwrite with new config
+		newConfig := &Config{
+			APIEndpoint: "https://new.example.com",
+			APIKey:      "new-key",
+			WebURL:      "https://newapp.example.com",
+		}
+		err = saveToPath(newConfig, configFilePath)
+		require.NoError(t, err)
+
+		// Verify new config was saved
+		v := viper.New()
+		v.SetConfigFile(configFilePath)
+		v.SetConfigType("yaml")
+		err = v.ReadInConfig()
+		require.NoError(t, err)
+
+		var loadedConfig Config
+		err = v.Unmarshal(&loadedConfig)
+		require.NoError(t, err)
+
+		assert.Equal(t, newConfig.APIEndpoint, loadedConfig.APIEndpoint)
+		assert.Equal(t, newConfig.APIKey, loadedConfig.APIKey)
+		assert.Equal(t, newConfig.WebURL, loadedConfig.WebURL)
+	})
+
+	t.Run("handles empty config values", func(t *testing.T) {
+		tempDir := t.TempDir()
+		configFilePath := filepath.Join(tempDir, constants.ConfigFileName)
+
+		emptyConfig := &Config{
+			APIEndpoint: "",
+			APIKey:      "",
+			WebURL:      "",
+		}
+
+		err := saveToPath(emptyConfig, configFilePath)
+		require.NoError(t, err, "saveToPath should handle empty values")
+
+		// Verify file was created
+		_, err = os.Stat(configFilePath)
+		require.NoError(t, err)
+	})
+
+	t.Run("sets correct file permissions", func(t *testing.T) {
+		tempDir := t.TempDir()
+		configFilePath := filepath.Join(tempDir, constants.ConfigFileName)
+
+		testConfig := &Config{
+			APIEndpoint: "https://api.example.com",
+		}
+
+		err := saveToPath(testConfig, configFilePath)
+		require.NoError(t, err)
+
+		// Check file permissions
+		info, err := os.Stat(configFilePath)
+		require.NoError(t, err)
+
+		// File permissions should be 0600 (read/write for owner only)
+		expectedPerms := os.FileMode(constants.ConfigFilePermissions)
+		actualPerms := info.Mode().Perm()
+		assert.Equal(t, expectedPerms, actualPerms, "config file should have correct permissions")
+	})
+}
+
 // TestGetLogLevelDefaults tests GetLogLevel() returns INFO for invalid levels
 func TestGetLogLevelDefaults(t *testing.T) {
 	tests := []struct {
@@ -1205,4 +1334,103 @@ func TestLoadEventProcessorMissingRequiredFields(t *testing.T) {
 	// Should fail validation due to missing required AWS fields
 	assert.Error(t, err, "LoadEventProcessor should fail when required AWS fields are missing")
 	assert.Nil(t, cfg)
+}
+
+func TestConfig_GetProviderIdentifier(t *testing.T) {
+	tests := []struct {
+		name            string
+		backendProvider constants.BackendProvider
+		expected        string
+	}{
+		{
+			name:            "AWS provider",
+			backendProvider: constants.AWS,
+			expected:        "aws",
+		},
+		{
+			name:            "empty provider",
+			backendProvider: "",
+			expected:        "",
+		},
+		{
+			name:            "uppercase provider",
+			backendProvider: constants.BackendProvider("GCP"),
+			expected:        "gcp",
+		},
+		{
+			name:            "mixed case provider",
+			backendProvider: constants.BackendProvider("Azure"),
+			expected:        "azure",
+		},
+		{
+			name:            "lowercase provider",
+			backendProvider: constants.BackendProvider("aws"),
+			expected:        "aws",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &Config{
+				BackendProvider: tt.backendProvider,
+			}
+			result := cfg.GetProviderIdentifier()
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestConfig_GetDefaultStackName(t *testing.T) {
+	tests := []struct {
+		name        string
+		config      *Config
+		expected    string
+		description string
+	}{
+		{
+			name: "returns configured stack name when set",
+			config: &Config{
+				AWS: &awsconfig.Config{
+					InfraDefaultStackName: "my-custom-stack",
+				},
+			},
+			expected:    "my-custom-stack",
+			description: "should return configured stack name when AWS config has InfraDefaultStackName set",
+		},
+		{
+			name: "returns default stack name when AWS config is nil",
+			config: &Config{
+				AWS: nil,
+			},
+			expected:    "runvoy-backend",
+			description: "should return default stack name when AWS config is nil",
+		},
+		{
+			name: "returns default stack name when InfraDefaultStackName is empty",
+			config: &Config{
+				AWS: &awsconfig.Config{
+					InfraDefaultStackName: "",
+				},
+			},
+			expected:    "runvoy-backend",
+			description: "should return default stack name when InfraDefaultStackName is empty",
+		},
+		{
+			name: "returns default stack name when AWS config exists but field not set",
+			config: &Config{
+				AWS: &awsconfig.Config{
+					ECSCluster: "test-cluster",
+				},
+			},
+			expected:    "runvoy-backend",
+			description: "should return default stack name when AWS config exists but InfraDefaultStackName is not set",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := tt.config.GetDefaultStackName()
+			assert.Equal(t, tt.expected, result, tt.description)
+		})
+	}
 }
