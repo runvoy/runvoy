@@ -1338,34 +1338,34 @@ func TestLoadEventProcessorMissingRequiredFields(t *testing.T) {
 
 func TestConfig_GetProviderIdentifier(t *testing.T) {
 	tests := []struct {
-		name           string
+		name            string
 		backendProvider constants.BackendProvider
-		expected       string
+		expected        string
 	}{
 		{
-			name:           "AWS provider",
+			name:            "AWS provider",
 			backendProvider: constants.AWS,
-			expected:       "aws",
+			expected:        "aws",
 		},
 		{
-			name:           "empty provider",
+			name:            "empty provider",
 			backendProvider: "",
-			expected:       "",
+			expected:        "",
 		},
 		{
-			name:           "uppercase provider",
+			name:            "uppercase provider",
 			backendProvider: constants.BackendProvider("GCP"),
-			expected:       "gcp",
+			expected:        "gcp",
 		},
 		{
-			name:           "mixed case provider",
+			name:            "mixed case provider",
 			backendProvider: constants.BackendProvider("Azure"),
-			expected:       "azure",
+			expected:        "azure",
 		},
 		{
-			name:           "lowercase provider",
+			name:            "lowercase provider",
 			backendProvider: constants.BackendProvider("aws"),
-			expected:       "aws",
+			expected:        "aws",
 		},
 	}
 
@@ -1382,10 +1382,10 @@ func TestConfig_GetProviderIdentifier(t *testing.T) {
 
 func TestConfig_GetDefaultStackName(t *testing.T) {
 	tests := []struct {
-		name           string
-		config         *Config
-		expected       string
-		description    string
+		name        string
+		config      *Config
+		expected    string
+		description string
 	}{
 		{
 			name: "returns configured stack name when set",
