@@ -30,11 +30,6 @@
             return;
         }
 
-        if (!key || key === '••••••••') {
-            errorMessage = 'Please enter a valid API key';
-            return;
-        }
-
         // Validate URL format
         try {
             new URL(endpoint);
@@ -43,9 +38,13 @@
             return;
         }
 
-        // Save to stores (automatically persists to localStorage)
+        // Save endpoint (required)
         apiEndpoint.set(endpoint);
-        apiKey.set(key);
+
+        // Save API key only if provided and not the masked placeholder
+        if (key && key !== '••••••••') {
+            apiKey.set(key);
+        }
 
         closeModal();
 
@@ -91,15 +90,14 @@
                 </label>
 
                 <label for="api-key-input">
-                    API Key:
+                    API Key (optional):
                     <input
                         id="api-key-input"
                         type="password"
                         bind:value={keyInput}
-                        placeholder={displayKey || 'Enter API key'}
-                        required
+                        placeholder={displayKey || 'Enter API key (or claim one later)'}
                     />
-                    <small>Your runvoy API key for authentication</small>
+                    <small>Your runvoy API key for authentication. Leave empty to claim one using an invitation token.</small>
                 </label>
 
                 <div class="button-group">
