@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"runvoy/internal/backend/health"
+	"runvoy/internal/api"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -54,11 +54,11 @@ func TestManager_Reconcile_IAMRoles(t *testing.T) {
 // TestReport_Structure tests the health report structure.
 func TestReport_Structure(t *testing.T) {
 	timestamp, _ := time.Parse(time.RFC3339, "2024-01-01T00:00:00Z")
-	report := &health.Report{
+	report := &api.HealthReport{
 		Timestamp:       timestamp,
 		ReconciledCount: 0,
 		ErrorCount:      0,
-		Issues:          []health.Issue{},
+		Issues:          []api.HealthIssue{},
 	}
 
 	assert.NotNil(t, report)
@@ -69,7 +69,7 @@ func TestReport_Structure(t *testing.T) {
 
 // TestIssue_Structure tests the health issue structure.
 func TestIssue_Structure(t *testing.T) {
-	issue := health.Issue{
+	issue := api.HealthIssue{
 		ResourceType: "ecs_task_definition",
 		ResourceID:   "test-family",
 		Severity:     "warning",
@@ -82,4 +82,23 @@ func TestIssue_Structure(t *testing.T) {
 	assert.Equal(t, "warning", issue.Severity)
 	assert.Equal(t, "Test message", issue.Message)
 	assert.Equal(t, "reported", issue.Action)
+}
+
+// TestConfig_Structure tests the Config structure.
+func TestConfig_Structure(t *testing.T) {
+	cfg := &Config{
+		Region:                 "us-east-1",
+		AccountID:              "123456789012",
+		DefaultTaskRoleARN:     "arn:aws:iam::123456789012:role/default-task",
+		DefaultTaskExecRoleARN: "arn:aws:iam::123456789012:role/default-exec",
+		LogGroup:               "/aws/lambda/test",
+		SecretsPrefix:          "/runvoy",
+	}
+
+	assert.Equal(t, "us-east-1", cfg.Region)
+	assert.Equal(t, "123456789012", cfg.AccountID)
+	assert.Equal(t, "arn:aws:iam::123456789012:role/default-task", cfg.DefaultTaskRoleARN)
+	assert.Equal(t, "arn:aws:iam::123456789012:role/default-exec", cfg.DefaultTaskExecRoleARN)
+	assert.Equal(t, "/aws/lambda/test", cfg.LogGroup)
+	assert.Equal(t, "/runvoy", cfg.SecretsPrefix)
 }
