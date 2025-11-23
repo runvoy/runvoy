@@ -305,3 +305,188 @@ func TestDeleteSecret_ClientError(t *testing.T) {
 	assert.Error(t, err)
 	assert.NotEqual(t, database.ErrSecretNotFound, err)
 }
+
+func TestSecretsRepository_GetSecretsByRequestID(t *testing.T) {
+	ctx := context.Background()
+	logger := testutil.SilentLogger()
+	tableName := "secrets-table"
+
+	t.Run("successfully retrieves secrets by request ID", func(t *testing.T) {
+		client := NewMockDynamoDBClient()
+		repo := NewSecretsRepository(client, tableName, logger)
+
+		// Create secrets with request IDs
+		secret1 := &api.Secret{
+			Name:                "secret-1",
+			KeyName:             "KEY1",
+			Description:         "First secret",
+			CreatedBy:           "admin@example.com",
+			OwnedBy:             []string{"admin@example.com"},
+			CreatedByRequestID:  "req-123",
+			ModifiedByRequestID: "",
+		}
+		secret2 := &api.Secret{
+			Name:                "secret-2",
+			KeyName:             "KEY2",
+			Description:         "Second secret",
+			CreatedBy:           "admin@example.com",
+			OwnedBy:             []string{"admin@example.com"},
+			CreatedByRequestID:  "",
+			ModifiedByRequestID: "req-123",
+		}
+
+		err := repo.CreateSecret(ctx, secret1)
+		require.NoError(t, err)
+		err = repo.CreateSecret(ctx, secret2)
+		require.NoError(t, err)
+
+		// Query by request ID
+		secrets, err := repo.GetSecretsByRequestID(ctx, "req-123")
+
+		require.NoError(t, err)
+		assert.GreaterOrEqual(t, len(secrets), 1)
+	})
+
+	t.Run("returns empty list for non-existent request ID", func(t *testing.T) {
+		client := NewMockDynamoDBClient()
+		repo := NewSecretsRepository(client, tableName, logger)
+
+		secrets, err := repo.GetSecretsByRequestID(ctx, "non-existent-req")
+
+		require.NoError(t, err)
+		assert.Empty(t, secrets)
+	})
+
+	t.Run("handles scan error", func(t *testing.T) {
+		client := NewMockDynamoDBClient()
+		client.ScanError = appErrors.ErrInternalError("test error", errors.New("scan failed"))
+		repo := NewSecretsRepository(client, tableName, logger)
+
+		secrets, err := repo.GetSecretsByRequestID(ctx, "req-123")
+
+		require.Error(t, err)
+		assert.Nil(t, secrets)
+		assert.Contains(t, err.Error(), "failed to get secrets by request ID")
+	})
+
+	t.Run("handles empty result", func(t *testing.T) {
+		client := NewMockDynamoDBClient()
+		repo := NewSecretsRepository(client, tableName, logger)
+
+		secrets, err := repo.GetSecretsByRequestID(ctx, "req-123")
+
+		require.NoError(t, err)
+		assert.Empty(t, secrets)
+	})
+}
+
+func TestSecretsRepository_SecretExists(t *testing.T) {
+	ctx := context.Background()
+	logger := testutil.SilentLogger()
+	tableName := "secrets-table"
+
+	t.Run("returns true for existing secret", func(t *testing.T) {
+		client := NewMockDynamoDBClient()
+		repo := NewSecretsRepository(client, tableName, logger)
+
+		// Create a secret
+		secret := &api.Secret{
+			Name:        "existing-secret",
+			KeyName:     "EXISTING_KEY",
+			Description: "Existing secret",
+			CreatedBy:   "admin@example.com",
+			OwnedBy:     []string{"admin@example.com"},
+		}
+		err := repo.CreateSecret(ctx, secret)
+		require.NoError(t, err)
+
+		// Check if it exists
+		exists, err := repo.SecretExists(ctx, "existing-secret")
+
+		require.NoError(t, err)
+		assert.True(t, exists)
+	})
+
+	t.Run("returns false for non-existent secret", func(t *testing.T) {
+		client := NewMockDynamoDBClient()
+		repo := NewSecretsRepository(client, tableName, logger)
+
+		exists, err := repo.SecretExists(ctx, "non-existent-secret")
+
+		require.NoError(t, err)
+		assert.False(t, exists)
+	})
+
+	t.Run("handles get item error", func(t *testing.T) {
+		client := NewMockDynamoDBClient()
+		client.GetItemError = appErrors.ErrInternalError("test error", errors.New("get item failed"))
+		repo := NewSecretsRepository(client, tableName, logger)
+
+		exists, err := repo.SecretExists(ctx, "some-secret")
+
+		require.Error(t, err)
+		assert.False(t, exists)
+		assert.Contains(t, err.Error(), "failed to check secret existence")
+	})
+}
+
+func TestSecretsRepository_ListSecrets_ErrorHandling(t *testing.T) {
+	ctx := context.Background()
+	logger := testutil.SilentLogger()
+	tableName := "secrets-table"
+
+	t.Run("handles empty result", func(t *testing.T) {
+		client := NewMockDynamoDBClient()
+		repo := NewSecretsRepository(client, tableName, logger)
+
+		secrets, err := repo.ListSecrets(ctx)
+
+		require.NoError(t, err)
+		assert.Empty(t, secrets)
+	})
+}
+
+func TestSecretsRepository_CreateSecret_EdgeCases(t *testing.T) {
+	ctx := context.Background()
+	logger := testutil.SilentLogger()
+	tableName := "secrets-table"
+
+	t.Run("handles empty owned_by list", func(t *testing.T) {
+		client := NewMockDynamoDBClient()
+		repo := NewSecretsRepository(client, tableName, logger)
+
+		secret := &api.Secret{
+			Name:        "secret-empty-owned",
+			KeyName:     "KEY",
+			Description: "Secret with empty owned_by",
+			CreatedBy:   "admin@example.com",
+			OwnedBy:     []string{}, // Empty list
+		}
+
+		err := repo.CreateSecret(ctx, secret)
+		// Should succeed - empty list is valid
+		assert.NoError(t, err)
+	})
+
+	t.Run("handles multiple owners", func(t *testing.T) {
+		client := NewMockDynamoDBClient()
+		repo := NewSecretsRepository(client, tableName, logger)
+
+		secret := &api.Secret{
+			Name:        "secret-multi-owned",
+			KeyName:     "KEY",
+			Description: "Secret with multiple owners",
+			CreatedBy:   "admin@example.com",
+			OwnedBy:     []string{"admin@example.com", "user1@example.com", "user2@example.com"},
+		}
+
+		err := repo.CreateSecret(ctx, secret)
+		require.NoError(t, err)
+
+		// Verify it was stored correctly
+		retrieved, err := repo.GetSecret(ctx, "secret-multi-owned")
+		require.NoError(t, err)
+		require.NotNil(t, retrieved)
+		assert.Len(t, retrieved.OwnedBy, 3)
+	})
+}

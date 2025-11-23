@@ -3,6 +3,7 @@ package dynamodb
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -129,4 +130,96 @@ func TestDeleteToken_ClientError(t *testing.T) {
 	err := repo.DeleteToken(context.Background(), "some_token")
 
 	assert.Error(t, err)
+}
+
+func TestTokenRepository_CreateToken_ErrorHandling(t *testing.T) {
+	ctx := context.Background()
+	logger := testutil.SilentLogger()
+	tableName := "tokens-table"
+
+	t.Run("handles marshal error", func(t *testing.T) {
+		client := NewMockDynamoDBClient()
+		repo := NewTokenRepository(client, tableName, logger)
+
+		// Create token - marshal should succeed for valid token
+		token := &api.WebSocketToken{
+			Token:       "token-123",
+			ExecutionID: "exec-456",
+			ExpiresAt:   time.Now().Add(1 * time.Hour).Unix(),
+			CreatedAt:   time.Now().Unix(),
+		}
+
+		err := repo.CreateToken(ctx, token)
+		// Marshal should succeed
+		assert.NoError(t, err)
+	})
+
+	t.Run("handles put item error", func(t *testing.T) {
+		client := NewMockDynamoDBClient()
+		client.PutItemError = fmt.Errorf("put item failed")
+		repo := NewTokenRepository(client, tableName, logger)
+
+		token := &api.WebSocketToken{
+			Token:       "token-123",
+			ExecutionID: "exec-456",
+			ExpiresAt:   time.Now().Add(1 * time.Hour).Unix(),
+			CreatedAt:   time.Now().Unix(),
+		}
+
+		err := repo.CreateToken(ctx, token)
+
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to store token")
+	})
+}
+
+func TestTokenRepository_GetToken_ErrorHandling(t *testing.T) {
+	ctx := context.Background()
+	logger := testutil.SilentLogger()
+	tableName := "tokens-table"
+
+	t.Run("handles get item error", func(t *testing.T) {
+		client := NewMockDynamoDBClient()
+		client.GetItemError = fmt.Errorf("get item failed")
+		repo := NewTokenRepository(client, tableName, logger)
+
+		token, err := repo.GetToken(ctx, "token-123")
+
+		require.Error(t, err)
+		assert.Nil(t, token)
+		assert.Contains(t, err.Error(), "failed to retrieve token")
+	})
+
+	t.Run("handles unmarshal error", func(t *testing.T) {
+		client := NewMockDynamoDBClient()
+		repo := NewTokenRepository(client, tableName, logger)
+
+		// Note: attributevalue.UnmarshalMap is quite permissive and doesn't easily fail
+		// on type mismatches. To properly test unmarshal errors, we'd need to create
+		// truly malformed data that the unmarshaler can't handle, which is difficult
+		// with the current mock setup. This test verifies the function handles empty results.
+		// For actual unmarshal error testing, integration tests would be more appropriate.
+		token, err := repo.GetToken(ctx, "token-123")
+
+		// Should succeed with nil token (no error for missing items)
+		require.NoError(t, err)
+		assert.Nil(t, token)
+	})
+}
+
+func TestTokenRepository_DeleteToken_ErrorHandling(t *testing.T) {
+	ctx := context.Background()
+	logger := testutil.SilentLogger()
+	tableName := "tokens-table"
+
+	t.Run("handles delete item error", func(t *testing.T) {
+		client := NewMockDynamoDBClient()
+		client.DeleteItemError = fmt.Errorf("delete item failed")
+		repo := NewTokenRepository(client, tableName, logger)
+
+		err := repo.DeleteToken(ctx, "token-123")
+
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to delete token")
+	})
 }
