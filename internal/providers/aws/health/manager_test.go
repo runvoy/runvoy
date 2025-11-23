@@ -56,9 +56,9 @@ func TestReport_Structure(t *testing.T) {
 	timestamp, _ := time.Parse(time.RFC3339, "2024-01-01T00:00:00Z")
 	report := &api.HealthReport{
 		Timestamp:       timestamp,
-		ReconciledCount:  0,
-		ErrorCount:       0,
-		Issues:           []api.HealthIssue{},
+		ReconciledCount: 0,
+		ErrorCount:      0,
+		Issues:          []api.HealthIssue{},
 	}
 
 	assert.NotNil(t, report)

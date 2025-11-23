@@ -117,78 +117,78 @@ func TestHealthManager_Interface(t *testing.T) {
 // Minimal implementations for testing interfaces
 type testTaskManager struct{}
 
-func (t *testTaskManager) StartTask(ctx context.Context, userEmail string, req *api.ExecutionRequest) (string, *time.Time, error) {
+func (t *testTaskManager) StartTask(_ context.Context, _ string, _ *api.ExecutionRequest) (string, *time.Time, error) {
 	now := time.Now()
 	return "test-exec", &now, nil
 }
 
-func (t *testTaskManager) KillTask(ctx context.Context, executionID string) error {
+func (t *testTaskManager) KillTask(_ context.Context, _ string) error {
 	return nil
 }
 
 type testImageRegistry struct{}
 
 func (t *testImageRegistry) RegisterImage(
-	ctx context.Context,
-	image string,
-	isDefault *bool,
-	taskRoleName, taskExecutionRoleName *string,
-	cpu, memory *int,
-	runtimePlatform *string,
-	createdBy string,
+	_ context.Context,
+	_ string,
+	_ *bool,
+	_, _ *string,
+	_, _ *int,
+	_ *string,
+	_ string,
 ) error {
 	return nil
 }
 
-func (t *testImageRegistry) ListImages(ctx context.Context) ([]api.ImageInfo, error) {
+func (t *testImageRegistry) ListImages(_ context.Context) ([]api.ImageInfo, error) {
 	return []api.ImageInfo{}, nil
 }
 
-func (t *testImageRegistry) GetImage(ctx context.Context, image string) (*api.ImageInfo, error) {
+func (t *testImageRegistry) GetImage(_ context.Context, _ string) (*api.ImageInfo, error) {
 	return &api.ImageInfo{}, nil
 }
 
-func (t *testImageRegistry) RemoveImage(ctx context.Context, image string) error {
+func (t *testImageRegistry) RemoveImage(_ context.Context, _ string) error {
 	return nil
 }
 
 type testLogManager struct{}
 
-func (t *testLogManager) FetchLogsByExecutionID(ctx context.Context, executionID string) ([]api.LogEvent, error) {
+func (t *testLogManager) FetchLogsByExecutionID(_ context.Context, _ string) ([]api.LogEvent, error) {
 	return []api.LogEvent{}, nil
 }
 
 type testObservabilityManager struct{}
 
-func (t *testObservabilityManager) FetchBackendLogs(ctx context.Context, requestID string) ([]api.LogEvent, error) {
+func (t *testObservabilityManager) FetchBackendLogs(_ context.Context, _ string) ([]api.LogEvent, error) {
 	return []api.LogEvent{}, nil
 }
 
 type testWebSocketManager struct{}
 
-func (t *testWebSocketManager) HandleRequest(ctx context.Context, rawEvent *json.RawMessage, reqLogger *slog.Logger) (bool, error) {
+func (t *testWebSocketManager) HandleRequest(_ context.Context, _ *json.RawMessage, _ *slog.Logger) (bool, error) {
 	return false, nil
 }
 
-func (t *testWebSocketManager) NotifyExecutionCompletion(ctx context.Context, executionID *string) error {
+func (t *testWebSocketManager) NotifyExecutionCompletion(_ context.Context, _ *string) error {
 	return nil
 }
 
-func (t *testWebSocketManager) SendLogsToExecution(ctx context.Context, executionID *string, logEvents []api.LogEvent) error {
+func (t *testWebSocketManager) SendLogsToExecution(_ context.Context, _ *string, _ []api.LogEvent) error {
 	return nil
 }
 
 func (t *testWebSocketManager) GenerateWebSocketURL(
-	ctx context.Context,
-	executionID string,
-	userEmail *string,
-	clientIPAtCreationTime *string,
+	_ context.Context,
+	_ string,
+	_ *string,
+	_ *string,
 ) string {
 	return ""
 }
 
 type testHealthManager struct{}
 
-func (t *testHealthManager) Reconcile(ctx context.Context) (*api.HealthReport, error) {
+func (t *testHealthManager) Reconcile(_ context.Context) (*api.HealthReport, error) {
 	return &api.HealthReport{}, nil
 }

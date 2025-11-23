@@ -8,11 +8,11 @@ import (
 
 func TestManager_buildRoleARNs(t *testing.T) {
 	tests := []struct {
-		name                   string
-		cfg                    *Config
-		taskRoleName           *string
-		taskExecutionRoleName  *string
-		expectedTaskRoleARN    string
+		name                    string
+		cfg                     *Config
+		taskRoleName            *string
+		taskExecutionRoleName   *string
+		expectedTaskRoleARN     string
 		expectedTaskExecRoleARN string
 	}{
 		{
@@ -22,9 +22,9 @@ func TestManager_buildRoleARNs(t *testing.T) {
 				DefaultTaskRoleARN:     "arn:aws:iam::123456789012:role/default-task",
 				DefaultTaskExecRoleARN: "arn:aws:iam::123456789012:role/default-exec",
 			},
-			taskRoleName:          stringPtr("custom-task-role"),
-			taskExecutionRoleName: stringPtr("custom-exec-role"),
-			expectedTaskRoleARN:   "arn:aws:iam::123456789012:role/custom-task-role",
+			taskRoleName:            stringPtr("custom-task-role"),
+			taskExecutionRoleName:   stringPtr("custom-exec-role"),
+			expectedTaskRoleARN:     "arn:aws:iam::123456789012:role/custom-task-role",
 			expectedTaskExecRoleARN: "arn:aws:iam::123456789012:role/custom-exec-role",
 		},
 		{
@@ -34,9 +34,9 @@ func TestManager_buildRoleARNs(t *testing.T) {
 				DefaultTaskRoleARN:     "arn:aws:iam::123456789012:role/default-task",
 				DefaultTaskExecRoleARN: "arn:aws:iam::123456789012:role/default-exec",
 			},
-			taskRoleName:          stringPtr("custom-task-role"),
-			taskExecutionRoleName: nil,
-			expectedTaskRoleARN:   "arn:aws:iam::123456789012:role/custom-task-role",
+			taskRoleName:            stringPtr("custom-task-role"),
+			taskExecutionRoleName:   nil,
+			expectedTaskRoleARN:     "arn:aws:iam::123456789012:role/custom-task-role",
 			expectedTaskExecRoleARN: "arn:aws:iam::123456789012:role/default-exec",
 		},
 		{
@@ -46,9 +46,9 @@ func TestManager_buildRoleARNs(t *testing.T) {
 				DefaultTaskRoleARN:     "arn:aws:iam::123456789012:role/default-task",
 				DefaultTaskExecRoleARN: "arn:aws:iam::123456789012:role/default-exec",
 			},
-			taskRoleName:          nil,
-			taskExecutionRoleName: stringPtr("custom-exec-role"),
-			expectedTaskRoleARN:   "arn:aws:iam::123456789012:role/default-task",
+			taskRoleName:            nil,
+			taskExecutionRoleName:   stringPtr("custom-exec-role"),
+			expectedTaskRoleARN:     "arn:aws:iam::123456789012:role/default-task",
 			expectedTaskExecRoleARN: "arn:aws:iam::123456789012:role/custom-exec-role",
 		},
 		{
@@ -58,9 +58,9 @@ func TestManager_buildRoleARNs(t *testing.T) {
 				DefaultTaskRoleARN:     "arn:aws:iam::123456789012:role/default-task",
 				DefaultTaskExecRoleARN: "arn:aws:iam::123456789012:role/default-exec",
 			},
-			taskRoleName:          nil,
-			taskExecutionRoleName: nil,
-			expectedTaskRoleARN:   "arn:aws:iam::123456789012:role/default-task",
+			taskRoleName:            nil,
+			taskExecutionRoleName:   nil,
+			expectedTaskRoleARN:     "arn:aws:iam::123456789012:role/default-task",
 			expectedTaskExecRoleARN: "arn:aws:iam::123456789012:role/default-exec",
 		},
 		{
@@ -70,9 +70,9 @@ func TestManager_buildRoleARNs(t *testing.T) {
 				DefaultTaskRoleARN:     "",
 				DefaultTaskExecRoleARN: "arn:aws:iam::123456789012:role/default-exec",
 			},
-			taskRoleName:          stringPtr("custom-task-role"),
-			taskExecutionRoleName: nil,
-			expectedTaskRoleARN:   "arn:aws:iam::123456789012:role/custom-task-role",
+			taskRoleName:            stringPtr("custom-task-role"),
+			taskExecutionRoleName:   nil,
+			expectedTaskRoleARN:     "arn:aws:iam::123456789012:role/custom-task-role",
 			expectedTaskExecRoleARN: "arn:aws:iam::123456789012:role/default-exec",
 		},
 		{
@@ -82,9 +82,9 @@ func TestManager_buildRoleARNs(t *testing.T) {
 				DefaultTaskRoleARN:     "",
 				DefaultTaskExecRoleARN: "arn:aws:iam::123456789012:role/default-exec",
 			},
-			taskRoleName:          nil,
-			taskExecutionRoleName: nil,
-			expectedTaskRoleARN:   "",
+			taskRoleName:            nil,
+			taskExecutionRoleName:   nil,
+			expectedTaskRoleARN:     "",
 			expectedTaskExecRoleARN: "arn:aws:iam::123456789012:role/default-exec",
 		},
 		{
@@ -94,9 +94,9 @@ func TestManager_buildRoleARNs(t *testing.T) {
 				DefaultTaskRoleARN:     "arn:aws:iam::123456789012:role/default-task",
 				DefaultTaskExecRoleARN: "arn:aws:iam::123456789012:role/default-exec",
 			},
-			taskRoleName:          stringPtr(""),
-			taskExecutionRoleName: stringPtr(""),
-			expectedTaskRoleARN:   "arn:aws:iam::123456789012:role/default-task",
+			taskRoleName:            stringPtr(""),
+			taskExecutionRoleName:   stringPtr(""),
+			expectedTaskRoleARN:     "arn:aws:iam::123456789012:role/default-task",
 			expectedTaskExecRoleARN: "arn:aws:iam::123456789012:role/default-exec",
 		},
 	}

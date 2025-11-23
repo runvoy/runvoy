@@ -8,38 +8,38 @@ import (
 
 func TestGetReleaseRegions(t *testing.T) {
 	tests := []struct {
-		name           string
-		setupRegions   string
+		name            string
+		setupRegions    string
 		expectedRegions []string
 	}{
 		{
-			name:           "empty regions",
-			setupRegions:   "",
+			name:            "empty regions",
+			setupRegions:    "",
 			expectedRegions: []string{},
 		},
 		{
-			name:           "single region",
-			setupRegions:   "us-east-1",
+			name:            "single region",
+			setupRegions:    "us-east-1",
 			expectedRegions: []string{"us-east-1"},
 		},
 		{
-			name:           "multiple regions",
-			setupRegions:   "us-east-1,us-west-2,eu-west-1",
+			name:            "multiple regions",
+			setupRegions:    "us-east-1,us-west-2,eu-west-1",
 			expectedRegions: []string{"us-east-1", "us-west-2", "eu-west-1"},
 		},
 		{
-			name:           "regions with spaces",
-			setupRegions:   "us-east-1, us-west-2 , eu-west-1",
+			name:            "regions with spaces",
+			setupRegions:    "us-east-1, us-west-2 , eu-west-1",
 			expectedRegions: []string{"us-east-1", "us-west-2", "eu-west-1"},
 		},
 		{
-			name:           "regions with extra commas",
-			setupRegions:   "us-east-1,,us-west-2,",
+			name:            "regions with extra commas",
+			setupRegions:    "us-east-1,,us-west-2,",
 			expectedRegions: []string{"us-east-1", "us-west-2"},
 		},
 		{
-			name:           "regions with only spaces",
-			setupRegions:   "  ,  ,  ",
+			name:            "regions with only spaces",
+			setupRegions:    "  ,  ,  ",
 			expectedRegions: []string{},
 		},
 	}

@@ -37,23 +37,23 @@ func TestManager_Interface(t *testing.T) {
 // testManager is a minimal implementation for testing the interface
 type testManager struct{}
 
-func (t *testManager) HandleRequest(ctx context.Context, rawEvent *json.RawMessage, reqLogger *slog.Logger) (bool, error) {
+func (t *testManager) HandleRequest(_ context.Context, _ *json.RawMessage, _ *slog.Logger) (bool, error) {
 	return false, nil
 }
 
-func (t *testManager) NotifyExecutionCompletion(ctx context.Context, executionID *string) error {
+func (t *testManager) NotifyExecutionCompletion(_ context.Context, _ *string) error {
 	return nil
 }
 
-func (t *testManager) SendLogsToExecution(ctx context.Context, executionID *string, logEvents []api.LogEvent) error {
+func (t *testManager) SendLogsToExecution(_ context.Context, _ *string, _ []api.LogEvent) error {
 	return nil
 }
 
 func (t *testManager) GenerateWebSocketURL(
-	ctx context.Context,
-	executionID string,
-	userEmail *string,
-	clientIPAtCreationTime *string,
+	_ context.Context,
+	_ string,
+	_ *string,
+	_ *string,
 ) string {
 	return ""
 }

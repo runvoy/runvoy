@@ -22,6 +22,6 @@ func TestManager_Interface(t *testing.T) {
 // testManager is a minimal implementation for testing the interface
 type testManager struct{}
 
-func (t *testManager) Reconcile(ctx context.Context) (*Report, error) {
+func (t *testManager) Reconcile(_ context.Context) (*Report, error) {
 	return &Report{}, nil
 }
