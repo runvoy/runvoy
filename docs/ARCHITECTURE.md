@@ -83,40 +83,72 @@ graph TB
 
 ```text
 runvoy/
-├── bin/
+├── .github/                  # GitHub Actions workflows and configurations
+├── .justfiles/               # Just command recipes
+├── .runvoy/                  # Local runvoy configuration
 ├── cmd/
+│   ├── backend/              # Backend Lambda entry points
+│   ├── cli/                  # CLI application
+│   ├── local/                # Local development server
+│   └── webapp/               # Web viewer application
 ├── deploy/
+│   ├── axiom/                # Axiom logging integration
+│   └── providers/            # Provider-specific infrastructure (AWS)
 ├── docs/
 ├── internal/
-│   ├── app/
+│   ├── api/                  # API types and contracts
+│   ├── auth/                 # Authentication and authorization
+│   ├── backend/
+│   │   ├── contract/         # Provider-agnostic interfaces
+│   │   ├── health/           # Health check and reconciliation
 │   │   ├── orchestrator/     # Command execution and API orchestration
 │   │   ├── processor/        # Event processing (CloudWatch, ECS, WebSocket)
 │   │   └── websocket/        # WebSocket connection management
-│   ├── providers/            # Cloud provider implementations (AWS)
-│   ├── server/               # HTTP routing and handlers
-│   ├── auth/                 # Authentication logic
 │   ├── client/               # CLI client implementations
 │   ├── config/               # Configuration loading
 │   ├── constants/            # Constants and typed definitions
+│   ├── database/             # Database interfaces
 │   ├── errors/               # Error types and handling
 │   ├── logger/               # Logging utilities
-│   └── ...                   # Other internal packages
-├── scripts/
+│   ├── providers/            # Cloud provider implementations (AWS)
+│   ├── secrets/              # Secrets management
+│   ├── server/               # HTTP routing and handlers
+│   └── testutil/             # Testing utilities
+└── scripts/
 ```
 
-- `bin/`: built binaries for the runvoy application (temporary storage for building artifacts during development).
-- `cmd/`: main entry points for the various application (CLI, local dev server, provider-specific lambdas, etc.)
-- `deploy/`: infrastructure as code grouped by provider (CloudFormation templates, etc.).
+- `.github/`: GitHub Actions workflows and configurations for CI/CD.
+- `.justfiles/`: Just command recipes for development tasks.
+- `.runvoy/`: Local runvoy configuration directory.
+- `cmd/`: main entry points for the various applications:
+  - `backend/`: Backend Lambda functions (orchestrator and processor)
+  - `cli/`: CLI application for interacting with the platform
+  - `local/`: Local development server for testing without AWS
+  - `webapp/`: Web viewer for visualizing execution logs
+- `deploy/`: infrastructure as code grouped by provider:
+  - `axiom/`: Axiom logging integration resources
+  - `providers/`: Provider-specific infrastructure (CloudFormation templates for AWS)
 - `docs/`: project documentation (architecture, testing strategy, etc.).
 - `internal/`: core logic of the runvoy application:
-  - `app/`: main application container with subcomponents:
+  - `api/`: API request/response types and contracts
+  - `auth/`: authentication and authorization (API key validation, Casbin RBAC)
+  - `backend/`: main application logic with subcomponents:
+    - `contract/`: provider-agnostic interfaces for backend implementations
+    - `health/`: health check and resource reconciliation
     - `orchestrator/`: synchronous API request handling and command execution orchestration
     - `processor/`: asynchronous event processing from AWS services (EventBridge, CloudWatch Logs, WebSocket lifecycle)
     - `websocket/`: WebSocket connection management and message routing (used by both orchestrator and processor)
+  - `client/`: HTTP client implementations for CLI commands
+  - `config/`: configuration loading and management
+  - `constants/`: typed constants and definitions used across the application
+  - `database/`: database interfaces and abstractions
+  - `errors/`: structured error types and handling
+  - `logger/`: logging utilities and structured logging setup
   - `providers/`: cloud provider-specific implementations (currently AWS)
+  - `secrets/`: secrets management interfaces
   - `server/`: HTTP routing, middleware, and handlers for the API
-  - Other packages: authentication, client libraries, configuration, logging, error handling, etc.
-- `scripts/`: scripts for the runvoy application development and deployment
+  - `testutil/`: testing utilities and helpers
+- `scripts/`: scripts for development, deployment, and maintenance tasks
 
 ## Services
 
