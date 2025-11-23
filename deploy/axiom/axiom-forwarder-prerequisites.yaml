@@ -1,0 +1,54 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Axiom Forwarder Prerequisites - S3 bucket for Lambda deployment artifacts'
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: axiom
+    Description: Name prefix for all resources
+
+  BucketName:
+    Type: String
+    Description: Name of the bucket
+
+Resources:
+  # S3 bucket for Axiom Forwarder Lambda deployment artifacts
+  AxiomForwarderBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref BucketName
+      # Block public access (deployment bucket should be private)
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-forwarder-deploy'
+        - Key: Application
+          Value: !Ref ProjectName
+        - Key: ManagedBy
+          Value: 'cloudformation'
+        - Key: Owner
+          Value: 'runvoy devs'
+
+Outputs:
+  BucketName:
+    Description: S3 bucket name for Axiom Forwarder deployment artifacts
+    Value: !Ref AxiomForwarderBucket
+    Export:
+      Name: !Sub '${ProjectName}-forwarder-deploy-bucket-${AWS::Region}'
+
+  BucketArn:
+    Description: S3 bucket ARN
+    Value: !GetAtt AxiomForwarderBucket.Arn
+    Export:
+      Name: !Sub '${ProjectName}-forwarder-deploy-arn-${AWS::Region}'
+
+  BucketURL:
+    Description: S3 URI for Lambda function code (use in CloudFormation)
+    Value: !Sub 's3://${AxiomForwarderBucket}/'
+    Export:
+      Name: !Sub '${ProjectName}-forwarder-deploy-url-${AWS::Region}'
+

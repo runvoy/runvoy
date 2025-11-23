@@ -1,0 +1,139 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Axiom CloudWatch Logs Forwarder - Forwards CloudWatch Logs to Axiom'
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: axiom
+    Description: Name prefix for all resources
+
+  LambdaCodeBucket:
+    Type: String
+    Description: S3 bucket name containing Lambda released artifacts
+
+  AxiomToken:
+    Type: String
+    NoEcho: true
+    Description: Axiom API token for authentication
+
+  AxiomDataset:
+    Type: String
+    Description: Axiom dataset name to ingest logs into
+
+  AxiomAPIURL:
+    Type: String
+    Default: 'https://api.axiom.co/v1'
+    Description: Axiom API base URL (optional, defaults to https://api.axiom.co/v1)
+
+  LogGroupNames:
+    Type: CommaDelimitedList
+    Description: Comma-separated list of CloudWatch Log Group names to forward to Axiom
+
+Resources:
+  # CloudWatch Log Group for Axiom Forwarder Lambda
+  AxiomForwarderLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${ProjectName}-forwarder'
+      RetentionInDays: 1
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-forwarder-logs'
+        - Key: Application
+          Value: !Ref ProjectName
+        - Key: ManagedBy
+          Value: 'cloudformation'
+
+  # IAM Role for Axiom Forwarder Lambda
+  AxiomForwarderRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${ProjectName}-forwarder-role-${AWS::Region}'
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-forwarder-role'
+        - Key: Application
+          Value: !Ref ProjectName
+        - Key: ManagedBy
+          Value: 'cloudformation'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+
+  # Axiom Forwarder Lambda Function
+  AxiomForwarderFunction:
+    Type: AWS::Lambda::Function
+    DependsOn: AxiomForwarderLogGroup
+    Properties:
+      FunctionName: !Sub '${ProjectName}-forwarder'
+      Runtime: provided.al2023
+      Role: !GetAtt AxiomForwarderRole.Arn
+      Handler: bootstrap
+      Code:
+        S3Bucket: !Ref LambdaCodeBucket
+        S3Key: !Sub '${ProjectName}-forwarder.zip'
+      Timeout: 30
+      Architectures:
+        - arm64
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-forwarder'
+        - Key: Application
+          Value: !Ref ProjectName
+        - Key: ManagedBy
+          Value: 'cloudformation'
+      Environment:
+        Variables:
+          AXIOM_TOKEN: !Ref AxiomToken
+          AXIOM_DATASET: !Ref AxiomDataset
+          AXIOM_API_URL: !Ref AxiomAPIURL
+
+  # Allow CloudWatch Logs to invoke the Axiom forwarder
+  # Note: For multiple log groups, create additional permissions with specific SourceArn values
+  AxiomForwarderLogsPermission:
+    Type: AWS::Lambda::Permission
+    DependsOn: AxiomForwarderFunction
+    Properties:
+      FunctionName: !Ref AxiomForwarderFunction
+      Action: lambda:InvokeFunction
+      Principal: !Sub 'logs.${AWS::Region}.amazonaws.com'
+      # Allow from any log group in the account (can be restricted per log group if needed)
+      SourceArn: !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:*'
+
+  # Example subscription filter for the first log group in the list
+  # To add more subscription filters, duplicate this resource and change the LogGroupName
+  # Note: Each log group can only have one subscription filter, so remove any existing filters first
+  AxiomForwarderSubscriptionFilter:
+    Type: AWS::Logs::SubscriptionFilter
+    Condition: HasLogGroups
+    DependsOn:
+      - AxiomForwarderFunction
+      - AxiomForwarderLogsPermission
+    Properties:
+      FilterPattern: ""
+      DestinationArn: !GetAtt AxiomForwarderFunction.Arn
+      LogGroupName: !Select [0, !Ref LogGroupNames]
+
+Conditions:
+  # Check if LogGroupNames list has at least one element
+  # When empty, Select will fail, so we use a workaround by checking if join result is non-empty
+  HasLogGroups: !Not [!Equals [!Join ['', !Ref LogGroupNames], '']]
+
+Outputs:
+  AxiomForwarderFunctionArn:
+    Description: ARN of the Axiom Forwarder Lambda function
+    Value: !GetAtt AxiomForwarderFunction.Arn
+    Export:
+      Name: !Sub '${ProjectName}-forwarder-arn'
+
+  AxiomForwarderFunctionName:
+    Description: Name of the Axiom Forwarder Lambda function
+    Value: !Ref AxiomForwarderFunction
+    Export:
+      Name: !Sub '${ProjectName}-forwarder-name'

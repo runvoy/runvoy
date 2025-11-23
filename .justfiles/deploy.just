@@ -45,3 +45,20 @@ deploy-development-webapp: build-development-webapp
 [working-directory: 'cmd/webapp']
 deploy-production-webapp: build-production-webapp
     netlify deploy --no-build --dir dist --prod
+
+# Deploy axiom forwarder lambda function to S3
+[working-directory: 'dist']
+upload-axiom-forwarder: build-axiom-forwarder-zip
+    aws s3 cp axiom-forwarder.zip s3://{{axiom_bucket}}/axiom-forwarder.zip
+
+    aws s3api wait object-exists \
+        --bucket {{axiom_bucket}} \
+        --key axiom-forwarder.zip
+
+# Deploy axiom forwarder cloudformation
+[working-directory: 'deploy/axiom']
+deploy-axiom-forwarder: upload-axiom-forwarder
+    aws lambda update-function-code \
+        --function-name axiom-forwarder \
+        --s3-bucket {{axiom_bucket}} \
+        --s3-key axiom-forwarder.zip

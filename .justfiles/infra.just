@@ -84,7 +84,21 @@ create-config-file stack_name:
 seed-admin-user email stack_name:
     go run scripts/seed-admin-user/main.go {{email}} {{stack_name}}
 
-# Helper to setup Axiom logging for development
-# https://axiom.co/docs/send-data/cloudwatch#install-with-cloudformation-stacks
-setup-axiom-logging:
-    open https://axiom.co/docs/send-data/cloudwatch#install-with-cloudformation-stacks
+
+# Create/update axiom forwarder infrastructure via cloudformation
+create-axiom-forwarder-prerequisites:
+    aws cloudformation deploy \
+        --stack-name axiom-forwarder-prerequisites \
+        --template-file deploy/axiom/axiom-forwarder-prerequisites.yaml \
+        --capabilities CAPABILITY_NAMED_IAM \
+        --parameter-overrides BucketName={{axiom_bucket}}
+
+create-axiom-forwarder-infra: create-axiom-forwarder-prerequisites upload-axiom-forwarder
+    aws cloudformation deploy \
+        --stack-name axiom-forwarder \
+        --template-file deploy/axiom/axiom-forwarder.yaml \
+        --capabilities CAPABILITY_NAMED_IAM \
+        --parameter-overrides LambdaCodeBucket={{axiom_bucket}} \
+            AxiomToken={{axiom_token}} \
+            AxiomDataset={{axiom_dataset}} \
+            LogGroupNames={{log_group_names}}

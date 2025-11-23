@@ -47,6 +47,17 @@ build-orchestrator-zip: build-orchestrator
 build-event-processor-zip: build-event-processor
     just build-lambda-zip runvoy-event-processor
 
+# Build axiom forwarder backend service (Lambda function)
+[working-directory: 'scripts/axiom-forwarder']
+build-axiom-forwarder:
+    GOARCH=arm64 GOOS=linux go build \
+        -o ../../dist/bootstrap
+
+# Build axiom forwarder zip file
+[working-directory: 'dist']
+build-axiom-forwarder-zip: build-axiom-forwarder
+    just build-lambda-zip axiom-forwarder
+
 # Build lambda zip file
 [working-directory: 'dist']
 build-lambda-zip lambda-name:
