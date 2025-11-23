@@ -43,7 +43,7 @@ Workstations shouldn't need complex setups. Let remote containers execute comman
 - 📝 **Audit-required operations** — Any command that needs a complete audit trail with user identification
 - 🔐 **Secure operations** — Execute commands with secrets without exposing them to local workstations
 
-## Example
+## 📝 Example
 
 ```text
 runvoy run "uname -a"
@@ -74,11 +74,13 @@ Line  Timestamp (UTC)      Message
 
 ## 💡 What is Runvoy?
 
-**Runvoy is composed of 3 main parts** (see [Architecture](#%EF%B8%8F-architecture) for details):
+**Runvoy is composed of 3 main parts**:
 
 - 🖥️ **Backend** — Runs on your AWS account (multi-cloud support planned), exposes the HTTP API, and orchestrates cloud resources. Deploy once as a cloud admin.
 - ⌨️ **CLI client** — The `runvoy` command-line tool for interacting with the REST API
 - 🌐 **Web app** — Visit [runvoy.site](https://runvoy.site) or self-host. Currently supports log viewing with full CLI parity coming soon.
+
+Refer to [Architecture](docs/ARCHITECTURE.md) for details.
 
 ## ✨ Key Benefits
 
@@ -136,8 +138,7 @@ codesign -s - --deep --force runvoy_darwin_arm64/runvoy
 sudo mv runvoy_darwin_arm64/runvoy /usr/local/bin/runvoy
 ```
 
-- **Windows:** Download the `runvoy_windows_x86_64.tar.gz` file from https://github.com/runvoy/runvoy/releases/download/v0.2.0/runvoy_windows_x86_64.tar.gz. Extract the archive using a tool like 7-Zip or Windows' built-in tar support (Windows 10+). Copy the `runvoy.exe` file to a location in your PATH (such as `C:\Program Files\runvoy\`) and add that directory to your system PATH environment variable.
-
+- **Windows:** Download the archive from https://github.com/runvoy/runvoy/releases/download/v0.2.0/runvoy_windows_amd64.tar.gz. Extract the `runvoy.exe` file from the archive using a tool like 7-Zip
 <!-- VERSION_EXAMPLES_END -->
 
 ### 🏗️ Deploying the backend infrastructure
@@ -186,7 +187,7 @@ runvoy --help
 ```
 
 ```text
-runvoy - v0.2.0-20251123-dc917f8
+runvoy - v0.2.0-20251123-c647807
 Isolated, repeatable execution environments for your commands
 
 Usage:
