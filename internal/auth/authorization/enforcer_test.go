@@ -1,6 +1,7 @@
 package authorization
 
 import (
+	"context"
 	"log/slog"
 	"os"
 	"slices"
@@ -98,12 +99,12 @@ func TestAddRoleForUser(t *testing.T) {
 
 			// For duplicate test, add the role twice
 			if tt.name == "add duplicate role" {
-				if err := e.AddRoleForUser(tt.user, tt.role); err != nil {
+				if err := e.AddRoleForUser(context.Background(), tt.user, tt.role); err != nil {
 					t.Fatalf("First AddRoleForUser() failed: %v", err)
 				}
 			}
 
-			err := e.AddRoleForUser(tt.user, tt.role)
+			err := e.AddRoleForUser(context.Background(), tt.user, tt.role)
 
 			if tt.wantError {
 				if err == nil {
@@ -167,12 +168,12 @@ func TestRemoveRoleForUser(t *testing.T) {
 
 			// Add role if specified
 			if tt.roleToAdd != "" {
-				if err := e.AddRoleForUser(tt.user, tt.roleToAdd); err != nil {
+				if err := e.AddRoleForUser(context.Background(), tt.user, tt.roleToAdd); err != nil {
 					t.Fatalf("AddRoleForUser() failed: %v", err)
 				}
 			}
 
-			err := e.RemoveRoleForUser(tt.user, tt.roleToRemove)
+			err := e.RemoveRoleForUser(context.Background(), tt.user, tt.roleToRemove)
 
 			if tt.wantError {
 				if err == nil {
@@ -211,7 +212,7 @@ func TestGetRolesForUser(t *testing.T) {
 
 	t.Run("user with one role", func(t *testing.T) {
 		user := "single@example.com"
-		if err := e.AddRoleForUser(user, RoleAdmin); err != nil {
+		if err := e.AddRoleForUser(context.Background(), user, RoleAdmin); err != nil {
 			t.Fatalf("AddRoleForUser() failed: %v", err)
 		}
 
@@ -229,10 +230,10 @@ func TestGetRolesForUser(t *testing.T) {
 
 	t.Run("user with multiple roles", func(t *testing.T) {
 		user := "multi@example.com"
-		if err := e.AddRoleForUser(user, RoleAdmin); err != nil {
+		if err := e.AddRoleForUser(context.Background(), user, RoleAdmin); err != nil {
 			t.Fatalf("AddRoleForUser(admin) failed: %v", err)
 		}
-		if err := e.AddRoleForUser(user, RoleDeveloper); err != nil {
+		if err := e.AddRoleForUser(context.Background(), user, RoleDeveloper); err != nil {
 			t.Fatalf("AddRoleForUser(developer) failed: %v", err)
 		}
 
@@ -285,12 +286,12 @@ func TestAddOwnershipForResource(t *testing.T) {
 
 			// For duplicate test, add ownership twice
 			if tt.name == "add duplicate ownership" {
-				if err := e.AddOwnershipForResource(tt.resourceID, tt.ownerEmail); err != nil {
+				if err := e.AddOwnershipForResource(context.Background(), tt.resourceID, tt.ownerEmail); err != nil {
 					t.Fatalf("First AddOwnershipForResource() failed: %v", err)
 				}
 			}
 
-			err := e.AddOwnershipForResource(tt.resourceID, tt.ownerEmail)
+			err := e.AddOwnershipForResource(context.Background(), tt.resourceID, tt.ownerEmail)
 
 			if tt.wantError {
 				if err == nil {
@@ -343,12 +344,12 @@ func TestRemoveOwnershipForResource(t *testing.T) {
 			e := createTestEnforcer(t)
 
 			if tt.addFirst {
-				if err := e.AddOwnershipForResource(tt.resourceID, tt.ownerEmail); err != nil {
+				if err := e.AddOwnershipForResource(context.Background(), tt.resourceID, tt.ownerEmail); err != nil {
 					t.Fatalf("AddOwnershipForResource() failed: %v", err)
 				}
 			}
 
-			err := e.RemoveOwnershipForResource(tt.resourceID, tt.ownerEmail)
+			err := e.RemoveOwnershipForResource(context.Background(), tt.resourceID, tt.ownerEmail)
 
 			if tt.wantError {
 				if err == nil {
@@ -379,7 +380,7 @@ func TestRemoveAllOwnershipsForResource(t *testing.T) {
 	// Add multiple owners
 	owners := []string{"owner1@example.com", "owner2@example.com", "owner3@example.com"}
 	for _, owner := range owners {
-		if err := e.AddOwnershipForResource(resourceID, owner); err != nil {
+		if err := e.AddOwnershipForResource(context.Background(), resourceID, owner); err != nil {
 			t.Fatalf("AddOwnershipForResource() failed for %s: %v", owner, err)
 		}
 	}
@@ -396,7 +397,7 @@ func TestRemoveAllOwnershipsForResource(t *testing.T) {
 	}
 
 	// Remove all ownerships
-	err := e.RemoveAllOwnershipsForResource(resourceID)
+	err := e.RemoveAllOwnershipsForResource(context.Background(), resourceID)
 	if err != nil {
 		t.Fatalf("RemoveAllOwnershipsForResource() error = %v, want nil", err)
 	}
@@ -430,7 +431,7 @@ func TestHasOwnershipForResource(t *testing.T) {
 	})
 
 	t.Run("with ownership", func(t *testing.T) {
-		if err := e.AddOwnershipForResource(resourceID, ownerEmail); err != nil {
+		if err := e.AddOwnershipForResource(context.Background(), resourceID, ownerEmail); err != nil {
 			t.Fatalf("AddOwnershipForResource() failed: %v", err)
 		}
 
@@ -480,7 +481,7 @@ func TestLoadRolesForUsers(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			e := createTestEnforcer(t)
 
-			err := e.LoadRolesForUsers(tt.userRoles)
+			err := e.LoadRolesForUsers(context.Background(), tt.userRoles)
 
 			if tt.wantError {
 				if err == nil {
@@ -520,7 +521,7 @@ func TestLoadResourceOwnerships(t *testing.T) {
 		"execution:long-job-77": "dev@example.com",
 	}
 
-	err := e.LoadResourceOwnerships(ownerships)
+	err := e.LoadResourceOwnerships(context.Background(), ownerships)
 	if err != nil {
 		t.Fatalf("LoadResourceOwnerships() error = %v, want nil", err)
 	}
@@ -546,7 +547,7 @@ func TestGetAllNamedGroupingPolicies(t *testing.T) {
 		"secret:test2": "owner2@example.com",
 	}
 	for resourceID, ownerEmail := range ownerships {
-		if err := e.AddOwnershipForResource(resourceID, ownerEmail); err != nil {
+		if err := e.AddOwnershipForResource(context.Background(), resourceID, ownerEmail); err != nil {
 			t.Fatalf("AddOwnershipForResource() failed: %v", err)
 		}
 	}
@@ -575,7 +576,7 @@ func TestEnforce(t *testing.T) {
 		{
 			name: "admin can do everything",
 			setup: func() {
-				_ = e.AddRoleForUser("admin@example.com", RoleAdmin)
+				_ = e.AddRoleForUser(context.Background(), "admin@example.com", RoleAdmin)
 			},
 			subject: "admin@example.com",
 			object:  "/api/v1/secrets/db-password",
@@ -585,7 +586,7 @@ func TestEnforce(t *testing.T) {
 		{
 			name: "operator can read secrets",
 			setup: func() {
-				_ = e.AddRoleForUser("operator@example.com", RoleOperator)
+				_ = e.AddRoleForUser(context.Background(), "operator@example.com", RoleOperator)
 			},
 			subject: "operator@example.com",
 			object:  "/api/v1/secrets/api-key",
@@ -595,7 +596,7 @@ func TestEnforce(t *testing.T) {
 		{
 			name: "developer can create secrets",
 			setup: func() {
-				_ = e.AddRoleForUser("developer@example.com", RoleDeveloper)
+				_ = e.AddRoleForUser(context.Background(), "developer@example.com", RoleDeveloper)
 			},
 			subject: "developer@example.com",
 			object:  "/api/v1/secrets",
@@ -605,7 +606,7 @@ func TestEnforce(t *testing.T) {
 		{
 			name: "viewer can read executions",
 			setup: func() {
-				_ = e.AddRoleForUser("viewer@example.com", RoleViewer)
+				_ = e.AddRoleForUser(context.Background(), "viewer@example.com", RoleViewer)
 			},
 			subject: "viewer@example.com",
 			object:  "/api/v1/executions",
@@ -615,7 +616,7 @@ func TestEnforce(t *testing.T) {
 		{
 			name: "viewer cannot delete executions",
 			setup: func() {
-				_ = e.AddRoleForUser("viewer2@example.com", RoleViewer)
+				_ = e.AddRoleForUser(context.Background(), "viewer2@example.com", RoleViewer)
 			},
 			subject: "viewer2@example.com",
 			object:  "/api/v1/executions/exec-123",
@@ -625,7 +626,7 @@ func TestEnforce(t *testing.T) {
 		{
 			name: "owner can access their secret",
 			setup: func() {
-				_ = e.AddOwnershipForResource("/api/v1/secrets/my-secret", "owner@example.com")
+				_ = e.AddOwnershipForResource(context.Background(), "/api/v1/secrets/my-secret", "owner@example.com")
 			},
 			subject: "owner@example.com",
 			object:  "/api/v1/secrets/my-secret",
@@ -635,7 +636,7 @@ func TestEnforce(t *testing.T) {
 		{
 			name: "owner can delete their execution",
 			setup: func() {
-				_ = e.AddOwnershipForResource("/api/v1/executions/my-exec", "exec-owner@example.com")
+				_ = e.AddOwnershipForResource(context.Background(), "/api/v1/executions/my-exec", "exec-owner@example.com")
 			},
 			subject: "exec-owner@example.com",
 			object:  "/api/v1/executions/my-exec",
@@ -645,7 +646,7 @@ func TestEnforce(t *testing.T) {
 		{
 			name: "non-owner cannot access resource",
 			setup: func() {
-				_ = e.AddOwnershipForResource("secret:other-secret", "someone@example.com")
+				_ = e.AddOwnershipForResource(context.Background(), "secret:other-secret", "someone@example.com")
 			},
 			subject: "notowner@example.com",
 			object:  "/api/v1/secrets/other-secret",
@@ -655,7 +656,7 @@ func TestEnforce(t *testing.T) {
 		{
 			name: "developer denied user management",
 			setup: func() {
-				_ = e.AddRoleForUser("dev-denied@example.com", RoleDeveloper)
+				_ = e.AddRoleForUser(context.Background(), "dev-denied@example.com", RoleDeveloper)
 			},
 			subject: "dev-denied@example.com",
 			object:  "/api/v1/users/some-user",
@@ -665,7 +666,7 @@ func TestEnforce(t *testing.T) {
 		{
 			name: "viewer denied user management",
 			setup: func() {
-				_ = e.AddRoleForUser("viewer-denied@example.com", RoleViewer)
+				_ = e.AddRoleForUser(context.Background(), "viewer-denied@example.com", RoleViewer)
 			},
 			subject: "viewer-denied@example.com",
 			object:  "/api/v1/users/some-user",
@@ -678,7 +679,7 @@ func TestEnforce(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.setup()
 
-			allowed, err := e.Enforce(tt.subject, tt.object, tt.action)
+			allowed, err := e.Enforce(context.Background(), tt.subject, tt.object, tt.action)
 			if err != nil {
 				t.Fatalf("Enforce() error = %v, want nil", err)
 			}
@@ -719,10 +720,10 @@ func BenchmarkNewEnforcer(b *testing.B) {
 func BenchmarkEnforce(b *testing.B) {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
 	enforcer, _ := NewEnforcer(logger)
-	_ = enforcer.AddRoleForUser("user@example.com", RoleAdmin)
+	_ = enforcer.AddRoleForUser(context.Background(), "user@example.com", RoleAdmin)
 
 	for b.Loop() {
-		_, _ = enforcer.Enforce("user@example.com", "/api/v1/secrets/test", ActionRead)
+		_, _ = enforcer.Enforce(context.Background(), "user@example.com", "/api/v1/secrets/test", ActionRead)
 	}
 }
 
@@ -731,7 +732,7 @@ func BenchmarkAddRoleForUser(b *testing.B) {
 	enforcer, _ := NewEnforcer(logger)
 
 	for b.Loop() {
-		_ = enforcer.AddRoleForUser("user@example.com", RoleAdmin)
+		_ = enforcer.AddRoleForUser(context.Background(), "user@example.com", RoleAdmin)
 	}
 }
 
@@ -740,6 +741,6 @@ func BenchmarkAddOwnershipForResource(b *testing.B) {
 	enforcer, _ := NewEnforcer(logger)
 
 	for b.Loop() {
-		_ = enforcer.AddOwnershipForResource("secret:test", "owner@example.com")
+		_ = enforcer.AddOwnershipForResource(context.Background(), "secret:test", "owner@example.com")
 	}
 }

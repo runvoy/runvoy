@@ -125,7 +125,7 @@ func (s *Service) CreateUser(
 
 	secretToken, err := s.createPendingClaim(ctx, apiKey, req.Email, createdByEmail, expiresAt)
 	if err != nil {
-		if removeErr := s.removeRoleForUserFromEnforcer(req.Email, req.Role); removeErr != nil {
+		if removeErr := s.removeRoleForUserFromEnforcer(ctx, req.Email, req.Role); removeErr != nil {
 			reqLogger := logger.DeriveRequestLogger(ctx, s.Logger)
 			reqLogger.Error("failed to remove user role after pending claim failure", "context", map[string]string{
 				"user":  req.Email,
@@ -247,14 +247,14 @@ func (s *Service) RevokeUser(ctx context.Context, email string) error {
 
 	// Only remove role from enforcer if the user has a role
 	if user.Role != "" {
-		if removeErr := s.removeRoleForUserFromEnforcer(email, user.Role); removeErr != nil {
+		if removeErr := s.removeRoleForUserFromEnforcer(ctx, email, user.Role); removeErr != nil {
 			return apperrors.ErrInternalError("failed to remove user role from authorization enforcer", removeErr)
 		}
 	}
 
 	if revokeErr := s.repos.User.RevokeUser(ctx, email); revokeErr != nil {
 		// Attempt to restore the role to avoid leaving the enforcer without the user mapping.
-		if restoreErr := s.addRoleForUserToEnforcer(email, user.Role); restoreErr != nil {
+		if restoreErr := s.addRoleForUserToEnforcer(ctx, email, user.Role); restoreErr != nil {
 			reqLogger := logger.DeriveRequestLogger(ctx, s.Logger)
 			reqLogger.Error("failed to restore user role after revoke failure", "context", map[string]string{
 				"user":          email,
@@ -284,7 +284,7 @@ func (s *Service) ListUsers(ctx context.Context) (*api.ListUsersResponse, error)
 }
 
 func (s *Service) syncUserRoleAfterCreate(ctx context.Context, email, role string) error {
-	if err := s.addRoleForUserToEnforcer(email, role); err != nil {
+	if err := s.addRoleForUserToEnforcer(ctx, email, role); err != nil {
 		if revokeErr := s.repos.User.RevokeUser(ctx, email); revokeErr != nil {
 			reqLogger := logger.DeriveRequestLogger(ctx, s.Logger)
 			reqLogger.Error("failed to revoke user after enforcer sync failure", "context", map[string]string{
@@ -298,27 +298,27 @@ func (s *Service) syncUserRoleAfterCreate(ctx context.Context, email, role strin
 	return nil
 }
 
-func (s *Service) addRoleForUserToEnforcer(email, roleStr string) error {
+func (s *Service) addRoleForUserToEnforcer(ctx context.Context, email, roleStr string) error {
 	role, err := authorization.NewRole(roleStr)
 	if err != nil {
 		return fmt.Errorf("invalid role %q for user %s: %w", roleStr, email, err)
 	}
 
-	if addErr := s.enforcer.AddRoleForUser(email, role); addErr != nil {
+	if addErr := s.enforcer.AddRoleForUser(ctx, email, role); addErr != nil {
 		return fmt.Errorf("failed to add role %q for user %s: %w", roleStr, email, addErr)
 	}
 
 	return nil
 }
 
-func (s *Service) removeRoleForUserFromEnforcer(email, roleStr string) error {
+func (s *Service) removeRoleForUserFromEnforcer(ctx context.Context, email, roleStr string) error {
 	role, err := authorization.NewRole(roleStr)
 	if err != nil {
 		return fmt.Errorf("invalid role %q for user %s: %w", roleStr, email, err)
 	}
 
 	formattedRole := authorization.FormatRole(role)
-	if removeErr := s.enforcer.RemoveRoleForUser(email, formattedRole); removeErr != nil {
+	if removeErr := s.enforcer.RemoveRoleForUser(ctx, email, formattedRole); removeErr != nil {
 		return fmt.Errorf("failed to remove role %q for user %s: %w", roleStr, email, removeErr)
 	}
 

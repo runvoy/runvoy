@@ -154,7 +154,7 @@ func (r *Router) authorizeRequest(req *http.Request, action authorization.Action
 	resourceObject := req.URL.Path
 	userEmail := user.Email
 
-	allowed, err := enforcer.Enforce(userEmail, resourceObject, action)
+	allowed, err := enforcer.Enforce(ctx, userEmail, resourceObject, action)
 	if err != nil {
 		logger.Error("authorization check error",
 			"error", err,
@@ -173,7 +173,7 @@ func (r *Router) authorizeRequest(req *http.Request, action authorization.Action
 }
 
 // updateLastUsedAsync updates the user's last_used timestamp asynchronously.
-func (r *Router) updateLastUsedAsync(user *api.User, requestID string, logger *slog.Logger) *sync.WaitGroup {
+func (r *Router) updateLastUsedAsync(user *api.User, requestID string, baseLogger *slog.Logger) *sync.WaitGroup {
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func(email string, reqID string) {
@@ -181,26 +181,27 @@ func (r *Router) updateLastUsedAsync(user *api.User, requestID string, logger *s
 		ctx, cancel := context.WithTimeout(context.Background(), lastUsedUpdateTimeout)
 		defer cancel()
 		ctx = loggerPkg.WithRequestID(ctx, reqID)
+		reqLogger := loggerPkg.DeriveRequestLogger(ctx, baseLogger)
 
 		if user.LastUsed != nil {
-			logger.Debug("updating user's last_used timestamp (async)",
+			reqLogger.Debug("updating user's last_used timestamp (async)",
 				"email", email,
 				"previous_last_used", user.LastUsed.Format(time.RFC3339))
 		} else {
-			logger.Debug("updating user's last_used timestamp (async)", "email", email)
+			reqLogger.Debug("updating user's last_used timestamp (async)", "email", email)
 		}
 
 		newLastUsed, err := r.svc.UpdateUserLastUsed(ctx, email)
 		if err != nil {
-			logger.Error("failed to update user's last_used timestamp", "error", err, "email", email)
+			reqLogger.Error("failed to update user's last_used timestamp", "error", err, "email", email)
 		} else {
 			if user.LastUsed != nil {
-				logger.Debug("user's last_used timestamp updated successfully",
+				reqLogger.Debug("user's last_used timestamp updated successfully",
 					"email", email,
 					"last_used", newLastUsed.Format(time.RFC3339),
 					"previous_last_used", user.LastUsed.Format(time.RFC3339))
 			} else {
-				logger.Debug("user's last_used timestamp updated successfully",
+				reqLogger.Debug("user's last_used timestamp updated successfully",
 					"email", email,
 					"last_used", newLastUsed.Format(time.RFC3339))
 			}

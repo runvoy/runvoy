@@ -11,6 +11,7 @@ import (
 	"runvoy/internal/config"
 	"runvoy/internal/constants"
 	"runvoy/internal/database"
+	"runvoy/internal/logger"
 	awsOrchestrator "runvoy/internal/providers/aws/orchestrator"
 )
 
@@ -25,21 +26,22 @@ import (
 func Initialize(
 	ctx context.Context,
 	cfg *config.Config,
-	logger *slog.Logger) (*Service, error) {
-	logger.Debug(fmt.Sprintf("initializing %s orchestrator service", constants.ProjectName),
+	baseLogger *slog.Logger) (*Service, error) {
+	reqLogger := logger.DeriveRequestLogger(ctx, baseLogger)
+	reqLogger.Debug(fmt.Sprintf("initializing %s orchestrator service", constants.ProjectName),
 		"provider", cfg.BackendProvider,
 		"version", *constants.GetVersion(),
 		"init_timeout", cfg.InitTimeout.String(),
 	)
 
-	enforcer, err := authorization.NewEnforcer(logger)
+	enforcer, err := authorization.NewEnforcer(baseLogger)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize authorization enforcer: %w", err)
 	}
 
 	switch cfg.BackendProvider {
 	case constants.AWS:
-		awsDeps, initErr := awsOrchestrator.Initialize(ctx, cfg, logger, enforcer)
+		awsDeps, initErr := awsOrchestrator.Initialize(ctx, cfg, baseLogger, enforcer)
 		if initErr != nil {
 			return nil, fmt.Errorf("failed to initialize AWS dependencies: %w", initErr)
 		}
@@ -60,7 +62,7 @@ func Initialize(
 			awsDeps.ImageRegistry,
 			awsDeps.LogManager,
 			awsDeps.ObservabilityManager,
-			logger,
+			baseLogger,
 			cfg.BackendProvider,
 			awsDeps.WebSocketManager,
 			awsDeps.HealthManager,

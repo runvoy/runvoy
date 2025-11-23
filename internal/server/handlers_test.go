@@ -145,15 +145,15 @@ func newPermissiveTestEnforcerForHandlers(t *testing.T) *authorization.Enforcer 
 	enf, err := authorization.NewEnforcer(testutil.SilentLogger())
 	require.NoError(t, err)
 
-	err = enf.AddRoleForUser("admin@example.com", authorization.RoleAdmin)
+	err = enf.AddRoleForUser(context.Background(), "admin@example.com", authorization.RoleAdmin)
 	require.NoError(t, err)
-	err = enf.AddRoleForUser("user@example.com", authorization.RoleAdmin)
+	err = enf.AddRoleForUser(context.Background(), "user@example.com", authorization.RoleAdmin)
 	require.NoError(t, err)
-	err = enf.AddRoleForUser("alice@example.com", authorization.RoleAdmin)
+	err = enf.AddRoleForUser(context.Background(), "alice@example.com", authorization.RoleAdmin)
 	require.NoError(t, err)
-	err = enf.AddRoleForUser("bob@example.com", authorization.RoleAdmin)
+	err = enf.AddRoleForUser(context.Background(), "bob@example.com", authorization.RoleAdmin)
 	require.NoError(t, err)
-	err = enf.AddRoleForUser("charlie@example.com", authorization.RoleAdmin)
+	err = enf.AddRoleForUser(context.Background(), "charlie@example.com", authorization.RoleAdmin)
 	require.NoError(t, err)
 
 	return enf
@@ -541,7 +541,7 @@ func TestHandleRunCommand_WithImage_ValidatesAuthorization(t *testing.T) {
 	// Use developer role which has execute permission and access to images
 	enf, err := authorization.NewEnforcer(testutil.SilentLogger())
 	require.NoError(t, err)
-	err = enf.AddRoleForUser(userEmail, authorization.RoleDeveloper)
+	err = enf.AddRoleForUser(context.Background(), userEmail, authorization.RoleDeveloper)
 	require.NoError(t, err)
 
 	repos := database.Repositories{
@@ -601,7 +601,7 @@ func TestHandleRunCommand_WithSecrets_ValidatesAuthorization(t *testing.T) {
 	// Use developer role which has execute permission and access to secrets
 	enf, err := authorization.NewEnforcer(testutil.SilentLogger())
 	require.NoError(t, err)
-	err = enf.AddRoleForUser(userEmail, authorization.RoleDeveloper)
+	err = enf.AddRoleForUser(context.Background(), userEmail, authorization.RoleDeveloper)
 	require.NoError(t, err)
 
 	repos := database.Repositories{
@@ -673,7 +673,7 @@ func TestHandleRunCommand_AllResourcesAuthorized(t *testing.T) {
 	// Use developer role which has access to images and secrets (per policy.csv)
 	enf, err := authorization.NewEnforcer(testutil.SilentLogger())
 	require.NoError(t, err)
-	err = enf.AddRoleForUser(userEmail, authorization.RoleDeveloper)
+	err = enf.AddRoleForUser(context.Background(), userEmail, authorization.RoleDeveloper)
 	require.NoError(t, err)
 
 	repos := database.Repositories{
