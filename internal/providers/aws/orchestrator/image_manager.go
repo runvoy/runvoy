@@ -53,7 +53,7 @@ func NewImageManager(
 // RegisterImage registers a Docker image with optional custom IAM roles, CPU, Memory, and RuntimePlatform.
 // Creates a new task definition with a unique family name and stores the mapping in DynamoDB.
 //
-//nolint:funlen // Complex registration flow with multiple steps
+//nolint:funlen,dupl // Complex registration flow; duplicate with Provider for backwards compatibility
 func (m *ImageManagerImpl) RegisterImage(
 	ctx context.Context,
 	image string,
@@ -154,6 +154,8 @@ func (m *ImageManagerImpl) ListImages(ctx context.Context) ([]api.ImageInfo, err
 // Accepts either an ImageID (e.g., "alpine:latest-a1b2c3d4") or an image name (e.g., "alpine:latest").
 // If ImageID is provided, queries directly by ID. Otherwise, uses GetAnyImageTaskDef to find any configuration.
 // If image is empty, returns the default image if one is configured.
+//
+//nolint:dupl // Duplicate with Provider for backwards compatibility
 func (m *ImageManagerImpl) GetImage(ctx context.Context, image string) (*api.ImageInfo, error) {
 	if m.imageRepo == nil {
 		return nil, fmt.Errorf("image repository not configured")
@@ -205,7 +207,7 @@ func (m *ImageManagerImpl) GetImage(ctx context.Context, image string) (*api.Ima
 // the full ImageID (e.g., "alpine:latest-a1b2c3d4") instead of just the image name/tag.
 // Use ListImages to find the specific ImageID you want to remove.
 //
-//nolint:gocyclo,funlen // Complex deletion flow with pagination, deregistration, and deletion
+//nolint:gocyclo,funlen,dupl // Complex deletion flow; duplicate with Provider for backwards compatibility
 func (m *ImageManagerImpl) RemoveImage(ctx context.Context, image string) error {
 	if m.imageRepo == nil {
 		return fmt.Errorf("image repository not configured")
@@ -441,7 +443,7 @@ func (m *ImageManagerImpl) handleExistingImage(
 // It generates a unique ImageID, uses it as the task definition family name (prefixed with "runvoy-"),
 // registers the task definition with ECS, and stores the mapping in DynamoDB.
 //
-//nolint:funlen // Complex registration flow with multiple steps
+//nolint:funlen,dupl // Complex registration flow; duplicate with Provider for backwards compatibility
 func (m *ImageManagerImpl) registerNewImage(
 	ctx context.Context,
 	image string,
@@ -587,7 +589,7 @@ func (m *ImageManagerImpl) validateIAMRoles(
 // registerTaskDefinitionWithRoles registers a task definition with the specified roles,
 // CPU, Memory, and RuntimePlatform.
 //
-//nolint:funlen // Complex AWS API orchestration with registration and tagging
+//nolint:funlen,dupl // Complex AWS API orchestration; duplicate with Provider for backwards compatibility
 func (m *ImageManagerImpl) registerTaskDefinitionWithRoles(
 	ctx context.Context,
 	family string,

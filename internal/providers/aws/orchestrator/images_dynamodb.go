@@ -13,7 +13,6 @@ import (
 	"runvoy/internal/api"
 	apperrors "runvoy/internal/errors"
 	"runvoy/internal/logger"
-	awsClient "runvoy/internal/providers/aws/client"
 	awsConstants "runvoy/internal/providers/aws/constants"
 	"runvoy/internal/providers/aws/database/dynamodb"
 	"runvoy/internal/providers/aws/ecsdefs"
@@ -34,31 +33,9 @@ func buildRoleARN(roleName *string, accountID, _ string) string {
 	return fmt.Sprintf("arn:aws:iam::%s:role/%s", accountID, *roleName)
 }
 
-// buildRoleARNs constructs task and execution role ARNs from names or config defaults.
-// The execution role ARN is always required and defaults to DefaultTaskExecRoleARN from config.
-func (m *ImageManagerImpl) buildRoleARNs(
-	taskRoleName *string,
-	taskExecutionRoleName *string,
-	region string,
-) (taskRoleARN, taskExecRoleARN string) {
-	taskRoleARN = ""
-	taskExecRoleARN = m.cfg.DefaultTaskExecRoleARN
-
-	if taskRoleName != nil && *taskRoleName != "" {
-		taskRoleARN = buildRoleARN(taskRoleName, m.cfg.AccountID, region)
-	} else if m.cfg.DefaultTaskRoleARN != "" {
-		taskRoleARN = m.cfg.DefaultTaskRoleARN
-	}
-
-	if taskExecutionRoleName != nil && *taskExecutionRoleName != "" {
-		taskExecRoleARN = buildRoleARN(taskExecutionRoleName, m.cfg.AccountID, region)
-	}
-
-	return taskRoleARN, taskExecRoleARN
-}
-
 // buildRoleARNs constructs task and execution role ARNs from names or config defaults (Provider version).
-// DEPRECATED: Use ImageManagerImpl.buildRoleARNs instead.
+//
+// Deprecated: Use ImageManagerImpl.buildRoleARNs instead.
 func (e *Provider) buildRoleARNs(
 	taskRoleName *string,
 	taskExecutionRoleName *string,
@@ -125,7 +102,7 @@ func (e *Provider) handleExistingImage(
 // It generates a unique ImageID, uses it as the task definition family name (prefixed with "runvoy-"),
 // registers the task definition with ECS, and stores the mapping in DynamoDB.
 //
-//nolint:funlen // Complex registration flow with multiple steps
+//nolint:funlen,dupl // Complex registration flow; duplicate with ImageManagerImpl for backwards compatibility
 func (e *Provider) registerNewImage(
 	ctx context.Context,
 	image string,
@@ -271,7 +248,7 @@ func (e *Provider) validateIAMRoles(
 // RegisterImage registers a Docker image with optional custom IAM roles, CPU, Memory, and RuntimePlatform.
 // Creates a new task definition with a unique family name and stores the mapping in DynamoDB.
 //
-//nolint:funlen // Complex registration flow with multiple steps
+//nolint:funlen,dupl // Complex registration flow; duplicate with ImageManagerImpl for backwards compatibility
 func (e *Provider) RegisterImage(
 	ctx context.Context,
 	image string,
@@ -357,7 +334,7 @@ func (e *Provider) RegisterImage(
 // registerTaskDefinitionWithRoles registers a task definition with the specified roles,
 // CPU, Memory, and RuntimePlatform.
 //
-//nolint:funlen // Complex AWS API orchestration with registration and tagging
+//nolint:funlen,dupl // Complex AWS API orchestration; duplicate with ImageManagerImpl for backwards compatibility
 func (e *Provider) registerTaskDefinitionWithRoles(
 	ctx context.Context,
 	family string,
@@ -480,7 +457,7 @@ func (e *Provider) GetImagesByRequestID(ctx context.Context, requestID string) (
 // the full ImageID (e.g., "alpine:latest-a1b2c3d4") instead of just the image name/tag.
 // Use ListImages to find the specific ImageID you want to remove.
 //
-//nolint:gocyclo,funlen // Complex deletion flow with pagination, deregistration, and deletion
+//nolint:gocyclo,funlen,dupl // Complex deletion flow; duplicate with ImageManagerImpl for backwards compatibility
 func (e *Provider) RemoveImage(ctx context.Context, image string) error {
 	if e.imageRepo == nil {
 		return fmt.Errorf("image repository not configured")
@@ -703,6 +680,8 @@ func looksLikeImageID(s string) bool {
 // Accepts either an ImageID (e.g., "alpine:latest-a1b2c3d4") or an image name (e.g., "alpine:latest").
 // If ImageID is provided, queries directly by ID. Otherwise, uses GetAnyImageTaskDef to find any configuration.
 // If image is empty, returns the default image if one is configured.
+//
+//nolint:dupl // Duplicate with ImageManagerImpl for backwards compatibility
 func (e *Provider) GetImage(ctx context.Context, image string) (*api.ImageInfo, error) {
 	if e.imageRepo == nil {
 		return nil, fmt.Errorf("image repository not configured")

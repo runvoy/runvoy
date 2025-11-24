@@ -97,6 +97,8 @@ func NewTaskManager(
 }
 
 // StartTask triggers an ECS Fargate task and returns identifiers.
+//
+//nolint:dupl // Duplicate with Provider for backwards compatibility
 func (t *TaskManagerImpl) StartTask(
 	ctx context.Context, userEmail string, req *api.ExecutionRequest) (string, *time.Time, error) {
 	if t.ecsClient == nil {
@@ -240,6 +242,8 @@ func (t *TaskManagerImpl) configureGitRepo(
 }
 
 // buildContainerOverrides constructs the container overrides for sidecar and main runner containers.
+//
+//nolint:dupl // Duplicate with Provider for backwards compatibility
 func (t *TaskManagerImpl) buildContainerOverrides(
 	ctx context.Context, req *api.ExecutionRequest, gitConfig *gitRepoConfig, _ *slog.Logger,
 ) ([]ecsTypes.ContainerOverride, []ecsTypes.KeyValuePair) {
@@ -347,6 +351,8 @@ func (t *TaskManagerImpl) executeTask(
 }
 
 // logTaskStarted logs the successful task start with request details.
+//
+//nolint:dupl // Duplicate with Provider for backwards compatibility
 func (t *TaskManagerImpl) logTaskStarted(
 	reqLogger *slog.Logger,
 	userEmail, taskARN, executionID string,
@@ -395,7 +401,7 @@ func (t *TaskManagerImpl) logTaskStarted(
 // It checks the task status before termination and only stops tasks that are RUNNING or ACTIVATING.
 // Returns an error if the task is already terminated or not found.
 //
-//nolint:funlen // Complex AWS API orchestration
+//nolint:funlen,dupl // Complex AWS API orchestration; duplicate with Provider for backwards compatibility
 func (t *TaskManagerImpl) KillTask(ctx context.Context, executionID string) error {
 	if t.ecsClient == nil {
 		return appErrors.ErrInternalError("ECS client not configured", nil)
@@ -469,6 +475,8 @@ func (t *TaskManagerImpl) KillTask(ctx context.Context, executionID string) erro
 }
 
 // findTaskARNByExecutionID finds the task ARN for a given execution ID by checking both running and stopped tasks.
+//
+//nolint:dupl // Duplicate with Provider for backwards compatibility
 func (t *TaskManagerImpl) findTaskARNByExecutionID(
 	ctx context.Context, executionID string, reqLogger *slog.Logger,
 ) (string, error) {
@@ -522,7 +530,8 @@ func (t *TaskManagerImpl) findTaskARNByExecutionID(
 }
 
 // Provider provides AWS ECS Fargate implementations for the orchestrator interfaces.
-// DEPRECATED: Use specific manager implementations (TaskManagerImpl, ImageManagerImpl, etc.) instead.
+//
+// Deprecated: Use specific manager implementations (TaskManagerImpl, ImageManagerImpl, etc.) instead.
 // This struct is kept for backwards compatibility during the migration.
 // It implements:
 //   - TaskManager: Task lifecycle management via ECS
@@ -544,7 +553,8 @@ type Provider struct {
 }
 
 // NewProvider creates a new AWS ECS provider with the provided configuration.
-// DEPRECATED: Use NewTaskManager, NewImageManager, NewLogManager, and NewObservabilityManager instead.
+//
+// Deprecated: Use NewTaskManager, NewImageManager, NewLogManager, and NewObservabilityManager instead.
 func NewProvider(
 	ecsClient awsClient.ECSClient,
 	cwlClient awsClient.CloudWatchLogsClient,
@@ -564,6 +574,8 @@ func NewProvider(
 }
 
 // FetchLogsByExecutionID returns CloudWatch log events for the given execution ID.
+//
+//nolint:dupl // Duplicate with LogManagerImpl for backwards compatibility
 func (e *Provider) FetchLogsByExecutionID(ctx context.Context, executionID string) ([]api.LogEvent, error) {
 	if executionID == "" {
 		return nil, appErrors.ErrBadRequest("executionID is required", nil)
@@ -729,6 +741,8 @@ func buildMainContainerCommand(req *api.ExecutionRequest, requestID, image strin
 }
 
 // StartTask triggers an ECS Fargate task and returns identifiers.
+//
+//nolint:dupl // Duplicate with TaskManagerImpl for backwards compatibility
 func (e *Provider) StartTask(
 	ctx context.Context, userEmail string, req *api.ExecutionRequest) (string, *time.Time, error) {
 	if e.ecsClient == nil {
@@ -834,6 +848,8 @@ func (e *Provider) configureGitRepo(
 }
 
 // buildContainerOverrides constructs the container overrides for sidecar and main runner containers.
+//
+//nolint:dupl // Duplicate with TaskManagerImpl for backwards compatibility
 func (e *Provider) buildContainerOverrides(
 	ctx context.Context, req *api.ExecutionRequest, gitConfig *gitRepoConfig, _ *slog.Logger,
 ) ([]ecsTypes.ContainerOverride, []ecsTypes.KeyValuePair) {
@@ -951,6 +967,8 @@ func logAWSAPICall(ctx context.Context, reqLogger *slog.Logger, operation string
 }
 
 // logTaskStarted logs the successful task start with request details.
+//
+//nolint:dupl // Duplicate with TaskManagerImpl for backwards compatibility
 func (e *Provider) logTaskStarted(
 	reqLogger *slog.Logger,
 	userEmail, taskARN, executionID string,
@@ -996,6 +1014,8 @@ func (e *Provider) logTaskStarted(
 }
 
 // findTaskARNByExecutionID finds the task ARN for a given execution ID by checking both running and stopped tasks.
+//
+//nolint:dupl // Duplicate with TaskManagerImpl for backwards compatibility
 func (e *Provider) findTaskARNByExecutionID(
 	ctx context.Context, executionID string, reqLogger *slog.Logger,
 ) (string, error) {
@@ -1092,7 +1112,7 @@ func validateTaskStatusForKill(currentStatus string) error {
 // It checks the task status before termination and only stops tasks that are RUNNING or ACTIVATING.
 // Returns an error if the task is already terminated or not found.
 //
-//nolint:funlen // Complex AWS API orchestration
+//nolint:funlen,dupl // Complex AWS API orchestration; duplicate with TaskManagerImpl for backwards compatibility
 func (e *Provider) KillTask(ctx context.Context, executionID string) error {
 	if e.ecsClient == nil {
 		return appErrors.ErrInternalError("ECS client not configured", nil)

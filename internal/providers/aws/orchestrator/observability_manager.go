@@ -20,6 +20,11 @@ import (
 	cwlTypes "github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs/types"
 )
 
+const (
+	cloudWatchTimestampField = "@timestamp"
+	cloudWatchMessageField   = "@message"
+)
+
 // ObservabilityManagerImpl implements the ObservabilityManager interface for AWS CloudWatch Logs Insights.
 // It handles retrieving backend infrastructure logs for debugging and tracing.
 type ObservabilityManagerImpl struct {
@@ -166,6 +171,8 @@ func (o *ObservabilityManagerImpl) discoverLogGroups(ctx context.Context, _ *slo
 }
 
 // pollBackendLogsQuery polls for CloudWatch Logs Insights query results
+//
+//nolint:dupl // Duplicate with Provider for backwards compatibility
 func (o *ObservabilityManagerImpl) pollBackendLogsQuery(
 	ctx context.Context,
 	log *slog.Logger,
@@ -233,9 +240,9 @@ func (o *ObservabilityManagerImpl) transformBackendLogsResults(
 			fieldValue := aws.ToString(field.Value)
 
 			switch fieldName {
-			case "@timestamp":
+			case cloudWatchTimestampField:
 				cloudwatchTimestamp = fieldValue
-			case "@message":
+			case cloudWatchMessageField:
 				logEntry.Message = fieldValue
 			}
 		}

@@ -218,6 +218,8 @@ func (r *Provider) discoverLogGroups(ctx context.Context, _ *slog.Logger) ([]str
 }
 
 // pollBackendLogsQuery polls for CloudWatch Logs Insights query results
+//
+//nolint:dupl // Duplicate with ObservabilityManagerImpl for backwards compatibility
 func (r *Provider) pollBackendLogsQuery(
 	ctx context.Context,
 	log *slog.Logger,
