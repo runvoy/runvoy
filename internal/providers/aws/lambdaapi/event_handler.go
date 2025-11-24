@@ -18,6 +18,9 @@ import (
 // allowing the core processor to remain cloud-provider agnostic while still
 // supporting AWS Lambda's specific response formats.
 func NewEventProcessorHandler(proc processor.Processor) lambda.Handler {
+	if proc == nil {
+		panic("processor is required")
+	}
 	return lambda.NewHandler(func(
 		ctx context.Context,
 		rawEvent *json.RawMessage,

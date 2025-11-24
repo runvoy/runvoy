@@ -53,11 +53,11 @@ func TestHandleECSTaskEvent_Running(t *testing.T) {
 
 	updated := false
 	execRepo := &mockExecutionRepo{
-		getExecutionFunc: func(ctx context.Context, id string) (*api.Execution, error) {
+		getExecutionFunc: func(_ context.Context, id string) (*api.Execution, error) {
 			assert.Equal(t, executionID, id)
 			return execution, nil
 		},
-		updateExecutionFunc: func(ctx context.Context, exec *api.Execution) error {
+		updateExecutionFunc: func(_ context.Context, exec *api.Execution) error {
 			assert.Equal(t, string(constants.ExecutionRunning), exec.Status)
 			updated = true
 			return nil
@@ -101,10 +101,10 @@ func TestHandleECSTaskEvent_Stopped(t *testing.T) {
 	notified := false
 
 	execRepo := &mockExecutionRepo{
-		getExecutionFunc: func(ctx context.Context, id string) (*api.Execution, error) {
+		getExecutionFunc: func(_ context.Context, _ string) (*api.Execution, error) {
 			return execution, nil
 		},
-		updateExecutionFunc: func(ctx context.Context, exec *api.Execution) error {
+		updateExecutionFunc: func(_ context.Context, exec *api.Execution) error {
 			assert.Equal(t, string(constants.ExecutionSucceeded), exec.Status)
 			assert.NotNil(t, exec.CompletedAt)
 			assert.Equal(t, 0, exec.ExitCode)
@@ -114,7 +114,7 @@ func TestHandleECSTaskEvent_Stopped(t *testing.T) {
 	}
 
 	wsManager := &mockWebSocketManager{
-		notifyFunc: func(ctx context.Context, execID *string) error {
+		notifyFunc: func(_ context.Context, execID *string) error {
 			assert.Equal(t, executionID, *execID)
 			notified = true
 			return nil
@@ -122,7 +122,7 @@ func TestHandleECSTaskEvent_Stopped(t *testing.T) {
 	}
 
 	p := &Processor{
-		executionRepo:     execRepo,
+		executionRepo:    execRepo,
 		webSocketManager: wsManager,
 	}
 
@@ -156,7 +156,7 @@ func TestHandleECSTaskEvent_OrphanedTask(t *testing.T) {
 	taskArn := "arn:aws:ecs:us-east-1:123456789012:task/cluster/" + executionID
 
 	execRepo := &mockExecutionRepo{
-		getExecutionFunc: func(ctx context.Context, id string) (*api.Execution, error) {
+		getExecutionFunc: func(_ context.Context, _ string) (*api.Execution, error) {
 			return nil, nil // Orphaned task
 		},
 	}
@@ -208,7 +208,7 @@ func TestUpdateExecutionToRunning_AlreadyRunning(t *testing.T) {
 
 	updateCalled := false
 	execRepo := &mockExecutionRepo{
-		updateExecutionFunc: func(ctx context.Context, exec *api.Execution) error {
+		updateExecutionFunc: func(_ context.Context, _ *api.Execution) error {
 			updateCalled = true
 			return nil
 		},
@@ -236,7 +236,7 @@ func TestUpdateExecutionToRunning_InvalidTransition(t *testing.T) {
 
 	updateCalled := false
 	execRepo := &mockExecutionRepo{
-		updateExecutionFunc: func(ctx context.Context, exec *api.Execution) error {
+		updateExecutionFunc: func(_ context.Context, _ *api.Execution) error {
 			updateCalled = true
 			return nil
 		},
@@ -265,7 +265,7 @@ func TestFinalizeExecutionFromTaskEvent_InvalidTransition(t *testing.T) {
 
 	updateCalled := false
 	execRepo := &mockExecutionRepo{
-		updateExecutionFunc: func(ctx context.Context, exec *api.Execution) error {
+		updateExecutionFunc: func(_ context.Context, _ *api.Execution) error {
 			updateCalled = true
 			return nil
 		},
@@ -303,10 +303,10 @@ func TestHandleECSTaskEvent_UserInitiatedStop(t *testing.T) {
 
 	updated := false
 	execRepo := &mockExecutionRepo{
-		getExecutionFunc: func(ctx context.Context, id string) (*api.Execution, error) {
+		getExecutionFunc: func(_ context.Context, _ string) (*api.Execution, error) {
 			return execution, nil
 		},
-		updateExecutionFunc: func(ctx context.Context, exec *api.Execution) error {
+		updateExecutionFunc: func(_ context.Context, exec *api.Execution) error {
 			assert.Equal(t, string(constants.ExecutionStopped), exec.Status)
 			assert.Equal(t, 130, exec.ExitCode)
 			updated = true
@@ -315,7 +315,7 @@ func TestHandleECSTaskEvent_UserInitiatedStop(t *testing.T) {
 	}
 
 	p := &Processor{
-		executionRepo:     execRepo,
+		executionRepo:    execRepo,
 		webSocketManager: &mockWebSocketManager{},
 	}
 
@@ -348,10 +348,10 @@ func TestHandleECSTaskEvent_IgnoredStatus(t *testing.T) {
 
 	updateCalled := false
 	execRepo := &mockExecutionRepo{
-		getExecutionFunc: func(ctx context.Context, id string) (*api.Execution, error) {
+		getExecutionFunc: func(_ context.Context, _ string) (*api.Execution, error) {
 			return execution, nil
 		},
-		updateExecutionFunc: func(ctx context.Context, exec *api.Execution) error {
+		updateExecutionFunc: func(_ context.Context, _ *api.Execution) error {
 			updateCalled = true
 			return nil
 		},
@@ -378,7 +378,7 @@ func TestHandleECSTaskEvent_IgnoredStatus(t *testing.T) {
 
 // Helper functions
 
-func mustMarshal(v interface{}) json.RawMessage {
+func mustMarshal(v any) json.RawMessage {
 	data, err := json.Marshal(v)
 	if err != nil {
 		panic(err)
@@ -392,32 +392,4 @@ func mustParseTime(timeStr string) time.Time {
 		panic(err)
 	}
 	return t
-}
-
-// BenchmarkDetermineStatusAndExitCode measures status determination performance
-func BenchmarkDetermineStatusAndExitCode(b *testing.B) {
-	event := &ECSTaskStateChangeEvent{
-		StopCode: "EssentialContainerExited",
-		Containers: []ContainerDetail{
-			{
-				Name:     awsConstants.RunnerContainerName,
-				ExitCode: intPtr(0),
-			},
-		},
-	}
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		_, _ = determineStatusAndExitCode(event)
-	}
-}
-
-// BenchmarkExtractExecutionIDFromTaskArn measures ARN parsing performance
-func BenchmarkExtractExecutionIDFromTaskArn(b *testing.B) {
-	taskArn := "arn:aws:ecs:us-east-1:123456789012:task/my-cluster/execution-id-123"
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		_ = extractExecutionIDFromTaskArn(taskArn)
-	}
 }

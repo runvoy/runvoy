@@ -10,22 +10,27 @@ import (
 	"time"
 
 	"runvoy/internal/api"
+	"runvoy/internal/backend/contract"
 	"runvoy/internal/constants"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-// mockServiceForHealth is a mock service for testing health handlers
-type mockServiceForHealth struct {
-	reconcileResourcesFunc func(ctx context.Context) (*api.HealthReport, error)
+type mockHealthManager struct {
+	reconcileFunc func(ctx context.Context) (*api.HealthReport, error)
 }
 
-func (m *mockServiceForHealth) ReconcileResources(ctx context.Context) (*api.HealthReport, error) {
-	if m.reconcileResourcesFunc != nil {
-		return m.reconcileResourcesFunc(ctx)
+func (m *mockHealthManager) Reconcile(ctx context.Context) (*api.HealthReport, error) {
+	if m != nil && m.reconcileFunc != nil {
+		return m.reconcileFunc(ctx)
 	}
 	return nil, nil
+}
+
+func newHealthTestRouter(t testing.TB, hm contract.HealthManager) *Router {
+	svc := newTestOrchestratorService(t, nil, nil, nil, nil, nil, nil, hm)
+	return &Router{svc: svc}
 }
 
 func TestHandleHealth(t *testing.T) {
@@ -33,13 +38,13 @@ func TestHandleHealth(t *testing.T) {
 		name           string
 		method         string
 		expectedStatus int
-		expectedBody   map[string]interface{}
+		expectedBody   map[string]any
 	}{
 		{
 			name:           "GET request returns 200 OK",
 			method:         http.MethodGet,
 			expectedStatus: http.StatusOK,
-			expectedBody: map[string]interface{}{
+			expectedBody: map[string]any{
 				"status": "ok",
 			},
 		},
@@ -47,7 +52,7 @@ func TestHandleHealth(t *testing.T) {
 			name:           "POST request returns 200 OK",
 			method:         http.MethodPost,
 			expectedStatus: http.StatusOK,
-			expectedBody: map[string]interface{}{
+			expectedBody: map[string]any{
 				"status": "ok",
 			},
 		},
@@ -55,7 +60,7 @@ func TestHandleHealth(t *testing.T) {
 			name:           "HEAD request returns 200 OK",
 			method:         http.MethodHead,
 			expectedStatus: http.StatusOK,
-			expectedBody: map[string]interface{}{
+			expectedBody: map[string]any{
 				"status": "ok",
 			},
 		},
@@ -63,13 +68,10 @@ func TestHandleHealth(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Create a minimal router with mock service
-			router := &Router{
-				svc: &mockServiceForHealth{},
-			}
+			router := newHealthTestRouter(t, nil)
 
 			// Create test request
-			req := httptest.NewRequest(tt.method, "/health", nil)
+			req := httptest.NewRequest(tt.method, "/health", http.NoBody)
 			w := httptest.NewRecorder()
 
 			// Call handler
@@ -92,11 +94,9 @@ func TestHandleHealth(t *testing.T) {
 }
 
 func TestHandleHealth_VersionInResponse(t *testing.T) {
-	router := &Router{
-		svc: &mockServiceForHealth{},
-	}
+	router := newHealthTestRouter(t, nil)
 
-	req := httptest.NewRequest(http.MethodGet, "/health", nil)
+	req := httptest.NewRequest(http.MethodGet, "/health", http.NoBody)
 	w := httptest.NewRecorder()
 
 	router.handleHealth(w, req)
@@ -138,15 +138,13 @@ func TestHandleReconcileHealth_Success(t *testing.T) {
 		ErrorCount:      0,
 	}
 
-	router := &Router{
-		svc: &mockServiceForHealth{
-			reconcileResourcesFunc: func(ctx context.Context) (*api.HealthReport, error) {
-				return expectedReport, nil
-			},
+	router := newHealthTestRouter(t, &mockHealthManager{
+		reconcileFunc: func(_ context.Context) (*api.HealthReport, error) {
+			return expectedReport, nil
 		},
-	}
+	})
 
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/health/reconcile", nil)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/health/reconcile", http.NoBody)
 	w := httptest.NewRecorder()
 
 	router.handleReconcileHealth(w, req)
@@ -192,53 +190,49 @@ func TestHandleReconcileHealth_Error(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			router := &Router{
-				svc: &mockServiceForHealth{
-					reconcileResourcesFunc: func(ctx context.Context) (*api.HealthReport, error) {
-						return nil, tt.reconcileError
-					},
+			router := newHealthTestRouter(t, &mockHealthManager{
+				reconcileFunc: func(_ context.Context) (*api.HealthReport, error) {
+					return nil, tt.reconcileError
 				},
-			}
+			})
 
-			req := httptest.NewRequest(http.MethodPost, "/api/v1/health/reconcile", nil)
+			req := httptest.NewRequest(http.MethodPost, "/api/v1/health/reconcile", http.NoBody)
 			w := httptest.NewRecorder()
 
 			router.handleReconcileHealth(w, req)
 
 			assert.Equal(t, tt.expectedStatus, w.Code)
 
-			var response ErrorResponse
+			var response api.ErrorResponse
 			err := json.NewDecoder(w.Body).Decode(&response)
 			require.NoError(t, err)
 
-			assert.Equal(t, "error", response.Status)
-			assert.NotEmpty(t, response.Message)
+			assert.Equal(t, "failed to reconcile resources", response.Error)
+			assert.NotEmpty(t, response.Details)
 		})
 	}
 }
 
 func TestHandleReconcileHealth_NilReport(t *testing.T) {
-	router := &Router{
-		svc: &mockServiceForHealth{
-			reconcileResourcesFunc: func(ctx context.Context) (*api.HealthReport, error) {
-				return nil, nil // No error, but nil report
-			},
+	router := newHealthTestRouter(t, &mockHealthManager{
+		reconcileFunc: func(_ context.Context) (*api.HealthReport, error) {
+			return nil, nil
 		},
-	}
+	})
 
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/health/reconcile", nil)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/health/reconcile", http.NoBody)
 	w := httptest.NewRecorder()
 
 	router.handleReconcileHealth(w, req)
 
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
 
-	var response ErrorResponse
+	var response api.ErrorResponse
 	err := json.NewDecoder(w.Body).Decode(&response)
 	require.NoError(t, err)
 
-	assert.Equal(t, "error", response.Status)
-	assert.Contains(t, response.Message, "health report is nil")
+	assert.Equal(t, "health report is nil", response.Error)
+	assert.Contains(t, response.Details, "health reconciliation returned no report")
 }
 
 func TestHandleReconcileHealth_WithIssues(t *testing.T) {
@@ -271,15 +265,13 @@ func TestHandleReconcileHealth_WithIssues(t *testing.T) {
 		ErrorCount:      1,
 	}
 
-	router := &Router{
-		svc: &mockServiceForHealth{
-			reconcileResourcesFunc: func(ctx context.Context) (*api.HealthReport, error) {
-				return reportWithIssues, nil
-			},
+	router := newHealthTestRouter(t, &mockHealthManager{
+		reconcileFunc: func(_ context.Context) (*api.HealthReport, error) {
+			return reportWithIssues, nil
 		},
-	}
+	})
 
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/health/reconcile", nil)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/health/reconcile", http.NoBody)
 	w := httptest.NewRecorder()
 
 	router.handleReconcileHealth(w, req)
@@ -304,21 +296,18 @@ func TestHandleReconcileHealth_ContextCancellation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	router := &Router{
-		svc: &mockServiceForHealth{
-			reconcileResourcesFunc: func(ctx context.Context) (*api.HealthReport, error) {
-				// Check if context is canceled
-				select {
-				case <-ctx.Done():
-					return nil, ctx.Err()
-				default:
-					return nil, nil
-				}
-			},
+	router := newHealthTestRouter(t, &mockHealthManager{
+		reconcileFunc: func(_ context.Context) (*api.HealthReport, error) {
+			select {
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			default:
+				return nil, nil
+			}
 		},
-	}
+	})
 
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/health/reconcile", nil)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/health/reconcile", http.NoBody)
 	req = req.WithContext(ctx)
 	w := httptest.NewRecorder()
 
@@ -366,15 +355,13 @@ func TestHandleReconcileHealth_CompleteHealthReport(t *testing.T) {
 		ErrorCount:      0,
 	}
 
-	router := &Router{
-		svc: &mockServiceForHealth{
-			reconcileResourcesFunc: func(ctx context.Context) (*api.HealthReport, error) {
-				return completeReport, nil
-			},
+	router := newHealthTestRouter(t, &mockHealthManager{
+		reconcileFunc: func(_ context.Context) (*api.HealthReport, error) {
+			return completeReport, nil
 		},
-	}
+	})
 
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/health/reconcile", nil)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/health/reconcile", http.NoBody)
 	w := httptest.NewRecorder()
 
 	router.handleReconcileHealth(w, req)
@@ -399,11 +386,9 @@ func TestHandleReconcileHealth_CompleteHealthReport(t *testing.T) {
 }
 
 func TestHandleHealth_ContentType(t *testing.T) {
-	router := &Router{
-		svc: &mockServiceForHealth{},
-	}
+	router := newHealthTestRouter(t, nil)
 
-	req := httptest.NewRequest(http.MethodGet, "/health", nil)
+	req := httptest.NewRequest(http.MethodGet, "/health", http.NoBody)
 	w := httptest.NewRecorder()
 
 	router.handleHealth(w, req)
@@ -415,17 +400,15 @@ func TestHandleHealth_ContentType(t *testing.T) {
 }
 
 func TestHandleReconcileHealth_ContentType(t *testing.T) {
-	router := &Router{
-		svc: &mockServiceForHealth{
-			reconcileResourcesFunc: func(ctx context.Context) (*api.HealthReport, error) {
-				return &api.HealthReport{
-					Timestamp: time.Now(),
-				}, nil
-			},
+	router := newHealthTestRouter(t, &mockHealthManager{
+		reconcileFunc: func(_ context.Context) (*api.HealthReport, error) {
+			return &api.HealthReport{
+				Timestamp: time.Now(),
+			}, nil
 		},
-	}
+	})
 
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/health/reconcile", nil)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/health/reconcile", http.NoBody)
 	w := httptest.NewRecorder()
 
 	router.handleReconcileHealth(w, req)
@@ -435,59 +418,15 @@ func TestHandleReconcileHealth_ContentType(t *testing.T) {
 	assert.Contains(t, contentType, "application/json")
 }
 
-// BenchmarkHandleHealth measures health endpoint performance
-func BenchmarkHandleHealth(b *testing.B) {
-	router := &Router{
-		svc: &mockServiceForHealth{},
-	}
-
-	req := httptest.NewRequest(http.MethodGet, "/health", nil)
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		w := httptest.NewRecorder()
-		router.handleHealth(w, req)
-	}
-}
-
-// BenchmarkHandleReconcileHealth measures reconcile endpoint performance
-func BenchmarkHandleReconcileHealth(b *testing.B) {
-	router := &Router{
-		svc: &mockServiceForHealth{
-			reconcileResourcesFunc: func(ctx context.Context) (*api.HealthReport, error) {
-				return &api.HealthReport{
-					Timestamp: time.Now(),
-					ComputeStatus: api.ComputeHealthStatus{
-						TotalResources: 10,
-						VerifiedCount:  10,
-					},
-				}, nil
-			},
-		},
-	}
-
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/health/reconcile", nil)
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		w := httptest.NewRecorder()
-		router.handleReconcileHealth(w, req)
-	}
-}
-
 func TestHandleHealth_VersionConstant(t *testing.T) {
-	// Store original version
 	origVersion := constants.GetVersion()
 	defer func() {
-		// Restore original (if needed)
 		_ = origVersion
 	}()
 
-	router := &Router{
-		svc: &mockServiceForHealth{},
-	}
+	router := newHealthTestRouter(t, nil)
 
-	req := httptest.NewRequest(http.MethodGet, "/health", nil)
+	req := httptest.NewRequest(http.MethodGet, "/health", http.NoBody)
 	w := httptest.NewRecorder()
 
 	router.handleHealth(w, req)

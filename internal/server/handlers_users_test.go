@@ -4,67 +4,48 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"runvoy/internal/api"
+	"runvoy/internal/constants"
+	apperrors "runvoy/internal/errors"
 	"runvoy/internal/testutil"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-// mockServiceForUsers is a mock service for testing user handlers
-type mockServiceForUsers struct {
-	createUserFunc func(ctx context.Context, req api.CreateUserRequest, creatorEmail string) (*api.CreateUserResponse, error)
-	revokeUserFunc func(ctx context.Context, email string) error
-	listUsersFunc  func(ctx context.Context) (*api.ListUsersResponse, error)
+func newUserHandlerRouter(t *testing.T, userRepo *testUserRepository) *Router {
+	if userRepo == nil {
+		userRepo = &testUserRepository{}
+	}
+	svc := newTestOrchestratorService(t, userRepo, &testExecutionRepository{}, nil, &testRunner{}, nil, nil, nil)
+	return &Router{svc: svc}
 }
 
-func (m *mockServiceForUsers) CreateUser(ctx context.Context, req api.CreateUserRequest, creatorEmail string) (*api.CreateUserResponse, error) {
-	if m.createUserFunc != nil {
-		return m.createUserFunc(ctx, req, creatorEmail)
-	}
-	return nil, nil
+func addAuthenticatedUser(req *http.Request, user *api.User) *http.Request {
+	ctx := context.WithValue(req.Context(), userContextKey, user)
+	return req.WithContext(ctx)
 }
 
-func (m *mockServiceForUsers) RevokeUser(ctx context.Context, email string) error {
-	if m.revokeUserFunc != nil {
-		return m.revokeUserFunc(ctx, email)
-	}
-	return nil
-}
-
-func (m *mockServiceForUsers) ListUsers(ctx context.Context) (*api.ListUsersResponse, error) {
-	if m.listUsersFunc != nil {
-		return m.listUsersFunc(ctx)
-	}
-	return &api.ListUsersResponse{Users: []api.User{}}, nil
+func adminTestUser() *api.User {
+	return testutil.NewUserBuilder().
+		WithEmail("admin@example.com").
+		WithRole("admin").
+		Build()
 }
 
 func TestHandleCreateUser_Success(t *testing.T) {
-	expectedResponse := &api.CreateUserResponse{
-		User: api.User{
-			Email:     "newuser@example.com",
-			Role:      "developer",
-			CreatedAt: "2024-01-01T00:00:00Z",
-		},
-		APIKey: "test-api-key-123",
-	}
-
-	router := &Router{
-		svc: &mockServiceForUsers{
-			createUserFunc: func(ctx context.Context, req api.CreateUserRequest, creatorEmail string) (*api.CreateUserResponse, error) {
-				assert.Equal(t, "newuser@example.com", req.Email)
-				assert.Equal(t, "developer", req.Role)
-				return expectedResponse, nil
-			},
+	userRepo := &testUserRepository{
+		getUserByEmailFunc: func(_ string) (*api.User, error) {
+			return nil, nil
 		},
 	}
+	router := newUserHandlerRouter(t, userRepo)
 
-	// Create request body
 	reqBody := api.CreateUserRequest{
 		Email: "newuser@example.com",
 		Role:  "developer",
@@ -72,19 +53,11 @@ func TestHandleCreateUser_Success(t *testing.T) {
 	body, err := json.Marshal(reqBody)
 	require.NoError(t, err)
 
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/users", bytes.NewReader(body))
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/users/create", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
-
-	// Add authenticated user to context
-	user := testutil.NewUserBuilder().
-		WithEmail("admin@example.com").
-		WithRole("admin").
-		Build()
-	ctx := context.WithValue(req.Context(), userContextKey, &user)
-	req = req.WithContext(ctx)
+	req = addAuthenticatedUser(req, adminTestUser())
 
 	w := httptest.NewRecorder()
-
 	router.handleCreateUser(w, req)
 
 	assert.Equal(t, http.StatusCreated, w.Code)
@@ -92,37 +65,31 @@ func TestHandleCreateUser_Success(t *testing.T) {
 	var response api.CreateUserResponse
 	err = json.NewDecoder(w.Body).Decode(&response)
 	require.NoError(t, err)
-
-	assert.Equal(t, expectedResponse.User.Email, response.User.Email)
-	assert.Equal(t, expectedResponse.User.Role, response.User.Role)
-	assert.Equal(t, expectedResponse.APIKey, response.APIKey)
+	require.NotNil(t, response.User)
+	assert.Equal(t, reqBody.Email, response.User.Email)
+	assert.Equal(t, reqBody.Role, response.User.Role)
+	assert.NotEmpty(t, response.ClaimToken)
 }
 
 func TestHandleCreateUser_InvalidJSON(t *testing.T) {
-	router := &Router{
-		svc: &mockServiceForUsers{},
-	}
+	router := newUserHandlerRouter(t, &testUserRepository{})
 
-	// Invalid JSON
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/users", bytes.NewReader([]byte("invalid json")))
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/users/create", bytes.NewReader([]byte("invalid json")))
 	req.Header.Set("Content-Type", "application/json")
-
-	// Add authenticated user
-	user := testutil.NewUserBuilder().WithEmail("admin@example.com").Build()
-	ctx := context.WithValue(req.Context(), userContextKey, &user)
-	req = req.WithContext(ctx)
+	req = addAuthenticatedUser(req, adminTestUser())
 
 	w := httptest.NewRecorder()
-
 	router.handleCreateUser(w, req)
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
 
 func TestHandleCreateUser_NoAuthentication(t *testing.T) {
-	router := &Router{
-		svc: &mockServiceForUsers{},
-	}
+	router := newUserHandlerRouter(t, &testUserRepository{
+		getUserByEmailFunc: func(_ string) (*api.User, error) {
+			return nil, nil
+		},
+	})
 
 	reqBody := api.CreateUserRequest{
 		Email: "newuser@example.com",
@@ -131,26 +98,25 @@ func TestHandleCreateUser_NoAuthentication(t *testing.T) {
 	body, err := json.Marshal(reqBody)
 	require.NoError(t, err)
 
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/users", bytes.NewReader(body))
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/users/create", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 
-	// No authenticated user in context
 	w := httptest.NewRecorder()
-
 	router.handleCreateUser(w, req)
 
-	// Should return unauthorized or forbidden
-	assert.True(t, w.Code == http.StatusUnauthorized || w.Code == http.StatusForbidden)
+	assert.Equal(t, http.StatusUnauthorized, w.Code)
 }
 
 func TestHandleCreateUser_ServiceError(t *testing.T) {
-	router := &Router{
-		svc: &mockServiceForUsers{
-			createUserFunc: func(ctx context.Context, req api.CreateUserRequest, creatorEmail string) (*api.CreateUserResponse, error) {
-				return nil, errors.New("database error")
-			},
+	userRepo := &testUserRepository{
+		getUserByEmailFunc: func(_ string) (*api.User, error) {
+			return nil, nil
+		},
+		createUserFunc: func(_ context.Context, _ *api.User, _ string, _ int64) error {
+			return apperrors.ErrDatabaseError("database error", nil)
 		},
 	}
+	router := newUserHandlerRouter(t, userRepo)
 
 	reqBody := api.CreateUserRequest{
 		Email: "newuser@example.com",
@@ -159,31 +125,18 @@ func TestHandleCreateUser_ServiceError(t *testing.T) {
 	body, err := json.Marshal(reqBody)
 	require.NoError(t, err)
 
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/users", bytes.NewReader(body))
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/users/create", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
-
-	user := testutil.NewUserBuilder().WithEmail("admin@example.com").Build()
-	ctx := context.WithValue(req.Context(), userContextKey, &user)
-	req = req.WithContext(ctx)
+	req = addAuthenticatedUser(req, adminTestUser())
 
 	w := httptest.NewRecorder()
-
 	router.handleCreateUser(w, req)
 
-	assert.Equal(t, http.StatusInternalServerError, w.Code)
+	assert.Equal(t, http.StatusServiceUnavailable, w.Code)
 }
 
 func TestHandleRevokeUser_Success(t *testing.T) {
-	revoked := false
-	router := &Router{
-		svc: &mockServiceForUsers{
-			revokeUserFunc: func(ctx context.Context, email string) error {
-				assert.Equal(t, "user@example.com", email)
-				revoked = true
-				return nil
-			},
-		},
-	}
+	router := newUserHandlerRouter(t, &testUserRepository{})
 
 	reqBody := api.RevokeUserRequest{
 		Email: "user@example.com",
@@ -195,43 +148,36 @@ func TestHandleRevokeUser_Success(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 
 	w := httptest.NewRecorder()
-
 	router.handleRevokeUser(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
-	assert.True(t, revoked)
 
 	var response api.RevokeUserResponse
 	err = json.NewDecoder(w.Body).Decode(&response)
 	require.NoError(t, err)
-
+	assert.Equal(t, reqBody.Email, response.Email)
 	assert.Contains(t, response.Message, "revoked")
-	assert.Equal(t, "user@example.com", response.Email)
 }
 
 func TestHandleRevokeUser_InvalidJSON(t *testing.T) {
-	router := &Router{
-		svc: &mockServiceForUsers{},
-	}
+	router := newUserHandlerRouter(t, &testUserRepository{})
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/users/revoke", bytes.NewReader([]byte("invalid json")))
 	req.Header.Set("Content-Type", "application/json")
 
 	w := httptest.NewRecorder()
-
 	router.handleRevokeUser(w, req)
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
 
 func TestHandleRevokeUser_ServiceError(t *testing.T) {
-	router := &Router{
-		svc: &mockServiceForUsers{
-			revokeUserFunc: func(ctx context.Context, email string) error {
-				return errors.New("user not found")
-			},
+	userRepo := &testUserRepository{
+		revokeUserFunc: func(_ context.Context, _ string) error {
+			return apperrors.ErrInternalError("failed to revoke user", nil)
 		},
 	}
+	router := newUserHandlerRouter(t, userRepo)
 
 	reqBody := api.RevokeUserRequest{
 		Email: "nonexistent@example.com",
@@ -243,23 +189,13 @@ func TestHandleRevokeUser_ServiceError(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 
 	w := httptest.NewRecorder()
-
 	router.handleRevokeUser(w, req)
 
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
 }
 
 func TestHandleRevokeUser_EmptyEmail(t *testing.T) {
-	router := &Router{
-		svc: &mockServiceForUsers{
-			revokeUserFunc: func(ctx context.Context, email string) error {
-				if email == "" {
-					return errors.New("email is required")
-				}
-				return nil
-			},
-		},
-	}
+	router := newUserHandlerRouter(t, &testUserRepository{})
 
 	reqBody := api.RevokeUserRequest{
 		Email: "",
@@ -271,45 +207,33 @@ func TestHandleRevokeUser_EmptyEmail(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 
 	w := httptest.NewRecorder()
-
 	router.handleRevokeUser(w, req)
 
-	assert.Equal(t, http.StatusInternalServerError, w.Code)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
 
 func TestHandleListUsers_Success(t *testing.T) {
-	expectedUsers := []api.User{
+	expectedUsers := []*api.User{
 		{
-			Email:     "user1@example.com",
-			Role:      "admin",
-			CreatedAt: "2024-01-01T00:00:00Z",
+			Email: "user1@example.com",
+			Role:  "admin",
 		},
 		{
-			Email:     "user2@example.com",
-			Role:      "developer",
-			CreatedAt: "2024-01-02T00:00:00Z",
+			Email: "user2@example.com",
+			Role:  "developer",
 		},
 	}
-
-	router := &Router{
-		svc: &mockServiceForUsers{
-			listUsersFunc: func(ctx context.Context) (*api.ListUsersResponse, error) {
-				return &api.ListUsersResponse{
-					Users: expectedUsers,
-				}, nil
-			},
+	userRepo := &testUserRepository{
+		listUsersFunc: func(_ context.Context) ([]*api.User, error) {
+			return expectedUsers, nil
 		},
 	}
+	router := newUserHandlerRouter(t, userRepo)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/users", nil)
-
-	// Add authenticated user
-	user := testutil.NewUserBuilder().WithEmail("admin@example.com").Build()
-	ctx := context.WithValue(req.Context(), userContextKey, &user)
-	req = req.WithContext(ctx)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/users", http.NoBody)
+	req = addAuthenticatedUser(req, adminTestUser())
 
 	w := httptest.NewRecorder()
-
 	router.handleListUsers(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -317,31 +241,23 @@ func TestHandleListUsers_Success(t *testing.T) {
 	var response api.ListUsersResponse
 	err := json.NewDecoder(w.Body).Decode(&response)
 	require.NoError(t, err)
-
 	assert.Len(t, response.Users, 2)
-	assert.Equal(t, "user1@example.com", response.Users[0].Email)
-	assert.Equal(t, "user2@example.com", response.Users[1].Email)
+	assert.Equal(t, expectedUsers[0].Email, response.Users[0].Email)
+	assert.Equal(t, expectedUsers[1].Email, response.Users[1].Email)
 }
 
 func TestHandleListUsers_EmptyList(t *testing.T) {
-	router := &Router{
-		svc: &mockServiceForUsers{
-			listUsersFunc: func(ctx context.Context) (*api.ListUsersResponse, error) {
-				return &api.ListUsersResponse{
-					Users: []api.User{},
-				}, nil
-			},
+	userRepo := &testUserRepository{
+		listUsersFunc: func(_ context.Context) ([]*api.User, error) {
+			return []*api.User{}, nil
 		},
 	}
+	router := newUserHandlerRouter(t, userRepo)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/users", nil)
-
-	user := testutil.NewUserBuilder().WithEmail("admin@example.com").Build()
-	ctx := context.WithValue(req.Context(), userContextKey, &user)
-	req = req.WithContext(ctx)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/users", http.NoBody)
+	req = addAuthenticatedUser(req, adminTestUser())
 
 	w := httptest.NewRecorder()
-
 	router.handleListUsers(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -349,44 +265,44 @@ func TestHandleListUsers_EmptyList(t *testing.T) {
 	var response api.ListUsersResponse
 	err := json.NewDecoder(w.Body).Decode(&response)
 	require.NoError(t, err)
-
 	assert.Len(t, response.Users, 0)
 }
 
 func TestHandleListUsers_NoAuthentication(t *testing.T) {
-	router := &Router{
-		svc: &mockServiceForUsers{},
-	}
+	userRepo := &testUserRepository{}
+	svc := newTestOrchestratorService(t, userRepo, &testExecutionRepository{}, nil, &testRunner{}, nil, nil, nil)
+	router := NewRouter(svc, time.Second, constants.DefaultCORSAllowedOrigins)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/users", nil)
-	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/users/", http.NoBody)
+	resp := httptest.NewRecorder()
 
-	router.handleListUsers(w, req)
+	router.ServeHTTP(resp, req)
 
-	// Should return unauthorized
-	assert.True(t, w.Code == http.StatusUnauthorized || w.Code == http.StatusForbidden)
+	assert.Equal(t, http.StatusUnauthorized, resp.Code)
 }
 
 func TestHandleListUsers_ServiceError(t *testing.T) {
-	router := &Router{
-		svc: &mockServiceForUsers{
-			listUsersFunc: func(ctx context.Context) (*api.ListUsersResponse, error) {
-				return nil, errors.New("database connection failed")
-			},
+	var hydrated bool
+	userRepo := &testUserRepository{
+		listUsersFunc: func(_ context.Context) ([]*api.User, error) {
+			if !hydrated {
+				hydrated = true
+				return []*api.User{
+					{Email: "seed@example.com", Role: "admin"},
+				}, nil
+			}
+			return nil, apperrors.ErrDatabaseError("database connection failed", nil)
 		},
 	}
+	router := newUserHandlerRouter(t, userRepo)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/users", nil)
-
-	user := testutil.NewUserBuilder().WithEmail("admin@example.com").Build()
-	ctx := context.WithValue(req.Context(), userContextKey, &user)
-	req = req.WithContext(ctx)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/users", http.NoBody)
+	req = addAuthenticatedUser(req, adminTestUser())
 
 	w := httptest.NewRecorder()
-
 	router.handleListUsers(w, req)
 
-	assert.Equal(t, http.StatusInternalServerError, w.Code)
+	assert.Equal(t, http.StatusServiceUnavailable, w.Code)
 }
 
 func TestHandleCreateUser_DifferentRoles(t *testing.T) {
@@ -394,19 +310,12 @@ func TestHandleCreateUser_DifferentRoles(t *testing.T) {
 
 	for _, role := range roles {
 		t.Run("role_"+role, func(t *testing.T) {
-			router := &Router{
-				svc: &mockServiceForUsers{
-					createUserFunc: func(ctx context.Context, req api.CreateUserRequest, creatorEmail string) (*api.CreateUserResponse, error) {
-						return &api.CreateUserResponse{
-							User: api.User{
-								Email: req.Email,
-								Role:  req.Role,
-							},
-							APIKey: "test-key",
-						}, nil
-					},
+			userRepo := &testUserRepository{
+				getUserByEmailFunc: func(_ string) (*api.User, error) {
+					return nil, nil
 				},
 			}
+			router := newUserHandlerRouter(t, userRepo)
 
 			reqBody := api.CreateUserRequest{
 				Email: "user@example.com",
@@ -415,15 +324,11 @@ func TestHandleCreateUser_DifferentRoles(t *testing.T) {
 			body, err := json.Marshal(reqBody)
 			require.NoError(t, err)
 
-			req := httptest.NewRequest(http.MethodPost, "/api/v1/users", bytes.NewReader(body))
+			req := httptest.NewRequest(http.MethodPost, "/api/v1/users/create", bytes.NewReader(body))
 			req.Header.Set("Content-Type", "application/json")
-
-			user := testutil.NewUserBuilder().WithEmail("admin@example.com").Build()
-			ctx := context.WithValue(req.Context(), userContextKey, &user)
-			req = req.WithContext(ctx)
+			req = addAuthenticatedUser(req, adminTestUser())
 
 			w := httptest.NewRecorder()
-
 			router.handleCreateUser(w, req)
 
 			assert.Equal(t, http.StatusCreated, w.Code)
@@ -431,75 +336,8 @@ func TestHandleCreateUser_DifferentRoles(t *testing.T) {
 			var response api.CreateUserResponse
 			err = json.NewDecoder(w.Body).Decode(&response)
 			require.NoError(t, err)
-
+			require.NotNil(t, response.User)
 			assert.Equal(t, role, response.User.Role)
 		})
-	}
-}
-
-// BenchmarkHandleCreateUser measures user creation performance
-func BenchmarkHandleCreateUser(b *testing.B) {
-	router := &Router{
-		svc: &mockServiceForUsers{
-			createUserFunc: func(ctx context.Context, req api.CreateUserRequest, creatorEmail string) (*api.CreateUserResponse, error) {
-				return &api.CreateUserResponse{
-					User: api.User{
-						Email: req.Email,
-						Role:  req.Role,
-					},
-					APIKey: "test-key",
-				}, nil
-			},
-		},
-	}
-
-	reqBody := api.CreateUserRequest{
-		Email: "bench@example.com",
-		Role:  "developer",
-	}
-	body, _ := json.Marshal(reqBody)
-
-	user := testutil.NewUserBuilder().WithEmail("admin@example.com").Build()
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		req := httptest.NewRequest(http.MethodPost, "/api/v1/users", bytes.NewReader(body))
-		ctx := context.WithValue(req.Context(), userContextKey, &user)
-		req = req.WithContext(ctx)
-
-		w := httptest.NewRecorder()
-		router.handleCreateUser(w, req)
-	}
-}
-
-// BenchmarkHandleListUsers measures user listing performance
-func BenchmarkHandleListUsers(b *testing.B) {
-	users := make([]api.User, 100)
-	for i := 0; i < 100; i++ {
-		users[i] = api.User{
-			Email:     "user" + string(rune(i)) + "@example.com",
-			Role:      "developer",
-			CreatedAt: "2024-01-01T00:00:00Z",
-		}
-	}
-
-	router := &Router{
-		svc: &mockServiceForUsers{
-			listUsersFunc: func(ctx context.Context) (*api.ListUsersResponse, error) {
-				return &api.ListUsersResponse{Users: users}, nil
-			},
-		},
-	}
-
-	user := testutil.NewUserBuilder().WithEmail("admin@example.com").Build()
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		req := httptest.NewRequest(http.MethodGet, "/api/v1/users", nil)
-		ctx := context.WithValue(req.Context(), userContextKey, &user)
-		req = req.WithContext(ctx)
-
-		w := httptest.NewRecorder()
-		router.handleListUsers(w, req)
 	}
 }
