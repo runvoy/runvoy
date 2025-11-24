@@ -88,7 +88,7 @@ func Initialize( //nolint:funlen // This is ok, lots of initializations required
 
 	// Create specialized manager implementations for each interface
 	taskManager := NewTaskManager(ecsClient, repos.ImageTaskDefRepo, providerCfg, log)
-	imageManager := NewImageManager(ecsClient, iamClient, repos.ImageTaskDefRepo, providerCfg, log)
+	imageRegistry := NewImageRegistry(ecsClient, iamClient, repos.ImageTaskDefRepo, providerCfg, log)
 	logManager := NewLogManager(cwlClient, providerCfg, log)
 	observabilityManager := NewObservabilityManager(cwlClient, log)
 
@@ -122,7 +122,7 @@ func Initialize( //nolint:funlen // This is ok, lots of initializations required
 		TokenRepo:            repos.TokenRepo,
 		ImageRepo:            repos.ImageTaskDefRepo,
 		TaskManager:          taskManager,
-		ImageRegistry:        imageManager,
+		ImageRegistry:        imageRegistry,
 		LogManager:           logManager,
 		ObservabilityManager: observabilityManager,
 		WebSocketManager:     wsManager,

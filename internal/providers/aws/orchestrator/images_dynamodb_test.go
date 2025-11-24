@@ -153,7 +153,7 @@ func TestProvider_BuildRoleARNs(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			manager := &ImageManagerImpl{
+			manager := &ImageRegistryImpl{
 				cfg:    &tt.cfg,
 				logger: testutil.SilentLogger(),
 			}
@@ -300,7 +300,7 @@ func TestProvider_DetermineDefaultStatus(t *testing.T) {
 				tt.mockSetup(mockRepo)
 			}
 
-			manager := &ImageManagerImpl{
+			manager := &ImageRegistryImpl{
 				imageRepo: mockRepo,
 				logger:    testutil.SilentLogger(),
 			}
@@ -396,7 +396,7 @@ func TestProvider_ListImages(t *testing.T) {
 				tt.mockSetup(mockRepo)
 			}
 
-			manager := &ImageManagerImpl{
+			manager := &ImageRegistryImpl{
 				imageRepo: mockRepo,
 				logger:    testutil.SilentLogger(),
 			}
@@ -524,7 +524,7 @@ func TestProvider_RemoveImage(t *testing.T) {
 				tt.mockSetup(mockRepo)
 			}
 
-			manager := &ImageManagerImpl{
+			manager := &ImageRegistryImpl{
 				imageRepo: mockRepo,
 				ecsClient: mockECS,
 				cfg:       &Config{AccountID: "123456789012"},
@@ -684,7 +684,7 @@ func TestProvider_GetImage(t *testing.T) {
 				tt.mockSetup(mockRepo)
 			}
 
-			manager := &ImageManagerImpl{
+			manager := &ImageRegistryImpl{
 				imageRepo: mockRepo,
 				logger:    testutil.SilentLogger(),
 			}
@@ -987,7 +987,7 @@ func TestProvider_ValidateIAMRoles(t *testing.T) {
 				iamClient = mockIAM
 			}
 
-			manager := &ImageManagerImpl{
+			manager := &ImageRegistryImpl{
 				iamClient: iamClient,
 				cfg: &Config{
 					AccountID: tt.accountID,
