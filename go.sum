@@ -28,8 +28,8 @@ github.com/aws/aws-sdk-go-v2/service/apigatewaymanagementapi v1.29.5 h1:Pb0Tw2lT
 github.com/aws/aws-sdk-go-v2/service/apigatewaymanagementapi v1.29.5/go.mod h1:pMLwaph/XfyzjxZ22ZD2/5WIjYlU8ZDOLOcv+BjZcrQ=
 github.com/aws/aws-sdk-go-v2/service/cloudformation v1.69.0 h1:j0CV6SEm1hDnAOz27l2js06eAHuUESjlPW6kCxCgEbA=
 github.com/aws/aws-sdk-go-v2/service/cloudformation v1.69.0/go.mod h1:llucikq1Q6I1Ps8rNV3St0bOY5RQMxYh1lpCaskyhPw=
-github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs v1.58.9 h1:+NSIzl59vBK3g3nLUuLSb/I2F2OIucW6hX/B+NAPWDg=
-github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs v1.58.9/go.mod h1:9/Q0/HtqBTLMksFse42wZjUq0jJrUuo4XlnXy/uSoeg=
+github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs v1.59.0 h1:6qFyfr35Z9IofcMtn8mTKBB1pDjbabZksyq8R16bSRw=
+github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs v1.59.0/go.mod h1:9/Q0/HtqBTLMksFse42wZjUq0jJrUuo4XlnXy/uSoeg=
 github.com/aws/aws-sdk-go-v2/service/dynamodb v1.52.6 h1:jlPkBSbMSpqVk47u9kqblihtXlmzYv3ZFXtuNKUNwDc=
 github.com/aws/aws-sdk-go-v2/service/dynamodb v1.52.6/go.mod h1:6eUUnWOJ8sucL5Uk8rPkFo8FYioM0CTNGHga8hwzXVc=
 github.com/aws/aws-sdk-go-v2/service/dynamodbstreams v1.32.4 h1:/uHlzAMroQ8CDKyCxC0sTgZKQNZUoG9USaWQ8PT3fG4=
