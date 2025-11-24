@@ -97,8 +97,6 @@ func NewTaskManager(
 }
 
 // StartTask triggers an ECS Fargate task and returns identifiers.
-//
-//nolint:dupl // Duplicate with Provider for backwards compatibility
 func (t *TaskManagerImpl) StartTask(
 	ctx context.Context, userEmail string, req *api.ExecutionRequest) (string, *time.Time, error) {
 	if t.ecsClient == nil {
@@ -242,8 +240,6 @@ func (t *TaskManagerImpl) configureGitRepo(
 }
 
 // buildContainerOverrides constructs the container overrides for sidecar and main runner containers.
-//
-//nolint:dupl // Duplicate with Provider for backwards compatibility
 func (t *TaskManagerImpl) buildContainerOverrides(
 	ctx context.Context, req *api.ExecutionRequest, gitConfig *gitRepoConfig, _ *slog.Logger,
 ) ([]ecsTypes.ContainerOverride, []ecsTypes.KeyValuePair) {
@@ -351,8 +347,6 @@ func (t *TaskManagerImpl) executeTask(
 }
 
 // logTaskStarted logs the successful task start with request details.
-//
-//nolint:dupl // Duplicate with Provider for backwards compatibility
 func (t *TaskManagerImpl) logTaskStarted(
 	reqLogger *slog.Logger,
 	userEmail, taskARN, executionID string,
@@ -401,7 +395,7 @@ func (t *TaskManagerImpl) logTaskStarted(
 // It checks the task status before termination and only stops tasks that are RUNNING or ACTIVATING.
 // Returns an error if the task is already terminated or not found.
 //
-//nolint:funlen,dupl // Complex AWS API orchestration; duplicate with Provider for backwards compatibility
+//nolint:funlen // Complex AWS API orchestration
 func (t *TaskManagerImpl) KillTask(ctx context.Context, executionID string) error {
 	if t.ecsClient == nil {
 		return appErrors.ErrInternalError("ECS client not configured", nil)
@@ -475,8 +469,6 @@ func (t *TaskManagerImpl) KillTask(ctx context.Context, executionID string) erro
 }
 
 // findTaskARNByExecutionID finds the task ARN for a given execution ID by checking both running and stopped tasks.
-//
-//nolint:dupl // Duplicate with Provider for backwards compatibility
 func (t *TaskManagerImpl) findTaskARNByExecutionID(
 	ctx context.Context, executionID string, reqLogger *slog.Logger,
 ) (string, error) {
@@ -527,86 +519,6 @@ func (t *TaskManagerImpl) findTaskARNByExecutionID(
 	}
 
 	return taskARN, nil
-}
-
-// Provider provides AWS ECS Fargate implementations for the orchestrator interfaces.
-//
-// Deprecated: Use specific manager implementations (TaskManagerImpl, ImageManagerImpl, etc.) instead.
-// This struct is kept for backwards compatibility during the migration.
-// It implements:
-//   - TaskManager: Task lifecycle management via ECS
-//   - ImageRegistry: Docker image registration via ECS task definitions and DynamoDB
-//   - LogManager: Execution log retrieval via CloudWatch Logs
-//   - ObservabilityManager: Backend infrastructure log retrieval via CloudWatch Logs Insights
-type Provider struct {
-	ecsClient awsClient.ECSClient
-	cwlClient awsClient.CloudWatchLogsClient
-	iamClient awsClient.IAMClient
-	imageRepo ImageTaskDefRepository
-	cfg       *Config
-	logger    *slog.Logger
-
-	// Test-only: configurable delays for testing (used in logs.go)
-	testQueryInitialDelay time.Duration
-	testQueryPollInterval time.Duration
-	testQueryMaxAttempts  int
-}
-
-// NewProvider creates a new AWS ECS provider with the provided configuration.
-//
-// Deprecated: Use NewTaskManager, NewImageManager, NewLogManager, and NewObservabilityManager instead.
-func NewProvider(
-	ecsClient awsClient.ECSClient,
-	cwlClient awsClient.CloudWatchLogsClient,
-	iamClient awsClient.IAMClient,
-	imageRepo ImageTaskDefRepository,
-	cfg *Config,
-	log *slog.Logger,
-) *Provider {
-	return &Provider{
-		ecsClient: ecsClient,
-		cwlClient: cwlClient,
-		iamClient: iamClient,
-		imageRepo: imageRepo,
-		cfg:       cfg,
-		logger:    log,
-	}
-}
-
-// FetchLogsByExecutionID returns CloudWatch log events for the given execution ID.
-//
-//nolint:dupl // Duplicate with LogManagerImpl for backwards compatibility
-func (e *Provider) FetchLogsByExecutionID(ctx context.Context, executionID string) ([]api.LogEvent, error) {
-	if executionID == "" {
-		return nil, appErrors.ErrBadRequest("executionID is required", nil)
-	}
-
-	stream := awsConstants.BuildLogStreamName(executionID)
-	reqLogger := logger.DeriveRequestLogger(ctx, e.logger)
-
-	if verifyErr := verifyLogStreamExists(
-		ctx, e.cwlClient, e.cfg.LogGroup, stream, executionID, reqLogger,
-	); verifyErr != nil {
-		return nil, verifyErr
-	}
-
-	reqLogger.Debug("calling external service", "context", map[string]string{
-		"operation":    "CloudWatchLogs.GetLogEvents",
-		"log_group":    e.cfg.LogGroup,
-		"log_stream":   stream,
-		"execution_id": executionID,
-		"paginated":    "true",
-	})
-
-	events, err := getAllLogEvents(ctx, e.cwlClient, e.cfg.LogGroup, stream)
-	if err != nil {
-		return nil, err
-	}
-	reqLogger.Debug("log events fetched successfully", "context", map[string]string{
-		"events_count": fmt.Sprintf("%d", len(events)),
-	})
-
-	return events, nil
 }
 
 type sidecarScriptData struct {
@@ -693,6 +605,14 @@ type gitRepoInfo struct {
 	RepoPath *string
 }
 
+// gitRepoConfig holds the configuration for git repository setup
+type gitRepoConfig struct {
+	HasRepo              bool
+	AuthenticatedRepoURL string
+	Ref                  string
+	Info                 *gitRepoInfo
+}
+
 type mainScriptRepoData struct {
 	URL     string
 	Ref     string
@@ -740,222 +660,6 @@ func buildMainContainerCommand(req *api.ExecutionRequest, requestID, image strin
 	return []string{"/bin/sh", "-c", script}
 }
 
-// StartTask triggers an ECS Fargate task and returns identifiers.
-//
-//nolint:dupl // Duplicate with TaskManagerImpl for backwards compatibility
-func (e *Provider) StartTask(
-	ctx context.Context, userEmail string, req *api.ExecutionRequest) (string, *time.Time, error) {
-	if e.ecsClient == nil {
-		return "", nil, appErrors.ErrInternalError("ECS cli endpoint not configured", nil)
-	}
-
-	reqLogger := logger.DeriveRequestLogger(ctx, e.logger)
-
-	imageToUse, taskDefARN, err := e.resolveImage(ctx, req, reqLogger)
-	if err != nil {
-		return "", nil, err
-	}
-
-	gitConfig := e.configureGitRepo(ctx, req, reqLogger)
-
-	containerOverrides, mainEnvVars := e.buildContainerOverrides(ctx, req, gitConfig, reqLogger)
-
-	runTaskInput := e.buildRunTaskInput(userEmail, taskDefARN, containerOverrides, gitConfig.HasRepo)
-
-	executionID, createdAt, taskARN, err := e.executeTask(ctx, runTaskInput, imageToUse, reqLogger)
-	if err != nil {
-		return "", nil, err
-	}
-
-	e.logTaskStarted(reqLogger, userEmail, taskARN, executionID, createdAt, req, imageToUse, mainEnvVars)
-
-	return executionID, createdAt, nil
-}
-
-// resolveImage retrieves the task definition ARN for the given imageID.
-// The req.Image field contains an imageID that was resolved and validated by the service layer.
-// If empty, falls back to the default image as a safety measure.
-func (e *Provider) resolveImage(
-	ctx context.Context, req *api.ExecutionRequest, reqLogger *slog.Logger,
-) (imageToUse, taskDefARN string, err error) {
-	imageToUse = req.Image
-
-	if imageToUse == "" {
-		defaultImage, getErr := e.GetDefaultImageFromDB(ctx)
-		if getErr != nil {
-			return "", "", appErrors.ErrInternalError("failed to query default image", getErr)
-		}
-		if defaultImage == "" {
-			return "", "", appErrors.ErrBadRequest("no image specified and no default image configured", nil)
-		}
-		imageToUse = defaultImage
-		reqLogger.Debug("using default image", "image", imageToUse)
-	}
-
-	taskDefARN, err = e.GetTaskDefinitionARNForImage(ctx, imageToUse)
-	if err != nil {
-		return "", "", appErrors.ErrBadRequest("image not registered", err)
-	}
-
-	reqLogger.Debug("task definition resolved", "context", map[string]string{
-		"image_id": imageToUse,
-		"arn":      taskDefARN,
-	})
-
-	return
-}
-
-// gitRepoConfig holds the configuration for git repository setup
-type gitRepoConfig struct {
-	HasRepo              bool
-	AuthenticatedRepoURL string
-	Ref                  string
-	Info                 *gitRepoInfo
-}
-
-// configureGitRepo sets up git repository configuration if provided in the request.
-func (e *Provider) configureGitRepo(
-	_ context.Context, req *api.ExecutionRequest, reqLogger *slog.Logger,
-) *gitRepoConfig {
-	config := &gitRepoConfig{HasRepo: req.GitRepo != ""}
-
-	if !config.HasRepo {
-		return config
-	}
-
-	gitRef := req.GitRef
-	if gitRef == "" {
-		gitRef = constants.DefaultGitRef
-	}
-	config.Ref = gitRef
-
-	config.AuthenticatedRepoURL = injectGitHubTokenIfNeeded(req.GitRepo, req.Env)
-
-	config.Info = &gitRepoInfo{
-		RepoURL:  awsStd.String(config.AuthenticatedRepoURL),
-		RepoRef:  awsStd.String(gitRef),
-		RepoPath: awsStd.String(req.GitPath),
-	}
-
-	reqLogger.Debug("git repository configured",
-		"git_repo", req.GitRepo,
-		"git_ref", gitRef)
-	if config.AuthenticatedRepoURL != req.GitRepo {
-		reqLogger.Debug("using GitHub token for repository authentication")
-	}
-
-	return config
-}
-
-// buildContainerOverrides constructs the container overrides for sidecar and main runner containers.
-//
-//nolint:dupl // Duplicate with TaskManagerImpl for backwards compatibility
-func (e *Provider) buildContainerOverrides(
-	ctx context.Context, req *api.ExecutionRequest, gitConfig *gitRepoConfig, _ *slog.Logger,
-) ([]ecsTypes.ContainerOverride, []ecsTypes.KeyValuePair) {
-	requestID := logger.GetRequestID(ctx)
-
-	mainEnvVars := []ecsTypes.KeyValuePair{
-		{Name: awsStd.String("RUNVOY_COMMAND"), Value: awsStd.String(req.Command)},
-	}
-	for key, value := range req.Env {
-		mainEnvVars = append(mainEnvVars, ecsTypes.KeyValuePair{
-			Name:  awsStd.String(key),
-			Value: awsStd.String(value),
-		})
-	}
-
-	sidecarEnv := buildSidecarEnvironment(req.Env)
-	if gitConfig.HasRepo {
-		sidecarEnv = append(sidecarEnv,
-			ecsTypes.KeyValuePair{Name: awsStd.String("GIT_REPO"), Value: awsStd.String(gitConfig.AuthenticatedRepoURL)},
-			ecsTypes.KeyValuePair{Name: awsStd.String("GIT_REF"), Value: awsStd.String(gitConfig.Ref)},
-		)
-	} else {
-		sidecarEnv = append(sidecarEnv,
-			ecsTypes.KeyValuePair{Name: awsStd.String("GIT_REPO"), Value: awsStd.String("")},
-		)
-	}
-
-	return []ecsTypes.ContainerOverride{
-		{
-			Name:        awsStd.String(awsConstants.SidecarContainerName),
-			Command:     buildSidecarContainerCommand(gitConfig.HasRepo, req.Env, req.SecretVarNames),
-			Environment: sidecarEnv,
-		},
-		{
-			Name:        awsStd.String(awsConstants.RunnerContainerName),
-			Command:     buildMainContainerCommand(req, requestID, req.Image, gitConfig.Info),
-			Environment: mainEnvVars,
-		},
-	}, mainEnvVars
-}
-
-// buildRunTaskInput constructs the ECS RunTask input with all necessary configuration.
-func (e *Provider) buildRunTaskInput(
-	userEmail, taskDefARN string,
-	containerOverrides []ecsTypes.ContainerOverride,
-	hasGitRepo bool,
-) *ecs.RunTaskInput {
-	tags := []ecsTypes.Tag{
-		{Key: awsStd.String("UserEmail"), Value: awsStd.String(userEmail)},
-	}
-	if hasGitRepo {
-		tags = append(tags, ecsTypes.Tag{
-			Key:   awsStd.String("HasGitRepo"),
-			Value: awsStd.String("true"),
-		})
-	}
-
-	return &ecs.RunTaskInput{
-		Cluster:        awsStd.String(e.cfg.ECSCluster),
-		TaskDefinition: awsStd.String(taskDefARN),
-		LaunchType:     ecsTypes.LaunchTypeFargate,
-		Overrides: &ecsTypes.TaskOverride{
-			ContainerOverrides: containerOverrides,
-		},
-		NetworkConfiguration: &ecsTypes.NetworkConfiguration{
-			AwsvpcConfiguration: &ecsTypes.AwsVpcConfiguration{
-				Subnets:        []string{e.cfg.Subnet1, e.cfg.Subnet2},
-				SecurityGroups: []string{e.cfg.SecurityGroup},
-				AssignPublicIp: ecsTypes.AssignPublicIpEnabled,
-			},
-		},
-		Tags: tags,
-	}
-}
-
-// executeTask calls the ECS RunTask API and extracts execution identifiers from the response.
-func (e *Provider) executeTask(
-	ctx context.Context,
-	runTaskInput *ecs.RunTaskInput,
-	imageToUse string,
-	reqLogger *slog.Logger,
-) (executionID string, createdAt *time.Time, taskARN string, err error) {
-	logAWSAPICall(ctx, reqLogger, "ECS.RunTask", map[string]any{
-		"cluster":         e.cfg.ECSCluster,
-		"task_definition": runTaskInput.TaskDefinition,
-		"image":           imageToUse,
-		"container_count": len(runTaskInput.Overrides.ContainerOverrides),
-	})
-
-	runTaskOutput, err := e.ecsClient.RunTask(ctx, runTaskInput)
-	if err != nil {
-		return "", nil, "", appErrors.ErrInternalError("failed to start ECS task", err)
-	}
-	if len(runTaskOutput.Tasks) == 0 {
-		return "", nil, "", appErrors.ErrInternalError("no tasks were started", nil)
-	}
-
-	task := runTaskOutput.Tasks[0]
-	taskARN = awsStd.ToString(task.TaskArn)
-	executionIDParts := strings.Split(taskARN, "/")
-	executionID = executionIDParts[len(executionIDParts)-1]
-	createdAt = task.CreatedAt
-
-	return executionID, createdAt, taskARN, nil
-}
-
 // logAWSAPICall logs an AWS API call with standardized format including operation name and context.
 func logAWSAPICall(ctx context.Context, reqLogger *slog.Logger, operation string, contextFields map[string]any) {
 	logArgs := []any{"operation", operation}
@@ -964,108 +668,6 @@ func logAWSAPICall(ctx context.Context, reqLogger *slog.Logger, operation string
 	}
 	logArgs = append(logArgs, logger.GetDeadlineInfo(ctx)...)
 	reqLogger.Debug("calling external service", "context", logger.SliceToMap(logArgs))
-}
-
-// logTaskStarted logs the successful task start with request details.
-//
-//nolint:dupl // Duplicate with TaskManagerImpl for backwards compatibility
-func (e *Provider) logTaskStarted(
-	reqLogger *slog.Logger,
-	userEmail, taskARN, executionID string,
-	createdAt *time.Time,
-	req *api.ExecutionRequest,
-	imageToUse string,
-	_ []ecsTypes.KeyValuePair,
-) {
-	requestFields := make(map[string]string)
-	if req.Command != "" {
-		requestFields["command"] = req.Command
-	}
-	if imageToUse != "" {
-		requestFields["image"] = imageToUse
-	}
-	if req.GitRepo != "" {
-		requestFields["git_repo"] = req.GitRepo
-	}
-	if req.GitRef != "" {
-		requestFields["git_ref"] = req.GitRef
-	}
-	if req.GitPath != "" {
-		requestFields["git_path"] = req.GitPath
-	}
-	if len(req.Env) > 0 {
-		requestFields["env_keys"] = strings.Join(slices.Collect(maps.Keys(req.Env)), ", ")
-	}
-	if len(req.Secrets) > 0 {
-		requestFields["secrets"] = strings.Join(req.Secrets, ", ")
-	}
-
-	logContext := map[string]any{
-		"user_email":   userEmail,
-		"task_arn":     taskARN,
-		"execution_id": executionID,
-		"created_at":   createdAt.Format(time.RFC3339),
-	}
-	if len(requestFields) > 0 {
-		logContext["request"] = requestFields
-	}
-
-	reqLogger.Info("task started", "context", logContext)
-}
-
-// findTaskARNByExecutionID finds the task ARN for a given execution ID by checking both running and stopped tasks.
-//
-//nolint:dupl // Duplicate with TaskManagerImpl for backwards compatibility
-func (e *Provider) findTaskARNByExecutionID(
-	ctx context.Context, executionID string, reqLogger *slog.Logger,
-) (string, error) {
-	listLogArgs := []any{
-		"operation", "ECS.ListTasks",
-		"cluster", e.cfg.ECSCluster,
-		"desired_status", "RUNNING",
-		"execution_id", executionID,
-	}
-	listLogArgs = append(listLogArgs, logger.GetDeadlineInfo(ctx)...)
-	reqLogger.Debug("calling external service", "context", logger.SliceToMap(listLogArgs))
-
-	listOutput, err := e.ecsClient.ListTasks(ctx, &ecs.ListTasksInput{
-		Cluster:       awsStd.String(e.cfg.ECSCluster),
-		DesiredStatus: ecsTypes.DesiredStatusRunning,
-	})
-	if err != nil {
-		reqLogger.Debug("failed to list tasks", "error", err, "execution_id", executionID)
-		return "", appErrors.ErrInternalError("failed to list tasks", err)
-	}
-
-	taskARN := extractTaskARNFromList(listOutput.TaskArns, executionID)
-	if taskARN != "" {
-		return taskARN, nil
-	}
-
-	// If not found in running tasks, check stopped tasks
-	listStoppedLogArgs := []any{
-		"operation", "ECS.ListTasks",
-		"cluster", e.cfg.ECSCluster,
-		"desired_status", "STOPPED",
-		"execution_id", executionID,
-	}
-	listStoppedLogArgs = append(listStoppedLogArgs, logger.GetDeadlineInfo(ctx)...)
-	reqLogger.Debug("calling external service", "context", logger.SliceToMap(listStoppedLogArgs))
-
-	listStoppedOutput, err := e.ecsClient.ListTasks(ctx, &ecs.ListTasksInput{
-		Cluster:       awsStd.String(e.cfg.ECSCluster),
-		DesiredStatus: ecsTypes.DesiredStatusStopped,
-	})
-	if err == nil {
-		taskARN = extractTaskARNFromList(listStoppedOutput.TaskArns, executionID)
-	}
-
-	if taskARN == "" {
-		reqLogger.Error("task not found", "execution_id", executionID)
-		return "", appErrors.ErrNotFound("task not found", nil)
-	}
-
-	return taskARN, nil
 }
 
 // extractTaskARNFromList finds the task ARN that matches the execution ID from a list of task ARNs.
@@ -1104,83 +706,6 @@ func validateTaskStatusForKill(currentStatus string) error {
 				currentStatus,
 				strings.Join(taskRunnableStatuses, ", ")))
 	}
-
-	return nil
-}
-
-// KillTask terminates an ECS task identified by executionID.
-// It checks the task status before termination and only stops tasks that are RUNNING or ACTIVATING.
-// Returns an error if the task is already terminated or not found.
-//
-//nolint:funlen,dupl // Complex AWS API orchestration; duplicate with TaskManagerImpl for backwards compatibility
-func (e *Provider) KillTask(ctx context.Context, executionID string) error {
-	if e.ecsClient == nil {
-		return appErrors.ErrInternalError("ECS client not configured", nil)
-	}
-
-	reqLogger := logger.DeriveRequestLogger(ctx, e.logger)
-
-	taskARN, err := e.findTaskARNByExecutionID(ctx, executionID, reqLogger)
-	if err != nil {
-		// Error is already wrapped by findTaskARNByExecutionID, pass through
-		return err
-	}
-
-	logAWSAPICall(ctx, reqLogger, "ECS.DescribeTasks", map[string]any{
-		"cluster":      e.cfg.ECSCluster,
-		"task_arn":     taskARN,
-		"execution_id": executionID,
-	})
-
-	describeOutput, err := e.ecsClient.DescribeTasks(ctx, &ecs.DescribeTasksInput{
-		Cluster: awsStd.String(e.cfg.ECSCluster),
-		Tasks:   []string{taskARN},
-	})
-	if err != nil {
-		reqLogger.Error("failed to describe task",
-			"error", err,
-			"execution_id", executionID,
-			"task_arn", taskARN)
-		return appErrors.ErrInternalError("failed to describe task", err)
-	}
-
-	if len(describeOutput.Tasks) == 0 {
-		reqLogger.Error("task not found",
-			"execution_id", executionID,
-			"task_arn", taskARN)
-		return appErrors.ErrNotFound("task not found", nil)
-	}
-
-	task := describeOutput.Tasks[0]
-	currentStatus := awsStd.ToString(task.LastStatus)
-	reqLogger.Debug("task status check", "execution_id", executionID, "status", currentStatus)
-
-	if validateErr := validateTaskStatusForKill(currentStatus); validateErr != nil {
-		return validateErr
-	}
-
-	logAWSAPICall(ctx, reqLogger, "ECS.StopTask", map[string]any{
-		"cluster":        e.cfg.ECSCluster,
-		"task_arn":       taskARN,
-		"execution_id":   executionID,
-		"current_status": currentStatus,
-	})
-
-	stopOutput, err := e.ecsClient.StopTask(ctx, &ecs.StopTaskInput{
-		Cluster: awsStd.String(e.cfg.ECSCluster),
-		Task:    awsStd.String(taskARN),
-		Reason:  awsStd.String("Terminated by user via kill endpoint"),
-	})
-	if err != nil {
-		reqLogger.Error("failed to stop task", "error", err, "execution_id", executionID, "task_arn", taskARN)
-		return appErrors.ErrInternalError("failed to stop task", err)
-	}
-
-	reqLogger.Info(
-		"task termination initiated",
-		"execution_id", executionID,
-		"task_arn", awsStd.ToString(stopOutput.Task.TaskArn),
-		"previous_status", currentStatus)
 
 	return nil
 }

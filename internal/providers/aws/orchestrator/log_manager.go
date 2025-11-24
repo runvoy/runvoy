@@ -36,8 +36,6 @@ func NewLogManager(
 }
 
 // FetchLogsByExecutionID returns CloudWatch log events for the given execution ID.
-//
-//nolint:dupl // Duplicate with Provider for backwards compatibility
 func (l *LogManagerImpl) FetchLogsByExecutionID(ctx context.Context, executionID string) ([]api.LogEvent, error) {
 	if executionID == "" {
 		return nil, appErrors.ErrBadRequest("executionID is required", nil)

@@ -394,8 +394,8 @@ func TestDiscoverLogGroups(t *testing.T) {
 			},
 		}
 
-		provider := &Provider{cwlClient: mock, logger: testutil.SilentLogger()}
-		groups, err := provider.discoverLogGroups(ctx, testutil.SilentLogger())
+		manager := &ObservabilityManagerImpl{cwlClient: mock, logger: testutil.SilentLogger()}
+		groups, err := manager.discoverLogGroups(ctx, testutil.SilentLogger())
 		require.NoError(t, err)
 		require.Len(t, groups, 2)
 		assert.Contains(t, groups, "/aws/lambda/runvoy-orchestrator")
@@ -430,8 +430,8 @@ func TestDiscoverLogGroups(t *testing.T) {
 			},
 		}
 
-		provider := &Provider{cwlClient: mock, logger: testutil.SilentLogger()}
-		groups, err := provider.discoverLogGroups(ctx, testutil.SilentLogger())
+		manager := &ObservabilityManagerImpl{cwlClient: mock, logger: testutil.SilentLogger()}
+		groups, err := manager.discoverLogGroups(ctx, testutil.SilentLogger())
 		require.NoError(t, err)
 		require.Len(t, groups, 2)
 		assert.Equal(t, 2, pageCount)
@@ -450,8 +450,8 @@ func TestDiscoverLogGroups(t *testing.T) {
 			},
 		}
 
-		provider := &Provider{cwlClient: mock, logger: testutil.SilentLogger()}
-		groups, err := provider.discoverLogGroups(ctx, testutil.SilentLogger())
+		manager := &ObservabilityManagerImpl{cwlClient: mock, logger: testutil.SilentLogger()}
+		groups, err := manager.discoverLogGroups(ctx, testutil.SilentLogger())
 		require.NoError(t, err)
 		require.Len(t, groups, 0)
 	})
@@ -467,15 +467,15 @@ func TestDiscoverLogGroups(t *testing.T) {
 			},
 		}
 
-		provider := &Provider{cwlClient: mock, logger: testutil.SilentLogger()}
-		groups, err := provider.discoverLogGroups(ctx, testutil.SilentLogger())
+		manager := &ObservabilityManagerImpl{cwlClient: mock, logger: testutil.SilentLogger()}
+		groups, err := manager.discoverLogGroups(ctx, testutil.SilentLogger())
 		require.Error(t, err)
 		assert.Nil(t, groups)
 	})
 }
 
 func TestTransformBackendLogsResults(t *testing.T) {
-	provider := &Provider{}
+	manager := &ObservabilityManagerImpl{}
 
 	t.Run("parses JSON message timestamps", func(t *testing.T) {
 		results := [][]cwlTypes.ResultField{
@@ -486,7 +486,7 @@ func TestTransformBackendLogsResults(t *testing.T) {
 			},
 		}
 
-		logs := provider.transformBackendLogsResults(results)
+		logs := manager.transformBackendLogsResults(results)
 		require.Len(t, logs, 1)
 		assert.Equal(t, `{"time":"2025-11-21T16:40:01.123456789Z","level":"INFO","msg":"Request started"}`, logs[0].Message)
 		// Timestamp should come from message JSON, not CloudWatch @timestamp
@@ -504,7 +504,7 @@ func TestTransformBackendLogsResults(t *testing.T) {
 			},
 		}
 
-		logs := provider.transformBackendLogsResults(results)
+		logs := manager.transformBackendLogsResults(results)
 		require.Len(t, logs, 1)
 		assert.Equal(t, "Plain text message", logs[0].Message)
 		// Timestamp should come from CloudWatch @timestamp
@@ -514,7 +514,7 @@ func TestTransformBackendLogsResults(t *testing.T) {
 
 	t.Run("handles empty results", func(t *testing.T) {
 		results := [][]cwlTypes.ResultField{}
-		logs := provider.transformBackendLogsResults(results)
+		logs := manager.transformBackendLogsResults(results)
 		require.Len(t, logs, 0)
 	})
 
@@ -527,7 +527,7 @@ func TestTransformBackendLogsResults(t *testing.T) {
 			},
 		}
 
-		logs := provider.transformBackendLogsResults(results)
+		logs := manager.transformBackendLogsResults(results)
 		require.Len(t, logs, 1)
 		assert.Equal(t, "Test message", logs[0].Message)
 	})
@@ -539,7 +539,7 @@ func TestTransformBackendLogsResults(t *testing.T) {
 			},
 		}
 
-		logs := provider.transformBackendLogsResults(results)
+		logs := manager.transformBackendLogsResults(results)
 		require.Len(t, logs, 1)
 		assert.Equal(t, "Test message with no timestamp", logs[0].Message)
 		// Timestamp should be 0 when not available
@@ -554,7 +554,7 @@ func TestTransformBackendLogsResults(t *testing.T) {
 			},
 		}
 
-		logs := provider.transformBackendLogsResults(results)
+		logs := manager.transformBackendLogsResults(results)
 		require.Len(t, logs, 1)
 		// Falls back to CloudWatch timestamp
 		assert.Greater(t, logs[0].Timestamp, int64(0))
@@ -624,8 +624,8 @@ func TestFetchBackendLogs(t *testing.T) {
 	requestID := "aws-request-id-12345"
 
 	// Use shorter delays for tests to speed up execution
-	testProvider := func(mock *mockCloudWatchLogsClient) *Provider {
-		return &Provider{
+	testManager := func(mock *mockCloudWatchLogsClient) *ObservabilityManagerImpl {
+		return &ObservabilityManagerImpl{
 			cwlClient:             mock,
 			logger:                testutil.SilentLogger(),
 			testQueryInitialDelay: 10 * time.Millisecond,
@@ -645,8 +645,8 @@ func TestFetchBackendLogs(t *testing.T) {
 			},
 		})
 
-		provider := testProvider(mock)
-		logs, err := provider.FetchBackendLogs(ctx, requestID)
+		manager := testManager(mock)
+		logs, err := manager.FetchBackendLogs(ctx, requestID)
 		require.NoError(t, err)
 		require.Len(t, logs, 1)
 		assert.Equal(t, "Log entry 1", logs[0].Message)
@@ -657,8 +657,8 @@ func TestFetchBackendLogs(t *testing.T) {
 			describeErr: errors.New("AWS API error"),
 		})
 
-		provider := testProvider(mock)
-		logs, err := provider.FetchBackendLogs(ctx, requestID)
+		manager := testManager(mock)
+		logs, err := manager.FetchBackendLogs(ctx, requestID)
 		require.Error(t, err)
 		assert.Nil(t, logs)
 	})
@@ -668,8 +668,8 @@ func TestFetchBackendLogs(t *testing.T) {
 			noLogGroups: true,
 		})
 
-		provider := testProvider(mock)
-		logs, err := provider.FetchBackendLogs(ctx, requestID)
+		manager := testManager(mock)
+		logs, err := manager.FetchBackendLogs(ctx, requestID)
 		require.Error(t, err)
 		assert.Nil(t, logs)
 	})
@@ -679,8 +679,8 @@ func TestFetchBackendLogs(t *testing.T) {
 			startQueryErr: errors.New("failed to start query"),
 		})
 
-		provider := testProvider(mock)
-		logs, err := provider.FetchBackendLogs(ctx, requestID)
+		manager := testManager(mock)
+		logs, err := manager.FetchBackendLogs(ctx, requestID)
 		require.Error(t, err)
 		assert.Nil(t, logs)
 	})
@@ -690,8 +690,8 @@ func TestFetchBackendLogs(t *testing.T) {
 			getResultsStatus: cwlTypes.QueryStatusRunning,
 		})
 
-		provider := testProvider(mock)
-		logs, err := provider.FetchBackendLogs(ctx, requestID)
+		manager := testManager(mock)
+		logs, err := manager.FetchBackendLogs(ctx, requestID)
 		require.Error(t, err)
 		assert.Nil(t, logs)
 	})
@@ -701,8 +701,8 @@ func TestFetchBackendLogs(t *testing.T) {
 			getResultsStatus: cwlTypes.QueryStatusFailed,
 		})
 
-		provider := testProvider(mock)
-		logs, err := provider.FetchBackendLogs(ctx, requestID)
+		manager := testManager(mock)
+		logs, err := manager.FetchBackendLogs(ctx, requestID)
 		require.Error(t, err)
 		assert.Nil(t, logs)
 	})

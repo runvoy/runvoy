@@ -171,8 +171,6 @@ func (o *ObservabilityManagerImpl) discoverLogGroups(ctx context.Context, _ *slo
 }
 
 // pollBackendLogsQuery polls for CloudWatch Logs Insights query results
-//
-//nolint:dupl // Duplicate with Provider for backwards compatibility
 func (o *ObservabilityManagerImpl) pollBackendLogsQuery(
 	ctx context.Context,
 	log *slog.Logger,
