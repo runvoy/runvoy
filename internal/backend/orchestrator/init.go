@@ -1,5 +1,3 @@
-// Package orchestrator provides the core orchestrator service for runvoy.
-// It initializes and manages command execution and API request handling.
 package orchestrator
 
 import (

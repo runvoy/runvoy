@@ -1,4 +1,3 @@
-// Package constants defines global constants used throughout runvoy.
 package constants
 
 // APIKeyByteSize is the number of random bytes used to generate API keys

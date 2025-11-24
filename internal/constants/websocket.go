@@ -1,4 +1,3 @@
-// Package constants defines global constants used throughout runvoy.
 package constants
 
 // ConnectionTTLHours is the time-to-live for connection records in the database (24 hours)

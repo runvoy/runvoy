@@ -1,5 +1,3 @@
-// Package websocket provides AWS-specific WebSocket management implementation for runvoy.
-// It handles connection lifecycle events via API Gateway and manages WebSocket connections in DynamoDB.
 package websocket
 
 import (

@@ -1,5 +1,3 @@
-// Package database defines the repository interfaces for data persistence.
-// This file contains the SecretsRepository interface for secret metadata management.
 package database
 
 import (

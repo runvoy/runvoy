@@ -1,4 +1,3 @@
-// Package constants provides AWS-specific constants for CloudWatch logging and events.
 package constants
 
 import (

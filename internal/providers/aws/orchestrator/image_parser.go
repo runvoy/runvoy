@@ -1,5 +1,3 @@
-// Package orchestrator provides AWS-specific implementations for runvoy orchestrator.
-// This file contains Docker image reference parsing utilities.
 package orchestrator
 
 import (

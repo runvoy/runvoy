@@ -1,5 +1,3 @@
-// Package health provides AWS-specific health management implementation for runvoy.
-// This file contains tests for the health manager.
 package health
 
 import (

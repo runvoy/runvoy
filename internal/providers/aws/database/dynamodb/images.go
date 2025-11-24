@@ -1,5 +1,3 @@
-// Package dynamodb implements DynamoDB-based storage for runvoy.
-// It provides persistence for image-taskdef mappings using AWS DynamoDB.
 package dynamodb
 
 import (

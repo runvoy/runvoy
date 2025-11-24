@@ -1,5 +1,3 @@
-// Package api defines the API types and structures used across runvoy.
-// This file contains request and response structures for the secrets API.
 package api
 
 import (

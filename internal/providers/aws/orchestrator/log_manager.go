@@ -1,5 +1,3 @@
-// Package orchestrator provides AWS-specific implementations for runvoy orchestrator.
-// This file contains the LogManager implementation for execution log retrieval.
 package orchestrator
 
 import (

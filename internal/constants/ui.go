@@ -1,4 +1,3 @@
-// Package constants defines global constants used throughout runvoy.
 package constants
 
 // HeaderSeparatorLength is the length of the header separator line

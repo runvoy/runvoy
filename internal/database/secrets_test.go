@@ -1,4 +1,3 @@
-// Package database defines the repository interfaces for data persistence.
 package database
 
 import (

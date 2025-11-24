@@ -1,4 +1,3 @@
-// Package constants defines global constants used throughout runvoy.
 package constants
 
 // DefaultWebURL is the default URL of the web application HTML file.

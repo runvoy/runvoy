@@ -1,4 +1,3 @@
-// Package constants defines global constants used throughout runvoy.
 package constants
 
 // ConfigCtxKeyType is the type for the config context key

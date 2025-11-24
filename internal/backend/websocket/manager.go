@@ -1,5 +1,3 @@
-// Package websocket provides WebSocket management for runvoy.
-// It handles connection lifecycle events and manages WebSocket connections.
 package websocket
 
 import (

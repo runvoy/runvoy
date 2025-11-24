@@ -1,5 +1,3 @@
-// Package database provides AWS-specific database implementations.
-// This file contains a SecretsRepository that coordinates DynamoDB and Parameter Store.
 package database
 
 import (

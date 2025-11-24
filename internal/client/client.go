@@ -1,5 +1,3 @@
-// Package client provides HTTP client functionality for the runvoy API.
-// It handles authentication, request/response serialization, and error handling.
 package client
 
 import (

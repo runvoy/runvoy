@@ -1,4 +1,3 @@
-// Package constants provides AWS-specific constants for ECS task execution.
 package constants
 
 import "runvoy/internal/constants"

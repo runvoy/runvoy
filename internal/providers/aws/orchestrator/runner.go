@@ -1,5 +1,3 @@
-// Package orchestrator provides AWS-specific implementations for runvoy orchestrator.
-// It handles ECS task execution and AWS service integration.
 package orchestrator
 
 import (
