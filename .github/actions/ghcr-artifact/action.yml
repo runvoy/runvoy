@@ -1,0 +1,73 @@
+name: "GHCR Artifact"
+description: "Upload and download arbitrary artifacts using ORAS to GHCR"
+branding:
+  icon: "package"
+  color: "blue"
+
+inputs:
+  mode:
+    description: "'upload' or 'download'"
+    required: true
+
+  name:
+    description: "Artifact name (ghcr.io/org/<name>)"
+    required: true
+
+  tag:
+    description: "Artifact tag (default: latest)"
+    default: "latest"
+
+  files:
+    description: "Files to upload (space-separated). Required for upload."
+    required: false
+
+  output:
+    description: "Directory to extract downloaded files into (download mode)"
+    default: "artifact-out"
+    required: false
+
+runs:
+  using: "composite"
+  steps:
+    - name: Setup ORAS
+      uses: oras-project/setup-oras@v1
+
+    - name: Login to GHCR
+      shell: bash
+      run: |
+        echo "${GITHUB_TOKEN}" | oras login ghcr.io \
+          -u "${GITHUB_ACTOR}" --password-stdin
+
+    - name: Upload artifacts
+      if: ${{ inputs.mode == 'upload' }}
+      shell: bash
+      run: |
+        if [ -z "${{ inputs.files }}" ]; then
+          echo "Error: files input is required for upload mode"
+          exit 1
+        fi
+
+        cmd="oras push ghcr.io/${{ github.repository_owner }}/${{ inputs.name }}:${{ inputs.tag }}"
+
+        for f in ${{ inputs.files }}; do
+          if [[ "$f" == *":"* ]]; then
+            # User specified custom content-type
+            cmd="$cmd $f"
+          else
+            # Default content-type: detect by extension or fallback
+            mime=$(file --mime-type -b "$f" || echo "application/octet-stream")
+            cmd="$cmd $f:$mime"
+          fi
+        done
+
+        echo "Running: $cmd"
+        $cmd
+
+    - name: Download artifacts
+      if: ${{ inputs.mode == 'download' }}
+      shell: bash
+      run: |
+        mkdir -p "${{ inputs.output }}"
+        oras pull \
+          ghcr.io/${{ github.repository_owner }}/${{ inputs.name }}:${{ inputs.tag }} \
+          -o "${{ inputs.output }}"
