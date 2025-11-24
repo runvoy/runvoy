@@ -1,9 +1,11 @@
 <h1 align="center">
-    <p><strong>🚀 Runvoy</strong></p>
-    <p>self-hosted serverless command runner</p>
+    <p>
+      <img src="https://6924e9f3177c5ae445d98a1c--tranquil-toffee-07b637.netlify.app/runvoy-social-banner.webp" alt="🚀 Runvoy" width="100%" />
+    </p>
+    <p>Serverless command runner</p>
 </h1>
 <p align="center">
-    <em>Run arbitrary commands on remote ephemeral containers — no complex setup required.</em>
+    <em>Run arbitrary commands on ephemeral containers in your cloud account — no complex setup required.</em>
 </p>
 <p align="center">
   <a href="https://github.com/runvoy/runvoy/actions/workflows/tests-and-coverage-go.yml" target="_blank">

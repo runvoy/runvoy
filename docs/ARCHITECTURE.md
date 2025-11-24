@@ -1,4 +1,4 @@
-# runvoy Architecture
+# Runvoy Architecture
 
 The following diagram shows the major components and their interactions:
 
