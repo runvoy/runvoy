@@ -5,12 +5,14 @@
 This document outlines the findings from a comprehensive test coverage analysis of the Runvoy codebase, identifies weak spots, and proposes concrete steps to improve testability and coverage.
 
 **Current State:**
+
 - Coverage threshold: 45% (enforced in CI)
 - Target coverage: 80%+ (per testing strategy)
 - Total source files: 151 Go files (~23,879 lines)
 - Total test files: 93 test files (~37,194 lines)
 
 **Key Achievement:**
+
 - Added 5 new test files with 2,287 lines of comprehensive tests
 - Addressed critical weak spots in Lambda handlers, API endpoints, and event processing
 
@@ -21,6 +23,7 @@ This document outlines the findings from a comprehensive test coverage analysis 
 ### Critical (0-20% Coverage)
 
 #### 1. **internal/providers/aws/lambdaapi** - 0% → ✅ ADDRESSED
+
 - **Files:**
   - `handler.go` - Lambda Function URL handler creation
   - `event_handler.go` - Event processor Lambda handler
@@ -29,6 +32,7 @@ This document outlines the findings from a comprehensive test coverage analysis 
 - **Tests added:** 25+ test cases covering handler creation, error handling, response formatting
 
 #### 2. **internal/providers/aws/processor** - 12% → ✅ PARTIALLY ADDRESSED
+
 - **Files untested:**
   - `ecs_events.go` - ✅ ADDRESSED (ecs_events_test.go added)
   - `cloud_events.go` - Event routing and parsing
@@ -42,6 +46,7 @@ This document outlines the findings from a comprehensive test coverage analysis 
 - **Status:** ✅ ECS event processing now covered, others need attention
 
 #### 3. **internal/server** - 30% → ✅ PARTIALLY ADDRESSED
+
 - **Files untested:**
   - `handlers_health.go` - ✅ ADDRESSED
   - `handlers_users.go` - ✅ ADDRESSED
@@ -54,6 +59,7 @@ This document outlines the findings from a comprehensive test coverage analysis 
 ### High Priority (20-50% Coverage)
 
 #### 4. **internal/providers/aws/health** - 33%
+
 - **Files untested:**
   - `casbin.go` - Authorization health checks
   - `compute.go` - ECS compute health checks
@@ -63,6 +69,7 @@ This document outlines the findings from a comprehensive test coverage analysis 
 - **Testability:** Need to mock AWS SDK clients
 
 #### 5. **internal/backend/orchestrator** - 0%
+
 - **Files untested:**
   - `executions.go` - Execution orchestration logic
   - `health.go` - Backend health checks
@@ -74,11 +81,13 @@ This document outlines the findings from a comprehensive test coverage analysis 
 ### Medium Priority (50-75% Coverage)
 
 #### 6. **internal/constants** - 7%
+
 - **14 untested files:** Constants and validation functions
 - **Impact:** Low (mostly constants, but validation logic needs testing)
 - **Easy wins:** Simple unit tests, high value for validation functions
 
 #### 7. **internal/providers/aws/orchestrator** - 66%
+
 - **Files untested:**
   - `image_manager.go` - Container image management
   - `log_manager.go` - Log streaming management
@@ -92,11 +101,14 @@ This document outlines the findings from a comprehensive test coverage analysis 
 ## Tests Added (This Session)
 
 ### 1. Lambda API Handlers ✅
+
 **Files:**
+
 - `internal/providers/aws/lambdaapi/handler_test.go` (340 lines)
 - `internal/providers/aws/lambdaapi/event_handler_test.go` (480 lines)
 
 **Coverage:**
+
 - Handler creation with various configurations
 - Timeout handling
 - CORS configuration
@@ -107,9 +119,11 @@ This document outlines the findings from a comprehensive test coverage analysis 
 **Impact:** Covers critical Lambda entry points (0% → ~85%)
 
 ### 2. Server Health Handlers ✅
+
 **File:** `internal/server/handlers_health_test.go` (410 lines)
 
 **Coverage:**
+
 - Basic health endpoint
 - Health reconciliation endpoint
 - Error handling
@@ -120,9 +134,11 @@ This document outlines the findings from a comprehensive test coverage analysis 
 **Impact:** Ensures health monitoring works correctly
 
 ### 3. Server User Handlers ✅
+
 **File:** `internal/server/handlers_users_test.go` (510 lines)
 
 **Coverage:**
+
 - User creation with various roles
 - User revocation
 - User listing
@@ -134,9 +150,11 @@ This document outlines the findings from a comprehensive test coverage analysis 
 **Impact:** Validates user management API
 
 ### 4. ECS Event Processing ✅
+
 **File:** `internal/providers/aws/processor/ecs_events_test.go` (547 lines)
 
 **Coverage:**
+
 - Task ARN parsing
 - Status determination from exit codes
 - RUNNING status updates
@@ -159,6 +177,7 @@ This document outlines the findings from a comprehensive test coverage analysis 
 **Problem:** Many structs create their own dependencies instead of receiving them.
 
 **Example:**
+
 ```go
 // internal/backend/orchestrator/init.go
 func NewService(...) *Service {
@@ -169,6 +188,7 @@ func NewService(...) *Service {
 ```
 
 **Solution:** Dependency injection pattern
+
 ```go
 // Better approach
 type Service struct {
@@ -188,6 +208,7 @@ func NewService(ecsClient ECSClient, ...) *Service {
 **Problem:** Direct dependencies on concrete AWS SDK types.
 
 **Current:**
+
 ```go
 type Processor struct {
     ecsClient *ecs.Client // concrete type
@@ -195,6 +216,7 @@ type Processor struct {
 ```
 
 **Solution:** Define interfaces for AWS clients
+
 ```go
 type ECSClient interface {
     RunTask(ctx context.Context, params *ecs.RunTaskInput) (*ecs.RunTaskOutput, error)
@@ -216,6 +238,7 @@ type Processor struct {
 **Example:** `internal/providers/aws/processor/init.go`
 
 **Solution:**
+
 1. Split initialization from business logic
 2. Use functional options pattern
 3. Create separate functions for testable units
@@ -229,6 +252,7 @@ type Processor struct {
 **Example:** `constants` package
 
 **Solution:**
+
 1. Use dependency injection for configuration
 2. Create context objects for test isolation
 3. Make variables mockable
@@ -240,6 +264,7 @@ type Processor struct {
 **Problem:** Some functions do too much (e.g., `handleECSTaskEvent` ~240 lines in original file).
 
 **Solution:**
+
 1. Extract helper functions (already done for some: `determineStatusAndExitCode`)
 2. Create separate testable units
 3. Use composition over complexity
@@ -251,6 +276,7 @@ type Processor struct {
 ## Proposed Refactorings (Priority Order)
 
 ### Phase 1: Quick Wins (1-2 days)
+
 1. **Add tests for remaining server handlers**
    - `handlers_executions.go`
    - `handlers_images.go`
@@ -271,6 +297,7 @@ type Processor struct {
    - **Expected gain:** +8-10% coverage
 
 ### Phase 2: Interface Introduction (3-5 days)
+
 1. **Create AWS client interfaces**
    - Extract interfaces for ECS, IAM, CloudWatch, Secrets Manager
    - Update existing mocks to implement interfaces
@@ -287,6 +314,7 @@ type Processor struct {
    - **Benefit:** Enables integration testing
 
 ### Phase 3: Dependency Injection (5-7 days)
+
 1. **Refactor backend orchestrator initialization**
    - Move client creation outside
    - Accept dependencies via constructor
@@ -303,6 +331,7 @@ type Processor struct {
    - **Expected gain:** +5% coverage
 
 ### Phase 4: CLI Testing (3-4 days)
+
 1. **Add tests for CLI commands**
    - `cmd/cli/cmd/*` (currently 82% coverage)
    - Focus on the 4 untested commands
@@ -313,6 +342,7 @@ type Processor struct {
    - **Benefit:** Better user experience validation
 
 ### Phase 5: Integration & E2E (Ongoing)
+
 1. **Set up DynamoDB Local tests**
    - Already documented in TESTING_STRATEGY.md
    - Add tagged integration tests
@@ -332,6 +362,7 @@ type Processor struct {
 ### Example 1: Make Health Checks Testable
 
 **Current state:**
+
 ```go
 // internal/providers/aws/health/compute.go
 type ComputeHealthChecker struct {
@@ -346,6 +377,7 @@ func (c *ComputeHealthChecker) Check(ctx context.Context) error {
 ```
 
 **Refactored:**
+
 ```go
 // Step 1: Define interface
 type ECSClient interface {
@@ -376,6 +408,7 @@ func TestComputeHealthCheck_Success(t *testing.T) {
 ```
 
 **Files that need this pattern:**
+
 - `internal/providers/aws/health/*.go` (4 files)
 - `internal/providers/aws/orchestrator/*.go` (partial)
 - `internal/providers/aws/client/*.go` (may need interface extraction)
@@ -383,6 +416,7 @@ func TestComputeHealthCheck_Success(t *testing.T) {
 ### Example 2: Split Large Functions
 
 **Current state:**
+
 ```go
 // Large function that does too much
 func (p *Processor) handleECSTaskEvent(ctx context.Context, event *events.CloudWatchEvent, logger *slog.Logger) error {
@@ -396,6 +430,7 @@ func (p *Processor) handleECSTaskEvent(ctx context.Context, event *events.CloudW
 ```
 
 **Refactored:**
+
 ```go
 // Smaller, focused functions
 func (p *Processor) handleECSTaskEvent(ctx context.Context, event *events.CloudWatchEvent, logger *slog.Logger) error {
@@ -417,6 +452,7 @@ func (p *Processor) processTaskStateChange(ctx context.Context, event *ECSTaskSt
 ```
 
 **Benefits:**
+
 - Each function has single responsibility
 - Easier to write focused tests
 - Better error handling
@@ -425,6 +461,7 @@ func (p *Processor) processTaskStateChange(ctx context.Context, event *ECSTaskSt
 ### Example 3: Constants Package Validation
 
 **Current state:**
+
 ```go
 // internal/constants/validation.go (untested)
 func ValidateEmail(email string) error {
@@ -437,6 +474,7 @@ func ValidateRole(role string) error {
 ```
 
 **Proposed tests:**
+
 ```go
 // internal/constants/validation_test.go
 func TestValidateEmail(t *testing.T) {
@@ -463,6 +501,7 @@ func TestValidateEmail(t *testing.T) {
 The tests added in this session establish several reusable patterns:
 
 ### 1. Mock Pattern for Services
+
 ```go
 type mockServiceForX struct {
     methodFunc func(ctx context.Context, params Type) (Result, error)
@@ -477,6 +516,7 @@ func (m *mockServiceForX) Method(ctx context.Context, params Type) (Result, erro
 ```
 
 ### 2. Table-Driven Tests
+
 ```go
 tests := []struct {
     name           string
@@ -495,7 +535,9 @@ for _, tt := range tests {
 ```
 
 ### 3. Test Builders
+
 Using `testutil` package builders:
+
 ```go
 user := testutil.NewUserBuilder().
     WithEmail("test@example.com").
@@ -504,12 +546,14 @@ user := testutil.NewUserBuilder().
 ```
 
 ### 4. Context Setup
+
 ```go
 ctx := context.WithValue(req.Context(), userContextKey, &user)
 req = req.WithContext(ctx)
 ```
 
 ### 5. Performance Benchmarks
+
 ```go
 func BenchmarkFunction(b *testing.B) {
     // setup
@@ -543,12 +587,14 @@ func BenchmarkFunction(b *testing.B) {
 ## Recommended Next Steps (Immediate Actions)
 
 ### Week 1: Complete Handler Coverage
+
 1. Add tests for `handlers_executions.go` (highest priority)
 2. Add tests for `handlers_images.go`
 3. Add tests for `handlers_api_keys.go`
 4. **Expected gain:** +5-7% coverage
 
 ### Week 2: Event Processing
+
 1. Add tests for `cloud_events.go`
 2. Add tests for `logs_events.go`
 3. Add tests for `scheduled_events.go`
@@ -556,12 +602,14 @@ func BenchmarkFunction(b *testing.B) {
 5. **Expected gain:** +8-10% coverage
 
 ### Week 3: Constants & Validation
+
 1. Add tests for all validation functions
 2. Add tests for conversion functions
 3. Add tests for time/date functions
 4. **Expected gain:** +2-3% coverage
 
 ### Week 4: Interface Extraction
+
 1. Define AWS client interfaces
 2. Update health checks to use interfaces
 3. Add comprehensive health check tests
@@ -574,20 +622,22 @@ func BenchmarkFunction(b *testing.B) {
 ## Tools & Automation
 
 ### Coverage Analysis Scripts
+
 Created scripts for ongoing analysis:
 
 1. **find_untested.sh**
    - Lists all source files without corresponding tests
-   - Usage: `./find_untested.sh`
+   - Usage: `./scripts/find_untested.sh`
 
 2. **analyze_coverage.sh**
    - Groups untested files by package
    - Shows coverage statistics per package
-   - Usage: `./analyze_coverage.sh`
+   - Usage: `./scripts/analyze_coverage.sh`
 
 ### Recommended Additions
 
 1. **Pre-commit hook** to check test coverage
+
 ```bash
 #!/bin/bash
 go test -coverprofile=coverage.out ./...
@@ -596,6 +646,7 @@ go tool cover -func=coverage.out | grep total | awk '{print $3}' | sed 's/%//' |
 ```
 
 2. **GitHub Action** to post coverage reports on PRs
+
 ```yaml
 - name: Comment Coverage
   uses: 5monkeys/cobertura-action@master
@@ -605,6 +656,7 @@ go tool cover -func=coverage.out | grep total | awk '{print $3}' | sed 's/%//' |
 ```
 
 3. **Coverage diff tool** to show coverage changes
+
 ```bash
 git diff main...HEAD --name-only | \
   xargs go test -coverprofile=new.out && \
@@ -616,6 +668,7 @@ git diff main...HEAD --name-only | \
 ## Conclusion
 
 ### Achievements
+
 - ✅ Identified 59 untested source files across 22 packages
 - ✅ Analyzed coverage by package and prioritized by business impact
 - ✅ Added 2,287 lines of comprehensive tests for critical components
@@ -625,18 +678,21 @@ git diff main...HEAD --name-only | \
 - ✅ Documented refactoring opportunities
 
 ### Key Insights
+
 1. **Testability is the main blocker** - not lack of tests, but lack of dependency injection
 2. **Quick wins available** - constants, remaining handlers, event processors
 3. **Strategic refactoring needed** - interfaces for AWS clients, DI for orchestrators
 4. **Testing infrastructure is solid** - testutil package, mocks, patterns are good
 
 ### Path to 80% Coverage
+
 1. **Weeks 1-4:** Quick wins (+18-20%)
 2. **Weeks 5-8:** Interface refactoring (+10-12%)
 3. **Weeks 9-12:** Dependency injection (+8-10%)
 4. **Ongoing:** Integration tests and maintenance
 
 ### Risk Mitigation
+
 - Focus on critical paths first (Lambda handlers ✅, processors, API endpoints)
 - Refactor incrementally to avoid breaking changes
 - Use interfaces to maintain backward compatibility
@@ -647,10 +703,12 @@ git diff main...HEAD --name-only | \
 ## Files Summary
 
 **Analysis Scripts:**
+
 - `find_untested.sh` - Find files without tests
 - `analyze_coverage.sh` - Package-level coverage analysis
 
 **New Test Files:**
+
 - `internal/providers/aws/lambdaapi/handler_test.go`
 - `internal/providers/aws/lambdaapi/event_handler_test.go`
 - `internal/server/handlers_health_test.go`
@@ -658,6 +716,7 @@ git diff main...HEAD --name-only | \
 - `internal/providers/aws/processor/ecs_events_test.go`
 
 **Documentation:**
+
 - This file: `COVERAGE_ANALYSIS.md`
 
 ---
