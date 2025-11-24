@@ -32,7 +32,7 @@ jobs:
         run: tar -czvf gomarkdoc.tar.gz gomarkdoc
 
       - name: Push documentation to ORAS registry
-        uses: ./.github/actions/ghcr-artifact
+        uses: runvoy/ghcr-artifacts-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
