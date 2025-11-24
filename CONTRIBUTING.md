@@ -327,7 +327,7 @@ go test -v ./...
 - **Integration tests** - Use `//go:build integration` tag
 - **E2E tests** - Use `//go:build e2e` tag
 
-See [docs/TESTING_STRATEGY.md](docs/TESTING_STRATEGY.md) for comprehensive testing guidelines.
+See [docs/COVERAGE_ANALYSIS.md](docs/COVERAGE_ANALYSIS.md) for comprehensive testing guidelines.
 
 ## Documentation
 
@@ -562,8 +562,7 @@ To release a new version:
 ### Additional Resources
 
 - [Architecture Documentation](docs/ARCHITECTURE.md)
-- [Testing Strategy](docs/TESTING_STRATEGY.md)
-- [Testing Quick Start](docs/TESTING_QUICKSTART.md)
+- [Test Coverage Analysis](docs/COVERAGE_ANALYSIS.md)
 - [CLI Documentation](docs/CLI.md)
 
 ---

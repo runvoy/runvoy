@@ -344,7 +344,6 @@ type Processor struct {
 ### Phase 5: Integration & E2E (Ongoing)
 
 1. **Set up DynamoDB Local tests**
-   - Already documented in TESTING_STRATEGY.md
    - Add tagged integration tests
 
 2. **Set up LocalStack for AWS integration tests**
