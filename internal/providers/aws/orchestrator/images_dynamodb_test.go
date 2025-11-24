@@ -153,12 +153,12 @@ func TestProvider_BuildRoleARNs(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			provider := &Provider{
+			manager := &ImageRegistryImpl{
 				cfg:    &tt.cfg,
 				logger: testutil.SilentLogger(),
 			}
 
-			taskRoleARN, taskExecRoleARN := provider.buildRoleARNs(
+			taskRoleARN, taskExecRoleARN := manager.buildRoleARNs(
 				tt.taskRoleName,
 				tt.taskExecutionRoleName,
 				tt.region,
@@ -300,12 +300,12 @@ func TestProvider_DetermineDefaultStatus(t *testing.T) {
 				tt.mockSetup(mockRepo)
 			}
 
-			provider := &Provider{
+			manager := &ImageRegistryImpl{
 				imageRepo: mockRepo,
 				logger:    testutil.SilentLogger(),
 			}
 
-			result, err := provider.determineDefaultStatus(ctx, tt.isDefault)
+			result, err := manager.determineDefaultStatus(ctx, tt.isDefault)
 
 			if tt.expectError {
 				assert.Error(t, err)
@@ -396,12 +396,12 @@ func TestProvider_ListImages(t *testing.T) {
 				tt.mockSetup(mockRepo)
 			}
 
-			provider := &Provider{
+			manager := &ImageRegistryImpl{
 				imageRepo: mockRepo,
 				logger:    testutil.SilentLogger(),
 			}
 
-			images, err := provider.ListImages(ctx)
+			images, err := manager.ListImages(ctx)
 
 			if tt.expectError {
 				assert.Error(t, err)
@@ -524,14 +524,14 @@ func TestProvider_RemoveImage(t *testing.T) {
 				tt.mockSetup(mockRepo)
 			}
 
-			provider := &Provider{
+			manager := &ImageRegistryImpl{
 				imageRepo: mockRepo,
 				ecsClient: mockECS,
 				cfg:       &Config{AccountID: "123456789012"},
 				logger:    testutil.SilentLogger(),
 			}
 
-			err := provider.RemoveImage(ctx, tt.image)
+			err := manager.RemoveImage(ctx, tt.image)
 
 			if tt.expectError {
 				assert.Error(t, err)
@@ -684,12 +684,12 @@ func TestProvider_GetImage(t *testing.T) {
 				tt.mockSetup(mockRepo)
 			}
 
-			provider := &Provider{
+			manager := &ImageRegistryImpl{
 				imageRepo: mockRepo,
 				logger:    testutil.SilentLogger(),
 			}
 
-			imageInfo, err := provider.GetImage(ctx, tt.image)
+			imageInfo, err := manager.GetImage(ctx, tt.image)
 
 			if tt.expectErr {
 				assert.Error(t, err)
@@ -702,173 +702,6 @@ func TestProvider_GetImage(t *testing.T) {
 				require.NotNil(t, imageInfo)
 				assert.Equal(t, tt.expected.Image, imageInfo.Image)
 				assert.Equal(t, tt.expected.TaskDefinitionName, imageInfo.TaskDefinitionName)
-			}
-		})
-	}
-}
-
-func TestProvider_GetTaskDefinitionARNForImage(t *testing.T) {
-	ctx := testutil.TestContext()
-
-	tests := []struct {
-		name            string
-		image           string
-		mockSetup       func(*mockImageRepo)
-		expectedTaskDef string
-		expectError     bool
-		expectedErr     string
-	}{
-		{
-			name:  "successfully gets task definition for image name",
-			image: "alpine:latest",
-			mockSetup: func(m *mockImageRepo) {
-				m.getAnyImageTaskDefFunc = func(_ context.Context, _ string) (*api.ImageInfo, error) {
-					return &api.ImageInfo{
-						Image:              "alpine:latest",
-						TaskDefinitionName: "runvoy-alpine-latest",
-					}, nil
-				}
-			},
-			expectedTaskDef: "runvoy-alpine-latest",
-			expectError:     false,
-		},
-		{
-			name:  "successfully gets task definition for ImageID",
-			image: "alpine:latest-a1b2c3d4",
-			mockSetup: func(m *mockImageRepo) {
-				m.getImageTaskDefByIDFunc = func(_ context.Context, _ string) (*api.ImageInfo, error) {
-					return &api.ImageInfo{
-						Image:              "alpine:latest",
-						TaskDefinitionName: "runvoy-alpine-latest",
-					}, nil
-				}
-			},
-			expectedTaskDef: "runvoy-alpine-latest",
-			expectError:     false,
-		},
-		{
-			name:  "handles task definition not found",
-			image: "nonexistent:latest",
-			mockSetup: func(m *mockImageRepo) {
-				m.getAnyImageTaskDefFunc = func(_ context.Context, _ string) (*api.ImageInfo, error) {
-					return nil, nil
-				}
-			},
-			expectedTaskDef: "",
-			expectError:     true,
-			expectedErr:     "no task definition found",
-		},
-		{
-			name:  "handles repository error",
-			image: "alpine:latest",
-			mockSetup: func(m *mockImageRepo) {
-				m.getAnyImageTaskDefFunc = func(_ context.Context, _ string) (*api.ImageInfo, error) {
-					return nil, assert.AnError
-				}
-			},
-			expectedTaskDef: "",
-			expectError:     true,
-			expectedErr:     "failed to get task definition",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			mockRepo := &mockImageRepo{}
-			if tt.mockSetup != nil {
-				tt.mockSetup(mockRepo)
-			}
-
-			provider := &Provider{
-				imageRepo: mockRepo,
-				logger:    testutil.SilentLogger(),
-			}
-
-			taskDef, err := provider.GetTaskDefinitionARNForImage(ctx, tt.image)
-
-			if tt.expectError {
-				assert.Error(t, err)
-				if tt.expectedErr != "" {
-					assert.Contains(t, err.Error(), tt.expectedErr)
-				}
-				assert.Equal(t, "", taskDef)
-			} else {
-				require.NoError(t, err)
-				assert.Equal(t, tt.expectedTaskDef, taskDef)
-			}
-		})
-	}
-}
-
-func TestProvider_GetDefaultImageFromDB(t *testing.T) {
-	ctx := testutil.TestContext()
-
-	tests := []struct {
-		name        string
-		mockSetup   func(*mockImageRepo)
-		expected    string
-		expectError bool
-		expectedErr string
-	}{
-		{
-			name: "successfully gets default image",
-			mockSetup: func(m *mockImageRepo) {
-				m.getDefaultImageFunc = func(_ context.Context) (*api.ImageInfo, error) {
-					isDefault := true
-					return &api.ImageInfo{
-						Image:     "alpine:latest",
-						IsDefault: &isDefault,
-					}, nil
-				}
-			},
-			expected:    "alpine:latest",
-			expectError: false,
-		},
-		{
-			name: "handles no default image",
-			mockSetup: func(m *mockImageRepo) {
-				m.getDefaultImageFunc = func(_ context.Context) (*api.ImageInfo, error) {
-					return nil, nil
-				}
-			},
-			expected:    "",
-			expectError: false,
-		},
-		{
-			name: "handles repository error",
-			mockSetup: func(m *mockImageRepo) {
-				m.getDefaultImageFunc = func(_ context.Context) (*api.ImageInfo, error) {
-					return nil, assert.AnError
-				}
-			},
-			expected:    "",
-			expectError: true,
-			expectedErr: "failed to get default image",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			mockRepo := &mockImageRepo{}
-			if tt.mockSetup != nil {
-				tt.mockSetup(mockRepo)
-			}
-
-			provider := &Provider{
-				imageRepo: mockRepo,
-				logger:    testutil.SilentLogger(),
-			}
-
-			image, err := provider.GetDefaultImageFromDB(ctx)
-
-			if tt.expectError {
-				assert.Error(t, err)
-				if tt.expectedErr != "" {
-					assert.Contains(t, err.Error(), tt.expectedErr)
-				}
-			} else {
-				require.NoError(t, err)
-				assert.Equal(t, tt.expected, image)
 			}
 		})
 	}
@@ -1154,7 +987,7 @@ func TestProvider_ValidateIAMRoles(t *testing.T) {
 				iamClient = mockIAM
 			}
 
-			provider := &Provider{
+			manager := &ImageRegistryImpl{
 				iamClient: iamClient,
 				cfg: &Config{
 					AccountID: tt.accountID,
@@ -1162,7 +995,7 @@ func TestProvider_ValidateIAMRoles(t *testing.T) {
 				logger: testutil.SilentLogger(),
 			}
 
-			err := provider.validateIAMRoles(ctx, tt.taskRoleName, tt.taskExecutionRoleName, tt.region, provider.logger)
+			err := manager.validateIAMRoles(ctx, tt.taskRoleName, tt.taskExecutionRoleName, tt.region, manager.logger)
 
 			if tt.expectError {
 				require.Error(t, err)
