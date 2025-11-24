@@ -14,8 +14,9 @@ import (
 
 // mockProcessor implements a simple processor for testing
 type mockProcessor struct {
-	handleFunc func(ctx context.Context, rawEvent *json.RawMessage) (*json.RawMessage, error)
-	callCount  int
+	handleFunc         func(ctx context.Context, rawEvent *json.RawMessage) (*json.RawMessage, error)
+	handleEventJSONFunc func(ctx context.Context, eventJSON *json.RawMessage) error
+	callCount          int
 }
 
 func (m *mockProcessor) Handle(ctx context.Context, rawEvent *json.RawMessage) (*json.RawMessage, error) {
@@ -24,6 +25,15 @@ func (m *mockProcessor) Handle(ctx context.Context, rawEvent *json.RawMessage) (
 		return m.handleFunc(ctx, rawEvent)
 	}
 	return nil, nil
+}
+
+func (m *mockProcessor) HandleEventJSON(ctx context.Context, eventJSON *json.RawMessage) error {
+	if m.handleEventJSONFunc != nil {
+		return m.handleEventJSONFunc(ctx, eventJSON)
+	}
+	// Default implementation: call Handle and return error if any
+	_, err := m.Handle(ctx, eventJSON)
+	return err
 }
 
 func TestNewEventProcessorHandler(t *testing.T) {

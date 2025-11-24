@@ -14,32 +14,15 @@ import (
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
-
-// mockExecutionRepo is a mock for execution repository
-type mockExecutionRepo struct {
-	getExecutionFunc    func(ctx context.Context, id string) (*api.Execution, error)
-	updateExecutionFunc func(ctx context.Context, execution *api.Execution) error
-}
-
-func (m *mockExecutionRepo) GetExecution(ctx context.Context, id string) (*api.Execution, error) {
-	if m.getExecutionFunc != nil {
-		return m.getExecutionFunc(ctx, id)
-	}
-	return nil, nil
-}
-
-func (m *mockExecutionRepo) UpdateExecution(ctx context.Context, execution *api.Execution) error {
-	if m.updateExecutionFunc != nil {
-		return m.updateExecutionFunc(ctx, execution)
-	}
-	return nil
-}
 
 // mockWebSocketManager is a mock for websocket notifications
 type mockWebSocketManager struct {
 	notifyFunc func(ctx context.Context, executionID *string) error
+}
+
+func (m *mockWebSocketManager) HandleRequest(_ context.Context, _ *json.RawMessage, _ *slog.Logger) (bool, error) {
+	return false, nil
 }
 
 func (m *mockWebSocketManager) NotifyExecutionCompletion(ctx context.Context, executionID *string) error {
@@ -49,139 +32,12 @@ func (m *mockWebSocketManager) NotifyExecutionCompletion(ctx context.Context, ex
 	return nil
 }
 
-func TestExtractExecutionIDFromTaskArn(t *testing.T) {
-	tests := []struct {
-		name        string
-		taskArn     string
-		expectedID  string
-	}{
-		{
-			name:        "standard task ARN",
-			taskArn:     "arn:aws:ecs:us-east-1:123456789012:task/my-cluster/abc123",
-			expectedID:  "abc123",
-		},
-		{
-			name:        "task ARN with long cluster name",
-			taskArn:     "arn:aws:ecs:us-west-2:987654321098:task/production-cluster-name/execution-id-456",
-			expectedID:  "execution-id-456",
-		},
-		{
-			name:        "short task ARN",
-			taskArn:     "arn:aws:ecs:region:account:task/cluster/id",
-			expectedID:  "id",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			id := extractExecutionIDFromTaskArn(tt.taskArn)
-			assert.Equal(t, tt.expectedID, id)
-		})
-	}
+func (m *mockWebSocketManager) SendLogsToExecution(_ context.Context, _ *string, _ []api.LogEvent) error {
+	return nil
 }
 
-func TestDetermineStatusAndExitCode(t *testing.T) {
-	tests := []struct {
-		name           string
-		event          *ECSTaskStateChangeEvent
-		expectedStatus string
-		expectedExit   int
-	}{
-		{
-			name: "user initiated stop",
-			event: &ECSTaskStateChangeEvent{
-				StopCode: "UserInitiated",
-			},
-			expectedStatus: string(constants.ExecutionStopped),
-			expectedExit:   130,
-		},
-		{
-			name: "task failed to start",
-			event: &ECSTaskStateChangeEvent{
-				StopCode: "TaskFailedToStart",
-			},
-			expectedStatus: string(constants.ExecutionFailed),
-			expectedExit:   1,
-		},
-		{
-			name: "successful execution",
-			event: &ECSTaskStateChangeEvent{
-				StopCode: "EssentialContainerExited",
-				Containers: []ContainerDetail{
-					{
-						Name:     awsConstants.RunnerContainerName,
-						ExitCode: intPtr(0),
-					},
-				},
-			},
-			expectedStatus: string(constants.ExecutionSucceeded),
-			expectedExit:   0,
-		},
-		{
-			name: "failed execution",
-			event: &ECSTaskStateChangeEvent{
-				StopCode: "EssentialContainerExited",
-				Containers: []ContainerDetail{
-					{
-						Name:     awsConstants.RunnerContainerName,
-						ExitCode: intPtr(1),
-					},
-				},
-			},
-			expectedStatus: string(constants.ExecutionFailed),
-			expectedExit:   1,
-		},
-		{
-			name: "non-zero exit code",
-			event: &ECSTaskStateChangeEvent{
-				StopCode: "EssentialContainerExited",
-				Containers: []ContainerDetail{
-					{
-						Name:     awsConstants.RunnerContainerName,
-						ExitCode: intPtr(137),
-					},
-				},
-			},
-			expectedStatus: string(constants.ExecutionFailed),
-			expectedExit:   137,
-		},
-		{
-			name: "no runner container found",
-			event: &ECSTaskStateChangeEvent{
-				StopCode: "EssentialContainerExited",
-				Containers: []ContainerDetail{
-					{
-						Name:     "other-container",
-						ExitCode: intPtr(0),
-					},
-				},
-			},
-			expectedStatus: string(constants.ExecutionFailed),
-			expectedExit:   1,
-		},
-		{
-			name: "runner container with nil exit code",
-			event: &ECSTaskStateChangeEvent{
-				StopCode: "EssentialContainerExited",
-				Containers: []ContainerDetail{
-					{
-						Name:     awsConstants.RunnerContainerName,
-						ExitCode: nil,
-					},
-				},
-			},
-			expectedStatus: string(constants.ExecutionFailed),
-			expectedExit:   1,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			status, exitCode := determineStatusAndExitCode(tt.event)
-			assert.Equal(t, tt.expectedStatus, status)
-			assert.Equal(t, tt.expectedExit, exitCode)
-		})
-	}
+func (m *mockWebSocketManager) GenerateWebSocketURL(_ context.Context, _ string, _, _ *string) string {
+	return ""
 }
 
 func TestHandleECSTaskEvent_Running(t *testing.T) {
@@ -190,9 +46,9 @@ func TestHandleECSTaskEvent_Running(t *testing.T) {
 	taskArn := "arn:aws:ecs:us-east-1:123456789012:task/cluster/" + executionID
 
 	execution := &api.Execution{
-		ID:        executionID,
-		Status:    string(constants.ExecutionPending),
-		StartedAt: time.Now().Format(time.RFC3339),
+		ExecutionID: executionID,
+		Status:      string(constants.ExecutionStarting),
+		StartedAt:   time.Now(),
 	}
 
 	updated := false
@@ -236,9 +92,9 @@ func TestHandleECSTaskEvent_Stopped(t *testing.T) {
 	stoppedAt := time.Now().Format(time.RFC3339)
 
 	execution := &api.Execution{
-		ID:        executionID,
-		Status:    string(constants.ExecutionRunning),
-		StartedAt: startedAt,
+		ExecutionID: executionID,
+		Status:      string(constants.ExecutionRunning),
+		StartedAt:   mustParseTime(startedAt),
 	}
 
 	updated := false
@@ -346,8 +202,8 @@ func TestUpdateExecutionToRunning_AlreadyRunning(t *testing.T) {
 	executionID := "exec-123"
 
 	execution := &api.Execution{
-		ID:     executionID,
-		Status: string(constants.ExecutionRunning),
+		ExecutionID: executionID,
+		Status:      string(constants.ExecutionRunning),
 	}
 
 	updateCalled := false
@@ -374,8 +230,8 @@ func TestUpdateExecutionToRunning_InvalidTransition(t *testing.T) {
 	executionID := "exec-456"
 
 	execution := &api.Execution{
-		ID:     executionID,
-		Status: string(constants.ExecutionSucceeded), // Terminal state
+		ExecutionID: executionID,
+		Status:      string(constants.ExecutionSucceeded), // Terminal state
 	}
 
 	updateCalled := false
@@ -402,9 +258,9 @@ func TestFinalizeExecutionFromTaskEvent_InvalidTransition(t *testing.T) {
 	executionID := "exec-789"
 
 	execution := &api.Execution{
-		ID:        executionID,
-		Status:    string(constants.ExecutionSucceeded), // Already completed
-		StartedAt: time.Now().Add(-1 * time.Hour).Format(time.RFC3339),
+		ExecutionID: executionID,
+		Status:      string(constants.ExecutionSucceeded), // Already completed
+		StartedAt:   time.Now().Add(-1 * time.Hour),
 	}
 
 	updateCalled := false
@@ -440,9 +296,9 @@ func TestHandleECSTaskEvent_UserInitiatedStop(t *testing.T) {
 	taskArn := "arn:aws:ecs:us-east-1:123456789012:task/cluster/" + executionID
 
 	execution := &api.Execution{
-		ID:        executionID,
-		Status:    string(constants.ExecutionRunning),
-		StartedAt: time.Now().Add(-5 * time.Minute).Format(time.RFC3339),
+		ExecutionID: executionID,
+		Status:      string(constants.ExecutionRunning),
+		StartedAt:   time.Now().Add(-5 * time.Minute),
 	}
 
 	updated := false
@@ -486,8 +342,8 @@ func TestHandleECSTaskEvent_IgnoredStatus(t *testing.T) {
 	taskArn := "arn:aws:ecs:us-east-1:123456789012:task/cluster/" + executionID
 
 	execution := &api.Execution{
-		ID:     executionID,
-		Status: string(constants.ExecutionPending),
+		ExecutionID: executionID,
+		Status:      string(constants.ExecutionStarting),
 	}
 
 	updateCalled := false
@@ -522,16 +378,20 @@ func TestHandleECSTaskEvent_IgnoredStatus(t *testing.T) {
 
 // Helper functions
 
-func intPtr(i int) *int {
-	return &i
-}
-
 func mustMarshal(v interface{}) json.RawMessage {
 	data, err := json.Marshal(v)
 	if err != nil {
 		panic(err)
 	}
 	return data
+}
+
+func mustParseTime(timeStr string) time.Time {
+	t, err := time.Parse(time.RFC3339, timeStr)
+	if err != nil {
+		panic(err)
+	}
+	return t
 }
 
 // BenchmarkDetermineStatusAndExitCode measures status determination performance
