@@ -34,6 +34,12 @@ func (b *UserBuilder) WithEmail(email string) *UserBuilder {
 	return b
 }
 
+// WithRole sets the user's role.
+func (b *UserBuilder) WithRole(role string) *UserBuilder {
+	b.user.Role = role
+	return b
+}
+
 // WithCreatedAt sets the user's creation time.
 func (b *UserBuilder) WithCreatedAt(t time.Time) *UserBuilder {
 	b.user.CreatedAt = t

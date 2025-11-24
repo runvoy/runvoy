@@ -15,6 +15,9 @@ import (
 // The request timeout is passed to the router to configure the timeout middleware.
 // It uses algnhsa to adapt the chi router to work with Lambda Function URLs.
 func NewHandler(svc *orchestrator.Service, requestTimeout time.Duration, allowedOrigins []string) lambda.Handler {
+	if svc == nil {
+		panic("service is required")
+	}
 	router := server.NewRouter(svc, requestTimeout, allowedOrigins)
 	return algnhsa.New(router.Handler(), nil)
 }

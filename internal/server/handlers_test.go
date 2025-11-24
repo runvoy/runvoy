@@ -30,9 +30,20 @@ type testUserRepository struct {
 	getUserByEmailFunc   func(email string) (*api.User, error)
 	getPendingAPIKeyFunc func(ctx context.Context, secretToken string) (*api.PendingAPIKey, error)
 	markAsViewedFunc     func(ctx context.Context, secretToken string, ipAddress string) error
+	createUserFunc       func(ctx context.Context, user *api.User, apiKeyHash string, expiresAt int64) error
+	listUsersFunc        func(ctx context.Context) ([]*api.User, error)
+	revokeUserFunc       func(ctx context.Context, email string) error
 }
 
-func (t *testUserRepository) CreateUser(_ context.Context, _ *api.User, _ string, _ int64) error {
+func (t *testUserRepository) CreateUser(
+	ctx context.Context,
+	user *api.User,
+	apiKeyHash string,
+	expiresAt int64,
+) error {
+	if t.createUserFunc != nil {
+		return t.createUserFunc(ctx, user, apiKeyHash, expiresAt)
+	}
 	return nil
 }
 
@@ -72,7 +83,10 @@ func (t *testUserRepository) UpdateLastUsed(_ context.Context, email string) (*t
 	return &now, nil
 }
 
-func (t *testUserRepository) RevokeUser(_ context.Context, _ string) error {
+func (t *testUserRepository) RevokeUser(ctx context.Context, email string) error {
+	if t.revokeUserFunc != nil {
+		return t.revokeUserFunc(ctx, email)
+	}
 	return nil
 }
 
@@ -107,7 +121,10 @@ func (t *testUserRepository) DeletePendingAPIKey(_ context.Context, _ string) er
 	return nil
 }
 
-func (t *testUserRepository) ListUsers(_ context.Context) ([]*api.User, error) {
+func (t *testUserRepository) ListUsers(ctx context.Context) ([]*api.User, error) {
+	if t.listUsersFunc != nil {
+		return t.listUsersFunc(ctx)
+	}
 	lastUsed1 := time.Now().Add(-1 * time.Hour)
 	lastUsed3 := time.Now().Add(-12 * time.Hour)
 	// Return users sorted by email (as the database now does) with valid roles
@@ -141,7 +158,7 @@ func (t *testUserRepository) GetUsersByRequestID(_ context.Context, _ string) ([
 }
 
 // newPermissiveTestEnforcerForHandlers creates a test enforcer that allows all access.
-func newPermissiveTestEnforcerForHandlers(t *testing.T) *authorization.Enforcer {
+func newPermissiveTestEnforcerForHandlers(t testing.TB) *authorization.Enforcer {
 	enf, err := authorization.NewEnforcer(testutil.SilentLogger())
 	require.NoError(t, err)
 
@@ -338,7 +355,7 @@ func (t *testRunner) GetImagesByRequestID(ctx context.Context, requestID string)
 // Optional repositories can be overridden by passing non-nil values.
 // The runner parameter implements all 4 interfaces (TaskManager, ImageRegistry, LogManager, ObservabilityManager).
 func newTestOrchestratorService(
-	t *testing.T,
+	t testing.TB,
 	userRepo *testUserRepository,
 	execRepo *testExecutionRepository,
 	connRepo database.ConnectionRepository, //nolint:unparam // kept for API consistency
@@ -417,20 +434,6 @@ func newTestRouterForUnauthorized(t *testing.T) *Router {
 	)
 	require.NoError(t, err)
 	return NewRouter(svc, 2*time.Second, constants.DefaultCORSAllowedOrigins)
-}
-
-func TestHandleHealth(t *testing.T) {
-	svc := newTestOrchestratorService(t, nil, nil, nil, &testRunner{}, nil, nil, nil)
-	router := NewRouter(svc, 2*time.Second, constants.DefaultCORSAllowedOrigins)
-
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/health", http.NoBody)
-	resp := httptest.NewRecorder()
-
-	router.ServeHTTP(resp, req)
-
-	assert.Equal(t, http.StatusOK, resp.Code)
-	assert.Contains(t, resp.Body.String(), "status")
-	assert.Contains(t, resp.Body.String(), "ok")
 }
 
 func TestHandleRunCommand_Success(t *testing.T) {
@@ -1028,33 +1031,6 @@ func TestGetClientIP_XForwardedForPrecedence(t *testing.T) {
 	assert.Equal(t, "192.168.1.1", ip)
 }
 
-func TestHandleListUsers_Success(t *testing.T) {
-	userRepo := &testUserRepository{}
-	execRepo := &testExecutionRepository{}
-	svc := newTestOrchestratorService(t, userRepo, execRepo, nil, &testRunner{}, nil, nil, nil)
-	router := NewRouter(svc, 2*time.Second, constants.DefaultCORSAllowedOrigins)
-
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/users/", http.NoBody)
-	req.Header.Set("X-API-Key", "test-api-key")
-
-	resp := httptest.NewRecorder()
-	router.ServeHTTP(resp, req)
-
-	assert.Equal(t, http.StatusOK, resp.Code)
-
-	var listResp api.ListUsersResponse
-	decodeErr := json.NewDecoder(resp.Body).Decode(&listResp)
-	assert.NoError(t, decodeErr)
-	assert.Len(t, listResp.Users, 3)
-	// Verify users are sorted by email in ascending order
-	assert.Equal(t, "alice@example.com", listResp.Users[0].Email)
-	assert.Equal(t, true, listResp.Users[0].Revoked)
-	assert.Equal(t, "bob@example.com", listResp.Users[1].Email)
-	assert.Equal(t, false, listResp.Users[1].Revoked)
-	assert.Equal(t, "charlie@example.com", listResp.Users[2].Email)
-	assert.Equal(t, false, listResp.Users[2].Revoked)
-}
-
 func TestHandleListUsers_Unauthorized(t *testing.T) {
 	userRepo := &testUserRepository{
 		authenticateUserFunc: func(_ string) (*api.User, error) {
@@ -1100,29 +1076,6 @@ func TestHandleListUsers_RepositoryError(t *testing.T) {
 }
 
 // TestHandleCreateUser_Success tests successful user creation with API key claim token
-func TestHandleCreateUser_Success(t *testing.T) {
-	userRepo := &testUserRepository{}
-	execRepo := &testExecutionRepository{}
-	svc := newTestOrchestratorService(t, userRepo, execRepo, nil, nil, nil, nil, nil)
-	router := NewRouter(svc, 2*time.Second, constants.DefaultCORSAllowedOrigins)
-
-	createReq := api.CreateUserRequest{
-		Email: "brandnewuser123@example.com",
-		Role:  "developer",
-	}
-	body, _ := json.Marshal(createReq)
-
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/users/create", bytes.NewReader(body))
-	req.Header.Set("X-API-Key", "test-api-key")
-
-	resp := httptest.NewRecorder()
-	router.ServeHTTP(resp, req)
-
-	// Service should accept the request and return 201 or 409 if user exists
-	assert.True(t, resp.Code == http.StatusCreated || resp.Code == http.StatusConflict,
-		"should either create user or return conflict if already exists")
-}
-
 // TestHandleCreateUser_MissingEmail tests validation of required email field
 func TestHandleCreateUser_MissingEmail(t *testing.T) {
 	svc := newTestOrchestratorService(t, nil, nil, nil, nil, nil, nil, nil)
@@ -1164,20 +1117,6 @@ func TestHandleCreateUser_InvalidRole(t *testing.T) {
 	assert.Contains(t, resp.Body.String(), "invalid role")
 }
 
-func TestHandleCreateUser_InvalidJSON(t *testing.T) {
-	svc := newTestOrchestratorService(t, nil, nil, nil, &testRunner{}, nil, nil, nil)
-	router := NewRouter(svc, 2*time.Second, constants.DefaultCORSAllowedOrigins)
-
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/users/create", bytes.NewReader([]byte("invalid json")))
-	req.Header.Set("X-API-Key", "test-api-key")
-
-	resp := httptest.NewRecorder()
-	router.ServeHTTP(resp, req)
-
-	assert.Equal(t, http.StatusBadRequest, resp.Code)
-	assert.Contains(t, resp.Body.String(), "invalid request body")
-}
-
 func TestHandleCreateUser_Unauthorized(t *testing.T) {
 	testUnauthorizedRequest(
 		t,
@@ -1185,42 +1124,6 @@ func TestHandleCreateUser_Unauthorized(t *testing.T) {
 		"/api/v1/users/create",
 		api.CreateUserRequest{Email: "newuser@example.com"},
 	)
-}
-
-func TestHandleRevokeUser_Success(t *testing.T) {
-	userRepo := &testUserRepository{}
-	execRepo := &testExecutionRepository{}
-	svc := newTestOrchestratorService(t, userRepo, execRepo, nil, &testRunner{}, nil, nil, nil)
-	router := NewRouter(svc, 2*time.Second, constants.DefaultCORSAllowedOrigins)
-
-	reqBody := api.RevokeUserRequest{
-		Email: "user@example.com",
-	}
-	body, _ := json.Marshal(reqBody)
-
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/users/revoke", bytes.NewReader(body))
-	req.Header.Set("X-API-Key", "test-api-key")
-
-	resp := httptest.NewRecorder()
-	router.ServeHTTP(resp, req)
-
-	assert.Equal(t, http.StatusOK, resp.Code)
-	assert.Contains(t, resp.Body.String(), "user@example.com")
-	assert.Contains(t, resp.Body.String(), "revoked successfully")
-}
-
-func TestHandleRevokeUser_InvalidJSON(t *testing.T) {
-	svc := newTestOrchestratorService(t, nil, nil, nil, &testRunner{}, nil, nil, nil)
-	router := NewRouter(svc, 2*time.Second, constants.DefaultCORSAllowedOrigins)
-
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/users/revoke", bytes.NewReader([]byte("invalid json")))
-	req.Header.Set("X-API-Key", "test-api-key")
-
-	resp := httptest.NewRecorder()
-	router.ServeHTTP(resp, req)
-
-	assert.Equal(t, http.StatusBadRequest, resp.Code)
-	assert.Contains(t, resp.Body.String(), "invalid request body")
 }
 
 // TestHandleRevokeUser_MissingEmail tests validation when email is missing

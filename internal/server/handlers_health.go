@@ -10,6 +10,7 @@ import (
 
 // handleHealth returns a simple health check response.
 func (r *Router) handleHealth(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Set(constants.ContentTypeHeader, "application/json")
 	w.WriteHeader(http.StatusOK)
 	_ = json.NewEncoder(w).Encode(api.HealthResponse{
 		Status:  "ok",
@@ -20,6 +21,7 @@ func (r *Router) handleHealth(w http.ResponseWriter, _ *http.Request) {
 // handleReconcileHealth triggers a full health reconciliation across managed resources.
 // It requires authentication and is intended for admin/maintenance use.
 func (r *Router) handleReconcileHealth(w http.ResponseWriter, req *http.Request) {
+	w.Header().Set(constants.ContentTypeHeader, "application/json")
 	report, err := r.svc.ReconcileResources(req.Context())
 	if err != nil {
 		statusCode, errorCode, errorDetails := extractErrorInfo(err)
