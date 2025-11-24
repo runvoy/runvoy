@@ -1,16 +1,19 @@
 # This workflow generates documentation using gomarkdoc and uploads it as an artifact.
-# Might be useful to publish docs as a GitHub Pages site.
 name: Documentation
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - main
 
 permissions:
-        contents: read
+  contents: read
+  packages: write
 
 jobs:
   docs:
-    name: Generate documentation
+    name: Generate and upload documentation
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -25,8 +28,12 @@ jobs:
       - name: Generate documentation
         run: gomarkdoc ./... --output gomarkdoc
 
-      - name: Upload documentation
-        uses: actions/upload-artifact@v5
+      - name: Push documentation to ORAS registry
+        uses: runvoy/ghcr-artifacts-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          name: documentation
-          path: gomarkdoc
+          mode: upload
+          name: runvoy-docs
+          tag: latest
+          files: gomarkdoc
