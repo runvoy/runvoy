@@ -115,5 +115,9 @@ changelog:
   sort: asc
   filters:
     exclude:
-      - "^docs:"
-      - "^test:"
+      - "^docs"
+      - "^test"
+      - "^tool"
+      - "^chore"
+      - "^refactor"
+      - "^style"
