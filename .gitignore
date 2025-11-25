@@ -31,6 +31,7 @@ go.work.sum
 .envrc
 ./local
 ./runvoy
+.cache
 
 # Svelte
 .svelte-kit

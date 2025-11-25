@@ -2,12 +2,14 @@ package orchestrator
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 
 	"runvoy/internal/auth/authorization"
 	"runvoy/internal/backend/contract"
 	"runvoy/internal/config"
+	awsconfig "runvoy/internal/config/aws"
 	"runvoy/internal/database"
 	"runvoy/internal/logger"
 	awsClient "runvoy/internal/providers/aws/client"
@@ -43,16 +45,85 @@ type Dependencies struct {
 
 // Initialize prepares AWS service dependencies for the app package.
 // Wraps the AWS SDK clients in adapters for improved testability.
-func Initialize( //nolint:funlen // This is ok, lots of initializations required
+func Initialize(
 	ctx context.Context,
 	cfg *config.Config,
 	log *slog.Logger,
 	enforcer *authorization.Enforcer,
 ) (*Dependencies, error) {
+	if err := validateConfig(cfg); err != nil {
+		return nil, err
+	}
+
 	logger.RegisterContextExtractor(NewLambdaContextExtractor())
 
-	if err := cfg.AWS.LoadSDKConfig(ctx); err != nil {
-		return nil, fmt.Errorf("failed to load AWS SDK config: %w", err)
+	clients, err := buildAWSClients(ctx, cfg, log)
+	if err != nil {
+		return nil, err
+	}
+
+	repos := awsDatabase.CreateRepositories(clients.dynamo, clients.ssm, cfg, log)
+	providerCfg := buildProviderConfig(cfg, clients.accountID)
+
+	managers := buildManagers(clients, repos, providerCfg, enforcer, log, cfg)
+
+	return &Dependencies{
+		UserRepo:             repos.UserRepo,
+		ExecutionRepo:        repos.ExecutionRepo,
+		ConnectionRepo:       repos.ConnectionRepo,
+		TokenRepo:            repos.TokenRepo,
+		ImageRepo:            repos.ImageTaskDefRepo,
+		TaskManager:          managers.taskManager,
+		ImageRegistry:        managers.imageRegistry,
+		LogManager:           managers.logManager,
+		ObservabilityManager: managers.observabilityManager,
+		WebSocketManager:     managers.wsManager,
+		SecretsRepo:          repos.SecretsRepo,
+		HealthManager:        managers.healthManager,
+	}, nil
+}
+
+type clientFactory struct {
+	cfg *config.Config
+	log *slog.Logger
+}
+
+type awsClients struct {
+	dynamo    dynamoRepo.Client
+	ecs       awsClient.ECSClient
+	ssm       secrets.Client
+	cwl       awsClient.CloudWatchLogsClient
+	iam       awsClient.IAMClient
+	accountID string
+}
+
+type managerSet struct {
+	taskManager          contract.TaskManager
+	imageRegistry        contract.ImageRegistry
+	logManager           contract.LogManager
+	observabilityManager contract.ObservabilityManager
+	wsManager            contract.WebSocketManager
+	healthManager        contract.HealthManager
+}
+
+func validateConfig(cfg *config.Config) error {
+	if cfg == nil {
+		return errors.New("config is required")
+	}
+	if cfg.AWS == nil {
+		return fmt.Errorf("AWS config is required when backend_provider is AWS")
+	}
+	if err := awsconfig.ValidateOrchestrator(cfg.AWS); err != nil {
+		return fmt.Errorf("invalid AWS orchestrator config: %w", err)
+	}
+	return nil
+}
+
+func buildAWSClients(ctx context.Context, cfg *config.Config, log *slog.Logger) (*awsClients, error) {
+	factory := clientFactory{cfg: cfg, log: log}
+
+	if err := factory.loadSDKConfig(ctx); err != nil {
+		return nil, err
 	}
 
 	accountID, err := identity.GetAccountID(ctx, cfg.AWS.SDKConfig, log)
@@ -66,14 +137,29 @@ func Initialize( //nolint:funlen // This is ok, lots of initializations required
 	cwlSDKClient := cloudwatchlogs.NewFromConfig(*cfg.AWS.SDKConfig)
 	iamSDKClient := iam.NewFromConfig(*cfg.AWS.SDKConfig)
 
-	dynamoClient := dynamoRepo.NewClientAdapter(dynamoSDKClient)
-	ecsClient := awsClient.NewECSClientAdapter(ecsSDKClient)
-	ssmClient := secrets.NewClientAdapter(ssmSDKClient)
-	cwlClient := awsClient.NewCloudWatchLogsClientAdapter(cwlSDKClient)
-	iamClient := awsClient.NewIAMClientAdapter(iamSDKClient)
+	return &awsClients{
+		dynamo:    dynamoRepo.NewClientAdapter(dynamoSDKClient),
+		ecs:       awsClient.NewECSClientAdapter(ecsSDKClient),
+		ssm:       secrets.NewClientAdapter(ssmSDKClient),
+		cwl:       awsClient.NewCloudWatchLogsClientAdapter(cwlSDKClient),
+		iam:       awsClient.NewIAMClientAdapter(iamSDKClient),
+		accountID: accountID,
+	}, nil
+}
 
-	repos := awsDatabase.CreateRepositories(dynamoClient, ssmClient, cfg, log)
-	providerCfg := &Config{
+func (f *clientFactory) loadSDKConfig(ctx context.Context) error {
+	if f.cfg.AWS.SDKConfig != nil {
+		return nil
+	}
+
+	if err := f.cfg.AWS.LoadSDKConfig(ctx); err != nil {
+		return fmt.Errorf("failed to load AWS SDK config: %w", err)
+	}
+	return nil
+}
+
+func buildProviderConfig(cfg *config.Config, accountID string) *Config {
+	return &Config{
 		ECSCluster:             cfg.AWS.ECSCluster,
 		Subnet1:                cfg.AWS.Subnet1,
 		Subnet2:                cfg.AWS.Subnet2,
@@ -85,27 +171,34 @@ func Initialize( //nolint:funlen // This is ok, lots of initializations required
 		AccountID:              accountID,
 		SDKConfig:              cfg.AWS.SDKConfig,
 	}
+}
 
-	// Create specialized manager implementations for each interface
-	taskManager := NewTaskManager(ecsClient, repos.ImageTaskDefRepo, providerCfg, log)
-	imageRegistry := NewImageRegistry(ecsClient, iamClient, repos.ImageTaskDefRepo, providerCfg, log)
-	logManager := NewLogManager(cwlClient, providerCfg, log)
-	observabilityManager := NewObservabilityManager(cwlClient, log)
-
+func buildManagers(
+	clients *awsClients,
+	repos *awsDatabase.Repositories,
+	providerCfg *Config,
+	enforcer *authorization.Enforcer,
+	log *slog.Logger,
+	cfg *config.Config,
+) *managerSet {
+	taskManager := NewTaskManager(clients.ecs, repos.ImageTaskDefRepo, providerCfg, log)
+	imageRegistry := NewImageRegistry(clients.ecs, clients.iam, repos.ImageTaskDefRepo, providerCfg, log)
+	logManager := NewLogManager(clients.cwl, providerCfg, log)
+	observabilityManager := NewObservabilityManager(clients.cwl, log)
 	wsManager := awsWebsocket.Initialize(cfg, repos.ConnectionRepo, repos.TokenRepo, log)
 
 	healthCfg := &awsHealth.Config{
 		Region:                 cfg.AWS.SDKConfig.Region,
-		AccountID:              accountID,
+		AccountID:              clients.accountID,
 		DefaultTaskRoleARN:     cfg.AWS.DefaultTaskRoleARN,
 		DefaultTaskExecRoleARN: cfg.AWS.DefaultTaskExecRoleARN,
 		LogGroup:               cfg.AWS.LogGroup,
 		SecretsPrefix:          cfg.AWS.SecretsPrefix,
 	}
 	healthManager := awsHealth.Initialize(
-		ecsClient,
-		ssmClient,
-		iamClient,
+		clients.ecs,
+		clients.ssm,
+		clients.iam,
 		repos.ImageTaskDefRepo,
 		repos.SecretsRepo,
 		repos.UserRepo,
@@ -115,18 +208,12 @@ func Initialize( //nolint:funlen // This is ok, lots of initializations required
 		log,
 	)
 
-	return &Dependencies{
-		UserRepo:             repos.UserRepo,
-		ExecutionRepo:        repos.ExecutionRepo,
-		ConnectionRepo:       repos.ConnectionRepo,
-		TokenRepo:            repos.TokenRepo,
-		ImageRepo:            repos.ImageTaskDefRepo,
-		TaskManager:          taskManager,
-		ImageRegistry:        imageRegistry,
-		LogManager:           logManager,
-		ObservabilityManager: observabilityManager,
-		WebSocketManager:     wsManager,
-		SecretsRepo:          repos.SecretsRepo,
-		HealthManager:        healthManager,
-	}, nil
+	return &managerSet{
+		taskManager:          taskManager,
+		imageRegistry:        imageRegistry,
+		logManager:           logManager,
+		observabilityManager: observabilityManager,
+		wsManager:            wsManager,
+		healthManager:        healthManager,
+	}
 }
