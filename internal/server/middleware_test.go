@@ -54,7 +54,7 @@ func TestRequestIDMiddleware(t *testing.T) {
 			testutil.SilentLogger(),
 			constants.AWS,
 			nil,
-			nil,
+			&noopHealthManager{},
 			newPermissiveTestEnforcerForHandlers(t),
 		)
 		if err != nil {
@@ -113,7 +113,7 @@ func TestRequestIDMiddleware(t *testing.T) {
 			testutil.SilentLogger(),
 			constants.AWS,
 			nil,
-			nil,
+			&noopHealthManager{},
 			newPermissiveTestEnforcerForHandlers(t),
 		)
 		if err != nil {
@@ -165,7 +165,7 @@ func TestRequestIDMiddleware(t *testing.T) {
 			testutil.SilentLogger(),
 			constants.AWS,
 			nil,
-			nil,
+			&noopHealthManager{},
 			newPermissiveTestEnforcerForHandlers(t),
 		)
 		if err != nil {
@@ -225,7 +225,7 @@ func TestRequestIDMiddleware(t *testing.T) {
 			testutil.SilentLogger(),
 			constants.AWS,
 			nil,
-			nil,
+			&noopHealthManager{},
 			newPermissiveTestEnforcerForHandlers(t),
 		)
 		if err != nil {
@@ -359,7 +359,7 @@ func TestCorsMiddleware(t *testing.T) {
 		testutil.SilentLogger(),
 		constants.AWS,
 		nil,
-		nil,
+		&noopHealthManager{},
 		newPermissiveTestEnforcerForHandlers(t),
 	)
 	if err != nil {

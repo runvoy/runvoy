@@ -37,7 +37,7 @@ func TestNewRouter(t *testing.T) {
 		testutil.SilentLogger(),
 		constants.AWS,
 		nil,
-		nil,
+		&noopHealthManager{},
 		newPermissiveTestEnforcerForHandlers(t),
 	)
 	require.NoError(t, err)
@@ -78,7 +78,7 @@ func TestRouter_ChiMux(t *testing.T) {
 		testutil.SilentLogger(),
 		constants.AWS,
 		nil,
-		nil,
+		&noopHealthManager{},
 		newPermissiveTestEnforcerForHandlers(t),
 	)
 	require.NoError(t, err)
@@ -110,7 +110,7 @@ func TestRouter_Handler(t *testing.T) {
 		testutil.SilentLogger(),
 		constants.AWS,
 		nil,
-		nil,
+		&noopHealthManager{},
 		newPermissiveTestEnforcerForHandlers(t),
 	)
 	require.NoError(t, err)
@@ -142,7 +142,7 @@ func TestRouter_WithContext(t *testing.T) {
 		testutil.SilentLogger(),
 		constants.AWS,
 		nil,
-		nil,
+		&noopHealthManager{},
 		newPermissiveTestEnforcerForHandlers(t),
 	)
 	require.NoError(t, err)
@@ -166,7 +166,7 @@ func TestRouter_WithContext(t *testing.T) {
 		testutil.SilentLogger(),
 		constants.AWS,
 		nil,
-		nil,
+		&noopHealthManager{},
 		newPermissiveTestEnforcerForHandlers(t),
 	)
 	require.NoError(t, err)
@@ -200,7 +200,7 @@ func TestRouter_ServeHTTP(t *testing.T) {
 		testutil.SilentLogger(),
 		constants.AWS,
 		nil,
-		nil,
+		&noopHealthManager{},
 		newPermissiveTestEnforcerForHandlers(t),
 	)
 	require.NoError(t, err)

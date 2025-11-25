@@ -70,7 +70,7 @@ func TestAuthorizeRequest(t *testing.T) {
 			testutil.SilentLogger(),
 			constants.AWS,
 			nil,
-			nil,
+			&noopHealthManager{},
 			newPermissiveTestEnforcer(t),
 		)
 
@@ -104,7 +104,7 @@ func TestHandleCreateUserAuthorizationDenied(t *testing.T) {
 		testutil.SilentLogger(),
 		constants.AWS,
 		nil,
-		nil,
+		&noopHealthManager{},
 		newPermissiveTestEnforcer(t),
 	)
 
@@ -247,7 +247,7 @@ func TestValidateExecutionResourceAccess(t *testing.T) {
 				testutil.SilentLogger(),
 				constants.AWS,
 				nil,
-				nil,
+				&noopHealthManager{},
 				newPermissiveTestEnforcer(t),
 			)
 
@@ -294,7 +294,7 @@ func TestHandleListUsersWithAuthorization(t *testing.T) {
 		testutil.SilentLogger(),
 		constants.AWS,
 		nil,
-		nil,
+		&noopHealthManager{},
 		enforcer,
 	)
 	require.NoError(t, err)
@@ -352,7 +352,7 @@ func TestHandleRunCommandStructure(t *testing.T) {
 		testutil.SilentLogger(),
 		constants.AWS,
 		nil,
-		nil,
+		&noopHealthManager{},
 		enforcer,
 	)
 	require.NoError(t, err)
@@ -470,7 +470,7 @@ func newTestRouterWithEnforcer(t *testing.T, enforcer *authorization.Enforcer) *
 		testutil.SilentLogger(),
 		constants.AWS,
 		nil,
-		nil,
+		&noopHealthManager{},
 		enforcer,
 	)
 	require.NoError(t, err)

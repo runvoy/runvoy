@@ -459,7 +459,7 @@ func newTestService(
 		logger,
 		constants.AWS,
 		nil, // wsManager
-		nil, // healthManager
+		&noopHealthManager{},
 		enforcer,
 	)
 	require.NoError(t, err)

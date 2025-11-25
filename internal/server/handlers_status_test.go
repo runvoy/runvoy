@@ -90,7 +90,7 @@ func TestGetExecutionStatus_Unauthorized(t *testing.T) {
 		testutil.SilentLogger(),
 		constants.AWS,
 		nil,
-		nil,
+		&noopHealthManager{},
 		newPermissiveTestEnforcerForHandlers(t),
 	)
 	require.NoError(t, err)

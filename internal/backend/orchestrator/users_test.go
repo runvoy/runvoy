@@ -42,7 +42,7 @@ func TestValidateCreateUserRequest_Success(t *testing.T) {
 		logger,
 		"",
 		nil,
-		nil, // healthManager
+		&stubHealthManager{},
 		newPermissiveEnforcer(),
 	)
 	require.NoError(t, err)
@@ -73,7 +73,7 @@ func TestValidateCreateUserRequest_EmptyEmail(t *testing.T) {
 		logger,
 		"",
 		nil,
-		nil, // healthManager
+		&stubHealthManager{},
 		newPermissiveEnforcer(),
 	)
 	require.NoError(t, err)
@@ -105,7 +105,7 @@ func TestValidateCreateUserRequest_InvalidEmail(t *testing.T) {
 		logger,
 		"",
 		nil,
-		nil, // healthManager
+		&stubHealthManager{},
 		newPermissiveEnforcer(),
 	)
 	require.NoError(t, err)
@@ -142,7 +142,7 @@ func TestValidateCreateUserRequest_UserAlreadyExists(t *testing.T) {
 		logger,
 		"",
 		nil,
-		nil, // healthManager
+		&stubHealthManager{},
 		newPermissiveEnforcer(),
 	)
 	require.NoError(t, err)
@@ -179,7 +179,7 @@ func TestValidateCreateUserRequest_RepositoryError(t *testing.T) {
 		logger,
 		"",
 		nil,
-		nil, // healthManager
+		&stubHealthManager{},
 		newPermissiveEnforcer(),
 	)
 	require.NoError(t, err)
@@ -210,7 +210,7 @@ func TestValidateCreateUserRequest_EmptyRole(t *testing.T) {
 		logger,
 		"",
 		nil,
-		nil, // healthManager
+		&stubHealthManager{},
 		newPermissiveEnforcer(),
 	)
 	require.NoError(t, err)
@@ -242,7 +242,7 @@ func TestValidateCreateUserRequest_InvalidRole(t *testing.T) {
 		logger,
 		"",
 		nil,
-		nil, // healthManager
+		&stubHealthManager{},
 		newPermissiveEnforcer(),
 	)
 	require.NoError(t, err)
@@ -298,7 +298,7 @@ func TestCreatePendingClaim_Success(t *testing.T) {
 		logger,
 		"",
 		nil,
-		nil, // healthManager
+		&stubHealthManager{},
 		newPermissiveEnforcer(),
 	)
 	require.NoError(t, err)
@@ -341,7 +341,7 @@ func TestCreatePendingClaim_RepositoryError(t *testing.T) {
 		logger,
 		"",
 		nil,
-		nil, // healthManager
+		&stubHealthManager{},
 		newPermissiveEnforcer(),
 	)
 	require.NoError(t, err)
@@ -390,7 +390,7 @@ func TestCreateUser_Success(t *testing.T) {
 		logger,
 		"",
 		nil,
-		nil, // healthManager
+		&stubHealthManager{},
 		newPermissiveEnforcer(),
 	)
 	require.NoError(t, err)
@@ -426,7 +426,7 @@ func TestCreateUser_InvalidEmail(t *testing.T) {
 		logger,
 		"",
 		nil,
-		nil, // healthManager
+		&stubHealthManager{},
 		newPermissiveEnforcer(),
 	)
 	require.NoError(t, err)
@@ -467,7 +467,7 @@ func TestCreateUser_CreateUserError(t *testing.T) {
 		logger,
 		"",
 		nil,
-		nil, // healthManager
+		&stubHealthManager{},
 		newPermissiveEnforcer(),
 	)
 	require.NoError(t, err)
@@ -499,7 +499,7 @@ func TestCreateUser_MissingRole(t *testing.T) {
 		logger,
 		"",
 		nil,
-		nil, // healthManager
+		&stubHealthManager{},
 		newPermissiveEnforcer(),
 	)
 	require.NoError(t, err)
@@ -532,7 +532,7 @@ func TestCreateUser_InvalidRole(t *testing.T) {
 		logger,
 		"",
 		nil,
-		nil, // healthManager
+		&stubHealthManager{},
 		newPermissiveEnforcer(),
 	)
 	require.NoError(t, err)
@@ -718,7 +718,7 @@ func TestClaimAPIKey_Success(t *testing.T) {
 		logger,
 		"",
 		nil,
-		nil, // healthManager
+		&stubHealthManager{},
 		newPermissiveEnforcer(),
 	)
 	require.NoError(t, err)
@@ -757,7 +757,7 @@ func TestClaimAPIKey_InvalidToken(t *testing.T) {
 		logger,
 		"",
 		nil,
-		nil, // healthManager
+		&stubHealthManager{},
 		newPermissiveEnforcer(),
 	)
 	require.NoError(t, err)
@@ -801,7 +801,7 @@ func TestClaimAPIKey_AlreadyClaimed(t *testing.T) {
 		logger,
 		"",
 		nil,
-		nil, // healthManager
+		&stubHealthManager{},
 		newPermissiveEnforcer(),
 	)
 	require.NoError(t, err)
@@ -845,7 +845,7 @@ func TestClaimAPIKey_TokenExpired(t *testing.T) {
 		logger,
 		"",
 		nil,
-		nil, // healthManager
+		&stubHealthManager{},
 		newPermissiveEnforcer(),
 	)
 	require.NoError(t, err)
@@ -885,7 +885,7 @@ func TestListUsers_Success(t *testing.T) {
 		logger,
 		"",
 		nil,
-		nil, // healthManager
+		&stubHealthManager{},
 		newPermissiveEnforcer(),
 	)
 	require.NoError(t, err)
@@ -926,7 +926,7 @@ func TestListUsers_Empty(t *testing.T) {
 		logger,
 		"",
 		nil,
-		nil, // healthManager
+		&stubHealthManager{},
 		newPermissiveEnforcer(),
 	)
 	require.NoError(t, err)
@@ -971,7 +971,7 @@ func TestListUsers_RepositoryError(t *testing.T) {
 		logger,
 		"",
 		nil,
-		nil, // healthManager
+		&stubHealthManager{},
 		newPermissiveEnforcer(),
 	)
 	require.NoError(t, err)
@@ -1013,7 +1013,7 @@ func TestListUsers_SortingByEmail(t *testing.T) {
 		logger,
 		"",
 		nil,
-		nil, // healthManager
+		&stubHealthManager{},
 		newPermissiveEnforcer(),
 	)
 	require.NoError(t, err)

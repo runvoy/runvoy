@@ -317,6 +317,13 @@ func (m *mockRunner) GetImagesByRequestID(_ context.Context, _ string) ([]api.Im
 	return []api.ImageInfo{}, nil
 }
 
+// stubHealthManager implements HealthManager for testing.
+type stubHealthManager struct{}
+
+func (m *stubHealthManager) Reconcile(_ context.Context) (*api.HealthReport, error) {
+	return &api.HealthReport{}, nil
+}
+
 // newPermissiveEnforcer creates a test enforcer that allows all access.
 // This is useful for tests that need authorization to pass but don't test authorization logic.
 func newPermissiveEnforcer() *authorization.Enforcer {
@@ -388,12 +395,13 @@ func newTestServiceWithConnRepo(
 		Image:      &mockImageRepository{},
 		Secrets:    &mockSecretsRepository{},
 	}
+	healthManager := &stubHealthManager{}
 	svc, err := NewService(
 		context.Background(),
 		&repos,
 		taskManager, imageRegistry, logManager, observabilityManager,
 		logger, constants.AWS,
-		nil, nil, newPermissiveEnforcer(),
+		nil, healthManager, newPermissiveEnforcer(),
 	)
 	if err != nil {
 		panic(err)
@@ -450,6 +458,7 @@ func newTestServiceWithEnforcer(
 		Image:      &mockImageRepository{},
 		Secrets:    secretsRepoIface,
 	}
+	healthManager := &stubHealthManager{}
 	svc, err := NewService(
 		context.Background(),
 		&repos,
@@ -460,7 +469,7 @@ func newTestServiceWithEnforcer(
 		logger,
 		constants.AWS,
 		nil,
-		nil,
+		healthManager,
 		enforcer,
 	)
 	if err != nil {
@@ -506,6 +515,7 @@ func newTestServiceWithSecretsRepo(
 		Image:      &mockImageRepository{},
 		Secrets:    secretsRepo,
 	}
+	healthManager := &stubHealthManager{}
 	svc, err := NewService(
 		context.Background(),
 		&repos,
@@ -516,7 +526,7 @@ func newTestServiceWithSecretsRepo(
 		logger,
 		constants.AWS,
 		nil,
-		nil,
+		healthManager,
 		newPermissiveEnforcer(),
 	)
 	if err != nil {
@@ -627,12 +637,13 @@ func newTestServiceWithWebSocketManager(
 		Image:      &mockImageRepository{},
 		Secrets:    &mockSecretsRepository{},
 	}
+	healthManager := &stubHealthManager{}
 	svc, err := NewService(
 		context.Background(),
 		&repos,
 		taskManager, imageRegistry, logManager, observabilityManager,
 		logger, constants.AWS,
-		wsManager, nil, newPermissiveEnforcer(),
+		wsManager, healthManager, newPermissiveEnforcer(),
 	)
 	if err != nil {
 		panic(err)

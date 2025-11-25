@@ -38,7 +38,7 @@ func TestInitialize_UsesCustomInitializer(t *testing.T) {
 		LogManager:           runner,
 		ObservabilityManager: runner,
 		WebSocketManager:     nil,
-		HealthManager:        nil,
+		HealthManager:        &stubHealthManager{},
 	}
 
 	var called bool

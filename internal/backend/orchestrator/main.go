@@ -33,7 +33,7 @@ type Service struct {
 // If wsManager is nil, WebSocket URL generation will be skipped.
 // If repos.Secrets is nil, secrets operations will not be available.
 // If repos.Image is nil, image-by-request-ID queries will not be available.
-// If healthManager is nil, health reconciliation will not be available.
+// healthManager is required; initialization fails if it is nil.
 func NewService(
 	ctx context.Context,
 	repos *database.Repositories,
@@ -46,6 +46,16 @@ func NewService(
 	wsManager contract.WebSocketManager,
 	healthManager contract.HealthManager,
 	enforcer *authorization.Enforcer) (*Service, error) {
+	if enforcer == nil {
+		return nil, fmt.Errorf("enforcer is required")
+	}
+	if repos == nil || repos.User == nil || repos.Execution == nil {
+		return nil, fmt.Errorf("user and execution repositories are required")
+	}
+	if healthManager == nil {
+		return nil, fmt.Errorf("healthManager is required")
+	}
+
 	svc := &Service{
 		repos:                *repos,
 		taskManager:          taskManager,

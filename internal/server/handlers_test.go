@@ -383,6 +383,9 @@ func newTestOrchestratorService(
 	if secretsRepo == nil {
 		secretsRepo = &testSecretsRepository{}
 	}
+	if healthManager == nil {
+		healthManager = &noopHealthManager{}
+	}
 
 	repos := database.Repositories{
 		User:       userRepo,
@@ -429,7 +432,7 @@ func newTestRouterForUnauthorized(t *testing.T) *Router {
 		testutil.SilentLogger(),
 		constants.AWS,
 		nil,
-		nil,
+		&noopHealthManager{},
 		newPermissiveTestEnforcerForHandlers(t),
 	)
 	require.NoError(t, err)
@@ -510,7 +513,7 @@ func TestHandleRunCommand_WithImage_ValidatesAuthorization(t *testing.T) {
 		testutil.SilentLogger(),
 		constants.AWS,
 		nil,
-		nil,
+		&noopHealthManager{},
 		enf,
 	)
 	require.NoError(t, err)
@@ -570,7 +573,7 @@ func TestHandleRunCommand_WithSecrets_ValidatesAuthorization(t *testing.T) {
 		testutil.SilentLogger(),
 		constants.AWS,
 		nil,
-		nil,
+		&noopHealthManager{},
 		enf,
 	)
 	require.NoError(t, err)
@@ -642,7 +645,7 @@ func TestHandleRunCommand_AllResourcesAuthorized(t *testing.T) {
 		testutil.SilentLogger(),
 		constants.AWS,
 		nil,
-		nil,
+		&noopHealthManager{},
 		enf,
 	)
 	require.NoError(t, err)
@@ -1032,7 +1035,7 @@ func TestHandleReconcileHealth_Unauthenticated(t *testing.T) {
 		testutil.SilentLogger(),
 		constants.AWS,
 		nil,
-		nil,
+		&noopHealthManager{},
 		newPermissiveTestEnforcerForHandlers(t),
 	)
 	require.NoError(t, err)
