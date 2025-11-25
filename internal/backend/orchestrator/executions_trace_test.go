@@ -408,6 +408,7 @@ func newTraceTestServiceWithRunner(
 	}
 	svc, err := NewService(
 		context.Background(),
+		testRegion,
 		&repos,
 		taskManager,
 		imageRegistry,

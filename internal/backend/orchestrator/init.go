@@ -17,6 +17,7 @@ import (
 // ProviderDependencies groups the repositories and provider-specific managers required to build a Service.
 // This enables injecting fake or prebuilt dependencies without touching cloud SDKs.
 type ProviderDependencies struct {
+	Region               string
 	Repositories         database.Repositories
 	TaskManager          contract.TaskManager
 	ImageRegistry        contract.ImageRegistry
@@ -92,6 +93,7 @@ func Initialize(
 
 	svc, svcErr := NewService(
 		ctx,
+		deps.Region,
 		&deps.Repositories,
 		deps.TaskManager,
 		deps.ImageRegistry,
@@ -146,6 +148,7 @@ func awsProviderInitializer(
 	}
 
 	return &ProviderDependencies{
+		Region:               cfg.AWS.SDKConfig.Region,
 		Repositories:         repos,
 		TaskManager:          awsDeps.TaskManager,
 		ImageRegistry:        awsDeps.ImageRegistry,

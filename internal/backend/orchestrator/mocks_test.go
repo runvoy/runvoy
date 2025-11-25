@@ -14,6 +14,8 @@ import (
 	"runvoy/internal/testutil"
 )
 
+const testRegion = "us-east-1"
+
 // mockUserRepository implements database.UserRepository for testing
 type mockUserRepository struct {
 	createUserFunc          func(ctx context.Context, user *api.User, apiKeyHash string, expiresAtUnix int64) error
@@ -398,6 +400,7 @@ func newTestServiceWithConnRepo(
 	healthManager := &stubHealthManager{}
 	svc, err := NewService(
 		context.Background(),
+		testRegion,
 		&repos,
 		taskManager, imageRegistry, logManager, observabilityManager,
 		logger, constants.AWS,
@@ -461,6 +464,7 @@ func newTestServiceWithEnforcer(
 	healthManager := &stubHealthManager{}
 	svc, err := NewService(
 		context.Background(),
+		testRegion,
 		&repos,
 		taskManager,
 		imageRegistry,
@@ -518,6 +522,7 @@ func newTestServiceWithSecretsRepo(
 	healthManager := &stubHealthManager{}
 	svc, err := NewService(
 		context.Background(),
+		testRegion,
 		&repos,
 		taskManager,
 		imageRegistry,
@@ -640,6 +645,7 @@ func newTestServiceWithWebSocketManager(
 	healthManager := &stubHealthManager{}
 	svc, err := NewService(
 		context.Background(),
+		testRegion,
 		&repos,
 		taskManager, imageRegistry, logManager, observabilityManager,
 		logger, constants.AWS,

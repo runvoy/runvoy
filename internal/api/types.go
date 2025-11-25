@@ -1,5 +1,7 @@
 package api
 
+import "runvoy/internal/constants"
+
 // ErrorResponse represents an error response
 type ErrorResponse struct {
 	Error   string `json:"error"`
@@ -9,6 +11,8 @@ type ErrorResponse struct {
 
 // HealthResponse represents the response to a health check request
 type HealthResponse struct {
-	Status  string `json:"status"`
-	Version string `json:"version"`
+	Status   string                    `json:"status"`
+	Version  string                    `json:"version"`
+	Provider constants.BackendProvider `json:"provider"`
+	Region   string                    `json:"region,omitempty"`
 }

@@ -46,6 +46,7 @@ func TestRequestIDMiddleware(t *testing.T) {
 		}
 		svc, err := orchestrator.NewService(
 			context.Background(),
+			testRegion,
 			&repos,
 			&testRunner{}, // TaskManager
 			&testRunner{}, // ImageRegistry
@@ -105,6 +106,7 @@ func TestRequestIDMiddleware(t *testing.T) {
 		}
 		svc, err := orchestrator.NewService(
 			context.Background(),
+			testRegion,
 			&repos,
 			&testRunner{}, // TaskManager
 			&testRunner{}, // ImageRegistry
@@ -157,6 +159,7 @@ func TestRequestIDMiddleware(t *testing.T) {
 		}
 		svc, err := orchestrator.NewService(
 			context.Background(),
+			testRegion,
 			&repos,
 			&testRunner{}, // TaskManager
 			&testRunner{}, // ImageRegistry
@@ -217,6 +220,7 @@ func TestRequestIDMiddleware(t *testing.T) {
 		}
 		svc, err := orchestrator.NewService(
 			context.Background(),
+			testRegion,
 			&repos,
 			&testRunner{}, // TaskManager
 			&testRunner{}, // ImageRegistry
@@ -351,6 +355,7 @@ func TestCorsMiddleware(t *testing.T) {
 	}
 	svc, err := orchestrator.NewService(
 		context.Background(),
+		testRegion,
 		&repos,
 		runner, // TaskManager
 		runner, // ImageRegistry

@@ -23,6 +23,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const testRegion = "us-east-1"
+
 // Test mocks for repositories and runner
 type testUserRepository struct {
 	authenticateUserFunc func(apiKeyHash string) (*api.User, error)
@@ -397,6 +399,7 @@ func newTestOrchestratorService(
 	}
 	svc, err := orchestrator.NewService(
 		context.Background(),
+		testRegion,
 		&repos,
 		taskManager,
 		imageRegistry,
@@ -424,6 +427,7 @@ func newTestRouterForUnauthorized(t *testing.T) *Router {
 		Secrets:    &testSecretsRepository{},
 	}
 	svc, err := orchestrator.NewService(context.Background(),
+		testRegion,
 		&repos,
 		&testRunner{}, // TaskManager
 		&testRunner{}, // ImageRegistry
@@ -505,6 +509,7 @@ func TestHandleRunCommand_WithImage_ValidatesAuthorization(t *testing.T) {
 	}
 	svc, err := orchestrator.NewService(
 		context.Background(),
+		testRegion,
 		&repos,
 		runner, // TaskManager
 		runner, // ImageRegistry
@@ -565,6 +570,7 @@ func TestHandleRunCommand_WithSecrets_ValidatesAuthorization(t *testing.T) {
 	}
 	svc, err := orchestrator.NewService(
 		context.Background(),
+		testRegion,
 		&repos,
 		runner, // TaskManager
 		runner, // ImageRegistry
@@ -637,6 +643,7 @@ func TestHandleRunCommand_AllResourcesAuthorized(t *testing.T) {
 	}
 	svc, err := orchestrator.NewService(
 		context.Background(),
+		testRegion,
 		&repos,
 		runner, // TaskManager
 		runner, // ImageRegistry
@@ -1027,6 +1034,7 @@ func TestHandleReconcileHealth_Unauthenticated(t *testing.T) {
 		Secrets:    &testSecretsRepository{},
 	}
 	svc, err := orchestrator.NewService(context.Background(),
+		testRegion,
 		&repos,
 		&testRunner{}, // TaskManager
 		&testRunner{}, // ImageRegistry

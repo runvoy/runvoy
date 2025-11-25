@@ -82,6 +82,7 @@ func TestGetExecutionStatus_Unauthorized(t *testing.T) {
 		Secrets:    &testSecretsRepository{},
 	}
 	svc, err := orchestrator.NewService(context.Background(),
+		testRegion,
 		&repos,
 		&mockRunner{}, // TaskManager
 		&mockRunner{}, // ImageRegistry

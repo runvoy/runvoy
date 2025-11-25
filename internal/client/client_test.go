@@ -11,6 +11,7 @@ import (
 
 	"runvoy/internal/api"
 	"runvoy/internal/config"
+	"runvoy/internal/constants"
 	"runvoy/internal/testutil"
 
 	"github.com/stretchr/testify/assert"
@@ -398,8 +399,10 @@ func TestClient_GetHealth(t *testing.T) {
 
 			w.WriteHeader(http.StatusOK)
 			_ = json.NewEncoder(w).Encode(api.HealthResponse{
-				Status:  "healthy",
-				Version: "1.0.0",
+				Status:   "healthy",
+				Version:  "1.0.0",
+				Provider: constants.AWS,
+				Region:   "us-east-1",
 			})
 		}))
 		defer server.Close()
@@ -416,6 +419,8 @@ func TestClient_GetHealth(t *testing.T) {
 		require.NotNil(t, resp)
 		assert.Equal(t, "healthy", resp.Status)
 		assert.Equal(t, "1.0.0", resp.Version)
+		assert.Equal(t, constants.AWS, resp.Provider)
+		assert.Equal(t, "us-east-1", resp.Region)
 	})
 }
 

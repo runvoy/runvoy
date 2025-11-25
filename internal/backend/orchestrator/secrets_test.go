@@ -40,6 +40,7 @@ func newSecretsTestService(t *testing.T, runner *mockRunner, secretsRepo databas
 	}
 	svc, err := NewService(
 		context.Background(),
+		testRegion,
 		&repos,
 		taskManager,
 		imageRegistry,

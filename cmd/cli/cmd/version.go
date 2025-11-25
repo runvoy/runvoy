@@ -28,6 +28,10 @@ var versionCmd = &cobra.Command{
 		}
 
 		output.KeyValue("Backend version", health.Version)
+		output.KeyValue("Backend provider", string(health.Provider))
+		if health.Region != "" {
+			output.KeyValue("Backend region", health.Region)
+		}
 	},
 }
 

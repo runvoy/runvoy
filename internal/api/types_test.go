@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"testing"
 
+	"runvoy/internal/constants"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -45,8 +47,10 @@ func TestErrorResponseJSON(t *testing.T) {
 func TestHealthResponseJSON(t *testing.T) {
 	t.Run("marshal and unmarshal", func(t *testing.T) {
 		resp := HealthResponse{
-			Status:  "healthy",
-			Version: "1.0.0",
+			Status:   "healthy",
+			Version:  "1.0.0",
+			Provider: constants.AWS,
+			Region:   "us-east-1",
 		}
 
 		data, err := json.Marshal(resp)
@@ -58,5 +62,7 @@ func TestHealthResponseJSON(t *testing.T) {
 
 		assert.Equal(t, resp.Status, unmarshaled.Status)
 		assert.Equal(t, resp.Version, unmarshaled.Version)
+		assert.Equal(t, resp.Provider, unmarshaled.Provider)
+		assert.Equal(t, resp.Region, unmarshaled.Region)
 	})
 }

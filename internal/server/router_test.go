@@ -29,6 +29,7 @@ func TestNewRouter(t *testing.T) {
 	}
 	svc, err := orchestrator.NewService(
 		context.Background(),
+		testRegion,
 		&repos,
 		&testRunner{}, // TaskManager
 		&testRunner{}, // ImageRegistry
@@ -70,6 +71,7 @@ func TestRouter_ChiMux(t *testing.T) {
 	}
 	svc, err := orchestrator.NewService(
 		context.Background(),
+		testRegion,
 		&repos,
 		&testRunner{}, // TaskManager
 		&testRunner{}, // ImageRegistry
@@ -102,6 +104,7 @@ func TestRouter_Handler(t *testing.T) {
 	}
 	svc, err := orchestrator.NewService(
 		context.Background(),
+		testRegion,
 		&repos,
 		&testRunner{}, // TaskManager
 		&testRunner{}, // ImageRegistry
@@ -134,6 +137,7 @@ func TestRouter_WithContext(t *testing.T) {
 	}
 	svc, err := orchestrator.NewService(
 		context.Background(),
+		testRegion,
 		&repos,
 		&testRunner{}, // TaskManager
 		&testRunner{}, // ImageRegistry
@@ -158,6 +162,7 @@ func TestRouter_WithContext(t *testing.T) {
 	}
 	svc2, err := orchestrator.NewService(
 		context.Background(),
+		testRegion,
 		&repos2,
 		runner2, // TaskManager
 		runner2, // ImageRegistry
@@ -192,6 +197,7 @@ func TestRouter_ServeHTTP(t *testing.T) {
 	}
 	svc, err := orchestrator.NewService(
 		context.Background(),
+		testRegion,
 		&repos,
 		&testRunner{}, // TaskManager
 		&testRunner{}, // ImageRegistry

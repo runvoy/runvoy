@@ -88,6 +88,8 @@ func TestHandleHealth(t *testing.T) {
 
 				assert.Equal(t, "ok", response.Status)
 				assert.NotNil(t, response.Version)
+				assert.Equal(t, constants.AWS, response.Provider)
+				assert.Equal(t, testRegion, response.Region)
 			}
 		})
 	}
@@ -110,6 +112,8 @@ func TestHandleHealth_VersionInResponse(t *testing.T) {
 	assert.Equal(t, "ok", response.Status)
 	// Version should be populated from constants
 	assert.NotEmpty(t, response.Version)
+	assert.Equal(t, constants.AWS, response.Provider)
+	assert.Equal(t, testRegion, response.Region)
 }
 
 func TestHandleReconcileHealth_Success(t *testing.T) {
@@ -437,4 +441,6 @@ func TestHandleHealth_VersionConstant(t *testing.T) {
 
 	// Version should match what constants.GetVersion() returns
 	assert.Equal(t, *constants.GetVersion(), response.Version)
+	assert.Equal(t, constants.AWS, response.Provider)
+	assert.Equal(t, testRegion, response.Region)
 }

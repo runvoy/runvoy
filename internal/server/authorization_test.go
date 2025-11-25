@@ -62,6 +62,7 @@ func TestAuthorizeRequest(t *testing.T) {
 			Secrets:    &testSecretsRepository{},
 		}
 		svc, _ := orchestrator.NewService(context.Background(),
+			testRegion,
 			&repos,
 			&testRunner{}, // TaskManager
 			&testRunner{}, // ImageRegistry
@@ -96,6 +97,7 @@ func TestHandleCreateUserAuthorizationDenied(t *testing.T) {
 		Secrets:    &testSecretsRepository{},
 	}
 	svc, _ := orchestrator.NewService(context.Background(),
+		testRegion,
 		&repos,
 		&testRunner{}, // TaskManager
 		&testRunner{}, // ImageRegistry
@@ -239,6 +241,7 @@ func TestValidateExecutionResourceAccess(t *testing.T) {
 				Secrets:    &testSecretsRepository{},
 			}
 			svc, _ := orchestrator.NewService(context.Background(),
+				testRegion,
 				&repos,
 				runner, // TaskManager
 				runner, // ImageRegistry
@@ -286,6 +289,7 @@ func TestHandleListUsersWithAuthorization(t *testing.T) {
 		Secrets:    &testSecretsRepository{},
 	}
 	svc, err := orchestrator.NewService(context.Background(),
+		testRegion,
 		&repos,
 		&testRunner{}, // TaskManager
 		&testRunner{}, // ImageRegistry
@@ -344,6 +348,7 @@ func TestHandleRunCommandStructure(t *testing.T) {
 		Secrets:    &testSecretsRepository{},
 	}
 	svc, err := orchestrator.NewService(context.Background(),
+		testRegion,
 		&repos,
 		runner, // TaskManager
 		runner, // ImageRegistry
@@ -462,6 +467,7 @@ func newTestRouterWithEnforcer(t *testing.T, enforcer *authorization.Enforcer) *
 		Secrets:    &testSecretsRepository{},
 	}
 	svc, err := orchestrator.NewService(context.Background(),
+		testRegion,
 		&repos,
 		&testRunner{}, // TaskManager
 		&testRunner{}, // ImageRegistry

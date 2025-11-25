@@ -13,6 +13,7 @@ import (
 
 // Service provides the core business logic for command execution and user management.
 type Service struct {
+	Region               string
 	repos                database.Repositories
 	taskManager          contract.TaskManager
 	imageRegistry        contract.ImageRegistry
@@ -36,6 +37,7 @@ type Service struct {
 // healthManager is required; initialization fails if it is nil.
 func NewService(
 	ctx context.Context,
+	region string,
 	repos *database.Repositories,
 	taskManager contract.TaskManager,
 	imageRegistry contract.ImageRegistry,
@@ -57,6 +59,7 @@ func NewService(
 	}
 
 	svc := &Service{
+		Region:               region,
 		repos:                *repos,
 		taskManager:          taskManager,
 		imageRegistry:        imageRegistry,

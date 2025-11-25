@@ -13,8 +13,10 @@ func (r *Router) handleHealth(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set(constants.ContentTypeHeader, "application/json")
 	w.WriteHeader(http.StatusOK)
 	_ = json.NewEncoder(w).Encode(api.HealthResponse{
-		Status:  "ok",
-		Version: *constants.GetVersion(),
+		Status:   "ok",
+		Version:  *constants.GetVersion(),
+		Region:   r.svc.Region,
+		Provider: r.svc.Provider,
 	})
 }
 

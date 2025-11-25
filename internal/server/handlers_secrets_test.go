@@ -451,6 +451,7 @@ func newTestService(
 		Secrets:    secretRepo,
 	}
 	svc, err := orchestrator.NewService(context.Background(),
+		testRegion,
 		&repos,
 		mockRunner, // TaskManager
 		mockRunner, // ImageRegistry

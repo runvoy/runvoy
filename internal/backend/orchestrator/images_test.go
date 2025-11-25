@@ -44,6 +44,7 @@ func newImageTestService(t *testing.T, runner *mockRunner) *Service {
 	}
 	svc, err := NewService(
 		context.Background(),
+		testRegion,
 		&repos,
 		taskManager,
 		imageRegistry,

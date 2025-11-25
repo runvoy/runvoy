@@ -34,6 +34,7 @@ func TestValidateCreateUserRequest_Success(t *testing.T) {
 		Secrets:    &mockSecretsRepository{},
 	}
 	service, err := NewService(context.Background(),
+		testRegion,
 		&repos,
 		runner, // TaskManager
 		runner, // ImageRegistry
@@ -65,6 +66,7 @@ func TestValidateCreateUserRequest_EmptyEmail(t *testing.T) {
 		Secrets:    &mockSecretsRepository{},
 	}
 	service, err := NewService(context.Background(),
+		testRegion,
 		&repos,
 		runner, // TaskManager
 		runner, // ImageRegistry
@@ -97,6 +99,7 @@ func TestValidateCreateUserRequest_InvalidEmail(t *testing.T) {
 		Secrets:    &mockSecretsRepository{},
 	}
 	service, err := NewService(context.Background(),
+		testRegion,
 		&repos,
 		runner, // TaskManager
 		runner, // ImageRegistry
@@ -134,6 +137,7 @@ func TestValidateCreateUserRequest_UserAlreadyExists(t *testing.T) {
 		Secrets:    &mockSecretsRepository{},
 	}
 	service, err := NewService(context.Background(),
+		testRegion,
 		&repos,
 		runner, // TaskManager
 		runner, // ImageRegistry
@@ -171,6 +175,7 @@ func TestValidateCreateUserRequest_RepositoryError(t *testing.T) {
 		Secrets:    &mockSecretsRepository{},
 	}
 	service, err := NewService(context.Background(),
+		testRegion,
 		&repos,
 		runner, // TaskManager
 		runner, // ImageRegistry
@@ -202,6 +207,7 @@ func TestValidateCreateUserRequest_EmptyRole(t *testing.T) {
 		Secrets:    &mockSecretsRepository{},
 	}
 	service, err := NewService(context.Background(),
+		testRegion,
 		&repos,
 		runner, // TaskManager
 		runner, // ImageRegistry
@@ -234,6 +240,7 @@ func TestValidateCreateUserRequest_InvalidRole(t *testing.T) {
 		Secrets:    &mockSecretsRepository{},
 	}
 	service, err := NewService(context.Background(),
+		testRegion,
 		&repos,
 		runner, // TaskManager
 		runner, // ImageRegistry
@@ -290,6 +297,7 @@ func TestCreatePendingClaim_Success(t *testing.T) {
 		Secrets:    &mockSecretsRepository{},
 	}
 	service, err := NewService(context.Background(),
+		testRegion,
 		&repos,
 		runner, // TaskManager
 		runner, // ImageRegistry
@@ -333,6 +341,7 @@ func TestCreatePendingClaim_RepositoryError(t *testing.T) {
 		Secrets:    &mockSecretsRepository{},
 	}
 	service, err := NewService(context.Background(),
+		testRegion,
 		&repos,
 		runner, // TaskManager
 		runner, // ImageRegistry
@@ -382,6 +391,7 @@ func TestCreateUser_Success(t *testing.T) {
 		Secrets:    &mockSecretsRepository{},
 	}
 	service, err := NewService(context.Background(),
+		testRegion,
 		&repos,
 		runner, // TaskManager
 		runner, // ImageRegistry
@@ -418,6 +428,7 @@ func TestCreateUser_InvalidEmail(t *testing.T) {
 		Secrets:    &mockSecretsRepository{},
 	}
 	service, err := NewService(context.Background(),
+		testRegion,
 		&repos,
 		runner, // TaskManager
 		runner, // ImageRegistry
@@ -459,6 +470,7 @@ func TestCreateUser_CreateUserError(t *testing.T) {
 		Secrets:    &mockSecretsRepository{},
 	}
 	service, err := NewService(context.Background(),
+		testRegion,
 		&repos,
 		runner, // TaskManager
 		runner, // ImageRegistry
@@ -491,6 +503,7 @@ func TestCreateUser_MissingRole(t *testing.T) {
 		Secrets:    &mockSecretsRepository{},
 	}
 	service, err := NewService(context.Background(),
+		testRegion,
 		&repos,
 		runner, // TaskManager
 		runner, // ImageRegistry
@@ -524,6 +537,7 @@ func TestCreateUser_InvalidRole(t *testing.T) {
 		Secrets:    &mockSecretsRepository{},
 	}
 	service, err := NewService(context.Background(),
+		testRegion,
 		&repos,
 		runner, // TaskManager
 		runner, // ImageRegistry
@@ -710,6 +724,7 @@ func TestClaimAPIKey_Success(t *testing.T) {
 		Secrets:    &mockSecretsRepository{},
 	}
 	service, err := NewService(context.Background(),
+		testRegion,
 		&repos,
 		runner, // TaskManager
 		runner, // ImageRegistry
@@ -749,6 +764,7 @@ func TestClaimAPIKey_InvalidToken(t *testing.T) {
 		Secrets:    &mockSecretsRepository{},
 	}
 	service, err := NewService(context.Background(),
+		testRegion,
 		&repos,
 		runner, // TaskManager
 		runner, // ImageRegistry
@@ -793,6 +809,7 @@ func TestClaimAPIKey_AlreadyClaimed(t *testing.T) {
 		Secrets:    &mockSecretsRepository{},
 	}
 	service, err := NewService(context.Background(),
+		testRegion,
 		&repos,
 		runner, // TaskManager
 		runner, // ImageRegistry
@@ -837,6 +854,7 @@ func TestClaimAPIKey_TokenExpired(t *testing.T) {
 		Secrets:    &mockSecretsRepository{},
 	}
 	service, err := NewService(context.Background(),
+		testRegion,
 		&repos,
 		runner, // TaskManager
 		runner, // ImageRegistry
@@ -877,6 +895,7 @@ func TestListUsers_Success(t *testing.T) {
 		Secrets:    &mockSecretsRepository{},
 	}
 	service, err := NewService(context.Background(),
+		testRegion,
 		&repos,
 		runner, // TaskManager
 		runner, // ImageRegistry
@@ -918,6 +937,7 @@ func TestListUsers_Empty(t *testing.T) {
 		Secrets:    &mockSecretsRepository{},
 	}
 	service, err := NewService(context.Background(),
+		testRegion,
 		&repos,
 		runner, // TaskManager
 		runner, // ImageRegistry
@@ -963,6 +983,7 @@ func TestListUsers_RepositoryError(t *testing.T) {
 		Secrets:    &mockSecretsRepository{},
 	}
 	service, err := NewService(context.Background(),
+		testRegion,
 		&repos,
 		runner, // TaskManager
 		runner, // ImageRegistry
@@ -1005,6 +1026,7 @@ func TestListUsers_SortingByEmail(t *testing.T) {
 		Secrets:    &mockSecretsRepository{},
 	}
 	service, err := NewService(context.Background(),
+		testRegion,
 		&repos,
 		runner, // TaskManager
 		runner, // ImageRegistry
