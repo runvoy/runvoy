@@ -1,6 +1,6 @@
 <h1 align="center">
     <p>
-      <img src="https://6924e9f3177c5ae445d98a1c--tranquil-toffee-07b637.netlify.app/runvoy-social-banner.webp" alt="🚀 Runvoy" width="100%" />
+      <img src="https://raw.githubusercontent.com/runvoy/runvoy/refs/heads/main/cmd/webapp/static/runvoy-banner.png" alt="🚀 Runvoy" width="50%" />
     </p>
     <p>Serverless command runner</p>
 </h1>
@@ -20,13 +20,15 @@
   <a href="https://golang.org" target="_blank">
       <img src="https://img.shields.io/badge/Go-1.25+-00ADD8?logo=go" alt="Go version">
   </a>
-  <a href="https://runvoy.github.io" target="_blank">
-      <img src="https://img.shields.io/badge/%F0%9F%9A%80%20Docs-orange" alt="Runvoy Docs">
+  <a href="https://github.com/runvoy/runvoy" target="_blank">
+      <img src="https://img.shields.io/badge/Github-repo-yellow" alt="Github Repository">
   </a>
   <a href="https://runvoy.site" target="_blank">
       <img src="https://img.shields.io/badge/%F0%9F%9A%80%20Webapp-blue" alt="Runvoy Webapp">
   </a>
-
+  <a href="https://runvoy.github.io" target="_blank">
+      <img src="https://img.shields.io/badge/%F0%9F%9A%80%20Docs-orange" alt="Runvoy Docs">
+  </a>
 </p>
 
 ---

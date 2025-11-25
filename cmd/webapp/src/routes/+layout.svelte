@@ -38,16 +38,22 @@
         <div class="header-content">
             <div class="header-title">
                 <h1>
-                    🚀 runvoy
-                    {#if appVersion}
-                        <span class="version">{appVersion}</span>
-                    {/if}
+                    <img src="/runvoy-avatar.png" alt="runvoy" class="avatar" />
+                    <div>
+                        {#if appVersion}
+                            <span class="version">{appVersion}</span>
+                        {/if}
+                        <p class="subtitle">
+                            <a
+                                href="https://github.com/runvoy/runvoy"
+                                target="_blank"
+                                rel="noopener"
+                            >
+                                View on GitHub
+                            </a>
+                        </p>
+                    </div>
                 </h1>
-                <p class="subtitle">
-                    <a href="https://github.com/runvoy/runvoy" target="_blank" rel="noopener">
-                        View on GitHub
-                    </a>
-                </p>
             </div>
             <div class="header-actions">
                 <ConnectionManager />
@@ -87,13 +93,23 @@
     .header-title h1 {
         margin-bottom: 0.25rem;
         font-size: 1.75rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .avatar {
+        height: 3em;
+        width: 3em;
+        object-fit: contain;
+        vertical-align: middle;
     }
 
     .version {
         color: var(--pico-muted-color);
         font-size: 0.75rem;
-        font-weight: normal;
-        margin-left: 0.5rem;
+        /* font-weight: normal;
+        margin-left: 0.5rem; */
     }
 
     .subtitle {
