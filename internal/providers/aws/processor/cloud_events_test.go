@@ -3,6 +3,7 @@ package aws
 import (
 	"context"
 	"encoding/json"
+	"log/slog"
 	"testing"
 
 	"runvoy/internal/api"
@@ -38,14 +39,18 @@ func (m *mockExecRepoForCloudEvents) CreateExecution(ctx context.Context, exec *
 	return nil
 }
 
-func (m *mockExecRepoForCloudEvents) ListExecutions(limit int, statuses []string) ([]*api.Execution, error) {
+func (m *mockExecRepoForCloudEvents) ListExecutions(ctx context.Context, limit int, statuses []string) ([]*api.Execution, error) {
+	return []*api.Execution{}, nil
+}
+
+func (m *mockExecRepoForCloudEvents) GetExecutionsByRequestID(ctx context.Context, requestID string) ([]*api.Execution, error) {
 	return []*api.Execution{}, nil
 }
 
 // Mock WebSocket manager for cloud event tests
 type mockWSManagerForCloudEvents struct {
 	notifyExecutionUpdateFunc func(ctx context.Context, exec *api.Execution) error
-	handleRequestFunc         func(ctx context.Context, rawEvent *json.RawMessage, reqLogger *testutil.Logger) (bool, error)
+	handleRequestFunc         func(ctx context.Context, rawEvent *json.RawMessage, reqLogger *slog.Logger) (bool, error)
 	sendLogsToExecutionFunc   func(ctx context.Context, executionID *string, logEvents []api.LogEvent) error
 }
 
@@ -72,7 +77,7 @@ func (m *mockWSManagerForCloudEvents) CloseConnection(ctx context.Context, conne
 	return nil
 }
 
-func (m *mockWSManagerForCloudEvents) HandleRequest(ctx context.Context, rawEvent *json.RawMessage, reqLogger *testutil.Logger) (bool, error) {
+func (m *mockWSManagerForCloudEvents) HandleRequest(ctx context.Context, rawEvent *json.RawMessage, reqLogger *slog.Logger) (bool, error) {
 	if m.handleRequestFunc != nil {
 		return m.handleRequestFunc(ctx, rawEvent, reqLogger)
 	}
@@ -90,17 +95,6 @@ func (m *mockWSManagerForCloudEvents) GenerateWebSocketURL(ctx context.Context, 
 	return ""
 }
 
-// Mock health manager for cloud event tests
-type mockHealthManager struct {
-	reconcileFunc func(ctx context.Context) (*api.HealthReport, error)
-}
-
-func (m *mockHealthManager) Reconcile(ctx context.Context) (*api.HealthReport, error) {
-	if m.reconcileFunc != nil {
-		return m.reconcileFunc(ctx)
-	}
-	return &api.HealthReport{Status: "healthy"}, nil
-}
 
 // Test the main Handle method routing logic
 func TestProcessor_Handle_ECSEvent(t *testing.T) {
@@ -108,7 +102,7 @@ func TestProcessor_Handle_ECSEvent(t *testing.T) {
 		getExecutionFunc: func(ctx context.Context, executionID string) (*api.Execution, error) {
 			return &api.Execution{
 				ExecutionID: executionID,
-				Status:      string(constants.ExecutionPending),
+				Status:      string(constants.ExecutionStarting),
 			}, nil
 		},
 		updateExecutionFunc: func(ctx context.Context, exec *api.Execution) error {
@@ -139,12 +133,10 @@ func TestProcessor_Handle_ScheduledEvent(t *testing.T) {
 	execRepo := &mockExecRepoForCloudEvents{}
 	wsManager := &mockWSManagerForCloudEvents{}
 
-	// Mock health manager
+	// Mock health manager (reuse from backend_test.go)
 	healthManager := &mockHealthManager{
 		reconcileFunc: func(ctx context.Context) (*api.HealthReport, error) {
-			return &api.HealthReport{
-				Status: "healthy",
-			}, nil
+			return &api.HealthReport{}, nil
 		},
 	}
 
@@ -154,6 +146,7 @@ func TestProcessor_Handle_ScheduledEvent(t *testing.T) {
 	scheduledEvent := events.CloudWatchEvent{
 		Source:     "aws.events",
 		DetailType: "Scheduled Event",
+		Detail:     json.RawMessage(`{"runvoy_event": "health_reconcile"}`),
 		Resources:  []string{"arn:aws:events:us-east-1:123456789:rule/health-check"},
 	}
 
@@ -290,7 +283,7 @@ func TestProcessor_HandleCloudEvent_ECSTaskStateChange(t *testing.T) {
 		getExecutionFunc: func(ctx context.Context, executionID string) (*api.Execution, error) {
 			return &api.Execution{
 				ExecutionID: executionID,
-				Status:      string(constants.ExecutionPending),
+				Status:      string(constants.ExecutionStarting),
 			}, nil
 		},
 		updateExecutionFunc: func(ctx context.Context, exec *api.Execution) error {
@@ -322,7 +315,7 @@ func TestProcessor_HandleCloudEvent_ScheduledEvent(t *testing.T) {
 
 	healthManager := &mockHealthManager{
 		reconcileFunc: func(ctx context.Context) (*api.HealthReport, error) {
-			return &api.HealthReport{Status: "healthy"}, nil
+			return &api.HealthReport{}, nil
 		},
 	}
 
@@ -331,6 +324,7 @@ func TestProcessor_HandleCloudEvent_ScheduledEvent(t *testing.T) {
 	event := events.CloudWatchEvent{
 		Source:     "aws.events",
 		DetailType: "Scheduled Event",
+		Detail:     json.RawMessage(`{"runvoy_event": "health_reconcile"}`),
 		Resources:  []string{"arn:aws:events:us-east-1:123456789:rule/health-check"},
 	}
 
@@ -428,7 +422,7 @@ func BenchmarkProcessor_Handle_ECSEvent(b *testing.B) {
 		getExecutionFunc: func(ctx context.Context, executionID string) (*api.Execution, error) {
 			return &api.Execution{
 				ExecutionID: executionID,
-				Status:      string(constants.ExecutionPending),
+				Status:      string(constants.ExecutionStarting),
 			}, nil
 		},
 		updateExecutionFunc: func(ctx context.Context, exec *api.Execution) error {
