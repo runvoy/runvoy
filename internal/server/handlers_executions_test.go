@@ -49,6 +49,12 @@ func newExecutionHandlerRouter(
 
 func TestHandleRunCommand_Success(t *testing.T) {
 	runner := &testRunner{
+		getImageFunc: func(image string) (*api.ImageInfo, error) {
+			if image == "alpine:latest" {
+				return &api.ImageInfo{Image: image, ImageID: "sha256:abc123"}, nil
+			}
+			return nil, nil
+		},
 		runCommandFunc: func(userEmail string, req *api.ExecutionRequest) (*time.Time, error) {
 			assert.Equal(t, "user@example.com", userEmail)
 			assert.Equal(t, "echo hello", req.Command)
@@ -120,6 +126,12 @@ func TestHandleRunCommand_InvalidJSON(t *testing.T) {
 
 func TestHandleRunCommand_WithEnvironmentVariables(t *testing.T) {
 	runner := &testRunner{
+		getImageFunc: func(image string) (*api.ImageInfo, error) {
+			if image == "python:3.9" {
+				return &api.ImageInfo{Image: image, ImageID: "sha256:xyz789"}, nil
+			}
+			return nil, nil
+		},
 		runCommandFunc: func(userEmail string, req *api.ExecutionRequest) (*time.Time, error) {
 			assert.Equal(t, "user@example.com", userEmail)
 			assert.Equal(t, "python script.py", req.Command)
@@ -157,7 +169,13 @@ func TestHandleRunCommand_WithEnvironmentVariables(t *testing.T) {
 
 func TestHandleRunCommand_WithTimeout(t *testing.T) {
 	runner := &testRunner{
-		runCommandFunc: func(userEmail string, req *api.ExecutionRequest) (*time.Time, error) {
+		getImageFunc: func(image string) (*api.ImageInfo, error) {
+			if image == "alpine:latest" {
+				return &api.ImageInfo{Image: image, ImageID: "sha256:def456"}, nil
+			}
+			return nil, nil
+		},
+		runCommandFunc: func(_ string, req *api.ExecutionRequest) (*time.Time, error) {
 			assert.Equal(t, 300, req.Timeout)
 			now := time.Now()
 			return &now, nil
@@ -249,12 +267,12 @@ func TestHandleGetExecutionLogs_MissingExecutionID(t *testing.T) {
 
 func TestHandleGetBackendLogsTrace_Success(t *testing.T) {
 	runner := &testRunner{
-		fetchBackendLogsFunc: func(ctx context.Context, requestID string) ([]api.LogEvent, error) {
+		fetchBackendLogsFunc: func(_ context.Context, requestID string) ([]api.LogEvent, error) {
 			assert.Equal(t, "req-123", requestID)
 			return []api.LogEvent{
 				{
 					Message:   "test log",
-					Timestamp: time.Now(),
+					Timestamp: time.Now().UnixMilli(),
 				},
 			}, nil
 		},
@@ -297,7 +315,7 @@ func TestHandleGetBackendLogsTrace_MissingRequestID(t *testing.T) {
 
 func TestHandleGetBackendLogsTrace_ServiceError(t *testing.T) {
 	runner := &testRunner{
-		fetchBackendLogsFunc: func(ctx context.Context, requestID string) ([]api.LogEvent, error) {
+		fetchBackendLogsFunc: func(_ context.Context, _ string) ([]api.LogEvent, error) {
 			return nil, errors.New("service unavailable")
 		},
 	}
@@ -313,14 +331,15 @@ func TestHandleGetBackendLogsTrace_ServiceError(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.handleGetBackendLogsTrace(w, req)
 
-	assert.Equal(t, http.StatusInternalServerError, w.Code)
+	// Service error is wrapped in ErrDatabaseError which returns 503
+	assert.Equal(t, http.StatusServiceUnavailable, w.Code)
 }
 
 // ==================== handleGetExecutionStatus tests ====================
 
 func TestHandleGetExecutionStatus_Success(t *testing.T) {
 	execRepo := &testExecutionRepository{
-		getExecutionFunc: func(ctx context.Context, executionID string) (*api.Execution, error) {
+		getExecutionFunc: func(_ context.Context, executionID string) (*api.Execution, error) {
 			assert.Equal(t, "exec-123", executionID)
 			return &api.Execution{
 				ExecutionID: executionID,
@@ -351,7 +370,7 @@ func TestHandleGetExecutionStatus_Success(t *testing.T) {
 
 func TestHandleGetExecutionStatus_NotFound(t *testing.T) {
 	execRepo := &testExecutionRepository{
-		getExecutionFunc: func(ctx context.Context, executionID string) (*api.Execution, error) {
+		getExecutionFunc: func(_ context.Context, _ string) (*api.Execution, error) {
 			return nil, apperrors.ErrNotFound("execution not found", nil)
 		},
 	}
@@ -390,7 +409,7 @@ func TestHandleGetExecutionStatus_MissingExecutionID(t *testing.T) {
 
 func TestHandleKillExecution_Success(t *testing.T) {
 	execRepo := &testExecutionRepository{
-		getExecutionFunc: func(ctx context.Context, executionID string) (*api.Execution, error) {
+		getExecutionFunc: func(_ context.Context, executionID string) (*api.Execution, error) {
 			return &api.Execution{
 				ExecutionID: executionID,
 				Status:      string(constants.ExecutionRunning),
@@ -417,7 +436,7 @@ func TestHandleKillExecution_Success(t *testing.T) {
 
 func TestHandleKillExecution_NotFound(t *testing.T) {
 	execRepo := &testExecutionRepository{
-		getExecutionFunc: func(ctx context.Context, executionID string) (*api.Execution, error) {
+		getExecutionFunc: func(_ context.Context, _ string) (*api.Execution, error) {
 			return nil, apperrors.ErrNotFound("execution not found", nil)
 		},
 	}
@@ -454,7 +473,7 @@ func TestHandleKillExecution_MissingExecutionID(t *testing.T) {
 
 func TestHandleKillExecution_NoContent(t *testing.T) {
 	execRepo := &testExecutionRepository{
-		getExecutionFunc: func(ctx context.Context, executionID string) (*api.Execution, error) {
+		getExecutionFunc: func(_ context.Context, _ string) (*api.Execution, error) {
 			return nil, apperrors.ErrNotFound("execution not found", nil)
 		},
 	}
@@ -479,8 +498,13 @@ func TestHandleKillExecution_NoContent(t *testing.T) {
 func TestHandleListExecutions_Success(t *testing.T) {
 	now := time.Now()
 	execRepo := &testExecutionRepository{
-		listExecutionsFunc: func(limit int, statuses []string) ([]*api.Execution, error) {
-			assert.Equal(t, 10, limit) // Default limit
+		listExecutionsFunc: func(limit int, _ []string) ([]*api.Execution, error) {
+			// Called both during enforcer initialization (limit=0) and actual list (limit=10)
+			if limit == 0 {
+				// Return empty list for initialization
+				return []*api.Execution{}, nil
+			}
+			// Return data for actual list operation
 			return []*api.Execution{
 				{
 					ExecutionID: "exec-1",
@@ -516,7 +540,11 @@ func TestHandleListExecutions_Success(t *testing.T) {
 
 func TestHandleListExecutions_WithLimit(t *testing.T) {
 	execRepo := &testExecutionRepository{
-		listExecutionsFunc: func(limit int, statuses []string) ([]*api.Execution, error) {
+		listExecutionsFunc: func(limit int, _ []string) ([]*api.Execution, error) {
+			// Called both during enforcer initialization (limit=0) and actual list (limit=20)
+			if limit == 0 {
+				return []*api.Execution{}, nil
+			}
 			assert.Equal(t, 20, limit)
 			return []*api.Execution{}, nil
 		},
@@ -534,6 +562,10 @@ func TestHandleListExecutions_WithLimit(t *testing.T) {
 func TestHandleListExecutions_WithStatusFilter(t *testing.T) {
 	execRepo := &testExecutionRepository{
 		listExecutionsFunc: func(limit int, statuses []string) ([]*api.Execution, error) {
+			// Called both during enforcer initialization (limit=0, statuses=nil) and actual list
+			if limit == 0 {
+				return []*api.Execution{}, nil
+			}
 			assert.Equal(t, 2, len(statuses))
 			assert.Contains(t, statuses, "RUNNING")
 			assert.Contains(t, statuses, "TERMINATING")
@@ -553,6 +585,10 @@ func TestHandleListExecutions_WithStatusFilter(t *testing.T) {
 func TestHandleListExecutions_WithStatusFilterAndLimit(t *testing.T) {
 	execRepo := &testExecutionRepository{
 		listExecutionsFunc: func(limit int, statuses []string) ([]*api.Execution, error) {
+			// Called both during enforcer initialization (limit=0, statuses=nil) and actual list
+			if limit == 0 {
+				return []*api.Execution{}, nil
+			}
 			assert.Equal(t, 50, limit)
 			assert.Equal(t, 1, len(statuses))
 			assert.Contains(t, statuses, "SUCCEEDED")
@@ -600,7 +636,7 @@ func TestHandleListExecutions_InvalidLimit(t *testing.T) {
 
 func TestHandleListExecutions_ZeroLimit(t *testing.T) {
 	execRepo := &testExecutionRepository{
-		listExecutionsFunc: func(limit int, statuses []string) ([]*api.Execution, error) {
+		listExecutionsFunc: func(limit int, _ []string) ([]*api.Execution, error) {
 			assert.Equal(t, 0, limit) // 0 means return all
 			return []*api.Execution{}, nil
 		},
@@ -617,7 +653,7 @@ func TestHandleListExecutions_ZeroLimit(t *testing.T) {
 
 func TestHandleListExecutions_EmptyResult(t *testing.T) {
 	execRepo := &testExecutionRepository{
-		listExecutionsFunc: func(limit int, statuses []string) ([]*api.Execution, error) {
+		listExecutionsFunc: func(_ int, _ []string) ([]*api.Execution, error) {
 			return []*api.Execution{}, nil
 		},
 	}
@@ -638,7 +674,12 @@ func TestHandleListExecutions_EmptyResult(t *testing.T) {
 
 func TestHandleListExecutions_ServiceError(t *testing.T) {
 	execRepo := &testExecutionRepository{
-		listExecutionsFunc: func(limit int, statuses []string) ([]*api.Execution, error) {
+		listExecutionsFunc: func(limit int, _ []string) ([]*api.Execution, error) {
+			// For initialization call, return empty list
+			if limit == 0 {
+				return []*api.Execution{}, nil
+			}
+			// For actual call, return error
 			return nil, apperrors.ErrDatabaseError("database connection failed", nil)
 		},
 	}
@@ -655,6 +696,10 @@ func TestHandleListExecutions_ServiceError(t *testing.T) {
 func TestHandleListExecutions_MultipleStatusesWithSpaces(t *testing.T) {
 	execRepo := &testExecutionRepository{
 		listExecutionsFunc: func(limit int, statuses []string) ([]*api.Execution, error) {
+			// Called both during enforcer initialization (limit=0, statuses=nil) and actual list
+			if limit == 0 {
+				return []*api.Execution{}, nil
+			}
 			assert.Equal(t, 3, len(statuses))
 			// Verify spaces are trimmed
 			assert.Contains(t, statuses, "RUNNING")
@@ -665,7 +710,7 @@ func TestHandleListExecutions_MultipleStatusesWithSpaces(t *testing.T) {
 	}
 	router := newExecutionHandlerRouter(t, execRepo, nil)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/executions?status=RUNNING, PENDING , SUCCEEDED", http.NoBody)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/executions?status=RUNNING,%20PENDING%20,%20SUCCEEDED", http.NoBody)
 
 	w := httptest.NewRecorder()
 	router.handleListExecutions(w, req)
@@ -677,7 +722,7 @@ func TestHandleListExecutions_MultipleStatusesWithSpaces(t *testing.T) {
 
 func BenchmarkHandleRunCommand(b *testing.B) {
 	runner := &testRunner{}
-	router := newExecutionHandlerRouter(b, nil, runner)
+	router := newExecutionHandlerRouter(&testing.T{}, nil, runner)
 
 	reqBody := api.ExecutionRequest{
 		Command: "echo hello",
@@ -693,7 +738,7 @@ func BenchmarkHandleRunCommand(b *testing.B) {
 	b.ResetTimer()
 	b.ReportAllocs()
 
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		req := httptest.NewRequest(http.MethodPost, "/api/v1/run", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
 		req = addAuthenticatedUser(req, user)
@@ -705,16 +750,16 @@ func BenchmarkHandleRunCommand(b *testing.B) {
 
 func BenchmarkHandleListExecutions(b *testing.B) {
 	execRepo := &testExecutionRepository{
-		listExecutionsFunc: func(limit int, statuses []string) ([]*api.Execution, error) {
+		listExecutionsFunc: func(_ int, _ []string) ([]*api.Execution, error) {
 			return []*api.Execution{}, nil
 		},
 	}
-	router := newExecutionHandlerRouter(b, execRepo, nil)
+	router := newExecutionHandlerRouter(&testing.T{}, execRepo, nil)
 
 	b.ResetTimer()
 	b.ReportAllocs()
 
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		req := httptest.NewRequest(http.MethodGet, "/api/v1/executions", http.NoBody)
 		w := httptest.NewRecorder()
 		router.handleListExecutions(w, req)

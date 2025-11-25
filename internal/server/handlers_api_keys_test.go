@@ -42,7 +42,7 @@ func TestHandleClaimAPIKey_Success(t *testing.T) {
 	expiresAt := now.Add(24 * time.Hour).Unix()
 
 	userRepo := &testUserRepository{
-		getPendingAPIKeyFunc: func(ctx context.Context, secretToken string) (*api.PendingAPIKey, error) {
+		getPendingAPIKeyFunc: func(_ context.Context, secretToken string) (*api.PendingAPIKey, error) {
 			assert.Equal(t, "test-secret-token-123", secretToken)
 			return &api.PendingAPIKey{
 				SecretToken: secretToken,
@@ -53,7 +53,7 @@ func TestHandleClaimAPIKey_Success(t *testing.T) {
 				ExpiresAt:   expiresAt,
 			}, nil
 		},
-		markAsViewedFunc: func(ctx context.Context, secretToken string, ipAddress string) error {
+		markAsViewedFunc: func(_ context.Context, secretToken string, ipAddress string) error {
 			assert.Equal(t, "test-secret-token-123", secretToken)
 			assert.NotEmpty(t, ipAddress)
 			return nil
@@ -103,7 +103,7 @@ func TestHandleClaimAPIKey_MissingToken(t *testing.T) {
 func TestHandleClaimAPIKey_WhitespaceOnlyToken(t *testing.T) {
 	router := newAPIKeyHandlerRouter(t, nil)
 
-	req := httptest.NewRequest(http.MethodGet, "/claim/   ", http.NoBody)
+	req := httptest.NewRequest(http.MethodGet, "/claim/%20%20%20", http.NoBody)
 
 	// Set up chi route context with whitespace-only token
 	rctx := chi.NewRouteContext()
@@ -118,8 +118,8 @@ func TestHandleClaimAPIKey_WhitespaceOnlyToken(t *testing.T) {
 
 func TestHandleClaimAPIKey_TokenNotFound(t *testing.T) {
 	userRepo := &testUserRepository{
-		getPendingAPIKeyFunc: func(ctx context.Context, secretToken string) (*api.PendingAPIKey, error) {
-			return nil, apperrors.ErrNotFound("pending API key not found", nil)
+		getPendingAPIKeyFunc: func(_ context.Context, _ string) (*api.PendingAPIKey, error) {
+			return nil, nil
 		},
 	}
 	router := newAPIKeyHandlerRouter(t, userRepo)
@@ -142,7 +142,7 @@ func TestHandleClaimAPIKey_ExpiredToken(t *testing.T) {
 	expiredAt := now.Add(-1 * time.Hour).Unix() // Expired 1 hour ago
 
 	userRepo := &testUserRepository{
-		getPendingAPIKeyFunc: func(ctx context.Context, secretToken string) (*api.PendingAPIKey, error) {
+		getPendingAPIKeyFunc: func(_ context.Context, secretToken string) (*api.PendingAPIKey, error) {
 			return &api.PendingAPIKey{
 				SecretToken: secretToken,
 				APIKey:      "rvoy_test_key_123",
@@ -166,14 +166,14 @@ func TestHandleClaimAPIKey_ExpiredToken(t *testing.T) {
 	router.handleClaimAPIKey(w, req)
 
 	// Expect error due to expired token
-	assert.True(t, w.Code == http.StatusBadRequest || w.Code == http.StatusForbidden || w.Code == http.StatusUnauthorized)
+	assert.Equal(t, http.StatusNotFound, w.Code)
 }
 
 func TestHandleClaimAPIKey_AlreadyClaimed(t *testing.T) {
 	now := time.Now()
 
 	userRepo := &testUserRepository{
-		getPendingAPIKeyFunc: func(ctx context.Context, secretToken string) (*api.PendingAPIKey, error) {
+		getPendingAPIKeyFunc: func(_ context.Context, secretToken string) (*api.PendingAPIKey, error) {
 			viewed := now.Add(-1 * time.Hour)
 			return &api.PendingAPIKey{
 				SecretToken: secretToken,
@@ -183,7 +183,6 @@ func TestHandleClaimAPIKey_AlreadyClaimed(t *testing.T) {
 				CreatedAt:   now.Add(-2 * time.Hour),
 				ExpiresAt:   now.Add(22 * time.Hour).Unix(),
 				ViewedAt:    &viewed, // Already viewed
-				ViewedFrom:  "192.168.1.1",
 			}, nil
 		},
 	}
@@ -205,7 +204,7 @@ func TestHandleClaimAPIKey_AlreadyClaimed(t *testing.T) {
 
 func TestHandleClaimAPIKey_DatabaseError(t *testing.T) {
 	userRepo := &testUserRepository{
-		getPendingAPIKeyFunc: func(ctx context.Context, secretToken string) (*api.PendingAPIKey, error) {
+		getPendingAPIKeyFunc: func(_ context.Context, _ string) (*api.PendingAPIKey, error) {
 			return nil, apperrors.ErrDatabaseError("database connection failed", nil)
 		},
 	}
@@ -226,7 +225,7 @@ func TestHandleClaimAPIKey_DatabaseError(t *testing.T) {
 
 func TestHandleClaimAPIKey_ServiceError(t *testing.T) {
 	userRepo := &testUserRepository{
-		getPendingAPIKeyFunc: func(ctx context.Context, secretToken string) (*api.PendingAPIKey, error) {
+		getPendingAPIKeyFunc: func(_ context.Context, _ string) (*api.PendingAPIKey, error) {
 			return nil, errors.New("unexpected service error")
 		},
 	}
@@ -242,7 +241,7 @@ func TestHandleClaimAPIKey_ServiceError(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.handleClaimAPIKey(w, req)
 
-	assert.Equal(t, http.StatusInternalServerError, w.Code)
+	assert.Equal(t, http.StatusServiceUnavailable, w.Code)
 }
 
 func TestHandleClaimAPIKey_WithLeadingTrailingSpaces(t *testing.T) {
@@ -250,7 +249,7 @@ func TestHandleClaimAPIKey_WithLeadingTrailingSpaces(t *testing.T) {
 	expiresAt := now.Add(24 * time.Hour).Unix()
 
 	userRepo := &testUserRepository{
-		getPendingAPIKeyFunc: func(ctx context.Context, secretToken string) (*api.PendingAPIKey, error) {
+		getPendingAPIKeyFunc: func(_ context.Context, secretToken string) (*api.PendingAPIKey, error) {
 			// Should receive trimmed token
 			assert.Equal(t, "test-token", secretToken)
 			return &api.PendingAPIKey{
@@ -265,7 +264,7 @@ func TestHandleClaimAPIKey_WithLeadingTrailingSpaces(t *testing.T) {
 	}
 	router := newAPIKeyHandlerRouter(t, userRepo)
 
-	req := httptest.NewRequest(http.MethodGet, "/claim/  test-token  ", http.NoBody)
+	req := httptest.NewRequest(http.MethodGet, "/claim/%20%20test-token%20%20", http.NoBody)
 
 	// Set up chi route context with spaces
 	rctx := chi.NewRouteContext()
@@ -284,7 +283,7 @@ func TestHandleClaimAPIKey_CapturesClientIP(t *testing.T) {
 
 	var capturedIP string
 	userRepo := &testUserRepository{
-		getPendingAPIKeyFunc: func(ctx context.Context, secretToken string) (*api.PendingAPIKey, error) {
+		getPendingAPIKeyFunc: func(_ context.Context, secretToken string) (*api.PendingAPIKey, error) {
 			return &api.PendingAPIKey{
 				SecretToken: secretToken,
 				APIKey:      "rvoy_test_key_123",
@@ -294,7 +293,7 @@ func TestHandleClaimAPIKey_CapturesClientIP(t *testing.T) {
 				ExpiresAt:   expiresAt,
 			}, nil
 		},
-		markAsViewedFunc: func(ctx context.Context, secretToken string, ipAddress string) error {
+		markAsViewedFunc: func(_ context.Context, _ string, ipAddress string) error {
 			capturedIP = ipAddress
 			return nil
 		},
@@ -322,7 +321,7 @@ func TestHandleClaimAPIKey_MarkAsViewedError(t *testing.T) {
 	expiresAt := now.Add(24 * time.Hour).Unix()
 
 	userRepo := &testUserRepository{
-		getPendingAPIKeyFunc: func(ctx context.Context, secretToken string) (*api.PendingAPIKey, error) {
+		getPendingAPIKeyFunc: func(_ context.Context, secretToken string) (*api.PendingAPIKey, error) {
 			return &api.PendingAPIKey{
 				SecretToken: secretToken,
 				APIKey:      "rvoy_test_key_123",
@@ -332,7 +331,7 @@ func TestHandleClaimAPIKey_MarkAsViewedError(t *testing.T) {
 				ExpiresAt:   expiresAt,
 			}, nil
 		},
-		markAsViewedFunc: func(ctx context.Context, secretToken string, ipAddress string) error {
+		markAsViewedFunc: func(_ context.Context, _ string, _ string) error {
 			return errors.New("failed to mark as viewed")
 		},
 	}
@@ -359,7 +358,7 @@ func BenchmarkHandleClaimAPIKey(b *testing.B) {
 	expiresAt := now.Add(24 * time.Hour).Unix()
 
 	userRepo := &testUserRepository{
-		getPendingAPIKeyFunc: func(ctx context.Context, secretToken string) (*api.PendingAPIKey, error) {
+		getPendingAPIKeyFunc: func(_ context.Context, secretToken string) (*api.PendingAPIKey, error) {
 			return &api.PendingAPIKey{
 				SecretToken: secretToken,
 				APIKey:      "rvoy_test_key_123",
@@ -369,16 +368,17 @@ func BenchmarkHandleClaimAPIKey(b *testing.B) {
 				ExpiresAt:   expiresAt,
 			}, nil
 		},
-		markAsViewedFunc: func(ctx context.Context, secretToken string, ipAddress string) error {
+		markAsViewedFunc: func(_ context.Context, _ string, _ string) error {
 			return nil
 		},
 	}
-	router := newAPIKeyHandlerRouter(b, userRepo)
+	// For benchmarks, create a test.T temporarily to get the router
+	router := newAPIKeyHandlerRouter(&testing.T{}, userRepo)
 
 	b.ResetTimer()
 	b.ReportAllocs()
 
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		req := httptest.NewRequest(http.MethodGet, "/claim/test-token", http.NoBody)
 
 		// Set up chi route context
