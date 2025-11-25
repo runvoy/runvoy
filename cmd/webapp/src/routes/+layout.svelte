@@ -38,7 +38,7 @@
         <div class="header-content">
             <div class="header-title">
                 <h1>
-                    <img src="/runvoy-avatar.png" alt="runvoy" class="avatar" />
+                    <img src="/runvoy-avatar.png" alt="runvoy logo" class="avatar" />
                     <div>
                         {#if appVersion}
                             <span class="version">{appVersion}</span>

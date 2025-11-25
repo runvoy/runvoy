@@ -20,6 +20,7 @@
   <a href="https://golang.org" target="_blank">
       <img src="https://img.shields.io/badge/Go-1.25+-00ADD8?logo=go" alt="Go version">
   </a>
+  <br/>
   <a href="https://github.com/runvoy/runvoy" target="_blank">
       <img src="https://img.shields.io/badge/Github-repo-yellow" alt="Github Repository">
   </a>
@@ -200,7 +201,7 @@ runvoy --help
 ```
 
 ```text
-runvoy - v0.2.0-20251125-8bbd8a3
+runvoy - v0.2.0-20251125-a5fac37
 Isolated, repeatable execution environments for your commands
 
 Usage:

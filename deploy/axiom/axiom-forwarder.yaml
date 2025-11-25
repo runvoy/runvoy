@@ -25,9 +25,13 @@ Parameters:
     Default: 'https://api.axiom.co/v1'
     Description: Axiom API base URL (optional, defaults to https://api.axiom.co/v1)
 
-  LogGroupNames:
-    Type: CommaDelimitedList
-    Description: Comma-separated list of CloudWatch Log Group names to forward to Axiom
+  OrchestratorLogGroup:
+    Type: String
+    Description: CloudWatch Log Group name for Orchestrator logs
+
+  EventProcessorLogGroup:
+    Type: String
+    Description: CloudWatch Log Group name for EventProcessor logs
 
 Resources:
   # CloudWatch Log Group for Axiom Forwarder Lambda
@@ -94,36 +98,47 @@ Resources:
           AXIOM_DATASET: !Ref AxiomDataset
           AXIOM_API_URL: !Ref AxiomAPIURL
 
-  # Allow CloudWatch Logs to invoke the Axiom forwarder
-  # Note: For multiple log groups, create additional permissions with specific SourceArn values
-  AxiomForwarderLogsPermission:
+  # Allow CloudWatch Logs to invoke the Axiom forwarder for Orchestrator log group
+  AxiomForwarderOrchestratorLogsPermission:
     Type: AWS::Lambda::Permission
     DependsOn: AxiomForwarderFunction
     Properties:
       FunctionName: !Ref AxiomForwarderFunction
       Action: lambda:InvokeFunction
       Principal: !Sub 'logs.${AWS::Region}.amazonaws.com'
-      # Allow from any log group in the account (can be restricted per log group if needed)
-      SourceArn: !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:*'
+      SourceArn: !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:${OrchestratorLogGroup}:*'
 
-  # Example subscription filter for the first log group in the list
-  # To add more subscription filters, duplicate this resource and change the LogGroupName
-  # Note: Each log group can only have one subscription filter, so remove any existing filters first
-  AxiomForwarderSubscriptionFilter:
+  # Allow CloudWatch Logs to invoke the Axiom forwarder for EventProcessor log group
+  AxiomForwarderEventProcessorLogsPermission:
+    Type: AWS::Lambda::Permission
+    DependsOn: AxiomForwarderFunction
+    Properties:
+      FunctionName: !Ref AxiomForwarderFunction
+      Action: lambda:InvokeFunction
+      Principal: !Sub 'logs.${AWS::Region}.amazonaws.com'
+      SourceArn: !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:${EventProcessorLogGroup}:*'
+
+  # Subscription filter for Orchestrator log group
+  AxiomForwarderOrchestratorSubscriptionFilter:
     Type: AWS::Logs::SubscriptionFilter
-    Condition: HasLogGroups
     DependsOn:
       - AxiomForwarderFunction
-      - AxiomForwarderLogsPermission
+      - AxiomForwarderOrchestratorLogsPermission
     Properties:
       FilterPattern: ""
       DestinationArn: !GetAtt AxiomForwarderFunction.Arn
-      LogGroupName: !Select [0, !Ref LogGroupNames]
+      LogGroupName: !Ref OrchestratorLogGroup
 
-Conditions:
-  # Check if LogGroupNames list has at least one element
-  # When empty, Select will fail, so we use a workaround by checking if join result is non-empty
-  HasLogGroups: !Not [!Equals [!Join ['', !Ref LogGroupNames], '']]
+  # Subscription filter for EventProcessor log group
+  AxiomForwarderEventProcessorSubscriptionFilter:
+    Type: AWS::Logs::SubscriptionFilter
+    DependsOn:
+      - AxiomForwarderFunction
+      - AxiomForwarderEventProcessorLogsPermission
+    Properties:
+      FilterPattern: ""
+      DestinationArn: !GetAtt AxiomForwarderFunction.Arn
+      LogGroupName: !Ref EventProcessorLogGroup
 
 Outputs:
   AxiomForwarderFunctionArn:

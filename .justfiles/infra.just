@@ -101,4 +101,5 @@ create-axiom-forwarder-infra: create-axiom-forwarder-prerequisites upload-axiom-
         --parameter-overrides LambdaCodeBucket={{axiom_bucket}} \
             AxiomToken={{axiom_token}} \
             AxiomDataset={{axiom_dataset}} \
-            LogGroupNames={{log_group_names}}
+            OrchestratorLogGroup={{orchestrator_log_group}} \
+            EventProcessorLogGroup={{event_processor_log_group}}
