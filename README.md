@@ -24,6 +24,9 @@
   <a href="https://github.com/runvoy/runvoy" target="_blank">
       <img src="https://img.shields.io/badge/Github-repo-yellow" alt="Github Repository">
   </a>
+  <a href="https://github.com/runvoy/runvoy/releases/latest" target="_blank">
+      <img src="https://img.shields.io/github/release/runvoy/runvoy.svg" alt="Latest Release">
+  </a>
   <a href="https://runvoy.site" target="_blank">
       <img src="https://img.shields.io/badge/%F0%9F%9A%80%20Webapp-blue" alt="Runvoy Webapp">
   </a>
@@ -201,7 +204,7 @@ runvoy --help
 ```
 
 ```text
-runvoy - v0.3.0-20251125-13424c7
+runvoy - v0.3.0-20251125-46d343d
 Isolated, repeatable execution environments for your commands
 
 Usage:
