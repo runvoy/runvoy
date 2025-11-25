@@ -2,9 +2,11 @@ package processor
 
 import (
 	"context"
+	"log/slog"
 	"testing"
 	"time"
 
+	"runvoy/internal/auth/authorization"
 	"runvoy/internal/config"
 	awsconfig "runvoy/internal/config/aws"
 	"runvoy/internal/constants"
@@ -12,6 +14,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestInitialize_AWSProvider(t *testing.T) {
@@ -86,4 +89,31 @@ func TestInitialize_ContextCancelled(t *testing.T) {
 		assert.Contains(t, err.Error(), "context")
 	}
 	_ = processor
+}
+
+func TestInitialize_CustomInitializer(t *testing.T) {
+	ctx := context.Background()
+	logger := testutil.SilentLogger()
+
+	cfg := &config.Config{
+		BackendProvider: constants.AWS,
+	}
+
+	var called bool
+	customProc := &mockProcessor{}
+	customInitializer := func(
+		_ context.Context,
+		_ *config.Config,
+		_ *slog.Logger,
+		_ *authorization.Enforcer,
+	) (Processor, error) {
+		called = true
+		return customProc, nil
+	}
+
+	p, err := Initialize(ctx, cfg, logger, WithProviderInitializer(customInitializer))
+	require.NoError(t, err)
+	require.NotNil(t, p)
+	assert.True(t, called, "custom initializer should be invoked")
+	assert.Equal(t, customProc, p)
 }
