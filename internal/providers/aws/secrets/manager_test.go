@@ -1,4 +1,3 @@
-// Package secrets provides secret management functionality for the Runvoy orchestrator.
 package secrets
 
 import (

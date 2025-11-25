@@ -1,5 +1,3 @@
-// Package orchestrator provides AWS-specific implementations for runvoy orchestrator.
-// This file contains image management using DynamoDB for image-taskdef mappings.
 package orchestrator
 
 import (

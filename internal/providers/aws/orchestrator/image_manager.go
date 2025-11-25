@@ -1,5 +1,3 @@
-// Package orchestrator provides AWS-specific implementations for runvoy orchestrator.
-// This file contains the ImageManager implementation for image registration and management.
 package orchestrator
 
 import (

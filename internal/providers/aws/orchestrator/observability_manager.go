@@ -1,5 +1,3 @@
-// Package orchestrator provides AWS-specific implementations for runvoy orchestrator.
-// This file contains the ObservabilityManager implementation for backend log retrieval.
 package orchestrator
 
 import (

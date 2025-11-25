@@ -1,5 +1,3 @@
-// Package client provides AWS-specific client interfaces for AWS services.
-// This package contains the interfaces for the AWS clients used by the Runvoy orchestrator.
 package client
 
 import (

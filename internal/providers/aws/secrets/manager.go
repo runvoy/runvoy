@@ -1,5 +1,3 @@
-// Package secrets provides secret management functionality for the Runvoy orchestrator.
-// This file contains the AWS Systems Manager Parameter Store implementation.
 package secrets
 
 import (

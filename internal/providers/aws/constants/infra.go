@@ -1,4 +1,3 @@
-// Package constants provides AWS-specific constants for infrastructure deployment.
 package constants
 
 import (

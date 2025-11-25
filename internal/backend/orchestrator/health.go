@@ -1,5 +1,3 @@
-// Package orchestrator provides the core orchestrator service for runvoy.
-// This file contains health reconciliation functionality.
 package orchestrator
 
 import (

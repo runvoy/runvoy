@@ -1,4 +1,3 @@
-// Package constants provides AWS-specific constants and utilities for log stream handling.
 package constants
 
 import (

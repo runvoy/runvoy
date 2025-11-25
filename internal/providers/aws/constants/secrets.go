@@ -1,4 +1,3 @@
-// Package constants provides AWS-specific constants for secrets management.
 package constants
 
 // SecretsPrefix is the prefix for AWS secrets management.

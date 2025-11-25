@@ -1,4 +1,3 @@
-// Package constants defines global constants used throughout runvoy.
 package constants
 
 var version = "0.0.0-development" // Updated by CI/CD pipeline at build time

@@ -1,4 +1,3 @@
-// Package constants defines global constants used throughout runvoy.
 package constants
 
 // DefaultGitRef is the default Git reference to use if no reference is provided

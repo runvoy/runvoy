@@ -1,5 +1,3 @@
-// Package api defines the API types and structures used across runvoy.
-// It contains request and response structures for the orchestrator API.
 package api
 
 // ErrorResponse represents an error response

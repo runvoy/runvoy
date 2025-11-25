@@ -1,4 +1,3 @@
-// Package constants defines global constants used throughout runvoy.
 package constants
 
 // ResourceApplicationTagKey is the tag key for Application.

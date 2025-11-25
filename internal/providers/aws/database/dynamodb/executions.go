@@ -1,5 +1,3 @@
-// Package dynamodb implements DynamoDB-based storage for runvoy.
-// It provides persistence for execution records using AWS DynamoDB.
 package dynamodb
 
 import (

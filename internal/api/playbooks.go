@@ -1,4 +1,3 @@
-// Package api defines the API types and structures used across runvoy.
 package api
 
 // Playbook represents a reusable command execution configuration

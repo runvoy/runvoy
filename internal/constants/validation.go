@@ -1,4 +1,3 @@
-// Package constants defines global constants used throughout runvoy.
 package constants
 
 // ExecutionsSliceInitialCapacity is the initial capacity for executions slices

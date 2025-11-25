@@ -1,5 +1,3 @@
-// Package orchestrator provides AWS-specific implementations for runvoy orchestrator.
-// This file contains shared tagging utilities for AWS resources.
 package orchestrator
 
 import (

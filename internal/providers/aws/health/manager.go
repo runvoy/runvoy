@@ -1,5 +1,3 @@
-// Package health provides AWS-specific health management implementation for runvoy.
-// It reconciles resources between DynamoDB metadata and actual AWS services.
 package health
 
 import (

@@ -1,5 +1,3 @@
-// Package health provides health management functionality for runvoy.
-// It defines the interface for reconciling resources between metadata storage and cloud provider services.
 package health
 
 import (
