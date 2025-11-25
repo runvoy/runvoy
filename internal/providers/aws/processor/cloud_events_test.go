@@ -35,15 +35,15 @@ func (m *mockExecRepoForCloudEvents) UpdateExecution(ctx context.Context, exec *
 	return nil
 }
 
-func (m *mockExecRepoForCloudEvents) CreateExecution(ctx context.Context, exec *api.Execution) error {
+func (m *mockExecRepoForCloudEvents) CreateExecution(_ context.Context, _ *api.Execution) error {
 	return nil
 }
 
-func (m *mockExecRepoForCloudEvents) ListExecutions(ctx context.Context, limit int, statuses []string) ([]*api.Execution, error) {
+func (m *mockExecRepoForCloudEvents) ListExecutions(_ context.Context, _ int, _ []string) ([]*api.Execution, error) {
 	return []*api.Execution{}, nil
 }
 
-func (m *mockExecRepoForCloudEvents) GetExecutionsByRequestID(ctx context.Context, requestID string) ([]*api.Execution, error) {
+func (m *mockExecRepoForCloudEvents) GetExecutionsByRequestID(_ context.Context, _ string) ([]*api.Execution, error) {
 	return []*api.Execution{}, nil
 }
 
@@ -61,51 +61,58 @@ func (m *mockWSManagerForCloudEvents) NotifyExecutionUpdate(ctx context.Context,
 	return nil
 }
 
-func (m *mockWSManagerForCloudEvents) NotifyExecutionLogs(ctx context.Context, executionID string, logEvent api.LogEvent) error {
+func (m *mockWSManagerForCloudEvents) NotifyExecutionLogs(_ context.Context, _ string, _ api.LogEvent) error {
 	return nil
 }
 
-func (m *mockWSManagerForCloudEvents) NotifyExecutionCompletion(ctx context.Context, executionID *string) error {
+func (m *mockWSManagerForCloudEvents) NotifyExecutionCompletion(_ context.Context, _ *string) error {
 	return nil
 }
 
-func (m *mockWSManagerForCloudEvents) SendMessage(ctx context.Context, connectionID string, message []byte) error {
+func (m *mockWSManagerForCloudEvents) SendMessage(_ context.Context, _ string, _ []byte) error {
 	return nil
 }
 
-func (m *mockWSManagerForCloudEvents) CloseConnection(ctx context.Context, connectionID string) error {
+func (m *mockWSManagerForCloudEvents) CloseConnection(_ context.Context, _ string) error {
 	return nil
 }
 
-func (m *mockWSManagerForCloudEvents) HandleRequest(ctx context.Context, rawEvent *json.RawMessage, reqLogger *slog.Logger) (bool, error) {
+func (m *mockWSManagerForCloudEvents) HandleRequest(
+	ctx context.Context,
+	rawEvent *json.RawMessage,
+	reqLogger *slog.Logger,
+) (bool, error) {
 	if m.handleRequestFunc != nil {
 		return m.handleRequestFunc(ctx, rawEvent, reqLogger)
 	}
 	return true, nil
 }
 
-func (m *mockWSManagerForCloudEvents) SendLogsToExecution(ctx context.Context, executionID *string, logEvents []api.LogEvent) error {
+func (m *mockWSManagerForCloudEvents) SendLogsToExecution(
+	ctx context.Context,
+	executionID *string,
+	logEvents []api.LogEvent,
+) error {
 	if m.sendLogsToExecutionFunc != nil {
 		return m.sendLogsToExecutionFunc(ctx, executionID, logEvents)
 	}
 	return nil
 }
 
-func (m *mockWSManagerForCloudEvents) GenerateWebSocketURL(ctx context.Context, executionID string, userEmail *string, clientIP *string) string {
+func (m *mockWSManagerForCloudEvents) GenerateWebSocketURL(_ context.Context, _ string, _, _ *string) string {
 	return ""
 }
-
 
 // Test the main Handle method routing logic
 func TestProcessor_Handle_ECSEvent(t *testing.T) {
 	execRepo := &mockExecRepoForCloudEvents{
-		getExecutionFunc: func(ctx context.Context, executionID string) (*api.Execution, error) {
+		getExecutionFunc: func(_ context.Context, executionID string) (*api.Execution, error) {
 			return &api.Execution{
 				ExecutionID: executionID,
 				Status:      string(constants.ExecutionStarting),
 			}, nil
 		},
-		updateExecutionFunc: func(ctx context.Context, exec *api.Execution) error {
+		updateExecutionFunc: func(_ context.Context, exec *api.Execution) error {
 			assert.Equal(t, string(constants.ExecutionRunning), exec.Status)
 			return nil
 		},
@@ -115,10 +122,12 @@ func TestProcessor_Handle_ECSEvent(t *testing.T) {
 	processor := NewProcessor(execRepo, wsManager, nil, testutil.SilentLogger())
 
 	// Create ECS Task State Change event
+	taskArn := "arn:aws:ecs:us-east-1:123456789:task/cluster/exec-test-123"
+	ecsDetailJSON := `{"taskArn":"` + taskArn + `","lastStatus":"RUNNING"}`
 	ecsEvent := events.CloudWatchEvent{
 		Source:     "aws.ecs",
 		DetailType: "ECS Task State Change",
-		Detail:     json.RawMessage(`{"taskArn":"arn:aws:ecs:us-east-1:123456789:task/cluster/exec-test-123","lastStatus":"RUNNING"}`),
+		Detail:     json.RawMessage(ecsDetailJSON),
 	}
 
 	eventJSON, err := json.Marshal(ecsEvent)
@@ -135,7 +144,7 @@ func TestProcessor_Handle_ScheduledEvent(t *testing.T) {
 
 	// Mock health manager (reuse from backend_test.go)
 	healthManager := &mockHealthManager{
-		reconcileFunc: func(ctx context.Context) (*api.HealthReport, error) {
+		reconcileFunc: func(_ context.Context) (*api.HealthReport, error) {
 			return &api.HealthReport{}, nil
 		},
 	}
@@ -253,7 +262,7 @@ func TestProcessor_Handle_UnknownEventType(t *testing.T) {
 	processor := NewProcessor(execRepo, wsManager, nil, testutil.SilentLogger())
 
 	// Create completely unrecognized event
-	unknownEvent := map[string]interface{}{
+	unknownEvent := map[string]any{
 		"unknownField": "unknownValue",
 	}
 
@@ -280,13 +289,13 @@ func TestProcessor_Handle_InvalidJSON(t *testing.T) {
 
 func TestProcessor_HandleCloudEvent_ECSTaskStateChange(t *testing.T) {
 	execRepo := &mockExecRepoForCloudEvents{
-		getExecutionFunc: func(ctx context.Context, executionID string) (*api.Execution, error) {
+		getExecutionFunc: func(_ context.Context, executionID string) (*api.Execution, error) {
 			return &api.Execution{
 				ExecutionID: executionID,
 				Status:      string(constants.ExecutionStarting),
 			}, nil
 		},
-		updateExecutionFunc: func(ctx context.Context, exec *api.Execution) error {
+		updateExecutionFunc: func(_ context.Context, _ *api.Execution) error {
 			return nil
 		},
 	}
@@ -294,10 +303,12 @@ func TestProcessor_HandleCloudEvent_ECSTaskStateChange(t *testing.T) {
 	wsManager := &mockWSManagerForCloudEvents{}
 	processor := NewProcessor(execRepo, wsManager, nil, testutil.SilentLogger())
 
+	taskArn := "arn:aws:ecs:us-east-1:123456789:task/cluster/exec-test-123"
+	detailJSON := `{"taskArn":"` + taskArn + `","lastStatus":"RUNNING"}`
 	event := events.CloudWatchEvent{
 		Source:     "aws.ecs",
 		DetailType: "ECS Task State Change",
-		Detail:     json.RawMessage(`{"taskArn":"arn:aws:ecs:us-east-1:123456789:task/cluster/exec-test-123","lastStatus":"RUNNING"}`),
+		Detail:     json.RawMessage(detailJSON),
 	}
 
 	eventJSON, err := json.Marshal(event)
@@ -314,7 +325,7 @@ func TestProcessor_HandleCloudEvent_ScheduledEvent(t *testing.T) {
 	wsManager := &mockWSManagerForCloudEvents{}
 
 	healthManager := &mockHealthManager{
-		reconcileFunc: func(ctx context.Context) (*api.HealthReport, error) {
+		reconcileFunc: func(_ context.Context) (*api.HealthReport, error) {
 			return &api.HealthReport{}, nil
 		},
 	}
@@ -363,7 +374,7 @@ func TestProcessor_HandleCloudEvent_NotCloudWatchEvent(t *testing.T) {
 	processor := NewProcessor(execRepo, wsManager, nil, testutil.SilentLogger())
 
 	// Not a CloudWatch event structure
-	notCWEvent := map[string]interface{}{
+	notCWEvent := map[string]any{
 		"someOtherField": "value",
 	}
 
@@ -419,13 +430,13 @@ func TestProcessor_HandleCloudEvent_MissingDetailType(t *testing.T) {
 // Benchmark tests
 func BenchmarkProcessor_Handle_ECSEvent(b *testing.B) {
 	execRepo := &mockExecRepoForCloudEvents{
-		getExecutionFunc: func(ctx context.Context, executionID string) (*api.Execution, error) {
+		getExecutionFunc: func(_ context.Context, executionID string) (*api.Execution, error) {
 			return &api.Execution{
 				ExecutionID: executionID,
 				Status:      string(constants.ExecutionStarting),
 			}, nil
 		},
-		updateExecutionFunc: func(ctx context.Context, exec *api.Execution) error {
+		updateExecutionFunc: func(_ context.Context, _ *api.Execution) error {
 			return nil
 		},
 	}
@@ -433,19 +444,20 @@ func BenchmarkProcessor_Handle_ECSEvent(b *testing.B) {
 	wsManager := &mockWSManagerForCloudEvents{}
 	processor := NewProcessor(execRepo, wsManager, nil, testutil.SilentLogger())
 
+	taskArn := "arn:aws:ecs:us-east-1:123456789:task/cluster/exec-test-123"
+	benchmarkDetailJSON := `{"taskArn":"` + taskArn + `","lastStatus":"RUNNING"}`
 	ecsEvent := events.CloudWatchEvent{
 		Source:     "aws.ecs",
 		DetailType: "ECS Task State Change",
-		Detail:     json.RawMessage(`{"taskArn":"arn:aws:ecs:us-east-1:123456789:task/cluster/exec-test-123","lastStatus":"RUNNING"}`),
+		Detail:     json.RawMessage(benchmarkDetailJSON),
 	}
 
 	eventJSON, _ := json.Marshal(ecsEvent)
 	rawMsg := json.RawMessage(eventJSON)
 
-	b.ResetTimer()
 	b.ReportAllocs()
 
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_, _ = processor.Handle(context.Background(), &rawMsg)
 	}
 }
@@ -466,10 +478,9 @@ func BenchmarkProcessor_Handle_WebSocketEvent(b *testing.B) {
 	eventJSON, _ := json.Marshal(wsEvent)
 	rawMsg := json.RawMessage(eventJSON)
 
-	b.ResetTimer()
 	b.ReportAllocs()
 
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_, _ = processor.Handle(context.Background(), &rawMsg)
 	}
 }
