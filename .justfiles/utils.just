@@ -22,6 +22,10 @@ update-readme-help: build-cli
 generate-cli-docs out_file="docs/CLI.md":
     go run scripts/generate-cli-docs/main.go -out {{out_file}}
 
+# Trigger docs site build on GitHub Actions
+trigger-docs-build:
+    gh workflow run build-docs.yml --repo runvoy/runvoy.github.io
+
 # Upgrade all dependencies
 upgrade-dependencies:
     go get -u all
