@@ -71,6 +71,8 @@ export interface ClaimAPIKeyResponse {
 export interface HealthResponse {
     status: string;
     version: string;
+    provider: string;
+    region?: string;
 }
 
 export interface APIClientConfig {
