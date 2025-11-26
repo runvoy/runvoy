@@ -97,6 +97,34 @@
                 <span class="value empty">Not connected</span>
             {/if}
         </div>
+
+        <div class="info-group">
+            <div class="label">Backend Provider:</div>
+            {#if loadingHealth}
+                <span class="value muted">Loading...</span>
+            {:else if healthError}
+                <span class="value error" title={healthError}> Failed to fetch </span>
+            {:else if backendHealth?.provider}
+                <span class="value">{backendHealth.provider}</span>
+            {:else}
+                <span class="value empty">Not connected</span>
+            {/if}
+        </div>
+
+        <div class="info-group">
+            <div class="label">Backend Region:</div>
+            {#if loadingHealth}
+                <span class="value muted">Loading...</span>
+            {:else if healthError}
+                <span class="value error" title={healthError}> Failed to fetch </span>
+            {:else if backendHealth?.region}
+                <span class="value">{backendHealth.region}</span>
+            {:else if backendHealth}
+                <span class="value muted">Unknown</span>
+            {:else}
+                <span class="value empty">Not connected</span>
+            {/if}
+        </div>
     </section>
 
     <section class="settings-section">
