@@ -970,7 +970,7 @@ func TestSaveAndLoad(t *testing.T) {
 	testConfig := &Config{
 		APIEndpoint: "https://test.execute-api.us-east-1.amazonaws.com",
 		APIKey:      "test-key-12345",
-		WebURL:      "https://test.runvoy.site",
+		WebURL:      "https://test.web.runvoy.site",
 	}
 
 	// Save to temporary file path instead of real config file

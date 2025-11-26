@@ -184,9 +184,7 @@
                 </a>
             </li>
             <li>
-                <a href="https://runvoy.github.io/" target="_blank" rel="noopener">
-                    Documentation
-                </a>
+                <a href="https://runvoy.site/" target="_blank" rel="noopener"> Documentation </a>
             </li>
         </ul>
     </section>

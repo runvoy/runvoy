@@ -27,10 +27,10 @@
   <a href="https://github.com/runvoy/runvoy/releases/latest" target="_blank">
       <img src="https://img.shields.io/github/release/runvoy/runvoy.svg" alt="Latest Release">
   </a>
-  <a href="https://runvoy.site" target="_blank">
+  <a href="https://web.runvoy.site" target="_blank">
       <img src="https://img.shields.io/badge/%F0%9F%9A%80%20Webapp-blue" alt="Runvoy Webapp">
   </a>
-  <a href="https://runvoy.github.io" target="_blank">
+  <a href="https://runvoy.site" target="_blank">
       <img src="https://img.shields.io/badge/%F0%9F%9A%80%20Docs-orange" alt="Runvoy Docs">
   </a>
 </p>
@@ -78,7 +78,7 @@ Line  Timestamp (UTC)      Message
 
 → Execution completed. Closing connection...
 → WebSocket connection closed
-→ View logs in web viewer: https://runvoy.site/?execution_id=010adbfb34374116b47c8d0faab2befa
+→ View logs in web viewer: https://web.runvoy.site/?execution_id=010adbfb34374116b47c8d0faab2befa
 ```
 
 ## 💡 What is Runvoy?
@@ -87,7 +87,7 @@ Line  Timestamp (UTC)      Message
 
 - 🖥️ **Backend** — Runs on your AWS account (multi-cloud support planned), exposes the HTTP API, and orchestrates cloud resources. Deploy once as a cloud admin.
 - ⌨️ **CLI client** — The `runvoy` command-line tool for interacting with the REST API
-- 🌐 **Web app** — Visit [runvoy.site](https://runvoy.site) or self-host. Currently supports log viewing with full CLI parity coming soon.
+- 🌐 **Web app** — Visit [web.runvoy.site](https://web.runvoy.site) or self-host. Currently supports log viewing with full CLI parity coming soon.
 
 Refer to [Architecture](docs/ARCHITECTURE.md) for details.
 
@@ -204,7 +204,7 @@ runvoy --help
 ```
 
 ```text
-runvoy - v0.3.0-20251126-bdd0a52
+runvoy - v0.3.0-20251126-5e3fdbd
 Isolated, repeatable execution environments for your commands
 
 Usage:
@@ -311,7 +311,7 @@ The web application URL can be customized via:
 - Environment variable: `RUNVOY_WEB_URL`
 - Config file (`~/.runvoy/config.yaml`): `web_url` field
 
-If not configured, it defaults to `https://runvoy.site/`.
+If not configured, it defaults to `https://web.runvoy.site/`.
 
 ## 🏛️ Architecture
 

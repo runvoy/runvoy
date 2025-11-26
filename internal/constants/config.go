@@ -2,7 +2,7 @@ package constants
 
 // DefaultWebURL is the default URL of the web application HTML file.
 // This can be overridden via configuration (RUNVOY_WEB_URL env var or config file).
-const DefaultWebURL = "https://runvoy.site/"
+const DefaultWebURL = "https://web.runvoy.site/"
 
 // LocalDevelopmentURL is the default URL of the local development server.
 const LocalDevelopmentURL = "http://localhost:5173/"
