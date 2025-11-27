@@ -118,11 +118,7 @@ export function connectWebSocket(url: string): void {
             // If websocket closed cleanly (code 1000) but we didn't receive a disconnect message,
             // and it wasn't a manual disconnect, still dispatch the event but mark it as clean close
             // (logs are already complete)
-            if (
-                typeof window !== 'undefined' &&
-                !get(isCompleted) &&
-                !manuallyDisconnected
-            ) {
+            if (typeof window !== 'undefined' && !get(isCompleted) && !manuallyDisconnected) {
                 window.dispatchEvent(
                     new CustomEvent('runvoy:execution-complete', {
                         detail: { cleanClose: true }

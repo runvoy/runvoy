@@ -156,13 +156,15 @@
         lastProcessedExecutionId = id;
     }
 
-    function handleExecutionComplete(event: CustomEvent): void {
+    // eslint-disable-next-line no-undef
+    function handleExecutionComplete(event: Event): void {
         if (!apiClient || !currentExecutionId) {
             return;
         }
         // If websocket closed cleanly (clean disconnect), we already have all logs
         // and don't need to fetch them again via GET /logs
-        const cleanClose = event.detail?.cleanClose === true;
+        const customEvent = event as CustomEvent;
+        const cleanClose = customEvent.detail?.cleanClose === true;
         if (!cleanClose) {
             void fetchLogs(currentExecutionId);
         }
