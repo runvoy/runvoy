@@ -87,8 +87,8 @@ type WebSocketManager interface {
 	// and removes the connections.
 	NotifyExecutionCompletion(ctx context.Context, executionID *string) error
 
-	// SendLogsToExecution sends log events to all connected clients for an execution.
-	SendLogsToExecution(ctx context.Context, executionID *string, logEvents []api.LogEvent) error
+	// SendLogsToExecution flushes buffered log events to all connected clients for an execution.
+	SendLogsToExecution(ctx context.Context, executionID *string) error
 
 	// GenerateWebSocketURL creates a WebSocket token and returns the connection URL.
 	// It stores the token for validation when the client connects.

@@ -291,7 +291,6 @@ func (s *stubWebSocketManager) NotifyExecutionCompletion(_ context.Context, _ *s
 func (s *stubWebSocketManager) SendLogsToExecution(
 	_ context.Context,
 	_ *string,
-	_ []api.LogEvent,
 ) error {
 	return nil
 }

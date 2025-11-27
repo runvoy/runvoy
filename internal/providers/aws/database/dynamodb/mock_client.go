@@ -66,7 +66,7 @@ func NewMockDynamoDBClient() *MockDynamoDBClient {
 }
 
 // PutItem stores an item in the mock table.
-func (m *MockDynamoDBClient) PutItem( //nolint:funlen // This is ok, lots of operations required
+func (m *MockDynamoDBClient) PutItem(
 	_ context.Context,
 	params *dynamodb.PutItemInput,
 	_ ...func(*dynamodb.Options),
@@ -151,6 +151,8 @@ func (m *MockDynamoDBClient) GetItem(
 }
 
 // Query searches for items in the mock table.
+//
+//nolint:gocyclo // Mock implementation intentionally mirrors DynamoDB behavior.
 func (m *MockDynamoDBClient) Query(
 	_ context.Context,
 	params *dynamodb.QueryInput,
@@ -295,6 +297,8 @@ func (m *MockDynamoDBClient) DeleteItem(
 }
 
 // BatchWriteItem performs batch write operations.
+//
+//nolint:funlen // Mimics DynamoDB batch semantics for tests; splitting would add noise.
 func (m *MockDynamoDBClient) BatchWriteItem(
 	_ context.Context,
 	params *dynamodb.BatchWriteItemInput,

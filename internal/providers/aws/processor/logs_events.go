@@ -65,7 +65,7 @@ func (p *Processor) handleLogsEvent(
 		return true, fmt.Errorf("failed to persist log events: %w", err)
 	}
 
-	sendErr := p.webSocketManager.SendLogsToExecution(ctx, &executionID, logEvents)
+	sendErr := p.webSocketManager.SendLogsToExecution(ctx, &executionID)
 	if sendErr != nil {
 		reqLogger.Error("failed to send logs to WebSocket connections",
 			"error", sendErr,

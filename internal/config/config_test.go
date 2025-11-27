@@ -1243,7 +1243,6 @@ func TestLoadOrchestratorEnvironmentVariables(t *testing.T) {
 		"RUNVOY_AWS_API_KEYS_TABLE":              os.Getenv("RUNVOY_AWS_API_KEYS_TABLE"),
 		"RUNVOY_AWS_PENDING_API_KEYS_TABLE":      os.Getenv("RUNVOY_AWS_PENDING_API_KEYS_TABLE"),
 		"RUNVOY_AWS_EXECUTIONS_TABLE":            os.Getenv("RUNVOY_AWS_EXECUTIONS_TABLE"),
-		"RUNVOY_AWS_EXECUTION_LOGS_TABLE":        os.Getenv("RUNVOY_AWS_EXECUTION_LOGS_TABLE"),
 		"RUNVOY_AWS_ECS_CLUSTER":                 os.Getenv("RUNVOY_AWS_ECS_CLUSTER"),
 		"RUNVOY_AWS_LOG_GROUP":                   os.Getenv("RUNVOY_AWS_LOG_GROUP"),
 		"RUNVOY_AWS_SECURITY_GROUP":              os.Getenv("RUNVOY_AWS_SECURITY_GROUP"),

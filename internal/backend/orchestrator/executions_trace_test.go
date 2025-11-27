@@ -352,7 +352,7 @@ func (m *minimalWebSocketManager) NotifyExecutionCompletion(_ context.Context, _
 }
 
 func (m *minimalWebSocketManager) SendLogsToExecution(
-	_ context.Context, _ *string, _ []api.LogEvent,
+	_ context.Context, _ *string,
 ) error {
 	return nil
 }

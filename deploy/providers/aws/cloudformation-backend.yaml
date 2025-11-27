@@ -538,6 +538,7 @@ Resources:
                 Resource:
                   - !GetAtt APIKeysTable.Arn
                   - !GetAtt ExecutionsTable.Arn
+                  - !GetAtt ExecutionLogsTable.Arn
                   - !GetAtt PendingAPIKeysTable.Arn
                   - !GetAtt SecretsMetadataTable.Arn
                   - !GetAtt ImageTaskDefinitionsTable.Arn

@@ -408,12 +408,14 @@ func (m *Manager) NotifyExecutionCompletion(ctx context.Context, executionID *st
 	return nil
 }
 
-// SendLogsToExecution sends log events to all connected clients for an execution.
-// Each log event is sent individually to all connected clients concurrently.
+// SendLogsToExecution loads buffered log events for an execution and forwards
+// them to all connected clients. Each log event is sent individually to all
+// connections concurrently.
+//
+//nolint:funlen // Flow includes validation, DB calls, fan-out, and logging; splitting adds little value.
 func (m *Manager) SendLogsToExecution(
 	ctx context.Context,
 	executionID *string,
-	_ []api.LogEvent,
 ) error {
 	reqLogger := m.deriveLogger(ctx)
 
@@ -439,7 +441,9 @@ func (m *Manager) SendLogsToExecution(
 	}
 
 	if len(bufferedEvents) == 0 {
-		reqLogger.Debug("no buffered logs available", "execution_id", *executionID)
+		reqLogger.Debug("no buffered logs available", "context", map[string]string{
+			"execution_id": *executionID,
+		})
 		return nil
 	}
 
@@ -455,7 +459,6 @@ func (m *Manager) SendLogsToExecution(
 	eg.SetLimit(constants.MaxConcurrentSends)
 
 	for _, conn := range connections {
-		conn := conn
 		eg.Go(func() error {
 			return m.sendBufferedLogsToConnection(egCtx, reqLogger, conn, bufferedEvents)
 		})
@@ -514,21 +517,21 @@ func (m *Manager) sendBufferedLogsToConnection(
 	return nil
 }
 
-func filterEventsAfter(events []api.LogEvent, lastEventID string) []api.LogEvent {
+func filterEventsAfter(logEvents []api.LogEvent, lastEventID string) []api.LogEvent {
 	if lastEventID == "" {
-		return events
+		return logEvents
 	}
 
-	for idx, event := range events {
+	for idx, event := range logEvents {
 		if event.EventID == lastEventID {
-			if idx+1 >= len(events) {
+			if idx+1 >= len(logEvents) {
 				return []api.LogEvent{}
 			}
-			return events[idx+1:]
+			return logEvents[idx+1:]
 		}
 	}
 
-	return events
+	return logEvents
 }
 
 // sendLogToConnection sends a single log event to a WebSocket connection.

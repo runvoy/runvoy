@@ -54,7 +54,7 @@ func (m *mockExecutionRepo) GetExecutionsByRequestID(_ context.Context, _ string
 type mockWebSocketHandler struct {
 	handleRequestFunc             func(ctx context.Context, rawEvent *json.RawMessage, logger *slog.Logger) (bool, error)
 	notifyExecutionCompletionFunc func(ctx context.Context, executionID *string) error
-	sendLogsFunc                  func(ctx context.Context, executionID *string, logs []api.LogEvent) error
+	sendLogsFunc                  func(ctx context.Context, executionID *string) error
 }
 
 func (m *mockWebSocketHandler) HandleRequest(
@@ -73,9 +73,9 @@ func (m *mockWebSocketHandler) NotifyExecutionCompletion(ctx context.Context, ex
 }
 
 func (m *mockWebSocketHandler) SendLogsToExecution(
-	ctx context.Context, executionID *string, logs []api.LogEvent) error {
+	ctx context.Context, executionID *string) error {
 	if m.sendLogsFunc != nil {
-		return m.sendLogsFunc(ctx, executionID, logs)
+		return m.sendLogsFunc(ctx, executionID)
 	}
 	return nil
 }

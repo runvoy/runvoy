@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -87,6 +88,16 @@ func (m *mockLogEventRepoForWS) DeleteLogEvents(ctx context.Context, executionID
 		return m.deleteLogEventsFunc(ctx, executionID)
 	}
 	return nil
+}
+
+func messageListContains(messages []string, fragment string) bool {
+	for _, msg := range messages {
+		if strings.Contains(msg, fragment) {
+			return true
+		}
+	}
+
+	return false
 }
 
 func (m *mockTokenRepoForWS) CreateToken(ctx context.Context, token *api.WebSocketToken) error {
@@ -483,17 +494,17 @@ func TestSendLogsToExecution(t *testing.T) {
 			logger:       testutil.SilentLogger(),
 		}
 
-		err := m.SendLogsToExecution(ctx, &executionID, nil)
+		err := m.SendLogsToExecution(ctx, &executionID)
 
 		assert.NoError(t, err)
 		assert.Len(t, sentMessages, 3) // conn1 gets events after evt-1, conn2 gets all
-		assert.Contains(t, sentMessages[0], "log message 2")
+		require.True(t, messageListContains(sentMessages, "log message 2"))
 		assert.ElementsMatch(t, []string{"conn-1:evt-2", "conn-2:evt-2"}, updatedConnections)
 	})
 
 	t.Run("handles nil execution ID", func(t *testing.T) {
 		m := &Manager{logger: testutil.SilentLogger()}
-		err := m.SendLogsToExecution(ctx, nil, []api.LogEvent{{Message: "test"}})
+		err := m.SendLogsToExecution(ctx, nil)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "execution ID is nil or empty")
 	})
@@ -501,7 +512,7 @@ func TestSendLogsToExecution(t *testing.T) {
 	t.Run("handles empty execution ID", func(t *testing.T) {
 		emptyID := ""
 		m := &Manager{logger: testutil.SilentLogger()}
-		err := m.SendLogsToExecution(ctx, &emptyID, []api.LogEvent{{Message: "test"}})
+		err := m.SendLogsToExecution(ctx, &emptyID)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "execution ID is nil or empty")
 	})
@@ -526,7 +537,7 @@ func TestSendLogsToExecution(t *testing.T) {
 			logger:       testutil.SilentLogger(),
 		}
 
-		err := m.SendLogsToExecution(ctx, &executionID, []api.LogEvent{})
+		err := m.SendLogsToExecution(ctx, &executionID)
 		assert.NoError(t, err)
 	})
 
@@ -542,7 +553,7 @@ func TestSendLogsToExecution(t *testing.T) {
 			logger:   testutil.SilentLogger(),
 		}
 
-		err := m.SendLogsToExecution(ctx, &executionID, []api.LogEvent{{Message: "test"}})
+		err := m.SendLogsToExecution(ctx, &executionID)
 		assert.NoError(t, err)
 	})
 
@@ -558,7 +569,7 @@ func TestSendLogsToExecution(t *testing.T) {
 			logger:   testutil.SilentLogger(),
 		}
 
-		err := m.SendLogsToExecution(ctx, &executionID, []api.LogEvent{{Message: "test"}})
+		err := m.SendLogsToExecution(ctx, &executionID)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to get connections")
 	})
@@ -583,7 +594,7 @@ func TestSendLogsToExecution(t *testing.T) {
 			logger:       testutil.SilentLogger(),
 		}
 
-		err := m.SendLogsToExecution(ctx, &executionID, []api.LogEvent{{Message: "test"}})
+		err := m.SendLogsToExecution(ctx, &executionID)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to retrieve buffered logs")
 	})
@@ -625,7 +636,7 @@ func TestSendLogsToExecution(t *testing.T) {
 			logger:       testutil.SilentLogger(),
 		}
 
-		err := m.SendLogsToExecution(ctx, &executionID, []api.LogEvent{{Message: "test"}})
+		err := m.SendLogsToExecution(ctx, &executionID)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to send logs to some connections")
 	})

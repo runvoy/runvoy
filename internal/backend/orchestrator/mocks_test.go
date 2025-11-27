@@ -689,7 +689,6 @@ type mockWebSocketManager struct {
 	sendLogsToExecutionFunc       func(
 		ctx context.Context,
 		executionID *string,
-		logEvents []api.LogEvent,
 	) error
 }
 
@@ -726,10 +725,9 @@ func (m *mockWebSocketManager) NotifyExecutionCompletion(ctx context.Context, ex
 func (m *mockWebSocketManager) SendLogsToExecution(
 	ctx context.Context,
 	executionID *string,
-	logEvents []api.LogEvent,
 ) error {
 	if m.sendLogsToExecutionFunc != nil {
-		return m.sendLogsToExecutionFunc(ctx, executionID, logEvents)
+		return m.sendLogsToExecutionFunc(ctx, executionID)
 	}
 	return nil
 }

@@ -187,8 +187,8 @@ func (r *LogEventRepository) DeleteLogEvents(ctx context.Context, executionID st
 			})
 		}
 
-		if err := r.batchWrite(ctx, writeRequests); err != nil {
-			return err
+		if batchErr := r.batchWrite(ctx, writeRequests); batchErr != nil {
+			return batchErr
 		}
 
 		reqLogger.Debug("log events scheduled for TTL deletion", "context", map[string]any{
@@ -232,6 +232,9 @@ func (r *LogEventRepository) batchWrite(ctx context.Context, requests []types.Wr
 	return nil
 }
 
+// buildEventKey derives the DynamoDB range key combining the millisecond
+// timestamp with a deterministic suffix so multiple events at the same moment
+// stay ordered and unique (event ID when present, otherwise a zero-padded index).
 func buildEventKey(event api.LogEvent, index int) string {
 	if event.EventID != "" {
 		return fmt.Sprintf("%013d#%s", event.Timestamp, event.EventID)

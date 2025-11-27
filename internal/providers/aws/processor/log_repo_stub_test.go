@@ -8,6 +8,7 @@ import (
 
 type noopLogEventRepo struct {
 	saveLogEventsFunc   func(ctx context.Context, executionID string, logEvents []api.LogEvent) error
+	listLogEventsFunc   func(ctx context.Context, executionID string) ([]api.LogEvent, error)
 	deleteLogEventsFunc func(ctx context.Context, executionID string) error
 }
 
@@ -23,4 +24,11 @@ func (r *noopLogEventRepo) DeleteLogEvents(ctx context.Context, executionID stri
 		return r.deleteLogEventsFunc(ctx, executionID)
 	}
 	return nil
+}
+
+func (r *noopLogEventRepo) ListLogEvents(ctx context.Context, executionID string) ([]api.LogEvent, error) {
+	if r.listLogEventsFunc != nil {
+		return r.listLogEventsFunc(ctx, executionID)
+	}
+	return nil, nil
 }

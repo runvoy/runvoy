@@ -97,7 +97,7 @@ func TestWebSocketManager_Interface(t *testing.T) {
 	err = manager.NotifyExecutionCompletion(context.Background(), nil)
 	assert.NoError(t, err)
 
-	err = manager.SendLogsToExecution(context.Background(), nil, []api.LogEvent{})
+	err = manager.SendLogsToExecution(context.Background(), nil)
 	assert.NoError(t, err)
 
 	url := manager.GenerateWebSocketURL(context.Background(), "exec-123", nil, nil)
@@ -174,7 +174,7 @@ func (t *testWebSocketManager) NotifyExecutionCompletion(_ context.Context, _ *s
 	return nil
 }
 
-func (t *testWebSocketManager) SendLogsToExecution(_ context.Context, _ *string, _ []api.LogEvent) error {
+func (t *testWebSocketManager) SendLogsToExecution(_ context.Context, _ *string) error {
 	return nil
 }
 

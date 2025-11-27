@@ -51,7 +51,7 @@ func (m *mockExecRepoForCloudEvents) GetExecutionsByRequestID(_ context.Context,
 type mockWSManagerForCloudEvents struct {
 	notifyExecutionUpdateFunc func(ctx context.Context, exec *api.Execution) error
 	handleRequestFunc         func(ctx context.Context, rawEvent *json.RawMessage, reqLogger *slog.Logger) (bool, error)
-	sendLogsToExecutionFunc   func(ctx context.Context, executionID *string, logEvents []api.LogEvent) error
+	sendLogsToExecutionFunc   func(ctx context.Context, executionID *string) error
 }
 
 func (m *mockWSManagerForCloudEvents) NotifyExecutionUpdate(ctx context.Context, exec *api.Execution) error {
@@ -91,10 +91,9 @@ func (m *mockWSManagerForCloudEvents) HandleRequest(
 func (m *mockWSManagerForCloudEvents) SendLogsToExecution(
 	ctx context.Context,
 	executionID *string,
-	logEvents []api.LogEvent,
 ) error {
 	if m.sendLogsToExecutionFunc != nil {
-		return m.sendLogsToExecutionFunc(ctx, executionID, logEvents)
+		return m.sendLogsToExecutionFunc(ctx, executionID)
 	}
 	return nil
 }
