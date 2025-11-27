@@ -167,6 +167,7 @@ type mockConnectionRepository struct {
 	createConnectionFunc            func(ctx context.Context, conn *api.WebSocketConnection) error
 	deleteConnectionsFunc           func(ctx context.Context, connIDs []string) (int, error)
 	getConnectionsByExecutionIDFunc func(ctx context.Context, executionID string) ([]*api.WebSocketConnection, error)
+	updateLastEventIDFunc           func(ctx context.Context, connectionID, lastEventID string) error
 }
 
 func (m *mockConnectionRepository) CreateConnection(ctx context.Context, conn *api.WebSocketConnection) error {
@@ -190,6 +191,13 @@ func (m *mockConnectionRepository) GetConnectionsByExecutionID(
 		return m.getConnectionsByExecutionIDFunc(ctx, executionID)
 	}
 	return nil, nil
+}
+
+func (m *mockConnectionRepository) UpdateLastEventID(ctx context.Context, connectionID, lastEventID string) error {
+	if m.updateLastEventIDFunc != nil {
+		return m.updateLastEventIDFunc(ctx, connectionID, lastEventID)
+	}
+	return nil
 }
 
 // mockTokenRepository implements database.TokenRepository for testing
@@ -681,7 +689,6 @@ type mockWebSocketManager struct {
 	sendLogsToExecutionFunc       func(
 		ctx context.Context,
 		executionID *string,
-		logEvents []api.LogEvent,
 	) error
 }
 
@@ -718,10 +725,9 @@ func (m *mockWebSocketManager) NotifyExecutionCompletion(ctx context.Context, ex
 func (m *mockWebSocketManager) SendLogsToExecution(
 	ctx context.Context,
 	executionID *string,
-	logEvents []api.LogEvent,
 ) error {
 	if m.sendLogsToExecutionFunc != nil {
-		return m.sendLogsToExecutionFunc(ctx, executionID, logEvents)
+		return m.sendLogsToExecutionFunc(ctx, executionID)
 	}
 	return nil
 }

@@ -15,6 +15,7 @@ func TestWebSocketConnectionJSON(t *testing.T) {
 			ExecutionID:          "exec-456",
 			Functionality:        "logs",
 			ExpiresAt:            1234567890,
+			LastEventID:          "event-1",
 			ClientIP:             "192.168.1.1",
 			Token:                "token-abc",
 			UserEmail:            "user@example.com",
@@ -32,6 +33,7 @@ func TestWebSocketConnectionJSON(t *testing.T) {
 		assert.Equal(t, conn.ExecutionID, unmarshaled.ExecutionID)
 		assert.Equal(t, conn.Functionality, unmarshaled.Functionality)
 		assert.Equal(t, conn.ExpiresAt, unmarshaled.ExpiresAt)
+		assert.Equal(t, conn.LastEventID, unmarshaled.LastEventID)
 		assert.Equal(t, conn.ClientIP, unmarshaled.ClientIP)
 		assert.Equal(t, conn.Token, unmarshaled.Token)
 		assert.Equal(t, conn.UserEmail, unmarshaled.UserEmail)
@@ -53,6 +55,7 @@ func TestWebSocketConnectionJSON(t *testing.T) {
 		assert.NotContains(t, jsonStr, "client_ip")
 		assert.NotContains(t, jsonStr, "token")
 		assert.NotContains(t, jsonStr, "user_email")
+		assert.NotContains(t, jsonStr, "last_event_id")
 	})
 }
 

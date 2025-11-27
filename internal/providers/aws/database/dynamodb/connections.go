@@ -9,6 +9,7 @@ import (
 	"runvoy/internal/database"
 	appErrors "runvoy/internal/errors"
 	"runvoy/internal/logger"
+	awsconstants "runvoy/internal/providers/aws/constants"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
@@ -43,6 +44,7 @@ type connectionItem struct {
 	ExecutionID          string `dynamodbav:"execution_id"`
 	Functionality        string `dynamodbav:"functionality"`
 	ExpiresAt            int64  `dynamodbav:"expires_at"`
+	LastEventID          string `dynamodbav:"last_event_id,omitempty"`
 	ClientIP             string `dynamodbav:"client_ip,omitempty"`
 	Token                string `dynamodbav:"token,omitempty"`
 	UserEmail            string `dynamodbav:"user_email,omitempty"`
@@ -56,6 +58,7 @@ func toConnectionItem(conn *api.WebSocketConnection) *connectionItem {
 		ExecutionID:          conn.ExecutionID,
 		Functionality:        conn.Functionality,
 		ExpiresAt:            conn.ExpiresAt,
+		LastEventID:          conn.LastEventID,
 		ClientIP:             conn.ClientIP,
 		Token:                conn.Token,
 		UserEmail:            conn.UserEmail,
@@ -186,6 +189,7 @@ func (r *ConnectionRepository) GetConnectionsByExecutionID(
 			ExecutionID:          connItem.ExecutionID,
 			Functionality:        connItem.Functionality,
 			ExpiresAt:            connItem.ExpiresAt,
+			LastEventID:          connItem.LastEventID,
 			ClientIP:             connItem.ClientIP,
 			Token:                connItem.Token,
 			UserEmail:            connItem.UserEmail,
@@ -200,6 +204,47 @@ func (r *ConnectionRepository) GetConnectionsByExecutionID(
 	})
 
 	return connections, nil
+}
+
+// UpdateLastEventID persists the last delivered event ID for a connection.
+func (r *ConnectionRepository) UpdateLastEventID(ctx context.Context, connectionID, lastEventID string) error {
+	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
+
+	if connectionID == "" {
+		return fmt.Errorf("connection ID is required")
+	}
+
+	keyAV, err := attributevalue.MarshalMap(map[string]string{"connection_id": connectionID})
+	if err != nil {
+		return appErrors.ErrDatabaseError("failed to marshal connection key", err)
+	}
+
+	logArgs := []any{
+		"operation", "DynamoDB.UpdateItem",
+		"table", r.tableName,
+		"connection_id", connectionID,
+	}
+	logArgs = append(logArgs, logger.GetDeadlineInfo(ctx)...)
+	reqLogger.Debug("calling external service", "context", logger.SliceToMap(logArgs))
+
+	_, err = r.client.UpdateItem(ctx, &dynamodb.UpdateItemInput{
+		TableName:        aws.String(r.tableName),
+		Key:              keyAV,
+		UpdateExpression: aws.String("SET last_event_id = :last_event_id"),
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":last_event_id": &types.AttributeValueMemberS{Value: lastEventID},
+		},
+	})
+	if err != nil {
+		return appErrors.ErrDatabaseError("failed to update last event ID", err)
+	}
+
+	reqLogger.Debug("last event ID updated", "context", map[string]any{
+		"connection_id": connectionID,
+		"last_event_id": lastEventID,
+	})
+
+	return nil
 }
 
 // buildDeleteRequests creates WriteRequest objects for all connection IDs.
@@ -225,16 +270,15 @@ func (r *ConnectionRepository) buildDeleteRequests(connectionIDs []string) ([]ty
 	return deleteRequests, nil
 }
 
-// executeBatchDeletes processes delete requests in batches respecting DynamoDB's 25-item limit.
+// executeBatchDeletes processes delete requests in batches respecting DynamoDB's BatchWriteItem limit.
 func (r *ConnectionRepository) executeBatchDeletes(
 	ctx context.Context,
 	deleteRequests []types.WriteRequest,
 ) (int, error) {
-	const batchSize = 25
 	deletedCount := 0
 
-	for i := 0; i < len(deleteRequests); i += batchSize {
-		end := min(i+batchSize, len(deleteRequests))
+	for i := 0; i < len(deleteRequests); i += awsconstants.DynamoDBBatchWriteLimit {
+		end := min(i+awsconstants.DynamoDBBatchWriteLimit, len(deleteRequests))
 
 		batchRequests := deleteRequests[i:end]
 

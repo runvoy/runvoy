@@ -284,7 +284,7 @@ func (t *testWebSocketManager) NotifyExecutionCompletion(_ context.Context, _ *s
 	return nil
 }
 
-func (t *testWebSocketManager) SendLogsToExecution(_ context.Context, _ *string, _ []api.LogEvent) error {
+func (t *testWebSocketManager) SendLogsToExecution(_ context.Context, _ *string) error {
 	return nil
 }
 

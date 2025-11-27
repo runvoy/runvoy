@@ -538,6 +538,7 @@ Resources:
                 Resource:
                   - !GetAtt APIKeysTable.Arn
                   - !GetAtt ExecutionsTable.Arn
+                  - !GetAtt ExecutionLogsTable.Arn
                   - !GetAtt PendingAPIKeysTable.Arn
                   - !GetAtt SecretsMetadataTable.Arn
                   - !GetAtt ImageTaskDefinitionsTable.Arn
@@ -603,6 +604,7 @@ Resources:
           RUNVOY_AWS_API_KEYS_TABLE: !Ref APIKeysTable
           RUNVOY_AWS_ECS_CLUSTER: !Ref ECSCluster
           RUNVOY_AWS_EXECUTIONS_TABLE: !Ref ExecutionsTable
+          RUNVOY_AWS_EXECUTION_LOGS_TABLE: !Ref ExecutionLogsTable
           RUNVOY_AWS_IMAGE_TASKDEFS_TABLE: !Ref ImageTaskDefinitionsTable
           RUNVOY_AWS_LOG_GROUP: !Ref RunnerLogGroup
           RUNVOY_AWS_PENDING_API_KEYS_TABLE: !Ref PendingAPIKeysTable
@@ -673,6 +675,7 @@ Resources:
         Variables:
           RUNVOY_AWS_API_KEYS_TABLE: !Ref APIKeysTable
           RUNVOY_AWS_EXECUTIONS_TABLE: !Ref ExecutionsTable
+          RUNVOY_AWS_EXECUTION_LOGS_TABLE: !Ref ExecutionLogsTable
           RUNVOY_AWS_ECS_CLUSTER: !Ref ECSCluster
           RUNVOY_AWS_IMAGE_TASKDEFS_TABLE: !Ref ImageTaskDefinitionsTable
           RUNVOY_AWS_PENDING_API_KEYS_TABLE: !Ref PendingAPIKeysTable
@@ -763,6 +766,7 @@ Resources:
                   - 'dynamodb:GetItem'
                   - 'dynamodb:Query'
                 Resource:
+                  - !GetAtt ExecutionLogsTable.Arn
                   - !GetAtt WebSocketConnectionsTable.Arn
                   - !GetAtt WebSocketTokensTable.Arn
                   - !Sub '${WebSocketConnectionsTable.Arn}/index/*'
@@ -955,6 +959,33 @@ Resources:
         - Key: ManagedBy
           Value: 'cloudformation'
 
+  # DynamoDB Table for buffered execution logs
+  ExecutionLogsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub '${ProjectName}-execution-logs'
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: execution_id
+          AttributeType: S
+        - AttributeName: event_key
+          AttributeType: S
+      KeySchema:
+        - AttributeName: execution_id
+          KeyType: HASH
+        - AttributeName: event_key
+          KeyType: RANGE
+      TimeToLiveSpecification:
+        AttributeName: expires_at
+        Enabled: true
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-execution-logs'
+        - Key: Application
+          Value: !Ref ProjectName
+        - Key: ManagedBy
+          Value: 'cloudformation'
+
   # API Gateway WebSocket API
   WebSocketApi:
     Type: AWS::ApiGatewayV2::Api
@@ -1040,6 +1071,12 @@ Outputs:
     Value: !Ref ExecutionsTable
     Export:
       Name: !Sub '${ProjectName}-executions-table'
+
+  ExecutionLogsTableName:
+    Description: DynamoDB Execution Logs Table name
+    Value: !Ref ExecutionLogsTable
+    Export:
+      Name: !Sub '${ProjectName}-execution-logs-table'
 
   PendingAPIKeysTableName:
     Description: DynamoDB Pending API Keys Table name

@@ -283,6 +283,10 @@ func (r *minimalConnectionRepository) GetConnectionsByExecutionID(
 	return nil, nil
 }
 
+func (r *minimalConnectionRepository) UpdateLastEventID(context.Context, string, string) error {
+	return nil
+}
+
 type minimalTokenRepository struct{}
 
 func (r *minimalTokenRepository) CreateToken(_ context.Context, _ *api.WebSocketToken) error {
@@ -348,7 +352,7 @@ func (m *minimalWebSocketManager) NotifyExecutionCompletion(_ context.Context, _
 }
 
 func (m *minimalWebSocketManager) SendLogsToExecution(
-	_ context.Context, _ *string, _ []api.LogEvent,
+	_ context.Context, _ *string,
 ) error {
 	return nil
 }

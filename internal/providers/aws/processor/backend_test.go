@@ -54,7 +54,7 @@ func (m *mockExecutionRepo) GetExecutionsByRequestID(_ context.Context, _ string
 type mockWebSocketHandler struct {
 	handleRequestFunc             func(ctx context.Context, rawEvent *json.RawMessage, logger *slog.Logger) (bool, error)
 	notifyExecutionCompletionFunc func(ctx context.Context, executionID *string) error
-	sendLogsFunc                  func(ctx context.Context, executionID *string, logs []api.LogEvent) error
+	sendLogsFunc                  func(ctx context.Context, executionID *string) error
 }
 
 func (m *mockWebSocketHandler) HandleRequest(
@@ -73,9 +73,9 @@ func (m *mockWebSocketHandler) NotifyExecutionCompletion(ctx context.Context, ex
 }
 
 func (m *mockWebSocketHandler) SendLogsToExecution(
-	ctx context.Context, executionID *string, logs []api.LogEvent) error {
+	ctx context.Context, executionID *string) error {
 	if m.sendLogsFunc != nil {
-		return m.sendLogsFunc(ctx, executionID, logs)
+		return m.sendLogsFunc(ctx, executionID)
 	}
 	return nil
 }
@@ -302,7 +302,7 @@ func TestHandleECSTaskCompletion_Success(t *testing.T) {
 		},
 	}
 
-	backend := NewProcessor(mockRepo, mockWebSocket, nil, testutil.SilentLogger())
+	backend := NewProcessor(mockRepo, &noopLogEventRepo{}, mockWebSocket, nil, testutil.SilentLogger())
 
 	taskEvent := ECSTaskStateChangeEvent{
 		TaskArn:    "arn:aws:ecs:us-east-1:123456789012:task/cluster/test-exec-123",
@@ -365,7 +365,7 @@ func TestHandleECSTaskCompletion_MarkRunning(t *testing.T) {
 		},
 	}
 
-	backend := NewProcessor(mockRepo, mockWebSocket, nil, testutil.SilentLogger())
+	backend := NewProcessor(mockRepo, &noopLogEventRepo{}, mockWebSocket, nil, testutil.SilentLogger())
 
 	taskEvent := ECSTaskStateChangeEvent{
 		TaskArn:    "arn:aws:ecs:us-east-1:123456789012:task/cluster/run-exec-123",
@@ -397,7 +397,7 @@ func TestHandleECSTaskCompletion_OrphanedTask(t *testing.T) {
 
 	mockWebSocket := &mockWebSocketHandler{}
 
-	backend := NewProcessor(mockRepo, mockWebSocket, nil, testutil.SilentLogger())
+	backend := NewProcessor(mockRepo, &noopLogEventRepo{}, mockWebSocket, nil, testutil.SilentLogger())
 
 	exitCode := 0
 	taskEvent := ECSTaskStateChangeEvent{
@@ -459,7 +459,7 @@ func TestHandleECSTaskCompletion_MissingStartedAt(t *testing.T) {
 		},
 	}
 
-	backend := NewProcessor(mockRepo, mockWebSocket, nil, testutil.SilentLogger())
+	backend := NewProcessor(mockRepo, &noopLogEventRepo{}, mockWebSocket, nil, testutil.SilentLogger())
 
 	taskEvent := ECSTaskStateChangeEvent{
 		TaskArn:    "arn:aws:ecs:us-east-1:123456789012:task/cluster/test-exec-123",
@@ -581,7 +581,7 @@ func TestHandle_EventRouting(t *testing.T) {
 			},
 		}
 		mockWebSocket := &mockWebSocketHandler{}
-		processor := NewProcessor(mockRepo, mockWebSocket, nil, logger)
+		processor := NewProcessor(mockRepo, &noopLogEventRepo{}, mockWebSocket, nil, logger)
 
 		// Test with actual CloudWatch event
 		event := events.CloudWatchEvent{
@@ -608,7 +608,7 @@ func TestHandle_EventRouting(t *testing.T) {
 	t.Run("routes CloudWatch Logs event correctly", func(t *testing.T) {
 		mockRepo := &mockExecutionRepo{}
 		mockWebSocket := &mockWebSocketHandler{}
-		processor := NewProcessor(mockRepo, mockWebSocket, nil, logger)
+		processor := NewProcessor(mockRepo, &noopLogEventRepo{}, mockWebSocket, nil, logger)
 
 		// Create a CloudWatch Logs event (will fail parsing but should route correctly)
 		logsEvent := events.CloudwatchLogsEvent{
@@ -630,7 +630,7 @@ func TestHandle_EventRouting(t *testing.T) {
 		mockRepo := &mockExecutionRepo{}
 		mockWebSocket := &mockWebSocketHandler{}
 
-		processor := NewProcessor(mockRepo, mockWebSocket, nil, logger)
+		processor := NewProcessor(mockRepo, &noopLogEventRepo{}, mockWebSocket, nil, logger)
 
 		wsEvent := events.APIGatewayWebsocketProxyRequest{
 			RequestContext: events.APIGatewayWebsocketProxyRequestContext{
@@ -651,7 +651,7 @@ func TestHandle_EventRouting(t *testing.T) {
 	t.Run("returns error for unhandled event type", func(t *testing.T) {
 		mockRepo := &mockExecutionRepo{}
 		mockWebSocket := &mockWebSocketHandler{}
-		processor := NewProcessor(mockRepo, mockWebSocket, nil, logger)
+		processor := NewProcessor(mockRepo, &noopLogEventRepo{}, mockWebSocket, nil, logger)
 
 		rawEvent := json.RawMessage(`{"unknown": "event", "type": "not_supported"}`)
 
@@ -666,7 +666,7 @@ func TestHandle_EventValidation(t *testing.T) {
 	logger := testutil.SilentLogger()
 	mockRepo := &mockExecutionRepo{}
 	mockWebSocket := &mockWebSocketHandler{}
-	processor := NewProcessor(mockRepo, mockWebSocket, nil, logger)
+	processor := NewProcessor(mockRepo, &noopLogEventRepo{}, mockWebSocket, nil, logger)
 
 	t.Run("handles invalid JSON", func(t *testing.T) {
 		rawEvent := json.RawMessage(`invalid json{`)
@@ -762,7 +762,7 @@ func TestHandle_ErrorHandling(t *testing.T) {
 			},
 		}
 		mockWebSocket := &mockWebSocketHandler{}
-		processor := NewProcessor(mockRepo, mockWebSocket, nil, logger)
+		processor := NewProcessor(mockRepo, &noopLogEventRepo{}, mockWebSocket, nil, logger)
 
 		taskEvent := ECSTaskStateChangeEvent{
 			TaskArn:    "arn:aws:ecs:us-east-1:123456789012:task/cluster/test-123",
@@ -802,7 +802,7 @@ func TestHandle_ErrorHandling(t *testing.T) {
 			},
 		}
 		mockWebSocket := &mockWebSocketHandler{}
-		processor := NewProcessor(mockRepo, mockWebSocket, nil, logger)
+		processor := NewProcessor(mockRepo, &noopLogEventRepo{}, mockWebSocket, nil, logger)
 
 		taskEvent := ECSTaskStateChangeEvent{
 			TaskArn:    "arn:aws:ecs:us-east-1:123456789012:task/cluster/test-exec-123",
@@ -839,7 +839,7 @@ func TestHandle_ErrorHandling(t *testing.T) {
 				return false, fmt.Errorf("websocket connection failed")
 			},
 		}
-		processor := NewProcessor(mockRepo, mockWebSocket, nil, logger)
+		processor := NewProcessor(mockRepo, &noopLogEventRepo{}, mockWebSocket, nil, logger)
 
 		wsEvent := events.APIGatewayWebsocketProxyRequest{
 			RequestContext: events.APIGatewayWebsocketProxyRequestContext{
@@ -867,7 +867,7 @@ func TestHandle_ErrorHandling(t *testing.T) {
 			},
 		}
 		mockWebSocket := &mockWebSocketHandler{}
-		processor := NewProcessor(mockRepo, mockWebSocket, nil, logger)
+		processor := NewProcessor(mockRepo, &noopLogEventRepo{}, mockWebSocket, nil, logger)
 
 		// Test with minimal detail - empty taskArn
 		detailJSON := json.RawMessage(`{}`)
@@ -889,7 +889,7 @@ func TestHandle_ErrorHandling(t *testing.T) {
 	t.Run("handles CloudWatch Logs parsing error", func(t *testing.T) {
 		mockRepo := &mockExecutionRepo{}
 		mockWebSocket := &mockWebSocketHandler{}
-		processor := NewProcessor(mockRepo, mockWebSocket, nil, logger)
+		processor := NewProcessor(mockRepo, &noopLogEventRepo{}, mockWebSocket, nil, logger)
 
 		logsEvent := events.CloudwatchLogsEvent{
 			AWSLogs: events.CloudwatchLogsRawData{
@@ -912,7 +912,7 @@ func TestHandleLogsEvent_Scenarios(t *testing.T) {
 	t.Run("handles logs event parsing error gracefully", func(t *testing.T) {
 		mockRepo := &mockExecutionRepo{}
 		mockWebSocket := &mockWebSocketHandler{}
-		processor := NewProcessor(mockRepo, mockWebSocket, nil, logger)
+		processor := NewProcessor(mockRepo, &noopLogEventRepo{}, mockWebSocket, nil, logger)
 
 		// Invalid base64 data that will fail to parse
 		logsEvent := events.CloudwatchLogsEvent{
@@ -932,7 +932,7 @@ func TestHandleLogsEvent_Scenarios(t *testing.T) {
 	t.Run("handles empty logs data", func(t *testing.T) {
 		mockRepo := &mockExecutionRepo{}
 		mockWebSocket := &mockWebSocketHandler{}
-		processor := NewProcessor(mockRepo, mockWebSocket, nil, logger)
+		processor := NewProcessor(mockRepo, &noopLogEventRepo{}, mockWebSocket, nil, logger)
 
 		logsEvent := events.CloudwatchLogsEvent{
 			AWSLogs: events.CloudwatchLogsRawData{
@@ -958,7 +958,7 @@ func TestHandleWebSocketEvent_Scenarios(t *testing.T) {
 		mockRepo := &mockExecutionRepo{}
 		mockWebSocket := &mockWebSocketHandler{}
 
-		processor := NewProcessor(mockRepo, mockWebSocket, nil, logger)
+		processor := NewProcessor(mockRepo, &noopLogEventRepo{}, mockWebSocket, nil, logger)
 
 		wsEvent := events.APIGatewayWebsocketProxyRequest{
 			RequestContext: events.APIGatewayWebsocketProxyRequestContext{
@@ -982,7 +982,7 @@ func TestHandleWebSocketEvent_Scenarios(t *testing.T) {
 	t.Run("handles different WebSocket route keys", func(t *testing.T) {
 		mockRepo := &mockExecutionRepo{}
 		mockWebSocket := &mockWebSocketHandler{}
-		processor := NewProcessor(mockRepo, mockWebSocket, nil, logger)
+		processor := NewProcessor(mockRepo, &noopLogEventRepo{}, mockWebSocket, nil, logger)
 
 		routeKeys := []string{"$connect", "$disconnect", "$default", "custom-route"}
 
@@ -1014,7 +1014,7 @@ func TestHandleEventJSON(t *testing.T) {
 			},
 		}
 		mockWebSocket := &mockWebSocketHandler{}
-		processor := NewProcessor(mockRepo, mockWebSocket, nil, logger)
+		processor := NewProcessor(mockRepo, &noopLogEventRepo{}, mockWebSocket, nil, logger)
 
 		eventJSON := json.RawMessage(`{
 			"detail-type": "ECS Task State Change",
@@ -1030,7 +1030,7 @@ func TestHandleEventJSON(t *testing.T) {
 	t.Run("handles invalid JSON", func(t *testing.T) {
 		mockRepo := &mockExecutionRepo{}
 		mockWebSocket := &mockWebSocketHandler{}
-		processor := NewProcessor(mockRepo, mockWebSocket, nil, logger)
+		processor := NewProcessor(mockRepo, &noopLogEventRepo{}, mockWebSocket, nil, logger)
 
 		eventJSON := json.RawMessage(`invalid json`)
 
@@ -1042,7 +1042,7 @@ func TestHandleEventJSON(t *testing.T) {
 	t.Run("handles non-CloudWatch event JSON", func(t *testing.T) {
 		mockRepo := &mockExecutionRepo{}
 		mockWebSocket := &mockWebSocketHandler{}
-		processor := NewProcessor(mockRepo, mockWebSocket, nil, logger)
+		processor := NewProcessor(mockRepo, &noopLogEventRepo{}, mockWebSocket, nil, logger)
 
 		eventJSON := json.RawMessage(`{"type": "not-cloudwatch"}`)
 
@@ -1064,7 +1064,7 @@ func TestHandleLogsEvent_InvalidBase64(t *testing.T) {
 
 	mockRepo := &mockExecutionRepo{}
 	wsManager := &mockWebSocketHandler{}
-	processor := NewProcessor(mockRepo, wsManager, nil, logger)
+	processor := NewProcessor(mockRepo, &noopLogEventRepo{}, wsManager, nil, logger)
 
 	logsEvent := events.CloudwatchLogsEvent{
 		AWSLogs: events.CloudwatchLogsRawData{
@@ -1088,7 +1088,7 @@ func TestHandleLogsEvent_UnmarshalError(t *testing.T) {
 
 	mockRepo := &mockExecutionRepo{}
 	wsManager := &mockWebSocketHandler{}
-	processor := NewProcessor(mockRepo, wsManager, nil, logger)
+	processor := NewProcessor(mockRepo, &noopLogEventRepo{}, wsManager, nil, logger)
 
 	// Invalid JSON event
 	rawEvent := json.RawMessage(`{invalid json}`)
@@ -1106,7 +1106,7 @@ func TestHandleLogsEvent_EmptyData(t *testing.T) {
 
 	mockRepo := &mockExecutionRepo{}
 	wsManager := &mockWebSocketHandler{}
-	processor := NewProcessor(mockRepo, wsManager, nil, logger)
+	processor := NewProcessor(mockRepo, &noopLogEventRepo{}, wsManager, nil, logger)
 
 	// Empty data field
 	logsEvent := events.CloudwatchLogsEvent{
@@ -1141,7 +1141,7 @@ func TestHandleScheduledEvent_HealthReconcile(t *testing.T) {
 
 	mockRepo := &mockExecutionRepo{}
 	wsManager := &mockWebSocketHandler{}
-	processor := NewProcessor(mockRepo, wsManager, mockHealthManager, logger)
+	processor := NewProcessor(mockRepo, &noopLogEventRepo{}, wsManager, mockHealthManager, logger)
 
 	event := events.CloudWatchEvent{
 		DetailType: "Scheduled Event",
@@ -1173,7 +1173,7 @@ func TestHandleScheduledEvent_InvalidSource(t *testing.T) {
 
 	mockRepo := &mockExecutionRepo{}
 	wsManager := &mockWebSocketHandler{}
-	processor := NewProcessor(mockRepo, wsManager, mockHealthManager, logger)
+	processor := NewProcessor(mockRepo, &noopLogEventRepo{}, wsManager, mockHealthManager, logger)
 
 	event := events.CloudWatchEvent{
 		DetailType: "Scheduled Event",
@@ -1205,7 +1205,7 @@ func TestHandleScheduledEvent_MissingRunvoyEvent(t *testing.T) {
 
 	mockRepo := &mockExecutionRepo{}
 	wsManager := &mockWebSocketHandler{}
-	processor := NewProcessor(mockRepo, wsManager, mockHealthManager, logger)
+	processor := NewProcessor(mockRepo, &noopLogEventRepo{}, wsManager, mockHealthManager, logger)
 
 	// Test with valid JSON but missing runvoy_event field (will be empty string)
 	event := events.CloudWatchEvent{
@@ -1232,7 +1232,7 @@ func TestHandleScheduledEvent_UnknownEventType(t *testing.T) {
 	mockHealthManager := &mockHealthManager{}
 	mockRepo := &mockExecutionRepo{}
 	wsManager := &mockWebSocketHandler{}
-	processor := NewProcessor(mockRepo, wsManager, mockHealthManager, logger)
+	processor := NewProcessor(mockRepo, &noopLogEventRepo{}, wsManager, mockHealthManager, logger)
 
 	event := events.CloudWatchEvent{
 		DetailType: "Scheduled Event",
@@ -1262,7 +1262,7 @@ func TestHandleScheduledEvent_HealthReconcileError(t *testing.T) {
 
 	mockRepo := &mockExecutionRepo{}
 	wsManager := &mockWebSocketHandler{}
-	processor := NewProcessor(mockRepo, wsManager, mockHealthManager, logger)
+	processor := NewProcessor(mockRepo, &noopLogEventRepo{}, wsManager, mockHealthManager, logger)
 
 	event := events.CloudWatchEvent{
 		DetailType: "Scheduled Event",
@@ -1296,7 +1296,7 @@ func TestHandleScheduledEvent_HealthReconcileWithErrors(t *testing.T) {
 
 	mockRepo := &mockExecutionRepo{}
 	wsManager := &mockWebSocketHandler{}
-	processor := NewProcessor(mockRepo, wsManager, mockHealthManager, logger)
+	processor := NewProcessor(mockRepo, &noopLogEventRepo{}, wsManager, mockHealthManager, logger)
 
 	event := events.CloudWatchEvent{
 		DetailType: "Scheduled Event",

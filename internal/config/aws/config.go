@@ -19,6 +19,7 @@ type Config struct {
 	// DynamoDB Tables
 	APIKeysTable              string `mapstructure:"api_keys_table"`
 	ExecutionsTable           string `mapstructure:"executions_table"`
+	ExecutionLogsTable        string `mapstructure:"execution_logs_table"`
 	ImageTaskDefsTable        string `mapstructure:"image_taskdefs_table"`
 	PendingAPIKeysTable       string `mapstructure:"pending_api_keys_table"`
 	SecretsMetadataTable      string `mapstructure:"secrets_metadata_table"`
@@ -61,6 +62,7 @@ func BindEnvVars(v *viper.Viper) {
 	_ = v.BindEnv("aws.default_task_role_arn", "RUNVOY_AWS_DEFAULT_TASK_ROLE_ARN")
 	_ = v.BindEnv("aws.ecs_cluster", "RUNVOY_AWS_ECS_CLUSTER")
 	_ = v.BindEnv("aws.executions_table", "RUNVOY_AWS_EXECUTIONS_TABLE")
+	_ = v.BindEnv("aws.execution_logs_table", "RUNVOY_AWS_EXECUTION_LOGS_TABLE")
 	_ = v.BindEnv("aws.image_taskdefs_table", "RUNVOY_AWS_IMAGE_TASKDEFS_TABLE")
 	_ = v.BindEnv("aws.log_group", "RUNVOY_AWS_LOG_GROUP")
 	_ = v.BindEnv("aws.pending_api_keys_table", "RUNVOY_AWS_PENDING_API_KEYS_TABLE")
@@ -87,6 +89,7 @@ func ValidateOrchestrator(cfg *Config) error {
 		"AWS.APIKeysTable":              cfg.APIKeysTable,
 		"AWS.ECSCluster":                cfg.ECSCluster,
 		"AWS.ExecutionsTable":           cfg.ExecutionsTable,
+		"AWS.ExecutionLogsTable":        cfg.ExecutionLogsTable,
 		"AWS.ImageTaskDefsTable":        cfg.ImageTaskDefsTable,
 		"AWS.LogGroup":                  cfg.LogGroup,
 		"AWS.PendingAPIKeysTable":       cfg.PendingAPIKeysTable,
@@ -122,6 +125,7 @@ func ValidateEventProcessor(cfg *Config) error {
 		"AWS.DefaultTaskRoleARN":        cfg.DefaultTaskRoleARN,
 		"AWS.ECSCluster":                cfg.ECSCluster,
 		"AWS.ExecutionsTable":           cfg.ExecutionsTable,
+		"AWS.ExecutionLogsTable":        cfg.ExecutionLogsTable,
 		"AWS.ImageTaskDefsTable":        cfg.ImageTaskDefsTable,
 		"AWS.LogGroup":                  cfg.LogGroup,
 		"AWS.PendingAPIKeysTable":       cfg.PendingAPIKeysTable,

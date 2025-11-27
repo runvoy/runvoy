@@ -93,6 +93,22 @@ type ConnectionRepository interface {
 	// GetConnectionsByExecutionID retrieves all active WebSocket connection records for a given execution ID.
 	// Returns the complete connection objects including token and other metadata.
 	GetConnectionsByExecutionID(ctx context.Context, executionID string) ([]*api.WebSocketConnection, error)
+
+	// UpdateLastEventID stores the last delivered log event identifier for a connection.
+	UpdateLastEventID(ctx context.Context, connectionID, lastEventID string) error
+}
+
+// LogEventRepository defines the interface for storing and deleting execution log events.
+type LogEventRepository interface {
+	// SaveLogEvents stores new log events for an execution.
+	SaveLogEvents(ctx context.Context, executionID string, logEvents []api.LogEvent) error
+
+	// ListLogEvents retrieves all buffered log events for an execution ordered by timestamp and event ID.
+	ListLogEvents(ctx context.Context, executionID string) ([]api.LogEvent, error)
+
+	// DeleteLogEvents schedules removal of all log events for an execution. This is typically invoked when
+	// an execution finishes to prune buffered logs via DynamoDB TTL.
+	DeleteLogEvents(ctx context.Context, executionID string) error
 }
 
 // TokenRepository defines the interface for WebSocket token validation operations.
@@ -121,6 +137,7 @@ type Repositories struct {
 	User       UserRepository
 	Execution  ExecutionRepository
 	Connection ConnectionRepository
+	LogEvent   LogEventRepository
 	Token      TokenRepository
 	Image      ImageRepository
 	Secrets    SecretsRepository

@@ -9,6 +9,7 @@ import (
 	"os"
 
 	"runvoy/internal/constants"
+	awsconstants "runvoy/internal/providers/aws/constants"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
@@ -129,7 +130,7 @@ func scanAndDelete(
 	var totalDeleted int
 	var lastEvaluatedKey map[string]types.AttributeValue
 
-	batchSize := 25
+	batchSize := awsconstants.DynamoDBBatchWriteLimit
 
 	for {
 		scanInput := &dynamodb.ScanInput{

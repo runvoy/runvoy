@@ -32,7 +32,7 @@ func (m *mockWebSocketManager) NotifyExecutionCompletion(ctx context.Context, ex
 	return nil
 }
 
-func (m *mockWebSocketManager) SendLogsToExecution(_ context.Context, _ *string, _ []api.LogEvent) error {
+func (m *mockWebSocketManager) SendLogsToExecution(_ context.Context, _ *string) error {
 	return nil
 }
 
@@ -66,6 +66,7 @@ func TestHandleECSTaskEvent_Running(t *testing.T) {
 
 	p := &Processor{
 		executionRepo: execRepo,
+		logEventRepo:  &noopLogEventRepo{},
 	}
 
 	event := &events.CloudWatchEvent{
@@ -123,6 +124,7 @@ func TestHandleECSTaskEvent_Stopped(t *testing.T) {
 
 	p := &Processor{
 		executionRepo:    execRepo,
+		logEventRepo:     &noopLogEventRepo{},
 		webSocketManager: wsManager,
 	}
 
@@ -163,6 +165,7 @@ func TestHandleECSTaskEvent_OrphanedTask(t *testing.T) {
 
 	p := &Processor{
 		executionRepo: execRepo,
+		logEventRepo:  &noopLogEventRepo{},
 	}
 
 	event := &events.CloudWatchEvent{
@@ -184,6 +187,7 @@ func TestHandleECSTaskEvent_InvalidJSON(t *testing.T) {
 
 	p := &Processor{
 		executionRepo: &mockExecutionRepo{},
+		logEventRepo:  &noopLogEventRepo{},
 	}
 
 	event := &events.CloudWatchEvent{
@@ -216,6 +220,7 @@ func TestUpdateExecutionToRunning_AlreadyRunning(t *testing.T) {
 
 	p := &Processor{
 		executionRepo: execRepo,
+		logEventRepo:  &noopLogEventRepo{},
 	}
 
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
@@ -244,6 +249,7 @@ func TestUpdateExecutionToRunning_InvalidTransition(t *testing.T) {
 
 	p := &Processor{
 		executionRepo: execRepo,
+		logEventRepo:  &noopLogEventRepo{},
 	}
 
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
@@ -273,6 +279,7 @@ func TestFinalizeExecutionFromTaskEvent_InvalidTransition(t *testing.T) {
 
 	p := &Processor{
 		executionRepo: execRepo,
+		logEventRepo:  &noopLogEventRepo{},
 	}
 
 	taskEvent := &ECSTaskStateChangeEvent{
@@ -316,6 +323,7 @@ func TestHandleECSTaskEvent_UserInitiatedStop(t *testing.T) {
 
 	p := &Processor{
 		executionRepo:    execRepo,
+		logEventRepo:     &noopLogEventRepo{},
 		webSocketManager: &mockWebSocketManager{},
 	}
 
@@ -359,6 +367,7 @@ func TestHandleECSTaskEvent_IgnoredStatus(t *testing.T) {
 
 	p := &Processor{
 		executionRepo: execRepo,
+		logEventRepo:  &noopLogEventRepo{},
 	}
 
 	// Test with a status that should be ignored (e.g., PROVISIONING)

@@ -51,7 +51,7 @@ func (m *mockExecRepoForCloudEvents) GetExecutionsByRequestID(_ context.Context,
 type mockWSManagerForCloudEvents struct {
 	notifyExecutionUpdateFunc func(ctx context.Context, exec *api.Execution) error
 	handleRequestFunc         func(ctx context.Context, rawEvent *json.RawMessage, reqLogger *slog.Logger) (bool, error)
-	sendLogsToExecutionFunc   func(ctx context.Context, executionID *string, logEvents []api.LogEvent) error
+	sendLogsToExecutionFunc   func(ctx context.Context, executionID *string) error
 }
 
 func (m *mockWSManagerForCloudEvents) NotifyExecutionUpdate(ctx context.Context, exec *api.Execution) error {
@@ -91,10 +91,9 @@ func (m *mockWSManagerForCloudEvents) HandleRequest(
 func (m *mockWSManagerForCloudEvents) SendLogsToExecution(
 	ctx context.Context,
 	executionID *string,
-	logEvents []api.LogEvent,
 ) error {
 	if m.sendLogsToExecutionFunc != nil {
-		return m.sendLogsToExecutionFunc(ctx, executionID, logEvents)
+		return m.sendLogsToExecutionFunc(ctx, executionID)
 	}
 	return nil
 }
@@ -119,7 +118,7 @@ func TestProcessor_Handle_ECSEvent(t *testing.T) {
 	}
 
 	wsManager := &mockWSManagerForCloudEvents{}
-	processor := NewProcessor(execRepo, wsManager, nil, testutil.SilentLogger())
+	processor := NewProcessor(execRepo, &noopLogEventRepo{}, wsManager, nil, testutil.SilentLogger())
 
 	// Create ECS Task State Change event
 	taskArn := "arn:aws:ecs:us-east-1:123456789:task/cluster/exec-test-123"
@@ -149,7 +148,7 @@ func TestProcessor_Handle_ScheduledEvent(t *testing.T) {
 		},
 	}
 
-	processor := NewProcessor(execRepo, wsManager, healthManager, testutil.SilentLogger())
+	processor := NewProcessor(execRepo, &noopLogEventRepo{}, wsManager, healthManager, testutil.SilentLogger())
 
 	// Create Scheduled Event for health reconciliation
 	scheduledEvent := events.CloudWatchEvent{
@@ -170,7 +169,7 @@ func TestProcessor_Handle_ScheduledEvent(t *testing.T) {
 func TestProcessor_Handle_UnhandledCloudWatchEventType(t *testing.T) {
 	execRepo := &mockExecRepoForCloudEvents{}
 	wsManager := &mockWSManagerForCloudEvents{}
-	processor := NewProcessor(execRepo, wsManager, nil, testutil.SilentLogger())
+	processor := NewProcessor(execRepo, &noopLogEventRepo{}, wsManager, nil, testutil.SilentLogger())
 
 	// Create CloudWatch event with unknown detail type
 	unknownEvent := events.CloudWatchEvent{
@@ -191,7 +190,7 @@ func TestProcessor_Handle_UnhandledCloudWatchEventType(t *testing.T) {
 func TestProcessor_Handle_LogsEvent(t *testing.T) {
 	execRepo := &mockExecRepoForCloudEvents{}
 	wsManager := &mockWSManagerForCloudEvents{}
-	processor := NewProcessor(execRepo, wsManager, nil, testutil.SilentLogger())
+	processor := NewProcessor(execRepo, &noopLogEventRepo{}, wsManager, nil, testutil.SilentLogger())
 
 	// Create CloudWatch Logs event
 	logsEvent := events.CloudwatchLogsEvent{
@@ -213,7 +212,7 @@ func TestProcessor_Handle_LogsEvent(t *testing.T) {
 func TestProcessor_Handle_WebSocketConnectEvent(t *testing.T) {
 	execRepo := &mockExecRepoForCloudEvents{}
 	wsManager := &mockWSManagerForCloudEvents{}
-	processor := NewProcessor(execRepo, wsManager, nil, testutil.SilentLogger())
+	processor := NewProcessor(execRepo, &noopLogEventRepo{}, wsManager, nil, testutil.SilentLogger())
 
 	// Create API Gateway WebSocket connect event
 	wsEvent := events.APIGatewayWebsocketProxyRequest{
@@ -236,7 +235,7 @@ func TestProcessor_Handle_WebSocketConnectEvent(t *testing.T) {
 func TestProcessor_Handle_WebSocketDisconnectEvent(t *testing.T) {
 	execRepo := &mockExecRepoForCloudEvents{}
 	wsManager := &mockWSManagerForCloudEvents{}
-	processor := NewProcessor(execRepo, wsManager, nil, testutil.SilentLogger())
+	processor := NewProcessor(execRepo, &noopLogEventRepo{}, wsManager, nil, testutil.SilentLogger())
 
 	// Create API Gateway WebSocket disconnect event
 	wsEvent := events.APIGatewayWebsocketProxyRequest{
@@ -259,7 +258,7 @@ func TestProcessor_Handle_WebSocketDisconnectEvent(t *testing.T) {
 func TestProcessor_Handle_UnknownEventType(t *testing.T) {
 	execRepo := &mockExecRepoForCloudEvents{}
 	wsManager := &mockWSManagerForCloudEvents{}
-	processor := NewProcessor(execRepo, wsManager, nil, testutil.SilentLogger())
+	processor := NewProcessor(execRepo, &noopLogEventRepo{}, wsManager, nil, testutil.SilentLogger())
 
 	// Create completely unrecognized event
 	unknownEvent := map[string]any{
@@ -278,7 +277,7 @@ func TestProcessor_Handle_UnknownEventType(t *testing.T) {
 func TestProcessor_Handle_InvalidJSON(t *testing.T) {
 	execRepo := &mockExecRepoForCloudEvents{}
 	wsManager := &mockWSManagerForCloudEvents{}
-	processor := NewProcessor(execRepo, wsManager, nil, testutil.SilentLogger())
+	processor := NewProcessor(execRepo, &noopLogEventRepo{}, wsManager, nil, testutil.SilentLogger())
 
 	// Invalid JSON
 	invalidJSON := json.RawMessage(`{invalid json}`)
@@ -301,7 +300,7 @@ func TestProcessor_HandleCloudEvent_ECSTaskStateChange(t *testing.T) {
 	}
 
 	wsManager := &mockWSManagerForCloudEvents{}
-	processor := NewProcessor(execRepo, wsManager, nil, testutil.SilentLogger())
+	processor := NewProcessor(execRepo, &noopLogEventRepo{}, wsManager, nil, testutil.SilentLogger())
 
 	taskArn := "arn:aws:ecs:us-east-1:123456789:task/cluster/exec-test-123"
 	detailJSON := `{"taskArn":"` + taskArn + `","lastStatus":"RUNNING"}`
@@ -330,7 +329,7 @@ func TestProcessor_HandleCloudEvent_ScheduledEvent(t *testing.T) {
 		},
 	}
 
-	processor := NewProcessor(execRepo, wsManager, healthManager, testutil.SilentLogger())
+	processor := NewProcessor(execRepo, &noopLogEventRepo{}, wsManager, healthManager, testutil.SilentLogger())
 
 	event := events.CloudWatchEvent{
 		Source:     "aws.events",
@@ -351,7 +350,7 @@ func TestProcessor_HandleCloudEvent_ScheduledEvent(t *testing.T) {
 func TestProcessor_HandleCloudEvent_UnhandledDetailType(t *testing.T) {
 	execRepo := &mockExecRepoForCloudEvents{}
 	wsManager := &mockWSManagerForCloudEvents{}
-	processor := NewProcessor(execRepo, wsManager, nil, testutil.SilentLogger())
+	processor := NewProcessor(execRepo, &noopLogEventRepo{}, wsManager, nil, testutil.SilentLogger())
 
 	event := events.CloudWatchEvent{
 		Source:     "aws.ec2",
@@ -371,7 +370,7 @@ func TestProcessor_HandleCloudEvent_UnhandledDetailType(t *testing.T) {
 func TestProcessor_HandleCloudEvent_NotCloudWatchEvent(t *testing.T) {
 	execRepo := &mockExecRepoForCloudEvents{}
 	wsManager := &mockWSManagerForCloudEvents{}
-	processor := NewProcessor(execRepo, wsManager, nil, testutil.SilentLogger())
+	processor := NewProcessor(execRepo, &noopLogEventRepo{}, wsManager, nil, testutil.SilentLogger())
 
 	// Not a CloudWatch event structure
 	notCWEvent := map[string]any{
@@ -390,7 +389,7 @@ func TestProcessor_HandleCloudEvent_NotCloudWatchEvent(t *testing.T) {
 func TestProcessor_HandleCloudEvent_MissingSource(t *testing.T) {
 	execRepo := &mockExecRepoForCloudEvents{}
 	wsManager := &mockWSManagerForCloudEvents{}
-	processor := NewProcessor(execRepo, wsManager, nil, testutil.SilentLogger())
+	processor := NewProcessor(execRepo, &noopLogEventRepo{}, wsManager, nil, testutil.SilentLogger())
 
 	// CloudWatch event without Source field
 	event := events.CloudWatchEvent{
@@ -410,7 +409,7 @@ func TestProcessor_HandleCloudEvent_MissingSource(t *testing.T) {
 func TestProcessor_HandleCloudEvent_MissingDetailType(t *testing.T) {
 	execRepo := &mockExecRepoForCloudEvents{}
 	wsManager := &mockWSManagerForCloudEvents{}
-	processor := NewProcessor(execRepo, wsManager, nil, testutil.SilentLogger())
+	processor := NewProcessor(execRepo, &noopLogEventRepo{}, wsManager, nil, testutil.SilentLogger())
 
 	// CloudWatch event without DetailType field
 	event := events.CloudWatchEvent{
@@ -442,7 +441,7 @@ func BenchmarkProcessor_Handle_ECSEvent(b *testing.B) {
 	}
 
 	wsManager := &mockWSManagerForCloudEvents{}
-	processor := NewProcessor(execRepo, wsManager, nil, testutil.SilentLogger())
+	processor := NewProcessor(execRepo, &noopLogEventRepo{}, wsManager, nil, testutil.SilentLogger())
 
 	taskArn := "arn:aws:ecs:us-east-1:123456789:task/cluster/exec-test-123"
 	benchmarkDetailJSON := `{"taskArn":"` + taskArn + `","lastStatus":"RUNNING"}`
@@ -465,7 +464,7 @@ func BenchmarkProcessor_Handle_ECSEvent(b *testing.B) {
 func BenchmarkProcessor_Handle_WebSocketEvent(b *testing.B) {
 	execRepo := &mockExecRepoForCloudEvents{}
 	wsManager := &mockWSManagerForCloudEvents{}
-	processor := NewProcessor(execRepo, wsManager, nil, testutil.SilentLogger())
+	processor := NewProcessor(execRepo, &noopLogEventRepo{}, wsManager, nil, testutil.SilentLogger())
 
 	wsEvent := events.APIGatewayWebsocketProxyRequest{
 		RequestContext: events.APIGatewayWebsocketProxyRequestContext{
