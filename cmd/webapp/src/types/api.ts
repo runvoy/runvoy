@@ -15,6 +15,9 @@ export interface RunCommandPayload {
 export interface RunCommandResponse {
     execution_id: string;
     status: string;
+    websocket_url?: string;
+    image_id?: string;
+    log_url?: string;
 }
 
 export interface LogsResponse {

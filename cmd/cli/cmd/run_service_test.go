@@ -44,6 +44,7 @@ func TestRunService_ExecuteCommand(t *testing.T) {
 		request      ExecuteCommandRequest
 		setupMock    func(*mockClientInterfaceForRun)
 		wantErr      bool
+		expectStream bool
 		verifyOutput func(*testing.T, *mockOutputInterface)
 	}{
 		{
@@ -318,6 +319,27 @@ func TestRunService_ExecuteCommand(t *testing.T) {
 			},
 		},
 		{
+			name: "streams logs directly when websocket URL is returned",
+			request: ExecuteCommandRequest{
+				Command: "echo stream",
+				WebURL:  "https://logs.example.com",
+			},
+			setupMock: func(m *mockClientInterfaceForRun) {
+				m.runCommandFunc = func(_ context.Context, _ *api.ExecutionRequest) (*api.ExecutionResponse, error) {
+					return &api.ExecutionResponse{
+						ExecutionID:  "exec-stream",
+						Status:       "pending",
+						ImageID:      "alpine:latest-a1b2c3d4",
+						WebSocketURL: "wss://example.com/logs/exec-stream",
+					}, nil
+				}
+				m.getLogsFunc = func(_ context.Context, _ string) (*api.LogsResponse, error) {
+					return nil, fmt.Errorf("GetLogs should not be called when websocket URL is provided")
+				}
+			},
+			expectStream: true,
+		},
+		{
 			name: "passes secrets to execution request",
 			request: ExecuteCommandRequest{
 				Command: "echo secret",
@@ -353,6 +375,16 @@ func TestRunService_ExecuteCommand(t *testing.T) {
 
 			mockOutput := &mockOutputInterface{}
 			service := NewRunService(mockClient, mockOutput)
+			streamCalled := false
+			if tt.expectStream {
+				service.streamLogs = func(_ *LogsService, websocketURL, webURL, executionID string) error {
+					streamCalled = true
+					assert.NotEmpty(t, websocketURL)
+					assert.Equal(t, tt.request.WebURL, webURL)
+					assert.NotEmpty(t, executionID)
+					return nil
+				}
+			}
 
 			err := service.ExecuteCommand(context.Background(), &tt.request)
 
@@ -364,6 +396,9 @@ func TestRunService_ExecuteCommand(t *testing.T) {
 
 			if tt.verifyOutput != nil {
 				tt.verifyOutput(t, mockOutput)
+			}
+			if tt.expectStream {
+				assert.True(t, streamCalled, "expected direct websocket streaming")
 			}
 		})
 	}

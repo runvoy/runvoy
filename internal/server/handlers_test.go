@@ -362,7 +362,7 @@ func newTestOrchestratorService(
 	execRepo *testExecutionRepository,
 	connRepo database.ConnectionRepository, //nolint:unparam // kept for API consistency
 	runner *testRunner,
-	wsManager contract.WebSocketManager, //nolint:unparam // kept for API consistency
+	wsManager contract.WebSocketManager, // kept for API consistency
 	secretsRepo database.SecretsRepository, //nolint:unparam // kept for API consistency
 	healthManager contract.HealthManager,
 ) *orchestrator.Service {

@@ -86,6 +86,7 @@ func (s *Service) ValidateExecutionResourceAccess(
 func (s *Service) RunCommand(
 	ctx context.Context,
 	userEmail string,
+	clientIPAtCreationTime *string,
 	req *api.ExecutionRequest,
 	resolvedImage *api.ImageInfo,
 ) (*api.ExecutionResponse, error) {
@@ -114,10 +115,16 @@ func (s *Service) RunCommand(
 		return nil, fmt.Errorf("failed to record execution: %w", execErr)
 	}
 
+	var websocketURL string
+	if s.wsManager != nil {
+		websocketURL = s.wsManager.GenerateWebSocketURL(ctx, executionID, &userEmail, clientIPAtCreationTime)
+	}
+
 	return &api.ExecutionResponse{
-		ExecutionID: executionID,
-		Status:      string(constants.ExecutionStarting),
-		ImageID:     resolvedImage.ImageID,
+		ExecutionID:  executionID,
+		Status:       string(constants.ExecutionStarting),
+		ImageID:      resolvedImage.ImageID,
+		WebSocketURL: websocketURL,
 	}, nil
 }
 

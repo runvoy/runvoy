@@ -1067,6 +1067,7 @@ The web viewer interacts with multiple API endpoints:
 
 **REST API Endpoints**:
 
+- `POST /api/v1/run` - Start a new execution and receive execution metadata plus a `websocket_url`
 - `GET /api/v1/executions/{id}/status` - Fetch execution status and metadata
 - `GET /api/v1/executions/{id}/logs` - Fetch execution logs and WebSocket URL
 
@@ -1076,7 +1077,7 @@ The `/logs` endpoint returns:
 - `execution_id`: The execution identifier
 - `status`: Current execution status (RUNNING, SUCCEEDED, FAILED, STOPPED)
 - `events`: Array of completed log entries
-- `websocket_url`: URL for real-time log streaming (only present if available)
+- `websocket_url`: URL for real-time log streaming (only present if available; also returned from `/run` for immediate streaming)
 
 Clients should check the `status` field to determine behavior:
 

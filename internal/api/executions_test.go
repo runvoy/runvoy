@@ -57,9 +57,11 @@ func TestExecutionRequestJSON(t *testing.T) {
 func TestExecutionResponseJSON(t *testing.T) {
 	t.Run("marshal and unmarshal", func(t *testing.T) {
 		resp := ExecutionResponse{
-			ExecutionID: "exec-123",
-			LogURL:      "https://example.com/logs",
-			Status:      "running",
+			ExecutionID:  "exec-123",
+			LogURL:       "https://example.com/logs",
+			Status:       "running",
+			ImageID:      "image-123",
+			WebSocketURL: "wss://example.com/logs/exec-123",
 		}
 
 		data, err := json.Marshal(resp)
@@ -72,6 +74,20 @@ func TestExecutionResponseJSON(t *testing.T) {
 		assert.Equal(t, resp.ExecutionID, unmarshaled.ExecutionID)
 		assert.Equal(t, resp.LogURL, unmarshaled.LogURL)
 		assert.Equal(t, resp.Status, unmarshaled.Status)
+		assert.Equal(t, resp.ImageID, unmarshaled.ImageID)
+		assert.Equal(t, resp.WebSocketURL, unmarshaled.WebSocketURL)
+	})
+
+	t.Run("omit websocket url when empty", func(t *testing.T) {
+		resp := ExecutionResponse{
+			ExecutionID: "exec-123",
+			Status:      "running",
+		}
+
+		data, err := json.Marshal(resp)
+		require.NoError(t, err)
+
+		assert.NotContains(t, string(data), "websocket_url")
 	})
 }
 

@@ -3,6 +3,8 @@
     import type APIClient from '../lib/api';
     import type { RunCommandPayload } from '../types/api';
     import type { EnvRow } from '../types/stores';
+    import { switchExecution } from '../lib/executionState';
+    import { cachedWebSocketURL } from '../stores/websocket';
 
     export let apiClient: APIClient | null = null;
     export let isConfigured = false;
@@ -109,8 +111,11 @@
             const payload = buildPayload();
             const response = await apiClient.runCommand(payload);
             const executionId = response.execution_id;
+            const websocketURL = response.websocket_url;
             if (executionId) {
-                goto(`/logs?executionID=${encodeURIComponent(executionId)}`);
+                switchExecution(executionId, { updateHistory: false });
+                cachedWebSocketURL.set(websocketURL || null);
+                goto(`/logs?execution_id=${encodeURIComponent(executionId)}`);
             }
         } catch (error) {
             const err = error as any;

@@ -55,7 +55,8 @@ func (r *Router) handleRunCommand(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	resp, err := r.svc.RunCommand(req.Context(), user.Email, &execReq, resolvedImage)
+	clientIP := getClientIP(req)
+	resp, err := r.svc.RunCommand(req.Context(), user.Email, &clientIP, &execReq, resolvedImage)
 	if err != nil {
 		statusCode, errorCode, errorDetails := extractErrorInfo(err)
 
