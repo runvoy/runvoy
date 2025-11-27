@@ -411,73 +411,40 @@ func (m *Manager) NotifyExecutionCompletion(ctx context.Context, executionID *st
 // SendLogsToExecution loads buffered log events for an execution and forwards
 // them to all connected clients. Each log event is sent individually to all
 // connections concurrently.
-//
-//nolint:funlen // Flow includes validation, DB calls, fan-out, and logging; splitting adds little value.
 func (m *Manager) SendLogsToExecution(
 	ctx context.Context,
 	executionID *string,
 ) error {
 	reqLogger := m.deriveLogger(ctx)
 
-	if executionID == nil || *executionID == "" {
-		return fmt.Errorf("execution ID is nil or empty")
+	execID, err := validateExecutionID(executionID)
+	if err != nil {
+		return err
 	}
 
-	connections, err := m.connRepo.GetConnectionsByExecutionID(ctx, *executionID)
+	connections, err := m.loadConnections(ctx, reqLogger, execID)
 	if err != nil {
-		reqLogger.Error("failed to get connections for execution",
-			"error", err, "execution_id", *executionID)
-		return fmt.Errorf("failed to get connections: %w", err)
+		return err
 	}
 
 	if len(connections) == 0 {
-		reqLogger.Debug("no active connections to send logs to", "execution_id", *executionID)
+		reqLogger.Debug("no active connections to send logs to", "execution_id", execID)
 		return nil
 	}
 
-	bufferedEvents, err := m.logEventRepo.ListLogEvents(ctx, *executionID)
+	bufferedEvents, err := m.loadBufferedEvents(ctx, reqLogger, execID)
 	if err != nil {
-		return fmt.Errorf("failed to retrieve buffered logs: %w", err)
+		return err
 	}
 
 	if len(bufferedEvents) == 0 {
 		reqLogger.Debug("no buffered logs available", "context", map[string]string{
-			"execution_id": *executionID,
+			"execution_id": execID,
 		})
 		return nil
 	}
 
-	reqLogger.Debug("sending buffered logs to connections",
-		"context", map[string]any{
-			"execution_id":     *executionID,
-			"connection_count": len(connections),
-			"log_count":        len(bufferedEvents),
-		},
-	)
-
-	eg, egCtx := errgroup.WithContext(ctx)
-	eg.SetLimit(constants.MaxConcurrentSends)
-
-	for _, conn := range connections {
-		eg.Go(func() error {
-			return m.sendBufferedLogsToConnection(egCtx, reqLogger, conn, bufferedEvents)
-		})
-	}
-
-	if egErr := eg.Wait(); egErr != nil {
-		reqLogger.Error("some log sends failed", "context", map[string]any{
-			"error":        egErr.Error(),
-			"execution_id": *executionID,
-		})
-		return fmt.Errorf("failed to send logs to some connections: %w", egErr)
-	}
-
-	reqLogger.Debug("all buffered logs sent to connections", "context", map[string]string{
-		"execution_id":     *executionID,
-		"connection_count": fmt.Sprintf("%d", len(connections)),
-	})
-
-	return nil
+	return m.distributeBufferedEvents(ctx, reqLogger, execID, connections, bufferedEvents)
 }
 
 func (m *Manager) sendBufferedLogsToConnection(
@@ -532,6 +499,83 @@ func filterEventsAfter(logEvents []api.LogEvent, lastEventID string) []api.LogEv
 	}
 
 	return logEvents
+}
+
+func validateExecutionID(executionID *string) (string, error) {
+	if executionID == nil || *executionID == "" {
+		return "", fmt.Errorf("execution ID is nil or empty")
+	}
+	return *executionID, nil
+}
+
+func (m *Manager) loadConnections(
+	ctx context.Context,
+	reqLogger *slog.Logger,
+	executionID string,
+) ([]*api.WebSocketConnection, error) {
+	connections, err := m.connRepo.GetConnectionsByExecutionID(ctx, executionID)
+	if err != nil {
+		reqLogger.Error("failed to get connections for execution",
+			"error", err, "execution_id", executionID)
+		return nil, fmt.Errorf("failed to get connections: %w", err)
+	}
+
+	return connections, nil
+}
+
+func (m *Manager) loadBufferedEvents(
+	ctx context.Context,
+	reqLogger *slog.Logger,
+	executionID string,
+) ([]api.LogEvent, error) {
+	bufferedEvents, err := m.logEventRepo.ListLogEvents(ctx, executionID)
+	if err != nil {
+		reqLogger.Error("failed to retrieve buffered logs",
+			"error", err, "execution_id", executionID)
+		return nil, fmt.Errorf("failed to retrieve buffered logs: %w", err)
+	}
+
+	return bufferedEvents, nil
+}
+
+func (m *Manager) distributeBufferedEvents(
+	ctx context.Context,
+	reqLogger *slog.Logger,
+	executionID string,
+	connections []*api.WebSocketConnection,
+	bufferedEvents []api.LogEvent,
+) error {
+	reqLogger.Debug("sending buffered logs to connections",
+		"context", map[string]any{
+			"execution_id":     executionID,
+			"connection_count": len(connections),
+			"log_count":        len(bufferedEvents),
+		},
+	)
+
+	eg, egCtx := errgroup.WithContext(ctx)
+	eg.SetLimit(constants.MaxConcurrentSends)
+
+	for _, conn := range connections {
+		eg.Go(func() error {
+			return m.sendBufferedLogsToConnection(egCtx, reqLogger, conn, bufferedEvents)
+		})
+	}
+
+	if egErr := eg.Wait(); egErr != nil {
+		reqLogger.Error("some log sends failed", "context", map[string]any{
+			"error":        egErr.Error(),
+			"execution_id": executionID,
+		})
+		return fmt.Errorf("failed to send logs to some connections: %w", egErr)
+	}
+
+	reqLogger.Debug("all buffered logs sent to connections", "context", map[string]string{
+		"execution_id":     executionID,
+		"connection_count": fmt.Sprintf("%d", len(connections)),
+	})
+
+	return nil
 }
 
 // sendLogToConnection sends a single log event to a WebSocket connection.

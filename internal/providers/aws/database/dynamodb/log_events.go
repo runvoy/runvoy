@@ -26,10 +26,6 @@ type LogEventRepository struct {
 	logger    *slog.Logger
 }
 
-const (
-	logEventTTLAttribute = "expires_at"
-)
-
 // NewLogEventRepository constructs a new repository for storing execution log events.
 func NewLogEventRepository(client Client, tableName string, log *slog.Logger) database.LogEventRepository {
 	return &LogEventRepository{
@@ -180,7 +176,9 @@ func (r *LogEventRepository) DeleteLogEvents(ctx context.Context, executionID st
 
 		writeRequests := make([]types.WriteRequest, 0, len(queryOutput.Items))
 		for _, item := range queryOutput.Items {
-			item[logEventTTLAttribute] = &types.AttributeValueMemberN{Value: strconv.FormatInt(expiryTimestamp, 10)}
+			item[awsconstants.DynamoDBExpiresAtAttribute] = &types.AttributeValueMemberN{
+				Value: strconv.FormatInt(expiryTimestamp, 10),
+			}
 
 			writeRequests = append(writeRequests, types.WriteRequest{
 				PutRequest: &types.PutRequest{Item: item},

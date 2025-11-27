@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"runvoy/internal/api"
+	awsconstants "runvoy/internal/providers/aws/constants"
 	"runvoy/internal/testutil"
 
 	"github.com/stretchr/testify/assert"
@@ -30,7 +31,7 @@ func TestLogEventRepository_DeleteLogEventsSetsTTL(t *testing.T) {
 	require.Len(t, items, len(logEvents))
 
 	for _, item := range items {
-		_, hasTTL := item[logEventTTLAttribute]
+		_, hasTTL := item[awsconstants.DynamoDBExpiresAtAttribute]
 		assert.False(t, hasTTL)
 	}
 
@@ -45,7 +46,7 @@ func TestLogEventRepository_DeleteLogEventsSetsTTL(t *testing.T) {
 	maxTTL := after.Add(11 * time.Minute).Unix()
 
 	for _, item := range items {
-		ttlAttr, ok := item[logEventTTLAttribute]
+		ttlAttr, ok := item[awsconstants.DynamoDBExpiresAtAttribute]
 		require.True(t, ok)
 
 		ttlVal := getStringValue(ttlAttr)
