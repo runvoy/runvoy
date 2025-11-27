@@ -4,8 +4,10 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"sort"
 	"sync"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 )
@@ -152,7 +154,7 @@ func (m *MockDynamoDBClient) GetItem(
 
 // Query searches for items in the mock table.
 //
-//nolint:gocyclo // Mock implementation intentionally mirrors DynamoDB behavior.
+//nolint:funlen,gocyclo // Mock implementation intentionally mirrors DynamoDB behavior.
 func (m *MockDynamoDBClient) Query(
 	_ context.Context,
 	params *dynamodb.QueryInput,
@@ -214,6 +216,18 @@ func (m *MockDynamoDBClient) Query(
 			// This is a simplified implementation
 			items = m.collectTableItems(tableName)
 		}
+	}
+
+	if params.ScanIndexForward != nil && len(items) > 1 {
+		ascending := aws.ToBool(params.ScanIndexForward)
+		sort.SliceStable(items, func(i, j int) bool {
+			left := getSortKeyFromAttributes(items[i])
+			right := getSortKeyFromAttributes(items[j])
+			if ascending {
+				return left < right
+			}
+			return left > right
+		})
 	}
 
 	return &dynamodb.QueryOutput{

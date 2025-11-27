@@ -9,6 +9,7 @@ import (
 	"runvoy/internal/database"
 	appErrors "runvoy/internal/errors"
 	"runvoy/internal/logger"
+	awsconstants "runvoy/internal/providers/aws/constants"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
@@ -269,16 +270,15 @@ func (r *ConnectionRepository) buildDeleteRequests(connectionIDs []string) ([]ty
 	return deleteRequests, nil
 }
 
-// executeBatchDeletes processes delete requests in batches respecting DynamoDB's 25-item limit.
+// executeBatchDeletes processes delete requests in batches respecting DynamoDB's BatchWriteItem limit.
 func (r *ConnectionRepository) executeBatchDeletes(
 	ctx context.Context,
 	deleteRequests []types.WriteRequest,
 ) (int, error) {
-	const batchSize = 25
 	deletedCount := 0
 
-	for i := 0; i < len(deleteRequests); i += batchSize {
-		end := min(i+batchSize, len(deleteRequests))
+	for i := 0; i < len(deleteRequests); i += awsconstants.DynamoDBBatchWriteLimit {
+		end := min(i+awsconstants.DynamoDBBatchWriteLimit, len(deleteRequests))
 
 		batchRequests := deleteRequests[i:end]
 

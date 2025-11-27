@@ -208,9 +208,8 @@ func (r *LogEventRepository) DeleteLogEvents(ctx context.Context, executionID st
 func (r *LogEventRepository) batchWrite(ctx context.Context, requests []types.WriteRequest) error {
 	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
 
-	const batchSize = 25
-	for i := 0; i < len(requests); i += batchSize {
-		end := min(i+batchSize, len(requests))
+	for i := 0; i < len(requests); i += awsconstants.DynamoDBBatchWriteLimit {
+		end := min(i+awsconstants.DynamoDBBatchWriteLimit, len(requests))
 		batch := requests[i:end]
 
 		logArgs := []any{
