@@ -8,7 +8,6 @@ const config = {
 		adapter: adapter({
 			pages: 'dist',
 			assets: 'dist',
-			fallback: 'index.html',
 			precompress: false,
 			strict: true
 		}),
