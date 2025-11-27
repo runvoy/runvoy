@@ -8,13 +8,7 @@
     import LogControls from '../components/LogControls.svelte';
     import LogViewer from '../components/LogViewer.svelte';
     import { executionId, executionStatus, startedAt, isCompleted } from '../stores/execution';
-    import {
-        logEvents,
-        logsRetryCount,
-        MAX_LOGS_RETRIES,
-        LOGS_RETRY_DELAY,
-        STARTING_STATE_DELAY
-    } from '../stores/logs';
+    import { logEvents } from '../stores/logs';
     import { cachedWebSocketURL } from '../stores/websocket';
     import { connectWebSocket, disconnectWebSocket } from '../lib/websocket';
     import type APIClient from '../lib/api';
@@ -23,13 +17,8 @@
 
     export let apiClient: APIClient | null = null;
     export let isConfigured = false;
-    // Allow delay override for testing (e.g., set to 0 in tests to avoid waiting)
-    export let delayFn = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
     let errorMessage = '';
-    let showStatusCheckErrorModal = false;
-    let statusCheckErrorMessage = '';
-    let fetchLogsTimer: ReturnType<typeof setTimeout> | undefined;
     let currentExecutionId: string | null = null;
     let websocketURL: string | null = null;
     let lastProcessedExecutionId: string | null = null;
@@ -73,32 +62,7 @@
             return;
         }
 
-        clearTimeout(fetchLogsTimer);
         errorMessage = '';
-
-        // Smart initial wait: Check execution status first
-        // If STARTING or TERMINATING, wait before first log poll to avoid unnecessary 503s
-        let statusResponse: ExecutionStatusResponse | null = null;
-        try {
-            statusResponse = await apiClient.getExecutionStatus(id);
-            const status = statusResponse.status || 'UNKNOWN';
-
-            if (status === 'STARTING') {
-                errorMessage = 'Execution is starting (logs usually ready in ~30 seconds)...';
-                await delayFn(STARTING_STATE_DELAY);
-                errorMessage = ''; // Clear the message after waiting
-            } else if (status === 'TERMINATING') {
-                errorMessage = 'Execution is terminating, waiting for final state...';
-                await delayFn(LOGS_RETRY_DELAY);
-                errorMessage = ''; // Clear the message after waiting
-            }
-        } catch (statusError) {
-            // If status check fails, proceed with normal retry logic
-            const err = statusError as ApiError;
-            statusCheckErrorMessage =
-                err?.details?.error || err?.message || 'Failed to check execution status.';
-            showStatusCheckErrorModal = true;
-        }
 
         try {
             const response = await apiClient.getLogs(id);
@@ -109,16 +73,50 @@
             }));
             logEvents.set(eventsWithLines);
             cachedWebSocketURL.set(response.websocket_url || null);
-            logsRetryCount.set(0);
 
             const status = response.status || 'UNKNOWN';
             executionStatus.set(status);
 
-            if (statusResponse?.started_at) {
+            const derivedStartedAt = deriveStartedAtFromLogs(eventsWithLines);
+            startedAt.set(derivedStartedAt);
+
+            const terminal = TERMINAL_STATES.includes(status);
+            isCompleted.set(terminal);
+
+            if (terminal) {
+                cachedWebSocketURL.set(null);
+            }
+        } catch (error) {
+            const err = error as ApiError;
+            errorMessage = err.details?.error || err.message || 'Failed to fetch logs';
+            logEvents.set([]);
+        }
+    }
+
+    function resetForExecution(id: string | null): void {
+        disconnectWebSocket();
+        executionStatus.set('LOADING');
+        startedAt.set(null);
+        isCompleted.set(false);
+        errorMessage = '';
+        lastProcessedExecutionId = id;
+    }
+
+    async function handleExecutionComplete(): Promise<void> {
+        if (!apiClient || !currentExecutionId) {
+            return;
+        }
+        // Websocket disconnect means the task terminated
+        // Fetch status to update execution status (SUCCEEDED, FAILED, STOPPED)
+        // No need to refetch logs - we already have them all from the websocket
+        try {
+            const statusResponse: ExecutionStatusResponse =
+                await apiClient.getExecutionStatus(currentExecutionId);
+            const status = statusResponse.status || 'UNKNOWN';
+            executionStatus.set(status);
+
+            if (statusResponse.started_at) {
                 startedAt.set(statusResponse.started_at);
-            } else {
-                const derivedStartedAt = deriveStartedAtFromLogs(eventsWithLines);
-                startedAt.set(derivedStartedAt);
             }
 
             const terminal = TERMINAL_STATES.includes(status);
@@ -128,52 +126,14 @@
                 cachedWebSocketURL.set(null);
             }
         } catch (error) {
-            const retryCount = get(logsRetryCount);
             const err = error as ApiError;
-            // 503 Service Unavailable indicates log stream doesn't exist yet (execution starting)
-            // Retry with exponential backoff as the stream may become available soon
-            if (err.status === 503 && retryCount < MAX_LOGS_RETRIES) {
-                const attempt = retryCount + 1;
-                errorMessage = `Logs not available yet, retrying... (${attempt}/${MAX_LOGS_RETRIES})`;
-                logsRetryCount.set(attempt);
-                fetchLogsTimer = setTimeout(() => fetchLogs(id), LOGS_RETRY_DELAY);
-            } else {
-                errorMessage = err.details?.error || err.message || 'Failed to fetch logs';
-                logEvents.set([]);
-            }
-        }
-    }
-
-    function resetForExecution(id: string | null): void {
-        clearTimeout(fetchLogsTimer);
-        disconnectWebSocket();
-        executionStatus.set('LOADING');
-        startedAt.set(null);
-        isCompleted.set(false);
-        errorMessage = '';
-        statusCheckErrorMessage = '';
-        showStatusCheckErrorModal = false;
-        lastProcessedExecutionId = id;
-    }
-
-    // eslint-disable-next-line no-undef
-    function handleExecutionComplete(event: Event): void {
-        if (!apiClient || !currentExecutionId) {
-            return;
-        }
-        // If websocket closed cleanly (clean disconnect), we already have all logs
-        // and don't need to fetch them again via GET /logs
-        const customEvent = event as CustomEvent;
-        const cleanClose = customEvent.detail?.cleanClose === true;
-        if (!cleanClose) {
-            void fetchLogs(currentExecutionId);
+            errorMessage = err.details?.error || err.message || 'Failed to fetch execution status';
         }
     }
 
     $: showWelcome = !isConfigured;
 
     $: if (!apiClient) {
-        clearTimeout(fetchLogsTimer);
         disconnectWebSocket();
         lastProcessedExecutionId = null;
     }
@@ -222,28 +182,11 @@
     });
 
     onDestroy(() => {
-        clearTimeout(fetchLogsTimer);
         disconnectWebSocket();
     });
 </script>
 
 <ExecutionSelector />
-
-{#if showStatusCheckErrorModal}
-    <dialog open class="status-check-error-modal">
-        <article>
-            <header>
-                <strong>Unable to verify execution status</strong>
-            </header>
-            <p>
-                {statusCheckErrorMessage}
-            </p>
-            <footer>
-                <button on:click={() => (showStatusCheckErrorModal = false)}>Dismiss</button>
-            </footer>
-        </article>
-    </dialog>
-{/if}
 
 {#if errorMessage}
     <article class="error-box">
@@ -296,24 +239,6 @@
         padding: 2rem;
     }
 
-    .status-check-error-modal {
-        max-width: 32rem;
-        border: none;
-        padding: 0;
-    }
-
-    .status-check-error-modal::backdrop {
-        background-color: rgb(0 0 0 / 0.35);
-    }
-
-    .status-check-error-modal article {
-        margin: 0;
-    }
-
-    .status-check-error-modal header {
-        margin-bottom: 0.5rem;
-    }
-
     code {
         background: var(--pico-code-background-color);
         padding: 0.25rem 0.5rem;
@@ -343,10 +268,6 @@
 
         .logs-card {
             padding: 1.5rem;
-        }
-
-        .status-check-error-modal {
-            max-width: 95%;
         }
 
         .error-box {

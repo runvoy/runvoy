@@ -761,6 +761,7 @@ Resources:
               - Effect: Allow
                 Action:
                   - 'dynamodb:PutItem'
+                  - 'dynamodb:UpdateItem'
                   - 'dynamodb:DeleteItem'
                   - 'dynamodb:BatchWriteItem'
                   - 'dynamodb:GetItem'
