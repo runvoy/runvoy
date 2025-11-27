@@ -47,6 +47,14 @@ type logEventItem struct {
 	Message     string `dynamodbav:"message"`
 }
 
+func (i *logEventItem) toAPILogEvent() api.LogEvent {
+	return api.LogEvent{
+		EventID:   i.EventID,
+		Timestamp: i.Timestamp,
+		Message:   i.Message,
+	}
+}
+
 // SaveLogEvents writes all provided log events for an execution.
 func (r *LogEventRepository) SaveLogEvents(ctx context.Context, executionID string, logEvents []api.LogEvent) error {
 	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
@@ -89,6 +97,54 @@ func (r *LogEventRepository) SaveLogEvents(ctx context.Context, executionID stri
 	})
 
 	return nil
+}
+
+// ListLogEvents retrieves all buffered log events for an execution ordered by event key.
+func (r *LogEventRepository) ListLogEvents(ctx context.Context, executionID string) ([]api.LogEvent, error) {
+	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
+
+	if executionID == "" {
+		return nil, fmt.Errorf("execution ID is required")
+	}
+
+	exprValues := map[string]types.AttributeValue{
+		":execution_id": &types.AttributeValueMemberS{Value: executionID},
+	}
+
+	var startKey map[string]types.AttributeValue
+	results := make([]api.LogEvent, 0)
+
+	for {
+		queryOutput, err := r.client.Query(ctx, &dynamodb.QueryInput{
+			TableName:                 aws.String(r.tableName),
+			KeyConditionExpression:    aws.String("execution_id = :execution_id"),
+			ExpressionAttributeValues: exprValues,
+			ExclusiveStartKey:         startKey,
+			ScanIndexForward:          aws.Bool(true),
+		})
+		if err != nil {
+			return nil, appErrors.ErrDatabaseError("failed to query log events", err)
+		}
+
+		for _, item := range queryOutput.Items {
+			var logItem logEventItem
+			if unmarshalErr := attributevalue.UnmarshalMap(item, &logItem); unmarshalErr != nil {
+				return nil, fmt.Errorf("failed to unmarshal log event: %w", unmarshalErr)
+			}
+
+			results = append(results, logItem.toAPILogEvent())
+		}
+
+		if len(queryOutput.LastEvaluatedKey) == 0 {
+			reqLogger.Debug("log events retrieved", "context", map[string]any{
+				"execution_id": executionID,
+				"event_count":  len(results),
+			})
+			return results, nil
+		}
+
+		startKey = queryOutput.LastEvaluatedKey
+	}
 }
 
 // DeleteLogEvents schedules stored events for TTL-based deletion.

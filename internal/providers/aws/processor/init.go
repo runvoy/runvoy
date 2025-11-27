@@ -52,7 +52,7 @@ func Initialize(
 	ssmClient := secrets.NewClientAdapter(ssmSDKClient)
 
 	repos := awsDatabase.CreateRepositories(dynamoClient, ssmClient, cfg, log)
-	websocketManager := websocket.Initialize(cfg, repos.ConnectionRepo, repos.TokenRepo, log)
+	websocketManager := websocket.Initialize(cfg, repos.ConnectionRepo, repos.TokenRepo, repos.LogEventRepo, log)
 
 	if err := enforcer.Hydrate(
 		ctx,

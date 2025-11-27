@@ -27,6 +27,7 @@ import (
 type Manager struct {
 	connRepo      database.ConnectionRepository
 	tokenRepo     database.TokenRepository
+	logEventRepo  database.LogEventRepository
 	apiGwClient   Client
 	apiGwEndpoint *string
 	logger        *slog.Logger
@@ -38,6 +39,7 @@ func Initialize(
 	cfg *config.Config,
 	connRepo database.ConnectionRepository,
 	tokenRepo database.TokenRepository,
+	logEventRepo database.LogEventRepository,
 	log *slog.Logger,
 ) *Manager {
 	apiGwSDKClient := apigatewaymanagementapi.NewFromConfig(*cfg.AWS.SDKConfig, func(o *apigatewaymanagementapi.Options) {
@@ -57,6 +59,7 @@ func Initialize(
 	return &Manager{
 		connRepo:      connRepo,
 		tokenRepo:     tokenRepo,
+		logEventRepo:  logEventRepo,
 		apiGwClient:   apiGwClient,
 		apiGwEndpoint: aws.String(cfg.AWS.WebSocketAPIEndpoint),
 		logger:        log,
@@ -410,16 +413,12 @@ func (m *Manager) NotifyExecutionCompletion(ctx context.Context, executionID *st
 func (m *Manager) SendLogsToExecution(
 	ctx context.Context,
 	executionID *string,
-	logEvents []api.LogEvent,
+	_ []api.LogEvent,
 ) error {
 	reqLogger := m.deriveLogger(ctx)
 
 	if executionID == nil || *executionID == "" {
 		return fmt.Errorf("execution ID is nil or empty")
-	}
-
-	if len(logEvents) == 0 {
-		return nil
 	}
 
 	connections, err := m.connRepo.GetConnectionsByExecutionID(ctx, *executionID)
@@ -434,21 +433,43 @@ func (m *Manager) SendLogsToExecution(
 		return nil
 	}
 
-	reqLogger.Debug("sending logs to connections",
+	bufferedEvents, err := m.logEventRepo.ListLogEvents(ctx, *executionID)
+	if err != nil {
+		return fmt.Errorf("failed to retrieve buffered logs: %w", err)
+	}
+
+	if len(bufferedEvents) == 0 {
+		reqLogger.Debug("no buffered logs available", "execution_id", *executionID)
+		return nil
+	}
+
+	reqLogger.Debug("sending buffered logs to connections",
 		"context", map[string]any{
 			"execution_id":     *executionID,
 			"connection_count": len(connections),
-			"log_count":        len(logEvents),
+			"log_count":        len(bufferedEvents),
 		},
 	)
 
-	for _, logEvent := range logEvents {
-		if dispatchErr := m.dispatchLogEvent(ctx, reqLogger, *executionID, connections, logEvent); dispatchErr != nil {
-			return dispatchErr
-		}
+	eg, egCtx := errgroup.WithContext(ctx)
+	eg.SetLimit(constants.MaxConcurrentSends)
+
+	for _, conn := range connections {
+		conn := conn
+		eg.Go(func() error {
+			return m.sendBufferedLogsToConnection(egCtx, reqLogger, conn, bufferedEvents)
+		})
 	}
 
-	reqLogger.Debug("all logs sent to all connections", "context", map[string]string{
+	if egErr := eg.Wait(); egErr != nil {
+		reqLogger.Error("some log sends failed", "context", map[string]any{
+			"error":        egErr.Error(),
+			"execution_id": *executionID,
+		})
+		return fmt.Errorf("failed to send logs to some connections: %w", egErr)
+	}
+
+	reqLogger.Debug("all buffered logs sent to connections", "context", map[string]string{
 		"execution_id":     *executionID,
 		"connection_count": fmt.Sprintf("%d", len(connections)),
 	})
@@ -456,32 +477,58 @@ func (m *Manager) SendLogsToExecution(
 	return nil
 }
 
-func (m *Manager) dispatchLogEvent(
+func (m *Manager) sendBufferedLogsToConnection(
 	ctx context.Context,
 	reqLogger *slog.Logger,
-	executionID string,
-	connections []*api.WebSocketConnection,
-	logEvent api.LogEvent,
+	connection *api.WebSocketConnection,
+	bufferedEvents []api.LogEvent,
 ) error {
-	eg, egCtx := errgroup.WithContext(ctx)
-	eg.SetLimit(constants.MaxConcurrentSends)
-
-	for _, conn := range connections {
-		eg.Go(func() error {
-			return m.sendLogToConnection(egCtx, reqLogger, conn.ConnectionID, logEvent)
+	eventsToSend := filterEventsAfter(bufferedEvents, connection.LastEventID)
+	if len(eventsToSend) == 0 {
+		reqLogger.Debug("no buffered logs to send to connection", "context", map[string]string{
+			"connection_id": connection.ConnectionID,
 		})
+		return nil
 	}
 
-	if egErr := eg.Wait(); egErr != nil {
-		reqLogger.Error("some log sends failed", "context", map[string]any{
-			"error":        egErr.Error(),
-			"execution_id": executionID,
-			"timestamp":    logEvent.Timestamp,
+	for _, event := range eventsToSend {
+		if err := m.sendLogToConnection(ctx, reqLogger, connection.ConnectionID, event); err != nil {
+			return err
+		}
+	}
+
+	lastEventID := eventsToSend[len(eventsToSend)-1].EventID
+	if lastEventID == "" {
+		return nil
+	}
+
+	if err := m.connRepo.UpdateLastEventID(ctx, connection.ConnectionID, lastEventID); err != nil {
+		reqLogger.Error("failed to update last event ID", "context", map[string]any{
+			"connection_id": connection.ConnectionID,
+			"last_event_id": lastEventID,
+			"error":         err.Error(),
 		})
-		return fmt.Errorf("failed to send logs to some connections: %w", egErr)
+		return fmt.Errorf("failed to update last event ID: %w", err)
 	}
 
 	return nil
+}
+
+func filterEventsAfter(events []api.LogEvent, lastEventID string) []api.LogEvent {
+	if lastEventID == "" {
+		return events
+	}
+
+	for idx, event := range events {
+		if event.EventID == lastEventID {
+			if idx+1 >= len(events) {
+				return []api.LogEvent{}
+			}
+			return events[idx+1:]
+		}
+	}
+
+	return events
 }
 
 // sendLogToConnection sends a single log event to a WebSocket connection.

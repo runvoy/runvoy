@@ -22,6 +22,7 @@ type mockConnectionRepoForWS struct {
 	createConnectionFunc            func(context.Context, *api.WebSocketConnection) error
 	deleteConnectionsFunc           func(context.Context, []string) (int, error)
 	getConnectionsByExecutionIDFunc func(context.Context, string) ([]*api.WebSocketConnection, error)
+	updateLastEventIDFunc           func(context.Context, string, string) error
 }
 
 func (m *mockConnectionRepoForWS) CreateConnection(ctx context.Context, conn *api.WebSocketConnection) error {
@@ -47,11 +48,45 @@ func (m *mockConnectionRepoForWS) GetConnectionsByExecutionID(
 	return nil, nil
 }
 
+func (m *mockConnectionRepoForWS) UpdateLastEventID(ctx context.Context, connectionID, lastEventID string) error {
+	if m.updateLastEventIDFunc != nil {
+		return m.updateLastEventIDFunc(ctx, connectionID, lastEventID)
+	}
+	return nil
+}
+
 // mockTokenRepoForWS implements database.TokenRepository for testing.
 type mockTokenRepoForWS struct {
 	createTokenFunc func(context.Context, *api.WebSocketToken) error
 	getTokenFunc    func(context.Context, string) (*api.WebSocketToken, error)
 	deleteTokenFunc func(context.Context, string) error
+}
+
+type mockLogEventRepoForWS struct {
+	saveLogEventsFunc   func(context.Context, string, []api.LogEvent) error
+	listLogEventsFunc   func(context.Context, string) ([]api.LogEvent, error)
+	deleteLogEventsFunc func(context.Context, string) error
+}
+
+func (m *mockLogEventRepoForWS) SaveLogEvents(ctx context.Context, executionID string, logEvents []api.LogEvent) error {
+	if m.saveLogEventsFunc != nil {
+		return m.saveLogEventsFunc(ctx, executionID, logEvents)
+	}
+	return nil
+}
+
+func (m *mockLogEventRepoForWS) ListLogEvents(ctx context.Context, executionID string) ([]api.LogEvent, error) {
+	if m.listLogEventsFunc != nil {
+		return m.listLogEventsFunc(ctx, executionID)
+	}
+	return nil, nil
+}
+
+func (m *mockLogEventRepoForWS) DeleteLogEvents(ctx context.Context, executionID string) error {
+	if m.deleteLogEventsFunc != nil {
+		return m.deleteLogEventsFunc(ctx, executionID)
+	}
+	return nil
 }
 
 func (m *mockTokenRepoForWS) CreateToken(ctx context.Context, token *api.WebSocketToken) error {
@@ -393,17 +428,18 @@ func TestSendLogsToExecution(t *testing.T) {
 	connectionID2 := "conn-2"
 
 	t.Run("successfully sends logs to connections", func(t *testing.T) {
-		logEvents := []api.LogEvent{
-			{Timestamp: time.Now().Unix(), Message: "log message 1"},
-			{Timestamp: time.Now().Unix(), Message: "log message 2"},
-		}
-
 		connections := []*api.WebSocketConnection{
-			{ConnectionID: connectionID1, ExecutionID: executionID},
+			{ConnectionID: connectionID1, ExecutionID: executionID, LastEventID: "evt-1"},
 			{ConnectionID: connectionID2, ExecutionID: executionID},
 		}
 
+		buffered := []api.LogEvent{
+			{EventID: "evt-1", Timestamp: time.Now().Unix(), Message: "log message 1"},
+			{EventID: "evt-2", Timestamp: time.Now().Unix(), Message: "log message 2"},
+		}
+
 		var sentMessages []string
+		var updatedConnections []string
 		mockClient := &mockAPIGatewayClient{
 			postToConnectionFunc: func(
 				_ context.Context,
@@ -425,18 +461,34 @@ func TestSendLogsToExecution(t *testing.T) {
 				}
 				return nil, nil
 			},
+			updateLastEventIDFunc: func(_ context.Context, connectionID, lastEventID string) error {
+				updatedConnections = append(updatedConnections, fmt.Sprintf("%s:%s", connectionID, lastEventID))
+				return nil
+			},
+		}
+
+		mockLogRepo := &mockLogEventRepoForWS{
+			listLogEventsFunc: func(_ context.Context, execID string) ([]api.LogEvent, error) {
+				if execID == executionID {
+					return buffered, nil
+				}
+				return nil, nil
+			},
 		}
 
 		m := &Manager{
-			connRepo:    mockConnRepo,
-			apiGwClient: mockClient,
-			logger:      testutil.SilentLogger(),
+			connRepo:     mockConnRepo,
+			logEventRepo: mockLogRepo,
+			apiGwClient:  mockClient,
+			logger:       testutil.SilentLogger(),
 		}
 
-		err := m.SendLogsToExecution(ctx, &executionID, logEvents)
+		err := m.SendLogsToExecution(ctx, &executionID, nil)
 
 		assert.NoError(t, err)
-		assert.Len(t, sentMessages, 4) // 2 log events * 2 connections
+		assert.Len(t, sentMessages, 3) // conn1 gets events after evt-1, conn2 gets all
+		assert.Contains(t, sentMessages[0], "log message 2")
+		assert.ElementsMatch(t, []string{"conn-1:evt-2", "conn-2:evt-2"}, updatedConnections)
 	})
 
 	t.Run("handles nil execution ID", func(t *testing.T) {
@@ -454,8 +506,26 @@ func TestSendLogsToExecution(t *testing.T) {
 		assert.Contains(t, err.Error(), "execution ID is nil or empty")
 	})
 
-	t.Run("handles empty log events", func(t *testing.T) {
-		m := &Manager{logger: testutil.SilentLogger()}
+	t.Run("handles empty buffered logs", func(t *testing.T) {
+		mockConnRepo := &mockConnectionRepoForWS{
+			getConnectionsByExecutionIDFunc: func(_ context.Context, _ string) ([]*api.WebSocketConnection, error) {
+				return []*api.WebSocketConnection{{ConnectionID: connectionID1, ExecutionID: executionID}}, nil
+			},
+		}
+
+		mockLogRepo := &mockLogEventRepoForWS{
+			listLogEventsFunc: func(context.Context, string) ([]api.LogEvent, error) {
+				return []api.LogEvent{}, nil
+			},
+		}
+
+		m := &Manager{
+			connRepo:     mockConnRepo,
+			logEventRepo: mockLogRepo,
+			apiGwClient:  &mockAPIGatewayClient{},
+			logger:       testutil.SilentLogger(),
+		}
+
 		err := m.SendLogsToExecution(ctx, &executionID, []api.LogEvent{})
 		assert.NoError(t, err)
 	})
@@ -493,6 +563,31 @@ func TestSendLogsToExecution(t *testing.T) {
 		assert.Contains(t, err.Error(), "failed to get connections")
 	})
 
+	t.Run("handles buffered log retrieval error", func(t *testing.T) {
+		mockConnRepo := &mockConnectionRepoForWS{
+			getConnectionsByExecutionIDFunc: func(_ context.Context, _ string) ([]*api.WebSocketConnection, error) {
+				return []*api.WebSocketConnection{{ConnectionID: connectionID1, ExecutionID: executionID}}, nil
+			},
+		}
+
+		mockLogRepo := &mockLogEventRepoForWS{
+			listLogEventsFunc: func(context.Context, string) ([]api.LogEvent, error) {
+				return nil, fmt.Errorf("query failed")
+			},
+		}
+
+		m := &Manager{
+			connRepo:     mockConnRepo,
+			logEventRepo: mockLogRepo,
+			apiGwClient:  &mockAPIGatewayClient{},
+			logger:       testutil.SilentLogger(),
+		}
+
+		err := m.SendLogsToExecution(ctx, &executionID, []api.LogEvent{{Message: "test"}})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to retrieve buffered logs")
+	})
+
 	t.Run("handles PostToConnection error", func(t *testing.T) {
 		connections := []*api.WebSocketConnection{
 			{ConnectionID: connectionID1, ExecutionID: executionID},
@@ -517,10 +612,17 @@ func TestSendLogsToExecution(t *testing.T) {
 			},
 		}
 
+		mockLogRepo := &mockLogEventRepoForWS{
+			listLogEventsFunc: func(context.Context, string) ([]api.LogEvent, error) {
+				return []api.LogEvent{{EventID: "evt-1", Message: "test"}}, nil
+			},
+		}
+
 		m := &Manager{
-			connRepo:    mockConnRepo,
-			apiGwClient: mockClient,
-			logger:      testutil.SilentLogger(),
+			connRepo:     mockConnRepo,
+			logEventRepo: mockLogRepo,
+			apiGwClient:  mockClient,
+			logger:       testutil.SilentLogger(),
 		}
 
 		err := m.SendLogsToExecution(ctx, &executionID, []api.LogEvent{{Message: "test"}})

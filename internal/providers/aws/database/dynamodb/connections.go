@@ -205,6 +205,47 @@ func (r *ConnectionRepository) GetConnectionsByExecutionID(
 	return connections, nil
 }
 
+// UpdateLastEventID persists the last delivered event ID for a connection.
+func (r *ConnectionRepository) UpdateLastEventID(ctx context.Context, connectionID, lastEventID string) error {
+	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
+
+	if connectionID == "" {
+		return fmt.Errorf("connection ID is required")
+	}
+
+	keyAV, err := attributevalue.MarshalMap(map[string]string{"connection_id": connectionID})
+	if err != nil {
+		return appErrors.ErrDatabaseError("failed to marshal connection key", err)
+	}
+
+	logArgs := []any{
+		"operation", "DynamoDB.UpdateItem",
+		"table", r.tableName,
+		"connection_id", connectionID,
+	}
+	logArgs = append(logArgs, logger.GetDeadlineInfo(ctx)...)
+	reqLogger.Debug("calling external service", "context", logger.SliceToMap(logArgs))
+
+	_, err = r.client.UpdateItem(ctx, &dynamodb.UpdateItemInput{
+		TableName:        aws.String(r.tableName),
+		Key:              keyAV,
+		UpdateExpression: aws.String("SET last_event_id = :last_event_id"),
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":last_event_id": &types.AttributeValueMemberS{Value: lastEventID},
+		},
+	})
+	if err != nil {
+		return appErrors.ErrDatabaseError("failed to update last event ID", err)
+	}
+
+	reqLogger.Debug("last event ID updated", "context", map[string]any{
+		"connection_id": connectionID,
+		"last_event_id": lastEventID,
+	})
+
+	return nil
+}
+
 // buildDeleteRequests creates WriteRequest objects for all connection IDs.
 func (r *ConnectionRepository) buildDeleteRequests(connectionIDs []string) ([]types.WriteRequest, error) {
 	deleteRequests := make([]types.WriteRequest, 0, len(connectionIDs))

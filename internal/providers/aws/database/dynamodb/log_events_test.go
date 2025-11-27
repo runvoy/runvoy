@@ -56,3 +56,28 @@ func TestLogEventRepository_DeleteLogEventsSetsTTL(t *testing.T) {
 		assert.LessOrEqual(t, ttlInt, maxTTL)
 	}
 }
+
+func TestLogEventRepository_ListLogEvents(t *testing.T) {
+	ctx := context.Background()
+	client := NewMockDynamoDBClient()
+	repo := NewLogEventRepository(client, "log-events", testutil.SilentLogger())
+
+	executionID := "exec-2"
+	logEvents := []api.LogEvent{
+		{EventID: "evt-1", Timestamp: 10, Message: "first"},
+		{EventID: "evt-2", Timestamp: 20, Message: "second"},
+		{EventID: "evt-3", Timestamp: 30, Message: "third"},
+	}
+
+	require.NoError(t, repo.SaveLogEvents(ctx, executionID, logEvents))
+
+	fetched, err := repo.ListLogEvents(ctx, executionID)
+	require.NoError(t, err)
+
+	assert.Len(t, fetched, len(logEvents))
+	for i, event := range fetched {
+		assert.Equal(t, logEvents[i].EventID, event.EventID)
+		assert.Equal(t, logEvents[i].Timestamp, event.Timestamp)
+		assert.Equal(t, logEvents[i].Message, event.Message)
+	}
+}
