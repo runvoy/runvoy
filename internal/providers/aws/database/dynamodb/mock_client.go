@@ -88,29 +88,12 @@ func (m *MockDynamoDBClient) PutItem( //nolint:funlen // This is ok, lots of ope
 		m.Indexes[tableName] = make(map[string]map[string][]map[string]types.AttributeValue)
 	}
 
-	partitionKey := ""
-	for knownKey := range m.partitionKeys {
-		if keyVal, ok := params.Item[knownKey]; ok {
-			partitionKey = getStringValue(keyVal)
-			if partitionKey != "" {
-				break
-			}
-		}
-	}
-
-	// Fallback: use first string value as partition key
-	if partitionKey == "" {
-		for _, v := range params.Item {
-			partitionKey = getStringValue(v)
-			if partitionKey != "" {
-				break
-			}
-		}
-	}
-
+	partitionKey := m.getPartitionKeyFromAttributes(params.Item)
 	if partitionKey == "" {
 		return nil, fmt.Errorf("failed to extract partition key from item")
 	}
+
+	sortKey := getSortKeyFromAttributes(params.Item)
 
 	if m.Tables[tableName][partitionKey] == nil {
 		m.Tables[tableName][partitionKey] = make(map[string]map[string]types.AttributeValue)
@@ -118,11 +101,11 @@ func (m *MockDynamoDBClient) PutItem( //nolint:funlen // This is ok, lots of ope
 
 	// Get old item before replacing (to remove from indexes)
 	var oldItem map[string]types.AttributeValue
-	if m.Tables[tableName][partitionKey] != nil && m.Tables[tableName][partitionKey][""] != nil {
-		oldItem = m.Tables[tableName][partitionKey][""]
+	if m.Tables[tableName][partitionKey] != nil && m.Tables[tableName][partitionKey][sortKey] != nil {
+		oldItem = m.Tables[tableName][partitionKey][sortKey]
 	}
 
-	m.Tables[tableName][partitionKey][""] = params.Item
+	m.Tables[tableName][partitionKey][sortKey] = params.Item
 
 	if oldItem != nil {
 		m.removeItemFromIndexes(tableName, oldItem)
@@ -213,9 +196,22 @@ func (m *MockDynamoDBClient) Query(
 			}
 		}
 	} else {
-		// Query against main table - return all items
-		// This is a simplified implementation
-		items = m.collectTableItems(tableName)
+		if params.ExpressionAttributeValues != nil {
+			if execIDVal, ok := params.ExpressionAttributeValues[":execution_id"]; ok {
+				executionID := getStringValue(execIDVal)
+				if partition, exists := m.Tables[tableName][executionID]; exists {
+					for _, item := range partition {
+						items = append(items, item)
+					}
+				}
+			}
+		}
+
+		if items == nil {
+			// Query against main table - return all items
+			// This is a simplified implementation
+			items = m.collectTableItems(tableName)
+		}
 	}
 
 	return &dynamodb.QueryOutput{
@@ -241,12 +237,12 @@ func (m *MockDynamoDBClient) UpdateItem(
 
 	tableName := *params.TableName
 
-	// Extract the partition key value
-	var partitionKey string
-	for _, v := range params.Key {
-		partitionKey = getStringValue(v)
-		break
+	partitionKey := m.getPartitionKeyFromAttributes(params.Key)
+	if partitionKey == "" {
+		return nil, fmt.Errorf("item not found")
 	}
+
+	sortKey := getSortKeyFromAttributes(params.Key)
 
 	// Check if item exists
 	if m.Tables[tableName] == nil || m.Tables[tableName][partitionKey] == nil {
@@ -255,7 +251,7 @@ func (m *MockDynamoDBClient) UpdateItem(
 
 	// For simplicity, just mark the item as updated by adding a field
 	// In a real mock, you'd parse and apply the update expression
-	item := m.Tables[tableName][partitionKey][""]
+	item := m.Tables[tableName][partitionKey][sortKey]
 	if item == nil {
 		return nil, fmt.Errorf("item not found")
 	}
@@ -280,18 +276,14 @@ func (m *MockDynamoDBClient) DeleteItem(
 
 	tableName := *params.TableName
 
-	// Extract the partition key value
-	var partitionKey string
-	for _, v := range params.Key {
-		partitionKey = getStringValue(v)
-		break
-	}
+	partitionKey := m.getPartitionKeyFromAttributes(params.Key)
+	sortKey := getSortKeyFromAttributes(params.Key)
 
 	// Get the item before deleting to remove from indexes
 	var item map[string]types.AttributeValue
 	if m.Tables[tableName] != nil && m.Tables[tableName][partitionKey] != nil {
-		item = m.Tables[tableName][partitionKey][""]
-		delete(m.Tables[tableName][partitionKey], "")
+		item = m.Tables[tableName][partitionKey][sortKey]
+		delete(m.Tables[tableName][partitionKey], sortKey)
 	}
 
 	// Remove item from indexes
@@ -317,29 +309,56 @@ func (m *MockDynamoDBClient) BatchWriteItem(
 		return nil, m.BatchWriteItemError
 	}
 
-	// Process delete requests
 	for tableName, requests := range params.RequestItems {
+		if m.Tables[tableName] == nil {
+			m.Tables[tableName] = make(map[string]map[string]map[string]types.AttributeValue)
+		}
+		if m.Indexes[tableName] == nil {
+			m.Indexes[tableName] = make(map[string]map[string][]map[string]types.AttributeValue)
+		}
+
 		for _, request := range requests {
-			if request.DeleteRequest == nil {
-				continue
-			}
+			switch {
+			case request.PutRequest != nil:
+				item := request.PutRequest.Item
+				partitionKey := m.getPartitionKeyFromAttributes(item)
+				if partitionKey == "" {
+					return nil, fmt.Errorf("failed to extract partition key from item")
+				}
+				sortKey := getSortKeyFromAttributes(item)
 
-			var partitionKey string
-			for _, v := range request.DeleteRequest.Key {
-				partitionKey = getStringValue(v)
-				break
-			}
+				if m.Tables[tableName][partitionKey] == nil {
+					m.Tables[tableName][partitionKey] = make(map[string]map[string]types.AttributeValue)
+				}
 
-			// Get the item before deleting to remove from indexes
-			var item map[string]types.AttributeValue
-			if m.Tables[tableName] != nil && m.Tables[tableName][partitionKey] != nil {
-				item = m.Tables[tableName][partitionKey][""]
-				delete(m.Tables[tableName][partitionKey], "")
-			}
+				var oldItem map[string]types.AttributeValue
+				if existing := m.Tables[tableName][partitionKey][sortKey]; existing != nil {
+					oldItem = existing
+				}
 
-			// Remove item from indexes
-			if item != nil {
-				m.removeItemFromIndexes(tableName, item)
+				m.Tables[tableName][partitionKey][sortKey] = item
+
+				if oldItem != nil {
+					m.removeItemFromIndexes(tableName, oldItem)
+				}
+
+				m.addItemToIndexes(tableName, item)
+
+			case request.DeleteRequest != nil:
+				partitionKey := m.getPartitionKeyFromAttributes(request.DeleteRequest.Key)
+				sortKey := getSortKeyFromAttributes(request.DeleteRequest.Key)
+
+				// Get the item before deleting to remove from indexes
+				var item map[string]types.AttributeValue
+				if m.Tables[tableName] != nil && m.Tables[tableName][partitionKey] != nil {
+					item = m.Tables[tableName][partitionKey][sortKey]
+					delete(m.Tables[tableName][partitionKey], sortKey)
+				}
+
+				// Remove item from indexes
+				if item != nil {
+					m.removeItemFromIndexes(tableName, item)
+				}
 			}
 		}
 	}
@@ -393,6 +412,34 @@ func (m *MockDynamoDBClient) ClearTables() {
 
 	m.Tables = make(map[string]map[string]map[string]map[string]types.AttributeValue)
 	m.Indexes = make(map[string]map[string]map[string][]map[string]types.AttributeValue)
+}
+
+// getPartitionKeyFromAttributes extracts the first known partition key value from the provided attributes.
+// Falls back to any string attribute if no known keys are present.
+func (m *MockDynamoDBClient) getPartitionKeyFromAttributes(attrs map[string]types.AttributeValue) string {
+	for knownKey := range m.partitionKeys {
+		if keyVal, ok := attrs[knownKey]; ok {
+			if partitionKey := getStringValue(keyVal); partitionKey != "" {
+				return partitionKey
+			}
+		}
+	}
+
+	for _, v := range attrs {
+		if partitionKey := getStringValue(v); partitionKey != "" {
+			return partitionKey
+		}
+	}
+
+	return ""
+}
+
+func getSortKeyFromAttributes(attrs map[string]types.AttributeValue) string {
+	if sortVal, ok := attrs["event_key"]; ok {
+		return getStringValue(sortVal)
+	}
+
+	return ""
 }
 
 // getStringValue extracts a string value from an AttributeValue.

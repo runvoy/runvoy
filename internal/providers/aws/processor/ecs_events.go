@@ -174,6 +174,11 @@ func (p *Processor) finalizeExecutionFromTaskEvent(
 
 	reqLogger.Info("execution updated successfully", "execution", execution)
 
+	if err = p.logEventRepo.DeleteLogEvents(ctx, executionID); err != nil {
+		reqLogger.Error("failed to delete buffered log events", "error", err, "execution_id", executionID)
+		return fmt.Errorf("failed to delete buffered logs: %w", err)
+	}
+
 	// Notify WebSocket clients about the execution completion
 	if err = p.webSocketManager.NotifyExecutionCompletion(ctx, &executionID); err != nil {
 		reqLogger.Error("failed to notify websocket clients of disconnect", "error", err)

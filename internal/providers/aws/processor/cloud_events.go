@@ -17,6 +17,7 @@ import (
 // It handles CloudWatch events, CloudWatch Logs, API Gateway WebSocket events, and scheduled events.
 type Processor struct {
 	executionRepo    database.ExecutionRepository
+	logEventRepo     database.LogEventRepository
 	webSocketManager contract.WebSocketManager
 	healthManager    contract.HealthManager
 	logger           *slog.Logger
@@ -25,12 +26,14 @@ type Processor struct {
 // NewProcessor creates a new AWS event processor.
 func NewProcessor(
 	executionRepo database.ExecutionRepository,
+	logEventRepo database.LogEventRepository,
 	webSocketManager contract.WebSocketManager,
 	healthManager contract.HealthManager,
 	log *slog.Logger,
 ) *Processor {
 	return &Processor{
 		executionRepo:    executionRepo,
+		logEventRepo:     logEventRepo,
 		webSocketManager: webSocketManager,
 		healthManager:    healthManager,
 		logger:           log,
