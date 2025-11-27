@@ -36,12 +36,12 @@ deploy-lambda lambda-name:
 
     aws lambda wait function-updated --function-name {{lambda-name}}
 
-# Deploy development webapp to S3
+# Deploy development webapp to Netlify
 [working-directory: 'cmd/webapp']
 deploy-development-webapp: build-development-webapp
-    netlify deploy --no-build --dir dist
+    netlify deploy --no-build --dir dist --prod--site runvoywebdev
 
-# Deploy production webapp to S3
+# Deploy production webapp to Netlify
 [working-directory: 'cmd/webapp']
 deploy-production-webapp: build-production-webapp
     netlify deploy --no-build --dir dist --prod
