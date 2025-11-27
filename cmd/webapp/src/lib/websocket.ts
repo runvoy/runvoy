@@ -1,6 +1,7 @@
 /**
  * WebSocket connection handler for real-time log streaming
  */
+import { get } from 'svelte/store';
 import { websocketConnection, isConnecting, connectionError } from '../stores/websocket';
 import { logEvents } from '../stores/logs';
 import { isCompleted } from '../stores/execution';
@@ -15,6 +16,7 @@ interface WebSocketMessage {
 }
 
 let socket: WebSocket | null = null;
+let manuallyDisconnected = false;
 
 /**
  * Connects to the WebSocket server
@@ -25,6 +27,7 @@ export function connectWebSocket(url: string): void {
         return;
     }
 
+    manuallyDisconnected = false;
     isConnecting.set(true);
     connectionError.set(null);
 
@@ -57,7 +60,12 @@ export function connectWebSocket(url: string): void {
                 console.log('Received disconnect message:', message.reason || 'unknown reason');
                 isCompleted.set(true);
                 if (typeof window !== 'undefined') {
-                    window.dispatchEvent(new CustomEvent('runvoy:execution-complete'));
+                    // Pass cleanClose flag to indicate websocket closed cleanly (no need to fetch logs)
+                    window.dispatchEvent(
+                        new CustomEvent('runvoy:execution-complete', {
+                            detail: { cleanClose: true }
+                        })
+                    );
                 }
                 // Close the connection gracefully
                 if (socket && socket.readyState === WebSocket.OPEN) {
@@ -106,6 +114,17 @@ export function connectWebSocket(url: string): void {
         if (event.code !== 1000) {
             // 1000 is normal closure
             connectionError.set(`Disconnected: ${event.reason || 'Connection lost'}`);
+        } else {
+            // If websocket closed cleanly (code 1000) but we didn't receive a disconnect message,
+            // and it wasn't a manual disconnect, still dispatch the event but mark it as clean close
+            // (logs are already complete)
+            if (typeof window !== 'undefined' && !get(isCompleted) && !manuallyDisconnected) {
+                window.dispatchEvent(
+                    new CustomEvent('runvoy:execution-complete', {
+                        detail: { cleanClose: true }
+                    })
+                );
+            }
         }
         websocketConnection.set(null);
     };
@@ -116,6 +135,7 @@ export function connectWebSocket(url: string): void {
  */
 export function disconnectWebSocket(): void {
     if (socket) {
+        manuallyDisconnected = true;
         socket.close(1000, 'User disconnected');
         socket = null;
         websocketConnection.set(null);
