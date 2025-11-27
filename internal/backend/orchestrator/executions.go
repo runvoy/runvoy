@@ -205,15 +205,23 @@ func (s *Service) GetLogsByExecutionID(
 		return nil, apperrors.ErrNotFound("execution not found", nil)
 	}
 
-	events, err := s.logManager.FetchLogsByExecutionID(ctx, executionID)
-	if err != nil {
-		return nil, err
-	}
-
-	var websocketURL string
 	isTerminal := slices.ContainsFunc(constants.TerminalExecutionStatuses(), func(status constants.ExecutionStatus) bool {
 		return execution.Status == string(status)
 	})
+
+	var (
+		events       []api.LogEvent
+		websocketURL string
+	)
+
+	if isTerminal {
+		logEvents, fetchErr := s.logManager.FetchLogsByExecutionID(ctx, executionID)
+		if fetchErr != nil {
+			return nil, fetchErr
+		}
+		events = logEvents
+	}
+
 	if !isTerminal {
 		websocketURL = s.wsManager.GenerateWebSocketURL(ctx, executionID, userEmail, clientIPAtCreationTime)
 	}

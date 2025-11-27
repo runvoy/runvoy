@@ -11,6 +11,7 @@ import (
 
 	"runvoy/internal/api"
 	"runvoy/internal/client/playbooks"
+	"runvoy/internal/constants"
 )
 
 func TestPlaybookService_ListPlaybooks(t *testing.T) {
@@ -197,18 +198,25 @@ commands:
 		mockClient.runCommandFunc = func(_ context.Context, req *api.ExecutionRequest) (*api.ExecutionResponse, error) {
 			assert.Equal(t, "echo hello", req.Command)
 			return &api.ExecutionResponse{
-				ExecutionID: "exec-123",
-				Status:      "STARTING",
+				ExecutionID:  "exec-123",
+				Status:       "STARTING",
+				WebSocketURL: "wss://example.com/logs/exec-123",
 			}, nil
 		}
 		mockClient.getLogsFunc = func(_ context.Context, executionID string) (*api.LogsResponse, error) {
 			return &api.LogsResponse{
-				ExecutionID: executionID,
-				Events:      []api.LogEvent{},
+				ExecutionID:  executionID,
+				Status:       string(constants.ExecutionRunning),
+				WebSocketURL: "wss://example.com/logs/" + executionID,
+				Events:       []api.LogEvent{},
 			}, nil
 		}
 
 		runService := NewRunService(mockClient, mockOutput)
+		runService.streamLogs = func(_ *LogsService, websocketURL, _ string, _ string) error {
+			assert.NotEmpty(t, websocketURL)
+			return nil
+		}
 		service := NewPlaybookService(loader, executor, mockOutput)
 
 		overrides := &PlaybookOverrides{}
@@ -254,18 +262,25 @@ commands:
 		mockClient.runCommandFunc = func(_ context.Context, req *api.ExecutionRequest) (*api.ExecutionResponse, error) {
 			assert.Equal(t, "override/image:latest", req.Image)
 			return &api.ExecutionResponse{
-				ExecutionID: "exec-123",
-				Status:      "STARTING",
+				ExecutionID:  "exec-123",
+				Status:       "STARTING",
+				WebSocketURL: "wss://example.com/logs/exec-123",
 			}, nil
 		}
 		mockClient.getLogsFunc = func(_ context.Context, executionID string) (*api.LogsResponse, error) {
 			return &api.LogsResponse{
-				ExecutionID: executionID,
-				Events:      []api.LogEvent{},
+				ExecutionID:  executionID,
+				Status:       string(constants.ExecutionRunning),
+				WebSocketURL: "wss://example.com/logs/" + executionID,
+				Events:       []api.LogEvent{},
 			}, nil
 		}
 
 		runService := NewRunService(mockClient, mockOutput)
+		runService.streamLogs = func(_ *LogsService, websocketURL, _ string, _ string) error {
+			assert.NotEmpty(t, websocketURL)
+			return nil
+		}
 		service := NewPlaybookService(loader, executor, mockOutput)
 
 		overrides := &PlaybookOverrides{
@@ -310,18 +325,25 @@ commands:
 			assert.Equal(t, "playbook-value", req.Env["PLAYBOOK_KEY"])
 			assert.Equal(t, "user-value", req.Env["USER_KEY"])
 			return &api.ExecutionResponse{
-				ExecutionID: "exec-123",
-				Status:      "STARTING",
+				ExecutionID:  "exec-123",
+				Status:       "STARTING",
+				WebSocketURL: "wss://example.com/logs/exec-123",
 			}, nil
 		}
 		mockClient.getLogsFunc = func(_ context.Context, executionID string) (*api.LogsResponse, error) {
 			return &api.LogsResponse{
-				ExecutionID: executionID,
-				Events:      []api.LogEvent{},
+				ExecutionID:  executionID,
+				Status:       string(constants.ExecutionRunning),
+				WebSocketURL: "wss://example.com/logs/" + executionID,
+				Events:       []api.LogEvent{},
 			}, nil
 		}
 
 		runService := NewRunService(mockClient, mockOutput)
+		runService.streamLogs = func(_ *LogsService, websocketURL, _ string, _ string) error {
+			assert.NotEmpty(t, websocketURL)
+			return nil
+		}
 		service := NewPlaybookService(loader, executor, mockOutput)
 
 		userEnv := map[string]string{

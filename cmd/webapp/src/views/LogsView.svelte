@@ -156,6 +156,13 @@
         lastProcessedExecutionId = id;
     }
 
+    function handleExecutionComplete(): void {
+        if (!apiClient || !currentExecutionId) {
+            return;
+        }
+        void fetchLogs(currentExecutionId);
+    }
+
     $: showWelcome = !isConfigured;
 
     $: if (!apiClient) {
@@ -198,20 +205,12 @@
             }
         });
 
-        const handleExecutionComplete = () => {
-            const id = get(executionId);
-            if (!apiClient || !id) {
-                return;
-            }
-            fetchLogs(id);
-        };
-
         window.addEventListener('runvoy:execution-complete', handleExecutionComplete);
 
         return () => {
-            window.removeEventListener('runvoy:execution-complete', handleExecutionComplete);
             unsubscribeExecution();
             unsubscribeCachedURL();
+            window.removeEventListener('runvoy:execution-complete', handleExecutionComplete);
         };
     });
 

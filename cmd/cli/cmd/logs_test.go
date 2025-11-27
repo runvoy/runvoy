@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"runvoy/internal/api"
+	"runvoy/internal/constants"
 )
 
 // mockSleeper is a test implementation that records sleep calls without actually sleeping
@@ -52,12 +53,13 @@ func (m *mockClientInterfaceForLogs) FetchBackendLogs(_ context.Context, _ strin
 
 func TestLogsService_DisplayLogs(t *testing.T) {
 	tests := []struct {
-		name         string
-		executionID  string
-		webURL       string
-		setupMock    func(*mockClientInterfaceForLogs)
-		wantErr      bool
-		verifyOutput func(*testing.T, *mockOutputInterface)
+		name             string
+		executionID      string
+		webURL           string
+		setupMock        func(*mockClientInterfaceForLogs)
+		configureService func(*testing.T, *LogsService)
+		wantErr          bool
+		verifyOutput     func(*testing.T, *mockOutputInterface)
 	}{
 		{
 			name:        "successfully displays logs",
@@ -67,6 +69,7 @@ func TestLogsService_DisplayLogs(t *testing.T) {
 				m.getLogsFunc = func(_ context.Context, _ string) (*api.LogsResponse, error) {
 					return &api.LogsResponse{
 						ExecutionID: "exec-123",
+						Status:      string(constants.ExecutionSucceeded),
 						Events: []api.LogEvent{
 							{Timestamp: 1000000, Message: "Starting process"},
 							{Timestamp: 2000000, Message: "Process completed"},
@@ -94,6 +97,7 @@ func TestLogsService_DisplayLogs(t *testing.T) {
 				m.getLogsFunc = func(_ context.Context, _ string) (*api.LogsResponse, error) {
 					return &api.LogsResponse{
 						ExecutionID: "exec-456",
+						Status:      string(constants.ExecutionFailed),
 						Events:      []api.LogEvent{},
 					}, nil
 				}
@@ -126,7 +130,6 @@ func TestLogsService_DisplayLogs(t *testing.T) {
 			},
 			wantErr: true,
 			verifyOutput: func(t *testing.T, m *mockOutputInterface) {
-				// Should not have any Table calls when there's an error
 				for _, call := range m.calls {
 					assert.NotEqual(t, "Table", call.method, "Should not display Table on error")
 				}
@@ -138,10 +141,10 @@ func TestLogsService_DisplayLogs(t *testing.T) {
 			webURL:      "https://logs.example.com",
 			setupMock: func(m *mockClientInterfaceForLogs) {
 				m.getLogsFunc = func(_ context.Context, _ string) (*api.LogsResponse, error) {
-					// Simulate the bug scenario: multiple events with the same timestamp
 					commonTimestamp := int64(1762984282442)
 					return &api.LogsResponse{
 						ExecutionID: "exec-dup-ts",
+						Status:      string(constants.ExecutionSucceeded),
 						Events: []api.LogEvent{
 							{Timestamp: 1762984282441, Message: "### runvoy runner execution started"},
 							{Timestamp: commonTimestamp, Message: "### Docker image => alpine:latest"},
@@ -151,7 +154,6 @@ func TestLogsService_DisplayLogs(t *testing.T) {
 							{Timestamp: commonTimestamp, Message: "GITHUB_TOKEN=ghp_example1234567890"},
 							{Timestamp: commonTimestamp, Message: "all done"},
 						},
-						Status: "SUCCEEDED",
 					}, nil
 				}
 			},
@@ -168,9 +170,56 @@ func TestLogsService_DisplayLogs(t *testing.T) {
 				require.GreaterOrEqual(t, len(tableCall.args), 2, "Table call should have at least 2 args")
 				rows, ok := tableCall.args[1].([][]string)
 				require.True(t, ok, "Second arg should be [][]string")
-				// Should display all 7 log events, not just 2
 				assert.Equal(t, 7, len(rows), "Should display all 7 log events even with duplicate timestamps")
 			},
+		},
+		{
+			name:        "streams logs when execution is running",
+			executionID: "exec-stream",
+			webURL:      "https://logs.example.com",
+			setupMock: func(m *mockClientInterfaceForLogs) {
+				m.getLogsFunc = func(_ context.Context, _ string) (*api.LogsResponse, error) {
+					return &api.LogsResponse{
+						ExecutionID:  "exec-stream",
+						Status:       string(constants.ExecutionRunning),
+						WebSocketURL: "wss://example.com/logs/exec-stream",
+					}, nil
+				}
+			},
+			configureService: func(t *testing.T, s *LogsService) {
+				s.stream = func(websocketURL string, startingLineNumber int, webURL, executionID string) error {
+					assert.Equal(t, "wss://example.com/logs/exec-stream", websocketURL)
+					assert.Equal(t, 0, startingLineNumber)
+					assert.Equal(t, "https://logs.example.com", webURL)
+					assert.Equal(t, "exec-stream", executionID)
+					return nil
+				}
+			},
+			wantErr: false,
+			verifyOutput: func(t *testing.T, m *mockOutputInterface) {
+				var hasInfo bool
+				for _, call := range m.calls {
+					if call.method == "Infof" {
+						hasInfo = true
+						break
+					}
+				}
+				assert.True(t, hasInfo, "Expected informational output before streaming")
+			},
+		},
+		{
+			name:        "errors when running execution lacks websocket URL",
+			executionID: "exec-missing-ws",
+			webURL:      "https://logs.example.com",
+			setupMock: func(m *mockClientInterfaceForLogs) {
+				m.getLogsFunc = func(_ context.Context, _ string) (*api.LogsResponse, error) {
+					return &api.LogsResponse{
+						ExecutionID: "exec-missing-ws",
+						Status:      string(constants.ExecutionRunning),
+					}, nil
+				}
+			},
+			wantErr: true,
 		},
 	}
 
@@ -184,6 +233,9 @@ func TestLogsService_DisplayLogs(t *testing.T) {
 			mockOutput := &mockOutputInterface{}
 			mockSleeper := &mockSleeper{}
 			service := NewLogsService(mockClient, mockOutput, mockSleeper)
+			if tt.configureService != nil {
+				tt.configureService(t, service)
+			}
 
 			err := service.DisplayLogs(context.Background(), tt.executionID, tt.webURL)
 
@@ -252,16 +304,23 @@ func TestLogsService_SmartPolling_StartingState(t *testing.T) {
 				if tt.logsError != nil {
 					return nil, tt.logsError
 				}
-				return &api.LogsResponse{
+				resp := &api.LogsResponse{
 					ExecutionID: "exec-123",
 					Events:      []api.LogEvent{{Timestamp: 1000000, Message: "Test log"}},
 					Status:      tt.executionStatus,
-				}, nil
+				}
+				if !isTerminalStatus(tt.executionStatus) {
+					resp.WebSocketURL = "wss://example.com/logs/exec-123"
+				}
+				return resp, nil
 			}
 
 			mockOutput := &mockOutputInterface{}
 			mockSleeper := &mockSleeper{}
 			service := NewLogsService(mockClient, mockOutput, mockSleeper)
+			service.stream = func(string, int, string, string) error {
+				return nil
+			}
 
 			_ = service.DisplayLogs(context.Background(), "exec-123", "https://example.com")
 

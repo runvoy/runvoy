@@ -113,15 +113,20 @@ type LogsService struct {
 	client  client.Interface
 	output  OutputInterface
 	sleeper Sleeper
+	stream  func(websocketURL string, startingLineNumber int, webURL, executionID string) error
 }
 
 // NewLogsService creates a new LogsService with the provided dependencies
 func NewLogsService(apiClient client.Interface, outputter OutputInterface, sleeper Sleeper) *LogsService {
-	return &LogsService{
+	service := &LogsService{
 		client:  apiClient,
 		output:  outputter,
 		sleeper: sleeper,
 	}
+	service.stream = func(websocketURL string, startingLineNumber int, webURL, executionID string) error {
+		return service.streamLogsViaWebSocket(websocketURL, startingLineNumber, webURL, executionID)
+	}
+	return service
 }
 
 // fetchLogsWithRetry fetches logs with retry logic for 503 errors
@@ -292,21 +297,22 @@ func (s *LogsService) DisplayLogs(ctx context.Context, executionID, webURL strin
 		return err
 	}
 
-	s.displayLogEvents(resp.Events)
-
-	if resp.WebSocketURL == "" {
-		return nil
-	}
-
 	if isTerminalStatus(resp.Status) {
+		s.displayLogEvents(resp.Events)
 		s.output.Infof("Execution has completed with status: %s", resp.Status)
 		return nil
 	}
 
-	// Start streaming from line number after static logs
-	_ = s.streamLogsViaWebSocket(resp.WebSocketURL, len(resp.Events), webURL, executionID)
+	if resp.WebSocketURL == "" {
+		return fmt.Errorf("execution is %s but no websocket URL was provided for streaming", resp.Status)
+	}
 
-	return nil
+	if s.stream == nil {
+		return fmt.Errorf("websocket streaming function is not configured")
+	}
+
+	s.output.Infof("Execution status: %s. Streaming logs via WebSocket...", resp.Status)
+	return s.stream(resp.WebSocketURL, len(resp.Events), webURL, executionID)
 }
 
 // displayLogEvents displays all log events in a sorted table

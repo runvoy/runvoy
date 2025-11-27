@@ -64,6 +64,7 @@ func TestRunService_ExecuteCommand(t *testing.T) {
 				m.getLogsFunc = func(_ context.Context, executionID string) (*api.LogsResponse, error) {
 					return &api.LogsResponse{
 						ExecutionID: executionID,
+						Status:      string(constants.ExecutionSucceeded),
 						Events:      []api.LogEvent{},
 					}, nil
 				}
@@ -105,6 +106,7 @@ func TestRunService_ExecuteCommand(t *testing.T) {
 				m.getLogsFunc = func(_ context.Context, executionID string) (*api.LogsResponse, error) {
 					return &api.LogsResponse{
 						ExecutionID: executionID,
+						Status:      string(constants.ExecutionSucceeded),
 						Events:      []api.LogEvent{},
 					}, nil
 				}
@@ -144,6 +146,7 @@ func TestRunService_ExecuteCommand(t *testing.T) {
 				m.getLogsFunc = func(_ context.Context, executionID string) (*api.LogsResponse, error) {
 					return &api.LogsResponse{
 						ExecutionID: executionID,
+						Status:      string(constants.ExecutionSucceeded),
 						Events:      []api.LogEvent{},
 					}, nil
 				}
@@ -181,6 +184,7 @@ func TestRunService_ExecuteCommand(t *testing.T) {
 				m.getLogsFunc = func(_ context.Context, executionID string) (*api.LogsResponse, error) {
 					return &api.LogsResponse{
 						ExecutionID: executionID,
+						Status:      string(constants.ExecutionSucceeded),
 						Events:      []api.LogEvent{},
 					}, nil
 				}
@@ -216,6 +220,7 @@ func TestRunService_ExecuteCommand(t *testing.T) {
 				m.getLogsFunc = func(_ context.Context, executionID string) (*api.LogsResponse, error) {
 					return &api.LogsResponse{
 						ExecutionID: executionID,
+						Status:      string(constants.ExecutionSucceeded),
 						Events:      []api.LogEvent{},
 					}, nil
 				}
@@ -275,6 +280,7 @@ func TestRunService_ExecuteCommand(t *testing.T) {
 				m.getLogsFunc = func(_ context.Context, executionID string) (*api.LogsResponse, error) {
 					return &api.LogsResponse{
 						ExecutionID: executionID,
+						Status:      string(constants.ExecutionSucceeded),
 						Events:      []api.LogEvent{},
 					}, nil
 				}
@@ -301,6 +307,7 @@ func TestRunService_ExecuteCommand(t *testing.T) {
 				m.getLogsFunc = func(_ context.Context, executionID string) (*api.LogsResponse, error) {
 					return &api.LogsResponse{
 						ExecutionID: executionID,
+						Status:      string(constants.ExecutionSucceeded),
 						Events:      []api.LogEvent{},
 					}, nil
 				}
@@ -358,6 +365,7 @@ func TestRunService_ExecuteCommand(t *testing.T) {
 				m.getLogsFunc = func(_ context.Context, executionID string) (*api.LogsResponse, error) {
 					return &api.LogsResponse{
 						ExecutionID: executionID,
+						Status:      string(constants.ExecutionSucceeded),
 						Events:      []api.LogEvent{},
 					}, nil
 				}
