@@ -115,10 +115,7 @@ func (s *Service) RunCommand(
 		return nil, fmt.Errorf("failed to record execution: %w", execErr)
 	}
 
-	var websocketURL string
-	if s.wsManager != nil {
-		websocketURL = s.wsManager.GenerateWebSocketURL(ctx, executionID, &userEmail, clientIPAtCreationTime)
-	}
+	websocketURL := s.wsManager.GenerateWebSocketURL(ctx, executionID, &userEmail, clientIPAtCreationTime)
 
 	return &api.ExecutionResponse{
 		ExecutionID:  executionID,
@@ -214,13 +211,11 @@ func (s *Service) GetLogsByExecutionID(
 	}
 
 	var websocketURL string
-	if s.wsManager != nil {
-		isTerminal := slices.ContainsFunc(constants.TerminalExecutionStatuses(), func(status constants.ExecutionStatus) bool {
-			return execution.Status == string(status)
-		})
-		if !isTerminal {
-			websocketURL = s.wsManager.GenerateWebSocketURL(ctx, executionID, userEmail, clientIPAtCreationTime)
-		}
+	isTerminal := slices.ContainsFunc(constants.TerminalExecutionStatuses(), func(status constants.ExecutionStatus) bool {
+		return execution.Status == string(status)
+	})
+	if !isTerminal {
+		websocketURL = s.wsManager.GenerateWebSocketURL(ctx, executionID, userEmail, clientIPAtCreationTime)
 	}
 
 	return &api.LogsResponse{

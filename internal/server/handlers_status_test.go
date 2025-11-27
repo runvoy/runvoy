@@ -90,7 +90,7 @@ func TestGetExecutionStatus_Unauthorized(t *testing.T) {
 		&mockRunner{}, // ObservabilityManager
 		testutil.SilentLogger(),
 		constants.AWS,
-		nil,
+		&testWebSocketManager{},
 		&noopHealthManager{},
 		newPermissiveTestEnforcerForHandlers(t),
 	)

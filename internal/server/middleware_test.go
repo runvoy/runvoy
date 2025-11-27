@@ -54,7 +54,7 @@ func TestRequestIDMiddleware(t *testing.T) {
 			&testRunner{}, // ObservabilityManager
 			testutil.SilentLogger(),
 			constants.AWS,
-			nil,
+			&testWebSocketManager{},
 			&noopHealthManager{},
 			newPermissiveTestEnforcerForHandlers(t),
 		)
@@ -114,7 +114,7 @@ func TestRequestIDMiddleware(t *testing.T) {
 			&testRunner{}, // ObservabilityManager
 			testutil.SilentLogger(),
 			constants.AWS,
-			nil,
+			&testWebSocketManager{},
 			&noopHealthManager{},
 			newPermissiveTestEnforcerForHandlers(t),
 		)
@@ -167,7 +167,7 @@ func TestRequestIDMiddleware(t *testing.T) {
 			&testRunner{}, // ObservabilityManager
 			testutil.SilentLogger(),
 			constants.AWS,
-			nil,
+			&testWebSocketManager{},
 			&noopHealthManager{},
 			newPermissiveTestEnforcerForHandlers(t),
 		)
@@ -228,7 +228,7 @@ func TestRequestIDMiddleware(t *testing.T) {
 			&testRunner{}, // ObservabilityManager
 			testutil.SilentLogger(),
 			constants.AWS,
-			nil,
+			&testWebSocketManager{},
 			&noopHealthManager{},
 			newPermissiveTestEnforcerForHandlers(t),
 		)
@@ -363,7 +363,7 @@ func TestCorsMiddleware(t *testing.T) {
 		runner, // ObservabilityManager
 		testutil.SilentLogger(),
 		constants.AWS,
-		nil,
+		&testWebSocketManager{},
 		&noopHealthManager{},
 		newPermissiveTestEnforcerForHandlers(t),
 	)

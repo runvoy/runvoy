@@ -11,7 +11,6 @@ import (
 	"runvoy/internal/api"
 	"runvoy/internal/auth"
 	"runvoy/internal/auth/authorization"
-	"runvoy/internal/backend/contract"
 	"runvoy/internal/constants"
 	"runvoy/internal/database"
 	apperrors "runvoy/internal/errors"
@@ -825,48 +824,48 @@ func TestGetLogsByExecutionID_WebSocketToken(t *testing.T) {
 				},
 			}
 
-			// Create mock websocket manager if base URL is provided
-			var wsManager contract.WebSocketManager
-			if tt.websocketBaseURL != "" {
-				wsManager = &mockWebSocketManager{
-					generateWebSocketURLFunc: func(
-						ctx context.Context,
-						executionID string,
-						userEmail *string,
-						clientIPAtCreationTime *string,
-					) string {
-						// Simulate the real GenerateWebSocketURL behavior
-						token, err := auth.GenerateSecretToken()
-						if err != nil {
-							return ""
-						}
-						email := ""
-						if userEmail != nil {
-							email = *userEmail
-						}
-						clientIP := ""
-						if clientIPAtCreationTime != nil {
-							clientIP = *clientIPAtCreationTime
-						}
-						wsToken := &api.WebSocketToken{
-							Token:       token,
-							ExecutionID: executionID,
-							UserEmail:   email,
-							ClientIP:    clientIP,
-							ExpiresAt:   time.Now().Add(24 * time.Hour).Unix(),
-							CreatedAt:   time.Now().Unix(),
-						}
-						if createErr := tokenRepo.CreateToken(ctx, wsToken); createErr != nil {
-							return ""
-						}
-						return fmt.Sprintf(
-							"wss://%s?execution_id=%s&token=%s",
-							tt.websocketBaseURL,
-							executionID,
-							token,
-						)
-					},
-				}
+			// Create mock websocket manager, optionally generating URLs
+			wsManager := &mockWebSocketManager{
+				generateWebSocketURLFunc: func(
+					ctx context.Context,
+					executionID string,
+					userEmail *string,
+					clientIPAtCreationTime *string,
+				) string {
+					if tt.websocketBaseURL == "" {
+						return ""
+					}
+					// Simulate the real GenerateWebSocketURL behavior
+					token, err := auth.GenerateSecretToken()
+					if err != nil {
+						return ""
+					}
+					email := ""
+					if userEmail != nil {
+						email = *userEmail
+					}
+					clientIP := ""
+					if clientIPAtCreationTime != nil {
+						clientIP = *clientIPAtCreationTime
+					}
+					wsToken := &api.WebSocketToken{
+						Token:       token,
+						ExecutionID: executionID,
+						UserEmail:   email,
+						ClientIP:    clientIP,
+						ExpiresAt:   time.Now().Add(24 * time.Hour).Unix(),
+						CreatedAt:   time.Now().Unix(),
+					}
+					if createErr := tokenRepo.CreateToken(ctx, wsToken); createErr != nil {
+						return ""
+					}
+					return fmt.Sprintf(
+						"wss://%s?execution_id=%s&token=%s",
+						tt.websocketBaseURL,
+						executionID,
+						token,
+					)
+				},
 			}
 
 			svc := newTestServiceWithWebSocketManager(nil, execRepo, runner, wsManager)

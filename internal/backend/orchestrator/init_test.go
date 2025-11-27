@@ -37,7 +37,7 @@ func TestInitialize_UsesCustomInitializer(t *testing.T) {
 		ImageRegistry:        runner,
 		LogManager:           runner,
 		ObservabilityManager: runner,
-		WebSocketManager:     nil,
+		WebSocketManager:     &mockWebSocketManager{},
 		HealthManager:        &stubHealthManager{},
 	}
 

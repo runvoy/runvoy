@@ -37,7 +37,7 @@ func TestNewRouter(t *testing.T) {
 		&testRunner{}, // ObservabilityManager
 		testutil.SilentLogger(),
 		constants.AWS,
-		nil,
+		&testWebSocketManager{},
 		&noopHealthManager{},
 		newPermissiveTestEnforcerForHandlers(t),
 	)
@@ -79,7 +79,7 @@ func TestRouter_ChiMux(t *testing.T) {
 		&testRunner{}, // ObservabilityManager
 		testutil.SilentLogger(),
 		constants.AWS,
-		nil,
+		&testWebSocketManager{},
 		&noopHealthManager{},
 		newPermissiveTestEnforcerForHandlers(t),
 	)
@@ -112,7 +112,7 @@ func TestRouter_Handler(t *testing.T) {
 		&testRunner{}, // ObservabilityManager
 		testutil.SilentLogger(),
 		constants.AWS,
-		nil,
+		&testWebSocketManager{},
 		&noopHealthManager{},
 		newPermissiveTestEnforcerForHandlers(t),
 	)
@@ -145,7 +145,7 @@ func TestRouter_WithContext(t *testing.T) {
 		&testRunner{}, // ObservabilityManager
 		testutil.SilentLogger(),
 		constants.AWS,
-		nil,
+		&testWebSocketManager{},
 		&noopHealthManager{},
 		newPermissiveTestEnforcerForHandlers(t),
 	)
@@ -170,7 +170,7 @@ func TestRouter_WithContext(t *testing.T) {
 		runner2, // ObservabilityManager
 		testutil.SilentLogger(),
 		constants.AWS,
-		nil,
+		&testWebSocketManager{},
 		&noopHealthManager{},
 		newPermissiveTestEnforcerForHandlers(t),
 	)
@@ -205,7 +205,7 @@ func TestRouter_ServeHTTP(t *testing.T) {
 		&testRunner{}, // ObservabilityManager
 		testutil.SilentLogger(),
 		constants.AWS,
-		nil,
+		&testWebSocketManager{},
 		&noopHealthManager{},
 		newPermissiveTestEnforcerForHandlers(t),
 	)

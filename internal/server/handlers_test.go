@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -273,6 +274,29 @@ func (t *testHealthManager) Reconcile(_ context.Context) (*api.HealthReport, err
 	return &api.HealthReport{}, nil
 }
 
+type testWebSocketManager struct{}
+
+func (t *testWebSocketManager) HandleRequest(_ context.Context, _ *json.RawMessage, _ *slog.Logger) (bool, error) {
+	return false, nil
+}
+
+func (t *testWebSocketManager) NotifyExecutionCompletion(_ context.Context, _ *string) error {
+	return nil
+}
+
+func (t *testWebSocketManager) SendLogsToExecution(_ context.Context, _ *string, _ []api.LogEvent) error {
+	return nil
+}
+
+func (t *testWebSocketManager) GenerateWebSocketURL(
+	_ context.Context,
+	_ string,
+	_ *string,
+	_ *string,
+) string {
+	return ""
+}
+
 type testRunner struct {
 	runCommandFunc           func(userEmail string, req *api.ExecutionRequest) (*time.Time, error)
 	listImagesFunc           func() ([]api.ImageInfo, error)
@@ -388,6 +412,9 @@ func newTestOrchestratorService(
 	if healthManager == nil {
 		healthManager = &noopHealthManager{}
 	}
+	if wsManager == nil {
+		wsManager = &testWebSocketManager{}
+	}
 
 	repos := database.Repositories{
 		User:       userRepo,
@@ -435,7 +462,7 @@ func newTestRouterForUnauthorized(t *testing.T) *Router {
 		&testRunner{}, // ObservabilityManager
 		testutil.SilentLogger(),
 		constants.AWS,
-		nil,
+		&testWebSocketManager{},
 		&noopHealthManager{},
 		newPermissiveTestEnforcerForHandlers(t),
 	)
@@ -517,7 +544,7 @@ func TestHandleRunCommand_WithImage_ValidatesAuthorization(t *testing.T) {
 		runner, // ObservabilityManager
 		testutil.SilentLogger(),
 		constants.AWS,
-		nil,
+		&testWebSocketManager{},
 		&noopHealthManager{},
 		enf,
 	)
@@ -578,7 +605,7 @@ func TestHandleRunCommand_WithSecrets_ValidatesAuthorization(t *testing.T) {
 		runner, // ObservabilityManager
 		testutil.SilentLogger(),
 		constants.AWS,
-		nil,
+		&testWebSocketManager{},
 		&noopHealthManager{},
 		enf,
 	)
@@ -651,7 +678,7 @@ func TestHandleRunCommand_AllResourcesAuthorized(t *testing.T) {
 		runner, // ObservabilityManager
 		testutil.SilentLogger(),
 		constants.AWS,
-		nil,
+		&testWebSocketManager{},
 		&noopHealthManager{},
 		enf,
 	)
@@ -1042,7 +1069,7 @@ func TestHandleReconcileHealth_Unauthenticated(t *testing.T) {
 		&testRunner{}, // ObservabilityManager
 		testutil.SilentLogger(),
 		constants.AWS,
-		nil,
+		&testWebSocketManager{},
 		&noopHealthManager{},
 		newPermissiveTestEnforcerForHandlers(t),
 	)
