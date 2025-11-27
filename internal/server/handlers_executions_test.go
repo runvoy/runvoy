@@ -5,12 +5,14 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
 
 	"runvoy/internal/api"
+	"runvoy/internal/backend/contract"
 	"runvoy/internal/constants"
 	apperrors "runvoy/internal/errors"
 	"runvoy/internal/testutil"
@@ -167,6 +169,65 @@ func TestHandleRunCommand_WithEnvironmentVariables(t *testing.T) {
 	assert.Equal(t, http.StatusAccepted, w.Code)
 }
 
+func TestHandleRunCommand_ReturnsWebSocketURL(t *testing.T) {
+	expectedWebSocketURL := "wss://example.com/logs/exec-123?token=abc"
+	wsManager := &stubWebSocketManager{
+		generateURL: func(
+			_ context.Context,
+			executionID string,
+			userEmail *string,
+			clientIPAtCreationTime *string,
+		) string {
+			assert.Equal(t, "exec-123", executionID)
+			require.NotNil(t, userEmail)
+			assert.Equal(t, "user@example.com", *userEmail)
+			require.NotNil(t, clientIPAtCreationTime)
+			assert.Equal(t, "203.0.113.10", *clientIPAtCreationTime)
+			return expectedWebSocketURL
+		},
+	}
+	runner := &testRunner{
+		getImageFunc: func(image string) (*api.ImageInfo, error) {
+			return &api.ImageInfo{Image: image, ImageID: "sha256:default"}, nil
+		},
+	}
+	svc := newTestOrchestratorService(
+		t,
+		&testUserRepository{},
+		&testExecutionRepository{},
+		nil,
+		runner,
+		wsManager,
+		nil,
+		nil,
+	)
+	router := &Router{svc: svc}
+
+	reqBody := api.ExecutionRequest{
+		Command: "echo hello",
+	}
+	body, err := json.Marshal(reqBody)
+	require.NoError(t, err)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/run", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Forwarded-For", "203.0.113.10")
+	req = addAuthenticatedUser(req, &api.User{
+		Email: "user@example.com",
+		Role:  "admin",
+	})
+
+	w := httptest.NewRecorder()
+	router.handleRunCommand(w, req)
+
+	assert.Equal(t, http.StatusAccepted, w.Code)
+
+	var response api.ExecutionResponse
+	err = json.NewDecoder(w.Body).Decode(&response)
+	require.NoError(t, err)
+	assert.Equal(t, expectedWebSocketURL, response.WebSocketURL)
+}
+
 func TestHandleRunCommand_WithTimeout(t *testing.T) {
 	runner := &testRunner{
 		getImageFunc: func(image string) (*api.ImageInfo, error) {
@@ -202,6 +263,49 @@ func TestHandleRunCommand_WithTimeout(t *testing.T) {
 	router.handleRunCommand(w, req)
 
 	assert.Equal(t, http.StatusAccepted, w.Code)
+}
+
+type stubWebSocketManager struct {
+	generateURL func(
+		ctx context.Context,
+		executionID string,
+		userEmail *string,
+		clientIPAtCreationTime *string,
+	) string
+}
+
+var _ contract.WebSocketManager = (*stubWebSocketManager)(nil)
+
+func (s *stubWebSocketManager) HandleRequest(
+	_ context.Context,
+	_ *json.RawMessage,
+	_ *slog.Logger,
+) (bool, error) {
+	return false, nil
+}
+
+func (s *stubWebSocketManager) NotifyExecutionCompletion(_ context.Context, _ *string) error {
+	return nil
+}
+
+func (s *stubWebSocketManager) SendLogsToExecution(
+	_ context.Context,
+	_ *string,
+	_ []api.LogEvent,
+) error {
+	return nil
+}
+
+func (s *stubWebSocketManager) GenerateWebSocketURL(
+	ctx context.Context,
+	executionID string,
+	userEmail *string,
+	clientIPAtCreationTime *string,
+) string {
+	if s.generateURL != nil {
+		return s.generateURL(ctx, executionID, userEmail, clientIPAtCreationTime)
+	}
+	return ""
 }
 
 // ==================== handleGetExecutionLogs tests ====================

@@ -32,6 +32,7 @@
     let fetchLogsTimer: ReturnType<typeof setTimeout> | undefined;
     let currentExecutionId: string | null = null;
     let websocketURL: string | null = null;
+    let lastProcessedExecutionId: string | null = null;
     const TERMINAL_STATES = ['SUCCEEDED', 'FAILED', 'STOPPED'];
 
     async function handleKillExecution(): Promise<void> {
@@ -43,7 +44,7 @@
         try {
             await apiClient.killExecution(id);
             // Refetch logs to get updated status
-            await fetchLogs();
+            await fetchLogs(id);
         } catch (error) {
             const err = error as ApiError;
             errorMessage = err.details?.error || err.message || 'Failed to stop execution';
@@ -67,8 +68,7 @@
         return new Date(earliestTimestamp).toISOString();
     }
 
-    async function fetchLogs(): Promise<void> {
-        const id = get(executionId);
+    async function fetchLogs(id: string): Promise<void> {
         if (!apiClient || !id) {
             return;
         }
@@ -136,7 +136,7 @@
                 const attempt = retryCount + 1;
                 errorMessage = `Logs not available yet, retrying... (${attempt}/${MAX_LOGS_RETRIES})`;
                 logsRetryCount.set(attempt);
-                fetchLogsTimer = setTimeout(fetchLogs, LOGS_RETRY_DELAY);
+                fetchLogsTimer = setTimeout(() => fetchLogs(id), LOGS_RETRY_DELAY);
             } else {
                 errorMessage = err.details?.error || err.message || 'Failed to fetch logs';
                 logEvents.set([]);
@@ -144,23 +144,16 @@
         }
     }
 
-    $: currentExecutionId = $executionId;
-    $: websocketURL = $cachedWebSocketURL;
-
-    $: {
-        if (apiClient && currentExecutionId) {
-            disconnectWebSocket();
-            executionStatus.set('LOADING');
-            startedAt.set(null);
-            isCompleted.set(false);
-            fetchLogs();
-        }
-    }
-
-    $: {
-        if (websocketURL) {
-            connectWebSocket(websocketURL);
-        }
+    function resetForExecution(id: string | null): void {
+        clearTimeout(fetchLogsTimer);
+        disconnectWebSocket();
+        executionStatus.set('LOADING');
+        startedAt.set(null);
+        isCompleted.set(false);
+        errorMessage = '';
+        statusCheckErrorMessage = '';
+        showStatusCheckErrorModal = false;
+        lastProcessedExecutionId = id;
     }
 
     $: showWelcome = !isConfigured;
@@ -168,6 +161,7 @@
     $: if (!apiClient) {
         clearTimeout(fetchLogsTimer);
         disconnectWebSocket();
+        lastProcessedExecutionId = null;
     }
 
     onMount(() => {
@@ -175,18 +169,49 @@
             return undefined;
         }
 
+        const unsubscribeExecution = executionId.subscribe((id) => {
+            currentExecutionId = id;
+            if (!apiClient) {
+                return;
+            }
+            if (!id) {
+                lastProcessedExecutionId = null;
+                return;
+            }
+            if (id !== lastProcessedExecutionId) {
+                resetForExecution(id);
+                if (!websocketURL) {
+                    fetchLogs(id);
+                }
+            }
+        });
+
+        const unsubscribeCachedURL = cachedWebSocketURL.subscribe((url) => {
+            websocketURL = url;
+            if (!apiClient) {
+                return;
+            }
+            if (url) {
+                connectWebSocket(url);
+            } else {
+                disconnectWebSocket();
+            }
+        });
+
         const handleExecutionComplete = () => {
             const id = get(executionId);
             if (!apiClient || !id) {
                 return;
             }
-            fetchLogs();
+            fetchLogs(id);
         };
 
         window.addEventListener('runvoy:execution-complete', handleExecutionComplete);
 
         return () => {
             window.removeEventListener('runvoy:execution-complete', handleExecutionComplete);
+            unsubscribeExecution();
+            unsubscribeCachedURL();
         };
     });
 

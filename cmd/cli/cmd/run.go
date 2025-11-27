@@ -118,8 +118,9 @@ type ExecuteCommandRequest struct {
 
 // RunService handles command execution logic
 type RunService struct {
-	client client.Interface
-	output OutputInterface
+	client     client.Interface
+	output     OutputInterface
+	streamLogs func(logsService *LogsService, websocketURL, webURL, executionID string) error
 }
 
 // NewRunService creates a new RunService with the provided dependencies
@@ -127,6 +128,9 @@ func NewRunService(apiClient client.Interface, outputter OutputInterface) *RunSe
 	return &RunService{
 		client: apiClient,
 		output: outputter,
+		streamLogs: func(logsService *LogsService, websocketURL, webURL, executionID string) error {
+			return logsService.streamLogsViaWebSocket(websocketURL, 0, webURL, executionID)
+		},
 	}
 }
 
@@ -175,6 +179,13 @@ func (s *RunService) ExecuteCommand(ctx context.Context, req *ExecuteCommandRequ
 
 	// Stream logs similar to the logs command
 	logsService := NewLogsService(s.client, s.output, &RealSleeper{})
+	if resp.WebSocketURL != "" && s.streamLogs != nil {
+		streamErr := s.streamLogs(logsService, resp.WebSocketURL, req.WebURL, resp.ExecutionID)
+		if streamErr == nil {
+			return nil
+		}
+		s.output.Warningf("Failed to stream logs directly, falling back to polling: %v", streamErr)
+	}
 	if serviceErr := logsService.DisplayLogs(ctx, resp.ExecutionID, req.WebURL); serviceErr != nil {
 		return fmt.Errorf("failed to stream logs: %w", serviceErr)
 	}

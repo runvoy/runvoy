@@ -389,6 +389,7 @@ func newTestServiceWithConnRepo(
 	observabilityManager contract.ObservabilityManager,
 ) *Service {
 	logger := testutil.SilentLogger()
+	wsManager := contract.WebSocketManager(&mockWebSocketManager{})
 	repos := database.Repositories{
 		User:       userRepo,
 		Execution:  execRepo,
@@ -404,7 +405,7 @@ func newTestServiceWithConnRepo(
 		&repos,
 		taskManager, imageRegistry, logManager, observabilityManager,
 		logger, constants.AWS,
-		nil, healthManager, newPermissiveEnforcer(),
+		wsManager, healthManager, newPermissiveEnforcer(),
 	)
 	if err != nil {
 		panic(err)
@@ -462,6 +463,7 @@ func newTestServiceWithEnforcer(
 		Secrets:    secretsRepoIface,
 	}
 	healthManager := &stubHealthManager{}
+	wsManager := contract.WebSocketManager(&mockWebSocketManager{})
 	svc, err := NewService(
 		context.Background(),
 		testRegion,
@@ -472,7 +474,7 @@ func newTestServiceWithEnforcer(
 		observabilityManager,
 		logger,
 		constants.AWS,
-		nil,
+		wsManager,
 		healthManager,
 		enforcer,
 	)
@@ -520,6 +522,7 @@ func newTestServiceWithSecretsRepo(
 		Secrets:    secretsRepo,
 	}
 	healthManager := &stubHealthManager{}
+	wsManager := contract.WebSocketManager(&mockWebSocketManager{})
 	svc, err := NewService(
 		context.Background(),
 		testRegion,
@@ -530,7 +533,7 @@ func newTestServiceWithSecretsRepo(
 		observabilityManager,
 		logger,
 		constants.AWS,
-		nil,
+		wsManager,
 		healthManager,
 		newPermissiveEnforcer(),
 	)
@@ -612,6 +615,10 @@ func newTestServiceWithWebSocketManager(
 	wsManager contract.WebSocketManager,
 ) *Service {
 	logger := testutil.SilentLogger()
+
+	if wsManager == nil {
+		wsManager = &mockWebSocketManager{}
+	}
 
 	userRepoIface := database.UserRepository(&mockUserRepository{})
 	if userRepo != nil {

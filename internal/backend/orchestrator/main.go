@@ -31,7 +31,7 @@ type Service struct {
 // NewService creates a new service instance and initializes the enforcer with user roles from the database.
 // Returns an error if the enforcer is configured but user roles cannot be loaded (critical initialization failure).
 // Core repositories (repos.User, repos.Execution) and enforcer are required for initialization and must be non-nil.
-// If wsManager is nil, WebSocket URL generation will be skipped.
+// WebSocket manager is required for log streaming token generation.
 // If repos.Secrets is nil, secrets operations will not be available.
 // If repos.Image is nil, image-by-request-ID queries will not be available.
 // healthManager is required; initialization fails if it is nil.
@@ -56,6 +56,9 @@ func NewService(
 	}
 	if healthManager == nil {
 		return nil, fmt.Errorf("healthManager is required")
+	}
+	if wsManager == nil {
+		return nil, fmt.Errorf("wsManager is required")
 	}
 
 	svc := &Service{

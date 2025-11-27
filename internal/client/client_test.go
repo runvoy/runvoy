@@ -436,9 +436,10 @@ func TestClient_RunCommand(t *testing.T) {
 
 			w.WriteHeader(http.StatusOK)
 			_ = json.NewEncoder(w).Encode(api.ExecutionResponse{
-				ExecutionID: "exec-123",
-				LogURL:      "https://example.com/logs/exec-123",
-				Status:      "RUNNING",
+				ExecutionID:  "exec-123",
+				LogURL:       "https://example.com/logs/exec-123",
+				Status:       "RUNNING",
+				WebSocketURL: "wss://example.com/ws/exec-123",
 			})
 		}))
 		defer server.Close()
@@ -457,6 +458,7 @@ func TestClient_RunCommand(t *testing.T) {
 		require.NotNil(t, resp)
 		assert.Equal(t, "exec-123", resp.ExecutionID)
 		assert.Equal(t, "RUNNING", resp.Status)
+		assert.Equal(t, "wss://example.com/ws/exec-123", resp.WebSocketURL)
 	})
 }
 

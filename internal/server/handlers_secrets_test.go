@@ -459,7 +459,7 @@ func newTestService(
 		mockRunner, // ObservabilityManager
 		logger,
 		constants.AWS,
-		nil, // wsManager
+		&testWebSocketManager{}, // wsManager
 		&noopHealthManager{},
 		enforcer,
 	)

@@ -11,7 +11,6 @@ import (
 	"runvoy/internal/api"
 	"runvoy/internal/auth"
 	"runvoy/internal/auth/authorization"
-	"runvoy/internal/backend/contract"
 	"runvoy/internal/constants"
 	"runvoy/internal/database"
 	apperrors "runvoy/internal/errors"
@@ -108,7 +107,7 @@ func TestRunCommand(t *testing.T) {
 				ImageID: "default-image-id",
 				Image:   "default-image",
 			}
-			resp, err := svc.RunCommand(ctx, tt.userEmail, &tt.req, resolvedImage)
+			resp, err := svc.RunCommand(ctx, tt.userEmail, nil, &tt.req, resolvedImage)
 
 			if tt.expectErr {
 				require.Error(t, err)
@@ -181,7 +180,7 @@ func TestRunCommand_WithSecrets(t *testing.T) {
 		ImageID: "default-image-id",
 		Image:   "default-image",
 	}
-	resp, err := svc.RunCommand(ctx, "user@example.com", &req, resolvedImage)
+	resp, err := svc.RunCommand(ctx, "user@example.com", nil, &req, resolvedImage)
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 
@@ -214,13 +213,57 @@ func TestRunCommand_AddsExecutionOwnership(t *testing.T) {
 		ImageID: "default-image-id",
 		Image:   "default-image",
 	}
-	_, err := service.RunCommand(ctx, "owner@example.com", &req, resolvedImage)
+	_, err := service.RunCommand(ctx, "owner@example.com", nil, &req, resolvedImage)
 	require.NoError(t, err)
 
 	resourceID := authorization.FormatResourceID("execution", "exec-ownership")
 	hasOwnership, checkErr := enforcer.HasOwnershipForResource(resourceID, "owner@example.com")
 	require.NoError(t, checkErr)
 	assert.True(t, hasOwnership)
+}
+
+func TestRunCommand_ReturnsWebSocketURL(t *testing.T) {
+	ctx := context.Background()
+	execRepo := &mockExecutionRepository{}
+	runner := &mockRunner{
+		startTaskFunc: func(_ context.Context, _ string, _ *api.ExecutionRequest) (string, *time.Time, error) {
+			return "exec-ws", timePtr(time.Now()), nil
+		},
+	}
+
+	websocketURL := "wss://example.com/logs?execution_id=exec-ws&token=abc123"
+	wsManager := &mockWebSocketManager{
+		generateWebSocketURLFunc: func(
+			_ context.Context,
+			executionID string,
+			userEmail *string,
+			clientIPAtCreationTime *string,
+		) string {
+			assert.Equal(t, "exec-ws", executionID)
+			require.NotNil(t, userEmail)
+			assert.Equal(t, "user@example.com", *userEmail)
+			require.NotNil(t, clientIPAtCreationTime)
+			assert.Equal(t, "203.0.113.1", *clientIPAtCreationTime)
+			return websocketURL
+		},
+	}
+
+	svc := newTestServiceWithWebSocketManager(nil, execRepo, runner, wsManager)
+	resolvedImage := &api.ImageInfo{
+		ImageID: "default-image-id",
+		Image:   "default-image",
+	}
+	clientIP := "203.0.113.1"
+	resp, err := svc.RunCommand(
+		ctx,
+		"user@example.com",
+		&clientIP,
+		&api.ExecutionRequest{Command: "echo hello"},
+		resolvedImage,
+	)
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	assert.Equal(t, websocketURL, resp.WebSocketURL)
 }
 
 func TestGetExecutionStatus(t *testing.T) {
@@ -781,48 +824,48 @@ func TestGetLogsByExecutionID_WebSocketToken(t *testing.T) {
 				},
 			}
 
-			// Create mock websocket manager if base URL is provided
-			var wsManager contract.WebSocketManager
-			if tt.websocketBaseURL != "" {
-				wsManager = &mockWebSocketManager{
-					generateWebSocketURLFunc: func(
-						ctx context.Context,
-						executionID string,
-						userEmail *string,
-						clientIPAtCreationTime *string,
-					) string {
-						// Simulate the real GenerateWebSocketURL behavior
-						token, err := auth.GenerateSecretToken()
-						if err != nil {
-							return ""
-						}
-						email := ""
-						if userEmail != nil {
-							email = *userEmail
-						}
-						clientIP := ""
-						if clientIPAtCreationTime != nil {
-							clientIP = *clientIPAtCreationTime
-						}
-						wsToken := &api.WebSocketToken{
-							Token:       token,
-							ExecutionID: executionID,
-							UserEmail:   email,
-							ClientIP:    clientIP,
-							ExpiresAt:   time.Now().Add(24 * time.Hour).Unix(),
-							CreatedAt:   time.Now().Unix(),
-						}
-						if createErr := tokenRepo.CreateToken(ctx, wsToken); createErr != nil {
-							return ""
-						}
-						return fmt.Sprintf(
-							"wss://%s?execution_id=%s&token=%s",
-							tt.websocketBaseURL,
-							executionID,
-							token,
-						)
-					},
-				}
+			// Create mock websocket manager, optionally generating URLs
+			wsManager := &mockWebSocketManager{
+				generateWebSocketURLFunc: func(
+					ctx context.Context,
+					executionID string,
+					userEmail *string,
+					clientIPAtCreationTime *string,
+				) string {
+					if tt.websocketBaseURL == "" {
+						return ""
+					}
+					// Simulate the real GenerateWebSocketURL behavior
+					token, err := auth.GenerateSecretToken()
+					if err != nil {
+						return ""
+					}
+					email := ""
+					if userEmail != nil {
+						email = *userEmail
+					}
+					clientIP := ""
+					if clientIPAtCreationTime != nil {
+						clientIP = *clientIPAtCreationTime
+					}
+					wsToken := &api.WebSocketToken{
+						Token:       token,
+						ExecutionID: executionID,
+						UserEmail:   email,
+						ClientIP:    clientIP,
+						ExpiresAt:   time.Now().Add(24 * time.Hour).Unix(),
+						CreatedAt:   time.Now().Unix(),
+					}
+					if createErr := tokenRepo.CreateToken(ctx, wsToken); createErr != nil {
+						return ""
+					}
+					return fmt.Sprintf(
+						"wss://%s?execution_id=%s&token=%s",
+						tt.websocketBaseURL,
+						executionID,
+						token,
+					)
+				},
 			}
 
 			svc := newTestServiceWithWebSocketManager(nil, execRepo, runner, wsManager)

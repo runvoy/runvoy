@@ -16,6 +16,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+var defaultWebSocketManager = &mockWebSocketManager{}
+
 func TestValidateCreateUserRequest_Success(t *testing.T) {
 	repo := &mockUserRepository{
 		getUserByEmailFunc: func(_ context.Context, _ string) (*api.User, error) {
@@ -42,7 +44,7 @@ func TestValidateCreateUserRequest_Success(t *testing.T) {
 		runner, // ObservabilityManager
 		logger,
 		"",
-		nil,
+		defaultWebSocketManager,
 		&stubHealthManager{},
 		newPermissiveEnforcer(),
 	)
@@ -74,7 +76,7 @@ func TestValidateCreateUserRequest_EmptyEmail(t *testing.T) {
 		runner, // ObservabilityManager
 		logger,
 		"",
-		nil,
+		defaultWebSocketManager,
 		&stubHealthManager{},
 		newPermissiveEnforcer(),
 	)
@@ -107,7 +109,7 @@ func TestValidateCreateUserRequest_InvalidEmail(t *testing.T) {
 		runner, // ObservabilityManager
 		logger,
 		"",
-		nil,
+		defaultWebSocketManager,
 		&stubHealthManager{},
 		newPermissiveEnforcer(),
 	)
@@ -145,7 +147,7 @@ func TestValidateCreateUserRequest_UserAlreadyExists(t *testing.T) {
 		runner, // ObservabilityManager
 		logger,
 		"",
-		nil,
+		defaultWebSocketManager,
 		&stubHealthManager{},
 		newPermissiveEnforcer(),
 	)
@@ -183,7 +185,7 @@ func TestValidateCreateUserRequest_RepositoryError(t *testing.T) {
 		runner, // ObservabilityManager
 		logger,
 		"",
-		nil,
+		defaultWebSocketManager,
 		&stubHealthManager{},
 		newPermissiveEnforcer(),
 	)
@@ -215,7 +217,7 @@ func TestValidateCreateUserRequest_EmptyRole(t *testing.T) {
 		runner, // ObservabilityManager
 		logger,
 		"",
-		nil,
+		defaultWebSocketManager,
 		&stubHealthManager{},
 		newPermissiveEnforcer(),
 	)
@@ -248,7 +250,7 @@ func TestValidateCreateUserRequest_InvalidRole(t *testing.T) {
 		runner, // ObservabilityManager
 		logger,
 		"",
-		nil,
+		defaultWebSocketManager,
 		&stubHealthManager{},
 		newPermissiveEnforcer(),
 	)
@@ -305,7 +307,7 @@ func TestCreatePendingClaim_Success(t *testing.T) {
 		runner, // ObservabilityManager
 		logger,
 		"",
-		nil,
+		defaultWebSocketManager,
 		&stubHealthManager{},
 		newPermissiveEnforcer(),
 	)
@@ -349,7 +351,7 @@ func TestCreatePendingClaim_RepositoryError(t *testing.T) {
 		runner, // ObservabilityManager
 		logger,
 		"",
-		nil,
+		defaultWebSocketManager,
 		&stubHealthManager{},
 		newPermissiveEnforcer(),
 	)
@@ -399,7 +401,7 @@ func TestCreateUser_Success(t *testing.T) {
 		runner, // ObservabilityManager
 		logger,
 		"",
-		nil,
+		defaultWebSocketManager,
 		&stubHealthManager{},
 		newPermissiveEnforcer(),
 	)
@@ -436,7 +438,7 @@ func TestCreateUser_InvalidEmail(t *testing.T) {
 		runner, // ObservabilityManager
 		logger,
 		"",
-		nil,
+		defaultWebSocketManager,
 		&stubHealthManager{},
 		newPermissiveEnforcer(),
 	)
@@ -478,7 +480,7 @@ func TestCreateUser_CreateUserError(t *testing.T) {
 		runner, // ObservabilityManager
 		logger,
 		"",
-		nil,
+		defaultWebSocketManager,
 		&stubHealthManager{},
 		newPermissiveEnforcer(),
 	)
@@ -511,7 +513,7 @@ func TestCreateUser_MissingRole(t *testing.T) {
 		runner, // ObservabilityManager
 		logger,
 		"",
-		nil,
+		defaultWebSocketManager,
 		&stubHealthManager{},
 		newPermissiveEnforcer(),
 	)
@@ -545,7 +547,7 @@ func TestCreateUser_InvalidRole(t *testing.T) {
 		runner, // ObservabilityManager
 		logger,
 		"",
-		nil,
+		defaultWebSocketManager,
 		&stubHealthManager{},
 		newPermissiveEnforcer(),
 	)
@@ -732,7 +734,7 @@ func TestClaimAPIKey_Success(t *testing.T) {
 		runner, // ObservabilityManager
 		logger,
 		"",
-		nil,
+		defaultWebSocketManager,
 		&stubHealthManager{},
 		newPermissiveEnforcer(),
 	)
@@ -772,7 +774,7 @@ func TestClaimAPIKey_InvalidToken(t *testing.T) {
 		runner, // ObservabilityManager
 		logger,
 		"",
-		nil,
+		defaultWebSocketManager,
 		&stubHealthManager{},
 		newPermissiveEnforcer(),
 	)
@@ -817,7 +819,7 @@ func TestClaimAPIKey_AlreadyClaimed(t *testing.T) {
 		runner, // ObservabilityManager
 		logger,
 		"",
-		nil,
+		defaultWebSocketManager,
 		&stubHealthManager{},
 		newPermissiveEnforcer(),
 	)
@@ -862,7 +864,7 @@ func TestClaimAPIKey_TokenExpired(t *testing.T) {
 		runner, // ObservabilityManager
 		logger,
 		"",
-		nil,
+		defaultWebSocketManager,
 		&stubHealthManager{},
 		newPermissiveEnforcer(),
 	)
@@ -903,7 +905,7 @@ func TestListUsers_Success(t *testing.T) {
 		runner, // ObservabilityManager
 		logger,
 		"",
-		nil,
+		defaultWebSocketManager,
 		&stubHealthManager{},
 		newPermissiveEnforcer(),
 	)
@@ -945,7 +947,7 @@ func TestListUsers_Empty(t *testing.T) {
 		runner, // ObservabilityManager
 		logger,
 		"",
-		nil,
+		defaultWebSocketManager,
 		&stubHealthManager{},
 		newPermissiveEnforcer(),
 	)
@@ -991,7 +993,7 @@ func TestListUsers_RepositoryError(t *testing.T) {
 		runner, // ObservabilityManager
 		logger,
 		"",
-		nil,
+		defaultWebSocketManager,
 		&stubHealthManager{},
 		newPermissiveEnforcer(),
 	)
@@ -1034,7 +1036,7 @@ func TestListUsers_SortingByEmail(t *testing.T) {
 		runner, // ObservabilityManager
 		logger,
 		"",
-		nil,
+		defaultWebSocketManager,
 		&stubHealthManager{},
 		newPermissiveEnforcer(),
 	)

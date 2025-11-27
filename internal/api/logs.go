@@ -16,7 +16,8 @@ type LogsResponse struct {
 	// Current execution status (RUNNING, SUCCEEDED, FAILED, STOPPED)
 	Status string `json:"status"`
 
-	// WebSocket URL for streaming logs (only provided if execution is RUNNING)
+	// WebSocket URL for streaming logs (provided when execution is running and returned
+	// from /run so clients can connect immediately)
 	WebSocketURL string `json:"websocket_url,omitempty"`
 }
 
