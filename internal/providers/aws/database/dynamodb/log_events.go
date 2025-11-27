@@ -11,6 +11,7 @@ import (
 	"runvoy/internal/database"
 	appErrors "runvoy/internal/errors"
 	"runvoy/internal/logger"
+	awsconstants "runvoy/internal/providers/aws/constants"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
@@ -26,8 +27,7 @@ type LogEventRepository struct {
 }
 
 const (
-	logEventTTLAttribute    = "expires_at"
-	logEventExpirationDelay = 10 * time.Minute
+	logEventTTLAttribute = "expires_at"
 )
 
 // NewLogEventRepository constructs a new repository for storing execution log events.
@@ -103,7 +103,7 @@ func (r *LogEventRepository) DeleteLogEvents(ctx context.Context, executionID st
 		":execution_id": &types.AttributeValueMemberS{Value: executionID},
 	}
 
-	expiryTimestamp := time.Now().Add(logEventExpirationDelay).Unix()
+	expiryTimestamp := time.Now().Add(awsconstants.LogEventExpirationDelay).Unix()
 
 	var startKey map[string]types.AttributeValue
 
