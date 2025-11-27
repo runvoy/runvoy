@@ -3,6 +3,7 @@ package aws
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log/slog"
 
 	"runvoy/internal/api"
@@ -53,9 +54,15 @@ func (p *Processor) handleLogsEvent(
 	logEvents := make([]api.LogEvent, 0, len(data.LogEvents))
 	for _, cwLogEvent := range data.LogEvents {
 		logEvents = append(logEvents, api.LogEvent{
+			EventID:   cwLogEvent.ID,
 			Timestamp: cwLogEvent.Timestamp,
 			Message:   cwLogEvent.Message,
 		})
+	}
+
+	if err = p.logEventRepo.SaveLogEvents(ctx, executionID, logEvents); err != nil {
+		reqLogger.Error("failed to persist log events", "error", err, "execution_id", executionID)
+		return true, fmt.Errorf("failed to persist log events: %w", err)
 	}
 
 	sendErr := p.webSocketManager.SendLogsToExecution(ctx, &executionID, logEvents)

@@ -82,11 +82,12 @@ func Initialize(
 		constants.ProjectName, cfg.BackendProvider),
 		"context", map[string]string{
 			"executions_table":            cfg.AWS.ExecutionsTable,
+			"execution_logs_table":        cfg.AWS.ExecutionLogsTable,
 			"websocket_connections_table": cfg.AWS.WebSocketConnectionsTable,
 			"websocket_tokens_table":      cfg.AWS.WebSocketTokensTable,
 		})
 
-	return NewProcessor(repos.ExecutionRepo, websocketManager, healthManager, log), nil
+	return NewProcessor(repos.ExecutionRepo, repos.LogEventRepo, websocketManager, healthManager, log), nil
 }
 
 func initializeHealthManager(

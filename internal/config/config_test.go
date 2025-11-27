@@ -82,6 +82,7 @@ func TestValidateOrchestrator(t *testing.T) {
 					APIKeysTable:              "api-keys",
 					PendingAPIKeysTable:       "pending-api-keys",
 					ExecutionsTable:           "executions",
+					ExecutionLogsTable:        "execution-logs",
 					ImageTaskDefsTable:        "image-taskdefs",
 					ECSCluster:                "cluster",
 					Subnet1:                   "subnet-1",
@@ -114,6 +115,7 @@ func TestValidateOrchestrator(t *testing.T) {
 				AWS: &awsconfig.Config{
 					PendingAPIKeysTable:       "pending-api-keys",
 					ExecutionsTable:           "executions",
+					ExecutionLogsTable:        "execution-logs",
 					ImageTaskDefsTable:        "image-taskdefs",
 					ECSCluster:                "cluster",
 					Subnet1:                   "subnet-1",
@@ -138,6 +140,7 @@ func TestValidateOrchestrator(t *testing.T) {
 				AWS: &awsconfig.Config{
 					APIKeysTable:              "api-keys",
 					PendingAPIKeysTable:       "pending-api-keys",
+					ExecutionLogsTable:        "execution-logs",
 					ImageTaskDefsTable:        "image-taskdefs",
 					ECSCluster:                "cluster",
 					Subnet1:                   "subnet-1",
@@ -156,6 +159,31 @@ func TestValidateOrchestrator(t *testing.T) {
 			errMsg:  "ExecutionsTable cannot be empty",
 		},
 		{
+			name: "missing ExecutionLogsTable",
+			cfg: &Config{
+				BackendProvider: constants.AWS,
+				AWS: &awsconfig.Config{
+					APIKeysTable:              "api-keys",
+					PendingAPIKeysTable:       "pending-api-keys",
+					ExecutionsTable:           "executions",
+					ImageTaskDefsTable:        "image-taskdefs",
+					ECSCluster:                "cluster",
+					Subnet1:                   "subnet-1",
+					Subnet2:                   "subnet-2",
+					SecurityGroup:             "sg-123",
+					LogGroup:                  "/aws/logs/app",
+					WebSocketAPIEndpoint:      "https://example.execute-api.us-east-1.amazonaws.com/production",
+					WebSocketConnectionsTable: "connections",
+					WebSocketTokensTable:      "tokens",
+					SecretsMetadataTable:      "secrets",
+					SecretsPrefix:             "/runvoy/secrets",
+					SecretsKMSKeyARN:          "arn:aws:kms:us-east-1:123456789012:key/abc",
+				},
+			},
+			wantErr: true,
+			errMsg:  "ExecutionLogsTable cannot be empty",
+		},
+		{
 			name: "missing ECSCluster",
 			cfg: &Config{
 				BackendProvider: constants.AWS,
@@ -163,6 +191,7 @@ func TestValidateOrchestrator(t *testing.T) {
 					APIKeysTable:              "api-keys",
 					PendingAPIKeysTable:       "pending-api-keys",
 					ExecutionsTable:           "executions",
+					ExecutionLogsTable:        "execution-logs",
 					ImageTaskDefsTable:        "image-taskdefs",
 					Subnet1:                   "subnet-1",
 					Subnet2:                   "subnet-2",
@@ -187,6 +216,7 @@ func TestValidateOrchestrator(t *testing.T) {
 					APIKeysTable:              "api-keys",
 					PendingAPIKeysTable:       "pending-api-keys",
 					ExecutionsTable:           "executions",
+					ExecutionLogsTable:        "execution-logs",
 					ImageTaskDefsTable:        "image-taskdefs",
 					ECSCluster:                "cluster",
 					Subnet2:                   "subnet-2",
@@ -211,6 +241,7 @@ func TestValidateOrchestrator(t *testing.T) {
 					APIKeysTable:              "api-keys",
 					PendingAPIKeysTable:       "pending-api-keys",
 					ExecutionsTable:           "executions",
+					ExecutionLogsTable:        "execution-logs",
 					ImageTaskDefsTable:        "image-taskdefs",
 					ECSCluster:                "cluster",
 					Subnet1:                   "subnet-1",
@@ -235,6 +266,7 @@ func TestValidateOrchestrator(t *testing.T) {
 					APIKeysTable:              "api-keys",
 					PendingAPIKeysTable:       "pending-api-keys",
 					ExecutionsTable:           "executions",
+					ExecutionLogsTable:        "execution-logs",
 					ImageTaskDefsTable:        "image-taskdefs",
 					ECSCluster:                "cluster",
 					Subnet1:                   "subnet-1",
@@ -259,6 +291,7 @@ func TestValidateOrchestrator(t *testing.T) {
 					APIKeysTable:              "api-keys",
 					PendingAPIKeysTable:       "pending-api-keys",
 					ExecutionsTable:           "executions",
+					ExecutionLogsTable:        "execution-logs",
 					ImageTaskDefsTable:        "image-taskdefs",
 					ECSCluster:                "cluster",
 					Subnet1:                   "subnet-1",
@@ -283,6 +316,7 @@ func TestValidateOrchestrator(t *testing.T) {
 					APIKeysTable:              "api-keys",
 					PendingAPIKeysTable:       "pending-api-keys",
 					ExecutionsTable:           "executions",
+					ExecutionLogsTable:        "execution-logs",
 					ImageTaskDefsTable:        "image-taskdefs",
 					ECSCluster:                "cluster",
 					Subnet1:                   "subnet-1",
@@ -307,6 +341,7 @@ func TestValidateOrchestrator(t *testing.T) {
 					APIKeysTable:         "api-keys",
 					ECSCluster:           "cluster",
 					ExecutionsTable:      "executions",
+					ExecutionLogsTable:   "execution-logs",
 					ImageTaskDefsTable:   "image-taskdefs",
 					LogGroup:             "/aws/logs/app",
 					PendingAPIKeysTable:  "pending-api-keys",
@@ -331,6 +366,7 @@ func TestValidateOrchestrator(t *testing.T) {
 					APIKeysTable:              "api-keys",
 					PendingAPIKeysTable:       "pending-api-keys",
 					ExecutionsTable:           "executions",
+					ExecutionLogsTable:        "execution-logs",
 					ImageTaskDefsTable:        "image-taskdefs",
 					ECSCluster:                "cluster",
 					Subnet1:                   "subnet-1",
@@ -354,6 +390,7 @@ func TestValidateOrchestrator(t *testing.T) {
 				AWS: &awsconfig.Config{
 					APIKeysTable:              "api-keys",
 					ExecutionsTable:           "executions",
+					ExecutionLogsTable:        "execution-logs",
 					ImageTaskDefsTable:        "image-taskdefs",
 					ECSCluster:                "cluster",
 					Subnet1:                   "subnet-1",
@@ -379,6 +416,7 @@ func TestValidateOrchestrator(t *testing.T) {
 					APIKeysTable:              "api-keys",
 					PendingAPIKeysTable:       "pending-api-keys",
 					ExecutionsTable:           "executions",
+					ExecutionLogsTable:        "execution-logs",
 					ImageTaskDefsTable:        "image-taskdefs",
 					ECSCluster:                "cluster",
 					Subnet1:                   "subnet-1",
@@ -403,6 +441,7 @@ func TestValidateOrchestrator(t *testing.T) {
 					APIKeysTable:              "api-keys",
 					PendingAPIKeysTable:       "pending-api-keys",
 					ExecutionsTable:           "executions",
+					ExecutionLogsTable:        "execution-logs",
 					ImageTaskDefsTable:        "image-taskdefs",
 					ECSCluster:                "cluster",
 					Subnet1:                   "subnet-1",
@@ -468,6 +507,7 @@ func TestValidateEventProcessor(t *testing.T) {
 					APIKeysTable:              "api-keys",
 					PendingAPIKeysTable:       "pending-api-keys",
 					ExecutionsTable:           "executions",
+					ExecutionLogsTable:        "execution-logs",
 					ECSCluster:                "cluster",
 					ImageTaskDefsTable:        "image-taskdefs",
 					SecretsMetadataTable:      "secrets",
@@ -499,6 +539,7 @@ func TestValidateEventProcessor(t *testing.T) {
 				AWS: &awsconfig.Config{
 					APIKeysTable:              "api-keys",
 					PendingAPIKeysTable:       "pending-api-keys",
+					ExecutionLogsTable:        "execution-logs",
 					ECSCluster:                "cluster",
 					ImageTaskDefsTable:        "image-taskdefs",
 					SecretsMetadataTable:      "secrets",
@@ -516,6 +557,30 @@ func TestValidateEventProcessor(t *testing.T) {
 			errMsg:  "ExecutionsTable cannot be empty",
 		},
 		{
+			name: "missing ExecutionLogsTable",
+			cfg: &Config{
+				BackendProvider: constants.AWS,
+				AWS: &awsconfig.Config{
+					APIKeysTable:              "api-keys",
+					PendingAPIKeysTable:       "pending-api-keys",
+					ExecutionsTable:           "executions",
+					ECSCluster:                "cluster",
+					ImageTaskDefsTable:        "image-taskdefs",
+					SecretsMetadataTable:      "secrets",
+					LogGroup:                  "/aws/logs/app",
+					DefaultTaskExecRoleARN:    "arn:aws:iam::123456789012:role/exec-role",
+					DefaultTaskRoleARN:        "arn:aws:iam::123456789012:role/task-role",
+					SecretsPrefix:             "/runvoy/secrets",
+					SecretsKMSKeyARN:          "arn:aws:kms:us-east-1:123456789012:key/abc",
+					WebSocketConnectionsTable: "connections",
+					WebSocketAPIEndpoint:      "https://example.com",
+					WebSocketTokensTable:      "tokens",
+				},
+			},
+			wantErr: true,
+			errMsg:  "ExecutionLogsTable cannot be empty",
+		},
+		{
 			name: "missing ECSCluster",
 			cfg: &Config{
 				BackendProvider: constants.AWS,
@@ -523,6 +588,7 @@ func TestValidateEventProcessor(t *testing.T) {
 					APIKeysTable:              "api-keys",
 					PendingAPIKeysTable:       "pending-api-keys",
 					ExecutionsTable:           "executions",
+					ExecutionLogsTable:        "execution-logs",
 					ImageTaskDefsTable:        "image-taskdefs",
 					SecretsMetadataTable:      "secrets",
 					LogGroup:                  "/aws/logs/app",
@@ -546,6 +612,7 @@ func TestValidateEventProcessor(t *testing.T) {
 					APIKeysTable:           "api-keys",
 					PendingAPIKeysTable:    "pending-api-keys",
 					ExecutionsTable:        "executions",
+					ExecutionLogsTable:     "execution-logs",
 					ImageTaskDefsTable:     "image-taskdefs",
 					ECSCluster:             "cluster",
 					Subnet1:                "subnet-1",
@@ -572,6 +639,7 @@ func TestValidateEventProcessor(t *testing.T) {
 					APIKeysTable:              "api-keys",
 					PendingAPIKeysTable:       "pending-api-keys",
 					ExecutionsTable:           "executions",
+					ExecutionLogsTable:        "execution-logs",
 					ECSCluster:                "cluster",
 					ImageTaskDefsTable:        "image-taskdefs",
 					SecretsMetadataTable:      "secrets",
@@ -600,6 +668,7 @@ func TestValidateEventProcessor(t *testing.T) {
 					APIKeysTable:              "api-keys",
 					PendingAPIKeysTable:       "pending-api-keys",
 					ExecutionsTable:           "executions",
+					ExecutionLogsTable:        "execution-logs",
 					ECSCluster:                "cluster",
 					ImageTaskDefsTable:        "image-taskdefs",
 					SecretsMetadataTable:      "secrets",
@@ -624,6 +693,7 @@ func TestValidateEventProcessor(t *testing.T) {
 					APIKeysTable:              "api-keys",
 					PendingAPIKeysTable:       "pending-api-keys",
 					ExecutionsTable:           "executions",
+					ExecutionLogsTable:        "execution-logs",
 					ECSCluster:                "cluster",
 					ImageTaskDefsTable:        "image-taskdefs",
 					SecretsMetadataTable:      "secrets",
@@ -670,6 +740,7 @@ func TestConfigStruct(t *testing.T) {
 			AWS: &awsconfig.Config{
 				APIKeysTable:           "api-keys-table",
 				ExecutionsTable:        "executions-table",
+				ExecutionLogsTable:     "execution-logs",
 				ImageTaskDefsTable:     "image-taskdefs-table",
 				PendingAPIKeysTable:    "pending-keys-table",
 				ECSCluster:             "test-cluster",
@@ -1172,11 +1243,13 @@ func TestLoadOrchestratorEnvironmentVariables(t *testing.T) {
 		"RUNVOY_AWS_API_KEYS_TABLE":              os.Getenv("RUNVOY_AWS_API_KEYS_TABLE"),
 		"RUNVOY_AWS_PENDING_API_KEYS_TABLE":      os.Getenv("RUNVOY_AWS_PENDING_API_KEYS_TABLE"),
 		"RUNVOY_AWS_EXECUTIONS_TABLE":            os.Getenv("RUNVOY_AWS_EXECUTIONS_TABLE"),
+		"RUNVOY_AWS_EXECUTION_LOGS_TABLE":        os.Getenv("RUNVOY_AWS_EXECUTION_LOGS_TABLE"),
 		"RUNVOY_AWS_ECS_CLUSTER":                 os.Getenv("RUNVOY_AWS_ECS_CLUSTER"),
 		"RUNVOY_AWS_LOG_GROUP":                   os.Getenv("RUNVOY_AWS_LOG_GROUP"),
 		"RUNVOY_AWS_SECURITY_GROUP":              os.Getenv("RUNVOY_AWS_SECURITY_GROUP"),
 		"RUNVOY_AWS_SUBNET_1":                    os.Getenv("RUNVOY_AWS_SUBNET_1"),
 		"RUNVOY_AWS_SUBNET_2":                    os.Getenv("RUNVOY_AWS_SUBNET_2"),
+		"RUNVOY_AWS_EXECUTION_LOGS_TABLE":        os.Getenv("RUNVOY_AWS_EXECUTION_LOGS_TABLE"),
 		"RUNVOY_AWS_WEBSOCKET_API_ENDPOINT":      os.Getenv("RUNVOY_AWS_WEBSOCKET_API_ENDPOINT"),
 		"RUNVOY_AWS_WEBSOCKET_CONNECTIONS_TABLE": os.Getenv("RUNVOY_AWS_WEBSOCKET_CONNECTIONS_TABLE"),
 		"RUNVOY_AWS_SECRETS_METADATA_TABLE":      os.Getenv("RUNVOY_AWS_SECRETS_METADATA_TABLE"),
@@ -1209,6 +1282,7 @@ func TestLoadOrchestratorEnvironmentVariables(t *testing.T) {
 	_ = os.Setenv("RUNVOY_AWS_SECURITY_GROUP", "sg-12345")
 	_ = os.Setenv("RUNVOY_AWS_SUBNET_1", "subnet-1")
 	_ = os.Setenv("RUNVOY_AWS_SUBNET_2", "subnet-2")
+	_ = os.Setenv("RUNVOY_AWS_EXECUTION_LOGS_TABLE", "test-execution-logs")
 	endpoint := "https://test.execute-api.us-east-1.amazonaws.com/production"
 	_ = os.Setenv("RUNVOY_AWS_WEBSOCKET_API_ENDPOINT", endpoint)
 	_ = os.Setenv("RUNVOY_AWS_WEBSOCKET_CONNECTIONS_TABLE", "test-websocket-connections")
@@ -1225,6 +1299,7 @@ func TestLoadOrchestratorEnvironmentVariables(t *testing.T) {
 	assert.Equal(t, constants.AWS, cfg.BackendProvider)
 	assert.Equal(t, "test-api-keys", cfg.AWS.APIKeysTable)
 	assert.Equal(t, "test-executions", cfg.AWS.ExecutionsTable)
+	assert.Equal(t, "test-execution-logs", cfg.AWS.ExecutionLogsTable)
 	assert.Equal(t, "test-cluster", cfg.AWS.ECSCluster)
 }
 
@@ -1264,6 +1339,7 @@ func TestLoadEventProcessorEnvironmentVariables(t *testing.T) {
 	_ = os.Setenv("RUNVOY_AWS_API_KEYS_TABLE", "test-api-keys")
 	_ = os.Setenv("RUNVOY_AWS_PENDING_API_KEYS_TABLE", "test-pending-api-keys")
 	_ = os.Setenv("RUNVOY_AWS_EXECUTIONS_TABLE", "test-executions")
+	_ = os.Setenv("RUNVOY_AWS_EXECUTION_LOGS_TABLE", "test-execution-logs")
 	_ = os.Setenv("RUNVOY_AWS_ECS_CLUSTER", "test-cluster")
 	_ = os.Setenv("RUNVOY_AWS_IMAGE_TASKDEFS_TABLE", "test-image-taskdefs")
 	_ = os.Setenv("RUNVOY_AWS_SECRETS_METADATA_TABLE", "test-secrets-metadata")
@@ -1285,6 +1361,7 @@ func TestLoadEventProcessorEnvironmentVariables(t *testing.T) {
 	// Verify loaded values
 	assert.Equal(t, constants.AWS, cfg.BackendProvider)
 	assert.Equal(t, "test-executions", cfg.AWS.ExecutionsTable)
+	assert.Equal(t, "test-execution-logs", cfg.AWS.ExecutionLogsTable)
 	assert.Equal(t, "test-cluster", cfg.AWS.ECSCluster)
 }
 
@@ -1317,15 +1394,18 @@ func TestLoadEventProcessorMissingRequiredFields(t *testing.T) {
 	// Save original env vars
 	originalBackendProvider := os.Getenv("RUNVOY_BACKEND_PROVIDER")
 	originalExecutionsTable := os.Getenv("RUNVOY_AWS_EXECUTIONS_TABLE")
+	originalExecutionLogsTable := os.Getenv("RUNVOY_AWS_EXECUTION_LOGS_TABLE")
 
 	defer func() {
 		_ = os.Setenv("RUNVOY_BACKEND_PROVIDER", originalBackendProvider)
 		_ = os.Setenv("RUNVOY_AWS_EXECUTIONS_TABLE", originalExecutionsTable)
+		_ = os.Setenv("RUNVOY_AWS_EXECUTION_LOGS_TABLE", originalExecutionLogsTable)
 	}()
 
 	// Clear env vars
 	_ = os.Unsetenv("RUNVOY_BACKEND_PROVIDER")
 	_ = os.Unsetenv("RUNVOY_AWS_EXECUTIONS_TABLE")
+	_ = os.Unsetenv("RUNVOY_AWS_EXECUTION_LOGS_TABLE")
 
 	// Set only backend provider, missing AWS config
 	_ = os.Setenv("RUNVOY_BACKEND_PROVIDER", "AWS")

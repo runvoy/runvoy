@@ -6,6 +6,7 @@ type WebSocketConnection struct {
 	ExecutionID   string `json:"execution_id"`
 	Functionality string `json:"functionality"`
 	ExpiresAt     int64  `json:"expires_at"`
+	LastEventID   string `json:"last_event_id,omitempty"`
 	ClientIP      string `json:"client_ip,omitempty"`
 	Token         string `json:"token,omitempty"`
 	UserEmail     string `json:"user_email,omitempty"`

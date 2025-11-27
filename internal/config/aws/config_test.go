@@ -80,6 +80,7 @@ func TestValidateOrchestrator(t *testing.T) {
 		cfg := &Config{
 			ECSCluster:                "cluster",
 			ExecutionsTable:           "executions",
+			ExecutionLogsTable:        "execution-logs",
 			ImageTaskDefsTable:        "image-taskdefs",
 			LogGroup:                  "logs",
 			SecurityGroup:             "sg",
@@ -102,6 +103,7 @@ func TestValidateOrchestrator(t *testing.T) {
 			APIKeysTable:              "keys",
 			PendingAPIKeysTable:       "pending-keys",
 			ExecutionsTable:           "executions",
+			ExecutionLogsTable:        "execution-logs",
 			ImageTaskDefsTable:        "image-taskdefs",
 			LogGroup:                  "logs",
 			SecurityGroup:             "sg",
@@ -125,6 +127,7 @@ func TestValidateOrchestrator(t *testing.T) {
 			PendingAPIKeysTable:       "pending-keys",
 			ECSCluster:                "cluster",
 			ExecutionsTable:           "executions",
+			ExecutionLogsTable:        "execution-logs",
 			ImageTaskDefsTable:        "image-taskdefs",
 			LogGroup:                  "logs",
 			SecurityGroup:             "sg",
@@ -164,6 +167,7 @@ func TestValidateEventProcessor(t *testing.T) {
 			APIKeysTable:              "api-keys",
 			PendingAPIKeysTable:       "pending-api-keys",
 			ExecutionsTable:           "executions",
+			ExecutionLogsTable:        "execution-logs",
 			ImageTaskDefsTable:        "image-taskdefs",
 			SecretsMetadataTable:      "secrets",
 			LogGroup:                  "/aws/logs/app",
@@ -185,6 +189,7 @@ func TestValidateEventProcessor(t *testing.T) {
 			APIKeysTable:              "api-keys",
 			PendingAPIKeysTable:       "pending-api-keys",
 			ECSCluster:                "cluster",
+			ExecutionLogsTable:        "execution-logs",
 			ImageTaskDefsTable:        "image-taskdefs",
 			SecretsMetadataTable:      "secrets",
 			LogGroup:                  "/aws/logs/app",
@@ -207,6 +212,7 @@ func TestValidateEventProcessor(t *testing.T) {
 			PendingAPIKeysTable:       "pending-api-keys",
 			ECSCluster:                "cluster",
 			ExecutionsTable:           "executions",
+			ExecutionLogsTable:        "execution-logs",
 			ImageTaskDefsTable:        "image-taskdefs",
 			SecretsMetadataTable:      "secrets",
 			LogGroup:                  "/aws/logs/app",
@@ -230,6 +236,7 @@ func TestValidateEventProcessor(t *testing.T) {
 			PendingAPIKeysTable:       "pending-api-keys",
 			ECSCluster:                "cluster",
 			ExecutionsTable:           "executions",
+			ExecutionLogsTable:        "execution-logs",
 			ImageTaskDefsTable:        "image-taskdefs",
 			SecretsMetadataTable:      "secrets",
 			LogGroup:                  "/aws/logs/app",
@@ -254,6 +261,7 @@ func TestBindEnvVars(t *testing.T) {
 		"RUNVOY_AWS_API_KEYS_TABLE":         os.Getenv("RUNVOY_AWS_API_KEYS_TABLE"),
 		"RUNVOY_AWS_ECS_CLUSTER":            os.Getenv("RUNVOY_AWS_ECS_CLUSTER"),
 		"RUNVOY_AWS_EXECUTIONS_TABLE":       os.Getenv("RUNVOY_AWS_EXECUTIONS_TABLE"),
+		"RUNVOY_AWS_EXECUTION_LOGS_TABLE":   os.Getenv("RUNVOY_AWS_EXECUTION_LOGS_TABLE"),
 		"RUNVOY_AWS_IMAGE_TASKDEFS_TABLE":   os.Getenv("RUNVOY_AWS_IMAGE_TASKDEFS_TABLE"),
 		"RUNVOY_AWS_LOG_GROUP":              os.Getenv("RUNVOY_AWS_LOG_GROUP"),
 		"RUNVOY_AWS_SECURITY_GROUP":         os.Getenv("RUNVOY_AWS_SECURITY_GROUP"),
@@ -283,6 +291,7 @@ func TestBindEnvVars(t *testing.T) {
 	// Set test values
 	_ = os.Setenv("RUNVOY_AWS_API_KEYS_TABLE", "test-api-keys")
 	_ = os.Setenv("RUNVOY_AWS_ECS_CLUSTER", "test-cluster")
+	_ = os.Setenv("RUNVOY_AWS_EXECUTION_LOGS_TABLE", "test-execution-logs")
 	_ = os.Setenv("RUNVOY_AWS_LOG_GROUP", "/aws/ecs/test")
 
 	v := viper.New()
@@ -294,6 +303,7 @@ func TestBindEnvVars(t *testing.T) {
 	// Verify env vars were bound and can be retrieved
 	assert.Equal(t, "test-api-keys", v.GetString("aws.api_keys_table"))
 	assert.Equal(t, "test-cluster", v.GetString("aws.ecs_cluster"))
+	assert.Equal(t, "test-execution-logs", v.GetString("aws.execution_logs_table"))
 	assert.Equal(t, "/aws/ecs/test", v.GetString("aws.log_group"))
 	// Verify defaults were set
 	assert.NotEmpty(t, v.GetString("aws.secrets_prefix"))

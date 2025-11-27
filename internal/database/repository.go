@@ -95,6 +95,16 @@ type ConnectionRepository interface {
 	GetConnectionsByExecutionID(ctx context.Context, executionID string) ([]*api.WebSocketConnection, error)
 }
 
+// LogEventRepository defines the interface for storing and deleting execution log events.
+type LogEventRepository interface {
+	// SaveLogEvents stores new log events for an execution.
+	SaveLogEvents(ctx context.Context, executionID string, logEvents []api.LogEvent) error
+
+	// DeleteLogEvents removes all log events for an execution. This is typically invoked when
+	// an execution finishes to prune buffered logs.
+	DeleteLogEvents(ctx context.Context, executionID string) error
+}
+
 // TokenRepository defines the interface for WebSocket token validation operations.
 type TokenRepository interface {
 	// CreateToken stores a new WebSocket authentication token with metadata.
@@ -121,6 +131,7 @@ type Repositories struct {
 	User       UserRepository
 	Execution  ExecutionRepository
 	Connection ConnectionRepository
+	LogEvent   LogEventRepository
 	Token      TokenRepository
 	Image      ImageRepository
 	Secrets    SecretsRepository

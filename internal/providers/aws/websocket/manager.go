@@ -272,6 +272,7 @@ func (m *Manager) newWebSocketConnection(
 		ExecutionID:          req.QueryStringParameters["execution_id"],
 		Functionality:        constants.FunctionalityLogStreaming,
 		ExpiresAt:            time.Now().Add(constants.ConnectionTTLHours * time.Hour).Unix(),
+		LastEventID:          req.QueryStringParameters["last_event_id"],
 		Token:                token, // Keep the token for cleanup on disconnect
 		ClientIP:             getClientIPFromWebSocketRequest(req),
 		UserEmail:            wsToken.UserEmail,

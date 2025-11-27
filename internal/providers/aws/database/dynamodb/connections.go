@@ -43,6 +43,7 @@ type connectionItem struct {
 	ExecutionID          string `dynamodbav:"execution_id"`
 	Functionality        string `dynamodbav:"functionality"`
 	ExpiresAt            int64  `dynamodbav:"expires_at"`
+	LastEventID          string `dynamodbav:"last_event_id,omitempty"`
 	ClientIP             string `dynamodbav:"client_ip,omitempty"`
 	Token                string `dynamodbav:"token,omitempty"`
 	UserEmail            string `dynamodbav:"user_email,omitempty"`
@@ -56,6 +57,7 @@ func toConnectionItem(conn *api.WebSocketConnection) *connectionItem {
 		ExecutionID:          conn.ExecutionID,
 		Functionality:        conn.Functionality,
 		ExpiresAt:            conn.ExpiresAt,
+		LastEventID:          conn.LastEventID,
 		ClientIP:             conn.ClientIP,
 		Token:                conn.Token,
 		UserEmail:            conn.UserEmail,
@@ -186,6 +188,7 @@ func (r *ConnectionRepository) GetConnectionsByExecutionID(
 			ExecutionID:          connItem.ExecutionID,
 			Functionality:        connItem.Functionality,
 			ExpiresAt:            connItem.ExpiresAt,
+			LastEventID:          connItem.LastEventID,
 			ClientIP:             connItem.ClientIP,
 			Token:                connItem.Token,
 			UserEmail:            connItem.UserEmail,
