@@ -61,16 +61,28 @@
             closeModal();
         }
     }
+
+    function handleBackdropKeydown(event: KeyboardEvent): void {
+        if (event.key === 'Escape' || event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            closeModal();
+        }
+    }
 </script>
 
 <button on:click={openModal} class="config-button"> ⚙️ Configure API </button>
 
 {#if showModal}
-    <!-- svelte-ignore a11y-click-events-have-key-events -->
-    <!-- svelte-ignore a11y-no-static-element-interactions -->
-    <div class="modal-backdrop" on:click={handleModalClick}>
-        <div class="modal-content">
-            <h3>API Configuration</h3>
+    <div
+        class="modal-backdrop"
+        on:click={handleModalClick}
+        on:keydown={handleBackdropKeydown}
+        role="presentation"
+        tabindex="0"
+        aria-label="Close configuration dialog"
+    >
+        <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="api-config-title">
+            <h3 id="api-config-title">API Configuration</h3>
 
             {#if errorMessage}
                 <div class="error-message" role="alert">
