@@ -8,7 +8,7 @@ afterEach(() => {
 });
 
 // Mock fetch globally
-global.fetch = vi.fn();
+globalThis.fetch = vi.fn();
 
 // Mock localStorage
 const localStorageMock = {
@@ -17,4 +17,4 @@ const localStorageMock = {
 	removeItem: vi.fn(),
 	clear: vi.fn()
 };
-global.localStorage = localStorageMock as any;
+globalThis.localStorage = localStorageMock as any;

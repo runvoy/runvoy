@@ -8,10 +8,18 @@
     export let apiClient: APIClient | null = null;
     export let isConfigured = false;
 
+    const MASKED_API_KEY_PLACEHOLDER = '••••••••';
+
+    let endpointInput = $apiEndpoint || '';
+    let keyInput = '';
+    let formError = '';
+    let formSuccess = '';
     let showApiKey = false;
     let backendHealth: HealthResponse | null = null;
     let healthError: string | null = null;
     let loadingHealth = false;
+
+    $: displayKey = $apiKey ? MASKED_API_KEY_PLACEHOLDER : '';
 
     async function fetchBackendHealth(): Promise<void> {
         if (!apiClient) {
@@ -31,6 +39,7 @@
     }
 
     onMount(() => {
+        syncFormFromStore();
         fetchBackendHealth();
     });
 
@@ -49,7 +58,45 @@
             showApiKey = false;
             backendHealth = null;
             healthError = null;
+            formSuccess = '';
+            formError = '';
+            syncFormFromStore();
         }
+    }
+
+    function syncFormFromStore(): void {
+        endpointInput = $apiEndpoint || '';
+        keyInput = '';
+    }
+
+    function saveConfiguration(): void {
+        formError = '';
+        formSuccess = '';
+
+        const endpoint = endpointInput.trim();
+
+        if (!endpoint) {
+            formError = 'Please enter an endpoint URL';
+            return;
+        }
+
+        try {
+            new URL(endpoint);
+        } catch {
+            formError = 'Invalid URL format';
+            return;
+        }
+
+        apiEndpoint.set(endpoint);
+
+        if (keyInput && keyInput !== MASKED_API_KEY_PLACEHOLDER) {
+            apiKey.set(keyInput.trim());
+        }
+
+        formSuccess = 'Configuration saved';
+        keyInput = '';
+
+        window.dispatchEvent(new CustomEvent('credentials-updated'));
     }
 
     function copyToClipboard(text: string | null): void {
@@ -70,6 +117,49 @@
     <header>
         <h2>⚙️ Settings & About</h2>
     </header>
+
+    <section class="settings-section">
+        <h3>API Configuration</h3>
+
+        {#if formError}
+            <div class="alert error" role="alert">{formError}</div>
+        {/if}
+
+        {#if formSuccess}
+            <div class="alert success" role="status">{formSuccess}</div>
+        {/if}
+
+        <form class="config-form" on:submit|preventDefault={saveConfiguration} novalidate>
+            <label for="endpoint-input">
+                API Endpoint
+                <input
+                    id="endpoint-input"
+                    type="url"
+                    bind:value={endpointInput}
+                    placeholder="https://api.runvoy.example.com"
+                />
+                <small>The base URL of your runvoy API server.</small>
+            </label>
+
+            <label for="api-key-input">
+                API Key (optional)
+                <input
+                    id="api-key-input"
+                    type="password"
+                    bind:value={keyInput}
+                    placeholder={displayKey || 'Enter API key (or claim one later)'}
+                />
+                <small>
+                    You can provide your API key now or claim one later with an invitation token.
+                </small>
+            </label>
+
+            <div class="form-actions">
+                <button type="submit">Save configuration</button>
+                <button type="button" class="secondary" on:click={syncFormFromStore}>Reset</button>
+            </div>
+        </form>
+    </section>
 
     <section class="settings-section">
         <h3>Application Information</h3>
@@ -252,6 +342,53 @@
         margin-bottom: 1rem;
         color: var(--pico-primary);
         font-size: 1.1rem;
+    }
+
+    .config-form {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    .config-form label {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .config-form input {
+        padding: 0.75rem;
+        border: 1px solid var(--pico-border-color);
+        border-radius: var(--pico-border-radius);
+        background: var(--pico-form-element-background-color);
+    }
+
+    .config-form small {
+        color: var(--pico-muted-color);
+    }
+
+    .form-actions {
+        display: flex;
+        gap: 1rem;
+        flex-wrap: wrap;
+    }
+
+    .alert {
+        padding: 0.75rem 1rem;
+        border-radius: var(--pico-border-radius);
+        margin-bottom: 1rem;
+    }
+
+    .alert.error {
+        background: #ffebee;
+        border: 1px solid #f44336;
+        color: #c62828;
+    }
+
+    .alert.success {
+        background: #e8f5e9;
+        border: 1px solid #4caf50;
+        color: #2e7d32;
     }
 
     .info-group {

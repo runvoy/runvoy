@@ -1,6 +1,7 @@
 <script lang="ts">
     import { version } from '$app/environment';
-    import ConnectionManager from '../components/ConnectionManager.svelte';
+    import { goto } from '$app/navigation';
+    import { page } from '$app/stores';
     import ViewSwitcher from '../components/ViewSwitcher.svelte';
     import { apiEndpoint, apiKey } from '../stores/config';
     import { VIEWS } from '../stores/ui';
@@ -13,7 +14,8 @@
         disabled?: boolean;
     }
 
-    let isConfigured = false;
+    let hasEndpoint = false;
+    let hasApiKey = false;
 
     const views: NavView[] = [
         { id: VIEWS.RUN, label: 'Run Command' },
@@ -24,13 +26,16 @@
     ];
     let navViews: NavView[] = views;
 
-    $: isConfigured = Boolean($apiEndpoint && $apiKey);
+    $: hasEndpoint = Boolean($apiEndpoint);
+    $: hasApiKey = Boolean($apiKey);
 
     $: navViews = views.map((view) =>
-        view.id === VIEWS.LOGS || view.id === VIEWS.LIST
-            ? { ...view, disabled: !isConfigured }
-            : view
+        view.id === VIEWS.LOGS || view.id === VIEWS.LIST ? { ...view, disabled: !hasApiKey } : view
     );
+
+    $: if (!hasEndpoint && $page.url.pathname !== '/settings') {
+        goto('/settings');
+    }
 </script>
 
 <main class="container">
@@ -50,9 +55,6 @@
                         </p>
                     </div>
                 </h1>
-            </div>
-            <div class="header-actions">
-                <ConnectionManager />
             </div>
         </div>
         <div class="header-nav">
@@ -75,15 +77,11 @@
     }
 
     .header-content {
-        display: grid;
-        grid-template-columns: 1fr auto;
+        display: flex;
         gap: 1.5rem;
-        align-items: start;
+        align-items: center;
+        justify-content: space-between;
         margin-bottom: 1.5rem;
-    }
-
-    .header-title {
-        min-width: 0;
     }
 
     .header-title h1 {
@@ -124,11 +122,6 @@
         color: var(--pico-primary);
     }
 
-    .header-actions {
-        display: flex;
-        align-items: flex-start;
-    }
-
     .header-nav {
         margin-top: 1rem;
     }
@@ -139,12 +132,9 @@
 
     @media (max-width: 768px) {
         .header-content {
-            grid-template-columns: 1fr;
+            flex-direction: column;
+            align-items: flex-start;
             gap: 1rem;
-        }
-
-        .header-actions {
-            width: 100%;
         }
 
         .header-title h1 {

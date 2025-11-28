@@ -1,26 +1,45 @@
 /// <reference types="vitest" />
 /// <reference types="@testing-library/jest-dom" />
+/// <reference types="node" />
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/svelte';
 import ViewSwitcher from './ViewSwitcher.svelte';
 import { VIEWS } from '../stores/ui';
 
-// Use vi.hoisted to create variables that can be used in mocks
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const mocks = vi.hoisted(() => {
-    const { writable } = require('svelte/store');
-    return {
-        mockPageStore: writable({
-            url: new URL('http://localhost:5173/')
-        })
+// Create a simple mock store inside hoisted to avoid initialization order issues
+const mockPageStore = vi.hoisted(() => {
+    // Create a simple mock store that implements the writable interface
+    const createMockStore = <T>(initial: T) => {
+        let value = initial;
+        const subscribers = new Set<(value: T) => void>();
+
+        return {
+            set: (newValue: T) => {
+                value = newValue;
+                subscribers.forEach((fn) => fn(value));
+            },
+            update: (fn: (value: T) => T) => {
+                value = fn(value);
+                subscribers.forEach((subscriber) => subscriber(value));
+            },
+            subscribe: (fn: (value: T) => void) => {
+                subscribers.add(fn);
+                fn(value); // Call immediately with current value
+                return () => subscribers.delete(fn);
+            }
+        };
     };
+
+    return createMockStore({
+        url: new URL('http://localhost:5173/')
+    });
 });
 
 // Mock the $app/stores module
 vi.mock('$app/stores', () => {
     return {
-        page: mocks.mockPageStore
+        page: mockPageStore
     };
 });
 
@@ -35,7 +54,7 @@ describe('ViewSwitcher', () => {
 
     beforeEach(() => {
         // Reset the page store to root path before each test
-        mocks.mockPageStore.set({
+        mockPageStore.set({
             url: new URL('http://localhost:5173/')
         });
     });
@@ -70,7 +89,7 @@ describe('ViewSwitcher', () => {
     });
 
     it('should mark root path as active when on home page', () => {
-        mocks.mockPageStore.set({
+        mockPageStore.set({
             url: new URL('http://localhost:5173/')
         });
 
@@ -81,7 +100,7 @@ describe('ViewSwitcher', () => {
     });
 
     it('should mark correct link as active based on current path', () => {
-        mocks.mockPageStore.set({
+        mockPageStore.set({
             url: new URL('http://localhost:5173/logs')
         });
 
@@ -108,7 +127,7 @@ describe('ViewSwitcher', () => {
     });
 
     it('should not mark disabled links as active', () => {
-        mocks.mockPageStore.set({
+        mockPageStore.set({
             url: new URL('http://localhost:5173/logs')
         });
 
@@ -125,7 +144,7 @@ describe('ViewSwitcher', () => {
     });
 
     it('should render with aria-current for active page', () => {
-        mocks.mockPageStore.set({
+        mockPageStore.set({
             url: new URL('http://localhost:5173/settings')
         });
 
@@ -139,7 +158,7 @@ describe('ViewSwitcher', () => {
     });
 
     it('should handle query parameters in URL', () => {
-        mocks.mockPageStore.set({
+        mockPageStore.set({
             url: new URL('http://localhost:5173/logs?execution_id=abc123')
         });
 
@@ -165,7 +184,7 @@ describe('ViewSwitcher', () => {
     });
 
     it('should match executions route correctly', () => {
-        mocks.mockPageStore.set({
+        mockPageStore.set({
             url: new URL('http://localhost:5173/executions')
         });
 
@@ -179,7 +198,7 @@ describe('ViewSwitcher', () => {
     });
 
     it('should only mark root as active for exact match', () => {
-        mocks.mockPageStore.set({
+        mockPageStore.set({
             url: new URL('http://localhost:5173/logs')
         });
 

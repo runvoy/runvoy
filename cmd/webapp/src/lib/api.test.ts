@@ -29,14 +29,14 @@ describe('APIClient', () => {
                 status: 'RUNNING'
             };
 
-            vi.mocked(global.fetch).mockResolvedValueOnce({
+            vi.mocked(globalThis.fetch).mockResolvedValueOnce({
                 ok: true,
                 json: vi.fn().mockResolvedValueOnce(mockResponse)
             } as any);
 
             const result = await client.runCommand(payload);
 
-            expect(global.fetch).toHaveBeenCalledWith(`${testEndpoint}/api/v1/run`, {
+            expect(globalThis.fetch).toHaveBeenCalledWith(`${testEndpoint}/api/v1/run`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -56,7 +56,7 @@ describe('APIClient', () => {
                 code: 'UNAUTHORIZED'
             };
 
-            vi.mocked(global.fetch).mockResolvedValueOnce({
+            vi.mocked(globalThis.fetch).mockResolvedValueOnce({
                 ok: false,
                 status: 401,
                 json: vi.fn().mockResolvedValueOnce(errorResponse)
@@ -70,7 +70,7 @@ describe('APIClient', () => {
                 command: 'echo "hello"'
             };
 
-            vi.mocked(global.fetch).mockResolvedValueOnce({
+            vi.mocked(globalThis.fetch).mockResolvedValueOnce({
                 ok: false,
                 status: 500,
                 json: vi.fn().mockRejectedValueOnce(new Error('Invalid JSON'))
@@ -95,14 +95,14 @@ describe('APIClient', () => {
                 status: 'RUNNING'
             };
 
-            vi.mocked(global.fetch).mockResolvedValueOnce({
+            vi.mocked(globalThis.fetch).mockResolvedValueOnce({
                 ok: true,
                 json: vi.fn().mockResolvedValueOnce(mockResponse)
             } as any);
 
             await client.runCommand(payload);
 
-            expect(global.fetch).toHaveBeenCalledWith(
+            expect(globalThis.fetch).toHaveBeenCalledWith(
                 expect.any(String),
                 expect.objectContaining({
                     body: JSON.stringify(payload)
@@ -119,14 +119,14 @@ describe('APIClient', () => {
                 websocket_url: 'wss://localhost:8080/api/v1/executions/exec-123/logs'
             };
 
-            vi.mocked(global.fetch).mockResolvedValueOnce({
+            vi.mocked(globalThis.fetch).mockResolvedValueOnce({
                 ok: true,
                 json: vi.fn().mockResolvedValueOnce(mockResponse)
             } as any);
 
             const result = await client.getLogs(executionId);
 
-            expect(global.fetch).toHaveBeenCalledWith(
+            expect(globalThis.fetch).toHaveBeenCalledWith(
                 `${testEndpoint}/api/v1/executions/${executionId}/logs`,
                 {
                     headers: {
@@ -140,7 +140,7 @@ describe('APIClient', () => {
         it('should throw error when getLogs fails', async () => {
             const executionId = 'exec-123';
 
-            vi.mocked(global.fetch).mockResolvedValueOnce({
+            vi.mocked(globalThis.fetch).mockResolvedValueOnce({
                 ok: false,
                 status: 404,
                 json: vi.fn().mockResolvedValueOnce({ details: 'Not found' })
@@ -161,14 +161,14 @@ describe('APIClient', () => {
                 exit_code: 0
             };
 
-            vi.mocked(global.fetch).mockResolvedValueOnce({
+            vi.mocked(globalThis.fetch).mockResolvedValueOnce({
                 ok: true,
                 json: vi.fn().mockResolvedValueOnce(mockResponse)
             } as any);
 
             const result = await client.getExecutionStatus(executionId);
 
-            expect(global.fetch).toHaveBeenCalledWith(
+            expect(globalThis.fetch).toHaveBeenCalledWith(
                 `${testEndpoint}/api/v1/executions/${executionId}/status`,
                 {
                     headers: {
@@ -182,7 +182,7 @@ describe('APIClient', () => {
         it('should throw error when getExecutionStatus fails', async () => {
             const executionId = 'exec-123';
 
-            vi.mocked(global.fetch).mockResolvedValueOnce({
+            vi.mocked(globalThis.fetch).mockResolvedValueOnce({
                 ok: false,
                 status: 500,
                 json: vi.fn().mockResolvedValueOnce({ details: 'Server error' })
@@ -200,14 +200,14 @@ describe('APIClient', () => {
                 status: 'KILLED'
             };
 
-            vi.mocked(global.fetch).mockResolvedValueOnce({
+            vi.mocked(globalThis.fetch).mockResolvedValueOnce({
                 ok: true,
                 json: vi.fn().mockResolvedValueOnce(mockResponse)
             } as any);
 
             const result = await client.killExecution(executionId);
 
-            expect(global.fetch).toHaveBeenCalledWith(
+            expect(globalThis.fetch).toHaveBeenCalledWith(
                 `${testEndpoint}/api/v1/executions/${executionId}`,
                 {
                     method: 'DELETE',
@@ -222,7 +222,7 @@ describe('APIClient', () => {
         it('should throw error when killExecution fails', async () => {
             const executionId = 'exec-123';
 
-            vi.mocked(global.fetch).mockResolvedValueOnce({
+            vi.mocked(globalThis.fetch).mockResolvedValueOnce({
                 ok: false,
                 status: 404,
                 json: vi.fn().mockResolvedValueOnce({ details: 'Not found' })
@@ -249,14 +249,14 @@ describe('APIClient', () => {
                 }
             ];
 
-            vi.mocked(global.fetch).mockResolvedValueOnce({
+            vi.mocked(globalThis.fetch).mockResolvedValueOnce({
                 ok: true,
                 json: vi.fn().mockResolvedValueOnce(mockResponse)
             } as any);
 
             const result = await client.listExecutions();
 
-            expect(global.fetch).toHaveBeenCalledWith(`${testEndpoint}/api/v1/executions`, {
+            expect(globalThis.fetch).toHaveBeenCalledWith(`${testEndpoint}/api/v1/executions`, {
                 headers: {
                     'X-API-Key': testApiKey
                 }
@@ -266,7 +266,7 @@ describe('APIClient', () => {
         });
 
         it('should throw error when listExecutions fails', async () => {
-            vi.mocked(global.fetch).mockResolvedValueOnce({
+            vi.mocked(globalThis.fetch).mockResolvedValueOnce({
                 ok: false,
                 status: 500,
                 json: vi.fn().mockResolvedValueOnce({ details: 'Server error' })
@@ -285,21 +285,21 @@ describe('APIClient', () => {
                 message: 'API key claimed successfully'
             };
 
-            vi.mocked(global.fetch).mockResolvedValueOnce({
+            vi.mocked(globalThis.fetch).mockResolvedValueOnce({
                 ok: true,
                 json: vi.fn().mockResolvedValueOnce(mockResponse)
             } as any);
 
             const result = await client.claimAPIKey(token);
 
-            expect(global.fetch).toHaveBeenCalledWith(`${testEndpoint}/api/v1/claim/${token}`);
+            expect(globalThis.fetch).toHaveBeenCalledWith(`${testEndpoint}/api/v1/claim/${token}`);
             expect(result).toEqual(mockResponse);
         });
 
         it('should throw error when claimAPIKey fails', async () => {
             const token = 'invalid-token';
 
-            vi.mocked(global.fetch).mockResolvedValueOnce({
+            vi.mocked(globalThis.fetch).mockResolvedValueOnce({
                 ok: false,
                 status: 400,
                 json: vi.fn().mockResolvedValueOnce({ details: 'Invalid token' })
@@ -311,7 +311,7 @@ describe('APIClient', () => {
         it('should handle JSON parse error on claim failure', async () => {
             const token = 'invalid-token';
 
-            vi.mocked(global.fetch).mockResolvedValueOnce({
+            vi.mocked(globalThis.fetch).mockResolvedValueOnce({
                 ok: false,
                 status: 500,
                 json: vi.fn().mockRejectedValueOnce(new Error('Invalid JSON'))
@@ -327,7 +327,7 @@ describe('APIClient', () => {
                 command: 'echo "hello"'
             };
 
-            vi.mocked(global.fetch).mockResolvedValueOnce({
+            vi.mocked(globalThis.fetch).mockResolvedValueOnce({
                 ok: false,
                 status: 403,
                 json: vi.fn().mockResolvedValueOnce({ details: 'Forbidden' })
@@ -347,7 +347,7 @@ describe('APIClient', () => {
                 command: 'echo "hello"'
             };
 
-            vi.mocked(global.fetch).mockResolvedValueOnce({
+            vi.mocked(globalThis.fetch).mockResolvedValueOnce({
                 ok: false,
                 status: 503,
                 json: vi.fn().mockResolvedValueOnce({})
