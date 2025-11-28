@@ -16,7 +16,6 @@
     import type { ApiError, ExecutionStatusResponse } from '../types/api';
 
     export let apiClient: APIClient | null = null;
-    export let isConfigured = false;
 
     let errorMessage = '';
     let currentExecutionId: string | null = null;
@@ -129,8 +128,6 @@
         }
     }
 
-    $: showWelcome = !isConfigured;
-
     $: if (!apiClient) {
         disconnectWebSocket();
         lastProcessedExecutionId = null;
@@ -192,25 +189,7 @@
     </article>
 {/if}
 
-{#if showWelcome}
-    <article>
-        <header>
-            <strong>Welcome to runvoy Log Viewer</strong>
-        </header>
-        <p>To get started:</p>
-        <ol>
-            <li>Click the "⚙️ Configure API" button to set your API endpoint and key</li>
-            <li>Enter an execution ID in the field above</li>
-            <li>View logs and monitor execution status in real-time</li>
-        </ol>
-        <footer>
-            <small
-                >Your credentials are stored locally in your browser and never sent to third
-                parties.</small
-            >
-        </footer>
-    </article>
-{:else if !currentExecutionId}
+{#if !currentExecutionId}
     <article>
         <p>
             Enter an execution ID above or provide <code>?execution_id=&lt;id&gt;</code> in the URL

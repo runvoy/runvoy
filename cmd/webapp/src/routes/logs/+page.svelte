@@ -7,10 +7,8 @@
     import { switchExecution } from '../../lib/executionState';
 
     let apiClient: APIClient | null = null;
-    let isConfigured = false;
 
     $: apiClient = $apiEndpoint && $apiKey ? new APIClient($apiEndpoint, $apiKey) : null;
-    $: isConfigured = Boolean(apiClient);
 
     onMount(() => {
         const execId =
@@ -35,4 +33,4 @@
     }
 </script>
 
-<LogsView {apiClient} {isConfigured} />
+<LogsView {apiClient} />

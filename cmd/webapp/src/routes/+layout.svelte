@@ -33,8 +33,19 @@
         view.id === VIEWS.LOGS || view.id === VIEWS.LIST ? { ...view, disabled: !hasApiKey } : view
     );
 
-    $: if (!hasEndpoint && $page.url.pathname !== '/settings') {
-        goto('/settings');
+    $: {
+        const pathname = $page.url.pathname;
+        const isSettingsOrClaim = pathname === '/settings' || pathname === '/claim';
+
+        // Redirect to settings if endpoint is missing (unless already on settings/claim)
+        if (!hasEndpoint && !isSettingsOrClaim) {
+            goto('/settings');
+        }
+        // Redirect to settings if API key is missing (unless on settings/claim)
+        // This allows claim view to work with just endpoint configured
+        else if (!hasApiKey && !isSettingsOrClaim) {
+            goto('/settings');
+        }
     }
 </script>
 

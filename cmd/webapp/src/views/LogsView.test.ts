@@ -42,8 +42,7 @@ describe('LogsView', () => {
 
         render(LogsView, {
             props: {
-                apiClient: mockApiClient as APIClient,
-                isConfigured: true
+                apiClient: mockApiClient as APIClient
             }
         });
 
@@ -57,8 +56,7 @@ describe('LogsView', () => {
         it('should not fetch logs when cleanClose is true', async () => {
             render(LogsView, {
                 props: {
-                    apiClient: mockApiClient as APIClient,
-                    isConfigured: true
+                    apiClient: mockApiClient as APIClient
                 }
             });
 
@@ -98,8 +96,7 @@ describe('LogsView', () => {
 
             render(LogsView, {
                 props: {
-                    apiClient: mockApiClient as APIClient,
-                    isConfigured: true
+                    apiClient: mockApiClient as APIClient
                 }
             });
 
@@ -145,8 +142,7 @@ describe('LogsView', () => {
 
             render(LogsView, {
                 props: {
-                    apiClient: mockApiClient as APIClient,
-                    isConfigured: true
+                    apiClient: mockApiClient as APIClient
                 }
             });
 
@@ -187,8 +183,7 @@ describe('LogsView', () => {
         it('should not fetch logs when apiClient is null', async () => {
             render(LogsView, {
                 props: {
-                    apiClient: null,
-                    isConfigured: true
+                    apiClient: null
                 }
             });
 
@@ -222,8 +217,7 @@ describe('LogsView', () => {
         it('should not fetch logs when currentExecutionId is null', async () => {
             render(LogsView, {
                 props: {
-                    apiClient: mockApiClient as APIClient,
-                    isConfigured: true
+                    apiClient: mockApiClient as APIClient
                 }
             });
 
@@ -256,8 +250,7 @@ describe('LogsView', () => {
         it('should handle cleanClose: true correctly even when execution ID is set', async () => {
             render(LogsView, {
                 props: {
-                    apiClient: mockApiClient as APIClient,
-                    isConfigured: true
+                    apiClient: mockApiClient as APIClient
                 }
             });
 
