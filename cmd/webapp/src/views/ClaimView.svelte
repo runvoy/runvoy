@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { apiEndpoint, apiKey, setApiKey } from '../stores/config';
+    import { apiEndpoint, setApiKey } from '../stores/config';
     import type { ClaimAPIKeyResponse } from '../types/api';
     import APIClient from '../lib/api';
 

@@ -14,6 +14,42 @@ vi.mock('$app/environment', () => ({
     browser: true
 }));
 
+// Create a simple mock store inside hoisted to avoid initialization order issues
+const mockPageStore = vi.hoisted(() => {
+    // Create a simple mock store that implements the writable interface
+    const createMockStore = <T>(initial: T) => {
+        let value = initial;
+        const subscribers = new Set<(value: T) => void>();
+
+        return {
+            set: (newValue: T) => {
+                value = newValue;
+                subscribers.forEach((fn) => fn(value));
+            },
+            update: (fn: (value: T) => T) => {
+                value = fn(value);
+                subscribers.forEach((subscriber) => subscriber(value));
+            },
+            subscribe: (fn: (value: T) => void) => {
+                subscribers.add(fn);
+                fn(value); // Call immediately with current value
+                return () => subscribers.delete(fn);
+            }
+        };
+    };
+
+    return createMockStore({
+        url: new URL('http://localhost:5173/')
+    });
+});
+
+// Mock the $app/stores module
+vi.mock('$app/stores', () => {
+    return {
+        page: mockPageStore
+    };
+});
+
 describe('layout load', () => {
     beforeEach(() => {
         localStorage.clear();
@@ -94,6 +130,10 @@ describe('navigation state', () => {
     beforeEach(() => {
         setApiEndpoint(null);
         setApiKey(null);
+        // Reset the page store to root path before each test
+        mockPageStore.set({
+            url: new URL('http://localhost:5173/')
+        });
     });
 
     it('disables non-settings views when endpoint is missing', () => {

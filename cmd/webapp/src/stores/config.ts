@@ -55,8 +55,7 @@ function parseJSON<T>(value: string | null): T | null {
 
     try {
         return JSON.parse(value) as T;
-    } catch (error) {
-        console.warn('Failed to parse stored value', error);
+    } catch {
         return value as unknown as T;
     }
 }
@@ -68,8 +67,7 @@ function serializeJSON(value: unknown): string | null {
 
     try {
         return JSON.stringify(value);
-    } catch (error) {
-        console.warn('Failed to serialize value', error);
+    } catch {
         return null;
     }
 }

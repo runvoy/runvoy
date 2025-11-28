@@ -32,7 +32,9 @@ describe('config persistence helper', () => {
         setApiEndpoint('https://api.runvoy.test');
         setApiKey('my-key');
 
-        expect(localStorage.getItem('runvoy_endpoint')).toBe(JSON.stringify('https://api.runvoy.test'));
+        expect(localStorage.getItem('runvoy_endpoint')).toBe(
+            JSON.stringify('https://api.runvoy.test')
+        );
         expect(localStorage.getItem('runvoy_api_key')).toBe(JSON.stringify('my-key'));
     });
 
