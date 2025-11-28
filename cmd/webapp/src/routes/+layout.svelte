@@ -29,21 +29,30 @@
     $: hasEndpoint = Boolean($apiEndpoint);
     $: hasApiKey = Boolean($apiKey);
 
-    $: navViews = views.map((view) =>
-        view.id === VIEWS.LOGS || view.id === VIEWS.LIST ? { ...view, disabled: !hasApiKey } : view
-    );
+    $: navViews = views.map((view) => {
+        if (!hasEndpoint && view.id !== VIEWS.SETTINGS) {
+            return { ...view, disabled: true };
+        }
+
+        if (view.id === VIEWS.LOGS || view.id === VIEWS.LIST) {
+            return { ...view, disabled: !hasApiKey };
+        }
+
+        return view;
+    });
 
     $: {
         const pathname = $page.url.pathname;
-        const isSettingsOrClaim = pathname === '/settings' || pathname === '/claim';
+        const isSettings = pathname === '/settings';
+        const isClaim = pathname === '/claim';
 
-        // Redirect to settings if endpoint is missing (unless already on settings/claim)
-        if (!hasEndpoint && !isSettingsOrClaim) {
+        // Redirect to settings if endpoint is missing (unless already on settings)
+        if (!hasEndpoint && !isSettings) {
             goto('/settings');
         }
         // Redirect to settings if API key is missing (unless on settings/claim)
         // This allows claim view to work with just endpoint configured
-        else if (!hasApiKey && !isSettingsOrClaim) {
+        else if (!hasApiKey && !isSettings && !isClaim) {
             goto('/settings');
         }
     }
