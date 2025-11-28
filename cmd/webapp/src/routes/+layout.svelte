@@ -5,8 +5,15 @@
     import ViewSwitcher from '../components/ViewSwitcher.svelte';
     import { apiEndpoint, apiKey } from '../stores/config';
     import { VIEWS } from '../stores/ui';
+    import type { Snippet } from 'svelte';
 
     import '../styles/global.css';
+
+    interface Props {
+        children?: Snippet;
+    }
+
+    const { children }: Props = $props();
 
     interface NavView {
         id: string;
@@ -80,7 +87,9 @@
     </header>
 
     <div class="content-area">
-        <slot />
+        {#if children}
+            {@render children()}
+        {/if}
     </div>
 </main>
 

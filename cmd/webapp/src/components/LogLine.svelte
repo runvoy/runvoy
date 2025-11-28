@@ -3,7 +3,11 @@
     import { parseAnsi, formatTimestamp, type AnsiSegment } from '../lib/ansi';
     import type { LogEvent } from '../types/logs';
 
-    export let event: LogEvent;
+    interface Props {
+        event: LogEvent;
+    }
+
+    const { event }: Props = $props();
 
     const formattedTimestamp = $derived(formatTimestamp(event.timestamp));
     const ansiSegments: AnsiSegment[] = $derived(parseAnsi(event.message));

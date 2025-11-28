@@ -15,7 +15,11 @@
     import type { LogEvent } from '../types/logs';
     import type { ApiError, ExecutionStatusResponse } from '../types/api';
 
-    export let apiClient: APIClient | null = null;
+    interface Props {
+        apiClient: APIClient | null;
+    }
+
+    const { apiClient = null }: Props = $props();
 
     let errorMessage = $state('');
     let currentExecutionId: string | null = $state(null);

@@ -3,12 +3,10 @@
     import { apiEndpoint, apiKey } from '../../stores/config';
     import APIClient from '../../lib/api';
 
-    let apiClient: APIClient | null = $state(null);
-    const isConfigured = $derived(Boolean(apiClient));
-
-    $effect(() => {
-        apiClient = $apiEndpoint && $apiKey ? new APIClient($apiEndpoint, $apiKey) : null;
+    const apiClient = $derived.by(() => {
+        return $apiEndpoint && $apiKey ? new APIClient($apiEndpoint, $apiKey) : null;
     });
+    const isConfigured = $derived(Boolean(apiClient));
 </script>
 
 <SettingsView {apiClient} {isConfigured} />

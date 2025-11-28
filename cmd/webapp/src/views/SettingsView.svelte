@@ -4,8 +4,12 @@
     import APIClient from '../lib/api';
     import type { HealthResponse } from '../types/api';
 
-    export let apiClient: APIClient | null = null;
-    export let isConfigured = false;
+    interface Props {
+        apiClient: APIClient | null;
+        isConfigured?: boolean;
+    }
+
+    const { apiClient = null, isConfigured = false }: Props = $props();
 
     const MASKED_API_KEY_PLACEHOLDER = '••••••••';
 
@@ -68,7 +72,8 @@
         keyInput = '';
     }
 
-    async function saveConfiguration(): Promise<void> {
+    async function saveConfiguration(event: { preventDefault: () => void }): Promise<void> {
+        event.preventDefault();
         formError = '';
         formSuccess = '';
 
@@ -134,7 +139,7 @@
             <div class="alert success" role="status">{formSuccess}</div>
         {/if}
 
-        <form class="config-form" on:submit|preventDefault={saveConfiguration} novalidate>
+        <form class="config-form" onsubmit={saveConfiguration} novalidate>
             <label for="endpoint-input">
                 API Endpoint
                 <input
@@ -161,7 +166,7 @@
 
             <div class="form-actions">
                 <button type="submit">Save configuration</button>
-                <button type="button" class="secondary" on:click={syncFormFromStore}>Reset</button>
+                <button type="button" class="secondary" onclick={syncFormFromStore}>Reset</button>
             </div>
         </form>
     </section>
@@ -231,7 +236,7 @@
                     <code class="endpoint">{$apiEndpoint}</code>
                     <button
                         class="icon-button"
-                        on:click={() => copyToClipboard($apiEndpoint)}
+                        onclick={() => copyToClipboard($apiEndpoint)}
                         title="Copy endpoint"
                     >
                         📋
@@ -249,7 +254,7 @@
                     <span class="status-badge configured">✓ Configured</span>
                     <button
                         class="icon-button"
-                        on:click={toggleApiKeyVisibility}
+                        onclick={toggleApiKeyVisibility}
                         title={showApiKey ? 'Hide API key' : 'Show API key'}
                     >
                         {showApiKey ? '🙈' : '🔑'}
@@ -260,7 +265,7 @@
                         <code class="api-key">{$apiKey}</code>
                         <button
                             class="icon-button"
-                            on:click={() => copyToClipboard($apiKey)}
+                            onclick={() => copyToClipboard($apiKey)}
                             title="Copy API key"
                         >
                             📋
@@ -292,9 +297,7 @@
                 {$apiKey ? 'Stored ✓' : 'Not stored'}
             </p>
         </div>
-        <button class="secondary" on:click={clearConfiguration}>
-            🗑️ Clear All Configuration
-        </button>
+        <button class="secondary" onclick={clearConfiguration}> 🗑️ Clear All Configuration </button>
     </section>
 
     <section class="settings-section">

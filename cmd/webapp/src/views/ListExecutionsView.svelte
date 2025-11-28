@@ -3,7 +3,11 @@
     import type APIClient from '../lib/api';
     import type { Execution, ApiError } from '../types/api';
 
-    export let apiClient: APIClient | null = null;
+    interface Props {
+        apiClient: APIClient | null;
+    }
+
+    const { apiClient = null }: Props = $props();
 
     let executions: Execution[] = $state([]);
     let isLoading = $state(false);
@@ -81,7 +85,7 @@
 <article class="list-card">
     <header>
         <h2>Execution History</h2>
-        <button on:click={() => loadExecutions(true)} disabled={isLoading} class="secondary">
+        <button onclick={() => loadExecutions(true)} disabled={isLoading} class="secondary">
             {isLoading ? '⟳ Refreshing...' : '⟳ Refresh'}
         </button>
     </header>
@@ -134,7 +138,7 @@
                             <td class="action-cell">
                                 <button
                                     class="secondary"
-                                    on:click={() => handleViewExecution(execution)}
+                                    onclick={() => handleViewExecution(execution)}
                                     aria-label="View execution {execution.execution_id}"
                                 >
                                     View

@@ -5,10 +5,8 @@
     import APIClient from '../../lib/api';
     import { switchExecution } from '../../lib/executionState';
 
-    let apiClient: APIClient | null = $state(null);
-
-    $effect(() => {
-        apiClient = $apiEndpoint && $apiKey ? new APIClient($apiEndpoint, $apiKey) : null;
+    const apiClient = $derived.by(() => {
+        return $apiEndpoint && $apiKey ? new APIClient($apiEndpoint, $apiKey) : null;
     });
 
     $effect(() => {

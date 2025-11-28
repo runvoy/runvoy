@@ -2,21 +2,31 @@
     import { executionId } from '../stores/execution';
     import { switchExecution, clearExecution } from '../lib/executionState';
 
-    let inputValue = $state($executionId || '');
+    // Local state to track user input
+    // eslint-disable-next-line svelte/prefer-writable-derived
+    let _localInput = $state($executionId || '');
 
-    // Update input when store changes (e.g., from URL on mount)
+    // Writable $derived: syncs with store but allows local edits
+    let inputValue = $derived({
+        get: () => _localInput,
+        set: (value: string) => {
+            _localInput = value;
+        }
+    });
+
+    // Sync local input when store changes
     $effect(() => {
-        inputValue = $executionId || '';
+        _localInput = $executionId || '';
     });
 
     function handleKeyPress(event: KeyboardEvent): void {
         if (event.key === 'Enter') {
-            switchExecution(inputValue.trim());
+            switchExecution(_localInput.trim());
         }
     }
 
     function handleBlur(): void {
-        const newId = inputValue.trim();
+        const newId = _localInput.trim();
         if (newId && newId !== $executionId) {
             switchExecution(newId);
         }
@@ -34,10 +44,10 @@
 
             if (newExecutionId && newExecutionId !== $executionId) {
                 switchExecution(newExecutionId, { updateHistory: false });
-                inputValue = newExecutionId;
+                _localInput = newExecutionId;
             } else if (!newExecutionId && $executionId) {
                 clearExecution({ updateHistory: false });
-                inputValue = '';
+                _localInput = '';
             }
         };
 
@@ -56,8 +66,8 @@
             id="exec-id-input"
             type="text"
             bind:value={inputValue}
-            on:keypress={handleKeyPress}
-            on:blur={handleBlur}
+            onkeypress={handleKeyPress}
+            onblur={handleBlur}
             placeholder="Enter execution ID"
             autocomplete="off"
         />

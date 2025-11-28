@@ -1,10 +1,9 @@
 <script lang="ts">
     import { logEvents } from '../stores/logs';
     import LogLine from './LogLine.svelte';
-    import { afterUpdate } from 'svelte';
 
     let container: HTMLDivElement | undefined;
-    let autoScroll = true;
+    let autoScroll = $state(true);
 
     function handleScroll(): void {
         if (!container) return;
@@ -14,15 +13,17 @@
         autoScroll = isScrolledToBottom;
     }
 
-    afterUpdate(() => {
+    $effect(() => {
         // Auto-scroll to bottom when new logs arrive
+        // Access $logEvents to track changes
+        $logEvents;
         if (autoScroll && container) {
             container.scrollTop = container.scrollHeight;
         }
     });
 </script>
 
-<div class="log-viewer-container" bind:this={container} on:scroll={handleScroll}>
+<div class="log-viewer-container" bind:this={container} onscroll={handleScroll}>
     {#if $logEvents.length > 0}
         <pre><code>
             {#each $logEvents as event (event.line)}

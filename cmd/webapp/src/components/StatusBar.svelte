@@ -1,7 +1,11 @@
 <script lang="ts">
     import { executionId, executionStatus, startedAt, isCompleted } from '../stores/execution';
 
-    export let onKill: (() => void) | null = null;
+    interface Props {
+        onKill?: (() => void) | null;
+    }
+
+    const { onKill = null }: Props = $props();
 
     const DEFAULT_STATUS = 'LOADING';
     let isKilling = $state(false);
@@ -52,7 +56,7 @@
         <div class="status-item actions">
             <button
                 class="kill-button"
-                on:click={handleKill}
+                onclick={handleKill}
                 disabled={!canKill}
                 title="Stop this execution"
             >

@@ -3,8 +3,12 @@
     import type { ClaimAPIKeyResponse } from '../types/api';
     import APIClient from '../lib/api';
 
-    export let apiClient: APIClient | null = null;
-    export let isConfigured = false;
+    interface Props {
+        apiClient: APIClient | null;
+        isConfigured?: boolean;
+    }
+
+    const { apiClient = null, isConfigured = false }: Props = $props();
 
     let token = $state('');
     let isLoading = $state(false);
@@ -90,7 +94,7 @@
                 <textarea
                     id="token-input"
                     bind:value={token}
-                    on:keypress={handleKeyPress}
+                    onkeypress={handleKeyPress}
                     placeholder="Paste your invitation token here..."
                     rows="4"
                     disabled={isLoading}
@@ -98,10 +102,7 @@
             </label>
 
             <div class="actions">
-                <button
-                    on:click={handleClaim}
-                    disabled={isLoading || !token.trim() || !hasEndpoint}
-                >
+                <button onclick={handleClaim} disabled={isLoading || !token.trim() || !hasEndpoint}>
                     {isLoading ? 'Claiming...' : 'Claim Key'}
                 </button>
             </div>

@@ -7,7 +7,11 @@
         disabled?: boolean;
     }
 
-    export let views: View[] = [];
+    interface Props {
+        views: View[];
+    }
+
+    const { views = [] }: Props = $props();
 
     // Map view IDs to routes
     const viewRoutes: Record<string, string> = {
@@ -45,7 +49,7 @@
             class:disabled={view.disabled}
             aria-disabled={view.disabled}
             aria-current={active ? 'page' : undefined}
-            on:click={(e) => {
+            onclick={(e) => {
                 if (view.disabled) {
                     e.preventDefault();
                 }
