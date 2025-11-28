@@ -2,34 +2,37 @@
     import { executionId } from '../stores/execution';
     import { switchExecution, clearExecution } from '../lib/executionState';
 
-    // Local state to track user input
-    // eslint-disable-next-line svelte/prefer-writable-derived
-    let _localInput = $state($executionId || '');
+    // Track pending user input that hasn't been committed to store yet
+    let pendingInput: string | null = null;
 
-    // Writable $derived: syncs with store but allows local edits
+    // Current input value (for reading)
+    const currentInputValue = $derived(pendingInput ?? ($executionId || ''));
+
+    // Writable $derived: reads from store, allows local edits via pendingInput
     let inputValue = $derived({
-        get: () => _localInput,
+        get: () => currentInputValue,
         set: (value: string) => {
-            _localInput = value;
+            // Store user input as pending until committed (on blur/enter)
+            pendingInput = value;
         }
-    });
-
-    // Sync local input when store changes
-    $effect(() => {
-        _localInput = $executionId || '';
     });
 
     function handleKeyPress(event: KeyboardEvent): void {
         if (event.key === 'Enter') {
-            switchExecution(_localInput.trim());
+            const value = currentInputValue.trim();
+            if (value) {
+                switchExecution(value);
+                pendingInput = null; // Clear pending after commit
+            }
         }
     }
 
     function handleBlur(): void {
-        const newId = _localInput.trim();
+        const newId = currentInputValue.trim();
         if (newId && newId !== $executionId) {
             switchExecution(newId);
         }
+        pendingInput = null; // Clear pending after commit
     }
 
     // Handle browser back/forward buttons
@@ -44,10 +47,10 @@
 
             if (newExecutionId && newExecutionId !== $executionId) {
                 switchExecution(newExecutionId, { updateHistory: false });
-                _localInput = newExecutionId;
+                pendingInput = null; // Clear pending when store changes externally
             } else if (!newExecutionId && $executionId) {
                 clearExecution({ updateHistory: false });
-                _localInput = '';
+                pendingInput = null; // Clear pending when store changes externally
             }
         };
 
