@@ -1,6 +1,7 @@
 /**
  * API request and response type definitions for the runvoy backend
  */
+import type { ApiLogEvent } from './logs';
 
 export interface RunCommandPayload {
     command: string;
@@ -21,15 +22,9 @@ export interface RunCommandResponse {
 }
 
 export interface LogsResponse {
-    events: LogEvent[];
+    events: ApiLogEvent[];
     websocket_url: string;
     status: string;
-}
-
-export interface LogEvent {
-    message: string;
-    timestamp: number;
-    line?: number;
 }
 
 export interface ExecutionStatusResponse {

@@ -5,15 +5,7 @@ import { get } from 'svelte/store';
 import { websocketConnection, isConnecting, connectionError } from '../stores/websocket';
 import { logEvents } from '../stores/logs';
 import { isCompleted } from '../stores/execution';
-import type { LogEvent } from '../types/stores';
-
-interface WebSocketMessage {
-    type?: string;
-    message?: string;
-    timestamp?: number;
-    reason?: string;
-    [key: string]: unknown;
-}
+import type { LogEvent, WebSocketLogMessage } from '../types/logs';
 
 let socket: WebSocket | null = null;
 let manuallyDisconnected = false;
@@ -49,7 +41,7 @@ export function connectWebSocket(url: string): void {
 
     socket.onmessage = (event: MessageEvent): void => {
         try {
-            const message: WebSocketMessage = JSON.parse(event.data);
+            const message: WebSocketLogMessage = JSON.parse(event.data);
 
             // Handle disconnect messages
             if (message.type === 'disconnect') {
