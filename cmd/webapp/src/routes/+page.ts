@@ -1,4 +1,5 @@
-import { error, type PageLoad } from '@sveltejs/kit';
+import { error } from '@sveltejs/kit';
+import type { PageLoad } from './$types';
 import { buildApiClient } from './loaders/apiClient';
 
 export const load: PageLoad = async ({ fetch, parent }) => {

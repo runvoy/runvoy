@@ -95,7 +95,12 @@ describe('layout load', () => {
 
         const result = load({
             url: new URL('http://localhost:5173/')
-        } as any) as { hasEndpoint: boolean; hasApiKey: boolean; endpoint: string | null; apiKey: string | null };
+        } as any) as {
+            hasEndpoint: boolean;
+            hasApiKey: boolean;
+            endpoint: string | null;
+            apiKey: string | null;
+        };
 
         expect(result.hasEndpoint).toBe(true);
         expect(result.hasApiKey).toBe(true);
@@ -109,7 +114,12 @@ describe('layout load', () => {
 
         const result = load({
             url: new URL('http://localhost:5173/')
-        } as any) as { hasEndpoint: boolean; hasApiKey: boolean; endpoint: string | null; apiKey: string | null };
+        } as any) as {
+            hasEndpoint: boolean;
+            hasApiKey: boolean;
+            endpoint: string | null;
+            apiKey: string | null;
+        };
 
         expect(result.hasEndpoint).toBe(true);
         expect(result.hasApiKey).toBe(true);
@@ -123,7 +133,12 @@ describe('layout load', () => {
 
         const result = load({
             url: new URL('http://localhost:5173/')
-        } as any) as { hasEndpoint: boolean; hasApiKey: boolean; endpoint: string | null; apiKey: string | null };
+        } as any) as {
+            hasEndpoint: boolean;
+            hasApiKey: boolean;
+            endpoint: string | null;
+            apiKey: string | null;
+        };
 
         expect(result.hasEndpoint).toBe(true);
         expect(result.hasApiKey).toBe(true);
@@ -145,7 +160,12 @@ describe('layout load', () => {
                 delete: vi.fn(),
                 serialize: vi.fn()
             }
-        } as any) as { hasEndpoint: boolean; hasApiKey: boolean; endpoint: string | null; apiKey: string | null };
+        } as any) as {
+            hasEndpoint: boolean;
+            hasApiKey: boolean;
+            endpoint: string | null;
+            apiKey: string | null;
+        };
 
         expect(result.hasEndpoint).toBe(true);
         expect(result.hasApiKey).toBe(true);
@@ -178,7 +198,14 @@ describe('navigation state', () => {
 
     it('enables claim but disables logs/list when API key is missing', () => {
         render(Layout as any, {
-            props: { data: { hasEndpoint: true, hasApiKey: false, endpoint: 'https://api.example.test', apiKey: null } }
+            props: {
+                data: {
+                    hasEndpoint: true,
+                    hasApiKey: false,
+                    endpoint: 'https://api.example.test',
+                    apiKey: null
+                }
+            }
         });
 
         expect(screen.getByText('Claim Key')).not.toHaveClass('disabled');

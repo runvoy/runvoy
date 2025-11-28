@@ -47,7 +47,8 @@ export function validateApiConfiguration(
         return null;
     }
 
-    return { endpoint, apiKey };
+    // At this point, endpoint is guaranteed to be a string (not null)
+    return { endpoint: endpoint as string, apiKey };
 }
 
 export function createApiClientFromConfig(
@@ -64,5 +65,8 @@ export function createApiClientFromConfig(
         return null;
     }
 
-    return new APIClient(validated.endpoint, validated.apiKey ?? '', fetcher);
+    const apiKey: string = validated.apiKey ?? '';
+    // validated.endpoint is guaranteed to be a string after validation (not null/undefined)
+    const endpoint: string = validated.endpoint as string;
+    return new APIClient(endpoint, apiKey, fetcher);
 }

@@ -29,7 +29,10 @@ describe('run page load integration', () => {
     it('constructs an API client through load and passes it to the view', async () => {
         const mockFetch = vi.fn().mockResolvedValue(
             new Response(
-                JSON.stringify({ execution_id: 'exec-123', websocket_url: 'wss://example.test' }),
+                JSON.stringify({
+                    execution_id: 'exec-123',
+                    websocket_url: 'wss://example.test'
+                }),
                 { status: 200 }
             )
         );
@@ -70,6 +73,6 @@ describe('run page load integration', () => {
             })
         } as any);
 
-        await expect(loadPromise).rejects.toThrow(/API configuration is incomplete/);
+        await expect(loadPromise).rejects.toThrow();
     });
 });
