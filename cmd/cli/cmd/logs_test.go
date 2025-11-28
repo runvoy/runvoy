@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -12,16 +11,6 @@ import (
 	"runvoy/internal/api"
 	"runvoy/internal/constants"
 )
-
-// mockSleeper is a test implementation that records sleep calls without actually sleeping
-type mockSleeper struct {
-	sleepCalls []time.Duration
-}
-
-func (m *mockSleeper) Sleep(duration time.Duration) {
-	m.sleepCalls = append(m.sleepCalls, duration)
-	// Don't actually sleep to keep tests fast
-}
 
 // mockClientInterfaceForLogs extends mockClientInterface with GetLogs
 type mockClientInterfaceForLogs struct {
@@ -231,8 +220,7 @@ func TestLogsService_DisplayLogs(t *testing.T) {
 			tt.setupMock(mockClient)
 
 			mockOutput := &mockOutputInterface{}
-			mockSleeper := &mockSleeper{}
-			service := NewLogsService(mockClient, mockOutput, mockSleeper)
+			service := NewLogsService(mockClient, mockOutput)
 			if tt.configureService != nil {
 				tt.configureService(t, service)
 			}
@@ -247,89 +235,6 @@ func TestLogsService_DisplayLogs(t *testing.T) {
 
 			if tt.verifyOutput != nil {
 				tt.verifyOutput(t, mockOutput)
-			}
-		})
-	}
-}
-
-func TestLogsService_SmartPolling_StartingState(t *testing.T) {
-	tests := []struct {
-		name              string
-		executionStatus   string
-		expectedSleepTime time.Duration
-		logsError         error
-	}{
-		{
-			name:              "waits 30 seconds for STARTING state",
-			executionStatus:   "STARTING",
-			expectedSleepTime: 30 * time.Second,
-			logsError:         nil,
-		},
-		{
-			name:              "waits 10 seconds for TERMINATING state",
-			executionStatus:   "TERMINATING",
-			expectedSleepTime: 10 * time.Second,
-			logsError:         nil,
-		},
-		{
-			name:              "no wait for RUNNING state",
-			executionStatus:   "RUNNING",
-			expectedSleepTime: 0,
-			logsError:         nil,
-		},
-		{
-			name:              "no wait for SUCCEEDED state",
-			executionStatus:   "SUCCEEDED",
-			expectedSleepTime: 0,
-			logsError:         nil,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			mockClient := &mockClientInterfaceForLogs{
-				mockClientInterface: &mockClientInterface{},
-			}
-
-			// Setup GetExecutionStatus mock
-			mockClient.getExecutionStatusFunc = func(_ context.Context, _ string) (*api.ExecutionStatusResponse, error) {
-				return &api.ExecutionStatusResponse{
-					ExecutionID: "exec-123",
-					Status:      tt.executionStatus,
-				}, nil
-			}
-
-			// Setup GetLogs mock
-			mockClient.getLogsFunc = func(_ context.Context, _ string) (*api.LogsResponse, error) {
-				if tt.logsError != nil {
-					return nil, tt.logsError
-				}
-				resp := &api.LogsResponse{
-					ExecutionID: "exec-123",
-					Events:      []api.LogEvent{{Timestamp: 1000000, Message: "Test log"}},
-					Status:      tt.executionStatus,
-				}
-				if !isTerminalStatus(tt.executionStatus) {
-					resp.WebSocketURL = "wss://example.com/logs/exec-123"
-				}
-				return resp, nil
-			}
-
-			mockOutput := &mockOutputInterface{}
-			mockSleeper := &mockSleeper{}
-			service := NewLogsService(mockClient, mockOutput, mockSleeper)
-			service.stream = func(string, int, string, string) error {
-				return nil
-			}
-
-			_ = service.DisplayLogs(context.Background(), "exec-123", "https://example.com")
-
-			// Verify sleep behavior
-			if tt.expectedSleepTime > 0 {
-				require.Len(t, mockSleeper.sleepCalls, 1, "Expected one sleep call")
-				assert.Equal(t, tt.expectedSleepTime, mockSleeper.sleepCalls[0], "Sleep duration should match expected value")
-			} else {
-				assert.Empty(t, mockSleeper.sleepCalls, "Should not sleep for non-STARTING/TERMINATING states")
 			}
 		})
 	}

@@ -3,19 +3,15 @@ package cmd
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"log/slog"
-	"net/http"
 	"os"
 	"os/signal"
-	"regexp"
 	"runvoy/internal/api"
 	"runvoy/internal/client"
 	"runvoy/internal/client/infra"
 	"runvoy/internal/client/output"
 	"runvoy/internal/constants"
-	apperrors "runvoy/internal/errors"
 	"slices"
 	"sync"
 	"syscall"
@@ -24,19 +20,6 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/spf13/cobra"
 )
-
-// Sleeper provides a testable interface for introducing delays
-type Sleeper interface {
-	Sleep(duration time.Duration)
-}
-
-// RealSleeper implements Sleeper using the standard time.Sleep
-type RealSleeper struct{}
-
-// Sleep pauses execution for the specified duration
-func (r *RealSleeper) Sleep(duration time.Duration) {
-	time.Sleep(duration)
-}
 
 var logsCmd = &cobra.Command{
 	Use:   "logs <execution-id>",
@@ -48,42 +31,6 @@ var logsCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(logsCmd)
-}
-
-const (
-	minRegexMatches = 2 // Minimum number of regex matches expected: full match + capture group
-)
-
-// isLogsNotReadyError checks if an error represents a logs-not-ready condition.
-// This checks for 503 Service Unavailable (log stream doesn't exist yet).
-// It handles both AppError types and client error strings formatted as [status] ...
-func isLogsNotReadyError(err error) bool {
-	statusCode := apperrors.GetStatusCode(err)
-	// Check for 503 Service Unavailable (log stream not ready yet)
-	if statusCode == http.StatusServiceUnavailable {
-		return true
-	}
-
-	// Check if it's an AppError with SERVICE_UNAVAILABLE error code
-	var appErr *apperrors.AppError
-	if errors.As(err, &appErr) {
-		return appErr.Code == apperrors.ErrCodeServiceUnavailable ||
-			appErr.StatusCode == http.StatusServiceUnavailable
-	}
-
-	// Parse client error format: [status] error message
-	// The client formats errors as: "[%d] %s: %s"
-	errStr := err.Error()
-	re := regexp.MustCompile(`\[(\d+)\]`)
-	matches := re.FindStringSubmatch(errStr)
-	if len(matches) >= minRegexMatches {
-		statusStr := matches[1]
-		if statusStr == fmt.Sprintf("%d", http.StatusServiceUnavailable) {
-			return true
-		}
-	}
-
-	return false
 }
 
 // isTerminalStatus reports whether the provided execution status is terminal.
@@ -102,7 +49,7 @@ func logsRun(cmd *cobra.Command, args []string) {
 	output.Infof("Getting logs for execution: %s", output.Bold(executionID))
 
 	c := client.New(cfg, slog.Default())
-	service := NewLogsService(c, NewOutputWrapper(), &RealSleeper{})
+	service := NewLogsService(c, NewOutputWrapper())
 	if err = service.DisplayLogs(cmd.Context(), executionID, cfg.WebURL); err != nil {
 		output.Errorf(err.Error())
 	}
@@ -110,75 +57,21 @@ func logsRun(cmd *cobra.Command, args []string) {
 
 // LogsService handles log display logic
 type LogsService struct {
-	client  client.Interface
-	output  OutputInterface
-	sleeper Sleeper
-	stream  func(websocketURL string, startingLineNumber int, webURL, executionID string) error
+	client client.Interface
+	output OutputInterface
+	stream func(websocketURL string, startingLineNumber int, webURL, executionID string) error
 }
 
 // NewLogsService creates a new LogsService with the provided dependencies
-func NewLogsService(apiClient client.Interface, outputter OutputInterface, sleeper Sleeper) *LogsService {
+func NewLogsService(apiClient client.Interface, outputter OutputInterface) *LogsService {
 	service := &LogsService{
-		client:  apiClient,
-		output:  outputter,
-		sleeper: sleeper,
+		client: apiClient,
+		output: outputter,
 	}
 	service.stream = func(websocketURL string, startingLineNumber int, webURL, executionID string) error {
 		return service.streamLogsViaWebSocket(websocketURL, startingLineNumber, webURL, executionID)
 	}
 	return service
-}
-
-// fetchLogsWithRetry fetches logs with retry logic for 503 errors
-// (execution starting up, log stream not ready yet).
-// It intelligently handles STARTING state by waiting ~20 seconds before the first poll,
-// as provisioners like Fargate typically take that long to provision and start (and even longer
-// for logs to be available).
-func (s *LogsService) fetchLogsWithRetry(ctx context.Context, executionID string) (*api.LogsResponse, error) {
-	const (
-		maxRetries         = 4
-		retryDelay         = 10 * time.Second
-		startingStateDelay = 30 * time.Second
-	)
-
-	// Smart initial wait: Check execution status first
-	// If STARTING or TERMINATING, wait before first log poll to avoid unnecessary 503s
-	status, err := s.client.GetExecutionStatus(ctx, executionID)
-	if err == nil {
-		s.output.Infof("Execution status: %s", status.Status)
-		if status.Status == string(constants.ExecutionStarting) {
-			s.output.Infof(fmt.Sprintf(
-				"Execution is starting (logs usually ready after ~%d seconds)...", int(startingStateDelay.Seconds())))
-			s.sleeper.Sleep(startingStateDelay)
-		} else if status.Status == string(constants.ExecutionTerminating) {
-			s.output.Infof("Execution is terminating, waiting for final state...")
-			s.sleeper.Sleep(retryDelay)
-		}
-	}
-	// If status check fails, proceed with normal retry logic
-
-	var resp *api.LogsResponse
-	for attempt := 0; attempt <= maxRetries; attempt++ {
-		resp, err = s.client.GetLogs(ctx, executionID)
-		if err == nil {
-			return resp, nil
-		}
-
-		// Check if it's a logs-not-ready error (503 - log stream doesn't exist yet)
-		if isLogsNotReadyError(err) {
-			if attempt < maxRetries {
-				s.output.Infof("Logs not available yet, waiting %d seconds... (attempt %d/%d)",
-					int(retryDelay.Seconds()), attempt+1, maxRetries+1)
-				s.sleeper.Sleep(retryDelay)
-				continue
-			}
-		}
-
-		// For non-retryable errors or final attempt, return error
-		return nil, fmt.Errorf("failed to get logs: %w", err)
-	}
-
-	return nil, fmt.Errorf("failed to get logs: %w", err)
 }
 
 // readWebSocketMessages reads messages from WebSocket and sends log events to a channel
@@ -291,10 +184,9 @@ func (s *LogsService) streamLogsViaWebSocket(
 // DisplayLogs retrieves static logs and then streams new logs via WebSocket in real-time
 // If the execution has already completed, it displays static logs only and skips WebSocket streaming
 func (s *LogsService) DisplayLogs(ctx context.Context, executionID, webURL string) error {
-	// Fetch static logs with retry logic
-	resp, err := s.fetchLogsWithRetry(ctx, executionID)
+	resp, err := s.client.GetLogs(ctx, executionID)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get logs: %w", err)
 	}
 
 	if isTerminalStatus(resp.Status) {
