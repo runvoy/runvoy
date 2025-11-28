@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { apiEndpoint, apiKey } from '../stores/config';
+    import { apiEndpoint, apiKey, setApiKey } from '../stores/config';
     import type { ClaimAPIKeyResponse } from '../types/api';
     import APIClient from '../lib/api';
 
@@ -45,7 +45,7 @@
             success = true;
 
             // Auto-save the API key
-            apiKey.set(result.api_key);
+            setApiKey(result.api_key);
 
             // Clear the token field
             token = '';

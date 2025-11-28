@@ -1,6 +1,6 @@
 <script lang="ts">
     import { version } from '$app/environment';
-    import { apiEndpoint, apiKey } from '../stores/config';
+    import { apiEndpoint, apiKey, setApiEndpoint, setApiKey } from '../stores/config';
     import APIClient from '../lib/api';
     import type { HealthResponse } from '../types/api';
 
@@ -56,8 +56,8 @@
                 'Are you sure you want to clear your configuration? You will need to configure the API again.'
             )
         ) {
-            apiEndpoint.set(null);
-            apiKey.set(null);
+            setApiEndpoint(null);
+            setApiKey(null);
             showApiKey = false;
             backendHealth = null;
             healthError = null;
@@ -91,10 +91,10 @@
             return;
         }
 
-        apiEndpoint.set(endpoint);
+        setApiEndpoint(endpoint);
 
         if (keyInput && keyInput !== MASKED_API_KEY_PLACEHOLDER) {
-            apiKey.set(keyInput.trim());
+            setApiKey(keyInput.trim());
         }
 
         formSuccess = 'Configuration saved';

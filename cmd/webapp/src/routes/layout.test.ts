@@ -7,57 +7,25 @@ import type { Redirect } from '@sveltejs/kit';
 
 import Layout from './+layout.svelte';
 import { load } from './+layout';
-
-const createMockStore = vi.hoisted(() => {
-    return <T>(initial: T) => {
-        let value = initial;
-        const subscribers = new Set<(current: T) => void>();
-
-        return {
-            set: (newValue: T) => {
-                value = newValue;
-                subscribers.forEach((fn) => fn(value));
-            },
-            subscribe: (fn: (current: T) => void) => {
-                subscribers.add(fn);
-                fn(value);
-                return () => subscribers.delete(fn);
-            }
-        };
-    };
-});
-
-const page = vi.hoisted(() =>
-    createMockStore({
-        url: new URL('http://localhost:5173/')
-    })
-);
-
-const apiEndpoint = vi.hoisted(() => createMockStore<string | null>(null));
-const apiKey = vi.hoisted(() => createMockStore<string | null>(null));
+import { apiEndpoint, apiKey, setApiEndpoint, setApiKey } from '../stores/config';
 
 vi.mock('$app/environment', () => ({
-    version: 'test-version'
-}));
-
-vi.mock('$app/stores', () => ({
-    page
-}));
-
-vi.mock('../stores/config', () => ({
-    apiEndpoint,
-    apiKey
+    version: 'test-version',
+    browser: true
 }));
 
 describe('layout load', () => {
     beforeEach(() => {
         localStorage.clear();
+        setApiEndpoint(null);
+        setApiKey(null);
     });
 
     it('redirects to settings when no endpoint is configured', () => {
         try {
             load({
-                url: new URL('http://localhost:5173/logs')
+                url: new URL('http://localhost:5173/logs'),
+                data: { initialConfig: { endpoint: null, apiKey: null } }
             } as any);
         } catch (error) {
             const redirectError = error as Redirect;
@@ -74,7 +42,8 @@ describe('layout load', () => {
 
         try {
             load({
-                url: new URL('http://localhost:5173/logs')
+                url: new URL('http://localhost:5173/logs'),
+                data: { initialConfig: { endpoint: null, apiKey: null } }
             } as any);
         } catch (error) {
             const redirectError = error as Redirect;
@@ -91,7 +60,8 @@ describe('layout load', () => {
         localStorage.setItem('runvoy_api_key', 'secret-key');
 
         const result = load({
-            url: new URL('http://localhost:5173/')
+            url: new URL('http://localhost:5173/'),
+            data: { initialConfig: { endpoint: null, apiKey: null } }
         } as any) as { hasEndpoint: boolean; hasApiKey: boolean };
 
         expect(result.hasEndpoint).toBe(true);
@@ -103,7 +73,31 @@ describe('layout load', () => {
         localStorage.setItem('runvoy_api_key', 'local-key');
 
         const result = load({
-            url: new URL('http://localhost:5173/')
+            url: new URL('http://localhost:5173/'),
+            data: { initialConfig: { endpoint: null, apiKey: null } }
+        } as any) as { hasEndpoint: boolean; hasApiKey: boolean };
+
+        expect(result.hasEndpoint).toBe(true);
+        expect(result.hasApiKey).toBe(true);
+    });
+
+    it('handles missing server data in a SPA/static environment', () => {
+        localStorage.setItem('runvoy_endpoint', 'https://api.local.test');
+        localStorage.setItem('runvoy_api_key', 'local-key');
+
+        const result = load({
+            url: new URL('http://localhost:5173/'),
+            data: undefined
+        } as any) as { hasEndpoint: boolean; hasApiKey: boolean };
+
+        expect(result.hasEndpoint).toBe(true);
+        expect(result.hasApiKey).toBe(true);
+    });
+
+    it('honors initial config returned from the server', () => {
+        const result = load({
+            url: new URL('http://localhost:5173/'),
+            data: { initialConfig: { endpoint: 'https://api.server.test', apiKey: 'server-key' } }
         } as any) as { hasEndpoint: boolean; hasApiKey: boolean };
 
         expect(result.hasEndpoint).toBe(true);
@@ -113,9 +107,8 @@ describe('layout load', () => {
 
 describe('navigation state', () => {
     beforeEach(() => {
-        page.set({ url: new URL('http://localhost:5173/') });
-        apiEndpoint.set(null);
-        apiKey.set(null);
+        setApiEndpoint(null);
+        setApiKey(null);
     });
 
     it('disables non-settings views when endpoint is missing', () => {
@@ -142,8 +135,8 @@ describe('navigation state', () => {
     });
 
     it('enables all views when fully configured', () => {
-        apiEndpoint.set('https://api.example.test');
-        apiKey.set('abc123');
+        setApiEndpoint('https://api.example.test');
+        setApiKey('abc123');
 
         render(Layout as any, {
             props: { data: { hasEndpoint: true, hasApiKey: true } }

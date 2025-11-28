@@ -1,19 +1,20 @@
+import { browser } from '$app/environment';
 import { redirect } from '@sveltejs/kit';
+import { hydrateConfigStores } from '../stores/config';
 import type { LayoutLoad } from './$types';
 
-const ENDPOINT_KEY = 'runvoy_endpoint';
-const API_KEY_KEY = 'runvoy_api_key';
-
 export const prerender = false;
-export const ssr = false;
 
-export const load: LayoutLoad = ({ url }) => {
-    let endpoint: string | null = null;
-    let apiKey: string | null = null;
+export const load: LayoutLoad = ({ url, data }) => {
+    const hydrated = hydrateConfigStores(data?.initialConfig);
 
-    if (typeof localStorage !== 'undefined') {
-        endpoint = localStorage.getItem(ENDPOINT_KEY);
-        apiKey = localStorage.getItem(API_KEY_KEY);
+    let endpoint = hydrated.endpoint;
+    let apiKey = hydrated.apiKey;
+
+    if (browser) {
+        // Prefer latest browser values if available
+        endpoint = hydrated.endpoint ?? endpoint;
+        apiKey = hydrated.apiKey ?? apiKey;
     }
 
     const hasEndpoint = Boolean(endpoint);
