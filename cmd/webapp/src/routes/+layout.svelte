@@ -1,7 +1,6 @@
 <script lang="ts">
     import { version } from '$app/environment';
-    import { goto } from '$app/navigation';
-    import { page } from '$app/stores';
+    import type { LayoutData } from './$types';
     import ViewSwitcher from '../components/ViewSwitcher.svelte';
     import { apiEndpoint, apiKey } from '../stores/config';
     import { VIEWS } from '../stores/ui';
@@ -11,9 +10,10 @@
 
     interface Props {
         children?: Snippet;
+        data: LayoutData;
     }
 
-    const { children }: Props = $props();
+    const { children, data }: Props = $props();
 
     interface NavView {
         id: string;
@@ -29,8 +29,8 @@
         { id: VIEWS.SETTINGS, label: 'Settings' }
     ];
 
-    const hasEndpoint = $derived(Boolean($apiEndpoint));
-    const hasApiKey = $derived(Boolean($apiKey));
+    const hasEndpoint = $derived(Boolean(data.hasEndpoint) || Boolean($apiEndpoint));
+    const hasApiKey = $derived(Boolean(data.hasApiKey) || Boolean($apiKey));
 
     const navViews: NavView[] = $derived(
         views.map((view) => {
@@ -45,21 +45,6 @@
             return view;
         })
     );
-
-    $effect(() => {
-        const pathname = $page.url.pathname;
-        const isSettings = pathname === '/settings';
-        const isClaim = pathname === '/claim';
-
-        if (!hasEndpoint && !isSettings) {
-            goto('/settings');
-            return;
-        }
-
-        if (!hasApiKey && !isSettings && !isClaim) {
-            goto('/settings');
-        }
-    });
 </script>
 
 <main class="container">
