@@ -33,7 +33,8 @@ const config = {
                         pages: 'dist',
                         assets: 'dist',
                         precompress: false,
-                        strict: true
+                        fallback: 'index.html',
+                        strict: false
                 }),
                 version: {
                         name: appVersion

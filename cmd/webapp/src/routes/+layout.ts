@@ -5,14 +5,15 @@ const ENDPOINT_KEY = 'runvoy_endpoint';
 const API_KEY_KEY = 'runvoy_api_key';
 
 export const prerender = false;
+export const ssr = false;
 
-export const load: LayoutLoad = ({ cookies, url }) => {
-    let endpoint = cookies.get(ENDPOINT_KEY);
-    let apiKey = cookies.get(API_KEY_KEY);
+export const load: LayoutLoad = ({ url }) => {
+    let endpoint: string | null = null;
+    let apiKey: string | null = null;
 
     if (typeof localStorage !== 'undefined') {
-        endpoint = endpoint ?? localStorage.getItem(ENDPOINT_KEY);
-        apiKey = apiKey ?? localStorage.getItem(API_KEY_KEY);
+        endpoint = localStorage.getItem(ENDPOINT_KEY);
+        apiKey = localStorage.getItem(API_KEY_KEY);
     }
 
     const hasEndpoint = Boolean(endpoint);

@@ -1,6 +1,5 @@
 <script lang="ts">
     import { version } from '$app/environment';
-    import { page } from '$app/stores';
     import type { LayoutData } from './$types';
     import ViewSwitcher from '../components/ViewSwitcher.svelte';
     import { apiEndpoint, apiKey } from '../stores/config';
@@ -46,7 +45,6 @@
             return view;
         })
     );
-
 </script>
 
 <main class="container">

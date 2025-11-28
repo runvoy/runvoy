@@ -54,20 +54,9 @@ describe('layout load', () => {
         localStorage.clear();
     });
 
-    function createCookies(endpoint?: string | null, key?: string | null) {
-        return {
-            get: (cookieName: string) => {
-                if (cookieName === 'runvoy_endpoint') return endpoint ?? undefined;
-                if (cookieName === 'runvoy_api_key') return key ?? undefined;
-                return undefined;
-            }
-        };
-    }
-
     it('redirects to settings when no endpoint is configured', () => {
         try {
             load({
-                cookies: createCookies(null, null),
                 url: new URL('http://localhost:5173/logs')
             } as any);
         } catch (error) {
@@ -81,9 +70,10 @@ describe('layout load', () => {
     });
 
     it('redirects to claim when API key is missing', () => {
+        localStorage.setItem('runvoy_endpoint', 'https://api.example.test');
+
         try {
             load({
-                cookies: createCookies('https://api.example.test', null),
                 url: new URL('http://localhost:5173/logs')
             } as any);
         } catch (error) {
@@ -97,23 +87,24 @@ describe('layout load', () => {
     });
 
     it('returns persisted flags when configuration exists', () => {
+        localStorage.setItem('runvoy_endpoint', 'https://api.example.test');
+        localStorage.setItem('runvoy_api_key', 'secret-key');
+
         const result = load({
-            cookies: createCookies('https://api.example.test', 'secret-key'),
             url: new URL('http://localhost:5173/')
-        } as any);
+        } as any) as { hasEndpoint: boolean; hasApiKey: boolean };
 
         expect(result.hasEndpoint).toBe(true);
         expect(result.hasApiKey).toBe(true);
     });
 
-    it('falls back to localStorage when cookies are missing', () => {
+    it('reads from localStorage', () => {
         localStorage.setItem('runvoy_endpoint', 'https://api.local.test');
         localStorage.setItem('runvoy_api_key', 'local-key');
 
         const result = load({
-            cookies: createCookies(null, null),
             url: new URL('http://localhost:5173/')
-        } as any);
+        } as any) as { hasEndpoint: boolean; hasApiKey: boolean };
 
         expect(result.hasEndpoint).toBe(true);
         expect(result.hasApiKey).toBe(true);
@@ -129,8 +120,7 @@ describe('navigation state', () => {
 
     it('disables non-settings views when endpoint is missing', () => {
         render(Layout as any, {
-            props: { data: { hasEndpoint: false, hasApiKey: false } },
-            slots: { default: '<p>content</p>' }
+            props: { data: { hasEndpoint: false, hasApiKey: false } }
         });
 
         expect(screen.getByText('Run Command')).toHaveClass('disabled');
@@ -142,8 +132,7 @@ describe('navigation state', () => {
 
     it('enables claim but disables logs/list when API key is missing', () => {
         render(Layout as any, {
-            props: { data: { hasEndpoint: true, hasApiKey: false } },
-            slots: { default: '<p>content</p>' }
+            props: { data: { hasEndpoint: true, hasApiKey: false } }
         });
 
         expect(screen.getByText('Claim Key')).not.toHaveClass('disabled');
@@ -157,8 +146,7 @@ describe('navigation state', () => {
         apiKey.set('abc123');
 
         render(Layout as any, {
-            props: { data: { hasEndpoint: true, hasApiKey: true } },
-            slots: { default: '<p>content</p>' }
+            props: { data: { hasEndpoint: true, hasApiKey: true } }
         });
 
         expect(screen.getByText('Run Command')).not.toHaveClass('disabled');
