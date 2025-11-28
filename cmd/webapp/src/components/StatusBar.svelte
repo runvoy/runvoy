@@ -58,9 +58,9 @@
                 class="kill-button"
                 onclick={handleKill}
                 disabled={!canKill}
-                title="Stop this execution"
+                title="Kill this execution"
             >
-                {isKilling ? '⏹️ Stopping...' : '⏹️ Stop'}
+                {isKilling ? '⏹️ Killing...' : '⏹️ Kill'}
             </button>
         </div>
     {/if}

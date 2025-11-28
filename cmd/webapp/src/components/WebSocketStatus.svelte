@@ -1,12 +1,11 @@
 <script lang="ts">
-    import { isConnecting, connectionError, websocketConnection } from '../stores/websocket';
+    import { isConnecting, connectionError, isConnected } from '../stores/websocket';
     import { isCompleted } from '../stores/execution';
 
     const statusText = $derived.by(() => {
         if ($isCompleted) return 'Execution finished';
         if ($isConnecting) return 'Connecting...';
-        if ($websocketConnection && $websocketConnection.readyState === WebSocket.OPEN)
-            return 'Connected';
+        if ($isConnected) return 'Connected';
         if ($connectionError) return $connectionError;
         return 'Disconnected';
     });
@@ -14,8 +13,7 @@
     const statusClass = $derived.by(() => {
         if ($isCompleted) return 'status-completed';
         if ($isConnecting) return 'status-connecting';
-        if ($websocketConnection && $websocketConnection.readyState === WebSocket.OPEN)
-            return 'status-connected';
+        if ($isConnected) return 'status-connected';
         return 'status-disconnected';
     });
 </script>

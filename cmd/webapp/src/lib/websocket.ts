@@ -2,7 +2,12 @@
  * WebSocket connection handler for real-time log streaming
  */
 import { get } from 'svelte/store';
-import { websocketConnection, isConnecting, connectionError } from '../stores/websocket';
+import {
+    websocketConnection,
+    isConnecting,
+    connectionError,
+    isConnected
+} from '../stores/websocket';
 import { logEvents } from '../stores/logs';
 import { isCompleted } from '../stores/execution';
 import type { LogEvent, WebSocketLogMessage } from '../types/logs';
@@ -22,6 +27,7 @@ export function connectWebSocket(url: string): void {
     manuallyDisconnected = false;
     isConnecting.set(true);
     connectionError.set(null);
+    isConnected.set(false);
 
     try {
         socket = new WebSocket(url);
@@ -37,6 +43,7 @@ export function connectWebSocket(url: string): void {
     socket.onopen = (): void => {
         isConnecting.set(false);
         connectionError.set(null);
+        isConnected.set(true);
     };
 
     socket.onmessage = (event: MessageEvent): void => {
@@ -90,10 +97,12 @@ export function connectWebSocket(url: string): void {
     socket.onerror = (): void => {
         connectionError.set('WebSocket connection failed.');
         isConnecting.set(false);
+        isConnected.set(false);
     };
 
     socket.onclose = (event: CloseEvent): void => {
         isConnecting.set(false);
+        isConnected.set(false);
         if (event.code !== 1000) {
             // 1000 is normal closure
             connectionError.set(`Disconnected: ${event.reason || 'Connection lost'}`);
@@ -122,5 +131,6 @@ export function disconnectWebSocket(): void {
         socket.close(1000, 'User disconnected');
         socket = null;
         websocketConnection.set(null);
+        isConnected.set(false);
     }
 }
