@@ -547,7 +547,7 @@ Closes #123
 To release a new version:
 
 1. Bump the version in [VERSION](./VERSION)
-2. Update the [CHANGELOG](./CHANGELOG.md) with the new version and changelog entries
+2. Update the [CHANGELOG](./CHANGELOG.md) with the new version and changelog entries using `just update-changelog`
 3. Commit and push the changes
 4. Run `just release` (creates a GitHub release and uploads binaries to S3 via Goreleaser)
 

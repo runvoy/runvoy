@@ -5,6 +5,54 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.4.0] - 2025-11-28
+
+### Added
+
+* [75ed4f0](https://github.com/runvoy/runvoy/commit/75ed4f05121d4e34d5b08f0eade72ee9429b8b62) feat(logs): add dynamodb buffer for improved log streaming
+* [926de6f](https://github.com/runvoy/runvoy/commit/926de6ffbb8ca41dcb67815d0786f80a6a0db80a) feat(webapp): optimize log retrieval after websocket close #358
+* [a8d16c0](https://github.com/runvoy/runvoy/commit/a8d16c0972c6ddfbda394367724c1d32c8a91c1f) feat(client): improve log streaming handling
+* [b29d845](https://github.com/runvoy/runvoy/commit/b29d845cea2374aa41f95508c846c89c2ca43972) feat(logs): return websocket url from /run (#352)
+* [d731686](https://github.com/runvoy/runvoy/commit/d73168644fa9ff7ab9b12c8d6b9152aa6aa97b98) feat(webapp): migrate webapp to Svelte 5 toolchain (#369)
+* [ea61f40](https://github.com/runvoy/runvoy/commit/ea61f4089c0bbf600397a4ca3c51a94efb07f0c1) feat: add region and provider info to GET /health
+* [f9866ba](https://github.com/runvoy/runvoy/commit/f9866ba17daff966f0ade52bea4523cc76273aba) feat(webapp): show backend provider and region
+* [bbe93ce](https://github.com/runvoy/runvoy/commit/bbe93ce88df7c93780210b702784d757a037099a) tool: add update-changelog script
+
+### Changed
+
+* [0e59329](https://github.com/runvoy/runvoy/commit/0e593295f9d6e4960448013eba4d40db48f91c71) docs: update webapp and docs URLs
+* [1338ad7](https://github.com/runvoy/runvoy/commit/1338ad73be6037f551a68c59024f157da7789871) refactor(aws): split orchestrator bootstrap wiring
+* [1fb46ad](https://github.com/runvoy/runvoy/commit/1fb46adbbbf78037de6860fa1010a82c2b10231e) test: add more coverage to health package
+* [3ae6dbb](https://github.com/runvoy/runvoy/commit/3ae6dbb93ebafc21639167c7c3eb4e5d46edf196) docs: add release badge
+* [5e3fdbd](https://github.com/runvoy/runvoy/commit/5e3fdbda217a7256147284d0ca7e0e2aea240208) tool(just): trigger docs build in release flow
+* [7bdbcaf](https://github.com/runvoy/runvoy/commit/7bdbcaf36b39705743b9badc0f0dac028d06e281) tool(just): add print-build-version
+* [8b616ae](https://github.com/runvoy/runvoy/commit/8b616aefa8fb87f7c3969c5d69b997bcf47675d1) ci: moved dev web into its own Netlify project
+* [915764c](https://github.com/runvoy/runvoy/commit/915764ca4c2b1c895c948ca33f8d9d3de7da86a2) refactor: modernize Svelte runes usage (#371)
+* [9378298](https://github.com/runvoy/runvoy/commit/9378298eab527e59117b8d7ac1e918a68476bdb0) docs(web): update header link
+* [b5937a9](https://github.com/runvoy/runvoy/commit/b5937a9523d350487d90af5b28bbf20a84881881) docs: update changelog
+* [bdd0a52](https://github.com/runvoy/runvoy/commit/bdd0a52ea6ceccd8cc23a564fd9ac1c5c3de65ce) test(health): cover casbin reconciliation (#349)
+* [c1404b0](https://github.com/runvoy/runvoy/commit/c1404b04f2d4763231eb9fe706eacd18d245ed99) refactor(webapp): remove legacy configure api views
+* [d26ea23](https://github.com/runvoy/runvoy/commit/d26ea23924b5b6e9f1a13e6b6d9bc8ec6266085a) refactor(webapp): normalize log event types (#365)
+* [d57a335](https://github.com/runvoy/runvoy/commit/d57a335a4c801c9eb922cbc95a72d038bae7a3c1) refactor(webapp): update config storage
+* [edc1a9d](https://github.com/runvoy/runvoy/commit/edc1a9df42d50ce4b4327d03056619792a39fb83) refactor(cli): simplify logs retrieval (#360)
+* [f8d44cf](https://github.com/runvoy/runvoy/commit/f8d44cf7bc13d156224870ce5bbba264145efd55) test(aws/health): cover compute defaults and tags (#364)
+
+### Fixed
+
+* [23b9cf1](https://github.com/runvoy/runvoy/commit/23b9cf197cc3404b89bda8e771f553c11fbae356) fix(webapp): consolidate api configuration (#363)
+* [2ee4e4b](https://github.com/runvoy/runvoy/commit/2ee4e4b1850a5b3620fdaf34ad2d059da9f696dd) fix(web): remove useless index fallback
+* [35dffa1](https://github.com/runvoy/runvoy/commit/35dffa1264ba606c3d31b072e8d310d0c9a945c2) fix(webapp): improve modal accessibility (#361)
+* [5ac1463](https://github.com/runvoy/runvoy/commit/5ac14639c9f7b21c854660291a5ce7fa0e30c582) fix(webapp): remove lint disables from log rendering (#366)
+* [5eddfd3](https://github.com/runvoy/runvoy/commit/5eddfd3b6fd0ca0ca5e64bd07476e37c2fca8f4f) fix(webapp): cleanup logs flow
+* [71d9abb](https://github.com/runvoy/runvoy/commit/71d9abb99ff573d0dd90b4bdc6b9069ff7433b07) fix(webapp): load persisted config and enforce redirects
+* [8683896](https://github.com/runvoy/runvoy/commit/86838964b6d85399030a4072b5b561e03edf66f1) fix(webapp): use sveltekit version directly (#362)
+* [9026807](https://github.com/runvoy/runvoy/commit/902680721963f7ad1c2866d886c376c2583ffb77) fix(webapp): simplify ws flow
+* [afa5de7](https://github.com/runvoy/runvoy/commit/afa5de796001d606fc92240928068486a11b818d) fix(webapp): cleanup settings onboarding
+* [c9190dd](https://github.com/runvoy/runvoy/commit/c9190dd14647a69b05c6b577b413165d95915ba3) fix(webapp): reorder nav buttons
+* [d34758f](https://github.com/runvoy/runvoy/commit/d34758f66e9addd2b2e825d8fd54a69ff0cc5592) fix(webapp): redirect claim to configure endpoint (#367)
+* [eab2247](https://github.com/runvoy/runvoy/commit/eab2247db176fb930d6fb28f836916ef3eb3fe6b) fix(webapp): remove obsolete normalize func
+* [fe10e79](https://github.com/runvoy/runvoy/commit/fe10e790dfa5a1ce02f1fec143c6fa1d27e467af) fix(webapp): refresh health after saving settings (#368)
+
 ## [v0.3.0] - 2025-11-25
 
 ### Added
