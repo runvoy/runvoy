@@ -44,12 +44,8 @@
                             <span class="version">{appVersion}</span>
                         {/if}
                         <p class="subtitle">
-                            <a
-                                href="https://github.com/runvoy/runvoy"
-                                target="_blank"
-                                rel="noopener"
-                            >
-                                View on GitHub
+                            <a href="https://runvoy.site/" target="_blank" rel="noopener">
+                                Documentation
                             </a>
                         </p>
                     </div>
