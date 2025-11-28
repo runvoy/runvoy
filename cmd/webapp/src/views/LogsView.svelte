@@ -12,7 +12,7 @@
     import { cachedWebSocketURL } from '../stores/websocket';
     import { connectWebSocket, disconnectWebSocket } from '../lib/websocket';
     import type APIClient from '../lib/api';
-    import type { LogEvent } from '../types/stores';
+    import { normalizeLogEvents, type LogEvent } from '../types/logs';
     import type { ApiError, ExecutionStatusResponse } from '../types/api';
 
     export let apiClient: APIClient | null = null;
@@ -65,11 +65,7 @@
 
         try {
             const response = await apiClient.getLogs(id);
-            const events = response.events || [];
-            const eventsWithLines: LogEvent[] = events.map((event, index) => ({
-                ...event,
-                line: index + 1
-            }));
+            const eventsWithLines: LogEvent[] = normalizeLogEvents(response.events);
             logEvents.set(eventsWithLines);
 
             // If backend offers a websocket URL, prefer streaming and let websocket handle lifecycle.

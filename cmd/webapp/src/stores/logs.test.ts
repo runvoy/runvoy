@@ -8,7 +8,7 @@ import {
     STARTING_STATE_DELAY
 } from './logs';
 import { get } from 'svelte/store';
-import type { LogEvent } from '../types/stores';
+import type { LogEvent } from '../types/logs';
 
 describe('Logs Store', () => {
     beforeEach(() => {
