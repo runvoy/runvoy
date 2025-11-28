@@ -6,7 +6,7 @@ import { render, screen, waitFor, fireEvent } from '@testing-library/svelte';
 import SettingsView from './SettingsView.svelte';
 import type APIClient from '../lib/api';
 import type { HealthResponse } from '../types/api';
-import { apiEndpoint, apiKey } from '../stores/config';
+import { apiEndpoint, apiKey, setApiEndpoint, setApiKey } from '../stores/config';
 import { get } from 'svelte/store';
 
 describe('SettingsView', () => {
@@ -16,14 +16,14 @@ describe('SettingsView', () => {
         mockApiClient = {
             getHealth: vi.fn()
         };
-        apiEndpoint.set(null);
-        apiKey.set(null);
+        setApiEndpoint(null);
+        setApiKey(null);
     });
 
     afterEach(() => {
         vi.clearAllMocks();
-        apiEndpoint.set(null);
-        apiKey.set(null);
+        setApiEndpoint(null);
+        setApiKey(null);
     });
 
     it('displays backend provider and region when available', async () => {

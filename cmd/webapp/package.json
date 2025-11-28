@@ -8,7 +8,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "check": "svelte-check --tsconfig ./tsconfig.json",
-    "check-all": "npm run check && npm run format:check && npm run lint && npm run test",
+    "check-all": "svelte-check --tsconfig ./tsconfig.json && npx eslint src --ext .ts,.svelte && npm run format:check && npm run lint && npm run test",
     "ci-dev": "VITE_RUNVOY_VERSION=$(cat ../../VERSION | tr -d '\\n')-$(date -u +%Y%m%d)-$(git rev-parse --short HEAD) vite build",
     "test": "vitest --run",
     "test:ui": "vitest --ui",

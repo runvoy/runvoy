@@ -7,51 +7,54 @@ import type { Redirect } from '@sveltejs/kit';
 
 import Layout from './+layout.svelte';
 import { load } from './+layout';
+import { setApiEndpoint, setApiKey } from '../stores/config';
 
-const createMockStore = vi.hoisted(() => {
-    return <T>(initial: T) => {
+vi.mock('$app/environment', () => ({
+    version: 'test-version',
+    browser: true
+}));
+
+// Create a simple mock store inside hoisted to avoid initialization order issues
+const mockPageStore = vi.hoisted(() => {
+    // Create a simple mock store that implements the writable interface
+    const createMockStore = <T>(initial: T) => {
         let value = initial;
-        const subscribers = new Set<(current: T) => void>();
+        const subscribers = new Set<(value: T) => void>();
 
         return {
             set: (newValue: T) => {
                 value = newValue;
                 subscribers.forEach((fn) => fn(value));
             },
-            subscribe: (fn: (current: T) => void) => {
+            update: (fn: (value: T) => T) => {
+                value = fn(value);
+                subscribers.forEach((subscriber) => subscriber(value));
+            },
+            subscribe: (fn: (value: T) => void) => {
                 subscribers.add(fn);
-                fn(value);
+                fn(value); // Call immediately with current value
                 return () => subscribers.delete(fn);
             }
         };
     };
+
+    return createMockStore({
+        url: new URL('http://localhost:5173/')
+    });
 });
 
-const page = vi.hoisted(() =>
-    createMockStore({
-        url: new URL('http://localhost:5173/')
-    })
-);
-
-const apiEndpoint = vi.hoisted(() => createMockStore<string | null>(null));
-const apiKey = vi.hoisted(() => createMockStore<string | null>(null));
-
-vi.mock('$app/environment', () => ({
-    version: 'test-version'
-}));
-
-vi.mock('$app/stores', () => ({
-    page
-}));
-
-vi.mock('../stores/config', () => ({
-    apiEndpoint,
-    apiKey
-}));
+// Mock the $app/stores module
+vi.mock('$app/stores', () => {
+    return {
+        page: mockPageStore
+    };
+});
 
 describe('layout load', () => {
     beforeEach(() => {
         localStorage.clear();
+        setApiEndpoint(null);
+        setApiKey(null);
     });
 
     it('redirects to settings when no endpoint is configured', () => {
@@ -109,13 +112,28 @@ describe('layout load', () => {
         expect(result.hasEndpoint).toBe(true);
         expect(result.hasApiKey).toBe(true);
     });
+
+    it('loads without any server data in a SPA/static environment', () => {
+        localStorage.setItem('runvoy_endpoint', 'https://api.local.test');
+        localStorage.setItem('runvoy_api_key', 'local-key');
+
+        const result = load({
+            url: new URL('http://localhost:5173/')
+        } as any) as { hasEndpoint: boolean; hasApiKey: boolean };
+
+        expect(result.hasEndpoint).toBe(true);
+        expect(result.hasApiKey).toBe(true);
+    });
 });
 
 describe('navigation state', () => {
     beforeEach(() => {
-        page.set({ url: new URL('http://localhost:5173/') });
-        apiEndpoint.set(null);
-        apiKey.set(null);
+        setApiEndpoint(null);
+        setApiKey(null);
+        // Reset the page store to root path before each test
+        mockPageStore.set({
+            url: new URL('http://localhost:5173/')
+        });
     });
 
     it('disables non-settings views when endpoint is missing', () => {
@@ -142,8 +160,8 @@ describe('navigation state', () => {
     });
 
     it('enables all views when fully configured', () => {
-        apiEndpoint.set('https://api.example.test');
-        apiKey.set('abc123');
+        setApiEndpoint('https://api.example.test');
+        setApiKey('abc123');
 
         render(Layout as any, {
             props: { data: { hasEndpoint: true, hasApiKey: true } }
