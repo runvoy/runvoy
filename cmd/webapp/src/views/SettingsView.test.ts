@@ -80,7 +80,8 @@ describe('SettingsView', () => {
     it('fetches backend health after saving configuration', async () => {
         const mockHealth: HealthResponse = {
             status: 'OK',
-            version: '1.0.0'
+            version: '1.0.0',
+            provider: 'mock'
         };
 
         vi.mocked(mockApiClient.getHealth as any).mockResolvedValue(mockHealth);
