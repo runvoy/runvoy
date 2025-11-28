@@ -34,6 +34,9 @@
         display: flex;
         font-family: 'Monaco', 'Courier New', monospace;
         font-size: 0.9em;
+        margin: 0;
+        padding: 0;
+        line-height: 1.4;
     }
 
     .line-number,

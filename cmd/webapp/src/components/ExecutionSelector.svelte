@@ -2,24 +2,18 @@
     import { executionId } from '../stores/execution';
     import { switchExecution, clearExecution } from '../lib/executionState';
 
-    // Track pending user input that hasn't been committed to store yet
+    // Store value for syncing
+    const storeValue = $derived($executionId || '');
+
+    // Track pending user input
     let pendingInput: string | null = null;
 
-    // Current input value (for reading)
-    const currentInputValue = $derived(pendingInput ?? ($executionId || ''));
-
-    // Writable $derived: reads from store, allows local edits via pendingInput
-    let inputValue = $derived({
-        get: () => currentInputValue,
-        set: (value: string) => {
-            // Store user input as pending until committed (on blur/enter)
-            pendingInput = value;
-        }
-    });
+    // Current value to display (pending input or store value)
+    const currentValue = $derived(pendingInput ?? storeValue);
 
     function handleKeyPress(event: KeyboardEvent): void {
         if (event.key === 'Enter') {
-            const value = currentInputValue.trim();
+            const value = currentValue.trim();
             if (value) {
                 switchExecution(value);
                 pendingInput = null; // Clear pending after commit
@@ -28,11 +22,18 @@
     }
 
     function handleBlur(): void {
-        const newId = currentInputValue.trim();
+        const newId = currentValue.trim();
         if (newId && newId !== $executionId) {
             switchExecution(newId);
         }
         pendingInput = null; // Clear pending after commit
+    }
+
+    function handleInput(event: { currentTarget: { value: string } | null }): void {
+        const target = event.currentTarget;
+        if (target) {
+            pendingInput = target.value;
+        }
     }
 
     // Handle browser back/forward buttons
@@ -68,7 +69,8 @@
         <input
             id="exec-id-input"
             type="text"
-            bind:value={inputValue}
+            value={currentValue}
+            oninput={handleInput}
             onkeypress={handleKeyPress}
             onblur={handleBlur}
             placeholder="Enter execution ID"

@@ -11,7 +11,7 @@
     let isKilling = $state(false);
 
     const statusClass = $derived($executionStatus ? $executionStatus.toLowerCase() : 'loading');
-    const formattedStartedAt = $derived(() => {
+    const formattedStartedAt = $derived.by(() => {
         if (!$startedAt) {
             return 'N/A';
         }

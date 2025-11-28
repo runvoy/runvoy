@@ -25,11 +25,11 @@
 
 <div class="log-viewer-container" bind:this={container} onscroll={handleScroll}>
     {#if $logEvents.length > 0}
-        <pre><code>
+        <div class="log-lines">
             {#each $logEvents as event (event.line)}
-                    <LogLine {event} />
-                {/each}
-        </code></pre>
+                <LogLine {event} />
+            {/each}
+        </div>
     {:else}
         <div class="placeholder">
             <p>Waiting for logs...</p>
@@ -47,8 +47,9 @@
         min-height: 200px;
     }
 
-    pre {
+    .log-lines {
         margin: 0;
+        padding: 0;
     }
 
     .placeholder {
