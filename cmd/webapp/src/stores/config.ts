@@ -1,11 +1,10 @@
 import { browser } from '$app/environment';
 import { derived, writable, type Readable, type Writable } from 'svelte/store';
+import { COOKIE_MAX_AGE } from '$lib/constants';
 
 /**
  * Configuration store with localStorage persistence
  */
-
-const COOKIE_MAX_AGE = 60 * 60 * 24 * 30; // 30 days
 
 type PersistedStore<T> = {
     readable: Readable<T>;
