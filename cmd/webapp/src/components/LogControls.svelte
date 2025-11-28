@@ -5,7 +5,7 @@
     import { cachedWebSocketURL } from '../stores/websocket';
     import { formatTimestamp } from '../lib/ansi';
 
-    let isPaused = false;
+    let isPaused = $state(false);
 
     function toggleMetadata(): void {
         showMetadata.update((v) => !v);
@@ -43,14 +43,14 @@
 </script>
 
 <div class="log-controls">
-    <button on:click={togglePause} class:secondary={!isPaused}>
+    <button onclick={togglePause} class:secondary={!isPaused}>
         {isPaused ? '▶️ Resume' : '⏸️ Pause'}
     </button>
-    <button on:click={clearLogs} class="secondary"> 🗑️ Clear </button>
-    <button on:click={downloadLogs} class="secondary" disabled={$logEvents.length === 0}>
+    <button onclick={clearLogs} class="secondary"> 🗑️ Clear </button>
+    <button onclick={downloadLogs} class="secondary" disabled={$logEvents.length === 0}>
         📥 Download
     </button>
-    <button on:click={toggleMetadata} class="secondary">
+    <button onclick={toggleMetadata} class="secondary">
         {$showMetadata ? '🙈 Hide' : '🙉 Show'} Metadata
     </button>
 </div>

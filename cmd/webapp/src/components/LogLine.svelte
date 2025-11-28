@@ -3,12 +3,14 @@
     import { parseAnsi, formatTimestamp, type AnsiSegment } from '../lib/ansi';
     import type { LogEvent } from '../types/logs';
 
-    export let event: LogEvent;
+    interface Props {
+        event: LogEvent;
+    }
 
-    let ansiSegments: AnsiSegment[] = [];
+    const { event }: Props = $props();
 
-    $: formattedTimestamp = formatTimestamp(event.timestamp);
-    $: ansiSegments = parseAnsi(event.message);
+    const formattedTimestamp = $derived(formatTimestamp(event.timestamp));
+    const ansiSegments: AnsiSegment[] = $derived(parseAnsi(event.message));
 </script>
 
 <div class="log-line">
@@ -32,6 +34,9 @@
         display: flex;
         font-family: 'Monaco', 'Courier New', monospace;
         font-size: 0.9em;
+        margin: 0;
+        padding: 0;
+        line-height: 1.4;
     }
 
     .line-number,

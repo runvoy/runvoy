@@ -7,7 +7,11 @@
         disabled?: boolean;
     }
 
-    export let views: View[] = [];
+    interface Props {
+        views: View[];
+    }
+
+    const { views = [] }: Props = $props();
 
     // Map view IDs to routes
     const viewRoutes: Record<string, string> = {
@@ -33,8 +37,7 @@
         return pathname.startsWith(route);
     }
 
-    // Reactive variable to track current pathname
-    $: currentPathname = $page.url.pathname;
+    const currentPathname = $derived($page.url.pathname);
 </script>
 
 <nav class="view-switcher" aria-label="View selection">
@@ -46,7 +49,7 @@
             class:disabled={view.disabled}
             aria-disabled={view.disabled}
             aria-current={active ? 'page' : undefined}
-            on:click={(e) => {
+            onclick={(e) => {
                 if (view.disabled) {
                     e.preventDefault();
                 }

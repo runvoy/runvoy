@@ -6,29 +6,34 @@
     import { switchExecution } from '../lib/executionState';
     import { cachedWebSocketURL } from '../stores/websocket';
 
-    export let apiClient: APIClient | null = null;
+    interface Props {
+        apiClient: APIClient | null;
+    }
 
-    let command = '';
-    let image = '';
-    let timeout = '';
-    let gitRepo = '';
-    let gitRef = '';
-    let gitPath = '';
-    let envRows: EnvRow[] = [];
-    let showAdvanced = false;
-    let isSubmitting = false;
-    let errorMessage = '';
+    const { apiClient = null }: Props = $props();
 
-    let envRowCounter = 0;
+    let command = $state('');
+    let image = $state('');
+    let timeout = $state('');
+    let gitRepo = $state('');
+    let gitRef = $state('');
+    let gitPath = $state('');
+    let envRowCounter = $state(0);
+    let envRows: EnvRow[] = $state([]);
+    let showAdvanced = $state(false);
+    let isSubmitting = $state(false);
+    let errorMessage = $state('');
 
     function createEnvRow(): EnvRow {
         envRowCounter += 1;
         return { id: envRowCounter, key: '', value: '' };
     }
 
-    $: if (envRows.length === 0) {
-        envRows = [createEnvRow()];
-    }
+    $effect(() => {
+        if (envRows.length === 0) {
+            envRows = [createEnvRow()];
+        }
+    });
 
     function addEnvRow(): void {
         envRows = [...envRows, createEnvRow()];
@@ -92,7 +97,8 @@
         return payload;
     }
 
-    async function handleSubmit(): Promise<void> {
+    async function handleSubmit(event: { preventDefault: () => void }): Promise<void> {
+        event.preventDefault();
         errorMessage = '';
 
         if (!apiClient) {
@@ -126,7 +132,7 @@
 </script>
 
 <article class="run-card">
-    <form on:submit|preventDefault={handleSubmit} class="run-form">
+    <form onsubmit={handleSubmit} class="run-form">
         <fieldset>
             <legend>Command</legend>
             <label for="command-input">
@@ -145,7 +151,7 @@
         <button
             class="link-button"
             type="button"
-            on:click={() => (showAdvanced = !showAdvanced)}
+            onclick={() => (showAdvanced = !showAdvanced)}
             aria-expanded={showAdvanced}
         >
             {showAdvanced ? 'Hide advanced options' : 'Show advanced options'}
@@ -209,7 +215,7 @@
                                 type="text"
                                 placeholder="KEY"
                                 value={row.key}
-                                on:input={(event) => {
+                                oninput={(event) => {
                                     const target = event.currentTarget;
                                     if (target) {
                                         updateEnvRow(row.id, 'key', target.value);
@@ -220,7 +226,7 @@
                                 type="text"
                                 placeholder="value"
                                 value={row.value}
-                                on:input={(event) => {
+                                oninput={(event) => {
                                     const target = event.currentTarget;
                                     if (target) {
                                         updateEnvRow(row.id, 'value', target.value);
@@ -230,7 +236,7 @@
                             <button
                                 type="button"
                                 class="icon-button"
-                                on:click={() => removeEnvRow(row.id)}
+                                onclick={() => removeEnvRow(row.id)}
                                 aria-label="Remove environment variable"
                             >
                                 ✕
@@ -238,7 +244,7 @@
                         </div>
                     {/each}
                 </div>
-                <button type="button" class="secondary" on:click={addEnvRow}>
+                <button type="button" class="secondary" onclick={addEnvRow}>
                     Add environment variable
                 </button>
             </fieldset>

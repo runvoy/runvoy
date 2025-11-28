@@ -3,9 +3,9 @@
     import { apiEndpoint, apiKey } from '../../stores/config';
     import APIClient from '../../lib/api';
 
-    let apiClient: APIClient | null = null;
-
-    $: apiClient = $apiEndpoint && $apiKey ? new APIClient($apiEndpoint, $apiKey) : null;
+    const apiClient = $derived.by(() => {
+        return $apiEndpoint && $apiKey ? new APIClient($apiEndpoint, $apiKey) : null;
+    });
 </script>
 
 <ListExecutionsView {apiClient} />

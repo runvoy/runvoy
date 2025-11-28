@@ -3,18 +3,22 @@
     import type { ClaimAPIKeyResponse } from '../types/api';
     import APIClient from '../lib/api';
 
-    export let apiClient: APIClient | null = null;
-    export let isConfigured = false;
+    interface Props {
+        apiClient: APIClient | null;
+        isConfigured?: boolean;
+    }
 
-    let token = '';
-    let isLoading = false;
-    let error = '';
-    let success = false;
-    let claimResult: ClaimAPIKeyResponse | null = null;
+    const { apiClient = null, isConfigured = false }: Props = $props();
+
+    let token = $state('');
+    let isLoading = $state(false);
+    let error = $state('');
+    let success = $state(false);
+    let claimResult: ClaimAPIKeyResponse | null = $state(null);
 
     // Check if endpoint is available (claim only needs endpoint, not API key)
     // If isConfigured is true, we definitely have endpoint; otherwise check directly
-    $: hasEndpoint = isConfigured || Boolean(apiClient?.endpoint || $apiEndpoint);
+    const hasEndpoint = $derived(isConfigured || Boolean(apiClient?.endpoint || $apiEndpoint));
 
     async function handleClaim(): Promise<void> {
         error = '';
@@ -90,7 +94,7 @@
                 <textarea
                     id="token-input"
                     bind:value={token}
-                    on:keypress={handleKeyPress}
+                    onkeypress={handleKeyPress}
                     placeholder="Paste your invitation token here..."
                     rows="4"
                     disabled={isLoading}
@@ -98,10 +102,7 @@
             </label>
 
             <div class="actions">
-                <button
-                    on:click={handleClaim}
-                    disabled={isLoading || !token.trim() || !hasEndpoint}
-                >
+                <button onclick={handleClaim} disabled={isLoading || !token.trim() || !hasEndpoint}>
                     {isLoading ? 'Claiming...' : 'Claim Key'}
                 </button>
             </div>

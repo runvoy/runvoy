@@ -1,13 +1,17 @@
 <script lang="ts">
     import { executionId, executionStatus, startedAt, isCompleted } from '../stores/execution';
 
-    export let onKill: (() => void) | null = null;
+    interface Props {
+        onKill?: (() => void) | null;
+    }
+
+    const { onKill = null }: Props = $props();
 
     const DEFAULT_STATUS = 'LOADING';
-    let isKilling = false;
+    let isKilling = $state(false);
 
-    $: statusClass = $executionStatus ? $executionStatus.toLowerCase() : 'loading';
-    $: formattedStartedAt = (() => {
+    const statusClass = $derived($executionStatus ? $executionStatus.toLowerCase() : 'loading');
+    const formattedStartedAt = $derived.by(() => {
         if (!$startedAt) {
             return 'N/A';
         }
@@ -20,7 +24,7 @@
         }
 
         return date.toLocaleString();
-    })();
+    });
 
     async function handleKill(): Promise<void> {
         if (!onKill) return;
@@ -32,7 +36,7 @@
         }
     }
 
-    $: canKill = !$isCompleted && !isKilling;
+    const canKill = $derived(!$isCompleted && !isKilling);
 </script>
 
 <div class="status-bar">
@@ -52,11 +56,11 @@
         <div class="status-item actions">
             <button
                 class="kill-button"
-                on:click={handleKill}
+                onclick={handleKill}
                 disabled={!canKill}
-                title="Stop this execution"
+                title="Kill this execution"
             >
-                {isKilling ? '⏹️ Stopping...' : '⏹️ Stop'}
+                {isKilling ? '⏹️ Killing...' : '⏹️ Kill'}
             </button>
         </div>
     {/if}

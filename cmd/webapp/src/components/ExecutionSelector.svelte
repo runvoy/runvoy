@@ -2,39 +2,65 @@
     import { executionId } from '../stores/execution';
     import { switchExecution, clearExecution } from '../lib/executionState';
 
-    let inputValue = $executionId || '';
+    // Store value for syncing
+    const storeValue = $derived($executionId || '');
 
-    // Update input when store changes (e.g., from URL on mount)
-    $: inputValue = $executionId || '';
+    // Track pending user input
+    let pendingInput: string | null = null;
+
+    // Current value to display (pending input or store value)
+    const currentValue = $derived(pendingInput ?? storeValue);
 
     function handleKeyPress(event: KeyboardEvent): void {
         if (event.key === 'Enter') {
-            switchExecution(inputValue.trim());
+            const value = currentValue.trim();
+            if (value) {
+                switchExecution(value);
+                pendingInput = null; // Clear pending after commit
+            }
         }
     }
 
     function handleBlur(): void {
-        const newId = inputValue.trim();
+        const newId = currentValue.trim();
         if (newId && newId !== $executionId) {
             switchExecution(newId);
+        }
+        pendingInput = null; // Clear pending after commit
+    }
+
+    function handleInput(event: { currentTarget: { value: string } | null }): void {
+        const target = event.currentTarget;
+        if (target) {
+            pendingInput = target.value;
         }
     }
 
     // Handle browser back/forward buttons
-    if (typeof window !== 'undefined') {
-        window.addEventListener('popstate', () => {
+    $effect.root(() => {
+        if (typeof window === 'undefined') {
+            return;
+        }
+
+        const onPopState = () => {
             const urlParams = new URLSearchParams(window.location.search);
             const newExecutionId = urlParams.get('execution_id') || urlParams.get('executionId');
 
             if (newExecutionId && newExecutionId !== $executionId) {
                 switchExecution(newExecutionId, { updateHistory: false });
-                inputValue = newExecutionId;
+                pendingInput = null; // Clear pending when store changes externally
             } else if (!newExecutionId && $executionId) {
                 clearExecution({ updateHistory: false });
-                inputValue = '';
+                pendingInput = null; // Clear pending when store changes externally
             }
-        });
-    }
+        };
+
+        window.addEventListener('popstate', onPopState);
+
+        return () => {
+            window.removeEventListener('popstate', onPopState);
+        };
+    });
 </script>
 
 <div class="execution-selector">
@@ -43,9 +69,10 @@
         <input
             id="exec-id-input"
             type="text"
-            bind:value={inputValue}
-            on:keypress={handleKeyPress}
-            on:blur={handleBlur}
+            value={currentValue}
+            oninput={handleInput}
+            onkeypress={handleKeyPress}
+            onblur={handleBlur}
             placeholder="Enter execution ID"
             autocomplete="off"
         />
