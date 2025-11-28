@@ -95,10 +95,12 @@ describe('layout load', () => {
 
         const result = load({
             url: new URL('http://localhost:5173/')
-        } as any) as { hasEndpoint: boolean; hasApiKey: boolean };
+        } as any) as { hasEndpoint: boolean; hasApiKey: boolean; endpoint: string | null; apiKey: string | null };
 
         expect(result.hasEndpoint).toBe(true);
         expect(result.hasApiKey).toBe(true);
+        expect(result.endpoint).toBe('https://api.example.test');
+        expect(result.apiKey).toBe('secret-key');
     });
 
     it('reads from localStorage', () => {
@@ -107,10 +109,12 @@ describe('layout load', () => {
 
         const result = load({
             url: new URL('http://localhost:5173/')
-        } as any) as { hasEndpoint: boolean; hasApiKey: boolean };
+        } as any) as { hasEndpoint: boolean; hasApiKey: boolean; endpoint: string | null; apiKey: string | null };
 
         expect(result.hasEndpoint).toBe(true);
         expect(result.hasApiKey).toBe(true);
+        expect(result.endpoint).toBe('https://api.local.test');
+        expect(result.apiKey).toBe('local-key');
     });
 
     it('loads without any server data in a SPA/static environment', () => {
@@ -119,10 +123,34 @@ describe('layout load', () => {
 
         const result = load({
             url: new URL('http://localhost:5173/')
-        } as any) as { hasEndpoint: boolean; hasApiKey: boolean };
+        } as any) as { hasEndpoint: boolean; hasApiKey: boolean; endpoint: string | null; apiKey: string | null };
 
         expect(result.hasEndpoint).toBe(true);
         expect(result.hasApiKey).toBe(true);
+        expect(result.endpoint).toBe('https://api.local.test');
+        expect(result.apiKey).toBe('local-key');
+    });
+
+    it('hydrates configuration from cookies when available', () => {
+        const cookies = new Map([
+            ['runvoy_endpoint', encodeURIComponent(JSON.stringify('https://cookie.example'))],
+            ['runvoy_api_key', encodeURIComponent(JSON.stringify('cookie-key'))]
+        ]);
+
+        const result = load({
+            url: new URL('http://localhost:5173/'),
+            cookies: {
+                get: (key: string) => cookies.get(key) || '',
+                set: vi.fn(),
+                delete: vi.fn(),
+                serialize: vi.fn()
+            }
+        } as any) as { hasEndpoint: boolean; hasApiKey: boolean; endpoint: string | null; apiKey: string | null };
+
+        expect(result.hasEndpoint).toBe(true);
+        expect(result.hasApiKey).toBe(true);
+        expect(result.endpoint).toBe('https://cookie.example');
+        expect(result.apiKey).toBe('cookie-key');
     });
 });
 
@@ -138,7 +166,7 @@ describe('navigation state', () => {
 
     it('disables non-settings views when endpoint is missing', () => {
         render(Layout as any, {
-            props: { data: { hasEndpoint: false, hasApiKey: false } }
+            props: { data: { hasEndpoint: false, hasApiKey: false, endpoint: null, apiKey: null } }
         });
 
         expect(screen.getByText('Run Command')).toHaveClass('disabled');
@@ -150,7 +178,7 @@ describe('navigation state', () => {
 
     it('enables claim but disables logs/list when API key is missing', () => {
         render(Layout as any, {
-            props: { data: { hasEndpoint: true, hasApiKey: false } }
+            props: { data: { hasEndpoint: true, hasApiKey: false, endpoint: 'https://api.example.test', apiKey: null } }
         });
 
         expect(screen.getByText('Claim Key')).not.toHaveClass('disabled');
@@ -164,7 +192,14 @@ describe('navigation state', () => {
         setApiKey('abc123');
 
         render(Layout as any, {
-            props: { data: { hasEndpoint: true, hasApiKey: true } }
+            props: {
+                data: {
+                    hasEndpoint: true,
+                    hasApiKey: true,
+                    endpoint: 'https://api.example.test',
+                    apiKey: 'abc123'
+                }
+            }
         });
 
         expect(screen.getByText('Run Command')).not.toHaveClass('disabled');

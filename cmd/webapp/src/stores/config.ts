@@ -48,7 +48,7 @@ function persistCookie(key: string, value: string | null): void {
     document.cookie = `${key}=${encodeURIComponent(value)}; Max-Age=${COOKIE_MAX_AGE}; Path=/; SameSite=Lax`;
 }
 
-function parseJSON<T>(value: string | null): T | null {
+export function parsePersistedValue<T>(value: string | null): T | null {
     if (!value) {
         return null;
     }
@@ -85,8 +85,8 @@ function createPersistentStore<T>(key: string, defaultValue: T): PersistedStore<
     });
 
     const hydrate = (initialValue?: T): T => {
-        const stored = browser ? parseJSON<T>(localStorage.getItem(key)) : null;
-        const cookieValue = browser ? parseJSON<T>(getCookieValue(key)) : null;
+        const stored = browser ? parsePersistedValue<T>(localStorage.getItem(key)) : null;
+        const cookieValue = browser ? parsePersistedValue<T>(getCookieValue(key)) : null;
         const nextValue = browser
             ? ((stored ?? cookieValue ?? initialValue ?? defaultValue) as T)
             : ((initialValue ?? currentValue ?? defaultValue) as T);

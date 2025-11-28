@@ -1,13 +1,15 @@
 <script lang="ts">
     import { page } from '$app/stores';
     import LogsView from '../../views/LogsView.svelte';
-    import { apiEndpoint, apiKey } from '../../stores/config';
-    import APIClient from '../../lib/api';
+    import type { PageData } from './$types';
     import { switchExecution } from '../../lib/executionState';
 
-    const apiClient = $derived.by(() => {
-        return $apiEndpoint && $apiKey ? new APIClient($apiEndpoint, $apiKey) : null;
-    });
+    interface Props {
+        data: PageData;
+    }
+
+    const { data }: Props = $props();
+    const { apiClient } = data;
 
     $effect(() => {
         const execId =
