@@ -1,12 +1,14 @@
 <script lang="ts">
     import { showMetadata } from '../stores/logs';
-    import { parseAnsi, formatTimestamp } from '../lib/ansi';
+    import { parseAnsi, formatTimestamp, type AnsiSegment } from '../lib/ansi';
     import type { LogEvent } from '../types/logs';
 
     export let event: LogEvent;
 
+    let ansiSegments: AnsiSegment[] = [];
+
     $: formattedTimestamp = formatTimestamp(event.timestamp);
-    $: ansiHtml = parseAnsi(event.message);
+    $: ansiSegments = parseAnsi(event.message);
 </script>
 
 <div class="log-line">
@@ -14,8 +16,15 @@
         <span class="line-number">{event.line}</span>
         <span class="timestamp">{formattedTimestamp}</span>
     {/if}
-    <!-- eslint-disable-next-line svelte/no-at-html-tags -->
-    <span class="message">{@html ansiHtml}</span>
+    <span class="message">
+        {#each ansiSegments as segment, index (index)}
+            {#if segment.className}
+                <span class={segment.className}>{segment.text}</span>
+            {:else}
+                {segment.text}
+            {/if}
+        {/each}
+    </span>
 </div>
 
 <style>

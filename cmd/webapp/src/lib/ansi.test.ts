@@ -6,29 +6,28 @@ describe('ANSI Color Parser', () => {
         it('should handle text without ANSI codes', () => {
             const text = 'Hello World';
             const result = parseAnsi(text);
-            expect(result).toBe('Hello World');
+            expect(result).toEqual([{ text: 'Hello World', className: undefined }]);
         });
 
         it('should convert red ANSI code', () => {
             const text = '\x1b[31mRed Text\x1b[0m';
             const result = parseAnsi(text);
-            expect(result).toContain('<span class="ansi-red">');
-            expect(result).toContain('</span>');
-            expect(result).toContain('Red Text');
+            expect(result).toEqual([{ text: 'Red Text', className: 'ansi-red' }]);
         });
 
         it('should convert green ANSI code', () => {
             const text = '\x1b[32mGreen Text\x1b[0m';
             const result = parseAnsi(text);
-            expect(result).toContain('<span class="ansi-green">');
-            expect(result).toContain('Green Text');
+            expect(result).toEqual([{ text: 'Green Text', className: 'ansi-green' }]);
         });
 
         it('should handle reset code', () => {
             const text = '\x1b[31mRed\x1b[0m Normal';
             const result = parseAnsi(text);
-            expect(result).toContain('<span class="ansi-red">');
-            expect(result).toContain('</span>');
+            expect(result).toEqual([
+                { text: 'Red', className: 'ansi-red' },
+                { text: ' Normal', className: undefined }
+            ]);
         });
 
         it('should convert all standard colors', () => {
@@ -46,7 +45,7 @@ describe('ANSI Color Parser', () => {
             colors.forEach(({ code, name }) => {
                 const text = `\x1b[${code}mText\x1b[0m`;
                 const result = parseAnsi(text);
-                expect(result).toContain(`<span class="ansi-${name}">`);
+                expect(result).toEqual([{ text: 'Text', className: `ansi-${name}` }]);
             });
         });
 
@@ -65,54 +64,55 @@ describe('ANSI Color Parser', () => {
             brightColors.forEach(({ code, name }) => {
                 const text = `\x1b[${code}mText\x1b[0m`;
                 const result = parseAnsi(text);
-                expect(result).toContain(`<span class="ansi-${name}">`);
+                expect(result).toEqual([{ text: 'Text', className: `ansi-${name}` }]);
             });
         });
 
         it('should escape HTML special characters', () => {
             const text = '<div>&copy;</div>';
             const result = parseAnsi(text);
-            expect(result).toContain('&lt;');
-            expect(result).toContain('&gt;');
-            expect(result).toContain('&amp;');
-            expect(result).not.toContain('<div>');
+            expect(result).toEqual([{ text: '<div>&copy;</div>', className: undefined }]);
         });
 
         it('should handle multiple ANSI codes', () => {
             const text = '\x1b[31mRed\x1b[0m \x1b[32mGreen\x1b[0m \x1b[34mBlue\x1b[0m';
             const result = parseAnsi(text);
-            expect(result).toContain('ansi-red');
-            expect(result).toContain('ansi-green');
-            expect(result).toContain('ansi-blue');
+            expect(result).toEqual([
+                { text: 'Red', className: 'ansi-red' },
+                { text: ' ', className: undefined },
+                { text: 'Green', className: 'ansi-green' },
+                { text: ' ', className: undefined },
+                { text: 'Blue', className: 'ansi-blue' }
+            ]);
         });
 
         it('should handle unknown ANSI codes gracefully', () => {
             const text = '\x1b[99mUnknown\x1b[0m';
             const result = parseAnsi(text);
             // Unknown codes should be skipped, but reset should still be processed
-            expect(result).toContain('Unknown');
+            expect(result).toEqual([{ text: 'Unknown', className: undefined }]);
         });
 
         it('should handle consecutive ANSI codes', () => {
             const text = '\x1b[31m\x1b[1mBold Red\x1b[0m';
             const result = parseAnsi(text);
-            expect(result).toContain('Bold Red');
+            expect(result).toEqual([{ text: 'Bold Red', className: 'ansi-red' }]);
         });
 
         it('should preserve text structure', () => {
             const text = 'Line 1\nLine 2\nLine 3';
             const result = parseAnsi(text);
-            expect(result).toContain('Line 1\nLine 2\nLine 3');
+            expect(result).toEqual([{ text: 'Line 1\nLine 2\nLine 3', className: undefined }]);
         });
 
         it('should handle empty strings', () => {
             const result = parseAnsi('');
-            expect(result).toBe('');
+            expect(result).toEqual([]);
         });
 
         it('should handle only reset code', () => {
             const result = parseAnsi('\x1b[0m');
-            expect(result).toBe('</span>');
+            expect(result).toEqual([]);
         });
     });
 });
