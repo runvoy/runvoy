@@ -69,7 +69,7 @@
         keyInput = '';
     }
 
-    function saveConfiguration(): void {
+    async function saveConfiguration(): Promise<void> {
         formError = '';
         formSuccess = '';
 
@@ -97,6 +97,10 @@
         keyInput = '';
 
         window.dispatchEvent(new CustomEvent('credentials-updated'));
+
+        if (apiClient) {
+            await fetchBackendHealth();
+        }
     }
 
     function copyToClipboard(text: string | null): void {
