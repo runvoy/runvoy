@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { version } from '$app/environment';
     import { onMount } from 'svelte';
     import { apiEndpoint, apiKey } from '../stores/config';
     import APIClient from '../lib/api';
@@ -6,8 +7,6 @@
 
     export let apiClient: APIClient | null = null;
     export let isConfigured = false;
-
-    const appVersion = import.meta.env.VITE_RUNVOY_VERSION || 'unknown';
 
     let showApiKey = false;
     let backendHealth: HealthResponse | null = null;
@@ -80,7 +79,7 @@
         </div>
         <div class="info-group">
             <div class="label">Webapp Version:</div>
-            <span class="value">{appVersion}</span>
+            <span class="value">{version || 'unknown'}</span>
         </div>
         <div class="info-group">
             <div class="label">Backend Version:</div>

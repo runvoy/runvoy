@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { version } from '$app/environment';
     import ConnectionManager from '../components/ConnectionManager.svelte';
     import ViewSwitcher from '../components/ViewSwitcher.svelte';
     import { apiEndpoint, apiKey } from '../stores/config';
@@ -12,7 +13,6 @@
         disabled?: boolean;
     }
 
-    const appVersion = import.meta.env.VITE_RUNVOY_VERSION || '';
     let isConfigured = false;
 
     const views: NavView[] = [
@@ -40,8 +40,8 @@
                 <h1>
                     <img src="/runvoy-avatar.png" alt="runvoy logo" class="avatar" />
                     <div>
-                        {#if appVersion}
-                            <span class="version">{appVersion}</span>
+                        {#if version}
+                            <span class="version">{version}</span>
                         {/if}
                         <p class="subtitle">
                             <a href="https://runvoy.site/" target="_blank" rel="noopener">
