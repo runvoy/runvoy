@@ -178,13 +178,13 @@ func (s *RunService) ExecuteCommand(ctx context.Context, req *ExecuteCommandRequ
 	}
 
 	// Stream logs similar to the logs command
-	logsService := NewLogsService(s.client, s.output, &RealSleeper{})
+	logsService := NewLogsService(s.client, s.output)
 	if resp.WebSocketURL != "" && s.streamLogs != nil {
 		streamErr := s.streamLogs(logsService, resp.WebSocketURL, req.WebURL, resp.ExecutionID)
 		if streamErr == nil {
 			return nil
 		}
-		s.output.Warningf("Failed to stream logs directly, falling back to polling: %v", streamErr)
+		s.output.Warningf("Failed to stream logs directly, falling back to fetching logs: %v", streamErr)
 	}
 	if serviceErr := logsService.DisplayLogs(ctx, resp.ExecutionID, req.WebURL); serviceErr != nil {
 		return fmt.Errorf("failed to stream logs: %w", serviceErr)
