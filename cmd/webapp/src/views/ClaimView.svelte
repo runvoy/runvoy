@@ -94,7 +94,7 @@
                     placeholder="Paste your invitation token here..."
                     rows="4"
                     disabled={isLoading}
-                />
+                ></textarea>
             </label>
 
             <div class="actions">
@@ -109,8 +109,8 @@
             <div class="info-box">
                 <p>
                     <strong>ℹ️ How it works:</strong> Paste the invitation token you received from your
-                    administrator. We'll exchange it for an API key that will be saved to your local
-                    browser storage.
+                    administrator. We'll exchange it for an API key that will be saved to your local browser
+                    storage.
                 </p>
             </div>
         </div>

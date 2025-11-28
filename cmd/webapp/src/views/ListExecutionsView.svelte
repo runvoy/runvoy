@@ -119,9 +119,7 @@
                             </td>
                             <td>
                                 <span
-                                    class="status-badge status-{getStatusColor(
-                                        execution.status
-                                    )}"
+                                    class="status-badge status-{getStatusColor(execution.status)}"
                                 >
                                     {execution.status}
                                 </span>

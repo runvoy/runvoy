@@ -2,8 +2,10 @@ import { defineConfig } from 'vitest/config';
 import { sveltekit } from '@sveltejs/kit/vite';
 
 export default defineConfig({
-	// @ts-expect-error - SvelteKit plugin type mismatch due to vite version differences between vite and vitest's bundled vite
 	plugins: [sveltekit()],
+	resolve: {
+		conditions: ['browser', 'import', 'module', 'default']
+	},
 	test: {
 		globals: true,
 		environment: 'jsdom',
