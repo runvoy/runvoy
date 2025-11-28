@@ -23,9 +23,9 @@
 
     const views: NavView[] = [
         { id: VIEWS.RUN, label: 'Run Command' },
+        { id: VIEWS.LOGS, label: 'Logs' },
         { id: VIEWS.LIST, label: 'Executions' },
         { id: VIEWS.CLAIM, label: 'Claim Key' },
-        { id: VIEWS.LOGS, label: 'Logs' },
         { id: VIEWS.SETTINGS, label: 'Settings' }
     ];
 
