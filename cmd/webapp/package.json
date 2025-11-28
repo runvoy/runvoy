@@ -8,6 +8,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "check": "svelte-check --tsconfig ./tsconfig.json",
+    "ci-dev": "VITE_RUNVOY_VERSION=$(cat ../../VERSION | tr -d '\\n')-$(date -u +%Y%m%d)-$(git rev-parse --short HEAD) vite build",
     "test": "vitest --run",
     "test:ui": "vitest --ui",
     "test:coverage": "vitest --run --coverage",

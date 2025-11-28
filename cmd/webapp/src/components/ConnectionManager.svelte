@@ -77,11 +77,16 @@
         class="modal-backdrop"
         on:click={handleModalClick}
         on:keydown={handleBackdropKeydown}
-        role="presentation"
+        role="button"
         tabindex="0"
         aria-label="Close configuration dialog"
     >
-        <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="api-config-title">
+        <div
+            class="modal-content"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="api-config-title"
+        >
             <h3 id="api-config-title">API Configuration</h3>
 
             {#if errorMessage}

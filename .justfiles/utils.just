@@ -61,3 +61,7 @@ delete-buckets *ARGS:
 cleanup-branches:
     git fetch --prune
     git branch | grep -v '^\* main' | xargs git branch -D
+
+# Print build version
+print-build-version:
+    @printf "{{build_version}}\n"
