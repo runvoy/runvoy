@@ -1,12 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import {
-    logEvents,
-    logsRetryCount,
-    showMetadata,
-    MAX_LOGS_RETRIES,
-    LOGS_RETRY_DELAY,
-    STARTING_STATE_DELAY
-} from './logs';
+import { logEvents, logsRetryCount, showMetadata } from './logs';
+import { MAX_LOGS_RETRIES, LOGS_RETRY_DELAY, STARTING_STATE_DELAY } from '$lib/constants';
 import { get } from 'svelte/store';
 import type { LogEvent } from '../types/logs';
 
