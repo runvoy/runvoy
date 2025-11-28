@@ -20,25 +20,12 @@ describe('ListExecutionsView', () => {
         vi.clearAllMocks();
     });
 
-    it('should show config message when not configured', () => {
-        render(ListExecutionsView, {
-            props: {
-                apiClient: null,
-                isConfigured: false
-            }
-        });
-
-        expect(screen.getByText(/Configure API access to view executions/i)).toBeInTheDocument();
-        expect(screen.getByText(/⚙️ Configure API/i)).toBeInTheDocument();
-    });
-
     it('should show empty state when no executions exist', async () => {
         vi.mocked(mockApiClient.listExecutions as any).mockResolvedValue([]);
 
         render(ListExecutionsView, {
             props: {
-                apiClient: mockApiClient as APIClient,
-                isConfigured: true
+                apiClient: mockApiClient as APIClient
             }
         });
 
@@ -69,8 +56,7 @@ describe('ListExecutionsView', () => {
 
         const { container } = render(ListExecutionsView, {
             props: {
-                apiClient: mockApiClient as APIClient,
-                isConfigured: true
+                apiClient: mockApiClient as APIClient
             }
         });
 
@@ -100,8 +86,7 @@ describe('ListExecutionsView', () => {
 
         const { container } = render(ListExecutionsView, {
             props: {
-                apiClient: mockApiClient as APIClient,
-                isConfigured: true
+                apiClient: mockApiClient as APIClient
             }
         });
 
@@ -120,8 +105,7 @@ describe('ListExecutionsView', () => {
 
         render(ListExecutionsView, {
             props: {
-                apiClient: mockApiClient as APIClient,
-                isConfigured: true
+                apiClient: mockApiClient as APIClient
             }
         });
 
@@ -138,8 +122,7 @@ describe('ListExecutionsView', () => {
 
         render(ListExecutionsView, {
             props: {
-                apiClient: mockApiClient as APIClient,
-                isConfigured: true
+                apiClient: mockApiClient as APIClient
             }
         });
 
@@ -161,8 +144,7 @@ describe('ListExecutionsView', () => {
 
         const { container } = render(ListExecutionsView, {
             props: {
-                apiClient: mockApiClient as APIClient,
-                isConfigured: true
+                apiClient: mockApiClient as APIClient
             }
         });
 
@@ -206,8 +188,7 @@ describe('ListExecutionsView', () => {
 
         render(ListExecutionsView, {
             props: {
-                apiClient: mockApiClient as APIClient,
-                isConfigured: true
+                apiClient: mockApiClient as APIClient
             }
         });
 
@@ -240,8 +221,7 @@ describe('ListExecutionsView', () => {
 
         const { container } = render(ListExecutionsView, {
             props: {
-                apiClient: mockApiClient as APIClient,
-                isConfigured: true
+                apiClient: mockApiClient as APIClient
             }
         });
 
@@ -277,8 +257,7 @@ describe('ListExecutionsView', () => {
 
         render(ListExecutionsView, {
             props: {
-                apiClient: mockApiClient as APIClient,
-                isConfigured: true
+                apiClient: mockApiClient as APIClient
             }
         });
 
@@ -300,8 +279,7 @@ describe('ListExecutionsView', () => {
 
         render(ListExecutionsView, {
             props: {
-                apiClient: mockApiClient as APIClient,
-                isConfigured: true
+                apiClient: mockApiClient as APIClient
             }
         });
 
@@ -321,8 +299,7 @@ describe('ListExecutionsView', () => {
 
         render(ListExecutionsView, {
             props: {
-                apiClient: mockApiClient as APIClient,
-                isConfigured: true
+                apiClient: mockApiClient as APIClient
             }
         });
 

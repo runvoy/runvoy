@@ -4,10 +4,8 @@
     import APIClient from '../lib/api';
 
     let apiClient: APIClient | null = null;
-    let isConfigured = false;
 
     $: apiClient = $apiEndpoint && $apiKey ? new APIClient($apiEndpoint, $apiKey) : null;
-    $: isConfigured = Boolean(apiClient);
 </script>
 
-<RunView {apiClient} {isConfigured} />
+<RunView {apiClient} />
