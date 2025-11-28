@@ -33,10 +33,9 @@ export function connectWebSocket(url: string): void {
 
     try {
         socket = new WebSocket(url);
-    } catch (err) {
-        // eslint-disable-next-line no-console
-        console.error('WebSocket connection error:', err);
-        connectionError.set('Failed to create WebSocket connection. Invalid URL?');
+    } catch (error) {
+        const reason = error instanceof Error ? error.message : 'Invalid URL?';
+        connectionError.set(`Failed to create WebSocket connection. ${reason}`);
         isConnecting.set(false);
         return;
     }
@@ -44,8 +43,6 @@ export function connectWebSocket(url: string): void {
     websocketConnection.set(socket);
 
     socket.onopen = (): void => {
-        // eslint-disable-next-line no-console
-        console.log('WebSocket connected');
         isConnecting.set(false);
         connectionError.set(null);
     };
@@ -56,8 +53,6 @@ export function connectWebSocket(url: string): void {
 
             // Handle disconnect messages
             if (message.type === 'disconnect') {
-                // eslint-disable-next-line no-console
-                console.log('Received disconnect message:', message.reason || 'unknown reason');
                 isCompleted.set(true);
                 if (typeof window !== 'undefined') {
                     // Pass cleanClose flag to indicate websocket closed cleanly (no need to fetch logs)
@@ -94,22 +89,18 @@ export function connectWebSocket(url: string): void {
                     return [...events, eventWithLine];
                 });
             }
-        } catch (err) {
-            // eslint-disable-next-line no-console
-            console.error('Error parsing WebSocket message:', err);
+        } catch (error) {
+            const reason = error instanceof Error ? error.message : 'Unknown error';
+            connectionError.set(`Received invalid data from WebSocket server: ${reason}`);
         }
     };
 
     socket.onerror = (): void => {
-        // eslint-disable-next-line no-console
-        console.error('WebSocket error');
         connectionError.set('WebSocket connection failed.');
         isConnecting.set(false);
     };
 
     socket.onclose = (event: CloseEvent): void => {
-        // eslint-disable-next-line no-console
-        console.log('WebSocket disconnected:', event.reason);
         isConnecting.set(false);
         if (event.code !== 1000) {
             // 1000 is normal closure

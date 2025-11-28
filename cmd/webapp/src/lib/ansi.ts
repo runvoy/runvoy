@@ -1,5 +1,5 @@
 /**
- * Parse ANSI escape codes in text and convert to HTML with CSS classes
+ * Parse ANSI escape codes in text and convert to structured color segments
  */
 
 interface ColorMap {
@@ -25,29 +25,49 @@ const colorMap: ColorMap = {
     97: 'bright-white'
 };
 
+export interface AnsiSegment {
+    text: string;
+    className?: string;
+}
+
 /**
- * Parse ANSI escape codes in text and convert to HTML with CSS classes
+ * Parse ANSI escape codes in text and convert to structured segments
  * @param text - Text containing ANSI codes
- * @returns HTML string with ANSI codes converted to spans
+ * @returns Array of segments with optional ANSI class names
  */
-export function parseAnsi(text: string): string {
-    // eslint-disable-next-line no-control-regex
-    const ansiRegex = /\x1b\[(\d+)m/g;
+export function parseAnsi(text: string): AnsiSegment[] {
+    const escapeChar = String.fromCharCode(0x1b);
+    const ansiRegex = new RegExp(`${escapeChar}\\[(\\d+)m`, 'g');
 
-    // Escape HTML special characters first
-    let result = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const segments: AnsiSegment[] = [];
+    let currentClass: string | undefined;
+    let lastIndex = 0;
 
-    // Replace ANSI codes with HTML spans
-    result = result.replace(ansiRegex, (match, code) => {
-        const codeNum = parseInt(code, 10);
-        if (codeNum === 0) {
-            return '</span>'; // Reset
+    for (const match of text.matchAll(ansiRegex)) {
+        if (match.index === undefined) {
+            continue;
         }
-        const color = colorMap[codeNum];
-        return color ? `<span class="ansi-${color}">` : '';
-    });
 
-    return result;
+        if (match.index > lastIndex) {
+            segments.push({ text: text.slice(lastIndex, match.index), className: currentClass });
+        }
+
+        const codeNum = parseInt(match[1], 10);
+        if (codeNum === 0) {
+            currentClass = undefined;
+        } else {
+            const color = colorMap[codeNum];
+            currentClass = color ? `ansi-${color}` : currentClass;
+        }
+
+        lastIndex = match.index + match[0].length;
+    }
+
+    if (lastIndex < text.length) {
+        segments.push({ text: text.slice(lastIndex), className: currentClass });
+    }
+
+    return segments;
 }
 
 /**
