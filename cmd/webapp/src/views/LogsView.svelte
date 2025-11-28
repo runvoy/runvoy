@@ -20,7 +20,6 @@
 
     let errorMessage = '';
     let currentExecutionId: string | null = null;
-    let websocketURL: string | null = null;
     let lastProcessedExecutionId: string | null = null;
     const TERMINAL_STATES = ['SUCCEEDED', 'FAILED', 'STOPPED'];
 
@@ -72,20 +71,20 @@
                 line: index + 1
             }));
             logEvents.set(eventsWithLines);
-            cachedWebSocketURL.set(response.websocket_url || null);
+
+            // If backend offers a websocket URL, prefer streaming and let websocket handle lifecycle.
+            if (response.websocket_url) {
+                cachedWebSocketURL.set(response.websocket_url);
+                return;
+            }
 
             const status = response.status || 'UNKNOWN';
             executionStatus.set(status);
-
             const derivedStartedAt = deriveStartedAtFromLogs(eventsWithLines);
             startedAt.set(derivedStartedAt);
 
             const terminal = TERMINAL_STATES.includes(status);
             isCompleted.set(terminal);
-
-            if (terminal) {
-                cachedWebSocketURL.set(null);
-            }
         } catch (error) {
             const err = error as ApiError;
             errorMessage = err.details?.error || err.message || 'Failed to fetch logs';
@@ -154,14 +153,14 @@
             }
             if (id !== lastProcessedExecutionId) {
                 resetForExecution(id);
-                if (!websocketURL) {
+                const existingWebsocketURL = get(cachedWebSocketURL);
+                if (!existingWebsocketURL) {
                     fetchLogs(id);
                 }
             }
         });
 
         const unsubscribeCachedURL = cachedWebSocketURL.subscribe((url) => {
-            websocketURL = url;
             if (!apiClient) {
                 return;
             }

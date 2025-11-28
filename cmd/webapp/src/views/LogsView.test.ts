@@ -36,6 +36,23 @@ describe('LogsView', () => {
         vi.clearAllMocks();
     });
 
+    it('should skip fetching logs when a websocket URL is already cached', async () => {
+        cachedWebSocketURL.set('wss://example.com/logs');
+        executionId.set('exec-123');
+
+        render(LogsView, {
+            props: {
+                apiClient: mockApiClient as APIClient,
+                isConfigured: true
+            }
+        });
+
+        // Allow onMount subscriptions to run
+        await new Promise((resolve) => setTimeout(resolve, 50));
+
+        expect(fetchLogsSpy).not.toHaveBeenCalled();
+    });
+
     describe('handleExecutionComplete', () => {
         it('should not fetch logs when cleanClose is true', async () => {
             render(LogsView, {
