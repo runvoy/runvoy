@@ -78,10 +78,10 @@ describe('WebSocket Connection', () => {
 
     beforeEach(() => {
         // Store original WebSocket
-        originalWebSocket = global.WebSocket as typeof WebSocket;
+        originalWebSocket = globalThis.WebSocket as typeof WebSocket;
 
         // Replace WebSocket with mock
-        global.WebSocket = MockWebSocket as any;
+        globalThis.WebSocket = MockWebSocket as any;
 
         // Reset stores
         websocketConnection.set(null);
@@ -124,7 +124,7 @@ describe('WebSocket Connection', () => {
 
     afterEach(() => {
         // Restore original WebSocket
-        global.WebSocket = originalWebSocket;
+        globalThis.WebSocket = originalWebSocket;
 
         // Clean up any connections
         disconnectWebSocket();
