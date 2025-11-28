@@ -4,15 +4,37 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/svelte';
-import { writable } from 'svelte/store';
 import ViewSwitcher from './ViewSwitcher.svelte';
 import { VIEWS } from '../stores/ui';
 
-const mockPageStore = vi.hoisted(() =>
-    writable({
+// Create a simple mock store inside hoisted to avoid initialization order issues
+const mockPageStore = vi.hoisted(() => {
+    // Create a simple mock store that implements the writable interface
+    const createMockStore = <T>(initial: T) => {
+        let value = initial;
+        const subscribers = new Set<(value: T) => void>();
+
+        return {
+            set: (newValue: T) => {
+                value = newValue;
+                subscribers.forEach((fn) => fn(value));
+            },
+            update: (fn: (value: T) => T) => {
+                value = fn(value);
+                subscribers.forEach((subscriber) => subscriber(value));
+            },
+            subscribe: (fn: (value: T) => void) => {
+                subscribers.add(fn);
+                fn(value); // Call immediately with current value
+                return () => subscribers.delete(fn);
+            }
+        };
+    };
+
+    return createMockStore({
         url: new URL('http://localhost:5173/')
-    })
-);
+    });
+});
 
 // Mock the $app/stores module
 vi.mock('$app/stores', () => {
