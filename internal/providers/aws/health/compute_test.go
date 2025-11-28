@@ -67,6 +67,7 @@ func TestBuildTaskDefParamsDefaults(t *testing.T) {
 
 func TestBuildTaskDefParamsUsesImageValues(t *testing.T) {
 	isDefault := true
+	arm64Platform := awsConstants.DefaultRuntimePlatformOSFamily + "/" + awsConstants.RuntimePlatformArchARM64
 	m := &Manager{cfg: &Config{AccountID: "123456789012"}}
 	params := m.buildTaskDefParams(&api.ImageInfo{
 		Image:                 "alpine:3.19",
@@ -74,7 +75,7 @@ func TestBuildTaskDefParamsUsesImageValues(t *testing.T) {
 		TaskExecutionRoleName: stringPtr("custom-exec"),
 		CPU:                   512,
 		Memory:                1024,
-		RuntimePlatform:       awsConstants.RuntimePlatformARM64,
+		RuntimePlatform:       arm64Platform,
 		IsDefault:             &isDefault,
 	})
 
@@ -82,7 +83,7 @@ func TestBuildTaskDefParamsUsesImageValues(t *testing.T) {
 	assert.Equal(t, "arn:aws:iam::123456789012:role/custom-exec", params.taskExecRoleARN)
 	assert.Equal(t, 512, params.cpu)
 	assert.Equal(t, 1024, params.memory)
-	assert.Equal(t, awsConstants.RuntimePlatformARM64, params.runtimePlatform)
+	assert.Equal(t, arm64Platform, params.runtimePlatform)
 	assert.True(t, params.isDefault)
 }
 
