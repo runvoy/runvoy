@@ -4,12 +4,12 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/svelte';
+import { writable } from 'svelte/store';
 import ViewSwitcher from './ViewSwitcher.svelte';
 import { VIEWS } from '../stores/ui';
 
 const mockPageStore = vi.hoisted(() =>
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    require('svelte/store').writable({
+    writable({
         url: new URL('http://localhost:5173/')
     })
 );
