@@ -2,22 +2,22 @@
     import { isConnecting, connectionError, websocketConnection } from '../stores/websocket';
     import { isCompleted } from '../stores/execution';
 
-    $: statusText = (() => {
+    const statusText = $derived(() => {
         if ($isCompleted) return 'Execution finished';
         if ($isConnecting) return 'Connecting...';
         if ($websocketConnection && $websocketConnection.readyState === WebSocket.OPEN)
             return 'Connected';
         if (connectionError) return $connectionError;
         return 'Disconnected';
-    })();
+    });
 
-    $: statusClass = (() => {
+    const statusClass = $derived(() => {
         if ($isCompleted) return 'status-completed';
         if ($isConnecting) return 'status-connecting';
         if ($websocketConnection && $websocketConnection.readyState === WebSocket.OPEN)
             return 'status-connected';
         return 'status-disconnected';
-    })();
+    });
 </script>
 
 <div class="websocket-status {statusClass}">

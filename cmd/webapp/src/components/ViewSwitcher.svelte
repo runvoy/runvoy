@@ -33,8 +33,7 @@
         return pathname.startsWith(route);
     }
 
-    // Reactive variable to track current pathname
-    $: currentPathname = $page.url.pathname;
+    const currentPathname = $derived($page.url.pathname);
 </script>
 
 <nav class="view-switcher" aria-label="View selection">

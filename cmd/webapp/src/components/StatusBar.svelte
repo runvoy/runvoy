@@ -4,10 +4,10 @@
     export let onKill: (() => void) | null = null;
 
     const DEFAULT_STATUS = 'LOADING';
-    let isKilling = false;
+    let isKilling = $state(false);
 
-    $: statusClass = $executionStatus ? $executionStatus.toLowerCase() : 'loading';
-    $: formattedStartedAt = (() => {
+    const statusClass = $derived($executionStatus ? $executionStatus.toLowerCase() : 'loading');
+    const formattedStartedAt = $derived(() => {
         if (!$startedAt) {
             return 'N/A';
         }
@@ -20,7 +20,7 @@
         }
 
         return date.toLocaleString();
-    })();
+    });
 
     async function handleKill(): Promise<void> {
         if (!onKill) return;
@@ -32,7 +32,7 @@
         }
     }
 
-    $: canKill = !$isCompleted && !isKilling;
+    const canKill = $derived(!$isCompleted && !isKilling);
 </script>
 
 <div class="status-bar">

@@ -5,10 +5,10 @@
 
     export let apiClient: APIClient | null = null;
 
-    let executions: Execution[] = [];
-    let isLoading = false;
-    let errorMessage = '';
-    let hasAttemptedLoad = false;
+    let executions: Execution[] = $state([]);
+    let isLoading = $state(false);
+    let errorMessage = $state('');
+    let hasAttemptedLoad = $state(false);
 
     async function loadExecutions(allowRefresh = false): Promise<void> {
         if (!apiClient) {
@@ -71,9 +71,11 @@
         return 'default';
     }
 
-    $: if (apiClient) {
-        loadExecutions();
-    }
+    $effect(() => {
+        if (apiClient) {
+            loadExecutions();
+        }
+    });
 </script>
 
 <article class="list-card">

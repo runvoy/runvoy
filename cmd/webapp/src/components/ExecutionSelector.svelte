@@ -2,10 +2,12 @@
     import { executionId } from '../stores/execution';
     import { switchExecution, clearExecution } from '../lib/executionState';
 
-    let inputValue = $executionId || '';
+    let inputValue = $state($executionId || '');
 
     // Update input when store changes (e.g., from URL on mount)
-    $: inputValue = $executionId || '';
+    $effect(() => {
+        inputValue = $executionId || '';
+    });
 
     function handleKeyPress(event: KeyboardEvent): void {
         if (event.key === 'Enter') {
@@ -21,8 +23,12 @@
     }
 
     // Handle browser back/forward buttons
-    if (typeof window !== 'undefined') {
-        window.addEventListener('popstate', () => {
+    $effect.root(() => {
+        if (typeof window === 'undefined') {
+            return;
+        }
+
+        const onPopState = () => {
             const urlParams = new URLSearchParams(window.location.search);
             const newExecutionId = urlParams.get('execution_id') || urlParams.get('executionId');
 
@@ -33,8 +39,14 @@
                 clearExecution({ updateHistory: false });
                 inputValue = '';
             }
-        });
-    }
+        };
+
+        window.addEventListener('popstate', onPopState);
+
+        return () => {
+            window.removeEventListener('popstate', onPopState);
+        };
+    });
 </script>
 
 <div class="execution-selector">

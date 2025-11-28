@@ -25,6 +25,9 @@ const appVersion = (() => {
 /** @type {import('@sveltejs/kit').Config} */
 const config = {
         preprocess: vitePreprocess(),
+        compilerOptions: {
+                runes: true
+        },
         kit: {
                 adapter: adapter({
                         pages: 'dist',

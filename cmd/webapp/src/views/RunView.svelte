@@ -8,27 +8,28 @@
 
     export let apiClient: APIClient | null = null;
 
-    let command = '';
-    let image = '';
-    let timeout = '';
-    let gitRepo = '';
-    let gitRef = '';
-    let gitPath = '';
-    let envRows: EnvRow[] = [];
-    let showAdvanced = false;
-    let isSubmitting = false;
-    let errorMessage = '';
-
-    let envRowCounter = 0;
+    let command = $state('');
+    let image = $state('');
+    let timeout = $state('');
+    let gitRepo = $state('');
+    let gitRef = $state('');
+    let gitPath = $state('');
+    let envRowCounter = $state(0);
+    let envRows: EnvRow[] = $state([]);
+    let showAdvanced = $state(false);
+    let isSubmitting = $state(false);
+    let errorMessage = $state('');
 
     function createEnvRow(): EnvRow {
         envRowCounter += 1;
         return { id: envRowCounter, key: '', value: '' };
     }
 
-    $: if (envRows.length === 0) {
-        envRows = [createEnvRow()];
-    }
+    $effect(() => {
+        if (envRows.length === 0) {
+            envRows = [createEnvRow()];
+        }
+    });
 
     function addEnvRow(): void {
         envRows = [...envRows, createEnvRow()];

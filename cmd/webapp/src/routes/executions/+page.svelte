@@ -3,9 +3,11 @@
     import { apiEndpoint, apiKey } from '../../stores/config';
     import APIClient from '../../lib/api';
 
-    let apiClient: APIClient | null = null;
+    let apiClient: APIClient | null = $state(null);
 
-    $: apiClient = $apiEndpoint && $apiKey ? new APIClient($apiEndpoint, $apiKey) : null;
+    $effect(() => {
+        apiClient = $apiEndpoint && $apiKey ? new APIClient($apiEndpoint, $apiKey) : null;
+    });
 </script>
 
 <ListExecutionsView {apiClient} />

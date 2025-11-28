@@ -5,10 +5,8 @@
 
     export let event: LogEvent;
 
-    let ansiSegments: AnsiSegment[] = [];
-
-    $: formattedTimestamp = formatTimestamp(event.timestamp);
-    $: ansiSegments = parseAnsi(event.message);
+    const formattedTimestamp = $derived(formatTimestamp(event.timestamp));
+    const ansiSegments: AnsiSegment[] = $derived(parseAnsi(event.message));
 </script>
 
 <div class="log-line">

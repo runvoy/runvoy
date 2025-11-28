@@ -14,9 +14,6 @@
         disabled?: boolean;
     }
 
-    let hasEndpoint = false;
-    let hasApiKey = false;
-
     const views: NavView[] = [
         { id: VIEWS.RUN, label: 'Run Command' },
         { id: VIEWS.LIST, label: 'Executions' },
@@ -24,38 +21,38 @@
         { id: VIEWS.LOGS, label: 'Logs' },
         { id: VIEWS.SETTINGS, label: 'Settings' }
     ];
-    let navViews: NavView[] = views;
 
-    $: hasEndpoint = Boolean($apiEndpoint);
-    $: hasApiKey = Boolean($apiKey);
+    const hasEndpoint = $derived(Boolean($apiEndpoint));
+    const hasApiKey = $derived(Boolean($apiKey));
 
-    $: navViews = views.map((view) => {
-        if (!hasEndpoint && view.id !== VIEWS.SETTINGS) {
-            return { ...view, disabled: true };
-        }
+    const navViews: NavView[] = $derived(
+        views.map((view) => {
+            if (!hasEndpoint && view.id !== VIEWS.SETTINGS) {
+                return { ...view, disabled: true };
+            }
 
-        if (view.id === VIEWS.LOGS || view.id === VIEWS.LIST) {
-            return { ...view, disabled: !hasApiKey };
-        }
+            if (view.id === VIEWS.LOGS || view.id === VIEWS.LIST) {
+                return { ...view, disabled: !hasApiKey };
+            }
 
-        return view;
-    });
+            return view;
+        })
+    );
 
-    $: {
+    $effect(() => {
         const pathname = $page.url.pathname;
         const isSettings = pathname === '/settings';
         const isClaim = pathname === '/claim';
 
-        // Redirect to settings if endpoint is missing (unless already on settings)
         if (!hasEndpoint && !isSettings) {
             goto('/settings');
+            return;
         }
-        // Redirect to settings if API key is missing (unless on settings/claim)
-        // This allows claim view to work with just endpoint configured
-        else if (!hasApiKey && !isSettings && !isClaim) {
+
+        if (!hasApiKey && !isSettings && !isClaim) {
             goto('/settings');
         }
-    }
+    });
 </script>
 
 <main class="container">

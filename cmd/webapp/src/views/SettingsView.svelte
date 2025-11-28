@@ -1,6 +1,5 @@
 <script lang="ts">
     import { version } from '$app/environment';
-    import { onMount } from 'svelte';
     import { apiEndpoint, apiKey } from '../stores/config';
     import APIClient from '../lib/api';
     import type { HealthResponse } from '../types/api';
@@ -10,16 +9,16 @@
 
     const MASKED_API_KEY_PLACEHOLDER = '••••••••';
 
-    let endpointInput = $apiEndpoint || '';
-    let keyInput = '';
-    let formError = '';
-    let formSuccess = '';
-    let showApiKey = false;
-    let backendHealth: HealthResponse | null = null;
-    let healthError: string | null = null;
-    let loadingHealth = false;
+    let endpointInput = $state($apiEndpoint || '');
+    let keyInput = $state('');
+    let formError = $state('');
+    let formSuccess = $state('');
+    let showApiKey = $state(false);
+    let backendHealth: HealthResponse | null = $state(null);
+    let healthError: string | null = $state(null);
+    let loadingHealth = $state(false);
 
-    $: displayKey = $apiKey ? MASKED_API_KEY_PLACEHOLDER : '';
+    const displayKey = $derived($apiKey ? MASKED_API_KEY_PLACEHOLDER : '');
 
     async function fetchBackendHealth(): Promise<void> {
         if (!apiClient) {
@@ -38,7 +37,7 @@
         }
     }
 
-    onMount(() => {
+    $effect.root(() => {
         syncFormFromStore();
         fetchBackendHealth();
     });
@@ -112,9 +111,11 @@
     }
 
     // Re-fetch health when API configuration changes
-    $: if (apiClient && isConfigured) {
-        fetchBackendHealth();
-    }
+    $effect(() => {
+        if (apiClient && isConfigured) {
+            fetchBackendHealth();
+        }
+    });
 </script>
 
 <article class="settings-card">

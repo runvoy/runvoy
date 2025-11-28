@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { onDestroy, onMount } from 'svelte';
+    import { onDestroy } from 'svelte';
     import { get } from 'svelte/store';
 
     import ExecutionSelector from '../components/ExecutionSelector.svelte';
@@ -17,9 +17,9 @@
 
     export let apiClient: APIClient | null = null;
 
-    let errorMessage = '';
-    let currentExecutionId: string | null = null;
-    let lastProcessedExecutionId: string | null = null;
+    let errorMessage = $state('');
+    let currentExecutionId: string | null = $state(null);
+    let lastProcessedExecutionId: string | null = $state(null);
     const TERMINAL_STATES = ['SUCCEEDED', 'FAILED', 'STOPPED'];
 
     async function handleKillExecution(): Promise<void> {
@@ -128,14 +128,16 @@
         }
     }
 
-    $: if (!apiClient) {
-        disconnectWebSocket();
-        lastProcessedExecutionId = null;
-    }
+    $effect(() => {
+        if (!apiClient) {
+            disconnectWebSocket();
+            lastProcessedExecutionId = null;
+        }
+    });
 
-    onMount(() => {
+    $effect.root(() => {
         if (typeof window === 'undefined') {
-            return undefined;
+            return;
         }
 
         const unsubscribeExecution = executionId.subscribe((id) => {
