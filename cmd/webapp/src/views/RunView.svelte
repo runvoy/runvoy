@@ -7,7 +7,6 @@
     import { cachedWebSocketURL } from '../stores/websocket';
 
     export let apiClient: APIClient | null = null;
-    export let isConfigured = false;
 
     let command = '';
     let image = '';
@@ -96,8 +95,8 @@
     async function handleSubmit(): Promise<void> {
         errorMessage = '';
 
-        if (!isConfigured || !apiClient) {
-            errorMessage = 'Configure the API endpoint and key before running commands.';
+        if (!apiClient) {
+            errorMessage = 'API client is not available.';
             return;
         }
 
@@ -126,17 +125,8 @@
     }
 </script>
 
-{#if !isConfigured}
-    <article class="info-card">
-        <h2>Configure API access to run commands</h2>
-        <p>
-            Use the <strong>⚙️ Configure API</strong> button to set the endpoint and API key for your
-            runvoy backend. Once configured, you can launch commands directly from this view.
-        </p>
-    </article>
-{:else}
-    <article class="run-card">
-        <form on:submit|preventDefault={handleSubmit} class="run-form">
+<article class="run-card">
+    <form on:submit|preventDefault={handleSubmit} class="run-form">
             <fieldset>
                 <legend>Command</legend>
                 <label for="command-input">
@@ -268,23 +258,15 @@
                 <p class="error-text" role="alert">{errorMessage}</p>
             {/if}
 
-            <div class="actions">
-                <button type="submit" disabled={isSubmitting}>
-                    {isSubmitting ? 'Starting...' : 'Run command'}
-                </button>
-            </div>
-        </form>
-    </article>
-{/if}
+        <div class="actions">
+            <button type="submit" disabled={isSubmitting}>
+                {isSubmitting ? 'Starting...' : 'Run command'}
+            </button>
+        </div>
+    </form>
+</article>
 
 <style>
-    .info-card {
-        background: var(--pico-card-background-color);
-        border: 1px solid var(--pico-card-border-color);
-        border-radius: var(--pico-border-radius);
-        padding: 1.5rem;
-    }
-
     .run-card {
         background: var(--pico-card-background-color);
         border: 1px solid var(--pico-card-border-color);
@@ -346,7 +328,6 @@
     }
 
     @media (max-width: 768px) {
-        .info-card,
         .run-card {
             padding: 1.5rem;
         }

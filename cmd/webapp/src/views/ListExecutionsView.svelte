@@ -4,7 +4,6 @@
     import type { Execution, ApiError } from '../types/api';
 
     export let apiClient: APIClient | null = null;
-    export let isConfigured = false;
 
     let executions: Execution[] = [];
     let isLoading = false;
@@ -12,7 +11,7 @@
     let hasAttemptedLoad = false;
 
     async function loadExecutions(allowRefresh = false): Promise<void> {
-        if (!isConfigured || !apiClient) {
+        if (!apiClient) {
             return;
         }
 
@@ -72,101 +71,84 @@
         return 'default';
     }
 
-    $: if (apiClient && isConfigured) {
+    $: if (apiClient) {
         loadExecutions();
     }
 </script>
 
-{#if !isConfigured}
-    <article class="info-card">
-        <h2>Configure API access to view executions</h2>
-        <p>
-            Use the <strong>⚙️ Configure API</strong> button to set the endpoint and API key for your
-            runvoy backend. Once configured, you can view past executions here.
-        </p>
-    </article>
-{:else}
-    <article class="list-card">
-        <header>
-            <h2>Execution History</h2>
-            <button on:click={() => loadExecutions(true)} disabled={isLoading} class="secondary">
-                {isLoading ? '⟳ Refreshing...' : '⟳ Refresh'}
-            </button>
-        </header>
+<article class="list-card">
+    <header>
+        <h2>Execution History</h2>
+        <button on:click={() => loadExecutions(true)} disabled={isLoading} class="secondary">
+            {isLoading ? '⟳ Refreshing...' : '⟳ Refresh'}
+        </button>
+    </header>
 
-        {#if errorMessage}
-            <div class="error-box">
-                <p>{errorMessage}</p>
-            </div>
-        {/if}
+    {#if errorMessage}
+        <div class="error-box">
+            <p>{errorMessage}</p>
+        </div>
+    {/if}
 
-        {#if isLoading}
-            <p class="loading-text">Loading executions...</p>
-        {:else if executions.length === 0}
-            <p class="empty-text">No executions found. Start by running a command.</p>
-        {:else}
-            <div class="table-wrapper">
-                <table>
-                    <thead>
+    {#if isLoading}
+        <p class="loading-text">Loading executions...</p>
+    {:else if executions.length === 0}
+        <p class="empty-text">No executions found. Start by running a command.</p>
+    {:else}
+        <div class="table-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Status</th>
+                        <th>Started</th>
+                        <th>Completed</th>
+                        <th>Exit Code</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {#each executions as execution (execution.execution_id)}
                         <tr>
-                            <th>ID</th>
-                            <th>Status</th>
-                            <th>Started</th>
-                            <th>Completed</th>
-                            <th>Exit Code</th>
-                            <th>Action</th>
+                            <td class="execution-id">
+                                <code
+                                    >{execution.execution_id
+                                        ? execution.execution_id.slice(0, 8) + '...'
+                                        : 'N/A'}</code
+                                >
+                            </td>
+                            <td>
+                                <span
+                                    class="status-badge status-{getStatusColor(
+                                        execution.status
+                                    )}"
+                                >
+                                    {execution.status}
+                                </span>
+                            </td>
+                            <td>{formatDate(execution.started_at)}</td>
+                            <td>{formatDate(execution.completed_at)}</td>
+                            <td class="exit-code">
+                                {execution.exit_code ?? '-'}
+                            </td>
+                            <td class="action-cell">
+                                <button
+                                    class="secondary"
+                                    on:click={() => handleViewExecution(execution)}
+                                    aria-label="View execution {execution.execution_id}"
+                                >
+                                    View
+                                </button>
+                            </td>
                         </tr>
-                    </thead>
-                    <tbody>
-                        {#each executions as execution (execution.execution_id)}
-                            <tr>
-                                <td class="execution-id">
-                                    <code
-                                        >{execution.execution_id
-                                            ? execution.execution_id.slice(0, 8) + '...'
-                                            : 'N/A'}</code
-                                    >
-                                </td>
-                                <td>
-                                    <span
-                                        class="status-badge status-{getStatusColor(
-                                            execution.status
-                                        )}"
-                                    >
-                                        {execution.status}
-                                    </span>
-                                </td>
-                                <td>{formatDate(execution.started_at)}</td>
-                                <td>{formatDate(execution.completed_at)}</td>
-                                <td class="exit-code">
-                                    {execution.exit_code ?? '-'}
-                                </td>
-                                <td class="action-cell">
-                                    <button
-                                        class="secondary"
-                                        on:click={() => handleViewExecution(execution)}
-                                        aria-label="View execution {execution.execution_id}"
-                                    >
-                                        View
-                                    </button>
-                                </td>
-                            </tr>
-                        {/each}
-                    </tbody>
-                </table>
-            </div>
-        {/if}
-    </article>
-{/if}
+                    {/each}
+                </tbody>
+            </table>
+        </div>
+    {/if}
+</article>
 
 <style>
-    .info-card {
-        background: var(--pico-card-background-color);
-        border: 1px solid var(--pico-card-border-color);
-        border-radius: var(--pico-border-radius);
-        padding: 1.5rem;
-    }
-
     .list-card {
         background: var(--pico-card-background-color);
         border: 1px solid var(--pico-card-border-color);
