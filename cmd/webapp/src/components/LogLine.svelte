@@ -1,7 +1,7 @@
 <script lang="ts">
     import { showMetadata } from '../stores/logs';
     import { parseAnsi, formatTimestamp } from '../lib/ansi';
-    import type { LogEvent } from '../types/stores';
+    import type { LogEvent } from '../types/logs';
 
     export let event: LogEvent;
 

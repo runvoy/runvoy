@@ -2,7 +2,7 @@
     import { goto } from '$app/navigation';
     import type APIClient from '../lib/api';
     import type { RunCommandPayload } from '../types/api';
-    import type { EnvRow } from '../types/stores';
+    import type { EnvRow } from '../types/run';
     import { switchExecution } from '../lib/executionState';
     import { cachedWebSocketURL } from '../stores/websocket';
 
