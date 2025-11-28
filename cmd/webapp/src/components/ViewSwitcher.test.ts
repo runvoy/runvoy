@@ -1,6 +1,5 @@
 /// <reference types="vitest" />
 /// <reference types="@testing-library/jest-dom" />
-/// <reference types="node" />
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/svelte';

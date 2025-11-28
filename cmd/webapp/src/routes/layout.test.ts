@@ -64,7 +64,7 @@ describe('App layout guardrails', () => {
     it('redirects to settings when no endpoint is configured', async () => {
         page.set({ url: new URL('http://localhost:5173/claim') });
 
-        render(Layout, { slots: { default: '<p>content</p>' } });
+        render(Layout as any, { slots: { default: '<p>content</p>' } });
 
         await waitFor(() => expect(mockGoto).toHaveBeenCalledWith('/settings'));
     });
@@ -73,7 +73,7 @@ describe('App layout guardrails', () => {
         page.set({ url: new URL('http://localhost:5173/claim') });
         apiEndpoint.set('https://api.example.test');
 
-        render(Layout, { slots: { default: '<p>content</p>' } });
+        render(Layout as any, { slots: { default: '<p>content</p>' } });
 
         await waitFor(() => expect(mockGoto).not.toHaveBeenCalled());
     });
