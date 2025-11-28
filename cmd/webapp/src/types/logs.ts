@@ -21,12 +21,3 @@ export interface WebSocketLogMessage extends Partial<ApiLogEvent> {
     reason?: string;
     [key: string]: unknown;
 }
-
-export function normalizeLogEvents(events: ApiLogEvent[] = []): LogEvent[] {
-    return events
-        .filter((event) => Boolean(event.message) && typeof event.timestamp === 'number')
-        .map((event, index) => ({
-            ...event,
-            line: event.line ?? index + 1
-        }));
-}
