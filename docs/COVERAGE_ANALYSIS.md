@@ -60,7 +60,7 @@ This document outlines the findings from a comprehensive test coverage analysis 
 
 ### High Priority (20-50% Coverage)
 
-#### 4. **internal/providers/aws/health** - 33%
+#### 4. **internal/providers/aws/health** - 33% → ✅ PARTIALLY ADDRESSED
 
 - **Files untested:**
   - `casbin.go` - Authorization health checks
@@ -198,6 +198,17 @@ This document outlines the findings from a comprehensive test coverage analysis 
 - Orphaned ownership detection for missing users and resources
 
 **Impact:** Strengthens coverage for Casbin-based authorization health checks, validating role and ownership reconciliation paths.
+
+### 7. ECS Compute Health (Task Definitions) ✅
+
+**File:** `internal/providers/aws/health/compute_test.go`
+
+**Coverage:**
+
+- Default and custom task definition parameter resolution for CPU, memory, runtime platform, and IAM roles
+- Tag comparison logic ensuring AWS task definition tags align with runvoy standards
+
+**Impact:** Improves confidence in task definition reconciliation by validating parameter defaults, overrides, and tag enforcement.
 
 ---
 
