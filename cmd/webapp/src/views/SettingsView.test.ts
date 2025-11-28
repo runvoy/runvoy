@@ -77,6 +77,45 @@ describe('SettingsView', () => {
         });
     });
 
+    it('fetches backend health after saving configuration', async () => {
+        const mockHealth: HealthResponse = {
+            status: 'OK',
+            version: '1.0.0'
+        };
+
+        vi.mocked(mockApiClient.getHealth as any).mockResolvedValue(mockHealth);
+
+        render(SettingsView, {
+            props: {
+                apiClient: mockApiClient as APIClient,
+                isConfigured: true
+            }
+        });
+
+        await waitFor(() => {
+            expect(mockApiClient.getHealth).toHaveBeenCalled();
+        });
+
+        const initialCallCount = vi.mocked(mockApiClient.getHealth as any).mock.calls.length;
+
+        const endpointField = screen.getByPlaceholderText('https://api.runvoy.example.com');
+        const apiKeyField = screen.getByPlaceholderText('Enter API key (or claim one later)');
+
+        await fireEvent.input(endpointField, {
+            target: { value: 'https://api.example.com' }
+        });
+
+        await fireEvent.input(apiKeyField, {
+            target: { value: 'updated-key' }
+        });
+
+        await fireEvent.click(screen.getByText('Save configuration'));
+
+        await waitFor(() => {
+            expect(mockApiClient.getHealth).toHaveBeenCalledTimes(initialCallCount + 1);
+        });
+    });
+
     it('validates the endpoint before saving', async () => {
         render(SettingsView, {
             props: {
