@@ -1,21 +1,11 @@
-import { browser } from '$app/environment';
 import { redirect } from '@sveltejs/kit';
 import { hydrateConfigStores } from '../stores/config';
 import type { LayoutLoad } from './$types';
 
 export const prerender = false;
 
-export const load: LayoutLoad = ({ url, data }) => {
-    const hydrated = hydrateConfigStores(data?.initialConfig);
-
-    let endpoint = hydrated.endpoint;
-    let apiKey = hydrated.apiKey;
-
-    if (browser) {
-        // Prefer latest browser values if available
-        endpoint = hydrated.endpoint ?? endpoint;
-        apiKey = hydrated.apiKey ?? apiKey;
-    }
+export const load: LayoutLoad = ({ url }) => {
+    const { endpoint, apiKey } = hydrateConfigStores();
 
     const hasEndpoint = Boolean(endpoint);
     const hasApiKey = Boolean(apiKey);

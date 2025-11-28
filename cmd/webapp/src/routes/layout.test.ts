@@ -7,7 +7,7 @@ import type { Redirect } from '@sveltejs/kit';
 
 import Layout from './+layout.svelte';
 import { load } from './+layout';
-import { apiEndpoint, apiKey, setApiEndpoint, setApiKey } from '../stores/config';
+import { setApiEndpoint, setApiKey } from '../stores/config';
 
 vi.mock('$app/environment', () => ({
     version: 'test-version',
@@ -24,8 +24,7 @@ describe('layout load', () => {
     it('redirects to settings when no endpoint is configured', () => {
         try {
             load({
-                url: new URL('http://localhost:5173/logs'),
-                data: { initialConfig: { endpoint: null, apiKey: null } }
+                url: new URL('http://localhost:5173/logs')
             } as any);
         } catch (error) {
             const redirectError = error as Redirect;
@@ -42,8 +41,7 @@ describe('layout load', () => {
 
         try {
             load({
-                url: new URL('http://localhost:5173/logs'),
-                data: { initialConfig: { endpoint: null, apiKey: null } }
+                url: new URL('http://localhost:5173/logs')
             } as any);
         } catch (error) {
             const redirectError = error as Redirect;
@@ -60,8 +58,7 @@ describe('layout load', () => {
         localStorage.setItem('runvoy_api_key', 'secret-key');
 
         const result = load({
-            url: new URL('http://localhost:5173/'),
-            data: { initialConfig: { endpoint: null, apiKey: null } }
+            url: new URL('http://localhost:5173/')
         } as any) as { hasEndpoint: boolean; hasApiKey: boolean };
 
         expect(result.hasEndpoint).toBe(true);
@@ -73,31 +70,19 @@ describe('layout load', () => {
         localStorage.setItem('runvoy_api_key', 'local-key');
 
         const result = load({
-            url: new URL('http://localhost:5173/'),
-            data: { initialConfig: { endpoint: null, apiKey: null } }
+            url: new URL('http://localhost:5173/')
         } as any) as { hasEndpoint: boolean; hasApiKey: boolean };
 
         expect(result.hasEndpoint).toBe(true);
         expect(result.hasApiKey).toBe(true);
     });
 
-    it('handles missing server data in a SPA/static environment', () => {
+    it('loads without any server data in a SPA/static environment', () => {
         localStorage.setItem('runvoy_endpoint', 'https://api.local.test');
         localStorage.setItem('runvoy_api_key', 'local-key');
 
         const result = load({
-            url: new URL('http://localhost:5173/'),
-            data: undefined
-        } as any) as { hasEndpoint: boolean; hasApiKey: boolean };
-
-        expect(result.hasEndpoint).toBe(true);
-        expect(result.hasApiKey).toBe(true);
-    });
-
-    it('honors initial config returned from the server', () => {
-        const result = load({
-            url: new URL('http://localhost:5173/'),
-            data: { initialConfig: { endpoint: 'https://api.server.test', apiKey: 'server-key' } }
+            url: new URL('http://localhost:5173/')
         } as any) as { hasEndpoint: boolean; hasApiKey: boolean };
 
         expect(result.hasEndpoint).toBe(true);
