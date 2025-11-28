@@ -16,10 +16,12 @@ import type {
 export class APIClient {
     endpoint: string;
     apiKey: string;
+    private fetchFn: typeof fetch;
 
-    constructor(endpoint: string, apiKey: string) {
+    constructor(endpoint: string, apiKey: string, fetchFn: typeof fetch = fetch) {
         this.endpoint = endpoint;
         this.apiKey = apiKey;
+        this.fetchFn = fetchFn;
     }
 
     /**
@@ -45,7 +47,7 @@ export class APIClient {
      */
     async runCommand(payload: RunCommandPayload): Promise<RunCommandResponse> {
         const url = this.joinUrl(this.endpoint, 'api/v1/run');
-        const response = await fetch(url, {
+        const response = await this.fetchFn(url, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -70,7 +72,7 @@ export class APIClient {
      */
     async getLogs(executionId: string): Promise<LogsResponse> {
         const url = this.joinUrl(this.endpoint, 'api/v1/executions', executionId, 'logs');
-        const response = await fetch(url, {
+        const response = await this.fetchFn(url, {
             headers: {
                 'X-API-Key': this.apiKey
             }
@@ -92,7 +94,7 @@ export class APIClient {
      */
     async getExecutionStatus(executionId: string): Promise<ExecutionStatusResponse> {
         const url = this.joinUrl(this.endpoint, 'api/v1/executions', executionId, 'status');
-        const response = await fetch(url, {
+        const response = await this.fetchFn(url, {
             headers: {
                 'X-API-Key': this.apiKey
             }
@@ -114,7 +116,7 @@ export class APIClient {
      */
     async killExecution(executionId: string): Promise<KillExecutionResponse> {
         const url = this.joinUrl(this.endpoint, 'api/v1/executions', executionId);
-        const response = await fetch(url, {
+        const response = await this.fetchFn(url, {
             method: 'DELETE',
             headers: {
                 'X-API-Key': this.apiKey
@@ -137,7 +139,7 @@ export class APIClient {
      */
     async listExecutions(): Promise<ListExecutionsResponse> {
         const url = this.joinUrl(this.endpoint, 'api/v1/executions');
-        const response = await fetch(url, {
+        const response = await this.fetchFn(url, {
             headers: {
                 'X-API-Key': this.apiKey
             }
@@ -159,7 +161,7 @@ export class APIClient {
      */
     async claimAPIKey(token: string): Promise<ClaimAPIKeyResponse> {
         const url = this.joinUrl(this.endpoint, 'api/v1/claim', token);
-        const response = await fetch(url);
+        const response = await this.fetchFn(url);
 
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
@@ -177,7 +179,7 @@ export class APIClient {
      */
     async getHealth(): Promise<HealthResponse> {
         const url = this.joinUrl(this.endpoint, 'api/v1/health');
-        const response = await fetch(url);
+        const response = await this.fetchFn(url);
 
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
