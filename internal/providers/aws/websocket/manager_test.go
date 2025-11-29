@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"runvoy/internal/api"
-	"runvoy/internal/testutil"
+	"github.com/runvoy/runvoy/internal/api"
+	"github.com/runvoy/runvoy/internal/testutil"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-sdk-go-v2/service/apigatewaymanagementapi"

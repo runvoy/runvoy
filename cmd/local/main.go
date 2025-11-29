@@ -13,13 +13,13 @@ import (
 	"syscall"
 	"time"
 
-	"runvoy/cmd/local/server"
-	"runvoy/internal/backend/orchestrator"
-	"runvoy/internal/backend/processor"
-	"runvoy/internal/config"
-	"runvoy/internal/constants"
-	"runvoy/internal/logger"
-	serverPkg "runvoy/internal/server"
+	"github.com/runvoy/runvoy/cmd/local/server"
+	"github.com/runvoy/runvoy/internal/backend/orchestrator"
+	"github.com/runvoy/runvoy/internal/backend/processor"
+	"github.com/runvoy/runvoy/internal/config"
+	"github.com/runvoy/runvoy/internal/constants"
+	"github.com/runvoy/runvoy/internal/logger"
+	serverPkg "github.com/runvoy/runvoy/internal/server"
 )
 
 const numServers = 2

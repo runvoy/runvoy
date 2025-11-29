@@ -9,10 +9,10 @@ import (
 	"testing"
 	"time"
 
-	"runvoy/internal/api"
-	"runvoy/internal/config"
-	"runvoy/internal/constants"
-	"runvoy/internal/testutil"
+	"github.com/runvoy/runvoy/internal/api"
+	"github.com/runvoy/runvoy/internal/config"
+	"github.com/runvoy/runvoy/internal/constants"
+	"github.com/runvoy/runvoy/internal/testutil"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

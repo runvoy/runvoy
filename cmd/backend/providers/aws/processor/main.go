@@ -7,11 +7,11 @@ import (
 	"context"
 	"os"
 
-	"runvoy/internal/backend/processor"
-	"runvoy/internal/config"
-	"runvoy/internal/constants"
-	"runvoy/internal/logger"
-	"runvoy/internal/providers/aws/lambdaapi"
+	"github.com/runvoy/runvoy/internal/backend/processor"
+	"github.com/runvoy/runvoy/internal/config"
+	"github.com/runvoy/runvoy/internal/constants"
+	"github.com/runvoy/runvoy/internal/logger"
+	"github.com/runvoy/runvoy/internal/providers/aws/lambdaapi"
 
 	"github.com/aws/aws-lambda-go/lambda"
 )

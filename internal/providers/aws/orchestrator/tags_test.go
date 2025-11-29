@@ -3,7 +3,7 @@ package orchestrator
 import (
 	"testing"
 
-	"runvoy/internal/constants"
+	"github.com/runvoy/runvoy/internal/constants"
 
 	awsStd "github.com/aws/aws-sdk-go-v2/aws"
 	ecsTypes "github.com/aws/aws-sdk-go-v2/service/ecs/types"

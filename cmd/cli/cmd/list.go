@@ -7,10 +7,10 @@ import (
 	"strings"
 	"time"
 
-	"runvoy/internal/api"
-	"runvoy/internal/client"
-	"runvoy/internal/client/output"
-	"runvoy/internal/constants"
+	"github.com/runvoy/runvoy/internal/api"
+	"github.com/runvoy/runvoy/internal/client"
+	"github.com/runvoy/runvoy/internal/client/output"
+	"github.com/runvoy/runvoy/internal/constants"
 
 	"github.com/spf13/cobra"
 )

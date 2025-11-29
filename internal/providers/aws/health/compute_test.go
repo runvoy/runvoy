@@ -4,10 +4,10 @@ import (
 	"context"
 	"testing"
 
-	"runvoy/internal/api"
-	awsConstants "runvoy/internal/providers/aws/constants"
-	"runvoy/internal/providers/aws/ecsdefs"
-	"runvoy/internal/testutil"
+	"github.com/runvoy/runvoy/internal/api"
+	awsConstants "github.com/runvoy/runvoy/internal/providers/aws/constants"
+	"github.com/runvoy/runvoy/internal/providers/aws/ecsdefs"
+	"github.com/runvoy/runvoy/internal/testutil"
 
 	awsStd "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ecs"

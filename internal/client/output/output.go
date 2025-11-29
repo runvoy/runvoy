@@ -11,7 +11,7 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"runvoy/internal/constants"
+	"github.com/runvoy/runvoy/internal/constants"
 
 	"github.com/fatih/color"
 )

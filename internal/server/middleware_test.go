@@ -7,12 +7,12 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"runvoy/internal/backend/orchestrator"
-	"runvoy/internal/constants"
-	"runvoy/internal/database"
-	"runvoy/internal/logger"
-	awsOrchestrator "runvoy/internal/providers/aws/orchestrator"
-	"runvoy/internal/testutil"
+	"github.com/runvoy/runvoy/internal/backend/orchestrator"
+	"github.com/runvoy/runvoy/internal/constants"
+	"github.com/runvoy/runvoy/internal/database"
+	"github.com/runvoy/runvoy/internal/logger"
+	awsOrchestrator "github.com/runvoy/runvoy/internal/providers/aws/orchestrator"
+	"github.com/runvoy/runvoy/internal/testutil"
 
 	"github.com/aws/aws-lambda-go/lambdacontext"
 )

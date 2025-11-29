@@ -1,6 +1,6 @@
 package api
 
-import "runvoy/internal/constants"
+import "github.com/runvoy/runvoy/internal/constants"
 
 // ErrorResponse represents an error response
 type ErrorResponse struct {

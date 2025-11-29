@@ -8,7 +8,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"runvoy/internal/api"
+	"github.com/runvoy/runvoy/internal/api"
 )
 
 // mockClientInterfaceForList extends mockClientInterface with ListExecutions

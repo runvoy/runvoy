@@ -2,8 +2,9 @@ package playbooks
 
 import (
 	"maps"
-	"runvoy/internal/api"
 	"strings"
+
+	"github.com/runvoy/runvoy/internal/api"
 )
 
 // PlaybookExecutor converts Playbook to ExecutionRequest

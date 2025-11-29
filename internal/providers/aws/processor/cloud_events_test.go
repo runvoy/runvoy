@@ -6,9 +6,9 @@ import (
 	"log/slog"
 	"testing"
 
-	"runvoy/internal/api"
-	"runvoy/internal/constants"
-	"runvoy/internal/testutil"
+	"github.com/runvoy/runvoy/internal/api"
+	"github.com/runvoy/runvoy/internal/constants"
+	"github.com/runvoy/runvoy/internal/testutil"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/stretchr/testify/assert"

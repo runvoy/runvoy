@@ -10,11 +10,11 @@ import (
 	"os"
 	"time"
 
-	"runvoy/internal/api"
-	"runvoy/internal/auth"
-	"runvoy/internal/config"
-	"runvoy/internal/constants"
-	"runvoy/internal/providers/aws/database/dynamodb"
+	"github.com/runvoy/runvoy/internal/api"
+	"github.com/runvoy/runvoy/internal/auth"
+	"github.com/runvoy/runvoy/internal/config"
+	"github.com/runvoy/runvoy/internal/constants"
+	"github.com/runvoy/runvoy/internal/providers/aws/database/dynamodb"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"

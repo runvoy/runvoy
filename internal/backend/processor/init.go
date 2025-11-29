@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"log/slog"
 
-	"runvoy/internal/auth/authorization"
-	"runvoy/internal/config"
-	"runvoy/internal/constants"
-	processorAws "runvoy/internal/providers/aws/processor"
+	"github.com/runvoy/runvoy/internal/auth/authorization"
+	"github.com/runvoy/runvoy/internal/config"
+	"github.com/runvoy/runvoy/internal/constants"
+	processorAws "github.com/runvoy/runvoy/internal/providers/aws/processor"
 )
 
 // ProviderInitializer constructs a processor for the configured backend.

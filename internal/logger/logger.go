@@ -7,7 +7,7 @@ import (
 	"sort"
 	"strings"
 
-	"runvoy/internal/constants"
+	"github.com/runvoy/runvoy/internal/constants"
 
 	"github.com/lmittmann/tint"
 )

@@ -3,7 +3,7 @@ package orchestrator
 import (
 	"context"
 
-	"runvoy/internal/api"
+	"github.com/runvoy/runvoy/internal/api"
 )
 
 // ReconcileResources performs health reconciliation for all resources.

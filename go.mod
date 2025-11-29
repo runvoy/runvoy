@@ -1,4 +1,4 @@
-module runvoy
+module github.com/runvoy/runvoy
 
 go 1.25.0
 

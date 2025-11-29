@@ -5,9 +5,9 @@ import (
 	"strings"
 	"testing"
 
-	"runvoy/internal/api"
-	"runvoy/internal/constants"
-	awsConstants "runvoy/internal/providers/aws/constants"
+	"github.com/runvoy/runvoy/internal/api"
+	"github.com/runvoy/runvoy/internal/constants"
+	awsConstants "github.com/runvoy/runvoy/internal/providers/aws/constants"
 
 	ecsTypes "github.com/aws/aws-sdk-go-v2/service/ecs/types"
 	"github.com/stretchr/testify/assert"

@@ -7,8 +7,8 @@ import (
 	"slices"
 	"strings"
 
-	"runvoy/internal/api"
-	"runvoy/internal/auth/authorization"
+	"github.com/runvoy/runvoy/internal/api"
+	"github.com/runvoy/runvoy/internal/auth/authorization"
 )
 
 const (

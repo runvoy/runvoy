@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	"runvoy/internal/api"
-	"runvoy/internal/constants"
-	awsConstants "runvoy/internal/providers/aws/constants"
+	"github.com/runvoy/runvoy/internal/api"
+	"github.com/runvoy/runvoy/internal/constants"
+	awsConstants "github.com/runvoy/runvoy/internal/providers/aws/constants"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/stretchr/testify/assert"

@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"strings"
 
-	"runvoy/internal/api"
+	"github.com/runvoy/runvoy/internal/api"
 )
 
 // getUserFromContext extracts the authenticated user from request context

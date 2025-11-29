@@ -18,8 +18,8 @@ builds:
       - -trimpath
     ldflags:
       - -s -w
-      - -X=runvoy/internal/constants.version={{.Version}}
-      - -X=runvoy/internal/providers/aws/constants.rawReleaseRegions={{.Env.REGIONS_COMMA_SEPARATED}}
+      - -X=github.com/runvoy/runvoy/internal/constants.version={{.Version}}
+      - -X=github.com/runvoy/runvoy/internal/providers/aws/constants.rawReleaseRegions={{.Env.REGIONS_COMMA_SEPARATED}}
     env:
       - CGO_ENABLED=0
 
@@ -35,7 +35,7 @@ builds:
       - -trimpath
     ldflags:
       - -s -w
-      - -X=runvoy/internal/constants.version={{.Version}}
+      - -X=github.com/runvoy/runvoy/internal/constants.version={{.Version}}
     env:
       - CGO_ENABLED=0
 
@@ -51,7 +51,7 @@ builds:
       - -trimpath
     ldflags:
       - -s -w
-      - -X=runvoy/internal/constants.version={{.Version}}
+      - -X=github.com/runvoy/runvoy/internal/constants.version={{.Version}}
     env:
       - CGO_ENABLED=0
 

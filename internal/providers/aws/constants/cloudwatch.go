@@ -1,8 +1,9 @@
 package constants
 
 import (
-	"runvoy/internal/constants"
 	"time"
+
+	"github.com/runvoy/runvoy/internal/constants"
 )
 
 // CloudWatchLogsDescribeLimit is the limit for CloudWatch Logs DescribeLogStreams API

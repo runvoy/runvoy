@@ -4,9 +4,10 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"runvoy/internal/client"
-	"runvoy/internal/client/output"
 	"time"
+
+	"github.com/runvoy/runvoy/internal/client"
+	"github.com/runvoy/runvoy/internal/client/output"
 
 	"github.com/spf13/cobra"
 )

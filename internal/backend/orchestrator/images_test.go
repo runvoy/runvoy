@@ -6,13 +6,13 @@ import (
 	"net/http"
 	"testing"
 
-	"runvoy/internal/api"
-	"runvoy/internal/auth/authorization"
-	"runvoy/internal/backend/contract"
-	"runvoy/internal/constants"
-	"runvoy/internal/database"
-	apperrors "runvoy/internal/errors"
-	"runvoy/internal/testutil"
+	"github.com/runvoy/runvoy/internal/api"
+	"github.com/runvoy/runvoy/internal/auth/authorization"
+	"github.com/runvoy/runvoy/internal/backend/contract"
+	"github.com/runvoy/runvoy/internal/constants"
+	"github.com/runvoy/runvoy/internal/database"
+	apperrors "github.com/runvoy/runvoy/internal/errors"
+	"github.com/runvoy/runvoy/internal/testutil"
 
 	"github.com/stretchr/testify/assert"
 )

@@ -9,9 +9,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"runvoy/internal/api"
-	"runvoy/internal/client/playbooks"
-	"runvoy/internal/constants"
+	"github.com/runvoy/runvoy/internal/api"
+	"github.com/runvoy/runvoy/internal/client/playbooks"
+	"github.com/runvoy/runvoy/internal/constants"
 )
 
 func TestPlaybookService_ListPlaybooks(t *testing.T) {

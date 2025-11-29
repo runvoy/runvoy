@@ -8,8 +8,8 @@ import (
 	"log"
 	"os"
 
-	"runvoy/internal/constants"
-	awsconstants "runvoy/internal/providers/aws/constants"
+	"github.com/runvoy/runvoy/internal/constants"
+	awsconstants "github.com/runvoy/runvoy/internal/providers/aws/constants"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"

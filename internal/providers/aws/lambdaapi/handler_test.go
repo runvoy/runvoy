@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"runvoy/internal/backend/orchestrator"
+	"github.com/runvoy/runvoy/internal/backend/orchestrator"
 
 	"github.com/stretchr/testify/assert"
 )

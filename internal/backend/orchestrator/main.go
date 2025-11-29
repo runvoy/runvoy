@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"log/slog"
 
-	"runvoy/internal/auth/authorization"
-	"runvoy/internal/backend/contract"
-	"runvoy/internal/constants"
-	"runvoy/internal/database"
+	"github.com/runvoy/runvoy/internal/auth/authorization"
+	"github.com/runvoy/runvoy/internal/backend/contract"
+	"github.com/runvoy/runvoy/internal/constants"
+	"github.com/runvoy/runvoy/internal/database"
 )
 
 // Service provides the core business logic for command execution and user management.

@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"runvoy/internal/api"
+	"github.com/runvoy/runvoy/internal/api"
 )
 
 // handleCreateUser handles POST /api/v1/users to create a new user with an API key.

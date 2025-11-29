@@ -5,12 +5,12 @@ import (
 	"log/slog"
 	"testing"
 
-	"runvoy/internal/api"
-	"runvoy/internal/auth/authorization"
-	"runvoy/internal/config"
-	"runvoy/internal/constants"
-	"runvoy/internal/database"
-	"runvoy/internal/testutil"
+	"github.com/runvoy/runvoy/internal/api"
+	"github.com/runvoy/runvoy/internal/auth/authorization"
+	"github.com/runvoy/runvoy/internal/config"
+	"github.com/runvoy/runvoy/internal/constants"
+	"github.com/runvoy/runvoy/internal/database"
+	"github.com/runvoy/runvoy/internal/testutil"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

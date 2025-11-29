@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"runvoy/internal/api"
-	awsconstants "runvoy/internal/providers/aws/constants"
-	"runvoy/internal/testutil"
+	"github.com/runvoy/runvoy/internal/api"
+	awsconstants "github.com/runvoy/runvoy/internal/providers/aws/constants"
+	"github.com/runvoy/runvoy/internal/testutil"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

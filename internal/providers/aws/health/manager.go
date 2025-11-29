@@ -9,12 +9,12 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
-	"runvoy/internal/api"
-	"runvoy/internal/auth/authorization"
-	"runvoy/internal/database"
-	"runvoy/internal/logger"
-	awsClient "runvoy/internal/providers/aws/client"
-	"runvoy/internal/providers/aws/secrets"
+	"github.com/runvoy/runvoy/internal/api"
+	"github.com/runvoy/runvoy/internal/auth/authorization"
+	"github.com/runvoy/runvoy/internal/database"
+	"github.com/runvoy/runvoy/internal/logger"
+	awsClient "github.com/runvoy/runvoy/internal/providers/aws/client"
+	"github.com/runvoy/runvoy/internal/providers/aws/secrets"
 )
 
 // ImageTaskDefRepository defines the interface for image-taskdef mapping operations.

@@ -29,9 +29,14 @@ func TestGetParameterName(t *testing.T) {
 	})
 
 	t.Run("handles prefix without leading slash", func(t *testing.T) {
-		m2 := NewParameterStoreManager(nil, "runvoy/secrets", "arn:aws:kms:us-east-1:123456789012:key/abc", logger)
+		m2 := NewParameterStoreManager(
+			nil,
+			"github.com/runvoy/runvoy/secrets",
+			"arn:aws:kms:us-east-1:123456789012:key/abc",
+			logger,
+		)
 		name := m2.getParameterName("db-password")
-		assert.Equal(t, "runvoy/secrets/db-password", name)
+		assert.Equal(t, "github.com/runvoy/runvoy/secrets/db-password", name)
 	})
 }
 

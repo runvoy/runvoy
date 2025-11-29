@@ -1,6 +1,6 @@
 package constants
 
-import "runvoy/internal/constants"
+import "github.com/runvoy/runvoy/internal/constants"
 
 // RunnerContainerName is the ECS container name used for task execution.
 // Must match the container override name passed in the ECS RunTask call.

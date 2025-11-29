@@ -7,8 +7,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"runvoy/internal/api"
-	"runvoy/internal/constants"
+	"github.com/runvoy/runvoy/internal/api"
+	"github.com/runvoy/runvoy/internal/constants"
 )
 
 // mockClientInterfaceForRun extends mockClientInterface with RunCommand and GetLogs

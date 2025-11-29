@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"runvoy/internal/api"
-	"runvoy/internal/constants"
+	"github.com/runvoy/runvoy/internal/api"
+	"github.com/runvoy/runvoy/internal/constants"
 )
 
 // handleHealth returns a simple health check response.

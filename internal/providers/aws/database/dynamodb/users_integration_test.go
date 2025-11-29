@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"runvoy/internal/api"
-	"runvoy/internal/providers/aws/database/dynamodb"
-	"runvoy/internal/testutil"
+	"github.com/runvoy/runvoy/internal/api"
+	"github.com/runvoy/runvoy/internal/providers/aws/database/dynamodb"
+	"github.com/runvoy/runvoy/internal/testutil"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

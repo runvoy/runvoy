@@ -5,12 +5,13 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
-	"runvoy/internal/api"
-	"runvoy/internal/client"
-	"runvoy/internal/client/output"
-	"runvoy/internal/client/playbooks"
-	"runvoy/internal/constants"
 	"strings"
+
+	"github.com/runvoy/runvoy/internal/api"
+	"github.com/runvoy/runvoy/internal/client"
+	"github.com/runvoy/runvoy/internal/client/output"
+	"github.com/runvoy/runvoy/internal/client/playbooks"
+	"github.com/runvoy/runvoy/internal/constants"
 
 	"github.com/spf13/cobra"
 )

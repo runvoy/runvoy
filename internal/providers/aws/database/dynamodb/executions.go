@@ -8,10 +8,10 @@ import (
 	"strings"
 	"time"
 
-	"runvoy/internal/api"
-	apperrors "runvoy/internal/errors"
-	"runvoy/internal/logger"
-	awsconstants "runvoy/internal/providers/aws/constants"
+	"github.com/runvoy/runvoy/internal/api"
+	apperrors "github.com/runvoy/runvoy/internal/errors"
+	"github.com/runvoy/runvoy/internal/logger"
+	awsconstants "github.com/runvoy/runvoy/internal/providers/aws/constants"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"

@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"time"
 
-	"runvoy/internal/api"
-	"runvoy/internal/backend/orchestrator"
+	"github.com/runvoy/runvoy/internal/api"
+	"github.com/runvoy/runvoy/internal/backend/orchestrator"
 
 	"github.com/go-chi/chi/v5"
 )

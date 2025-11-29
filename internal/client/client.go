@@ -11,10 +11,10 @@ import (
 	"net/url"
 	"strings"
 
-	"runvoy/internal/api"
-	"runvoy/internal/config"
-	"runvoy/internal/constants"
-	"runvoy/internal/logger"
+	"github.com/runvoy/runvoy/internal/api"
+	"github.com/runvoy/runvoy/internal/config"
+	"github.com/runvoy/runvoy/internal/constants"
+	"github.com/runvoy/runvoy/internal/logger"
 )
 
 // Client provides a generic HTTP client for API operations

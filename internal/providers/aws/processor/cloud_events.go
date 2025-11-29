@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"log/slog"
 
-	"runvoy/internal/backend/contract"
-	"runvoy/internal/database"
-	"runvoy/internal/logger"
+	"github.com/runvoy/runvoy/internal/backend/contract"
+	"github.com/runvoy/runvoy/internal/database"
+	"github.com/runvoy/runvoy/internal/logger"
 
 	"github.com/aws/aws-lambda-go/events"
 )

@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"runvoy/internal/api"
+	"github.com/runvoy/runvoy/internal/api"
 )
 
 // handleRegisterImage handles POST /api/v1/images/register to register a new Docker image.

@@ -7,7 +7,7 @@ import (
 	"log/slog"
 	"time"
 
-	"runvoy/internal/constants"
+	"github.com/runvoy/runvoy/internal/constants"
 )
 
 type contextKey string

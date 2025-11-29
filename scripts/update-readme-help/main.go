@@ -10,7 +10,7 @@ import (
 	"regexp"
 	"strings"
 
-	"runvoy/internal/constants"
+	"github.com/runvoy/runvoy/internal/constants"
 )
 
 const cliHelpStartMarker = "<!-- CLI_HELP_START -->"

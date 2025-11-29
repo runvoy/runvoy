@@ -6,12 +6,12 @@ import (
 	"fmt"
 	"strings"
 
-	"runvoy/internal/api"
-	"runvoy/internal/auth/authorization"
-	"runvoy/internal/database"
-	apperrors "runvoy/internal/errors"
-	"runvoy/internal/logger"
-	"runvoy/internal/secrets"
+	"github.com/runvoy/runvoy/internal/api"
+	"github.com/runvoy/runvoy/internal/auth/authorization"
+	"github.com/runvoy/runvoy/internal/database"
+	apperrors "github.com/runvoy/runvoy/internal/errors"
+	"github.com/runvoy/runvoy/internal/logger"
+	"github.com/runvoy/runvoy/internal/secrets"
 )
 
 // CreateSecret creates a new secret with the given name, description, key name, and value.

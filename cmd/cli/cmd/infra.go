@@ -4,10 +4,10 @@ import (
 	"context"
 	"fmt"
 
-	"runvoy/internal/client/infra"
-	"runvoy/internal/client/output"
-	"runvoy/internal/config"
-	"runvoy/internal/constants"
+	"github.com/runvoy/runvoy/internal/client/infra"
+	"github.com/runvoy/runvoy/internal/client/output"
+	"github.com/runvoy/runvoy/internal/config"
+	"github.com/runvoy/runvoy/internal/constants"
 
 	"github.com/spf13/cobra"
 )

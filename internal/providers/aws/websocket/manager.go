@@ -8,12 +8,12 @@ import (
 	"net/http"
 	"time"
 
-	"runvoy/internal/api"
-	"runvoy/internal/auth"
-	"runvoy/internal/config"
-	"runvoy/internal/constants"
-	"runvoy/internal/database"
-	"runvoy/internal/logger"
+	"github.com/runvoy/runvoy/internal/api"
+	"github.com/runvoy/runvoy/internal/auth"
+	"github.com/runvoy/runvoy/internal/config"
+	"github.com/runvoy/runvoy/internal/constants"
+	"github.com/runvoy/runvoy/internal/database"
+	"github.com/runvoy/runvoy/internal/logger"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-sdk-go-v2/aws"

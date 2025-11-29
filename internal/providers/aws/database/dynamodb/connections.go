@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"log/slog"
 
-	"runvoy/internal/api"
-	"runvoy/internal/database"
-	appErrors "runvoy/internal/errors"
-	"runvoy/internal/logger"
-	awsconstants "runvoy/internal/providers/aws/constants"
+	"github.com/runvoy/runvoy/internal/api"
+	"github.com/runvoy/runvoy/internal/database"
+	appErrors "github.com/runvoy/runvoy/internal/errors"
+	"github.com/runvoy/runvoy/internal/logger"
+	awsconstants "github.com/runvoy/runvoy/internal/providers/aws/constants"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"

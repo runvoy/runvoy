@@ -8,7 +8,7 @@ import (
 	"encoding/hex"
 	"time"
 
-	"runvoy/internal/constants"
+	"github.com/runvoy/runvoy/internal/constants"
 )
 
 // HashAPIKey creates a SHA-256 hash of the API key for secure storage.

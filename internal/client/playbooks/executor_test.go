@@ -1,8 +1,9 @@
 package playbooks
 
 import (
-	"runvoy/internal/api"
 	"testing"
+
+	"github.com/runvoy/runvoy/internal/api"
 
 	"github.com/stretchr/testify/assert"
 )

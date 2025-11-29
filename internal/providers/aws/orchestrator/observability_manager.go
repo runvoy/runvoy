@@ -6,12 +6,12 @@ import (
 	"log/slog"
 	"time"
 
-	"runvoy/internal/api"
-	"runvoy/internal/constants"
-	appErrors "runvoy/internal/errors"
-	"runvoy/internal/logger"
-	awsClient "runvoy/internal/providers/aws/client"
-	awsConstants "runvoy/internal/providers/aws/constants"
+	"github.com/runvoy/runvoy/internal/api"
+	"github.com/runvoy/runvoy/internal/constants"
+	appErrors "github.com/runvoy/runvoy/internal/errors"
+	"github.com/runvoy/runvoy/internal/logger"
+	awsClient "github.com/runvoy/runvoy/internal/providers/aws/client"
+	awsConstants "github.com/runvoy/runvoy/internal/providers/aws/constants"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs"

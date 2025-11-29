@@ -5,10 +5,10 @@ import (
 	"errors"
 	"testing"
 
-	"runvoy/internal/api"
-	"runvoy/internal/database"
-	appErrors "runvoy/internal/errors"
-	"runvoy/internal/testutil"
+	"github.com/runvoy/runvoy/internal/api"
+	"github.com/runvoy/runvoy/internal/database"
+	appErrors "github.com/runvoy/runvoy/internal/errors"
+	"github.com/runvoy/runvoy/internal/testutil"
 
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/stretchr/testify/assert"

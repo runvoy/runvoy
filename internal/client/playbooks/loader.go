@@ -7,8 +7,8 @@ import (
 	"slices"
 	"strings"
 
-	"runvoy/internal/api"
-	"runvoy/internal/constants"
+	"github.com/runvoy/runvoy/internal/api"
+	"github.com/runvoy/runvoy/internal/constants"
 
 	"gopkg.in/yaml.v3"
 )

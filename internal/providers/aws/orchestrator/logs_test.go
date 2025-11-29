@@ -6,10 +6,10 @@ import (
 	"testing"
 	"time"
 
-	"runvoy/internal/api"
-	appErrors "runvoy/internal/errors"
-	awsConstants "runvoy/internal/providers/aws/constants"
-	"runvoy/internal/testutil"
+	"github.com/runvoy/runvoy/internal/api"
+	appErrors "github.com/runvoy/runvoy/internal/errors"
+	awsConstants "github.com/runvoy/runvoy/internal/providers/aws/constants"
+	"github.com/runvoy/runvoy/internal/testutil"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs"

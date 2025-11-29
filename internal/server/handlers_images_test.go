@@ -10,9 +10,9 @@ import (
 	"testing"
 	"time"
 
-	"runvoy/internal/api"
-	apperrors "runvoy/internal/errors"
-	"runvoy/internal/testutil"
+	"github.com/runvoy/runvoy/internal/api"
+	apperrors "github.com/runvoy/runvoy/internal/errors"
+	"github.com/runvoy/runvoy/internal/testutil"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/stretchr/testify/assert"

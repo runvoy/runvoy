@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"runvoy/internal/api"
+	"github.com/runvoy/runvoy/internal/api"
 
 	"github.com/stretchr/testify/assert"
 )

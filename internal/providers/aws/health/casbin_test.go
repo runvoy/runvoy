@@ -11,8 +11,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"runvoy/internal/api"
-	"runvoy/internal/auth/authorization"
+	"github.com/runvoy/runvoy/internal/api"
+	"github.com/runvoy/runvoy/internal/auth/authorization"
 )
 
 func newTestEnforcer(t *testing.T) *authorization.Enforcer {

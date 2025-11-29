@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"runvoy/internal/api"
-	appErrors "runvoy/internal/errors"
-	"runvoy/internal/testutil"
+	"github.com/runvoy/runvoy/internal/api"
+	appErrors "github.com/runvoy/runvoy/internal/errors"
+	"github.com/runvoy/runvoy/internal/testutil"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

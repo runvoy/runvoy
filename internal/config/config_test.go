@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	awsconfig "runvoy/internal/config/aws"
-	"runvoy/internal/constants"
+	awsconfig "github.com/runvoy/runvoy/internal/config/aws"
+	"github.com/runvoy/runvoy/internal/constants"
 
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"

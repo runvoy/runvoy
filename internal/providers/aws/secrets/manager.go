@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"log/slog"
 
-	"runvoy/internal/constants"
-	"runvoy/internal/logger"
+	"github.com/runvoy/runvoy/internal/constants"
+	"github.com/runvoy/runvoy/internal/logger"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ssm"

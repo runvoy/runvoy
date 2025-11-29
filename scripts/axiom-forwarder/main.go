@@ -14,8 +14,8 @@ import (
 	"strings"
 	"time"
 
-	"runvoy/internal/logger"
-	awsOrchestrator "runvoy/internal/providers/aws/orchestrator"
+	"github.com/runvoy/runvoy/internal/logger"
+	awsOrchestrator "github.com/runvoy/runvoy/internal/providers/aws/orchestrator"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"

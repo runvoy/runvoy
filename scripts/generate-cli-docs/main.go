@@ -11,8 +11,8 @@ import (
 	"sort"
 	"strings"
 
-	"runvoy/cmd/cli/cmd"
-	"runvoy/internal/constants"
+	"github.com/runvoy/runvoy/cmd/cli/cmd"
+	"github.com/runvoy/runvoy/internal/constants"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"

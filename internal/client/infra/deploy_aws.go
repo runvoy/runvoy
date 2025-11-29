@@ -11,8 +11,8 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation"
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation/types"
 
-	awscfg "runvoy/internal/config/aws"
-	awsConstants "runvoy/internal/providers/aws/constants"
+	awscfg "github.com/runvoy/runvoy/internal/config/aws"
+	awsConstants "github.com/runvoy/runvoy/internal/providers/aws/constants"
 )
 
 const (

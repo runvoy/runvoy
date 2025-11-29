@@ -7,10 +7,10 @@ import (
 	"log/slog"
 	"strings"
 
-	"runvoy/internal/api"
-	"runvoy/internal/constants"
-	"runvoy/internal/logger"
-	awsConstants "runvoy/internal/providers/aws/constants"
+	"github.com/runvoy/runvoy/internal/api"
+	"github.com/runvoy/runvoy/internal/constants"
+	"github.com/runvoy/runvoy/internal/logger"
+	awsConstants "github.com/runvoy/runvoy/internal/providers/aws/constants"
 
 	"github.com/aws/aws-lambda-go/events"
 )

@@ -14,7 +14,7 @@ import (
 	"github.com/casbin/casbin/v2/model"
 	"github.com/casbin/casbin/v2/persist"
 
-	"runvoy/internal/logger"
+	"github.com/runvoy/runvoy/internal/logger"
 )
 
 // Enforcer wraps the Casbin enforcer with additional functionality.

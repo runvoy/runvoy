@@ -10,12 +10,12 @@ import (
 	"sync"
 	"time"
 
-	"runvoy/internal/api"
-	"runvoy/internal/auth"
-	"runvoy/internal/auth/authorization"
-	"runvoy/internal/constants"
-	apperrors "runvoy/internal/errors"
-	loggerPkg "runvoy/internal/logger"
+	"github.com/runvoy/runvoy/internal/api"
+	"github.com/runvoy/runvoy/internal/auth"
+	"github.com/runvoy/runvoy/internal/auth/authorization"
+	"github.com/runvoy/runvoy/internal/constants"
+	apperrors "github.com/runvoy/runvoy/internal/errors"
+	loggerPkg "github.com/runvoy/runvoy/internal/logger"
 )
 
 const (

@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"testing"
 
-	"runvoy/internal/api"
-	awsConstants "runvoy/internal/providers/aws/constants"
-	"runvoy/internal/testutil"
+	"github.com/runvoy/runvoy/internal/api"
+	awsConstants "github.com/runvoy/runvoy/internal/providers/aws/constants"
+	"github.com/runvoy/runvoy/internal/testutil"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"

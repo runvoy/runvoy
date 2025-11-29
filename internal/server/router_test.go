@@ -7,10 +7,10 @@ import (
 	"testing"
 	"time"
 
-	"runvoy/internal/backend/orchestrator"
-	"runvoy/internal/constants"
-	"runvoy/internal/database"
-	"runvoy/internal/testutil"
+	"github.com/runvoy/runvoy/internal/backend/orchestrator"
+	"github.com/runvoy/runvoy/internal/constants"
+	"github.com/runvoy/runvoy/internal/database"
+	"github.com/runvoy/runvoy/internal/testutil"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

@@ -4,9 +4,9 @@ import (
 	"context"
 	"testing"
 
-	"runvoy/internal/api"
-	awsClient "runvoy/internal/providers/aws/client"
-	"runvoy/internal/testutil"
+	"github.com/runvoy/runvoy/internal/api"
+	awsClient "github.com/runvoy/runvoy/internal/providers/aws/client"
+	"github.com/runvoy/runvoy/internal/testutil"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/iam"

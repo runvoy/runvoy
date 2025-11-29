@@ -10,11 +10,11 @@ import (
 	"slices"
 	"strings"
 
-	"runvoy/internal/constants"
-	"runvoy/internal/logger"
-	awsClient "runvoy/internal/providers/aws/client"
-	awsConstants "runvoy/internal/providers/aws/constants"
-	"runvoy/internal/providers/aws/secrets"
+	"github.com/runvoy/runvoy/internal/constants"
+	"github.com/runvoy/runvoy/internal/logger"
+	awsClient "github.com/runvoy/runvoy/internal/providers/aws/client"
+	awsConstants "github.com/runvoy/runvoy/internal/providers/aws/constants"
+	"github.com/runvoy/runvoy/internal/providers/aws/secrets"
 
 	awsStd "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ecs"
