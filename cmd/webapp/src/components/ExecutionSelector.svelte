@@ -2,7 +2,6 @@
     import { executionId } from '../stores/execution';
 
     interface Props {
-        // eslint-disable-next-line no-unused-vars
         onExecutionChange?: ((executionId: string) => void) | null;
     }
 

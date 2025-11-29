@@ -93,11 +93,16 @@ export default [
         console: 'readonly'
       }
     },
+    plugins: {
+      '@typescript-eslint': ts
+    },
     rules: {
       'svelte/valid-compile': 'error',
       'svelte/no-at-debug-tags': 'warn',
       'svelte/no-at-html-tags': 'warn',
-      'svelte/no-navigation-without-resolve': 'off' // Using static adapter with SPA mode, no base path needed
+      'svelte/no-navigation-without-resolve': 'off', // Using static adapter with SPA mode, no base path needed
+      'no-unused-vars': 'off', // Use TypeScript's version instead
+      '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }]
     }
   },
   {
