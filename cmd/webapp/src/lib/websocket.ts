@@ -14,6 +14,8 @@ import type { LogEvent, WebSocketLogMessage } from '../types/logs';
 
 let socket: WebSocket | null = null;
 let manuallyDisconnected = false;
+// Track seen event IDs to prevent duplicates
+let seenEventIds: Set<string> = new Set();
 
 /**
  * Connects to the WebSocket server
@@ -28,6 +30,14 @@ export function connectWebSocket(url: string): void {
     isConnecting.set(true);
     connectionError.set(null);
     isConnected.set(false);
+
+    // Initialize seen event IDs from current log events
+    const currentEvents = get(logEvents);
+    seenEventIds = new Set(
+        currentEvents
+            .map((e) => e.event_id)
+            .filter((id): id is string => typeof id === 'string' && id !== '')
+    );
 
     try {
         socket = new WebSocket(url);
@@ -71,20 +81,39 @@ export function connectWebSocket(url: string): void {
             // Handle log events (messages with a message property and timestamp)
             if (message.message && message.timestamp !== undefined) {
                 logEvents.update((events: LogEvent[]): LogEvent[] => {
-                    // Avoid duplicates by checking timestamp (primary key)
-                    if (events.some((e) => e.timestamp === message.timestamp)) {
-                        return events;
+                    const eventId = message.event_id as string | undefined;
+
+                    // Deduplicate using event_id if available (preferred), otherwise fall back to timestamp
+                    if (eventId && eventId !== '') {
+                        // Use event_id for deduplication (primary method)
+                        if (seenEventIds.has(eventId)) {
+                            return events;
+                        }
+                        seenEventIds.add(eventId);
+                    } else {
+                        // Fallback: check if we've seen this exact timestamp+message combination
+                        // This is less reliable but necessary if event_id is missing
+                        const seenByTimestamp = events.some(
+                            (e) =>
+                                e.timestamp === message.timestamp && e.message === message.message
+                        );
+                        if (seenByTimestamp) {
+                            return events;
+                        }
                     }
 
-                    // Assign a new line number
+                    // Assign a new line number (like CLI does - just append to the end)
                     const nextLine =
                         events.length > 0 ? Math.max(...events.map((e) => e.line)) + 1 : 1;
+
                     const eventWithLine: LogEvent = {
                         message: message.message as string,
                         timestamp: message.timestamp as number,
+                        event_id: eventId,
                         line: nextLine
                     };
 
+                    // Simply append the new event (matching CLI behavior)
                     return [...events, eventWithLine];
                 });
             }
@@ -133,4 +162,6 @@ export function disconnectWebSocket(): void {
         websocketConnection.set(null);
         isConnected.set(false);
     }
+    // Clear seen event IDs when disconnecting
+    seenEventIds.clear();
 }

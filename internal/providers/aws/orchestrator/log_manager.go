@@ -48,7 +48,7 @@ func (l *LogManagerImpl) fetchLogsFromStream(
 	executionID string,
 ) ([]api.LogEvent, error) {
 	reqLogger.Debug("calling external service", "context", map[string]string{
-		"operation":    "CloudWatchLogs.GetLogEvents",
+		"operation":    "CloudWatchLogs.FilterLogEvents",
 		"log_group":    l.cfg.LogGroup,
 		"log_stream":   stream,
 		"execution_id": executionID,
