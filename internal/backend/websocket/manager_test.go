@@ -29,7 +29,7 @@ func TestManager_Interface(t *testing.T) {
 	assert.NoError(t, err)
 
 	url := manager.GenerateWebSocketURL(context.Background(), "exec-123", nil, nil)
-	assert.Equal(t, "", url)
+	assert.Empty(t, url)
 }
 
 // testManager is a minimal implementation for testing the interface

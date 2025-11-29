@@ -2,7 +2,7 @@ package cmd
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -22,7 +22,7 @@ func (m *mockClientInterfaceForKill) KillExecution(
 	if m.killExecutionFunc != nil {
 		return m.killExecutionFunc(ctx, executionID)
 	}
-	return nil, fmt.Errorf("not implemented")
+	return nil, errors.New("not implemented")
 }
 
 func (m *mockClientInterfaceForKill) FetchBackendLogs(_ context.Context, _ string) (*api.TraceResponse, error) {
@@ -77,7 +77,7 @@ func TestKillService_KillExecution(t *testing.T) {
 			executionID: "exec-nonexistent",
 			setupMock: func(m *mockClientInterfaceForKill) {
 				m.killExecutionFunc = func(_ context.Context, _ string) (*api.KillExecutionResponse, error) {
-					return nil, fmt.Errorf("execution not found")
+					return nil, errors.New("execution not found")
 				}
 			},
 			wantErr: true,
@@ -93,13 +93,13 @@ func TestKillService_KillExecution(t *testing.T) {
 			executionID: "exec-456",
 			setupMock: func(m *mockClientInterfaceForKill) {
 				m.killExecutionFunc = func(_ context.Context, _ string) (*api.KillExecutionResponse, error) {
-					return nil, fmt.Errorf("network error: connection timeout")
+					return nil, errors.New("network error: connection timeout")
 				}
 			},
 			wantErr: true,
 			verifyOutput: func(t *testing.T, m *mockOutputInterface) {
 				// Service returns error, output.Errorf is called in killRun handler
-				assert.Equal(t, 0, len(m.calls), "Service should not call output on error")
+				assert.Empty(t, m.calls, "Service should not call output on error")
 			},
 		},
 		{

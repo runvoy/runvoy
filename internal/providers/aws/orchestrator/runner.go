@@ -2,6 +2,7 @@ package orchestrator
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"maps"
@@ -160,7 +161,7 @@ func (t *TaskManagerImpl) resolveImage(
 // getDefaultImageFromDB returns the default Docker image from DynamoDB.
 func (t *TaskManagerImpl) getDefaultImageFromDB(ctx context.Context) (string, error) {
 	if t.imageRepo == nil {
-		return "", fmt.Errorf("image repository not configured")
+		return "", errors.New("image repository not configured")
 	}
 
 	imageInfo, err := t.imageRepo.GetDefaultImage(ctx)
@@ -178,7 +179,7 @@ func (t *TaskManagerImpl) getDefaultImageFromDB(ctx context.Context) (string, er
 // getTaskDefinitionARNForImage returns the task definition family name for a specific image or ImageID.
 func (t *TaskManagerImpl) getTaskDefinitionARNForImage(ctx context.Context, image string) (string, error) {
 	if t.imageRepo == nil {
-		return "", fmt.Errorf("image repository not configured")
+		return "", errors.New("image repository not configured")
 	}
 
 	var imageInfo *api.ImageInfo
@@ -603,7 +604,7 @@ type gitRepoInfo struct {
 	RepoPath *string
 }
 
-// gitRepoConfig holds the configuration for git repository setup
+// gitRepoConfig holds the configuration for git repository setup.
 type gitRepoConfig struct {
 	HasRepo              bool
 	AuthenticatedRepoURL string

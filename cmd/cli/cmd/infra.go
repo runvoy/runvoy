@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/runvoy/runvoy/internal/client/infra"
@@ -13,7 +14,7 @@ import (
 )
 
 var (
-	// infra apply flags
+	// infra apply flags.
 	infraApplyStackName     string
 	infraApplyTemplate      string
 	infraApplyVersion       string
@@ -24,21 +25,21 @@ var (
 	infraApplyProvider      string
 	infraApplySeedAdminUser string
 
-	// infra destroy flags
+	// infra destroy flags.
 	infraDestroyStackName string
 	infraDestroyWait      bool
 	infraDestroyRegion    string
 	infraDestroyProvider  string
 )
 
-// infraCmd is the parent command for infrastructure operations
+// infraCmd is the parent command for infrastructure operations.
 var infraCmd = &cobra.Command{
 	Use:   "infra",
 	Short: "Infrastructure management commands",
 	Long:  "Commands for applying and managing backend infrastructure.",
 }
 
-// infraApplyCmd applies the runvoy backend using CloudFormation
+// infraApplyCmd applies the runvoy backend using CloudFormation.
 var infraApplyCmd = &cobra.Command{
 	Use:   "apply",
 	Short: "Apply backend infrastructure",
@@ -74,7 +75,7 @@ or a local file path.`,
 	Run: infraApplyRun,
 }
 
-// infraDestroyCmd destroys the runvoy backend infrastructure
+// infraDestroyCmd destroys the runvoy backend infrastructure.
 var infraDestroyCmd = &cobra.Command{
 	Use:   "destroy",
 	Short: "Destroy backend infrastructure",
@@ -200,7 +201,7 @@ func infraApplyRun(cmd *cobra.Command, _ []string) {
 	)
 }
 
-// handleApplyResult handles the result of an application operation
+// handleApplyResult handles the result of an application operation.
 func handleApplyResult(
 	result *infra.DeployResult,
 	spinner *output.Spinner,
@@ -259,7 +260,7 @@ func handleApplyResult(
 	}
 }
 
-// configureEndpoint updates the CLI configuration with the API endpoint
+// configureEndpoint updates the CLI configuration with the API endpoint.
 func configureEndpoint(endpoint string) error {
 	cfg, err := config.Load()
 	if err != nil {
@@ -275,11 +276,11 @@ func configureEndpoint(endpoint string) error {
 	return config.Save(cfg)
 }
 
-// seedAdminUser seeds an admin user into the database
+// seedAdminUser seeds an admin user into the database.
 func seedAdminUser(ctx context.Context, adminEmail, region string, stackOutputs map[string]string) error {
 	tableName, ok := stackOutputs["APIKeysTableName"]
 	if !ok {
-		return fmt.Errorf("APIKeysTableName not found in stack outputs")
+		return errors.New("APIKeysTableName not found in stack outputs")
 	}
 
 	apiKey, err := infra.SeedAdminUser(ctx, adminEmail, region, tableName)
@@ -298,7 +299,7 @@ func seedAdminUser(ctx context.Context, adminEmail, region string, stackOutputs 
 }
 
 // saveAPIKeyToConfig saves the API key to the config file
-// It preserves the existing endpoint if set, or uses the provided endpoint if the config doesn't have one
+// It preserves the existing endpoint if set, or uses the provided endpoint if the config doesn't have one.
 func saveAPIKeyToConfig(apiKey, endpoint string) error {
 	cfg, err := config.Load()
 	if err != nil {
@@ -364,7 +365,7 @@ func infraDestroyRun(cmd *cobra.Command, _ []string) {
 	handleDestroyResult(result, spinner)
 }
 
-// handleDestroyResult handles the result of a destroy operation
+// handleDestroyResult handles the result of a destroy operation.
 func handleDestroyResult(result *infra.DestroyResult, spinner *output.Spinner) {
 	if result.NotFound {
 		spinner.Success("Stack was already deleted")

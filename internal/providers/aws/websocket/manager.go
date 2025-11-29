@@ -3,9 +3,11 @@ package websocket
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/runvoy/runvoy/internal/api"
@@ -101,7 +103,7 @@ func (m *Manager) HandleRequest(
 
 	if req.RequestContext.RouteKey == "" {
 		reqLogger.Error("missing route key in WebSocket request")
-		return handled, fmt.Errorf("missing route key in WebSocket request")
+		return handled, errors.New("missing route key in WebSocket request")
 	}
 
 	clientIP := getClientIPFromWebSocketRequest(&req)
@@ -377,7 +379,7 @@ func (m *Manager) handleDisconnect(
 // and deletes the connections from DynamoDB.
 func (m *Manager) NotifyExecutionCompletion(ctx context.Context, executionID *string) error {
 	if executionID == nil || *executionID == "" {
-		return fmt.Errorf("execution ID is nil or empty")
+		return errors.New("execution ID is nil or empty")
 	}
 
 	reqLogger := m.deriveLogger(ctx)
@@ -400,7 +402,7 @@ func (m *Manager) NotifyExecutionCompletion(ctx context.Context, executionID *st
 		reqLogger.Debug("deleted WebSocket connections for execution", "context",
 			map[string]string{
 				"execution_id":  *executionID,
-				"deleted_count": fmt.Sprintf("%d", deletedCount),
+				"deleted_count": strconv.Itoa(deletedCount),
 			},
 		)
 	}
@@ -503,7 +505,7 @@ func filterEventsAfter(logEvents []api.LogEvent, lastEventID string) []api.LogEv
 
 func validateExecutionID(executionID *string) (string, error) {
 	if executionID == nil || *executionID == "" {
-		return "", fmt.Errorf("execution ID is nil or empty")
+		return "", errors.New("execution ID is nil or empty")
 	}
 	return *executionID, nil
 }
@@ -572,7 +574,7 @@ func (m *Manager) distributeBufferedEvents(
 
 	reqLogger.Debug("all buffered logs sent to connections", "context", map[string]string{
 		"execution_id":     executionID,
-		"connection_count": fmt.Sprintf("%d", len(connections)),
+		"connection_count": strconv.Itoa(len(connections)),
 	})
 
 	return nil
@@ -586,7 +588,7 @@ func (m *Manager) sendLogToConnection(
 	logEvent api.LogEvent,
 ) error {
 	if connectionID == "" {
-		return fmt.Errorf("connection ID is empty")
+		return errors.New("connection ID is empty")
 	}
 
 	logJSON, err := json.Marshal(logEvent)
@@ -674,7 +676,7 @@ func (m *Manager) handleDisconnectNotification(
 		reqLogger.Info("all disconnect notifications sent successfully",
 			"context", map[string]string{
 				"execution_id":     executionID,
-				"connection_count": fmt.Sprintf("%d", len(m.connectionIDs)),
+				"connection_count": strconv.Itoa(len(m.connectionIDs)),
 			},
 		)
 	}

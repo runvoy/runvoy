@@ -111,13 +111,13 @@ func (r ImageReference) IsECR() bool {
 }
 
 // ShortName returns the image name without registry or tag.
-// Examples: "alpine", "hashicorp/terraform", "myapp"
+// Examples: "alpine", "hashicorp/terraform", "myapp".
 func (r ImageReference) ShortName() string {
 	return r.Name
 }
 
 // NameWithTag returns the image name with tag but without registry.
-// Examples: "alpine:latest", "hashicorp/terraform:1.6"
+// Examples: "alpine:latest", "hashicorp/terraform:1.6".
 func (r ImageReference) NameWithTag() string {
 	if strings.HasPrefix(r.Tag, "sha256:") {
 		return r.Name + "@" + r.Tag

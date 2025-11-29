@@ -111,7 +111,7 @@ func validateConfig(cfg *config.Config) error {
 		return errors.New("config is required")
 	}
 	if cfg.AWS == nil {
-		return fmt.Errorf("AWS config is required when backend_provider is AWS")
+		return errors.New("AWS config is required when backend_provider is AWS")
 	}
 	if err := awsconfig.ValidateOrchestrator(cfg.AWS); err != nil {
 		return fmt.Errorf("invalid AWS orchestrator config: %w", err)

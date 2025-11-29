@@ -26,7 +26,7 @@ type ImageConfig struct {
 // Different providers have different granularities and limits:
 // - AWS ECS: CPU in units (256, 512, 1024, etc.), Memory in MB
 // - GCP Cloud Run: CPU in millicores, Memory in MB/GB
-// - Azure Container Instances: CPU cores (0.5, 1, 2, 4), Memory in GB
+// - Azure Container Instances: CPU cores (0.5, 1, 2, 4), Memory in GB.
 type ResourceConfig struct {
 	// CPU in provider-specific units:
 	// - AWS ECS: 256, 512, 1024, 2048, 4096 (CPU units)
@@ -50,7 +50,7 @@ type RuntimeConfig struct {
 // Different providers handle permissions differently:
 // - AWS: TaskRole (app permissions) and TaskExecutionRole (infrastructure permissions)
 // - GCP: Service Account
-// - Azure: Managed Identity
+// - Azure: Managed Identity.
 type PermissionConfig struct {
 	// TaskRole grants permissions to the running task/container
 	// AWS: IAM role name, GCP: service account email, Azure: managed identity client ID

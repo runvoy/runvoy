@@ -4,7 +4,7 @@ import (
 	"time"
 )
 
-// ExecutionRequest represents a request to execute a command
+// ExecutionRequest represents a request to execute a command.
 type ExecutionRequest struct {
 	Command string            `json:"command"`
 	Image   string            `json:"image,omitempty"`
@@ -23,7 +23,7 @@ type ExecutionRequest struct {
 	SecretVarNames []string `json:"-"` // Not serialized in API responses
 }
 
-// ExecutionResponse represents the response to an execution request
+// ExecutionResponse represents the response to an execution request.
 type ExecutionResponse struct {
 	ExecutionID  string `json:"execution_id"`
 	LogURL       string `json:"log_url"`
@@ -32,7 +32,7 @@ type ExecutionResponse struct {
 	WebSocketURL string `json:"websocket_url,omitempty"`
 }
 
-// ExecutionStatusResponse represents the current status of an execution
+// ExecutionStatusResponse represents the current status of an execution.
 type ExecutionStatusResponse struct {
 	ExecutionID string     `json:"execution_id"`
 	Status      string     `json:"status"`
@@ -41,13 +41,13 @@ type ExecutionStatusResponse struct {
 	CompletedAt *time.Time `json:"completed_at,omitempty"`
 }
 
-// KillExecutionResponse represents the response after killing an execution
+// KillExecutionResponse represents the response after killing an execution.
 type KillExecutionResponse struct {
 	ExecutionID string `json:"execution_id"`
 	Message     string `json:"message"`
 }
 
-// Execution represents an execution record
+// Execution represents an execution record.
 type Execution struct {
 	ExecutionID         string     `json:"execution_id"`
 	CreatedBy           string     `json:"created_by"`

@@ -808,7 +808,7 @@ func TestClient_UnregisterImage(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			assert.Equal(t, "DELETE", r.Method)
 			assert.True(t, strings.HasPrefix(r.URL.Path, "/api/v1/images/"))
-			assert.True(t, strings.Contains(r.URL.Path, "ubuntu:22.04"))
+			assert.Contains(t, r.URL.Path, "ubuntu:22.04")
 
 			w.WriteHeader(http.StatusOK)
 			_ = json.NewEncoder(w).Encode(api.RemoveImageResponse{
@@ -1025,7 +1025,7 @@ func TestClient_ListSecrets(t *testing.T) {
 
 		require.NoError(t, err)
 		require.NotNil(t, resp)
-		assert.Len(t, resp.Secrets, 0)
+		assert.Empty(t, resp.Secrets)
 		assert.Equal(t, 0, resp.Total)
 	})
 }
@@ -1270,8 +1270,8 @@ func TestClient_GetImage(t *testing.T) {
 			assert.Equal(t, "GET", r.Method)
 			// r.URL.Path is decoded by Go's HTTP server, so check for decoded path
 			// This verifies that the client properly encoded the path and the server decoded it
-			assert.True(t, strings.Contains(r.URL.Path, "repo/image"))
-			assert.True(t, strings.Contains(r.URL.Path, "repo/image:tag"))
+			assert.Contains(t, r.URL.Path, "repo/image")
+			assert.Contains(t, r.URL.Path, "repo/image:tag")
 
 			w.WriteHeader(http.StatusOK)
 			_ = json.NewEncoder(w).Encode(api.ImageInfo{

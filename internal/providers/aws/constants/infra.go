@@ -1,6 +1,7 @@
 package constants
 
 import (
+	"errors"
 	"fmt"
 	"slices"
 	"strings"
@@ -33,7 +34,7 @@ func GetReleaseRegions() []string {
 // Returns an error if the region is not supported, or if no regions are configured.
 func ValidateRegion(region string) error {
 	if region == "" {
-		return fmt.Errorf("region cannot be empty")
+		return errors.New("region cannot be empty")
 	}
 
 	supportedRegions := GetReleaseRegions()
@@ -56,15 +57,15 @@ func ValidateRegion(region string) error {
 }
 
 const (
-	// DefaultInfraStackName is the default CloudFormation stack name for AWS infra deployments
+	// DefaultInfraStackName is the default CloudFormation stack name for AWS infra deployments.
 	DefaultInfraStackName = "runvoy-backend"
 
-	// ReleasesBucketRegion is the AWS region where the releases bucket is located
+	// ReleasesBucketRegion is the AWS region where the releases bucket is located.
 	ReleasesBucketRegion = "us-east-1"
 
-	// ReleasesBucket is the S3 bucket name for runvoy releases
+	// ReleasesBucket is the S3 bucket name for runvoy releases.
 	ReleasesBucket = "runvoy-releases-" + ReleasesBucketRegion
 
-	// CloudFormationTemplateFile is the filename of the CloudFormation template in releases
+	// CloudFormationTemplateFile is the filename of the CloudFormation template in releases.
 	CloudFormationTemplateFile = "cloudformation-backend.yaml"
 )

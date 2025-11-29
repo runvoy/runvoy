@@ -38,13 +38,13 @@ func killRun(cmd *cobra.Command, args []string) {
 	}
 }
 
-// KillService handles execution killing logic
+// KillService handles execution killing logic.
 type KillService struct {
 	client client.Interface
 	output OutputInterface
 }
 
-// NewKillService creates a new KillService with the provided dependencies
+// NewKillService creates a new KillService with the provided dependencies.
 func NewKillService(apiClient client.Interface, outputter OutputInterface) *KillService {
 	return &KillService{
 		client: apiClient,
@@ -52,7 +52,7 @@ func NewKillService(apiClient client.Interface, outputter OutputInterface) *Kill
 	}
 }
 
-// KillExecution kills a running execution and displays the results
+// KillExecution kills a running execution and displays the results.
 func (s *KillService) KillExecution(ctx context.Context, executionID string) error {
 	resp, err := s.client.KillExecution(ctx, executionID)
 	if err != nil {

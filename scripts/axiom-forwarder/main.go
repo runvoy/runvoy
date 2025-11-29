@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -36,12 +37,12 @@ type config struct {
 func loadConfig() (*config, error) {
 	token := os.Getenv("AXIOM_TOKEN")
 	if token == "" {
-		return nil, fmt.Errorf("AXIOM_TOKEN environment variable is required")
+		return nil, errors.New("AXIOM_TOKEN environment variable is required")
 	}
 
 	dataset := os.Getenv("AXIOM_DATASET")
 	if dataset == "" {
-		return nil, fmt.Errorf("AXIOM_DATASET environment variable is required")
+		return nil, errors.New("AXIOM_DATASET environment variable is required")
 	}
 
 	apiURL := os.Getenv("AXIOM_API_URL")
@@ -156,7 +157,7 @@ func sendToAxiom(ctx context.Context, cfg *config, reqLogger *slog.Logger, axiom
 		return fmt.Errorf("failed to create request: %w", err)
 	}
 
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", cfg.token))
+	req.Header.Set("Authorization", "Bearer "+cfg.token)
 	req.Header.Set("Content-Type", "application/x-ndjson")
 
 	client := &http.Client{

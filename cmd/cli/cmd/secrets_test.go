@@ -2,7 +2,7 @@ package cmd
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"testing"
 	"time"
 
@@ -27,21 +27,21 @@ func (m *mockClientInterfaceForSecrets) CreateSecret(
 	if m.createSecretFunc != nil {
 		return m.createSecretFunc(ctx, req)
 	}
-	return nil, fmt.Errorf("not implemented")
+	return nil, errors.New("not implemented")
 }
 
 func (m *mockClientInterfaceForSecrets) GetSecret(ctx context.Context, name string) (*api.GetSecretResponse, error) {
 	if m.getSecretFunc != nil {
 		return m.getSecretFunc(ctx, name)
 	}
-	return nil, fmt.Errorf("not implemented")
+	return nil, errors.New("not implemented")
 }
 
 func (m *mockClientInterfaceForSecrets) ListSecrets(ctx context.Context) (*api.ListSecretsResponse, error) {
 	if m.listSecretsFunc != nil {
 		return m.listSecretsFunc(ctx)
 	}
-	return nil, fmt.Errorf("not implemented")
+	return nil, errors.New("not implemented")
 }
 
 func (m *mockClientInterfaceForSecrets) UpdateSecret(
@@ -50,7 +50,7 @@ func (m *mockClientInterfaceForSecrets) UpdateSecret(
 	if m.updateSecretFunc != nil {
 		return m.updateSecretFunc(ctx, name, req)
 	}
-	return nil, fmt.Errorf("not implemented")
+	return nil, errors.New("not implemented")
 }
 
 func (m *mockClientInterfaceForSecrets) DeleteSecret(
@@ -60,7 +60,7 @@ func (m *mockClientInterfaceForSecrets) DeleteSecret(
 	if m.deleteSecretFunc != nil {
 		return m.deleteSecretFunc(ctx, name)
 	}
-	return nil, fmt.Errorf("not implemented")
+	return nil, errors.New("not implemented")
 }
 
 func (m *mockClientInterfaceForSecrets) FetchBackendLogs(_ context.Context, _ string) (*api.TraceResponse, error) {
@@ -154,7 +154,7 @@ func TestSecretsService_CreateSecret(t *testing.T) {
 			description: "",
 			setupMock: func(m *mockClientInterfaceForSecrets) {
 				m.createSecretFunc = func(_ context.Context, _ api.CreateSecretRequest) (*api.CreateSecretResponse, error) {
-					return nil, fmt.Errorf("secret already exists")
+					return nil, errors.New("secret already exists")
 				}
 			},
 			wantErr: true,
@@ -249,7 +249,7 @@ func TestSecretsService_GetSecret(t *testing.T) {
 			secretName: "nonexistent",
 			setupMock: func(m *mockClientInterfaceForSecrets) {
 				m.getSecretFunc = func(_ context.Context, _ string) (*api.GetSecretResponse, error) {
-					return nil, fmt.Errorf("secret not found")
+					return nil, errors.New("secret not found")
 				}
 			},
 			wantErr: true,
@@ -373,7 +373,7 @@ func TestSecretsService_ListSecrets(t *testing.T) {
 			name: "handles client error",
 			setupMock: func(m *mockClientInterfaceForSecrets) {
 				m.listSecretsFunc = func(_ context.Context) (*api.ListSecretsResponse, error) {
-					return nil, fmt.Errorf("network error")
+					return nil, errors.New("network error")
 				}
 			},
 			wantErr: true,
@@ -506,7 +506,7 @@ func TestSecretsService_UpdateSecret(t *testing.T) {
 					_ string,
 					_ api.UpdateSecretRequest,
 				) (*api.UpdateSecretResponse, error) {
-					return nil, fmt.Errorf("should not be called")
+					return nil, errors.New("should not be called")
 				}
 			},
 			wantErr: true,
@@ -532,7 +532,7 @@ func TestSecretsService_UpdateSecret(t *testing.T) {
 					_ string,
 					_ api.UpdateSecretRequest,
 				) (*api.UpdateSecretResponse, error) {
-					return nil, fmt.Errorf("secret not found")
+					return nil, errors.New("secret not found")
 				}
 			},
 			wantErr: true,
@@ -621,7 +621,7 @@ func TestSecretsService_DeleteSecret(t *testing.T) {
 			secretName: "nonexistent",
 			setupMock: func(m *mockClientInterfaceForSecrets) {
 				m.deleteSecretFunc = func(_ context.Context, _ string) (*api.DeleteSecretResponse, error) {
-					return nil, fmt.Errorf("secret not found")
+					return nil, errors.New("secret not found")
 				}
 			},
 			wantErr: true,

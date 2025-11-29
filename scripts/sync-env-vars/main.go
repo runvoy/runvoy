@@ -25,7 +25,7 @@ const (
 )
 
 var (
-	// envLineRegex matches a key-value pair in .env format: KEY=VALUE or KEY="VALUE"
+	// envLineRegex matches a key-value pair in .env format: KEY=VALUE or KEY="VALUE".
 	envLineRegex = regexp.MustCompile(`^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$`)
 )
 
@@ -155,7 +155,7 @@ func appendNewVars(result *strings.Builder, lambdaVars map[string]string, hasExi
 
 // mergeEnvFile reads the existing .env file (if it exists) and merges it with Lambda values.
 // It preserves comments, blank lines, and formatting while updating existing values and adding new ones.
-// Returns: merged content, count of updated vars, count of new vars, error
+// Returns: merged content, count of updated vars, count of new vars, error.
 func mergeEnvFile(filePath string, lambdaVars map[string]string) (content string, updated, added int, err error) {
 	lines, err := readExistingEnvFile(filePath)
 	if err != nil {

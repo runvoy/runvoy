@@ -13,7 +13,7 @@ import (
 )
 
 // flattenMapAttr flattens nested maps into a readable key=value format
-// Example: map[deadline:none status:SUCCEEDED] becomes "deadline=none status=SUCCEEDED"
+// Example: map[deadline:none status:SUCCEEDED] becomes "deadline=none status=SUCCEEDED".
 func flattenMapAttr(prefix string, value any) string {
 	var parts []string
 
@@ -62,7 +62,7 @@ func flattenMapAttr(prefix string, value any) string {
 	return strings.Join(parts, " ")
 }
 
-// replaceAttrForDev transforms attributes for better readability in dev environment
+// replaceAttrForDev transforms attributes for better readability in dev environment.
 func replaceAttrForDev(_ []string, a slog.Attr) slog.Attr {
 	switch v := a.Value.Any().(type) {
 	case map[string]any, map[string]string:
@@ -72,7 +72,7 @@ func replaceAttrForDev(_ []string, a slog.Attr) slog.Attr {
 	return a
 }
 
-// Initialize sets up the global slog logger based on the environment
+// Initialize sets up the global slog logger based on the environment.
 func Initialize(env constants.Environment, level slog.Level) *slog.Logger {
 	var handler slog.Handler
 

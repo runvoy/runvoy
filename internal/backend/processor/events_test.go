@@ -3,7 +3,7 @@ package processor
 import (
 	"context"
 	"encoding/json"
-	"fmt"
+	"errors"
 	"net/http"
 	"testing"
 
@@ -36,7 +36,7 @@ func TestHandleEvent_IgnoresUnknownEventType(t *testing.T) {
 
 	processor := &mockProcessor{
 		handleFunc: func(_ context.Context, _ *json.RawMessage) (*json.RawMessage, error) {
-			return nil, fmt.Errorf("unhandled event type")
+			return nil, errors.New("unhandled event type")
 		},
 	}
 
@@ -77,7 +77,7 @@ func TestHandleEventJSON_InvalidJSON(t *testing.T) {
 
 	processor := &mockProcessor{
 		handleEventJSONFunc: func(_ context.Context, _ *json.RawMessage) error {
-			return fmt.Errorf("failed to unmarshal event")
+			return errors.New("failed to unmarshal event")
 		},
 	}
 

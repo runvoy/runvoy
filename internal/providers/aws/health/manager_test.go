@@ -62,7 +62,7 @@ func TestReport_Structure(t *testing.T) {
 	assert.NotNil(t, report)
 	assert.Equal(t, 0, report.ReconciledCount)
 	assert.Equal(t, 0, report.ErrorCount)
-	assert.Equal(t, 0, len(report.Issues))
+	assert.Empty(t, report.Issues)
 }
 
 // TestIssue_Structure tests the health issue structure.

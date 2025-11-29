@@ -2,6 +2,7 @@ package dynamodb
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 
@@ -211,7 +212,7 @@ func (r *ConnectionRepository) UpdateLastEventID(ctx context.Context, connection
 	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
 
 	if connectionID == "" {
-		return fmt.Errorf("connection ID is required")
+		return errors.New("connection ID is required")
 	}
 
 	keyAV, err := attributevalue.MarshalMap(map[string]string{"connection_id": connectionID})

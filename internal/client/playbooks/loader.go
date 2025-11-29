@@ -1,6 +1,7 @@
 package playbooks
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -13,10 +14,10 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// PlaybookLoader handles loading and discovery of playbooks
+// PlaybookLoader handles loading and discovery of playbooks.
 type PlaybookLoader struct{}
 
-// NewPlaybookLoader creates a new PlaybookLoader
+// NewPlaybookLoader creates a new PlaybookLoader.
 func NewPlaybookLoader() *PlaybookLoader {
 	return &PlaybookLoader{}
 }
@@ -115,10 +116,10 @@ func (l *PlaybookLoader) LoadPlaybook(name string) (*api.Playbook, error) {
 	return &playbook, nil
 }
 
-// validatePlaybook validates that a playbook has required fields
+// validatePlaybook validates that a playbook has required fields.
 func (l *PlaybookLoader) validatePlaybook(p *api.Playbook) error {
 	if len(p.Commands) == 0 {
-		return fmt.Errorf("commands must not be empty")
+		return errors.New("commands must not be empty")
 	}
 	return nil
 }

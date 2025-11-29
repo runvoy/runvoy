@@ -7,7 +7,7 @@ import (
 	appErrors "github.com/runvoy/runvoy/internal/errors"
 )
 
-// Errors for secrets operations
+// Errors for secrets operations.
 var (
 	ErrSecretNotFound      = appErrors.ErrSecretNotFound("secret not found", nil)
 	ErrSecretAlreadyExists = appErrors.ErrSecretAlreadyExists("secret already exists", nil)

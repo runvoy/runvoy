@@ -5,6 +5,7 @@ import (
 	stderrors "errors"
 	"fmt"
 	"log/slog"
+	"strconv"
 	"strings"
 	"time"
 
@@ -569,7 +570,7 @@ func (r *UserRepository) MarkAsViewed(ctx context.Context, secretToken, ipAddres
 		ExpressionAttributeValues: map[string]types.AttributeValue{
 			":true":     &types.AttributeValueMemberBOOL{Value: true},
 			":false":    &types.AttributeValueMemberBOOL{Value: false},
-			":viewedAt": &types.AttributeValueMemberN{Value: fmt.Sprintf("%d", viewedAt)},
+			":viewedAt": &types.AttributeValueMemberN{Value: strconv.FormatInt(viewedAt, 10)},
 			":ip":       &types.AttributeValueMemberS{Value: ipAddress},
 		},
 	})

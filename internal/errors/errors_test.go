@@ -388,11 +388,11 @@ func TestErrorWrapping(t *testing.T) {
 		appErr := ErrInternalError("wrapped error", baseErr)
 
 		// Test errors.Is
-		require.True(t, errors.Is(appErr, baseErr))
+		require.ErrorIs(t, appErr, baseErr)
 
 		// Test errors.As
 		var targetErr *AppError
-		require.True(t, errors.As(appErr, &targetErr))
+		require.ErrorAs(t, appErr, &targetErr)
 		assert.Equal(t, ErrCodeInternalError, targetErr.Code)
 	})
 

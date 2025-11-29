@@ -957,7 +957,7 @@ func TestListUsers_Empty(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.NotNil(t, resp)
-	assert.Len(t, resp.Users, 0)
+	assert.Empty(t, resp.Users)
 }
 
 func TestListUsers_RepositoryError(t *testing.T) {

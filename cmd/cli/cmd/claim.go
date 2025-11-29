@@ -41,14 +41,14 @@ func runClaim(cmd *cobra.Command, args []string) {
 	}
 }
 
-// ClaimService handles API key claiming logic
+// ClaimService handles API key claiming logic.
 type ClaimService struct {
 	client      client.Interface
 	output      OutputInterface
 	configSaver ConfigSaver
 }
 
-// NewClaimService creates a new ClaimService with the provided dependencies
+// NewClaimService creates a new ClaimService with the provided dependencies.
 func NewClaimService(apiClient client.Interface, outputter OutputInterface, configSaver ConfigSaver) *ClaimService {
 	return &ClaimService{
 		client:      apiClient,
@@ -57,7 +57,7 @@ func NewClaimService(apiClient client.Interface, outputter OutputInterface, conf
 	}
 }
 
-// ClaimAPIKey claims an API key using the provided token and saves it to the config
+// ClaimAPIKey claims an API key using the provided token and saves it to the config.
 func (s *ClaimService) ClaimAPIKey(ctx context.Context, token string, cfg *config.Config) error {
 	resp, err := s.client.ClaimAPIKey(ctx, token)
 	if err != nil {

@@ -2,7 +2,8 @@ package dynamodb
 
 import (
 	"context"
-	"fmt"
+	"errors"
+	"strconv"
 	"testing"
 	"time"
 
@@ -356,7 +357,7 @@ func TestCreateExecutionWithContext(t *testing.T) {
 		assert.NotNil(t, ctx)
 		deadline, ok := ctx.Deadline()
 		assert.True(t, ok)
-		assert.True(t, time.Until(deadline) > 0)
+		assert.Positive(t, time.Until(deadline))
 	})
 
 	t.Run("canceled context", func(t *testing.T) {
@@ -507,7 +508,7 @@ func TestBuildUpdateExpression(t *testing.T) {
 			assert.Equal(t, tt.expectedExprNames, exprNames)
 
 			// Check that we got the expected number of attribute values
-			assert.Equal(t, len(tt.expectedExprValueKeys), len(exprValues))
+			assert.Len(t, exprValues, len(tt.expectedExprValueKeys))
 
 			// Check that all expected keys are present
 			for _, key := range tt.expectedExprValueKeys {
@@ -523,7 +524,7 @@ func TestBuildUpdateExpression(t *testing.T) {
 			exitCodeVal, ok := exprValues[":exit_code"]
 			require.True(t, ok)
 			assert.IsType(t, &types.AttributeValueMemberN{}, exitCodeVal)
-			assert.Equal(t, fmt.Sprintf("%d", tt.execution.ExitCode), exitCodeVal.(*types.AttributeValueMemberN).Value)
+			assert.Equal(t, strconv.Itoa(tt.execution.ExitCode), exitCodeVal.(*types.AttributeValueMemberN).Value)
 
 			if tt.execution.CompletedAt != nil {
 				completedAtVal, hasCompletedAt := exprValues[":completed_at"]
@@ -535,7 +536,7 @@ func TestBuildUpdateExpression(t *testing.T) {
 				durationVal, hasDuration := exprValues[":duration_seconds"]
 				require.True(t, hasDuration)
 				assert.IsType(t, &types.AttributeValueMemberN{}, durationVal)
-				assert.Equal(t, fmt.Sprintf("%d", tt.execution.DurationSeconds), durationVal.(*types.AttributeValueMemberN).Value)
+				assert.Equal(t, strconv.Itoa(tt.execution.DurationSeconds), durationVal.(*types.AttributeValueMemberN).Value)
 			}
 
 			if tt.execution.LogStreamName != "" {
@@ -607,7 +608,7 @@ func TestExecutionRepository_CreateExecution(t *testing.T) {
 
 	t.Run("handles database error", func(t *testing.T) {
 		mockClient := NewMockDynamoDBClient()
-		mockClient.PutItemError = fmt.Errorf("database error")
+		mockClient.PutItemError = errors.New("database error")
 		repo := NewExecutionRepository(mockClient, tableName, logger)
 
 		execution := &api.Execution{
@@ -685,7 +686,7 @@ func TestExecutionRepository_GetExecution(t *testing.T) {
 
 	t.Run("handles database error", func(t *testing.T) {
 		mockClient := NewMockDynamoDBClient()
-		mockClient.GetItemError = fmt.Errorf("database error")
+		mockClient.GetItemError = errors.New("database error")
 		repo := NewExecutionRepository(mockClient, tableName, logger)
 
 		result, err := repo.GetExecution(ctx, "exec-123")
@@ -762,7 +763,7 @@ func TestExecutionRepository_UpdateExecution(t *testing.T) {
 
 	t.Run("handles database error", func(t *testing.T) {
 		mockClient := NewMockDynamoDBClient()
-		mockClient.UpdateItemError = fmt.Errorf("database error")
+		mockClient.UpdateItemError = errors.New("database error")
 		repo := NewExecutionRepository(mockClient, tableName, logger)
 
 		execution := &api.Execution{
@@ -807,7 +808,7 @@ func TestExecutionRepository_ListExecutions(t *testing.T) {
 
 	t.Run("handles database error", func(t *testing.T) {
 		mockClient := NewMockDynamoDBClient()
-		mockClient.QueryError = fmt.Errorf("database error")
+		mockClient.QueryError = errors.New("database error")
 		repo := NewExecutionRepository(mockClient, tableName, logger)
 
 		executions, err := repo.ListExecutions(ctx, 10, []string{})
@@ -1043,7 +1044,7 @@ func TestExecutionRepository_GetExecutionsByRequestID(t *testing.T) {
 
 	t.Run("handles query error on created_by_request_id index", func(t *testing.T) {
 		mockClient := NewMockDynamoDBClient()
-		mockClient.QueryError = fmt.Errorf("query failed")
+		mockClient.QueryError = errors.New("query failed")
 		repo := NewExecutionRepository(mockClient, tableName, logger)
 
 		executions, err := repo.GetExecutionsByRequestID(ctx, "req-123")
@@ -1060,7 +1061,7 @@ func TestExecutionRepository_GetExecutionsByRequestID(t *testing.T) {
 		// Set up first query to succeed, second to fail
 		// We'll use QueryError to simulate failure on second call
 		// Since we can't easily control which query fails, we'll test the general error case
-		mockClient.QueryError = fmt.Errorf("query failed")
+		mockClient.QueryError = errors.New("query failed")
 
 		executions, err := repo.GetExecutionsByRequestID(ctx, "req-123")
 

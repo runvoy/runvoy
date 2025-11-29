@@ -8,7 +8,7 @@ import (
 	apperrors "github.com/runvoy/runvoy/internal/errors"
 )
 
-// handleCreateSecret handles POST /api/v1/secrets
+// handleCreateSecret handles POST /api/v1/secrets.
 func (r *Router) handleCreateSecret(w http.ResponseWriter, req *http.Request) {
 	var createReq api.CreateSecretRequest
 	if err := decodeRequestBody(w, req, &createReq); err != nil {
@@ -31,7 +31,7 @@ func (r *Router) handleCreateSecret(w http.ResponseWriter, req *http.Request) {
 	})
 }
 
-// handleGetSecret handles GET /api/v1/secrets/{name}
+// handleGetSecret handles GET /api/v1/secrets/{name}.
 func (r *Router) handleGetSecret(w http.ResponseWriter, req *http.Request) {
 	name, ok := getRequiredURLParam(w, req, "name")
 	if !ok {
@@ -50,7 +50,7 @@ func (r *Router) handleGetSecret(w http.ResponseWriter, req *http.Request) {
 	})
 }
 
-// handleListSecrets handles GET /api/v1/secrets
+// handleListSecrets handles GET /api/v1/secrets.
 func (r *Router) handleListSecrets(w http.ResponseWriter, req *http.Request) {
 	secrets, err := r.svc.ListSecrets(req.Context())
 	if err != nil {
@@ -94,7 +94,7 @@ func (r *Router) handleUpdateSecret(w http.ResponseWriter, req *http.Request) {
 	})
 }
 
-// handleDeleteSecret handles DELETE /api/v1/secrets/{name}
+// handleDeleteSecret handles DELETE /api/v1/secrets/{name}.
 func (r *Router) handleDeleteSecret(w http.ResponseWriter, req *http.Request) {
 	name, ok := getRequiredURLParam(w, req, "name")
 	if !ok {
@@ -114,7 +114,7 @@ func (r *Router) handleDeleteSecret(w http.ResponseWriter, req *http.Request) {
 	})
 }
 
-// handleServiceError converts service layer errors to HTTP responses
+// handleServiceError converts service layer errors to HTTP responses.
 func handleServiceError(w http.ResponseWriter, err error) {
 	statusCode, errorCode, errorDetails := extractErrorInfo(err)
 	errorMsg := apperrors.GetErrorMessage(err)

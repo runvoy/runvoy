@@ -199,7 +199,7 @@ func TestListSecrets_Empty(t *testing.T) {
 	secrets, err := service.ListSecrets(context.Background())
 
 	assert.NoError(t, err)
-	assert.Len(t, secrets, 0)
+	assert.Empty(t, secrets)
 }
 
 func TestUpdateSecret_Success(t *testing.T) {

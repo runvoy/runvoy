@@ -200,7 +200,7 @@ func TestListSecrets_Empty(t *testing.T) {
 	retrieved, err := repo.ListSecrets(context.Background())
 
 	assert.NoError(t, err)
-	assert.Len(t, retrieved, 0)
+	assert.Empty(t, retrieved)
 }
 
 func TestListSecrets_ScanError(t *testing.T) {

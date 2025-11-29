@@ -101,7 +101,7 @@ func TestWebSocketManager_Interface(t *testing.T) {
 	assert.NoError(t, err)
 
 	url := manager.GenerateWebSocketURL(context.Background(), "exec-123", nil, nil)
-	assert.Equal(t, "", url)
+	assert.Empty(t, url)
 }
 
 // TestHealthManager_Interface verifies that the HealthManager interface is properly defined.

@@ -1,13 +1,14 @@
 package authorization
 
 import (
+	"errors"
 	"fmt"
 	"slices"
 	"strings"
 )
 
 // Role is a typed string representing a user role in the authorization system.
-// Valid roles: admin, operator, developer, viewer
+// Valid roles: admin, operator, developer, viewer.
 type Role string
 
 // Role constants for Casbin role-based access control.
@@ -44,7 +45,7 @@ const (
 // Returns an error if the role string is empty or not a valid role.
 func NewRole(roleStr string) (Role, error) {
 	if roleStr == "" {
-		return "", fmt.Errorf("role cannot be empty")
+		return "", errors.New("role cannot be empty")
 	}
 	role := Role(roleStr)
 	if !role.Valid() {
@@ -65,13 +66,13 @@ func (r Role) String() string {
 }
 
 // FormatRole converts a role to the Casbin role format.
-// Example: FormatRole(RoleAdmin) returns "role:admin"
+// Example: FormatRole(RoleAdmin) returns "role:admin".
 func FormatRole(role Role) string {
 	return "role:" + role.String()
 }
 
 // FormatResourceID converts a resource type and ID to the Casbin resource format.
-// Example: FormatResourceID("secret", "secret-123") returns "secret:secret-123"
+// Example: FormatResourceID("secret", "secret-123") returns "secret:secret-123".
 func FormatResourceID(resourceType, resourceID string) string {
 	return resourceType + ":" + resourceID
 }

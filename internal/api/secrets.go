@@ -4,7 +4,7 @@ import (
 	"time"
 )
 
-// Secret represents a secret with its metadata and optionally its value
+// Secret represents a secret with its metadata and optionally its value.
 type Secret struct {
 	Name                string    `json:"name"`     // Internal identifier for the secret
 	KeyName             string    `json:"key_name"` // Environment variable name (e.g., GITHUB_TOKEN)
@@ -19,7 +19,7 @@ type Secret struct {
 	ModifiedByRequestID string    `json:"modified_by_request_id"`
 }
 
-// CreateSecretRequest represents the request to create a new secret
+// CreateSecretRequest represents the request to create a new secret.
 type CreateSecretRequest struct {
 	Name        string `json:"name"`     // Internal identifier for the secret
 	KeyName     string `json:"key_name"` // Environment variable name (e.g., GITHUB_TOKEN)
@@ -50,35 +50,35 @@ type UpdateSecretResponse struct {
 }
 
 // GetSecretRequest represents the request to retrieve a secret
-// The secret name is provided in the URL path parameter
+// The secret name is provided in the URL path parameter.
 type GetSecretRequest struct {
 	Name string `json:"name"` // Secret name from URL path
 }
 
-// GetSecretResponse represents the response when retrieving a secret
+// GetSecretResponse represents the response when retrieving a secret.
 type GetSecretResponse struct {
 	Secret *Secret `json:"secret"`
 }
 
 // ListSecretsRequest represents the request to list secrets
-// Optionally filters by user email
+// Optionally filters by user email.
 type ListSecretsRequest struct {
 	CreatedBy string `json:"created_by,omitempty"` // Filter by user who created the secret
 }
 
-// ListSecretsResponse represents the response containing all secrets
+// ListSecretsResponse represents the response containing all secrets.
 type ListSecretsResponse struct {
 	Secrets []*Secret `json:"secrets"`
 	Total   int       `json:"total"`
 }
 
 // DeleteSecretRequest represents the request to delete a secret
-// The secret name is provided in the URL path parameter
+// The secret name is provided in the URL path parameter.
 type DeleteSecretRequest struct {
 	Name string `json:"name"` // Secret name from URL path
 }
 
-// DeleteSecretResponse represents the response after deleting a secret
+// DeleteSecretResponse represents the response after deleting a secret.
 type DeleteSecretResponse struct {
 	Name    string `json:"name"`
 	Message string `json:"message"`

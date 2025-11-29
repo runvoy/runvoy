@@ -105,7 +105,7 @@ func extractUserEnvVars(envVars []string) map[string]string {
 	return envs
 }
 
-// ExecuteCommandRequest contains all parameters needed to execute a command
+// ExecuteCommandRequest contains all parameters needed to execute a command.
 type ExecuteCommandRequest struct {
 	Command string
 	GitRepo string
@@ -117,14 +117,14 @@ type ExecuteCommandRequest struct {
 	WebURL  string
 }
 
-// RunService handles command execution logic
+// RunService handles command execution logic.
 type RunService struct {
 	client     client.Interface
 	output     OutputInterface
 	streamLogs func(logsService *LogsService, websocketURL, webURL, executionID string) error
 }
 
-// NewRunService creates a new RunService with the provided dependencies
+// NewRunService creates a new RunService with the provided dependencies.
 func NewRunService(apiClient client.Interface, outputter OutputInterface) *RunService {
 	return &RunService{
 		client: apiClient,
@@ -135,7 +135,7 @@ func NewRunService(apiClient client.Interface, outputter OutputInterface) *RunSe
 	}
 }
 
-// ExecuteCommand executes a command remotely and displays the results
+// ExecuteCommand executes a command remotely and displays the results.
 func (s *RunService) ExecuteCommand(ctx context.Context, req *ExecuteCommandRequest) error {
 	s.output.Infof("Running command: %s", s.output.Bold(req.Command))
 	if req.GitRepo != "" {
@@ -148,7 +148,7 @@ func (s *RunService) ExecuteCommand(ctx context.Context, req *ExecuteCommandRequ
 		s.output.Infof("Git path: %s", s.output.Bold(req.GitPath))
 	}
 
-	var envKeys []string
+	envKeys := make([]string, 0, len(req.Env))
 	for key := range req.Env {
 		envKeys = append(envKeys, key)
 	}

@@ -3,7 +3,6 @@ package infra
 import (
 	"context"
 	"errors"
-	"fmt"
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -872,7 +871,7 @@ func TestAWSDeployer_GetFailedResourceEvents(t *testing.T) {
 				_ *cloudformation.DescribeStackEventsInput,
 				_ ...func(*cloudformation.Options),
 			) (*cloudformation.DescribeStackEventsOutput, error) {
-				return nil, fmt.Errorf("API error")
+				return nil, errors.New("API error")
 			},
 		}
 

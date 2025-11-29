@@ -41,9 +41,9 @@ func (e *AppError) Is(target error) bool {
 	return false
 }
 
-// Predefined error codes
+// Predefined error codes.
 const (
-	// Client error codes
+	// Client error codes.
 	ErrCodeInvalidRequest = "INVALID_REQUEST"
 	ErrCodeUnauthorized   = "UNAUTHORIZED"
 	ErrCodeForbidden      = "FORBIDDEN"
@@ -54,7 +54,7 @@ const (
 	ErrCodeInvalidAPIKey  = "INVALID_API_KEY" //nolint:gosec // this is not an API key, it's a request error code
 	ErrCodeAPIKeyRevoked  = "API_KEY_REVOKED" //nolint:gosec // this is not an API key, it's a request error code
 
-	// Server error codes
+	// Server error codes.
 	ErrCodeInternalError      = "INTERNAL_ERROR"
 	ErrCodeDatabaseError      = "DATABASE_ERROR"
 	ErrCodeServiceUnavailable = "SERVICE_UNAVAILABLE"

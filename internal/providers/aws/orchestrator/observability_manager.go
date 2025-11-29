@@ -48,7 +48,7 @@ func NewObservabilityManager(
 }
 
 // FetchBackendLogs retrieves backend infrastructure logs using CloudWatch Logs Insights
-// Queries logs from Lambda execution for debugging and tracing
+// Queries logs from Lambda execution for debugging and tracing.
 func (o *ObservabilityManagerImpl) FetchBackendLogs(ctx context.Context, requestID string) ([]api.LogEvent, error) {
 	reqLogger := logger.DeriveRequestLogger(ctx, o.logger)
 
@@ -72,7 +72,7 @@ func (o *ObservabilityManagerImpl) FetchBackendLogs(ctx context.Context, request
 	return logs, nil
 }
 
-// getQueryInitialDelay returns the configured initial delay or the default
+// getQueryInitialDelay returns the configured initial delay or the default.
 func (o *ObservabilityManagerImpl) getQueryInitialDelay() time.Duration {
 	if o.testQueryInitialDelay > 0 {
 		return o.testQueryInitialDelay
@@ -80,7 +80,7 @@ func (o *ObservabilityManagerImpl) getQueryInitialDelay() time.Duration {
 	return awsConstants.CloudWatchLogsQueryInitialDelay
 }
 
-// getQueryPollInterval returns the configured poll interval or the default
+// getQueryPollInterval returns the configured poll interval or the default.
 func (o *ObservabilityManagerImpl) getQueryPollInterval() time.Duration {
 	if o.testQueryPollInterval > 0 {
 		return o.testQueryPollInterval
@@ -88,7 +88,7 @@ func (o *ObservabilityManagerImpl) getQueryPollInterval() time.Duration {
 	return awsConstants.CloudWatchLogsQueryPollInterval
 }
 
-// getQueryMaxAttempts returns the configured max attempts or the default
+// getQueryMaxAttempts returns the configured max attempts or the default.
 func (o *ObservabilityManagerImpl) getQueryMaxAttempts() int {
 	if o.testQueryMaxAttempts > 0 {
 		return o.testQueryMaxAttempts
@@ -142,7 +142,7 @@ func (o *ObservabilityManagerImpl) startBackendLogsQuery(
 	return queryID, nil
 }
 
-// discoverLogGroups discovers all log groups matching the runvoy Lambda prefix
+// discoverLogGroups discovers all log groups matching the runvoy Lambda prefix.
 func (o *ObservabilityManagerImpl) discoverLogGroups(ctx context.Context, _ *slog.Logger) ([]string, error) {
 	logGroups := []string{}
 	var nextToken *string
@@ -169,7 +169,7 @@ func (o *ObservabilityManagerImpl) discoverLogGroups(ctx context.Context, _ *slo
 	return logGroups, nil
 }
 
-// pollBackendLogsQuery polls for CloudWatch Logs Insights query results
+// pollBackendLogsQuery polls for CloudWatch Logs Insights query results.
 func (o *ObservabilityManagerImpl) pollBackendLogsQuery(
 	ctx context.Context,
 	log *slog.Logger,

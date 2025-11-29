@@ -12,7 +12,7 @@ import (
 
 // getUserFromContext extracts the authenticated user from request context
 // Returns the user and true if found, or nil and false if not found
-// Callers should check the boolean return value before using the user
+// Callers should check the boolean return value before using the user.
 func (r *Router) getUserFromContext(req *http.Request) (*api.User, bool) {
 	user, ok := req.Context().Value(userContextKey).(*api.User)
 	return user, ok && user != nil
@@ -45,7 +45,7 @@ func (r *Router) handleListWithAuth(
 	_ = json.NewEncoder(w).Encode(resp)
 }
 
-// getClientIP extracts the client IP address from request headers
+// getClientIP extracts the client IP address from request headers.
 func getClientIP(req *http.Request) string {
 	// Check X-Forwarded-For header (used by proxies/load balancers)
 	xff := req.Header.Get("X-Forwarded-For")

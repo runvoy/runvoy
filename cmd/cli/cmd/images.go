@@ -162,13 +162,13 @@ func unregisterImageRun(cmd *cobra.Command, args []string) {
 	})
 }
 
-// ImagesService handles image management logic
+// ImagesService handles image management logic.
 type ImagesService struct {
 	client client.Interface
 	output OutputInterface
 }
 
-// NewImagesService creates a new ImagesService with the provided dependencies
+// NewImagesService creates a new ImagesService with the provided dependencies.
 func NewImagesService(apiClient client.Interface, outputter OutputInterface) *ImagesService {
 	return &ImagesService{
 		client: apiClient,
@@ -176,7 +176,7 @@ func NewImagesService(apiClient client.Interface, outputter OutputInterface) *Im
 	}
 }
 
-// RegisterImage registers a new image
+// RegisterImage registers a new image.
 func (s *ImagesService) RegisterImage(
 	ctx context.Context, image string, isDefault *bool, taskRoleName, taskExecutionRoleName *string,
 	cpu, memory *int,
@@ -197,7 +197,7 @@ func (s *ImagesService) RegisterImage(
 	return nil
 }
 
-// ListImages lists all registered images
+// ListImages lists all registered images.
 func (s *ImagesService) ListImages(ctx context.Context) error {
 	resp, err := s.client.ListImages(ctx)
 	if err != nil {
@@ -223,7 +223,7 @@ func (s *ImagesService) ListImages(ctx context.Context) error {
 	return nil
 }
 
-// ShowImage shows detailed information about a single image
+// ShowImage shows detailed information about a single image.
 func (s *ImagesService) ShowImage(ctx context.Context, image string) error {
 	imageInfo, err := s.client.GetImage(ctx, image)
 	if err != nil {
@@ -272,7 +272,7 @@ func (s *ImagesService) ShowImage(ctx context.Context, image string) error {
 	return nil
 }
 
-// UnregisterImage unregisters an image
+// UnregisterImage unregisters an image.
 func (s *ImagesService) UnregisterImage(ctx context.Context, image string) error {
 	resp, err := s.client.UnregisterImage(ctx, image)
 	if err != nil {
@@ -285,7 +285,7 @@ func (s *ImagesService) UnregisterImage(ctx context.Context, image string) error
 	return nil
 }
 
-// formatImages formats image data into table rows
+// formatImages formats image data into table rows.
 func (s *ImagesService) formatImages(images []api.ImageInfo) [][]string {
 	rows := make([][]string, 0, len(images))
 	for i := range images {

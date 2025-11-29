@@ -3,6 +3,7 @@ package websocket
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -267,7 +268,7 @@ func TestHandleConnect(t *testing.T) {
 					"token":        validToken,
 				},
 			},
-			mockGetErr:         fmt.Errorf("database error"),
+			mockGetErr:         errors.New("database error"),
 			expectedStatusCode: http.StatusInternalServerError,
 		},
 		{
@@ -281,7 +282,7 @@ func TestHandleConnect(t *testing.T) {
 					"token":        validToken,
 				},
 			},
-			mockCreateErr:      fmt.Errorf("create failed"),
+			mockCreateErr:      errors.New("create failed"),
 			expectedStatusCode: http.StatusInternalServerError,
 		},
 		{
@@ -560,7 +561,7 @@ func TestSendLogsToExecution(t *testing.T) {
 	t.Run("handles connection repository error", func(t *testing.T) {
 		mockConnRepo := &mockConnectionRepoForWS{
 			getConnectionsByExecutionIDFunc: func(_ context.Context, _ string) ([]*api.WebSocketConnection, error) {
-				return nil, fmt.Errorf("database error")
+				return nil, errors.New("database error")
 			},
 		}
 
@@ -583,7 +584,7 @@ func TestSendLogsToExecution(t *testing.T) {
 
 		mockLogRepo := &mockLogEventRepoForWS{
 			listLogEventsFunc: func(context.Context, string) ([]api.LogEvent, error) {
-				return nil, fmt.Errorf("query failed")
+				return nil, errors.New("query failed")
 			},
 		}
 
@@ -610,7 +611,7 @@ func TestSendLogsToExecution(t *testing.T) {
 				_ *apigatewaymanagementapi.PostToConnectionInput,
 				_ ...func(*apigatewaymanagementapi.Options),
 			) (*apigatewaymanagementapi.PostToConnectionOutput, error) {
-				return nil, fmt.Errorf("connection gone")
+				return nil, errors.New("connection gone")
 			},
 		}
 
@@ -695,7 +696,7 @@ func TestSendLogToConnection(t *testing.T) {
 				_ *apigatewaymanagementapi.PostToConnectionInput,
 				_ ...func(*apigatewaymanagementapi.Options),
 			) (*apigatewaymanagementapi.PostToConnectionOutput, error) {
-				return nil, fmt.Errorf("connection gone")
+				return nil, errors.New("connection gone")
 			},
 		}
 
@@ -802,7 +803,7 @@ func TestNotifyExecutionCompletion(t *testing.T) {
 	t.Run("handles connection repository error", func(t *testing.T) {
 		mockConnRepo := &mockConnectionRepoForWS{
 			getConnectionsByExecutionIDFunc: func(_ context.Context, _ string) ([]*api.WebSocketConnection, error) {
-				return nil, fmt.Errorf("database error")
+				return nil, errors.New("database error")
 			},
 		}
 
@@ -855,7 +856,7 @@ func TestSendDisconnectToConnection(t *testing.T) {
 				_ *apigatewaymanagementapi.PostToConnectionInput,
 				_ ...func(*apigatewaymanagementapi.Options),
 			) (*apigatewaymanagementapi.PostToConnectionOutput, error) {
-				return nil, fmt.Errorf("connection gone")
+				return nil, errors.New("connection gone")
 			},
 		}
 
@@ -927,7 +928,7 @@ func TestGenerateWebSocketURL(t *testing.T) {
 	t.Run("handles token creation error", func(t *testing.T) {
 		mockTokenRepo := &mockTokenRepoForWS{
 			createTokenFunc: func(_ context.Context, _ *api.WebSocketToken) error {
-				return fmt.Errorf("database error")
+				return errors.New("database error")
 			},
 		}
 

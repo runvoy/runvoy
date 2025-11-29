@@ -213,7 +213,7 @@ func (r *Router) handleKillExecution(w http.ResponseWriter, req *http.Request) {
 //   - limit: maximum number of executions to return (default: 10, use 0 to return all)
 //   - status: comma-separated list of execution statuses to filter by (e.g., "RUNNING,TERMINATING")
 //
-// Example: GET /api/v1/executions?limit=20&status=RUNNING,TERMINATING
+// Example: GET /api/v1/executions?limit=20&status=RUNNING,TERMINATING.
 func (r *Router) handleListExecutions(w http.ResponseWriter, req *http.Request) {
 	logger := r.GetLoggerFromContext(req.Context())
 

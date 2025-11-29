@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -156,13 +157,13 @@ func runDeleteSecret(cmd *cobra.Command, args []string) {
 	})
 }
 
-// SecretsService handles secrets management logic
+// SecretsService handles secrets management logic.
 type SecretsService struct {
 	client client.Interface
 	output OutputInterface
 }
 
-// NewSecretsService creates a new SecretsService with the provided dependencies
+// NewSecretsService creates a new SecretsService with the provided dependencies.
 func NewSecretsService(apiClient client.Interface, outputter OutputInterface) *SecretsService {
 	return &SecretsService{
 		client: apiClient,
@@ -170,7 +171,7 @@ func NewSecretsService(apiClient client.Interface, outputter OutputInterface) *S
 	}
 }
 
-// CreateSecret creates a new secret with the given name, key name, value, and optional description
+// CreateSecret creates a new secret with the given name, key name, value, and optional description.
 func (s *SecretsService) CreateSecret(ctx context.Context, name, keyName, value, description string) error {
 	s.output.Infof("Creating secret %s...", name)
 
@@ -199,7 +200,7 @@ func (s *SecretsService) CreateSecret(ctx context.Context, name, keyName, value,
 	return nil
 }
 
-// GetSecret retrieves a secret by name
+// GetSecret retrieves a secret by name.
 func (s *SecretsService) GetSecret(ctx context.Context, name string) error {
 	s.output.Infof("Retrieving secret %s...", name)
 
@@ -237,7 +238,7 @@ func (s *SecretsService) GetSecret(ctx context.Context, name string) error {
 	return nil
 }
 
-// ListSecrets lists all secrets and displays them in a table format
+// ListSecrets lists all secrets and displays them in a table format.
 func (s *SecretsService) ListSecrets(ctx context.Context) error {
 	s.output.Infof("Listing secrets…")
 
@@ -270,7 +271,7 @@ func (s *SecretsService) ListSecrets(ctx context.Context) error {
 	return nil
 }
 
-// UpdateSecret updates a secret's metadata and/or value
+// UpdateSecret updates a secret's metadata and/or value.
 func (s *SecretsService) UpdateSecret(ctx context.Context, name, keyName, value, description string) error {
 	s.output.Infof("Updating secret %s...", name)
 
@@ -286,7 +287,7 @@ func (s *SecretsService) UpdateSecret(ctx context.Context, name, keyName, value,
 	}
 
 	if req.KeyName == "" && req.Value == "" && req.Description == "" {
-		return fmt.Errorf("at least one field (--key-name, --value, or --description) must be provided")
+		return errors.New("at least one field (--key-name, --value, or --description) must be provided")
 	}
 
 	resp, err := s.client.UpdateSecret(ctx, name, req)
@@ -301,7 +302,7 @@ func (s *SecretsService) UpdateSecret(ctx context.Context, name, keyName, value,
 	return nil
 }
 
-// DeleteSecret deletes a secret by name
+// DeleteSecret deletes a secret by name.
 func (s *SecretsService) DeleteSecret(ctx context.Context, name string) error {
 	s.output.Infof("Deleting secret %s...", name)
 
@@ -317,7 +318,7 @@ func (s *SecretsService) DeleteSecret(ctx context.Context, name string) error {
 	return nil
 }
 
-// formatSecrets formats secret data into table rows
+// formatSecrets formats secret data into table rows.
 func (s *SecretsService) formatSecrets(secrets []*api.Secret) [][]string {
 	rows := make([][]string, 0, len(secrets))
 	for _, secret := range secrets {

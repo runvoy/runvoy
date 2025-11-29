@@ -3,7 +3,6 @@ package dynamodb
 import (
 	"context"
 	"errors"
-	"fmt"
 	"testing"
 	"time"
 
@@ -156,7 +155,7 @@ func TestTokenRepository_CreateToken_ErrorHandling(t *testing.T) {
 
 	t.Run("handles put item error", func(t *testing.T) {
 		client := NewMockDynamoDBClient()
-		client.PutItemError = fmt.Errorf("put item failed")
+		client.PutItemError = errors.New("put item failed")
 		repo := NewTokenRepository(client, tableName, logger)
 
 		token := &api.WebSocketToken{
@@ -180,7 +179,7 @@ func TestTokenRepository_GetToken_ErrorHandling(t *testing.T) {
 
 	t.Run("handles get item error", func(t *testing.T) {
 		client := NewMockDynamoDBClient()
-		client.GetItemError = fmt.Errorf("get item failed")
+		client.GetItemError = errors.New("get item failed")
 		repo := NewTokenRepository(client, tableName, logger)
 
 		token, err := repo.GetToken(ctx, "token-123")
@@ -214,7 +213,7 @@ func TestTokenRepository_DeleteToken_ErrorHandling(t *testing.T) {
 
 	t.Run("handles delete item error", func(t *testing.T) {
 		client := NewMockDynamoDBClient()
-		client.DeleteItemError = fmt.Errorf("delete item failed")
+		client.DeleteItemError = errors.New("delete item failed")
 		repo := NewTokenRepository(client, tableName, logger)
 
 		err := repo.DeleteToken(ctx, "token-123")

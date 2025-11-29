@@ -14,10 +14,10 @@ var DefaultCORSAllowedOrigins = []string{
 	LocalDevelopmentURL,
 }
 
-// ConfigDirName is the name of the configuration directory in the user's home directory
+// ConfigDirName is the name of the configuration directory in the user's home directory.
 const ConfigDirName = "." + ProjectName
 
-// ConfigFileName is the name of the global configuration file
+// ConfigFileName is the name of the global configuration file.
 const ConfigFileName = "config.yaml"
 
 // ConfigDirPath returns the full path to the global configuration directory.
@@ -25,13 +25,13 @@ func ConfigDirPath(homeDir string) string {
 	return homeDir + "/" + ConfigDirName
 }
 
-// ConfigFilePath returns the full path to the global configuration file
+// ConfigFilePath returns the full path to the global configuration file.
 func ConfigFilePath(homeDir string) string {
 	return ConfigDirPath(homeDir) + "/" + ConfigFileName
 }
 
-// ConfigDirPermissions is the file system permissions for config directory (0750)
+// ConfigDirPermissions is the file system permissions for config directory (0750).
 const ConfigDirPermissions = 0o750
 
-// ConfigFilePermissions is the file system permissions for config file (0600)
+// ConfigFilePermissions is the file system permissions for config file (0600).
 const ConfigFilePermissions = 0o600

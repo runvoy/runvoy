@@ -669,7 +669,7 @@ func TestHandleListExecutions_WithStatusFilter(t *testing.T) {
 			if limit == 0 {
 				return []*api.Execution{}, nil
 			}
-			assert.Equal(t, 2, len(statuses))
+			assert.Len(t, statuses, 2)
 			assert.Contains(t, statuses, "RUNNING")
 			assert.Contains(t, statuses, "TERMINATING")
 			return []*api.Execution{}, nil
@@ -693,7 +693,7 @@ func TestHandleListExecutions_WithStatusFilterAndLimit(t *testing.T) {
 				return []*api.Execution{}, nil
 			}
 			assert.Equal(t, 50, limit)
-			assert.Equal(t, 1, len(statuses))
+			assert.Len(t, statuses, 1)
 			assert.Contains(t, statuses, "SUCCEEDED")
 			return []*api.Execution{}, nil
 		},
@@ -772,7 +772,7 @@ func TestHandleListExecutions_EmptyResult(t *testing.T) {
 	var response []*api.Execution
 	err := json.NewDecoder(w.Body).Decode(&response)
 	require.NoError(t, err)
-	assert.Len(t, response, 0)
+	assert.Empty(t, response)
 }
 
 func TestHandleListExecutions_ServiceError(t *testing.T) {
@@ -803,7 +803,7 @@ func TestHandleListExecutions_MultipleStatusesWithSpaces(t *testing.T) {
 			if limit == 0 {
 				return []*api.Execution{}, nil
 			}
-			assert.Equal(t, 3, len(statuses))
+			assert.Len(t, statuses, 3)
 			// Verify spaces are trimmed
 			assert.Contains(t, statuses, "RUNNING")
 			assert.Contains(t, statuses, "PENDING")

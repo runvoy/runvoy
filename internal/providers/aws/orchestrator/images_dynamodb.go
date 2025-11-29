@@ -24,11 +24,11 @@ func sanitizeImageIDForTaskDef(imageID string) string {
 	re2 := regexp.MustCompile(`-+`)
 	sanitized = re2.ReplaceAllString(sanitized, "-")
 	sanitized = strings.Trim(sanitized, "-")
-	return fmt.Sprintf("runvoy-%s", sanitized)
+	return "runvoy-" + sanitized
 }
 
 // looksLikeImageID checks if a string looks like an ImageID format.
-// ImageID format: {name}:{tag}-{8-char-hash}
+// ImageID format: {name}:{tag}-{8-char-hash}.
 func looksLikeImageID(s string) bool {
 	const hashLength = 8
 	lastDashIdx := strings.LastIndex(s, "-")

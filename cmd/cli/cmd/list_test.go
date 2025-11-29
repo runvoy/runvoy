@@ -2,7 +2,7 @@ package cmd
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"testing"
 	"time"
 
@@ -25,7 +25,7 @@ func (m *mockClientInterfaceForList) ListExecutions(
 	if m.listExecutionsFunc != nil {
 		return m.listExecutionsFunc(ctx, limit, statuses)
 	}
-	return nil, fmt.Errorf("not implemented")
+	return nil, errors.New("not implemented")
 }
 
 func (m *mockClientInterfaceForList) FetchBackendLogs(_ context.Context, _ string) (*api.TraceResponse, error) {
@@ -105,7 +105,7 @@ func TestListService_ListExecutions(t *testing.T) {
 						// Verify table is called with empty rows
 						if len(call.args) >= 2 {
 							rows := call.args[1].([][]string)
-							assert.Equal(t, 0, len(rows), "Should have empty rows")
+							assert.Empty(t, rows, "Should have empty rows")
 						}
 					}
 				}
@@ -117,7 +117,7 @@ func TestListService_ListExecutions(t *testing.T) {
 			limit: 10,
 			setupMock: func(m *mockClientInterfaceForList) {
 				m.listExecutionsFunc = func(_ context.Context, _ int, _ string) ([]api.Execution, error) {
-					return nil, fmt.Errorf("network error")
+					return nil, errors.New("network error")
 				}
 			},
 			wantErr: true,

@@ -17,7 +17,7 @@ import (
 )
 
 var (
-	// Colors and styles
+	// Colors and styles.
 	green  = color.New(color.FgGreen)
 	red    = color.New(color.FgRed)
 	yellow = color.New(color.FgYellow)
@@ -30,7 +30,7 @@ var (
 	// Stderr is the output writer for error output (can be overridden for testing).
 	Stderr io.Writer = os.Stderr
 
-	// Disable colors if not TTY or NO_COLOR is set
+	// Disable colors if not TTY or NO_COLOR is set.
 	noColor = func() bool {
 		disable := os.Getenv("NO_COLOR") != "" || !isTerminal(os.Stdout)
 		if disable {
@@ -38,24 +38,24 @@ var (
 		}
 		return disable
 	}()
-	// Matches ANSI escape sequences used for colors/styles
+	// Matches ANSI escape sequences used for colors/styles.
 	ansiRegexp = regexp.MustCompile(`\x1b\[[0-9;]*m`)
 )
 
 const (
 	// spinnerClearPadding is the number of extra spaces to add when clearing
-	// the spinner line to ensure the spinner frame and any overflow are fully cleared
+	// the spinner line to ensure the spinner frame and any overflow are fully cleared.
 	spinnerClearPadding = 10
 )
 
-// visibleWidth returns the number of visible characters, ignoring ANSI escape codes
+// visibleWidth returns the number of visible characters, ignoring ANSI escape codes.
 func visibleWidth(s string) int {
 	clean := ansiRegexp.ReplaceAllString(s, "")
 	return utf8.RuneCountInString(clean)
 }
 
 // Successf prints a success message with a checkmark (to stderr)
-// Example: ✓ Stack created successfully
+// Example: ✓ Stack created successfully.
 func Successf(format string, a ...any) {
 	_, _ = fmt.Fprintf(Stderr, green.Sprint("✓")+" "+format+"\n", a...)
 }
@@ -67,39 +67,39 @@ func Infof(format string, a ...any) {
 }
 
 // Warningf prints a warning message with a warning symbol (to stderr)
-// Example: ⚠ Lock already held by alice@acme.com
+// Example: ⚠ Lock already held by alice@acme.com.
 func Warningf(format string, a ...any) {
 	_, _ = fmt.Fprintf(Stderr, yellow.Sprint("⚠")+" "+format+"\n", a...)
 }
 
 // Errorf prints an error message with an X symbol (to stderr)
-// Example: ✗ Failed to create stack: permission denied
+// Example: ✗ Failed to create stack: permission denied.
 func Errorf(format string, a ...any) {
 	_, _ = fmt.Fprintf(Stderr, red.Sprint("✗")+" "+format+"\n", a...)
 }
 
-// Fatalf prints an error message and exits with code 1
+// Fatalf prints an error message and exits with code 1.
 func Fatalf(format string, a ...any) {
 	Errorf(format, a...)
 	os.Exit(1)
 }
 
 // Step prints a step in a multi-step process (to stderr)
-// Example: [1/3] Waiting for stack creation
+// Example: [1/3] Waiting for stack creation.
 func Step(step, total int, message string) {
 	_, _ = gray.Fprintf(Stderr, "[%d/%d] ", step, total)
 	_, _ = fmt.Fprintln(Stderr, message)
 }
 
 // StepSuccess prints a successful step completion (to stderr)
-// Example: [1/3] ✓ Stack created
+// Example: [1/3] ✓ Stack created.
 func StepSuccess(step, total int, message string) {
 	_, _ = gray.Fprintf(Stderr, "[%d/%d] ", step, total)
 	_, _ = fmt.Fprintf(Stderr, "%s %s\n", green.Sprint("✓"), message)
 }
 
 // StepError prints a failed step (to stderr)
-// Example: [2/3] ✗ Failed to generate API key
+// Example: [2/3] ✗ Failed to generate API key.
 func StepError(step, total int, message string) {
 	_, _ = gray.Fprintf(Stderr, "[%d/%d] ", step, total)
 	_, _ = fmt.Fprintf(Stderr, "%s %s\n", red.Sprint("✗"), message)
@@ -108,7 +108,7 @@ func StepError(step, total int, message string) {
 // Header prints a section header with a separator line (to stderr)
 // Example:
 // 🚀 Initializing runvoy infrastructure
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━.
 func Header(text string) {
 	_, _ = fmt.Fprintln(Stderr)
 	_, _ = fmt.Fprintln(Stderr, bold.Sprint(text))
@@ -118,7 +118,7 @@ func Header(text string) {
 // Subheader prints a smaller section header (to stderr)
 // Example:
 // Configuration Details
-// ────────────────────
+// ────────────────────.
 func Subheader(text string) {
 	_, _ = fmt.Fprintln(Stderr)
 	_, _ = fmt.Fprintln(Stderr, cyan.Sprint(text))
@@ -126,7 +126,7 @@ func Subheader(text string) {
 }
 
 // KeyValue prints a key-value pair with indentation
-// Example:   Stack name: runvoy
+// Example:   Stack name: runvoy.
 func KeyValue(key, value string) {
 	_, _ = fmt.Fprintf(Stdout, "  %s: %s\n", gray.Sprint(key), value)
 }
@@ -137,47 +137,47 @@ func KeyValueBold(key, value string) {
 	_, _ = fmt.Fprintf(Stdout, "  %s: %s\n", gray.Sprint(key), bold.Sprint(value))
 }
 
-// Blank prints a blank line
+// Blank prints a blank line.
 func Blank() {
 	_, _ = fmt.Fprintln(Stdout)
 }
 
-// Println prints a plain line without any formatting
+// Println prints a plain line without any formatting.
 func Println(a ...any) {
 	_, _ = fmt.Fprintln(Stdout, a...)
 }
 
-// Printf prints a formatted plain line
+// Printf prints a formatted plain line.
 func Printf(format string, a ...any) {
 	_, _ = fmt.Fprintf(Stdout, format, a...)
 }
 
-// Bold prints text in bold
+// Bold prints text in bold.
 func Bold(text string) string {
 	return bold.Sprint(text)
 }
 
-// Cyan prints text in cyan
+// Cyan prints text in cyan.
 func Cyan(text string) string {
 	return cyan.Sprint(text)
 }
 
-// Gray prints text in gray
+// Gray prints text in gray.
 func Gray(text string) string {
 	return gray.Sprint(text)
 }
 
-// Green prints text in green
+// Green prints text in green.
 func Green(text string) string {
 	return green.Sprint(text)
 }
 
-// Red prints text in red
+// Red prints text in red.
 func Red(text string) string {
 	return red.Sprint(text)
 }
 
-// Yellow prints text in yellow
+// Yellow prints text in yellow.
 func Yellow(text string) string {
 	return yellow.Sprint(text)
 }
@@ -186,7 +186,7 @@ func Yellow(text string) string {
 // Example:
 // ╭─────────────────────────────╮
 // │  Configuration saved!       │
-// ╰─────────────────────────────╯
+// ╰─────────────────────────────╯.
 func Box(text string) {
 	lines := strings.Split(text, "\n")
 	maxLen := 0
@@ -218,7 +218,7 @@ func Box(text string) {
 // Execution ID    Status      Duration
 // ────────────    ──────      ────────
 // exec_abc123     completed   10m 35s
-// exec_def456     running     2m 15s
+// exec_def456     running     2m 15s.
 func Table(headers []string, rows [][]string) {
 	if len(headers) == 0 {
 		return
@@ -293,7 +293,7 @@ func NumberedList(items []string) {
 	}
 }
 
-// Spinner represents a simple text spinner for long operations
+// Spinner represents a simple text spinner for long operations.
 type Spinner struct {
 	message string
 	frames  []string
@@ -302,7 +302,7 @@ type Spinner struct {
 	running bool
 }
 
-// NewSpinner creates a new spinner with the given message
+// NewSpinner creates a new spinner with the given message.
 func NewSpinner(message string) *Spinner {
 	return &Spinner{
 		message: message,
@@ -311,7 +311,7 @@ func NewSpinner(message string) *Spinner {
 	}
 }
 
-// Start starts the spinner animation (to stderr)
+// Start starts the spinner animation (to stderr).
 func (s *Spinner) Start() {
 	if noColor || !isTerminal(os.Stderr) {
 		// If not a TTY, just print the message once
@@ -337,7 +337,7 @@ func (s *Spinner) Start() {
 	}()
 }
 
-// Stop stops the spinner and clears the line
+// Stop stops the spinner and clears the line.
 func (s *Spinner) Stop() {
 	if !s.running {
 		return
@@ -347,19 +347,19 @@ func (s *Spinner) Stop() {
 	_, _ = fmt.Fprint(Stderr, "\r"+strings.Repeat(" ", len(s.message)+spinnerClearPadding)+"\r")
 }
 
-// Success stops the spinner and prints a success message
+// Success stops the spinner and prints a success message.
 func (s *Spinner) Success(message string) {
 	s.Stop()
 	Successf(message)
 }
 
-// Error stops the spinner and prints an error message
+// Error stops the spinner and prints an error message.
 func (s *Spinner) Error(message string) {
 	s.Stop()
 	Errorf(message)
 }
 
-// ProgressBar represents a simple text progress bar
+// ProgressBar represents a simple text progress bar.
 type ProgressBar struct {
 	total   int
 	current int
@@ -367,7 +367,7 @@ type ProgressBar struct {
 	message string
 }
 
-// NewProgressBar creates a new progress bar
+// NewProgressBar creates a new progress bar.
 func NewProgressBar(total int, message string) *ProgressBar {
 	return &ProgressBar{
 		total:   total,
@@ -377,7 +377,7 @@ func NewProgressBar(total int, message string) *ProgressBar {
 	}
 }
 
-// Update updates the progress bar to the given value (to stderr)
+// Update updates the progress bar to the given value (to stderr).
 func (p *ProgressBar) Update(current int) {
 	if noColor || !isTerminal(os.Stderr) {
 		// Simple percentage output for non-TTY
@@ -406,18 +406,18 @@ func (p *ProgressBar) Update(current int) {
 	}
 }
 
-// Increment increments the progress bar by 1
+// Increment increments the progress bar by 1.
 func (p *ProgressBar) Increment() {
 	p.Update(p.current + 1)
 }
 
-// Complete marks the progress bar as complete
+// Complete marks the progress bar as complete.
 func (p *ProgressBar) Complete() {
 	p.Update(p.total)
 }
 
 // Confirm prompts the user for yes/no confirmation
-// Returns true if user confirms (y/Y), false otherwise
+// Returns true if user confirms (y/Y), false otherwise.
 func Confirm(prompt string) bool {
 	_, _ = fmt.Fprintf(Stdout, "%s [y/N]: ", yellow.Sprint("?")+" "+prompt)
 
@@ -428,7 +428,7 @@ func Confirm(prompt string) bool {
 	return response == "y" || response == "yes"
 }
 
-// Prompt prompts the user for input
+// Prompt prompts the user for input.
 func Prompt(prompt string) string {
 	_, _ = fmt.Fprintf(Stdout, "%s: ", cyan.Sprint("?")+" "+prompt)
 
@@ -438,7 +438,7 @@ func Prompt(prompt string) string {
 	return strings.TrimSpace(response)
 }
 
-// PromptRequired prompts the user for input and requires a non-empty response
+// PromptRequired prompts the user for input and requires a non-empty response.
 func PromptRequired(prompt string) string {
 	for {
 		response := Prompt(prompt)
@@ -451,7 +451,7 @@ func PromptRequired(prompt string) string {
 
 // PromptSecret prompts for sensitive input (like passwords)
 // Note: This is a simple implementation. For production, consider using
-// golang.org/x/term for proper terminal handling
+// golang.org/x/term for proper terminal handling.
 func PromptSecret(prompt string) string {
 	_, _ = fmt.Fprintf(Stdout, "%s: ", cyan.Sprint("?")+" "+prompt)
 
@@ -461,7 +461,7 @@ func PromptSecret(prompt string) string {
 	return strings.TrimSpace(response)
 }
 
-// StatusBadge prints a colored status badge
+// StatusBadge prints a colored status badge.
 func StatusBadge(status string) string {
 	switch strings.ToLower(status) {
 	case "completed", "success", "succeeded":
@@ -477,7 +477,7 @@ func StatusBadge(status string) string {
 	}
 }
 
-// Duration formats a duration in a human-readable way
+// Duration formats a duration in a human-readable way.
 func Duration(d time.Duration) string {
 	if d < time.Minute {
 		return fmt.Sprintf("%.0fs", d.Seconds())
@@ -492,7 +492,7 @@ func Duration(d time.Duration) string {
 	return fmt.Sprintf("%dh %dm", hours, minutes)
 }
 
-// Bytes formats bytes in a human-readable way
+// Bytes formats bytes in a human-readable way.
 func Bytes(b int64) string {
 	const unit = 1024
 	if b < unit {
@@ -506,7 +506,7 @@ func Bytes(b int64) string {
 	return fmt.Sprintf("%.1f %cB", float64(b)/float64(div), "KMGTPE"[exp])
 }
 
-// isTerminal checks if the writer is a terminal
+// isTerminal checks if the writer is a terminal.
 func isTerminal(w io.Writer) bool {
 	if f, ok := w.(*os.File); ok {
 		fileInfo, _ := f.Stat()

@@ -41,13 +41,13 @@ func traceRun(cmd *cobra.Command, args []string) {
 	}
 }
 
-// TraceService handles backend logs display logic
+// TraceService handles backend logs display logic.
 type TraceService struct {
 	client client.Interface
 	output OutputInterface
 }
 
-// NewTraceService creates a new TraceService with the provided dependencies
+// NewTraceService creates a new TraceService with the provided dependencies.
 func NewTraceService(apiClient client.Interface, outputter OutputInterface) *TraceService {
 	return &TraceService{
 		client: apiClient,
@@ -55,9 +55,9 @@ func NewTraceService(apiClient client.Interface, outputter OutputInterface) *Tra
 	}
 }
 
-// DisplayBackendLogs retrieves and displays backend infrastructure logs and related resources for a request ID
+// DisplayBackendLogs retrieves and displays backend infrastructure logs and related resources for a request ID.
 func (s *TraceService) DisplayBackendLogs(ctx context.Context, requestID string) error {
-	spinner := output.NewSpinner(fmt.Sprintf("Fetching trace for request: %s", requestID))
+	spinner := output.NewSpinner("Fetching trace for request: " + requestID)
 	spinner.Start()
 	defer spinner.Stop()
 

@@ -64,21 +64,21 @@ func (m *ImageRegistryImpl) RegisterImage(
 	createdBy string,
 ) error {
 	if m.ecsClient == nil {
-		return fmt.Errorf("ECS client not configured")
+		return errors.New("ECS client not configured")
 	}
 	if m.imageRepo == nil {
-		return fmt.Errorf("image repository not configured")
+		return errors.New("image repository not configured")
 	}
 
 	reqLogger := logger.DeriveRequestLogger(ctx, m.logger)
 
 	region := m.cfg.Region
 	if region == "" {
-		return fmt.Errorf("AWS region not configured")
+		return errors.New("AWS region not configured")
 	}
 
 	if m.cfg.AccountID == "" {
-		return fmt.Errorf("AWS account ID not configured")
+		return errors.New("AWS account ID not configured")
 	}
 
 	// Validate IAM roles exist before proceeding
@@ -137,7 +137,7 @@ func (m *ImageRegistryImpl) RegisterImage(
 // ListImages lists all registered Docker images from DynamoDB.
 func (m *ImageRegistryImpl) ListImages(ctx context.Context) ([]api.ImageInfo, error) {
 	if m.imageRepo == nil {
-		return nil, fmt.Errorf("image repository not configured")
+		return nil, errors.New("image repository not configured")
 	}
 
 	images, err := m.imageRepo.ListImages(ctx)
@@ -154,7 +154,7 @@ func (m *ImageRegistryImpl) ListImages(ctx context.Context) ([]api.ImageInfo, er
 // If image is empty, returns the default image if one is configured.
 func (m *ImageRegistryImpl) GetImage(ctx context.Context, image string) (*api.ImageInfo, error) {
 	if m.imageRepo == nil {
-		return nil, fmt.Errorf("image repository not configured")
+		return nil, errors.New("image repository not configured")
 	}
 
 	// If no image specified, try to get the default image
@@ -186,7 +186,7 @@ func (m *ImageRegistryImpl) GetImage(ctx context.Context, image string) (*api.Im
 
 	if imageInfo == nil {
 		return nil, apperrors.ErrNotFound(
-			fmt.Sprintf("image not found: %s", image),
+			"image not found: "+image,
 			nil,
 		)
 	}
@@ -206,16 +206,16 @@ func (m *ImageRegistryImpl) GetImage(ctx context.Context, image string) (*api.Im
 //nolint:gocyclo,funlen // Complex deletion flow with pagination, deregistration, and deletion
 func (m *ImageRegistryImpl) RemoveImage(ctx context.Context, image string) error {
 	if m.imageRepo == nil {
-		return fmt.Errorf("image repository not configured")
+		return errors.New("image repository not configured")
 	}
 	if m.ecsClient == nil {
-		return fmt.Errorf("ECS client not configured")
+		return errors.New("ECS client not configured")
 	}
 
 	reqLogger := logger.DeriveRequestLogger(ctx, m.logger)
 
 	if m.cfg.AccountID == "" {
-		return fmt.Errorf("AWS account ID not configured")
+		return errors.New("AWS account ID not configured")
 	}
 
 	var matchingImages []api.ImageInfo
@@ -527,7 +527,7 @@ func (m *ImageRegistryImpl) validateIAMRoles(
 	reqLogger *slog.Logger,
 ) error {
 	if m.iamClient == nil {
-		return fmt.Errorf("IAM client not configured")
+		return errors.New("IAM client not configured")
 	}
 
 	rolesToValidate := []struct {
@@ -627,7 +627,7 @@ func (m *ImageRegistryImpl) registerTaskDefinitionWithRoles(
 	}
 
 	if output.TaskDefinition == nil || output.TaskDefinition.TaskDefinitionArn == nil {
-		return "", fmt.Errorf("ECS returned nil task definition")
+		return "", errors.New("ECS returned nil task definition")
 	}
 
 	taskDefARN := *output.TaskDefinition.TaskDefinitionArn

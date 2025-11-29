@@ -324,7 +324,7 @@ func TestValidRoles(t *testing.T) {
 	}
 
 	// Verify no duplicates
-	assert.Equal(t, len(roles), len(expectedRoles), "ValidRoles should have no duplicates")
+	assert.Equal(t, len(expectedRoles), len(roles), "ValidRoles should have no duplicates")
 }
 
 // TestIsValidRole tests the IsValidRole function
@@ -391,19 +391,19 @@ func TestIsValidRole(t *testing.T) {
 
 // TestRoleConstants tests that role constants have expected values
 func TestRoleConstants(t *testing.T) {
-	assert.Equal(t, Role("admin"), RoleAdmin)
-	assert.Equal(t, Role("operator"), RoleOperator)
-	assert.Equal(t, Role("developer"), RoleDeveloper)
-	assert.Equal(t, Role("viewer"), RoleViewer)
+	assert.Equal(t, RoleAdmin, Role("admin"))
+	assert.Equal(t, RoleOperator, Role("operator"))
+	assert.Equal(t, RoleDeveloper, Role("developer"))
+	assert.Equal(t, RoleViewer, Role("viewer"))
 }
 
 // TestActionConstants tests that action constants have expected values
 func TestActionConstants(t *testing.T) {
-	assert.Equal(t, Action("create"), ActionCreate)
-	assert.Equal(t, Action("read"), ActionRead)
-	assert.Equal(t, Action("update"), ActionUpdate)
-	assert.Equal(t, Action("delete"), ActionDelete)
-	assert.Equal(t, Action("kill"), ActionKill)
+	assert.Equal(t, ActionCreate, Action("create"))
+	assert.Equal(t, ActionRead, Action("read"))
+	assert.Equal(t, ActionUpdate, Action("update"))
+	assert.Equal(t, ActionDelete, Action("delete"))
+	assert.Equal(t, ActionKill, Action("kill"))
 }
 
 // TestRoleCreationAndValidation is an integration test showing typical usage patterns

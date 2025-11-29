@@ -2,7 +2,7 @@ package cmd
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -23,7 +23,7 @@ func (m *mockClientInterfaceForLogs) GetLogs(ctx context.Context, executionID st
 	if m.getLogsFunc != nil {
 		return m.getLogsFunc(ctx, executionID)
 	}
-	return nil, fmt.Errorf("not implemented")
+	return nil, errors.New("not implemented")
 }
 
 func (m *mockClientInterfaceForLogs) GetExecutionStatus(
@@ -33,7 +33,7 @@ func (m *mockClientInterfaceForLogs) GetExecutionStatus(
 	if m.getExecutionStatusFunc != nil {
 		return m.getExecutionStatusFunc(ctx, executionID)
 	}
-	return nil, fmt.Errorf("not implemented")
+	return nil, errors.New("not implemented")
 }
 
 func (m *mockClientInterfaceForLogs) FetchBackendLogs(_ context.Context, _ string) (*api.TraceResponse, error) {
@@ -68,7 +68,7 @@ func TestLogsService_DisplayLogs(t *testing.T) {
 			},
 			wantErr: false,
 			verifyOutput: func(t *testing.T, m *mockOutputInterface) {
-				require.Greater(t, len(m.calls), 0)
+				require.NotEmpty(t, m.calls)
 				hasTable := false
 				for _, call := range m.calls {
 					if call.method == "Table" {
@@ -114,7 +114,7 @@ func TestLogsService_DisplayLogs(t *testing.T) {
 			webURL:      "https://logs.example.com",
 			setupMock: func(m *mockClientInterfaceForLogs) {
 				m.getLogsFunc = func(_ context.Context, _ string) (*api.LogsResponse, error) {
-					return nil, fmt.Errorf("network error")
+					return nil, errors.New("network error")
 				}
 			},
 			wantErr: true,
@@ -159,7 +159,7 @@ func TestLogsService_DisplayLogs(t *testing.T) {
 				require.GreaterOrEqual(t, len(tableCall.args), 2, "Table call should have at least 2 args")
 				rows, ok := tableCall.args[1].([][]string)
 				require.True(t, ok, "Second arg should be [][]string")
-				assert.Equal(t, 7, len(rows), "Should display all 7 log events even with duplicate timestamps")
+				assert.Len(t, rows, 7, "Should display all 7 log events even with duplicate timestamps")
 			},
 		},
 		{

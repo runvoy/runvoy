@@ -12,11 +12,11 @@ import (
 )
 
 const (
-	// parameterSplitParts is the expected number of parts when splitting a KEY=VALUE parameter
+	// parameterSplitParts is the expected number of parts when splitting a KEY=VALUE parameter.
 	parameterSplitParts = 2
 )
 
-// DeployOptions contains all options for deploying infrastructure
+// DeployOptions contains all options for deploying infrastructure.
 type DeployOptions struct {
 	StackName  string
 	Template   string   // URL, S3 URI, or local file path
@@ -26,7 +26,7 @@ type DeployOptions struct {
 	Region     string   // Provider region (optional)
 }
 
-// DeployResult contains the result of a deployment operation
+// DeployResult contains the result of a deployment operation.
 type DeployResult struct {
 	StackName     string
 	OperationType string // "CREATE" or "UPDATE"
@@ -35,21 +35,21 @@ type DeployResult struct {
 	NoChanges     bool // True if stack was already up to date
 }
 
-// DestroyOptions contains all options for destroying infrastructure
+// DestroyOptions contains all options for destroying infrastructure.
 type DestroyOptions struct {
 	StackName string
 	Wait      bool   // Wait for completion
 	Region    string // Provider region (optional)
 }
 
-// DestroyResult contains the result of a destroy operation
+// DestroyResult contains the result of a destroy operation.
 type DestroyResult struct {
 	StackName string
 	Status    string
 	NotFound  bool // True if stack was already deleted
 }
 
-// TemplateSource represents the resolved template source
+// TemplateSource represents the resolved template source.
 type TemplateSource struct {
 	URL  string // For remote templates (S3/HTTPS)
 	Body string // For local file templates
@@ -71,7 +71,7 @@ type Deployer interface {
 }
 
 // NewDeployer creates a Deployer for the specified provider.
-// Currently supports: "aws"
+// Currently supports: "aws".
 func NewDeployer(ctx context.Context, provider, region string) (Deployer, error) {
 	providerLower := strings.ToLower(provider)
 	awsProvider := strings.ToLower(string(constants.AWS))
@@ -97,7 +97,7 @@ func ResolveTemplate(provider, template, version, region string) (*TemplateSourc
 	}
 }
 
-// resolveAWSTemplate resolves template for AWS provider
+// resolveAWSTemplate resolves template for AWS provider.
 func resolveAWSTemplate(template, version, region string) (*TemplateSource, error) {
 	if template == "" {
 		// Use default S3 URL with region
@@ -133,7 +133,7 @@ func resolveAWSTemplate(template, version, region string) (*TemplateSource, erro
 	return &TemplateSource{Body: string(content)}, nil
 }
 
-// ParseParameters parses KEY=VALUE parameter strings
+// ParseParameters parses KEY=VALUE parameter strings.
 func ParseParameters(params []string) (map[string]string, error) {
 	result := make(map[string]string)
 

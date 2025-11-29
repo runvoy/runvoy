@@ -5,9 +5,11 @@ package ecsdefs
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/runvoy/runvoy/internal/constants"
@@ -70,8 +72,8 @@ func RecreateTaskDefinition(
 	isDefault bool,
 	reqLogger *slog.Logger,
 ) (string, error) {
-	cpuStr := fmt.Sprintf("%d", cpu)
-	memoryStr := fmt.Sprintf("%d", memory)
+	cpuStr := strconv.Itoa(cpu)
+	memoryStr := strconv.Itoa(memory)
 	registerInput := BuildTaskDefinitionInputForConfig(
 		ctx,
 		family,
@@ -101,7 +103,7 @@ func RecreateTaskDefinition(
 	}
 
 	if output.TaskDefinition == nil || output.TaskDefinition.TaskDefinitionArn == nil {
-		return "", fmt.Errorf("ECS returned nil task definition")
+		return "", errors.New("ECS returned nil task definition")
 	}
 
 	taskDefARN := *output.TaskDefinition.TaskDefinitionArn

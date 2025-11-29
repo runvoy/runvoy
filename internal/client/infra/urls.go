@@ -25,7 +25,7 @@ func BuildLogsURL(webURL, executionID string) string {
 		return fmt.Sprintf("%s/logs?execution_id=%s", webURL, executionID)
 	}
 	baseURL.Path = joinedPath
-	baseURL.RawQuery = fmt.Sprintf("execution_id=%s", url.QueryEscape(executionID))
+	baseURL.RawQuery = "execution_id=" + url.QueryEscape(executionID)
 
 	return baseURL.String()
 }

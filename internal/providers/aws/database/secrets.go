@@ -31,7 +31,7 @@ type SecretsRepository struct {
 	logger       *slog.Logger
 }
 
-// Ensure SecretsRepository implements database.SecretsRepository
+// Ensure SecretsRepository implements database.SecretsRepository.
 var _ database.SecretsRepository = (*SecretsRepository)(nil)
 
 // NewSecretsRepository creates a new AWS secrets repository.

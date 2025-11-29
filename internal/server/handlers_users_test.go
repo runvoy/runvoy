@@ -265,7 +265,7 @@ func TestHandleListUsers_EmptyList(t *testing.T) {
 	var response api.ListUsersResponse
 	err := json.NewDecoder(w.Body).Decode(&response)
 	require.NoError(t, err)
-	assert.Len(t, response.Users, 0)
+	assert.Empty(t, response.Users)
 }
 
 func TestHandleListUsers_NoAuthentication(t *testing.T) {

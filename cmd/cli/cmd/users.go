@@ -82,13 +82,13 @@ func runCreateUser(cmd *cobra.Command, args []string) {
 	})
 }
 
-// UsersService handles user management logic
+// UsersService handles user management logic.
 type UsersService struct {
 	client client.Interface
 	output OutputInterface
 }
 
-// NewUsersService creates a new UsersService with the provided dependencies
+// NewUsersService creates a new UsersService with the provided dependencies.
 func NewUsersService(apiClient client.Interface, outputter OutputInterface) *UsersService {
 	return &UsersService{
 		client: apiClient,
@@ -96,7 +96,7 @@ func NewUsersService(apiClient client.Interface, outputter OutputInterface) *Use
 	}
 }
 
-// CreateUser creates a new user with the given email and role
+// CreateUser creates a new user with the given email and role.
 func (s *UsersService) CreateUser(ctx context.Context, email, role string) error {
 	s.output.Infof("Creating user with email %s and role %s...", email, role)
 
@@ -124,7 +124,7 @@ func (s *UsersService) CreateUser(ctx context.Context, email, role string) error
 	return nil
 }
 
-// ListUsers lists all users and displays them in a table format
+// ListUsers lists all users and displays them in a table format.
 func (s *UsersService) ListUsers(ctx context.Context) error {
 	s.output.Infof("Listing users…")
 
@@ -157,7 +157,7 @@ func (s *UsersService) ListUsers(ctx context.Context) error {
 	return nil
 }
 
-// RevokeUser revokes a user's API key
+// RevokeUser revokes a user's API key.
 func (s *UsersService) RevokeUser(ctx context.Context, email string) error {
 	s.output.Infof("Revoking user with email %s...", email)
 
@@ -173,7 +173,7 @@ func (s *UsersService) RevokeUser(ctx context.Context, email string) error {
 	return nil
 }
 
-// formatUsers formats user data into table rows
+// formatUsers formats user data into table rows.
 func (s *UsersService) formatUsers(users []*api.User) [][]string {
 	rows := make([][]string, 0, len(users))
 	for _, u := range users {

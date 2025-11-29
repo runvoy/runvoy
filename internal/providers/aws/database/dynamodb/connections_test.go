@@ -2,6 +2,7 @@ package dynamodb
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"testing"
 	"time"
@@ -228,7 +229,7 @@ func TestConnectionRepositoryWithContext(t *testing.T) {
 		assert.NotNil(t, ctx)
 		deadline, ok := ctx.Deadline()
 		assert.True(t, ok)
-		assert.True(t, time.Until(deadline) > 0)
+		assert.Positive(t, time.Until(deadline))
 	})
 
 	t.Run("canceled context", func(t *testing.T) {
@@ -361,7 +362,7 @@ func TestGetConnectionsByExecutionID_NoResults(t *testing.T) {
 	retrieved, err := repo.GetConnectionsByExecutionID(context.Background(), "nonexistent-exec")
 
 	assert.NoError(t, err)
-	assert.Len(t, retrieved, 0)
+	assert.Empty(t, retrieved)
 }
 
 func TestConnectionRepository_CreateConnection_ErrorHandling(t *testing.T) {
@@ -388,7 +389,7 @@ func TestConnectionRepository_CreateConnection_ErrorHandling(t *testing.T) {
 
 	t.Run("handles put item error", func(t *testing.T) {
 		client := NewMockDynamoDBClient()
-		client.PutItemError = fmt.Errorf("put item failed")
+		client.PutItemError = errors.New("put item failed")
 		repo := NewConnectionRepository(client, tableName, logger)
 
 		connection := &api.WebSocketConnection{
@@ -412,7 +413,7 @@ func TestConnectionRepository_DeleteConnections_ErrorHandling(t *testing.T) {
 
 	t.Run("handles batch write error", func(t *testing.T) {
 		client := NewMockDynamoDBClient()
-		client.BatchWriteItemError = fmt.Errorf("batch write failed")
+		client.BatchWriteItemError = errors.New("batch write failed")
 		repo := NewConnectionRepository(client, tableName, logger)
 
 		connectionIDs := []string{"conn-1", "conn-2"}
@@ -462,7 +463,7 @@ func TestConnectionRepository_GetConnectionsByExecutionID_ErrorHandling(t *testi
 
 	t.Run("handles query error", func(t *testing.T) {
 		client := NewMockDynamoDBClient()
-		client.QueryError = fmt.Errorf("query failed")
+		client.QueryError = errors.New("query failed")
 		repo := NewConnectionRepository(client, tableName, logger)
 
 		connections, err := repo.GetConnectionsByExecutionID(ctx, "exec-123")

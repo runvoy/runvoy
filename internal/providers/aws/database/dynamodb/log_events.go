@@ -2,6 +2,7 @@ package dynamodb
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"strconv"
@@ -56,7 +57,7 @@ func (r *LogEventRepository) SaveLogEvents(ctx context.Context, executionID stri
 	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
 
 	if executionID == "" {
-		return fmt.Errorf("execution ID is required")
+		return errors.New("execution ID is required")
 	}
 
 	if len(logEvents) == 0 {
@@ -100,7 +101,7 @@ func (r *LogEventRepository) ListLogEvents(ctx context.Context, executionID stri
 	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
 
 	if executionID == "" {
-		return nil, fmt.Errorf("execution ID is required")
+		return nil, errors.New("execution ID is required")
 	}
 
 	exprValues := map[string]types.AttributeValue{
@@ -148,7 +149,7 @@ func (r *LogEventRepository) DeleteLogEvents(ctx context.Context, executionID st
 	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
 
 	if executionID == "" {
-		return fmt.Errorf("execution ID is required")
+		return errors.New("execution ID is required")
 	}
 
 	exprValues := map[string]types.AttributeValue{

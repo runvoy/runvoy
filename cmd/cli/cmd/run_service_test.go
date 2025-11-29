@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"testing"
 
@@ -24,14 +25,14 @@ func (m *mockClientInterfaceForRun) RunCommand(
 	if m.runCommandFunc != nil {
 		return m.runCommandFunc(ctx, req)
 	}
-	return nil, fmt.Errorf("not implemented")
+	return nil, errors.New("not implemented")
 }
 
 func (m *mockClientInterfaceForRun) GetLogs(ctx context.Context, executionID string) (*api.LogsResponse, error) {
 	if m.getLogsFunc != nil {
 		return m.getLogsFunc(ctx, executionID)
 	}
-	return nil, fmt.Errorf("not implemented")
+	return nil, errors.New("not implemented")
 }
 
 func (m *mockClientInterfaceForRun) FetchBackendLogs(_ context.Context, _ string) (*api.TraceResponse, error) {
@@ -210,7 +211,7 @@ func TestRunService_ExecuteCommand(t *testing.T) {
 			},
 			setupMock: func(m *mockClientInterfaceForRun) {
 				m.runCommandFunc = func(_ context.Context, req *api.ExecutionRequest) (*api.ExecutionResponse, error) {
-					assert.Equal(t, "", req.Image)
+					assert.Empty(t, req.Image)
 					return &api.ExecutionResponse{
 						ExecutionID: "exec-default",
 						Status:      "pending",
@@ -246,7 +247,7 @@ func TestRunService_ExecuteCommand(t *testing.T) {
 			},
 			setupMock: func(m *mockClientInterfaceForRun) {
 				m.runCommandFunc = func(_ context.Context, _ *api.ExecutionRequest) (*api.ExecutionResponse, error) {
-					return nil, fmt.Errorf("network error")
+					return nil, errors.New("network error")
 				}
 			},
 			wantErr: true,
@@ -287,7 +288,7 @@ func TestRunService_ExecuteCommand(t *testing.T) {
 			},
 			wantErr: false,
 			verifyOutput: func(t *testing.T, m *mockOutputInterface) {
-				assert.True(t, len(m.calls) > 0, "Should have output calls")
+				assert.Positive(t, len(m.calls), "Should have output calls")
 			},
 		},
 		{
@@ -341,7 +342,7 @@ func TestRunService_ExecuteCommand(t *testing.T) {
 					}, nil
 				}
 				m.getLogsFunc = func(_ context.Context, _ string) (*api.LogsResponse, error) {
-					return nil, fmt.Errorf("GetLogs should not be called when websocket URL is provided")
+					return nil, errors.New("GetLogs should not be called when websocket URL is provided")
 				}
 			},
 			expectStream: true,

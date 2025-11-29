@@ -6,7 +6,7 @@ import (
 
 // BuildLogStreamName constructs a CloudWatch Logs stream name for an execution.
 // Format: task/{container}/{execution_id}
-// Example: task/runner/abc123
+// Example: task/runner/abc123.
 func BuildLogStreamName(executionID string) string {
 	return "task/" + RunnerContainerName + "/" + executionID
 }

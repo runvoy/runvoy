@@ -410,7 +410,7 @@ func TestProvider_ListImages(t *testing.T) {
 				}
 			} else {
 				require.NoError(t, err)
-				assert.Equal(t, len(tt.expectedImages), len(images))
+				assert.Len(t, images, len(tt.expectedImages))
 				if len(images) > 0 {
 					for i, img := range images {
 						assert.Equal(t, tt.expectedImages[i].Image, img.Image)

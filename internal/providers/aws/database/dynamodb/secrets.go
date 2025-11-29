@@ -49,7 +49,7 @@ type secretItem struct {
 	ModifiedByRequestID string    `dynamodbav:"modified_by_request_id,omitempty"`
 }
 
-// toAPISecret converts a secretItem to an API Secret
+// toAPISecret converts a secretItem to an API Secret.
 func (si *secretItem) toAPISecret() *api.Secret {
 	return &api.Secret{
 		Name:                si.SecretName,

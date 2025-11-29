@@ -3,7 +3,7 @@ package aws
 import (
 	"context"
 	"encoding/json"
-	"fmt"
+	"errors"
 	"log/slog"
 	"net/http"
 	"testing"
@@ -331,7 +331,7 @@ func TestHandleECSTaskCompletion_Success(t *testing.T) {
 	assert.Equal(t, string(constants.ExecutionSucceeded), updatedExecution.Status)
 	assert.Equal(t, 0, updatedExecution.ExitCode)
 	assert.NotNil(t, updatedExecution.CompletedAt)
-	assert.Greater(t, updatedExecution.DurationSeconds, 0)
+	assert.Positive(t, updatedExecution.DurationSeconds)
 }
 
 func TestHandleECSTaskCompletion_MarkRunning(t *testing.T) {
@@ -485,7 +485,7 @@ func TestHandleECSTaskCompletion_MissingStartedAt(t *testing.T) {
 	err := backend.handleECSTaskEvent(ctx, &event, testutil.SilentLogger())
 	assert.NoError(t, err)
 	assert.NotNil(t, updatedExecution)
-	assert.Greater(t, updatedExecution.DurationSeconds, 0)
+	assert.Positive(t, updatedExecution.DurationSeconds)
 }
 
 func TestParseTaskTimes_NegativeDuration(t *testing.T) {
@@ -758,7 +758,7 @@ func TestHandle_ErrorHandling(t *testing.T) {
 	t.Run("handles repository error when getting execution", func(t *testing.T) {
 		mockRepo := &mockExecutionRepo{
 			getExecutionFunc: func(_ context.Context, _ string) (*api.Execution, error) {
-				return nil, fmt.Errorf("database connection failed")
+				return nil, errors.New("database connection failed")
 			},
 		}
 		mockWebSocket := &mockWebSocketHandler{}
@@ -798,7 +798,7 @@ func TestHandle_ErrorHandling(t *testing.T) {
 				return execution, nil
 			},
 			updateExecutionFunc: func(_ context.Context, _ *api.Execution) error {
-				return fmt.Errorf("update failed")
+				return errors.New("update failed")
 			},
 		}
 		mockWebSocket := &mockWebSocketHandler{}
@@ -836,7 +836,7 @@ func TestHandle_ErrorHandling(t *testing.T) {
 		mockRepo := &mockExecutionRepo{}
 		mockWebSocket := &mockWebSocketHandler{
 			handleRequestFunc: func(_ context.Context, _ *json.RawMessage, _ *slog.Logger) (bool, error) {
-				return false, fmt.Errorf("websocket connection failed")
+				return false, errors.New("websocket connection failed")
 			},
 		}
 		processor := NewProcessor(mockRepo, &noopLogEventRepo{}, mockWebSocket, nil, logger)
@@ -1010,7 +1010,7 @@ func TestHandleEventJSON(t *testing.T) {
 	t.Run("handles valid CloudWatch event JSON", func(t *testing.T) {
 		mockRepo := &mockExecutionRepo{
 			getExecutionFunc: func(_ context.Context, _ string) (*api.Execution, error) {
-				return nil, fmt.Errorf("execution not found")
+				return nil, errors.New("execution not found")
 			},
 		}
 		mockWebSocket := &mockWebSocketHandler{}
@@ -1256,7 +1256,7 @@ func TestHandleScheduledEvent_HealthReconcileError(t *testing.T) {
 
 	mockHealthManager := &mockHealthManager{
 		reconcileFunc: func(_ context.Context) (*api.HealthReport, error) {
-			return nil, fmt.Errorf("reconciliation failed")
+			return nil, errors.New("reconciliation failed")
 		},
 	}
 

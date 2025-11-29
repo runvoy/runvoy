@@ -126,8 +126,8 @@ func TestNewWebSocketConnection_WithNilUserEmail(t *testing.T) {
 	assert.NotNil(t, connection)
 	assert.Equal(t, "conn-789", connection.ConnectionID)
 	assert.Equal(t, "exec-999", connection.ExecutionID)
-	assert.Equal(t, "", connection.UserEmail)
-	assert.Equal(t, "", connection.TokenRequestClientIP)
+	assert.Empty(t, connection.UserEmail)
+	assert.Empty(t, connection.TokenRequestClientIP)
 }
 
 func TestNewWebSocketConnection_ExpiresAt(t *testing.T) {

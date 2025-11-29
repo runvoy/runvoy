@@ -3,11 +3,13 @@ package cmd
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
 	"os/signal"
 	"slices"
+	"strconv"
 	"sync"
 	"syscall"
 	"time"
@@ -56,14 +58,14 @@ func logsRun(cmd *cobra.Command, args []string) {
 	}
 }
 
-// LogsService handles log display logic
+// LogsService handles log display logic.
 type LogsService struct {
 	client client.Interface
 	output OutputInterface
 	stream func(websocketURL string, startingLineNumber int, webURL, executionID string) error
 }
 
-// NewLogsService creates a new LogsService with the provided dependencies
+// NewLogsService creates a new LogsService with the provided dependencies.
 func NewLogsService(apiClient client.Interface, outputter OutputInterface) *LogsService {
 	service := &LogsService{
 		client: apiClient,
@@ -75,7 +77,7 @@ func NewLogsService(apiClient client.Interface, outputter OutputInterface) *Logs
 	return service
 }
 
-// readWebSocketMessages reads messages from WebSocket and sends log events to a channel
+// readWebSocketMessages reads messages from WebSocket and sends log events to a channel.
 func (s *LogsService) readWebSocketMessages(
 	conn *websocket.Conn,
 	logChan chan<- api.LogEvent,
@@ -124,7 +126,7 @@ func (s *LogsService) readWebSocketMessages(
 	}
 }
 
-// streamLogsViaWebSocket connects to WebSocket and streams logs in real-time
+// streamLogsViaWebSocket connects to WebSocket and streams logs in real-time.
 func (s *LogsService) streamLogsViaWebSocket(
 	websocketURL string,
 	startingLineNumber int,
@@ -183,7 +185,7 @@ func (s *LogsService) streamLogsViaWebSocket(
 }
 
 // DisplayLogs retrieves static logs and then streams new logs via WebSocket in real-time
-// If the execution has already completed, it displays static logs only and skips WebSocket streaming
+// If the execution has already completed, it displays static logs only and skips WebSocket streaming.
 func (s *LogsService) DisplayLogs(ctx context.Context, executionID, webURL string) error {
 	resp, err := s.client.GetLogs(ctx, executionID)
 	if err != nil {
@@ -201,14 +203,14 @@ func (s *LogsService) DisplayLogs(ctx context.Context, executionID, webURL strin
 	}
 
 	if s.stream == nil {
-		return fmt.Errorf("websocket streaming function is not configured")
+		return errors.New("websocket streaming function is not configured")
 	}
 
 	s.output.Infof("Execution status: %s. Streaming logs via WebSocket...", resp.Status)
 	return s.stream(resp.WebSocketURL, len(resp.Events), webURL, executionID)
 }
 
-// displayLogEvents displays all log events in a sorted table
+// displayLogEvents displays all log events in a sorted table.
 func (s *LogsService) displayLogEvents(logEvents []api.LogEvent) {
 	// Sort logs by timestamp (and preserve order for same timestamps)
 	sortedEvents := make([]api.LogEvent, len(logEvents))
@@ -228,7 +230,7 @@ func (s *LogsService) displayLogEvents(logEvents []api.LogEvent) {
 	for i, log := range sortedEvents {
 		lineNumber := i + 1 // Compute line number client-side (1-indexed)
 		rows = append(rows, []string{
-			s.output.Bold(fmt.Sprintf("%d", lineNumber)),
+			s.output.Bold(strconv.Itoa(lineNumber)),
 			time.Unix(log.Timestamp/constants.MillisecondsPerSecond, 0).UTC().Format(time.DateTime),
 			log.Message,
 		})
@@ -237,17 +239,17 @@ func (s *LogsService) displayLogEvents(logEvents []api.LogEvent) {
 	s.output.Blank()
 }
 
-// printLogLine prints a single log line (used for streaming)
+// printLogLine prints a single log line (used for streaming).
 func (s *LogsService) printLogLine(lineNumber int, log api.LogEvent) {
 	timestamp := time.Unix(log.Timestamp/constants.MillisecondsPerSecond, 0).UTC().Format(time.DateTime)
 	fmt.Printf("%s %s %s\n",
-		s.output.Bold(fmt.Sprintf("%d", lineNumber)),
+		s.output.Bold(strconv.Itoa(lineNumber)),
 		timestamp,
 		log.Message,
 	)
 }
 
-// printWebviewerURL prints the web application URL
+// printWebviewerURL prints the web application URL.
 func (s *LogsService) printWebviewerURL(webURL, executionID string) {
 	urlStr := infra.BuildLogsURL(webURL, executionID)
 	s.output.Infof("View logs in web viewer: %s", s.output.Cyan(urlStr))

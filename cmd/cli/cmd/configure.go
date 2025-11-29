@@ -3,6 +3,7 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/runvoy/runvoy/internal/client/output"
@@ -36,61 +37,61 @@ func runConfigure(_ *cobra.Command, _ []string) {
 	}
 }
 
-// ConfigLoader defines an interface for loading configuration
+// ConfigLoader defines an interface for loading configuration.
 type ConfigLoader interface {
 	Load() (*config.Config, error)
 }
 
-// ConfigSaver defines an interface for saving configuration
+// ConfigSaver defines an interface for saving configuration.
 type ConfigSaver interface {
 	Save(*config.Config) error
 }
 
-// ConfigPathGetter defines an interface for retrieving the configuration path
+// ConfigPathGetter defines an interface for retrieving the configuration path.
 type ConfigPathGetter interface {
 	GetConfigPath() (string, error)
 }
 
-// ConfigLoaderFunc adapts a function to the ConfigLoader interface
+// ConfigLoaderFunc adapts a function to the ConfigLoader interface.
 type ConfigLoaderFunc func() (*config.Config, error)
 
-// Load executes the underlying function to load configuration
+// Load executes the underlying function to load configuration.
 func (f ConfigLoaderFunc) Load() (*config.Config, error) {
 	return f()
 }
 
-// ConfigSaverFunc adapts a function to the ConfigSaver interface
+// ConfigSaverFunc adapts a function to the ConfigSaver interface.
 type ConfigSaverFunc func(*config.Config) error
 
-// Save executes the underlying function to persist configuration
+// Save executes the underlying function to persist configuration.
 func (f ConfigSaverFunc) Save(cfg *config.Config) error {
 	return f(cfg)
 }
 
-// ConfigPathGetterFunc adapts a function to the ConfigPathGetter interface
+// ConfigPathGetterFunc adapts a function to the ConfigPathGetter interface.
 type ConfigPathGetterFunc func() (string, error)
 
-// GetConfigPath executes the underlying function to retrieve the config path
+// GetConfigPath executes the underlying function to retrieve the config path.
 func (f ConfigPathGetterFunc) GetConfigPath() (string, error) {
 	return f()
 }
 
-// NewConfigLoader creates a ConfigLoader using the global config.Load function
+// NewConfigLoader creates a ConfigLoader using the global config.Load function.
 func NewConfigLoader() ConfigLoader {
 	return ConfigLoaderFunc(config.Load)
 }
 
-// NewConfigSaver creates a ConfigSaver using the global config.Save function
+// NewConfigSaver creates a ConfigSaver using the global config.Save function.
 func NewConfigSaver() ConfigSaver {
 	return ConfigSaverFunc(config.Save)
 }
 
-// NewConfigPathGetter creates a ConfigPathGetter using the global config.GetConfigPath function
+// NewConfigPathGetter creates a ConfigPathGetter using the global config.GetConfigPath function.
 func NewConfigPathGetter() ConfigPathGetter {
 	return ConfigPathGetterFunc(config.GetConfigPath)
 }
 
-// ConfigureService handles configuration logic
+// ConfigureService handles configuration logic.
 type ConfigureService struct {
 	output           OutputInterface
 	configSaver      ConfigSaver
@@ -98,7 +99,7 @@ type ConfigureService struct {
 	configPathGetter ConfigPathGetter
 }
 
-// NewConfigureService creates a new ConfigureService with the provided dependencies
+// NewConfigureService creates a new ConfigureService with the provided dependencies.
 func NewConfigureService(
 	outputter OutputInterface,
 	configSaver ConfigSaver,
@@ -113,7 +114,7 @@ func NewConfigureService(
 	}
 }
 
-// Configure runs the interactive configuration flow
+// Configure runs the interactive configuration flow.
 func (s *ConfigureService) Configure(_ context.Context) error {
 	existingConfig, err := s.configLoader.Load()
 	configExists := err == nil
@@ -131,7 +132,7 @@ func (s *ConfigureService) Configure(_ context.Context) error {
 			endpoint = existingConfig.APIEndpoint
 			s.output.Infof("Using existing endpoint: %s", endpoint)
 		} else {
-			return fmt.Errorf("API endpoint is required")
+			return errors.New("API endpoint is required")
 		}
 	}
 
@@ -141,7 +142,7 @@ func (s *ConfigureService) Configure(_ context.Context) error {
 			apiKey = existingConfig.APIKey
 			s.output.Infof("Using existing API key")
 		} else {
-			return fmt.Errorf("API key is required")
+			return errors.New("API key is required")
 		}
 	}
 

@@ -124,7 +124,7 @@ func TestGetImage_RunnerError(t *testing.T) {
 
 	assert.Error(t, imageErr)
 	var appErr *apperrors.AppError
-	assert.True(t, errors.As(imageErr, &appErr))
+	assert.ErrorAs(t, imageErr, &appErr)
 }
 
 func TestGetImage_RunnerGenericError(t *testing.T) {
@@ -139,7 +139,7 @@ func TestGetImage_RunnerGenericError(t *testing.T) {
 
 	assert.Error(t, imageErr)
 	var appErr *apperrors.AppError
-	assert.True(t, errors.As(imageErr, &appErr))
+	assert.ErrorAs(t, imageErr, &appErr)
 }
 
 func TestRemoveImage_Success(t *testing.T) {
@@ -181,7 +181,7 @@ func TestRemoveImage_RunnerError(t *testing.T) {
 
 	assert.Error(t, removeErr)
 	var appErr *apperrors.AppError
-	assert.True(t, errors.As(removeErr, &appErr))
+	assert.ErrorAs(t, removeErr, &appErr)
 }
 
 func TestRemoveImage_RunnerGenericError(t *testing.T) {
@@ -196,7 +196,7 @@ func TestRemoveImage_RunnerGenericError(t *testing.T) {
 
 	assert.Error(t, removeErr)
 	var appErr *apperrors.AppError
-	assert.True(t, errors.As(removeErr, &appErr))
+	assert.ErrorAs(t, removeErr, &appErr)
 }
 
 func TestListImages_Success(t *testing.T) {
@@ -231,7 +231,7 @@ func TestListImages_Empty(t *testing.T) {
 	resp, listErr := service.ListImages(context.Background())
 
 	assert.NoError(t, listErr)
-	assert.Len(t, resp.Images, 0)
+	assert.Empty(t, resp.Images)
 }
 
 func TestListImages_RunnerError(t *testing.T) {
@@ -252,7 +252,7 @@ func TestListImages_RunnerError(t *testing.T) {
 
 	assert.Error(t, listErr)
 	var appErr *apperrors.AppError
-	assert.True(t, errors.As(listErr, &appErr))
+	assert.ErrorAs(t, listErr, &appErr)
 }
 
 func TestListImages_RunnerGenericError(t *testing.T) {
@@ -273,7 +273,7 @@ func TestListImages_RunnerGenericError(t *testing.T) {
 
 	assert.Error(t, listErr)
 	var appErr *apperrors.AppError
-	assert.True(t, errors.As(listErr, &appErr))
+	assert.ErrorAs(t, listErr, &appErr)
 }
 
 func TestRegisterImage_Success(t *testing.T) {
@@ -337,7 +337,7 @@ func TestRegisterImage_RunnerError(t *testing.T) {
 
 	assert.Error(t, registerErr)
 	var appErr *apperrors.AppError
-	assert.True(t, errors.As(registerErr, &appErr))
+	assert.ErrorAs(t, registerErr, &appErr)
 }
 
 func TestRegisterImage_RunnerGenericError(t *testing.T) {
@@ -359,7 +359,7 @@ func TestRegisterImage_RunnerGenericError(t *testing.T) {
 
 	assert.Error(t, registerErr)
 	var appErr *apperrors.AppError
-	assert.True(t, errors.As(registerErr, &appErr))
+	assert.ErrorAs(t, registerErr, &appErr)
 }
 
 func TestRegisterImage_EmptyCreatedBy(t *testing.T) {
@@ -381,7 +381,7 @@ func TestRegisterImage_EmptyCreatedBy(t *testing.T) {
 
 	assert.Error(t, registerErr)
 	var appErr *apperrors.AppError
-	assert.True(t, errors.As(registerErr, &appErr))
+	assert.ErrorAs(t, registerErr, &appErr)
 	assert.Contains(t, registerErr.Error(), "createdBy is required")
 	assert.Equal(t, apperrors.ErrCodeInvalidRequest, apperrors.GetErrorCode(registerErr))
 	assert.Equal(t, http.StatusBadRequest, apperrors.GetStatusCode(registerErr))
@@ -406,7 +406,7 @@ func TestRegisterImage_NilRequest(t *testing.T) {
 
 	assert.Error(t, registerErr)
 	var appErr *apperrors.AppError
-	assert.True(t, errors.As(registerErr, &appErr))
+	assert.ErrorAs(t, registerErr, &appErr)
 	assert.Contains(t, registerErr.Error(), "request is required")
 	assert.Equal(t, apperrors.ErrCodeInvalidRequest, apperrors.GetErrorCode(registerErr))
 	assert.Equal(t, http.StatusBadRequest, apperrors.GetStatusCode(registerErr))

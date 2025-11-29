@@ -2,7 +2,7 @@ package dynamodb
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"math"
 	"sort"
 	"sync"
@@ -92,7 +92,7 @@ func (m *MockDynamoDBClient) PutItem(
 
 	partitionKey := m.getPartitionKeyFromAttributes(params.Item)
 	if partitionKey == "" {
-		return nil, fmt.Errorf("failed to extract partition key from item")
+		return nil, errors.New("failed to extract partition key from item")
 	}
 
 	sortKey := getSortKeyFromAttributes(params.Item)
@@ -255,21 +255,21 @@ func (m *MockDynamoDBClient) UpdateItem(
 
 	partitionKey := m.getPartitionKeyFromAttributes(params.Key)
 	if partitionKey == "" {
-		return nil, fmt.Errorf("item not found")
+		return nil, errors.New("item not found")
 	}
 
 	sortKey := getSortKeyFromAttributes(params.Key)
 
 	// Check if item exists
 	if m.Tables[tableName] == nil || m.Tables[tableName][partitionKey] == nil {
-		return nil, fmt.Errorf("item not found")
+		return nil, errors.New("item not found")
 	}
 
 	// For simplicity, just mark the item as updated by adding a field
 	// In a real mock, you'd parse and apply the update expression
 	item := m.Tables[tableName][partitionKey][sortKey]
 	if item == nil {
-		return nil, fmt.Errorf("item not found")
+		return nil, errors.New("item not found")
 	}
 
 	return &dynamodb.UpdateItemOutput{}, nil
@@ -341,7 +341,7 @@ func (m *MockDynamoDBClient) BatchWriteItem(
 				item := request.PutRequest.Item
 				partitionKey := m.getPartitionKeyFromAttributes(item)
 				if partitionKey == "" {
-					return nil, fmt.Errorf("failed to extract partition key from item")
+					return nil, errors.New("failed to extract partition key from item")
 				}
 				sortKey := getSortKeyFromAttributes(item)
 

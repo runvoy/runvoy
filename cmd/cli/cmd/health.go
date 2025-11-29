@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"strconv"
 
 	"github.com/runvoy/runvoy/internal/api"
 	"github.com/runvoy/runvoy/internal/client"
@@ -55,8 +56,8 @@ func runHealthReconcile(cmd *cobra.Command, _ []string) {
 	r := resp.Report
 	output.Blank()
 	output.KeyValue("Status", resp.Status)
-	output.KeyValue("Reconciled", fmt.Sprintf("%d", r.ReconciledCount))
-	output.KeyValue("Errors", fmt.Sprintf("%d", r.ErrorCount))
+	output.KeyValue("Reconciled", strconv.Itoa(r.ReconciledCount))
+	output.KeyValue("Errors", strconv.Itoa(r.ErrorCount))
 	output.Blank()
 
 	printComputeReport(r)
@@ -69,31 +70,31 @@ func runHealthReconcile(cmd *cobra.Command, _ []string) {
 
 func printComputeReport(r *api.HealthReport) {
 	output.Subheader("Compute")
-	output.KeyValue("Total", fmt.Sprintf("%d", r.ComputeStatus.TotalResources))
-	output.KeyValue("Verified", fmt.Sprintf("%d", r.ComputeStatus.VerifiedCount))
-	output.KeyValue("Recreated", fmt.Sprintf("%d", r.ComputeStatus.RecreatedCount))
-	output.KeyValue("Tags Updated", fmt.Sprintf("%d", r.ComputeStatus.TagUpdatedCount))
+	output.KeyValue("Total", strconv.Itoa(r.ComputeStatus.TotalResources))
+	output.KeyValue("Verified", strconv.Itoa(r.ComputeStatus.VerifiedCount))
+	output.KeyValue("Recreated", strconv.Itoa(r.ComputeStatus.RecreatedCount))
+	output.KeyValue("Tags Updated", strconv.Itoa(r.ComputeStatus.TagUpdatedCount))
 	if r.ComputeStatus.OrphanedCount > 0 {
-		output.KeyValue("Orphaned", fmt.Sprintf("%d", r.ComputeStatus.OrphanedCount))
+		output.KeyValue("Orphaned", strconv.Itoa(r.ComputeStatus.OrphanedCount))
 	}
 	output.Blank()
 }
 
 func printSecretsReport(r *api.HealthReport) {
 	output.Subheader("Secrets")
-	output.KeyValue("Total", fmt.Sprintf("%d", r.SecretsStatus.TotalSecrets))
-	output.KeyValue("Verified", fmt.Sprintf("%d", r.SecretsStatus.VerifiedCount))
-	output.KeyValue("Tags Updated", fmt.Sprintf("%d", r.SecretsStatus.TagUpdatedCount))
-	output.KeyValue("Missing", fmt.Sprintf("%d", r.SecretsStatus.MissingCount))
+	output.KeyValue("Total", strconv.Itoa(r.SecretsStatus.TotalSecrets))
+	output.KeyValue("Verified", strconv.Itoa(r.SecretsStatus.VerifiedCount))
+	output.KeyValue("Tags Updated", strconv.Itoa(r.SecretsStatus.TagUpdatedCount))
+	output.KeyValue("Missing", strconv.Itoa(r.SecretsStatus.MissingCount))
 	if r.SecretsStatus.OrphanedCount > 0 {
-		output.KeyValue("Orphaned", fmt.Sprintf("%d", r.SecretsStatus.OrphanedCount))
+		output.KeyValue("Orphaned", strconv.Itoa(r.SecretsStatus.OrphanedCount))
 	}
 	output.Blank()
 }
 
 func printIdentityReport(r *api.HealthReport) {
 	output.Subheader("Identity")
-	output.KeyValue("Default Roles Verified", fmt.Sprintf("%t", r.IdentityStatus.DefaultRolesVerified))
+	output.KeyValue("Default Roles Verified", strconv.FormatBool(r.IdentityStatus.DefaultRolesVerified))
 	customRoles := fmt.Sprintf("%d/%d",
 		r.IdentityStatus.CustomRolesVerified,
 		r.IdentityStatus.CustomRolesTotal)

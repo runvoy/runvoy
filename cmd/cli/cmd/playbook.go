@@ -117,14 +117,14 @@ func playbookRunRun(cmd *cobra.Command, args []string) {
 	}
 }
 
-// PlaybookService handles playbook operations
+// PlaybookService handles playbook operations.
 type PlaybookService struct {
 	loader   *playbooks.PlaybookLoader
 	executor *playbooks.PlaybookExecutor
 	output   OutputInterface
 }
 
-// NewPlaybookService creates a new PlaybookService
+// NewPlaybookService creates a new PlaybookService.
 func NewPlaybookService(
 	loader *playbooks.PlaybookLoader,
 	executor *playbooks.PlaybookExecutor,
@@ -137,7 +137,7 @@ func NewPlaybookService(
 	}
 }
 
-// PlaybookOverrides contains values to override in a playbook
+// PlaybookOverrides contains values to override in a playbook.
 type PlaybookOverrides struct {
 	Image   string
 	GitRepo string
@@ -146,7 +146,7 @@ type PlaybookOverrides struct {
 	Secrets []string
 }
 
-// ListPlaybooks lists all available playbooks
+// ListPlaybooks lists all available playbooks.
 func (s *PlaybookService) ListPlaybooks(_ context.Context) error {
 	s.output.Infof("Discovering playbooks…")
 
@@ -182,7 +182,7 @@ func (s *PlaybookService) ListPlaybooks(_ context.Context) error {
 	return nil
 }
 
-// formatPlaybooks formats playbook data into table rows
+// formatPlaybooks formats playbook data into table rows.
 func (s *PlaybookService) formatPlaybooks(playbookList []*api.Playbook, names []string) [][]string {
 	rows := make([][]string, 0, len(playbookList))
 	for i, pb := range playbookList {
@@ -198,7 +198,7 @@ func (s *PlaybookService) formatPlaybooks(playbookList []*api.Playbook, names []
 	return rows
 }
 
-// ShowPlaybook displays the full content of a playbook
+// ShowPlaybook displays the full content of a playbook.
 func (s *PlaybookService) ShowPlaybook(_ context.Context, name string) error {
 	pb, err := s.loader.LoadPlaybook(name)
 	if err != nil {
@@ -238,7 +238,7 @@ func (s *PlaybookService) ShowPlaybook(_ context.Context, name string) error {
 	return nil
 }
 
-// RunPlaybook executes a playbook with optional overrides
+// RunPlaybook executes a playbook with optional overrides.
 func (s *PlaybookService) RunPlaybook(
 	ctx context.Context,
 	name string,
@@ -276,7 +276,7 @@ func (s *PlaybookService) RunPlaybook(
 	return nil
 }
 
-// applyOverrides applies CLI flag overrides to a playbook
+// applyOverrides applies CLI flag overrides to a playbook.
 func applyOverrides(pb *api.Playbook, overrides *PlaybookOverrides) {
 	if overrides.Image != "" {
 		pb.Image = overrides.Image

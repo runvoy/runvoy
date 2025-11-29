@@ -347,6 +347,6 @@ func TestLoadSDKConfigWithContext(t *testing.T) {
 	if err != nil {
 		t.Logf("LoadSDKConfig with canceled context returned error: %v", err)
 		// This is acceptable behavior
-		assert.NotNil(t, err)
+		assert.Error(t, err)
 	}
 }

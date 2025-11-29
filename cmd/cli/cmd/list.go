@@ -73,13 +73,13 @@ func executionsRun(cmd *cobra.Command, _ []string) {
 	}
 }
 
-// ListService handles execution listing and formatting logic
+// ListService handles execution listing and formatting logic.
 type ListService struct {
 	client client.Interface
 	output OutputInterface
 }
 
-// NewListService creates a new ListService with the provided dependencies
+// NewListService creates a new ListService with the provided dependencies.
 func NewListService(apiClient client.Interface, outputter OutputInterface) *ListService {
 	return &ListService{
 		client: apiClient,
@@ -87,7 +87,7 @@ func NewListService(apiClient client.Interface, outputter OutputInterface) *List
 	}
 }
 
-// ListExecutions lists executions with optional filtering and displays them in a table format
+// ListExecutions lists executions with optional filtering and displays them in a table format.
 func (s *ListService) ListExecutions(ctx context.Context, limit int, statuses string) error {
 	if limit < 0 {
 		return fmt.Errorf("limit must be zero or a positive integer, got %d", limit)
@@ -120,7 +120,7 @@ func (s *ListService) ListExecutions(ctx context.Context, limit int, statuses st
 	return nil
 }
 
-// formatExecutions formats execution data into table rows
+// formatExecutions formats execution data into table rows.
 func (s *ListService) formatExecutions(execs []api.Execution) [][]string {
 	rows := make([][]string, 0, len(execs))
 	for i := range execs {

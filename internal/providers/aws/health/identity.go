@@ -73,7 +73,7 @@ func (m *Manager) verifyRole(
 				ResourceType: "iam_role",
 				ResourceID:   roleARN,
 				Severity:     "error",
-				Message:      fmt.Sprintf("%s missing (managed by CloudFormation)", roleDescription),
+				Message:      roleDescription + " missing (managed by CloudFormation)",
 				Action:       "requires_manual_intervention",
 			},
 		}

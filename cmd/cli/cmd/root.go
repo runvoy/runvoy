@@ -125,7 +125,7 @@ func init() {
 
 // parseTimeout parses timeout string to time.Duration
 // defaults to 10 minutes if empty
-// Supports formats: "10m", "30s", "1h", "600s" (number of seconds)
+// Supports formats: "10m", "30s", "1h", "600s" (number of seconds).
 func parseTimeout(timeoutStr string) (time.Duration, error) {
 	if timeoutStr == "" {
 		timeoutStr = "10m"
@@ -153,11 +153,11 @@ func printHeader(cmd *cobra.Command) {
 	output.Header(output.Bold("🚀 " + constants.ProjectName + " " + cmd.CalledAs()))
 }
 
-// getConfigFromContext retrieves the config from the command context
+// getConfigFromContext retrieves the config from the command context.
 func getConfigFromContext(cmd *cobra.Command) (*config.Config, error) {
 	cfg, ok := cmd.Context().Value(constants.ConfigCtxKey).(*config.Config)
 	if !ok || cfg == nil {
-		return nil, fmt.Errorf("config not found in context")
+		return nil, errors.New("config not found in context")
 	}
 	return cfg, nil
 }

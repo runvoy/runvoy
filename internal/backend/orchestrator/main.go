@@ -2,6 +2,7 @@ package orchestrator
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 
@@ -49,16 +50,16 @@ func NewService(
 	healthManager contract.HealthManager,
 	enforcer *authorization.Enforcer) (*Service, error) {
 	if enforcer == nil {
-		return nil, fmt.Errorf("enforcer is required")
+		return nil, errors.New("enforcer is required")
 	}
 	if repos == nil || repos.User == nil || repos.Execution == nil {
-		return nil, fmt.Errorf("user and execution repositories are required")
+		return nil, errors.New("user and execution repositories are required")
 	}
 	if healthManager == nil {
-		return nil, fmt.Errorf("healthManager is required")
+		return nil, errors.New("healthManager is required")
 	}
 	if wsManager == nil {
-		return nil, fmt.Errorf("wsManager is required")
+		return nil, errors.New("wsManager is required")
 	}
 
 	svc := &Service{

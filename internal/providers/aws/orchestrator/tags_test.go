@@ -56,7 +56,7 @@ func TestGetStandardECSTags_ConsistentOutput(t *testing.T) {
 	tags1 := GetStandardECSTags()
 	tags2 := GetStandardECSTags()
 
-	assert.Equal(t, len(tags1), len(tags2), "should return same number of tags")
+	assert.Len(t, tags2, len(tags1), "should return same number of tags")
 
 	// Compare tag contents
 	for i := range tags1 {

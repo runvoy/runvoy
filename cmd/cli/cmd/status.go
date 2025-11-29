@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"strconv"
 	"time"
 
 	"github.com/runvoy/runvoy/internal/client"
@@ -37,13 +38,13 @@ func statusRun(cmd *cobra.Command, args []string) {
 	}
 }
 
-// StatusService handles status display logic
+// StatusService handles status display logic.
 type StatusService struct {
 	client client.Interface
 	output OutputInterface
 }
 
-// NewStatusService creates a new StatusService with the provided dependencies
+// NewStatusService creates a new StatusService with the provided dependencies.
 func NewStatusService(apiClient client.Interface, outputter OutputInterface) *StatusService {
 	return &StatusService{
 		client: apiClient,
@@ -51,7 +52,7 @@ func NewStatusService(apiClient client.Interface, outputter OutputInterface) *St
 	}
 }
 
-// DisplayStatus retrieves and displays the status of an execution
+// DisplayStatus retrieves and displays the status of an execution.
 func (s *StatusService) DisplayStatus(ctx context.Context, executionID string) error {
 	status, err := s.client.GetExecutionStatus(ctx, executionID)
 	if err != nil {
@@ -61,13 +62,13 @@ func (s *StatusService) DisplayStatus(ctx context.Context, executionID string) e
 	s.output.KeyValue("Execution ID", status.ExecutionID)
 	s.output.KeyValue("Status", status.Status)
 	s.output.KeyValue("Started At", status.StartedAt.Format(time.DateTime))
-	s.output.KeyValue("Started At (Unix)", fmt.Sprintf("%d", status.StartedAt.Unix()))
+	s.output.KeyValue("Started At (Unix)", strconv.FormatInt(status.StartedAt.Unix(), 10))
 	if status.CompletedAt != nil {
 		s.output.KeyValue("Completed At", status.CompletedAt.Format(time.DateTime))
-		s.output.KeyValue("Completed At (Unix)", fmt.Sprintf("%d", status.CompletedAt.Unix()))
+		s.output.KeyValue("Completed At (Unix)", strconv.FormatInt(status.CompletedAt.Unix(), 10))
 	}
 	if status.ExitCode != nil {
-		s.output.KeyValue("Exit Code", fmt.Sprintf("%d", *status.ExitCode))
+		s.output.KeyValue("Exit Code", strconv.Itoa(*status.ExitCode))
 	}
 	s.output.Blank()
 	s.output.Successf("Status retrieved successfully")

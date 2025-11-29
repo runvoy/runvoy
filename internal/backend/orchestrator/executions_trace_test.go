@@ -54,7 +54,11 @@ func TestFetchTrace_WithBackendLogError(t *testing.T) {
 
 	assert.Error(t, err)
 	assert.Nil(t, trace)
-	assert.Equal(t, appErrors.ErrCodeServiceUnavailable, err.(*appErrors.AppError).Code)
+	assert.Equal(t, appErrors.ErrCodeServiceUnavailable, func() *appErrors.AppError {
+		target := &appErrors.AppError{}
+		_ = errors.As(err, &target)
+		return target
+	}().Code)
 }
 
 func TestFetchTrace_ConcurrentFetching(t *testing.T) {
@@ -108,7 +112,11 @@ func TestFetchTrace_ResourceFetchError(t *testing.T) {
 
 	assert.Error(t, err)
 	assert.Nil(t, trace)
-	assert.Equal(t, appErrors.ErrCodeServiceUnavailable, err.(*appErrors.AppError).Code)
+	assert.Equal(t, appErrors.ErrCodeServiceUnavailable, func() *appErrors.AppError {
+		target := &appErrors.AppError{}
+		_ = errors.As(err, &target)
+		return target
+	}().Code)
 }
 
 // Minimal test helpers

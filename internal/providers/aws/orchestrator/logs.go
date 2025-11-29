@@ -21,7 +21,7 @@ import (
 	cwlTypes "github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs/types"
 )
 
-// verifyLogStreamExists checks if the log stream exists and returns an error if it doesn't
+// verifyLogStreamExists checks if the log stream exists and returns an error if it doesn't.
 func verifyLogStreamExists(
 	ctx context.Context,
 	cwl awsClient.CloudWatchLogsClient,

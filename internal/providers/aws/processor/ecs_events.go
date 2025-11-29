@@ -15,7 +15,7 @@ import (
 	"github.com/aws/aws-lambda-go/events"
 )
 
-// handleECSTaskEvent processes ECS Task State Change events
+// handleECSTaskEvent processes ECS Task State Change events.
 func (p *Processor) handleECSTaskEvent(
 	ctx context.Context,
 	event *events.CloudWatchEvent,
@@ -189,13 +189,13 @@ func (p *Processor) finalizeExecutionFromTaskEvent(
 }
 
 // extractExecutionIDFromTaskArn extracts the execution ID from a task ARN
-// Task ARN format: arn:aws:ecs:region:account:task/cluster-name/EXECUTION_ID
+// Task ARN format: arn:aws:ecs:region:account:task/cluster-name/EXECUTION_ID.
 func extractExecutionIDFromTaskArn(taskArn string) string {
 	parts := strings.Split(taskArn, "/")
 	return parts[len(parts)-1]
 }
 
-// determineStatusAndExitCode determines the final status and exit code from the task event
+// determineStatusAndExitCode determines the final status and exit code from the task event.
 func determineStatusAndExitCode(event *ECSTaskStateChangeEvent) (status string, exitCode int) {
 	// Default values
 	status = string(constants.ExecutionFailed)

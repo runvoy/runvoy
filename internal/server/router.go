@@ -56,7 +56,7 @@ func NewRouter(
 	return router
 }
 
-// responseWriter is a wrapper around http.ResponseWriter to capture status code
+// responseWriter is a wrapper around http.ResponseWriter to capture status code.
 type responseWriter struct {
 	http.ResponseWriter
 	statusCode int
@@ -80,27 +80,27 @@ func (rw *responseWriter) Write(b []byte) (int, error) {
 	return rw.ResponseWriter.Write(b)
 }
 
-// ServeHTTP implements http.Handler for use with chi router
+// ServeHTTP implements http.Handler for use with chi router.
 func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	r.router.ServeHTTP(w, req)
 }
 
-// ChiMux returns the underlying chi router for advanced usage
+// ChiMux returns the underlying chi router for advanced usage.
 func (r *Router) ChiMux() *chi.Mux {
 	return r.router
 }
 
-// Handler returns an http.Handler for the router
+// Handler returns an http.Handler for the router.
 func (r *Router) Handler() http.Handler {
 	return r.router
 }
 
-// WithContext adds the service to the request context
+// WithContext adds the service to the request context.
 func (r *Router) WithContext(ctx context.Context, svc *orchestrator.Service) context.Context {
 	return context.WithValue(ctx, serviceContextKey, svc)
 }
 
-// writeErrorResponse is a helper to write consistent error responses
+// writeErrorResponse is a helper to write consistent error responses.
 func writeErrorResponse(w http.ResponseWriter, statusCode int, message, details string) {
 	w.WriteHeader(statusCode)
 	_ = json.NewEncoder(w).Encode(api.ErrorResponse{
@@ -109,7 +109,7 @@ func writeErrorResponse(w http.ResponseWriter, statusCode int, message, details 
 	})
 }
 
-// writeErrorResponseWithCode is a helper to write error responses with error codes
+// writeErrorResponseWithCode is a helper to write error responses with error codes.
 func writeErrorResponseWithCode(w http.ResponseWriter, statusCode int, code, message, details string) {
 	w.WriteHeader(statusCode)
 	resp := api.ErrorResponse{

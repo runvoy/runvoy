@@ -448,7 +448,7 @@ func TestRoleBasedAccessExpectations(t *testing.T) {
 	}
 
 	// Verify the structure is defined correctly
-	assert.Equal(t, 4, len(rolePermissions), "should define 4 roles")
+	assert.Len(t, rolePermissions, 4, "should define 4 roles")
 	assert.Contains(t, rolePermissions, "admin", "admin role should be defined")
 	assert.Contains(t, rolePermissions, "operator", "operator role should be defined")
 	assert.Contains(t, rolePermissions, "developer", "developer role should be defined")

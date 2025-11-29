@@ -7,10 +7,10 @@ import (
 	"github.com/runvoy/runvoy/internal/api"
 )
 
-// PlaybookExecutor converts Playbook to ExecutionRequest
+// PlaybookExecutor converts Playbook to ExecutionRequest.
 type PlaybookExecutor struct{}
 
-// NewPlaybookExecutor creates a new PlaybookExecutor
+// NewPlaybookExecutor creates a new PlaybookExecutor.
 func NewPlaybookExecutor() *PlaybookExecutor {
 	return &PlaybookExecutor{}
 }

@@ -413,7 +413,7 @@ func TestClearContextExtractors(t *testing.T) {
 
 		// Verify extractors are cleared
 		assert.Nil(t, contextExtractors)
-		assert.Len(t, contextExtractors, 0)
+		assert.Empty(t, contextExtractors)
 	})
 }
 

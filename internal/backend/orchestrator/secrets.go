@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/runvoy/runvoy/internal/api"
@@ -178,14 +179,14 @@ func (s *Service) resolveSecretsForExecution(
 		if keyName == "" {
 			return nil, apperrors.ErrInternalError(
 				fmt.Sprintf("secret %q has no key name configured", name),
-				fmt.Errorf("missing key name"))
+				errors.New("missing key name"))
 		}
 
 		secretEnvVars[keyName] = secret.Value
 	}
 
 	reqLogger.Debug("resolved secrets for execution", "context", map[string]string{
-		"secret_count": fmt.Sprintf("%d", len(secretEnvVars)),
+		"secret_count": strconv.Itoa(len(secretEnvVars)),
 	})
 
 	return secretEnvVars, nil

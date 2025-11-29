@@ -1348,7 +1348,7 @@ func TestGetBackendLogs_NoLogs(t *testing.T) {
 	var trace api.TraceResponse
 	err := json.Unmarshal(resp.Body.Bytes(), &trace)
 	require.NoError(t, err)
-	require.Len(t, trace.Logs, 0)
+	require.Empty(t, trace.Logs)
 }
 
 // TestGetBackendLogs_Unauthorized tests unauthorized access

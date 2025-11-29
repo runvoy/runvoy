@@ -2,7 +2,7 @@ package cmd
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"testing"
 	"time"
 
@@ -25,14 +25,14 @@ func (m *mockClientInterfaceForUsers) CreateUser(
 	if m.createUserFunc != nil {
 		return m.createUserFunc(ctx, req)
 	}
-	return nil, fmt.Errorf("not implemented")
+	return nil, errors.New("not implemented")
 }
 
 func (m *mockClientInterfaceForUsers) ListUsers(ctx context.Context) (*api.ListUsersResponse, error) {
 	if m.listUsersFunc != nil {
 		return m.listUsersFunc(ctx)
 	}
-	return nil, fmt.Errorf("not implemented")
+	return nil, errors.New("not implemented")
 }
 
 func (m *mockClientInterfaceForUsers) RevokeUser(
@@ -41,7 +41,7 @@ func (m *mockClientInterfaceForUsers) RevokeUser(
 	if m.revokeUserFunc != nil {
 		return m.revokeUserFunc(ctx, req)
 	}
-	return nil, fmt.Errorf("not implemented")
+	return nil, errors.New("not implemented")
 }
 
 func (m *mockClientInterfaceForUsers) FetchBackendLogs(_ context.Context, _ string) (*api.TraceResponse, error) {
@@ -111,7 +111,7 @@ func TestUsersService_CreateUser(t *testing.T) {
 			email: "error@example.com",
 			setupMock: func(m *mockClientInterfaceForUsers) {
 				m.createUserFunc = func(_ context.Context, _ api.CreateUserRequest) (*api.CreateUserResponse, error) {
-					return nil, fmt.Errorf("user already exists")
+					return nil, errors.New("user already exists")
 				}
 			},
 			wantErr: true,
@@ -233,7 +233,7 @@ func TestUsersService_ListUsers(t *testing.T) {
 			name: "handles client error",
 			setupMock: func(m *mockClientInterfaceForUsers) {
 				m.listUsersFunc = func(_ context.Context) (*api.ListUsersResponse, error) {
-					return nil, fmt.Errorf("network error")
+					return nil, errors.New("network error")
 				}
 			},
 			wantErr: true,
@@ -351,7 +351,7 @@ func TestUsersService_RevokeUser(t *testing.T) {
 			email: "nonexistent@example.com",
 			setupMock: func(m *mockClientInterfaceForUsers) {
 				m.revokeUserFunc = func(_ context.Context, _ api.RevokeUserRequest) (*api.RevokeUserResponse, error) {
-					return nil, fmt.Errorf("user not found")
+					return nil, errors.New("user not found")
 				}
 			},
 			wantErr: true,
@@ -370,7 +370,7 @@ func TestUsersService_RevokeUser(t *testing.T) {
 			email: "error@example.com",
 			setupMock: func(m *mockClientInterfaceForUsers) {
 				m.revokeUserFunc = func(_ context.Context, _ api.RevokeUserRequest) (*api.RevokeUserResponse, error) {
-					return nil, fmt.Errorf("network error")
+					return nil, errors.New("network error")
 				}
 			},
 			wantErr: true,

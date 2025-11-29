@@ -1,6 +1,6 @@
 package api
 
-// Playbook represents a reusable command execution configuration
+// Playbook represents a reusable command execution configuration.
 type Playbook struct {
 	Description string            `yaml:"description,omitempty"`
 	Image       string            `yaml:"image,omitempty"`

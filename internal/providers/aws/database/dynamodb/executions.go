@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"strconv"
 	"strings"
 	"time"
 
@@ -204,16 +205,16 @@ func buildUpdateExpression(
 	if execution.CompletedAt != nil {
 		updateExpr += ", completed_at = :completed_at"
 		completedAt := execution.CompletedAt.Unix()
-		exprAttrValues[":completed_at"] = &types.AttributeValueMemberN{Value: fmt.Sprintf("%d", completedAt)}
+		exprAttrValues[":completed_at"] = &types.AttributeValueMemberN{Value: strconv.FormatInt(completedAt, 10)}
 	}
 
 	updateExpr += ", exit_code = :exit_code"
-	exprAttrValues[":exit_code"] = &types.AttributeValueMemberN{Value: fmt.Sprintf("%d", execution.ExitCode)}
+	exprAttrValues[":exit_code"] = &types.AttributeValueMemberN{Value: strconv.Itoa(execution.ExitCode)}
 
 	if execution.DurationSeconds > 0 {
 		updateExpr += ", duration_seconds = :duration_seconds"
 		exprAttrValues[":duration_seconds"] = &types.AttributeValueMemberN{
-			Value: fmt.Sprintf("%d", execution.DurationSeconds)}
+			Value: strconv.Itoa(execution.DurationSeconds)}
 	}
 
 	if execution.LogStreamName != "" {
@@ -453,7 +454,7 @@ func (r *ExecutionRepository) queryExecutionsByRequestIDIndex(
 		attributeName = modifiedByRequestIDAttrName
 	default:
 		return nil, apperrors.ErrDatabaseError(
-			fmt.Sprintf("unknown index name: %s", indexName), nil)
+			"unknown index name: "+indexName, nil)
 	}
 
 	exprNames := map[string]string{
@@ -477,7 +478,7 @@ func (r *ExecutionRepository) queryExecutionsByRequestIDIndex(
 		result, err := r.client.Query(ctx, queryInput)
 		if err != nil {
 			return nil, apperrors.ErrDatabaseError(
-				fmt.Sprintf("failed to query executions by request ID from %s", indexName), err)
+				"failed to query executions by request ID from "+indexName, err)
 		}
 
 		for _, item := range result.Items {

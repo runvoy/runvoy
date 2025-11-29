@@ -67,7 +67,7 @@ func (r *Router) requestTimeoutMiddleware(timeout time.Duration) func(http.Handl
 	}
 }
 
-// normalizeOrigin removes trailing slashes from an origin URL for comparison
+// normalizeOrigin removes trailing slashes from an origin URL for comparison.
 func normalizeOrigin(origin string) string {
 	return strings.TrimSuffix(origin, "/")
 }
@@ -111,7 +111,7 @@ func corsMiddleware(allowedOrigins []string) func(http.Handler) http.Handler {
 	}
 }
 
-// setContentTypeJSONMiddleware sets Content-Type to application/json for all responses
+// setContentTypeJSONMiddleware sets Content-Type to application/json for all responses.
 func setContentTypeJSONMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		w.Header().Set(constants.ContentTypeHeader, "application/json")
@@ -212,7 +212,7 @@ func (r *Router) updateLastUsedAsync(user *api.User, requestID string, baseLogge
 
 // authenticateRequestMiddleware authenticates requests
 // Adds authenticated user to request context
-// Updates user's last_used timestamp asynchronously after successful authentication
+// Updates user's last_used timestamp asynchronously after successful authentication.
 func (r *Router) authenticateRequestMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		logger := r.GetLoggerFromContext(req.Context())
@@ -243,7 +243,7 @@ func (r *Router) authenticateRequestMiddleware(next http.Handler) http.Handler {
 }
 
 // requestLoggingMiddleware logs incoming requests and their responses
-// Uses logger from context (includes request ID if available)
+// Uses logger from context (includes request ID if available).
 func (r *Router) requestLoggingMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		logger := r.GetLoggerFromContext(req.Context())
@@ -273,7 +273,7 @@ func (r *Router) requestLoggingMiddleware(next http.Handler) http.Handler {
 }
 
 // GetLoggerFromContext extracts the logger from request context
-// Returns the request-scoped logger (with request ID if available) or falls back to service logger
+// Returns the request-scoped logger (with request ID if available) or falls back to service logger.
 func (r *Router) GetLoggerFromContext(ctx context.Context) *slog.Logger {
 	if logger, ok := ctx.Value(loggerContextKey).(*slog.Logger); ok && logger != nil {
 		return logger

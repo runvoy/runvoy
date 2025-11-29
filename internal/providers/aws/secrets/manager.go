@@ -2,6 +2,7 @@ package secrets
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 
@@ -36,7 +37,7 @@ type ParameterStoreManager struct {
 }
 
 // NewParameterStoreManager creates a new Parameter Store-based secrets manager.
-// secretPrefix should include a leading slash, e.g., "/runvoy/secrets"
+// secretPrefix should include a leading slash, e.g., "/runvoy/secrets".
 func NewParameterStoreManager(
 	client Client,
 	secretPrefix, kmsKeyARN string,
@@ -147,7 +148,7 @@ func (m *ParameterStoreManager) RetrieveSecret(ctx context.Context, name string)
 
 	if result.Parameter == nil || result.Parameter.Value == nil {
 		reqLogger.Warn("unexpected nil response from parameter store", "name", name)
-		return "", fmt.Errorf("unexpected response from parameter store")
+		return "", errors.New("unexpected response from parameter store")
 	}
 
 	return *result.Parameter.Value, nil

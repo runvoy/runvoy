@@ -3,6 +3,7 @@ package dynamodb
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -73,7 +74,7 @@ func (item *imageTaskDefItem) isDefault() bool {
 
 // GenerateImageID generates a unique, human-readable ID for an image configuration.
 // Format: {imageName}:{tag}-{first-8-chars-of-hash}
-// Example: alpine:latest-a1b2c3d4 or golang:1.24.5-bookworm-19884ca2
+// Example: alpine:latest-a1b2c3d4 or golang:1.24.5-bookworm-19884ca2.
 func GenerateImageID(
 	imageName, imageTag string,
 	cpu, memory int,
@@ -93,7 +94,7 @@ func GenerateImageID(
 
 	hashInput := fmt.Sprintf("%s:%s:%d:%d:%s:%s", imageName, imageTag, cpu, memory, runtimePlatform, roleComposite)
 	hash := sha256.Sum256([]byte(hashInput))
-	hashStr := fmt.Sprintf("%x", hash)
+	hashStr := hex.EncodeToString(hash[:])
 	shortHash := hashStr[:8]
 	imageID := fmt.Sprintf("%s:%s-%s", imageName, imageTag, shortHash)
 	return imageID
@@ -121,8 +122,8 @@ func (r *ImageTaskDefRepository) PutImageTaskDef(
 	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
 
 	now := time.Now().Unix()
-	cpuStr := fmt.Sprintf("%d", cpu)
-	memoryStr := fmt.Sprintf("%d", memory)
+	cpuStr := strconv.Itoa(cpu)
+	memoryStr := strconv.Itoa(memory)
 
 	// Extract request ID from context
 	requestID := logger.GetRequestID(ctx)
@@ -271,7 +272,7 @@ func isRegistryPrefix(firstPart string) bool {
 }
 
 // looksLikeImageID checks if a string looks like an ImageID format.
-// ImageID format: {name}:{tag}-{8-char-hash}
+// ImageID format: {name}:{tag}-{8-char-hash}.
 func looksLikeImageID(s string) bool {
 	const hashLength = 8
 	lastDashIdx := strings.LastIndex(s, "-")
@@ -588,7 +589,7 @@ func (r *ImageTaskDefRepository) UnmarkAllDefaults(ctx context.Context) error {
 			},
 			UpdateExpression: aws.String("SET updated_at = :now REMOVE is_default_placeholder"),
 			ExpressionAttributeValues: map[string]types.AttributeValue{
-				":now": &types.AttributeValueMemberN{Value: fmt.Sprintf("%d", time.Now().Unix())},
+				":now": &types.AttributeValueMemberN{Value: strconv.FormatInt(time.Now().Unix(), 10)},
 			},
 		})
 		if err != nil {
@@ -615,8 +616,8 @@ func (r *ImageTaskDefRepository) findItemsByImageID(ctx context.Context, image s
 		TaskDefinitionFamily: imageInfo.TaskDefinitionName,
 		ImageName:            imageInfo.ImageName,
 		ImageTag:             imageInfo.ImageTag,
-		Cpu:                  fmt.Sprintf("%d", imageInfo.CPU),
-		Memory:               fmt.Sprintf("%d", imageInfo.Memory),
+		Cpu:                  strconv.Itoa(imageInfo.CPU),
+		Memory:               strconv.Itoa(imageInfo.Memory),
 		RuntimePlatform:      imageInfo.RuntimePlatform,
 	}
 	if imageInfo.TaskRoleName != nil {
@@ -908,7 +909,7 @@ func (r *ImageTaskDefRepository) SetImageAsOnlyDefault(
 		UpdateExpression: aws.String("SET is_default_placeholder = :placeholder, updated_at = :now"),
 		ExpressionAttributeValues: map[string]types.AttributeValue{
 			":placeholder": &types.AttributeValueMemberS{Value: "DEFAULT"},
-			":now":         &types.AttributeValueMemberN{Value: fmt.Sprintf("%d", time.Now().Unix())},
+			":now":         &types.AttributeValueMemberN{Value: strconv.FormatInt(time.Now().Unix(), 10)},
 		},
 	})
 	if err != nil {

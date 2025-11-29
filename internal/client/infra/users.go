@@ -2,6 +2,7 @@ package infra
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -19,7 +20,7 @@ import (
 // This function hides the DynamoDB implementation details from callers.
 func SeedAdminUser(ctx context.Context, adminEmail, region, tableName string) (string, error) {
 	if tableName == "" {
-		return "", fmt.Errorf("table name is required")
+		return "", errors.New("table name is required")
 	}
 
 	apiKey, err := auth.GenerateSecretToken()
@@ -40,7 +41,7 @@ func SeedAdminUser(ctx context.Context, adminEmail, region, tableName string) (s
 	return apiKey, nil
 }
 
-// createUserRepository creates a DynamoDB user repository
+// createUserRepository creates a DynamoDB user repository.
 func createUserRepository(ctx context.Context, tableName, region string) (*dynamodb.UserRepository, error) {
 	var awsOpts []func(*awsconfig.LoadOptions) error
 	if region != "" {
@@ -59,7 +60,7 @@ func createUserRepository(ctx context.Context, tableName, region string) (*dynam
 	return repo, nil
 }
 
-// checkAndCreateUser checks if user exists and creates it if not
+// checkAndCreateUser checks if user exists and creates it if not.
 func checkAndCreateUser(ctx context.Context, repo *dynamodb.UserRepository, adminEmail, apiKeyHash string) error {
 	existingUser, err := repo.GetUserByEmail(ctx, adminEmail)
 	if err != nil {

@@ -207,7 +207,7 @@ func TestBuildSidecarEnvironment(t *testing.T) {
 			userEnv: map[string]string{},
 			validate: func(t *testing.T, env []ecsTypes.KeyValuePair) {
 				// Should have at least RUNVOY_SHARED_VOLUME_PATH
-				assert.Greater(t, len(env), 0)
+				assert.NotEmpty(t, env)
 			},
 		},
 		{

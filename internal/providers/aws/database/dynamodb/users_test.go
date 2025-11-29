@@ -2,7 +2,7 @@ package dynamodb
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"testing"
 	"time"
 
@@ -58,7 +58,7 @@ func TestUserRepository_UpdateLastUsed(t *testing.T) {
 
 		require.NoError(t, err)
 		assert.NotNil(t, lastUsed)
-		assert.True(t, time.Since(*lastUsed) < time.Second)
+		assert.Less(t, time.Since(*lastUsed), time.Second)
 		assert.Equal(t, 1, mockClient.UpdateItemCalls)
 	})
 
@@ -76,7 +76,7 @@ func TestUserRepository_UpdateLastUsed(t *testing.T) {
 
 	t.Run("handles query error", func(t *testing.T) {
 		mockClient := NewMockDynamoDBClient()
-		mockClient.QueryError = fmt.Errorf("query failed")
+		mockClient.QueryError = errors.New("query failed")
 		repo := NewUserRepository(mockClient, tableName, pendingTableName, logger)
 
 		lastUsed, err := repo.UpdateLastUsed(ctx, "user@example.com")
@@ -104,7 +104,7 @@ func TestUserRepository_UpdateLastUsed(t *testing.T) {
 		mockClient.Indexes[tableName]["user_email-index"]["user@example.com"] = []map[string]types.AttributeValue{item}
 
 		// Inject update error
-		mockClient.UpdateItemError = fmt.Errorf("update failed")
+		mockClient.UpdateItemError = errors.New("update failed")
 
 		lastUsed, err := repo.UpdateLastUsed(ctx, "user@example.com")
 
@@ -180,7 +180,7 @@ func TestUserRepository_RevokeUser(t *testing.T) {
 		mockClient.Indexes[tableName]["user_email-index"]["user@example.com"] = []map[string]types.AttributeValue{item}
 
 		// Inject update error
-		mockClient.UpdateItemError = fmt.Errorf("update failed")
+		mockClient.UpdateItemError = errors.New("update failed")
 
 		err := repo.RevokeUser(ctx, "user@example.com")
 
@@ -218,7 +218,7 @@ func TestUserRepository_ListUsers(t *testing.T) {
 
 	t.Run("handles query error", func(t *testing.T) {
 		mockClient := NewMockDynamoDBClient()
-		mockClient.QueryError = fmt.Errorf("query failed")
+		mockClient.QueryError = errors.New("query failed")
 		repo := NewUserRepository(mockClient, tableName, pendingTableName, logger)
 
 		users, err := repo.ListUsers(ctx)
@@ -320,7 +320,7 @@ func TestUserRepository_QueryAPIKeyHashByEmail(t *testing.T) {
 
 	t.Run("handles query error", func(t *testing.T) {
 		mockClient := NewMockDynamoDBClient()
-		mockClient.QueryError = fmt.Errorf("query failed")
+		mockClient.QueryError = errors.New("query failed")
 		repo := NewUserRepository(mockClient, tableName, pendingTableName, logger)
 
 		hash, err := repo.queryAPIKeyHashByEmail(ctx, "user@example.com", "test")
@@ -373,7 +373,7 @@ func TestUserRepository_CreateUser_ErrorHandling(t *testing.T) {
 
 	t.Run("handles database error", func(t *testing.T) {
 		mockClient := NewMockDynamoDBClient()
-		mockClient.PutItemError = fmt.Errorf("database error")
+		mockClient.PutItemError = errors.New("database error")
 		repo := NewUserRepository(mockClient, tableName, pendingTableName, logger)
 
 		user := &api.User{
@@ -397,7 +397,7 @@ func TestUserRepository_GetUserByEmail_ErrorHandling(t *testing.T) {
 
 	t.Run("handles query error", func(t *testing.T) {
 		mockClient := NewMockDynamoDBClient()
-		mockClient.QueryError = fmt.Errorf("query failed")
+		mockClient.QueryError = errors.New("query failed")
 		repo := NewUserRepository(mockClient, tableName, pendingTableName, logger)
 
 		user, err := repo.GetUserByEmail(ctx, "user@example.com")
@@ -420,7 +420,7 @@ func TestUserRepository_GetUserByEmail_ErrorHandling(t *testing.T) {
 
 	t.Run("GetUserByAPIKeyHash handles get item error", func(t *testing.T) {
 		mockClient := NewMockDynamoDBClient()
-		mockClient.GetItemError = fmt.Errorf("get item failed")
+		mockClient.GetItemError = errors.New("get item failed")
 		repo := NewUserRepository(mockClient, tableName, pendingTableName, logger)
 
 		user, err := repo.GetUserByAPIKeyHash(ctx, "hash123")

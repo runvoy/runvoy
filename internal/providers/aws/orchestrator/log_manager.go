@@ -2,8 +2,8 @@ package orchestrator
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
+	"strconv"
 
 	"github.com/runvoy/runvoy/internal/api"
 	appErrors "github.com/runvoy/runvoy/internal/errors"
@@ -34,7 +34,7 @@ func NewLogManager(
 }
 
 // buildSidecarLogStreamName constructs a CloudWatch Logs stream name for the sidecar container.
-// Format: task/sidecar/{execution_id}
+// Format: task/sidecar/{execution_id}.
 func buildSidecarLogStreamName(executionID string) string {
 	return "task/" + awsConstants.SidecarContainerName + "/" + executionID
 }
@@ -83,7 +83,7 @@ func (l *LogManagerImpl) FetchLogsByExecutionID(ctx context.Context, executionID
 	}
 
 	reqLogger.Debug("log events fetched successfully", "context", map[string]string{
-		"total_events": fmt.Sprintf("%d", len(allEvents)),
+		"total_events": strconv.Itoa(len(allEvents)),
 	})
 
 	return allEvents, nil

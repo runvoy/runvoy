@@ -436,7 +436,7 @@ func TestListExecutions(t *testing.T) {
 			} else {
 				require.NoError(t, err)
 				require.NotNil(t, executions)
-				assert.Equal(t, len(tt.mockExecutions), len(executions))
+				assert.Len(t, executions, len(tt.mockExecutions))
 				if len(tt.mockExecutions) > 0 {
 					assert.Equal(t, tt.mockExecutions[0].ExecutionID, executions[0].ExecutionID)
 				}
@@ -746,11 +746,11 @@ func TestGetLogsByExecutionID(t *testing.T) {
 					// Running execution: events must be nil
 					assert.Nil(t, resp.Events, "running executions must have nil events")
 					// Note: Will be empty in test because wsManager is nil
-					assert.Equal(t, "", resp.WebSocketURL)
+					assert.Empty(t, resp.WebSocketURL)
 				} else {
 					// Terminal execution: events must be a non-nil array (may be empty)
 					assert.NotNil(t, resp.Events, "terminal executions must have non-nil events array")
-					assert.Equal(t, tt.expectedEventLen, len(resp.Events))
+					assert.Len(t, resp.Events, tt.expectedEventLen)
 					if tt.expectedEventLen > 0 {
 						assert.Equal(t, tt.mockEvents[0].Message, resp.Events[0].Message)
 					}
@@ -1020,7 +1020,7 @@ func TestGetLogsByExecutionID_TokenUniqueness(t *testing.T) {
 	}
 
 	// Should have 3 unique tokens
-	assert.Equal(t, 3, len(tokens), "tokens should be unique across multiple calls")
+	assert.Len(t, tokens, 3, "tokens should be unique across multiple calls")
 }
 
 func TestValidateExecutionResourceAccess_Success(t *testing.T) {
@@ -1037,8 +1037,8 @@ func TestValidateExecutionResourceAccess_Success(t *testing.T) {
 	imageID := "image-123"
 	secretName := "my-secret"
 
-	imagePath := fmt.Sprintf("/api/v1/images/%s", imageID)
-	secretPath := fmt.Sprintf("/api/v1/secrets/%s", secretName)
+	imagePath := "/api/v1/images/" + imageID
+	secretPath := "/api/v1/secrets/" + secretName
 
 	// Grant access to image and secret
 	require.NoError(t, enforcer.AddOwnershipForResource(ctx, imagePath, userEmail))
@@ -1070,7 +1070,7 @@ func TestValidateExecutionResourceAccess_NoImage(t *testing.T) {
 
 	userEmail := "user@example.com"
 	secretName := "my-secret"
-	secretPath := fmt.Sprintf("/api/v1/secrets/%s", secretName)
+	secretPath := "/api/v1/secrets/" + secretName
 
 	// Grant access to secret only
 	require.NoError(t, enforcer.AddOwnershipForResource(ctx, secretPath, userEmail))
@@ -1127,7 +1127,7 @@ func TestValidateExecutionResourceAccess_SecretAccessDenied(t *testing.T) {
 	imageID := "image-123"
 	secretName := "my-secret"
 
-	imagePath := fmt.Sprintf("/api/v1/images/%s", imageID)
+	imagePath := "/api/v1/images/" + imageID
 
 	// Grant access to image but not secret
 	require.NoError(t, enforcer.AddOwnershipForResource(ctx, imagePath, userEmail))
@@ -1164,9 +1164,9 @@ func TestValidateExecutionResourceAccess_MultipleSecrets(t *testing.T) {
 	secret2 := "secret-2"
 	secret3 := "secret-3"
 
-	secret1Path := fmt.Sprintf("/api/v1/secrets/%s", secret1)
-	secret2Path := fmt.Sprintf("/api/v1/secrets/%s", secret2)
-	secret3Path := fmt.Sprintf("/api/v1/secrets/%s", secret3)
+	secret1Path := "/api/v1/secrets/" + secret1
+	secret2Path := "/api/v1/secrets/" + secret2
+	secret3Path := "/api/v1/secrets/" + secret3
 
 	// Grant access to all secrets
 	require.NoError(t, enforcer.AddOwnershipForResource(ctx, secret1Path, userEmail))

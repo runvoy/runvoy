@@ -104,12 +104,12 @@ func TestWebSocketTokenJSON(t *testing.T) {
 
 func TestWebSocketMessageTypes(t *testing.T) {
 	t.Run("message type constants", func(t *testing.T) {
-		assert.Equal(t, WebSocketMessageType("log"), WebSocketMessageTypeLog)
-		assert.Equal(t, WebSocketMessageType("disconnect"), WebSocketMessageTypeDisconnect)
+		assert.Equal(t, WebSocketMessageTypeLog, WebSocketMessageType("log"))
+		assert.Equal(t, WebSocketMessageTypeDisconnect, WebSocketMessageType("disconnect"))
 	})
 
 	t.Run("disconnect reason constants", func(t *testing.T) {
-		assert.Equal(t, WebSocketDisconnectReason("execution_completed"), WebSocketDisconnectReasonExecutionCompleted)
+		assert.Equal(t, WebSocketDisconnectReasonExecutionCompleted, WebSocketDisconnectReason("execution_completed"))
 	})
 }
 

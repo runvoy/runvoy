@@ -2,7 +2,7 @@ package cmd
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -33,7 +33,7 @@ func (m *mockConfigLoader) Load() (*config.Config, error) {
 	if m.loadFunc != nil {
 		return m.loadFunc()
 	}
-	return nil, fmt.Errorf("not implemented")
+	return nil, errors.New("not implemented")
 }
 
 func TestConfigureService_Configure(t *testing.T) {
@@ -61,7 +61,7 @@ func TestConfigureService_Configure(t *testing.T) {
 			},
 			setupLoader: func(m *mockConfigLoader) {
 				m.loadFunc = func() (*config.Config, error) {
-					return nil, fmt.Errorf("config not found")
+					return nil, errors.New("config not found")
 				}
 			},
 			setupSaver: func(m *mockConfigSaver) {
@@ -187,7 +187,7 @@ func TestConfigureService_Configure(t *testing.T) {
 			},
 			setupLoader: func(m *mockConfigLoader) {
 				m.loadFunc = func() (*config.Config, error) {
-					return nil, fmt.Errorf("config not found")
+					return nil, errors.New("config not found")
 				}
 			},
 			setupSaver: func(_ *mockConfigSaver) {},
@@ -220,12 +220,12 @@ func TestConfigureService_Configure(t *testing.T) {
 			},
 			setupLoader: func(m *mockConfigLoader) {
 				m.loadFunc = func() (*config.Config, error) {
-					return nil, fmt.Errorf("config not found")
+					return nil, errors.New("config not found")
 				}
 			},
 			setupSaver: func(m *mockConfigSaver) {
 				m.saveFunc = func(_ *config.Config) error {
-					return fmt.Errorf("permission denied")
+					return errors.New("permission denied")
 				}
 			},
 			setupPathGetter: func() (string, error) {

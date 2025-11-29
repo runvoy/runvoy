@@ -6,7 +6,7 @@ import (
 	"github.com/runvoy/runvoy/internal/api"
 )
 
-// Interface defines the API client interface for dependency injection and testing
+// Interface defines the API client interface for dependency injection and testing.
 type Interface interface {
 	// Health
 	ReconcileHealth(ctx context.Context) (*api.HealthReconcileResponse, error)
@@ -38,5 +38,5 @@ type Interface interface {
 	DeleteSecret(ctx context.Context, name string) (*api.DeleteSecretResponse, error)
 }
 
-// Compile-time check to ensure Client implements Interface
+// Compile-time check to ensure Client implements Interface.
 var _ Interface = (*Client)(nil)

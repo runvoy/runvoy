@@ -80,15 +80,15 @@ func TestConfigFilePath(t *testing.T) {
 
 func TestBackendProvider(t *testing.T) {
 	t.Run("AWS constant is set", func(t *testing.T) {
-		assert.Equal(t, BackendProvider("AWS"), AWS)
+		assert.Equal(t, AWS, BackendProvider("AWS"))
 	})
 }
 
 func TestEnvironment(t *testing.T) {
 	t.Run("environment constants are set", func(t *testing.T) {
-		assert.Equal(t, Environment("development"), Development)
-		assert.Equal(t, Environment("production"), Production)
-		assert.Equal(t, Environment("cli"), CLI)
+		assert.Equal(t, Development, Environment("development"))
+		assert.Equal(t, Production, Environment("production"))
+		assert.Equal(t, CLI, Environment("cli"))
 	})
 }
 
@@ -104,8 +104,8 @@ func TestConstants(t *testing.T) {
 
 func TestServiceConstants(t *testing.T) {
 	t.Run("service constants are set", func(t *testing.T) {
-		assert.Equal(t, Service("orchestrator"), OrchestratorService)
-		assert.Equal(t, Service("event-processor"), EventProcessorService)
+		assert.Equal(t, OrchestratorService, Service("orchestrator"))
+		assert.Equal(t, EventProcessorService, Service("event-processor"))
 	})
 }
 
@@ -114,12 +114,12 @@ func TestServiceConstants(t *testing.T) {
 
 func TestExecutionStatus(t *testing.T) {
 	t.Run("execution status constants are set", func(t *testing.T) {
-		assert.Equal(t, ExecutionStatus("STARTING"), ExecutionStarting)
-		assert.Equal(t, ExecutionStatus("RUNNING"), ExecutionRunning)
-		assert.Equal(t, ExecutionStatus("SUCCEEDED"), ExecutionSucceeded)
-		assert.Equal(t, ExecutionStatus("FAILED"), ExecutionFailed)
-		assert.Equal(t, ExecutionStatus("STOPPED"), ExecutionStopped)
-		assert.Equal(t, ExecutionStatus("TERMINATING"), ExecutionTerminating)
+		assert.Equal(t, ExecutionStarting, ExecutionStatus("STARTING"))
+		assert.Equal(t, ExecutionRunning, ExecutionStatus("RUNNING"))
+		assert.Equal(t, ExecutionSucceeded, ExecutionStatus("SUCCEEDED"))
+		assert.Equal(t, ExecutionFailed, ExecutionStatus("FAILED"))
+		assert.Equal(t, ExecutionStopped, ExecutionStatus("STOPPED"))
+		assert.Equal(t, ExecutionTerminating, ExecutionStatus("TERMINATING"))
 	})
 }
 
@@ -289,7 +289,7 @@ func TestWebURL(t *testing.T) {
 
 func TestClaimURLExpirationMinutes(t *testing.T) {
 	assert.Equal(t, 15, ClaimURLExpirationMinutes)
-	assert.Greater(t, ClaimURLExpirationMinutes, 0, "Expiration should be positive")
+	assert.Positive(t, ClaimURLExpirationMinutes, "Expiration should be positive")
 }
 
 func TestContextKeys(t *testing.T) {
@@ -302,8 +302,8 @@ func TestContextKeys(t *testing.T) {
 	})
 
 	t.Run("context key values are set", func(t *testing.T) {
-		assert.Equal(t, ConfigCtxKeyType("config"), ConfigCtxKey)
-		assert.Equal(t, StartTimeCtxKeyType("startTime"), StartTimeCtxKey)
+		assert.Equal(t, ConfigCtxKey, ConfigCtxKeyType("config"))
+		assert.Equal(t, StartTimeCtxKey, StartTimeCtxKeyType("startTime"))
 	})
 }
 

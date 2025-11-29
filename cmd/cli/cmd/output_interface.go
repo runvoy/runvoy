@@ -2,7 +2,7 @@ package cmd
 
 import "github.com/runvoy/runvoy/internal/client/output"
 
-// OutputInterface defines the interface for output operations to enable dependency injection and testing
+// OutputInterface defines the interface for output operations to enable dependency injection and testing.
 type OutputInterface interface {
 	Infof(format string, a ...any)
 	Errorf(format string, a ...any)
@@ -16,10 +16,10 @@ type OutputInterface interface {
 	Prompt(prompt string) string
 }
 
-// outputWrapper wraps the global output package functions to implement OutputInterface
+// outputWrapper wraps the global output package functions to implement OutputInterface.
 type outputWrapper struct{}
 
-// NewOutputWrapper creates a new output wrapper that implements OutputInterface
+// NewOutputWrapper creates a new output wrapper that implements OutputInterface.
 func NewOutputWrapper() OutputInterface {
 	return &outputWrapper{}
 }

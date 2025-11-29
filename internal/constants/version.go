@@ -7,5 +7,5 @@ func GetVersion() *string {
 	return &version
 }
 
-// ProjectName is the name of the CLI tool and application
+// ProjectName is the name of the CLI tool and application.
 const ProjectName = "runvoy"

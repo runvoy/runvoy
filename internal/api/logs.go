@@ -26,7 +26,7 @@ type LogsResponse struct {
 	WebSocketURL string `json:"websocket_url,omitempty"`
 }
 
-// TraceResponse contains logs and related resources for a request ID
+// TraceResponse contains logs and related resources for a request ID.
 type TraceResponse struct {
 	// Logs retrieved from backend infrastructure
 	Logs []LogEvent `json:"logs"`
@@ -35,7 +35,7 @@ type TraceResponse struct {
 	RelatedResources RelatedResources `json:"related_resources"`
 }
 
-// RelatedResources contains all resources associated with a request ID
+// RelatedResources contains all resources associated with a request ID.
 type RelatedResources struct {
 	Executions []*Execution `json:"executions,omitempty"`
 	Secrets    []*Secret    `json:"secrets,omitempty"`

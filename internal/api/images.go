@@ -4,7 +4,7 @@ import (
 	"time"
 )
 
-// RegisterImageRequest represents the request to register a new Docker image
+// RegisterImageRequest represents the request to register a new Docker image.
 type RegisterImageRequest struct {
 	Image                 string  `json:"image"`
 	IsDefault             *bool   `json:"is_default,omitempty"`
@@ -15,24 +15,24 @@ type RegisterImageRequest struct {
 	RuntimePlatform       *string `json:"runtime_platform,omitempty"`
 }
 
-// RegisterImageResponse represents the response after registering an image
+// RegisterImageResponse represents the response after registering an image.
 type RegisterImageResponse struct {
 	Image   string `json:"image"`
 	Message string `json:"message"`
 }
 
-// RemoveImageRequest represents the request to remove a Docker image
+// RemoveImageRequest represents the request to remove a Docker image.
 type RemoveImageRequest struct {
 	Image string `json:"image"`
 }
 
-// RemoveImageResponse represents the response after removing an image
+// RemoveImageResponse represents the response after removing an image.
 type RemoveImageResponse struct {
 	Image   string `json:"image"`
 	Message string `json:"message"`
 }
 
-// ImageInfo represents information about a registered image
+// ImageInfo represents information about a registered image.
 type ImageInfo struct {
 	ImageID               string    `json:"image_id"`
 	Image                 string    `json:"image"`
@@ -53,7 +53,7 @@ type ImageInfo struct {
 	ModifiedByRequestID   string    `json:"modified_by_request_id"`
 }
 
-// ListImagesResponse represents the response containing all registered images
+// ListImagesResponse represents the response containing all registered images.
 type ListImagesResponse struct {
 	Images []ImageInfo `json:"images"`
 }

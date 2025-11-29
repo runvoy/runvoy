@@ -147,7 +147,7 @@ func TestVerifyLogStreamExists(t *testing.T) {
 		err := verifyLogStreamExists(ctx, mock, logGroup, stream, executionID, testutil.SilentLogger())
 		require.Error(t, err)
 		var appErr *appErrors.AppError
-		assert.True(t, errors.As(err, &appErr))
+		assert.ErrorAs(t, err, &appErr)
 		assert.Equal(t, "SERVICE_UNAVAILABLE", appErr.Code)
 	})
 
@@ -165,7 +165,7 @@ func TestVerifyLogStreamExists(t *testing.T) {
 		err := verifyLogStreamExists(ctx, mock, logGroup, stream, executionID, testutil.SilentLogger())
 		require.Error(t, err)
 		var appErr *appErrors.AppError
-		assert.True(t, errors.As(err, &appErr))
+		assert.ErrorAs(t, err, &appErr)
 		assert.Equal(t, "INTERNAL_ERROR", appErr.Code)
 	})
 
@@ -320,7 +320,7 @@ func TestGetAllLogEvents(t *testing.T) {
 
 		events, err := getAllLogEvents(ctx, mock, logGroup, []string{stream}, 0)
 		require.NoError(t, err)
-		assert.Len(t, events, 0)
+		assert.Empty(t, events)
 	})
 
 	t.Run("handles ResourceNotFoundException", func(t *testing.T) {
@@ -336,7 +336,7 @@ func TestGetAllLogEvents(t *testing.T) {
 
 		events, err := getAllLogEvents(ctx, mock, logGroup, []string{stream}, 0)
 		require.NoError(t, err)
-		assert.Len(t, events, 0)
+		assert.Empty(t, events)
 	})
 
 	t.Run("other API errors are returned", func(t *testing.T) {
@@ -353,7 +353,7 @@ func TestGetAllLogEvents(t *testing.T) {
 		_, err := getAllLogEvents(ctx, mock, logGroup, []string{stream}, 0)
 		require.Error(t, err)
 		var appErr *appErrors.AppError
-		assert.True(t, errors.As(err, &appErr))
+		assert.ErrorAs(t, err, &appErr)
 		assert.Equal(t, "INTERNAL_ERROR", appErr.Code)
 	})
 
@@ -521,7 +521,7 @@ func TestMergeAndSortLogs(t *testing.T) {
 
 	t.Run("handles empty both logs", func(t *testing.T) {
 		result := mergeAndSortLogs([]api.LogEvent{}, []api.LogEvent{})
-		require.Len(t, result, 0)
+		require.Empty(t, result)
 	})
 
 	t.Run("handles logs with equal timestamps", func(t *testing.T) {
@@ -702,7 +702,7 @@ func TestFetchLogsByExecutionID(t *testing.T) {
 		require.Error(t, err)
 		assert.Nil(t, events)
 		var appErr *appErrors.AppError
-		assert.True(t, errors.As(err, &appErr))
+		assert.ErrorAs(t, err, &appErr)
 		assert.Equal(t, "INVALID_REQUEST", appErr.Code)
 	})
 
@@ -739,7 +739,7 @@ func TestFetchLogsByExecutionID(t *testing.T) {
 			require.Error(t, err)
 			assert.Nil(t, events)
 			var appErr *appErrors.AppError
-			assert.True(t, errors.As(err, &appErr))
+			assert.ErrorAs(t, err, &appErr)
 			assert.Equal(t, "SERVICE_UNAVAILABLE", appErr.Code)
 		})
 	}
@@ -775,7 +775,7 @@ func TestFetchLogsByExecutionID(t *testing.T) {
 		require.Error(t, err)
 		assert.Nil(t, events)
 		var appErr *appErrors.AppError
-		assert.True(t, errors.As(err, &appErr))
+		assert.ErrorAs(t, err, &appErr)
 		assert.Equal(t, "INTERNAL_ERROR", appErr.Code)
 	})
 
@@ -823,7 +823,7 @@ func TestFetchLogsByExecutionID(t *testing.T) {
 		require.Error(t, err)
 		assert.Nil(t, events)
 		var appErr *appErrors.AppError
-		assert.True(t, errors.As(err, &appErr))
+		assert.ErrorAs(t, err, &appErr)
 		assert.Equal(t, "INTERNAL_ERROR", appErr.Code)
 	})
 
@@ -854,7 +854,7 @@ func TestFetchLogsByExecutionID(t *testing.T) {
 		manager := createLogManager(mock)
 		events, err := manager.FetchLogsByExecutionID(ctx, executionID)
 		require.NoError(t, err)
-		assert.Len(t, events, 0)
+		assert.Empty(t, events)
 	})
 
 	for _, tc := range []struct {
@@ -888,7 +888,7 @@ func TestFetchLogsByExecutionID(t *testing.T) {
 			require.Error(t, err)
 			assert.Nil(t, events)
 			var appErr *appErrors.AppError
-			assert.True(t, errors.As(err, &appErr))
+			assert.ErrorAs(t, err, &appErr)
 			assert.Equal(t, "INTERNAL_ERROR", appErr.Code)
 		})
 	}
@@ -972,7 +972,7 @@ func TestDiscoverLogGroups(t *testing.T) {
 		manager := &ObservabilityManagerImpl{cwlClient: mock, logger: testutil.SilentLogger()}
 		groups, err := manager.discoverLogGroups(ctx, testutil.SilentLogger())
 		require.NoError(t, err)
-		require.Len(t, groups, 0)
+		require.Empty(t, groups)
 	})
 
 	t.Run("describe log groups fails", func(t *testing.T) {
@@ -1007,9 +1007,9 @@ func TestTransformBackendLogsResults(t *testing.T) {
 
 		logs := manager.transformBackendLogsResults(results)
 		require.Len(t, logs, 1)
-		assert.Equal(t, `{"time":"2025-11-21T16:40:01.123456789Z","level":"INFO","msg":"Request started"}`, logs[0].Message)
+		assert.JSONEq(t, `{"time":"2025-11-21T16:40:01.123456789Z","level":"INFO","msg":"Request started"}`, logs[0].Message)
 		// Timestamp should come from message JSON, not CloudWatch @timestamp
-		assert.Greater(t, logs[0].Timestamp, int64(0))
+		assert.Positive(t, logs[0].Timestamp)
 		// Verify it parsed the correct time (2025-11-21T16:40:01.123456789Z)
 		expectedTime := time.Date(2025, 11, 21, 16, 40, 1, 123456789, time.UTC)
 		assert.Equal(t, expectedTime.UnixMilli(), logs[0].Timestamp)
@@ -1034,7 +1034,7 @@ func TestTransformBackendLogsResults(t *testing.T) {
 	t.Run("handles empty results", func(t *testing.T) {
 		results := [][]cwlTypes.ResultField{}
 		logs := manager.transformBackendLogsResults(results)
-		require.Len(t, logs, 0)
+		require.Empty(t, logs)
 	})
 
 	t.Run("ignores unknown fields", func(t *testing.T) {
@@ -1076,7 +1076,7 @@ func TestTransformBackendLogsResults(t *testing.T) {
 		logs := manager.transformBackendLogsResults(results)
 		require.Len(t, logs, 1)
 		// Falls back to CloudWatch timestamp
-		assert.Greater(t, logs[0].Timestamp, int64(0))
+		assert.Positive(t, logs[0].Timestamp)
 	})
 }
 

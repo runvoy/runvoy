@@ -8,24 +8,24 @@ import "slices"
 type ExecutionStatus string
 
 const (
-	// ExecutionStarting indicates the command has been accepted and is being scheduled
+	// ExecutionStarting indicates the command has been accepted and is being scheduled.
 	ExecutionStarting ExecutionStatus = "STARTING"
-	// ExecutionRunning indicates the command is currently executing
+	// ExecutionRunning indicates the command is currently executing.
 	ExecutionRunning ExecutionStatus = "RUNNING"
-	// ExecutionSucceeded indicates the command completed successfully
+	// ExecutionSucceeded indicates the command completed successfully.
 	ExecutionSucceeded ExecutionStatus = "SUCCEEDED"
-	// ExecutionFailed indicates the command failed with an error
+	// ExecutionFailed indicates the command failed with an error.
 	ExecutionFailed ExecutionStatus = "FAILED"
-	// ExecutionStopped indicates the command was manually terminated
+	// ExecutionStopped indicates the command was manually terminated.
 	ExecutionStopped ExecutionStatus = "STOPPED"
-	// ExecutionTerminating indicates a stop request is in progress
+	// ExecutionTerminating indicates a stop request is in progress.
 	ExecutionTerminating ExecutionStatus = "TERMINATING"
 
-	// DefaultExecutionListLimit is the default number of executions returned by the list endpoint
+	// DefaultExecutionListLimit is the default number of executions returned by the list endpoint.
 	DefaultExecutionListLimit = 10
 )
 
-// TerminalExecutionStatuses returns all statuses that represent completed executions
+// TerminalExecutionStatuses returns all statuses that represent completed executions.
 func TerminalExecutionStatuses() []ExecutionStatus {
 	return []ExecutionStatus{
 		ExecutionFailed,

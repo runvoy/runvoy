@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"testing"
 
@@ -21,7 +22,7 @@ func (m *mockClientInterfaceForClaim) ClaimAPIKey(ctx context.Context, token str
 	if m.claimAPIKeyFunc != nil {
 		return m.claimAPIKeyFunc(ctx, token)
 	}
-	return nil, fmt.Errorf("not implemented")
+	return nil, errors.New("not implemented")
 }
 
 func (m *mockClientInterfaceForClaim) FetchBackendLogs(_ context.Context, _ string) (*api.TraceResponse, error) {
@@ -91,7 +92,7 @@ func TestClaimService_ClaimAPIKey(t *testing.T) {
 			cfg:   &config.Config{APIEndpoint: "https://api.example.com"},
 			setupClient: func(m *mockClientInterfaceForClaim) {
 				m.claimAPIKeyFunc = func(_ context.Context, _ string) (*api.ClaimAPIKeyResponse, error) {
-					return nil, fmt.Errorf("invalid token")
+					return nil, errors.New("invalid token")
 				}
 			},
 			setupSaver: func(_ *mockConfigSaver) {},
@@ -113,7 +114,7 @@ func TestClaimService_ClaimAPIKey(t *testing.T) {
 			cfg:   &config.Config{APIEndpoint: "https://api.example.com"},
 			setupClient: func(m *mockClientInterfaceForClaim) {
 				m.claimAPIKeyFunc = func(_ context.Context, _ string) (*api.ClaimAPIKeyResponse, error) {
-					return nil, fmt.Errorf("network error: connection refused")
+					return nil, errors.New("network error: connection refused")
 				}
 			},
 			setupSaver: func(_ *mockConfigSaver) {},
@@ -121,7 +122,7 @@ func TestClaimService_ClaimAPIKey(t *testing.T) {
 			verifyOutput: func(t *testing.T, m *mockOutputInterface) {
 				// Service returns error, output.Errorf is called in runClaim handler
 				// So no output calls should be made in the service itself
-				assert.Equal(t, 0, len(m.calls), "Service should not call output on network error")
+				assert.Empty(t, m.calls, "Service should not call output on network error")
 			},
 			verifyConfig: func(t *testing.T, cfg *config.Config) {
 				assert.Empty(t, cfg.APIKey)
@@ -141,7 +142,7 @@ func TestClaimService_ClaimAPIKey(t *testing.T) {
 			},
 			setupSaver: func(m *mockConfigSaver) {
 				m.saveFunc = func(_ *config.Config) error {
-					return fmt.Errorf("failed to write config file: permission denied")
+					return errors.New("failed to write config file: permission denied")
 				}
 			},
 			wantErr: true,
@@ -177,7 +178,7 @@ func TestClaimService_ClaimAPIKey(t *testing.T) {
 			},
 			setupSaver: func(m *mockConfigSaver) {
 				m.saveFunc = func(_ *config.Config) error {
-					return fmt.Errorf("save error")
+					return errors.New("save error")
 				}
 			},
 			wantErr: true,

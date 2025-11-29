@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"regexp"
+	"strconv"
 	"strings"
 
 	awsClient "github.com/runvoy/runvoy/internal/providers/aws/client"
@@ -31,7 +32,7 @@ func SanitizeImageNameForTaskDef(image string) string {
 }
 
 // TaskDefinitionFamilyName returns the ECS task definition family name for a given image.
-// Format: {TaskDefinitionFamilyPrefix}-{sanitized-image-name}
+// Format: {TaskDefinitionFamilyPrefix}-{sanitized-image-name}.
 func TaskDefinitionFamilyName(image string) string {
 	sanitized := SanitizeImageNameForTaskDef(image)
 	return fmt.Sprintf("%s-%s", awsConstants.TaskDefinitionFamilyPrefix, sanitized)
@@ -179,8 +180,8 @@ func BuildTaskDefinitionInput(
 	runtimePlatform string,
 	cfg *Config,
 ) *ecs.RegisterTaskDefinitionInput {
-	cpuStr := fmt.Sprintf("%d", cpu)
-	memoryStr := fmt.Sprintf("%d", memory)
+	cpuStr := strconv.Itoa(cpu)
+	memoryStr := strconv.Itoa(memory)
 
 	return ecsdefs.BuildTaskDefinitionInputForConfig(
 		ctx,

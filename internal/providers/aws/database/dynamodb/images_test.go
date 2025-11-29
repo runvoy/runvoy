@@ -2,7 +2,7 @@ package dynamodb
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"testing"
 
 	"github.com/runvoy/runvoy/internal/api"
@@ -241,7 +241,7 @@ func TestPutImageTaskDef(t *testing.T) {
 				m.putItemFunc = func(
 					_ context.Context, _ *dynamodb.PutItemInput, _ ...func(*dynamodb.Options)) (
 					*dynamodb.PutItemOutput, error) {
-					return nil, fmt.Errorf("dynamodb error")
+					return nil, errors.New("dynamodb error")
 				}
 			},
 			expectError: true,
@@ -396,7 +396,7 @@ func TestGetImageTaskDef(t *testing.T) {
 				m.getItemFunc = func(
 					_ context.Context, _ *dynamodb.GetItemInput, _ ...func(*dynamodb.Options)) (
 					*dynamodb.GetItemOutput, error) {
-					return nil, fmt.Errorf("dynamodb error")
+					return nil, errors.New("dynamodb error")
 				}
 			},
 			expectError: true,
@@ -493,7 +493,7 @@ func TestListImages(t *testing.T) {
 				}
 			},
 			validateFn: func(t *testing.T, images []api.ImageInfo) {
-				assert.Len(t, images, 0)
+				assert.Empty(t, images)
 			},
 		},
 		{
@@ -501,7 +501,7 @@ func TestListImages(t *testing.T) {
 			mockSetup: func(m *mockImageClient) {
 				m.scanFunc = func(_ context.Context, _ *dynamodb.ScanInput, _ ...func(*dynamodb.Options)) (
 					*dynamodb.ScanOutput, error) {
-					return nil, fmt.Errorf("scan error")
+					return nil, errors.New("scan error")
 				}
 			},
 			expectError: true,
@@ -581,7 +581,7 @@ func TestGetDefaultImage(t *testing.T) {
 			mockSetup: func(m *mockImageClient) {
 				m.queryFunc = func(_ context.Context, _ *dynamodb.QueryInput, _ ...func(*dynamodb.Options)) (
 					*dynamodb.QueryOutput, error) {
-					return nil, fmt.Errorf("query error")
+					return nil, errors.New("query error")
 				}
 			},
 			expectError: true,
@@ -734,7 +734,7 @@ func TestDeleteImage(t *testing.T) {
 			mockSetup: func(m *mockImageClient) {
 				m.scanFunc = func(_ context.Context, _ *dynamodb.ScanInput, _ ...func(*dynamodb.Options)) (
 					*dynamodb.ScanOutput, error) {
-					return nil, fmt.Errorf("scan failed")
+					return nil, errors.New("scan failed")
 				}
 			},
 			expectError: true,
@@ -757,7 +757,7 @@ func TestDeleteImage(t *testing.T) {
 				}
 				m.deleteItemFunc = func(_ context.Context, _ *dynamodb.DeleteItemInput, _ ...func(*dynamodb.Options)) (
 					*dynamodb.DeleteItemOutput, error) {
-					return nil, fmt.Errorf("delete failed")
+					return nil, errors.New("delete failed")
 				}
 			},
 			expectError: true,
@@ -860,7 +860,7 @@ func TestGetUniqueImages(t *testing.T) {
 				}
 			},
 			validateFn: func(t *testing.T, images []string) {
-				assert.Len(t, images, 0)
+				assert.Empty(t, images)
 			},
 		},
 	}
@@ -923,7 +923,7 @@ func TestGetImagesCount(t *testing.T) {
 			mockSetup: func(m *mockImageClient) {
 				m.scanFunc = func(_ context.Context, _ *dynamodb.ScanInput, _ ...func(*dynamodb.Options)) (
 					*dynamodb.ScanOutput, error) {
-					return nil, fmt.Errorf("scan failed")
+					return nil, errors.New("scan failed")
 				}
 			},
 			expectError: true,
@@ -1055,7 +1055,7 @@ func TestGetAnyImageTaskDef(t *testing.T) {
 			mockSetup: func(m *mockImageClient) {
 				m.scanFunc = func(_ context.Context, _ *dynamodb.ScanInput, _ ...func(*dynamodb.Options)) (
 					*dynamodb.ScanOutput, error) {
-					return nil, fmt.Errorf("scan error")
+					return nil, errors.New("scan error")
 				}
 			},
 			expectError: true,
@@ -1133,7 +1133,7 @@ func TestSetImageAsOnlyDefault(t *testing.T) {
 			mockSetup: func(m *mockImageClient) {
 				m.queryFunc = func(_ context.Context, _ *dynamodb.QueryInput, _ ...func(*dynamodb.Options)) (
 					*dynamodb.QueryOutput, error) {
-					return nil, fmt.Errorf("query failed")
+					return nil, errors.New("query failed")
 				}
 			},
 			expectError: true,

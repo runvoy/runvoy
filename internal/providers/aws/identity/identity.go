@@ -3,6 +3,7 @@ package identity
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 
@@ -24,7 +25,7 @@ func GetAccountID(ctx context.Context, awsCfg *awsStd.Config, log *slog.Logger) 
 	}
 
 	if output.Account == nil || *output.Account == "" {
-		return "", fmt.Errorf("STS returned empty account ID")
+		return "", errors.New("STS returned empty account ID")
 	}
 
 	accountID := *output.Account

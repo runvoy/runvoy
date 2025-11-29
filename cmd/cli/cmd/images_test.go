@@ -2,7 +2,7 @@ package cmd
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -33,14 +33,14 @@ func (m *mockClientInterfaceForImages) RegisterImage(
 	if m.registerImageFunc != nil {
 		return m.registerImageFunc(ctx, image, isDefault, taskRoleName, taskExecutionRoleName, cpu, memory, runtimePlatform)
 	}
-	return nil, fmt.Errorf("not implemented")
+	return nil, errors.New("not implemented")
 }
 
 func (m *mockClientInterfaceForImages) ListImages(ctx context.Context) (*api.ListImagesResponse, error) {
 	if m.listImagesFunc != nil {
 		return m.listImagesFunc(ctx)
 	}
-	return nil, fmt.Errorf("not implemented")
+	return nil, errors.New("not implemented")
 }
 
 func (m *mockClientInterfaceForImages) UnregisterImage(
@@ -49,7 +49,7 @@ func (m *mockClientInterfaceForImages) UnregisterImage(
 	if m.unregisterImageFunc != nil {
 		return m.unregisterImageFunc(ctx, image)
 	}
-	return nil, fmt.Errorf("not implemented")
+	return nil, errors.New("not implemented")
 }
 
 func (m *mockClientInterfaceForImages) FetchBackendLogs(_ context.Context, _ string) (*api.TraceResponse, error) {
@@ -179,7 +179,7 @@ func TestImagesService_RegisterImage(t *testing.T) {
 				m.registerImageFunc = func(
 					_ context.Context, _ string, _ *bool, _, _ *string, _, _ *int, _ *string,
 				) (*api.RegisterImageResponse, error) {
-					return nil, fmt.Errorf("invalid image format")
+					return nil, errors.New("invalid image format")
 				}
 			},
 			wantErr: true,
@@ -258,7 +258,7 @@ func TestImagesService_ListImages(t *testing.T) {
 						hasTable = true
 						if len(call.args) >= 2 {
 							rows := call.args[1].([][]string)
-							assert.Equal(t, 2, len(rows), "Should have 2 image rows")
+							assert.Len(t, rows, 2, "Should have 2 image rows")
 						}
 					}
 					if call.method == "Successf" {
@@ -286,7 +286,7 @@ func TestImagesService_ListImages(t *testing.T) {
 						hasTable = true
 						if len(call.args) >= 2 {
 							rows := call.args[1].([][]string)
-							assert.Equal(t, 0, len(rows), "Should have empty rows")
+							assert.Empty(t, rows, "Should have empty rows")
 						}
 					}
 				}
@@ -297,7 +297,7 @@ func TestImagesService_ListImages(t *testing.T) {
 			name: "handles client error",
 			setupMock: func(m *mockClientInterfaceForImages) {
 				m.listImagesFunc = func(_ context.Context) (*api.ListImagesResponse, error) {
-					return nil, fmt.Errorf("network error")
+					return nil, errors.New("network error")
 				}
 			},
 			wantErr: true,
@@ -381,7 +381,7 @@ func TestImagesService_UnregisterImage(t *testing.T) {
 			image: "nonexistent:latest",
 			setupMock: func(m *mockClientInterfaceForImages) {
 				m.unregisterImageFunc = func(_ context.Context, _ string) (*api.RemoveImageResponse, error) {
-					return nil, fmt.Errorf("image not found")
+					return nil, errors.New("image not found")
 				}
 			},
 			wantErr: true,

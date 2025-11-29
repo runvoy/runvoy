@@ -3,6 +3,7 @@ package aws
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -82,7 +83,7 @@ func BindEnvVars(v *viper.Viper) {
 // ValidateOrchestrator validates required AWS fields for the orchestrator service.
 func ValidateOrchestrator(cfg *Config) error {
 	if cfg == nil {
-		return fmt.Errorf("AWS configuration is required when backend_provider is AWS")
+		return errors.New("AWS configuration is required when backend_provider is AWS")
 	}
 
 	required := map[string]string{
@@ -116,7 +117,7 @@ func ValidateOrchestrator(cfg *Config) error {
 // ValidateEventProcessor validates required AWS fields for the event processor service.
 func ValidateEventProcessor(cfg *Config) error {
 	if cfg == nil {
-		return fmt.Errorf("AWS configuration is required when backend_provider is AWS")
+		return errors.New("AWS configuration is required when backend_provider is AWS")
 	}
 
 	required := map[string]string{
@@ -150,7 +151,7 @@ func ValidateEventProcessor(cfg *Config) error {
 
 // NormalizeWebSocketEndpoint strips protocol prefixes from WebSocket endpoint URLs.
 // Accepts: https://example.com, http://example.com, wss://example.com, ws://example.com, example.com
-// Returns: example.com (without protocol)
+// Returns: example.com (without protocol).
 func NormalizeWebSocketEndpoint(endpoint string) string {
 	endpoint = strings.TrimSpace(endpoint)
 	endpoint = strings.TrimPrefix(endpoint, "https://")
@@ -184,7 +185,7 @@ func BuildTemplateURL(version, region string) string {
 	if region == "" {
 		region = awsConstants.ReleasesBucketRegion
 	}
-	bucketName := fmt.Sprintf("runvoy-releases-%s", region)
+	bucketName := "runvoy-releases-" + region
 	return fmt.Sprintf("https://%s.s3.%s.amazonaws.com/%s/%s",
 		bucketName,
 		region,

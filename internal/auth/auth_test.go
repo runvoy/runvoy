@@ -45,7 +45,7 @@ func TestHashAPIKey(t *testing.T) {
 			assert.NoError(t, err, "Hash should be valid base64")
 
 			// Verify hash length (SHA-256 produces 32 bytes, base64 encoded is 44 chars)
-			assert.Equal(t, 44, len(hash), "SHA-256 hash should be 44 characters when base64 encoded")
+			assert.Len(t, hash, 44, "SHA-256 hash should be 44 characters when base64 encoded")
 		})
 	}
 

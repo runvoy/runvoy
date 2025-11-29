@@ -249,7 +249,7 @@ func TestHandleListImages_EmptyList(t *testing.T) {
 	var response api.ListImagesResponse
 	err := json.NewDecoder(w.Body).Decode(&response)
 	require.NoError(t, err)
-	assert.Len(t, response.Images, 0)
+	assert.Empty(t, response.Images)
 }
 
 func TestHandleListImages_NoAuthentication(t *testing.T) {

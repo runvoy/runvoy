@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 
 	"github.com/runvoy/runvoy/internal/api"
@@ -17,13 +18,13 @@ import (
 	"github.com/runvoy/runvoy/internal/logger"
 )
 
-// Client provides a generic HTTP client for API operations
+// Client provides a generic HTTP client for API operations.
 type Client struct {
 	config *config.Config
 	logger *slog.Logger
 }
 
-// New creates a new API client
+// New creates a new API client.
 func New(cfg *config.Config, log *slog.Logger) *Client {
 	return &Client{
 		config: cfg,
@@ -31,20 +32,20 @@ func New(cfg *config.Config, log *slog.Logger) *Client {
 	}
 }
 
-// Request represents an API request
+// Request represents an API request.
 type Request struct {
 	Method string
 	Path   string
 	Body   any
 }
 
-// Response represents an API response
+// Response represents an API response.
 type Response struct {
 	StatusCode int
 	Body       []byte
 }
 
-// buildURL constructs the full API URL from path and query string
+// buildURL constructs the full API URL from path and query string.
 func (c *Client) buildURL(path string) (string, error) {
 	// Split path and query string if present
 	var pathPart, queryString string
@@ -68,7 +69,7 @@ func (c *Client) buildURL(path string) (string, error) {
 	return apiURL, nil
 }
 
-// prepareRequestBody prepares the request body as an io.Reader if Body is provided
+// prepareRequestBody prepares the request body as an io.Reader if Body is provided.
 func (c *Client) prepareRequestBody(body any) (io.Reader, error) {
 	if body == nil {
 		return nil, nil
@@ -80,7 +81,7 @@ func (c *Client) prepareRequestBody(body any) (io.Reader, error) {
 	return bytes.NewBuffer(jsonData), nil
 }
 
-// createHTTPRequest creates an http.Request with headers set
+// createHTTPRequest creates an http.Request with headers set.
 func (c *Client) createHTTPRequest(
 	ctx context.Context, method, apiURL string, bodyReader io.Reader,
 ) (*http.Request, error) {
@@ -93,7 +94,7 @@ func (c *Client) createHTTPRequest(
 	return httpReq, nil
 }
 
-// logRequest logs the outgoing HTTP request with relevant details
+// logRequest logs the outgoing HTTP request with relevant details.
 func (c *Client) logRequest(ctx context.Context, reqLogger *slog.Logger, method, apiURL string, body any) {
 	logArgs := []any{
 		"operation", "HTTP.Request",
@@ -110,7 +111,7 @@ func (c *Client) logRequest(ctx context.Context, reqLogger *slog.Logger, method,
 	reqLogger.Debug("calling external service", logArgs...)
 }
 
-// Do makes an HTTP request to the API
+// Do makes an HTTP request to the API.
 func (c *Client) Do(ctx context.Context, req Request) (*Response, error) {
 	reqLogger := logger.DeriveRequestLogger(ctx, c.logger)
 
@@ -157,7 +158,7 @@ func (c *Client) Do(ctx context.Context, req Request) (*Response, error) {
 	}, nil
 }
 
-// DoJSON makes a request and unmarshals the response into the provided interface
+// DoJSON makes a request and unmarshals the response into the provided interface.
 func (c *Client) DoJSON(ctx context.Context, req Request, result any) error {
 	reqLogger := logger.DeriveRequestLogger(ctx, c.logger)
 
@@ -186,7 +187,7 @@ func (c *Client) DoJSON(ctx context.Context, req Request, result any) error {
 	return nil
 }
 
-// CreateUser creates a new user using the API
+// CreateUser creates a new user using the API.
 func (c *Client) CreateUser(ctx context.Context, req api.CreateUserRequest) (*api.CreateUserResponse, error) {
 	var resp api.CreateUserResponse
 	err := c.DoJSON(ctx, Request{
@@ -201,7 +202,7 @@ func (c *Client) CreateUser(ctx context.Context, req api.CreateUserRequest) (*ap
 	return &resp, nil
 }
 
-// RevokeUser revokes a user's API key
+// RevokeUser revokes a user's API key.
 func (c *Client) RevokeUser(ctx context.Context, req api.RevokeUserRequest) (*api.RevokeUserResponse, error) {
 	var resp api.RevokeUserResponse
 	err := c.DoJSON(ctx, Request{
@@ -216,7 +217,7 @@ func (c *Client) RevokeUser(ctx context.Context, req api.RevokeUserRequest) (*ap
 	return &resp, nil
 }
 
-// ListUsers lists all users
+// ListUsers lists all users.
 func (c *Client) ListUsers(ctx context.Context) (*api.ListUsersResponse, error) {
 	var resp api.ListUsersResponse
 	err := c.DoJSON(ctx, Request{
@@ -230,7 +231,7 @@ func (c *Client) ListUsers(ctx context.Context) (*api.ListUsersResponse, error) 
 	return &resp, nil
 }
 
-// GetHealth checks the API health status
+// GetHealth checks the API health status.
 func (c *Client) GetHealth(ctx context.Context) (*api.HealthResponse, error) {
 	var resp api.HealthResponse
 	err := c.DoJSON(ctx, Request{
@@ -273,7 +274,7 @@ func (c *Client) ReconcileHealth(ctx context.Context) (*api.HealthReconcileRespo
 }
 
 // GetLogs gets the logs for an execution
-// The response includes a WebSocketURL field for streaming logs if WebSocket is configured
+// The response includes a WebSocketURL field for streaming logs if WebSocket is configured.
 func (c *Client) GetLogs(ctx context.Context, executionID string) (*api.LogsResponse, error) {
 	var resp api.LogsResponse
 	err := c.DoJSON(ctx, Request{
@@ -286,12 +287,12 @@ func (c *Client) GetLogs(ctx context.Context, executionID string) (*api.LogsResp
 	return &resp, nil
 }
 
-// FetchBackendLogs fetches backend infrastructure logs and related resources for a request ID
+// FetchBackendLogs fetches backend infrastructure logs and related resources for a request ID.
 func (c *Client) FetchBackendLogs(ctx context.Context, requestID string) (*api.TraceResponse, error) {
 	var resp api.TraceResponse
 	err := c.DoJSON(ctx, Request{
 		Method: "GET",
-		Path:   fmt.Sprintf("/api/v1/trace/%s", requestID),
+		Path:   "/api/v1/trace/" + requestID,
 	}, &resp)
 	if err != nil {
 		return nil, err
@@ -299,7 +300,7 @@ func (c *Client) FetchBackendLogs(ctx context.Context, requestID string) (*api.T
 	return &resp, nil
 }
 
-// GetExecutionStatus gets the status of an execution
+// GetExecutionStatus gets the status of an execution.
 func (c *Client) GetExecutionStatus(ctx context.Context, executionID string) (*api.ExecutionStatusResponse, error) {
 	var resp api.ExecutionStatusResponse
 	err := c.DoJSON(ctx, Request{
@@ -313,11 +314,11 @@ func (c *Client) GetExecutionStatus(ctx context.Context, executionID string) (*a
 }
 
 // KillExecution stops a running execution by its ID
-// Returns nil response if the execution was already terminated (204 No Content)
+// Returns nil response if the execution was already terminated (204 No Content).
 func (c *Client) KillExecution(ctx context.Context, executionID string) (*api.KillExecutionResponse, error) {
 	httpReq := Request{
 		Method: "DELETE",
-		Path:   fmt.Sprintf("/api/v1/executions/%s", executionID),
+		Path:   "/api/v1/executions/" + executionID,
 	}
 
 	httpResp, err := c.Do(ctx, httpReq)
@@ -360,7 +361,7 @@ func (c *Client) ListExecutions(ctx context.Context, limit int, statuses string)
 
 	params := url.Values{}
 	if limit >= 0 {
-		params.Set("limit", fmt.Sprintf("%d", limit))
+		params.Set("limit", strconv.Itoa(limit))
 	}
 	if statuses != "" {
 		params.Set("status", statuses)
@@ -379,12 +380,12 @@ func (c *Client) ListExecutions(ctx context.Context, limit int, statuses string)
 	return resp, nil
 }
 
-// ClaimAPIKey claims a user's API key
+// ClaimAPIKey claims a user's API key.
 func (c *Client) ClaimAPIKey(ctx context.Context, token string) (*api.ClaimAPIKeyResponse, error) {
 	var resp api.ClaimAPIKeyResponse
 	err := c.DoJSON(ctx, Request{
 		Method: "GET",
-		Path:   fmt.Sprintf("/api/v1/claim/%s", token),
+		Path:   "/api/v1/claim/" + token,
 	}, &resp)
 	if err != nil {
 		return nil, err
@@ -392,7 +393,7 @@ func (c *Client) ClaimAPIKey(ctx context.Context, token string) (*api.ClaimAPIKe
 	return &resp, nil
 }
 
-// RegisterImage registers a new container image for execution, optionally marking it as the default
+// RegisterImage registers a new container image for execution, optionally marking it as the default.
 func (c *Client) RegisterImage(
 	ctx context.Context,
 	image string,
@@ -421,7 +422,7 @@ func (c *Client) RegisterImage(
 	return &resp, nil
 }
 
-// ListImages retrieves all registered container images
+// ListImages retrieves all registered container images.
 func (c *Client) ListImages(ctx context.Context) (*api.ListImagesResponse, error) {
 	var resp api.ListImagesResponse
 	err := c.DoJSON(ctx, Request{
@@ -434,13 +435,13 @@ func (c *Client) ListImages(ctx context.Context) (*api.ListImagesResponse, error
 	return &resp, nil
 }
 
-// GetImage retrieves a single container image by ID or name
+// GetImage retrieves a single container image by ID or name.
 func (c *Client) GetImage(ctx context.Context, image string) (*api.ImageInfo, error) {
 	var resp api.ImageInfo
 	encodedImage := url.PathEscape(image)
 	err := c.DoJSON(ctx, Request{
 		Method: "GET",
-		Path:   fmt.Sprintf("/api/v1/images/%s", encodedImage),
+		Path:   "/api/v1/images/" + encodedImage,
 	}, &resp)
 	if err != nil {
 		return nil, err
@@ -448,12 +449,12 @@ func (c *Client) GetImage(ctx context.Context, image string) (*api.ImageInfo, er
 	return &resp, nil
 }
 
-// UnregisterImage removes a container image from the registry
+// UnregisterImage removes a container image from the registry.
 func (c *Client) UnregisterImage(ctx context.Context, image string) (*api.RemoveImageResponse, error) {
 	var resp api.RemoveImageResponse
 	err := c.DoJSON(ctx, Request{
 		Method: "DELETE",
-		Path:   fmt.Sprintf("/api/v1/images/%s", image),
+		Path:   "/api/v1/images/" + image,
 	}, &resp)
 	if err != nil {
 		return nil, err
@@ -461,7 +462,7 @@ func (c *Client) UnregisterImage(ctx context.Context, image string) (*api.Remove
 	return &resp, nil
 }
 
-// CreateSecret creates a new secret
+// CreateSecret creates a new secret.
 func (c *Client) CreateSecret(ctx context.Context, req api.CreateSecretRequest) (*api.CreateSecretResponse, error) {
 	var resp api.CreateSecretResponse
 	err := c.DoJSON(ctx, Request{
@@ -475,12 +476,12 @@ func (c *Client) CreateSecret(ctx context.Context, req api.CreateSecretRequest) 
 	return &resp, nil
 }
 
-// GetSecret retrieves a secret by name
+// GetSecret retrieves a secret by name.
 func (c *Client) GetSecret(ctx context.Context, name string) (*api.GetSecretResponse, error) {
 	var resp api.GetSecretResponse
 	err := c.DoJSON(ctx, Request{
 		Method: "GET",
-		Path:   fmt.Sprintf("/api/v1/secrets/%s", name),
+		Path:   "/api/v1/secrets/" + name,
 	}, &resp)
 	if err != nil {
 		return nil, err
@@ -488,7 +489,7 @@ func (c *Client) GetSecret(ctx context.Context, name string) (*api.GetSecretResp
 	return &resp, nil
 }
 
-// ListSecrets lists all secrets
+// ListSecrets lists all secrets.
 func (c *Client) ListSecrets(ctx context.Context) (*api.ListSecretsResponse, error) {
 	var resp api.ListSecretsResponse
 	err := c.DoJSON(ctx, Request{
@@ -501,7 +502,7 @@ func (c *Client) ListSecrets(ctx context.Context) (*api.ListSecretsResponse, err
 	return &resp, nil
 }
 
-// UpdateSecret updates a secret by name
+// UpdateSecret updates a secret by name.
 func (c *Client) UpdateSecret(
 	ctx context.Context,
 	name string,
@@ -510,7 +511,7 @@ func (c *Client) UpdateSecret(
 	var resp api.UpdateSecretResponse
 	err := c.DoJSON(ctx, Request{
 		Method: "PUT",
-		Path:   fmt.Sprintf("/api/v1/secrets/%s", name),
+		Path:   "/api/v1/secrets/" + name,
 		Body:   req,
 	}, &resp)
 	if err != nil {
@@ -519,12 +520,12 @@ func (c *Client) UpdateSecret(
 	return &resp, nil
 }
 
-// DeleteSecret deletes a secret by name
+// DeleteSecret deletes a secret by name.
 func (c *Client) DeleteSecret(ctx context.Context, name string) (*api.DeleteSecretResponse, error) {
 	var resp api.DeleteSecretResponse
 	err := c.DoJSON(ctx, Request{
 		Method: "DELETE",
-		Path:   fmt.Sprintf("/api/v1/secrets/%s", name),
+		Path:   "/api/v1/secrets/" + name,
 	}, &resp)
 	if err != nil {
 		return nil, err

@@ -238,7 +238,7 @@ func saveToPath(config *Config, configFilePath string) error {
 	return nil
 }
 
-// GetConfigPath returns the path to the config file
+// GetConfigPath returns the path to the config file.
 func GetConfigPath() (string, error) {
 	currentUser, err := user.Current()
 	if err != nil {
