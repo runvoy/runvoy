@@ -8,31 +8,33 @@
     <em>Run arbitrary commands on ephemeral containers in your cloud account — no complex setup required.</em>
 </p>
 <p align="center">
-  <a href="https://github.com/runvoy/runvoy/actions/workflows/tests-and-coverage-go.yml" target="_blank">
-      <img src="https://github.com/runvoy/runvoy/actions/workflows/tests-and-coverage-go.yml/badge.svg?event=push&branch=main" alt="Tests (Go)">
-  </a>
-  <a href="https://github.com/runvoy/runvoy/actions/workflows/tests-and-coverage-svelte.yml" target="_blank">
-      <img src="https://github.com/runvoy/runvoy/actions/workflows/tests-and-coverage-svelte.yml/badge.svg?event=push&branch=main" alt="Tests (Svelte)">
-  </a>
-  <a href="https://codecov.io/github/runvoy/runvoy" >
-      <img src="https://codecov.io/github/runvoy/runvoy/graph/badge.svg?token=Q673GMB33N"/>
-  </a>
-  <a href="https://golang.org" target="_blank">
-      <img src="https://img.shields.io/badge/Go-1.25+-00ADD8?logo=go" alt="Go version">
-  </a>
-  <br/>
-  <a href="https://github.com/runvoy/runvoy" target="_blank">
-      <img src="https://img.shields.io/badge/Github-repo-yellow" alt="Github Repository">
-  </a>
-  <a href="https://github.com/runvoy/runvoy/releases/latest" target="_blank">
-      <img src="https://img.shields.io/github/release/runvoy/runvoy.svg" alt="Latest Release">
-  </a>
-  <a href="https://web.runvoy.site" target="_blank">
-      <img src="https://img.shields.io/badge/%F0%9F%9A%80%20Webapp-blue" alt="Runvoy Webapp">
-  </a>
-  <a href="https://runvoy.site" target="_blank">
-      <img src="https://img.shields.io/badge/%F0%9F%9A%80%20Docs-orange" alt="Runvoy Docs">
-  </a>
+    <a href="https://github.com/runvoy/runvoy/actions/workflows/tests-and-coverage-go.yml" target="_blank">
+        <img src="https://github.com/runvoy/runvoy/actions/workflows/tests-and-coverage-go.yml/badge.svg?event=push&branch=main" alt="Tests (Go)">
+    </a>
+    <a href="https://github.com/runvoy/runvoy/actions/workflows/tests-and-coverage-svelte.yml" target="_blank">
+        <img src="https://github.com/runvoy/runvoy/actions/workflows/tests-and-coverage-svelte.yml/badge.svg?event=push&branch=main" alt="Tests (Svelte)">
+    </a>
+    <a href="https://codecov.io/github/runvoy/runvoy" >
+        <img src="https://codecov.io/github/runvoy/runvoy/graph/badge.svg?token=Q673GMB33N"/>
+    </a>
+    <a href="https://golang.org" target="_blank">
+        <img src="https://img.shields.io/badge/Go-1.25+-00ADD8?logo=go" alt="Go version">
+    </a>
+    <a href="https://github.com/runvoy/runvoy" target="_blank">
+        <img src="https://img.shields.io/badge/Github-repo-yellow" alt="Github Repository">
+    </a>
+    <a href="https://github.com/runvoy/runvoy/releases/latest" target="_blank">
+        <img src="https://img.shields.io/github/release/runvoy/runvoy.svg" alt="Latest Release">
+    </a>
+    <a href="https://web.runvoy.site" target="_blank">
+        <img src="https://img.shields.io/badge/%F0%9F%9A%80%20Webapp-blue" alt="Runvoy Webapp">
+    </a>
+    <a href="https://runvoy.site" target="_blank">
+        <img src="https://img.shields.io/badge/%F0%9F%9A%80%20Docs-orange" alt="Runvoy Docs">
+    </a>
+    <a href="https://www.bestpractices.dev/projects/11515">
+        <img src="https://www.bestpractices.dev/projects/11515/badge">
+    </a>
 </p>
 
 ---
@@ -203,7 +205,7 @@ runvoy --help
 ```
 
 ```text
-runvoy - v0.4.1-20251129-59d6e4a
+runvoy - v0.4.1-20251129-1174754
 Isolated, repeatable execution environments for your commands
 
 Usage:
