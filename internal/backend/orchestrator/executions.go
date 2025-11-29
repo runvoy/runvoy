@@ -240,20 +240,6 @@ func (s *Service) GetLogsByExecutionID(
 	}, nil
 }
 
-// FetchBackendLogs retrieves backend infrastructure logs for the provided requestID.
-// Returns logs from backend services for debugging and tracing.
-func (s *Service) FetchBackendLogs(ctx context.Context, requestID string) ([]api.LogEvent, error) {
-	if requestID == "" {
-		return nil, apperrors.ErrBadRequest("requestID is required", nil)
-	}
-
-	logs, err := s.observabilityManager.FetchBackendLogs(ctx, requestID)
-	if err != nil {
-		return nil, apperrors.ErrInternalError("failed to fetch backend logs", fmt.Errorf("fetch backend logs: %w", err))
-	}
-	return logs, nil
-}
-
 // FetchTrace retrieves backend logs and related resources for a request ID.
 func (s *Service) FetchTrace(ctx context.Context, requestID string) (*api.TraceResponse, error) {
 	if requestID == "" {
