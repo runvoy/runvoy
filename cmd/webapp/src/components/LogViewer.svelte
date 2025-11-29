@@ -26,7 +26,7 @@
 <div class="log-viewer-container" bind:this={container} onscroll={handleScroll}>
     {#if $logEvents.length > 0}
         <div class="log-lines">
-            {#each $logEvents as event (event.line)}
+            {#each $logEvents as event (event.event_id)}
                 <LogLine {event} />
             {/each}
         </div>
