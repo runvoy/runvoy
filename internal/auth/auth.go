@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
+	"fmt"
 	"time"
 
 	"github.com/runvoy/runvoy/internal/constants"
@@ -41,4 +42,14 @@ func GenerateUUID() string {
 		return hex.EncodeToString([]byte(time.Now().String()))
 	}
 	return hex.EncodeToString(b)
+}
+
+// GenerateEventID creates a deterministic unique event ID from timestamp and message.
+// Uses SHA-256 hash of the concatenated timestamp and message, then returns the first 16 bytes (32 hex characters).
+// Used for generating event IDs for log entries when the source doesn't provide one.
+func GenerateEventID(timestamp int64, message string) string {
+	var buf []byte
+	buf = fmt.Appendf(buf, "%d:%s", timestamp, message)
+	hash := sha256.Sum256(buf)
+	return hex.EncodeToString(hash[:])[:16] // Use first 16 bytes (32 hex chars)
 }

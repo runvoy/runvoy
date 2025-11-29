@@ -5,6 +5,7 @@
 export interface BaseLogEvent {
     message: string;
     timestamp: number;
+    event_id: string;
     level?: 'info' | 'warn' | 'error' | 'debug';
 }
 

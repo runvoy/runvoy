@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/runvoy/runvoy/internal/api"
+	"github.com/runvoy/runvoy/internal/auth"
 	"github.com/runvoy/runvoy/internal/constants"
 	appErrors "github.com/runvoy/runvoy/internal/errors"
 	"github.com/runvoy/runvoy/internal/logger"
@@ -248,6 +249,10 @@ func (o *ObservabilityManagerImpl) transformBackendLogsResults(
 			// Fall back to CloudWatch @timestamp if message parsing fails
 			parseCloudWatchTimestamp(&logEntry, cloudwatchTimestamp)
 		}
+
+		// Generate eventID (deterministic based on timestamp + message)
+		// If timestamp is 0 or negative (parsing failed), it still produces a deterministic ID
+		logEntry.EventID = auth.GenerateEventID(logEntry.Timestamp, logEntry.Message)
 
 		logs = append(logs, logEntry)
 	}

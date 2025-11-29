@@ -7,10 +7,33 @@ import (
 	"log/slog"
 
 	"github.com/runvoy/runvoy/internal/api"
+	"github.com/runvoy/runvoy/internal/auth"
 	awsConstants "github.com/runvoy/runvoy/internal/providers/aws/constants"
 
 	"github.com/aws/aws-lambda-go/events"
 )
+
+// convertCloudWatchLogEvents converts CloudWatch Logs events to api.LogEvent format.
+func convertCloudWatchLogEvents(reqLogger *slog.Logger, cwLogEvents []events.CloudwatchLogsLogEvent) []api.LogEvent {
+	logEvents := make([]api.LogEvent, 0, len(cwLogEvents))
+	for _, cwLogEvent := range cwLogEvents {
+		eventID := cwLogEvent.ID
+		if eventID == "" {
+			eventID = auth.GenerateEventID(cwLogEvent.Timestamp, cwLogEvent.Message)
+			reqLogger.Warn("no event ID found, generating from timestamp + message", "context", map[string]any{
+				"timestamp":          cwLogEvent.Timestamp,
+				"message":            cwLogEvent.Message,
+				"generated_event_id": eventID,
+			})
+		}
+		logEvents = append(logEvents, api.LogEvent{
+			EventID:   eventID,
+			Timestamp: cwLogEvent.Timestamp,
+			Message:   cwLogEvent.Message,
+		})
+	}
+	return logEvents
+}
 
 // handleLogsEvent processes CloudWatch Logs events.
 func (p *Processor) handleLogsEvent(
@@ -50,15 +73,7 @@ func (p *Processor) handleLogsEvent(
 		},
 	)
 
-	// Convert CloudWatch log events to api.LogEvent format
-	logEvents := make([]api.LogEvent, 0, len(data.LogEvents))
-	for _, cwLogEvent := range data.LogEvents {
-		logEvents = append(logEvents, api.LogEvent{
-			EventID:   cwLogEvent.ID,
-			Timestamp: cwLogEvent.Timestamp,
-			Message:   cwLogEvent.Message,
-		})
-	}
+	logEvents := convertCloudWatchLogEvents(reqLogger, data.LogEvents)
 
 	if err = p.logEventRepo.SaveLogEvents(ctx, executionID, logEvents); err != nil {
 		reqLogger.Error("failed to persist log events", "error", err, "execution_id", executionID)

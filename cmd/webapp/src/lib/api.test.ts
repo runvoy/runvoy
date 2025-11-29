@@ -115,7 +115,9 @@ describe('APIClient', () => {
         it('should fetch logs for an execution', async () => {
             const executionId = 'exec-123';
             const mockResponse = {
-                events: [{ message: 'Starting...', timestamp: 1234567890, line: 0 }],
+                events: [
+                    { message: 'Starting...', timestamp: 1234567890, event_id: 'event-1', line: 0 }
+                ],
                 websocket_url: 'wss://localhost:8080/api/v1/executions/exec-123/logs'
             };
 

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/runvoy/runvoy/internal/api"
+	"github.com/runvoy/runvoy/internal/auth"
 	appErrors "github.com/runvoy/runvoy/internal/errors"
 	"github.com/runvoy/runvoy/internal/logger"
 	awsClient "github.com/runvoy/runvoy/internal/providers/aws/client"
@@ -54,42 +55,64 @@ func verifyLogStreamExists(
 	return nil
 }
 
-// getAllLogEvents paginates through CloudWatch Logs GetLogEvents to collect all events
-// for the provided log group and stream. It returns the aggregated sorted by timestamp
-// events or an error.
+// getAllLogEvents paginates through CloudWatch Logs FilterLogEvents to collect all events
+// for the provided log group and streams. It returns the aggregated events with eventIDs
+// sorted by timestamp or an error.
+// startTime specifies the start of the time range (in milliseconds since Unix epoch).
+// If 0, fetches all logs from the beginning of the streams.
+// streams can be a single stream or multiple streams (e.g., runner and sidecar).
 func getAllLogEvents(ctx context.Context,
-	cwl awsClient.CloudWatchLogsClient, logGroup string, stream string) ([]api.LogEvent, error) {
+	cwl awsClient.CloudWatchLogsClient, logGroup string, streams []string, startTime int64) ([]api.LogEvent, error) {
 	var events []api.LogEvent
 	var nextToken *string
 	pageCount := 0
 	for {
 		pageCount++
 
-		out, err := cwl.GetLogEvents(ctx, &cloudwatchlogs.GetLogEventsInput{
-			LogGroupName:  &logGroup,
-			LogStreamName: &stream,
-			NextToken:     nextToken,
-			StartFromHead: aws.Bool(true),
-			Limit:         aws.Int32(awsConstants.CloudWatchLogsEventsLimit),
-		})
+		input := &cloudwatchlogs.FilterLogEventsInput{
+			LogGroupName:   aws.String(logGroup),
+			LogStreamNames: streams,
+			NextToken:      nextToken,
+			Limit:          aws.Int32(awsConstants.CloudWatchLogsEventsLimit),
+			StartTime:      aws.Int64(startTime),
+		}
+
+		out, err := cwl.FilterLogEvents(ctx, input)
 
 		if err != nil {
 			var rte *cwlTypes.ResourceNotFoundException
 			if errors.As(err, &rte) {
 				break
 			}
-			return nil, appErrors.ErrInternalError("failed to get log events", err)
+			return nil, appErrors.ErrInternalError("failed to filter log events", err)
 		}
 		for _, e := range out.Events {
+			message := aws.ToString(e.Message)
+			timestamp := aws.ToInt64(e.Timestamp)
+
+			eventID := ""
+			if e.EventId != nil && *e.EventId != "" {
+				eventID = *e.EventId
+			} else {
+				reqLogger := logger.DeriveRequestLogger(ctx, slog.Default())
+
+				reqLogger.Warn("no event ID found, generating from timestamp + message", "context", map[string]any{
+					"timestamp": timestamp,
+					"message":   message,
+				})
+				eventID = auth.GenerateEventID(timestamp, message)
+			}
+
 			events = append(events, api.LogEvent{
-				Timestamp: aws.ToInt64(e.Timestamp),
-				Message:   aws.ToString(e.Message),
+				EventID:   eventID,
+				Timestamp: timestamp,
+				Message:   message,
 			})
 		}
-		if out.NextForwardToken == nil || (nextToken != nil && *out.NextForwardToken == *nextToken) {
+		if out.NextToken == nil || (nextToken != nil && *out.NextToken == *nextToken) {
 			break
 		}
-		nextToken = out.NextForwardToken
+		nextToken = out.NextToken
 	}
 	return events, nil
 }

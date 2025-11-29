@@ -71,20 +71,18 @@ export function connectWebSocket(url: string): void {
             // Handle log events (messages with a message property and timestamp)
             if (message.message && message.timestamp !== undefined) {
                 logEvents.update((events: LogEvent[]): LogEvent[] => {
-                    // Avoid duplicates by checking timestamp (primary key)
-                    if (events.some((e) => e.timestamp === message.timestamp)) {
-                        return events;
-                    }
-
-                    // Assign a new line number
+                    // Assign a new line number (like CLI does - just append to the end)
                     const nextLine =
                         events.length > 0 ? Math.max(...events.map((e) => e.line)) + 1 : 1;
+
                     const eventWithLine: LogEvent = {
                         message: message.message as string,
                         timestamp: message.timestamp as number,
+                        event_id: message.event_id as string,
                         line: nextLine
                     };
 
+                    // Simply append the new event (API doesn't return duplicates)
                     return [...events, eventWithLine];
                 });
             }

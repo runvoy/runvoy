@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"slices"
 
 	"github.com/runvoy/runvoy/internal/api"
 	appErrors "github.com/runvoy/runvoy/internal/errors"
@@ -40,65 +39,20 @@ func buildSidecarLogStreamName(executionID string) string {
 	return "task/" + awsConstants.SidecarContainerName + "/" + executionID
 }
 
-// fetchLogsFromStream fetches logs from a CloudWatch log stream.
-func (l *LogManagerImpl) fetchLogsFromStream(
-	ctx context.Context,
-	reqLogger *slog.Logger,
-	stream string,
-	executionID string,
-) ([]api.LogEvent, error) {
-	reqLogger.Debug("calling external service", "context", map[string]string{
-		"operation":    "CloudWatchLogs.GetLogEvents",
-		"log_group":    l.cfg.LogGroup,
-		"log_stream":   stream,
-		"execution_id": executionID,
-		"paginated":    "true",
-	})
-
-	events, fetchErr := getAllLogEvents(ctx, l.cwlClient, l.cfg.LogGroup, stream)
-	if fetchErr != nil {
-		return nil, fetchErr
-	}
-
-	reqLogger.Debug("log events fetched successfully", "context", map[string]string{
-		"log_stream":   stream,
-		"events_count": fmt.Sprintf("%d", len(events)),
-	})
-
-	return events, nil
-}
-
-// mergeAndSortLogs merges logs from runner and sidecar streams and sorts by timestamp.
-func mergeAndSortLogs(runnerEvents, sidecarEvents []api.LogEvent) []api.LogEvent {
-	allEvents := make([]api.LogEvent, 0, len(runnerEvents)+len(sidecarEvents))
-	allEvents = append(allEvents, runnerEvents...)
-	allEvents = append(allEvents, sidecarEvents...)
-
-	slices.SortFunc(allEvents, func(a, b api.LogEvent) int {
-		if a.Timestamp < b.Timestamp {
-			return -1
-		}
-		if a.Timestamp > b.Timestamp {
-			return 1
-		}
-		return 0
-	})
-
-	return allEvents
-}
-
 // FetchLogsByExecutionID returns CloudWatch log events for the given execution ID.
-// It fetches logs from both the runner and sidecar containers, merges them, and sorts by timestamp.
+// It fetches logs from both the runner and sidecar containers.
+// Events are returned sorted by timestamp (AWS FilterLogEvents returns events sorted).
 // Sidecar logs are mandatory as sidecars always run.
 func (l *LogManagerImpl) FetchLogsByExecutionID(ctx context.Context, executionID string) ([]api.LogEvent, error) {
 	if executionID == "" {
 		return nil, appErrors.ErrBadRequest("executionID is required", nil)
 	}
 
-	reqLogger := logger.DeriveRequestLogger(ctx, l.logger)
-
-	runnerStream := awsConstants.BuildLogStreamName(executionID)
-	sidecarStream := buildSidecarLogStreamName(executionID)
+	var (
+		reqLogger     = logger.DeriveRequestLogger(ctx, l.logger)
+		runnerStream  = awsConstants.BuildLogStreamName(executionID)
+		sidecarStream = buildSidecarLogStreamName(executionID)
+	)
 
 	// Verify both streams exist (both are required)
 	if verifyErr := verifyLogStreamExists(
@@ -113,25 +67,23 @@ func (l *LogManagerImpl) FetchLogsByExecutionID(ctx context.Context, executionID
 		return nil, verifyErr
 	}
 
-	// Fetch logs from runner stream
-	runnerEvents, err := l.fetchLogsFromStream(ctx, reqLogger, runnerStream, executionID)
+	reqLogger.Debug("calling external service", "context", map[string]any{
+		"operation":      "CloudWatchLogs.FilterLogEvents",
+		"log_group":      l.cfg.LogGroup,
+		"runner_stream":  runnerStream,
+		"sidecar_stream": sidecarStream,
+		"execution_id":   executionID,
+		"paginated":      "true",
+	})
+
+	// Pass 0 as startTime to fetch all logs from the beginning of the streams (not only last 24h as default)
+	allEvents, err := getAllLogEvents(ctx, l.cwlClient, l.cfg.LogGroup, []string{runnerStream, sidecarStream}, 0)
 	if err != nil {
 		return nil, err
 	}
 
-	// Fetch logs from sidecar stream (mandatory)
-	sidecarEvents, err := l.fetchLogsFromStream(ctx, reqLogger, sidecarStream, executionID)
-	if err != nil {
-		return nil, err
-	}
-
-	// Merge and sort logs from both streams
-	allEvents := mergeAndSortLogs(runnerEvents, sidecarEvents)
-
-	reqLogger.Debug("log events fetched and merged successfully", "context", map[string]string{
-		"total_events":   fmt.Sprintf("%d", len(allEvents)),
-		"runner_events":  fmt.Sprintf("%d", len(runnerEvents)),
-		"sidecar_events": fmt.Sprintf("%d", len(sidecarEvents)),
+	reqLogger.Debug("log events fetched successfully", "context", map[string]string{
+		"total_events": fmt.Sprintf("%d", len(allEvents)),
 	})
 
 	return allEvents, nil

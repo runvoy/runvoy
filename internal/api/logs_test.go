@@ -11,6 +11,7 @@ import (
 func TestLogEventJSON(t *testing.T) {
 	t.Run("marshal and unmarshal", func(t *testing.T) {
 		event := LogEvent{
+			EventID:   "test-event-1",
 			Timestamp: 1234567890,
 			Message:   "Test log message",
 		}
@@ -28,6 +29,7 @@ func TestLogEventJSON(t *testing.T) {
 
 	t.Run("handle empty message", func(t *testing.T) {
 		event := LogEvent{
+			EventID:   "test-event-2",
 			Timestamp: 1234567890,
 			Message:   "",
 		}
@@ -49,8 +51,8 @@ func TestLogsResponseJSON(t *testing.T) {
 		resp := LogsResponse{
 			ExecutionID: "exec-123",
 			Events: []LogEvent{
-				{Timestamp: 1000, Message: "Log 1"},
-				{Timestamp: 2000, Message: "Log 2"},
+				{EventID: "event-1", Timestamp: 1000, Message: "Log 1"},
+				{EventID: "event-2", Timestamp: 2000, Message: "Log 2"},
 			},
 			Status:       "RUNNING",
 			WebSocketURL: "wss://example.com/ws",

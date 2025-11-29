@@ -19,11 +19,11 @@ type CloudWatchLogsClient interface {
 		params *cloudwatchlogs.DescribeLogStreamsInput,
 		optFns ...func(*cloudwatchlogs.Options),
 	) (*cloudwatchlogs.DescribeLogStreamsOutput, error)
-	GetLogEvents(
+	FilterLogEvents(
 		ctx context.Context,
-		params *cloudwatchlogs.GetLogEventsInput,
+		params *cloudwatchlogs.FilterLogEventsInput,
 		optFns ...func(*cloudwatchlogs.Options),
-	) (*cloudwatchlogs.GetLogEventsOutput, error)
+	) (*cloudwatchlogs.FilterLogEventsOutput, error)
 	StartQuery(
 		ctx context.Context,
 		params *cloudwatchlogs.StartQueryInput,
@@ -65,13 +65,13 @@ func (a *CloudWatchLogsClientAdapter) DescribeLogStreams(
 	return a.client.DescribeLogStreams(ctx, params, optFns...)
 }
 
-// GetLogEvents wraps the AWS SDK GetLogEvents operation.
-func (a *CloudWatchLogsClientAdapter) GetLogEvents(
+// FilterLogEvents wraps the AWS SDK FilterLogEvents operation.
+func (a *CloudWatchLogsClientAdapter) FilterLogEvents(
 	ctx context.Context,
-	params *cloudwatchlogs.GetLogEventsInput,
+	params *cloudwatchlogs.FilterLogEventsInput,
 	optFns ...func(*cloudwatchlogs.Options),
-) (*cloudwatchlogs.GetLogEventsOutput, error) {
-	return a.client.GetLogEvents(ctx, params, optFns...)
+) (*cloudwatchlogs.FilterLogEventsOutput, error) {
+	return a.client.FilterLogEvents(ctx, params, optFns...)
 }
 
 // StartQuery wraps the AWS SDK StartQuery operation for CloudWatch Logs Insights.
