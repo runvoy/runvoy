@@ -145,6 +145,12 @@ func (p *Processor) finalizeExecutionFromTaskEvent(
 	currentStatus := constants.ExecutionStatus(execution.Status)
 	targetStatus := constants.ExecutionStatus(status)
 
+	// Always mark logs for deletion when task is stopped, even if status transition is invalid.
+	// This ensures logs get TTL set even if the execution was already finalized through another path.
+	if err = p.logEventRepo.DeleteLogEvents(ctx, executionID); err != nil {
+		reqLogger.Error("failed to mark log events for TTL deletion", "error", err, "execution_id", executionID)
+	}
+
 	if !constants.CanTransition(currentStatus, targetStatus) {
 		reqLogger.Warn("skipping invalid status transition",
 			"context", map[string]string{
@@ -173,11 +179,6 @@ func (p *Processor) finalizeExecutionFromTaskEvent(
 	}
 
 	reqLogger.Info("execution updated successfully", "execution", execution)
-
-	if err = p.logEventRepo.DeleteLogEvents(ctx, executionID); err != nil {
-		reqLogger.Error("failed to delete buffered log events", "error", err, "execution_id", executionID)
-		return fmt.Errorf("failed to delete buffered logs: %w", err)
-	}
 
 	// Notify WebSocket clients about the execution completion
 	if err = p.webSocketManager.NotifyExecutionCompletion(ctx, &executionID); err != nil {
