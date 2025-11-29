@@ -2,13 +2,12 @@ package orchestrator
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
 	"log/slog"
 	"time"
 
 	"github.com/runvoy/runvoy/internal/api"
+	"github.com/runvoy/runvoy/internal/auth"
 	"github.com/runvoy/runvoy/internal/constants"
 	appErrors "github.com/runvoy/runvoy/internal/errors"
 	"github.com/runvoy/runvoy/internal/logger"
@@ -252,13 +251,8 @@ func (o *ObservabilityManagerImpl) transformBackendLogsResults(
 		}
 
 		// Generate eventID (deterministic based on timestamp + message)
-		if logEntry.Timestamp > 0 {
-			logEntry.EventID = generateEventID(logEntry.Timestamp, logEntry.Message)
-		} else {
-			// Fallback: generate from message only if timestamp parsing failed
-			hash := sha256.Sum256([]byte(logEntry.Message))
-			logEntry.EventID = hex.EncodeToString(hash[:])[:16]
-		}
+		// If timestamp is 0 or negative (parsing failed), it still produces a deterministic ID
+		logEntry.EventID = auth.GenerateEventID(logEntry.Timestamp, logEntry.Message)
 
 		logs = append(logs, logEntry)
 	}

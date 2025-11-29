@@ -2,13 +2,12 @@ package aws
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"log/slog"
 
 	"github.com/runvoy/runvoy/internal/api"
+	"github.com/runvoy/runvoy/internal/auth"
 	awsConstants "github.com/runvoy/runvoy/internal/providers/aws/constants"
 
 	"github.com/aws/aws-lambda-go/events"
@@ -21,10 +20,7 @@ func convertCloudWatchLogEvents(cwLogEvents []events.CloudwatchLogsLogEvent) []a
 		eventID := cwLogEvent.ID
 		if eventID == "" {
 			// Generate deterministic eventID if missing (shouldn't happen with CloudWatch Logs)
-			var buf []byte
-			buf = fmt.Appendf(buf, "%d:%s", cwLogEvent.Timestamp, cwLogEvent.Message)
-			hash := sha256.Sum256(buf)
-			eventID = hex.EncodeToString(hash[:])[:16]
+			eventID = auth.GenerateEventID(cwLogEvent.Timestamp, cwLogEvent.Message)
 		}
 		logEvents = append(logEvents, api.LogEvent{
 			EventID:   eventID,

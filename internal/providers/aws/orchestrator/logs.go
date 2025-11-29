@@ -2,8 +2,6 @@ package orchestrator
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -12,6 +10,7 @@ import (
 	"time"
 
 	"github.com/runvoy/runvoy/internal/api"
+	"github.com/runvoy/runvoy/internal/auth"
 	appErrors "github.com/runvoy/runvoy/internal/errors"
 	"github.com/runvoy/runvoy/internal/logger"
 	awsClient "github.com/runvoy/runvoy/internal/providers/aws/client"
@@ -96,8 +95,13 @@ func getAllLogEvents(ctx context.Context,
 			if e.EventId != nil && *e.EventId != "" {
 				eventID = *e.EventId
 			} else {
-				// Generate deterministic eventID from timestamp + message hash
-				eventID = generateEventID(timestamp, message)
+				reqLogger := logger.DeriveRequestLogger(ctx, slog.Default())
+
+				reqLogger.Warn("no event ID found, generating from timestamp + message", "context", map[string]any{
+					"timestamp": timestamp,
+					"message":   message,
+				})
+				eventID = auth.GenerateEventID(timestamp, message)
 			}
 
 			events = append(events, api.LogEvent{
@@ -157,12 +161,4 @@ func parseCloudWatchTimestamp(logEntry *api.LogEvent, timestamp string) {
 	if err == nil {
 		logEntry.Timestamp = t.UnixMilli()
 	}
-}
-
-// generateEventID creates a deterministic unique event ID from timestamp and message.
-func generateEventID(timestamp int64, message string) string {
-	var buf []byte
-	buf = fmt.Appendf(buf, "%d:%s", timestamp, message)
-	hash := sha256.Sum256(buf)
-	return hex.EncodeToString(hash[:])[:16] // Use first 16 bytes (32 hex chars)
 }
