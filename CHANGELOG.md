@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.4.1] - 2025-11-29
+
+### Added
+
+* [46761c2](https://github.com/runvoy/runvoy/commit/46761c2e1e3908daf12138e269cc8d1cbd5f55e0) feat: Fetch and merge runner and sidecar logs
+
+### Changed
+
+* [59d6e4a](https://github.com/runvoy/runvoy/commit/59d6e4a8b6c61fab326113f218570e1438ace912) refactor: rename module path to play along with go proxy
+* [5e7fbc4](https://github.com/runvoy/runvoy/commit/5e7fbc4ecfbe216a67ba46c96ac6fb0677c2e5bc) test: add coverage for aws.processor
+* [85dab59](https://github.com/runvoy/runvoy/commit/85dab59fc6880e12238944b5d17e157c27843338) refactor: centralize constants to lib/constants.ts
+* [9da208c](https://github.com/runvoy/runvoy/commit/9da208ce035e0c04b1720946c4a10378ffe2cd16) test: add coverage to aws.health
+* [afadb01](https://github.com/runvoy/runvoy/commit/afadb012bd673fb7753ae9f6c93742d06ffca860) docs: update README.md
+* [bd23f15](https://github.com/runvoy/runvoy/commit/bd23f154a28c7e85b963367e02d3dcd4c5ca8036) docs: update README, no more need for log streaming improvement
+* [c1590dc](https://github.com/runvoy/runvoy/commit/c1590dc48184f0ec25cbe17cbb08a54f200fdb99) refactor(webapp): expose webapp API clients via page load data (#374)
+* [da7266e](https://github.com/runvoy/runvoy/commit/da7266ef3822c3395125184373cf127cd1092573) test: add more coverage to logs
+
 ## [v0.4.0] - 2025-11-28
 
 ### Added

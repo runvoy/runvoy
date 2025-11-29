@@ -131,7 +131,7 @@ Download the latest release from the [releases page](https://github.com/runvoy/r
 - **Linux example:**
 
 ```bash
-curl -L -o runvoy-cli-linux-arm64.tar.gz https://github.com/runvoy/runvoy/releases/download/v0.4.0/runvoy_linux_amd64.tar.gz
+curl -L -o runvoy-cli-linux-arm64.tar.gz https://github.com/runvoy/runvoy/releases/download/v0.4.1/runvoy_linux_amd64.tar.gz
 tar -xzf runvoy_linux_amd64.tar.gz
 sudo mv runvoy_linux_amd64/runvoy /usr/local/bin/runvoy
 ```
@@ -139,14 +139,14 @@ sudo mv runvoy_linux_amd64/runvoy /usr/local/bin/runvoy
 - **macOS example:**
 
 ```bash
-curl -L -o runvoy_linux_amd64.tar.gz https://github.com/runvoy/runvoy/releases/download/v0.4.0/runvoy_darwin_arm64.tar.gz
+curl -L -o runvoy_linux_amd64.tar.gz https://github.com/runvoy/runvoy/releases/download/v0.4.1/runvoy_darwin_arm64.tar.gz
 tar -xzf runvoy_darwin_arm64.tar.gz
 xattr -dr com.apple.quarantine runvoy_darwin_arm64/runvoy
 codesign -s - --deep --force runvoy_darwin_arm64/runvoy
 sudo mv runvoy_darwin_arm64/runvoy /usr/local/bin/runvoy
 ```
 
-- **Windows:** Download the archive from the [release page](https://github.com/runvoy/runvoy/releases/download/v0.4.0/runvoy_windows_amd64.tar.gz). Extract the `runvoy.exe` file from the archive using a tool like 7-Zip
+- **Windows:** Download the archive from the [release page](https://github.com/runvoy/runvoy/releases/download/v0.4.1/runvoy_windows_amd64.tar.gz). Extract the `runvoy.exe` file from the archive using a tool like 7-Zip
 <!-- VERSION_EXAMPLES_END -->
 
 ### 🏗️ Deploying the backend infrastructure
@@ -203,7 +203,7 @@ runvoy --help
 ```
 
 ```text
-runvoy - v0.4.0-20251129-0227e46
+runvoy - v0.4.1-20251129-59d6e4a
 Isolated, repeatable execution environments for your commands
 
 Usage:
