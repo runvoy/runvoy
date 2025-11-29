@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"slices"
 
 	"github.com/runvoy/runvoy/internal/api"
 	appErrors "github.com/runvoy/runvoy/internal/errors"
@@ -40,22 +39,9 @@ func buildSidecarLogStreamName(executionID string) string {
 	return "task/" + awsConstants.SidecarContainerName + "/" + executionID
 }
 
-// sortLogsByTimestamp sorts log events by timestamp in ascending order.
-func sortLogsByTimestamp(events []api.LogEvent) []api.LogEvent {
-	slices.SortFunc(events, func(a, b api.LogEvent) int {
-		if a.Timestamp < b.Timestamp {
-			return -1
-		}
-		if a.Timestamp > b.Timestamp {
-			return 1
-		}
-		return 0
-	})
-	return events
-}
-
 // FetchLogsByExecutionID returns CloudWatch log events for the given execution ID.
-// It fetches logs from both the runner and sidecar containers, merges them, and sorts by timestamp.
+// It fetches logs from both the runner and sidecar containers.
+// Events are returned sorted by timestamp (AWS FilterLogEvents returns events sorted).
 // Sidecar logs are mandatory as sidecars always run.
 func (l *LogManagerImpl) FetchLogsByExecutionID(ctx context.Context, executionID string) ([]api.LogEvent, error) {
 	if executionID == "" {
@@ -91,13 +77,11 @@ func (l *LogManagerImpl) FetchLogsByExecutionID(ctx context.Context, executionID
 
 	// Pass 0 as startTime to fetch all logs from the beginning of the streams,
 	// matching the previous behavior of GetLogEvents with StartFromHead=true.
+	// AWS FilterLogEvents returns events sorted by timestamp across all specified streams.
 	allEvents, err := getAllLogEvents(ctx, l.cwlClient, l.cfg.LogGroup, []string{runnerStream, sidecarStream}, 0)
 	if err != nil {
 		return nil, err
 	}
-
-	// Sort logs by timestamp (events from both streams are already merged by AWS)
-	allEvents = sortLogsByTimestamp(allEvents)
 
 	reqLogger.Debug("log events fetched successfully", "context", map[string]string{
 		"total_events": fmt.Sprintf("%d", len(allEvents)),

@@ -603,22 +603,10 @@ func TestFetchLogsByExecutionID(t *testing.T) {
 					}
 				}
 
-				// If both streams are requested, return events from both
+				// If both streams are requested, return events from both sorted by timestamp (AWS behavior)
 				if hasRunner && hasSidecar {
 					return &cloudwatchlogs.FilterLogEventsOutput{
 						Events: []cwlTypes.FilteredLogEvent{
-							{
-								EventId:       aws.String("runner-event-1"),
-								Timestamp:     aws.Int64(2000),
-								Message:       aws.String("runner log 1"),
-								LogStreamName: aws.String(runnerStream),
-							},
-							{
-								EventId:       aws.String("runner-event-2"),
-								Timestamp:     aws.Int64(4000),
-								Message:       aws.String("runner log 2"),
-								LogStreamName: aws.String(runnerStream),
-							},
 							{
 								EventId:       aws.String("sidecar-event-1"),
 								Timestamp:     aws.Int64(1000),
@@ -626,10 +614,22 @@ func TestFetchLogsByExecutionID(t *testing.T) {
 								LogStreamName: aws.String(sidecarStream),
 							},
 							{
+								EventId:       aws.String("runner-event-1"),
+								Timestamp:     aws.Int64(2000),
+								Message:       aws.String("runner log 1"),
+								LogStreamName: aws.String(runnerStream),
+							},
+							{
 								EventId:       aws.String("sidecar-event-2"),
 								Timestamp:     aws.Int64(3000),
 								Message:       aws.String("sidecar log 2"),
 								LogStreamName: aws.String(sidecarStream),
+							},
+							{
+								EventId:       aws.String("runner-event-2"),
+								Timestamp:     aws.Int64(4000),
+								Message:       aws.String("runner log 2"),
+								LogStreamName: aws.String(runnerStream),
 							},
 						},
 					}, nil
