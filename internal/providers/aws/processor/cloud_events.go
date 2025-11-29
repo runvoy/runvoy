@@ -90,7 +90,11 @@ func (p *Processor) handleCloudEvent(
 	reqLogger *slog.Logger,
 ) (bool, error) {
 	var cwEvent events.CloudWatchEvent
-	if err := json.Unmarshal(*rawEvent, &cwEvent); err != nil || cwEvent.Source == "" || cwEvent.DetailType == "" {
+	if err := json.Unmarshal(*rawEvent, &cwEvent); err != nil {
+		reqLogger.Debug("event is not a CloudWatch event", "error", err)
+		return false, nil
+	}
+	if cwEvent.Source == "" || cwEvent.DetailType == "" {
 		return false, nil
 	}
 

@@ -42,7 +42,11 @@ func (p *Processor) handleLogsEvent(
 	reqLogger *slog.Logger,
 ) (bool, error) {
 	var cwLogsEvent events.CloudwatchLogsEvent
-	if err := json.Unmarshal(*rawEvent, &cwLogsEvent); err != nil || cwLogsEvent.AWSLogs.Data == "" {
+	if err := json.Unmarshal(*rawEvent, &cwLogsEvent); err != nil {
+		reqLogger.Debug("event is not a CloudWatch Logs event", "error", err)
+		return false, nil
+	}
+	if cwLogsEvent.AWSLogs.Data == "" {
 		return false, nil
 	}
 

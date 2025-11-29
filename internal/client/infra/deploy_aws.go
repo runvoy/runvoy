@@ -170,7 +170,7 @@ func (d *AWSDeployer) Deploy(ctx context.Context, opts *DeployOptions) (*DeployR
 
 	outputs, err := d.GetStackOutputs(ctx, opts.StackName)
 	if err != nil {
-		return result, nil
+		return result, fmt.Errorf("stack deployment succeeded but failed to retrieve outputs: %w", err)
 	}
 	result.Outputs = outputs
 

@@ -96,6 +96,7 @@ func (m *Manager) HandleRequest(
 
 	var req events.APIGatewayWebsocketProxyRequest
 	if err := json.Unmarshal(*rawEvent, &req); err != nil {
+		reqLogger.Debug("event is not a WebSocket request", "error", err)
 		return false, nil
 	}
 

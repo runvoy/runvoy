@@ -49,7 +49,7 @@ func (l *PlaybookLoader) GetPlaybookDir() (string, error) {
 func (l *PlaybookLoader) ListPlaybooks() ([]string, error) {
 	playbookDir, err := l.GetPlaybookDir()
 	if err != nil {
-		return []string{}, nil
+		return nil, fmt.Errorf("failed to get playbook directory: %w", err)
 	}
 
 	if _, statErr := os.Stat(playbookDir); os.IsNotExist(statErr) {
