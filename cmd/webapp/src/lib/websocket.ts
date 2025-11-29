@@ -89,7 +89,7 @@ export function connectWebSocket(url: string): void {
                         line: nextLine
                     };
 
-                    // Simply append the new event (API doesn't return duplicates)
+                    // Append the new event (no deduplication needed - API contract ensures no duplicates)
                     return [...events, eventWithLine];
                 });
             }

@@ -9,16 +9,20 @@ type LogEvent struct {
 	Message   string `json:"message"`   // The actual log message text
 }
 
-// LogsResponse contains all log events for an execution
+// LogsResponse contains all log events for an execution.
+// Contract: For running executions, events is nil and websocket_url is provided.
+// For terminal executions (SUCCEEDED, FAILED, STOPPED), events is an array
+// (never nil, may be empty) and websocket_url is omitted.
 type LogsResponse struct {
-	ExecutionID string     `json:"execution_id"`
-	Events      []LogEvent `json:"events"`
+	ExecutionID string `json:"execution_id"`
+	// Events is nil for running executions, and a non-nil array (possibly empty) for terminal executions.
+	Events []LogEvent `json:"events"`
 
 	// Current execution status (RUNNING, SUCCEEDED, FAILED, STOPPED)
 	Status string `json:"status"`
 
-	// WebSocket URL for streaming logs (provided when execution is running and returned
-	// from /run so clients can connect immediately)
+	// WebSocket URL for streaming logs (only provided when execution is running).
+	// Omitted for terminal executions.
 	WebSocketURL string `json:"websocket_url,omitempty"`
 }
 

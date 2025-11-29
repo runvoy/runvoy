@@ -738,14 +738,21 @@ func TestGetLogsByExecutionID(t *testing.T) {
 				require.NotNil(t, resp)
 				assert.Equal(t, tt.executionID, resp.ExecutionID)
 				assert.Equal(t, tt.executionStatus, resp.Status)
-				assert.Equal(t, tt.expectedEventLen, len(resp.Events))
-				if tt.expectedEventLen > 0 {
-					assert.Equal(t, tt.mockEvents[0].Message, resp.Events[0].Message)
-				}
-				// WebSocket URL should only be present for RUNNING executions
+				// Contract: Running executions have events=nil, terminal executions have events array
 				if tt.shouldHaveWSURL {
+					// Running execution: events must be nil
+					assert.Nil(t, resp.Events, "running executions must have nil events")
 					// Note: Will be empty in test because wsManager is nil
 					assert.Equal(t, "", resp.WebSocketURL)
+				} else {
+					// Terminal execution: events must be a non-nil array (may be empty)
+					assert.NotNil(t, resp.Events, "terminal executions must have non-nil events array")
+					assert.Equal(t, tt.expectedEventLen, len(resp.Events))
+					if tt.expectedEventLen > 0 {
+						assert.Equal(t, tt.mockEvents[0].Message, resp.Events[0].Message)
+					}
+					// Terminal executions must not have websocket_url
+					assert.Empty(t, resp.WebSocketURL, "terminal executions must not have websocket_url")
 				}
 			}
 

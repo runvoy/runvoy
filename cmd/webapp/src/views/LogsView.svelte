@@ -9,7 +9,7 @@
     import LogViewer from '../components/LogViewer.svelte';
     import { executionId, executionStatus, startedAt, isCompleted } from '../stores/execution';
     import { logEvents } from '../stores/logs';
-    import { cachedWebSocketURL } from '../stores/websocket';
+    import { cachedWebSocketURL, isConnected, isConnecting } from '../stores/websocket';
     import { connectWebSocket, disconnectWebSocket } from '../lib/websocket';
     import type APIClient from '../lib/api';
     import type { LogEvent } from '../types/logs';
@@ -24,6 +24,7 @@
     let errorMessage = $state('');
     let currentExecutionId: string | null = $state(null);
     let lastProcessedExecutionId: string | null = $state(null);
+    let isFetchingLogs = $state(false); // Guard to prevent duplicate fetchLogs calls
     const TERMINAL_STATES = ['SUCCEEDED', 'FAILED', 'STOPPED'];
 
     async function handleKillExecution(): Promise<void> {
@@ -34,8 +35,12 @@
 
         try {
             await apiClient.killExecution(id);
-            // Refetch logs to get updated status
-            await fetchLogs(id);
+            // Don't fetch logs if WebSocket is connected or connecting - it will stream the updated status
+            // Only fetch logs for terminal executions without WebSocket
+            const wsActive = get(isConnected) || get(isConnecting);
+            if (!wsActive) {
+                await fetchLogs(id);
+            }
         } catch (error) {
             const err = error as ApiError;
             errorMessage = err.details?.error || err.message || 'Failed to stop execution';
@@ -64,21 +69,52 @@
             return;
         }
 
+        // Prevent duplicate calls - only one fetchLogs should be active at a time
+        if (isFetchingLogs) {
+            return;
+        }
+
+        isFetchingLogs = true;
         errorMessage = '';
 
         try {
+            // Verify execution ID hasn't changed while we were waiting
+            const currentId = get(executionId);
+            if (currentId !== id) {
+                // Execution ID changed, abort this fetch
+                isFetchingLogs = false;
+                return;
+            }
+
             const response = await apiClient.getLogs(id);
-            const eventsWithLines: LogEvent[] = response.events.map((event, index) => ({
+
+            // Contract: Running executions return websocket_url and events=null.
+            // Terminal executions return events array (never null) and no websocket_url.
+            // One GET request should be sufficient - no need for multiple calls.
+
+            if (response.websocket_url) {
+                // Running execution: use WebSocket for streaming logs.
+                // Events should be null for running executions per API contract.
+                // Don't overwrite logs if WebSocket is already active to avoid race conditions.
+                const wsActive = get(isConnected) || get(isConnecting);
+                if (!wsActive) {
+                    // WebSocket not active yet. For running executions, events should be null,
+                    // so we don't set any initial logs - WebSocket will stream them.
+                    // This ensures we never call fetchLogs() when WebSocket is connected.
+                }
+                // Set the URL so WebSocket will connect (if not already connected)
+                cachedWebSocketURL.set(response.websocket_url);
+                return;
+            }
+
+            // Terminal execution: events is a non-nil array (may be empty), no websocket_url.
+            // Set logs directly from API response - this is the final state.
+            const events = response.events ?? [];
+            const eventsWithLines: LogEvent[] = events.map((event, index) => ({
                 ...event,
                 line: event.line ?? index + 1
             }));
             logEvents.set(eventsWithLines);
-
-            // If backend offers a websocket URL, prefer streaming and let websocket handle lifecycle.
-            if (response.websocket_url) {
-                cachedWebSocketURL.set(response.websocket_url);
-                return;
-            }
 
             const status = response.status || 'UNKNOWN';
             executionStatus.set(status);
@@ -91,6 +127,8 @@
             const err = error as ApiError;
             errorMessage = err.details?.error || err.message || 'Failed to fetch logs';
             logEvents.set([]);
+        } finally {
+            isFetchingLogs = false;
         }
     }
 
@@ -102,6 +140,7 @@
         isCompleted.set(false);
         errorMessage = '';
         lastProcessedExecutionId = id;
+        isFetchingLogs = false; // Reset fetch guard when switching executions
     }
 
     async function handleExecutionComplete(): Promise<void> {
@@ -156,8 +195,10 @@
             }
             if (id !== lastProcessedExecutionId) {
                 resetForExecution(id);
+                // Don't fetch logs if WebSocket is connected or connecting - let it handle streaming
+                const wsActive = get(isConnected) || get(isConnecting);
                 const existingWebsocketURL = get(cachedWebSocketURL);
-                if (!existingWebsocketURL) {
+                if (!wsActive && !existingWebsocketURL) {
                     fetchLogs(id);
                 }
             }

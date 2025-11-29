@@ -21,6 +21,7 @@
     let backendHealth: HealthResponse | null = $state(null);
     let healthError: string | null = $state(null);
     let loadingHealth = $state(false);
+    let isFetchingHealth = $state(false); // Guard to prevent duplicate fetchBackendHealth calls
 
     const displayKey = $derived($apiKey ? MASKED_API_KEY_PLACEHOLDER : '');
 
@@ -29,6 +30,12 @@
             return;
         }
 
+        // Prevent duplicate calls - only one fetchBackendHealth should be active at a time
+        if (isFetchingHealth) {
+            return;
+        }
+
+        isFetchingHealth = true;
         loadingHealth = true;
         healthError = null;
 
@@ -38,12 +45,40 @@
             healthError = error instanceof Error ? error.message : 'Failed to fetch backend health';
         } finally {
             loadingHealth = false;
+            isFetchingHealth = false;
         }
     }
 
+    // Track if we've fetched health to avoid duplicate calls
+    let hasFetchedHealth = $state(false);
+
     $effect.root(() => {
+        if (typeof window === 'undefined') {
+            return;
+        }
+
         syncFormFromStore();
-        fetchBackendHealth();
+        // Fetch health once on mount if configured
+        if (apiClient && isConfigured && !hasFetchedHealth) {
+            hasFetchedHealth = true;
+            fetchBackendHealth();
+        }
+
+        // Re-fetch health when credentials are updated
+        const handleCredentialsUpdated = () => {
+            // Reset flag and fetch health when credentials are updated
+            hasFetchedHealth = false;
+            if (apiClient && isConfigured) {
+                hasFetchedHealth = true;
+                fetchBackendHealth();
+            }
+        };
+
+        window.addEventListener('credentials-updated', handleCredentialsUpdated);
+
+        return () => {
+            window.removeEventListener('credentials-updated', handleCredentialsUpdated);
+        };
     });
 
     function toggleApiKeyVisibility(): void {
@@ -100,11 +135,8 @@
         formSuccess = 'Configuration saved';
         keyInput = '';
 
+        // Dispatch event to trigger health check (handled by event listener)
         window.dispatchEvent(new CustomEvent('credentials-updated'));
-
-        if (apiClient) {
-            await fetchBackendHealth();
-        }
     }
 
     function copyToClipboard(text: string | null): void {
@@ -114,13 +146,6 @@
             alert('Copied to clipboard!');
         });
     }
-
-    // Re-fetch health when API configuration changes
-    $effect(() => {
-        if (apiClient && isConfigured) {
-            fetchBackendHealth();
-        }
-    });
 </script>
 
 <article class="settings-card">

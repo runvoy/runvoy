@@ -22,8 +22,8 @@ export interface RunCommandResponse {
 }
 
 export interface LogsResponse {
-    events: ApiLogEvent[];
-    websocket_url: string;
+    events: ApiLogEvent[] | null;
+    websocket_url?: string;
     status: string;
 }
 

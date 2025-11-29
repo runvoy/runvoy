@@ -209,27 +209,30 @@ func (s *Service) GetLogsByExecutionID(
 		return execution.Status == string(status)
 	})
 
-	var (
-		events       []api.LogEvent
-		websocketURL string
-	)
-
 	if isTerminal {
+		// For terminal executions: return events (always an array, even if empty), no websocket URL
 		logEvents, fetchErr := s.logManager.FetchLogsByExecutionID(ctx, executionID)
 		if fetchErr != nil {
 			return nil, fetchErr
 		}
-		events = logEvents
+		// Ensure events is always a slice (never nil) for terminal executions
+		if logEvents == nil {
+			logEvents = []api.LogEvent{}
+		}
+		return &api.LogsResponse{
+			ExecutionID:  executionID,
+			Status:       execution.Status,
+			Events:       logEvents,
+			WebSocketURL: "", // Empty string will be omitted due to omitempty tag
+		}, nil
 	}
 
-	if !isTerminal {
-		websocketURL = s.wsManager.GenerateWebSocketURL(ctx, executionID, userEmail, clientIPAtCreationTime)
-	}
-
+	// For running executions: return websocket URL only, events is nil
+	websocketURL := s.wsManager.GenerateWebSocketURL(ctx, executionID, userEmail, clientIPAtCreationTime)
 	return &api.LogsResponse{
 		ExecutionID:  executionID,
 		Status:       execution.Status,
-		Events:       events,
+		Events:       nil, // Explicitly nil for running executions
 		WebSocketURL: websocketURL,
 	}, nil
 }
