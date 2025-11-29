@@ -97,7 +97,8 @@ func (m *Manager) checkSecretParameter(
 	}
 
 	tagUpdated, tagErr := m.verifyAndUpdateSecretTags(ctx, parameterName, secretName, reqLogger)
-	if tagErr != nil {
+	switch {
+	case tagErr != nil:
 		issues = append(issues, api.HealthIssue{
 			ResourceType: "ssm_parameter",
 			ResourceID:   secretName,
@@ -105,7 +106,7 @@ func (m *Manager) checkSecretParameter(
 			Message:      fmt.Sprintf("Failed to verify/update tags: %v", tagErr),
 			Action:       "reported",
 		})
-	} else if tagUpdated {
+	case tagUpdated:
 		status.TagUpdatedCount++
 		issues = append(issues, api.HealthIssue{
 			ResourceType: "ssm_parameter",
@@ -114,7 +115,7 @@ func (m *Manager) checkSecretParameter(
 			Message:      "Secret parameter tags were updated to match DynamoDB state",
 			Action:       "tag_updated",
 		})
-	} else {
+	default:
 		status.VerifiedCount++
 	}
 

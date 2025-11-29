@@ -211,6 +211,7 @@ func deleteAllObjectVersions(ctx context.Context, client *s3.Client, bucketName 
 	var continuationToken *string
 	var versionIDMarker *string
 
+loop:
 	for {
 		listOutput, err := client.ListObjectVersions(ctx, &s3.ListObjectVersionsInput{
 			Bucket:          aws.String(bucketName),
@@ -231,16 +232,17 @@ func deleteAllObjectVersions(ctx context.Context, client *s3.Client, bucketName 
 		if listOutput.IsTruncated == nil || !*listOutput.IsTruncated {
 			break
 		}
-		if len(listOutput.Versions) > 0 {
+		switch {
+		case len(listOutput.Versions) > 0:
 			lastVersion := listOutput.Versions[len(listOutput.Versions)-1]
 			continuationToken = lastVersion.Key
 			versionIDMarker = lastVersion.VersionId
-		} else if len(listOutput.DeleteMarkers) > 0 {
+		case len(listOutput.DeleteMarkers) > 0:
 			lastMarker := listOutput.DeleteMarkers[len(listOutput.DeleteMarkers)-1]
 			continuationToken = lastMarker.Key
 			versionIDMarker = lastMarker.VersionId
-		} else {
-			break
+		default:
+			break loop
 		}
 	}
 

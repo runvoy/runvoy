@@ -31,7 +31,7 @@ func ConfigFilePath(homeDir string) string {
 }
 
 // ConfigDirPermissions is the file system permissions for config directory (0750)
-const ConfigDirPermissions = 0750
+const ConfigDirPermissions = 0o750
 
 // ConfigFilePermissions is the file system permissions for config file (0600)
-const ConfigFilePermissions = 0600
+const ConfigFilePermissions = 0o600

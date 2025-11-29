@@ -42,6 +42,12 @@ var (
 	ansiRegexp = regexp.MustCompile(`\x1b\[[0-9;]*m`)
 )
 
+const (
+	// spinnerClearPadding is the number of extra spaces to add when clearing
+	// the spinner line to ensure the spinner frame and any overflow are fully cleared
+	spinnerClearPadding = 10
+)
+
 // visibleWidth returns the number of visible characters, ignoring ANSI escape codes
 func visibleWidth(s string) int {
 	clean := ansiRegexp.ReplaceAllString(s, "")
@@ -338,7 +344,7 @@ func (s *Spinner) Stop() {
 	}
 	s.running = false
 	s.done <- true
-	_, _ = fmt.Fprint(Stderr, "\r"+strings.Repeat(" ", len(s.message)+10)+"\r") //nolint:mnd
+	_, _ = fmt.Fprint(Stderr, "\r"+strings.Repeat(" ", len(s.message)+spinnerClearPadding)+"\r")
 }
 
 // Success stops the spinner and prints a success message

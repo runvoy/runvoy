@@ -725,12 +725,15 @@ func TestGetLogsByExecutionID(t *testing.T) {
 
 			if tt.expectErr {
 				require.Error(t, err)
-				if tt.expectedError == apperrors.ErrCodeInvalidRequest {
+				switch tt.expectedError {
+				case apperrors.ErrCodeInvalidRequest:
 					assert.Equal(t, apperrors.ErrCodeInvalidRequest, apperrors.GetErrorCode(err))
-				} else if tt.expectedError == apperrors.ErrCodeNotFound {
+				case apperrors.ErrCodeNotFound:
 					assert.Equal(t, apperrors.ErrCodeNotFound, apperrors.GetErrorCode(err))
-				} else if tt.expectedError != "" {
-					assert.Contains(t, err.Error(), tt.expectedError)
+				default:
+					if tt.expectedError != "" {
+						assert.Contains(t, err.Error(), tt.expectedError)
+					}
 				}
 				assert.Nil(t, resp)
 			} else {

@@ -58,7 +58,7 @@ func (p *Processor) handleECSTaskEvent(
 
 	status := awsConstants.EcsStatus(taskEvent.LastStatus)
 
-	switch status { //nolint:exhaustive
+	switch status { //nolint:exhaustive // we are only interested in a subset of the possible ECS task statuses
 	case awsConstants.EcsStatusRunning:
 		return p.updateExecutionToRunning(ctx, executionID, execution, reqLogger)
 	case awsConstants.EcsStatusStopped:

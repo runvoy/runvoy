@@ -48,21 +48,21 @@ func TestPlaybookLoader_ListPlaybooks(t *testing.T) {
 	t.Run("discovers playbook files", func(t *testing.T) {
 		tmpDir := t.TempDir()
 		playbookDir := filepath.Join(tmpDir, ".runvoy")
-		err := os.MkdirAll(playbookDir, 0750)
+		err := os.MkdirAll(playbookDir, 0o750)
 		require.NoError(t, err)
 
 		// Create playbook files
 		yamlFile := filepath.Join(playbookDir, "test.yaml")
-		err = os.WriteFile(yamlFile, []byte("commands:\n  - echo hello"), 0600)
+		err = os.WriteFile(yamlFile, []byte("commands:\n  - echo hello"), 0o600)
 		require.NoError(t, err)
 
 		ymlFile := filepath.Join(playbookDir, "test2.yml")
-		err = os.WriteFile(ymlFile, []byte("commands:\n  - echo world"), 0600)
+		err = os.WriteFile(ymlFile, []byte("commands:\n  - echo world"), 0o600)
 		require.NoError(t, err)
 
 		// Create non-playbook file
 		txtFile := filepath.Join(playbookDir, "test.txt")
-		err = os.WriteFile(txtFile, []byte("not a playbook"), 0600)
+		err = os.WriteFile(txtFile, []byte("not a playbook"), 0o600)
 		require.NoError(t, err)
 
 		oldWd, err := os.Getwd()
@@ -85,7 +85,7 @@ func TestPlaybookLoader_LoadPlaybook(t *testing.T) {
 	t.Run("loads valid playbook", func(t *testing.T) {
 		tmpDir := t.TempDir()
 		playbookDir := filepath.Join(tmpDir, ".runvoy")
-		err := os.MkdirAll(playbookDir, 0750)
+		err := os.MkdirAll(playbookDir, 0o750)
 		require.NoError(t, err)
 
 		yamlContent := `description: Test playbook
@@ -104,7 +104,7 @@ commands:
   - echo world
 `
 		yamlFile := filepath.Join(playbookDir, "test.yaml")
-		err = os.WriteFile(yamlFile, []byte(yamlContent), 0600)
+		err = os.WriteFile(yamlFile, []byte(yamlContent), 0o600)
 		require.NoError(t, err)
 
 		oldWd, err := os.Getwd()
@@ -131,7 +131,7 @@ commands:
 	t.Run("returns error for missing playbook", func(t *testing.T) {
 		tmpDir := t.TempDir()
 		playbookDir := filepath.Join(tmpDir, ".runvoy")
-		err := os.MkdirAll(playbookDir, 0750)
+		err := os.MkdirAll(playbookDir, 0o750)
 		require.NoError(t, err)
 
 		oldWd, err := os.Getwd()
@@ -151,14 +151,14 @@ commands:
 	t.Run("returns error for invalid YAML", func(t *testing.T) {
 		tmpDir := t.TempDir()
 		playbookDir := filepath.Join(tmpDir, ".runvoy")
-		err := os.MkdirAll(playbookDir, 0750)
+		err := os.MkdirAll(playbookDir, 0o750)
 		require.NoError(t, err)
 
 		yamlFile := filepath.Join(playbookDir, "invalid.yaml")
 		err = os.WriteFile(
 			yamlFile,
 			[]byte("invalid: yaml: content: [unclosed"),
-			0600,
+			0o600,
 		)
 		require.NoError(t, err)
 
@@ -179,14 +179,14 @@ commands:
 	t.Run("returns error for playbook without commands", func(t *testing.T) {
 		tmpDir := t.TempDir()
 		playbookDir := filepath.Join(tmpDir, ".runvoy")
-		err := os.MkdirAll(playbookDir, 0750)
+		err := os.MkdirAll(playbookDir, 0o750)
 		require.NoError(t, err)
 
 		yamlContent := `description: No commands
 image: test/image:latest
 `
 		yamlFile := filepath.Join(playbookDir, "empty.yaml")
-		err = os.WriteFile(yamlFile, []byte(yamlContent), 0600)
+		err = os.WriteFile(yamlFile, []byte(yamlContent), 0o600)
 		require.NoError(t, err)
 
 		oldWd, err := os.Getwd()
@@ -208,7 +208,7 @@ func TestPlaybookLoader_GetPlaybookDir(t *testing.T) {
 	t.Run("returns current directory playbook folder when it exists", func(t *testing.T) {
 		tmpDir := t.TempDir()
 		playbookDir := filepath.Join(tmpDir, ".runvoy")
-		err := os.MkdirAll(playbookDir, 0750)
+		err := os.MkdirAll(playbookDir, 0o750)
 		require.NoError(t, err)
 
 		oldWd, err := os.Getwd()

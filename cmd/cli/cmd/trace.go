@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/runvoy/runvoy/internal/api"
 	"github.com/runvoy/runvoy/internal/client"
 	"github.com/runvoy/runvoy/internal/client/output"
 
@@ -55,8 +56,6 @@ func NewTraceService(apiClient client.Interface, outputter OutputInterface) *Tra
 }
 
 // DisplayBackendLogs retrieves and displays backend infrastructure logs and related resources for a request ID
-//
-//nolint:gocyclo,funlen
 func (s *TraceService) DisplayBackendLogs(ctx context.Context, requestID string) error {
 	spinner := output.NewSpinner(fmt.Sprintf("Fetching trace for request: %s", requestID))
 	spinner.Start()
@@ -68,122 +67,149 @@ func (s *TraceService) DisplayBackendLogs(ctx context.Context, requestID string)
 		return fmt.Errorf("failed to fetch trace: %w", err)
 	}
 
-	if len(trace.Logs) == 0 && len(trace.RelatedResources.Executions) == 0 &&
-		len(trace.RelatedResources.Secrets) == 0 && len(trace.RelatedResources.Users) == 0 &&
-		len(trace.RelatedResources.Images) == 0 {
+	if s.isTraceEmpty(trace) {
 		spinner.Success("No logs or related resources found for request")
 		return nil
 	}
 
 	spinner.Success(fmt.Sprintf("Retrieved %d log entries and related resources", len(trace.Logs)))
 
-	// Display logs in table format
-	if len(trace.Logs) > 0 {
-		s.output.Blank()
-		s.output.Infof("Backend Logs (%d entries)", len(trace.Logs))
-		s.output.Blank()
-
-		headers := []string{"Timestamp", "Message"}
-		rows := make([][]string, 0, len(trace.Logs))
-
-		for _, log := range trace.Logs {
-			// Convert milliseconds since epoch to readable timestamp
-			timestamp := time.UnixMilli(log.Timestamp).UTC().Format(time.RFC3339Nano)
-			message := strings.TrimRight(log.Message, "\r\n")
-			rows = append(rows, []string{timestamp, message})
-		}
-
-		s.output.Table(headers, rows)
-	}
-
-	// Display related resources
-	if len(trace.RelatedResources.Executions) > 0 {
-		s.output.Blank()
-		s.output.Infof("Related Executions (%d)", len(trace.RelatedResources.Executions))
-		s.output.Blank()
-
-		headers := []string{"Execution ID", "Status", "Started At", "Created By"}
-		rows := make([][]string, 0, len(trace.RelatedResources.Executions))
-
-		for _, exec := range trace.RelatedResources.Executions {
-			rows = append(rows, []string{
-				exec.ExecutionID,
-				exec.Status,
-				exec.StartedAt.Format(time.RFC3339),
-				exec.CreatedBy,
-			})
-		}
-
-		s.output.Table(headers, rows)
-	}
-
-	if len(trace.RelatedResources.Secrets) > 0 {
-		s.output.Blank()
-		s.output.Infof("Related Secrets (%d)", len(trace.RelatedResources.Secrets))
-		s.output.Blank()
-
-		headers := []string{"Name", "Key Name", "Created By", "Updated By"}
-		rows := make([][]string, 0, len(trace.RelatedResources.Secrets))
-
-		for _, secret := range trace.RelatedResources.Secrets {
-			rows = append(rows, []string{
-				secret.Name,
-				secret.KeyName,
-				secret.CreatedBy,
-				secret.UpdatedBy,
-			})
-		}
-
-		s.output.Table(headers, rows)
-	}
-
-	if len(trace.RelatedResources.Users) > 0 {
-		s.output.Blank()
-		s.output.Infof("Related Users (%d)", len(trace.RelatedResources.Users))
-		s.output.Blank()
-
-		headers := []string{"Email", "Role", "Created At", "Revoked"}
-		rows := make([][]string, 0, len(trace.RelatedResources.Users))
-
-		for _, user := range trace.RelatedResources.Users {
-			revoked := "No"
-			if user.Revoked {
-				revoked = "Yes"
-			}
-			rows = append(rows, []string{
-				user.Email,
-				user.Role,
-				user.CreatedAt.Format(time.RFC3339),
-				revoked,
-			})
-		}
-
-		s.output.Table(headers, rows)
-	}
-
-	if len(trace.RelatedResources.Images) > 0 {
-		s.output.Blank()
-		s.output.Infof("Related Images (%d)", len(trace.RelatedResources.Images))
-		s.output.Blank()
-
-		headers := []string{"Image ID", "Image", "Created By", "Created At"}
-		rows := make([][]string, 0, len(trace.RelatedResources.Images))
-
-		for i := range trace.RelatedResources.Images {
-			img := trace.RelatedResources.Images[i]
-			rows = append(rows, []string{
-				img.ImageID,
-				img.Image,
-				img.CreatedBy,
-				img.CreatedAt.Format(time.RFC3339),
-			})
-		}
-
-		s.output.Table(headers, rows)
-	}
+	s.displayLogs(trace.Logs)
+	s.displayExecutions(trace.RelatedResources.Executions)
+	s.displaySecrets(trace.RelatedResources.Secrets)
+	s.displayUsers(trace.RelatedResources.Users)
+	s.displayImages(trace.RelatedResources.Images)
 
 	s.output.Blank()
 	s.output.Successf("Trace retrieved successfully")
 
 	return nil
+}
+
+func (s *TraceService) isTraceEmpty(trace *api.TraceResponse) bool {
+	return len(trace.Logs) == 0 && len(trace.RelatedResources.Executions) == 0 &&
+		len(trace.RelatedResources.Secrets) == 0 && len(trace.RelatedResources.Users) == 0 &&
+		len(trace.RelatedResources.Images) == 0
+}
+
+func (s *TraceService) displayLogs(logs []api.LogEvent) {
+	if len(logs) == 0 {
+		return
+	}
+
+	s.output.Blank()
+	s.output.Infof("Backend Logs (%d entries)", len(logs))
+	s.output.Blank()
+
+	headers := []string{"Timestamp", "Message"}
+	rows := make([][]string, 0, len(logs))
+
+	for _, log := range logs {
+		timestamp := time.UnixMilli(log.Timestamp).UTC().Format(time.RFC3339Nano)
+		message := strings.TrimRight(log.Message, "\r\n")
+		rows = append(rows, []string{timestamp, message})
+	}
+
+	s.output.Table(headers, rows)
+}
+
+func (s *TraceService) displayExecutions(executions []*api.Execution) {
+	if len(executions) == 0 {
+		return
+	}
+
+	s.output.Blank()
+	s.output.Infof("Related Executions (%d)", len(executions))
+	s.output.Blank()
+
+	headers := []string{"Execution ID", "Status", "Started At", "Created By"}
+	rows := make([][]string, 0, len(executions))
+
+	for _, exec := range executions {
+		rows = append(rows, []string{
+			exec.ExecutionID,
+			exec.Status,
+			exec.StartedAt.Format(time.RFC3339),
+			exec.CreatedBy,
+		})
+	}
+
+	s.output.Table(headers, rows)
+}
+
+func (s *TraceService) displaySecrets(secrets []*api.Secret) {
+	if len(secrets) == 0 {
+		return
+	}
+
+	s.output.Blank()
+	s.output.Infof("Related Secrets (%d)", len(secrets))
+	s.output.Blank()
+
+	headers := []string{"Name", "Key Name", "Created By", "Updated By"}
+	rows := make([][]string, 0, len(secrets))
+
+	for _, secret := range secrets {
+		rows = append(rows, []string{
+			secret.Name,
+			secret.KeyName,
+			secret.CreatedBy,
+			secret.UpdatedBy,
+		})
+	}
+
+	s.output.Table(headers, rows)
+}
+
+func (s *TraceService) displayUsers(users []*api.User) {
+	if len(users) == 0 {
+		return
+	}
+
+	s.output.Blank()
+	s.output.Infof("Related Users (%d)", len(users))
+	s.output.Blank()
+
+	headers := []string{"Email", "Role", "Created At", "Revoked"}
+	rows := make([][]string, 0, len(users))
+
+	for _, user := range users {
+		revoked := "No"
+		if user.Revoked {
+			revoked = "Yes"
+		}
+		rows = append(rows, []string{
+			user.Email,
+			user.Role,
+			user.CreatedAt.Format(time.RFC3339),
+			revoked,
+		})
+	}
+
+	s.output.Table(headers, rows)
+}
+
+func (s *TraceService) displayImages(images []api.ImageInfo) {
+	if len(images) == 0 {
+		return
+	}
+
+	s.output.Blank()
+	s.output.Infof("Related Images (%d)", len(images))
+	s.output.Blank()
+
+	headers := []string{"Image ID", "Image", "Created By", "Created At"}
+	rows := make([][]string, 0, len(images))
+
+	for i := range images {
+		img := images[i]
+		rows = append(rows, []string{
+			img.ImageID,
+			img.Image,
+			img.CreatedBy,
+			img.CreatedAt.Format(time.RFC3339),
+		})
+	}
+
+	s.output.Table(headers, rows)
 }

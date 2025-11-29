@@ -179,11 +179,12 @@ func (r *UserRepository) GetUserByAPIKeyHash(ctx context.Context, apiKeyHash str
 	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
 
 	var maskedHash string
-	if apiKeyHash == "" {
+	switch {
+	case apiKeyHash == "":
 		maskedHash = "<empty>"
-	} else if len(apiKeyHash) <= maxHashLength {
+	case len(apiKeyHash) <= maxHashLength:
 		maskedHash = apiKeyHash
-	} else {
+	default:
 		maskedHash = fmt.Sprintf("%s%s", apiKeyHash[:maxHashLength], strings.Repeat("*", len(apiKeyHash)-maxHashLength))
 	}
 

@@ -51,8 +51,8 @@ const (
 	ErrCodeConflict       = "CONFLICT"
 	ErrCodeSecretNotFound = "SECRET_NOT_FOUND"
 	ErrCodeSecretExists   = "SECRET_ALREADY_EXISTS"
-	ErrCodeInvalidAPIKey  = "INVALID_API_KEY" //nolint:gosec
-	ErrCodeAPIKeyRevoked  = "API_KEY_REVOKED" //nolint:gosec
+	ErrCodeInvalidAPIKey  = "INVALID_API_KEY" //nolint:gosec // this is not an API key, it's a request error code
+	ErrCodeAPIKeyRevoked  = "API_KEY_REVOKED" //nolint:gosec // this is not an API key, it's a request error code
 
 	// Server error codes
 	ErrCodeInternalError      = "INTERNAL_ERROR"

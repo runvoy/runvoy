@@ -184,7 +184,7 @@ func TestResolveTemplate_LocalFile(t *testing.T) {
 		templatePath := filepath.Join(tmpDir, "template.yaml")
 		templateContent := "AWSTemplateFormatVersion: '2010-09-09'\nDescription: Test template"
 
-		err := os.WriteFile(templatePath, []byte(templateContent), 0600)
+		err := os.WriteFile(templatePath, []byte(templateContent), 0o600)
 		require.NoError(t, err)
 
 		result, err := ResolveTemplate(string(constants.AWS), templatePath, "v1.0.0", "us-east-1")
@@ -349,7 +349,7 @@ func TestResolveAWSTemplate(t *testing.T) {
 		templatePath := filepath.Join(tmpDir, "template.yaml")
 		templateContent := "Resources:\n  MyResource:\n    Type: AWS::S3::Bucket"
 
-		err := os.WriteFile(templatePath, []byte(templateContent), 0600)
+		err := os.WriteFile(templatePath, []byte(templateContent), 0o600)
 		require.NoError(t, err)
 
 		result, err := resolveAWSTemplate(templatePath, "v1.0.0", "us-east-1")

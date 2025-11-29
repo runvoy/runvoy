@@ -49,12 +49,6 @@ linters:
         - opinionated
         - performance
         - style
-      disabled-checks:
-        - dupImport
-        - ifElseChain
-        - octalLiteral
-        - whyNoLint
-        - wrapperFunc
     goconst:
       min-len: 2
       min-occurrences: 2

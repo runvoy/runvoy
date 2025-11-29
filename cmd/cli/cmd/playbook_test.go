@@ -18,7 +18,7 @@ func TestPlaybookService_ListPlaybooks(t *testing.T) {
 	t.Run("lists playbooks successfully", func(t *testing.T) {
 		tmpDir := t.TempDir()
 		playbookDir := filepath.Join(tmpDir, ".runvoy")
-		err := os.MkdirAll(playbookDir, 0750)
+		err := os.MkdirAll(playbookDir, 0o750)
 		require.NoError(t, err)
 
 		yamlContent1 := `description: First playbook
@@ -29,9 +29,9 @@ commands:
 commands:
   - echo world
 `
-		err = os.WriteFile(filepath.Join(playbookDir, "playbook1.yaml"), []byte(yamlContent1), 0600)
+		err = os.WriteFile(filepath.Join(playbookDir, "playbook1.yaml"), []byte(yamlContent1), 0o600)
 		require.NoError(t, err)
-		err = os.WriteFile(filepath.Join(playbookDir, "playbook2.yaml"), []byte(yamlContent2), 0600)
+		err = os.WriteFile(filepath.Join(playbookDir, "playbook2.yaml"), []byte(yamlContent2), 0o600)
 		require.NoError(t, err)
 
 		oldWd, err := os.Getwd()
@@ -95,7 +95,7 @@ func TestPlaybookService_ShowPlaybook(t *testing.T) {
 	t.Run("shows playbook details", func(t *testing.T) {
 		tmpDir := t.TempDir()
 		playbookDir := filepath.Join(tmpDir, ".runvoy")
-		err := os.MkdirAll(playbookDir, 0750)
+		err := os.MkdirAll(playbookDir, 0o750)
 		require.NoError(t, err)
 
 		yamlContent := `description: Test playbook
@@ -111,7 +111,7 @@ commands:
   - echo hello
   - echo world
 `
-		err = os.WriteFile(filepath.Join(playbookDir, "test.yaml"), []byte(yamlContent), 0600)
+		err = os.WriteFile(filepath.Join(playbookDir, "test.yaml"), []byte(yamlContent), 0o600)
 		require.NoError(t, err)
 
 		oldWd, err := os.Getwd()
@@ -172,14 +172,14 @@ func TestPlaybookService_RunPlaybook(t *testing.T) {
 	t.Run("executes playbook successfully", func(t *testing.T) {
 		tmpDir := t.TempDir()
 		playbookDir := filepath.Join(tmpDir, ".runvoy")
-		err := os.MkdirAll(playbookDir, 0750)
+		err := os.MkdirAll(playbookDir, 0o750)
 		require.NoError(t, err)
 
 		yamlContent := `description: Test playbook
 commands:
   - echo hello
 `
-		err = os.WriteFile(filepath.Join(playbookDir, "test.yaml"), []byte(yamlContent), 0600)
+		err = os.WriteFile(filepath.Join(playbookDir, "test.yaml"), []byte(yamlContent), 0o600)
 		require.NoError(t, err)
 
 		oldWd, err := os.Getwd()
@@ -235,7 +235,7 @@ commands:
 	t.Run("applies overrides correctly", func(t *testing.T) {
 		tmpDir := t.TempDir()
 		playbookDir := filepath.Join(tmpDir, ".runvoy")
-		err := os.MkdirAll(playbookDir, 0750)
+		err := os.MkdirAll(playbookDir, 0o750)
 		require.NoError(t, err)
 
 		yamlContent := `description: Test playbook
@@ -243,7 +243,7 @@ image: original/image:latest
 commands:
   - echo hello
 `
-		err = os.WriteFile(filepath.Join(playbookDir, "test.yaml"), []byte(yamlContent), 0600)
+		err = os.WriteFile(filepath.Join(playbookDir, "test.yaml"), []byte(yamlContent), 0o600)
 		require.NoError(t, err)
 
 		oldWd, err := os.Getwd()
@@ -293,7 +293,7 @@ commands:
 	t.Run("merges user env and secrets", func(t *testing.T) {
 		tmpDir := t.TempDir()
 		playbookDir := filepath.Join(tmpDir, ".runvoy")
-		err := os.MkdirAll(playbookDir, 0750)
+		err := os.MkdirAll(playbookDir, 0o750)
 		require.NoError(t, err)
 
 		yamlContent := `secrets:
@@ -303,7 +303,7 @@ env:
 commands:
   - echo hello
 `
-		err = os.WriteFile(filepath.Join(playbookDir, "test.yaml"), []byte(yamlContent), 0600)
+		err = os.WriteFile(filepath.Join(playbookDir, "test.yaml"), []byte(yamlContent), 0o600)
 		require.NoError(t, err)
 
 		oldWd, err := os.Getwd()
