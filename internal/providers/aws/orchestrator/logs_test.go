@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"runvoy/internal/api"
 	appErrors "runvoy/internal/errors"
 	awsConstants "runvoy/internal/providers/aws/constants"
 	"runvoy/internal/testutil"
@@ -373,6 +374,393 @@ func TestBuildLogStreamName(t *testing.T) {
 	stream := awsConstants.BuildLogStreamName(executionID)
 	assert.NotEmpty(t, stream)
 	assert.Contains(t, stream, executionID)
+}
+
+func TestBuildSidecarLogStreamName(t *testing.T) {
+	executionID := "test-exec-123"
+	stream := buildSidecarLogStreamName(executionID)
+	assert.Equal(t, "task/sidecar/test-exec-123", stream)
+	assert.Contains(t, stream, executionID)
+	assert.Contains(t, stream, awsConstants.SidecarContainerName)
+}
+
+func TestMergeAndSortLogs(t *testing.T) {
+	t.Run("merges and sorts logs correctly", func(t *testing.T) {
+		runnerEvents := []api.LogEvent{
+			{Timestamp: 2000, Message: "runner message 2"},
+			{Timestamp: 4000, Message: "runner message 4"},
+		}
+		sidecarEvents := []api.LogEvent{
+			{Timestamp: 1000, Message: "sidecar message 1"},
+			{Timestamp: 3000, Message: "sidecar message 3"},
+			{Timestamp: 5000, Message: "sidecar message 5"},
+		}
+
+		result := mergeAndSortLogs(runnerEvents, sidecarEvents)
+		require.Len(t, result, 5)
+		assert.Equal(t, int64(1000), result[0].Timestamp)
+		assert.Equal(t, "sidecar message 1", result[0].Message)
+		assert.Equal(t, int64(2000), result[1].Timestamp)
+		assert.Equal(t, "runner message 2", result[1].Message)
+		assert.Equal(t, int64(3000), result[2].Timestamp)
+		assert.Equal(t, "sidecar message 3", result[2].Message)
+		assert.Equal(t, int64(4000), result[3].Timestamp)
+		assert.Equal(t, "runner message 4", result[3].Message)
+		assert.Equal(t, int64(5000), result[4].Timestamp)
+		assert.Equal(t, "sidecar message 5", result[4].Message)
+	})
+
+	t.Run("handles empty runner logs", func(t *testing.T) {
+		sidecarEvents := []api.LogEvent{
+			{Timestamp: 1000, Message: "sidecar message"},
+		}
+
+		result := mergeAndSortLogs([]api.LogEvent{}, sidecarEvents)
+		require.Len(t, result, 1)
+		assert.Equal(t, sidecarEvents[0], result[0])
+	})
+
+	t.Run("handles empty sidecar logs", func(t *testing.T) {
+		runnerEvents := []api.LogEvent{
+			{Timestamp: 1000, Message: "runner message"},
+		}
+
+		result := mergeAndSortLogs(runnerEvents, []api.LogEvent{})
+		require.Len(t, result, 1)
+		assert.Equal(t, runnerEvents[0], result[0])
+	})
+
+	t.Run("handles empty both logs", func(t *testing.T) {
+		result := mergeAndSortLogs([]api.LogEvent{}, []api.LogEvent{})
+		require.Len(t, result, 0)
+	})
+
+	t.Run("handles logs with equal timestamps", func(t *testing.T) {
+		runnerEvents := []api.LogEvent{
+			{Timestamp: 1000, Message: "runner message"},
+		}
+		sidecarEvents := []api.LogEvent{
+			{Timestamp: 1000, Message: "sidecar message"},
+		}
+
+		result := mergeAndSortLogs(runnerEvents, sidecarEvents)
+		require.Len(t, result, 2)
+		// Both should be present, order may vary but both should exist
+		messages := []string{result[0].Message, result[1].Message}
+		assert.Contains(t, messages, "runner message")
+		assert.Contains(t, messages, "sidecar message")
+	})
+}
+
+func TestFetchLogsByExecutionID(t *testing.T) {
+	ctx := context.Background()
+	logGroup := "test-log-group"
+	executionID := "exec-123"
+	runnerStream := awsConstants.BuildLogStreamName(executionID)
+	sidecarStream := buildSidecarLogStreamName(executionID)
+
+	createLogManager := func(mock *mockCloudWatchLogsClient) *LogManagerImpl {
+		return &LogManagerImpl{
+			cwlClient: mock,
+			cfg: &Config{
+				LogGroup: logGroup,
+			},
+			logger: testutil.SilentLogger(),
+		}
+	}
+
+	t.Run("successfully fetches and merges logs from both streams", func(t *testing.T) {
+		callCount := 0
+		mock := &mockCloudWatchLogsClient{
+			describeLogStreamsFunc: func(
+				_ context.Context,
+				params *cloudwatchlogs.DescribeLogStreamsInput,
+				_ ...func(*cloudwatchlogs.Options),
+			) (*cloudwatchlogs.DescribeLogStreamsOutput, error) {
+				streamName := aws.ToString(params.LogStreamNamePrefix)
+				return &cloudwatchlogs.DescribeLogStreamsOutput{
+					LogStreams: []cwlTypes.LogStream{
+						{LogStreamName: aws.String(streamName)},
+					},
+				}, nil
+			},
+			getLogEventsFunc: func(
+				_ context.Context,
+				params *cloudwatchlogs.GetLogEventsInput,
+				_ ...func(*cloudwatchlogs.Options),
+			) (*cloudwatchlogs.GetLogEventsOutput, error) {
+				callCount++
+				streamName := aws.ToString(params.LogStreamName)
+				switch streamName {
+				case runnerStream:
+					return &cloudwatchlogs.GetLogEventsOutput{
+						Events: []cwlTypes.OutputLogEvent{
+							{Timestamp: aws.Int64(2000), Message: aws.String("runner log 1")},
+							{Timestamp: aws.Int64(4000), Message: aws.String("runner log 2")},
+						},
+					}, nil
+				case sidecarStream:
+					return &cloudwatchlogs.GetLogEventsOutput{
+						Events: []cwlTypes.OutputLogEvent{
+							{Timestamp: aws.Int64(1000), Message: aws.String("sidecar log 1")},
+							{Timestamp: aws.Int64(3000), Message: aws.String("sidecar log 2")},
+						},
+					}, nil
+				default:
+					return &cloudwatchlogs.GetLogEventsOutput{}, nil
+				}
+			},
+		}
+
+		manager := createLogManager(mock)
+		events, err := manager.FetchLogsByExecutionID(ctx, executionID)
+		require.NoError(t, err)
+		require.Len(t, events, 4)
+		// Verify logs are sorted by timestamp
+		assert.Equal(t, int64(1000), events[0].Timestamp)
+		assert.Equal(t, "sidecar log 1", events[0].Message)
+		assert.Equal(t, int64(2000), events[1].Timestamp)
+		assert.Equal(t, "runner log 1", events[1].Message)
+		assert.Equal(t, int64(3000), events[2].Timestamp)
+		assert.Equal(t, "sidecar log 2", events[2].Message)
+		assert.Equal(t, int64(4000), events[3].Timestamp)
+		assert.Equal(t, "runner log 2", events[3].Message)
+		// Verify both streams were queried
+		assert.GreaterOrEqual(t, callCount, 2)
+	})
+
+	t.Run("empty executionID returns error", func(t *testing.T) {
+		manager := createLogManager(&mockCloudWatchLogsClient{})
+		events, err := manager.FetchLogsByExecutionID(ctx, "")
+		require.Error(t, err)
+		assert.Nil(t, events)
+		var appErr *appErrors.AppError
+		assert.True(t, errors.As(err, &appErr))
+		assert.Equal(t, "INVALID_REQUEST", appErr.Code)
+	})
+
+	t.Run("runner stream does not exist", func(t *testing.T) {
+		mock := &mockCloudWatchLogsClient{
+			describeLogStreamsFunc: func(
+				_ context.Context,
+				params *cloudwatchlogs.DescribeLogStreamsInput,
+				_ ...func(*cloudwatchlogs.Options),
+			) (*cloudwatchlogs.DescribeLogStreamsOutput, error) {
+				streamName := aws.ToString(params.LogStreamNamePrefix)
+				if streamName == runnerStream {
+					return &cloudwatchlogs.DescribeLogStreamsOutput{
+						LogStreams: []cwlTypes.LogStream{},
+					}, nil
+				}
+				return &cloudwatchlogs.DescribeLogStreamsOutput{
+					LogStreams: []cwlTypes.LogStream{
+						{LogStreamName: aws.String(streamName)},
+					},
+				}, nil
+			},
+		}
+
+		manager := createLogManager(mock)
+		events, err := manager.FetchLogsByExecutionID(ctx, executionID)
+		require.Error(t, err)
+		assert.Nil(t, events)
+		var appErr *appErrors.AppError
+		assert.True(t, errors.As(err, &appErr))
+		assert.Equal(t, "SERVICE_UNAVAILABLE", appErr.Code)
+	})
+
+	t.Run("sidecar stream does not exist", func(t *testing.T) {
+		mock := &mockCloudWatchLogsClient{
+			describeLogStreamsFunc: func(
+				_ context.Context,
+				params *cloudwatchlogs.DescribeLogStreamsInput,
+				_ ...func(*cloudwatchlogs.Options),
+			) (*cloudwatchlogs.DescribeLogStreamsOutput, error) {
+				streamName := aws.ToString(params.LogStreamNamePrefix)
+				if streamName == sidecarStream {
+					return &cloudwatchlogs.DescribeLogStreamsOutput{
+						LogStreams: []cwlTypes.LogStream{},
+					}, nil
+				}
+				return &cloudwatchlogs.DescribeLogStreamsOutput{
+					LogStreams: []cwlTypes.LogStream{
+						{LogStreamName: aws.String(streamName)},
+					},
+				}, nil
+			},
+		}
+
+		manager := createLogManager(mock)
+		events, err := manager.FetchLogsByExecutionID(ctx, executionID)
+		require.Error(t, err)
+		assert.Nil(t, events)
+		var appErr *appErrors.AppError
+		assert.True(t, errors.As(err, &appErr))
+		assert.Equal(t, "SERVICE_UNAVAILABLE", appErr.Code)
+	})
+
+	t.Run("error fetching runner logs", func(t *testing.T) {
+		mock := &mockCloudWatchLogsClient{
+			describeLogStreamsFunc: func(
+				_ context.Context,
+				params *cloudwatchlogs.DescribeLogStreamsInput,
+				_ ...func(*cloudwatchlogs.Options),
+			) (*cloudwatchlogs.DescribeLogStreamsOutput, error) {
+				return &cloudwatchlogs.DescribeLogStreamsOutput{
+					LogStreams: []cwlTypes.LogStream{
+						{LogStreamName: aws.String(aws.ToString(params.LogStreamNamePrefix))},
+					},
+				}, nil
+			},
+			getLogEventsFunc: func(
+				_ context.Context,
+				params *cloudwatchlogs.GetLogEventsInput,
+				_ ...func(*cloudwatchlogs.Options),
+			) (*cloudwatchlogs.GetLogEventsOutput, error) {
+				streamName := aws.ToString(params.LogStreamName)
+				if streamName == runnerStream {
+					return nil, errors.New("failed to fetch runner logs")
+				}
+				return &cloudwatchlogs.GetLogEventsOutput{}, nil
+			},
+		}
+
+		manager := createLogManager(mock)
+		events, err := manager.FetchLogsByExecutionID(ctx, executionID)
+		require.Error(t, err)
+		assert.Nil(t, events)
+		var appErr *appErrors.AppError
+		assert.True(t, errors.As(err, &appErr))
+		assert.Equal(t, "INTERNAL_ERROR", appErr.Code)
+	})
+
+	t.Run("error fetching sidecar logs", func(t *testing.T) {
+		mock := &mockCloudWatchLogsClient{
+			describeLogStreamsFunc: func(
+				_ context.Context,
+				params *cloudwatchlogs.DescribeLogStreamsInput,
+				_ ...func(*cloudwatchlogs.Options),
+			) (*cloudwatchlogs.DescribeLogStreamsOutput, error) {
+				return &cloudwatchlogs.DescribeLogStreamsOutput{
+					LogStreams: []cwlTypes.LogStream{
+						{LogStreamName: aws.String(aws.ToString(params.LogStreamNamePrefix))},
+					},
+				}, nil
+			},
+			getLogEventsFunc: func(
+				_ context.Context,
+				params *cloudwatchlogs.GetLogEventsInput,
+				_ ...func(*cloudwatchlogs.Options),
+			) (*cloudwatchlogs.GetLogEventsOutput, error) {
+				streamName := aws.ToString(params.LogStreamName)
+				if streamName == runnerStream {
+					return &cloudwatchlogs.GetLogEventsOutput{
+						Events: []cwlTypes.OutputLogEvent{
+							{Timestamp: aws.Int64(1000), Message: aws.String("runner log")},
+						},
+					}, nil
+				}
+				if streamName == sidecarStream {
+					return nil, errors.New("failed to fetch sidecar logs")
+				}
+				return &cloudwatchlogs.GetLogEventsOutput{}, nil
+			},
+		}
+
+		manager := createLogManager(mock)
+		events, err := manager.FetchLogsByExecutionID(ctx, executionID)
+		require.Error(t, err)
+		assert.Nil(t, events)
+		var appErr *appErrors.AppError
+		assert.True(t, errors.As(err, &appErr))
+		assert.Equal(t, "INTERNAL_ERROR", appErr.Code)
+	})
+
+	t.Run("empty logs from both streams", func(t *testing.T) {
+		mock := &mockCloudWatchLogsClient{
+			describeLogStreamsFunc: func(
+				_ context.Context,
+				params *cloudwatchlogs.DescribeLogStreamsInput,
+				_ ...func(*cloudwatchlogs.Options),
+			) (*cloudwatchlogs.DescribeLogStreamsOutput, error) {
+				return &cloudwatchlogs.DescribeLogStreamsOutput{
+					LogStreams: []cwlTypes.LogStream{
+						{LogStreamName: aws.String(aws.ToString(params.LogStreamNamePrefix))},
+					},
+				}, nil
+			},
+			getLogEventsFunc: func(
+				_ context.Context,
+				_ *cloudwatchlogs.GetLogEventsInput,
+				_ ...func(*cloudwatchlogs.Options),
+			) (*cloudwatchlogs.GetLogEventsOutput, error) {
+				return &cloudwatchlogs.GetLogEventsOutput{
+					Events: []cwlTypes.OutputLogEvent{},
+				}, nil
+			},
+		}
+
+		manager := createLogManager(mock)
+		events, err := manager.FetchLogsByExecutionID(ctx, executionID)
+		require.NoError(t, err)
+		assert.Len(t, events, 0)
+	})
+
+	t.Run("error verifying runner stream", func(t *testing.T) {
+		mock := &mockCloudWatchLogsClient{
+			describeLogStreamsFunc: func(
+				_ context.Context,
+				params *cloudwatchlogs.DescribeLogStreamsInput,
+				_ ...func(*cloudwatchlogs.Options),
+			) (*cloudwatchlogs.DescribeLogStreamsOutput, error) {
+				streamName := aws.ToString(params.LogStreamNamePrefix)
+				if streamName == runnerStream {
+					return nil, errors.New("AWS API error")
+				}
+				return &cloudwatchlogs.DescribeLogStreamsOutput{
+					LogStreams: []cwlTypes.LogStream{
+						{LogStreamName: aws.String(streamName)},
+					},
+				}, nil
+			},
+		}
+
+		manager := createLogManager(mock)
+		events, err := manager.FetchLogsByExecutionID(ctx, executionID)
+		require.Error(t, err)
+		assert.Nil(t, events)
+		var appErr *appErrors.AppError
+		assert.True(t, errors.As(err, &appErr))
+		assert.Equal(t, "INTERNAL_ERROR", appErr.Code)
+	})
+
+	t.Run("error verifying sidecar stream", func(t *testing.T) {
+		mock := &mockCloudWatchLogsClient{
+			describeLogStreamsFunc: func(
+				_ context.Context,
+				params *cloudwatchlogs.DescribeLogStreamsInput,
+				_ ...func(*cloudwatchlogs.Options),
+			) (*cloudwatchlogs.DescribeLogStreamsOutput, error) {
+				streamName := aws.ToString(params.LogStreamNamePrefix)
+				if streamName == sidecarStream {
+					return nil, errors.New("AWS API error")
+				}
+				return &cloudwatchlogs.DescribeLogStreamsOutput{
+					LogStreams: []cwlTypes.LogStream{
+						{LogStreamName: aws.String(streamName)},
+					},
+				}, nil
+			},
+		}
+
+		manager := createLogManager(mock)
+		events, err := manager.FetchLogsByExecutionID(ctx, executionID)
+		require.Error(t, err)
+		assert.Nil(t, events)
+		var appErr *appErrors.AppError
+		assert.True(t, errors.As(err, &appErr))
+		assert.Equal(t, "INTERNAL_ERROR", appErr.Code)
+	})
 }
 
 func TestDiscoverLogGroups(t *testing.T) {
