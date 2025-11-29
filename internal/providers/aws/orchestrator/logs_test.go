@@ -539,65 +539,43 @@ func TestFetchLogsByExecutionID(t *testing.T) {
 		assert.Equal(t, "INVALID_REQUEST", appErr.Code)
 	})
 
-	t.Run("runner stream does not exist", func(t *testing.T) {
-		mock := &mockCloudWatchLogsClient{
-			describeLogStreamsFunc: func(
-				_ context.Context,
-				params *cloudwatchlogs.DescribeLogStreamsInput,
-				_ ...func(*cloudwatchlogs.Options),
-			) (*cloudwatchlogs.DescribeLogStreamsOutput, error) {
-				streamName := aws.ToString(params.LogStreamNamePrefix)
-				if streamName == runnerStream {
+	for _, tc := range []struct {
+		name        string
+		emptyStream string
+	}{
+		{"runner stream does not exist", runnerStream},
+		{"sidecar stream does not exist", sidecarStream},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			mock := &mockCloudWatchLogsClient{
+				describeLogStreamsFunc: func(
+					_ context.Context,
+					params *cloudwatchlogs.DescribeLogStreamsInput,
+					_ ...func(*cloudwatchlogs.Options),
+				) (*cloudwatchlogs.DescribeLogStreamsOutput, error) {
+					streamName := aws.ToString(params.LogStreamNamePrefix)
+					if streamName == tc.emptyStream {
+						return &cloudwatchlogs.DescribeLogStreamsOutput{
+							LogStreams: []cwlTypes.LogStream{},
+						}, nil
+					}
 					return &cloudwatchlogs.DescribeLogStreamsOutput{
-						LogStreams: []cwlTypes.LogStream{},
+						LogStreams: []cwlTypes.LogStream{
+							{LogStreamName: aws.String(streamName)},
+						},
 					}, nil
-				}
-				return &cloudwatchlogs.DescribeLogStreamsOutput{
-					LogStreams: []cwlTypes.LogStream{
-						{LogStreamName: aws.String(streamName)},
-					},
-				}, nil
-			},
-		}
+				},
+			}
 
-		manager := createLogManager(mock)
-		events, err := manager.FetchLogsByExecutionID(ctx, executionID)
-		require.Error(t, err)
-		assert.Nil(t, events)
-		var appErr *appErrors.AppError
-		assert.True(t, errors.As(err, &appErr))
-		assert.Equal(t, "SERVICE_UNAVAILABLE", appErr.Code)
-	})
-
-	t.Run("sidecar stream does not exist", func(t *testing.T) {
-		mock := &mockCloudWatchLogsClient{
-			describeLogStreamsFunc: func(
-				_ context.Context,
-				params *cloudwatchlogs.DescribeLogStreamsInput,
-				_ ...func(*cloudwatchlogs.Options),
-			) (*cloudwatchlogs.DescribeLogStreamsOutput, error) {
-				streamName := aws.ToString(params.LogStreamNamePrefix)
-				if streamName == sidecarStream {
-					return &cloudwatchlogs.DescribeLogStreamsOutput{
-						LogStreams: []cwlTypes.LogStream{},
-					}, nil
-				}
-				return &cloudwatchlogs.DescribeLogStreamsOutput{
-					LogStreams: []cwlTypes.LogStream{
-						{LogStreamName: aws.String(streamName)},
-					},
-				}, nil
-			},
-		}
-
-		manager := createLogManager(mock)
-		events, err := manager.FetchLogsByExecutionID(ctx, executionID)
-		require.Error(t, err)
-		assert.Nil(t, events)
-		var appErr *appErrors.AppError
-		assert.True(t, errors.As(err, &appErr))
-		assert.Equal(t, "SERVICE_UNAVAILABLE", appErr.Code)
-	})
+			manager := createLogManager(mock)
+			events, err := manager.FetchLogsByExecutionID(ctx, executionID)
+			require.Error(t, err)
+			assert.Nil(t, events)
+			var appErr *appErrors.AppError
+			assert.True(t, errors.As(err, &appErr))
+			assert.Equal(t, "SERVICE_UNAVAILABLE", appErr.Code)
+		})
+	}
 
 	t.Run("error fetching runner logs", func(t *testing.T) {
 		mock := &mockCloudWatchLogsClient{
@@ -706,61 +684,41 @@ func TestFetchLogsByExecutionID(t *testing.T) {
 		assert.Len(t, events, 0)
 	})
 
-	t.Run("error verifying runner stream", func(t *testing.T) {
-		mock := &mockCloudWatchLogsClient{
-			describeLogStreamsFunc: func(
-				_ context.Context,
-				params *cloudwatchlogs.DescribeLogStreamsInput,
-				_ ...func(*cloudwatchlogs.Options),
-			) (*cloudwatchlogs.DescribeLogStreamsOutput, error) {
-				streamName := aws.ToString(params.LogStreamNamePrefix)
-				if streamName == runnerStream {
-					return nil, errors.New("AWS API error")
-				}
-				return &cloudwatchlogs.DescribeLogStreamsOutput{
-					LogStreams: []cwlTypes.LogStream{
-						{LogStreamName: aws.String(streamName)},
-					},
-				}, nil
-			},
-		}
+	for _, tc := range []struct {
+		name        string
+		errorStream string
+	}{
+		{"error verifying runner stream", runnerStream},
+		{"error verifying sidecar stream", sidecarStream},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			mock := &mockCloudWatchLogsClient{
+				describeLogStreamsFunc: func(
+					_ context.Context,
+					params *cloudwatchlogs.DescribeLogStreamsInput,
+					_ ...func(*cloudwatchlogs.Options),
+				) (*cloudwatchlogs.DescribeLogStreamsOutput, error) {
+					streamName := aws.ToString(params.LogStreamNamePrefix)
+					if streamName == tc.errorStream {
+						return nil, errors.New("AWS API error")
+					}
+					return &cloudwatchlogs.DescribeLogStreamsOutput{
+						LogStreams: []cwlTypes.LogStream{
+							{LogStreamName: aws.String(streamName)},
+						},
+					}, nil
+				},
+			}
 
-		manager := createLogManager(mock)
-		events, err := manager.FetchLogsByExecutionID(ctx, executionID)
-		require.Error(t, err)
-		assert.Nil(t, events)
-		var appErr *appErrors.AppError
-		assert.True(t, errors.As(err, &appErr))
-		assert.Equal(t, "INTERNAL_ERROR", appErr.Code)
-	})
-
-	t.Run("error verifying sidecar stream", func(t *testing.T) {
-		mock := &mockCloudWatchLogsClient{
-			describeLogStreamsFunc: func(
-				_ context.Context,
-				params *cloudwatchlogs.DescribeLogStreamsInput,
-				_ ...func(*cloudwatchlogs.Options),
-			) (*cloudwatchlogs.DescribeLogStreamsOutput, error) {
-				streamName := aws.ToString(params.LogStreamNamePrefix)
-				if streamName == sidecarStream {
-					return nil, errors.New("AWS API error")
-				}
-				return &cloudwatchlogs.DescribeLogStreamsOutput{
-					LogStreams: []cwlTypes.LogStream{
-						{LogStreamName: aws.String(streamName)},
-					},
-				}, nil
-			},
-		}
-
-		manager := createLogManager(mock)
-		events, err := manager.FetchLogsByExecutionID(ctx, executionID)
-		require.Error(t, err)
-		assert.Nil(t, events)
-		var appErr *appErrors.AppError
-		assert.True(t, errors.As(err, &appErr))
-		assert.Equal(t, "INTERNAL_ERROR", appErr.Code)
-	})
+			manager := createLogManager(mock)
+			events, err := manager.FetchLogsByExecutionID(ctx, executionID)
+			require.Error(t, err)
+			assert.Nil(t, events)
+			var appErr *appErrors.AppError
+			assert.True(t, errors.As(err, &appErr))
+			assert.Equal(t, "INTERNAL_ERROR", appErr.Code)
+		})
+	}
 }
 
 func TestDiscoverLogGroups(t *testing.T) {
