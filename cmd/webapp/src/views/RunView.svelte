@@ -118,7 +118,7 @@
             const executionId = response.execution_id;
             const websocketURL = response.websocket_url;
             if (executionId) {
-                switchExecution(executionId, { updateHistory: false });
+                switchExecution(executionId);
                 cachedWebSocketURL.set(websocketURL || null);
                 goto(`/logs?execution_id=${encodeURIComponent(executionId)}`);
             }

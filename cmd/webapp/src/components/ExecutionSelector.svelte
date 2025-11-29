@@ -1,32 +1,42 @@
 <script lang="ts">
     import { executionId } from '../stores/execution';
-    import { switchExecution, clearExecution } from '../lib/executionState';
+
+    interface Props {
+        // eslint-disable-next-line no-unused-vars
+        onExecutionChange?: ((executionId: string) => void) | null;
+    }
+
+    const { onExecutionChange = null }: Props = $props();
 
     // Store value for syncing
     const storeValue = $derived($executionId || '');
 
     // Track pending user input
-    let pendingInput: string | null = null;
+    let pendingInput: string | null = $state(null);
 
     // Current value to display (pending input or store value)
     const currentValue = $derived(pendingInput ?? storeValue);
 
+    function submitExecution(value: string): void {
+        const trimmed = value.trim();
+        if (trimmed && trimmed !== $executionId) {
+            pendingInput = null;
+            if (onExecutionChange) {
+                onExecutionChange(trimmed);
+            }
+        } else {
+            pendingInput = null;
+        }
+    }
+
     function handleKeyPress(event: KeyboardEvent): void {
         if (event.key === 'Enter') {
-            const value = currentValue.trim();
-            if (value) {
-                switchExecution(value);
-                pendingInput = null; // Clear pending after commit
-            }
+            submitExecution(currentValue);
         }
     }
 
     function handleBlur(): void {
-        const newId = currentValue.trim();
-        if (newId && newId !== $executionId) {
-            switchExecution(newId);
-        }
-        pendingInput = null; // Clear pending after commit
+        submitExecution(currentValue);
     }
 
     function handleInput(event: { currentTarget: { value: string } | null }): void {
@@ -35,32 +45,6 @@
             pendingInput = target.value;
         }
     }
-
-    // Handle browser back/forward buttons
-    $effect.root(() => {
-        if (typeof window === 'undefined') {
-            return;
-        }
-
-        const onPopState = () => {
-            const urlParams = new URLSearchParams(window.location.search);
-            const newExecutionId = urlParams.get('execution_id') || urlParams.get('executionId');
-
-            if (newExecutionId && newExecutionId !== $executionId) {
-                switchExecution(newExecutionId, { updateHistory: false });
-                pendingInput = null; // Clear pending when store changes externally
-            } else if (!newExecutionId && $executionId) {
-                clearExecution({ updateHistory: false });
-                pendingInput = null; // Clear pending when store changes externally
-            }
-        };
-
-        window.addEventListener('popstate', onPopState);
-
-        return () => {
-            window.removeEventListener('popstate', onPopState);
-        };
-    });
 </script>
 
 <div class="execution-selector">

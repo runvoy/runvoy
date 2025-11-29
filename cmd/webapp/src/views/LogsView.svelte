@@ -1,6 +1,6 @@
 <script lang="ts">
     import { onDestroy } from 'svelte';
-    import { get } from 'svelte/store';
+    import { goto } from '$app/navigation';
 
     import ExecutionSelector from '../components/ExecutionSelector.svelte';
     import StatusBar from '../components/StatusBar.svelte';
@@ -17,29 +17,27 @@
 
     interface Props {
         apiClient: APIClient | null;
+        currentExecutionId: string | null;
     }
 
-    const { apiClient = null }: Props = $props();
+    const { apiClient = null, currentExecutionId = null }: Props = $props();
 
     let errorMessage = $state('');
-    let currentExecutionId: string | null = $state(null);
-    let lastProcessedExecutionId: string | null = $state(null);
-    let isFetchingLogs = $state(false); // Guard to prevent duplicate fetchLogs calls
     const TERMINAL_STATES = ['SUCCEEDED', 'FAILED', 'STOPPED'];
 
+    // Track in-flight fetch to prevent duplicates
+    let currentFetchId: string | null = null;
+
     async function handleKillExecution(): Promise<void> {
-        const id = get(executionId);
-        if (!apiClient || !id) {
+        if (!apiClient || !currentExecutionId) {
             return;
         }
 
         try {
-            await apiClient.killExecution(id);
-            // Don't fetch logs if WebSocket is connected or connecting - it will stream the updated status
-            // Only fetch logs for terminal executions without WebSocket
-            const wsActive = get(isConnected) || get(isConnecting);
-            if (!wsActive) {
-                await fetchLogs(id);
+            await apiClient.killExecution(currentExecutionId);
+            // If WebSocket is not active, refresh to get final status
+            if (!$isConnected && !$isConnecting) {
+                await fetchLogs(currentExecutionId);
             }
         } catch (error) {
             const err = error as ApiError;
@@ -69,46 +67,25 @@
             return;
         }
 
-        // Prevent duplicate calls - only one fetchLogs should be active at a time
-        if (isFetchingLogs) {
-            return;
-        }
-
-        isFetchingLogs = true;
         errorMessage = '';
 
         try {
-            // Verify execution ID hasn't changed while we were waiting
-            const currentId = get(executionId);
-            if (currentId !== id) {
-                // Execution ID changed, abort this fetch
-                isFetchingLogs = false;
+            const response = await apiClient.getLogs(id);
+
+            // Verify this fetch is still relevant (execution ID hasn't changed)
+            if (currentFetchId !== id) {
                 return;
             }
 
-            const response = await apiClient.getLogs(id);
-
             // Contract: Running executions return websocket_url and events=null.
             // Terminal executions return events array (never null) and no websocket_url.
-            // One GET request should be sufficient - no need for multiple calls.
-
             if (response.websocket_url) {
-                // Running execution: use WebSocket for streaming logs.
-                // Events should be null for running executions per API contract.
-                // Don't overwrite logs if WebSocket is already active to avoid race conditions.
-                const wsActive = get(isConnected) || get(isConnecting);
-                if (!wsActive) {
-                    // WebSocket not active yet. For running executions, events should be null,
-                    // so we don't set any initial logs - WebSocket will stream them.
-                    // This ensures we never call fetchLogs() when WebSocket is connected.
-                }
-                // Set the URL so WebSocket will connect (if not already connected)
+                // Running execution: use WebSocket for streaming logs
                 cachedWebSocketURL.set(response.websocket_url);
                 return;
             }
 
-            // Terminal execution: events is a non-nil array (may be empty), no websocket_url.
-            // Set logs directly from API response - this is the final state.
+            // Terminal execution: set logs from API response
             const events = response.events ?? [];
             const eventsWithLines: LogEvent[] = events.map((event, index) => ({
                 ...event,
@@ -124,31 +101,32 @@
             const terminal = TERMINAL_STATES.includes(status);
             isCompleted.set(terminal);
         } catch (error) {
+            // Ignore if this fetch is stale
+            if (currentFetchId !== id) {
+                return;
+            }
             const err = error as ApiError;
             errorMessage = err.details?.error || err.message || 'Failed to fetch logs';
             logEvents.set([]);
-        } finally {
-            isFetchingLogs = false;
         }
     }
 
-    function resetForExecution(): void {
+    function resetState(): void {
         disconnectWebSocket();
-        logEvents.set([]); // Clear logs when switching executions to avoid stale data
+        logEvents.set([]);
         executionStatus.set('LOADING');
         startedAt.set(null);
         isCompleted.set(false);
         errorMessage = '';
-        isFetchingLogs = false; // Reset fetch guard when switching executions
+        cachedWebSocketURL.set(null);
     }
 
     async function handleExecutionComplete(): Promise<void> {
         if (!apiClient || !currentExecutionId) {
             return;
         }
-        // Websocket disconnect means the task terminated
+        // WebSocket disconnect means the task terminated
         // Fetch status to update execution status (SUCCEEDED, FAILED, STOPPED)
-        // No need to refetch logs - we already have them all from the websocket
         try {
             const statusResponse: ExecutionStatusResponse =
                 await apiClient.getExecutionStatus(currentExecutionId);
@@ -171,60 +149,68 @@
         }
     }
 
+    function handleExecutionChange(newId: string): void {
+        // Update URL, which will cause the page to re-render with new execution ID
+        goto(`/logs?execution_id=${encodeURIComponent(newId)}`, { replaceState: false });
+    }
+
+    // Single effect that handles execution ID changes
+    // This is the ONLY place that triggers log fetching
     $effect(() => {
+        const id = currentExecutionId;
+
+        // Sync to store for child components that read it
+        executionId.set(id);
+
         if (!apiClient) {
-            disconnectWebSocket();
-            lastProcessedExecutionId = null;
+            return;
+        }
+
+        if (!id) {
+            // No execution ID - reset everything
+            resetState();
+            currentFetchId = null;
+            return;
+        }
+
+        // Skip if we're already fetching this execution ID
+        if (currentFetchId === id) {
+            return;
+        }
+
+        // New execution ID - reset and fetch
+        currentFetchId = id;
+        resetState();
+
+        // Don't fetch if WebSocket is already connected for this execution
+        if ($isConnected || $isConnecting) {
+            return;
+        }
+
+        // Fetch logs for this execution
+        fetchLogs(id);
+    });
+
+    // Handle WebSocket URL changes
+    $effect(() => {
+        const url = $cachedWebSocketURL;
+        if (!apiClient) {
+            return;
+        }
+        if (url) {
+            connectWebSocket(url);
         }
     });
 
-    $effect.root(() => {
+    // Handle execution complete event
+    $effect(() => {
         if (typeof window === 'undefined') {
             return;
         }
 
-        const unsubscribeExecution = executionId.subscribe((id) => {
-            currentExecutionId = id;
-            if (!apiClient) {
-                return;
-            }
-            if (!id) {
-                lastProcessedExecutionId = null;
-                return;
-            }
-            if (id !== lastProcessedExecutionId) {
-                // Set lastProcessedExecutionId immediately to prevent duplicate calls
-                // if the subscription fires multiple times in quick succession
-                lastProcessedExecutionId = id;
-                resetForExecution();
-                // Don't fetch logs if WebSocket is connected or connecting - let it handle streaming
-                const wsActive = get(isConnected) || get(isConnecting);
-                const existingWebsocketURL = get(cachedWebSocketURL);
-                // Set isFetchingLogs before calling fetchLogs to prevent race conditions
-                // where multiple subscription fires could all pass the guard
-                if (!wsActive && !existingWebsocketURL && !isFetchingLogs) {
-                    isFetchingLogs = true;
-                    fetchLogs(id);
-                }
-            }
-        });
-
-        const unsubscribeCachedURL = cachedWebSocketURL.subscribe((url) => {
-            if (!apiClient) {
-                return;
-            }
-            if (url) {
-                connectWebSocket(url);
-            } else {
-                disconnectWebSocket();
-            }
-        });
-
         window.addEventListener('runvoy:execution-complete', handleExecutionComplete);
 
         return () => {
-            unsubscribeExecution();
-            unsubscribeCachedURL();
             window.removeEventListener('runvoy:execution-complete', handleExecutionComplete);
         };
     });
@@ -234,7 +220,7 @@
     });
 </script>
 
-<ExecutionSelector />
+<ExecutionSelector onExecutionChange={handleExecutionChange} />
 
 {#if errorMessage}
     <article class="error-box">

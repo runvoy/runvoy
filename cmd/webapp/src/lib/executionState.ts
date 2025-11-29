@@ -1,9 +1,10 @@
 /**
  * Execution state management utilities
+ *
+ * Used primarily by RunView when starting a new execution.
+ * LogsView uses URL as source of truth and doesn't need these functions.
  */
 import { get } from 'svelte/store';
-import { pushState } from '$app/navigation';
-import { resolve } from '$app/paths';
 import { executionId } from '../stores/execution';
 import { logEvents, logsRetryCount } from '../stores/logs';
 import { cachedWebSocketURL, websocketConnection } from '../stores/websocket';
@@ -23,17 +24,15 @@ function updateDocumentTitle(id: string | null): void {
     document.title = id ? `runvoy Logs - ${id}` : 'runvoy Logs';
 }
 
-interface SwitchExecutionOptions {
-    updateHistory?: boolean;
-}
-
-export function switchExecution(
-    newExecutionId: string,
-    { updateHistory = true }: SwitchExecutionOptions = {}
-): void {
+/**
+ * Switch to a new execution ID.
+ * Used by RunView when starting a new command - it sets up the execution state
+ * before navigating to the logs page with goto().
+ */
+export function switchExecution(newExecutionId: string): void {
     const trimmedId = (newExecutionId || '').trim();
     if (!trimmedId) {
-        clearExecution({ updateHistory });
+        clearExecution();
         return;
     }
 
@@ -53,21 +52,9 @@ export function switchExecution(
     resetExecutionData();
     updateDocumentTitle(trimmedId);
     activeView.set(VIEWS.LOGS);
-
-    if (updateHistory && typeof window !== 'undefined') {
-        const urlParams = new URLSearchParams(window.location.search);
-        urlParams.set('execution_id', trimmedId);
-        const resolvedPath = resolve(window.location.pathname, {});
-        const newUrl = `${resolvedPath}?${urlParams.toString()}`;
-        pushState(resolve(newUrl, {}), { state: { executionId: trimmedId } });
-    }
 }
 
-interface ClearExecutionOptions {
-    updateHistory?: boolean;
-}
-
-export function clearExecution({ updateHistory = true }: ClearExecutionOptions = {}): void {
+export function clearExecution(): void {
     const activeSocket = get(websocketConnection);
     if (activeSocket) {
         activeSocket.close();
@@ -78,13 +65,4 @@ export function clearExecution({ updateHistory = true }: ClearExecutionOptions =
     executionId.set(null);
     resetExecutionData();
     updateDocumentTitle('');
-
-    if (updateHistory && typeof window !== 'undefined') {
-        const urlParams = new URLSearchParams(window.location.search);
-        urlParams.delete('execution_id');
-        const newQuery = urlParams.toString();
-        const resolvedPath = resolve(window.location.pathname, {});
-        const newUrl = newQuery ? `${resolvedPath}?${newQuery}` : resolvedPath;
-        pushState(resolve(newUrl, {}), {});
-    }
 }
