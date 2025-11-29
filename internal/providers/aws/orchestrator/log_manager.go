@@ -48,10 +48,11 @@ func (l *LogManagerImpl) FetchLogsByExecutionID(ctx context.Context, executionID
 		return nil, appErrors.ErrBadRequest("executionID is required", nil)
 	}
 
-	reqLogger := logger.DeriveRequestLogger(ctx, l.logger)
-
-	runnerStream := awsConstants.BuildLogStreamName(executionID)
-	sidecarStream := buildSidecarLogStreamName(executionID)
+	var (
+		reqLogger     = logger.DeriveRequestLogger(ctx, l.logger)
+		runnerStream  = awsConstants.BuildLogStreamName(executionID)
+		sidecarStream = buildSidecarLogStreamName(executionID)
+	)
 
 	// Verify both streams exist (both are required)
 	if verifyErr := verifyLogStreamExists(
@@ -66,18 +67,16 @@ func (l *LogManagerImpl) FetchLogsByExecutionID(ctx context.Context, executionID
 		return nil, verifyErr
 	}
 
-	// Fetch logs from both runner and sidecar streams in a single API call
 	reqLogger.Debug("calling external service", "context", map[string]any{
-		"operation":    "CloudWatchLogs.FilterLogEvents",
-		"log_group":    l.cfg.LogGroup,
-		"log_streams":  []string{runnerStream, sidecarStream},
-		"execution_id": executionID,
-		"paginated":    "true",
+		"operation":      "CloudWatchLogs.FilterLogEvents",
+		"log_group":      l.cfg.LogGroup,
+		"runner_stream":  runnerStream,
+		"sidecar_stream": sidecarStream,
+		"execution_id":   executionID,
+		"paginated":      "true",
 	})
 
-	// Pass 0 as startTime to fetch all logs from the beginning of the streams,
-	// matching the previous behavior of GetLogEvents with StartFromHead=true.
-	// AWS FilterLogEvents returns events sorted by timestamp across all specified streams.
+	// Pass 0 as startTime to fetch all logs from the beginning of the streams (not only last 24h as default)
 	allEvents, err := getAllLogEvents(ctx, l.cwlClient, l.cfg.LogGroup, []string{runnerStream, sidecarStream}, 0)
 	if err != nil {
 		return nil, err
