@@ -79,7 +79,9 @@ describe('Execution State Management', () => {
 
         it('should reset execution data on switch', () => {
             // Set up some data
-            logsStore.logEvents.set([{ message: 'test', timestamp: 1000, line: 1 }]);
+            logsStore.logEvents.set([
+                { message: 'test', timestamp: 1000, event_id: 'event-1', line: 1 }
+            ]);
             logsStore.logsRetryCount.set(2);
             websocketStore.cachedWebSocketURL.set('wss://example.com');
 
@@ -192,7 +194,9 @@ describe('Execution State Management', () => {
         });
 
         it('should reset execution data', () => {
-            logsStore.logEvents.set([{ message: 'test', timestamp: 1000, line: 1 }]);
+            logsStore.logEvents.set([
+                { message: 'test', timestamp: 1000, event_id: 'event-1', line: 1 }
+            ]);
             logsStore.logsRetryCount.set(3);
             websocketStore.cachedWebSocketURL.set('wss://example.com');
 

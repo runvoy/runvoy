@@ -2,6 +2,8 @@ package orchestrator
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"log/slog"
 	"time"
@@ -247,6 +249,15 @@ func (o *ObservabilityManagerImpl) transformBackendLogsResults(
 		if !parseMessageTimestamp(&logEntry, logEntry.Message) {
 			// Fall back to CloudWatch @timestamp if message parsing fails
 			parseCloudWatchTimestamp(&logEntry, cloudwatchTimestamp)
+		}
+
+		// Generate eventID (deterministic based on timestamp + message)
+		if logEntry.Timestamp > 0 {
+			logEntry.EventID = generateEventID(logEntry.Timestamp, logEntry.Message)
+		} else {
+			// Fallback: generate from message only if timestamp parsing failed
+			hash := sha256.Sum256([]byte(logEntry.Message))
+			logEntry.EventID = hex.EncodeToString(hash[:])[:16]
 		}
 
 		logs = append(logs, logEntry)

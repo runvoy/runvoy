@@ -2,6 +2,8 @@ package aws
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -11,6 +13,27 @@ import (
 
 	"github.com/aws/aws-lambda-go/events"
 )
+
+// convertCloudWatchLogEvents converts CloudWatch Logs events to api.LogEvent format.
+func convertCloudWatchLogEvents(cwLogEvents []events.CloudwatchLogsLogEvent) []api.LogEvent {
+	logEvents := make([]api.LogEvent, 0, len(cwLogEvents))
+	for _, cwLogEvent := range cwLogEvents {
+		eventID := cwLogEvent.ID
+		if eventID == "" {
+			// Generate deterministic eventID if missing (shouldn't happen with CloudWatch Logs)
+			var buf []byte
+			buf = fmt.Appendf(buf, "%d:%s", cwLogEvent.Timestamp, cwLogEvent.Message)
+			hash := sha256.Sum256(buf)
+			eventID = hex.EncodeToString(hash[:])[:16]
+		}
+		logEvents = append(logEvents, api.LogEvent{
+			EventID:   eventID,
+			Timestamp: cwLogEvent.Timestamp,
+			Message:   cwLogEvent.Message,
+		})
+	}
+	return logEvents
+}
 
 // handleLogsEvent processes CloudWatch Logs events.
 func (p *Processor) handleLogsEvent(
@@ -50,15 +73,7 @@ func (p *Processor) handleLogsEvent(
 		},
 	)
 
-	// Convert CloudWatch log events to api.LogEvent format
-	logEvents := make([]api.LogEvent, 0, len(data.LogEvents))
-	for _, cwLogEvent := range data.LogEvents {
-		logEvents = append(logEvents, api.LogEvent{
-			EventID:   cwLogEvent.ID,
-			Timestamp: cwLogEvent.Timestamp,
-			Message:   cwLogEvent.Message,
-		})
-	}
+	logEvents := convertCloudWatchLogEvents(data.LogEvents)
 
 	if err = p.logEventRepo.SaveLogEvents(ctx, executionID, logEvents); err != nil {
 		reqLogger.Error("failed to persist log events", "error", err, "execution_id", executionID)

@@ -2,6 +2,8 @@ package orchestrator
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -80,14 +82,21 @@ func getAllLogEvents(ctx context.Context,
 			return nil, appErrors.ErrInternalError("failed to filter log events", err)
 		}
 		for _, e := range out.Events {
+			message := aws.ToString(e.Message)
+			timestamp := aws.ToInt64(e.Timestamp)
+
 			eventID := ""
-			if e.EventId != nil {
+			if e.EventId != nil && *e.EventId != "" {
 				eventID = *e.EventId
+			} else {
+				// Generate deterministic eventID from timestamp + message hash
+				eventID = generateEventID(timestamp, message)
 			}
+
 			events = append(events, api.LogEvent{
 				EventID:   eventID,
-				Timestamp: aws.ToInt64(e.Timestamp),
-				Message:   aws.ToString(e.Message),
+				Timestamp: timestamp,
+				Message:   message,
 			})
 		}
 		if out.NextToken == nil || (nextToken != nil && *out.NextToken == *nextToken) {
@@ -141,4 +150,12 @@ func parseCloudWatchTimestamp(logEntry *api.LogEvent, timestamp string) {
 	if err == nil {
 		logEntry.Timestamp = t.UnixMilli()
 	}
+}
+
+// generateEventID creates a deterministic unique event ID from timestamp and message.
+func generateEventID(timestamp int64, message string) string {
+	var buf []byte
+	buf = fmt.Appendf(buf, "%d:%s", timestamp, message)
+	hash := sha256.Sum256(buf)
+	return hex.EncodeToString(hash[:])[:16] // Use first 16 bytes (32 hex chars)
 }

@@ -21,6 +21,7 @@ describe('Logs Store', () => {
             const event: LogEvent = {
                 message: 'Starting execution',
                 timestamp: 1234567890,
+                event_id: 'event-1',
                 line: 0
             };
 
@@ -31,9 +32,9 @@ describe('Logs Store', () => {
 
         it('should handle multiple log events', () => {
             const events: LogEvent[] = [
-                { message: 'Line 1', timestamp: 1234567890, line: 0 },
-                { message: 'Line 2', timestamp: 1234567891, line: 1 },
-                { message: 'Line 3', timestamp: 1234567892, line: 2 }
+                { message: 'Line 1', timestamp: 1234567890, event_id: 'event-1', line: 0 },
+                { message: 'Line 2', timestamp: 1234567891, event_id: 'event-2', line: 1 },
+                { message: 'Line 3', timestamp: 1234567892, event_id: 'event-3', line: 2 }
             ];
 
             logEvents.set(events);
@@ -45,6 +46,7 @@ describe('Logs Store', () => {
             const initialEvent: LogEvent = {
                 message: 'Initial',
                 timestamp: 1234567890,
+                event_id: 'event-1',
                 line: 0
             };
 
@@ -52,14 +54,16 @@ describe('Logs Store', () => {
 
             logEvents.update((events) => [
                 ...events,
-                { message: 'Added', timestamp: 1234567891, line: 1 }
+                { message: 'Added', timestamp: 1234567891, event_id: 'event-2', line: 1 }
             ]);
 
             expect(get(logEvents)).toHaveLength(2);
         });
 
         it('should clear events', () => {
-            logEvents.set([{ message: 'Event', timestamp: 1234567890, line: 0 }]);
+            logEvents.set([
+                { message: 'Event', timestamp: 1234567890, event_id: 'event-1', line: 0 }
+            ]);
 
             logEvents.set([]);
             expect(get(logEvents)).toHaveLength(0);
@@ -69,6 +73,7 @@ describe('Logs Store', () => {
             const events: LogEvent[] = Array.from({ length: 5 }, (_, i) => ({
                 message: `Line ${i}`,
                 timestamp: 1234567890 + i,
+                event_id: `event-${i}`,
                 line: i
             }));
 
@@ -152,8 +157,18 @@ describe('Logs Store', () => {
                 received.push([...events]);
             });
 
-            const event1: LogEvent = { message: 'Event 1', timestamp: 1234567890, line: 0 };
-            const event2: LogEvent = { message: 'Event 2', timestamp: 1234567891, line: 1 };
+            const event1: LogEvent = {
+                message: 'Event 1',
+                timestamp: 1234567890,
+                event_id: 'event-1',
+                line: 0
+            };
+            const event2: LogEvent = {
+                message: 'Event 2',
+                timestamp: 1234567891,
+                event_id: 'event-2',
+                line: 1
+            };
 
             logEvents.set([event1]);
             logEvents.set([event1, event2]);
@@ -189,8 +204,8 @@ describe('Logs Store', () => {
 
             // Add first batch of logs
             const batch1: LogEvent[] = [
-                { message: 'Line 1', timestamp: 1000, line: 0 },
-                { message: 'Line 2', timestamp: 1001, line: 1 }
+                { message: 'Line 1', timestamp: 1000, event_id: 'event-1', line: 0 },
+                { message: 'Line 2', timestamp: 1001, event_id: 'event-2', line: 1 }
             ];
             logEvents.set(batch1);
 
@@ -200,7 +215,7 @@ describe('Logs Store', () => {
             // Append more logs
             logEvents.update((events) => [
                 ...events,
-                { message: 'Line 3', timestamp: 1002, line: 2 }
+                { message: 'Line 3', timestamp: 1002, event_id: 'event-3', line: 2 }
             ]);
 
             expect(get(logEvents)).toHaveLength(3);

@@ -31,11 +31,6 @@ type mockCloudWatchLogsClient struct {
 		params *cloudwatchlogs.DescribeLogStreamsInput,
 		optFns ...func(*cloudwatchlogs.Options),
 	) (*cloudwatchlogs.DescribeLogStreamsOutput, error)
-	getLogEventsFunc func(
-		ctx context.Context,
-		params *cloudwatchlogs.GetLogEventsInput,
-		optFns ...func(*cloudwatchlogs.Options),
-	) (*cloudwatchlogs.GetLogEventsOutput, error)
 	filterLogEventsFunc func(
 		ctx context.Context,
 		params *cloudwatchlogs.FilterLogEventsInput,
@@ -73,17 +68,6 @@ func (m *mockCloudWatchLogsClient) DescribeLogStreams(
 		return m.describeLogStreamsFunc(context.Background(), params, optFns...)
 	}
 	return &cloudwatchlogs.DescribeLogStreamsOutput{}, nil
-}
-
-func (m *mockCloudWatchLogsClient) GetLogEvents(
-	_ context.Context,
-	params *cloudwatchlogs.GetLogEventsInput,
-	optFns ...func(*cloudwatchlogs.Options),
-) (*cloudwatchlogs.GetLogEventsOutput, error) {
-	if m.getLogEventsFunc != nil {
-		return m.getLogEventsFunc(context.Background(), params, optFns...)
-	}
-	return &cloudwatchlogs.GetLogEventsOutput{}, nil
 }
 
 func (m *mockCloudWatchLogsClient) FilterLogEvents(
@@ -421,13 +405,13 @@ func TestBuildSidecarLogStreamName(t *testing.T) {
 func TestMergeAndSortLogs(t *testing.T) {
 	t.Run("merges and sorts logs correctly", func(t *testing.T) {
 		runnerEvents := []api.LogEvent{
-			{Timestamp: 2000, Message: "runner message 2"},
-			{Timestamp: 4000, Message: "runner message 4"},
+			{EventID: "runner-1", Timestamp: 2000, Message: "runner message 2"},
+			{EventID: "runner-2", Timestamp: 4000, Message: "runner message 4"},
 		}
 		sidecarEvents := []api.LogEvent{
-			{Timestamp: 1000, Message: "sidecar message 1"},
-			{Timestamp: 3000, Message: "sidecar message 3"},
-			{Timestamp: 5000, Message: "sidecar message 5"},
+			{EventID: "sidecar-1", Timestamp: 1000, Message: "sidecar message 1"},
+			{EventID: "sidecar-2", Timestamp: 3000, Message: "sidecar message 3"},
+			{EventID: "sidecar-3", Timestamp: 5000, Message: "sidecar message 5"},
 		}
 
 		result := mergeAndSortLogs(runnerEvents, sidecarEvents)
@@ -446,7 +430,7 @@ func TestMergeAndSortLogs(t *testing.T) {
 
 	t.Run("handles empty runner logs", func(t *testing.T) {
 		sidecarEvents := []api.LogEvent{
-			{Timestamp: 1000, Message: "sidecar message"},
+			{EventID: "sidecar-1", Timestamp: 1000, Message: "sidecar message"},
 		}
 
 		result := mergeAndSortLogs([]api.LogEvent{}, sidecarEvents)
@@ -456,7 +440,7 @@ func TestMergeAndSortLogs(t *testing.T) {
 
 	t.Run("handles empty sidecar logs", func(t *testing.T) {
 		runnerEvents := []api.LogEvent{
-			{Timestamp: 1000, Message: "runner message"},
+			{EventID: "runner-1", Timestamp: 1000, Message: "runner message"},
 		}
 
 		result := mergeAndSortLogs(runnerEvents, []api.LogEvent{})
@@ -471,10 +455,10 @@ func TestMergeAndSortLogs(t *testing.T) {
 
 	t.Run("handles logs with equal timestamps", func(t *testing.T) {
 		runnerEvents := []api.LogEvent{
-			{Timestamp: 1000, Message: "runner message"},
+			{EventID: "runner-1", Timestamp: 1000, Message: "runner message"},
 		}
 		sidecarEvents := []api.LogEvent{
-			{Timestamp: 1000, Message: "sidecar message"},
+			{EventID: "sidecar-1", Timestamp: 1000, Message: "sidecar message"},
 		}
 
 		result := mergeAndSortLogs(runnerEvents, sidecarEvents)

@@ -4,7 +4,7 @@ package api
 // Events are ordered by timestamp. Clients should sort by timestamp
 // and compute line numbers as needed for display purposes.
 type LogEvent struct {
-	EventID   string `json:"event_id,omitempty"`
+	EventID   string `json:"event_id"`  // Unique identifier for the log event
 	Timestamp int64  `json:"timestamp"` // Unix timestamp in milliseconds
 	Message   string `json:"message"`   // The actual log message text
 }

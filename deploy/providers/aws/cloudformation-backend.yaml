@@ -516,7 +516,6 @@ Resources:
                 Resource: '*'
               - Effect: Allow
                 Action:
-                  - 'logs:GetLogEvents'
                   - 'logs:FilterLogEvents'
                   - 'logs:DescribeLogStreams'
                 Resource: !GetAtt RunnerLogGroup.Arn

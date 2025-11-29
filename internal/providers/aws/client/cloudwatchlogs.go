@@ -19,11 +19,6 @@ type CloudWatchLogsClient interface {
 		params *cloudwatchlogs.DescribeLogStreamsInput,
 		optFns ...func(*cloudwatchlogs.Options),
 	) (*cloudwatchlogs.DescribeLogStreamsOutput, error)
-	GetLogEvents(
-		ctx context.Context,
-		params *cloudwatchlogs.GetLogEventsInput,
-		optFns ...func(*cloudwatchlogs.Options),
-	) (*cloudwatchlogs.GetLogEventsOutput, error)
 	FilterLogEvents(
 		ctx context.Context,
 		params *cloudwatchlogs.FilterLogEventsInput,
@@ -68,15 +63,6 @@ func (a *CloudWatchLogsClientAdapter) DescribeLogStreams(
 	optFns ...func(*cloudwatchlogs.Options),
 ) (*cloudwatchlogs.DescribeLogStreamsOutput, error) {
 	return a.client.DescribeLogStreams(ctx, params, optFns...)
-}
-
-// GetLogEvents wraps the AWS SDK GetLogEvents operation.
-func (a *CloudWatchLogsClientAdapter) GetLogEvents(
-	ctx context.Context,
-	params *cloudwatchlogs.GetLogEventsInput,
-	optFns ...func(*cloudwatchlogs.Options),
-) (*cloudwatchlogs.GetLogEventsOutput, error) {
-	return a.client.GetLogEvents(ctx, params, optFns...)
 }
 
 // FilterLogEvents wraps the AWS SDK FilterLogEvents operation.

@@ -9,7 +9,7 @@ import (
 // CloudWatchLogsDescribeLimit is the limit for CloudWatch Logs DescribeLogStreams API
 const CloudWatchLogsDescribeLimit = int32(50)
 
-// CloudWatchLogsEventsLimit is the limit for CloudWatch Logs GetLogEvents API
+// CloudWatchLogsEventsLimit is the limit for CloudWatch Logs FilterLogEvents API
 const CloudWatchLogsEventsLimit = int32(10000)
 
 // LogGroupPrefix is the prefix for all runvoy Lambda log groups
