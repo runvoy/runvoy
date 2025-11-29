@@ -118,7 +118,6 @@ Refer to [Architecture](docs/ARCHITECTURE.md) for details.
 ### 🚧 Roadmap
 
 - 🌍 **Multi-cloud support** — GCP, Azure...
-- 📡 **Robust log streaming** — More reliable streaming mechanism (current implementation is lossy)
 - ⏱️ **Execution timeouts** — Automatic SIGTERM for commands exceeding timeout
 - 🔒 **Lock management** — Prevent concurrent execution conflicts
 - 🌐 **Full webapp parity** — All CLI commands available in the web interface
@@ -204,7 +203,7 @@ runvoy --help
 ```
 
 ```text
-runvoy - v0.4.0-20251129-da7266e
+runvoy - v0.4.0-20251129-9da208c
 Isolated, repeatable execution environments for your commands
 
 Usage:
