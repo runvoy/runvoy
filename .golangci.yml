@@ -16,6 +16,8 @@ linters:
     - dogsled
     - dupl
     - errcheck
+    - errname
+    - errorlint
     - exhaustive
     - funlen
     - gochecknoinits
@@ -43,15 +45,13 @@ linters:
     - unparam
     - unused
     - whitespace
+    - wrapcheck
     # More linters to consider:
-    # - errname
-    # - errorlint
     # - gocognit
     # - nestif
     # - testifylint
     # - thelper
     # - tparallel
-    # - wrapcheck
   settings:
     gocyclo:
       min-complexity: 15

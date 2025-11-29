@@ -2,6 +2,7 @@ package orchestrator
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/mail"
 	"strings"
@@ -36,7 +37,7 @@ func (s *Service) validateCreateUserRequest(ctx context.Context, email, role str
 
 	existingUser, err := s.repos.User.GetUserByEmail(ctx, email)
 	if err != nil {
-		return err
+		return apperrors.ErrDatabaseError("failed to check if user exists", fmt.Errorf("get user by email: %w", err))
 	}
 
 	if existingUser != nil {
@@ -178,7 +179,14 @@ func (s *Service) ClaimAPIKey(
 
 	// Mark as viewed atomically
 	if markErr := s.repos.User.MarkAsViewed(ctx, secretToken, ipAddress); markErr != nil {
-		return nil, markErr
+		// Check if it's already an AppError - if so, wrap it to satisfy wrapcheck
+		var appErr *apperrors.AppError
+		if errors.As(markErr, &appErr) {
+			return nil, fmt.Errorf("mark as viewed: %w", markErr)
+		}
+		// Otherwise, wrap the external error with an AppError
+		// Use ErrInternalError for generic errors (test expects 500, not 503)
+		return nil, apperrors.ErrInternalError("failed to mark API key as viewed", fmt.Errorf("mark as viewed: %w", markErr))
 	}
 
 	// Remove expiration from user record (make user permanent)
@@ -206,7 +214,8 @@ func (s *Service) AuthenticateUser(ctx context.Context, apiKey string) (*api.Use
 
 	user, err := s.repos.User.GetUserByAPIKeyHash(ctx, apiKeyHash)
 	if err != nil {
-		return nil, err
+		// Wrap the error - AppError types will still be found via errors.As() in the chain
+		return nil, fmt.Errorf("get user by API key hash: %w", err)
 	}
 
 	if user == nil {
@@ -226,7 +235,12 @@ func (s *Service) UpdateUserLastUsed(ctx context.Context, email string) (*time.T
 	if email == "" {
 		return nil, apperrors.ErrBadRequest("email is required", nil)
 	}
-	return s.repos.User.UpdateLastUsed(ctx, email)
+	lastUsed, err := s.repos.User.UpdateLastUsed(ctx, email)
+	if err != nil {
+		// Wrap the error - AppError types will still be found via errors.As() in the chain
+		return nil, fmt.Errorf("update last used: %w", err)
+	}
+	return lastUsed, nil
 }
 
 // RevokeUser marks a user's API key as revoked.
@@ -238,8 +252,8 @@ func (s *Service) RevokeUser(ctx context.Context, email string) error {
 
 	user, err := s.repos.User.GetUserByEmail(ctx, email)
 	if err != nil {
-		// Propagate database errors as-is
-		return err
+		// Wrap the error - AppError types will still be found via errors.As() in the chain
+		return fmt.Errorf("get user by email: %w", err)
 	}
 	if user == nil {
 		return apperrors.ErrNotFound("user not found", nil)
@@ -263,7 +277,8 @@ func (s *Service) RevokeUser(ctx context.Context, email string) error {
 				"original_role": user.Role,
 			})
 		}
-		return revokeErr
+		// Wrap the error - AppError types will still be found via errors.As() in the chain
+		return fmt.Errorf("revoke user: %w", revokeErr)
 	}
 
 	return nil
@@ -275,7 +290,7 @@ func (s *Service) RevokeUser(ctx context.Context, email string) error {
 func (s *Service) ListUsers(ctx context.Context) (*api.ListUsersResponse, error) {
 	users, err := s.repos.User.ListUsers(ctx)
 	if err != nil {
-		return nil, err
+		return nil, apperrors.ErrDatabaseError("failed to list users", fmt.Errorf("list users: %w", err))
 	}
 
 	return &api.ListUsersResponse{

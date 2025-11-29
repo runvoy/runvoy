@@ -91,7 +91,7 @@ func (r *UserRepository) CreateUser(
 
 	av, err := attributevalue.MarshalMap(item)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to marshal user item: %w", err)
 	}
 
 	// Log before calling DynamoDB PutItem
@@ -218,7 +218,7 @@ func (r *UserRepository) GetUserByAPIKeyHash(ctx context.Context, apiKeyHash str
 
 	var item userItem
 	if unmarshalErr := attributevalue.UnmarshalMap(result.Item, &item); unmarshalErr != nil {
-		return nil, unmarshalErr
+		return nil, fmt.Errorf("failed to unmarshal user item: %w", unmarshalErr)
 	}
 
 	user := &api.User{

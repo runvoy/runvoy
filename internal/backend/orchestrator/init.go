@@ -135,7 +135,7 @@ func awsProviderInitializer(
 ) (*ProviderDependencies, error) {
 	awsDeps, err := awsOrchestrator.Initialize(ctx, cfg, log, enforcer)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to initialize AWS orchestrator: %w", err)
 	}
 
 	repos := database.Repositories{

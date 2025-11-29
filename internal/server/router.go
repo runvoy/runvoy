@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -77,7 +78,11 @@ func (rw *responseWriter) Write(b []byte) (int, error) {
 		rw.written = true
 	}
 
-	return rw.ResponseWriter.Write(b)
+	n, err := rw.ResponseWriter.Write(b)
+	if err != nil {
+		return n, fmt.Errorf("failed to write response: %w", err)
+	}
+	return n, nil
 }
 
 // ServeHTTP implements http.Handler for use with chi router.

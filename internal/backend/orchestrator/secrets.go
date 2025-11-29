@@ -35,10 +35,6 @@ func (s *Service) CreateSecret(
 		ModifiedByRequestID: requestID,
 	}
 	if err := s.repos.Secrets.CreateSecret(ctx, secret); err != nil {
-		var appErr *apperrors.AppError
-		if errors.As(err, &appErr) {
-			return err // Already wrapped, pass through
-		}
 		return apperrors.ErrInternalError("failed to create secret", fmt.Errorf("create secret: %w", err))
 	}
 
@@ -64,12 +60,21 @@ func (s *Service) CreateSecret(
 
 // GetSecret retrieves a secret's metadata and value by name.
 func (s *Service) GetSecret(ctx context.Context, name string) (*api.Secret, error) {
-	return s.repos.Secrets.GetSecret(ctx, name, true)
+	secret, err := s.repos.Secrets.GetSecret(ctx, name, true)
+	if err != nil {
+		// Wrap the error - AppError types will still be found via errors.As() in the chain
+		return nil, fmt.Errorf("get secret: %w", err)
+	}
+	return secret, nil
 }
 
 // ListSecrets retrieves all secrets with values.
 func (s *Service) ListSecrets(ctx context.Context) ([]*api.Secret, error) {
-	return s.repos.Secrets.ListSecrets(ctx, true)
+	secretList, err := s.repos.Secrets.ListSecrets(ctx, true)
+	if err != nil {
+		return nil, apperrors.ErrDatabaseError("failed to list secrets", fmt.Errorf("list secrets: %w", err))
+	}
+	return secretList, nil
 }
 
 // UpdateSecret updates a secret (metadata and/or value).
@@ -91,10 +96,12 @@ func (s *Service) UpdateSecret(
 		ModifiedByRequestID: requestID,
 	}
 	if err := s.repos.Secrets.UpdateSecret(ctx, secret); err != nil {
+		// Check if it's already an AppError - if so, wrap it to satisfy wrapcheck
 		var appErr *apperrors.AppError
 		if errors.As(err, &appErr) {
-			return err // Already wrapped, pass through
+			return fmt.Errorf("update secret: %w", err)
 		}
+		// Otherwise, wrap the external error with an AppError
 		return apperrors.ErrInternalError("failed to update secret", fmt.Errorf("update secret: %w", err))
 	}
 	return nil
@@ -105,11 +112,13 @@ func (s *Service) DeleteSecret(ctx context.Context, name string) error {
 	resourceID := authorization.FormatResourceID("secret", name)
 	secret, fetchErr := s.repos.Secrets.GetSecret(ctx, name, false)
 	if fetchErr != nil {
+		// Check if it's already an AppError - if so, wrap it to satisfy wrapcheck
 		var appErr *apperrors.AppError
 		if errors.As(fetchErr, &appErr) {
-			return fetchErr
+			return fmt.Errorf("get secret: %w", fetchErr)
 		}
-		return apperrors.ErrInternalError("failed to load secret metadata", fmt.Errorf("get secret: %w", fetchErr))
+		// Otherwise, wrap the external error with an AppError
+		return apperrors.ErrDatabaseError("failed to load secret metadata", fmt.Errorf("get secret: %w", fetchErr))
 	}
 
 	var ownerEmails []string
@@ -129,10 +138,12 @@ func (s *Service) DeleteSecret(ctx context.Context, name string) error {
 				return apperrors.ErrInternalError("failed to restore secret ownership after delete error", addErr)
 			}
 		}
+		// Check if it's already an AppError - if so, wrap it to satisfy wrapcheck
 		var appErr *apperrors.AppError
 		if errors.As(deleteErr, &appErr) {
-			return deleteErr // Already wrapped, pass through
+			return fmt.Errorf("delete secret: %w", deleteErr)
 		}
+		// Otherwise, wrap the external error with an AppError
 		return apperrors.ErrInternalError("failed to delete secret", fmt.Errorf("delete secret: %w", deleteErr))
 	}
 

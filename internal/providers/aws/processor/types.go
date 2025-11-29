@@ -1,7 +1,10 @@
 // Package aws provides AWS-specific event processing implementations.
 package aws
 
-import "time"
+import (
+	"fmt"
+	"time"
+)
 
 // ECSTaskStateChangeEvent represents the detail structure of an ECS Task State Change event.
 type ECSTaskStateChangeEvent struct {
@@ -28,5 +31,9 @@ type ContainerDetail struct {
 
 // ParseTime parses an RFC3339 timestamp string.
 func ParseTime(timeStr string) (time.Time, error) {
-	return time.Parse(time.RFC3339, timeStr)
+	t, err := time.Parse(time.RFC3339, timeStr)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("failed to parse time: %w", err)
+	}
+	return t, nil
 }

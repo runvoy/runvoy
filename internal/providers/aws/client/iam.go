@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/aws/aws-sdk-go-v2/service/iam"
 )
@@ -33,5 +34,9 @@ func (a *IAMClientAdapter) GetRole(
 	params *iam.GetRoleInput,
 	optFns ...func(*iam.Options),
 ) (*iam.GetRoleOutput, error) {
-	return a.client.GetRole(ctx, params, optFns...)
+	result, err := a.client.GetRole(ctx, params, optFns...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get role: %w", err)
+	}
+	return result, nil
 }

@@ -2,6 +2,7 @@ package server
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
@@ -26,7 +27,7 @@ func extractErrorInfo(err error) (statusCode int, errorCode, errorDetails string
 func decodeRequestBody(w http.ResponseWriter, req *http.Request, v any) error {
 	if err := json.NewDecoder(req.Body).Decode(v); err != nil {
 		writeErrorResponse(w, http.StatusBadRequest, "invalid request body", err.Error())
-		return err
+		return fmt.Errorf("failed to decode request body: %w", err)
 	}
 	return nil
 }

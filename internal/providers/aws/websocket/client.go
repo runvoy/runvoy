@@ -2,6 +2,7 @@ package websocket
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/aws/aws-sdk-go-v2/service/apigatewaymanagementapi"
 )
@@ -33,5 +34,9 @@ func (a *ClientAdapter) PostToConnection(
 	params *apigatewaymanagementapi.PostToConnectionInput,
 	optFns ...func(*apigatewaymanagementapi.Options),
 ) (*apigatewaymanagementapi.PostToConnectionOutput, error) {
-	return a.client.PostToConnection(ctx, params, optFns...)
+	result, err := a.client.PostToConnection(ctx, params, optFns...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to post to connection: %w", err)
+	}
+	return result, nil
 }

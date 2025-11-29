@@ -347,7 +347,7 @@ func extractImageFromTaskDefinition(
 			"arn":    taskDefARN,
 			"error":  err.Error(),
 		})
-		return "", err
+		return "", fmt.Errorf("failed to describe task definition: %w", err)
 	}
 
 	if descOutput.TaskDefinition == nil {

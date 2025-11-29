@@ -324,7 +324,7 @@ func loadConfigFile(v *viper.Viper) error {
 	v.SetConfigType("yaml")
 
 	if readErr := v.ReadInConfig(); readErr != nil {
-		return readErr
+		return fmt.Errorf("failed to read config file: %w", readErr)
 	}
 
 	return nil
@@ -347,7 +347,10 @@ func bindEnvVars(v *viper.Viper) {
 func validateOrchestratorConfig(cfg *Config) error {
 	switch cfg.BackendProvider {
 	case constants.AWS:
-		return awsconfig.ValidateOrchestrator(cfg.AWS)
+		if err := awsconfig.ValidateOrchestrator(cfg.AWS); err != nil {
+			return fmt.Errorf("failed to validate orchestrator config: %w", err)
+		}
+		return nil
 	default:
 		return fmt.Errorf("unsupported backend provider: %s", cfg.BackendProvider)
 	}
@@ -356,7 +359,10 @@ func validateOrchestratorConfig(cfg *Config) error {
 func validateEventProcessorConfig(cfg *Config) error {
 	switch cfg.BackendProvider {
 	case constants.AWS:
-		return awsconfig.ValidateEventProcessor(cfg.AWS)
+		if err := awsconfig.ValidateEventProcessor(cfg.AWS); err != nil {
+			return fmt.Errorf("failed to validate event processor config: %w", err)
+		}
+		return nil
 	default:
 		return fmt.Errorf("unsupported backend provider: %s", cfg.BackendProvider)
 	}

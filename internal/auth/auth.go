@@ -26,7 +26,7 @@ func HashAPIKey(apiKey string) string {
 func GenerateSecretToken() (string, error) {
 	b := make([]byte, constants.SecretTokenByteSize)
 	if _, err := rand.Read(b); err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to generate random bytes: %w", err)
 	}
 
 	return base64.URLEncoding.WithPadding(base64.NoPadding).EncodeToString(b), nil

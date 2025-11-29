@@ -55,7 +55,7 @@ func (p *Processor) handleLogsEvent(
 		reqLogger.Error("failed to parse CloudWatch Logs data",
 			"error", err,
 		)
-		return true, err
+		return true, fmt.Errorf("failed to parse CloudWatch Logs data: %w", err)
 	}
 
 	executionID := awsConstants.ExtractExecutionIDFromLogStream(data.LogStream)

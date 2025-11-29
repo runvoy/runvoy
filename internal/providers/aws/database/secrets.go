@@ -2,7 +2,7 @@ package database
 
 import (
 	"context"
-	"errors"
+	"fmt"
 	"log/slog"
 
 	"github.com/runvoy/runvoy/internal/api"
@@ -78,12 +78,8 @@ func (sr *SecretsRepository) GetSecret(ctx context.Context, name string, include
 	// Get the metadata
 	secret, err := sr.metadataRepo.GetSecret(ctx, name)
 	if err != nil {
-		// Check if it's a not found error (expected) or a real error
-		var appErr *appErrors.AppError
-		if errors.As(err, &appErr) && appErr.Code == appErrors.ErrCodeSecretNotFound {
-			return nil, err // Pass through not found errors as-is
-		}
-		return nil, appErrors.ErrInternalError("failed to get secret", err)
+		// Wrap the error - AppError types will still be found via errors.As() in the chain
+		return nil, fmt.Errorf("get secret: %w", err)
 	}
 
 	// Get the value if requested
@@ -194,5 +190,10 @@ func (sr *SecretsRepository) DeleteSecret(ctx context.Context, name string) erro
 
 // GetSecretsByRequestID retrieves all secrets created or modified by a specific request ID.
 func (sr *SecretsRepository) GetSecretsByRequestID(ctx context.Context, requestID string) ([]*api.Secret, error) {
-	return sr.metadataRepo.GetSecretsByRequestID(ctx, requestID)
+	secretList, err := sr.metadataRepo.GetSecretsByRequestID(ctx, requestID)
+	if err != nil {
+		// Wrap the error - AppError types will still be found via errors.As() in the chain
+		return nil, fmt.Errorf("get secrets by request ID: %w", err)
+	}
+	return secretList, nil
 }

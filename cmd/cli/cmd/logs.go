@@ -139,7 +139,7 @@ func (s *LogsService) streamLogsViaWebSocket(
 	conn, httpResp, err := websocket.DefaultDialer.Dial(websocketURL, nil)
 	if err != nil {
 		s.output.Warningf("Failed to connect to WebSocket: %v", err)
-		return err
+		return fmt.Errorf("failed to connect to websocket: %w", err)
 	}
 	defer func() {
 		_ = conn.Close()

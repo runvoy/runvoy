@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs"
 )
@@ -53,7 +54,11 @@ func (a *CloudWatchLogsClientAdapter) DescribeLogGroups(
 	params *cloudwatchlogs.DescribeLogGroupsInput,
 	optFns ...func(*cloudwatchlogs.Options),
 ) (*cloudwatchlogs.DescribeLogGroupsOutput, error) {
-	return a.client.DescribeLogGroups(ctx, params, optFns...)
+	result, err := a.client.DescribeLogGroups(ctx, params, optFns...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to describe log groups: %w", err)
+	}
+	return result, nil
 }
 
 // DescribeLogStreams wraps the AWS SDK DescribeLogStreams operation.
@@ -62,7 +67,11 @@ func (a *CloudWatchLogsClientAdapter) DescribeLogStreams(
 	params *cloudwatchlogs.DescribeLogStreamsInput,
 	optFns ...func(*cloudwatchlogs.Options),
 ) (*cloudwatchlogs.DescribeLogStreamsOutput, error) {
-	return a.client.DescribeLogStreams(ctx, params, optFns...)
+	result, err := a.client.DescribeLogStreams(ctx, params, optFns...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to describe log streams: %w", err)
+	}
+	return result, nil
 }
 
 // FilterLogEvents wraps the AWS SDK FilterLogEvents operation.
@@ -71,7 +80,11 @@ func (a *CloudWatchLogsClientAdapter) FilterLogEvents(
 	params *cloudwatchlogs.FilterLogEventsInput,
 	optFns ...func(*cloudwatchlogs.Options),
 ) (*cloudwatchlogs.FilterLogEventsOutput, error) {
-	return a.client.FilterLogEvents(ctx, params, optFns...)
+	result, err := a.client.FilterLogEvents(ctx, params, optFns...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to filter log events: %w", err)
+	}
+	return result, nil
 }
 
 // StartQuery wraps the AWS SDK StartQuery operation for CloudWatch Logs Insights.
@@ -80,7 +93,11 @@ func (a *CloudWatchLogsClientAdapter) StartQuery(
 	params *cloudwatchlogs.StartQueryInput,
 	optFns ...func(*cloudwatchlogs.Options),
 ) (*cloudwatchlogs.StartQueryOutput, error) {
-	return a.client.StartQuery(ctx, params, optFns...)
+	result, err := a.client.StartQuery(ctx, params, optFns...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to start query: %w", err)
+	}
+	return result, nil
 }
 
 // GetQueryResults wraps the AWS SDK GetQueryResults operation for CloudWatch Logs Insights.
@@ -89,5 +106,9 @@ func (a *CloudWatchLogsClientAdapter) GetQueryResults(
 	params *cloudwatchlogs.GetQueryResultsInput,
 	optFns ...func(*cloudwatchlogs.Options),
 ) (*cloudwatchlogs.GetQueryResultsOutput, error) {
-	return a.client.GetQueryResults(ctx, params, optFns...)
+	result, err := a.client.GetQueryResults(ctx, params, optFns...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get query results: %w", err)
+	}
+	return result, nil
 }

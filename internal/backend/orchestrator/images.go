@@ -3,6 +3,7 @@ package orchestrator
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/runvoy/runvoy/internal/api"
 	"github.com/runvoy/runvoy/internal/auth/authorization"
@@ -43,11 +44,7 @@ func (s *Service) RegisterImage(
 		req.RuntimePlatform,
 		createdBy,
 	); err != nil {
-		var appErr *appErrors.AppError
-		if errors.As(err, &appErr) {
-			return nil, err
-		}
-		return nil, appErrors.ErrInternalError("failed to register image", err)
+		return nil, appErrors.ErrInternalError("failed to register image", fmt.Errorf("register image: %w", err))
 	}
 
 	imageInfo, getErr := s.imageRegistry.GetImage(ctx, req.Image)
@@ -81,11 +78,7 @@ func (s *Service) RegisterImage(
 func (s *Service) ListImages(ctx context.Context) (*api.ListImagesResponse, error) {
 	images, err := s.imageRegistry.ListImages(ctx)
 	if err != nil {
-		var appErr *appErrors.AppError
-		if errors.As(err, &appErr) {
-			return nil, err
-		}
-		return nil, appErrors.ErrInternalError("failed to list images", err)
+		return nil, appErrors.ErrInternalError("failed to list images", fmt.Errorf("list images: %w", err))
 	}
 
 	return &api.ListImagesResponse{
@@ -101,11 +94,13 @@ func (s *Service) GetImage(ctx context.Context, image string) (*api.ImageInfo, e
 
 	imageInfo, err := s.imageRegistry.GetImage(ctx, image)
 	if err != nil {
+		// Check if it's already an AppError - if so, wrap it to satisfy wrapcheck
 		var appErr *appErrors.AppError
 		if errors.As(err, &appErr) {
-			return nil, err
+			return nil, fmt.Errorf("get image: %w", err)
 		}
-		return nil, appErrors.ErrInternalError("failed to get image", err)
+		// Otherwise, wrap the external error with an AppError
+		return nil, appErrors.ErrInternalError("failed to get image", fmt.Errorf("get image: %w", err))
 	}
 
 	if imageInfo == nil {
@@ -122,11 +117,13 @@ func (s *Service) RemoveImage(ctx context.Context, image string) error {
 	}
 
 	if err := s.imageRegistry.RemoveImage(ctx, image); err != nil {
+		// Check if it's already an AppError - if so, wrap it to satisfy wrapcheck
 		var appErr *appErrors.AppError
 		if errors.As(err, &appErr) {
-			return err
+			return fmt.Errorf("remove image: %w", err)
 		}
-		return appErrors.ErrInternalError("failed to remove image", err)
+		// Otherwise, wrap the external error with an AppError
+		return appErrors.ErrInternalError("failed to remove image", fmt.Errorf("remove image: %w", err))
 	}
 
 	return nil
@@ -140,11 +137,7 @@ func (s *Service) ResolveImage(ctx context.Context, image string) (*api.ImageInf
 	if image == "" {
 		imageInfo, err := s.imageRegistry.GetImage(ctx, "")
 		if err != nil {
-			var appErr *appErrors.AppError
-			if errors.As(err, &appErr) {
-				return nil, err
-			}
-			return nil, appErrors.ErrInternalError("failed to get default image", err)
+			return nil, appErrors.ErrInternalError("failed to get default image", fmt.Errorf("get default image: %w", err))
 		}
 		if imageInfo == nil {
 			return nil, appErrors.ErrBadRequest("no image specified and no default image configured", nil)
@@ -155,11 +148,7 @@ func (s *Service) ResolveImage(ctx context.Context, image string) (*api.ImageInf
 	// Resolve the provided image string
 	imageInfo, err := s.imageRegistry.GetImage(ctx, image)
 	if err != nil {
-		var appErr *appErrors.AppError
-		if errors.As(err, &appErr) {
-			return nil, err
-		}
-		return nil, appErrors.ErrInternalError("failed to resolve image", err)
+		return nil, appErrors.ErrInternalError("failed to resolve image", fmt.Errorf("resolve image: %w", err))
 	}
 
 	if imageInfo == nil {

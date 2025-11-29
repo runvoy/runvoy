@@ -3,6 +3,7 @@ package dynamodb
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"time"
 
@@ -246,7 +247,11 @@ func (r *SecretsRepository) buildUpdateExpression(
 		)
 	}
 
-	return updateBuilder.Build()
+	expr, err := updateBuilder.Build()
+	if err != nil {
+		return expression.Expression{}, fmt.Errorf("failed to build update expression: %w", err)
+	}
+	return expr, nil
 }
 
 // UpdateSecretMetadata updates a secret's metadata (description and keyName) in DynamoDB.

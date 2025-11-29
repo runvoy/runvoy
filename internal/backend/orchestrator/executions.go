@@ -2,7 +2,9 @@ package orchestrator
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"log/slog"
 	"slices"
 	"strings"
 	"sync"
@@ -106,7 +108,7 @@ func (s *Service) RunCommand(
 
 	executionID, createdAt, err := s.taskManager.StartTask(ctx, userEmail, req)
 	if err != nil {
-		return nil, err
+		return nil, apperrors.ErrInternalError("failed to start task", fmt.Errorf("start task: %w", err))
 	}
 
 	if execErr := s.recordExecution(
@@ -199,7 +201,8 @@ func (s *Service) GetLogsByExecutionID(
 
 	execution, err := s.repos.Execution.GetExecution(ctx, executionID)
 	if err != nil {
-		return nil, err
+		// Wrap the error - AppError types will still be found via errors.As() in the chain
+		return nil, fmt.Errorf("get execution: %w", err)
 	}
 	if execution == nil {
 		return nil, apperrors.ErrNotFound("execution not found", nil)
@@ -213,7 +216,7 @@ func (s *Service) GetLogsByExecutionID(
 		// For terminal executions: return events (always an array, even if empty), no websocket URL
 		logEvents, fetchErr := s.logManager.FetchLogsByExecutionID(ctx, executionID)
 		if fetchErr != nil {
-			return nil, fetchErr
+			return nil, apperrors.ErrInternalError("failed to fetch logs", fmt.Errorf("fetch logs: %w", fetchErr))
 		}
 		// Ensure events is always a slice (never nil) for terminal executions
 		if logEvents == nil {
@@ -244,7 +247,11 @@ func (s *Service) FetchBackendLogs(ctx context.Context, requestID string) ([]api
 		return nil, apperrors.ErrBadRequest("requestID is required", nil)
 	}
 
-	return s.observabilityManager.FetchBackendLogs(ctx, requestID)
+	logs, err := s.observabilityManager.FetchBackendLogs(ctx, requestID)
+	if err != nil {
+		return nil, apperrors.ErrInternalError("failed to fetch backend logs", fmt.Errorf("fetch backend logs: %w", err))
+	}
+	return logs, nil
 }
 
 // FetchTrace retrieves backend logs and related resources for a request ID.
@@ -268,7 +275,7 @@ func (s *Service) FetchTrace(ctx context.Context, requestID string) (*api.TraceR
 				"request_id": requestID,
 				"error":      logsErr,
 			})
-			return logsErr
+			return apperrors.ErrInternalError("failed to fetch backend logs", fmt.Errorf("fetch backend logs: %w", logsErr))
 		}
 		logs = fetchedLogs
 		return nil
@@ -315,7 +322,11 @@ func (s *Service) fetchTraceRelatedResources(
 	s.fetchImagesByRequestID(egCtx, eg, requestID, &mu, &images)
 
 	if err := eg.Wait(); err != nil {
-		return api.RelatedResources{}, err
+		return api.RelatedResources{},
+			apperrors.ErrInternalError(
+				"failed to fetch related resources",
+				fmt.Errorf("fetch related resources: %w", err),
+			)
 	}
 
 	return api.RelatedResources{
@@ -341,7 +352,10 @@ func (s *Service) fetchExecutionsByRequestID(
 				"request_id": requestID,
 				"error":      execErr,
 			})
-			return execErr
+			return apperrors.ErrDatabaseError(
+				"failed to fetch executions by request ID",
+				fmt.Errorf("get executions by request ID: %w", execErr),
+			)
 		}
 		mu.Lock()
 		*result = execs
@@ -365,7 +379,10 @@ func (s *Service) fetchSecretsByRequestID(
 				"request_id": requestID,
 				"error":      secErr,
 			})
-			return secErr
+			return apperrors.ErrDatabaseError(
+				"failed to fetch secrets by request ID",
+				fmt.Errorf("get secrets by request ID: %w", secErr),
+			)
 		}
 		mu.Lock()
 		*result = secs
@@ -389,7 +406,10 @@ func (s *Service) fetchUsersByRequestID(
 				"request_id": requestID,
 				"error":      userErr,
 			})
-			return userErr
+			return apperrors.ErrDatabaseError(
+				"failed to fetch users by request ID",
+				fmt.Errorf("get users by request ID: %w", userErr),
+			)
 		}
 		mu.Lock()
 		*result = usrs
@@ -413,7 +433,10 @@ func (s *Service) fetchImagesByRequestID(
 				"request_id": requestID,
 				"error":      imgErr,
 			})
-			return imgErr
+			return apperrors.ErrDatabaseError(
+				"failed to fetch images by request ID",
+				fmt.Errorf("get images by request ID: %w", imgErr),
+			)
 		}
 		mu.Lock()
 		*result = imgs
@@ -430,7 +453,8 @@ func (s *Service) GetExecutionStatus(ctx context.Context, executionID string) (*
 
 	execution, err := s.repos.Execution.GetExecution(ctx, executionID)
 	if err != nil {
-		return nil, err
+		// Wrap the error - AppError types will still be found via errors.As() in the chain
+		return nil, fmt.Errorf("get execution: %w", err)
 	}
 	if execution == nil {
 		return nil, apperrors.ErrNotFound("execution not found", nil)
@@ -471,7 +495,8 @@ func (s *Service) KillExecution(ctx context.Context, executionID string) (*api.K
 
 	execution, err := s.repos.Execution.GetExecution(ctx, executionID)
 	if err != nil {
-		return nil, err
+		// Wrap the error - AppError types will still be found via errors.As() in the chain
+		return nil, fmt.Errorf("get execution: %w", err)
 	}
 	if execution == nil {
 		return nil, apperrors.ErrNotFound("execution not found", nil)
@@ -490,23 +515,10 @@ func (s *Service) KillExecution(ctx context.Context, executionID string) (*api.K
 	}
 
 	if killErr := s.taskManager.KillTask(ctx, executionID); killErr != nil {
-		return nil, killErr
+		return nil, apperrors.ErrInternalError("failed to kill task", fmt.Errorf("kill task: %w", killErr))
 	}
 
-	execution.Status = string(targetStatus)
-	execution.CompletedAt = nil
-
-	requestID := logger.ExtractRequestIDFromContext(ctx)
-	if requestID != "" {
-		execution.ModifiedByRequestID = requestID
-	}
-
-	if updateErr := s.repos.Execution.UpdateExecution(ctx, execution); updateErr != nil {
-		reqLogger.Error("failed to update execution status", "context", map[string]string{
-			"execution_id": executionID,
-			"status":       execution.Status,
-			"error":        updateErr.Error(),
-		})
+	if updateErr := s.updateExecutionStatus(ctx, execution, targetStatus, reqLogger); updateErr != nil {
 		return nil, updateErr
 	}
 
@@ -522,6 +534,33 @@ func (s *Service) KillExecution(ctx context.Context, executionID string) (*api.K
 	}, nil
 }
 
+// updateExecutionStatus updates an execution's status and persists it to the database.
+func (s *Service) updateExecutionStatus(
+	ctx context.Context,
+	execution *api.Execution,
+	targetStatus constants.ExecutionStatus,
+	reqLogger *slog.Logger,
+) error {
+	execution.Status = string(targetStatus)
+	execution.CompletedAt = nil
+
+	requestID := logger.ExtractRequestIDFromContext(ctx)
+	if requestID != "" {
+		execution.ModifiedByRequestID = requestID
+	}
+
+	if updateErr := s.repos.Execution.UpdateExecution(ctx, execution); updateErr != nil {
+		reqLogger.Error("failed to update execution status", "context", map[string]string{
+			"execution_id": execution.ExecutionID,
+			"status":       execution.Status,
+			"error":        updateErr.Error(),
+		})
+		return apperrors.ErrDatabaseError("failed to update execution", fmt.Errorf("update execution: %w", updateErr))
+	}
+
+	return nil
+}
+
 // ListExecutions returns executions from the database with optional filtering.
 // Parameters:
 //   - limit: maximum number of executions to return
@@ -533,7 +572,14 @@ func (s *Service) KillExecution(ctx context.Context, executionID string) (*api.K
 func (s *Service) ListExecutions(ctx context.Context, limit int, statuses []string) ([]*api.Execution, error) {
 	executions, err := s.repos.Execution.ListExecutions(ctx, limit, statuses)
 	if err != nil {
-		return nil, err
+		// Check if it's already an AppError - if so, wrap it to satisfy wrapcheck
+		var appErr *apperrors.AppError
+		if errors.As(err, &appErr) {
+			return nil, fmt.Errorf("list executions: %w", err)
+		}
+		// Otherwise, wrap the external error with an AppError
+		// Use ErrInternalError for generic errors (test expects 500, not 503)
+		return nil, apperrors.ErrInternalError("failed to list executions", fmt.Errorf("list executions: %w", err))
 	}
 	return executions, nil
 }

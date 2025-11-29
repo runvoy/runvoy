@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/aws/aws-sdk-go-v2/service/ecs"
 )
@@ -88,7 +89,11 @@ func (a *ECSClientAdapter) RunTask(
 	params *ecs.RunTaskInput,
 	optFns ...func(*ecs.Options),
 ) (*ecs.RunTaskOutput, error) {
-	return a.client.RunTask(ctx, params, optFns...)
+	result, err := a.client.RunTask(ctx, params, optFns...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to run task: %w", err)
+	}
+	return result, nil
 }
 
 // TagResource wraps the AWS SDK TagResource operation.
@@ -97,7 +102,11 @@ func (a *ECSClientAdapter) TagResource(
 	params *ecs.TagResourceInput,
 	optFns ...func(*ecs.Options),
 ) (*ecs.TagResourceOutput, error) {
-	return a.client.TagResource(ctx, params, optFns...)
+	result, err := a.client.TagResource(ctx, params, optFns...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to tag resource: %w", err)
+	}
+	return result, nil
 }
 
 // ListTasks wraps the AWS SDK ListTasks operation.
@@ -106,7 +115,11 @@ func (a *ECSClientAdapter) ListTasks(
 	params *ecs.ListTasksInput,
 	optFns ...func(*ecs.Options),
 ) (*ecs.ListTasksOutput, error) {
-	return a.client.ListTasks(ctx, params, optFns...)
+	result, err := a.client.ListTasks(ctx, params, optFns...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list tasks: %w", err)
+	}
+	return result, nil
 }
 
 // DescribeTasks wraps the AWS SDK DescribeTasks operation.
@@ -115,7 +128,11 @@ func (a *ECSClientAdapter) DescribeTasks(
 	params *ecs.DescribeTasksInput,
 	optFns ...func(*ecs.Options),
 ) (*ecs.DescribeTasksOutput, error) {
-	return a.client.DescribeTasks(ctx, params, optFns...)
+	result, err := a.client.DescribeTasks(ctx, params, optFns...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to describe tasks: %w", err)
+	}
+	return result, nil
 }
 
 // StopTask wraps the AWS SDK StopTask operation.
@@ -124,7 +141,11 @@ func (a *ECSClientAdapter) StopTask(
 	params *ecs.StopTaskInput,
 	optFns ...func(*ecs.Options),
 ) (*ecs.StopTaskOutput, error) {
-	return a.client.StopTask(ctx, params, optFns...)
+	result, err := a.client.StopTask(ctx, params, optFns...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to stop task: %w", err)
+	}
+	return result, nil
 }
 
 // DescribeTaskDefinition wraps the AWS SDK DescribeTaskDefinition operation.
@@ -133,7 +154,11 @@ func (a *ECSClientAdapter) DescribeTaskDefinition(
 	params *ecs.DescribeTaskDefinitionInput,
 	optFns ...func(*ecs.Options),
 ) (*ecs.DescribeTaskDefinitionOutput, error) {
-	return a.client.DescribeTaskDefinition(ctx, params, optFns...)
+	result, err := a.client.DescribeTaskDefinition(ctx, params, optFns...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to describe task definition: %w", err)
+	}
+	return result, nil
 }
 
 // ListTagsForResource wraps the AWS SDK ListTagsForResource operation.
@@ -142,7 +167,11 @@ func (a *ECSClientAdapter) ListTagsForResource(
 	params *ecs.ListTagsForResourceInput,
 	optFns ...func(*ecs.Options),
 ) (*ecs.ListTagsForResourceOutput, error) {
-	return a.client.ListTagsForResource(ctx, params, optFns...)
+	result, err := a.client.ListTagsForResource(ctx, params, optFns...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list tags for resource: %w", err)
+	}
+	return result, nil
 }
 
 // ListTaskDefinitions wraps the AWS SDK ListTaskDefinitions operation.
@@ -151,7 +180,11 @@ func (a *ECSClientAdapter) ListTaskDefinitions(
 	params *ecs.ListTaskDefinitionsInput,
 	optFns ...func(*ecs.Options),
 ) (*ecs.ListTaskDefinitionsOutput, error) {
-	return a.client.ListTaskDefinitions(ctx, params, optFns...)
+	result, err := a.client.ListTaskDefinitions(ctx, params, optFns...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list task definitions: %w", err)
+	}
+	return result, nil
 }
 
 // RegisterTaskDefinition wraps the AWS SDK RegisterTaskDefinition operation.
@@ -160,7 +193,11 @@ func (a *ECSClientAdapter) RegisterTaskDefinition(
 	params *ecs.RegisterTaskDefinitionInput,
 	optFns ...func(*ecs.Options),
 ) (*ecs.RegisterTaskDefinitionOutput, error) {
-	return a.client.RegisterTaskDefinition(ctx, params, optFns...)
+	result, err := a.client.RegisterTaskDefinition(ctx, params, optFns...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to register task definition: %w", err)
+	}
+	return result, nil
 }
 
 // DeregisterTaskDefinition wraps the AWS SDK DeregisterTaskDefinition operation.
@@ -169,7 +206,11 @@ func (a *ECSClientAdapter) DeregisterTaskDefinition(
 	params *ecs.DeregisterTaskDefinitionInput,
 	optFns ...func(*ecs.Options),
 ) (*ecs.DeregisterTaskDefinitionOutput, error) {
-	return a.client.DeregisterTaskDefinition(ctx, params, optFns...)
+	result, err := a.client.DeregisterTaskDefinition(ctx, params, optFns...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to deregister task definition: %w", err)
+	}
+	return result, nil
 }
 
 // DeleteTaskDefinitions wraps the AWS SDK DeleteTaskDefinitions operation.
@@ -178,7 +219,11 @@ func (a *ECSClientAdapter) DeleteTaskDefinitions(
 	params *ecs.DeleteTaskDefinitionsInput,
 	optFns ...func(*ecs.Options),
 ) (*ecs.DeleteTaskDefinitionsOutput, error) {
-	return a.client.DeleteTaskDefinitions(ctx, params, optFns...)
+	result, err := a.client.DeleteTaskDefinitions(ctx, params, optFns...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to delete task definitions: %w", err)
+	}
+	return result, nil
 }
 
 // UntagResource wraps the AWS SDK UntagResource operation.
@@ -187,5 +232,9 @@ func (a *ECSClientAdapter) UntagResource(
 	params *ecs.UntagResourceInput,
 	optFns ...func(*ecs.Options),
 ) (*ecs.UntagResourceOutput, error) {
-	return a.client.UntagResource(ctx, params, optFns...)
+	result, err := a.client.UntagResource(ctx, params, optFns...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to untag resource: %w", err)
+	}
+	return result, nil
 }

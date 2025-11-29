@@ -273,7 +273,10 @@ func configureEndpoint(endpoint string) error {
 		cfg.APIEndpoint = endpoint
 	}
 
-	return config.Save(cfg)
+	if saveErr := config.Save(cfg); saveErr != nil {
+		return fmt.Errorf("failed to save config: %w", saveErr)
+	}
+	return nil
 }
 
 // seedAdminUser seeds an admin user into the database.
@@ -285,7 +288,7 @@ func seedAdminUser(ctx context.Context, adminEmail, region string, stackOutputs 
 
 	apiKey, err := infra.SeedAdminUser(ctx, adminEmail, region, tableName)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to seed admin user: %w", err)
 	}
 
 	endpoint := stackOutputs["APIEndpoint"]

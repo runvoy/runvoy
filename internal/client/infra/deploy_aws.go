@@ -218,7 +218,7 @@ func (d *AWSDeployer) CheckStackExists(ctx context.Context, stackName string) (b
 		if strings.Contains(err.Error(), "does not exist") {
 			return false, nil
 		}
-		return false, err
+		return false, fmt.Errorf("failed to describe stacks: %w", err)
 	}
 	return true, nil
 }
@@ -249,7 +249,10 @@ func (d *AWSDeployer) createStack(
 	}
 
 	_, err := d.client.CreateStack(ctx, input)
-	return err
+	if err != nil {
+		return fmt.Errorf("failed to create stack: %w", err)
+	}
+	return nil
 }
 
 // updateStack updates an existing CloudFormation stack.
@@ -272,7 +275,10 @@ func (d *AWSDeployer) updateStack(
 	}
 
 	_, err := d.client.UpdateStack(ctx, input)
-	return err
+	if err != nil {
+		return fmt.Errorf("failed to update stack: %w", err)
+	}
+	return nil
 }
 
 // waitForStackOperation waits for a stack create/update to complete.
@@ -285,7 +291,7 @@ func (d *AWSDeployer) waitForStackOperation(ctx context.Context, stackName strin
 	for {
 		select {
 		case <-ctx.Done():
-			return "", ctx.Err()
+			return "", fmt.Errorf("context canceled: %w", ctx.Err())
 		case <-timeout:
 			return "", errors.New("timeout waiting for stack operation")
 		case <-ticker.C:
@@ -387,7 +393,7 @@ func (d *AWSDeployer) GetStackOutputs(ctx context.Context, stackName string) (ma
 		StackName: aws.String(stackName),
 	})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to describe stacks: %w", err)
 	}
 
 	if len(result.Stacks) == 0 {
@@ -445,7 +451,10 @@ func (d *AWSDeployer) deleteStack(ctx context.Context, stackName string) error {
 	_, err := d.client.DeleteStack(ctx, &cloudformation.DeleteStackInput{
 		StackName: aws.String(stackName),
 	})
-	return err
+	if err != nil {
+		return fmt.Errorf("failed to delete stack: %w", err)
+	}
+	return nil
 }
 
 // waitForStackDeletion waits for a stack deletion to complete.
@@ -458,7 +467,7 @@ func (d *AWSDeployer) waitForStackDeletion(ctx context.Context, stackName string
 	for {
 		select {
 		case <-ctx.Done():
-			return "", ctx.Err()
+			return "", fmt.Errorf("context canceled: %w", ctx.Err())
 		case <-timeout:
 			return "", errors.New("timeout waiting for stack deletion")
 		case <-ticker.C:

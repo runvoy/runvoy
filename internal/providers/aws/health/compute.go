@@ -331,7 +331,7 @@ func (m *Manager) verifyAndUpdateTaskDefinitionTags(
 
 	err = ecsdefs.UpdateTaskDefinitionTags(ctx, m.ecsClient, taskDefARN, image, isDefault, reqLogger)
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("failed to update task definition tags: %w", err)
 	}
 
 	return true, nil

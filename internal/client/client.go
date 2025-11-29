@@ -58,7 +58,7 @@ func (c *Client) buildURL(path string) (string, error) {
 
 	apiURL, err := url.JoinPath(c.config.APIEndpoint, pathPart)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to join URL path: %w", err)
 	}
 
 	// Add query string if present
@@ -356,7 +356,7 @@ func (c *Client) ListExecutions(ctx context.Context, limit int, statuses string)
 	// Build the URL properly with query parameters
 	u, err := url.Parse("/api/v1/executions")
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to parse URL: %w", err)
 	}
 
 	params := url.Values{}

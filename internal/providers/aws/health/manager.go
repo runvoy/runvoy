@@ -152,7 +152,7 @@ func (m *Manager) runAllReconciliations(
 	m.runCasbinReconciliation(gCtx, g, reqLogger, &mu, &res)
 
 	if err := g.Wait(); err != nil {
-		return reconciliationResults{}, err
+		return reconciliationResults{}, fmt.Errorf("failed to reconcile resources: %w", err)
 	}
 	return res, nil
 }

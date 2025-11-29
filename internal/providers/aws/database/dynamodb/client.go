@@ -2,6 +2,7 @@ package dynamodb
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 )
@@ -63,7 +64,11 @@ func (a *ClientAdapter) PutItem(
 	params *dynamodb.PutItemInput,
 	optFns ...func(*dynamodb.Options),
 ) (*dynamodb.PutItemOutput, error) {
-	return a.client.PutItem(ctx, params, optFns...)
+	result, err := a.client.PutItem(ctx, params, optFns...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to put item: %w", err)
+	}
+	return result, nil
 }
 
 // GetItem wraps the AWS SDK GetItem operation.
@@ -72,7 +77,11 @@ func (a *ClientAdapter) GetItem(
 	params *dynamodb.GetItemInput,
 	optFns ...func(*dynamodb.Options),
 ) (*dynamodb.GetItemOutput, error) {
-	return a.client.GetItem(ctx, params, optFns...)
+	result, err := a.client.GetItem(ctx, params, optFns...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get item: %w", err)
+	}
+	return result, nil
 }
 
 // Query wraps the AWS SDK Query operation.
@@ -81,7 +90,11 @@ func (a *ClientAdapter) Query(
 	params *dynamodb.QueryInput,
 	optFns ...func(*dynamodb.Options),
 ) (*dynamodb.QueryOutput, error) {
-	return a.client.Query(ctx, params, optFns...)
+	result, err := a.client.Query(ctx, params, optFns...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query: %w", err)
+	}
+	return result, nil
 }
 
 // UpdateItem wraps the AWS SDK UpdateItem operation.
@@ -90,7 +103,11 @@ func (a *ClientAdapter) UpdateItem(
 	params *dynamodb.UpdateItemInput,
 	optFns ...func(*dynamodb.Options),
 ) (*dynamodb.UpdateItemOutput, error) {
-	return a.client.UpdateItem(ctx, params, optFns...)
+	result, err := a.client.UpdateItem(ctx, params, optFns...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update item: %w", err)
+	}
+	return result, nil
 }
 
 // DeleteItem wraps the AWS SDK DeleteItem operation.
@@ -99,7 +116,11 @@ func (a *ClientAdapter) DeleteItem(
 	params *dynamodb.DeleteItemInput,
 	optFns ...func(*dynamodb.Options),
 ) (*dynamodb.DeleteItemOutput, error) {
-	return a.client.DeleteItem(ctx, params, optFns...)
+	result, err := a.client.DeleteItem(ctx, params, optFns...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to delete item: %w", err)
+	}
+	return result, nil
 }
 
 // BatchWriteItem wraps the AWS SDK BatchWriteItem operation.
@@ -108,7 +129,11 @@ func (a *ClientAdapter) BatchWriteItem(
 	params *dynamodb.BatchWriteItemInput,
 	optFns ...func(*dynamodb.Options),
 ) (*dynamodb.BatchWriteItemOutput, error) {
-	return a.client.BatchWriteItem(ctx, params, optFns...)
+	result, err := a.client.BatchWriteItem(ctx, params, optFns...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to batch write items: %w", err)
+	}
+	return result, nil
 }
 
 // Scan wraps the AWS SDK Scan operation.
@@ -117,5 +142,9 @@ func (a *ClientAdapter) Scan(
 	params *dynamodb.ScanInput,
 	optFns ...func(*dynamodb.Options),
 ) (*dynamodb.ScanOutput, error) {
-	return a.client.Scan(ctx, params, optFns...)
+	result, err := a.client.Scan(ctx, params, optFns...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to scan: %w", err)
+	}
+	return result, nil
 }

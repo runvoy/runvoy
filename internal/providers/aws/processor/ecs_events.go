@@ -182,7 +182,7 @@ func (p *Processor) finalizeExecutionFromTaskEvent(
 	// Notify WebSocket clients about the execution completion
 	if err = p.webSocketManager.NotifyExecutionCompletion(ctx, &executionID); err != nil {
 		reqLogger.Error("failed to notify websocket clients of disconnect", "error", err)
-		return err
+		return fmt.Errorf("failed to notify websocket clients: %w", err)
 	}
 
 	return nil

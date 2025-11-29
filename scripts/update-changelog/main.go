@@ -155,7 +155,7 @@ func getShortHash(fullHash string) (string, error) {
 	cmd := exec.CommandContext(ctx, "git", "rev-parse", "--short", fullHash)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to get short hash: %w", err)
 	}
 	return strings.TrimSpace(string(output)), nil
 }
