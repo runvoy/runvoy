@@ -69,18 +69,14 @@ func getAllLogEvents(ctx context.Context,
 	for {
 		pageCount++
 
+		// Always set StartTime to avoid AWS defaulting to last 24 hours only.
+		// Use provided startTime, or 0 (Unix epoch) to fetch all logs from beginning.
 		input := &cloudwatchlogs.FilterLogEventsInput{
 			LogGroupName:   aws.String(logGroup),
 			LogStreamNames: []string{stream},
 			NextToken:      nextToken,
 			Limit:          aws.Int32(awsConstants.CloudWatchLogsEventsLimit),
-		}
-		// Set StartTime to 0 (Unix epoch) to fetch all logs from the beginning.
-		// Without this, FilterLogEvents defaults to only the last 24 hours.
-		if startTime > 0 {
-			input.StartTime = aws.Int64(startTime)
-		} else {
-			input.StartTime = aws.Int64(0)
+			StartTime:      aws.Int64(startTime), // Always set to avoid 24-hour default limit
 		}
 
 		out, err := cwl.FilterLogEvents(ctx, input)
