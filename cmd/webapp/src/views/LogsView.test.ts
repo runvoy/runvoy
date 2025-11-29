@@ -3,11 +3,10 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, waitFor } from '@testing-library/svelte';
-import { tick } from 'svelte';
 import LogsView from './LogsView.svelte';
 import type APIClient from '../lib/api';
 import { executionId } from '../stores/execution';
-import { cachedWebSocketURL } from '../stores/websocket';
+import { cachedWebSocketURL, isConnected, isConnecting } from '../stores/websocket';
 
 describe('LogsView', () => {
     let mockApiClient: Partial<APIClient>;
@@ -30,258 +29,179 @@ describe('LogsView', () => {
         // Reset stores
         executionId.set(null);
         cachedWebSocketURL.set(null);
+        isConnected.set(false);
+        isConnecting.set(false);
     });
 
     afterEach(() => {
         vi.clearAllMocks();
     });
 
-    it('should skip fetching logs when a websocket URL is already cached', async () => {
-        cachedWebSocketURL.set('wss://example.com/logs');
-        executionId.set('exec-123');
+    it('should skip fetching logs when WebSocket is already connected', async () => {
+        isConnected.set(true);
 
         render(LogsView, {
             props: {
-                apiClient: mockApiClient as APIClient
+                apiClient: mockApiClient as APIClient,
+                currentExecutionId: 'exec-123'
             }
         });
 
-        // Allow onMount subscriptions to run
+        // Allow effects to run
+        await new Promise((resolve) => setTimeout(resolve, 50));
+
+        expect(fetchLogsSpy).not.toHaveBeenCalled();
+    });
+
+    it('should fetch logs when execution ID is provided and no WebSocket', async () => {
+        render(LogsView, {
+            props: {
+                apiClient: mockApiClient as APIClient,
+                currentExecutionId: 'exec-123'
+            }
+        });
+
+        // Wait for fetchLogs to be called
+        await waitFor(
+            () => {
+                expect(fetchLogsSpy).toHaveBeenCalledWith('exec-123');
+            },
+            { timeout: 1000 }
+        );
+    });
+
+    it('should not fetch logs when execution ID is null', async () => {
+        render(LogsView, {
+            props: {
+                apiClient: mockApiClient as APIClient,
+                currentExecutionId: null
+            }
+        });
+
+        // Allow effects to run
+        await new Promise((resolve) => setTimeout(resolve, 50));
+
+        expect(fetchLogsSpy).not.toHaveBeenCalled();
+    });
+
+    it('should not fetch logs when apiClient is null', async () => {
+        render(LogsView, {
+            props: {
+                apiClient: null,
+                currentExecutionId: 'exec-123'
+            }
+        });
+
+        // Allow effects to run
         await new Promise((resolve) => setTimeout(resolve, 50));
 
         expect(fetchLogsSpy).not.toHaveBeenCalled();
     });
 
     describe('handleExecutionComplete', () => {
-        it('should not fetch logs when cleanClose is true', async () => {
+        it('should fetch status when execution-complete event fires', async () => {
+            const getExecutionStatusSpy = vi.fn().mockResolvedValue({
+                execution_id: 'exec-123',
+                status: 'SUCCEEDED',
+                started_at: '2024-01-01T00:00:00Z'
+            });
+
+            mockApiClient.getExecutionStatus = getExecutionStatusSpy;
+
             render(LogsView, {
                 props: {
-                    apiClient: mockApiClient as APIClient
+                    apiClient: mockApiClient as APIClient,
+                    currentExecutionId: 'exec-123'
                 }
             });
 
-            // Set execution ID
-            executionId.set('exec-123');
-
-            // Wait for component to mount and set up event listener
-            await waitFor(
-                () => {
-                    expect(executionId).toBeDefined();
-                },
-                { timeout: 1000 }
-            );
-
-            // Wait a bit more for onMount to complete
+            // Wait for component to mount
             await new Promise((resolve) => setTimeout(resolve, 100));
 
-            // Clear any initial calls
-            fetchLogsSpy.mockClear();
-
-            // Simulate execution-complete event with cleanClose: true
-            const event = new CustomEvent('runvoy:execution-complete', {
-                detail: { cleanClose: true }
-            });
-            window.dispatchEvent(event);
-
-            // Wait a bit to ensure any async operations complete
-            await new Promise((resolve) => setTimeout(resolve, 200));
-
-            // Verify fetchLogs was not called
-            expect(fetchLogsSpy).not.toHaveBeenCalled();
-        });
-
-        it.skip('should fetch logs when cleanClose is false', async () => {
-            // Set execution ID first so subscription will set currentExecutionId when component mounts
-            executionId.set('exec-123');
-
-            render(LogsView, {
-                props: {
-                    apiClient: mockApiClient as APIClient
-                }
-            });
-
-            // Wait for component to mount and set up event listener
-            await waitFor(
-                () => {
-                    expect(executionId).toBeDefined();
-                },
-                { timeout: 1000 }
-            );
-
-            // Wait a bit more for onMount to complete and subscription to fire
-            await new Promise((resolve) => setTimeout(resolve, 150));
-
-            // Set websocketURL so fetchLogs isn't called from subscription
-            cachedWebSocketURL.set('wss://example.com/logs');
-            await tick();
-            await new Promise((resolve) => setTimeout(resolve, 50));
-
-            // Clear any initial calls
-            fetchLogsSpy.mockClear();
-
-            // Simulate execution-complete event with cleanClose: false
-            const event = new CustomEvent('runvoy:execution-complete', {
-                detail: { cleanClose: false }
-            });
-            window.dispatchEvent(event);
-            await tick();
-            await new Promise((resolve) => setTimeout(resolve, 100));
-
-            // Wait for fetchLogs to be called
-            await waitFor(
-                () => {
-                    expect(fetchLogsSpy).toHaveBeenCalledWith('exec-123');
-                },
-                { timeout: 2000 }
-            );
-        });
-
-        it.skip('should fetch logs when cleanClose is missing', async () => {
-            // Set execution ID first so subscription will set currentExecutionId when component mounts
-            executionId.set('exec-123');
-
-            render(LogsView, {
-                props: {
-                    apiClient: mockApiClient as APIClient
-                }
-            });
-
-            // Wait for component to mount and set up event listener
-            await waitFor(
-                () => {
-                    expect(executionId).toBeDefined();
-                },
-                { timeout: 1000 }
-            );
-
-            // Wait a bit more for onMount to complete and subscription to fire
-            await new Promise((resolve) => setTimeout(resolve, 150));
-
-            // Set websocketURL so fetchLogs isn't called from subscription
-            cachedWebSocketURL.set('wss://example.com/logs');
-            await tick();
-            await new Promise((resolve) => setTimeout(resolve, 50));
-
-            // Clear any initial calls
-            fetchLogsSpy.mockClear();
-
-            // Simulate execution-complete event without cleanClose
+            // Simulate execution-complete event
             const event = new CustomEvent('runvoy:execution-complete');
             window.dispatchEvent(event);
-            await tick();
+
+            // Wait for status to be fetched
+            await waitFor(
+                () => {
+                    expect(getExecutionStatusSpy).toHaveBeenCalledWith('exec-123');
+                },
+                { timeout: 1000 }
+            );
+        });
+
+        it('should not fetch status when apiClient is null', async () => {
+            const getExecutionStatusSpy = vi.fn();
+
+            render(LogsView, {
+                props: {
+                    apiClient: null,
+                    currentExecutionId: 'exec-123'
+                }
+            });
+
+            // Wait for component to mount
             await new Promise((resolve) => setTimeout(resolve, 100));
 
-            // Wait for fetchLogs to be called
+            // Simulate execution-complete event
+            const event = new CustomEvent('runvoy:execution-complete');
+            window.dispatchEvent(event);
+
+            // Wait a bit
+            await new Promise((resolve) => setTimeout(resolve, 100));
+
+            expect(getExecutionStatusSpy).not.toHaveBeenCalled();
+        });
+
+        it('should not fetch status when currentExecutionId is null', async () => {
+            const getExecutionStatusSpy = vi.fn().mockResolvedValue({
+                execution_id: 'exec-123',
+                status: 'SUCCEEDED'
+            });
+
+            mockApiClient.getExecutionStatus = getExecutionStatusSpy;
+
+            render(LogsView, {
+                props: {
+                    apiClient: mockApiClient as APIClient,
+                    currentExecutionId: null
+                }
+            });
+
+            // Wait for component to mount
+            await new Promise((resolve) => setTimeout(resolve, 100));
+
+            // Simulate execution-complete event
+            const event = new CustomEvent('runvoy:execution-complete');
+            window.dispatchEvent(event);
+
+            // Wait a bit
+            await new Promise((resolve) => setTimeout(resolve, 100));
+
+            expect(getExecutionStatusSpy).not.toHaveBeenCalled();
+        });
+    });
+
+    describe('fetch deduplication', () => {
+        it('should not fetch logs twice for the same execution ID', async () => {
+            render(LogsView, {
+                props: {
+                    apiClient: mockApiClient as APIClient,
+                    currentExecutionId: 'exec-123'
+                }
+            });
+
+            // Wait for first fetch
             await waitFor(
                 () => {
                     expect(fetchLogsSpy).toHaveBeenCalledWith('exec-123');
                 },
-                { timeout: 2000 }
-            );
-        });
-
-        it('should not fetch logs when apiClient is null', async () => {
-            render(LogsView, {
-                props: {
-                    apiClient: null
-                }
-            });
-
-            // Set execution ID
-            executionId.set('exec-123');
-
-            // Wait for component to initialize
-            await waitFor(() => {
-                expect(executionId).toBeDefined();
-            });
-
-            // Clear any initial calls
-            fetchLogsSpy.mockClear();
-
-            // Simulate execution-complete event
-            const event = new CustomEvent('runvoy:execution-complete', {
-                detail: { cleanClose: false }
-            });
-            window.dispatchEvent(event);
-
-            // Wait a bit to ensure any async operations complete
-            await waitFor(
-                () => {
-                    // Verify fetchLogs was not called (no apiClient)
-                    expect(fetchLogsSpy).not.toHaveBeenCalled();
-                },
-                { timeout: 100 }
-            );
-        });
-
-        it('should not fetch logs when currentExecutionId is null', async () => {
-            render(LogsView, {
-                props: {
-                    apiClient: mockApiClient as APIClient
-                }
-            });
-
-            // Don't set execution ID (keep it null)
-
-            // Wait for component to initialize
-            await waitFor(() => {
-                expect(executionId).toBeDefined();
-            });
-
-            // Clear any initial calls
-            fetchLogsSpy.mockClear();
-
-            // Simulate execution-complete event
-            const event = new CustomEvent('runvoy:execution-complete', {
-                detail: { cleanClose: false }
-            });
-            window.dispatchEvent(event);
-
-            // Wait a bit to ensure any async operations complete
-            await waitFor(
-                () => {
-                    // Verify fetchLogs was not called (no execution ID)
-                    expect(fetchLogsSpy).not.toHaveBeenCalled();
-                },
-                { timeout: 100 }
-            );
-        });
-
-        it('should handle cleanClose: true correctly even when execution ID is set', async () => {
-            render(LogsView, {
-                props: {
-                    apiClient: mockApiClient as APIClient
-                }
-            });
-
-            // Set execution ID
-            executionId.set('exec-456');
-
-            // Wait for component to mount and set up event listener
-            await waitFor(
-                () => {
-                    expect(executionId).toBeDefined();
-                },
                 { timeout: 1000 }
             );
 
-            // Wait a bit more for onMount to complete
-            await new Promise((resolve) => setTimeout(resolve, 100));
-
-            // Clear any initial calls
-            fetchLogsSpy.mockClear();
-
-            // Simulate execution-complete event with cleanClose: true
-            const event = new CustomEvent('runvoy:execution-complete', {
-                detail: { cleanClose: true }
-            });
-            window.dispatchEvent(event);
-
-            // Wait a bit to ensure any async operations complete
-            await new Promise((resolve) => setTimeout(resolve, 200));
-
-            // Verify fetchLogs was not called despite having execution ID
-            expect(fetchLogsSpy).not.toHaveBeenCalled();
+            // Should only be called once
+            expect(fetchLogsSpy).toHaveBeenCalledTimes(1);
         });
     });
 });
