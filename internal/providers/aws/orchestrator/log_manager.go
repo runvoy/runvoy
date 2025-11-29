@@ -55,7 +55,9 @@ func (l *LogManagerImpl) fetchLogsFromStream(
 		"paginated":    "true",
 	})
 
-	events, fetchErr := getAllLogEvents(ctx, l.cwlClient, l.cfg.LogGroup, stream)
+	// Pass 0 as startTime to fetch all logs from the beginning of the stream,
+	// matching the previous behavior of GetLogEvents with StartFromHead=true.
+	events, fetchErr := getAllLogEvents(ctx, l.cwlClient, l.cfg.LogGroup, stream, 0)
 	if fetchErr != nil {
 		return nil, fetchErr
 	}

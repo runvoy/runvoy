@@ -229,7 +229,7 @@ func TestGetAllLogEvents(t *testing.T) {
 			},
 		}
 
-		events, err := getAllLogEvents(ctx, mock, logGroup, stream)
+		events, err := getAllLogEvents(ctx, mock, logGroup, stream, 0)
 		require.NoError(t, err)
 		require.Len(t, events, 2)
 		assert.Equal(t, "event-id-1", events[0].EventID)
@@ -293,7 +293,7 @@ func TestGetAllLogEvents(t *testing.T) {
 			},
 		}
 
-		events, err := getAllLogEvents(ctx, mock, logGroup, stream)
+		events, err := getAllLogEvents(ctx, mock, logGroup, stream, 0)
 		require.NoError(t, err)
 		require.Len(t, events, 3)
 		assert.Equal(t, "event-id-1", events[0].EventID)
@@ -317,7 +317,7 @@ func TestGetAllLogEvents(t *testing.T) {
 			},
 		}
 
-		events, err := getAllLogEvents(ctx, mock, logGroup, stream)
+		events, err := getAllLogEvents(ctx, mock, logGroup, stream, 0)
 		require.NoError(t, err)
 		assert.Len(t, events, 0)
 	})
@@ -333,7 +333,7 @@ func TestGetAllLogEvents(t *testing.T) {
 			},
 		}
 
-		events, err := getAllLogEvents(ctx, mock, logGroup, stream)
+		events, err := getAllLogEvents(ctx, mock, logGroup, stream, 0)
 		require.NoError(t, err)
 		assert.Len(t, events, 0)
 	})
@@ -349,7 +349,7 @@ func TestGetAllLogEvents(t *testing.T) {
 			},
 		}
 
-		_, err := getAllLogEvents(ctx, mock, logGroup, stream)
+		_, err := getAllLogEvents(ctx, mock, logGroup, stream, 0)
 		require.Error(t, err)
 		var appErr *appErrors.AppError
 		assert.True(t, errors.As(err, &appErr))
@@ -379,10 +379,51 @@ func TestGetAllLogEvents(t *testing.T) {
 			},
 		}
 
-		events, err := getAllLogEvents(ctx, mock, logGroup, stream)
+		events, err := getAllLogEvents(ctx, mock, logGroup, stream, 0)
 		require.NoError(t, err)
 		require.Len(t, events, 1)
 		assert.Equal(t, 1, pageCount)
+	})
+
+	t.Run("sets StartTime to 0 to fetch all logs from beginning", func(t *testing.T) {
+		mock := &mockCloudWatchLogsClient{
+			filterLogEventsFunc: func(
+				_ context.Context,
+				params *cloudwatchlogs.FilterLogEventsInput,
+				_ ...func(*cloudwatchlogs.Options),
+			) (*cloudwatchlogs.FilterLogEventsOutput, error) {
+				// Verify that StartTime is set to 0 (Unix epoch) to fetch all logs
+				assert.NotNil(t, params.StartTime, "StartTime should be set")
+				assert.Equal(t, int64(0), *params.StartTime, "StartTime should be 0 to fetch all logs from beginning")
+				return &cloudwatchlogs.FilterLogEventsOutput{
+					Events: []cwlTypes.FilteredLogEvent{},
+				}, nil
+			},
+		}
+
+		_, err := getAllLogEvents(ctx, mock, logGroup, stream, 0)
+		require.NoError(t, err)
+	})
+
+	t.Run("respects custom startTime parameter", func(t *testing.T) {
+		customStartTime := int64(1609459200000) // 2021-01-01 00:00:00 UTC in milliseconds
+		mock := &mockCloudWatchLogsClient{
+			filterLogEventsFunc: func(
+				_ context.Context,
+				params *cloudwatchlogs.FilterLogEventsInput,
+				_ ...func(*cloudwatchlogs.Options),
+			) (*cloudwatchlogs.FilterLogEventsOutput, error) {
+				// Verify that StartTime is set to the custom value
+				assert.NotNil(t, params.StartTime, "StartTime should be set")
+				assert.Equal(t, customStartTime, *params.StartTime, "StartTime should match custom value")
+				return &cloudwatchlogs.FilterLogEventsOutput{
+					Events: []cwlTypes.FilteredLogEvent{},
+				}, nil
+			},
+		}
+
+		_, err := getAllLogEvents(ctx, mock, logGroup, stream, customStartTime)
+		require.NoError(t, err)
 	})
 }
 
