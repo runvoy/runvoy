@@ -110,7 +110,7 @@ Refer to [Architecture](docs/ARCHITECTURE.md) for details.
 - 📖 **Reusable playbooks** — Store command configs in YAML, commit them, and share with your team for consistent execution ([Terraform example](.runvoy/terraform-example.yml))
 - 🔐 **Secrets management** — Centralized encrypted secrets with full CRUD operations from the CLI
 - ⚡️ **Real-time WebSocket streaming** — Live logs delivered to CLI and web viewer via authenticated WebSocket connections
-- 🔗 **Automatic Git cloning** — Clone private Git repos directly into container working directory ([Build Caddy example](.runvoy/build-caddy-example.yml))
+- 🔗 **Automatic Git cloning** — Clone public or private Git repos directly into container working directory ([Build Caddy example](.runvoy/build-caddy-example.yml))
 - 🔧 **Unix-style output streams** — Separate CLI logs (stderr) from data (stdout) for easy piping and scripting
 - 🏗️ **IaC deployment** — Deploy complete backend infrastructure with CloudFormation (multi-cloud support coming)
 - 📦 **Single binary** — Download one ~6MB compressed binary, unzip it and run it. No dependencies, no installation hassle. Available for Linux, macOS and Windows.
