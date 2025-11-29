@@ -96,6 +96,7 @@
 
     function resetForExecution(id: string | null): void {
         disconnectWebSocket();
+        logEvents.set([]); // Clear logs when switching executions to avoid stale data
         executionStatus.set('LOADING');
         startedAt.set(null);
         isCompleted.set(false);

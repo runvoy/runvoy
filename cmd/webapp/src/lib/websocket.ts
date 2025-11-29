@@ -68,8 +68,15 @@ export function connectWebSocket(url: string): void {
                 return;
             }
 
-            // Handle log events (messages with a message property and timestamp)
-            if (message.message && message.timestamp !== undefined) {
+            // Handle log events (messages with a message property, timestamp, and event_id)
+            // event_id is required for Svelte key tracking in the each block
+            const eventId = message.event_id;
+            if (
+                message.message &&
+                message.timestamp !== undefined &&
+                eventId &&
+                typeof eventId === 'string'
+            ) {
                 logEvents.update((events: LogEvent[]): LogEvent[] => {
                     // Assign a new line number (like CLI does - just append to the end)
                     const nextLine =
@@ -78,7 +85,7 @@ export function connectWebSocket(url: string): void {
                     const eventWithLine: LogEvent = {
                         message: message.message as string,
                         timestamp: message.timestamp as number,
-                        event_id: message.event_id as string,
+                        event_id: eventId,
                         line: nextLine
                     };
 
