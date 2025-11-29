@@ -153,8 +153,6 @@ func (m *MockDynamoDBClient) GetItem(
 }
 
 // Query searches for items in the mock table.
-//
-//nolint:funlen,gocyclo // Mock implementation intentionally mirrors DynamoDB behavior.
 func (m *MockDynamoDBClient) Query(
 	_ context.Context,
 	params *dynamodb.QueryInput,
@@ -174,48 +172,9 @@ func (m *MockDynamoDBClient) Query(
 
 	// If querying against an index, use the index
 	if params.IndexName != nil {
-		indexName := *params.IndexName
-		if m.Indexes[tableName] != nil && m.Indexes[tableName][indexName] != nil {
-			// Extract key value from ExpressionAttributeValues
-			// For execution_id-index, look for :execution_id in ExpressionAttributeValues
-			var keyValue string
-			if params.ExpressionAttributeValues != nil {
-				if execIDVal, ok := params.ExpressionAttributeValues[":execution_id"]; ok {
-					keyValue = getStringValue(execIDVal)
-				} else {
-					// Try to find any string value as key
-					for _, v := range params.ExpressionAttributeValues {
-						keyValue = getStringValue(v)
-						if keyValue != "" {
-							break
-						}
-					}
-				}
-			}
-
-			if keyValue != "" {
-				if indexItems, exists := m.Indexes[tableName][indexName][keyValue]; exists {
-					items = indexItems
-				}
-			}
-		}
+		items = m.queryIndex(tableName, *params.IndexName, params.ExpressionAttributeValues)
 	} else {
-		if params.ExpressionAttributeValues != nil {
-			if execIDVal, ok := params.ExpressionAttributeValues[":execution_id"]; ok {
-				executionID := getStringValue(execIDVal)
-				if partition, exists := m.Tables[tableName][executionID]; exists {
-					for _, item := range partition {
-						items = append(items, item)
-					}
-				}
-			}
-		}
-
-		if items == nil {
-			// Query against main table - return all items
-			// This is a simplified implementation
-			items = m.collectTableItems(tableName)
-		}
+		items = m.queryMainTable(tableName, params.ExpressionAttributeValues)
 	}
 
 	if params.ScanIndexForward != nil && len(items) > 1 {
@@ -234,6 +193,72 @@ func (m *MockDynamoDBClient) Query(
 		Items: items,
 		Count: safeInt32Count(len(items)),
 	}, nil
+}
+
+// queryIndex queries items from an index.
+func (m *MockDynamoDBClient) queryIndex(
+	tableName, indexName string,
+	expressionAttributeValues map[string]types.AttributeValue,
+) []map[string]types.AttributeValue {
+	if m.Indexes[tableName] == nil || m.Indexes[tableName][indexName] == nil {
+		return nil
+	}
+
+	keyValue := m.extractKeyValue(expressionAttributeValues)
+	if keyValue == "" {
+		return nil
+	}
+
+	if indexItems, exists := m.Indexes[tableName][indexName][keyValue]; exists {
+		return indexItems
+	}
+	return nil
+}
+
+// queryMainTable queries items from the main table.
+func (m *MockDynamoDBClient) queryMainTable(
+	tableName string,
+	expressionAttributeValues map[string]types.AttributeValue,
+) []map[string]types.AttributeValue {
+	if expressionAttributeValues != nil {
+		if execIDVal, ok := expressionAttributeValues[":execution_id"]; ok {
+			executionID := getStringValue(execIDVal)
+			if partition, exists := m.Tables[tableName][executionID]; exists {
+				items := make([]map[string]types.AttributeValue, 0, len(partition))
+				for _, item := range partition {
+					items = append(items, item)
+				}
+				return items
+			}
+		}
+	}
+
+	// Query against main table - return all items
+	// This is a simplified implementation
+	return m.collectTableItems(tableName)
+}
+
+// extractKeyValue extracts the key value from ExpressionAttributeValues.
+func (m *MockDynamoDBClient) extractKeyValue(
+	expressionAttributeValues map[string]types.AttributeValue,
+) string {
+	if expressionAttributeValues == nil {
+		return ""
+	}
+
+	// For execution_id-index, look for :execution_id in ExpressionAttributeValues
+	if execIDVal, ok := expressionAttributeValues[":execution_id"]; ok {
+		return getStringValue(execIDVal)
+	}
+
+	// Try to find any string value as key
+	for _, v := range expressionAttributeValues {
+		keyValue := getStringValue(v)
+		if keyValue != "" {
+			return keyValue
+		}
+	}
+	return ""
 }
 
 // UpdateItem updates an item in the mock table.

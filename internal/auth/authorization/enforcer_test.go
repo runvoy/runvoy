@@ -109,23 +109,27 @@ func TestAddRoleForUser(t *testing.T) {
 			if tt.wantError {
 				if err == nil {
 					t.Errorf("AddRoleForUser() error = nil, want error containing %q", tt.errorMsg)
-				} else if tt.errorMsg != "" && !contains(err.Error(), tt.errorMsg) {
+					return
+				}
+				if tt.errorMsg != "" && !contains(err.Error(), tt.errorMsg) {
 					t.Errorf("AddRoleForUser() error = %v, want error containing %q", err, tt.errorMsg)
 				}
-			} else {
-				if err != nil {
-					t.Errorf("AddRoleForUser() error = %v, want nil", err)
-				}
+				return
+			}
 
-				// Verify role was added
-				roles, verifyErr := e.GetRolesForUser(tt.user)
-				if verifyErr != nil {
-					t.Fatalf("GetRolesForUser() failed: %v", verifyErr)
-				}
-				expectedRole := FormatRole(tt.role)
-				if !containsString(roles, expectedRole) {
-					t.Errorf("GetRolesForUser() = %v, want to contain %q", roles, expectedRole)
-				}
+			if err != nil {
+				t.Errorf("AddRoleForUser() error = %v, want nil", err)
+				return
+			}
+
+			// Verify role was added
+			roles, verifyErr := e.GetRolesForUser(tt.user)
+			if verifyErr != nil {
+				t.Fatalf("GetRolesForUser() failed: %v", verifyErr)
+			}
+			expectedRole := FormatRole(tt.role)
+			if !containsString(roles, expectedRole) {
+				t.Errorf("GetRolesForUser() = %v, want to contain %q", roles, expectedRole)
 			}
 		})
 	}
@@ -179,19 +183,21 @@ func TestRemoveRoleForUser(t *testing.T) {
 				if err == nil {
 					t.Errorf("RemoveRoleForUser() error = nil, want error")
 				}
-			} else {
-				if err != nil {
-					t.Errorf("RemoveRoleForUser() error = %v, want nil", err)
-				}
+				return
+			}
 
-				// Verify role was removed
-				roles, verifyErr := e.GetRolesForUser(tt.user)
-				if verifyErr != nil {
-					t.Fatalf("GetRolesForUser() failed: %v", verifyErr)
-				}
-				if containsString(roles, tt.roleToRemove) {
-					t.Errorf("GetRolesForUser() = %v, should not contain %q", roles, tt.roleToRemove)
-				}
+			if err != nil {
+				t.Errorf("RemoveRoleForUser() error = %v, want nil", err)
+				return
+			}
+
+			// Verify role was removed
+			roles, verifyErr := e.GetRolesForUser(tt.user)
+			if verifyErr != nil {
+				t.Fatalf("GetRolesForUser() failed: %v", verifyErr)
+			}
+			if containsString(roles, tt.roleToRemove) {
+				t.Errorf("GetRolesForUser() = %v, should not contain %q", roles, tt.roleToRemove)
 			}
 		})
 	}
@@ -297,19 +303,21 @@ func TestAddOwnershipForResource(t *testing.T) {
 				if err == nil {
 					t.Errorf("AddOwnershipForResource() error = nil, want error")
 				}
-			} else {
-				if err != nil {
-					t.Errorf("AddOwnershipForResource() error = %v, want nil", err)
-				}
+				return
+			}
 
-				// Verify ownership was added
-				hasOwnership, verifyErr := e.HasOwnershipForResource(tt.resourceID, tt.ownerEmail)
-				if verifyErr != nil {
-					t.Fatalf("HasOwnershipForResource() failed: %v", verifyErr)
-				}
-				if !hasOwnership {
-					t.Errorf("HasOwnershipForResource() = false, want true")
-				}
+			if err != nil {
+				t.Errorf("AddOwnershipForResource() error = %v, want nil", err)
+				return
+			}
+
+			// Verify ownership was added
+			hasOwnership, verifyErr := e.HasOwnershipForResource(tt.resourceID, tt.ownerEmail)
+			if verifyErr != nil {
+				t.Fatalf("HasOwnershipForResource() failed: %v", verifyErr)
+			}
+			if !hasOwnership {
+				t.Errorf("HasOwnershipForResource() = false, want true")
 			}
 		})
 	}
@@ -355,19 +363,21 @@ func TestRemoveOwnershipForResource(t *testing.T) {
 				if err == nil {
 					t.Errorf("RemoveOwnershipForResource() error = nil, want error")
 				}
-			} else {
-				if err != nil {
-					t.Errorf("RemoveOwnershipForResource() error = %v, want nil", err)
-				}
+				return
+			}
 
-				// Verify ownership was removed
-				hasOwnership, verifyErr := e.HasOwnershipForResource(tt.resourceID, tt.ownerEmail)
-				if verifyErr != nil {
-					t.Fatalf("HasOwnershipForResource() failed: %v", verifyErr)
-				}
-				if hasOwnership {
-					t.Errorf("HasOwnershipForResource() = true, want false")
-				}
+			if err != nil {
+				t.Errorf("RemoveOwnershipForResource() error = %v, want nil", err)
+				return
+			}
+
+			// Verify ownership was removed
+			hasOwnership, verifyErr := e.HasOwnershipForResource(tt.resourceID, tt.ownerEmail)
+			if verifyErr != nil {
+				t.Fatalf("HasOwnershipForResource() failed: %v", verifyErr)
+			}
+			if hasOwnership {
+				t.Errorf("HasOwnershipForResource() = true, want false")
 			}
 		})
 	}
@@ -486,24 +496,28 @@ func TestLoadRolesForUsers(t *testing.T) {
 			if tt.wantError {
 				if err == nil {
 					t.Errorf("LoadRolesForUsers() error = nil, want error containing %q", tt.errorMsg)
-				} else if tt.errorMsg != "" && !contains(err.Error(), tt.errorMsg) {
+					return
+				}
+				if tt.errorMsg != "" && !contains(err.Error(), tt.errorMsg) {
 					t.Errorf("LoadRolesForUsers() error = %v, want error containing %q", err, tt.errorMsg)
 				}
-			} else {
-				if err != nil {
-					t.Errorf("LoadRolesForUsers() error = %v, want nil", err)
-				}
+				return
+			}
 
-				// Verify all roles were loaded
-				for user, roleStr := range tt.userRoles {
-					roles, verifyErr := e.GetRolesForUser(user)
-					if verifyErr != nil {
-						t.Fatalf("GetRolesForUser(%s) failed: %v", user, verifyErr)
-					}
-					expectedRole := "role:" + roleStr
-					if !containsString(roles, expectedRole) {
-						t.Errorf("GetRolesForUser(%s) = %v, want to contain %q", user, roles, expectedRole)
-					}
+			if err != nil {
+				t.Errorf("LoadRolesForUsers() error = %v, want nil", err)
+				return
+			}
+
+			// Verify all roles were loaded
+			for user, roleStr := range tt.userRoles {
+				roles, verifyErr := e.GetRolesForUser(user)
+				if verifyErr != nil {
+					t.Fatalf("GetRolesForUser(%s) failed: %v", user, verifyErr)
+				}
+				expectedRole := "role:" + roleStr
+				if !containsString(roles, expectedRole) {
+					t.Errorf("GetRolesForUser(%s) = %v, want to contain %q", user, roles, expectedRole)
 				}
 			}
 		})

@@ -362,21 +362,8 @@ func (d *AWSDeployer) getFailedResourceEvents(ctx context.Context, stackName str
 	var failures []string
 	for i := range result.StackEvents {
 		event := &result.StackEvents[i]
-		status := string(event.ResourceStatus)
-		if strings.Contains(status, "FAILED") ||
-			(strings.Contains(status, "ROLLBACK") && event.ResourceStatusReason != nil) {
-			if event.ResourceStatusReason != nil && *event.ResourceStatusReason != "" {
-				resourceID := ""
-				if event.LogicalResourceId != nil {
-					resourceID = *event.LogicalResourceId
-				}
-				resourceType := ""
-				if event.ResourceType != nil {
-					resourceType = *event.ResourceType
-				}
-				failures = append(failures, fmt.Sprintf("  - %s (%s): %s",
-					resourceID, resourceType, *event.ResourceStatusReason))
-			}
+		if failureMsg := formatFailureEvent(event); failureMsg != "" {
+			failures = append(failures, failureMsg)
 		}
 	}
 
@@ -385,6 +372,30 @@ func (d *AWSDeployer) getFailedResourceEvents(ctx context.Context, stackName str
 	}
 
 	return strings.Join(failures, "\n")
+}
+
+// formatFailureEvent formats a stack event as a failure message if it represents a failure.
+func formatFailureEvent(event *types.StackEvent) string {
+	status := string(event.ResourceStatus)
+	isFailed := strings.Contains(status, "FAILED")
+	isRollbackWithReason := strings.Contains(status, "ROLLBACK") && event.ResourceStatusReason != nil
+	if !isFailed && !isRollbackWithReason {
+		return ""
+	}
+
+	if event.ResourceStatusReason == nil || *event.ResourceStatusReason == "" {
+		return ""
+	}
+
+	resourceID := ""
+	if event.LogicalResourceId != nil {
+		resourceID = *event.LogicalResourceId
+	}
+	resourceType := ""
+	if event.ResourceType != nil {
+		resourceType = *event.ResourceType
+	}
+	return fmt.Sprintf("  - %s (%s): %s", resourceID, resourceType, *event.ResourceStatusReason)
 }
 
 // GetStackOutputs retrieves the outputs from a CloudFormation stack.

@@ -600,16 +600,18 @@ func TestGetDefaultImage(t *testing.T) {
 
 			if tt.expectError {
 				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
-				if tt.expectNil {
-					assert.Nil(t, result)
-				} else {
-					require.NotNil(t, result)
-					if tt.validateFn != nil {
-						tt.validateFn(t, result)
-					}
-				}
+				return
+			}
+
+			assert.NoError(t, err)
+			if tt.expectNil {
+				assert.Nil(t, result)
+				return
+			}
+
+			require.NotNil(t, result)
+			if tt.validateFn != nil {
+				tt.validateFn(t, result)
 			}
 		})
 	}

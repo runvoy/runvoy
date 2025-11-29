@@ -381,21 +381,25 @@ func normalizeBackendProvider(provider constants.BackendProvider) constants.Back
 // If the slice has a single element containing commas, it splits it into multiple elements.
 // This is needed because Viper doesn't automatically split comma-separated env vars into slices.
 func normalizeStringSlice(slice *[]string) {
-	if len(*slice) == 1 {
-		value := strings.TrimSpace((*slice)[0])
-		// Check if the value contains commas, suggesting it's a comma-separated list from env var
-		if strings.Contains(value, ",") {
-			parts := strings.Split(value, ",")
-			result := make([]string, 0, len(parts))
-			for _, part := range parts {
-				trimmed := strings.TrimSpace(part)
-				if trimmed != "" {
-					result = append(result, trimmed)
-				}
-			}
-			if len(result) > 0 {
-				*slice = result
-			}
+	if len(*slice) != 1 {
+		return
+	}
+
+	value := strings.TrimSpace((*slice)[0])
+	// Check if the value contains commas, suggesting it's a comma-separated list from env var
+	if !strings.Contains(value, ",") {
+		return
+	}
+
+	parts := strings.Split(value, ",")
+	result := make([]string, 0, len(parts))
+	for _, part := range parts {
+		trimmed := strings.TrimSpace(part)
+		if trimmed != "" {
+			result = append(result, trimmed)
 		}
+	}
+	if len(result) > 0 {
+		*slice = result
 	}
 }

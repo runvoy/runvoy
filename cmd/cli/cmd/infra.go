@@ -236,17 +236,7 @@ func handleApplyResult(
 	}
 
 	if configure {
-		if endpoint, ok := result.Outputs["APIEndpoint"]; ok {
-			configErr := configureEndpoint(endpoint)
-			if configErr != nil {
-				output.Warningf("Failed to configure CLI: %v", configErr)
-			} else {
-				output.Blank()
-				output.Successf("CLI configured with API endpoint: %s", endpoint)
-			}
-		} else {
-			output.Warningf("APIEndpoint not found in stack outputs, cannot configure CLI")
-		}
+		handleConfigureEndpoint(result.Outputs)
 	}
 
 	if seedAdminUserEmail != "" {
@@ -258,6 +248,24 @@ func handleApplyResult(
 			output.Successf("Admin user %s seeded successfully", seedAdminUserEmail)
 		}
 	}
+}
+
+// handleConfigureEndpoint handles CLI endpoint configuration from stack outputs.
+func handleConfigureEndpoint(outputs map[string]string) {
+	endpoint, ok := outputs["APIEndpoint"]
+	if !ok {
+		output.Warningf("APIEndpoint not found in stack outputs, cannot configure CLI")
+		return
+	}
+
+	configErr := configureEndpoint(endpoint)
+	if configErr != nil {
+		output.Warningf("Failed to configure CLI: %v", configErr)
+		return
+	}
+
+	output.Blank()
+	output.Successf("CLI configured with API endpoint: %s", endpoint)
 }
 
 // configureEndpoint updates the CLI configuration with the API endpoint.

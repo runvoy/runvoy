@@ -271,13 +271,16 @@ func TestHydrate(t *testing.T) {
 			if tt.wantError {
 				if err == nil {
 					t.Errorf("Hydrate() error = nil, want error containing %q", tt.errorMsg)
-				} else if tt.errorMsg != "" && !contains(err.Error(), tt.errorMsg) {
+					return
+				}
+				if tt.errorMsg != "" && !contains(err.Error(), tt.errorMsg) {
 					t.Errorf("Hydrate() error = %v, want error containing %q", err, tt.errorMsg)
 				}
-			} else {
-				if err != nil {
-					t.Errorf("Hydrate() error = %v, want nil", err)
-				}
+				return
+			}
+
+			if err != nil {
+				t.Errorf("Hydrate() error = %v, want nil", err)
 			}
 		})
 	}
@@ -355,25 +358,29 @@ func TestLoadUserRoles(t *testing.T) {
 			if tt.wantError {
 				if err == nil {
 					t.Errorf("loadUserRoles() error = nil, want error containing %q", tt.errorMsg)
-				} else if tt.errorMsg != "" && !contains(err.Error(), tt.errorMsg) {
+					return
+				}
+				if tt.errorMsg != "" && !contains(err.Error(), tt.errorMsg) {
 					t.Errorf("loadUserRoles() error = %v, want error containing %q", err, tt.errorMsg)
 				}
-			} else {
-				if err != nil {
-					t.Errorf("loadUserRoles() error = %v, want nil", err)
-				}
+				return
+			}
 
-				// Verify roles were loaded
-				for _, user := range tt.users {
-					if user != nil && user.Email != "" {
-						roles, verifyErr := e.GetRolesForUser(user.Email)
-						if verifyErr != nil {
-							t.Fatalf("GetRolesForUser(%s) failed: %v", user.Email, verifyErr)
-						}
-						expectedRole := "role:" + user.Role
-						if !containsString(roles, expectedRole) {
-							t.Errorf("GetRolesForUser(%s) = %v, want to contain %q", user.Email, roles, expectedRole)
-						}
+			if err != nil {
+				t.Errorf("loadUserRoles() error = %v, want nil", err)
+				return
+			}
+
+			// Verify roles were loaded
+			for _, user := range tt.users {
+				if user != nil && user.Email != "" {
+					roles, verifyErr := e.GetRolesForUser(user.Email)
+					if verifyErr != nil {
+						t.Fatalf("GetRolesForUser(%s) failed: %v", user.Email, verifyErr)
+					}
+					expectedRole := "role:" + user.Role
+					if !containsString(roles, expectedRole) {
+						t.Errorf("GetRolesForUser(%s) = %v, want to contain %q", user.Email, roles, expectedRole)
 					}
 				}
 			}
@@ -409,15 +416,19 @@ func runOwnershipTests(t *testing.T, tests []ownershipTestConfig, funcName strin
 			if tt.wantError {
 				if loadErr == nil {
 					t.Errorf("%s() error = nil, want error containing %q", funcName, tt.errorMsg)
-				} else if tt.errorMsg != "" && !contains(loadErr.Error(), tt.errorMsg) {
+					return
+				}
+				if tt.errorMsg != "" && !contains(loadErr.Error(), tt.errorMsg) {
 					t.Errorf("%s() error = %v, want error containing %q", funcName, loadErr, tt.errorMsg)
 				}
-			} else {
-				if loadErr != nil {
-					t.Errorf("%s() error = %v, want nil", funcName, loadErr)
-				}
-				tt.verify(t, e)
+				return
 			}
+
+			if loadErr != nil {
+				t.Errorf("%s() error = %v, want nil", funcName, loadErr)
+				return
+			}
+			tt.verify(t, e)
 		})
 	}
 }
@@ -773,26 +784,30 @@ func TestLoadImageOwnerships(t *testing.T) {
 			if tt.wantError {
 				if err == nil {
 					t.Errorf("loadImageOwnerships() error = nil, want error containing %q", tt.errorMsg)
-				} else if tt.errorMsg != "" && !contains(err.Error(), tt.errorMsg) {
+					return
+				}
+				if tt.errorMsg != "" && !contains(err.Error(), tt.errorMsg) {
 					t.Errorf("loadImageOwnerships() error = %v, want error containing %q", err, tt.errorMsg)
 				}
-			} else {
-				if err != nil {
-					t.Errorf("loadImageOwnerships() error = %v, want nil", err)
-				}
+				return
+			}
 
-				// Verify ownerships were loaded
-				for _, image := range tt.images {
-					if image.ImageID != "" {
-						resourceID := FormatResourceID("image", image.ImageID)
-						for _, owner := range image.OwnedBy {
-							hasOwnership, verifyErr := e.HasOwnershipForResource(resourceID, owner)
-							if verifyErr != nil {
-								t.Fatalf("HasOwnershipForResource(%s, %s) failed: %v", resourceID, owner, verifyErr)
-							}
-							if !hasOwnership {
-								t.Errorf("HasOwnershipForResource(%s, %s) = false, want true", resourceID, owner)
-							}
+			if err != nil {
+				t.Errorf("loadImageOwnerships() error = %v, want nil", err)
+				return
+			}
+
+			// Verify ownerships were loaded
+			for _, image := range tt.images {
+				if image.ImageID != "" {
+					resourceID := FormatResourceID("image", image.ImageID)
+					for _, owner := range image.OwnedBy {
+						hasOwnership, verifyErr := e.HasOwnershipForResource(resourceID, owner)
+						if verifyErr != nil {
+							t.Fatalf("HasOwnershipForResource(%s, %s) failed: %v", resourceID, owner, verifyErr)
+						}
+						if !hasOwnership {
+							t.Errorf("HasOwnershipForResource(%s, %s) = false, want true", resourceID, owner)
 						}
 					}
 				}

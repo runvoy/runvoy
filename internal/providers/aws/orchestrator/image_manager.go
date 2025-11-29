@@ -307,49 +307,7 @@ func (m *ImageRegistryImpl) RemoveImage(ctx context.Context, image string) error
 
 			// Delete the deregistered task definitions
 			if len(taskDefARNsToDelete) > 0 {
-				deleteLogArgs := []any{
-					"operation", "ECS.DeleteTaskDefinitions",
-					"task_definitions_count", len(taskDefARNsToDelete),
-					"family", family,
-				}
-				deleteLogArgs = append(deleteLogArgs, logger.GetDeadlineInfo(ctx)...)
-				reqLogger.Debug("calling external service", "context", logger.SliceToMap(deleteLogArgs))
-
-				deleteOutput, deleteErr := m.ecsClient.DeleteTaskDefinitions(ctx, &ecs.DeleteTaskDefinitionsInput{
-					TaskDefinitions: taskDefARNsToDelete,
-				})
-				if deleteErr != nil {
-					reqLogger.Warn(
-						"failed to delete task definitions",
-						"error", deleteErr,
-						"family", family,
-						"count", len(taskDefARNsToDelete),
-					)
-				} else {
-					// Log successful deletions - the output contains deleted task definition ARNs
-					if deleteOutput != nil {
-						// The DeleteTaskDefinitions API returns deleted ARNs in the response
-						// Log each successfully deleted task definition
-						for _, deletedARN := range taskDefARNsToDelete {
-							reqLogger.Debug("deleted task definition", "context", map[string]string{
-								"family": family,
-								"image":  image,
-								"arn":    deletedARN,
-							})
-						}
-					}
-					// Log any failures if present
-					if deleteOutput != nil && deleteOutput.Failures != nil && len(deleteOutput.Failures) > 0 {
-						for _, failure := range deleteOutput.Failures {
-							reqLogger.Warn("task definition deletion failed", "context", map[string]string{
-								"family": family,
-								"arn":    awsStd.ToString(failure.Arn),
-								"reason": awsStd.ToString(failure.Reason),
-								"detail": awsStd.ToString(failure.Detail),
-							})
-						}
-					}
-				}
+				m.deleteTaskDefinitions(ctx, reqLogger, family, image, taskDefARNsToDelete)
 			}
 
 			if listOutput.NextToken == nil {
@@ -369,6 +327,59 @@ func (m *ImageRegistryImpl) RemoveImage(ctx context.Context, image string) error
 	})
 
 	return nil
+}
+
+// deleteTaskDefinitions deletes task definitions and logs the results.
+func (m *ImageRegistryImpl) deleteTaskDefinitions(
+	ctx context.Context,
+	reqLogger *slog.Logger,
+	family, image string,
+	taskDefARNsToDelete []string,
+) {
+	deleteLogArgs := []any{
+		"operation", "ECS.DeleteTaskDefinitions",
+		"task_definitions_count", len(taskDefARNsToDelete),
+		"family", family,
+	}
+	deleteLogArgs = append(deleteLogArgs, logger.GetDeadlineInfo(ctx)...)
+	reqLogger.Debug("calling external service", "context", logger.SliceToMap(deleteLogArgs))
+
+	deleteOutput, deleteErr := m.ecsClient.DeleteTaskDefinitions(ctx, &ecs.DeleteTaskDefinitionsInput{
+		TaskDefinitions: taskDefARNsToDelete,
+	})
+	if deleteErr != nil {
+		reqLogger.Warn(
+			"failed to delete task definitions",
+			"error", deleteErr,
+			"family", family,
+			"count", len(taskDefARNsToDelete),
+		)
+		return
+	}
+
+	// Log successful deletions - the output contains deleted task definition ARNs
+	if deleteOutput != nil {
+		// The DeleteTaskDefinitions API returns deleted ARNs in the response
+		// Log each successfully deleted task definition
+		for _, deletedARN := range taskDefARNsToDelete {
+			reqLogger.Debug("deleted task definition", "context", map[string]string{
+				"family": family,
+				"image":  image,
+				"arn":    deletedARN,
+			})
+		}
+		// Log any failures if present
+		if len(deleteOutput.Failures) > 0 {
+			for _, failure := range deleteOutput.Failures {
+				reqLogger.Warn("task definition deletion failed", "context", map[string]string{
+					"family": family,
+					"arn":    awsStd.ToString(failure.Arn),
+					"reason": awsStd.ToString(failure.Reason),
+					"detail": awsStd.ToString(failure.Detail),
+				})
+			}
+		}
+	}
 }
 
 // buildRoleARNs constructs task and execution role ARNs from names or config defaults.
