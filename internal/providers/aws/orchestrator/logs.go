@@ -56,12 +56,13 @@ func verifyLogStreamExists(
 }
 
 // getAllLogEvents paginates through CloudWatch Logs FilterLogEvents to collect all events
-// for the provided log group and stream. It returns the aggregated events with eventIDs
+// for the provided log group and streams. It returns the aggregated events with eventIDs
 // sorted by timestamp or an error.
 // startTime specifies the start of the time range (in milliseconds since Unix epoch).
-// If 0, fetches all logs from the beginning of the stream.
+// If 0, fetches all logs from the beginning of the streams.
+// streams can be a single stream or multiple streams (e.g., runner and sidecar).
 func getAllLogEvents(ctx context.Context,
-	cwl awsClient.CloudWatchLogsClient, logGroup string, stream string, startTime int64) ([]api.LogEvent, error) {
+	cwl awsClient.CloudWatchLogsClient, logGroup string, streams []string, startTime int64) ([]api.LogEvent, error) {
 	var events []api.LogEvent
 	var nextToken *string
 	pageCount := 0
@@ -72,7 +73,7 @@ func getAllLogEvents(ctx context.Context,
 		// Use provided startTime, or 0 (Unix epoch) to fetch all logs from beginning.
 		input := &cloudwatchlogs.FilterLogEventsInput{
 			LogGroupName:   aws.String(logGroup),
-			LogStreamNames: []string{stream},
+			LogStreamNames: streams,
 			NextToken:      nextToken,
 			Limit:          aws.Int32(awsConstants.CloudWatchLogsEventsLimit),
 			StartTime:      aws.Int64(startTime), // Always set to avoid 24-hour default limit

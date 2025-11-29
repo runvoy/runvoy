@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"testing"
 	"time"
 
@@ -229,7 +230,7 @@ func TestGetAllLogEvents(t *testing.T) {
 			},
 		}
 
-		events, err := getAllLogEvents(ctx, mock, logGroup, stream, 0)
+		events, err := getAllLogEvents(ctx, mock, logGroup, []string{stream}, 0)
 		require.NoError(t, err)
 		require.Len(t, events, 2)
 		assert.Equal(t, "event-id-1", events[0].EventID)
@@ -293,7 +294,7 @@ func TestGetAllLogEvents(t *testing.T) {
 			},
 		}
 
-		events, err := getAllLogEvents(ctx, mock, logGroup, stream, 0)
+		events, err := getAllLogEvents(ctx, mock, logGroup, []string{stream}, 0)
 		require.NoError(t, err)
 		require.Len(t, events, 3)
 		assert.Equal(t, "event-id-1", events[0].EventID)
@@ -317,7 +318,7 @@ func TestGetAllLogEvents(t *testing.T) {
 			},
 		}
 
-		events, err := getAllLogEvents(ctx, mock, logGroup, stream, 0)
+		events, err := getAllLogEvents(ctx, mock, logGroup, []string{stream}, 0)
 		require.NoError(t, err)
 		assert.Len(t, events, 0)
 	})
@@ -333,7 +334,7 @@ func TestGetAllLogEvents(t *testing.T) {
 			},
 		}
 
-		events, err := getAllLogEvents(ctx, mock, logGroup, stream, 0)
+		events, err := getAllLogEvents(ctx, mock, logGroup, []string{stream}, 0)
 		require.NoError(t, err)
 		assert.Len(t, events, 0)
 	})
@@ -349,7 +350,7 @@ func TestGetAllLogEvents(t *testing.T) {
 			},
 		}
 
-		_, err := getAllLogEvents(ctx, mock, logGroup, stream, 0)
+		_, err := getAllLogEvents(ctx, mock, logGroup, []string{stream}, 0)
 		require.Error(t, err)
 		var appErr *appErrors.AppError
 		assert.True(t, errors.As(err, &appErr))
@@ -379,7 +380,7 @@ func TestGetAllLogEvents(t *testing.T) {
 			},
 		}
 
-		events, err := getAllLogEvents(ctx, mock, logGroup, stream, 0)
+		events, err := getAllLogEvents(ctx, mock, logGroup, []string{stream}, 0)
 		require.NoError(t, err)
 		require.Len(t, events, 1)
 		assert.Equal(t, 1, pageCount)
@@ -401,7 +402,7 @@ func TestGetAllLogEvents(t *testing.T) {
 			},
 		}
 
-		_, err := getAllLogEvents(ctx, mock, logGroup, stream, 0)
+		_, err := getAllLogEvents(ctx, mock, logGroup, []string{stream}, 0)
 		require.NoError(t, err)
 	})
 
@@ -422,7 +423,7 @@ func TestGetAllLogEvents(t *testing.T) {
 			},
 		}
 
-		_, err := getAllLogEvents(ctx, mock, logGroup, stream, customStartTime)
+		_, err := getAllLogEvents(ctx, mock, logGroup, []string{stream}, customStartTime)
 		require.NoError(t, err)
 	})
 }
@@ -443,6 +444,23 @@ func TestBuildSidecarLogStreamName(t *testing.T) {
 	assert.Contains(t, stream, awsConstants.SidecarContainerName)
 }
 
+// mergeAndSortLogs is a test helper that merges and sorts logs from two streams.
+func mergeAndSortLogs(runnerEvents, sidecarEvents []api.LogEvent) []api.LogEvent {
+	allEvents := make([]api.LogEvent, 0, len(runnerEvents)+len(sidecarEvents))
+	allEvents = append(allEvents, runnerEvents...)
+	allEvents = append(allEvents, sidecarEvents...)
+	slices.SortFunc(allEvents, func(a, b api.LogEvent) int {
+		if a.Timestamp < b.Timestamp {
+			return -1
+		}
+		if a.Timestamp > b.Timestamp {
+			return 1
+		}
+		return 0
+	})
+	return allEvents
+}
+
 func TestMergeAndSortLogs(t *testing.T) {
 	t.Run("merges and sorts logs correctly", func(t *testing.T) {
 		runnerEvents := []api.LogEvent{
@@ -455,7 +473,19 @@ func TestMergeAndSortLogs(t *testing.T) {
 			{EventID: "sidecar-3", Timestamp: 5000, Message: "sidecar message 5"},
 		}
 
-		result := mergeAndSortLogs(runnerEvents, sidecarEvents)
+		allEvents := make([]api.LogEvent, 0, len(runnerEvents)+len(sidecarEvents))
+		allEvents = append(allEvents, runnerEvents...)
+		allEvents = append(allEvents, sidecarEvents...)
+		slices.SortFunc(allEvents, func(a, b api.LogEvent) int {
+			if a.Timestamp < b.Timestamp {
+				return -1
+			}
+			if a.Timestamp > b.Timestamp {
+				return 1
+			}
+			return 0
+		})
+		result := allEvents
 		require.Len(t, result, 5)
 		assert.Equal(t, int64(1000), result[0].Timestamp)
 		assert.Equal(t, "sidecar message 1", result[0].Message)
@@ -502,7 +532,19 @@ func TestMergeAndSortLogs(t *testing.T) {
 			{EventID: "sidecar-1", Timestamp: 1000, Message: "sidecar message"},
 		}
 
-		result := mergeAndSortLogs(runnerEvents, sidecarEvents)
+		allEvents := make([]api.LogEvent, 0, len(runnerEvents)+len(sidecarEvents))
+		allEvents = append(allEvents, runnerEvents...)
+		allEvents = append(allEvents, sidecarEvents...)
+		slices.SortFunc(allEvents, func(a, b api.LogEvent) int {
+			if a.Timestamp < b.Timestamp {
+				return -1
+			}
+			if a.Timestamp > b.Timestamp {
+				return 1
+			}
+			return 0
+		})
+		result := allEvents
 		require.Len(t, result, 2)
 		// Both should be present, order may vary but both should exist
 		messages := []string{result[0].Message, result[1].Message}
@@ -549,12 +591,20 @@ func TestFetchLogsByExecutionID(t *testing.T) {
 				_ ...func(*cloudwatchlogs.Options),
 			) (*cloudwatchlogs.FilterLogEventsOutput, error) {
 				callCount++
-				if len(params.LogStreamNames) == 0 {
-					return &cloudwatchlogs.FilterLogEventsOutput{}, nil
+				// Check if both streams are requested in a single call
+				hasRunner := false
+				hasSidecar := false
+				for _, streamName := range params.LogStreamNames {
+					if streamName == runnerStream {
+						hasRunner = true
+					}
+					if streamName == sidecarStream {
+						hasSidecar = true
+					}
 				}
-				streamName := params.LogStreamNames[0]
-				switch streamName {
-				case runnerStream:
+
+				// If both streams are requested, return events from both
+				if hasRunner && hasSidecar {
 					return &cloudwatchlogs.FilterLogEventsOutput{
 						Events: []cwlTypes.FilteredLogEvent{
 							{
@@ -569,11 +619,6 @@ func TestFetchLogsByExecutionID(t *testing.T) {
 								Message:       aws.String("runner log 2"),
 								LogStreamName: aws.String(runnerStream),
 							},
-						},
-					}, nil
-				case sidecarStream:
-					return &cloudwatchlogs.FilterLogEventsOutput{
-						Events: []cwlTypes.FilteredLogEvent{
 							{
 								EventId:       aws.String("sidecar-event-1"),
 								Timestamp:     aws.Int64(1000),
@@ -588,9 +633,49 @@ func TestFetchLogsByExecutionID(t *testing.T) {
 							},
 						},
 					}, nil
-				default:
-					return &cloudwatchlogs.FilterLogEventsOutput{}, nil
 				}
+
+				// Fallback for single stream (backward compatibility)
+				if len(params.LogStreamNames) > 0 {
+					streamName := params.LogStreamNames[0]
+					switch streamName {
+					case runnerStream:
+						return &cloudwatchlogs.FilterLogEventsOutput{
+							Events: []cwlTypes.FilteredLogEvent{
+								{
+									EventId:       aws.String("runner-event-1"),
+									Timestamp:     aws.Int64(2000),
+									Message:       aws.String("runner log 1"),
+									LogStreamName: aws.String(runnerStream),
+								},
+								{
+									EventId:       aws.String("runner-event-2"),
+									Timestamp:     aws.Int64(4000),
+									Message:       aws.String("runner log 2"),
+									LogStreamName: aws.String(runnerStream),
+								},
+							},
+						}, nil
+					case sidecarStream:
+						return &cloudwatchlogs.FilterLogEventsOutput{
+							Events: []cwlTypes.FilteredLogEvent{
+								{
+									EventId:       aws.String("sidecar-event-1"),
+									Timestamp:     aws.Int64(1000),
+									Message:       aws.String("sidecar log 1"),
+									LogStreamName: aws.String(sidecarStream),
+								},
+								{
+									EventId:       aws.String("sidecar-event-2"),
+									Timestamp:     aws.Int64(3000),
+									Message:       aws.String("sidecar log 2"),
+									LogStreamName: aws.String(sidecarStream),
+								},
+							},
+						}, nil
+					}
+				}
+				return &cloudwatchlogs.FilterLogEventsOutput{}, nil
 			},
 		}
 
@@ -607,8 +692,8 @@ func TestFetchLogsByExecutionID(t *testing.T) {
 		assert.Equal(t, "sidecar log 2", events[2].Message)
 		assert.Equal(t, int64(4000), events[3].Timestamp)
 		assert.Equal(t, "runner log 2", events[3].Message)
-		// Verify both streams were queried
-		assert.GreaterOrEqual(t, callCount, 2)
+		// Verify a single API call was made for both streams
+		assert.Equal(t, 1, callCount)
 	})
 
 	t.Run("empty executionID returns error", func(t *testing.T) {
@@ -677,11 +762,8 @@ func TestFetchLogsByExecutionID(t *testing.T) {
 				params *cloudwatchlogs.FilterLogEventsInput,
 				_ ...func(*cloudwatchlogs.Options),
 			) (*cloudwatchlogs.FilterLogEventsOutput, error) {
-				if len(params.LogStreamNames) == 0 {
-					return &cloudwatchlogs.FilterLogEventsOutput{}, nil
-				}
-				streamName := params.LogStreamNames[0]
-				if streamName == runnerStream {
+				// Check if runner stream is in the request
+				if slices.Contains(params.LogStreamNames, runnerStream) {
 					return nil, errors.New("failed to fetch runner logs")
 				}
 				return &cloudwatchlogs.FilterLogEventsOutput{}, nil
@@ -715,11 +797,12 @@ func TestFetchLogsByExecutionID(t *testing.T) {
 				params *cloudwatchlogs.FilterLogEventsInput,
 				_ ...func(*cloudwatchlogs.Options),
 			) (*cloudwatchlogs.FilterLogEventsOutput, error) {
-				if len(params.LogStreamNames) == 0 {
-					return &cloudwatchlogs.FilterLogEventsOutput{}, nil
+				// Check if sidecar stream is in the request
+				if slices.Contains(params.LogStreamNames, sidecarStream) {
+					return nil, errors.New("failed to fetch sidecar logs")
 				}
-				streamName := params.LogStreamNames[0]
-				if streamName == runnerStream {
+				// Return runner events if only runner stream is requested
+				if slices.Contains(params.LogStreamNames, runnerStream) {
 					return &cloudwatchlogs.FilterLogEventsOutput{
 						Events: []cwlTypes.FilteredLogEvent{
 							{
@@ -730,9 +813,6 @@ func TestFetchLogsByExecutionID(t *testing.T) {
 							},
 						},
 					}, nil
-				}
-				if streamName == sidecarStream {
-					return nil, errors.New("failed to fetch sidecar logs")
 				}
 				return &cloudwatchlogs.FilterLogEventsOutput{}, nil
 			},
