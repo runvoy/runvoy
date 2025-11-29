@@ -100,18 +100,19 @@ func TestBuildMainContainerCommandWithoutRepo(t *testing.T) {
 
 	assert.Contains(t,
 		commandScript,
-		fmt.Sprintf("printf '### %s runner execution started by requestID => %%s\\n' \"request-123\"", constants.ProjectName),
+		fmt.Sprintf("printf '### %s runner: execution started by requestID => %%s\\n' \"request-123\"",
+			constants.ProjectName),
 	)
 
 	assert.Contains(
 		t,
 		commandScript,
-		fmt.Sprintf("printf '### %s runner image ID => %%s\\n' \"ubuntu:22.04\"", constants.ProjectName),
+		fmt.Sprintf("printf '### %s runner: image ID => %%s\\n' \"ubuntu:22.04\"", constants.ProjectName),
 	)
 	assert.Contains(
 		t,
 		commandScript,
-		fmt.Sprintf("printf '### %s runner command => %%s\\n' %q", constants.ProjectName, req.Command),
+		fmt.Sprintf("printf '### %s runner: command => %%s\\n' %q", constants.ProjectName, req.Command),
 	)
 	assert.True(t, strings.HasSuffix(commandScript, req.Command), "shell command should end with the user command")
 	assert.Contains(t, commandScript, "set -e", "script should enable exit on error")
@@ -148,7 +149,7 @@ func TestBuildMainContainerCommandWithRepo(t *testing.T) {
 		t,
 		commandScript,
 		fmt.Sprintf(
-			"printf '### %s runner checked out repo => %%s (ref: %%s) (path: %%s)\\n' %q %q %q",
+			"printf '### %s runner: checked out repo => %%s (ref: %%s) (path: %%s)\\n' %q %q %q",
 			constants.ProjectName,
 			repoURL,
 			repoRef,
@@ -159,7 +160,7 @@ func TestBuildMainContainerCommandWithRepo(t *testing.T) {
 	assert.Contains(
 		t,
 		commandScript,
-		fmt.Sprintf("printf '### %s runner working directory => %%s\\n' %q", constants.ProjectName, expectedWorkingDir),
+		fmt.Sprintf("printf '### %s runner: working directory => %%s\\n' %q", constants.ProjectName, expectedWorkingDir),
 	)
 	assert.True(t, strings.HasSuffix(commandScript, req.Command))
 }

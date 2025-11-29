@@ -1,13 +1,13 @@
 set -e
 
-printf '### {{ .ProjectName }} runner execution started by requestID => %s\n' "{{ .RequestID }}"
-printf '### {{ .ProjectName }} runner image ID => %s\n' "{{ .Image }}"
+printf '### {{ .ProjectName }} runner: execution started by requestID => %s\n' "{{ .RequestID }}"
+printf '### {{ .ProjectName }} runner: image ID => %s\n' "{{ .Image }}"
 
 {{- if .Repo }}
 cd {{ .Repo.WorkDir }}
-printf '### {{ .ProjectName }} runner checked out repo => %s (ref: %s) (path: %s)\n' "{{ .Repo.URL }}" "{{ .Repo.Ref }}" "{{ .Repo.Path }}"
-printf '### {{ .ProjectName }} runner working directory => %s\n' "{{ .Repo.WorkDir }}"
+printf '### {{ .ProjectName }} runner: checked out repo => %s (ref: %s) (path: %s)\n' "{{ .Repo.URL }}" "{{ .Repo.Ref }}" "{{ .Repo.Path }}"
+printf '### {{ .ProjectName }} runner: working directory => %s\n' "{{ .Repo.WorkDir }}"
 {{- end }}
 
-printf '### {{ .ProjectName }} runner command => %s\n' "{{ .Command }}"
+printf '### {{ .ProjectName }} runner: command => %s\n' "{{ .Command }}"
 {{ .Command }}
