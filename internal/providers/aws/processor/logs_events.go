@@ -14,13 +14,17 @@ import (
 )
 
 // convertCloudWatchLogEvents converts CloudWatch Logs events to api.LogEvent format.
-func convertCloudWatchLogEvents(cwLogEvents []events.CloudwatchLogsLogEvent) []api.LogEvent {
+func convertCloudWatchLogEvents(reqLogger *slog.Logger, cwLogEvents []events.CloudwatchLogsLogEvent) []api.LogEvent {
 	logEvents := make([]api.LogEvent, 0, len(cwLogEvents))
 	for _, cwLogEvent := range cwLogEvents {
 		eventID := cwLogEvent.ID
 		if eventID == "" {
-			// Generate deterministic eventID if missing (shouldn't happen with CloudWatch Logs)
 			eventID = auth.GenerateEventID(cwLogEvent.Timestamp, cwLogEvent.Message)
+			reqLogger.Warn("no event ID found, generating from timestamp + message", "context", map[string]any{
+				"timestamp":          cwLogEvent.Timestamp,
+				"message":            cwLogEvent.Message,
+				"generated_event_id": eventID,
+			})
 		}
 		logEvents = append(logEvents, api.LogEvent{
 			EventID:   eventID,
@@ -69,7 +73,7 @@ func (p *Processor) handleLogsEvent(
 		},
 	)
 
-	logEvents := convertCloudWatchLogEvents(data.LogEvents)
+	logEvents := convertCloudWatchLogEvents(reqLogger, data.LogEvents)
 
 	if err = p.logEventRepo.SaveLogEvents(ctx, executionID, logEvents); err != nil {
 		reqLogger.Error("failed to persist log events", "error", err, "execution_id", executionID)
