@@ -132,14 +132,13 @@
         }
     }
 
-    function resetForExecution(id: string | null): void {
+    function resetForExecution(): void {
         disconnectWebSocket();
         logEvents.set([]); // Clear logs when switching executions to avoid stale data
         executionStatus.set('LOADING');
         startedAt.set(null);
         isCompleted.set(false);
         errorMessage = '';
-        lastProcessedExecutionId = id;
         isFetchingLogs = false; // Reset fetch guard when switching executions
     }
 
@@ -194,11 +193,17 @@
                 return;
             }
             if (id !== lastProcessedExecutionId) {
-                resetForExecution(id);
+                // Set lastProcessedExecutionId immediately to prevent duplicate calls
+                // if the subscription fires multiple times in quick succession
+                lastProcessedExecutionId = id;
+                resetForExecution();
                 // Don't fetch logs if WebSocket is connected or connecting - let it handle streaming
                 const wsActive = get(isConnected) || get(isConnecting);
                 const existingWebsocketURL = get(cachedWebSocketURL);
-                if (!wsActive && !existingWebsocketURL) {
+                // Set isFetchingLogs before calling fetchLogs to prevent race conditions
+                // where multiple subscription fires could all pass the guard
+                if (!wsActive && !existingWebsocketURL && !isFetchingLogs) {
+                    isFetchingLogs = true;
                     fetchLogs(id);
                 }
             }
