@@ -2,6 +2,7 @@
     import { goto } from '$app/navigation';
     import type APIClient from '../lib/api';
     import type { Execution, ApiError } from '../types/api';
+    import ExecutionRow from '../components/ExecutionRow.svelte';
 
     interface Props {
         apiClient: APIClient | null;
@@ -52,29 +53,6 @@
         }
     }
 
-    function formatDate(dateString: string | undefined): string {
-        if (!dateString) return '-';
-        try {
-            const date = new Date(dateString);
-            return date.toLocaleString();
-        } catch {
-            return dateString;
-        }
-    }
-
-    function getStatusColor(status: string): string {
-        if (status === 'SUCCEEDED') {
-            return 'success';
-        }
-        if (status === 'FAILED' || status === 'STOPPED') {
-            return 'danger';
-        }
-        if (status === 'RUNNING') {
-            return 'info';
-        }
-        return 'default';
-    }
-
     $effect(() => {
         if (apiClient) {
             loadExecutions();
@@ -115,36 +93,7 @@
                 </thead>
                 <tbody>
                     {#each executions as execution (execution.execution_id)}
-                        <tr>
-                            <td class="execution-id">
-                                <code
-                                    >{execution.execution_id
-                                        ? execution.execution_id.slice(0, 8) + '...'
-                                        : 'N/A'}</code
-                                >
-                            </td>
-                            <td>
-                                <span
-                                    class="status-badge status-{getStatusColor(execution.status)}"
-                                >
-                                    {execution.status}
-                                </span>
-                            </td>
-                            <td>{formatDate(execution.started_at)}</td>
-                            <td>{formatDate(execution.completed_at)}</td>
-                            <td class="exit-code">
-                                {execution.exit_code ?? '-'}
-                            </td>
-                            <td class="action-cell">
-                                <button
-                                    class="secondary"
-                                    onclick={() => handleViewExecution(execution)}
-                                    aria-label="View execution {execution.execution_id}"
-                                >
-                                    View
-                                </button>
-                            </td>
-                        </tr>
+                        <ExecutionRow {execution} onView={handleViewExecution} />
                     {/each}
                 </tbody>
             </table>
@@ -220,66 +169,13 @@
         border-bottom: 2px solid var(--pico-border-color);
     }
 
-    td {
+    :global(td) {
         padding: 0.875rem 1rem;
         border-bottom: 1px solid var(--pico-border-color);
     }
 
-    tbody tr:hover {
+    :global(tbody tr:hover) {
         background-color: var(--pico-form-element-background-color);
-    }
-
-    .execution-id {
-        font-family: 'Monaco', 'Courier New', monospace;
-        font-size: 0.875rem;
-    }
-
-    code {
-        background: var(--pico-code-background-color);
-        padding: 0.25rem 0.5rem;
-        border-radius: 0.25rem;
-        font-size: 0.9em;
-    }
-
-    .status-badge {
-        display: inline-block;
-        padding: 0.375rem 0.75rem;
-        border-radius: 0.25rem;
-        font-weight: 600;
-        font-size: 0.875rem;
-    }
-
-    .status-success {
-        background-color: var(--pico-color-green-600);
-        color: white;
-    }
-
-    .status-danger {
-        background-color: var(--pico-color-red-600);
-        color: white;
-    }
-
-    .status-info {
-        background-color: var(--pico-color-blue-600);
-        color: white;
-    }
-
-    .status-default {
-        background-color: var(--pico-muted-color);
-        color: white;
-    }
-
-    .exit-code {
-        font-family: 'Monaco', 'Courier New', monospace;
-        text-align: center;
-    }
-
-    .action-cell {
-        text-align: right;
-    }
-
-    .action-cell button {
-        margin: 0;
     }
 
     @media (max-width: 768px) {
@@ -306,21 +202,8 @@
         }
 
         th,
-        td {
+        :global(td) {
             padding: 0.75rem 0.5rem;
-        }
-
-        .status-badge {
-            padding: 0.25rem 0.5rem;
-            font-size: 0.75rem;
-        }
-
-        .execution-id {
-            font-size: 0.75rem;
-        }
-
-        code {
-            font-size: 0.8em;
         }
     }
 </style>

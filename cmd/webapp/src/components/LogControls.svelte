@@ -1,9 +1,14 @@
 <script lang="ts">
     import { showMetadata, logEvents } from '../stores/logs';
-    import { executionId } from '../stores/execution';
     import { disconnectWebSocket, connectWebSocket } from '../lib/websocket';
     import { cachedWebSocketURL } from '../stores/websocket';
     import { formatTimestamp } from '../lib/ansi';
+
+    interface Props {
+        executionId: string | null;
+    }
+
+    const { executionId }: Props = $props();
 
     let isPaused = $state(false);
 
@@ -23,7 +28,7 @@
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `runvoy-logs-${$executionId}.txt`;
+        a.download = `runvoy-logs-${executionId || 'logs'}.txt`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);

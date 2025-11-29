@@ -238,7 +238,7 @@
     <article class="logs-card">
         <StatusBar onKill={handleKillExecution} />
         <WebSocketStatus />
-        <LogControls />
+        <LogControls executionId={currentExecutionId} />
         <LogViewer />
     </article>
 {/if}
