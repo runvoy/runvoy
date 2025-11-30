@@ -39,12 +39,12 @@ deploy-lambda lambda-name:
 # Deploy development webapp to Netlify
 [working-directory: 'cmd/webapp']
 deploy-development-webapp: build-development-webapp
-    netlify deploy --no-build --dir dist --prod--site runvoywebdev
+    netlify deploy --no-build --prod --site runvoywebdev
 
 # Deploy production webapp to Netlify
 [working-directory: 'cmd/webapp']
 deploy-production-webapp: build-production-webapp
-    netlify deploy --no-build --dir dist --prod
+    netlify deploy --no-build --prod
 
 # Deploy axiom forwarder lambda function to S3
 [working-directory: 'dist']
