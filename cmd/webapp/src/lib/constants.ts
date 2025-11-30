@@ -49,3 +49,12 @@ export const VIEW_ROUTES: Record<string, string> = {
     [VIEWS.CLAIM]: '/claim',
     [VIEWS.SETTINGS]: '/settings'
 };
+
+// Navigation view definitions
+export const NAV_VIEWS = [
+    { id: VIEWS.RUN, label: 'Run Command' },
+    { id: VIEWS.LOGS, label: 'Logs' },
+    { id: VIEWS.LIST, label: 'Executions' },
+    { id: VIEWS.CLAIM, label: 'Claim Key' },
+    { id: VIEWS.SETTINGS, label: 'Settings' }
+] as const;

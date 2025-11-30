@@ -5,7 +5,7 @@
     import ViewSwitcher from '../components/ViewSwitcher.svelte';
     import { hydrateConfigStores } from '../stores/config';
     import { hasEndpoint, hasApiKey } from '../stores/apiClient';
-    import { VIEWS } from '../stores/ui';
+    import { VIEWS, NAV_VIEWS } from '$lib/constants';
     import type { Snippet } from 'svelte';
 
     import '../styles/global.css';
@@ -20,20 +20,6 @@
     if (browser) {
         hydrateConfigStores();
     }
-
-    interface NavView {
-        id: string;
-        label: string;
-        disabled?: boolean;
-    }
-
-    const views: NavView[] = [
-        { id: VIEWS.RUN, label: 'Run Command' },
-        { id: VIEWS.LOGS, label: 'Logs' },
-        { id: VIEWS.LIST, label: 'Executions' },
-        { id: VIEWS.CLAIM, label: 'Claim Key' },
-        { id: VIEWS.SETTINGS, label: 'Settings' }
-    ];
 
     // Single centralized redirect logic
     $effect(() => {
@@ -55,8 +41,8 @@
         }
     });
 
-    const navViews: NavView[] = $derived(
-        views.map((view) => {
+    const navViews = $derived(
+        NAV_VIEWS.map((view) => {
             if (!$hasEndpoint && view.id !== VIEWS.SETTINGS) {
                 return { ...view, disabled: true };
             }
