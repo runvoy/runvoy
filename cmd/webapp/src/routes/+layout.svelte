@@ -1,9 +1,12 @@
 <script lang="ts">
-    import { version } from '$app/environment';
+    import { version, browser } from '$app/environment';
+    import { page } from '$app/stores';
+    import { goto } from '$app/navigation';
     import type { LayoutData } from './$types';
     import ViewSwitcher from '../components/ViewSwitcher.svelte';
     import { apiEndpoint, apiKey } from '../stores/config';
     import { VIEWS } from '../stores/ui';
+    import { validateApiConfiguration } from '../lib/apiConfig';
     import type { Snippet } from 'svelte';
 
     import '../styles/global.css';
@@ -31,6 +34,58 @@
 
     const hasEndpoint = $derived(Boolean(data.hasEndpoint) || Boolean($apiEndpoint));
     const hasApiKey = $derived(Boolean(data.hasApiKey) || Boolean($apiKey));
+
+    // Track client-side store values for redirect logic
+    const clientEndpoint = $derived($apiEndpoint);
+    const clientApiKey = $derived($apiKey);
+
+    // Client-side redirect after stores are hydrated
+    // Only redirect if server-side didn't already have the config
+    $effect(() => {
+        if (!browser) return;
+
+        // Use server-side data first, fall back to client stores
+        const endpoint = data.endpoint ?? clientEndpoint;
+        const apiKey = data.apiKey ?? clientApiKey;
+
+        const validated = validateApiConfiguration(
+            {
+                endpoint,
+                apiKey
+            },
+            { requireApiKey: false }
+        );
+
+        const clientHasEndpoint = Boolean(validated?.endpoint);
+        const clientHasApiKey = Boolean(validated?.apiKey);
+
+        // If server and client agree on config state, no redirect needed
+        if (data.hasEndpoint === clientHasEndpoint && data.hasApiKey === clientHasApiKey) {
+            return; // Server and client agree, no redirect needed
+        }
+
+        const currentPath = $page.url.pathname;
+
+        // Only redirect based on client-side config (which includes localStorage)
+        // This handles the case where server doesn't have cookies but client has localStorage
+        if (!clientHasEndpoint && currentPath !== '/settings') {
+            goto('/settings', { replaceState: true }).catch(() => {
+                // Ignore navigation errors (e.g., in tests)
+            });
+            return;
+        }
+
+        if (
+            clientHasEndpoint &&
+            !clientHasApiKey &&
+            !['/claim', '/settings'].includes(currentPath)
+        ) {
+            goto('/claim', { replaceState: true }).catch(() => {
+                // Ignore navigation errors (e.g., in tests)
+            });
+            return;
+        }
+    });
 
     const navViews: NavView[] = $derived(
         views.map((view) => {

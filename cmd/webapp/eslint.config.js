@@ -3,6 +3,7 @@ import ts from '@typescript-eslint/eslint-plugin';
 import tsParser from '@typescript-eslint/parser';
 import sveltePlugin from 'eslint-plugin-svelte';
 import svelteParser from 'svelte-eslint-parser';
+import prettierConfig from 'eslint-config-prettier';
 
 export default [
     js.configs.recommended,
@@ -110,15 +111,13 @@ export default [
         rules: {
             'no-console': 'warn',
             'no-debugger': 'error',
-            'semi': ['error', 'always'],
-            'quotes': ['error', 'single', { avoidEscape: true }],
-            'indent': ['error', 4],
-            'comma-dangle': ['error', 'never'],
-            'no-trailing-spaces': 'error',
-            'eol-last': ['error', 'always'],
+            // Formatting rules removed - Prettier handles these
             'object-shorthand': 'error',
             'prefer-const': 'error',
             'prefer-arrow-callback': 'error'
         }
-    }
+    },
+    // Disable all ESLint rules that conflict with Prettier
+    // This must be last to override other configs
+    prettierConfig
 ];

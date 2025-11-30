@@ -63,8 +63,8 @@ describe('run page load integration', () => {
         expect(mockFetch.mock.calls[0][0]).toContain('https://api.integration.test');
     });
 
-    it('throws when configuration is missing during load', async () => {
-        const loadPromise = load({
+    it('allows null apiClient when configuration is missing during load', async () => {
+        const result = (await load({
             parent: async () => ({
                 endpoint: null,
                 apiKey: null,
@@ -72,8 +72,12 @@ describe('run page load integration', () => {
                 hasApiKey: false,
                 apiClient: null
             })
-        } as any);
+        } as any)) as {
+            apiClient: APIClient | null;
+        };
 
-        await expect(loadPromise).rejects.toThrow();
+        // Should return null apiClient instead of throwing
+        // Component will handle redirect client-side
+        expect(result.apiClient).toBeNull();
     });
 });

@@ -1,4 +1,5 @@
 import { redirect } from '@sveltejs/kit';
+import { browser } from '$app/environment';
 import { hydrateConfigStores, parsePersistedValue } from '../stores/config';
 import { validateApiConfiguration, createApiClientFromConfig } from '../lib/apiConfig';
 import type { LayoutLoad } from './$types';
@@ -43,14 +44,18 @@ export const load: LayoutLoad = async (event) => {
     );
 
     const hasEndpoint = Boolean(validated?.endpoint);
-    const hasApiKey = Boolean(validateApiConfiguration({ endpoint, apiKey }));
+    const hasApiKey = Boolean(validated?.apiKey);
 
-    if (!hasEndpoint && url.pathname !== '/settings') {
-        throw redirect(307, '/settings');
-    }
+    // Only redirect on client side where we can check localStorage
+    // On server side (SSR), allow the page to load and let client handle redirect if needed
+    if (browser) {
+        if (!hasEndpoint && url.pathname !== '/settings') {
+            throw redirect(307, '/settings');
+        }
 
-    if (hasEndpoint && !hasApiKey && !['/claim', '/settings'].includes(url.pathname)) {
-        throw redirect(307, '/claim');
+        if (hasEndpoint && !hasApiKey && !['/claim', '/settings'].includes(url.pathname)) {
+            throw redirect(307, '/claim');
+        }
     }
 
     // Build API client for all child routes (lenient validation - pages handle their own requirements)

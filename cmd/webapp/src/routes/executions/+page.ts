@@ -1,13 +1,9 @@
-import { error } from '@sveltejs/kit';
 import type { PageLoad } from './$types';
 
 export const load: PageLoad = async ({ parent }) => {
     const parentData = await parent();
 
-    if (!parentData.apiClient) {
-        throw error(500, 'API client is required to list executions');
-    }
-
+    // Allow null apiClient - component will handle it (may redirect client-side)
     return {
         apiClient: parentData.apiClient
     };
