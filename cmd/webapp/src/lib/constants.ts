@@ -45,3 +45,12 @@ export const VIEWS = {
     SETTINGS: 'settings',
     LIST: 'list'
 } as const;
+
+// View routes - maps view IDs to their URL paths
+export const VIEW_ROUTES: Record<string, string> = {
+    [VIEWS.RUN]: '/',
+    [VIEWS.LOGS]: '/logs',
+    [VIEWS.LIST]: '/executions',
+    [VIEWS.CLAIM]: '/claim',
+    [VIEWS.SETTINGS]: '/settings'
+};
