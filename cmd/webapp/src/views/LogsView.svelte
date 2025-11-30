@@ -7,7 +7,14 @@
     import WebSocketStatus from '../components/WebSocketStatus.svelte';
     import LogControls from '../components/LogControls.svelte';
     import LogViewer from '../components/LogViewer.svelte';
-    import { executionId, executionStatus, startedAt, isCompleted } from '../stores/execution';
+    import {
+        executionId,
+        executionStatus,
+        startedAt,
+        isCompleted,
+        completedAt,
+        exitCode
+    } from '../stores/execution';
     import { logEvents } from '../stores/logs';
     import { cachedWebSocketURL, isConnected, isConnecting } from '../stores/websocket';
     import { connectWebSocket, disconnectWebSocket } from '../lib/websocket';
@@ -108,6 +115,23 @@
 
             const terminal = isTerminalStatus(status);
             isCompleted.set(terminal);
+
+            // For terminal executions, fetch full status to get completed_at and exit_code
+            if (terminal && apiClient) {
+                try {
+                    const statusResponse: ExecutionStatusResponse =
+                        await apiClient.getExecutionStatus(id);
+                    if (statusResponse.completed_at) {
+                        completedAt.set(statusResponse.completed_at);
+                    }
+                    if (statusResponse.exit_code !== undefined) {
+                        exitCode.set(statusResponse.exit_code);
+                    }
+                } catch {
+                    // Non-fatal: we already have the status and logs, just missing metadata
+                    // Don't set errorMessage as this is not critical
+                }
+            }
         } catch (error) {
             // Ignore if this fetch is stale
             if (currentFetchId !== id) {
@@ -124,6 +148,8 @@
         logEvents.set([]);
         executionStatus.set(FrontendStatus.LOADING);
         startedAt.set(null);
+        completedAt.set(null);
+        exitCode.set(null);
         isCompleted.set(false);
         errorMessage = '';
         cachedWebSocketURL.set(null);
@@ -149,6 +175,14 @@
 
             if (statusResponse.started_at) {
                 startedAt.set(statusResponse.started_at);
+            }
+
+            if (statusResponse.completed_at) {
+                completedAt.set(statusResponse.completed_at);
+            }
+
+            if (statusResponse.exit_code !== undefined) {
+                exitCode.set(statusResponse.exit_code);
             }
 
             const terminal = isTerminalStatus(status);

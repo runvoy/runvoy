@@ -86,7 +86,7 @@
                         <th>ID</th>
                         <th>Status</th>
                         <th>Started</th>
-                        <th>Completed</th>
+                        <th>Ended</th>
                         <th>Exit Code</th>
                         <th>Action</th>
                     </tr>

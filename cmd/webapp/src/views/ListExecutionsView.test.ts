@@ -96,6 +96,8 @@ describe('ListExecutionsView', () => {
             // Check that we rendered some table cells
             const cells = container.querySelectorAll('td');
             expect(cells.length).toBeGreaterThan(0);
+            // Check that "Ended" header is present
+            expect(screen.getByText('Ended')).toBeInTheDocument();
         });
     });
 

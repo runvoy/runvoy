@@ -1,5 +1,11 @@
 <script lang="ts">
-    import { executionStatus, startedAt, isCompleted } from '../stores/execution';
+    import {
+        executionStatus,
+        startedAt,
+        isCompleted,
+        completedAt,
+        exitCode
+    } from '../stores/execution';
     import { FrontendStatus } from '../lib/constants';
 
     interface Props {
@@ -20,6 +26,22 @@
 
         if (Number.isNaN(date.getTime())) {
             return 'N/A';
+        }
+
+        return date.toLocaleString();
+    });
+
+    const formattedCompletedAt = $derived.by(() => {
+        if (!$completedAt) {
+            return null;
+        }
+
+        const dateValue =
+            typeof $completedAt === 'number' ? $completedAt : Date.parse($completedAt);
+        const date = new Date(dateValue);
+
+        if (Number.isNaN(date.getTime())) {
+            return null;
         }
 
         return date.toLocaleString();
@@ -47,6 +69,18 @@
         <strong>Started:</strong>
         <span>{formattedStartedAt}</span>
     </div>
+    {#if formattedCompletedAt}
+        <div class="status-item">
+            <strong>Ended:</strong>
+            <span>{formattedCompletedAt}</span>
+        </div>
+    {/if}
+    {#if $exitCode !== null}
+        <div class="status-item">
+            <strong>Exit Code:</strong>
+            <code class="exit-code">{$exitCode}</code>
+        </div>
+    {/if}
     {#if onKill && !$isCompleted}
         <div class="status-item actions">
             <button
@@ -107,6 +141,14 @@
     .status-badge.stopped {
         background-color: #ff9800;
     } /* Orange */
+
+    .exit-code {
+        font-family: 'Monaco', 'Courier New', monospace;
+        font-size: 0.9em;
+        padding: 0.2em 0.4em;
+        background-color: var(--pico-code-background-color);
+        border-radius: 0.25rem;
+    }
 
     .status-item.actions {
         margin-left: auto;
