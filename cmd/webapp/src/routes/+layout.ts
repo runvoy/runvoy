@@ -1,6 +1,6 @@
 import { redirect } from '@sveltejs/kit';
 import { hydrateConfigStores, parsePersistedValue } from '../stores/config';
-import { validateApiConfiguration } from '../lib/apiConfig';
+import { validateApiConfiguration, createApiClientFromConfig } from '../lib/apiConfig';
 import type { LayoutLoad } from './$types';
 
 export const prerender = false;
@@ -19,8 +19,8 @@ const defaultCookies: CookieStore = {
     serialize: () => ''
 };
 
-export const load: LayoutLoad = (event) => {
-    const { url } = event;
+export const load: LayoutLoad = async (event) => {
+    const { url, fetch } = event;
     const cookies = 'cookies' in event ? (event.cookies as CookieStore) : undefined;
     const safeCookies: CookieStore = cookies ?? defaultCookies;
 
@@ -53,10 +53,21 @@ export const load: LayoutLoad = (event) => {
         throw redirect(307, '/claim');
     }
 
+    // Build API client for all child routes (don't throw on invalid for settings/claim pages)
+    const apiClient = createApiClientFromConfig(
+        {
+            endpoint: validated?.endpoint ?? null,
+            apiKey: validated?.apiKey ?? null
+        },
+        fetch,
+        { requireApiKey: false, throwOnInvalid: false }
+    );
+
     return {
         hasEndpoint,
         hasApiKey,
         endpoint: validated?.endpoint ?? null,
-        apiKey: validated?.apiKey ?? null
+        apiKey: validated?.apiKey ?? null,
+        apiClient
     };
 };
