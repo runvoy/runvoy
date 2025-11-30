@@ -1,6 +1,6 @@
 <script lang="ts">
     import { version, browser } from '$app/environment';
-    import { page } from '$app/stores';
+    import { page } from '$app/state';
     import { goto } from '$app/navigation';
     import ViewSwitcher from '../components/ViewSwitcher.svelte';
     import { hydrateConfigStores } from '../stores/config';
@@ -39,7 +39,7 @@
     $effect(() => {
         if (!browser) return;
 
-        const path = $page.url.pathname;
+        const path = page.url.pathname;
 
         if (!$hasEndpoint && path !== '/settings') {
             goto('/settings', { replaceState: true }).catch(() => {

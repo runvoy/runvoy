@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { page } from '$app/stores';
+    import { page } from '$app/state';
 
     interface View {
         id: string;
@@ -37,7 +37,7 @@
         return pathname.startsWith(route);
     }
 
-    const currentPathname = $derived($page.url.pathname);
+    const currentPathname = $derived(page.url.pathname);
 </script>
 
 <nav class="view-switcher" aria-label="View selection">
