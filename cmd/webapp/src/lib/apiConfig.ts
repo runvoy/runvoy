@@ -53,15 +53,16 @@ export function validateApiConfiguration(
 
 export function createApiClientFromConfig(
     config: ApiConfiguration,
-    fetcher: typeof fetch,
-    options: ValidationOptions = {}
+    fetcher: typeof fetch
 ): APIClient | null {
-    const validated = validateApiConfiguration(config, options);
+    // Always use lenient validation (don't require API key, don't throw on invalid)
+    // Individual pages handle their own validation requirements
+    const validated = validateApiConfiguration(config, {
+        requireApiKey: false,
+        throwOnInvalid: false
+    });
 
     if (!validated) {
-        if (options.throwOnInvalid) {
-            throw error(500, 'API configuration is incomplete');
-        }
         return null;
     }
 

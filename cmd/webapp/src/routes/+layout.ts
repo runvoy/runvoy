@@ -53,14 +53,13 @@ export const load: LayoutLoad = async (event) => {
         throw redirect(307, '/claim');
     }
 
-    // Build API client for all child routes (don't throw on invalid for settings/claim pages)
+    // Build API client for all child routes (lenient validation - pages handle their own requirements)
     const apiClient = createApiClientFromConfig(
         {
             endpoint: validated?.endpoint ?? null,
             apiKey: validated?.apiKey ?? null
         },
-        fetch,
-        { requireApiKey: false, throwOnInvalid: false }
+        fetch
     );
 
     return {
