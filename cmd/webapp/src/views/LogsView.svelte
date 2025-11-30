@@ -234,7 +234,7 @@
             Enter an execution ID above or provide <code>?execution_id=&lt;id&gt;</code> in the URL
         </p>
     </article>
-{:else}
+{:else if !errorMessage}
     <article class="logs-card">
         <StatusBar onKill={handleKillExecution} />
         <WebSocketStatus />

@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { executionId, executionStatus, startedAt, isCompleted } from '../stores/execution';
+    import { executionStatus, startedAt, isCompleted } from '../stores/execution';
 
     interface Props {
         onKill?: (() => void) | null;
@@ -48,10 +48,6 @@
         <strong>Started:</strong>
         <span>{formattedStartedAt}</span>
     </div>
-    <div class="status-item">
-        <strong>Execution ID:</strong>
-        <code class="execution-id">{$executionId}</code>
-    </div>
     {#if onKill && !$isCompleted}
         <div class="status-item actions">
             <button
@@ -83,11 +79,6 @@
         display: flex;
         align-items: center;
         gap: 0.5rem;
-    }
-
-    .execution-id {
-        font-size: 0.9em;
-        padding: 0.2em 0.4em;
     }
 
     .status-badge {
@@ -152,11 +143,6 @@
             align-items: flex-start;
             gap: 0.25rem;
             width: 100%;
-        }
-
-        .execution-id {
-            font-size: 0.85em;
-            word-break: break-all;
         }
 
         .status-badge {
