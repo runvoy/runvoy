@@ -11,6 +11,7 @@
     import { logEvents } from '../stores/logs';
     import { cachedWebSocketURL, isConnected, isConnecting } from '../stores/websocket';
     import { connectWebSocket, disconnectWebSocket } from '../lib/websocket';
+    import { ExecutionStatus, FrontendStatus, isTerminalStatus } from '../lib/constants';
     import type APIClient from '../lib/api';
     import type { LogEvent } from '../types/logs';
     import type { ApiError, ExecutionStatusResponse } from '../types/api';
@@ -23,7 +24,6 @@
     const { apiClient = null, currentExecutionId = null }: Props = $props();
 
     let errorMessage = $state('');
-    const TERMINAL_STATES = ['SUCCEEDED', 'FAILED', 'STOPPED'];
 
     // Track in-flight fetch to prevent duplicates
     let currentFetchId: string | null = null;
@@ -81,6 +81,8 @@
             // Terminal executions return events array (never null) and no websocket_url.
             if (response.websocket_url) {
                 // Running execution: use WebSocket for streaming logs
+                const status = response.status || ExecutionStatus.RUNNING;
+                executionStatus.set(status);
                 cachedWebSocketURL.set(response.websocket_url);
                 return;
             }
@@ -93,12 +95,18 @@
             }));
             logEvents.set(eventsWithLines);
 
-            const status = response.status || 'UNKNOWN';
+            if (!response.status) {
+                errorMessage = 'Invalid API response: missing execution status';
+                logEvents.set([]);
+                return;
+            }
+
+            const status = response.status;
             executionStatus.set(status);
             const derivedStartedAt = deriveStartedAtFromLogs(eventsWithLines);
             startedAt.set(derivedStartedAt);
 
-            const terminal = TERMINAL_STATES.includes(status);
+            const terminal = isTerminalStatus(status);
             isCompleted.set(terminal);
         } catch (error) {
             // Ignore if this fetch is stale
@@ -114,7 +122,7 @@
     function resetState(): void {
         disconnectWebSocket();
         logEvents.set([]);
-        executionStatus.set('LOADING');
+        executionStatus.set(FrontendStatus.LOADING);
         startedAt.set(null);
         isCompleted.set(false);
         errorMessage = '';
@@ -130,14 +138,20 @@
         try {
             const statusResponse: ExecutionStatusResponse =
                 await apiClient.getExecutionStatus(currentExecutionId);
-            const status = statusResponse.status || 'UNKNOWN';
+
+            if (!statusResponse.status) {
+                errorMessage = 'Invalid API response: missing execution status';
+                return;
+            }
+
+            const status = statusResponse.status;
             executionStatus.set(status);
 
             if (statusResponse.started_at) {
                 startedAt.set(statusResponse.started_at);
             }
 
-            const terminal = TERMINAL_STATES.includes(status);
+            const terminal = isTerminalStatus(status);
             isCompleted.set(terminal);
 
             if (terminal) {

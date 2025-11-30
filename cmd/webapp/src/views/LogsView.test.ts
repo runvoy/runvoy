@@ -3,10 +3,12 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, waitFor } from '@testing-library/svelte';
+import { get } from 'svelte/store';
 import LogsView from './LogsView.svelte';
 import type APIClient from '../lib/api';
 import { executionId } from '../stores/execution';
 import { cachedWebSocketURL, isConnected, isConnecting } from '../stores/websocket';
+import { logEvents } from '../stores/logs';
 
 describe('LogsView', () => {
     let mockApiClient: Partial<APIClient>;
@@ -31,6 +33,7 @@ describe('LogsView', () => {
         cachedWebSocketURL.set(null);
         isConnected.set(false);
         isConnecting.set(false);
+        logEvents.set([]);
     });
 
     afterEach(() => {
@@ -202,6 +205,104 @@ describe('LogsView', () => {
 
             // Should only be called once
             expect(fetchLogsSpy).toHaveBeenCalledTimes(1);
+        });
+    });
+
+    describe('error handling', () => {
+        it('should set error message when LogsResponse is missing status', async () => {
+            fetchLogsSpy.mockResolvedValue({
+                events: [],
+                websocket_url: null
+                // status is missing
+            });
+
+            const { container } = render(LogsView, {
+                props: {
+                    apiClient: mockApiClient as APIClient,
+                    currentExecutionId: 'exec-123'
+                }
+            });
+
+            await waitFor(
+                () => {
+                    const errorBox = container.querySelector('.error-box');
+                    expect(errorBox).toBeInTheDocument();
+                    expect(errorBox).toHaveTextContent(
+                        'Invalid API response: missing execution status'
+                    );
+                },
+                { timeout: 1000 }
+            );
+        });
+
+        it('should set error message when ExecutionStatusResponse is missing status', async () => {
+            const getExecutionStatusSpy = vi.fn().mockResolvedValue({
+                execution_id: 'exec-123'
+                // status is missing
+            });
+
+            mockApiClient.getExecutionStatus = getExecutionStatusSpy;
+
+            const { container } = render(LogsView, {
+                props: {
+                    apiClient: mockApiClient as APIClient,
+                    currentExecutionId: 'exec-123'
+                }
+            });
+
+            // Wait for component to mount
+            await new Promise((resolve) => setTimeout(resolve, 100));
+
+            // Simulate execution-complete event
+            const event = new CustomEvent('runvoy:execution-complete');
+            window.dispatchEvent(event);
+
+            await waitFor(
+                () => {
+                    const errorBox = container.querySelector('.error-box');
+                    expect(errorBox).toBeInTheDocument();
+                    expect(errorBox).toHaveTextContent(
+                        'Invalid API response: missing execution status'
+                    );
+                },
+                { timeout: 1000 }
+            );
+        });
+
+        it('should clear logs when LogsResponse is missing status', async () => {
+            // Set some initial logs
+            logEvents.set([
+                { message: 'test log', timestamp: 1234567890, event_id: 'evt-1', line: 1 }
+            ]);
+
+            fetchLogsSpy.mockResolvedValue({
+                events: [{ message: 'test log', timestamp: 1234567890, event_id: 'evt-1' }],
+                websocket_url: null
+                // status is missing
+            });
+
+            render(LogsView, {
+                props: {
+                    apiClient: mockApiClient as APIClient,
+                    currentExecutionId: 'exec-123'
+                }
+            });
+
+            await waitFor(
+                () => {
+                    expect(fetchLogsSpy).toHaveBeenCalled();
+                },
+                { timeout: 1000 }
+            );
+
+            // Logs should be cleared when status is missing
+            await waitFor(
+                () => {
+                    const events = get(logEvents);
+                    expect(events).toEqual([]);
+                },
+                { timeout: 1000 }
+            );
         });
     });
 });

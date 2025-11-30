@@ -1,13 +1,12 @@
 <script lang="ts">
     import { executionStatus, startedAt, isCompleted } from '../stores/execution';
+    import { FrontendStatus } from '../lib/constants';
 
     interface Props {
         onKill?: (() => void) | null;
     }
 
     const { onKill = null }: Props = $props();
-
-    const DEFAULT_STATUS = 'LOADING';
     let isKilling = $state(false);
 
     const statusClass = $derived($executionStatus ? $executionStatus.toLowerCase() : 'loading');
@@ -42,7 +41,7 @@
 <div class="status-bar">
     <div class="status-item">
         <strong>Status:</strong>
-        <span class="status-badge {statusClass}">{$executionStatus || DEFAULT_STATUS}</span>
+        <span class="status-badge {statusClass}">{$executionStatus || FrontendStatus.LOADING}</span>
     </div>
     <div class="status-item">
         <strong>Started:</strong>
@@ -93,6 +92,9 @@
     .status-badge.loading {
         background-color: #78909c;
     } /* Blue Grey */
+    .status-badge.starting {
+        background-color: #ffc107;
+    } /* Amber */
     .status-badge.running {
         background-color: #2196f3;
     } /* Blue */

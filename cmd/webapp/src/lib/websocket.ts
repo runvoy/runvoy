@@ -9,7 +9,8 @@ import {
     isConnected
 } from '../stores/websocket';
 import { logEvents } from '../stores/logs';
-import { isCompleted } from '../stores/execution';
+import { isCompleted, executionStatus } from '../stores/execution';
+import { ExecutionStatus, FrontendStatus } from '../lib/constants';
 import type { LogEvent, WebSocketLogMessage } from '../types/logs';
 
 let socket: WebSocket | null = null;
@@ -77,6 +78,16 @@ export function connectWebSocket(url: string): void {
                 eventId &&
                 typeof eventId === 'string'
             ) {
+                // Update status to RUNNING when we receive the first log message
+                // (indicates execution is actually running and producing output)
+                const currentStatus = get(executionStatus);
+                if (
+                    currentStatus === ExecutionStatus.STARTING ||
+                    currentStatus === FrontendStatus.LOADING
+                ) {
+                    executionStatus.set(ExecutionStatus.RUNNING);
+                }
+
                 logEvents.update((events: LogEvent[]): LogEvent[] => {
                     // Assign a new line number (like CLI does - just append to the end)
                     const nextLine =

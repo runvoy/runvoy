@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { ExecutionStatus } from '../lib/constants';
     import type { Execution } from '../types/api';
 
     interface Props {
@@ -19,13 +20,13 @@
     }
 
     function getStatusColor(status: string): string {
-        if (status === 'SUCCEEDED') {
+        if (status === ExecutionStatus.SUCCEEDED) {
             return 'success';
         }
-        if (status === 'FAILED' || status === 'STOPPED') {
+        if (status === ExecutionStatus.FAILED || status === ExecutionStatus.STOPPED) {
             return 'danger';
         }
-        if (status === 'RUNNING') {
+        if (status === ExecutionStatus.RUNNING) {
             return 'info';
         }
         return 'default';
