@@ -13,19 +13,21 @@ vi.mock('$app/environment', () => ({
     browser: true
 }));
 
-describe('config persistence helper', () => {
+describe('config persistence', () => {
     beforeEach(() => {
         localStorage.clear();
-        document.cookie = '';
         setApiEndpoint(null);
         setApiKey(null);
     });
 
-    it('hydrates stores from initial snapshot without browser storage', () => {
-        hydrateConfigStores({ endpoint: 'https://cookie.example', apiKey: 'cookie-key' });
+    it('hydrates stores from localStorage', () => {
+        localStorage.setItem('runvoy_endpoint', JSON.stringify('https://stored.example'));
+        localStorage.setItem('runvoy_api_key', JSON.stringify('stored-key'));
 
-        expect(get(apiEndpoint)).toBe('https://cookie.example');
-        expect(get(apiKey)).toBe('cookie-key');
+        hydrateConfigStores();
+
+        expect(get(apiEndpoint)).toBe('https://stored.example');
+        expect(get(apiKey)).toBe('stored-key');
     });
 
     it('serializes values as JSON when persisting', () => {
@@ -50,9 +52,19 @@ describe('config persistence helper', () => {
     });
 
     it('updates values using updater functions', () => {
-        hydrateConfigStores({ endpoint: 'https://api.initial' });
+        setApiEndpoint('https://api.initial');
         updateApiEndpoint((current) => (current ? `${current}/v1` : null));
 
         expect(get(apiEndpoint)).toBe('https://api.initial/v1');
+    });
+
+    it('returns current values from hydrateConfigStores', () => {
+        localStorage.setItem('runvoy_endpoint', JSON.stringify('https://hydrated.example'));
+        localStorage.setItem('runvoy_api_key', JSON.stringify('hydrated-key'));
+
+        const result = hydrateConfigStores();
+
+        expect(result.endpoint).toBe('https://hydrated.example');
+        expect(result.apiKey).toBe('hydrated-key');
     });
 });

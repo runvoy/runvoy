@@ -1,6 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { logEvents, logsRetryCount, showMetadata } from './logs';
-import { MAX_LOGS_RETRIES, LOGS_RETRY_DELAY, STARTING_STATE_DELAY } from '$lib/constants';
+import { logEvents, showMetadata } from './logs';
 import { get } from 'svelte/store';
 import type { LogEvent } from '../types/logs';
 
@@ -8,7 +7,6 @@ describe('Logs Store', () => {
     beforeEach(() => {
         // Reset stores to initial state
         logEvents.set([]);
-        logsRetryCount.set(0);
         showMetadata.set(true);
     });
 
@@ -86,31 +84,6 @@ describe('Logs Store', () => {
         });
     });
 
-    describe('logsRetryCount', () => {
-        it('should initialize to 0', () => {
-            expect(get(logsRetryCount)).toBe(0);
-        });
-
-        it('should increment retry count', () => {
-            logsRetryCount.set(1);
-            expect(get(logsRetryCount)).toBe(1);
-
-            logsRetryCount.update((count) => count + 1);
-            expect(get(logsRetryCount)).toBe(2);
-        });
-
-        it('should not exceed max retries', () => {
-            logsRetryCount.set(MAX_LOGS_RETRIES);
-            expect(get(logsRetryCount)).toBe(MAX_LOGS_RETRIES);
-        });
-
-        it('should reset retry count', () => {
-            logsRetryCount.set(5);
-            logsRetryCount.set(0);
-            expect(get(logsRetryCount)).toBe(0);
-        });
-    });
-
     describe('showMetadata', () => {
         it('should initialize to true', () => {
             expect(get(showMetadata)).toBe(true);
@@ -129,24 +102,6 @@ describe('Logs Store', () => {
         it('should work with update function', () => {
             showMetadata.update((show) => !show);
             expect(get(showMetadata)).toBe(false);
-        });
-    });
-
-    describe('retry constants', () => {
-        it('should define MAX_LOGS_RETRIES', () => {
-            expect(MAX_LOGS_RETRIES).toBe(3);
-        });
-
-        it('should define LOGS_RETRY_DELAY in milliseconds', () => {
-            expect(LOGS_RETRY_DELAY).toBe(10000);
-        });
-
-        it('should define STARTING_STATE_DELAY in milliseconds', () => {
-            expect(STARTING_STATE_DELAY).toBe(30000);
-        });
-
-        it('STARTING_STATE_DELAY should be longer than LOGS_RETRY_DELAY', () => {
-            expect(STARTING_STATE_DELAY).toBeGreaterThan(LOGS_RETRY_DELAY);
         });
     });
 
@@ -179,28 +134,12 @@ describe('Logs Store', () => {
 
             unsubscribe();
         });
-
-        it('should notify subscribers of retry count changes', () => {
-            const counts: number[] = [];
-            const unsubscribe = logsRetryCount.subscribe((count) => {
-                counts.push(count);
-            });
-
-            logsRetryCount.set(1);
-            logsRetryCount.set(2);
-            logsRetryCount.set(3);
-
-            expect(counts).toEqual([0, 1, 2, 3]);
-
-            unsubscribe();
-        });
     });
 
     describe('combined log state', () => {
         it('should track complete logging lifecycle', () => {
             // Start with empty logs
             expect(get(logEvents)).toEqual([]);
-            expect(get(logsRetryCount)).toBe(0);
 
             // Add first batch of logs
             const batch1: LogEvent[] = [
@@ -210,7 +149,6 @@ describe('Logs Store', () => {
             logEvents.set(batch1);
 
             expect(get(logEvents)).toHaveLength(2);
-            expect(get(logsRetryCount)).toBe(0);
 
             // Append more logs
             logEvents.update((events) => [
@@ -220,16 +158,10 @@ describe('Logs Store', () => {
 
             expect(get(logEvents)).toHaveLength(3);
 
-            // Increment retry
-            logsRetryCount.update((count) => count + 1);
-            expect(get(logsRetryCount)).toBe(1);
-
             // Clear on new execution
             logEvents.set([]);
-            logsRetryCount.set(0);
 
             expect(get(logEvents)).toEqual([]);
-            expect(get(logsRetryCount)).toBe(0);
         });
     });
 });

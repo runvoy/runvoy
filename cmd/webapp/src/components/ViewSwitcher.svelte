@@ -1,5 +1,6 @@
 <script lang="ts">
-    import { page } from '$app/stores';
+    import { page } from '$app/state';
+    import { VIEW_ROUTES } from '$lib/constants';
 
     interface View {
         id: string;
@@ -13,21 +14,12 @@
 
     const { views = [] }: Props = $props();
 
-    // Map view IDs to routes
-    const viewRoutes: Record<string, string> = {
-        run: '/',
-        logs: '/logs',
-        list: '/executions',
-        claim: '/claim',
-        settings: '/settings'
-    };
-
     function getViewRoute(viewId: string): string {
-        return viewRoutes[viewId] || '/';
+        return VIEW_ROUTES[viewId] || '/';
     }
 
     function isActive(viewId: string, pathname: string): boolean {
-        const route = viewRoutes[viewId];
+        const route = VIEW_ROUTES[viewId];
         if (!route) return false;
 
         // Check if current path matches the route
@@ -37,7 +29,7 @@
         return pathname.startsWith(route);
     }
 
-    const currentPathname = $derived($page.url.pathname);
+    const currentPathname = $derived(page.url.pathname);
 </script>
 
 <nav class="view-switcher" aria-label="View selection">

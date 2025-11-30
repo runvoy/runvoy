@@ -3,14 +3,6 @@
  * Centralized location for all application-wide constants
  */
 
-// Cookie configuration
-export const COOKIE_MAX_AGE = 60 * 60 * 24 * 30; // 30 days in seconds
-
-// Logs retry configuration
-export const MAX_LOGS_RETRIES = 3;
-export const LOGS_RETRY_DELAY = 10000; // 10 seconds in milliseconds
-export const STARTING_STATE_DELAY = 30000; // 30 seconds in milliseconds
-
 // Execution status constants (matches backend ExecutionStatus)
 export const ExecutionStatus = {
     STARTING: 'STARTING',
@@ -48,3 +40,21 @@ export const VIEWS = {
     SETTINGS: 'settings',
     LIST: 'list'
 } as const;
+
+// View routes - maps view IDs to their URL paths
+export const VIEW_ROUTES: Record<string, string> = {
+    [VIEWS.RUN]: '/',
+    [VIEWS.LOGS]: '/logs',
+    [VIEWS.LIST]: '/executions',
+    [VIEWS.CLAIM]: '/claim',
+    [VIEWS.SETTINGS]: '/settings'
+};
+
+// Navigation view definitions
+export const NAV_VIEWS = [
+    { id: VIEWS.RUN, label: 'Run Command' },
+    { id: VIEWS.LOGS, label: 'Logs' },
+    { id: VIEWS.LIST, label: 'Executions' },
+    { id: VIEWS.CLAIM, label: 'Claim Key' },
+    { id: VIEWS.SETTINGS, label: 'Settings' }
+] as const;

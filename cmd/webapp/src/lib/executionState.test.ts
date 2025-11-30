@@ -22,7 +22,6 @@ describe('Execution State Management', () => {
         executionStore.isCompleted.set(false);
         executionStore.startedAt.set(null);
         logsStore.logEvents.set([]);
-        logsStore.logsRetryCount.set(0);
         websocketStore.websocketConnection.set(null);
         websocketStore.cachedWebSocketURL.set(null);
         websocketStore.isConnecting.set(false);
@@ -69,13 +68,11 @@ describe('Execution State Management', () => {
             logsStore.logEvents.set([
                 { message: 'test', timestamp: 1000, event_id: 'event-1', line: 1 }
             ]);
-            logsStore.logsRetryCount.set(2);
             websocketStore.cachedWebSocketURL.set('wss://example.com');
 
             switchExecution('exec-new');
 
             expect(get(logsStore.logEvents)).toEqual([]);
-            expect(get(logsStore.logsRetryCount)).toBe(0);
             expect(get(websocketStore.cachedWebSocketURL)).toBeNull();
         });
 
@@ -150,13 +147,11 @@ describe('Execution State Management', () => {
             logsStore.logEvents.set([
                 { message: 'test', timestamp: 1000, event_id: 'event-1', line: 1 }
             ]);
-            logsStore.logsRetryCount.set(3);
             websocketStore.cachedWebSocketURL.set('wss://example.com');
 
             clearExecution();
 
             expect(get(logsStore.logEvents)).toEqual([]);
-            expect(get(logsStore.logsRetryCount)).toBe(0);
             expect(get(websocketStore.cachedWebSocketURL)).toBeNull();
         });
 

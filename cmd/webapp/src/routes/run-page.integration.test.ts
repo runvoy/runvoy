@@ -4,9 +4,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 
-import { load } from './+page';
 import RunPage from './+page.svelte';
-import APIClient from '../lib/api';
+import { setApiEndpoint, setApiKey } from '../stores/config';
 
 vi.mock('$app/environment', () => ({
     browser: true,
@@ -21,14 +20,20 @@ vi.mock('../lib/executionState', () => ({
     switchExecution: vi.fn()
 }));
 
-describe('run page load integration', () => {
+// Mock the global fetch for API calls
+const mockFetch = vi.fn();
+
+describe('run page integration', () => {
     beforeEach(() => {
         localStorage.clear();
-        document.cookie = '';
+        setApiEndpoint(null);
+        setApiKey(null);
+        mockFetch.mockClear();
+        vi.stubGlobal('fetch', mockFetch);
     });
 
-    it('constructs an API client through load and passes it to the view', async () => {
-        const mockFetch = vi.fn().mockResolvedValue(
+    it('uses the API client from the store to submit commands', async () => {
+        mockFetch.mockResolvedValue(
             new Response(
                 JSON.stringify({
                     execution_id: 'exec-123',
@@ -38,17 +43,11 @@ describe('run page load integration', () => {
             )
         );
 
-        const data = await load({
-            parent: async () => ({
-                endpoint: 'https://api.integration.test',
-                apiKey: 'abc123',
-                hasEndpoint: true,
-                hasApiKey: true,
-                apiClient: new APIClient('https://api.integration.test', 'abc123', mockFetch as any)
-            })
-        } as any);
+        // Set up config stores
+        setApiEndpoint('https://api.integration.test');
+        setApiKey('abc123');
 
-        render(RunPage as any, { props: { data } });
+        render(RunPage as any, { props: {} });
 
         const commandInput = screen.getByLabelText('Command to execute');
         await fireEvent.input(commandInput, { target: { value: 'echo from test' } });
@@ -63,21 +62,12 @@ describe('run page load integration', () => {
         expect(mockFetch.mock.calls[0][0]).toContain('https://api.integration.test');
     });
 
-    it('allows null apiClient when configuration is missing during load', async () => {
-        const result = (await load({
-            parent: async () => ({
-                endpoint: null,
-                apiKey: null,
-                hasEndpoint: false,
-                hasApiKey: false,
-                apiClient: null
-            })
-        } as any)) as {
-            apiClient: APIClient | null;
-        };
+    it('renders correctly when configuration is missing', async () => {
+        // No config set - apiClient will be null
+        render(RunPage as any, { props: {} });
 
-        // Should return null apiClient instead of throwing
-        // Component will handle redirect client-side
-        expect(result.apiClient).toBeNull();
+        // The page should still render (though API calls will fail)
+        const commandInput = screen.getByLabelText('Command to execute');
+        expect(commandInput).toBeInTheDocument();
     });
 });

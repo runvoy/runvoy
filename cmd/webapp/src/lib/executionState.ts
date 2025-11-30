@@ -6,14 +6,13 @@
  */
 import { get } from 'svelte/store';
 import { executionId } from '../stores/execution';
-import { logEvents, logsRetryCount } from '../stores/logs';
+import { logEvents } from '../stores/logs';
 import { cachedWebSocketURL, websocketConnection } from '../stores/websocket';
 import { disconnectWebSocket } from './websocket';
 import { activeView, VIEWS } from '../stores/ui';
 
 function resetExecutionData(): void {
     logEvents.set([]);
-    logsRetryCount.set(0);
     cachedWebSocketURL.set(null);
 }
 

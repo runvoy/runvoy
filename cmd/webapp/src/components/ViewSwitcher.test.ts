@@ -6,41 +6,22 @@ import { render, screen } from '@testing-library/svelte';
 import ViewSwitcher from './ViewSwitcher.svelte';
 import { VIEWS } from '../stores/ui';
 
-// Create a simple mock store inside hoisted to avoid initialization order issues
-const mockPageStore = vi.hoisted(() => {
-    // Create a simple mock store that implements the writable interface
-    const createMockStore = <T>(initial: T) => {
-        let value = initial;
-        const subscribers = new Set<(value: T) => void>();
+// Create a mock page state object (not a store - $app/state uses reactive objects)
+const mockPage = vi.hoisted(() => ({
+    url: new URL('http://localhost:5173/')
+}));
 
-        return {
-            set: (newValue: T) => {
-                value = newValue;
-                subscribers.forEach((fn) => fn(value));
-            },
-            update: (fn: (value: T) => T) => {
-                value = fn(value);
-                subscribers.forEach((subscriber) => subscriber(value));
-            },
-            subscribe: (fn: (value: T) => void) => {
-                subscribers.add(fn);
-                fn(value); // Call immediately with current value
-                return () => subscribers.delete(fn);
-            }
-        };
-    };
-
-    return createMockStore({
-        url: new URL('http://localhost:5173/')
-    });
-});
-
-// Mock the $app/stores module
-vi.mock('$app/stores', () => {
+// Mock the $app/state module
+vi.mock('$app/state', () => {
     return {
-        page: mockPageStore
+        page: mockPage
     };
 });
+
+// Helper to update mock page URL
+function setMockPageUrl(url: string) {
+    mockPage.url = new URL(url);
+}
 
 describe('ViewSwitcher', () => {
     const views = [
@@ -52,10 +33,8 @@ describe('ViewSwitcher', () => {
     ];
 
     beforeEach(() => {
-        // Reset the page store to root path before each test
-        mockPageStore.set({
-            url: new URL('http://localhost:5173/')
-        });
+        // Reset the page to root path before each test
+        setMockPageUrl('http://localhost:5173/');
     });
 
     it('should render all view links', () => {
@@ -88,9 +67,7 @@ describe('ViewSwitcher', () => {
     });
 
     it('should mark root path as active when on home page', () => {
-        mockPageStore.set({
-            url: new URL('http://localhost:5173/')
-        });
+        setMockPageUrl('http://localhost:5173/');
 
         render(ViewSwitcher, { props: { views } });
 
@@ -99,9 +76,7 @@ describe('ViewSwitcher', () => {
     });
 
     it('should mark correct link as active based on current path', () => {
-        mockPageStore.set({
-            url: new URL('http://localhost:5173/logs')
-        });
+        setMockPageUrl('http://localhost:5173/logs');
 
         render(ViewSwitcher, { props: { views } });
 
@@ -126,9 +101,7 @@ describe('ViewSwitcher', () => {
     });
 
     it('should not mark disabled links as active', () => {
-        mockPageStore.set({
-            url: new URL('http://localhost:5173/logs')
-        });
+        setMockPageUrl('http://localhost:5173/logs');
 
         const viewsWithDisabled = [
             { id: VIEWS.RUN, label: 'Run Command' },
@@ -143,9 +116,7 @@ describe('ViewSwitcher', () => {
     });
 
     it('should render with aria-current for active page', () => {
-        mockPageStore.set({
-            url: new URL('http://localhost:5173/settings')
-        });
+        setMockPageUrl('http://localhost:5173/settings');
 
         render(ViewSwitcher, { props: { views } });
 
@@ -157,9 +128,7 @@ describe('ViewSwitcher', () => {
     });
 
     it('should handle query parameters in URL', () => {
-        mockPageStore.set({
-            url: new URL('http://localhost:5173/logs?execution_id=abc123')
-        });
+        setMockPageUrl('http://localhost:5173/logs?execution_id=abc123');
 
         render(ViewSwitcher, { props: { views } });
 
@@ -183,9 +152,7 @@ describe('ViewSwitcher', () => {
     });
 
     it('should match executions route correctly', () => {
-        mockPageStore.set({
-            url: new URL('http://localhost:5173/executions')
-        });
+        setMockPageUrl('http://localhost:5173/executions');
 
         render(ViewSwitcher, { props: { views } });
 
@@ -197,9 +164,7 @@ describe('ViewSwitcher', () => {
     });
 
     it('should only mark root as active for exact match', () => {
-        mockPageStore.set({
-            url: new URL('http://localhost:5173/logs')
-        });
+        setMockPageUrl('http://localhost:5173/logs');
 
         render(ViewSwitcher, { props: { views } });
 

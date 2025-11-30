@@ -1,4 +1,4 @@
-import adapter from '@sveltejs/adapter-netlify';
+import adapter from '@sveltejs/adapter-static';
 import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -29,7 +29,9 @@ const config = {
                 runes: true
         },
         kit: {
-                adapter: adapter(),
+                adapter: adapter({
+			fallback: 'index.html'
+		}),
                 version: {
                         name: appVersion
                 },
