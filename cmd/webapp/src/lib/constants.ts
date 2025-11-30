@@ -3,11 +3,6 @@
  * Centralized location for all application-wide constants
  */
 
-// Logs retry configuration
-export const MAX_LOGS_RETRIES = 3;
-export const LOGS_RETRY_DELAY = 10000; // 10 seconds in milliseconds
-export const STARTING_STATE_DELAY = 30000; // 30 seconds in milliseconds
-
 // Execution status constants (matches backend ExecutionStatus)
 export const ExecutionStatus = {
     STARTING: 'STARTING',
