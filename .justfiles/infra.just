@@ -5,7 +5,7 @@ create-stackset-prerequisites:
     aws cloudformation deploy \
         --region us-east-1 \
         --stack-name runvoy-stackset-prerequisites \
-        --template-file deploy/providers/aws/runvoy-stackset-prerequisites.yaml \
+        --template-file deploy/release/runvoy-stackset-prerequisites.yaml \
         --capabilities CAPABILITY_NAMED_IAM
 
 # Create releases bucket with multi-region replication
@@ -13,7 +13,7 @@ create-releases-buckets: create-stackset-prerequisites
     aws cloudformation create-stack-set \
         --region us-east-1 \
         --stack-set-name runvoy-releases-bucket \
-        --template-body file://deploy/providers/aws/runvoy-bucket.yaml
+        --template-body file://deploy/release/runvoy-bucket.yaml
 
     aws cloudformation create-stack-instances \
         --region us-east-1 \
@@ -40,7 +40,7 @@ create-releases-buckets: create-stackset-prerequisites
     aws cloudformation deploy \
         --region us-east-1 \
         --stack-name runvoy-releases-bucket-replication \
-        --template-file deploy/providers/aws/runvoy-bucket-replication.yaml \
+        --template-file deploy/release/runvoy-bucket-replication.yaml \
         --capabilities CAPABILITY_NAMED_IAM \
         --parameter-overrides ReplicationTargetRegions="{{replication_target_regions}}"
 

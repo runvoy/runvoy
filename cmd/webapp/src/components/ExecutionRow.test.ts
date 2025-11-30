@@ -111,7 +111,7 @@ describe('ExecutionRow', () => {
     it('should render status badge with unknown status and default color', () => {
         const unknownExecution: Execution = {
             ...mockExecution,
-            status: 'UNKNOWN_STATUS'
+            status: 'UNKNOWN_STATUS' as any
         };
 
         renderExecutionRow(unknownExecution);

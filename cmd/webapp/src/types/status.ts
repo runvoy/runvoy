@@ -1,11 +1,7 @@
 /**
  * Status-related types derived from constants
  */
-import type {
-    ExecutionStatus,
-    FrontendStatus,
-    VIEWS
-} from '../lib/constants';
+import type { ExecutionStatus, FrontendStatus, VIEWS } from '../lib/constants';
 
 /**
  * Union type of all possible execution status values

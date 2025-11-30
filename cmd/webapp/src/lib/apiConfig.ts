@@ -58,7 +58,7 @@ export function createApiClientFromConfig(
     // Always use lenient validation (don't require API key, don't throw on invalid)
     // Individual pages handle their own validation requirements
     const endpoint = normalizeEndpoint(config.endpoint);
-    
+
     // Return null if no valid endpoint (API key is optional)
     if (!endpoint) {
         return null;
