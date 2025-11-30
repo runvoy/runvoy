@@ -8,6 +8,7 @@ import type { Redirect } from '@sveltejs/kit';
 import Layout from './+layout.svelte';
 import { load } from './+layout';
 import { setApiEndpoint, setApiKey } from '../stores/config';
+import APIClient from '../lib/api';
 
 vi.mock('$app/environment', () => ({
     version: 'test-version',
@@ -51,16 +52,20 @@ vi.mock('$app/stores', () => {
 });
 
 describe('layout load', () => {
+    const mockFetch = vi.fn();
+
     beforeEach(() => {
         localStorage.clear();
         setApiEndpoint(null);
         setApiKey(null);
+        mockFetch.mockClear();
     });
 
-    it('redirects to settings when no endpoint is configured', () => {
+    it('redirects to settings when no endpoint is configured', async () => {
         try {
-            load({
-                url: new URL('http://localhost:5173/logs')
+            await load({
+                url: new URL('http://localhost:5173/logs'),
+                fetch: mockFetch
             } as any);
         } catch (error) {
             const redirectError = error as Redirect;
@@ -72,12 +77,13 @@ describe('layout load', () => {
         throw new Error('Expected redirect to settings');
     });
 
-    it('redirects to claim when API key is missing', () => {
+    it('redirects to claim when API key is missing', async () => {
         localStorage.setItem('runvoy_endpoint', 'https://api.example.test');
 
         try {
-            load({
-                url: new URL('http://localhost:5173/logs')
+            await load({
+                url: new URL('http://localhost:5173/logs'),
+                fetch: mockFetch
             } as any);
         } catch (error) {
             const redirectError = error as Redirect;
@@ -89,88 +95,100 @@ describe('layout load', () => {
         throw new Error('Expected redirect to claim');
     });
 
-    it('returns persisted flags when configuration exists', () => {
+    it('returns persisted flags when configuration exists', async () => {
         localStorage.setItem('runvoy_endpoint', 'https://api.example.test');
         localStorage.setItem('runvoy_api_key', 'secret-key');
 
-        const result = load({
-            url: new URL('http://localhost:5173/')
-        } as any) as {
+        const result = (await load({
+            url: new URL('http://localhost:5173/'),
+            fetch: mockFetch
+        } as any)) as {
             hasEndpoint: boolean;
             hasApiKey: boolean;
             endpoint: string | null;
             apiKey: string | null;
+            apiClient: APIClient | null;
         };
 
         expect(result.hasEndpoint).toBe(true);
         expect(result.hasApiKey).toBe(true);
         expect(result.endpoint).toBe('https://api.example.test');
         expect(result.apiKey).toBe('secret-key');
+        expect(result.apiClient).toBeInstanceOf(APIClient);
     });
 
-    it('reads from localStorage', () => {
+    it('reads from localStorage', async () => {
         localStorage.setItem('runvoy_endpoint', 'https://api.local.test');
         localStorage.setItem('runvoy_api_key', 'local-key');
 
-        const result = load({
-            url: new URL('http://localhost:5173/')
-        } as any) as {
+        const result = (await load({
+            url: new URL('http://localhost:5173/'),
+            fetch: mockFetch
+        } as any)) as {
             hasEndpoint: boolean;
             hasApiKey: boolean;
             endpoint: string | null;
             apiKey: string | null;
+            apiClient: APIClient | null;
         };
 
         expect(result.hasEndpoint).toBe(true);
         expect(result.hasApiKey).toBe(true);
         expect(result.endpoint).toBe('https://api.local.test');
         expect(result.apiKey).toBe('local-key');
+        expect(result.apiClient).toBeInstanceOf(APIClient);
     });
 
-    it('loads without any server data in a SPA/static environment', () => {
+    it('loads without any server data in a SPA/static environment', async () => {
         localStorage.setItem('runvoy_endpoint', 'https://api.local.test');
         localStorage.setItem('runvoy_api_key', 'local-key');
 
-        const result = load({
-            url: new URL('http://localhost:5173/')
-        } as any) as {
+        const result = (await load({
+            url: new URL('http://localhost:5173/'),
+            fetch: mockFetch
+        } as any)) as {
             hasEndpoint: boolean;
             hasApiKey: boolean;
             endpoint: string | null;
             apiKey: string | null;
+            apiClient: APIClient | null;
         };
 
         expect(result.hasEndpoint).toBe(true);
         expect(result.hasApiKey).toBe(true);
         expect(result.endpoint).toBe('https://api.local.test');
         expect(result.apiKey).toBe('local-key');
+        expect(result.apiClient).toBeInstanceOf(APIClient);
     });
 
-    it('hydrates configuration from cookies when available', () => {
+    it('hydrates configuration from cookies when available', async () => {
         const cookies = new Map([
             ['runvoy_endpoint', encodeURIComponent(JSON.stringify('https://cookie.example'))],
             ['runvoy_api_key', encodeURIComponent(JSON.stringify('cookie-key'))]
         ]);
 
-        const result = load({
+        const result = (await load({
             url: new URL('http://localhost:5173/'),
+            fetch: mockFetch,
             cookies: {
                 get: (key: string) => cookies.get(key) || '',
                 set: vi.fn(),
                 delete: vi.fn(),
                 serialize: vi.fn()
             }
-        } as any) as {
+        } as any)) as {
             hasEndpoint: boolean;
             hasApiKey: boolean;
             endpoint: string | null;
             apiKey: string | null;
+            apiClient: APIClient | null;
         };
 
         expect(result.hasEndpoint).toBe(true);
         expect(result.hasApiKey).toBe(true);
         expect(result.endpoint).toBe('https://cookie.example');
         expect(result.apiKey).toBe('cookie-key');
+        expect(result.apiClient).toBeInstanceOf(APIClient);
     });
 });
 
@@ -186,7 +204,15 @@ describe('navigation state', () => {
 
     it('disables non-settings views when endpoint is missing', () => {
         render(Layout as any, {
-            props: { data: { hasEndpoint: false, hasApiKey: false, endpoint: null, apiKey: null } }
+            props: {
+                data: {
+                    hasEndpoint: false,
+                    hasApiKey: false,
+                    endpoint: null,
+                    apiKey: null,
+                    apiClient: null
+                }
+            }
         });
 
         expect(screen.getByText('Run Command')).toHaveClass('disabled');
@@ -197,13 +223,17 @@ describe('navigation state', () => {
     });
 
     it('enables claim but disables logs/list when API key is missing', () => {
+        const mockFetch = vi.fn();
+        const apiClient = new APIClient('https://api.example.test', '', mockFetch);
+
         render(Layout as any, {
             props: {
                 data: {
                     hasEndpoint: true,
                     hasApiKey: false,
                     endpoint: 'https://api.example.test',
-                    apiKey: null
+                    apiKey: null,
+                    apiClient
                 }
             }
         });
@@ -217,6 +247,8 @@ describe('navigation state', () => {
     it('enables all views when fully configured', () => {
         setApiEndpoint('https://api.example.test');
         setApiKey('abc123');
+        const mockFetch = vi.fn();
+        const apiClient = new APIClient('https://api.example.test', 'abc123', mockFetch);
 
         render(Layout as any, {
             props: {
@@ -224,7 +256,8 @@ describe('navigation state', () => {
                     hasEndpoint: true,
                     hasApiKey: true,
                     endpoint: 'https://api.example.test',
-                    apiKey: 'abc123'
+                    apiKey: 'abc123',
+                    apiClient
                 }
             }
         });

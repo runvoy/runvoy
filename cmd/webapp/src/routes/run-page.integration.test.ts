@@ -6,6 +6,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 
 import { load } from './+page';
 import RunPage from './+page.svelte';
+import APIClient from '../lib/api';
 
 vi.mock('$app/environment', () => ({
     browser: true,
@@ -38,12 +39,12 @@ describe('run page load integration', () => {
         );
 
         const data = await load({
-            fetch: mockFetch as any,
             parent: async () => ({
                 endpoint: 'https://api.integration.test',
                 apiKey: 'abc123',
                 hasEndpoint: true,
-                hasApiKey: true
+                hasApiKey: true,
+                apiClient: new APIClient('https://api.integration.test', 'abc123', mockFetch as any)
             })
         } as any);
 
@@ -64,12 +65,12 @@ describe('run page load integration', () => {
 
     it('throws when configuration is missing during load', async () => {
         const loadPromise = load({
-            fetch: vi.fn() as any,
             parent: async () => ({
                 endpoint: null,
                 apiKey: null,
                 hasEndpoint: false,
-                hasApiKey: false
+                hasApiKey: false,
+                apiClient: null
             })
         } as any);
 
