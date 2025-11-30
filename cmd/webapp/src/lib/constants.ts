@@ -40,10 +40,6 @@ export function isTerminalStatus(status: string): boolean {
     return (TERMINAL_STATUSES as readonly string[]).includes(status);
 }
 
-export type ExecutionStatusValue =
-    | (typeof ExecutionStatus)[keyof typeof ExecutionStatus]
-    | (typeof FrontendStatus)[keyof typeof FrontendStatus];
-
 // View names
 export const VIEWS = {
     LOGS: 'logs',
@@ -52,5 +48,3 @@ export const VIEWS = {
     SETTINGS: 'settings',
     LIST: 'list'
 } as const;
-
-export type ViewName = (typeof VIEWS)[keyof typeof VIEWS];

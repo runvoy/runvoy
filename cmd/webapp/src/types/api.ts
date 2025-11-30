@@ -2,7 +2,7 @@
  * API request and response type definitions for the runvoy backend
  */
 import type { ApiLogEvent } from './logs';
-import type { ExecutionStatusValue } from '../lib/constants';
+import type { ExecutionStatusValue } from './status';
 
 export interface RunCommandPayload {
     command: string;
