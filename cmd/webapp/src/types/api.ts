@@ -2,6 +2,7 @@
  * API request and response type definitions for the runvoy backend
  */
 import type { ApiLogEvent } from './logs';
+import type { ExecutionStatusValue } from '../lib/constants';
 
 export interface RunCommandPayload {
     command: string;
@@ -15,7 +16,7 @@ export interface RunCommandPayload {
 
 export interface RunCommandResponse {
     execution_id: string;
-    status: string;
+    status: ExecutionStatusValue;
     websocket_url?: string;
     image_id?: string;
     log_url?: string;
@@ -24,12 +25,12 @@ export interface RunCommandResponse {
 export interface LogsResponse {
     events: ApiLogEvent[] | null;
     websocket_url?: string;
-    status: string;
+    status: ExecutionStatusValue;
 }
 
 export interface ExecutionStatusResponse {
     execution_id: string;
-    status: string;
+    status: ExecutionStatusValue;
     started_at?: string;
     completed_at?: string;
     exit_code?: number;
@@ -45,7 +46,7 @@ export type ListExecutionsResponse = Execution[];
 
 export interface Execution {
     execution_id: string;
-    status: string;
+    status: ExecutionStatusValue;
     started_at: string;
     completed_at?: string;
     exit_code?: number;
