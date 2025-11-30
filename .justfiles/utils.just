@@ -61,6 +61,13 @@ truncate-dynamodb-table table_name:
 delete-buckets *ARGS:
     go run scripts/delete-s3-buckets/*.go {{ARGS}}
 
+# Fetch and print API endpoint URL from CloudFormation stack
+get-endpoint stack_name:
+    @aws cloudformation describe-stacks \
+        --stack-name {{stack_name}} \
+        --query "Stacks[0].Outputs[?OutputKey=='APIEndpoint'].OutputValue" \
+        --output text
+
 # Cleanup old branches
 cleanup-branches:
     git fetch --prune

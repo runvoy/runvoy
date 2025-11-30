@@ -3,9 +3,6 @@
  * Centralized location for all application-wide constants
  */
 
-// Cookie configuration
-export const COOKIE_MAX_AGE = 60 * 60 * 24 * 30; // 30 days in seconds
-
 // Logs retry configuration
 export const MAX_LOGS_RETRIES = 3;
 export const LOGS_RETRY_DELAY = 10000; // 10 seconds in milliseconds

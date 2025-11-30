@@ -1,6 +1,5 @@
 import { browser } from '$app/environment';
 import { derived, writable, type Readable, type Writable } from 'svelte/store';
-import { COOKIE_MAX_AGE } from '$lib/constants';
 
 /**
  * Configuration store with localStorage persistence
@@ -10,44 +9,10 @@ type PersistedStore<T> = {
     readable: Readable<T>;
     set: Writable<T>['set'];
     update: Writable<T>['update'];
-    hydrate: (initialValue?: T) => T;
+    hydrate: () => T;
 };
 
-type ConfigSnapshot = {
-    endpoint?: string | null;
-    apiKey?: string | null;
-};
-
-function getCookieValue(key: string): string | null {
-    if (!browser) {
-        return null;
-    }
-
-    const cookies = document.cookie.split(';').map((cookie) => cookie.trim());
-
-    for (const cookie of cookies) {
-        if (cookie.startsWith(`${key}=`)) {
-            return decodeURIComponent(cookie.slice(key.length + 1));
-        }
-    }
-
-    return null;
-}
-
-function persistCookie(key: string, value: string | null): void {
-    if (!browser) {
-        return;
-    }
-
-    if (!value) {
-        document.cookie = `${key}=; Max-Age=0; Path=/; SameSite=Lax`;
-        return;
-    }
-
-    document.cookie = `${key}=${encodeURIComponent(value)}; Max-Age=${COOKIE_MAX_AGE}; Path=/; SameSite=Lax`;
-}
-
-export function parsePersistedValue<T>(value: string | null): T | null {
+function parsePersistedValue<T>(value: string | null): T | null {
     if (!value) {
         return null;
     }
@@ -83,12 +48,9 @@ function createPersistentStore<T>(key: string, defaultValue: T): PersistedStore<
         currentValue = value;
     });
 
-    const hydrate = (initialValue?: T): T => {
+    const hydrate = (): T => {
         const stored = browser ? parsePersistedValue<T>(localStorage.getItem(key)) : null;
-        const cookieValue = browser ? parsePersistedValue<T>(getCookieValue(key)) : null;
-        const nextValue = browser
-            ? ((stored ?? cookieValue ?? initialValue ?? defaultValue) as T)
-            : ((initialValue ?? currentValue ?? defaultValue) as T);
+        const nextValue = (stored ?? currentValue ?? defaultValue) as T;
 
         if (!hydrated || browser) {
             writableStore.set(nextValue);
@@ -100,10 +62,8 @@ function createPersistentStore<T>(key: string, defaultValue: T): PersistedStore<
 
                 if (serialized === null) {
                     localStorage.removeItem(key);
-                    persistCookie(key, null);
                 } else {
                     localStorage.setItem(key, serialized);
-                    persistCookie(key, serialized);
                 }
             });
         }
@@ -141,9 +101,9 @@ export const updateApiEndpoint = apiEndpointStore.update;
 export const setApiKey = apiKeyStore.set;
 export const updateApiKey = apiKeyStore.update;
 
-export function hydrateConfigStores(initial?: ConfigSnapshot) {
-    const endpoint = apiEndpointStore.hydrate(initial?.endpoint);
-    const apiKey = apiKeyStore.hydrate(initial?.apiKey);
+export function hydrateConfigStores() {
+    const endpoint = apiEndpointStore.hydrate();
+    const apiKey = apiKeyStore.hydrate();
 
     return { endpoint, apiKey };
 }
