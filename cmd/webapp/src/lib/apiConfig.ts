@@ -57,17 +57,13 @@ export function createApiClientFromConfig(
 ): APIClient | null {
     // Always use lenient validation (don't require API key, don't throw on invalid)
     // Individual pages handle their own validation requirements
-    const validated = validateApiConfiguration(config, {
-        requireApiKey: false,
-        throwOnInvalid: false
-    });
-
-    if (!validated) {
+    const endpoint = normalizeEndpoint(config.endpoint);
+    
+    // Return null if no valid endpoint (API key is optional)
+    if (!endpoint) {
         return null;
     }
 
-    const apiKey: string = validated.apiKey ?? '';
-    // validated.endpoint is guaranteed to be a string after validation (not null/undefined)
-    const endpoint: string = validated.endpoint as string;
+    const apiKey: string = config.apiKey?.trim() ?? '';
     return new APIClient(endpoint, apiKey, fetcher);
 }
