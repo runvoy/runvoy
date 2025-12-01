@@ -670,49 +670,115 @@ func (r *UserRepository) ListUsers(ctx context.Context) ([]*api.User, error) {
 }
 
 // GetUsersByRequestID retrieves all users created or modified by a specific request ID.
+//
+//nolint:dupl // Similar pattern to GetSecretsByRequestID and GetImagesByRequestID, but different types
 func (r *UserRepository) GetUsersByRequestID(ctx context.Context, requestID string) ([]*api.User, error) {
 	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
 
 	logArgs := []any{
-		"operation", "DynamoDB.Scan",
+		"operation", "DynamoDB.Query",
 		"table", r.tableName,
 		"request_id", requestID,
+		"indexes", []string{createdByRequestIDIndexName, modifiedByRequestIDIndexName},
 	}
 	logArgs = append(logArgs, logger.GetDeadlineInfo(ctx)...)
 	reqLogger.Debug("calling external service", "context", logger.SliceToMap(logArgs))
 
-	// Scan with filter expression to find users where created_by_request_id OR modified_by_request_id matches
-	result, err := r.client.Scan(ctx, &dynamodb.ScanInput{
-		TableName:        aws.String(r.tableName),
-		FilterExpression: aws.String("created_by_request_id = :request_id OR modified_by_request_id = :request_id"),
-		ExpressionAttributeValues: map[string]types.AttributeValue{
-			":request_id": &types.AttributeValueMemberS{Value: requestID},
-		},
-	})
+	createdUsers, err := r.queryUsersByRequestIDIndex(ctx, createdByRequestIDIndexName, requestID)
 	if err != nil {
-		return nil, apperrors.ErrDatabaseError("failed to scan users by request ID", err)
+		return nil, err
 	}
 
-	users := make([]*api.User, 0, len(result.Items))
-	for _, item := range result.Items {
-		var dbUserItem userItem
-		if err = attributevalue.UnmarshalMap(item, &dbUserItem); err != nil {
-			reqLogger.Warn("failed to unmarshal user item", "error", err)
-			continue
+	modifiedUsers, err := r.queryUsersByRequestIDIndex(ctx, modifiedByRequestIDIndexName, requestID)
+	if err != nil {
+		return nil, err
+	}
+
+	userMap := make(map[string]*api.User)
+	for _, user := range createdUsers {
+		userMap[user.Email] = user
+	}
+	for _, user := range modifiedUsers {
+		userMap[user.Email] = user
+	}
+
+	users := make([]*api.User, 0, len(userMap))
+	for _, user := range userMap {
+		users = append(users, user)
+	}
+
+	return users, nil
+}
+
+// queryUsersByRequestIDIndex queries a GSI by request ID and returns all matching users.
+//
+//nolint:funlen // Query pagination logic requires length
+func (r *UserRepository) queryUsersByRequestIDIndex(
+	ctx context.Context,
+	indexName string,
+	requestID string,
+) ([]*api.User, error) {
+	users := make([]*api.User, 0)
+	var lastKey map[string]types.AttributeValue
+
+	var attributeName string
+	switch indexName {
+	case createdByRequestIDIndexName:
+		attributeName = createdByRequestIDAttrName
+	case modifiedByRequestIDIndexName:
+		attributeName = modifiedByRequestIDAttrName
+	default:
+		return nil, apperrors.ErrDatabaseError("unknown index name: "+indexName, nil)
+	}
+
+	exprNames := map[string]string{
+		"#request_id": attributeName,
+	}
+	exprValues := map[string]types.AttributeValue{
+		":request_id": &types.AttributeValueMemberS{Value: requestID},
+	}
+
+	for {
+		queryInput := &dynamodb.QueryInput{
+			TableName:                 aws.String(r.tableName),
+			IndexName:                 aws.String(indexName),
+			KeyConditionExpression:    aws.String("#request_id = :request_id"),
+			ExpressionAttributeNames:  exprNames,
+			ExpressionAttributeValues: exprValues,
+			ScanIndexForward:          aws.Bool(false),
+			ExclusiveStartKey:         lastKey,
 		}
 
-		user := &api.User{
-			Email:               dbUserItem.UserEmail,
-			Role:                dbUserItem.Role,
-			CreatedAt:           dbUserItem.CreatedAt,
-			Revoked:             dbUserItem.Revoked,
-			CreatedByRequestID:  dbUserItem.CreatedByRequestID,
-			ModifiedByRequestID: dbUserItem.ModifiedByRequestID,
+		result, err := r.client.Query(ctx, queryInput)
+		if err != nil {
+			return nil, apperrors.ErrDatabaseError(
+				"failed to query users by request ID from "+indexName, err)
 		}
-		if !dbUserItem.LastUsed.IsZero() {
-			user.LastUsed = &dbUserItem.LastUsed
+
+		for _, item := range result.Items {
+			var dbUserItem userItem
+			if err = attributevalue.UnmarshalMap(item, &dbUserItem); err != nil {
+				continue
+			}
+
+			user := &api.User{
+				Email:               dbUserItem.UserEmail,
+				Role:                dbUserItem.Role,
+				CreatedAt:           dbUserItem.CreatedAt,
+				Revoked:             dbUserItem.Revoked,
+				CreatedByRequestID:  dbUserItem.CreatedByRequestID,
+				ModifiedByRequestID: dbUserItem.ModifiedByRequestID,
+			}
+			if !dbUserItem.LastUsed.IsZero() {
+				user.LastUsed = &dbUserItem.LastUsed
+			}
+			users = append(users, user)
 		}
-		users = append(users, user)
+
+		if len(result.LastEvaluatedKey) == 0 {
+			break
+		}
+		lastKey = result.LastEvaluatedKey
 	}
 
 	return users, nil

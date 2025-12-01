@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"math"
 	"sort"
 	"strconv"
 	"strings"
@@ -177,6 +178,8 @@ func (r *ImageTaskDefRepository) PutImageTaskDef(
 	if err != nil {
 		return apperrors.ErrInternalError("failed to marshal image-taskdef item", err)
 	}
+
+	av["_all"] = &types.AttributeValueMemberS{Value: "IMAGE"}
 
 	logArgs := []any{
 		"operation", "DynamoDB.PutItem",
@@ -403,22 +406,48 @@ func (r *ImageTaskDefRepository) ListImages(ctx context.Context) ([]api.ImageInf
 	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
 
 	logArgs := []any{
-		"operation", "DynamoDB.Scan",
+		"operation", "DynamoDB.Query",
 		"table", r.tableName,
+		"index", "all-image_id",
 	}
 	logArgs = append(logArgs, logger.GetDeadlineInfo(ctx)...)
 	reqLogger.Debug("calling external service", "context", logger.SliceToMap(logArgs))
 
-	result, err := r.client.Scan(ctx, &dynamodb.ScanInput{
-		TableName: aws.String(r.tableName),
-	})
-	if err != nil {
-		return nil, apperrors.ErrInternalError("failed to scan image-taskdef table", err)
+	var items []imageTaskDefItem
+	var lastKey map[string]types.AttributeValue
+
+	exprNames := map[string]string{
+		"#all": "_all",
+	}
+	exprValues := map[string]types.AttributeValue{
+		":all": &types.AttributeValueMemberS{Value: "IMAGE"},
 	}
 
-	var items []imageTaskDefItem
-	if unmarshalErr := attributevalue.UnmarshalListOfMaps(result.Items, &items); unmarshalErr != nil {
-		return nil, apperrors.ErrInternalError("failed to unmarshal image-taskdef items", unmarshalErr)
+	for {
+		result, err := r.client.Query(ctx, &dynamodb.QueryInput{
+			TableName:                 aws.String(r.tableName),
+			IndexName:                 aws.String("all-image_id"),
+			KeyConditionExpression:    aws.String("#all = :all"),
+			ExpressionAttributeNames:  exprNames,
+			ExpressionAttributeValues: exprValues,
+			ScanIndexForward:          aws.Bool(true),
+			ExclusiveStartKey:         lastKey,
+		})
+		if err != nil {
+			return nil, apperrors.ErrInternalError("failed to query image-taskdef table", err)
+		}
+
+		var batchItems []imageTaskDefItem
+		if unmarshalErr := attributevalue.UnmarshalListOfMaps(result.Items, &batchItems); unmarshalErr != nil {
+			return nil, apperrors.ErrInternalError("failed to unmarshal image-taskdef items", unmarshalErr)
+		}
+
+		items = append(items, batchItems...)
+
+		if len(result.LastEvaluatedKey) == 0 {
+			break
+		}
+		lastKey = result.LastEvaluatedKey
 	}
 
 	allImages, convertErr := r.convertItemsToImageInfo(items)
@@ -441,33 +470,99 @@ func (r *ImageTaskDefRepository) GetImagesByRequestID(ctx context.Context, reque
 	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
 
 	logArgs := []any{
-		"operation", "DynamoDB.Scan",
+		"operation", "DynamoDB.Query",
 		"table", r.tableName,
 		"request_id", requestID,
+		"indexes", []string{createdByRequestIDIndexName, modifiedByRequestIDIndexName},
 	}
 	logArgs = append(logArgs, logger.GetDeadlineInfo(ctx)...)
 	reqLogger.Debug("calling external service", "context", logger.SliceToMap(logArgs))
 
-	// Scan with filter expression to find images where created_by_request_id OR modified_by_request_id matches
-	result, err := r.client.Scan(ctx, &dynamodb.ScanInput{
-		TableName:        aws.String(r.tableName),
-		FilterExpression: aws.String("created_by_request_id = :request_id OR modified_by_request_id = :request_id"),
-		ExpressionAttributeValues: map[string]types.AttributeValue{
-			":request_id": &types.AttributeValueMemberS{Value: requestID},
-		},
-	})
+	createdImages, err := r.queryImagesByRequestIDIndex(ctx, createdByRequestIDIndexName, requestID)
 	if err != nil {
-		return nil, apperrors.ErrInternalError("failed to scan image-taskdef table by request ID", err)
+		return nil, err
 	}
 
-	var items []imageTaskDefItem
-	if unmarshalErr := attributevalue.UnmarshalListOfMaps(result.Items, &items); unmarshalErr != nil {
-		return nil, apperrors.ErrInternalError("failed to unmarshal image-taskdef items", unmarshalErr)
+	modifiedImages, err := r.queryImagesByRequestIDIndex(ctx, modifiedByRequestIDIndexName, requestID)
+	if err != nil {
+		return nil, err
 	}
 
-	images, convertErr := r.convertItemsToImageInfo(items)
-	if convertErr != nil {
-		return nil, convertErr
+	imageMap := make(map[string]*api.ImageInfo)
+	for _, img := range createdImages {
+		imageMap[img.ImageID] = img
+	}
+	for _, img := range modifiedImages {
+		imageMap[img.ImageID] = img
+	}
+
+	images := make([]api.ImageInfo, 0, len(imageMap))
+	for _, img := range imageMap {
+		images = append(images, *img)
+	}
+
+	return images, nil
+}
+
+// queryImagesByRequestIDIndex queries a GSI by request ID and returns all matching images.
+func (r *ImageTaskDefRepository) queryImagesByRequestIDIndex(
+	ctx context.Context,
+	indexName string,
+	requestID string,
+) ([]*api.ImageInfo, error) {
+	images := make([]*api.ImageInfo, 0)
+	var lastKey map[string]types.AttributeValue
+
+	var attributeName string
+	switch indexName {
+	case createdByRequestIDIndexName:
+		attributeName = createdByRequestIDAttrName
+	case modifiedByRequestIDIndexName:
+		attributeName = modifiedByRequestIDAttrName
+	default:
+		return nil, apperrors.ErrInternalError("unknown index name: "+indexName, nil)
+	}
+
+	exprNames := map[string]string{
+		"#request_id": attributeName,
+	}
+	exprValues := map[string]types.AttributeValue{
+		":request_id": &types.AttributeValueMemberS{Value: requestID},
+	}
+
+	for {
+		queryInput := &dynamodb.QueryInput{
+			TableName:                 aws.String(r.tableName),
+			IndexName:                 aws.String(indexName),
+			KeyConditionExpression:    aws.String("#request_id = :request_id"),
+			ExpressionAttributeNames:  exprNames,
+			ExpressionAttributeValues: exprValues,
+			ScanIndexForward:          aws.Bool(false),
+			ExclusiveStartKey:         lastKey,
+		}
+
+		result, err := r.client.Query(ctx, queryInput)
+		if err != nil {
+			return nil, apperrors.ErrInternalError(
+				"failed to query images by request ID from "+indexName, err)
+		}
+
+		for _, item := range result.Items {
+			var execItem imageTaskDefItem
+			if err = attributevalue.UnmarshalMap(item, &execItem); err != nil {
+				return nil, apperrors.ErrInternalError("failed to unmarshal image item", err)
+			}
+			img, convertErr := r.convertItemToImageInfo(&execItem)
+			if convertErr != nil {
+				return nil, convertErr
+			}
+			images = append(images, img)
+		}
+
+		if len(result.LastEvaluatedKey) == 0 {
+			break
+		}
+		lastKey = result.LastEvaluatedKey
 	}
 
 	return images, nil
@@ -634,16 +729,41 @@ func (r *ImageTaskDefRepository) findItemsByNameTag(ctx context.Context, image s
 	queryName, queryTag := parseImageReference(image)
 	queryNameTag := fmt.Sprintf("%s:%s", queryName, queryTag)
 
-	allResult, allScanErr := r.client.Scan(ctx, &dynamodb.ScanInput{
-		TableName: aws.String(r.tableName),
-	})
-	if allScanErr != nil {
-		return nil, apperrors.ErrInternalError("failed to scan image mappings", allScanErr)
+	var allItems []imageTaskDefItem
+	var lastKey map[string]types.AttributeValue
+
+	exprNames := map[string]string{
+		"#all": "_all",
+	}
+	exprValues := map[string]types.AttributeValue{
+		":all": &types.AttributeValueMemberS{Value: "IMAGE"},
 	}
 
-	var allItems []imageTaskDefItem
-	if unmarshalErr := attributevalue.UnmarshalListOfMaps(allResult.Items, &allItems); unmarshalErr != nil {
-		return nil, apperrors.ErrInternalError("failed to unmarshal image items", unmarshalErr)
+	for {
+		result, err := r.client.Query(ctx, &dynamodb.QueryInput{
+			TableName:                 aws.String(r.tableName),
+			IndexName:                 aws.String("all-image_id"),
+			KeyConditionExpression:    aws.String("#all = :all"),
+			ExpressionAttributeNames:  exprNames,
+			ExpressionAttributeValues: exprValues,
+			ScanIndexForward:          aws.Bool(true),
+			ExclusiveStartKey:         lastKey,
+		})
+		if err != nil {
+			return nil, apperrors.ErrInternalError("failed to query image mappings", err)
+		}
+
+		var batchItems []imageTaskDefItem
+		if unmarshalErr := attributevalue.UnmarshalListOfMaps(result.Items, &batchItems); unmarshalErr != nil {
+			return nil, apperrors.ErrInternalError("failed to unmarshal image items", unmarshalErr)
+		}
+
+		allItems = append(allItems, batchItems...)
+
+		if len(result.LastEvaluatedKey) == 0 {
+			break
+		}
+		lastKey = result.LastEvaluatedKey
 	}
 
 	var items []imageTaskDefItem
@@ -663,27 +783,45 @@ func (r *ImageTaskDefRepository) findItemsByImage(
 	image string,
 ) ([]imageTaskDefItem, error) {
 	logArgs := []any{
-		"operation", "DynamoDB.Scan",
+		"operation", "DynamoDB.Query",
 		"table", r.tableName,
+		"index", "image-index",
 		"image", image,
 	}
 	logArgs = append(logArgs, logger.GetDeadlineInfo(ctx)...)
 	reqLogger.Debug("calling external service", "context", logger.SliceToMap(logArgs))
 
-	result, scanErr := r.client.Scan(ctx, &dynamodb.ScanInput{
-		TableName:        aws.String(r.tableName),
-		FilterExpression: aws.String("image = :image"),
-		ExpressionAttributeValues: map[string]types.AttributeValue{
-			":image": &types.AttributeValueMemberS{Value: image},
-		},
-	})
-	if scanErr != nil {
-		return nil, apperrors.ErrInternalError("failed to scan image mappings", scanErr)
+	var items []imageTaskDefItem
+	var lastKey map[string]types.AttributeValue
+
+	exprValues := map[string]types.AttributeValue{
+		":image": &types.AttributeValueMemberS{Value: image},
 	}
 
-	var items []imageTaskDefItem
-	if unmarshalErr := attributevalue.UnmarshalListOfMaps(result.Items, &items); unmarshalErr != nil {
-		return nil, apperrors.ErrInternalError("failed to unmarshal image items", unmarshalErr)
+	for {
+		result, err := r.client.Query(ctx, &dynamodb.QueryInput{
+			TableName:                 aws.String(r.tableName),
+			IndexName:                 aws.String("image-index"),
+			KeyConditionExpression:    aws.String("image = :image"),
+			ExpressionAttributeValues: exprValues,
+			ScanIndexForward:          aws.Bool(true),
+			ExclusiveStartKey:         lastKey,
+		})
+		if err != nil {
+			return nil, apperrors.ErrInternalError("failed to query image mappings", err)
+		}
+
+		var batchItems []imageTaskDefItem
+		if unmarshalErr := attributevalue.UnmarshalListOfMaps(result.Items, &batchItems); unmarshalErr != nil {
+			return nil, apperrors.ErrInternalError("failed to unmarshal image items", unmarshalErr)
+		}
+
+		items = append(items, batchItems...)
+
+		if len(result.LastEvaluatedKey) == 0 {
+			break
+		}
+		lastKey = result.LastEvaluatedKey
 	}
 
 	if len(items) == 0 {
@@ -753,52 +891,113 @@ func (r *ImageTaskDefRepository) DeleteImage(ctx context.Context, image string) 
 // Supports flexible matching: tries exact match on full image first, then matches by name:tag components.
 // Returns the first matching item, preferring the default configuration if available.
 //
-//nolint:funlen // Complex logic with helper function
+//nolint:funlen,gocyclo // Complex logic with helper function and fallback matching
 func (r *ImageTaskDefRepository) GetAnyImageTaskDef(ctx context.Context, image string) (*api.ImageInfo, error) {
 	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
 
 	logArgs := []any{
-		"operation", "DynamoDB.Scan",
+		"operation", "DynamoDB.Query",
 		"table", r.tableName,
+		"index", "image-index",
 		"image", image,
 	}
 	logArgs = append(logArgs, logger.GetDeadlineInfo(ctx)...)
 	reqLogger.Debug("calling external service", "context", logger.SliceToMap(logArgs))
 
-	result, err := r.client.Scan(ctx, &dynamodb.ScanInput{
-		TableName:        aws.String(r.tableName),
-		FilterExpression: aws.String("image = :image"),
-		ExpressionAttributeValues: map[string]types.AttributeValue{
-			":image": &types.AttributeValueMemberS{Value: image},
-		},
-		Limit: aws.Int32(100), //nolint:mnd // Get up to 100 items to find default if available
-	})
-	if err != nil {
-		return nil, apperrors.ErrInternalError("failed to scan image-taskdef mappings", err)
+	var items []imageTaskDefItem
+	var lastKey map[string]types.AttributeValue
+	itemCount := 0
+	const maxItems = 100
+
+	exprValues := map[string]types.AttributeValue{
+		":image": &types.AttributeValueMemberS{Value: image},
 	}
 
-	var items []imageTaskDefItem
-	if unmarshalErr := attributevalue.UnmarshalListOfMaps(result.Items, &items); unmarshalErr != nil {
-		return nil, apperrors.ErrInternalError("failed to unmarshal image-taskdef items", unmarshalErr)
+	for itemCount < maxItems {
+		remaining := maxItems - itemCount
+		maxInt32 := int(math.MaxInt32)
+		if remaining > maxInt32 {
+			remaining = maxInt32
+		}
+		limit := int32(remaining) //nolint:gosec // Safe: checked bounds above
+		result, err := r.client.Query(ctx, &dynamodb.QueryInput{
+			TableName:                 aws.String(r.tableName),
+			IndexName:                 aws.String("image-index"),
+			KeyConditionExpression:    aws.String("image = :image"),
+			ExpressionAttributeValues: exprValues,
+			ScanIndexForward:          aws.Bool(true),
+			ExclusiveStartKey:         lastKey,
+			Limit:                     aws.Int32(limit),
+		})
+		if err != nil {
+			return nil, apperrors.ErrInternalError("failed to query image-taskdef mappings", err)
+		}
+
+		var batchItems []imageTaskDefItem
+		if unmarshalErr := attributevalue.UnmarshalListOfMaps(result.Items, &batchItems); unmarshalErr != nil {
+			return nil, apperrors.ErrInternalError("failed to unmarshal image-taskdef items", unmarshalErr)
+		}
+
+		items = append(items, batchItems...)
+		itemCount += len(batchItems)
+
+		if len(result.LastEvaluatedKey) == 0 {
+			break
+		}
+		lastKey = result.LastEvaluatedKey
 	}
 
 	// If no exact match found, try matching by name:tag components
+	//
+	//nolint:nestif // Complex fallback logic for name:tag matching
 	if len(items) == 0 {
 		queryName, queryTag := parseImageReference(image)
 		queryNameTag := fmt.Sprintf("%s:%s", queryName, queryTag)
 
-		// Scan all items and match by name:tag
-		allResult, scanErr := r.client.Scan(ctx, &dynamodb.ScanInput{
-			TableName: aws.String(r.tableName),
-			Limit:     aws.Int32(100), //nolint:mnd // Get up to 100 items to find default if available
-		})
-		if scanErr != nil {
-			return nil, apperrors.ErrInternalError("failed to scan image-taskdef mappings", scanErr)
+		var allItems []imageTaskDefItem
+		var allLastKey map[string]types.AttributeValue
+		allItemCount := 0
+
+		exprNames := map[string]string{
+			"#all": "_all",
+		}
+		allExprValues := map[string]types.AttributeValue{
+			":all": &types.AttributeValueMemberS{Value: "IMAGE"},
 		}
 
-		var allItems []imageTaskDefItem
-		if unmarshalErr := attributevalue.UnmarshalListOfMaps(allResult.Items, &allItems); unmarshalErr != nil {
-			return nil, apperrors.ErrInternalError("failed to unmarshal image-taskdef items", unmarshalErr)
+		for allItemCount < maxItems {
+			remaining := maxItems - allItemCount
+			maxInt32 := int(math.MaxInt32)
+			if remaining > maxInt32 {
+				remaining = maxInt32
+			}
+			limit := int32(remaining) //nolint:gosec // Safe: checked bounds above
+			allResult, err := r.client.Query(ctx, &dynamodb.QueryInput{
+				TableName:                 aws.String(r.tableName),
+				IndexName:                 aws.String("all-image_id"),
+				KeyConditionExpression:    aws.String("#all = :all"),
+				ExpressionAttributeNames:  exprNames,
+				ExpressionAttributeValues: allExprValues,
+				ScanIndexForward:          aws.Bool(true),
+				ExclusiveStartKey:         allLastKey,
+				Limit:                     aws.Int32(limit),
+			})
+			if err != nil {
+				return nil, apperrors.ErrInternalError("failed to query image-taskdef mappings", err)
+			}
+
+			var batchItems []imageTaskDefItem
+			if unmarshalErr := attributevalue.UnmarshalListOfMaps(allResult.Items, &batchItems); unmarshalErr != nil {
+				return nil, apperrors.ErrInternalError("failed to unmarshal image-taskdef items", unmarshalErr)
+			}
+
+			allItems = append(allItems, batchItems...)
+			allItemCount += len(batchItems)
+
+			if len(allResult.LastEvaluatedKey) == 0 {
+				break
+			}
+			allLastKey = allResult.LastEvaluatedKey
 		}
 
 		// Filter by name:tag match
@@ -828,22 +1027,47 @@ func (r *ImageTaskDefRepository) GetImagesCount(ctx context.Context) (int, error
 	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
 
 	logArgs := []any{
-		"operation", "DynamoDB.Scan",
+		"operation", "DynamoDB.Query",
 		"table", r.tableName,
+		"index", "all-image_id",
 		"select", "COUNT",
 	}
 	logArgs = append(logArgs, logger.GetDeadlineInfo(ctx)...)
 	reqLogger.Debug("calling external service", "context", logger.SliceToMap(logArgs))
 
-	result, err := r.client.Scan(ctx, &dynamodb.ScanInput{
-		TableName: aws.String(r.tableName),
-		Select:    types.SelectCount,
-	})
-	if err != nil {
-		return 0, apperrors.ErrInternalError("failed to count images", err)
+	var totalCount int32
+	var lastKey map[string]types.AttributeValue
+
+	exprNames := map[string]string{
+		"#all": "_all",
+	}
+	exprValues := map[string]types.AttributeValue{
+		":all": &types.AttributeValueMemberS{Value: "IMAGE"},
 	}
 
-	return int(result.Count), nil
+	for {
+		result, err := r.client.Query(ctx, &dynamodb.QueryInput{
+			TableName:                 aws.String(r.tableName),
+			IndexName:                 aws.String("all-image_id"),
+			KeyConditionExpression:    aws.String("#all = :all"),
+			ExpressionAttributeNames:  exprNames,
+			ExpressionAttributeValues: exprValues,
+			Select:                    types.SelectCount,
+			ExclusiveStartKey:         lastKey,
+		})
+		if err != nil {
+			return 0, apperrors.ErrInternalError("failed to count images", err)
+		}
+
+		totalCount += result.Count
+
+		if len(result.LastEvaluatedKey) == 0 {
+			break
+		}
+		lastKey = result.LastEvaluatedKey
+	}
+
+	return int(totalCount), nil
 }
 
 // GetUniqueImages returns a list of unique image names (deduplicated across role combinations).

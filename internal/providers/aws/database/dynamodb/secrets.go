@@ -90,6 +90,8 @@ func (r *SecretsRepository) CreateSecret(ctx context.Context, secret *api.Secret
 		return appErrors.ErrInternalError("failed to marshal secret", err)
 	}
 
+	av["_all"] = &types.AttributeValueMemberS{Value: "SECRET"}
+
 	_, err = r.client.PutItem(ctx, &dynamodb.PutItemInput{
 		TableName: aws.String(r.tableName),
 		Item:      av,
@@ -143,19 +145,43 @@ func (r *SecretsRepository) GetSecret(ctx context.Context, name string) (*api.Se
 func (r *SecretsRepository) ListSecrets(ctx context.Context) ([]*api.Secret, error) {
 	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
 
-	result, err := r.client.Scan(ctx, &dynamodb.ScanInput{
-		TableName: aws.String(r.tableName),
-	})
+	var items []secretItem
+	var lastKey map[string]types.AttributeValue
 
-	if err != nil {
-		reqLogger.Error("failed to scan secrets", "error", err)
-		return nil, appErrors.ErrInternalError("failed to list secrets", err)
+	exprNames := map[string]string{
+		"#all": "_all",
+	}
+	exprValues := map[string]types.AttributeValue{
+		":all": &types.AttributeValueMemberS{Value: "SECRET"},
 	}
 
-	var items []secretItem
-	if err = attributevalue.UnmarshalListOfMaps(result.Items, &items); err != nil {
-		reqLogger.Error("failed to unmarshal secret items", "error", err)
-		return nil, appErrors.ErrInternalError("failed to unmarshal secrets", err)
+	for {
+		result, err := r.client.Query(ctx, &dynamodb.QueryInput{
+			TableName:                 aws.String(r.tableName),
+			IndexName:                 aws.String("all-secret_name"),
+			KeyConditionExpression:    aws.String("#all = :all"),
+			ExpressionAttributeNames:  exprNames,
+			ExpressionAttributeValues: exprValues,
+			ScanIndexForward:          aws.Bool(true),
+			ExclusiveStartKey:         lastKey,
+		})
+		if err != nil {
+			reqLogger.Error("failed to query secrets", "error", err)
+			return nil, appErrors.ErrInternalError("failed to list secrets", err)
+		}
+
+		var batchItems []secretItem
+		if err = attributevalue.UnmarshalListOfMaps(result.Items, &batchItems); err != nil {
+			reqLogger.Error("failed to unmarshal secret items", "error", err)
+			return nil, appErrors.ErrInternalError("failed to unmarshal secrets", err)
+		}
+
+		items = append(items, batchItems...)
+
+		if len(result.LastEvaluatedKey) == 0 {
+			break
+		}
+		lastKey = result.LastEvaluatedKey
 	}
 
 	secrets := make([]*api.Secret, 0, len(items))
@@ -167,39 +193,103 @@ func (r *SecretsRepository) ListSecrets(ctx context.Context) ([]*api.Secret, err
 }
 
 // GetSecretsByRequestID retrieves all secrets created or modified by a specific request ID.
+//
+//nolint:dupl // Similar pattern to GetUsersByRequestID and GetImagesByRequestID, but different types
 func (r *SecretsRepository) GetSecretsByRequestID(ctx context.Context, requestID string) ([]*api.Secret, error) {
 	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
 
 	logArgs := []any{
-		"operation", "DynamoDB.Scan",
+		"operation", "DynamoDB.Query",
 		"table", r.tableName,
 		"request_id", requestID,
+		"indexes", []string{createdByRequestIDIndexName, modifiedByRequestIDIndexName},
 	}
 	logArgs = append(logArgs, logger.GetDeadlineInfo(ctx)...)
 	reqLogger.Debug("calling external service", "context", logger.SliceToMap(logArgs))
 
-	// Scan with filter expression to find secrets where created_by_request_id OR modified_by_request_id matches
-	result, err := r.client.Scan(ctx, &dynamodb.ScanInput{
-		TableName:        aws.String(r.tableName),
-		FilterExpression: aws.String("created_by_request_id = :request_id OR modified_by_request_id = :request_id"),
-		ExpressionAttributeValues: map[string]types.AttributeValue{
-			":request_id": &types.AttributeValueMemberS{Value: requestID},
-		},
-	})
+	createdSecrets, err := r.querySecretsByRequestIDIndex(ctx, createdByRequestIDIndexName, requestID)
 	if err != nil {
-		reqLogger.Error("failed to scan secrets by request ID", "error", err)
-		return nil, appErrors.ErrInternalError("failed to get secrets by request ID", err)
+		return nil, err
 	}
 
-	var items []secretItem
-	if err = attributevalue.UnmarshalListOfMaps(result.Items, &items); err != nil {
-		reqLogger.Error("failed to unmarshal secret items", "error", err)
-		return nil, appErrors.ErrInternalError("failed to unmarshal secrets", err)
+	modifiedSecrets, err := r.querySecretsByRequestIDIndex(ctx, modifiedByRequestIDIndexName, requestID)
+	if err != nil {
+		return nil, err
 	}
 
-	secrets := make([]*api.Secret, 0, len(items))
-	for i := range items {
-		secrets = append(secrets, items[i].toAPISecret())
+	secretMap := make(map[string]*api.Secret)
+	for _, secret := range createdSecrets {
+		secretMap[secret.Name] = secret
+	}
+	for _, secret := range modifiedSecrets {
+		secretMap[secret.Name] = secret
+	}
+
+	secrets := make([]*api.Secret, 0, len(secretMap))
+	for _, secret := range secretMap {
+		secrets = append(secrets, secret)
+	}
+
+	return secrets, nil
+}
+
+// querySecretsByRequestIDIndex queries a GSI by request ID and returns all matching secrets.
+//
+//nolint:dupl // Similar pattern across repositories, but different types
+func (r *SecretsRepository) querySecretsByRequestIDIndex(
+	ctx context.Context,
+	indexName string,
+	requestID string,
+) ([]*api.Secret, error) {
+	secrets := make([]*api.Secret, 0)
+	var lastKey map[string]types.AttributeValue
+
+	var attributeName string
+	switch indexName {
+	case createdByRequestIDIndexName:
+		attributeName = createdByRequestIDAttrName
+	case modifiedByRequestIDIndexName:
+		attributeName = modifiedByRequestIDAttrName
+	default:
+		return nil, appErrors.ErrInternalError("unknown index name: "+indexName, nil)
+	}
+
+	exprNames := map[string]string{
+		"#request_id": attributeName,
+	}
+	exprValues := map[string]types.AttributeValue{
+		":request_id": &types.AttributeValueMemberS{Value: requestID},
+	}
+
+	for {
+		queryInput := &dynamodb.QueryInput{
+			TableName:                 aws.String(r.tableName),
+			IndexName:                 aws.String(indexName),
+			KeyConditionExpression:    aws.String("#request_id = :request_id"),
+			ExpressionAttributeNames:  exprNames,
+			ExpressionAttributeValues: exprValues,
+			ScanIndexForward:          aws.Bool(false),
+			ExclusiveStartKey:         lastKey,
+		}
+
+		result, err := r.client.Query(ctx, queryInput)
+		if err != nil {
+			return nil, appErrors.ErrInternalError(
+				"failed to query secrets by request ID from "+indexName, err)
+		}
+
+		for _, item := range result.Items {
+			var si secretItem
+			if err = attributevalue.UnmarshalMap(item, &si); err != nil {
+				return nil, appErrors.ErrInternalError("failed to unmarshal secret item", err)
+			}
+			secrets = append(secrets, si.toAPISecret())
+		}
+
+		if len(result.LastEvaluatedKey) == 0 {
+			break
+		}
+		lastKey = result.LastEvaluatedKey
 	}
 
 	return secrets, nil

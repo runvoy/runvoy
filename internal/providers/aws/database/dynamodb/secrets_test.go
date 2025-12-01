@@ -207,8 +207,8 @@ func TestListSecrets_ScanError(t *testing.T) {
 	client := NewMockDynamoDBClient()
 	logger := testutil.SilentLogger()
 
-	// Inject a scan error
-	client.ScanError = appErrors.ErrInternalError("test error", errors.New("scan failed"))
+	// Inject a query error
+	client.QueryError = appErrors.ErrInternalError("test error", errors.New("query failed"))
 
 	repo := NewSecretsRepository(client, "secrets-table", logger)
 
@@ -357,16 +357,16 @@ func TestSecretsRepository_GetSecretsByRequestID(t *testing.T) {
 		assert.Empty(t, secrets)
 	})
 
-	t.Run("handles scan error", func(t *testing.T) {
+	t.Run("handles query error", func(t *testing.T) {
 		client := NewMockDynamoDBClient()
-		client.ScanError = appErrors.ErrInternalError("test error", errors.New("scan failed"))
+		client.QueryError = appErrors.ErrInternalError("test error", errors.New("query failed"))
 		repo := NewSecretsRepository(client, tableName, logger)
 
 		secrets, err := repo.GetSecretsByRequestID(ctx, "req-123")
 
 		require.Error(t, err)
 		assert.Nil(t, secrets)
-		assert.Contains(t, err.Error(), "failed to get secrets by request ID")
+		assert.Contains(t, err.Error(), "failed to query secrets by request ID")
 	})
 
 	t.Run("handles empty result", func(t *testing.T) {
