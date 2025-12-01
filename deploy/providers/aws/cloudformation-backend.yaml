@@ -29,6 +29,10 @@ Resources:
           AttributeType: S
         - AttributeName: _all
           AttributeType: S
+        - AttributeName: created_by_request_id
+          AttributeType: S
+        - AttributeName: modified_by_request_id
+          AttributeType: S
       KeySchema:
         - AttributeName: api_key_hash
           KeyType: HASH
@@ -44,6 +48,22 @@ Resources:
             - AttributeName: _all
               KeyType: HASH
             - AttributeName: user_email
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+        - IndexName: created_by_request_id-index
+          KeySchema:
+            - AttributeName: created_by_request_id
+              KeyType: HASH
+            - AttributeName: api_key_hash
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+        - IndexName: modified_by_request_id-index
+          KeySchema:
+            - AttributeName: modified_by_request_id
+              KeyType: HASH
+            - AttributeName: api_key_hash
               KeyType: RANGE
           Projection:
             ProjectionType: ALL
@@ -145,9 +165,40 @@ Resources:
       AttributeDefinitions:
         - AttributeName: secret_name
           AttributeType: S
+        - AttributeName: _all
+          AttributeType: S
+        - AttributeName: created_by_request_id
+          AttributeType: S
+        - AttributeName: modified_by_request_id
+          AttributeType: S
       KeySchema:
         - AttributeName: secret_name
           KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: all-secret_name
+          KeySchema:
+            - AttributeName: _all
+              KeyType: HASH
+            - AttributeName: secret_name
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+        - IndexName: created_by_request_id-index
+          KeySchema:
+            - AttributeName: created_by_request_id
+              KeyType: HASH
+            - AttributeName: secret_name
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+        - IndexName: modified_by_request_id-index
+          KeySchema:
+            - AttributeName: modified_by_request_id
+              KeyType: HASH
+            - AttributeName: secret_name
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
       Tags:
         - Key: Name
           Value: !Sub '${ProjectName}-secrets-metadata'
@@ -167,6 +218,14 @@ Resources:
           AttributeType: S
         - AttributeName: is_default_placeholder
           AttributeType: S
+        - AttributeName: _all
+          AttributeType: S
+        - AttributeName: image
+          AttributeType: S
+        - AttributeName: created_by_request_id
+          AttributeType: S
+        - AttributeName: modified_by_request_id
+          AttributeType: S
       KeySchema:
         - AttributeName: image_id
           KeyType: HASH
@@ -174,6 +233,38 @@ Resources:
         - IndexName: is_default-index
           KeySchema:
             - AttributeName: is_default_placeholder
+              KeyType: HASH
+            - AttributeName: image_id
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+        - IndexName: all-image_id
+          KeySchema:
+            - AttributeName: _all
+              KeyType: HASH
+            - AttributeName: image_id
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+        - IndexName: image-index
+          KeySchema:
+            - AttributeName: image
+              KeyType: HASH
+            - AttributeName: image_id
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+        - IndexName: created_by_request_id-index
+          KeySchema:
+            - AttributeName: created_by_request_id
+              KeyType: HASH
+            - AttributeName: image_id
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+        - IndexName: modified_by_request_id-index
+          KeySchema:
+            - AttributeName: modified_by_request_id
               KeyType: HASH
             - AttributeName: image_id
               KeyType: RANGE

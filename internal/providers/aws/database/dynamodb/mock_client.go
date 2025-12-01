@@ -251,6 +251,21 @@ func (m *MockDynamoDBClient) extractKeyValue(
 		return getStringValue(execIDVal)
 	}
 
+	// For _all field (sparse index pattern), look for :all
+	if allVal, ok := expressionAttributeValues[":all"]; ok {
+		return getStringValue(allVal)
+	}
+
+	// For request ID indexes, look for :request_id
+	if requestIDVal, ok := expressionAttributeValues[":request_id"]; ok {
+		return getStringValue(requestIDVal)
+	}
+
+	// For image-index, look for :image
+	if imageVal, ok := expressionAttributeValues[":image"]; ok {
+		return getStringValue(imageVal)
+	}
+
 	// Try to find any string value as key
 	for _, v := range expressionAttributeValues {
 		keyValue := getStringValue(v)
@@ -521,42 +536,76 @@ func (m *MockDynamoDBClient) collectTableItems(tableName string) []map[string]ty
 	return items
 }
 
+// getIndexNameForAllValue returns the index name for a given _all field value.
+func getIndexNameForAllValue(allValue string) string {
+	switch allValue {
+	case "IMAGE":
+		return "all-image_id"
+	case "1":
+		return "all-started_at"
+	case "SECRET":
+		return "all-secret_name"
+	case "USER":
+		return "all-user_email"
+	default:
+		return ""
+	}
+}
+
+// addItemToIndex adds an item to a specific index.
+func (m *MockDynamoDBClient) addItemToIndex(
+	tableName, indexName, keyValue string,
+	item map[string]types.AttributeValue,
+) {
+	if m.Indexes[tableName] == nil {
+		m.Indexes[tableName] = make(map[string]map[string][]map[string]types.AttributeValue)
+	}
+	if m.Indexes[tableName][indexName] == nil {
+		m.Indexes[tableName][indexName] = make(map[string][]map[string]types.AttributeValue)
+	}
+	index := m.Indexes[tableName][indexName]
+	index[keyValue] = append(index[keyValue], item)
+}
+
 // addItemToIndexes adds an item to all relevant indexes for a table.
 func (m *MockDynamoDBClient) addItemToIndexes(tableName string, item map[string]types.AttributeValue) {
 	if m.Indexes[tableName] == nil {
 		m.Indexes[tableName] = make(map[string]map[string][]map[string]types.AttributeValue)
 	}
 
+	// For _all field (sparse index pattern): index by _all value
+	if allVal, hasAll := item["_all"]; hasAll {
+		allValue := getStringValue(allVal)
+		if allValue != "" {
+			indexName := getIndexNameForAllValue(allValue)
+			if indexName != "" {
+				m.addItemToIndex(tableName, indexName, allValue, item)
+			}
+		}
+	}
+
+	// For image-index: index by image field
+	if imageVal, hasImage := item["image"]; hasImage {
+		imageValue := getStringValue(imageVal)
+		if imageValue != "" {
+			m.addItemToIndex(tableName, "image-index", imageValue, item)
+		}
+	}
+
 	// Index items for GSI queries
 	// For execution_id-index: index by execution_id
-	execID, hasExecID := item["execution_id"]
-	if !hasExecID {
-		return
+	if execID, hasExecID := item["execution_id"]; hasExecID {
+		executionID := getStringValue(execID)
+		if executionID != "" {
+			m.addItemToIndex(tableName, executionIDIndexName, executionID, item)
+		}
 	}
-
-	executionID := getStringValue(execID)
-	if executionID == "" {
-		return
-	}
-
-	if m.Indexes[tableName][executionIDIndexName] == nil {
-		m.Indexes[tableName][executionIDIndexName] = make(map[string][]map[string]types.AttributeValue)
-	}
-
-	// Add item to index
-	index := m.Indexes[tableName][executionIDIndexName]
-	index[executionID] = append(index[executionID], item)
 
 	// For created_by_request_id-index: index by created_by_request_id (sparse index)
 	if createdByRequestIDVal, hasCreatedByRequestID := item["created_by_request_id"]; hasCreatedByRequestID {
 		createdByRequestID := getStringValue(createdByRequestIDVal)
 		if createdByRequestID != "" {
-			indexName := "created_by_request_id-index"
-			if m.Indexes[tableName][indexName] == nil {
-				m.Indexes[tableName][indexName] = make(map[string][]map[string]types.AttributeValue)
-			}
-			createdIndex := m.Indexes[tableName][indexName]
-			createdIndex[createdByRequestID] = append(createdIndex[createdByRequestID], item)
+			m.addItemToIndex(tableName, "created_by_request_id-index", createdByRequestID, item)
 		}
 	}
 
@@ -564,12 +613,7 @@ func (m *MockDynamoDBClient) addItemToIndexes(tableName string, item map[string]
 	if modifiedByRequestIDVal, hasModifiedByRequestID := item["modified_by_request_id"]; hasModifiedByRequestID {
 		modifiedByRequestID := getStringValue(modifiedByRequestIDVal)
 		if modifiedByRequestID != "" {
-			indexName := "modified_by_request_id-index"
-			if m.Indexes[tableName][indexName] == nil {
-				m.Indexes[tableName][indexName] = make(map[string][]map[string]types.AttributeValue)
-			}
-			modifiedIndex := m.Indexes[tableName][indexName]
-			modifiedIndex[modifiedByRequestID] = append(modifiedIndex[modifiedByRequestID], item)
+			m.addItemToIndex(tableName, "modified_by_request_id-index", modifiedByRequestID, item)
 		}
 	}
 }

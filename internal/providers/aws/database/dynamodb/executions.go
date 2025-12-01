@@ -438,6 +438,8 @@ func (r *ExecutionRepository) ListExecutions(
 }
 
 // queryExecutionsByRequestIDIndex queries a GSI by request ID and returns all matching executions.
+//
+//nolint:dupl // Similar pattern across repositories, but different types
 func (r *ExecutionRepository) queryExecutionsByRequestIDIndex(
 	ctx context.Context,
 	indexName string,
@@ -501,6 +503,8 @@ func (r *ExecutionRepository) queryExecutionsByRequestIDIndex(
 // GetExecutionsByRequestID retrieves all executions created or modified by a specific request ID.
 // This uses Query operations on two GSIs (created_by_request_id-index and modified_by_request_id-index)
 // instead of Scan for better performance.
+//
+//nolint:dupl // Similar pattern across repositories, but different types
 func (r *ExecutionRepository) GetExecutionsByRequestID(
 	ctx context.Context, requestID string,
 ) ([]*api.Execution, error) {
