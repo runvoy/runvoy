@@ -17,9 +17,6 @@ describe('Execution State Management', () => {
     beforeEach(() => {
         // Reset all stores
         executionStore.executionId.set(null);
-        executionStore.executionStatus.set(null);
-        executionStore.isCompleted.set(false);
-        executionStore.startedAt.set(null);
         websocketStore.websocketConnection.set(null);
         websocketStore.cachedWebSocketURL.set(null);
         websocketStore.isConnecting.set(false);

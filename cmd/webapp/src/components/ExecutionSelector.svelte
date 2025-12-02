@@ -1,24 +1,20 @@
 <script lang="ts">
-    import { executionId } from '../stores/execution';
-
     interface Props {
+        executionId: string | null;
         onExecutionChange?: ((executionId: string) => void) | null;
     }
 
-    const { onExecutionChange = null }: Props = $props();
-
-    // Store value for syncing
-    const storeValue = $derived($executionId || '');
+    const { executionId = null, onExecutionChange = null }: Props = $props();
 
     // Track pending user input
     let pendingInput: string | null = $state(null);
 
-    // Current value to display (pending input or store value)
-    const currentValue = $derived(pendingInput ?? storeValue);
+    // Current value to display (pending input or prop value)
+    const currentValue = $derived(pendingInput ?? executionId ?? '');
 
     function submitExecution(value: string): void {
         const trimmed = value.trim();
-        if (trimmed && trimmed !== $executionId) {
+        if (trimmed && trimmed !== executionId) {
             pendingInput = null;
             if (onExecutionChange) {
                 onExecutionChange(trimmed);

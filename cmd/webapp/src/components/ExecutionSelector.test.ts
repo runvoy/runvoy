@@ -1,24 +1,22 @@
 /// <reference types="vitest" />
 /// <reference types="@testing-library/jest-dom" />
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, fireEvent, cleanup } from '@testing-library/svelte';
 import ExecutionSelector from './ExecutionSelector.svelte';
-import { executionId } from '../stores/execution';
-import { get } from 'svelte/store';
 
 describe('ExecutionSelector', () => {
-    beforeEach(() => {
-        executionId.set(null);
-    });
-
     afterEach(() => {
         cleanup();
-        executionId.set(null);
     });
 
+    const defaultProps = {
+        executionId: null as string | null,
+        onExecutionChange: null as ((id: string) => void) | null
+    };
+
     it('should render execution ID input field', () => {
-        render(ExecutionSelector);
+        render(ExecutionSelector, { props: defaultProps });
 
         const input = screen.getByPlaceholderText('Enter execution ID');
         expect(input).toBeInTheDocument();
@@ -26,24 +24,32 @@ describe('ExecutionSelector', () => {
         expect(input).toHaveAttribute('id', 'exec-id-input');
     });
 
-    it('should display current execution ID from store', () => {
-        executionId.set('exec-12345678');
-        render(ExecutionSelector);
+    it('should display current execution ID from prop', () => {
+        render(ExecutionSelector, {
+            props: {
+                ...defaultProps,
+                executionId: 'exec-12345678'
+            }
+        });
 
         const input = screen.getByPlaceholderText('Enter execution ID') as HTMLInputElement;
         expect(input.value).toBe('exec-12345678');
     });
 
     it('should display empty string when execution ID is null', () => {
-        executionId.set(null);
-        render(ExecutionSelector);
+        render(ExecutionSelector, {
+            props: {
+                ...defaultProps,
+                executionId: null
+            }
+        });
 
         const input = screen.getByPlaceholderText('Enter execution ID') as HTMLInputElement;
         expect(input.value).toBe('');
     });
 
     it('should update input value when user types', async () => {
-        render(ExecutionSelector);
+        render(ExecutionSelector, { props: defaultProps });
 
         const input = screen.getByPlaceholderText('Enter execution ID') as HTMLInputElement;
 
@@ -54,10 +60,10 @@ describe('ExecutionSelector', () => {
 
     it('should call onExecutionChange when Enter is pressed with valid value', async () => {
         const mockOnChange = vi.fn();
-        executionId.set('old-id');
 
         render(ExecutionSelector, {
             props: {
+                executionId: 'old-id',
                 onExecutionChange: mockOnChange
             }
         });
@@ -71,12 +77,12 @@ describe('ExecutionSelector', () => {
         expect(mockOnChange).toHaveBeenCalledWith('new-exec-id');
     });
 
-    it('should not call onExecutionChange when Enter is pressed with same value as store', async () => {
+    it('should not call onExecutionChange when Enter is pressed with same value as prop', async () => {
         const mockOnChange = vi.fn();
-        executionId.set('existing-id');
 
         render(ExecutionSelector, {
             props: {
+                executionId: 'existing-id',
                 onExecutionChange: mockOnChange
             }
         });
@@ -94,6 +100,7 @@ describe('ExecutionSelector', () => {
 
         render(ExecutionSelector, {
             props: {
+                ...defaultProps,
                 onExecutionChange: mockOnChange
             }
         });
@@ -111,6 +118,7 @@ describe('ExecutionSelector', () => {
 
         render(ExecutionSelector, {
             props: {
+                ...defaultProps,
                 onExecutionChange: mockOnChange
             }
         });
@@ -125,10 +133,10 @@ describe('ExecutionSelector', () => {
 
     it('should call onExecutionChange when input loses focus with valid value', async () => {
         const mockOnChange = vi.fn();
-        executionId.set('old-id');
 
         render(ExecutionSelector, {
             props: {
+                executionId: 'old-id',
                 onExecutionChange: mockOnChange
             }
         });
@@ -144,10 +152,10 @@ describe('ExecutionSelector', () => {
 
     it('should not call onExecutionChange when input loses focus with same value', async () => {
         const mockOnChange = vi.fn();
-        executionId.set('existing-id');
 
         render(ExecutionSelector, {
             props: {
+                executionId: 'existing-id',
                 onExecutionChange: mockOnChange
             }
         });
@@ -161,10 +169,9 @@ describe('ExecutionSelector', () => {
     });
 
     it('should not call onExecutionChange when onExecutionChange prop is null', async () => {
-        const mockOnChange = vi.fn();
-
         render(ExecutionSelector, {
             props: {
+                ...defaultProps,
                 onExecutionChange: null
             }
         });
@@ -174,20 +181,18 @@ describe('ExecutionSelector', () => {
         await fireEvent.input(input, { target: { value: 'new-id' } });
         await fireEvent.keyPress(input, { key: 'Enter' });
 
-        expect(mockOnChange).not.toHaveBeenCalled();
+        // Should not throw
     });
 
     it('should not call onExecutionChange when onExecutionChange prop is undefined', async () => {
-        const mockOnChange = vi.fn();
-
-        render(ExecutionSelector);
+        render(ExecutionSelector, { props: defaultProps });
 
         const input = screen.getByPlaceholderText('Enter execution ID') as HTMLInputElement;
 
         await fireEvent.input(input, { target: { value: 'new-id' } });
         await fireEvent.keyPress(input, { key: 'Enter' });
 
-        expect(mockOnChange).not.toHaveBeenCalled();
+        // Should not throw
     });
 
     it('should not trigger onExecutionChange for non-Enter keys', async () => {
@@ -195,6 +200,7 @@ describe('ExecutionSelector', () => {
 
         render(ExecutionSelector, {
             props: {
+                ...defaultProps,
                 onExecutionChange: mockOnChange
             }
         });
@@ -208,29 +214,34 @@ describe('ExecutionSelector', () => {
         expect(mockOnChange).not.toHaveBeenCalled();
     });
 
-    it('should sync with store when store value changes', () => {
-        render(ExecutionSelector);
+    it('should update display when prop changes', () => {
+        const { rerender } = render(ExecutionSelector, {
+            props: {
+                ...defaultProps,
+                executionId: 'initial-id'
+            }
+        });
 
         const input = screen.getByPlaceholderText('Enter execution ID') as HTMLInputElement;
-        expect(input.value).toBe('');
+        expect(input.value).toBe('initial-id');
 
-        executionId.set('store-updated-id');
+        rerender({
+            ...defaultProps,
+            executionId: 'updated-id'
+        });
 
-        // Svelte reactivity should update the input
-        // Note: In tests, we may need to wait for reactivity
-        // But the derived value should update automatically
-        expect(get(executionId)).toBe('store-updated-id');
+        expect(input.value).toBe('updated-id');
     });
 
     it('should have autocomplete disabled', () => {
-        render(ExecutionSelector);
+        render(ExecutionSelector, { props: defaultProps });
 
         const input = screen.getByPlaceholderText('Enter execution ID');
         expect(input).toHaveAttribute('autocomplete', 'off');
     });
 
     it('should have proper label association', () => {
-        render(ExecutionSelector);
+        render(ExecutionSelector, { props: defaultProps });
 
         const label = screen.getByText('Execution ID:');
         const input = screen.getByPlaceholderText('Enter execution ID');

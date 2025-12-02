@@ -7,14 +7,7 @@
     import WebSocketStatus from '../components/WebSocketStatus.svelte';
     import LogControls from '../components/LogControls.svelte';
     import LogViewer from '../components/LogViewer.svelte';
-    import {
-        executionId,
-        executionStatus,
-        startedAt,
-        isCompleted,
-        completedAt,
-        exitCode
-    } from '../stores/execution';
+    import { executionId } from '../stores/execution';
     import {
         cachedWebSocketURL,
         isConnected,
@@ -42,6 +35,11 @@
     let showMetadata = $state(true);
     let events = $state<LogEvent[]>([]);
     let hasReceivedFirstLog = $state(false);
+    let status = $state<string | null>(null);
+    let executionStartedAt = $state<string | null>(null);
+    let executionCompletedAt = $state<string | null>(null);
+    let executionExitCode = $state<number | null>(null);
+    let completed = $state(false);
 
     // Track in-flight fetch to prevent duplicates
     let currentFetchId: string | null = null;
@@ -60,18 +58,14 @@
             events = [...events, eventWithLine];
         },
         onExecutionComplete: () => {
-            isCompleted.set(true);
+            completed = true;
             handleExecutionComplete();
         },
         onStatusRunning: () => {
             if (!hasReceivedFirstLog) {
                 hasReceivedFirstLog = true;
-                const currentStatus = $executionStatus;
-                if (
-                    currentStatus === ExecutionStatus.STARTING ||
-                    currentStatus === FrontendStatus.LOADING
-                ) {
-                    executionStatus.set(ExecutionStatus.RUNNING);
+                if (status === ExecutionStatus.STARTING || status === FrontendStatus.LOADING) {
+                    status = ExecutionStatus.RUNNING;
                 }
             }
         },
@@ -133,8 +127,7 @@
             // Terminal executions return events array (never null) and no websocket_url.
             if (response.websocket_url) {
                 // Running execution: use WebSocket for streaming logs
-                const status = response.status || ExecutionStatus.RUNNING;
-                executionStatus.set(status);
+                status = response.status || ExecutionStatus.RUNNING;
                 cachedWebSocketURL.set(response.websocket_url);
                 return;
             }
@@ -153,13 +146,12 @@
                 return;
             }
 
-            const status = response.status;
-            executionStatus.set(status);
+            status = response.status;
             const derivedStartedAt = deriveStartedAtFromLogs(eventsWithLines);
-            startedAt.set(derivedStartedAt);
+            executionStartedAt = derivedStartedAt;
 
             const terminal = isTerminalStatus(status);
-            isCompleted.set(terminal);
+            completed = terminal;
 
             // For terminal executions, fetch full status to get completed_at and exit_code
             if (terminal && apiClient) {
@@ -167,10 +159,10 @@
                     const statusResponse: ExecutionStatusResponse =
                         await apiClient.getExecutionStatus(id);
                     if (statusResponse.completed_at) {
-                        completedAt.set(statusResponse.completed_at);
+                        executionCompletedAt = statusResponse.completed_at;
                     }
                     if (statusResponse.exit_code !== undefined) {
-                        exitCode.set(statusResponse.exit_code);
+                        executionExitCode = statusResponse.exit_code;
                     }
                 } catch {
                     // Non-fatal: we already have the status and logs, just missing metadata
@@ -192,11 +184,11 @@
         disconnectWebSocket();
         events = [];
         hasReceivedFirstLog = false;
-        executionStatus.set(FrontendStatus.LOADING);
-        startedAt.set(null);
-        completedAt.set(null);
-        exitCode.set(null);
-        isCompleted.set(false);
+        status = FrontendStatus.LOADING;
+        executionStartedAt = null;
+        executionCompletedAt = null;
+        executionExitCode = null;
+        completed = false;
         errorMessage = '';
         cachedWebSocketURL.set(null);
     }
@@ -216,23 +208,22 @@
                 return;
             }
 
-            const status = statusResponse.status;
-            executionStatus.set(status);
+            status = statusResponse.status;
 
             if (statusResponse.started_at) {
-                startedAt.set(statusResponse.started_at);
+                executionStartedAt = statusResponse.started_at;
             }
 
             if (statusResponse.completed_at) {
-                completedAt.set(statusResponse.completed_at);
+                executionCompletedAt = statusResponse.completed_at;
             }
 
             if (statusResponse.exit_code !== undefined) {
-                exitCode.set(statusResponse.exit_code);
+                executionExitCode = statusResponse.exit_code;
             }
 
             const terminal = isTerminalStatus(status);
-            isCompleted.set(terminal);
+            completed = terminal;
 
             if (terminal) {
                 cachedWebSocketURL.set(null);
@@ -319,7 +310,7 @@
     }
 </script>
 
-<ExecutionSelector onExecutionChange={handleExecutionChange} />
+<ExecutionSelector executionId={currentExecutionId} onExecutionChange={handleExecutionChange} />
 
 {#if errorMessage}
     <article class="error-box">
@@ -336,18 +327,18 @@
 {:else if !errorMessage}
     <article class="logs-card">
         <StatusBar
-            status={$executionStatus}
-            startedAt={$startedAt}
-            completedAt={$completedAt}
-            exitCode={$exitCode}
-            isCompleted={$isCompleted}
+            {status}
+            startedAt={executionStartedAt}
+            completedAt={executionCompletedAt}
+            exitCode={executionExitCode}
+            isCompleted={completed}
             onKill={handleKillExecution}
         />
         <WebSocketStatus
             isConnecting={$isConnecting}
             isConnected={$isConnected}
             connectionError={$connectionError}
-            isCompleted={$isCompleted}
+            isCompleted={completed}
         />
         <LogControls
             executionId={currentExecutionId}

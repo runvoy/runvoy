@@ -11,7 +11,6 @@ import type { LogEvent, WebSocketLogMessage } from '../types/logs';
 
 let socket: WebSocket | null = null;
 let manuallyDisconnected = false;
-let currentCallbacks: WebSocketCallbacks | null = null;
 
 export interface WebSocketCallbacks {
     onLogEvent: (event: LogEvent) => void;
@@ -31,7 +30,6 @@ export function connectWebSocket(url: string, callbacks: WebSocketCallbacks): vo
     }
 
     manuallyDisconnected = false;
-    currentCallbacks = callbacks;
     isConnecting.set(true);
     connectionError.set(null);
     isConnected.set(false);
@@ -135,6 +133,5 @@ export function disconnectWebSocket(): void {
         socket = null;
         websocketConnection.set(null);
         isConnected.set(false);
-        currentCallbacks = null;
     }
 }
