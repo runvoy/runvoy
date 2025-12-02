@@ -323,6 +323,78 @@ describe('APIClient', () => {
         });
     });
 
+    describe('getHealth', () => {
+        it('should fetch health status', async () => {
+            const mockResponse = {
+                status: 'OK',
+                version: '1.0.0',
+                provider: 'aws',
+                region: 'us-west-2'
+            };
+
+            vi.mocked(globalThis.fetch).mockResolvedValueOnce({
+                ok: true,
+                json: vi.fn().mockResolvedValueOnce(mockResponse)
+            } as any);
+
+            const result = await client.getHealth();
+
+            expect(globalThis.fetch).toHaveBeenCalledWith(`${testEndpoint}/api/v1/health`);
+            expect(result).toEqual(mockResponse);
+        });
+
+        it('should throw error when getHealth fails', async () => {
+            vi.mocked(globalThis.fetch).mockResolvedValueOnce({
+                ok: false,
+                status: 500,
+                json: vi.fn().mockResolvedValueOnce({ details: 'Server error' })
+            } as any);
+
+            await expect(client.getHealth()).rejects.toThrow();
+        });
+
+        it('should handle invalid JSON response on error', async () => {
+            vi.mocked(globalThis.fetch).mockResolvedValueOnce({
+                ok: false,
+                status: 500,
+                json: vi.fn().mockRejectedValueOnce(new Error('Invalid JSON'))
+            } as any);
+
+            await expect(client.getHealth()).rejects.toThrow();
+        });
+
+        it('should preserve error status in thrown error', async () => {
+            vi.mocked(globalThis.fetch).mockResolvedValueOnce({
+                ok: false,
+                status: 503,
+                json: vi.fn().mockResolvedValueOnce({ details: 'Service unavailable' })
+            } as any);
+
+            try {
+                await client.getHealth();
+                expect.fail('Should have thrown');
+            } catch (error: any) {
+                expect(error.status).toBe(503);
+                expect(error.details).toEqual({ details: 'Service unavailable' });
+            }
+        });
+
+        it('should use HTTP status as fallback message when details are missing', async () => {
+            vi.mocked(globalThis.fetch).mockResolvedValueOnce({
+                ok: false,
+                status: 404,
+                json: vi.fn().mockResolvedValueOnce({})
+            } as any);
+
+            try {
+                await client.getHealth();
+                expect.fail('Should have thrown');
+            } catch (error: any) {
+                expect(error.message).toContain('404');
+            }
+        });
+    });
+
     describe('error handling', () => {
         it('should preserve error status in thrown error', async () => {
             const payload: RunCommandPayload = {
