@@ -1,6 +1,13 @@
 <script lang="ts">
-    import { logEvents } from '../stores/logs';
+    import type { LogEvent } from '../types/logs';
     import LogLine from './LogLine.svelte';
+
+    interface Props {
+        events: LogEvent[];
+        showMetadata: boolean;
+    }
+
+    const { events = [], showMetadata = true }: Props = $props();
 
     let container: HTMLDivElement | undefined;
     let autoScroll = $state(true);
@@ -15,8 +22,8 @@
 
     $effect(() => {
         // Auto-scroll to bottom when new logs arrive
-        // Access $logEvents to track changes
-        $logEvents;
+        // Access events to track changes
+        events;
         if (autoScroll && container) {
             container.scrollTop = container.scrollHeight;
         }
@@ -24,10 +31,10 @@
 </script>
 
 <div class="log-viewer-container" bind:this={container} onscroll={handleScroll}>
-    {#if $logEvents.length > 0}
+    {#if events.length > 0}
         <div class="log-lines">
-            {#each $logEvents as event (event.event_id)}
-                <LogLine {event} />
+            {#each events as event (event.event_id)}
+                <LogLine {event} {showMetadata} />
             {/each}
         </div>
     {:else}

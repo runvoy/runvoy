@@ -2,7 +2,6 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { switchExecution, clearExecution } from './executionState';
 import { get } from 'svelte/store';
 import * as executionStore from '../stores/execution';
-import * as logsStore from '../stores/logs';
 import * as websocketStore from '../stores/websocket';
 import * as uiStore from '../stores/ui';
 import * as websocketLib from './websocket';
@@ -21,7 +20,6 @@ describe('Execution State Management', () => {
         executionStore.executionStatus.set(null);
         executionStore.isCompleted.set(false);
         executionStore.startedAt.set(null);
-        logsStore.logEvents.set([]);
         websocketStore.websocketConnection.set(null);
         websocketStore.cachedWebSocketURL.set(null);
         websocketStore.isConnecting.set(false);
@@ -63,16 +61,12 @@ describe('Execution State Management', () => {
             expect(get(websocketStore.websocketConnection)).toBeNull();
         });
 
-        it('should reset execution data on switch', () => {
+        it('should reset websocket URL on switch', () => {
             // Set up some data
-            logsStore.logEvents.set([
-                { message: 'test', timestamp: 1000, event_id: 'event-1', line: 1 }
-            ]);
             websocketStore.cachedWebSocketURL.set('wss://example.com');
 
             switchExecution('exec-new');
 
-            expect(get(logsStore.logEvents)).toEqual([]);
             expect(get(websocketStore.cachedWebSocketURL)).toBeNull();
         });
 
@@ -143,15 +137,11 @@ describe('Execution State Management', () => {
             expect(get(websocketStore.websocketConnection)).toBeNull();
         });
 
-        it('should reset execution data', () => {
-            logsStore.logEvents.set([
-                { message: 'test', timestamp: 1000, event_id: 'event-1', line: 1 }
-            ]);
+        it('should reset websocket URL', () => {
             websocketStore.cachedWebSocketURL.set('wss://example.com');
 
             clearExecution();
 
-            expect(get(logsStore.logEvents)).toEqual([]);
             expect(get(websocketStore.cachedWebSocketURL)).toBeNull();
         });
 

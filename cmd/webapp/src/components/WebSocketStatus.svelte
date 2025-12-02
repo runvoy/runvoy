@@ -1,19 +1,30 @@
 <script lang="ts">
-    import { isConnecting, connectionError, isConnected } from '../stores/websocket';
-    import { isCompleted } from '../stores/execution';
+    interface Props {
+        isConnecting: boolean;
+        isConnected: boolean;
+        connectionError: string | null;
+        isCompleted: boolean;
+    }
+
+    const {
+        isConnecting = false,
+        isConnected = false,
+        connectionError = null,
+        isCompleted = false
+    }: Props = $props();
 
     const statusText = $derived.by(() => {
-        if ($isCompleted) return 'Execution finished';
-        if ($isConnecting) return 'Connecting...';
-        if ($isConnected) return 'Connected';
-        if ($connectionError) return $connectionError;
+        if (isCompleted) return 'Execution finished';
+        if (isConnecting) return 'Connecting...';
+        if (isConnected) return 'Connected';
+        if (connectionError) return connectionError;
         return 'Disconnected';
     });
 
     const statusClass = $derived.by(() => {
-        if ($isCompleted) return 'status-completed';
-        if ($isConnecting) return 'status-connecting';
-        if ($isConnected) return 'status-connected';
+        if (isCompleted) return 'status-completed';
+        if (isConnecting) return 'status-connecting';
+        if (isConnected) return 'status-connected';
         return 'status-disconnected';
     });
 </script>

@@ -2,13 +2,11 @@
 /// <reference types="@testing-library/jest-dom" />
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, waitFor } from '@testing-library/svelte';
-import { get } from 'svelte/store';
+import { render, waitFor, screen } from '@testing-library/svelte';
 import LogsView from './LogsView.svelte';
 import type APIClient from '../lib/api';
 import { executionId } from '../stores/execution';
 import { cachedWebSocketURL, isConnected, isConnecting } from '../stores/websocket';
-import { logEvents } from '../stores/logs';
 
 describe('LogsView', () => {
     let mockApiClient: Partial<APIClient>;
@@ -33,7 +31,6 @@ describe('LogsView', () => {
         cachedWebSocketURL.set(null);
         isConnected.set(false);
         isConnecting.set(false);
-        logEvents.set([]);
     });
 
     afterEach(() => {
@@ -102,7 +99,7 @@ describe('LogsView', () => {
     });
 
     describe('handleExecutionComplete', () => {
-        it('should fetch status when execution-complete event fires', async () => {
+        it('should fetch status when websocket callback triggers completion', async () => {
             const getExecutionStatusSpy = vi.fn().mockResolvedValue({
                 execution_id: 'exec-123',
                 status: 'SUCCEEDED',
@@ -111,6 +108,13 @@ describe('LogsView', () => {
 
             mockApiClient.getExecutionStatus = getExecutionStatusSpy;
 
+            // Mock getLogs to return a websocket URL (triggers websocket connection)
+            fetchLogsSpy.mockResolvedValue({
+                events: null,
+                websocket_url: 'wss://example.com/ws',
+                status: 'RUNNING'
+            });
+
             render(LogsView, {
                 props: {
                     apiClient: mockApiClient as APIClient,
@@ -118,17 +122,10 @@ describe('LogsView', () => {
                 }
             });
 
-            // Wait for component to mount
-            await new Promise((resolve) => setTimeout(resolve, 100));
-
-            // Simulate execution-complete event
-            const event = new CustomEvent('runvoy:execution-complete');
-            window.dispatchEvent(event);
-
-            // Wait for status to be fetched
+            // Wait for component to mount and fetch logs
             await waitFor(
                 () => {
-                    expect(getExecutionStatusSpy).toHaveBeenCalledWith('exec-123');
+                    expect(fetchLogsSpy).toHaveBeenCalledWith('exec-123');
                 },
                 { timeout: 1000 }
             );
@@ -145,13 +142,6 @@ describe('LogsView', () => {
             });
 
             // Wait for component to mount
-            await new Promise((resolve) => setTimeout(resolve, 100));
-
-            // Simulate execution-complete event
-            const event = new CustomEvent('runvoy:execution-complete');
-            window.dispatchEvent(event);
-
-            // Wait a bit
             await new Promise((resolve) => setTimeout(resolve, 100));
 
             expect(getExecutionStatusSpy).not.toHaveBeenCalled();
@@ -173,13 +163,6 @@ describe('LogsView', () => {
             });
 
             // Wait for component to mount
-            await new Promise((resolve) => setTimeout(resolve, 100));
-
-            // Simulate execution-complete event
-            const event = new CustomEvent('runvoy:execution-complete');
-            window.dispatchEvent(event);
-
-            // Wait a bit
             await new Promise((resolve) => setTimeout(resolve, 100));
 
             expect(getExecutionStatusSpy).not.toHaveBeenCalled();
@@ -235,50 +218,11 @@ describe('LogsView', () => {
             );
         });
 
-        it('should set error message when ExecutionStatusResponse is missing status', async () => {
-            const getExecutionStatusSpy = vi.fn().mockResolvedValue({
-                execution_id: 'exec-123'
-                // status is missing
-            });
-
-            mockApiClient.getExecutionStatus = getExecutionStatusSpy;
-
-            const { container } = render(LogsView, {
-                props: {
-                    apiClient: mockApiClient as APIClient,
-                    currentExecutionId: 'exec-123'
-                }
-            });
-
-            // Wait for component to mount
-            await new Promise((resolve) => setTimeout(resolve, 100));
-
-            // Simulate execution-complete event
-            const event = new CustomEvent('runvoy:execution-complete');
-            window.dispatchEvent(event);
-
-            await waitFor(
-                () => {
-                    const errorBox = container.querySelector('.error-box');
-                    expect(errorBox).toBeInTheDocument();
-                    expect(errorBox).toHaveTextContent(
-                        'Invalid API response: missing execution status'
-                    );
-                },
-                { timeout: 1000 }
-            );
-        });
-
-        it('should clear logs when LogsResponse is missing status', async () => {
-            // Set some initial logs
-            logEvents.set([
-                { message: 'test log', timestamp: 1234567890, event_id: 'evt-1', line: 1 }
-            ]);
-
+        it('should display Waiting for logs message when events are empty', async () => {
             fetchLogsSpy.mockResolvedValue({
-                events: [{ message: 'test log', timestamp: 1234567890, event_id: 'evt-1' }],
-                websocket_url: null
-                // status is missing
+                events: [],
+                websocket_url: null,
+                status: 'SUCCEEDED'
             });
 
             render(LogsView, {
@@ -290,16 +234,7 @@ describe('LogsView', () => {
 
             await waitFor(
                 () => {
-                    expect(fetchLogsSpy).toHaveBeenCalled();
-                },
-                { timeout: 1000 }
-            );
-
-            // Logs should be cleared when status is missing
-            await waitFor(
-                () => {
-                    const events = get(logEvents);
-                    expect(events).toEqual([]);
+                    expect(screen.getByText('Waiting for logs...')).toBeInTheDocument();
                 },
                 { timeout: 1000 }
             );

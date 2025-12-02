@@ -1,27 +1,33 @@
 <script lang="ts">
-    import {
-        executionStatus,
-        startedAt,
-        isCompleted,
-        completedAt,
-        exitCode
-    } from '../stores/execution';
     import { FrontendStatus } from '../lib/constants';
 
     interface Props {
+        status: string | null;
+        startedAt: string | number | null;
+        completedAt: string | null;
+        exitCode: number | null;
+        isCompleted: boolean;
         onKill?: (() => void) | null;
     }
 
-    const { onKill = null }: Props = $props();
+    const {
+        status = null,
+        startedAt = null,
+        completedAt = null,
+        exitCode = null,
+        isCompleted = false,
+        onKill = null
+    }: Props = $props();
+
     let isKilling = $state(false);
 
-    const statusClass = $derived($executionStatus ? $executionStatus.toLowerCase() : 'loading');
+    const statusClass = $derived(status ? status.toLowerCase() : 'loading');
     const formattedStartedAt = $derived.by(() => {
-        if (!$startedAt) {
+        if (!startedAt) {
             return 'N/A';
         }
 
-        const dateValue = typeof $startedAt === 'number' ? $startedAt : Date.parse($startedAt);
+        const dateValue = typeof startedAt === 'number' ? startedAt : Date.parse(startedAt);
         const date = new Date(dateValue);
 
         if (Number.isNaN(date.getTime())) {
@@ -32,12 +38,11 @@
     });
 
     const formattedCompletedAt = $derived.by(() => {
-        if (!$completedAt) {
+        if (!completedAt) {
             return null;
         }
 
-        const dateValue =
-            typeof $completedAt === 'number' ? $completedAt : Date.parse($completedAt);
+        const dateValue = typeof completedAt === 'number' ? completedAt : Date.parse(completedAt);
         const date = new Date(dateValue);
 
         if (Number.isNaN(date.getTime())) {
@@ -57,13 +62,13 @@
         }
     }
 
-    const canKill = $derived(!$isCompleted && !isKilling);
+    const canKill = $derived(!isCompleted && !isKilling);
 </script>
 
 <div class="status-bar">
     <div class="status-item">
         <strong>Status:</strong>
-        <span class="status-badge {statusClass}">{$executionStatus || FrontendStatus.LOADING}</span>
+        <span class="status-badge {statusClass}">{status || FrontendStatus.LOADING}</span>
     </div>
     <div class="status-item">
         <strong>Started:</strong>
@@ -75,13 +80,13 @@
             <span>{formattedCompletedAt}</span>
         </div>
     {/if}
-    {#if $exitCode !== null}
+    {#if exitCode !== null}
         <div class="status-item">
             <strong>Exit Code:</strong>
-            <code class="exit-code">{$exitCode}</code>
+            <code class="exit-code">{exitCode}</code>
         </div>
     {/if}
-    {#if onKill && !$isCompleted}
+    {#if onKill && !isCompleted}
         <div class="status-item actions">
             <button
                 class="kill-button"
