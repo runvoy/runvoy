@@ -1,38 +1,28 @@
 /// <reference types="vitest" />
 /// <reference types="@testing-library/jest-dom" />
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/svelte';
-import { get } from 'svelte/store';
 import StatusBar from './StatusBar.svelte';
-import {
-    executionStatus,
-    startedAt,
-    isCompleted,
-    completedAt,
-    exitCode
-} from '../stores/execution';
 import { ExecutionStatus, FrontendStatus } from '../lib/constants';
 
 describe('StatusBar', () => {
-    beforeEach(() => {
-        // Reset stores
-        executionStatus.set(null);
-        startedAt.set(null);
-        isCompleted.set(false);
-        completedAt.set(null);
-        exitCode.set(null);
-    });
-
     afterEach(() => {
         vi.clearAllMocks();
     });
 
+    const defaultProps = {
+        status: null,
+        startedAt: null,
+        completedAt: null,
+        exitCode: null,
+        isCompleted: false,
+        onKill: null
+    };
+
     it('should display status badge with LOADING when status is null', () => {
         render(StatusBar, {
-            props: {
-                onKill: null
-            }
+            props: defaultProps
         });
 
         expect(screen.getByText(FrontendStatus.LOADING)).toBeInTheDocument();
@@ -40,11 +30,10 @@ describe('StatusBar', () => {
     });
 
     it('should display execution status', () => {
-        executionStatus.set(ExecutionStatus.RUNNING);
-
         render(StatusBar, {
             props: {
-                onKill: null
+                ...defaultProps,
+                status: ExecutionStatus.RUNNING
             }
         });
 
@@ -53,11 +42,11 @@ describe('StatusBar', () => {
 
     it('should display started time', () => {
         const startTime = '2025-11-30T10:00:00Z';
-        startedAt.set(startTime);
 
         render(StatusBar, {
             props: {
-                onKill: null
+                ...defaultProps,
+                startedAt: startTime
             }
         });
 
@@ -69,9 +58,7 @@ describe('StatusBar', () => {
 
     it('should display N/A when started time is missing', () => {
         render(StatusBar, {
-            props: {
-                onKill: null
-            }
+            props: defaultProps
         });
 
         expect(screen.getByText('N/A')).toBeInTheDocument();
@@ -79,11 +66,11 @@ describe('StatusBar', () => {
 
     it('should display ended time when completedAt is set', () => {
         const endTime = '2025-11-30T10:05:00Z';
-        completedAt.set(endTime);
 
         render(StatusBar, {
             props: {
-                onKill: null
+                ...defaultProps,
+                completedAt: endTime
             }
         });
 
@@ -92,20 +79,17 @@ describe('StatusBar', () => {
 
     it('should not display ended time when completedAt is null', () => {
         render(StatusBar, {
-            props: {
-                onKill: null
-            }
+            props: defaultProps
         });
 
         expect(screen.queryByText('Ended:')).not.toBeInTheDocument();
     });
 
     it('should display exit code when exitCode is set', () => {
-        exitCode.set(0);
-
         render(StatusBar, {
             props: {
-                onKill: null
+                ...defaultProps,
+                exitCode: 0
             }
         });
 
@@ -114,11 +98,10 @@ describe('StatusBar', () => {
     });
 
     it('should display non-zero exit code', () => {
-        exitCode.set(1);
-
         render(StatusBar, {
             props: {
-                onKill: null
+                ...defaultProps,
+                exitCode: 1
             }
         });
 
@@ -127,9 +110,7 @@ describe('StatusBar', () => {
 
     it('should not display exit code when exitCode is null', () => {
         render(StatusBar, {
-            props: {
-                onKill: null
-            }
+            props: defaultProps
         });
 
         expect(screen.queryByText('Exit Code:')).not.toBeInTheDocument();
@@ -137,10 +118,11 @@ describe('StatusBar', () => {
 
     it('should display kill button when onKill is provided and execution is not completed', () => {
         const mockKill = vi.fn();
-        isCompleted.set(false);
 
         render(StatusBar, {
             props: {
+                ...defaultProps,
+                isCompleted: false,
                 onKill: mockKill
             }
         });
@@ -151,10 +133,11 @@ describe('StatusBar', () => {
 
     it('should not display kill button when execution is completed', () => {
         const mockKill = vi.fn();
-        isCompleted.set(true);
 
         render(StatusBar, {
             props: {
+                ...defaultProps,
+                isCompleted: true,
                 onKill: mockKill
             }
         });
@@ -163,10 +146,10 @@ describe('StatusBar', () => {
     });
 
     it('should not display kill button when onKill is null', () => {
-        isCompleted.set(false);
-
         render(StatusBar, {
             props: {
+                ...defaultProps,
+                isCompleted: false,
                 onKill: null
             }
         });
@@ -176,10 +159,11 @@ describe('StatusBar', () => {
 
     it('should call onKill when kill button is clicked', async () => {
         const mockKill = vi.fn().mockResolvedValue(undefined);
-        isCompleted.set(false);
 
         render(StatusBar, {
             props: {
+                ...defaultProps,
+                isCompleted: false,
                 onKill: mockKill
             }
         });
@@ -199,10 +183,11 @@ describe('StatusBar', () => {
                     setTimeout(resolve, 100);
                 })
         );
-        isCompleted.set(false);
 
         render(StatusBar, {
             props: {
+                ...defaultProps,
+                isCompleted: false,
                 onKill: mockKill
             }
         });
@@ -218,10 +203,11 @@ describe('StatusBar', () => {
 
     it('should disable kill button when execution is completed', () => {
         const mockKill = vi.fn();
-        isCompleted.set(true);
 
         render(StatusBar, {
             props: {
+                ...defaultProps,
+                isCompleted: true,
                 onKill: mockKill
             }
         });
@@ -231,14 +217,13 @@ describe('StatusBar', () => {
     });
 
     it('should display all fields for completed execution', () => {
-        executionStatus.set(ExecutionStatus.SUCCEEDED);
-        startedAt.set('2025-11-30T10:00:00Z');
-        completedAt.set('2025-11-30T10:05:00Z');
-        exitCode.set(0);
-        isCompleted.set(true);
-
         render(StatusBar, {
             props: {
+                status: ExecutionStatus.SUCCEEDED,
+                startedAt: '2025-11-30T10:00:00Z',
+                completedAt: '2025-11-30T10:05:00Z',
+                exitCode: 0,
+                isCompleted: true,
                 onKill: null
             }
         });
@@ -251,11 +236,10 @@ describe('StatusBar', () => {
     });
 
     it('should apply correct CSS class for status badge', () => {
-        executionStatus.set(ExecutionStatus.RUNNING);
-
         const { container } = render(StatusBar, {
             props: {
-                onKill: null
+                ...defaultProps,
+                status: ExecutionStatus.RUNNING
             }
         });
 
@@ -264,11 +248,10 @@ describe('StatusBar', () => {
     });
 
     it('should apply correct CSS class for STARTING status', () => {
-        executionStatus.set(ExecutionStatus.STARTING);
-
         const { container } = render(StatusBar, {
             props: {
-                onKill: null
+                ...defaultProps,
+                status: ExecutionStatus.STARTING
             }
         });
 
@@ -277,11 +260,10 @@ describe('StatusBar', () => {
     });
 
     it('should format exit code with monospace font', () => {
-        exitCode.set(42);
-
         const { container } = render(StatusBar, {
             props: {
-                onKill: null
+                ...defaultProps,
+                exitCode: 42
             }
         });
 

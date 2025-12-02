@@ -1,31 +1,37 @@
 /**
  * WebSocket connection handler for real-time log streaming
  */
-import { get } from 'svelte/store';
 import {
     websocketConnection,
     isConnecting,
     connectionError,
     isConnected
 } from '../stores/websocket';
-import { logEvents } from '../stores/logs';
-import { isCompleted, executionStatus } from '../stores/execution';
-import { ExecutionStatus, FrontendStatus } from '../lib/constants';
 import type { LogEvent, WebSocketLogMessage } from '../types/logs';
 
 let socket: WebSocket | null = null;
 let manuallyDisconnected = false;
+let currentCallbacks: WebSocketCallbacks | null = null;
+
+export interface WebSocketCallbacks {
+    onLogEvent: (event: LogEvent) => void;
+    onExecutionComplete: () => void;
+    onStatusRunning: () => void;
+    onError: (error: string) => void;
+}
 
 /**
  * Connects to the WebSocket server
  * @param url - The WebSocket URL to connect to
+ * @param callbacks - Callbacks for handling websocket events
  */
-export function connectWebSocket(url: string): void {
+export function connectWebSocket(url: string, callbacks: WebSocketCallbacks): void {
     if (socket && socket.readyState === WebSocket.OPEN) {
         return;
     }
 
     manuallyDisconnected = false;
+    currentCallbacks = callbacks;
     isConnecting.set(true);
     connectionError.set(null);
     isConnected.set(false);
@@ -34,7 +40,9 @@ export function connectWebSocket(url: string): void {
         socket = new WebSocket(url);
     } catch (error) {
         const reason = error instanceof Error ? error.message : 'Invalid URL?';
-        connectionError.set(`Failed to create WebSocket connection. ${reason}`);
+        const errorMsg = `Failed to create WebSocket connection. ${reason}`;
+        connectionError.set(errorMsg);
+        callbacks.onError(errorMsg);
         isConnecting.set(false);
         return;
     }
@@ -53,15 +61,7 @@ export function connectWebSocket(url: string): void {
 
             // Handle disconnect messages
             if (message.type === 'disconnect') {
-                isCompleted.set(true);
-                if (typeof window !== 'undefined') {
-                    // Pass cleanClose flag to indicate websocket closed cleanly (no need to fetch logs)
-                    window.dispatchEvent(
-                        new CustomEvent('runvoy:execution-complete', {
-                            detail: { cleanClose: true }
-                        })
-                    );
-                }
+                callbacks.onExecutionComplete();
                 // Close the connection gracefully
                 if (socket && socket.readyState === WebSocket.OPEN) {
                     socket.close(1000, 'Execution completed');
@@ -78,40 +78,30 @@ export function connectWebSocket(url: string): void {
                 eventId &&
                 typeof eventId === 'string'
             ) {
-                // Update status to RUNNING when we receive the first log message
-                // (indicates execution is actually running and producing output)
-                const currentStatus = get(executionStatus);
-                if (
-                    currentStatus === ExecutionStatus.STARTING ||
-                    currentStatus === FrontendStatus.LOADING
-                ) {
-                    executionStatus.set(ExecutionStatus.RUNNING);
-                }
+                // Notify that execution is running (first log message received)
+                callbacks.onStatusRunning();
 
-                logEvents.update((events: LogEvent[]): LogEvent[] => {
-                    // Assign a new line number (like CLI does - just append to the end)
-                    const nextLine =
-                        events.length > 0 ? Math.max(...events.map((e) => e.line)) + 1 : 1;
+                const logEvent: LogEvent = {
+                    message: message.message as string,
+                    timestamp: message.timestamp as number,
+                    event_id: eventId,
+                    line: 0 // Line number will be assigned by the view
+                };
 
-                    const eventWithLine: LogEvent = {
-                        message: message.message as string,
-                        timestamp: message.timestamp as number,
-                        event_id: eventId,
-                        line: nextLine
-                    };
-
-                    // Append the new event (no deduplication needed - API contract ensures no duplicates)
-                    return [...events, eventWithLine];
-                });
+                callbacks.onLogEvent(logEvent);
             }
         } catch (error) {
             const reason = error instanceof Error ? error.message : 'Unknown error';
-            connectionError.set(`Received invalid data from WebSocket server: ${reason}`);
+            const errorMsg = `Received invalid data from WebSocket server: ${reason}`;
+            connectionError.set(errorMsg);
+            callbacks.onError(errorMsg);
         }
     };
 
     socket.onerror = (): void => {
-        connectionError.set('WebSocket connection failed.');
+        const errorMsg = 'WebSocket connection failed.';
+        connectionError.set(errorMsg);
+        callbacks.onError(errorMsg);
         isConnecting.set(false);
         isConnected.set(false);
     };
@@ -121,17 +111,14 @@ export function connectWebSocket(url: string): void {
         isConnected.set(false);
         if (event.code !== 1000) {
             // 1000 is normal closure
-            connectionError.set(`Disconnected: ${event.reason || 'Connection lost'}`);
+            const errorMsg = `Disconnected: ${event.reason || 'Connection lost'}`;
+            connectionError.set(errorMsg);
+            callbacks.onError(errorMsg);
         } else {
             // If websocket closed cleanly (code 1000) but we didn't receive a disconnect message,
-            // and it wasn't a manual disconnect, still dispatch the event but mark it as clean close
-            // (logs are already complete)
-            if (typeof window !== 'undefined' && !get(isCompleted) && !manuallyDisconnected) {
-                window.dispatchEvent(
-                    new CustomEvent('runvoy:execution-complete', {
-                        detail: { cleanClose: true }
-                    })
-                );
+            // and it wasn't a manual disconnect, notify execution complete
+            if (!manuallyDisconnected) {
+                callbacks.onExecutionComplete();
             }
         }
         websocketConnection.set(null);
@@ -148,5 +135,6 @@ export function disconnectWebSocket(): void {
         socket = null;
         websocketConnection.set(null);
         isConnected.set(false);
+        currentCallbacks = null;
     }
 }

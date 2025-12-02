@@ -1,40 +1,45 @@
 /// <reference types="vitest" />
 /// <reference types="@testing-library/jest-dom" />
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, fireEvent, cleanup } from '@testing-library/svelte';
 import LogControls from './LogControls.svelte';
-import { showMetadata, logEvents } from '../stores/logs';
-import { disconnectWebSocket, connectWebSocket } from '../lib/websocket';
-import { cachedWebSocketURL } from '../stores/websocket';
-import { get } from 'svelte/store';
-
-// Mock the websocket functions
-vi.mock('../lib/websocket', () => ({
-    disconnectWebSocket: vi.fn(),
-    connectWebSocket: vi.fn()
-}));
+import type { LogEvent } from '../types/logs';
 
 describe('LogControls', () => {
-    beforeEach(() => {
-        showMetadata.set(true);
-        logEvents.set([]);
-        cachedWebSocketURL.set(null);
-    });
-
     afterEach(() => {
         cleanup();
         vi.clearAllMocks();
-        showMetadata.set(true);
-        logEvents.set([]);
-        cachedWebSocketURL.set(null);
     });
+
+    const mockEvents: LogEvent[] = [
+        {
+            message: 'Test log 1',
+            timestamp: Date.now(),
+            event_id: 'event-1',
+            line: 1
+        },
+        {
+            message: 'Test log 2',
+            timestamp: Date.now(),
+            event_id: 'event-2',
+            line: 2
+        }
+    ];
+
+    const defaultProps = {
+        executionId: 'exec-123',
+        events: [] as LogEvent[],
+        showMetadata: true,
+        onToggleMetadata: vi.fn(),
+        onClear: vi.fn(),
+        onPause: vi.fn(),
+        onResume: vi.fn()
+    };
 
     it('should render all control buttons', () => {
         render(LogControls, {
-            props: {
-                executionId: 'exec-123'
-            }
+            props: defaultProps
         });
 
         expect(screen.getByText('⏸️ Pause')).toBeInTheDocument();
@@ -43,80 +48,77 @@ describe('LogControls', () => {
         expect(screen.getByText(/🙈 Hide/)).toBeInTheDocument();
     });
 
-    it('should toggle metadata visibility when metadata button is clicked', async () => {
-        showMetadata.set(true);
+    it('should call onToggleMetadata when metadata button is clicked', async () => {
+        const onToggleMetadata = vi.fn();
+
         render(LogControls, {
             props: {
-                executionId: 'exec-123'
+                ...defaultProps,
+                showMetadata: true,
+                onToggleMetadata
             }
         });
 
         const metadataButton = screen.getByText(/🙈 Hide/);
         await fireEvent.click(metadataButton);
 
-        expect(get(showMetadata)).toBe(false);
-        expect(screen.getByText(/🙉 Show/)).toBeInTheDocument();
+        expect(onToggleMetadata).toHaveBeenCalledTimes(1);
     });
 
-    it('should show "Show Metadata" when metadata is hidden', async () => {
-        showMetadata.set(false);
+    it('should show "Show Metadata" when metadata is hidden', () => {
         render(LogControls, {
             props: {
-                executionId: 'exec-123'
+                ...defaultProps,
+                showMetadata: false
             }
         });
 
         expect(screen.getByText(/🙉 Show/)).toBeInTheDocument();
     });
 
-    it('should clear logs when clear button is clicked', async () => {
-        logEvents.set([
-            {
-                message: 'Test log 1',
-                timestamp: Date.now(),
-                event_id: 'event-1',
-                line: 1
-            },
-            {
-                message: 'Test log 2',
-                timestamp: Date.now(),
-                event_id: 'event-2',
-                line: 2
-            }
-        ]);
+    it('should call onClear when clear button is clicked', async () => {
+        const onClear = vi.fn();
 
         render(LogControls, {
             props: {
-                executionId: 'exec-123'
+                ...defaultProps,
+                events: mockEvents,
+                onClear
             }
         });
 
         const clearButton = screen.getByText(/🗑️ Clear/);
         await fireEvent.click(clearButton);
 
-        expect(get(logEvents)).toEqual([]);
+        expect(onClear).toHaveBeenCalledTimes(1);
     });
 
-    it('should pause websocket when pause button is clicked', async () => {
+    it('should call onPause when pause button is clicked', async () => {
+        const onPause = vi.fn();
+
         render(LogControls, {
             props: {
-                executionId: 'exec-123'
+                ...defaultProps,
+                onPause
             }
         });
 
         const pauseButton = screen.getByText('⏸️ Pause');
         await fireEvent.click(pauseButton);
 
-        expect(disconnectWebSocket).toHaveBeenCalledTimes(1);
+        expect(onPause).toHaveBeenCalledTimes(1);
         expect(screen.getByText('▶️ Resume')).toBeInTheDocument();
     });
 
-    it('should resume websocket when resume button is clicked', async () => {
-        cachedWebSocketURL.set('wss://example.com/logs');
+    it('should call onResume when resume button is clicked', async () => {
+        const onPause = vi.fn();
+        const onResume = vi.fn();
 
         render(LogControls, {
             props: {
-                executionId: 'exec-123'
+                ...defaultProps,
+                onPause,
+                onResume
             }
         });
 
@@ -128,27 +130,30 @@ describe('LogControls', () => {
         const resumeButton = screen.getByText('▶️ Resume');
         await fireEvent.click(resumeButton);
 
-        expect(connectWebSocket).toHaveBeenCalledWith('wss://example.com/logs');
+        expect(onResume).toHaveBeenCalledTimes(1);
     });
 
-    it('should not resume if cachedWebSocketURL is not set', async () => {
-        cachedWebSocketURL.set(null);
-
+    it('should disable download button when events is empty', () => {
         render(LogControls, {
             props: {
-                executionId: 'exec-123'
+                ...defaultProps,
+                events: []
             }
         });
 
-        // Pause first
-        const pauseButton = screen.getByText('⏸️ Pause');
-        await fireEvent.click(pauseButton);
+        const downloadButton = screen.getByText('📥 Download');
+        expect(downloadButton).toBeDisabled();
+    });
 
-        // Try to resume
-        const resumeButton = screen.getByText('▶️ Resume');
-        await fireEvent.click(resumeButton);
+    it('should enable download button when events has logs', () => {
+        render(LogControls, {
+            props: {
+                ...defaultProps,
+                events: mockEvents
+            }
+        });
 
-        // Should not call connectWebSocket if URL is not cached
-        expect(connectWebSocket).not.toHaveBeenCalled();
+        const downloadButton = screen.getByText('📥 Download');
+        expect(downloadButton).not.toBeDisabled();
     });
 });

@@ -1,20 +1,20 @@
 <script lang="ts">
-    import { showMetadata } from '../stores/logs';
     import { parseAnsi, formatTimestamp, type AnsiSegment } from '../lib/ansi';
     import type { LogEvent } from '../types/logs';
 
     interface Props {
         event: LogEvent;
+        showMetadata: boolean;
     }
 
-    const { event }: Props = $props();
+    const { event, showMetadata = true }: Props = $props();
 
     const formattedTimestamp = $derived(formatTimestamp(event.timestamp));
     const ansiSegments: AnsiSegment[] = $derived(parseAnsi(event.message));
 </script>
 
 <div class="log-line">
-    {#if $showMetadata}
+    {#if showMetadata}
         <span class="line-number">{event.line}</span>
         <span class="timestamp">{formattedTimestamp}</span>
     {/if}

@@ -1,27 +1,31 @@
 <script lang="ts">
-    import { showMetadata, logEvents } from '../stores/logs';
-    import { disconnectWebSocket, connectWebSocket } from '../lib/websocket';
-    import { cachedWebSocketURL } from '../stores/websocket';
+    import type { LogEvent } from '../types/logs';
     import { formatTimestamp } from '../lib/ansi';
 
     interface Props {
         executionId: string | null;
+        events: LogEvent[];
+        showMetadata: boolean;
+        onToggleMetadata: () => void;
+        onClear: () => void;
+        onPause: () => void;
+        onResume: () => void;
     }
 
-    const { executionId }: Props = $props();
+    const {
+        executionId,
+        events = [],
+        showMetadata = false,
+        onToggleMetadata,
+        onClear,
+        onPause,
+        onResume
+    }: Props = $props();
 
     let isPaused = $state(false);
 
-    function toggleMetadata(): void {
-        showMetadata.update((v) => !v);
-    }
-
-    function clearLogs(): void {
-        logEvents.set([]);
-    }
-
     function downloadLogs(): void {
-        const content = $logEvents
+        const content = events
             .map((e) => `[${formatTimestamp(e.timestamp)}] ${e.message}`)
             .join('\n');
         const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
@@ -38,11 +42,9 @@
     function togglePause(): void {
         isPaused = !isPaused;
         if (isPaused) {
-            disconnectWebSocket();
+            onPause();
         } else {
-            if ($cachedWebSocketURL) {
-                connectWebSocket($cachedWebSocketURL);
-            }
+            onResume();
         }
     }
 </script>
@@ -51,12 +53,12 @@
     <button onclick={togglePause} class:secondary={!isPaused}>
         {isPaused ? '▶️ Resume' : '⏸️ Pause'}
     </button>
-    <button onclick={clearLogs} class="secondary"> 🗑️ Clear </button>
-    <button onclick={downloadLogs} class="secondary" disabled={$logEvents.length === 0}>
+    <button onclick={onClear} class="secondary"> 🗑️ Clear </button>
+    <button onclick={downloadLogs} class="secondary" disabled={events.length === 0}>
         📥 Download
     </button>
-    <button onclick={toggleMetadata} class="secondary">
-        {$showMetadata ? '🙈 Hide' : '🙉 Show'} Metadata
+    <button onclick={onToggleMetadata} class="secondary">
+        {showMetadata ? '🙈 Hide' : '🙉 Show'} Metadata
     </button>
 </div>
 

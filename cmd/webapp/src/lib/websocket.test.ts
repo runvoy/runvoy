@@ -2,16 +2,13 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { waitFor } from '@testing-library/svelte';
-import { connectWebSocket, disconnectWebSocket } from './websocket';
+import { connectWebSocket, disconnectWebSocket, type WebSocketCallbacks } from './websocket';
 import {
     websocketConnection,
     isConnecting,
     connectionError,
     isConnected
 } from '../stores/websocket';
-import { isCompleted, executionStatus } from '../stores/execution';
-import { logEvents } from '../stores/logs';
-import { ExecutionStatus, FrontendStatus } from '../lib/constants';
 import { get } from 'svelte/store';
 
 // Mock WebSocket
@@ -79,9 +76,18 @@ class MockWebSocket {
     }
 }
 
+function createMockCallbacks(): WebSocketCallbacks {
+    return {
+        onLogEvent: vi.fn(),
+        onExecutionComplete: vi.fn(),
+        onStatusRunning: vi.fn(),
+        onError: vi.fn()
+    };
+}
+
 describe('WebSocket Connection', () => {
     let originalWebSocket: typeof WebSocket;
-    let eventListeners: Map<string, EventListener[]>;
+    let mockCallbacks: WebSocketCallbacks;
 
     beforeEach(() => {
         // Store original WebSocket
@@ -95,39 +101,9 @@ describe('WebSocket Connection', () => {
         isConnecting.set(false);
         connectionError.set(null);
         isConnected.set(false);
-        isCompleted.set(false);
-        executionStatus.set(null);
-        logEvents.set([]);
 
-        // Track event listeners
-        eventListeners = new Map();
-        const originalAddEventListener = window.addEventListener.bind(window);
-        const originalRemoveEventListener = window.removeEventListener.bind(window);
-
-        window.addEventListener = vi.fn(
-            (type: string, listener: EventListenerOrEventListenerObject) => {
-                if (!eventListeners.has(type)) {
-                    eventListeners.set(type, []);
-                }
-                if (typeof listener === 'function') {
-                    eventListeners.get(type)!.push(listener);
-                }
-                originalAddEventListener(type, listener);
-            }
-        ) as typeof window.addEventListener;
-
-        window.removeEventListener = vi.fn(
-            (type: string, listener: EventListenerOrEventListenerObject) => {
-                const listeners = eventListeners.get(type);
-                if (listeners && typeof listener === 'function') {
-                    const index = listeners.indexOf(listener);
-                    if (index > -1) {
-                        listeners.splice(index, 1);
-                    }
-                }
-                originalRemoveEventListener(type, listener);
-            }
-        ) as typeof window.removeEventListener;
+        // Create fresh mock callbacks
+        mockCallbacks = createMockCallbacks();
 
         vi.clearAllMocks();
     });
@@ -138,20 +114,12 @@ describe('WebSocket Connection', () => {
 
         // Clean up any connections
         disconnectWebSocket();
-
-        // Remove all event listeners
-        eventListeners.forEach((listeners, type) => {
-            listeners.forEach((listener) => {
-                window.removeEventListener(type, listener);
-            });
-        });
-        eventListeners.clear();
     });
 
     describe('connectWebSocket', () => {
         it('should reset manuallyDisconnected flag when connecting', async () => {
             const url = 'wss://localhost:8080/logs';
-            connectWebSocket(url);
+            connectWebSocket(url, mockCallbacks);
 
             // Wait for connection to open
             await new Promise((resolve) => setTimeout(resolve, 10));
@@ -163,7 +131,7 @@ describe('WebSocket Connection', () => {
             await new Promise((resolve) => setTimeout(resolve, 10));
 
             // Connect again - manuallyDisconnected should be reset
-            connectWebSocket(url);
+            connectWebSocket(url, mockCallbacks);
 
             await new Promise((resolve) => setTimeout(resolve, 10));
 
@@ -171,11 +139,10 @@ describe('WebSocket Connection', () => {
             expect(get(websocketConnection)).not.toBeNull();
         });
 
-        it('should dispatch execution-complete event with cleanClose when disconnect message is received', async () => {
+        it('should call onExecutionComplete when disconnect message is received', async () => {
             const url = 'wss://localhost:8080/logs';
-            const dispatchSpy = vi.spyOn(window, 'dispatchEvent');
 
-            connectWebSocket(url);
+            connectWebSocket(url, mockCallbacks);
 
             // Wait for connection to be set in store
             await waitFor(() => {
@@ -195,31 +162,20 @@ describe('WebSocket Connection', () => {
 
             await new Promise((resolve) => setTimeout(resolve, 10));
 
-            // Verify event was dispatched with cleanClose: true
-            expect(dispatchSpy).toHaveBeenCalled();
-            const calls = dispatchSpy.mock.calls;
-            const executionCompleteCall = calls.find(
-                (call) => (call[0] as CustomEvent).type === 'runvoy:execution-complete'
-            );
-            expect(executionCompleteCall).toBeDefined();
-            const event = executionCompleteCall![0] as CustomEvent;
-            expect(event.detail).toEqual({ cleanClose: true });
+            // Verify callback was called
+            expect(mockCallbacks.onExecutionComplete).toHaveBeenCalledTimes(1);
         });
 
-        it('should dispatch execution-complete event with cleanClose on clean close (code 1000) when not manually disconnected and not completed', async () => {
+        it('should call onExecutionComplete on clean close (code 1000) when not manually disconnected', async () => {
             const url = 'wss://localhost:8080/logs';
-            const dispatchSpy = vi.spyOn(window, 'dispatchEvent');
 
-            connectWebSocket(url);
+            connectWebSocket(url, mockCallbacks);
 
             // Wait for connection to be set in store
             await waitFor(() => {
                 const ws = get(websocketConnection);
                 expect(ws).not.toBeNull();
             });
-
-            // Ensure execution is not completed
-            isCompleted.set(false);
 
             const ws = get(websocketConnection) as unknown as MockWebSocket;
 
@@ -228,22 +184,14 @@ describe('WebSocket Connection', () => {
 
             await new Promise((resolve) => setTimeout(resolve, 10));
 
-            // Verify event was dispatched with cleanClose: true
-            expect(dispatchSpy).toHaveBeenCalled();
-            const calls = dispatchSpy.mock.calls;
-            const executionCompleteCall = calls.find(
-                (call) => (call[0] as CustomEvent).type === 'runvoy:execution-complete'
-            );
-            expect(executionCompleteCall).toBeDefined();
-            const event = executionCompleteCall![0] as CustomEvent;
-            expect(event.detail).toEqual({ cleanClose: true });
+            // Verify callback was called
+            expect(mockCallbacks.onExecutionComplete).toHaveBeenCalledTimes(1);
         });
 
-        it('should not dispatch execution-complete event on clean close if manually disconnected', async () => {
+        it('should not call onExecutionComplete on clean close if manually disconnected', async () => {
             const url = 'wss://localhost:8080/logs';
-            const dispatchSpy = vi.spyOn(window, 'dispatchEvent');
 
-            connectWebSocket(url);
+            connectWebSocket(url, mockCallbacks);
 
             // Wait for connection to open
             await new Promise((resolve) => setTimeout(resolve, 10));
@@ -253,50 +201,13 @@ describe('WebSocket Connection', () => {
 
             await new Promise((resolve) => setTimeout(resolve, 10));
 
-            // Clear previous calls
-            dispatchSpy.mockClear();
-
-            // The close event should have already been triggered by disconnectWebSocket
-            // Verify no new event was dispatched
-            const calls = dispatchSpy.mock.calls;
-            const executionCompleteCall = calls.find(
-                (call) => (call[0] as CustomEvent)?.type === 'runvoy:execution-complete'
-            );
-            // Should not have execution-complete event after manual disconnect
-            expect(executionCompleteCall).toBeUndefined();
-        });
-
-        it('should not dispatch execution-complete event on clean close if execution is already completed', async () => {
-            const url = 'wss://localhost:8080/logs';
-            const dispatchSpy = vi.spyOn(window, 'dispatchEvent');
-
-            connectWebSocket(url);
-
-            // Wait for connection to open
-            await new Promise((resolve) => setTimeout(resolve, 10));
-
-            // Mark execution as completed
-            isCompleted.set(true);
-
-            const ws = get(websocketConnection) as unknown as MockWebSocket;
-            expect(ws).not.toBeNull();
-
-            // Simulate clean close
-            ws.simulateClose(1000, 'Normal closure');
-
-            await new Promise((resolve) => setTimeout(resolve, 10));
-
-            // Verify event was not dispatched
-            const calls = dispatchSpy.mock.calls;
-            const executionCompleteCall = calls.find(
-                (call) => (call[0] as CustomEvent)?.type === 'runvoy:execution-complete'
-            );
-            expect(executionCompleteCall).toBeUndefined();
+            // Verify callback was NOT called
+            expect(mockCallbacks.onExecutionComplete).not.toHaveBeenCalled();
         });
 
         it('should set connection error on non-clean close (code !== 1000)', async () => {
             const url = 'wss://localhost:8080/logs';
-            connectWebSocket(url);
+            connectWebSocket(url, mockCallbacks);
 
             // Wait for connection to be set in store
             await waitFor(() => {
@@ -318,11 +229,12 @@ describe('WebSocket Connection', () => {
             // Verify error was set
             const error = get(connectionError);
             expect(error).toContain('Disconnected');
+            expect(mockCallbacks.onError).toHaveBeenCalled();
         });
 
         it('should not set connection error on clean close (code 1000)', async () => {
             const url = 'wss://localhost:8080/logs';
-            connectWebSocket(url);
+            connectWebSocket(url, mockCallbacks);
 
             // Wait for connection to be set in store
             await waitFor(() => {
@@ -345,7 +257,7 @@ describe('WebSocket Connection', () => {
     describe('disconnectWebSocket', () => {
         it('should set manuallyDisconnected flag when disconnecting', async () => {
             const url = 'wss://localhost:8080/logs';
-            connectWebSocket(url);
+            connectWebSocket(url, mockCallbacks);
 
             // Wait for connection to be set in store
             await waitFor(() => {
@@ -363,7 +275,7 @@ describe('WebSocket Connection', () => {
 
         it('should close websocket with code 1000 when manually disconnecting', async () => {
             const url = 'wss://localhost:8080/logs';
-            connectWebSocket(url);
+            connectWebSocket(url, mockCallbacks);
 
             // Wait for connection to be set in store
             await waitFor(() => {
@@ -389,9 +301,9 @@ describe('WebSocket Connection', () => {
     });
 
     describe('WebSocket message handling', () => {
-        it('should handle log messages and update logEvents', async () => {
+        it('should call onLogEvent callback with log event', async () => {
             const url = 'wss://localhost:8080/logs';
-            connectWebSocket(url);
+            connectWebSocket(url, mockCallbacks);
 
             await waitFor(() => {
                 const ws = get(websocketConnection);
@@ -409,18 +321,19 @@ describe('WebSocket Connection', () => {
             ws.simulateMessage(JSON.stringify(logMessage));
 
             await waitFor(() => {
-                const events = get(logEvents);
-                expect(events.length).toBe(1);
-                expect(events[0].message).toBe('Test log message');
-                expect(events[0].event_id).toBe('event-1');
-                expect(events[0].line).toBe(1);
+                expect(mockCallbacks.onLogEvent).toHaveBeenCalledTimes(1);
+                expect(mockCallbacks.onLogEvent).toHaveBeenCalledWith({
+                    message: 'Test log message',
+                    timestamp: 1234567890,
+                    event_id: 'event-1',
+                    line: 0 // Line is assigned as 0, view will assign actual line number
+                });
             });
         });
 
-        it('should update execution status to RUNNING when receiving first log message from STARTING', async () => {
+        it('should call onStatusRunning callback when receiving first log message', async () => {
             const url = 'wss://localhost:8080/logs';
-            executionStatus.set(ExecutionStatus.STARTING);
-            connectWebSocket(url);
+            connectWebSocket(url, mockCallbacks);
 
             await waitFor(() => {
                 const ws = get(websocketConnection);
@@ -438,38 +351,13 @@ describe('WebSocket Connection', () => {
             ws.simulateMessage(JSON.stringify(logMessage));
 
             await waitFor(() => {
-                expect(get(executionStatus)).toBe(ExecutionStatus.RUNNING);
+                expect(mockCallbacks.onStatusRunning).toHaveBeenCalledTimes(1);
             });
         });
 
-        it('should update execution status to RUNNING when receiving first log message from LOADING', async () => {
+        it('should call onStatusRunning for each log message (view handles dedup)', async () => {
             const url = 'wss://localhost:8080/logs';
-            executionStatus.set(FrontendStatus.LOADING);
-            connectWebSocket(url);
-
-            await waitFor(() => {
-                const ws = get(websocketConnection);
-                expect(ws).not.toBeNull();
-            });
-
-            const ws = get(websocketConnection) as unknown as MockWebSocket;
-
-            const logMessage = {
-                message: 'First log',
-                timestamp: 1234567890,
-                event_id: 'event-1'
-            };
-
-            ws.simulateMessage(JSON.stringify(logMessage));
-
-            await waitFor(() => {
-                expect(get(executionStatus)).toBe(ExecutionStatus.RUNNING);
-            });
-        });
-
-        it('should assign sequential line numbers to log events', async () => {
-            const url = 'wss://localhost:8080/logs';
-            connectWebSocket(url);
+            connectWebSocket(url, mockCallbacks);
 
             await waitFor(() => {
                 const ws = get(websocketConnection);
@@ -504,17 +392,14 @@ describe('WebSocket Connection', () => {
             );
 
             await waitFor(() => {
-                const events = get(logEvents);
-                expect(events.length).toBe(3);
-                expect(events[0].line).toBe(1);
-                expect(events[1].line).toBe(2);
-                expect(events[2].line).toBe(3);
+                expect(mockCallbacks.onLogEvent).toHaveBeenCalledTimes(3);
+                expect(mockCallbacks.onStatusRunning).toHaveBeenCalledTimes(3);
             });
         });
 
-        it('should handle invalid JSON in message', async () => {
+        it('should call onError callback for invalid JSON in message', async () => {
             const url = 'wss://localhost:8080/logs';
-            connectWebSocket(url);
+            connectWebSocket(url, mockCallbacks);
 
             await waitFor(() => {
                 const ws = get(websocketConnection);
@@ -529,12 +414,13 @@ describe('WebSocket Connection', () => {
             await waitFor(() => {
                 const error = get(connectionError);
                 expect(error).toContain('Received invalid data from WebSocket server');
+                expect(mockCallbacks.onError).toHaveBeenCalled();
             });
         });
 
-        it('should handle messages without required fields', async () => {
+        it('should not call onLogEvent for messages without required fields', async () => {
             const url = 'wss://localhost:8080/logs';
-            connectWebSocket(url);
+            connectWebSocket(url, mockCallbacks);
 
             await waitFor(() => {
                 const ws = get(websocketConnection);
@@ -551,15 +437,14 @@ describe('WebSocket Connection', () => {
                 })
             );
 
-            // Should not add to logEvents
+            // Should not call onLogEvent
             await new Promise((resolve) => setTimeout(resolve, 10));
-            const events = get(logEvents);
-            expect(events.length).toBe(0);
+            expect(mockCallbacks.onLogEvent).not.toHaveBeenCalled();
         });
 
-        it('should handle messages with non-string event_id', async () => {
+        it('should not call onLogEvent for messages with non-string event_id', async () => {
             const url = 'wss://localhost:8080/logs';
-            connectWebSocket(url);
+            connectWebSocket(url, mockCallbacks);
 
             await waitFor(() => {
                 const ws = get(websocketConnection);
@@ -577,36 +462,9 @@ describe('WebSocket Connection', () => {
                 })
             );
 
-            // Should not add to logEvents
+            // Should not call onLogEvent
             await new Promise((resolve) => setTimeout(resolve, 10));
-            const events = get(logEvents);
-            expect(events.length).toBe(0);
-        });
-
-        it('should not update status if already in RUNNING state', async () => {
-            const url = 'wss://localhost:8080/logs';
-            executionStatus.set(ExecutionStatus.RUNNING);
-            connectWebSocket(url);
-
-            await waitFor(() => {
-                const ws = get(websocketConnection);
-                expect(ws).not.toBeNull();
-            });
-
-            const ws = get(websocketConnection) as unknown as MockWebSocket;
-
-            const logMessage = {
-                message: 'Log message',
-                timestamp: 1234567890,
-                event_id: 'event-1'
-            };
-
-            ws.simulateMessage(JSON.stringify(logMessage));
-
-            await new Promise((resolve) => setTimeout(resolve, 10));
-
-            // Status should remain RUNNING
-            expect(get(executionStatus)).toBe(ExecutionStatus.RUNNING);
+            expect(mockCallbacks.onLogEvent).not.toHaveBeenCalled();
         });
     });
 
@@ -620,11 +478,12 @@ describe('WebSocket Connection', () => {
                 }
             } as any;
 
-            connectWebSocket('invalid-url');
+            connectWebSocket('invalid-url', mockCallbacks);
 
             // Should set error
             expect(get(connectionError)).toContain('Failed to create WebSocket connection');
             expect(get(isConnecting)).toBe(false);
+            expect(mockCallbacks.onError).toHaveBeenCalled();
 
             // Restore
             globalThis.WebSocket = originalWebSocket;
@@ -632,7 +491,7 @@ describe('WebSocket Connection', () => {
 
         it('should handle onerror event', async () => {
             const url = 'wss://localhost:8080/logs';
-            connectWebSocket(url);
+            connectWebSocket(url, mockCallbacks);
 
             await waitFor(() => {
                 const ws = get(websocketConnection);
@@ -650,12 +509,13 @@ describe('WebSocket Connection', () => {
                 expect(get(connectionError)).toBe('WebSocket connection failed.');
                 expect(get(isConnecting)).toBe(false);
                 expect(get(isConnected)).toBe(false);
+                expect(mockCallbacks.onError).toHaveBeenCalledWith('WebSocket connection failed.');
             });
         });
 
         it('should handle close event with reason', async () => {
             const url = 'wss://localhost:8080/logs';
-            connectWebSocket(url);
+            connectWebSocket(url, mockCallbacks);
 
             await waitFor(() => {
                 const ws = get(websocketConnection);
@@ -678,7 +538,7 @@ describe('WebSocket Connection', () => {
     describe('WebSocket connection state', () => {
         it('should not create new connection if already open', async () => {
             const url = 'wss://localhost:8080/logs';
-            connectWebSocket(url);
+            connectWebSocket(url, mockCallbacks);
 
             // Wait for connection to be established
             await waitFor(() => {
@@ -686,7 +546,7 @@ describe('WebSocket Connection', () => {
             });
 
             // Try to connect again - should return early since already connected
-            connectWebSocket(url);
+            connectWebSocket(url, mockCallbacks);
 
             await new Promise((resolve) => setTimeout(resolve, 10));
 
@@ -696,7 +556,7 @@ describe('WebSocket Connection', () => {
 
         it('should set connection state correctly on open', async () => {
             const url = 'wss://localhost:8080/logs';
-            connectWebSocket(url);
+            connectWebSocket(url, mockCallbacks);
 
             await waitFor(() => {
                 expect(get(isConnecting)).toBe(false);
