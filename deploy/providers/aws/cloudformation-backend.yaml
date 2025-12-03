@@ -512,20 +512,9 @@ Resources:
                 Resource: !Sub 'arn:aws:iam::${AWS::AccountId}:role/*'
               - Effect: Allow
                 Action:
-                  - 'logs:DescribeLogGroups'
-                Resource: '*'
-              - Effect: Allow
-                Action:
                   - 'logs:FilterLogEvents'
                   - 'logs:DescribeLogStreams'
                 Resource: !GetAtt RunnerLogGroup.Arn
-              - Effect: Allow
-                Action:
-                  - 'logs:StartQuery'
-                  - 'logs:GetQueryResults'
-                Resource:
-                  - !GetAtt RunnerLogGroup.Arn
-                  - !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${ProjectName}*'
               - Effect: Allow
                 Action:
                   - 'dynamodb:GetItem'
@@ -606,6 +595,8 @@ Resources:
           RUNVOY_AWS_EXECUTION_LOGS_TABLE: !Ref ExecutionLogsTable
           RUNVOY_AWS_IMAGE_TASKDEFS_TABLE: !Ref ImageTaskDefinitionsTable
           RUNVOY_AWS_LOG_GROUP: !Ref RunnerLogGroup
+          RUNVOY_AWS_ORCHESTRATOR_LOG_GROUP: !Ref LambdaLogGroup
+          RUNVOY_AWS_EVENT_PROCESSOR_LOG_GROUP: !Ref EventProcessorLogGroup
           RUNVOY_AWS_PENDING_API_KEYS_TABLE: !Ref PendingAPIKeysTable
           RUNVOY_AWS_SECRETS_METADATA_TABLE: !Ref SecretsMetadataTable
           RUNVOY_AWS_SECRETS_KMS_KEY_ARN: !GetAtt SecretsKmsKey.Arn
@@ -680,6 +671,8 @@ Resources:
           RUNVOY_AWS_PENDING_API_KEYS_TABLE: !Ref PendingAPIKeysTable
           RUNVOY_AWS_SECRETS_METADATA_TABLE: !Ref SecretsMetadataTable
           RUNVOY_AWS_LOG_GROUP: !Ref RunnerLogGroup
+          RUNVOY_AWS_ORCHESTRATOR_LOG_GROUP: !Ref LambdaLogGroup
+          RUNVOY_AWS_EVENT_PROCESSOR_LOG_GROUP: !Ref EventProcessorLogGroup
           RUNVOY_AWS_DEFAULT_TASK_EXEC_ROLE_ARN: !GetAtt TaskExecutionRole.Arn
           RUNVOY_AWS_DEFAULT_TASK_ROLE_ARN: !GetAtt TaskRole.Arn
           RUNVOY_AWS_SECRETS_PREFIX: '/runvoy/secrets'

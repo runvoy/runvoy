@@ -77,7 +77,14 @@ func (l *LogManagerImpl) FetchLogsByExecutionID(ctx context.Context, executionID
 	})
 
 	// Pass 0 as startTime to fetch all logs from the beginning of the streams (not only last 24h as default)
-	allEvents, err := getAllLogEvents(ctx, l.cwlClient, l.cfg.LogGroup, []string{runnerStream, sidecarStream}, 0)
+	allEvents, err := getAllLogEvents(
+		ctx,
+		l.cwlClient,
+		l.cfg.LogGroup,
+		[]string{runnerStream, sidecarStream},
+		0,
+		reqLogger,
+	)
 	if err != nil {
 		return nil, err
 	}
