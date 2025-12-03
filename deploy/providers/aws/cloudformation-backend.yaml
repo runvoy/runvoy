@@ -505,7 +505,6 @@ Resources:
                 Resource:
                   - !GetAtt TaskExecutionRole.Arn
                   - !GetAtt TaskRole.Arn
-              # Allow passing custom user-created roles for task execution
               - Effect: Allow
                 Action:
                   - 'iam:PassRole'
@@ -513,6 +512,12 @@ Resources:
               - Effect: Allow
                 Action:
                   - 'logs:FilterLogEvents'
+                Resource:
+                  - !GetAtt RunnerLogGroup.Arn
+                  - !GetAtt LambdaLogGroup.Arn
+                  - !GetAtt EventProcessorLogGroup.Arn
+              - Effect: Allow
+                Action:
                   - 'logs:DescribeLogStreams'
                 Resource: !GetAtt RunnerLogGroup.Arn
               - Effect: Allow
