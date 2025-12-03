@@ -9,28 +9,24 @@
 
     const { events = [], showMetadata = true }: Props = $props();
 
-    let container: HTMLDivElement | undefined;
-    let autoScroll = $state(true);
-
-    function handleScroll(): void {
-        if (!container) return;
-        // A little tolerance for scroll position
-        const isScrolledToBottom =
-            container.scrollHeight - container.clientHeight <= container.scrollTop + 5;
-        autoScroll = isScrolledToBottom;
-    }
-
     $effect(() => {
         // Auto-scroll to bottom when new logs arrive
-        // Access events to track changes
-        events;
-        if (autoScroll && container) {
-            container.scrollTop = container.scrollHeight;
+        // Track events.length to detect new log entries
+        const eventCount = events.length;
+        if (eventCount > 0) {
+            // Use requestAnimationFrame to ensure DOM is updated before scrolling
+            // This is especially important for Firefox
+            window.requestAnimationFrame(() => {
+                window.scrollTo({
+                    top: document.documentElement.scrollHeight,
+                    behavior: 'auto'
+                });
+            });
         }
     });
 </script>
 
-<div class="log-viewer-container" bind:this={container} onscroll={handleScroll}>
+<div class="log-viewer-container">
     {#if events.length > 0}
         <div class="log-lines">
             {#each events as event (event.event_id)}
