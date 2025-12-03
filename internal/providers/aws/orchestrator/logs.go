@@ -61,8 +61,43 @@ func verifyLogStreamExists(
 // startTime specifies the start of the time range (in milliseconds since Unix epoch).
 // If 0, fetches all logs from the beginning of the streams.
 // streams can be a single stream or multiple streams (e.g., runner and sidecar).
-func getAllLogEvents(ctx context.Context,
-	cwl awsClient.CloudWatchLogsClient, logGroup string, streams []string, startTime int64) ([]api.LogEvent, error) {
+func buildLogEventFromFilteredEvent(
+	ctx context.Context,
+	reqLogger *slog.Logger,
+	event cwlTypes.FilteredLogEvent,
+) api.LogEvent {
+	log := reqLogger
+	if log == nil {
+		log = logger.DeriveRequestLogger(ctx, slog.Default())
+	}
+
+	message := aws.ToString(event.Message)
+	timestamp := aws.ToInt64(event.Timestamp)
+	eventID := aws.ToString(event.EventId)
+
+	if eventID == "" {
+		log.Warn("no event ID found, generating from timestamp + message", "context", map[string]any{
+			"timestamp": timestamp,
+			"message":   message,
+		})
+		eventID = auth.GenerateEventID(timestamp, message)
+	}
+
+	return api.LogEvent{
+		EventID:   eventID,
+		Timestamp: timestamp,
+		Message:   message,
+	}
+}
+
+func getAllLogEvents(
+	ctx context.Context,
+	cwl awsClient.CloudWatchLogsClient,
+	logGroup string,
+	streams []string,
+	startTime int64,
+	reqLogger *slog.Logger,
+) ([]api.LogEvent, error) {
 	var events []api.LogEvent
 	var nextToken *string
 	pageCount := 0
@@ -87,27 +122,7 @@ func getAllLogEvents(ctx context.Context,
 			return nil, appErrors.ErrInternalError("failed to filter log events", err)
 		}
 		for _, e := range out.Events {
-			message := aws.ToString(e.Message)
-			timestamp := aws.ToInt64(e.Timestamp)
-
-			eventID := ""
-			if e.EventId != nil && *e.EventId != "" {
-				eventID = *e.EventId
-			} else {
-				reqLogger := logger.DeriveRequestLogger(ctx, slog.Default())
-
-				reqLogger.Warn("no event ID found, generating from timestamp + message", "context", map[string]any{
-					"timestamp": timestamp,
-					"message":   message,
-				})
-				eventID = auth.GenerateEventID(timestamp, message)
-			}
-
-			events = append(events, api.LogEvent{
-				EventID:   eventID,
-				Timestamp: timestamp,
-				Message:   message,
-			})
+			events = append(events, buildLogEventFromFilteredEvent(ctx, reqLogger, e))
 		}
 		if out.NextToken == nil || (nextToken != nil && *out.NextToken == *nextToken) {
 			break
@@ -139,25 +154,4 @@ func parseMessageTimestamp(logEntry *api.LogEvent, message string) bool {
 
 	logEntry.Timestamp = t.UnixMilli()
 	return true
-}
-
-// parseCloudWatchTimestamp parses the @timestamp field from CloudWatch Logs Insights.
-// Handles both RFC3339 and RFC3339Nano formats.
-func parseCloudWatchTimestamp(logEntry *api.LogEvent, timestamp string) {
-	if timestamp == "" {
-		return
-	}
-
-	// Try RFC3339Nano first (most common from CloudWatch)
-	t, err := time.Parse(time.RFC3339Nano, timestamp)
-	if err == nil {
-		logEntry.Timestamp = t.UnixMilli()
-		return
-	}
-
-	// Fall back to RFC3339
-	t, err = time.Parse(time.RFC3339, timestamp)
-	if err == nil {
-		logEntry.Timestamp = t.UnixMilli()
-	}
 }

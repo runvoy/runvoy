@@ -521,13 +521,6 @@ Resources:
                 Resource: !GetAtt RunnerLogGroup.Arn
               - Effect: Allow
                 Action:
-                  - 'logs:StartQuery'
-                  - 'logs:GetQueryResults'
-                Resource:
-                  - !GetAtt RunnerLogGroup.Arn
-                  - !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${ProjectName}*'
-              - Effect: Allow
-                Action:
                   - 'dynamodb:GetItem'
                   - 'dynamodb:PutItem'
                   - 'dynamodb:UpdateItem'
