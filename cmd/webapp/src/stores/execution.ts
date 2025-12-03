@@ -4,10 +4,5 @@
  */
 import { writable } from 'svelte/store';
 
+// Tracks the current/most recent execution ID so it can be reused across navigations.
 export const executionId = writable<string | null>(null);
-
-/**
- * Last viewed execution ID - persists across page navigations.
- * Used to restore the execution ID when returning to /logs without a query param.
- */
-export const lastViewedExecutionId = writable<string | null>(null);

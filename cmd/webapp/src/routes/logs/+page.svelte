@@ -3,7 +3,7 @@
     import { page } from '$app/state';
     import LogsView from '../../views/LogsView.svelte';
     import { apiClient } from '../../stores/apiClient';
-    import { lastViewedExecutionId } from '../../stores/execution';
+    import { executionId } from '../../stores/execution';
 
     // Get execution ID from URL - this is the single source of truth
     const urlExecutionId = $derived(
@@ -15,8 +15,8 @@
 
     // Restore from store if URL has no execution ID
     $effect(() => {
-        if (!urlExecutionId && $lastViewedExecutionId) {
-            goto(`/logs?execution_id=${encodeURIComponent($lastViewedExecutionId)}`, {
+        if (!urlExecutionId && $executionId) {
+            goto(`/logs?execution_id=${encodeURIComponent($executionId)}`, {
                 replaceState: true
             });
         }
@@ -25,7 +25,7 @@
     // Save to store when viewing an execution
     $effect(() => {
         if (urlExecutionId) {
-            lastViewedExecutionId.set(urlExecutionId);
+            executionId.set(urlExecutionId);
         }
     });
 </script>
