@@ -37,7 +37,9 @@ type Config struct {
 	TaskDefinition         string `mapstructure:"task_definition"`
 
 	// CloudWatch Logs
-	LogGroup string `mapstructure:"log_group"`
+	LogGroup               string `mapstructure:"log_group"`
+	OrchestratorLogGroup   string `mapstructure:"orchestrator_log_group"`
+	EventProcessorLogGroup string `mapstructure:"event_processor_log_group"`
 
 	// API Gateway WebSocket
 	WebSocketAPIEndpoint string `mapstructure:"websocket_api_endpoint"`
@@ -66,6 +68,8 @@ func BindEnvVars(v *viper.Viper) {
 	_ = v.BindEnv("aws.execution_logs_table", "RUNVOY_AWS_EXECUTION_LOGS_TABLE")
 	_ = v.BindEnv("aws.image_taskdefs_table", "RUNVOY_AWS_IMAGE_TASKDEFS_TABLE")
 	_ = v.BindEnv("aws.log_group", "RUNVOY_AWS_LOG_GROUP")
+	_ = v.BindEnv("aws.orchestrator_log_group", "RUNVOY_AWS_ORCHESTRATOR_LOG_GROUP")
+	_ = v.BindEnv("aws.event_processor_log_group", "RUNVOY_AWS_EVENT_PROCESSOR_LOG_GROUP")
 	_ = v.BindEnv("aws.pending_api_keys_table", "RUNVOY_AWS_PENDING_API_KEYS_TABLE")
 	_ = v.BindEnv("aws.secrets_kms_key_arn", "RUNVOY_AWS_SECRETS_KMS_KEY_ARN")
 	_ = v.BindEnv("aws.secrets_metadata_table", "RUNVOY_AWS_SECRETS_METADATA_TABLE")
@@ -100,6 +104,8 @@ func ValidateOrchestrator(cfg *Config) error {
 		"AWS.SecurityGroup":             cfg.SecurityGroup,
 		"AWS.Subnet1":                   cfg.Subnet1,
 		"AWS.Subnet2":                   cfg.Subnet2,
+		"AWS.OrchestratorLogGroup":      cfg.OrchestratorLogGroup,
+		"AWS.EventProcessorLogGroup":    cfg.EventProcessorLogGroup,
 		"AWS.WebSocketAPIEndpoint":      cfg.WebSocketAPIEndpoint,
 		"AWS.WebSocketConnectionsTable": cfg.WebSocketConnectionsTable,
 		"AWS.WebSocketTokensTable":      cfg.WebSocketTokensTable,
@@ -133,6 +139,8 @@ func ValidateEventProcessor(cfg *Config) error {
 		"AWS.SecretsKMSKeyARN":          cfg.SecretsKMSKeyARN,
 		"AWS.SecretsMetadataTable":      cfg.SecretsMetadataTable,
 		"AWS.SecretsPrefix":             cfg.SecretsPrefix,
+		"AWS.OrchestratorLogGroup":      cfg.OrchestratorLogGroup,
+		"AWS.EventProcessorLogGroup":    cfg.EventProcessorLogGroup,
 		"AWS.WebSocketAPIEndpoint":      cfg.WebSocketAPIEndpoint,
 		"AWS.WebSocketConnectionsTable": cfg.WebSocketConnectionsTable,
 		"AWS.WebSocketTokensTable":      cfg.WebSocketTokensTable,

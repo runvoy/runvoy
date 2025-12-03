@@ -83,6 +83,8 @@ func TestValidateOrchestrator(t *testing.T) {
 			ExecutionLogsTable:        "execution-logs",
 			ImageTaskDefsTable:        "image-taskdefs",
 			LogGroup:                  "logs",
+			OrchestratorLogGroup:      "/aws/lambda/orchestrator",
+			EventProcessorLogGroup:    "/aws/lambda/event-processor",
 			SecurityGroup:             "sg",
 			Subnet1:                   "subnet1",
 			Subnet2:                   "subnet2",
@@ -106,6 +108,8 @@ func TestValidateOrchestrator(t *testing.T) {
 			ExecutionLogsTable:        "execution-logs",
 			ImageTaskDefsTable:        "image-taskdefs",
 			LogGroup:                  "logs",
+			OrchestratorLogGroup:      "/aws/lambda/orchestrator",
+			EventProcessorLogGroup:    "/aws/lambda/event-processor",
 			SecurityGroup:             "sg",
 			Subnet1:                   "subnet1",
 			Subnet2:                   "subnet2",
@@ -130,6 +134,8 @@ func TestValidateOrchestrator(t *testing.T) {
 			ExecutionLogsTable:        "execution-logs",
 			ImageTaskDefsTable:        "image-taskdefs",
 			LogGroup:                  "logs",
+			OrchestratorLogGroup:      "/aws/lambda/orchestrator",
+			EventProcessorLogGroup:    "/aws/lambda/event-processor",
 			SecurityGroup:             "sg",
 			Subnet1:                   "subnet1",
 			Subnet2:                   "subnet2",
@@ -171,6 +177,8 @@ func TestValidateEventProcessor(t *testing.T) {
 			ImageTaskDefsTable:        "image-taskdefs",
 			SecretsMetadataTable:      "secrets",
 			LogGroup:                  "/aws/logs/app",
+			OrchestratorLogGroup:      "/aws/lambda/orchestrator",
+			EventProcessorLogGroup:    "/aws/lambda/event-processor",
 			DefaultTaskExecRoleARN:    "arn:aws:iam::123456789012:role/exec-role",
 			DefaultTaskRoleARN:        "arn:aws:iam::123456789012:role/task-role",
 			SecretsPrefix:             "/runvoy/secrets",
@@ -193,6 +201,8 @@ func TestValidateEventProcessor(t *testing.T) {
 			ImageTaskDefsTable:        "image-taskdefs",
 			SecretsMetadataTable:      "secrets",
 			LogGroup:                  "/aws/logs/app",
+			OrchestratorLogGroup:      "/aws/lambda/orchestrator",
+			EventProcessorLogGroup:    "/aws/lambda/event-processor",
 			DefaultTaskExecRoleARN:    "arn:aws:iam::123456789012:role/exec-role",
 			DefaultTaskRoleARN:        "arn:aws:iam::123456789012:role/task-role",
 			SecretsPrefix:             "/runvoy/secrets",
@@ -216,6 +226,8 @@ func TestValidateEventProcessor(t *testing.T) {
 			ImageTaskDefsTable:        "image-taskdefs",
 			SecretsMetadataTable:      "secrets",
 			LogGroup:                  "/aws/logs/app",
+			OrchestratorLogGroup:      "/aws/lambda/orchestrator",
+			EventProcessorLogGroup:    "/aws/lambda/event-processor",
 			DefaultTaskExecRoleARN:    "arn:aws:iam::123456789012:role/exec-role",
 			DefaultTaskRoleARN:        "arn:aws:iam::123456789012:role/task-role",
 			SecretsPrefix:             "/runvoy/secrets",
@@ -240,6 +252,8 @@ func TestValidateEventProcessor(t *testing.T) {
 			ImageTaskDefsTable:        "image-taskdefs",
 			SecretsMetadataTable:      "secrets",
 			LogGroup:                  "/aws/logs/app",
+			OrchestratorLogGroup:      "/aws/lambda/orchestrator",
+			EventProcessorLogGroup:    "/aws/lambda/event-processor",
 			DefaultTaskExecRoleARN:    "arn:aws:iam::123456789012:role/exec-role",
 			DefaultTaskRoleARN:        "arn:aws:iam::123456789012:role/task-role",
 			SecretsPrefix:             "/runvoy/secrets",
@@ -258,18 +272,20 @@ func TestValidateEventProcessor(t *testing.T) {
 func TestBindEnvVars(t *testing.T) {
 	// Save and clear original env vars
 	originalVars := map[string]string{
-		"RUNVOY_AWS_API_KEYS_TABLE":         os.Getenv("RUNVOY_AWS_API_KEYS_TABLE"),
-		"RUNVOY_AWS_ECS_CLUSTER":            os.Getenv("RUNVOY_AWS_ECS_CLUSTER"),
-		"RUNVOY_AWS_EXECUTIONS_TABLE":       os.Getenv("RUNVOY_AWS_EXECUTIONS_TABLE"),
-		"RUNVOY_AWS_EXECUTION_LOGS_TABLE":   os.Getenv("RUNVOY_AWS_EXECUTION_LOGS_TABLE"),
-		"RUNVOY_AWS_IMAGE_TASKDEFS_TABLE":   os.Getenv("RUNVOY_AWS_IMAGE_TASKDEFS_TABLE"),
-		"RUNVOY_AWS_LOG_GROUP":              os.Getenv("RUNVOY_AWS_LOG_GROUP"),
-		"RUNVOY_AWS_SECURITY_GROUP":         os.Getenv("RUNVOY_AWS_SECURITY_GROUP"),
-		"RUNVOY_AWS_SUBNET_1":               os.Getenv("RUNVOY_AWS_SUBNET_1"),
-		"RUNVOY_AWS_SUBNET_2":               os.Getenv("RUNVOY_AWS_SUBNET_2"),
-		"RUNVOY_AWS_WEBSOCKET_API_ENDPOINT": os.Getenv("RUNVOY_AWS_WEBSOCKET_API_ENDPOINT"),
-		"RUNVOY_AWS_SECRETS_PREFIX":         os.Getenv("RUNVOY_AWS_SECRETS_PREFIX"),
-		"RUNVOY_AWS_SECRETS_KMS_KEY_ARN":    os.Getenv("RUNVOY_AWS_SECRETS_KMS_KEY_ARN"),
+		"RUNVOY_AWS_API_KEYS_TABLE":            os.Getenv("RUNVOY_AWS_API_KEYS_TABLE"),
+		"RUNVOY_AWS_ECS_CLUSTER":               os.Getenv("RUNVOY_AWS_ECS_CLUSTER"),
+		"RUNVOY_AWS_EXECUTIONS_TABLE":          os.Getenv("RUNVOY_AWS_EXECUTIONS_TABLE"),
+		"RUNVOY_AWS_EXECUTION_LOGS_TABLE":      os.Getenv("RUNVOY_AWS_EXECUTION_LOGS_TABLE"),
+		"RUNVOY_AWS_IMAGE_TASKDEFS_TABLE":      os.Getenv("RUNVOY_AWS_IMAGE_TASKDEFS_TABLE"),
+		"RUNVOY_AWS_LOG_GROUP":                 os.Getenv("RUNVOY_AWS_LOG_GROUP"),
+		"RUNVOY_AWS_ORCHESTRATOR_LOG_GROUP":    os.Getenv("RUNVOY_AWS_ORCHESTRATOR_LOG_GROUP"),
+		"RUNVOY_AWS_EVENT_PROCESSOR_LOG_GROUP": os.Getenv("RUNVOY_AWS_EVENT_PROCESSOR_LOG_GROUP"),
+		"RUNVOY_AWS_SECURITY_GROUP":            os.Getenv("RUNVOY_AWS_SECURITY_GROUP"),
+		"RUNVOY_AWS_SUBNET_1":                  os.Getenv("RUNVOY_AWS_SUBNET_1"),
+		"RUNVOY_AWS_SUBNET_2":                  os.Getenv("RUNVOY_AWS_SUBNET_2"),
+		"RUNVOY_AWS_WEBSOCKET_API_ENDPOINT":    os.Getenv("RUNVOY_AWS_WEBSOCKET_API_ENDPOINT"),
+		"RUNVOY_AWS_SECRETS_PREFIX":            os.Getenv("RUNVOY_AWS_SECRETS_PREFIX"),
+		"RUNVOY_AWS_SECRETS_KMS_KEY_ARN":       os.Getenv("RUNVOY_AWS_SECRETS_KMS_KEY_ARN"),
 	}
 
 	defer func() {
@@ -293,6 +309,8 @@ func TestBindEnvVars(t *testing.T) {
 	_ = os.Setenv("RUNVOY_AWS_ECS_CLUSTER", "test-cluster")
 	_ = os.Setenv("RUNVOY_AWS_EXECUTION_LOGS_TABLE", "test-execution-logs")
 	_ = os.Setenv("RUNVOY_AWS_LOG_GROUP", "/aws/ecs/test")
+	_ = os.Setenv("RUNVOY_AWS_ORCHESTRATOR_LOG_GROUP", "/aws/lambda/orchestrator")
+	_ = os.Setenv("RUNVOY_AWS_EVENT_PROCESSOR_LOG_GROUP", "/aws/lambda/event-processor")
 
 	v := viper.New()
 	v.SetEnvPrefix("RUNVOY")
@@ -305,6 +323,8 @@ func TestBindEnvVars(t *testing.T) {
 	assert.Equal(t, "test-cluster", v.GetString("aws.ecs_cluster"))
 	assert.Equal(t, "test-execution-logs", v.GetString("aws.execution_logs_table"))
 	assert.Equal(t, "/aws/ecs/test", v.GetString("aws.log_group"))
+	assert.Equal(t, "/aws/lambda/orchestrator", v.GetString("aws.orchestrator_log_group"))
+	assert.Equal(t, "/aws/lambda/event-processor", v.GetString("aws.event_processor_log_group"))
 	// Verify defaults were set
 	assert.NotEmpty(t, v.GetString("aws.secrets_prefix"))
 }

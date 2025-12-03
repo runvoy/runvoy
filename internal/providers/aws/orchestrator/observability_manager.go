@@ -5,7 +5,11 @@ import (
 	"fmt"
 	"log/slog"
 	"sort"
+	"strings"
 	"time"
+
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs"
 
 	"github.com/runvoy/runvoy/internal/api"
 	"github.com/runvoy/runvoy/internal/auth"
@@ -14,9 +18,6 @@ import (
 	"github.com/runvoy/runvoy/internal/logger"
 	awsClient "github.com/runvoy/runvoy/internal/providers/aws/client"
 	awsConstants "github.com/runvoy/runvoy/internal/providers/aws/constants"
-
-	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs"
 )
 
 // ObservabilityManagerImpl implements the ObservabilityManager interface for AWS CloudWatch Logs.
@@ -25,17 +26,20 @@ type ObservabilityManagerImpl struct {
 	cwlClient awsClient.CloudWatchLogsClient
 	logger    *slog.Logger
 	nowFn     func() time.Time
+	logGroups []string
 }
 
 // NewObservabilityManager creates a new AWS observability manager.
 func NewObservabilityManager(
 	cwlClient awsClient.CloudWatchLogsClient,
 	log *slog.Logger,
+	logGroups []string,
 ) *ObservabilityManagerImpl {
 	return &ObservabilityManagerImpl{
 		cwlClient: cwlClient,
 		logger:    log,
 		nowFn:     time.Now,
+		logGroups: sanitizeLogGroups(logGroups),
 	}
 }
 
@@ -44,20 +48,15 @@ func NewObservabilityManager(
 func (o *ObservabilityManagerImpl) FetchBackendLogs(ctx context.Context, requestID string) ([]api.LogEvent, error) {
 	reqLogger := logger.DeriveRequestLogger(ctx, o.logger)
 
-	logGroups, err := o.discoverLogGroups(ctx, reqLogger)
-	if err != nil {
-		return nil, err
-	}
-
-	if len(logGroups) == 0 {
-		return nil, appErrors.ErrServiceUnavailable("no Lambda log groups found matching prefix", nil)
+	if len(o.logGroups) == 0 {
+		return nil, appErrors.ErrInternalError("no backend log groups configured", nil)
 	}
 
 	startMillis, endMillis := o.lookbackWindowMillis()
 	filterPattern := o.buildFilterPattern(requestID)
 
 	var allLogs []api.LogEvent
-	for _, group := range logGroups {
+	for _, group := range o.logGroups {
 		groupLogger := reqLogger.With("log_group", group)
 		groupLogs, fetchErr := o.fetchLogEventsForGroup(
 			ctx,
@@ -76,50 +75,6 @@ func (o *ObservabilityManagerImpl) FetchBackendLogs(ctx context.Context, request
 
 	o.sortLogEvents(allLogs)
 	return allLogs, nil
-}
-
-// discoverLogGroups discovers all log groups matching the runvoy Lambda prefix.
-func (o *ObservabilityManagerImpl) discoverLogGroups(ctx context.Context, reqLogger *slog.Logger) ([]string, error) {
-	log := reqLogger
-	if log == nil {
-		log = logger.DeriveRequestLogger(ctx, o.logger)
-	}
-
-	logGroups := []string{}
-	var nextToken *string
-	page := 0
-
-	for {
-		page++
-		describeArgs := []any{
-			"operation", "CloudWatchLogs.DescribeLogGroups",
-			"page", page,
-		}
-		if nextToken != nil {
-			describeArgs = append(describeArgs, "next_token", aws.ToString(nextToken))
-		}
-		describeArgs = append(describeArgs, logger.GetDeadlineInfo(ctx)...)
-		log.Debug("calling external service", "context", logger.SliceToMap(describeArgs))
-
-		out, err := o.cwlClient.DescribeLogGroups(ctx, &cloudwatchlogs.DescribeLogGroupsInput{
-			LogGroupNamePrefix: aws.String(awsConstants.LogGroupPrefix),
-			NextToken:          nextToken,
-		})
-		if err != nil {
-			return nil, appErrors.ErrInternalError("failed to discover log groups", err)
-		}
-
-		for i := range out.LogGroups {
-			logGroups = append(logGroups, aws.ToString(out.LogGroups[i].LogGroupName))
-		}
-
-		if out.NextToken == nil {
-			break
-		}
-		nextToken = out.NextToken
-	}
-
-	return logGroups, nil
 }
 
 func (o *ObservabilityManagerImpl) fetchLogEventsForGroup(
@@ -216,4 +171,24 @@ func (o *ObservabilityManagerImpl) sortLogEvents(logs []api.LogEvent) {
 		}
 		return logs[i].Timestamp < logs[j].Timestamp
 	})
+}
+
+func sanitizeLogGroups(groups []string) []string {
+	if len(groups) == 0 {
+		return nil
+	}
+	unique := make([]string, 0, len(groups))
+	seen := make(map[string]struct{}, len(groups))
+	for _, group := range groups {
+		group = strings.TrimSpace(group)
+		if group == "" {
+			continue
+		}
+		if _, ok := seen[group]; ok {
+			continue
+		}
+		seen[group] = struct{}{}
+		unique = append(unique, group)
+	}
+	return unique
 }

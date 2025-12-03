@@ -184,7 +184,11 @@ func buildManagers(
 	taskManager := NewTaskManager(clients.ecs, repos.ImageTaskDefRepo, providerCfg, log)
 	imageRegistry := NewImageRegistry(clients.ecs, clients.iam, repos.ImageTaskDefRepo, providerCfg, log)
 	logManager := NewLogManager(clients.cwl, providerCfg, log)
-	observabilityManager := NewObservabilityManager(clients.cwl, log)
+	observabilityLogGroups := []string{
+		cfg.AWS.OrchestratorLogGroup,
+		cfg.AWS.EventProcessorLogGroup,
+	}
+	observabilityManager := NewObservabilityManager(clients.cwl, log, observabilityLogGroups)
 	wsManager := awsWebsocket.Initialize(cfg, repos.ConnectionRepo, repos.TokenRepo, repos.LogEventRepo, log)
 
 	healthCfg := &awsHealth.Config{

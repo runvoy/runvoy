@@ -23,11 +23,6 @@ import (
 
 // Mock CloudWatch Logs client for testing
 type mockCloudWatchLogsClient struct {
-	describeLogGroupsFunc func(
-		ctx context.Context,
-		params *cloudwatchlogs.DescribeLogGroupsInput,
-		optFns ...func(*cloudwatchlogs.Options),
-	) (*cloudwatchlogs.DescribeLogGroupsOutput, error)
 	describeLogStreamsFunc func(
 		ctx context.Context,
 		params *cloudwatchlogs.DescribeLogStreamsInput,
@@ -38,17 +33,6 @@ type mockCloudWatchLogsClient struct {
 		params *cloudwatchlogs.FilterLogEventsInput,
 		optFns ...func(*cloudwatchlogs.Options),
 	) (*cloudwatchlogs.FilterLogEventsOutput, error)
-}
-
-func (m *mockCloudWatchLogsClient) DescribeLogGroups(
-	_ context.Context,
-	params *cloudwatchlogs.DescribeLogGroupsInput,
-	optFns ...func(*cloudwatchlogs.Options),
-) (*cloudwatchlogs.DescribeLogGroupsOutput, error) {
-	if m.describeLogGroupsFunc != nil {
-		return m.describeLogGroupsFunc(context.Background(), params, optFns...)
-	}
-	return &cloudwatchlogs.DescribeLogGroupsOutput{}, nil
 }
 
 func (m *mockCloudWatchLogsClient) DescribeLogStreams(
@@ -863,116 +847,18 @@ func TestFetchLogsByExecutionID(t *testing.T) {
 	}
 }
 
-func TestDiscoverLogGroups(t *testing.T) {
-	ctx := context.Background()
-
-	t.Run("single page of log groups", func(t *testing.T) {
-		mock := &mockCloudWatchLogsClient{
-			describeLogGroupsFunc: func(
-				_ context.Context,
-				_ *cloudwatchlogs.DescribeLogGroupsInput,
-				_ ...func(*cloudwatchlogs.Options),
-			) (*cloudwatchlogs.DescribeLogGroupsOutput, error) {
-				return &cloudwatchlogs.DescribeLogGroupsOutput{
-					LogGroups: []cwlTypes.LogGroup{
-						{LogGroupName: aws.String("/aws/lambda/runvoy-orchestrator")},
-						{LogGroupName: aws.String("/aws/lambda/runvoy-processor")},
-					},
-				}, nil
-			},
-		}
-
-		manager := &ObservabilityManagerImpl{cwlClient: mock, logger: testutil.SilentLogger()}
-		groups, err := manager.discoverLogGroups(ctx, testutil.SilentLogger())
-		require.NoError(t, err)
-		require.Len(t, groups, 2)
-		assert.Contains(t, groups, "/aws/lambda/runvoy-orchestrator")
-		assert.Contains(t, groups, "/aws/lambda/runvoy-processor")
-	})
-
-	t.Run("multiple pages of log groups", func(t *testing.T) {
-		pageCount := 0
-		token1 := "next-token-1"
-		mock := &mockCloudWatchLogsClient{
-			describeLogGroupsFunc: func(
-				_ context.Context,
-				_ *cloudwatchlogs.DescribeLogGroupsInput,
-				_ ...func(*cloudwatchlogs.Options),
-			) (*cloudwatchlogs.DescribeLogGroupsOutput, error) {
-				pageCount++
-				switch pageCount {
-				case 1:
-					return &cloudwatchlogs.DescribeLogGroupsOutput{
-						LogGroups: []cwlTypes.LogGroup{
-							{LogGroupName: aws.String("/aws/lambda/runvoy-orchestrator")},
-						},
-						NextToken: aws.String(token1),
-					}, nil
-				default:
-					return &cloudwatchlogs.DescribeLogGroupsOutput{
-						LogGroups: []cwlTypes.LogGroup{
-							{LogGroupName: aws.String("/aws/lambda/runvoy-processor")},
-						},
-					}, nil
-				}
-			},
-		}
-
-		manager := &ObservabilityManagerImpl{cwlClient: mock, logger: testutil.SilentLogger()}
-		groups, err := manager.discoverLogGroups(ctx, testutil.SilentLogger())
-		require.NoError(t, err)
-		require.Len(t, groups, 2)
-		assert.Equal(t, 2, pageCount)
-	})
-
-	t.Run("no log groups found", func(t *testing.T) {
-		mock := &mockCloudWatchLogsClient{
-			describeLogGroupsFunc: func(
-				_ context.Context,
-				_ *cloudwatchlogs.DescribeLogGroupsInput,
-				_ ...func(*cloudwatchlogs.Options),
-			) (*cloudwatchlogs.DescribeLogGroupsOutput, error) {
-				return &cloudwatchlogs.DescribeLogGroupsOutput{
-					LogGroups: []cwlTypes.LogGroup{},
-				}, nil
-			},
-		}
-
-		manager := &ObservabilityManagerImpl{cwlClient: mock, logger: testutil.SilentLogger()}
-		groups, err := manager.discoverLogGroups(ctx, testutil.SilentLogger())
-		require.NoError(t, err)
-		require.Empty(t, groups)
-	})
-
-	t.Run("describe log groups fails", func(t *testing.T) {
-		mock := &mockCloudWatchLogsClient{
-			describeLogGroupsFunc: func(
-				_ context.Context,
-				_ *cloudwatchlogs.DescribeLogGroupsInput,
-				_ ...func(*cloudwatchlogs.Options),
-			) (*cloudwatchlogs.DescribeLogGroupsOutput, error) {
-				return nil, errors.New("AWS API error")
-			},
-		}
-
-		manager := &ObservabilityManagerImpl{cwlClient: mock, logger: testutil.SilentLogger()}
-		groups, err := manager.discoverLogGroups(ctx, testutil.SilentLogger())
-		require.Error(t, err)
-		assert.Nil(t, groups)
-	})
-}
-
 func TestFetchBackendLogs(t *testing.T) {
 	ctx := context.Background()
 	requestID := "aws-request-id-12345"
 	fixedNow := time.Date(2025, time.December, 1, 12, 0, 0, 0, time.UTC)
-	testManager := func(mock *mockCloudWatchLogsClient) *ObservabilityManagerImpl {
+	testManager := func(mock *mockCloudWatchLogsClient, logGroups []string) *ObservabilityManagerImpl {
 		return &ObservabilityManagerImpl{
 			cwlClient: mock,
 			logger:    testutil.SilentLogger(),
 			nowFn: func() time.Time {
 				return fixedNow
 			},
+			logGroups: logGroups,
 		}
 	}
 
@@ -987,18 +873,6 @@ func TestFetchBackendLogs(t *testing.T) {
 		secondTimestamp := firstTimestamp + 1000
 		thirdTimestamp := firstTimestamp + 2000
 		mock := &mockCloudWatchLogsClient{
-			describeLogGroupsFunc: func(
-				_ context.Context,
-				_ *cloudwatchlogs.DescribeLogGroupsInput,
-				_ ...func(*cloudwatchlogs.Options),
-			) (*cloudwatchlogs.DescribeLogGroupsOutput, error) {
-				return &cloudwatchlogs.DescribeLogGroupsOutput{
-					LogGroups: []cwlTypes.LogGroup{
-						{LogGroupName: aws.String(groupA)},
-						{LogGroupName: aws.String(groupB)},
-					},
-				}, nil
-			},
 			filterLogEventsFunc: func(
 				_ context.Context,
 				params *cloudwatchlogs.FilterLogEventsInput,
@@ -1045,7 +919,7 @@ func TestFetchBackendLogs(t *testing.T) {
 			},
 		}
 
-		manager := testManager(mock)
+		manager := testManager(mock, []string{groupA, groupB})
 		expectedStartMillis, expectedEndMillis = manager.lookbackWindowMillis()
 		logs, err := manager.FetchBackendLogs(ctx, requestID)
 		require.NoError(t, err)
@@ -1060,37 +934,8 @@ func TestFetchBackendLogs(t *testing.T) {
 		assert.Equal(t, "groupB event", logs[2].Message)
 	})
 
-	t.Run("log group discovery fails", func(t *testing.T) {
-		mock := &mockCloudWatchLogsClient{
-			describeLogGroupsFunc: func(
-				_ context.Context,
-				_ *cloudwatchlogs.DescribeLogGroupsInput,
-				_ ...func(*cloudwatchlogs.Options),
-			) (*cloudwatchlogs.DescribeLogGroupsOutput, error) {
-				return nil, errors.New("AWS API error")
-			},
-		}
-
-		manager := testManager(mock)
-		logs, err := manager.FetchBackendLogs(ctx, requestID)
-		require.Error(t, err)
-		assert.Nil(t, logs)
-	})
-
-	t.Run("no log groups found", func(t *testing.T) {
-		mock := &mockCloudWatchLogsClient{
-			describeLogGroupsFunc: func(
-				_ context.Context,
-				_ *cloudwatchlogs.DescribeLogGroupsInput,
-				_ ...func(*cloudwatchlogs.Options),
-			) (*cloudwatchlogs.DescribeLogGroupsOutput, error) {
-				return &cloudwatchlogs.DescribeLogGroupsOutput{
-					LogGroups: []cwlTypes.LogGroup{},
-				}, nil
-			},
-		}
-
-		manager := testManager(mock)
+	t.Run("no log groups configured", func(t *testing.T) {
+		manager := testManager(&mockCloudWatchLogsClient{}, nil)
 		logs, err := manager.FetchBackendLogs(ctx, requestID)
 		require.Error(t, err)
 		assert.Nil(t, logs)
@@ -1098,17 +943,6 @@ func TestFetchBackendLogs(t *testing.T) {
 
 	t.Run("filter log events fails", func(t *testing.T) {
 		mock := &mockCloudWatchLogsClient{
-			describeLogGroupsFunc: func(
-				_ context.Context,
-				_ *cloudwatchlogs.DescribeLogGroupsInput,
-				_ ...func(*cloudwatchlogs.Options),
-			) (*cloudwatchlogs.DescribeLogGroupsOutput, error) {
-				return &cloudwatchlogs.DescribeLogGroupsOutput{
-					LogGroups: []cwlTypes.LogGroup{
-						{LogGroupName: aws.String("/aws/lambda/runvoy-orchestrator")},
-					},
-				}, nil
-			},
 			filterLogEventsFunc: func(
 				_ context.Context,
 				_ *cloudwatchlogs.FilterLogEventsInput,
@@ -1118,7 +952,7 @@ func TestFetchBackendLogs(t *testing.T) {
 			},
 		}
 
-		manager := testManager(mock)
+		manager := testManager(mock, []string{"/aws/lambda/runvoy-orchestrator"})
 		logs, err := manager.FetchBackendLogs(ctx, requestID)
 		require.Error(t, err)
 		assert.Nil(t, logs)

@@ -10,11 +10,6 @@ import (
 // CloudWatchLogsClient defines the interface for CloudWatch Logs operations used by the runner.
 // This interface makes the code easier to test by allowing mock implementations.
 type CloudWatchLogsClient interface {
-	DescribeLogGroups(
-		ctx context.Context,
-		params *cloudwatchlogs.DescribeLogGroupsInput,
-		optFns ...func(*cloudwatchlogs.Options),
-	) (*cloudwatchlogs.DescribeLogGroupsOutput, error)
 	DescribeLogStreams(
 		ctx context.Context,
 		params *cloudwatchlogs.DescribeLogStreamsInput,
@@ -36,19 +31,6 @@ type CloudWatchLogsClientAdapter struct {
 // NewCloudWatchLogsClientAdapter creates a new adapter wrapping the AWS SDK CloudWatch Logs client.
 func NewCloudWatchLogsClientAdapter(client *cloudwatchlogs.Client) *CloudWatchLogsClientAdapter {
 	return &CloudWatchLogsClientAdapter{client: client}
-}
-
-// DescribeLogGroups wraps the AWS SDK DescribeLogGroups operation.
-func (a *CloudWatchLogsClientAdapter) DescribeLogGroups(
-	ctx context.Context,
-	params *cloudwatchlogs.DescribeLogGroupsInput,
-	optFns ...func(*cloudwatchlogs.Options),
-) (*cloudwatchlogs.DescribeLogGroupsOutput, error) {
-	result, err := a.client.DescribeLogGroups(ctx, params, optFns...)
-	if err != nil {
-		return nil, fmt.Errorf("failed to describe log groups: %w", err)
-	}
-	return result, nil
 }
 
 // DescribeLogStreams wraps the AWS SDK DescribeLogStreams operation.
