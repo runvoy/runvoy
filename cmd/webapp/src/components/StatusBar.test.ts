@@ -16,7 +16,7 @@ describe('StatusBar', () => {
         startedAt: null,
         completedAt: null,
         exitCode: null,
-        isCompleted: false,
+        killInitiated: false,
         onKill: null
     };
 
@@ -116,13 +116,13 @@ describe('StatusBar', () => {
         expect(screen.queryByText('Exit Code:')).not.toBeInTheDocument();
     });
 
-    it('should display kill button when onKill is provided and execution is not completed', () => {
+    it('should display kill button when onKill is provided and status is killable', () => {
         const mockKill = vi.fn();
 
         render(StatusBar, {
             props: {
                 ...defaultProps,
-                isCompleted: false,
+                status: ExecutionStatus.RUNNING,
                 onKill: mockKill
             }
         });
@@ -131,13 +131,27 @@ describe('StatusBar', () => {
         expect(killButton).toBeInTheDocument();
     });
 
-    it('should not display kill button when execution is completed', () => {
+    it('should not display kill button when status is terminal', () => {
         const mockKill = vi.fn();
 
         render(StatusBar, {
             props: {
                 ...defaultProps,
-                isCompleted: true,
+                status: ExecutionStatus.SUCCEEDED,
+                onKill: mockKill
+            }
+        });
+
+        expect(screen.queryByText('⏹️ Kill')).not.toBeInTheDocument();
+    });
+
+    it('should not display kill button when status is TERMINATING', () => {
+        const mockKill = vi.fn();
+
+        render(StatusBar, {
+            props: {
+                ...defaultProps,
+                status: ExecutionStatus.TERMINATING,
                 onKill: mockKill
             }
         });
@@ -149,7 +163,7 @@ describe('StatusBar', () => {
         render(StatusBar, {
             props: {
                 ...defaultProps,
-                isCompleted: false,
+                status: ExecutionStatus.RUNNING,
                 onKill: null
             }
         });
@@ -163,7 +177,7 @@ describe('StatusBar', () => {
         render(StatusBar, {
             props: {
                 ...defaultProps,
-                isCompleted: false,
+                status: ExecutionStatus.RUNNING,
                 onKill: mockKill
             }
         });
@@ -187,7 +201,7 @@ describe('StatusBar', () => {
         render(StatusBar, {
             props: {
                 ...defaultProps,
-                isCompleted: false,
+                status: ExecutionStatus.RUNNING,
                 onKill: mockKill
             }
         });
@@ -201,19 +215,36 @@ describe('StatusBar', () => {
         });
     });
 
-    it('should disable kill button when execution is completed', () => {
+    it('should disable kill button when killInitiated is true', () => {
         const mockKill = vi.fn();
 
         render(StatusBar, {
             props: {
                 ...defaultProps,
-                isCompleted: true,
+                status: ExecutionStatus.RUNNING,
+                killInitiated: true,
                 onKill: mockKill
             }
         });
 
-        // Button should not be visible when completed
-        expect(screen.queryByText('⏹️ Kill')).not.toBeInTheDocument();
+        const killButton = screen.getByText('⏹️ Kill');
+        expect(killButton).toBeDisabled();
+    });
+
+    it('should enable kill button when killInitiated is false and status is killable', () => {
+        const mockKill = vi.fn();
+
+        render(StatusBar, {
+            props: {
+                ...defaultProps,
+                status: ExecutionStatus.RUNNING,
+                killInitiated: false,
+                onKill: mockKill
+            }
+        });
+
+        const killButton = screen.getByText('⏹️ Kill');
+        expect(killButton).not.toBeDisabled();
     });
 
     it('should display all fields for completed execution', () => {
@@ -223,7 +254,6 @@ describe('StatusBar', () => {
                 startedAt: '2025-11-30T10:00:00Z',
                 completedAt: '2025-11-30T10:05:00Z',
                 exitCode: 0,
-                isCompleted: true,
                 onKill: null
             }
         });

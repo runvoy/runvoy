@@ -44,7 +44,7 @@ describe('RunView', () => {
             }
         });
 
-        const commandInput = screen.getByPlaceholderText('e.g. make test');
+        const commandInput = screen.getByPlaceholderText('e.g. uname -a');
         expect(commandInput).toBeInTheDocument();
         expect(commandInput.tagName).toBe('TEXTAREA');
     });
@@ -93,7 +93,7 @@ describe('RunView', () => {
             }
         });
 
-        const commandInput = screen.getByPlaceholderText('e.g. make test');
+        const commandInput = screen.getByPlaceholderText('e.g. uname -a');
         await fireEvent.input(commandInput, { target: { value: 'echo test' } });
 
         const submitButton = screen.getByText('Run command');
@@ -139,7 +139,7 @@ describe('RunView', () => {
             }
         });
 
-        const commandInput = screen.getByPlaceholderText('e.g. make test');
+        const commandInput = screen.getByPlaceholderText('e.g. uname -a');
         await fireEvent.input(commandInput, { target: { value: 'echo hello' } });
 
         const submitButton = screen.getByText('Run command');
@@ -169,7 +169,7 @@ describe('RunView', () => {
             }
         });
 
-        const commandInput = screen.getByPlaceholderText('e.g. make test');
+        const commandInput = screen.getByPlaceholderText('e.g. uname -a');
         await fireEvent.input(commandInput, { target: { value: '  echo hello  ' } });
 
         const submitButton = screen.getByText('Run command');
@@ -200,7 +200,7 @@ describe('RunView', () => {
         const toggleButton = screen.getByText('Show advanced options');
         await fireEvent.click(toggleButton);
 
-        const commandInput = screen.getByPlaceholderText('e.g. make test');
+        const commandInput = screen.getByPlaceholderText('e.g. uname -a');
         await fireEvent.input(commandInput, { target: { value: 'echo test' } });
 
         const imageInput = screen.getByPlaceholderText('Optional image override');
@@ -213,75 +213,6 @@ describe('RunView', () => {
             expect(mockApiClient.runCommand).toHaveBeenCalledWith({
                 command: 'echo test',
                 image: 'custom-image:latest'
-            });
-        });
-    });
-
-    it('should include timeout in payload when provided', async () => {
-        const mockResponse: RunCommandResponse = {
-            execution_id: 'exec-123',
-            status: 'RUNNING'
-        };
-
-        vi.mocked(mockApiClient.runCommand as any).mockResolvedValue(mockResponse);
-
-        render(RunView, {
-            props: {
-                apiClient: mockApiClient as APIClient
-            }
-        });
-
-        // Show advanced options
-        const toggleButton = screen.getByText('Show advanced options');
-        await fireEvent.click(toggleButton);
-
-        const commandInput = screen.getByPlaceholderText('e.g. make test');
-        await fireEvent.input(commandInput, { target: { value: 'echo test' } });
-
-        const timeoutInput = screen.getByPlaceholderText('Optional');
-        await fireEvent.input(timeoutInput, { target: { value: '300' } });
-
-        const submitButton = screen.getByText('Run command');
-        await fireEvent.click(submitButton);
-
-        await waitFor(() => {
-            expect(mockApiClient.runCommand).toHaveBeenCalledWith({
-                command: 'echo test',
-                timeout: 300
-            });
-        });
-    });
-
-    it('should not include timeout when invalid', async () => {
-        const mockResponse: RunCommandResponse = {
-            execution_id: 'exec-123',
-            status: 'RUNNING'
-        };
-
-        vi.mocked(mockApiClient.runCommand as any).mockResolvedValue(mockResponse);
-
-        render(RunView, {
-            props: {
-                apiClient: mockApiClient as APIClient
-            }
-        });
-
-        // Show advanced options
-        const toggleButton = screen.getByText('Show advanced options');
-        await fireEvent.click(toggleButton);
-
-        const commandInput = screen.getByPlaceholderText('e.g. make test');
-        await fireEvent.input(commandInput, { target: { value: 'echo test' } });
-
-        const timeoutInput = screen.getByPlaceholderText('Optional');
-        await fireEvent.input(timeoutInput, { target: { value: 'invalid' } });
-
-        const submitButton = screen.getByText('Run command');
-        await fireEvent.click(submitButton);
-
-        await waitFor(() => {
-            expect(mockApiClient.runCommand).toHaveBeenCalledWith({
-                command: 'echo test'
             });
         });
     });
@@ -304,7 +235,7 @@ describe('RunView', () => {
         const toggleButton = screen.getByText('Show advanced options');
         await fireEvent.click(toggleButton);
 
-        const commandInput = screen.getByPlaceholderText('e.g. make test');
+        const commandInput = screen.getByPlaceholderText('e.g. uname -a');
         await fireEvent.input(commandInput, { target: { value: 'echo test' } });
 
         const gitRepoInput = screen.getByPlaceholderText('https://github.com/runvoy/runvoy');
@@ -339,7 +270,7 @@ describe('RunView', () => {
         const toggleButton = screen.getByText('Show advanced options');
         await fireEvent.click(toggleButton);
 
-        const commandInput = screen.getByPlaceholderText('e.g. make test');
+        const commandInput = screen.getByPlaceholderText('e.g. uname -a');
         await fireEvent.input(commandInput, { target: { value: 'echo test' } });
 
         const gitRepoInput = screen.getByPlaceholderText('https://github.com/runvoy/runvoy');
@@ -428,7 +359,7 @@ describe('RunView', () => {
         const toggleButton = screen.getByText('Show advanced options');
         await fireEvent.click(toggleButton);
 
-        const commandInput = screen.getByPlaceholderText('e.g. make test');
+        const commandInput = screen.getByPlaceholderText('e.g. uname -a');
         await fireEvent.input(commandInput, { target: { value: 'echo test' } });
 
         // Get the first env row inputs
@@ -469,7 +400,7 @@ describe('RunView', () => {
         const toggleButton = screen.getByText('Show advanced options');
         await fireEvent.click(toggleButton);
 
-        const commandInput = screen.getByPlaceholderText('e.g. make test');
+        const commandInput = screen.getByPlaceholderText('e.g. uname -a');
         await fireEvent.input(commandInput, { target: { value: 'echo test' } });
 
         // Leave env vars empty
@@ -494,7 +425,7 @@ describe('RunView', () => {
             }
         });
 
-        const commandInput = screen.getByPlaceholderText('e.g. make test');
+        const commandInput = screen.getByPlaceholderText('e.g. uname -a');
         await fireEvent.input(commandInput, { target: { value: 'invalid command' } });
 
         const submitButton = screen.getByText('Run command');
@@ -519,7 +450,7 @@ describe('RunView', () => {
             }
         });
 
-        const commandInput = screen.getByPlaceholderText('e.g. make test');
+        const commandInput = screen.getByPlaceholderText('e.g. uname -a');
         await fireEvent.input(commandInput, { target: { value: 'echo test' } });
 
         const submitButton = screen.getByText('Run command');
@@ -554,7 +485,7 @@ describe('RunView', () => {
             }
         });
 
-        const commandInput = screen.getByPlaceholderText('e.g. make test');
+        const commandInput = screen.getByPlaceholderText('e.g. uname -a');
         await fireEvent.input(commandInput, { target: { value: 'echo test' } });
 
         const submitButton = screen.getByText('Run command');

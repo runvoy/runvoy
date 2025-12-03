@@ -130,7 +130,7 @@ func TestBuildMainContainerCommandWithRepo(t *testing.T) {
 	}
 
 	req := &api.ExecutionRequest{
-		Command: "make test",
+		Command: "uname -a",
 	}
 
 	cmd := buildMainContainerCommand(req, "req-456", "golang:1.23", repo)

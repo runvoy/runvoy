@@ -1,7 +1,13 @@
 /// <reference types="vitest" />
 
 import { describe, it, expect } from 'vitest';
-import { ExecutionStatus, FrontendStatus, TERMINAL_STATUSES, isTerminalStatus } from './constants';
+import {
+    ExecutionStatus,
+    FrontendStatus,
+    TERMINAL_STATUSES,
+    isTerminalStatus,
+    isKillableStatus
+} from './constants';
 
 describe('constants', () => {
     describe('ExecutionStatus', () => {
@@ -55,6 +61,32 @@ describe('constants', () => {
         it('should return false for unknown statuses', () => {
             expect(isTerminalStatus('UNKNOWN_STATUS')).toBe(false);
             expect(isTerminalStatus('')).toBe(false);
+        });
+    });
+
+    describe('isKillableStatus', () => {
+        it('should return true for killable statuses', () => {
+            expect(isKillableStatus(ExecutionStatus.STARTING)).toBe(true);
+            expect(isKillableStatus(ExecutionStatus.RUNNING)).toBe(true);
+        });
+
+        it('should return false for terminal statuses', () => {
+            expect(isKillableStatus(ExecutionStatus.SUCCEEDED)).toBe(false);
+            expect(isKillableStatus(ExecutionStatus.FAILED)).toBe(false);
+            expect(isKillableStatus(ExecutionStatus.STOPPED)).toBe(false);
+        });
+
+        it('should return false for TERMINATING status', () => {
+            expect(isKillableStatus(ExecutionStatus.TERMINATING)).toBe(false);
+        });
+
+        it('should return false for null or empty status', () => {
+            expect(isKillableStatus(null)).toBe(false);
+            expect(isKillableStatus('')).toBe(false);
+        });
+
+        it('should return false for frontend-only LOADING status', () => {
+            expect(isKillableStatus(FrontendStatus.LOADING)).toBe(false);
         });
     });
 });

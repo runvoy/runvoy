@@ -69,10 +69,10 @@ describe('ExecutionRow', () => {
         const statusBadge = screen.getByText('SUCCEEDED');
         expect(statusBadge).toBeInTheDocument();
         expect(statusBadge).toHaveClass('status-badge');
-        expect(statusBadge).toHaveClass('status-success');
+        expect(statusBadge).toHaveClass('succeeded');
     });
 
-    it('should render status badge with FAILED status and danger color', () => {
+    it('should render status badge with FAILED status', () => {
         const failedExecution: Execution = {
             ...mockExecution,
             status: 'FAILED'
@@ -81,10 +81,10 @@ describe('ExecutionRow', () => {
         renderExecutionRow(failedExecution);
 
         const statusBadge = screen.getByText('FAILED');
-        expect(statusBadge).toHaveClass('status-danger');
+        expect(statusBadge).toHaveClass('failed');
     });
 
-    it('should render status badge with STOPPED status and danger color', () => {
+    it('should render status badge with STOPPED status', () => {
         const stoppedExecution: Execution = {
             ...mockExecution,
             status: 'STOPPED'
@@ -93,10 +93,10 @@ describe('ExecutionRow', () => {
         renderExecutionRow(stoppedExecution);
 
         const statusBadge = screen.getByText('STOPPED');
-        expect(statusBadge).toHaveClass('status-danger');
+        expect(statusBadge).toHaveClass('stopped');
     });
 
-    it('should render status badge with RUNNING status and info color', () => {
+    it('should render status badge with RUNNING status', () => {
         const runningExecution: Execution = {
             ...mockExecution,
             status: 'RUNNING'
@@ -105,10 +105,34 @@ describe('ExecutionRow', () => {
         renderExecutionRow(runningExecution);
 
         const statusBadge = screen.getByText('RUNNING');
-        expect(statusBadge).toHaveClass('status-info');
+        expect(statusBadge).toHaveClass('running');
     });
 
-    it('should render status badge with unknown status and default color', () => {
+    it('should render status badge with TERMINATING status', () => {
+        const terminatingExecution: Execution = {
+            ...mockExecution,
+            status: 'TERMINATING'
+        };
+
+        renderExecutionRow(terminatingExecution);
+
+        const statusBadge = screen.getByText('TERMINATING');
+        expect(statusBadge).toHaveClass('terminating');
+    });
+
+    it('should render status badge with STARTING status', () => {
+        const startingExecution: Execution = {
+            ...mockExecution,
+            status: 'STARTING'
+        };
+
+        renderExecutionRow(startingExecution);
+
+        const statusBadge = screen.getByText('STARTING');
+        expect(statusBadge).toHaveClass('starting');
+    });
+
+    it('should render status badge with unknown status', () => {
         const unknownExecution: Execution = {
             ...mockExecution,
             status: 'UNKNOWN_STATUS' as any
@@ -117,7 +141,8 @@ describe('ExecutionRow', () => {
         renderExecutionRow(unknownExecution);
 
         const statusBadge = screen.getByText('UNKNOWN_STATUS');
-        expect(statusBadge).toHaveClass('status-default');
+        expect(statusBadge).toHaveClass('status-badge');
+        expect(statusBadge).toHaveClass('unknown_status');
     });
 
     it('should format and display started_at date', () => {

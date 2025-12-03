@@ -28,9 +28,6 @@
             lastViewedExecutionId.set(urlExecutionId);
         }
     });
-
-    // The URL is always the source of truth for the current execution
-    const currentExecutionId = $derived(urlExecutionId);
 </script>
 
-<LogsView apiClient={$apiClient} {currentExecutionId} />
+<LogsView apiClient={$apiClient} currentExecutionId={urlExecutionId} />

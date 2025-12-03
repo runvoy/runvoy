@@ -231,13 +231,13 @@ describe('ListExecutionsView', () => {
             const badges = container.querySelectorAll('.status-badge');
             expect(badges.length).toBe(3);
 
-            const successBadges = container.querySelectorAll('.status-success');
-            const dangerBadges = container.querySelectorAll('.status-danger');
-            const infoBadges = container.querySelectorAll('.status-info');
+            const successBadges = container.querySelectorAll('.succeeded');
+            const failedBadges = container.querySelectorAll('.failed');
+            const runningBadges = container.querySelectorAll('.running');
 
             expect(successBadges.length).toBe(1);
-            expect(dangerBadges.length).toBe(1);
-            expect(infoBadges.length).toBe(1);
+            expect(failedBadges.length).toBe(1);
+            expect(runningBadges.length).toBe(1);
         });
     });
 

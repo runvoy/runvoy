@@ -28,16 +28,12 @@
         const path = page.url.pathname;
 
         if (!$hasEndpoint && path !== '/settings') {
-            goto('/settings', { replaceState: true }).catch(() => {
-                // Ignore navigation errors (e.g., in tests)
-            });
+            goto('/settings', { replaceState: true });
             return;
         }
 
         if ($hasEndpoint && !$hasApiKey && !['/claim', '/settings'].includes(path)) {
-            goto('/claim', { replaceState: true }).catch(() => {
-                // Ignore navigation errors (e.g., in tests)
-            });
+            goto('/claim', { replaceState: true });
         }
     });
 

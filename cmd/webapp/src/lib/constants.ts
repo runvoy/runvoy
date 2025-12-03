@@ -32,6 +32,15 @@ export function isTerminalStatus(status: string): boolean {
     return (TERMINAL_STATUSES as readonly string[]).includes(status);
 }
 
+/**
+ * Checks if an execution with the given status can be killed.
+ * An execution is killable only if it's actively running (STARTING or RUNNING).
+ */
+export function isKillableStatus(status: string | null): boolean {
+    if (!status) return false;
+    return status === ExecutionStatus.STARTING || status === ExecutionStatus.RUNNING;
+}
+
 // View names
 export const VIEWS = {
     LOGS: 'logs',

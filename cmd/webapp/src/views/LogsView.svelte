@@ -40,6 +40,7 @@
     let executionCompletedAt = $state<string | null>(null);
     let executionExitCode = $state<number | null>(null);
     let completed = $state(false);
+    let killInitiated = $state(false);
 
     // Track in-flight fetch to prevent duplicates
     let currentFetchId: string | null = null;
@@ -81,6 +82,9 @@
 
         try {
             await apiClient.killExecution(currentExecutionId);
+            // Kill request succeeded - update status and disable the button
+            status = ExecutionStatus.TERMINATING;
+            killInitiated = true;
             // If WebSocket is not active, refresh to get final status
             if (!$isConnected && !$isConnecting) {
                 await fetchLogs(currentExecutionId);
@@ -88,6 +92,7 @@
         } catch (error) {
             const err = error as ApiError;
             errorMessage = err.details?.error || err.message || 'Failed to stop execution';
+            // On error, don't disable the button so user can retry
         }
     }
 
@@ -189,6 +194,7 @@
         executionCompletedAt = null;
         executionExitCode = null;
         completed = false;
+        killInitiated = false;
         errorMessage = '';
         cachedWebSocketURL.set(null);
     }
@@ -331,7 +337,7 @@
             startedAt={executionStartedAt}
             completedAt={executionCompletedAt}
             exitCode={executionExitCode}
-            isCompleted={completed}
+            {killInitiated}
             onKill={handleKillExecution}
         />
         <WebSocketStatus

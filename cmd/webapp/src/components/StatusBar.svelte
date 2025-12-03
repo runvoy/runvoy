@@ -1,12 +1,12 @@
 <script lang="ts">
-    import { FrontendStatus } from '../lib/constants';
+    import { FrontendStatus, isKillableStatus } from '../lib/constants';
 
     interface Props {
         status: string | null;
         startedAt: string | number | null;
         completedAt: string | null;
         exitCode: number | null;
-        isCompleted: boolean;
+        killInitiated?: boolean;
         onKill?: (() => void) | null;
     }
 
@@ -15,7 +15,7 @@
         startedAt = null,
         completedAt = null,
         exitCode = null,
-        isCompleted = false,
+        killInitiated = false,
         onKill = null
     }: Props = $props();
 
@@ -62,7 +62,7 @@
         }
     }
 
-    const canKill = $derived(!isCompleted && !isKilling);
+    const canKill = $derived(isKillableStatus(status) && !isKilling && !killInitiated);
 </script>
 
 <div class="status-bar">
@@ -86,7 +86,7 @@
             <code class="exit-code">{exitCode}</code>
         </div>
     {/if}
-    {#if onKill && !isCompleted}
+    {#if onKill && isKillableStatus(status)}
         <div class="status-item actions">
             <button
                 class="kill-button"
@@ -146,6 +146,9 @@
     .status-badge.stopped {
         background-color: #ff9800;
     } /* Orange */
+    .status-badge.terminating {
+        background-color: #9c27b0;
+    } /* Purple */
 
     .exit-code {
         font-family: 'Monaco', 'Courier New', monospace;

@@ -1,5 +1,4 @@
 <script lang="ts">
-    import { ExecutionStatus } from '../lib/constants';
     import type { Execution } from '../types/api';
 
     interface Props {
@@ -19,17 +18,10 @@
         }
     }
 
-    function getStatusColor(status: string): string {
-        if (status === ExecutionStatus.SUCCEEDED) {
-            return 'success';
-        }
-        if (status === ExecutionStatus.FAILED || status === ExecutionStatus.STOPPED) {
-            return 'danger';
-        }
-        if (status === ExecutionStatus.RUNNING) {
-            return 'info';
-        }
-        return 'default';
+    function getStatusClass(status: string): string {
+        if (!status) return 'loading';
+        const normalizedStatus = status.toLowerCase();
+        return normalizedStatus;
     }
 
     function formatExecutionId(executionId: string | undefined): string {
@@ -43,7 +35,7 @@
         <code>{formatExecutionId(execution.execution_id)}</code>
     </td>
     <td>
-        <span class="status-badge status-{getStatusColor(execution.status)}">
+        <span class="status-badge {getStatusClass(execution.status)}">
             {execution.status}
         </span>
     </td>
@@ -78,31 +70,35 @@
 
     .status-badge {
         display: inline-block;
-        padding: 0.375rem 0.75rem;
-        border-radius: 0.25rem;
-        font-weight: 600;
-        font-size: 0.875rem;
+        padding: 0.25em 0.75em;
+        border-radius: 1em;
+        font-weight: bold;
+        font-size: 0.8em;
+        text-transform: uppercase;
+        color: #fff;
     }
 
-    .status-success {
-        background-color: var(--pico-color-green-600);
-        color: white;
-    }
-
-    .status-danger {
-        background-color: var(--pico-color-red-600);
-        color: white;
-    }
-
-    .status-info {
-        background-color: var(--pico-color-blue-600);
-        color: white;
-    }
-
-    .status-default {
-        background-color: var(--pico-muted-color);
-        color: white;
-    }
+    .status-badge.loading {
+        background-color: #78909c;
+    } /* Blue Grey */
+    .status-badge.starting {
+        background-color: #ffc107;
+    } /* Amber */
+    .status-badge.running {
+        background-color: #2196f3;
+    } /* Blue */
+    .status-badge.succeeded {
+        background-color: #4caf50;
+    } /* Green */
+    .status-badge.failed {
+        background-color: #f44336;
+    } /* Red */
+    .status-badge.stopped {
+        background-color: #ff9800;
+    } /* Orange */
+    .status-badge.terminating {
+        background-color: #9c27b0;
+    } /* Purple */
 
     .exit-code {
         font-family: 'Monaco', 'Courier New', monospace;

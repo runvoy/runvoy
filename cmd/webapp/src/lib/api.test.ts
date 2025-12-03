@@ -83,7 +83,6 @@ describe('APIClient', () => {
             const payload: RunCommandPayload = {
                 command: 'echo "hello"',
                 image: 'custom-image:latest',
-                timeout: 300,
                 env: { DEBUG: 'true' },
                 git_repo: 'https://github.com/user/repo',
                 git_ref: 'main',

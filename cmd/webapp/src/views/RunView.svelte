@@ -14,7 +14,6 @@
 
     let command = $state('');
     let image = $state('');
-    let timeout = $state('');
     let gitRepo = $state('');
     let gitRef = $state('');
     let gitPath = $state('');
@@ -72,11 +71,6 @@
 
         if (image.trim()) {
             payload.image = image.trim();
-        }
-
-        const parsedTimeout = Number.parseInt(timeout, 10);
-        if (!Number.isNaN(parsedTimeout) && parsedTimeout > 0) {
-            payload.timeout = parsedTimeout;
         }
 
         const env = buildEnvObject();
@@ -140,7 +134,7 @@
                 <textarea
                     id="command-input"
                     rows="4"
-                    placeholder="e.g. make test"
+                    placeholder="e.g. uname -a"
                     bind:value={command}
                     required
                     spellcheck="false"
@@ -167,18 +161,6 @@
                         type="text"
                         placeholder="Optional image override"
                         bind:value={image}
-                    />
-                </label>
-
-                <label for="timeout-input">
-                    Timeout (seconds)
-                    <input
-                        id="timeout-input"
-                        type="number"
-                        min="1"
-                        inputmode="numeric"
-                        placeholder="Optional"
-                        bind:value={timeout}
                     />
                 </label>
             </fieldset>
