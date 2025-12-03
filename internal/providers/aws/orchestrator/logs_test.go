@@ -966,9 +966,6 @@ func TestFetchBackendLogs(t *testing.T) {
 	ctx := context.Background()
 	requestID := "aws-request-id-12345"
 	fixedNow := time.Date(2025, time.December, 1, 12, 0, 0, 0, time.UTC)
-	startMillis := fixedNow.Add(-awsConstants.CloudWatchLogsObservabilityLookback).UnixMilli()
-	endMillis := fixedNow.UnixMilli()
-
 	testManager := func(mock *mockCloudWatchLogsClient) *ObservabilityManagerImpl {
 		return &ObservabilityManagerImpl{
 			cwlClient: mock,
@@ -983,6 +980,8 @@ func TestFetchBackendLogs(t *testing.T) {
 		groupA := "/aws/lambda/runvoy-orchestrator"
 		groupB := "/aws/lambda/runvoy-processor"
 		expectedPattern := fmt.Sprintf("{ $.%s = %q }", constants.RequestIDLogField, requestID)
+		var expectedStartMillis int64
+		var expectedEndMillis int64
 		paginated := false
 		firstTimestamp := time.Date(2025, time.November, 21, 16, 40, 1, 123456789, time.UTC).UnixMilli()
 		secondTimestamp := firstTimestamp + 1000
@@ -1006,8 +1005,8 @@ func TestFetchBackendLogs(t *testing.T) {
 				_ ...func(*cloudwatchlogs.Options),
 			) (*cloudwatchlogs.FilterLogEventsOutput, error) {
 				assert.Equal(t, expectedPattern, aws.ToString(params.FilterPattern))
-				assert.Equal(t, startMillis, aws.ToInt64(params.StartTime))
-				assert.Equal(t, endMillis, aws.ToInt64(params.EndTime))
+				assert.Equal(t, expectedStartMillis, aws.ToInt64(params.StartTime))
+				assert.Equal(t, expectedEndMillis, aws.ToInt64(params.EndTime))
 
 				switch aws.ToString(params.LogGroupName) {
 				case groupA:
@@ -1047,6 +1046,7 @@ func TestFetchBackendLogs(t *testing.T) {
 		}
 
 		manager := testManager(mock)
+		expectedStartMillis, expectedEndMillis = manager.lookbackWindowMillis()
 		logs, err := manager.FetchBackendLogs(ctx, requestID)
 		require.NoError(t, err)
 		require.True(t, paginated, "expected pagination logic to run")

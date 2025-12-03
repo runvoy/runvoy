@@ -17,7 +17,8 @@ const LogGroupPrefix = "/aws/lambda/" + constants.ProjectName
 
 // CloudWatchLogsObservabilityLookback defines how far back (in time) we search
 // when querying backend infrastructure logs for a specific request.
-const CloudWatchLogsObservabilityLookback = 24 * time.Hour
+// Set to 0 to fetch all historical logs without a time bound.
+const CloudWatchLogsObservabilityLookback time.Duration = 0
 
 // ScheduledEventHealthReconcile is the expected runvoy_event payload value
 // for EventBridge scheduled events that trigger health reconciliation.

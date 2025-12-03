@@ -191,7 +191,14 @@ func (o *ObservabilityManagerImpl) buildFilterPattern(requestID string) string {
 func (o *ObservabilityManagerImpl) lookbackWindowMillis() (startMillis, endMillis int64) {
 	now := o.now()
 	endMillis = now.UnixMilli()
-	startMillis = now.Add(-awsConstants.CloudWatchLogsObservabilityLookback).UnixMilli()
+
+	lookback := awsConstants.CloudWatchLogsObservabilityLookback
+	if lookback <= 0 {
+		startMillis = 0
+		return startMillis, endMillis
+	}
+
+	startMillis = now.Add(-lookback).UnixMilli()
 	return startMillis, endMillis
 }
 
