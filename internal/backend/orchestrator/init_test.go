@@ -3,6 +3,7 @@ package orchestrator
 import (
 	"context"
 	"log/slog"
+	"reflect"
 	"testing"
 
 	"github.com/runvoy/runvoy/internal/api"
@@ -56,6 +57,25 @@ func TestInitialize_UsesCustomInitializer(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, svc)
 	assert.True(t, called, "custom initializer should be invoked")
+}
+
+func TestSelectProviderInitializer_DefaultAWS(t *testing.T) {
+	initializer, err := selectProviderInitializer(constants.AWS, nil)
+
+	require.NoError(t, err)
+	require.NotNil(t, initializer)
+	assert.Equal(t,
+		reflect.ValueOf(awsProviderInitializer).Pointer(),
+		reflect.ValueOf(initializer).Pointer(),
+	)
+}
+
+func TestSelectProviderInitializer_UnknownProvider(t *testing.T) {
+	initializer, err := selectProviderInitializer("gcp", nil)
+
+	require.Error(t, err)
+	assert.Nil(t, initializer)
+	assert.Contains(t, err.Error(), "unknown backend provider: gcp")
 }
 
 // stubImageRepository satisfies both database.ImageRepository and authorization.ImageRepository for tests.

@@ -238,6 +238,17 @@ func TestRevokeUser(t *testing.T) {
 	}
 }
 
+func TestServiceManagerGetters(t *testing.T) {
+	runner := &mockRunner{}
+
+	svc := newTestService(nil, nil, runner)
+
+	assert.Same(t, runner, svc.TaskManager())
+	assert.Same(t, runner, svc.ImageRegistry())
+	assert.Same(t, runner, svc.LogManager())
+	assert.Same(t, runner, svc.ObservabilityManager())
+}
+
 // Helper function to create time pointer
 func timePtr(t time.Time) *time.Time {
 	return &t
