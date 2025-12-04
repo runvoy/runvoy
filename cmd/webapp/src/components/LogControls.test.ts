@@ -10,6 +10,7 @@ describe('LogControls', () => {
     afterEach(() => {
         cleanup();
         vi.clearAllMocks();
+        vi.restoreAllMocks();
     });
 
     const mockEvents: LogEvent[] = [
@@ -155,5 +156,40 @@ describe('LogControls', () => {
 
         const downloadButton = screen.getByText('📥 Download');
         expect(downloadButton).not.toBeDisabled();
+    });
+
+    it('should generate a downloadable log file with execution metadata', async () => {
+        const clickSpy = vi.fn();
+        const objectURLSpy = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob://logs');
+        const revokeSpy = vi.spyOn(URL, 'revokeObjectURL');
+        const originalCreateElement = document.createElement.bind(document);
+        let createdAnchor: HTMLAnchorElement | null = null;
+        const createElementSpy = vi
+            .spyOn(document, 'createElement')
+            .mockImplementation((tagName: string): any => {
+                if (tagName === 'a') {
+                    createdAnchor = originalCreateElement('a');
+                    createdAnchor.click = clickSpy;
+                    return createdAnchor;
+                }
+                return originalCreateElement(tagName);
+            });
+
+        render(LogControls, {
+            props: {
+                ...defaultProps,
+                events: mockEvents
+            }
+        });
+
+        const downloadButton = screen.getByText('📥 Download');
+        await fireEvent.click(downloadButton);
+
+        expect(objectURLSpy).toHaveBeenCalled();
+        expect(clickSpy).toHaveBeenCalledTimes(1);
+        expect(revokeSpy).toHaveBeenCalledWith('blob://logs');
+        expect(createdAnchor?.download).toContain(defaultProps.executionId);
+
+        createElementSpy.mockRestore();
     });
 });
