@@ -218,6 +218,88 @@ func TestRemoveImage(t *testing.T) {
 	}
 }
 
+func TestResolveImage(t *testing.T) {
+	ctx := context.Background()
+
+	defaultImage := &api.ImageInfo{Image: "default"}
+	providedImage := &api.ImageInfo{Image: "custom"}
+
+	tests := []struct {
+		name            string
+		image           string
+		defaultImage    *api.ImageInfo
+		providedImage   *api.ImageInfo
+		defaultErr      error
+		providedErr     error
+		expectedImage   *api.ImageInfo
+		expectedErrCode string
+	}{
+		{
+			name:          "returns default image when none provided",
+			image:         "",
+			defaultImage:  defaultImage,
+			expectedImage: defaultImage,
+		},
+		{
+			name:            "default image missing",
+			image:           "",
+			defaultImage:    nil,
+			expectedErrCode: apperrors.ErrCodeInvalidRequest,
+		},
+		{
+			name:            "error fetching default image",
+			image:           "",
+			defaultErr:      errors.New("default lookup failed"),
+			expectedErrCode: apperrors.ErrCodeInternalError,
+		},
+		{
+			name:          "resolves provided image",
+			image:         "custom",
+			providedImage: providedImage,
+			expectedImage: providedImage,
+		},
+		{
+			name:            "provided image not registered",
+			image:           "custom",
+			providedImage:   nil,
+			expectedErrCode: apperrors.ErrCodeInvalidRequest,
+		},
+		{
+			name:            "error resolving provided image",
+			image:           "custom",
+			providedErr:     errors.New("registry unavailable"),
+			expectedErrCode: apperrors.ErrCodeInternalError,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			runner := &mockRunner{
+				getImageFunc: func(_ context.Context, image string) (*api.ImageInfo, error) {
+					if image == "" {
+						return tt.defaultImage, tt.defaultErr
+					}
+					return tt.providedImage, tt.providedErr
+				},
+			}
+
+			svc := newTestService(nil, nil, runner)
+			imageInfo, err := svc.ResolveImage(ctx, tt.image)
+
+			if tt.expectedErrCode != "" {
+				require.Error(t, err)
+				assert.Equal(t, tt.expectedErrCode, apperrors.GetErrorCode(err))
+				assert.Nil(t, imageInfo)
+				return
+			}
+
+			require.NoError(t, err)
+			require.NotNil(t, imageInfo)
+			assert.Equal(t, tt.expectedImage, imageInfo)
+		})
+	}
+}
+
 // Helper function to create bool pointer
 func boolPtr(b bool) *bool {
 	return &b
