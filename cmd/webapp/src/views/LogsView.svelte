@@ -35,7 +35,6 @@
     let errorMessage = $state('');
     let showMetadata = $state(true);
     let events = $state<LogEvent[]>([]);
-    let hasReceivedFirstLog = $state(false);
     let status = $state<string | null>(null);
     let executionStartedAt = $state<string | null>(null);
     let executionCompletedAt = $state<string | null>(null);
@@ -43,8 +42,8 @@
     let completed = $state(false);
     let killInitiated = $state(false);
 
-    // Track in-flight fetch to prevent duplicates
-    let currentFetchId: string | null = null;
+    // Track the execution we last loaded to avoid stale responses
+    let latestExecutionId: string | null = null;
 
     // Backend handles incremental log delivery, so we just append events directly
     function addLogEvent(event: LogEvent): void {
@@ -65,11 +64,8 @@
             handleExecutionComplete();
         },
         onStatusRunning: () => {
-            if (!hasReceivedFirstLog) {
-                hasReceivedFirstLog = true;
-                if (status === ExecutionStatus.STARTING || status === FrontendStatus.LOADING) {
-                    status = ExecutionStatus.RUNNING;
-                }
+            if (status === ExecutionStatus.STARTING || status === FrontendStatus.LOADING) {
+                status = ExecutionStatus.RUNNING;
             }
         },
         onError: (error: string) => {
@@ -124,11 +120,8 @@
 
         try {
             const response = await apiClient.getLogs(id);
-
-            // Verify this fetch is still relevant (execution ID hasn't changed)
-            if (currentFetchId !== id) {
-                return;
-            }
+            const isStale = latestExecutionId !== id;
+            if (isStale) return;
 
             // Contract: Running executions return websocket_url and events=null.
             // Terminal executions return events array (never null) and no websocket_url.
@@ -141,7 +134,6 @@
 
             // Terminal execution: set logs from API response
             const responseEvents = response.events ?? [];
-            // Compute line numbers (1-indexed) - backend sends all events for terminal executions
             const eventsWithLines: LogEvent[] = responseEvents.map((event, index) => ({
                 ...event,
                 line: index + 1
@@ -179,9 +171,8 @@
             }
         } catch (error) {
             // Ignore if this fetch is stale
-            if (currentFetchId !== id) {
-                return;
-            }
+            const isStale = latestExecutionId !== id;
+            if (isStale) return;
             const err = error as ApiError;
             errorMessage = err.details?.error || err.message || 'Failed to fetch logs';
             events = [];
@@ -191,7 +182,6 @@
     function resetState(): void {
         disconnectWebSocket();
         events = [];
-        hasReceivedFirstLog = false;
         status = FrontendStatus.LOADING;
         executionStartedAt = null;
         executionCompletedAt = null;
@@ -253,7 +243,6 @@
     $effect(() => {
         const id = currentExecutionId;
 
-        // Sync to store for child components that read it
         executionId.set(id);
 
         if (!apiClient) {
@@ -261,27 +250,23 @@
         }
 
         if (!id) {
-            // No execution ID - reset everything
             resetState();
-            currentFetchId = null;
+            latestExecutionId = null;
             return;
         }
 
-        // Skip if we're already fetching this execution ID
-        if (currentFetchId === id) {
+        const isNewExecution = latestExecutionId !== id;
+        if (!isNewExecution) {
             return;
         }
 
-        // New execution ID - reset and fetch
-        currentFetchId = id;
+        latestExecutionId = id;
         resetState();
 
-        // Don't fetch if WebSocket is already connected for this execution
         if ($isConnected || $isConnecting) {
             return;
         }
 
-        // Fetch logs for this execution
         fetchLogs(id);
     });
 
