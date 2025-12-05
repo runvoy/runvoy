@@ -11,6 +11,7 @@ import type { LogEvent, WebSocketLogMessage } from '../types/logs';
 
 let socket: WebSocket | null = null;
 let manuallyDisconnected = false;
+let receivedDisconnectMessage = false;
 
 export interface WebSocketCallbacks {
     onLogEvent: (event: LogEvent) => void;
@@ -30,6 +31,7 @@ export function connectWebSocket(url: string, callbacks: WebSocketCallbacks): vo
     }
 
     manuallyDisconnected = false;
+    receivedDisconnectMessage = false;
     isConnecting.set(true);
     connectionError.set(null);
     isConnected.set(false);
@@ -59,6 +61,7 @@ export function connectWebSocket(url: string, callbacks: WebSocketCallbacks): vo
 
             // Handle disconnect messages
             if (message.type === 'disconnect') {
+                receivedDisconnectMessage = true;
                 callbacks.onExecutionComplete();
                 // Close the connection gracefully
                 if (socket && socket.readyState === WebSocket.OPEN) {
@@ -115,7 +118,7 @@ export function connectWebSocket(url: string, callbacks: WebSocketCallbacks): vo
         } else {
             // If websocket closed cleanly (code 1000) but we didn't receive a disconnect message,
             // and it wasn't a manual disconnect, notify execution complete
-            if (!manuallyDisconnected) {
+            if (!manuallyDisconnected && !receivedDisconnectMessage) {
                 callbacks.onExecutionComplete();
             }
         }

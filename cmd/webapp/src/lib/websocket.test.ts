@@ -166,6 +166,38 @@ describe('WebSocket Connection', () => {
             expect(mockCallbacks.onExecutionComplete).toHaveBeenCalledTimes(1);
         });
 
+        it('should call onExecutionComplete only once when disconnect message is followed by clean close', async () => {
+            const url = 'wss://localhost:8080/logs';
+
+            connectWebSocket(url, mockCallbacks);
+
+            // Wait for connection to be set in store
+            await waitFor(() => {
+                const ws = get(websocketConnection);
+                expect(ws).not.toBeNull();
+            });
+
+            const ws = get(websocketConnection) as unknown as MockWebSocket;
+
+            // Simulate disconnect message (this triggers onExecutionComplete)
+            ws.simulateMessage(
+                JSON.stringify({
+                    type: 'disconnect',
+                    reason: 'Execution completed'
+                })
+            );
+
+            await new Promise((resolve) => setTimeout(resolve, 10));
+
+            // Simulate the clean close that follows (this should NOT trigger onExecutionComplete again)
+            ws.simulateClose(1000, 'Execution completed');
+
+            await new Promise((resolve) => setTimeout(resolve, 10));
+
+            // Verify callback was called exactly once, not twice
+            expect(mockCallbacks.onExecutionComplete).toHaveBeenCalledTimes(1);
+        });
+
         it('should call onExecutionComplete on clean close (code 1000) when not manually disconnected', async () => {
             const url = 'wss://localhost:8080/logs';
 
