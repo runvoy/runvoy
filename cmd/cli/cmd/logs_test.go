@@ -176,9 +176,8 @@ func TestLogsService_DisplayLogs(t *testing.T) {
 				}
 			},
 			configureService: func(t *testing.T, s *LogsService) {
-				s.stream = func(websocketURL string, startingLineNumber int, webURL, executionID string) error {
+				s.stream = func(websocketURL string, webURL, executionID string) error {
 					assert.Equal(t, "wss://example.com/logs/exec-stream", websocketURL)
-					assert.Equal(t, 0, startingLineNumber)
 					assert.Equal(t, "https://logs.example.com", webURL)
 					assert.Equal(t, "exec-stream", executionID)
 					return nil

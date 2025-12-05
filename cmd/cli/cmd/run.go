@@ -130,7 +130,7 @@ func NewRunService(apiClient client.Interface, outputter OutputInterface) *RunSe
 		client: apiClient,
 		output: outputter,
 		streamLogs: func(logsService *LogsService, websocketURL, webURL, executionID string) error {
-			return logsService.streamLogsViaWebSocket(websocketURL, 0, webURL, executionID)
+			return logsService.streamLogsViaWebSocket(websocketURL, webURL, executionID)
 		},
 	}
 }

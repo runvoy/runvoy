@@ -42,50 +42,18 @@
     let executionExitCode = $state<number | null>(null);
     let completed = $state(false);
     let killInitiated = $state(false);
-    const LOG_FLUSH_INTERVAL_MS = 50;
-    let pendingEvents: LogEvent[] = [];
-    let flushTimer: ReturnType<typeof setTimeout> | null = null;
-    let nextLineNumber = $state(1);
 
     // Track in-flight fetch to prevent duplicates
     let currentFetchId: string | null = null;
 
-    function clearPendingEvents(): void {
-        if (flushTimer) {
-            clearTimeout(flushTimer);
-            flushTimer = null;
-        }
-        pendingEvents = [];
-    }
-
-    function flushPendingEvents(): void {
-        if (flushTimer) {
-            clearTimeout(flushTimer);
-            flushTimer = null;
-        }
-
-        if (pendingEvents.length === 0) {
-            return;
-        }
-
-        // Push directly to avoid O(n) array copy - Svelte 5's $state proxy handles reactivity
-        events.push(...pendingEvents);
-        pendingEvents = [];
-    }
-
-    function scheduleFlush(): void {
-        if (!flushTimer) {
-            flushTimer = setTimeout(flushPendingEvents, LOG_FLUSH_INTERVAL_MS);
-        }
-    }
-
+    // Backend handles incremental log delivery, so we just append events directly
     function addLogEvent(event: LogEvent): void {
-        pendingEvents.push({
+        // Compute line number from current events length (1-indexed)
+        const lineNumber = events.length + 1;
+        events.push({
             ...event,
-            line: nextLineNumber++
+            line: lineNumber
         });
-
-        scheduleFlush();
     }
 
     const websocketCallbacks: WebSocketCallbacks = {
@@ -93,7 +61,6 @@
             addLogEvent(event);
         },
         onExecutionComplete: () => {
-            flushPendingEvents();
             completed = true;
             handleExecutionComplete();
         },
@@ -174,14 +141,12 @@
 
             // Terminal execution: set logs from API response
             const responseEvents = response.events ?? [];
+            // Compute line numbers (1-indexed) - backend sends all events for terminal executions
             const eventsWithLines: LogEvent[] = responseEvents.map((event, index) => ({
                 ...event,
-                line: event.line ?? index + 1
+                line: index + 1
             }));
             events = eventsWithLines;
-            nextLineNumber = eventsWithLines.length
-                ? Math.max(...eventsWithLines.map((log) => log.line)) + 1
-                : 1;
 
             if (!response.status) {
                 errorMessage = 'Invalid API response: missing execution status';
@@ -225,9 +190,7 @@
 
     function resetState(): void {
         disconnectWebSocket();
-        clearPendingEvents();
         events = [];
-        nextLineNumber = 1;
         hasReceivedFirstLog = false;
         status = FrontendStatus.LOADING;
         executionStartedAt = null;
@@ -335,7 +298,6 @@
 
     onDestroy(() => {
         disconnectWebSocket();
-        clearPendingEvents();
     });
 
     function handleToggleMetadata(): void {
@@ -343,8 +305,6 @@
     }
 
     function handleClearLogs(): void {
-        clearPendingEvents();
-        nextLineNumber = 1;
         events = [];
         clearLogLineCaches();
     }

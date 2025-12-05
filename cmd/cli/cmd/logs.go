@@ -62,7 +62,7 @@ func logsRun(cmd *cobra.Command, args []string) {
 type LogsService struct {
 	client client.Interface
 	output OutputInterface
-	stream func(websocketURL string, startingLineNumber int, webURL, executionID string) error
+	stream func(websocketURL string, webURL, executionID string) error
 }
 
 // NewLogsService creates a new LogsService with the provided dependencies.
@@ -71,8 +71,8 @@ func NewLogsService(apiClient client.Interface, outputter OutputInterface) *Logs
 		client: apiClient,
 		output: outputter,
 	}
-	service.stream = func(websocketURL string, startingLineNumber int, webURL, executionID string) error {
-		return service.streamLogsViaWebSocket(websocketURL, startingLineNumber, webURL, executionID)
+	service.stream = func(websocketURL string, webURL, executionID string) error {
+		return service.streamLogsViaWebSocket(websocketURL, webURL, executionID)
 	}
 	return service
 }
@@ -127,9 +127,9 @@ func (s *LogsService) readWebSocketMessages(
 }
 
 // streamLogsViaWebSocket connects to WebSocket and streams logs in real-time.
+// The backend handles incremental log delivery, so we just append and count from 1.
 func (s *LogsService) streamLogsViaWebSocket(
 	websocketURL string,
-	startingLineNumber int,
 	webURL string,
 	executionID string,
 ) error {
@@ -165,8 +165,9 @@ func (s *LogsService) streamLogsViaWebSocket(
 	go s.readWebSocketMessages(conn, logChan, done, &closeOnce)
 
 	// Goroutine 2: Read from channel and print logs
+	// Backend sends incremental logs, so we just count from 1
 	go func() {
-		lineNumber := startingLineNumber
+		lineNumber := 0
 		for logEvent := range logChan {
 			lineNumber++
 			s.printLogLine(lineNumber, logEvent)
@@ -207,7 +208,7 @@ func (s *LogsService) DisplayLogs(ctx context.Context, executionID, webURL strin
 	}
 
 	s.output.Infof("Execution status: %s. Streaming logs via WebSocket...", resp.Status)
-	return s.stream(resp.WebSocketURL, len(resp.Events), webURL, executionID)
+	return s.stream(resp.WebSocketURL, webURL, executionID)
 }
 
 // displayLogEvents displays all log events in a sorted table.
