@@ -27,7 +27,7 @@
     const end = $derived(
         Math.min(events.length, Math.ceil((scrollTop + viewportHeight) / rowHeight) + overscan)
     );
-    const visibleEvents = $derived(events.slice(start, end));
+    const visibleEvents = $derived(viewportHeight === 0 ? events : events.slice(start, end));
     const offsetTop = $derived(start * rowHeight);
 
     function measureRow(node: HTMLElement, active: boolean): void | { destroy: () => void } {
@@ -113,10 +113,17 @@
 
         const targetTop = containerEl.scrollHeight;
         window.requestAnimationFrame(() => {
-            containerEl?.scrollTo({
-                top: targetTop,
-                behavior: 'auto'
-            });
+            const scrollTarget = containerEl;
+            if (!scrollTarget) return;
+
+            if (typeof scrollTarget.scrollTo === 'function') {
+                scrollTarget.scrollTo({
+                    top: targetTop,
+                    behavior: 'auto'
+                });
+            } else {
+                scrollTarget.scrollTop = targetTop;
+            }
         });
     });
 </script>
@@ -160,6 +167,7 @@
         margin: 0;
         padding: 0;
         position: absolute;
+        top: 0;
         left: 0;
         right: 0;
     }
