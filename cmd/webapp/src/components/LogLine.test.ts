@@ -2,12 +2,16 @@
 /// <reference types="@testing-library/jest-dom" />
 
 import { render, screen } from '@testing-library/svelte';
-import { describe, it, expect } from 'vitest';
-import LogLine from './LogLine.svelte';
+import { describe, it, expect, beforeEach } from 'vitest';
+import LogLine, { clearCaches } from './LogLine.svelte';
 import type { LogEvent } from '../types/logs';
 import { formatTimestamp } from '../lib/ansi';
 
 describe('LogLine', () => {
+    beforeEach(() => {
+        clearCaches();
+    });
+
     const baseEvent: LogEvent = {
         event_id: 'event-1',
         message: 'Hello, world',
@@ -44,6 +48,7 @@ describe('LogLine', () => {
     it('applies ANSI classes to colored log segments', () => {
         const colorfulEvent: LogEvent = {
             ...baseEvent,
+            event_id: 'event-colorful',
             message: `Start \u001b[31mError\u001b[0m end`
         };
 

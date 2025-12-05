@@ -7,6 +7,7 @@
     import WebSocketStatus from '../components/WebSocketStatus.svelte';
     import LogControls from '../components/LogControls.svelte';
     import LogViewer from '../components/LogViewer.svelte';
+    import { clearCaches as clearLogLineCaches } from '../components/LogLine.svelte';
     import { executionId } from '../stores/execution';
     import {
         cachedWebSocketURL,
@@ -67,7 +68,8 @@
             return;
         }
 
-        events = [...events, ...pendingEvents];
+        // Push directly to avoid O(n) array copy - Svelte 5's $state proxy handles reactivity
+        events.push(...pendingEvents);
         pendingEvents = [];
     }
 
@@ -344,6 +346,7 @@
         clearPendingEvents();
         nextLineNumber = 1;
         events = [];
+        clearLogLineCaches();
     }
 
     function handlePause(): void {

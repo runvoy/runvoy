@@ -29,6 +29,7 @@ export default [
                 KeyboardEvent: 'readonly',
                 MessageEvent: 'readonly',
                 CloseEvent: 'readonly',
+                Event: 'readonly',
                 HTMLElement: 'readonly',
                 HTMLDivElement: 'readonly',
                 clearTimeout: 'readonly',
@@ -42,7 +43,11 @@ export default [
                 navigator: 'readonly',
                 alert: 'readonly',
                 confirm: 'readonly',
-                console: 'readonly'
+                console: 'readonly',
+                ResizeObserver: 'readonly',
+                requestAnimationFrame: 'readonly',
+                cancelAnimationFrame: 'readonly',
+                performance: 'readonly'
             }
         },
         plugins: {
@@ -78,6 +83,7 @@ export default [
                 KeyboardEvent: 'readonly',
                 MessageEvent: 'readonly',
                 CloseEvent: 'readonly',
+                Event: 'readonly',
                 HTMLElement: 'readonly',
                 HTMLDivElement: 'readonly',
                 clearTimeout: 'readonly',
@@ -91,7 +97,11 @@ export default [
                 navigator: 'readonly',
                 alert: 'readonly',
                 confirm: 'readonly',
-                console: 'readonly'
+                console: 'readonly',
+                ResizeObserver: 'readonly',
+                requestAnimationFrame: 'readonly',
+                cancelAnimationFrame: 'readonly',
+                performance: 'readonly'
             }
         },
         plugins: {
