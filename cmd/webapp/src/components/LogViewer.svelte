@@ -126,7 +126,9 @@
         <div class="virtualizer" style={`height: ${totalHeight}px;`}>
             <div class="log-lines" style={`transform: translateY(${offsetTop}px);`}>
                 {#each visibleEvents as event, index (event.event_id)}
-                    <LogLine {event} {showMetadata} use:measureRow={index === 0} />
+                    <div class="log-row" use:measureRow={index === 0}>
+                        <LogLine {event} {showMetadata} />
+                    </div>
                 {/each}
             </div>
         </div>
@@ -160,6 +162,11 @@
         position: absolute;
         left: 0;
         right: 0;
+    }
+
+    .log-row {
+        margin: 0;
+        padding: 0;
     }
 
     .placeholder {
