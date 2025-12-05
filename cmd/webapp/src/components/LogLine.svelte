@@ -1,3 +1,10 @@
+<script lang="ts" context="module">
+    import type { AnsiSegment } from '../lib/ansi';
+
+    const ansiCache = new Map<string, AnsiSegment[]>();
+    const timestampCache = new Map<number, string>();
+</script>
+
 <script lang="ts">
     import { parseAnsi, formatTimestamp, type AnsiSegment } from '../lib/ansi';
     import type { LogEvent } from '../types/logs';
@@ -9,8 +16,30 @@
 
     const { event, showMetadata = true }: Props = $props();
 
-    const formattedTimestamp = $derived(formatTimestamp(event.timestamp));
-    const ansiSegments: AnsiSegment[] = $derived(parseAnsi(event.message));
+    function getAnsiSegments(logEvent: LogEvent): AnsiSegment[] {
+        const cached = ansiCache.get(logEvent.event_id);
+        if (cached) {
+            return cached;
+        }
+
+        const parsed = parseAnsi(logEvent.message);
+        ansiCache.set(logEvent.event_id, parsed);
+        return parsed;
+    }
+
+    function getFormattedTimestamp(logEvent: LogEvent): string {
+        const cached = timestampCache.get(logEvent.timestamp);
+        if (cached) {
+            return cached;
+        }
+
+        const formatted = formatTimestamp(logEvent.timestamp);
+        timestampCache.set(logEvent.timestamp, formatted);
+        return formatted;
+    }
+
+    const formattedTimestamp = $derived(getFormattedTimestamp(event));
+    const ansiSegments: AnsiSegment[] = $derived(getAnsiSegments(event));
 </script>
 
 <div class="log-line">

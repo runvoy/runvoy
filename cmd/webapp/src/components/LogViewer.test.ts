@@ -12,10 +12,6 @@ describe('LogViewer', () => {
         { event_id: '2', message: 'second', timestamp: 2, line: 2 }
     ];
 
-    beforeAll(() => {
-        Object.defineProperty(window, 'scrollTo', { value: vi.fn(), writable: true });
-    });
-
     afterEach(() => {
         vi.restoreAllMocks();
     });
@@ -45,7 +41,6 @@ describe('LogViewer', () => {
     });
 
     it('auto-scrolls when new logs arrive', async () => {
-        const scrollSpy = vi.spyOn(window, 'scrollTo').mockImplementation(() => {});
         const rafSpy = vi
             .spyOn(window, 'requestAnimationFrame')
             .mockImplementation((cb: FrameRequestCallback): number => {
@@ -53,17 +48,19 @@ describe('LogViewer', () => {
                 return 1;
             });
 
-        render(LogViewer, {
+        const { container } = render(LogViewer, {
             props: {
                 events,
                 showMetadata: true
             }
         });
 
+        const viewer = container.querySelector('.log-viewer-container') as HTMLElement;
+        Object.defineProperty(viewer, 'scrollHeight', { value: 1000, writable: true });
+        Object.defineProperty(viewer, 'clientHeight', { value: 200, writable: true });
+        viewer.scrollTo = vi.fn();
+
         await waitFor(() => expect(rafSpy).toHaveBeenCalled());
-        expect(scrollSpy).toHaveBeenCalledWith({
-            top: document.documentElement.scrollHeight,
-            behavior: 'auto'
-        });
+        expect(viewer.scrollTo).toHaveBeenCalledWith({ top: 1000, behavior: 'auto' });
     });
 });
