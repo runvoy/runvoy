@@ -2,12 +2,12 @@ package server
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
 	"slices"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/runvoy/runvoy/internal/api"
@@ -16,6 +16,7 @@ import (
 	"github.com/runvoy/runvoy/internal/constants"
 	apperrors "github.com/runvoy/runvoy/internal/errors"
 	loggerPkg "github.com/runvoy/runvoy/internal/logger"
+	"golang.org/x/sync/errgroup"
 )
 
 const (
@@ -172,42 +173,55 @@ func (r *Router) authorizeRequest(req *http.Request, action authorization.Action
 	return true
 }
 
-// updateLastUsedAsync updates the user's last_used timestamp asynchronously.
-func (r *Router) updateLastUsedAsync(user *api.User, requestID string, baseLogger *slog.Logger) *sync.WaitGroup {
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go func(email string, reqID string) {
-		defer wg.Done()
-		ctx, cancel := context.WithTimeout(context.Background(), lastUsedUpdateTimeout)
+// startLastUsedUpdate launches an asynchronous update of the user's last_used timestamp and
+// returns a wait function to ensure the update is tracked before the request completes.
+func (r *Router) startLastUsedUpdate(ctx context.Context, user *api.User, baseLogger *slog.Logger) func() {
+	eg, egCtx := errgroup.WithContext(ctx)
+	requestID := loggerPkg.GetRequestID(ctx)
+
+	eg.Go(func() error {
+		ctxWithTimeout, cancel := context.WithTimeout(egCtx, lastUsedUpdateTimeout)
 		defer cancel()
-		ctx = loggerPkg.WithRequestID(ctx, reqID)
-		reqLogger := loggerPkg.DeriveRequestLogger(ctx, baseLogger)
+		ctxWithTimeout = loggerPkg.WithRequestID(ctxWithTimeout, requestID)
+		reqLogger := loggerPkg.DeriveRequestLogger(ctxWithTimeout, baseLogger)
 
 		if user.LastUsed != nil {
 			reqLogger.Debug("updating user's last_used timestamp (async)",
-				"email", email,
+				"email", user.Email,
 				"previous_last_used", user.LastUsed.Format(time.RFC3339))
 		} else {
-			reqLogger.Debug("updating user's last_used timestamp (async)", "email", email)
+			reqLogger.Debug("updating user's last_used timestamp (async)", "email", user.Email)
 		}
 
-		newLastUsed, err := r.svc.UpdateUserLastUsed(ctx, email)
+		newLastUsed, err := r.svc.UpdateUserLastUsed(ctxWithTimeout, user.Email)
 		if err != nil {
-			reqLogger.Error("failed to update user's last_used timestamp", "error", err, "email", email)
-		} else {
-			if user.LastUsed != nil {
-				reqLogger.Debug("user's last_used timestamp updated successfully",
-					"email", email,
-					"last_used", newLastUsed.Format(time.RFC3339),
-					"previous_last_used", user.LastUsed.Format(time.RFC3339))
-			} else {
-				reqLogger.Debug("user's last_used timestamp updated successfully",
-					"email", email,
-					"last_used", newLastUsed.Format(time.RFC3339))
-			}
+			reqLogger.Error("failed to update user's last_used timestamp", "error", err, "email", user.Email)
+			return fmt.Errorf("failed to update user's last_used timestamp: %w", err)
 		}
-	}(user.Email, requestID)
-	return &wg
+
+		if user.LastUsed != nil {
+			reqLogger.Debug("user's last_used timestamp updated successfully",
+				"email", user.Email,
+				"last_used", newLastUsed.Format(time.RFC3339),
+				"previous_last_used", user.LastUsed.Format(time.RFC3339))
+		} else {
+			reqLogger.Debug("user's last_used timestamp updated successfully",
+				"email", user.Email,
+				"last_used", newLastUsed.Format(time.RFC3339))
+		}
+
+		return nil
+	})
+
+	return func() {
+		if err := eg.Wait(); err != nil && !errors.Is(err, context.Canceled) {
+			loggerPkg.DeriveRequestLogger(ctx, baseLogger).Warn(
+				"last_used update did not complete",
+				"error", err,
+				"email", user.Email,
+			)
+		}
+	}
 }
 
 // authenticateRequestMiddleware authenticates requests
@@ -232,13 +246,12 @@ func (r *Router) authenticateRequestMiddleware(next http.Handler) http.Handler {
 
 		logger.Info("user authenticated successfully", "email", user.Email)
 
-		requestID := loggerPkg.GetRequestID(req.Context())
-		wg := r.updateLastUsedAsync(user, requestID, logger)
+		waitForLastUsedUpdate := r.startLastUsedUpdate(req.Context(), user, logger)
 
 		ctx := context.WithValue(req.Context(), userContextKey, user)
 		next.ServeHTTP(w, req.WithContext(ctx))
 
-		wg.Wait()
+		waitForLastUsedUpdate()
 	})
 }
 

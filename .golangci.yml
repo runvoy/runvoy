@@ -116,3 +116,9 @@ linters:
       - path: '^scripts/'
         linters:
           - mnd
+      - path: '^internal/api/'
+        linters:
+          - revive
+      - path: '^internal/errors/'
+        linters:
+          - revive

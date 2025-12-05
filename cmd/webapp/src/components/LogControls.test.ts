@@ -188,7 +188,8 @@ describe('LogControls', () => {
         expect(objectURLSpy).toHaveBeenCalled();
         expect(clickSpy).toHaveBeenCalledTimes(1);
         expect(revokeSpy).toHaveBeenCalledWith('blob://logs');
-        expect(createdAnchor?.download).toContain(defaultProps.executionId);
+        expect(createdAnchor).not.toBeNull();
+        expect(createdAnchor!.download).toContain(defaultProps.executionId);
 
         createElementSpy.mockRestore();
     });

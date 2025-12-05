@@ -41,8 +41,24 @@ func (r *Router) handleListWithAuth(
 		return
 	}
 
+	payload, marshalErr := json.Marshal(resp)
+	if marshalErr != nil {
+		logger.Error("failed to marshal response", "operation", operationName, "error", marshalErr)
+		writeErrorResponse(w, http.StatusInternalServerError, "failed to "+operationName, "could not encode response")
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	_ = json.NewEncoder(w).Encode(resp)
+	_, writeErr := w.Write(payload)
+	if writeErr != nil {
+		logger.Error("failed to write response", "context",
+			map[string]any{
+				"operation": operationName,
+				"error":     writeErr,
+			})
+		return
+	}
 }
 
 // getClientIP extracts the client IP address from request headers.
