@@ -208,7 +208,7 @@ runvoy --help
 ```
 
 ```text
-runvoy - v0.4.1-20251203-1c14baa7
+runvoy - v0.4.1-20251205-beee7b5b
 Isolated, repeatable execution environments for your commands
 
 Usage:

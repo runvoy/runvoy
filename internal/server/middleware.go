@@ -196,7 +196,7 @@ func (r *Router) startLastUsedUpdate(ctx context.Context, user *api.User, baseLo
 		newLastUsed, err := r.svc.UpdateUserLastUsed(ctxWithTimeout, user.Email)
 		if err != nil {
 			reqLogger.Error("failed to update user's last_used timestamp", "error", err, "email", user.Email)
-			return err
+			return fmt.Errorf("failed to update user's last_used timestamp: %w", err)
 		}
 
 		if user.LastUsed != nil {

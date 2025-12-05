@@ -340,7 +340,7 @@ func buildQueryLimit(limit int) int32 {
 		return int32(maxInt32)
 	}
 
-	return int32(calculated) //nolint:gosec // Safe: checked for overflow above
+	return int32(calculated)
 }
 
 // buildQueryInput constructs a DynamoDB QueryInput for listing executions.

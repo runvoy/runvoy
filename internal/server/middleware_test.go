@@ -2,7 +2,7 @@ package server
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -277,7 +277,7 @@ func TestStartLastUsedUpdate_WaitsForCompletion(t *testing.T) {
 func TestStartLastUsedUpdate_HandlesErrorGracefully(t *testing.T) {
 	userRepo := &testUserRepository{
 		updateLastUsedFunc: func(string) error {
-			return fmt.Errorf("transient failure")
+			return errors.New("transient failure")
 		},
 	}
 

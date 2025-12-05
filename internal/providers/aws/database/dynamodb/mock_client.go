@@ -504,7 +504,7 @@ func safeInt32Count(count int) int32 {
 	if count > int(maxInt32) {
 		return maxInt32
 	}
-	//nolint:gosec // Safe conversion: count is already checked to be <= maxInt32
+
 	return int32(count)
 }
 
