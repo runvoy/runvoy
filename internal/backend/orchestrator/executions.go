@@ -7,7 +7,6 @@ import (
 	"log/slog"
 	"slices"
 	"strings"
-	"sync"
 	"time"
 
 	"golang.org/x/sync/errgroup"
@@ -94,10 +93,6 @@ func (s *Service) RunCommand(
 ) (*api.ExecutionResponse, error) {
 	if req.Command == "" {
 		return nil, apperrors.ErrBadRequest("command is required", nil)
-	}
-
-	if resolvedImage != nil {
-		req.Image = resolvedImage.ImageID
 	}
 
 	secretEnvVars, err := s.resolveSecretsForExecution(ctx, req.Secrets)
@@ -302,13 +297,12 @@ func (s *Service) fetchTraceRelatedResources(
 		secrets    []*api.Secret
 		users      []*api.User
 		images     []api.ImageInfo
-		mu         sync.Mutex
 	)
 
 	eg, egCtx := errgroup.WithContext(ctx)
 
 	fetchResourceByRequestID(
-		egCtx, s, eg, requestID, &mu,
+		egCtx, s, eg, requestID,
 		func(execs []*api.Execution) { executions = execs },
 		func(fetchCtx context.Context, reqID string) ([]*api.Execution, error) {
 			return s.repos.Execution.GetExecutionsByRequestID(fetchCtx, reqID)
@@ -316,7 +310,7 @@ func (s *Service) fetchTraceRelatedResources(
 		"executions",
 	)
 	fetchResourceByRequestID(
-		egCtx, s, eg, requestID, &mu,
+		egCtx, s, eg, requestID,
 		func(secs []*api.Secret) { secrets = secs },
 		func(fetchCtx context.Context, reqID string) ([]*api.Secret, error) {
 			return s.repos.Secrets.GetSecretsByRequestID(fetchCtx, reqID)
@@ -324,7 +318,7 @@ func (s *Service) fetchTraceRelatedResources(
 		"secrets",
 	)
 	fetchResourceByRequestID(
-		egCtx, s, eg, requestID, &mu,
+		egCtx, s, eg, requestID,
 		func(usrs []*api.User) { users = usrs },
 		func(fetchCtx context.Context, reqID string) ([]*api.User, error) {
 			return s.repos.User.GetUsersByRequestID(fetchCtx, reqID)
@@ -332,7 +326,7 @@ func (s *Service) fetchTraceRelatedResources(
 		"users",
 	)
 	fetchResourceByRequestID(
-		egCtx, s, eg, requestID, &mu,
+		egCtx, s, eg, requestID,
 		func(imgs []api.ImageInfo) { images = imgs },
 		func(fetchCtx context.Context, reqID string) ([]api.ImageInfo, error) {
 			return s.repos.Image.GetImagesByRequestID(fetchCtx, reqID)
@@ -361,7 +355,6 @@ func fetchResourceByRequestID[T any](
 	svc *Service,
 	eg *errgroup.Group,
 	requestID string,
-	mu *sync.Mutex,
 	assign func(T),
 	fetch func(context.Context, string) (T, error),
 	resourceName string,
@@ -380,9 +373,7 @@ func fetchResourceByRequestID[T any](
 				fmt.Errorf("get %s by request ID: %w", resourceName, fetchErr),
 			)
 		}
-		mu.Lock()
 		assign(resources)
-		mu.Unlock()
 		return nil
 	})
 }
