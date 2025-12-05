@@ -1,4 +1,6 @@
 <script lang="ts">
+    import { onDestroy, onMount, tick } from 'svelte';
+
     import type { LogEvent } from '../types/logs';
     import LogLine from './LogLine.svelte';
 
@@ -9,29 +11,130 @@
 
     const { events = [], showMetadata = true }: Props = $props();
 
-    $effect(() => {
-        // Auto-scroll to bottom when new logs arrive
-        // Track events.length to detect new log entries
-        const eventCount = events.length;
-        if (eventCount > 0) {
-            // Use requestAnimationFrame to ensure DOM is updated before scrolling
-            // This is especially important for Firefox
-            window.requestAnimationFrame(() => {
-                window.scrollTo({
-                    top: document.documentElement.scrollHeight,
-                    behavior: 'auto'
+    const OVERSCAN = 10;
+    const ROW_HEIGHT = 20;
+    const SCROLL_LOCK_THRESHOLD = 50;
+    const SCROLL_THROTTLE_MS = 16; // ~60fps
+
+    let containerEl: HTMLDivElement | null = null;
+    let viewportHeight = $state(0);
+    let scrollTop = $state(0);
+    let autoScroll = $state(true);
+    let resizeObserver: ResizeObserver | null = null;
+    let scrollRafId: number | null = null;
+    let lastScrollTime = 0;
+
+    // Compute visible range
+    const totalHeight = $derived(events.length * ROW_HEIGHT);
+    const startIndex = $derived(Math.max(0, Math.floor(scrollTop / ROW_HEIGHT) - OVERSCAN));
+    const endIndex = $derived(
+        Math.min(events.length, Math.ceil((scrollTop + viewportHeight) / ROW_HEIGHT) + OVERSCAN)
+    );
+    const offsetY = $derived(startIndex * ROW_HEIGHT);
+
+    // Track previous events length to detect new logs
+    let prevEventsLength = 0;
+
+    function handleScroll(event: Event): void {
+        const now = performance.now();
+        if (now - lastScrollTime < SCROLL_THROTTLE_MS) {
+            // Schedule update for next frame if not already scheduled
+            if (!scrollRafId) {
+                scrollRafId = requestAnimationFrame(() => {
+                    scrollRafId = null;
+                    processScroll(event);
                 });
-            });
+            }
+            return;
         }
+        processScroll(event);
+    }
+
+    function processScroll(event: Event): void {
+        lastScrollTime = performance.now();
+        const target = event.currentTarget as HTMLElement | null;
+        if (!target) return;
+
+        scrollTop = target.scrollTop;
+        viewportHeight = target.clientHeight;
+
+        // Check if user scrolled away from bottom
+        const distanceFromBottom = target.scrollHeight - (target.scrollTop + target.clientHeight);
+        autoScroll = distanceFromBottom <= SCROLL_LOCK_THRESHOLD;
+    }
+
+    function scrollToBottom(): void {
+        if (!containerEl) return;
+        containerEl.scrollTop = containerEl.scrollHeight;
+    }
+
+    onMount(() => {
+        if (!containerEl) return;
+
+        viewportHeight = containerEl.clientHeight;
+        prevEventsLength = events.length;
+
+        if (typeof ResizeObserver !== 'undefined') {
+            resizeObserver = new ResizeObserver(() => {
+                if (containerEl) {
+                    viewportHeight = containerEl.clientHeight;
+                }
+            });
+            resizeObserver.observe(containerEl);
+        }
+    });
+
+    onDestroy(() => {
+        resizeObserver?.disconnect();
+        if (scrollRafId) {
+            cancelAnimationFrame(scrollRafId);
+        }
+    });
+
+    // Reset scroll when events are cleared
+    $effect(() => {
+        if (events.length === 0 && containerEl) {
+            containerEl.scrollTop = 0;
+            autoScroll = true;
+            scrollTop = 0;
+            prevEventsLength = 0;
+        }
+    });
+
+    // Auto-scroll when new logs arrive (only if autoScroll enabled)
+    $effect(() => {
+        const currentLength = events.length;
+        if (currentLength <= prevEventsLength) {
+            prevEventsLength = currentLength;
+            return;
+        }
+
+        prevEventsLength = currentLength;
+
+        if (!autoScroll || !containerEl) return;
+
+        // Use tick to wait for DOM update, then scroll
+        tick().then(() => {
+            if (containerEl && autoScroll) {
+                scrollToBottom();
+            }
+        });
     });
 </script>
 
-<div class="log-viewer-container">
+<div class="log-viewer-container" bind:this={containerEl} onscroll={handleScroll}>
     {#if events.length > 0}
-        <div class="log-lines">
-            {#each events as event (event.event_id)}
-                <LogLine {event} {showMetadata} />
-            {/each}
+        <div class="virtualizer" style="height: {totalHeight}px;">
+            <div class="log-lines" style="transform: translateY({offsetY}px);">
+                {#each { length: endIndex - startIndex } as _, i (events[startIndex + i]?.event_id ?? i)}
+                    {@const event = events[startIndex + i]}
+                    {#if event}
+                        <div class="log-row">
+                            <LogLine {event} {showMetadata} />
+                        </div>
+                    {/if}
+                {/each}
+            </div>
         </div>
     {:else}
         <div class="placeholder">
@@ -40,19 +143,47 @@
     {/if}
 </div>
 
+{#if !autoScroll && events.length > 0}
+    <button class="scroll-to-bottom" onclick={scrollToBottom} type="button">
+        ↓ Scroll to bottom
+    </button>
+{/if}
+
 <style>
     .log-viewer-container {
         background-color: var(--pico-code-background-color);
         border: 1px solid var(--pico-border-color);
         border-radius: var(--pico-border-radius);
         padding: 1rem;
-        overflow-x: auto;
+        overflow: auto;
         min-height: 200px;
+        max-height: 70vh;
+        position: relative;
+        contain: strict;
+    }
+
+    .virtualizer {
+        position: relative;
+        width: 100%;
+        contain: layout style;
     }
 
     .log-lines {
         margin: 0;
         padding: 0;
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        will-change: transform;
+        contain: layout style;
+    }
+
+    .log-row {
+        margin: 0;
+        padding: 0;
+        height: 20px;
+        contain: layout style paint;
     }
 
     .placeholder {
@@ -62,6 +193,25 @@
         height: 100%;
         min-height: 180px;
         color: var(--pico-muted-color);
+    }
+
+    .scroll-to-bottom {
+        position: absolute;
+        bottom: 1rem;
+        right: 1rem;
+        padding: 0.5rem 1rem;
+        font-size: 0.85rem;
+        background: var(--pico-primary);
+        color: var(--pico-primary-inverse);
+        border: none;
+        border-radius: var(--pico-border-radius);
+        cursor: pointer;
+        z-index: 10;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    }
+
+    .scroll-to-bottom:hover {
+        opacity: 0.9;
     }
 
     @media (max-width: 768px) {

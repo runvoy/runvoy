@@ -7,6 +7,7 @@
     import WebSocketStatus from '../components/WebSocketStatus.svelte';
     import LogControls from '../components/LogControls.svelte';
     import LogViewer from '../components/LogViewer.svelte';
+    import { clearCaches as clearLogLineCaches } from '../components/LogLine.svelte';
     import { executionId } from '../stores/execution';
     import {
         cachedWebSocketURL,
@@ -41,24 +42,58 @@
     let executionExitCode = $state<number | null>(null);
     let completed = $state(false);
     let killInitiated = $state(false);
+    const LOG_FLUSH_INTERVAL_MS = 50;
+    let pendingEvents: LogEvent[] = [];
+    let flushTimer: ReturnType<typeof setTimeout> | null = null;
+    let nextLineNumber = $state(1);
 
     // Track in-flight fetch to prevent duplicates
     let currentFetchId: string | null = null;
 
-    function getNextLineNumber(): number {
-        if (events.length === 0) return 1;
-        return Math.max(...events.map((e) => e.line)) + 1;
+    function clearPendingEvents(): void {
+        if (flushTimer) {
+            clearTimeout(flushTimer);
+            flushTimer = null;
+        }
+        pendingEvents = [];
+    }
+
+    function flushPendingEvents(): void {
+        if (flushTimer) {
+            clearTimeout(flushTimer);
+            flushTimer = null;
+        }
+
+        if (pendingEvents.length === 0) {
+            return;
+        }
+
+        // Push directly to avoid O(n) array copy - Svelte 5's $state proxy handles reactivity
+        events.push(...pendingEvents);
+        pendingEvents = [];
+    }
+
+    function scheduleFlush(): void {
+        if (!flushTimer) {
+            flushTimer = setTimeout(flushPendingEvents, LOG_FLUSH_INTERVAL_MS);
+        }
+    }
+
+    function addLogEvent(event: LogEvent): void {
+        pendingEvents.push({
+            ...event,
+            line: nextLineNumber++
+        });
+
+        scheduleFlush();
     }
 
     const websocketCallbacks: WebSocketCallbacks = {
         onLogEvent: (event: LogEvent) => {
-            const eventWithLine: LogEvent = {
-                ...event,
-                line: getNextLineNumber()
-            };
-            events = [...events, eventWithLine];
+            addLogEvent(event);
         },
         onExecutionComplete: () => {
+            flushPendingEvents();
             completed = true;
             handleExecutionComplete();
         },
@@ -144,6 +179,9 @@
                 line: event.line ?? index + 1
             }));
             events = eventsWithLines;
+            nextLineNumber = eventsWithLines.length
+                ? Math.max(...eventsWithLines.map((log) => log.line)) + 1
+                : 1;
 
             if (!response.status) {
                 errorMessage = 'Invalid API response: missing execution status';
@@ -187,7 +225,9 @@
 
     function resetState(): void {
         disconnectWebSocket();
+        clearPendingEvents();
         events = [];
+        nextLineNumber = 1;
         hasReceivedFirstLog = false;
         status = FrontendStatus.LOADING;
         executionStartedAt = null;
@@ -295,6 +335,7 @@
 
     onDestroy(() => {
         disconnectWebSocket();
+        clearPendingEvents();
     });
 
     function handleToggleMetadata(): void {
@@ -302,7 +343,10 @@
     }
 
     function handleClearLogs(): void {
+        clearPendingEvents();
+        nextLineNumber = 1;
         events = [];
+        clearLogLineCaches();
     }
 
     function handlePause(): void {
