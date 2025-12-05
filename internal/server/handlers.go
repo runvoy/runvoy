@@ -50,7 +50,15 @@ func (r *Router) handleListWithAuth(
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	_, _ = w.Write(payload)
+	_, writeErr := w.Write(payload)
+	if writeErr != nil {
+		logger.Error("failed to write response", "context",
+			map[string]any{
+				"operation": operationName,
+				"error":     writeErr,
+			})
+		return
+	}
 }
 
 // getClientIP extracts the client IP address from request headers.
