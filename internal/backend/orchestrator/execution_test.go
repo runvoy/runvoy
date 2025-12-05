@@ -130,6 +130,34 @@ func TestRunCommand(t *testing.T) {
 	}
 }
 
+func TestRunCommand_UsesRequestImageWhenResolvedImageNil(t *testing.T) {
+	ctx := context.Background()
+
+	runner := &mockRunner{
+		startTaskFunc: func(_ context.Context, _ string, req *api.ExecutionRequest) (string, *time.Time, error) {
+			assert.Equal(t, "cli-image:latest", req.Image)
+			return "exec-123", timePtr(time.Now()), nil
+		},
+	}
+
+	execRepo := &mockExecutionRepository{
+		createExecutionFunc: func(_ context.Context, execution *api.Execution) error {
+			assert.Equal(t, "exec-123", execution.ExecutionID)
+			return nil
+		},
+	}
+
+	svc := newTestService(nil, execRepo, runner)
+	req := api.ExecutionRequest{Command: "echo hi", Image: "cli-image:latest"}
+
+	resp, err := svc.RunCommand(ctx, "user@example.com", nil, &req, nil)
+
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	assert.Equal(t, "exec-123", resp.ExecutionID)
+	assert.Equal(t, "cli-image:latest", resp.ImageID)
+}
+
 func TestRunCommand_WithSecrets(t *testing.T) {
 	ctx := context.Background()
 	dbSecretValue := "super-secret"

@@ -2,11 +2,14 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
+	"github.com/runvoy/runvoy/internal/api"
 	"github.com/runvoy/runvoy/internal/backend/orchestrator"
 	"github.com/runvoy/runvoy/internal/constants"
 	"github.com/runvoy/runvoy/internal/database"
@@ -15,6 +18,8 @@ import (
 	"github.com/runvoy/runvoy/internal/testutil"
 
 	"github.com/aws/aws-lambda-go/lambdacontext"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestRequestIDMiddleware(t *testing.T) {
@@ -243,6 +248,85 @@ func TestRequestIDMiddleware(t *testing.T) {
 			t.Errorf("Expected status 200, got %d", rr.Code)
 		}
 	})
+}
+
+func TestStartLastUsedUpdate_WaitsForCompletion(t *testing.T) {
+	called := make(chan struct{})
+	userRepo := &testUserRepository{
+		updateLastUsedFunc: func(email string) error {
+			assert.Equal(t, "user@example.com", email)
+			close(called)
+			return nil
+		},
+	}
+
+	router := newRouterWithUserRepo(t, userRepo)
+	ctx := logger.WithRequestID(context.Background(), "req-123")
+
+	wait := router.startLastUsedUpdate(ctx, &api.User{Email: "user@example.com"}, router.svc.Logger)
+
+	wait()
+
+	select {
+	case <-called:
+	default:
+		t.Fatalf("expected UpdateUserLastUsed to be invoked")
+	}
+}
+
+func TestStartLastUsedUpdate_HandlesErrorGracefully(t *testing.T) {
+	userRepo := &testUserRepository{
+		updateLastUsedFunc: func(string) error {
+			return fmt.Errorf("transient failure")
+		},
+	}
+
+	router := newRouterWithUserRepo(t, userRepo)
+	ctx := logger.WithRequestID(context.Background(), "req-err")
+
+	wait := router.startLastUsedUpdate(ctx, &api.User{Email: "user@example.com"}, router.svc.Logger)
+
+	done := make(chan struct{})
+	go func() {
+		wait()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatalf("wait should return even when update fails")
+	}
+}
+
+func newRouterWithUserRepo(t *testing.T, userRepo *testUserRepository) *Router {
+	t.Helper()
+
+	repos := database.Repositories{
+		User:       userRepo,
+		Execution:  &testExecutionRepository{},
+		Connection: nil,
+		Token:      &testTokenRepository{},
+		Image:      &testImageRepository{},
+		Secrets:    &testSecretsRepository{},
+	}
+
+	svc, err := orchestrator.NewService(context.Background(),
+		testRegion,
+		&repos,
+		&testRunner{}, // TaskManager
+		&testRunner{}, // ImageRegistry
+		&testRunner{}, // LogManager
+		&testRunner{}, // ObservabilityManager
+		testutil.SilentLogger(),
+		constants.AWS,
+		&testWebSocketManager{},
+		&noopHealthManager{},
+		newPermissiveTestEnforcerForHandlers(t),
+	)
+	require.NoError(t, err)
+
+	return &Router{svc: svc}
 }
 
 func TestGetRequestID(t *testing.T) {
