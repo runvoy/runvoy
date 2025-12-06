@@ -8,323 +8,105 @@
     import LogControls from '../components/LogControls.svelte';
     import LogViewer from '../components/LogViewer.svelte';
     import { clearCaches as clearLogLineCaches } from '../components/LogLine.svelte';
-    import { executionId } from '../stores/execution';
-    import {
-        cachedWebSocketURL,
-        isConnected,
-        isConnecting,
-        connectionError
-    } from '../stores/websocket';
-    import {
-        connectWebSocket,
-        disconnectWebSocket,
-        type WebSocketCallbacks
-    } from '../lib/websocket';
-    import { ExecutionStatus, FrontendStatus, isTerminalStatus } from '../lib/constants';
+    import { executionId as executionIdStore } from '../stores/execution';
+    import { LogsManager } from '../lib/logs';
+    import { createExecutionKiller } from '../lib/execution';
+    import { isKillableStatus } from '../lib/constants';
     import type APIClient from '../lib/api';
-    import type { LogEvent } from '../types/logs';
-    import type { ApiError, ExecutionStatusResponse } from '../types/api';
 
     interface Props {
-        apiClient: APIClient | null;
+        apiClient: APIClient;
         currentExecutionId: string | null;
     }
 
-    const { apiClient = null, currentExecutionId = null }: Props = $props();
+    const { apiClient, currentExecutionId = null }: Props = $props();
 
-    let errorMessage = $state('');
+    // UI-only state
     let showMetadata = $state(true);
-    let events = $state<LogEvent[]>([]);
-    let hasReceivedFirstLog = $state(false);
-    let status = $state<string | null>(null);
-    let executionStartedAt = $state<string | null>(null);
-    let executionCompletedAt = $state<string | null>(null);
-    let executionExitCode = $state<number | null>(null);
-    let completed = $state(false);
-    let killInitiated = $state(false);
 
-    // Track in-flight fetch to prevent duplicates
-    let currentFetchId: string | null = null;
+    // Create manager and killer instances
+    const logsManager = new LogsManager({ apiClient });
+    const killer = createExecutionKiller(apiClient);
 
-    // Backend handles incremental log delivery, so we just append events directly
-    function addLogEvent(event: LogEvent): void {
-        // Compute line number from current events length (1-indexed)
-        const lineNumber = events.length + 1;
-        events.push({
-            ...event,
-            line: lineNumber
-        });
-    }
+    // Destructure stores
+    const { events, metadata, connection, phase, error: logsError } = logsManager.stores;
+    const killState = killer.state;
 
-    const websocketCallbacks: WebSocketCallbacks = {
-        onLogEvent: (event: LogEvent) => {
-            addLogEvent(event);
-        },
-        onExecutionComplete: () => {
-            completed = true;
-            handleExecutionComplete();
-        },
-        onStatusRunning: () => {
-            if (!hasReceivedFirstLog) {
-                hasReceivedFirstLog = true;
-                if (status === ExecutionStatus.STARTING || status === FrontendStatus.LOADING) {
-                    status = ExecutionStatus.RUNNING;
-                }
-            }
-        },
-        onError: (error: string) => {
-            errorMessage = error;
-        }
-    };
-
-    async function handleKillExecution(): Promise<void> {
-        if (!apiClient || !currentExecutionId) {
-            return;
-        }
-
-        try {
-            await apiClient.killExecution(currentExecutionId);
-            // Kill request succeeded - update status and disable the button
-            status = ExecutionStatus.TERMINATING;
-            killInitiated = true;
-            // If WebSocket is not active, refresh to get final status
-            if (!$isConnected && !$isConnecting) {
-                await fetchLogs(currentExecutionId);
-            }
-        } catch (error) {
-            const err = error as ApiError;
-            errorMessage = err.details?.error || err.message || 'Failed to stop execution';
-            // On error, don't disable the button so user can retry
-        }
-    }
-
-    function deriveStartedAtFromLogs(logEvents: LogEvent[] = []): string | null {
-        if (!Array.isArray(logEvents) || logEvents.length === 0) {
-            return null;
-        }
-
-        const timestamps = logEvents
-            .map((event) => event.timestamp)
-            .filter((ts: number) => typeof ts === 'number' && !Number.isNaN(ts));
-
-        if (timestamps.length === 0) {
-            return null;
-        }
-
-        const earliestTimestamp = Math.min(...timestamps);
-        return new Date(earliestTimestamp).toISOString();
-    }
-
-    async function fetchLogs(id: string): Promise<void> {
-        if (!apiClient || !id) {
-            return;
-        }
-
-        errorMessage = '';
-
-        try {
-            const response = await apiClient.getLogs(id);
-
-            // Verify this fetch is still relevant (execution ID hasn't changed)
-            if (currentFetchId !== id) {
-                return;
-            }
-
-            // Contract: Running executions return websocket_url and events=null.
-            // Terminal executions return events array (never null) and no websocket_url.
-            if (response.websocket_url) {
-                // Running execution: use WebSocket for streaming logs
-                status = response.status || ExecutionStatus.RUNNING;
-                cachedWebSocketURL.set(response.websocket_url);
-                return;
-            }
-
-            // Terminal execution: set logs from API response
-            const responseEvents = response.events ?? [];
-            // Compute line numbers (1-indexed) - backend sends all events for terminal executions
-            const eventsWithLines: LogEvent[] = responseEvents.map((event, index) => ({
-                ...event,
-                line: index + 1
-            }));
-            events = eventsWithLines;
-
-            if (!response.status) {
-                errorMessage = 'Invalid API response: missing execution status';
-                events = [];
-                return;
-            }
-
-            status = response.status;
-            const derivedStartedAt = deriveStartedAtFromLogs(eventsWithLines);
-            executionStartedAt = derivedStartedAt;
-
-            const terminal = isTerminalStatus(status);
-            completed = terminal;
-
-            // For terminal executions, fetch full status to get completed_at and exit_code
-            if (terminal && apiClient) {
-                try {
-                    const statusResponse: ExecutionStatusResponse =
-                        await apiClient.getExecutionStatus(id);
-                    if (statusResponse.completed_at) {
-                        executionCompletedAt = statusResponse.completed_at;
-                    }
-                    if (statusResponse.exit_code !== undefined) {
-                        executionExitCode = statusResponse.exit_code;
-                    }
-                } catch {
-                    // Non-fatal: we already have the status and logs, just missing metadata
-                    // Don't set errorMessage as this is not critical
-                }
-            }
-        } catch (error) {
-            // Ignore if this fetch is stale
-            if (currentFetchId !== id) {
-                return;
-            }
-            const err = error as ApiError;
-            errorMessage = err.details?.error || err.message || 'Failed to fetch logs';
-            events = [];
-        }
-    }
-
-    function resetState(): void {
-        disconnectWebSocket();
-        events = [];
-        hasReceivedFirstLog = false;
-        status = FrontendStatus.LOADING;
-        executionStartedAt = null;
-        executionCompletedAt = null;
-        executionExitCode = null;
-        completed = false;
-        killInitiated = false;
-        errorMessage = '';
-        cachedWebSocketURL.set(null);
-    }
-
-    async function handleExecutionComplete(): Promise<void> {
-        if (!apiClient || !currentExecutionId) {
-            return;
-        }
-        // WebSocket disconnect means the task terminated
-        // Fetch status to update execution status (SUCCEEDED, FAILED, STOPPED)
-        try {
-            const statusResponse: ExecutionStatusResponse =
-                await apiClient.getExecutionStatus(currentExecutionId);
-
-            if (!statusResponse.status) {
-                errorMessage = 'Invalid API response: missing execution status';
-                return;
-            }
-
-            status = statusResponse.status;
-
-            if (statusResponse.started_at) {
-                executionStartedAt = statusResponse.started_at;
-            }
-
-            if (statusResponse.completed_at) {
-                executionCompletedAt = statusResponse.completed_at;
-            }
-
-            if (statusResponse.exit_code !== undefined) {
-                executionExitCode = statusResponse.exit_code;
-            }
-
-            const terminal = isTerminalStatus(status);
-            completed = terminal;
-
-            if (terminal) {
-                cachedWebSocketURL.set(null);
-            }
-        } catch (error) {
-            const err = error as ApiError;
-            errorMessage = err.details?.error || err.message || 'Failed to fetch execution status';
-        }
-    }
-
-    function handleExecutionChange(newId: string): void {
-        // Update URL, which will cause the page to re-render with new execution ID
-        goto(`/logs?execution_id=${encodeURIComponent(newId)}`, { replaceState: false });
-    }
-
-    // Single effect that handles execution ID changes
-    // This is the ONLY place that triggers log fetching
+    // Handle execution ID changes
     $effect(() => {
         const id = currentExecutionId;
 
         // Sync to store for child components that read it
-        executionId.set(id);
-
-        if (!apiClient) {
-            return;
-        }
+        executionIdStore.set(id);
 
         if (!id) {
-            // No execution ID - reset everything
-            resetState();
-            currentFetchId = null;
+            logsManager.reset();
+            killer.reset();
             return;
         }
 
-        // Skip if we're already fetching this execution ID
-        if (currentFetchId === id) {
-            return;
-        }
-
-        // New execution ID - reset and fetch
-        currentFetchId = id;
-        resetState();
-
-        // Don't fetch if WebSocket is already connected for this execution
-        if ($isConnected || $isConnecting) {
-            return;
-        }
-
-        // Fetch logs for this execution
-        fetchLogs(id);
-    });
-
-    // Handle WebSocket URL changes
-    $effect(() => {
-        const url = $cachedWebSocketURL;
-        if (!apiClient) {
-            return;
-        }
-        if (url) {
-            connectWebSocket(url, websocketCallbacks);
-        }
+        // Load the execution (manager handles deduplication internally)
+        logsManager.loadExecution(id);
+        killer.reset();
     });
 
     onDestroy(() => {
-        disconnectWebSocket();
+        logsManager.destroy();
     });
+
+    async function handleKill(): Promise<void> {
+        if (!currentExecutionId) return;
+
+        const success = await killer.kill(currentExecutionId);
+        if (success) {
+            logsManager.setStatus('TERMINATING');
+
+            // If not streaming, refresh to get updated status
+            if ($connection === 'disconnected') {
+                logsManager.loadExecution(currentExecutionId);
+            }
+        }
+    }
+
+    function handleExecutionChange(newId: string): void {
+        goto(`/logs?execution_id=${encodeURIComponent(newId)}`, { replaceState: false });
+    }
 
     function handleToggleMetadata(): void {
         showMetadata = !showMetadata;
     }
 
     function handleClearLogs(): void {
-        events = [];
+        logsManager.clearLogs();
         clearLogLineCaches();
     }
 
     function handlePause(): void {
-        disconnectWebSocket();
+        logsManager.pause();
     }
 
     function handleResume(): void {
-        if ($cachedWebSocketURL) {
-            connectWebSocket($cachedWebSocketURL, websocketCallbacks);
-        }
+        logsManager.resume();
     }
+
+    const canKill = $derived(
+        isKillableStatus($metadata?.status ?? null) &&
+            !$killState.isKilling &&
+            !$killState.killInitiated
+    );
 </script>
 
 <ExecutionSelector executionId={currentExecutionId} onExecutionChange={handleExecutionChange} />
 
-{#if errorMessage}
+{#if $logsError}
     <article class="error-box">
-        <p>{errorMessage}</p>
+        <p>{$logsError}</p>
+    </article>
+{/if}
+
+{#if $killState.error}
+    <article class="error-box">
+        <p>{$killState.error}</p>
     </article>
 {/if}
 
@@ -334,32 +116,32 @@
             Enter an execution ID above or provide <code>?execution_id=&lt;id&gt;</code> in the URL
         </p>
     </article>
-{:else if !errorMessage}
+{:else if !$logsError}
     <article class="logs-card">
         <StatusBar
-            {status}
-            startedAt={executionStartedAt}
-            completedAt={executionCompletedAt}
-            exitCode={executionExitCode}
-            {killInitiated}
-            onKill={handleKillExecution}
+            status={$metadata?.status ?? null}
+            startedAt={$metadata?.startedAt ?? null}
+            completedAt={$metadata?.completedAt ?? null}
+            exitCode={$metadata?.exitCode ?? null}
+            killInitiated={$killState.killInitiated}
+            onKill={canKill ? handleKill : null}
         />
         <WebSocketStatus
-            isConnecting={$isConnecting}
-            isConnected={$isConnected}
-            connectionError={$connectionError}
-            isCompleted={completed}
+            isConnecting={$connection === 'connecting'}
+            isConnected={$connection === 'connected'}
+            connectionError={$logsError}
+            isCompleted={$phase === 'completed'}
         />
         <LogControls
             executionId={currentExecutionId}
-            {events}
+            events={$events}
             {showMetadata}
             onToggleMetadata={handleToggleMetadata}
             onClear={handleClearLogs}
             onPause={handlePause}
             onResume={handleResume}
         />
-        <LogViewer {events} {showMetadata} />
+        <LogViewer events={$events} {showMetadata} />
     </article>
 {/if}
 
