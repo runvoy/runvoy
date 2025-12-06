@@ -5,6 +5,60 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.5.0] - 2025-12-06
+
+### Added
+
+* [5979c48e](https://github.com/runvoy/runvoy/commit/5979c48e54d6acc8eebd9850f6e8b2649d38fed8) feat: add eventID to all logs (#379)
+
+### Changed
+
+* [183ff1c8](https://github.com/runvoy/runvoy/commit/183ff1c86387257aeceb7391914322c2674b92d2) refactor: drop logs insights API, use filterLogs instead (#394)
+* [2b3a5ebd](https://github.com/runvoy/runvoy/commit/2b3a5ebda2148269f854ce31dc293292d3926c9d) test(webapp): expand log coverage (#395)
+* [36e110c4](https://github.com/runvoy/runvoy/commit/36e110c4d9258d16cc48a86db9f8be995d8bc826) ci: remove bogus netlify build command
+* [39652f60](https://github.com/runvoy/runvoy/commit/39652f60586cee46f194e1e1346d8e89ae144740) refactor(webapp): use props instead of stores for log events (#392)
+* [3eed0542](https://github.com/runvoy/runvoy/commit/3eed0542e1f149180dfa7854d5ce41ed0af3ff18) refactor: api client initialization in load functions (#387)
+* [4e128f03](https://github.com/runvoy/runvoy/commit/4e128f03f37ba2017f4c99dc2251ca7d63db3617) docs: add badge to readme
+* [56f140b4](https://github.com/runvoy/runvoy/commit/56f140b4993750faecdd04c8256bed438d8c0e34) docs: add goreport badge
+* [68d27d78](https://github.com/runvoy/runvoy/commit/68d27d780694f8d2e3eacc653cc3f7862a5b69fc) test(orchestrator): improve backend coverage (#396)
+* [6a0ace07](https://github.com/runvoy/runvoy/commit/6a0ace07ac47111bda891cfd41819568cfd1e14e) refactor: simplify log lines index handling
+* [6b28c5c2](https://github.com/runvoy/runvoy/commit/6b28c5c2be448b01781f6bdc01872b423d6364c0) refactor(webapp): reduce abuse of stores usage in logs view
+* [79069974](https://github.com/runvoy/runvoy/commit/790699743bea2baa679a494d7641ae78d7013e9f) refactor(webapp): improve log viewer performance with virtualization and batching (#401)
+* [7af9c155](https://github.com/runvoy/runvoy/commit/7af9c155ba8122abb312bbb1b2362da2cf9989a0) test(webapp): add more coverage
+* [86023301](https://github.com/runvoy/runvoy/commit/86023301b605cf3a4be588786b96c641ccc2909f) ci(webapp): use netlify adapter to add proper url support
+* [95856903](https://github.com/runvoy/runvoy/commit/95856903b2c400bcc4fa1c07a537b55131bcad4c) test: enable nilerr linter
+* [9eaa4f29](https://github.com/runvoy/runvoy/commit/9eaa4f29a743c5427a193ad33be759e213106118) refactor(webapp): new exec view with modern SvelteKit patterns (#382)
+* [a7c5efb9](https://github.com/runvoy/runvoy/commit/a7c5efb91d51cb135d002d6df942d1c744c80d10) refactor: remove linter suppressions
+* [b04a31c4](https://github.com/runvoy/runvoy/commit/b04a31c44a813af1c0feab9ae3cf3634ee81ad46) refactor: use ExecutionStatusValue type for status fields (#386)
+* [b36caa09](https://github.com/runvoy/runvoy/commit/b36caa09223b1b8b948ed721af43df2adb714c6a) refactor: enable nestif linter
+* [c0af7453](https://github.com/runvoy/runvoy/commit/c0af7453b0fd30f5f3fd753572747bf2345e1eeb) refactor(web): split god logsview into modules (#403)
+* [c77d8c63](https://github.com/runvoy/runvoy/commit/c77d8c633e7a88a3cc9a44b78efccafb82a70dc5) style: uniform container meta logs format
+* [d8548d1c](https://github.com/runvoy/runvoy/commit/d8548d1c86012965601cb2bb52fed1dc2a563f1c) tool: move release cloudformation stacks into own folder
+* [e429a42b](https://github.com/runvoy/runvoy/commit/e429a42b9be2e4e6bef979faa377d592d40e40ed) refactor(webapp): streamline API client setup (#389)
+* [e682d34d](https://github.com/runvoy/runvoy/commit/e682d34d9e32047ead68df3cb23e613fcbd8662c) refactor(webapp): split view into component
+* [ec7c1aff](https://github.com/runvoy/runvoy/commit/ec7c1aff147f752f93af4d704d55581b08f29d7d) test: enable wrapcheck and other linters
+* [f5f51ad1](https://github.com/runvoy/runvoy/commit/f5f51ad1cf9df7c1a0a8c4250b822756a535c11e) test: add more linters
+
+### Fixed
+
+* [1c14baa7](https://github.com/runvoy/runvoy/commit/1c14baa7653d23217163352f39b204a30751ae3d) fix: add missing IAM permissions
+* [24332e37](https://github.com/runvoy/runvoy/commit/24332e37e58b127ee762086d4f669f40e4f7bace) fix(webapp): add _redirects to make Netlify play along SPA
+* [32c5c518](https://github.com/runvoy/runvoy/commit/32c5c518a05b4196683d7cabaa31346bb58b92a8) fix: remove unused orchestrator method
+* [3990c5ca](https://github.com/runvoy/runvoy/commit/3990c5ca867a972d03d295e44f8bdbeaa6b11fcd) fix(webapp): add websocket event validation
+* [42491d54](https://github.com/runvoy/runvoy/commit/42491d542fa557c3f1ae71ecb2eb614319e6d8c2) fix(webapp): update status correctly
+* [51b80a58](https://github.com/runvoy/runvoy/commit/51b80a585d70685fae9d0f47afaef3369fc0795b) fix(webapp): remove double call to status after disconnect
+* [56b9cd9e](https://github.com/runvoy/runvoy/commit/56b9cd9e412808033a179dfacbe3da37de80a92f) fix(webapp): make autoscroll work for logs view
+* [71127d10](https://github.com/runvoy/runvoy/commit/71127d10d004aec42cbeabf0481a1f1259e28130) fix(webapp): correct redirect
+* [7660c51d](https://github.com/runvoy/runvoy/commit/7660c51d0d7777954c54c02fadda7f95fc7ee98e) fix(processor): ensure execution logs are always marked for deletion
+* [8ab8b948](https://github.com/runvoy/runvoy/commit/8ab8b94820b8965f494078ce42ac92b42da72449) fix(logs): disabimguate get logs response
+* [96cc2098](https://github.com/runvoy/runvoy/commit/96cc20981171c82e5b3f802277d9820f8544e45c) fix(webapp): cleanup logs view from duplicated data
+* [a75e2e16](https://github.com/runvoy/runvoy/commit/a75e2e16055a24a17dfba2841d39b1e18ef6bec7) fix(logs): show web link in the right place
+* [b4e417f3](https://github.com/runvoy/runvoy/commit/b4e417f3dbfc0f79e24672bb7d3c7d6f91b4ba52) fix(webapp): remove duplicate execution id store (#393)
+* [b9739ec0](https://github.com/runvoy/runvoy/commit/b9739ec0ecc1ad40d329134f885903732614cc96) fix: harden trace fetching and handlers (#398)
+* [f5068167](https://github.com/runvoy/runvoy/commit/f506816758f3ba26595c33b2d30c3cffb0b575c0) fix: add missing web dev URL to orchestrator CORS
+* [fe8aa1f4](https://github.com/runvoy/runvoy/commit/fe8aa1f409321c98cd9e741f75656f69d0b9d10a) fix(webapp): use correct id for log view
+* [ffba3e7d](https://github.com/runvoy/runvoy/commit/ffba3e7db6ee1b4c9caff6f9ca0a233e318e3ecb) fix(webapp): display missing data to completed executions
+
 ## [v0.4.1] - 2025-11-29
 
 ### Added
