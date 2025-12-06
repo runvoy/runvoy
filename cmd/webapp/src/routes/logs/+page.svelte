@@ -30,4 +30,6 @@
     });
 </script>
 
-<LogsView apiClient={$apiClient} currentExecutionId={urlExecutionId} />
+{#if $apiClient}
+	<LogsView apiClient={$apiClient} currentExecutionId={urlExecutionId} />
+{/if}

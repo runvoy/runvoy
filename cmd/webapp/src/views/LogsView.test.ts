@@ -8,14 +8,14 @@ import type APIClient from '../lib/api';
 import { executionId } from '../stores/execution';
 
 describe('LogsView', () => {
-    let mockApiClient: Partial<APIClient>;
-    let fetchLogsSpy: ReturnType<typeof vi.fn> & ((executionId: string) => Promise<any>);
+    let mockApiClient: APIClient;
+    let fetchLogsSpy: ReturnType<typeof vi.fn>;
 
     beforeEach(() => {
         fetchLogsSpy = vi.fn().mockResolvedValue({
             events: [],
             status: 'SUCCEEDED'
-        }) as ReturnType<typeof vi.fn> & ((executionId: string) => Promise<any>);
+        });
 
         mockApiClient = {
             getLogs: fetchLogsSpy,
@@ -27,7 +27,7 @@ describe('LogsView', () => {
                 execution_id: 'exec-123',
                 status: 'TERMINATING'
             })
-        };
+        } as unknown as APIClient;
 
         // Reset stores
         executionId.set(null);
@@ -40,12 +40,11 @@ describe('LogsView', () => {
     it('should fetch logs when execution ID is provided', async () => {
         render(LogsView, {
             props: {
-                apiClient: mockApiClient as APIClient,
+                apiClient: mockApiClient,
                 currentExecutionId: 'exec-123'
             }
         });
 
-        // Wait for fetchLogs to be called
         await waitFor(
             () => {
                 expect(fetchLogsSpy).toHaveBeenCalledWith('exec-123');
@@ -57,22 +56,8 @@ describe('LogsView', () => {
     it('should not fetch logs when execution ID is null', async () => {
         render(LogsView, {
             props: {
-                apiClient: mockApiClient as APIClient,
+                apiClient: mockApiClient,
                 currentExecutionId: null
-            }
-        });
-
-        // Allow effects to run
-        await new Promise((resolve) => setTimeout(resolve, 50));
-
-        expect(fetchLogsSpy).not.toHaveBeenCalled();
-    });
-
-    it('should not fetch logs when apiClient is null', async () => {
-        render(LogsView, {
-            props: {
-                apiClient: null,
-                currentExecutionId: 'exec-123'
             }
         });
 
@@ -85,7 +70,7 @@ describe('LogsView', () => {
     it('should display instruction when no execution ID is provided', async () => {
         render(LogsView, {
             props: {
-                apiClient: mockApiClient as APIClient,
+                apiClient: mockApiClient,
                 currentExecutionId: null
             }
         });
@@ -114,34 +99,17 @@ describe('LogsView', () => {
 
             render(LogsView, {
                 props: {
-                    apiClient: mockApiClient as APIClient,
+                    apiClient: mockApiClient,
                     currentExecutionId: 'exec-123'
                 }
             });
 
-            // Wait for component to mount and fetch logs
             await waitFor(
                 () => {
                     expect(fetchLogsSpy).toHaveBeenCalledWith('exec-123');
                 },
                 { timeout: 1000 }
             );
-        });
-
-        it('should not fetch status when apiClient is null', async () => {
-            const getExecutionStatusSpy = vi.fn();
-
-            render(LogsView, {
-                props: {
-                    apiClient: null,
-                    currentExecutionId: 'exec-123'
-                }
-            });
-
-            // Wait for component to mount
-            await new Promise((resolve) => setTimeout(resolve, 100));
-
-            expect(getExecutionStatusSpy).not.toHaveBeenCalled();
         });
 
         it('should not fetch status when currentExecutionId is null', async () => {
@@ -154,7 +122,7 @@ describe('LogsView', () => {
 
             render(LogsView, {
                 props: {
-                    apiClient: mockApiClient as APIClient,
+                    apiClient: mockApiClient,
                     currentExecutionId: null
                 }
             });
@@ -170,12 +138,11 @@ describe('LogsView', () => {
         it('should not fetch logs twice for the same execution ID', async () => {
             render(LogsView, {
                 props: {
-                    apiClient: mockApiClient as APIClient,
+                    apiClient: mockApiClient,
                     currentExecutionId: 'exec-123'
                 }
             });
 
-            // Wait for first fetch
             await waitFor(
                 () => {
                     expect(fetchLogsSpy).toHaveBeenCalledWith('exec-123');
@@ -198,7 +165,7 @@ describe('LogsView', () => {
 
             const { container } = render(LogsView, {
                 props: {
-                    apiClient: mockApiClient as APIClient,
+                    apiClient: mockApiClient,
                     currentExecutionId: 'exec-123'
                 }
             });
@@ -224,7 +191,7 @@ describe('LogsView', () => {
 
             render(LogsView, {
                 props: {
-                    apiClient: mockApiClient as APIClient,
+                    apiClient: mockApiClient,
                     currentExecutionId: 'exec-123'
                 }
             });
@@ -244,7 +211,7 @@ describe('LogsView', () => {
 
             const { container } = render(LogsView, {
                 props: {
-                    apiClient: mockApiClient as APIClient,
+                    apiClient: mockApiClient,
                     currentExecutionId: 'exec-123'
                 }
             });
@@ -264,7 +231,7 @@ describe('LogsView', () => {
         it('should sync execution ID to store', async () => {
             render(LogsView, {
                 props: {
-                    apiClient: mockApiClient as APIClient,
+                    apiClient: mockApiClient,
                     currentExecutionId: 'exec-456'
                 }
             });
@@ -282,7 +249,7 @@ describe('LogsView', () => {
 
             render(LogsView, {
                 props: {
-                    apiClient: mockApiClient as APIClient,
+                    apiClient: mockApiClient,
                     currentExecutionId: null
                 }
             });

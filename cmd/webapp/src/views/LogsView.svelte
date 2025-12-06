@@ -1,7 +1,6 @@
 <script lang="ts">
     import { onDestroy } from 'svelte';
     import { goto } from '$app/navigation';
-    import { writable, type Readable } from 'svelte/store';
 
     import ExecutionSelector from '../components/ExecutionSelector.svelte';
     import StatusBar from '../components/StatusBar.svelte';
@@ -10,86 +9,56 @@
     import LogViewer from '../components/LogViewer.svelte';
     import { clearCaches as clearLogLineCaches } from '../components/LogLine.svelte';
     import { executionId as executionIdStore } from '../stores/execution';
-    import {
-        LogsManager,
-        type ConnectionStatus,
-        type ExecutionMetadata,
-        type ExecutionPhase
-    } from '../lib/logs';
-    import { createExecutionKiller, type KillState } from '../lib/execution';
+    import { LogsManager } from '../lib/logs';
+    import { createExecutionKiller } from '../lib/execution';
     import { isKillableStatus } from '../lib/constants';
     import type APIClient from '../lib/api';
-    import type { LogEvent } from '../types/logs';
 
     interface Props {
-        apiClient: APIClient | null;
+        apiClient: APIClient;
         currentExecutionId: string | null;
     }
 
-    const { apiClient = null, currentExecutionId = null }: Props = $props();
+    const { apiClient, currentExecutionId = null }: Props = $props();
 
     // UI-only state
     let showMetadata = $state(true);
 
-    // Create manager and killer instances (only if apiClient is available)
-    const logsManager = apiClient ? new LogsManager({ apiClient }) : null;
-    const killer = apiClient ? createExecutionKiller(apiClient) : null;
+    // Create manager and killer instances
+    const logsManager = new LogsManager({ apiClient });
+    const killer = createExecutionKiller(apiClient);
 
-    // Create fallback stores for when manager/killer are null
-    const emptyEvents = writable<LogEvent[]>([]);
-    const nullMetadata = writable<ExecutionMetadata | null>(null);
-    const disconnectedConnection = writable<ConnectionStatus>('disconnected');
-    const idlePhase = writable<ExecutionPhase>('idle');
-    const nullError = writable<string | null>(null);
-    const defaultKillState = writable<KillState>({
-        isKilling: false,
-        killInitiated: false,
-        error: null
-    });
+    // Destructure stores
+    const { events, metadata, connection, phase, error: logsError } = logsManager.stores;
+    const killState = killer.state;
 
-    // Get stores with fallbacks
-    const events: Readable<LogEvent[]> = logsManager?.stores.events ?? emptyEvents;
-    const metadata: Readable<ExecutionMetadata | null> =
-        logsManager?.stores.metadata ?? nullMetadata;
-    const connection: Readable<ConnectionStatus> =
-        logsManager?.stores.connection ?? disconnectedConnection;
-    const phase: Readable<ExecutionPhase> = logsManager?.stores.phase ?? idlePhase;
-    const logsError: Readable<string | null> = logsManager?.stores.error ?? nullError;
-    const killState: Readable<KillState> = killer?.state ?? defaultKillState;
-
-    // Single effect that handles execution ID changes
+    // Handle execution ID changes
     $effect(() => {
         const id = currentExecutionId;
 
         // Sync to store for child components that read it
         executionIdStore.set(id);
 
-        if (!logsManager) {
-            return;
-        }
-
         if (!id) {
-            // No execution ID - reset everything
             logsManager.reset();
-            killer?.reset();
+            killer.reset();
             return;
         }
 
         // Load the execution (manager handles deduplication internally)
         logsManager.loadExecution(id);
-        killer?.reset();
+        killer.reset();
     });
 
     onDestroy(() => {
-        logsManager?.destroy();
+        logsManager.destroy();
     });
 
     async function handleKill(): Promise<void> {
-        if (!killer || !currentExecutionId || !logsManager) return;
+        if (!currentExecutionId) return;
 
         const success = await killer.kill(currentExecutionId);
         if (success) {
-            // Update logs manager metadata to reflect TERMINATING status
             logsManager.setStatus('TERMINATING');
 
             // If not streaming, refresh to get updated status
@@ -100,7 +69,6 @@
     }
 
     function handleExecutionChange(newId: string): void {
-        // Update URL, which will cause the page to re-render with new execution ID
         goto(`/logs?execution_id=${encodeURIComponent(newId)}`, { replaceState: false });
     }
 
@@ -109,19 +77,18 @@
     }
 
     function handleClearLogs(): void {
-        logsManager?.clearLogs();
+        logsManager.clearLogs();
         clearLogLineCaches();
     }
 
     function handlePause(): void {
-        logsManager?.pause();
+        logsManager.pause();
     }
 
     function handleResume(): void {
-        logsManager?.resume();
+        logsManager.resume();
     }
 
-    // Computed values for template
     const canKill = $derived(
         isKillableStatus($metadata?.status ?? null) &&
             !$killState.isKilling &&
