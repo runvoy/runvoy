@@ -6,7 +6,6 @@ import { render, waitFor, screen } from '@testing-library/svelte';
 import LogsView from './LogsView.svelte';
 import type APIClient from '../lib/api';
 import { executionId } from '../stores/execution';
-import { cachedWebSocketURL, isConnected, isConnecting } from '../stores/websocket';
 
 describe('LogsView', () => {
     let mockApiClient: Partial<APIClient>;
@@ -15,45 +14,30 @@ describe('LogsView', () => {
     beforeEach(() => {
         fetchLogsSpy = vi.fn().mockResolvedValue({
             events: [],
-            websocket_url: null
+            status: 'SUCCEEDED'
         }) as ReturnType<typeof vi.fn> & ((executionId: string) => Promise<any>);
 
         mockApiClient = {
             getLogs: fetchLogsSpy,
             getExecutionStatus: vi.fn().mockResolvedValue({
                 execution_id: 'exec-123',
-                status: 'RUNNING'
+                status: 'SUCCEEDED'
+            }),
+            killExecution: vi.fn().mockResolvedValue({
+                execution_id: 'exec-123',
+                status: 'TERMINATING'
             })
         };
 
         // Reset stores
         executionId.set(null);
-        cachedWebSocketURL.set(null);
-        isConnected.set(false);
-        isConnecting.set(false);
     });
 
     afterEach(() => {
         vi.clearAllMocks();
     });
 
-    it('should skip fetching logs when WebSocket is already connected', async () => {
-        isConnected.set(true);
-
-        render(LogsView, {
-            props: {
-                apiClient: mockApiClient as APIClient,
-                currentExecutionId: 'exec-123'
-            }
-        });
-
-        // Allow effects to run
-        await new Promise((resolve) => setTimeout(resolve, 50));
-
-        expect(fetchLogsSpy).not.toHaveBeenCalled();
-    });
-
-    it('should fetch logs when execution ID is provided and no WebSocket', async () => {
+    it('should fetch logs when execution ID is provided', async () => {
         render(LogsView, {
             props: {
                 apiClient: mockApiClient as APIClient,
@@ -98,8 +82,21 @@ describe('LogsView', () => {
         expect(fetchLogsSpy).not.toHaveBeenCalled();
     });
 
+    it('should display instruction when no execution ID is provided', async () => {
+        render(LogsView, {
+            props: {
+                apiClient: mockApiClient as APIClient,
+                currentExecutionId: null
+            }
+        });
+
+        await waitFor(() => {
+            expect(screen.getByText(/Enter an execution ID above/)).toBeInTheDocument();
+        });
+    });
+
     describe('handleExecutionComplete', () => {
-        it('should fetch status when websocket callback triggers completion', async () => {
+        it('should fetch status when websocket triggers completion', async () => {
             const getExecutionStatusSpy = vi.fn().mockResolvedValue({
                 execution_id: 'exec-123',
                 status: 'SUCCEEDED',
@@ -238,6 +235,63 @@ describe('LogsView', () => {
                 },
                 { timeout: 1000 }
             );
+        });
+
+        it('should display error from API failure', async () => {
+            const apiError = new Error('Network error') as any;
+            apiError.details = { error: 'Connection failed' };
+            fetchLogsSpy.mockRejectedValue(apiError);
+
+            const { container } = render(LogsView, {
+                props: {
+                    apiClient: mockApiClient as APIClient,
+                    currentExecutionId: 'exec-123'
+                }
+            });
+
+            await waitFor(
+                () => {
+                    const errorBox = container.querySelector('.error-box');
+                    expect(errorBox).toBeInTheDocument();
+                    expect(errorBox).toHaveTextContent('Connection failed');
+                },
+                { timeout: 1000 }
+            );
+        });
+    });
+
+    describe('syncing executionId store', () => {
+        it('should sync execution ID to store', async () => {
+            render(LogsView, {
+                props: {
+                    apiClient: mockApiClient as APIClient,
+                    currentExecutionId: 'exec-456'
+                }
+            });
+
+            await waitFor(() => {
+                let storeValue: string | null = null;
+                executionId.subscribe((v) => (storeValue = v))();
+                expect(storeValue).toBe('exec-456');
+            });
+        });
+
+        it('should set store to null when no execution ID', async () => {
+            // First set an execution ID
+            executionId.set('exec-old');
+
+            render(LogsView, {
+                props: {
+                    apiClient: mockApiClient as APIClient,
+                    currentExecutionId: null
+                }
+            });
+
+            await waitFor(() => {
+                let storeValue: string | null = 'not-null';
+                executionId.subscribe((v) => (storeValue = v))();
+                expect(storeValue).toBeNull();
+            });
         });
     });
 });
