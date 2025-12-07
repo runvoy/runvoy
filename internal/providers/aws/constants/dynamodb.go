@@ -15,3 +15,9 @@ const DynamoDBBatchWriteLimit = 25
 
 // DynamoDBExpiresAtAttribute is the attribute name used for TTL (expires_at) columns.
 const DynamoDBExpiresAtAttribute = "expires_at"
+
+// DynamoDBAllAttribute is the attribute name used for constant partition key in GSIs.
+const DynamoDBAllAttribute = "_all"
+
+// DynamoDBAllValue is the constant value stored in the _all attribute for all tables.
+const DynamoDBAllValue = "ALL"

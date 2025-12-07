@@ -145,9 +145,20 @@ Resources:
       AttributeDefinitions:
         - AttributeName: secret_name
           AttributeType: S
+        - AttributeName: _all
+          AttributeType: S
       KeySchema:
         - AttributeName: secret_name
           KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: all-secret_name
+          KeySchema:
+            - AttributeName: _all
+              KeyType: HASH
+            - AttributeName: secret_name
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
       Tags:
         - Key: Name
           Value: !Sub '${ProjectName}-secrets-metadata'
@@ -167,6 +178,8 @@ Resources:
           AttributeType: S
         - AttributeName: is_default_placeholder
           AttributeType: S
+        - AttributeName: _all
+          AttributeType: S
       KeySchema:
         - AttributeName: image_id
           KeyType: HASH
@@ -174,6 +187,14 @@ Resources:
         - IndexName: is_default-index
           KeySchema:
             - AttributeName: is_default_placeholder
+              KeyType: HASH
+            - AttributeName: image_id
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+        - IndexName: all-image_id
+          KeySchema:
+            - AttributeName: _all
               KeyType: HASH
             - AttributeName: image_id
               KeyType: RANGE
@@ -527,7 +548,6 @@ Resources:
                   - 'dynamodb:UpdateItem'
                   - 'dynamodb:DeleteItem'
                   - 'dynamodb:Query'
-                  - 'dynamodb:Scan'
                 Resource:
                   - !GetAtt APIKeysTable.Arn
                   - !GetAtt ExecutionsTable.Arn
@@ -739,14 +759,12 @@ Resources:
                   - 'dynamodb:GetItem'
                   - 'dynamodb:UpdateItem'
                   - 'dynamodb:Query'
-                  - 'dynamodb:Scan'
                 Resource:
                   - !GetAtt ExecutionsTable.Arn
                   - !Sub '${ExecutionsTable.Arn}/index/*'
               - Effect: Allow
                 Action:
                   - 'dynamodb:Query'
-                  - 'dynamodb:Scan'
                 Resource:
                   - !GetAtt APIKeysTable.Arn
                   - !Sub '${APIKeysTable.Arn}/index/*'
@@ -777,7 +795,6 @@ Resources:
                 Action:
                   - 'dynamodb:GetItem'
                   - 'dynamodb:Query'
-                  - 'dynamodb:Scan'
                 Resource:
                   - !GetAtt ImageTaskDefinitionsTable.Arn
                   - !Sub '${ImageTaskDefinitionsTable.Arn}/index/*'
@@ -785,7 +802,6 @@ Resources:
                 Action:
                   - 'dynamodb:GetItem'
                   - 'dynamodb:Query'
-                  - 'dynamodb:Scan'
                 Resource:
                   - !GetAtt SecretsMetadataTable.Arn
                   - !Sub '${SecretsMetadataTable.Arn}/index/*'
@@ -793,7 +809,6 @@ Resources:
                 Action:
                   - 'dynamodb:GetItem'
                   - 'dynamodb:Query'
-                  - 'dynamodb:Scan'
                 Resource:
                   - !GetAtt APIKeysTable.Arn
                   - !Sub '${APIKeysTable.Arn}/index/*'

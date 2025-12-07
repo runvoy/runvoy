@@ -121,7 +121,7 @@ func (r *ExecutionRepository) CreateExecution(ctx context.Context, execution *ap
 	}
 
 	// Add _all field for the all-started_at GSI (sparse index pattern)
-	av["_all"] = &types.AttributeValueMemberS{Value: "1"}
+	av[awsconstants.DynamoDBAllAttribute] = &types.AttributeValueMemberS{Value: awsconstants.DynamoDBAllValue}
 
 	reqLogger.Debug("calling external service", "context", map[string]string{
 		"operation":    "DynamoDB.PutItem",
@@ -395,10 +395,10 @@ func (r *ExecutionRepository) ListExecutions(
 	var lastKey map[string]types.AttributeValue
 
 	exprNames := map[string]string{
-		"#all": "_all",
+		"#all": awsconstants.DynamoDBAllAttribute,
 	}
 	exprValues := map[string]types.AttributeValue{
-		":all": &types.AttributeValueMemberS{Value: "1"},
+		":all": &types.AttributeValueMemberS{Value: awsconstants.DynamoDBAllValue},
 	}
 
 	filterExpr := buildStatusFilterExpression(statuses, exprNames, exprValues)

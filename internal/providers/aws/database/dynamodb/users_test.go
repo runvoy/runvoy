@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/runvoy/runvoy/internal/api"
+	awsConstants "github.com/runvoy/runvoy/internal/providers/aws/constants"
 	"github.com/runvoy/runvoy/internal/testutil"
 
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
@@ -243,7 +244,8 @@ func TestUserRepository_ListUsers(t *testing.T) {
 		invalidItem := map[string]types.AttributeValue{
 			"user_email": &types.AttributeValueMemberN{Value: "not-a-number"}, // Wrong type
 		}
-		mockClient.Indexes[tableName]["all-user_email"]["USER"] = []map[string]types.AttributeValue{invalidItem}
+		mockClient.Indexes[tableName]["all-user_email"][awsConstants.DynamoDBAllValue] =
+			[]map[string]types.AttributeValue{invalidItem}
 
 		users, err := repo.ListUsers(ctx)
 

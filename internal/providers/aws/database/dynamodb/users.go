@@ -12,6 +12,7 @@ import (
 	"github.com/runvoy/runvoy/internal/api"
 	apperrors "github.com/runvoy/runvoy/internal/errors"
 	"github.com/runvoy/runvoy/internal/logger"
+	awsConstants "github.com/runvoy/runvoy/internal/providers/aws/constants"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
@@ -81,7 +82,7 @@ func (r *UserRepository) CreateUser(
 		Revoked:             false,
 		CreatedByRequestID:  user.CreatedByRequestID,
 		ModifiedByRequestID: user.ModifiedByRequestID,
-		All:                 "USER", // Constant partition key for GSI to enable sorted queries
+		All:                 awsConstants.DynamoDBAllValue,
 	}
 
 	// Only set ExpiresAt if provided
@@ -632,10 +633,10 @@ func (r *UserRepository) ListUsers(ctx context.Context) ([]*api.User, error) {
 		IndexName:              aws.String("all-user_email"),
 		KeyConditionExpression: aws.String("#all = :user"),
 		ExpressionAttributeNames: map[string]string{
-			"#all": "_all",
+			"#all": awsConstants.DynamoDBAllAttribute,
 		},
 		ExpressionAttributeValues: map[string]types.AttributeValue{
-			":user": &types.AttributeValueMemberS{Value: "USER"},
+			":user": &types.AttributeValueMemberS{Value: awsConstants.DynamoDBAllValue},
 		},
 		ScanIndexForward: aws.Bool(true), // Sort ascending by user_email (the range key)
 	})
@@ -674,23 +675,29 @@ func (r *UserRepository) GetUsersByRequestID(ctx context.Context, requestID stri
 	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
 
 	logArgs := []any{
-		"operation", "DynamoDB.Scan",
+		"operation", "DynamoDB.Query",
 		"table", r.tableName,
+		"index", "all-user_email",
 		"request_id", requestID,
 	}
 	logArgs = append(logArgs, logger.GetDeadlineInfo(ctx)...)
 	reqLogger.Debug("calling external service", "context", logger.SliceToMap(logArgs))
 
-	// Scan with filter expression to find users where created_by_request_id OR modified_by_request_id matches
-	result, err := r.client.Scan(ctx, &dynamodb.ScanInput{
-		TableName:        aws.String(r.tableName),
-		FilterExpression: aws.String("created_by_request_id = :request_id OR modified_by_request_id = :request_id"),
+	result, err := r.client.Query(ctx, &dynamodb.QueryInput{
+		TableName:              aws.String(r.tableName),
+		IndexName:              aws.String("all-user_email"),
+		KeyConditionExpression: aws.String("#all = :user"),
+		FilterExpression:       aws.String("created_by_request_id = :request_id OR modified_by_request_id = :request_id"),
+		ExpressionAttributeNames: map[string]string{
+			"#all": awsConstants.DynamoDBAllAttribute,
+		},
 		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":user":       &types.AttributeValueMemberS{Value: awsConstants.DynamoDBAllValue},
 			":request_id": &types.AttributeValueMemberS{Value: requestID},
 		},
 	})
 	if err != nil {
-		return nil, apperrors.ErrDatabaseError("failed to scan users by request ID", err)
+		return nil, apperrors.ErrDatabaseError("failed to query users by request ID", err)
 	}
 
 	users := make([]*api.User, 0, len(result.Items))

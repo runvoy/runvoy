@@ -10,6 +10,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
+	awsConstants "github.com/runvoy/runvoy/internal/providers/aws/constants"
 )
 
 const executionIDIndexName = "execution_id-index"
@@ -37,7 +38,6 @@ type MockDynamoDBClient struct {
 	UpdateItemError     error
 	DeleteItemError     error
 	BatchWriteItemError error
-	ScanError           error
 
 	// Call tracking for test assertions
 	PutItemCalls        int
@@ -46,7 +46,6 @@ type MockDynamoDBClient struct {
 	UpdateItemCalls     int
 	DeleteItemCalls     int
 	BatchWriteItemCalls int
-	ScanCalls           int
 }
 
 // NewMockDynamoDBClient creates a new mock DynamoDB client for testing.
@@ -205,6 +204,15 @@ func (m *MockDynamoDBClient) queryIndex(
 	}
 
 	keyValue := m.extractKeyValue(expressionAttributeValues)
+	if keyValue == "" {
+		// Try to extract from :all or :user values for constant partition key indexes
+		if allVal, hasAll := expressionAttributeValues[":all"]; hasAll {
+			keyValue = getStringValue(allVal)
+		} else if userVal, hasUser := expressionAttributeValues[":user"]; hasUser {
+			keyValue = getStringValue(userVal)
+		}
+	}
+
 	if keyValue == "" {
 		return nil
 	}
@@ -409,31 +417,6 @@ func (m *MockDynamoDBClient) BatchWriteItem(
 	return &dynamodb.BatchWriteItemOutput{}, nil
 }
 
-// Scan scans all items in the mock table.
-func (m *MockDynamoDBClient) Scan(
-	_ context.Context,
-	params *dynamodb.ScanInput,
-	_ ...func(*dynamodb.Options),
-) (*dynamodb.ScanOutput, error) {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-
-	m.ScanCalls++
-
-	if m.ScanError != nil {
-		return nil, m.ScanError
-	}
-
-	// Simplified scan implementation - returns all items in table
-	tableName := *params.TableName
-	items := m.collectTableItems(tableName)
-
-	return &dynamodb.ScanOutput{
-		Items: items,
-		Count: safeInt32Count(len(items)),
-	}, nil
-}
-
 // ResetCallCounts resets all call counters to zero.
 func (m *MockDynamoDBClient) ResetCallCounts() {
 	m.mu.Lock()
@@ -445,7 +428,6 @@ func (m *MockDynamoDBClient) ResetCallCounts() {
 	m.UpdateItemCalls = 0
 	m.DeleteItemCalls = 0
 	m.BatchWriteItemCalls = 0
-	m.ScanCalls = 0
 }
 
 // ClearTables removes all data from the mock tables.
@@ -521,11 +503,46 @@ func (m *MockDynamoDBClient) collectTableItems(tableName string) []map[string]ty
 	return items
 }
 
+// addItemToAllIndex adds an item to the _all index if applicable.
+func (m *MockDynamoDBClient) addItemToAllIndex(tableName string, item map[string]types.AttributeValue) {
+	allVal, hasAll := item[awsConstants.DynamoDBAllAttribute]
+	if !hasAll || tableName == "" {
+		return
+	}
+
+	allValue := getStringValue(allVal)
+	if allValue == "" {
+		return
+	}
+
+	var indexName string
+	if _, hasSecretName := item["secret_name"]; hasSecretName {
+		indexName = "all-secret_name"
+	} else if _, hasImageID := item["image_id"]; hasImageID {
+		indexName = "all-image_id"
+	} else if _, hasUserEmail := item["user_email"]; hasUserEmail {
+		indexName = "all-user_email"
+	}
+
+	if indexName == "" {
+		return
+	}
+
+	if m.Indexes[tableName][indexName] == nil {
+		m.Indexes[tableName][indexName] = make(map[string][]map[string]types.AttributeValue)
+	}
+	index := m.Indexes[tableName][indexName]
+	index[allValue] = append(index[allValue], item)
+}
+
 // addItemToIndexes adds an item to all relevant indexes for a table.
 func (m *MockDynamoDBClient) addItemToIndexes(tableName string, item map[string]types.AttributeValue) {
 	if m.Indexes[tableName] == nil {
 		m.Indexes[tableName] = make(map[string]map[string][]map[string]types.AttributeValue)
 	}
+
+	// Index items for GSI queries with _all field (for listing all items)
+	m.addItemToAllIndex(tableName, item)
 
 	// Index items for GSI queries
 	// For execution_id-index: index by execution_id

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/runvoy/runvoy/internal/api"
+	awsconstants "github.com/runvoy/runvoy/internal/providers/aws/constants"
 	"github.com/runvoy/runvoy/internal/testutil"
 
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
@@ -658,7 +659,7 @@ func TestExecutionRepository_GetExecution(t *testing.T) {
 		})
 		av, err := attributevalue.MarshalMap(executionItem)
 		require.NoError(t, err)
-		av["_all"] = &types.AttributeValueMemberS{Value: "1"}
+		av[awsconstants.DynamoDBAllAttribute] = &types.AttributeValueMemberS{Value: awsconstants.DynamoDBAllValue}
 		mockClient.Tables[tableName]["exec-123"][""] = av
 
 		repo := NewExecutionRepository(mockClient, tableName, logger)
@@ -824,10 +825,10 @@ func TestBuildQueryInput_NoLimitWhenZero(t *testing.T) {
 	repo := NewExecutionRepository(nil, "test-table", logger)
 
 	exprNames := map[string]string{
-		"#all": "_all",
+		"#all": awsconstants.DynamoDBAllAttribute,
 	}
 	exprValues := map[string]types.AttributeValue{
-		":all": &types.AttributeValueMemberS{Value: "1"},
+		":all": &types.AttributeValueMemberS{Value: awsconstants.DynamoDBAllValue},
 	}
 
 	input := repo.buildQueryInput("", exprNames, exprValues, nil, 0)
