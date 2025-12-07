@@ -36,17 +36,17 @@
     $effect(() => {
         const id = currentExecutionId;
 
-        // Sync to store for child components that read it
-        executionIdStore.set(id);
-
-        if (!id) {
-            logsManager.reset();
+        // Only update the store when we actually have an execution ID.
+        // Leaving the previous value intact allows it to survive navigation
+        // between routes until an explicit ID is provided again.
+        if (id) {
+            executionIdStore.set(id);
+            logsManager.loadExecution(id);
             killer.reset();
             return;
         }
 
-        // Load the execution (manager handles deduplication internally)
-        logsManager.loadExecution(id);
+        logsManager.reset();
         killer.reset();
     });
 
