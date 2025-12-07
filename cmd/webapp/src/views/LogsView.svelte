@@ -96,28 +96,32 @@
     );
 </script>
 
-<ExecutionSelector executionId={currentExecutionId} onExecutionChange={handleExecutionChange} />
+<article class="logs-card">
+    <ExecutionSelector
+        executionId={currentExecutionId}
+        onExecutionChange={handleExecutionChange}
+        embedded
+    />
 
-{#if $logsError}
-    <article class="error-box">
-        <p>{$logsError}</p>
-    </article>
-{/if}
+    {#if $logsError}
+        <div class="error-box">
+            <p>{$logsError}</p>
+        </div>
+    {/if}
 
-{#if $killState.error}
-    <article class="error-box">
-        <p>{$killState.error}</p>
-    </article>
-{/if}
+    {#if $killState.error}
+        <div class="error-box">
+            <p>{$killState.error}</p>
+        </div>
+    {/if}
 
-{#if !currentExecutionId}
-    <article>
-        <p>
-            Enter an execution ID above or provide <code>?execution_id=&lt;id&gt;</code> in the URL
-        </p>
-    </article>
-{:else if !$logsError}
-    <article class="logs-card">
+    {#if !currentExecutionId}
+        <div class="info-box">
+            <p>
+                Enter an execution ID above or provide <code>?execution_id=&lt;id&gt;</code> in the URL
+            </p>
+        </div>
+    {:else if !$logsError}
         <StatusBar
             status={$metadata?.status ?? null}
             startedAt={$metadata?.startedAt ?? null}
@@ -142,14 +146,10 @@
             onResume={handleResume}
         />
         <LogViewer events={$events} {showMetadata} />
-    </article>
-{/if}
+    {/if}
+</article>
 
 <style>
-    article {
-        margin-top: 2rem;
-    }
-
     .logs-card {
         background: var(--pico-card-background-color);
         border: 1px solid var(--pico-card-border-color);
@@ -165,12 +165,11 @@
     }
 
     .error-box {
-        background-color: var(--pico-card-background-color);
-        border: 1px solid var(--pico-card-border-color);
         border-left: 4px solid var(--pico-color-red-500);
         padding: 1rem 1.5rem;
-        margin-top: 2rem;
+        margin-top: 1.5rem;
         border-radius: var(--pico-border-radius);
+        background-color: color-mix(in srgb, var(--pico-color-red-500) 10%, transparent);
     }
 
     .error-box p {
@@ -179,18 +178,27 @@
         font-weight: bold;
     }
 
-    @media (max-width: 768px) {
-        article {
-            margin-top: 1.5rem;
-        }
+    .info-box {
+        padding: 1rem 1.5rem;
+        margin-top: 1.5rem;
+        border-radius: var(--pico-border-radius);
+        background-color: var(--pico-secondary-background);
+    }
 
+    .info-box p {
+        margin: 0;
+        color: var(--pico-muted-color);
+    }
+
+    @media (max-width: 768px) {
         .logs-card {
             padding: 1.5rem;
         }
 
-        .error-box {
+        .error-box,
+        .info-box {
             padding: 0.875rem 1rem;
-            margin-top: 1.5rem;
+            margin-top: 1rem;
         }
 
         code {

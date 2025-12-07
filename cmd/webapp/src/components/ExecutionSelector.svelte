@@ -2,9 +2,10 @@
     interface Props {
         executionId: string | null;
         onExecutionChange?: ((executionId: string) => void) | null;
+        embedded?: boolean;
     }
 
-    const { executionId = null, onExecutionChange = null }: Props = $props();
+    const { executionId = null, onExecutionChange = null, embedded = false }: Props = $props();
 
     // Track pending user input
     let pendingInput: string | null = $state(null);
@@ -42,7 +43,7 @@
     }
 </script>
 
-<div class="execution-selector">
+<div class="execution-selector" class:embedded>
     <label for="exec-id-input">
         Execution ID:
         <input
@@ -63,6 +64,14 @@
         margin-bottom: 1.5rem;
     }
 
+    .execution-selector.embedded {
+        margin-bottom: 0;
+    }
+
+    .execution-selector.embedded input {
+        margin-bottom: 0;
+    }
+
     label {
         display: block;
         margin-bottom: 0.5rem;
@@ -78,6 +87,10 @@
     @media (max-width: 768px) {
         .execution-selector {
             margin-bottom: 1rem;
+        }
+
+        .execution-selector.embedded {
+            margin-bottom: 0;
         }
 
         input {

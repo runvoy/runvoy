@@ -10,12 +10,12 @@ import type { ApiError } from '../../types/api';
 import type { KillState } from './types';
 
 export interface ExecutionKillResult {
-	/** Reactive state for the kill operation */
-	state: Readable<KillState>;
-	/** Attempt to kill the execution. Returns true on success, false on failure. */
-	kill: (executionId: string) => Promise<boolean>;
-	/** Reset state (e.g., when switching executions) */
-	reset: () => void;
+    /** Reactive state for the kill operation */
+    state: Readable<KillState>;
+    /** Attempt to kill the execution. Returns true on success, false on failure. */
+    kill: (executionId: string) => Promise<boolean>;
+    /** Reset state (e.g., when switching executions) */
+    reset: () => void;
 }
 
 /**
@@ -38,41 +38,40 @@ export interface ExecutionKillResult {
  * ```
  */
 export function createExecutionKiller(apiClient: APIClient): ExecutionKillResult {
-	const state = writable<KillState>({
-		isKilling: false,
-		killInitiated: false,
-		error: null
-	});
+    const state = writable<KillState>({
+        isKilling: false,
+        killInitiated: false,
+        error: null
+    });
 
-	async function kill(executionId: string): Promise<boolean> {
-		if (!executionId) return false;
+    async function kill(executionId: string): Promise<boolean> {
+        if (!executionId) return false;
 
-		state.update((s) => ({ ...s, isKilling: true, error: null }));
+        state.update((s) => ({ ...s, isKilling: true, error: null }));
 
-		try {
-			await apiClient.killExecution(executionId);
-			state.update((s) => ({ ...s, isKilling: false, killInitiated: true }));
-			return true;
-		} catch (err) {
-			const error = err as ApiError;
-			const message = error.details?.error || error.message || 'Failed to stop execution';
-			state.update((s) => ({ ...s, isKilling: false, error: message }));
-			return false;
-		}
-	}
+        try {
+            await apiClient.killExecution(executionId);
+            state.update((s) => ({ ...s, isKilling: false, killInitiated: true }));
+            return true;
+        } catch (err) {
+            const error = err as ApiError;
+            const message = error.details?.error || error.message || 'Failed to stop execution';
+            state.update((s) => ({ ...s, isKilling: false, error: message }));
+            return false;
+        }
+    }
 
-	function reset(): void {
-		state.set({
-			isKilling: false,
-			killInitiated: false,
-			error: null
-		});
-	}
+    function reset(): void {
+        state.set({
+            isKilling: false,
+            killInitiated: false,
+            error: null
+        });
+    }
 
-	return {
-		state: { subscribe: state.subscribe },
-		kill,
-		reset
-	};
+    return {
+        state: { subscribe: state.subscribe },
+        kill,
+        reset
+    };
 }
-

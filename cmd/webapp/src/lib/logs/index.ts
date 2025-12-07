@@ -10,4 +10,3 @@
 
 export { LogsManager, type LogsManagerConfig, type LogsManagerStores } from './LogsManager';
 export type { ConnectionStatus, ExecutionMetadata, ExecutionPhase, LogsState } from './types';
-

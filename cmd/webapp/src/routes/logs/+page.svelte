@@ -31,5 +31,5 @@
 </script>
 
 {#if $apiClient}
-	<LogsView apiClient={$apiClient} currentExecutionId={urlExecutionId} />
+    <LogsView apiClient={$apiClient} currentExecutionId={urlExecutionId} />
 {/if}
