@@ -40,11 +40,6 @@ type Client interface {
 		params *dynamodb.BatchWriteItemInput,
 		optFns ...func(*dynamodb.Options),
 	) (*dynamodb.BatchWriteItemOutput, error)
-	Scan(
-		ctx context.Context,
-		params *dynamodb.ScanInput,
-		optFns ...func(*dynamodb.Options),
-	) (*dynamodb.ScanOutput, error)
 }
 
 // ClientAdapter wraps the AWS SDK DynamoDB client to implement Client interface.
@@ -132,19 +127,6 @@ func (a *ClientAdapter) BatchWriteItem(
 	result, err := a.client.BatchWriteItem(ctx, params, optFns...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to batch write items: %w", err)
-	}
-	return result, nil
-}
-
-// Scan wraps the AWS SDK Scan operation.
-func (a *ClientAdapter) Scan(
-	ctx context.Context,
-	params *dynamodb.ScanInput,
-	optFns ...func(*dynamodb.Options),
-) (*dynamodb.ScanOutput, error) {
-	result, err := a.client.Scan(ctx, params, optFns...)
-	if err != nil {
-		return nil, fmt.Errorf("failed to scan: %w", err)
 	}
 	return result, nil
 }

@@ -445,8 +445,8 @@ func TestListImages(t *testing.T) {
 		{
 			name: "list multiple images",
 			mockSetup: func(m *mockImageClient) {
-				m.scanFunc = func(_ context.Context, _ *dynamodb.ScanInput, _ ...func(*dynamodb.Options)) (
-					*dynamodb.ScanOutput, error) {
+				m.queryFunc = func(_ context.Context, _ *dynamodb.QueryInput, _ ...func(*dynamodb.Options)) (
+					*dynamodb.QueryOutput, error) {
 					items := []imageTaskDefItem{
 						{
 							ImageID:              GenerateImageID("nginx", "latest", 256, 512, "Linux/X86_64", nil, nil),
@@ -457,6 +457,7 @@ func TestListImages(t *testing.T) {
 							Cpu:                  "256",
 							Memory:               "512",
 							RuntimePlatform:      "Linux/X86_64",
+							All:                  awsConstants.DynamoDBAllValue,
 						},
 						{
 							ImageID:              GenerateImageID("alpine", "3.14", 256, 512, "Linux/X86_64", nil, nil),
@@ -467,6 +468,7 @@ func TestListImages(t *testing.T) {
 							Cpu:                  "256",
 							Memory:               "512",
 							RuntimePlatform:      "Linux/X86_64",
+							All:                  awsConstants.DynamoDBAllValue,
 						},
 					}
 					var av []map[string]types.AttributeValue
@@ -474,7 +476,7 @@ func TestListImages(t *testing.T) {
 						itemMap, _ := attributevalue.MarshalMap(&item)
 						av = append(av, itemMap)
 					}
-					return &dynamodb.ScanOutput{Items: av}, nil
+					return &dynamodb.QueryOutput{Items: av}, nil
 				}
 			},
 			validateFn: func(t *testing.T, images []api.ImageInfo) {
@@ -487,9 +489,9 @@ func TestListImages(t *testing.T) {
 		{
 			name: "empty list",
 			mockSetup: func(m *mockImageClient) {
-				m.scanFunc = func(_ context.Context, _ *dynamodb.ScanInput, _ ...func(*dynamodb.Options)) (
-					*dynamodb.ScanOutput, error) {
-					return &dynamodb.ScanOutput{Items: []map[string]types.AttributeValue{}}, nil
+				m.queryFunc = func(_ context.Context, _ *dynamodb.QueryInput, _ ...func(*dynamodb.Options)) (
+					*dynamodb.QueryOutput, error) {
+					return &dynamodb.QueryOutput{Items: []map[string]types.AttributeValue{}}, nil
 				}
 			},
 			validateFn: func(t *testing.T, images []api.ImageInfo) {
@@ -499,9 +501,9 @@ func TestListImages(t *testing.T) {
 		{
 			name: "dynamodb error",
 			mockSetup: func(m *mockImageClient) {
-				m.scanFunc = func(_ context.Context, _ *dynamodb.ScanInput, _ ...func(*dynamodb.Options)) (
-					*dynamodb.ScanOutput, error) {
-					return nil, errors.New("scan error")
+				m.queryFunc = func(_ context.Context, _ *dynamodb.QueryInput, _ ...func(*dynamodb.Options)) (
+					*dynamodb.QueryOutput, error) {
+					return nil, errors.New("query error")
 				}
 			},
 			expectError: true,
@@ -631,8 +633,8 @@ func TestDeleteImage(t *testing.T) {
 			name:  "delete single role combination",
 			image: "nginx:latest",
 			mockSetup: func(m *mockImageClient) {
-				m.scanFunc = func(_ context.Context, _ *dynamodb.ScanInput, _ ...func(*dynamodb.Options)) (
-					*dynamodb.ScanOutput, error) {
+				m.queryFunc = func(_ context.Context, _ *dynamodb.QueryInput, _ ...func(*dynamodb.Options)) (
+					*dynamodb.QueryOutput, error) {
 					item := &imageTaskDefItem{
 						ImageID:         GenerateImageID("nginx", "latest", 256, 512, "Linux/X86_64", nil, nil),
 						Image:           "nginx:latest",
@@ -641,9 +643,10 @@ func TestDeleteImage(t *testing.T) {
 						Cpu:             "256",
 						Memory:          "512",
 						RuntimePlatform: "Linux/X86_64",
+						All:             "IMAGE",
 					}
 					av, _ := attributevalue.MarshalMap(item)
-					return &dynamodb.ScanOutput{Items: []map[string]types.AttributeValue{av}}, nil
+					return &dynamodb.QueryOutput{Items: []map[string]types.AttributeValue{av}}, nil
 				}
 				m.deleteItemFunc = func(_ context.Context, params *dynamodb.DeleteItemInput, _ ...func(*dynamodb.Options)) (
 					*dynamodb.DeleteItemOutput, error) {
@@ -657,8 +660,8 @@ func TestDeleteImage(t *testing.T) {
 			name:  "delete multiple role combinations",
 			image: "myapp:v1",
 			mockSetup: func(m *mockImageClient) {
-				m.scanFunc = func(_ context.Context, _ *dynamodb.ScanInput, _ ...func(*dynamodb.Options)) (
-					*dynamodb.ScanOutput, error) {
+				m.queryFunc = func(_ context.Context, _ *dynamodb.QueryInput, _ ...func(*dynamodb.Options)) (
+					*dynamodb.QueryOutput, error) {
 					items := []imageTaskDefItem{
 						{
 							ImageID:         GenerateImageID("myapp", "v1", 256, 512, "Linux/X86_64", nil, nil),
@@ -666,6 +669,7 @@ func TestDeleteImage(t *testing.T) {
 							Cpu:             "256",
 							Memory:          "512",
 							RuntimePlatform: "Linux/X86_64",
+							All:             "IMAGE",
 						},
 						{
 							ImageID: GenerateImageID(
@@ -678,6 +682,7 @@ func TestDeleteImage(t *testing.T) {
 							Cpu:                   "256",
 							Memory:                "512",
 							RuntimePlatform:       "Linux/X86_64",
+							All:                   "IMAGE",
 						},
 						{
 							ImageID: GenerateImageID(
@@ -690,6 +695,7 @@ func TestDeleteImage(t *testing.T) {
 							Cpu:                   "256",
 							Memory:                "512",
 							RuntimePlatform:       "Linux/X86_64",
+							All:                   "IMAGE",
 						},
 					}
 					var av []map[string]types.AttributeValue
@@ -697,7 +703,7 @@ func TestDeleteImage(t *testing.T) {
 						itemMap, _ := attributevalue.MarshalMap(&item)
 						av = append(av, itemMap)
 					}
-					return &dynamodb.ScanOutput{Items: av}, nil
+					return &dynamodb.QueryOutput{Items: av}, nil
 				}
 				deleteCount := 0
 				m.deleteItemFunc = func(_ context.Context, _ *dynamodb.DeleteItemInput, _ ...func(*dynamodb.Options)) (
@@ -798,8 +804,8 @@ func TestGetUniqueImages(t *testing.T) {
 		{
 			name: "deduplicate images across role combinations",
 			mockSetup: func(m *mockImageClient) {
-				m.scanFunc = func(_ context.Context, _ *dynamodb.ScanInput, _ ...func(*dynamodb.Options)) (
-					*dynamodb.ScanOutput, error) {
+				m.queryFunc = func(_ context.Context, _ *dynamodb.QueryInput, _ ...func(*dynamodb.Options)) (
+					*dynamodb.QueryOutput, error) {
 					items := []imageTaskDefItem{
 						{
 							Image:           "nginx:latest",
@@ -808,6 +814,7 @@ func TestGetUniqueImages(t *testing.T) {
 							Cpu:             "256",
 							Memory:          "512",
 							RuntimePlatform: "Linux/X86_64",
+							All:             "IMAGE",
 						},
 						{
 							Image:                 "nginx:latest",
@@ -818,6 +825,7 @@ func TestGetUniqueImages(t *testing.T) {
 							Cpu:                   "256",
 							Memory:                "512",
 							RuntimePlatform:       "Linux/X86_64",
+							All:                   "IMAGE",
 						},
 						{
 							Image:           "alpine:3.14",
@@ -826,6 +834,7 @@ func TestGetUniqueImages(t *testing.T) {
 							Cpu:             "256",
 							Memory:          "512",
 							RuntimePlatform: "Linux/X86_64",
+							All:             "IMAGE",
 						},
 						{
 							Image:                 "alpine:3.14",
@@ -836,6 +845,7 @@ func TestGetUniqueImages(t *testing.T) {
 							Cpu:                   "256",
 							Memory:                "512",
 							RuntimePlatform:       "Linux/X86_64",
+							All:                   "IMAGE",
 						},
 					}
 					var av []map[string]types.AttributeValue
@@ -843,7 +853,7 @@ func TestGetUniqueImages(t *testing.T) {
 						itemMap, _ := attributevalue.MarshalMap(&item)
 						av = append(av, itemMap)
 					}
-					return &dynamodb.ScanOutput{Items: av}, nil
+					return &dynamodb.QueryOutput{Items: av}, nil
 				}
 			},
 			validateFn: func(t *testing.T, images []string) {
@@ -856,9 +866,9 @@ func TestGetUniqueImages(t *testing.T) {
 		{
 			name: "empty list",
 			mockSetup: func(m *mockImageClient) {
-				m.scanFunc = func(_ context.Context, _ *dynamodb.ScanInput, _ ...func(*dynamodb.Options)) (
-					*dynamodb.ScanOutput, error) {
-					return &dynamodb.ScanOutput{Items: []map[string]types.AttributeValue{}}, nil
+				m.queryFunc = func(_ context.Context, _ *dynamodb.QueryInput, _ ...func(*dynamodb.Options)) (
+					*dynamodb.QueryOutput, error) {
+					return &dynamodb.QueryOutput{Items: []map[string]types.AttributeValue{}}, nil
 				}
 			},
 			validateFn: func(t *testing.T, images []string) {
@@ -902,10 +912,10 @@ func TestGetImagesCount(t *testing.T) {
 		{
 			name: "count multiple images",
 			mockSetup: func(m *mockImageClient) {
-				m.scanFunc = func(_ context.Context, params *dynamodb.ScanInput, _ ...func(*dynamodb.Options)) (
-					*dynamodb.ScanOutput, error) {
+				m.queryFunc = func(_ context.Context, params *dynamodb.QueryInput, _ ...func(*dynamodb.Options)) (
+					*dynamodb.QueryOutput, error) {
 					assert.Equal(t, types.SelectCount, params.Select)
-					return &dynamodb.ScanOutput{Count: 5}, nil
+					return &dynamodb.QueryOutput{Count: 5}, nil
 				}
 			},
 			expectedCount: 5,
@@ -913,19 +923,19 @@ func TestGetImagesCount(t *testing.T) {
 		{
 			name: "empty table",
 			mockSetup: func(m *mockImageClient) {
-				m.scanFunc = func(_ context.Context, _ *dynamodb.ScanInput, _ ...func(*dynamodb.Options)) (
-					*dynamodb.ScanOutput, error) {
-					return &dynamodb.ScanOutput{Count: 0}, nil
+				m.queryFunc = func(_ context.Context, _ *dynamodb.QueryInput, _ ...func(*dynamodb.Options)) (
+					*dynamodb.QueryOutput, error) {
+					return &dynamodb.QueryOutput{Count: 0}, nil
 				}
 			},
 			expectedCount: 0,
 		},
 		{
-			name: "scan error",
+			name: "query error",
 			mockSetup: func(m *mockImageClient) {
-				m.scanFunc = func(_ context.Context, _ *dynamodb.ScanInput, _ ...func(*dynamodb.Options)) (
-					*dynamodb.ScanOutput, error) {
-					return nil, errors.New("scan failed")
+				m.queryFunc = func(_ context.Context, _ *dynamodb.QueryInput, _ ...func(*dynamodb.Options)) (
+					*dynamodb.QueryOutput, error) {
+					return nil, errors.New("query failed")
 				}
 			},
 			expectError: true,
@@ -968,8 +978,8 @@ func TestGetAnyImageTaskDef(t *testing.T) {
 			name:  "matches by exact image string",
 			image: "nginx:latest",
 			mockSetup: func(m *mockImageClient) {
-				m.scanFunc = func(_ context.Context, params *dynamodb.ScanInput, _ ...func(*dynamodb.Options)) (
-					*dynamodb.ScanOutput, error) {
+				m.queryFunc = func(_ context.Context, params *dynamodb.QueryInput, _ ...func(*dynamodb.Options)) (
+					*dynamodb.QueryOutput, error) {
 					assert.Contains(t, *params.FilterExpression, "image = :image")
 					assert.NotNil(t, params.ExpressionAttributeValues[":image"])
 
@@ -983,9 +993,10 @@ func TestGetAnyImageTaskDef(t *testing.T) {
 						Memory:               "512",
 						RuntimePlatform:      "Linux/X86_64",
 						CreatedAt:            1234567890,
+						All:                  "IMAGE",
 					}
 					av, _ := attributevalue.MarshalMap(item)
-					return &dynamodb.ScanOutput{Items: []map[string]types.AttributeValue{av}}, nil
+					return &dynamodb.QueryOutput{Items: []map[string]types.AttributeValue{av}}, nil
 				}
 			},
 			validateFn: func(t *testing.T, info *api.ImageInfo) {
@@ -1000,8 +1011,8 @@ func TestGetAnyImageTaskDef(t *testing.T) {
 			name:  "prefers default image when multiple matches exist",
 			image: "alpine:latest",
 			mockSetup: func(m *mockImageClient) {
-				m.scanFunc = func(_ context.Context, _ *dynamodb.ScanInput, _ ...func(*dynamodb.Options)) (
-					*dynamodb.ScanOutput, error) {
+				m.queryFunc = func(_ context.Context, _ *dynamodb.QueryInput, _ ...func(*dynamodb.Options)) (
+					*dynamodb.QueryOutput, error) {
 					items := []imageTaskDefItem{
 						{
 							ImageID:              "alpine:latest-aabbccdd",
@@ -1013,6 +1024,7 @@ func TestGetAnyImageTaskDef(t *testing.T) {
 							Memory:               "512",
 							RuntimePlatform:      "Linux/X86_64",
 							CreatedAt:            1234567890,
+							All:                  awsConstants.DynamoDBAllValue,
 						},
 						{
 							ImageID:              "alpine:latest-f755d736",
@@ -1025,6 +1037,7 @@ func TestGetAnyImageTaskDef(t *testing.T) {
 							Memory:               "512",
 							RuntimePlatform:      "Linux/X86_64",
 							CreatedAt:            1234567891,
+							All:                  awsConstants.DynamoDBAllValue,
 						},
 					}
 					var av []map[string]types.AttributeValue
@@ -1032,7 +1045,7 @@ func TestGetAnyImageTaskDef(t *testing.T) {
 						itemMap, _ := attributevalue.MarshalMap(&item)
 						av = append(av, itemMap)
 					}
-					return &dynamodb.ScanOutput{Items: av}, nil
+					return &dynamodb.QueryOutput{Items: av}, nil
 				}
 			},
 			validateFn: func(t *testing.T, info *api.ImageInfo) {
@@ -1044,9 +1057,9 @@ func TestGetAnyImageTaskDef(t *testing.T) {
 			name:  "image not found",
 			image: "nonexistent:latest",
 			mockSetup: func(m *mockImageClient) {
-				m.scanFunc = func(_ context.Context, _ *dynamodb.ScanInput, _ ...func(*dynamodb.Options)) (
-					*dynamodb.ScanOutput, error) {
-					return &dynamodb.ScanOutput{Items: []map[string]types.AttributeValue{}}, nil
+				m.queryFunc = func(_ context.Context, _ *dynamodb.QueryInput, _ ...func(*dynamodb.Options)) (
+					*dynamodb.QueryOutput, error) {
+					return &dynamodb.QueryOutput{Items: []map[string]types.AttributeValue{}}, nil
 				}
 			},
 			expectNil: true,
@@ -1055,9 +1068,9 @@ func TestGetAnyImageTaskDef(t *testing.T) {
 			name:  "dynamodb error",
 			image: "alpine:latest",
 			mockSetup: func(m *mockImageClient) {
-				m.scanFunc = func(_ context.Context, _ *dynamodb.ScanInput, _ ...func(*dynamodb.Options)) (
-					*dynamodb.ScanOutput, error) {
-					return nil, errors.New("scan error")
+				m.queryFunc = func(_ context.Context, _ *dynamodb.QueryInput, _ ...func(*dynamodb.Options)) (
+					*dynamodb.QueryOutput, error) {
+					return nil, errors.New("query error")
 				}
 			},
 			expectError: true,

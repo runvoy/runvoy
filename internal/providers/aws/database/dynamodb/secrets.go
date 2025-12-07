@@ -11,6 +11,7 @@ import (
 	"github.com/runvoy/runvoy/internal/database"
 	appErrors "github.com/runvoy/runvoy/internal/errors"
 	"github.com/runvoy/runvoy/internal/logger"
+	awsConstants "github.com/runvoy/runvoy/internal/providers/aws/constants"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
@@ -48,6 +49,7 @@ type secretItem struct {
 	UpdatedBy           string    `dynamodbav:"updated_by"`
 	CreatedByRequestID  string    `dynamodbav:"created_by_request_id,omitempty"`
 	ModifiedByRequestID string    `dynamodbav:"modified_by_request_id,omitempty"`
+	All                 string    `dynamodbav:"_all"`
 }
 
 // toAPISecret converts a secretItem to an API Secret.
@@ -82,6 +84,7 @@ func (r *SecretsRepository) CreateSecret(ctx context.Context, secret *api.Secret
 		UpdatedBy:           secret.CreatedBy,
 		CreatedByRequestID:  secret.CreatedByRequestID,
 		ModifiedByRequestID: secret.ModifiedByRequestID,
+		All:                 awsConstants.DynamoDBAllValue,
 	}
 
 	av, err := attributevalue.MarshalMap(item)
@@ -143,12 +146,20 @@ func (r *SecretsRepository) GetSecret(ctx context.Context, name string) (*api.Se
 func (r *SecretsRepository) ListSecrets(ctx context.Context) ([]*api.Secret, error) {
 	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
 
-	result, err := r.client.Scan(ctx, &dynamodb.ScanInput{
-		TableName: aws.String(r.tableName),
+	result, err := r.client.Query(ctx, &dynamodb.QueryInput{
+		TableName:              aws.String(r.tableName),
+		IndexName:              aws.String("all-secret_name"),
+		KeyConditionExpression: aws.String("#all = :all"),
+		ExpressionAttributeNames: map[string]string{
+			"#all": awsConstants.DynamoDBAllAttribute,
+		},
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":all": &types.AttributeValueMemberS{Value: awsConstants.DynamoDBAllValue},
+		},
 	})
 
 	if err != nil {
-		reqLogger.Error("failed to scan secrets", "error", err)
+		reqLogger.Error("failed to query secrets", "error", err)
 		return nil, appErrors.ErrInternalError("failed to list secrets", err)
 	}
 
@@ -171,23 +182,29 @@ func (r *SecretsRepository) GetSecretsByRequestID(ctx context.Context, requestID
 	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
 
 	logArgs := []any{
-		"operation", "DynamoDB.Scan",
+		"operation", "DynamoDB.Query",
 		"table", r.tableName,
+		"index", "all-secret_name",
 		"request_id", requestID,
 	}
 	logArgs = append(logArgs, logger.GetDeadlineInfo(ctx)...)
 	reqLogger.Debug("calling external service", "context", logger.SliceToMap(logArgs))
 
-	// Scan with filter expression to find secrets where created_by_request_id OR modified_by_request_id matches
-	result, err := r.client.Scan(ctx, &dynamodb.ScanInput{
-		TableName:        aws.String(r.tableName),
-		FilterExpression: aws.String("created_by_request_id = :request_id OR modified_by_request_id = :request_id"),
+	result, err := r.client.Query(ctx, &dynamodb.QueryInput{
+		TableName:              aws.String(r.tableName),
+		IndexName:              aws.String("all-secret_name"),
+		KeyConditionExpression: aws.String("#all = :all"),
+		FilterExpression:       aws.String("created_by_request_id = :request_id OR modified_by_request_id = :request_id"),
+		ExpressionAttributeNames: map[string]string{
+			"#all": awsConstants.DynamoDBAllAttribute,
+		},
 		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":all":        &types.AttributeValueMemberS{Value: awsConstants.DynamoDBAllValue},
 			":request_id": &types.AttributeValueMemberS{Value: requestID},
 		},
 	})
 	if err != nil {
-		reqLogger.Error("failed to scan secrets by request ID", "error", err)
+		reqLogger.Error("failed to query secrets by request ID", "error", err)
 		return nil, appErrors.ErrInternalError("failed to get secrets by request ID", err)
 	}
 

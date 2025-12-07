@@ -60,6 +60,7 @@ type imageTaskDefItem struct {
 	UpdatedAt             int64    `dynamodbav:"updated_at"`
 	CreatedByRequestID    string   `dynamodbav:"created_by_request_id,omitempty"`
 	ModifiedByRequestID   string   `dynamodbav:"modified_by_request_id,omitempty"`
+	All                   string   `dynamodbav:"_all"` // Constant partition key for listing all images
 }
 
 const (
@@ -147,6 +148,7 @@ func (r *ImageTaskDefRepository) PutImageTaskDef(
 		CreatedBy:             createdBy,
 		OwnedBy:               []string{createdBy},
 		UpdatedAt:             now,
+		All:                   awsConstants.DynamoDBAllValue,
 	}
 
 	if isUpdate {
@@ -403,17 +405,26 @@ func (r *ImageTaskDefRepository) ListImages(ctx context.Context) ([]api.ImageInf
 	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
 
 	logArgs := []any{
-		"operation", "DynamoDB.Scan",
+		"operation", "DynamoDB.Query",
 		"table", r.tableName,
+		"index", "all-image_id",
 	}
 	logArgs = append(logArgs, logger.GetDeadlineInfo(ctx)...)
 	reqLogger.Debug("calling external service", "context", logger.SliceToMap(logArgs))
 
-	result, err := r.client.Scan(ctx, &dynamodb.ScanInput{
-		TableName: aws.String(r.tableName),
+	result, err := r.client.Query(ctx, &dynamodb.QueryInput{
+		TableName:              aws.String(r.tableName),
+		IndexName:              aws.String("all-image_id"),
+		KeyConditionExpression: aws.String("#all = :all"),
+		ExpressionAttributeNames: map[string]string{
+			"#all": awsConstants.DynamoDBAllAttribute,
+		},
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":all": &types.AttributeValueMemberS{Value: awsConstants.DynamoDBAllValue},
+		},
 	})
 	if err != nil {
-		return nil, apperrors.ErrInternalError("failed to scan image-taskdef table", err)
+		return nil, apperrors.ErrInternalError("failed to query image-taskdef table", err)
 	}
 
 	var items []imageTaskDefItem
@@ -441,23 +452,29 @@ func (r *ImageTaskDefRepository) GetImagesByRequestID(ctx context.Context, reque
 	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
 
 	logArgs := []any{
-		"operation", "DynamoDB.Scan",
+		"operation", "DynamoDB.Query",
 		"table", r.tableName,
+		"index", "all-image_id",
 		"request_id", requestID,
 	}
 	logArgs = append(logArgs, logger.GetDeadlineInfo(ctx)...)
 	reqLogger.Debug("calling external service", "context", logger.SliceToMap(logArgs))
 
-	// Scan with filter expression to find images where created_by_request_id OR modified_by_request_id matches
-	result, err := r.client.Scan(ctx, &dynamodb.ScanInput{
-		TableName:        aws.String(r.tableName),
-		FilterExpression: aws.String("created_by_request_id = :request_id OR modified_by_request_id = :request_id"),
+	result, err := r.client.Query(ctx, &dynamodb.QueryInput{
+		TableName:              aws.String(r.tableName),
+		IndexName:              aws.String("all-image_id"),
+		KeyConditionExpression: aws.String("#all = :all"),
+		FilterExpression:       aws.String("created_by_request_id = :request_id OR modified_by_request_id = :request_id"),
+		ExpressionAttributeNames: map[string]string{
+			"#all": awsConstants.DynamoDBAllAttribute,
+		},
 		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":all":        &types.AttributeValueMemberS{Value: awsConstants.DynamoDBAllValue},
 			":request_id": &types.AttributeValueMemberS{Value: requestID},
 		},
 	})
 	if err != nil {
-		return nil, apperrors.ErrInternalError("failed to scan image-taskdef table by request ID", err)
+		return nil, apperrors.ErrInternalError("failed to query image-taskdef table by request ID", err)
 	}
 
 	var items []imageTaskDefItem
@@ -634,11 +651,19 @@ func (r *ImageTaskDefRepository) findItemsByNameTag(ctx context.Context, image s
 	queryName, queryTag := parseImageReference(image)
 	queryNameTag := fmt.Sprintf("%s:%s", queryName, queryTag)
 
-	allResult, allScanErr := r.client.Scan(ctx, &dynamodb.ScanInput{
-		TableName: aws.String(r.tableName),
+	allResult, allScanErr := r.client.Query(ctx, &dynamodb.QueryInput{
+		TableName:              aws.String(r.tableName),
+		IndexName:              aws.String("all-image_id"),
+		KeyConditionExpression: aws.String("#all = :all"),
+		ExpressionAttributeNames: map[string]string{
+			"#all": awsConstants.DynamoDBAllAttribute,
+		},
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":all": &types.AttributeValueMemberS{Value: awsConstants.DynamoDBAllValue},
+		},
 	})
 	if allScanErr != nil {
-		return nil, apperrors.ErrInternalError("failed to scan image mappings", allScanErr)
+		return nil, apperrors.ErrInternalError("failed to query image mappings", allScanErr)
 	}
 
 	var allItems []imageTaskDefItem
@@ -663,22 +688,29 @@ func (r *ImageTaskDefRepository) findItemsByImage(
 	image string,
 ) ([]imageTaskDefItem, error) {
 	logArgs := []any{
-		"operation", "DynamoDB.Scan",
+		"operation", "DynamoDB.Query",
 		"table", r.tableName,
+		"index", "all-image_id",
 		"image", image,
 	}
 	logArgs = append(logArgs, logger.GetDeadlineInfo(ctx)...)
 	reqLogger.Debug("calling external service", "context", logger.SliceToMap(logArgs))
 
-	result, scanErr := r.client.Scan(ctx, &dynamodb.ScanInput{
-		TableName:        aws.String(r.tableName),
-		FilterExpression: aws.String("image = :image"),
+	result, scanErr := r.client.Query(ctx, &dynamodb.QueryInput{
+		TableName:              aws.String(r.tableName),
+		IndexName:              aws.String("all-image_id"),
+		KeyConditionExpression: aws.String("#all = :all"),
+		FilterExpression:       aws.String("image = :image"),
+		ExpressionAttributeNames: map[string]string{
+			"#all": awsConstants.DynamoDBAllAttribute,
+		},
 		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":all":   &types.AttributeValueMemberS{Value: awsConstants.DynamoDBAllValue},
 			":image": &types.AttributeValueMemberS{Value: image},
 		},
 	})
 	if scanErr != nil {
-		return nil, apperrors.ErrInternalError("failed to scan image mappings", scanErr)
+		return nil, apperrors.ErrInternalError("failed to query image mappings", scanErr)
 	}
 
 	var items []imageTaskDefItem
@@ -758,23 +790,30 @@ func (r *ImageTaskDefRepository) GetAnyImageTaskDef(ctx context.Context, image s
 	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
 
 	logArgs := []any{
-		"operation", "DynamoDB.Scan",
+		"operation", "DynamoDB.Query",
 		"table", r.tableName,
+		"index", "all-image_id",
 		"image", image,
 	}
 	logArgs = append(logArgs, logger.GetDeadlineInfo(ctx)...)
 	reqLogger.Debug("calling external service", "context", logger.SliceToMap(logArgs))
 
-	result, err := r.client.Scan(ctx, &dynamodb.ScanInput{
-		TableName:        aws.String(r.tableName),
-		FilterExpression: aws.String("image = :image"),
+	result, err := r.client.Query(ctx, &dynamodb.QueryInput{
+		TableName:              aws.String(r.tableName),
+		IndexName:              aws.String("all-image_id"),
+		KeyConditionExpression: aws.String("#all = :all"),
+		FilterExpression:       aws.String("image = :image"),
+		ExpressionAttributeNames: map[string]string{
+			"#all": awsConstants.DynamoDBAllAttribute,
+		},
 		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":all":   &types.AttributeValueMemberS{Value: awsConstants.DynamoDBAllValue},
 			":image": &types.AttributeValueMemberS{Value: image},
 		},
 		Limit: aws.Int32(100), //nolint:mnd // Get up to 100 items to find default if available
 	})
 	if err != nil {
-		return nil, apperrors.ErrInternalError("failed to scan image-taskdef mappings", err)
+		return nil, apperrors.ErrInternalError("failed to query image-taskdef mappings", err)
 	}
 
 	var items []imageTaskDefItem
@@ -787,13 +826,20 @@ func (r *ImageTaskDefRepository) GetAnyImageTaskDef(ctx context.Context, image s
 		queryName, queryTag := parseImageReference(image)
 		queryNameTag := fmt.Sprintf("%s:%s", queryName, queryTag)
 
-		// Scan all items and match by name:tag
-		allResult, scanErr := r.client.Scan(ctx, &dynamodb.ScanInput{
-			TableName: aws.String(r.tableName),
-			Limit:     aws.Int32(100), //nolint:mnd // Get up to 100 items to find default if available
+		allResult, scanErr := r.client.Query(ctx, &dynamodb.QueryInput{
+			TableName:              aws.String(r.tableName),
+			IndexName:              aws.String("all-image_id"),
+			KeyConditionExpression: aws.String("#all = :all"),
+			ExpressionAttributeNames: map[string]string{
+				"#all": awsConstants.DynamoDBAllAttribute,
+			},
+			ExpressionAttributeValues: map[string]types.AttributeValue{
+				":all": &types.AttributeValueMemberS{Value: awsConstants.DynamoDBAllValue},
+			},
+			Limit: aws.Int32(100), //nolint:mnd // Get up to 100 items to find default if available
 		})
 		if scanErr != nil {
-			return nil, apperrors.ErrInternalError("failed to scan image-taskdef mappings", scanErr)
+			return nil, apperrors.ErrInternalError("failed to query image-taskdef mappings", scanErr)
 		}
 
 		var allItems []imageTaskDefItem
@@ -828,16 +874,25 @@ func (r *ImageTaskDefRepository) GetImagesCount(ctx context.Context) (int, error
 	reqLogger := logger.DeriveRequestLogger(ctx, r.logger)
 
 	logArgs := []any{
-		"operation", "DynamoDB.Scan",
+		"operation", "DynamoDB.Query",
 		"table", r.tableName,
+		"index", "all-image_id",
 		"select", "COUNT",
 	}
 	logArgs = append(logArgs, logger.GetDeadlineInfo(ctx)...)
 	reqLogger.Debug("calling external service", "context", logger.SliceToMap(logArgs))
 
-	result, err := r.client.Scan(ctx, &dynamodb.ScanInput{
-		TableName: aws.String(r.tableName),
-		Select:    types.SelectCount,
+	result, err := r.client.Query(ctx, &dynamodb.QueryInput{
+		TableName:              aws.String(r.tableName),
+		IndexName:              aws.String("all-image_id"),
+		KeyConditionExpression: aws.String("#all = :all"),
+		ExpressionAttributeNames: map[string]string{
+			"#all": awsConstants.DynamoDBAllAttribute,
+		},
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":all": &types.AttributeValueMemberS{Value: awsConstants.DynamoDBAllValue},
+		},
+		Select: types.SelectCount,
 	})
 	if err != nil {
 		return 0, apperrors.ErrInternalError("failed to count images", err)
