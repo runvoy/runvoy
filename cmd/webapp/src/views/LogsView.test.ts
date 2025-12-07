@@ -243,7 +243,7 @@ describe('LogsView', () => {
             });
         });
 
-        it('should set store to null when no execution ID', async () => {
+        it('should keep existing store value when no execution ID is provided', async () => {
             // First set an execution ID
             executionId.set('exec-old');
 
@@ -255,9 +255,9 @@ describe('LogsView', () => {
             });
 
             await waitFor(() => {
-                let storeValue: string | null = 'not-null';
+                let storeValue: string | null = null;
                 executionId.subscribe((v) => (storeValue = v))();
-                expect(storeValue).toBeNull();
+                expect(storeValue).toBe('exec-old');
             });
         });
     });
