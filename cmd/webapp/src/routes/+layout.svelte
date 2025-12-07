@@ -53,22 +53,19 @@
 </script>
 
 <main class="container">
-    <header class="app-header">
-        <div class="header-content">
-            <div class="header-title">
-                <h1>
-                    <img src="/runvoy-avatar.png" alt="runvoy logo" class="avatar" />
-                    <div>
-                        {#if version}
-                            <span class="version">{version}</span>
-                        {/if}
-                        <p class="subtitle">
-                            <a href="https://runvoy.site/" target="_blank" rel="noopener">
-                                Documentation
-                            </a>
-                        </p>
-                    </div>
-                </h1>
+    <header class="app-bar">
+        <div class="brand">
+            <img src="/runvoy-avatar.png" alt="runvoy logo" class="avatar" />
+            <div class="brand-text">
+                <p class="brand-name">runvoy</p>
+                <div class="meta">
+                    {#if version}
+                        <span class="version">{version}</span>
+                    {/if}
+                    <a class="docs-link" href="https://runvoy.site/" target="_blank" rel="noopener">
+                        Documentation
+                    </a>
+                </div>
             </div>
         </div>
         <div class="header-nav">
@@ -86,75 +83,93 @@
 <style>
     /* Pico's .container class on main element handles max-width and centering */
 
-    .app-header {
-        margin-bottom: 2rem;
-        border-bottom: 1px solid var(--pico-border-color);
-        padding-bottom: 1.5rem;
-    }
-
-    .header-content {
+    .app-bar {
         display: flex;
-        gap: 1.5rem;
         align-items: center;
         justify-content: space-between;
-        margin-bottom: 1.5rem;
+        gap: 1rem;
+        padding: 0.75rem 0;
+        border-bottom: 1px solid var(--pico-border-color);
+        position: sticky;
+        top: 0;
+        background: var(--pico-background-color);
+        z-index: 5;
     }
 
-    .header-title h1 {
-        margin-bottom: 0.25rem;
-        font-size: 1.75rem;
+    .brand {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        min-width: 0;
+    }
+
+    .brand-text {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+    }
+
+    .brand-name {
+        margin: 0;
+        font-weight: 700;
+        font-size: 1.05rem;
+        letter-spacing: 0.01em;
+    }
+
+    .meta {
         display: flex;
         align-items: center;
         gap: 0.5rem;
+        flex-wrap: wrap;
     }
 
     .avatar {
-        height: 3em;
-        width: 3em;
+        height: 2.5rem;
+        width: 2.5rem;
         object-fit: contain;
-        vertical-align: middle;
     }
 
     .version {
         color: var(--pico-muted-color);
         font-size: 0.75rem;
-        /* font-weight: normal;
-        margin-left: 0.5rem; */
+        border: 1px solid var(--pico-border-color);
+        border-radius: 999px;
+        padding: 0.2rem 0.65rem;
+        background: var(--pico-primary-background);
     }
 
-    .subtitle {
-        margin: 0;
+    .docs-link {
         color: var(--pico-muted-color);
+        text-decoration: none;
         font-size: 0.875rem;
     }
 
-    .subtitle a {
-        color: var(--pico-muted-color);
-        text-decoration: none;
-    }
-
-    .subtitle a:hover {
-        text-decoration: underline;
+    .docs-link:hover {
         color: var(--pico-primary);
+        text-decoration: underline;
     }
 
     .header-nav {
-        margin-top: 1rem;
+        display: flex;
+        justify-content: flex-end;
+        width: min(640px, 100%);
     }
 
     .content-area {
         min-height: 400px;
+        padding-top: 0.5rem;
     }
 
     @media (max-width: 768px) {
-        .header-content {
-            flex-direction: column;
-            align-items: flex-start;
-            gap: 1rem;
+        .app-bar {
+            flex-wrap: wrap;
+            padding: 0.5rem 0;
+            gap: 0.75rem;
         }
 
-        .header-title h1 {
-            font-size: 1.5rem;
+        .header-nav {
+            width: 100%;
+            justify-content: flex-start;
         }
     }
 </style>
