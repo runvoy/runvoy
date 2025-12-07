@@ -55,24 +55,26 @@
 <style>
     .view-switcher {
         display: flex;
-        gap: 0.5rem;
+        gap: 0.4rem;
         flex-wrap: wrap;
         align-items: center;
+        justify-content: flex-end;
     }
 
     a {
-        border-radius: var(--pico-border-radius);
-        padding: 0.5rem 1rem;
+        border-radius: 999px;
+        padding: 0.4rem 0.9rem;
         border: 1px solid var(--pico-border-color);
-        background: transparent;
+        background: color-mix(in srgb, var(--pico-background-color) 90%, var(--pico-primary) 5%);
         color: inherit;
         cursor: pointer;
-        font-weight: 500;
-        font-size: 0.9375rem;
+        font-weight: 600;
+        font-size: 0.9rem;
         transition:
             background-color 0.15s ease,
             color 0.15s ease,
-            border-color 0.15s ease;
+            border-color 0.15s ease,
+            transform 0.15s ease;
         white-space: nowrap;
         text-decoration: none;
         display: inline-block;
@@ -82,6 +84,7 @@
         border-color: var(--pico-primary);
         color: var(--pico-primary);
         background: var(--pico-primary-background);
+        transform: translateY(-1px);
     }
 
     a.active {
