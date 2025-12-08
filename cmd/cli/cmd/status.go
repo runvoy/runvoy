@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"strconv"
@@ -60,7 +61,7 @@ func (s *StatusService) DisplayStatus(ctx context.Context, executionID string) e
 	}
 
 	if status.Command == "" || status.ImageID == "" {
-		return fmt.Errorf("backend did not return required status metadata (command/image) for execution %s", executionID)
+		return errors.New("execution status is incomplete: command or image ID is missing")
 	}
 
 	s.output.KeyValue("Execution ID", status.ExecutionID)

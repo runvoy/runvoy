@@ -1,5 +1,6 @@
 <script lang="ts">
     import type { Execution } from '../types/api';
+    import type { ExecutionStatusValue } from '../types/status';
 
     interface Props {
         execution: Execution;
@@ -18,7 +19,7 @@
         }
     }
 
-    function getStatusClass(status: string): string {
+    function getStatusClass(status: ExecutionStatusValue): string {
         if (!status) return 'loading';
         const normalizedStatus = status.toLowerCase();
         return normalizedStatus;

@@ -47,7 +47,7 @@ describe('createExecutionKiller', () => {
         it('should set killInitiated on success', async () => {
             vi.mocked(mockApiClient.killExecution).mockResolvedValue({
                 execution_id: 'exec-123',
-                status: 'TERMINATING'
+                message: 'Execution termination initiated'
             });
 
             const result = await killer.kill('exec-123');
@@ -60,7 +60,7 @@ describe('createExecutionKiller', () => {
         it('should call API with correct execution ID', async () => {
             vi.mocked(mockApiClient.killExecution).mockResolvedValue({
                 execution_id: 'exec-456',
-                status: 'TERMINATING'
+                message: 'Execution termination initiated'
             });
 
             await killer.kill('exec-456');
@@ -95,7 +95,7 @@ describe('createExecutionKiller', () => {
 
             vi.mocked(mockApiClient.killExecution).mockResolvedValueOnce({
                 execution_id: 'exec-123',
-                status: 'TERMINATING'
+                message: 'Execution termination initiated'
             });
             await killer.kill('exec-123');
             expect(get(killer.state).error).toBeNull();
@@ -121,7 +121,7 @@ describe('createExecutionKiller', () => {
         it('should reset state after successful kill', async () => {
             vi.mocked(mockApiClient.killExecution).mockResolvedValue({
                 execution_id: 'exec-123',
-                status: 'TERMINATING'
+                message: 'Execution termination initiated'
             });
             await killer.kill('exec-123');
 
@@ -153,7 +153,7 @@ describe('createExecutionKiller', () => {
 
             vi.mocked(mockApiClient.killExecution).mockResolvedValue({
                 execution_id: 'exec-123',
-                status: 'TERMINATING'
+                message: 'Execution termination initiated'
             });
             await killer.kill('exec-123');
 

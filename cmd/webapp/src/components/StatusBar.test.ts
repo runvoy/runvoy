@@ -272,7 +272,9 @@ describe('StatusBar', () => {
                 startedAt: '2025-11-30T10:00:00Z',
                 completedAt: '2025-11-30T10:05:00Z',
                 exitCode: 0,
-                onKill: null
+                onKill: null,
+                command: 'echo test',
+                imageId: 'alpine:latest'
             }
         });
 

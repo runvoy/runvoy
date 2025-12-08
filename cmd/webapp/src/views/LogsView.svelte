@@ -11,7 +11,7 @@
     import { executionId as executionIdStore } from '../stores/execution';
     import { LogsManager } from '../lib/logs';
     import { createExecutionKiller } from '../lib/execution';
-    import { isKillableStatus } from '../lib/constants';
+    import { ExecutionStatus, isKillableStatus } from '../lib/constants';
     import type APIClient from '../lib/api';
 
     interface Props {
@@ -59,7 +59,7 @@
 
         const success = await killer.kill(currentExecutionId);
         if (success) {
-            logsManager.setStatus('TERMINATING');
+            logsManager.setStatus(ExecutionStatus.TERMINATING);
 
             // If not streaming, refresh to get updated status
             if ($connection === 'disconnected') {

@@ -93,31 +93,31 @@ func TestExecutionResponseJSON(t *testing.T) {
 
 func TestExecutionStatusResponseJSON(t *testing.T) {
 	t.Run("marshal and unmarshal with completed execution", func(t *testing.T) {
-                now := time.Now()
-                exitCode := 0
-                resp := ExecutionStatusResponse{
-                        ExecutionID: "exec-123",
-                        Status:      "completed",
-                        Command:     "echo hello",
-                        ImageID:     "alpine:latest-abc123",
-                        StartedAt:   now,
-                        ExitCode:    &exitCode,
-                        CompletedAt: &now,
-                }
+		now := time.Now()
+		exitCode := 0
+		resp := ExecutionStatusResponse{
+			ExecutionID: "exec-123",
+			Status:      "completed",
+			Command:     "echo hello",
+			ImageID:     "alpine:latest-abc123",
+			StartedAt:   now,
+			ExitCode:    &exitCode,
+			CompletedAt: &now,
+		}
 
 		data, err := json.Marshal(resp)
 		require.NoError(t, err)
 
 		var unmarshaled ExecutionStatusResponse
-                err = json.Unmarshal(data, &unmarshaled)
-                require.NoError(t, err)
+		err = json.Unmarshal(data, &unmarshaled)
+		require.NoError(t, err)
 
-                assert.Equal(t, resp.ExecutionID, unmarshaled.ExecutionID)
-                assert.Equal(t, resp.Status, unmarshaled.Status)
-                assert.Equal(t, resp.Command, unmarshaled.Command)
-                assert.Equal(t, resp.ImageID, unmarshaled.ImageID)
-                assert.NotNil(t, unmarshaled.ExitCode)
-                assert.Equal(t, *resp.ExitCode, *unmarshaled.ExitCode)
+		assert.Equal(t, resp.ExecutionID, unmarshaled.ExecutionID)
+		assert.Equal(t, resp.Status, unmarshaled.Status)
+		assert.Equal(t, resp.Command, unmarshaled.Command)
+		assert.Equal(t, resp.ImageID, unmarshaled.ImageID)
+		assert.NotNil(t, unmarshaled.ExitCode)
+		assert.Equal(t, *resp.ExitCode, *unmarshaled.ExitCode)
 		assert.NotNil(t, unmarshaled.CompletedAt)
 	})
 

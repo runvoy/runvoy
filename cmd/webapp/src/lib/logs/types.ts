@@ -3,6 +3,7 @@
  */
 
 import type { LogEvent } from '../../types/logs';
+import type { ExecutionStatusValue } from '../../types/status';
 
 export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected';
 
@@ -18,7 +19,7 @@ export type ExecutionPhase =
  */
 export interface ExecutionMetadata {
     executionId: string;
-    status: string | null;
+    status: ExecutionStatusValue | null;
     startedAt: string | null;
     completedAt: string | null;
     exitCode: number | null;

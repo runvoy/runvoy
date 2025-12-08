@@ -1,8 +1,9 @@
 <script lang="ts">
     import { FrontendStatus, isKillableStatus } from '../lib/constants';
+    import type { ExecutionStatusValue } from '../types/status';
 
     interface Props {
-        status: string | null;
+        status: ExecutionStatusValue | null;
         startedAt: string | number | null;
         completedAt: string | null;
         exitCode: number | null;

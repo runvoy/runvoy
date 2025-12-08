@@ -68,10 +68,12 @@ function createMockApiClient(): APIClient {
     } as unknown as APIClient;
 }
 
+import { ExecutionStatus } from '../constants';
+
 function statusResponse(overrides: Record<string, unknown> = {}) {
     return {
         execution_id: 'exec-123',
-        status: 'SUCCEEDED',
+        status: ExecutionStatus.SUCCEEDED,
         command: 'echo test',
         image_id: 'img-123',
         ...overrides

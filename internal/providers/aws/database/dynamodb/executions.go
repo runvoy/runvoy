@@ -53,7 +53,7 @@ type executionItem struct {
 	CreatedBy           string   `dynamodbav:"created_by"`
 	OwnedBy             []string `dynamodbav:"owned_by"`
 	Command             string   `dynamodbav:"command"`
-	ImageID             string   `dynamodbav:"image_id,omitempty"`
+	ImageID             string   `dynamodbav:"image_id"`
 	Status              string   `dynamodbav:"status"`
 	CompletedAt         *int64   `dynamodbav:"completed_at,omitempty"`
 	ExitCode            int      `dynamodbav:"exit_code,omitempty"`

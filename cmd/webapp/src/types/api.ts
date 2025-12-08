@@ -17,8 +17,9 @@ export interface RunCommandPayload {
 export interface RunCommandResponse {
     execution_id: string;
     status: ExecutionStatusValue;
+    command: string;
+    image_id: string;
     websocket_url?: string;
-    image_id?: string;
     log_url?: string;
 }
 
@@ -41,7 +42,7 @@ export interface ExecutionStatusResponse {
 
 export interface KillExecutionResponse {
     execution_id: string;
-    status: string;
+    message: string;
 }
 
 export type ListExecutionsResponse = Execution[];

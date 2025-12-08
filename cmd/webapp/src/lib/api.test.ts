@@ -26,7 +26,9 @@ describe('APIClient', () => {
             };
             const mockResponse: RunCommandResponse = {
                 execution_id: 'exec-123',
-                status: 'RUNNING'
+                status: 'RUNNING',
+                command: 'echo "hello"',
+                image_id: 'alpine:latest'
             };
 
             vi.mocked(globalThis.fetch).mockResolvedValueOnce({
@@ -91,7 +93,9 @@ describe('APIClient', () => {
 
             const mockResponse: RunCommandResponse = {
                 execution_id: 'exec-456',
-                status: 'RUNNING'
+                status: 'RUNNING',
+                command: 'echo "hello"',
+                image_id: 'custom-image:latest'
             };
 
             vi.mocked(globalThis.fetch).mockResolvedValueOnce({

@@ -12,6 +12,8 @@ import type { ConnectionStatus, ExecutionMetadata, ExecutionPhase } from './type
 import type { LogEvent } from '../../types/logs';
 import type APIClient from '../api';
 import type { ApiError, ExecutionStatusResponse, LogsResponse } from '../../types/api';
+import { ExecutionStatus } from '../constants';
+import type { ExecutionStatusValue } from '../../types/status';
 
 export interface LogsManagerConfig {
     apiClient: APIClient;
@@ -116,7 +118,7 @@ export class LogsManager {
     /**
      * Update the execution status (used when kill is initiated externally)
      */
-    setStatus(status: string): void {
+    setStatus(status: ExecutionStatusValue): void {
         this._metadata.update((m) => (m ? { ...m, status } : m));
     }
 
@@ -265,8 +267,8 @@ export class LogsManager {
 
                 // Update status to RUNNING on first log
                 this._metadata.update((m) => {
-                    if (m && (m.status === 'STARTING' || m.status === null)) {
-                        return { ...m, status: 'RUNNING' };
+                    if (m && (m.status === ExecutionStatus.STARTING || m.status === null)) {
+                        return { ...m, status: ExecutionStatus.RUNNING };
                     }
                     return m;
                 });
