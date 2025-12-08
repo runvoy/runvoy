@@ -200,6 +200,8 @@ commands:
 			return &api.ExecutionResponse{
 				ExecutionID:  "exec-123",
 				Status:       "STARTING",
+				Command:      "echo hello",
+				ImageID:      "alpine:latest",
 				WebSocketURL: "wss://example.com/logs/exec-123",
 			}, nil
 		}
@@ -264,6 +266,8 @@ commands:
 			return &api.ExecutionResponse{
 				ExecutionID:  "exec-123",
 				Status:       "STARTING",
+				Command:      "echo hello",
+				ImageID:      "alpine:latest",
 				WebSocketURL: "wss://example.com/logs/exec-123",
 			}, nil
 		}
@@ -327,6 +331,8 @@ commands:
 			return &api.ExecutionResponse{
 				ExecutionID:  "exec-123",
 				Status:       "STARTING",
+				Command:      "echo hello",
+				ImageID:      "alpine:latest",
 				WebSocketURL: "wss://example.com/logs/exec-123",
 			}, nil
 		}

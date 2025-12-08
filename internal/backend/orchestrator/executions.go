@@ -124,6 +124,7 @@ func (s *Service) RunCommand(
 	return &api.ExecutionResponse{
 		ExecutionID:  executionID,
 		Status:       string(constants.ExecutionStarting),
+		Command:      req.Command,
 		ImageID:      imageID,
 		WebSocketURL: websocketURL,
 	}, nil
@@ -401,20 +402,6 @@ func (s *Service) GetExecutionStatus(ctx context.Context, executionID string) (*
 		// Only populate ExitCode if we have actually recorded completion.
 		ec := execution.ExitCode
 		exitCodePtr = &ec
-	}
-
-	if execution.Command == "" || execution.ImageID == "" {
-		missing := []string{}
-		if execution.Command == "" {
-			missing = append(missing, "command")
-		}
-		if execution.ImageID == "" {
-			missing = append(missing, "image_id")
-		}
-		return nil, apperrors.ErrInternalError(
-			"execution is missing required metadata",
-			fmt.Errorf("missing %s for execution %s", strings.Join(missing, ","), executionID),
-		)
 	}
 
 	return &api.ExecutionStatusResponse{

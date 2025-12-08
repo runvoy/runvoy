@@ -59,6 +59,7 @@ func TestRunService_ExecuteCommand(t *testing.T) {
 					return &api.ExecutionResponse{
 						ExecutionID: "exec-123",
 						Status:      "pending",
+						Command:     "echo test",
 						ImageID:     "alpine:latest-a1b2c3d4",
 					}, nil
 				}
@@ -101,6 +102,7 @@ func TestRunService_ExecuteCommand(t *testing.T) {
 					return &api.ExecutionResponse{
 						ExecutionID: "exec-456",
 						Status:      "pending",
+						Command:     "echo test",
 						ImageID:     "alpine:latest-a1b2c3d4",
 					}, nil
 				}
@@ -141,6 +143,7 @@ func TestRunService_ExecuteCommand(t *testing.T) {
 					return &api.ExecutionResponse{
 						ExecutionID: "exec-789",
 						Status:      "pending",
+						Command:     "echo test",
 						ImageID:     "alpine:latest-a1b2c3d4",
 					}, nil
 				}
@@ -179,6 +182,7 @@ func TestRunService_ExecuteCommand(t *testing.T) {
 					return &api.ExecutionResponse{
 						ExecutionID: "exec-abc",
 						Status:      "pending",
+						Command:     "terraform init",
 						ImageID:     "hashicorp/terraform:latest-a1b2c3d4",
 					}, nil
 				}
@@ -215,6 +219,7 @@ func TestRunService_ExecuteCommand(t *testing.T) {
 					return &api.ExecutionResponse{
 						ExecutionID: "exec-default",
 						Status:      "pending",
+						Command:     "echo test",
 						ImageID:     "alpine:latest-b1c2d3e4",
 					}, nil
 				}
@@ -275,6 +280,7 @@ func TestRunService_ExecuteCommand(t *testing.T) {
 					return &api.ExecutionResponse{
 						ExecutionID: "exec-xyz",
 						Status:      "pending",
+						Command:     "echo test",
 						ImageID:     "alpine:latest-a1b2c3d4",
 					}, nil
 				}
@@ -302,6 +308,7 @@ func TestRunService_ExecuteCommand(t *testing.T) {
 					return &api.ExecutionResponse{
 						ExecutionID: "exec-final",
 						Status:      "pending",
+						Command:     "echo test",
 						ImageID:     "alpine:latest-a1b2c3d4",
 					}, nil
 				}
@@ -337,6 +344,7 @@ func TestRunService_ExecuteCommand(t *testing.T) {
 					return &api.ExecutionResponse{
 						ExecutionID:  "exec-stream",
 						Status:       "pending",
+						Command:      "echo test",
 						ImageID:      "alpine:latest-a1b2c3d4",
 						WebSocketURL: "wss://example.com/logs/exec-stream",
 					}, nil
@@ -360,6 +368,7 @@ func TestRunService_ExecuteCommand(t *testing.T) {
 					return &api.ExecutionResponse{
 						ExecutionID: "exec-secrets",
 						Status:      "pending",
+						Command:     "echo test",
 						ImageID:     "alpine:latest-a1b2c3d4",
 					}, nil
 				}

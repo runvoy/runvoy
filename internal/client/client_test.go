@@ -439,6 +439,8 @@ func TestClient_RunCommand(t *testing.T) {
 				ExecutionID:  "exec-123",
 				LogURL:       "https://example.com/logs/exec-123",
 				Status:       "RUNNING",
+				Command:      "echo hello",
+				ImageID:      "alpine:latest",
 				WebSocketURL: "wss://example.com/ws/exec-123",
 			})
 		}))

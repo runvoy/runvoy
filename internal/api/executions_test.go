@@ -60,6 +60,7 @@ func TestExecutionResponseJSON(t *testing.T) {
 			ExecutionID:  "exec-123",
 			LogURL:       "https://example.com/logs",
 			Status:       "running",
+			Command:      "echo hello",
 			ImageID:      "image-123",
 			WebSocketURL: "wss://example.com/logs/exec-123",
 		}
@@ -74,6 +75,7 @@ func TestExecutionResponseJSON(t *testing.T) {
 		assert.Equal(t, resp.ExecutionID, unmarshaled.ExecutionID)
 		assert.Equal(t, resp.LogURL, unmarshaled.LogURL)
 		assert.Equal(t, resp.Status, unmarshaled.Status)
+		assert.Equal(t, resp.Command, unmarshaled.Command)
 		assert.Equal(t, resp.ImageID, unmarshaled.ImageID)
 		assert.Equal(t, resp.WebSocketURL, unmarshaled.WebSocketURL)
 	})
@@ -82,6 +84,8 @@ func TestExecutionResponseJSON(t *testing.T) {
 		resp := ExecutionResponse{
 			ExecutionID: "exec-123",
 			Status:      "running",
+			Command:     "echo hello",
+			ImageID:     "image-123",
 		}
 
 		data, err := json.Marshal(resp)

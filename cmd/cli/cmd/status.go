@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log/slog"
 	"strconv"
@@ -58,10 +57,6 @@ func (s *StatusService) DisplayStatus(ctx context.Context, executionID string) e
 	status, err := s.client.GetExecutionStatus(ctx, executionID)
 	if err != nil {
 		return fmt.Errorf("failed to get status: %w", err)
-	}
-
-	if status.Command == "" || status.ImageID == "" {
-		return errors.New("execution status is incomplete: command or image ID is missing")
 	}
 
 	s.output.KeyValue("Execution ID", status.ExecutionID)

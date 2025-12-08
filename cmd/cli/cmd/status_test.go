@@ -240,21 +240,6 @@ func TestStatusService_DisplayStatus(t *testing.T) {
 				}
 			},
 		},
-		{
-			name:        "errors when command or image are missing",
-			executionID: "exec-missing",
-			setupMock: func(m *mockClientInterface) {
-				m.getExecutionStatusFunc = func(_ context.Context, _ string) (*api.ExecutionStatusResponse, error) {
-					return &api.ExecutionStatusResponse{ExecutionID: "exec-missing", Status: "running"}, nil
-				}
-			},
-			wantErr: true,
-			verifyOutput: func(t *testing.T, m *mockOutputInterface) {
-				for _, call := range m.calls {
-					assert.NotEqual(t, "KeyValue", call.method)
-				}
-			},
-		},
 	}
 
 	for _, tt := range tests {

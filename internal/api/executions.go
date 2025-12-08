@@ -28,6 +28,7 @@ type ExecutionResponse struct {
 	ExecutionID  string `json:"execution_id"`
 	LogURL       string `json:"log_url"`
 	Status       string `json:"status"`
+	Command      string `json:"command"`
 	ImageID      string `json:"image_id"`
 	WebSocketURL string `json:"websocket_url,omitempty"`
 }
