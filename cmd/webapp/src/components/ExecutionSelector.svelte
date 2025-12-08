@@ -82,8 +82,7 @@
     }
 
     input {
-        flex: 0 1 320px;
-        max-width: 100%;
+        flex: 0 1 40%;
         font-family: 'Monaco', 'Courier New', monospace;
         font-size: 0.9375rem;
     }
