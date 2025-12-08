@@ -45,7 +45,7 @@
 
 <div class="execution-selector" class:embedded>
     <label for="exec-id-input">
-        Execution ID:
+        <span>Execution ID:</span>
         <input
             id="exec-id-input"
             type="text"
@@ -73,13 +73,17 @@
     }
 
     label {
-        display: block;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
         margin-bottom: 0.5rem;
         font-weight: 500;
+        flex-wrap: wrap;
     }
 
     input {
-        width: 100%;
+        flex: 0 1 320px;
+        max-width: 100%;
         font-family: 'Monaco', 'Courier New', monospace;
         font-size: 0.9375rem;
     }
@@ -94,6 +98,7 @@
         }
 
         input {
+            flex-basis: 100%;
             font-size: 0.875rem;
         }
     }
