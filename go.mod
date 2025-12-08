@@ -5,11 +5,11 @@ go 1.25.0
 require (
 	github.com/akrylysov/algnhsa v1.1.0
 	github.com/aws/aws-lambda-go v1.50.0
-	github.com/aws/aws-sdk-go-v2 v1.40.0
+	github.com/aws/aws-sdk-go-v2 v1.40.1
 	github.com/aws/aws-sdk-go-v2/config v1.31.20
 	github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue v1.20.23
 	github.com/aws/aws-sdk-go-v2/feature/dynamodb/expression v1.8.23
-	github.com/aws/aws-sdk-go-v2/service/apigatewaymanagementapi v1.29.5
+	github.com/aws/aws-sdk-go-v2/service/apigatewaymanagementapi v1.29.8
 	github.com/aws/aws-sdk-go-v2/service/cloudformation v1.71.0
 	github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs v1.59.0
 	github.com/aws/aws-sdk-go-v2/service/dynamodb v1.52.6
@@ -19,7 +19,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.91.1
 	github.com/aws/aws-sdk-go-v2/service/ssm v1.67.2
 	github.com/aws/aws-sdk-go-v2/service/sts v1.40.2
-	github.com/aws/smithy-go v1.23.2
+	github.com/aws/smithy-go v1.24.0
 	github.com/casbin/casbin/v2 v2.134.0
 	github.com/fatih/color v1.18.0
 	github.com/go-chi/chi/v5 v5.2.3
@@ -37,8 +37,8 @@ require (
 	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.7.3 // indirect
 	github.com/aws/aws-sdk-go-v2/credentials v1.18.24 // indirect
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.18.13 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/configsources v1.4.14 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.7.14 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/configsources v1.4.15 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.7.15 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/ini v1.8.4 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/v4a v1.4.14 // indirect
 	github.com/aws/aws-sdk-go-v2/service/dynamodbstreams v1.32.4 // indirect
