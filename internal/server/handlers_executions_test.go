@@ -448,6 +448,8 @@ func TestHandleGetExecutionStatus_Success(t *testing.T) {
 				ExecutionID: executionID,
 				Status:      string(constants.ExecutionRunning),
 				CreatedBy:   "user@example.com",
+				Command:     "echo hello",
+				ImageID:     "img-123",
 			}, nil
 		},
 	}

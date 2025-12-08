@@ -572,6 +572,7 @@ func TestExecutionRepository_CreateExecution(t *testing.T) {
 			CreatedBy:   "user@example.com",
 			OwnedBy:     []string{"user@example.com"},
 			Command:     "echo hello",
+			ImageID:     "alpine:latest-abc123",
 			Status:      "RUNNING",
 		}
 
@@ -579,6 +580,11 @@ func TestExecutionRepository_CreateExecution(t *testing.T) {
 
 		require.NoError(t, err)
 		assert.Equal(t, 1, mockClient.PutItemCalls)
+
+		items := mockClient.collectTableItems(tableName)
+		if assert.Len(t, items, 1) {
+			assert.Equal(t, &types.AttributeValueMemberS{Value: execution.ImageID}, items[0]["image_id"])
+		}
 	})
 
 	t.Run("handles duplicate execution ID", func(t *testing.T) {
@@ -655,6 +661,7 @@ func TestExecutionRepository_GetExecution(t *testing.T) {
 			CreatedBy:   "user@example.com",
 			OwnedBy:     []string{"user@example.com"},
 			Command:     "echo hello",
+			ImageID:     "img-123",
 			Status:      "RUNNING",
 		})
 		av, err := attributevalue.MarshalMap(executionItem)
@@ -671,6 +678,7 @@ func TestExecutionRepository_GetExecution(t *testing.T) {
 		assert.Equal(t, "exec-123", result.ExecutionID)
 		assert.Equal(t, "user@example.com", result.CreatedBy)
 		assert.Equal(t, "echo hello", result.Command)
+		assert.Equal(t, "img-123", result.ImageID)
 		assert.Equal(t, 1, mockClient.GetItemCalls)
 	})
 

@@ -312,31 +312,33 @@ func TestGetExecutionStatus(t *testing.T) {
 		{
 			name:        "successful - running execution",
 			executionID: "exec-123",
-			mockExecution: &api.Execution{
-				ExecutionID: "exec-123",
-				CreatedBy:   "user@example.com",
-				OwnedBy:     []string{"user@example.com"},
-				Command:     "echo hello",
-				Status:      string(constants.ExecutionRunning),
-				StartedAt:   now,
-				CompletedAt: nil,
-			},
+                        mockExecution: &api.Execution{
+                                ExecutionID: "exec-123",
+                                CreatedBy:   "user@example.com",
+                                OwnedBy:     []string{"user@example.com"},
+                                Command:     "echo hello",
+                                ImageID:     "img-123",
+                                Status:      string(constants.ExecutionRunning),
+                                StartedAt:   now,
+                                CompletedAt: nil,
+                        },
 			expectErr:      false,
 			expectExitCode: false,
 		},
 		{
 			name:        "successful - completed execution",
 			executionID: "exec-456",
-			mockExecution: &api.Execution{
-				ExecutionID: "exec-456",
-				CreatedBy:   "user@example.com",
-				OwnedBy:     []string{"user@example.com"},
-				Command:     "echo hello",
-				Status:      string(constants.ExecutionSucceeded),
-				StartedAt:   now,
-				CompletedAt: timePtr(now.Add(5 * time.Second)),
-				ExitCode:    exitCode,
-			},
+                        mockExecution: &api.Execution{
+                                ExecutionID: "exec-456",
+                                CreatedBy:   "user@example.com",
+                                OwnedBy:     []string{"user@example.com"},
+                                Command:     "echo hello",
+                                ImageID:     "img-456",
+                                Status:      string(constants.ExecutionSucceeded),
+                                StartedAt:   now,
+                                CompletedAt: timePtr(now.Add(5 * time.Second)),
+                                ExitCode:    exitCode,
+                        },
 			expectErr:      false,
 			expectExitCode: true,
 		},
@@ -378,13 +380,15 @@ func TestGetExecutionStatus(t *testing.T) {
 					assert.Equal(t, tt.expectedErrCode, apperrors.GetErrorCode(err))
 				}
 				assert.Nil(t, resp)
-			} else {
-				require.NoError(t, err)
-				require.NotNil(t, resp)
-				assert.Equal(t, tt.mockExecution.ExecutionID, resp.ExecutionID)
-				assert.Equal(t, tt.mockExecution.Status, resp.Status)
-				assert.Equal(t, tt.mockExecution.StartedAt, resp.StartedAt)
-				assert.Equal(t, tt.mockExecution.CompletedAt, resp.CompletedAt)
+                        } else {
+                                require.NoError(t, err)
+                                require.NotNil(t, resp)
+                                assert.Equal(t, tt.mockExecution.ExecutionID, resp.ExecutionID)
+                                assert.Equal(t, tt.mockExecution.Status, resp.Status)
+                                assert.Equal(t, tt.mockExecution.Command, resp.Command)
+                                assert.Equal(t, tt.mockExecution.ImageID, resp.ImageID)
+                                assert.Equal(t, tt.mockExecution.StartedAt, resp.StartedAt)
+                                assert.Equal(t, tt.mockExecution.CompletedAt, resp.CompletedAt)
 
 				if tt.expectExitCode {
 					require.NotNil(t, resp.ExitCode)

@@ -17,7 +17,9 @@ describe('StatusBar', () => {
         completedAt: null,
         exitCode: null,
         killInitiated: false,
-        onKill: null
+        onKill: null,
+        command: 'echo default',
+        imageId: 'image-default'
     };
 
     it('should display status badge with LOADING when status is null', () => {
@@ -62,6 +64,22 @@ describe('StatusBar', () => {
         });
 
         expect(screen.getByText('N/A')).toBeInTheDocument();
+    });
+
+    it('should display command and image ID when provided', () => {
+        render(StatusBar, {
+            props: {
+                ...defaultProps,
+                status: ExecutionStatus.RUNNING,
+                command: 'echo hello',
+                imageId: 'alpine:latest-abc123'
+            }
+        });
+
+        expect(screen.getByText('Command:')).toBeInTheDocument();
+        expect(screen.getByText('echo hello')).toBeInTheDocument();
+        expect(screen.getByText('Image ID:')).toBeInTheDocument();
+        expect(screen.getByText('alpine:latest-abc123')).toBeInTheDocument();
     });
 
     it('should display ended time when completedAt is set', () => {

@@ -36,6 +36,8 @@ type ExecutionResponse struct {
 type ExecutionStatusResponse struct {
 	ExecutionID string     `json:"execution_id"`
 	Status      string     `json:"status"`
+	Command     string     `json:"command,omitempty"`
+	ImageID     string     `json:"image_id,omitempty"`
 	StartedAt   time.Time  `json:"started_at"`
 	ExitCode    *int       `json:"exit_code"`
 	CompletedAt *time.Time `json:"completed_at,omitempty"`
@@ -53,6 +55,7 @@ type Execution struct {
 	CreatedBy           string     `json:"created_by"`
 	OwnedBy             []string   `json:"owned_by"`
 	Command             string     `json:"command"`
+	ImageID             string     `json:"image_id,omitempty"`
 	StartedAt           time.Time  `json:"started_at"`
 	CompletedAt         *time.Time `json:"completed_at,omitempty"`
 	Status              string     `json:"status"`

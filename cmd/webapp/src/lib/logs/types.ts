@@ -22,6 +22,8 @@ export interface ExecutionMetadata {
     startedAt: string | null;
     completedAt: string | null;
     exitCode: number | null;
+    command: string;
+    imageId: string;
 }
 
 export interface LogsState {

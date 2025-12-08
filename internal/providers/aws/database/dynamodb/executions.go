@@ -53,6 +53,7 @@ type executionItem struct {
 	CreatedBy           string   `dynamodbav:"created_by"`
 	OwnedBy             []string `dynamodbav:"owned_by"`
 	Command             string   `dynamodbav:"command"`
+	ImageID             string   `dynamodbav:"image_id,omitempty"`
 	Status              string   `dynamodbav:"status"`
 	CompletedAt         *int64   `dynamodbav:"completed_at,omitempty"`
 	ExitCode            int      `dynamodbav:"exit_code,omitempty"`
@@ -71,6 +72,7 @@ func toExecutionItem(e *api.Execution) *executionItem {
 		CreatedBy:           e.CreatedBy,
 		OwnedBy:             e.OwnedBy,
 		Command:             e.Command,
+		ImageID:             e.ImageID,
 		Status:              e.Status,
 		ExitCode:            e.ExitCode,
 		DurationSecs:        e.DurationSeconds,
@@ -94,6 +96,7 @@ func (e *executionItem) toAPIExecution() *api.Execution {
 		CreatedBy:           e.CreatedBy,
 		OwnedBy:             e.OwnedBy,
 		Command:             e.Command,
+		ImageID:             e.ImageID,
 		Status:              e.Status,
 		ExitCode:            e.ExitCode,
 		DurationSeconds:     e.DurationSecs,

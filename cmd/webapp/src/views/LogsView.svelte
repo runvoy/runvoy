@@ -121,12 +121,14 @@
                 Enter an execution ID above or provide <code>?execution_id=&lt;id&gt;</code> in the URL
             </p>
         </div>
-    {:else if !$logsError}
+    {:else if !$logsError && $metadata}
         <StatusBar
             status={$metadata?.status ?? null}
             startedAt={$metadata?.startedAt ?? null}
             completedAt={$metadata?.completedAt ?? null}
             exitCode={$metadata?.exitCode ?? null}
+            command={$metadata.command}
+            imageId={$metadata.imageId}
             killInitiated={$killState.killInitiated}
             onKill={canKill ? handleKill : null}
         />
@@ -146,6 +148,10 @@
             onResume={handleResume}
         />
         <LogViewer events={$events} {showMetadata} />
+    {:else if !$logsError}
+        <div class="info-box">
+            <p>Loading execution metadata...</p>
+        </div>
     {/if}
 </article>
 

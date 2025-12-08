@@ -310,6 +310,17 @@ func (c *Client) GetExecutionStatus(ctx context.Context, executionID string) (*a
 	if err != nil {
 		return nil, err
 	}
+
+	if resp.Command == "" || resp.ImageID == "" {
+		missing := []string{}
+		if resp.Command == "" {
+			missing = append(missing, "command")
+		}
+		if resp.ImageID == "" {
+			missing = append(missing, "image_id")
+		}
+		return nil, fmt.Errorf("backend response missing required fields (%s) for execution %s", strings.Join(missing, ","), executionID)
+	}
 	return &resp, nil
 }
 

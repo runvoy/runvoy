@@ -68,6 +68,16 @@ function createMockApiClient(): APIClient {
     } as unknown as APIClient;
 }
 
+function statusResponse(overrides: Record<string, unknown> = {}) {
+    return {
+        execution_id: 'exec-123',
+        status: 'SUCCEEDED',
+        command: 'echo test',
+        image_id: 'img-123',
+        ...overrides
+    };
+}
+
 describe('LogsManager', () => {
     let mockApiClient: APIClient;
     let manager: LogsManager;
@@ -81,6 +91,13 @@ describe('LogsManager', () => {
 
         mockApiClient = createMockApiClient();
         manager = new LogsManager({ apiClient: mockApiClient });
+
+        vi.mocked(mockApiClient.getExecutionStatus).mockResolvedValue({
+            execution_id: 'exec-123',
+            status: 'RUNNING',
+            command: 'echo test',
+            image_id: 'img-123'
+        });
     });
 
     afterEach(() => {
@@ -125,7 +142,9 @@ describe('LogsManager', () => {
             });
             vi.mocked(mockApiClient.getExecutionStatus).mockResolvedValue({
                 execution_id: 'exec-123',
-                status: 'SUCCEEDED'
+                status: 'SUCCEEDED',
+                command: 'echo test',
+                image_id: 'img-123'
             });
 
             const loadPromise = manager.loadExecution('exec-123');
@@ -147,6 +166,8 @@ describe('LogsManager', () => {
             vi.mocked(mockApiClient.getExecutionStatus).mockResolvedValue({
                 execution_id: 'exec-123',
                 status: 'SUCCEEDED',
+                command: 'echo test',
+                image_id: 'img-123',
                 exit_code: 0
             });
 
@@ -168,6 +189,8 @@ describe('LogsManager', () => {
             vi.mocked(mockApiClient.getExecutionStatus).mockResolvedValue({
                 execution_id: 'exec-123',
                 status: 'SUCCEEDED',
+                command: 'echo test',
+                image_id: 'img-123',
                 started_at: '2024-01-01T00:00:00Z',
                 completed_at: '2024-01-01T00:01:00Z',
                 exit_code: 0
@@ -209,7 +232,9 @@ describe('LogsManager', () => {
             });
             vi.mocked(mockApiClient.getExecutionStatus).mockResolvedValue({
                 execution_id: 'any',
-                status: 'SUCCEEDED'
+                status: 'SUCCEEDED',
+                command: 'echo test',
+                image_id: 'img-123'
             });
 
             // Start loading exec-1
@@ -242,7 +267,9 @@ describe('LogsManager', () => {
             });
             vi.mocked(mockApiClient.getExecutionStatus).mockResolvedValue({
                 execution_id: 'exec-1',
-                status: 'SUCCEEDED'
+                status: 'SUCCEEDED',
+                command: 'echo test',
+                image_id: 'img-123'
             });
 
             await manager.loadExecution('exec-1');
@@ -254,7 +281,9 @@ describe('LogsManager', () => {
             });
             vi.mocked(mockApiClient.getExecutionStatus).mockResolvedValue({
                 execution_id: 'exec-2',
-                status: 'FAILED'
+                status: 'FAILED',
+                command: 'echo fail',
+                image_id: 'img-456'
             });
 
             await manager.loadExecution('exec-2');
@@ -270,7 +299,9 @@ describe('LogsManager', () => {
             });
             vi.mocked(mockApiClient.getExecutionStatus).mockResolvedValue({
                 execution_id: 'exec-123',
-                status: 'SUCCEEDED'
+                status: 'SUCCEEDED',
+                command: 'echo test',
+                image_id: 'img-123'
             });
 
             await manager.loadExecution('exec-123');
@@ -291,9 +322,8 @@ describe('LogsManager', () => {
 
             await manager.loadExecution('exec-123');
 
-            const metadata = get(manager.stores.metadata);
-            // Should use earliest timestamp (1000)
-            expect(metadata?.startedAt).toBe(new Date(1000).toISOString());
+            expect(get(manager.stores.metadata)).toBeNull();
+            expect(get(manager.stores.error)).toBe('Not found');
         });
     });
 
@@ -406,8 +436,7 @@ describe('LogsManager', () => {
                 status: 'SUCCEEDED'
             });
             vi.mocked(mockApiClient.getExecutionStatus).mockResolvedValue({
-                execution_id: 'exec-123',
-                status: 'SUCCEEDED'
+                ...statusResponse()
             });
 
             await manager.loadExecution('exec-123');
@@ -447,8 +476,7 @@ describe('LogsManager', () => {
                 status: 'SUCCEEDED'
             });
             vi.mocked(mockApiClient.getExecutionStatus).mockResolvedValue({
-                execution_id: 'exec-123',
-                status: 'SUCCEEDED'
+                ...statusResponse()
             });
 
             await manager.loadExecution('exec-123');
@@ -471,8 +499,7 @@ describe('LogsManager', () => {
                 status: 'SUCCEEDED'
             });
             vi.mocked(mockApiClient.getExecutionStatus).mockResolvedValue({
-                execution_id: 'exec-123',
-                status: 'SUCCEEDED'
+                ...statusResponse()
             });
 
             await manager.loadExecution('exec-123');
@@ -507,9 +534,9 @@ describe('LogsManager', () => {
 
             await manager.loadExecution('exec-123');
 
-            // Should still complete and use available data
-            expect(get(manager.stores.phase)).toBe('completed');
-            expect(get(manager.stores.metadata)?.status).toBe('SUCCEEDED');
+            expect(get(manager.stores.error)).toBe('Not found');
+            expect(get(manager.stores.phase)).toBe('idle');
+            expect(get(manager.stores.metadata)).toBeNull();
         });
     });
 });

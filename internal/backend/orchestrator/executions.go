@@ -95,6 +95,11 @@ func (s *Service) RunCommand(
 		return nil, apperrors.ErrBadRequest("command is required", nil)
 	}
 
+	// Always pass and store the resolved image ID when available
+	if resolvedImage != nil && resolvedImage.ImageID != "" {
+		req.Image = resolvedImage.ImageID
+	}
+
 	secretEnvVars, err := s.resolveSecretsForExecution(ctx, req.Secrets)
 	if err != nil {
 		return nil, err
@@ -115,9 +120,6 @@ func (s *Service) RunCommand(
 	websocketURL := s.wsManager.GenerateWebSocketURL(ctx, executionID, &userEmail, clientIPAtCreationTime)
 
 	imageID := req.Image
-	if resolvedImage != nil {
-		imageID = resolvedImage.ImageID
-	}
 
 	return &api.ExecutionResponse{
 		ExecutionID:  executionID,
@@ -148,6 +150,7 @@ func (s *Service) recordExecution(
 		CreatedBy:           userEmail,
 		OwnedBy:             []string{userEmail},
 		Command:             req.Command,
+		ImageID:             req.Image,
 		StartedAt:           startedAt,
 		Status:              string(status),
 		CreatedByRequestID:  requestID,
@@ -400,9 +403,25 @@ func (s *Service) GetExecutionStatus(ctx context.Context, executionID string) (*
 		exitCodePtr = &ec
 	}
 
+	if execution.Command == "" || execution.ImageID == "" {
+		missing := []string{}
+		if execution.Command == "" {
+			missing = append(missing, "command")
+		}
+		if execution.ImageID == "" {
+			missing = append(missing, "image_id")
+		}
+		return nil, apperrors.ErrInternalError(
+			"execution is missing required metadata",
+			fmt.Errorf("missing %s for execution %s", strings.Join(missing, ","), executionID),
+		)
+	}
+
 	return &api.ExecutionStatusResponse{
 		ExecutionID: execution.ExecutionID,
 		Status:      execution.Status,
+		Command:     execution.Command,
+		ImageID:     execution.ImageID,
 		ExitCode:    exitCodePtr,
 		StartedAt:   execution.StartedAt,
 		CompletedAt: execution.CompletedAt,

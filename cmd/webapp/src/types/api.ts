@@ -31,6 +31,8 @@ export interface LogsResponse {
 export interface ExecutionStatusResponse {
     execution_id: string;
     status: ExecutionStatusValue;
+    command: string;
+    image_id: string;
     started_at?: string;
     completed_at?: string;
     exit_code?: number;

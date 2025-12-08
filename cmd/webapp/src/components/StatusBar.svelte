@@ -8,6 +8,8 @@
         exitCode: number | null;
         killInitiated?: boolean;
         onKill?: (() => void) | null;
+        command: string;
+        imageId: string;
     }
 
     const {
@@ -16,7 +18,9 @@
         completedAt = null,
         exitCode = null,
         killInitiated = false,
-        onKill = null
+        onKill = null,
+        command,
+        imageId
     }: Props = $props();
 
     let isKilling = $state(false);
@@ -69,6 +73,14 @@
     <div class="status-item">
         <strong>Status:</strong>
         <span class="status-badge {statusClass}">{status || FrontendStatus.LOADING}</span>
+    </div>
+    <div class="status-item">
+        <strong>Command:</strong>
+        <code class="meta-chip">{command}</code>
+    </div>
+    <div class="status-item">
+        <strong>Image ID:</strong>
+        <code class="meta-chip">{imageId}</code>
     </div>
     <div class="status-item">
         <strong>Started:</strong>
@@ -156,6 +168,18 @@
         padding: 0.2em 0.4em;
         background-color: var(--pico-code-background-color);
         border-radius: 0.25rem;
+    }
+
+    .meta-chip {
+        font-family: 'Monaco', 'Courier New', monospace;
+        background-color: var(--pico-code-background-color);
+        padding: 0.2em 0.4em;
+        border-radius: 0.25rem;
+        display: inline-block;
+        max-width: 24ch;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
     }
 
     .status-item.actions {

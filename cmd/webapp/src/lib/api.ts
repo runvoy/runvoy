@@ -64,7 +64,11 @@ export class APIClient {
             throw error;
         }
 
-        return response.json();
+        const data = (await response.json()) as ExecutionStatusResponse;
+        if (!data.command || !data.image_id) {
+            throw new Error('Invalid API response: missing command or image_id');
+        }
+        return data;
     }
 
     /**

@@ -59,8 +59,14 @@ func (s *StatusService) DisplayStatus(ctx context.Context, executionID string) e
 		return fmt.Errorf("failed to get status: %w", err)
 	}
 
+	if status.Command == "" || status.ImageID == "" {
+		return fmt.Errorf("backend did not return required status metadata (command/image) for execution %s", executionID)
+	}
+
 	s.output.KeyValue("Execution ID", status.ExecutionID)
 	s.output.KeyValue("Status", status.Status)
+	s.output.KeyValue("Command", status.Command)
+	s.output.KeyValue("Image ID", status.ImageID)
 	s.output.KeyValue("Started At", status.StartedAt.Format(time.DateTime))
 	s.output.KeyValue("Started At (Unix)", strconv.FormatInt(status.StartedAt.Unix(), 10))
 	if status.CompletedAt != nil {

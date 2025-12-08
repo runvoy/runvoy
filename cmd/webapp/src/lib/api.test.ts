@@ -157,6 +157,8 @@ describe('APIClient', () => {
             const mockResponse = {
                 execution_id: executionId,
                 status: 'SUCCEEDED',
+                command: 'echo test',
+                image_id: 'img-123',
                 started_at: '2025-01-01T00:00:00Z',
                 completed_at: '2025-01-01T00:05:00Z',
                 exit_code: 0
