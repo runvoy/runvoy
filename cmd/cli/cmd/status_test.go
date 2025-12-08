@@ -156,6 +156,8 @@ func TestStatusService_DisplayStatus(t *testing.T) {
 					return &api.ExecutionStatusResponse{
 						ExecutionID: "exec-123",
 						Status:      "running",
+						Command:     "echo hello",
+						ImageID:     "alpine:latest-abc123",
 						StartedAt:   now,
 						CompletedAt: nil,
 						ExitCode:    nil,
@@ -166,15 +168,23 @@ func TestStatusService_DisplayStatus(t *testing.T) {
 			verifyOutput: func(t *testing.T, m *mockOutputInterface) {
 				require.NotEmpty(t, m.calls)
 				hasKeyValue := false
+				var commandShown, imageShown bool
 				for _, call := range m.calls {
 					if call.method == "KeyValue" && len(call.args) >= 2 {
 						if call.args[0] == "Execution ID" && call.args[1] == "exec-123" {
 							hasKeyValue = true
-							break
+						}
+						if call.args[0] == "Command" && call.args[1] == "echo hello" {
+							commandShown = true
+						}
+						if call.args[0] == "Image ID" && call.args[1] == "alpine:latest-abc123" {
+							imageShown = true
 						}
 					}
 				}
 				assert.True(t, hasKeyValue, "Expected KeyValue call with Execution ID")
+				assert.True(t, commandShown, "Expected Command to be displayed")
+				assert.True(t, imageShown, "Expected Image ID to be displayed")
 			},
 		},
 		{
@@ -188,6 +198,8 @@ func TestStatusService_DisplayStatus(t *testing.T) {
 					return &api.ExecutionStatusResponse{
 						ExecutionID: "exec-456",
 						Status:      "completed",
+						Command:     "sleep 10",
+						ImageID:     "ubuntu:latest-123",
 						StartedAt:   started,
 						CompletedAt: &completed,
 						ExitCode:    &exitCode,

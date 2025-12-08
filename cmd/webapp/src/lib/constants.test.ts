@@ -59,8 +59,9 @@ describe('constants', () => {
         });
 
         it('should return false for unknown statuses', () => {
-            expect(isTerminalStatus('UNKNOWN_STATUS')).toBe(false);
-            expect(isTerminalStatus('')).toBe(false);
+            // Type assertion needed for invalid status values in tests
+            expect(isTerminalStatus('UNKNOWN_STATUS' as any)).toBe(false);
+            expect(isTerminalStatus('' as any)).toBe(false);
         });
     });
 
@@ -82,7 +83,8 @@ describe('constants', () => {
 
         it('should return false for null or empty status', () => {
             expect(isKillableStatus(null)).toBe(false);
-            expect(isKillableStatus('')).toBe(false);
+            // Type assertion needed for invalid status value in test
+            expect(isKillableStatus('' as any)).toBe(false);
         });
 
         it('should return false for frontend-only LOADING status', () => {

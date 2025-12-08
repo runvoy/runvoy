@@ -60,6 +60,7 @@ func TestExecutionResponseJSON(t *testing.T) {
 			ExecutionID:  "exec-123",
 			LogURL:       "https://example.com/logs",
 			Status:       "running",
+			Command:      "echo hello",
 			ImageID:      "image-123",
 			WebSocketURL: "wss://example.com/logs/exec-123",
 		}
@@ -74,6 +75,7 @@ func TestExecutionResponseJSON(t *testing.T) {
 		assert.Equal(t, resp.ExecutionID, unmarshaled.ExecutionID)
 		assert.Equal(t, resp.LogURL, unmarshaled.LogURL)
 		assert.Equal(t, resp.Status, unmarshaled.Status)
+		assert.Equal(t, resp.Command, unmarshaled.Command)
 		assert.Equal(t, resp.ImageID, unmarshaled.ImageID)
 		assert.Equal(t, resp.WebSocketURL, unmarshaled.WebSocketURL)
 	})
@@ -82,6 +84,8 @@ func TestExecutionResponseJSON(t *testing.T) {
 		resp := ExecutionResponse{
 			ExecutionID: "exec-123",
 			Status:      "running",
+			Command:     "echo hello",
+			ImageID:     "image-123",
 		}
 
 		data, err := json.Marshal(resp)
@@ -98,6 +102,8 @@ func TestExecutionStatusResponseJSON(t *testing.T) {
 		resp := ExecutionStatusResponse{
 			ExecutionID: "exec-123",
 			Status:      "completed",
+			Command:     "echo hello",
+			ImageID:     "alpine:latest-abc123",
 			StartedAt:   now,
 			ExitCode:    &exitCode,
 			CompletedAt: &now,
@@ -112,6 +118,8 @@ func TestExecutionStatusResponseJSON(t *testing.T) {
 
 		assert.Equal(t, resp.ExecutionID, unmarshaled.ExecutionID)
 		assert.Equal(t, resp.Status, unmarshaled.Status)
+		assert.Equal(t, resp.Command, unmarshaled.Command)
+		assert.Equal(t, resp.ImageID, unmarshaled.ImageID)
 		assert.NotNil(t, unmarshaled.ExitCode)
 		assert.Equal(t, *resp.ExitCode, *unmarshaled.ExitCode)
 		assert.NotNil(t, unmarshaled.CompletedAt)

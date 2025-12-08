@@ -317,6 +317,7 @@ func TestGetExecutionStatus(t *testing.T) {
 				CreatedBy:   "user@example.com",
 				OwnedBy:     []string{"user@example.com"},
 				Command:     "echo hello",
+				ImageID:     "img-123",
 				Status:      string(constants.ExecutionRunning),
 				StartedAt:   now,
 				CompletedAt: nil,
@@ -332,6 +333,7 @@ func TestGetExecutionStatus(t *testing.T) {
 				CreatedBy:   "user@example.com",
 				OwnedBy:     []string{"user@example.com"},
 				Command:     "echo hello",
+				ImageID:     "img-456",
 				Status:      string(constants.ExecutionSucceeded),
 				StartedAt:   now,
 				CompletedAt: timePtr(now.Add(5 * time.Second)),
@@ -383,6 +385,8 @@ func TestGetExecutionStatus(t *testing.T) {
 				require.NotNil(t, resp)
 				assert.Equal(t, tt.mockExecution.ExecutionID, resp.ExecutionID)
 				assert.Equal(t, tt.mockExecution.Status, resp.Status)
+				assert.Equal(t, tt.mockExecution.Command, resp.Command)
+				assert.Equal(t, tt.mockExecution.ImageID, resp.ImageID)
 				assert.Equal(t, tt.mockExecution.StartedAt, resp.StartedAt)
 				assert.Equal(t, tt.mockExecution.CompletedAt, resp.CompletedAt)
 

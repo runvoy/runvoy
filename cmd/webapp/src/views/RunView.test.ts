@@ -128,6 +128,8 @@ describe('RunView', () => {
         const mockResponse: RunCommandResponse = {
             execution_id: 'exec-123',
             status: 'RUNNING',
+            command: 'echo test',
+            image_id: 'alpine:latest',
             websocket_url: 'wss://example.com/logs'
         };
 
@@ -158,7 +160,9 @@ describe('RunView', () => {
     it('should trim command before submitting', async () => {
         const mockResponse: RunCommandResponse = {
             execution_id: 'exec-123',
-            status: 'RUNNING'
+            status: 'RUNNING',
+            command: 'echo test',
+            image_id: 'alpine:latest'
         };
 
         vi.mocked(mockApiClient.runCommand as any).mockResolvedValue(mockResponse);
@@ -185,7 +189,9 @@ describe('RunView', () => {
     it('should include image in payload when provided', async () => {
         const mockResponse: RunCommandResponse = {
             execution_id: 'exec-123',
-            status: 'RUNNING'
+            status: 'RUNNING',
+            command: 'echo test',
+            image_id: 'alpine:latest'
         };
 
         vi.mocked(mockApiClient.runCommand as any).mockResolvedValue(mockResponse);
@@ -220,7 +226,9 @@ describe('RunView', () => {
     it('should include git repository in payload when provided', async () => {
         const mockResponse: RunCommandResponse = {
             execution_id: 'exec-123',
-            status: 'RUNNING'
+            status: 'RUNNING',
+            command: 'echo test',
+            image_id: 'alpine:latest'
         };
 
         vi.mocked(mockApiClient.runCommand as any).mockResolvedValue(mockResponse);
@@ -255,7 +263,9 @@ describe('RunView', () => {
     it('should include git ref and path when provided', async () => {
         const mockResponse: RunCommandResponse = {
             execution_id: 'exec-123',
-            status: 'RUNNING'
+            status: 'RUNNING',
+            command: 'echo test',
+            image_id: 'alpine:latest'
         };
 
         vi.mocked(mockApiClient.runCommand as any).mockResolvedValue(mockResponse);
@@ -344,7 +354,9 @@ describe('RunView', () => {
     it('should include environment variables in payload', async () => {
         const mockResponse: RunCommandResponse = {
             execution_id: 'exec-123',
-            status: 'RUNNING'
+            status: 'RUNNING',
+            command: 'echo test',
+            image_id: 'alpine:latest'
         };
 
         vi.mocked(mockApiClient.runCommand as any).mockResolvedValue(mockResponse);
@@ -385,7 +397,9 @@ describe('RunView', () => {
     it('should not include empty environment variables in payload', async () => {
         const mockResponse: RunCommandResponse = {
             execution_id: 'exec-123',
-            status: 'RUNNING'
+            status: 'RUNNING',
+            command: 'echo test',
+            image_id: 'alpine:latest'
         };
 
         vi.mocked(mockApiClient.runCommand as any).mockResolvedValue(mockResponse);
@@ -463,7 +477,9 @@ describe('RunView', () => {
 
         resolveCommand!({
             execution_id: 'exec-123',
-            status: 'RUNNING'
+            status: 'RUNNING',
+            command: 'echo test',
+            image_id: 'alpine:latest'
         });
 
         await waitFor(() => {

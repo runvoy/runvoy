@@ -21,7 +21,9 @@ describe('LogsView', () => {
             getLogs: fetchLogsSpy,
             getExecutionStatus: vi.fn().mockResolvedValue({
                 execution_id: 'exec-123',
-                status: 'SUCCEEDED'
+                status: 'SUCCEEDED',
+                command: 'echo test',
+                image_id: 'img-123'
             }),
             killExecution: vi.fn().mockResolvedValue({
                 execution_id: 'exec-123',
@@ -85,6 +87,8 @@ describe('LogsView', () => {
             const getExecutionStatusSpy = vi.fn().mockResolvedValue({
                 execution_id: 'exec-123',
                 status: 'SUCCEEDED',
+                command: 'echo test',
+                image_id: 'img-123',
                 started_at: '2024-01-01T00:00:00Z'
             });
 
@@ -115,7 +119,9 @@ describe('LogsView', () => {
         it('should not fetch status when currentExecutionId is null', async () => {
             const getExecutionStatusSpy = vi.fn().mockResolvedValue({
                 execution_id: 'exec-123',
-                status: 'SUCCEEDED'
+                status: 'SUCCEEDED',
+                command: 'echo test',
+                image_id: 'img-123'
             });
 
             mockApiClient.getExecutionStatus = getExecutionStatusSpy;

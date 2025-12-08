@@ -64,7 +64,8 @@ export class APIClient {
             throw error;
         }
 
-        return response.json();
+        const data = (await response.json()) as RunCommandResponse;
+        return data;
     }
 
     /**

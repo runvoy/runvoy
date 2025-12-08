@@ -25,18 +25,20 @@ export const TERMINAL_STATUSES = [
     ExecutionStatus.STOPPED
 ] as const;
 
+import type { ExecutionStatusValue } from '../types/status';
+
 /**
  * Checks if an execution status is terminal (completed)
  */
-export function isTerminalStatus(status: string): boolean {
-    return (TERMINAL_STATUSES as readonly string[]).includes(status);
+export function isTerminalStatus(status: ExecutionStatusValue): boolean {
+    return (TERMINAL_STATUSES as readonly ExecutionStatusValue[]).includes(status);
 }
 
 /**
  * Checks if an execution with the given status can be killed.
  * An execution is killable only if it's actively running (STARTING or RUNNING).
  */
-export function isKillableStatus(status: string | null): boolean {
+export function isKillableStatus(status: ExecutionStatusValue | null): boolean {
     if (!status) return false;
     return status === ExecutionStatus.STARTING || status === ExecutionStatus.RUNNING;
 }

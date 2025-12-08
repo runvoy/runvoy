@@ -310,6 +310,7 @@ func (c *Client) GetExecutionStatus(ctx context.Context, executionID string) (*a
 	if err != nil {
 		return nil, err
 	}
+
 	return &resp, nil
 }
 

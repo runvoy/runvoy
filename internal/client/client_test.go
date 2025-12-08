@@ -439,6 +439,8 @@ func TestClient_RunCommand(t *testing.T) {
 				ExecutionID:  "exec-123",
 				LogURL:       "https://example.com/logs/exec-123",
 				Status:       "RUNNING",
+				Command:      "echo hello",
+				ImageID:      "alpine:latest",
 				WebSocketURL: "wss://example.com/ws/exec-123",
 			})
 		}))
@@ -507,6 +509,8 @@ func TestClient_GetExecutionStatus(t *testing.T) {
 			_ = json.NewEncoder(w).Encode(api.ExecutionStatusResponse{
 				ExecutionID: "exec-123",
 				Status:      "SUCCEEDED",
+				Command:     "echo test",
+				ImageID:     "img-123",
 				ExitCode:    intPtr(0),
 			})
 		}))

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"math"
 	"sort"
+	"strings"
 	"sync"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -176,6 +177,18 @@ func (m *MockDynamoDBClient) Query(
 		items = m.queryMainTable(tableName, params.ExpressionAttributeValues)
 	}
 
+	// Apply FilterExpression if present
+	if params.FilterExpression != nil &&
+		params.ExpressionAttributeNames != nil &&
+		params.ExpressionAttributeValues != nil {
+		items = m.applyFilterExpression(
+			items,
+			*params.FilterExpression,
+			params.ExpressionAttributeNames,
+			params.ExpressionAttributeValues,
+		)
+	}
+
 	if params.ScanIndexForward != nil && len(items) > 1 {
 		ascending := aws.ToBool(params.ScanIndexForward)
 		sort.SliceStable(items, func(i, j int) bool {
@@ -221,6 +234,101 @@ func (m *MockDynamoDBClient) queryIndex(
 		return indexItems
 	}
 	return nil
+}
+
+// applyFilterExpression applies a FilterExpression to filter items.
+// This is a simplified implementation that handles common patterns like:
+// "attribute = :value OR other_attribute = :value".
+func (m *MockDynamoDBClient) applyFilterExpression(
+	items []map[string]types.AttributeValue,
+	filterExpr string,
+	expressionAttributeNames map[string]string,
+	expressionAttributeValues map[string]types.AttributeValue,
+) []map[string]types.AttributeValue {
+	if len(items) == 0 {
+		return items
+	}
+
+	var filtered []map[string]types.AttributeValue
+
+	// Handle OR expressions like "created_by_request_id = :request_id OR modified_by_request_id = :request_id"
+	if strings.Contains(filterExpr, " OR ") {
+		parts := strings.Split(filterExpr, " OR ")
+		for _, item := range items {
+			matches := false
+			for _, part := range parts {
+				part = strings.TrimSpace(part)
+				if m.matchesFilterCondition(item, part, expressionAttributeNames, expressionAttributeValues) {
+					matches = true
+					break
+				}
+			}
+			if matches {
+				filtered = append(filtered, item)
+			}
+		}
+		return filtered
+	}
+
+	// Handle simple equality expressions like "attribute = :value"
+	for _, item := range items {
+		if m.matchesFilterCondition(item, filterExpr, expressionAttributeNames, expressionAttributeValues) {
+			filtered = append(filtered, item)
+		}
+	}
+
+	return filtered
+}
+
+// matchesFilterCondition checks if an item matches a filter condition.
+// Supports patterns like "attribute_name = :value" or "#name = :value".
+func (m *MockDynamoDBClient) matchesFilterCondition(
+	item map[string]types.AttributeValue,
+	condition string,
+	expressionAttributeNames map[string]string,
+	expressionAttributeValues map[string]types.AttributeValue,
+) bool {
+	// Parse condition like "attribute_name = :value" or "#name = :value"
+	const expectedParts = 2
+	parts := strings.Split(condition, " = ")
+	if len(parts) != expectedParts {
+		return false
+	}
+
+	attrName := strings.TrimSpace(parts[0])
+	valueName := strings.TrimSpace(parts[1])
+
+	// Resolve attribute name (handle #name -> actual attribute name)
+	actualAttrName := attrName
+	if strings.HasPrefix(attrName, "#") {
+		if resolved, ok := expressionAttributeNames[attrName]; ok {
+			actualAttrName = resolved
+		} else {
+			return false
+		}
+	}
+
+	// Get value from expression attribute values
+	valueAttr, ok := expressionAttributeValues[valueName]
+	if !ok {
+		return false
+	}
+
+	// Get attribute value from item
+	itemAttr, ok := item[actualAttrName]
+	if !ok {
+		return false
+	}
+
+	// Compare values
+	return m.attributeValuesEqual(itemAttr, valueAttr)
+}
+
+// attributeValuesEqual compares two DynamoDB attribute values for equality.
+func (m *MockDynamoDBClient) attributeValuesEqual(a, b types.AttributeValue) bool {
+	aStr := getStringValue(a)
+	bStr := getStringValue(b)
+	return aStr != "" && aStr == bStr
 }
 
 // queryMainTable queries items from the main table.

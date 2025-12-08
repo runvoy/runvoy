@@ -11,7 +11,9 @@ import { writable, derived, type Readable, type Writable } from 'svelte/store';
 import type { ConnectionStatus, ExecutionMetadata, ExecutionPhase } from './types';
 import type { LogEvent } from '../../types/logs';
 import type APIClient from '../api';
-import type { ApiError, LogsResponse } from '../../types/api';
+import type { ApiError, ExecutionStatusResponse, LogsResponse } from '../../types/api';
+import { ExecutionStatus } from '../constants';
+import type { ExecutionStatusValue } from '../../types/status';
 
 export interface LogsManagerConfig {
     apiClient: APIClient;
@@ -84,29 +86,28 @@ export class LogsManager {
         this.currentExecutionId = executionId;
 
         this._phase.set('loading');
-        this._metadata.set({
-            executionId,
-            status: null,
-            startedAt: null,
-            completedAt: null,
-            exitCode: null
-        });
+        this._metadata.set(null);
 
         try {
-            const response = await this.apiClient.getLogs(executionId);
+            const [status, response] = await Promise.all([
+                this.apiClient.getExecutionStatus(executionId),
+                this.apiClient.getLogs(executionId)
+            ]);
 
             // Verify we're still interested in this execution
             if (this.currentExecutionId !== executionId) return;
 
+            this.setMetadataFromStatus(executionId, status);
+
             if (response.websocket_url) {
                 // Running execution → stream via WebSocket
                 this._metadata.update((m) =>
-                    m ? { ...m, status: response.status || 'RUNNING' } : m
+                    m ? { ...m, status: response.status || status.status } : m
                 );
                 this.connectWebSocket(response.websocket_url);
             } else {
                 // Terminal execution → display historical logs
-                await this.handleTerminalExecution(executionId, response);
+                await this.handleTerminalExecution(executionId, response, status);
             }
         } catch (err) {
             if (this.currentExecutionId !== executionId) return;
@@ -117,7 +118,7 @@ export class LogsManager {
     /**
      * Update the execution status (used when kill is initiated externally)
      */
-    setStatus(status: string): void {
+    setStatus(status: ExecutionStatusValue): void {
         this._metadata.update((m) => (m ? { ...m, status } : m));
     }
 
@@ -266,8 +267,8 @@ export class LogsManager {
 
                 // Update status to RUNNING on first log
                 this._metadata.update((m) => {
-                    if (m && (m.status === 'STARTING' || m.status === null)) {
-                        return { ...m, status: 'RUNNING' };
+                    if (m && (m.status === ExecutionStatus.STARTING || m.status === null)) {
+                        return { ...m, status: ExecutionStatus.RUNNING };
                     }
                     return m;
                 });
@@ -290,21 +291,23 @@ export class LogsManager {
                           status: status.status,
                           startedAt: status.started_at ?? m.startedAt,
                           completedAt: status.completed_at ?? null,
-                          exitCode: status.exit_code ?? null
+                          exitCode: status.exit_code ?? null,
+                          command: status.command,
+                          imageId: status.image_id
                       }
                     : m
             );
 
             this._phase.set('completed');
-        } catch {
-            // Non-fatal: we know it completed, just missing details
-            this._phase.set('completed');
+        } catch (err) {
+            this.setError(err);
         }
     }
 
     private async handleTerminalExecution(
         executionId: string,
-        response: LogsResponse
+        response: LogsResponse,
+        status: ExecutionStatusResponse
     ): Promise<void> {
         if (!response.status) {
             this._error.set('Invalid API response: missing execution status');
@@ -318,30 +321,25 @@ export class LogsManager {
         }));
         this._events.set(events);
 
-        // Fetch full status for metadata
-        try {
-            const status = await this.apiClient.getExecutionStatus(executionId);
-            this._metadata.set({
-                executionId,
-                status: status.status,
-                startedAt: status.started_at ?? this.deriveStartedAt(events),
-                completedAt: status.completed_at ?? null,
-                exitCode: status.exit_code ?? null
-            });
-        } catch {
-            // Non-fatal: use what we have from logs response
-            this._metadata.update((m) =>
-                m
-                    ? {
-                          ...m,
-                          status: response.status,
-                          startedAt: this.deriveStartedAt(events)
-                      }
-                    : m
-            );
-        }
+        this.setMetadataFromStatus(executionId, status, events);
 
         this._phase.set('completed');
+    }
+
+    private setMetadataFromStatus(
+        executionId: string,
+        status: ExecutionStatusResponse,
+        events?: LogEvent[]
+    ): void {
+        this._metadata.set({
+            executionId,
+            status: status.status,
+            startedAt: status.started_at ?? (events ? this.deriveStartedAt(events) : null),
+            completedAt: status.completed_at ?? null,
+            exitCode: status.exit_code ?? null,
+            command: status.command,
+            imageId: status.image_id
+        });
     }
 
     private deriveStartedAt(events: LogEvent[]): string | null {

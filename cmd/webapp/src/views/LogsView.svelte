@@ -11,7 +11,7 @@
     import { executionId as executionIdStore } from '../stores/execution';
     import { LogsManager } from '../lib/logs';
     import { createExecutionKiller } from '../lib/execution';
-    import { isKillableStatus } from '../lib/constants';
+    import { ExecutionStatus, isKillableStatus } from '../lib/constants';
     import type APIClient from '../lib/api';
 
     interface Props {
@@ -59,7 +59,7 @@
 
         const success = await killer.kill(currentExecutionId);
         if (success) {
-            logsManager.setStatus('TERMINATING');
+            logsManager.setStatus(ExecutionStatus.TERMINATING);
 
             // If not streaming, refresh to get updated status
             if ($connection === 'disconnected') {
@@ -121,12 +121,14 @@
                 Enter an execution ID above or provide <code>?execution_id=&lt;id&gt;</code> in the URL
             </p>
         </div>
-    {:else if !$logsError}
+    {:else if !$logsError && $metadata}
         <StatusBar
             status={$metadata?.status ?? null}
             startedAt={$metadata?.startedAt ?? null}
             completedAt={$metadata?.completedAt ?? null}
             exitCode={$metadata?.exitCode ?? null}
+            command={$metadata.command}
+            imageId={$metadata.imageId}
             killInitiated={$killState.killInitiated}
             onKill={canKill ? handleKill : null}
         />
@@ -146,6 +148,10 @@
             onResume={handleResume}
         />
         <LogViewer events={$events} {showMetadata} />
+    {:else if !$logsError}
+        <div class="info-box">
+            <p>Loading execution metadata...</p>
+        </div>
     {/if}
 </article>
 

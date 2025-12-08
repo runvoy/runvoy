@@ -95,6 +95,11 @@ func (s *Service) RunCommand(
 		return nil, apperrors.ErrBadRequest("command is required", nil)
 	}
 
+	// Always pass and store the resolved image ID when available
+	if resolvedImage != nil && resolvedImage.ImageID != "" {
+		req.Image = resolvedImage.ImageID
+	}
+
 	secretEnvVars, err := s.resolveSecretsForExecution(ctx, req.Secrets)
 	if err != nil {
 		return nil, err
@@ -115,13 +120,11 @@ func (s *Service) RunCommand(
 	websocketURL := s.wsManager.GenerateWebSocketURL(ctx, executionID, &userEmail, clientIPAtCreationTime)
 
 	imageID := req.Image
-	if resolvedImage != nil {
-		imageID = resolvedImage.ImageID
-	}
 
 	return &api.ExecutionResponse{
 		ExecutionID:  executionID,
 		Status:       string(constants.ExecutionStarting),
+		Command:      req.Command,
 		ImageID:      imageID,
 		WebSocketURL: websocketURL,
 	}, nil
@@ -148,6 +151,7 @@ func (s *Service) recordExecution(
 		CreatedBy:           userEmail,
 		OwnedBy:             []string{userEmail},
 		Command:             req.Command,
+		ImageID:             req.Image,
 		StartedAt:           startedAt,
 		Status:              string(status),
 		CreatedByRequestID:  requestID,
@@ -403,6 +407,8 @@ func (s *Service) GetExecutionStatus(ctx context.Context, executionID string) (*
 	return &api.ExecutionStatusResponse{
 		ExecutionID: execution.ExecutionID,
 		Status:      execution.Status,
+		Command:     execution.Command,
+		ImageID:     execution.ImageID,
 		ExitCode:    exitCodePtr,
 		StartedAt:   execution.StartedAt,
 		CompletedAt: execution.CompletedAt,
