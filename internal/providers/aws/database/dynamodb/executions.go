@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"math"
 	"strconv"
 	"strings"
 	"time"
@@ -335,15 +336,19 @@ func processQueryResults(
 // buildQueryLimit calculates a safe int32 limit value for DynamoDB queries.
 // Multiplies the limit by 2 to account for filtering, with overflow protection.
 func buildQueryLimit(limit int) int32 {
-	const multiplier = 2
-	const maxInt32 = 2147483647
+	const multiplier int64 = 2
 
-	calculated := int64(limit) * multiplier
-	if calculated > maxInt32 {
-		return int32(maxInt32)
+	adjusted := int64(limit) * multiplier
+	switch {
+	case adjusted <= 0:
+		return 0
+	case adjusted > math.MaxInt32:
+		return math.MaxInt32
+	case adjusted < math.MinInt32:
+		return math.MinInt32
+	default:
+		return int32(adjusted)
 	}
-
-	return int32(calculated)
 }
 
 // buildQueryInput constructs a DynamoDB QueryInput for listing executions.

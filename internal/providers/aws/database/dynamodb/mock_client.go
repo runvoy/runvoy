@@ -362,9 +362,19 @@ func (m *MockDynamoDBClient) extractKeyValue(
 		return ""
 	}
 
-	// For execution_id-index, look for :execution_id in ExpressionAttributeValues
-	if execIDVal, ok := expressionAttributeValues[":execution_id"]; ok {
-		return getStringValue(execIDVal)
+	// Prefer well-known partition key parameters before falling back.
+	keyCandidates := []string{
+		":execution_id",
+		":all",
+		":user",
+	}
+
+	for _, candidate := range keyCandidates {
+		if val, ok := expressionAttributeValues[candidate]; ok {
+			if keyValue := getStringValue(val); keyValue != "" {
+				return keyValue
+			}
+		}
 	}
 
 	// Try to find any string value as key
@@ -590,12 +600,14 @@ func getStringValue(av types.AttributeValue) string {
 
 // safeInt32Count safely converts an int count to int32, clamping to max int32 if necessary.
 func safeInt32Count(count int) int32 {
-	const maxInt32 = int32(math.MaxInt32)
-	if count > int(maxInt32) {
-		return maxInt32
+	switch {
+	case count <= 0:
+		return 0
+	case count > math.MaxInt32:
+		return math.MaxInt32
+	default:
+		return int32(count)
 	}
-
-	return int32(count)
 }
 
 // collectTableItems collects all items from a table for Query/Scan operations.
