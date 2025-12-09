@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { onDestroy } from 'svelte';
+    import { onDestroy, untrack } from 'svelte';
     import { goto } from '$app/navigation';
 
     import ExecutionSelector from '../components/ExecutionSelector.svelte';
@@ -24,9 +24,9 @@
     // UI-only state
     let showMetadata = $state(true);
 
-    // Create manager and killer instances
-    const logsManager = new LogsManager({ apiClient });
-    const killer = createExecutionKiller(apiClient);
+    // Create manager and killer instances (apiClient is stable, capture initial value)
+    const logsManager = new LogsManager({ apiClient: untrack(() => apiClient) });
+    const killer = createExecutionKiller(untrack(() => apiClient));
 
     // Destructure stores
     const { events, metadata, connection, phase, error: logsError } = logsManager.stores;
