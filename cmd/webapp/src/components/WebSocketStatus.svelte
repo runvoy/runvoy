@@ -14,11 +14,11 @@
     }: Props = $props();
 
     const statusText = $derived.by(() => {
-        if (isCompleted) return 'Execution finished';
-        if (isConnecting) return 'Connecting...';
-        if (isConnected) return 'Connected';
-        if (connectionError) return connectionError;
-        return 'Disconnected';
+        if (isCompleted) return 'Done';
+        if (isConnecting) return 'Connecting';
+        if (isConnected) return 'Live';
+        if (connectionError) return 'Error';
+        return 'Offline';
     });
 
     const statusClass = $derived.by(() => {
@@ -29,34 +29,40 @@
     });
 </script>
 
-<div class="websocket-status {statusClass}">
+<div class="websocket-status {statusClass}" title={connectionError || statusText}>
     <span class="indicator"></span>
-    <span>{statusText}</span>
+    <span class="label">{statusText}</span>
 </div>
 
 <style>
     .websocket-status {
-        display: flex;
+        display: inline-flex;
         align-items: center;
-        gap: 0.5rem;
-        padding: 0.5rem 1rem;
-        border-radius: var(--pico-border-radius);
-        font-size: 0.9em;
-        margin-bottom: 1rem;
+        gap: 0.375rem;
+        padding: 0.125rem 0.5rem;
+        border-radius: 0.75rem;
+        font-size: 0.6875rem;
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 0.02em;
     }
 
     .indicator {
         display: inline-block;
-        width: 10px;
-        height: 10px;
+        width: 6px;
+        height: 6px;
         border-radius: 50%;
         background-color: #ccc;
     }
 
+    .label {
+        line-height: 1;
+    }
+
     /* Connecting */
     .status-connecting {
-        background-color: #f3f3f3;
-        color: #555;
+        background-color: rgba(243, 156, 18, 0.15);
+        color: #f39c12;
     }
     .status-connecting .indicator {
         background-color: #f39c12;
@@ -65,8 +71,8 @@
 
     /* Connected */
     .status-connected {
-        background-color: #e8f5e9;
-        color: #2e7d32;
+        background-color: rgba(76, 175, 80, 0.15);
+        color: #4caf50;
     }
     .status-connected .indicator {
         background-color: #4caf50;
@@ -74,8 +80,8 @@
 
     /* Disconnected / Error */
     .status-disconnected {
-        background-color: #ffebee;
-        color: #c62828;
+        background-color: rgba(244, 67, 54, 0.15);
+        color: #f44336;
     }
     .status-disconnected .indicator {
         background-color: #f44336;
@@ -83,8 +89,8 @@
 
     /* Completed */
     .status-completed {
-        background-color: #e3f2fd;
-        color: #1565c0;
+        background-color: rgba(33, 150, 243, 0.15);
+        color: #2196f3;
     }
     .status-completed .indicator {
         background-color: #2196f3;

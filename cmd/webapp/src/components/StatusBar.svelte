@@ -27,33 +27,32 @@
     let isKilling = $state(false);
 
     const statusClass = $derived(status ? status.toLowerCase() : 'loading');
-    const formattedStartedAt = $derived.by(() => {
-        if (!startedAt) {
-            return 'N/A';
-        }
 
-        const dateValue = typeof startedAt === 'number' ? startedAt : Date.parse(startedAt);
-        const date = new Date(dateValue);
+    const duration = $derived.by(() => {
+        if (!startedAt) return null;
 
-        if (Number.isNaN(date.getTime())) {
-            return 'N/A';
-        }
+        const startMs = typeof startedAt === 'number' ? startedAt : Date.parse(startedAt);
+        if (Number.isNaN(startMs)) return null;
 
-        return date.toLocaleString();
+        const endMs = completedAt ? Date.parse(completedAt) : Date.now();
+        if (Number.isNaN(endMs)) return null;
+
+        const diffMs = endMs - startMs;
+        const seconds = Math.floor(diffMs / 1000);
+        if (seconds < 60) return `${seconds}s`;
+        const minutes = Math.floor(seconds / 60);
+        const remainingSeconds = seconds % 60;
+        if (minutes < 60) return `${minutes}m ${remainingSeconds}s`;
+        const hours = Math.floor(minutes / 60);
+        const remainingMinutes = minutes % 60;
+        return `${hours}h ${remainingMinutes}m`;
     });
 
-    const formattedCompletedAt = $derived.by(() => {
-        if (!completedAt) {
-            return null;
-        }
-
-        const dateValue = typeof completedAt === 'number' ? completedAt : Date.parse(completedAt);
+    const formattedStartedAt = $derived.by(() => {
+        if (!startedAt) return null;
+        const dateValue = typeof startedAt === 'number' ? startedAt : Date.parse(startedAt);
         const date = new Date(dateValue);
-
-        if (Number.isNaN(date.getTime())) {
-            return null;
-        }
-
+        if (Number.isNaN(date.getTime())) return null;
         return date.toLocaleString();
     });
 
@@ -71,130 +70,151 @@
 </script>
 
 <div class="status-bar">
-    <div class="status-item">
-        <strong>Status:</strong>
+    <div class="status-left">
         <span class="status-badge {statusClass}">{status || FrontendStatus.LOADING}</span>
+        <code class="command" title={command}>{command}</code>
     </div>
-    <div class="status-item">
-        <strong>Command:</strong>
-        <code class="meta-chip">{command}</code>
-    </div>
-    <div class="status-item">
-        <strong>Image ID:</strong>
-        <code class="meta-chip">{imageId}</code>
-    </div>
-    <div class="status-item">
-        <strong>Started:</strong>
-        <span>{formattedStartedAt}</span>
-    </div>
-    {#if formattedCompletedAt}
-        <div class="status-item">
-            <strong>Ended:</strong>
-            <span>{formattedCompletedAt}</span>
-        </div>
-    {/if}
-    {#if exitCode !== null}
-        <div class="status-item">
-            <strong>Exit Code:</strong>
-            <code class="exit-code">{exitCode}</code>
-        </div>
-    {/if}
-    {#if onKill && isKillableStatus(status)}
-        <div class="status-item actions">
+    <div class="status-right">
+        {#if formattedStartedAt}
+            <span class="meta" title="Started at {formattedStartedAt}">
+                {formattedStartedAt}
+            </span>
+        {/if}
+        {#if duration}
+            <span class="meta duration">{duration}</span>
+        {/if}
+        {#if exitCode !== null}
+            <code class="exit-code" class:error={exitCode !== 0}>exit: {exitCode}</code>
+        {/if}
+        <span class="meta image" title={imageId}>{imageId}</span>
+        {#if onKill && isKillableStatus(status)}
             <button
                 class="kill-button"
                 onclick={handleKill}
                 disabled={!canKill}
                 title="Kill this execution"
             >
-                {isKilling ? '⏹️ Killing...' : '⏹️ Kill'}
+                {isKilling ? '⏹' : '⏹'}
             </button>
-        </div>
-    {/if}
+        {/if}
+    </div>
 </div>
 
 <style>
     .status-bar {
         display: flex;
-        flex-wrap: wrap;
-        gap: 1.5rem;
         align-items: center;
-        padding: 1rem;
-        background-color: var(--pico-card-background-color);
-        border: 1px solid var(--pico-card-border-color);
-        border-radius: var(--pico-border-radius);
-        margin-bottom: 1rem;
+        justify-content: space-between;
+        gap: 0.75rem;
+        padding: 0.5rem 0.75rem;
+        background-color: var(--pico-code-background-color);
+        border-radius: var(--pico-border-radius) var(--pico-border-radius) 0 0;
+        font-size: 0.8125rem;
+        min-height: 2.5rem;
     }
 
-    .status-item {
+    .status-left {
         display: flex;
         align-items: center;
-        gap: 0.5rem;
+        gap: 0.625rem;
+        min-width: 0;
+        flex: 1;
+    }
+
+    .status-right {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        flex-shrink: 0;
     }
 
     .status-badge {
-        padding: 0.25em 0.75em;
-        border-radius: 1em;
-        font-weight: bold;
-        font-size: 0.8em;
+        padding: 0.125rem 0.5rem;
+        border-radius: 0.75rem;
+        font-weight: 600;
+        font-size: 0.6875rem;
         text-transform: uppercase;
         color: #fff;
+        white-space: nowrap;
     }
 
     .status-badge.loading {
         background-color: #78909c;
-    } /* Blue Grey */
+    }
     .status-badge.starting {
-        background-color: #ffc107;
-    } /* Amber */
+        background-color: #f39c12;
+        color: #000;
+    }
     .status-badge.running {
         background-color: #2196f3;
-    } /* Blue */
+    }
     .status-badge.succeeded {
         background-color: #4caf50;
-    } /* Green */
+    }
     .status-badge.failed {
         background-color: #f44336;
-    } /* Red */
+    }
     .status-badge.stopped {
         background-color: #ff9800;
-    } /* Orange */
+        color: #000;
+    }
     .status-badge.terminating {
         background-color: #9c27b0;
-    } /* Purple */
-
-    .exit-code {
-        font-family: 'Monaco', 'Courier New', monospace;
-        font-size: 0.9em;
-        padding: 0.2em 0.4em;
-        background-color: var(--pico-code-background-color);
-        border-radius: 0.25rem;
     }
 
-    .meta-chip {
-        font-family: 'Monaco', 'Courier New', monospace;
-        background-color: var(--pico-code-background-color);
-        padding: 0.2em 0.4em;
-        border-radius: 0.25rem;
-        display: inline-block;
-        max-width: 24ch;
+    .command {
+        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+        font-size: 0.8125rem;
+        color: var(--pico-color);
+        background: none;
+        padding: 0;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
+        max-width: 40ch;
     }
 
-    .status-item.actions {
-        margin-left: auto;
+    .meta {
+        color: var(--pico-muted-color);
+        white-space: nowrap;
+        font-size: 0.75rem;
+    }
+
+    .meta.duration {
+        font-weight: 500;
+        color: var(--pico-color);
+    }
+
+    .meta.image {
+        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+        max-width: 16ch;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .exit-code {
+        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+        font-size: 0.6875rem;
+        padding: 0.125rem 0.375rem;
+        background-color: rgba(76, 175, 80, 0.2);
+        color: #4caf50;
+        border-radius: 0.25rem;
+    }
+
+    .exit-code.error {
+        background-color: rgba(244, 67, 54, 0.2);
+        color: #f44336;
     }
 
     .kill-button {
-        padding: 0.5rem 1rem;
+        padding: 0.25rem 0.5rem;
         background-color: #f44336;
         color: white;
         border: none;
-        border-radius: var(--pico-border-radius);
+        border-radius: 0.25rem;
         cursor: pointer;
-        font-weight: 600;
+        font-size: 0.75rem;
+        line-height: 1;
         transition: background-color 0.15s ease;
     }
 
@@ -209,21 +229,27 @@
 
     @media (max-width: 768px) {
         .status-bar {
-            flex-direction: column;
-            align-items: flex-start;
-            gap: 1rem;
-            padding: 0.875rem;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            padding: 0.5rem;
         }
 
-        .status-item {
-            flex-direction: column;
-            align-items: flex-start;
-            gap: 0.25rem;
+        .status-left {
             width: 100%;
         }
 
-        .status-badge {
-            font-size: 0.75em;
+        .status-right {
+            width: 100%;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+
+        .command {
+            max-width: 30ch;
+        }
+
+        .meta.image {
+            display: none;
         }
     }
 </style>

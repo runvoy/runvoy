@@ -72,6 +72,15 @@
         margin-bottom: 0;
     }
 
+    .execution-selector.embedded label {
+        margin-bottom: 0;
+        font-size: 0.8125rem;
+    }
+
+    .execution-selector.embedded label span {
+        display: none;
+    }
+
     label {
         display: flex;
         align-items: center;
@@ -83,8 +92,17 @@
 
     input {
         flex: 0 1 40%;
-        font-family: 'Monaco', 'Courier New', monospace;
+        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
         font-size: 0.9375rem;
+    }
+
+    .execution-selector.embedded input {
+        flex: 1;
+        min-width: 20ch;
+        max-width: 36ch;
+        padding: 0.25rem 0.5rem;
+        font-size: 0.8125rem;
+        height: auto;
     }
 
     @media (max-width: 768px) {
@@ -99,6 +117,11 @@
         input {
             flex-basis: 100%;
             font-size: 0.875rem;
+        }
+
+        .execution-selector.embedded input {
+            max-width: none;
+            min-width: 0;
         }
     }
 </style>

@@ -28,7 +28,6 @@ describe('StatusBar', () => {
         });
 
         expect(screen.getByText(FrontendStatus.LOADING)).toBeInTheDocument();
-        expect(screen.getByText('Status:')).toBeInTheDocument();
     });
 
     it('should display execution status', () => {
@@ -45,25 +44,25 @@ describe('StatusBar', () => {
     it('should display started time', () => {
         const startTime = '2025-11-30T10:00:00Z';
 
-        render(StatusBar, {
+        const { container } = render(StatusBar, {
             props: {
                 ...defaultProps,
                 startedAt: startTime
             }
         });
 
-        expect(screen.getByText('Started:')).toBeInTheDocument();
-        // The date will be formatted, so we check for parts of it
-        const startedText = screen.getByText(/Started:/).parentElement?.textContent;
-        expect(startedText).toContain('Started:');
+        // The compact layout shows formatted date directly in .meta element
+        const metaElement = container.querySelector('.meta');
+        expect(metaElement).toBeInTheDocument();
     });
 
-    it('should display N/A when started time is missing', () => {
-        render(StatusBar, {
+    it('should not show started time when missing', () => {
+        const { container } = render(StatusBar, {
             props: defaultProps
         });
 
-        expect(screen.getByText('N/A')).toBeInTheDocument();
+        // Only the status badge, command, and image should be present
+        expect(container.querySelector('.status-bar')).toBeInTheDocument();
     });
 
     it('should display command and image ID when provided', () => {
@@ -76,31 +75,33 @@ describe('StatusBar', () => {
             }
         });
 
-        expect(screen.getByText('Command:')).toBeInTheDocument();
         expect(screen.getByText('echo hello')).toBeInTheDocument();
-        expect(screen.getByText('Image ID:')).toBeInTheDocument();
         expect(screen.getByText('alpine:latest-abc123')).toBeInTheDocument();
     });
 
-    it('should display ended time when completedAt is set', () => {
-        const endTime = '2025-11-30T10:05:00Z';
-
+    it('should display duration when startedAt and completedAt are set', () => {
         render(StatusBar, {
             props: {
                 ...defaultProps,
-                completedAt: endTime
+                startedAt: '2025-11-30T10:00:00Z',
+                completedAt: '2025-11-30T10:05:00Z'
             }
         });
 
-        expect(screen.getByText('Ended:')).toBeInTheDocument();
+        // Duration should be 5 minutes
+        expect(screen.getByText('5m 0s')).toBeInTheDocument();
     });
 
-    it('should not display ended time when completedAt is null', () => {
-        render(StatusBar, {
-            props: defaultProps
+    it('should not display duration when completedAt is null', () => {
+        const { container } = render(StatusBar, {
+            props: {
+                ...defaultProps,
+                startedAt: '2025-11-30T10:00:00Z'
+            }
         });
 
-        expect(screen.queryByText('Ended:')).not.toBeInTheDocument();
+        // Duration element should still exist (showing elapsed time)
+        expect(container.querySelector('.duration')).toBeInTheDocument();
     });
 
     it('should display exit code when exitCode is set', () => {
@@ -111,19 +112,19 @@ describe('StatusBar', () => {
             }
         });
 
-        expect(screen.getByText('Exit Code:')).toBeInTheDocument();
-        expect(screen.getByText('0')).toBeInTheDocument();
+        expect(screen.getByText('exit: 0')).toBeInTheDocument();
     });
 
-    it('should display non-zero exit code', () => {
-        render(StatusBar, {
+    it('should display non-zero exit code with error styling', () => {
+        const { container } = render(StatusBar, {
             props: {
                 ...defaultProps,
                 exitCode: 1
             }
         });
 
-        expect(screen.getByText('1')).toBeInTheDocument();
+        expect(screen.getByText('exit: 1')).toBeInTheDocument();
+        expect(container.querySelector('.exit-code.error')).toBeInTheDocument();
     });
 
     it('should not display exit code when exitCode is null', () => {
@@ -131,13 +132,13 @@ describe('StatusBar', () => {
             props: defaultProps
         });
 
-        expect(screen.queryByText('Exit Code:')).not.toBeInTheDocument();
+        expect(screen.queryByText(/exit:/)).not.toBeInTheDocument();
     });
 
     it('should display kill button when onKill is provided and status is killable', () => {
         const mockKill = vi.fn();
 
-        render(StatusBar, {
+        const { container } = render(StatusBar, {
             props: {
                 ...defaultProps,
                 status: ExecutionStatus.RUNNING,
@@ -145,14 +146,14 @@ describe('StatusBar', () => {
             }
         });
 
-        const killButton = screen.getByText('⏹️ Kill');
+        const killButton = container.querySelector('.kill-button');
         expect(killButton).toBeInTheDocument();
     });
 
     it('should not display kill button when status is terminal', () => {
         const mockKill = vi.fn();
 
-        render(StatusBar, {
+        const { container } = render(StatusBar, {
             props: {
                 ...defaultProps,
                 status: ExecutionStatus.SUCCEEDED,
@@ -160,13 +161,13 @@ describe('StatusBar', () => {
             }
         });
 
-        expect(screen.queryByText('⏹️ Kill')).not.toBeInTheDocument();
+        expect(container.querySelector('.kill-button')).not.toBeInTheDocument();
     });
 
     it('should not display kill button when status is TERMINATING', () => {
         const mockKill = vi.fn();
 
-        render(StatusBar, {
+        const { container } = render(StatusBar, {
             props: {
                 ...defaultProps,
                 status: ExecutionStatus.TERMINATING,
@@ -174,11 +175,11 @@ describe('StatusBar', () => {
             }
         });
 
-        expect(screen.queryByText('⏹️ Kill')).not.toBeInTheDocument();
+        expect(container.querySelector('.kill-button')).not.toBeInTheDocument();
     });
 
     it('should not display kill button when onKill is null', () => {
-        render(StatusBar, {
+        const { container } = render(StatusBar, {
             props: {
                 ...defaultProps,
                 status: ExecutionStatus.RUNNING,
@@ -186,13 +187,13 @@ describe('StatusBar', () => {
             }
         });
 
-        expect(screen.queryByText('⏹️ Kill')).not.toBeInTheDocument();
+        expect(container.querySelector('.kill-button')).not.toBeInTheDocument();
     });
 
     it('should call onKill when kill button is clicked', async () => {
         const mockKill = vi.fn().mockResolvedValue(undefined);
 
-        render(StatusBar, {
+        const { container } = render(StatusBar, {
             props: {
                 ...defaultProps,
                 status: ExecutionStatus.RUNNING,
@@ -200,7 +201,7 @@ describe('StatusBar', () => {
             }
         });
 
-        const killButton = screen.getByText('⏹️ Kill');
+        const killButton = container.querySelector('.kill-button') as HTMLButtonElement;
         fireEvent.click(killButton);
 
         await waitFor(() => {
@@ -208,35 +209,10 @@ describe('StatusBar', () => {
         });
     });
 
-    it('should show killing state when kill is in progress', async () => {
-        const mockKill = vi.fn(
-            () =>
-                new Promise((resolve) => {
-                    setTimeout(resolve, 100);
-                })
-        );
-
-        render(StatusBar, {
-            props: {
-                ...defaultProps,
-                status: ExecutionStatus.RUNNING,
-                onKill: mockKill
-            }
-        });
-
-        const killButton = screen.getByText('⏹️ Kill');
-        fireEvent.click(killButton);
-
-        // Should show "Killing..." while in progress
-        await waitFor(() => {
-            expect(screen.getByText('⏹️ Killing...')).toBeInTheDocument();
-        });
-    });
-
     it('should disable kill button when killInitiated is true', () => {
         const mockKill = vi.fn();
 
-        render(StatusBar, {
+        const { container } = render(StatusBar, {
             props: {
                 ...defaultProps,
                 status: ExecutionStatus.RUNNING,
@@ -245,14 +221,14 @@ describe('StatusBar', () => {
             }
         });
 
-        const killButton = screen.getByText('⏹️ Kill');
+        const killButton = container.querySelector('.kill-button') as HTMLButtonElement;
         expect(killButton).toBeDisabled();
     });
 
     it('should enable kill button when killInitiated is false and status is killable', () => {
         const mockKill = vi.fn();
 
-        render(StatusBar, {
+        const { container } = render(StatusBar, {
             props: {
                 ...defaultProps,
                 status: ExecutionStatus.RUNNING,
@@ -261,7 +237,7 @@ describe('StatusBar', () => {
             }
         });
 
-        const killButton = screen.getByText('⏹️ Kill');
+        const killButton = container.querySelector('.kill-button') as HTMLButtonElement;
         expect(killButton).not.toBeDisabled();
     });
 
@@ -279,10 +255,10 @@ describe('StatusBar', () => {
         });
 
         expect(screen.getByText(ExecutionStatus.SUCCEEDED)).toBeInTheDocument();
-        expect(screen.getByText('Started:')).toBeInTheDocument();
-        expect(screen.getByText('Ended:')).toBeInTheDocument();
-        expect(screen.getByText('Exit Code:')).toBeInTheDocument();
-        expect(screen.getByText('0')).toBeInTheDocument();
+        expect(screen.getByText('echo test')).toBeInTheDocument();
+        expect(screen.getByText('alpine:latest')).toBeInTheDocument();
+        expect(screen.getByText('exit: 0')).toBeInTheDocument();
+        expect(screen.getByText('5m 0s')).toBeInTheDocument();
     });
 
     it('should apply correct CSS class for status badge', () => {

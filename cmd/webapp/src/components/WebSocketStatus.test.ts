@@ -17,7 +17,7 @@ describe('WebSocketStatus', () => {
         isCompleted: false
     };
 
-    it('should display "Execution finished" when execution is completed', () => {
+    it('should display "Done" when execution is completed', () => {
         render(WebSocketStatus, {
             props: {
                 ...defaultProps,
@@ -25,10 +25,10 @@ describe('WebSocketStatus', () => {
             }
         });
 
-        expect(screen.getByText('Execution finished')).toBeInTheDocument();
+        expect(screen.getByText('Done')).toBeInTheDocument();
     });
 
-    it('should display "Connecting..." when connecting', () => {
+    it('should display "Connecting" when connecting', () => {
         render(WebSocketStatus, {
             props: {
                 ...defaultProps,
@@ -36,10 +36,10 @@ describe('WebSocketStatus', () => {
             }
         });
 
-        expect(screen.getByText('Connecting...')).toBeInTheDocument();
+        expect(screen.getByText('Connecting')).toBeInTheDocument();
     });
 
-    it('should display "Connected" when connected', () => {
+    it('should display "Live" when connected', () => {
         render(WebSocketStatus, {
             props: {
                 ...defaultProps,
@@ -47,10 +47,10 @@ describe('WebSocketStatus', () => {
             }
         });
 
-        expect(screen.getByText('Connected')).toBeInTheDocument();
+        expect(screen.getByText('Live')).toBeInTheDocument();
     });
 
-    it('should display connection error when error is set', () => {
+    it('should display "Error" when error is set', () => {
         render(WebSocketStatus, {
             props: {
                 ...defaultProps,
@@ -58,15 +58,15 @@ describe('WebSocketStatus', () => {
             }
         });
 
-        expect(screen.getByText('Connection failed')).toBeInTheDocument();
+        expect(screen.getByText('Error')).toBeInTheDocument();
     });
 
-    it('should display "Disconnected" when not connected, not connecting, and no error', () => {
+    it('should display "Offline" when not connected, not connecting, and no error', () => {
         render(WebSocketStatus, {
             props: defaultProps
         });
 
-        expect(screen.getByText('Disconnected')).toBeInTheDocument();
+        expect(screen.getByText('Offline')).toBeInTheDocument();
     });
 
     it('should prioritize completed status over connecting status', () => {
@@ -78,8 +78,8 @@ describe('WebSocketStatus', () => {
             }
         });
 
-        expect(screen.getByText('Execution finished')).toBeInTheDocument();
-        expect(screen.queryByText('Connecting...')).not.toBeInTheDocument();
+        expect(screen.getByText('Done')).toBeInTheDocument();
+        expect(screen.queryByText('Connecting')).not.toBeInTheDocument();
     });
 
     it('should prioritize completed status over connected status', () => {
@@ -91,8 +91,8 @@ describe('WebSocketStatus', () => {
             }
         });
 
-        expect(screen.getByText('Execution finished')).toBeInTheDocument();
-        expect(screen.queryByText('Connected')).not.toBeInTheDocument();
+        expect(screen.getByText('Done')).toBeInTheDocument();
+        expect(screen.queryByText('Live')).not.toBeInTheDocument();
     });
 
     it('should prioritize connecting status over connected status', () => {
@@ -104,8 +104,8 @@ describe('WebSocketStatus', () => {
             }
         });
 
-        expect(screen.getByText('Connecting...')).toBeInTheDocument();
-        expect(screen.queryByText('Connected')).not.toBeInTheDocument();
+        expect(screen.getByText('Connecting')).toBeInTheDocument();
+        expect(screen.queryByText('Live')).not.toBeInTheDocument();
     });
 
     it('should prioritize connecting status over error status', () => {
@@ -117,8 +117,8 @@ describe('WebSocketStatus', () => {
             }
         });
 
-        expect(screen.getByText('Connecting...')).toBeInTheDocument();
-        expect(screen.queryByText('Some error')).not.toBeInTheDocument();
+        expect(screen.getByText('Connecting')).toBeInTheDocument();
+        expect(screen.queryByText('Error')).not.toBeInTheDocument();
     });
 
     it('should apply status-completed class when execution is completed', () => {
@@ -192,14 +192,14 @@ describe('WebSocketStatus', () => {
             props: defaultProps
         });
 
-        expect(screen.getByText('Disconnected')).toBeInTheDocument();
+        expect(screen.getByText('Offline')).toBeInTheDocument();
 
         rerender({
             ...defaultProps,
             isConnecting: true
         });
 
-        expect(screen.getByText('Connecting...')).toBeInTheDocument();
+        expect(screen.getByText('Connecting')).toBeInTheDocument();
 
         rerender({
             ...defaultProps,
@@ -207,6 +207,6 @@ describe('WebSocketStatus', () => {
             isConnected: true
         });
 
-        expect(screen.getByText('Connected')).toBeInTheDocument();
+        expect(screen.getByText('Live')).toBeInTheDocument();
     });
 });

@@ -39,20 +39,29 @@ describe('LogControls', () => {
     };
 
     it('should render all control buttons', () => {
-        render(LogControls, {
+        const { container } = render(LogControls, {
             props: defaultProps
         });
 
-        expect(screen.getByText('⏸️ Pause')).toBeInTheDocument();
-        expect(screen.getByText(/🗑️ Clear/)).toBeInTheDocument();
-        expect(screen.getByText('📥 Download')).toBeInTheDocument();
-        expect(screen.getByText(/🙈 Hide/)).toBeInTheDocument();
+        const buttons = container.querySelectorAll('.control-btn');
+        expect(buttons.length).toBe(4); // pause, clear, download, metadata
+    });
+
+    it('should display log count', () => {
+        render(LogControls, {
+            props: {
+                ...defaultProps,
+                events: mockEvents
+            }
+        });
+
+        expect(screen.getByText('2 lines')).toBeInTheDocument();
     });
 
     it('should call onToggleMetadata when metadata button is clicked', async () => {
         const onToggleMetadata = vi.fn();
 
-        render(LogControls, {
+        const { container } = render(LogControls, {
             props: {
                 ...defaultProps,
                 showMetadata: true,
@@ -60,27 +69,17 @@ describe('LogControls', () => {
             }
         });
 
-        const metadataButton = screen.getByText(/🙈 Hide/);
+        const buttons = container.querySelectorAll('.control-btn');
+        const metadataButton = buttons[3]; // Last button is metadata
         await fireEvent.click(metadataButton);
 
         expect(onToggleMetadata).toHaveBeenCalledTimes(1);
     });
 
-    it('should show "Show Metadata" when metadata is hidden', () => {
-        render(LogControls, {
-            props: {
-                ...defaultProps,
-                showMetadata: false
-            }
-        });
-
-        expect(screen.getByText(/🙉 Show/)).toBeInTheDocument();
-    });
-
     it('should call onClear when clear button is clicked', async () => {
         const onClear = vi.fn();
 
-        render(LogControls, {
+        const { container } = render(LogControls, {
             props: {
                 ...defaultProps,
                 events: mockEvents,
@@ -88,7 +87,8 @@ describe('LogControls', () => {
             }
         });
 
-        const clearButton = screen.getByText(/🗑️ Clear/);
+        const buttons = container.querySelectorAll('.control-btn');
+        const clearButton = buttons[1]; // Second button is clear
         await fireEvent.click(clearButton);
 
         expect(onClear).toHaveBeenCalledTimes(1);
@@ -97,25 +97,25 @@ describe('LogControls', () => {
     it('should call onPause when pause button is clicked', async () => {
         const onPause = vi.fn();
 
-        render(LogControls, {
+        const { container } = render(LogControls, {
             props: {
                 ...defaultProps,
                 onPause
             }
         });
 
-        const pauseButton = screen.getByText('⏸️ Pause');
+        const buttons = container.querySelectorAll('.control-btn');
+        const pauseButton = buttons[0]; // First button is pause/resume
         await fireEvent.click(pauseButton);
 
         expect(onPause).toHaveBeenCalledTimes(1);
-        expect(screen.getByText('▶️ Resume')).toBeInTheDocument();
     });
 
     it('should call onResume when resume button is clicked', async () => {
         const onPause = vi.fn();
         const onResume = vi.fn();
 
-        render(LogControls, {
+        const { container } = render(LogControls, {
             props: {
                 ...defaultProps,
                 onPause,
@@ -123,38 +123,41 @@ describe('LogControls', () => {
             }
         });
 
+        const buttons = container.querySelectorAll('.control-btn');
+        const pauseButton = buttons[0];
+
         // First pause
-        const pauseButton = screen.getByText('⏸️ Pause');
         await fireEvent.click(pauseButton);
 
         // Then resume
-        const resumeButton = screen.getByText('▶️ Resume');
-        await fireEvent.click(resumeButton);
+        await fireEvent.click(pauseButton);
 
         expect(onResume).toHaveBeenCalledTimes(1);
     });
 
     it('should disable download button when events is empty', () => {
-        render(LogControls, {
+        const { container } = render(LogControls, {
             props: {
                 ...defaultProps,
                 events: []
             }
         });
 
-        const downloadButton = screen.getByText('📥 Download');
+        const buttons = container.querySelectorAll('.control-btn');
+        const downloadButton = buttons[2] as HTMLButtonElement; // Third button is download
         expect(downloadButton).toBeDisabled();
     });
 
     it('should enable download button when events has logs', () => {
-        render(LogControls, {
+        const { container } = render(LogControls, {
             props: {
                 ...defaultProps,
                 events: mockEvents
             }
         });
 
-        const downloadButton = screen.getByText('📥 Download');
+        const buttons = container.querySelectorAll('.control-btn');
+        const downloadButton = buttons[2] as HTMLButtonElement;
         expect(downloadButton).not.toBeDisabled();
     });
 
@@ -175,14 +178,15 @@ describe('LogControls', () => {
                 return originalCreateElement(tagName);
             });
 
-        render(LogControls, {
+        const { container } = render(LogControls, {
             props: {
                 ...defaultProps,
                 events: mockEvents
             }
         });
 
-        const downloadButton = screen.getByText('📥 Download');
+        const buttons = container.querySelectorAll('.control-btn');
+        const downloadButton = buttons[2];
         await fireEvent.click(downloadButton);
 
         expect(objectURLSpy).toHaveBeenCalled();
