@@ -151,13 +151,11 @@
 
 <style>
     .log-viewer-container {
-        background-color: var(--pico-code-background-color);
-        border: 1px solid var(--pico-border-color);
-        border-radius: var(--pico-border-radius);
-        padding: 1rem;
+        background-color: #0d1117;
+        padding: 0.5rem 0.75rem;
         overflow: auto;
+        flex: 1;
         min-height: 200px;
-        max-height: 70vh;
         position: relative;
         contain: strict;
     }
@@ -192,22 +190,22 @@
         justify-content: center;
         height: 100%;
         min-height: 180px;
-        color: var(--pico-muted-color);
+        color: #8b949e;
     }
 
     .scroll-to-bottom {
-        position: absolute;
-        bottom: 1rem;
-        right: 1rem;
-        padding: 0.5rem 1rem;
-        font-size: 0.85rem;
+        position: fixed;
+        bottom: 1.5rem;
+        right: 1.5rem;
+        padding: 0.375rem 0.75rem;
+        font-size: 0.75rem;
         background: var(--pico-primary);
         color: var(--pico-primary-inverse);
         border: none;
         border-radius: var(--pico-border-radius);
         cursor: pointer;
         z-index: 10;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
     }
 
     .scroll-to-bottom:hover {
@@ -216,12 +214,17 @@
 
     @media (max-width: 768px) {
         .log-viewer-container {
-            padding: 0.75rem;
-            min-height: 300px;
+            padding: 0.5rem;
+            min-height: 250px;
         }
 
         .placeholder {
-            min-height: 250px;
+            min-height: 200px;
+        }
+
+        .scroll-to-bottom {
+            bottom: 1rem;
+            right: 1rem;
         }
     }
 </style>

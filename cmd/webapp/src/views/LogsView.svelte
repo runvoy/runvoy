@@ -96,13 +96,7 @@
     );
 </script>
 
-<article class="logs-card">
-    <ExecutionSelector
-        executionId={currentExecutionId}
-        onExecutionChange={handleExecutionChange}
-        embedded
-    />
-
+<div class="logs-container">
     {#if $logsError}
         <div class="error-box">
             <p>{$logsError}</p>
@@ -116,64 +110,132 @@
     {/if}
 
     {#if !currentExecutionId}
-        <div class="info-box">
-            <p>
-                Enter an execution ID above or provide <code>?execution_id=&lt;id&gt;</code> in the URL
-            </p>
+        <div class="empty-state">
+            <ExecutionSelector
+                executionId={currentExecutionId}
+                onExecutionChange={handleExecutionChange}
+                embedded
+            />
+            <div class="info-box">
+                <p>
+                    Enter an execution ID above or provide <code>?execution_id=&lt;id&gt;</code> in the
+                    URL
+                </p>
+            </div>
         </div>
     {:else if !$logsError && $metadata}
-        <StatusBar
-            status={$metadata?.status ?? null}
-            startedAt={$metadata?.startedAt ?? null}
-            completedAt={$metadata?.completedAt ?? null}
-            exitCode={$metadata?.exitCode ?? null}
-            command={$metadata.command}
-            imageId={$metadata.imageId}
-            killInitiated={$killState.killInitiated}
-            onKill={canKill ? handleKill : null}
-        />
-        <WebSocketStatus
-            isConnecting={$connection === 'connecting'}
-            isConnected={$connection === 'connected'}
-            connectionError={$logsError}
-            isCompleted={$phase === 'completed'}
-        />
-        <LogControls
-            executionId={currentExecutionId}
-            events={$events}
-            {showMetadata}
-            onToggleMetadata={handleToggleMetadata}
-            onClear={handleClearLogs}
-            onPause={handlePause}
-            onResume={handleResume}
-        />
-        <LogViewer events={$events} {showMetadata} />
+        <div class="logs-panel">
+            <div class="panel-header">
+                <div class="header-left">
+                    <ExecutionSelector
+                        executionId={currentExecutionId}
+                        onExecutionChange={handleExecutionChange}
+                        embedded
+                    />
+                    <WebSocketStatus
+                        isConnecting={$connection === 'connecting'}
+                        isConnected={$connection === 'connected'}
+                        connectionError={$logsError}
+                        isCompleted={$phase === 'completed'}
+                    />
+                </div>
+            </div>
+            <StatusBar
+                status={$metadata?.status ?? null}
+                startedAt={$metadata?.startedAt ?? null}
+                completedAt={$metadata?.completedAt ?? null}
+                exitCode={$metadata?.exitCode ?? null}
+                command={$metadata.command}
+                imageId={$metadata.imageId}
+                killInitiated={$killState.killInitiated}
+                onKill={canKill ? handleKill : null}
+            />
+            <LogControls
+                executionId={currentExecutionId}
+                events={$events}
+                {showMetadata}
+                onToggleMetadata={handleToggleMetadata}
+                onClear={handleClearLogs}
+                onPause={handlePause}
+                onResume={handleResume}
+            />
+            <LogViewer events={$events} {showMetadata} />
+        </div>
     {:else if !$logsError}
         <div class="info-box">
             <p>Loading execution metadata...</p>
         </div>
     {/if}
-</article>
+</div>
 
 <style>
-    .logs-card {
-        background: var(--pico-card-background-color);
-        border: 1px solid var(--pico-card-border-color);
+    .logs-container {
+        display: flex;
+        flex-direction: column;
+        height: calc(100vh - 5rem);
+        min-height: 400px;
+    }
+
+    .empty-state {
+        padding: 1rem;
+    }
+
+    .logs-panel {
+        display: flex;
+        flex-direction: column;
+        flex: 1;
+        min-height: 0;
+        border: 1px solid var(--pico-border-color);
         border-radius: var(--pico-border-radius);
-        padding: 2rem;
+        overflow: hidden;
+    }
+
+    .panel-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+        padding: 0.5rem 0.75rem;
+        background-color: var(--pico-card-background-color);
+        border-bottom: 1px solid var(--pico-border-color);
+    }
+
+    .header-left {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        flex: 1;
+        min-width: 0;
+    }
+
+    .header-left :global(.execution-selector) {
+        margin-bottom: 0;
+        flex: 1;
+        min-width: 0;
+    }
+
+    .header-left :global(.execution-selector label) {
+        margin-bottom: 0;
+    }
+
+    .header-left :global(.execution-selector input) {
+        margin-bottom: 0;
+        padding: 0.25rem 0.5rem;
+        font-size: 0.8125rem;
+        height: auto;
     }
 
     code {
         background: var(--pico-code-background-color);
-        padding: 0.25rem 0.5rem;
+        padding: 0.125rem 0.375rem;
         border-radius: 0.25rem;
-        font-size: 0.9em;
+        font-size: 0.8125rem;
     }
 
     .error-box {
         border-left: 4px solid var(--pico-color-red-500);
-        padding: 1rem 1.5rem;
-        margin-top: 1.5rem;
+        padding: 0.5rem 0.75rem;
+        margin-bottom: 0.5rem;
         border-radius: var(--pico-border-radius);
         background-color: color-mix(in srgb, var(--pico-color-red-500) 10%, transparent);
     }
@@ -181,12 +243,12 @@
     .error-box p {
         margin: 0;
         color: var(--pico-color-red-500);
-        font-weight: bold;
+        font-weight: 600;
+        font-size: 0.8125rem;
     }
 
     .info-box {
-        padding: 1rem 1.5rem;
-        margin-top: 1.5rem;
+        padding: 0.75rem 1rem;
         border-radius: var(--pico-border-radius);
         background-color: var(--pico-secondary-background);
     }
@@ -194,22 +256,26 @@
     .info-box p {
         margin: 0;
         color: var(--pico-muted-color);
+        font-size: 0.875rem;
     }
 
     @media (max-width: 768px) {
-        .logs-card {
-            padding: 1.5rem;
+        .logs-container {
+            height: calc(100vh - 6rem);
+        }
+
+        .panel-header {
+            flex-wrap: wrap;
+            padding: 0.5rem;
+        }
+
+        .header-left {
+            width: 100%;
         }
 
         .error-box,
         .info-box {
-            padding: 0.875rem 1rem;
-            margin-top: 1rem;
-        }
-
-        code {
-            font-size: 0.85em;
-            padding: 0.2rem 0.4rem;
+            padding: 0.5rem 0.75rem;
         }
     }
 </style>

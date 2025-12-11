@@ -50,35 +50,80 @@
 </script>
 
 <div class="log-controls">
-    <button onclick={togglePause} class:secondary={!isPaused}>
-        {isPaused ? '▶️ Resume' : '⏸️ Pause'}
-    </button>
-    <button onclick={onClear} class="secondary"> 🗑️ Clear </button>
-    <button onclick={downloadLogs} class="secondary" disabled={events.length === 0}>
-        📥 Download
-    </button>
-    <button onclick={onToggleMetadata} class="secondary">
-        {showMetadata ? '🙈 Hide' : '🙉 Show'} Metadata
-    </button>
+    <span class="log-count">{events.length} lines</span>
+    <div class="control-buttons">
+        <button
+            class="control-btn"
+            onclick={togglePause}
+            title={isPaused ? 'Resume streaming' : 'Pause streaming'}
+        >
+            {isPaused ? '▶' : '⏸'}
+        </button>
+        <button class="control-btn" onclick={onClear} title="Clear logs"> 🗑 </button>
+        <button
+            class="control-btn"
+            onclick={downloadLogs}
+            disabled={events.length === 0}
+            title="Download logs"
+        >
+            📥
+        </button>
+        <button
+            class="control-btn"
+            onclick={onToggleMetadata}
+            title={showMetadata ? 'Hide timestamps' : 'Show timestamps'}
+        >
+            {showMetadata ? '🕐' : '🕐'}
+        </button>
+    </div>
 </div>
 
 <style>
     .log-controls {
         display: flex;
-        gap: 0.75rem;
-        margin-bottom: 1rem;
-        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0.25rem 0.75rem;
+        background-color: var(--pico-code-background-color);
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+        font-size: 0.75rem;
+    }
+
+    .log-count {
+        color: var(--pico-muted-color);
+        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    }
+
+    .control-buttons {
+        display: flex;
+        gap: 0.25rem;
+    }
+
+    .control-btn {
+        padding: 0.25rem 0.5rem;
+        background: transparent;
+        border: none;
+        border-radius: 0.25rem;
+        cursor: pointer;
+        font-size: 0.875rem;
+        line-height: 1;
+        color: var(--pico-muted-color);
+        transition: background-color 0.15s ease;
+    }
+
+    .control-btn:hover:not(:disabled) {
+        background-color: rgba(255, 255, 255, 0.1);
+        color: var(--pico-color);
+    }
+
+    .control-btn:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
     }
 
     @media (max-width: 768px) {
         .log-controls {
-            gap: 0.5rem;
-        }
-
-        .log-controls button {
-            flex: 1 1 auto;
-            min-width: calc(50% - 0.25rem);
-            font-size: 0.875rem;
+            padding: 0.25rem 0.5rem;
         }
     }
 </style>
