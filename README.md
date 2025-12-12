@@ -171,7 +171,7 @@ Bootstrap the backend infrastructure and seed the admin user:
 runvoy infra apply --configure --seed-admin-user admin@example.com
 ```
 
-#### 👤 Creating a new user
+### 👤 Creating a new user
 
 The admin API key and endpoint are automatically configured in `~/.runvoy/config.yaml` after deployment. Start using runvoy immediately:
 
@@ -196,6 +196,17 @@ to create a new user account for a team member. This will generate a claim token
 - ⏱  Claim tokens expire after 15 minutes
 - 👁  Each token can only be used once
 
+### Roles
+
+Runvoy ships with default roles:
+
+- `admin` can do everything
+- `operator` can manage executions, images, secrets, and read users
+- `developer` can run commands and manage secrets without accessing user management
+- `viewer` can only read executions
+
+See the Casbin [policy.csv](internal/auth/authorization/casbin/policy.csv) file for the exact rule set.
+
 ## 📖 Usage
 
 <!-- CLI_HELP_START -->
@@ -208,7 +219,7 @@ runvoy --help
 ```
 
 ```text
-runvoy - v0.5.0-20251211-3c1a8565
+runvoy - v0.5.0-20251212-21401e2a
 Isolated, repeatable execution environments for your commands
 
 Usage:
