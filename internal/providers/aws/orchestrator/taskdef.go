@@ -12,10 +12,43 @@ import (
 	awsConstants "github.com/runvoy/runvoy/internal/providers/aws/constants"
 	"github.com/runvoy/runvoy/internal/providers/aws/ecsdefs"
 
+	"iter"
+
 	awsStd "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ecs"
 	ecsTypes "github.com/aws/aws-sdk-go-v2/service/ecs/types"
 )
+
+type listTaskDefinitionsPage struct {
+	Output *ecs.ListTaskDefinitionsOutput
+	Err    error
+}
+
+func listTaskDefinitionPages(
+	ctx context.Context,
+	ecsClient awsClient.ECSClient,
+	baseInput ecs.ListTaskDefinitionsInput,
+) iter.Seq[listTaskDefinitionsPage] {
+	return func(yield func(listTaskDefinitionsPage) bool) {
+		nextToken := baseInput.NextToken
+
+		for {
+			pageInput := baseInput
+			pageInput.NextToken = nextToken
+
+			output, err := ecsClient.ListTaskDefinitions(ctx, &pageInput)
+			if !yield(listTaskDefinitionsPage{Output: output, Err: err}) {
+				return
+			}
+
+			if err != nil || output == nil || output.NextToken == nil {
+				return
+			}
+
+			nextToken = output.NextToken
+		}
+	}
+}
 
 // SanitizeImageNameForTaskDef converts a Docker image name to a valid ECS task definition family name.
 // ECS task definition family names must match: [a-zA-Z0-9_-]+
@@ -55,33 +88,25 @@ func ExtractImageFromTaskDefFamily(familyName string) string {
 // This is necessary because the FamilyPrefix parameter in ListTaskDefinitions doesn't work as expected
 // for prefix matching - it requires exact family match rather than prefix matching.
 func listTaskDefinitionsByPrefix(ctx context.Context, ecsClient awsClient.ECSClient, prefix string) ([]string, error) {
-	nextToken := ""
 	var taskDefArns []string
 
-	for {
-		listOutput, err := ecsClient.ListTaskDefinitions(ctx, &ecs.ListTaskDefinitionsInput{
-			Status:    ecsTypes.TaskDefinitionStatusActive,
-			NextToken: awsStd.String(nextToken),
-		})
-		if err != nil {
-			return nil, fmt.Errorf("failed to list task definitions: %w", err)
+	for page := range listTaskDefinitionPages(ctx, ecsClient, ecs.ListTaskDefinitionsInput{
+		Status: ecsTypes.TaskDefinitionStatusActive,
+	}) {
+		if page.Err != nil {
+			return nil, fmt.Errorf("failed to list task definitions: %w", page.Err)
 		}
 
 		// taskDefARN format example:
 		// arn:aws:ecs:us-east-2:123456789012:task-definition/runvoy-image-alpine-latest:1
 		// Extract the family name (last part after "/") and filter by prefix
-		for _, taskDefARN := range listOutput.TaskDefinitionArns {
+		for _, taskDefARN := range page.Output.TaskDefinitionArns {
 			parts := strings.Split(taskDefARN, "/")
 			if len(parts) > 0 &&
 				strings.HasPrefix(parts[len(parts)-1], prefix) {
 				taskDefArns = append(taskDefArns, taskDefARN)
 			}
 		}
-
-		if listOutput.NextToken == nil {
-			break
-		}
-		nextToken = *listOutput.NextToken
 	}
 
 	return taskDefArns, nil
@@ -225,7 +250,6 @@ func checkIfImageIsDefault(ctx context.Context, ecsClient awsClient.ECSClient, f
 func deregisterAllTaskDefRevisions(
 	ctx context.Context, ecsClient awsClient.ECSClient, family, image string, log *slog.Logger,
 ) error {
-	nextToken := ""
 	log.Debug("calling external service", "context", map[string]string{
 		"operation": "ECS.ListTaskDefinitions",
 		"family":    family,
@@ -234,18 +258,16 @@ func deregisterAllTaskDefRevisions(
 		"paginated": "true",
 	})
 
-	for {
-		listOutput, err := ecsClient.ListTaskDefinitions(ctx, &ecs.ListTaskDefinitionsInput{
-			FamilyPrefix: awsStd.String(family),
-			Status:       ecsTypes.TaskDefinitionStatusActive,
-			MaxResults:   awsStd.Int32(awsConstants.ECSTaskDefinitionMaxResults),
-			NextToken:    awsStd.String(nextToken),
-		})
-		if err != nil {
-			return fmt.Errorf("failed to list task definitions: %w", err)
+	for page := range listTaskDefinitionPages(ctx, ecsClient, ecs.ListTaskDefinitionsInput{
+		FamilyPrefix: awsStd.String(family),
+		Status:       ecsTypes.TaskDefinitionStatusActive,
+		MaxResults:   awsStd.Int32(awsConstants.ECSTaskDefinitionMaxResults),
+	}) {
+		if page.Err != nil {
+			return fmt.Errorf("failed to list task definitions: %w", page.Err)
 		}
 
-		for _, taskDefARN := range listOutput.TaskDefinitionArns {
+		for _, taskDefARN := range page.Output.TaskDefinitionArns {
 			_, deregErr := ecsClient.DeregisterTaskDefinition(ctx, &ecs.DeregisterTaskDefinitionInput{
 				TaskDefinition: awsStd.String(taskDefARN),
 			})
@@ -265,11 +287,6 @@ func deregisterAllTaskDefRevisions(
 				"arn":    taskDefARN,
 			})
 		}
-
-		if listOutput.NextToken == nil {
-			break
-		}
-		nextToken = *listOutput.NextToken
 	}
 
 	log.Info("deregistered all task definition revisions", "context", map[string]string{

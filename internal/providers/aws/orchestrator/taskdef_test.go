@@ -421,6 +421,81 @@ func (m *mockECSClient) UntagResource(
 	return &ecs.UntagResourceOutput{}, nil
 }
 
+func TestListTaskDefinitionPages(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("iterates through paginated results", func(t *testing.T) {
+		var tokens []*string
+		mockClient := &mockECSClient{
+			listTaskDefinitionsFunc: func(
+				_ context.Context,
+				input *ecs.ListTaskDefinitionsInput,
+				_ ...func(*ecs.Options),
+			) (*ecs.ListTaskDefinitionsOutput, error) {
+				tokens = append(tokens, input.NextToken)
+				if len(tokens) == 1 {
+					return &ecs.ListTaskDefinitionsOutput{
+						TaskDefinitionArns: []string{"arn-1"},
+						NextToken:          aws.String("token-2"),
+					}, nil
+				}
+				return &ecs.ListTaskDefinitionsOutput{
+					TaskDefinitionArns: []string{"arn-2"},
+				}, nil
+			},
+		}
+
+		var arns []string
+		for page := range listTaskDefinitionPages(ctx, mockClient, ecs.ListTaskDefinitionsInput{
+			Status: ecsTypes.TaskDefinitionStatusActive,
+		}) {
+			require.NoError(t, page.Err)
+			arns = append(arns, page.Output.TaskDefinitionArns...)
+		}
+
+		tokenStrings := make([]string, 0, len(tokens))
+		for _, token := range tokens {
+			tokenStrings = append(tokenStrings, aws.ToString(token))
+		}
+
+		assert.Equal(t, []string{"", "token-2"}, tokenStrings)
+		assert.Equal(t, []string{"arn-1", "arn-2"}, arns)
+	})
+
+	t.Run("stops when an error is returned", func(t *testing.T) {
+		callCount := 0
+		mockClient := &mockECSClient{
+			listTaskDefinitionsFunc: func(
+				_ context.Context,
+				input *ecs.ListTaskDefinitionsInput,
+				_ ...func(*ecs.Options),
+			) (*ecs.ListTaskDefinitionsOutput, error) {
+				callCount++
+				if callCount == 1 {
+					assert.Nil(t, input.NextToken)
+					return &ecs.ListTaskDefinitionsOutput{NextToken: aws.String("next")}, nil
+				}
+				assert.Equal(t, "next", aws.ToString(input.NextToken))
+				return nil, errors.New("boom")
+			},
+		}
+
+		pages := listTaskDefinitionPages(ctx, mockClient, ecs.ListTaskDefinitionsInput{})
+		iterated := 0
+		for page := range pages {
+			iterated++
+			if iterated == 1 {
+				require.NoError(t, page.Err)
+				continue
+			}
+			require.Error(t, page.Err)
+		}
+
+		assert.Equal(t, 2, iterated)
+		assert.Equal(t, 2, callCount)
+	})
+}
+
 func TestListTaskDefinitionsByPrefix(t *testing.T) {
 	ctx := context.Background()
 

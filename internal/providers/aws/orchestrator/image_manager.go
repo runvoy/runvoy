@@ -255,7 +255,6 @@ func (m *ImageRegistryImpl) RemoveImage(ctx context.Context, image string) error
 	// Deregister all task definition revisions for each family
 	totalDeregistered := 0
 	for family := range families {
-		nextToken := ""
 		logArgs := []any{
 			"operation", "ECS.ListTaskDefinitions",
 			"family", family,
@@ -266,21 +265,19 @@ func (m *ImageRegistryImpl) RemoveImage(ctx context.Context, image string) error
 		logArgs = append(logArgs, logger.GetDeadlineInfo(ctx)...)
 		reqLogger.Debug("calling external service", "context", logger.SliceToMap(logArgs))
 
-		for {
-			listOutput, listErr := m.ecsClient.ListTaskDefinitions(ctx, &ecs.ListTaskDefinitionsInput{
-				FamilyPrefix: awsStd.String(family),
-				Status:       ecsTypes.TaskDefinitionStatusActive,
-				MaxResults:   awsStd.Int32(awsConstants.ECSTaskDefinitionMaxResults),
-				NextToken:    awsStd.String(nextToken),
-			})
-			if listErr != nil {
-				reqLogger.Warn("failed to list task definitions for family", "error", listErr, "family", family)
+		for page := range listTaskDefinitionPages(ctx, m.ecsClient, ecs.ListTaskDefinitionsInput{
+			FamilyPrefix: awsStd.String(family),
+			Status:       ecsTypes.TaskDefinitionStatusActive,
+			MaxResults:   awsStd.Int32(awsConstants.ECSTaskDefinitionMaxResults),
+		}) {
+			if page.Err != nil {
+				reqLogger.Warn("failed to list task definitions for family", "error", page.Err, "family", family)
 				break
 			}
 
 			// Collect ARNs for batch deletion
 			var taskDefARNsToDelete []string
-			for _, taskDefARN := range listOutput.TaskDefinitionArns {
+			for _, taskDefARN := range page.Output.TaskDefinitionArns {
 				deregLogArgs := []any{
 					"operation", "ECS.DeregisterTaskDefinition",
 					"task_definition", taskDefARN,
@@ -309,11 +306,6 @@ func (m *ImageRegistryImpl) RemoveImage(ctx context.Context, image string) error
 			if len(taskDefARNsToDelete) > 0 {
 				m.deleteTaskDefinitions(ctx, reqLogger, family, image, taskDefARNsToDelete)
 			}
-
-			if listOutput.NextToken == nil {
-				break
-			}
-			nextToken = *listOutput.NextToken
 		}
 	}
 
