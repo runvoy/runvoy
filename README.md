@@ -196,6 +196,8 @@ to create a new user account for a team member. This will generate a claim token
 - ⏱  Claim tokens expire after 15 minutes
 - 👁  Each token can only be used once
 
+Runvoy ships with default roles enforced by Casbin: admins can do everything, operators can manage executions, images, secrets, and read users, developers can run commands and manage secrets without accessing user management, viewers can only read executions, and owners automatically get full control of resources they create. See the [policy.csv](internal/auth/authorization/casbin/policy.csv) file for the exact rule set.
+
 ## 📖 Usage
 
 <!-- CLI_HELP_START -->
