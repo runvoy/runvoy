@@ -62,7 +62,7 @@ delete-buckets *ARGS:
     go run scripts/delete-s3-buckets/*.go {{ARGS}}
 
 # Fetch and print API endpoint URL from CloudFormation stack
-get-endpoint stack_name:
+get-endpoint:
     @aws cloudformation describe-stacks \
         --stack-name {{stack_name}} \
         --query "Stacks[0].Outputs[?OutputKey=='APIEndpoint'].OutputValue" \

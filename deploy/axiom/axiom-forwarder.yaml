@@ -125,7 +125,7 @@ Resources:
       - AxiomForwarderFunction
       - AxiomForwarderOrchestratorLogsPermission
     Properties:
-      FilterPattern: ""
+      FilterPattern: '-"START RequestId:" -"END RequestId:" -"REPORT RequestId:" -"INIT_START:" -"XRAY TraceId:"'
       DestinationArn: !GetAtt AxiomForwarderFunction.Arn
       LogGroupName: !Ref OrchestratorLogGroup
 
@@ -136,7 +136,7 @@ Resources:
       - AxiomForwarderFunction
       - AxiomForwarderEventProcessorLogsPermission
     Properties:
-      FilterPattern: ""
+      FilterPattern: '-"START RequestId:" -"END RequestId:" -"REPORT RequestId:" -"INIT_START:" -"XRAY TraceId:"'
       DestinationArn: !GetAtt AxiomForwarderFunction.Arn
       LogGroupName: !Ref EventProcessorLogGroup
 

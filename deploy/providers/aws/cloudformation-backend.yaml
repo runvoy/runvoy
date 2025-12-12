@@ -15,6 +15,34 @@ Parameters:
     Type: String
     Description: Version of the released artifacts
 
+  LogRetentionDays:
+    Type: Number
+    Default: 365
+    Description: Number of days to retain CloudWatch logs
+    AllowedValues: # https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-resource-logs-loggroup.html
+      - 1
+      - 3
+      - 5
+      - 7
+      - 14
+      - 30
+      - 60
+      - 90
+      - 120
+      - 150
+      - 180
+      - 365
+      - 400
+      - 545
+      - 731
+      - 1096
+      - 1827
+      - 2192
+      - 2557
+      - 2922
+      - 3288
+      - 3653
+
 Resources:
   # DynamoDB Table for API Keys
   APIKeysTable:
@@ -242,7 +270,8 @@ Resources:
     Type: AWS::Logs::LogGroup
     Properties:
       LogGroupName: !Sub '/aws/ecs/${ProjectName}/runner'
-      RetentionInDays: 7
+      RetentionInDays: !Ref LogRetentionDays
+      DeletionProtectionEnabled: true
       Tags:
         - Key: Name
           Value: !Sub '${ProjectName}-runner-logs'
@@ -256,7 +285,8 @@ Resources:
     Type: AWS::Logs::LogGroup
     Properties:
       LogGroupName: !Sub '/aws/lambda/${ProjectName}-orchestrator'
-      RetentionInDays: 7
+      RetentionInDays: !Ref LogRetentionDays
+      DeletionProtectionEnabled: true
       Tags:
         - Key: Name
           Value: !Sub '${ProjectName}-lambda-logs'
@@ -655,7 +685,8 @@ Resources:
     Type: AWS::Logs::LogGroup
     Properties:
       LogGroupName: !Sub '/aws/lambda/${ProjectName}-event-processor'
-      RetentionInDays: 7
+      RetentionInDays: !Ref LogRetentionDays
+      DeletionProtectionEnabled: true
       Tags:
         - Key: Name
           Value: !Sub '${ProjectName}-event-processor-logs'

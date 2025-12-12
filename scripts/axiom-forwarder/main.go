@@ -78,6 +78,7 @@ type axiomEvent struct {
 func isLambdaMetadataLog(message string) bool {
 	trimmed := strings.TrimSpace(message)
 	return strings.HasPrefix(trimmed, "START RequestId:") ||
+		strings.HasPrefix(trimmed, "INIT_START") ||
 		strings.HasPrefix(trimmed, "REPORT RequestId:") ||
 		strings.HasPrefix(trimmed, "END RequestId:") ||
 		strings.HasPrefix(trimmed, "XRAY TraceId:")

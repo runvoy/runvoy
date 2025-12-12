@@ -49,6 +49,7 @@ create-backend-infra:
     aws cloudformation deploy \
         --stack-name {{stack_name}} \
         --template-file deploy/providers/aws/cloudformation-backend.yaml \
+        --parameter-overrides LogRetentionDays=7 \
         --capabilities CAPABILITY_NAMED_IAM
     just create-config-file {{stack_name}}
     just seed-admin-user {{admin_email}} {{stack_name}}
@@ -77,15 +78,14 @@ init: create-backend-infra deploy
     @echo ""
 
 # Create/update config file with API endpoint from CloudFormation stack
-create-config-file stack_name:
+create-config-file:
     go run scripts/create-config-file/main.go {{stack_name}}
 
 # Seed initial admin user into DynamoDB (idempotent)
-seed-admin-user email stack_name:
+seed-admin-user email:
     go run scripts/seed-admin-user/main.go {{email}} {{stack_name}}
 
-
-# Create/update axiom forwarder infrastructure via cloudformation
+# Create/update axiom forwarder infrastructure prerequisites via cloudformation
 create-axiom-forwarder-prerequisites:
     aws cloudformation deploy \
         --stack-name axiom-forwarder-prerequisites \
@@ -93,6 +93,7 @@ create-axiom-forwarder-prerequisites:
         --capabilities CAPABILITY_NAMED_IAM \
         --parameter-overrides BucketName={{axiom_bucket}}
 
+# Create/update axiom forwarder infrastructure via cloudformation
 create-axiom-forwarder-infra: create-axiom-forwarder-prerequisites upload-axiom-forwarder
     aws cloudformation deploy \
         --stack-name axiom-forwarder \
