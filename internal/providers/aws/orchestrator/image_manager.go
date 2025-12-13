@@ -271,7 +271,11 @@ func (m *ImageRegistryImpl) RemoveImage(ctx context.Context, image string) error
 			MaxResults:   awsStd.Int32(awsConstants.ECSTaskDefinitionMaxResults),
 		}) {
 			if page.Err != nil {
-				reqLogger.Warn("failed to list task definitions for family", "error", page.Err, "family", family)
+				reqLogger.Error("failed to list task definitions for family", "context",
+					map[string]string{
+						"error":  page.Err.Error(),
+						"family": family,
+					})
 				break
 			}
 
