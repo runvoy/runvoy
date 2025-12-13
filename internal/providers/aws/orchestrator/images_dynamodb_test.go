@@ -9,6 +9,8 @@ import (
 	"github.com/runvoy/runvoy/internal/testutil"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/ecs"
+	ecsTypes "github.com/aws/aws-sdk-go-v2/service/ecs/types"
 	"github.com/aws/aws-sdk-go-v2/service/iam"
 	iamTypes "github.com/aws/aws-sdk-go-v2/service/iam/types"
 	"github.com/stretchr/testify/assert"
@@ -543,6 +545,87 @@ func TestProvider_RemoveImage(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestProvider_RemoveImageHandlesPaginatedTaskDefinitions(t *testing.T) {
+	ctx := testutil.TestContext()
+
+	repo := &mockImageRepo{
+		getImageTaskDefByIDFunc: func(_ context.Context, imgID string) (*api.ImageInfo, error) {
+			if imgID != "alpine:latest-a1b2c3d4" {
+				return nil, nil
+			}
+			return &api.ImageInfo{
+				ImageID:            imgID,
+				Image:              "alpine:latest",
+				TaskDefinitionName: "runvoy-alpine-latest",
+			}, nil
+		},
+		deleteImageFunc: func(_ context.Context, _ string) error {
+			return nil
+		},
+	}
+
+	var listInputs []*ecs.ListTaskDefinitionsInput
+	var deregistered []string
+	var deletedInputs [][]string
+	mockECS := &mockECSClient{
+		listTaskDefinitionsFunc: func(_ context.Context, input *ecs.ListTaskDefinitionsInput, _ ...func(*ecs.Options)) (*ecs.ListTaskDefinitionsOutput, error) {
+			listInputs = append(listInputs, input)
+			if len(listInputs) == 1 {
+				return &ecs.ListTaskDefinitionsOutput{
+					TaskDefinitionArns: []string{
+						"arn:aws:ecs:us-east-1:123456789012:task-definition/runvoy-alpine-latest:1",
+						"arn:aws:ecs:us-east-1:123456789012:task-definition/runvoy-alpine-latest:2",
+					},
+					NextToken: aws.String("next-token"),
+				}, nil
+			}
+
+			return &ecs.ListTaskDefinitionsOutput{
+				TaskDefinitionArns: []string{
+					"arn:aws:ecs:us-east-1:123456789012:task-definition/runvoy-alpine-latest:3",
+				},
+			}, nil
+		},
+		deregisterTaskDefinitionFunc: func(_ context.Context, params *ecs.DeregisterTaskDefinitionInput, _ ...func(*ecs.Options)) (*ecs.DeregisterTaskDefinitionOutput, error) {
+			deregistered = append(deregistered, aws.ToString(params.TaskDefinition))
+			return &ecs.DeregisterTaskDefinitionOutput{}, nil
+		},
+		deleteTaskDefinitionsFunc: func(_ context.Context, input *ecs.DeleteTaskDefinitionsInput, _ ...func(*ecs.Options)) (*ecs.DeleteTaskDefinitionsOutput, error) {
+			deletedInputs = append(deletedInputs, input.TaskDefinitions)
+			return &ecs.DeleteTaskDefinitionsOutput{}, nil
+		},
+	}
+
+	manager := &ImageRegistryImpl{
+		imageRepo: repo,
+		ecsClient: mockECS,
+		cfg:       &Config{AccountID: "123456789012"},
+		logger:    testutil.SilentLogger(),
+	}
+
+	err := manager.RemoveImage(ctx, "alpine:latest-a1b2c3d4")
+	require.NoError(t, err)
+
+	require.Len(t, listInputs, 2)
+	assert.Equal(t, ecsTypes.TaskDefinitionStatusActive, listInputs[0].Status)
+	assert.Equal(t, "runvoy-alpine-latest", aws.ToString(listInputs[0].FamilyPrefix))
+	assert.Nil(t, listInputs[0].NextToken)
+	assert.Equal(t, "next-token", aws.ToString(listInputs[1].NextToken))
+
+	assert.ElementsMatch(t, []string{
+		"arn:aws:ecs:us-east-1:123456789012:task-definition/runvoy-alpine-latest:1",
+		"arn:aws:ecs:us-east-1:123456789012:task-definition/runvoy-alpine-latest:2",
+		"arn:aws:ecs:us-east-1:123456789012:task-definition/runvoy-alpine-latest:3",
+	}, deregistered)
+
+	require.Len(t, deletedInputs, 2)
+	assert.ElementsMatch(t, []string{
+		"arn:aws:ecs:us-east-1:123456789012:task-definition/runvoy-alpine-latest:1",
+		"arn:aws:ecs:us-east-1:123456789012:task-definition/runvoy-alpine-latest:2",
+	}, deletedInputs[0])
+	assert.Equal(t, []string{"arn:aws:ecs:us-east-1:123456789012:task-definition/runvoy-alpine-latest:3"}, deletedInputs[1])
 }
 
 func TestProvider_GetImage(t *testing.T) {
