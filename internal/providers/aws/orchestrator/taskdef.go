@@ -3,6 +3,7 @@ package orchestrator
 import (
 	"context"
 	"fmt"
+	"iter"
 	"log/slog"
 	"regexp"
 	"strconv"
@@ -11,8 +12,6 @@ import (
 	awsClient "github.com/runvoy/runvoy/internal/providers/aws/client"
 	awsConstants "github.com/runvoy/runvoy/internal/providers/aws/constants"
 	"github.com/runvoy/runvoy/internal/providers/aws/ecsdefs"
-
-	"iter"
 
 	awsStd "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ecs"
