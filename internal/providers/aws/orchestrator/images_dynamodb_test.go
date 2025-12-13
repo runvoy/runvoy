@@ -570,7 +570,11 @@ func TestProvider_RemoveImageHandlesPaginatedTaskDefinitions(t *testing.T) {
 	var deregistered []string
 	var deletedInputs [][]string
 	mockECS := &mockECSClient{
-		listTaskDefinitionsFunc: func(_ context.Context, input *ecs.ListTaskDefinitionsInput, _ ...func(*ecs.Options)) (*ecs.ListTaskDefinitionsOutput, error) {
+		listTaskDefinitionsFunc: func(
+			_ context.Context,
+			input *ecs.ListTaskDefinitionsInput,
+			_ ...func(*ecs.Options),
+		) (*ecs.ListTaskDefinitionsOutput, error) {
 			listInputs = append(listInputs, input)
 			if len(listInputs) == 1 {
 				return &ecs.ListTaskDefinitionsOutput{
@@ -588,11 +592,19 @@ func TestProvider_RemoveImageHandlesPaginatedTaskDefinitions(t *testing.T) {
 				},
 			}, nil
 		},
-		deregisterTaskDefinitionFunc: func(_ context.Context, params *ecs.DeregisterTaskDefinitionInput, _ ...func(*ecs.Options)) (*ecs.DeregisterTaskDefinitionOutput, error) {
+		deregisterTaskDefinitionFunc: func(
+			_ context.Context,
+			params *ecs.DeregisterTaskDefinitionInput,
+			_ ...func(*ecs.Options),
+		) (*ecs.DeregisterTaskDefinitionOutput, error) {
 			deregistered = append(deregistered, aws.ToString(params.TaskDefinition))
 			return &ecs.DeregisterTaskDefinitionOutput{}, nil
 		},
-		deleteTaskDefinitionsFunc: func(_ context.Context, input *ecs.DeleteTaskDefinitionsInput, _ ...func(*ecs.Options)) (*ecs.DeleteTaskDefinitionsOutput, error) {
+		deleteTaskDefinitionsFunc: func(
+			_ context.Context,
+			input *ecs.DeleteTaskDefinitionsInput,
+			_ ...func(*ecs.Options),
+		) (*ecs.DeleteTaskDefinitionsOutput, error) {
 			deletedInputs = append(deletedInputs, input.TaskDefinitions)
 			return &ecs.DeleteTaskDefinitionsOutput{}, nil
 		},
@@ -625,7 +637,9 @@ func TestProvider_RemoveImageHandlesPaginatedTaskDefinitions(t *testing.T) {
 		"arn:aws:ecs:us-east-1:123456789012:task-definition/runvoy-alpine-latest:1",
 		"arn:aws:ecs:us-east-1:123456789012:task-definition/runvoy-alpine-latest:2",
 	}, deletedInputs[0])
-	assert.Equal(t, []string{"arn:aws:ecs:us-east-1:123456789012:task-definition/runvoy-alpine-latest:3"}, deletedInputs[1])
+	assert.Equal(t, []string{
+		"arn:aws:ecs:us-east-1:123456789012:task-definition/runvoy-alpine-latest:3",
+	}, deletedInputs[1])
 }
 
 func TestProvider_GetImage(t *testing.T) {
