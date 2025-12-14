@@ -351,6 +351,8 @@ func validateOrchestratorConfig(cfg *Config) error {
 			return fmt.Errorf("failed to validate orchestrator config: %w", err)
 		}
 		return nil
+	case constants.GCP:
+		return errors.New("GCP orchestrator validation not yet implemented")
 	default:
 		return fmt.Errorf("unsupported backend provider: %s", cfg.BackendProvider)
 	}
@@ -363,6 +365,8 @@ func validateEventProcessorConfig(cfg *Config) error {
 			return fmt.Errorf("failed to validate event processor config: %w", err)
 		}
 		return nil
+	case constants.GCP:
+		return errors.New("GCP event processor validation not yet implemented")
 	default:
 		return fmt.Errorf("unsupported backend provider: %s", cfg.BackendProvider)
 	}

@@ -149,8 +149,9 @@ or a local file path.
 ```
       --configure                Automatically configure CLI with the applied endpoint after successful application
   -h, --help                     help for apply
+      --org-id string            Organization ID for GCP project creation (GCP only)
       --parameter strings        Stack parameter in KEY=VALUE format (can be specified multiple times)
-      --provider string          Cloud provider (currently supported: aws) (default "aws")
+      --provider string          Cloud provider (currently supported: aws, gcp) (default "aws")
       --region string            Provider region. Uses provider default if not specified
       --seed-admin-user string   Email address for the admin user to seed into DynamoDB after successful deployment
       --stack-name string        Infrastructure stack name (default "runvoy-backend")
@@ -180,7 +181,7 @@ the CloudFormation stack and all associated AWS resources.
 
 ```
   -h, --help                help for destroy
-      --provider string     Cloud provider (currently supported: aws) (default "aws")
+      --provider string     Cloud provider (currently supported: aws, gcp) (default "aws")
       --region string       Provider region. Uses provider default if not specified
       --stack-name string   Infrastructure stack name (default "runvoy-backend")
       --wait                Wait for stack deletion to complete (default true)

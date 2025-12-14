@@ -34,11 +34,16 @@ func TestNewDeployer(t *testing.T) {
 			wantErr:  false,
 		},
 		{
-			name:     "unsupported provider",
+			name:     "GCP provider lowercase",
 			provider: "gcp",
 			region:   "us-central1",
-			wantErr:  true,
-			errMsg:   "unsupported provider: gcp",
+			wantErr:  false,
+		},
+		{
+			name:     "GCP provider uppercase",
+			provider: "GCP",
+			region:   "us-central1",
+			wantErr:  false,
 		},
 		{
 			name:     "empty provider",
@@ -59,6 +64,11 @@ func TestNewDeployer(t *testing.T) {
 				assert.Contains(t, err.Error(), tt.errMsg)
 				assert.Nil(t, deployer)
 			} else {
+				// GCP may fail due to missing credentials in test environment, which is acceptable
+				if err != nil && strings.Contains(err.Error(), "credentials") {
+					t.Skipf("Skipping test due to missing credentials: %v", err)
+					return
+				}
 				require.NoError(t, err)
 				require.NotNil(t, deployer)
 				assert.Equal(t, tt.region, deployer.GetRegion())
@@ -148,13 +158,16 @@ func TestResolveTemplate(t *testing.T) {
 			errMsg:   "invalid S3 URI",
 		},
 		{
-			name:     "unsupported provider",
+			name:     "GCP provider returns empty template",
 			provider: "gcp",
 			template: "",
 			version:  "v1.0.0",
 			region:   "us-central1",
-			wantErr:  true,
-			errMsg:   "unsupported provider: gcp",
+			wantErr:  false,
+			checkFunc: func(t *testing.T, result *TemplateSource) {
+				assert.Empty(t, result.URL)
+				assert.Empty(t, result.Body)
+			},
 		},
 	}
 

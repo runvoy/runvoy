@@ -14,6 +14,15 @@ import (
 const (
 	// parameterSplitParts is the expected number of parts when splitting a KEY=VALUE parameter.
 	parameterSplitParts = 2
+
+	// Operation types.
+	operationTypeCreate = "CREATE"
+	operationTypeUpdate = "UPDATE"
+
+	// Status strings.
+	statusNotFound       = "NOT_FOUND"
+	statusUpdateComplete = "UPDATE_COMPLETE"
+	statusCreateComplete = "CREATE_COMPLETE"
 )
 
 // DeployOptions contains all options for deploying infrastructure.
@@ -24,6 +33,7 @@ type DeployOptions struct {
 	Parameters []string // KEY=VALUE format
 	Wait       bool     // Wait for completion
 	Region     string   // Provider region (optional)
+	OrgID      string   // Organization ID for GCP (optional)
 }
 
 // DeployResult contains the result of a deployment operation.
@@ -71,15 +81,15 @@ type Deployer interface {
 }
 
 // NewDeployer creates a Deployer for the specified provider.
-// Currently supports: "aws".
+// Currently supports: "aws", "gcp".
 func NewDeployer(ctx context.Context, provider, region string) (Deployer, error) {
-	providerLower := strings.ToLower(provider)
-	awsProvider := strings.ToLower(string(constants.AWS))
-	switch providerLower {
-	case awsProvider:
+	switch strings.ToUpper(provider) {
+	case string(constants.AWS):
 		return NewAWSDeployer(ctx, region)
+	case string(constants.GCP):
+		return NewGCPDeployer(ctx, region)
 	default:
-		return nil, fmt.Errorf("unsupported provider: %s (supported: %s)", provider, awsProvider)
+		return nil, fmt.Errorf("unsupported provider: %s (supported: %s)", provider, constants.ProvidersString())
 	}
 }
 
@@ -87,13 +97,14 @@ func NewDeployer(ctx context.Context, provider, region string) (Deployer, error)
 // Returns a TemplateSource with either URL or Body populated.
 // region is the provider region to use for building default template URLs.
 func ResolveTemplate(provider, template, version, region string) (*TemplateSource, error) {
-	providerLower := strings.ToLower(provider)
-	awsProvider := strings.ToLower(string(constants.AWS))
-	switch providerLower {
-	case awsProvider:
+	switch strings.ToUpper(provider) {
+	case string(constants.AWS):
 		return resolveAWSTemplate(template, version, region)
+	case string(constants.GCP):
+		// GCP project creation doesn't use templates
+		return &TemplateSource{}, nil
 	default:
-		return nil, fmt.Errorf("unsupported provider: %s", provider)
+		return nil, fmt.Errorf("unsupported provider: %s (supported: %s)", provider, constants.ProvidersString())
 	}
 }
 

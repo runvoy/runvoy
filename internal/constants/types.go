@@ -1,12 +1,15 @@
 package constants
 
+import "strings"
+
 // BackendProvider represents the backend infrastructure provider.
 type BackendProvider string
 
 const (
 	// AWS is the Amazon Web Services backend provider.
 	AWS BackendProvider = "AWS"
-	// Example: GCP BackendProvider = "GCP".
+	// GCP is the Google Cloud Platform backend provider.
+	GCP BackendProvider = "GCP"
 )
 
 // Environment represents the execution environment (e.g., CLI, Lambda).
@@ -29,5 +32,17 @@ const (
 	EventProcessorService Service = "event-processor"
 )
 
-// EcsStatus, container name, and volume constants are provider-specific.
-// See internal/providers/aws/constants/ecs.go for AWS ECS-specific constants.
+// Providers is a list of valid backend providers.
+var Providers = []BackendProvider{
+	AWS, GCP,
+}
+
+// ProvidersString returns a comma-separated string of the valid backend providers.
+func ProvidersString() string {
+	providers := make([]string, len(Providers))
+	for i, provider := range Providers {
+		providers[i] = strings.ToLower(string(provider))
+	}
+
+	return strings.Join(providers, ", ")
+}

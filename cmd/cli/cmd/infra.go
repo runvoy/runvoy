@@ -24,6 +24,7 @@ var (
 	infraApplyRegion        string
 	infraApplyProvider      string
 	infraApplySeedAdminUser string
+	infraApplyOrgID         string
 
 	// infra destroy flags.
 	infraDestroyStackName string
@@ -109,7 +110,7 @@ func init() {
 
 	// Define flags for infra apply
 	infraApplyCmd.Flags().StringVar(&infraApplyProvider, "provider", defaultProvider,
-		"Cloud provider (currently supported: aws)")
+		"Cloud provider (currently supported: "+constants.ProvidersString()+")")
 	infraApplyCmd.Flags().StringVar(&infraApplyStackName, "stack-name", defaultStackName,
 		"Infrastructure stack name")
 	infraApplyCmd.Flags().StringVar(&infraApplyTemplate, "template", "",
@@ -126,10 +127,12 @@ func init() {
 		"Provider region. Uses provider default if not specified")
 	infraApplyCmd.Flags().StringVar(&infraApplySeedAdminUser, "seed-admin-user", "",
 		"Email address for the admin user to seed into DynamoDB after successful deployment")
+	infraApplyCmd.Flags().StringVar(&infraApplyOrgID, "org-id", "",
+		"Organization ID for GCP project creation (GCP only)")
 
 	// Define flags for infra destroy
 	infraDestroyCmd.Flags().StringVar(&infraDestroyProvider, "provider", defaultProvider,
-		"Cloud provider (currently supported: aws)")
+		"Cloud provider (currently supported: "+constants.ProvidersString()+")")
 	infraDestroyCmd.Flags().StringVar(&infraDestroyStackName, "stack-name", defaultStackName,
 		"Infrastructure stack name")
 	infraDestroyCmd.Flags().BoolVar(&infraDestroyWait, "wait", true,
@@ -154,17 +157,7 @@ func infraApplyRun(cmd *cobra.Command, _ []string) {
 		output.Fatalf("failed to resolve template: %v", err)
 	}
 
-	output.Infof("Applying infrastructure changes")
-	output.KeyValue("Provider", infraApplyProvider)
-	output.KeyValue("Stack name", infraApplyStackName)
-	output.KeyValue("Version", version)
-	if templateSource.URL != "" {
-		output.KeyValue("Template URL", templateSource.URL)
-	} else {
-		output.KeyValue("Template", "local file")
-	}
-	output.KeyValue("Region", applier.GetRegion())
-	output.Blank()
+	printApplyInfo(infraApplyProvider, infraApplyStackName, version, templateSource, applier.GetRegion())
 
 	opts := &infra.DeployOptions{
 		StackName:  infraApplyStackName,
@@ -173,6 +166,7 @@ func infraApplyRun(cmd *cobra.Command, _ []string) {
 		Parameters: infraApplyParameters,
 		Wait:       infraApplyWait,
 		Region:     infraApplyRegion,
+		OrgID:      infraApplyOrgID,
 	}
 
 	stackExists, err := applier.CheckStackExists(cmd.Context(), infraApplyStackName)
@@ -199,6 +193,21 @@ func infraApplyRun(cmd *cobra.Command, _ []string) {
 		infraApplyConfigure, infraApplySeedAdminUser,
 		infraApplyRegion,
 	)
+}
+
+// printApplyInfo prints information about the infrastructure application.
+func printApplyInfo(provider, stackName, version string, templateSource *infra.TemplateSource, region string) {
+	output.Infof("Applying infrastructure changes")
+	output.KeyValue("Provider", provider)
+	output.KeyValue("Stack name", stackName)
+	output.KeyValue("Version", version)
+	if templateSource.URL != "" {
+		output.KeyValue("Template URL", templateSource.URL)
+	} else {
+		output.KeyValue("Template", "local file")
+	}
+	output.KeyValue("Region", region)
+	output.Blank()
 }
 
 // handleApplyResult handles the result of an application operation.

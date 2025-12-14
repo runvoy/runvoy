@@ -114,10 +114,10 @@ func (d *AWSDeployer) executeStackOperation(
 	result *DeployResult,
 ) error {
 	if stackExists {
-		result.OperationType = "UPDATE"
+		result.OperationType = operationTypeUpdate
 		return d.updateStack(ctx, stackName, templateSource, cfnParams)
 	}
-	result.OperationType = "CREATE"
+	result.OperationType = operationTypeCreate
 	return d.createStack(ctx, stackName, templateSource, cfnParams)
 }
 
@@ -434,7 +434,7 @@ func (d *AWSDeployer) Destroy(ctx context.Context, opts *DestroyOptions) (*Destr
 
 	if !stackExists {
 		result.NotFound = true
-		result.Status = "NOT_FOUND"
+		result.Status = statusNotFound
 		return result, nil
 	}
 

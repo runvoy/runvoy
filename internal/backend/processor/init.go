@@ -2,6 +2,7 @@ package processor
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 
@@ -87,8 +88,10 @@ func selectProviderInitializer(
 	switch provider {
 	case constants.AWS:
 		return awsProviderInitializer, nil
+	case constants.GCP:
+		return nil, errors.New("GCP processor initializer not yet implemented")
 	default:
-		return nil, fmt.Errorf("unknown backend provider: %s (supported: %s)", provider, constants.AWS)
+		return nil, fmt.Errorf("unknown backend provider: %s (supported: %s)", provider, constants.ProvidersString())
 	}
 }
 

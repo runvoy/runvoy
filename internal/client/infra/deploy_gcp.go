@@ -1,0 +1,291 @@
+package infra
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"strings"
+	"time"
+
+	resourcemanager "cloud.google.com/go/resourcemanager/apiv3"
+	"cloud.google.com/go/resourcemanager/apiv3/resourcemanagerpb"
+)
+
+const (
+	gcpProjectPollInterval     = 5 * time.Second
+	gcpProjectOperationTimeout = 5 * time.Minute
+	gcpStatusInProgress        = "IN_PROGRESS"
+)
+
+// GCPDeployer implements Deployer for GCP Resource Manager.
+type GCPDeployer struct {
+	client *resourcemanager.ProjectsClient
+	region string
+}
+
+// NewGCPDeployer creates a new GCP deployer with the given region.
+// Authentication is handled via Application Default Credentials (ADC).
+func NewGCPDeployer(ctx context.Context, region string) (*GCPDeployer, error) {
+	client, err := resourcemanager.NewProjectsClient(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create GCP projects client: %w", err)
+	}
+
+	// Use default region if not specified (GCP doesn't require region for project creation,
+	// but we store it for consistency with other providers)
+	if region == "" {
+		region = "us-central1" // GCP default region
+	}
+
+	return &GCPDeployer{
+		client: client,
+		region: region,
+	}, nil
+}
+
+// NewGCPDeployerWithClient creates a new GCP deployer with a custom client (for testing).
+func NewGCPDeployerWithClient(client *resourcemanager.ProjectsClient, region string) *GCPDeployer {
+	return &GCPDeployer{
+		client: client,
+		region: region,
+	}
+}
+
+// GetRegion returns the GCP region being used.
+func (d *GCPDeployer) GetRegion() string {
+	return d.region
+}
+
+// Deploy creates a new GCP project.
+// For GCP, StackName is used as the project ID.
+func (d *GCPDeployer) Deploy(ctx context.Context, opts *DeployOptions) (*DeployResult, error) {
+	if opts.StackName == "" {
+		return nil, errors.New("project ID (stack-name) is required for GCP")
+	}
+
+	projectID := opts.StackName
+	result := &DeployResult{
+		StackName: projectID,
+		Outputs:   make(map[string]string),
+	}
+
+	// Check if project already exists
+	exists, err := d.CheckStackExists(ctx, projectID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check if project exists: %w", err)
+	}
+
+	if exists {
+		return d.handleExistingProject(ctx, projectID, result)
+	}
+
+	return d.handleNewProject(ctx, projectID, opts, result)
+}
+
+// handleExistingProject handles the case where a project already exists.
+func (d *GCPDeployer) handleExistingProject(
+	ctx context.Context,
+	projectID string,
+	result *DeployResult,
+) (*DeployResult, error) {
+	result.OperationType = operationTypeUpdate
+	result.Status = statusUpdateComplete
+	result.NoChanges = true
+	existingOutputs, getErr := d.GetStackOutputs(ctx, projectID)
+	if getErr != nil {
+		return result, fmt.Errorf("failed to retrieve project outputs: %w", getErr)
+	}
+	result.Outputs = existingOutputs
+	return result, nil
+}
+
+// handleNewProject handles the creation of a new GCP project.
+func (d *GCPDeployer) handleNewProject(
+	ctx context.Context,
+	projectID string,
+	opts *DeployOptions,
+	result *DeployResult,
+) (*DeployResult, error) {
+	result.OperationType = operationTypeCreate
+
+	createdProject, err := d.createNewProject(ctx, projectID, opts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create project: %w", err)
+	}
+
+	if !opts.Wait {
+		result.Status = gcpStatusInProgress
+		return result, nil
+	}
+
+	// Wait for project to be ready
+	if waitErr := d.waitForProjectReady(ctx, projectID); waitErr != nil {
+		return nil, fmt.Errorf("project creation failed: %w", waitErr)
+	}
+
+	result.Status = statusCreateComplete
+
+	// Get project outputs
+	projectOutputs, getErr := d.GetStackOutputs(ctx, projectID)
+	if getErr != nil {
+		return result, fmt.Errorf("project created but failed to retrieve outputs: %w", getErr)
+	}
+	result.Outputs = projectOutputs
+
+	// Add project info to outputs
+	if createdProject != nil {
+		d.addProjectInfoToOutputs(result.Outputs, createdProject)
+	}
+
+	return result, nil
+}
+
+// createNewProject creates a new GCP project with the given options.
+func (d *GCPDeployer) createNewProject(
+	ctx context.Context,
+	projectID string,
+	opts *DeployOptions,
+) (*resourcemanagerpb.Project, error) {
+	project := &resourcemanagerpb.Project{
+		ProjectId: projectID,
+	}
+
+	// If org-id is provided, set it as the parent
+	if opts.OrgID != "" {
+		project.Parent = "organizations/" + opts.OrgID
+	}
+
+	req := &resourcemanagerpb.CreateProjectRequest{
+		Project: project,
+	}
+
+	return d.createProject(ctx, req)
+}
+
+// addProjectInfoToOutputs adds project information to the outputs map.
+func (d *GCPDeployer) addProjectInfoToOutputs(
+	outputs map[string]string,
+	project *resourcemanagerpb.Project,
+) {
+	outputs["ProjectID"] = project.ProjectId
+	outputs["ProjectName"] = project.Name
+	if project.Name != "" {
+		outputs["ProjectNumber"] = strings.TrimPrefix(project.Name, "projects/")
+	}
+}
+
+// createProject creates a new GCP project.
+func (d *GCPDeployer) createProject(
+	ctx context.Context,
+	req *resourcemanagerpb.CreateProjectRequest,
+) (*resourcemanagerpb.Project, error) {
+	op, err := d.client.CreateProject(ctx, req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create project: %w", err)
+	}
+
+	// Wait for the operation to complete
+	project, err := op.Wait(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to wait for project creation: %w", err)
+	}
+
+	return project, nil
+}
+
+// waitForProjectReady waits for a project to be ready.
+func (d *GCPDeployer) waitForProjectReady(ctx context.Context, projectID string) error {
+	ticker := time.NewTicker(gcpProjectPollInterval)
+	defer ticker.Stop()
+
+	timeout := time.After(gcpProjectOperationTimeout)
+
+	for {
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("context canceled: %w", ctx.Err())
+		case <-timeout:
+			return errors.New("timeout waiting for project creation")
+		case <-ticker.C:
+			exists, err := d.CheckStackExists(ctx, projectID)
+			if err != nil {
+				return fmt.Errorf("failed to check project status: %w", err)
+			}
+			if exists {
+				return nil
+			}
+		}
+	}
+}
+
+// CheckStackExists checks if a GCP project exists.
+func (d *GCPDeployer) CheckStackExists(ctx context.Context, projectID string) (bool, error) {
+	req := &resourcemanagerpb.GetProjectRequest{
+		Name: "projects/" + projectID,
+	}
+
+	_, err := d.client.GetProject(ctx, req)
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") || strings.Contains(err.Error(), "404") {
+			return false, nil
+		}
+		return false, fmt.Errorf("failed to get project: %w", err)
+	}
+
+	return true, nil
+}
+
+// GetStackOutputs retrieves outputs from a GCP project.
+func (d *GCPDeployer) GetStackOutputs(ctx context.Context, projectID string) (map[string]string, error) {
+	req := &resourcemanagerpb.GetProjectRequest{
+		Name: "projects/" + projectID,
+	}
+
+	project, err := d.client.GetProject(ctx, req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get project: %w", err)
+	}
+
+	outputs := make(map[string]string)
+	outputs["ProjectID"] = project.ProjectId
+	if project.DisplayName != "" {
+		outputs["ProjectName"] = project.DisplayName
+	} else {
+		outputs["ProjectName"] = project.ProjectId
+	}
+	const expectedPartsCount = 2
+	if project.Name != "" {
+		// Extract project number from name (format: "projects/123456789")
+		parts := strings.Split(project.Name, "/")
+		if len(parts) == expectedPartsCount {
+			outputs["ProjectNumber"] = parts[1]
+		}
+	}
+
+	return outputs, nil
+}
+
+// Destroy deletes a GCP project.
+// Note: GCP projects cannot be deleted via API immediately; they must be scheduled for deletion.
+func (d *GCPDeployer) Destroy(ctx context.Context, opts *DestroyOptions) (*DestroyResult, error) {
+	result := &DestroyResult{
+		StackName: opts.StackName,
+	}
+
+	exists, err := d.CheckStackExists(ctx, opts.StackName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check project status: %w", err)
+	}
+
+	if !exists {
+		result.NotFound = true
+		result.Status = statusNotFound
+		return result, nil
+	}
+
+	// GCP project deletion is a complex operation that requires scheduling deletion
+	// For now, return an error indicating this is not fully implemented
+	return nil, errors.New(
+		"GCP project deletion is not yet implemented. " +
+			"Please delete the project manually in the GCP Console")
+}
