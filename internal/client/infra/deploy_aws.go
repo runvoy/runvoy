@@ -19,7 +19,6 @@ import (
 const (
 	awsStackPollInterval     = 5 * time.Second
 	awsStackOperationTimeout = 30 * time.Minute
-	stackStatusInProgress    = "IN_PROGRESS"
 )
 
 // CloudFormationClient defines the interface for CloudFormation operations.
@@ -158,7 +157,7 @@ func (d *AWSDeployer) Deploy(ctx context.Context, opts *DeployOptions) (*DeployR
 	}
 
 	if !opts.Wait {
-		result.Status = stackStatusInProgress
+		result.Status = statusInProgress
 		return result, nil
 	}
 
@@ -444,7 +443,7 @@ func (d *AWSDeployer) Destroy(ctx context.Context, opts *DestroyOptions) (*Destr
 	}
 
 	if !opts.Wait {
-		result.Status = stackStatusInProgress
+		result.Status = statusInProgress
 		return result, nil
 	}
 

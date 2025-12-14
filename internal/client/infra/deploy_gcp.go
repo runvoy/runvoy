@@ -9,12 +9,8 @@ import (
 
 	resourcemanager "cloud.google.com/go/resourcemanager/apiv3"
 	"cloud.google.com/go/resourcemanager/apiv3/resourcemanagerpb"
-)
 
-const (
-	gcpProjectPollInterval     = 5 * time.Second
-	gcpProjectOperationTimeout = 5 * time.Minute
-	gcpStatusInProgress        = "IN_PROGRESS"
+	"github.com/runvoy/runvoy/internal/providers/gcp/constants"
 )
 
 // GCPDeployer implements Deployer for GCP Resource Manager.
@@ -34,7 +30,7 @@ func NewGCPDeployer(ctx context.Context, region string) (*GCPDeployer, error) {
 	// Use default region if not specified (GCP doesn't require region for project creation,
 	// but we store it for consistency with other providers)
 	if region == "" {
-		region = "us-central1" // GCP default region
+		region = constants.DefaultRegion
 	}
 
 	return &GCPDeployer{
@@ -114,7 +110,7 @@ func (d *GCPDeployer) handleNewProject(
 	}
 
 	if !opts.Wait {
-		result.Status = gcpStatusInProgress
+		result.Status = statusInProgress
 		return result, nil
 	}
 
@@ -195,10 +191,10 @@ func (d *GCPDeployer) createProject(
 
 // waitForProjectReady waits for a project to be ready.
 func (d *GCPDeployer) waitForProjectReady(ctx context.Context, projectID string) error {
-	ticker := time.NewTicker(gcpProjectPollInterval)
+	ticker := time.NewTicker(constants.ProjectPollInterval)
 	defer ticker.Stop()
 
-	timeout := time.After(gcpProjectOperationTimeout)
+	timeout := time.After(constants.ProjectOperationTimeout)
 
 	for {
 		select {

@@ -20,6 +20,7 @@ const (
 	operationTypeUpdate = "UPDATE"
 
 	// Status strings.
+	statusInProgress     = "IN_PROGRESS"
 	statusNotFound       = "NOT_FOUND"
 	statusUpdateComplete = "UPDATE_COMPLETE"
 	statusCreateComplete = "CREATE_COMPLETE"
