@@ -23,7 +23,7 @@ require (
 	github.com/casbin/casbin/v2 v2.134.0
 	github.com/fatih/color v1.18.0
 	github.com/go-chi/chi/v5 v5.2.3
-	github.com/go-playground/validator/v10 v10.28.0
+	github.com/go-playground/validator/v10 v10.29.0
 	github.com/gorilla/websocket v1.5.3
 	github.com/lmittmann/tint v1.1.2
 	github.com/spf13/cobra v1.10.2
