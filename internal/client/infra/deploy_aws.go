@@ -16,11 +16,6 @@ import (
 	awsConstants "github.com/runvoy/runvoy/internal/providers/aws/constants"
 )
 
-const (
-	awsStackPollInterval     = 5 * time.Second
-	awsStackOperationTimeout = 30 * time.Minute
-)
-
 // CloudFormationClient defines the interface for CloudFormation operations.
 // This interface enables mocking for unit tests.
 //
@@ -282,10 +277,10 @@ func (d *AWSDeployer) updateStack(
 
 // waitForStackOperation waits for a stack create/update to complete.
 func (d *AWSDeployer) waitForStackOperation(ctx context.Context, stackName string) (string, error) {
-	ticker := time.NewTicker(awsStackPollInterval)
+	ticker := time.NewTicker(awsConstants.StackPollInterval)
 	defer ticker.Stop()
 
-	timeout := time.After(awsStackOperationTimeout)
+	timeout := time.After(awsConstants.StackOperationTimeout)
 
 	for {
 		select {
@@ -469,10 +464,10 @@ func (d *AWSDeployer) deleteStack(ctx context.Context, stackName string) error {
 
 // waitForStackDeletion waits for a stack deletion to complete.
 func (d *AWSDeployer) waitForStackDeletion(ctx context.Context, stackName string) (string, error) {
-	ticker := time.NewTicker(awsStackPollInterval)
+	ticker := time.NewTicker(awsConstants.StackPollInterval)
 	defer ticker.Stop()
 
-	timeout := time.After(awsStackOperationTimeout)
+	timeout := time.After(awsConstants.StackOperationTimeout)
 
 	for {
 		select {
