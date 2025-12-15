@@ -71,11 +71,19 @@ func TestSelectProviderInitializer_DefaultAWS(t *testing.T) {
 }
 
 func TestSelectProviderInitializer_UnknownProvider(t *testing.T) {
-	initializer, err := selectProviderInitializer("gcp", nil)
+	initializer, err := selectProviderInitializer("unknown", nil)
 
 	require.Error(t, err)
 	assert.Nil(t, initializer)
-	assert.Contains(t, err.Error(), "unknown backend provider: gcp")
+	assert.Contains(t, err.Error(), "unknown backend provider: unknown")
+}
+
+func TestSelectProviderInitializer_GCPNotImplemented(t *testing.T) {
+	initializer, err := selectProviderInitializer(constants.GCP, nil)
+
+	require.Error(t, err)
+	assert.Nil(t, initializer)
+	assert.Contains(t, err.Error(), "GCP provider initializer not yet implemented")
 }
 
 // stubImageRepository satisfies both database.ImageRepository and authorization.ImageRepository for tests.
