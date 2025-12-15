@@ -12,4 +12,7 @@ const (
 
 	// ProjectOperationTimeout is the maximum time to wait for a project operation to complete.
 	ProjectOperationTimeout = 5 * time.Minute
+
+	// StatusDeleteRequested is the lifecycle state of a project after deletion is requested.
+	StatusDeleteRequested = "DELETE_REQUESTED"
 )

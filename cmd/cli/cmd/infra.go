@@ -15,7 +15,7 @@ import (
 
 var (
 	// infra apply flags.
-	infraApplyStackName     string
+	infraApplyProjectName   string
 	infraApplyTemplate      string
 	infraApplyVersion       string
 	infraApplyParameters    []string
@@ -27,10 +27,10 @@ var (
 	infraApplyOrgID         string
 
 	// infra destroy flags.
-	infraDestroyStackName string
-	infraDestroyWait      bool
-	infraDestroyRegion    string
-	infraDestroyProvider  string
+	infraDestroyProjectName string
+	infraDestroyWait        bool
+	infraDestroyRegion      string
+	infraDestroyProvider    string
 )
 
 // infraCmd is the parent command for infrastructure operations.
@@ -51,20 +51,20 @@ for the current CLI version. You can override this with a custom template URL
 or a local file path.`,
 	Example: fmt.Sprintf(
 		"  # Apply using default template and version\n"+
-			"  %s infra apply --stack-name my-stack\n\n"+
+			"  %s infra apply --project-name my-project\n\n"+
 			"  # Apply a specific version\n"+
-			"  %s infra apply --stack-name my-stack --version 1.2.3\n\n"+
+			"  %s infra apply --project-name my-project --version 1.2.3\n\n"+
 			"  # Apply with custom template from S3\n"+
-			"  %s infra apply --stack-name my-stack --template https://my-bucket.s3.amazonaws.com/template.yaml\n\n"+
+			"  %s infra apply --project-name my-project --template https://my-bucket.s3.amazonaws.com/template.yaml\n\n"+
 			"  # Apply with local template file\n"+
-			"  %s infra apply --stack-name my-stack --template ./my-template.yaml\n\n"+
+			"  %s infra apply --project-name my-project --template ./my-template.yaml\n\n"+
 			"  # Apply with custom parameters\n"+
-			"  %s infra apply --stack-name my-stack --parameter ProjectName=myproject "+
+			"  %s infra apply --project-name my-project --parameter ProjectName=myproject "+
 			"--parameter LambdaCodeBucket=my-bucket\n\n"+
 			"  # Apply and automatically configure CLI\n"+
-			"  %s infra apply --stack-name my-stack --configure\n\n"+
+			"  %s infra apply --project-name my-project --configure\n\n"+
 			"  # Apply, configure CLI, and seed admin user\n"+
-			"  %s infra apply --stack-name my-stack --configure --seed-admin-user admin@example.com",
+			"  %s infra apply --project-name my-project --configure --seed-admin-user admin@example.com",
 		constants.ProjectName,
 		constants.ProjectName,
 		constants.ProjectName,
@@ -85,10 +85,10 @@ var infraDestroyCmd = &cobra.Command{
 This command will delete all resources created by the apply command, including
 the CloudFormation stack and all associated AWS resources.`,
 	Example: fmt.Sprintf(
-		"  # Destroy infrastructure stack\n"+
-			"  %s infra destroy --stack-name my-stack\n\n"+
+		"  # Destroy infrastructure project\n"+
+			"  %s infra destroy --project-name my-project\n\n"+
 			"  # Destroy without waiting for completion\n"+
-			"  %s infra destroy --stack-name my-stack --wait=false",
+			"  %s infra destroy --project-name my-project --wait=false",
 		constants.ProjectName,
 		constants.ProjectName,
 	),
@@ -105,14 +105,14 @@ func init() {
 		output.Fatalf("failed to load config: %v", err)
 	}
 
-	defaultStackName := cfg.GetDefaultStackName()
+	defaultProjectName := cfg.GetDefaultStackName()
 	defaultProvider := cfg.GetProviderIdentifier()
 
 	// Define flags for infra apply
 	infraApplyCmd.Flags().StringVar(&infraApplyProvider, "provider", defaultProvider,
 		"Cloud provider (currently supported: "+constants.ProvidersString()+")")
-	infraApplyCmd.Flags().StringVar(&infraApplyStackName, "stack-name", defaultStackName,
-		"Infrastructure stack name")
+	infraApplyCmd.Flags().StringVar(&infraApplyProjectName, "project-name", defaultProjectName,
+		"Infrastructure project name")
 	infraApplyCmd.Flags().StringVar(&infraApplyTemplate, "template", "",
 		"Template URL or local file path. If not specified, uses the official template")
 	infraApplyCmd.Flags().StringVar(&infraApplyVersion, "version", "",
@@ -133,8 +133,8 @@ func init() {
 	// Define flags for infra destroy
 	infraDestroyCmd.Flags().StringVar(&infraDestroyProvider, "provider", defaultProvider,
 		"Cloud provider (currently supported: "+constants.ProvidersString()+")")
-	infraDestroyCmd.Flags().StringVar(&infraDestroyStackName, "stack-name", defaultStackName,
-		"Infrastructure stack name")
+	infraDestroyCmd.Flags().StringVar(&infraDestroyProjectName, "project-name", defaultProjectName,
+		"Infrastructure project name")
 	infraDestroyCmd.Flags().BoolVar(&infraDestroyWait, "wait", true,
 		"Wait for stack deletion to complete")
 	infraDestroyCmd.Flags().StringVar(&infraDestroyRegion, "region", "",
@@ -157,10 +157,10 @@ func infraApplyRun(cmd *cobra.Command, _ []string) {
 		output.Fatalf("failed to resolve template: %v", err)
 	}
 
-	printApplyInfo(infraApplyProvider, infraApplyStackName, version, templateSource, applier.GetRegion())
+	printApplyInfo(infraApplyProvider, infraApplyProjectName, version, templateSource, applier.GetRegion())
 
 	opts := &infra.DeployOptions{
-		StackName:  infraApplyStackName,
+		StackName:  infraApplyProjectName,
 		Template:   infraApplyTemplate,
 		Version:    version,
 		Parameters: infraApplyParameters,
@@ -169,21 +169,21 @@ func infraApplyRun(cmd *cobra.Command, _ []string) {
 		OrgID:      infraApplyOrgID,
 	}
 
-	stackExists, err := applier.CheckStackExists(cmd.Context(), infraApplyStackName)
+	stackExists, err := applier.CheckStackExists(cmd.Context(), infraApplyProjectName)
 	if err != nil {
 		output.Fatalf("failed to check stack status: %v", err)
 	}
 
-	msg := "Creating new stack..."
+	msg := "Creating new project..."
 	if stackExists {
-		msg = "Updating existing stack..."
+		msg = "Updating existing project..."
 	}
 	spinner := output.NewSpinner(msg)
 	spinner.Start()
 
 	result, err := applier.Deploy(cmd.Context(), opts)
 	if err != nil {
-		spinner.Error("Failed to apply stack")
+		spinner.Error("Failed to apply project")
 		output.Fatalf(err.Error())
 	}
 
@@ -196,10 +196,10 @@ func infraApplyRun(cmd *cobra.Command, _ []string) {
 }
 
 // printApplyInfo prints information about the infrastructure application.
-func printApplyInfo(provider, stackName, version string, templateSource *infra.TemplateSource, region string) {
+func printApplyInfo(provider, projectName, version string, templateSource *infra.TemplateSource, region string) {
 	output.Infof("Applying infrastructure changes")
 	output.KeyValue("Provider", provider)
-	output.KeyValue("Stack name", stackName)
+	output.KeyValue("Project name", projectName)
 	output.KeyValue("Version", version)
 	if templateSource.URL != "" {
 		output.KeyValue("Template URL", templateSource.URL)
@@ -219,26 +219,26 @@ func handleApplyResult(
 	region string,
 ) {
 	if result.NoChanges {
-		spinner.Success("Stack is already up to date")
+		spinner.Success("Project is already up to date")
 		return
 	}
 
-	const stackStatusInProgress = "IN_PROGRESS"
-	if result.Status == stackStatusInProgress {
+	const statusInProgress = "IN_PROGRESS"
+	if result.Status == statusInProgress {
 		spinner.Success(
 			fmt.Sprintf(
-				"Stack %s initiated. Use cloud console or CLI to monitor progress.",
+				"Project %s initiated. Use cloud console or CLI to monitor progress.",
 				result.OperationType,
 			),
 		)
 		return
 	}
 
-	spinner.Success("Stack operation completed with status: " + result.Status)
+	spinner.Success("Project operation completed with status: " + result.Status)
 
 	if len(result.Outputs) > 0 {
 		output.Blank()
-		output.Infof("Stack outputs:")
+		output.Infof("Project outputs:")
 		for key, value := range result.Outputs {
 			output.KeyValue(key, value)
 		}
@@ -259,11 +259,11 @@ func handleApplyResult(
 	}
 }
 
-// handleConfigureEndpoint handles CLI endpoint configuration from stack outputs.
+// handleConfigureEndpoint handles CLI endpoint configuration from outputs.
 func handleConfigureEndpoint(outputs map[string]string) {
 	endpoint, ok := outputs["APIEndpoint"]
 	if !ok {
-		output.Warningf("APIEndpoint not found in stack outputs, cannot configure CLI")
+		output.Warningf("APIEndpoint not found in outputs, cannot configure CLI")
 		return
 	}
 
@@ -353,32 +353,32 @@ func infraDestroyRun(cmd *cobra.Command, _ []string) {
 
 	output.Infof("Destroying infrastructure")
 	output.KeyValue("Provider", infraDestroyProvider)
-	output.KeyValue("Stack name", infraDestroyStackName)
+	output.KeyValue("Project name", infraDestroyProjectName)
 	output.KeyValue("Region", applier.GetRegion())
 	output.Blank()
 
-	stackExists, err := applier.CheckStackExists(ctx, infraDestroyStackName)
+	stackExists, err := applier.CheckStackExists(ctx, infraDestroyProjectName)
 	if err != nil {
 		output.Fatalf("failed to check stack status: %v", err)
 	}
 
 	if !stackExists {
-		output.Successf("Stack does not exist, nothing to destroy")
+		output.Successf("Project does not exist, nothing to destroy")
 		return
 	}
 
 	opts := &infra.DestroyOptions{
-		StackName: infraDestroyStackName,
+		StackName: infraDestroyProjectName,
 		Wait:      infraDestroyWait,
 		Region:    infraDestroyRegion,
 	}
 
-	spinner := output.NewSpinner("Destroying stack...")
+	spinner := output.NewSpinner("Destroying project...")
 	spinner.Start()
 
 	result, err := applier.Destroy(ctx, opts)
 	if err != nil {
-		spinner.Error("Failed to destroy stack")
+		spinner.Error("Failed to destroy project")
 		output.Fatalf(err.Error())
 	}
 
@@ -388,20 +388,20 @@ func infraDestroyRun(cmd *cobra.Command, _ []string) {
 // handleDestroyResult handles the result of a destroy operation.
 func handleDestroyResult(result *infra.DestroyResult, spinner *output.Spinner) {
 	if result.NotFound {
-		spinner.Success("Stack was already deleted")
+		spinner.Success("Project was already deleted")
 		return
 	}
 
-	const stackStatusInProgress = "IN_PROGRESS"
-	if result.Status == stackStatusInProgress {
-		spinner.Success("Stack deletion initiated. Use cloud console or CLI to monitor progress.")
+	const statusInProgress = "IN_PROGRESS"
+	if result.Status == statusInProgress {
+		spinner.Success("Project deletion initiated. Use cloud console or CLI to monitor progress.")
 		return
 	}
 
 	if result.Status == "DELETE_COMPLETE" {
-		spinner.Success("Stack successfully destroyed")
+		spinner.Success("Project successfully destroyed")
 		return
 	}
 
-	spinner.Success("Stack deletion completed with status: " + result.Status)
+	spinner.Success("Project deletion completed with status: " + result.Status)
 }

@@ -9,6 +9,8 @@ import (
 
 	resourcemanager "cloud.google.com/go/resourcemanager/apiv3"
 	"cloud.google.com/go/resourcemanager/apiv3/resourcemanagerpb"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"github.com/runvoy/runvoy/internal/providers/gcp/constants"
 )
@@ -53,10 +55,10 @@ func (d *GCPDeployer) GetRegion() string {
 }
 
 // Deploy creates a new GCP project.
-// For GCP, StackName is used as the project ID.
+// For GCP, the deployment name is used as the project ID.
 func (d *GCPDeployer) Deploy(ctx context.Context, opts *DeployOptions) (*DeployResult, error) {
 	if opts.StackName == "" {
-		return nil, errors.New("project ID (stack-name) is required for GCP")
+		return nil, errors.New("project ID is required for GCP")
 	}
 
 	projectID := opts.StackName
@@ -65,7 +67,6 @@ func (d *GCPDeployer) Deploy(ctx context.Context, opts *DeployOptions) (*DeployR
 		Outputs:   make(map[string]string),
 	}
 
-	// Check if project already exists
 	exists, err := d.CheckStackExists(ctx, projectID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check if project exists: %w", err)
@@ -222,9 +223,19 @@ func (d *GCPDeployer) CheckStackExists(ctx context.Context, projectID string) (b
 
 	_, err := d.client.GetProject(ctx, req)
 	if err != nil {
-		if strings.Contains(err.Error(), "not found") || strings.Contains(err.Error(), "404") {
+		//nolint:exhaustive // only handling NotFound and PermissionDenied specifically
+		switch status.Code(err) {
+		case codes.NotFound:
 			return false, nil
+		case codes.PermissionDenied:
+			// Common case when caller can create projects but not read non-existent ones:
+			// "Permission 'resourcemanager.projects.get' denied ... (or it may not exist)".
+			// Treat this as "does not exist" so that creation can proceed.
+			if strings.Contains(err.Error(), "or it may not exist") {
+				return false, nil
+			}
 		}
+
 		return false, fmt.Errorf("failed to get project: %w", err)
 	}
 
@@ -262,7 +273,8 @@ func (d *GCPDeployer) GetStackOutputs(ctx context.Context, projectID string) (ma
 }
 
 // Destroy deletes a GCP project.
-// Note: GCP projects cannot be deleted via API immediately; they must be scheduled for deletion.
+// Note: GCP projects are scheduled for deletion and enter DELETE_REQUESTED state.
+// After 30 days, they are permanently deleted unless restored.
 func (d *GCPDeployer) Destroy(ctx context.Context, opts *DestroyOptions) (*DestroyResult, error) {
 	result := &DestroyResult{
 		StackName: opts.StackName,
@@ -279,9 +291,57 @@ func (d *GCPDeployer) Destroy(ctx context.Context, opts *DestroyOptions) (*Destr
 		return result, nil
 	}
 
-	// GCP project deletion is a complex operation that requires scheduling deletion
-	// For now, return an error indicating this is not fully implemented
-	return nil, errors.New(
-		"GCP project deletion is not yet implemented. " +
-			"Please delete the project manually in the GCP Console")
+	op, err := d.deleteProject(ctx, opts.StackName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to delete project: %w", err)
+	}
+
+	if !opts.Wait {
+		result.Status = statusInProgress
+		return result, nil
+	}
+
+	if waitErr := d.waitForProjectDeletion(ctx, op); waitErr != nil {
+		return nil, fmt.Errorf("project deletion failed: %w", waitErr)
+	}
+
+	result.Status = constants.StatusDeleteRequested
+
+	return result, nil
+}
+
+// deleteProject initiates deletion of a GCP project.
+func (d *GCPDeployer) deleteProject(
+	ctx context.Context,
+	projectID string,
+) (*resourcemanager.DeleteProjectOperation, error) {
+	req := &resourcemanagerpb.DeleteProjectRequest{
+		Name: "projects/" + projectID,
+	}
+
+	op, err := d.client.DeleteProject(ctx, req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to initiate project deletion: %w", err)
+	}
+
+	return op, nil
+}
+
+// waitForProjectDeletion waits for a project deletion operation to complete.
+func (d *GCPDeployer) waitForProjectDeletion(
+	ctx context.Context,
+	op *resourcemanager.DeleteProjectOperation,
+) error {
+	timeoutCtx, cancel := context.WithTimeout(ctx, constants.ProjectOperationTimeout)
+	defer cancel()
+
+	_, err := op.Wait(timeoutCtx)
+	if err != nil {
+		if errors.Is(err, context.DeadlineExceeded) {
+			return errors.New("timeout waiting for project deletion")
+		}
+		return fmt.Errorf("error waiting for project deletion: %w", err)
+	}
+
+	return nil
 }

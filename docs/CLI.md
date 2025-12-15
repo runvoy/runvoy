@@ -123,25 +123,25 @@ or a local file path.
 
 ```bash
   # Apply using default template and version
-  runvoy infra apply --stack-name my-stack
+  runvoy infra apply --project-name my-project
 
   # Apply a specific version
-  runvoy infra apply --stack-name my-stack --version 1.2.3
+  runvoy infra apply --project-name my-project --version 1.2.3
 
   # Apply with custom template from S3
-  runvoy infra apply --stack-name my-stack --template https://my-bucket.s3.amazonaws.com/template.yaml
+  runvoy infra apply --project-name my-project --template https://my-bucket.s3.amazonaws.com/template.yaml
 
   # Apply with local template file
-  runvoy infra apply --stack-name my-stack --template ./my-template.yaml
+  runvoy infra apply --project-name my-project --template ./my-template.yaml
 
   # Apply with custom parameters
-  runvoy infra apply --stack-name my-stack --parameter ProjectName=myproject --parameter LambdaCodeBucket=my-bucket
+  runvoy infra apply --project-name my-project --parameter ProjectName=myproject --parameter LambdaCodeBucket=my-bucket
 
   # Apply and automatically configure CLI
-  runvoy infra apply --stack-name my-stack --configure
+  runvoy infra apply --project-name my-project --configure
 
   # Apply, configure CLI, and seed admin user
-  runvoy infra apply --stack-name my-stack --configure --seed-admin-user admin@example.com
+  runvoy infra apply --project-name my-project --configure --seed-admin-user admin@example.com
 ```
 
 **Options**
@@ -151,10 +151,10 @@ or a local file path.
   -h, --help                     help for apply
       --org-id string            Organization ID for GCP project creation (GCP only)
       --parameter strings        Stack parameter in KEY=VALUE format (can be specified multiple times)
+      --project-name string      Infrastructure project name (default "runvoy-backend")
       --provider string          Cloud provider (currently supported: aws, gcp) (default "aws")
       --region string            Provider region. Uses provider default if not specified
       --seed-admin-user string   Email address for the admin user to seed into DynamoDB after successful deployment
-      --stack-name string        Infrastructure stack name (default "runvoy-backend")
       --template string          Template URL or local file path. If not specified, uses the official template
       --version string           Release version to apply. Defaults to CLI version
       --wait                     Wait for stack operation to complete (default true)
@@ -170,21 +170,21 @@ the CloudFormation stack and all associated AWS resources.
 **Examples**
 
 ```bash
-  # Destroy infrastructure stack
-  runvoy infra destroy --stack-name my-stack
+  # Destroy infrastructure project
+  runvoy infra destroy --project-name my-project
 
   # Destroy without waiting for completion
-  runvoy infra destroy --stack-name my-stack --wait=false
+  runvoy infra destroy --project-name my-project --wait=false
 ```
 
 **Options**
 
 ```
-  -h, --help                help for destroy
-      --provider string     Cloud provider (currently supported: aws, gcp) (default "aws")
-      --region string       Provider region. Uses provider default if not specified
-      --stack-name string   Infrastructure stack name (default "runvoy-backend")
-      --wait                Wait for stack deletion to complete (default true)
+  -h, --help                  help for destroy
+      --project-name string   Infrastructure project name (default "runvoy-backend")
+      --provider string       Cloud provider (currently supported: aws, gcp) (default "aws")
+      --region string         Provider region. Uses provider default if not specified
+      --wait                  Wait for stack deletion to complete (default true)
 ```
 
 ## runvoy kill
