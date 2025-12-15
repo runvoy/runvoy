@@ -28,8 +28,8 @@ const (
 
 // DeployOptions contains all options for deploying infrastructure.
 type DeployOptions struct {
-	StackName  string
-	Template   string   // URL, S3 URI, or local file path
+	Name       string   // Project/stack name (provider-specific: GCP project ID, AWS stack name)
+	Template   string   // URL, S3 URI, or local file path (AWS only)
 	Version    string   // Release version
 	Parameters []string // KEY=VALUE format
 	Wait       bool     // Wait for completion
@@ -39,25 +39,25 @@ type DeployOptions struct {
 
 // DeployResult contains the result of a deployment operation.
 type DeployResult struct {
-	StackName     string
+	Name          string // Project/stack name
 	OperationType string // "CREATE" or "UPDATE"
 	Status        string
 	Outputs       map[string]string
-	NoChanges     bool // True if stack was already up to date
+	NoChanges     bool // True if project/stack was already up to date
 }
 
 // DestroyOptions contains all options for destroying infrastructure.
 type DestroyOptions struct {
-	StackName string
-	Wait      bool   // Wait for completion
-	Region    string // Provider region (optional)
+	Name   string // Project/stack name
+	Wait   bool   // Wait for completion
+	Region string // Provider region (optional)
 }
 
 // DestroyResult contains the result of a destroy operation.
 type DestroyResult struct {
-	StackName string
-	Status    string
-	NotFound  bool // True if stack was already deleted
+	Name     string // Project/stack name
+	Status   string
+	NotFound bool // True if project/stack was already deleted
 }
 
 // TemplateSource represents the resolved template source.
@@ -73,10 +73,10 @@ type Deployer interface {
 	Deploy(ctx context.Context, opts *DeployOptions) (*DeployResult, error)
 	// Destroy destroys infrastructure
 	Destroy(ctx context.Context, opts *DestroyOptions) (*DestroyResult, error)
-	// CheckStackExists checks if the infrastructure stack exists
-	CheckStackExists(ctx context.Context, stackName string) (bool, error)
-	// GetStackOutputs retrieves outputs from a deployed stack
-	GetStackOutputs(ctx context.Context, stackName string) (map[string]string, error)
+	// CheckExists checks if the infrastructure project/stack exists
+	CheckExists(ctx context.Context, name string) (bool, error)
+	// GetOutputs retrieves outputs from a deployed project/stack
+	GetOutputs(ctx context.Context, name string) (map[string]string, error)
 	// GetRegion returns the region being used
 	GetRegion() string
 }

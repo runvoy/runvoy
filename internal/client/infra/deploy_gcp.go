@@ -298,17 +298,17 @@ func (d *GCPDeployer) GetRegion() string {
 
 // Deploy creates a new GCP project.
 func (d *GCPDeployer) Deploy(ctx context.Context, opts *DeployOptions) (*DeployResult, error) {
-	if opts.StackName == "" {
+	if opts.Name == "" {
 		return nil, errors.New("project ID is required for GCP")
 	}
 
-	projectID := opts.StackName
+	projectID := opts.Name
 	result := &DeployResult{
-		StackName: projectID,
-		Outputs:   make(map[string]string),
+		Name:    projectID,
+		Outputs: make(map[string]string),
 	}
 
-	exists, err := d.CheckStackExists(ctx, projectID)
+	exists, err := d.checkProjectExists(ctx, projectID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check if project exists: %w", err)
 	}
@@ -328,7 +328,7 @@ func (d *GCPDeployer) handleExistingProject(
 	result.OperationType = operationTypeUpdate
 	result.Status = statusUpdateComplete
 	result.NoChanges = true
-	existingOutputs, getErr := d.GetStackOutputs(ctx, projectID)
+	existingOutputs, getErr := d.getProjectOutputs(ctx, projectID)
 	if getErr != nil {
 		return result, fmt.Errorf("failed to retrieve project outputs: %w", getErr)
 	}
@@ -364,7 +364,7 @@ func (d *GCPDeployer) handleNewProject(
 
 	result.Status = statusCreateComplete
 
-	projectOutputs, getErr := d.GetStackOutputs(ctx, projectID)
+	projectOutputs, getErr := d.getProjectOutputs(ctx, projectID)
 	if getErr != nil {
 		return result, fmt.Errorf("project created but failed to retrieve outputs: %w", getErr)
 	}
@@ -462,7 +462,7 @@ func (d *GCPDeployer) waitForProjectReady(ctx context.Context, projectID string)
 		case <-timeout:
 			return errors.New("timeout waiting for project creation")
 		case <-ticker.C:
-			exists, err := d.CheckStackExists(ctx, projectID)
+			exists, err := d.checkProjectExists(ctx, projectID)
 			if err != nil {
 				return fmt.Errorf("failed to check project status: %w", err)
 			}
@@ -473,8 +473,13 @@ func (d *GCPDeployer) waitForProjectReady(ctx context.Context, projectID string)
 	}
 }
 
-// CheckStackExists checks if a GCP project exists.
-func (d *GCPDeployer) CheckStackExists(ctx context.Context, projectID string) (bool, error) {
+// CheckExists checks if a GCP project exists.
+func (d *GCPDeployer) CheckExists(ctx context.Context, name string) (bool, error) {
+	return d.checkProjectExists(ctx, name)
+}
+
+// checkProjectExists is the internal implementation for checking project existence.
+func (d *GCPDeployer) checkProjectExists(ctx context.Context, projectID string) (bool, error) {
 	req := &resourcemanagerpb.GetProjectRequest{
 		Name: "projects/" + projectID,
 	}
@@ -497,8 +502,13 @@ func (d *GCPDeployer) CheckStackExists(ctx context.Context, projectID string) (b
 	return true, nil
 }
 
-// GetStackOutputs retrieves outputs from a GCP project.
-func (d *GCPDeployer) GetStackOutputs(
+// GetOutputs retrieves outputs from a GCP project.
+func (d *GCPDeployer) GetOutputs(ctx context.Context, name string) (map[string]string, error) {
+	return d.getProjectOutputs(ctx, name)
+}
+
+// getProjectOutputs is the internal implementation for retrieving project outputs.
+func (d *GCPDeployer) getProjectOutputs(
 	ctx context.Context,
 	projectID string,
 ) (map[string]string, error) {
@@ -534,11 +544,12 @@ func (d *GCPDeployer) Destroy(
 	ctx context.Context,
 	opts *DestroyOptions,
 ) (*DestroyResult, error) {
+	projectID := opts.Name
 	result := &DestroyResult{
-		StackName: opts.StackName,
+		Name: projectID,
 	}
 
-	exists, err := d.CheckStackExists(ctx, opts.StackName)
+	exists, err := d.checkProjectExists(ctx, projectID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check project status: %w", err)
 	}
@@ -549,7 +560,7 @@ func (d *GCPDeployer) Destroy(
 		return result, nil
 	}
 
-	op, err := d.deleteProject(ctx, opts.StackName)
+	op, err := d.deleteProject(ctx, projectID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to delete project: %w", err)
 	}

@@ -385,7 +385,7 @@ func TestResolveAWSTemplate(t *testing.T) {
 func TestDeployOptions(t *testing.T) {
 	t.Run("deploy options with all fields", func(t *testing.T) {
 		opts := &DeployOptions{
-			StackName:  "my-stack",
+			Name:       "my-project",
 			Template:   "https://example.com/template.yaml",
 			Version:    "v1.0.0",
 			Parameters: []string{"Key1=Value1", "Key2=Value2"},
@@ -393,7 +393,7 @@ func TestDeployOptions(t *testing.T) {
 			Region:     "us-east-1",
 		}
 
-		assert.Equal(t, "my-stack", opts.StackName)
+		assert.Equal(t, "my-project", opts.Name)
 		assert.Equal(t, "https://example.com/template.yaml", opts.Template)
 		assert.Equal(t, "v1.0.0", opts.Version)
 		assert.Len(t, opts.Parameters, 2)
@@ -405,12 +405,12 @@ func TestDeployOptions(t *testing.T) {
 func TestDestroyOptions(t *testing.T) {
 	t.Run("destroy options with all fields", func(t *testing.T) {
 		opts := &DestroyOptions{
-			StackName: "my-stack",
-			Wait:      true,
-			Region:    "us-west-2",
+			Name:   "my-project",
+			Wait:   true,
+			Region: "us-west-2",
 		}
 
-		assert.Equal(t, "my-stack", opts.StackName)
+		assert.Equal(t, "my-project", opts.Name)
 		assert.True(t, opts.Wait)
 		assert.Equal(t, "us-west-2", opts.Region)
 	})
@@ -439,7 +439,7 @@ func TestTemplateSource(t *testing.T) {
 func TestDeployResult(t *testing.T) {
 	t.Run("deploy result fields", func(t *testing.T) {
 		result := &DeployResult{
-			StackName:     "test-stack",
+			Name:          "test-project",
 			OperationType: "CREATE",
 			Status:        "CREATE_COMPLETE",
 			Outputs: map[string]string{
@@ -448,7 +448,7 @@ func TestDeployResult(t *testing.T) {
 			NoChanges: false,
 		}
 
-		assert.Equal(t, "test-stack", result.StackName)
+		assert.Equal(t, "test-project", result.Name)
 		assert.Equal(t, "CREATE", result.OperationType)
 		assert.Equal(t, "CREATE_COMPLETE", result.Status)
 		assert.Len(t, result.Outputs, 1)
@@ -457,7 +457,7 @@ func TestDeployResult(t *testing.T) {
 
 	t.Run("deploy result with no changes", func(t *testing.T) {
 		result := &DeployResult{
-			StackName:     "test-stack",
+			Name:          "test-project",
 			OperationType: "UPDATE",
 			Status:        "NO_CHANGES",
 			Outputs:       map[string]string{},
@@ -472,21 +472,21 @@ func TestDeployResult(t *testing.T) {
 func TestDestroyResult(t *testing.T) {
 	t.Run("destroy result fields", func(t *testing.T) {
 		result := &DestroyResult{
-			StackName: "test-stack",
-			Status:    "DELETE_COMPLETE",
-			NotFound:  false,
+			Name:     "test-project",
+			Status:   "DELETE_COMPLETE",
+			NotFound: false,
 		}
 
-		assert.Equal(t, "test-stack", result.StackName)
+		assert.Equal(t, "test-project", result.Name)
 		assert.Equal(t, "DELETE_COMPLETE", result.Status)
 		assert.False(t, result.NotFound)
 	})
 
-	t.Run("destroy result for non-existent stack", func(t *testing.T) {
+	t.Run("destroy result for non-existent project", func(t *testing.T) {
 		result := &DestroyResult{
-			StackName: "nonexistent-stack",
-			Status:    "NOT_FOUND",
-			NotFound:  true,
+			Name:     "nonexistent-project",
+			Status:   "NOT_FOUND",
+			NotFound: true,
 		}
 
 		assert.True(t, result.NotFound)

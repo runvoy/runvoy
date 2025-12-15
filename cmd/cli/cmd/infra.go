@@ -160,7 +160,7 @@ func infraApplyRun(cmd *cobra.Command, _ []string) {
 	printApplyInfo(infraApplyProvider, infraApplyProjectName, version, templateSource, applier.GetRegion())
 
 	opts := &infra.DeployOptions{
-		StackName:  infraApplyProjectName,
+		Name:       infraApplyProjectName,
 		Template:   infraApplyTemplate,
 		Version:    version,
 		Parameters: infraApplyParameters,
@@ -169,13 +169,13 @@ func infraApplyRun(cmd *cobra.Command, _ []string) {
 		OrgID:      infraApplyOrgID,
 	}
 
-	stackExists, err := applier.CheckStackExists(cmd.Context(), infraApplyProjectName)
+	projectExists, err := applier.CheckExists(cmd.Context(), infraApplyProjectName)
 	if err != nil {
-		output.Fatalf("failed to check stack status: %v", err)
+		output.Fatalf("failed to check project status: %v", err)
 	}
 
 	msg := "Creating new project..."
-	if stackExists {
+	if projectExists {
 		msg = "Updating existing project..."
 	}
 	spinner := output.NewSpinner(msg)
@@ -357,20 +357,20 @@ func infraDestroyRun(cmd *cobra.Command, _ []string) {
 	output.KeyValue("Region", applier.GetRegion())
 	output.Blank()
 
-	stackExists, err := applier.CheckStackExists(ctx, infraDestroyProjectName)
+	projectExists, err := applier.CheckExists(ctx, infraDestroyProjectName)
 	if err != nil {
-		output.Fatalf("failed to check stack status: %v", err)
+		output.Fatalf("failed to check project status: %v", err)
 	}
 
-	if !stackExists {
+	if !projectExists {
 		output.Successf("Project does not exist, nothing to destroy")
 		return
 	}
 
 	opts := &infra.DestroyOptions{
-		StackName: infraDestroyProjectName,
-		Wait:      infraDestroyWait,
-		Region:    infraDestroyRegion,
+		Name:   infraDestroyProjectName,
+		Wait:   infraDestroyWait,
+		Region: infraDestroyRegion,
 	}
 
 	spinner := output.NewSpinner("Destroying project...")
