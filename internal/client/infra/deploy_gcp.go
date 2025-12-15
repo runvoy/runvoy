@@ -29,8 +29,6 @@ func NewGCPDeployer(ctx context.Context, region string) (*GCPDeployer, error) {
 		return nil, fmt.Errorf("failed to create GCP projects client: %w", err)
 	}
 
-	// Use default region if not specified (GCP doesn't require region for project creation,
-	// but we store it for consistency with other providers)
 	if region == "" {
 		region = constants.DefaultRegion
 	}
@@ -105,31 +103,32 @@ func (d *GCPDeployer) handleNewProject(
 ) (*DeployResult, error) {
 	result.OperationType = operationTypeCreate
 
+	if !opts.Wait {
+		if err := d.startProjectCreation(ctx, projectID, opts); err != nil {
+			return nil, fmt.Errorf("failed to create project: %w", err)
+		}
+
+		result.Status = statusInProgress
+		return result, nil
+	}
+
 	createdProject, err := d.createNewProject(ctx, projectID, opts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create project: %w", err)
 	}
 
-	if !opts.Wait {
-		result.Status = statusInProgress
-		return result, nil
-	}
-
-	// Wait for project to be ready
 	if waitErr := d.waitForProjectReady(ctx, projectID); waitErr != nil {
 		return nil, fmt.Errorf("project creation failed: %w", waitErr)
 	}
 
 	result.Status = statusCreateComplete
 
-	// Get project outputs
 	projectOutputs, getErr := d.GetStackOutputs(ctx, projectID)
 	if getErr != nil {
 		return result, fmt.Errorf("project created but failed to retrieve outputs: %w", getErr)
 	}
 	result.Outputs = projectOutputs
 
-	// Add project info to outputs
 	if createdProject != nil {
 		d.addProjectInfoToOutputs(result.Outputs, createdProject)
 	}
@@ -137,7 +136,34 @@ func (d *GCPDeployer) handleNewProject(
 	return result, nil
 }
 
-// createNewProject creates a new GCP project with the given options.
+// startProjectCreation initiates a new GCP project creation without waiting
+// for the long-running operation to complete.
+func (d *GCPDeployer) startProjectCreation(
+	ctx context.Context,
+	projectID string,
+	opts *DeployOptions,
+) error {
+	project := &resourcemanagerpb.Project{
+		ProjectId: projectID,
+	}
+
+	if opts.OrgID != "" {
+		project.Parent = "organizations/" + opts.OrgID
+	}
+
+	req := &resourcemanagerpb.CreateProjectRequest{
+		Project: project,
+	}
+
+	if _, err := d.client.CreateProject(ctx, req); err != nil {
+		return fmt.Errorf("failed to initiate project creation: %w", err)
+	}
+
+	return nil
+}
+
+// createNewProject creates a new GCP project with the given options and waits
+// for the long-running operation to complete.
 func (d *GCPDeployer) createNewProject(
 	ctx context.Context,
 	projectID string,
@@ -147,7 +173,6 @@ func (d *GCPDeployer) createNewProject(
 		ProjectId: projectID,
 	}
 
-	// If org-id is provided, set it as the parent
 	if opts.OrgID != "" {
 		project.Parent = "organizations/" + opts.OrgID
 	}
@@ -181,7 +206,6 @@ func (d *GCPDeployer) createProject(
 		return nil, fmt.Errorf("failed to create project: %w", err)
 	}
 
-	// Wait for the operation to complete
 	project, err := op.Wait(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to wait for project creation: %w", err)
