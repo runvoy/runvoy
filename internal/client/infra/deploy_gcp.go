@@ -12,7 +12,6 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"github.com/runvoy/runvoy/internal/client/output"
 	"github.com/runvoy/runvoy/internal/providers/gcp/constants"
 )
 
@@ -297,7 +296,7 @@ func (d *GCPDeployer) GetRegion() string {
 	return d.region
 }
 
-// Deploy creates a new GCP project and optionally deploys backend resources.
+// Deploy creates or updates a GCP project and ensures backend resources are applied idempotently.
 func (d *GCPDeployer) Deploy(ctx context.Context, opts *DeployOptions) (*DeployResult, error) {
 	if opts.Name == "" {
 		return nil, errors.New("project ID is required for GCP")
@@ -314,76 +313,30 @@ func (d *GCPDeployer) Deploy(ctx context.Context, opts *DeployOptions) (*DeployR
 		return nil, fmt.Errorf("failed to check if project exists: %w", err)
 	}
 
-	if exists {
-		projectResult, handleErr := d.handleExistingProject(ctx, projectID, result)
-		if handleErr != nil {
-			return projectResult, handleErr
-		}
-		// Attempt backend deployment if service clients are available
-		if deployErr := d.attemptBackendDeployment(ctx, projectID, opts); deployErr != nil {
-			output.Warningf("Skipping backend deployment: %v", deployErr)
-		}
-		return projectResult, nil
-	}
-
-	projectResult, createErr := d.handleNewProject(ctx, projectID, opts, result)
-	if createErr != nil {
-		return projectResult, createErr
-	}
-	// Attempt backend deployment if service clients are available
-	if deployErr := d.attemptBackendDeployment(ctx, projectID, opts); deployErr != nil {
-		output.Warningf("Skipping backend deployment: %v", deployErr)
-	}
-	return projectResult, nil
-}
-
-func (d *GCPDeployer) handleExistingProject(
-	ctx context.Context,
-	projectID string,
-	result *DeployResult,
-) (*DeployResult, error) {
 	result.OperationType = operationTypeUpdate
 	result.Status = statusUpdateComplete
 	result.NoChanges = false
-	existingOutputs, getErr := d.getProjectOutputs(ctx, projectID)
-	if getErr != nil {
-		return result, fmt.Errorf("failed to retrieve project outputs: %w", getErr)
+
+	var createdProject *resourcemanagerpb.Project
+
+	projectReady, ensureErr := d.ensureProject(ctx, opts, exists, result)
+	if ensureErr != nil {
+		return result, ensureErr
 	}
-	result.Outputs = existingOutputs
-	return result, nil
-}
+	createdProject = projectReady
 
-func (d *GCPDeployer) handleNewProject(
-	ctx context.Context,
-	projectID string,
-	opts *DeployOptions,
-	result *DeployResult,
-) (*DeployResult, error) {
-	result.OperationType = operationTypeCreate
-
-	if !opts.Wait {
-		if startErr := d.startProjectCreation(ctx, projectID, opts); startErr != nil {
-			return nil, fmt.Errorf("failed to create project: %w", startErr)
-		}
-
-		result.Status = statusInProgress
+	if result.Status == statusInProgress {
 		return result, nil
 	}
 
-	createdProject, createErr := d.createNewProject(ctx, projectID, opts)
-	if createErr != nil {
-		return nil, fmt.Errorf("failed to create project: %w", createErr)
+	applyErr := d.applyBackend(ctx, projectID, opts)
+	if applyErr != nil {
+		return result, applyErr
 	}
 
-	if waitErr := d.waitForProjectReady(ctx, projectID); waitErr != nil {
-		return nil, fmt.Errorf("project creation failed: %w", waitErr)
-	}
-
-	result.Status = statusCreateComplete
-
-	projectOutputs, getErr := d.getProjectOutputs(ctx, projectID)
-	if getErr != nil {
-		return result, fmt.Errorf("project created but failed to retrieve outputs: %w", getErr)
+	projectOutputs, outputsErr := d.getProjectOutputs(ctx, projectID)
+	if outputsErr != nil {
+		return result, fmt.Errorf("failed to retrieve project outputs: %w", outputsErr)
 	}
 	result.Outputs = projectOutputs
 
@@ -392,6 +345,41 @@ func (d *GCPDeployer) handleNewProject(
 	}
 
 	return result, nil
+}
+
+func (d *GCPDeployer) ensureProject(
+	ctx context.Context,
+	opts *DeployOptions,
+	exists bool,
+	result *DeployResult,
+) (*resourcemanagerpb.Project, error) {
+	if exists {
+		return nil, nil
+	}
+
+	result.OperationType = operationTypeCreate
+
+	if !opts.Wait {
+		if startErr := d.startProjectCreation(ctx, opts.Name, opts); startErr != nil {
+			return nil, fmt.Errorf("failed to create project: %w", startErr)
+		}
+
+		result.Status = statusInProgress
+		return nil, nil
+	}
+
+	project, createErr := d.createNewProject(ctx, opts.Name, opts)
+	if createErr != nil {
+		return nil, fmt.Errorf("failed to create project: %w", createErr)
+	}
+
+	if waitErr := d.waitForProjectReady(ctx, opts.Name); waitErr != nil {
+		return nil, fmt.Errorf("project creation failed: %w", waitErr)
+	}
+
+	result.Status = statusCreateComplete
+
+	return project, nil
 }
 
 func (d *GCPDeployer) startProjectCreation(
@@ -635,15 +623,14 @@ func (d *GCPDeployer) SetServiceClients(clients *GCPServiceClients) {
 	d.services = clients
 }
 
-// attemptBackendDeployment attempts to deploy backend resources if service clients are available.
-func (d *GCPDeployer) attemptBackendDeployment(
+// applyBackend deploys backend resources and fails if service clients are not configured.
+func (d *GCPDeployer) applyBackend(
 	ctx context.Context,
 	projectID string,
 	opts *DeployOptions,
 ) error {
 	if d.services == nil {
-		// Service clients not set, skip backend deployment
-		return nil
+		return errors.New("service clients not initialized; call SetServiceClients first")
 	}
 
 	params, err := ParseParameters(opts.Parameters)
@@ -661,14 +648,18 @@ func (d *GCPDeployer) attemptBackendDeployment(
 		config.EventProcessorImage = img
 	}
 	if maxInst, ok := params["MaxInstances"]; ok {
-		if parsed, parseErr := parseInt(maxInst); parseErr == nil {
-			config.MaxInstances = parsed
+		parsed, parseErr := parseInt(maxInst)
+		if parseErr != nil {
+			return parseErr
 		}
+		config.MaxInstances = parsed
 	}
 	if minInst, ok := params["MinInstances"]; ok {
-		if parsed, parseErr := parseInt(minInst); parseErr == nil {
-			config.MinInstances = parsed
+		parsed, parseErr := parseInt(minInst)
+		if parseErr != nil {
+			return parseErr
 		}
+		config.MinInstances = parsed
 	}
 
 	// Deploy backend resources
@@ -944,6 +935,9 @@ func (d *GCPDeployer) ensureSubnet(ctx context.Context, config *GCPResourceConfi
 		config.VPCName,
 		config.VPCCIDRRange,
 	); err != nil {
+		if status.Code(err) == codes.AlreadyExists {
+			return nil
+		}
 		return fmt.Errorf("failed to create subnet: %w", err)
 	}
 
@@ -962,6 +956,9 @@ func (d *GCPDeployer) ensureEgressFirewall(
 		"EGRESS",
 		[]string{"all"},
 	); err != nil {
+		if status.Code(err) == codes.AlreadyExists {
+			return nil
+		}
 		return fmt.Errorf("failed to create egress firewall rule: %w", err)
 	}
 
@@ -1033,6 +1030,9 @@ func (d *GCPDeployer) deployFirestore(
 			if createErr := d.services.Firestore.CreateIndex(
 				ctx, config.ProjectID, coll.name, field,
 			); createErr != nil {
+				if status.Code(createErr) == codes.AlreadyExists {
+					continue
+				}
 				return fmt.Errorf("failed to create index on %s.%s: %w", coll.name, field, createErr)
 			}
 		}
@@ -1287,7 +1287,9 @@ func (d *GCPDeployer) ensureProcessorSubscription(
 		config.TaskEventsTopic,
 		resources.EventProcessorURL,
 	); err != nil {
-		return fmt.Errorf("failed to create processor subscription: %w", err)
+		if status.Code(err) != codes.AlreadyExists {
+			return fmt.Errorf("failed to create processor subscription: %w", err)
+		}
 	}
 	resources.SubscriptionName = config.ProcessorSub
 
