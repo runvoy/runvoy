@@ -128,11 +128,17 @@ type CloudRunClient interface {
 		projectID, region, serviceName, image string,
 		envVars map[string]string,
 		serviceAccount string,
+		minInstances, maxInstances int,
+		timeoutSeconds int,
+		vpcConnector string,
 	) (string, error)
 	UpdateService(
 		ctx context.Context,
 		projectID, region, serviceName, image string,
 		envVars map[string]string,
+		minInstances, maxInstances int,
+		timeoutSeconds int,
+		vpcConnector string,
 	) error
 	DeleteService(ctx context.Context, projectID, region, serviceName string) error
 	GetService(ctx context.Context, projectID, region, serviceName string) (bool, string, error)
@@ -277,9 +283,15 @@ func NewGCPDeployer(ctx context.Context, region string) (*GCPDeployer, error) {
 		region = constants.DefaultRegion
 	}
 
+	serviceClients, err := newDefaultGCPServiceClients(ctx, region, client)
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize GCP service clients: %w", err)
+	}
+
 	return &GCPDeployer{
-		client: client,
-		region: region,
+		client:   client,
+		region:   region,
+		services: serviceClients,
 	}, nil
 }
 
@@ -660,6 +672,12 @@ func (d *GCPDeployer) applyBackend(
 			return parseErr
 		}
 		config.MinInstances = parsed
+	}
+
+	if config.OrchestratorImage == "" || config.EventProcessorImage == "" {
+		return errors.New(
+			"missing required images: set parameters OrchestratorImage and EventProcessorImage",
+		)
 	}
 
 	// Deploy backend resources
@@ -1183,6 +1201,7 @@ func (d *GCPDeployer) deployCloudRun(
 	return nil
 }
 
+//nolint:dupl // orchestrator and event processor setup share the same deployment flow
 func (d *GCPDeployer) ensureOrchestratorService(
 	ctx context.Context,
 	config *GCPResourceConfig,
@@ -1205,6 +1224,10 @@ func (d *GCPDeployer) ensureOrchestratorService(
 			config.OrchestratorImage,
 			envVars,
 			resources.OrchestratorServiceAccount,
+			config.MinInstances,
+			config.MaxInstances,
+			config.TimeoutSeconds,
+			resources.VPCConnectorName,
 		)
 		if createErr != nil {
 			return "", fmt.Errorf("failed to create orchestrator service: %w", createErr)
@@ -1218,6 +1241,10 @@ func (d *GCPDeployer) ensureOrchestratorService(
 			constants.ServiceOrchestrator,
 			config.OrchestratorImage,
 			envVars,
+			config.MinInstances,
+			config.MaxInstances,
+			config.TimeoutSeconds,
+			resources.VPCConnectorName,
 		); updateErr != nil {
 			return "", fmt.Errorf("failed to update orchestrator service: %w", updateErr)
 		}
@@ -1232,6 +1259,7 @@ func (d *GCPDeployer) ensureOrchestratorService(
 	return url, nil
 }
 
+//nolint:dupl // event processor setup mirrors orchestrator flow with different service details
 func (d *GCPDeployer) ensureEventProcessorService(
 	ctx context.Context,
 	config *GCPResourceConfig,
@@ -1254,6 +1282,10 @@ func (d *GCPDeployer) ensureEventProcessorService(
 			config.EventProcessorImage,
 			envVars,
 			resources.EventProcessorServiceAccount,
+			config.MinInstances,
+			config.MaxInstances,
+			config.TimeoutSeconds,
+			resources.VPCConnectorName,
 		)
 		if createErr != nil {
 			return "", fmt.Errorf("failed to create event processor service: %w", createErr)
@@ -1267,9 +1299,19 @@ func (d *GCPDeployer) ensureEventProcessorService(
 			constants.ServiceEventProcessor,
 			config.EventProcessorImage,
 			envVars,
+			config.MinInstances,
+			config.MaxInstances,
+			config.TimeoutSeconds,
+			resources.VPCConnectorName,
 		); updateErr != nil {
 			return "", fmt.Errorf("failed to update event processor service: %w", updateErr)
 		}
+	}
+
+	if policyErr := d.services.CloudRun.SetIAMPolicy(
+		ctx, config.ProjectID, config.Region, constants.ServiceEventProcessor, true,
+	); policyErr != nil {
+		return "", fmt.Errorf("failed to set event processor IAM policy: %w", policyErr)
 	}
 
 	return url, nil
