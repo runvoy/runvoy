@@ -2,10 +2,16 @@
 
 # Lint all Go code
 lint:
+    mkdir -p .cache/go-build .cache/golangci-lint
+    GOCACHE="{{justfile_directory()}}/.cache/go-build" \
+    GOLANGCI_LINT_CACHE="{{justfile_directory()}}/.cache/golangci-lint" \
     golangci-lint run
 
 # Lint and fix Go code
 lint-fix:
+    mkdir -p .cache/go-build .cache/golangci-lint
+    GOCACHE="{{justfile_directory()}}/.cache/go-build" \
+    GOLANGCI_LINT_CACHE="{{justfile_directory()}}/.cache/golangci-lint" \
     golangci-lint run --fix
 
 # Format Go code

@@ -12,6 +12,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"github.com/runvoy/runvoy/internal/client/output"
 	"github.com/runvoy/runvoy/internal/providers/gcp/constants"
 )
 
@@ -296,7 +297,7 @@ func (d *GCPDeployer) GetRegion() string {
 	return d.region
 }
 
-// Deploy creates a new GCP project.
+// Deploy creates a new GCP project and optionally deploys backend resources.
 func (d *GCPDeployer) Deploy(ctx context.Context, opts *DeployOptions) (*DeployResult, error) {
 	if opts.Name == "" {
 		return nil, errors.New("project ID is required for GCP")
@@ -314,10 +315,26 @@ func (d *GCPDeployer) Deploy(ctx context.Context, opts *DeployOptions) (*DeployR
 	}
 
 	if exists {
-		return d.handleExistingProject(ctx, projectID, result)
+		projectResult, handleErr := d.handleExistingProject(ctx, projectID, result)
+		if handleErr != nil {
+			return projectResult, handleErr
+		}
+		// Attempt backend deployment if service clients are available
+		if deployErr := d.attemptBackendDeployment(ctx, projectID, opts); deployErr != nil {
+			output.Warningf("Skipping backend deployment: %v", deployErr)
+		}
+		return projectResult, nil
 	}
 
-	return d.handleNewProject(ctx, projectID, opts, result)
+	projectResult, createErr := d.handleNewProject(ctx, projectID, opts, result)
+	if createErr != nil {
+		return projectResult, createErr
+	}
+	// Attempt backend deployment if service clients are available
+	if deployErr := d.attemptBackendDeployment(ctx, projectID, opts); deployErr != nil {
+		output.Warningf("Skipping backend deployment: %v", deployErr)
+	}
+	return projectResult, nil
 }
 
 func (d *GCPDeployer) handleExistingProject(
@@ -327,7 +344,7 @@ func (d *GCPDeployer) handleExistingProject(
 ) (*DeployResult, error) {
 	result.OperationType = operationTypeUpdate
 	result.Status = statusUpdateComplete
-	result.NoChanges = true
+	result.NoChanges = false
 	existingOutputs, getErr := d.getProjectOutputs(ctx, projectID)
 	if getErr != nil {
 		return result, fmt.Errorf("failed to retrieve project outputs: %w", getErr)
@@ -618,6 +635,57 @@ func (d *GCPDeployer) SetServiceClients(clients *GCPServiceClients) {
 	d.services = clients
 }
 
+// attemptBackendDeployment attempts to deploy backend resources if service clients are available.
+func (d *GCPDeployer) attemptBackendDeployment(
+	ctx context.Context,
+	projectID string,
+	opts *DeployOptions,
+) error {
+	if d.services == nil {
+		// Service clients not set, skip backend deployment
+		return nil
+	}
+
+	params, err := ParseParameters(opts.Parameters)
+	if err != nil {
+		return fmt.Errorf("failed to parse parameters: %w", err)
+	}
+
+	config := DefaultGCPResourceConfig(projectID, d.region)
+
+	// Override with parameters if provided
+	if img, ok := params["OrchestratorImage"]; ok {
+		config.OrchestratorImage = img
+	}
+	if img, ok := params["EventProcessorImage"]; ok {
+		config.EventProcessorImage = img
+	}
+	if maxInst, ok := params["MaxInstances"]; ok {
+		if parsed, parseErr := parseInt(maxInst); parseErr == nil {
+			config.MaxInstances = parsed
+		}
+	}
+	if minInst, ok := params["MinInstances"]; ok {
+		if parsed, parseErr := parseInt(minInst); parseErr == nil {
+			config.MinInstances = parsed
+		}
+	}
+
+	// Deploy backend resources
+	_, deployErr := d.DeployBackend(ctx, config)
+	return deployErr
+}
+
+// parseInt is a helper to parse integer strings.
+func parseInt(s string) (int, error) {
+	var result int
+	_, err := fmt.Sscanf(s, "%d", &result)
+	if err != nil {
+		return 0, fmt.Errorf("failed to parse integer from %q: %w", s, err)
+	}
+	return result, nil
+}
+
 // DeployBackend deploys all GCP backend resources.
 func (d *GCPDeployer) DeployBackend(
 	ctx context.Context,
@@ -671,41 +739,68 @@ func (d *GCPDeployer) DeployBackend(
 	return resources, nil
 }
 
+func (d *GCPDeployer) ensureServiceAccount(
+	ctx context.Context,
+	projectID, accountID, description string,
+) (string, error) {
+	email := buildServiceAccountEmail(accountID, projectID)
+
+	exists, err := d.services.IAM.ServiceAccountExists(ctx, projectID, email)
+	if err != nil {
+		return "", fmt.Errorf("failed to check %s service account: %w", accountID, err)
+	}
+	if exists {
+		return email, nil
+	}
+
+	created, createErr := d.services.IAM.CreateServiceAccount(
+		ctx,
+		projectID,
+		accountID,
+		description,
+	)
+	if createErr != nil {
+		return "", fmt.Errorf("failed to create %s service account: %w", accountID, createErr)
+	}
+
+	return created, nil
+}
+
 func (d *GCPDeployer) deployIAMResources(
 	ctx context.Context,
 	config *GCPResourceConfig,
 	resources *GCPBackendResources,
 ) error {
-	orchestratorSA, err := d.services.IAM.CreateServiceAccount(
+	orchestratorSA, err := d.ensureServiceAccount(
 		ctx,
 		config.ProjectID,
 		constants.ServiceAccountOrchestrator,
 		"Runvoy Orchestrator Service Account",
 	)
 	if err != nil {
-		return fmt.Errorf("failed to create orchestrator service account: %w", err)
+		return fmt.Errorf("failed to ensure orchestrator service account: %w", err)
 	}
 	resources.OrchestratorServiceAccount = orchestratorSA
 
-	eventProcessorSA, err := d.services.IAM.CreateServiceAccount(
+	eventProcessorSA, err := d.ensureServiceAccount(
 		ctx,
 		config.ProjectID,
 		constants.ServiceAccountEventProcessor,
 		"Runvoy Event Processor Service Account",
 	)
 	if err != nil {
-		return fmt.Errorf("failed to create event processor service account: %w", err)
+		return fmt.Errorf("failed to ensure event processor service account: %w", err)
 	}
 	resources.EventProcessorServiceAccount = eventProcessorSA
 
-	runnerSA, err := d.services.IAM.CreateServiceAccount(
+	runnerSA, err := d.ensureServiceAccount(
 		ctx,
 		config.ProjectID,
 		constants.ServiceAccountRunner,
 		"Runvoy Runner Service Account",
 	)
 	if err != nil {
-		return fmt.Errorf("failed to create runner service account: %w", err)
+		return fmt.Errorf("failed to ensure runner service account: %w", err)
 	}
 	resources.RunnerServiceAccount = runnerSA
 
@@ -713,7 +808,11 @@ func (d *GCPDeployer) deployIAMResources(
 		return fmt.Errorf("failed to bind orchestrator roles: %w", bindErr)
 	}
 
-	if bindErr := d.bindEventProcessorRoles(ctx, config.ProjectID, eventProcessorSA); bindErr != nil {
+	if bindErr := d.bindEventProcessorRoles(
+		ctx,
+		config.ProjectID,
+		eventProcessorSA,
+	); bindErr != nil {
 		return fmt.Errorf("failed to bind event processor roles: %w", bindErr)
 	}
 
@@ -797,11 +896,46 @@ func (d *GCPDeployer) deployNetworkResources(
 	config *GCPResourceConfig,
 	resources *GCPBackendResources,
 ) error {
-	if err := d.services.Compute.CreateVPC(ctx, config.ProjectID, config.VPCName); err != nil {
-		return fmt.Errorf("failed to create VPC: %w", err)
+	if err := d.ensureVPC(ctx, config.ProjectID, config.VPCName); err != nil {
+		return err
 	}
 	resources.VPCName = config.VPCName
 
+	if err := d.ensureSubnet(ctx, config); err != nil {
+		return err
+	}
+	resources.SubnetName = config.SubnetName
+
+	if err := d.ensureEgressFirewall(ctx, config); err != nil {
+		return err
+	}
+
+	connectorName, err := d.ensureVPCConnector(ctx, config)
+	if err != nil {
+		return err
+	}
+	resources.VPCConnectorName = connectorName
+
+	return nil
+}
+
+func (d *GCPDeployer) ensureVPC(ctx context.Context, projectID, vpcName string) error {
+	exists, err := d.services.Compute.VPCExists(ctx, projectID, vpcName)
+	if err != nil {
+		return fmt.Errorf("failed to check VPC: %w", err)
+	}
+	if exists {
+		return nil
+	}
+
+	if createErr := d.services.Compute.CreateVPC(ctx, projectID, vpcName); createErr != nil {
+		return fmt.Errorf("failed to create VPC: %w", createErr)
+	}
+
+	return nil
+}
+
+func (d *GCPDeployer) ensureSubnet(ctx context.Context, config *GCPResourceConfig) error {
 	if err := d.services.Compute.CreateSubnet(
 		ctx,
 		config.ProjectID,
@@ -812,8 +946,14 @@ func (d *GCPDeployer) deployNetworkResources(
 	); err != nil {
 		return fmt.Errorf("failed to create subnet: %w", err)
 	}
-	resources.SubnetName = config.SubnetName
 
+	return nil
+}
+
+func (d *GCPDeployer) ensureEgressFirewall(
+	ctx context.Context,
+	config *GCPResourceConfig,
+) error {
 	if err := d.services.Compute.CreateFirewallRule(
 		ctx,
 		config.ProjectID,
@@ -825,21 +965,35 @@ func (d *GCPDeployer) deployNetworkResources(
 		return fmt.Errorf("failed to create egress firewall rule: %w", err)
 	}
 
-	if err := d.services.VPCAccess.CreateConnector(
-		ctx,
-		config.ProjectID,
-		config.Region,
-		config.VPCConnectorName,
-		config.VPCName,
-		constants.VPCConnectorIPRange,
-		constants.VPCConnectorMinInstances,
-		constants.VPCConnectorMaxInstances,
-	); err != nil {
-		return fmt.Errorf("failed to create VPC connector: %w", err)
-	}
-	resources.VPCConnectorName = config.VPCConnectorName
-
 	return nil
+}
+
+func (d *GCPDeployer) ensureVPCConnector(
+	ctx context.Context,
+	config *GCPResourceConfig,
+) (string, error) {
+	exists, err := d.services.VPCAccess.ConnectorExists(
+		ctx, config.ProjectID, config.Region, config.VPCConnectorName,
+	)
+	if err != nil {
+		return "", fmt.Errorf("failed to check VPC connector: %w", err)
+	}
+	if !exists {
+		if createErr := d.services.VPCAccess.CreateConnector(
+			ctx,
+			config.ProjectID,
+			config.Region,
+			config.VPCConnectorName,
+			config.VPCName,
+			constants.VPCConnectorIPRange,
+			constants.VPCConnectorMinInstances,
+			constants.VPCConnectorMaxInstances,
+		); createErr != nil {
+			return "", fmt.Errorf("failed to create VPC connector: %w", createErr)
+		}
+	}
+
+	return config.VPCConnectorName, nil
 }
 
 func (d *GCPDeployer) deployFirestore(
@@ -847,10 +1001,16 @@ func (d *GCPDeployer) deployFirestore(
 	config *GCPResourceConfig,
 	resources *GCPBackendResources,
 ) error {
-	if err := d.services.Firestore.CreateDatabase(
-		ctx, config.ProjectID, config.FirestoreLocationID,
-	); err != nil {
-		return fmt.Errorf("failed to create Firestore database: %w", err)
+	exists, err := d.services.Firestore.GetDatabase(ctx, config.ProjectID)
+	if err != nil {
+		return fmt.Errorf("failed to check Firestore database: %w", err)
+	}
+	if !exists {
+		if createErr := d.services.Firestore.CreateDatabase(
+			ctx, config.ProjectID, config.FirestoreLocationID,
+		); createErr != nil {
+			return fmt.Errorf("failed to create Firestore database: %w", createErr)
+		}
 	}
 	resources.FirestoreDatabase = config.FirestoreLocationID
 
@@ -870,10 +1030,10 @@ func (d *GCPDeployer) deployFirestore(
 
 	for _, coll := range collections {
 		for _, field := range coll.fields {
-			if err := d.services.Firestore.CreateIndex(
+			if createErr := d.services.Firestore.CreateIndex(
 				ctx, config.ProjectID, coll.name, field,
-			); err != nil {
-				return fmt.Errorf("failed to create index on %s.%s: %w", coll.name, field, err)
+			); createErr != nil {
+				return fmt.Errorf("failed to create index on %s.%s: %w", coll.name, field, createErr)
 			}
 		}
 	}
@@ -886,25 +1046,49 @@ func (d *GCPDeployer) deployKMS(
 	config *GCPResourceConfig,
 	resources *GCPBackendResources,
 ) error {
-	if err := d.services.KMS.CreateKeyRing(
+	exists, err := d.services.KMS.KeyRingExists(
 		ctx, config.ProjectID, config.Region, config.KeyRingName,
-	); err != nil {
-		return fmt.Errorf("failed to create key ring: %w", err)
+	)
+	if err != nil {
+		return fmt.Errorf("failed to check key ring: %w", err)
+	}
+	if !exists {
+		if createErr := d.services.KMS.CreateKeyRing(
+			ctx, config.ProjectID, config.Region, config.KeyRingName,
+		); createErr != nil {
+			return fmt.Errorf("failed to create key ring: %w", createErr)
+		}
 	}
 	resources.KeyRingName = config.KeyRingName
 
-	cryptoKeyID, err := d.services.KMS.CreateCryptoKey(
-		ctx,
-		config.ProjectID,
-		config.Region,
-		config.KeyRingName,
-		config.CryptoKeyName,
+	exists, err = d.services.KMS.CryptoKeyExists(
+		ctx, config.ProjectID, config.Region, config.KeyRingName, config.CryptoKeyName,
 	)
 	if err != nil {
-		return fmt.Errorf("failed to create crypto key: %w", err)
+		return fmt.Errorf("failed to check crypto key: %w", err)
+	}
+	if !exists {
+		cryptoKeyID, createErr := d.services.KMS.CreateCryptoKey(
+			ctx,
+			config.ProjectID,
+			config.Region,
+			config.KeyRingName,
+			config.CryptoKeyName,
+		)
+		if createErr != nil {
+			return fmt.Errorf("failed to create crypto key: %w", createErr)
+		}
+		resources.CryptoKeyID = cryptoKeyID
+	} else {
+		cryptoKeyID, getErr := d.services.KMS.GetCryptoKeyID(
+			ctx, config.ProjectID, config.Region, config.KeyRingName, config.CryptoKeyName,
+		)
+		if getErr != nil {
+			return fmt.Errorf("failed to get crypto key ID: %w", getErr)
+		}
+		resources.CryptoKeyID = cryptoKeyID
 	}
 	resources.CryptoKeyName = config.CryptoKeyName
-	resources.CryptoKeyID = cryptoKeyID
 
 	return nil
 }
@@ -914,20 +1098,38 @@ func (d *GCPDeployer) deployPubSub(
 	config *GCPResourceConfig,
 	resources *GCPBackendResources,
 ) error {
-	if err := d.services.PubSub.CreateTopic(ctx, config.ProjectID, config.TaskEventsTopic); err != nil {
-		return fmt.Errorf("failed to create task events topic: %w", err)
+	exists, err := d.services.PubSub.TopicExists(ctx, config.ProjectID, config.TaskEventsTopic)
+	if err != nil {
+		return fmt.Errorf("failed to check task events topic: %w", err)
+	}
+	if !exists {
+		if createErr := d.services.PubSub.CreateTopic(ctx, config.ProjectID, config.TaskEventsTopic); createErr != nil {
+			return fmt.Errorf("failed to create task events topic: %w", createErr)
+		}
 	}
 	resources.TaskEventsTopicName = config.TaskEventsTopic
 
-	if err := d.services.PubSub.CreateTopic(ctx, config.ProjectID, config.LogEventsTopic); err != nil {
-		return fmt.Errorf("failed to create log events topic: %w", err)
+	exists, err = d.services.PubSub.TopicExists(ctx, config.ProjectID, config.LogEventsTopic)
+	if err != nil {
+		return fmt.Errorf("failed to check log events topic: %w", err)
+	}
+	if !exists {
+		if createErr := d.services.PubSub.CreateTopic(ctx, config.ProjectID, config.LogEventsTopic); createErr != nil {
+			return fmt.Errorf("failed to create log events topic: %w", createErr)
+		}
 	}
 	resources.LogEventsTopicName = config.LogEventsTopic
 
-	if err := d.services.PubSub.CreateTopic(
-		ctx, config.ProjectID, constants.TopicWebSocketEvents,
-	); err != nil {
-		return fmt.Errorf("failed to create websocket events topic: %w", err)
+	exists, err = d.services.PubSub.TopicExists(ctx, config.ProjectID, constants.TopicWebSocketEvents)
+	if err != nil {
+		return fmt.Errorf("failed to check websocket events topic: %w", err)
+	}
+	if !exists {
+		if createErr := d.services.PubSub.CreateTopic(
+			ctx, config.ProjectID, constants.TopicWebSocketEvents,
+		); createErr != nil {
+			return fmt.Errorf("failed to create websocket events topic: %w", createErr)
+		}
 	}
 
 	return nil
@@ -938,10 +1140,18 @@ func (d *GCPDeployer) deployArtifactRegistry(
 	config *GCPResourceConfig,
 	resources *GCPBackendResources,
 ) error {
-	if err := d.services.ArtifactRegistry.CreateRepository(
+	exists, err := d.services.ArtifactRegistry.RepositoryExists(
 		ctx, config.ProjectID, config.Region, constants.ArtifactRegistryRepo,
-	); err != nil {
-		return fmt.Errorf("failed to create artifact registry repository: %w", err)
+	)
+	if err != nil {
+		return fmt.Errorf("failed to check artifact registry repository: %w", err)
+	}
+	if !exists {
+		if createErr := d.services.ArtifactRegistry.CreateRepository(
+			ctx, config.ProjectID, config.Region, constants.ArtifactRegistryRepo,
+		); createErr != nil {
+			return fmt.Errorf("failed to create artifact registry repository: %w", createErr)
+		}
 	}
 	resources.ArtifactRegistryRepo = constants.ArtifactRegistryRepo
 
@@ -953,51 +1163,131 @@ func (d *GCPDeployer) deployCloudRun(
 	config *GCPResourceConfig,
 	resources *GCPBackendResources,
 ) error {
-	orchestratorEnvVars := d.buildOrchestratorEnvVars(config, resources)
-	orchestratorURL, err := d.services.CloudRun.CreateService(
-		ctx,
-		config.ProjectID,
-		config.Region,
-		constants.ServiceOrchestrator,
-		config.OrchestratorImage,
-		orchestratorEnvVars,
-		resources.OrchestratorServiceAccount,
-	)
+	orchestratorURL, err := d.ensureOrchestratorService(ctx, config, resources)
 	if err != nil {
-		return fmt.Errorf("failed to create orchestrator service: %w", err)
+		return err
 	}
 	resources.OrchestratorURL = orchestratorURL
 
-	if policyErr := d.services.CloudRun.SetIAMPolicy(
-		ctx, config.ProjectID, config.Region, constants.ServiceOrchestrator, true,
-	); policyErr != nil {
-		return fmt.Errorf("failed to set orchestrator IAM policy: %w", policyErr)
-	}
-
-	eventProcessorEnvVars := d.buildEventProcessorEnvVars(config, resources)
-	eventProcessorURL, err := d.services.CloudRun.CreateService(
-		ctx,
-		config.ProjectID,
-		config.Region,
-		constants.ServiceEventProcessor,
-		config.EventProcessorImage,
-		eventProcessorEnvVars,
-		resources.EventProcessorServiceAccount,
-	)
+	eventProcessorURL, err := d.ensureEventProcessorService(ctx, config, resources)
 	if err != nil {
-		return fmt.Errorf("failed to create event processor service: %w", err)
+		return err
 	}
 	resources.EventProcessorURL = eventProcessorURL
 	resources.WebSocketEndpoint = eventProcessorURL
 
-	if subErr := d.services.PubSub.CreateSubscription(
+	if subErr := d.ensureProcessorSubscription(ctx, config, resources); subErr != nil {
+		return subErr
+	}
+
+	return nil
+}
+
+func (d *GCPDeployer) ensureOrchestratorService(
+	ctx context.Context,
+	config *GCPResourceConfig,
+	resources *GCPBackendResources,
+) (string, error) {
+	exists, url, err := d.services.CloudRun.GetService(
+		ctx, config.ProjectID, config.Region, constants.ServiceOrchestrator,
+	)
+	if err != nil {
+		return "", fmt.Errorf("failed to check orchestrator service: %w", err)
+	}
+
+	envVars := d.buildOrchestratorEnvVars(config, resources)
+	if !exists {
+		orchestratorURL, createErr := d.services.CloudRun.CreateService(
+			ctx,
+			config.ProjectID,
+			config.Region,
+			constants.ServiceOrchestrator,
+			config.OrchestratorImage,
+			envVars,
+			resources.OrchestratorServiceAccount,
+		)
+		if createErr != nil {
+			return "", fmt.Errorf("failed to create orchestrator service: %w", createErr)
+		}
+		url = orchestratorURL
+	} else {
+		if updateErr := d.services.CloudRun.UpdateService(
+			ctx,
+			config.ProjectID,
+			config.Region,
+			constants.ServiceOrchestrator,
+			config.OrchestratorImage,
+			envVars,
+		); updateErr != nil {
+			return "", fmt.Errorf("failed to update orchestrator service: %w", updateErr)
+		}
+	}
+
+	if policyErr := d.services.CloudRun.SetIAMPolicy(
+		ctx, config.ProjectID, config.Region, constants.ServiceOrchestrator, true,
+	); policyErr != nil {
+		return "", fmt.Errorf("failed to set orchestrator IAM policy: %w", policyErr)
+	}
+
+	return url, nil
+}
+
+func (d *GCPDeployer) ensureEventProcessorService(
+	ctx context.Context,
+	config *GCPResourceConfig,
+	resources *GCPBackendResources,
+) (string, error) {
+	exists, url, err := d.services.CloudRun.GetService(
+		ctx, config.ProjectID, config.Region, constants.ServiceEventProcessor,
+	)
+	if err != nil {
+		return "", fmt.Errorf("failed to check event processor service: %w", err)
+	}
+
+	envVars := d.buildEventProcessorEnvVars(config, resources)
+	if !exists {
+		eventProcessorURL, createErr := d.services.CloudRun.CreateService(
+			ctx,
+			config.ProjectID,
+			config.Region,
+			constants.ServiceEventProcessor,
+			config.EventProcessorImage,
+			envVars,
+			resources.EventProcessorServiceAccount,
+		)
+		if createErr != nil {
+			return "", fmt.Errorf("failed to create event processor service: %w", createErr)
+		}
+		url = eventProcessorURL
+	} else {
+		if updateErr := d.services.CloudRun.UpdateService(
+			ctx,
+			config.ProjectID,
+			config.Region,
+			constants.ServiceEventProcessor,
+			config.EventProcessorImage,
+			envVars,
+		); updateErr != nil {
+			return "", fmt.Errorf("failed to update event processor service: %w", updateErr)
+		}
+	}
+
+	return url, nil
+}
+
+func (d *GCPDeployer) ensureProcessorSubscription(
+	ctx context.Context,
+	config *GCPResourceConfig,
+	resources *GCPBackendResources,
+) error {
+	if err := d.services.PubSub.CreateSubscription(
 		ctx,
 		config.ProjectID,
 		config.ProcessorSub,
 		config.TaskEventsTopic,
-		eventProcessorURL,
-	); subErr != nil {
-		return fmt.Errorf("failed to create processor subscription: %w", subErr)
+		resources.EventProcessorURL,
+	); err != nil {
+		return fmt.Errorf("failed to create processor subscription: %w", err)
 	}
 	resources.SubscriptionName = config.ProcessorSub
 
@@ -1052,17 +1342,25 @@ func (d *GCPDeployer) deployCloudScheduler(
 	config *GCPResourceConfig,
 	resources *GCPBackendResources,
 ) error {
-	healthReconcileURL := resources.EventProcessorURL + "/health-reconcile"
-	if err := d.services.Scheduler.CreateJob(
-		ctx,
-		config.ProjectID,
-		config.Region,
-		constants.SchedulerHealthReconcile,
-		config.HealthSchedule,
-		healthReconcileURL,
-		"POST",
-	); err != nil {
-		return fmt.Errorf("failed to create health reconcile scheduler job: %w", err)
+	exists, err := d.services.Scheduler.JobExists(
+		ctx, config.ProjectID, config.Region, constants.SchedulerHealthReconcile,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to check scheduler job: %w", err)
+	}
+	if !exists {
+		healthReconcileURL := resources.EventProcessorURL + "/health-reconcile"
+		if createErr := d.services.Scheduler.CreateJob(
+			ctx,
+			config.ProjectID,
+			config.Region,
+			constants.SchedulerHealthReconcile,
+			config.HealthSchedule,
+			healthReconcileURL,
+			"POST",
+		); createErr != nil {
+			return fmt.Errorf("failed to create health reconcile scheduler job: %w", createErr)
+		}
 	}
 	resources.HealthReconcileJobName = constants.SchedulerHealthReconcile
 
@@ -1074,19 +1372,27 @@ func (d *GCPDeployer) deployLogging(
 	config *GCPResourceConfig,
 	resources *GCPBackendResources,
 ) error {
-	runnerFilter := fmt.Sprintf(
-		`resource.type="cloud_run_revision" AND resource.labels.service_name=%q`,
-		constants.ServiceRunner,
+	exists, err := d.services.Logging.SinkExists(
+		ctx, config.ProjectID, constants.LogSinkRunner,
 	)
-	runnerDestination := fmt.Sprintf(
-		"pubsub.googleapis.com/projects/%s/topics/%s",
-		config.ProjectID, resources.LogEventsTopicName,
-	)
+	if err != nil {
+		return fmt.Errorf("failed to check log sink: %w", err)
+	}
+	if !exists {
+		runnerFilter := fmt.Sprintf(
+			`resource.type="cloud_run_revision" AND resource.labels.service_name=%q`,
+			constants.ServiceRunner,
+		)
+		runnerDestination := fmt.Sprintf(
+			"pubsub.googleapis.com/projects/%s/topics/%s",
+			config.ProjectID, resources.LogEventsTopicName,
+		)
 
-	if err := d.services.Logging.CreateSink(
-		ctx, config.ProjectID, constants.LogSinkRunner, runnerFilter, runnerDestination,
-	); err != nil {
-		return fmt.Errorf("failed to create runner log sink: %w", err)
+		if createErr := d.services.Logging.CreateSink(
+			ctx, config.ProjectID, constants.LogSinkRunner, runnerFilter, runnerDestination,
+		); createErr != nil {
+			return fmt.Errorf("failed to create runner log sink: %w", createErr)
+		}
 	}
 
 	return nil
