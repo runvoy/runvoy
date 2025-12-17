@@ -25,6 +25,7 @@ import (
 	"google.golang.org/api/pubsub/v1"
 	"google.golang.org/api/run/v2"
 	"google.golang.org/api/secretmanager/v1"
+	"google.golang.org/api/serviceusage/v1"
 	"google.golang.org/api/vpcaccess/v1"
 
 	"github.com/runvoy/runvoy/internal/providers/gcp/constants"
@@ -32,7 +33,7 @@ import (
 
 // newDefaultGCPServiceClients builds concrete service clients backed by Google Cloud APIs.
 //
-//nolint:funlen // initialization requires wiring many Google Cloud clients
+//nolint:funlen,gocyclo // initialization requires wiring many Google Cloud clients
 func newDefaultGCPServiceClients(
 	ctx context.Context,
 	region string,
@@ -98,6 +99,11 @@ func newDefaultGCPServiceClients(
 		return nil, fmt.Errorf("create resource manager service: %w", err)
 	}
 
+	serviceUsageSvc, err := serviceusage.NewService(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("create service usage service: %w", err)
+	}
+
 	if projectClient == nil {
 		projectClient, err = resourcemanager.NewProjectsClient(ctx)
 		if err != nil {
@@ -142,6 +148,9 @@ func newDefaultGCPServiceClients(
 		},
 		VPCAccess: &defaultVPCAccessClient{
 			service: vpcAccessSvc,
+		},
+		ServiceUsage: &defaultServiceUsageClient{
+			service: serviceUsageSvc,
 		},
 	}, nil
 }
@@ -203,33 +212,6 @@ func (c *defaultFirestoreClient) GetDatabase(ctx context.Context, projectID stri
 		return false, nil
 	}
 	return err == nil, wrapError("get firestore database", err)
-}
-
-func (c *defaultFirestoreClient) CreateIndex(ctx context.Context, projectID, collectionID, fieldPath string) error {
-	ctx, cancel := context.WithTimeout(ctx, constants.FirestoreOperationTimeout)
-	defer cancel()
-
-	parent := fmt.Sprintf(
-		"projects/%s/databases/%s/collectionGroups/%s",
-		projectID,
-		constants.FirestoreDatabaseID,
-		collectionID,
-	)
-
-	index := &firestore.GoogleFirestoreAdminV1Index{
-		QueryScope: "COLLECTION",
-		Fields: []*firestore.GoogleFirestoreAdminV1IndexField{
-			{FieldPath: fieldPath, Order: "ASCENDING"},
-		},
-	}
-
-	_, err := c.service.Projects.Databases.CollectionGroups.Indexes.Create(parent, index).
-		Context(ctx).
-		Do()
-	if isAlreadyExists(err) {
-		return nil
-	}
-	return wrapError("create firestore index", err)
 }
 
 type defaultCloudRunClient struct {
@@ -1245,6 +1227,50 @@ func (c *defaultArtifactRegistryClient) waitForOperation(ctx context.Context, na
 
 type defaultVPCAccessClient struct {
 	service *vpcaccess.Service
+}
+
+type defaultServiceUsageClient struct {
+	service *serviceusage.Service
+}
+
+func (c *defaultServiceUsageClient) EnableServices(ctx context.Context, projectID string, services []string) error {
+	ctx, cancel := context.WithTimeout(ctx, constants.ServiceUsageOperationTimeout)
+	defer cancel()
+
+	parent := "projects/" + projectID
+	req := &serviceusage.BatchEnableServicesRequest{
+		ServiceIds: services,
+	}
+
+	op, err := c.service.Services.BatchEnable(parent, req).Context(ctx).Do()
+	if err != nil {
+		return wrapError("batch enable services", err)
+	}
+
+	if op.Done {
+		if op.Error != nil {
+			return fmt.Errorf("batch enable services: %s", op.Error.Message)
+		}
+		return nil
+	}
+
+	return wrapError("wait for service enablement", c.waitForOperation(ctx, op.Name))
+}
+
+func (c *defaultServiceUsageClient) waitForOperation(ctx context.Context, name string) error {
+	for {
+		op, err := c.service.Operations.Get(name).Context(ctx).Do()
+		if err != nil {
+			return wrapError("poll service usage operation", err)
+		}
+		if op.Done {
+			if op.Error != nil {
+				return fmt.Errorf("operation error: %s", op.Error.Message)
+			}
+			return nil
+		}
+		time.Sleep(constants.ResourcePollInterval)
+	}
 }
 
 func (c *defaultVPCAccessClient) CreateConnector(

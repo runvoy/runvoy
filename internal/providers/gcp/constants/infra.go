@@ -182,6 +182,8 @@ const (
 	CloudFunctionTimeout = 10 * time.Minute
 	// ResourcePollInterval is the interval for polling resource status.
 	ResourcePollInterval = 5 * time.Second
+	// ServiceUsageOperationTimeout is the timeout for enabling service APIs.
+	ServiceUsageOperationTimeout = 10 * time.Minute
 )
 
 // Logging configuration.
@@ -203,3 +205,16 @@ const (
 	// VPCConnectorMaxInstances is the maximum number of VPC connector instances.
 	VPCConnectorMaxInstances = 3
 )
+
+// RequiredServices lists the GCP APIs that must be enabled for Runvoy.
+var RequiredServices = []string{
+	"run.googleapis.com",
+	"compute.googleapis.com",
+	"vpcaccess.googleapis.com",
+	"firestore.googleapis.com",
+	"pubsub.googleapis.com",
+	"cloudscheduler.googleapis.com",
+	"secretmanager.googleapis.com",
+	"cloudkms.googleapis.com",
+	"artifactregistry.googleapis.com",
+}

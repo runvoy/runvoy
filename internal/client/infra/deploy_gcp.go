@@ -107,6 +107,7 @@ type GCPServiceClients struct {
 	Logging          LoggingClient
 	ArtifactRegistry ArtifactRegistryClient
 	VPCAccess        VPCAccessClient
+	ServiceUsage     ServiceUsageClient
 }
 
 // ProjectsClient abstracts GCP Resource Manager Projects API operations.
@@ -120,7 +121,11 @@ type ProjectsClient interface {
 type FirestoreClient interface {
 	CreateDatabase(ctx context.Context, projectID, locationID string) error
 	GetDatabase(ctx context.Context, projectID string) (bool, error)
-	CreateIndex(ctx context.Context, projectID, collectionID, fieldPath string) error
+}
+
+// ServiceUsageClient abstracts the Service Usage API.
+type ServiceUsageClient interface {
+	EnableServices(ctx context.Context, projectID string, services []string) error
 }
 
 // CloudRunClient abstracts Cloud Run Admin API operations.
@@ -351,6 +356,10 @@ func (d *GCPDeployer) Deploy(ctx context.Context, opts *DeployOptions) (*DeployR
 		return result, nil
 	}
 
+	if apiErr := d.ensureAPIs(ctx, projectID); apiErr != nil {
+		return result, fmt.Errorf("failed to enable required APIs: %w", apiErr)
+	}
+
 	applyErr := d.applyBackend(ctx, projectID, opts)
 	if applyErr != nil {
 		return result, applyErr
@@ -498,6 +507,17 @@ func (d *GCPDeployer) waitForProjectReady(ctx context.Context, projectID string)
 			}
 		}
 	}
+}
+
+func (d *GCPDeployer) ensureAPIs(ctx context.Context, projectID string) error {
+	if d.services == nil || d.services.ServiceUsage == nil {
+		return errors.New("service clients not initialized; call SetServiceClients first")
+	}
+
+	if err := d.services.ServiceUsage.EnableServices(ctx, projectID, constants.RequiredServices); err != nil {
+		return fmt.Errorf("enable services: %w", err)
+	}
+	return nil
 }
 
 // CheckExists checks if a GCP project exists.
@@ -1065,33 +1085,6 @@ func (d *GCPDeployer) deployFirestore(
 	}
 	resources.FirestoreDatabase = constants.FirestoreDatabaseID
 
-	collections := []struct {
-		name   string
-		fields []string
-	}{
-		{constants.CollectionAPIKeys, []string{"api_key_hash", "user_email"}},
-		{constants.CollectionExecutions, []string{"execution_id", "started_at", "created_by_request_id"}},
-		{constants.CollectionPendingAPIKeys, []string{"secret_token", "expires_at"}},
-		{constants.CollectionSecretsMetadata, []string{"secret_name"}},
-		{constants.CollectionImageConfigs, []string{"image_id", "is_default"}},
-		{constants.CollectionWebSocketTokens, []string{"token", "execution_id", "expires_at"}},
-		{constants.CollectionWebSocketConnection, []string{"connection_id", "execution_id", "expires_at"}},
-		{constants.CollectionExecutionLogs, []string{"execution_id", "event_key", "expires_at"}},
-	}
-
-	for _, coll := range collections {
-		for _, field := range coll.fields {
-			if createErr := d.services.Firestore.CreateIndex(
-				ctx, config.ProjectID, coll.name, field,
-			); createErr != nil {
-				if status.Code(createErr) == codes.AlreadyExists {
-					continue
-				}
-				return fmt.Errorf("failed to create index on %s.%s: %w", coll.name, field, createErr)
-			}
-		}
-	}
-
 	return nil
 }
 
@@ -1453,6 +1446,9 @@ func (d *GCPDeployer) deployCloudScheduler(
 	}
 	if !exists {
 		healthReconcileURL := resources.EventProcessorURL + "/health-reconcile"
+		if !strings.HasPrefix(healthReconcileURL, "http") {
+			healthReconcileURL = "https://" + strings.TrimPrefix(healthReconcileURL, "//")
+		}
 		if createErr := d.services.Scheduler.CreateJob(
 			ctx,
 			config.ProjectID,
