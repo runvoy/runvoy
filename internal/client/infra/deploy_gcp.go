@@ -22,6 +22,7 @@ type GCPResourceConfig struct {
 	VPCName             string
 	SubnetName          string
 	VPCConnectorName    string
+	UseDirectVPCEgress  bool
 	VPCCIDRRange        string
 	FirestoreLocationID string
 	OrchestratorImage   string
@@ -47,6 +48,7 @@ func DefaultGCPResourceConfig(projectID, region string) *GCPResourceConfig {
 		VPCName:             constants.VPCName,
 		SubnetName:          constants.SubnetName,
 		VPCConnectorName:    constants.VPCConnectorName,
+		UseDirectVPCEgress:  true,
 		VPCCIDRRange:        constants.VPCCIDRRange,
 		FirestoreLocationID: constants.FirestoreLocationID,
 		MaxInstances:        constants.DefaultMaxInstances,
@@ -123,6 +125,7 @@ type FirestoreClient interface {
 
 // CloudRunClient abstracts Cloud Run Admin API operations.
 type CloudRunClient interface {
+	// VPC access can be provided via Serverless VPC Access connector or direct VPC egress.
 	CreateService(
 		ctx context.Context,
 		projectID, region, serviceName, image string,
@@ -130,7 +133,7 @@ type CloudRunClient interface {
 		serviceAccount string,
 		minInstances, maxInstances int,
 		timeoutSeconds int,
-		vpcConnector string,
+		vpcAccess *CloudRunVPCAccess,
 	) (string, error)
 	UpdateService(
 		ctx context.Context,
@@ -138,7 +141,7 @@ type CloudRunClient interface {
 		envVars map[string]string,
 		minInstances, maxInstances int,
 		timeoutSeconds int,
-		vpcConnector string,
+		vpcAccess *CloudRunVPCAccess,
 	) error
 	DeleteService(ctx context.Context, projectID, region, serviceName string) error
 	GetService(ctx context.Context, projectID, region, serviceName string) (bool, string, error)
@@ -147,6 +150,13 @@ type CloudRunClient interface {
 		projectID, region, serviceName string,
 		allowUnauthenticated bool,
 	) error
+}
+
+// CloudRunVPCAccess configures how Cloud Run reaches the VPC.
+type CloudRunVPCAccess struct {
+	Connector  string
+	Network    string
+	Subnetwork string
 }
 
 // PubSubClient abstracts Pub/Sub API operations.
@@ -659,6 +669,9 @@ func (d *GCPDeployer) applyBackend(
 	if img, ok := params["EventProcessorImage"]; ok {
 		config.EventProcessorImage = img
 	}
+	if loc, ok := params["FirestoreLocationID"]; ok {
+		config.FirestoreLocationID = loc
+	}
 	if maxInst, ok := params["MaxInstances"]; ok {
 		parsed, parseErr := parseInt(maxInst)
 		if parseErr != nil {
@@ -674,13 +687,7 @@ func (d *GCPDeployer) applyBackend(
 		config.MinInstances = parsed
 	}
 
-	if config.OrchestratorImage == "" || config.EventProcessorImage == "" {
-		return errors.New(
-			"missing required images: set parameters OrchestratorImage and EventProcessorImage",
-		)
-	}
-
-	// Deploy backend resources
+	// Deploy backend resources (Cloud Run services will be skipped if images are not provided)
 	_, deployErr := d.DeployBackend(ctx, config)
 	return deployErr
 }
@@ -919,11 +926,13 @@ func (d *GCPDeployer) deployNetworkResources(
 		return err
 	}
 
-	connectorName, err := d.ensureVPCConnector(ctx, config)
-	if err != nil {
-		return err
+	if !config.UseDirectVPCEgress {
+		connectorName, err := d.ensureVPCConnector(ctx, config)
+		if err != nil {
+			return err
+		}
+		resources.VPCConnectorName = connectorName
 	}
-	resources.VPCConnectorName = connectorName
 
 	return nil
 }
@@ -1011,6 +1020,33 @@ func (d *GCPDeployer) ensureVPCConnector(
 	return config.VPCConnectorName, nil
 }
 
+func (d *GCPDeployer) buildCloudRunVPCAccess(
+	config *GCPResourceConfig,
+	resources *GCPBackendResources,
+) *CloudRunVPCAccess {
+	if config.UseDirectVPCEgress {
+		return &CloudRunVPCAccess{
+			Network: fmt.Sprintf(
+				"projects/%s/global/networks/%s",
+				config.ProjectID,
+				config.VPCName,
+			),
+			Subnetwork: fmt.Sprintf(
+				"projects/%s/regions/%s/subnetworks/%s",
+				config.ProjectID,
+				config.Region,
+				config.SubnetName,
+			),
+		}
+	}
+
+	if resources.VPCConnectorName == "" {
+		return nil
+	}
+
+	return &CloudRunVPCAccess{Connector: resources.VPCConnectorName}
+}
+
 func (d *GCPDeployer) deployFirestore(
 	ctx context.Context,
 	config *GCPResourceConfig,
@@ -1027,7 +1063,7 @@ func (d *GCPDeployer) deployFirestore(
 			return fmt.Errorf("failed to create Firestore database: %w", createErr)
 		}
 	}
-	resources.FirestoreDatabase = config.FirestoreLocationID
+	resources.FirestoreDatabase = constants.FirestoreDatabaseID
 
 	collections := []struct {
 		name   string
@@ -1181,21 +1217,34 @@ func (d *GCPDeployer) deployCloudRun(
 	config *GCPResourceConfig,
 	resources *GCPBackendResources,
 ) error {
-	orchestratorURL, err := d.ensureOrchestratorService(ctx, config, resources)
-	if err != nil {
-		return err
+	// Only deploy Cloud Run services if images are provided
+	if config.OrchestratorImage == "" && config.EventProcessorImage == "" {
+		// No images provided, skip Cloud Run deployment
+		return nil
 	}
-	resources.OrchestratorURL = orchestratorURL
 
-	eventProcessorURL, err := d.ensureEventProcessorService(ctx, config, resources)
-	if err != nil {
-		return err
+	if config.OrchestratorImage != "" {
+		orchestratorURL, err := d.ensureOrchestratorService(ctx, config, resources)
+		if err != nil {
+			return err
+		}
+		resources.OrchestratorURL = orchestratorURL
 	}
-	resources.EventProcessorURL = eventProcessorURL
-	resources.WebSocketEndpoint = eventProcessorURL
 
-	if subErr := d.ensureProcessorSubscription(ctx, config, resources); subErr != nil {
-		return subErr
+	if config.EventProcessorImage != "" {
+		eventProcessorURL, err := d.ensureEventProcessorService(ctx, config, resources)
+		if err != nil {
+			return err
+		}
+		resources.EventProcessorURL = eventProcessorURL
+		resources.WebSocketEndpoint = eventProcessorURL
+
+		// Only create subscription if event processor service exists
+		if eventProcessorURL != "" {
+			if subErr := d.ensureProcessorSubscription(ctx, config, resources); subErr != nil {
+				return subErr
+			}
+		}
 	}
 
 	return nil
@@ -1207,6 +1256,10 @@ func (d *GCPDeployer) ensureOrchestratorService(
 	config *GCPResourceConfig,
 	resources *GCPBackendResources,
 ) (string, error) {
+	if config.OrchestratorImage == "" {
+		return "", errors.New("orchestrator image is required to deploy orchestrator service")
+	}
+
 	exists, url, err := d.services.CloudRun.GetService(
 		ctx, config.ProjectID, config.Region, constants.ServiceOrchestrator,
 	)
@@ -1214,6 +1267,7 @@ func (d *GCPDeployer) ensureOrchestratorService(
 		return "", fmt.Errorf("failed to check orchestrator service: %w", err)
 	}
 
+	vpcAccess := d.buildCloudRunVPCAccess(config, resources)
 	envVars := d.buildOrchestratorEnvVars(config, resources)
 	if !exists {
 		orchestratorURL, createErr := d.services.CloudRun.CreateService(
@@ -1227,7 +1281,7 @@ func (d *GCPDeployer) ensureOrchestratorService(
 			config.MinInstances,
 			config.MaxInstances,
 			config.TimeoutSeconds,
-			resources.VPCConnectorName,
+			vpcAccess,
 		)
 		if createErr != nil {
 			return "", fmt.Errorf("failed to create orchestrator service: %w", createErr)
@@ -1244,7 +1298,7 @@ func (d *GCPDeployer) ensureOrchestratorService(
 			config.MinInstances,
 			config.MaxInstances,
 			config.TimeoutSeconds,
-			resources.VPCConnectorName,
+			vpcAccess,
 		); updateErr != nil {
 			return "", fmt.Errorf("failed to update orchestrator service: %w", updateErr)
 		}
@@ -1265,6 +1319,10 @@ func (d *GCPDeployer) ensureEventProcessorService(
 	config *GCPResourceConfig,
 	resources *GCPBackendResources,
 ) (string, error) {
+	if config.EventProcessorImage == "" {
+		return "", errors.New("event processor image is required to deploy event processor service")
+	}
+
 	exists, url, err := d.services.CloudRun.GetService(
 		ctx, config.ProjectID, config.Region, constants.ServiceEventProcessor,
 	)
@@ -1272,6 +1330,7 @@ func (d *GCPDeployer) ensureEventProcessorService(
 		return "", fmt.Errorf("failed to check event processor service: %w", err)
 	}
 
+	vpcAccess := d.buildCloudRunVPCAccess(config, resources)
 	envVars := d.buildEventProcessorEnvVars(config, resources)
 	if !exists {
 		eventProcessorURL, createErr := d.services.CloudRun.CreateService(
@@ -1285,7 +1344,7 @@ func (d *GCPDeployer) ensureEventProcessorService(
 			config.MinInstances,
 			config.MaxInstances,
 			config.TimeoutSeconds,
-			resources.VPCConnectorName,
+			vpcAccess,
 		)
 		if createErr != nil {
 			return "", fmt.Errorf("failed to create event processor service: %w", createErr)
@@ -1302,7 +1361,7 @@ func (d *GCPDeployer) ensureEventProcessorService(
 			config.MinInstances,
 			config.MaxInstances,
 			config.TimeoutSeconds,
-			resources.VPCConnectorName,
+			vpcAccess,
 		); updateErr != nil {
 			return "", fmt.Errorf("failed to update event processor service: %w", updateErr)
 		}

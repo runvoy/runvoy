@@ -184,7 +184,7 @@ func (c *defaultFirestoreClient) CreateDatabase(ctx context.Context, projectID, 
 	}
 
 	_, err := c.service.Projects.Databases.Create(parent, db).
-		DatabaseId(locationID).
+		DatabaseId(constants.FirestoreDatabaseID).
 		Context(ctx).
 		Do()
 	if isAlreadyExists(err) {
@@ -197,7 +197,7 @@ func (c *defaultFirestoreClient) GetDatabase(ctx context.Context, projectID stri
 	ctx, cancel := context.WithTimeout(ctx, constants.FirestoreOperationTimeout)
 	defer cancel()
 
-	name := fmt.Sprintf("projects/%s/databases/%s", projectID, constants.FirestoreLocationID)
+	name := fmt.Sprintf("projects/%s/databases/%s", projectID, constants.FirestoreDatabaseID)
 	_, err := c.service.Projects.Databases.Get(name).Context(ctx).Do()
 	if isNotFound(err) {
 		return false, nil
@@ -212,7 +212,7 @@ func (c *defaultFirestoreClient) CreateIndex(ctx context.Context, projectID, col
 	parent := fmt.Sprintf(
 		"projects/%s/databases/%s/collectionGroups/%s",
 		projectID,
-		constants.FirestoreLocationID,
+		constants.FirestoreDatabaseID,
 		collectionID,
 	)
 
@@ -249,7 +249,35 @@ func (c *defaultCloudRunClient) connectorName(projectID, connector string) strin
 	return fmt.Sprintf("projects/%s/locations/%s/connectors/%s", projectID, c.region, connector)
 }
 
-//nolint:funlen // service creation needs to wire scaling, VPC access, env vars, and IAM
+func (c *defaultCloudRunClient) toRunVPCAccess(
+	projectID string,
+	vpcAccess *CloudRunVPCAccess,
+) *run.GoogleCloudRunV2VpcAccess {
+	if vpcAccess == nil {
+		return nil
+	}
+
+	result := &run.GoogleCloudRunV2VpcAccess{
+		Egress: "ALL_TRAFFIC",
+	}
+
+	switch {
+	case vpcAccess.Connector != "":
+		result.Connector = c.connectorName(projectID, vpcAccess.Connector)
+	case vpcAccess.Network != "" || vpcAccess.Subnetwork != "":
+		result.NetworkInterfaces = []*run.GoogleCloudRunV2NetworkInterface{
+			{
+				Network:    vpcAccess.Network,
+				Subnetwork: vpcAccess.Subnetwork,
+			},
+		}
+	default:
+		return nil
+	}
+
+	return result
+}
+
 func (c *defaultCloudRunClient) CreateService(
 	ctx context.Context,
 	projectID, _ string, serviceName, image string,
@@ -257,7 +285,7 @@ func (c *defaultCloudRunClient) CreateService(
 	serviceAccount string,
 	minInstances, maxInstances int,
 	timeoutSeconds int,
-	vpcConnector string,
+	vpcAccess *CloudRunVPCAccess,
 ) (string, error) {
 	maxInst := int64(maxInstances)
 	if maxInst == 0 {
@@ -286,11 +314,8 @@ func (c *defaultCloudRunClient) CreateService(
 			Timeout: fmt.Sprintf("%ds", timeout),
 		},
 	}
-	if vpcConnector != "" {
-		runService.Template.VpcAccess = &run.GoogleCloudRunV2VpcAccess{
-			Connector: c.connectorName(projectID, vpcConnector),
-			Egress:    "ALL_TRAFFIC",
-		}
+	if runVpcAccess := c.toRunVPCAccess(projectID, vpcAccess); runVpcAccess != nil {
+		runService.Template.VpcAccess = runVpcAccess
 	}
 
 	op, err := c.service.Projects.Locations.Services.Create(
@@ -320,7 +345,7 @@ func (c *defaultCloudRunClient) UpdateService(
 	envVars map[string]string,
 	minInstances, maxInstances int,
 	timeoutSeconds int,
-	vpcConnector string,
+	vpcAccess *CloudRunVPCAccess,
 ) error {
 	servicePath := c.serviceName(projectID, serviceName)
 
@@ -354,11 +379,8 @@ func (c *defaultCloudRunClient) UpdateService(
 		MinInstanceCount: minInst,
 	}
 	svc.Template.Timeout = fmt.Sprintf("%ds", timeout)
-	if vpcConnector != "" {
-		svc.Template.VpcAccess = &run.GoogleCloudRunV2VpcAccess{
-			Connector: c.connectorName(projectID, vpcConnector),
-			Egress:    "ALL_TRAFFIC",
-		}
+	if runVpcAccess := c.toRunVPCAccess(projectID, vpcAccess); runVpcAccess != nil {
+		svc.Template.VpcAccess = runVpcAccess
 	}
 
 	op, err := c.service.Projects.Locations.Services.Patch(servicePath, svc).
@@ -775,10 +797,21 @@ func (c *defaultComputeClient) CreateVPC(ctx context.Context, projectID, vpcName
 	ctx, cancel := context.WithTimeout(ctx, constants.VPCOperationTimeout)
 	defer cancel()
 
-	op, err := c.service.Networks.Insert(projectID, &compute.Network{
+	// Create a custom subnet mode network (not legacy mode)
+	// AutoCreateSubnetworks: false means custom subnet mode
+	// RoutingConfig specifies regional routing mode
+	network := &compute.Network{
 		Name:                  vpcName,
 		AutoCreateSubnetworks: false,
-	}).Context(ctx).Do()
+		RoutingConfig: &compute.NetworkRoutingConfig{
+			RoutingMode: "REGIONAL",
+		},
+		// ForceSendFields ensures the API sees AutoCreateSubnetworks=false so the
+		// network is created in subnet mode rather than legacy mode.
+		ForceSendFields: []string{"AutoCreateSubnetworks"},
+	}
+
+	op, err := c.service.Networks.Insert(projectID, network).Context(ctx).Do()
 	if isAlreadyExists(err) {
 		return nil
 	}

@@ -144,8 +144,10 @@ const (
 
 // Firestore configuration.
 const (
-	// FirestoreLocationID is the Firestore database location.
-	FirestoreLocationID = "(default)"
+	// FirestoreLocationID is the Firestore database location (multi-region US).
+	FirestoreLocationID = "nam5"
+	// FirestoreDatabaseID is the default Firestore database ID.
+	FirestoreDatabaseID = "(default)"
 )
 
 // Operation timeouts for GCP resources.
