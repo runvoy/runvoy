@@ -1,3 +1,4 @@
+// Package core provides shared types and helpers for infrastructure deployments.
 package core
 
 import (
@@ -16,7 +17,9 @@ func ParseParameters(params []string) (map[string]string, error) {
 		if len(parts) != parameterSplitParts {
 			return nil, fmt.Errorf("invalid parameter format: %s (expected KEY=VALUE)", param)
 		}
-		result[parts[0]] = parts[1]
+		key := strings.TrimSpace(parts[0])
+		value := strings.TrimSpace(parts[1])
+		result[key] = value
 	}
 
 	return result, nil

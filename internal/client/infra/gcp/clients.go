@@ -1,3 +1,4 @@
+// Package gcp provides infrastructure deployment for Google Cloud.
 package gcp
 
 import (
@@ -31,14 +32,14 @@ import (
 	"github.com/runvoy/runvoy/internal/providers/gcp/constants"
 )
 
-// newDefaultGCPServiceClients builds concrete service clients backed by Google Cloud APIs.
+// newDefaultServiceClients builds concrete service clients backed by Google Cloud APIs.
 //
 //nolint:funlen,gocyclo // initialization requires wiring many Google Cloud clients
-func newDefaultGCPServiceClients(
+func newDefaultServiceClients(
 	ctx context.Context,
 	region string,
 	projectClient *resourcemanager.ProjectsClient,
-) (*GCPServiceClients, error) {
+) (*ServiceClients, error) {
 	firestoreSvc, err := firestore.NewService(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("create firestore service: %w", err)
@@ -111,7 +112,7 @@ func newDefaultGCPServiceClients(
 		}
 	}
 
-	return &GCPServiceClients{
+	return &ServiceClients{
 		Projects: &defaultProjectsClient{client: projectClient},
 		Firestore: &defaultFirestoreClient{
 			service: firestoreSvc,

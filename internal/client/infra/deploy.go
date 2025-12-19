@@ -14,8 +14,8 @@ import (
 )
 
 const (
-        // parameterSplitParts is the expected number of parts when splitting a KEY=VALUE parameter.
-        parameterSplitParts = 2
+	// parameterSplitParts is the expected number of parts when splitting a KEY=VALUE parameter.
+	parameterSplitParts = 2
 )
 
 // NewDeployer creates a Deployer for the specified provider.
@@ -25,7 +25,11 @@ func NewDeployer(ctx context.Context, provider, region string) (core.Deployer, e
 	case string(constants.AWS):
 		return NewAWSDeployer(ctx, region)
 	case string(constants.GCP):
-		return gcp.NewGCPDeployer(ctx, region)
+		deployer, err := gcp.NewDeployer(ctx, region)
+		if err != nil {
+			return nil, fmt.Errorf("create gcp deployer: %w", err)
+		}
+		return deployer, nil
 	default:
 		return nil, fmt.Errorf("unsupported provider: %s (supported: %s)", provider, constants.ProvidersString())
 	}
@@ -81,4 +85,3 @@ func resolveAWSTemplate(template, version, region string) (*core.TemplateSource,
 
 	return &core.TemplateSource{Body: string(content)}, nil
 }
-

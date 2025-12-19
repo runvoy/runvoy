@@ -3,12 +3,18 @@ package core
 import "context"
 
 const (
+	// OperationTypeCreate indicates a create deployment.
 	OperationTypeCreate = "CREATE"
+	// OperationTypeUpdate indicates an update deployment.
 	OperationTypeUpdate = "UPDATE"
 
-	StatusInProgress     = "IN_PROGRESS"
-	StatusNotFound       = "NOT_FOUND"
+	// StatusInProgress indicates a deployment is still running.
+	StatusInProgress = "IN_PROGRESS"
+	// StatusNotFound indicates a deployment target was not found.
+	StatusNotFound = "NOT_FOUND"
+	// StatusUpdateComplete indicates an update finished successfully.
 	StatusUpdateComplete = "UPDATE_COMPLETE"
+	// StatusCreateComplete indicates a create finished successfully.
 	StatusCreateComplete = "CREATE_COMPLETE"
 )
 

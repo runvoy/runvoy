@@ -10,10 +10,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestGCPDeployer_DeployRequiresProjectID(t *testing.T) {
+func TestDeployer_DeployRequiresProjectID(t *testing.T) {
 	t.Helper()
 
-	deployer := NewGCPDeployerWithClient(nil, "us-central1")
+	deployer := NewDeployerWithClient(nil, "us-central1")
 
 	_, err := deployer.Deploy(ctxWithNoop(), &core.DeployOptions{})
 
@@ -21,10 +21,10 @@ func TestGCPDeployer_DeployRequiresProjectID(t *testing.T) {
 	assert.Contains(t, err.Error(), "project ID is required for GCP")
 }
 
-func TestGCPDeployer_AddProjectInfoToOutputs(t *testing.T) {
+func TestDeployer_AddProjectInfoToOutputs(t *testing.T) {
 	t.Helper()
 
-	deployer := NewGCPDeployerWithClient(nil, "us-central1")
+	deployer := NewDeployerWithClient(nil, "us-central1")
 	outputs := make(map[string]string)
 
 	project := &resourcemanagerpb.Project{

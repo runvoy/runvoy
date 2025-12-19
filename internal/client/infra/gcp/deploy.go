@@ -16,8 +16,8 @@ import (
 	"github.com/runvoy/runvoy/internal/providers/gcp/constants"
 )
 
-// GCPResourceConfig contains configuration for GCP backend resources.
-type GCPResourceConfig struct {
+// ResourceConfig contains configuration for GCP backend resources.
+type ResourceConfig struct {
 	ProjectID           string
 	Region              string
 	VPCName             string
@@ -41,9 +41,9 @@ type GCPResourceConfig struct {
 	Labels              map[string]string
 }
 
-// DefaultGCPResourceConfig returns a GCPResourceConfig with default values.
-func DefaultGCPResourceConfig(projectID, region string) *GCPResourceConfig {
-	return &GCPResourceConfig{
+// DefaultResourceConfig returns a ResourceConfig with default values.
+func DefaultResourceConfig(projectID, region string) *ResourceConfig {
+	return &ResourceConfig{
 		ProjectID:           projectID,
 		Region:              region,
 		VPCName:             constants.VPCName,
@@ -69,8 +69,8 @@ func DefaultGCPResourceConfig(projectID, region string) *GCPResourceConfig {
 	}
 }
 
-// GCPBackendResources holds references to created GCP resources.
-type GCPBackendResources struct {
+// BackendResources holds references to created GCP resources.
+type BackendResources struct {
 	ProjectID                    string
 	ProjectNumber                string
 	Region                       string
@@ -94,8 +94,8 @@ type GCPBackendResources struct {
 	WebSocketEndpoint            string
 }
 
-// GCPServiceClients holds GCP API clients needed for resource management.
-type GCPServiceClients struct {
+// ServiceClients holds GCP API clients needed for resource management.
+type ServiceClients struct {
 	Projects         ProjectsClient
 	Firestore        FirestoreClient
 	CloudRun         CloudRunClient
@@ -281,15 +281,15 @@ type VPCAccessClient interface {
 	ConnectorExists(ctx context.Context, projectID, region, connectorName string) (bool, error)
 }
 
-// GCPDeployer implements Deployer for GCP Resource Manager.
-type GCPDeployer struct {
+// Deployer implements Deployer for GCP Resource Manager.
+type Deployer struct {
 	client   *resourcemanager.ProjectsClient
 	region   string
-	services *GCPServiceClients
+	services *ServiceClients
 }
 
-// NewGCPDeployer creates a new GCP deployer with the given region.
-func NewGCPDeployer(ctx context.Context, region string) (*GCPDeployer, error) {
+// NewDeployer creates a new GCP deployer with the given region.
+func NewDeployer(ctx context.Context, region string) (*Deployer, error) {
 	client, err := resourcemanager.NewProjectsClient(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create GCP projects client: %w", err)
@@ -299,33 +299,33 @@ func NewGCPDeployer(ctx context.Context, region string) (*GCPDeployer, error) {
 		region = constants.DefaultRegion
 	}
 
-	serviceClients, err := newDefaultGCPServiceClients(ctx, region, client)
+	serviceClients, err := newDefaultServiceClients(ctx, region, client)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize GCP service clients: %w", err)
 	}
 
-	return &GCPDeployer{
+	return &Deployer{
 		client:   client,
 		region:   region,
 		services: serviceClients,
 	}, nil
 }
 
-// NewGCPDeployerWithClient creates a new GCP deployer with a custom client.
-func NewGCPDeployerWithClient(client *resourcemanager.ProjectsClient, region string) *GCPDeployer {
-	return &GCPDeployer{
+// NewDeployerWithClient creates a new GCP deployer with a custom client.
+func NewDeployerWithClient(client *resourcemanager.ProjectsClient, region string) *Deployer {
+	return &Deployer{
 		client: client,
 		region: region,
 	}
 }
 
 // GetRegion returns the GCP region being used.
-func (d *GCPDeployer) GetRegion() string {
+func (d *Deployer) GetRegion() string {
 	return d.region
 }
 
 // Deploy creates or updates a GCP project and ensures backend resources are applied idempotently.
-func (d *GCPDeployer) Deploy(ctx context.Context, opts *core.DeployOptions) (*core.DeployResult, error) {
+func (d *Deployer) Deploy(ctx context.Context, opts *core.DeployOptions) (*core.DeployResult, error) {
 	if opts.Name == "" {
 		return nil, errors.New("project ID is required for GCP")
 	}
@@ -379,7 +379,7 @@ func (d *GCPDeployer) Deploy(ctx context.Context, opts *core.DeployOptions) (*co
 	return result, nil
 }
 
-func (d *GCPDeployer) ensureProject(
+func (d *Deployer) ensureProject(
 	ctx context.Context,
 	opts *core.DeployOptions,
 	exists bool,
@@ -414,7 +414,7 @@ func (d *GCPDeployer) ensureProject(
 	return project, nil
 }
 
-func (d *GCPDeployer) startProjectCreation(
+func (d *Deployer) startProjectCreation(
 	ctx context.Context,
 	projectID string,
 	opts *core.DeployOptions,
@@ -438,7 +438,7 @@ func (d *GCPDeployer) startProjectCreation(
 	return nil
 }
 
-func (d *GCPDeployer) createNewProject(
+func (d *Deployer) createNewProject(
 	ctx context.Context,
 	projectID string,
 	opts *core.DeployOptions,
@@ -458,7 +458,7 @@ func (d *GCPDeployer) createNewProject(
 	return d.createProject(ctx, req)
 }
 
-func (d *GCPDeployer) addProjectInfoToOutputs(
+func (d *Deployer) addProjectInfoToOutputs(
 	outputs map[string]string,
 	project *resourcemanagerpb.Project,
 ) {
@@ -469,7 +469,7 @@ func (d *GCPDeployer) addProjectInfoToOutputs(
 	}
 }
 
-func (d *GCPDeployer) createProject(
+func (d *Deployer) createProject(
 	ctx context.Context,
 	req *resourcemanagerpb.CreateProjectRequest,
 ) (*resourcemanagerpb.Project, error) {
@@ -486,7 +486,7 @@ func (d *GCPDeployer) createProject(
 	return project, nil
 }
 
-func (d *GCPDeployer) waitForProjectReady(ctx context.Context, projectID string) error {
+func (d *Deployer) waitForProjectReady(ctx context.Context, projectID string) error {
 	ticker := time.NewTicker(constants.ProjectPollInterval)
 	defer ticker.Stop()
 
@@ -510,7 +510,7 @@ func (d *GCPDeployer) waitForProjectReady(ctx context.Context, projectID string)
 	}
 }
 
-func (d *GCPDeployer) ensureAPIs(ctx context.Context, projectID string) error {
+func (d *Deployer) ensureAPIs(ctx context.Context, projectID string) error {
 	if d.services == nil || d.services.ServiceUsage == nil {
 		return errors.New("service clients not initialized; call SetServiceClients first")
 	}
@@ -522,12 +522,12 @@ func (d *GCPDeployer) ensureAPIs(ctx context.Context, projectID string) error {
 }
 
 // CheckExists checks if a GCP project exists.
-func (d *GCPDeployer) CheckExists(ctx context.Context, name string) (bool, error) {
+func (d *Deployer) CheckExists(ctx context.Context, name string) (bool, error) {
 	return d.checkProjectExists(ctx, name)
 }
 
 // checkProjectExists is the internal implementation for checking project existence.
-func (d *GCPDeployer) checkProjectExists(ctx context.Context, projectID string) (bool, error) {
+func (d *Deployer) checkProjectExists(ctx context.Context, projectID string) (bool, error) {
 	req := &resourcemanagerpb.GetProjectRequest{
 		Name: "projects/" + projectID,
 	}
@@ -551,12 +551,12 @@ func (d *GCPDeployer) checkProjectExists(ctx context.Context, projectID string) 
 }
 
 // GetOutputs retrieves outputs from a GCP project.
-func (d *GCPDeployer) GetOutputs(ctx context.Context, name string) (map[string]string, error) {
+func (d *Deployer) GetOutputs(ctx context.Context, name string) (map[string]string, error) {
 	return d.getProjectOutputs(ctx, name)
 }
 
 // getProjectOutputs is the internal implementation for retrieving project outputs.
-func (d *GCPDeployer) getProjectOutputs(
+func (d *Deployer) getProjectOutputs(
 	ctx context.Context,
 	projectID string,
 ) (map[string]string, error) {
@@ -588,7 +588,7 @@ func (d *GCPDeployer) getProjectOutputs(
 }
 
 // Destroy deletes a GCP project.
-func (d *GCPDeployer) Destroy(
+func (d *Deployer) Destroy(
 	ctx context.Context,
 	opts *core.DestroyOptions,
 ) (*core.DestroyResult, error) {
@@ -627,7 +627,7 @@ func (d *GCPDeployer) Destroy(
 	return result, nil
 }
 
-func (d *GCPDeployer) deleteProject(
+func (d *Deployer) deleteProject(
 	ctx context.Context,
 	projectID string,
 ) (*resourcemanager.DeleteProjectOperation, error) {
@@ -643,7 +643,7 @@ func (d *GCPDeployer) deleteProject(
 	return op, nil
 }
 
-func (d *GCPDeployer) waitForProjectDeletion(
+func (d *Deployer) waitForProjectDeletion(
 	ctx context.Context,
 	op *resourcemanager.DeleteProjectOperation,
 ) error {
@@ -662,12 +662,12 @@ func (d *GCPDeployer) waitForProjectDeletion(
 }
 
 // SetServiceClients sets the GCP service clients for resource management.
-func (d *GCPDeployer) SetServiceClients(clients *GCPServiceClients) {
+func (d *Deployer) SetServiceClients(clients *ServiceClients) {
 	d.services = clients
 }
 
 // applyBackend deploys backend resources and fails if service clients are not configured.
-func (d *GCPDeployer) applyBackend(
+func (d *Deployer) applyBackend(
 	ctx context.Context,
 	projectID string,
 	opts *core.DeployOptions,
@@ -681,7 +681,7 @@ func (d *GCPDeployer) applyBackend(
 		return fmt.Errorf("failed to parse parameters: %w", err)
 	}
 
-	config := DefaultGCPResourceConfig(projectID, d.region)
+	config := DefaultResourceConfig(projectID, d.region)
 
 	// Override with parameters if provided
 	if img, ok := params["OrchestratorImage"]; ok {
@@ -724,15 +724,15 @@ func parseInt(s string) (int, error) {
 }
 
 // DeployBackend deploys all GCP backend resources.
-func (d *GCPDeployer) DeployBackend(
+func (d *Deployer) DeployBackend(
 	ctx context.Context,
-	config *GCPResourceConfig,
-) (*GCPBackendResources, error) {
+	config *ResourceConfig,
+) (*BackendResources, error) {
 	if d.services == nil {
 		return nil, errors.New("service clients not initialized; call SetServiceClients first")
 	}
 
-	resources := &GCPBackendResources{
+	resources := &BackendResources{
 		ProjectID: config.ProjectID,
 		Region:    config.Region,
 	}
@@ -776,7 +776,7 @@ func (d *GCPDeployer) DeployBackend(
 	return resources, nil
 }
 
-func (d *GCPDeployer) ensureServiceAccount(
+func (d *Deployer) ensureServiceAccount(
 	ctx context.Context,
 	projectID, accountID, description string,
 ) (string, error) {
@@ -803,10 +803,10 @@ func (d *GCPDeployer) ensureServiceAccount(
 	return created, nil
 }
 
-func (d *GCPDeployer) deployIAMResources(
+func (d *Deployer) deployIAMResources(
 	ctx context.Context,
-	config *GCPResourceConfig,
-	resources *GCPBackendResources,
+	config *ResourceConfig,
+	resources *BackendResources,
 ) error {
 	orchestratorSA, err := d.ensureServiceAccount(
 		ctx,
@@ -860,7 +860,7 @@ func (d *GCPDeployer) deployIAMResources(
 	return nil
 }
 
-func (d *GCPDeployer) bindOrchestratorRoles(
+func (d *Deployer) bindOrchestratorRoles(
 	ctx context.Context,
 	projectID, serviceAccountEmail string,
 ) error {
@@ -886,7 +886,7 @@ func (d *GCPDeployer) bindOrchestratorRoles(
 	return nil
 }
 
-func (d *GCPDeployer) bindEventProcessorRoles(
+func (d *Deployer) bindEventProcessorRoles(
 	ctx context.Context,
 	projectID, serviceAccountEmail string,
 ) error {
@@ -910,7 +910,7 @@ func (d *GCPDeployer) bindEventProcessorRoles(
 	return nil
 }
 
-func (d *GCPDeployer) bindRunnerRoles(
+func (d *Deployer) bindRunnerRoles(
 	ctx context.Context,
 	projectID, serviceAccountEmail string,
 ) error {
@@ -928,10 +928,10 @@ func (d *GCPDeployer) bindRunnerRoles(
 	return nil
 }
 
-func (d *GCPDeployer) deployNetworkResources(
+func (d *Deployer) deployNetworkResources(
 	ctx context.Context,
-	config *GCPResourceConfig,
-	resources *GCPBackendResources,
+	config *ResourceConfig,
+	resources *BackendResources,
 ) error {
 	if err := d.ensureVPC(ctx, config.ProjectID, config.VPCName); err != nil {
 		return err
@@ -958,7 +958,7 @@ func (d *GCPDeployer) deployNetworkResources(
 	return nil
 }
 
-func (d *GCPDeployer) ensureVPC(ctx context.Context, projectID, vpcName string) error {
+func (d *Deployer) ensureVPC(ctx context.Context, projectID, vpcName string) error {
 	exists, err := d.services.Compute.VPCExists(ctx, projectID, vpcName)
 	if err != nil {
 		return fmt.Errorf("failed to check VPC: %w", err)
@@ -974,7 +974,7 @@ func (d *GCPDeployer) ensureVPC(ctx context.Context, projectID, vpcName string) 
 	return nil
 }
 
-func (d *GCPDeployer) ensureSubnet(ctx context.Context, config *GCPResourceConfig) error {
+func (d *Deployer) ensureSubnet(ctx context.Context, config *ResourceConfig) error {
 	if err := d.services.Compute.CreateSubnet(
 		ctx,
 		config.ProjectID,
@@ -992,9 +992,9 @@ func (d *GCPDeployer) ensureSubnet(ctx context.Context, config *GCPResourceConfi
 	return nil
 }
 
-func (d *GCPDeployer) ensureEgressFirewall(
+func (d *Deployer) ensureEgressFirewall(
 	ctx context.Context,
-	config *GCPResourceConfig,
+	config *ResourceConfig,
 ) error {
 	if err := d.services.Compute.CreateFirewallRule(
 		ctx,
@@ -1013,9 +1013,9 @@ func (d *GCPDeployer) ensureEgressFirewall(
 	return nil
 }
 
-func (d *GCPDeployer) ensureVPCConnector(
+func (d *Deployer) ensureVPCConnector(
 	ctx context.Context,
-	config *GCPResourceConfig,
+	config *ResourceConfig,
 ) (string, error) {
 	exists, err := d.services.VPCAccess.ConnectorExists(
 		ctx, config.ProjectID, config.Region, config.VPCConnectorName,
@@ -1041,9 +1041,9 @@ func (d *GCPDeployer) ensureVPCConnector(
 	return config.VPCConnectorName, nil
 }
 
-func (d *GCPDeployer) buildCloudRunVPCAccess(
-	config *GCPResourceConfig,
-	resources *GCPBackendResources,
+func (d *Deployer) buildCloudRunVPCAccess(
+	config *ResourceConfig,
+	resources *BackendResources,
 ) *CloudRunVPCAccess {
 	if config.UseDirectVPCEgress {
 		return &CloudRunVPCAccess{
@@ -1068,10 +1068,10 @@ func (d *GCPDeployer) buildCloudRunVPCAccess(
 	return &CloudRunVPCAccess{Connector: resources.VPCConnectorName}
 }
 
-func (d *GCPDeployer) deployFirestore(
+func (d *Deployer) deployFirestore(
 	ctx context.Context,
-	config *GCPResourceConfig,
-	resources *GCPBackendResources,
+	config *ResourceConfig,
+	resources *BackendResources,
 ) error {
 	exists, err := d.services.Firestore.GetDatabase(ctx, config.ProjectID)
 	if err != nil {
@@ -1089,10 +1089,10 @@ func (d *GCPDeployer) deployFirestore(
 	return nil
 }
 
-func (d *GCPDeployer) deployKMS(
+func (d *Deployer) deployKMS(
 	ctx context.Context,
-	config *GCPResourceConfig,
-	resources *GCPBackendResources,
+	config *ResourceConfig,
+	resources *BackendResources,
 ) error {
 	exists, err := d.services.KMS.KeyRingExists(
 		ctx, config.ProjectID, config.Region, config.KeyRingName,
@@ -1141,10 +1141,10 @@ func (d *GCPDeployer) deployKMS(
 	return nil
 }
 
-func (d *GCPDeployer) deployPubSub(
+func (d *Deployer) deployPubSub(
 	ctx context.Context,
-	config *GCPResourceConfig,
-	resources *GCPBackendResources,
+	config *ResourceConfig,
+	resources *BackendResources,
 ) error {
 	exists, err := d.services.PubSub.TopicExists(ctx, config.ProjectID, config.TaskEventsTopic)
 	if err != nil {
@@ -1183,10 +1183,10 @@ func (d *GCPDeployer) deployPubSub(
 	return nil
 }
 
-func (d *GCPDeployer) deployArtifactRegistry(
+func (d *Deployer) deployArtifactRegistry(
 	ctx context.Context,
-	config *GCPResourceConfig,
-	resources *GCPBackendResources,
+	config *ResourceConfig,
+	resources *BackendResources,
 ) error {
 	exists, err := d.services.ArtifactRegistry.RepositoryExists(
 		ctx, config.ProjectID, config.Region, constants.ArtifactRegistryRepo,
@@ -1206,10 +1206,10 @@ func (d *GCPDeployer) deployArtifactRegistry(
 	return nil
 }
 
-func (d *GCPDeployer) deployCloudRun(
+func (d *Deployer) deployCloudRun(
 	ctx context.Context,
-	config *GCPResourceConfig,
-	resources *GCPBackendResources,
+	config *ResourceConfig,
+	resources *BackendResources,
 ) error {
 	// Only deploy Cloud Run services if images are provided
 	if config.OrchestratorImage == "" && config.EventProcessorImage == "" {
@@ -1245,10 +1245,10 @@ func (d *GCPDeployer) deployCloudRun(
 }
 
 //nolint:dupl // orchestrator and event processor setup share the same deployment flow
-func (d *GCPDeployer) ensureOrchestratorService(
+func (d *Deployer) ensureOrchestratorService(
 	ctx context.Context,
-	config *GCPResourceConfig,
-	resources *GCPBackendResources,
+	config *ResourceConfig,
+	resources *BackendResources,
 ) (string, error) {
 	if config.OrchestratorImage == "" {
 		return "", errors.New("orchestrator image is required to deploy orchestrator service")
@@ -1308,10 +1308,10 @@ func (d *GCPDeployer) ensureOrchestratorService(
 }
 
 //nolint:dupl // event processor setup mirrors orchestrator flow with different service details
-func (d *GCPDeployer) ensureEventProcessorService(
+func (d *Deployer) ensureEventProcessorService(
 	ctx context.Context,
-	config *GCPResourceConfig,
-	resources *GCPBackendResources,
+	config *ResourceConfig,
+	resources *BackendResources,
 ) (string, error) {
 	if config.EventProcessorImage == "" {
 		return "", errors.New("event processor image is required to deploy event processor service")
@@ -1370,10 +1370,10 @@ func (d *GCPDeployer) ensureEventProcessorService(
 	return url, nil
 }
 
-func (d *GCPDeployer) ensureProcessorSubscription(
+func (d *Deployer) ensureProcessorSubscription(
 	ctx context.Context,
-	config *GCPResourceConfig,
-	resources *GCPBackendResources,
+	config *ResourceConfig,
+	resources *BackendResources,
 ) error {
 	if err := d.services.PubSub.CreateSubscription(
 		ctx,
@@ -1391,9 +1391,9 @@ func (d *GCPDeployer) ensureProcessorSubscription(
 	return nil
 }
 
-func (d *GCPDeployer) buildOrchestratorEnvVars(
-	config *GCPResourceConfig,
-	resources *GCPBackendResources,
+func (d *Deployer) buildOrchestratorEnvVars(
+	config *ResourceConfig,
+	resources *BackendResources,
 ) map[string]string {
 	return map[string]string{
 		"RUNVOY_GCP_PROJECT_ID":                       config.ProjectID,
@@ -1415,9 +1415,9 @@ func (d *GCPDeployer) buildOrchestratorEnvVars(
 	}
 }
 
-func (d *GCPDeployer) buildEventProcessorEnvVars(
-	config *GCPResourceConfig,
-	resources *GCPBackendResources,
+func (d *Deployer) buildEventProcessorEnvVars(
+	config *ResourceConfig,
+	resources *BackendResources,
 ) map[string]string {
 	return map[string]string{
 		"RUNVOY_GCP_PROJECT_ID":                       config.ProjectID,
@@ -1434,10 +1434,10 @@ func (d *GCPDeployer) buildEventProcessorEnvVars(
 	}
 }
 
-func (d *GCPDeployer) deployCloudScheduler(
+func (d *Deployer) deployCloudScheduler(
 	ctx context.Context,
-	config *GCPResourceConfig,
-	resources *GCPBackendResources,
+	config *ResourceConfig,
+	resources *BackendResources,
 ) error {
 	exists, err := d.services.Scheduler.JobExists(
 		ctx, config.ProjectID, config.Region, constants.SchedulerHealthReconcile,
@@ -1467,10 +1467,10 @@ func (d *GCPDeployer) deployCloudScheduler(
 	return nil
 }
 
-func (d *GCPDeployer) deployLogging(
+func (d *Deployer) deployLogging(
 	ctx context.Context,
-	config *GCPResourceConfig,
-	resources *GCPBackendResources,
+	config *ResourceConfig,
+	resources *BackendResources,
 ) error {
 	exists, err := d.services.Logging.SinkExists(
 		ctx, config.ProjectID, constants.LogSinkRunner,
@@ -1499,7 +1499,7 @@ func (d *GCPDeployer) deployLogging(
 }
 
 // DestroyBackend destroys all GCP backend resources.
-func (d *GCPDeployer) DestroyBackend(ctx context.Context, config *GCPResourceConfig) error {
+func (d *Deployer) DestroyBackend(ctx context.Context, config *ResourceConfig) error {
 	if d.services == nil {
 		return errors.New("service clients not initialized; call SetServiceClients first")
 	}
@@ -1521,9 +1521,9 @@ func (d *GCPDeployer) DestroyBackend(ctx context.Context, config *GCPResourceCon
 	return nil
 }
 
-func (d *GCPDeployer) destroyLoggingResources(
+func (d *Deployer) destroyLoggingResources(
 	ctx context.Context,
-	config *GCPResourceConfig,
+	config *ResourceConfig,
 	errs []error,
 ) []error {
 	if err := d.services.Logging.DeleteSink(
@@ -1534,9 +1534,9 @@ func (d *GCPDeployer) destroyLoggingResources(
 	return errs
 }
 
-func (d *GCPDeployer) destroySchedulerResources(
+func (d *Deployer) destroySchedulerResources(
 	ctx context.Context,
-	config *GCPResourceConfig,
+	config *ResourceConfig,
 	errs []error,
 ) []error {
 	if err := d.services.Scheduler.DeleteJob(
@@ -1547,9 +1547,9 @@ func (d *GCPDeployer) destroySchedulerResources(
 	return errs
 }
 
-func (d *GCPDeployer) destroyCloudRunResources(
+func (d *Deployer) destroyCloudRunResources(
 	ctx context.Context,
-	config *GCPResourceConfig,
+	config *ResourceConfig,
 	errs []error,
 ) []error {
 	if err := d.services.CloudRun.DeleteService(
@@ -1565,9 +1565,9 @@ func (d *GCPDeployer) destroyCloudRunResources(
 	return errs
 }
 
-func (d *GCPDeployer) destroyPubSubResources(
+func (d *Deployer) destroyPubSubResources(
 	ctx context.Context,
-	config *GCPResourceConfig,
+	config *ResourceConfig,
 	errs []error,
 ) []error {
 	if err := d.services.PubSub.DeleteSubscription(
@@ -1589,9 +1589,9 @@ func (d *GCPDeployer) destroyPubSubResources(
 	return errs
 }
 
-func (d *GCPDeployer) destroyArtifactRegistryResources(
+func (d *Deployer) destroyArtifactRegistryResources(
 	ctx context.Context,
-	config *GCPResourceConfig,
+	config *ResourceConfig,
 	errs []error,
 ) []error {
 	if err := d.services.ArtifactRegistry.DeleteRepository(
@@ -1602,9 +1602,9 @@ func (d *GCPDeployer) destroyArtifactRegistryResources(
 	return errs
 }
 
-func (d *GCPDeployer) destroyNetworkResources(
+func (d *Deployer) destroyNetworkResources(
 	ctx context.Context,
-	config *GCPResourceConfig,
+	config *ResourceConfig,
 	errs []error,
 ) []error {
 	if err := d.services.VPCAccess.DeleteConnector(
@@ -1628,9 +1628,9 @@ func (d *GCPDeployer) destroyNetworkResources(
 	return errs
 }
 
-func (d *GCPDeployer) destroyIAMResources(
+func (d *Deployer) destroyIAMResources(
 	ctx context.Context,
-	config *GCPResourceConfig,
+	config *ResourceConfig,
 	errs []error,
 ) []error {
 	orchestratorEmail := buildServiceAccountEmail(
@@ -1663,15 +1663,15 @@ func buildServiceAccountEmail(accountID, projectID string) string {
 }
 
 // GetBackendResources retrieves information about deployed GCP backend resources.
-func (d *GCPDeployer) GetBackendResources(
+func (d *Deployer) GetBackendResources(
 	ctx context.Context,
-	config *GCPResourceConfig,
-) (*GCPBackendResources, error) {
+	config *ResourceConfig,
+) (*BackendResources, error) {
 	if d.services == nil {
 		return nil, errors.New("service clients not initialized; call SetServiceClients first")
 	}
 
-	resources := &GCPBackendResources{
+	resources := &BackendResources{
 		ProjectID: config.ProjectID,
 		Region:    config.Region,
 	}
@@ -1687,10 +1687,10 @@ func (d *GCPDeployer) GetBackendResources(
 	return resources, nil
 }
 
-func (d *GCPDeployer) getCloudRunResources(
+func (d *Deployer) getCloudRunResources(
 	ctx context.Context,
-	config *GCPResourceConfig,
-	resources *GCPBackendResources,
+	config *ResourceConfig,
+	resources *BackendResources,
 ) {
 	if exists, url, err := d.services.CloudRun.GetService(
 		ctx, config.ProjectID, config.Region, constants.ServiceOrchestrator,
@@ -1706,10 +1706,10 @@ func (d *GCPDeployer) getCloudRunResources(
 	}
 }
 
-func (d *GCPDeployer) getKMSResources(
+func (d *Deployer) getKMSResources(
 	ctx context.Context,
-	config *GCPResourceConfig,
-	resources *GCPBackendResources,
+	config *ResourceConfig,
+	resources *BackendResources,
 ) {
 	exists, err := d.services.KMS.CryptoKeyExists(
 		ctx, config.ProjectID, config.Region, config.KeyRingName, config.CryptoKeyName,
@@ -1729,10 +1729,10 @@ func (d *GCPDeployer) getKMSResources(
 	}
 }
 
-func (d *GCPDeployer) getPubSubResources(
+func (d *Deployer) getPubSubResources(
 	ctx context.Context,
-	config *GCPResourceConfig,
-	resources *GCPBackendResources,
+	config *ResourceConfig,
+	resources *BackendResources,
 ) {
 	if exists, err := d.services.PubSub.TopicExists(
 		ctx, config.ProjectID, config.TaskEventsTopic,
@@ -1746,10 +1746,10 @@ func (d *GCPDeployer) getPubSubResources(
 	}
 }
 
-func (d *GCPDeployer) getNetworkResources(
+func (d *Deployer) getNetworkResources(
 	ctx context.Context,
-	config *GCPResourceConfig,
-	resources *GCPBackendResources,
+	config *ResourceConfig,
+	resources *BackendResources,
 ) {
 	if exists, err := d.services.Compute.VPCExists(
 		ctx, config.ProjectID, config.VPCName,
@@ -1764,10 +1764,10 @@ func (d *GCPDeployer) getNetworkResources(
 	}
 }
 
-func (d *GCPDeployer) getRegistryResources(
+func (d *Deployer) getRegistryResources(
 	ctx context.Context,
-	config *GCPResourceConfig,
-	resources *GCPBackendResources,
+	config *ResourceConfig,
+	resources *BackendResources,
 ) {
 	if exists, err := d.services.ArtifactRegistry.RepositoryExists(
 		ctx, config.ProjectID, config.Region, constants.ArtifactRegistryRepo,
@@ -1776,10 +1776,10 @@ func (d *GCPDeployer) getRegistryResources(
 	}
 }
 
-func (d *GCPDeployer) getIAMResources(
+func (d *Deployer) getIAMResources(
 	ctx context.Context,
-	config *GCPResourceConfig,
-	resources *GCPBackendResources,
+	config *ResourceConfig,
+	resources *BackendResources,
 ) {
 	orchestratorEmail := buildServiceAccountEmail(
 		constants.ServiceAccountOrchestrator, config.ProjectID,
@@ -1807,10 +1807,10 @@ func (d *GCPDeployer) getIAMResources(
 	}
 }
 
-func (d *GCPDeployer) getSchedulerResources(
+func (d *Deployer) getSchedulerResources(
 	ctx context.Context,
-	config *GCPResourceConfig,
-	resources *GCPBackendResources,
+	config *ResourceConfig,
+	resources *BackendResources,
 ) {
 	if exists, err := d.services.Scheduler.JobExists(
 		ctx, config.ProjectID, config.Region, constants.SchedulerHealthReconcile,
@@ -1820,9 +1820,9 @@ func (d *GCPDeployer) getSchedulerResources(
 }
 
 // BackendResourcesExist checks if GCP backend resources exist.
-func (d *GCPDeployer) BackendResourcesExist(
+func (d *Deployer) BackendResourcesExist(
 	ctx context.Context,
-	config *GCPResourceConfig,
+	config *ResourceConfig,
 ) (bool, error) {
 	if d.services == nil {
 		return false, errors.New("service clients not initialized; call SetServiceClients first")
