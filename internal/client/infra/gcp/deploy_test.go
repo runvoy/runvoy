@@ -1,10 +1,11 @@
-package infra
+package gcp
 
 import (
 	"context"
 	"testing"
 
 	resourcemanagerpb "cloud.google.com/go/resourcemanager/apiv3/resourcemanagerpb"
+	"github.com/runvoy/runvoy/internal/client/infra/core"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -14,7 +15,7 @@ func TestGCPDeployer_DeployRequiresProjectID(t *testing.T) {
 
 	deployer := NewGCPDeployerWithClient(nil, "us-central1")
 
-	_, err := deployer.Deploy(ctxWithNoop(), &DeployOptions{})
+	_, err := deployer.Deploy(ctxWithNoop(), &core.DeployOptions{})
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "project ID is required for GCP")

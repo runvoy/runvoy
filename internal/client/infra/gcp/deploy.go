@@ -1,4 +1,4 @@
-package infra
+package gcp
 
 import (
 	"context"
@@ -12,6 +12,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"github.com/runvoy/runvoy/internal/client/infra/core"
 	"github.com/runvoy/runvoy/internal/providers/gcp/constants"
 )
 
@@ -324,13 +325,13 @@ func (d *GCPDeployer) GetRegion() string {
 }
 
 // Deploy creates or updates a GCP project and ensures backend resources are applied idempotently.
-func (d *GCPDeployer) Deploy(ctx context.Context, opts *DeployOptions) (*DeployResult, error) {
+func (d *GCPDeployer) Deploy(ctx context.Context, opts *core.DeployOptions) (*core.DeployResult, error) {
 	if opts.Name == "" {
 		return nil, errors.New("project ID is required for GCP")
 	}
 
 	projectID := opts.Name
-	result := &DeployResult{
+	result := &core.DeployResult{
 		Name:    projectID,
 		Outputs: make(map[string]string),
 	}
@@ -340,8 +341,8 @@ func (d *GCPDeployer) Deploy(ctx context.Context, opts *DeployOptions) (*DeployR
 		return nil, fmt.Errorf("failed to check if project exists: %w", err)
 	}
 
-	result.OperationType = operationTypeUpdate
-	result.Status = statusUpdateComplete
+	result.OperationType = core.OperationTypeUpdate
+	result.Status = core.StatusUpdateComplete
 	result.NoChanges = false
 
 	var createdProject *resourcemanagerpb.Project
@@ -352,7 +353,7 @@ func (d *GCPDeployer) Deploy(ctx context.Context, opts *DeployOptions) (*DeployR
 	}
 	createdProject = projectReady
 
-	if result.Status == statusInProgress {
+	if result.Status == core.StatusInProgress {
 		return result, nil
 	}
 
@@ -380,22 +381,22 @@ func (d *GCPDeployer) Deploy(ctx context.Context, opts *DeployOptions) (*DeployR
 
 func (d *GCPDeployer) ensureProject(
 	ctx context.Context,
-	opts *DeployOptions,
+	opts *core.DeployOptions,
 	exists bool,
-	result *DeployResult,
+	result *core.DeployResult,
 ) (*resourcemanagerpb.Project, error) {
 	if exists {
 		return nil, nil
 	}
 
-	result.OperationType = operationTypeCreate
+	result.OperationType = core.OperationTypeCreate
 
 	if !opts.Wait {
 		if startErr := d.startProjectCreation(ctx, opts.Name, opts); startErr != nil {
 			return nil, fmt.Errorf("failed to create project: %w", startErr)
 		}
 
-		result.Status = statusInProgress
+		result.Status = core.StatusInProgress
 		return nil, nil
 	}
 
@@ -408,7 +409,7 @@ func (d *GCPDeployer) ensureProject(
 		return nil, fmt.Errorf("project creation failed: %w", waitErr)
 	}
 
-	result.Status = statusCreateComplete
+	result.Status = core.StatusCreateComplete
 
 	return project, nil
 }
@@ -416,7 +417,7 @@ func (d *GCPDeployer) ensureProject(
 func (d *GCPDeployer) startProjectCreation(
 	ctx context.Context,
 	projectID string,
-	opts *DeployOptions,
+	opts *core.DeployOptions,
 ) error {
 	project := &resourcemanagerpb.Project{
 		ProjectId: projectID,
@@ -440,7 +441,7 @@ func (d *GCPDeployer) startProjectCreation(
 func (d *GCPDeployer) createNewProject(
 	ctx context.Context,
 	projectID string,
-	opts *DeployOptions,
+	opts *core.DeployOptions,
 ) (*resourcemanagerpb.Project, error) {
 	project := &resourcemanagerpb.Project{
 		ProjectId: projectID,
@@ -589,10 +590,10 @@ func (d *GCPDeployer) getProjectOutputs(
 // Destroy deletes a GCP project.
 func (d *GCPDeployer) Destroy(
 	ctx context.Context,
-	opts *DestroyOptions,
-) (*DestroyResult, error) {
+	opts *core.DestroyOptions,
+) (*core.DestroyResult, error) {
 	projectID := opts.Name
-	result := &DestroyResult{
+	result := &core.DestroyResult{
 		Name: projectID,
 	}
 
@@ -603,7 +604,7 @@ func (d *GCPDeployer) Destroy(
 
 	if !exists {
 		result.NotFound = true
-		result.Status = statusNotFound
+		result.Status = core.StatusNotFound
 		return result, nil
 	}
 
@@ -613,7 +614,7 @@ func (d *GCPDeployer) Destroy(
 	}
 
 	if !opts.Wait {
-		result.Status = statusInProgress
+		result.Status = core.StatusInProgress
 		return result, nil
 	}
 
@@ -669,7 +670,7 @@ func (d *GCPDeployer) SetServiceClients(clients *GCPServiceClients) {
 func (d *GCPDeployer) applyBackend(
 	ctx context.Context,
 	projectID string,
-	opts *DeployOptions,
+	opts *core.DeployOptions,
 ) error {
 	if d.services == nil {
 		return errors.New("service clients not initialized; call SetServiceClients first")
