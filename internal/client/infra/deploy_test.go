@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/runvoy/runvoy/internal/client/infra/core"
 	"github.com/runvoy/runvoy/internal/constants"
 
 	"github.com/stretchr/testify/assert"
@@ -62,7 +63,7 @@ func TestResolveTemplate(t *testing.T) {
 		wantBody  bool
 		wantErr   bool
 		errMsg    string
-		checkFunc func(*testing.T, *TemplateSource)
+		checkFunc func(*testing.T, *core.TemplateSource)
 	}{
 		{
 			name:     "AWS default template",
@@ -73,7 +74,7 @@ func TestResolveTemplate(t *testing.T) {
 			wantURL:  true,
 			wantBody: false,
 			wantErr:  false,
-			checkFunc: func(t *testing.T, ts *TemplateSource) {
+			checkFunc: func(t *testing.T, ts *core.TemplateSource) {
 				assert.NotEmpty(t, ts.URL)
 				assert.Contains(t, ts.URL, "runvoy-releases-us-east-1")
 				assert.Contains(t, ts.URL, "1.0.0") // version gets normalized (v prefix removed)
@@ -89,7 +90,7 @@ func TestResolveTemplate(t *testing.T) {
 			wantURL:  true,
 			wantBody: false,
 			wantErr:  false,
-			checkFunc: func(t *testing.T, ts *TemplateSource) {
+			checkFunc: func(t *testing.T, ts *core.TemplateSource) {
 				assert.Equal(t, "https://example.com/template.yaml", ts.URL)
 				assert.Empty(t, ts.Body)
 			},
@@ -103,7 +104,7 @@ func TestResolveTemplate(t *testing.T) {
 			wantURL:  true,
 			wantBody: false,
 			wantErr:  false,
-			checkFunc: func(t *testing.T, ts *TemplateSource) {
+			checkFunc: func(t *testing.T, ts *core.TemplateSource) {
 				assert.Equal(t, "http://example.com/template.yaml", ts.URL)
 				assert.Empty(t, ts.Body)
 			},
@@ -117,7 +118,7 @@ func TestResolveTemplate(t *testing.T) {
 			wantURL:  true,
 			wantBody: false,
 			wantErr:  false,
-			checkFunc: func(t *testing.T, ts *TemplateSource) {
+			checkFunc: func(t *testing.T, ts *core.TemplateSource) {
 				assert.Equal(t, "https://my-bucket.s3.amazonaws.com/path/to/template.yaml", ts.URL)
 				assert.Empty(t, ts.Body)
 			},
@@ -138,7 +139,7 @@ func TestResolveTemplate(t *testing.T) {
 			version:  "v1.0.0",
 			region:   "us-central1",
 			wantErr:  false,
-			checkFunc: func(t *testing.T, result *TemplateSource) {
+			checkFunc: func(t *testing.T, result *core.TemplateSource) {
 				assert.Empty(t, result.URL)
 				assert.Empty(t, result.Body)
 			},
@@ -270,7 +271,7 @@ func TestParseParameters(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := ParseParameters(tt.params)
+			result, err := core.ParseParameters(tt.params)
 
 			if tt.wantErr {
 				require.Error(t, err)
@@ -358,7 +359,7 @@ func TestResolveAWSTemplate(t *testing.T) {
 
 func TestDeployOptions(t *testing.T) {
 	t.Run("deploy options with all fields", func(t *testing.T) {
-		opts := &DeployOptions{
+		opts := &core.DeployOptions{
 			Name:       "my-project",
 			Template:   "https://example.com/template.yaml",
 			Version:    "v1.0.0",
@@ -378,7 +379,7 @@ func TestDeployOptions(t *testing.T) {
 
 func TestDestroyOptions(t *testing.T) {
 	t.Run("destroy options with all fields", func(t *testing.T) {
-		opts := &DestroyOptions{
+		opts := &core.DestroyOptions{
 			Name:   "my-project",
 			Wait:   true,
 			Region: "us-west-2",
@@ -392,7 +393,7 @@ func TestDestroyOptions(t *testing.T) {
 
 func TestTemplateSource(t *testing.T) {
 	t.Run("template source with URL", func(t *testing.T) {
-		ts := &TemplateSource{
+		ts := &core.TemplateSource{
 			URL: "https://example.com/template.yaml",
 		}
 
@@ -401,7 +402,7 @@ func TestTemplateSource(t *testing.T) {
 	})
 
 	t.Run("template source with body", func(t *testing.T) {
-		ts := &TemplateSource{
+		ts := &core.TemplateSource{
 			Body: "template content here",
 		}
 
@@ -412,7 +413,7 @@ func TestTemplateSource(t *testing.T) {
 
 func TestDeployResult(t *testing.T) {
 	t.Run("deploy result fields", func(t *testing.T) {
-		result := &DeployResult{
+		result := &core.DeployResult{
 			Name:          "test-project",
 			OperationType: "CREATE",
 			Status:        "CREATE_COMPLETE",
@@ -430,7 +431,7 @@ func TestDeployResult(t *testing.T) {
 	})
 
 	t.Run("deploy result with no changes", func(t *testing.T) {
-		result := &DeployResult{
+		result := &core.DeployResult{
 			Name:          "test-project",
 			OperationType: "UPDATE",
 			Status:        "NO_CHANGES",
@@ -445,7 +446,7 @@ func TestDeployResult(t *testing.T) {
 
 func TestDestroyResult(t *testing.T) {
 	t.Run("destroy result fields", func(t *testing.T) {
-		result := &DestroyResult{
+		result := &core.DestroyResult{
 			Name:     "test-project",
 			Status:   "DELETE_COMPLETE",
 			NotFound: false,
@@ -457,7 +458,7 @@ func TestDestroyResult(t *testing.T) {
 	})
 
 	t.Run("destroy result for non-existent project", func(t *testing.T) {
-		result := &DestroyResult{
+		result := &core.DestroyResult{
 			Name:     "nonexistent-project",
 			Status:   "NOT_FOUND",
 			NotFound: true,

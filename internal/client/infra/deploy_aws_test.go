@@ -8,6 +8,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation"
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation/types"
+	"github.com/runvoy/runvoy/internal/client/infra/core"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -396,7 +397,7 @@ func TestAWSDeployer_Deploy_NoWait(t *testing.T) {
 		}
 
 		deployer := NewAWSDeployerWithClient(mockClient, "us-east-1")
-		opts := &DeployOptions{
+		opts := &core.DeployOptions{
 			Name:       "test-stack",
 			Template:   "https://example.com/template.yaml",
 			Version:    "v1.0.0",
@@ -442,7 +443,7 @@ func TestAWSDeployer_Deploy_NoWait(t *testing.T) {
 		}
 
 		deployer := NewAWSDeployerWithClient(mockClient, "us-east-1")
-		opts := &DeployOptions{
+		opts := &core.DeployOptions{
 			Name:       "test-stack",
 			Template:   "https://example.com/template.yaml",
 			Version:    "v1.0.0",
@@ -486,7 +487,7 @@ func TestAWSDeployer_Deploy_NoWait(t *testing.T) {
 		}
 
 		deployer := NewAWSDeployerWithClient(mockClient, "us-east-1")
-		opts := &DeployOptions{
+		opts := &core.DeployOptions{
 			Name:       "test-stack",
 			Template:   "https://example.com/template.yaml",
 			Version:    "v1.0.0",
@@ -532,7 +533,7 @@ func TestAWSDeployer_Destroy(t *testing.T) {
 		}
 
 		deployer := NewAWSDeployerWithClient(mockClient, "us-east-1")
-		opts := &DestroyOptions{
+		opts := &core.DestroyOptions{
 			Name: "test-stack",
 			Wait: false,
 		}
@@ -558,7 +559,7 @@ func TestAWSDeployer_Destroy(t *testing.T) {
 		}
 
 		deployer := NewAWSDeployerWithClient(mockClient, "us-east-1")
-		opts := &DestroyOptions{
+		opts := &core.DestroyOptions{
 			Name: "nonexistent-stack",
 			Wait: false,
 		}
@@ -598,7 +599,7 @@ func TestAWSDeployer_Destroy(t *testing.T) {
 		}
 
 		deployer := NewAWSDeployerWithClient(mockClient, "us-east-1")
-		opts := &DestroyOptions{
+		opts := &core.DestroyOptions{
 			Name: "test-stack",
 			Wait: false,
 		}
@@ -628,7 +629,7 @@ func TestAWSDeployer_CreateUpdateStack(t *testing.T) {
 		}
 
 		deployer := NewAWSDeployerWithClient(mockClient, "us-east-1")
-		template := &TemplateSource{URL: "https://example.com/template.yaml"}
+		template := &core.TemplateSource{URL: "https://example.com/template.yaml"}
 		params := []types.Parameter{
 			{ParameterKey: aws.String("Key1"), ParameterValue: aws.String("Value1")},
 		}
@@ -659,7 +660,7 @@ func TestAWSDeployer_CreateUpdateStack(t *testing.T) {
 		}
 
 		deployer := NewAWSDeployerWithClient(mockClient, "us-east-1")
-		template := &TemplateSource{Body: "template body content"}
+		template := &core.TemplateSource{Body: "template body content"}
 		err := deployer.createStack(context.Background(), "test-stack", template, []types.Parameter{})
 
 		require.NoError(t, err)
@@ -685,7 +686,7 @@ func TestAWSDeployer_CreateUpdateStack(t *testing.T) {
 		}
 
 		deployer := NewAWSDeployerWithClient(mockClient, "us-east-1")
-		template := &TemplateSource{URL: "https://example.com/template.yaml"}
+		template := &core.TemplateSource{URL: "https://example.com/template.yaml"}
 		params := []types.Parameter{
 			{ParameterKey: aws.String("Key1"), ParameterValue: aws.String("Value1")},
 		}
@@ -715,7 +716,7 @@ func TestAWSDeployer_CreateUpdateStack(t *testing.T) {
 		}
 
 		deployer := NewAWSDeployerWithClient(mockClient, "us-east-1")
-		template := &TemplateSource{Body: "updated template body"}
+		template := &core.TemplateSource{Body: "updated template body"}
 		err := deployer.updateStack(context.Background(), "test-stack", template, []types.Parameter{})
 
 		require.NoError(t, err)

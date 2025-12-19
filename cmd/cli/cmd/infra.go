@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/runvoy/runvoy/internal/client/infra"
+	"github.com/runvoy/runvoy/internal/client/infra/core"
 	"github.com/runvoy/runvoy/internal/client/output"
 	"github.com/runvoy/runvoy/internal/config"
 	"github.com/runvoy/runvoy/internal/constants"
@@ -159,7 +160,7 @@ func infraApplyRun(cmd *cobra.Command, _ []string) {
 
 	printApplyInfo(infraApplyProvider, infraApplyProjectName, version, templateSource, applier.GetRegion())
 
-	opts := &infra.DeployOptions{
+	opts := &core.DeployOptions{
 		Name:       infraApplyProjectName,
 		Template:   infraApplyTemplate,
 		Version:    version,
@@ -196,7 +197,7 @@ func infraApplyRun(cmd *cobra.Command, _ []string) {
 }
 
 // printApplyInfo prints information about the infrastructure application.
-func printApplyInfo(provider, projectName, version string, templateSource *infra.TemplateSource, region string) {
+func printApplyInfo(provider, projectName, version string, templateSource *core.TemplateSource, region string) {
 	output.Infof("Applying infrastructure changes")
 	output.KeyValue("Provider", provider)
 	output.KeyValue("Project name", projectName)
@@ -212,7 +213,7 @@ func printApplyInfo(provider, projectName, version string, templateSource *infra
 
 // handleApplyResult handles the result of an application operation.
 func handleApplyResult(
-	result *infra.DeployResult,
+	result *core.DeployResult,
 	spinner *output.Spinner,
 	configure bool,
 	seedAdminUserEmail,
@@ -223,8 +224,7 @@ func handleApplyResult(
 		return
 	}
 
-	const statusInProgress = "IN_PROGRESS"
-	if result.Status == statusInProgress {
+	if result.Status == core.StatusInProgress {
 		spinner.Success(
 			fmt.Sprintf(
 				"Project %s initiated. Use cloud console or CLI to monitor progress.",
@@ -367,7 +367,7 @@ func infraDestroyRun(cmd *cobra.Command, _ []string) {
 		return
 	}
 
-	opts := &infra.DestroyOptions{
+	opts := &core.DestroyOptions{
 		Name:   infraDestroyProjectName,
 		Wait:   infraDestroyWait,
 		Region: infraDestroyRegion,
@@ -386,14 +386,13 @@ func infraDestroyRun(cmd *cobra.Command, _ []string) {
 }
 
 // handleDestroyResult handles the result of a destroy operation.
-func handleDestroyResult(result *infra.DestroyResult, spinner *output.Spinner) {
+func handleDestroyResult(result *core.DestroyResult, spinner *output.Spinner) {
 	if result.NotFound {
 		spinner.Success("Project was already deleted")
 		return
 	}
 
-	const statusInProgress = "IN_PROGRESS"
-	if result.Status == statusInProgress {
+	if result.Status == core.StatusInProgress {
 		spinner.Success("Project deletion initiated. Use cloud console or CLI to monitor progress.")
 		return
 	}

@@ -12,6 +12,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation"
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation/types"
 
+	"github.com/runvoy/runvoy/internal/client/infra/core"
 	awscfg "github.com/runvoy/runvoy/internal/config/aws"
 	awsConstants "github.com/runvoy/runvoy/internal/providers/aws/constants"
 )
@@ -103,20 +104,20 @@ func (d *AWSDeployer) executeStackOperation(
 	ctx context.Context,
 	stackExists bool,
 	stackName string,
-	templateSource *TemplateSource,
+	templateSource *core.TemplateSource,
 	cfnParams []types.Parameter,
-	result *DeployResult,
+	result *core.DeployResult,
 ) error {
 	if stackExists {
-		result.OperationType = operationTypeUpdate
+		result.OperationType = core.OperationTypeUpdate
 		return d.updateStack(ctx, stackName, templateSource, cfnParams)
 	}
-	result.OperationType = operationTypeCreate
+	result.OperationType = core.OperationTypeCreate
 	return d.createStack(ctx, stackName, templateSource, cfnParams)
 }
 
 // Deploy deploys or updates the CloudFormation stack.
-func (d *AWSDeployer) Deploy(ctx context.Context, opts *DeployOptions) (*DeployResult, error) {
+func (d *AWSDeployer) Deploy(ctx context.Context, opts *core.DeployOptions) (*core.DeployResult, error) {
 	if err := d.validateRegionForDefaultTemplate(opts.Template); err != nil {
 		return nil, err
 	}
@@ -137,7 +138,7 @@ func (d *AWSDeployer) Deploy(ctx context.Context, opts *DeployOptions) (*DeployR
 		return nil, fmt.Errorf("failed to check stack status: %w", err)
 	}
 
-	result := &DeployResult{
+	result := &core.DeployResult{
 		Name:    stackName,
 		Outputs: make(map[string]string),
 	}
@@ -153,7 +154,7 @@ func (d *AWSDeployer) Deploy(ctx context.Context, opts *DeployOptions) (*DeployR
 	}
 
 	if !opts.Wait {
-		result.Status = statusInProgress
+		result.Status = core.StatusInProgress
 		return result, nil
 	}
 
@@ -227,7 +228,7 @@ func (d *AWSDeployer) checkStackExists(ctx context.Context, stackName string) (b
 func (d *AWSDeployer) createStack(
 	ctx context.Context,
 	stackName string,
-	template *TemplateSource,
+	template *core.TemplateSource,
 	params []types.Parameter,
 ) error {
 	input := &cloudformation.CreateStackInput{
@@ -259,7 +260,7 @@ func (d *AWSDeployer) createStack(
 func (d *AWSDeployer) updateStack(
 	ctx context.Context,
 	stackName string,
-	template *TemplateSource,
+	template *core.TemplateSource,
 	params []types.Parameter,
 ) error {
 	input := &cloudformation.UpdateStackInput{
@@ -427,9 +428,9 @@ func (d *AWSDeployer) getStackOutputs(ctx context.Context, stackName string) (ma
 }
 
 // Destroy destroys the CloudFormation stack.
-func (d *AWSDeployer) Destroy(ctx context.Context, opts *DestroyOptions) (*DestroyResult, error) {
+func (d *AWSDeployer) Destroy(ctx context.Context, opts *core.DestroyOptions) (*core.DestroyResult, error) {
 	stackName := opts.Name
-	result := &DestroyResult{
+	result := &core.DestroyResult{
 		Name: stackName,
 	}
 
@@ -440,7 +441,7 @@ func (d *AWSDeployer) Destroy(ctx context.Context, opts *DestroyOptions) (*Destr
 
 	if !stackExists {
 		result.NotFound = true
-		result.Status = statusNotFound
+		result.Status = core.StatusNotFound
 		return result, nil
 	}
 
@@ -450,7 +451,7 @@ func (d *AWSDeployer) Destroy(ctx context.Context, opts *DestroyOptions) (*Destr
 	}
 
 	if !opts.Wait {
-		result.Status = statusInProgress
+		result.Status = core.StatusInProgress
 		return result, nil
 	}
 
