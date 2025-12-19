@@ -271,7 +271,7 @@ func TestParseParameters(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := ParseParameters(tt.params)
+			result, err := core.ParseParameters(tt.params)
 
 			if tt.wantErr {
 				require.Error(t, err)

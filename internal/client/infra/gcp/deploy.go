@@ -676,7 +676,7 @@ func (d *GCPDeployer) applyBackend(
 		return errors.New("service clients not initialized; call SetServiceClients first")
 	}
 
-	params, err := ParseParameters(opts.Parameters)
+	params, err := core.ParseParameters(opts.Parameters)
 	if err != nil {
 		return fmt.Errorf("failed to parse parameters: %w", err)
 	}
