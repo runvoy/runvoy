@@ -127,7 +127,7 @@ runvoy/
   - `webapp/`: Web viewer for visualizing execution logs
 - `deploy/`: infrastructure as code grouped by provider:
   - `axiom/`: Axiom logging integration resources (development only)
-  - `providers/`: Provider-specific infrastructure (CloudFormation templates for AWS; GCP Deployment Manager templates are embedded in the CLI)
+  - `providers/`: Provider-specific infrastructure (CloudFormation templates for AWS; GCP Deployment Manager templates in deploy/providers/gcp, embedded in the CLI)
 - `docs/`: project documentation (architecture, testing strategy, etc.).
 - `internal/`: core logic of the runvoy application:
   - `api/`: API request/response types and contracts

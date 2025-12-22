@@ -1,23 +1,20 @@
 package gcp
 
 import (
-	_ "embed"
 	"errors"
 	"fmt"
 
 	"google.golang.org/api/deploymentmanager/v2"
 	"gopkg.in/yaml.v3"
 
+	gcpdeploy "github.com/runvoy/runvoy/deploy/providers/gcp"
 	"github.com/runvoy/runvoy/internal/providers/gcp/constants"
 )
 
 const (
 	runvoyDeploymentName     = "runvoy-backend"
-	runvoyDeploymentTemplate = "runvoy-deployment.jinja"
+	runvoyDeploymentTemplate = gcpdeploy.TemplateName
 )
-
-//go:embed templates/runvoy-deployment.jinja
-var runvoyDeploymentTemplateBody string
 
 type deploymentConfig struct {
 	Imports   []deploymentImport   `yaml:"imports"`
@@ -47,7 +44,7 @@ func buildDeploymentTarget(config *ResourceConfig) (*deploymentmanager.TargetCon
 		Imports: []*deploymentmanager.ImportFile{
 			{
 				Name:    runvoyDeploymentTemplate,
-				Content: runvoyDeploymentTemplateBody,
+				Content: gcpdeploy.Template,
 			},
 		},
 	}, nil
