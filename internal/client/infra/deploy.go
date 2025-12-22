@@ -43,7 +43,7 @@ func ResolveTemplate(provider, template, version, region string) (*core.Template
 	case string(constants.AWS):
 		return resolveAWSTemplate(template, version, region)
 	case string(constants.GCP):
-		// GCP project creation doesn't use templates
+		// GCP uses embedded Deployment Manager templates.
 		return &core.TemplateSource{}, nil
 	default:
 		return nil, fmt.Errorf("unsupported provider: %s (supported: %s)", provider, constants.ProvidersString())

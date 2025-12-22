@@ -1,16 +1,23 @@
+// Package gcp provides GCP infrastructure deployment via Deployment Manager.
 package gcp
 
 import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
+	"net/http"
+	"path"
 	"strings"
 	"time"
 
 	resourcemanager "cloud.google.com/go/resourcemanager/apiv3"
 	"cloud.google.com/go/resourcemanager/apiv3/resourcemanagerpb"
+	"google.golang.org/api/deploymentmanager/v2"
+	"google.golang.org/api/googleapi"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"gopkg.in/yaml.v3"
 
 	"github.com/runvoy/runvoy/internal/client/infra/core"
 	"github.com/runvoy/runvoy/internal/providers/gcp/constants"
@@ -96,32 +103,8 @@ type BackendResources struct {
 
 // ServiceClients holds GCP API clients needed for resource management.
 type ServiceClients struct {
-	Projects         ProjectsClient
-	Firestore        FirestoreClient
-	CloudRun         CloudRunClient
-	PubSub           PubSubClient
-	KMS              KMSClient
-	Scheduler        SchedulerClient
-	SecretManager    SecretManagerClient
-	Compute          ComputeClient
-	IAM              IAMClient
-	Logging          LoggingClient
-	ArtifactRegistry ArtifactRegistryClient
-	VPCAccess        VPCAccessClient
-	ServiceUsage     ServiceUsageClient
-}
-
-// ProjectsClient abstracts GCP Resource Manager Projects API operations.
-type ProjectsClient interface {
-	GetProject(ctx context.Context, name string) (*resourcemanagerpb.Project, error)
-	CreateProject(ctx context.Context, project *resourcemanagerpb.Project) error
-	DeleteProject(ctx context.Context, name string) error
-}
-
-// FirestoreClient abstracts Firestore Admin API operations.
-type FirestoreClient interface {
-	CreateDatabase(ctx context.Context, projectID, locationID string) error
-	GetDatabase(ctx context.Context, projectID string) (bool, error)
+	ServiceUsage      ServiceUsageClient
+	DeploymentManager DeploymentManagerClient
 }
 
 // ServiceUsageClient abstracts the Service Usage API.
@@ -129,156 +112,22 @@ type ServiceUsageClient interface {
 	EnableServices(ctx context.Context, projectID string, services []string) error
 }
 
-// CloudRunClient abstracts Cloud Run Admin API operations.
-type CloudRunClient interface {
-	// VPC access can be provided via Serverless VPC Access connector or direct VPC egress.
-	CreateService(
+// DeploymentManagerClient abstracts Deployment Manager operations.
+type DeploymentManagerClient interface {
+	GetDeployment(ctx context.Context, projectID, deploymentName string) (*deploymentmanager.Deployment, error)
+	CreateDeployment(
 		ctx context.Context,
-		projectID, region, serviceName, image string,
-		envVars map[string]string,
-		serviceAccount string,
-		minInstances, maxInstances int,
-		timeoutSeconds int,
-		vpcAccess *CloudRunVPCAccess,
-	) (string, error)
-	UpdateService(
+		projectID string,
+		deployment *deploymentmanager.Deployment,
+	) (*deploymentmanager.Operation, error)
+	UpdateDeployment(
 		ctx context.Context,
-		projectID, region, serviceName, image string,
-		envVars map[string]string,
-		minInstances, maxInstances int,
-		timeoutSeconds int,
-		vpcAccess *CloudRunVPCAccess,
-	) error
-	DeleteService(ctx context.Context, projectID, region, serviceName string) error
-	GetService(ctx context.Context, projectID, region, serviceName string) (bool, string, error)
-	SetIAMPolicy(
-		ctx context.Context,
-		projectID, region, serviceName string,
-		allowUnauthenticated bool,
-	) error
-}
-
-// CloudRunVPCAccess configures how Cloud Run reaches the VPC.
-type CloudRunVPCAccess struct {
-	Connector  string
-	Network    string
-	Subnetwork string
-}
-
-// PubSubClient abstracts Pub/Sub API operations.
-type PubSubClient interface {
-	CreateTopic(ctx context.Context, projectID, topicID string) error
-	DeleteTopic(ctx context.Context, projectID, topicID string) error
-	TopicExists(ctx context.Context, projectID, topicID string) (bool, error)
-	CreateSubscription(
-		ctx context.Context,
-		projectID, subscriptionID, topicID, pushEndpoint string,
-	) error
-	DeleteSubscription(ctx context.Context, projectID, subscriptionID string) error
-}
-
-// KMSClient abstracts Cloud KMS API operations.
-type KMSClient interface {
-	CreateKeyRing(ctx context.Context, projectID, locationID, keyRingID string) error
-	KeyRingExists(ctx context.Context, projectID, locationID, keyRingID string) (bool, error)
-	CreateCryptoKey(
-		ctx context.Context,
-		projectID, locationID, keyRingID, cryptoKeyID string,
-	) (string, error)
-	CryptoKeyExists(
-		ctx context.Context,
-		projectID, locationID, keyRingID, cryptoKeyID string,
-	) (bool, error)
-	GetCryptoKeyID(
-		ctx context.Context,
-		projectID, locationID, keyRingID, cryptoKeyID string,
-	) (string, error)
-}
-
-// SchedulerClient abstracts Cloud Scheduler API operations.
-type SchedulerClient interface {
-	CreateJob(
-		ctx context.Context,
-		projectID, region, jobID, schedule, targetURL, httpMethod string,
-	) error
-	DeleteJob(ctx context.Context, projectID, region, jobID string) error
-	JobExists(ctx context.Context, projectID, region, jobID string) (bool, error)
-}
-
-// SecretManagerClient abstracts Secret Manager API operations.
-type SecretManagerClient interface {
-	CreateSecret(ctx context.Context, projectID, secretID string) error
-	AddSecretVersion(ctx context.Context, projectID, secretID string, payload []byte) error
-	DeleteSecret(ctx context.Context, projectID, secretID string) error
-	SecretExists(ctx context.Context, projectID, secretID string) (bool, error)
-	AccessSecretVersion(
-		ctx context.Context,
-		projectID, secretID, version string,
-	) ([]byte, error)
-}
-
-// ComputeClient abstracts Compute Engine API operations.
-type ComputeClient interface {
-	CreateVPC(ctx context.Context, projectID, vpcName string) error
-	DeleteVPC(ctx context.Context, projectID, vpcName string) error
-	VPCExists(ctx context.Context, projectID, vpcName string) (bool, error)
-	CreateSubnet(
-		ctx context.Context,
-		projectID, region, subnetName, vpcName, cidrRange string,
-	) error
-	DeleteSubnet(ctx context.Context, projectID, region, subnetName string) error
-	CreateFirewallRule(
-		ctx context.Context,
-		projectID, ruleName, vpcName, direction string,
-		allowed []string,
-	) error
-	DeleteFirewallRule(ctx context.Context, projectID, ruleName string) error
-}
-
-// IAMClient abstracts IAM API operations.
-type IAMClient interface {
-	CreateServiceAccount(
-		ctx context.Context,
-		projectID, accountID, displayName string,
-	) (string, error)
-	DeleteServiceAccount(ctx context.Context, projectID, accountEmail string) error
-	ServiceAccountExists(ctx context.Context, projectID, accountEmail string) (bool, error)
-	AddIAMBinding(ctx context.Context, projectID, member, role string) error
-	RemoveIAMBinding(ctx context.Context, projectID, member, role string) error
-	AddServiceAccountIAMBinding(
-		ctx context.Context,
-		projectID, serviceAccountEmail, member, role string,
-	) error
-}
-
-// LoggingClient abstracts Cloud Logging API operations.
-type LoggingClient interface {
-	CreateSink(ctx context.Context, projectID, sinkName, filter, destination string) error
-	DeleteSink(ctx context.Context, projectID, sinkName string) error
-	SinkExists(ctx context.Context, projectID, sinkName string) (bool, error)
-	CreateLogBucket(
-		ctx context.Context,
-		projectID, bucketID, location string,
-		retentionDays int,
-	) error
-}
-
-// ArtifactRegistryClient abstracts Artifact Registry API operations.
-type ArtifactRegistryClient interface {
-	CreateRepository(ctx context.Context, projectID, location, repoID string) error
-	DeleteRepository(ctx context.Context, projectID, location, repoID string) error
-	RepositoryExists(ctx context.Context, projectID, location, repoID string) (bool, error)
-}
-
-// VPCAccessClient abstracts Serverless VPC Access API operations.
-type VPCAccessClient interface {
-	CreateConnector(
-		ctx context.Context,
-		projectID, region, connectorName, network, ipRange string,
-		minInstances, maxInstances int,
-	) error
-	DeleteConnector(ctx context.Context, projectID, region, connectorName string) error
-	ConnectorExists(ctx context.Context, projectID, region, connectorName string) (bool, error)
+		projectID, deploymentName string,
+		deployment *deploymentmanager.Deployment,
+	) (*deploymentmanager.Operation, error)
+	DeleteDeployment(ctx context.Context, projectID, deploymentName string) (*deploymentmanager.Operation, error)
+	GetOperation(ctx context.Context, projectID, operationName string) (*deploymentmanager.Operation, error)
+	GetManifest(ctx context.Context, projectID, deploymentName, manifestName string) (*deploymentmanager.Manifest, error)
 }
 
 // Deployer implements Deployer for GCP Resource Manager.
@@ -299,7 +148,7 @@ func NewDeployer(ctx context.Context, region string) (*Deployer, error) {
 		region = constants.DefaultRegion
 	}
 
-	serviceClients, err := newDefaultServiceClients(ctx, region, client)
+	serviceClients, err := newDefaultServiceClients(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize GCP service clients: %w", err)
 	}
@@ -324,7 +173,7 @@ func (d *Deployer) GetRegion() string {
 	return d.region
 }
 
-// Deploy creates or updates a GCP project and ensures backend resources are applied idempotently.
+// Deploy creates or updates a GCP project and applies the Deployment Manager config.
 func (d *Deployer) Deploy(ctx context.Context, opts *core.DeployOptions) (*core.DeployResult, error) {
 	if opts.Name == "" {
 		return nil, errors.New("project ID is required for GCP")
@@ -366,17 +215,39 @@ func (d *Deployer) Deploy(ctx context.Context, opts *core.DeployOptions) (*core.
 		return result, applyErr
 	}
 
-	projectOutputs, outputsErr := d.getProjectOutputs(ctx, projectID)
+	outputs, outputsErr := d.collectOutputs(ctx, projectID, createdProject)
 	if outputsErr != nil {
-		return result, fmt.Errorf("failed to retrieve project outputs: %w", outputsErr)
+		return result, outputsErr
 	}
-	result.Outputs = projectOutputs
-
-	if createdProject != nil {
-		d.addProjectInfoToOutputs(result.Outputs, createdProject)
-	}
+	result.Outputs = outputs
 
 	return result, nil
+}
+
+func (d *Deployer) collectOutputs(
+	ctx context.Context,
+	projectID string,
+	createdProject *resourcemanagerpb.Project,
+) (map[string]string, error) {
+	deploymentOutputs, err := d.getDeploymentOutputs(ctx, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	projectOutputs, err := d.getProjectOutputs(ctx, projectID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to retrieve project outputs: %w", err)
+	}
+
+	outputs := make(map[string]string)
+	maps.Copy(outputs, deploymentOutputs)
+	maps.Copy(outputs, projectOutputs)
+
+	if createdProject != nil {
+		d.addProjectInfoToOutputs(outputs, createdProject)
+	}
+
+	return outputs, nil
 }
 
 func (d *Deployer) ensureProject(
@@ -550,9 +421,56 @@ func (d *Deployer) checkProjectExists(ctx context.Context, projectID string) (bo
 	return true, nil
 }
 
-// GetOutputs retrieves outputs from a GCP project.
+// GetOutputs retrieves outputs from a GCP project deployment.
 func (d *Deployer) GetOutputs(ctx context.Context, name string) (map[string]string, error) {
-	return d.getProjectOutputs(ctx, name)
+	outputs, err := d.getDeploymentOutputs(ctx, name)
+	if err != nil {
+		return nil, err
+	}
+
+	projectOutputs, outputsErr := d.getProjectOutputs(ctx, name)
+	if outputsErr != nil {
+		return nil, outputsErr
+	}
+
+	maps.Copy(outputs, projectOutputs)
+
+	return outputs, nil
+}
+
+func (d *Deployer) getDeploymentOutputs(ctx context.Context, projectID string) (map[string]string, error) {
+	if d.services == nil || d.services.DeploymentManager == nil {
+		return nil, errors.New("service clients not initialized; call SetServiceClients first")
+	}
+
+	deployment, err := d.services.DeploymentManager.GetDeployment(ctx, projectID, runvoyDeploymentName)
+	if err != nil {
+		if isNotFound(err) {
+			return nil, errors.New("deployment not found")
+		}
+		return nil, fmt.Errorf("failed to get deployment outputs: %w", err)
+	}
+
+	if deployment.Manifest == "" {
+		return nil, errors.New("deployment manifest is empty")
+	}
+
+	manifestName, err := manifestNameFromSelfLink(deployment.Manifest)
+	if err != nil {
+		return nil, err
+	}
+
+	manifest, err := d.services.DeploymentManager.GetManifest(
+		ctx,
+		projectID,
+		runvoyDeploymentName,
+		manifestName,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get deployment manifest: %w", err)
+	}
+
+	return parseManifestOutputs(manifest)
 }
 
 // getProjectOutputs is the internal implementation for retrieving project outputs.
@@ -683,7 +601,6 @@ func (d *Deployer) applyBackend(
 
 	config := DefaultResourceConfig(projectID, d.region)
 
-	// Override with parameters if provided
 	if img, ok := params["OrchestratorImage"]; ok {
 		config.OrchestratorImage = img
 	}
@@ -708,7 +625,6 @@ func (d *Deployer) applyBackend(
 		config.MinInstances = parsed
 	}
 
-	// Deploy backend resources (Cloud Run services will be skipped if images are not provided)
 	_, deployErr := d.DeployBackend(ctx, config)
 	return deployErr
 }
@@ -723,943 +639,136 @@ func parseInt(s string) (int, error) {
 	return result, nil
 }
 
-// DeployBackend deploys all GCP backend resources.
+// DeployBackend applies the Deployment Manager configuration for backend resources.
 func (d *Deployer) DeployBackend(
 	ctx context.Context,
 	config *ResourceConfig,
 ) (*BackendResources, error) {
-	if d.services == nil {
+	if d.services == nil || d.services.DeploymentManager == nil {
 		return nil, errors.New("service clients not initialized; call SetServiceClients first")
 	}
 
-	resources := &BackendResources{
-		ProjectID: config.ProjectID,
-		Region:    config.Region,
-	}
-
-	if err := d.deployIAMResources(ctx, config, resources); err != nil {
-		return nil, fmt.Errorf("failed to deploy IAM resources: %w", err)
-	}
-
-	if err := d.deployNetworkResources(ctx, config, resources); err != nil {
-		return nil, fmt.Errorf("failed to deploy network resources: %w", err)
-	}
-
-	if err := d.deployFirestore(ctx, config, resources); err != nil {
-		return nil, fmt.Errorf("failed to deploy Firestore: %w", err)
-	}
-
-	if err := d.deployKMS(ctx, config, resources); err != nil {
-		return nil, fmt.Errorf("failed to deploy KMS: %w", err)
-	}
-
-	if err := d.deployPubSub(ctx, config, resources); err != nil {
-		return nil, fmt.Errorf("failed to deploy Pub/Sub: %w", err)
-	}
-
-	if err := d.deployArtifactRegistry(ctx, config, resources); err != nil {
-		return nil, fmt.Errorf("failed to deploy Artifact Registry: %w", err)
-	}
-
-	if err := d.deployCloudRun(ctx, config, resources); err != nil {
-		return nil, fmt.Errorf("failed to deploy Cloud Run: %w", err)
-	}
-
-	if err := d.deployCloudScheduler(ctx, config, resources); err != nil {
-		return nil, fmt.Errorf("failed to deploy Cloud Scheduler: %w", err)
-	}
-
-	if err := d.deployLogging(ctx, config, resources); err != nil {
-		return nil, fmt.Errorf("failed to deploy logging: %w", err)
-	}
-
-	return resources, nil
-}
-
-func (d *Deployer) ensureServiceAccount(
-	ctx context.Context,
-	projectID, accountID, description string,
-) (string, error) {
-	email := buildServiceAccountEmail(accountID, projectID)
-
-	exists, err := d.services.IAM.ServiceAccountExists(ctx, projectID, email)
+	op, err := d.applyDeployment(ctx, config)
 	if err != nil {
-		return "", fmt.Errorf("failed to check %s service account: %w", accountID, err)
-	}
-	if exists {
-		return email, nil
+		return nil, err
 	}
 
-	created, createErr := d.services.IAM.CreateServiceAccount(
-		ctx,
-		projectID,
-		accountID,
-		description,
-	)
-	if createErr != nil {
-		return "", fmt.Errorf("failed to create %s service account: %w", accountID, createErr)
+	if op != nil {
+		if waitErr := d.waitForDeploymentOperation(ctx, config.ProjectID, op.Name); waitErr != nil {
+			return nil, waitErr
+		}
 	}
 
-	return created, nil
+	return d.GetBackendResources(ctx, config)
 }
 
-func (d *Deployer) deployIAMResources(
+func (d *Deployer) applyDeployment(
 	ctx context.Context,
 	config *ResourceConfig,
-	resources *BackendResources,
-) error {
-	orchestratorSA, err := d.ensureServiceAccount(
-		ctx,
-		config.ProjectID,
-		constants.ServiceAccountOrchestrator,
-		"Runvoy Orchestrator Service Account",
-	)
+) (*deploymentmanager.Operation, error) {
+	target, err := buildDeploymentTarget(config)
 	if err != nil {
-		return fmt.Errorf("failed to ensure orchestrator service account: %w", err)
+		return nil, err
 	}
-	resources.OrchestratorServiceAccount = orchestratorSA
 
-	eventProcessorSA, err := d.ensureServiceAccount(
-		ctx,
-		config.ProjectID,
-		constants.ServiceAccountEventProcessor,
-		"Runvoy Event Processor Service Account",
-	)
+	deployment := &deploymentmanager.Deployment{
+		Name:   runvoyDeploymentName,
+		Target: target,
+	}
+
+	existing, err := d.services.DeploymentManager.GetDeployment(ctx, config.ProjectID, runvoyDeploymentName)
 	if err != nil {
-		return fmt.Errorf("failed to ensure event processor service account: %w", err)
-	}
-	resources.EventProcessorServiceAccount = eventProcessorSA
-
-	runnerSA, err := d.ensureServiceAccount(
-		ctx,
-		config.ProjectID,
-		constants.ServiceAccountRunner,
-		"Runvoy Runner Service Account",
-	)
-	if err != nil {
-		return fmt.Errorf("failed to ensure runner service account: %w", err)
-	}
-	resources.RunnerServiceAccount = runnerSA
-
-	if bindErr := d.bindOrchestratorRoles(ctx, config.ProjectID, orchestratorSA); bindErr != nil {
-		return fmt.Errorf("failed to bind orchestrator roles: %w", bindErr)
-	}
-
-	if bindErr := d.bindEventProcessorRoles(
-		ctx,
-		config.ProjectID,
-		eventProcessorSA,
-	); bindErr != nil {
-		return fmt.Errorf("failed to bind event processor roles: %w", bindErr)
-	}
-
-	if bindErr := d.bindRunnerRoles(ctx, config.ProjectID, runnerSA); bindErr != nil {
-		return fmt.Errorf("failed to bind runner roles: %w", bindErr)
-	}
-
-	return nil
-}
-
-func (d *Deployer) bindOrchestratorRoles(
-	ctx context.Context,
-	projectID, serviceAccountEmail string,
-) error {
-	roles := []string{
-		"roles/datastore.user",
-		"roles/run.invoker",
-		"roles/run.developer",
-		"roles/pubsub.publisher",
-		"roles/cloudkms.cryptoKeyEncrypterDecrypter",
-		"roles/secretmanager.secretAccessor",
-		"roles/logging.logWriter",
-		"roles/iam.serviceAccountUser",
-		"roles/artifactregistry.reader",
-	}
-
-	member := "serviceAccount:" + serviceAccountEmail
-	for _, role := range roles {
-		if err := d.services.IAM.AddIAMBinding(ctx, projectID, member, role); err != nil {
-			return fmt.Errorf("failed to add role %s: %w", role, err)
-		}
-	}
-
-	return nil
-}
-
-func (d *Deployer) bindEventProcessorRoles(
-	ctx context.Context,
-	projectID, serviceAccountEmail string,
-) error {
-	roles := []string{
-		"roles/datastore.user",
-		"roles/pubsub.subscriber",
-		"roles/pubsub.publisher",
-		"roles/cloudkms.cryptoKeyDecrypter",
-		"roles/secretmanager.secretAccessor",
-		"roles/logging.logWriter",
-		"roles/run.invoker",
-	}
-
-	member := "serviceAccount:" + serviceAccountEmail
-	for _, role := range roles {
-		if err := d.services.IAM.AddIAMBinding(ctx, projectID, member, role); err != nil {
-			return fmt.Errorf("failed to add role %s: %w", role, err)
-		}
-	}
-
-	return nil
-}
-
-func (d *Deployer) bindRunnerRoles(
-	ctx context.Context,
-	projectID, serviceAccountEmail string,
-) error {
-	roles := []string{
-		"roles/logging.logWriter",
-	}
-
-	member := "serviceAccount:" + serviceAccountEmail
-	for _, role := range roles {
-		if err := d.services.IAM.AddIAMBinding(ctx, projectID, member, role); err != nil {
-			return fmt.Errorf("failed to add role %s: %w", role, err)
-		}
-	}
-
-	return nil
-}
-
-func (d *Deployer) deployNetworkResources(
-	ctx context.Context,
-	config *ResourceConfig,
-	resources *BackendResources,
-) error {
-	if err := d.ensureVPC(ctx, config.ProjectID, config.VPCName); err != nil {
-		return err
-	}
-	resources.VPCName = config.VPCName
-
-	if err := d.ensureSubnet(ctx, config); err != nil {
-		return err
-	}
-	resources.SubnetName = config.SubnetName
-
-	if err := d.ensureEgressFirewall(ctx, config); err != nil {
-		return err
-	}
-
-	if !config.UseDirectVPCEgress {
-		connectorName, err := d.ensureVPCConnector(ctx, config)
-		if err != nil {
-			return err
-		}
-		resources.VPCConnectorName = connectorName
-	}
-
-	return nil
-}
-
-func (d *Deployer) ensureVPC(ctx context.Context, projectID, vpcName string) error {
-	exists, err := d.services.Compute.VPCExists(ctx, projectID, vpcName)
-	if err != nil {
-		return fmt.Errorf("failed to check VPC: %w", err)
-	}
-	if exists {
-		return nil
-	}
-
-	if createErr := d.services.Compute.CreateVPC(ctx, projectID, vpcName); createErr != nil {
-		return fmt.Errorf("failed to create VPC: %w", createErr)
-	}
-
-	return nil
-}
-
-func (d *Deployer) ensureSubnet(ctx context.Context, config *ResourceConfig) error {
-	if err := d.services.Compute.CreateSubnet(
-		ctx,
-		config.ProjectID,
-		config.Region,
-		config.SubnetName,
-		config.VPCName,
-		config.VPCCIDRRange,
-	); err != nil {
-		if status.Code(err) == codes.AlreadyExists {
-			return nil
-		}
-		return fmt.Errorf("failed to create subnet: %w", err)
-	}
-
-	return nil
-}
-
-func (d *Deployer) ensureEgressFirewall(
-	ctx context.Context,
-	config *ResourceConfig,
-) error {
-	if err := d.services.Compute.CreateFirewallRule(
-		ctx,
-		config.ProjectID,
-		constants.FirewallRuleEgress,
-		config.VPCName,
-		"EGRESS",
-		[]string{"all"},
-	); err != nil {
-		if status.Code(err) == codes.AlreadyExists {
-			return nil
-		}
-		return fmt.Errorf("failed to create egress firewall rule: %w", err)
-	}
-
-	return nil
-}
-
-func (d *Deployer) ensureVPCConnector(
-	ctx context.Context,
-	config *ResourceConfig,
-) (string, error) {
-	exists, err := d.services.VPCAccess.ConnectorExists(
-		ctx, config.ProjectID, config.Region, config.VPCConnectorName,
-	)
-	if err != nil {
-		return "", fmt.Errorf("failed to check VPC connector: %w", err)
-	}
-	if !exists {
-		if createErr := d.services.VPCAccess.CreateConnector(
-			ctx,
-			config.ProjectID,
-			config.Region,
-			config.VPCConnectorName,
-			config.VPCName,
-			constants.VPCConnectorIPRange,
-			constants.VPCConnectorMinInstances,
-			constants.VPCConnectorMaxInstances,
-		); createErr != nil {
-			return "", fmt.Errorf("failed to create VPC connector: %w", createErr)
-		}
-	}
-
-	return config.VPCConnectorName, nil
-}
-
-func (d *Deployer) buildCloudRunVPCAccess(
-	config *ResourceConfig,
-	resources *BackendResources,
-) *CloudRunVPCAccess {
-	if config.UseDirectVPCEgress {
-		return &CloudRunVPCAccess{
-			Network: fmt.Sprintf(
-				"projects/%s/global/networks/%s",
-				config.ProjectID,
-				config.VPCName,
-			),
-			Subnetwork: fmt.Sprintf(
-				"projects/%s/regions/%s/subnetworks/%s",
-				config.ProjectID,
-				config.Region,
-				config.SubnetName,
-			),
-		}
-	}
-
-	if resources.VPCConnectorName == "" {
-		return nil
-	}
-
-	return &CloudRunVPCAccess{Connector: resources.VPCConnectorName}
-}
-
-func (d *Deployer) deployFirestore(
-	ctx context.Context,
-	config *ResourceConfig,
-	resources *BackendResources,
-) error {
-	exists, err := d.services.Firestore.GetDatabase(ctx, config.ProjectID)
-	if err != nil {
-		return fmt.Errorf("failed to check Firestore database: %w", err)
-	}
-	if !exists {
-		if createErr := d.services.Firestore.CreateDatabase(
-			ctx, config.ProjectID, config.FirestoreLocationID,
-		); createErr != nil {
-			return fmt.Errorf("failed to create Firestore database: %w", createErr)
-		}
-	}
-	resources.FirestoreDatabase = constants.FirestoreDatabaseID
-
-	return nil
-}
-
-func (d *Deployer) deployKMS(
-	ctx context.Context,
-	config *ResourceConfig,
-	resources *BackendResources,
-) error {
-	exists, err := d.services.KMS.KeyRingExists(
-		ctx, config.ProjectID, config.Region, config.KeyRingName,
-	)
-	if err != nil {
-		return fmt.Errorf("failed to check key ring: %w", err)
-	}
-	if !exists {
-		if createErr := d.services.KMS.CreateKeyRing(
-			ctx, config.ProjectID, config.Region, config.KeyRingName,
-		); createErr != nil {
-			return fmt.Errorf("failed to create key ring: %w", createErr)
-		}
-	}
-	resources.KeyRingName = config.KeyRingName
-
-	exists, err = d.services.KMS.CryptoKeyExists(
-		ctx, config.ProjectID, config.Region, config.KeyRingName, config.CryptoKeyName,
-	)
-	if err != nil {
-		return fmt.Errorf("failed to check crypto key: %w", err)
-	}
-	if !exists {
-		cryptoKeyID, createErr := d.services.KMS.CreateCryptoKey(
-			ctx,
-			config.ProjectID,
-			config.Region,
-			config.KeyRingName,
-			config.CryptoKeyName,
-		)
-		if createErr != nil {
-			return fmt.Errorf("failed to create crypto key: %w", createErr)
-		}
-		resources.CryptoKeyID = cryptoKeyID
-	} else {
-		cryptoKeyID, getErr := d.services.KMS.GetCryptoKeyID(
-			ctx, config.ProjectID, config.Region, config.KeyRingName, config.CryptoKeyName,
-		)
-		if getErr != nil {
-			return fmt.Errorf("failed to get crypto key ID: %w", getErr)
-		}
-		resources.CryptoKeyID = cryptoKeyID
-	}
-	resources.CryptoKeyName = config.CryptoKeyName
-
-	return nil
-}
-
-func (d *Deployer) deployPubSub(
-	ctx context.Context,
-	config *ResourceConfig,
-	resources *BackendResources,
-) error {
-	exists, err := d.services.PubSub.TopicExists(ctx, config.ProjectID, config.TaskEventsTopic)
-	if err != nil {
-		return fmt.Errorf("failed to check task events topic: %w", err)
-	}
-	if !exists {
-		if createErr := d.services.PubSub.CreateTopic(ctx, config.ProjectID, config.TaskEventsTopic); createErr != nil {
-			return fmt.Errorf("failed to create task events topic: %w", createErr)
-		}
-	}
-	resources.TaskEventsTopicName = config.TaskEventsTopic
-
-	exists, err = d.services.PubSub.TopicExists(ctx, config.ProjectID, config.LogEventsTopic)
-	if err != nil {
-		return fmt.Errorf("failed to check log events topic: %w", err)
-	}
-	if !exists {
-		if createErr := d.services.PubSub.CreateTopic(ctx, config.ProjectID, config.LogEventsTopic); createErr != nil {
-			return fmt.Errorf("failed to create log events topic: %w", createErr)
-		}
-	}
-	resources.LogEventsTopicName = config.LogEventsTopic
-
-	exists, err = d.services.PubSub.TopicExists(ctx, config.ProjectID, constants.TopicWebSocketEvents)
-	if err != nil {
-		return fmt.Errorf("failed to check websocket events topic: %w", err)
-	}
-	if !exists {
-		if createErr := d.services.PubSub.CreateTopic(
-			ctx, config.ProjectID, constants.TopicWebSocketEvents,
-		); createErr != nil {
-			return fmt.Errorf("failed to create websocket events topic: %w", createErr)
-		}
-	}
-
-	return nil
-}
-
-func (d *Deployer) deployArtifactRegistry(
-	ctx context.Context,
-	config *ResourceConfig,
-	resources *BackendResources,
-) error {
-	exists, err := d.services.ArtifactRegistry.RepositoryExists(
-		ctx, config.ProjectID, config.Region, constants.ArtifactRegistryRepo,
-	)
-	if err != nil {
-		return fmt.Errorf("failed to check artifact registry repository: %w", err)
-	}
-	if !exists {
-		if createErr := d.services.ArtifactRegistry.CreateRepository(
-			ctx, config.ProjectID, config.Region, constants.ArtifactRegistryRepo,
-		); createErr != nil {
-			return fmt.Errorf("failed to create artifact registry repository: %w", createErr)
-		}
-	}
-	resources.ArtifactRegistryRepo = constants.ArtifactRegistryRepo
-
-	return nil
-}
-
-func (d *Deployer) deployCloudRun(
-	ctx context.Context,
-	config *ResourceConfig,
-	resources *BackendResources,
-) error {
-	// Only deploy Cloud Run services if images are provided
-	if config.OrchestratorImage == "" && config.EventProcessorImage == "" {
-		// No images provided, skip Cloud Run deployment
-		return nil
-	}
-
-	if config.OrchestratorImage != "" {
-		orchestratorURL, err := d.ensureOrchestratorService(ctx, config, resources)
-		if err != nil {
-			return err
-		}
-		resources.OrchestratorURL = orchestratorURL
-	}
-
-	if config.EventProcessorImage != "" {
-		eventProcessorURL, err := d.ensureEventProcessorService(ctx, config, resources)
-		if err != nil {
-			return err
-		}
-		resources.EventProcessorURL = eventProcessorURL
-		resources.WebSocketEndpoint = eventProcessorURL
-
-		// Only create subscription if event processor service exists
-		if eventProcessorURL != "" {
-			if subErr := d.ensureProcessorSubscription(ctx, config, resources); subErr != nil {
-				return subErr
+		if isNotFound(err) {
+			op, createErr := d.services.DeploymentManager.CreateDeployment(ctx, config.ProjectID, deployment)
+			if createErr != nil {
+				return nil, fmt.Errorf("create deployment: %w", createErr)
 			}
+			return op, nil
 		}
+		return nil, fmt.Errorf("failed to get deployment: %w", err)
 	}
 
-	return nil
-}
-
-//nolint:dupl // orchestrator and event processor setup share the same deployment flow
-func (d *Deployer) ensureOrchestratorService(
-	ctx context.Context,
-	config *ResourceConfig,
-	resources *BackendResources,
-) (string, error) {
-	if config.OrchestratorImage == "" {
-		return "", errors.New("orchestrator image is required to deploy orchestrator service")
-	}
-
-	exists, url, err := d.services.CloudRun.GetService(
-		ctx, config.ProjectID, config.Region, constants.ServiceOrchestrator,
-	)
-	if err != nil {
-		return "", fmt.Errorf("failed to check orchestrator service: %w", err)
-	}
-
-	vpcAccess := d.buildCloudRunVPCAccess(config, resources)
-	envVars := d.buildOrchestratorEnvVars(config, resources)
-	if !exists {
-		orchestratorURL, createErr := d.services.CloudRun.CreateService(
-			ctx,
-			config.ProjectID,
-			config.Region,
-			constants.ServiceOrchestrator,
-			config.OrchestratorImage,
-			envVars,
-			resources.OrchestratorServiceAccount,
-			config.MinInstances,
-			config.MaxInstances,
-			config.TimeoutSeconds,
-			vpcAccess,
-		)
-		if createErr != nil {
-			return "", fmt.Errorf("failed to create orchestrator service: %w", createErr)
-		}
-		url = orchestratorURL
-	} else {
-		if updateErr := d.services.CloudRun.UpdateService(
-			ctx,
-			config.ProjectID,
-			config.Region,
-			constants.ServiceOrchestrator,
-			config.OrchestratorImage,
-			envVars,
-			config.MinInstances,
-			config.MaxInstances,
-			config.TimeoutSeconds,
-			vpcAccess,
-		); updateErr != nil {
-			return "", fmt.Errorf("failed to update orchestrator service: %w", updateErr)
-		}
-	}
-
-	if policyErr := d.services.CloudRun.SetIAMPolicy(
-		ctx, config.ProjectID, config.Region, constants.ServiceOrchestrator, true,
-	); policyErr != nil {
-		return "", fmt.Errorf("failed to set orchestrator IAM policy: %w", policyErr)
-	}
-
-	return url, nil
-}
-
-//nolint:dupl // event processor setup mirrors orchestrator flow with different service details
-func (d *Deployer) ensureEventProcessorService(
-	ctx context.Context,
-	config *ResourceConfig,
-	resources *BackendResources,
-) (string, error) {
-	if config.EventProcessorImage == "" {
-		return "", errors.New("event processor image is required to deploy event processor service")
-	}
-
-	exists, url, err := d.services.CloudRun.GetService(
-		ctx, config.ProjectID, config.Region, constants.ServiceEventProcessor,
-	)
-	if err != nil {
-		return "", fmt.Errorf("failed to check event processor service: %w", err)
-	}
-
-	vpcAccess := d.buildCloudRunVPCAccess(config, resources)
-	envVars := d.buildEventProcessorEnvVars(config, resources)
-	if !exists {
-		eventProcessorURL, createErr := d.services.CloudRun.CreateService(
-			ctx,
-			config.ProjectID,
-			config.Region,
-			constants.ServiceEventProcessor,
-			config.EventProcessorImage,
-			envVars,
-			resources.EventProcessorServiceAccount,
-			config.MinInstances,
-			config.MaxInstances,
-			config.TimeoutSeconds,
-			vpcAccess,
-		)
-		if createErr != nil {
-			return "", fmt.Errorf("failed to create event processor service: %w", createErr)
-		}
-		url = eventProcessorURL
-	} else {
-		if updateErr := d.services.CloudRun.UpdateService(
-			ctx,
-			config.ProjectID,
-			config.Region,
-			constants.ServiceEventProcessor,
-			config.EventProcessorImage,
-			envVars,
-			config.MinInstances,
-			config.MaxInstances,
-			config.TimeoutSeconds,
-			vpcAccess,
-		); updateErr != nil {
-			return "", fmt.Errorf("failed to update event processor service: %w", updateErr)
-		}
-	}
-
-	if policyErr := d.services.CloudRun.SetIAMPolicy(
-		ctx, config.ProjectID, config.Region, constants.ServiceEventProcessor, true,
-	); policyErr != nil {
-		return "", fmt.Errorf("failed to set event processor IAM policy: %w", policyErr)
-	}
-
-	return url, nil
-}
-
-func (d *Deployer) ensureProcessorSubscription(
-	ctx context.Context,
-	config *ResourceConfig,
-	resources *BackendResources,
-) error {
-	if err := d.services.PubSub.CreateSubscription(
+	deployment.Fingerprint = existing.Fingerprint
+	op, updateErr := d.services.DeploymentManager.UpdateDeployment(
 		ctx,
 		config.ProjectID,
-		config.ProcessorSub,
-		config.TaskEventsTopic,
-		resources.EventProcessorURL,
-	); err != nil {
-		if status.Code(err) != codes.AlreadyExists {
-			return fmt.Errorf("failed to create processor subscription: %w", err)
-		}
-	}
-	resources.SubscriptionName = config.ProcessorSub
-
-	return nil
-}
-
-func (d *Deployer) buildOrchestratorEnvVars(
-	config *ResourceConfig,
-	resources *BackendResources,
-) map[string]string {
-	return map[string]string{
-		"RUNVOY_GCP_PROJECT_ID":                       config.ProjectID,
-		"RUNVOY_GCP_REGION":                           config.Region,
-		"RUNVOY_GCP_API_KEYS_COLLECTION":              constants.CollectionAPIKeys,
-		"RUNVOY_GCP_EXECUTIONS_COLLECTION":            constants.CollectionExecutions,
-		"RUNVOY_GCP_EXECUTION_LOGS_COLLECTION":        constants.CollectionExecutionLogs,
-		"RUNVOY_GCP_IMAGE_CONFIGS_COLLECTION":         constants.CollectionImageConfigs,
-		"RUNVOY_GCP_PENDING_API_KEYS_COLLECTION":      constants.CollectionPendingAPIKeys,
-		"RUNVOY_GCP_SECRETS_METADATA_COLLECTION":      constants.CollectionSecretsMetadata,
-		"RUNVOY_GCP_WEBSOCKET_CONNECTIONS_COLLECTION": constants.CollectionWebSocketConnection,
-		"RUNVOY_GCP_WEBSOCKET_TOKENS_COLLECTION":      constants.CollectionWebSocketTokens,
-		"RUNVOY_GCP_TASK_EVENTS_TOPIC":                resources.TaskEventsTopicName,
-		"RUNVOY_GCP_LOG_EVENTS_TOPIC":                 resources.LogEventsTopicName,
-		"RUNVOY_GCP_KMS_KEY_ID":                       resources.CryptoKeyID,
-		"RUNVOY_GCP_RUNNER_SERVICE_ACCOUNT":           resources.RunnerServiceAccount,
-		"RUNVOY_GCP_VPC_CONNECTOR":                    resources.VPCConnectorName,
-		"RUNVOY_GCP_ARTIFACT_REGISTRY":                resources.ArtifactRegistryRepo,
-	}
-}
-
-func (d *Deployer) buildEventProcessorEnvVars(
-	config *ResourceConfig,
-	resources *BackendResources,
-) map[string]string {
-	return map[string]string{
-		"RUNVOY_GCP_PROJECT_ID":                       config.ProjectID,
-		"RUNVOY_GCP_REGION":                           config.Region,
-		"RUNVOY_GCP_API_KEYS_COLLECTION":              constants.CollectionAPIKeys,
-		"RUNVOY_GCP_EXECUTIONS_COLLECTION":            constants.CollectionExecutions,
-		"RUNVOY_GCP_EXECUTION_LOGS_COLLECTION":        constants.CollectionExecutionLogs,
-		"RUNVOY_GCP_IMAGE_CONFIGS_COLLECTION":         constants.CollectionImageConfigs,
-		"RUNVOY_GCP_SECRETS_METADATA_COLLECTION":      constants.CollectionSecretsMetadata,
-		"RUNVOY_GCP_WEBSOCKET_CONNECTIONS_COLLECTION": constants.CollectionWebSocketConnection,
-		"RUNVOY_GCP_WEBSOCKET_TOKENS_COLLECTION":      constants.CollectionWebSocketTokens,
-		"RUNVOY_GCP_TASK_EVENTS_TOPIC":                resources.TaskEventsTopicName,
-		"RUNVOY_GCP_KMS_KEY_ID":                       resources.CryptoKeyID,
-	}
-}
-
-func (d *Deployer) deployCloudScheduler(
-	ctx context.Context,
-	config *ResourceConfig,
-	resources *BackendResources,
-) error {
-	exists, err := d.services.Scheduler.JobExists(
-		ctx, config.ProjectID, config.Region, constants.SchedulerHealthReconcile,
+		runvoyDeploymentName,
+		deployment,
 	)
-	if err != nil {
-		return fmt.Errorf("failed to check scheduler job: %w", err)
+	if updateErr != nil {
+		return nil, fmt.Errorf("update deployment: %w", updateErr)
 	}
-	if !exists {
-		healthReconcileURL := resources.EventProcessorURL + "/health-reconcile"
-		if !strings.HasPrefix(healthReconcileURL, "http") {
-			healthReconcileURL = "https://" + strings.TrimPrefix(healthReconcileURL, "//")
-		}
-		if createErr := d.services.Scheduler.CreateJob(
-			ctx,
-			config.ProjectID,
-			config.Region,
-			constants.SchedulerHealthReconcile,
-			config.HealthSchedule,
-			healthReconcileURL,
-			"POST",
-		); createErr != nil {
-			return fmt.Errorf("failed to create health reconcile scheduler job: %w", createErr)
-		}
-	}
-	resources.HealthReconcileJobName = constants.SchedulerHealthReconcile
-
-	return nil
+	return op, nil
 }
 
-func (d *Deployer) deployLogging(
+func (d *Deployer) waitForDeploymentOperation(
 	ctx context.Context,
-	config *ResourceConfig,
-	resources *BackendResources,
+	projectID, operationName string,
 ) error {
-	exists, err := d.services.Logging.SinkExists(
-		ctx, config.ProjectID, constants.LogSinkRunner,
-	)
-	if err != nil {
-		return fmt.Errorf("failed to check log sink: %w", err)
-	}
-	if !exists {
-		runnerFilter := fmt.Sprintf(
-			`resource.type="cloud_run_revision" AND resource.labels.service_name=%q`,
-			constants.ServiceRunner,
-		)
-		runnerDestination := fmt.Sprintf(
-			"pubsub.googleapis.com/projects/%s/topics/%s",
-			config.ProjectID, resources.LogEventsTopicName,
-		)
+	timeoutCtx, cancel := context.WithTimeout(ctx, constants.DeploymentOperationTimeout)
+	defer cancel()
 
-		if createErr := d.services.Logging.CreateSink(
-			ctx, config.ProjectID, constants.LogSinkRunner, runnerFilter, runnerDestination,
-		); createErr != nil {
-			return fmt.Errorf("failed to create runner log sink: %w", createErr)
+	for {
+		select {
+		case <-timeoutCtx.Done():
+			return errors.New("timeout waiting for deployment operation")
+		default:
+		}
+
+		op, err := d.services.DeploymentManager.GetOperation(timeoutCtx, projectID, operationName)
+		if err != nil {
+			return fmt.Errorf("failed to get deployment operation: %w", err)
+		}
+		if strings.EqualFold(op.Status, "DONE") {
+			return deploymentOperationError(op)
+		}
+		time.Sleep(constants.ResourcePollInterval)
+	}
+}
+
+func deploymentOperationError(op *deploymentmanager.Operation) error {
+	if op == nil || op.Error == nil || len(op.Error.Errors) == 0 {
+		return nil
+	}
+
+	messages := make([]string, 0, len(op.Error.Errors))
+	for _, err := range op.Error.Errors {
+		if err == nil {
+			continue
+		}
+		if err.Message != "" {
+			messages = append(messages, err.Message)
+		} else {
+			messages = append(messages, fmt.Sprintf("code %v", err.Code))
 		}
 	}
 
-	return nil
+	if len(messages) == 0 {
+		return errors.New("deployment operation failed")
+	}
+
+	return fmt.Errorf("deployment operation failed: %s", strings.Join(messages, "; "))
 }
 
-// DestroyBackend destroys all GCP backend resources.
+// DestroyBackend deletes the Deployment Manager deployment.
 func (d *Deployer) DestroyBackend(ctx context.Context, config *ResourceConfig) error {
-	if d.services == nil {
+	if d.services == nil || d.services.DeploymentManager == nil {
 		return errors.New("service clients not initialized; call SetServiceClients first")
 	}
 
-	var errs []error
-
-	errs = d.destroyLoggingResources(ctx, config, errs)
-	errs = d.destroySchedulerResources(ctx, config, errs)
-	errs = d.destroyCloudRunResources(ctx, config, errs)
-	errs = d.destroyPubSubResources(ctx, config, errs)
-	errs = d.destroyArtifactRegistryResources(ctx, config, errs)
-	errs = d.destroyNetworkResources(ctx, config, errs)
-	errs = d.destroyIAMResources(ctx, config, errs)
-
-	if len(errs) > 0 {
-		return fmt.Errorf("failed to destroy some resources: %v", errs)
+	op, err := d.services.DeploymentManager.DeleteDeployment(ctx, config.ProjectID, runvoyDeploymentName)
+	if err != nil {
+		if isNotFound(err) {
+			return nil
+		}
+		return fmt.Errorf("failed to delete deployment: %w", err)
 	}
 
-	return nil
-}
-
-func (d *Deployer) destroyLoggingResources(
-	ctx context.Context,
-	config *ResourceConfig,
-	errs []error,
-) []error {
-	if err := d.services.Logging.DeleteSink(
-		ctx, config.ProjectID, constants.LogSinkRunner,
-	); err != nil {
-		errs = append(errs, fmt.Errorf("failed to delete runner log sink: %w", err))
-	}
-	return errs
-}
-
-func (d *Deployer) destroySchedulerResources(
-	ctx context.Context,
-	config *ResourceConfig,
-	errs []error,
-) []error {
-	if err := d.services.Scheduler.DeleteJob(
-		ctx, config.ProjectID, config.Region, constants.SchedulerHealthReconcile,
-	); err != nil {
-		errs = append(errs, fmt.Errorf("failed to delete scheduler job: %w", err))
-	}
-	return errs
-}
-
-func (d *Deployer) destroyCloudRunResources(
-	ctx context.Context,
-	config *ResourceConfig,
-	errs []error,
-) []error {
-	if err := d.services.CloudRun.DeleteService(
-		ctx, config.ProjectID, config.Region, constants.ServiceOrchestrator,
-	); err != nil {
-		errs = append(errs, fmt.Errorf("failed to delete orchestrator service: %w", err))
-	}
-	if err := d.services.CloudRun.DeleteService(
-		ctx, config.ProjectID, config.Region, constants.ServiceEventProcessor,
-	); err != nil {
-		errs = append(errs, fmt.Errorf("failed to delete event processor service: %w", err))
-	}
-	return errs
-}
-
-func (d *Deployer) destroyPubSubResources(
-	ctx context.Context,
-	config *ResourceConfig,
-	errs []error,
-) []error {
-	if err := d.services.PubSub.DeleteSubscription(
-		ctx, config.ProjectID, config.ProcessorSub,
-	); err != nil {
-		errs = append(errs, fmt.Errorf("failed to delete processor subscription: %w", err))
-	}
-	if err := d.services.PubSub.DeleteTopic(ctx, config.ProjectID, config.TaskEventsTopic); err != nil {
-		errs = append(errs, fmt.Errorf("failed to delete task events topic: %w", err))
-	}
-	if err := d.services.PubSub.DeleteTopic(ctx, config.ProjectID, config.LogEventsTopic); err != nil {
-		errs = append(errs, fmt.Errorf("failed to delete log events topic: %w", err))
-	}
-	if err := d.services.PubSub.DeleteTopic(
-		ctx, config.ProjectID, constants.TopicWebSocketEvents,
-	); err != nil {
-		errs = append(errs, fmt.Errorf("failed to delete websocket events topic: %w", err))
-	}
-	return errs
-}
-
-func (d *Deployer) destroyArtifactRegistryResources(
-	ctx context.Context,
-	config *ResourceConfig,
-	errs []error,
-) []error {
-	if err := d.services.ArtifactRegistry.DeleteRepository(
-		ctx, config.ProjectID, config.Region, constants.ArtifactRegistryRepo,
-	); err != nil {
-		errs = append(errs, fmt.Errorf("failed to delete artifact registry repository: %w", err))
-	}
-	return errs
-}
-
-func (d *Deployer) destroyNetworkResources(
-	ctx context.Context,
-	config *ResourceConfig,
-	errs []error,
-) []error {
-	if err := d.services.VPCAccess.DeleteConnector(
-		ctx, config.ProjectID, config.Region, config.VPCConnectorName,
-	); err != nil {
-		errs = append(errs, fmt.Errorf("failed to delete VPC connector: %w", err))
-	}
-	if err := d.services.Compute.DeleteFirewallRule(
-		ctx, config.ProjectID, constants.FirewallRuleEgress,
-	); err != nil {
-		errs = append(errs, fmt.Errorf("failed to delete firewall rule: %w", err))
-	}
-	if err := d.services.Compute.DeleteSubnet(
-		ctx, config.ProjectID, config.Region, config.SubnetName,
-	); err != nil {
-		errs = append(errs, fmt.Errorf("failed to delete subnet: %w", err))
-	}
-	if err := d.services.Compute.DeleteVPC(ctx, config.ProjectID, config.VPCName); err != nil {
-		errs = append(errs, fmt.Errorf("failed to delete VPC: %w", err))
-	}
-	return errs
-}
-
-func (d *Deployer) destroyIAMResources(
-	ctx context.Context,
-	config *ResourceConfig,
-	errs []error,
-) []error {
-	orchestratorEmail := buildServiceAccountEmail(
-		constants.ServiceAccountOrchestrator, config.ProjectID,
-	)
-	if err := d.services.IAM.DeleteServiceAccount(
-		ctx, config.ProjectID, orchestratorEmail,
-	); err != nil {
-		errs = append(errs, fmt.Errorf("failed to delete orchestrator service account: %w", err))
+	if op == nil {
+		return nil
 	}
 
-	eventProcessorEmail := buildServiceAccountEmail(
-		constants.ServiceAccountEventProcessor, config.ProjectID,
-	)
-	if err := d.services.IAM.DeleteServiceAccount(
-		ctx, config.ProjectID, eventProcessorEmail,
-	); err != nil {
-		errs = append(errs, fmt.Errorf("failed to delete event processor service account: %w", err))
-	}
-
-	runnerEmail := buildServiceAccountEmail(constants.ServiceAccountRunner, config.ProjectID)
-	if err := d.services.IAM.DeleteServiceAccount(ctx, config.ProjectID, runnerEmail); err != nil {
-		errs = append(errs, fmt.Errorf("failed to delete runner service account: %w", err))
-	}
-	return errs
-}
-
-func buildServiceAccountEmail(accountID, projectID string) string {
-	return accountID + "@" + projectID + ".iam.gserviceaccount.com"
+	return d.waitForDeploymentOperation(ctx, config.ProjectID, op.Name)
 }
 
 // GetBackendResources retrieves information about deployed GCP backend resources.
@@ -1667,8 +776,9 @@ func (d *Deployer) GetBackendResources(
 	ctx context.Context,
 	config *ResourceConfig,
 ) (*BackendResources, error) {
-	if d.services == nil {
-		return nil, errors.New("service clients not initialized; call SetServiceClients first")
+	outputs, err := d.getDeploymentOutputs(ctx, config.ProjectID)
+	if err != nil {
+		return nil, err
 	}
 
 	resources := &BackendResources{
@@ -1676,147 +786,18 @@ func (d *Deployer) GetBackendResources(
 		Region:    config.Region,
 	}
 
-	d.getCloudRunResources(ctx, config, resources)
-	d.getKMSResources(ctx, config, resources)
-	d.getPubSubResources(ctx, config, resources)
-	d.getNetworkResources(ctx, config, resources)
-	d.getRegistryResources(ctx, config, resources)
-	d.getIAMResources(ctx, config, resources)
-	d.getSchedulerResources(ctx, config, resources)
+	resources.TaskEventsTopicName = outputs["TaskEventsTopic"]
+	resources.LogEventsTopicName = outputs["LogEventsTopic"]
+	resources.CryptoKeyID = outputs["CryptoKeyID"]
+	resources.OrchestratorServiceAccount = outputs["OrchestratorServiceAccount"]
+	resources.EventProcessorServiceAccount = outputs["EventProcessorServiceAccount"]
+	resources.RunnerServiceAccount = outputs["RunnerServiceAccount"]
+	resources.ArtifactRegistryRepo = outputs["ArtifactRegistryRepo"]
+	resources.OrchestratorURL = outputs["OrchestratorURL"]
+	resources.EventProcessorURL = outputs["EventProcessorURL"]
+	resources.WebSocketEndpoint = outputs["WebSocketEndpoint"]
 
 	return resources, nil
-}
-
-func (d *Deployer) getCloudRunResources(
-	ctx context.Context,
-	config *ResourceConfig,
-	resources *BackendResources,
-) {
-	if exists, url, err := d.services.CloudRun.GetService(
-		ctx, config.ProjectID, config.Region, constants.ServiceOrchestrator,
-	); err == nil && exists {
-		resources.OrchestratorURL = url
-	}
-
-	if exists, url, err := d.services.CloudRun.GetService(
-		ctx, config.ProjectID, config.Region, constants.ServiceEventProcessor,
-	); err == nil && exists {
-		resources.EventProcessorURL = url
-		resources.WebSocketEndpoint = url
-	}
-}
-
-func (d *Deployer) getKMSResources(
-	ctx context.Context,
-	config *ResourceConfig,
-	resources *BackendResources,
-) {
-	exists, err := d.services.KMS.CryptoKeyExists(
-		ctx, config.ProjectID, config.Region, config.KeyRingName, config.CryptoKeyName,
-	)
-	if err != nil || !exists {
-		return
-	}
-
-	resources.KeyRingName = config.KeyRingName
-	resources.CryptoKeyName = config.CryptoKeyName
-
-	keyID, keyErr := d.services.KMS.GetCryptoKeyID(
-		ctx, config.ProjectID, config.Region, config.KeyRingName, config.CryptoKeyName,
-	)
-	if keyErr == nil {
-		resources.CryptoKeyID = keyID
-	}
-}
-
-func (d *Deployer) getPubSubResources(
-	ctx context.Context,
-	config *ResourceConfig,
-	resources *BackendResources,
-) {
-	if exists, err := d.services.PubSub.TopicExists(
-		ctx, config.ProjectID, config.TaskEventsTopic,
-	); err == nil && exists {
-		resources.TaskEventsTopicName = config.TaskEventsTopic
-	}
-	if exists, err := d.services.PubSub.TopicExists(
-		ctx, config.ProjectID, config.LogEventsTopic,
-	); err == nil && exists {
-		resources.LogEventsTopicName = config.LogEventsTopic
-	}
-}
-
-func (d *Deployer) getNetworkResources(
-	ctx context.Context,
-	config *ResourceConfig,
-	resources *BackendResources,
-) {
-	if exists, err := d.services.Compute.VPCExists(
-		ctx, config.ProjectID, config.VPCName,
-	); err == nil && exists {
-		resources.VPCName = config.VPCName
-	}
-
-	if exists, err := d.services.VPCAccess.ConnectorExists(
-		ctx, config.ProjectID, config.Region, config.VPCConnectorName,
-	); err == nil && exists {
-		resources.VPCConnectorName = config.VPCConnectorName
-	}
-}
-
-func (d *Deployer) getRegistryResources(
-	ctx context.Context,
-	config *ResourceConfig,
-	resources *BackendResources,
-) {
-	if exists, err := d.services.ArtifactRegistry.RepositoryExists(
-		ctx, config.ProjectID, config.Region, constants.ArtifactRegistryRepo,
-	); err == nil && exists {
-		resources.ArtifactRegistryRepo = constants.ArtifactRegistryRepo
-	}
-}
-
-func (d *Deployer) getIAMResources(
-	ctx context.Context,
-	config *ResourceConfig,
-	resources *BackendResources,
-) {
-	orchestratorEmail := buildServiceAccountEmail(
-		constants.ServiceAccountOrchestrator, config.ProjectID,
-	)
-	if exists, err := d.services.IAM.ServiceAccountExists(
-		ctx, config.ProjectID, orchestratorEmail,
-	); err == nil && exists {
-		resources.OrchestratorServiceAccount = orchestratorEmail
-	}
-
-	eventProcessorEmail := buildServiceAccountEmail(
-		constants.ServiceAccountEventProcessor, config.ProjectID,
-	)
-	if exists, err := d.services.IAM.ServiceAccountExists(
-		ctx, config.ProjectID, eventProcessorEmail,
-	); err == nil && exists {
-		resources.EventProcessorServiceAccount = eventProcessorEmail
-	}
-
-	runnerEmail := buildServiceAccountEmail(constants.ServiceAccountRunner, config.ProjectID)
-	if exists, err := d.services.IAM.ServiceAccountExists(
-		ctx, config.ProjectID, runnerEmail,
-	); err == nil && exists {
-		resources.RunnerServiceAccount = runnerEmail
-	}
-}
-
-func (d *Deployer) getSchedulerResources(
-	ctx context.Context,
-	config *ResourceConfig,
-	resources *BackendResources,
-) {
-	if exists, err := d.services.Scheduler.JobExists(
-		ctx, config.ProjectID, config.Region, constants.SchedulerHealthReconcile,
-	); err == nil && exists {
-		resources.HealthReconcileJobName = constants.SchedulerHealthReconcile
-	}
 }
 
 // BackendResourcesExist checks if GCP backend resources exist.
@@ -1824,16 +805,81 @@ func (d *Deployer) BackendResourcesExist(
 	ctx context.Context,
 	config *ResourceConfig,
 ) (bool, error) {
-	if d.services == nil {
+	if d.services == nil || d.services.DeploymentManager == nil {
 		return false, errors.New("service clients not initialized; call SetServiceClients first")
 	}
 
-	exists, _, err := d.services.CloudRun.GetService(
-		ctx, config.ProjectID, config.Region, constants.ServiceOrchestrator,
-	)
+	_, err := d.services.DeploymentManager.GetDeployment(ctx, config.ProjectID, runvoyDeploymentName)
 	if err != nil {
-		return false, fmt.Errorf("failed to check orchestrator service: %w", err)
+		if isNotFound(err) {
+			return false, nil
+		}
+		return false, fmt.Errorf("failed to check deployment: %w", err)
 	}
 
-	return exists, nil
+	return true, nil
+}
+
+type manifestLayout struct {
+	Outputs []manifestOutput `yaml:"outputs"`
+}
+
+type manifestOutput struct {
+	Name  string `yaml:"name"`
+	Value any    `yaml:"value"`
+}
+
+func parseManifestOutputs(manifest *deploymentmanager.Manifest) (map[string]string, error) {
+	if manifest == nil {
+		return nil, errors.New("manifest is required")
+	}
+
+	layout := manifest.Layout
+	if layout == "" {
+		layout = manifest.ExpandedConfig
+	}
+	if layout == "" {
+		return nil, errors.New("manifest layout is empty")
+	}
+
+	var parsed manifestLayout
+	if err := yaml.Unmarshal([]byte(layout), &parsed); err != nil {
+		return nil, fmt.Errorf("parse manifest layout: %w", err)
+	}
+
+	outputs := make(map[string]string)
+	for _, out := range parsed.Outputs {
+		if out.Name == "" {
+			continue
+		}
+		switch value := out.Value.(type) {
+		case string:
+			outputs[out.Name] = value
+		default:
+			outputs[out.Name] = fmt.Sprint(out.Value)
+		}
+	}
+
+	return outputs, nil
+}
+
+func manifestNameFromSelfLink(selfLink string) (string, error) {
+	if selfLink == "" {
+		return "", errors.New("manifest self link is empty")
+	}
+
+	name := path.Base(selfLink)
+	if name == "." || name == "/" || name == "" {
+		return "", fmt.Errorf("invalid manifest self link: %s", selfLink)
+	}
+
+	return name, nil
+}
+
+func isNotFound(err error) bool {
+	var apiErr *googleapi.Error
+	if errors.As(err, &apiErr) {
+		return apiErr.Code == http.StatusNotFound
+	}
+	return false
 }

@@ -180,6 +180,8 @@ const (
 	FirewallOperationTimeout = 2 * time.Minute
 	// CloudFunctionTimeout is the timeout for Cloud Function operations.
 	CloudFunctionTimeout = 10 * time.Minute
+	// DeploymentOperationTimeout is the timeout for Deployment Manager operations.
+	DeploymentOperationTimeout = 10 * time.Minute
 	// ResourcePollInterval is the interval for polling resource status.
 	ResourcePollInterval = 5 * time.Second
 	// ServiceUsageOperationTimeout is the timeout for enabling service APIs.
@@ -209,6 +211,7 @@ const (
 // RequiredServices lists the GCP APIs that must be enabled for Runvoy.
 var RequiredServices = []string{
 	"run.googleapis.com",
+	"deploymentmanager.googleapis.com",
 	"compute.googleapis.com",
 	"vpcaccess.googleapis.com",
 	"firestore.googleapis.com",
