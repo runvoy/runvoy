@@ -95,7 +95,7 @@ resources:
 ] %}
 {% for role in orchestrator_roles %}
 - name: orchestrator-role-{{ loop.index }}
-  type: gcp-types/cloudresourcemanager-v1:virtual.projectIamMemberBinding
+  type: gcp-types/cloudresourcemanager-v1:virtual.projects.iamMemberBinding
   properties:
     member: serviceAccount:$(ref.{{ orchestrator_sa }}.email)
     resource: {{ project_id }}
@@ -116,7 +116,7 @@ resources:
 ] %}
 {% for role in event_processor_roles %}
 - name: event-processor-role-{{ loop.index }}
-  type: gcp-types/cloudresourcemanager-v1:virtual.projectIamMemberBinding
+  type: gcp-types/cloudresourcemanager-v1:virtual.projects.iamMemberBinding
   properties:
     member: serviceAccount:$(ref.{{ event_processor_sa }}.email)
     resource: {{ project_id }}
@@ -131,7 +131,7 @@ resources:
 ] %}
 {% for role in runner_roles %}
 - name: runner-role-{{ loop.index }}
-  type: gcp-types/cloudresourcemanager-v1:virtual.projectIamMemberBinding
+  type: gcp-types/cloudresourcemanager-v1:virtual.projects.iamMemberBinding
   properties:
     member: serviceAccount:$(ref.{{ runner_sa }}.email)
     resource: {{ project_id }}
@@ -153,11 +153,13 @@ resources:
   type: gcp-types/cloudkms-v1:projects.locations.keyRings
   properties:
     parent: projects/{{ project_id }}/locations/{{ region }}
+    keyRingId: {{ key_ring_name }}
 
 - name: {{ crypto_key_name }}
   type: gcp-types/cloudkms-v1:projects.locations.keyRings.cryptoKeys
   properties:
     parent: projects/{{ project_id }}/locations/{{ region }}/keyRings/{{ key_ring_name }}
+    cryptoKeyId: {{ crypto_key_name }}
     purpose: ENCRYPT_DECRYPT
   metadata:
     dependsOn:
@@ -342,7 +344,7 @@ resources:
   type: gcp-types/pubsub-v1:projects.subscriptions
   properties:
     name: projects/{{ project_id }}/subscriptions/{{ processor_subscription }}
-    topic: $(ref.{{ task_events_topic }}.name)
+    topic: projects/{{ project_id }}/topics/{{ task_events_topic }}
     pushConfig:
       pushEndpoint: $(ref.{{ service_event_processor }}.uri)
   metadata:
