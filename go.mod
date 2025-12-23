@@ -4,26 +4,26 @@ go 1.25.0
 
 require (
 	github.com/akrylysov/algnhsa v1.1.0
-	github.com/aws/aws-lambda-go v1.51.0
+	github.com/aws/aws-lambda-go v1.51.1
 	github.com/aws/aws-sdk-go-v2 v1.41.0
-	github.com/aws/aws-sdk-go-v2/config v1.32.5
+	github.com/aws/aws-sdk-go-v2/config v1.32.6
 	github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue v1.20.29
 	github.com/aws/aws-sdk-go-v2/feature/dynamodb/expression v1.8.29
 	github.com/aws/aws-sdk-go-v2/service/apigatewaymanagementapi v1.29.9
 	github.com/aws/aws-sdk-go-v2/service/cloudformation v1.71.4
-	github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs v1.62.2
+	github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs v1.63.0
 	github.com/aws/aws-sdk-go-v2/service/dynamodb v1.53.5
-	github.com/aws/aws-sdk-go-v2/service/ecs v1.69.5
+	github.com/aws/aws-sdk-go-v2/service/ecs v1.70.0
 	github.com/aws/aws-sdk-go-v2/service/iam v1.53.1
 	github.com/aws/aws-sdk-go-v2/service/lambda v1.87.0
-	github.com/aws/aws-sdk-go-v2/service/s3 v1.93.2
+	github.com/aws/aws-sdk-go-v2/service/s3 v1.94.0
 	github.com/aws/aws-sdk-go-v2/service/ssm v1.67.7
 	github.com/aws/aws-sdk-go-v2/service/sts v1.41.5
 	github.com/aws/smithy-go v1.24.0
 	github.com/casbin/casbin/v2 v2.135.0
 	github.com/fatih/color v1.18.0
 	github.com/go-chi/chi/v5 v5.2.3
-	github.com/go-playground/validator/v10 v10.29.0
+	github.com/go-playground/validator/v10 v10.30.0
 	github.com/gorilla/websocket v1.5.3
 	github.com/lmittmann/tint v1.1.2
 	github.com/spf13/cobra v1.10.2
@@ -35,7 +35,7 @@ require (
 
 require (
 	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.7.4 // indirect
-	github.com/aws/aws-sdk-go-v2/credentials v1.19.5 // indirect
+	github.com/aws/aws-sdk-go-v2/credentials v1.19.6 // indirect
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.18.16 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/configsources v1.4.16 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.7.16 // indirect
@@ -48,7 +48,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.13.16 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.19.16 // indirect
 	github.com/aws/aws-sdk-go-v2/service/signin v1.0.4 // indirect
-	github.com/aws/aws-sdk-go-v2/service/sso v1.30.7 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sso v1.30.8 // indirect
 	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.35.12 // indirect
 	github.com/bmatcuk/doublestar/v4 v4.9.1 // indirect
 	github.com/casbin/govaluate v1.10.0 // indirect
