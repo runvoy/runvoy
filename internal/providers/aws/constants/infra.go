@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"time"
 )
 
 // rawReleaseRegions contains the comma-separated list of AWS regions for releases.
@@ -68,4 +69,10 @@ const (
 
 	// CloudFormationTemplateFile is the filename of the CloudFormation template in releases.
 	CloudFormationTemplateFile = "cloudformation-backend.yaml"
+
+	// StackPollInterval is the interval at which to poll for CloudFormation stack status changes.
+	StackPollInterval = 5 * time.Second
+
+	// StackOperationTimeout is the maximum time to wait for a stack operation to complete.
+	StackOperationTimeout = 30 * time.Minute
 )

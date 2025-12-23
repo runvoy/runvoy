@@ -12,14 +12,9 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation"
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation/types"
 
+	"github.com/runvoy/runvoy/internal/client/infra/core"
 	awscfg "github.com/runvoy/runvoy/internal/config/aws"
 	awsConstants "github.com/runvoy/runvoy/internal/providers/aws/constants"
-)
-
-const (
-	awsStackPollInterval     = 5 * time.Second
-	awsStackOperationTimeout = 30 * time.Minute
-	stackStatusInProgress    = "IN_PROGRESS"
 )
 
 // CloudFormationClient defines the interface for CloudFormation operations.
@@ -109,20 +104,20 @@ func (d *AWSDeployer) executeStackOperation(
 	ctx context.Context,
 	stackExists bool,
 	stackName string,
-	templateSource *TemplateSource,
+	templateSource *core.TemplateSource,
 	cfnParams []types.Parameter,
-	result *DeployResult,
+	result *core.DeployResult,
 ) error {
 	if stackExists {
-		result.OperationType = "UPDATE"
+		result.OperationType = core.OperationTypeUpdate
 		return d.updateStack(ctx, stackName, templateSource, cfnParams)
 	}
-	result.OperationType = "CREATE"
+	result.OperationType = core.OperationTypeCreate
 	return d.createStack(ctx, stackName, templateSource, cfnParams)
 }
 
 // Deploy deploys or updates the CloudFormation stack.
-func (d *AWSDeployer) Deploy(ctx context.Context, opts *DeployOptions) (*DeployResult, error) {
+func (d *AWSDeployer) Deploy(ctx context.Context, opts *core.DeployOptions) (*core.DeployResult, error) {
 	if err := d.validateRegionForDefaultTemplate(opts.Template); err != nil {
 		return nil, err
 	}
@@ -137,17 +132,18 @@ func (d *AWSDeployer) Deploy(ctx context.Context, opts *DeployOptions) (*DeployR
 		return nil, fmt.Errorf("failed to parse parameters: %w", err)
 	}
 
-	stackExists, err := d.CheckStackExists(ctx, opts.StackName)
+	stackName := opts.Name
+	stackExists, err := d.checkStackExists(ctx, stackName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check stack status: %w", err)
 	}
 
-	result := &DeployResult{
-		StackName: opts.StackName,
-		Outputs:   make(map[string]string),
+	result := &core.DeployResult{
+		Name:    stackName,
+		Outputs: make(map[string]string),
 	}
 
-	err = d.executeStackOperation(ctx, stackExists, opts.StackName, templateSource, cfnParams, result)
+	err = d.executeStackOperation(ctx, stackExists, stackName, templateSource, cfnParams, result)
 	if err != nil {
 		if strings.Contains(err.Error(), "No updates are to be performed") {
 			result.NoChanges = true
@@ -158,17 +154,17 @@ func (d *AWSDeployer) Deploy(ctx context.Context, opts *DeployOptions) (*DeployR
 	}
 
 	if !opts.Wait {
-		result.Status = stackStatusInProgress
+		result.Status = core.StatusInProgress
 		return result, nil
 	}
 
-	finalStatus, err := d.waitForStackOperation(ctx, opts.StackName)
+	finalStatus, err := d.waitForStackOperation(ctx, stackName)
 	if err != nil {
 		return nil, fmt.Errorf("stack operation failed: %w", err)
 	}
 	result.Status = finalStatus
 
-	outputs, err := d.GetStackOutputs(ctx, opts.StackName)
+	outputs, err := d.getStackOutputs(ctx, stackName)
 	if err != nil {
 		return result, fmt.Errorf("stack deployment succeeded but failed to retrieve outputs: %w", err)
 	}
@@ -209,8 +205,13 @@ func (d *AWSDeployer) parseParametersToCFN(params []string, version string) ([]t
 	return cfnParams, nil
 }
 
-// CheckStackExists checks if a CloudFormation stack exists.
-func (d *AWSDeployer) CheckStackExists(ctx context.Context, stackName string) (bool, error) {
+// CheckExists checks if a CloudFormation stack exists.
+func (d *AWSDeployer) CheckExists(ctx context.Context, name string) (bool, error) {
+	return d.checkStackExists(ctx, name)
+}
+
+// checkStackExists is the internal implementation for checking stack existence.
+func (d *AWSDeployer) checkStackExists(ctx context.Context, stackName string) (bool, error) {
 	_, err := d.client.DescribeStacks(ctx, &cloudformation.DescribeStacksInput{
 		StackName: aws.String(stackName),
 	})
@@ -227,7 +228,7 @@ func (d *AWSDeployer) CheckStackExists(ctx context.Context, stackName string) (b
 func (d *AWSDeployer) createStack(
 	ctx context.Context,
 	stackName string,
-	template *TemplateSource,
+	template *core.TemplateSource,
 	params []types.Parameter,
 ) error {
 	input := &cloudformation.CreateStackInput{
@@ -259,7 +260,7 @@ func (d *AWSDeployer) createStack(
 func (d *AWSDeployer) updateStack(
 	ctx context.Context,
 	stackName string,
-	template *TemplateSource,
+	template *core.TemplateSource,
 	params []types.Parameter,
 ) error {
 	input := &cloudformation.UpdateStackInput{
@@ -283,10 +284,10 @@ func (d *AWSDeployer) updateStack(
 
 // waitForStackOperation waits for a stack create/update to complete.
 func (d *AWSDeployer) waitForStackOperation(ctx context.Context, stackName string) (string, error) {
-	ticker := time.NewTicker(awsStackPollInterval)
+	ticker := time.NewTicker(awsConstants.StackPollInterval)
 	defer ticker.Stop()
 
-	timeout := time.After(awsStackOperationTimeout)
+	timeout := time.After(awsConstants.StackOperationTimeout)
 
 	for {
 		select {
@@ -398,8 +399,13 @@ func formatFailureEvent(event *types.StackEvent) string {
 	return fmt.Sprintf("  - %s (%s): %s", resourceID, resourceType, *event.ResourceStatusReason)
 }
 
-// GetStackOutputs retrieves the outputs from a CloudFormation stack.
-func (d *AWSDeployer) GetStackOutputs(ctx context.Context, stackName string) (map[string]string, error) {
+// GetOutputs retrieves the outputs from a CloudFormation stack.
+func (d *AWSDeployer) GetOutputs(ctx context.Context, name string) (map[string]string, error) {
+	return d.getStackOutputs(ctx, name)
+}
+
+// getStackOutputs is the internal implementation for retrieving stack outputs.
+func (d *AWSDeployer) getStackOutputs(ctx context.Context, stackName string) (map[string]string, error) {
 	result, err := d.client.DescribeStacks(ctx, &cloudformation.DescribeStacksInput{
 		StackName: aws.String(stackName),
 	})
@@ -422,33 +428,34 @@ func (d *AWSDeployer) GetStackOutputs(ctx context.Context, stackName string) (ma
 }
 
 // Destroy destroys the CloudFormation stack.
-func (d *AWSDeployer) Destroy(ctx context.Context, opts *DestroyOptions) (*DestroyResult, error) {
-	result := &DestroyResult{
-		StackName: opts.StackName,
+func (d *AWSDeployer) Destroy(ctx context.Context, opts *core.DestroyOptions) (*core.DestroyResult, error) {
+	stackName := opts.Name
+	result := &core.DestroyResult{
+		Name: stackName,
 	}
 
-	stackExists, err := d.CheckStackExists(ctx, opts.StackName)
+	stackExists, err := d.checkStackExists(ctx, stackName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check stack status: %w", err)
 	}
 
 	if !stackExists {
 		result.NotFound = true
-		result.Status = "NOT_FOUND"
+		result.Status = core.StatusNotFound
 		return result, nil
 	}
 
-	err = d.deleteStack(ctx, opts.StackName)
+	err = d.deleteStack(ctx, stackName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to delete stack: %w", err)
 	}
 
 	if !opts.Wait {
-		result.Status = stackStatusInProgress
+		result.Status = core.StatusInProgress
 		return result, nil
 	}
 
-	finalStatus, err := d.waitForStackDeletion(ctx, opts.StackName)
+	finalStatus, err := d.waitForStackDeletion(ctx, stackName)
 	if err != nil {
 		return nil, fmt.Errorf("stack deletion failed: %w", err)
 	}
@@ -470,10 +477,10 @@ func (d *AWSDeployer) deleteStack(ctx context.Context, stackName string) error {
 
 // waitForStackDeletion waits for a stack deletion to complete.
 func (d *AWSDeployer) waitForStackDeletion(ctx context.Context, stackName string) (string, error) {
-	ticker := time.NewTicker(awsStackPollInterval)
+	ticker := time.NewTicker(awsConstants.StackPollInterval)
 	defer ticker.Stop()
 
-	timeout := time.After(awsStackOperationTimeout)
+	timeout := time.After(awsConstants.StackOperationTimeout)
 
 	for {
 		select {

@@ -8,6 +8,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation"
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation/types"
+	"github.com/runvoy/runvoy/internal/client/infra/core"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -111,7 +112,7 @@ func TestNewAWSDeployerWithClient(t *testing.T) {
 	})
 }
 
-func TestAWSDeployer_CheckStackExists(t *testing.T) {
+func TestAWSDeployer_CheckExists(t *testing.T) {
 	t.Run("stack exists", func(t *testing.T) {
 		mockClient := &mockCloudFormationClient{
 			describeStacksFunc: func(
@@ -131,7 +132,7 @@ func TestAWSDeployer_CheckStackExists(t *testing.T) {
 		}
 
 		deployer := NewAWSDeployerWithClient(mockClient, "us-east-1")
-		exists, err := deployer.CheckStackExists(context.Background(), "test-stack")
+		exists, err := deployer.CheckExists(context.Background(), "test-stack")
 
 		require.NoError(t, err)
 		assert.True(t, exists)
@@ -149,7 +150,7 @@ func TestAWSDeployer_CheckStackExists(t *testing.T) {
 		}
 
 		deployer := NewAWSDeployerWithClient(mockClient, "us-east-1")
-		exists, err := deployer.CheckStackExists(context.Background(), "test-stack")
+		exists, err := deployer.CheckExists(context.Background(), "test-stack")
 
 		require.NoError(t, err)
 		assert.False(t, exists)
@@ -167,7 +168,7 @@ func TestAWSDeployer_CheckStackExists(t *testing.T) {
 		}
 
 		deployer := NewAWSDeployerWithClient(mockClient, "us-east-1")
-		exists, err := deployer.CheckStackExists(context.Background(), "test-stack")
+		exists, err := deployer.CheckExists(context.Background(), "test-stack")
 
 		require.Error(t, err)
 		assert.False(t, exists)
@@ -175,7 +176,7 @@ func TestAWSDeployer_CheckStackExists(t *testing.T) {
 	})
 }
 
-func TestAWSDeployer_GetStackOutputs(t *testing.T) {
+func TestAWSDeployer_GetOutputs(t *testing.T) {
 	t.Run("successful output retrieval", func(t *testing.T) {
 		mockClient := &mockCloudFormationClient{
 			describeStacksFunc: func(
@@ -205,7 +206,7 @@ func TestAWSDeployer_GetStackOutputs(t *testing.T) {
 		}
 
 		deployer := NewAWSDeployerWithClient(mockClient, "us-east-1")
-		outputs, err := deployer.GetStackOutputs(context.Background(), "test-stack")
+		outputs, err := deployer.GetOutputs(context.Background(), "test-stack")
 
 		require.NoError(t, err)
 		assert.Len(t, outputs, 2)
@@ -225,7 +226,7 @@ func TestAWSDeployer_GetStackOutputs(t *testing.T) {
 		}
 
 		deployer := NewAWSDeployerWithClient(mockClient, "us-east-1")
-		outputs, err := deployer.GetStackOutputs(context.Background(), "nonexistent-stack")
+		outputs, err := deployer.GetOutputs(context.Background(), "nonexistent-stack")
 
 		require.Error(t, err)
 		assert.Nil(t, outputs)
@@ -251,7 +252,7 @@ func TestAWSDeployer_GetStackOutputs(t *testing.T) {
 		}
 
 		deployer := NewAWSDeployerWithClient(mockClient, "us-east-1")
-		outputs, err := deployer.GetStackOutputs(context.Background(), "test-stack")
+		outputs, err := deployer.GetOutputs(context.Background(), "test-stack")
 
 		require.NoError(t, err)
 		assert.Empty(t, outputs)
@@ -271,7 +272,7 @@ func TestAWSDeployer_GetStackOutputs(t *testing.T) {
 		}
 
 		deployer := NewAWSDeployerWithClient(mockClient, "us-east-1")
-		outputs, err := deployer.GetStackOutputs(context.Background(), "test-stack")
+		outputs, err := deployer.GetOutputs(context.Background(), "test-stack")
 
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "stack not found")
@@ -396,8 +397,8 @@ func TestAWSDeployer_Deploy_NoWait(t *testing.T) {
 		}
 
 		deployer := NewAWSDeployerWithClient(mockClient, "us-east-1")
-		opts := &DeployOptions{
-			StackName:  "test-stack",
+		opts := &core.DeployOptions{
+			Name:       "test-stack",
 			Template:   "https://example.com/template.yaml",
 			Version:    "v1.0.0",
 			Parameters: []string{},
@@ -408,7 +409,7 @@ func TestAWSDeployer_Deploy_NoWait(t *testing.T) {
 
 		require.NoError(t, err)
 		require.NotNil(t, result)
-		assert.Equal(t, "test-stack", result.StackName)
+		assert.Equal(t, "test-stack", result.Name)
 		assert.Equal(t, "CREATE", result.OperationType)
 		assert.Equal(t, "IN_PROGRESS", result.Status)
 		assert.False(t, result.NoChanges)
@@ -442,8 +443,8 @@ func TestAWSDeployer_Deploy_NoWait(t *testing.T) {
 		}
 
 		deployer := NewAWSDeployerWithClient(mockClient, "us-east-1")
-		opts := &DeployOptions{
-			StackName:  "test-stack",
+		opts := &core.DeployOptions{
+			Name:       "test-stack",
 			Template:   "https://example.com/template.yaml",
 			Version:    "v1.0.0",
 			Parameters: []string{},
@@ -454,7 +455,7 @@ func TestAWSDeployer_Deploy_NoWait(t *testing.T) {
 
 		require.NoError(t, err)
 		require.NotNil(t, result)
-		assert.Equal(t, "test-stack", result.StackName)
+		assert.Equal(t, "test-stack", result.Name)
 		assert.Equal(t, "UPDATE", result.OperationType)
 		assert.Equal(t, "IN_PROGRESS", result.Status)
 		assert.False(t, result.NoChanges)
@@ -486,8 +487,8 @@ func TestAWSDeployer_Deploy_NoWait(t *testing.T) {
 		}
 
 		deployer := NewAWSDeployerWithClient(mockClient, "us-east-1")
-		opts := &DeployOptions{
-			StackName:  "test-stack",
+		opts := &core.DeployOptions{
+			Name:       "test-stack",
 			Template:   "https://example.com/template.yaml",
 			Version:    "v1.0.0",
 			Parameters: []string{},
@@ -498,7 +499,7 @@ func TestAWSDeployer_Deploy_NoWait(t *testing.T) {
 
 		require.NoError(t, err)
 		require.NotNil(t, result)
-		assert.Equal(t, "test-stack", result.StackName)
+		assert.Equal(t, "test-stack", result.Name)
 		assert.Equal(t, "UPDATE", result.OperationType)
 		assert.Equal(t, "NO_CHANGES", result.Status)
 		assert.True(t, result.NoChanges)
@@ -532,16 +533,16 @@ func TestAWSDeployer_Destroy(t *testing.T) {
 		}
 
 		deployer := NewAWSDeployerWithClient(mockClient, "us-east-1")
-		opts := &DestroyOptions{
-			StackName: "test-stack",
-			Wait:      false,
+		opts := &core.DestroyOptions{
+			Name: "test-stack",
+			Wait: false,
 		}
 
 		result, err := deployer.Destroy(context.Background(), opts)
 
 		require.NoError(t, err)
 		require.NotNil(t, result)
-		assert.Equal(t, "test-stack", result.StackName)
+		assert.Equal(t, "test-stack", result.Name)
 		assert.Equal(t, "IN_PROGRESS", result.Status)
 		assert.False(t, result.NotFound)
 	})
@@ -558,16 +559,16 @@ func TestAWSDeployer_Destroy(t *testing.T) {
 		}
 
 		deployer := NewAWSDeployerWithClient(mockClient, "us-east-1")
-		opts := &DestroyOptions{
-			StackName: "nonexistent-stack",
-			Wait:      false,
+		opts := &core.DestroyOptions{
+			Name: "nonexistent-stack",
+			Wait: false,
 		}
 
 		result, err := deployer.Destroy(context.Background(), opts)
 
 		require.NoError(t, err)
 		require.NotNil(t, result)
-		assert.Equal(t, "nonexistent-stack", result.StackName)
+		assert.Equal(t, "nonexistent-stack", result.Name)
 		assert.Equal(t, "NOT_FOUND", result.Status)
 		assert.True(t, result.NotFound)
 	})
@@ -598,9 +599,9 @@ func TestAWSDeployer_Destroy(t *testing.T) {
 		}
 
 		deployer := NewAWSDeployerWithClient(mockClient, "us-east-1")
-		opts := &DestroyOptions{
-			StackName: "test-stack",
-			Wait:      false,
+		opts := &core.DestroyOptions{
+			Name: "test-stack",
+			Wait: false,
 		}
 
 		result, err := deployer.Destroy(context.Background(), opts)
@@ -628,7 +629,7 @@ func TestAWSDeployer_CreateUpdateStack(t *testing.T) {
 		}
 
 		deployer := NewAWSDeployerWithClient(mockClient, "us-east-1")
-		template := &TemplateSource{URL: "https://example.com/template.yaml"}
+		template := &core.TemplateSource{URL: "https://example.com/template.yaml"}
 		params := []types.Parameter{
 			{ParameterKey: aws.String("Key1"), ParameterValue: aws.String("Value1")},
 		}
@@ -659,7 +660,7 @@ func TestAWSDeployer_CreateUpdateStack(t *testing.T) {
 		}
 
 		deployer := NewAWSDeployerWithClient(mockClient, "us-east-1")
-		template := &TemplateSource{Body: "template body content"}
+		template := &core.TemplateSource{Body: "template body content"}
 		err := deployer.createStack(context.Background(), "test-stack", template, []types.Parameter{})
 
 		require.NoError(t, err)
@@ -685,7 +686,7 @@ func TestAWSDeployer_CreateUpdateStack(t *testing.T) {
 		}
 
 		deployer := NewAWSDeployerWithClient(mockClient, "us-east-1")
-		template := &TemplateSource{URL: "https://example.com/template.yaml"}
+		template := &core.TemplateSource{URL: "https://example.com/template.yaml"}
 		params := []types.Parameter{
 			{ParameterKey: aws.String("Key1"), ParameterValue: aws.String("Value1")},
 		}
@@ -715,7 +716,7 @@ func TestAWSDeployer_CreateUpdateStack(t *testing.T) {
 		}
 
 		deployer := NewAWSDeployerWithClient(mockClient, "us-east-1")
-		template := &TemplateSource{Body: "updated template body"}
+		template := &core.TemplateSource{Body: "updated template body"}
 		err := deployer.updateStack(context.Background(), "test-stack", template, []types.Parameter{})
 
 		require.NoError(t, err)

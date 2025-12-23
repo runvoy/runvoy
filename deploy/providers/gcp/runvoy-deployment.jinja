@@ -1,0 +1,409 @@
+{% set project_id = properties["projectId"] %}
+{% set region = properties["region"] %}
+{% set vpc_name = properties["vpcName"] %}
+{% set subnet_name = properties["subnetName"] %}
+{% set vpc_connector_name = properties["vpcConnectorName"] %}
+{% set task_events_topic = properties["taskEventsTopic"] %}
+{% set log_events_topic = properties["logEventsTopic"] %}
+{% set websocket_events_topic = properties["webSocketEventsTopic"] %}
+{% set processor_subscription = properties["processorSubscription"] %}
+{% set key_ring_name = properties["keyRingName"] %}
+{% set crypto_key_name = properties["cryptoKeyName"] %}
+{% set service_orchestrator = properties["serviceOrchestrator"] %}
+{% set service_event_processor = properties["serviceEventProcessor"] %}
+{% set service_runner = properties["serviceRunner"] %}
+{% set log_sink_runner = properties["logSinkRunner"] %}
+{% set orchestrator_sa = properties["serviceAccountOrchestrator"] %}
+{% set event_processor_sa = properties["serviceAccountEventProcessor"] %}
+{% set runner_sa = properties["serviceAccountRunner"] %}
+
+resources:
+- name: {{ vpc_name }}
+  type: gcp-types/compute-v1:networks
+  properties:
+    autoCreateSubnetworks: false
+    routingConfig:
+      routingMode: REGIONAL
+
+- name: {{ subnet_name }}
+  type: gcp-types/compute-v1:subnetworks
+  properties:
+    ipCidrRange: "{{ properties["vpcCidrRange"] }}"
+    network: $(ref.{{ vpc_name }}.selfLink)
+    region: {{ region }}
+  metadata:
+    dependsOn:
+    - {{ vpc_name }}
+
+- name: {{ properties["firewallRuleEgress"] }}
+  type: gcp-types/compute-v1:firewalls
+  properties:
+    allowed:
+    - IPProtocol: all
+    direction: EGRESS
+    network: $(ref.{{ vpc_name }}.selfLink)
+  metadata:
+    dependsOn:
+    - {{ vpc_name }}
+
+{% if not properties["useDirectVPCEgress"] %}
+- name: {{ vpc_connector_name }}
+  type: gcp-types/vpcaccess-v1:projects.locations.connectors
+  properties:
+    parent: projects/{{ project_id }}/locations/{{ region }}
+    network: {{ vpc_name }}
+    ipCidrRange: "{{ properties["vpcConnectorIpRange"] }}"
+    minInstances: {{ properties["vpcConnectorMinInstances"] }}
+    maxInstances: {{ properties["vpcConnectorMaxInstances"] }}
+  metadata:
+    dependsOn:
+    - {{ vpc_name }}
+    - {{ subnet_name }}
+{% endif %}
+
+- name: {{ orchestrator_sa }}
+  type: gcp-types/iam-v1:projects.serviceAccounts
+  properties:
+    accountId: {{ orchestrator_sa }}
+    serviceAccount:
+      displayName: Runvoy Orchestrator Service Account
+
+- name: {{ event_processor_sa }}
+  type: gcp-types/iam-v1:projects.serviceAccounts
+  properties:
+    accountId: {{ event_processor_sa }}
+    serviceAccount:
+      displayName: Runvoy Event Processor Service Account
+
+- name: {{ runner_sa }}
+  type: gcp-types/iam-v1:projects.serviceAccounts
+  properties:
+    accountId: {{ runner_sa }}
+    serviceAccount:
+      displayName: Runvoy Runner Service Account
+
+{% set orchestrator_roles = [
+  "roles/datastore.user",
+  "roles/run.invoker",
+  "roles/run.developer",
+  "roles/pubsub.publisher",
+  "roles/cloudkms.cryptoKeyEncrypterDecrypter",
+  "roles/secretmanager.secretAccessor",
+  "roles/logging.logWriter",
+  "roles/iam.serviceAccountUser",
+  "roles/artifactregistry.reader"
+] %}
+{% for role in orchestrator_roles %}
+- name: orchestrator-role-{{ loop.index }}
+  type: gcp-types/cloudresourcemanager-v1:virtual.projects.iamMemberBinding
+  properties:
+    member: serviceAccount:$(ref.{{ orchestrator_sa }}.email)
+    resource: {{ project_id }}
+    role: {{ role }}
+  metadata:
+    dependsOn:
+    - {{ orchestrator_sa }}
+{% endfor %}
+
+{% set event_processor_roles = [
+  "roles/datastore.user",
+  "roles/pubsub.subscriber",
+  "roles/pubsub.publisher",
+  "roles/cloudkms.cryptoKeyDecrypter",
+  "roles/secretmanager.secretAccessor",
+  "roles/logging.logWriter",
+  "roles/run.invoker"
+] %}
+{% for role in event_processor_roles %}
+- name: event-processor-role-{{ loop.index }}
+  type: gcp-types/cloudresourcemanager-v1:virtual.projects.iamMemberBinding
+  properties:
+    member: serviceAccount:$(ref.{{ event_processor_sa }}.email)
+    resource: {{ project_id }}
+    role: {{ role }}
+  metadata:
+    dependsOn:
+    - {{ event_processor_sa }}
+{% endfor %}
+
+{% set runner_roles = [
+  "roles/logging.logWriter"
+] %}
+{% for role in runner_roles %}
+- name: runner-role-{{ loop.index }}
+  type: gcp-types/cloudresourcemanager-v1:virtual.projects.iamMemberBinding
+  properties:
+    member: serviceAccount:$(ref.{{ runner_sa }}.email)
+    resource: {{ project_id }}
+    role: {{ role }}
+  metadata:
+    dependsOn:
+    - {{ runner_sa }}
+{% endfor %}
+
+- name: firestore-database
+  type: gcp-types/firestore-v1:projects.databases
+  properties:
+    databaseId: "(default)"
+    locationId: {{ properties["firestoreLocationId"] }}
+    parent: projects/{{ project_id }}
+    type: FIRESTORE_NATIVE
+
+- name: {{ key_ring_name }}
+  type: gcp-types/cloudkms-v1:projects.locations.keyRings
+  properties:
+    parent: projects/{{ project_id }}/locations/{{ region }}
+    keyRingId: {{ key_ring_name }}
+
+- name: {{ crypto_key_name }}
+  type: gcp-types/cloudkms-v1:projects.locations.keyRings.cryptoKeys
+  properties:
+    parent: projects/{{ project_id }}/locations/{{ region }}/keyRings/{{ key_ring_name }}
+    cryptoKeyId: {{ crypto_key_name }}
+    purpose: ENCRYPT_DECRYPT
+  metadata:
+    dependsOn:
+    - {{ key_ring_name }}
+
+- name: {{ task_events_topic }}
+  type: gcp-types/pubsub-v1:projects.topics
+  properties:
+    name: projects/{{ project_id }}/topics/{{ task_events_topic }}
+
+- name: {{ log_events_topic }}
+  type: gcp-types/pubsub-v1:projects.topics
+  properties:
+    name: projects/{{ project_id }}/topics/{{ log_events_topic }}
+
+- name: {{ websocket_events_topic }}
+  type: gcp-types/pubsub-v1:projects.topics
+  properties:
+    name: projects/{{ project_id }}/topics/{{ websocket_events_topic }}
+
+- name: {{ properties["artifactRegistryRepo"] }}
+  type: gcp-types/artifactregistry-v1:projects.locations.repositories
+  properties:
+    format: DOCKER
+    parent: projects/{{ project_id }}/locations/{{ region }}
+    repositoryId: {{ properties["artifactRegistryRepo"] }}
+
+{% if properties["orchestratorImage"] %}
+- name: {{ service_orchestrator }}
+  type: gcp-types/run-v2:projects.locations.services
+  properties:
+    parent: projects/{{ project_id }}/locations/{{ region }}
+    serviceId: {{ service_orchestrator }}
+    template:
+      containers:
+      - image: {{ properties["orchestratorImage"] }}
+        env:
+        - name: RUNVOY_GCP_PROJECT_ID
+          value: {{ project_id }}
+        - name: RUNVOY_GCP_REGION
+          value: {{ region }}
+        - name: RUNVOY_GCP_API_KEYS_COLLECTION
+          value: {{ properties["collectionApiKeys"] }}
+        - name: RUNVOY_GCP_EXECUTIONS_COLLECTION
+          value: {{ properties["collectionExecutions"] }}
+        - name: RUNVOY_GCP_EXECUTION_LOGS_COLLECTION
+          value: {{ properties["collectionExecutionLogs"] }}
+        - name: RUNVOY_GCP_IMAGE_CONFIGS_COLLECTION
+          value: {{ properties["collectionImageConfigs"] }}
+        - name: RUNVOY_GCP_PENDING_API_KEYS_COLLECTION
+          value: {{ properties["collectionPendingApiKeys"] }}
+        - name: RUNVOY_GCP_SECRETS_METADATA_COLLECTION
+          value: {{ properties["collectionSecretsMetadata"] }}
+        - name: RUNVOY_GCP_WEBSOCKET_CONNECTIONS_COLLECTION
+          value: {{ properties["collectionWebsocketConnections"] }}
+        - name: RUNVOY_GCP_WEBSOCKET_TOKENS_COLLECTION
+          value: {{ properties["collectionWebsocketTokens"] }}
+        - name: RUNVOY_GCP_TASK_EVENTS_TOPIC
+          value: {{ task_events_topic }}
+        - name: RUNVOY_GCP_LOG_EVENTS_TOPIC
+          value: {{ log_events_topic }}
+        - name: RUNVOY_GCP_KMS_KEY_ID
+          value: $(ref.{{ crypto_key_name }}.name)
+        - name: RUNVOY_GCP_RUNNER_SERVICE_ACCOUNT
+          value: $(ref.{{ runner_sa }}.email)
+        - name: RUNVOY_GCP_VPC_CONNECTOR
+          value: {% if not properties["useDirectVPCEgress"] %}{{ vpc_connector_name }}{% else %}""{% endif %}
+        - name: RUNVOY_GCP_ARTIFACT_REGISTRY
+          value: {{ properties["artifactRegistryRepo"] }}
+      scaling:
+        minInstanceCount: {{ properties["minInstances"] }}
+        maxInstanceCount: {{ properties["maxInstances"] }}
+      timeout: "{{ properties["timeoutSeconds"] }}s"
+      serviceAccount: $(ref.{{ orchestrator_sa }}.email)
+      {% if properties["useDirectVPCEgress"] %}
+      vpcAccess:
+        networkInterfaces:
+        - network: $(ref.{{ vpc_name }}.selfLink)
+          subnetwork: $(ref.{{ subnet_name }}.selfLink)
+      {% else %}
+      vpcAccess:
+        connector: $(ref.{{ vpc_connector_name }}.name)
+      {% endif %}
+  metadata:
+    dependsOn:
+    - {{ orchestrator_sa }}
+    - {{ runner_sa }}
+    - {{ task_events_topic }}
+    - {{ log_events_topic }}
+    - {{ crypto_key_name }}
+    - {{ vpc_name }}
+    - {{ subnet_name }}
+    {% if not properties["useDirectVPCEgress"] %}
+    - {{ vpc_connector_name }}
+    {% endif %}
+
+- name: {{ service_orchestrator }}-invoker
+  type: gcp-types/run-v2:projects.locations.services.setIamPolicy
+  properties:
+    resource: projects/{{ project_id }}/locations/{{ region }}/services/{{ service_orchestrator }}
+    policy:
+      bindings:
+      - members:
+        - allUsers
+        role: roles/run.invoker
+  metadata:
+    dependsOn:
+    - {{ service_orchestrator }}
+{% endif %}
+
+{% if properties["eventProcessorImage"] %}
+- name: {{ service_event_processor }}
+  type: gcp-types/run-v2:projects.locations.services
+  properties:
+    parent: projects/{{ project_id }}/locations/{{ region }}
+    serviceId: {{ service_event_processor }}
+    template:
+      containers:
+      - image: {{ properties["eventProcessorImage"] }}
+        env:
+        - name: RUNVOY_GCP_PROJECT_ID
+          value: {{ project_id }}
+        - name: RUNVOY_GCP_REGION
+          value: {{ region }}
+        - name: RUNVOY_GCP_API_KEYS_COLLECTION
+          value: {{ properties["collectionApiKeys"] }}
+        - name: RUNVOY_GCP_EXECUTIONS_COLLECTION
+          value: {{ properties["collectionExecutions"] }}
+        - name: RUNVOY_GCP_EXECUTION_LOGS_COLLECTION
+          value: {{ properties["collectionExecutionLogs"] }}
+        - name: RUNVOY_GCP_IMAGE_CONFIGS_COLLECTION
+          value: {{ properties["collectionImageConfigs"] }}
+        - name: RUNVOY_GCP_SECRETS_METADATA_COLLECTION
+          value: {{ properties["collectionSecretsMetadata"] }}
+        - name: RUNVOY_GCP_WEBSOCKET_CONNECTIONS_COLLECTION
+          value: {{ properties["collectionWebsocketConnections"] }}
+        - name: RUNVOY_GCP_WEBSOCKET_TOKENS_COLLECTION
+          value: {{ properties["collectionWebsocketTokens"] }}
+        - name: RUNVOY_GCP_TASK_EVENTS_TOPIC
+          value: {{ task_events_topic }}
+        - name: RUNVOY_GCP_KMS_KEY_ID
+          value: $(ref.{{ crypto_key_name }}.name)
+      scaling:
+        minInstanceCount: {{ properties["minInstances"] }}
+        maxInstanceCount: {{ properties["maxInstances"] }}
+      timeout: "{{ properties["timeoutSeconds"] }}s"
+      serviceAccount: $(ref.{{ event_processor_sa }}.email)
+      {% if properties["useDirectVPCEgress"] %}
+      vpcAccess:
+        networkInterfaces:
+        - network: $(ref.{{ vpc_name }}.selfLink)
+          subnetwork: $(ref.{{ subnet_name }}.selfLink)
+      {% else %}
+      vpcAccess:
+        connector: $(ref.{{ vpc_connector_name }}.name)
+      {% endif %}
+  metadata:
+    dependsOn:
+    - {{ event_processor_sa }}
+    - {{ task_events_topic }}
+    - {{ crypto_key_name }}
+    - {{ vpc_name }}
+    - {{ subnet_name }}
+    {% if not properties["useDirectVPCEgress"] %}
+    - {{ vpc_connector_name }}
+    {% endif %}
+
+- name: {{ service_event_processor }}-invoker
+  type: gcp-types/run-v2:projects.locations.services.setIamPolicy
+  properties:
+    resource: projects/{{ project_id }}/locations/{{ region }}/services/{{ service_event_processor }}
+    policy:
+      bindings:
+      - members:
+        - allUsers
+        role: roles/run.invoker
+  metadata:
+    dependsOn:
+    - {{ service_event_processor }}
+
+- name: {{ processor_subscription }}
+  type: gcp-types/pubsub-v1:projects.subscriptions
+  properties:
+    name: projects/{{ project_id }}/subscriptions/{{ processor_subscription }}
+    topic: projects/{{ project_id }}/topics/{{ task_events_topic }}
+    pushConfig:
+      pushEndpoint: $(ref.{{ service_event_processor }}.uri)
+  metadata:
+    dependsOn:
+    - {{ task_events_topic }}
+    - {{ service_event_processor }}
+
+- name: {{ properties["schedulerJobName"] }}
+  type: gcp-types/cloudscheduler-v1:projects.locations.jobs
+  properties:
+    name: projects/{{ project_id }}/locations/{{ region }}/jobs/{{ properties["schedulerJobName"] }}
+    schedule: "{{ properties["healthSchedule"] }}"
+    httpTarget:
+      httpMethod: POST
+      uri: $(ref.{{ service_event_processor }}.uri)/health-reconcile
+  metadata:
+    dependsOn:
+    - {{ service_event_processor }}
+{% endif %}
+
+- name: {{ log_sink_runner }}
+  type: gcp-types/logging-v2:projects.sinks
+  properties:
+    destination: pubsub.googleapis.com/$(ref.{{ log_events_topic }}.name)
+    filter: resource.type="cloud_run_revision" AND resource.labels.service_name="{{ service_runner }}"
+    name: {{ log_sink_runner }}
+    parent: projects/{{ project_id }}
+  metadata:
+    dependsOn:
+    - {{ log_events_topic }}
+
+outputs:
+- name: ProjectID
+  value: {{ project_id }}
+- name: Region
+  value: {{ region }}
+- name: TaskEventsTopic
+  value: {{ task_events_topic }}
+- name: LogEventsTopic
+  value: {{ log_events_topic }}
+- name: WebSocketEventsTopic
+  value: {{ websocket_events_topic }}
+- name: ArtifactRegistryRepo
+  value: {{ properties["artifactRegistryRepo"] }}
+- name: CryptoKeyID
+  value: $(ref.{{ crypto_key_name }}.name)
+- name: OrchestratorServiceAccount
+  value: $(ref.{{ orchestrator_sa }}.email)
+- name: EventProcessorServiceAccount
+  value: $(ref.{{ event_processor_sa }}.email)
+- name: RunnerServiceAccount
+  value: $(ref.{{ runner_sa }}.email)
+{% if properties["orchestratorImage"] %}
+- name: OrchestratorURL
+  value: $(ref.{{ service_orchestrator }}.uri)
+{% endif %}
+{% if properties["eventProcessorImage"] %}
+- name: EventProcessorURL
+  value: $(ref.{{ service_event_processor }}.uri)
+- name: WebSocketEndpoint
+  value: $(ref.{{ service_event_processor }}.uri)
+{% endif %}

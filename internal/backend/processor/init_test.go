@@ -52,15 +52,29 @@ func TestInitialize_UnknownProvider(t *testing.T) {
 	logger := testutil.SilentLogger()
 
 	cfg := &config.Config{
-		BackendProvider: "gcp", // Not yet supported
+		BackendProvider: "azure", // Not yet supported
 		InitTimeout:     30 * time.Second,
 	}
 
 	processor, err := Initialize(ctx, cfg, logger)
 	assert.Error(t, err)
 	assert.Nil(t, processor)
-	assert.Contains(t, err.Error(), "unknown backend provider")
-	assert.Contains(t, err.Error(), "gcp")
+	assert.Contains(t, err.Error(), "unknown backend provider: azure")
+}
+
+func TestSelectProviderInitializer_GCPNotImplemented(t *testing.T) {
+	ctx := context.Background()
+	logger := testutil.SilentLogger()
+
+	cfg := &config.Config{
+		BackendProvider: constants.GCP,
+		InitTimeout:     30 * time.Second,
+	}
+
+	processor, err := Initialize(ctx, cfg, logger)
+	assert.Error(t, err)
+	assert.Nil(t, processor)
+	assert.Contains(t, err.Error(), "GCP processor initializer not yet implemented")
 }
 
 func TestInitialize_ContextCancelled(t *testing.T) {

@@ -102,6 +102,14 @@ func TestValidateOrchestrator(t *testing.T) {
 			wantErr: false,
 		},
 		{
+			name: "GCP provider not yet implemented",
+			cfg: &Config{
+				BackendProvider: constants.GCP,
+			},
+			wantErr: true,
+			errMsg:  "GCP orchestrator validation not yet implemented",
+		},
+		{
 			name: "missing AWS config",
 			cfg: &Config{
 				BackendProvider: constants.AWS,
@@ -552,6 +560,14 @@ func TestValidateEventProcessor(t *testing.T) {
 				},
 			},
 			wantErr: false,
+		},
+		{
+			name: "GCP provider not yet implemented",
+			cfg: &Config{
+				BackendProvider: constants.GCP,
+			},
+			wantErr: true,
+			errMsg:  "GCP event processor validation not yet implemented",
 		},
 		{
 			name: "missing AWS config",

@@ -2,11 +2,13 @@
 
 # Run all tests
 test:
-    go test ./...
+    mkdir -p .cache/go-build
+    GOCACHE="{{justfile_directory()}}/.cache/go-build" go test ./...
 
 # Generate coverage profile
 gen-coverage:
-    go test -coverprofile=coverage.out ./...
+    mkdir -p .cache/go-build
+    GOCACHE="{{justfile_directory()}}/.cache/go-build" go test -coverprofile=coverage.out ./...
 
 # Run tests with coverage
 test-coverage: gen-coverage

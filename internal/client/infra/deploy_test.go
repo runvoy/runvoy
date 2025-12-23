@@ -4,47 +4,38 @@ import (
 	"context"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
+	"github.com/runvoy/runvoy/internal/client/infra/core"
 	"github.com/runvoy/runvoy/internal/constants"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func TestNewDeployer(t *testing.T) {
+func TestNewDeployer_UnsupportedProvider(t *testing.T) {
 	tests := []struct {
 		name     string
 		provider string
 		region   string
-		wantErr  bool
 		errMsg   string
 	}{
-		{
-			name:     "AWS provider lowercase",
-			provider: "aws",
-			region:   "us-east-1",
-			wantErr:  false,
-		},
-		{
-			name:     "AWS provider uppercase",
-			provider: "AWS",
-			region:   "us-west-2",
-			wantErr:  false,
-		},
-		{
-			name:     "unsupported provider",
-			provider: "gcp",
-			region:   "us-central1",
-			wantErr:  true,
-			errMsg:   "unsupported provider: gcp",
-		},
 		{
 			name:     "empty provider",
 			provider: "",
 			region:   "us-east-1",
-			wantErr:  true,
+			errMsg:   "unsupported provider",
+		},
+		{
+			name:     "invalid provider",
+			provider: "azure",
+			region:   "eastus",
+			errMsg:   "unsupported provider",
+		},
+		{
+			name:     "random string provider",
+			provider: "notacloud",
+			region:   "somewhere",
 			errMsg:   "unsupported provider",
 		},
 	}
@@ -54,15 +45,9 @@ func TestNewDeployer(t *testing.T) {
 			ctx := context.Background()
 			deployer, err := NewDeployer(ctx, tt.provider, tt.region)
 
-			if tt.wantErr {
-				require.Error(t, err)
-				assert.Contains(t, err.Error(), tt.errMsg)
-				assert.Nil(t, deployer)
-			} else {
-				require.NoError(t, err)
-				require.NotNil(t, deployer)
-				assert.Equal(t, tt.region, deployer.GetRegion())
-			}
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), tt.errMsg)
+			assert.Nil(t, deployer)
 		})
 	}
 }
@@ -78,7 +63,7 @@ func TestResolveTemplate(t *testing.T) {
 		wantBody  bool
 		wantErr   bool
 		errMsg    string
-		checkFunc func(*testing.T, *TemplateSource)
+		checkFunc func(*testing.T, *core.TemplateSource)
 	}{
 		{
 			name:     "AWS default template",
@@ -89,7 +74,7 @@ func TestResolveTemplate(t *testing.T) {
 			wantURL:  true,
 			wantBody: false,
 			wantErr:  false,
-			checkFunc: func(t *testing.T, ts *TemplateSource) {
+			checkFunc: func(t *testing.T, ts *core.TemplateSource) {
 				assert.NotEmpty(t, ts.URL)
 				assert.Contains(t, ts.URL, "runvoy-releases-us-east-1")
 				assert.Contains(t, ts.URL, "1.0.0") // version gets normalized (v prefix removed)
@@ -105,7 +90,7 @@ func TestResolveTemplate(t *testing.T) {
 			wantURL:  true,
 			wantBody: false,
 			wantErr:  false,
-			checkFunc: func(t *testing.T, ts *TemplateSource) {
+			checkFunc: func(t *testing.T, ts *core.TemplateSource) {
 				assert.Equal(t, "https://example.com/template.yaml", ts.URL)
 				assert.Empty(t, ts.Body)
 			},
@@ -119,7 +104,7 @@ func TestResolveTemplate(t *testing.T) {
 			wantURL:  true,
 			wantBody: false,
 			wantErr:  false,
-			checkFunc: func(t *testing.T, ts *TemplateSource) {
+			checkFunc: func(t *testing.T, ts *core.TemplateSource) {
 				assert.Equal(t, "http://example.com/template.yaml", ts.URL)
 				assert.Empty(t, ts.Body)
 			},
@@ -133,7 +118,7 @@ func TestResolveTemplate(t *testing.T) {
 			wantURL:  true,
 			wantBody: false,
 			wantErr:  false,
-			checkFunc: func(t *testing.T, ts *TemplateSource) {
+			checkFunc: func(t *testing.T, ts *core.TemplateSource) {
 				assert.Equal(t, "https://my-bucket.s3.amazonaws.com/path/to/template.yaml", ts.URL)
 				assert.Empty(t, ts.Body)
 			},
@@ -148,13 +133,16 @@ func TestResolveTemplate(t *testing.T) {
 			errMsg:   "invalid S3 URI",
 		},
 		{
-			name:     "unsupported provider",
+			name:     "GCP provider returns empty template",
 			provider: "gcp",
 			template: "",
 			version:  "v1.0.0",
 			region:   "us-central1",
-			wantErr:  true,
-			errMsg:   "unsupported provider: gcp",
+			wantErr:  false,
+			checkFunc: func(t *testing.T, result *core.TemplateSource) {
+				assert.Empty(t, result.URL)
+				assert.Empty(t, result.Body)
+			},
 		},
 	}
 
@@ -283,7 +271,7 @@ func TestParseParameters(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := ParseParameters(tt.params)
+			result, err := core.ParseParameters(tt.params)
 
 			if tt.wantErr {
 				require.Error(t, err)
@@ -371,8 +359,8 @@ func TestResolveAWSTemplate(t *testing.T) {
 
 func TestDeployOptions(t *testing.T) {
 	t.Run("deploy options with all fields", func(t *testing.T) {
-		opts := &DeployOptions{
-			StackName:  "my-stack",
+		opts := &core.DeployOptions{
+			Name:       "my-project",
 			Template:   "https://example.com/template.yaml",
 			Version:    "v1.0.0",
 			Parameters: []string{"Key1=Value1", "Key2=Value2"},
@@ -380,7 +368,7 @@ func TestDeployOptions(t *testing.T) {
 			Region:     "us-east-1",
 		}
 
-		assert.Equal(t, "my-stack", opts.StackName)
+		assert.Equal(t, "my-project", opts.Name)
 		assert.Equal(t, "https://example.com/template.yaml", opts.Template)
 		assert.Equal(t, "v1.0.0", opts.Version)
 		assert.Len(t, opts.Parameters, 2)
@@ -391,13 +379,13 @@ func TestDeployOptions(t *testing.T) {
 
 func TestDestroyOptions(t *testing.T) {
 	t.Run("destroy options with all fields", func(t *testing.T) {
-		opts := &DestroyOptions{
-			StackName: "my-stack",
-			Wait:      true,
-			Region:    "us-west-2",
+		opts := &core.DestroyOptions{
+			Name:   "my-project",
+			Wait:   true,
+			Region: "us-west-2",
 		}
 
-		assert.Equal(t, "my-stack", opts.StackName)
+		assert.Equal(t, "my-project", opts.Name)
 		assert.True(t, opts.Wait)
 		assert.Equal(t, "us-west-2", opts.Region)
 	})
@@ -405,7 +393,7 @@ func TestDestroyOptions(t *testing.T) {
 
 func TestTemplateSource(t *testing.T) {
 	t.Run("template source with URL", func(t *testing.T) {
-		ts := &TemplateSource{
+		ts := &core.TemplateSource{
 			URL: "https://example.com/template.yaml",
 		}
 
@@ -414,7 +402,7 @@ func TestTemplateSource(t *testing.T) {
 	})
 
 	t.Run("template source with body", func(t *testing.T) {
-		ts := &TemplateSource{
+		ts := &core.TemplateSource{
 			Body: "template content here",
 		}
 
@@ -425,8 +413,8 @@ func TestTemplateSource(t *testing.T) {
 
 func TestDeployResult(t *testing.T) {
 	t.Run("deploy result fields", func(t *testing.T) {
-		result := &DeployResult{
-			StackName:     "test-stack",
+		result := &core.DeployResult{
+			Name:          "test-project",
 			OperationType: "CREATE",
 			Status:        "CREATE_COMPLETE",
 			Outputs: map[string]string{
@@ -435,7 +423,7 @@ func TestDeployResult(t *testing.T) {
 			NoChanges: false,
 		}
 
-		assert.Equal(t, "test-stack", result.StackName)
+		assert.Equal(t, "test-project", result.Name)
 		assert.Equal(t, "CREATE", result.OperationType)
 		assert.Equal(t, "CREATE_COMPLETE", result.Status)
 		assert.Len(t, result.Outputs, 1)
@@ -443,8 +431,8 @@ func TestDeployResult(t *testing.T) {
 	})
 
 	t.Run("deploy result with no changes", func(t *testing.T) {
-		result := &DeployResult{
-			StackName:     "test-stack",
+		result := &core.DeployResult{
+			Name:          "test-project",
 			OperationType: "UPDATE",
 			Status:        "NO_CHANGES",
 			Outputs:       map[string]string{},
@@ -458,22 +446,22 @@ func TestDeployResult(t *testing.T) {
 
 func TestDestroyResult(t *testing.T) {
 	t.Run("destroy result fields", func(t *testing.T) {
-		result := &DestroyResult{
-			StackName: "test-stack",
-			Status:    "DELETE_COMPLETE",
-			NotFound:  false,
+		result := &core.DestroyResult{
+			Name:     "test-project",
+			Status:   "DELETE_COMPLETE",
+			NotFound: false,
 		}
 
-		assert.Equal(t, "test-stack", result.StackName)
+		assert.Equal(t, "test-project", result.Name)
 		assert.Equal(t, "DELETE_COMPLETE", result.Status)
 		assert.False(t, result.NotFound)
 	})
 
-	t.Run("destroy result for non-existent stack", func(t *testing.T) {
-		result := &DestroyResult{
-			StackName: "nonexistent-stack",
-			Status:    "NOT_FOUND",
-			NotFound:  true,
+	t.Run("destroy result for non-existent project", func(t *testing.T) {
+		result := &core.DestroyResult{
+			Name:     "nonexistent-project",
+			Status:   "NOT_FOUND",
+			NotFound: true,
 		}
 
 		assert.True(t, result.NotFound)
@@ -482,20 +470,32 @@ func TestDestroyResult(t *testing.T) {
 }
 
 func TestProviderCaseInsensitive(t *testing.T) {
-	testCases := []string{"aws", "AWS", "Aws", "aWs"}
+	// Test that provider matching is case-insensitive by verifying
+	// that different cases don't return "unsupported provider" error.
+	// They may fail for other reasons (e.g., missing credentials), which is fine.
+	testCases := []struct {
+		name     string
+		provider string
+	}{
+		{"AWS lowercase", "aws"},
+		{"AWS uppercase", "AWS"},
+		{"AWS mixed case", "Aws"},
+		{"AWS random case", "aWs"},
+		{"GCP lowercase", "gcp"},
+		{"GCP uppercase", "GCP"},
+		{"GCP mixed case", "Gcp"},
+	}
 
-	for _, provider := range testCases {
-		t.Run("provider: "+provider, func(t *testing.T) {
+	for _, tt := range testCases {
+		t.Run(tt.name, func(t *testing.T) {
 			ctx := context.Background()
-			deployer, err := NewDeployer(ctx, provider, "us-east-1")
+			_, err := NewDeployer(ctx, tt.provider, "us-east-1")
 
-			// Note: This might fail in test environments without AWS credentials
-			// but we're mainly testing the case-insensitive matching logic
-			if err != nil && !strings.Contains(err.Error(), "failed to load AWS configuration") {
-				t.Errorf("Expected AWS configuration error or success, got: %v", err)
-			}
-			if err == nil {
-				require.NotNil(t, deployer)
+			// The test passes if we don't get "unsupported provider" error.
+			// Credential errors are acceptable since we're testing provider matching logic.
+			if err != nil {
+				assert.NotContains(t, err.Error(), "unsupported provider",
+					"Provider %q should be recognized regardless of case", tt.provider)
 			}
 		})
 	}
