@@ -31,8 +31,16 @@ trigger-docs-build:
     gh workflow run build-docs.yml --repo runvoy/runvoy.github.io
 
 # Upgrade all dependencies
-upgrade-dependencies:
+upgrade-dependencies: upgrade-dependencies-go upgrade-dependencies-webapp
+
+# Upgrade all Go dependencies
+upgrade-dependencies-go:
     go get -u all
+
+# Upgrade all webapp dependencies
+[working-directory: 'cmd/webapp']
+upgrade-dependencies-webapp:
+    npm upgrade
 
 # TODO run agg into a github action and store it as asset so to avoid
 # having to commit the gif to the repository
