@@ -6,7 +6,8 @@ type BackendProvider string
 const (
 	// AWS is the Amazon Web Services backend provider.
 	AWS BackendProvider = "AWS"
-	// Example: GCP BackendProvider = "GCP".
+	// GCP is the Google Cloud Platform backend provider.
+	GCP BackendProvider = "GCP"
 )
 
 // Environment represents the execution environment (e.g., CLI, Lambda).
