@@ -2,6 +2,7 @@ description: Test terraform playbook
 image: docker/library/debian:latest
 git_repo: https://github.com/runvoy/terraform-example.git
 env:
+  DEBIAN_FRONTEND: noninteractive
   TERRAFORM_VERSION: 1.13.5
   TF_VAR_injected_variable: injected_via_playbook
 commands:

@@ -1,0 +1,19 @@
+description: OpenCode + GH example playbook
+image: docker/library/debian:stable
+git_repo: https://github.com/runvoy/runvoy.git
+secrets:
+  - github-token # created with `runvoy secrets create github-token GH_TOKEN "github_pat_xxxxx"`
+env:
+  DEBIAN_FRONTEND: noninteractive
+  GH_VERSION: '2.83.2'
+  OC_VERSION: '1.0.203'
+commands:
+  - apt-get update >/dev/null
+  - apt-get install -y git wget
+  - wget --quiet https://github.com/cli/cli/releases/download/v${GH_VERSION}/gh_${GH_VERSION}_linux_arm64.deb
+  - dpkg -i gh_${GH_VERSION}_linux_arm64.deb
+  - gh pr list
+  - wget --quiet https://github.com/sst/opencode/releases/download/v${OC_VERSION}/opencode-linux-arm64.tar.gz
+  - tar xzf opencode-linux-arm64.tar.gz
+  - ./opencode --version
+  - ./opencode run --model opencode/big-pickle "read AGENTS.md and propose improvements in a new PR using gh CLI"
