@@ -16,14 +16,14 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/ecs v1.70.0
 	github.com/aws/aws-sdk-go-v2/service/iam v1.53.1
 	github.com/aws/aws-sdk-go-v2/service/lambda v1.87.0
-	github.com/aws/aws-sdk-go-v2/service/s3 v1.94.0
+	github.com/aws/aws-sdk-go-v2/service/s3 v1.95.0
 	github.com/aws/aws-sdk-go-v2/service/ssm v1.67.7
 	github.com/aws/aws-sdk-go-v2/service/sts v1.41.5
 	github.com/aws/smithy-go v1.24.0
 	github.com/casbin/casbin/v2 v2.135.0
 	github.com/fatih/color v1.18.0
 	github.com/go-chi/chi/v5 v5.2.3
-	github.com/go-playground/validator/v10 v10.30.0
+	github.com/go-playground/validator/v10 v10.30.1
 	github.com/gorilla/websocket v1.5.3
 	github.com/lmittmann/tint v1.1.2
 	github.com/spf13/cobra v1.10.2
