@@ -40,6 +40,7 @@ type DestroyOptions struct {
 	StackName string
 	Wait      bool   // Wait for completion
 	Region    string // Provider region (optional)
+	Force     bool   // Required for GCP project deletion
 }
 
 // DestroyResult contains the result of a destroy operation.
@@ -71,15 +72,18 @@ type Deployer interface {
 }
 
 // NewDeployer creates a Deployer for the specified provider.
-// Currently supports: "aws".
+// Currently supports: "aws", "gcp".
 func NewDeployer(ctx context.Context, provider, region string) (Deployer, error) {
 	providerLower := strings.ToLower(provider)
 	awsProvider := strings.ToLower(string(constants.AWS))
+	gcpProvider := strings.ToLower(string(constants.GCP))
 	switch providerLower {
 	case awsProvider:
 		return NewAWSDeployer(ctx, region)
+	case gcpProvider:
+		return NewGCPDeployer(ctx, region)
 	default:
-		return nil, fmt.Errorf("unsupported provider: %s (supported: %s)", provider, awsProvider)
+		return nil, fmt.Errorf("unsupported provider: %s (supported: %s, %s)", provider, awsProvider, gcpProvider)
 	}
 }
 
