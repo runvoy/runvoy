@@ -1,0 +1,47 @@
+# runvoy GCP Infrastructure Resources
+#
+# This file defines GCP resources to be created for runvoy backend.
+#
+# Environment variables:
+#   RUNVOY_GCP_PROJECT_ID - GCP project ID (default: "runvoy")
+#   RUNVOY_GCP_REGION - GCP region (e.g., us-central1)
+#   RUNVOY_GCP_BILLING_ACCOUNT - Optional billing account (skip if empty)
+#   RUNVOY_GCP_ORG_ID - Optional organization ID for project placement
+#   RUNVOY_GCP_RELEASES_BUCKET - GCS bucket for Cloud Run source code
+#
+# Usage:
+#   export RUNVOY_GCP_PROJECT_ID=my-project
+#   export RUNVOY_GCP_REGION=us-central1
+#   export RUNVOY_GCP_BILLING_ACCOUNT=012345-6789AB0-CDEF1
+#   export RUNVOY_GCP_RELEASES_BUCKET=my-releases-bucket
+#   runvoy infra apply --provider gcp --template deploy/providers/gcp/resources.yaml
+
+Project:
+  id: ${RUNVOY_GCP_PROJECT_ID}
+  name: Runvoy Backend
+  billing_account: ${RUNVOY_GCP_BILLING_ACCOUNT}
+  org_id: ${RUNVOY_GCP_ORG_ID}
+
+Firestore:
+  database:
+    type: FIRESTORE_NATIVE
+    location: ${RUNVOY_GCP_REGION}
+
+SecretManager:
+  encryption_key:
+    key_ring: runvoy-keyring
+    key: runvoy-secrets-key
+    location: ${RUNVOY_GCP_REGION}
+
+CloudRun:
+  orchestrator:
+    name: runvoy-orchestrator
+    region: ${RUNVOY_GCP_REGION}
+    runtime: go122
+    source: gs://${RUNVOY_GCP_RELEASES_BUCKET}/orchestrator.zip
+
+  processor:
+    name: runvoy-processor
+    region: ${RUNVOY_GCP_REGION}
+    runtime: go122
+    source: gs://${RUNVOY_GCP_RELEASES_BUCKET}/processor.zip

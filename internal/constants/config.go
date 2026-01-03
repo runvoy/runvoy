@@ -39,3 +39,6 @@ const ConfigDirPermissions = 0o750
 
 // ConfigFilePermissions is the file system permissions for config file (0600).
 const ConfigFilePermissions = 0o600
+
+// GCPDefaultProjectName is the default GCP project name for runvoy.
+const GCPDefaultProjectName = "runvoy"

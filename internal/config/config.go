@@ -342,6 +342,16 @@ func bindEnvVars(v *viper.Viper) {
 
 	// Bind provider-specific environment variables
 	awsconfig.BindEnvVars(v)
+	bindGCPEnvVars(v)
+}
+
+// bindGCPEnvVars binds GCP-specific environment variables.
+func bindGCPEnvVars(v *viper.Viper) {
+	_ = v.BindEnv("gcp.project_id", "RUNVOY_GCP_PROJECT_ID")
+	_ = v.BindEnv("gcp.region", "RUNVOY_GCP_REGION")
+	_ = v.BindEnv("gcp.billing_account", "RUNVOY_GCP_BILLING_ACCOUNT")
+	_ = v.BindEnv("gcp.org_id", "RUNVOY_GCP_ORG_ID")
+	_ = v.BindEnv("gcp.releases_bucket", "RUNVOY_GCP_RELEASES_BUCKET")
 }
 
 func validateOrchestratorConfig(cfg *Config) error {
