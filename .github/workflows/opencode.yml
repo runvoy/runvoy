@@ -35,5 +35,5 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          model: opencode/big-pickle
+          model: zenml-ai/glm-4.7-free
           use_github_token: "true"
