@@ -1,6 +1,6 @@
 module github.com/runvoy/runvoy
 
-go 1.25.0
+go 1.27
 
 require (
 	github.com/akrylysov/algnhsa v1.1.0
