@@ -13,7 +13,7 @@ event_processor_log_group := env('EVENT_PROCESSOR_LOG_GROUP', '/aws/lambda/runvo
 stack_name := env('RUNVOY_CLOUDFORMATION_BACKEND_STACK', 'runvoy-backend')
 admin_email := env('RUNVOY_ADMIN_EMAIL', 'admin@web.runvoy.site')
 version := trim(read('VERSION'))
-git_short_hash := trim(`git rev-parse --short HEAD`)
+git_short_hash := trim(`git rev-parse --short HEAD 2>/dev/null || echo "unknown"`)
 build_date := datetime_utc('%Y%m%d')
 build_flags_x := '-X=github.com/runvoy/runvoy/internal/constants.version='
 build_flags_regions := '-X=github.com/runvoy/runvoy/internal/providers/aws/constants.rawReleaseRegions='

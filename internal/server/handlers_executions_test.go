@@ -73,7 +73,7 @@ func TestHandleRunCommand_Success(t *testing.T) {
 	body, err := json.Marshal(reqBody)
 	require.NoError(t, err)
 
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/run", bytes.NewReader(body))
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/run", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	req = addAuthenticatedUser(req, &api.User{
 		Email: "user@example.com",
@@ -101,7 +101,7 @@ func TestHandleRunCommand_NoAuthentication(t *testing.T) {
 	body, err := json.Marshal(reqBody)
 	require.NoError(t, err)
 
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/run", bytes.NewReader(body))
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/run", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 
 	w := httptest.NewRecorder()
@@ -113,7 +113,7 @@ func TestHandleRunCommand_NoAuthentication(t *testing.T) {
 func TestHandleRunCommand_InvalidJSON(t *testing.T) {
 	router := newExecutionHandlerRouter(t, nil, nil)
 
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/run", bytes.NewReader([]byte("invalid json")))
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/run", bytes.NewReader([]byte("invalid json")))
 	req.Header.Set("Content-Type", "application/json")
 	req = addAuthenticatedUser(req, &api.User{
 		Email: "user@example.com",
@@ -156,7 +156,7 @@ func TestHandleRunCommand_WithEnvironmentVariables(t *testing.T) {
 	body, err := json.Marshal(reqBody)
 	require.NoError(t, err)
 
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/run", bytes.NewReader(body))
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/run", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	req = addAuthenticatedUser(req, &api.User{
 		Email: "user@example.com",
@@ -209,7 +209,7 @@ func TestHandleRunCommand_ReturnsWebSocketURL(t *testing.T) {
 	body, err := json.Marshal(reqBody)
 	require.NoError(t, err)
 
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/run", bytes.NewReader(body))
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/run", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-Forwarded-For", "203.0.113.10")
 	req = addAuthenticatedUser(req, &api.User{
@@ -252,7 +252,7 @@ func TestHandleRunCommand_WithTimeout(t *testing.T) {
 	body, err := json.Marshal(reqBody)
 	require.NoError(t, err)
 
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/run", bytes.NewReader(body))
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/run", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	req = addAuthenticatedUser(req, &api.User{
 		Email: "user@example.com",
@@ -313,7 +313,7 @@ func TestHandleGetExecutionLogs_Success(t *testing.T) {
 	runner := &testRunner{}
 	router := newExecutionHandlerRouter(t, nil, runner)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/executions/exec-123/logs", http.NoBody)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/executions/exec-123/logs", http.NoBody)
 	req = addAuthenticatedUser(req, &api.User{
 		Email: "user@example.com",
 		Role:  "developer",
@@ -333,7 +333,7 @@ func TestHandleGetExecutionLogs_Success(t *testing.T) {
 func TestHandleGetExecutionLogs_NoAuthentication(t *testing.T) {
 	router := newExecutionHandlerRouter(t, nil, nil)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/executions/exec-123/logs", http.NoBody)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/executions/exec-123/logs", http.NoBody)
 
 	// Set up chi route context
 	rctx := chi.NewRouteContext()
@@ -349,7 +349,7 @@ func TestHandleGetExecutionLogs_NoAuthentication(t *testing.T) {
 func TestHandleGetExecutionLogs_MissingExecutionID(t *testing.T) {
 	router := newExecutionHandlerRouter(t, nil, nil)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/executions//logs", http.NoBody)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/executions//logs", http.NoBody)
 	req = addAuthenticatedUser(req, &api.User{
 		Email: "user@example.com",
 		Role:  "developer",
@@ -382,7 +382,7 @@ func TestHandleGetBackendLogsTrace_Success(t *testing.T) {
 	}
 	router := newExecutionHandlerRouter(t, nil, runner)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/trace/req-123", http.NoBody)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/trace/req-123", http.NoBody)
 
 	// Set up chi route context
 	rctx := chi.NewRouteContext()
@@ -403,7 +403,7 @@ func TestHandleGetBackendLogsTrace_Success(t *testing.T) {
 func TestHandleGetBackendLogsTrace_MissingRequestID(t *testing.T) {
 	router := newExecutionHandlerRouter(t, nil, nil)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/trace/", http.NoBody)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/trace/", http.NoBody)
 
 	// Set up chi route context with empty request ID
 	rctx := chi.NewRouteContext()
@@ -424,7 +424,7 @@ func TestHandleGetBackendLogsTrace_ServiceError(t *testing.T) {
 	}
 	router := newExecutionHandlerRouter(t, nil, runner)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/trace/req-123", http.NoBody)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/trace/req-123", http.NoBody)
 
 	// Set up chi route context
 	rctx := chi.NewRouteContext()
@@ -455,7 +455,7 @@ func TestHandleGetExecutionStatus_Success(t *testing.T) {
 	}
 	router := newExecutionHandlerRouter(t, execRepo, nil)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/executions/exec-123/status", http.NoBody)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/executions/exec-123/status", http.NoBody)
 
 	// Set up chi route context
 	rctx := chi.NewRouteContext()
@@ -481,7 +481,7 @@ func TestHandleGetExecutionStatus_NotFound(t *testing.T) {
 	}
 	router := newExecutionHandlerRouter(t, execRepo, nil)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/executions/nonexistent/status", http.NoBody)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/executions/nonexistent/status", http.NoBody)
 
 	// Set up chi route context
 	rctx := chi.NewRouteContext()
@@ -497,7 +497,7 @@ func TestHandleGetExecutionStatus_NotFound(t *testing.T) {
 func TestHandleGetExecutionStatus_MissingExecutionID(t *testing.T) {
 	router := newExecutionHandlerRouter(t, nil, nil)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/executions//status", http.NoBody)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/executions//status", http.NoBody)
 
 	// Set up chi route context with empty execution ID
 	rctx := chi.NewRouteContext()
@@ -525,7 +525,7 @@ func TestHandleKillExecution_Success(t *testing.T) {
 	runner := &testRunner{}
 	router := newExecutionHandlerRouter(t, execRepo, runner)
 
-	req := httptest.NewRequest(http.MethodDelete, "/api/v1/executions/exec-123", http.NoBody)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodDelete, "/api/v1/executions/exec-123", http.NoBody)
 
 	// Set up chi route context
 	rctx := chi.NewRouteContext()
@@ -547,7 +547,7 @@ func TestHandleKillExecution_NotFound(t *testing.T) {
 	}
 	router := newExecutionHandlerRouter(t, execRepo, nil)
 
-	req := httptest.NewRequest(http.MethodDelete, "/api/v1/executions/nonexistent", http.NoBody)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodDelete, "/api/v1/executions/nonexistent", http.NoBody)
 
 	// Set up chi route context
 	rctx := chi.NewRouteContext()
@@ -563,7 +563,7 @@ func TestHandleKillExecution_NotFound(t *testing.T) {
 func TestHandleKillExecution_MissingExecutionID(t *testing.T) {
 	router := newExecutionHandlerRouter(t, nil, nil)
 
-	req := httptest.NewRequest(http.MethodDelete, "/api/v1/executions/", http.NoBody)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodDelete, "/api/v1/executions/", http.NoBody)
 
 	// Set up chi route context with empty execution ID
 	rctx := chi.NewRouteContext()
@@ -584,7 +584,7 @@ func TestHandleKillExecution_NoContent(t *testing.T) {
 	}
 	router := newExecutionHandlerRouter(t, execRepo, nil)
 
-	req := httptest.NewRequest(http.MethodDelete, "/api/v1/executions/exec-finished", http.NoBody)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodDelete, "/api/v1/executions/exec-finished", http.NoBody)
 
 	// Set up chi route context
 	rctx := chi.NewRouteContext()
@@ -628,7 +628,7 @@ func TestHandleListExecutions_Success(t *testing.T) {
 	}
 	router := newExecutionHandlerRouter(t, execRepo, nil)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/executions", http.NoBody)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/executions", http.NoBody)
 
 	w := httptest.NewRecorder()
 	router.handleListExecutions(w, req)
@@ -656,7 +656,7 @@ func TestHandleListExecutions_WithLimit(t *testing.T) {
 	}
 	router := newExecutionHandlerRouter(t, execRepo, nil)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/executions?limit=20", http.NoBody)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/executions?limit=20", http.NoBody)
 
 	w := httptest.NewRecorder()
 	router.handleListExecutions(w, req)
@@ -679,7 +679,7 @@ func TestHandleListExecutions_WithStatusFilter(t *testing.T) {
 	}
 	router := newExecutionHandlerRouter(t, execRepo, nil)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/executions?status=RUNNING,TERMINATING", http.NoBody)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/executions?status=RUNNING,TERMINATING", http.NoBody)
 
 	w := httptest.NewRecorder()
 	router.handleListExecutions(w, req)
@@ -702,7 +702,7 @@ func TestHandleListExecutions_WithStatusFilterAndLimit(t *testing.T) {
 	}
 	router := newExecutionHandlerRouter(t, execRepo, nil)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/executions?limit=50&status=SUCCEEDED", http.NoBody)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/executions?limit=50&status=SUCCEEDED", http.NoBody)
 
 	w := httptest.NewRecorder()
 	router.handleListExecutions(w, req)
@@ -729,7 +729,7 @@ func TestHandleListExecutions_InvalidLimit(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			req := httptest.NewRequest(http.MethodGet, "/api/v1/executions?limit="+tt.limit, http.NoBody)
+			req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/executions?limit="+tt.limit, http.NoBody)
 
 			w := httptest.NewRecorder()
 			router.handleListExecutions(w, req)
@@ -748,7 +748,7 @@ func TestHandleListExecutions_ZeroLimit(t *testing.T) {
 	}
 	router := newExecutionHandlerRouter(t, execRepo, nil)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/executions?limit=0", http.NoBody)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/executions?limit=0", http.NoBody)
 
 	w := httptest.NewRecorder()
 	router.handleListExecutions(w, req)
@@ -764,7 +764,7 @@ func TestHandleListExecutions_EmptyResult(t *testing.T) {
 	}
 	router := newExecutionHandlerRouter(t, execRepo, nil)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/executions", http.NoBody)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/executions", http.NoBody)
 
 	w := httptest.NewRecorder()
 	router.handleListExecutions(w, req)
@@ -790,7 +790,7 @@ func TestHandleListExecutions_ServiceError(t *testing.T) {
 	}
 	router := newExecutionHandlerRouter(t, execRepo, nil)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/executions", http.NoBody)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/executions", http.NoBody)
 
 	w := httptest.NewRecorder()
 	router.handleListExecutions(w, req)
@@ -815,7 +815,7 @@ func TestHandleListExecutions_MultipleStatusesWithSpaces(t *testing.T) {
 	}
 	router := newExecutionHandlerRouter(t, execRepo, nil)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/executions?status=RUNNING,%20PENDING%20,%20SUCCEEDED", http.NoBody)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/executions?status=RUNNING,%20PENDING%20,%20SUCCEEDED", http.NoBody)
 
 	w := httptest.NewRecorder()
 	router.handleListExecutions(w, req)
@@ -844,7 +844,7 @@ func BenchmarkHandleRunCommand(b *testing.B) {
 	b.ReportAllocs()
 
 	for b.Loop() {
-		req := httptest.NewRequest(http.MethodPost, "/api/v1/run", bytes.NewReader(body))
+		req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/run", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
 		req = addAuthenticatedUser(req, user)
 
@@ -865,7 +865,7 @@ func BenchmarkHandleListExecutions(b *testing.B) {
 	b.ReportAllocs()
 
 	for b.Loop() {
-		req := httptest.NewRequest(http.MethodGet, "/api/v1/executions", http.NoBody)
+		req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/executions", http.NoBody)
 		w := httptest.NewRecorder()
 		router.handleListExecutions(w, req)
 	}

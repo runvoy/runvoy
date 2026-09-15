@@ -39,10 +39,10 @@ func ParseImageReference(image string) ImageReference {
 
 	// Split on '@' to handle digest references (e.g., image@sha256:...)
 	var remainder string
-	idx := strings.Index(image, "@")
-	if idx != -1 {
-		remainder = image[:idx]
-		ref.Tag = image[idx+1:] // Everything after @ is the digest
+	before, after, ok := strings.Cut(image, "@")
+	if ok {
+		remainder = before
+		ref.Tag = after // Everything after @ is the digest
 	} else {
 		remainder = image
 		// Split on ':' to extract tag

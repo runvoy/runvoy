@@ -49,9 +49,9 @@ type Response struct {
 func (c *Client) buildURL(path string) (string, error) {
 	// Split path and query string if present
 	var pathPart, queryString string
-	if idx := strings.Index(path, "?"); idx != -1 {
-		pathPart = path[:idx]
-		queryString = path[idx+1:]
+	if before, after, ok := strings.Cut(path, "?"); ok {
+		pathPart = before
+		queryString = after
 	} else {
 		pathPart = path
 	}

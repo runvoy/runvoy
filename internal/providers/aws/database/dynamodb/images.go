@@ -222,9 +222,9 @@ func parseImageReference(image string) (name, tag string) {
 // Returns the remainder (image without tag) and the extracted tag.
 func extractTagFromImage(image string) (remainder, tag string) {
 	// Split on '@' to handle digest references
-	idx := strings.Index(image, "@")
-	if idx != -1 {
-		return image[:idx], image[idx+1:] // Everything after @ is the digest
+	before, after, ok := strings.Cut(image, "@")
+	if ok {
+		return before, after // Everything after @ is the digest
 	}
 
 	// Split on ':' to extract tag

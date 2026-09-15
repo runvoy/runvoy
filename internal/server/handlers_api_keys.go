@@ -31,5 +31,5 @@ func (r *Router) handleClaimAPIKey(w http.ResponseWriter, req *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
-	_ = json.NewEncoder(w).Encode(claimResp)
+	_ = json.NewEncoder(w).Encode(claimResp) //nolint:gosec // G117: APIKey field is intentional
 }

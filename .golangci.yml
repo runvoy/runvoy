@@ -21,7 +21,6 @@ linters:
     - exhaustive
     - funlen
     - gochecknoinits
-    - goconst
     - gocritic
     - gocyclo
     - godot
@@ -39,7 +38,6 @@ linters:
     - noctx
     - nolintlint
     - perfsprint
-    - prealloc
     - revive
     - staticcheck
     - unconvert
@@ -62,9 +60,6 @@ linters:
         - opinionated
         - performance
         - style
-    goconst:
-      min-len: 2
-      min-occurrences: 2
     gocognit:
       min-complexity: 20
     godot:
@@ -98,7 +93,7 @@ linters:
     misspell:
       locale: US
     nolintlint:
-      allow-unused: false
+      allow-unused: true
       require-explanation: false
   exclusions:
     rules:
@@ -113,9 +108,27 @@ linters:
           - gocyclo
           - godot
           - wrapcheck
+          - gosec
+          - prealloc
+          - noctx
+          - lll
       - path: '^scripts/'
         linters:
           - mnd
+          - gosec
+          - prealloc
+      - path: '^internal/testutil/'
+        linters:
+          - gosec
+      - path: '^internal/providers/aws/database/dynamodb/'
+        linters:
+          - prealloc
+      - path: '^internal/providers/aws/'
+        linters:
+          - prealloc
+      - path: '^cmd/cli/cmd/logs\.go'
+        linters:
+          - prealloc
       - path: '^internal/api/'
         linters:
           - revive

@@ -199,7 +199,7 @@ func generateReleaseSection(version, date string, categorized map[string][]commi
 	var b strings.Builder
 
 	// Header
-	b.WriteString(fmt.Sprintf("## [%s] - %s\n\n", version, date))
+	fmt.Fprintf(&b, "## [%s] - %s\n\n", version, date)
 
 	// Order of sections according to Keep a Changelog
 	sections := []string{"Added", "Changed", "Deprecated", "Removed", "Fixed", "Security"}
@@ -210,7 +210,7 @@ func generateReleaseSection(version, date string, categorized map[string][]commi
 			continue
 		}
 
-		b.WriteString(fmt.Sprintf("### %s\n\n", section))
+		fmt.Fprintf(&b, "### %s\n\n", section)
 
 		// Sort commits by hash for consistent ordering
 		sort.Slice(commits, func(i, j int) bool {
@@ -219,7 +219,7 @@ func generateReleaseSection(version, date string, categorized map[string][]commi
 
 		for _, c := range commits {
 			url := githubBaseURL + c.hash
-			b.WriteString(fmt.Sprintf("* [%s](%s) %s\n", c.shortHash, url, c.message))
+			fmt.Fprintf(&b, "* [%s](%s) %s\n", c.shortHash, url, c.message)
 		}
 
 		b.WriteString("\n")

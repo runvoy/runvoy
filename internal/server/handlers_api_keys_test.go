@@ -61,7 +61,7 @@ func TestHandleClaimAPIKey_Success(t *testing.T) {
 	}
 	router := newAPIKeyHandlerRouter(t, userRepo)
 
-	req := httptest.NewRequest(http.MethodGet, "/claim/test-secret-token-123", http.NoBody)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/claim/test-secret-token-123", http.NoBody)
 
 	// Set up chi route context
 	rctx := chi.NewRouteContext()
@@ -82,7 +82,7 @@ func TestHandleClaimAPIKey_Success(t *testing.T) {
 func TestHandleClaimAPIKey_MissingToken(t *testing.T) {
 	router := newAPIKeyHandlerRouter(t, nil)
 
-	req := httptest.NewRequest(http.MethodGet, "/claim/", http.NoBody)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/claim/", http.NoBody)
 
 	// Set up chi route context with empty token
 	rctx := chi.NewRouteContext()
@@ -103,7 +103,7 @@ func TestHandleClaimAPIKey_MissingToken(t *testing.T) {
 func TestHandleClaimAPIKey_WhitespaceOnlyToken(t *testing.T) {
 	router := newAPIKeyHandlerRouter(t, nil)
 
-	req := httptest.NewRequest(http.MethodGet, "/claim/%20%20%20", http.NoBody)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/claim/%20%20%20", http.NoBody)
 
 	// Set up chi route context with whitespace-only token
 	rctx := chi.NewRouteContext()
@@ -124,7 +124,7 @@ func TestHandleClaimAPIKey_TokenNotFound(t *testing.T) {
 	}
 	router := newAPIKeyHandlerRouter(t, userRepo)
 
-	req := httptest.NewRequest(http.MethodGet, "/claim/nonexistent-token", http.NoBody)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/claim/nonexistent-token", http.NoBody)
 
 	// Set up chi route context
 	rctx := chi.NewRouteContext()
@@ -155,7 +155,7 @@ func TestHandleClaimAPIKey_ExpiredToken(t *testing.T) {
 	}
 	router := newAPIKeyHandlerRouter(t, userRepo)
 
-	req := httptest.NewRequest(http.MethodGet, "/claim/expired-token", http.NoBody)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/claim/expired-token", http.NoBody)
 
 	// Set up chi route context
 	rctx := chi.NewRouteContext()
@@ -188,7 +188,7 @@ func TestHandleClaimAPIKey_AlreadyClaimed(t *testing.T) {
 	}
 	router := newAPIKeyHandlerRouter(t, userRepo)
 
-	req := httptest.NewRequest(http.MethodGet, "/claim/already-claimed-token", http.NoBody)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/claim/already-claimed-token", http.NoBody)
 
 	// Set up chi route context
 	rctx := chi.NewRouteContext()
@@ -210,7 +210,7 @@ func TestHandleClaimAPIKey_DatabaseError(t *testing.T) {
 	}
 	router := newAPIKeyHandlerRouter(t, userRepo)
 
-	req := httptest.NewRequest(http.MethodGet, "/claim/test-token", http.NoBody)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/claim/test-token", http.NoBody)
 
 	// Set up chi route context
 	rctx := chi.NewRouteContext()
@@ -231,7 +231,7 @@ func TestHandleClaimAPIKey_ServiceError(t *testing.T) {
 	}
 	router := newAPIKeyHandlerRouter(t, userRepo)
 
-	req := httptest.NewRequest(http.MethodGet, "/claim/test-token", http.NoBody)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/claim/test-token", http.NoBody)
 
 	// Set up chi route context
 	rctx := chi.NewRouteContext()
@@ -264,7 +264,7 @@ func TestHandleClaimAPIKey_WithLeadingTrailingSpaces(t *testing.T) {
 	}
 	router := newAPIKeyHandlerRouter(t, userRepo)
 
-	req := httptest.NewRequest(http.MethodGet, "/claim/%20%20test-token%20%20", http.NoBody)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/claim/%20%20test-token%20%20", http.NoBody)
 
 	// Set up chi route context with spaces
 	rctx := chi.NewRouteContext()
@@ -300,7 +300,7 @@ func TestHandleClaimAPIKey_CapturesClientIP(t *testing.T) {
 	}
 	router := newAPIKeyHandlerRouter(t, userRepo)
 
-	req := httptest.NewRequest(http.MethodGet, "/claim/test-token", http.NoBody)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/claim/test-token", http.NoBody)
 	req.Header.Set("X-Forwarded-For", "203.0.113.1")
 
 	// Set up chi route context
@@ -337,7 +337,7 @@ func TestHandleClaimAPIKey_MarkAsViewedError(t *testing.T) {
 	}
 	router := newAPIKeyHandlerRouter(t, userRepo)
 
-	req := httptest.NewRequest(http.MethodGet, "/claim/test-token", http.NoBody)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/claim/test-token", http.NoBody)
 
 	// Set up chi route context
 	rctx := chi.NewRouteContext()
@@ -379,7 +379,7 @@ func BenchmarkHandleClaimAPIKey(b *testing.B) {
 	b.ReportAllocs()
 
 	for b.Loop() {
-		req := httptest.NewRequest(http.MethodGet, "/claim/test-token", http.NoBody)
+		req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/claim/test-token", http.NoBody)
 
 		// Set up chi route context
 		rctx := chi.NewRouteContext()

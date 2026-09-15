@@ -23,7 +23,7 @@ import (
 
 // Helper to create request with user context and logger
 func createAuthenticatedRequest(method, path string, user *api.User) *http.Request {
-	req := httptest.NewRequest(method, path, http.NoBody)
+	req := httptest.NewRequestWithContext(context.Background(), method, path, http.NoBody)
 	ctx := context.WithValue(req.Context(), userContextKey, user)
 	// Add logger to context so GetLoggerFromContext works
 	logger := testutil.SilentLogger()
@@ -122,7 +122,7 @@ func TestHandleCreateUserAuthorizationDenied(t *testing.T) {
 		Role:  "admin",
 	}
 	_, _ = json.Marshal(createReq)
-	req.Body = httptest.NewRequest("POST", "/", http.NoBody).Body
+	req.Body = httptest.NewRequestWithContext(context.Background(), "POST", "/", http.NoBody).Body
 
 	// We can't easily test the enforcer without major refactoring
 	// This is a limitation of the current design - the enforcer is embedded
@@ -373,7 +373,7 @@ func TestHandleRunCommandStructure(t *testing.T) {
 	body, _ := json.Marshal(execReq)
 	req := createAuthenticatedRequest("POST", "/api/v1/run", user)
 	req.Header.Set("Content-Type", "application/json")
-	req.Body = httptest.NewRequest("POST", "/", bytes.NewReader(body)).Body
+	req.Body = httptest.NewRequestWithContext(context.Background(), "POST", "/", bytes.NewReader(body)).Body
 
 	w := httptest.NewRecorder()
 	router.handleRunCommand(w, req)
