@@ -7,8 +7,8 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
-	"github.com/runvoy/runvoy/internal/api"
-	"github.com/runvoy/runvoy/internal/database"
+	"code.l3x.in/runvoy/internal/api"
+	"code.l3x.in/runvoy/internal/database"
 )
 
 // ImageRepository defines the interface for listing images.

@@ -329,7 +329,7 @@
         <h3>Links</h3>
         <ul class="links-list">
             <li>
-                <a href="https://github.com/runvoy/runvoy" target="_blank" rel="noopener">
+                <a href="https://code.l3x.in/runvoy" target="_blank" rel="noopener">
                     GitHub Repository
                 </a>
             </li>

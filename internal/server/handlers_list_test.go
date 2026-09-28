@@ -5,8 +5,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/runvoy/runvoy/internal/backend/orchestrator"
-	"github.com/runvoy/runvoy/internal/testutil"
+	"code.l3x.in/runvoy/internal/backend/orchestrator"
+	"code.l3x.in/runvoy/internal/testutil"
 
 	"github.com/stretchr/testify/assert"
 )

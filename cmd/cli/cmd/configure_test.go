@@ -7,7 +7,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/runvoy/runvoy/internal/config"
+	"code.l3x.in/runvoy/internal/config"
 )
 
 // mockOutputInterfaceWithPrompt extends mockOutputInterface with configurable Prompt behavior

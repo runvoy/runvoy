@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/runvoy/runvoy/internal/api"
-	"github.com/runvoy/runvoy/internal/database"
-	appErrors "github.com/runvoy/runvoy/internal/errors"
-	loggerPkg "github.com/runvoy/runvoy/internal/logger"
-	"github.com/runvoy/runvoy/internal/providers/aws/secrets"
+	"code.l3x.in/runvoy/internal/api"
+	"code.l3x.in/runvoy/internal/database"
+	appErrors "code.l3x.in/runvoy/internal/errors"
+	loggerPkg "code.l3x.in/runvoy/internal/logger"
+	"code.l3x.in/runvoy/internal/providers/aws/secrets"
 )
 
 // MetadataRepository defines the interface for secret metadata operations.

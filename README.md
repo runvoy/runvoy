@@ -8,11 +8,11 @@
     <em>Run arbitrary commands on ephemeral containers in your cloud account — no complex setup required.</em>
 </p>
 <p align="center">
-    <a href="https://github.com/runvoy/runvoy/actions/workflows/tests-and-coverage-go.yml" target="_blank">
-        <img src="https://github.com/runvoy/runvoy/actions/workflows/tests-and-coverage-go.yml/badge.svg?event=push&branch=main" alt="Tests (Go)">
+    <a href="https://code.l3x.in/runvoy/actions/workflows/tests-and-coverage-go.yml" target="_blank">
+        <img src="https://code.l3x.in/runvoy/actions/workflows/tests-and-coverage-go.yml/badge.svg?event=push&branch=main" alt="Tests (Go)">
     </a>
-    <a href="https://github.com/runvoy/runvoy/actions/workflows/tests-and-coverage-svelte.yml" target="_blank">
-        <img src="https://github.com/runvoy/runvoy/actions/workflows/tests-and-coverage-svelte.yml/badge.svg?event=push&branch=main" alt="Tests (Svelte)">
+    <a href="https://code.l3x.in/runvoy/actions/workflows/tests-and-coverage-svelte.yml" target="_blank">
+        <img src="https://code.l3x.in/runvoy/actions/workflows/tests-and-coverage-svelte.yml/badge.svg?event=push&branch=main" alt="Tests (Svelte)">
     </a>
     <a href="https://codecov.io/github/runvoy/runvoy" >
         <img src="https://codecov.io/github/runvoy/runvoy/graph/badge.svg?token=Q673GMB33N"/>
@@ -20,13 +20,13 @@
     <a href="https://golang.org" target="_blank">
         <img src="https://img.shields.io/badge/Go-1.25+-00ADD8?logo=go" alt="Go version">
     </a>
-    <a href="https://goreportcard.com/badge/github.com/runvoy/runvoy" target="_blank">
-        <img src="https://goreportcard.com/badge/github.com/runvoy/runvoy" alt="Go Report Card">
+    <a href="https://goreportcard.com/badge/code.l3x.in/runvoy" target="_blank">
+        <img src="https://goreportcard.com/badge/code.l3x.in/runvoy" alt="Go Report Card">
     </a>
-    <a href="https://github.com/runvoy/runvoy" target="_blank">
+    <a href="https://code.l3x.in/runvoy" target="_blank">
         <img src="https://img.shields.io/badge/Github-repo-yellow" alt="Github Repository">
     </a>
-    <a href="https://github.com/runvoy/runvoy/releases/latest" target="_blank">
+    <a href="https://code.l3x.in/runvoy/releases/latest" target="_blank">
         <img src="https://img.shields.io/github/release/runvoy/runvoy.svg" alt="Latest Release">
     </a>
     <a href="https://web.runvoy.site" target="_blank">
@@ -130,13 +130,13 @@ Refer to [Architecture](docs/ARCHITECTURE.md) for details.
 
 ## ⚡️ Quick Start
 
-Download the latest release from the [releases page](https://github.com/runvoy/runvoy/releases):
+Download the latest release from the [releases page](https://code.l3x.in/runvoy/releases):
 
 <!-- VERSION_EXAMPLES_START -->
 - **Linux example:**
 
 ```bash
-curl -L -o runvoy-cli-linux-arm64.tar.gz https://github.com/runvoy/runvoy/releases/download/v0.5.0/runvoy_linux_amd64.tar.gz
+curl -L -o runvoy-cli-linux-arm64.tar.gz https://code.l3x.in/runvoy/releases/download/v0.5.0/runvoy_linux_amd64.tar.gz
 tar -xzf runvoy_linux_amd64.tar.gz
 sudo mv runvoy_linux_amd64/runvoy /usr/local/bin/runvoy
 ```
@@ -144,14 +144,14 @@ sudo mv runvoy_linux_amd64/runvoy /usr/local/bin/runvoy
 - **macOS example:**
 
 ```bash
-curl -L -o runvoy_linux_amd64.tar.gz https://github.com/runvoy/runvoy/releases/download/v0.5.0/runvoy_darwin_arm64.tar.gz
+curl -L -o runvoy_linux_amd64.tar.gz https://code.l3x.in/runvoy/releases/download/v0.5.0/runvoy_darwin_arm64.tar.gz
 tar -xzf runvoy_darwin_arm64.tar.gz
 xattr -dr com.apple.quarantine runvoy_darwin_arm64/runvoy
 codesign -s - --deep --force runvoy_darwin_arm64/runvoy
 sudo mv runvoy_darwin_arm64/runvoy /usr/local/bin/runvoy
 ```
 
-- **Windows:** Download the archive from the [release page](https://github.com/runvoy/runvoy/releases/download/v0.5.0/runvoy_windows_amd64.tar.gz). Extract the `runvoy.exe` file from the archive using a tool like 7-Zip
+- **Windows:** Download the archive from the [release page](https://code.l3x.in/runvoy/releases/download/v0.5.0/runvoy_windows_amd64.tar.gz). Extract the `runvoy.exe` file from the archive using a tool like 7-Zip
 <!-- VERSION_EXAMPLES_END -->
 
 ### 🏗️ Deploying the backend infrastructure
@@ -163,7 +163,7 @@ AWS credentials and region needs to be configured in your shell environment ([AW
 - [AdministratorAccess](https://us-east-1.console.aws.amazon.com/iam/home?region=us-west-2#/policies/details/arn%3Aaws%3Aiam%3A%3Aaws%3Apolicy%2FAdministratorAccess)
 - [AmazonECS_FullAccess](https://us-east-1.console.aws.amazon.com/iam/home?region=us-west-2#/policies/details/arn%3Aaws%3Aiam%3A%3Aaws%3Apolicy%2FAmazonECS_FullAccess)
 
-You can review the full list of resources and permissions required for the backend infrastructure in the released [cloudformation-backend.yaml](https://github.com/runvoy/runvoy/releases/download/v0.2.0/cloudformation-backend.yaml) file
+You can review the full list of resources and permissions required for the backend infrastructure in the released [cloudformation-backend.yaml](https://code.l3x.in/runvoy/releases/download/v0.2.0/cloudformation-backend.yaml) file
 
 Bootstrap the backend infrastructure and seed the admin user:
 

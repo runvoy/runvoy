@@ -14,11 +14,11 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/runvoy/runvoy/internal/api"
-	"github.com/runvoy/runvoy/internal/client"
-	"github.com/runvoy/runvoy/internal/client/infra"
-	"github.com/runvoy/runvoy/internal/client/output"
-	"github.com/runvoy/runvoy/internal/constants"
+	"code.l3x.in/runvoy/internal/api"
+	"code.l3x.in/runvoy/internal/client"
+	"code.l3x.in/runvoy/internal/client/infra"
+	"code.l3x.in/runvoy/internal/client/output"
+	"code.l3x.in/runvoy/internal/constants"
 
 	"github.com/gorilla/websocket"
 	"github.com/spf13/cobra"

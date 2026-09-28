@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/runvoy/runvoy/internal/api"
+	"code.l3x.in/runvoy/internal/api"
 )
 
 // Mock repositories for testing

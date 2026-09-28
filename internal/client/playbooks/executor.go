@@ -4,7 +4,7 @@ import (
 	"maps"
 	"strings"
 
-	"github.com/runvoy/runvoy/internal/api"
+	"code.l3x.in/runvoy/internal/api"
 )
 
 // PlaybookExecutor converts Playbook to ExecutionRequest.

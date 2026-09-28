@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/runvoy/runvoy/internal/api"
+	"code.l3x.in/runvoy/internal/api"
 )
 
 // UserRepository defines the interface for user-related database operations.

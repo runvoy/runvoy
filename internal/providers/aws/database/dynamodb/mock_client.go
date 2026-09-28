@@ -11,7 +11,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
-	awsConstants "github.com/runvoy/runvoy/internal/providers/aws/constants"
+	awsConstants "code.l3x.in/runvoy/internal/providers/aws/constants"
 )
 
 const executionIDIndexName = "execution_id-index"

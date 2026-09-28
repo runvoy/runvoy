@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/runvoy/runvoy/internal/api"
-	apperrors "github.com/runvoy/runvoy/internal/errors"
+	"code.l3x.in/runvoy/internal/api"
+	apperrors "code.l3x.in/runvoy/internal/errors"
 )
 
 // ReconcileResources performs health reconciliation for all resources.

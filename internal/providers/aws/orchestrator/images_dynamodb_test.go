@@ -4,9 +4,9 @@ import (
 	"context"
 	"testing"
 
-	"github.com/runvoy/runvoy/internal/api"
-	awsClient "github.com/runvoy/runvoy/internal/providers/aws/client"
-	"github.com/runvoy/runvoy/internal/testutil"
+	"code.l3x.in/runvoy/internal/api"
+	awsClient "code.l3x.in/runvoy/internal/providers/aws/client"
+	"code.l3x.in/runvoy/internal/testutil"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ecs"

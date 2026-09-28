@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/runvoy/runvoy/internal/api"
+	"code.l3x.in/runvoy/internal/api"
 )
 
 // mockClientInterface is a manual mock for testing

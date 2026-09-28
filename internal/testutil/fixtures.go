@@ -8,8 +8,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/runvoy/runvoy/internal/api"
-	"github.com/runvoy/runvoy/internal/constants"
+	"code.l3x.in/runvoy/internal/api"
+	"code.l3x.in/runvoy/internal/constants"
 )
 
 // UserBuilder provides a fluent interface for building test users.

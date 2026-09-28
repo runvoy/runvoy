@@ -8,8 +8,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/runvoy/runvoy/internal/api"
-	"github.com/runvoy/runvoy/internal/config"
+	"code.l3x.in/runvoy/internal/api"
+	"code.l3x.in/runvoy/internal/config"
 )
 
 // mockClientInterfaceForClaim extends mockClientInterface with ClaimAPIKey

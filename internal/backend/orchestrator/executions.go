@@ -11,11 +11,11 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
-	"github.com/runvoy/runvoy/internal/api"
-	"github.com/runvoy/runvoy/internal/auth/authorization"
-	"github.com/runvoy/runvoy/internal/constants"
-	apperrors "github.com/runvoy/runvoy/internal/errors"
-	"github.com/runvoy/runvoy/internal/logger"
+	"code.l3x.in/runvoy/internal/api"
+	"code.l3x.in/runvoy/internal/auth/authorization"
+	"code.l3x.in/runvoy/internal/constants"
+	apperrors "code.l3x.in/runvoy/internal/errors"
+	"code.l3x.in/runvoy/internal/logger"
 )
 
 // ValidateExecutionResourceAccess checks if a user can access all resources required for execution.

@@ -7,12 +7,12 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/runvoy/runvoy/internal/api"
-	"github.com/runvoy/runvoy/internal/auth/authorization"
-	"github.com/runvoy/runvoy/internal/database"
-	apperrors "github.com/runvoy/runvoy/internal/errors"
-	"github.com/runvoy/runvoy/internal/logger"
-	"github.com/runvoy/runvoy/internal/secrets"
+	"code.l3x.in/runvoy/internal/api"
+	"code.l3x.in/runvoy/internal/auth/authorization"
+	"code.l3x.in/runvoy/internal/database"
+	apperrors "code.l3x.in/runvoy/internal/errors"
+	"code.l3x.in/runvoy/internal/logger"
+	"code.l3x.in/runvoy/internal/secrets"
 )
 
 // CreateSecret creates a new secret with the given name, description, key name, and value.

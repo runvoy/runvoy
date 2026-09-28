@@ -3,7 +3,7 @@ package client
 import (
 	"context"
 
-	"github.com/runvoy/runvoy/internal/api"
+	"code.l3x.in/runvoy/internal/api"
 )
 
 // Interface defines the API client interface for dependency injection and testing.

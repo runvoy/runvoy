@@ -6,12 +6,12 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/runvoy/runvoy/internal/api"
-	"github.com/runvoy/runvoy/internal/auth/authorization"
-	"github.com/runvoy/runvoy/internal/config"
-	"github.com/runvoy/runvoy/internal/constants"
-	"github.com/runvoy/runvoy/internal/database"
-	"github.com/runvoy/runvoy/internal/testutil"
+	"code.l3x.in/runvoy/internal/api"
+	"code.l3x.in/runvoy/internal/auth/authorization"
+	"code.l3x.in/runvoy/internal/config"
+	"code.l3x.in/runvoy/internal/constants"
+	"code.l3x.in/runvoy/internal/database"
+	"code.l3x.in/runvoy/internal/testutil"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

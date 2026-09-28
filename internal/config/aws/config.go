@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"strings"
 
-	awsConstants "github.com/runvoy/runvoy/internal/providers/aws/constants"
+	awsConstants "code.l3x.in/runvoy/internal/providers/aws/constants"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awsConfig "github.com/aws/aws-sdk-go-v2/config"

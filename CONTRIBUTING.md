@@ -44,7 +44,7 @@ This project adheres to a [code of conduct](CODE_OF_CONDUCT.md) that all contrib
 3. **Add upstream remote:**
 
    ```bash
-   git remote add upstream https://github.com/runvoy/runvoy.git
+   git remote add upstream https://code.l3x.in/runvoy.git
    ```
 
 4. **Install development dependencies:**

@@ -10,7 +10,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/runvoy/runvoy/internal/constants"
+	"code.l3x.in/runvoy/internal/constants"
 )
 
 const cliHelpStartMarker = "<!-- CLI_HELP_START -->"
@@ -79,7 +79,7 @@ func generateVersionExamplesSection(version string) string {
 	b.WriteString("```bash\n")
 	linuxURL := fmt.Sprintf(
 		"curl -L -o runvoy-cli-linux-arm64.tar.gz "+
-			"https://github.com/runvoy/runvoy/releases/download/%s/runvoy_linux_amd64.tar.gz\n",
+			"https://code.l3x.in/runvoy/releases/download/%s/runvoy_linux_amd64.tar.gz\n",
 		version,
 	)
 	b.WriteString(linuxURL)
@@ -90,7 +90,7 @@ func generateVersionExamplesSection(version string) string {
 	b.WriteString("```bash\n")
 	macosURL := fmt.Sprintf(
 		"curl -L -o runvoy_linux_amd64.tar.gz "+
-			"https://github.com/runvoy/runvoy/releases/download/%s/runvoy_darwin_arm64.tar.gz\n",
+			"https://code.l3x.in/runvoy/releases/download/%s/runvoy_darwin_arm64.tar.gz\n",
 		version,
 	)
 	b.WriteString(macosURL)
@@ -101,7 +101,7 @@ func generateVersionExamplesSection(version string) string {
 	b.WriteString("```\n\n")
 	b.WriteString("- **Windows:** Download the archive from the [release page]")
 	windowsURL := fmt.Sprintf(
-		"(https://github.com/runvoy/runvoy/releases/download/%s/runvoy_windows_amd64.tar.gz)",
+		"(https://code.l3x.in/runvoy/releases/download/%s/runvoy_windows_amd64.tar.gz)",
 		version,
 	)
 	b.WriteString(windowsURL)

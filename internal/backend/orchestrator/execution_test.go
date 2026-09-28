@@ -8,12 +8,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/runvoy/runvoy/internal/api"
-	"github.com/runvoy/runvoy/internal/auth"
-	"github.com/runvoy/runvoy/internal/auth/authorization"
-	"github.com/runvoy/runvoy/internal/constants"
-	"github.com/runvoy/runvoy/internal/database"
-	apperrors "github.com/runvoy/runvoy/internal/errors"
+	"code.l3x.in/runvoy/internal/api"
+	"code.l3x.in/runvoy/internal/auth"
+	"code.l3x.in/runvoy/internal/auth/authorization"
+	"code.l3x.in/runvoy/internal/constants"
+	"code.l3x.in/runvoy/internal/database"
+	apperrors "code.l3x.in/runvoy/internal/errors"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

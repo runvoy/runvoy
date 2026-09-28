@@ -12,9 +12,9 @@ import (
 	"strings"
 	"time"
 
-	awsconfig "github.com/runvoy/runvoy/internal/config/aws"
-	"github.com/runvoy/runvoy/internal/constants"
-	awsConstants "github.com/runvoy/runvoy/internal/providers/aws/constants"
+	awsconfig "code.l3x.in/runvoy/internal/config/aws"
+	"code.l3x.in/runvoy/internal/constants"
+	awsConstants "code.l3x.in/runvoy/internal/providers/aws/constants"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/spf13/viper"

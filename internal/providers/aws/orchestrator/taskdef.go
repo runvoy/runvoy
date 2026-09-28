@@ -9,9 +9,9 @@ import (
 	"strconv"
 	"strings"
 
-	awsClient "github.com/runvoy/runvoy/internal/providers/aws/client"
-	awsConstants "github.com/runvoy/runvoy/internal/providers/aws/constants"
-	"github.com/runvoy/runvoy/internal/providers/aws/ecsdefs"
+	awsClient "code.l3x.in/runvoy/internal/providers/aws/client"
+	awsConstants "code.l3x.in/runvoy/internal/providers/aws/constants"
+	"code.l3x.in/runvoy/internal/providers/aws/ecsdefs"
 
 	awsStd "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ecs"

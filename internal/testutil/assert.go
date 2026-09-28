@@ -4,7 +4,7 @@ import (
 	stderrors "errors"
 	"testing"
 
-	apperrors "github.com/runvoy/runvoy/internal/errors"
+	apperrors "code.l3x.in/runvoy/internal/errors"
 
 	"github.com/stretchr/testify/assert"
 )

@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/runvoy/runvoy/internal/api"
-	awsconstants "github.com/runvoy/runvoy/internal/providers/aws/constants"
-	"github.com/runvoy/runvoy/internal/testutil"
+	"code.l3x.in/runvoy/internal/api"
+	awsconstants "code.l3x.in/runvoy/internal/providers/aws/constants"
+	"code.l3x.in/runvoy/internal/testutil"
 
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"

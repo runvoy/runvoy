@@ -6,11 +6,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/runvoy/runvoy/internal/auth/authorization"
-	"github.com/runvoy/runvoy/internal/config"
-	awsconfig "github.com/runvoy/runvoy/internal/config/aws"
-	"github.com/runvoy/runvoy/internal/constants"
-	"github.com/runvoy/runvoy/internal/testutil"
+	"code.l3x.in/runvoy/internal/auth/authorization"
+	"code.l3x.in/runvoy/internal/config"
+	awsconfig "code.l3x.in/runvoy/internal/config/aws"
+	"code.l3x.in/runvoy/internal/constants"
+	"code.l3x.in/runvoy/internal/testutil"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/stretchr/testify/assert"

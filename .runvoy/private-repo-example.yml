@@ -1,6 +1,6 @@
 description: Clone private Runvoy repository and build the CLI
 image: golang:1.25.4
-git_repo: https://github.com/runvoy/runvoy.git
+git_repo: https://code.l3x.in/runvoy.git
 secrets:
   - github-token
 commands:

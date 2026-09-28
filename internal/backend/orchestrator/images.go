@@ -5,10 +5,10 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/runvoy/runvoy/internal/api"
-	"github.com/runvoy/runvoy/internal/auth/authorization"
-	appErrors "github.com/runvoy/runvoy/internal/errors"
-	"github.com/runvoy/runvoy/internal/logger"
+	"code.l3x.in/runvoy/internal/api"
+	"code.l3x.in/runvoy/internal/auth/authorization"
+	appErrors "code.l3x.in/runvoy/internal/errors"
+	"code.l3x.in/runvoy/internal/logger"
 )
 
 // RegisterImage registers a Docker image and creates the corresponding task definition.

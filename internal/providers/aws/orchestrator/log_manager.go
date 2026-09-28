@@ -5,11 +5,11 @@ import (
 	"log/slog"
 	"strconv"
 
-	"github.com/runvoy/runvoy/internal/api"
-	appErrors "github.com/runvoy/runvoy/internal/errors"
-	"github.com/runvoy/runvoy/internal/logger"
-	awsClient "github.com/runvoy/runvoy/internal/providers/aws/client"
-	awsConstants "github.com/runvoy/runvoy/internal/providers/aws/constants"
+	"code.l3x.in/runvoy/internal/api"
+	appErrors "code.l3x.in/runvoy/internal/errors"
+	"code.l3x.in/runvoy/internal/logger"
+	awsClient "code.l3x.in/runvoy/internal/providers/aws/client"
+	awsConstants "code.l3x.in/runvoy/internal/providers/aws/constants"
 )
 
 // LogManagerImpl implements the LogManager interface for AWS CloudWatch Logs.

@@ -3,10 +3,10 @@ package database
 import (
 	"log/slog"
 
-	"github.com/runvoy/runvoy/internal/config"
-	"github.com/runvoy/runvoy/internal/database"
-	dynamoRepo "github.com/runvoy/runvoy/internal/providers/aws/database/dynamodb"
-	"github.com/runvoy/runvoy/internal/providers/aws/secrets"
+	"code.l3x.in/runvoy/internal/config"
+	"code.l3x.in/runvoy/internal/database"
+	dynamoRepo "code.l3x.in/runvoy/internal/providers/aws/database/dynamodb"
+	"code.l3x.in/runvoy/internal/providers/aws/secrets"
 )
 
 // Repositories bundles all AWS-backed database repositories.

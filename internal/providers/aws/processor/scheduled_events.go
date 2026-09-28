@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 
-	awsConstants "github.com/runvoy/runvoy/internal/providers/aws/constants"
+	awsConstants "code.l3x.in/runvoy/internal/providers/aws/constants"
 
 	"github.com/aws/aws-lambda-go/events"
 )

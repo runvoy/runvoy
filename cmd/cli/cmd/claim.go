@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/runvoy/runvoy/internal/client"
-	"github.com/runvoy/runvoy/internal/client/output"
-	"github.com/runvoy/runvoy/internal/config"
-	"github.com/runvoy/runvoy/internal/constants"
+	"code.l3x.in/runvoy/internal/client"
+	"code.l3x.in/runvoy/internal/client/output"
+	"code.l3x.in/runvoy/internal/config"
+	"code.l3x.in/runvoy/internal/constants"
 
 	"github.com/spf13/cobra"
 )

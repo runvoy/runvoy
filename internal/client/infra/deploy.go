@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	awsconfig "github.com/runvoy/runvoy/internal/config/aws"
-	"github.com/runvoy/runvoy/internal/constants"
+	awsconfig "code.l3x.in/runvoy/internal/config/aws"
+	"code.l3x.in/runvoy/internal/constants"
 )
 
 const (

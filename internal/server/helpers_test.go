@@ -8,7 +8,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	apperrors "github.com/runvoy/runvoy/internal/errors"
+	apperrors "code.l3x.in/runvoy/internal/errors"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/stretchr/testify/assert"

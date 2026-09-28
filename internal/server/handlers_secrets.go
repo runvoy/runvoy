@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/runvoy/runvoy/internal/api"
-	apperrors "github.com/runvoy/runvoy/internal/errors"
+	"code.l3x.in/runvoy/internal/api"
+	apperrors "code.l3x.in/runvoy/internal/errors"
 )
 
 // handleCreateSecret handles POST /api/v1/secrets.

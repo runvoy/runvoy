@@ -12,10 +12,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/runvoy/runvoy/internal/api"
-	"github.com/runvoy/runvoy/internal/config"
-	"github.com/runvoy/runvoy/internal/constants"
-	"github.com/runvoy/runvoy/internal/logger"
+	"code.l3x.in/runvoy/internal/api"
+	"code.l3x.in/runvoy/internal/config"
+	"code.l3x.in/runvoy/internal/constants"
+	"code.l3x.in/runvoy/internal/logger"
 )
 
 // Client provides a generic HTTP client for API operations.

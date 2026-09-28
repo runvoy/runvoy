@@ -6,10 +6,10 @@ import (
 	"log/slog"
 	"strings"
 
-	"github.com/runvoy/runvoy/internal/api"
-	awsConstants "github.com/runvoy/runvoy/internal/providers/aws/constants"
-	"github.com/runvoy/runvoy/internal/providers/aws/ecsdefs"
-	"github.com/runvoy/runvoy/internal/providers/aws/secrets"
+	"code.l3x.in/runvoy/internal/api"
+	awsConstants "code.l3x.in/runvoy/internal/providers/aws/constants"
+	"code.l3x.in/runvoy/internal/providers/aws/ecsdefs"
+	"code.l3x.in/runvoy/internal/providers/aws/secrets"
 
 	awsStd "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ecs"

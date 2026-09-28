@@ -3,7 +3,7 @@ package playbooks
 import (
 	"testing"
 
-	"github.com/runvoy/runvoy/internal/api"
+	"code.l3x.in/runvoy/internal/api"
 
 	"github.com/stretchr/testify/assert"
 )

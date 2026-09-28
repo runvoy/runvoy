@@ -5,9 +5,9 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/runvoy/runvoy/internal/api"
-	"github.com/runvoy/runvoy/internal/constants"
-	"github.com/runvoy/runvoy/internal/testutil"
+	"code.l3x.in/runvoy/internal/api"
+	"code.l3x.in/runvoy/internal/constants"
+	"code.l3x.in/runvoy/internal/testutil"
 
 	"github.com/aws/aws-sdk-go-v2/service/iam"
 	"github.com/stretchr/testify/assert"

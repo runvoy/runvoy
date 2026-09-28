@@ -246,7 +246,7 @@ describe('RunView', () => {
         const commandInput = screen.getByPlaceholderText('e.g. uname -a');
         await fireEvent.input(commandInput, { target: { value: 'echo test' } });
 
-        const gitRepoInput = screen.getByPlaceholderText('https://github.com/runvoy/runvoy');
+        const gitRepoInput = screen.getByPlaceholderText('https://code.l3x.in/runvoy');
         await fireEvent.input(gitRepoInput, { target: { value: 'https://github.com/user/repo' } });
 
         const submitButton = screen.getByText('Run command');
@@ -283,7 +283,7 @@ describe('RunView', () => {
         const commandInput = screen.getByPlaceholderText('e.g. uname -a');
         await fireEvent.input(commandInput, { target: { value: 'echo test' } });
 
-        const gitRepoInput = screen.getByPlaceholderText('https://github.com/runvoy/runvoy');
+        const gitRepoInput = screen.getByPlaceholderText('https://code.l3x.in/runvoy');
         await fireEvent.input(gitRepoInput, { target: { value: 'https://github.com/user/repo' } });
 
         const gitRefInput = screen.getByPlaceholderText('main');

@@ -172,7 +172,7 @@
                     <input
                         id="git-repo-input"
                         type="url"
-                        placeholder="https://github.com/runvoy/runvoy"
+                        placeholder="https://code.l3x.in/runvoy"
                         bind:value={gitRepo}
                     />
                 </label>

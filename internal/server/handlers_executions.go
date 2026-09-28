@@ -6,9 +6,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/runvoy/runvoy/internal/api"
-	"github.com/runvoy/runvoy/internal/constants"
-	"github.com/runvoy/runvoy/internal/errors"
+	"code.l3x.in/runvoy/internal/api"
+	"code.l3x.in/runvoy/internal/constants"
+	"code.l3x.in/runvoy/internal/errors"
 )
 
 // handleRunCommand handles POST /api/v1/run to execute a command in an ephemeral container.

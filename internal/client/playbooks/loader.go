@@ -8,8 +8,8 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/runvoy/runvoy/internal/api"
-	"github.com/runvoy/runvoy/internal/constants"
+	"code.l3x.in/runvoy/internal/api"
+	"code.l3x.in/runvoy/internal/constants"
 
 	"gopkg.in/yaml.v3"
 )

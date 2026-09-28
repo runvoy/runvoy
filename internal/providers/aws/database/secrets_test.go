@@ -5,9 +5,9 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/runvoy/runvoy/internal/api"
-	appErrors "github.com/runvoy/runvoy/internal/errors"
-	"github.com/runvoy/runvoy/internal/testutil"
+	"code.l3x.in/runvoy/internal/api"
+	appErrors "code.l3x.in/runvoy/internal/errors"
+	"code.l3x.in/runvoy/internal/testutil"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

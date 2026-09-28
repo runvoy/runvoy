@@ -3,8 +3,8 @@ package server
 import (
 	"context"
 
-	"github.com/runvoy/runvoy/internal/api"
-	"github.com/runvoy/runvoy/internal/backend/contract"
+	"code.l3x.in/runvoy/internal/api"
+	"code.l3x.in/runvoy/internal/backend/contract"
 )
 
 // noopHealthManager provides a minimal HealthManager for tests that don't assert on health behavior.

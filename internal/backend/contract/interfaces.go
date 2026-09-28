@@ -10,7 +10,7 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/runvoy/runvoy/internal/api"
+	"code.l3x.in/runvoy/internal/api"
 )
 
 // TaskManager abstracts provider-specific task execution (e.g., AWS ECS, GCP Cloud Run, Azure Container Instances).

@@ -4,7 +4,7 @@ import (
 	awsStd "github.com/aws/aws-sdk-go-v2/aws"
 	ecsTypes "github.com/aws/aws-sdk-go-v2/service/ecs/types"
 
-	"github.com/runvoy/runvoy/internal/providers/aws/secrets"
+	"code.l3x.in/runvoy/internal/providers/aws/secrets"
 )
 
 // GetStandardECSTags returns the standard tags in ECS tag format.

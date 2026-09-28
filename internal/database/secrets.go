@@ -3,8 +3,8 @@ package database
 import (
 	"context"
 
-	"github.com/runvoy/runvoy/internal/api"
-	appErrors "github.com/runvoy/runvoy/internal/errors"
+	"code.l3x.in/runvoy/internal/api"
+	appErrors "code.l3x.in/runvoy/internal/errors"
 )
 
 // Errors for secrets operations.

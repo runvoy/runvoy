@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/runvoy/runvoy/internal/constants"
+	"code.l3x.in/runvoy/internal/constants"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

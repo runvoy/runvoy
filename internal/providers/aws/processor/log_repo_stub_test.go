@@ -3,7 +3,7 @@ package aws
 import (
 	"context"
 
-	"github.com/runvoy/runvoy/internal/api"
+	"code.l3x.in/runvoy/internal/api"
 )
 
 type noopLogEventRepo struct {

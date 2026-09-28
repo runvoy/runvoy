@@ -5,13 +5,13 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/runvoy/runvoy/internal/auth/authorization"
-	"github.com/runvoy/runvoy/internal/backend/contract"
-	"github.com/runvoy/runvoy/internal/config"
-	"github.com/runvoy/runvoy/internal/constants"
-	"github.com/runvoy/runvoy/internal/database"
-	"github.com/runvoy/runvoy/internal/logger"
-	awsOrchestrator "github.com/runvoy/runvoy/internal/providers/aws/orchestrator"
+	"code.l3x.in/runvoy/internal/auth/authorization"
+	"code.l3x.in/runvoy/internal/backend/contract"
+	"code.l3x.in/runvoy/internal/config"
+	"code.l3x.in/runvoy/internal/constants"
+	"code.l3x.in/runvoy/internal/database"
+	"code.l3x.in/runvoy/internal/logger"
+	awsOrchestrator "code.l3x.in/runvoy/internal/providers/aws/orchestrator"
 )
 
 // ProviderDependencies groups the repositories and provider-specific managers required to build a Service.

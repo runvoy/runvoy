@@ -15,8 +15,8 @@ admin_email := env('RUNVOY_ADMIN_EMAIL', 'admin@web.runvoy.site')
 version := trim(read('VERSION'))
 git_short_hash := trim(`git rev-parse --short HEAD 2>/dev/null || echo "unknown"`)
 build_date := datetime_utc('%Y%m%d')
-build_flags_x := '-X=github.com/runvoy/runvoy/internal/constants.version='
-build_flags_regions := '-X=github.com/runvoy/runvoy/internal/providers/aws/constants.rawReleaseRegions='
+build_flags_x := '-X=code.l3x.in/runvoy/internal/constants.version='
+build_flags_regions := '-X=code.l3x.in/runvoy/internal/providers/aws/constants.rawReleaseRegions='
 build_version := version + '-' + build_date + '-' + git_short_hash
 regions_comma := replace(regions, ' ', ',') # Convert space-separated regions to comma-separated for ldflags (spaces cause issues)
 replication_target_regions := replace(replace(regions_comma, ',us-east-1', ''), 'us-east-1,', '') # Replication target regions: all regions except us-east-1 (the primary region)

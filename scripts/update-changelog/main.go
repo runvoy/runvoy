@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/runvoy/runvoy/internal/constants"
+	"code.l3x.in/runvoy/internal/constants"
 )
 
 const changelogPath = "CHANGELOG.md"

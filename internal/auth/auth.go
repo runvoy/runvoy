@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/runvoy/runvoy/internal/constants"
+	"code.l3x.in/runvoy/internal/constants"
 )
 
 // HashAPIKey creates a SHA-256 hash of the API key for secure storage.

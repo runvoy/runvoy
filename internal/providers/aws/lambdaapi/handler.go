@@ -5,8 +5,8 @@ package lambdaapi
 import (
 	"time"
 
-	"github.com/runvoy/runvoy/internal/backend/orchestrator"
-	"github.com/runvoy/runvoy/internal/server"
+	"code.l3x.in/runvoy/internal/backend/orchestrator"
+	"code.l3x.in/runvoy/internal/server"
 
 	"github.com/akrylysov/algnhsa"
 	"github.com/aws/aws-lambda-go/lambda"

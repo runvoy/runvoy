@@ -1,6 +1,6 @@
 description: OpenCode + GH example playbook
 image: docker/library/debian:stable
-git_repo: https://github.com/runvoy/runvoy.git
+git_repo: https://code.l3x.in/runvoy.git
 secrets:
   - github-token # created with `runvoy secrets create github-token GH_TOKEN "github_pat_xxxxx"`
 env:

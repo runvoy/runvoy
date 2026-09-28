@@ -1,4 +1,4 @@
-module github.com/runvoy/runvoy
+module code.l3x.in/runvoy
 
 go 1.27
 

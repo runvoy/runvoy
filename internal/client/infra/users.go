@@ -8,9 +8,9 @@ import (
 	"os"
 	"time"
 
-	"github.com/runvoy/runvoy/internal/api"
-	"github.com/runvoy/runvoy/internal/auth"
-	"github.com/runvoy/runvoy/internal/providers/aws/database/dynamodb"
+	"code.l3x.in/runvoy/internal/api"
+	"code.l3x.in/runvoy/internal/auth"
+	"code.l3x.in/runvoy/internal/providers/aws/database/dynamodb"
 
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	awsdynamodb "github.com/aws/aws-sdk-go-v2/service/dynamodb"

@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/runvoy/runvoy/internal/api"
-	"github.com/runvoy/runvoy/internal/backend/contract"
-	"github.com/runvoy/runvoy/internal/constants"
+	"code.l3x.in/runvoy/internal/api"
+	"code.l3x.in/runvoy/internal/backend/contract"
+	"code.l3x.in/runvoy/internal/constants"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
