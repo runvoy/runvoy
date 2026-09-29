@@ -575,8 +575,7 @@ func (m *ImageRegistryImpl) validateIAMRoles(
 			RoleName: awsStd.String(roleName),
 		})
 		if err != nil {
-			var noSuchEntity *iamTypes.NoSuchEntityException
-			if errors.As(err, &noSuchEntity) {
+			if _, ok := errors.AsType[*iamTypes.NoSuchEntityException](err); ok {
 				return apperrors.ErrBadRequest(
 					fmt.Sprintf("%s IAM role does not exist: %s", role.kind, roleName),
 					err,

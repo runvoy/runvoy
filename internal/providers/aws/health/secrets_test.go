@@ -60,7 +60,7 @@ func TestCheckSecretParameter_TagUpdate(t *testing.T) {
 			) (*ssm.ListTagsForResourceOutput, error) {
 				// Return mismatched tags to trigger an update
 				return &ssm.ListTagsForResourceOutput{
-					TagList: []ssmTypes.Tag{{Key: stringPtr("env"), Value: stringPtr("old")}},
+					TagList: []ssmTypes.Tag{{Key: new("env"), Value: new("old")}},
 				}, nil
 			},
 			addTagsToResourceFunc: func(

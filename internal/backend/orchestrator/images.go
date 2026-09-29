@@ -95,8 +95,7 @@ func (s *Service) GetImage(ctx context.Context, image string) (*api.ImageInfo, e
 	imageInfo, err := s.imageRegistry.GetImage(ctx, image)
 	if err != nil {
 		// Check if it's already an AppError - if so, wrap it to satisfy wrapcheck
-		var appErr *appErrors.AppError
-		if errors.As(err, &appErr) {
+		if _, ok := errors.AsType[*appErrors.AppError](err); ok {
 			return nil, fmt.Errorf("get image: %w", err)
 		}
 		// Otherwise, wrap the external error with an AppError
@@ -118,8 +117,7 @@ func (s *Service) RemoveImage(ctx context.Context, image string) error {
 
 	if err := s.imageRegistry.RemoveImage(ctx, image); err != nil {
 		// Check if it's already an AppError - if so, wrap it to satisfy wrapcheck
-		var appErr *appErrors.AppError
-		if errors.As(err, &appErr) {
+		if _, ok := errors.AsType[*appErrors.AppError](err); ok {
 			return fmt.Errorf("remove image: %w", err)
 		}
 		// Otherwise, wrap the external error with an AppError

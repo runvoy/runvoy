@@ -170,7 +170,7 @@ func TestDetermineStatusAndExitCode(t *testing.T) {
 				Containers: []ContainerDetail{
 					{
 						Name:     awsConstants.RunnerContainerName,
-						ExitCode: intPtr(0),
+						ExitCode: new(0),
 					},
 				},
 			},
@@ -184,7 +184,7 @@ func TestDetermineStatusAndExitCode(t *testing.T) {
 				Containers: []ContainerDetail{
 					{
 						Name:     awsConstants.RunnerContainerName,
-						ExitCode: intPtr(1),
+						ExitCode: new(1),
 					},
 				},
 			},
@@ -198,7 +198,7 @@ func TestDetermineStatusAndExitCode(t *testing.T) {
 				Containers: []ContainerDetail{
 					{
 						Name:     awsConstants.RunnerContainerName,
-						ExitCode: intPtr(0),
+						ExitCode: new(0),
 					},
 				},
 			},
@@ -221,7 +221,7 @@ func TestDetermineStatusAndExitCode(t *testing.T) {
 				Containers: []ContainerDetail{
 					{
 						Name:     awsConstants.RunnerContainerName,
-						ExitCode: intPtr(137),
+						ExitCode: new(137),
 					},
 				},
 			},
@@ -249,7 +249,7 @@ func TestDetermineStatusAndExitCode(t *testing.T) {
 				Containers: []ContainerDetail{
 					{
 						Name:     "other-container",
-						ExitCode: intPtr(0),
+						ExitCode: new(0),
 					},
 				},
 			},
@@ -812,7 +812,7 @@ func TestHandle_ErrorHandling(t *testing.T) {
 			Containers: []ContainerDetail{
 				{
 					Name:     awsConstants.RunnerContainerName,
-					ExitCode: intPtr(0),
+					ExitCode: new(0),
 				},
 			},
 		}
@@ -1050,11 +1050,6 @@ func TestHandleEventJSON(t *testing.T) {
 		// Should error because it's not a valid CloudWatch event structure
 		assert.Error(t, err)
 	})
-}
-
-// Helper function to create int pointers
-func intPtr(i int) *int {
-	return &i
 }
 
 // TestHandleLogsEvent_InvalidBase64 tests handling of invalid base64 data

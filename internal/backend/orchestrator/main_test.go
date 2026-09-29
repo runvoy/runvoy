@@ -118,7 +118,7 @@ func TestUpdateUserLastUsed(t *testing.T) {
 		{
 			name:      "successful update",
 			email:     "user@example.com",
-			mockTime:  timePtr(time.Now()),
+			mockTime:  new(time.Now()),
 			mockErr:   nil,
 			expectErr: false,
 		},
@@ -247,9 +247,4 @@ func TestServiceManagerGetters(t *testing.T) {
 	assert.Same(t, runner, svc.ImageRegistry())
 	assert.Same(t, runner, svc.LogManager())
 	assert.Same(t, runner, svc.ObservabilityManager())
-}
-
-// Helper function to create time pointer
-func timePtr(t time.Time) *time.Time {
-	return &t
 }

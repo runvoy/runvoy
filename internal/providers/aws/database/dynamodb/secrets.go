@@ -101,8 +101,7 @@ func (r *SecretsRepository) CreateSecret(ctx context.Context, secret *api.Secret
 	})
 
 	if err != nil {
-		var ccf *types.ConditionalCheckFailedException
-		if errors.As(err, &ccf) {
+		if _, ok := errors.AsType[*types.ConditionalCheckFailedException](err); ok {
 			return database.ErrSecretAlreadyExists
 		}
 		reqLogger.Error("failed to create secret", "error", err, "name", secret.Name)
@@ -300,8 +299,7 @@ func (r *SecretsRepository) UpdateSecretMetadata(
 	})
 
 	if err != nil {
-		var ccf *types.ConditionalCheckFailedException
-		if errors.As(err, &ccf) {
+		if _, ok := errors.AsType[*types.ConditionalCheckFailedException](err); ok {
 			return database.ErrSecretNotFound
 		}
 		reqLogger.Error("failed to update secret", "error", err, "name", name)
@@ -326,8 +324,7 @@ func (r *SecretsRepository) DeleteSecret(ctx context.Context, name string) error
 	})
 
 	if err != nil {
-		var ccf *types.ConditionalCheckFailedException
-		if errors.As(err, &ccf) {
+		if _, ok := errors.AsType[*types.ConditionalCheckFailedException](err); ok {
 			return database.ErrSecretNotFound
 		}
 		reqLogger.Error("failed to delete secret", "error", err, "name", name)

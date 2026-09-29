@@ -146,8 +146,7 @@ func (r *ExecutionRepository) CreateExecution(ctx context.Context, execution *ap
 
 	if err != nil {
 		// If the condition failed, surface a conflict indicating duplicate execution ID
-		var ccfe *types.ConditionalCheckFailedException
-		if errors.As(err, &ccfe) {
+		if _, ok := errors.AsType[*types.ConditionalCheckFailedException](err); ok {
 			return apperrors.ErrConflict("execution already exists", err)
 		}
 		return apperrors.ErrDatabaseError("failed to create execution", err)
@@ -266,8 +265,7 @@ func (r *ExecutionRepository) UpdateExecution(ctx context.Context, execution *ap
 	_, updateErr := r.client.UpdateItem(ctx, input)
 
 	if updateErr != nil {
-		var ccfe *types.ConditionalCheckFailedException
-		if errors.As(updateErr, &ccfe) {
+		if _, ok := errors.AsType[*types.ConditionalCheckFailedException](updateErr); ok {
 			return apperrors.ErrNotFound("execution not found", updateErr)
 		}
 		reqLogger.Error("update item failed", "context", map[string]any{

@@ -33,14 +33,14 @@ func TestRegisterImage(t *testing.T) {
 		{
 			name:      "successful registration with default flag true",
 			image:     "ubuntu:22.04",
-			isDefault: boolPtr(true),
+			isDefault: new(true),
 			runnerErr: nil,
 			expectErr: false,
 		},
 		{
 			name:      "successful registration with default flag false",
 			image:     "nginx:latest",
-			isDefault: boolPtr(false),
+			isDefault: new(false),
 			runnerErr: nil,
 			expectErr: false,
 		},
@@ -298,9 +298,4 @@ func TestResolveImage(t *testing.T) {
 			assert.Equal(t, tt.expectedImage, imageInfo)
 		})
 	}
-}
-
-// Helper function to create bool pointer
-func boolPtr(b bool) *bool {
-	return &b
 }

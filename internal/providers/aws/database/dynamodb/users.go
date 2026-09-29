@@ -112,8 +112,7 @@ func (r *UserRepository) CreateUser(
 	})
 
 	if err != nil {
-		var ccf *types.ConditionalCheckFailedException
-		if stderrors.As(err, &ccf) {
+		if _, ok := stderrors.AsType[*types.ConditionalCheckFailedException](err); ok {
 			return apperrors.ErrConflict("user with this API key already exists", nil)
 		}
 		return apperrors.ErrDatabaseError("failed to create user", err)
@@ -577,8 +576,7 @@ func (r *UserRepository) MarkAsViewed(ctx context.Context, secretToken, ipAddres
 	})
 
 	if err != nil {
-		var ccf *types.ConditionalCheckFailedException
-		if stderrors.As(err, &ccf) {
+		if _, ok := stderrors.AsType[*types.ConditionalCheckFailedException](err); ok {
 			return apperrors.ErrConflict("pending key already viewed or does not exist", nil)
 		}
 		return apperrors.ErrDatabaseError("failed to mark pending key as viewed", err)

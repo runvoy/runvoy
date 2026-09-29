@@ -31,18 +31,18 @@ func sanitizeImageIDForTaskDef(imageID string) string {
 // ImageID format: {name}:{tag}-{8-char-hash}.
 func looksLikeImageID(s string) bool {
 	const hashLength = 8
-	lastDashIdx := strings.LastIndex(s, "-")
-	if lastDashIdx == -1 {
+	before, after, ok := strings.CutLast(s, "-")
+	if !ok {
 		return false
 	}
-	hashPart := s[lastDashIdx+1:]
+	hashPart := after
 	if len(hashPart) == hashLength {
 		for _, c := range hashPart {
 			if (c < '0' || c > '9') && (c < 'a' || c > 'f') && (c < 'A' || c > 'F') {
 				return false
 			}
 		}
-		beforeHash := s[:lastDashIdx]
+		beforeHash := before
 		return strings.Contains(beforeHash, ":")
 	}
 	return false

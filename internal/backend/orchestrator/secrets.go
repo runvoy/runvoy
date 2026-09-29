@@ -97,8 +97,7 @@ func (s *Service) UpdateSecret(
 	}
 	if err := s.repos.Secrets.UpdateSecret(ctx, secret); err != nil {
 		// Check if it's already an AppError - if so, wrap it to satisfy wrapcheck
-		var appErr *apperrors.AppError
-		if errors.As(err, &appErr) {
+		if _, ok := errors.AsType[*apperrors.AppError](err); ok {
 			return fmt.Errorf("update secret: %w", err)
 		}
 		// Otherwise, wrap the external error with an AppError
@@ -113,8 +112,7 @@ func (s *Service) DeleteSecret(ctx context.Context, name string) error {
 	secret, fetchErr := s.repos.Secrets.GetSecret(ctx, name, false)
 	if fetchErr != nil {
 		// Check if it's already an AppError - if so, wrap it to satisfy wrapcheck
-		var appErr *apperrors.AppError
-		if errors.As(fetchErr, &appErr) {
+		if _, ok := errors.AsType[*apperrors.AppError](fetchErr); ok {
 			return fmt.Errorf("get secret: %w", fetchErr)
 		}
 		// Otherwise, wrap the external error with an AppError
@@ -139,8 +137,7 @@ func (s *Service) DeleteSecret(ctx context.Context, name string) error {
 			}
 		}
 		// Check if it's already an AppError - if so, wrap it to satisfy wrapcheck
-		var appErr *apperrors.AppError
-		if errors.As(deleteErr, &appErr) {
+		if _, ok := errors.AsType[*apperrors.AppError](deleteErr); ok {
 			return fmt.Errorf("delete secret: %w", deleteErr)
 		}
 		// Otherwise, wrap the external error with an AppError

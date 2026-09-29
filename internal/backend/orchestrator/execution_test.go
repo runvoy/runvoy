@@ -40,7 +40,7 @@ func TestRunCommand(t *testing.T) {
 				Command: "echo hello",
 			},
 			executionID: "exec-123",
-			createdAt:   timePtr(time.Now()),
+			createdAt:   new(time.Now()),
 			expectErr:   false,
 		},
 		{
@@ -136,7 +136,7 @@ func TestRunCommand_UsesRequestImageWhenResolvedImageNil(t *testing.T) {
 	runner := &mockRunner{
 		startTaskFunc: func(_ context.Context, _ string, req *api.ExecutionRequest) (string, *time.Time, error) {
 			assert.Equal(t, "cli-image:latest", req.Image)
-			return "exec-123", timePtr(time.Now()), nil
+			return "exec-123", new(time.Now()), nil
 		},
 	}
 
@@ -189,7 +189,7 @@ func TestRunCommand_WithSecrets(t *testing.T) {
 		startTaskFunc: func(_ context.Context, _ string, req *api.ExecutionRequest) (string, *time.Time, error) {
 			capturedEnv = map[string]string{}
 			maps.Copy(capturedEnv, req.Env)
-			return "exec-with-secrets", timePtr(time.Now()), nil
+			return "exec-with-secrets", new(time.Now()), nil
 		},
 	}
 
@@ -226,7 +226,7 @@ func TestRunCommand_AddsExecutionOwnership(t *testing.T) {
 	execRepo := &mockExecutionRepository{}
 	runner := &mockRunner{
 		startTaskFunc: func(_ context.Context, _ string, _ *api.ExecutionRequest) (string, *time.Time, error) {
-			return "exec-ownership", timePtr(time.Now()), nil
+			return "exec-ownership", new(time.Now()), nil
 		},
 	}
 
@@ -256,7 +256,7 @@ func TestRunCommand_ReturnsWebSocketURL(t *testing.T) {
 	execRepo := &mockExecutionRepository{}
 	runner := &mockRunner{
 		startTaskFunc: func(_ context.Context, _ string, _ *api.ExecutionRequest) (string, *time.Time, error) {
-			return "exec-ws", timePtr(time.Now()), nil
+			return "exec-ws", new(time.Now()), nil
 		},
 	}
 
@@ -336,7 +336,7 @@ func TestGetExecutionStatus(t *testing.T) {
 				ImageID:     "img-456",
 				Status:      string(constants.ExecutionSucceeded),
 				StartedAt:   now,
-				CompletedAt: timePtr(now.Add(5 * time.Second)),
+				CompletedAt: new(now.Add(5 * time.Second)),
 				ExitCode:    exitCode,
 			},
 			expectErr:      false,
@@ -429,7 +429,7 @@ func TestListExecutions(t *testing.T) {
 					Command:     "echo world",
 					Status:      string(constants.ExecutionSucceeded),
 					StartedAt:   now,
-					CompletedAt: timePtr(now.Add(5 * time.Second)),
+					CompletedAt: new(now.Add(5 * time.Second)),
 					ExitCode:    0,
 				},
 			},
@@ -532,7 +532,7 @@ func TestKillExecution(t *testing.T) {
 				ExecutionID: "exec-456",
 				Status:      string(constants.ExecutionSucceeded),
 				StartedAt:   now,
-				CompletedAt: timePtr(now.Add(5 * time.Second)),
+				CompletedAt: new(now.Add(5 * time.Second)),
 			},
 			expectErr:      false,
 			expectUpdate:   false,
@@ -545,7 +545,7 @@ func TestKillExecution(t *testing.T) {
 				ExecutionID: "exec-789",
 				Status:      string(constants.ExecutionFailed),
 				StartedAt:   now,
-				CompletedAt: timePtr(now.Add(3 * time.Second)),
+				CompletedAt: new(now.Add(3 * time.Second)),
 			},
 			expectErr:      false,
 			expectUpdate:   false,
@@ -558,7 +558,7 @@ func TestKillExecution(t *testing.T) {
 				ExecutionID: "exec-999",
 				Status:      string(constants.ExecutionStopped),
 				StartedAt:   now,
-				CompletedAt: timePtr(now.Add(2 * time.Second)),
+				CompletedAt: new(now.Add(2 * time.Second)),
 			},
 			expectErr:      false,
 			expectUpdate:   false,

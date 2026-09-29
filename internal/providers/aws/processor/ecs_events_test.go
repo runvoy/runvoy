@@ -138,7 +138,7 @@ func TestHandleECSTaskEvent_Stopped(t *testing.T) {
 			Containers: []ContainerDetail{
 				{
 					Name:     awsConstants.RunnerContainerName,
-					ExitCode: intPtr(0),
+					ExitCode: new(0),
 				},
 			},
 		}),

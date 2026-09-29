@@ -257,7 +257,7 @@ func sampleImage(customTaskRole, customExecRole string) api.ImageInfo {
 	return api.ImageInfo{
 		ImageID:               "img-1",
 		Image:                 "alpine:latest",
-		TaskRoleName:          stringPtr(customTaskRole),
-		TaskExecutionRoleName: stringPtr(customExecRole),
+		TaskRoleName:          new(customTaskRole),
+		TaskExecutionRoleName: new(customExecRole),
 	}
 }

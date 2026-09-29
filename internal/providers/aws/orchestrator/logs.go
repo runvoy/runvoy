@@ -115,8 +115,7 @@ func getAllLogEvents(
 		out, err := cwl.FilterLogEvents(ctx, input)
 
 		if err != nil {
-			var rte *cwlTypes.ResourceNotFoundException
-			if errors.As(err, &rte) {
+			if _, ok := errors.AsType[*cwlTypes.ResourceNotFoundException](err); ok {
 				break
 			}
 			return nil, appErrors.ErrInternalError("failed to filter log events", err)

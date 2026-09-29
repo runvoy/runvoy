@@ -153,8 +153,7 @@ func ErrServiceUnavailable(message string, cause error) *AppError {
 // GetStatusCode extracts the HTTP status code from an error.
 // Returns 500 if the error is not an AppError.
 func GetStatusCode(err error) int {
-	var appErr *AppError
-	if errors.As(err, &appErr) {
+	if appErr, ok := errors.AsType[*AppError](err); ok {
 		return appErr.StatusCode
 	}
 	return http.StatusInternalServerError
@@ -163,8 +162,7 @@ func GetStatusCode(err error) int {
 // GetErrorCode extracts the error code from an error.
 // Returns empty string if the error is not an AppError.
 func GetErrorCode(err error) string {
-	var appErr *AppError
-	if errors.As(err, &appErr) {
+	if appErr, ok := errors.AsType[*AppError](err); ok {
 		return appErr.Code
 	}
 	return ""
@@ -172,8 +170,7 @@ func GetErrorCode(err error) string {
 
 // GetErrorMessage extracts a user-friendly message from an error.
 func GetErrorMessage(err error) string {
-	var appErr *AppError
-	if errors.As(err, &appErr) {
+	if appErr, ok := errors.AsType[*AppError](err); ok {
 		return appErr.Message
 	}
 	return err.Error()
@@ -182,8 +179,7 @@ func GetErrorMessage(err error) string {
 // GetErrorDetails extracts detailed error information including the underlying cause.
 // Returns the underlying error message if available, otherwise returns the main error message.
 func GetErrorDetails(err error) string {
-	var appErr *AppError
-	if errors.As(err, &appErr) {
+	if appErr, ok := errors.AsType[*AppError](err); ok {
 		if appErr.Cause != nil {
 			return appErr.Cause.Error()
 		}

@@ -180,8 +180,7 @@ func (s *Service) ClaimAPIKey(
 	// Mark as viewed atomically
 	if markErr := s.repos.User.MarkAsViewed(ctx, secretToken, ipAddress); markErr != nil {
 		// Check if it's already an AppError - if so, wrap it to satisfy wrapcheck
-		var appErr *apperrors.AppError
-		if errors.As(markErr, &appErr) {
+		if _, ok := errors.AsType[*apperrors.AppError](markErr); ok {
 			return nil, fmt.Errorf("mark as viewed: %w", markErr)
 		}
 		// Otherwise, wrap the external error with an AppError

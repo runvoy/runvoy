@@ -71,8 +71,8 @@ func TestBuildTaskDefParamsUsesImageValues(t *testing.T) {
 	m := &Manager{cfg: &Config{AccountID: "123456789012"}}
 	params := m.buildTaskDefParams(&api.ImageInfo{
 		Image:                 "alpine:3.19",
-		TaskRoleName:          stringPtr("custom-task"),
-		TaskExecutionRoleName: stringPtr("custom-exec"),
+		TaskRoleName:          new("custom-task"),
+		TaskExecutionRoleName: new("custom-exec"),
 		CPU:                   512,
 		Memory:                1024,
 		RuntimePlatform:       arm64Platform,

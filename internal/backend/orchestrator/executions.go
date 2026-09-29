@@ -512,8 +512,7 @@ func (s *Service) ListExecutions(ctx context.Context, limit int, statuses []stri
 	executions, err := s.repos.Execution.ListExecutions(ctx, limit, statuses)
 	if err != nil {
 		// Check if it's already an AppError - if so, wrap it to satisfy wrapcheck
-		var appErr *apperrors.AppError
-		if errors.As(err, &appErr) {
+		if _, ok := errors.AsType[*apperrors.AppError](err); ok {
 			return nil, fmt.Errorf("list executions: %w", err)
 		}
 		// Otherwise, wrap the external error with an AppError

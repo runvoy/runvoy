@@ -511,7 +511,7 @@ func TestClient_GetExecutionStatus(t *testing.T) {
 				Status:      "SUCCEEDED",
 				Command:     "echo test",
 				ImageID:     "img-123",
-				ExitCode:    intPtr(0),
+				ExitCode:    new(0),
 			})
 		}))
 		defer server.Close()
@@ -784,8 +784,8 @@ func TestClient_ListImages(t *testing.T) {
 			w.WriteHeader(http.StatusOK)
 			_ = json.NewEncoder(w).Encode(api.ListImagesResponse{
 				Images: []api.ImageInfo{
-					{Image: "ubuntu:22.04", IsDefault: boolPtr(true)},
-					{Image: "alpine:latest", IsDefault: boolPtr(false)},
+					{Image: "ubuntu:22.04", IsDefault: new(true)},
+					{Image: "alpine:latest", IsDefault: new(false)},
 				},
 			})
 		}))
@@ -1226,7 +1226,7 @@ func TestClient_GetImage(t *testing.T) {
 			w.WriteHeader(http.StatusOK)
 			_ = json.NewEncoder(w).Encode(api.ImageInfo{
 				Image:     "ubuntu:22.04",
-				IsDefault: boolPtr(true),
+				IsDefault: new(true),
 			})
 		}))
 		defer server.Close()
@@ -1280,7 +1280,7 @@ func TestClient_GetImage(t *testing.T) {
 			w.WriteHeader(http.StatusOK)
 			_ = json.NewEncoder(w).Encode(api.ImageInfo{
 				Image:     "repo/image:tag",
-				IsDefault: boolPtr(false),
+				IsDefault: new(false),
 			})
 		}))
 		defer server.Close()
@@ -1515,13 +1515,4 @@ func TestClient_Do_QueryString(t *testing.T) {
 		require.NotNil(t, resp)
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 	})
-}
-
-// Helper functions
-func intPtr(i int) *int {
-	return &i
-}
-
-func boolPtr(b bool) *bool {
-	return &b
 }
