@@ -22,7 +22,7 @@ jobs:
         uses: ./.github/actions/setup-go
 
       - name: Add just
-        uses: extractions/setup-just@v3
+        uses: extractions/setup-just@v4
 
       - name: Generate coverage profile
         run: just gen-coverage
